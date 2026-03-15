@@ -233,10 +233,6 @@
 
 <header>
   <h1>GAMES EDITOR — games.json</h1>
-  <div class="header-btns">
-    <button class="btn btn-sm" id="loadBtn">↺ Load</button>
-    <button class="btn btn-sm btn-primary" id="saveBtn">↓ Save</button>
-  </div>
 </header>
 
 <main>
@@ -266,8 +262,8 @@
         </div>
 
         <div class="field">
-          <label>Tag / Genre</label>
-          <input type="text" id="f-tag" placeholder="Text-based mystery">
+          <label>Tags (semicolon-separated)</label>
+          <input type="text" id="f-tag" placeholder="Text-based mystery; Puzzle; SMS">
         </div>
 
         <div class="field">
@@ -316,6 +312,10 @@
       <div class="form-actions">
         <button class="btn btn-primary" id="formSaveBtn">↓ Save</button>
         <button class="btn btn-danger" id="deleteBtn">Delete Game</button>
+      </div>
+      <div class="field" style="margin-top:1.25rem">
+        <label>Play URL</label>
+        <input type="text" id="f-play-url" readonly style="opacity:.6;cursor:text;font-size:.8rem">
       </div>
     </div>
   </div>
@@ -406,6 +406,7 @@
     fActive.checked    = g.active !== false;
     emptyState.style.display = 'none';
     formWrap.style.display   = '';
+    updatePlayUrl();
     renderList();
   }
 
@@ -415,7 +416,7 @@
     const g = games[selectedIndex];
     g.name        = fName.value.trim();
     g.subtitle    = fSubtitle.value.trim();
-    g.id          = g.id || slugify(g.name);
+    g.id          = slugify(g.name);
     g.tag         = fTag.value.trim();
     g.price       = fPrice.value.trim();
     g.description = fDesc.value.trim();
@@ -429,9 +430,11 @@
   }
 
   // ── Add new game ──
+  const BASE_URL = 'https://the-game-bureau.github.io/the-game-bureau/sms/index.html';
+
   function addGame() {
     games.push({
-      id: 'new-game-' + Date.now(),
+      id: '',
       name: '',
       tag: '',
       price: '',
@@ -521,6 +524,15 @@
       setStatus('Save failed: ' + err.message, 'err');
     }
   }
+
+  // ── Update play URL ──
+  function updatePlayUrl() {
+    const name = fName.value.trim();
+    const id = slugify(name);
+    const urlEl = document.getElementById('f-play-url');
+    urlEl.value = name ? BASE_URL + '?game=' + encodeURIComponent(name) : '';
+  }
+  fName.addEventListener('input', updatePlayUrl);
 
   // ── Sync color picker ↔ hex input ──
   fColorPicker.addEventListener('input', () => {

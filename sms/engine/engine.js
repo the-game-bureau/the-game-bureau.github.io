@@ -8,6 +8,11 @@ const TEAM_KEY_MAP = { beignet: 'beignet', lagniappe: 'lagniappe', tchoupitoulas
 const REVEAL_ALL = new URLSearchParams(location.search).has('reveal');
 const START_STOP = new URLSearchParams(location.search).get('start');
 const PREVIEW_MODE = new URLSearchParams(location.search).has('preview');
+const GAME_PARAM = (new URLSearchParams(location.search).get('game') || '').trim();
+
+function slugify(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
 
 if (location.search.includes('reset')) {
   try {
@@ -15,6 +20,8 @@ if (location.search.includes('reset')) {
   } catch (e) {}
   history.replaceState(null, '', location.pathname);
 }
+
+const STORE_KEY = 'nola360_' + (GAME_PARAM ? slugify(GAME_PARAM) : 'default');
 
 let state = { step: 0, team: null, vars: {} };
 let stops = [];
@@ -34,17 +41,17 @@ const DEFAULT_HEADER = {
 };
 
 try {
-  state.team = localStorage.getItem('nola360_team') || null;
-  const savedStep = parseInt(localStorage.getItem('nola360_step') || '0', 10);
+  state.team = localStorage.getItem(STORE_KEY + '_team') || null;
+  const savedStep = parseInt(localStorage.getItem(STORE_KEY + '_step') || '0', 10);
   if (!isNaN(savedStep) && savedStep > 0) state.step = savedStep;
-  const savedVars = localStorage.getItem('nola360_vars');
+  const savedVars = localStorage.getItem(STORE_KEY + '_vars');
   if (savedVars) state.vars = JSON.parse(savedVars);
 } catch (e) {}
 
 // Seed vars from URL params — URL values override saved state.
 // System params (reset, reveal, start, preview) are ignored.
 (function() {
-  const SYSTEM_PARAMS = new Set(['reset', 'reveal', 'start', 'preview']);
+  const SYSTEM_PARAMS = new Set(['reset', 'reveal', 'start', 'preview', 'game']);
   new URLSearchParams(location.search).forEach(function(value, key) {
     if (!SYSTEM_PARAMS.has(key)) state.vars[key] = value;
   });
@@ -52,9 +59,9 @@ try {
 
 function saveState() {
   try {
-    localStorage.setItem('nola360_step', String(state.step));
-    if (state.team) localStorage.setItem('nola360_team', state.team);
-    localStorage.setItem('nola360_vars', JSON.stringify(state.vars));
+    localStorage.setItem(STORE_KEY + '_step', String(state.step));
+    if (state.team) localStorage.setItem(STORE_KEY + '_team', state.team);
+    localStorage.setItem(STORE_KEY + '_vars', JSON.stringify(state.vars));
   } catch (e) {}
 }
 
@@ -404,16 +411,30 @@ async function loadStops() {
   let payload;
   if (PREVIEW_MODE) {
     try {
-      const raw = localStorage.getItem('nola360_preview_stops');
+      const raw = localStorage.getItem(STORE_KEY + '_preview_stops');
       if (raw) {
-        localStorage.removeItem('nola360_preview_stops');
+        localStorage.removeItem(STORE_KEY + '_preview_stops');
         payload = JSON.parse(raw);
       }
     } catch (e) {}
   }
   if (!payload) {
-    const resp = await fetch('stops.json', { cache: 'no-store' });
-    if (!resp.ok) throw new Error('Unable to load stops.json');
+    let stopsPath = 'stops.json';
+    if (GAME_PARAM) {
+      try {
+        const gamesResp = await fetch('games/games.json', { cache: 'no-store' });
+        if (gamesResp.ok) {
+          const gamesData = await gamesResp.json();
+          const list = Array.isArray(gamesData) ? gamesData : (gamesData.games || []);
+          const match = list.find(function(g) {
+            return slugify(g.name) === slugify(GAME_PARAM) || slugify(g.id) === slugify(GAME_PARAM);
+          });
+          if (match && match.id) stopsPath = 'games/' + match.id + '/stops.json';
+        }
+      } catch (e) {}
+    }
+    const resp = await fetch(stopsPath, { cache: 'no-store' });
+    if (!resp.ok) throw new Error('Unable to load ' + stopsPath);
     payload = await resp.json();
   }
   const list = Array.isArray(payload) ? payload : payload && Array.isArray(payload.stops) ? payload.stops : [];
