@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Game</title>
+  <link rel="icon" href="builder.ico" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:    #f4f4f4;
+      --ink:   #111111;
+      --panel: #eaf0f5;
+      --muted: #5a5a5a;
+      --ok:    #1a6b3a;
+      --warn:  #9a5f00;
+      --err:   #c1121f;
+      --sans:  "JetBrains Mono", monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--sans);
+      background:
+        linear-gradient(90deg, rgba(100,160,240,0.18) 1px, transparent 1px),
+        linear-gradient(0deg,  rgba(100,160,240,0.18) 1px, transparent 1px),
+        var(--bg);
+      background-size: 28px 28px, 28px 28px, auto;
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .page-header {
+      background: var(--ink);
+      color: var(--bg);
+      padding: 16px 32px;
+      flex-shrink: 0;
+    }
+    .page-header .bureau {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      opacity: 0.55;
+    }
+    .page-header .tool {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .page-body {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 24px;
+      padding: 40px 24px;
+      flex: 1;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 2px solid var(--ink);
+      padding: 28px 32px;
+    }
+    .card-new  { flex: 2; min-width: 0; }
+    .card-list { flex: 1; min-width: 0; }
+
+    .card-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--ink);
+    }
+    h1 {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .new-btn {
+      font-family: var(--sans);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border: 1px solid var(--ink);
+      border-radius: 0;
+      background: #fff;
+      color: var(--ink);
+      cursor: pointer;
+      margin-top: 0;
+      width: auto;
+    }
+    .new-btn:hover { background: var(--panel); }
+
+    label {
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input[type="text"],
+    textarea {
+      width: 100%;
+      font-family: var(--sans);
+      font-size: 0.92rem;
+      padding: 10px 12px;
+      border: 1px solid var(--ink);
+      border-radius: 0;
+      background: #fff;
+      color: var(--ink);
+      outline: none;
+    }
+    input[type="text"]:focus,
+    textarea:focus { box-shadow: inset 0 0 0 2px var(--ink); }
+    textarea { resize: vertical; line-height: 1.4; }
+
+    .field { margin-top: 14px; }
+
+    button {
+      margin-top: 14px;
+      width: 100%;
+      font-family: var(--sans);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 11px;
+      border: 1px solid var(--ink);
+      border-radius: 0;
+      background: var(--ink);
+      color: var(--bg);
+      cursor: pointer;
+    }
+    button:hover    { background: #333; }
+    button:active   { opacity: 0.7; }
+    button:disabled { opacity: 0.4; cursor: default; }
+
+    #status {
+      margin-top: 10px;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      min-height: 1.2em;
+      color: var(--muted);
+    }
+    #status.ok   { color: var(--ok);   font-weight: 700; }
+    #status.warn { color: var(--warn); font-weight: 700; }
+    #status.err  { color: var(--err);  font-weight: 700; }
+
+    /* ── Game list ── */
+    .game-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 6px;
+      border-bottom: 1px solid rgba(17,17,17,0.12);
+      font-size: 0.84rem;
+      cursor: pointer;
+    }
+    .game-row:last-child { border-bottom: none; }
+    .game-row:hover { background: rgba(100,160,240,0.1); }
+    .game-row.selected { background: var(--ink); color: var(--bg); }
+    .game-row.selected .g-subtitle,
+    .game-row.selected .g-id { color: rgba(255,255,255,0.55); }
+    .game-row .g-emoji    { flex-shrink: 0; }
+    .game-row .g-info     { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+    .game-row .g-name     { font-weight: 600; }
+    .game-row .g-subtitle { font-size: 0.72rem; color: var(--muted); }
+    .game-row .g-id       { font-size: 0.68rem; color: var(--muted); }
+    .game-row .g-hidden   {
+      font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--muted); opacity: 0.6;
+    }
+    .empty-list { font-size: 0.78rem; color: var(--muted); padding: 4px 0; }
+    .game-row.archived { color: #bbb; }
+    .list-divider {
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); padding: 10px 6px 4px; border-top: 1px solid rgba(17,17,17,0.15);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<header class="page-header">
+  <div class="bureau">The Game Bureau</div>
+  <div class="tool">Game Builder</div>
+</header>
+
+<div class="page-body">
+<div class="card card-list">
+  <div class="card-header"><h1>Games</h1><button class="new-btn" id="newBtn">+ Add Game</button></div>
+  <div id="gameList"><div class="empty-list">Loading…</div></div>
+</div>
+
+<div class="card card-new">
+  <div class="card-header">
+    <div>
+      <h1 id="formTitle">New Game</h1>
+      <div id="gameIdDisplay" style="font-size:0.68rem;color:var(--muted);letter-spacing:0.06em;margin-top:3px;min-height:1em"></div>
+    </div>
+  </div>
+  <label for="gameName">Game Name</label>
+  <input type="text" id="gameName" placeholder="Enter game name…" autocomplete="off">
+  <div class="field">
+    <label for="gameSubtitle">Subtitle / Guide's Name</label>
+    <input type="text" id="gameSubtitle" placeholder="e.g. Oswald" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="gameTags">Tags (semicolon-separated)</label>
+    <input type="text" id="gameTags" placeholder="Mystery; SMS; Puzzle" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="gamePrice">Price</label>
+    <input type="text" id="gamePrice" placeholder="e.g. Free to start / $14.99" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="gameDesc">Description</label>
+    <textarea id="gameDesc" placeholder="Short description shown on the game card…" rows="3"></textarea>
+  </div>
+  <button id="saveBtn">Add to games.json</button>
+  <button id="archiveBtn" style="visibility:hidden;margin-top:6px;background:#fff;color:var(--muted);border-color:var(--muted)">Archive</button>
+  <div id="status"></div>
+</div>
+</div>
+
+<script>
+  let games        = [];
+  let editingIndex = -1;  // -1 = new, >=0 = editing
+
+  const nameEl     = document.getElementById('gameName');
+  const idEl       = document.getElementById('gameIdDisplay');
+  const subtitleEl = document.getElementById('gameSubtitle');
+  const tagsEl     = document.getElementById('gameTags');
+  const priceEl    = document.getElementById('gamePrice');
+  const descEl     = document.getElementById('gameDesc');
+  const saveBtn    = document.getElementById('saveBtn');
+  const archiveBtn = document.getElementById('archiveBtn');
+  const newBtn     = document.getElementById('newBtn');
+  const formTitle  = document.getElementById('formTitle');
+
+  function slugify(s) {
+    return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  function setStatus(msg, type) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = type || '';
+  }
+
+  function setEditMode(index) {
+    editingIndex = index;
+    if (index === -1) {
+      formTitle.textContent    = 'New Game';
+      saveBtn.textContent      = 'Add to Games';
+      archiveBtn.style.visibility = 'hidden';
+      nameEl.value = ''; subtitleEl.value = ''; tagsEl.value = ''; priceEl.value = ''; descEl.value = ''; idEl.textContent = '';
+    } else {
+      const g = games[index];
+      formTitle.textContent    = 'Edit: ' + (games[index].name || 'Game');
+      saveBtn.textContent      = 'Save Changes';
+      archiveBtn.style.visibility = 'visible';
+      archiveBtn.textContent      = games[index].archived ? 'Unarchive' : 'Archive';
+      nameEl.value     = g.name        || '';
+      idEl.textContent = g.id          || '';
+      subtitleEl.value = g.subtitle    || '';
+      tagsEl.value     = g.tag         || '';
+      priceEl.value    = g.price       || '';
+      descEl.value     = g.description || '';
+    }
+    setStatus('', '');
+    renderList();
+    nameEl.focus();
+  }
+
+  async function save() {
+    const name = nameEl.value.trim();
+    if (!name) { setStatus('Enter a game name first.', 'warn'); return; }
+
+    saveBtn.disabled = true;
+    setStatus('Saving…', '');
+
+    try {
+      if (editingIndex === -1) {
+        // Add new
+        games.push({
+          id:          slugify(name),
+          name,
+          subtitle:    subtitleEl.value.trim(),
+          tag:         tagsEl.value.trim(),
+          price:       priceEl.value.trim(),
+          description: descEl.value.trim(),
+          emoji:       '🎮',
+          logo:        '',
+          featured:    false,
+          active:      true,
+          archived:    false,
+          createdAt:   new Date().toISOString()
+        });
+      } else {
+        // Update existing — preserve all other fields
+        const g      = games[editingIndex];
+        g.name        = name;
+        g.id          = slugify(name);
+        g.subtitle    = subtitleEl.value.trim();
+        g.tag         = tagsEl.value.trim();
+        g.price       = priceEl.value.trim();
+        g.description = descEl.value.trim();
+      }
+
+      const writeRes = await fetch('/games', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ games })
+      });
+      if (!writeRes.ok) throw new Error('Server error ' + writeRes.status);
+
+      if (editingIndex === -1) {
+        setStatus('Added "' + name + '".', 'ok');
+        setEditMode(games.length - 1);  // select the newly added game
+      } else {
+        setStatus('Saved "' + name + '".', 'ok');
+        renderList();
+      }
+    } catch (e) {
+      setStatus('Error: ' + e.message, 'err');
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }
+
+  async function archiveGame() {
+    if (editingIndex < 0) return;
+    const name = games[editingIndex].name || 'this game';
+    const isArchived = games[editingIndex].archived;
+    games[editingIndex].archived = !games[editingIndex].archived;
+    const writeRes = await fetch('/games', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ games })
+    });
+    if (!writeRes.ok) { setStatus('Save failed.', 'err'); return; }
+    setEditMode(-1);
+    setStatus('"' + name + '" ' + (games[editingIndex].archived ? 'archived' : 'unarchived') + '.', 'ok');
+  }
+
+  function renderList() {
+    const el = document.getElementById('gameList');
+    if (!games.length) { el.innerHTML = '<div class="empty-list">No games yet.</div>'; return; }
+
+    const active   = games.map((g, i) => ({ g, i })).filter(({ g }) => !g.archived);
+    const archived = games.map((g, i) => ({ g, i })).filter(({ g }) =>  g.archived)
+                       .sort((a, b) => (a.g.name || '').localeCompare(b.g.name || ''));
+
+    const latestTime = active.length
+      ? Math.max(...active.map(({ g }) => g.createdAt ? new Date(g.createdAt).getTime() : 0))
+      : 0;
+    const sortedActive = active.sort((a, b) => {
+      const ta = a.g.createdAt ? new Date(a.g.createdAt).getTime() : 0;
+      const tb = b.g.createdAt ? new Date(b.g.createdAt).getTime() : 0;
+      if (ta === latestTime && tb !== latestTime) return -1;
+      if (tb === latestTime && ta !== latestTime) return  1;
+      return (b.g.name || '').localeCompare(a.g.name || '');
+    });
+
+    function rowHTML({ g, i }) {
+      return '<div class="game-row' + (i === editingIndex ? ' selected' : '') + (g.archived ? ' archived' : '') + '" data-i="' + i + '">' +
+        '<span class="g-emoji">' + (g.emoji || '🎮') + '</span>' +
+        '<span class="g-info">' +
+          '<span class="g-name">' + (g.name || '(unnamed)') + '</span>' +
+          (g.subtitle ? '<span class="g-subtitle">' + g.subtitle + '</span>' : '') +
+        '</span>' +
+        (!g.active ? '<span class="g-hidden">hidden</span>' : '') +
+      '</div>';
+    }
+
+    let html = '';
+    if (sortedActive.length) {
+      html += '<div class="list-divider">Active</div>' + sortedActive.map(rowHTML).join('');
+    }
+    if (archived.length) {
+      html += '<div class="list-divider">Archive</div>' + archived.map(rowHTML).join('');
+    }
+    el.innerHTML = html;
+    el.querySelectorAll('.game-row').forEach(row => {
+      row.addEventListener('click', () => setEditMode(+row.dataset.i));
+    });
+  }
+
+  async function loadList() {
+    try {
+      const res  = await fetch('/games');
+      const data = await res.json();
+      games = Array.isArray(data) ? data : (data.games || []);
+      const active = games.map((g, i) => ({ g, i })).filter(({ g }) => !g.archived);
+      if (active.length) {
+        // Select most recent by createdAt, fall back to last active
+        let recentIndex = active[active.length - 1].i;
+        let recentTime  = 0;
+        active.forEach(({ g, i }) => {
+          const t = g.createdAt ? new Date(g.createdAt).getTime() : 0;
+          if (t > recentTime) { recentTime = t; recentIndex = i; }
+        });
+        setEditMode(recentIndex);
+      } else {
+        renderList();
+      }
+    } catch (e) {
+      document.getElementById('gameList').innerHTML =
+        '<div class="empty-list" style="color:var(--err)">Could not load — is server.js running?</div>';
+    }
+  }
+
+  saveBtn.addEventListener('click', save);
+  archiveBtn.addEventListener('click', archiveGame);
+  newBtn.addEventListener('click', () => setEditMode(-1));
+  nameEl.addEventListener('input', () => { idEl.textContent = slugify(nameEl.value); });
+  nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+
+  loadList();
+</script>
+</body>
+</html>
