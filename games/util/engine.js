@@ -422,7 +422,7 @@ async function loadStops() {
     let stopsPath = 'stops.json';
     if (GAME_PARAM) {
       try {
-        const gamesResp = await fetch('games/games.json', { cache: 'no-store' });
+        const gamesResp = await fetch('data/games.json', { cache: 'no-store' });
         if (gamesResp.ok) {
           const gamesData = await gamesResp.json();
           const list = Array.isArray(gamesData) ? gamesData : (gamesData.games || []);

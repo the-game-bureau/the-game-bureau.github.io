@@ -1,13 +1,13 @@
 // Run: node server.js
-// Then open: http://localhost:3000/builder.html
+// Then open: http://localhost:3000/private/builder.html
 const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 
 const PORT       = 3000;
-const GAMES_FILE  = path.join(__dirname, '..', 'games', 'games.json');
-const STOPS_FILE  = path.join(__dirname, '..', 'games', 'stops.json');
-const ROUTES_FILE = path.join(__dirname, '..', 'games', 'routes.json');
+const GAMES_FILE  = path.join(__dirname, 'data', 'games.json');
+const STOPS_FILE  = path.join(__dirname, 'data', 'stops.json');
+const ROUTES_FILE = path.join(__dirname, 'data', 'routes.json');
 const STATIC_DIR = __dirname;
 
 const MIME = {
@@ -118,7 +118,8 @@ http.createServer((req, res) => {
   }
 
   // Static files
-  let filePath = path.join(STATIC_DIR, req.url === '/' ? '/builder.html' : req.url);
+  if (req.url === '/') { res.writeHead(302, { Location: '/private/builder.html' }); res.end(); return; }
+  let filePath = path.join(STATIC_DIR, req.url);
   const ext    = path.extname(filePath);
   if (!MIME[ext]) { res.writeHead(403); res.end(); return; }
   fs.readFile(filePath, (err, data) => {
@@ -127,4 +128,4 @@ http.createServer((req, res) => {
     res.end(data);
   });
 
-}).listen(PORT, () => console.log('http://localhost:' + PORT + '/builder.html'));
+}).listen(PORT, () => console.log('http://localhost:' + PORT + '/private/builder.html'));
