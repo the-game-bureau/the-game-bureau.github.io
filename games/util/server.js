@@ -5,10 +5,10 @@ const fs   = require('fs');
 const path = require('path');
 
 const PORT       = 3000;
-const GAMES_FILE  = path.join(__dirname, 'data', 'games.json');
-const STOPS_FILE  = path.join(__dirname, 'data', 'stops.json');
-const ROUTES_FILE = path.join(__dirname, 'data', 'routes.json');
-const STATIC_DIR = __dirname;
+const GAMES_FILE  = path.join(__dirname, '..', 'data', 'games.json');
+const STOPS_FILE  = path.join(__dirname, '..', 'data', 'stops.json');
+const ROUTES_FILE = path.join(__dirname, '..', 'data', 'routes.json');
+const STATIC_DIR = path.join(__dirname, '..');
 
 const MIME = {
   '.html': 'text/html',

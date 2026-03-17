@@ -100,25 +100,41 @@
   <div id="error" style="display:none"></div>
 
   <script>
-    const params = new URLSearchParams(location.search);
-    const gameUrl = params.get('url');
-    const title = params.get('title') || 'Game On';
+    const PLAY_BASE = 'https://the-game-bureau.github.io/the-game-bureau/games/index.html?id=';
 
-    document.getElementById('title').textContent = title;
-    document.title = title;
-
-    if (!gameUrl) {
+    function showError(msg) {
+      document.getElementById('error').textContent = msg;
       document.getElementById('error').style.display = '';
-      document.getElementById('error').textContent = 'No game URL provided. Add ?url=YOUR_GAME_URL to this page\'s address.';
       document.getElementById('play-btn').style.display = 'none';
       document.getElementById('qr-wrap').style.display = 'none';
       document.getElementById('share-hint').style.display = 'none';
+    }
+
+    const gameId = new URLSearchParams(location.search).get('id');
+
+    if (!gameId) {
+      showError('No game ID provided. Add ?id=YOUR_GAME_ID to the URL.');
     } else {
-      const cssSize = Math.min(280, Math.round(window.innerWidth * 0.78));
-      const px = cssSize * Math.min(window.devicePixelRatio || 2, 3);
-      document.getElementById('qr-img').src =
-        'https://api.qrserver.com/v1/create-qr-code/?size=' + px + 'x' + px + '&data=' + encodeURIComponent(gameUrl);
-      document.getElementById('play-btn').href = gameUrl;
+      fetch('data/games.json')
+        .then(r => r.json())
+        .then(data => {
+          const games = Array.isArray(data) ? data : (data.games || []);
+          const game = games.find(g => g.id === gameId);
+          if (!game) { showError('Game "' + gameId + '" not found.'); return; }
+
+          const title = game.name || gameId;
+          const playUrl = PLAY_BASE + encodeURIComponent(game.id);
+
+          document.getElementById('title').textContent = title;
+          document.title = title;
+          document.getElementById('play-btn').href = playUrl;
+
+          const cssSize = Math.min(280, Math.round(window.innerWidth * 0.78));
+          const px = cssSize * Math.min(window.devicePixelRatio || 2, 3);
+          document.getElementById('qr-img').src =
+            'https://api.qrserver.com/v1/create-qr-code/?size=' + px + 'x' + px + '&data=' + encodeURIComponent(playUrl);
+        })
+        .catch(() => showError('Could not load game data.'));
     }
   </script>
 </body>
