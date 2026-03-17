@@ -234,7 +234,6 @@
   <div style="margin-left:auto;display:flex;gap:6px;">
     <button class="header-mode-btn active" data-mode="games" type="button">Games</button>
     <button class="header-mode-btn" data-mode="stops" type="button">Stops</button>
-    <button class="header-mode-btn" data-mode="routes" type="button">Routes</button>
   </div>
 </header>
 
@@ -244,45 +243,31 @@
   <div class="left-nav">
     <div class="nav-body">
 
-      <!-- Games nav -->
-      <div class="nav-panel active" id="nav-games">
-        <div class="lp-section">
-          <div class="lp-head">
-            <span class="lp-title">Games</span>
-            <div style="display:flex;gap:5px;">
-              <button class="lp-btn danger" type="button" id="g-archiveBtn" style="display:none;margin-top:0;">Archive</button>
-              <button class="lp-btn" id="g-newBtn" style="margin-top:0;">New</button>
-            </div>
+      <!-- Games — always visible -->
+      <div class="lp-section">
+        <div class="lp-head">
+          <span class="lp-title">Games</span>
+          <div style="display:flex;gap:5px;">
+            <button class="lp-btn danger" type="button" id="g-archiveBtn" style="display:none;margin-top:0;">Archive</button>
+            <button class="lp-btn" id="g-newBtn" style="margin-top:0;">New</button>
           </div>
-          <div id="g-gameList"><div class="empty-list">Loading…</div></div>
         </div>
+        <div id="g-gameList"><div class="empty-list">Loading…</div></div>
       </div>
 
-      <!-- Stops nav -->
-      <div class="nav-panel" id="nav-stops">
-        <div class="lp-section">
-          <div class="lp-head">
-            <span class="lp-title">Stops</span>
-            <div style="position:relative;">
-              <button id="s-addStopBtn" class="lp-btn" type="button" style="margin-top:0;">New</button>
-              <div class="stop-type-popup" id="s-stopTypePopup">
-                <button class="stop-type-opt" id="s-addRegularBtn" type="button">Regular</button>
-                <button class="stop-type-opt" id="s-addAnytimeBtn" type="button">Anytime</button>
-              </div>
+      <!-- Stops — always visible -->
+      <div class="lp-section">
+        <div class="lp-head">
+          <span class="lp-title">Stops</span>
+          <div style="position:relative;">
+            <button id="s-addStopBtn" class="lp-btn" type="button" style="margin-top:0;">New</button>
+            <div class="stop-type-popup" id="s-stopTypePopup">
+              <button class="stop-type-opt" id="s-addRegularBtn" type="button">Regular</button>
+              <button class="stop-type-opt" id="s-addAnytimeBtn" type="button">Anytime</button>
             </div>
           </div>
-          <div id="s-stopNavList"></div>
         </div>
-      </div>
-
-      <!-- Routes nav -->
-      <div class="nav-panel" id="nav-routes">
-        <div class="lp-section">
-          <div class="lp-head">
-            <span class="lp-title">Games</span>
-          </div>
-          <div id="r-gameList"><div class="empty-list">No games yet.</div></div>
-        </div>
+        <div id="s-stopNavList"></div>
       </div>
 
     </div>
@@ -303,6 +288,7 @@
               <span class="stop-action stop-paste disabled" id="g-pasteBtn" title="Paste" style="display:none"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="12" height="14" rx="2" ry="2"></rect><path d="M9 5V3h6v2"></path><path d="M9 11h6"></path><path d="M9 15h6"></path></svg></span>
               <span class="stop-action stop-delete" id="g-deleteBtn" title="Delete" style="display:none"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><rect x="6" y="6" width="12" height="14" rx="2" ry="2"/><path d="M10 10v7"/><path d="M14 10v7"/></svg></span>
               <button class="lp-btn primary" type="button" onclick="saveAll()" style="margin-top:0;">Save</button>
+              <button class="lp-btn" type="button" onclick="mapIt()" style="margin-top:0;">Map It!</button>
             </div>
           </div>
           <label for="g-gameName">Name</label>
@@ -354,7 +340,7 @@
       <div class="route-builder-card" id="r-panel" style="display:none">
         <div class="lp-section">
           <div class="lp-head">
-            <span class="lp-title" id="r-panelTitle">Route</span>
+            <span class="lp-title" id="r-panelTitle">Map Details</span>
           </div>
           <div id="r-dropZone" class="r-drop-zone"></div>
           <div id="r-status" class="r-status"></div>
@@ -383,10 +369,10 @@ let currentMode = 'games';
 
 function setMode(mode) {
   currentMode = mode;
+  sessionStorage.setItem('builderMode', mode);
   document.querySelectorAll('.header-mode-btn').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
-  document.querySelectorAll('.nav-panel').forEach(p => p.classList.toggle('active', p.id === 'nav-'+mode));
   document.querySelectorAll('.center-view').forEach(v => v.classList.toggle('active', v.id === 'view-'+mode));
-  if(mode === 'routes') r_renderGameList();
+  if(mode === 'routes') g_setEditMode(g_editingIndex);
 }
 
 document.querySelectorAll('.header-mode-btn').forEach(btn => {
@@ -472,11 +458,11 @@ function g_setEditMode(index) {
   g_editingIndex = index;
   if(currentMode === 'routes') {
     const g = index >= 0 ? games[index] : null;
-    document.getElementById('r-panelTitle').textContent = g ? 'Route — '+(g.name||g.id) : 'Route';
+    document.getElementById('r-panelTitle').textContent = g ? 'Map Details — '+(g.name||g.id) : 'Map Details';
     document.getElementById('r-panel').style.display = g ? '' : 'none';
     document.getElementById('view-routes-empty').style.display = g ? 'none' : '';
     r_renderRoute();
-    r_renderGameList();
+    g_renderList();
     return;
   }
   const form = document.getElementById('g-editForm');
@@ -537,7 +523,7 @@ async function saveAll() {
     if(!sRes.ok)throw new Error('Stops: server error '+sRes.status);
     loadedStopsSnapshot=deepClone(toDoc());renderDirtyBadge();
     if(newGameCreated){g_setStatus('','');g_setEditMode(games.length-1);}
-    else if(g_editingIndex>=0){g_renderList();document.getElementById('g-formTitle').textContent=games[g_editingIndex].name||'Game';document.getElementById('r-panelTitle').textContent='Route — '+(games[g_editingIndex].name||games[g_editingIndex].id);}
+    else if(g_editingIndex>=0){g_renderList();document.getElementById('r-panelTitle').textContent='Map Details — '+(games[g_editingIndex].name||games[g_editingIndex].id);}
     const warnings=renderWarnings();
     if(warnings.length)setStatus('Saved with warnings.','warn');else flashStatus('Saved.','ok');
   }catch(e){setStatus(e.message||'Save failed.','error');}
@@ -599,18 +585,10 @@ let r_dragging = null, r_flashTimer = null;
 
 function r_currentGame() { return g_editingIndex >= 0 ? games[g_editingIndex] : null; }
 
-function r_renderGameList() {
-  const el = document.getElementById('r-gameList');
-  if(!el) return;
-  const active = games.map((g,i) => ({g,i})).filter(({g}) => !g.archived);
-  if(!active.length) { el.innerHTML='<div class="empty-list">No games yet.</div>'; return; }
-  el.innerHTML = active.map(({g,i}) =>
-    '<div class="game-row'+(i===g_editingIndex?' selected':'')+'" data-i="'+i+'">'
-    +'<span class="gr-info"><span class="gr-name">'+(g.name||'(unnamed)')+'</span>'
-    +(g.subtitle?'<span class="gr-sub">'+g.subtitle+'</span>':'')
-    +'</span></div>'
-  ).join('');
-  el.querySelectorAll('.game-row').forEach(row => row.addEventListener('click', () => g_setEditMode(+row.dataset.i)));
+
+async function mapIt() {
+  setMode('routes');
+  saveAll();
 }
 
 function r_anytimeTag(stopId) { const s=stopMap[stopId]; return (s&&s.playerReply&&s.playerReply.anytime)?'<span class="anytime-tag">ANYTIME</span>':''; }
@@ -964,7 +942,12 @@ function s_renderNavList() {
     badge.textContent = tag.label;
     row.appendChild(nameEl);
     row.appendChild(badge);
-    row.addEventListener('click', () => { selectedStopIndex = i; s_renderNavList(); s_renderStopDetail(); });
+    row.draggable = true;
+    row.addEventListener('dragstart', e => { e.dataTransfer.setData('text/x-stop-id', stop.id); e.dataTransfer.effectAllowed = 'copy'; });
+    row.addEventListener('click', () => {
+      if(currentMode === 'routes') { r_addStop(stop.id); return; }
+      selectedStopIndex = i; s_renderNavList(); s_renderStopDetail();
+    });
     return row;
   };
   anytime.forEach(e => el.appendChild(makeRow(e)));
@@ -1139,6 +1122,8 @@ async function init(){
     const sState=(sData&&Array.isArray(sData.stops))?ensureDoc(deepClone(sData)):defaultState();
     state=sState;loadedStopsSnapshot=deepClone(toDoc());expandedStops=new Set();selectedStopIndex=-1;
     s_renderAll();
+    const savedMode = sessionStorage.getItem('builderMode');
+    if(savedMode && savedMode !== 'games') setMode(savedMode);
   }catch(e){
     document.getElementById('g-gameList').innerHTML='<div class="empty-list" style="color:var(--err)">Could not load — is server.js running?</div>';
   }
