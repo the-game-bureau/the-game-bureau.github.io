@@ -292,25 +292,39 @@
 
     // Transition: hide lobby, show game shell, rewrite URL to ?game=ID so
     // engine.js reads the correct GAME_PARAM, then dynamically load the engine.
+    let resolvedId = gameId;
     function launchGame() {
       document.getElementById('lobby').style.display      = 'none';
       document.getElementById('game-shell').style.display = 'flex';
       // engine.js reads `game` param from location.search at parse time
-      history.replaceState(null, '', '?game=' + encodeURIComponent(gameId));
+      history.replaceState(null, '', '?game=' + encodeURIComponent(resolvedId));
       const s = document.createElement('script');
       s.src = 'util/engine.js';
       document.body.appendChild(s);
     }
 
-    if (!gameId) {
-      showError('No game ID provided.');
-    } else {
-      fetch('data/games.json')
-        .then(r => r.json())
-        .then(data => {
-          const games = Array.isArray(data) ? data : (data.games || []);
-          const game  = games.find(g => g.id === gameId);
-          if (!game) { showError('Game "' + gameId + '" not found.'); return; }
+    // Returns the most recently created/updated non-archived game, or null
+    function mostRecent(games) {
+      const active = games.filter(g => !g.archived);
+      if(!active.length) return null;
+      return active.reduce((best, g) => {
+        const t = g => Math.max(g.createdAt ? new Date(g.createdAt).getTime() : 0,
+                                g.updatedAt ? new Date(g.updatedAt).getTime() : 0);
+        return t(g) > t(best) ? g : best;
+      });
+    }
+
+    fetch('data/games.json')
+      .then(r => r.json())
+      .then(data => {
+        const games = Array.isArray(data) ? data : (data.games || []);
+        let game = gameId ? games.find(g => g.id === gameId) : null;
+
+        // Fall back to most recent game if ID missing or not found
+        if(!game) game = mostRecent(games);
+        if(!game) { showError('No games available.'); return; }
+
+        resolvedId = game.id;
 
           // Page title + favicon
           document.title = game.name || gameId;
@@ -367,7 +381,6 @@
           document.getElementById('shareSection').style.display = '';
         })
         .catch(() => showError('Could not load game data.'));
-    }
   </script>
 
 </body>
