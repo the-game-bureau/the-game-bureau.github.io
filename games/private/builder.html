@@ -1246,8 +1246,7 @@ document.getElementById('g-copyShareBtn').addEventListener('click', () => {
 // assigns a fresh ID and timestamps, saves immediately, and opens the new game
 function g_duplicateGame(index) {
   const clone = deepClone(games[index]);
-  clone.name = (clone.name || 'Game') + ' dup';
-  clone.id = slugify(clone.name) + '-' + Date.now();
+  clone.id = slugify(clone.name || 'game') + '-' + Date.now();
   clone.createdAt = new Date().toISOString();
   clone.updatedAt = new Date().toISOString();
   delete clone.archived;
@@ -1355,6 +1354,13 @@ async function saveAll() {
         const name = document.getElementById('g-name').value.trim();
         if(!name) return { ok: true };
         const id = slugify(name);
+
+        // Duplicate ID check — block save if another game already uses this ID
+        const conflict = games.find((g, i) => g.id === id && i !== selectedIndex);
+        if(conflict) {
+          setGameStatus('ID "' + id + '" is already used by "' + conflict.name + '". Rename this game.', 'err');
+          return { ok: false, _blocked: true };
+        }
         if(isNew) {
           games.push({ id, name,
             subtitle: document.getElementById('g-subtitle').value.trim(),
@@ -1393,6 +1399,7 @@ async function saveAll() {
       }) : Promise.resolve({ ok: true })
     ]);
 
+    if(gRes && gRes._blocked) { status.textContent = ''; btn.disabled = false; return; }
     if(gRes && !gRes.ok) throw new Error('Games save failed');
     if(!sRes.ok) throw new Error('Stops save failed');
 
