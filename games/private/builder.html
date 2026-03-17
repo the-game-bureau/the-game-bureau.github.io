@@ -101,7 +101,8 @@
     .img-picker-row input[type="text"]:focus{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);}
 
     /* ── Share ── */
-    .share-url{font-size:.68rem;color:var(--muted);word-break:break-all;line-height:1.5;margin-bottom:8px;}
+    .share-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;}
+    .share-url{font-size:.68rem;color:var(--muted);word-break:break-all;line-height:1.5;flex:1;}
     .share-btns{display:flex;gap:6px;}
     #detailsStatus:empty{display:none;}
 
@@ -353,10 +354,19 @@
 
       <div class="field" id="g-shareField" style="display:none;">
         <label>Share</label>
-        <div id="g-shareUrl" class="share-url"></div>
-        <div class="share-btns">
-          <button class="btn" id="g-copyShareBtn">Copy</button>
-          <button class="btn" id="g-goShareBtn">Go</button>
+        <div class="share-row">
+          <div id="g-shareUrl" class="share-url"></div>
+          <div class="share-btns">
+            <button class="btn" id="g-copyShareBtn">Copy</button>
+            <button class="btn" id="g-goShareBtn">Go</button>
+          </div>
+        </div>
+        <div class="share-row">
+          <div id="g-shareUrlLocal" class="share-url"></div>
+          <div class="share-btns">
+            <button class="btn" id="g-copyShareBtnLocal">Copy</button>
+            <button class="btn" id="g-goShareBtnLocal">Go</button>
+          </div>
         </div>
       </div>
 
@@ -455,7 +465,8 @@
 const IS_LOCAL = ['localhost','127.0.0.1'].includes(location.hostname);
 const API = IS_LOCAL ? 'http://localhost:3000' : null;
 // Base URL for shareable player links shown in the Game Details panel
-const SHARE_BASE = 'https://the-game-bureau.github.io/the-game-bureau/games/index.html?id=';
+const SHARE_BASE       = 'https://the-game-bureau.github.io/the-game-bureau/games/index.html?id=';
+const SHARE_BASE_LOCAL = 'http://localhost:3000/index.html?id=';
 // Preset genre/category tags that appear as pills in the game details form
 const ALL_TAGS = ['Mystery','Puzzle','SMS','Walking Tour','Sports','History','Food','Adventure','Family','Conspiracy','Trivia','Horror','Romance','Comedy','Music','Culture','Night Life','City Tour','Scavenger Hunt','New Orleans'];
 
@@ -1083,7 +1094,7 @@ function openDetails(index) {
 
   const shareField = document.getElementById('g-shareField');
   const shareUrl = document.getElementById('g-shareUrl');
-  if(g.id) { shareUrl.textContent = SHARE_BASE + g.id; shareField.style.display = ''; }
+  if(g.id) { shareUrl.textContent = SHARE_BASE + g.id; document.getElementById('g-shareUrlLocal').textContent = SHARE_BASE_LOCAL + g.id; shareField.style.display = ''; }
   else { shareField.style.display = 'none'; }
 
   selectedTags = new Set((g.tag || '').split(/[;,]+/).map(t => t.trim()).filter(Boolean));
@@ -1271,7 +1282,7 @@ document.getElementById('g-name').addEventListener('input', () => {
   const shareUrl = document.getElementById('g-shareUrl');
   if(id) {
     idHint.textContent = id; idHint.style.display = '';
-    shareUrl.textContent = SHARE_BASE + id; shareField.style.display = '';
+    shareUrl.textContent = SHARE_BASE + id; document.getElementById('g-shareUrlLocal').textContent = SHARE_BASE_LOCAL + id; shareField.style.display = '';
   } else {
     idHint.style.display = 'none'; shareField.style.display = 'none';
   }
@@ -1284,6 +1295,16 @@ document.getElementById('g-copyShareBtn').addEventListener('click', () => {
 
 document.getElementById('g-goShareBtn').addEventListener('click', () => {
   const url = document.getElementById('g-shareUrl').textContent;
+  if(url) window.open(url, '_blank');
+});
+
+document.getElementById('g-copyShareBtnLocal').addEventListener('click', () => {
+  const url = document.getElementById('g-shareUrlLocal').textContent;
+  if(url) navigator.clipboard.writeText(url).catch(() => {});
+});
+
+document.getElementById('g-goShareBtnLocal').addEventListener('click', () => {
+  const url = document.getElementById('g-shareUrlLocal').textContent;
   if(url) window.open(url, '_blank');
 });
 
@@ -1535,6 +1556,7 @@ async function saveAll() {
       document.getElementById('g-idHint').textContent = g.id;
       document.getElementById('g-idHint').style.display = '';
       document.getElementById('g-shareUrl').textContent = SHARE_BASE + g.id;
+      document.getElementById('g-shareUrlLocal').textContent = SHARE_BASE_LOCAL + g.id;
       document.getElementById('g-shareField').style.display = '';
       renderGameList();
     }

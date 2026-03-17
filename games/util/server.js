@@ -152,7 +152,7 @@ http.createServer((req, res) => {
 
   // Static files
   if (req.url === '/') { res.writeHead(302, { Location: '/private/builder.html' }); res.end(); return; }
-  let filePath = path.join(STATIC_DIR, req.url);
+  let filePath = path.join(STATIC_DIR, req.url.split('?')[0]);
   const ext    = path.extname(filePath);
   if (!MIME[ext]) { res.writeHead(403); res.end(); return; }
   fs.readFile(filePath, (err, data) => {

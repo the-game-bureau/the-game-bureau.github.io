@@ -1,262 +1,353 @@
 <!DOCTYPE html>
-<!--
-  File: index.html
-  Purpose: Landing page + game shell for The Game Bureau.
-
-  Flow:
-    1. Loaded with ?id=GAME_ID or ?game=GAME_ID  →  shows landing page
-    2. Player taps GO  →  landing hides, game shell appears, engine.js loads
-       The URL is rewritten to ?game=GAME_ID so engine.js can read it.
--->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#111111">
+  <meta name="theme-color" content="#0c0c0c">
   <title>The Game Bureau</title>
+  <meta id="og-title"       property="og:title"       content="The Game Bureau">
+  <meta id="og-description" property="og:description" content="">
+  <meta id="og-image"       property="og:image"       content="">
+  <meta id="og-url"         property="og:url"         content="">
+  <meta                     property="og:type"        content="website">
+  <meta name="twitter:card"         content="summary_large_image">
+  <meta id="tw-title"       name="twitter:title"       content="The Game Bureau">
+  <meta id="tw-description" name="twitter:description" content="">
+  <meta id="tw-image"       name="twitter:image"       content="">
   <link id="favicon" rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="index.css">
-
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    html, body { min-height: 100dvh; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html, body { background: #0c0c0c; }
 
     body {
-      background: #111;
       color: #fff;
       font-family: 'DM Sans', -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Landing page ── */
     #landing {
-      width: 100%;
-      max-width: 520px;
+      display: none;
+      max-width: 430px;
       margin: 0 auto;
+      padding: max(env(safe-area-inset-top), 52px) 0 72px;
+    }
+
+    /* ── Logo ── */
+    .logo-wrap {
       display: flex;
-      flex-direction: column;
+      justify-content: center;
+      padding: 0 32px;
     }
 
-    /* Hero thumbnail — full width at top */
-    .hero-img {
-      width: 100%;
-      aspect-ratio: 16/9;
-      object-fit: cover;
-      display: block;
+    #gameLogo {
+      width: 220px;
+      height: 220px;
+      border-radius: 40px;
+      object-fit: contain;
+      display: none;
+      box-shadow: 0 8px 32px rgba(0,0,0,.6);
     }
-    .hero-img.hidden { display: none; }
+    #gameLogo.show { display: block; }
 
-    /* Game identity block */
-    .identity {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 24px 24px 0;
-    }
-
-    .logo-img {
-      width: 64px;
-      height: 64px;
-      border-radius: 12px;
-      object-fit: cover;
-      flex-shrink: 0;
-    }
-    .logo-img.hidden { display: none; }
-
-    .title-block {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+    /* ── Title block ── */
+    .title-wrap {
+      padding: 20px 28px 0;
+      text-align: center;
     }
 
-    .game-title {
+    #gameTitle {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(2.4rem, 11vw, 4rem);
+      font-size: clamp(3.4rem, 16vw, 5.2rem);
       letter-spacing: 0.04em;
       line-height: 1;
+      color: #fff;
     }
 
-    .game-subtitle {
-      font-size: .82rem;
+    #gameGuide {
+      margin-top: 8px;
+      font-size: .8rem;
       font-weight: 600;
-      letter-spacing: 0.12em;
+      letter-spacing: .14em;
       text-transform: uppercase;
-      color: rgba(255,255,255,.4);
+      color: rgba(255,255,255,.5);
     }
 
-    /* Tags */
-    .tag-list {
+    /* ── Tags ── */
+    #tags {
       display: flex;
       flex-wrap: wrap;
+      justify-content: center;
       gap: 6px;
-      padding: 16px 24px 0;
+      padding: 18px 28px 0;
     }
-    .tag-list:empty { display: none; }
+    #tags:empty { display: none; }
 
     .tag {
       font-size: .7rem;
       font-weight: 600;
       letter-spacing: .08em;
       text-transform: uppercase;
-      color: rgba(255,255,255,.5);
-      border: 1px solid rgba(255,255,255,.18);
+      color: rgba(255,255,255,.55);
+      border: 1px solid rgba(255,255,255,.2);
       border-radius: 999px;
-      padding: 3px 10px;
+      padding: 5px 13px;
     }
 
-    /* Description */
-    .description {
-      font-size: clamp(.93rem, 3vw, 1rem);
-      line-height: 1.7;
+    /* ── Divider ── */
+    .divider {
+      margin: 28px 28px 0;
+      border: none;
+      border-top: 1px solid rgba(255,255,255,.1);
+    }
+
+    /* ── Description ── */
+    #desc {
+      padding: 24px 28px 0;
+      font-size: 1rem;
+      font-weight: 400;
+      line-height: 1.8;
       color: rgba(255,255,255,.72);
-      padding: 20px 24px 0;
-      white-space: pre-wrap;
     }
-    .description:empty { display: none; }
+    #desc p { margin-bottom: .8em; }
+    #desc p:last-child { margin-bottom: 0; }
+    #desc a { color: rgba(255,255,255,.85); }
+    #desc b, #desc strong { font-weight: 700; color: #fff; }
+    #desc:empty { display: none; }
 
-    /* Price */
-    .price-row {
-      display: flex;
+    /* ── Price ── */
+    #price {
+      display: none;
       align-items: center;
+      justify-content: center;
       gap: 8px;
-      padding: 16px 24px 0;
+      margin-top: 10px;
     }
-    .price-row.hidden { display: none; }
+    #price.show { display: flex; }
+
     .price-label {
       font-size: .68rem;
       font-weight: 600;
-      letter-spacing: .1em;
+      letter-spacing: .12em;
       text-transform: uppercase;
-      color: rgba(255,255,255,.32);
+      color: rgba(255,255,255,.38);
     }
-    .price-value {
-      font-size: .92rem;
+    .price-val {
+      font-size: .95rem;
       font-weight: 600;
-      color: rgba(255,255,255,.65);
+      color: rgba(255,255,255,.75);
     }
 
-    /* GO button */
+    /* ── GO button ── */
     .go-wrap {
-      padding: 28px 24px 0;
+      padding: 32px 28px 0;
     }
 
-    .go-btn {
+    #goBtn {
+      width: 100%;
+      height: 68px;
       display: flex;
       align-items: center;
       justify-content: center;
       background: #fff;
-      color: #111;
+      color: #0c0c0c;
       font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(2rem, 7vw, 2.6rem);
-      letter-spacing: 0.14em;
-      height: 72px;
-      width: 100%;
-      border-radius: 6px;
+      font-size: 2.4rem;
+      letter-spacing: .2em;
       border: none;
+      border-radius: 8px;
       cursor: pointer;
       touch-action: manipulation;
-      transition: background 0.1s, transform 0.1s;
+      user-select: none;
+      transition: opacity .12s, transform .12s;
     }
-    .go-btn:active { background: #d1d5db; transform: scale(0.97); }
+    #goBtn:active { opacity: .8; transform: scale(.975); }
 
-    /* QR / share section */
+    /* ── Share section ── */
     .share-section {
+      margin: 44px 28px 0;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .share-heading {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.45);
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+    }
+
+    /* QR option */
+    .share-qr {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 14px;
-      padding: 40px 24px 56px;
-      border-top: 1px solid rgba(255,255,255,.08);
+      gap: 16px;
+      padding: 24px 20px;
+      border-bottom: 1px solid rgba(255,255,255,.1);
     }
 
-    .share-hint {
-      font-size: .72rem;
+    .share-qr-label {
+      font-size: .8rem;
       font-weight: 600;
-      letter-spacing: .1em;
+      letter-spacing: .06em;
       text-transform: uppercase;
-      color: rgba(255,255,255,.3);
+      color: rgba(255,255,255,.6);
+      text-align: center;
     }
 
-    .qr-wrap {
+    .qr-box {
       background: #fff;
-      padding: 12px;
-      border-radius: 8px;
+      padding: 10px;
+      border-radius: 10px;
     }
-    .qr-wrap img {
+    .qr-box img {
       display: block;
-      width: min(180px, 52vw);
-      height: min(180px, 52vw);
+      width: 180px;
+      height: 180px;
       image-rendering: pixelated;
     }
 
-    .share-url {
-      font-size: .64rem;
-      color: rgba(255,255,255,.25);
-      word-break: break-all;
-      text-align: center;
-      max-width: 320px;
+    /* OR divider */
+    .share-or {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+    }
+    .share-or::before, .share-or::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,.1);
+    }
+    .share-or span {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .14em;
+      color: rgba(255,255,255,.38);
+      padding: 14px 0;
     }
 
-    /* Error */
-    .error {
+    /* Text option */
+    .share-text {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 20px;
+    }
+
+    .share-text-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .share-text-title {
+      font-size: .95rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .share-text-sub {
+      font-size: .78rem;
+      color: rgba(255,255,255,.5);
+    }
+
+    .share-text-btn {
+      flex-shrink: 0;
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 8px;
+      color: #fff;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.2rem;
+      letter-spacing: .1em;
+      padding: 10px 20px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background .12s;
+    }
+    .share-text-btn:active { background: rgba(255,255,255,.2); }
+
+    /* ── Error ── */
+    #error {
       display: none;
-      color: #f87171;
-      font-size: 1rem;
       max-width: 300px;
-      line-height: 1.6;
+      margin: 80px auto;
+      padding: 0 32px;
       text-align: center;
-      margin: auto;
-      padding: 48px 32px;
+      color: #f87171;
+      font-size: .9rem;
+      line-height: 1.6;
     }
   </style>
 </head>
 <body>
 
-  <!-- ── LANDING VIEW ── -->
-  <div id="landing" style="display:none">
+  <div id="landing">
+    <div class="logo-wrap">
+      <img id="gameLogo" alt="">
+    </div>
 
-    <img class="hero-img hidden" id="heroImg" alt="">
-
-    <div class="identity">
-      <img class="logo-img hidden" id="logoImg" alt="">
-      <div class="title-block">
-        <div class="game-title" id="gameTitle"></div>
-        <div class="game-subtitle" id="gameSubtitle"></div>
+    <div class="title-wrap">
+      <div id="gameTitle"></div>
+      <div id="gameGuide"></div>
+      <div id="price">
+        <span class="price-label">Price</span>
+        <span class="price-val" id="priceVal"></span>
       </div>
     </div>
 
-    <div class="tag-list" id="tagList"></div>
+    <div id="tags"></div>
 
-    <p class="description" id="description"></p>
+    <hr class="divider">
 
-    <div class="price-row hidden" id="priceRow">
-      <span class="price-label">Price</span>
-      <span class="price-value" id="priceValue"></span>
-    </div>
+    <p id="desc"></p>
 
     <div class="go-wrap">
-      <button class="go-btn" id="goBtn">GO</button>
+      <button id="goBtn">GO</button>
     </div>
 
     <div class="share-section">
-      <div class="share-hint">Scan to play on another device</div>
-      <div class="qr-wrap"><img id="qrImg" alt="QR Code"></div>
-      <div class="share-url" id="shareUrl"></div>
-    </div>
+      <div class="share-heading">Invite Players</div>
 
+      <div class="share-qr">
+        <div class="share-qr-label">Hold up your screen &amp; let players scan</div>
+        <div class="qr-box"><img id="qrImg" alt="QR Code"></div>
+      </div>
+
+      <div class="share-or"><span>OR</span></div>
+
+      <div class="share-text">
+        <div class="share-text-info">
+          <div class="share-text-title">Send via Text</div>
+          <div class="share-text-sub">Opens a new message with the link</div>
+        </div>
+        <button class="share-text-btn" id="copyBtn">SEND</button>
+      </div>
+    </div>
   </div>
 
-  <div class="error" id="error"></div>
+  <div id="error"></div>
 
-  <!-- ── GAME SHELL VIEW (hidden until GO is tapped) ── -->
+  <!-- Game shell — revealed after GO is tapped -->
   <div id="game-shell" style="display:none; width:100%; flex-direction:column;">
     <div class="icon-preload" aria-hidden="true"></div>
     <div class="contact-header">
-      <div class="avatar"><img id="header-logo" src="logo.png" alt="Game Logo"></div>
+      <div class="avatar"><img id="header-logo" src="logo.png" alt=""></div>
       <div class="contact-name" id="header-title"></div>
       <div class="contact-name" id="header-subtitle"></div>
       <div class="contact-status"><div class="online-dot"></div><span id="header-status">online</span></div>
@@ -267,18 +358,21 @@
   </div>
 
   <script>
-    const params = new URLSearchParams(location.search);
-    const gameId = params.get('id') || params.get('game');
+    const DEFAULT_GAME = 'oswald-s-diary';
+    const params  = new URLSearchParams(location.search);
+    const gameId  = params.get('id') || params.get('game') || DEFAULT_GAME;
+    let resolvedId = gameId;
 
     function showError(msg) {
-      document.getElementById('error').textContent = msg;
-      document.getElementById('error').style.display = '';
+      const el = document.getElementById('error');
+      el.textContent = msg;
+      el.style.display = '';
     }
 
-    let resolvedId = gameId;
     function launchGame() {
-      document.getElementById('landing').style.display = 'none';
+      document.getElementById('landing').style.display    = 'none';
       document.getElementById('game-shell').style.display = 'flex';
+      document.body.classList.add('game-active');
       history.replaceState(null, '', '?game=' + encodeURIComponent(resolvedId));
       const s = document.createElement('script');
       s.src = 'util/engine.js';
@@ -288,12 +382,12 @@
     function mostRecent(games) {
       const active = games.filter(g => !g.archived);
       if (!active.length) return null;
-      return active.reduce((best, g) => {
+      return active.reduce((a, b) => {
         const t = g => Math.max(
           g.createdAt ? new Date(g.createdAt).getTime() : 0,
           g.updatedAt ? new Date(g.updatedAt).getTime() : 0
         );
-        return t(g) > t(best) ? g : best;
+        return t(b) > t(a) ? b : a;
       });
     }
 
@@ -301,62 +395,64 @@
       .then(r => r.json())
       .then(data => {
         const games = Array.isArray(data) ? data : (data.games || []);
-        let game = gameId ? games.find(g => g.id === gameId) : null;
-        if (!game) game = mostRecent(games);
+        const game  = games.find(g => g.id === gameId) || mostRecent(games);
         if (!game) { showError('No games available.'); return; }
 
         resolvedId = game.id;
 
-        document.title = game.name || gameId;
+        const prodUrl   = 'https://the-game-bureau.github.io/the-game-bureau/games/index.html?id=' + encodeURIComponent(game.id);
+        const shareUrl  = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+          ? location.origin + location.pathname + '?id=' + encodeURIComponent(game.id)
+          : prodUrl;
+        const fullDesc  = (game.description || '').trim();
+        const firstLine = fullDesc.split('\n')[0].trim();
+
+        document.title = game.name || game.id;
         if (game.favicon) document.getElementById('favicon').href = game.favicon;
 
-        // Hero image
+        document.getElementById('og-title').content       = game.name || game.id;
+        document.getElementById('og-description').content = firstLine;
+        document.getElementById('og-url').content         = prodUrl;
+        document.getElementById('tw-title').content       = game.name || game.id;
+        document.getElementById('tw-description').content = firstLine;
         if (game.thumbnail) {
-          const img = document.getElementById('heroImg');
-          img.src = game.thumbnail;
-          img.classList.remove('hidden');
+          document.getElementById('og-image').content = game.thumbnail;
+          document.getElementById('tw-image').content = game.thumbnail;
         }
 
-        // Logo
         if (game.logo) {
-          const logo = document.getElementById('logoImg');
+          const logo = document.getElementById('gameLogo');
           logo.src = game.logo;
-          logo.classList.remove('hidden');
+          logo.classList.add('show');
         }
 
-        document.getElementById('gameTitle').textContent = game.name || gameId;
-        if (game.subtitle) document.getElementById('gameSubtitle').textContent = 'Guide: ' + game.subtitle;
+        document.getElementById('gameTitle').textContent = game.name || game.id;
+        if (game.subtitle) document.getElementById('gameGuide').textContent = 'Guide: ' + game.subtitle;
 
-        // Tags
-        const tags = (game.tag || '').split(/[,;]+/).map(t => t.trim()).filter(Boolean);
-        const tagList = document.getElementById('tagList');
-        tags.forEach(t => {
-          const span = document.createElement('span');
-          span.className = 'tag';
-          span.textContent = t;
-          tagList.appendChild(span);
+        (game.tag || '').split(/[,;]+/).map(t => t.trim()).filter(Boolean).forEach(t => {
+          const s = document.createElement('span');
+          s.className = 'tag';
+          s.textContent = t;
+          document.getElementById('tags').appendChild(s);
         });
 
-        // Description
-        const desc = (game.description || '').trim();
-        if (desc) document.getElementById('description').textContent = desc;
+        if (fullDesc) document.getElementById('desc').innerHTML = fullDesc;
 
-        // Price
         if (game.price) {
-          document.getElementById('priceValue').textContent = game.price;
-          document.getElementById('priceRow').classList.remove('hidden');
+          document.getElementById('priceVal').textContent = game.price;
+          document.getElementById('price').classList.add('show');
         }
 
         document.getElementById('goBtn').addEventListener('click', launchGame);
 
-        // QR code
-        const shareUrl = 'https://the-game-bureau.github.io/the-game-bureau/games/index.html?id=' + encodeURIComponent(game.id);
-        const cssSize  = Math.min(180, Math.round(window.innerWidth * 0.52));
-        const px       = cssSize * Math.min(window.devicePixelRatio || 2, 3);
+        const px = Math.round(180 * Math.min(window.devicePixelRatio || 2, 3));
         document.getElementById('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + px + 'x' + px + '&data=' + encodeURIComponent(shareUrl);
-        document.getElementById('shareUrl').textContent = shareUrl;
 
-        document.getElementById('landing').style.display = '';
+        document.getElementById('copyBtn').addEventListener('click', () => {
+          window.location.href = 'sms:?body=' + encodeURIComponent(shareUrl);
+        });
+
+        document.getElementById('landing').style.display = 'block';
       })
       .catch(() => showError('Could not load game data.'));
   </script>
