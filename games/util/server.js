@@ -1,8 +1,9 @@
 // Run: node server.js
 // Then open: http://localhost:3000/private/builder.html
-const http = require('http');
-const fs   = require('fs');
-const path = require('path');
+const http  = require('http');
+const fs    = require('fs');
+const path  = require('path');
+const { execFile } = require('child_process');
 
 const PORT       = 3000;
 const GAMES_FILE  = path.join(__dirname, '..', 'data', 'games.json');
@@ -101,6 +102,32 @@ http.createServer((req, res) => {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end('{}');
     }
+    return;
+  }
+
+  // POST /publish — git commit + push
+  if (req.method === 'POST' && req.url === '/publish') {
+    let body = '';
+    req.on('data', d => { body += d; });
+    req.on('end', () => {
+      const msg = 'Publish button in builder pressed';
+      const repoRoot = path.join(__dirname, '..', '..');
+      const run = (cmd, args) => new Promise((resolve, reject) =>
+        execFile(cmd, args, { cwd: repoRoot }, (err, stdout, stderr) =>
+          err ? reject(new Error(stderr || stdout || err.message)) : resolve(stdout)));
+      (async () => {
+        try {
+          await run('git', ['add', '-A']);
+          await run('git', ['commit', '--allow-empty', '-m', msg]);
+          await run('git', ['push']);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end('{"ok":true}');
+        } catch(e) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      })();
+    });
     return;
   }
 

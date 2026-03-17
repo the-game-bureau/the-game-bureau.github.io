@@ -1,26 +1,272 @@
 <!DOCTYPE html>
-<!-- File: index.html | Purpose: Main game shell. Loads index.css for UI and util/engine.js for all gameplay logic and stops.json data. -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Loading...</title>
-  <link rel="icon" href="index.ico" type="image/x-icon">
-  <link rel="stylesheet" href="index.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#111111">
+  <title>The Game Bureau</title>
+  <link id="favicon" rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html, body { min-height: 100dvh; }
+
+    body {
+      background: #111;
+      color: #fff;
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: max(env(safe-area-inset-top), 56px) 32px 40px;
+    }
+
+    .logo-wrap {
+      width: 88px;
+      height: 88px;
+      border-radius: 18px;
+      overflow: hidden;
+      margin-bottom: 24px;
+      display: none;
+    }
+    .logo-wrap.visible { display: block; }
+    .logo-wrap img { width: 100%; height: 100%; object-fit: cover; }
+
+    .game-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(3rem, 13vw, 5.5rem);
+      letter-spacing: 0.04em;
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+
+    .game-subtitle {
+      font-size: clamp(.85rem, 3vw, 1rem);
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.45);
+      margin-bottom: 24px;
+    }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 28px;
+    }
+
+    .tag {
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.55);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 999px;
+      padding: 3px 10px;
+    }
+
+    /* ── Content ── */
+    .content {
+      width: min(520px, 100%);
+      padding: 0 28px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .thumbnail-wrap {
+      width: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+      display: none;
+    }
+    .thumbnail-wrap.visible { display: block; }
+    .thumbnail-wrap img { width: 100%; display: block; }
+
+    .description {
+      font-size: clamp(.95rem, 3.2vw, 1.05rem);
+      line-height: 1.7;
+      color: rgba(255,255,255,.78);
+      white-space: pre-wrap;
+    }
+
+    .price-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .price-label {
+      font-size: .7rem;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.35);
+      flex-shrink: 0;
+    }
+
+    .price-value {
+      font-size: .95rem;
+      font-weight: 600;
+      color: rgba(255,255,255,.7);
+    }
+
+    /* ── CTA ── */
+    .cta-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .play-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      color: #111;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(1.8rem, 6vw, 2.4rem);
+      letter-spacing: 0.1em;
+      text-decoration: none;
+      height: 68px;
+      width: min(360px, 100%);
+      border-radius: 6px;
+      touch-action: manipulation;
+      transition: background 0.1s, transform 0.1s;
+    }
+
+    .play-btn:active { background: #d1d5db; transform: scale(0.97); }
+
+    /* ── Error ── */
+    .error {
+      display: none;
+      color: #f87171;
+      font-size: 1rem;
+      max-width: 300px;
+      line-height: 1.6;
+      text-align: center;
+      margin: auto;
+      padding: 48px 32px;
+    }
+  </style>
 </head>
 <body>
-  <div class="icon-preload" aria-hidden="true"></div>
-  <div class="contact-header">
-    <div class="avatar"><img id="header-logo" src="logo.png" alt="Game Logo"></div>
-    <div class="contact-name" id="header-title"></div>
-    <div class="contact-name" id="header-subtitle"></div>
-    <div class="contact-status"><div class="online-dot"></div><span id="header-status">online</span></div>
-    <button class="restart-btn" id="restartBtn" type="button">↺ RESTART</button>
+
+  <div class="hero" id="hero" style="display:none">
+    <div class="logo-wrap" id="logoWrap">
+      <img id="logoImg" alt="Game Logo">
+    </div>
+    <div class="game-title" id="gameTitle"></div>
+    <div class="game-subtitle" id="gameSubtitle"></div>
+    <div class="tag-list" id="tagList"></div>
   </div>
 
-  <div class="chat" id="chat"></div>
-  <div class="input-area" id="input-area"></div>
+  <div class="content" id="content" style="display:none">
+    <div class="thumbnail-wrap" id="thumbWrap">
+      <img id="thumbImg" alt="">
+    </div>
+    <p class="description" id="description"></p>
+    <div class="price-row" id="priceRow" style="display:none">
+      <span class="price-label">Price</span>
+      <span class="price-value" id="priceValue"></span>
+    </div>
+    <div class="cta-wrap">
+      <a class="play-btn" id="playBtn" href="#">Start Game</a>
+    </div>
+  </div>
 
-<script src="util/engine.js"></script>
+  <div class="error" id="error"></div>
+
+  <script>
+    const GAMES_URL = 'data/games.json';
+
+    function showError(msg) {
+      document.getElementById('error').textContent = msg;
+      document.getElementById('error').style.display = '';
+    }
+
+    const params = new URLSearchParams(location.search);
+    const gameId = params.get('id') || params.get('game');
+
+    if (!gameId) {
+      showError('No game ID provided.');
+    } else {
+      fetch(GAMES_URL)
+        .then(r => r.json())
+        .then(data => {
+          const games = Array.isArray(data) ? data : (data.games || []);
+          const game = games.find(g => g.id === gameId);
+          if (!game) { showError('Game "' + gameId + '" not found.'); return; }
+
+          // Page title + favicon
+          document.title = game.name || gameId;
+          if (game.favicon) document.getElementById('favicon').href = game.favicon;
+
+          // Hero
+          document.getElementById('gameTitle').textContent = game.name || gameId;
+          if (game.subtitle) document.getElementById('gameSubtitle').textContent = game.subtitle;
+
+          // Tags
+          const tags = (game.tag || '').split(/[,;]+/).map(t => t.trim()).filter(Boolean);
+          const tagList = document.getElementById('tagList');
+          tags.forEach(t => {
+            const span = document.createElement('span');
+            span.className = 'tag';
+            span.textContent = t;
+            tagList.appendChild(span);
+          });
+
+          // Logo
+          if (game.logo) {
+            document.getElementById('logoImg').src = game.logo;
+            document.getElementById('logoWrap').classList.add('visible');
+          }
+
+          document.getElementById('hero').style.display = '';
+
+          // Thumbnail
+          if (game.thumbnail) {
+            document.getElementById('thumbImg').src = game.thumbnail;
+            document.getElementById('thumbWrap').classList.add('visible');
+          }
+
+          // Description
+          const desc = (game.description || '').trim();
+          if (desc) document.getElementById('description').textContent = desc;
+          else document.getElementById('description').style.display = 'none';
+
+          // Price
+          if (game.price) {
+            document.getElementById('priceValue').textContent = game.price;
+            document.getElementById('priceRow').style.display = '';
+          }
+
+          // Play button — points to SMS player
+          const playUrl = 'play.html?id=' + encodeURIComponent(game.id);
+          document.getElementById('playBtn').href = playUrl;
+
+          document.getElementById('content').style.display = '';
+        })
+        .catch(() => showError('Could not load game data.'));
+    }
+  </script>
 </body>
 </html>
