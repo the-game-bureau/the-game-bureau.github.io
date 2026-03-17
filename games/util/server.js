@@ -17,6 +17,12 @@ const MIME = {
   '.css':  'text/css',
   '.json': 'application/json',
   '.ico':  'image/x-icon',
+  '.png':  'image/png',
+  '.jpg':  'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif':  'image/gif',
+  '.svg':  'image/svg+xml',
 };
 
 http.createServer((req, res) => {

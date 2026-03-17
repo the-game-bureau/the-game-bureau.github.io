@@ -29,6 +29,7 @@
     /* ── Panel ── */
     .panel{background:var(--panel);border:2px solid var(--ink);display:flex;flex-direction:column;min-width:0;}
     .panel-head{padding:12px 16px;border-bottom:2px solid var(--ink);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+    .panel-foot{padding:12px 16px;border-top:2px solid var(--ink);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
     .panel-title{font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
     .panel-body{padding:0;overflow-y:auto;}
 
@@ -232,6 +233,13 @@
     .dirty-badge.visible{display:inline;}
     /* ── Undo toast ── */
     .undo-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:12px 16px;font-size:.82rem;letter-spacing:.03em;display:none;align-items:center;gap:12px;z-index:9999;border:1px solid #444;white-space:nowrap;}
+    .ctx-menu{position:fixed;background:#fff;border:2px solid var(--ink);z-index:9999;min-width:120px;display:none;flex-direction:column;}
+    .ctx-item{font-family:var(--sans);font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:8px 14px;cursor:pointer;user-select:none;color:var(--ink);}
+    .ctx-item:hover{background:var(--panel);}
+    .ctx-item.disabled{opacity:.35;pointer-events:none;}
+    .ctx-divider{border-top:1px solid rgba(17,17,17,.15);margin:4px 0;}
+    .ctx-item.ctx-danger{color:var(--err);}
+    .ctx-item.ctx-danger:hover{background:#fff0f0;}
     .undo-toast button{border:1px solid #fff;color:#fff;background:transparent;padding:4px 10px;font-size:.74rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;font-family:var(--sans);margin-top:0;width:auto;}
     .undo-toast button:hover{background:rgba(255,255,255,.15);}
   </style>
@@ -240,7 +248,7 @@
 
 <header class="page-header">
   <div class="bureau">The Game Bureau</div>
-  <div class="tool">Builder</div>
+  <div class="tool">Game Builder</div>
   <span id="globalSaveStatus" style="margin-left:auto;font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.6;"></span>
   <button class="btn primary" id="globalSaveBtn">Save</button>
   <button class="btn primary" id="g-publishBtn" style="display:none;">Publish</button>
@@ -263,12 +271,6 @@
   <div class="panel details-panel" id="detailsPanel">
     <div class="panel-head">
       <span class="panel-title" id="detailsTitle">Game Details</span>
-      <div style="display:flex;gap:5px;align-items:center;">
-        <span class="stop-action stop-copy" id="g-copyBtn" title="Copy game" style="display:none;"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="10" height="10" rx="2" ry="2"></rect><rect x="5" y="5" width="10" height="10" rx="2" ry="2"></rect></svg></span>
-        <span class="stop-action stop-paste disabled" id="g-pasteBtn" title="Paste game" style="display:none;"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="12" height="14" rx="2" ry="2"></rect><path d="M9 5V3h6v2"></path><path d="M9 11h6"></path><path d="M9 15h6"></path></svg></span>
-        <span class="stop-action stop-delete" id="g-deleteBtn" title="Delete game" style="display:none;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><rect x="6" y="6" width="12" height="14" rx="2" ry="2"/><path d="M10 10v7"/><path d="M14 10v7"/></svg></span>
-        <button class="btn danger" id="archiveBtn" style="display:none;">Archive</button>
-      </div>
     </div>
     <div class="panel-body" id="detailsBody">
 
@@ -307,7 +309,7 @@
           <img id="g-logo-preview" class="img-picker-preview" src="" alt="" style="display:none;">
           <div class="img-picker-row">
             <button type="button" class="btn img-pick-btn" onclick="document.getElementById('g-logo-file').click()">Choose File</button>
-            <input type="file" id="g-logo-file" accept="image/*" style="display:none;">
+            <input type="file" id="g-logo-file" accept="image/*,.webp" style="display:none;">
             <span class="img-picker-or">or</span>
             <input type="text" id="g-logo-url" placeholder="https://... or assets/logo.png" autocomplete="off">
           </div>
@@ -321,7 +323,7 @@
           <img id="g-thumbnail-preview" class="img-picker-preview" src="" alt="" style="display:none;">
           <div class="img-picker-row">
             <button type="button" class="btn img-pick-btn" onclick="document.getElementById('g-thumbnail-file').click()">Choose File</button>
-            <input type="file" id="g-thumbnail-file" accept="image/*" style="display:none;">
+            <input type="file" id="g-thumbnail-file" accept="image/*,.webp" style="display:none;">
             <span class="img-picker-or">or</span>
             <input type="text" id="g-thumbnail-url" placeholder="https://... or assets/thumbnail.png" autocomplete="off">
           </div>
@@ -330,8 +332,17 @@
       </div>
 
       <div class="field">
-        <label for="g-favicon">Favicon</label>
-        <input type="text" id="g-favicon" placeholder="index.ico" autocomplete="off">
+        <label>Favicon</label>
+        <div class="img-picker-wrap">
+          <img id="g-favicon-preview" class="img-picker-preview" src="" alt="" style="display:none;">
+          <div class="img-picker-row">
+            <button type="button" class="btn img-pick-btn" onclick="document.getElementById('g-favicon-file').click()">Choose File</button>
+            <input type="file" id="g-favicon-file" accept="image/*,.ico" style="display:none;">
+            <span class="img-picker-or">or</span>
+            <input type="text" id="g-favicon-url" placeholder="https://... or index.ico" autocomplete="off">
+          </div>
+          <input type="hidden" id="g-favicon">
+        </div>
       </div>
 
       <div class="field" id="g-shareField" style="display:none;">
@@ -385,91 +396,173 @@
   Stop deleted. <button id="s-undoDeleteBtn" type="button">Undo</button>
 </div>
 
+<div id="gameCtxMenu" class="ctx-menu">
+  <div class="ctx-item" id="ctxDuplicate">Duplicate</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" id="ctxArchive">Archive</div>
+  <div class="ctx-item ctx-danger" id="ctxDelete">Delete</div>
+</div>
+
 <script>
+// ══════════════════════════════════════════════════════════════════════════════
+// THE GAME BUREAU — GAME BUILDER
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// What this file is:
+//   A local-only admin tool for building SMS-based scavenger hunt / walking tour
+//   games on The Game Bureau platform.
+//
+// How it works:
+//   This page is served from the /games/private/ directory and requires a local
+//   Node.js server (server.js, typically at localhost:3000) to be running.
+//   The server exposes POST /games and POST /stops endpoints that write directly
+//   to games.json and stops.json in the repository.  The "Publish" button calls
+//   POST /publish which runs a git commit + push to deploy to GitHub Pages.
+//
+// How it fits into the project:
+//   - games.json   — catalog of all game metadata (name, id, tags, images, etc.)
+//   - stops.json   — all stops across all games (messages, reply logic, routing)
+//   - go.html      — the public player page, reads from the JSON files at runtime
+//   - play.html    — alternate player entry point
+//
+// Panels (left → right):
+//   1. Games        — list of all games; click to select, right-click for actions
+//   2. Game Details — edit metadata for the selected game
+//   3. Game Stop Order (Map) — drag-and-drop stop ordering within a game route
+//   4. Stops        — master list of all stops; drag to reorder or into the route
+//   5. Stop Details — bubble editor for the selected stop's messages and replies
+//
+// NOTE: This file should NOT be opened directly via the filesystem (file://).
+//   Always open it through the local dev server so API calls succeed.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Detect whether we are running locally so we can show/enable the API and Publish button.
+// When deployed to GitHub Pages IS_LOCAL will be false and the builder is inaccessible.
 const IS_LOCAL = ['localhost','127.0.0.1'].includes(location.hostname);
 const API = IS_LOCAL ? 'http://localhost:3000' : null;
-const SHARE_BASE = 'https://the-game-bureau.github.io/the-game-bureau/games/go.html?id=';
+// Base URL for shareable player links shown in the Game Details panel
+const SHARE_BASE = 'https://the-game-bureau.github.io/the-game-bureau/games/index.html?id=';
+// Preset genre/category tags that appear as pills in the game details form
 const ALL_TAGS = ['Mystery','Puzzle','SMS','Walking Tour','Sports','History','Food','Adventure','Family','Conspiracy','Trivia','Horror','Romance','Comedy','Music','Culture','Night Life','City Tour','Scavenger Hunt','New Orleans'];
 
-// ── Game state ────────────────────────────────
-let games = [];
-let selectedIndex = -1;
-let selectedStopIndex = -1;
-let selectedTags = new Set();
-let isNew = false;
-let allTags = [...ALL_TAGS];
+// ══ STATE VARIABLES ══════════════════════════════════════════════════════════
+let games = [];            // Full array of game objects loaded from /games (games.json)
+let selectedIndex = -1;   // Index into `games` of the currently selected game (-1 = none)
+let selectedStopIndex = -1; // Index into `state.stops` of the currently selected stop (-1 = none)
+let selectedTags = new Set(); // Tags that are toggled ON for the currently selected game
+let isNew = false;         // True when a new game form is open but not yet saved
+let allTags = [...ALL_TAGS]; // Working tag list — extended when the user adds a custom tag
 
 // ══════════════════════════════════════════════
 // BUBBLE EDITOR — DATA / CONSTANTS
 // ══════════════════════════════════════════════
+
+// Skeleton structure written to stops.json when none exists yet
 const DEFAULT_DOC = {
   _comment:'File: stops.json | Purpose: Source-of-truth game stops data.',
   header:{title:'Scavenger Hunt',subtitle:'Mission Control',logoUrl:'logo.png',logoAlt:'Game Logo',faviconUrl:'index.ico',pageTitle:'WALKING TOUR'},
   variables:[],routes:[],stops:[]
 };
+// Random reply suggestions auto-filled into new correct/incorrect reply bubbles
 const CORRECT_BUBBLE_SUGGESTIONS=['Correct. Nice work.','Great answer. Moving on.','You got it.','Perfect. Next clue unlocked.','Exactly right.','Right on target.','Nice catch. Continue.','That is correct.','Excellent. Proceed.','Yes. Keep going.'];
 const INCORRECT_BUBBLE_SUGGESTIONS=['Not quite. Try again.','Close, but not correct.','Incorrect. Give it another shot.','That answer does not match.','Nope. Try a different answer.','Almost. Re-read the clue.','Not yet. Check your spelling.','That is not the one.','Incorrect. One more try.','Try again before moving on.'];
+// Attach builder runtime options to the default doc header so they persist in stops.json
 DEFAULT_DOC.header.builderOptions={typingDelay:600,bubblePause:150,defaultPlaceholder:'Type here...',correctReplies:CORRECT_BUBBLE_SUGGESTIONS.slice(),incorrectReplies:INCORRECT_BUBBLE_SUGGESTIONS.slice()};
 
-let bubbleIdCounter = 1;
-let state = Object.assign({}, DEFAULT_DOC, { stops: [] });
-let loadedStopsSnapshot = null;
-let copiedStop = null;
-let copiedGame = null;
-let undoDeleteTimer = null, deletedStopUndo = null;
-let isNewStop = false;
+let bubbleIdCounter = 1;          // Monotonic counter used when creating stable bubble IDs
+let state = Object.assign({}, DEFAULT_DOC, { stops: [] }); // Live in-memory document — mirrors what will be written to stops.json
+let loadedStopsSnapshot = null;   // Deep-clone of state at last save; compared against current state to detect unsaved changes
+let copiedStop = null;            // Holds a deep-cloned stop object for copy/paste (currently unused in UI but wired up)
+let undoDeleteTimer = null, deletedStopUndo = null; // Timer handle and saved stop object for the 5-second undo toast
+let isNewStop = false;            // True while a stop has been created locally but not yet saved to the server
 
-// status shim (bubble editor uses these)
+// ══ STATUS BAR HELPERS ════════════════════════════════════════════════════════
+
+// Sets the stop-details status bar text and color class (ok / warn / err)
 function setStatus(msg, type) {
   const el = document.getElementById('sd-status');
   if(!el) return;
   el.textContent = msg;
+  // Normalise 'error' → 'err' to match the CSS class names
   el.className = 'status-bar' + (type ? ' ' + (type === 'error' ? 'err' : type) : '');
 }
 let _flashTimer = null;
+// Displays a status message that automatically clears after `ms` milliseconds
 function flashStatus(msg, type, ms) {
   if(_flashTimer) clearTimeout(_flashTimer);
   setStatus(msg, type || 'ok');
   _flashTimer = setTimeout(() => { setStatus(''); _flashTimer = null; }, ms || 2000);
 }
+// Returns an array of stop IDs that appear more than once (case-insensitive)
 function findDuplicates(values){const seen=new Set(),dupes=new Set();values.forEach(v=>{if(seen.has(v))dupes.add(v);else seen.add(v);});return Array.from(dupes);}
+// Collects all data-integrity warnings for the current stop set (duplicate IDs, multiple CTAs)
 function getValidationWarnings(){const warnings=[];const snp=state.stops.map(s=>String((s&&s.id)||'').trim()).filter(Boolean).map(name=>({raw:name,key:name.toLowerCase()}));const dupKeys=findDuplicates(snp.map(p=>p.key));if(dupKeys.length){const dn=dupKeys.map(k=>{const f=snp.find(p=>p.key===k);return f?f.raw:k;});warnings.push('Two stops cannot have the same name: '+dn.join(', '));}state.stops.forEach(stop=>{const cc=Array.isArray(stop.messages)?stop.messages.filter(b=>b&&b.callToAction).length:0;if(cc>1)warnings.push('Stop \u201c'+stop.id+'\u201d has '+cc+' call-to-action bubbles \u2014 only one is allowed per stop.');});return warnings;}
+// Re-renders the yellow warning banner above the stop detail panel; hides it when there are no warnings
 function renderWarnings(){const el=document.getElementById('s-warnings');if(!el)return[];const w=getValidationWarnings();if(!w.length){el.style.display='none';el.innerHTML='';return w;}el.style.display='';el.innerHTML='<strong>Validation Warnings</strong><ul>'+w.map(x=>'<li>'+x+'</li>').join('')+'</ul>';return w;}
 
 // ══════════════════════════════════════════════
 // BUBBLE EDITOR — UTILITIES
 // ══════════════════════════════════════════════
+
+// Simple deep-clone via JSON round-trip (safe for plain data objects with no functions/Date)
 function deepClone(v) { return JSON.parse(JSON.stringify(v)); }
+// Splits a textarea value into an array of answers, accepting newline, comma, or semicolon separators
 function parseAnswers(text) { return String(text||'').split(/\n|,|;/g).map(s=>s.trim()).filter(Boolean); }
+// Normalises a string for loose answer matching (lowercase, strip punctuation and whitespace)
 function norm(s) { return String(s||'').toLowerCase().replace(/[$,.\s]/g,''); }
+// Converts an answers array back to a newline-separated string for textarea display
 function answersToText(arr) { return Array.isArray(arr) ? arr.join('\n') : ''; }
+// Picks a random item from a suggestion list; returns empty string if the list is empty
 function pickRandomSuggestion(list) { if(!Array.isArray(list)||!list.length)return''; return list[Math.floor(Math.random()*list.length)]; }
+// Resizes a textarea to fit its content, respecting any CSS min-height
 function autoSizeTextarea(el) { if(!el)return; const m=parseInt((window.getComputedStyle(el).minHeight||'0').replace('px',''),10)||0; el.style.height='auto'; el.style.height=Math.max(el.scrollHeight,m)+'px'; }
+// Wires up auto-resize on input events and performs an initial resize after the next paint
 function bindAutoSizeTextarea(el) { if(!el)return; el.addEventListener('input',()=>autoSizeTextarea(el)); requestAnimationFrame(()=>autoSizeTextarea(el)); }
+// Generates a stable, unique bubble ID using timestamp + monotonic counter
 function createBubbleId() { return 'bubble_'+Date.now().toString(36)+'_'+(bubbleIdCounter++); }
+// Ensures a bubble object has a bubbleId, creating one if missing; returns the ID string
 function ensureBubbleId(bubble) { if(!bubble||typeof bubble!=='object')return''; if(!String(bubble.bubbleId||'').trim())bubble.bubbleId=createBubbleId(); return String(bubble.bubbleId); }
+// Strips HTML tags from bubble content for use in plain-text previews
 function stripHtmlPreview(text) { return String(text||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(); }
+// Replaces all bubbleIds in a stop's messages array with fresh IDs (used after copy/paste)
 function reseedStopBubbleIds(stop) { if(!stop||!Array.isArray(stop.messages))return; stop.messages.forEach(b=>{if(!b||typeof b!=='object')return; b.bubbleId=createBubbleId();}); }
+// WeakMap-based UID for DOM key tracking — avoids mutating bubble objects with transient display IDs
 const bubbleUidMap=new WeakMap(); let bubbleUidCounter=1;
+// Returns a stable render-time UID for a bubble object without touching the object's own properties
 function getBubbleUid(bubble) { if(!bubble||typeof bubble!=='object')return'bubble-0'; let id=bubbleUidMap.get(bubble); if(!id){id='bubble-'+(bubbleUidCounter++);bubbleUidMap.set(bubble,id);} return id; }
+// Converts arbitrary text into a safe JS variable key name, falling back to `fallback`
 function toVarKey(text,fallback) { const c=String(text||'').replace(/[^\w]+/g,'_').replace(/^_+|_+$/g,''); return c||String(fallback||'playerAnswer'); }
+// Ensures state.header.builderOptions is present and fully populated with defaults
 function ensureBuilderOptionsHeader(h) { if(!h||typeof h!=='object')return DEFAULT_DOC.header.builderOptions; if(!h.builderOptions||typeof h.builderOptions!=='object')h.builderOptions={}; const bo=h.builderOptions; if(typeof bo.typingDelay!=='number')bo.typingDelay=600; if(typeof bo.bubblePause!=='number')bo.bubblePause=150; if(typeof bo.defaultPlaceholder!=='string')bo.defaultPlaceholder='Type here...'; if(!Array.isArray(bo.correctReplies))bo.correctReplies=CORRECT_BUBBLE_SUGGESTIONS.slice(); if(!Array.isArray(bo.incorrectReplies))bo.incorrectReplies=INCORRECT_BUBBLE_SUGGESTIONS.slice(); return bo; }
+// Returns the configured correct-reply suggestion list, falling back to the built-in defaults
 function getCorrectReplySuggestions() { const opts=ensureBuilderOptionsHeader(state.header),list=(opts.correctReplies||[]).map(x=>String(x).trim()).filter(Boolean); return list.length?list:CORRECT_BUBBLE_SUGGESTIONS; }
+// Returns the configured incorrect-reply suggestion list, falling back to the built-in defaults
 function getIncorrectReplySuggestions() { const opts=ensureBuilderOptionsHeader(state.header),list=(opts.incorrectReplies||[]).map(x=>String(x).trim()).filter(Boolean); return list.length?list:INCORRECT_BUBBLE_SUGGESTIONS; }
+// Scans all stops and bubbles for storesAs values and returns a deduplicated list of variable names
 function getCurrentVariableNames() { const nv=raw=>{const s=String(raw||'').trim(),w=s.match(/^\{\{\s*([A-Za-z_]\w*)\s*\}\}$|^\{\s*([A-Za-z_]\w*)\s*\}$/);return w?(w[1]||w[2]):s;}; const names=[]; (state.stops||[]).forEach(stop=>{const key=nv((stop&&stop.playerReply&&stop.playerReply.storesAs)||''); if(key)names.push(key); (Array.isArray(stop&&stop.messages)?stop.messages:[]).forEach(b=>{const bk=nv((b&&b.storesAs)||''); if(bk)names.push(bk);}); }); return Array.from(new Set(names)); }
+// Builds the hint text shown below HTML text areas listing all known {variableName} tokens
 function getHtmlVariableHintText() { const n=getCurrentVariableNames(); return n.length?'HTML ok. Use {variableName} syntax. Current variables: '+n.map(x=>'{'+x+'}').join(', ')+'.':'HTML ok. Use {variableName} syntax. Current variables: none yet.'; }
+// Refreshes all rendered variable hint paragraphs in the DOM (called when storesAs fields change)
 function updateHtmlVariableHints() { document.querySelectorAll('.html-variable-hint').forEach(el=>el.textContent=getHtmlVariableHintText()); }
+// Creates a <p> hint element with the current variable list for insertion below a text bubble editor
 function createHtmlVariableHint() { const h=document.createElement('p'); h.className='field-hint tight html-variable-hint'; h.textContent=getHtmlVariableHintText(); return h; }
 
 // ══════════════════════════════════════════════
 // BUBBLE EDITOR — ENSURE FUNCTIONS
 // ══════════════════════════════════════════════
+// These functions normalise raw JSON data into the exact shape the editor expects,
+// filling in defaults and coercing stale field names from older stops.json formats.
+
+// Normalises a single bubble object, coercing unknown replyExpected / msgType values to safe defaults.
+// Also back-fills callToAction=true whenever a bubble expects a reply (covers the legacy `red`/`cmd` fields).
 function ensureBubble(b) {
   if(!b||typeof b!=='object')return{bubbleId:createBubbleId(),html:'',callToAction:false,forAnswer:'',placeholder:'',bottomAdded:false,msgType:'text',src:'',alt:'',label:'',href:'',replyExpected:'no',answers:[],replyCorrect:'',replyIncorrect:'',storesAs:'',replyResponse:''};
   const re=['no','word','any','multi'].includes(String(b.replyExpected||'no').toLowerCase())?String(b.replyExpected||'no').toLowerCase():'no';
   const mt=['text','image','video','button','pay'].includes(String(b.msgType||'text').toLowerCase())?String(b.msgType||'text').toLowerCase():'text';
   return{bubbleId:String(b.bubbleId||createBubbleId()),html:String(b.html||''),callToAction:re!=='no'?true:!!(b.callToAction||b.red||b.cmd),forAnswer:String(b.forAnswer||''),placeholder:String(b.placeholder||''),bottomAdded:!!b.bottomAdded,msgType:mt,src:String(b.src||''),alt:String(b.alt||''),label:String(b.label||''),href:String(b.href||''),replyExpected:re,answers:Array.isArray(b.answers)?b.answers.map(String):[],replyCorrect:String(b.replyCorrect||''),replyIncorrect:String(b.replyIncorrect||''),storesAs:String(b.storesAs||''),replyResponse:String(b.replyResponse||'')};
 }
+// Normalises a playerReply object; also handles the legacy `action` field name.
+// For 'any' reply type, preserves storesAs so the player's answer can be used in later bubbles.
 function ensurePlayerReply(r) {
   if(!r||typeof r!=='object')return{type:'text',placeholder:'',answers:[],setsTeam:false,goTo:'',correct:[],incorrect:[]};
   const allBubbles=arr=>Array.isArray(arr)?arr.map(ensureBubble):[];
@@ -478,9 +571,11 @@ function ensurePlayerReply(r) {
   if(type==='any'){base.placeholder=String(r.placeholder||'');base.storesAs=String(r.storesAs||'');return base;}
   base.placeholder=String(r.placeholder||'');base.answers=Array.isArray(r.answers)?r.answers.map(x=>String(x)):[];base.setsTeam=!!r.setsTeam;base.anytime=!!r.anytime;base.goTo=String(r.goTo||'');return base;
 }
+// Normalises a stop; also supports the legacy `reveal` field (old name for `messages`)
 function ensureStop(s,i) {
   return{id:String((s&&s.id)||('stop-'+(i+1))),messages:Array.isArray(s&&s.messages)?s.messages.map(ensureBubble):Array.isArray(s&&s.reveal)?s.reveal.map(ensureBubble):[],playerReply:ensurePlayerReply((s&&s.playerReply)||(s&&s.action)||null),archived:!!(s&&s.archived)};
 }
+// Validates and normalises a full stops.json document object into the shape the editor requires
 function ensureDoc(doc) {
   if(!doc||typeof doc!=='object'||Array.isArray(doc))throw new Error('Top-level JSON must be an object.');
   const out=deepClone(DEFAULT_DOC);
@@ -496,8 +591,12 @@ function ensureDoc(doc) {
 // ══════════════════════════════════════════════
 // BUBBLE EDITOR — STOP HELPERS
 // ══════════════════════════════════════════════
+
+// Finds the next available auto-increment number for a NEW-N stop ID (skips over any already in use)
 function nextStopNumber() { const ex=new Set(state.stops.map(s=>String(s.id||'').toUpperCase())); let n=state.stops.length+1; while(ex.has('NEW-'+n))n++; return n; }
+// Creates a blank stop with a single empty text bubble and a default text-reply scaffold
 function createEmptyStop() { return{id:'NEW-'+nextStopNumber(),messages:[{bubbleId:createBubbleId(),msgType:'text',html:'',callToAction:false,bottomAdded:false}],playerReply:{type:'text',placeholder:'',answers:[],setsTeam:false,goTo:'',correct:[],incorrect:[]}}; }
+// Returns the reply-type label and CSS class for a stop's colored badge in the stops list
 function getReplyTag(stop) {
   const pr=stop&&stop.playerReply;
   if(!pr)return{label:'NOREPLY',cls:'reply-tag-noreply'};
@@ -507,35 +606,55 @@ function getReplyTag(stop) {
   if(pr.type==='text'&&Array.isArray(pr.answers)&&pr.answers.length)return{label:'WORDREPLY',cls:'reply-tag-wordreply'};
   return{label:'NOREPLY',cls:'reply-tag-noreply'};
 }
+// True if the stop has at least one bubble marked as a call-to-action (red outline)
 function hasCallToActionBubble(stop){return!!(stop&&Array.isArray(stop.messages)&&stop.messages.some(b=>b&&b.callToAction));}
+// True if the stop has any bubble sent from the player direction (legacy data check)
 function hasFromPlayerBubble(stop){return!!(stop&&Array.isArray(stop.messages)&&stop.messages.some(b=>b&&b.direction==='fromPlayer'));}
+// Sets the playerReply type on a stop, initialising all required sub-arrays; for 'any' type,
+// auto-generates a storesAs variable name from the stop ID if one hasn't been set yet
 function setPlayerReplyType(stop,nextType){if(!stop)return;if(!stop.playerReply||typeof stop.playerReply!=='object')stop.playerReply=ensurePlayerReply(null);stop.playerReply.type=nextType==='any'?'any':'text';if(!Array.isArray(stop.playerReply.answers))stop.playerReply.answers=[];if(!Array.isArray(stop.playerReply.correct))stop.playerReply.correct=[];if(!Array.isArray(stop.playerReply.incorrect))stop.playerReply.incorrect=[];if(typeof stop.playerReply.storesAs!=='string')stop.playerReply.storesAs='';if(typeof stop.playerReply.placeholder!=='string')stop.playerReply.placeholder='';if(stop.playerReply.type==='any'&&!String(stop.playerReply.storesAs||'').trim())stop.playerReply.storesAs=toVarKey(stop.id+'_incoming','playerAnswer');}
+// Ensures a stop has at least one correct and (optionally) one incorrect reply bubble,
+// seeding them with random suggestion text if the arrays are empty
 function ensureReplyScaffoldForCallToAction(stop,options){const opts=options||{},inc=opts.includeIncorrect!==false;if(!stop||!stop.playerReply||typeof stop.playerReply!=='object')stop.playerReply={type:'text',placeholder:'',answers:[],setsTeam:false,goTo:'',correct:[],incorrect:[]};if(!Array.isArray(stop.playerReply.correct))stop.playerReply.correct=[];if(!Array.isArray(stop.playerReply.incorrect))stop.playerReply.incorrect=[];if(!stop.playerReply.correct.length)stop.playerReply.correct.push({html:pickRandomSuggestion(getCorrectReplySuggestions()),callToAction:false,forAnswer:''});if(inc&&!stop.playerReply.incorrect.length)stop.playerReply.incorrect.push({html:pickRandomSuggestion(getIncorrectReplySuggestions()),callToAction:true,forAnswer:''});}
 
 // ══════════════════════════════════════════════
 // BUBBLE EDITOR — toDoc / dirty
 // ══════════════════════════════════════════════
+
+// Serialises the current in-memory `state` into the exact JSON shape written to stops.json.
+// Only includes variables/routes arrays when they are non-empty to keep the file clean.
 function toDoc() {
   const doc={_comment:state._comment||DEFAULT_DOC._comment,header:Object.assign({},DEFAULT_DOC.header,state.header||{}),stops:state.stops.map((s,i)=>{const n=ensureStop(s,i);return{id:n.id,messages:n.messages,playerReply:n.playerReply,archived:n.archived};})};
   if(Array.isArray(state.variables)&&state.variables.length)doc.variables=deepClone(state.variables);
   if(Array.isArray(state.routes)&&state.routes.length)doc.routes=deepClone(state.routes);
+  // Keep pageTitle in sync with the header title so the player tab reads correctly
   doc.header.pageTitle=doc.header.title||'';
   return doc;
 }
+// Compares two document objects by their JSON representation (order-sensitive)
 function docsEqual(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+// Returns true if the current state differs from the last-saved snapshot.
+// `loadedStopsSnapshot` is null on first load, so we treat that as clean until the user edits.
 function isDirty(){if(!loadedStopsSnapshot)return false;return!docsEqual(toDoc(),loadedStopsSnapshot);}
+// Called after any edit to re-evaluate and show/hide the UNSAVED badge
 function markDirty(){renderDirtyBadge();}
+// Toggles the UNSAVED badge visibility based on whether isDirty() is true
 function renderDirtyBadge(){const badge=document.getElementById('s-dirtyBadge');if(!badge)return;badge.classList.toggle('visible',isDirty());}
 
 // ══════════════════════════════════════════════
 // BUBBLE EDITOR — UNDO TOAST
 // ══════════════════════════════════════════════
+
+// Shows the "Stop deleted. Undo" toast and stores the deleted stop so it can be restored.
+// Auto-dismisses after 5 seconds if the user does not click Undo.
 function showUndoToast(stopObj,index){deletedStopUndo={stop:stopObj,index};if(undoDeleteTimer)clearTimeout(undoDeleteTimer);const toast=document.getElementById('s-undoToast');if(toast)toast.style.display='flex';undoDeleteTimer=setTimeout(dismissUndoToast,5000);}
+// Clears the undo state and hides the toast (called on dismiss or after the timer fires)
 function dismissUndoToast(){if(undoDeleteTimer){clearTimeout(undoDeleteTimer);undoDeleteTimer=null;}deletedStopUndo=null;const toast=document.getElementById('s-undoToast');if(toast)toast.style.display='none';}
 
 document.getElementById('s-undoDeleteBtn').addEventListener('click', () => {
   if(!deletedStopUndo) return;
   const {stop, index} = deletedStopUndo;
+  // Re-insert the stop at its original position so the list order is preserved
   state.stops.splice(index, 0, stop);
   selectedStopIndex = index;
   dismissUndoToast();
@@ -545,9 +664,16 @@ document.getElementById('s-undoDeleteBtn').addEventListener('click', () => {
 // ══════════════════════════════════════════════
 // BUBBLE EDITOR — RENDER BUBBLES
 // ══════════════════════════════════════════════
+
+// Converts a YouTube watch/short/embed URL into a canonical embed URL; returns null for non-YouTube URLs
 function getYouTubeEmbedUrl(src){const s=String(src||'').trim(),short=s.match(/youtu\.be\/([A-Za-z0-9_-]{11})/);if(short)return'https://www.youtube.com/embed/'+short[1];const watch=s.match(/[?&]v=([A-Za-z0-9_-]{11})/);if(watch)return'https://www.youtube.com/embed/'+watch[1];const embed=s.match(/youtube\.com\/embed\/([A-Za-z0-9_-]{11})/);if(embed)return'https://www.youtube.com/embed/'+embed[1];return null;}
+// Generates the HTML string stored in bubble.html based on the bubble's msgType and media fields.
+// Called whenever a media field changes so the stored HTML stays in sync with the form inputs.
 function generateBubbleHtml(bubble){const t=bubble.msgType||'text';if(t==='image')return'<img src="'+(bubble.src||'').replace(/"/g,'&quot;')+'" alt="'+(bubble.alt||'').replace(/"/g,'&quot;')+'" style="max-width:100%;">';if(t==='video'){const yt=getYouTubeEmbedUrl(bubble.src||'');if(yt)return'<iframe src="'+yt.replace(/"/g,'&quot;')+'" frameborder="0" allowfullscreen style="width:100%;aspect-ratio:16/9;display:block;"></iframe>';return'<video src="'+(bubble.src||'').replace(/"/g,'&quot;')+'" controls style="max-width:100%;"></video>';}if(t==='button')return'<a href="'+(bubble.href||'#').replace(/"/g,'&quot;')+'" class="action-btn">'+(bubble.label||'Button')+'</a>';if(t==='pay')return'<a href="'+(bubble.href||'#').replace(/"/g,'&quot;')+'" class="action-btn pay-btn">'+(bubble.label||'CLICK HERE TO BUY')+'</a>';return bubble.html||'';}
 
+// Renders an array of bubble objects into `container` as interactive editor cards.
+// `listKey` controls which suggestion set to use ('messages', 'correct', or 'incorrect').
+// `stopRef` is the parent stop object, needed so remove buttons can splice from the right array.
 function renderBubbles(container, bubbles, listKey, stopRef) {
   container.innerHTML=''; container.classList.add('bubble-list');
   bubbles.forEach((bubble, idx) => {
@@ -616,6 +742,8 @@ function renderBubbles(container, bubbles, listKey, stopRef) {
   });
 }
 
+// Renders the simplified "anytime" stop editor — a trigger-keyword input and a single reply bubble.
+// Anytime stops respond to a player's keyword at any point during the game, not just at a specific step.
 function renderAnytimeEditorInto(body, stop) {
   const pr=stop.playerReply||(stop.playerReply=ensurePlayerReply(null));pr.anytime=true;
   const triggerRow=document.createElement('div');triggerRow.className='anytime-bubble-row';
@@ -635,6 +763,8 @@ function renderAnytimeEditorInto(body, stop) {
   replyBubble.appendChild(replyInput);replyPreview.appendChild(replyBubble);replyRow.appendChild(replyLbl);replyRow.appendChild(replyPreview);body.appendChild(replyRow);
 }
 
+// Renders the full stop editor: the outgoing message bubbles, an Add Bubble button,
+// and (for 'any' reply type) a variable-selector for storing the player's answer.
 function renderStopEditorInto(body, stop) {
   const pr=stop&&stop.playerReply?stop.playerReply:ensurePlayerReply(null);stop.playerReply=pr;
   if(hasCallToActionBubble(stop)||hasFromPlayerBubble(stop))setPlayerReplyType(stop,pr.type);
@@ -660,11 +790,15 @@ function renderStopEditorInto(body, stop) {
   }
 }
 
+// Returns the currently selected stop object from state, or null if no stop is selected
 function getSelectedStop() { if(selectedStopIndex<0||selectedStopIndex>=state.stops.length)return null; return state.stops[selectedStopIndex]; }
 
 // ══════════════════════════════════════════════
 // BUBBLE EDITOR — STOP DETAIL PANEL
 // ══════════════════════════════════════════════
+
+// Rebuilds the entire stop detail panel for the currently selected stop index.
+// Renders either the anytime editor or the full bubble editor depending on stop type.
 function s_renderStopDetail() {
   const detailEl = document.getElementById('s-stopDetail');
   const panel = document.getElementById('stopDetailsPanel');
@@ -711,6 +845,7 @@ function s_renderStopDetail() {
   detailEl.appendChild(body);
 }
 
+// Full re-render of all stops-related UI: the list, the detail panel, warnings, and the dirty badge
 function s_renderAll() {
   renderStopsList();
   s_renderStopDetail();
@@ -721,6 +856,9 @@ function s_renderAll() {
 // ══════════════════════════════════════════════
 // SAVE STOPS
 // ══════════════════════════════════════════════
+
+// POSTs the full stops document to the local server, then updates the snapshot so isDirty() resets.
+// Note: the global Save button calls saveAll() instead, which saves both games and stops together.
 async function saveStops() {
   try {
     const res = await fetch(API + '/stops', {
@@ -729,6 +867,7 @@ async function saveStops() {
       body: JSON.stringify(toDoc())
     });
     if(!res.ok) throw new Error('Server error ' + res.status);
+    // Update the snapshot so the dirty badge clears
     loadedStopsSnapshot = deepClone(toDoc());
     isNewStop = false;
     flashStatus('Saved.', 'ok');
@@ -739,6 +878,8 @@ async function saveStops() {
 }
 
 // ── Archive stop ──────────────────────────────
+// Toggles the stop's archived flag and immediately saves to the server.
+// On failure, reverts the flag so state stays consistent with what's on disk.
 document.getElementById('s-archiveBtn').addEventListener('click', async () => {
   if(selectedStopIndex < 0 || selectedStopIndex >= (state.stops||[]).length) return;
   const stop = state.stops[selectedStopIndex];
@@ -754,11 +895,14 @@ document.getElementById('s-archiveBtn').addEventListener('click', async () => {
     document.getElementById('s-archiveBtn').textContent = stop.archived ? 'Unarchive' : 'Archive';
     s_renderAll();
   } catch(e) {
+    // Revert the optimistic toggle if the save failed
     stop.archived = !stop.archived;
   }
 });
 
 // ── New stop ──────────────────────────────────
+// Creates a blank stop, appends it to state.stops, and opens it for editing.
+// isNewStop prevents the Archive button from showing until the stop is first saved.
 document.getElementById('s-newBtn').addEventListener('click', () => {
   const stop = createEmptyStop();
   state.stops.push(stop);
@@ -770,16 +914,30 @@ document.getElementById('s-newBtn').addEventListener('click', () => {
 // ══════════════════════════════════════════════
 // MAP / ROUTE
 // ══════════════════════════════════════════════
-let r_dragging = null, r_flashTimer = null;
+// The Map panel shows the ordered list of stops assigned to the selected game.
+// Stops are dragged from the Stops panel into this panel to add them to a route.
+// Within the panel, stops can be reordered by dragging. Anytime stops always sort to the top.
 
+let r_dragging = null;  // Tracks the route item currently being dragged for in-panel reorder
+let r_flashTimer = null; // Timer for auto-clearing the route status bar message
+
+// Returns the currently selected game object, or null if none is selected
 function r_currentGame() { return selectedIndex >= 0 ? games[selectedIndex] : null; }
+// Returns true if the stop with the given ID is an anytime stop (responds to a keyword globally)
 function r_isAnytime(stopId) { const s=(state.stops||[]).find(x=>x&&x.id===stopId); return!!(s&&s.playerReply&&s.playerReply.anytime); }
+// Returns an ANYTIME badge HTML string for anytime stops, or empty string for regular stops
 function r_anytimeTag(stopId) { return r_isAnytime(stopId)?'<span class="anytime-tag">ANYTIME</span>':''; }
+// Briefly sets the route panel status bar and clears it after 2.5 seconds
 function r_setStatus(msg,type) { if(r_flashTimer)clearTimeout(r_flashTimer); const el=document.getElementById('r-status'); el.textContent=msg; el.className='r-status'+(type?' '+type:''); if(msg)r_flashTimer=setTimeout(()=>{el.textContent='';el.className='r-status';},2500); }
+// Clears all drop-before/drop-after indicators from route items
 function r_clearDropIndicators() { document.querySelectorAll('.r-stop-item').forEach(el=>el.classList.remove('drop-before','drop-after')); }
+// Calculates where to insert a dragged item based on cursor Y position (inserts above the midpoint)
 function r_getInsertionIndex(items,clientY) { for(let i=0;i<items.length;i++){const r=items[i].getBoundingClientRect();if(clientY<r.top+r.height/2)return i;}return items.length; }
+// Updates the visual drop indicator line during a drag operation
 function r_updateDropIndicator(items,clientY) { items.forEach(el=>el.classList.remove('drop-before','drop-after')); const idx=r_getInsertionIndex(items,clientY); if(idx<items.length)items[idx].classList.add('drop-before'); else if(items.length)items[items.length-1].classList.add('drop-after'); }
+// Re-sorts a game's stop array so anytime stops always appear before regular stops in the route
 function r_sortRouteAnytimeFirst(game) { if(!game||!Array.isArray(game.stops))return; const at=game.stops.filter(id=>r_isAnytime(id)),reg=game.stops.filter(id=>!r_isAnytime(id)); game.stops=[...at,...reg]; }
+// Adds a stop to the current game's route; anytime stops are inserted before the first regular stop
 function r_addStop(stopId) {
   const game=r_currentGame(); if(!game)return;
   if(!Array.isArray(game.stops))game.stops=[];
@@ -787,6 +945,7 @@ function r_addStop(stopId) {
   else game.stops.push(stopId);
   r_renderRoute();
 }
+// Rebuilds the route panel DOM from the selected game's stops array
 function r_renderRoute() {
   const zone=document.getElementById('r-dropZone');
   const game=r_currentGame();
@@ -808,11 +967,17 @@ function r_renderRoute() {
     zone.appendChild(item);
   });
 }
+// IIFE: wires up drag-and-drop event handlers for the route drop zone.
+// Handles two distinct drag sources:
+//   1. Reordering within the route (r_dragging is set) — uses text/x-stop-index
+//   2. Adding a stop from the Stops list — uses text/x-stop-id (set in renderStopsList)
 (()=>{
   const zone=document.getElementById('r-dropZone');
   zone.addEventListener('dragover',e=>{
     const types=Array.from(e.dataTransfer.types);
+    // In-panel reorder: show precise drop indicator line
     if(r_dragging!=null){e.preventDefault();const items=Array.from(zone.querySelectorAll('.r-stop-item:not(.dragging)'));r_updateDropIndicator(items,e.clientY);}
+    // Cross-panel add: highlight the entire drop zone
     else if(types.includes('text/x-stop-id')&&selectedIndex>=0){e.preventDefault();zone.classList.add('drag-over');}
   });
   zone.addEventListener('dragleave',e=>{if(!zone.contains(e.relatedTarget)){zone.classList.remove('drag-over');r_clearDropIndicators();}});
@@ -836,6 +1001,9 @@ function r_renderRoute() {
 // ══════════════════════════════════════════════
 // GAME LIST
 // ══════════════════════════════════════════════
+
+// Rebuilds the left-hand games list; active games appear first (alphabetical),
+// followed by a divider and archived games (also alphabetical).
 function renderGameList() {
   const el = document.getElementById('gameList');
   if(!games.length) { el.innerHTML = '<div class="empty">No games yet.</div>'; return; }
@@ -849,6 +1017,7 @@ function renderGameList() {
     row.className = 'game-row' + (g.archived ? ' archived' : '') + (i === selectedIndex ? ' selected' : '');
     row.dataset.i = i;
     row.addEventListener('click', () => openDetails(i));
+    row.addEventListener('contextmenu', e => { e.preventDefault(); openDetails(i); showCtxMenu(e.clientX, e.clientY, i); });
     const ts = Math.max(g.updatedAt ? new Date(g.updatedAt).getTime() : 0, g.createdAt ? new Date(g.createdAt).getTime() : 0);
     const dateStr = ts ? new Date(ts).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : '';
     row.innerHTML = `<div class="game-row-info"><div class="game-row-name">${g.name || '(unnamed)'}</div><div class="game-row-sub">${dateStr}</div></div>`;
@@ -866,6 +1035,7 @@ function renderGameList() {
 }
 
 // ── Details panel ──────────────────────────────────
+// Populates the Game Details panel with data from games[index] and refreshes dependent panels
 function openDetails(index) {
   selectedIndex = index;
   isNew = false;
@@ -877,7 +1047,7 @@ function openDetails(index) {
   document.getElementById('g-price').value = g.price || '';
   logoPicker.load(g.logo || 'assets/logo.png');
   thumbnailPicker.load(g.thumbnail || 'assets/logo.png');
-  document.getElementById('g-favicon').value = g.favicon || '';
+  faviconPicker.load(g.favicon || '');
 
   const idHint = document.getElementById('g-idHint');
   if(g.id) { idHint.textContent = g.id; idHint.style.display = ''; }
@@ -891,17 +1061,13 @@ function openDetails(index) {
   selectedTags = new Set((g.tag || '').split(/[;,]+/).map(t => t.trim()).filter(Boolean));
   renderTags();
 
-  const archBtn = document.getElementById('archiveBtn');
-  archBtn.style.display = '';
-  archBtn.textContent = g.archived ? 'Unarchive' : 'Archive';
-
   setGameStatus('');
-  g_updateIconBtns();
   s_refreshAddRouteButtons();
   renderGameList();
   r_renderRoute();
 }
 
+// Resets the details panel to a blank "New Game" form without touching the games array
 function openNewGame() {
   selectedIndex = -1;
   isNew = true;
@@ -912,14 +1078,12 @@ function openNewGame() {
   document.getElementById('g-price').value = 'Free To Start / In App Purchases';
   logoPicker.load('assets/logo.png');
   thumbnailPicker.load('assets/logo.png');
-  document.getElementById('g-favicon').value = 'index.ico';
+  faviconPicker.load('index.ico');
   document.getElementById('g-idHint').style.display = 'none';
   document.getElementById('g-shareField').style.display = 'none';
-  document.getElementById('archiveBtn').style.display = 'none';
   selectedTags = new Set();
   renderTags();
   setGameStatus('');
-  g_updateIconBtns();
   s_refreshAddRouteButtons();
   renderGameList();
   r_renderRoute();
@@ -927,6 +1091,8 @@ function openNewGame() {
 }
 
 // ── Stops list panel ──────────────────────────────────
+// Rebuilds the Stops panel list, grouped as: anytime stops → regular stops → archived stops.
+// Each row is draggable: drag within the list to reorder, drag into the route panel to add to a game.
 function renderStopsList() {
   const el = document.getElementById('stopsList');
   if(!state.stops.length) { el.innerHTML = '<div class="empty">No stops yet.</div>'; return; }
@@ -979,8 +1145,10 @@ function renderStopsList() {
       const before = e.clientY < rect.top + rect.height / 2;
       const toIndex = before ? i : i + 1;
       const [moved] = state.stops.splice(fromIndex, 1);
+      // After removing fromIndex, the target position shifts by -1 if we moved an item from before it
       const insertAt = toIndex > fromIndex ? toIndex - 1 : toIndex;
       state.stops.splice(insertAt, 0, moved);
+      // Adjust selectedStopIndex to follow the moved/displaced item
       if(selectedStopIndex === fromIndex) selectedStopIndex = insertAt;
       else if(fromIndex < selectedStopIndex && insertAt >= selectedStopIndex) selectedStopIndex--;
       else if(fromIndex > selectedStopIndex && insertAt <= selectedStopIndex) selectedStopIndex++;
@@ -1006,7 +1174,7 @@ function renderStopsList() {
   }
 }
 
-// Map reply-tag-* class to rb-* class for badge styling
+// Converts the reply-tag-* CSS class from getReplyTag() to the rb-* class used on stop list badges
 function replyTagToRb(cls) {
   if(cls === 'reply-tag-noreply') return 'rb-noreply';
   if(cls === 'reply-tag-wordreply') return 'rb-text';
@@ -1017,6 +1185,7 @@ function replyTagToRb(cls) {
 }
 
 // ── Tags ──────────────────────────────────────────
+// Re-renders all tag pills in the Game Details panel, marking selected ones with the 'on' class
 function renderTags() {
   const el = document.getElementById('g-tagPicker');
   const input = document.getElementById('g-tagNewInput');
@@ -1035,6 +1204,7 @@ function renderTags() {
   });
 }
 
+// Reads the custom tag input, adds the value to allTags (if not present) and marks it selected
 function addNewTag() {
   const input = document.getElementById('g-tagNewInput');
   const val = input.value.trim();
@@ -1048,9 +1218,11 @@ function addNewTag() {
 document.getElementById('g-tagAddBtn').addEventListener('click', addNewTag);
 document.getElementById('g-tagNewInput').addEventListener('keydown', e => { if(e.key === 'Enter') { e.preventDefault(); addNewTag(); } });
 
+// Serialises the selected tags set to a semicolon-delimited string for storage in games.json
 function getTagsValue() { return [...selectedTags].join(';'); }
 
 // ── Name → ID hint ────────────────────────────────
+// Live-updates the slug preview and shareable URL as the user types a game name
 document.getElementById('g-name').addEventListener('input', () => {
   const id = slugify(document.getElementById('g-name').value);
   const idHint = document.getElementById('g-idHint');
@@ -1069,23 +1241,12 @@ document.getElementById('g-copyShareBtn').addEventListener('click', () => {
   if(url) navigator.clipboard.writeText(url).catch(() => {});
 });
 
-// ── Game copy / paste / delete ────────────────────────
-function g_updateIconBtns() {
-  const on = selectedIndex >= 0;
-  ['g-copyBtn','g-pasteBtn','g-deleteBtn'].forEach(id => document.getElementById(id).style.display = on ? '' : 'none');
-  document.getElementById('g-pasteBtn').classList.toggle('disabled', !copiedGame);
-}
-
-function g_copyGame() {
-  if(selectedIndex < 0) return;
-  copiedGame = deepClone(games[selectedIndex]);
-  g_updateIconBtns();
-}
-
-function g_pasteGame() {
-  if(!copiedGame) return;
-  const clone = deepClone(copiedGame);
-  clone.name = (clone.name || 'Game') + ' Copy';
+// ── Game duplicate / delete ────────────────────────────
+// Duplicates the game at the given index: clones it, appends " dup" to the name,
+// assigns a fresh ID and timestamps, saves immediately, and opens the new game
+function g_duplicateGame(index) {
+  const clone = deepClone(games[index]);
+  clone.name = (clone.name || 'Game') + ' dup';
   clone.id = slugify(clone.name) + '-' + Date.now();
   clone.createdAt = new Date().toISOString();
   clone.updatedAt = new Date().toISOString();
@@ -1099,14 +1260,14 @@ function g_pasteGame() {
     .catch(() => setGameStatus('Save failed.','err'));
 }
 
+// Removes the selected game from the array and saves; errors are silently swallowed since
+// the game is already gone from the in-memory list
 async function g_deleteGame() {
   if(selectedIndex < 0) return;
   games.splice(selectedIndex, 1);
   selectedIndex = -1;
   isNew = false;
   document.getElementById('detailsTitle').textContent = 'Game Details';
-  document.getElementById('archiveBtn').style.display = 'none';
-  g_updateIconBtns();
   renderGameList();
   r_renderRoute();
   try {
@@ -1114,11 +1275,60 @@ async function g_deleteGame() {
   } catch(e) {}
 }
 
-document.getElementById('g-copyBtn').addEventListener('click', g_copyGame);
-document.getElementById('g-pasteBtn').addEventListener('click', g_pasteGame);
-document.getElementById('g-deleteBtn').addEventListener('click', g_deleteGame);
+
+// ── Game row context menu ───────────────────────────────
+let ctxTargetIndex = -1; // The game index the context menu was opened on (may differ from selectedIndex)
+
+const ctxMenu = document.getElementById('gameCtxMenu');
+
+// Positions and shows the context menu at (x, y), clamped to stay within the viewport.
+// The menu is rendered at 0,0 first so offsetWidth/Height are accurate before repositioning.
+function showCtxMenu(x, y, gameIndex) {
+  ctxTargetIndex = gameIndex;
+  const g = games[gameIndex];
+  document.getElementById('ctxArchive').textContent = g && g.archived ? 'Unarchive' : 'Archive';
+  // Briefly show at top-left to measure actual rendered dimensions before placing at cursor
+  ctxMenu.style.display = 'flex';
+  ctxMenu.style.left = '0'; ctxMenu.style.top = '0';
+  const mw = ctxMenu.offsetWidth, mh = ctxMenu.offsetHeight;
+  // Clamp so the menu never overflows the right or bottom edge of the window
+  ctxMenu.style.left = Math.min(x, window.innerWidth - mw - 4) + 'px';
+  ctxMenu.style.top  = Math.min(y, window.innerHeight - mh - 4) + 'px';
+}
+
+// Hides the context menu and resets the target index
+function hideCtxMenu() { ctxMenu.style.display = 'none'; ctxTargetIndex = -1; }
+
+document.addEventListener('click', hideCtxMenu);
+document.addEventListener('keydown', e => { if(e.key === 'Escape') hideCtxMenu(); });
+
+document.getElementById('ctxDuplicate').addEventListener('click', () => {
+  if(ctxTargetIndex < 0) return;
+  g_duplicateGame(ctxTargetIndex);
+});
+
+document.getElementById('ctxArchive').addEventListener('click', async () => {
+  if(ctxTargetIndex < 0) return;
+  const g = games[ctxTargetIndex];
+  g.archived = !g.archived;
+  renderGameList();
+  fetch(API + '/games', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({games})}).catch(()=>{});
+});
+
+document.getElementById('ctxDelete').addEventListener('click', () => {
+  if(ctxTargetIndex < 0) return;
+  const g = games[ctxTargetIndex];
+  const name = g.name || 'this game';
+  if(!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  games.splice(ctxTargetIndex, 1);
+  if(selectedIndex === ctxTargetIndex) { selectedIndex = -1; isNew = false; }
+  else if(selectedIndex > ctxTargetIndex) selectedIndex--;
+  renderGameList();
+  fetch(API + '/games', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({games})}).catch(()=>{});
+});
 
 // ── Refresh add-to-route buttons ──────────────────────
+// Enables/disables the add-to-route buttons in the stops list based on whether a game is selected
 function s_refreshAddRouteButtons() {
   const hasGame = selectedIndex >= 0;
   document.querySelectorAll('.stop-add-route').forEach(btn => {
@@ -1127,10 +1337,12 @@ function s_refreshAddRouteButtons() {
   });
 }
 
-// ── Save game ──────────────────────────────────────────
 // ── Global save ────────────────────────────────────────
 document.getElementById('globalSaveBtn').addEventListener('click', saveAll);
 
+// Saves both the games list and the stops document in parallel.
+// Stops are only sent to the server if isDirty() is true, avoiding unnecessary writes.
+// On success, updates the snapshot so the dirty badge clears.
 async function saveAll() {
   const btn = document.getElementById('globalSaveBtn');
   const status = document.getElementById('globalSaveStatus');
@@ -1174,24 +1386,28 @@ async function saveAll() {
           body: JSON.stringify({games})
         });
       })(),
-      fetch(API + '/stops', {
+      // Only POST stops if something actually changed — avoids a needless disk write
+      isDirty() ? fetch(API + '/stops', {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify(toDoc())
-      })
+      }) : Promise.resolve({ ok: true })
     ]);
 
     if(gRes && !gRes.ok) throw new Error('Games save failed');
     if(!sRes.ok) throw new Error('Stops save failed');
 
-    loadedStopsSnapshot = deepClone(toDoc());
-    isNewStop = false;
+    // Re-check isDirty() here because the stops fetch only runs when dirty, so
+    // we only update the snapshot when it was actually sent
+    if(isDirty()) {
+      loadedStopsSnapshot = deepClone(toDoc());
+      isNewStop = false;
+    }
+    renderDirtyBadge();
 
     // Update game panel UI if a game was saved
     if(selectedIndex >= 0) {
       const g = games[selectedIndex];
       document.getElementById('detailsTitle').textContent = 'Game Details';
-      document.getElementById('archiveBtn').style.display = '';
-      document.getElementById('archiveBtn').textContent = g.archived ? 'Unarchive' : 'Archive';
       document.getElementById('g-idHint').textContent = g.id;
       document.getElementById('g-idHint').style.display = '';
       document.getElementById('g-shareUrl').textContent = SHARE_BASE + g.id;
@@ -1210,83 +1426,11 @@ async function saveAll() {
   }
 }
 
-async function saveGame() {
-  const name = document.getElementById('g-name').value.trim();
-  if(!name) { setGameStatus('Enter a game name.', 'warn'); return; }
-  const id = slugify(name);
-
-  if(isNew) {
-    games.push({id, name,
-      subtitle: document.getElementById('g-subtitle').value.trim(),
-      tag: getTagsValue(),
-      description: document.getElementById('g-desc').value.trim(),
-      price: document.getElementById('g-price').value.trim(),
-      logo: document.getElementById('g-logo').value.trim() || 'assets/logo.png',
-      thumbnail: document.getElementById('g-thumbnail').value.trim() || 'assets/logo.png',
-      favicon: document.getElementById('g-favicon').value.trim(),
-      featured: false, archived: false, stops: [],
-      createdAt: new Date().toISOString()
-    });
-    selectedIndex = games.length - 1;
-    isNew = false;
-  } else {
-    const g = games[selectedIndex];
-    g.name = name; g.id = id;
-    g.subtitle = document.getElementById('g-subtitle').value.trim();
-    g.tag = getTagsValue();
-    g.description = document.getElementById('g-desc').value.trim();
-    g.price = document.getElementById('g-price').value.trim();
-    g.logo = document.getElementById('g-logo').value.trim() || 'assets/logo.png';
-    g.thumbnail = document.getElementById('g-thumbnail').value.trim() || 'assets/logo.png';
-    g.favicon = document.getElementById('g-favicon').value.trim();
-    g.updatedAt = new Date().toISOString();
-  }
-
-  try {
-    const res = await fetch(API + '/games', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({games})
-    });
-    if(!res.ok) throw new Error('Server error ' + res.status);
-    setGameStatus('Saved.', 'ok');
-    setTimeout(() => setGameStatus(''), 2000);
-    const g = games[selectedIndex];
-    document.getElementById('detailsTitle').textContent = 'Game Details';
-    document.getElementById('archiveBtn').style.display = '';
-    document.getElementById('archiveBtn').textContent = g.archived ? 'Unarchive' : 'Archive';
-    document.getElementById('g-idHint').textContent = g.id; document.getElementById('g-idHint').style.display = '';
-    document.getElementById('g-shareUrl').textContent = SHARE_BASE + g.id; document.getElementById('g-shareField').style.display = '';
-    renderGameList();
-  } catch(e) {
-    setGameStatus(e.message || 'Save failed.', 'err');
-  }
-}
-
-// ── Archive game ───────────────────────────────────────
-document.getElementById('archiveBtn').addEventListener('click', async () => {
-  if(selectedIndex < 0) return;
-  const g = games[selectedIndex];
-  g.archived = !g.archived;
-  try {
-    const res = await fetch(API + '/games', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({games})
-    });
-    if(!res.ok) throw new Error('Server error ' + res.status);
-    document.getElementById('archiveBtn').textContent = g.archived ? 'Unarchive' : 'Archive';
-    renderGameList();
-    setGameStatus(g.archived ? 'Archived.' : 'Unarchived.', 'ok');
-    setTimeout(() => setGameStatus(''), 2000);
-  } catch(e) {
-    g.archived = !g.archived;
-    setGameStatus(e.message || 'Save failed.', 'err');
-  }
-});
-
 // ── New game ───────────────────────────────────────────
 document.getElementById('newGameBtn').addEventListener('click', openNewGame);
 
 // ── Game status ────────────────────────────────────────
+// Sets the Game Details panel status bar (separate from the stop status bar)
 function setGameStatus(msg, type) {
   const el = document.getElementById('detailsStatus');
   el.textContent = msg;
@@ -1294,13 +1438,18 @@ function setGameStatus(msg, type) {
 }
 
 // ── Slugify ───────────────────────────────────────
+// Converts a game name to a URL-safe id (e.g. "Oswald's Diary" → "oswalds-diary")
 function slugify(s) {
   return s.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
 }
 
-// ── Init ─────────────────────────────────────────
+// ══ INIT ══════════════════════════════════════════════════════════════════════
+
+// Bootstraps the builder: fetches games from the local API and stops from the static JSON file,
+// then renders all panels and opens a blank new-stop form ready for editing.
 async function init() {
   try {
+    // Load games from the local Node server and stops from the static data file in parallel
     const [gRes, sRes] = await Promise.all([fetch(API + '/games'), fetch('../data/stops.json')]);
     const gData = await gRes.json();
     const sData = await sRes.json();
@@ -1308,19 +1457,59 @@ async function init() {
 
     const sState = (sData && Array.isArray(sData.stops)) ? ensureDoc(deepClone(sData)) : Object.assign({}, DEFAULT_DOC, { stops: [] });
     state = sState;
-    loadedStopsSnapshot = deepClone(toDoc());
 
     renderGameList();
     renderStopsList();
     renderTags();
-    // Show new stop form by default
+    // Auto-open a new stop form so the editor is immediately ready to use
     document.getElementById('s-newBtn').click();
+    // Take the snapshot AFTER the auto-created stop is added so isDirty() starts false —
+    // the badge should only appear when the user makes their own edits
+    loadedStopsSnapshot = deepClone(toDoc());
   } catch(e) {
     document.getElementById('gameList').innerHTML = '<div class="empty" style="color:var(--err)">Could not load — is server.js running?</div>';
   }
 }
 
+// ── Panel footers ──────────────────────────────
+// Mirrors each panel's header into a sticky footer at the bottom of the panel.
+// This makes the New/Save/Archive buttons accessible without scrolling on tall panels.
+// A MutationObserver keeps the footer in sync when the header content changes dynamically
+// (e.g. the Archive button toggling between "Archive" and "Unarchive").
+function setupPanelFooters() {
+  document.querySelectorAll('.panel').forEach(panel => {
+    const head = panel.querySelector('.panel-head');
+    if(!head) return;
+
+    const foot = document.createElement('div');
+    foot.className = 'panel-foot';
+
+    function syncFoot() {
+      // Clone the header HTML into the footer, renaming all IDs with a -foot suffix
+      // to avoid duplicate IDs in the document
+      foot.innerHTML = head.innerHTML.replace(/\bid="([^"]+)"/g, 'id="$1-foot"');
+      // Wire footer button clicks through to their header counterparts so all logic stays in one place
+      foot.querySelectorAll('[id]').forEach(footEl => {
+        const origId = footEl.id.replace(/-foot$/, '');
+        footEl.addEventListener('click', e => {
+          e.stopPropagation();
+          document.getElementById(origId)?.click();
+        });
+      });
+    }
+
+    syncFoot();
+    // Re-sync whenever the header DOM changes (button text, disabled state, visibility, etc.)
+    new MutationObserver(syncFoot).observe(head, { subtree: true, childList: true, attributes: true, characterData: true });
+
+    panel.appendChild(foot);
+  });
+}
+
 // ── Image picker helpers ───────────────────────
+// Creates a coordinated image picker that accepts either a file upload or a URL.
+// The chosen value is stored in a hidden input so saveAll() can read it simply.
+// Returns a `load(val)` function used by openDetails/openNewGame to populate the picker.
 function setupImgPicker(fileInputId, urlInputId, hiddenId, previewId) {
   const fileInput = document.getElementById(fileInputId);
   const urlInput  = document.getElementById(urlInputId);
@@ -1343,27 +1532,34 @@ function setupImgPicker(fileInputId, urlInputId, hiddenId, previewId) {
     if(!file) return;
     const reader = new FileReader();
     reader.onload = e => {
+      // When a file is chosen, clear the URL input so the two fields stay mutually exclusive
       urlInput.value = '';
-      setVal(e.target.result);
+      setVal(e.target.result); // Stores as a data: URI
     };
     reader.readAsDataURL(file);
   });
 
   urlInput.addEventListener('input', () => {
+    // When a URL is typed, clear the file input so the two fields stay mutually exclusive
     fileInput.value = '';
     setVal(urlInput.value.trim());
   });
 
-  // expose a load function so openDetails/openNewGame can set the URL
+  // Expose a load() method so openDetails/openNewGame can populate the picker programmatically
   return { load: val => { urlInput.value = val || ''; setVal(val || ''); fileInput.value = ''; } };
 }
 
 const logoPicker      = setupImgPicker('g-logo-file',      'g-logo-url',      'g-logo',      'g-logo-preview');
 const thumbnailPicker = setupImgPicker('g-thumbnail-file', 'g-thumbnail-url', 'g-thumbnail', 'g-thumbnail-preview');
+const faviconPicker   = setupImgPicker('g-favicon-file',   'g-favicon-url',   'g-favicon',   'g-favicon-preview');
 
 // ── Publish button (local only) ────────────────
+setupPanelFooters();
+// The Publish button is hidden in production (GitHub Pages); only shown when running locally
 if(IS_LOCAL) document.getElementById('g-publishBtn').style.display = '';
 
+// Publish = saveAll() + POST /publish, which triggers a git commit and push on the server.
+// This deploys the updated games.json and stops.json to GitHub Pages.
 document.getElementById('g-publishBtn').addEventListener('click', async () => {
   const btn = document.getElementById('g-publishBtn');
   const orig = btn.textContent;
@@ -1382,7 +1578,7 @@ document.getElementById('g-publishBtn').addEventListener('click', async () => {
     setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
   } catch(e) {
     btn.textContent = 'Failed';
-    btn.title = e.message;
+    btn.title = e.message; // Error detail visible on hover
     setTimeout(() => { btn.textContent = orig; btn.disabled = false; btn.title = ''; }, 3000);
   }
 });

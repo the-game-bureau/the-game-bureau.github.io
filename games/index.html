@@ -1,4 +1,16 @@
 <!DOCTYPE html>
+<!--
+  File: index.html
+  Purpose: Combined lobby + game shell for The Game Bureau.
+
+  Flow:
+    1. Loaded with ?id=GAME_ID  →  shows lobby (logo, description, Start Game button)
+    2. Player taps Start Game   →  lobby hides, game shell appears, engine.js loads
+       The URL is rewritten to ?game=GAME_ID so engine.js can read it via its GAME_PARAM constant.
+
+  This page replaces the old go.html (QR launch pad) and play.html (bare game shell).
+  Share URLs from the builder point here with ?id=GAME_ID.
+-->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -11,11 +23,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+  <!-- Game shell styles (used once the lobby transitions away) -->
+  <link rel="stylesheet" href="index.css">
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
     html, body { min-height: 100dvh; }
 
+    /* ── Shared ── */
     body {
       background: #111;
       color: #fff;
@@ -25,7 +41,14 @@
       align-items: center;
     }
 
-    /* ── Hero ── */
+    /* ── Lobby ── */
+    #lobby {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
     .hero {
       width: 100%;
       display: flex;
@@ -36,8 +59,7 @@
     }
 
     .logo-wrap {
-      width: 88px;
-      height: 88px;
+      width: 88px; height: 88px;
       border-radius: 18px;
       overflow: hidden;
       margin-bottom: 24px;
@@ -82,7 +104,6 @@
       padding: 3px 10px;
     }
 
-    /* ── Content ── */
     .content {
       width: min(520px, 100%);
       padding: 0 28px 60px;
@@ -128,7 +149,6 @@
       color: rgba(255,255,255,.7);
     }
 
-    /* ── CTA ── */
     .cta-wrap {
       display: flex;
       flex-direction: column;
@@ -149,11 +169,51 @@
       height: 68px;
       width: min(360px, 100%);
       border-radius: 6px;
+      cursor: pointer;
+      border: none;
       touch-action: manipulation;
       transition: background 0.1s, transform 0.1s;
     }
-
     .play-btn:active { background: #d1d5db; transform: scale(0.97); }
+
+    /* ── Share ── */
+    .share-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,.1);
+    }
+
+    .share-hint {
+      font-size: .78rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.35);
+    }
+
+    .qr-wrap {
+      background: #fff;
+      padding: 14px;
+      border-radius: 8px;
+    }
+
+    .qr-wrap img {
+      display: block;
+      width: min(200px, 60vw);
+      height: min(200px, 60vw);
+      image-rendering: pixelated;
+    }
+
+    .share-url {
+      font-size: .68rem;
+      color: rgba(255,255,255,.3);
+      word-break: break-all;
+      text-align: center;
+      max-width: min(360px, 100%);
+    }
 
     /* ── Error ── */
     .error {
@@ -170,57 +230,93 @@
 </head>
 <body>
 
-  <div class="hero" id="hero" style="display:none">
-    <div class="logo-wrap" id="logoWrap">
-      <img id="logoImg" alt="Game Logo">
+  <!-- ── LOBBY VIEW ── -->
+  <div id="lobby">
+
+    <div class="hero" id="hero" style="display:none">
+      <div class="logo-wrap" id="logoWrap">
+        <img id="logoImg" alt="Game Logo">
+      </div>
+      <div class="game-title" id="gameTitle"></div>
+      <div class="game-subtitle" id="gameSubtitle"></div>
+      <div class="tag-list" id="tagList"></div>
     </div>
-    <div class="game-title" id="gameTitle"></div>
-    <div class="game-subtitle" id="gameSubtitle"></div>
-    <div class="tag-list" id="tagList"></div>
+
+    <div class="content" id="content" style="display:none">
+      <div class="thumbnail-wrap" id="thumbWrap">
+        <img id="thumbImg" alt="">
+      </div>
+      <p class="description" id="description"></p>
+      <div class="price-row" id="priceRow" style="display:none">
+        <span class="price-label">Price</span>
+        <span class="price-value" id="priceValue"></span>
+      </div>
+      <div class="cta-wrap">
+        <button class="play-btn" id="playBtn">Start Game</button>
+      </div>
+
+      <div class="share-section" id="shareSection" style="display:none">
+        <div class="share-hint">or scan to play on another device</div>
+        <div class="qr-wrap"><img id="qrImg" alt="QR Code"></div>
+        <div class="share-url" id="shareUrl"></div>
+      </div>
+    </div>
+
+    <div class="error" id="error"></div>
+
   </div>
 
-  <div class="content" id="content" style="display:none">
-    <div class="thumbnail-wrap" id="thumbWrap">
-      <img id="thumbImg" alt="">
+  <!-- ── GAME SHELL VIEW (hidden until Start Game is tapped) ── -->
+  <!-- engine.js populates #chat and #input-area; .contact-header is the top bar -->
+  <div id="game-shell" style="display:none; width:100%; flex-direction:column;">
+    <div class="icon-preload" aria-hidden="true"></div>
+    <div class="contact-header">
+      <div class="avatar"><img id="header-logo" src="logo.png" alt="Game Logo"></div>
+      <div class="contact-name" id="header-title"></div>
+      <div class="contact-name" id="header-subtitle"></div>
+      <div class="contact-status"><div class="online-dot"></div><span id="header-status">online</span></div>
+      <button class="restart-btn" id="restartBtn" type="button">↺ RESTART</button>
     </div>
-    <p class="description" id="description"></p>
-    <div class="price-row" id="priceRow" style="display:none">
-      <span class="price-label">Price</span>
-      <span class="price-value" id="priceValue"></span>
-    </div>
-    <div class="cta-wrap">
-      <a class="play-btn" id="playBtn" href="#">Start Game</a>
-    </div>
+    <div class="chat" id="chat"></div>
+    <div class="input-area" id="input-area"></div>
   </div>
-
-  <div class="error" id="error"></div>
 
   <script>
-    const GAMES_URL = 'data/games.json';
+    const params  = new URLSearchParams(location.search);
+    const gameId  = params.get('id') || params.get('game');
 
     function showError(msg) {
       document.getElementById('error').textContent = msg;
       document.getElementById('error').style.display = '';
     }
 
-    const params = new URLSearchParams(location.search);
-    const gameId = params.get('id') || params.get('game');
+    // Transition: hide lobby, show game shell, rewrite URL to ?game=ID so
+    // engine.js reads the correct GAME_PARAM, then dynamically load the engine.
+    function launchGame() {
+      document.getElementById('lobby').style.display      = 'none';
+      document.getElementById('game-shell').style.display = 'flex';
+      // engine.js reads `game` param from location.search at parse time
+      history.replaceState(null, '', '?game=' + encodeURIComponent(gameId));
+      const s = document.createElement('script');
+      s.src = 'util/engine.js';
+      document.body.appendChild(s);
+    }
 
     if (!gameId) {
       showError('No game ID provided.');
     } else {
-      fetch(GAMES_URL)
+      fetch('data/games.json')
         .then(r => r.json())
         .then(data => {
           const games = Array.isArray(data) ? data : (data.games || []);
-          const game = games.find(g => g.id === gameId);
+          const game  = games.find(g => g.id === gameId);
           if (!game) { showError('Game "' + gameId + '" not found.'); return; }
 
           // Page title + favicon
           document.title = game.name || gameId;
           if (game.favicon) document.getElementById('favicon').href = game.favicon;
 
-          // Hero
+          // Hero section
           document.getElementById('gameTitle').textContent = game.name || gameId;
           if (game.subtitle) document.getElementById('gameSubtitle').textContent = game.subtitle;
 
@@ -259,14 +355,20 @@
             document.getElementById('priceRow').style.display = '';
           }
 
-          // Play button — points to SMS player
-          const playUrl = 'play.html?id=' + encodeURIComponent(game.id);
-          document.getElementById('playBtn').href = playUrl;
-
           document.getElementById('content').style.display = '';
+          document.getElementById('playBtn').addEventListener('click', launchGame);
+
+          // Share section — QR code pointing to this page's canonical URL
+          const shareUrl = 'https://the-game-bureau.github.io/the-game-bureau/games/index.html?id=' + encodeURIComponent(game.id);
+          const cssSize  = Math.min(200, Math.round(window.innerWidth * 0.6));
+          const px       = cssSize * Math.min(window.devicePixelRatio || 2, 3);
+          document.getElementById('qrImg').src    = 'https://api.qrserver.com/v1/create-qr-code/?size=' + px + 'x' + px + '&data=' + encodeURIComponent(shareUrl);
+          document.getElementById('shareUrl').textContent = shareUrl;
+          document.getElementById('shareSection').style.display = '';
         })
         .catch(() => showError('Could not load game data.'));
     }
   </script>
+
 </body>
 </html>
