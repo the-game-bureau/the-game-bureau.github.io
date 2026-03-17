@@ -119,7 +119,7 @@ http.createServer((req, res) => {
       const msg = 'Publish button in builder pressed';
       const repoRoot = path.join(__dirname, '..', '..');
       const run = (cmd, args) => new Promise((resolve, reject) =>
-        execFile(cmd, args, { cwd: repoRoot }, (err, stdout, stderr) =>
+        execFile(cmd, args, { cwd: repoRoot, shell: true }, (err, stdout, stderr) =>
           err ? reject(new Error(stderr || stdout || err.message)) : resolve(stdout)));
       (async () => {
         try {

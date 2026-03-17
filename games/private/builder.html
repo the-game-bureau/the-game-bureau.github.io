@@ -28,8 +28,8 @@
 
     /* ── Panel ── */
     .panel{background:var(--panel);border:2px solid var(--ink);display:flex;flex-direction:column;min-width:0;}
-    .panel-head{padding:12px 16px;border-bottom:2px solid var(--ink);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
-    .panel-foot{padding:12px 16px;border-top:2px solid var(--ink);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+    .panel-head{padding:0 16px;border-bottom:2px solid var(--ink);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;height:48px;}
+    .panel-foot{padding:0 16px;border-top:2px solid var(--ink);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;height:48px;}
     .panel-title{font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
     .panel-body{padding:0;overflow-y:auto;}
 
@@ -74,8 +74,12 @@
     .stop-row.drop-before{box-shadow:0 -2px 0 var(--ink);}
     .stop-row.drop-after{box-shadow:0 2px 0 var(--ink);}
     .stop-row.dragging{opacity:.4;}
-    .stop-row-name{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .stop-row.archived .stop-row-name{color:#bbb;}
+    .stop-row-info{flex:1;min-width:0;}
+    .stop-row-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .stop-row-sub{font-size:.64rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .stop-row.archived .stop-row-name,.stop-row.archived .stop-row-sub{color:#bbb;}
+    .stop-row.selected .stop-row-sub{color:rgba(255,255,255,.5);}
+    .stop-row.selected.archived .stop-row-name,.stop-row.selected.archived .stop-row-sub{color:rgba(255,255,255,.5);}
     .reply-badge{font-size:.54rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;padding:2px 5px;border-radius:3px;flex-shrink:0;}
     .rb-noreply{background:#9ca3af;} .rb-text{background:#1a73e8;} .rb-any{background:#f5a623;} .rb-choice{background:#9333ea;} .rb-anytime{background:#4ecf98;}
 
@@ -96,9 +100,10 @@
     .img-picker-row input[type="text"]{flex:1;font-family:var(--sans);font-size:.8rem;padding:6px 8px;border:1px solid rgba(17,17,17,.3);background:#fff;color:var(--ink);outline:none;border-radius:0;}
     .img-picker-row input[type="text"]:focus{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);}
 
-    /* ── Share row ── */
-    .share-row{display:flex;align-items:center;gap:8px;border:1px solid rgba(17,17,17,.3);background:#fff;padding:6px 8px;}
-    .share-url{font-size:.68rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);user-select:all;}
+    /* ── Share ── */
+    .share-url{font-size:.68rem;color:var(--muted);word-break:break-all;line-height:1.5;margin-bottom:8px;}
+    .share-btns{display:flex;gap:6px;}
+    #detailsStatus:empty{display:none;}
 
     /* ── Status ── */
     .status-bar{padding:8px 16px;font-size:.64rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);min-height:2rem;display:flex;align-items:center;border-top:1px solid rgba(17,17,17,.1);}
@@ -134,7 +139,8 @@
     .r-zone-empty{padding:20px 16px;font-size:.66rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;text-align:center;border:2px dashed rgba(17,17,17,.15);margin:12px;}
     .r-drop-zone{min-height:56px;}
     .r-drop-zone.drag-over{background:rgba(100,160,240,.1);outline:2px dashed var(--ink);outline-offset:-2px;}
-    .r-status{padding:8px 16px;font-size:.64rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);min-height:2rem;display:flex;align-items:center;border-top:1px solid rgba(17,17,17,.1);}
+    .r-status{padding:8px 16px;font-size:.64rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;border-top:1px solid rgba(17,17,17,.1);}
+    .r-status:empty{display:none;}
     .r-status.ok{color:var(--ok);font-weight:700;}.r-status.err{color:var(--err);font-weight:700;}.r-status.warn{color:var(--warn);font-weight:700;}
     .anytime-tag{font-size:.54rem;font-weight:700;letter-spacing:.07em;color:#fff;padding:2px 4px;border-radius:3px;flex-shrink:0;text-transform:uppercase;background:#4ecf98;}
 
@@ -275,7 +281,7 @@
     <div class="panel-body" id="detailsBody">
 
       <div class="field">
-        <label for="g-name">Name</label>
+        <label for="g-name">Game Name</label>
         <input type="text" id="g-name" placeholder="Oswald's Diary" autocomplete="off">
         <div class="field-hint" id="g-idHint" style="display:none;"></div>
       </div>
@@ -347,9 +353,10 @@
 
       <div class="field" id="g-shareField" style="display:none;">
         <label>Share</label>
-        <div class="share-row">
-          <span id="g-shareUrl" class="share-url"></span>
+        <div id="g-shareUrl" class="share-url"></div>
+        <div class="share-btns">
           <button class="btn" id="g-copyShareBtn">Copy</button>
+          <button class="btn" id="g-goShareBtn">Go</button>
         </div>
       </div>
 
@@ -401,6 +408,13 @@
   <div class="ctx-divider"></div>
   <div class="ctx-item" id="ctxArchive">Archive</div>
   <div class="ctx-item ctx-danger" id="ctxDelete">Delete</div>
+</div>
+
+<div id="stopCtxMenu" class="ctx-menu">
+  <div class="ctx-item" id="sCtxDuplicate">Duplicate</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" id="sCtxArchive">Archive</div>
+  <div class="ctx-item ctx-danger" id="sCtxDelete">Delete</div>
 </div>
 
 <script>
@@ -573,7 +587,7 @@ function ensurePlayerReply(r) {
 }
 // Normalises a stop; also supports the legacy `reveal` field (old name for `messages`)
 function ensureStop(s,i) {
-  return{id:String((s&&s.id)||('stop-'+(i+1))),messages:Array.isArray(s&&s.messages)?s.messages.map(ensureBubble):Array.isArray(s&&s.reveal)?s.reveal.map(ensureBubble):[],playerReply:ensurePlayerReply((s&&s.playerReply)||(s&&s.action)||null),archived:!!(s&&s.archived)};
+  return{id:String((s&&s.id)||('stop-'+(i+1))),name:String((s&&s.name)||''),messages:Array.isArray(s&&s.messages)?s.messages.map(ensureBubble):Array.isArray(s&&s.reveal)?s.reveal.map(ensureBubble):[],playerReply:ensurePlayerReply((s&&s.playerReply)||(s&&s.action)||null),archived:!!(s&&s.archived),createdAt:(s&&s.createdAt)||null,updatedAt:(s&&s.updatedAt)||null};
 }
 // Validates and normalises a full stops.json document object into the shape the editor requires
 function ensureDoc(doc) {
@@ -595,7 +609,7 @@ function ensureDoc(doc) {
 // Finds the next available auto-increment number for a NEW-N stop ID (skips over any already in use)
 function nextStopNumber() { const ex=new Set(state.stops.map(s=>String(s.id||'').toUpperCase())); let n=state.stops.length+1; while(ex.has('NEW-'+n))n++; return n; }
 // Creates a blank stop with a single empty text bubble and a default text-reply scaffold
-function createEmptyStop() { return{id:'NEW-'+nextStopNumber(),messages:[{bubbleId:createBubbleId(),msgType:'text',html:'',callToAction:false,bottomAdded:false}],playerReply:{type:'text',placeholder:'',answers:[],setsTeam:false,goTo:'',correct:[],incorrect:[]}}; }
+function createEmptyStop() { const now=new Date().toISOString(); return{id:'NEW-'+nextStopNumber(),name:'',messages:[{bubbleId:createBubbleId(),msgType:'text',html:'',callToAction:false,bottomAdded:false}],playerReply:{type:'text',placeholder:'',answers:[],setsTeam:false,goTo:'',correct:[],incorrect:[]},createdAt:now,updatedAt:now}; }
 // Returns the reply-type label and CSS class for a stop's colored badge in the stops list
 function getReplyTag(stop) {
   const pr=stop&&stop.playerReply;
@@ -624,7 +638,7 @@ function ensureReplyScaffoldForCallToAction(stop,options){const opts=options||{}
 // Serialises the current in-memory `state` into the exact JSON shape written to stops.json.
 // Only includes variables/routes arrays when they are non-empty to keep the file clean.
 function toDoc() {
-  const doc={_comment:state._comment||DEFAULT_DOC._comment,header:Object.assign({},DEFAULT_DOC.header,state.header||{}),stops:state.stops.map((s,i)=>{const n=ensureStop(s,i);return{id:n.id,messages:n.messages,playerReply:n.playerReply,archived:n.archived};})};
+  const doc={_comment:state._comment||DEFAULT_DOC._comment,header:Object.assign({},DEFAULT_DOC.header,state.header||{}),stops:state.stops.map((s,i)=>{const n=ensureStop(s,i);const out={id:n.id,messages:n.messages,playerReply:n.playerReply,archived:n.archived};if(n.name)out.name=n.name;if(n.createdAt)out.createdAt=n.createdAt;if(n.updatedAt)out.updatedAt=n.updatedAt;return out;})};
   if(Array.isArray(state.variables)&&state.variables.length)doc.variables=deepClone(state.variables);
   if(Array.isArray(state.routes)&&state.routes.length)doc.routes=deepClone(state.routes);
   // Keep pageTitle in sync with the header title so the player tab reads correctly
@@ -816,26 +830,40 @@ function s_renderStopDetail() {
   const stop = state.stops[i];
   if(archBtn) { archBtn.style.display = isNewStop ? 'none' : ''; archBtn.textContent = stop.archived ? 'Unarchive' : 'Archive'; }
 
-  // Stop ID field
-  const idField = document.createElement('div');
-  idField.className = 'field';
-  const idLabel = document.createElement('label');
-  idLabel.textContent = 'Stop ID';
-  const idInput = document.createElement('input');
-  idInput.type = 'text';
-  idInput.value = stop.id;
-  idInput.autocomplete = 'off';
-  idInput.addEventListener('input', () => { stop.id = idInput.value; });
-  idInput.addEventListener('blur', () => {
-    const next = idInput.value.replace(/\s+/g, ' ').trim();
-    stop.id = next || stop.id || ('NEW-' + (i + 1));
-    idInput.value = stop.id;
+  // Stop Name field → slug auto-generates the Stop ID, mirroring how Game Name → Game ID works
+  const nameField = document.createElement('div');
+  nameField.className = 'field';
+  const nameLabel = document.createElement('label');
+  nameLabel.textContent = 'Stop Name';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.placeholder = 'French Quarter';
+  nameInput.value = stop.name || '';
+  nameInput.autocomplete = 'off';
+  const idHint = document.createElement('div');
+  idHint.className = 'field-hint';
+  idHint.textContent = stop.id;
+  idHint.style.display = stop.id ? '' : 'none';
+  nameInput.addEventListener('input', () => {
+    stop.name = nameInput.value;
+    const slug = slugify(nameInput.value);
+    if(slug) { stop.id = slug; idHint.textContent = slug; idHint.style.display = ''; }
+    else { idHint.style.display = 'none'; }
+    markDirty();
+  });
+  nameInput.addEventListener('blur', () => {
+    stop.name = nameInput.value.trim();
+    const slug = slugify(stop.name) || stop.id || ('new-' + (i + 1));
+    stop.id = slug;
+    idHint.textContent = slug;
+    idHint.style.display = '';
     renderStopsList();
   });
-  idInput.addEventListener('keydown', e => { if(e.key === 'Enter') idInput.blur(); });
-  idField.appendChild(idLabel);
-  idField.appendChild(idInput);
-  detailEl.appendChild(idField);
+  nameInput.addEventListener('keydown', e => { if(e.key === 'Enter') nameInput.blur(); });
+  nameField.appendChild(nameLabel);
+  nameField.appendChild(nameInput);
+  nameField.appendChild(idHint);
+  detailEl.appendChild(nameField);
 
   // Editor body
   const body = document.createElement('div');
@@ -1092,14 +1120,16 @@ function openNewGame() {
 
 // ── Stops list panel ──────────────────────────────────
 // Rebuilds the Stops panel list, grouped as: anytime stops → regular stops → archived stops.
+// Within each group stops are sorted alphabetically by ID.
 // Each row is draggable: drag within the list to reorder, drag into the route panel to add to a game.
 function renderStopsList() {
   const el = document.getElementById('stopsList');
   if(!state.stops.length) { el.innerHTML = '<div class="empty">No stops yet.</div>'; return; }
 
-  const anytime = state.stops.map((s,i) => ({s,i})).filter(({s}) => !s.archived && s.playerReply && s.playerReply.anytime);
-  const active = state.stops.map((s,i) => ({s,i})).filter(({s}) => !s.archived && !(s.playerReply && s.playerReply.anytime));
-  const archived = state.stops.map((s,i) => ({s,i})).filter(({s}) => s.archived);
+  const alpha = arr => arr.slice().sort((a,b) => (a.s.id||'').localeCompare(b.s.id||''));
+  const anytime = alpha(state.stops.map((s,i) => ({s,i})).filter(({s}) => !s.archived && s.playerReply && s.playerReply.anytime));
+  const active  = alpha(state.stops.map((s,i) => ({s,i})).filter(({s}) => !s.archived && !(s.playerReply && s.playerReply.anytime)));
+  const archived = alpha(state.stops.map((s,i) => ({s,i})).filter(({s}) => s.archived));
 
   const mkDivider = () => { const hr = document.createElement('hr'); hr.style.cssText = 'border:none;border-top:1px solid rgba(17,17,17,.1);margin:0;'; return hr; };
   const makeRow = ({s, i}) => {
@@ -1107,9 +1137,19 @@ function renderStopsList() {
     row.className = 'stop-row' + (s.archived ? ' archived' : '') + (i === selectedStopIndex ? ' selected' : '');
     if(i === selectedStopIndex) row.style.cssText = 'background:var(--ink);color:#fff;';
 
-    const name = document.createElement('span');
+    const ts = Math.max(s.updatedAt ? new Date(s.updatedAt).getTime() : 0, s.createdAt ? new Date(s.createdAt).getTime() : 0);
+    const dateStr = ts ? new Date(ts).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : '';
+
+    const info = document.createElement('div');
+    info.className = 'stop-row-info';
+    const name = document.createElement('div');
     name.className = 'stop-row-name';
-    name.textContent = s.id || '(unnamed)';
+    name.textContent = s.name || s.id || '(unnamed)';
+    const sub = document.createElement('div');
+    sub.className = 'stop-row-sub';
+    sub.textContent = dateStr;
+    info.appendChild(name);
+    info.appendChild(sub);
 
     const tag = getReplyTag(s);
     const badge = document.createElement('span');
@@ -1154,13 +1194,14 @@ function renderStopsList() {
       else if(fromIndex > selectedStopIndex && insertAt <= selectedStopIndex) selectedStopIndex++;
       s_renderAll();
     });
-    row.appendChild(name);
+    row.appendChild(info);
     row.appendChild(badge);
     row.addEventListener('click', () => {
       selectedStopIndex = i;
       isNewStop = false;
       s_renderAll();
     });
+    row.addEventListener('contextmenu', e => { e.preventDefault(); selectedStopIndex = i; isNewStop = false; s_renderAll(); showStopCtxMenu(e.clientX, e.clientY, i); });
     return row;
   };
 
@@ -1241,6 +1282,11 @@ document.getElementById('g-copyShareBtn').addEventListener('click', () => {
   if(url) navigator.clipboard.writeText(url).catch(() => {});
 });
 
+document.getElementById('g-goShareBtn').addEventListener('click', () => {
+  const url = document.getElementById('g-shareUrl').textContent;
+  if(url) window.open(url, '_blank');
+});
+
 // ── Game duplicate / delete ────────────────────────────
 // Duplicates the game at the given index: clones it, appends " dup" to the name,
 // assigns a fresh ID and timestamps, saves immediately, and opens the new game
@@ -1299,7 +1345,7 @@ function showCtxMenu(x, y, gameIndex) {
 function hideCtxMenu() { ctxMenu.style.display = 'none'; ctxTargetIndex = -1; }
 
 document.addEventListener('click', hideCtxMenu);
-document.addEventListener('keydown', e => { if(e.key === 'Escape') hideCtxMenu(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape') { hideCtxMenu(); hideStopCtxMenu(); } });
 
 document.getElementById('ctxDuplicate').addEventListener('click', () => {
   if(ctxTargetIndex < 0) return;
@@ -1326,6 +1372,59 @@ document.getElementById('ctxDelete').addEventListener('click', () => {
   fetch(API + '/games', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({games})}).catch(()=>{});
 });
 
+// ── Stop context menu ──────────────────────────────────
+const stopCtxMenu = document.getElementById('stopCtxMenu');
+let sCtxTargetIndex = -1;
+
+function showStopCtxMenu(x, y, stopIndex) {
+  sCtxTargetIndex = stopIndex;
+  const s = state.stops[stopIndex];
+  document.getElementById('sCtxArchive').textContent = s && s.archived ? 'Unarchive' : 'Archive';
+  stopCtxMenu.style.display = 'flex';
+  stopCtxMenu.style.left = '0'; stopCtxMenu.style.top = '0';
+  const mw = stopCtxMenu.offsetWidth, mh = stopCtxMenu.offsetHeight;
+  stopCtxMenu.style.left = Math.min(x, window.innerWidth - mw - 4) + 'px';
+  stopCtxMenu.style.top  = Math.min(y, window.innerHeight - mh - 4) + 'px';
+}
+function hideStopCtxMenu() { stopCtxMenu.style.display = 'none'; sCtxTargetIndex = -1; }
+
+document.addEventListener('click', hideStopCtxMenu);
+
+document.getElementById('sCtxDuplicate').addEventListener('click', () => {
+  if(sCtxTargetIndex < 0) return;
+  const now = new Date().toISOString();
+  const clone = deepClone(state.stops[sCtxTargetIndex]);
+  clone.id = (clone.id || 'stop') + '-' + Date.now();
+  clone.archived = false;
+  clone.createdAt = now;
+  clone.updatedAt = now;
+  state.stops.push(clone);
+  selectedStopIndex = state.stops.length - 1;
+  isNewStop = false;
+  s_renderAll();
+  markDirty();
+});
+
+document.getElementById('sCtxArchive').addEventListener('click', () => {
+  if(sCtxTargetIndex < 0) return;
+  const s = state.stops[sCtxTargetIndex];
+  s.archived = !s.archived;
+  s.updatedAt = new Date().toISOString();
+  s_renderAll();
+  markDirty();
+});
+
+document.getElementById('sCtxDelete').addEventListener('click', () => {
+  if(sCtxTargetIndex < 0) return;
+  const s = state.stops[sCtxTargetIndex];
+  if(!confirm(`Delete "${s.id || 'this stop'}"? This cannot be undone.`)) return;
+  state.stops.splice(sCtxTargetIndex, 1);
+  if(selectedStopIndex === sCtxTargetIndex) { selectedStopIndex = -1; isNewStop = false; }
+  else if(selectedStopIndex > sCtxTargetIndex) selectedStopIndex--;
+  s_renderAll();
+  markDirty();
+});
+
 // ── Refresh add-to-route buttons ──────────────────────
 // Enables/disables the add-to-route buttons in the stops list based on whether a game is selected
 function s_refreshAddRouteButtons() {
@@ -1349,6 +1448,24 @@ async function saveAll() {
   status.textContent = 'Saving…';
 
   try {
+    // Stamp updatedAt on the currently selected stop before serialising
+    if(isDirty() && selectedStopIndex >= 0 && selectedStopIndex < (state.stops||[]).length) {
+      state.stops[selectedStopIndex].updatedAt = new Date().toISOString();
+    }
+
+    // Duplicate stop ID check — block save if two stops share the same ID
+    if(isDirty()) {
+      const seen = new Map();
+      for(let idx = 0; idx < (state.stops||[]).length; idx++) {
+        const sid = state.stops[idx].id;
+        if(seen.has(sid)) {
+          flashStatus('Duplicate stop ID "' + sid + '". Rename one before saving.', 'err');
+          status.textContent = ''; btn.disabled = false; return;
+        }
+        seen.set(sid, idx);
+      }
+    }
+
     const [gRes, sRes] = await Promise.all([
       (async () => {
         const name = document.getElementById('g-name').value.trim();
@@ -1487,6 +1604,7 @@ function setupPanelFooters() {
   document.querySelectorAll('.panel').forEach(panel => {
     const head = panel.querySelector('.panel-head');
     if(!head) return;
+    if(!head.querySelector('button')) return; // skip panels with no buttons in header
 
     const foot = document.createElement('div');
     foot.className = 'panel-foot';

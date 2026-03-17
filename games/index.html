@@ -1,15 +1,12 @@
 <!DOCTYPE html>
 <!--
   File: index.html
-  Purpose: Combined lobby + game shell for The Game Bureau.
+  Purpose: Landing page + game shell for The Game Bureau.
 
   Flow:
-    1. Loaded with ?id=GAME_ID  →  shows lobby (logo, description, Start Game button)
-    2. Player taps Start Game   →  lobby hides, game shell appears, engine.js loads
-       The URL is rewritten to ?game=GAME_ID so engine.js can read it via its GAME_PARAM constant.
-
-  This page replaces the old go.html (QR launch pad) and play.html (bare game shell).
-  Share URLs from the builder point here with ?id=GAME_ID.
+    1. Loaded with ?id=GAME_ID or ?game=GAME_ID  →  shows landing page
+    2. Player taps GO  →  landing hides, game shell appears, engine.js loads
+       The URL is rewritten to ?game=GAME_ID so engine.js can read it.
 -->
 <html lang="en">
 <head>
@@ -23,15 +20,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-
-  <!-- Game shell styles (used once the lobby transitions away) -->
   <link rel="stylesheet" href="index.css">
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html, body { min-height: 100dvh; }
 
-    /* ── Shared ── */
     body {
       background: #111;
       color: #fff;
@@ -41,181 +35,177 @@
       align-items: center;
     }
 
-    /* ── Lobby ── */
-    #lobby {
+    /* ── Landing page ── */
+    #landing {
       width: 100%;
+      max-width: 520px;
       display: flex;
       flex-direction: column;
-      align-items: center;
+      min-height: 100dvh;
     }
 
-    .hero {
+    /* Hero thumbnail — full width at top */
+    .hero-img {
       width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      display: block;
+    }
+    .hero-img.hidden { display: none; }
+
+    /* Game identity block */
+    .identity {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 24px 24px 0;
+    }
+
+    .logo-img {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .logo-img.hidden { display: none; }
+
+    .title-block {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      text-align: center;
-      padding: max(env(safe-area-inset-top), 56px) 32px 40px;
+      gap: 4px;
     }
-
-    .logo-wrap {
-      width: 88px; height: 88px;
-      border-radius: 18px;
-      overflow: hidden;
-      margin-bottom: 24px;
-      display: none;
-    }
-    .logo-wrap.visible { display: block; }
-    .logo-wrap img { width: 100%; height: 100%; object-fit: cover; }
 
     .game-title {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(3rem, 13vw, 5.5rem);
+      font-size: clamp(2.4rem, 11vw, 4rem);
       letter-spacing: 0.04em;
       line-height: 1;
-      margin-bottom: 10px;
     }
 
     .game-subtitle {
-      font-size: clamp(.85rem, 3vw, 1rem);
+      font-size: .82rem;
       font-weight: 600;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: rgba(255,255,255,.45);
-      margin-bottom: 24px;
+      color: rgba(255,255,255,.4);
     }
 
+    /* Tags */
     .tag-list {
       display: flex;
       flex-wrap: wrap;
-      justify-content: center;
       gap: 6px;
-      margin-bottom: 28px;
+      padding: 16px 24px 0;
     }
+    .tag-list:empty { display: none; }
 
     .tag {
-      font-size: .72rem;
+      font-size: .7rem;
       font-weight: 600;
       letter-spacing: .08em;
       text-transform: uppercase;
-      color: rgba(255,255,255,.55);
-      border: 1px solid rgba(255,255,255,.2);
+      color: rgba(255,255,255,.5);
+      border: 1px solid rgba(255,255,255,.18);
       border-radius: 999px;
       padding: 3px 10px;
     }
 
-    .content {
-      width: min(520px, 100%);
-      padding: 0 28px 60px;
-      display: flex;
-      flex-direction: column;
-      gap: 28px;
-    }
-
-    .thumbnail-wrap {
-      width: 100%;
-      border-radius: 10px;
-      overflow: hidden;
-      display: none;
-    }
-    .thumbnail-wrap.visible { display: block; }
-    .thumbnail-wrap img { width: 100%; display: block; }
-
+    /* Description */
     .description {
-      font-size: clamp(.95rem, 3.2vw, 1.05rem);
+      font-size: clamp(.93rem, 3vw, 1rem);
       line-height: 1.7;
-      color: rgba(255,255,255,.78);
+      color: rgba(255,255,255,.72);
+      padding: 20px 24px 0;
       white-space: pre-wrap;
     }
+    .description:empty { display: none; }
 
+    /* Price */
     .price-row {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
+      padding: 16px 24px 0;
     }
-
+    .price-row.hidden { display: none; }
     .price-label {
-      font-size: .7rem;
+      font-size: .68rem;
       font-weight: 600;
       letter-spacing: .1em;
       text-transform: uppercase;
-      color: rgba(255,255,255,.35);
-      flex-shrink: 0;
+      color: rgba(255,255,255,.32);
     }
-
     .price-value {
-      font-size: .95rem;
+      font-size: .92rem;
       font-weight: 600;
-      color: rgba(255,255,255,.7);
+      color: rgba(255,255,255,.65);
     }
 
-    .cta-wrap {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 14px;
+    /* GO button */
+    .go-wrap {
+      padding: 28px 24px 0;
     }
 
-    .play-btn {
+    .go-btn {
       display: flex;
       align-items: center;
       justify-content: center;
       background: #fff;
       color: #111;
       font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(1.8rem, 6vw, 2.4rem);
-      letter-spacing: 0.1em;
-      text-decoration: none;
-      height: 68px;
-      width: min(360px, 100%);
+      font-size: clamp(2rem, 7vw, 2.6rem);
+      letter-spacing: 0.14em;
+      height: 72px;
+      width: 100%;
       border-radius: 6px;
-      cursor: pointer;
       border: none;
+      cursor: pointer;
       touch-action: manipulation;
       transition: background 0.1s, transform 0.1s;
     }
-    .play-btn:active { background: #d1d5db; transform: scale(0.97); }
+    .go-btn:active { background: #d1d5db; transform: scale(0.97); }
 
-    /* ── Share ── */
+    /* QR / share section */
     .share-section {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 16px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(255,255,255,.1);
+      gap: 14px;
+      padding: 32px 24px 48px;
+      margin-top: auto;
+      border-top: 1px solid rgba(255,255,255,.08);
     }
 
     .share-hint {
-      font-size: .78rem;
+      font-size: .72rem;
       font-weight: 600;
-      letter-spacing: .08em;
+      letter-spacing: .1em;
       text-transform: uppercase;
-      color: rgba(255,255,255,.35);
+      color: rgba(255,255,255,.3);
     }
 
     .qr-wrap {
       background: #fff;
-      padding: 14px;
+      padding: 12px;
       border-radius: 8px;
     }
-
     .qr-wrap img {
       display: block;
-      width: min(200px, 60vw);
-      height: min(200px, 60vw);
+      width: min(180px, 52vw);
+      height: min(180px, 52vw);
       image-rendering: pixelated;
     }
 
     .share-url {
-      font-size: .68rem;
-      color: rgba(255,255,255,.3);
+      font-size: .64rem;
+      color: rgba(255,255,255,.25);
       word-break: break-all;
       text-align: center;
-      max-width: min(360px, 100%);
+      max-width: 320px;
     }
 
-    /* ── Error ── */
+    /* Error */
     .error {
       display: none;
       color: #f87171;
@@ -230,44 +220,43 @@
 </head>
 <body>
 
-  <!-- ── LOBBY VIEW ── -->
-  <div id="lobby">
+  <!-- ── LANDING VIEW ── -->
+  <div id="landing" style="display:none">
 
-    <div class="hero" id="hero" style="display:none">
-      <div class="logo-wrap" id="logoWrap">
-        <img id="logoImg" alt="Game Logo">
-      </div>
-      <div class="game-title" id="gameTitle"></div>
-      <div class="game-subtitle" id="gameSubtitle"></div>
-      <div class="tag-list" id="tagList"></div>
-    </div>
+    <img class="hero-img hidden" id="heroImg" alt="">
 
-    <div class="content" id="content" style="display:none">
-      <div class="thumbnail-wrap" id="thumbWrap">
-        <img id="thumbImg" alt="">
-      </div>
-      <p class="description" id="description"></p>
-      <div class="price-row" id="priceRow" style="display:none">
-        <span class="price-label">Price</span>
-        <span class="price-value" id="priceValue"></span>
-      </div>
-      <div class="cta-wrap">
-        <button class="play-btn" id="playBtn">Start Game</button>
-      </div>
-
-      <div class="share-section" id="shareSection" style="display:none">
-        <div class="share-hint">or scan to play on another device</div>
-        <div class="qr-wrap"><img id="qrImg" alt="QR Code"></div>
-        <div class="share-url" id="shareUrl"></div>
+    <div class="identity">
+      <img class="logo-img hidden" id="logoImg" alt="">
+      <div class="title-block">
+        <div class="game-title" id="gameTitle"></div>
+        <div class="game-subtitle" id="gameSubtitle"></div>
       </div>
     </div>
 
-    <div class="error" id="error"></div>
+    <div class="tag-list" id="tagList"></div>
+
+    <p class="description" id="description"></p>
+
+    <div class="price-row hidden" id="priceRow">
+      <span class="price-label">Price</span>
+      <span class="price-value" id="priceValue"></span>
+    </div>
+
+    <div class="go-wrap">
+      <button class="go-btn" id="goBtn">GO</button>
+    </div>
+
+    <div class="share-section">
+      <div class="share-hint">Scan to play on another device</div>
+      <div class="qr-wrap"><img id="qrImg" alt="QR Code"></div>
+      <div class="share-url" id="shareUrl"></div>
+    </div>
 
   </div>
 
-  <!-- ── GAME SHELL VIEW (hidden until Start Game is tapped) ── -->
-  <!-- engine.js populates #chat and #input-area; .contact-header is the top bar -->
+  <div class="error" id="error"></div>
+
+  <!-- ── GAME SHELL VIEW (hidden until GO is tapped) ── -->
   <div id="game-shell" style="display:none; width:100%; flex-direction:column;">
     <div class="icon-preload" aria-hidden="true"></div>
     <div class="contact-header">
@@ -282,34 +271,32 @@
   </div>
 
   <script>
-    const params  = new URLSearchParams(location.search);
-    const gameId  = params.get('id') || params.get('game');
+    const params = new URLSearchParams(location.search);
+    const gameId = params.get('id') || params.get('game');
 
     function showError(msg) {
       document.getElementById('error').textContent = msg;
       document.getElementById('error').style.display = '';
     }
 
-    // Transition: hide lobby, show game shell, rewrite URL to ?game=ID so
-    // engine.js reads the correct GAME_PARAM, then dynamically load the engine.
     let resolvedId = gameId;
     function launchGame() {
-      document.getElementById('lobby').style.display      = 'none';
+      document.getElementById('landing').style.display = 'none';
       document.getElementById('game-shell').style.display = 'flex';
-      // engine.js reads `game` param from location.search at parse time
       history.replaceState(null, '', '?game=' + encodeURIComponent(resolvedId));
       const s = document.createElement('script');
       s.src = 'util/engine.js';
       document.body.appendChild(s);
     }
 
-    // Returns the most recently created/updated non-archived game, or null
     function mostRecent(games) {
       const active = games.filter(g => !g.archived);
-      if(!active.length) return null;
+      if (!active.length) return null;
       return active.reduce((best, g) => {
-        const t = g => Math.max(g.createdAt ? new Date(g.createdAt).getTime() : 0,
-                                g.updatedAt ? new Date(g.updatedAt).getTime() : 0);
+        const t = g => Math.max(
+          g.createdAt ? new Date(g.createdAt).getTime() : 0,
+          g.updatedAt ? new Date(g.updatedAt).getTime() : 0
+        );
         return t(g) > t(best) ? g : best;
       });
     }
@@ -319,68 +306,63 @@
       .then(data => {
         const games = Array.isArray(data) ? data : (data.games || []);
         let game = gameId ? games.find(g => g.id === gameId) : null;
-
-        // Fall back to most recent game if ID missing or not found
-        if(!game) game = mostRecent(games);
-        if(!game) { showError('No games available.'); return; }
+        if (!game) game = mostRecent(games);
+        if (!game) { showError('No games available.'); return; }
 
         resolvedId = game.id;
 
-          // Page title + favicon
-          document.title = game.name || gameId;
-          if (game.favicon) document.getElementById('favicon').href = game.favicon;
+        document.title = game.name || gameId;
+        if (game.favicon) document.getElementById('favicon').href = game.favicon;
 
-          // Hero section
-          document.getElementById('gameTitle').textContent = game.name || gameId;
-          if (game.subtitle) document.getElementById('gameSubtitle').textContent = 'Your Guide: ' + game.subtitle;
+        // Hero image
+        if (game.thumbnail) {
+          const img = document.getElementById('heroImg');
+          img.src = game.thumbnail;
+          img.classList.remove('hidden');
+        }
 
-          // Tags
-          const tags = (game.tag || '').split(/[,;]+/).map(t => t.trim()).filter(Boolean);
-          const tagList = document.getElementById('tagList');
-          tags.forEach(t => {
-            const span = document.createElement('span');
-            span.className = 'tag';
-            span.textContent = t;
-            tagList.appendChild(span);
-          });
+        // Logo
+        if (game.logo) {
+          const logo = document.getElementById('logoImg');
+          logo.src = game.logo;
+          logo.classList.remove('hidden');
+        }
 
-          // Logo
-          if (game.logo) {
-            document.getElementById('logoImg').src = game.logo;
-            document.getElementById('logoWrap').classList.add('visible');
-          }
+        document.getElementById('gameTitle').textContent = game.name || gameId;
+        if (game.subtitle) document.getElementById('gameSubtitle').textContent = 'Guide: ' + game.subtitle;
 
-          document.getElementById('hero').style.display = '';
+        // Tags
+        const tags = (game.tag || '').split(/[,;]+/).map(t => t.trim()).filter(Boolean);
+        const tagList = document.getElementById('tagList');
+        tags.forEach(t => {
+          const span = document.createElement('span');
+          span.className = 'tag';
+          span.textContent = t;
+          tagList.appendChild(span);
+        });
 
-          // Thumbnail
-          if (game.thumbnail) {
-            document.getElementById('thumbImg').src = game.thumbnail;
-            document.getElementById('thumbWrap').classList.add('visible');
-          }
+        // Description
+        const desc = (game.description || '').trim();
+        if (desc) document.getElementById('description').textContent = desc;
 
-          // Description
-          const desc = (game.description || '').trim();
-          if (desc) document.getElementById('description').textContent = desc;
-          else document.getElementById('description').style.display = 'none';
+        // Price
+        if (game.price) {
+          document.getElementById('priceValue').textContent = game.price;
+          document.getElementById('priceRow').classList.remove('hidden');
+        }
 
-          // Price
-          if (game.price) {
-            document.getElementById('priceValue').textContent = game.price;
-            document.getElementById('priceRow').style.display = '';
-          }
+        document.getElementById('goBtn').addEventListener('click', launchGame);
 
-          document.getElementById('content').style.display = '';
-          document.getElementById('playBtn').addEventListener('click', launchGame);
+        // QR code
+        const shareUrl = 'https://the-game-bureau.github.io/the-game-bureau/games/index.html?id=' + encodeURIComponent(game.id);
+        const cssSize  = Math.min(180, Math.round(window.innerWidth * 0.52));
+        const px       = cssSize * Math.min(window.devicePixelRatio || 2, 3);
+        document.getElementById('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + px + 'x' + px + '&data=' + encodeURIComponent(shareUrl);
+        document.getElementById('shareUrl').textContent = shareUrl;
 
-          // Share section — QR code pointing to this page's canonical URL
-          const shareUrl = 'https://the-game-bureau.github.io/the-game-bureau/games/index.html?id=' + encodeURIComponent(game.id);
-          const cssSize  = Math.min(200, Math.round(window.innerWidth * 0.6));
-          const px       = cssSize * Math.min(window.devicePixelRatio || 2, 3);
-          document.getElementById('qrImg').src    = 'https://api.qrserver.com/v1/create-qr-code/?size=' + px + 'x' + px + '&data=' + encodeURIComponent(shareUrl);
-          document.getElementById('shareUrl').textContent = shareUrl;
-          document.getElementById('shareSection').style.display = '';
-        })
-        .catch(() => showError('Could not load game data.'));
+        document.getElementById('landing').style.display = '';
+      })
+      .catch(() => showError('Could not load game data.'));
   </script>
 
 </body>
