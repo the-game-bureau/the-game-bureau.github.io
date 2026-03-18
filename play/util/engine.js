@@ -34,7 +34,7 @@ let DEFAULT_PLACEHOLDER = 'Type here...';
 const DEFAULT_HEADER = {
   title: 'Scavenger Hunt',
   subtitle: 'Mission Control',
-  logoUrl: 'logo.png',
+  logoUrl: 'games/logo.png',
   logoAlt: 'Game Logo',
   pageTitle: 'Scavenger Hunt',
   status: 'online'
@@ -419,10 +419,10 @@ async function loadStops() {
     } catch (e) {}
   }
   if (!payload) {
-    let stopsPath = 'stops.json';
+    let stopsPath = 'games/data/stops.json';
     if (GAME_PARAM) {
       try {
-        const gamesResp = await fetch('data/games.json', { cache: 'no-store' });
+        const gamesResp = await fetch('games/data/games.json', { cache: 'no-store' });
         if (gamesResp.ok) {
           const gamesData = await gamesResp.json();
           const list = Array.isArray(gamesData) ? gamesData : (gamesData.games || []);
