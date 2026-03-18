@@ -8,7 +8,7 @@ subprocess.run(
     shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
 )
 
-URL = 'http://localhost:3000/private/builder.html'
+URL = 'http://localhost:3000/play/private/builder.html'
 threading.Timer(0.8, lambda: webbrowser.open(URL)).start()
 
 try:

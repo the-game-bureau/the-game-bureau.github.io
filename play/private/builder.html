@@ -24,7 +24,9 @@
     .page-header .tool{font-size:1rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;}
 
     /* ── Workspace ── */
-    .workspace{flex:1;display:flex;flex-direction:row;gap:20px;padding:20px;overflow:auto;align-items:flex-start;}
+    .workspace{flex:1;display:flex;flex-direction:column;padding:20px;overflow:hidden;gap:16px;}
+    .top-panels{display:flex;flex-direction:row;gap:20px;flex:1;min-height:0;overflow:hidden;}
+    .map-panel-wrap{flex-shrink:0;}
 
     /* ── Panel ── */
     .panel{background:var(--panel);border:2px solid var(--ink);display:flex;flex-direction:column;min-width:0;}
@@ -34,7 +36,7 @@
     .panel-body{padding:0;overflow-y:auto;}
 
     /* ── Games panel ── */
-    .games-panel{width:300px;flex-shrink:0;}
+    .games-panel{flex:3;min-width:0;}
 
     /* ── Game row ── */
     .game-row{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid rgba(17,17,17,.1);font-size:.78rem;cursor:pointer;user-select:none;}
@@ -59,13 +61,13 @@
     .btn:disabled{opacity:.4;cursor:default;}
 
     /* ── Details panel ── */
-    .details-panel{width:300px;flex-shrink:0;display:flex;}
+    .details-panel{flex:7;min-width:0;display:flex;}
 
     /* ── Stops panel ── */
-    .stops-panel{width:300px;flex-shrink:0;display:flex;}
+    .stops-panel{flex:3;min-width:0;display:flex;}
 
     /* ── Stop details panel ── */
-    .stop-details-panel{width:380px;flex-shrink:0;display:flex;flex-direction:column;}
+    .stop-details-panel{flex:7;min-width:0;display:flex;flex-direction:column;}
 
     /* ── Stop row ── */
     .stop-row{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid rgba(17,17,17,.1);font-size:.76rem;cursor:pointer;user-select:none;}
@@ -80,6 +82,9 @@
     .stop-row.archived .stop-row-name,.stop-row.archived .stop-row-sub{color:#bbb;}
     .stop-row.selected .stop-row-sub{color:rgba(255,255,255,.5);}
     .stop-row.selected.archived .stop-row-name,.stop-row.selected.archived .stop-row-sub{color:rgba(255,255,255,.5);}
+    .stop-add-route{flex-shrink:0;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--ink);background:none;color:var(--ink);font-size:1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;opacity:.6;}
+    .stop-add-route:hover{opacity:1;background:var(--ink);color:#fff;}
+    .stop-add-route.no-game{opacity:.2;cursor:default;}
     .reply-badge{font-size:.54rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;padding:2px 5px;border-radius:3px;flex-shrink:0;}
     .rb-noreply{background:#9ca3af;} .rb-text{background:#1a73e8;} .rb-any{background:#f5a623;} .rb-choice{background:#9333ea;} .rb-anytime{background:#4ecf98;}
 
@@ -124,23 +129,27 @@
     #g-tagNewInput:focus{border-color:var(--ink);border-style:solid;}
     .tag-add-btn{font-family:var(--sans);font-size:.62rem;font-weight:700;padding:2px 7px;border:1px solid var(--ink);border-radius:999px;background:#fff;color:var(--ink);cursor:pointer;}
 
-    /* ── Map panel ── */
-    .map-panel{width:300px;flex-shrink:0;display:flex;}
-    .r-stop-item{display:flex;align-items:center;gap:6px;padding:6px 10px;background:#fff;border-bottom:1px solid rgba(17,17,17,.1);font-size:.74rem;cursor:grab;user-select:none;}
-    .r-stop-item:last-child{border-bottom:none;}
-    .r-stop-item:hover{background:rgba(100,160,240,.08);}
-    .r-stop-item.dragging{opacity:.4;}
-    .r-stop-item.drop-before{box-shadow:0 -2px 0 var(--ink);}
-    .r-stop-item.drop-after{box-shadow:0 2px 0 var(--ink);}
-    .r-stop-grip{color:var(--muted);font-size:.7rem;flex-shrink:0;}
-    .r-stop-num{flex-shrink:0;font-size:.6rem;color:var(--muted);min-width:16px;text-align:right;}
-    .r-stop-id{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
-    .r-remove-btn{flex-shrink:0;padding:0;width:16px;height:16px;background:transparent;border:none;color:var(--muted);font-size:1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--sans);margin-top:0;}
-    .r-remove-btn:hover{color:var(--err);}
-    .r-zone-empty{padding:20px 16px;font-size:.66rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;text-align:center;border:2px dashed rgba(17,17,17,.15);margin:12px;}
-    .r-drop-zone{min-height:56px;}
-    .r-drop-zone.drag-over{background:rgba(100,160,240,.1);outline:2px dashed var(--ink);outline-offset:-2px;}
-    .r-status{padding:8px 16px;font-size:.64rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;border-top:1px solid rgba(17,17,17,.1);}
+    /* ── Map panel — full-width horizontal strip ── */
+    .map-panel{width:100%;flex-shrink:0;display:flex;flex-direction:column;}
+    .r-drop-zone{display:flex;flex-direction:row;align-items:center;overflow-x:auto;overflow-y:hidden;padding:8px 24px 8px 8px;height:104px;flex-shrink:0;position:relative;}
+    .r-drop-zone.drag-over{background:rgba(100,160,240,.08);}
+    /* Octagon stop cards — two-layer for border */
+    .r-stop-wrap{position:relative;flex-shrink:0;width:80px;height:80px;background:#000;clip-path:polygon(23px 0,57px 0,80px 23px,80px 57px,57px 80px,23px 80px,0 57px,0 23px);cursor:grab;}
+    .r-stop-wrap.dragging{opacity:.3;}
+    .r-insert-line{position:absolute;width:2px;top:10px;bottom:10px;background:#0057ff;pointer-events:none;display:none;z-index:10;}
+    .r-stop-item{position:absolute;top:2px;left:2px;width:76px;height:76px;background:#fff;user-select:none;clip-path:polygon(21px 0,55px 0,76px 21px,76px 55px,55px 76px,21px 76px,0 55px,0 21px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:12px 6px 6px;gap:2px;}
+    .r-stop-wrap:hover .r-stop-item{background:#edf3fb;}
+    .r-stop-wrap.anytime .r-stop-item{background:#e6f9f3;}
+    .r-stop-wrap.anytime:hover .r-stop-item{background:#c8f0e4;}
+    .r-stop-num{font-size:.48rem;font-weight:700;color:#aaa;line-height:1;letter-spacing:.12em;text-transform:uppercase;font-variant-numeric:tabular-nums;}
+    .r-stop-id{font-size:.66rem;font-weight:700;line-height:1.2;color:#111;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;max-width:56px;word-break:break-word;letter-spacing:-.01em;}
+    .r-remove-btn{position:absolute;top:6px;right:10px;padding:0;width:12px;height:12px;background:transparent;border:none;color:rgba(17,17,17,.25);font-size:.8rem;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;font-family:var(--sans);}
+    .r-stop-wrap:hover .r-remove-btn{display:flex;}
+    .r-remove-btn:hover{color:#c00;}
+    .r-stop-arrow{flex-shrink:0;display:flex;align-items:center;color:rgba(0,0,0,.2);padding:0 5px;user-select:none;pointer-events:none;}
+    .r-anytime-divider{flex-shrink:0;width:2px;height:56px;background:rgba(17,17,17,.12);align-self:center;margin:0 10px;border-radius:1px;}
+    .r-zone-empty{display:flex;align-items:center;height:80px;padding:0 20px;font-size:.66rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;border:2px dashed rgba(17,17,17,.15);white-space:nowrap;flex:1;}
+    .r-status{padding:6px 16px;font-size:.64rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;border-top:1px solid rgba(17,17,17,.1);}
     .r-status:empty{display:none;}
     .r-status.ok{color:var(--ok);font-weight:700;}.r-status.err{color:var(--err);font-weight:700;}.r-status.warn{color:var(--warn);font-weight:700;}
     .anytime-tag{font-size:.54rem;font-weight:700;letter-spacing:.07em;color:#fff;padding:2px 4px;border-radius:3px;flex-shrink:0;text-transform:uppercase;background:#4ecf98;}
@@ -262,6 +271,7 @@
 </header>
 
 <div class="workspace">
+<div class="top-panels">
 
   <!-- ── GAMES PANEL ── -->
   <div class="panel games-panel">
@@ -374,17 +384,6 @@
     <div class="status-bar" id="detailsStatus"></div>
   </div>
 
-  <!-- ── MAP PANEL ── -->
-  <div class="panel map-panel">
-    <div class="panel-head">
-      <span class="panel-title" id="r-panelTitle">Game Stop Order</span>
-    </div>
-    <div class="panel-body r-drop-zone" id="r-dropZone" style="flex:1;padding-bottom:48px;">
-      <div class="r-zone-empty">Select a game</div>
-    </div>
-    <div class="r-status" id="r-status"></div>
-  </div>
-
   <!-- ── STOPS PANEL ── -->
   <div class="panel stops-panel" id="stopsPanel">
     <div class="panel-head">
@@ -407,6 +406,21 @@
     <div class="status-bar" id="sd-status"><span id="s-dirtyBadge" class="dirty-badge">UNSAVED</span></div>
   </div>
 
+</div><!-- /top-panels -->
+
+  <!-- ── MAP PANEL ── -->
+  <div class="map-panel-wrap">
+  <div class="panel map-panel">
+    <div class="panel-head">
+      <span class="panel-title" id="r-panelTitle">Game Stop Order</span>
+    </div>
+    <div class="r-drop-zone" id="r-dropZone">
+      <div class="r-zone-empty">Select a game</div>
+    </div>
+    <div class="r-status" id="r-status"></div>
+  </div>
+  </div><!-- /map-panel-wrap -->
+
 </div><!-- /workspace -->
 
 <div id="s-undoToast" class="undo-toast" role="status">
@@ -418,6 +432,10 @@
   <div class="ctx-divider"></div>
   <div class="ctx-item" id="ctxArchive">Archive</div>
   <div class="ctx-item ctx-danger" id="ctxDelete">Delete</div>
+</div>
+
+<div id="routeCtxMenu" class="ctx-menu">
+  <div class="ctx-item" id="rCtxDetach">Detach</div>
 </div>
 
 <div id="stopCtxMenu" class="ctx-menu">
@@ -465,8 +483,8 @@
 const IS_LOCAL = ['localhost','127.0.0.1'].includes(location.hostname);
 const API = IS_LOCAL ? 'http://localhost:3000' : null;
 // Base URL for shareable player links shown in the Game Details panel
-const SHARE_BASE       = 'https://the-game-bureau.github.io/the-game-bureau/games/index.html?id=';
-const SHARE_BASE_LOCAL = 'http://localhost:3000/index.html?id=';
+const SHARE_BASE       = 'https://the-game-bureau.github.io/the-game-bureau/play/game.html?id=';
+const SHARE_BASE_LOCAL = 'http://localhost:3000/play/game.html?id=';
 // Preset genre/category tags that appear as pills in the game details form
 const ALL_TAGS = ['Mystery','Puzzle','SMS','Walking Tour','Sports','History','Food','Adventure','Family','Conspiracy','Trivia','Horror','Romance','Comedy','Music','Culture','Night Life','City Tour','Scavenger Hunt','New Orleans'];
 
@@ -565,12 +583,10 @@ function getCorrectReplySuggestions() { const opts=ensureBuilderOptionsHeader(st
 function getIncorrectReplySuggestions() { const opts=ensureBuilderOptionsHeader(state.header),list=(opts.incorrectReplies||[]).map(x=>String(x).trim()).filter(Boolean); return list.length?list:INCORRECT_BUBBLE_SUGGESTIONS; }
 // Scans all stops and bubbles for storesAs values and returns a deduplicated list of variable names
 function getCurrentVariableNames() { const nv=raw=>{const s=String(raw||'').trim(),w=s.match(/^\{\{\s*([A-Za-z_]\w*)\s*\}\}$|^\{\s*([A-Za-z_]\w*)\s*\}$/);return w?(w[1]||w[2]):s;}; const names=[]; (state.stops||[]).forEach(stop=>{const key=nv((stop&&stop.playerReply&&stop.playerReply.storesAs)||''); if(key)names.push(key); (Array.isArray(stop&&stop.messages)?stop.messages:[]).forEach(b=>{const bk=nv((b&&b.storesAs)||''); if(bk)names.push(bk);}); }); return Array.from(new Set(names)); }
-// Builds the hint text shown below HTML text areas listing all known {variableName} tokens
-function getHtmlVariableHintText() { const n=getCurrentVariableNames(); return n.length?'HTML ok. Use {variableName} syntax. Current variables: '+n.map(x=>'{'+x+'}').join(', ')+'.':'HTML ok. Use {variableName} syntax. Current variables: none yet.'; }
-// Refreshes all rendered variable hint paragraphs in the DOM (called when storesAs fields change)
-function updateHtmlVariableHints() { document.querySelectorAll('.html-variable-hint').forEach(el=>el.textContent=getHtmlVariableHintText()); }
-// Creates a <p> hint element with the current variable list for insertion below a text bubble editor
-function createHtmlVariableHint() { const h=document.createElement('p'); h.className='field-hint tight html-variable-hint'; h.textContent=getHtmlVariableHintText(); return h; }
+// (no-op — variable hints removed)
+function getHtmlVariableHintText() { return ''; }
+function updateHtmlVariableHints() {}
+function createHtmlVariableHint() { return document.createDocumentFragment(); }
 
 // ══════════════════════════════════════════════
 // BUBBLE EDITOR — ENSURE FUNCTIONS
@@ -800,19 +816,6 @@ function renderStopEditorInto(body, stop) {
   const flashSpan=document.createElement('span');flashSpan.className='bubble-flash';
   addBtn.addEventListener('click',()=>{stop.messages.push({bubbleId:createBubbleId(),msgType:'text',html:'',callToAction:false,bottomAdded:false});s_renderAll();flashSpan.textContent='Bubble Added';flashSpan.classList.add('visible');setTimeout(()=>flashSpan.classList.remove('visible'),1800);});
   addInner.appendChild(addBtn);addInner.appendChild(flashSpan);addRow.appendChild(addInner);body.appendChild(addRow);
-  if(pr.type==='any'){
-    const storesRow=document.createElement('div');storesRow.className='row full';
-    const storesLbl=document.createElement('label');storesLbl.textContent='STORE ANSWER AS';
-    const storesSel=document.createElement('select');
-    const blankOpt=document.createElement('option');blankOpt.value='';blankOpt.textContent='— don\'t store —';storesSel.appendChild(blankOpt);
-    const allVarKeys=(Array.isArray(state.variables)?state.variables:[]).map(v=>v.key).filter(Boolean);
-    const allVarKeysMut=allVarKeys.slice(),currentStoresAs=String(pr.storesAs||'').trim();
-    if(currentStoresAs&&!allVarKeysMut.includes(currentStoresAs))allVarKeysMut.push(currentStoresAs);
-    allVarKeysMut.forEach(key=>{const opt=document.createElement('option');opt.value=key;opt.textContent='{{'+key+'}}';storesSel.appendChild(opt);});
-    storesSel.value=currentStoresAs;storesSel.addEventListener('change',e=>{pr.storesAs=e.target.value;updateHtmlVariableHints();});
-    const storesHint=document.createElement('p');storesHint.className='field-hint tight';storesHint.textContent='Save the player\'s answer into a variable for use in later message text.';
-    storesRow.appendChild(storesLbl);storesRow.appendChild(storesSel);storesRow.appendChild(storesHint);body.appendChild(storesRow);
-  }
 }
 
 // Returns the currently selected stop object from state, or null if no stop is selected
@@ -875,6 +878,38 @@ function s_renderStopDetail() {
   nameField.appendChild(nameInput);
   nameField.appendChild(idHint);
   detailEl.appendChild(nameField);
+
+  // Stop type selector — styled as BUBBLE DETAILS TYPE row
+  const typeSection = document.createElement('div');
+  typeSection.className = 'field';
+  const typeLbl = document.createElement('div');
+  typeLbl.className = 'bubble-details-label';
+  typeLbl.textContent = 'STOP TYPE';
+  const typeRow = document.createElement('div');
+  typeRow.className = 'bubble-type-row';
+  const isAnytime = !!(stop.playerReply && stop.playerReply.anytime);
+  const typeRadioName = 'stoptype-' + (stop.id || i);
+  ['regular', 'anytime'].forEach(val => {
+    const rid = typeRadioName + '-' + val;
+    const radio = document.createElement('input');
+    radio.type = 'radio'; radio.name = typeRadioName; radio.value = val; radio.id = rid;
+    radio.checked = val === 'anytime' ? isAnytime : !isAnytime;
+    const rl = document.createElement('label'); rl.htmlFor = rid; rl.textContent = val.toUpperCase();
+    const p = document.createElement('span'); p.className = 'type-pair'; p.appendChild(radio); p.appendChild(rl);
+    typeRow.appendChild(p);
+  });
+  typeRow.querySelectorAll('input[type="radio"]').forEach(radio => {
+    radio.addEventListener('change', e => {
+      const pr = stop.playerReply || (stop.playerReply = {});
+      if(e.target.value === 'anytime') { pr.anytime = true; }
+      else { delete pr.anytime; }
+      markDirty();
+      s_renderStopDetail();
+    });
+  });
+  typeSection.appendChild(typeLbl);
+  typeSection.appendChild(typeRow);
+  detailEl.appendChild(typeSection);
 
   // Editor body
   const body = document.createElement('div');
@@ -968,19 +1003,28 @@ function r_isAnytime(stopId) { const s=(state.stops||[]).find(x=>x&&x.id===stopI
 function r_anytimeTag(stopId) { return r_isAnytime(stopId)?'<span class="anytime-tag">ANYTIME</span>':''; }
 // Briefly sets the route panel status bar and clears it after 2.5 seconds
 function r_setStatus(msg,type) { if(r_flashTimer)clearTimeout(r_flashTimer); const el=document.getElementById('r-status'); el.textContent=msg; el.className='r-status'+(type?' '+type:''); if(msg)r_flashTimer=setTimeout(()=>{el.textContent='';el.className='r-status';},2500); }
-// Clears all drop-before/drop-after indicators from route items
-function r_clearDropIndicators() { document.querySelectorAll('.r-stop-item').forEach(el=>el.classList.remove('drop-before','drop-after')); }
-// Calculates where to insert a dragged item based on cursor Y position (inserts above the midpoint)
-function r_getInsertionIndex(items,clientY) { for(let i=0;i<items.length;i++){const r=items[i].getBoundingClientRect();if(clientY<r.top+r.height/2)return i;}return items.length; }
-// Updates the visual drop indicator line during a drag operation
-function r_updateDropIndicator(items,clientY) { items.forEach(el=>el.classList.remove('drop-before','drop-after')); const idx=r_getInsertionIndex(items,clientY); if(idx<items.length)items[idx].classList.add('drop-before'); else if(items.length)items[items.length-1].classList.add('drop-after'); }
+// Hides the vertical insert line indicator
+function r_clearDropIndicators() { const l=document.getElementById('r-insertLine'); if(l) l.style.display='none'; }
+// Calculates where to insert a dragged item based on cursor X position (inserts left of midpoint)
+function r_getInsertionIndex(items,clientX) { for(let i=0;i<items.length;i++){const r=items[i].getBoundingClientRect();if(clientX<r.left+r.width/2)return i;}return items.length; }
+// Positions the vertical insert line between items based on cursor X
+function r_updateDropIndicator(items,clientX) {
+  const line=document.getElementById('r-insertLine'); if(!line) return;
+  const zone=document.getElementById('r-dropZone'); const zr=zone.getBoundingClientRect();
+  const idx=r_getInsertionIndex(items,clientX);
+  let x; if(idx<items.length){const r=items[idx].getBoundingClientRect();x=r.left-zr.left+zone.scrollLeft-1;}
+  else if(items.length){const r=items[items.length-1].getBoundingClientRect();x=r.right-zr.left+zone.scrollLeft+1;}
+  else{x=8;}
+  line.style.left=x+'px'; line.style.display='block';
+}
 // Re-sorts a game's stop array so anytime stops always appear before regular stops in the route
 function r_sortRouteAnytimeFirst(game) { if(!game||!Array.isArray(game.stops))return; const at=game.stops.filter(id=>r_isAnytime(id)),reg=game.stops.filter(id=>!r_isAnytime(id)); game.stops=[...at,...reg]; }
 // Adds a stop to the current game's route; anytime stops are inserted before the first regular stop
 function r_addStop(stopId) {
   const game=r_currentGame(); if(!game)return;
   if(!Array.isArray(game.stops))game.stops=[];
-  if(r_isAnytime(stopId)){if(game.stops.includes(stopId)){r_setStatus('Already in route.','warn');return;}const firstRegular=game.stops.findIndex(id=>!r_isAnytime(id));game.stops.splice(firstRegular<0?0:firstRegular,0,stopId);}
+  if(game.stops.includes(stopId)){r_setStatus('Already in route.','warn');return;}
+  if(r_isAnytime(stopId)){const firstRegular=game.stops.findIndex(id=>!r_isAnytime(id));game.stops.splice(firstRegular<0?0:firstRegular,0,stopId);}
   else game.stops.push(stopId);
   r_renderRoute();
 }
@@ -994,17 +1038,25 @@ function r_renderRoute() {
   if(!Array.isArray(game.stops))game.stops=[];
   r_sortRouteAnytimeFirst(game);
   if(!game.stops.length){zone.innerHTML='<div class="r-zone-empty">Drag stops here</div>';return;}
-  let shownDivider=false;
   game.stops.forEach((sid,idx)=>{
-    if(!shownDivider&&!r_isAnytime(sid)&&game.stops.some(id=>r_isAnytime(id))){shownDivider=true;const div=document.createElement('hr');div.style.cssText='border:none;border-top:1px solid rgba(0,0,0,.2);margin:4px 0;';zone.appendChild(div);}
+    const wrap=document.createElement('div');
+    wrap.className='r-stop-wrap'+(r_isAnytime(sid)?' anytime':'');wrap.draggable=true;wrap.dataset.idx=idx;
     const item=document.createElement('div');
-    item.className='r-stop-item';item.draggable=true;item.dataset.idx=idx;
-    item.innerHTML='<span class="r-stop-grip">⋮</span><span class="r-stop-num">'+(idx+1)+'</span><span class="r-stop-id">'+sid+'</span>'+r_anytimeTag(sid)+'<button class="r-remove-btn" type="button" title="Remove">×</button>';
+    item.className='r-stop-item';
+    item.innerHTML='<button class="r-remove-btn" type="button" title="Remove">×</button><span class="r-stop-num">'+String(idx+1).padStart(2,'0')+'</span><span class="r-stop-id">'+sid+'</span>';
     item.querySelector('.r-remove-btn').addEventListener('click',e=>{e.stopPropagation();game.stops.splice(idx,1);r_renderRoute();});
-    item.addEventListener('dragstart',e=>{r_dragging={idx};e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(idx));setTimeout(()=>item.classList.add('dragging'),0);});
-    item.addEventListener('dragend',()=>{item.classList.remove('dragging');r_clearDropIndicators();r_dragging=null;});
-    zone.appendChild(item);
+    wrap.addEventListener('click',()=>{ const si=(state.stops||[]).findIndex(s=>s.id===sid); if(si>=0){selectedStopIndex=si;isNewStop=false;s_renderAll();} });
+    wrap.addEventListener('dragstart',e=>{r_dragging={idx};e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(idx));setTimeout(()=>wrap.classList.add('dragging'),0);});
+    wrap.addEventListener('dragend',()=>{wrap.classList.remove('dragging');r_clearDropIndicators();r_dragging=null;});
+    wrap.appendChild(item);
+    zone.appendChild(wrap);
+    if(idx<game.stops.length-1){
+      const nextSid=game.stops[idx+1];
+      if(r_isAnytime(sid)&&!r_isAnytime(nextSid)){const div=document.createElement('div');div.className='r-anytime-divider';zone.appendChild(div);}
+      else if(!r_isAnytime(sid)&&!r_isAnytime(nextSid)){const arr=document.createElement('div');arr.className='r-stop-arrow';arr.innerHTML='<svg width="20" height="8" viewBox="0 0 20 8" fill="currentColor"><rect x="0" y="3" width="12" height="2"/><polygon points="11,0 20,4 11,8"/></svg>';zone.appendChild(arr);}
+    }
   });
+  const il=document.createElement('div');il.id='r-insertLine';il.className='r-insert-line';zone.appendChild(il);
 }
 // IIFE: wires up drag-and-drop event handlers for the route drop zone.
 // Handles two distinct drag sources:
@@ -1015,7 +1067,7 @@ function r_renderRoute() {
   zone.addEventListener('dragover',e=>{
     const types=Array.from(e.dataTransfer.types);
     // In-panel reorder: show precise drop indicator line
-    if(r_dragging!=null){e.preventDefault();const items=Array.from(zone.querySelectorAll('.r-stop-item:not(.dragging)'));r_updateDropIndicator(items,e.clientY);}
+    if(r_dragging!=null){e.preventDefault();const items=Array.from(zone.querySelectorAll('.r-stop-wrap:not(.dragging)'));r_updateDropIndicator(items,e.clientX);}
     // Cross-panel add: highlight the entire drop zone
     else if(types.includes('text/x-stop-id')&&selectedIndex>=0){e.preventDefault();zone.classList.add('drag-over');}
   });
@@ -1024,15 +1076,42 @@ function r_renderRoute() {
     zone.classList.remove('drag-over');r_clearDropIndicators();
     if(r_dragging!=null){
       e.preventDefault();const game=r_currentGame();if(!game)return;
-      const items=Array.from(zone.querySelectorAll('.r-stop-item:not(.dragging)'));
-      const insertionIndex=r_getInsertionIndex(items,e.clientY);
+      const items=Array.from(zone.querySelectorAll('.r-stop-wrap:not(.dragging)'));
+      const insertionIndex=r_getInsertionIndex(items,e.clientX);
       const from=r_dragging.idx;r_dragging=null;
       const[moved]=game.stops.splice(from,1);game.stops.splice(insertionIndex,0,moved);
       r_sortRouteAnytimeFirst(game);r_renderRoute();return;
     }
     const sid=e.dataTransfer.getData('text/x-stop-id');
     if(!sid||selectedIndex<0)return;
+    const dropStop=(state.stops||[]).find(s=>s.id===sid);
+    if(dropStop&&dropStop.archived)return;
     e.preventDefault();r_addStop(sid);
+  });
+})();
+
+// ── Route item context menu ───────────────────
+(()=>{
+  const menu = document.getElementById('routeCtxMenu');
+  let targetIdx = -1;
+  function hideRouteCtx(){ menu.style.display='none'; targetIdx=-1; }
+  function showRouteCtx(x, y, idx){
+    targetIdx = idx;
+    menu.style.display='flex'; menu.style.left='0'; menu.style.top='0';
+    const mw=menu.offsetWidth, mh=menu.offsetHeight;
+    menu.style.left=Math.min(x, window.innerWidth-mw-4)+'px';
+    menu.style.top=Math.min(y, window.innerHeight-mh-4)+'px';
+  }
+  document.addEventListener('click', hideRouteCtx);
+  document.addEventListener('contextmenu', e=>{ if(!e.target.closest('#routeCtxMenu')) hideRouteCtx(); });
+  document.getElementById('rCtxDetach').addEventListener('click', ()=>{
+    const game=r_currentGame(); if(!game||targetIdx<0) return;
+    game.stops.splice(targetIdx,1); hideRouteCtx(); r_renderRoute(); markDirty();
+  });
+  // Attach contextmenu to wraps — called from r_renderRoute via delegation on the zone
+  document.getElementById('r-dropZone').addEventListener('contextmenu', e=>{
+    const wrap=e.target.closest('.r-stop-wrap'); if(!wrap) return;
+    e.preventDefault(); e.stopPropagation(); showRouteCtx(e.clientX, e.clientY, Number(wrap.dataset.idx));
   });
 })();
 
@@ -1167,9 +1246,10 @@ function renderStopsList() {
     badge.className = 'reply-badge ' + replyTagToRb(tag.cls);
     badge.textContent = tag.label;
 
-    row.draggable = true;
+    row.draggable = !s.archived;
     row.dataset.stopIndex = String(i);
     row.addEventListener('dragstart', e => {
+      if(s.archived){ e.preventDefault(); return; }
       e.dataTransfer.setData('text/x-stop-id', s.id);
       e.dataTransfer.setData('text/x-stop-index', String(i));
       e.dataTransfer.effectAllowed = 'move';
@@ -1205,8 +1285,21 @@ function renderStopsList() {
       else if(fromIndex > selectedStopIndex && insertAt <= selectedStopIndex) selectedStopIndex++;
       s_renderAll();
     });
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'stop-add-route';
+    addBtn.textContent = '+';
+    addBtn.title = selectedIndex >= 0 ? 'Add to ' + (games[selectedIndex].name || 'route') : 'Select a game first';
+    if(selectedIndex < 0 || s.archived) addBtn.classList.add('no-game');
+    addBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if(selectedIndex < 0) return;
+      r_addStop(s.id);
+    });
+
     row.appendChild(info);
     row.appendChild(badge);
+    row.appendChild(addBtn);
     row.addEventListener('click', () => {
       selectedStopIndex = i;
       isNewStop = false;
@@ -1701,7 +1794,6 @@ const thumbnailPicker = setupImgPicker('g-thumbnail-file', 'g-thumbnail-url', 'g
 const faviconPicker   = setupImgPicker('g-favicon-file',   'g-favicon-url',   'g-favicon',   'g-favicon-preview');
 
 // ── Publish button (local only) ────────────────
-setupPanelFooters();
 // The Publish button is hidden in production (GitHub Pages); only shown when running locally
 if(IS_LOCAL) document.getElementById('g-publishBtn').style.display = '';
 

@@ -2,191 +2,311 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0c0c0c">
-  <title>The Game Bureau</title>
-  <meta id="og-title"       property="og:title"       content="The Game Bureau">
-  <meta id="og-description" property="og:description" content="">
-  <meta id="og-image"       property="og:image"       content="">
-  <meta id="og-url"         property="og:url"         content="">
-  <meta                     property="og:type"        content="website">
-  <meta name="twitter:card"         content="summary_large_image">
-  <meta id="tw-title"       name="twitter:title"       content="The Game Bureau">
-  <meta id="tw-description" name="twitter:description" content="">
-  <meta id="tw-image"       name="twitter:image"       content="">
-  <link id="favicon" rel="icon" href="favicon.ico" type="image/x-icon">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="index.css">
-  <link rel="stylesheet" href="games.css">
+  <meta name="theme-color" content="#ffffff">
+  <title>Loading…</title>
+  <link id="favicon" rel="icon" href="../index.ico" type="image/x-icon">
+  <link rel="stylesheet" href="../index.css">
+  <link rel="stylesheet" href="game.css">
 </head>
-<body>
+<body class="game-active">
+  <div class="icon-preload" aria-hidden="true"></div>
 
-  <div id="landing">
-    <div class="logo-wrap">
-      <img id="gameLogo" alt="">
-    </div>
-
-    <div class="title-wrap">
-      <div id="gameTitle"></div>
-      <div id="gameGuide"><span class="guide-label">Your Guide</span><span class="guide-val" id="guideVal"></span></div>
-      <div id="price">
-        <span class="price-label">Price</span>
-        <span class="price-val" id="priceVal"></span>
-      </div>
-    </div>
-
-    <div id="tags"></div>
-
-    <hr class="divider">
-
-    <p id="desc"></p>
-
-    <div class="go-wrap">
-      <button id="goBtn">PLAY</button>
-    </div>
-
-    <div class="share-section">
-      <div class="share-heading">Invite Players</div>
-
-      <div class="share-qr">
-        <div class="share-qr-label">Hold up your screen &amp; let players scan</div>
-        <div class="qr-box"><img id="qrImg" alt="QR Code"></div>
-      </div>
-
-      <div class="share-or"><span>OR</span></div>
-
-      <div class="share-text">
-        <div class="share-text-info">
-          <div class="share-text-title">Send via Text</div>
-          <div class="share-text-sub">Opens a new message with the link</div>
-        </div>
-        <button class="share-text-btn" id="copyBtn">SEND</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="error"></div>
-
-  <!-- Game shell — revealed after GO is tapped -->
-  <div id="game-shell" style="display:none; width:100%; flex-direction:column;">
-    <div class="icon-preload" aria-hidden="true"></div>
-    <div class="contact-header">
-      <div class="avatar"><img id="header-logo" src="games/logo.png" alt=""></div>
+  <div class="contact-header compact">
+    <img class="game-thumbnail" id="gameThumbnail" alt="">
+    <div class="avatar"><img id="header-logo" src="assets/logo.png" alt=""></div>
+    <div class="header-info">
       <div class="contact-name" id="header-title"></div>
       <div class="contact-name" id="header-subtitle"></div>
-      <div class="contact-status"><div class="online-dot"></div><span id="header-status">online</span></div>
-      <button class="restart-btn" id="restartBtn" type="button">↺ RESTART</button>
+      <div class="contact-status">
+        <div class="online-dot"></div>
+        <span id="header-status">online</span>
+      </div>
     </div>
-    <div class="chat" id="chat"></div>
-    <div class="input-area" id="input-area"></div>
+    <button class="restart-btn" id="restartBtn" type="button">↺ RESTART</button>
+  </div>
+
+  <div class="chat" id="chat"></div>
+
+  <div class="input-area" id="input-area">
+    <div class="answer-row">
+      <input id="gameInput" type="text" class="answer-input" autocomplete="off" placeholder="" disabled>
+      <button id="gameSubmitBtn" class="submit-btn" aria-label="Send" disabled>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z" fill="white" stroke="white"/></svg>
+      </button>
+    </div>
   </div>
 
   <script>
-    const DEFAULT_GAME = 'oswald-s-diary';
+    const TYPING_DELAY = 700;
+    const BUBBLE_PAUSE = 180;
+
     const params  = new URLSearchParams(location.search);
-    const gameId  = params.get('id') || params.get('game') || DEFAULT_GAME;
-    let resolvedId = gameId;
+    const gameId  = params.get('id') || params.get('game');
+    const STORE_KEY = 'tgb_' + (gameId || 'default');
 
-    function showError(msg) {
-      const el = document.getElementById('error');
-      el.textContent = msg;
-      el.style.display = '';
+    const chatEl      = document.getElementById('chat');
+    const gameInput   = document.getElementById('gameInput');
+    const submitBtn   = document.getElementById('gameSubmitBtn');
+
+    let gameStops          = [];
+    let anytimeStops       = [];
+    let globalCorrectPool  = [];
+    let globalIncorrectPool= [];
+    let currentStopIndex   = 0;
+    let _submitHandler     = null;
+    let vars               = {};
+
+    // ── Persistence ──────────────────────────────────────────────
+    function saveStep(i) {
+      try { localStorage.setItem(STORE_KEY + '_step', String(i)); } catch(e) {}
+    }
+    function loadStep() {
+      try { return parseInt(localStorage.getItem(STORE_KEY + '_step') || '0', 10) || 0; } catch(e) { return 0; }
+    }
+    function saveVars() {
+      try { localStorage.setItem(STORE_KEY + '_vars', JSON.stringify(vars)); } catch(e) {}
+    }
+    function loadVars() {
+      try { return JSON.parse(localStorage.getItem(STORE_KEY + '_vars') || '{}'); } catch(e) { return {}; }
+    }
+    function clearSave() {
+      try {
+        localStorage.removeItem(STORE_KEY + '_step');
+        localStorage.removeItem(STORE_KEY + '_vars');
+        vars = {};
+      } catch(e) {}
     }
 
-    function launchGame() {
-      document.getElementById('landing').style.display    = 'none';
-      document.getElementById('game-shell').style.display = 'flex';
-      document.body.classList.add('game-active');
-      history.replaceState(null, '', '?game=' + encodeURIComponent(resolvedId));
-      const s = document.createElement('script');
-      s.src = 'games/util/engine.js';
-      document.body.appendChild(s);
+    // ── Helpers ───────────────────────────────────────────────────
+    function norm(s) {
+      return String(s || '').toLowerCase().replace(/[$,.\s]/g, '');
     }
-
-    function mostRecent(games) {
-      const active = games.filter(g => !g.archived);
-      if (!active.length) return null;
-      return active.reduce((a, b) => {
-        const t = g => Math.max(
-          g.createdAt ? new Date(g.createdAt).getTime() : 0,
-          g.updatedAt ? new Date(g.updatedAt).getTime() : 0
-        );
-        return t(b) > t(a) ? b : a;
+    function pick(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+    function scrollBottom() {
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+    function normalizeVarKey(raw) {
+      const s = String(raw || '').trim();
+      const m = s.match(/^\{\{\s*([A-Za-z_]\w*)\s*\}\}$/) || s.match(/^\{\s*([A-Za-z_]\w*)\s*\}$/);
+      return m ? m[1] : s;
+    }
+    function interpolate(str) {
+      return String(str || '').replace(/\{\{\s*([A-Za-z_]\w*)\s*\}\}|\{\s*([A-Za-z_]\w*)\s*\}/g, (match, k1, k2) => {
+        const key = k1 || k2;
+        return Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : match;
       });
     }
 
-    fetch('games/data/games.json')
-      .then(r => r.json())
-      .then(data => {
-        const games = Array.isArray(data) ? data : (data.games || []);
-        const game  = games.find(g => g.id === gameId) || mostRecent(games);
-        if (!game) { showError('No games available.'); return; }
+    // ── DOM builders ──────────────────────────────────────────────
+    function addBubble(html, fromGame = true) {
+      const wrap = document.createElement('div');
+      wrap.className = 'msg ' + (fromGame ? 'from-game' : 'from-player');
+      const bubble = document.createElement('div');
+      bubble.className = 'msg-bubble';
+      bubble.innerHTML = interpolate(String(html || '')).replace(/\n/g, '<br>');
+      if (bubble.querySelector('img')) wrap.classList.add('has-img');
+      wrap.appendChild(bubble);
+      chatEl.appendChild(wrap);
+      scrollBottom();
+      return wrap;
+    }
 
-        resolvedId = game.id;
+    function showTypingIndicator() {
+      const el = document.createElement('div');
+      el.className = 'typing';
+      el.innerHTML = '<span></span><span></span><span></span>';
+      chatEl.appendChild(el);
+      scrollBottom();
+      return el;
+    }
 
-        const prodUrl   = 'https://the-game-bureau.github.io/the-game-bureau/games/index.html?id=' + encodeURIComponent(game.id);
-        const shareUrl  = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-          ? location.origin + location.pathname + '?id=' + encodeURIComponent(game.id)
-          : prodUrl;
-        const fullDesc  = (game.description || '').trim();
-        const firstLine = fullDesc.split('\n')[0].trim();
+    // ── Message sequencing ────────────────────────────────────────
+    function showMessages(messages, onDone) {
+      let i = 0;
+      function next() {
+        if (i >= messages.length) { onDone && onDone(); return; }
+        const msg = messages[i++];
+        const html = msg.html || msg.text || '';
+        if (!html) { next(); return; }
+        const indicator = showTypingIndicator();
+        setTimeout(() => {
+          indicator.remove();
+          addBubble(html);
+          setTimeout(next, BUBBLE_PAUSE);
+        }, TYPING_DELAY);
+      }
+      next();
+    }
 
+    // ── Permanent input bar ───────────────────────────────────────
+    function disableInput() {
+      gameInput.disabled = true;
+      gameInput.value = '';
+      gameInput.placeholder = '';
+      submitBtn.disabled = true;
+      _submitHandler = null;
+    }
+
+    function showTextInput(stop) {
+      const reply = stop.playerReply || {};
+      gameInput.placeholder = reply.placeholder || 'Type here…';
+      gameInput.disabled = false;
+      submitBtn.disabled = false;
+      setTimeout(() => gameInput.focus(), 80);
+
+      _submitHandler = function() {
+        const val = gameInput.value.trim();
+        if (!val) return;
+
+        // Anytime stops intercept any input regardless of current stop
+        const anytimeMatch = anytimeStops.find(s =>
+          (s.playerReply?.answers || []).some(a => norm(a) === norm(val))
+        );
+        if (anytimeMatch) {
+          disableInput();
+          addBubble(val, false);
+          const msgs = (anytimeMatch.messages || []).filter(m => (m.html || m.text || '').trim());
+          const cr   = Array.isArray(anytimeMatch.playerReply?.correct) && anytimeMatch.playerReply.correct.length
+                       ? [pick(anytimeMatch.playerReply.correct)] : [];
+          showMessages([...msgs, ...cr], () => showTextInput(stop));
+          return;
+        }
+
+        const answers  = (reply.answers || []).map(a => String(a || '').trim()).filter(Boolean);
+        const isAny    = reply.type === 'any' || answers.length === 0;
+        const correct  = isAny || answers.some(a => norm(a) === norm(val));
+
+        const varKey = normalizeVarKey(reply.storesAs || '');
+        if (varKey && correct) { vars[varKey] = val; saveVars(); }
+
+        disableInput();
+        addBubble(val, false);
+
+        const correctReplies   = Array.isArray(reply.correct)   && reply.correct.length   ? reply.correct   : [];
+        const incorrectReplies = Array.isArray(reply.incorrect)  && reply.incorrect.length ? reply.incorrect : [];
+
+        if (!correct) {
+          const after = () => {
+            showTextInput(stop);
+            gameInput.classList.add('wrong');
+            setTimeout(() => gameInput.classList.remove('wrong'), 400);
+            setTimeout(() => gameInput.focus(), 80);
+          };
+          if (incorrectReplies.length) {
+            showMessages([pick(incorrectReplies)], after);
+          } else if (globalIncorrectPool.length) {
+            showMessages([{ html: pick(globalIncorrectPool) }], after);
+          } else {
+            after();
+          }
+          return;
+        }
+
+        const advance = () => { saveStep(currentStopIndex + 1); advanceStop(); };
+        if (correctReplies.length) {
+          showMessages([pick(correctReplies)], advance);
+        } else if (globalCorrectPool.length) {
+          showMessages([{ html: pick(globalCorrectPool) }], advance);
+        } else {
+          advance();
+        }
+      };
+    }
+
+    submitBtn.addEventListener('click', () => { if (_submitHandler) _submitHandler(); });
+    gameInput.addEventListener('keydown', e => { if (e.key === 'Enter' && _submitHandler) _submitHandler(); });
+
+    // ── Stop flow ─────────────────────────────────────────────────
+    function playStop(index) {
+      currentStopIndex = index;
+      const stop    = gameStops[index];
+      const reply   = stop.playerReply || {};
+      const messages = (Array.isArray(stop.messages) ? stop.messages : [])
+        .filter(m => (m.html || m.text || '').trim());
+
+      const hasCallToAction = messages.some(m => m.callToAction);
+      const needsInput = reply.type === 'any'
+        || (Array.isArray(reply.answers) && reply.answers.length > 0)
+        || !!(reply.placeholder && reply.placeholder.trim())
+        || hasCallToAction;
+
+      showMessages(messages, () => {
+        if (needsInput) {
+          showTextInput(stop);
+        } else {
+          setTimeout(() => { saveStep(index + 1); advanceStop(); }, 400);
+        }
+      });
+    }
+
+    function advanceStop() {
+      const next = currentStopIndex + 1;
+      if (next >= gameStops.length) { disableInput(); return; }
+      playStop(next);
+    }
+
+    // ── Restart ───────────────────────────────────────────────────
+    document.getElementById('restartBtn').addEventListener('click', () => {
+      clearSave();
+      chatEl.innerHTML = '';
+      disableInput();
+      playStop(0);
+    });
+
+    // ── Boot ──────────────────────────────────────────────────────
+    Promise.all([
+      fetch('data/games.json').then(r => r.json()),
+      fetch('data/stops.json').then(r => r.json())
+    ]).then(([gamesData, stopsData]) => {
+      const games   = Array.isArray(gamesData) ? gamesData : (gamesData.games || []);
+      const game    = games.find(g => g.id === gameId) || games.find(g => !g.archived);
+
+      if (game) {
         document.title = game.name || game.id;
         if (game.favicon) document.getElementById('favicon').href = game.favicon;
-
-        document.getElementById('og-title').content       = game.name || game.id;
-        document.getElementById('og-description').content = firstLine;
-        document.getElementById('og-url').content         = prodUrl;
-        document.getElementById('tw-title').content       = game.name || game.id;
-        document.getElementById('tw-description').content = firstLine;
+        document.getElementById('header-title').textContent    = game.name || game.id;
+        document.getElementById('header-subtitle').textContent = game.subtitle || '';
         if (game.thumbnail) {
-          document.getElementById('og-image').content = game.thumbnail;
-          document.getElementById('tw-image').content = game.thumbnail;
+          document.getElementById('gameThumbnail').src = game.thumbnail;
+          document.getElementById('gameThumbnail').classList.add('show');
+          document.getElementById('header-logo').closest('.avatar').style.display = 'none';
+        } else if (game.logo) {
+          document.getElementById('header-logo').src = game.logo;
         }
+      }
 
-        if (game.logo) {
-          const logo = document.getElementById('gameLogo');
-          logo.src = game.logo;
-          logo.classList.add('show');
+      const opts = stopsData.header?.builderOptions || {};
+      globalCorrectPool   = Array.isArray(opts.correctReplies)   && opts.correctReplies.length   ? opts.correctReplies   : ['✓'];
+      globalIncorrectPool = Array.isArray(opts.incorrectReplies)  && opts.incorrectReplies.length ? opts.incorrectReplies : ['Not quite. Try again.'];
+
+      const allStops = Array.isArray(stopsData) ? stopsData : (stopsData.stops || []);
+      const stopMap  = Object.fromEntries(allStops.map(s => [s.id.toLowerCase(), s]));
+      anytimeStops   = allStops.filter(s => !s.archived && s.playerReply?.anytime);
+      const routeIds = Array.isArray(game && game.stops) ? game.stops : [];
+      gameStops = routeIds.map(sid => stopMap[sid.toLowerCase()]).filter(s => s && !s.playerReply?.anytime);
+
+      if (!gameStops.length) { chatEl.textContent = 'No stops configured for this game.'; return; }
+
+      vars = loadVars();
+      const savedStep = Math.min(loadStep(), gameStops.length - 1);
+      if (savedStep > 0) {
+        for (let i = 0; i < savedStep; i++) {
+          const stop = gameStops[i];
+          (stop.messages || []).filter(m => (m.html || m.text || '').trim()).forEach(m => {
+            addBubble(m.html || m.text || '');
+          });
         }
-
-        document.getElementById('gameTitle').textContent = game.name || game.id;
-        if (game.subtitle) {
-          document.getElementById('guideVal').textContent = game.subtitle;
-          document.getElementById('gameGuide').classList.add('show');
-        }
-
-        (game.tag || '').split(/[,;]+/).map(t => t.trim()).filter(Boolean).forEach(t => {
-          const s = document.createElement('span');
-          s.className = 'tag';
-          s.textContent = t;
-          document.getElementById('tags').appendChild(s);
-        });
-
-        if (fullDesc) document.getElementById('desc').innerHTML = fullDesc;
-
-        if (game.price) {
-          document.getElementById('priceVal').textContent = game.price;
-          document.getElementById('price').classList.add('show');
-        }
-
-        document.getElementById('goBtn').addEventListener('click', launchGame);
-
-        const px = Math.round(180 * Math.min(window.devicePixelRatio || 2, 3));
-        document.getElementById('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + px + 'x' + px + '&data=' + encodeURIComponent(shareUrl);
-
-        document.getElementById('copyBtn').addEventListener('click', () => {
-          window.location.href = 'sms:?body=' + encodeURIComponent(shareUrl);
-        });
-
-        document.getElementById('landing').style.display = 'block';
-      })
-      .catch(() => showError('Could not load game data.'));
+      }
+      playStop(savedStep);
+    }).catch(err => {
+      console.error(err);
+      chatEl.textContent = 'Could not load game data.';
+    });
   </script>
-
 </body>
 </html>

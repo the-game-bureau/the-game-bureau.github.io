@@ -34,7 +34,7 @@ let DEFAULT_PLACEHOLDER = 'Type here...';
 const DEFAULT_HEADER = {
   title: 'Scavenger Hunt',
   subtitle: 'Mission Control',
-  logoUrl: 'games/logo.png',
+  logoUrl: 'assets/logo.png',
   logoAlt: 'Game Logo',
   pageTitle: 'Scavenger Hunt',
   status: 'online'
@@ -66,7 +66,7 @@ function saveState() {
 }
 
 function interpolate(str) {
-  // Support both {variable} and {{variable}} placeholders in authored HTML.
+  // Canonical syntax: {variableName}. Also accepts {{variableName}} for backward compat.
   return String(str || '').replace(/\{\{\s*([A-Za-z_]\w*)\s*\}\}|\{\s*([A-Za-z_]\w*)\s*\}/g, (match, keyDouble, keySingle) => {
     const key = keyDouble || keySingle;
     const value = getStateVar(key);
@@ -419,17 +419,17 @@ async function loadStops() {
     } catch (e) {}
   }
   if (!payload) {
-    let stopsPath = 'games/data/stops.json';
+    let stopsPath = 'data/stops.json';
     if (GAME_PARAM) {
       try {
-        const gamesResp = await fetch('games/data/games.json', { cache: 'no-store' });
+        const gamesResp = await fetch('data/games.json', { cache: 'no-store' });
         if (gamesResp.ok) {
           const gamesData = await gamesResp.json();
           const list = Array.isArray(gamesData) ? gamesData : (gamesData.games || []);
           const match = list.find(function(g) {
             return slugify(g.name) === slugify(GAME_PARAM) || slugify(g.id) === slugify(GAME_PARAM);
           });
-          if (match && match.id) stopsPath = 'games/' + match.id + '/stops.json';
+          if (match && match.id) stopsPath = match.id + '/stops.json';
         }
       } catch (e) {}
     }

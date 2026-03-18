@@ -9,7 +9,7 @@ const PORT       = 3000;
 const GAMES_FILE  = path.join(__dirname, '..', 'data', 'games.json');
 const STOPS_FILE  = path.join(__dirname, '..', 'data', 'stops.json');
 const ROUTES_FILE = path.join(__dirname, '..', 'data', 'routes.json');
-const STATIC_DIR = path.join(__dirname, '..');
+const STATIC_DIR = path.join(__dirname, '..', '..');
 
 const MIME = {
   '.html': 'text/html',
@@ -151,7 +151,7 @@ http.createServer((req, res) => {
   }
 
   // Static files
-  if (req.url === '/') { res.writeHead(302, { Location: '/private/builder.html' }); res.end(); return; }
+  if (req.url === '/') { res.writeHead(302, { Location: '/play/private/builder.html' }); res.end(); return; }
   let filePath = path.join(STATIC_DIR, req.url.split('?')[0]);
   const ext    = path.extname(filePath);
   if (!MIME[ext]) { res.writeHead(403); res.end(); return; }
@@ -161,4 +161,4 @@ http.createServer((req, res) => {
     res.end(data);
   });
 
-}).listen(PORT, () => console.log('http://localhost:' + PORT + '/private/builder.html'));
+}).listen(PORT, () => console.log('http://localhost:' + PORT + '/play/private/builder.html'));
