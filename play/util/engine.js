@@ -26,6 +26,7 @@ const STORE_KEY = 'nola360_' + (GAME_PARAM ? slugify(GAME_PARAM) : 'default');
 let state = { step: 0, team: null, vars: {} };
 let stops = [];
 let routes = [];
+let allStopsById = {};
 let stepEntry = null;
 let lastBubblePlaceholder = '';
 let TYPING_THINK = 600;
@@ -83,6 +84,16 @@ const headerLogoEl = document.getElementById('header-logo');
 const headerStatusEl = document.getElementById('header-status');
 const restartBtnEl = document.getElementById('restartBtn');
 
+function hideInputArea() {
+  if (!inputAreaEl) return;
+  inputAreaEl.innerHTML = '';
+  inputAreaEl.style.display = 'none';
+}
+function showInputArea() {
+  if (!inputAreaEl) return;
+  inputAreaEl.style.display = '';
+}
+
 (function initLightbox() {
   const lb = document.createElement('div');
   lb.className = 'lb';
@@ -109,6 +120,35 @@ function normalizeVarKey(raw) {
   const wrapped = str.match(/^\{\{\s*([A-Za-z_]\w*)\s*\}\}$|^\{\s*([A-Za-z_]\w*)\s*\}$/);
   if (wrapped) return wrapped[1] || wrapped[2];
   return str;
+}
+function normalizeIfThenCase(branchCase) {
+  const src = branchCase && typeof branchCase === 'object' ? branchCase : {};
+  return {
+    value: String(src.value || src.when || src.answer || '').trim(),
+    stopId: String(src.stopId || src.thenStopId || src.goToStopId || src.goTo || src.stop || '').trim()
+  };
+}
+function normalizeRouteBranch(ifThen) {
+  if (!ifThen || typeof ifThen !== 'object') return null;
+  const rawCases = Array.isArray(ifThen.cases) ? ifThen.cases : Array.isArray(ifThen.values) ? ifThen.values : [];
+  return {
+    cases: rawCases
+      .map(normalizeIfThenCase)
+      .filter((branchCase) => branchCase.value && branchCase.stopId)
+  };
+}
+function normalizeGameRouteEntry(entry) {
+  if (typeof entry === 'string') {
+    const stopId = String(entry || '').trim();
+    return stopId ? { stopId, ifThen: null } : null;
+  }
+  if (!entry || typeof entry !== 'object') return null;
+  const stopId = String(entry.stopId || entry.id || '').trim();
+  if (!stopId) return null;
+  return {
+    stopId,
+    ifThen: normalizeRouteBranch(entry.ifThen || entry.branch || entry.ifThenTriangle || null)
+  };
 }
 
 function getStateVar(key) {
@@ -190,13 +230,20 @@ function isReplyExpectedMode(mode) {
   const v = String(mode || '').toLowerCase();
   return v === 'word' || v === 'any' || v === 'branch';
 }
+function getPlayerTriggerText(bubble) {
+  if (!bubble || !bubble.fromPlayer) return '';
+  return String(bubble.html || bubble.text || '').trim();
+}
+function isPlayerTriggerBubble(bubble) {
+  return !!getPlayerTriggerText(bubble);
+}
 
 function getReplyTriggerIndex(stop, fromIndex) {
   if (!stop || !Array.isArray(stop.messages)) return -1;
   const start = Math.max(0, parseInt(fromIndex, 10) || 0);
   for (let i = start; i < stop.messages.length; i += 1) {
     const m = stop.messages[i];
-    if (m && isReplyExpectedMode(m.replyExpected)) return i;
+    if (m && (isPlayerTriggerBubble(m) || isReplyExpectedMode(m.replyExpected))) return i;
   }
   return -1;
 }
@@ -206,22 +253,43 @@ function getInitialStopMessages(stop, stopIndex) {
   const startIndex = getEntryStartIndexForStop(stopIndex);
   const idx = getReplyTriggerIndex(stop, startIndex);
   if (idx < 0) return msgs.slice(startIndex);
-  return msgs.slice(startIndex, idx + 1);
+  return isPlayerTriggerBubble(msgs[idx]) ? msgs.slice(startIndex, idx) : msgs.slice(startIndex, idx + 1);
 }
 
-function getPostReplyMessages(stop, stopIndex) {
-  const msgs = (stop && Array.isArray(stop.messages)) ? stop.messages : [];
-  const startIndex = getEntryStartIndexForStop(stopIndex);
-  const idx = getReplyTriggerIndex(stop, startIndex);
-  if (idx < 0) return [];
-  return msgs.slice(idx + 1);
+function getReplyBubbleIndex(stop, stopIndex) {
+  return getReplyTriggerIndex(stop, getEntryStartIndexForStop(stopIndex));
+}
+
+function getReplyBubble(stop, stopIndex) {
+  const idx = getReplyBubbleIndex(stop, stopIndex);
+  if (idx < 0 || !stop || !Array.isArray(stop.messages)) return null;
+  return stop.messages[idx] || null;
+}
+
+function getNextEntryAfterReply(stop, stopIndex) {
+  if (!stop || !Array.isArray(stop.messages)) return null;
+  const idx = getReplyBubbleIndex(stop, stopIndex);
+  if (idx < 0) return null;
+  const nextBubbleIndex = idx + 1;
+  if (nextBubbleIndex >= stop.messages.length) return null;
+  return { stopIndex, bubbleIndex: nextBubbleIndex };
 }
 
 function getReplyPromptBubble(stop, stopIndex) {
-  const startIndex = getEntryStartIndexForStop(stopIndex);
-  const idx = getReplyTriggerIndex(stop, startIndex);
-  if (idx < 0 || !stop || !Array.isArray(stop.messages)) return null;
-  return stop.messages[idx] || null;
+  const bubble = getReplyBubble(stop, stopIndex);
+  return isPlayerTriggerBubble(bubble) ? null : bubble;
+}
+function getPreviousGuideBubble(stop, stopIndex) {
+  if (!stop || !Array.isArray(stop.messages)) return null;
+  const idx = getReplyBubbleIndex(stop, stopIndex);
+  if (idx <= 0) return null;
+  for (let i = idx - 1; i >= 0; i -= 1) {
+    const bubble = stop.messages[i];
+    if (!bubble || (!bubble.html && !bubble.text)) continue;
+    if (bubble.fromPlayer || bubble.direction === 'fromPlayer') continue;
+    return bubble;
+  }
+  return null;
 }
 
 function scrollBottom(smooth) {
@@ -270,7 +338,16 @@ function showBubbles(bubbles, onDone, opts) {
   setTimeout(() => {
     typing.remove();
     function next(i) {
-      addMsg(bubbles[i], true);
+      const bubble = bubbles[i];
+      if (!bubble || (!bubble.html && !bubble.text)) {
+        if (i < bubbles.length - 1) {
+          next(i + 1);
+        } else if (onDone) {
+          onDone();
+        }
+        return;
+      }
+      addMsg(bubble, true);
       scrollBottom(true);
       if (i < bubbles.length - 1) {
         setTimeout(() => next(i + 1), pause);
@@ -291,13 +368,12 @@ function normalizeBubble(bubble) {
   return {
     bubbleId: typeof bubble.bubbleId === 'string' ? bubble.bubbleId : '',
     html: bubble.html || '',
+    fromPlayer: !!(bubble.fromPlayer || bubble.direction === 'fromPlayer'),
     callToAction: needsReply,
     forAnswer: bubble.forAnswer || '',
     placeholder: typeof bubble.placeholder === 'string' ? bubble.placeholder : '',
     replyExpected,
     answers: parseExpectedReplies(bubble.answers),
-    replyCorrect: typeof bubble.replyCorrect === 'string' ? bubble.replyCorrect : '',
-    replyIncorrect: typeof bubble.replyIncorrect === 'string' ? bubble.replyIncorrect : '',
     storesAs: normalizeVarKey(typeof bubble.storesAs === 'string' ? bubble.storesAs : ''),
     replyResponse: typeof bubble.replyResponse === 'string' ? bubble.replyResponse : '',
     branches: Array.isArray(bubble.branches)
@@ -309,27 +385,22 @@ function normalizeBubble(bubble) {
 }
 
 function normalizePlayerReply(playerReply) {
-  if (!playerReply || typeof playerReply !== 'object') return { type: 'text', placeholder: '', answers: [], correct: [], incorrect: [] };
+  if (!playerReply || typeof playerReply !== 'object') return { type: 'text', placeholder: '', answers: [] };
   const type = playerReply.type || 'text';
-  const allBubbles = (arr) => Array.isArray(arr) ? arr.map(normalizeBubble).filter(Boolean) : [];
 
   if (type === 'button') {
     return {
       type: 'button',
       text: playerReply.text || 'Continue',
       playerText: playerReply.playerText || playerReply.text || 'Continue',
-      nextStopId: String(playerReply.nextStopId || '').trim(),
-      correct: allBubbles(playerReply.correct),
-      incorrect: allBubbles(playerReply.incorrect)
+      nextStopId: String(playerReply.nextStopId || '').trim()
     };
   }
 
   if (type === 'win') {
     return {
       type: 'win',
-      nextStopId: String(playerReply.nextStopId || '').trim(),
-      correct: allBubbles(playerReply.correct),
-      incorrect: allBubbles(playerReply.incorrect)
+      nextStopId: String(playerReply.nextStopId || '').trim()
     };
   }
 
@@ -338,9 +409,7 @@ function normalizePlayerReply(playerReply) {
       type: 'any',
       placeholder: playerReply.placeholder || '',
       storesAs: normalizeVarKey(playerReply.storesAs || ''),
-      nextStopId: String(playerReply.nextStopId || '').trim(),
-      correct: allBubbles(playerReply.correct),
-      incorrect: allBubbles(playerReply.incorrect)
+      nextStopId: String(playerReply.nextStopId || '').trim()
     };
   }
 
@@ -351,9 +420,7 @@ function normalizePlayerReply(playerReply) {
     setsTeam: !!playerReply.setsTeam,
     anytime: !!playerReply.anytime,
     goTo: playerReply.goTo || undefined,
-    nextStopId: String(playerReply.nextStopId || '').trim(),
-    correct: allBubbles(playerReply.correct),
-    incorrect: allBubbles(playerReply.incorrect)
+    nextStopId: String(playerReply.nextStopId || '').trim()
   };
 }
 
@@ -370,19 +437,59 @@ function normalizeStop(stop, index) {
     playerReply
   };
 }
+function getRouteBranchCases(stop) {
+  return stop && stop.routeIfThen && Array.isArray(stop.routeIfThen.cases)
+    ? stop.routeIfThen.cases.filter((branchCase) => branchCase && branchCase.value && branchCase.stopId)
+    : [];
+}
+function getRouteBranchStorageKey(stop) {
+  const key = String((stop && (stop.routeBranchKey || stop.id)) || '').trim();
+  return key ? '__ifthen_' + key : '';
+}
+function ensureInjectedBranchStop(currentStop, targetStopId) {
+  const branchKey = getRouteBranchStorageKey(currentStop);
+  const targetKey = String(targetStopId || '').trim();
+  if (!branchKey || !targetKey) return false;
 
-function getStopReply(stop) {
-  if (!stop || !Array.isArray(stop.messages)) return (stop && stop.playerReply) || { type: 'text', placeholder: '', answers: [], correct: [], incorrect: [] };
-  const replyBubble = stop.messages.find((m) => m && isReplyExpectedMode(m.replyExpected));
-  if (!replyBubble) return (stop && stop.playerReply) || { type: 'text', placeholder: '', answers: [], correct: [], incorrect: [] };
+  const nextStop = stops[state.step + 1];
+  if (nextStop && nextStop.routeInjected && nextStop.routeInjectedFrom === branchKey) {
+    if (String(nextStop.id || '').trim() === targetKey) return true;
+    stops.splice(state.step + 1, 1);
+  }
+
+  const rawTarget = allStopsById[targetKey] || allStopsById[targetKey.toLowerCase()];
+  if (!rawTarget) return false;
+
+  const injected = normalizeStop(rawTarget, stops.length);
+  injected.routeInjected = true;
+  injected.routeInjectedFrom = branchKey;
+  injected.routeInjectedTargetId = targetKey;
+  stops.splice(state.step + 1, 0, injected);
+  return true;
+}
+
+function getStopReply(stop, stopIndex) {
+  if (!stop || !Array.isArray(stop.messages)) return (stop && stop.playerReply) || { type: 'text', placeholder: '', answers: [] };
+  const replyBubble = getReplyBubble(stop, stopIndex);
+  if (!replyBubble) return (stop && stop.playerReply) || { type: 'text', placeholder: '', answers: [] };
+
+  if (isPlayerTriggerBubble(replyBubble)) {
+    const triggerText = getPlayerTriggerText(replyBubble);
+    return {
+      type: 'text',
+      placeholder: replyBubble.placeholder || '',
+      answers: triggerText ? [triggerText] : [],
+      setsTeam: false,
+      goTo: undefined
+    };
+  }
 
   if (replyBubble.replyExpected === 'branch') {
     return {
       type: 'branch',
       placeholder: replyBubble.placeholder || '',
       storesAs: normalizeVarKey(replyBubble.storesAs || ''),
-      branches: Array.isArray(replyBubble.branches) ? replyBubble.branches.map(normalizeBranchRule) : [],
-      incorrect: replyBubble.replyIncorrect ? [{ html: replyBubble.replyIncorrect }] : []
+      branches: Array.isArray(replyBubble.branches) ? replyBubble.branches.map(normalizeBranchRule) : []
     };
   }
 
@@ -391,8 +498,7 @@ function getStopReply(stop) {
       type: 'any',
       placeholder: replyBubble.placeholder || '',
       storesAs: normalizeVarKey(replyBubble.storesAs || ''),
-      correct: replyBubble.replyResponse ? [{ html: replyBubble.replyResponse }] : [],
-      incorrect: []
+      replyResponse: replyBubble.replyResponse || ''
     };
   }
 
@@ -401,9 +507,7 @@ function getStopReply(stop) {
     placeholder: replyBubble.placeholder || '',
     answers: parseExpectedReplies(replyBubble.answers),
     setsTeam: false,
-    goTo: undefined,
-    correct: replyBubble.replyCorrect ? [{ html: replyBubble.replyCorrect }] : [],
-    incorrect: replyBubble.replyIncorrect ? [{ html: replyBubble.replyIncorrect }] : []
+    goTo: undefined
   };
 }
 
@@ -418,6 +522,7 @@ async function loadStops() {
       }
     } catch (e) {}
   }
+  let gameMatch = null;
   if (!payload) {
     let stopsPath = 'data/stops.json';
     if (GAME_PARAM) {
@@ -429,7 +534,11 @@ async function loadStops() {
           const match = list.find(function(g) {
             return slugify(g.name) === slugify(GAME_PARAM) || slugify(g.id) === slugify(GAME_PARAM);
           });
-          if (match && match.id) stopsPath = match.id + '/stops.json';
+          if (match) {
+            gameMatch = match;
+            if (match.stopsPath) stopsPath = match.stopsPath;
+            else stopsPath = match.id + '/stops.json';
+          }
         }
       } catch (e) {}
     }
@@ -441,9 +550,62 @@ async function loadStops() {
   const header = payload && typeof payload === 'object' && payload.header && typeof payload.header === 'object'
     ? payload.header
     : {};
+  // Overlay game-specific metadata from games.json onto the stops header
+  if (gameMatch) {
+    if (gameMatch.name) {
+      header.title = gameMatch.name;
+      header.pageTitle = gameMatch.name;
+    }
+    if (gameMatch.subtitle) header.subtitle = gameMatch.subtitle;
+    if (gameMatch.logo)     header.logoUrl  = gameMatch.logo;
+    if (gameMatch.favicon)  header.faviconUrl = gameMatch.favicon;
+  }
+  // Build the ordered stop list for this game.
+  // game.stops is the authoritative play order (anytime stops first, then linear stops).
+  // Filter+reorder so the engine only sees this game's stops in the correct sequence.
+  var orderedList = list;
+  var startIndex = 0;
+  allStopsById = {};
+  list.forEach(function(s) {
+    const rawId = String((s && s.id) || '').trim();
+    if (!rawId) return;
+    allStopsById[rawId] = s;
+    allStopsById[rawId.toLowerCase()] = s;
+  });
+  if (gameMatch && Array.isArray(gameMatch.stops) && gameMatch.stops.length) {
+    var routeEntries = gameMatch.stops.map(normalizeGameRouteEntry).filter(Boolean);
+    orderedList = [];
+    routeEntries.forEach(function(entry) {
+      var rawStop = allStopsById[entry.stopId] || allStopsById[String(entry.stopId).toLowerCase()];
+      if (!rawStop) return;
+      var stop = normalizeStop(rawStop, orderedList.length);
+      stop.routeIfThen = normalizeRouteBranch(entry.ifThen);
+      stop.routeBranchKey = entry.stopId;
+      orderedList.push(stop);
+
+      var branchKey = getRouteBranchStorageKey(stop);
+      var savedBranchStopId = branchKey ? String(state.vars[branchKey] || '').trim() : '';
+      if (!savedBranchStopId) return;
+      var injectedRaw = allStopsById[savedBranchStopId] || allStopsById[savedBranchStopId.toLowerCase()];
+      if (!injectedRaw) return;
+      var injected = normalizeStop(injectedRaw, orderedList.length);
+      injected.routeInjected = true;
+      injected.routeInjectedFrom = branchKey;
+      injected.routeInjectedTargetId = savedBranchStopId;
+      orderedList.push(injected);
+    });
+    // First non-anytime stop is the entry point (anytime stops are sorted first by builder)
+    for (var si = 0; si < orderedList.length; si++) {
+      var pr = orderedList[si].playerReply;
+      if (!(pr && pr.anytime)) { startIndex = si; break; }
+    }
+  }
   return {
-    stops: list.map(normalizeStop),
+    stops: Array.isArray(orderedList) ? orderedList.map(function(stop, index) {
+      return stop && stop.messages && stop.playerReply ? stop : normalizeStop(stop, index);
+    }) : [],
     header,
+    startIndex: startIndex,
     routes: Array.isArray(payload && payload.routes) ? payload.routes : []
   };
 }
@@ -480,11 +642,13 @@ if (restartBtnEl) {
 }
 
 function renderInput(disabled) {
-  inputAreaEl.innerHTML = '';
+  hideInputArea();
   if (state.step >= stops.length) return;
 
-  const playerReply = getStopReply(stops[state.step]);
-  if (playerReply.type === 'win') return;
+  const playerReply = getStopReply(stops[state.step], state.step);
+  const routeBranchCases = getRouteBranchCases(stops[state.step]);
+  if (playerReply.type === 'win' && !routeBranchCases.length) return;
+  showInputArea();
 
   if (playerReply.type === 'button') {
     const wrap = document.createElement('div');
@@ -535,9 +699,8 @@ function renderInput(disabled) {
       input.value = '';
       inputAreaEl.querySelectorAll('input, button').forEach((el) => { el.disabled = true; });
       scrollBottom(true);
-      const correctBubbles = pickCorrectBubble(anytimeStop.playerReply.correct || [], anytimeMatch);
       const promptBubble = getReplyPromptBubble(stops[state.step], state.step);
-      const toShow = promptBubble ? correctBubbles.concat([promptBubble]) : correctBubbles;
+      const toShow = promptBubble ? [promptBubble] : [];
       showBubbles(toShow, () => {
         lastBubblePlaceholder = '';
         renderInput();
@@ -546,6 +709,55 @@ function renderInput(disabled) {
     }
     return false;
   };
+
+  if (routeBranchCases.length) {
+    const submitRouteBranch = () => {
+      const val = input.value.trim();
+      if (!val) return;
+      if (tryAnytime(val)) return;
+
+      const matchedCase = routeBranchCases.find((branchCase) => {
+        return val.toLowerCase() === String(branchCase.value || '').trim().toLowerCase();
+      });
+
+      if (!matchedCase) {
+        addMsg({ fromPlayer: true, text: val }, true);
+        input.value = '';
+        inputAreaEl.querySelectorAll('input, button').forEach((el) => { el.disabled = true; });
+
+        const promptBubble = getPreviousGuideBubble(stops[state.step], state.step)
+          || getReplyPromptBubble(stops[state.step], state.step);
+        const toShow = promptBubble ? [promptBubble] : [];
+
+        lastBubblePlaceholder = '';
+        if (toShow.length) {
+          showBubbles(toShow, () => renderInput());
+        } else {
+          renderInput();
+        }
+        scrollBottom(true);
+        return;
+      }
+
+      addMsg({ fromPlayer: true, text: matchedCase.value || val }, true);
+      const branchKey = getRouteBranchStorageKey(stops[state.step]);
+      if (branchKey) {
+        state.vars[branchKey] = matchedCase.stopId;
+        state.vars[branchKey + '__value'] = matchedCase.value || val;
+      }
+      ensureInjectedBranchStop(stops[state.step], matchedCase.stopId);
+      saveState();
+      doAdvance(matchedCase.value || val);
+    };
+
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitRouteBranch(); });
+    sendBtn.addEventListener('click', submitRouteBranch);
+    row.appendChild(input);
+    row.appendChild(sendBtn);
+    inputAreaEl.appendChild(row);
+    if (!disabled) setTimeout(() => input.focus(), 150);
+    return;
+  }
 
   if (playerReply.type === 'any') {
     const submitAny = () => {
@@ -590,14 +802,16 @@ function renderInput(disabled) {
 
         inputAreaEl.querySelectorAll('input, button').forEach((el) => { el.disabled = true; });
 
-        const incorrectBubbles = (playerReply.incorrect && playerReply.incorrect.length)
-          ? playerReply.incorrect
-          : [{ html: 'Not one of the expected branch replies. Try again.' }];
+        const incorrectBubbles = [];
         const promptBubble = getReplyPromptBubble(stops[state.step], state.step);
         const toShow = promptBubble ? incorrectBubbles.concat([promptBubble]) : incorrectBubbles;
 
         lastBubblePlaceholder = '';
-        showBubbles(toShow, () => renderInput());
+        if (toShow.length) {
+          showBubbles(toShow, () => renderInput());
+        } else {
+          renderInput();
+        }
         scrollBottom(true);
         return;
       }
@@ -627,28 +841,32 @@ function renderInput(disabled) {
 
     if (tryAnytime(val)) return;
 
-    const matchedAnswer = playerReply.answers.find((a) => norm(val) === norm(a));
+    const replyBubble = getReplyBubble(stops[state.step], state.step);
+    const isTriggerReply = isPlayerTriggerBubble(replyBubble);
+    const matchedAnswer = playerReply.answers.find((a) => {
+      const expected = String(a || '').trim();
+      return isTriggerReply ? val.toLowerCase() === expected.toLowerCase() : norm(val) === norm(expected);
+    });
     const ok = !!matchedAnswer;
     if (!ok) {
       addMsg({ fromPlayer: true, text: val }, true);
       input.value = '';
-      input.classList.add('wrong');
-      setTimeout(() => input.classList.remove('wrong'), 400);
 
       inputAreaEl.querySelectorAll('input, button').forEach((el) => { el.disabled = true; });
 
-      const pickedIncorrect = pickIncorrectBubble(playerReply.incorrect || [], val);
-      const incorrectBubbles = pickedIncorrect.length
-        ? pickedIncorrect
-        : [{ html: playerReply.setsTeam
-              ? 'Check that spelling. If needed, text <strong>504-581-5652</strong> for help from Mission Control.'
-              : 'Not quite. Text <strong>504-581-5652</strong> and Mission Control will help.' }];
-
-      const promptBubble = getReplyPromptBubble(stops[state.step], state.step);
-      const toShow = promptBubble ? incorrectBubbles.concat([promptBubble]) : incorrectBubbles;
+      const promptBubble = isTriggerReply
+        ? getPreviousGuideBubble(stops[state.step], state.step)
+        : getReplyPromptBubble(stops[state.step], state.step);
+      const toShow = promptBubble ? [promptBubble] : [];
 
       lastBubblePlaceholder = '';
-      showBubbles(toShow, () => renderInput());
+      if (toShow.length) {
+        showBubbles(toShow, () => renderInput());
+      } else {
+        input.classList.add('wrong');
+        setTimeout(() => input.classList.remove('wrong'), 400);
+        renderInput();
+      }
       scrollBottom(true);
       return;
     }
@@ -684,27 +902,8 @@ function renderInput(disabled) {
   if (!disabled) setTimeout(() => input.focus(), 150);
 }
 
-function pickCorrectBubble(correctBubbles, matchedAnswer) {
-  if (!correctBubbles.length) return [];
-  if (matchedAnswer) {
-    const specific = correctBubbles.find((b) => b.forAnswer && norm(b.forAnswer) === norm(matchedAnswer));
-    if (specific) return [specific];
-  }
-  const fallback = correctBubbles.find((b) => !b.forAnswer);
-  return [fallback || correctBubbles[0]];
-}
-
-function pickIncorrectBubble(incorrectBubbles, submittedVal) {
-  if (!incorrectBubbles.length) return [];
-  if (submittedVal) {
-    const specific = incorrectBubbles.find((b) => b.forAnswer && norm(b.forAnswer) === norm(submittedVal));
-    if (specific) return [specific];
-  }
-  const fallback = incorrectBubbles.find((b) => !b.forAnswer);
-  return [fallback || incorrectBubbles[0]];
-}
-
 function stopNeedsReply(stop, stopIndex) {
+  if (getRouteBranchCases(stop).length) return true;
   const startIndex = getEntryStartIndexForStop(stopIndex);
   if (getReplyTriggerIndex(stop, startIndex) >= 0) return true;
   const tail = stop && Array.isArray(stop.messages) ? stop.messages.slice(startIndex) : [];
@@ -714,6 +913,7 @@ function stopNeedsReply(stop, stopIndex) {
 function renderInputOrAutoAdvance() {
   const stop = stops[state.step];
   if (stop && !stopNeedsReply(stop, state.step)) {
+    hideInputArea();
     doAdvance();
   } else {
     renderInput();
@@ -724,14 +924,11 @@ function doAdvance(matchedAnswer, options) {
   const opts = options || {};
   const currentStep = state.step;
   const current = stops[currentStep];
-  const currentReply = getStopReply(current);
-  const trailingCurrentMsgs = getPostReplyMessages(current, currentStep);
+  const currentReply = getStopReply(current, currentStep);
+  const nextEntryAfterReply = getNextEntryAfterReply(current, currentStep);
   const correctBubbles = Array.isArray(opts.forcedCorrectBubbles)
     ? opts.forcedCorrectBubbles
-    : pickCorrectBubble(
-        (currentReply && currentReply.correct) || [],
-        matchedAnswer
-      );
+    : [];
 
   let nextIndex = currentStep + 1;
   let nextEntry = null;
@@ -749,6 +946,11 @@ function doAdvance(matchedAnswer, options) {
   } else if (nextEntry === null && goToStopId) {
     const resolved = resolveStopIndexById(goToStopId);
     if (resolved >= 0) nextIndex = resolved;
+  }
+
+  if (nextEntry === null && !goToStopId && nextEntryAfterReply) {
+    nextIndex = currentStep;
+    nextEntry = nextEntryAfterReply;
   }
 
   // Per-stop variable routing: playerReply.varRoutes = { varName, map: { value: stopId } }
@@ -795,10 +997,11 @@ function doAdvance(matchedAnswer, options) {
   inputAreaEl.querySelectorAll('input, button').forEach((el) => {
     el.disabled = true;
   });
+  hideInputArea();
   scrollBottom(true);
 
   if (state.step >= stops.length) {
-    const finalBubbles = correctBubbles.concat(trailingCurrentMsgs);
+    const finalBubbles = correctBubbles;
     if (!finalBubbles.length) {
       lastBubblePlaceholder = '';
       renderInput();
@@ -812,7 +1015,7 @@ function doAdvance(matchedAnswer, options) {
   }
 
   const nextMsgs = getInitialStopMessages(stops[state.step], state.step);
-  const allBubbles = correctBubbles.concat(trailingCurrentMsgs, nextMsgs);
+  const allBubbles = correctBubbles.concat(nextMsgs);
   if (!allBubbles.length) {
     lastBubblePlaceholder = '';
     renderInputOrAutoAdvance();
@@ -820,13 +1023,12 @@ function doAdvance(matchedAnswer, options) {
   }
 
   lastBubblePlaceholder = '';
-  if (stopNeedsReply(stops[state.step], state.step)) renderInput(true);
   showBubbles(allBubbles, renderInputOrAutoAdvance);
 }
 
 function showNoStops(message) {
   addMsg({ html: message || 'No tour stops found in stops.json.' }, false);
-  renderInput();
+  hideInputArea();
   scrollBottom(false);
 }
 
@@ -852,15 +1054,15 @@ function buildRevealPlayerReplyMessage(playerReply) {
 
 function revealAllBubbles() {
   chatEl.innerHTML = '';
-  stops.forEach((stop) => {
+  stops.forEach((stop, idx) => {
     (stop.messages || []).forEach((msg) => addMsg(msg, false));
-    const stopReply = getStopReply(stop);
+    const stopReply = getStopReply(stop, idx);
     const replyMsg = buildRevealPlayerReplyMessage(stopReply);
     if (replyMsg) addMsg(replyMsg, false);
     ((stopReply && stopReply.correct) || []).forEach((msg) => addMsg(msg, false));
     ((stopReply && stopReply.incorrect) || []).forEach((msg) => addMsg(msg, false));
   });
-  inputAreaEl.innerHTML = '';
+  hideInputArea();
   scrollBottom(false);
 }
 
@@ -873,11 +1075,16 @@ function replayProgress() {
       : getInitialStopMessages(stops[i], i);
     stopMsgs.forEach((msg) => addMsg(msg, false));
     if (i < state.step) {
-      const pr = getStopReply(stops[i]);
+      const pr = getStopReply(stops[i], i);
+      const routeBranchKey = getRouteBranchStorageKey(stops[i]);
+      const routeBranchValue = routeBranchKey ? getStateVar(routeBranchKey + '__value') : undefined;
+      if (routeBranchValue) {
+        addMsg({ fromPlayer: true, text: routeBranchValue }, false);
+      }
       const stored = (pr.type === 'any' || pr.type === 'branch') && pr.storesAs
         ? getStateVar(pr.storesAs)
         : undefined;
-      if (stored) {
+      if (!routeBranchValue && stored) {
         addMsg({ fromPlayer: true, text: stored }, false);
       }
       if (pr.type === 'branch' && stored) {
@@ -889,7 +1096,6 @@ function replayProgress() {
       if (pr.type === 'button') {
         addMsg({ fromPlayer: true, text: pr.playerText || pr.text || '' }, false);
       }
-      pickCorrectBubble(pr.correct || [], '').forEach((msg) => addMsg(msg, false));
     }
   }
   renderInput();
@@ -903,6 +1109,10 @@ async function initGame() {
     routes = loaded.routes || [];
     applyHeaderConfig(loaded.header);
     stepEntry = null;
+    // On a fresh start, begin at the game's entry point (first non-anytime stop)
+    if (state.step === 0 && loaded.startIndex > 0) {
+      state.step = loaded.startIndex;
+    }
   } catch (err) {
     showNoStops('Failed to load stops.json. Run a local server and verify the file exists.');
     return;
@@ -931,7 +1141,7 @@ async function initGame() {
       state.step = startIdx;
       history.replaceState(null, '', location.pathname);
       lastBubblePlaceholder = '';
-      if (stopNeedsReply(stops[startIdx], startIdx)) renderInput(true);
+      hideInputArea();
       setTimeout(() => showBubbles(getInitialStopMessages(stops[startIdx], startIdx), renderInputOrAutoAdvance), 400);
       return;
     }
@@ -943,7 +1153,7 @@ async function initGame() {
   }
 
   lastBubblePlaceholder = '';
-  if (stopNeedsReply(stops[0], 0)) renderInput(true);
+  hideInputArea();
   setTimeout(() => showBubbles(getInitialStopMessages(stops[0], 0), renderInputOrAutoAdvance), 400);
 }
 

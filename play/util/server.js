@@ -7,6 +7,7 @@ const { execFile } = require('child_process');
 
 const PORT       = 3000;
 const GAMES_FILE  = path.join(__dirname, '..', 'data', 'games.json');
+const GAMES_NEW_FILE = path.join(__dirname, '..', 'data', 'games_new.json');
 const STOPS_FILE  = path.join(__dirname, '..', 'data', 'stops.json');
 const ROUTES_FILE = path.join(__dirname, '..', 'data', 'routes.json');
 const STATIC_DIR = path.join(__dirname, '..', '..');
@@ -50,6 +51,25 @@ http.createServer((req, res) => {
   }
 
   // POST /stops — write stops.json
+  // POST /games-new — write games_new.json
+  if (req.method === 'POST' && req.url === '/games-new') {
+    let body = '';
+    req.on('data', d => { body += d; });
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body);
+        fs.writeFileSync(GAMES_NEW_FILE, JSON.stringify(data, null, 2) + '\n', 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('{"ok":true}');
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
+  // POST /stops â€” write stops.json
   if (req.method === 'POST' && req.url === '/stops') {
     let body = '';
     req.on('data', d => { body += d; });
@@ -81,6 +101,20 @@ http.createServer((req, res) => {
   }
 
   // POST /routes — write routes.json
+  // GET /games-new — read games_new.json
+  if (req.method === 'GET' && req.url === '/games-new') {
+    try {
+      const txt = fs.readFileSync(GAMES_NEW_FILE, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(txt);
+    } catch (e) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end('{"games":[]}');
+    }
+    return;
+  }
+
+  // POST /routes â€” write routes.json
   if (req.method === 'POST' && req.url === '/routes') {
     let body = '';
     req.on('data', d => { body += d; });

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TGB Game Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="builder_new.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="header-main">
+        <div class="brand">
+          <div class="eyebrow">The Game Bureau</div>
+          <h1>Game Builder</h1>
+          <p>
+            Click and drag objects to the canvas below to create games.
+          </p>
+        </div>
+
+        <div class="topbar-actions">
+          <div class="save-target">
+            data target<br>
+            <strong>play/data/games_new.json</strong>
+          </div>
+          <div class="open-row">
+            <label class="open-select-wrap" for="openGameSelect">
+              <span class="open-label">Existing Games</span>
+              <select id="openGameSelect">
+                <option value="">No saved games yet</option>
+              </select>
+            </label>
+            <button class="action-btn" id="openGameBtn" type="button" disabled>Open</button>
+          </div>
+          <div class="action-row">
+            <button class="action-btn" id="newBoardBtn" type="button">New Canvas</button>
+            <button class="action-btn action-btn--accent" id="saveBtn" type="button">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stencil-panel">
+        <div class="eyebrow">Objects</div>
+        <div class="stencil-bar" id="stencilBar">
+          <button class="stencil stencil--game" data-stencil="game" type="button">
+            <div class="stencil-figure"><div class="stencil-shape" aria-hidden="true"></div></div>
+            <div class="stencil-meta">
+              <div class="stencil-title">Game</div>
+              <div class="stencil-note">Root game object, one per canvas</div>
+            </div>
+          </button>
+          <button class="stencil stencil--stop" data-stencil="stop" type="button">
+            <div class="stencil-figure"><div class="stencil-shape" aria-hidden="true"></div></div>
+            <div class="stencil-meta">
+              <div class="stencil-title">Stop</div>
+              <div class="stencil-note">Route sequence object</div>
+            </div>
+          </button>
+          <button class="stencil stencil--ifthen" data-stencil="ifthen" type="button">
+            <div class="stencil-figure"><div class="stencil-shape" aria-hidden="true"></div></div>
+            <div class="stencil-meta">
+              <div class="stencil-title">Player Input</div>
+              <div class="stencil-note">Five-path input object</div>
+            </div>
+          </button>
+          <button class="stencil stencil--bubble" data-stencil="bubble" type="button">
+            <div class="stencil-figure"><div class="stencil-shape" aria-hidden="true"></div></div>
+            <div class="stencil-meta">
+              <div class="stencil-title">Bubble</div>
+              <div class="stencil-note">Speech or media block</div>
+            </div>
+          </button>
+          <button class="stencil stencil--variable" data-stencil="variable" type="button">
+            <div class="stencil-figure"><div class="stencil-shape" aria-hidden="true"></div></div>
+            <div class="stencil-meta">
+              <div class="stencil-title">Variable</div>
+              <div class="stencil-note">Named value object</div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="main-grid">
+      <section class="canvas-shell">
+        <div class="canvas-controls">
+          <div class="canvas-toolbar">
+            <div class="zoom-controls" aria-label="Canvas zoom controls">
+              <button class="zoom-btn" id="zoomOutBtn" type="button" aria-label="Zoom out">-</button>
+              <button class="zoom-readout" id="zoomResetBtn" type="button" aria-label="Reset zoom">
+                <span class="selection-chip-label">Zoom</span>
+                <span id="zoomValue">100%</span>
+              </button>
+              <button class="zoom-btn" id="zoomInBtn" type="button" aria-label="Zoom in">+</button>
+            </div>
+
+            <div class="selection-chip">
+              <div class="selection-chip-label">Selection</div>
+              <div class="selection-chip-value" id="selectionLabel">No Selection</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="viewport" id="viewport">
+          <div class="board-stage" id="boardStage">
+            <div class="board" id="board">
+              <svg class="link-layer" id="linkLayer" aria-hidden="true"></svg>
+              <div class="node-layer" id="nodeLayer"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="inspector">
+        <div class="inspector-stack">
+          <section class="inspector-card">
+            <div class="eyebrow">Object</div>
+            <h2 id="inspectorHeading">Nothing Selected</h2>
+            <div id="inspectorContent" hidden>
+              <p class="inspector-copy" id="inspectorCopy">
+                Select an object to rename it, rewrite its notes, or delete it. Connections can fan out to more than one destination.
+              </p>
+
+              <div class="field" id="titleField">
+                <label class="field-label" id="nodeTitleLabel" for="nodeTitleInput">Name</label>
+                <input id="nodeTitleInput" type="text" autocomplete="off" disabled>
+              </div>
+
+              <div class="field" id="stopNameField" hidden>
+                <label class="field-label" for="stopNameInput">Stop Name</label>
+                <input id="stopNameInput" type="text" autocomplete="off" disabled>
+              </div>
+
+              <div class="field" id="taglineField">
+                <label class="field-label" for="nodeTaglineInput">Tagline</label>
+                <input id="nodeTaglineInput" type="text" autocomplete="off" disabled>
+              </div>
+
+              <div class="field" id="guideNameField">
+                <label class="field-label" for="nodeGuideNameInput">Guide Name</label>
+                <input id="nodeGuideNameInput" type="text" autocomplete="off" disabled>
+              </div>
+
+              <div class="field" id="priceField">
+                <label class="field-label" for="nodePriceInput">Price</label>
+                <input id="nodePriceInput" type="text" autocomplete="off" disabled>
+              </div>
+
+              <div class="field" id="tagsField">
+                <label class="field-label" for="nodeTagNewInput">Tags</label>
+                <div class="tag-picker" id="nodeTagPicker">
+                  <input id="nodeTagNewInput" type="text" placeholder="New tag..." autocomplete="off" disabled>
+                  <button type="button" class="tag-add-btn" id="nodeTagAddBtn" disabled>+</button>
+                </div>
+              </div>
+
+              <div class="field" id="descriptionField">
+                <label class="field-label" id="nodeBodyLabel" for="nodeBodyInput">Description</label>
+                <textarea id="nodeBodyInput" disabled></textarea>
+              </div>
+
+              <div class="field" id="ifThenField" hidden>
+                <div class="field-label">Player Input Paths</div>
+                <div class="ifthen-grid">
+                  <label class="ifthen-row" for="ifThenBranch1">
+                    <span class="ifthen-port-tag">Out 1</span>
+                    <input id="ifThenBranch1" type="text" autocomplete="off" disabled>
+                  </label>
+                  <label class="ifthen-row" for="ifThenBranch2">
+                    <span class="ifthen-port-tag">Out 2</span>
+                    <input id="ifThenBranch2" type="text" autocomplete="off" disabled>
+                  </label>
+                  <label class="ifthen-row" for="ifThenBranch3">
+                    <span class="ifthen-port-tag">Out 3</span>
+                    <input id="ifThenBranch3" type="text" autocomplete="off" disabled>
+                  </label>
+                  <label class="ifthen-row" for="ifThenBranch4">
+                    <span class="ifthen-port-tag">Out 4</span>
+                    <input id="ifThenBranch4" type="text" autocomplete="off" disabled>
+                  </label>
+                  <label class="ifthen-row" for="ifThenBranch5">
+                    <span class="ifthen-port-tag">Out 5</span>
+                    <input id="ifThenBranch5" type="text" autocomplete="off" disabled>
+                  </label>
+                </div>
+              </div>
+
+              <div class="stats">
+                <div class="stat">
+                  <div class="stat-label">Incoming</div>
+                  <div class="stat-value" id="incomingCount">0</div>
+                </div>
+                <div class="stat">
+                  <div class="stat-label">Outgoing</div>
+                  <div class="stat-value" id="outgoingCount">0</div>
+                </div>
+              </div>
+
+              <div class="mini-note" id="selectionId">ID: none</div>
+
+              <div class="inspector-actions">
+                <button class="action-btn" id="deleteBtn" type="button" disabled>Delete Object</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="inspector-card" id="behaviorCard">
+            <div class="eyebrow">Behavior</div>
+            <h2>Shape Rules</h2>
+            <p class="inspector-copy">
+              Every shape can connect to multiple downstream objects. This page is focused on graph editing and persistence first; object-specific runtime behavior can be layered onto this structure next.
+            </p>
+            <p class="mini-note">
+              Keyboard: <strong>Delete</strong> removes the selected object or connection. <strong>Ctrl/Cmd+S</strong> saves the current graph.
+            </p>
+          </section>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="builder_new.js"></script>
+</body>
+</html>
