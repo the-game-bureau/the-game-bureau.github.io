@@ -3,8 +3,8 @@ const TYPE_CONFIG = {
     width: 368,
     height: 184,
     kicker: 'Game',
-    title: 'SUPER DUPER GAME',
-    body: 'This is a super duper game and this is the description that will be seen on the game page.',
+    title: 'My Walking Tour',
+    body: 'A guided SMS adventure through the city.',
     code: 'GM'
   },
   stop: {
@@ -19,7 +19,7 @@ const TYPE_CONFIG = {
     width: 260,
     height: 248,
     kicker: 'Player Input',
-    title: 'PLAYER INPUT',
+    title: 'Player Choice',
     body: '',
     code: 'IF'
   },
@@ -27,16 +27,16 @@ const TYPE_CONFIG = {
     width: 304,
     height: 168,
     kicker: 'Bubble',
-    title: 'Bubble Object',
-    body: 'A content unit for text now, with room later for image, video, or link payloads.',
+    title: 'Guide Message',
+    body: '',
     code: 'BB'
   },
   variable: {
     width: 226,
     height: 226,
     kicker: 'Variable',
-    title: 'Variable Object',
-    body: 'A named value node for player state, branching logic, or reusable content.',
+    title: 'Capture Name',
+    body: 'What is your name?',
     code: 'VR'
   }
 };
@@ -57,9 +57,15 @@ const EMPTY_STORE = {
   games: []
 };
 
-const IFTHEN_BRANCH_COUNT = 5;
+const IFTHEN_BRANCH_COUNT = 4;
 const IFTHEN_PORTS = Array.from({ length: IFTHEN_BRANCH_COUNT }, (_, index) => 'branch-' + (index + 1));
-const IFTHEN_PORT_X = [0.12, 0.31, 0.5, 0.69, 0.88];
+// Star tip positions (left → lower-left → lower-right → right)
+const IFTHEN_PORT_XY = [
+  { x: 0.02, y: 0.35 },
+  { x: 0.21, y: 0.93 },
+  { x: 0.79, y: 0.93 },
+  { x: 0.98, y: 0.35 },
+];
 
 const API = /^(http|https):$/.test(location.protocol) ? location.origin : null;
 const ZOOM_MIN = 0.5;
@@ -100,7 +106,9 @@ const nodeTagNewInput = document.getElementById('nodeTagNewInput');
 const nodeTagAddBtn = document.getElementById('nodeTagAddBtn');
 const nodeBodyLabel = document.getElementById('nodeBodyLabel');
 const nodeBodyInput = document.getElementById('nodeBodyInput');
-const ifThenBranchInputs = [1, 2, 3, 4, 5].map((index) => document.getElementById('ifThenBranch' + index));
+const varNameField = document.getElementById('varNameField');
+const varNameInput = document.getElementById('varNameInput');
+const ifThenBranchInputs = [1, 2, 3, 4].map((index) => document.getElementById('ifThenBranch' + index));
 const openGameSelect = document.getElementById('openGameSelect');
 const openGameBtn = document.getElementById('openGameBtn');
 const incomingCount = document.getElementById('incomingCount');
@@ -222,6 +230,7 @@ function normalizeNode(raw) {
     tagline: raw && typeof raw.tagline === 'string' ? raw.tagline : '',
     guideName: raw && typeof raw.guideName === 'string' ? raw.guideName : '',
     price: raw && typeof raw.price === 'string' ? raw.price : '',
+    varName: type === 'variable' && raw && typeof raw.varName === 'string' ? raw.varName : '',
     branches: type === 'ifthen' ? normalizeBranchList(raw && raw.branches) : [],
     tags: Array.isArray(raw && raw.tags)
       ? raw.tags.map((tag) => String(tag).trim()).filter(Boolean)
@@ -318,6 +327,7 @@ function createNode(type, x, y) {
     width: config.width,
     height: config.height,
     title: config.title,
+    varName: '',
     branches: type === 'ifthen' ? normalizeBranchList([]) : [],
     tagline: type === 'game' ? 'Shall We Play A Game?' : '',
     guideName: type === 'game' ? 'Mission Control' : '',
@@ -447,7 +457,15 @@ function getIfThenSummary(node) {
 
 function buildNodeBodyMarkup(node) {
   if (node.type === 'ifthen') {
-    return `<div class="node-body">${escapeHtml(getIfThenSummary(node))}</div>`;
+    const question = (node.body || '').trim();
+    return (question ? `<div class="node-body">${escapeHtml(question)}</div>` : '')
+      + `<div class="node-body node-body--meta">${escapeHtml(getIfThenSummary(node))}</div>`;
+  }
+
+  if (node.type === 'variable') {
+    const varName = (node.varName || '').trim();
+    return (varName ? `<div class="node-varname">{{${escapeHtml(varName)}}}</div>` : '')
+      + (node.body ? `<div class="node-body">${escapeHtml(node.body)}</div>` : '');
   }
 
   return node.body
@@ -555,10 +573,10 @@ function createPath(startX, startY, endX, endY) {
 function getOutPortPoint(node, fromPort = 'out') {
   if (node.type === 'ifthen') {
     const index = IFTHEN_PORTS.indexOf(fromPort);
-    const ratio = index >= 0 ? IFTHEN_PORT_X[index] : 0.5;
+    const pt = index >= 0 ? IFTHEN_PORT_XY[index] : { x: 0.5, y: 0.93 };
     return {
-      x: node.x + (node.width * ratio),
-      y: node.y + node.height + 8
+      x: node.x + node.width * pt.x,
+      y: node.y + node.height * pt.y
     };
   }
 
@@ -608,6 +626,21 @@ function drawLinks() {
     head.setAttribute('cy', points.endY);
     head.setAttribute('r', '5.5');
     group.appendChild(head);
+
+    if (link.fromPort && link.fromPort.startsWith('branch-')) {
+      const idx = IFTHEN_PORTS.indexOf(link.fromPort);
+      const branchText = idx >= 0 ? (normalizeBranchList(from.branches)[idx] || '').trim() : '';
+      if (branchText) {
+        const raw = branchText.length > 18 ? branchText.slice(0, 17) + '\u2026' : branchText;
+        const labelEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        labelEl.setAttribute('class', 'link-label');
+        labelEl.setAttribute('x', points.startX);
+        labelEl.setAttribute('y', points.startY + 22);
+        labelEl.setAttribute('text-anchor', 'middle');
+        labelEl.textContent = raw;
+        group.appendChild(labelEl);
+      }
+    }
 
     group.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -710,6 +743,14 @@ function renderNode(node) {
 function renderAll() {
   nodeLayer.innerHTML = '';
   nodeEls.clear();
+
+  if (state.doc.nodes.length === 0) {
+    const hint = document.createElement('div');
+    hint.className = 'board-empty-hint';
+    hint.innerHTML = 'Drag an object from the toolbar above to start,<br>or double-click one to place it here.';
+    nodeLayer.appendChild(hint);
+  }
+
   state.doc.nodes.forEach(renderNode);
   updateStencilAvailability();
   renderSelectionStates();
@@ -745,56 +786,65 @@ function updateSelectionUi() {
       : 'Nothing Selected';
   inspectorContent.hidden = !node && !link;
   behaviorCard.hidden = !node && !link;
+
+  const NODE_COPY = {
+    game: 'The root of the tour. Set the name, tagline, guide, price, and tags. Connect it downstream to the first Stop.',
+    stop: 'A location on the tour. Write the SMS message players receive when they arrive. Connect to a Bubble, Player Input, or the next Stop.',
+    ifthen: 'A multiple-choice question. Write the question below, then label each answer path. Each port on the star leads to a different next step.',
+    bubble: 'A single SMS message from your guide. Write the message text below. Use {{varName}} to replay a captured player value.',
+    variable: 'Capture a value from the player, like their name. Set the variable name (e.g. playerName) and the prompt to ask. Use {{playerName}} in any Bubble or Stop to replay it back.',
+  };
   inspectorCopy.textContent = node
-    ? (node.type === 'ifthen'
-        ? 'Fill the five path values. OUT 1 through OUT 5 on the star match those five rows.'
-        : 'Edit the selected object. Drag its lower dock to another object to add another downstream branch.')
+    ? (NODE_COPY[node.type] || 'Edit the selected object.')
     : link
-      ? 'This connector is selected. Press Delete or use the button below to remove only this line.'
-      : 'Select an object to rename it, rewrite its notes, or delete it. Connections can fan out to more than one destination.';
+      ? 'This connector is selected. Press Delete or use the button below to remove it.'
+      : 'Select an object to edit it. Connections can fan out to more than one destination.';
 
   const isGameNode = !!node && node.type === 'game';
   const isStopNode = !!node && node.type === 'stop';
   const isIfThenNode = !!node && node.type === 'ifthen';
-  const isOtherNode = !!node && !isGameNode && !isStopNode && !isIfThenNode;
+  const isVariableNode = !!node && node.type === 'variable';
   const isLinkSelected = !!link;
 
-  titleField.hidden = isLinkSelected || (!isGameNode && !isOtherNode);
-  descriptionField.hidden = isLinkSelected || (!isGameNode && !isOtherNode);
-  ifThenField.hidden = isLinkSelected || !isIfThenNode;
+  titleField.hidden = isLinkSelected || isStopNode || !node;
   stopNameField.hidden = isLinkSelected || !isStopNode;
+  varNameField.hidden = isLinkSelected || !isVariableNode;
+  descriptionField.hidden = isLinkSelected || !node;
+  ifThenField.hidden = isLinkSelected || !isIfThenNode;
   taglineField.hidden = isLinkSelected || !isGameNode;
   guideNameField.hidden = isLinkSelected || !isGameNode;
   priceField.hidden = isLinkSelected || !isGameNode;
   tagsField.hidden = isLinkSelected || !isGameNode;
   if (statsPanel) statsPanel.hidden = isLinkSelected;
 
-  nodeTitleLabel.textContent = node
-    ? TYPE_CONFIG[node.type].kicker.toUpperCase() + ' NAME'
-    : 'NAME';
-  nodeBodyLabel.textContent = isGameNode ? 'Description' : 'Notes';
-  nodeTitleInput.disabled = !isGameNode && !isOtherNode;
+  const BODY_LABELS = { game: 'Description', stop: 'Location Notes', ifthen: 'Question', bubble: 'SMS Message', variable: 'Capture Prompt' };
+  nodeTitleLabel.textContent = isIfThenNode ? 'QUESTION LABEL' : isGameNode ? 'GAME NAME' : node ? TYPE_CONFIG[node.type].kicker.toUpperCase() + ' NAME' : 'NAME';
+  nodeBodyLabel.textContent = node ? (BODY_LABELS[node.type] || 'Notes') : 'Notes';
+
+  nodeTitleInput.disabled = isStopNode || isLinkSelected || !node;
   stopNameInput.disabled = !isStopNode;
+  varNameInput.disabled = !isVariableNode;
   nodeTaglineInput.disabled = !isGameNode;
   nodeGuideNameInput.disabled = !isGameNode;
   nodePriceInput.disabled = !isGameNode;
   nodeTagNewInput.disabled = !isGameNode;
   nodeTagAddBtn.disabled = !isGameNode;
-  nodeBodyInput.disabled = !isGameNode && !isOtherNode;
+  nodeBodyInput.disabled = isLinkSelected || !node;
   ifThenBranchInputs.forEach((input) => {
     input.disabled = !isIfThenNode;
   });
   deleteBtn.disabled = !node && !link;
   deleteBtn.textContent = link ? 'Delete Connection' : 'Delete Object';
 
-  nodeTitleInput.value = (isGameNode || isOtherNode) && node ? node.title : '';
+  nodeTitleInput.value = node && !isStopNode ? node.title : '';
   stopNameInput.value = isStopNode && node ? node.title : '';
+  varNameInput.value = isVariableNode && node ? (node.varName || '') : '';
   nodeTaglineInput.value = isGameNode ? (node.tagline || '') : '';
   nodeGuideNameInput.value = isGameNode ? (node.guideName || '') : '';
   nodePriceInput.value = isGameNode ? (node.price || '') : '';
   nodeTagNewInput.value = '';
   renderTagPicker(node);
-  nodeBodyInput.value = (isGameNode || isOtherNode) && node ? node.body : '';
+  nodeBodyInput.value = node ? (node.body || '') : '';
   ifThenBranchInputs.forEach((input, index) => {
     input.value = isIfThenNode && node ? normalizeBranchList(node.branches)[index] : '';
   });
@@ -977,6 +1027,7 @@ function serializeDoc() {
       tagline: node.tagline || '',
       guideName: node.guideName || '',
       price: node.price || '',
+      varName: node.type === 'variable' ? (node.varName || '') : undefined,
       branches: node.type === 'ifthen' ? normalizeBranchList(node.branches) : undefined,
       tags: (node.tags || []).filter(Boolean),
       body: node.body
@@ -1114,6 +1165,13 @@ stopNameInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
   if (!node || node.type !== 'stop') return;
   node.title = stopNameInput.value || TYPE_CONFIG.stop.title;
+  renderAll();
+});
+
+varNameInput.addEventListener('input', () => {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'variable') return;
+  node.varName = varNameInput.value;
   renderAll();
 });
 
