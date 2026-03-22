@@ -1,39 +1,39 @@
 const TYPE_CONFIG = {
   game: {
-    width: 368,
-    height: 184,
+    width: 220,
+    height: 140,
     kicker: 'Game',
-    title: 'My Walking Tour',
+    title: 'Untitled Game',
     body: 'A guided SMS adventure through the city.',
     code: 'GM'
   },
   stop: {
-    width: 136,
-    height: 136,
+    width: 150,
+    height: 150,
     kicker: 'Stop',
     title: 'Stop Name',
     body: '',
     code: 'ST'
   },
   ifthen: {
-    width: 260,
-    height: 248,
+    width: 180,
+    height: 180,
     kicker: 'Player Input',
     title: 'Player Choice',
     body: '',
     code: 'IF'
   },
   bubble: {
-    width: 304,
-    height: 168,
+    width: 220,
+    height: 140,
     kicker: 'Bubble',
     title: 'Guide Message',
     body: '',
     code: 'BB'
   },
   variable: {
-    width: 226,
-    height: 226,
+    width: 160,
+    height: 160,
     kicker: 'Variable',
     title: 'Capture Name',
     body: 'What is your name?',
@@ -565,9 +565,12 @@ function boardPointFromClient(clientX, clientY) {
 }
 
 function createPath(startX, startY, endX, endY) {
-  const direction = endY >= startY ? 1 : -1;
-  const middleY = startY + direction * Math.max(48, Math.abs(endY - startY) * 0.45);
-  return 'M ' + startX + ' ' + startY + ' V ' + middleY + ' H ' + endX + ' V ' + endY;
+  const dy = Math.abs(endY - startY);
+  const curve = Math.max(60, dy * 0.5);
+  return 'M ' + startX + ' ' + startY +
+    ' C ' + startX + ' ' + (startY + curve) +
+    ' ' + endX + ' ' + (endY - curve) +
+    ' ' + endX + ' ' + endY;
 }
 
 function getOutPortPoint(node, fromPort = 'out') {
@@ -747,7 +750,7 @@ function renderAll() {
   if (state.doc.nodes.length === 0) {
     const hint = document.createElement('div');
     hint.className = 'board-empty-hint';
-    hint.innerHTML = 'Drag an object from the toolbar above to start,<br>or double-click one to place it here.';
+    hint.innerHTML = 'Use <strong>Insert</strong> in the menu above to add objects.';
     nodeLayer.appendChild(hint);
   }
 
@@ -1097,20 +1100,39 @@ async function loadDoc() {
   let nextStore = null;
 
   try {
-    if (API) {
-      const res = await fetch(API + '/games-new', { cache: 'no-store' });
-      if (res.ok) {
-        nextStore = normalizeStore(await res.json());
-      }
+    const urls = API ? [API + '/games', '../data/games.json'] : ['../data/games.json'];
+    let res = null;
+    for (const url of urls) {
+      try { res = await fetch(url, { cache: 'no-store' }); if (res.ok) break; } catch (e) {}
     }
-  } catch (error) {
-  }
-
-  try {
-    if (!nextStore) {
-      const cached = localStorage.getItem('tgb-games-new');
-      if (cached) {
-        nextStore = normalizeStore(JSON.parse(cached));
+    if (res.ok) {
+      const raw = await res.json();
+      const legacy = Array.isArray(raw) ? raw : (Array.isArray(raw.games) ? raw.games : []);
+      const converted = legacy
+        .filter((g) => !g.archived)
+        .map((g, i) => ({
+          id: g.id || ('game-' + i),
+          name: g.name || 'Untitled',
+          updatedAt: g.updatedAt || '',
+          nodes: [{
+            id: 'node-1',
+            type: 'game',
+            x: 64, y: 64,
+            width: TYPE_CONFIG.game.width,
+            height: TYPE_CONFIG.game.height,
+            title: g.name || 'Untitled',
+            tagline: g.tagline || '',
+            guideName: g.subtitle || '',
+            price: g.price || '',
+            tags: (g.tag || '').split(/[;,]/).map((t) => t.trim()).filter(Boolean),
+            body: (g.description || '').replace(/<[^>]+>/g, '').trim(),
+            varName: '',
+            branches: []
+          }],
+          links: []
+        }));
+      if (converted.length > 0) {
+        nextStore = { _comment: STORE_COMMENT, updatedAt: '', games: converted };
       }
     }
   } catch (error) {
@@ -1119,18 +1141,6 @@ async function loadDoc() {
   state.store = nextStore || cloneObj(EMPTY_STORE);
   syncAllTagsFromStore();
   renderGamePicker();
-
-  let preferredGameId = '';
-  try {
-    preferredGameId = localStorage.getItem('tgb-games-new-open') || '';
-  } catch (error) {
-  }
-
-  const preferredGame = state.store.games.find((game) => game.id === preferredGameId) || state.store.games[0];
-  if (preferredGame) {
-    openSavedGame(preferredGame.id);
-    return;
-  }
 
   seedBoard();
 }
@@ -1376,6 +1386,45 @@ window.addEventListener('keydown', (event) => {
     else removeSelectedNode();
   }
 });
+
+// ── Menubar dropdowns ──────────────────────────────────────────────────────
+(function () {
+  const nav = document.getElementById('mbNav');
+  if (!nav) return;
+
+  function closeAll() {
+    nav.querySelectorAll('.mb-menu').forEach((m) => {
+      m.classList.remove('open');
+      const panel = document.getElementById(m.querySelector('[data-target]').dataset.target);
+      if (panel) panel.hidden = true;
+    });
+  }
+
+  nav.querySelectorAll('.mb-trigger').forEach((trigger) => {
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const panelId = trigger.dataset.target;
+      const menu = trigger.closest('.mb-menu');
+      const panel = document.getElementById(panelId);
+      const isOpen = !panel.hidden;
+      closeAll();
+      if (!isOpen) { panel.hidden = false; menu.classList.add('open'); }
+    });
+  });
+
+  document.addEventListener('click', closeAll);
+
+  // Insert menu — click to add node at canvas center
+  const insertPanel = document.getElementById('mbPanelInsert');
+  if (insertPanel) {
+    insertPanel.querySelectorAll('[data-insert]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        closeAll();
+        addNodeToVisibleCanvas(btn.dataset.insert);
+      });
+    });
+  }
+}());
 
 applyZoom();
 loadDoc();
