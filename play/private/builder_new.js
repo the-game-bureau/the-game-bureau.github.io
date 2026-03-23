@@ -105,7 +105,6 @@ const varNameInput = document.getElementById('varNameInput');
 const varValuesField = document.getElementById('varValuesField');
 const varValueInputs = [1, 2, 3, 4].map((index) => document.getElementById('varValue' + index));
 const varCorrectRadios = [0, 1, 2, 3].map((index) => document.getElementById('varCorrect' + index));
-const ifThenBranchInputs = [1, 2, 3, 4].map((index) => document.getElementById('ifThenBranch' + index));
 const openGameSelect = document.getElementById('openGameSelect');
 const openGameBtn = document.getElementById('openGameBtn');
 const incomingCount = document.getElementById('incomingCount');
@@ -617,11 +616,11 @@ function drawLinks() {
     head.setAttribute('r', '5.5');
     group.appendChild(head);
 
-    if (link.fromPort && link.fromPort.startsWith('branch-')) {
-      const idx = IFTHEN_PORTS.indexOf(link.fromPort);
-      const branchText = idx >= 0 ? (normalizeBranchList(from.branches)[idx] || '').trim() : '';
-      if (branchText) {
-        const raw = branchText.length > 18 ? branchText.slice(0, 17) + '\u2026' : branchText;
+    if (link.fromPort && link.fromPort.startsWith('ans-')) {
+      const idx = ASK_PORTS.indexOf(link.fromPort);
+      const valText = idx >= 0 ? (normalizeVarValues(from.varValues)[idx] || '').trim() : '';
+      if (valText) {
+        const raw = valText.length > 18 ? valText.slice(0, 17) + '\u2026' : valText;
         const labelEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         labelEl.setAttribute('class', 'link-label');
         labelEl.setAttribute('x', points.startX);
@@ -822,9 +821,7 @@ function updateSelectionUi() {
   nodeTagNewInput.disabled = !isGameNode;
   nodeTagAddBtn.disabled = !isGameNode;
   nodeBodyInput.disabled = isLinkSelected || !node;
-  ifThenBranchInputs.forEach((input) => {
-    input.disabled = !isIfThenNode;
-  });
+
   deleteBtn.disabled = !node && !link;
   deleteBtn.textContent = link ? 'Delete Connection' : 'Delete Object';
 
@@ -1006,6 +1003,8 @@ function seedBoard() {
   state.currentGameId = null;
   clearSelection();
   state.nextId = 1;
+  const gameNode = createNode('game', 48, 48);
+  state.doc.nodes.push(gameNode);
   syncAllTagsFromStore();
   renderGamePicker();
   applyZoom();
