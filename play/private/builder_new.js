@@ -15,13 +15,13 @@ const TYPE_CONFIG = {
     body: '',
     code: 'ST'
   },
-  ifthen: {
-    width: 180,
-    height: 180,
-    kicker: 'Player Input',
-    title: 'Player Choice',
+  ask: {
+    width: 260,
+    height: 130,
+    kicker: 'Ask',
+    title: 'Ask',
     body: '',
-    code: 'IF'
+    code: 'ASK'
   },
   bubble: {
     width: 220,
@@ -31,14 +31,6 @@ const TYPE_CONFIG = {
     body: '',
     code: 'BB'
   },
-  variable: {
-    width: 160,
-    height: 160,
-    kicker: 'Variable',
-    title: 'Capture Name',
-    body: 'What is your name?',
-    code: 'VR'
-  }
 };
 
 const ALL_TAGS = ['Mystery', 'Puzzle', 'SMS', 'Walking Tour', 'Sports', 'History', 'Food', 'Adventure', 'Family', 'Conspiracy', 'Trivia', 'Horror', 'Romance', 'Comedy', 'Music', 'Culture', 'Night Life', 'City Tour', 'Scavenger Hunt', 'New Orleans'];
@@ -57,14 +49,14 @@ const EMPTY_STORE = {
   games: []
 };
 
-const IFTHEN_BRANCH_COUNT = 4;
-const IFTHEN_PORTS = Array.from({ length: IFTHEN_BRANCH_COUNT }, (_, index) => 'branch-' + (index + 1));
-// Star tip positions (left → lower-left → lower-right → right)
-const IFTHEN_PORT_XY = [
-  { x: 0.02, y: 0.35 },
-  { x: 0.21, y: 0.93 },
-  { x: 0.79, y: 0.93 },
-  { x: 0.98, y: 0.35 },
+const ASK_PORT_COUNT = 4;
+const ASK_PORTS = Array.from({ length: ASK_PORT_COUNT }, (_, index) => 'ans-' + (index + 1));
+// 4 output ports evenly spaced along the bottom edge
+const ASK_PORT_XY = [
+  { x: 0.125, y: 1.0 },
+  { x: 0.375, y: 1.0 },
+  { x: 0.625, y: 1.0 },
+  { x: 0.875, y: 1.0 },
 ];
 
 const API = /^(http|https):$/.test(location.protocol) ? location.origin : null;
@@ -83,6 +75,7 @@ const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomResetBtn = document.getElementById('zoomResetBtn');
 const zoomValue = document.getElementById('zoomValue');
+const objectCard = document.getElementById('objectCard');
 const inspectorHeading = document.getElementById('inspectorHeading');
 const inspectorContent = document.getElementById('inspectorContent');
 const behaviorCard = document.getElementById('behaviorCard');
@@ -106,8 +99,12 @@ const nodeTagNewInput = document.getElementById('nodeTagNewInput');
 const nodeTagAddBtn = document.getElementById('nodeTagAddBtn');
 const nodeBodyLabel = document.getElementById('nodeBodyLabel');
 const nodeBodyInput = document.getElementById('nodeBodyInput');
+
 const varNameField = document.getElementById('varNameField');
 const varNameInput = document.getElementById('varNameInput');
+const varValuesField = document.getElementById('varValuesField');
+const varValueInputs = [1, 2, 3, 4].map((index) => document.getElementById('varValue' + index));
+const varCorrectRadios = [0, 1, 2, 3].map((index) => document.getElementById('varCorrect' + index));
 const ifThenBranchInputs = [1, 2, 3, 4].map((index) => document.getElementById('ifThenBranch' + index));
 const openGameSelect = document.getElementById('openGameSelect');
 const openGameBtn = document.getElementById('openGameBtn');
@@ -201,8 +198,9 @@ function countLinks(id, direction) {
   return state.doc.links.filter((link) => link[direction] === id).length;
 }
 
-function normalizeBranchList(raw) {
-  return Array.from({ length: IFTHEN_BRANCH_COUNT }, (_, index) => {
+
+function normalizeVarValues(raw) {
+  return Array.from({ length: 4 }, (_, index) => {
     if (Array.isArray(raw) && raw[index] != null) return String(raw[index]);
     return '';
   });
@@ -230,14 +228,15 @@ function normalizeNode(raw) {
     tagline: raw && typeof raw.tagline === 'string' ? raw.tagline : '',
     guideName: raw && typeof raw.guideName === 'string' ? raw.guideName : '',
     price: raw && typeof raw.price === 'string' ? raw.price : '',
-    varName: type === 'variable' && raw && typeof raw.varName === 'string' ? raw.varName : '',
-    branches: type === 'ifthen' ? normalizeBranchList(raw && raw.branches) : [],
+    varName: type === 'ask' && raw && typeof raw.varName === 'string' ? raw.varName : '',
+    varValues: type === 'ask' ? normalizeVarValues(raw && raw.varValues) : [],
+    varCorrect: type === 'ask' && raw && raw.varCorrect != null ? Number(raw.varCorrect) : null,
     tags: Array.isArray(raw && raw.tags)
       ? raw.tags.map((tag) => String(tag).trim()).filter(Boolean)
       : typeof (raw && raw.tag) === 'string'
         ? raw.tag.split(/[;,]+/).map((tag) => tag.trim()).filter(Boolean)
         : [],
-    body: raw && raw.body ? String(raw.body) : (type === 'ifthen' ? '' : config.body)
+    body: raw && raw.body ? String(raw.body) : config.body
   };
 }
 
@@ -246,7 +245,7 @@ function normalizeDoc(raw) {
   const nodes = Array.isArray(doc.nodes) ? doc.nodes.map(normalizeNode) : [];
   const nodeIds = new Set(nodes.map((node) => node.id));
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-  const legacyIfThenPortUsage = new Map();
+  const legacyAskPortUsage = new Map();
   const links = Array.isArray(doc.links)
     ? doc.links
         .filter((link) => link && nodeIds.has(link.from) && nodeIds.has(link.to) && link.from !== link.to)
@@ -256,11 +255,11 @@ function normalizeDoc(raw) {
           const fromNode = nodeMap.get(from);
           let fromPort = typeof link.fromPort === 'string' && link.fromPort ? String(link.fromPort) : 'out';
 
-          if (fromNode && fromNode.type === 'ifthen') {
-            if (!IFTHEN_PORTS.includes(fromPort)) {
-              const nextPortIndex = Math.min((legacyIfThenPortUsage.get(from) || 0) + 1, IFTHEN_BRANCH_COUNT);
-              legacyIfThenPortUsage.set(from, nextPortIndex);
-              fromPort = IFTHEN_PORTS[nextPortIndex - 1];
+          if (fromNode && fromNode.type === 'ask') {
+            if (!ASK_PORTS.includes(fromPort)) {
+              const nextPortIndex = Math.min((legacyAskPortUsage.get(from) || 0) + 1, ASK_PORT_COUNT);
+              legacyAskPortUsage.set(from, nextPortIndex);
+              fromPort = ASK_PORTS[nextPortIndex - 1];
             }
           } else {
             fromPort = 'out';
@@ -327,13 +326,14 @@ function createNode(type, x, y) {
     width: config.width,
     height: config.height,
     title: config.title,
-    varName: '',
-    branches: type === 'ifthen' ? normalizeBranchList([]) : [],
+    varName: type === 'ask' ? 'favoriteSandwich' : '',
+    varValues: type === 'ask' ? normalizeVarValues(['Poboy', 'Muffuletta', 'Hoagie', 'Cuban']) : [],
+    varCorrect: null,
     tagline: type === 'game' ? 'Shall We Play A Game?' : '',
     guideName: type === 'game' ? 'Mission Control' : '',
     price: type === 'game' ? 'Free To Start / In App Purchases' : '',
     tags: [],
-    body: type === 'ifthen' ? '' : config.body
+    body: config.body
   };
 }
 
@@ -448,24 +448,13 @@ function renderTagPicker(node) {
   });
 }
 
-function getIfThenSummary(node) {
-  const activeCount = normalizeBranchList(node && node.branches).filter((value) => value.trim()).length;
-  return activeCount
-    ? activeCount + ' of ' + IFTHEN_BRANCH_COUNT + ' paths set'
-    : IFTHEN_BRANCH_COUNT + ' branch paths';
-}
-
 function buildNodeBodyMarkup(node) {
-  if (node.type === 'ifthen') {
-    const question = (node.body || '').trim();
-    return (question ? `<div class="node-body">${escapeHtml(question)}</div>` : '')
-      + `<div class="node-body node-body--meta">${escapeHtml(getIfThenSummary(node))}</div>`;
-  }
-
-  if (node.type === 'variable') {
+  if (node.type === 'ask') {
     const varName = (node.varName || '').trim();
+    const filled = normalizeVarValues(node.varValues).filter((v) => v.trim());
+    const summary = filled.length ? filled.join(', ') : '';
     return (varName ? `<div class="node-varname">{{${escapeHtml(varName)}}}</div>` : '')
-      + (node.body ? `<div class="node-body">${escapeHtml(node.body)}</div>` : '');
+      + (summary ? `<div class="node-body">${escapeHtml(summary)}</div>` : '');
   }
 
   return node.body
@@ -474,15 +463,13 @@ function buildNodeBodyMarkup(node) {
 }
 
 function buildOutPortsMarkup(node) {
-  if (node.type === 'ifthen') {
-    return IFTHEN_PORTS.map((port, index) => {
-      const branchText = normalizeBranchList(node.branches)[index].trim();
-      const aria = branchText
-        ? 'Connect ' + branchText + ' from ' + node.title
-        : 'Connect out ' + (index + 1) + ' from ' + node.title;
+  if (node.type === 'ask') {
+    return ASK_PORTS.map((port, index) => {
+      const val = (normalizeVarValues(node.varValues)[index] || '').trim();
+      const aria = val ? 'Connect ' + val : 'Connect ans ' + (index + 1);
       return `
         <button class="node-port node-port--out" data-port="${port}" type="button" tabindex="-1" aria-label="${escapeHtml(aria)}"></button>
-        <div class="node-port-label node-port-label--out" data-port="${port}">${index + 1}</div>
+        <div class="node-port-label node-port-label--out" data-port="${port}">${escapeHtml(val || String(index + 1))}</div>
       `;
     }).join('');
   }
@@ -574,9 +561,9 @@ function createPath(startX, startY, endX, endY) {
 }
 
 function getOutPortPoint(node, fromPort = 'out') {
-  if (node.type === 'ifthen') {
-    const index = IFTHEN_PORTS.indexOf(fromPort);
-    const pt = index >= 0 ? IFTHEN_PORT_XY[index] : { x: 0.5, y: 0.93 };
+  if (node.type === 'ask') {
+    const index = ASK_PORTS.indexOf(fromPort);
+    const pt = index >= 0 ? ASK_PORT_XY[index] : { x: 0.5, y: 1.0 };
     return {
       x: node.x + node.width * pt.x,
       y: node.y + node.height * pt.y
@@ -787,15 +774,16 @@ function updateSelectionUi() {
     : link
       ? 'Connection Selected'
       : 'Nothing Selected';
-  inspectorContent.hidden = !node && !link;
-  behaviorCard.hidden = !node && !link;
+  const hasSelection = !!(node || link);
+  objectCard.hidden = !hasSelection;
+  inspectorContent.hidden = !hasSelection;
+  behaviorCard.hidden = hasSelection;
 
   const NODE_COPY = {
     game: 'The root of the tour. Set the name, tagline, guide, price, and tags. Connect it downstream to the first Stop.',
-    stop: 'A location on the tour. Write the SMS message players receive when they arrive. Connect to a Bubble, Player Input, or the next Stop.',
-    ifthen: 'A multiple-choice question. Write the question below, then label each answer path. Each port on the star leads to a different next step.',
+    stop: 'A location on the tour. Write the SMS message players receive when they arrive. Connect to a Bubble, Ask, or the next Stop.',
+    ask: 'Ask the player a question. Set the variable name to store their answer, enter up to 4 choices, and optionally mark one correct. Each choice routes to a different next step. Use {{varName}} in any Bubble to replay the answer.',
     bubble: 'A single SMS message from your guide. Write the message text below. Use {{varName}} to replay a captured player value.',
-    variable: 'Capture a value from the player, like their name. Set the variable name (e.g. playerName) and the prompt to ask. Use {{playerName}} in any Bubble or Stop to replay it back.',
   };
   inspectorCopy.textContent = node
     ? (NODE_COPY[node.type] || 'Edit the selected object.')
@@ -805,28 +793,29 @@ function updateSelectionUi() {
 
   const isGameNode = !!node && node.type === 'game';
   const isStopNode = !!node && node.type === 'stop';
-  const isIfThenNode = !!node && node.type === 'ifthen';
-  const isVariableNode = !!node && node.type === 'variable';
+  const isAskNode = !!node && node.type === 'ask';
   const isLinkSelected = !!link;
 
-  titleField.hidden = isLinkSelected || isStopNode || !node;
+  titleField.hidden = isLinkSelected || isStopNode || isAskNode || !node;
   stopNameField.hidden = isLinkSelected || !isStopNode;
-  varNameField.hidden = isLinkSelected || !isVariableNode;
-  descriptionField.hidden = isLinkSelected || !node;
-  ifThenField.hidden = isLinkSelected || !isIfThenNode;
+  varNameField.hidden = isLinkSelected || !isAskNode;
+
+  varValuesField.hidden = isLinkSelected || !isAskNode;
+  descriptionField.hidden = isLinkSelected || !node || isAskNode;
+  ifThenField.hidden = true;
   taglineField.hidden = isLinkSelected || !isGameNode;
   guideNameField.hidden = isLinkSelected || !isGameNode;
   priceField.hidden = isLinkSelected || !isGameNode;
   tagsField.hidden = isLinkSelected || !isGameNode;
   if (statsPanel) statsPanel.hidden = isLinkSelected;
 
-  const BODY_LABELS = { game: 'Description', stop: 'Location Notes', ifthen: 'Question', bubble: 'SMS Message', variable: 'Capture Prompt' };
-  nodeTitleLabel.textContent = isIfThenNode ? 'QUESTION LABEL' : isGameNode ? 'GAME NAME' : node ? TYPE_CONFIG[node.type].kicker.toUpperCase() + ' NAME' : 'NAME';
+  const BODY_LABELS = { game: 'Description', stop: 'Location Notes', bubble: 'SMS Message' };
+  nodeTitleLabel.textContent = isGameNode ? 'GAME NAME' : node ? TYPE_CONFIG[node.type].kicker.toUpperCase() + ' NAME' : 'NAME';
   nodeBodyLabel.textContent = node ? (BODY_LABELS[node.type] || 'Notes') : 'Notes';
 
-  nodeTitleInput.disabled = isStopNode || isLinkSelected || !node;
+  nodeTitleInput.disabled = isStopNode || isAskNode || isLinkSelected || !node;
   stopNameInput.disabled = !isStopNode;
-  varNameInput.disabled = !isVariableNode;
+  varNameInput.disabled = !isAskNode;
   nodeTaglineInput.disabled = !isGameNode;
   nodeGuideNameInput.disabled = !isGameNode;
   nodePriceInput.disabled = !isGameNode;
@@ -839,18 +828,23 @@ function updateSelectionUi() {
   deleteBtn.disabled = !node && !link;
   deleteBtn.textContent = link ? 'Delete Connection' : 'Delete Object';
 
-  nodeTitleInput.value = node && !isStopNode ? node.title : '';
+  nodeTitleInput.value = node && !isStopNode && !isAskNode ? node.title : '';
   stopNameInput.value = isStopNode && node ? node.title : '';
-  varNameInput.value = isVariableNode && node ? (node.varName || '') : '';
+  varNameInput.value = isAskNode && node ? (node.varName || '') : '';
+
+  const vals = normalizeVarValues(isAskNode && node ? node.varValues : []);
+  const correctIdx = isAskNode && node ? node.varCorrect : null;
+  varValueInputs.forEach((input, i) => { input.value = vals[i]; input.disabled = !isAskNode; });
+  varCorrectRadios.forEach((radio, i) => {
+    radio.checked = correctIdx === i;
+    radio.disabled = !isAskNode;
+  });
   nodeTaglineInput.value = isGameNode ? (node.tagline || '') : '';
   nodeGuideNameInput.value = isGameNode ? (node.guideName || '') : '';
   nodePriceInput.value = isGameNode ? (node.price || '') : '';
   nodeTagNewInput.value = '';
   renderTagPicker(node);
   nodeBodyInput.value = node ? (node.body || '') : '';
-  ifThenBranchInputs.forEach((input, index) => {
-    input.value = isIfThenNode && node ? normalizeBranchList(node.branches)[index] : '';
-  });
   incomingCount.textContent = String(node ? countLinks(node.id, 'to') : 0);
   outgoingCount.textContent = String(node ? countLinks(node.id, 'from') : 0);
   selectionId.textContent = node
@@ -971,7 +965,7 @@ function createLink(fromId, toId, fromPort = 'out') {
   const exists = state.doc.links.some((link) => link.from === fromId && link.to === toId && (link.fromPort || 'out') === fromPort);
   if (exists) return;
 
-  if (fromNode && fromNode.type === 'ifthen') {
+  if (fromNode && fromNode.type === 'ask') {
     state.doc.links = state.doc.links.filter((link) => !(link.from === fromId && (link.fromPort || 'out') === fromPort));
   }
 
@@ -1030,8 +1024,9 @@ function serializeDoc() {
       tagline: node.tagline || '',
       guideName: node.guideName || '',
       price: node.price || '',
-      varName: node.type === 'variable' ? (node.varName || '') : undefined,
-      branches: node.type === 'ifthen' ? normalizeBranchList(node.branches) : undefined,
+      varName: node.type === 'ask' ? (node.varName || '') : undefined,
+      varValues: node.type === 'ask' ? normalizeVarValues(node.varValues) : undefined,
+      varCorrect: node.type === 'ask' ? (node.varCorrect != null ? node.varCorrect : null) : undefined,
       tags: (node.tags || []).filter(Boolean),
       body: node.body
     })),
@@ -1178,22 +1173,38 @@ stopNameInput.addEventListener('input', () => {
   renderAll();
 });
 
+
 varNameInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
-  if (!node || node.type !== 'variable') return;
+  if (!node || node.type !== 'ask') return;
   node.varName = varNameInput.value;
   renderAll();
 });
 
-ifThenBranchInputs.forEach((input, index) => {
+varValueInputs.forEach((input, i) => {
   input.addEventListener('input', () => {
     const node = getNode(state.selectedId);
-    if (!node || node.type !== 'ifthen') return;
-    node.branches = normalizeBranchList(node.branches);
-    node.branches[index] = input.value;
+    if (!node || node.type !== 'ask') return;
+    node.varValues = normalizeVarValues(node.varValues);
+    node.varValues[i] = input.value;
     renderAll();
   });
 });
+
+varCorrectRadios.forEach((radio, i) => {
+  radio.addEventListener('click', () => {
+    const node = getNode(state.selectedId);
+    if (!node || node.type !== 'ask') return;
+    if (node.varCorrect === i) {
+      node.varCorrect = null;
+      radio.checked = false;
+    } else {
+      node.varCorrect = i;
+    }
+    renderAll();
+  });
+});
+
 
 nodeTaglineInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
@@ -1410,6 +1421,10 @@ window.addEventListener('keydown', (event) => {
       closeAll();
       if (!isOpen) { panel.hidden = false; menu.classList.add('open'); }
     });
+  });
+
+  nav.querySelectorAll('.mb-panel').forEach((panel) => {
+    panel.addEventListener('click', (e) => e.stopPropagation());
   });
 
   document.addEventListener('click', closeAll);
