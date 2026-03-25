@@ -66,7 +66,7 @@ const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2;
 const ZOOM_STEP = 0.1;
 const PAPER_BASE_WIDTH = 1224;
-const PAPER_ASPECT_RATIO = 11 / 8.5;
+const PAPER_ASPECT_RATIO = 8.5 / 11;
 const GRID_COLUMNS = 5;
 const GRID_ROWS = 5;
 const GAME_HOME_COL = 0;
@@ -118,6 +118,7 @@ const inspector = document.getElementById('inspector');
 const inspectorWindowBar = document.getElementById('inspectorWindowBar');
 const inspectorWindowTitle = document.getElementById('inspectorWindowTitle');
 const inspectorToggleBtn = document.getElementById('inspectorToggleBtn');
+const inspRouteBadge = document.getElementById('inspRouteBadge');
 const inspectorStack = document.getElementById('inspectorStack');
 const stencilBar = document.getElementById('stencilBar');
 const headerPlayGameBtn = document.getElementById('headerPlayGameBtn');
@@ -260,8 +261,10 @@ function getBoardBaseSize() {
   const origin = getPlacementGridOrigin();
   const minWidth = origin.x + (major * GRID_COLUMNS);
   const minHeight = origin.y + (major * GRID_ROWS);
-  const width = Math.max(minWidth, PAPER_BASE_WIDTH);
-  const height = Math.max(minHeight, Math.round(width * PAPER_ASPECT_RATIO));
+  const rightmostEdge = state.doc.nodes.reduce((max, node) => Math.max(max, node.x + (node.width || 108)), 0);
+  const nodesWidth = rightmostEdge > 0 ? rightmostEdge + major * 2 : 0;
+  const width = Math.max(minWidth, PAPER_BASE_WIDTH, nodesWidth);
+  const height = Math.max(minHeight, Math.round(PAPER_BASE_WIDTH * PAPER_ASPECT_RATIO));
   return {
     width,
     height
@@ -2358,6 +2361,7 @@ function renderNode(node) {
 }
 
 function renderAll() {
+  applyZoom();
   nodeLayer.innerHTML = '';
   nodeEls.clear();
 
@@ -2396,16 +2400,25 @@ function updateSelectionUi() {
   inspectorContent.hidden = !hasSelection;
   behaviorCard.hidden = hasSelection;
 
+  // Transit board: type theming
+  const NODE_CODES = { game: 'GM', stop: 'ST', bubble: 'GD', reply: 'PL' };
+  if (inspector) inspector.dataset.nodeType = node ? node.type : link ? 'link' : '';
+  if (inspRouteBadge) {
+    const code = node ? NODE_CODES[node.type] : link ? '\u2192' : '';
+    inspRouteBadge.textContent = code;
+    inspRouteBadge.hidden = !code;
+  }
+
   const NODE_COPY = {
-    game: 'The root of the tour. Set the name, tagline, guide, price, and tags. Connect it downstream to the first Stop.',
-    stop: 'A location on the tour. Write the SMS message players receive when they arrive. Connect to a GUIDE, PLAYER, or the next Stop.',
-    bubble: 'A single SMS message from your guide. Write the guide message below.',
-    reply: 'A player reply. MESSAGE NAME stores what the player typed. Fill in GUESS to require specific answers, or leave it blank to accept any value.',
+    game: 'Your game starts here. Fill in the associated fields.',
+    stop: 'A location on your tour. Stop notes are just for you — players never see them.',
+    bubble: 'A single text message from your guide. You can include variables by typing % and choosing from available variables.',
+    reply: 'The player sends a text back. Give it a MESSAGE NAME to save what they typed — you can drop that saved reply into any message later. Add a GUESS if you\'re checking for a specific answer, or leave it blank to accept anything they send.',
   };
   const anytimeCopy = node && isAnytimeReplyNode(node)
-    ? 'A PLAYER ANYTIME listener. GUESS words are always listened for across the whole game. MESSAGE NAME stores what the player typed when it matches.'
+    ? 'A reply that listens all game long. Set a GUESS word and it\'ll be checked no matter where the player is. MESSAGE NAME saves what they typed when it matches.'
     : node && isAnytimeGuideNode(node)
-      ? 'The response shown when its PLAYER ANYTIME words are typed. After this message, the current prompt is shown again.'
+      ? 'The message your guide sends when a PLAYER ANYTIME triggers. After this, the game picks back up where the player left off.'
       : '';
   inspectorCopy.textContent = node
     ? (anytimeCopy || NODE_COPY[node.type] || 'Edit the selected object.')
@@ -3063,6 +3076,10 @@ function seedBoard() {
   const firstSlot = getGameHomeSlot();
   const gameNode = createNode('game', firstSlot.x, firstSlot.y);
   state.doc.nodes.push(gameNode);
+  const stopSlot = getGridSlotPosition('stop', 1, 0);
+  const stopNode = createNode('stop', stopSlot.x, stopSlot.y);
+  state.doc.nodes.push(stopNode);
+  createLink(gameNode.id, stopNode.id);
   syncAllTagsFromStore();
   rememberCleanSnapshot();
   renderOpenGameDialogList();
@@ -3889,3 +3906,9 @@ window.addEventListener('resize', () => {
 
 applyZoom();
 loadDoc();
+
+
+
+
+
+
