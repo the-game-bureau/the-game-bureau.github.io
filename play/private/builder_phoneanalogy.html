@@ -2,7 +2,7 @@
 <!--
   TGB Builder project note for humans and AI:
   This builder writes JSON data that is read later by the game engine.
-  builder_new.html writes graph data to play/data/games_new.json.
+  builder_phoneanalogy.html writes phone data to play/data/games_phoneanalogy.json.
 -->
 <html lang="en">
 <head>
@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="builder_new.css?v=1774532812">
+  <link rel="stylesheet" href="builder_phoneanalogy.css?v=1774568100">
 </head>
 <body>
   <div class="app-shell">
@@ -30,39 +30,17 @@
         <div class="mb-menu" id="mbFile">
           <button class="mb-trigger" data-target="mbPanelFile" type="button">File</button>
           <div class="mb-panel" id="mbPanelFile" hidden>
-            <button class="mb-item" id="newBoardBtn" type="button">
+            <button class="mb-item" id="newPhoneBtn" type="button">
               <span>New Game</span>
               <span class="mb-shortcut">N</span>
-            </button>
-            <button class="mb-item mb-item--open" id="openGameBtn" type="button">
-              <span>Open Game</span>
-              <span class="mb-shortcut">O</span>
             </button>
             <button class="mb-item" id="saveGameBtn" type="button">
               <span>Save Game</span>
               <span class="mb-shortcut">Ctrl+S</span>
             </button>
-          </div>
-        </div>
-
-        <!-- Insert -->
-        <div class="mb-menu" id="mbInsert">
-          <button class="mb-trigger" data-target="mbPanelInsert" type="button">Insert</button>
-          <div class="mb-panel" id="mbPanelInsert" hidden>
-            <button class="mb-item mb-item--insert" data-insert="stop" type="button">
-              <span class="mb-swatch mb-swatch--stop"></span>
-              <span>Stop</span>
-              <span class="mb-shortcut">S</span>
-            </button>
-            <button class="mb-item mb-item--insert" data-insert="bubble" type="button">
-              <span class="mb-swatch mb-swatch--bubble"></span>
-              <span>GUIDE</span>
-              <span class="mb-shortcut">G</span>
-            </button>
-            <button class="mb-item mb-item--insert" data-insert="reply" type="button">
-              <span class="mb-swatch mb-swatch--reply"></span>
-              <span>PLAYER</span>
-              <span class="mb-shortcut">P</span>
+            <button class="mb-item mb-item--accent" id="headerPlayGameBtn" type="button">
+              <span>Play Game</span>
+              <span class="mb-shortcut">Ctrl+Enter</span>
             </button>
           </div>
         </div>
@@ -88,24 +66,7 @@
 
       </nav>
 
-      <div class="mb-status">
-        <button class="mb-save-all" id="headerPlayGameBtn" type="button">Play Game</button>
-      </div>
     </header>
-
-    <!-- Hidden stencil bar kept for JS drag compatibility -->
-    <div id="stencilBar" hidden>
-      <button class="stencil" data-stencil="game" data-copy="This is where it all begins! Fill out the details of the game. This will be used in advertising and on the game's home page."type="button"></button>
-      <button class="stencil" data-stencil="stop" data-copy="This puzzle piece is for you, the builder. This is where you can make secret notes about the game stop, like its location, or background, or the answers to the upsoming questions. Think of it as a waypoint or a flag to help you." type="button"></button>
-      <button class="stencil" data-stencil="bubble" data-copy="This is a simulated text message that will be sent from the game, in the guise of the game master or game guide. You can make statements or ask questions. Any words in ALL CAPS will be highlighted in the message." type="button"></button>
-      <button class="stencil" data-stencil="reply" data-copy="This is a listener puzzle piece. The game pauses and waits for a message from the player. That message is saved for later use no matter what. 
-
-If the ANSWER field is left empty, that means the player can provide any input and the game continues regardless of the message received.
-
-Type the correct answer in. If there is more than 1 correct answer, type each one in separated by a comma. If the player provides a correct answer the game continues. If not, the alternate path is taken and the question is repeated.
-
-You can use previously stored data by typing % and choosing the previously stored date from the dropdown." type="button"></button>
-    </div>
 
     <div id="inspectorCopyStrings" hidden>
       <span data-copy="anytime-reply">A PLAYER MSG with ANYTIME turned on. Its paired GUIDE MSG responds whenever the player message matches.</span>
@@ -116,13 +77,82 @@ You can use previously stored data by typing % and choosing the previously store
 
     <!-- ── Main ── -->
     <div class="main-grid">
-      <section class="canvas-shell">
+      <aside class="gameshelf" id="gameshelf" aria-label="Saved games">
+        <div class="gameshelf-head">
+          <h2 class="gameshelf-title">Gameshelf</h2>
+        </div>
+        <div class="gameshelf-factory" aria-hidden="true">
+          <div class="gameshelf-lane"></div>
+          <div class="gameshelf-arm gameshelf-arm--left">
+            <span class="gameshelf-arm-claw"></span>
+          </div>
+          <div class="gameshelf-arm gameshelf-arm--right">
+            <span class="gameshelf-arm-claw"></span>
+          </div>
+          <div class="gameshelf-sparks gameshelf-sparks--left"></div>
+          <div class="gameshelf-sparks gameshelf-sparks--right"></div>
+        </div>
+        <div class="gameshelf-stream" id="gameshelfStream">
+          <div class="gameshelf-list" id="gameshelfList">
+            <div class="gameshelf-empty">Loading gameshelf...</div>
+          </div>
+        </div>
+      </aside>
+      <section class="phone-shell">
         <div class="viewport" id="viewport">
-          <div class="board-stage" id="boardStage">
-            <div class="board" id="board">
-              <svg class="link-layer" id="linkLayer" aria-hidden="true"></svg>
-              <div class="node-layer" id="nodeLayer"></div>
+          <div class="phone-stage" id="phoneStage">
+            <div class="zoom-controls" aria-label="Zoom controls">
+              <button class="zoom-pill-btn" id="workspaceZoomInBtn" type="button" aria-label="Zoom in">+</button>
+              <button class="zoom-pill-btn zoom-pill-btn--reset" id="workspaceZoomResetBtn" type="button" aria-label="Reset zoom">Reset</button>
+              <button class="zoom-pill-btn" id="workspaceZoomOutBtn" type="button" aria-label="Zoom out">-</button>
             </div>
+            <div id="stencilBar" class="phone-stencil-tray" aria-label="New blank bubbles">
+              <button class="stencil stencil--stop" data-stencil="stop" data-copy="This Waypoint Bubble doesn't really appear in the game. It's just for you, the builder. This is where you can make secret notes about the game stop, like its location, or background, or the answers to the upsoming questions. Think of it as a waypoint or a flag to help you." type="button" aria-label="New WAYPOINT bubble">
+                <span class="stencil-seed stencil-seed--stop">
+                  <span class="stencil-seed-label">WAYPOINT</span>
+                </span>
+                <span class="stencil-shortcut">S</span>
+              </button>
+              <button class="stencil stencil--bubble" data-stencil="bubble" data-copy="This is a simulated text message that will be sent from the game, in the guise of the game master or game guide. You can make statements or ask questions. Any words in ALL CAPS will be highlighted in the message." type="button" aria-label="New GUIDE bubble">
+                <span class="stencil-seed stencil-seed--bubble">
+                  <span class="stencil-seed-label">GUIDE</span>
+                </span>
+                <span class="stencil-shortcut">G</span>
+              </button>
+              <button class="stencil stencil--reply" data-stencil="reply" data-copy="This is a listener bubble. The game pauses and waits for a message from the player. That message is saved for later use no matter what. 
+
+If the ANSWER field is left empty, that means the player can provide any input and the game continues regardless of the message received.
+
+Type the correct answer in. If there is more than 1 correct answer, type each one in separated by a comma. If the player provides a correct answer the game continues. If not, the alternate path is taken and the question is repeated.
+
+You can use previously stored data by typing % and choosing the previously stored date from the dropdown." type="button" aria-label="New PLAYER bubble">
+                <span class="stencil-seed stencil-seed--reply">
+                  <span class="stencil-seed-label">PLAYER</span>
+                </span>
+                <span class="stencil-shortcut">P</span>
+              </button>
+            </div>
+            <div class="phone" id="phone">
+              <div class="phone-statusbar" aria-hidden="true">
+                <span class="phone-statusbar-time">9:41</span>
+                <div class="phone-dynamic-island"></div>
+                <span class="phone-statusbar-signal">LTE</span>
+              </div>
+              <button class="phone-threadbar" id="phoneStartBtn" type="button" aria-label="Open START details">
+                <span class="phone-threadback">Messages</span>
+                <div class="phone-threadmeta">
+                  <span class="phone-threadname" id="phoneThreadName">Builder Thread</span>
+                  <span class="phone-threadstatus">iMessage</span>
+                </div>
+                <span class="phone-threadavatar"></span>
+              </button>
+              <div class="phone-composebar" aria-hidden="true">
+                <span class="phone-composeinput">iMessage</span>
+              </div>
+            </div>
+            <div class="outside-anytime-label" id="outsideAnytimeLabel" hidden>ANYTIME</div>
+            <svg class="link-layer" id="linkLayer" aria-hidden="true"></svg>
+            <div class="node-layer" id="nodeLayer"></div>
           </div>
         </div>
       </section>
@@ -232,6 +262,22 @@ You can use previously stored data by typing % and choosing the previously store
                 <input id="nodePriceInput" type="text" autocomplete="off" disabled>
               </div>
 
+              <div class="field" id="primaryColorField">
+                <label class="field-label" for="primaryColorInput">Primary Color</label>
+                <div class="color-field-controls">
+                  <input class="color-picker-input" id="primaryColorPickerInput" type="color" value="#5468a7" disabled aria-label="Primary color picker">
+                  <input id="primaryColorInput" type="text" autocomplete="off" spellcheck="false" disabled>
+                </div>
+              </div>
+
+              <div class="field" id="secondaryColorField">
+                <label class="field-label" for="secondaryColorInput">Secondary Color</label>
+                <div class="color-field-controls">
+                  <input class="color-picker-input" id="secondaryColorPickerInput" type="color" value="#243256" disabled aria-label="Secondary color picker">
+                  <input id="secondaryColorInput" type="text" autocomplete="off" spellcheck="false" disabled>
+                </div>
+              </div>
+
               <div class="field" id="tagsField">
                 <label class="field-label" for="nodeTagNewInput">Tags</label>
                 <div class="tag-picker" id="nodeTagPicker">
@@ -299,19 +345,17 @@ You can use previously stored data by typing % and choosing the previously store
     </div>
   </div>
 
-  <div class="dialog-scrim" id="openGameDialog" hidden>
-    <div class="dialog-card dialog-card--open-game" role="dialog" aria-modal="true" aria-labelledby="openGameDialogTitle" aria-describedby="openGameDialogCopy">
-      <div class="dialog-eyebrow">Open Game</div>
-      <h2 id="openGameDialogTitle">Choose A Saved Game</h2>
-      <p class="dialog-copy" id="openGameDialogCopy">
-        Pick a saved game to load into the builder.
+  <div class="dialog-scrim" id="switchGameDialog" hidden>
+    <div class="dialog-card dialog-card--switch-game" role="dialog" aria-modal="true" aria-labelledby="switchGameDialogTitle" aria-describedby="switchGameDialogCopy">
+      <div class="dialog-eyebrow">Unsaved Changes</div>
+      <h2 id="switchGameDialogTitle">Save Before Opening?</h2>
+      <p class="dialog-copy" id="switchGameDialogCopy">
+        Opening <strong id="switchGameTargetName">this game</strong> will replace the current builder view.
       </p>
-      <select id="openGameDialogSelect" class="dialog-select" size="10">
-        <option value="">No saved games yet</option>
-      </select>
       <div class="dialog-actions">
-        <button class="dialog-btn dialog-btn--accent" id="confirmOpenGameBtn" type="button" disabled>Open Game</button>
-        <button class="dialog-btn" id="cancelOpenGameBtn" type="button">Cancel</button>
+        <button class="dialog-btn dialog-btn--accent" id="saveSwitchGameBtn" type="button">Save Then Open</button>
+        <button class="dialog-btn" id="discardSwitchGameBtn" type="button">Open Without Saving</button>
+        <button class="dialog-btn" id="cancelSwitchGameBtn" type="button">Cancel</button>
       </div>
     </div>
   </div>
@@ -321,6 +365,6 @@ You can use previously stored data by typing % and choosing the previously store
     <button class="context-menu-item context-menu-item--danger" id="deleteNodeMenuBtn" type="button">Delete</button>
   </div>
 
-  <script src="builder_new.js?v=1774534608"></script>
+  <script src="builder_phoneanalogy.js?v=1774568160"></script>
 </body>
 </html>

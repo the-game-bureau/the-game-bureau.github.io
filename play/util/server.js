@@ -8,6 +8,7 @@ const { execFile } = require('child_process');
 const PORT       = 3000;
 const GAMES_FILE  = path.join(__dirname, '..', 'data', 'games.json');
 const GAMES_NEW_FILE = path.join(__dirname, '..', 'data', 'games_new.json');
+const GAMES_PHONEANALOGY_FILE = path.join(__dirname, '..', 'data', 'games_phoneanalogy.json');
 const STOPS_FILE  = path.join(__dirname, '..', 'data', 'stops.json');
 const ROUTES_FILE = path.join(__dirname, '..', 'data', 'routes.json');
 const STATIC_DIR = path.join(__dirname, '..', '..');
@@ -69,6 +70,24 @@ http.createServer((req, res) => {
     return;
   }
 
+  // POST /games-phoneanalogy — write games_phoneanalogy.json
+  if (req.method === 'POST' && req.url === '/games-phoneanalogy') {
+    let body = '';
+    req.on('data', d => { body += d; });
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body);
+        fs.writeFileSync(GAMES_PHONEANALOGY_FILE, JSON.stringify(data, null, 2) + '\n', 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('{"ok":true}');
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
   // POST /stops â€” write stops.json
   if (req.method === 'POST' && req.url === '/stops') {
     let body = '';
@@ -105,6 +124,19 @@ http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/games-new') {
     try {
       const txt = fs.readFileSync(GAMES_NEW_FILE, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(txt);
+    } catch (e) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end('{"games":[]}');
+    }
+    return;
+  }
+
+  // GET /games-phoneanalogy — read games_phoneanalogy.json
+  if (req.method === 'GET' && req.url === '/games-phoneanalogy') {
+    try {
+      const txt = fs.readFileSync(GAMES_PHONEANALOGY_FILE, 'utf8');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(txt);
     } catch (e) {

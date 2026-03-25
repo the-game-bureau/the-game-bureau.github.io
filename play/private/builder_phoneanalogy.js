@@ -1,32 +1,32 @@
 // TGB Builder writes JSON data that is read later by the game engine.
 const TYPE_CONFIG = {
   game: {
-    width: 108,
-    height: 108,
+    width: 184,
+    height: 318,
     kicker: 'START',
     title: 'Untitled Game',
     body: 'A guided SMS adventure through the city.',
     code: 'GM'
   },
   stop: {
-    width: 108,
-    height: 108,
+    width: 236,
+    height: 90,
     kicker: 'WAYPOINT',
     title: 'Waypoint Name',
     body: '',
     code: 'ST'
   },
   bubble: {
-    width: 108,
-    height: 108,
+    width: 250,
+    height: 92,
     kicker: 'GUIDE MSG',
     title: '',
     body: '',
     code: 'BB'
   },
   reply: {
-    width: 108,
-    height: 108,
+    width: 230,
+    height: 88,
     kicker: 'PLAYER MSG',
     title: '',
     body: 'fifty,50',
@@ -45,7 +45,11 @@ const NODE_TYPE_BY_PREFIX = Object.fromEntries(
 
 const ALL_TAGS = ['Mystery', 'Puzzle', 'SMS', 'Walking Tour', 'Sports', 'History', 'Food', 'Adventure', 'Family', 'Conspiracy', 'Trivia', 'Horror', 'Romance', 'Comedy', 'Music', 'Culture', 'Night Life', 'City Tour', 'Scavenger Hunt', 'New Orleans'];
 
-const STORE_COMMENT = 'File: games_new.json | Purpose: experimental graph-builder data written by TGB Builder for later game-engine use.';
+const STORE_FILE_NAME = 'games_phoneanalogy.json';
+const STORE_API_ROUTE = '/games-phoneanalogy';
+const LOCAL_STORE_KEY = 'tgb-games-phoneanalogy';
+const LOCAL_OPEN_GAME_KEY = 'tgb-games-phoneanalogy-open';
+const STORE_COMMENT = 'File: games_phoneanalogy.json | Purpose: phone-analogy graph-builder data written by TGB Builder for later game-engine use.';
 
 const EMPTY_DOC = {
   updatedAt: '',
@@ -80,11 +84,25 @@ const LINK_LANE_OFFSET = 18;
 const LINK_NODE_CLEARANCE = 10;
 const LINK_CORNER_RADIUS = 16;
 const NODE_PORT_OFFSET = 8;
-const PIECE_TAB_DEPTH = 18;
-const PIECE_CORNER = 4;
-const PIECE_NECK_HALF = 9;
-const PIECE_LOBE_RADIUS = 10;
-const PIECE_TOP_OFFSET = 2;
+const THREAD_LAYOUT_ENABLED = true;
+const PHONE_STAGE_WIDTH = 960;
+const PHONE_DEVICE_WIDTH = 470;
+const PHONE_DEVICE_X = Math.round((PHONE_STAGE_WIDTH - PHONE_DEVICE_WIDTH) / 2);
+const PHONE_DEVICE_Y = 28;
+const PHONE_STATUSBAR_HEIGHT = 60;
+const PHONE_HEADER_HEIGHT = 72;
+const PHONE_COMPOSER_HEIGHT = 84;
+const PHONE_THREAD_SIDE_PADDING = 28;
+const PHONE_THREAD_TOP_GAP = 28;
+const PHONE_THREAD_BOTTOM_PADDING = 110;
+const PHONE_ROW_GAP = 20;
+const PHONE_BRANCH_GAP = 14;
+const PHONE_MIN_DEVICE_HEIGHT = 980;
+const PHONE_ANYTIME_GAP = 86;
+const PHONE_ANYTIME_ROW_GAP = 26;
+const PHONE_ANYTIME_BOTTOM_PADDING = 72;
+const PHONE_BUBBLE_MIN_WIDTH = 110;
+const PHONE_BUBBLE_MAX_WIDTH = 258;
 
 function isLocalHostname(hostname = location.hostname) {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
@@ -100,21 +118,58 @@ function getApiBaseCandidates() {
 function getGameDataFetchUrls() {
   const urls = [];
   getApiBaseCandidates().forEach((apiBase) => {
-    urls.push(apiBase + '/games-new');
+    urls.push(apiBase + STORE_API_ROUTE);
   });
-  urls.push('../data/games_new.json');
-  getApiBaseCandidates().forEach((apiBase) => {
-    urls.push(apiBase + '/games');
-  });
-  urls.push('../data/games.json');
+  urls.push('../data/' + STORE_FILE_NAME);
   return [...new Set(urls)];
 }
 
+function formatPhoneClock(date = new Date()) {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(date);
+  } catch (error) {
+    const hours24 = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const period = hours24 >= 12 ? 'PM' : 'AM';
+    const hours12 = hours24 % 12 || 12;
+    return hours12 + ':' + minutes + ' ' + period;
+  }
+}
+
+function updatePhoneStatusbarTime() {
+  if (!phoneStatusbarTime) return;
+  phoneStatusbarTime.textContent = formatPhoneClock(new Date());
+}
+
+function startPhoneClock() {
+  if (!phoneStatusbarTime) return;
+  if (phoneClockTimer) clearTimeout(phoneClockTimer);
+
+  const tick = () => {
+    updatePhoneStatusbarTime();
+    const now = Date.now();
+    const nextMinuteDelay = 60000 - (now % 60000) + 32;
+    phoneClockTimer = window.setTimeout(tick, nextMinuteDelay);
+  };
+
+  tick();
+}
+
 const viewport = document.getElementById('viewport');
-const boardStage = document.getElementById('boardStage');
-const board = document.getElementById('board');
+const phoneStage = document.getElementById('phoneStage');
+const phone = document.getElementById('phone');
 const linkLayer = document.getElementById('linkLayer');
 const nodeLayer = document.getElementById('nodeLayer');
+const gameshelf = document.getElementById('gameshelf');
+const gameshelfStream = document.getElementById('gameshelfStream');
+const gameshelfList = document.getElementById('gameshelfList');
+const phoneStatusbarTime = document.querySelector('.phone-statusbar-time');
+const phoneStartBtn = document.getElementById('phoneStartBtn');
+const phoneThreadName = document.getElementById('phoneThreadName');
+const outsideAnytimeLabel = document.getElementById('outsideAnytimeLabel');
 const inspector = document.getElementById('inspector');
 const inspectorWindowBar = document.getElementById('inspectorWindowBar');
 const inspectorWindowTitle = document.getElementById('inspectorWindowTitle');
@@ -126,6 +181,9 @@ const zoomOutBtn = document.getElementById('zoomOutBtn');
 const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomResetBtn = document.getElementById('zoomResetBtn');
 const zoomValue = document.getElementById('zoomValue');
+const workspaceZoomOutBtn = document.getElementById('workspaceZoomOutBtn');
+const workspaceZoomInBtn = document.getElementById('workspaceZoomInBtn');
+const workspaceZoomResetBtn = document.getElementById('workspaceZoomResetBtn');
 const objectCard = document.getElementById('objectCard');
 const inspectorContent = document.getElementById('inspectorContent');
 const behaviorCard = document.getElementById('behaviorCard');
@@ -135,6 +193,8 @@ const stopNameField = document.getElementById('stopNameField');
 const taglineField = document.getElementById('taglineField');
 const guideNameField = document.getElementById('guideNameField');
 const priceField = document.getElementById('priceField');
+const primaryColorField = document.getElementById('primaryColorField');
+const secondaryColorField = document.getElementById('secondaryColorField');
 const tagsField = document.getElementById('tagsField');
 const descriptionField = document.getElementById('descriptionField');
 const ifThenField = document.getElementById('ifThenField');
@@ -144,6 +204,10 @@ const stopNameInput = document.getElementById('stopNameInput');
 const nodeTaglineInput = document.getElementById('nodeTaglineInput');
 const nodeGuideNameInput = document.getElementById('nodeGuideNameInput');
 const nodePriceInput = document.getElementById('nodePriceInput');
+const primaryColorInput = document.getElementById('primaryColorInput');
+const primaryColorPickerInput = document.getElementById('primaryColorPickerInput');
+const secondaryColorInput = document.getElementById('secondaryColorInput');
+const secondaryColorPickerInput = document.getElementById('secondaryColorPickerInput');
 const nodeTagPicker = document.getElementById('nodeTagPicker');
 const nodeTagNewInput = document.getElementById('nodeTagNewInput');
 const nodeTagAddBtn = document.getElementById('nodeTagAddBtn');
@@ -162,27 +226,37 @@ const varNameHint = document.getElementById('varNameHint');
 const varValuesField = document.getElementById('varValuesField');
 const varValueInputs = [1, 2, 3, 4].map((index) => document.getElementById('varValue' + index));
 const varCorrectRadios = [0, 1, 2, 3].map((index) => document.getElementById('varCorrect' + index));
-const openGameBtn = document.getElementById('openGameBtn');
-const openGameDialog = document.getElementById('openGameDialog');
-const openGameDialogSelect = document.getElementById('openGameDialogSelect');
-const confirmOpenGameBtn = document.getElementById('confirmOpenGameBtn');
-const cancelOpenGameBtn = document.getElementById('cancelOpenGameBtn');
 const selectionId = document.getElementById('selectionId');
 const deleteBtn = document.getElementById('deleteBtn');
 const saveGameBtn = document.getElementById('saveGameBtn') || document.getElementById('playGameBtn');
-const newBoardBtn = document.getElementById('newBoardBtn');
+const newPhoneBtn = document.getElementById('newPhoneBtn');
 const refreshPageBtn = document.getElementById('refreshPageBtn');
 const refreshDialog = document.getElementById('refreshDialog');
 const saveRefreshBtn = document.getElementById('saveRefreshBtn');
 const discardRefreshBtn = document.getElementById('discardRefreshBtn');
+const switchGameDialog = document.getElementById('switchGameDialog');
+const switchGameTargetName = document.getElementById('switchGameTargetName');
+const saveSwitchGameBtn = document.getElementById('saveSwitchGameBtn');
+const discardSwitchGameBtn = document.getElementById('discardSwitchGameBtn');
+const cancelSwitchGameBtn = document.getElementById('cancelSwitchGameBtn');
 const nodeContextMenu = document.getElementById('nodeContextMenu');
 const duplicateNodeBtn = document.getElementById('duplicateNodeBtn');
 const deleteNodeMenuBtn = document.getElementById('deleteNodeMenuBtn');
+const bubbleDropLine = document.createElement('div');
+bubbleDropLine.className = 'bubble-drop-line';
+bubbleDropLine.hidden = true;
+if (phoneStage) phoneStage.appendChild(bubbleDropLine);
 
 const nodeEls = new Map();
 let allTags = [...ALL_TAGS];
 let refreshDialogReturnFocusEl = null;
-let openGameDialogReturnFocusEl = null;
+let switchGameDialogReturnFocusEl = null;
+let phoneClockTimer = null;
+let gameshelfAutoScrollFrame = 0;
+let gameshelfAutoScrollLastTime = 0;
+let gameshelfLoopHeight = 0;
+const GAMESHELF_AUTO_SCROLL_SPEED = 22;
+const GAMESHELF_MIN_RENDER_CARDS = 12;
 const variableAutocomplete = {
   open: false,
   items: [],
@@ -204,7 +278,7 @@ const state = {
   dragNode: null,
   rotateNode: null,
   dockTargetId: null,
-  panCanvas: null,
+  panPhone: null,
   stencilDrag: null,
   connectDrag: null,
   inspectorDrag: null,
@@ -213,6 +287,10 @@ const state = {
   hoverTargetId: null,
   suppressBackgroundClick: false,
   zoom: 1,
+  layoutMetrics: null,
+  dropSlot: null,
+  pendingOpenGameId: null,
+  currentGameColors: null,
   nextNodeNumbers: createNodeIdCounters()
 };
 
@@ -261,7 +339,18 @@ function normalizeGridAnchoredValue(value, axis = 'x') {
   return snapped;
 }
 
-function getBoardBaseSize() {
+function getPhoneBaseSize() {
+  if (THREAD_LAYOUT_ENABLED) {
+    const metrics = state.layoutMetrics || {
+      stageWidth: PHONE_STAGE_WIDTH,
+      stageHeight: PHONE_DEVICE_Y + PHONE_MIN_DEVICE_HEIGHT + PHONE_ANYTIME_GAP + 180
+    };
+    return {
+      width: metrics.stageWidth,
+      height: metrics.stageHeight
+    };
+  }
+
   const major = getMajorGridSize();
   const origin = getPlacementGridOrigin();
   const minWidth = origin.x + (major * GRID_COLUMNS);
@@ -282,30 +371,38 @@ function getBoardBaseSize() {
   };
 }
 
+function getPhoneStageSize() {
+  const base = getPhoneBaseSize();
+  return {
+    width: phoneStage.clientWidth || base.width,
+    height: phoneStage.clientHeight || base.height
+  };
+}
+
 function getPlacementGridColumns() {
   const major = getMajorGridSize();
   const origin = getPlacementGridOrigin();
-  const width = board.clientWidth || getBoardBaseSize().width;
+  const width = getPhoneStageSize().width;
   return Math.max(1, Math.floor((width - origin.x) / major));
 }
 
 function getPlacementGridRows() {
   const major = getMajorGridSize();
   const origin = getPlacementGridOrigin();
-  const height = board.clientHeight || getBoardBaseSize().height;
+  const height = getPhoneStageSize().height;
   return Math.max(1, Math.floor((height - origin.y) / major));
 }
 
 function getPlacementBounds(width, height) {
   const origin = getPlacementGridOrigin();
-  const baseSize = getBoardBaseSize();
-  const boardWidth = board.clientWidth || baseSize.width;
-  const boardHeight = board.clientHeight || baseSize.height;
+  const stageSize = getPhoneStageSize();
+  const phoneWidth = stageSize.width;
+  const phoneHeight = stageSize.height;
   return {
     minX: origin.x,
     minY: origin.y,
-    maxX: Math.max(origin.x, boardWidth - width - BOARD_PADDING),
-    maxY: Math.max(origin.y, boardHeight - height - BOARD_PADDING)
+    maxX: Math.max(origin.x, phoneWidth - width - BOARD_PADDING),
+    maxY: Math.max(origin.y, phoneHeight - height - BOARD_PADDING)
   };
 }
 
@@ -581,6 +678,7 @@ function ensureReplyVarName(node, preferredSource = null) {
 
 function getNodeDisplayTitle(node) {
   if (!node) return '';
+  if (THREAD_LAYOUT_ENABLED) return getPhonePrimaryText(node);
   const title = usesNodeTitle(node.type)
     ? String(node.title || '').trim()
     : getNodeMessagePreview(node);
@@ -672,6 +770,10 @@ function hasGameNode() {
   return state.doc.nodes.some((node) => node.type === 'game');
 }
 
+function getGameNode() {
+  return state.doc.nodes.find((node) => node && node.type === 'game') || null;
+}
+
 function canNodeAcceptIncoming(node) {
   return !!node && node.type !== 'game' && !isAnytimeReplyNode(node);
 }
@@ -705,7 +807,7 @@ function getNodeRotation(node) {
 
 function getRotationFromPointer(node, clientX, clientY) {
   if (!node) return 0;
-  const point = boardPointFromClient(clientX, clientY);
+  const point = phonePointFromClient(clientX, clientY);
   const centerX = node.x + (node.width / 2);
   const centerY = node.y + (node.height / 2);
   const angle = Math.atan2(point.y - centerY, point.x - centerX) * (180 / Math.PI);
@@ -718,6 +820,428 @@ function getOutgoingLinks(nodeId, links = state.doc.links) {
 
 function getIncomingLinks(nodeId, links = state.doc.links) {
   return links.filter((link) => link.to === nodeId);
+}
+
+function summarizePhoneText(value, maxLength = 120) {
+  const normalized = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+  return normalized.length > maxLength
+    ? normalized.slice(0, maxLength).trimEnd() + '...'
+    : normalized;
+}
+
+function getPhonePrimaryText(node) {
+  if (!node) return '';
+  if (node.type === 'game' || node.type === 'stop') {
+    return String(node.title || TYPE_CONFIG[node.type].title || '').trim();
+  }
+  if (node.type === 'reply') {
+    if (node.acceptAny) return 'Any incoming message';
+    const body = summarizePhoneText(node.body, 160);
+    if (body) return body;
+    const varName = normalizeVariableName(node.varName);
+    return varName ? '%' + varName + '%' : 'Incoming message';
+  }
+  return summarizePhoneText(node.body, 160) || 'Outgoing message';
+}
+
+function getPhoneSecondaryText(node) {
+  if (!node) return '';
+  if (node.type === 'game') {
+    return summarizePhoneText(node.tagline || node.body, 140);
+  }
+  if (node.type === 'stop') {
+    return summarizePhoneText(node.body, 120);
+  }
+  if (node.type === 'reply') {
+    if (node.anytime) return 'Anytime trigger';
+    if (node.acceptAny) return 'Anyanswer';
+    const varName = normalizeVariableName(node.varName);
+    return varName ? 'Saved as %' + varName + '%' : '';
+  }
+  return node.anytime ? 'Paired anytime response' : '';
+}
+
+function getPhoneBubbleSide(node) {
+  if (!node) return 'center';
+  if (node.type === 'reply') return 'right';
+  if (node.type === 'bubble') return 'left';
+  return 'center';
+}
+
+function canReorderPhoneBubble(node) {
+  return THREAD_LAYOUT_ENABLED
+    && !!node
+    && !isAnytimeNode(node)
+    && (node.type === 'bubble' || node.type === 'reply');
+}
+
+function getSortedConversationNodes(nodes) {
+  const nodeIndex = new Map(state.doc.nodes.map((node, index) => [node.id, index]));
+  return [...nodes].sort((a, b) => {
+    const aPinnedRank = a.type === 'game' ? 0 : a.type === 'stop' ? 1 : 2;
+    const bPinnedRank = b.type === 'game' ? 0 : b.type === 'stop' ? 1 : 2;
+    if (aPinnedRank !== bPinnedRank) return aPinnedRank - bPinnedRank;
+
+    const yDiff = (Number(a.y) || 0) - (Number(b.y) || 0);
+    if (Math.abs(yDiff) > 2) return yDiff;
+
+    const xDiff = (Number(a.x) || 0) - (Number(b.x) || 0);
+    if (Math.abs(xDiff) > 2) return xDiff;
+
+    return (nodeIndex.get(a.id) ?? 0) - (nodeIndex.get(b.id) ?? 0);
+  });
+}
+
+function getPhoneIncomingSourceId(node) {
+  if (!node) return '';
+  const incoming = getIncomingLinks(node.id)
+    .filter((link) => {
+      const sourceNode = getNode(link.from);
+      return sourceNode && !isAnytimeNode(sourceNode);
+    });
+  return incoming.length === 1 ? incoming[0].from : '';
+}
+
+function getPhonePinnedRows(excludeNodeId = null) {
+  return getSortedConversationNodes(
+    state.doc.nodes.filter((node) => node && node.id !== excludeNodeId && !isAnytimeNode(node) && node.type === 'stop')
+  ).map((node) => [node]);
+}
+
+function getPhoneMessageRows(excludeNodeId = null) {
+  const messageNodes = getSortedConversationNodes(
+    state.doc.nodes.filter((node) => (
+      node
+      && node.id !== excludeNodeId
+      && !isAnytimeNode(node)
+      && (node.type === 'bubble' || node.type === 'reply')
+    ))
+  );
+  const rows = [];
+
+  for (let index = 0; index < messageNodes.length; index += 1) {
+    const current = messageNodes[index];
+    const next = messageNodes[index + 1];
+    const currentSourceId = current && current.type === 'bubble' ? getPhoneIncomingSourceId(current) : '';
+    const nextSourceId = next && next.type === 'bubble' ? getPhoneIncomingSourceId(next) : '';
+    const canShareRow =
+      !!current
+      && !!next
+      && current.type === 'bubble'
+      && next.type === 'bubble'
+      && !!currentSourceId
+      && currentSourceId === nextSourceId;
+
+    if (canShareRow) {
+      rows.push([current, next]);
+      index += 1;
+      continue;
+    }
+
+    if (current) rows.push([current]);
+  }
+
+  return rows;
+}
+
+function getPhoneThreadRows() {
+  return [
+    ...getPhonePinnedRows(),
+    ...getPhoneMessageRows()
+  ];
+}
+
+function getPhoneMessageThreadTop(excludeNodeId = null) {
+  const threadTop = PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT + PHONE_THREAD_TOP_GAP;
+  const threadWidth = PHONE_DEVICE_WIDTH - (PHONE_THREAD_SIDE_PADDING * 2);
+  let y = threadTop;
+
+  getPhonePinnedRows(excludeNodeId).forEach((row) => {
+    const nodes = row.filter(Boolean);
+    if (!nodes.length) return;
+    const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
+    const perNodeMaxWidth = nodes.length > 1
+      ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((threadWidth - (gap * (nodes.length - 1))) / nodes.length))
+      : nodes.some((node) => node.type === 'stop') ? threadWidth : PHONE_BUBBLE_MAX_WIDTH;
+    const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
+    const rowHeight = sizes.reduce((maxHeight, size) => Math.max(maxHeight, size.height), 0);
+    y += rowHeight + PHONE_ROW_GAP;
+  });
+
+  return Math.round(y);
+}
+
+function getPhoneProjectedMessageRows(excludeNodeId = null) {
+  const threadWidth = PHONE_DEVICE_WIDTH - (PHONE_THREAD_SIDE_PADDING * 2);
+  let y = getPhoneMessageThreadTop(excludeNodeId);
+
+  return getPhoneMessageRows(excludeNodeId).map((row) => {
+    const nodes = row.filter(Boolean);
+    const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
+    const perNodeMaxWidth = nodes.length > 1
+      ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((threadWidth - (gap * (nodes.length - 1))) / nodes.length))
+      : nodes.some((node) => node.type === 'stop') ? threadWidth : PHONE_BUBBLE_MAX_WIDTH;
+    const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
+    const rowHeight = sizes.reduce((maxHeight, size) => Math.max(maxHeight, size.height), 0);
+    const rowTop = Math.round(y);
+    y += rowHeight + PHONE_ROW_GAP;
+    return {
+      nodes,
+      rowTop,
+      rowHeight,
+      nextRowTop: Math.round(y)
+    };
+  });
+}
+
+function getPhoneDropSlots(excludeNodeId = null) {
+  const gapHalf = Math.round(PHONE_ROW_GAP / 2);
+  const messageTop = getPhoneMessageThreadTop(excludeNodeId);
+  const minLineY = PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT + 10;
+  const projectedRows = getPhoneProjectedMessageRows(excludeNodeId);
+  const slots = [{
+    index: 0,
+    lineY: Math.max(minLineY, messageTop - gapHalf),
+    previewY: messageTop,
+    sortY: Math.max(minLineY, messageTop - gapHalf)
+  }];
+
+  projectedRows.forEach((row, index) => {
+    const lineY = Math.max(minLineY, row.nextRowTop - gapHalf);
+    slots.push({
+      index: index + 1,
+      lineY,
+      previewY: row.nextRowTop,
+      sortY: lineY
+    });
+  });
+
+  return slots;
+}
+
+function getNearestPhoneDropSlot(pointerY, excludeNodeId = null) {
+  const slots = getPhoneDropSlots(excludeNodeId);
+  if (!slots.length) return null;
+  return slots.reduce((nearest, slot) => {
+    if (!nearest) return slot;
+    return Math.abs(pointerY - slot.lineY) < Math.abs(pointerY - nearest.lineY) ? slot : nearest;
+  }, null);
+}
+
+function showBubbleDropLine(slot) {
+  if (!bubbleDropLine || !slot) return;
+  const metrics = state.layoutMetrics || {
+    threadLeft: PHONE_DEVICE_X + PHONE_THREAD_SIDE_PADDING,
+    threadWidth: PHONE_DEVICE_WIDTH - (PHONE_THREAD_SIDE_PADDING * 2)
+  };
+  bubbleDropLine.hidden = false;
+  bubbleDropLine.style.left = Math.round(metrics.threadLeft) + 'px';
+  bubbleDropLine.style.top = Math.round(slot.lineY) + 'px';
+  bubbleDropLine.style.width = Math.round(metrics.threadWidth) + 'px';
+}
+
+function hideBubbleDropLine() {
+  if (!bubbleDropLine) return;
+  bubbleDropLine.hidden = true;
+  bubbleDropLine.style.left = '0px';
+  bubbleDropLine.style.top = '0px';
+  bubbleDropLine.style.width = '0px';
+}
+
+function getPhoneAnytimeRows() {
+  const rows = [];
+  const seenNodeIds = new Set();
+  const sortedAnytimeNodes = getSortedConversationNodes(state.doc.nodes.filter((node) => isAnytimeNode(node)));
+
+  sortedAnytimeNodes.forEach((node) => {
+    if (!node || seenNodeIds.has(node.id)) return;
+    const pairId = getAnytimePairId(node);
+    if (pairId) {
+      const pairNodes = getAnytimePairNodes(pairId)
+        .filter(Boolean)
+        .sort((a, b) => {
+          const sideOrder = { left: 0, center: 1, right: 2 };
+          return (sideOrder[getPhoneBubbleSide(a)] ?? 1) - (sideOrder[getPhoneBubbleSide(b)] ?? 1);
+        });
+      pairNodes.forEach((candidate) => seenNodeIds.add(candidate.id));
+      rows.push(pairNodes);
+      return;
+    }
+    seenNodeIds.add(node.id);
+    rows.push([node]);
+  });
+
+  return rows;
+}
+
+function estimatePhoneTextLines(text, width) {
+  const normalized = String(text || '').trim();
+  if (!normalized) return 0;
+  const lineWidth = Math.max(12, Math.floor((width - 34) / 8.4));
+  return normalized
+    .split(/\n+/)
+    .reduce((total, line) => total + Math.max(1, Math.ceil(line.length / lineWidth)), 0);
+}
+
+function getPhoneBubbleSize(node, maxWidth = PHONE_BUBBLE_MAX_WIDTH) {
+  const preferredWidths = {
+    game: 254,
+    stop: Math.round(maxWidth),
+    bubble: 252,
+    reply: 226
+  };
+  const preferredWidth = preferredWidths[node.type] || PHONE_BUBBLE_MAX_WIDTH;
+  const safeMaxWidth = Math.max(
+    PHONE_BUBBLE_MIN_WIDTH,
+    node.type === 'stop'
+      ? Math.round(maxWidth)
+      : Math.min(PHONE_BUBBLE_MAX_WIDTH, Math.round(maxWidth))
+  );
+  const width = clamp(Math.min(preferredWidth, safeMaxWidth), PHONE_BUBBLE_MIN_WIDTH, safeMaxWidth);
+  const primaryLines = estimatePhoneTextLines(getPhonePrimaryText(node), width);
+  const secondaryLines = estimatePhoneTextLines(getPhoneSecondaryText(node), width);
+  const minHeights = {
+    game: 88,
+    stop: 84,
+    bubble: 74,
+    reply: 72
+  };
+  const height = clamp(
+    (minHeights[node.type] || 74) + Math.max(0, primaryLines - 1) * 22 + secondaryLines * 16,
+    minHeights[node.type] || 74,
+    220
+  );
+  return {
+    width: Math.round(width),
+    height: Math.round(height)
+  };
+}
+
+function updatePhoneChrome() {
+  if (!phoneThreadName) return;
+  phoneThreadName.textContent = getDocName();
+}
+
+function syncPhoneStartButton() {
+  if (!phoneStartBtn) return;
+  const gameNode = getGameNode();
+  const isSelected = !!gameNode && state.selectedId === gameNode.id;
+  phoneStartBtn.disabled = !gameNode;
+  phoneStartBtn.classList.toggle('selected', isSelected);
+  phoneStartBtn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+  phoneStartBtn.setAttribute('aria-label', gameNode ? ('Open START details for ' + getDocName()) : 'No START bubble');
+}
+
+function applyPhoneThreadLayout() {
+  if (!THREAD_LAYOUT_ENABLED) return;
+
+  const threadLeft = PHONE_DEVICE_X + PHONE_THREAD_SIDE_PADDING;
+  const threadWidth = PHONE_DEVICE_WIDTH - (PHONE_THREAD_SIDE_PADDING * 2);
+  const threadTop = PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT + PHONE_THREAD_TOP_GAP;
+  const startNode = getGameNode();
+  if (startNode) {
+    startNode.width = TYPE_CONFIG.game.width;
+    startNode.height = TYPE_CONFIG.game.height;
+  }
+  const rows = getPhoneThreadRows();
+  let y = threadTop;
+
+  rows.forEach((row) => {
+    const nodes = row.filter(Boolean);
+    if (!nodes.length) return;
+    const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
+    const perNodeMaxWidth = nodes.length > 1
+      ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((threadWidth - (gap * (nodes.length - 1))) / nodes.length))
+      : PHONE_BUBBLE_MAX_WIDTH;
+    const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
+    const rowHeight = sizes.reduce((maxHeight, size) => Math.max(maxHeight, size.height), 0);
+
+    if (nodes.length === 1) {
+      const node = nodes[0];
+      const size = sizes[0];
+      const side = getPhoneBubbleSide(node);
+      let x = threadLeft;
+      if (side === 'right') x = threadLeft + threadWidth - size.width;
+      if (side === 'center') x = threadLeft + ((threadWidth - size.width) / 2);
+      node.x = Math.round(x);
+      node.y = Math.round(y);
+      node.width = size.width;
+      node.height = size.height;
+      y += rowHeight + PHONE_ROW_GAP;
+      return;
+    }
+
+    const totalWidth = sizes.reduce((sum, size) => sum + size.width, 0) + (gap * (nodes.length - 1));
+    const sides = nodes.map((node) => getPhoneBubbleSide(node));
+    let cursorX = threadLeft + Math.round((threadWidth - totalWidth) / 2);
+    if (sides.every((side) => side === 'left')) cursorX = threadLeft;
+    if (sides.every((side) => side === 'right')) cursorX = threadLeft + threadWidth - totalWidth;
+
+    nodes.forEach((node, index) => {
+      const size = sizes[index];
+      node.x = Math.round(cursorX);
+      node.y = Math.round(y);
+      node.width = size.width;
+      node.height = size.height;
+      cursorX += size.width + gap;
+    });
+
+    y += rowHeight + PHONE_ROW_GAP;
+  });
+
+  const threadBottom = Math.max(threadTop, y - PHONE_ROW_GAP);
+  const phoneHeight = Math.max(
+    PHONE_MIN_DEVICE_HEIGHT,
+    Math.round((threadBottom - PHONE_DEVICE_Y) + PHONE_COMPOSER_HEIGHT + 34)
+  );
+  const phoneBottom = PHONE_DEVICE_Y + phoneHeight;
+  const anytimeRows = getPhoneAnytimeRows();
+  let anytimeY = phoneBottom + PHONE_ANYTIME_GAP;
+
+  if (outsideAnytimeLabel) {
+    outsideAnytimeLabel.hidden = anytimeRows.length === 0;
+    outsideAnytimeLabel.style.top = (phoneBottom + 28) + 'px';
+  }
+
+  anytimeRows.forEach((row) => {
+    const nodes = row.filter(Boolean);
+    if (!nodes.length) return;
+    const gap = PHONE_BRANCH_GAP;
+    const perNodeMaxWidth = nodes.length > 1
+      ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((PHONE_STAGE_WIDTH - 160 - (gap * (nodes.length - 1))) / nodes.length))
+      : PHONE_BUBBLE_MAX_WIDTH - 12;
+    const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
+    const rowHeight = sizes.reduce((maxHeight, size) => Math.max(maxHeight, size.height), 0);
+    const totalWidth = sizes.reduce((sum, size) => sum + size.width, 0) + (gap * (nodes.length - 1));
+    let cursorX = Math.round((PHONE_STAGE_WIDTH - totalWidth) / 2);
+    const sides = nodes.map((node) => getPhoneBubbleSide(node));
+    if (nodes.length === 1 && sides[0] === 'left') cursorX = PHONE_DEVICE_X;
+    if (nodes.length === 1 && sides[0] === 'right') cursorX = PHONE_STAGE_WIDTH - PHONE_DEVICE_X - sizes[0].width;
+
+    nodes.forEach((node, index) => {
+      const size = sizes[index];
+      node.x = Math.round(cursorX);
+      node.y = Math.round(anytimeY);
+      node.width = size.width;
+      node.height = size.height;
+      cursorX += size.width + gap;
+    });
+
+    anytimeY += rowHeight + PHONE_ANYTIME_ROW_GAP;
+  });
+
+  state.layoutMetrics = {
+    stageWidth: PHONE_STAGE_WIDTH,
+    stageHeight: Math.max(phoneBottom + 40, anytimeRows.length ? anytimeY + PHONE_ANYTIME_BOTTOM_PADDING : phoneBottom + 44),
+    phoneWidth: PHONE_DEVICE_WIDTH,
+    phoneHeight,
+    phoneX: PHONE_DEVICE_X,
+    phoneY: PHONE_DEVICE_Y,
+    threadLeft,
+    threadTop,
+    threadWidth
+  };
 }
 
 function getAttachedSubtreeIds(nodeId, visited = new Set()) {
@@ -923,7 +1447,7 @@ function refreshInspectorWindowUi() {
     const node = getNode(state.selectedId);
     const link = getLink(state.selectedLinkId);
     inspectorWindowTitle.textContent = node
-      ? (getNodeKicker(node) || 'Piece') + ' Details'
+      ? (getNodeKicker(node) || 'Bubble') + ' Details'
       : link
         ? 'Connection Details'
         : 'Details';
@@ -1127,8 +1651,11 @@ function getNodeGridCell(node) {
 }
 
 function getDocSnapshot(doc = state.doc) {
+  const colors = getCurrentGameColors();
   return JSON.stringify({
     currentGameId: state.currentGameId || '',
+    primaryColor: colors.primaryColor,
+    secondaryColor: colors.secondaryColor,
     nodes: doc.nodes.map((node) => ({
       id: node.id,
       type: node.type,
@@ -1163,6 +1690,8 @@ function isPristineStarterDoc(doc = state.doc) {
 
   const node = doc.nodes[0];
   const slot = getGameHomeSlot();
+  const defaultColors = getSavedGameColors({ id: 'draft-game', name: getDocName(doc) }, state.store.games.length);
+  const currentColors = getCurrentGameColors();
   return !!node
     && node.type === 'game'
     && node.id === 'gm-01'
@@ -1174,7 +1703,9 @@ function isPristineStarterDoc(doc = state.doc) {
     && (node.price || '') === 'Free To Start / In App Purchases'
     && Array.isArray(node.tags)
     && node.tags.length === 0
-    && (node.body || '') === TYPE_CONFIG.game.body;
+    && (node.body || '') === TYPE_CONFIG.game.body
+    && currentColors.primaryColor === defaultColors.primaryColor
+    && currentColors.secondaryColor === defaultColors.secondaryColor;
 }
 
 function hasUnsavedChanges() {
@@ -1327,6 +1858,62 @@ function refreshWithoutSaving() {
   reloadPage(true);
 }
 
+function setSwitchGameDialogBusy(isBusy) {
+  if (saveSwitchGameBtn) saveSwitchGameBtn.disabled = isBusy;
+  if (discardSwitchGameBtn) discardSwitchGameBtn.disabled = isBusy;
+  if (cancelSwitchGameBtn) cancelSwitchGameBtn.disabled = isBusy;
+}
+
+function openSwitchGameDialog(gameId, returnFocusEl = null) {
+  if (!switchGameDialog || switchGameDialog.hidden === false) return;
+  const nextGame = state.store.games.find((entry) => entry.id === gameId);
+  if (!nextGame) return;
+  state.pendingOpenGameId = gameId;
+  switchGameDialogReturnFocusEl = returnFocusEl || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  if (switchGameTargetName) switchGameTargetName.textContent = nextGame.name || 'this game';
+  setSwitchGameDialogBusy(false);
+  switchGameDialog.hidden = false;
+  if (saveSwitchGameBtn) saveSwitchGameBtn.focus();
+}
+
+function closeSwitchGameDialog() {
+  if (!switchGameDialog || switchGameDialog.hidden) return;
+  switchGameDialog.hidden = true;
+  state.pendingOpenGameId = null;
+  setSwitchGameDialogBusy(false);
+  if (switchGameDialogReturnFocusEl && typeof switchGameDialogReturnFocusEl.focus === 'function') {
+    switchGameDialogReturnFocusEl.focus();
+  }
+  switchGameDialogReturnFocusEl = null;
+}
+
+function requestOpenSavedGame(gameId, returnFocusEl = null) {
+  const nextGameId = String(gameId || '').trim();
+  if (!nextGameId || nextGameId === state.currentGameId) return;
+  if (!state.store.games.some((game) => game.id === nextGameId)) return;
+  if (hasUnsavedChanges()) {
+    openSwitchGameDialog(nextGameId, returnFocusEl);
+    return;
+  }
+  openSavedGame(nextGameId);
+}
+
+async function saveThenOpenPendingGame() {
+  const nextGameId = state.pendingOpenGameId;
+  if (!nextGameId) return;
+  setSwitchGameDialogBusy(true);
+  await saveDoc({ silent: true });
+  closeSwitchGameDialog();
+  openSavedGame(nextGameId);
+}
+
+function openPendingGameWithoutSaving() {
+  const nextGameId = state.pendingOpenGameId;
+  if (!nextGameId) return;
+  closeSwitchGameDialog();
+  openSavedGame(nextGameId);
+}
+
 function closeMenuForButton(button) {
   if (!button) return;
   const menu = button.closest('.mb-menu');
@@ -1340,8 +1927,108 @@ async function saveCurrentGameFromMenu() {
   await saveDoc();
 }
 
-function handleInsertAction(insertType) {
-  return addNodeToVisibleCanvas(insertType);
+function deriveSavedGameColors(game, index = 0) {
+  const seed = String(game && game.id || game && game.name || index);
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = ((hash * 31) + seed.charCodeAt(i)) >>> 0;
+  }
+  const hue = hash % 360;
+  const secondaryHue = (hue + 28 + (index * 11)) % 360;
+  return {
+    primaryColor: `hsl(${hue} 52% 44%)`,
+    secondaryColor: `hsl(${secondaryHue} 58% 26%)`
+  };
+}
+
+function getSupportedColorValue(rawValue) {
+  if (typeof rawValue !== 'string') return '';
+  const value = rawValue.trim();
+  if (!value) return '';
+  if (typeof CSS === 'undefined' || typeof CSS.supports !== 'function') return value;
+  return CSS.supports('color', value) ? value : '';
+}
+
+function normalizeSavedGameColor(rawValue, fallback) {
+  return getSupportedColorValue(rawValue) || fallback;
+}
+
+function getSavedGameColors(game, index = 0) {
+  const fallback = deriveSavedGameColors(game, index);
+  return {
+    primaryColor: normalizeSavedGameColor(game && game.primaryColor, fallback.primaryColor),
+    secondaryColor: normalizeSavedGameColor(game && game.secondaryColor, fallback.secondaryColor)
+  };
+}
+
+function getCurrentGameColorFallback() {
+  const existingIndex = state.store.games.findIndex((game) => game.id === state.currentGameId);
+  const fallbackGame = existingIndex >= 0
+    ? state.store.games[existingIndex]
+    : { id: state.currentGameId || 'draft-game', name: getDocName() };
+  return getSavedGameColors(
+    fallbackGame,
+    existingIndex >= 0 ? existingIndex : state.store.games.length
+  );
+}
+
+function getCurrentGameColors() {
+  const fallback = getCurrentGameColorFallback();
+  return {
+    primaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.primaryColor, fallback.primaryColor),
+    secondaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.secondaryColor, fallback.secondaryColor)
+  };
+}
+
+function setCurrentGameColors(nextColors = null) {
+  const incoming = nextColors && typeof nextColors === 'object' ? nextColors : {};
+  const fallback = getCurrentGameColorFallback();
+  state.currentGameColors = {
+    primaryColor: normalizeSavedGameColor(incoming.primaryColor, fallback.primaryColor),
+    secondaryColor: normalizeSavedGameColor(incoming.secondaryColor, fallback.secondaryColor)
+  };
+  return state.currentGameColors;
+}
+
+function setCurrentGameColorValue(key, rawValue) {
+  if (key !== 'primaryColor' && key !== 'secondaryColor') return false;
+  const currentColors = getCurrentGameColors();
+  const nextValue = normalizeSavedGameColor(rawValue, currentColors[key]);
+  if (currentColors[key] === nextValue) return false;
+  state.currentGameColors = {
+    ...currentColors,
+    [key]: nextValue
+  };
+  return true;
+}
+
+function colorValueToHex(rawValue, fallback = '#5468a7') {
+  const color = getSupportedColorValue(rawValue) || getSupportedColorValue(fallback) || '#5468a7';
+  if (typeof document === 'undefined' || !document.body) {
+    return color.startsWith('#') ? color : fallback;
+  }
+
+  const probe = document.createElement('div');
+  probe.style.position = 'absolute';
+  probe.style.left = '-9999px';
+  probe.style.color = color;
+  document.body.appendChild(probe);
+  const resolved = getComputedStyle(probe).color;
+  probe.remove();
+
+  const match = resolved.match(/rgba?\(([^)]+)\)/i);
+  if (!match) {
+    return color.startsWith('#') ? color : fallback;
+  }
+
+  const [r, g, b] = match[1]
+    .split(',')
+    .slice(0, 3)
+    .map((part) => Math.max(0, Math.min(255, Math.round(Number.parseFloat(part.trim()) || 0))));
+
+  return '#' + [r, g, b]
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 function normalizeSavedGame(raw, index) {
@@ -1349,11 +2036,14 @@ function normalizeSavedGame(raw, index) {
   const createdAt = typeof (raw && raw.createdAt) === 'string' && raw.createdAt
     ? raw.createdAt
     : (typeof (raw && raw.updatedAt) === 'string' ? raw.updatedAt : doc.updatedAt);
+  const colors = getSavedGameColors(raw, index);
   return {
     id: raw && raw.id ? String(raw.id) : 'game-' + (index + 1),
     name: raw && typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : getDocName(doc),
     createdAt,
     updatedAt: typeof (raw && raw.updatedAt) === 'string' ? raw.updatedAt : doc.updatedAt,
+    primaryColor: colors.primaryColor,
+    secondaryColor: colors.secondaryColor,
     nodes: doc.nodes,
     links: doc.links
   };
@@ -1429,6 +2119,167 @@ function formatSavedGameLabel(game) {
   }
 }
 
+function formatSavedGameshelfDate(game) {
+  const source = game && (game.updatedAt || game.createdAt);
+  if (!source) return 'Saved earlier';
+  try {
+    const when = new Date(source);
+    if (Number.isNaN(when.getTime())) return 'Saved earlier';
+    return 'Saved ' + when.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch (error) {
+    return 'Saved earlier';
+  }
+}
+
+function getSavedGameBubbleCount(game) {
+  if (!game || !Array.isArray(game.nodes)) return 0;
+  return game.nodes.filter((node) => node && (node.type === 'bubble' || node.type === 'reply')).length;
+}
+
+function getGameshelfGames() {
+  const games = [...(state.store.games || [])];
+  return games.sort((a, b) => {
+    const activeDiff = Number(b.id === state.currentGameId) - Number(a.id === state.currentGameId);
+    if (activeDiff !== 0) return activeDiff;
+    return compareSavedGamesAlphabetical(a, b);
+  });
+}
+
+function getGameshelfLoopCount(games) {
+  if (!Array.isArray(games) || games.length <= 1) return 1;
+  return Math.max(3, Math.ceil(GAMESHELF_MIN_RENDER_CARDS / games.length));
+}
+
+function measureGameshelfLoopHeight() {
+  if (!gameshelfList) return 0;
+  const originals = [...gameshelfList.querySelectorAll('.gameshelf-slot[data-loop-index="0"]')];
+  if (!originals.length) return 0;
+  const first = originals[0];
+  const nextLoopFirst = gameshelfList.querySelector('.gameshelf-slot[data-loop-index="1"]');
+  if (nextLoopFirst) {
+    return Math.max(0, Math.round(nextLoopFirst.offsetTop - first.offsetTop));
+  }
+  const last = originals[originals.length - 1];
+  return Math.max(0, Math.round((last.offsetTop - first.offsetTop) + last.offsetHeight));
+}
+
+function stopGameshelfAutoScroll(resetScroll = true) {
+  if (gameshelfAutoScrollFrame) {
+    window.cancelAnimationFrame(gameshelfAutoScrollFrame);
+    gameshelfAutoScrollFrame = 0;
+  }
+  gameshelfAutoScrollLastTime = 0;
+  gameshelfLoopHeight = 0;
+  if (resetScroll && gameshelfStream) {
+    gameshelfStream.scrollTop = 0;
+  }
+}
+
+function shouldPauseGameshelfAutoScroll() {
+  return !gameshelfStream
+    || gameshelfStream.matches(':hover')
+    || (!!gameshelf && gameshelf.contains(document.activeElement));
+}
+
+function stepGameshelfAutoScroll(timestamp) {
+  if (!gameshelfStream || !gameshelfLoopHeight) {
+    stopGameshelfAutoScroll(false);
+    return;
+  }
+
+  if (!gameshelfAutoScrollLastTime) {
+    gameshelfAutoScrollLastTime = timestamp;
+  }
+
+  const delta = Math.min(40, timestamp - gameshelfAutoScrollLastTime);
+  gameshelfAutoScrollLastTime = timestamp;
+
+  if (!shouldPauseGameshelfAutoScroll()) {
+    gameshelfStream.scrollTop += delta * (GAMESHELF_AUTO_SCROLL_SPEED / 1000);
+    while (gameshelfStream.scrollTop >= gameshelfLoopHeight) {
+      gameshelfStream.scrollTop -= gameshelfLoopHeight;
+    }
+  }
+
+  gameshelfAutoScrollFrame = window.requestAnimationFrame(stepGameshelfAutoScroll);
+}
+
+function refreshGameshelfAutoScroll() {
+  if (!gameshelfStream || !gameshelfList) return;
+  stopGameshelfAutoScroll(false);
+  window.requestAnimationFrame(() => {
+    gameshelfLoopHeight = measureGameshelfLoopHeight();
+    if (!gameshelfLoopHeight || gameshelfStream.scrollHeight <= gameshelfStream.clientHeight + 12) {
+      gameshelfStream.scrollTop = 0;
+      return;
+    }
+    gameshelfStream.scrollTop = gameshelfStream.scrollTop % gameshelfLoopHeight;
+    gameshelfAutoScrollFrame = window.requestAnimationFrame(stepGameshelfAutoScroll);
+  });
+}
+
+function renderGameshelf() {
+  if (!gameshelfList) return;
+  const games = getGameshelfGames();
+  gameshelfList.innerHTML = '';
+
+  if (!games.length) {
+    stopGameshelfAutoScroll();
+    const emptyEl = document.createElement('div');
+    emptyEl.className = 'gameshelf-empty';
+    emptyEl.textContent = 'No saved games on the gameshelf yet.';
+    gameshelfList.appendChild(emptyEl);
+    return;
+  }
+
+  const loopCount = getGameshelfLoopCount(games);
+
+  for (let loopIndex = 0; loopIndex < loopCount; loopIndex += 1) {
+    games.forEach((game, index) => {
+      const slot = document.createElement('div');
+      slot.className = 'gameshelf-slot';
+      slot.dataset.loopIndex = String(loopIndex);
+      if (loopIndex > 0) {
+        slot.setAttribute('aria-hidden', 'true');
+      }
+
+      const button = document.createElement('button');
+      const isActive = game.id === state.currentGameId;
+      const isDirty = isActive && hasUnsavedChanges();
+      const colors = isActive ? getCurrentGameColors() : getSavedGameColors(game, index);
+      const bubbleCount = getSavedGameBubbleCount(game);
+      const bubbleLabel = bubbleCount === 1 ? '1 bubble' : bubbleCount + ' bubbles';
+
+      button.type = 'button';
+      button.className = 'gameshelf-game' + (isActive ? ' is-active' : '') + (isDirty ? ' is-dirty' : '');
+      button.dataset.gameId = game.id;
+      button.dataset.loopIndex = String(loopIndex);
+      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      if (isActive && loopIndex === 0) button.setAttribute('aria-current', 'true');
+      if (loopIndex > 0) button.tabIndex = -1;
+      button.title = formatSavedGameLabel(game);
+      button.style.setProperty('--gameshelf-screen-primary', colors.primaryColor);
+      button.style.setProperty('--gameshelf-screen-secondary', colors.secondaryColor);
+      button.innerHTML = `
+        <span class="gameshelf-game-status">${isActive ? (isDirty ? 'OPEN / UNSAVED' : 'OPEN NOW') : formatSavedGameshelfDate(game)}</span>
+        <span class="gameshelf-game-title">${escapeHtml(game.name || 'Untitled Game')}</span>
+        <span class="gameshelf-game-meta">${bubbleLabel}</span>
+      `;
+      button.addEventListener('click', () => {
+        requestOpenSavedGame(game.id, button);
+      });
+
+      slot.appendChild(button);
+      gameshelfList.appendChild(slot);
+    });
+  }
+
+  refreshGameshelfAutoScroll();
+}
+
 function getSavedGameUpdatedTime(game) {
   if (!game || !game.updatedAt) return 0;
 
@@ -1474,102 +2325,31 @@ function getLinkSelectionLabel(link) {
   return 'CONNECTION / ' + getLinkPortLabel(link);
 }
 
-function renderOpenGameDialogList() {
-  const games = state.store.games || [];
-  if (!openGameDialogSelect) return;
-  openGameDialogSelect.innerHTML = '';
-
-  if (!games.length) {
-    const emptyOption = document.createElement('option');
-    emptyOption.value = '';
-    emptyOption.textContent = 'No saved games yet';
-    emptyOption.disabled = true;
-    openGameDialogSelect.appendChild(emptyOption);
-  } else {
-    const newestGames = [...games].sort(compareSavedGamesNewestFirst);
-    const alphabeticalGames = [...games].sort(compareSavedGamesAlphabetical);
-    const newestGame = newestGames[0];
-
-    if (newestGame) {
-      const newestGroup = document.createElement('optgroup');
-      newestGroup.label = 'Newest';
-
-      const newestOption = document.createElement('option');
-      newestOption.value = newestGame.id;
-      newestOption.textContent = formatSavedGameLabel(newestGame);
-      newestGroup.appendChild(newestOption);
-      openGameDialogSelect.appendChild(newestGroup);
-    }
-
-    const alphabeticalGroup = document.createElement('optgroup');
-    alphabeticalGroup.label = 'A-Z';
-
-    alphabeticalGames.forEach((game) => {
-      const option = document.createElement('option');
-      option.value = game.id;
-      option.textContent = formatSavedGameLabel(game);
-      alphabeticalGroup.appendChild(option);
-    });
-
-    openGameDialogSelect.appendChild(alphabeticalGroup);
-  }
-
-  openGameDialogSelect.disabled = !games.length;
-  openGameDialogSelect.value = state.currentGameId && games.some((game) => game.id === state.currentGameId)
-    ? state.currentGameId
-    : (games[0] ? [...games].sort(compareSavedGamesNewestFirst)[0].id : '');
-  if (confirmOpenGameBtn) confirmOpenGameBtn.disabled = !openGameDialogSelect.value;
-}
-
 function openSavedGame(gameId) {
   const game = state.store.games.find((entry) => entry.id === gameId);
   if (!game) return;
 
   state.currentGameId = game.id;
   state.doc = normalizeDoc(game);
+  setCurrentGameColors(game);
   syncAllTagsFromStore();
   syncNextNodeNumbers();
   state.selectedLinkId = null;
   state.selectedId = state.doc.nodes.length ? state.doc.nodes[0].id : null;
 
   try {
-    localStorage.setItem('tgb-games-new-open', game.id);
+    localStorage.setItem(LOCAL_OPEN_GAME_KEY, game.id);
   } catch (error) {
   }
 
   rememberCleanSnapshot();
-  renderOpenGameDialogList();
+  renderGameshelf();
   renderAll();
-}
-
-function openOpenGameDialog() {
-  if (!openGameDialog || openGameDialog.hidden === false) return;
-  openGameDialogReturnFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  renderOpenGameDialogList();
-  openGameDialog.hidden = false;
-  if (openGameDialogSelect && !openGameDialogSelect.disabled) openGameDialogSelect.focus();
-  else if (cancelOpenGameBtn) cancelOpenGameBtn.focus();
-}
-
-function closeOpenGameDialog() {
-  if (!openGameDialog || openGameDialog.hidden) return;
-  openGameDialog.hidden = true;
-  if (openGameDialogReturnFocusEl && typeof openGameDialogReturnFocusEl.focus === 'function') {
-    openGameDialogReturnFocusEl.focus();
-  }
-  openGameDialogReturnFocusEl = null;
-}
-
-function openSelectedGameFromDialog() {
-  if (!openGameDialogSelect || !openGameDialogSelect.value) return;
-  const gameId = openGameDialogSelect.value;
-  closeOpenGameDialog();
-  openSavedGame(gameId);
 }
 
 function getRememberedOpenGameId() {
   try {
-    return String(localStorage.getItem('tgb-games-new-open') || '').trim();
+    return String(localStorage.getItem(LOCAL_OPEN_GAME_KEY) || '').trim();
   } catch (error) {
     return '';
   }
@@ -1601,135 +2381,32 @@ function renderTagPicker(node) {
 }
 
 function buildNodeBodyMarkup(node) {
-  if (node.type === 'stop' || node.type === 'game' || isBubbleLikeType(node.type)) {
-    return '';
-  }
-
-  return node.body
-    ? `<div class="node-body">${escapeHtml(node.body)}</div>`
+  const secondaryText = THREAD_LAYOUT_ENABLED
+    ? getPhoneSecondaryText(node)
+    : (node.body || '');
+  return secondaryText
+    ? `<div class="node-body">${escapeHtml(secondaryText)}</div>`
     : '';
 }
 
-function buildPuzzlePiecePath(node) {
-  const w = node.width;
-  const h = node.height;
-  const topOffset = PIECE_TOP_OFFSET;
-  const r = PIECE_CORNER;
-  const neck = PIECE_NECK_HALF;
-  const lobe = PIECE_LOBE_RADIUS;
-  const tab = PIECE_TAB_DEPTH;
-  const midX = w / 2;
-  const midY = topOffset + (h / 2);
-  const y1 = midY - neck;
-  const y2 = midY + neck;
-  const x1 = midX - neck;
-  const x2 = midX + neck;
-  const bottom = topOffset + h;
-  const hasLeftSocket = node.type !== 'game' && !isAnytimeReplyNode(node);
-  const hasTopSocket = false;
-  const hasRightTab = getNodeOutPorts(node).includes('out-right');
-  const hasBottomTab = getNodeOutPorts(node).includes('out-bottom');
-
-  const parts = [`M ${r} ${topOffset}`];
-
-  if (hasTopSocket) {
-    parts.push(
-      `H ${x1}`,
-      `C ${x1} ${topOffset + 4} ${midX - lobe} ${topOffset + 7} ${midX - lobe} ${topOffset + tab}`,
-      `C ${midX - 4} ${topOffset + tab + 2} ${midX + 4} ${topOffset + tab + 2} ${midX + lobe} ${topOffset + tab}`,
-      `C ${midX + lobe} ${topOffset + 7} ${x2} ${topOffset + 4} ${x2} ${topOffset}`
-    );
-  }
-
-  parts.push(
-    `H ${w - r}`,
-    `Q ${w} ${topOffset} ${w} ${topOffset + r}`
-  );
-
-  if (hasRightTab) {
-    parts.push(
-      `V ${y1}`,
-      `C ${w + 4} ${y1} ${w + 7} ${midY - lobe} ${w + tab} ${midY - lobe}`,
-      `C ${w + tab + 2} ${midY - 4} ${w + tab + 2} ${midY + 4} ${w + tab} ${midY + lobe}`,
-      `C ${w + 7} ${midY + lobe} ${w + 4} ${y2} ${w} ${y2}`
-    );
-  }
-
-  parts.push(
-    `V ${bottom - r}`,
-    `Q ${w} ${bottom} ${w - r} ${bottom}`
-  );
-
-  if (hasBottomTab) {
-    parts.push(
-      `H ${x2}`,
-      `C ${x2} ${bottom + 4} ${midX + lobe} ${bottom + 7} ${midX + lobe} ${bottom + tab}`,
-      `C ${midX + 4} ${bottom + tab + 2} ${midX - 4} ${bottom + tab + 2} ${midX - lobe} ${bottom + tab}`,
-      `C ${midX - lobe} ${bottom + 7} ${x1} ${bottom + 4} ${x1} ${bottom}`
-    );
-  }
-
-  parts.push(
-    `H ${r}`,
-    `Q 0 ${bottom} 0 ${bottom - r}`
-  );
-
-  if (hasLeftSocket) {
-    parts.push(
-      `V ${y2}`,
-      `C 4 ${y2} 7 ${midY + lobe} ${tab} ${midY + lobe}`,
-      `C ${tab + 2} ${midY + 4} ${tab + 2} ${midY - 4} ${tab} ${midY - lobe}`,
-      `C 7 ${midY - lobe} 4 ${y1} 0 ${y1}`
-    );
-  }
-
-  parts.push(
-    `V ${topOffset + r}`,
-    `Q 0 ${topOffset} ${r} ${topOffset}`,
-    'Z'
-  );
-
-  return parts.join(' ');
-}
-
-function buildNodePieceMarkup(node) {
+function buildNodeBubbleMarkup(node) {
   if (!TYPE_CONFIG[node.type]) return '';
-  const width = node.width + PIECE_TAB_DEPTH + 4;
-  const height = node.height + PIECE_TAB_DEPTH + PIECE_TOP_OFFSET + 4;
-  const shapePath = buildPuzzlePiecePath(node);
-  const clipId = 'node-piece-clip-' + String(node.id).replace(/[^a-zA-Z0-9_-]/g, '');
-  const surfaceX = 6;
-  const surfaceWidth = Math.max(28, node.width - 12);
-  const surfaceY = PIECE_TOP_OFFSET + 4;
-  const topBandHeight = Math.max(16, Math.min(24, Math.round(node.height * 0.22)));
-  const glossHeight = Math.max(40, Math.round(node.height * 0.52));
-  const rimHighlightHeight = Math.max(8, Math.round(node.height * 0.08));
-  const bottomBandY = PIECE_TOP_OFFSET + node.height - 18;
-  const baseShadowHeight = Math.max(18, Math.round(node.height * 0.2));
+  const side = getPhoneBubbleSide(node);
+  const tailClass = side === 'left'
+    ? 'node-bubble-tail--left'
+    : side === 'right'
+      ? 'node-bubble-tail--right'
+      : 'node-bubble-tail--none';
   return `
-    <svg class="node-piece" viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false">
-      <defs>
-        <clipPath id="${clipId}">
-          <path d="${shapePath}"></path>
-        </clipPath>
-      </defs>
-      <path class="node-piece-shape" d="${shapePath}"></path>
-      <g class="node-piece-surface" clip-path="url(#${clipId})">
-        <rect class="node-piece-gloss" x="2" y="${PIECE_TOP_OFFSET + 2}" width="${width - 8}" height="${glossHeight}" rx="${Math.round(glossHeight / 2)}"></rect>
-        <rect class="node-piece-rim-highlight" x="${surfaceX}" y="${surfaceY - 1}" width="${surfaceWidth}" height="${rimHighlightHeight}" rx="${Math.round(rimHighlightHeight / 2)}"></rect>
-        <rect class="node-piece-top-band" x="${surfaceX}" y="${surfaceY}" width="${surfaceWidth}" height="${topBandHeight}" rx="${Math.round(topBandHeight / 2)}"></rect>
-        <rect class="node-piece-side-band" x="${surfaceX}" y="${bottomBandY}" width="${surfaceWidth}" height="14" rx="7"></rect>
-        <rect class="node-piece-base-shadow" x="${surfaceX}" y="${bottomBandY - 6}" width="${surfaceWidth}" height="${baseShadowHeight}" rx="${Math.round(baseShadowHeight / 2)}"></rect>
-      </g>
-    </svg>
+    <div class="node-bubble" aria-hidden="true">
+      <div class="node-bubble-shape"></div>
+      <div class="node-bubble-tail ${tailClass}"></div>
+    </div>
   `;
 }
 
 function buildRotateHandleMarkup(node) {
-  if (!node || node.type !== 'bubble') return '';
-  return `
-    <button class="node-rotate-handle" type="button" tabindex="-1" aria-label="Rotate guide"></button>
-  `;
+  return '';
 }
 
 function buildInPortMarkup(node) {
@@ -1749,6 +2426,7 @@ function buildOutPortsMarkup(node) {
 
 function getGameTitleStyle(node, titleOverride = null) {
   if (!node) return '';
+  if (THREAD_LAYOUT_ENABLED && isBubbleLikeType(node.type)) return '';
 
   const normalizedTitle = String(titleOverride != null ? titleOverride : node.title || '').trim().replace(/\s+/g, ' ');
   const words = normalizedTitle ? normalizedTitle.split(' ') : [];
@@ -1775,34 +2453,26 @@ function buildNodeMarkup(node) {
   const bodyMarkup = buildNodeBodyMarkup(node);
   const headerMarkup = `
     <div class="node-header">
-      <div class="node-kicker">${escapeHtml(kicker)}</div>
       <div class="node-title"${getGameTitleStyle(node, displayTitle)}>${escapeHtml(displayTitle)}</div>
     </div>
   `;
-  const codeMarkup = node.type === 'game' || isBubbleLikeType(node.type)
-    ? ''
-    : `<div class="node-code">${escapeHtml(config.code)} / ${escapeHtml(formatNodeId(node.id))}</div>`;
+  const metaMarkup = `
+    <div class="node-meta">
+      <div class="node-kicker">${escapeHtml(kicker)}</div>
+    </div>
+  `;
+  const codeMarkup = '';
   const inPortMarkup = buildInPortMarkup(node);
   const chromeMarkup = `
     <div class="node-rotator">
       ${buildRotateHandleMarkup(node)}
       ${inPortMarkup}
-      ${buildNodePieceMarkup(node)}
+      ${buildNodeBubbleMarkup(node)}
       ${buildOutPortsMarkup(node)}
     </div>
   `;
-  if (node.type === 'stop') {
-    return `
-      <div class="node-card">
-        ${chromeMarkup}
-        <div class="node-content">
-          ${headerMarkup}
-        </div>
-      </div>
-    `;
-  }
-
   return `
+    ${metaMarkup}
     <div class="node-card">
       ${chromeMarkup}
       <div class="node-content">
@@ -1826,12 +2496,20 @@ function positionGhost(ghostEl, clientX, clientY) {
 }
 
 function applyZoom() {
-  const base = getBoardBaseSize();
-  board.style.width = Math.round(base.width) + 'px';
-  board.style.height = Math.round(base.height) + 'px';
-  board.style.transform = 'scale(' + state.zoom + ')';
-  boardStage.style.width = Math.round(base.width * state.zoom) + 'px';
-  boardStage.style.height = Math.round(base.height * state.zoom) + 'px';
+  const base = getPhoneBaseSize();
+  const metrics = state.layoutMetrics || {
+    phoneWidth: PHONE_DEVICE_WIDTH,
+    phoneHeight: PHONE_MIN_DEVICE_HEIGHT,
+    phoneX: PHONE_DEVICE_X,
+    phoneY: PHONE_DEVICE_Y
+  };
+  phoneStage.style.width = Math.round(base.width) + 'px';
+  phoneStage.style.height = Math.round(base.height) + 'px';
+  phoneStage.style.zoom = String(state.zoom);
+  phone.style.width = Math.round(metrics.phoneWidth) + 'px';
+  phone.style.height = Math.round(metrics.phoneHeight) + 'px';
+  phone.style.left = Math.round(metrics.phoneX) + 'px';
+  phone.style.top = Math.round(metrics.phoneY) + 'px';
   zoomValue.textContent = Math.round(state.zoom * 100) + '%';
 }
 
@@ -1842,7 +2520,7 @@ function setZoom(nextZoom, clientX, clientY) {
   const rect = viewport.getBoundingClientRect();
   const anchorX = clientX ?? (rect.left + rect.width / 2);
   const anchorY = clientY ?? (rect.top + rect.height / 2);
-  const focus = boardPointFromClient(anchorX, anchorY);
+  const focus = phonePointFromClient(anchorX, anchorY);
 
   state.zoom = roundedZoom;
   applyZoom();
@@ -1853,7 +2531,7 @@ function setZoom(nextZoom, clientX, clientY) {
   drawLinks();
 }
 
-function boardPointFromClient(clientX, clientY) {
+function phonePointFromClient(clientX, clientY) {
   const rect = viewport.getBoundingClientRect();
   return {
     inside: clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom,
@@ -1938,26 +2616,27 @@ function getNodeLinkCorridors(node) {
   if (!node || !cell) return null;
 
   const major = getMajorGridSize();
-  const boardWidth = board.clientWidth || getBoardBaseSize().width;
-  const boardHeight = board.clientHeight || getBoardBaseSize().height;
+  const stageSize = getPhoneStageSize();
+  const phoneWidth = stageSize.width;
+  const phoneHeight = stageSize.height;
   const obstacle = getLinkObstacle(node);
 
   return {
-    left: clamp(Math.min((cell.col * major) + LINK_LANE_OFFSET, obstacle.left), LINK_LANE_OFFSET, boardWidth - LINK_LANE_OFFSET),
-    right: clamp(Math.max(((cell.col + 1) * major) - LINK_LANE_OFFSET, obstacle.right), LINK_LANE_OFFSET, boardWidth - LINK_LANE_OFFSET),
-    top: clamp(Math.min((cell.row * major) + LINK_LANE_OFFSET, obstacle.top), LINK_LANE_OFFSET, boardHeight - LINK_LANE_OFFSET),
-    bottom: clamp(Math.max(((cell.row + 1) * major) - LINK_LANE_OFFSET, obstacle.bottom), LINK_LANE_OFFSET, boardHeight - LINK_LANE_OFFSET)
+    left: clamp(Math.min((cell.col * major) + LINK_LANE_OFFSET, obstacle.left), LINK_LANE_OFFSET, phoneWidth - LINK_LANE_OFFSET),
+    right: clamp(Math.max(((cell.col + 1) * major) - LINK_LANE_OFFSET, obstacle.right), LINK_LANE_OFFSET, phoneWidth - LINK_LANE_OFFSET),
+    top: clamp(Math.min((cell.row * major) + LINK_LANE_OFFSET, obstacle.top), LINK_LANE_OFFSET, phoneHeight - LINK_LANE_OFFSET),
+    bottom: clamp(Math.max(((cell.row + 1) * major) - LINK_LANE_OFFSET, obstacle.bottom), LINK_LANE_OFFSET, phoneHeight - LINK_LANE_OFFSET)
   };
 }
 
 function getSortedLaneYCandidates(fromNode, toNode, startY, endY) {
-  const boardHeight = board.clientHeight || getBoardBaseSize().height;
+  const phoneHeight = getPhoneStageSize().height;
   const major = getMajorGridSize();
   const rows = getPlacementGridRows();
   const candidates = new Map();
 
   function addCandidate(value, priority) {
-    const clampedValue = clamp(Math.round(value * 1000) / 1000, LINK_LANE_OFFSET, boardHeight - LINK_LANE_OFFSET);
+    const clampedValue = clamp(Math.round(value * 1000) / 1000, LINK_LANE_OFFSET, phoneHeight - LINK_LANE_OFFSET);
     const key = clampedValue.toFixed(3);
     const current = candidates.get(key);
     if (!current || priority < current.priority) {
@@ -2105,7 +2784,7 @@ function getLinkRoute(link) {
     && isSegmentClear(endLaneX, points.endY, points.endX, points.endY, ignoreNodeIds)
   );
 
-  if (laneY == null) laneY = candidateYs[0] ?? clamp((points.startY + points.endY) / 2, LINK_LANE_OFFSET, (board.clientHeight || getBoardBaseSize().height) - LINK_LANE_OFFSET);
+  if (laneY == null) laneY = candidateYs[0] ?? clamp((points.startY + points.endY) / 2, LINK_LANE_OFFSET, getPhoneStageSize().height - LINK_LANE_OFFSET);
 
   const routePoints = [
     { x: points.startX, y: points.startY },
@@ -2166,7 +2845,8 @@ function selectLinkAndRefresh(linkId) {
 
 function drawLinks() {
   linkLayer.innerHTML = '';
-  linkLayer.setAttribute('viewBox', '0 0 ' + board.clientWidth + ' ' + board.clientHeight);
+  const stageSize = getPhoneStageSize();
+  linkLayer.setAttribute('viewBox', '0 0 ' + stageSize.width + ' ' + stageSize.height);
 }
 
 function renderSelectionStates() {
@@ -2183,6 +2863,7 @@ function renderSelectionStates() {
     el.classList.toggle('selected', id === state.selectedId);
     el.classList.toggle('connect-target', isValidConnectTarget || isDockTarget);
   });
+  syncPhoneStartButton();
 }
 
 function bringNodeToFront(nodeId) {
@@ -2272,7 +2953,7 @@ function attachNodeEvents(el, node) {
 
   el.addEventListener('click', (event) => {
     if (event.target.closest('.node-port')) return;
-    if (node.type === 'bubble') {
+    if (!THREAD_LAYOUT_ENABLED && node.type === 'bubble') {
       tripleClickCount++;
       clearTimeout(tripleClickTimer);
       tripleClickTimer = setTimeout(() => { tripleClickCount = 0; }, 400);
@@ -2321,8 +3002,32 @@ function attachNodeEvents(el, node) {
     renderSelectionStates();
     drawLinks();
     updateSelectionUi();
+    if (THREAD_LAYOUT_ENABLED) {
+      if (!canReorderPhoneBubble(node)) return;
+      const point = phonePointFromClient(event.clientX, event.clientY);
+      state.dropSlot = null;
+      hideBubbleDropLine();
+      state.dragNode = {
+        id: node.id,
+        offsetX: point.x - node.x,
+        offsetY: point.y - node.y,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        moved: false,
+        reorderOnly: true,
+        originX: node.x,
+        originY: node.y
+      };
 
-    const point = boardPointFromClient(event.clientX, event.clientY);
+      const currentEl = nodeEls.get(node.id);
+      if (currentEl) {
+        currentEl.classList.add('dragging');
+        currentEl.setPointerCapture(event.pointerId);
+      }
+      return;
+    }
+
+    const point = phonePointFromClient(event.clientX, event.clientY);
     const anytimePairNodes = isAnytimeNode(node) ? getAnytimePairNodes(getAnytimePairId(node)) : [];
     state.dragNode = {
       id: node.id,
@@ -2413,18 +3118,27 @@ function renderNode(node) {
 }
 
 function renderAll() {
+  applyPhoneThreadLayout();
+  updatePhoneChrome();
   applyZoom();
+  renderGameshelf();
+  if (!state.dragNode || !state.dragNode.reorderOnly) {
+    state.dropSlot = null;
+    hideBubbleDropLine();
+  }
   nodeLayer.innerHTML = '';
   nodeEls.clear();
 
   if (state.doc.nodes.length === 0) {
     const hint = document.createElement('div');
-    hint.className = 'board-empty-hint';
-    hint.innerHTML = 'Use <strong>Insert</strong> in the menu above to add objects.';
+    hint.className = 'phone-empty-hint';
+    hint.innerHTML = 'Drag a blank bubble from the tray to add bubbles to the conversation.';
     nodeLayer.appendChild(hint);
   }
 
-  state.doc.nodes.forEach(renderNode);
+  state.doc.nodes
+    .filter((node) => !(THREAD_LAYOUT_ENABLED && node.type === 'game'))
+    .forEach(renderNode);
   updateStencilAvailability();
   renderSelectionStates();
   drawLinks();
@@ -2438,7 +3152,7 @@ function updateStencilAvailability() {
     button.disabled = isGameStencil && gameTaken;
     if (isGameStencil) {
       button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
-      button.title = button.disabled ? 'Only one Game object is allowed per canvas.' : '';
+      button.title = button.disabled ? 'Only one Game object is allowed per PHONE.' : '';
     }
   });
 }
@@ -2479,6 +3193,8 @@ function updateSelectionUi() {
   taglineField.hidden = isLinkSelected || !isGameNode;
   guideNameField.hidden = isLinkSelected || !isGameNode;
   priceField.hidden = isLinkSelected || !isGameNode;
+  primaryColorField.hidden = isLinkSelected || !isGameNode;
+  secondaryColorField.hidden = isLinkSelected || !isGameNode;
   tagsField.hidden = isLinkSelected || !isGameNode;
   const BODY_LABELS = { game: 'Description', stop: 'STOP NOTES', bubble: 'Guide Message', reply: 'ANSWER' };
   nodeTitleLabel.textContent = 'GAME NAME';
@@ -2493,6 +3209,10 @@ function updateSelectionUi() {
   nodeTaglineInput.disabled = !isGameNode;
   nodeGuideNameInput.disabled = !isGameNode;
   nodePriceInput.disabled = !isGameNode;
+  primaryColorInput.disabled = !isGameNode;
+  primaryColorPickerInput.disabled = !isGameNode;
+  secondaryColorInput.disabled = !isGameNode;
+  secondaryColorPickerInput.disabled = !isGameNode;
   nodeTagNewInput.disabled = !isGameNode;
   nodeTagAddBtn.disabled = !isGameNode;
   syncReplyModeInputs(node);
@@ -2514,6 +3234,13 @@ function updateSelectionUi() {
   nodeTaglineInput.value = isGameNode ? (node.tagline || '') : '';
   nodeGuideNameInput.value = isGameNode ? (node.guideName || '') : '';
   nodePriceInput.value = isGameNode ? (node.price || '') : '';
+  const currentColors = getCurrentGameColors();
+  primaryColorInput.value = isGameNode ? currentColors.primaryColor : '';
+  primaryColorInput.classList.remove('is-invalid');
+  primaryColorPickerInput.value = colorValueToHex(currentColors.primaryColor, '#5468a7');
+  secondaryColorInput.value = isGameNode ? currentColors.secondaryColor : '';
+  secondaryColorInput.classList.remove('is-invalid');
+  secondaryColorPickerInput.value = colorValueToHex(currentColors.secondaryColor, '#243256');
   nodeTagNewInput.value = '';
   renderTagPicker(node);
   nodeBodyInput.value = node ? (node.body || '') : '';
@@ -2603,8 +3330,8 @@ function getPuzzlePlacementPosition(type, sourceNode, preferredPort = null) {
   }
 
   return {
-    x: clamp(snap((board.clientWidth || getBoardBaseSize().width) / 2 - (config.width / 2)), bounds.minX, bounds.maxX),
-    y: clamp(snap((board.clientHeight || getBoardBaseSize().height) / 2 - (config.height / 2)), bounds.minY, bounds.maxY)
+    x: clamp(snap((getPhoneStageSize().width / 2) - (config.width / 2)), bounds.minX, bounds.maxX),
+    y: clamp(snap((getPhoneStageSize().height / 2) - (config.height / 2)), bounds.minY, bounds.maxY)
   };
 }
 
@@ -2774,7 +3501,7 @@ function getLegacyGridPlacementPosition(type, sourceNode) {
   }
 
   const rect = viewport.getBoundingClientRect();
-  const centerPoint = boardPointFromClient(
+  const centerPoint = phonePointFromClient(
     rect.left + (rect.width / 2),
     rect.top + (rect.height / 2)
   );
@@ -2825,7 +3552,7 @@ function duplicateNode(nodeId) {
 
 function addNode(type, x, y, options = {}) {
   if (type === 'game' && hasGameNode()) {
-    alert('Only one Game object is allowed per canvas.');
+    alert('Only one Game object is allowed per PHONE.');
     return null;
   }
 
@@ -2922,7 +3649,7 @@ function insertAnytimePairAt(replyPosition, bubblePosition, sourceReply = null, 
   return { reply: replyNode, bubble: bubbleNode };
 }
 
-function addAnytimePairToVisibleCanvas() {
+function addAnytimePairToVisiblePhone() {
   const placement = getAutoAnytimePairPlacement();
   return insertAnytimePairAt(placement.reply, placement.bubble);
 }
@@ -3079,7 +3806,7 @@ function removeSelectedLink() {
 
 function startStencilDrag(type, event) {
   if (type === 'game' && hasGameNode()) {
-    alert('Only one Game object is allowed per canvas.');
+    alert('Only one Game object is allowed per PHONE.');
     return;
   }
   const config = TYPE_CONFIG[type];
@@ -3109,7 +3836,7 @@ function startStencilDrag(type, event) {
 function stopStencilDrag(clientX, clientY) {
   if (!state.stencilDrag) return;
   const drag = state.stencilDrag;
-  const point = boardPointFromClient(clientX, clientY);
+  const point = phonePointFromClient(clientX, clientY);
 
   if (point.inside) {
     const config = TYPE_CONFIG[drag.type];
@@ -3128,7 +3855,7 @@ function cancelStencilDrag() {
   viewport.classList.remove('drop-ready');
 }
 
-function addNodeToVisibleCanvas(type) {
+function addNodeToVisiblePhone(type) {
   const sourceNode = getAutoLinkSourceNode();
   const placement = getAutoPlacementPosition(type, sourceNode);
   return addNode(
@@ -3203,7 +3930,7 @@ function maybeAutoPan(clientX, clientY) {
   if (clientY > rect.bottom - threshold) viewport.scrollTop += step;
 }
 
-function seedBoard() {
+function seedPhone() {
   state.doc = cloneObj(EMPTY_DOC);
   state.currentGameId = null;
   clearSelection();
@@ -3211,9 +3938,10 @@ function seedBoard() {
   const firstSlot = getGameHomeSlot();
   const gameNode = createNode('game', firstSlot.x, firstSlot.y);
   state.doc.nodes.push(gameNode);
+  setCurrentGameColors();
   syncAllTagsFromStore();
   rememberCleanSnapshot();
-  renderOpenGameDialogList();
+  renderGameshelf();
   applyZoom();
   renderAll();
 }
@@ -3259,9 +3987,9 @@ function ensureAllReplyVarNames() {
 
 function persistStoreLocally() {
   try {
-    localStorage.setItem('tgb-games-new', JSON.stringify(state.store));
-    if (state.currentGameId) localStorage.setItem('tgb-games-new-open', state.currentGameId);
-    else localStorage.removeItem('tgb-games-new-open');
+    localStorage.setItem(LOCAL_STORE_KEY, JSON.stringify(state.store));
+    if (state.currentGameId) localStorage.setItem(LOCAL_OPEN_GAME_KEY, state.currentGameId);
+    else localStorage.removeItem(LOCAL_OPEN_GAME_KEY);
   } catch (error) {
   }
 }
@@ -3283,27 +4011,40 @@ async function saveDoc(options = {}) {
   if (replyVarsFilled) renderAll();
   const docPayload = serializeDoc();
   const existingGame = state.store.games.find((game) => game.id === state.currentGameId);
+  const existingIndex = state.store.games.findIndex((game) => game.id === state.currentGameId);
+  const savedGameId = state.currentGameId || makeGameId();
+  const savedGameName = getDocName(docPayload);
+  const fallbackColors = getSavedGameColors(
+    existingGame || { id: savedGameId, name: savedGameName },
+    existingIndex >= 0 ? existingIndex : state.store.games.length
+  );
+  const colors = {
+    primaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.primaryColor, fallbackColors.primaryColor),
+    secondaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.secondaryColor, fallbackColors.secondaryColor)
+  };
   const savedGame = {
-    id: state.currentGameId || makeGameId(),
-    name: getDocName(docPayload),
+    id: savedGameId,
+    name: savedGameName,
     createdAt: existingGame && existingGame.createdAt ? existingGame.createdAt : docPayload.updatedAt,
     updatedAt: docPayload.updatedAt,
+    primaryColor: colors.primaryColor,
+    secondaryColor: colors.secondaryColor,
     nodes: docPayload.nodes,
     links: docPayload.links
   };
 
+  state.currentGameColors = { ...colors };
   state.currentGameId = savedGame.id;
   state.doc.updatedAt = docPayload.updatedAt;
   state.store.updatedAt = docPayload.updatedAt;
 
-  const existingIndex = state.store.games.findIndex((game) => game.id === savedGame.id);
   if (existingIndex >= 0) state.store.games[existingIndex] = savedGame;
   else state.store.games.push(savedGame);
 
   syncAllTagsFromStore();
-  renderOpenGameDialogList();
-  persistStoreLocally();
   rememberCleanSnapshot();
+  renderGameshelf();
+  persistStoreLocally();
   updateActionUi();
 
   try {
@@ -3312,7 +4053,7 @@ async function saveDoc(options = {}) {
 
     for (const apiBase of apiBases) {
       try {
-        const res = await fetch(apiBase + '/games-new', {
+        const res = await fetch(apiBase + STORE_API_ROUTE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(state.store)
@@ -3321,7 +4062,7 @@ async function saveDoc(options = {}) {
           const message = await res.text();
           throw new Error(message || 'Save failed');
         }
-        if (!silent) alert('Saved all data to play\\data\\games_new.json.');
+        if (!silent) alert('Saved all data to play\\data\\' + STORE_FILE_NAME + '.');
         return { savedGame, serverSaved: true, localOnly: false, apiBase };
       } catch (error) {
         lastError = error;
@@ -3329,7 +4070,7 @@ async function saveDoc(options = {}) {
     }
 
     if (lastError) throw lastError;
-    if (!silent) alert('Saved all data in this browser only. Run the local Node server to write play\\data\\games_new.json.');
+    if (!silent) alert('Saved all data in this browser only. Run the local Node server to write play\\data\\' + STORE_FILE_NAME + '.');
     return { savedGame, serverSaved: false, localOnly: true };
   } catch (error) {
     if (!silent) alert('Server save failed. Start the local Node server on http://localhost:3000. Kept all data in this browser only.');
@@ -3395,7 +4136,7 @@ async function loadDoc() {
 
   state.store = nextStore || cloneObj(EMPTY_STORE);
   syncAllTagsFromStore();
-  renderOpenGameDialogList();
+  renderGameshelf();
 
   const rememberedGameId = getRememberedOpenGameId();
   if (rememberedGameId && state.store.games.some((game) => game.id === rememberedGameId)) {
@@ -3411,7 +4152,7 @@ async function loadDoc() {
     }
   }
 
-  seedBoard();
+  seedPhone();
 }
 
 stencilBar.querySelectorAll('[data-stencil]').forEach((button) => {
@@ -3424,7 +4165,7 @@ stencilBar.querySelectorAll('[data-stencil]').forEach((button) => {
   button.addEventListener('dblclick', (event) => {
     event.preventDefault();
     cancelStencilDrag();
-    addNodeToVisibleCanvas(button.dataset.stencil);
+    addNodeToVisiblePhone(button.dataset.stencil);
   });
 });
 
@@ -3568,6 +4309,56 @@ nodePriceInput.addEventListener('input', () => {
   updateSelectionUi();
 });
 
+function syncGameColorInputs() {
+  const colors = getCurrentGameColors();
+  if (primaryColorInput) {
+    primaryColorInput.value = colors.primaryColor;
+    primaryColorInput.classList.remove('is-invalid');
+  }
+  if (primaryColorPickerInput) {
+    primaryColorPickerInput.value = colorValueToHex(colors.primaryColor, '#5468a7');
+  }
+  if (secondaryColorInput) {
+    secondaryColorInput.value = colors.secondaryColor;
+    secondaryColorInput.classList.remove('is-invalid');
+  }
+  if (secondaryColorPickerInput) {
+    secondaryColorPickerInput.value = colorValueToHex(colors.secondaryColor, '#243256');
+  }
+}
+
+function commitCurrentGameColor(key, rawValue) {
+  if (!setCurrentGameColorValue(key, rawValue)) return false;
+  renderGameshelf();
+  updateActionUi();
+  return true;
+}
+
+function bindGameColorInputs(textInput, pickerInput, key, fallbackHex) {
+  if (!textInput || !pickerInput) return;
+
+  pickerInput.addEventListener('input', () => {
+    if (!commitCurrentGameColor(key, pickerInput.value)) return;
+    syncGameColorInputs();
+  });
+
+  textInput.addEventListener('input', () => {
+    const supportedValue = getSupportedColorValue(textInput.value);
+    const hasValue = !!textInput.value.trim();
+    textInput.classList.toggle('is-invalid', hasValue && !supportedValue);
+    if (!supportedValue) return;
+    commitCurrentGameColor(key, supportedValue);
+    pickerInput.value = colorValueToHex(supportedValue, fallbackHex);
+  });
+
+  textInput.addEventListener('blur', () => {
+    syncGameColorInputs();
+  });
+}
+
+bindGameColorInputs(primaryColorInput, primaryColorPickerInput, 'primaryColor', '#5468a7');
+bindGameColorInputs(secondaryColorInput, secondaryColorPickerInput, 'secondaryColor', '#243256');
+
 function addNewTag() {
   const node = getNode(state.selectedId);
   if (!node || node.type !== 'game') return;
@@ -3579,6 +4370,7 @@ function addNewTag() {
   node.tags = [...nextTags];
   nodeTagNewInput.value = '';
   renderTagPicker(node);
+  syncPhoneStartButton();
 }
 
 nodeTagAddBtn.addEventListener('click', addNewTag);
@@ -3641,13 +4433,19 @@ deleteBtn.addEventListener('click', () => {
 });
 if (saveGameBtn) saveGameBtn.addEventListener('click', saveCurrentGameFromMenu);
 if (headerPlayGameBtn) headerPlayGameBtn.addEventListener('click', playCurrentGame);
-openGameBtn.addEventListener('click', () => {
-  const menu = openGameBtn.closest('.mb-menu');
-  const panel = openGameBtn.closest('.mb-panel');
-  if (menu) menu.classList.remove('open');
-  if (panel) panel.hidden = true;
-  openOpenGameDialog();
-});
+if (phoneStartBtn) {
+  phoneStartBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    closeNodeContextMenu();
+    const gameNode = getGameNode();
+    if (!gameNode) return;
+    selectNode(gameNode.id);
+    renderSelectionStates();
+    drawLinks();
+    updateSelectionUi();
+  });
+}
 if (refreshPageBtn) {
   refreshPageBtn.addEventListener('click', () => {
     const menu = refreshPageBtn.closest('.mb-menu');
@@ -3664,17 +4462,12 @@ if (refreshDialog) {
     if (event.target === refreshDialog) closeRefreshDialog();
   });
 }
-if (confirmOpenGameBtn) confirmOpenGameBtn.addEventListener('click', openSelectedGameFromDialog);
-if (cancelOpenGameBtn) cancelOpenGameBtn.addEventListener('click', closeOpenGameDialog);
-if (openGameDialogSelect) {
-  openGameDialogSelect.addEventListener('change', () => {
-    if (confirmOpenGameBtn) confirmOpenGameBtn.disabled = !openGameDialogSelect.value;
-  });
-  openGameDialogSelect.addEventListener('dblclick', openSelectedGameFromDialog);
-}
-if (openGameDialog) {
-  openGameDialog.addEventListener('click', (event) => {
-    if (event.target === openGameDialog) closeOpenGameDialog();
+if (saveSwitchGameBtn) saveSwitchGameBtn.addEventListener('click', saveThenOpenPendingGame);
+if (discardSwitchGameBtn) discardSwitchGameBtn.addEventListener('click', openPendingGameWithoutSaving);
+if (cancelSwitchGameBtn) cancelSwitchGameBtn.addEventListener('click', closeSwitchGameDialog);
+if (switchGameDialog) {
+  switchGameDialog.addEventListener('click', (event) => {
+    if (event.target === switchGameDialog) closeSwitchGameDialog();
   });
 }
 if (nodeContextMenu) {
@@ -3727,18 +4520,21 @@ if (inspectorWindowBar) {
   });
 }
 
-newBoardBtn.addEventListener('click', () => {
-  if (!confirm('Start a new canvas? This will replace the current graph in the editor until you reload or save.')) return;
-  seedBoard();
+newPhoneBtn.addEventListener('click', () => {
+  if (!confirm('Start a new PHONE? This will replace the current game flow in the editor until you reload or save.')) return;
+  seedPhone();
 });
 
 zoomOutBtn.addEventListener('click', () => setZoom(state.zoom - ZOOM_STEP));
 zoomInBtn.addEventListener('click', () => setZoom(state.zoom + ZOOM_STEP));
 zoomResetBtn.addEventListener('click', () => setZoom(1));
+if (workspaceZoomOutBtn) workspaceZoomOutBtn.addEventListener('click', () => setZoom(state.zoom - ZOOM_STEP));
+if (workspaceZoomInBtn) workspaceZoomInBtn.addEventListener('click', () => setZoom(state.zoom + ZOOM_STEP));
+if (workspaceZoomResetBtn) workspaceZoomResetBtn.addEventListener('click', () => setZoom(1));
 
 linkLayer.addEventListener('click', (event) => {
   if (event.target !== linkLayer) return;
-  const point = boardPointFromClient(event.clientX, event.clientY);
+  const point = phonePointFromClient(event.clientX, event.clientY);
   const linkId = findNearestLinkIdAtPoint(point.x, point.y);
   if (!linkId) return;
   event.preventDefault();
@@ -3749,7 +4545,7 @@ linkLayer.addEventListener('click', (event) => {
 
 linkLayer.addEventListener('contextmenu', (event) => {
   if (event.target !== linkLayer) return;
-  const point = boardPointFromClient(event.clientX, event.clientY);
+  const point = phonePointFromClient(event.clientX, event.clientY);
   const linkId = findNearestLinkIdAtPoint(point.x, point.y);
   if (!linkId) return;
   event.preventDefault();
@@ -3759,13 +4555,19 @@ linkLayer.addEventListener('contextmenu', (event) => {
   openLinkContextMenu(linkId, event.clientX, event.clientY);
 });
 
-board.addEventListener('click', (event) => {
+phoneStage.addEventListener('click', (event) => {
   closeNodeContextMenu();
   if (state.suppressBackgroundClick) {
     state.suppressBackgroundClick = false;
     return;
   }
-  if (event.target !== board && event.target !== nodeLayer && event.target !== linkLayer) return;
+  if (event.target.closest && event.target.closest('.node-shell')) return;
+  if (
+    event.target !== phoneStage
+    && event.target !== phone
+    && event.target !== nodeLayer
+    && event.target !== linkLayer
+  ) return;
   clearSelection();
   renderSelectionStates();
   drawLinks();
@@ -3779,19 +4581,19 @@ viewport.addEventListener('pointerdown', (event) => {
   if (target.closest && target.closest('.node-shell')) return;
   if (target.closest && target.closest('.zoom-controls')) return;
   if (target === linkLayer) {
-    const point = boardPointFromClient(event.clientX, event.clientY);
+    const point = phonePointFromClient(event.clientX, event.clientY);
     if (findNearestLinkIdAtPoint(point.x, point.y)) return;
   }
-  const isCanvasTarget =
+  const isPhoneTarget =
     target === viewport ||
-    target === boardStage ||
-    target === board ||
+    target === phoneStage ||
+    target === phone ||
     target === nodeLayer ||
     target === linkLayer;
-  if (!isCanvasTarget) return;
+  if (!isPhoneTarget) return;
 
   event.preventDefault();
-  state.panCanvas = {
+  state.panPhone = {
     startX: event.clientX,
     startY: event.clientY,
     scrollLeft: viewport.scrollLeft,
@@ -3822,7 +4624,7 @@ window.addEventListener('pointermove', (event) => {
 
   if (state.stencilDrag) {
     positionGhost(state.stencilDrag.ghostEl, event.clientX, event.clientY);
-    const point = boardPointFromClient(event.clientX, event.clientY);
+    const point = phonePointFromClient(event.clientX, event.clientY);
     viewport.classList.toggle('drop-ready', point.inside);
     maybeAutoPan(event.clientX, event.clientY);
   }
@@ -3831,7 +4633,51 @@ window.addEventListener('pointermove', (event) => {
     const node = getNode(state.dragNode.id);
     const el = nodeEls.get(state.dragNode.id);
     if (!node || !el) return;
-    const point = boardPointFromClient(event.clientX, event.clientY);
+    if (state.dragNode.reorderOnly) {
+      const point = phonePointFromClient(event.clientX, event.clientY);
+      const movedEnough =
+        Math.abs(event.clientX - state.dragNode.startClientX) > 3
+        || Math.abs(event.clientY - state.dragNode.startClientY) > 3;
+      if (movedEnough) state.dragNode.moved = true;
+      const rawY = clamp(
+        point.y - state.dragNode.offsetY,
+        state.layoutMetrics?.threadTop || (PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT),
+        getPhoneStageSize().height - node.height - 24
+      );
+      node.x = state.dragNode.originX;
+      if (!state.dragNode.moved) {
+        node.y = rawY;
+        state.dropSlot = null;
+        hideBubbleDropLine();
+        el.style.removeProperty('--drag-tilt');
+        positionNodeElement(node, el);
+        renderSelectionStates();
+        maybeAutoPan(event.clientX, event.clientY);
+        return;
+      }
+      const bubbleMidY = rawY + (node.height / 2);
+      const dropSlot = getNearestPhoneDropSlot(bubbleMidY, node.id);
+      state.dropSlot = dropSlot;
+      if (dropSlot) {
+        showBubbleDropLine(dropSlot);
+      } else {
+        hideBubbleDropLine();
+      }
+      const snapTargetY = dropSlot ? dropSlot.previewY : rawY;
+      const snapDistance = Math.abs(rawY - snapTargetY);
+      const snapStrength = clamp((120 - snapDistance) / 120, 0, 1);
+      let previewY = rawY + ((snapTargetY - rawY) * (0.28 + (snapStrength * 0.56)));
+      if (snapDistance < 10) previewY = snapTargetY;
+      node.y = Math.round(previewY);
+      const sideBias = getPhoneBubbleSide(node) === 'right' ? 1.15 : -1.15;
+      const dragTilt = clamp(sideBias + ((event.clientX - state.dragNode.startClientX) / 34), -4.5, 4.5);
+      el.style.setProperty('--drag-tilt', dragTilt.toFixed(2) + 'deg');
+      positionNodeElement(node, el);
+      renderSelectionStates();
+      maybeAutoPan(event.clientX, event.clientY);
+      return;
+    }
+    const point = phonePointFromClient(event.clientX, event.clientY);
     const anytimePairNodeIds = new Set(state.dragNode.anytimePairNodeIds || []);
     const isLockedAnytimeDrag = anytimePairNodeIds.size > 1;
     const movedEnough =
@@ -3880,22 +4726,23 @@ window.addEventListener('pointermove', (event) => {
   }
 
   if (state.connectDrag) {
-    const point = boardPointFromClient(event.clientX, event.clientY);
-    state.connectDrag.x = clamp(point.x, 0, board.clientWidth);
-    state.connectDrag.y = clamp(point.y, 0, board.clientHeight);
+    const point = phonePointFromClient(event.clientX, event.clientY);
+    const stageSize = getPhoneStageSize();
+    state.connectDrag.x = clamp(point.x, 0, stageSize.width);
+    state.connectDrag.y = clamp(point.y, 0, stageSize.height);
     updateHoverTarget(event.clientX, event.clientY);
     drawLinks();
     maybeAutoPan(event.clientX, event.clientY);
   }
 
-  if (state.panCanvas) {
-    const dx = event.clientX - state.panCanvas.startX;
-    const dy = event.clientY - state.panCanvas.startY;
+  if (state.panPhone) {
+    const dx = event.clientX - state.panPhone.startX;
+    const dy = event.clientY - state.panPhone.startY;
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-      state.panCanvas.moved = true;
+      state.panPhone.moved = true;
     }
-    viewport.scrollLeft = state.panCanvas.scrollLeft - dx;
-    viewport.scrollTop = state.panCanvas.scrollTop - dy;
+    viewport.scrollLeft = state.panPhone.scrollLeft - dx;
+    viewport.scrollTop = state.panPhone.scrollTop - dy;
   }
 });
 
@@ -3911,6 +4758,21 @@ window.addEventListener('pointerup', (event) => {
     const dragState = state.dragNode;
     const el = nodeEls.get(state.dragNode.id);
     if (el) el.classList.remove('dragging');
+    if (dragState.reorderOnly) {
+      const node = getNode(dragState.id);
+      if (node && dragState.moved && state.dropSlot) {
+        node.x = dragState.originX;
+        node.y = Math.round(state.dropSlot.sortY);
+      }
+      if (el) el.style.removeProperty('--drag-tilt');
+      hideBubbleDropLine();
+      state.dropSlot = null;
+      state.dragNode = null;
+      state.dockTargetId = null;
+      if (dragState.moved) renderAll();
+      else renderSelectionStates();
+      return;
+    }
     if (dragState.moved) {
       const node = getNode(dragState.id);
       if (node && dragState.dockCandidate) {
@@ -3928,11 +4790,11 @@ window.addEventListener('pointerup', (event) => {
 
   if (state.connectDrag) stopConnectDrag(event.clientX, event.clientY);
 
-  if (state.panCanvas) {
-    if (state.panCanvas.moved) {
+  if (state.panPhone) {
+    if (state.panPhone.moved) {
       state.suppressBackgroundClick = true;
     }
-    state.panCanvas = null;
+    state.panPhone = null;
     viewport.classList.remove('panning');
   }
 });
@@ -3957,9 +4819,9 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (openGameDialog && !openGameDialog.hidden && event.key === 'Escape') {
+  if (switchGameDialog && !switchGameDialog.hidden && event.key === 'Escape') {
     event.preventDefault();
-    closeOpenGameDialog();
+    closeSwitchGameDialog();
     return;
   }
 
@@ -4005,31 +4867,25 @@ window.addEventListener('keydown', (event) => {
 
   if (!isTyping && isLetterShortcut(event, 'KeyN')) {
     event.preventDefault();
-    newBoardBtn.click();
-    return;
-  }
-
-  if (!isTyping && isLetterShortcut(event, 'KeyO')) {
-    event.preventDefault();
-    openOpenGameDialog();
+    newPhoneBtn.click();
     return;
   }
 
   if (!isTyping && isLetterShortcut(event, 'KeyS')) {
     event.preventDefault();
-    addNodeToVisibleCanvas('stop');
+    addNodeToVisiblePhone('stop');
     return;
   }
 
   if (!isTyping && isLetterShortcut(event, 'KeyG')) {
     event.preventDefault();
-    addNodeToVisibleCanvas('bubble');
+    addNodeToVisiblePhone('bubble');
     return;
   }
 
   if (!isTyping && isLetterShortcut(event, 'KeyP')) {
     event.preventDefault();
-    addNodeToVisibleCanvas('reply');
+    addNodeToVisiblePhone('reply');
     return;
   }
 
@@ -4071,16 +4927,6 @@ window.addEventListener('keydown', (event) => {
 
   document.addEventListener('click', closeAll);
 
-  // Insert menu — click to add node at canvas center
-  const insertPanel = document.getElementById('mbPanelInsert');
-  if (insertPanel) {
-    insertPanel.querySelectorAll('[data-insert]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        closeAll();
-        handleInsertAction(btn.dataset.insert);
-      });
-    });
-  }
 }());
 
 window.addEventListener('beforeunload', (event) => {
@@ -4099,7 +4945,9 @@ window.addEventListener('resize', () => {
   applyZoom();
   drawLinks();
   applyInspectorPosition();
+  refreshGameshelfAutoScroll();
 });
 
+startPhoneClock();
 applyZoom();
 loadDoc();
