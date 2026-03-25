@@ -1,4 +1,9 @@
 <!DOCTYPE html>
+<!--
+  TGB Builder project note for humans and AI:
+  This builder writes JSON data that is read later by the game engine.
+  builder_new.html writes graph data to play/data/games_new.json.
+-->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -7,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="builder_new.css?v=1774160000">
+  <link rel="stylesheet" href="builder_new.css?v=1774532800">
 </head>
 <body>
   <div class="app-shell">
@@ -25,15 +30,18 @@
         <div class="mb-menu" id="mbFile">
           <button class="mb-trigger" data-target="mbPanelFile" type="button">File</button>
           <div class="mb-panel" id="mbPanelFile" hidden>
-            <button class="mb-item" id="newBoardBtn" type="button">New Game</button>
-            <div class="mb-sep"></div>
-            <div class="mb-section">Open Existing</div>
-            <select id="openGameSelect" class="mb-select">
-              <option value="">No saved games yet</option>
-            </select>
-            <button class="mb-item mb-item--open" id="openGameBtn" type="button" disabled>Open →</button>
-            <div class="mb-sep"></div>
-            <button class="mb-item mb-item--accent" id="saveBtn" type="button">Save Game</button>
+            <button class="mb-item" id="newBoardBtn" type="button">
+              <span>New Game</span>
+              <span class="mb-shortcut">N</span>
+            </button>
+            <button class="mb-item mb-item--open" id="openGameBtn" type="button">
+              <span>Open Game</span>
+              <span class="mb-shortcut">O</span>
+            </button>
+            <button class="mb-item" id="saveGameBtn" type="button">
+              <span>Save Game</span>
+              <span class="mb-shortcut">Ctrl+S</span>
+            </button>
           </div>
         </div>
 
@@ -41,17 +49,25 @@
         <div class="mb-menu" id="mbInsert">
           <button class="mb-trigger" data-target="mbPanelInsert" type="button">Insert</button>
           <div class="mb-panel" id="mbPanelInsert" hidden>
-            <button class="mb-item mb-item--insert" data-insert="game" type="button">
-              <span class="mb-swatch mb-swatch--game"></span>Game
-            </button>
             <button class="mb-item mb-item--insert" data-insert="stop" type="button">
-              <span class="mb-swatch mb-swatch--stop"></span>Stop
+              <span class="mb-swatch mb-swatch--stop"></span>
+              <span>Stop</span>
+              <span class="mb-shortcut">S</span>
             </button>
             <button class="mb-item mb-item--insert" data-insert="bubble" type="button">
-              <span class="mb-swatch mb-swatch--bubble"></span>Bubble
+              <span class="mb-swatch mb-swatch--bubble"></span>
+              <span>GUIDE</span>
+              <span class="mb-shortcut">G</span>
             </button>
-            <button class="mb-item mb-item--insert" data-insert="ask" type="button">
-              <span class="mb-swatch mb-swatch--ask"></span>Ask
+            <button class="mb-item mb-item--insert" data-insert="reply" type="button">
+              <span class="mb-swatch mb-swatch--reply"></span>
+              <span>PLAYER</span>
+              <span class="mb-shortcut">P</span>
+            </button>
+            <button class="mb-item mb-item--insert" data-insert="reply-anytime" type="button">
+              <span class="mb-swatch mb-swatch--reply-anytime"></span>
+              <span>PLAYER ANYTIME</span>
+              <span class="mb-shortcut">A</span>
             </button>
           </div>
         </div>
@@ -60,16 +76,25 @@
         <div class="mb-menu" id="mbView">
           <button class="mb-trigger" data-target="mbPanelView" type="button">View</button>
           <div class="mb-panel" id="mbPanelView" hidden>
-            <button class="mb-item" id="zoomInBtn" type="button">Zoom In</button>
-            <button class="mb-item" id="zoomOutBtn" type="button">Zoom Out</button>
-            <button class="mb-item" id="zoomResetBtn" type="button">Reset — <span id="zoomValue">100%</span></button>
+            <button class="mb-item" id="zoomInBtn" type="button">
+              <span>Zoom In</span>
+              <span class="mb-shortcut">+</span>
+            </button>
+            <button class="mb-item" id="zoomOutBtn" type="button">
+              <span>Zoom Out</span>
+              <span class="mb-shortcut">-</span>
+            </button>
+            <button class="mb-item" id="zoomResetBtn" type="button">
+              <span>Reset — <span id="zoomValue">100%</span></span>
+              <span class="mb-shortcut">0</span>
+            </button>
           </div>
         </div>
 
       </nav>
 
       <div class="mb-status">
-        <span class="mb-selection" id="selectionLabel">No Selection</span>
+        <button class="mb-save-all" id="headerPlayGameBtn" type="button">Play Game</button>
       </div>
     </header>
 
@@ -77,8 +102,8 @@
     <div id="stencilBar" hidden>
       <button class="stencil" data-stencil="game" type="button"></button>
       <button class="stencil" data-stencil="stop" type="button"></button>
-      <button class="stencil" data-stencil="ask" type="button"></button>
       <button class="stencil" data-stencil="bubble" type="button"></button>
+      <button class="stencil" data-stencil="reply" type="button"></button>
     </div>
 
     <!-- ── Main ── -->
@@ -95,11 +120,16 @@
       </section>
 
       <!-- ── Inspector ── -->
-      <aside class="inspector">
-        <div class="inspector-stack">
+      <aside class="inspector" id="inspector" hidden>
+        <div class="inspector-windowbar" id="inspectorWindowBar">
+          <div class="inspector-windowmeta">
+            <div class="insp-eyebrow">Details</div>
+            <div class="inspector-windowtitle" id="inspectorWindowTitle">Details</div>
+          </div>
+          <button class="inspector-windowbtn" id="inspectorToggleBtn" type="button" aria-expanded="true">Collapse</button>
+        </div>
+        <div class="inspector-stack" id="inspectorStack">
           <section class="inspector-card" id="objectCard" hidden>
-            <div class="insp-eyebrow">Object</div>
-            <h2 id="inspectorHeading">Nothing Selected</h2>
             <div id="inspectorContent" hidden>
               <p class="inspector-copy" id="inspectorCopy">
                 Select an object to edit it. Connections fan out to one or more destinations.
@@ -116,8 +146,8 @@
               </div>
 
               <div class="field" id="varNameField" hidden>
-                <label class="field-label" for="varNameInput">Variable</label>
-                <input id="varNameInput" type="text" placeholder="e.g. favoriteSandwich" autocomplete="off" disabled>
+                <label class="field-label" for="varNameInput">MESSAGE NAME</label>
+                <input id="varNameInput" type="text" placeholder="e.g. name" autocomplete="off" disabled>
               </div>
 
               <div class="field" id="varValuesField" hidden>
@@ -155,6 +185,18 @@
                 <input id="nodeTaglineInput" type="text" autocomplete="off" disabled>
               </div>
 
+              <div class="field" id="descriptionField">
+                <label class="field-label" for="nodeBodyInput">
+                  <span id="nodeBodyLabel">Description</span>
+                  <span class="field-info" id="nodeBodyInfo" tabindex="0" role="note" aria-label="Not seen by the player." hidden>
+                    i
+                    <span class="field-tooltip" role="tooltip">Not seen by the player.</span>
+                  </span>
+                </label>
+                <textarea id="nodeBodyInput" disabled></textarea>
+                <div class="field-autocomplete" id="nodeBodyAutocomplete" hidden role="listbox" aria-label="Current variables"></div>
+              </div>
+
               <div class="field" id="guideNameField">
                 <label class="field-label" for="nodeGuideNameInput">Guide Name</label>
                 <input id="nodeGuideNameInput" type="text" autocomplete="off" disabled>
@@ -171,11 +213,6 @@
                   <input id="nodeTagNewInput" type="text" placeholder="New tag..." autocomplete="off" disabled>
                   <button type="button" class="tag-add-btn" id="nodeTagAddBtn" disabled>+</button>
                 </div>
-              </div>
-
-              <div class="field" id="descriptionField">
-                <label class="field-label" id="nodeBodyLabel" for="nodeBodyInput">Description</label>
-                <textarea id="nodeBodyInput" disabled></textarea>
               </div>
 
               <div class="field" id="ifThenField" hidden>
@@ -200,17 +237,6 @@
                 </div>
               </div>
 
-              <div class="stats">
-                <div class="stat">
-                  <div class="stat-label">Incoming</div>
-                  <div class="stat-value" id="incomingCount">0</div>
-                </div>
-                <div class="stat">
-                  <div class="stat-label">Outgoing</div>
-                  <div class="stat-value" id="outgoingCount">0</div>
-                </div>
-              </div>
-
               <div class="mini-note" id="selectionId">ID: none</div>
 
               <div class="inspector-actions">
@@ -223,10 +249,7 @@
             <div class="insp-eyebrow">How It Works</div>
             <h2>SMS Game Flow</h2>
             <p class="inspector-copy">
-              Start with a <strong>Game</strong> node. Connect to <strong>Stops</strong>, <strong>Bubbles</strong>, <strong>Player Input</strong>, and <strong>Variables</strong> to build the conversation.
-            </p>
-            <p class="inspector-copy">
-              Use <strong>{{varName}}</strong> inside any Bubble to replay a captured value.
+              Start with a <strong>Game</strong> node. Connect it to <strong>Stops</strong>, <strong>GUIDES</strong>, and <strong>PLAYER</strong> nodes to build the conversation.
             </p>
             <p class="mini-note">
               <strong>Delete</strong> removes selected. <strong>Ctrl+S</strong> saves.
@@ -237,6 +260,42 @@
     </div>
   </div>
 
-  <script src="builder_new.js?v=1774160000"></script>
+  <div class="dialog-scrim" id="refreshDialog" hidden>
+    <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="refreshDialogTitle" aria-describedby="refreshDialogCopy">
+      <div class="dialog-eyebrow">Unsaved Changes</div>
+      <h2 id="refreshDialogTitle">Refresh This Page?</h2>
+      <p class="dialog-copy" id="refreshDialogCopy">
+        Refreshing will replace the current builder page. Save first if you want to keep these edits.
+      </p>
+      <div class="dialog-actions">
+        <button class="dialog-btn dialog-btn--accent" id="saveRefreshBtn" type="button">Save Then Refresh</button>
+        <button class="dialog-btn" id="discardRefreshBtn" type="button">No Save Then Refresh</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-scrim" id="openGameDialog" hidden>
+    <div class="dialog-card dialog-card--open-game" role="dialog" aria-modal="true" aria-labelledby="openGameDialogTitle" aria-describedby="openGameDialogCopy">
+      <div class="dialog-eyebrow">Open Game</div>
+      <h2 id="openGameDialogTitle">Choose A Saved Game</h2>
+      <p class="dialog-copy" id="openGameDialogCopy">
+        Pick a saved game to load into the builder.
+      </p>
+      <select id="openGameDialogSelect" class="dialog-select" size="10">
+        <option value="">No saved games yet</option>
+      </select>
+      <div class="dialog-actions">
+        <button class="dialog-btn dialog-btn--accent" id="confirmOpenGameBtn" type="button" disabled>Open Game</button>
+        <button class="dialog-btn" id="cancelOpenGameBtn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="context-menu" id="nodeContextMenu" hidden>
+    <button class="context-menu-item" id="duplicateNodeBtn" type="button">Duplicate</button>
+    <button class="context-menu-item context-menu-item--danger" id="deleteNodeMenuBtn" type="button">Delete</button>
+  </div>
+
+  <script src="builder_new.js?v=1774534600"></script>
 </body>
 </html>

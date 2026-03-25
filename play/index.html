@@ -84,11 +84,11 @@
     <div class="input-area" id="input-area"></div>
   </div>
 
+  <script src="util/games_new_runtime.js?v=1774522000"></script>
   <script>
-    const DEFAULT_GAME = 'oswald-s-diary';
-    const params  = new URLSearchParams(location.search);
-    const gameId  = params.get('id') || params.get('game') || DEFAULT_GAME;
-    let resolvedId = gameId;
+    const params = new URLSearchParams(location.search);
+    const requestedGame = (params.get('game') || params.get('id') || '').trim();
+    let resolvedGameQuery = requestedGame;
 
     function showError(msg) {
       const el = document.getElementById('error');
@@ -96,22 +96,35 @@
       el.style.display = '';
     }
 
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function textToHtml(value) {
+      return escapeHtml(value).replace(/\n/g, '<br>');
+    }
+
     function launchGame() {
       document.getElementById('landing').style.display    = 'none';
       document.getElementById('game-shell').style.display = 'flex';
       document.body.classList.add('game-active');
-      history.replaceState(null, '', '?game=' + encodeURIComponent(resolvedId));
-      ['../index.css', 'game.css'].forEach(href => {
+      history.replaceState(null, '', '?game=' + encodeURIComponent(resolvedGameQuery));
+      ['../index.css', 'game.css?v=1774511700'].forEach(href => {
         const l = document.createElement('link');
         l.rel = 'stylesheet'; l.href = href;
         document.head.appendChild(l);
       });
       const s = document.createElement('script');
-      s.src = 'util/engine.js';
+      s.src = 'util/engine.js?v=1774522000';
       document.body.appendChild(s);
     }
 
-    function mostRecent(games) {
+    function mostRecentOldGame(games) {
       const active = games.filter(g => !g.archived);
       if (!active.length) return null;
       return active.reduce((a, b) => {
@@ -123,73 +136,142 @@
       });
     }
 
-    fetch('data/games.json')
-      .then(r => r.json())
-      .then(data => {
+    function normalizeLegacyLandingGame(game) {
+      return {
+        id: game.id || '',
+        name: game.name || game.id || 'Untitled Game',
+        subtitle: game.subtitle || '',
+        price: game.price || '',
+        tags: String(game.tag || '').split(/[,;]+/).map(t => t.trim()).filter(Boolean),
+        descriptionText: '',
+        descriptionHtml: (game.description || '').trim(),
+        logo: game.logo || '',
+        favicon: game.favicon || '',
+        thumbnail: game.thumbnail || '',
+        query: game.name || game.id || ''
+      };
+    }
+
+    function renderLanding(game) {
+      const shareQuery = game.query || game.name || game.id || '';
+      const prodUrl = 'https://the-game-bureau.github.io/the-game-bureau/play/index.html?game=' + encodeURIComponent(shareQuery);
+      const shareUrl = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+        ? location.origin + location.pathname + '?game=' + encodeURIComponent(shareQuery)
+        : prodUrl;
+      const fullDescText = (game.descriptionText || '').trim();
+      const fullDescHtml = game.descriptionHtml != null ? game.descriptionHtml : textToHtml(fullDescText);
+      const firstLine = (fullDescText || String(fullDescHtml).replace(/<[^>]+>/g, ' '))
+        .split('\n')[0]
+        .trim();
+
+      resolvedGameQuery = shareQuery;
+      document.title = game.name || game.id;
+      if (game.favicon) document.getElementById('favicon').href = game.favicon;
+
+      document.getElementById('og-title').content = game.name || game.id;
+      document.getElementById('og-description').content = firstLine;
+      document.getElementById('og-url').content = prodUrl;
+      document.getElementById('tw-title').content = game.name || game.id;
+      document.getElementById('tw-description').content = firstLine;
+      if (game.thumbnail) {
+        document.getElementById('og-image').content = game.thumbnail;
+        document.getElementById('tw-image').content = game.thumbnail;
+      }
+
+      const logo = document.getElementById('gameLogo');
+      if (game.logo) {
+        logo.src = game.logo;
+        logo.classList.add('show');
+      } else {
+        logo.removeAttribute('src');
+        logo.classList.remove('show');
+      }
+
+      document.getElementById('gameTitle').textContent = game.name || game.id;
+
+      const gameGuide = document.getElementById('gameGuide');
+      if (game.subtitle) {
+        document.getElementById('guideVal').textContent = game.subtitle;
+        gameGuide.classList.add('show');
+      } else {
+        document.getElementById('guideVal').textContent = '';
+        gameGuide.classList.remove('show');
+      }
+
+      const tagsEl = document.getElementById('tags');
+      tagsEl.innerHTML = '';
+      (game.tags || []).forEach((tag) => {
+        const s = document.createElement('span');
+        s.className = 'tag';
+        s.textContent = tag;
+        tagsEl.appendChild(s);
+      });
+
+      document.getElementById('desc').innerHTML = fullDescHtml;
+
+      const priceEl = document.getElementById('price');
+      if (game.price) {
+        document.getElementById('priceVal').textContent = game.price;
+        priceEl.classList.add('show');
+      } else {
+        document.getElementById('priceVal').textContent = '';
+        priceEl.classList.remove('show');
+      }
+
+      document.getElementById('goBtn').onclick = launchGame;
+
+      const px = Math.round(180 * Math.min(window.devicePixelRatio || 2, 3));
+      document.getElementById('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + px + 'x' + px + '&data=' + encodeURIComponent(shareUrl);
+
+      document.getElementById('copyBtn').onclick = () => {
+        window.location.href = 'sms:?body=' + encodeURIComponent(shareUrl);
+      };
+
+      document.getElementById('landing').style.display = 'block';
+    }
+
+    async function loadLandingGame() {
+      try {
+        if (window.TGBGamesNewRuntime) {
+          const graphGame = await window.TGBGamesNewRuntime.loadGraphGame(requestedGame);
+          if (graphGame) {
+            const landing = window.TGBGamesNewRuntime.buildLandingData(graphGame);
+            renderLanding({
+              id: graphGame.id,
+              name: landing.name,
+              subtitle: landing.subtitle,
+              price: landing.price,
+              tags: landing.tags,
+              descriptionText: landing.description,
+              descriptionHtml: textToHtml(landing.description),
+              logo: '',
+              favicon: '',
+              thumbnail: '',
+              query: landing.query
+            });
+            return;
+          }
+        }
+
+        const response = await fetch('data/games.json', { cache: 'no-store' });
+        const data = await response.json();
         const games = Array.isArray(data) ? data : (data.games || []);
-        const game  = games.find(g => g.id === gameId) || mostRecent(games);
-        if (!game) { showError('No games available.'); return; }
-
-        resolvedId = game.id;
-
-        const prodUrl   = 'https://the-game-bureau.github.io/the-game-bureau/play/index.html?id=' + encodeURIComponent(game.id);
-        const shareUrl  = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-          ? location.origin + location.pathname + '?id=' + encodeURIComponent(game.id)
-          : prodUrl;
-        const fullDesc  = (game.description || '').trim();
-        const firstLine = fullDesc.split('\n')[0].trim();
-
-        document.title = game.name || game.id;
-        if (game.favicon) document.getElementById('favicon').href = game.favicon;
-
-        document.getElementById('og-title').content       = game.name || game.id;
-        document.getElementById('og-description').content = firstLine;
-        document.getElementById('og-url').content         = prodUrl;
-        document.getElementById('tw-title').content       = game.name || game.id;
-        document.getElementById('tw-description').content = firstLine;
-        if (game.thumbnail) {
-          document.getElementById('og-image').content = game.thumbnail;
-          document.getElementById('tw-image').content = game.thumbnail;
+        const matcher = window.TGBGamesNewRuntime ? window.TGBGamesNewRuntime.slugify : (value) => String(value || '').toLowerCase();
+        const legacyGame = requestedGame
+          ? (games.find((game) => matcher(game.id) === matcher(requestedGame) || matcher(game.name) === matcher(requestedGame)) || null)
+          : mostRecentOldGame(games);
+        if (!legacyGame) {
+          showError('No games available.');
+          return;
         }
 
-        if (game.logo) {
-          const logo = document.getElementById('gameLogo');
-          logo.src = game.logo;
-          logo.classList.add('show');
-        }
+        renderLanding(normalizeLegacyLandingGame(legacyGame));
+      } catch (error) {
+        showError('Could not load game data.');
+      }
+    }
 
-        document.getElementById('gameTitle').textContent = game.name || game.id;
-        if (game.subtitle) {
-          document.getElementById('guideVal').textContent = game.subtitle;
-          document.getElementById('gameGuide').classList.add('show');
-        }
-
-        (game.tag || '').split(/[,;]+/).map(t => t.trim()).filter(Boolean).forEach(t => {
-          const s = document.createElement('span');
-          s.className = 'tag';
-          s.textContent = t;
-          document.getElementById('tags').appendChild(s);
-        });
-
-        if (fullDesc) document.getElementById('desc').innerHTML = fullDesc;
-
-        if (game.price) {
-          document.getElementById('priceVal').textContent = game.price;
-          document.getElementById('price').classList.add('show');
-        }
-
-        document.getElementById('goBtn').addEventListener('click', launchGame);
-
-        const px = Math.round(180 * Math.min(window.devicePixelRatio || 2, 3));
-        document.getElementById('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + px + 'x' + px + '&data=' + encodeURIComponent(shareUrl);
-
-        document.getElementById('copyBtn').addEventListener('click', () => {
-          window.location.href = 'sms:?body=' + encodeURIComponent(shareUrl);
-        });
-
-        document.getElementById('landing').style.display = 'block';
-      })
-      .catch(() => showError('Could not load game data.'));
+    loadLandingGame();
   </script>
 
 </body>

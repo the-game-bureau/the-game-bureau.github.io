@@ -40,6 +40,7 @@ const DEFAULT_HEADER = {
   pageTitle: 'Scavenger Hunt',
   status: 'online'
 };
+const GUIDE_CAPS_WORD_RE = /\b[A-Z][A-Z0-9'’-]*[A-Z0-9]\b/g;
 
 try {
   state.team = localStorage.getItem(STORE_KEY + '_team') || null;
@@ -67,12 +68,12 @@ function saveState() {
 }
 
 function interpolate(str) {
-  // Canonical syntax: {variableName}. Also accepts {{variableName}} for backward compat.
-  return String(str || '').replace(/\{\{\s*([A-Za-z_]\w*)\s*\}\}|\{\s*([A-Za-z_]\w*)\s*\}/g, (match, keyDouble, keySingle) => {
-    const key = keyDouble || keySingle;
+  // Canonical syntax: %variableName%. Legacy {variableName} and {{variableName}} still work.
+  return String(str || '').replace(/\{\{\s*([A-Za-z_]\w*)\s*\}\}|\{\s*([A-Za-z_]\w*)\s*\}|%\s*([A-Za-z_]\w*)\s*%/g, (match, keyDouble, keySingle, keyPercent) => {
+    const key = keyDouble || keySingle || keyPercent;
     const value = getStateVar(key);
     if (value !== undefined && value !== null) return value;
-    return match;
+    return keyPercent ? keyPercent : match;
   });
 }
 
@@ -117,9 +118,10 @@ function norm(s) {
 function normalizeVarKey(raw) {
   const str = String(raw || '').trim();
   if (!str) return '';
-  const wrapped = str.match(/^\{\{\s*([A-Za-z_]\w*)\s*\}\}$|^\{\s*([A-Za-z_]\w*)\s*\}$/);
-  if (wrapped) return wrapped[1] || wrapped[2];
-  return str;
+  // Canonical storage key wrapper is %variableName%; braces are legacy.
+  const wrapped = str.match(/^\{\{\s*([A-Za-z_]\w*)\s*\}\}$|^\{\s*([A-Za-z_]\w*)\s*\}$|^%\s*([A-Za-z_]\w*)\s*%$/);
+  if (wrapped) return (wrapped[1] || wrapped[2] || wrapped[3]).toLowerCase();
+  return str.toLowerCase();
 }
 function normalizeIfThenCase(branchCase) {
   const src = branchCase && typeof branchCase === 'object' ? branchCase : {};
@@ -159,6 +161,8 @@ function getStateVar(key) {
   if (Object.prototype.hasOwnProperty.call(state.vars, legacySingle)) return state.vars[legacySingle];
   const legacyDouble = '{{' + k + '}}';
   if (Object.prototype.hasOwnProperty.call(state.vars, legacyDouble)) return state.vars[legacyDouble];
+  const legacyPercent = '%' + k + '%';
+  if (Object.prototype.hasOwnProperty.call(state.vars, legacyPercent)) return state.vars[legacyPercent];
   return undefined;
 }
 
@@ -231,11 +235,11 @@ function isReplyExpectedMode(mode) {
   return v === 'word' || v === 'any' || v === 'branch';
 }
 function getPlayerTriggerText(bubble) {
-  if (!bubble || !bubble.fromPlayer) return '';
+  if (!bubble || !bubble.fromPlayer || bubble.autoAdvance) return '';
   return String(bubble.html || bubble.text || '').trim();
 }
 function isPlayerTriggerBubble(bubble) {
-  return !!getPlayerTriggerText(bubble);
+  return !!bubble && !!bubble.fromPlayer && !bubble.autoAdvance;
 }
 
 function getReplyTriggerIndex(stop, fromIndex) {
@@ -254,6 +258,30 @@ function getInitialStopMessages(stop, stopIndex) {
   const idx = getReplyTriggerIndex(stop, startIndex);
   if (idx < 0) return msgs.slice(startIndex);
   return isPlayerTriggerBubble(msgs[idx]) ? msgs.slice(startIndex, idx) : msgs.slice(startIndex, idx + 1);
+}
+
+function getBranchTargetMessages(stop, startBubbleId, branches) {
+  const msgs = (stop && Array.isArray(stop.messages)) ? stop.messages : [];
+  const targetId = String(startBubbleId || '').trim();
+  if (!targetId) return [];
+
+  const startIndex = msgs.findIndex((msg) => String((msg && msg.bubbleId) || '').trim() === targetId);
+  if (startIndex < 0) return [];
+
+  const siblingTargetIds = new Set(
+    (Array.isArray(branches) ? branches : [])
+      .map((branch) => String((branch && branch.goToBubbleId) || '').trim())
+      .filter((bubbleId) => bubbleId && bubbleId !== targetId)
+  );
+
+  const collected = [];
+  for (let i = startIndex; i < msgs.length; i += 1) {
+    const msg = msgs[i];
+    const bubbleId = String((msg && msg.bubbleId) || '').trim();
+    if (i !== startIndex && siblingTargetIds.has(bubbleId)) break;
+    collected.push(msg);
+  }
+  return collected;
 }
 
 function getReplyBubbleIndex(stop, stopIndex) {
@@ -277,7 +305,10 @@ function getNextEntryAfterReply(stop, stopIndex) {
 
 function getReplyPromptBubble(stop, stopIndex) {
   const bubble = getReplyBubble(stop, stopIndex);
-  return isPlayerTriggerBubble(bubble) ? null : bubble;
+  if (!bubble) return null;
+  if (isPlayerTriggerBubble(bubble)) return getPreviousGuideBubble(stop, stopIndex);
+  if (bubble.html || bubble.text) return bubble;
+  return getPreviousGuideBubble(stop, stopIndex);
 }
 function getPreviousGuideBubble(stop, stopIndex) {
   if (!stop || !Array.isArray(stop.messages)) return null;
@@ -296,6 +327,79 @@ function scrollBottom(smooth) {
   chatEl.scrollTo({ top: chatEl.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
 }
 
+function hasGuideCapsCandidate(value) {
+  return /[A-Z]{2,}/.test(String(value || ''));
+}
+
+function wrapGuideCapsTextNode(textNode) {
+  if (!textNode || !textNode.parentNode) return;
+  const text = String(textNode.nodeValue || '');
+  if (!hasGuideCapsCandidate(text)) return;
+
+  GUIDE_CAPS_WORD_RE.lastIndex = 0;
+  const matches = [];
+  let match = GUIDE_CAPS_WORD_RE.exec(text);
+  while (match) {
+    matches.push({
+      start: match.index,
+      end: match.index + match[0].length
+    });
+    match = GUIDE_CAPS_WORD_RE.exec(text);
+  }
+  if (!matches.length) return;
+
+  const frag = document.createDocumentFragment();
+  let lastIndex = 0;
+  let runStart = matches[0].start;
+  let runEnd = matches[0].end;
+
+  const appendRun = (start, end) => {
+    if (start > lastIndex) {
+      frag.appendChild(document.createTextNode(text.slice(lastIndex, start)));
+    }
+    const span = document.createElement('span');
+    span.className = 'msg-caps-loop';
+    span.textContent = text.slice(start, end);
+    frag.appendChild(span);
+    lastIndex = end;
+  };
+
+  for (let index = 1; index < matches.length; index += 1) {
+    const current = matches[index];
+    const separator = text.slice(runEnd, current.start);
+    if (/^\s+$/.test(separator)) {
+      runEnd = current.end;
+      continue;
+    }
+    appendRun(runStart, runEnd);
+    runStart = current.start;
+    runEnd = current.end;
+  }
+
+  appendRun(runStart, runEnd);
+
+  if (lastIndex < text.length) {
+    frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+  }
+
+  textNode.parentNode.replaceChild(frag, textNode);
+}
+
+function applyGuideCapsLoop(root) {
+  if (!root) return;
+  const textNodes = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let current = walker.nextNode();
+  while (current) {
+    const parent = current.parentElement;
+    if (parent && !parent.closest('.msg-caps-loop') && hasGuideCapsCandidate(current.nodeValue)) {
+      textNodes.push(current);
+    }
+    current = walker.nextNode();
+  }
+  textNodes.forEach(wrapGuideCapsTextNode);
+}
+
 function addMsg(msg, animate) {
   if (!msg.html && !msg.text) return null;
   const wrap = document.createElement('div');
@@ -308,8 +412,9 @@ function addMsg(msg, animate) {
   if (msg.html) {
     bubble.innerHTML = interpolate(msg.html).replace(/\n/g, '<br>');
   } else {
-    bubble.textContent = msg.text || '';
+    bubble.textContent = interpolate(msg.text || '');
   }
+  if (!msg.fromPlayer) applyGuideCapsLoop(bubble);
   if (bubble.querySelector('img')) wrap.classList.add('has-img');
   wrap.appendChild(bubble);
   chatEl.appendChild(wrap);
@@ -367,8 +472,10 @@ function normalizeBubble(bubble) {
   const needsReply = hasReplyExpected ? isReplyExpectedMode(replyExpected) : !!(bubble.callToAction || bubble.red || bubble.cmd);
   return {
     bubbleId: typeof bubble.bubbleId === 'string' ? bubble.bubbleId : '',
-    html: bubble.html || '',
+    html: typeof bubble.html === 'string' ? bubble.html : '',
+    text: typeof bubble.text === 'string' ? bubble.text : '',
     fromPlayer: !!(bubble.fromPlayer || bubble.direction === 'fromPlayer'),
+    autoAdvance: !!bubble.autoAdvance,
     callToAction: needsReply,
     forAnswer: bubble.forAnswer || '',
     placeholder: typeof bubble.placeholder === 'string' ? bubble.placeholder : '',
@@ -376,6 +483,7 @@ function normalizeBubble(bubble) {
     answers: parseExpectedReplies(bubble.answers),
     storesAs: normalizeVarKey(typeof bubble.storesAs === 'string' ? bubble.storesAs : ''),
     replyResponse: typeof bubble.replyResponse === 'string' ? bubble.replyResponse : '',
+    incorrectReply: typeof bubble.incorrectReply === 'string' ? bubble.incorrectReply : '',
     branches: Array.isArray(bubble.branches)
       ? bubble.branches.map(normalizeBranchRule)
       : Array.isArray(bubble.branchMap)
@@ -417,6 +525,7 @@ function normalizePlayerReply(playerReply) {
     type: 'text',
     placeholder: playerReply.placeholder || '',
     answers: parseExpectedReplies(playerReply.answers),
+    storesAs: normalizeVarKey(playerReply.storesAs || ''),
     setsTeam: !!playerReply.setsTeam,
     anytime: !!playerReply.anytime,
     goTo: playerReply.goTo || undefined,
@@ -473,22 +582,12 @@ function getStopReply(stop, stopIndex) {
   const replyBubble = getReplyBubble(stop, stopIndex);
   if (!replyBubble) return (stop && stop.playerReply) || { type: 'text', placeholder: '', answers: [] };
 
-  if (isPlayerTriggerBubble(replyBubble)) {
-    const triggerText = getPlayerTriggerText(replyBubble);
-    return {
-      type: 'text',
-      placeholder: replyBubble.placeholder || '',
-      answers: triggerText ? [triggerText] : [],
-      setsTeam: false,
-      goTo: undefined
-    };
-  }
-
   if (replyBubble.replyExpected === 'branch') {
     return {
       type: 'branch',
       placeholder: replyBubble.placeholder || '',
       storesAs: normalizeVarKey(replyBubble.storesAs || ''),
+      incorrectReply: replyBubble.incorrectReply || '',
       branches: Array.isArray(replyBubble.branches) ? replyBubble.branches.map(normalizeBranchRule) : []
     };
   }
@@ -502,10 +601,22 @@ function getStopReply(stop, stopIndex) {
     };
   }
 
+  if (isPlayerTriggerBubble(replyBubble)) {
+    const triggerText = getPlayerTriggerText(replyBubble);
+    return {
+      type: 'text',
+      placeholder: replyBubble.placeholder || '',
+      answers: parseExpectedReplies(triggerText),
+      setsTeam: false,
+      goTo: undefined
+    };
+  }
+
   return {
     type: 'text',
     placeholder: replyBubble.placeholder || '',
     answers: parseExpectedReplies(replyBubble.answers),
+    storesAs: normalizeVarKey(replyBubble.storesAs || ''),
     setsTeam: false,
     goTo: undefined
   };
@@ -519,6 +630,21 @@ async function loadStops() {
       if (raw) {
         localStorage.removeItem(STORE_KEY + '_preview_stops');
         payload = JSON.parse(raw);
+      }
+    } catch (e) {}
+  }
+  if (!payload && globalThis.TGBGamesNewRuntime) {
+    try {
+      const graphGame = await globalThis.TGBGamesNewRuntime.loadGraphGame(GAME_PARAM);
+      if (graphGame) {
+        const built = globalThis.TGBGamesNewRuntime.buildEnginePayload(graphGame);
+        allStopsById = {};
+        (built.stops || []).forEach(function(stop) {
+          if (!stop || !stop.id) return;
+          allStopsById[stop.id] = stop;
+          allStopsById[String(stop.id).toLowerCase()] = stop;
+        });
+        return built;
       }
     } catch (e) {}
   }
@@ -693,14 +819,25 @@ function renderInput(disabled) {
       if (ai === state.step) continue;
       const anytimeStop = stops[ai];
       if (!anytimeStop || !anytimeStop.playerReply || !anytimeStop.playerReply.anytime) continue;
-      const anytimeMatch = (anytimeStop.playerReply.answers || []).find((a) => norm(a) === norm(val));
-      if (!anytimeMatch) continue;
+      const anytimeAnswers = Array.isArray(anytimeStop.playerReply.answers)
+        ? anytimeStop.playerReply.answers.filter(Boolean)
+        : [];
+      const anytimeMatch = anytimeAnswers.length
+        ? anytimeAnswers.find((a) => norm(a) === norm(val))
+        : val;
+      if (!anytimeMatch && anytimeAnswers.length) continue;
+      const anytimeVarKey = normalizeVarKey(anytimeStop.playerReply.storesAs);
+      if (anytimeVarKey) {
+        state.vars[anytimeVarKey] = val;
+        saveState();
+      }
       addMsg({ fromPlayer: true, text: anytimeMatch || val }, true);
       input.value = '';
       inputAreaEl.querySelectorAll('input, button').forEach((el) => { el.disabled = true; });
       scrollBottom(true);
       const promptBubble = getReplyPromptBubble(stops[state.step], state.step);
-      const toShow = promptBubble ? [promptBubble] : [];
+      const anytimeBubbles = getInitialStopMessages(anytimeStop, ai);
+      const toShow = anytimeBubbles.concat(promptBubble ? [promptBubble] : []);
       showBubbles(toShow, () => {
         lastBubblePlaceholder = '';
         renderInput();
@@ -802,8 +939,10 @@ function renderInput(disabled) {
 
         inputAreaEl.querySelectorAll('input, button').forEach((el) => { el.disabled = true; });
 
-        const incorrectBubbles = [];
-        const promptBubble = getReplyPromptBubble(stops[state.step], state.step);
+        const incorrectText = String(playerReply.incorrectReply || '').trim();
+        const incorrectBubbles = incorrectText ? [{ html: incorrectText }] : [];
+        const promptBubble = getPreviousGuideBubble(stops[state.step], state.step)
+          || getReplyPromptBubble(stops[state.step], state.step);
         const toShow = promptBubble ? incorrectBubbles.concat([promptBubble]) : incorrectBubbles;
 
         lastBubblePlaceholder = '';
@@ -872,6 +1011,12 @@ function renderInput(disabled) {
     }
 
     addMsg({ fromPlayer: true, text: matchedAnswer || val }, true);
+
+    const varKey = normalizeVarKey(playerReply.storesAs);
+    if (varKey) {
+      state.vars[varKey] = val;
+      saveState();
+    }
 
     if (playerReply.goTo) {
       state.step += 1;
@@ -1014,7 +1159,9 @@ function doAdvance(matchedAnswer, options) {
     return;
   }
 
-  const nextMsgs = getInitialStopMessages(stops[state.step], state.step);
+  const nextMsgs = goToBubbleId && currentReply && currentReply.type === 'branch' && nextEntry && nextEntry.stopIndex === state.step
+    ? getBranchTargetMessages(stops[state.step], goToBubbleId, currentReply.branches)
+    : getInitialStopMessages(stops[state.step], state.step);
   const allBubbles = correctBubbles.concat(nextMsgs);
   if (!allBubbles.length) {
     lastBubblePlaceholder = '';
@@ -1055,8 +1202,9 @@ function buildRevealPlayerReplyMessage(playerReply) {
 function revealAllBubbles() {
   chatEl.innerHTML = '';
   stops.forEach((stop, idx) => {
-    (stop.messages || []).forEach((msg) => addMsg(msg, false));
     const stopReply = getStopReply(stop, idx);
+    if (stopReply && stopReply.anytime) return;
+    (stop.messages || []).forEach((msg) => addMsg(msg, false));
     const replyMsg = buildRevealPlayerReplyMessage(stopReply);
     if (replyMsg) addMsg(replyMsg, false);
     ((stopReply && stopReply.correct) || []).forEach((msg) => addMsg(msg, false));
@@ -1070,13 +1218,16 @@ function replayProgress() {
   lastBubblePlaceholder = '';
   for (let i = 0; i <= state.step; i += 1) {
     if (i >= stops.length) break;
+    const currentStop = stops[i];
+    const currentReply = getStopReply(currentStop, i);
+    if (currentReply && currentReply.anytime) continue;
     const stopMsgs = (i < state.step)
-      ? (stops[i].messages || [])
-      : getInitialStopMessages(stops[i], i);
+      ? (currentStop.messages || [])
+      : getInitialStopMessages(currentStop, i);
     stopMsgs.forEach((msg) => addMsg(msg, false));
     if (i < state.step) {
-      const pr = getStopReply(stops[i], i);
-      const routeBranchKey = getRouteBranchStorageKey(stops[i]);
+      const pr = currentReply;
+      const routeBranchKey = getRouteBranchStorageKey(currentStop);
       const routeBranchValue = routeBranchKey ? getStateVar(routeBranchKey + '__value') : undefined;
       if (routeBranchValue) {
         addMsg({ fromPlayer: true, text: routeBranchValue }, false);
