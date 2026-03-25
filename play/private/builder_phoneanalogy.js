@@ -177,10 +177,6 @@ const inspectorToggleBtn = document.getElementById('inspectorToggleBtn');
 const inspectorStack = document.getElementById('inspectorStack');
 const stencilBar = document.getElementById('stencilBar');
 const headerPlayGameBtn = document.getElementById('headerPlayGameBtn');
-const zoomOutBtn = document.getElementById('zoomOutBtn');
-const zoomInBtn = document.getElementById('zoomInBtn');
-const zoomResetBtn = document.getElementById('zoomResetBtn');
-const zoomValue = document.getElementById('zoomValue');
 const workspaceZoomOutBtn = document.getElementById('workspaceZoomOutBtn');
 const workspaceZoomInBtn = document.getElementById('workspaceZoomInBtn');
 const workspaceZoomResetBtn = document.getElementById('workspaceZoomResetBtn');
@@ -2141,11 +2137,7 @@ function getSavedGameBubbleCount(game) {
 
 function getGameshelfGames() {
   const games = [...(state.store.games || [])];
-  return games.sort((a, b) => {
-    const activeDiff = Number(b.id === state.currentGameId) - Number(a.id === state.currentGameId);
-    if (activeDiff !== 0) return activeDiff;
-    return compareSavedGamesAlphabetical(a, b);
-  });
+  return games.sort((a, b) => compareSavedGamesAlphabetical(a, b));
 }
 
 function getGameshelfLoopCount(games) {
@@ -2510,7 +2502,6 @@ function applyZoom() {
   phone.style.height = Math.round(metrics.phoneHeight) + 'px';
   phone.style.left = Math.round(metrics.phoneX) + 'px';
   phone.style.top = Math.round(metrics.phoneY) + 'px';
-  zoomValue.textContent = Math.round(state.zoom * 100) + '%';
 }
 
 function setZoom(nextZoom, clientX, clientY) {
@@ -4525,9 +4516,6 @@ newPhoneBtn.addEventListener('click', () => {
   seedPhone();
 });
 
-zoomOutBtn.addEventListener('click', () => setZoom(state.zoom - ZOOM_STEP));
-zoomInBtn.addEventListener('click', () => setZoom(state.zoom + ZOOM_STEP));
-zoomResetBtn.addEventListener('click', () => setZoom(1));
 if (workspaceZoomOutBtn) workspaceZoomOutBtn.addEventListener('click', () => setZoom(state.zoom - ZOOM_STEP));
 if (workspaceZoomInBtn) workspaceZoomInBtn.addEventListener('click', () => setZoom(state.zoom + ZOOM_STEP));
 if (workspaceZoomResetBtn) workspaceZoomResetBtn.addEventListener('click', () => setZoom(1));
