@@ -27,6 +27,21 @@ const MIME = {
   '.svg':  'image/svg+xml',
 };
 
+function writeJsonFileSafely(filePath, data) {
+  const payload = JSON.stringify(data, null, 2) + '\n';
+  const tempPath = filePath + '.tmp';
+  const backupPath = filePath + '.bak';
+  fs.writeFileSync(tempPath, payload, 'utf8');
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.copyFileSync(filePath, backupPath);
+    }
+    fs.copyFileSync(tempPath, filePath);
+  } finally {
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+  }
+}
+
 http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -77,7 +92,7 @@ http.createServer((req, res) => {
     req.on('end', () => {
       try {
         const data = JSON.parse(body);
-        fs.writeFileSync(GAMES_PHONEANALOGY_FILE, JSON.stringify(data, null, 2) + '\n', 'utf8');
+        writeJsonFileSafely(GAMES_PHONEANALOGY_FILE, data);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end('{"ok":true}');
       } catch (e) {

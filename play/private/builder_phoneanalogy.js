@@ -4,7 +4,7 @@ const TYPE_CONFIG = {
     width: 184,
     height: 318,
     kicker: 'GAME',
-    title: 'Untitled Game',
+    title: '!AAA Great Game!',
     body: 'A guided SMS adventure through the city.',
     code: 'GM'
   },
@@ -49,7 +49,10 @@ const STORE_FILE_NAME = 'games_phoneanalogy.json';
 const STORE_API_ROUTE = '/games-phoneanalogy';
 const LOCAL_STORE_KEY = 'tgb-games-phoneanalogy';
 const LOCAL_OPEN_GAME_KEY = 'tgb-games-phoneanalogy-open';
+const LOCAL_RECOVERY_KEY = 'tgb-games-phoneanalogy-recovery';
 const STORE_COMMENT = 'File: games_phoneanalogy.json | Purpose: phone-analogy graph-builder data written by TGB Builder for later game-engine use.';
+const RECOVERY_VERSION = 1;
+const RECOVERY_SAVE_DELAY_MS = 900;
 
 const EMPTY_DOC = {
   updatedAt: '',
@@ -161,25 +164,26 @@ function startPhoneClock() {
 const viewport = document.getElementById('viewport');
 const phoneStage = document.getElementById('phoneStage');
 const phone = document.getElementById('phone');
+const saveStatusPill = document.getElementById('saveStatusPill');
 const linkLayer = document.getElementById('linkLayer');
 const nodeLayer = document.getElementById('nodeLayer');
 const gameshelf = document.getElementById('gameshelf');
+const gameshelfPinned = document.getElementById('gameshelfPinned');
 const gameshelfStream = document.getElementById('gameshelfStream');
 const gameshelfList = document.getElementById('gameshelfList');
 const phoneStatusbarTime = document.querySelector('.phone-statusbar-time');
 const phoneStartBtn = document.getElementById('phoneStartBtn');
 const phoneThreadName = document.getElementById('phoneThreadName');
+const phoneThreadStatus = document.getElementById('phoneThreadStatus');
 const outsideAnytimeLabel = document.getElementById('outsideAnytimeLabel');
 const inspector = document.getElementById('inspector');
 const inspectorWindowBar = document.getElementById('inspectorWindowBar');
 const inspectorWindowTitle = document.getElementById('inspectorWindowTitle');
-const inspectorToggleBtn = document.getElementById('inspectorToggleBtn');
 const inspectorStack = document.getElementById('inspectorStack');
 const stencilBar = document.getElementById('stencilBar');
 const headerPlayGameBtn = document.getElementById('headerPlayGameBtn');
 const workspaceZoomOutBtn = document.getElementById('workspaceZoomOutBtn');
 const workspaceZoomInBtn = document.getElementById('workspaceZoomInBtn');
-const workspaceZoomResetBtn = document.getElementById('workspaceZoomResetBtn');
 const objectCard = document.getElementById('objectCard');
 const inspectorContent = document.getElementById('inspectorContent');
 const behaviorCard = document.getElementById('behaviorCard');
@@ -192,6 +196,8 @@ const priceField = document.getElementById('priceField');
 const primaryColorField = document.getElementById('primaryColorField');
 const secondaryColorField = document.getElementById('secondaryColorField');
 const tagsField = document.getElementById('tagsField');
+const builderNotesField = document.getElementById('builderNotesField');
+const nodeBuilderNotesInput = document.getElementById('nodeBuilderNotesInput');
 const descriptionField = document.getElementById('descriptionField');
 const ifThenField = document.getElementById('ifThenField');
 const nodeTitleLabel = document.getElementById('nodeTitleLabel');
@@ -227,17 +233,13 @@ const deleteBtn = document.getElementById('deleteBtn');
 const saveGameBtn = document.getElementById('saveGameBtn') || document.getElementById('playGameBtn');
 const newPhoneBtn = document.getElementById('newPhoneBtn');
 const refreshPageBtn = document.getElementById('refreshPageBtn');
-const refreshDialog = document.getElementById('refreshDialog');
-const saveRefreshBtn = document.getElementById('saveRefreshBtn');
-const discardRefreshBtn = document.getElementById('discardRefreshBtn');
-const switchGameDialog = document.getElementById('switchGameDialog');
-const switchGameTargetName = document.getElementById('switchGameTargetName');
-const saveSwitchGameBtn = document.getElementById('saveSwitchGameBtn');
-const discardSwitchGameBtn = document.getElementById('discardSwitchGameBtn');
-const cancelSwitchGameBtn = document.getElementById('cancelSwitchGameBtn');
 const nodeContextMenu = document.getElementById('nodeContextMenu');
+const gameshelfContextMenu = document.getElementById('gameshelfContextMenu');
 const duplicateNodeBtn = document.getElementById('duplicateNodeBtn');
 const deleteNodeMenuBtn = document.getElementById('deleteNodeMenuBtn');
+const gameshelfMenuNewBtn = document.getElementById('gameshelfMenuNewBtn');
+const gameshelfMenuDuplicateBtn = document.getElementById('gameshelfMenuDuplicateBtn');
+const gameshelfMenuDeleteBtn = document.getElementById('gameshelfMenuDeleteBtn');
 const bubbleDropLine = document.createElement('div');
 bubbleDropLine.className = 'bubble-drop-line';
 bubbleDropLine.hidden = true;
@@ -245,12 +247,11 @@ if (phoneStage) phoneStage.appendChild(bubbleDropLine);
 
 const nodeEls = new Map();
 let allTags = [...ALL_TAGS];
-let refreshDialogReturnFocusEl = null;
-let switchGameDialogReturnFocusEl = null;
 let phoneClockTimer = null;
 let gameshelfAutoScrollFrame = 0;
 let gameshelfAutoScrollLastTime = 0;
 let gameshelfLoopHeight = 0;
+let recoverySaveTimer = 0;
 const GAMESHELF_AUTO_SCROLL_SPEED = 22;
 const GAMESHELF_MIN_RENDER_CARDS = 12;
 const variableAutocomplete = {
@@ -261,6 +262,10 @@ const variableAutocomplete = {
   tokenEnd: -1
 };
 
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+
 const state = {
   store: cloneObj(EMPTY_STORE),
   doc: cloneObj(EMPTY_DOC),
@@ -268,7 +273,8 @@ const state = {
   cleanSnapshot: null,
   contextMenuNodeId: null,
   contextMenuLinkId: null,
-  skipBeforeUnload: false,
+  contextMenuGameshelfGameId: null,
+  contextMenuGameshelfIsNew: false,
   selectedId: null,
   selectedLinkId: null,
   dragNode: null,
@@ -278,16 +284,19 @@ const state = {
   stencilDrag: null,
   connectDrag: null,
   inspectorDrag: null,
-  inspectorCollapsed: false,
+  suspendRecoverySync: false,
+  lastRecoverySnapshot: '',
+  localOnlyChanges: false,
   inspectorPosition: null,
   hoverTargetId: null,
   suppressBackgroundClick: false,
   zoom: 1,
   layoutMetrics: null,
   dropSlot: null,
-  pendingOpenGameId: null,
   currentGameColors: null,
-  nextNodeNumbers: createNodeIdCounters()
+  nextNodeNumbers: createNodeIdCounters(),
+  initialScrollResetDone: false,
+  saveUiState: 'loading'
 };
 
 function cloneObj(value) {
@@ -475,6 +484,51 @@ function getAnytimePairId(node) {
   return isAnytimeNode(node)
     ? String(node.anytimePairId || '').trim()
     : '';
+}
+
+function normalizeNodeOrderIndex(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed) : null;
+}
+
+function getNodeConversationRank(node) {
+  if (!node) return 99;
+  if (node.type === 'game') return 0;
+  if (node.type === 'stop') return 1;
+  if (isAnytimeNode(node)) return 3;
+  return 2;
+}
+
+function compareConversationNodes(a, b, nodeIndex = null) {
+  const aRank = getNodeConversationRank(a);
+  const bRank = getNodeConversationRank(b);
+  if (aRank !== bRank) return aRank - bRank;
+
+  const aOrder = normalizeNodeOrderIndex(a && a.orderIndex);
+  const bOrder = normalizeNodeOrderIndex(b && b.orderIndex);
+  if (aOrder != null || bOrder != null) {
+    if (aOrder == null) return 1;
+    if (bOrder == null) return -1;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+  }
+
+  const yDiff = (Number(a && a.y) || 0) - (Number(b && b.y) || 0);
+  if (Math.abs(yDiff) > 2) return yDiff;
+
+  const xDiff = (Number(a && a.x) || 0) - (Number(b && b.x) || 0);
+  if (Math.abs(xDiff) > 2) return xDiff;
+
+  const indexMap = nodeIndex || new Map(state.doc.nodes.map((node, index) => [node.id, index]));
+  return (indexMap.get(a && a.id) ?? 0) - (indexMap.get(b && b.id) ?? 0);
+}
+
+function assignSequentialOrderIndices(nodes) {
+  const nodeIndex = new Map(nodes.map((node, index) => [node.id, index]));
+  [...nodes]
+    .sort((a, b) => compareConversationNodes(a, b, nodeIndex))
+    .forEach((node, index) => {
+      node.orderIndex = (index + 1) * 100;
+    });
 }
 
 function getAnytimePairNodes(pairId) {
@@ -874,19 +928,7 @@ function canReorderPhoneBubble(node) {
 
 function getSortedConversationNodes(nodes) {
   const nodeIndex = new Map(state.doc.nodes.map((node, index) => [node.id, index]));
-  return [...nodes].sort((a, b) => {
-    const aPinnedRank = a.type === 'game' ? 0 : a.type === 'stop' ? 1 : 2;
-    const bPinnedRank = b.type === 'game' ? 0 : b.type === 'stop' ? 1 : 2;
-    if (aPinnedRank !== bPinnedRank) return aPinnedRank - bPinnedRank;
-
-    const yDiff = (Number(a.y) || 0) - (Number(b.y) || 0);
-    if (Math.abs(yDiff) > 2) return yDiff;
-
-    const xDiff = (Number(a.x) || 0) - (Number(b.x) || 0);
-    if (Math.abs(xDiff) > 2) return xDiff;
-
-    return (nodeIndex.get(a.id) ?? 0) - (nodeIndex.get(b.id) ?? 0);
-  });
+  return [...nodes].sort((a, b) => compareConversationNodes(a, b, nodeIndex));
 }
 
 function getPhoneIncomingSourceId(node) {
@@ -939,6 +981,20 @@ function getPhoneMessageRows(excludeNodeId = null) {
   }
 
   return rows;
+}
+
+function reorderPhoneBubble(nodeId, insertIndex) {
+  const node = getNode(nodeId);
+  if (!canReorderPhoneBubble(node)) return false;
+  const orderedNodes = getSortedConversationNodes(
+    state.doc.nodes.filter((candidate) => candidate && candidate.id !== nodeId && canReorderPhoneBubble(candidate))
+  );
+  const nextIndex = clamp(Number(insertIndex) || 0, 0, orderedNodes.length);
+  orderedNodes.splice(nextIndex, 0, node);
+  orderedNodes.forEach((candidate, index) => {
+    candidate.orderIndex = (index + 1) * 100;
+  });
+  return true;
 }
 
 function getPhoneThreadRows() {
@@ -996,20 +1052,24 @@ function getPhoneDropSlots(excludeNodeId = null) {
   const messageTop = getPhoneMessageThreadTop(excludeNodeId);
   const minLineY = PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT + 10;
   const projectedRows = getPhoneProjectedMessageRows(excludeNodeId);
+  let insertIndex = 0;
   const slots = [{
     index: 0,
     lineY: Math.max(minLineY, messageTop - gapHalf),
     previewY: messageTop,
-    sortY: Math.max(minLineY, messageTop - gapHalf)
+    sortY: Math.max(minLineY, messageTop - gapHalf),
+    insertIndex
   }];
 
   projectedRows.forEach((row, index) => {
+    insertIndex += row.nodes.length;
     const lineY = Math.max(minLineY, row.nextRowTop - gapHalf);
     slots.push({
       index: index + 1,
       lineY,
       previewY: row.nextRowTop,
-      sortY: lineY
+      sortY: lineY,
+      insertIndex
     });
   });
 
@@ -1116,18 +1176,22 @@ function getPhoneBubbleSize(node, maxWidth = PHONE_BUBBLE_MAX_WIDTH) {
 
 function updatePhoneChrome() {
   if (!phoneThreadName) return;
+  if (!hasGameNode()) {
+    phoneThreadName.textContent = 'Gameshelf';
+    if (phoneThreadStatus) phoneThreadStatus.textContent = '';
+    if (phoneStartBtn) phoneStartBtn.style.background = '';
+    return;
+  }
+  const gameNode = getGameNode();
   phoneThreadName.textContent = getDocName();
+  if (phoneThreadStatus) phoneThreadStatus.textContent = gameNode?.guideName || '';
+  if (phoneStartBtn) {
+    const { primaryColor } = getCurrentGameColors();
+    phoneStartBtn.style.background = primaryColor || '';
+  }
 }
 
-function syncPhoneStartButton() {
-  if (!phoneStartBtn) return;
-  const gameNode = getGameNode();
-  const isSelected = !!gameNode && state.selectedId === gameNode.id;
-  phoneStartBtn.disabled = !gameNode;
-  phoneStartBtn.classList.toggle('selected', isSelected);
-  phoneStartBtn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-  phoneStartBtn.setAttribute('aria-label', gameNode ? ('Open GAME details for ' + getDocName()) : 'No GAME bubble');
-}
+function syncPhoneStartButton() {}
 
 function applyPhoneThreadLayout() {
   if (!THREAD_LAYOUT_ENABLED) return;
@@ -1428,17 +1492,14 @@ function clampInspectorPosition(x, y) {
 }
 
 function applyInspectorPosition() {
-  if (!inspector || inspector.hidden) return;
-  if (!state.inspectorPosition) state.inspectorPosition = getDefaultInspectorPosition();
-  state.inspectorPosition = clampInspectorPosition(state.inspectorPosition.x, state.inspectorPosition.y);
-  inspector.style.left = state.inspectorPosition.x + 'px';
-  inspector.style.top = state.inspectorPosition.y + 'px';
-  inspector.style.right = 'auto';
+  if (!inspector) return;
+  inspector.style.left = '';
+  inspector.style.top = '';
+  inspector.style.right = '';
 }
 
 function refreshInspectorWindowUi() {
   if (!inspector) return;
-  inspector.classList.toggle('is-collapsed', state.inspectorCollapsed);
   if (inspectorWindowTitle) {
     const node = getNode(state.selectedId);
     const link = getLink(state.selectedLinkId);
@@ -1448,19 +1509,10 @@ function refreshInspectorWindowUi() {
         ? 'Connection Details'
         : 'Details';
   }
-  if (inspectorToggleBtn) {
-    inspectorToggleBtn.textContent = state.inspectorCollapsed ? 'Expand' : 'Collapse';
-    inspectorToggleBtn.setAttribute('aria-expanded', state.inspectorCollapsed ? 'false' : 'true');
-  }
-  if (inspectorStack) inspectorStack.hidden = state.inspectorCollapsed;
+  if (inspectorStack) inspectorStack.hidden = false;
   if (!inspector.hidden) {
     window.requestAnimationFrame(applyInspectorPosition);
   }
-}
-
-function toggleInspectorCollapsed(forceValue = null) {
-  state.inspectorCollapsed = forceValue == null ? !state.inspectorCollapsed : !!forceValue;
-  refreshInspectorWindowUi();
 }
 
 function isBubbleLikeType(type) {
@@ -1529,6 +1581,7 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     tagline: raw && typeof raw.tagline === 'string' ? raw.tagline : '',
     guideName: raw && typeof raw.guideName === 'string' ? raw.guideName : '',
     price: raw && typeof raw.price === 'string' ? raw.price : '',
+    builderNotes: raw && typeof raw.builderNotes === 'string' ? raw.builderNotes : '',
     tags: Array.isArray(raw && raw.tags)
       ? raw.tags.map((tag) => String(tag).trim()).filter(Boolean)
       : typeof (raw && raw.tag) === 'string'
@@ -1541,7 +1594,8 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     acceptAny: type === 'reply' ? !!(raw && raw.acceptAny) : false,
     anytime,
     anytimePairId,
-    rotation: normalizeNodeRotation(raw && raw.rotation, type)
+    rotation: normalizeNodeRotation(raw && raw.rotation, type),
+    orderIndex: normalizeNodeOrderIndex(raw && raw.orderIndex)
   };
 }
 
@@ -1567,6 +1621,7 @@ function normalizeDoc(raw) {
   });
   const nodeIds = new Set(nodes.map((node) => node.id));
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  assignSequentialOrderIndices(nodes);
   const usedPortsByNode = new Map();
   const links = Array.isArray(doc.links)
     ? doc.links
@@ -1661,12 +1716,15 @@ function getDocSnapshot(doc = state.doc) {
       tagline: node.tagline || '',
       guideName: node.guideName || '',
       price: node.price || '',
+      builderNotes: node.builderNotes || '',
       tags: (node.tags || []).filter(Boolean),
       body: node.body || '',
       varName: node.varName || '',
+      acceptAny: !!node.acceptAny,
       anytime: !!node.anytime,
       anytimePairId: node.anytimePairId || '',
-      rotation: getNodeRotation(node)
+      rotation: getNodeRotation(node),
+      orderIndex: normalizeNodeOrderIndex(node.orderIndex)
     })),
     links: doc.links.map((link) => ({
       from: link.from,
@@ -1709,9 +1767,24 @@ function hasUnsavedChanges() {
   return state.cleanSnapshot != null && getDocSnapshot() !== state.cleanSnapshot;
 }
 
+function hasPendingSaveChanges() {
+  return hasUnsavedChanges() || !!state.localOnlyChanges;
+}
+
 function updateActionUi() {
-  if (saveGameBtn) saveGameBtn.disabled = false;
-  if (headerPlayGameBtn) headerPlayGameBtn.disabled = false;
+  const hasGame = hasGameNode();
+  const isSaveBusy = state.saveUiState === 'saving' || state.saveUiState === 'loading';
+  const canSave = hasPendingSaveChanges();
+  if (saveGameBtn) saveGameBtn.disabled = isSaveBusy || !canSave;
+  if (saveStatusPill) {
+    saveStatusPill.disabled = isSaveBusy || !canSave;
+    saveStatusPill.dataset.state = isSaveBusy ? 'saving' : (canSave ? 'dirty' : 'idle');
+    saveStatusPill.textContent = 'Save';
+    saveStatusPill.title = 'Save';
+    saveStatusPill.setAttribute('aria-label', 'Save');
+    saveStatusPill.setAttribute('aria-busy', isSaveBusy ? 'true' : 'false');
+  }
+  if (headerPlayGameBtn) headerPlayGameBtn.disabled = !hasGame;
 }
 
 function isRefreshShortcut(event) {
@@ -1744,34 +1817,18 @@ function isZoomResetShortcut(event) {
   return event.code === 'Digit0';
 }
 
-function setRefreshDialogBusy(isBusy) {
-  if (saveRefreshBtn) saveRefreshBtn.disabled = isBusy;
-  if (discardRefreshBtn) discardRefreshBtn.disabled = isBusy;
-}
-
-function openRefreshDialog() {
-  if (!refreshDialog || refreshDialog.hidden === false) return;
-  refreshDialogReturnFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  setRefreshDialogBusy(false);
-  refreshDialog.hidden = false;
-  if (saveRefreshBtn) saveRefreshBtn.focus();
-}
-
-function closeRefreshDialog() {
-  if (!refreshDialog || refreshDialog.hidden) return;
-  refreshDialog.hidden = true;
-  setRefreshDialogBusy(false);
-  if (refreshDialogReturnFocusEl && typeof refreshDialogReturnFocusEl.focus === 'function') {
-    refreshDialogReturnFocusEl.focus();
-  }
-  refreshDialogReturnFocusEl = null;
-}
-
 function closeNodeContextMenu() {
   if (!nodeContextMenu || nodeContextMenu.hidden) return;
   nodeContextMenu.hidden = true;
   state.contextMenuNodeId = null;
   state.contextMenuLinkId = null;
+}
+
+function closeGameshelfContextMenu() {
+  if (!gameshelfContextMenu || gameshelfContextMenu.hidden) return;
+  gameshelfContextMenu.hidden = true;
+  state.contextMenuGameshelfGameId = null;
+  state.contextMenuGameshelfIsNew = false;
 }
 
 function openNodeContextMenu(nodeId, clientX, clientY) {
@@ -1824,90 +1881,53 @@ function openLinkContextMenu(linkId, clientX, clientY) {
   nodeContextMenu.style.top = Math.max(margin, top) + 'px';
 }
 
-function reloadPage(skipWarning = false) {
-  if (skipWarning) {
-    state.skipBeforeUnload = true;
-    window.setTimeout(() => { state.skipBeforeUnload = false; }, 1500);
+function openGameshelfContextMenu(options = {}, clientX, clientY) {
+  if (!gameshelfContextMenu) return;
+  const gameId = String(options.gameId || '').trim();
+  const isNew = !!options.isNew;
+  const newOnly = !!options.newOnly;
+
+  state.contextMenuGameshelfGameId = gameId || null;
+  state.contextMenuGameshelfIsNew = isNew;
+  if (gameshelfMenuNewBtn) gameshelfMenuNewBtn.disabled = false;
+  if (gameshelfMenuDuplicateBtn) {
+    gameshelfMenuDuplicateBtn.hidden = newOnly;
+    gameshelfMenuDuplicateBtn.disabled = newOnly || isNew || !gameId;
   }
+  if (gameshelfMenuDeleteBtn) {
+    gameshelfMenuDeleteBtn.hidden = newOnly;
+    gameshelfMenuDeleteBtn.disabled = newOnly || isNew || !gameId;
+  }
+
+  gameshelfContextMenu.hidden = false;
+  gameshelfContextMenu.style.left = '0px';
+  gameshelfContextMenu.style.top = '0px';
+
+  const margin = 10;
+  const menuWidth = gameshelfContextMenu.offsetWidth || 180;
+  const menuHeight = gameshelfContextMenu.offsetHeight || 132;
+  const left = Math.min(clientX, window.innerWidth - menuWidth - margin);
+  const top = Math.min(clientY, window.innerHeight - menuHeight - margin);
+  gameshelfContextMenu.style.left = Math.max(margin, left) + 'px';
+  gameshelfContextMenu.style.top = Math.max(margin, top) + 'px';
+}
+
+function reloadPage() {
   location.reload();
 }
 
 function attemptRefresh() {
-  if (hasUnsavedChanges()) {
-    openRefreshDialog();
-    return;
-  }
-
+  if (hasPendingSaveChanges()) syncRecoveryDraftNow({ updateStatus: false });
   reloadPage();
-}
-
-async function saveThenRefresh() {
-  if (!refreshDialog || refreshDialog.hidden) return;
-  setRefreshDialogBusy(true);
-  await saveDoc();
-  closeRefreshDialog();
-  reloadPage(true);
-}
-
-function refreshWithoutSaving() {
-  closeRefreshDialog();
-  reloadPage(true);
-}
-
-function setSwitchGameDialogBusy(isBusy) {
-  if (saveSwitchGameBtn) saveSwitchGameBtn.disabled = isBusy;
-  if (discardSwitchGameBtn) discardSwitchGameBtn.disabled = isBusy;
-  if (cancelSwitchGameBtn) cancelSwitchGameBtn.disabled = isBusy;
-}
-
-function openSwitchGameDialog(gameId, returnFocusEl = null) {
-  if (!switchGameDialog || switchGameDialog.hidden === false) return;
-  const nextGame = state.store.games.find((entry) => entry.id === gameId);
-  if (!nextGame) return;
-  state.pendingOpenGameId = gameId;
-  switchGameDialogReturnFocusEl = returnFocusEl || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-  if (switchGameTargetName) switchGameTargetName.textContent = nextGame.name || 'this game';
-  setSwitchGameDialogBusy(false);
-  switchGameDialog.hidden = false;
-  if (saveSwitchGameBtn) saveSwitchGameBtn.focus();
-}
-
-function closeSwitchGameDialog() {
-  if (!switchGameDialog || switchGameDialog.hidden) return;
-  switchGameDialog.hidden = true;
-  state.pendingOpenGameId = null;
-  setSwitchGameDialogBusy(false);
-  if (switchGameDialogReturnFocusEl && typeof switchGameDialogReturnFocusEl.focus === 'function') {
-    switchGameDialogReturnFocusEl.focus();
-  }
-  switchGameDialogReturnFocusEl = null;
 }
 
 function requestOpenSavedGame(gameId, returnFocusEl = null) {
   const nextGameId = String(gameId || '').trim();
   if (!nextGameId || nextGameId === state.currentGameId) return;
   if (!state.store.games.some((game) => game.id === nextGameId)) return;
-  if (hasUnsavedChanges()) {
-    openSwitchGameDialog(nextGameId, returnFocusEl);
-    return;
-  }
-  openSavedGame(nextGameId);
-}
-
-async function saveThenOpenPendingGame() {
-  const nextGameId = state.pendingOpenGameId;
-  if (!nextGameId) return;
-  setSwitchGameDialogBusy(true);
-  await saveDoc({ silent: true });
-  closeSwitchGameDialog();
-  openSavedGame(nextGameId);
-}
-
-function openPendingGameWithoutSaving() {
-  const nextGameId = state.pendingOpenGameId;
-  if (!nextGameId) return;
-  closeSwitchGameDialog();
-  openSavedGame(nextGameId);
+  const preserveRecovery = hasPendingSaveChanges();
+  if (preserveRecovery) syncRecoveryDraftNow({ updateStatus: false });
+  openSavedGame(nextGameId, { preserveRecovery });
 }
 
 function closeMenuForButton(button) {
@@ -1923,7 +1943,34 @@ async function saveCurrentGameFromMenu() {
   await saveDoc();
 }
 
+function openGameshelfMenuForButton(button, event, options = {}) {
+  if (!button || !event) return;
+  event.preventDefault();
+  event.stopPropagation();
+  closeNodeContextMenu();
+  closeGameshelfContextMenu();
+  openGameshelfContextMenu(options, event.clientX, event.clientY);
+}
+
+function buildDuplicateGameName(baseName = 'Untitled Game') {
+  const sourceName = String(baseName || 'Untitled Game').trim() || 'Untitled Game';
+  const names = new Set((state.store.games || []).map((game) => String(game && game.name || '').trim().toLowerCase()));
+  const firstCandidate = sourceName + ' Copy';
+  if (!names.has(firstCandidate.toLowerCase())) return firstCandidate;
+  let copyIndex = 2;
+  while (names.has((sourceName + ' Copy ' + copyIndex).toLowerCase())) {
+    copyIndex += 1;
+  }
+  return sourceName + ' Copy ' + copyIndex;
+}
+
 function deriveSavedGameColors(game, index = 0) {
+  if (game && game.id === 'draft-game') {
+    return {
+      primaryColor: '#ffffff',
+      secondaryColor: '#243256'
+    };
+  }
   const seed = String(game && game.id || game && game.name || index);
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) {
@@ -2027,6 +2074,128 @@ function colorValueToHex(rawValue, fallback = '#5468a7') {
     .join('');
 }
 
+function colorValueToRgba(rawValue, alpha = 1, fallback = '#5468a7') {
+  const hex = colorValueToHex(rawValue, fallback);
+  const normalized = hex.startsWith('#') ? hex.slice(1) : '5468a7';
+  const safeHex = (normalized.length === 3
+    ? normalized.split('').map((value) => value + value).join('')
+    : normalized.padEnd(6, '0')).slice(0, 6);
+  const channels = [0, 2, 4].map((offset) => Number.parseInt(safeHex.slice(offset, offset + 2), 16) || 0);
+  const clampedAlpha = Math.max(0, Math.min(1, Number(alpha) || 0));
+  return `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${clampedAlpha})`;
+}
+
+function getTertiaryGameColor(rawValue, fallback = '#5468a7') {
+  const hex = colorValueToHex(rawValue, fallback);
+  const normalized = hex.startsWith('#') ? hex.slice(1) : '5468a7';
+  const safeHex = (normalized.length === 3
+    ? normalized.split('').map((value) => value + value).join('')
+    : normalized.padEnd(6, '0')).slice(0, 6);
+  const [r, g, b] = [0, 2, 4].map((offset) => Number.parseInt(safeHex.slice(offset, offset + 2), 16) || 0);
+  const distanceToBlack = (r * r) + (g * g) + (b * b);
+  const distanceToWhite = ((255 - r) * (255 - r)) + ((255 - g) * (255 - g)) + ((255 - b) * (255 - b));
+  return distanceToBlack >= distanceToWhite ? '#000000' : '#ffffff';
+}
+
+function applyGameshelfButtonColors(button, colors = null) {
+  if (!button) return;
+  const primaryColor = colors && colors.primaryColor ? colors.primaryColor : '#5468a7';
+  const tertiaryColor = getTertiaryGameColor(primaryColor, '#5468a7');
+  button.style.setProperty('--gameshelf-glow', 'rgba(224, 224, 224, 0.65)');
+  button.style.setProperty('--gameshelf-title-color', primaryColor);
+  button.style.setProperty('--gameshelf-title-outline', tertiaryColor);
+}
+
+async function syncStoreToServer() {
+  state.store.updatedAt = new Date().toISOString();
+  try {
+    const apiBases = getApiBaseCandidates();
+    let lastError = null;
+    for (const apiBase of apiBases) {
+      try {
+        const res = await fetch(apiBase + STORE_API_ROUTE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(state.store)
+        });
+        if (!res.ok) {
+          const message = await res.text();
+          throw new Error(message || 'Store sync failed');
+        }
+        return { serverSaved: true, localOnly: false, apiBase };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    return { serverSaved: false, localOnly: true, error: lastError };
+  } catch (error) {
+    return { serverSaved: false, localOnly: true, error };
+  }
+}
+
+function getGameshelfSourceGameSnapshot(gameId) {
+  const sourceGame = state.store.games.find((entry) => entry.id === gameId);
+  if (!sourceGame) return null;
+  const sourceIndex = state.store.games.findIndex((entry) => entry.id === gameId);
+  const isCurrent = gameId === state.currentGameId;
+  const colors = isCurrent ? getCurrentGameColors() : getSavedGameColors(sourceGame, sourceIndex);
+  return {
+    sourceGame,
+    isCurrent,
+    colors,
+    name: isCurrent ? getDocName() : (sourceGame.name || 'Untitled Game'),
+    nodes: cloneObj(isCurrent ? state.doc.nodes : sourceGame.nodes),
+    links: cloneObj(isCurrent ? state.doc.links : sourceGame.links)
+  };
+}
+
+async function duplicateSavedGame(gameId) {
+  const snapshot = getGameshelfSourceGameSnapshot(gameId);
+  if (!snapshot) return null;
+
+  const timestamp = new Date().toISOString();
+  const duplicatedGame = {
+    id: makeGameId(),
+    name: buildDuplicateGameName(snapshot.name),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    primaryColor: snapshot.colors.primaryColor,
+    secondaryColor: snapshot.colors.secondaryColor,
+    nodes: snapshot.nodes,
+    links: snapshot.links
+  };
+
+  state.store.updatedAt = timestamp;
+  state.store.games.push(duplicatedGame);
+  syncAllTagsFromStore();
+  renderGameshelf();
+  persistStoreLocally();
+  state.localOnlyChanges = true;
+  syncRecoveryDraftNow({ updateStatus: false });
+  updateActionUi();
+  setSaveStatus('local');
+  return duplicatedGame;
+}
+
+async function deleteSavedGame(gameId) {
+  const targetIndex = state.store.games.findIndex((entry) => entry.id === gameId);
+  if (targetIndex < 0) return false;
+  const isCurrent = gameId === state.currentGameId;
+
+  state.store.games.splice(targetIndex, 1);
+  state.store.updatedAt = new Date().toISOString();
+  if (isCurrent) state.currentGameId = null;
+  syncAllTagsFromStore();
+  renderGameshelf();
+  persistStoreLocally();
+  state.localOnlyChanges = true;
+  syncRecoveryDraftNow({ updateStatus: false });
+  updateActionUi();
+  if (isCurrent) renderAll();
+  setSaveStatus('local');
+  return true;
+}
+
 function normalizeSavedGame(raw, index) {
   const doc = normalizeDoc(raw);
   const createdAt = typeof (raw && raw.createdAt) === 'string' && raw.createdAt
@@ -2064,6 +2233,10 @@ function normalizeStore(raw) {
 
 function createNode(type, x, y) {
   const config = TYPE_CONFIG[type];
+  const nextOrderIndex = state.doc.nodes.reduce((maxOrderIndex, node) => {
+    const value = normalizeNodeOrderIndex(node && node.orderIndex);
+    return value == null ? maxOrderIndex : Math.max(maxOrderIndex, value);
+  }, 0) + 100;
   return {
     id: makeId(type),
     type,
@@ -2075,13 +2248,15 @@ function createNode(type, x, y) {
     tagline: type === 'game' ? 'Shall We Play A Game?' : '',
     guideName: type === 'game' ? 'Mission Control' : '',
     price: type === 'game' ? 'Free To Start / In App Purchases' : '',
+    builderNotes: '',
     tags: [],
     body: config.body,
     varName: '',
     acceptAny: false,
     anytime: false,
     anytimePairId: '',
-    rotation: 0
+    rotation: 0,
+    orderIndex: nextOrderIndex
   };
 }
 
@@ -2170,9 +2345,28 @@ function stopGameshelfAutoScroll(resetScroll = true) {
   }
 }
 
+function resetHomeScrollPositions() {
+  if (gameshelfStream) gameshelfStream.scrollTop = 0;
+  if (viewport) {
+    viewport.scrollLeft = 0;
+    viewport.scrollTop = 0;
+  }
+  window.scrollTo(0, 0);
+}
+
+function scheduleInitialScrollReset() {
+  if (state.initialScrollResetDone) return;
+  state.initialScrollResetDone = true;
+  window.requestAnimationFrame(() => {
+    resetHomeScrollPositions();
+    window.requestAnimationFrame(() => {
+      resetHomeScrollPositions();
+    });
+  });
+}
+
 function shouldPauseGameshelfAutoScroll() {
   return !gameshelfStream
-    || gameshelfStream.matches(':hover')
     || (!!gameshelf && gameshelf.contains(document.activeElement));
 }
 
@@ -2202,19 +2396,77 @@ function stepGameshelfAutoScroll(timestamp) {
 function refreshGameshelfAutoScroll() {
   if (!gameshelfStream || !gameshelfList) return;
   stopGameshelfAutoScroll(false);
-  window.requestAnimationFrame(() => {
-    gameshelfLoopHeight = measureGameshelfLoopHeight();
-    if (!gameshelfLoopHeight || gameshelfStream.scrollHeight <= gameshelfStream.clientHeight + 12) {
-      gameshelfStream.scrollTop = 0;
-      return;
-    }
-    gameshelfStream.scrollTop = gameshelfStream.scrollTop % gameshelfLoopHeight;
-    gameshelfAutoScrollFrame = window.requestAnimationFrame(stepGameshelfAutoScroll);
+}
+
+// Drag-to-scroll on gameshelf
+let gsDrag = false;
+let gsDragStartY = 0;
+let gsDragScrollTop = 0;
+let gsDragWasScrolling = false;
+
+if (gameshelfStream) {
+  gameshelfStream.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    gsDrag = true;
+    gsDragStartY = e.clientY;
+    gsDragScrollTop = gameshelfStream.scrollTop;
+    gsDragWasScrolling = !!gameshelfAutoScrollFrame;
+    if (gsDragWasScrolling) stopGameshelfAutoScroll(false);
+    gameshelfStream.style.cursor = 'grabbing';
+    e.preventDefault();
   });
+}
+
+window.addEventListener('mousemove', e => {
+  if (!gsDrag) return;
+  gameshelfStream.scrollTop = gsDragScrollTop + (gsDragStartY - e.clientY);
+});
+
+window.addEventListener('mouseup', () => {
+  if (!gsDrag) return;
+  gsDrag = false;
+  if (gameshelfStream) gameshelfStream.style.cursor = '';
+  if (gsDragWasScrolling) refreshGameshelfAutoScroll();
+});
+
+function buildNowPlayingBadgeMarkup() {
+  return '<span class="gameshelf-game-badge">Now Playing</span>';
+}
+
+function startNewPhone() {
+  const preserveRecovery = hasPendingSaveChanges();
+  if (preserveRecovery) syncRecoveryDraftNow({ updateStatus: false });
+  seedPhone({ preserveRecovery });
+  return true;
+}
+
+function buildNewGameShelfButton(showNowPlayingBadge = false) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'gameshelf-game gameshelf-game--new';
+  applyGameshelfButtonColors(button);
+  button.innerHTML = `
+    ${showNowPlayingBadge ? buildNowPlayingBadgeMarkup() : ''}
+    <span class="gameshelf-game-status">+ CREATE</span>
+    <span class="gameshelf-game-title">New Game</span>
+    <span class="gameshelf-game-meta">Start from scratch</span>
+  `;
+  button.addEventListener('click', () => startNewPhone());
+  button.addEventListener('contextmenu', (event) => {
+    openGameshelfMenuForButton(button, event, { isNew: true });
+  });
+  return button;
+}
+
+function renderGameshelfPinned() {
+  if (!gameshelfPinned) return;
+  gameshelfPinned.innerHTML = '';
+  gameshelfPinned.hidden = true;
 }
 
 function renderGameshelf() {
   if (!gameshelfList) return;
+  renderGameshelfPinned();
   const games = getGameshelfGames();
   gameshelfList.innerHTML = '';
 
@@ -2224,52 +2476,43 @@ function renderGameshelf() {
     emptyEl.className = 'gameshelf-empty';
     emptyEl.textContent = 'No saved games on the gameshelf yet.';
     gameshelfList.appendChild(emptyEl);
+    scheduleRecoverySync();
     return;
   }
 
-  const loopCount = getGameshelfLoopCount(games);
+  games.forEach((game, index) => {
+    const slot = document.createElement('div');
+    slot.className = 'gameshelf-slot';
 
-  for (let loopIndex = 0; loopIndex < loopCount; loopIndex += 1) {
-    games.forEach((game, index) => {
-      const slot = document.createElement('div');
-      slot.className = 'gameshelf-slot';
-      slot.dataset.loopIndex = String(loopIndex);
-      if (loopIndex > 0) {
-        slot.setAttribute('aria-hidden', 'true');
-      }
+    const button = document.createElement('button');
+    const isActive = game.id === state.currentGameId;
+    const isDirty = isActive && hasUnsavedChanges();
+    const colors = isActive ? getCurrentGameColors() : getSavedGameColors(game, index);
 
-      const button = document.createElement('button');
-      const isActive = game.id === state.currentGameId;
-      const isDirty = isActive && hasUnsavedChanges();
-      const colors = isActive ? getCurrentGameColors() : getSavedGameColors(game, index);
-      const bubbleCount = getSavedGameBubbleCount(game);
-      const bubbleLabel = bubbleCount === 1 ? '1 bubble' : bubbleCount + ' bubbles';
-
-      button.type = 'button';
-      button.className = 'gameshelf-game' + (isActive ? ' is-active' : '') + (isDirty ? ' is-dirty' : '');
-      button.dataset.gameId = game.id;
-      button.dataset.loopIndex = String(loopIndex);
-      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      if (isActive && loopIndex === 0) button.setAttribute('aria-current', 'true');
-      if (loopIndex > 0) button.tabIndex = -1;
-      button.title = formatSavedGameLabel(game);
-      button.style.setProperty('--gameshelf-screen-primary', colors.primaryColor);
-      button.style.setProperty('--gameshelf-screen-secondary', colors.secondaryColor);
-      button.innerHTML = `
-        <span class="gameshelf-game-status">${isActive ? (isDirty ? 'OPEN / UNSAVED' : 'OPEN NOW') : formatSavedGameshelfDate(game)}</span>
-        <span class="gameshelf-game-title">${escapeHtml(game.name || 'Untitled Game')}</span>
-        <span class="gameshelf-game-meta">${bubbleLabel}</span>
-      `;
-      button.addEventListener('click', () => {
-        requestOpenSavedGame(game.id, button);
-      });
-
-      slot.appendChild(button);
-      gameshelfList.appendChild(slot);
+    button.type = 'button';
+    button.className = 'gameshelf-game' + (isDirty ? ' is-dirty' : '');
+    button.dataset.gameId = game.id;
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    if (isActive) button.setAttribute('aria-current', 'true');
+    button.title = formatSavedGameLabel(game);
+    applyGameshelfButtonColors(button, colors);
+    button.innerHTML = `
+      ${isActive ? buildNowPlayingBadgeMarkup() : ''}
+      <span class="gameshelf-game-title">${escapeHtml(game.name || 'Untitled Game')}</span>
+    `;
+    button.addEventListener('click', () => {
+      requestOpenSavedGame(game.id, button);
     });
-  }
+    button.addEventListener('contextmenu', (event) => {
+      openGameshelfMenuForButton(button, event, { gameId: game.id });
+    });
 
-  refreshGameshelfAutoScroll();
+    slot.appendChild(button);
+    gameshelfList.appendChild(slot);
+  });
+
+  stopGameshelfAutoScroll(false);
+  scheduleRecoverySync();
 }
 
 function getSavedGameUpdatedTime(game) {
@@ -2317,26 +2560,37 @@ function getLinkSelectionLabel(link) {
   return 'CONNECTION / ' + getLinkPortLabel(link);
 }
 
-function openSavedGame(gameId) {
+function openSavedGame(gameId, options = {}) {
   const game = state.store.games.find((entry) => entry.id === gameId);
   if (!game) return;
 
-  state.currentGameId = game.id;
-  state.doc = normalizeDoc(game);
-  setCurrentGameColors(game);
-  syncAllTagsFromStore();
-  syncNextNodeNumbers();
-  state.selectedLinkId = null;
-  state.selectedId = state.doc.nodes.length ? state.doc.nodes[0].id : null;
+  runWithoutRecoverySync(() => {
+    state.currentGameId = game.id;
+    state.doc = normalizeDoc(game);
+    setCurrentGameColors(game);
+    syncAllTagsFromStore();
+    syncNextNodeNumbers();
+    state.selectedLinkId = null;
+    state.selectedId = state.doc.nodes.length ? state.doc.nodes[0].id : null;
 
-  try {
-    localStorage.setItem(LOCAL_OPEN_GAME_KEY, game.id);
-  } catch (error) {
+    try {
+      localStorage.setItem(LOCAL_OPEN_GAME_KEY, game.id);
+    } catch (error) {
+    }
+
+    rememberCleanSnapshot();
+    renderGameshelf();
+    renderAll();
+  });
+  if (options.preserveRecovery) {
+    setSaveStatus(state.localOnlyChanges ? 'local' : 'saved', 'Viewing Saved Game');
+  } else if (state.localOnlyChanges) {
+    syncRecoveryDraftNow({ updateStatus: false });
+    setSaveStatus('local', 'Local Changes Only');
+  } else {
+    clearRecoveryDraft();
+    setSaveStatus('saved', 'Viewing Saved Game');
   }
-
-  rememberCleanSnapshot();
-  renderGameshelf();
-  renderAll();
 }
 
 function getRememberedOpenGameId() {
@@ -2367,6 +2621,7 @@ function renderTagPicker(node) {
       else nextTags.add(tag);
       node.tags = [...nextTags];
       renderTagPicker(node);
+      scheduleRecoverySync();
     });
     nodeTagPicker.insertBefore(pill, nodeTagNewInput);
   });
@@ -3119,11 +3374,13 @@ function renderAll() {
   }
   nodeLayer.innerHTML = '';
   nodeEls.clear();
+  if (phoneStage) phoneStage.classList.toggle('is-home', !hasGameNode());
+  if (viewport) viewport.classList.toggle('is-home', !hasGameNode());
 
-  if (state.doc.nodes.length === 0) {
+  if (!hasGameNode()) {
     const hint = document.createElement('div');
     hint.className = 'phone-empty-hint';
-    hint.innerHTML = 'Drag a blank bubble from the tray to add bubbles to the conversation.';
+    hint.innerHTML = 'Choose a game to edit or right click for new.';
     nodeLayer.appendChild(hint);
   }
 
@@ -3140,11 +3397,10 @@ function updateStencilAvailability() {
   const gameTaken = hasGameNode();
   stencilBar.querySelectorAll('[data-stencil]').forEach((button) => {
     const isGameStencil = button.dataset.stencil === 'game';
-    button.disabled = isGameStencil && gameTaken;
-    if (isGameStencil) {
-      button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
-      button.title = button.disabled ? 'Only one Game object is allowed per PHONE.' : '';
-    }
+    const disabled = !gameTaken || (isGameStencil && gameTaken);
+    button.disabled = disabled;
+    button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+    button.title = '';
   });
 }
 
@@ -3152,7 +3408,7 @@ function updateSelectionUi() {
   const node = getNode(state.selectedId);
   const link = getLink(state.selectedLinkId);
   const hasSelection = !!(node || link);
-  if (inspector) inspector.hidden = !hasSelection;
+  if (inspector) inspector.hidden = false;
   objectCard.hidden = !hasSelection;
   inspectorContent.hidden = !hasSelection;
   behaviorCard.hidden = hasSelection;
@@ -3187,6 +3443,7 @@ function updateSelectionUi() {
   primaryColorField.hidden = isLinkSelected || !isGameNode;
   secondaryColorField.hidden = isLinkSelected || !isGameNode;
   tagsField.hidden = isLinkSelected || !isGameNode;
+  builderNotesField.hidden = isLinkSelected || !isGameNode;
   const BODY_LABELS = { game: 'Description', stop: 'STOP NOTES', bubble: 'Guide Message', reply: 'ANSWER' };
   nodeTitleLabel.textContent = 'GAME NAME';
   nodeBodyLabel.textContent = node
@@ -3206,6 +3463,7 @@ function updateSelectionUi() {
   secondaryColorPickerInput.disabled = !isGameNode;
   nodeTagNewInput.disabled = !isGameNode;
   nodeTagAddBtn.disabled = !isGameNode;
+  nodeBuilderNotesInput.disabled = !isGameNode;
   syncReplyModeInputs(node);
   nodeBodyInput.disabled = isLinkSelected || !node || (isReplyNode && !!(node && node.acceptAny));
 
@@ -3234,6 +3492,7 @@ function updateSelectionUi() {
   secondaryColorPickerInput.value = colorValueToHex(currentColors.secondaryColor, '#243256');
   nodeTagNewInput.value = '';
   renderTagPicker(node);
+  nodeBuilderNotesInput.value = isGameNode ? (node.builderNotes || '') : '';
   nodeBodyInput.value = node ? (node.body || '') : '';
   nodeBodyInput.placeholder = isReplyNode ? 'e.g. READY, YES, LETS GO' : '';
   selectionId.textContent = node
@@ -3246,6 +3505,7 @@ function updateSelectionUi() {
   }
   updateActionUi();
   refreshInspectorWindowUi();
+  scheduleRecoverySync();
 }
 
 function getAutoLinkSourceNode() {
@@ -3509,6 +3769,10 @@ function duplicateNode(nodeId) {
   if (isAnytimeNode(source)) return duplicateAnytimePair(source);
 
   const placement = getAutoPlacementPosition(source.type, source);
+  const nextOrderIndex = state.doc.nodes.reduce((maxOrderIndex, node) => {
+    const value = normalizeNodeOrderIndex(node && node.orderIndex);
+    return value == null ? maxOrderIndex : Math.max(maxOrderIndex, value);
+  }, 0) + 100;
   const duplicate = {
     id: makeId(source.type),
     type: source.type,
@@ -3520,12 +3784,15 @@ function duplicateNode(nodeId) {
     tagline: source.tagline || '',
     guideName: source.guideName || '',
     price: source.price || '',
+    builderNotes: source.builderNotes || '',
     tags: Array.isArray(source.tags) ? [...source.tags] : [],
     body: source.body || '',
     varName: source.varName || '',
+    acceptAny: !!source.acceptAny,
     anytime: false,
     anytimePairId: '',
-    rotation: getNodeRotation(source)
+    rotation: getNodeRotation(source),
+    orderIndex: nextOrderIndex
   };
   if (duplicate.type === 'reply') {
     duplicate.varName = makeUniqueReplyVariableName(
@@ -3543,7 +3810,6 @@ function duplicateNode(nodeId) {
 
 function addNode(type, x, y, options = {}) {
   if (type === 'game' && hasGameNode()) {
-    alert('Only one Game object is allowed per PHONE.');
     return null;
   }
 
@@ -3650,7 +3916,6 @@ function enableAnytimeForReply(replyNode) {
   if (isAnytimeReplyNode(replyNode)) return true;
 
   if (getOutgoingLinks(replyNode.id).length) {
-    alert('ANYTIME can only be turned on for a PLAYER MSG with no outgoing paths yet.');
     return false;
   }
 
@@ -3661,7 +3926,6 @@ function enableAnytimeForReply(replyNode) {
   const bubbleConfig = TYPE_CONFIG.bubble;
 
   if (!isAutoPlacementAvailable(bubblePosition.x, bubblePosition.y, bubbleConfig.width, bubbleConfig.height, replyNode.id)) {
-    alert('Make room to the right of this PLAYER MSG before turning on ANYTIME.');
     return false;
   }
 
@@ -3678,7 +3942,6 @@ function enableAnytimeForReply(replyNode) {
     replyNode.anytime = false;
     replyNode.anytimePairId = '';
     state.doc.nodes = state.doc.nodes.filter((node) => node.id !== bubbleNode.id);
-    alert('Could not create the internal ANYTIME path for this PLAYER MSG.');
     return false;
   }
 
@@ -3797,7 +4060,6 @@ function removeSelectedLink() {
 
 function startStencilDrag(type, event) {
   if (type === 'game' && hasGameNode()) {
-    alert('Only one Game object is allowed per PHONE.');
     return;
   }
   const config = TYPE_CONFIG[type];
@@ -3847,6 +4109,7 @@ function cancelStencilDrag() {
 }
 
 function addNodeToVisiblePhone(type) {
+  if (!hasGameNode()) return null;
   const sourceNode = getAutoLinkSourceNode();
   const placement = getAutoPlacementPosition(type, sourceNode);
   return addNode(
@@ -3921,48 +4184,262 @@ function maybeAutoPan(clientX, clientY) {
   if (clientY > rect.bottom - threshold) viewport.scrollTop += step;
 }
 
-function seedPhone() {
-  state.doc = cloneObj(EMPTY_DOC);
-  state.currentGameId = null;
-  clearSelection();
-  state.nextNodeNumbers = createNodeIdCounters();
-  const firstSlot = getGameHomeSlot();
-  const gameNode = createNode('game', firstSlot.x, firstSlot.y);
-  state.doc.nodes.push(gameNode);
-  setCurrentGameColors();
-  syncAllTagsFromStore();
-  rememberCleanSnapshot();
-  renderGameshelf();
-  applyZoom();
-  renderAll();
+function seedPhone(options = {}) {
+  runWithoutRecoverySync(() => {
+    state.doc = cloneObj(EMPTY_DOC);
+    state.currentGameId = null;
+    clearSelection();
+    state.nextNodeNumbers = createNodeIdCounters();
+    const firstSlot = getGameHomeSlot();
+    const gameNode = createNode('game', firstSlot.x, firstSlot.y);
+    state.doc.nodes.push(gameNode);
+    setCurrentGameColors();
+    syncAllTagsFromStore();
+    rememberCleanSnapshot();
+    renderGameshelf();
+    applyZoom();
+    renderAll();
+    selectNode(gameNode.id);
+    renderSelectionStates();
+    drawLinks();
+    updateSelectionUi();
+  });
+  if (options.preserveRecovery) {
+    setSaveStatus(state.localOnlyChanges ? 'local' : 'idle', 'New Draft Ready');
+  } else if (state.localOnlyChanges) {
+    syncRecoveryDraftNow({ updateStatus: false });
+    setSaveStatus('local', 'Local Changes Only');
+  } else {
+    clearRecoveryDraft();
+    setSaveStatus('idle', 'New Draft Ready');
+  }
+}
+
+function serializeNodeState(node) {
+  return {
+    id: node.id,
+    type: node.type,
+    x: node.x,
+    y: node.y,
+    title: node.title,
+    tagline: node.tagline || '',
+    guideName: node.guideName || '',
+    price: node.price || '',
+    builderNotes: node.builderNotes || '',
+    tags: (node.tags || []).filter(Boolean),
+    body: node.body,
+    varName: node.varName || '',
+    acceptAny: !!node.acceptAny,
+    anytime: !!node.anytime,
+    anytimePairId: node.anytimePairId || '',
+    rotation: getNodeRotation(node),
+    orderIndex: normalizeNodeOrderIndex(node.orderIndex)
+  };
+}
+
+function serializeLinkState(link) {
+  return {
+    id: link.id,
+    from: link.from,
+    to: link.to,
+    fromPort: normalizeFromPort(getNode(link.from) || parseTypedNodeId(link.from)?.type, link.fromPort)
+  };
+}
+
+function serializeDocState(doc = state.doc, options = {}) {
+  const touchUpdatedAt = !!options.touchUpdatedAt;
+  return {
+    updatedAt: touchUpdatedAt
+      ? new Date().toISOString()
+      : (typeof (doc && doc.updatedAt) === 'string' ? doc.updatedAt : ''),
+    nodes: (doc && Array.isArray(doc.nodes) ? doc.nodes : []).map(serializeNodeState),
+    links: (doc && Array.isArray(doc.links) ? doc.links : []).map(serializeLinkState)
+  };
 }
 
 function serializeDoc() {
-  return {
-    updatedAt: new Date().toISOString(),
-    nodes: state.doc.nodes.map((node) => ({
-      id: node.id,
-      type: node.type,
-      x: node.x,
-      y: node.y,
-      title: node.title,
-      tagline: node.tagline || '',
-      guideName: node.guideName || '',
-      price: node.price || '',
-      tags: (node.tags || []).filter(Boolean),
-      body: node.body,
-      varName: node.varName || '',
-      anytime: !!node.anytime,
-      anytimePairId: node.anytimePairId || '',
-      rotation: getNodeRotation(node)
-    })),
-    links: state.doc.links.map((link) => ({
-      id: link.id,
-      from: link.from,
-      to: link.to,
-      fromPort: normalizeFromPort(getNode(link.from) || parseTypedNodeId(link.from)?.type, link.fromPort)
-    }))
-  };
+  return serializeDocState(state.doc, { touchUpdatedAt: true });
+}
+
+function setSaveStatus(kind, text) {
+  state.saveUiState = kind || 'idle';
+  updateActionUi();
+}
+
+function readLocalStoreSnapshot() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LOCAL_STORE_KEY) || 'null');
+    return raw && typeof raw === 'object' ? normalizeStore(raw) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function shouldKeepRecoveryDraft() {
+  return hasPendingSaveChanges();
+}
+
+function buildRecoverySnapshot() {
+  return JSON.stringify({
+    currentGameId: state.currentGameId || '',
+    currentGameColors: getCurrentGameColors(),
+    cleanSnapshot: state.cleanSnapshot || '',
+    localOnlyChanges: !!state.localOnlyChanges,
+    doc: serializeDocState(state.doc),
+    store: state.store
+  });
+}
+
+function clearRecoveryDraft() {
+  if (recoverySaveTimer) {
+    window.clearTimeout(recoverySaveTimer);
+    recoverySaveTimer = 0;
+  }
+  state.lastRecoverySnapshot = '';
+  try {
+    localStorage.removeItem(LOCAL_RECOVERY_KEY);
+  } catch (error) {
+  }
+}
+
+function syncRecoveryDraftNow(options = {}) {
+  if (state.suspendRecoverySync) return false;
+  if (recoverySaveTimer) {
+    window.clearTimeout(recoverySaveTimer);
+    recoverySaveTimer = 0;
+  }
+  if (!shouldKeepRecoveryDraft()) {
+    clearRecoveryDraft();
+    return false;
+  }
+
+  const snapshot = buildRecoverySnapshot();
+  if (snapshot === state.lastRecoverySnapshot) return false;
+
+  try {
+    const payload = JSON.parse(snapshot);
+    payload.version = RECOVERY_VERSION;
+    payload.storedAt = new Date().toISOString();
+    localStorage.setItem(LOCAL_RECOVERY_KEY, JSON.stringify(payload));
+    state.lastRecoverySnapshot = snapshot;
+    if (options.updateStatus !== false) setSaveStatus(state.localOnlyChanges ? 'local' : 'unsaved');
+    return true;
+  } catch (error) {
+    if (options.updateStatus !== false) setSaveStatus('error');
+    return false;
+  }
+}
+
+function scheduleRecoverySync(options = {}) {
+  if (state.suspendRecoverySync) return;
+
+  if (!shouldKeepRecoveryDraft()) {
+    clearRecoveryDraft();
+    return;
+  }
+
+  if (options.markDirty !== false && hasPendingSaveChanges()) {
+    setSaveStatus('unsaved');
+  }
+
+  if (options.immediate) {
+    syncRecoveryDraftNow(options);
+    return;
+  }
+
+  if (recoverySaveTimer) window.clearTimeout(recoverySaveTimer);
+  recoverySaveTimer = window.setTimeout(() => {
+    recoverySaveTimer = 0;
+    syncRecoveryDraftNow(options);
+  }, RECOVERY_SAVE_DELAY_MS);
+}
+
+function readRecoveryDraft() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LOCAL_RECOVERY_KEY) || 'null');
+    if (!raw || typeof raw !== 'object') return null;
+    const doc = normalizeDoc(raw.doc);
+    const store = normalizeStore(raw.store);
+    return {
+      version: raw.version,
+      storedAt: typeof raw.storedAt === 'string' ? raw.storedAt : '',
+      currentGameId: typeof raw.currentGameId === 'string' && raw.currentGameId.trim()
+        ? raw.currentGameId.trim()
+        : null,
+      currentGameColors: raw.currentGameColors && typeof raw.currentGameColors === 'object'
+        ? raw.currentGameColors
+        : null,
+      cleanSnapshot: typeof raw.cleanSnapshot === 'string' ? raw.cleanSnapshot : '',
+      localOnlyChanges: !!raw.localOnlyChanges,
+      doc,
+      store
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function runWithoutRecoverySync(work) {
+  const previous = state.suspendRecoverySync;
+  state.suspendRecoverySync = true;
+  try {
+    return work();
+  } finally {
+    state.suspendRecoverySync = previous;
+  }
+}
+
+function showGameshelfHome() {
+  runWithoutRecoverySync(() => {
+    state.doc = cloneObj(EMPTY_DOC);
+    state.currentGameId = null;
+    state.currentGameColors = null;
+    clearSelection();
+    state.nextNodeNumbers = createNodeIdCounters();
+    syncAllTagsFromStore();
+    rememberCleanSnapshot();
+    renderGameshelf();
+    applyZoom();
+    renderAll();
+    resetHomeScrollPositions();
+    scheduleInitialScrollReset();
+    drawLinks();
+    updateSelectionUi();
+  });
+  if (state.localOnlyChanges) {
+    syncRecoveryDraftNow({ updateStatus: false });
+    setSaveStatus('local', 'Local Changes Only');
+  } else {
+    clearRecoveryDraft();
+    setSaveStatus('idle', 'Gameshelf Only');
+  }
+}
+
+function restoreRecoveryWorkspace(recovery) {
+  if (!recovery) return false;
+  runWithoutRecoverySync(() => {
+    state.store = recovery.store;
+    state.doc = recovery.doc;
+    state.currentGameId = recovery.currentGameId;
+    state.localOnlyChanges = !!recovery.localOnlyChanges;
+    clearSelection();
+    syncAllTagsFromStore();
+    syncNextNodeNumbers();
+    setCurrentGameColors(recovery.currentGameColors);
+    state.cleanSnapshot = recovery.cleanSnapshot || getDocSnapshot(recovery.doc);
+    renderGameshelf();
+    applyZoom();
+    renderAll();
+    const gameNode = getGameNode();
+    if (gameNode) selectNode(gameNode.id);
+    renderSelectionStates();
+    scheduleInitialScrollReset();
+    drawLinks();
+    updateSelectionUi();
+  });
+  state.lastRecoverySnapshot = buildRecoverySnapshot();
+  setSaveStatus('draft', 'Recovered Local Draft');
+  return true;
 }
 
 function ensureAllReplyVarNames() {
@@ -3996,10 +4473,19 @@ function rememberPlayPreview(savedGame) {
   }
 }
 
-async function saveDoc(options = {}) {
-  const silent = !!options.silent;
+function shouldStageCurrentGameForSave() {
+  if (!hasGameNode()) return false;
+  if (!state.currentGameId) return true;
+  if (hasUnsavedChanges()) return true;
+  return !state.store.games.some((game) => game.id === state.currentGameId);
+}
+
+function stageCurrentGameIntoStore() {
+  if (!shouldStageCurrentGameForSave()) return null;
+
   const replyVarsFilled = ensureAllReplyVarNames();
   if (replyVarsFilled) renderAll();
+
   const docPayload = serializeDoc();
   const existingGame = state.store.games.find((game) => game.id === state.currentGameId);
   const existingIndex = state.store.games.findIndex((game) => game.id === state.currentGameId);
@@ -4033,43 +4519,56 @@ async function saveDoc(options = {}) {
   else state.store.games.push(savedGame);
 
   syncAllTagsFromStore();
-  rememberCleanSnapshot();
   renderGameshelf();
   persistStoreLocally();
+  return savedGame;
+}
+
+async function saveDoc(options = {}) {
+  const silent = !!options.silent;
+  const needsCurrentGameStage = shouldStageCurrentGameForSave();
+  const hasPendingChanges = hasPendingSaveChanges() || needsCurrentGameStage;
+
+  if (!hasPendingChanges) {
+    if (!silent) setSaveStatus('idle');
+    return { savedGame: null, serverSaved: false, localOnly: false, skipped: true };
+  }
+
+  setSaveStatus('saving');
+  const savedGame = stageCurrentGameIntoStore();
+  if (!savedGame && !state.store.updatedAt) {
+    state.store.updatedAt = new Date().toISOString();
+  }
+  persistStoreLocally();
   updateActionUi();
+  syncRecoveryDraftNow({ updateStatus: false });
 
   try {
-    const apiBases = getApiBaseCandidates();
-    let lastError = null;
-
-    for (const apiBase of apiBases) {
-      try {
-        const res = await fetch(apiBase + STORE_API_ROUTE, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(state.store)
-        });
-        if (!res.ok) {
-          const message = await res.text();
-          throw new Error(message || 'Save failed');
-        }
-        if (!silent) alert('Saved all data to play\\data\\' + STORE_FILE_NAME + '.');
-        return { savedGame, serverSaved: true, localOnly: false, apiBase };
-      } catch (error) {
-        lastError = error;
-      }
+    const syncResult = await syncStoreToServer();
+    if (!syncResult || !syncResult.serverSaved) {
+      state.localOnlyChanges = true;
+      syncRecoveryDraftNow({ updateStatus: false });
+      setSaveStatus('local');
+      return { savedGame, serverSaved: false, localOnly: true, error: syncResult && syncResult.error ? syncResult.error : null };
     }
 
-    if (lastError) throw lastError;
-    if (!silent) alert('Saved all data in this browser only. Run the local Node server to write play\\data\\' + STORE_FILE_NAME + '.');
-    return { savedGame, serverSaved: false, localOnly: true };
+    state.localOnlyChanges = false;
+    if (savedGame) rememberCleanSnapshot();
+    renderGameshelf();
+    clearRecoveryDraft();
+    setSaveStatus('saved');
+    updateActionUi();
+    return { savedGame, serverSaved: true, localOnly: false, apiBase: syncResult.apiBase };
   } catch (error) {
-    if (!silent) alert('Server save failed. Start the local Node server on http://localhost:3000. Kept all data in this browser only.');
+    state.localOnlyChanges = true;
+    syncRecoveryDraftNow({ updateStatus: false });
+    setSaveStatus('local');
     return { savedGame, serverSaved: false, localOnly: true, error };
   }
 }
 
 async function playCurrentGame() {
+  if (!hasGameNode()) return;
   const result = await saveDoc({ silent: true });
   const savedGame = result && result.savedGame ? result.savedGame : null;
   const gameQuery = savedGame && savedGame.name ? savedGame.name : getDocName();
@@ -4081,6 +4580,7 @@ async function playCurrentGame() {
 }
 
 async function loadDoc() {
+  setSaveStatus('loading', 'Loading Gameshelf');
   let nextStore = null;
 
   try {
@@ -4125,25 +4625,15 @@ async function loadDoc() {
   } catch (error) {
   }
 
-  state.store = nextStore || cloneObj(EMPTY_STORE);
-  syncAllTagsFromStore();
-  renderGameshelf();
+  const localStore = readLocalStoreSnapshot();
+  state.store = nextStore || localStore || cloneObj(EMPTY_STORE);
 
-  const rememberedGameId = getRememberedOpenGameId();
-  if (rememberedGameId && state.store.games.some((game) => game.id === rememberedGameId)) {
-    openSavedGame(rememberedGameId);
+  const recovery = readRecoveryDraft();
+  if (recovery && restoreRecoveryWorkspace(recovery)) {
     return;
   }
 
-  if (state.store.games.length) {
-    const newestGame = [...state.store.games].sort(compareSavedGamesNewestFirst)[0];
-    if (newestGame) {
-      openSavedGame(newestGame.id);
-      return;
-    }
-  }
-
-  seedPhone();
+  showGameshelfHome();
 }
 
 stencilBar.querySelectorAll('[data-stencil]').forEach((button) => {
@@ -4286,11 +4776,19 @@ nodeTaglineInput.addEventListener('input', () => {
   updateSelectionUi();
 });
 
+nodeBuilderNotesInput.addEventListener('input', () => {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'game') return;
+  node.builderNotes = nodeBuilderNotesInput.value;
+  renderGameshelf();
+});
+
 nodeGuideNameInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
   if (!node || node.type !== 'game') return;
   node.guideName = nodeGuideNameInput.value;
   updateSelectionUi();
+  updatePhoneChrome();
 });
 
 nodePriceInput.addEventListener('input', () => {
@@ -4362,6 +4860,7 @@ function addNewTag() {
   nodeTagNewInput.value = '';
   renderTagPicker(node);
   syncPhoneStartButton();
+  scheduleRecoverySync();
 }
 
 nodeTagAddBtn.addEventListener('click', addNewTag);
@@ -4423,20 +4922,8 @@ deleteBtn.addEventListener('click', () => {
   removeSelectedNode();
 });
 if (saveGameBtn) saveGameBtn.addEventListener('click', saveCurrentGameFromMenu);
+if (saveStatusPill) saveStatusPill.addEventListener('click', saveCurrentGameFromMenu);
 if (headerPlayGameBtn) headerPlayGameBtn.addEventListener('click', playCurrentGame);
-if (phoneStartBtn) {
-  phoneStartBtn.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    closeNodeContextMenu();
-    const gameNode = getGameNode();
-    if (!gameNode) return;
-    selectNode(gameNode.id);
-    renderSelectionStates();
-    drawLinks();
-    updateSelectionUi();
-  });
-}
 if (refreshPageBtn) {
   refreshPageBtn.addEventListener('click', () => {
     const menu = refreshPageBtn.closest('.mb-menu');
@@ -4446,23 +4933,13 @@ if (refreshPageBtn) {
     attemptRefresh();
   });
 }
-if (saveRefreshBtn) saveRefreshBtn.addEventListener('click', saveThenRefresh);
-if (discardRefreshBtn) discardRefreshBtn.addEventListener('click', refreshWithoutSaving);
-if (refreshDialog) {
-  refreshDialog.addEventListener('click', (event) => {
-    if (event.target === refreshDialog) closeRefreshDialog();
-  });
-}
-if (saveSwitchGameBtn) saveSwitchGameBtn.addEventListener('click', saveThenOpenPendingGame);
-if (discardSwitchGameBtn) discardSwitchGameBtn.addEventListener('click', openPendingGameWithoutSaving);
-if (cancelSwitchGameBtn) cancelSwitchGameBtn.addEventListener('click', closeSwitchGameDialog);
-if (switchGameDialog) {
-  switchGameDialog.addEventListener('click', (event) => {
-    if (event.target === switchGameDialog) closeSwitchGameDialog();
-  });
-}
 if (nodeContextMenu) {
   nodeContextMenu.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+}
+if (gameshelfContextMenu) {
+  gameshelfContextMenu.addEventListener('click', (event) => {
     event.stopPropagation();
   });
 }
@@ -4489,36 +4966,32 @@ if (deleteNodeMenuBtn) {
     removeSelectedNode();
   });
 }
-if (inspectorToggleBtn) {
-  inspectorToggleBtn.addEventListener('click', () => {
-    toggleInspectorCollapsed();
+if (gameshelfMenuNewBtn) {
+  gameshelfMenuNewBtn.addEventListener('click', () => {
+    closeGameshelfContextMenu();
+    startNewPhone();
   });
 }
-if (inspectorWindowBar) {
-  inspectorWindowBar.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0 || !inspector || inspector.hidden) return;
-    if (event.target.closest('button')) return;
-    const origin = state.inspectorPosition || getDefaultInspectorPosition();
-    state.inspectorDrag = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: origin.x,
-      originY: origin.y
-    };
-    inspector.classList.add('dragging');
-    event.preventDefault();
+if (gameshelfMenuDuplicateBtn) {
+  gameshelfMenuDuplicateBtn.addEventListener('click', async () => {
+    const gameId = state.contextMenuGameshelfGameId;
+    closeGameshelfContextMenu();
+    if (!gameId) return;
+    await duplicateSavedGame(gameId);
   });
 }
-
-newPhoneBtn.addEventListener('click', () => {
-  if (!confirm('Start a new PHONE? This will replace the current game flow in the editor until you reload or save.')) return;
-  seedPhone();
-});
+if (gameshelfMenuDeleteBtn) {
+  gameshelfMenuDeleteBtn.addEventListener('click', async () => {
+    const gameId = state.contextMenuGameshelfGameId;
+    closeGameshelfContextMenu();
+    if (!gameId) return;
+    await deleteSavedGame(gameId);
+  });
+}
+if (newPhoneBtn) newPhoneBtn.addEventListener('click', startNewPhone);
 
 if (workspaceZoomOutBtn) workspaceZoomOutBtn.addEventListener('click', () => setZoom(state.zoom - ZOOM_STEP));
 if (workspaceZoomInBtn) workspaceZoomInBtn.addEventListener('click', () => setZoom(state.zoom + ZOOM_STEP));
-if (workspaceZoomResetBtn) workspaceZoomResetBtn.addEventListener('click', () => setZoom(1));
 
 linkLayer.addEventListener('click', (event) => {
   if (event.target !== linkLayer) return;
@@ -4589,6 +5062,16 @@ viewport.addEventListener('pointerdown', (event) => {
     moved: false
   };
   viewport.classList.add('panning');
+});
+
+viewport.addEventListener('contextmenu', (event) => {
+  if (hasGameNode()) return;
+  const target = event.target;
+  if (target && target.closest && target.closest('.zoom-controls')) return;
+  event.preventDefault();
+  closeNodeContextMenu();
+  closeGameshelfContextMenu();
+  openGameshelfContextMenu({ isNew: true, newOnly: true }, event.clientX, event.clientY);
 });
 
 viewport.addEventListener('wheel', (event) => {
@@ -4751,6 +5234,7 @@ window.addEventListener('pointerup', (event) => {
       if (node && dragState.moved && state.dropSlot) {
         node.x = dragState.originX;
         node.y = Math.round(state.dropSlot.sortY);
+        reorderPhoneBubble(node.id, state.dropSlot.insertIndex);
       }
       if (el) el.style.removeProperty('--drag-tilt');
       hideBubbleDropLine();
@@ -4801,22 +5285,9 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (refreshDialog && !refreshDialog.hidden && event.key === 'Escape') {
+  if (gameshelfContextMenu && !gameshelfContextMenu.hidden && event.key === 'Escape') {
     event.preventDefault();
-    closeRefreshDialog();
-    return;
-  }
-
-  if (switchGameDialog && !switchGameDialog.hidden && event.key === 'Escape') {
-    event.preventDefault();
-    closeSwitchGameDialog();
-    return;
-  }
-
-  if (isRefreshShortcut(event)) {
-    if (!hasUnsavedChanges()) return;
-    event.preventDefault();
-    openRefreshDialog();
+    closeGameshelfContextMenu();
     return;
   }
 
@@ -4855,7 +5326,7 @@ window.addEventListener('keydown', (event) => {
 
   if (!isTyping && isLetterShortcut(event, 'KeyN')) {
     event.preventDefault();
-    newPhoneBtn.click();
+    startNewPhone();
     return;
   }
 
@@ -4917,16 +5388,16 @@ window.addEventListener('keydown', (event) => {
 
 }());
 
-window.addEventListener('beforeunload', (event) => {
-  if (state.skipBeforeUnload || !hasUnsavedChanges()) return;
-  event.preventDefault();
-  event.returnValue = '';
-});
-
 window.addEventListener('pointerdown', (event) => {
   if (!nodeContextMenu || nodeContextMenu.hidden) return;
   if (nodeContextMenu.contains(event.target)) return;
   closeNodeContextMenu();
+});
+
+window.addEventListener('pointerdown', (event) => {
+  if (!gameshelfContextMenu || gameshelfContextMenu.hidden) return;
+  if (gameshelfContextMenu.contains(event.target)) return;
+  closeGameshelfContextMenu();
 });
 
 window.addEventListener('resize', () => {

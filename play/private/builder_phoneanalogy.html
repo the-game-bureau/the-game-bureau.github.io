@@ -11,45 +11,13 @@
   <title>TGB Game Builder</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="builder_phoneanalogy.css?v=1774568100">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="builder_phoneanalogy.css?v=1774676400">
 </head>
 <body>
   <div class="app-shell">
 
     <!-- ── Menubar ── -->
-    <header class="menubar">
-      <div class="mb-brand">
-        <span class="mb-eyebrow">TGB</span>
-        <span class="mb-title">Builder</span>
-      </div>
-
-      <nav class="mb-nav" id="mbNav">
-
-        <!-- File -->
-        <div class="mb-menu" id="mbFile">
-          <button class="mb-trigger" data-target="mbPanelFile" type="button">File</button>
-          <div class="mb-panel" id="mbPanelFile" hidden>
-            <button class="mb-item" id="newPhoneBtn" type="button">
-              <span>New Game</span>
-              <span class="mb-shortcut">N</span>
-            </button>
-            <button class="mb-item" id="saveGameBtn" type="button">
-              <span>Save Game</span>
-              <span class="mb-shortcut">Ctrl+S</span>
-            </button>
-            <button class="mb-item mb-item--accent" id="headerPlayGameBtn" type="button">
-              <span>Play Game</span>
-              <span class="mb-shortcut">Ctrl+Enter</span>
-            </button>
-          </div>
-        </div>
-
-
-      </nav>
-
-    </header>
-
     <div id="inspectorCopyStrings" hidden>
       <span data-copy="anytime-reply">A PLAYER MSG with ANYTIME turned on. Its paired GUIDE MSG responds whenever the player message matches.</span>
       <span data-copy="anytime-guide">The GUIDE MSG paired to an ANYTIME PLAYER MSG. After this message, the current prompt is shown again.</span>
@@ -61,19 +29,9 @@
     <div class="main-grid">
       <aside class="gameshelf" id="gameshelf" aria-label="Saved games">
         <div class="gameshelf-head">
-          <h2 class="gameshelf-title">Gameshelf</h2>
+          <h2 class="gameshelf-title">Games</h2>
         </div>
-        <div class="gameshelf-factory" aria-hidden="true">
-          <div class="gameshelf-lane"></div>
-          <div class="gameshelf-arm gameshelf-arm--left">
-            <span class="gameshelf-arm-claw"></span>
-          </div>
-          <div class="gameshelf-arm gameshelf-arm--right">
-            <span class="gameshelf-arm-claw"></span>
-          </div>
-          <div class="gameshelf-sparks gameshelf-sparks--left"></div>
-          <div class="gameshelf-sparks gameshelf-sparks--right"></div>
-        </div>
+        <div class="gameshelf-pinned" id="gameshelfPinned" hidden></div>
         <div class="gameshelf-stream" id="gameshelfStream">
           <div class="gameshelf-list" id="gameshelfList">
             <div class="gameshelf-empty">Loading gameshelf...</div>
@@ -81,12 +39,16 @@
         </div>
       </aside>
       <section class="phone-shell">
+        <div class="workspace-ink-title">TGB BUILDER</div>
+        <div class="workspace-actions">
+          <button class="mb-status-pill workspace-action-btn" id="saveStatusPill" data-state="idle" type="button" disabled>Save</button>
+          <button class="workspace-action-btn workspace-action-btn--play" id="headerPlayGameBtn" type="button">Play</button>
+        </div>
+        <div class="zoom-controls" aria-label="Zoom controls">
+          <button class="zoom-pill-btn" id="workspaceZoomInBtn" type="button" aria-label="Zoom in">+</button>
+          <button class="zoom-pill-btn" id="workspaceZoomOutBtn" type="button" aria-label="Zoom out">-</button>
+        </div>
         <div class="viewport" id="viewport">
-          <div class="zoom-controls" aria-label="Zoom controls">
-            <button class="zoom-pill-btn" id="workspaceZoomInBtn" type="button" aria-label="Zoom in">+</button>
-            <button class="zoom-pill-btn zoom-pill-btn--reset" id="workspaceZoomResetBtn" type="button" aria-label="Reset zoom">Reset</button>
-            <button class="zoom-pill-btn" id="workspaceZoomOutBtn" type="button" aria-label="Zoom out">-</button>
-          </div>
           <div class="phone-stage" id="phoneStage">
             <div id="stencilBar" class="phone-stencil-tray" aria-label="New blank bubbles">
               <button class="stencil stencil--stop" data-stencil="stop" data-copy="This Waypoint Bubble doesn't really appear in the game. It's just for you, the builder. This is where you can make secret notes about the game stop, like its location, or background, or the answers to the upsoming questions. Think of it as a waypoint or a flag to help you." type="button" aria-label="New WAYPOINT bubble">
@@ -120,14 +82,14 @@ You can use previously stored data by typing % and choosing the previously store
                 <div class="phone-dynamic-island"></div>
                 <span class="phone-statusbar-signal">LTE</span>
               </div>
-              <button class="phone-threadbar" id="phoneStartBtn" type="button" aria-label="Open GAME details">
+              <div class="phone-threadbar" id="phoneStartBtn">
                 <span class="phone-threadback">Messages</span>
                 <div class="phone-threadmeta">
                   <span class="phone-threadname" id="phoneThreadName">Builder Thread</span>
-                  <span class="phone-threadstatus">iMessage</span>
+                  <span class="phone-threadstatus" id="phoneThreadStatus"></span>
                 </div>
                 <span class="phone-threadavatar"></span>
-              </button>
+              </div>
               <div class="phone-composebar" aria-hidden="true">
                 <span class="phone-composeinput">iMessage</span>
               </div>
@@ -145,7 +107,6 @@ You can use previously stored data by typing % and choosing the previously store
           <div class="inspector-windowmeta">
             <div class="inspector-windowtitle" id="inspectorWindowTitle">Details</div>
           </div>
-          <button class="inspector-windowbtn" id="inspectorToggleBtn" type="button" aria-expanded="true">Collapse</button>
         </div>
         <div class="inspector-stack" id="inspectorStack">
           <section class="inspector-card" id="objectCard" hidden>
@@ -268,6 +229,17 @@ You can use previously stored data by typing % and choosing the previously store
                 </div>
               </div>
 
+              <div class="field" id="builderNotesField" hidden>
+                <label class="field-label" for="nodeBuilderNotesInput">
+                  <span>BUILDER GAME NOTES</span>
+                  <span class="field-info" tabindex="0" role="note" aria-label="Not seen by the player. For development purposes.">
+                    i
+                    <span class="field-tooltip" role="tooltip">Not seen by the player. For development purposes.</span>
+                  </span>
+                </label>
+                <textarea id="nodeBuilderNotesInput" disabled></textarea>
+              </div>
+
               <div class="field" id="ifThenField" hidden>
                 <div class="field-label">Player Input Paths</div>
                 <div class="ifthen-grid">
@@ -313,40 +285,17 @@ You can use previously stored data by typing % and choosing the previously store
     </div>
   </div>
 
-  <div class="dialog-scrim" id="refreshDialog" hidden>
-    <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="refreshDialogTitle" aria-describedby="refreshDialogCopy">
-      <div class="dialog-eyebrow">Unsaved Changes</div>
-      <h2 id="refreshDialogTitle">Refresh This Page?</h2>
-      <p class="dialog-copy" id="refreshDialogCopy">
-        Refreshing will replace the current builder page. Save first if you want to keep these edits.
-      </p>
-      <div class="dialog-actions">
-        <button class="dialog-btn dialog-btn--accent" id="saveRefreshBtn" type="button">Save Then Refresh</button>
-        <button class="dialog-btn" id="discardRefreshBtn" type="button">No Save Then Refresh</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="dialog-scrim" id="switchGameDialog" hidden>
-    <div class="dialog-card dialog-card--switch-game" role="dialog" aria-modal="true" aria-labelledby="switchGameDialogTitle" aria-describedby="switchGameDialogCopy">
-      <div class="dialog-eyebrow">Unsaved Changes</div>
-      <h2 id="switchGameDialogTitle">Save Before Opening?</h2>
-      <p class="dialog-copy" id="switchGameDialogCopy">
-        Opening <strong id="switchGameTargetName">this game</strong> will replace the current builder view.
-      </p>
-      <div class="dialog-actions">
-        <button class="dialog-btn dialog-btn--accent" id="saveSwitchGameBtn" type="button">Save Then Open</button>
-        <button class="dialog-btn" id="discardSwitchGameBtn" type="button">Open Without Saving</button>
-        <button class="dialog-btn" id="cancelSwitchGameBtn" type="button">Cancel</button>
-      </div>
-    </div>
-  </div>
-
   <div class="context-menu" id="nodeContextMenu" hidden>
     <button class="context-menu-item" id="duplicateNodeBtn" type="button">Duplicate</button>
     <button class="context-menu-item context-menu-item--danger" id="deleteNodeMenuBtn" type="button">Delete</button>
   </div>
 
-  <script src="builder_phoneanalogy.js?v=1774568160"></script>
+  <div class="context-menu" id="gameshelfContextMenu" hidden>
+    <button class="context-menu-item" id="gameshelfMenuNewBtn" type="button">NEW</button>
+    <button class="context-menu-item" id="gameshelfMenuDuplicateBtn" type="button">DUPLICATE</button>
+    <button class="context-menu-item context-menu-item--danger" id="gameshelfMenuDeleteBtn" type="button">DELETE</button>
+  </div>
+
+  <script src="builder_phoneanalogy.js?v=1774675600"></script>
 </body>
 </html>
