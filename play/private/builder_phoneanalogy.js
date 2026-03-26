@@ -3,7 +3,7 @@ const TYPE_CONFIG = {
   game: {
     width: 184,
     height: 318,
-    kicker: 'START',
+    kicker: 'GAME',
     title: 'Untitled Game',
     body: 'A guided SMS adventure through the city.',
     code: 'GM'
@@ -1126,7 +1126,7 @@ function syncPhoneStartButton() {
   phoneStartBtn.disabled = !gameNode;
   phoneStartBtn.classList.toggle('selected', isSelected);
   phoneStartBtn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-  phoneStartBtn.setAttribute('aria-label', gameNode ? ('Open START details for ' + getDocName()) : 'No START bubble');
+  phoneStartBtn.setAttribute('aria-label', gameNode ? ('Open GAME details for ' + getDocName()) : 'No GAME bubble');
 }
 
 function applyPhoneThreadLayout() {
