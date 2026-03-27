@@ -64,6 +64,10 @@ const STORE_FILE_TYPES = [{
   }
 }];
 const GAMES_PAGE_ROUTE = 'index.html';
+const SUPABASE_CONFIG_STORAGE_KEY = 'tgb-builder-supabase-config';
+const DEFAULT_SUPABASE_GAMES_TABLE = 'games';
+const SUPABASE_STORAGE_KIND = 'supabase';
+const supabaseConfig = readSupabaseConfig();
 
 const EMPTY_DOC = {
   updatedAt: '',
@@ -126,6 +130,141 @@ const STENCIL_SHORTCUTS = {
 
 function isLocalHostname(hostname = location.hostname) {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
+}
+
+function normalizeSupabaseUrl(value) {
+  return typeof value === 'string' ? value.trim().replace(/\/+$/, '') : '';
+}
+
+function sanitizeSupabaseConfig(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const url = normalizeSupabaseUrl(source.url);
+  const publishableKey = typeof source.publishableKey === 'string' && source.publishableKey.trim()
+    ? source.publishableKey.trim()
+    : (typeof source.anonKey === 'string' ? source.anonKey.trim() : '');
+  const gamesTable = typeof source.gamesTable === 'string' && source.gamesTable.trim()
+    ? source.gamesTable.trim()
+    : DEFAULT_SUPABASE_GAMES_TABLE;
+  return {
+    enabled: source.enabled !== false && !!url && !!publishableKey,
+    url,
+    publishableKey,
+    gamesTable
+  };
+}
+
+function persistSupabaseConfig(config) {
+  try {
+    if (config && config.enabled) {
+      localStorage.setItem(SUPABASE_CONFIG_STORAGE_KEY, JSON.stringify(config));
+    } else {
+      localStorage.removeItem(SUPABASE_CONFIG_STORAGE_KEY);
+    }
+  } catch (error) {
+  }
+}
+
+function readSupabaseConfig() {
+  const inlineConfigExists = !!(window.TGB_SUPABASE_CONFIG && typeof window.TGB_SUPABASE_CONFIG === 'object');
+  if (inlineConfigExists) {
+    const inlineConfig = sanitizeSupabaseConfig(window.TGB_SUPABASE_CONFIG);
+    persistSupabaseConfig(inlineConfig);
+    return inlineConfig;
+  }
+
+  try {
+    const storedConfig = JSON.parse(localStorage.getItem(SUPABASE_CONFIG_STORAGE_KEY) || 'null');
+    return sanitizeSupabaseConfig(storedConfig);
+  } catch (error) {
+    return sanitizeSupabaseConfig(null);
+  }
+}
+
+function hasSupabaseStore() {
+  return !!supabaseConfig.enabled;
+}
+
+function buildSupabaseUrl(params = null) {
+  if (!hasSupabaseStore()) return '';
+  const url = new URL('/rest/v1/' + encodeURIComponent(supabaseConfig.gamesTable), supabaseConfig.url + '/');
+  if (params && typeof params === 'object') {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') return;
+      url.searchParams.set(key, String(value));
+    });
+  }
+  return url.toString();
+}
+
+function getSupabaseHeaders(extraHeaders = {}) {
+  if (!hasSupabaseStore()) return { ...extraHeaders };
+  return {
+    apikey: supabaseConfig.publishableKey,
+    Authorization: 'Bearer ' + supabaseConfig.publishableKey,
+    ...extraHeaders
+  };
+}
+
+function buildStoreFromGames(games = []) {
+  const store = normalizeStore({ games });
+  store.updatedAt = getStoreUpdatedTime(store) ? new Date(getStoreUpdatedTime(store)).toISOString() : '';
+  return store;
+}
+
+function serializeGameRow(game, index = 0) {
+  const normalizedGame = normalizeSavedGame(game, index);
+  const timestamp = normalizedGame.updatedAt || normalizedGame.createdAt || new Date().toISOString();
+  return {
+    id: normalizedGame.id,
+    name: normalizedGame.name || 'Untitled Game',
+    primary_color: normalizedGame.primaryColor || null,
+    secondary_color: normalizedGame.secondaryColor || null,
+    nodes: Array.isArray(normalizedGame.nodes) ? normalizedGame.nodes : [],
+    links: Array.isArray(normalizedGame.links) ? normalizedGame.links : [],
+    created_at: normalizedGame.createdAt || timestamp,
+    updated_at: timestamp
+  };
+}
+
+function normalizeGameRow(row, index = 0) {
+  return normalizeSavedGame({
+    id: row && row.id,
+    name: row && row.name,
+    createdAt: row && typeof row.created_at === 'string' ? row.created_at : '',
+    updatedAt: row && typeof row.updated_at === 'string' ? row.updated_at : '',
+    primaryColor: row && typeof row.primary_color === 'string' ? row.primary_color : '',
+    secondaryColor: row && typeof row.secondary_color === 'string' ? row.secondary_color : '',
+    nodes: Array.isArray(row && row.nodes) ? row.nodes : [],
+    links: Array.isArray(row && row.links) ? row.links : []
+  }, index);
+}
+
+async function fetchGameRowsFromSupabase(select = 'id,name,primary_color,secondary_color,nodes,links,created_at,updated_at') {
+  const response = await fetch(buildSupabaseUrl({
+    select,
+    order: 'name.asc'
+  }), {
+    cache: 'no-store',
+    headers: getSupabaseHeaders({
+      Accept: 'application/json'
+    })
+  });
+  if (!response.ok) {
+    throw new Error(await response.text() || 'Supabase load failed');
+  }
+  const rows = await response.json();
+  return Array.isArray(rows) ? rows : [];
+}
+
+async function loadStoreFromSupabase() {
+  if (!hasSupabaseStore()) return null;
+
+  try {
+    const rows = await fetchGameRowsFromSupabase();
+    return buildStoreFromGames(rows.map((row, index) => normalizeGameRow(row, index)));
+  } catch (error) {
+    return null;
+  }
 }
 
 function getApiBaseCandidates() {
@@ -378,6 +517,11 @@ function syncStoreToDownload() {
 }
 
 async function syncStoreToBestAvailableTarget(options = {}) {
+  const supabaseResult = await syncStoreToSupabase();
+  if (supabaseResult && supabaseResult.serverSaved) {
+    return { ...supabaseResult, storageKind: SUPABASE_STORAGE_KIND };
+  }
+
   const serverResult = await syncStoreToServer();
   if (serverResult && serverResult.serverSaved) {
     return { ...serverResult, storageKind: 'server' };
@@ -408,7 +552,7 @@ async function syncStoreToBestAvailableTarget(options = {}) {
       fileSaved: false,
       downloaded: false,
       localOnly: true,
-      error: (downloadResult && downloadResult.error) || (fileResult && fileResult.error) || (serverResult && serverResult.error) || null
+      error: (downloadResult && downloadResult.error) || (fileResult && fileResult.error) || (serverResult && serverResult.error) || (supabaseResult && supabaseResult.error) || null
     };
   }
 
@@ -416,7 +560,7 @@ async function syncStoreToBestAvailableTarget(options = {}) {
     serverSaved: false,
     fileSaved: false,
     localOnly: true,
-    error: (fileResult && fileResult.error) || (serverResult && serverResult.error) || null
+    error: (fileResult && fileResult.error) || (serverResult && serverResult.error) || (supabaseResult && supabaseResult.error) || null
   };
 }
 
@@ -2925,6 +3069,62 @@ function getRememberedOpenGameId() {
   }
 }
 
+async function syncStoreToSupabase() {
+  if (!hasSupabaseStore()) return null;
+
+  state.store.updatedAt = new Date().toISOString();
+  const nextStore = normalizeStore(state.store);
+  state.store = nextStore;
+
+  try {
+    const existingRows = await fetchGameRowsFromSupabase('id');
+    const existingIds = new Set(
+      existingRows
+        .map((row) => String(row && row.id || '').trim())
+        .filter(Boolean)
+    );
+    const nextRows = nextStore.games.map((game, index) => serializeGameRow(game, index));
+    const nextIds = new Set(nextRows.map((row) => row.id));
+
+    if (nextRows.length) {
+      const upsertResponse = await fetch(buildSupabaseUrl({
+        on_conflict: 'id'
+      }), {
+        method: 'POST',
+        headers: getSupabaseHeaders({
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates,return=minimal'
+        }),
+        body: JSON.stringify(nextRows)
+      });
+      if (!upsertResponse.ok) {
+        throw new Error(await upsertResponse.text() || 'Supabase sync failed');
+      }
+    }
+
+    const idsToDelete = [...existingIds].filter((id) => !nextIds.has(id));
+    for (const gameId of idsToDelete) {
+      const deleteResponse = await fetch(buildSupabaseUrl({
+        id: 'eq.' + gameId
+      }), {
+        method: 'DELETE',
+        headers: getSupabaseHeaders({
+          Prefer: 'return=minimal'
+        })
+      });
+      if (!deleteResponse.ok) {
+        throw new Error(await deleteResponse.text() || 'Supabase delete sync failed');
+      }
+    }
+
+    const rows = await fetchGameRowsFromSupabase();
+    state.store = buildStoreFromGames(rows.map((row, index) => normalizeGameRow(row, index)));
+    return { serverSaved: true, localOnly: false, storageKind: SUPABASE_STORAGE_KIND };
+  } catch (error) {
+    return { serverSaved: false, localOnly: true, error };
+  }
+}
+
 function getEditorLaunchIntent() {
   try {
     const url = new URL(location.href);
@@ -5076,8 +5276,11 @@ async function playCurrentGame() {
 
 async function loadDoc() {
   setSaveStatus('loading', 'Loading Games');
+  let supabaseStore = null;
   let apiStore = null;
   let bundledStore = null;
+
+  supabaseStore = await loadStoreFromSupabase();
 
   try {
     const apiUrls = getApiBaseCandidates().map((apiBase) => apiBase + STORE_API_ROUTE);
@@ -5095,7 +5298,7 @@ async function loadDoc() {
   const fileStore = await readStoreFromRememberedFile();
   const localStore = readLocalStoreSnapshot();
   try {
-    if (!apiStore) {
+    if (!supabaseStore && !apiStore) {
       const bundledResponse = await fetch(getBundledStoreFetchUrl(), { cache: 'no-store' });
       if (bundledResponse.ok) {
         bundledStore = normalizeIncomingStorePayload(await bundledResponse.json());
@@ -5104,7 +5307,7 @@ async function loadDoc() {
   } catch (error) {
   }
 
-  state.store = pickPreferredStoreCandidate([apiStore, fileStore, localStore, bundledStore]) || cloneObj(EMPTY_STORE);
+  state.store = pickPreferredStoreCandidate([supabaseStore, apiStore, fileStore, localStore, bundledStore]) || cloneObj(EMPTY_STORE);
 
   const launchIntent = getEditorLaunchIntent();
   const recovery = readRecoveryDraft();

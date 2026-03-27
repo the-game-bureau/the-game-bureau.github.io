@@ -1,18 +1,9 @@
-const STORE_FILE_NAME = 'games.json';
-const STORE_API_ROUTE = '/games-phoneanalogy';
-const LOCAL_STORE_KEY = 'tgb-games-phoneanalogy';
 const LOCAL_OPEN_GAME_KEY = 'tgb-games-phoneanalogy-open';
-const STORE_COMMENT = 'File: games.json | Purpose: phone-analogy graph-builder data written by TGB Builder for later game-engine use.';
-const PERSISTENCE_DB_NAME = 'tgb-builder-persistence';
-const PERSISTENCE_DB_VERSION = 1;
-const PERSISTENCE_STORE_NAME = 'handles';
-const STORE_FILE_HANDLE_KEY = 'games-phoneanalogy-handle';
-const STORE_FILE_TYPES = [{
-  description: 'TGB Game Library',
-  accept: {
-    'application/json': ['.json']
-  }
-}];
+const STORE_COMMENT = 'Supabase-backed game builder store.';
+const DEFAULT_SUPABASE_GAMES_TABLE = 'games';
+const SUPABASE_CONFIG_STORAGE_KEY = 'tgb-builder-supabase-config';
+const EDITOR_PAGE_ROUTE = 'builder.html';
+const BIC_BLUE_INK = '#2f5cc2';
 
 const EMPTY_STORE = {
   _comment: STORE_COMMENT,
@@ -27,19 +18,16 @@ const TYPE_CONFIG = {
   }
 };
 
-const API = /^(http|https):$/.test(location.protocol) ? location.origin : null;
-const LOCAL_NODE_API = 'http://localhost:3000';
-const EDITOR_PAGE_ROUTE = 'builder.html';
-const BIC_BLUE_INK = '#2f5cc2';
-
 const gamesGrid = document.getElementById('gamesGrid');
 const newGameLink = document.getElementById('newGameLink');
 const editGameLink = document.getElementById('editGameLink');
+const renameGameLink = document.getElementById('renameGameLink');
 const duplicateGameLink = document.getElementById('duplicateGameLink');
 const deleteGameBtn = document.getElementById('deleteGameBtn');
 const gamesContextMenu = document.getElementById('gamesContextMenu');
 const gamesMenuNewBtn = document.getElementById('gamesMenuNewBtn');
 const gamesMenuEditBtn = document.getElementById('gamesMenuEditBtn');
+const gamesMenuRenameBtn = document.getElementById('gamesMenuRenameBtn');
 const gamesMenuDuplicateBtn = document.getElementById('gamesMenuDuplicateBtn');
 const gamesMenuDeleteBtn = document.getElementById('gamesMenuDeleteBtn');
 const eraseConfirmBackdrop = document.getElementById('eraseConfirmBackdrop');
@@ -52,11 +40,12 @@ const state = {
   selectedGameId: '',
   contextMenuGameId: '',
   readOnly: false,
-  needsLocalStoreImport: false,
-  localStoreImportError: '',
+  supabaseStatusMessage: '',
   eraseConfirmResolver: null,
   eraseConfirmPreviousFocus: null
 };
+
+const supabaseConfig = readSupabaseConfig();
 
 function cloneObj(value) {
   return JSON.parse(JSON.stringify(value));
@@ -71,333 +60,148 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function isLocalHostname(hostname = location.hostname) {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
+function normalizeSupabaseUrl(value) {
+  return typeof value === 'string' ? value.trim().replace(/\/+$/, '') : '';
 }
 
-function isHostedHttpView() {
-  return /^(http|https):$/.test(location.protocol) && !isLocalHostname();
+function sanitizeSupabaseConfig(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const url = normalizeSupabaseUrl(source.url);
+  const publishableKey = typeof source.publishableKey === 'string' && source.publishableKey.trim()
+    ? source.publishableKey.trim()
+    : (typeof source.anonKey === 'string' ? source.anonKey.trim() : '');
+  const gamesTable = typeof source.gamesTable === 'string' && source.gamesTable.trim()
+    ? source.gamesTable.trim()
+    : DEFAULT_SUPABASE_GAMES_TABLE;
+  return {
+    enabled: source.enabled !== false && !!url && !!publishableKey,
+    url,
+    publishableKey,
+    gamesTable
+  };
 }
 
-function isFileProtocolView() {
-  return location.protocol === 'file:';
-}
-
-function getApiBaseCandidates() {
-  const bases = [];
-  if (API) bases.push(API);
-  if (!bases.includes(LOCAL_NODE_API) && (!API || isLocalHostname())) {
-    bases.push(LOCAL_NODE_API);
-  }
-  return bases;
-}
-
-function supportsBrowserFileSave() {
-  return !!(window.isSecureContext && typeof window.showSaveFilePicker === 'function');
-}
-
-function supportsBrowserFileOpen() {
-  return !!(window.isSecureContext && typeof window.showOpenFilePicker === 'function');
-}
-
-function getSerializedStoreText(store = state.store) {
-  return JSON.stringify(normalizeStore(store), null, 2) + '\n';
-}
-
-let persistenceDbPromise = null;
-
-function openPersistenceDb() {
-  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
-  if (persistenceDbPromise) return persistenceDbPromise;
-
-  persistenceDbPromise = new Promise((resolve) => {
-    try {
-      const request = indexedDB.open(PERSISTENCE_DB_NAME, PERSISTENCE_DB_VERSION);
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(PERSISTENCE_STORE_NAME)) {
-          db.createObjectStore(PERSISTENCE_STORE_NAME);
-        }
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => resolve(null);
-      request.onblocked = () => resolve(null);
-    } catch (error) {
-      resolve(null);
-    }
-  });
-
-  return persistenceDbPromise;
-}
-
-async function readPersistenceValue(key) {
-  const db = await openPersistenceDb();
-  if (!db) return null;
-
-  return new Promise((resolve) => {
-    try {
-      const tx = db.transaction(PERSISTENCE_STORE_NAME, 'readonly');
-      const request = tx.objectStore(PERSISTENCE_STORE_NAME).get(key);
-      request.onsuccess = () => resolve(request.result ?? null);
-      request.onerror = () => resolve(null);
-      tx.onabort = () => resolve(null);
-    } catch (error) {
-      resolve(null);
-    }
-  });
-}
-
-async function writePersistenceValue(key, value) {
-  const db = await openPersistenceDb();
-  if (!db) return false;
-
-  return new Promise((resolve) => {
-    try {
-      const tx = db.transaction(PERSISTENCE_STORE_NAME, 'readwrite');
-      tx.objectStore(PERSISTENCE_STORE_NAME).put(value, key);
-      tx.oncomplete = () => resolve(true);
-      tx.onerror = () => resolve(false);
-      tx.onabort = () => resolve(false);
-    } catch (error) {
-      resolve(false);
-    }
-  });
-}
-
-async function deletePersistenceValue(key) {
-  const db = await openPersistenceDb();
-  if (!db) return false;
-
-  return new Promise((resolve) => {
-    try {
-      const tx = db.transaction(PERSISTENCE_STORE_NAME, 'readwrite');
-      tx.objectStore(PERSISTENCE_STORE_NAME).delete(key);
-      tx.oncomplete = () => resolve(true);
-      tx.onerror = () => resolve(false);
-      tx.onabort = () => resolve(false);
-    } catch (error) {
-      resolve(false);
-    }
-  });
-}
-
-async function readRememberedStoreFileHandle() {
-  return readPersistenceValue(STORE_FILE_HANDLE_KEY);
-}
-
-async function rememberStoreFileHandle(handle) {
-  if (!handle) return false;
-  return writePersistenceValue(STORE_FILE_HANDLE_KEY, handle);
-}
-
-async function forgetStoreFileHandle() {
-  return deletePersistenceValue(STORE_FILE_HANDLE_KEY);
-}
-
-async function queryFileHandlePermission(handle, mode = 'read') {
-  if (!handle || typeof handle.queryPermission !== 'function') return 'prompt';
+function persistSupabaseConfig(config) {
   try {
-    return await handle.queryPermission({ mode });
-  } catch (error) {
-    return 'prompt';
-  }
-}
-
-async function ensureFileHandlePermission(handle, mode = 'readwrite', options = {}) {
-  if (!handle) return false;
-  const allowPrompt = options.allowPrompt !== false;
-  let permission = await queryFileHandlePermission(handle, mode);
-  if (permission === 'granted') return true;
-  if (!allowPrompt || typeof handle.requestPermission !== 'function') return false;
-
-  try {
-    permission = await handle.requestPermission({ mode });
-    return permission === 'granted';
-  } catch (error) {
-    return false;
-  }
-}
-
-async function getWritableStoreFileHandle(options = {}) {
-  const allowPrompt = options.allowPrompt !== false;
-  const rememberedHandle = await readRememberedStoreFileHandle();
-  if (rememberedHandle && await ensureFileHandlePermission(rememberedHandle, 'readwrite', { allowPrompt })) {
-    return rememberedHandle;
-  }
-
-  if (!allowPrompt || !supportsBrowserFileSave()) return null;
-
-  const handle = await window.showSaveFilePicker({
-    suggestedName: STORE_FILE_NAME,
-    types: STORE_FILE_TYPES
-  });
-  if (!handle) return null;
-  await rememberStoreFileHandle(handle);
-  return handle;
-}
-
-async function readStoreFromRememberedFile() {
-  if (!supportsBrowserFileSave()) return null;
-
-  try {
-    const handle = await readRememberedStoreFileHandle();
-    if (!handle) return null;
-    const permission = await queryFileHandlePermission(handle, 'read');
-    if (permission !== 'granted') return null;
-
-    const file = await handle.getFile();
-    const raw = JSON.parse(await file.text());
-    return normalizeIncomingStorePayload(raw);
-  } catch (error) {
-    if (error && (error.name === 'NotFoundError' || error.name === 'DataError')) {
-      await forgetStoreFileHandle();
-    }
-    return null;
-  }
-}
-
-async function readStoreFileText(file) {
-  if (!file) return '';
-  if (typeof file.text === 'function') {
-    return file.text();
-  }
-  return new Promise((resolve, reject) => {
-    try {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(reader.error || new Error('Failed to read file'));
-      reader.readAsText(file);
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
-
-function pickStoreFileViaInput() {
-  return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json,application/json';
-    input.style.display = 'none';
-    document.body.appendChild(input);
-
-    input.addEventListener('change', () => {
-      const file = input.files && input.files[0] ? input.files[0] : null;
-      input.remove();
-      resolve(file);
-    }, { once: true });
-
-    input.click();
-  });
-}
-
-async function promptForLocalStoreImport() {
-  try {
-    let rawText = '';
-
-    if (supportsBrowserFileOpen()) {
-      try {
-        const [handle] = await window.showOpenFilePicker({
-          multiple: false,
-          types: STORE_FILE_TYPES
-        });
-        if (handle) {
-          const permissionGranted = await ensureFileHandlePermission(handle, 'read', { allowPrompt: true });
-          if (!permissionGranted) {
-            throw new Error('Permission to read the JSON file was denied.');
-          }
-          const file = await handle.getFile();
-          rawText = await readStoreFileText(file);
-          await rememberStoreFileHandle(handle);
-        }
-      } catch (error) {
-        if (error && error.name === 'AbortError') return false;
-        if (!rawText) {
-          const file = await pickStoreFileViaInput();
-          if (!file) return false;
-          rawText = await readStoreFileText(file);
-        }
-      }
+    if (config && config.enabled) {
+      localStorage.setItem(SUPABASE_CONFIG_STORAGE_KEY, JSON.stringify(config));
     } else {
-      const file = await pickStoreFileViaInput();
-      if (!file) return false;
-      rawText = await readStoreFileText(file);
+      localStorage.removeItem(SUPABASE_CONFIG_STORAGE_KEY);
     }
-
-    const parsed = JSON.parse(rawText);
-    const importedStore = normalizeIncomingStorePayload(parsed);
-    if (!importedStore) {
-      throw new Error('That file was not a valid TGB game library JSON.');
-    }
-
-    state.store = importedStore;
-    state.readOnly = false;
-    state.needsLocalStoreImport = false;
-    state.localStoreImportError = '';
-    persistStoreLocally();
-
-    let selectedId = '';
-    try {
-      selectedId = String(localStorage.getItem(LOCAL_OPEN_GAME_KEY) || '').trim();
-    } catch (error) {
-    }
-    if (!selectedId || !state.store.games.some((game) => game && game.id === selectedId)) {
-      const firstGame = getSortedGames()[0] || null;
-      selectedId = firstGame ? firstGame.id : '';
-    }
-    state.selectedGameId = selectedId;
-    renderGames();
-    return true;
   } catch (error) {
-    state.needsLocalStoreImport = true;
-    state.localStoreImportError = error && error.message ? error.message : 'Could not open the JSON file.';
-    renderGames();
-    return false;
   }
 }
 
-function readLocalStoreSnapshot() {
+function readSupabaseConfig() {
+  const inlineConfigExists = !!(window.TGB_SUPABASE_CONFIG && typeof window.TGB_SUPABASE_CONFIG === 'object');
+  if (inlineConfigExists) {
+    const inlineConfig = sanitizeSupabaseConfig(window.TGB_SUPABASE_CONFIG);
+    persistSupabaseConfig(inlineConfig);
+    return inlineConfig;
+  }
+
   try {
-    const raw = JSON.parse(localStorage.getItem(LOCAL_STORE_KEY) || 'null');
-    return raw && typeof raw === 'object' ? normalizeStore(raw) : null;
+    const storedConfig = JSON.parse(localStorage.getItem(SUPABASE_CONFIG_STORAGE_KEY) || 'null');
+    return sanitizeSupabaseConfig(storedConfig);
   } catch (error) {
-    return null;
+    return sanitizeSupabaseConfig(null);
   }
 }
 
-function getStoreUpdatedTime(store) {
-  if (!store || typeof store !== 'object') return 0;
-  const candidates = [store.updatedAt];
-  if (Array.isArray(store.games)) {
-    store.games.forEach((game) => {
-      candidates.push(game && game.updatedAt);
-      candidates.push(game && game.createdAt);
+function hasSupabaseStore() {
+  return !!supabaseConfig.enabled;
+}
+
+function buildSupabaseTableUrl(tableName, params = null) {
+  if (!hasSupabaseStore()) return '';
+  const url = new URL('/rest/v1/' + encodeURIComponent(tableName), supabaseConfig.url + '/');
+  if (params && typeof params === 'object') {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') return;
+      url.searchParams.set(key, String(value));
     });
   }
-  return candidates.reduce((latest, value) => {
-    if (typeof value !== 'string' || !value) return latest;
-    const parsed = Date.parse(value);
-    return Number.isFinite(parsed) ? Math.max(latest, parsed) : latest;
-  }, 0);
+  return url.toString();
 }
 
-function pickPreferredStoreCandidate(candidates = []) {
-  let best = null;
-  let bestTime = -1;
-  candidates.forEach((candidate) => {
-    if (!candidate) return;
-    const candidateTime = getStoreUpdatedTime(candidate);
-    if (!best || candidateTime > bestTime) {
-      best = candidate;
-      bestTime = candidateTime;
-    }
+function getSupabaseHeaders(extraHeaders = {}) {
+  if (!hasSupabaseStore()) return { ...extraHeaders };
+  return {
+    apikey: supabaseConfig.publishableKey,
+    Authorization: 'Bearer ' + supabaseConfig.publishableKey,
+    ...extraHeaders
+  };
+}
+
+function getLatestStoreTimestamp(games = []) {
+  return games.reduce((latest, game) => {
+    const candidates = [game && game.updatedAt, game && game.createdAt];
+    candidates.forEach((value) => {
+      if (typeof value !== 'string' || !value.trim()) return;
+      const latestTime = Date.parse(latest || '');
+      const candidateTime = Date.parse(value);
+      if (!Number.isFinite(candidateTime)) return;
+      if (!latest || !Number.isFinite(latestTime) || candidateTime > latestTime) {
+        latest = value;
+      }
+    });
+    return latest;
+  }, '');
+}
+
+function buildStoreFromGames(games = []) {
+  return normalizeStore({
+    updatedAt: getLatestStoreTimestamp(games),
+    games
   });
-  return best;
+}
+
+function serializeGameRow(game, index = 0) {
+  const normalizedGame = normalizeGameEntry(game, index);
+  const timestamp = normalizedGame.updatedAt || normalizedGame.createdAt || new Date().toISOString();
+  return {
+    id: normalizedGame.id,
+    name: normalizedGame.name || 'Untitled Game',
+    created_at: normalizedGame.createdAt || timestamp,
+    updated_at: timestamp,
+    primary_color: normalizedGame.primaryColor || null,
+    secondary_color: normalizedGame.secondaryColor || null,
+    nodes: Array.isArray(normalizedGame.nodes) ? normalizedGame.nodes : [],
+    links: Array.isArray(normalizedGame.links) ? normalizedGame.links : []
+  };
+}
+
+function normalizeGameRow(row, index = 0) {
+  return normalizeGameEntry({
+    id: row && row.id,
+    name: row && row.name,
+    createdAt: row && typeof row.created_at === 'string' ? row.created_at : '',
+    updatedAt: row && typeof row.updated_at === 'string' ? row.updated_at : '',
+    primaryColor: row && typeof row.primary_color === 'string' ? row.primary_color : '',
+    secondaryColor: row && typeof row.secondary_color === 'string' ? row.secondary_color : '',
+    nodes: Array.isArray(row && row.nodes) ? row.nodes : [],
+    links: Array.isArray(row && row.links) ? row.links : []
+  }, index);
+}
+
+function getErrorMessage(error, fallbackMessage) {
+  if (error && typeof error.message === 'string' && error.message.trim()) {
+    return error.message.trim();
+  }
+  return fallbackMessage;
+}
+
+function showSupabaseError(error, fallbackMessage) {
+  const message = getErrorMessage(error, fallbackMessage);
+  try {
+    window.alert(message);
+  } catch (alertError) {
+  }
+  return message;
 }
 
 function persistStoreLocally() {
   try {
-    localStorage.setItem(LOCAL_STORE_KEY, JSON.stringify(state.store));
     if (state.selectedGameId) {
       localStorage.setItem(LOCAL_OPEN_GAME_KEY, state.selectedGameId);
     } else {
@@ -407,84 +211,132 @@ function persistStoreLocally() {
   }
 }
 
-async function syncStoreToServer() {
-  state.store.updatedAt = new Date().toISOString();
+async function fetchGameRowsFromSupabase() {
+  const response = await fetch(buildSupabaseTableUrl(supabaseConfig.gamesTable, {
+    select: 'id,name,created_at,updated_at,primary_color,secondary_color,nodes,links',
+    order: 'name.asc'
+  }), {
+    cache: 'no-store',
+    headers: getSupabaseHeaders({
+      Accept: 'application/json'
+    })
+  });
+  if (!response.ok) {
+    throw new Error(await response.text() || 'Supabase games load failed.');
+  }
+  const rows = await response.json();
+  return Array.isArray(rows) ? rows : [];
+}
+
+async function loadStoreFromSupabase() {
+  if (!hasSupabaseStore()) {
+    return {
+      store: null,
+      error: new Error('Add your Supabase project URL and publishable key in supabase-config.js.')
+    };
+  }
+
   try {
-    let lastError = null;
-    for (const apiBase of getApiBaseCandidates()) {
-      try {
-        const response = await fetch(apiBase + STORE_API_ROUTE, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(normalizeStore(state.store))
-        });
-        if (!response.ok) {
-          throw new Error(await response.text() || 'Store sync failed');
-        }
-        return { serverSaved: true, localOnly: false };
-      } catch (error) {
-        lastError = error;
-      }
+    const rows = await fetchGameRowsFromSupabase();
+    const games = rows.map((row, index) => normalizeGameRow(row, index));
+    return {
+      store: buildStoreFromGames(games),
+      error: null
+    };
+  } catch (error) {
+    return {
+      store: null,
+      error
+    };
+  }
+}
+
+async function syncGameToSupabase(game) {
+  if (!hasSupabaseStore()) {
+    return {
+      serverSaved: false,
+      error: new Error('Supabase is not configured.')
+    };
+  }
+
+  try {
+    const payload = serializeGameRow(game, state.store.games.findIndex((entry) => entry && entry.id === game.id));
+    const response = await fetch(buildSupabaseTableUrl(supabaseConfig.gamesTable, {
+      on_conflict: 'id'
+    }), {
+      method: 'POST',
+      headers: getSupabaseHeaders({
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=representation'
+      }),
+      body: JSON.stringify([payload])
+    });
+    if (!response.ok) {
+      throw new Error(await response.text() || 'Supabase save failed.');
     }
-    return { serverSaved: false, localOnly: true, error: lastError };
+    return { serverSaved: true, error: null };
   } catch (error) {
-    return { serverSaved: false, localOnly: true, error };
+    return { serverSaved: false, error };
   }
 }
 
-async function syncStoreToBrowserFile(options = {}) {
-  if (!supportsBrowserFileSave()) return { fileSaved: false, supported: false };
+async function renameGameInSupabase(previousGameId, game) {
+  if (!hasSupabaseStore()) {
+    return {
+      serverSaved: false,
+      error: new Error('Supabase is not configured.')
+    };
+  }
 
   try {
-    const handle = await getWritableStoreFileHandle({ allowPrompt: options.allowPrompt !== false });
-    if (!handle) return { fileSaved: false, supported: true };
-
-    const writable = await handle.createWritable();
-    await writable.write(getSerializedStoreText());
-    await writable.close();
-    await rememberStoreFileHandle(handle);
-    return { fileSaved: true, localOnly: false };
-  } catch (error) {
-    if (error && error.name === 'AbortError') {
-      return { fileSaved: false, supported: true, cancelled: true, error };
+    const payload = serializeGameRow(game, state.store.games.findIndex((entry) => entry && entry.id === previousGameId));
+    const response = await fetch(buildSupabaseTableUrl(supabaseConfig.gamesTable, {
+      id: 'eq.' + previousGameId
+    }), {
+      method: 'PATCH',
+      headers: getSupabaseHeaders({
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation'
+      }),
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      throw new Error(await response.text() || 'Supabase rename failed.');
     }
-    return { fileSaved: false, supported: true, error };
-  }
-}
-
-function syncStoreToDownload() {
-  try {
-    const blob = new Blob([getSerializedStoreText()], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = STORE_FILE_NAME;
-    link.rel = 'noopener';
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
-    return { downloaded: true, localOnly: false };
+    const rows = await response.json();
+    if (!Array.isArray(rows) || !rows.length) {
+      throw new Error('Supabase rename did not update any rows.');
+    }
+    return { serverSaved: true, error: null };
   } catch (error) {
-    return { downloaded: false, localOnly: true, error };
+    return { serverSaved: false, error };
   }
 }
 
-async function syncStoreToBestAvailableTarget(options = {}) {
-  const serverResult = await syncStoreToServer();
-  if (serverResult && serverResult.serverSaved) return serverResult;
-
-  const fileResult = await syncStoreToBrowserFile({ allowPrompt: options.allowInteractiveFallback !== false });
-  if (fileResult && fileResult.fileSaved) return fileResult;
-  if (fileResult && fileResult.cancelled) return { localOnly: true, cancelled: true, error: fileResult.error };
-
-  if (options.allowInteractiveFallback) {
-    const downloadResult = syncStoreToDownload();
-    if (downloadResult && downloadResult.downloaded) return downloadResult;
+async function deleteGameFromSupabase(gameId) {
+  if (!hasSupabaseStore()) {
+    return {
+      serverSaved: false,
+      error: new Error('Supabase is not configured.')
+    };
   }
 
-  return { localOnly: true, error: (fileResult && fileResult.error) || (serverResult && serverResult.error) || null };
+  try {
+    const response = await fetch(buildSupabaseTableUrl(supabaseConfig.gamesTable, {
+      id: 'eq.' + gameId
+    }), {
+      method: 'DELETE',
+      headers: getSupabaseHeaders({
+        Prefer: 'return=minimal'
+      })
+    });
+    if (!response.ok) {
+      throw new Error(await response.text() || 'Supabase delete failed.');
+    }
+    return { serverSaved: true, error: null };
+  } catch (error) {
+    return { serverSaved: false, error };
+  }
 }
 
 function getRawGameNodeTitle(rawGame) {
@@ -646,7 +498,6 @@ function normalizeIncomingStorePayload(raw) {
   }
 
   if (!raw || typeof raw !== 'object') return null;
-  if (raw._comment === STORE_COMMENT && Array.isArray(raw.games)) return normalizeStore(raw);
   if (Array.isArray(raw.nodes) || Array.isArray(raw.links)) return normalizeStore(raw);
   if (Array.isArray(raw.games)) {
     const looksLikeCurrentStore = raw.games.some((game) => game && typeof game === 'object' && (Array.isArray(game.nodes) || Array.isArray(game.links)));
@@ -676,6 +527,35 @@ function buildDuplicateGameName(baseName = 'Untitled Game') {
   return sourceName + ' Copy ' + copyIndex;
 }
 
+function slugifyGameId(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function buildUniqueGameIdFromName(name, ignoredGameId = '') {
+  const ignoredId = String(ignoredGameId || '').trim();
+  const baseId = slugifyGameId(name) || 'untitled-game';
+  const usedIds = new Set(
+    (state.store.games || [])
+      .filter((game) => game && String(game.id || '').trim() !== ignoredId)
+      .map((game) => String(game.id || '').trim().toLowerCase())
+      .filter(Boolean)
+  );
+  if (!usedIds.has(baseId)) return baseId;
+  let suffix = 2;
+  let candidateId = `${baseId}-${suffix}`;
+  while (usedIds.has(candidateId)) {
+    suffix += 1;
+    candidateId = `${baseId}-${suffix}`;
+  }
+  return candidateId;
+}
+
 function makeGameId() {
   return 'game-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
 }
@@ -688,6 +568,12 @@ function getGameById(gameId) {
   const targetId = String(gameId || '').trim();
   if (!targetId) return null;
   return state.store.games.find((game) => game && game.id === targetId) || null;
+}
+
+function getEditableGameTitleNode(game) {
+  return Array.isArray(game && game.nodes)
+    ? game.nodes.find((node) => node && node.type === 'game')
+    : null;
 }
 
 function clearSelectedGame() {
@@ -744,10 +630,12 @@ function updateActionUi() {
   const canMutate = !state.readOnly;
   setActionLinkState(newGameLink, true, buildEditorUrl({ newGame: true }));
   setActionLinkState(editGameLink, true, selectedGame ? buildEditorUrl({ gameId: selectedGame.id }) : buildEditorUrl());
+  setActionLinkState(renameGameLink, hasSelection && canMutate, '#rename');
   setActionLinkState(duplicateGameLink, hasSelection && canMutate, '#duplicate');
   if (deleteGameBtn) deleteGameBtn.disabled = !hasSelection || !canMutate;
   if (gamesMenuNewBtn) gamesMenuNewBtn.disabled = false;
   if (gamesMenuEditBtn) gamesMenuEditBtn.disabled = false;
+  if (gamesMenuRenameBtn) gamesMenuRenameBtn.disabled = !hasSelection || !canMutate;
   if (gamesMenuDuplicateBtn) gamesMenuDuplicateBtn.disabled = !hasSelection || !canMutate;
   if (gamesMenuDeleteBtn) gamesMenuDeleteBtn.disabled = !hasSelection || !canMutate;
 }
@@ -793,25 +681,26 @@ function renderGames() {
   gamesGrid.innerHTML = '';
   const games = getSortedGames();
 
+  if (state.supabaseStatusMessage) {
+    const notice = document.createElement('p');
+    notice.className = 'games-empty-copy games-status-copy';
+    notice.textContent = state.supabaseStatusMessage;
+    gamesGrid.appendChild(notice);
+  }
+
   if (!games.length) {
     const empty = document.createElement('div');
     empty.className = 'games-empty';
-    if (state.needsLocalStoreImport) {
+    if (state.readOnly && state.supabaseStatusMessage) {
       const message = document.createElement('p');
       message.className = 'games-empty-copy';
-      message.textContent = state.localStoreImportError || 'Open games.json to load your games without a server.';
+      message.textContent = 'Run builder/supabase.sql and reload the page.';
       empty.appendChild(message);
-
-      const openBtn = document.createElement('button');
-      openBtn.type = 'button';
-      openBtn.className = 'games-empty-open-btn';
-      openBtn.textContent = 'Open JSON';
-      openBtn.addEventListener('click', () => {
-        promptForLocalStoreImport();
-      });
-      empty.appendChild(openBtn);
     } else {
-      empty.textContent = 'No games yet. Choose New to start one.';
+      const message = document.createElement('p');
+      message.className = 'games-empty-copy';
+      message.textContent = 'No games yet. Choose New to start one.';
+      empty.appendChild(message);
     }
     gamesGrid.appendChild(empty);
     updateActionUi();
@@ -883,6 +772,7 @@ function openGamesContextMenu(clientX, clientY, gameId = '') {
   const canMutate = !state.readOnly;
   if (gamesMenuNewBtn) gamesMenuNewBtn.disabled = false;
   if (gamesMenuEditBtn) gamesMenuEditBtn.disabled = false;
+  if (gamesMenuRenameBtn) gamesMenuRenameBtn.disabled = !targetGameId || !canMutate;
   if (gamesMenuDuplicateBtn) gamesMenuDuplicateBtn.disabled = !targetGameId || !canMutate;
   if (gamesMenuDeleteBtn) gamesMenuDeleteBtn.disabled = !targetGameId || !canMutate;
   gamesContextMenu.hidden = false;
@@ -895,15 +785,6 @@ function openGamesContextMenu(clientX, clientY, gameId = '') {
   const top = Math.min(clientY, window.innerHeight - height - margin);
   gamesContextMenu.style.left = Math.max(margin, left) + 'px';
   gamesContextMenu.style.top = Math.max(margin, top) + 'px';
-}
-
-async function saveStoreBestEffort(options = {}) {
-  persistStoreLocally();
-  try {
-    return await syncStoreToBestAvailableTarget({ allowInteractiveFallback: !!options.allowInteractiveFallback });
-  } catch (error) {
-    return { localOnly: true, error };
-  }
 }
 
 function buildEditorUrl(options = {}) {
@@ -941,6 +822,43 @@ function editSelectedGame(gameId = state.selectedGameId) {
   goToEditor({ gameId: selectedId });
 }
 
+async function renameSelectedGame(gameId = state.selectedGameId) {
+  if (state.readOnly) return;
+  const targetId = String(gameId || '').trim();
+  if (!targetId) return;
+  const sourceGame = getGameById(targetId);
+  if (!sourceGame) return;
+  closeGamesContextMenu();
+
+  const rawName = window.prompt('Rename game', sourceGame.name || 'Untitled Game');
+  if (rawName == null) return;
+
+  const nextName = String(rawName || '').trim() || 'Untitled Game';
+  if (nextName === sourceGame.name) return;
+  const nextId = buildUniqueGameIdFromName(nextName, sourceGame.id);
+
+  const timestamp = new Date().toISOString();
+  const renamedGame = normalizeGameEntry({
+    ...cloneObj(sourceGame),
+    id: nextId,
+    name: nextName,
+    updatedAt: timestamp
+  }, state.store.games.findIndex((game) => game && game.id === sourceGame.id));
+  const titleNode = getEditableGameTitleNode(renamedGame);
+  if (titleNode) titleNode.title = nextName;
+
+  const result = await renameGameInSupabase(sourceGame.id, renamedGame);
+  if (!result.serverSaved) {
+    state.supabaseStatusMessage = showSupabaseError(result.error, 'Could not rename this game in Supabase.');
+    renderGames();
+    return;
+  }
+
+  state.selectedGameId = renamedGame.id;
+  persistStoreLocally();
+  await loadStore({ preferredSelectedGameId: renamedGame.id });
+}
+
 async function duplicateSelectedGame(gameId = state.selectedGameId) {
   if (state.readOnly) return;
   const sourceGame = state.store.games.find((game) => game && game.id === gameId);
@@ -956,11 +874,16 @@ async function duplicateSelectedGame(gameId = state.selectedGameId) {
     updatedAt: timestamp
   }, state.store.games.length);
 
-  state.store.games.push(duplicate);
-  state.store.updatedAt = timestamp;
+  const result = await syncGameToSupabase(duplicate);
+  if (!result.serverSaved) {
+    state.supabaseStatusMessage = showSupabaseError(result.error, 'Could not duplicate this game in Supabase.');
+    renderGames();
+    return;
+  }
+
   state.selectedGameId = duplicate.id;
-  renderGames();
-  await saveStoreBestEffort();
+  persistStoreLocally();
+  await loadStore({ preferredSelectedGameId: duplicate.id });
 }
 
 async function deleteSelectedGame(gameId = state.selectedGameId) {
@@ -972,75 +895,54 @@ async function deleteSelectedGame(gameId = state.selectedGameId) {
   const confirmed = await openEraseConfirm(targetId);
   if (!confirmed) return;
 
-  const index = state.store.games.findIndex((game) => game && game.id === targetId);
-  if (index < 0) return;
+  const preferredSelectedGameId = state.selectedGameId === targetId ? '' : state.selectedGameId;
+  const result = await deleteGameFromSupabase(targetId);
+  if (!result.serverSaved) {
+    state.supabaseStatusMessage = showSupabaseError(result.error, 'Could not delete this game from Supabase.');
+    renderGames();
+    return;
+  }
 
-  state.store.games.splice(index, 1);
-  state.store.updatedAt = new Date().toISOString();
-  if (state.selectedGameId === targetId) {
-    const nextGame = getSortedGames()[0] || null;
-    state.selectedGameId = nextGame ? nextGame.id : '';
-  }
-  try {
-    if (state.selectedGameId) localStorage.setItem(LOCAL_OPEN_GAME_KEY, state.selectedGameId);
-    else localStorage.removeItem(LOCAL_OPEN_GAME_KEY);
-  } catch (error) {
-  }
-  renderGames();
-  await saveStoreBestEffort();
+  state.selectedGameId = preferredSelectedGameId;
+  persistStoreLocally();
+  await loadStore({ preferredSelectedGameId });
 }
 
-async function loadStore() {
-  let apiStore = null;
-  let bundledStore = null;
-  const hostedHttpView = isHostedHttpView();
+async function loadStore(options = {}) {
+  const preferredSelectedGameId = typeof options.preferredSelectedGameId === 'string'
+    ? options.preferredSelectedGameId.trim()
+    : '';
+  const forcedStatusMessage = typeof options.statusMessage === 'string'
+    ? options.statusMessage
+    : '';
+  const supabaseResult = await loadStoreFromSupabase();
 
-  try {
-    let response = null;
-    for (const apiBase of getApiBaseCandidates()) {
-      try {
-        response = await fetch(apiBase + STORE_API_ROUTE, { cache: 'no-store' });
-        if (response.ok) break;
-      } catch (error) {
-      }
-    }
-    if (response && response.ok) {
-      apiStore = normalizeIncomingStorePayload(await response.json());
-    }
-  } catch (error) {
+  if (!supabaseResult.store) {
+    state.store = cloneObj(EMPTY_STORE);
+    state.readOnly = true;
+    state.supabaseStatusMessage = forcedStatusMessage || getErrorMessage(supabaseResult.error, 'Could not load the Supabase games table.');
+    state.selectedGameId = '';
+    renderGames();
+    return;
   }
 
-  const fileStore = await readStoreFromRememberedFile();
-  const localStore = readLocalStoreSnapshot();
-  try {
-    if (!apiStore && !isFileProtocolView()) {
-      const bundledResponse = await fetch('../play/data/' + STORE_FILE_NAME, { cache: 'no-store' });
-      if (bundledResponse.ok) {
-        bundledStore = normalizeIncomingStorePayload(await bundledResponse.json());
-      }
+  state.store = supabaseResult.store;
+  state.readOnly = false;
+  state.supabaseStatusMessage = forcedStatusMessage || '';
+
+  let selectedId = preferredSelectedGameId;
+  if (!selectedId) {
+    try {
+      selectedId = String(localStorage.getItem(LOCAL_OPEN_GAME_KEY) || '').trim();
+    } catch (error) {
     }
-  } catch (error) {
-  }
-
-  if (hostedHttpView) {
-    state.store = apiStore || bundledStore || fileStore || localStore || cloneObj(EMPTY_STORE);
-  } else {
-    state.store = pickPreferredStoreCandidate([apiStore, fileStore, localStore, bundledStore]) || cloneObj(EMPTY_STORE);
-  }
-  state.readOnly = hostedHttpView && !apiStore;
-  state.needsLocalStoreImport = isFileProtocolView() && !apiStore && !fileStore && !localStore && !bundledStore;
-  state.localStoreImportError = '';
-
-  let selectedId = '';
-  try {
-    selectedId = String(localStorage.getItem(LOCAL_OPEN_GAME_KEY) || '').trim();
-  } catch (error) {
   }
   if (!selectedId || !state.store.games.some((game) => game && game.id === selectedId)) {
     const firstGame = getSortedGames()[0] || null;
     selectedId = firstGame ? firstGame.id : '';
   }
   state.selectedGameId = selectedId;
+  persistStoreLocally();
   renderGames();
 }
 
@@ -1066,6 +968,14 @@ if (editGameLink) {
   });
 }
 
+if (renameGameLink) {
+  renameGameLink.addEventListener('click', (event) => {
+    event.preventDefault();
+    if (renameGameLink.classList.contains('is-disabled')) return;
+    renameSelectedGame();
+  });
+}
+
 if (duplicateGameLink) {
   duplicateGameLink.addEventListener('click', (event) => {
     event.preventDefault();
@@ -1077,6 +987,7 @@ if (duplicateGameLink) {
 if (deleteGameBtn) deleteGameBtn.addEventListener('click', () => deleteSelectedGame());
 if (gamesMenuNewBtn) gamesMenuNewBtn.addEventListener('click', startNewGame);
 if (gamesMenuEditBtn) gamesMenuEditBtn.addEventListener('click', () => editSelectedGame(state.contextMenuGameId || state.selectedGameId));
+if (gamesMenuRenameBtn) gamesMenuRenameBtn.addEventListener('click', () => renameSelectedGame(state.contextMenuGameId || state.selectedGameId));
 if (gamesMenuDuplicateBtn) gamesMenuDuplicateBtn.addEventListener('click', () => duplicateSelectedGame(state.contextMenuGameId || state.selectedGameId));
 if (gamesMenuDeleteBtn) gamesMenuDeleteBtn.addEventListener('click', () => deleteSelectedGame(state.contextMenuGameId || state.selectedGameId));
 
