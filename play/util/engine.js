@@ -653,7 +653,7 @@ async function loadStops() {
     let stopsPath = 'data/stops.json';
     if (GAME_PARAM) {
       try {
-        const gamesResp = await fetch('data/games.json', { cache: 'no-store' });
+        const gamesResp = await fetch('data/games_archive.json', { cache: 'no-store' });
         if (gamesResp.ok) {
           const gamesData = await gamesResp.json();
           const list = Array.isArray(gamesData) ? gamesData : (gamesData.games || []);
@@ -676,7 +676,7 @@ async function loadStops() {
   const header = payload && typeof payload === 'object' && payload.header && typeof payload.header === 'object'
     ? payload.header
     : {};
-  // Overlay game-specific metadata from games.json onto the stops header
+  // Overlay game-specific metadata from games_archive.json onto the stops header
   if (gameMatch) {
     if (gameMatch.name) {
       header.title = gameMatch.name;
@@ -1270,7 +1270,7 @@ async function initGame() {
   }
 
   if (!stops.length) {
-    showNoStops('No tour stops yet. Build stops in builder.html and save to stops.json.');
+    showNoStops('No tour stops yet. Build stops in builder_archive.html and save to stops.json.');
     return;
   }
 

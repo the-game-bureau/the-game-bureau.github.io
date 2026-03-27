@@ -1,0 +1,5929 @@
+﻿// TGB Builder writes JSON data that is read later by the game engine.
+const TYPE_CONFIG = {
+  game: {
+    width: 184,
+    height: 318,
+    kicker: 'GAME',
+    title: '!AAA Great Game!',
+    body: 'A guided SMS adventure through the city.',
+    code: 'GM'
+  },
+  stop: {
+    width: 236,
+    height: 90,
+    kicker: 'WAYPOINT',
+    title: 'Waypoint Name',
+    body: '',
+    code: 'ST'
+  },
+  bubble: {
+    width: 250,
+    height: 92,
+    kicker: 'GUIDE MSG',
+    title: '',
+    body: '',
+    code: 'BB'
+  },
+  reply: {
+    width: 230,
+    height: 88,
+    kicker: 'PLAYER MSG',
+    title: '',
+    body: 'fifty,50',
+    code: 'RP'
+  },
+};
+const NODE_ID_PREFIX = {
+  game: 'gm',
+  stop: 'st',
+  bubble: 'gd',
+  reply: 'pl'
+};
+const NODE_TYPE_BY_PREFIX = Object.fromEntries(
+  Object.entries(NODE_ID_PREFIX).map(([type, prefix]) => [prefix, type])
+);
+
+const ALL_TAGS = ['Mystery', 'Puzzle', 'SMS', 'Walking Tour', 'Sports', 'History', 'Food', 'Adventure', 'Family', 'Conspiracy', 'Trivia', 'Horror', 'Romance', 'Comedy', 'Music', 'Culture', 'Night Life', 'City Tour', 'Scavenger Hunt', 'New Orleans'];
+
+const STORE_FILE_NAME = 'games.json';
+const STORE_API_ROUTE = '/games-phoneanalogy';
+const LOCAL_STORE_KEY = 'tgb-games-phoneanalogy';
+const LOCAL_OPEN_GAME_KEY = 'tgb-games-phoneanalogy-open';
+const LOCAL_RECOVERY_KEY = 'tgb-games-phoneanalogy-recovery';
+const STORE_COMMENT = 'File: games.json | Purpose: phone-analogy graph-builder data written by TGB Builder for later game-engine use.';
+const RECOVERY_VERSION = 1;
+const RECOVERY_SAVE_DELAY_MS = 900;
+const PERSISTENCE_DB_NAME = 'tgb-builder-persistence';
+const PERSISTENCE_DB_VERSION = 1;
+const PERSISTENCE_STORE_NAME = 'handles';
+const STORE_FILE_HANDLE_KEY = 'games-phoneanalogy-handle';
+const STORE_FILE_TYPES = [{
+  description: 'TGB Game Library',
+  accept: {
+    'application/json': ['.json']
+  }
+}];
+const GAMES_PAGE_ROUTE = 'index.html';
+
+const EMPTY_DOC = {
+  updatedAt: '',
+  nodes: [],
+  links: []
+};
+
+const EMPTY_STORE = {
+  _comment: STORE_COMMENT,
+  updatedAt: '',
+  games: []
+};
+
+const API = /^(http|https):$/.test(location.protocol) ? location.origin : null;
+const LOCAL_NODE_API = 'http://localhost:3000';
+const PLAY_PREVIEW_KEY = 'tgb-play-current-game';
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 2;
+const ZOOM_STEP = 0.1;
+const PAPER_BASE_WIDTH = 1224;
+const PAPER_ASPECT_RATIO = 11 / 8.5;
+const GRID_COLUMNS = 5;
+const GRID_ROWS = 5;
+const GAME_HOME_COL = 0;
+const GAME_HOME_ROW = 0;
+const AUTO_PLACE_GAP_X = 0;
+const AUTO_PLACE_GAP_Y = 0;
+const BOARD_PADDING = 0;
+const MAJOR_GRID_SNAP_THRESHOLD = 54;
+const LINK_INTERACTION_RADIUS = 28;
+const LINK_LANE_OFFSET = 18;
+const LINK_NODE_CLEARANCE = 10;
+const LINK_CORNER_RADIUS = 16;
+const NODE_PORT_OFFSET = 8;
+const THREAD_LAYOUT_ENABLED = true;
+const PHONE_STAGE_WIDTH = 960;
+const PHONE_DEVICE_WIDTH = 470;
+const PHONE_DEVICE_X = Math.round((PHONE_STAGE_WIDTH - PHONE_DEVICE_WIDTH) / 2);
+const PHONE_DEVICE_Y = 28;
+const PHONE_STATUSBAR_HEIGHT = 60;
+const PHONE_HEADER_HEIGHT = 72;
+const PHONE_COMPOSER_HEIGHT = 84;
+const PHONE_THREAD_SIDE_PADDING = 28;
+const PHONE_THREAD_TOP_GAP = 28;
+const PHONE_THREAD_BOTTOM_PADDING = 110;
+const PHONE_ROW_GAP = 20;
+const PHONE_BRANCH_GAP = 14;
+const PHONE_MIN_DEVICE_HEIGHT = 980;
+const PHONE_ANYTIME_GAP = 86;
+const PHONE_ANYTIME_ROW_GAP = 26;
+const PHONE_ANYTIME_BOTTOM_PADDING = 72;
+const PHONE_BUBBLE_MIN_WIDTH = 110;
+const PHONE_BUBBLE_MAX_WIDTH = 258;
+const SINGLE_SHEET_SCROLL = true;
+const STENCIL_SHORTCUTS = {
+  stop: 'S',
+  bubble: 'G',
+  reply: 'P'
+};
+
+function isLocalHostname(hostname = location.hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
+}
+
+function getApiBaseCandidates() {
+  const bases = [];
+  if (API) bases.push(API);
+  if (!bases.includes(LOCAL_NODE_API) && (!API || isLocalHostname())) bases.push(LOCAL_NODE_API);
+  return bases;
+}
+
+function getGameDataFetchUrls() {
+  const urls = [];
+  getApiBaseCandidates().forEach((apiBase) => {
+    urls.push(apiBase + STORE_API_ROUTE);
+  });
+  urls.push('../play/data/' + STORE_FILE_NAME);
+  return [...new Set(urls)];
+}
+
+function getBundledStoreFetchUrl() {
+  return '../play/data/' + STORE_FILE_NAME;
+}
+
+function usesSingleSheetScroll() {
+  return SINGLE_SHEET_SCROLL;
+}
+
+function getViewportScrollPosition() {
+  if (usesSingleSheetScroll()) {
+    return {
+      left: window.scrollX || window.pageXOffset || 0,
+      top: window.scrollY || window.pageYOffset || 0
+    };
+  }
+  return {
+    left: viewport ? viewport.scrollLeft : 0,
+    top: viewport ? viewport.scrollTop : 0
+  };
+}
+
+function setViewportScrollPosition(left, top) {
+  const nextLeft = Math.max(0, Math.round(left));
+  const nextTop = Math.max(0, Math.round(top));
+  if (usesSingleSheetScroll()) {
+    window.scrollTo(nextLeft, nextTop);
+    return;
+  }
+  if (!viewport) return;
+  viewport.scrollLeft = nextLeft;
+  viewport.scrollTop = nextTop;
+}
+
+function supportsBrowserFileSave() {
+  return !!(window.isSecureContext && typeof window.showSaveFilePicker === 'function');
+}
+
+function getSerializedStoreText(store = state.store) {
+  return JSON.stringify(normalizeStore(store), null, 2) + '\n';
+}
+
+let persistenceDbPromise = null;
+
+function openPersistenceDb() {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  if (persistenceDbPromise) return persistenceDbPromise;
+
+  persistenceDbPromise = new Promise((resolve) => {
+    try {
+      const request = indexedDB.open(PERSISTENCE_DB_NAME, PERSISTENCE_DB_VERSION);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(PERSISTENCE_STORE_NAME)) {
+          db.createObjectStore(PERSISTENCE_STORE_NAME);
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+      request.onblocked = () => resolve(null);
+    } catch (error) {
+      resolve(null);
+    }
+  });
+
+  return persistenceDbPromise;
+}
+
+async function readPersistenceValue(key) {
+  const db = await openPersistenceDb();
+  if (!db) return null;
+
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(PERSISTENCE_STORE_NAME, 'readonly');
+      const store = tx.objectStore(PERSISTENCE_STORE_NAME);
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result ?? null);
+      request.onerror = () => resolve(null);
+      tx.onabort = () => resolve(null);
+    } catch (error) {
+      resolve(null);
+    }
+  });
+}
+
+async function writePersistenceValue(key, value) {
+  const db = await openPersistenceDb();
+  if (!db) return false;
+
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(PERSISTENCE_STORE_NAME, 'readwrite');
+      tx.objectStore(PERSISTENCE_STORE_NAME).put(value, key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    } catch (error) {
+      resolve(false);
+    }
+  });
+}
+
+async function deletePersistenceValue(key) {
+  const db = await openPersistenceDb();
+  if (!db) return false;
+
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(PERSISTENCE_STORE_NAME, 'readwrite');
+      tx.objectStore(PERSISTENCE_STORE_NAME).delete(key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    } catch (error) {
+      resolve(false);
+    }
+  });
+}
+
+async function readRememberedStoreFileHandle() {
+  return readPersistenceValue(STORE_FILE_HANDLE_KEY);
+}
+
+async function rememberStoreFileHandle(handle) {
+  if (!handle) return false;
+  return writePersistenceValue(STORE_FILE_HANDLE_KEY, handle);
+}
+
+async function forgetStoreFileHandle() {
+  return deletePersistenceValue(STORE_FILE_HANDLE_KEY);
+}
+
+async function queryFileHandlePermission(handle, mode = 'read') {
+  if (!handle || typeof handle.queryPermission !== 'function') return 'prompt';
+  try {
+    return await handle.queryPermission({ mode });
+  } catch (error) {
+    return 'prompt';
+  }
+}
+
+async function ensureFileHandlePermission(handle, mode = 'readwrite', options = {}) {
+  if (!handle) return false;
+  const allowPrompt = options.allowPrompt !== false;
+  let permission = await queryFileHandlePermission(handle, mode);
+  if (permission === 'granted') return true;
+  if (!allowPrompt || typeof handle.requestPermission !== 'function') return false;
+
+  try {
+    permission = await handle.requestPermission({ mode });
+    return permission === 'granted';
+  } catch (error) {
+    return false;
+  }
+}
+
+async function getWritableStoreFileHandle(options = {}) {
+  const allowPrompt = options.allowPrompt !== false;
+  const rememberedHandle = await readRememberedStoreFileHandle();
+  if (rememberedHandle && await ensureFileHandlePermission(rememberedHandle, 'readwrite', { allowPrompt })) {
+    return rememberedHandle;
+  }
+
+  if (!allowPrompt || !supportsBrowserFileSave()) return null;
+
+  const handle = await window.showSaveFilePicker({
+    suggestedName: STORE_FILE_NAME,
+    types: STORE_FILE_TYPES
+  });
+  if (!handle) return null;
+  await rememberStoreFileHandle(handle);
+  return handle;
+}
+
+async function syncStoreToBrowserFile(options = {}) {
+  if (!supportsBrowserFileSave()) return { fileSaved: false, supported: false };
+
+  try {
+    const handle = await getWritableStoreFileHandle({ allowPrompt: options.allowPrompt !== false });
+    if (!handle) return { fileSaved: false, supported: true };
+
+    const writable = await handle.createWritable();
+    await writable.write(getSerializedStoreText());
+    await writable.close();
+    await rememberStoreFileHandle(handle);
+    return { fileSaved: true, localOnly: false, storageKind: 'file' };
+  } catch (error) {
+    if (error && error.name === 'AbortError') {
+      return { fileSaved: false, supported: true, cancelled: true, error };
+    }
+    return { fileSaved: false, supported: true, error };
+  }
+}
+
+async function readStoreFromRememberedFile() {
+  if (!supportsBrowserFileSave()) return null;
+
+  try {
+    const handle = await readRememberedStoreFileHandle();
+    if (!handle) return null;
+    const permission = await queryFileHandlePermission(handle, 'read');
+    if (permission !== 'granted') return null;
+
+    const file = await handle.getFile();
+    const raw = JSON.parse(await file.text());
+    return normalizeIncomingStorePayload(raw);
+  } catch (error) {
+    if (error && (error.name === 'NotFoundError' || error.name === 'DataError')) {
+      await forgetStoreFileHandle();
+    }
+    return null;
+  }
+}
+
+function syncStoreToDownload() {
+  try {
+    const blob = new Blob([getSerializedStoreText()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = STORE_FILE_NAME;
+    link.rel = 'noopener';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    return { downloaded: true, localOnly: false, storageKind: 'download' };
+  } catch (error) {
+    return { downloaded: false, localOnly: true, error };
+  }
+}
+
+async function syncStoreToBestAvailableTarget(options = {}) {
+  const serverResult = await syncStoreToServer();
+  if (serverResult && serverResult.serverSaved) {
+    return { ...serverResult, storageKind: 'server' };
+  }
+
+  const fileResult = await syncStoreToBrowserFile({ allowPrompt: options.allowInteractiveFallback !== false });
+  if (fileResult && fileResult.fileSaved) {
+    return { serverSaved: false, fileSaved: true, localOnly: false, storageKind: fileResult.storageKind };
+  }
+  if (fileResult && fileResult.cancelled) {
+    return {
+      serverSaved: false,
+      fileSaved: false,
+      localOnly: true,
+      cancelled: true,
+      storageKind: 'cancelled',
+      error: fileResult.error || (serverResult ? serverResult.error : null)
+    };
+  }
+
+  if (options.allowInteractiveFallback !== false) {
+    const downloadResult = syncStoreToDownload();
+    if (downloadResult && downloadResult.downloaded) {
+      return { serverSaved: false, fileSaved: false, downloaded: true, localOnly: false, storageKind: 'download' };
+    }
+    return {
+      serverSaved: false,
+      fileSaved: false,
+      downloaded: false,
+      localOnly: true,
+      error: (downloadResult && downloadResult.error) || (fileResult && fileResult.error) || (serverResult && serverResult.error) || null
+    };
+  }
+
+  return {
+    serverSaved: false,
+    fileSaved: false,
+    localOnly: true,
+    error: (fileResult && fileResult.error) || (serverResult && serverResult.error) || null
+  };
+}
+
+function formatPhoneClock(date = new Date()) {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(date);
+  } catch (error) {
+    const hours24 = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const period = hours24 >= 12 ? 'PM' : 'AM';
+    const hours12 = hours24 % 12 || 12;
+    return hours12 + ':' + minutes + ' ' + period;
+  }
+}
+
+function updatePhoneStatusbarTime() {
+  if (!phoneStatusbarTime) return;
+  phoneStatusbarTime.textContent = formatPhoneClock(new Date());
+}
+
+function startPhoneClock() {
+  if (!phoneStatusbarTime) return;
+  if (phoneClockTimer) clearTimeout(phoneClockTimer);
+
+  const tick = () => {
+    updatePhoneStatusbarTime();
+    const now = Date.now();
+    const nextMinuteDelay = 60000 - (now % 60000) + 32;
+    phoneClockTimer = window.setTimeout(tick, nextMinuteDelay);
+  };
+
+  tick();
+}
+
+const viewport = document.getElementById('viewport');
+const phoneStage = document.getElementById('phoneStage');
+const phone = document.getElementById('phone');
+const saveStatusPill = document.getElementById('saveStatusPill');
+const linkLayer = document.getElementById('linkLayer');
+const nodeLayer = document.getElementById('nodeLayer');
+const gameshelf = document.getElementById('gameshelf');
+const gameshelfPinned = document.getElementById('gameshelfPinned');
+const gameshelfStream = document.getElementById('gameshelfStream');
+const gameshelfList = document.getElementById('gameshelfList');
+const phoneStatusbarTime = document.querySelector('.phone-statusbar-time');
+const phoneStartBtn = document.getElementById('phoneStartBtn');
+const phoneThreadName = document.getElementById('phoneThreadName');
+const phoneThreadStatus = document.getElementById('phoneThreadStatus');
+const outsideAnytimeLabel = document.getElementById('outsideAnytimeLabel');
+const inspector = document.getElementById('inspector');
+const inspectorWindowBar = document.getElementById('inspectorWindowBar');
+const inspectorWindowTitle = document.getElementById('inspectorWindowTitle');
+const inspectorWindowSubtitle = document.getElementById('inspectorWindowSubtitle');
+const inspectorStack = document.getElementById('inspectorStack');
+const stencilBar = document.getElementById('stencilBar');
+const headerPlayGameBtn = document.getElementById('headerPlayGameBtn');
+const gamesListBtn = document.getElementById('gamesListBtn');
+const workspaceZoomOutBtn = document.getElementById('workspaceZoomOutBtn');
+const workspaceZoomInBtn = document.getElementById('workspaceZoomInBtn');
+const objectCard = document.getElementById('objectCard');
+const inspectorContent = document.getElementById('inspectorContent');
+const inspectorCopy = document.getElementById('inspectorCopy');
+const titleField = document.getElementById('titleField');
+const stopNameField = document.getElementById('stopNameField');
+const taglineField = document.getElementById('taglineField');
+const guideNameField = document.getElementById('guideNameField');
+const priceField = document.getElementById('priceField');
+const primaryColorField = document.getElementById('primaryColorField');
+const secondaryColorField = document.getElementById('secondaryColorField');
+const tagsField = document.getElementById('tagsField');
+const builderNotesField = document.getElementById('builderNotesField');
+const nodeBuilderNotesInput = document.getElementById('nodeBuilderNotesInput');
+const descriptionField = document.getElementById('descriptionField');
+const ifThenField = document.getElementById('ifThenField');
+const nodeTitleLabel = document.getElementById('nodeTitleLabel');
+const nodeTitleInput = document.getElementById('nodeTitleInput');
+const stopNameInput = document.getElementById('stopNameInput');
+const nodeTaglineInput = document.getElementById('nodeTaglineInput');
+const nodeGuideNameInput = document.getElementById('nodeGuideNameInput');
+const nodePriceInput = document.getElementById('nodePriceInput');
+const primaryColorInput = document.getElementById('primaryColorInput');
+const primaryColorPickerInput = document.getElementById('primaryColorPickerInput');
+const secondaryColorInput = document.getElementById('secondaryColorInput');
+const secondaryColorPickerInput = document.getElementById('secondaryColorPickerInput');
+const nodeTagPicker = document.getElementById('nodeTagPicker');
+const nodeTagNewInput = document.getElementById('nodeTagNewInput');
+const nodeTagAddBtn = document.getElementById('nodeTagAddBtn');
+const nodeBodyLabel = document.getElementById('nodeBodyLabel');
+const nodeBodyInfo = document.getElementById('nodeBodyInfo');
+const nodeBodyInput = document.getElementById('nodeBodyInput');
+const nodeBodyAutocomplete = document.getElementById('nodeBodyAutocomplete');
+const replyModeField = document.getElementById('replyModeField');
+const replyModeNormalInput = document.getElementById('replyModeNormalInput');
+const replyModeAnyAnswerInput = document.getElementById('replyModeAnyAnswerInput');
+const replyModeAnytimeInput = document.getElementById('replyModeAnytimeInput');
+
+const varNameField = document.getElementById('varNameField');
+const varNameInput = document.getElementById('varNameInput');
+const varNameHint = document.getElementById('varNameHint');
+const varValuesField = document.getElementById('varValuesField');
+const varValueInputs = [1, 2, 3, 4].map((index) => document.getElementById('varValue' + index));
+const varCorrectRadios = [0, 1, 2, 3].map((index) => document.getElementById('varCorrect' + index));
+const selectionId = document.getElementById('selectionId');
+const deleteBtn = document.getElementById('deleteBtn');
+const saveGameBtn = document.getElementById('saveGameBtn') || document.getElementById('playGameBtn');
+const newPhoneBtn = document.getElementById('newPhoneBtn');
+const refreshPageBtn = document.getElementById('refreshPageBtn');
+const nodeContextMenu = document.getElementById('nodeContextMenu');
+const gameshelfContextMenu = document.getElementById('gameshelfContextMenu');
+const duplicateNodeBtn = document.getElementById('duplicateNodeBtn');
+const deleteNodeMenuBtn = document.getElementById('deleteNodeMenuBtn');
+const gameshelfMenuNewBtn = document.getElementById('gameshelfMenuNewBtn');
+const gameshelfMenuDuplicateBtn = document.getElementById('gameshelfMenuDuplicateBtn');
+const gameshelfMenuDeleteBtn = document.getElementById('gameshelfMenuDeleteBtn');
+const bubbleDropLine = document.createElement('div');
+bubbleDropLine.className = 'bubble-drop-line';
+bubbleDropLine.hidden = true;
+if (phoneStage) phoneStage.appendChild(bubbleDropLine);
+
+const nodeEls = new Map();
+let allTags = [...ALL_TAGS];
+let phoneClockTimer = null;
+let gameshelfAutoScrollFrame = 0;
+let gameshelfAutoScrollLastTime = 0;
+let gameshelfLoopHeight = 0;
+let recoverySaveTimer = 0;
+const GAMESHELF_AUTO_SCROLL_SPEED = 22;
+const GAMESHELF_MIN_RENDER_CARDS = 12;
+const variableAutocomplete = {
+  open: false,
+  items: [],
+  activeIndex: 0,
+  tokenStart: -1,
+  tokenEnd: -1
+};
+
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+
+const state = {
+  store: cloneObj(EMPTY_STORE),
+  doc: cloneObj(EMPTY_DOC),
+  currentGameId: null,
+  cleanSnapshot: null,
+  contextMenuNodeId: null,
+  contextMenuLinkId: null,
+  contextMenuGameshelfGameId: null,
+  contextMenuGameshelfIsNew: false,
+  selectedId: null,
+  selectedLinkId: null,
+  dragNode: null,
+  rotateNode: null,
+  dockTargetId: null,
+  panPhone: null,
+  stencilDrag: null,
+  connectDrag: null,
+  inspectorDrag: null,
+  suspendRecoverySync: false,
+  lastRecoverySnapshot: '',
+  localOnlyChanges: false,
+  inspectorPosition: null,
+  hoverTargetId: null,
+  suppressBackgroundClick: false,
+  zoom: 1,
+  layoutMetrics: null,
+  dropSlot: null,
+  currentGameColors: null,
+  nextNodeNumbers: createNodeIdCounters(),
+  initialScrollResetDone: false,
+  saveUiState: 'loading'
+};
+
+function cloneObj(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function getSnapSize() {
+  return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--snap'), 10) || 12;
+}
+
+function getMinorGridSize() {
+  return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid-minor'), 10) || 36;
+}
+
+function getMajorGridSize() {
+  return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid-major'), 10) || 180;
+}
+
+function getPlacementGridOrigin() {
+  const minor = getMinorGridSize();
+  return {
+    x: minor,
+    y: minor
+  };
+}
+
+function getLegacyPlacementGridOrigin() {
+  return {
+    x: 0,
+    y: 0
+  };
+}
+
+function normalizeGridAnchoredValue(value, axis = 'x') {
+  const snapped = snap(Number(value) || 0);
+  const major = getMajorGridSize();
+  const origin = getPlacementGridOrigin();
+  const legacyOrigin = getLegacyPlacementGridOrigin();
+  const offset = axis === 'y' ? origin.y : origin.x;
+  const legacyOffset = axis === 'y' ? legacyOrigin.y : legacyOrigin.x;
+  const normalizedToOrigin = ((snapped - offset) % major + major) % major;
+  if (normalizedToOrigin === 0) return snapped;
+  const normalizedToLegacy = ((snapped - legacyOffset) % major + major) % major;
+  if (legacyOffset !== offset && normalizedToLegacy === 0) return snapped - legacyOffset + offset;
+  return snapped;
+}
+
+function getPhoneBaseSize() {
+  if (THREAD_LAYOUT_ENABLED) {
+    const metrics = state.layoutMetrics || {
+      stageWidth: PHONE_STAGE_WIDTH,
+      stageHeight: PHONE_DEVICE_Y + PHONE_MIN_DEVICE_HEIGHT + PHONE_ANYTIME_GAP + 180
+    };
+    return {
+      width: metrics.stageWidth,
+      height: metrics.stageHeight
+    };
+  }
+
+  const major = getMajorGridSize();
+  const origin = getPlacementGridOrigin();
+  const minWidth = origin.x + (major * GRID_COLUMNS);
+  const minHeight = origin.y + (major * GRID_ROWS);
+  const baseWidth = Math.max(minWidth, PAPER_BASE_WIDTH);
+  const baseHeight = Math.max(minHeight, Math.round(PAPER_BASE_WIDTH * PAPER_ASPECT_RATIO));
+  const baseColumns = Math.max(GRID_COLUMNS, Math.floor((baseWidth - origin.x) / major));
+  const occupiedColumns = state.doc.nodes.reduce((maxColumns, node) => {
+    if (!node) return maxColumns;
+    const column = Math.max(0, Math.floor(((node.x + (node.width / 2)) - origin.x) / major));
+    return Math.max(maxColumns, column + 2);
+  }, 0);
+  const width = Math.max(baseWidth, origin.x + (Math.max(baseColumns, occupiedColumns) * major));
+  const height = baseHeight;
+  return {
+    width,
+    height
+  };
+}
+
+function getPhoneStageSize() {
+  const base = getPhoneBaseSize();
+  return {
+    width: phoneStage.clientWidth || base.width,
+    height: phoneStage.clientHeight || base.height
+  };
+}
+
+function getPlacementGridColumns() {
+  const major = getMajorGridSize();
+  const origin = getPlacementGridOrigin();
+  const width = getPhoneStageSize().width;
+  return Math.max(1, Math.floor((width - origin.x) / major));
+}
+
+function getPlacementGridRows() {
+  const major = getMajorGridSize();
+  const origin = getPlacementGridOrigin();
+  const height = getPhoneStageSize().height;
+  return Math.max(1, Math.floor((height - origin.y) / major));
+}
+
+function getPlacementBounds(width, height) {
+  const origin = getPlacementGridOrigin();
+  const stageSize = getPhoneStageSize();
+  const phoneWidth = stageSize.width;
+  const phoneHeight = stageSize.height;
+  return {
+    minX: origin.x,
+    minY: origin.y,
+    maxX: Math.max(origin.x, phoneWidth - width - BOARD_PADDING),
+    maxY: Math.max(origin.y, phoneHeight - height - BOARD_PADDING)
+  };
+}
+
+function snap(value) {
+  const size = getSnapSize();
+  return Math.round(value / size) * size;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function createNodeIdCounters() {
+  return Object.keys(TYPE_CONFIG).reduce((counters, type) => {
+    counters[type] = 1;
+    return counters;
+  }, {});
+}
+
+function usesNodeTitle(type) {
+  return type === 'game' || type === 'stop';
+}
+
+function getDefaultNodeTitle(type) {
+  return usesNodeTitle(type) ? TYPE_CONFIG[type].title : '';
+}
+
+function formatNodeId(id) {
+  return String(id || '').trim().toUpperCase();
+}
+
+function getNodeMessagePreview(node) {
+  if (!node || !isBubbleLikeType(node.type)) return '';
+  if (node.type === 'reply') {
+    const guessText = String(node.body || '').replace(/\s+/g, ' ').trim();
+    if (guessText) {
+      return guessText.length > 18
+        ? guessText.slice(0, 18).trimEnd() + '...'
+        : guessText;
+    }
+    const varName = normalizeVariableName(node.varName);
+    if (varName) return varName;
+    return 'Incoming message';
+  }
+  const body = String(node.body || '').replace(/\s+/g, ' ').trim();
+  if (!body) return '';
+  return body.length > 18
+    ? body.slice(0, 18).trimEnd() + '...'
+    : body;
+}
+
+function normalizeVariableName(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  return trimmed
+    .replace(/^%+\s*/, '')
+    .replace(/\s*%+$/, '')
+    .trim();
+}
+
+function isAnytimeReplyNode(node) {
+  return !!node && node.type === 'reply' && !!node.anytime;
+}
+
+function isAnytimeGuideNode(node) {
+  return !!node && node.type === 'bubble' && !!node.anytime;
+}
+
+function isAnytimeNode(node) {
+  return isAnytimeReplyNode(node) || isAnytimeGuideNode(node);
+}
+
+function getAnytimePairId(node) {
+  return isAnytimeNode(node)
+    ? String(node.anytimePairId || '').trim()
+    : '';
+}
+
+function normalizeNodeOrderIndex(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed) : null;
+}
+
+function getNodeConversationRank(node) {
+  if (!node) return 99;
+  if (node.type === 'game') return 0;
+  if (isAnytimeNode(node)) return 2;
+  return 1;
+}
+
+function compareConversationNodes(a, b, nodeIndex = null) {
+  const aRank = getNodeConversationRank(a);
+  const bRank = getNodeConversationRank(b);
+  if (aRank !== bRank) return aRank - bRank;
+
+  const aOrder = normalizeNodeOrderIndex(a && a.orderIndex);
+  const bOrder = normalizeNodeOrderIndex(b && b.orderIndex);
+  if (aOrder != null || bOrder != null) {
+    if (aOrder == null) return 1;
+    if (bOrder == null) return -1;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+  }
+
+  const yDiff = (Number(a && a.y) || 0) - (Number(b && b.y) || 0);
+  if (Math.abs(yDiff) > 2) return yDiff;
+
+  const xDiff = (Number(a && a.x) || 0) - (Number(b && b.x) || 0);
+  if (Math.abs(xDiff) > 2) return xDiff;
+
+  const indexMap = nodeIndex || new Map(state.doc.nodes.map((node, index) => [node.id, index]));
+  return (indexMap.get(a && a.id) ?? 0) - (indexMap.get(b && b.id) ?? 0);
+}
+
+function assignSequentialOrderIndices(nodes) {
+  const nodeIndex = new Map(nodes.map((node, index) => [node.id, index]));
+  [...nodes]
+    .sort((a, b) => compareConversationNodes(a, b, nodeIndex))
+    .forEach((node, index) => {
+      node.orderIndex = (index + 1) * 100;
+    });
+}
+
+function getAnytimePairNodes(pairId) {
+  const normalizedPairId = String(pairId || '').trim();
+  if (!normalizedPairId) return [];
+  return state.doc.nodes.filter((node) => getAnytimePairId(node) === normalizedPairId);
+}
+
+function getLockedAnytimePartner(node) {
+  const pairId = getAnytimePairId(node);
+  if (!pairId) return null;
+  return getAnytimePairNodes(pairId).find((candidate) => candidate.id !== node.id) || null;
+}
+
+function isLockedAnytimePairLink(link) {
+  if (!link) return false;
+  const fromNode = getNode(link.from);
+  const toNode = getNode(link.to);
+  const fromPairId = getAnytimePairId(fromNode);
+  const toPairId = getAnytimePairId(toNode);
+  return isAnytimeReplyNode(fromNode)
+    && isAnytimeGuideNode(toNode)
+    && !!fromPairId
+    && fromPairId === toPairId;
+}
+
+function getDeclaredVariableKeys(value) {
+  const keys = [];
+  String(value || '').replace(/%\s*([A-Za-z_]\w*)\s*%/g, function (_, key) {
+    keys.push(key);
+    return _;
+  });
+  return keys;
+}
+
+function getLegacyReplyVarName(raw) {
+  const explicitName = normalizeVariableName(raw && raw.varName);
+  if (explicitName) return explicitName;
+  const keys = getDeclaredVariableKeys(raw && raw.body);
+  return keys.length === 1 ? keys[0] : '';
+}
+
+function isVariableOnlyBody(value) {
+  return /^%\s*([A-Za-z_]\w*)\s*%$/.test(String(value || '').trim());
+}
+
+const REPLY_VAR_STOP_WORDS = new Set([
+  'a', 'an', 'and', 'answer', 'are', 'be', 'can', 'could', 'did', 'do', 'does',
+  'enter', 'for', 'from', 'give', 'guess', 'how', 'i', 'if', 'in', 'input', 'is',
+  'it', 'lets', 'me', 'message', 'my', 'of', 'or', 'our', 'player', 'please',
+  'reply', 'response', 's', 'say', 'send', 'should', 'something', 'tell', 'text',
+  'that', 'the', 'this', 'to', 'type', 'value', 'want', 'what', 'when', 'where',
+  'which', 'who', 'why', 'would', 'you', 'your'
+]);
+const REPLY_VAR_GENERIC_NAMES = new Set([
+  'answer', 'guess', 'input', 'message', 'player', 'reply', 'response', 'text', 'value'
+]);
+
+function sanitizeSuggestedVariableName(value) {
+  let nextValue = String(value || '')
+    .toLowerCase()
+    .replace(/%\s*([A-Za-z_]\w*)\s*%/g, '$1')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_');
+  if (!nextValue) return '';
+  if (/^\d/.test(nextValue)) nextValue = 'value_' + nextValue;
+  return nextValue;
+}
+
+function guessVariableNameFromPrompt(value) {
+  const prompt = String(value || '')
+    .toLowerCase()
+    .replace(/%\s*([A-Za-z_]\w*)\s*%/g, ' ')
+    .replace(/['â€™]/g, '')
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!prompt) return '';
+
+  if (/\bfull name\b/.test(prompt)) return 'full_name';
+  if (/\bfirst name\b/.test(prompt)) return 'first_name';
+  if (/\blast name\b|\bsurname\b/.test(prompt)) return 'last_name';
+  if (/\b(call you|your name|who are you)\b/.test(prompt)) return 'name';
+  if (/\bphone number\b|\bmobile number\b|\bcell number\b/.test(prompt)) return 'phone_number';
+  if (/\bemail address\b|\bemail\b|\be mail\b/.test(prompt)) return 'email';
+  if (/\bbirthday\b|\bdate of birth\b/.test(prompt)) return 'birthday';
+  if (/\bhow old are you\b|\bage\b/.test(prompt)) return 'age';
+
+  const favoriteMatch = prompt.match(/\bfavorite\s+([a-z0-9]+(?:\s+[a-z0-9]+){0,2})\b/);
+  if (favoriteMatch) {
+    return sanitizeSuggestedVariableName('favorite ' + favoriteMatch[1]);
+  }
+
+  const yourMatch = prompt.match(/\byour\s+([a-z0-9]+(?:\s+[a-z0-9]+){0,2})\b/);
+  if (yourMatch) {
+    const candidate = sanitizeSuggestedVariableName(yourMatch[1]);
+    if (candidate && !REPLY_VAR_GENERIC_NAMES.has(candidate)) return candidate;
+  }
+
+  const meaningful = prompt
+    .split(' ')
+    .filter(Boolean)
+    .filter((token) => !REPLY_VAR_STOP_WORDS.has(token));
+
+  for (let size = Math.min(2, meaningful.length); size >= 1; size -= 1) {
+    const candidate = sanitizeSuggestedVariableName(meaningful.slice(-size).join('_'));
+    if (candidate && !REPLY_VAR_GENERIC_NAMES.has(candidate)) return candidate;
+  }
+
+  return '';
+}
+
+function getIncomingNodes(nodeId) {
+  return state.doc.links
+    .filter((link) => link.to === nodeId)
+    .map((link) => getNode(link.from))
+    .filter(Boolean);
+}
+
+function findReplyPromptSourceNode(node, preferredSource = null) {
+  if (!node || node.type !== 'reply') return null;
+
+  const queue = [];
+  const seen = new Set([node.id]);
+  if (preferredSource && preferredSource.id !== node.id) queue.push(preferredSource);
+  getIncomingNodes(node.id).forEach((incomingNode) => {
+    if (!preferredSource || incomingNode.id !== preferredSource.id) queue.push(incomingNode);
+  });
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current || seen.has(current.id)) continue;
+    seen.add(current.id);
+    if (current.type === 'bubble' && String(current.body || '').trim()) return current;
+    if (current.type !== 'reply') continue;
+    getIncomingNodes(current.id).forEach((incomingNode) => {
+      if (!seen.has(incomingNode.id)) queue.push(incomingNode);
+    });
+  }
+
+  return null;
+}
+
+function getUsedReplyVariableNames(ignoreNodeId = null) {
+  const usedNames = new Set();
+  state.doc.nodes.forEach((node) => {
+    if (!node || node.type !== 'reply' || node.id === ignoreNodeId) return;
+    const varName = normalizeVariableName(node.varName);
+    if (varName) usedNames.add(varName.toLowerCase());
+  });
+  return usedNames;
+}
+
+function makeUniqueReplyVariableName(baseName, ignoreNodeId = null) {
+  const sanitizedBase = sanitizeSuggestedVariableName(baseName) || 'reply';
+  const usedNames = getUsedReplyVariableNames(ignoreNodeId);
+  if (!usedNames.has(sanitizedBase.toLowerCase())) return sanitizedBase;
+
+  let counter = 2;
+  let candidate = sanitizedBase + '-' + counter;
+  while (usedNames.has(candidate.toLowerCase())) {
+    counter += 1;
+    candidate = sanitizedBase + '-' + counter;
+  }
+  return candidate;
+}
+
+function refreshVarNameHint() {
+  if (!varNameHint || !varNameInput) return;
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'reply') { varNameHint.hidden = true; return; }
+  const name = normalizeVariableName(varNameInput.value);
+  let msg = '';
+  if (!name) {
+    msg = 'Required.';
+  } else {
+    const usedNames = getUsedReplyVariableNames(node.id);
+    if (usedNames.has(name.toLowerCase())) msg = 'Already used in this game.';
+  }
+  varNameHint.textContent = msg;
+  varNameHint.hidden = !msg;
+  varNameInput.classList.toggle('is-invalid', !!msg);
+}
+
+function buildBestGuessReplyVariableName(node, preferredSource = null) {
+  const promptSource = findReplyPromptSourceNode(node, preferredSource);
+  const baseName = promptSource ? guessVariableNameFromPrompt(promptSource.body) : '';
+  return makeUniqueReplyVariableName(baseName || 'us_states', node ? node.id : null);
+}
+
+function ensureReplyVarName(node, preferredSource = null) {
+  if (!node || node.type !== 'reply') return;
+  if (normalizeVariableName(node.varName)) return;
+  node.varName = buildBestGuessReplyVariableName(node, preferredSource);
+}
+
+function getNodeDisplayTitle(node) {
+  if (!node) return '';
+  if (THREAD_LAYOUT_ENABLED) return getPhonePrimaryText(node);
+  const title = usesNodeTitle(node.type)
+    ? String(node.title || '').trim()
+    : getNodeMessagePreview(node);
+  return node.type === 'reply' ? title.toUpperCase() : title;
+}
+
+function getNodeKicker(node) {
+  if (!node) return '';
+  return TYPE_CONFIG[node.type]?.kicker || '';
+}
+
+function getNodeAccessibleLabel(node) {
+  const title = getNodeDisplayTitle(node);
+  return title || getNodeKicker(node) || 'object';
+}
+
+function parseTypedNodeId(rawId) {
+  const normalizedId = String(rawId || '').trim().toLowerCase();
+  const match = /^([a-z]{2})-(\d+)$/.exec(normalizedId);
+  if (!match) return null;
+  const type = NODE_TYPE_BY_PREFIX[match[1]];
+  if (!type) return null;
+  return {
+    id: normalizedId,
+    type,
+    number: Number(match[2])
+  };
+}
+
+function makeId(type = 'stop', counters = state.nextNodeNumbers, usedIds = null) {
+  const nodeType = TYPE_CONFIG[type] ? type : 'stop';
+  if (!counters[nodeType]) counters[nodeType] = 1;
+
+  let id = '';
+  do {
+    id = NODE_ID_PREFIX[nodeType] + '-' + String(counters[nodeType]).padStart(2, '0');
+    counters[nodeType] += 1;
+  } while (
+    usedIds
+      ? usedIds.has(id)
+      : state.doc.nodes.some((node) => node.id === id)
+  );
+
+  if (usedIds) usedIds.add(id);
+  return id;
+}
+
+function makeGameId() {
+  return 'game-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+}
+
+function makeAnytimePairId() {
+  return 'anytime-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getNode(id) {
+  return state.doc.nodes.find((node) => node.id === id) || null;
+}
+
+function getLink(id) {
+  return state.doc.links.find((link) => link.id === id) || null;
+}
+
+function clearSelection() {
+  state.selectedId = null;
+  state.selectedLinkId = null;
+}
+
+function selectNode(id) {
+  state.selectedId = id;
+  state.selectedLinkId = null;
+}
+
+function selectLink(id) {
+  state.selectedId = null;
+  state.selectedLinkId = id;
+}
+
+function hasGameNode() {
+  return state.doc.nodes.some((node) => node.type === 'game');
+}
+
+function getGameNode() {
+  return state.doc.nodes.find((node) => node && node.type === 'game') || null;
+}
+
+function canNodeAcceptIncoming(node) {
+  return !!node && node.type !== 'game' && !isAnytimeReplyNode(node);
+}
+
+function canNodeConnectTo(fromNode, toNode) {
+  if (!fromNode || !toNode || fromNode.id === toNode.id) return false;
+  if (isAnytimeNode(fromNode) || isAnytimeNode(toNode)) {
+    const fromPairId = getAnytimePairId(fromNode);
+    const toPairId = getAnytimePairId(toNode);
+    return isAnytimeReplyNode(fromNode)
+      && isAnytimeGuideNode(toNode)
+      && !!fromPairId
+      && fromPairId === toPairId;
+  }
+  if (!canNodeAcceptIncoming(toNode)) return false;
+  if (fromNode.type === 'game') return toNode.type === 'stop';
+  return true;
+}
+
+function normalizeNodeRotation(rawRotation, type) {
+  if (type !== 'bubble') return 0;
+  const value = Number(rawRotation);
+  if (!Number.isFinite(value)) return 0;
+  const snapped = Math.round(value / 45) * 45;
+  return ((snapped % 360) + 360) % 360;
+}
+
+function getNodeRotation(node) {
+  return node ? normalizeNodeRotation(node.rotation, node.type) : 0;
+}
+
+function getRotationFromPointer(node, clientX, clientY) {
+  if (!node) return 0;
+  const point = phonePointFromClient(clientX, clientY);
+  const centerX = node.x + (node.width / 2);
+  const centerY = node.y + (node.height / 2);
+  const angle = Math.atan2(point.y - centerY, point.x - centerX) * (180 / Math.PI);
+  return normalizeNodeRotation(angle - 180, node.type);
+}
+
+function getOutgoingLinks(nodeId, links = state.doc.links) {
+  return links.filter((link) => link.from === nodeId);
+}
+
+function getIncomingLinks(nodeId, links = state.doc.links) {
+  return links.filter((link) => link.to === nodeId);
+}
+
+function summarizePhoneText(value, maxLength = 120) {
+  const normalized = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+  return normalized.length > maxLength
+    ? normalized.slice(0, maxLength).trimEnd() + '...'
+    : normalized;
+}
+
+function getPhonePrimaryText(node) {
+  if (!node) return '';
+  if (node.type === 'game' || node.type === 'stop') {
+    return String(node.title || TYPE_CONFIG[node.type].title || '').trim();
+  }
+  if (node.type === 'reply') {
+    if (node.acceptAny) return 'Any incoming message';
+    const body = summarizePhoneText(node.body, 160);
+    if (body) return body;
+    const varName = normalizeVariableName(node.varName);
+    return varName ? '%' + varName + '%' : 'Incoming message';
+  }
+  return summarizePhoneText(node.body, 160) || 'Outgoing message';
+}
+
+function getPhoneSecondaryText(node) {
+  if (!node) return '';
+  if (node.type === 'game') {
+    return summarizePhoneText(node.tagline || node.body, 140);
+  }
+  if (node.type === 'stop') {
+    return summarizePhoneText(node.body, 120);
+  }
+  if (node.type === 'reply') {
+    if (node.anytime) return 'Anytime trigger';
+    if (node.acceptAny) return 'Any Answer';
+    const varName = normalizeVariableName(node.varName);
+    return varName ? 'Saved as %' + varName + '%' : '';
+  }
+  return node.anytime ? 'Paired anytime response' : '';
+}
+
+function getPhoneBubbleSide(node) {
+  if (!node) return 'center';
+  if (node.type === 'reply') return 'right';
+  if (node.type === 'bubble') return 'left';
+  return 'center';
+}
+
+function isPhoneThreadNode(node) {
+  return !!node
+    && !isAnytimeNode(node)
+    && (node.type === 'stop' || node.type === 'bubble' || node.type === 'reply');
+}
+
+function canReorderPhoneThreadNode(node) {
+  return THREAD_LAYOUT_ENABLED && isPhoneThreadNode(node);
+}
+
+function getSortedConversationNodes(nodes) {
+  const nodeIndex = new Map(state.doc.nodes.map((node, index) => [node.id, index]));
+  return [...nodes].sort((a, b) => compareConversationNodes(a, b, nodeIndex));
+}
+
+function getSortedPhoneThreadNodes(excludeNodeId = null) {
+  return getSortedConversationNodes(
+    state.doc.nodes.filter((node) => node && node.id !== excludeNodeId && isPhoneThreadNode(node))
+  );
+}
+
+function getPhoneIncomingSourceId(node) {
+  if (!node) return '';
+  const incoming = getIncomingLinks(node.id)
+    .filter((link) => {
+      const sourceNode = getNode(link.from);
+      return sourceNode && !isAnytimeNode(sourceNode);
+    });
+  return incoming.length === 1 ? incoming[0].from : '';
+}
+
+function getPhoneThreadRows(excludeNodeId = null) {
+  const messageNodes = getSortedPhoneThreadNodes(excludeNodeId);
+  const rows = [];
+
+  for (let index = 0; index < messageNodes.length; index += 1) {
+    const current = messageNodes[index];
+    const next = messageNodes[index + 1];
+    const currentSourceId = current && current.type === 'bubble' ? getPhoneIncomingSourceId(current) : '';
+    const nextSourceId = next && next.type === 'bubble' ? getPhoneIncomingSourceId(next) : '';
+    const canShareRow =
+      !!current
+      && !!next
+      && current.type === 'bubble'
+      && next.type === 'bubble'
+      && !!currentSourceId
+      && currentSourceId === nextSourceId;
+
+    if (canShareRow) {
+      rows.push([current, next]);
+      index += 1;
+      continue;
+    }
+
+    if (current) rows.push([current]);
+  }
+
+  return rows;
+}
+
+function reorderPhoneThreadNode(nodeId, insertIndex) {
+  const node = getNode(nodeId);
+  if (!canReorderPhoneThreadNode(node)) return false;
+  const orderedNodes = getSortedPhoneThreadNodes(nodeId);
+  const nextIndex = clamp(Number(insertIndex) || 0, 0, orderedNodes.length);
+  orderedNodes.splice(nextIndex, 0, node);
+  orderedNodes.forEach((candidate, index) => {
+    candidate.orderIndex = (index + 1) * 100;
+  });
+  return true;
+}
+
+function getPhoneThreadTop() {
+  return PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT + PHONE_THREAD_TOP_GAP;
+}
+
+function getPhoneRowMaxWidth(nodes, threadWidth) {
+  const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
+  return nodes.length > 1
+    ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((threadWidth - (gap * (nodes.length - 1))) / nodes.length))
+    : nodes.some((node) => node.type === 'stop') ? threadWidth : PHONE_BUBBLE_MAX_WIDTH;
+}
+
+function getPhoneProjectedRows(rows, startY) {
+  const threadWidth = PHONE_DEVICE_WIDTH - (PHONE_THREAD_SIDE_PADDING * 2);
+  let y = startY;
+
+  return rows.map((row) => {
+    const nodes = row.filter(Boolean);
+    const perNodeMaxWidth = getPhoneRowMaxWidth(nodes, threadWidth);
+    const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
+    const rowHeight = sizes.reduce((maxHeight, size) => Math.max(maxHeight, size.height), 0);
+    const rowTop = Math.round(y);
+    y += rowHeight + PHONE_ROW_GAP;
+    return {
+      nodes,
+      rowTop,
+      rowHeight,
+      nextRowTop: Math.round(y)
+    };
+  });
+}
+
+function getPhoneRowDropSlots(projectedRows, startY) {
+  const gapHalf = Math.round(PHONE_ROW_GAP / 2);
+  const minLineY = PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT + 10;
+  let insertIndex = 0;
+  const slots = [{
+    index: 0,
+    lineY: Math.max(minLineY, startY - gapHalf),
+    previewY: startY,
+    sortY: Math.max(minLineY, startY - gapHalf),
+    insertIndex
+  }];
+
+  projectedRows.forEach((row, index) => {
+    insertIndex += row.nodes.length;
+    const lineY = Math.max(minLineY, row.nextRowTop - gapHalf);
+    slots.push({
+      index: index + 1,
+      lineY,
+      previewY: row.nextRowTop,
+      sortY: lineY,
+      insertIndex
+    });
+  });
+
+  return slots;
+}
+
+function getPhoneProjectedThreadRows(excludeNodeId = null) {
+  return getPhoneProjectedRows(getPhoneThreadRows(excludeNodeId), getPhoneThreadTop());
+}
+
+function getPhoneDropSlots(excludeNodeId = null) {
+  return getPhoneRowDropSlots(getPhoneProjectedThreadRows(excludeNodeId), getPhoneThreadTop());
+}
+
+function getNearestPhoneDropSlot(pointerY, excludeNodeId = null) {
+  const slots = getPhoneDropSlots(excludeNodeId);
+  if (!slots.length) return null;
+  return slots.reduce((nearest, slot) => {
+    if (!nearest) return slot;
+    return Math.abs(pointerY - slot.lineY) < Math.abs(pointerY - nearest.lineY) ? slot : nearest;
+  }, null);
+}
+
+function showBubbleDropLine(slot) {
+  if (!bubbleDropLine || !slot) return;
+  const metrics = state.layoutMetrics || {
+    threadLeft: PHONE_DEVICE_X + PHONE_THREAD_SIDE_PADDING,
+    threadWidth: PHONE_DEVICE_WIDTH - (PHONE_THREAD_SIDE_PADDING * 2)
+  };
+  bubbleDropLine.hidden = false;
+  bubbleDropLine.style.left = Math.round(metrics.threadLeft) + 'px';
+  bubbleDropLine.style.top = Math.round(slot.lineY) + 'px';
+  bubbleDropLine.style.width = Math.round(metrics.threadWidth) + 'px';
+}
+
+function hideBubbleDropLine() {
+  if (!bubbleDropLine) return;
+  bubbleDropLine.hidden = true;
+  bubbleDropLine.style.left = '0px';
+  bubbleDropLine.style.top = '0px';
+  bubbleDropLine.style.width = '0px';
+}
+
+function getPhoneAnytimeRows() {
+  const rows = [];
+  const seenNodeIds = new Set();
+  const sortedAnytimeNodes = getSortedConversationNodes(state.doc.nodes.filter((node) => isAnytimeNode(node)));
+
+  sortedAnytimeNodes.forEach((node) => {
+    if (!node || seenNodeIds.has(node.id)) return;
+    const pairId = getAnytimePairId(node);
+    if (pairId) {
+      const pairNodes = getAnytimePairNodes(pairId)
+        .filter(Boolean)
+        .sort((a, b) => {
+          const sideOrder = { left: 0, center: 1, right: 2 };
+          return (sideOrder[getPhoneBubbleSide(a)] ?? 1) - (sideOrder[getPhoneBubbleSide(b)] ?? 1);
+        });
+      pairNodes.forEach((candidate) => seenNodeIds.add(candidate.id));
+      rows.push(pairNodes);
+      return;
+    }
+    seenNodeIds.add(node.id);
+    rows.push([node]);
+  });
+
+  return rows;
+}
+
+function estimatePhoneTextLines(text, width) {
+  const normalized = String(text || '').trim();
+  if (!normalized) return 0;
+  const lineWidth = Math.max(12, Math.floor((width - 34) / 8.4));
+  return normalized
+    .split(/\n+/)
+    .reduce((total, line) => total + Math.max(1, Math.ceil(line.length / lineWidth)), 0);
+}
+
+function getPhoneBubbleSize(node, maxWidth = PHONE_BUBBLE_MAX_WIDTH) {
+  const preferredWidths = {
+    game: 254,
+    stop: Math.round(maxWidth),
+    bubble: 252,
+    reply: 226
+  };
+  const preferredWidth = preferredWidths[node.type] || PHONE_BUBBLE_MAX_WIDTH;
+  const safeMaxWidth = Math.max(
+    PHONE_BUBBLE_MIN_WIDTH,
+    node.type === 'stop'
+      ? Math.round(maxWidth)
+      : Math.min(PHONE_BUBBLE_MAX_WIDTH, Math.round(maxWidth))
+  );
+  const width = clamp(Math.min(preferredWidth, safeMaxWidth), PHONE_BUBBLE_MIN_WIDTH, safeMaxWidth);
+  const primaryLines = estimatePhoneTextLines(getPhonePrimaryText(node), width);
+  const secondaryLines = estimatePhoneTextLines(getPhoneSecondaryText(node), width);
+  const minHeights = {
+    game: 88,
+    stop: 84,
+    bubble: 74,
+    reply: 72
+  };
+  const height = clamp(
+    (minHeights[node.type] || 74) + Math.max(0, primaryLines - 1) * 22 + secondaryLines * 16,
+    minHeights[node.type] || 74,
+    220
+  );
+  return {
+    width: Math.round(width),
+    height: Math.round(height)
+  };
+}
+
+function updatePhoneChrome() {
+  if (!phoneThreadName) return;
+  if (!hasGameNode()) {
+    phoneThreadName.textContent = 'Gameshelf';
+    if (phoneThreadStatus) phoneThreadStatus.textContent = '';
+    if (phoneStartBtn) phoneStartBtn.style.background = '';
+    return;
+  }
+  const gameNode = getGameNode();
+  phoneThreadName.textContent = getDocName();
+  if (phoneThreadStatus) phoneThreadStatus.textContent = gameNode?.guideName || '';
+  if (phoneStartBtn) {
+    const { primaryColor } = getCurrentGameColors();
+    phoneStartBtn.style.background = primaryColor || '';
+  }
+}
+
+function syncPhoneStartButton() {}
+
+function applyPhoneThreadLayout() {
+  if (!THREAD_LAYOUT_ENABLED) return;
+
+  const threadLeft = PHONE_DEVICE_X + PHONE_THREAD_SIDE_PADDING;
+  const threadWidth = PHONE_DEVICE_WIDTH - (PHONE_THREAD_SIDE_PADDING * 2);
+  const threadTop = PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT + PHONE_THREAD_TOP_GAP;
+  const startNode = getGameNode();
+  if (startNode) {
+    startNode.width = TYPE_CONFIG.game.width;
+    startNode.height = TYPE_CONFIG.game.height;
+  }
+  const rows = getPhoneThreadRows();
+  let y = threadTop;
+
+  rows.forEach((row) => {
+    const nodes = row.filter(Boolean);
+    if (!nodes.length) return;
+    const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
+    const perNodeMaxWidth = getPhoneRowMaxWidth(nodes, threadWidth);
+    const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
+    const rowHeight = sizes.reduce((maxHeight, size) => Math.max(maxHeight, size.height), 0);
+
+    if (nodes.length === 1) {
+      const node = nodes[0];
+      const size = sizes[0];
+      const side = getPhoneBubbleSide(node);
+      let x = threadLeft;
+      if (side === 'right') x = threadLeft + threadWidth - size.width;
+      if (side === 'center') x = threadLeft + ((threadWidth - size.width) / 2);
+      node.x = Math.round(x);
+      node.y = Math.round(y);
+      node.width = size.width;
+      node.height = size.height;
+      y += rowHeight + PHONE_ROW_GAP;
+      return;
+    }
+
+    const totalWidth = sizes.reduce((sum, size) => sum + size.width, 0) + (gap * (nodes.length - 1));
+    const sides = nodes.map((node) => getPhoneBubbleSide(node));
+    let cursorX = threadLeft + Math.round((threadWidth - totalWidth) / 2);
+    if (sides.every((side) => side === 'left')) cursorX = threadLeft;
+    if (sides.every((side) => side === 'right')) cursorX = threadLeft + threadWidth - totalWidth;
+
+    nodes.forEach((node, index) => {
+      const size = sizes[index];
+      node.x = Math.round(cursorX);
+      node.y = Math.round(y);
+      node.width = size.width;
+      node.height = size.height;
+      cursorX += size.width + gap;
+    });
+
+    y += rowHeight + PHONE_ROW_GAP;
+  });
+
+  const threadBottom = Math.max(threadTop, y - PHONE_ROW_GAP);
+  const phoneHeight = Math.max(
+    PHONE_MIN_DEVICE_HEIGHT,
+    Math.round((threadBottom - PHONE_DEVICE_Y) + PHONE_COMPOSER_HEIGHT + 34)
+  );
+  const phoneBottom = PHONE_DEVICE_Y + phoneHeight;
+  const anytimeRows = getPhoneAnytimeRows();
+  let anytimeY = phoneBottom + PHONE_ANYTIME_GAP;
+
+  if (outsideAnytimeLabel) {
+    outsideAnytimeLabel.hidden = anytimeRows.length === 0;
+    outsideAnytimeLabel.style.top = (phoneBottom + 28) + 'px';
+  }
+
+  anytimeRows.forEach((row) => {
+    const nodes = row.filter(Boolean);
+    if (!nodes.length) return;
+    const gap = PHONE_BRANCH_GAP;
+    const perNodeMaxWidth = nodes.length > 1
+      ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((PHONE_STAGE_WIDTH - 160 - (gap * (nodes.length - 1))) / nodes.length))
+      : PHONE_BUBBLE_MAX_WIDTH - 12;
+    const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
+    const rowHeight = sizes.reduce((maxHeight, size) => Math.max(maxHeight, size.height), 0);
+    const totalWidth = sizes.reduce((sum, size) => sum + size.width, 0) + (gap * (nodes.length - 1));
+    let cursorX = Math.round((PHONE_STAGE_WIDTH - totalWidth) / 2);
+    const sides = nodes.map((node) => getPhoneBubbleSide(node));
+    if (nodes.length === 1 && sides[0] === 'left') cursorX = PHONE_DEVICE_X;
+    if (nodes.length === 1 && sides[0] === 'right') cursorX = PHONE_STAGE_WIDTH - PHONE_DEVICE_X - sizes[0].width;
+
+    nodes.forEach((node, index) => {
+      const size = sizes[index];
+      node.x = Math.round(cursorX);
+      node.y = Math.round(anytimeY);
+      node.width = size.width;
+      node.height = size.height;
+      cursorX += size.width + gap;
+    });
+
+    anytimeY += rowHeight + PHONE_ANYTIME_ROW_GAP;
+  });
+
+  state.layoutMetrics = {
+    stageWidth: PHONE_STAGE_WIDTH,
+    stageHeight: Math.max(phoneBottom + 40, anytimeRows.length ? anytimeY + PHONE_ANYTIME_BOTTOM_PADDING : phoneBottom + 44),
+    phoneWidth: PHONE_DEVICE_WIDTH,
+    phoneHeight,
+    phoneX: PHONE_DEVICE_X,
+    phoneY: PHONE_DEVICE_Y,
+    threadLeft,
+    threadTop,
+    threadWidth
+  };
+}
+
+function getAttachedSubtreeIds(nodeId, visited = new Set()) {
+  if (!nodeId || visited.has(nodeId)) return visited;
+  visited.add(nodeId);
+  getOutgoingLinks(nodeId).forEach((link) => {
+    getAttachedSubtreeIds(link.to, visited);
+  });
+  return visited;
+}
+
+function ignoreNodeMatcher(ignoreNodeId) {
+  if (ignoreNodeId instanceof Set) return (nodeId) => ignoreNodeId.has(nodeId);
+  if (Array.isArray(ignoreNodeId)) return (nodeId) => ignoreNodeId.includes(nodeId);
+  if (ignoreNodeId == null) return () => false;
+  return (nodeId) => nodeId === ignoreNodeId;
+}
+
+function getNodeOutPorts(nodeOrType) {
+  const type = typeof nodeOrType === 'string' ? nodeOrType : (nodeOrType && nodeOrType.type);
+  if (type === 'bubble') return isAnytimeGuideNode(nodeOrType) ? [] : ['out-right'];
+  if (type === 'reply') return isAnytimeReplyNode(nodeOrType) ? ['out-right'] : ['out-right', 'out-bottom'];
+  if (TYPE_CONFIG[type]) return ['out-right'];
+  return [];
+}
+
+function normalizeFromPort(nodeOrType, rawPort) {
+  const allowed = getNodeOutPorts(nodeOrType);
+  const port = String(rawPort || '').trim().toLowerCase();
+  if (allowed.includes(port)) return port;
+  if (port === 'out-bottom') return allowed.includes('out-bottom') ? 'out-bottom' : (allowed[0] || 'out-right');
+  return allowed[0] || 'out-right';
+}
+
+function getUsedOutPorts(nodeId, links = state.doc.links) {
+  const used = new Set();
+  links.forEach((link) => {
+    if (!link || link.from !== nodeId) return;
+    used.add(normalizeFromPort(getNode(nodeId) || parseTypedNodeId(nodeId)?.type, link.fromPort));
+  });
+  return used;
+}
+
+function getPreferredOutPortY(node, fromPort) {
+  const normalizedPort = normalizeFromPort(node, fromPort);
+  if (normalizedPort === 'out-bottom') return node.y + node.height;
+  return node.y + node.height / 2;
+}
+
+function getAvailableVariableNames() {
+  const names = new Set();
+  state.doc.nodes.forEach((node) => {
+    if (!node || node.type !== 'reply') return;
+    const name = normalizeVariableName(node.varName);
+    if (name) names.add(name);
+  });
+  return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+}
+
+function closeVariableAutocomplete() {
+  variableAutocomplete.open = false;
+  variableAutocomplete.items = [];
+  variableAutocomplete.activeIndex = 0;
+  variableAutocomplete.tokenStart = -1;
+  variableAutocomplete.tokenEnd = -1;
+  if (nodeBodyAutocomplete) {
+    nodeBodyAutocomplete.hidden = true;
+    nodeBodyAutocomplete.innerHTML = '';
+  }
+}
+
+function renderVariableAutocomplete() {
+  if (!nodeBodyAutocomplete || !variableAutocomplete.open || !variableAutocomplete.items.length) {
+    closeVariableAutocomplete();
+    return;
+  }
+
+  nodeBodyAutocomplete.innerHTML = '';
+  variableAutocomplete.items.forEach((name, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'field-autocomplete-item' + (index === variableAutocomplete.activeIndex ? ' is-active' : '');
+    button.textContent = '%' + name + '%';
+    button.setAttribute('role', 'option');
+    button.setAttribute('aria-selected', index === variableAutocomplete.activeIndex ? 'true' : 'false');
+    button.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      applyVariableAutocomplete(name);
+    });
+    nodeBodyAutocomplete.appendChild(button);
+  });
+  nodeBodyAutocomplete.hidden = false;
+}
+
+function getVariableAutocompleteContext() {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'bubble' || nodeBodyInput.disabled) return null;
+  if (document.activeElement !== nodeBodyInput) return null;
+  if (nodeBodyInput.selectionStart !== nodeBodyInput.selectionEnd) return null;
+
+  const value = nodeBodyInput.value;
+  const caretIndex = nodeBodyInput.selectionStart;
+  if (typeof caretIndex !== 'number') return null;
+
+  const beforeCaret = value.slice(0, caretIndex);
+  const tokenStart = beforeCaret.lastIndexOf('%');
+  if (tokenStart < 0) return null;
+
+  const queryRaw = beforeCaret.slice(tokenStart + 1);
+  if (/%/.test(queryRaw) || /\s/.test(queryRaw)) return null;
+  if (queryRaw && !/^[A-Za-z_]\w*$/.test(queryRaw)) return null;
+
+  const afterCaret = value.slice(caretIndex);
+  const afterWordMatch = afterCaret.match(/^\w*/);
+  let tokenEnd = caretIndex + (afterWordMatch ? afterWordMatch[0].length : 0);
+  if (value.charAt(tokenEnd) === '%') tokenEnd += 1;
+
+  const query = queryRaw.toLowerCase();
+  const items = getAvailableVariableNames().filter((name) => !query || name.toLowerCase().startsWith(query));
+  if (!items.length) return null;
+
+  return {
+    items,
+    tokenStart,
+    tokenEnd
+  };
+}
+
+function updateVariableAutocomplete() {
+  const context = getVariableAutocompleteContext();
+  if (!context) {
+    closeVariableAutocomplete();
+    return;
+  }
+
+  const previousActiveName = variableAutocomplete.items[variableAutocomplete.activeIndex] || '';
+  variableAutocomplete.open = true;
+  variableAutocomplete.items = context.items;
+  variableAutocomplete.tokenStart = context.tokenStart;
+  variableAutocomplete.tokenEnd = context.tokenEnd;
+  const matchedIndex = previousActiveName ? context.items.indexOf(previousActiveName) : -1;
+  variableAutocomplete.activeIndex = matchedIndex >= 0 ? matchedIndex : 0;
+  renderVariableAutocomplete();
+}
+
+function applyVariableAutocomplete(name) {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'bubble') return;
+  if (!variableAutocomplete.open) return;
+
+  const insertion = '%' + name + '%';
+  const currentValue = nodeBodyInput.value;
+  const nextValue = currentValue.slice(0, variableAutocomplete.tokenStart) + insertion + currentValue.slice(variableAutocomplete.tokenEnd);
+  const caret = variableAutocomplete.tokenStart + insertion.length;
+
+  node.body = nextValue;
+  closeVariableAutocomplete();
+  renderAll();
+  nodeBodyInput.focus();
+  nodeBodyInput.setSelectionRange(caret, caret);
+}
+
+function countLinks(id, direction) {
+  return state.doc.links.filter((link) => link[direction] === id).length;
+}
+
+function getInspectorHost() {
+  return inspector ? (inspector.parentElement || document.body) : document.body;
+}
+
+function getDefaultInspectorPosition() {
+  const host = getInspectorHost();
+  const width = inspector ? (inspector.offsetWidth || 320) : 320;
+  return {
+    x: Math.max(12, host.clientWidth - width - 12),
+    y: 12
+  };
+}
+
+function clampInspectorPosition(x, y) {
+  const host = getInspectorHost();
+  const width = inspector ? (inspector.offsetWidth || 320) : 320;
+  const height = inspector ? (inspector.offsetHeight || 140) : 140;
+  return {
+    x: clamp(Math.round(x), 12, Math.max(12, host.clientWidth - width - 12)),
+    y: clamp(Math.round(y), 12, Math.max(12, host.clientHeight - height - 12))
+  };
+}
+
+function applyInspectorPosition() {
+  if (!inspector) return;
+  inspector.style.left = '';
+  inspector.style.top = '';
+  inspector.style.right = '';
+}
+
+function refreshInspectorWindowUi() {
+  if (!inspector) return;
+  const node = getNode(state.selectedId);
+  const link = getLink(state.selectedLinkId);
+  if (inspectorWindowTitle) {
+    inspectorWindowTitle.textContent = 'Details';
+  }
+  if (inspectorWindowSubtitle) {
+    inspectorWindowSubtitle.textContent = node
+      ? 'Editing ' + (getNodeKicker(node) || 'Selected Item') + '.'
+      : link
+        ? 'Editing Connection.'
+        : 'Select something to edit.';
+  }
+  if (inspectorStack) inspectorStack.hidden = false;
+  if (!inspector.hidden) {
+    window.requestAnimationFrame(applyInspectorPosition);
+  }
+}
+
+function isBubbleLikeType(type) {
+  return type === 'bubble' || type === 'reply';
+}
+
+function normalizeVarValues(raw) {
+  return Array.from({ length: 4 }, (_, index) => {
+    if (Array.isArray(raw) && raw[index] != null) return String(raw[index]);
+    return '';
+  });
+}
+
+function getLegacyAskBubbleBody(raw) {
+  const body = raw && raw.body ? String(raw.body).trim() : '';
+  const values = normalizeVarValues(raw && raw.varValues)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (body && values.length) return body + '\n' + values.join(' / ');
+  if (body) return body;
+  return values.join(' / ');
+}
+
+function getNormalizedNodeType(raw) {
+  const rawType = raw && raw.type ? String(raw.type) : 'stop';
+  return rawType === 'ask'
+    ? 'bubble'
+    : (TYPE_CONFIG[rawType] ? rawType : 'stop');
+}
+
+function syncNextNodeNumbers() {
+  const counters = createNodeIdCounters();
+  state.doc.nodes.forEach((node) => {
+    const parsed = parseTypedNodeId(node.id);
+    if (parsed && parsed.type === node.type) {
+      counters[node.type] = Math.max(counters[node.type], parsed.number + 1);
+    }
+  });
+  state.nextNodeNumbers = counters;
+}
+
+function normalizeNode(raw, typeOverride = null, idOverride = null) {
+  const rawType = raw && raw.type ? String(raw.type) : 'stop';
+  const type = typeOverride || getNormalizedNodeType(raw);
+  const config = TYPE_CONFIG[type];
+  const gameSlot = type === 'game' ? getGameHomeSlot() : null;
+  const anytime = (type === 'reply' || type === 'bubble') && !!(raw && raw.anytime);
+  const anytimePairId = anytime
+    ? String(raw && (raw.anytimePairId || raw.pairId || '') || '').trim()
+    : '';
+  const rawBody = rawType === 'ask'
+    ? getLegacyAskBubbleBody(raw)
+    : raw && raw.body ? String(raw.body) : config.body;
+  const replyVarName = type === 'reply' ? getLegacyReplyVarName(raw) : '';
+  return {
+    id: idOverride || makeId(type),
+    type,
+    x: gameSlot ? gameSlot.x : normalizeGridAnchoredValue(raw && raw.x, 'x'),
+    y: gameSlot ? gameSlot.y : normalizeGridAnchoredValue(raw && raw.y, 'y'),
+    width: config.width,
+    height: config.height,
+    title: usesNodeTitle(type) && raw && typeof raw.title === 'string' && raw.title.trim()
+      ? String(raw.title)
+      : getDefaultNodeTitle(type),
+    tagline: raw && typeof raw.tagline === 'string' ? raw.tagline : '',
+    guideName: raw && typeof raw.guideName === 'string' ? raw.guideName : '',
+    price: raw && typeof raw.price === 'string' ? raw.price : '',
+    builderNotes: raw && typeof raw.builderNotes === 'string' ? raw.builderNotes : '',
+    tags: Array.isArray(raw && raw.tags)
+      ? raw.tags.map((tag) => String(tag).trim()).filter(Boolean)
+      : typeof (raw && raw.tag) === 'string'
+        ? raw.tag.split(/[;,]+/).map((tag) => tag.trim()).filter(Boolean)
+        : [],
+    body: type === 'reply' && !normalizeVariableName(raw && raw.varName) && isVariableOnlyBody(rawBody)
+      ? ''
+      : rawBody,
+    varName: replyVarName,
+    acceptAny: type === 'reply' ? !!(raw && raw.acceptAny) : false,
+    anytime,
+    anytimePairId,
+    rotation: normalizeNodeRotation(raw && raw.rotation, type),
+    orderIndex: normalizeNodeOrderIndex(raw && raw.orderIndex)
+  };
+}
+
+function normalizeDoc(raw) {
+  const doc = raw && typeof raw === 'object' ? raw : {};
+  const incomingNodes = Array.isArray(doc.nodes) ? doc.nodes : [];
+  const counters = createNodeIdCounters();
+  const usedIds = new Set();
+  const nodeIdMap = new Map();
+  const nodes = incomingNodes.map((node, index) => {
+    const type = getNormalizedNodeType(node);
+    const rawId = node && node.id != null ? String(node.id) : '__node__' + index;
+    const parsedId = parseTypedNodeId(rawId);
+    const normalizedId = parsedId && parsedId.type === type && !usedIds.has(parsedId.id)
+      ? (() => {
+          usedIds.add(parsedId.id);
+          counters[type] = Math.max(counters[type], parsedId.number + 1);
+          return parsedId.id;
+        })()
+      : makeId(type, counters, usedIds);
+    nodeIdMap.set(rawId, normalizedId);
+    return normalizeNode(node, type, normalizedId);
+  });
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  assignSequentialOrderIndices(nodes);
+  const usedPortsByNode = new Map();
+  const links = Array.isArray(doc.links)
+    ? doc.links
+        .map((link, index) => ({
+          id: link.id ? String(link.id) : 'link-' + index,
+          from: nodeIdMap.get(String(link && link.from != null ? link.from : '')) || String(link && link.from != null ? link.from : ''),
+          to: nodeIdMap.get(String(link && link.to != null ? link.to : '')) || String(link && link.to != null ? link.to : ''),
+          fromPort: link && link.fromPort != null ? String(link.fromPort) : 'out-right'
+        }))
+        .filter((link) => {
+          if (!nodeIds.has(link.from) || !nodeIds.has(link.to) || link.from === link.to) return false;
+          return canNodeConnectTo(nodeMap.get(link.from), nodeMap.get(link.to));
+        })
+        .map((link) => {
+          const fromNode = nodeMap.get(link.from);
+          const allowed = getNodeOutPorts(fromNode);
+          const usedPorts = usedPortsByNode.get(link.from) || new Set();
+          let normalizedPort = normalizeFromPort(fromNode, link.fromPort);
+          if (usedPorts.has(normalizedPort)) {
+            normalizedPort = allowed.find((port) => !usedPorts.has(port)) || normalizedPort;
+          }
+          usedPorts.add(normalizedPort);
+          usedPortsByNode.set(link.from, usedPorts);
+          return {
+            ...link,
+            fromPort: normalizedPort
+          };
+        })
+    : [];
+
+  return {
+    updatedAt: typeof doc.updatedAt === 'string' ? doc.updatedAt : '',
+    nodes,
+    links
+  };
+}
+
+function getDocName(doc = state.doc) {
+  const gameNode = doc.nodes.find((node) => node.type === 'game');
+  return gameNode && gameNode.title && gameNode.title.trim()
+    ? gameNode.title.trim()
+    : 'Untitled Game';
+}
+
+function getGridSlotPosition(type, col, row) {
+  const config = TYPE_CONFIG[type];
+  const major = getMajorGridSize();
+  const origin = getPlacementGridOrigin();
+  return {
+    x: snap(origin.x + (col * major) + ((major - config.width) / 2)),
+    y: snap(origin.y + (row * major) + ((major - config.height) / 2))
+  };
+}
+
+function getGameHomeSlot() {
+  return getGridSlotPosition('game', GAME_HOME_COL, GAME_HOME_ROW);
+}
+
+function isReservedGameSlot(col, row) {
+  return col === GAME_HOME_COL && row === GAME_HOME_ROW;
+}
+
+function isPlacementSlotAllowed(type, col, row) {
+  if (type === 'game') return isReservedGameSlot(col, row);
+  return !isReservedGameSlot(col, row);
+}
+
+function getNodeGridCell(node) {
+  if (!node) return null;
+  const major = getMajorGridSize();
+  const origin = getPlacementGridOrigin();
+  const columns = getPlacementGridColumns();
+  const rows = getPlacementGridRows();
+  return {
+    col: clamp(Math.floor(((node.x + (node.width / 2)) - origin.x) / major), 0, columns - 1),
+    row: clamp(Math.floor(((node.y + (node.height / 2)) - origin.y) / major), 0, rows - 1)
+  };
+}
+
+function getDocSnapshot(doc = state.doc) {
+  const colors = getCurrentGameColors();
+  return JSON.stringify({
+    currentGameId: state.currentGameId || '',
+    primaryColor: colors.primaryColor,
+    secondaryColor: colors.secondaryColor,
+    nodes: doc.nodes.map((node) => ({
+      id: node.id,
+      type: node.type,
+      x: node.x,
+      y: node.y,
+      title: node.title,
+      tagline: node.tagline || '',
+      guideName: node.guideName || '',
+      price: node.price || '',
+      builderNotes: node.builderNotes || '',
+      tags: (node.tags || []).filter(Boolean),
+      body: node.body || '',
+      varName: node.varName || '',
+      acceptAny: !!node.acceptAny,
+      anytime: !!node.anytime,
+      anytimePairId: node.anytimePairId || '',
+      rotation: getNodeRotation(node),
+      orderIndex: normalizeNodeOrderIndex(node.orderIndex)
+    })),
+    links: doc.links.map((link) => ({
+      from: link.from,
+      to: link.to,
+      fromPort: normalizeFromPort(getNode(link.from) || parseTypedNodeId(link.from)?.type, link.fromPort)
+    }))
+  });
+}
+
+function rememberCleanSnapshot() {
+  state.cleanSnapshot = getDocSnapshot();
+}
+
+function isPristineStarterDoc(doc = state.doc) {
+  if (state.currentGameId) return false;
+  if (!doc || doc.nodes.length !== 1 || doc.links.length !== 0) return false;
+
+  const node = doc.nodes[0];
+  const slot = getGameHomeSlot();
+  const defaultColors = getSavedGameColors({ id: 'draft-game', name: getDocName(doc) }, state.store.games.length);
+  const currentColors = getCurrentGameColors();
+  return !!node
+    && node.type === 'game'
+    && node.id === 'gm-01'
+    && node.x === slot.x
+    && node.y === slot.y
+    && node.title === TYPE_CONFIG.game.title
+    && (node.tagline || '') === 'Shall We Play A Game?'
+    && (node.guideName || '') === 'Mission Control'
+    && (node.price || '') === 'Free To Start / In App Purchases'
+    && Array.isArray(node.tags)
+    && node.tags.length === 0
+    && (node.body || '') === TYPE_CONFIG.game.body
+    && currentColors.primaryColor === defaultColors.primaryColor
+    && currentColors.secondaryColor === defaultColors.secondaryColor;
+}
+
+function hasUnsavedChanges() {
+  if (isPristineStarterDoc()) return false;
+  return state.cleanSnapshot != null && getDocSnapshot() !== state.cleanSnapshot;
+}
+
+function hasPendingSaveChanges() {
+  return hasUnsavedChanges() || !!state.localOnlyChanges;
+}
+
+function updateActionUi() {
+  const hasGame = hasGameNode();
+  const isSaveBusy = state.saveUiState === 'saving' || state.saveUiState === 'loading';
+  const canSave = hasPendingSaveChanges();
+  if (saveGameBtn) saveGameBtn.disabled = isSaveBusy || !canSave;
+  if (saveStatusPill) {
+    saveStatusPill.disabled = isSaveBusy || !canSave;
+    saveStatusPill.dataset.state = isSaveBusy ? 'saving' : (canSave ? 'dirty' : 'idle');
+    saveStatusPill.textContent = 'Save';
+    saveStatusPill.title = 'Save';
+    saveStatusPill.setAttribute('aria-label', 'Save');
+    saveStatusPill.setAttribute('aria-busy', isSaveBusy ? 'true' : 'false');
+  }
+  if (headerPlayGameBtn) headerPlayGameBtn.disabled = !hasGame;
+}
+
+function isRefreshShortcut(event) {
+  const key = (event.key || '').toLowerCase();
+  return event.key === 'F5' || ((event.ctrlKey || event.metaKey) && key === 'r');
+}
+
+function isLetterShortcut(event, code) {
+  return !event.altKey
+    && !event.ctrlKey
+    && !event.metaKey
+    && event.code === code;
+}
+
+function isZoomInShortcut(event) {
+  if (event.altKey) return false;
+  if (event.ctrlKey || event.metaKey) return event.code === 'Equal';
+  return event.code === 'Equal';
+}
+
+function isZoomOutShortcut(event) {
+  if (event.altKey) return false;
+  if (event.ctrlKey || event.metaKey) return event.code === 'Minus';
+  return event.code === 'Minus';
+}
+
+function isZoomResetShortcut(event) {
+  if (event.altKey) return false;
+  if (event.ctrlKey || event.metaKey) return event.code === 'Digit0';
+  return event.code === 'Digit0';
+}
+
+function closeNodeContextMenu() {
+  if (!nodeContextMenu || nodeContextMenu.hidden) return;
+  nodeContextMenu.hidden = true;
+  state.contextMenuNodeId = null;
+  state.contextMenuLinkId = null;
+}
+
+function closeGameshelfContextMenu() {
+  if (!gameshelfContextMenu || gameshelfContextMenu.hidden) return;
+  gameshelfContextMenu.hidden = true;
+  state.contextMenuGameshelfGameId = null;
+  state.contextMenuGameshelfIsNew = false;
+}
+
+function openNodeContextMenu(nodeId, clientX, clientY) {
+  if (!nodeContextMenu) return;
+
+  const node = getNode(nodeId);
+  if (!node) return;
+
+  state.contextMenuNodeId = nodeId;
+  state.contextMenuLinkId = null;
+  if (duplicateNodeBtn) duplicateNodeBtn.disabled = node.type === 'game';
+  if (duplicateNodeBtn) duplicateNodeBtn.hidden = false;
+  if (deleteNodeMenuBtn) deleteNodeMenuBtn.disabled = false;
+  if (deleteNodeMenuBtn) deleteNodeMenuBtn.textContent = 'Delete';
+  nodeContextMenu.hidden = false;
+  nodeContextMenu.style.left = '0px';
+  nodeContextMenu.style.top = '0px';
+
+  const margin = 10;
+  const menuWidth = nodeContextMenu.offsetWidth || 160;
+  const menuHeight = nodeContextMenu.offsetHeight || 96;
+  const left = Math.min(clientX, window.innerWidth - menuWidth - margin);
+  const top = Math.min(clientY, window.innerHeight - menuHeight - margin);
+  nodeContextMenu.style.left = Math.max(margin, left) + 'px';
+  nodeContextMenu.style.top = Math.max(margin, top) + 'px';
+}
+
+function openLinkContextMenu(linkId, clientX, clientY) {
+  if (!nodeContextMenu) return;
+
+  const link = getLink(linkId);
+  if (!link) return;
+  const lockedPairLink = isLockedAnytimePairLink(link);
+
+  state.contextMenuNodeId = null;
+  state.contextMenuLinkId = linkId;
+  if (duplicateNodeBtn) duplicateNodeBtn.hidden = true;
+  if (deleteNodeMenuBtn) deleteNodeMenuBtn.disabled = lockedPairLink;
+  if (deleteNodeMenuBtn) deleteNodeMenuBtn.textContent = 'Delete Connection';
+  nodeContextMenu.hidden = false;
+  nodeContextMenu.style.left = '0px';
+  nodeContextMenu.style.top = '0px';
+
+  const margin = 10;
+  const menuWidth = nodeContextMenu.offsetWidth || 160;
+  const menuHeight = nodeContextMenu.offsetHeight || 96;
+  const left = Math.min(clientX, window.innerWidth - menuWidth - margin);
+  const top = Math.min(clientY, window.innerHeight - menuHeight - margin);
+  nodeContextMenu.style.left = Math.max(margin, left) + 'px';
+  nodeContextMenu.style.top = Math.max(margin, top) + 'px';
+}
+
+function openGameshelfContextMenu(options = {}, clientX, clientY) {
+  if (!gameshelfContextMenu) return;
+  const gameId = String(options.gameId || '').trim();
+  const isNew = !!options.isNew;
+  const newOnly = !!options.newOnly;
+
+  state.contextMenuGameshelfGameId = gameId || null;
+  state.contextMenuGameshelfIsNew = isNew;
+  if (gameshelfMenuNewBtn) gameshelfMenuNewBtn.disabled = false;
+  if (gameshelfMenuDuplicateBtn) {
+    gameshelfMenuDuplicateBtn.hidden = newOnly;
+    gameshelfMenuDuplicateBtn.disabled = newOnly || isNew || !gameId;
+  }
+  if (gameshelfMenuDeleteBtn) {
+    gameshelfMenuDeleteBtn.hidden = newOnly;
+    gameshelfMenuDeleteBtn.disabled = newOnly || isNew || !gameId;
+  }
+
+  gameshelfContextMenu.hidden = false;
+  gameshelfContextMenu.style.left = '0px';
+  gameshelfContextMenu.style.top = '0px';
+
+  const margin = 10;
+  const menuWidth = gameshelfContextMenu.offsetWidth || 180;
+  const menuHeight = gameshelfContextMenu.offsetHeight || 132;
+  const left = Math.min(clientX, window.innerWidth - menuWidth - margin);
+  const top = Math.min(clientY, window.innerHeight - menuHeight - margin);
+  gameshelfContextMenu.style.left = Math.max(margin, left) + 'px';
+  gameshelfContextMenu.style.top = Math.max(margin, top) + 'px';
+}
+
+function reloadPage() {
+  location.reload();
+}
+
+function attemptRefresh() {
+  if (hasPendingSaveChanges()) syncRecoveryDraftNow({ updateStatus: false });
+  reloadPage();
+}
+
+function requestOpenSavedGame(gameId, returnFocusEl = null) {
+  const nextGameId = String(gameId || '').trim();
+  if (!nextGameId || nextGameId === state.currentGameId) return;
+  if (!state.store.games.some((game) => game.id === nextGameId)) return;
+  const preserveRecovery = hasPendingSaveChanges();
+  if (preserveRecovery) syncRecoveryDraftNow({ updateStatus: false });
+  openSavedGame(nextGameId, { preserveRecovery });
+}
+
+function closeMenuForButton(button) {
+  if (!button) return;
+  const menu = button.closest('.mb-menu');
+  const panel = button.closest('.mb-panel');
+  if (menu) menu.classList.remove('open');
+  if (panel) panel.hidden = true;
+}
+
+async function saveCurrentGameFromMenu() {
+  closeMenuForButton(saveGameBtn);
+  await saveDoc();
+}
+
+function openGameshelfMenuForButton(button, event, options = {}) {
+  if (!button || !event) return;
+  event.preventDefault();
+  event.stopPropagation();
+  closeNodeContextMenu();
+  closeGameshelfContextMenu();
+  openGameshelfContextMenu(options, event.clientX, event.clientY);
+}
+
+function buildDuplicateGameName(baseName = 'Untitled Game') {
+  const sourceName = String(baseName || 'Untitled Game').trim() || 'Untitled Game';
+  const names = new Set((state.store.games || []).map((game) => String(game && game.name || '').trim().toLowerCase()));
+  const firstCandidate = sourceName + ' Copy';
+  if (!names.has(firstCandidate.toLowerCase())) return firstCandidate;
+  let copyIndex = 2;
+  while (names.has((sourceName + ' Copy ' + copyIndex).toLowerCase())) {
+    copyIndex += 1;
+  }
+  return sourceName + ' Copy ' + copyIndex;
+}
+
+function deriveSavedGameColors(game, index = 0) {
+  if (game && game.id === 'draft-game') {
+    return {
+      primaryColor: '#ffffff',
+      secondaryColor: '#243256'
+    };
+  }
+  const seed = String(game && game.id || game && game.name || index);
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = ((hash * 31) + seed.charCodeAt(i)) >>> 0;
+  }
+  const hue = hash % 360;
+  const secondaryHue = (hue + 28 + (index * 11)) % 360;
+  return {
+    primaryColor: `hsl(${hue} 52% 44%)`,
+    secondaryColor: `hsl(${secondaryHue} 58% 26%)`
+  };
+}
+
+function getSupportedColorValue(rawValue) {
+  if (typeof rawValue !== 'string') return '';
+  const value = rawValue.trim();
+  if (!value) return '';
+  if (typeof CSS === 'undefined' || typeof CSS.supports !== 'function') return value;
+  return CSS.supports('color', value) ? value : '';
+}
+
+function normalizeSavedGameColor(rawValue, fallback) {
+  return getSupportedColorValue(rawValue) || fallback;
+}
+
+function getSavedGameColors(game, index = 0) {
+  const fallback = deriveSavedGameColors(game, index);
+  return {
+    primaryColor: normalizeSavedGameColor(game && game.primaryColor, fallback.primaryColor),
+    secondaryColor: normalizeSavedGameColor(game && game.secondaryColor, fallback.secondaryColor)
+  };
+}
+
+function getCurrentGameColorFallback() {
+  const existingIndex = state.store.games.findIndex((game) => game.id === state.currentGameId);
+  const fallbackGame = existingIndex >= 0
+    ? state.store.games[existingIndex]
+    : { id: state.currentGameId || 'draft-game', name: getDocName() };
+  return getSavedGameColors(
+    fallbackGame,
+    existingIndex >= 0 ? existingIndex : state.store.games.length
+  );
+}
+
+function getCurrentGameColors() {
+  const fallback = getCurrentGameColorFallback();
+  return {
+    primaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.primaryColor, fallback.primaryColor),
+    secondaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.secondaryColor, fallback.secondaryColor)
+  };
+}
+
+function setCurrentGameColors(nextColors = null) {
+  const incoming = nextColors && typeof nextColors === 'object' ? nextColors : {};
+  const fallback = getCurrentGameColorFallback();
+  state.currentGameColors = {
+    primaryColor: normalizeSavedGameColor(incoming.primaryColor, fallback.primaryColor),
+    secondaryColor: normalizeSavedGameColor(incoming.secondaryColor, fallback.secondaryColor)
+  };
+  return state.currentGameColors;
+}
+
+function setCurrentGameColorValue(key, rawValue) {
+  if (key !== 'primaryColor' && key !== 'secondaryColor') return false;
+  const currentColors = getCurrentGameColors();
+  const nextValue = normalizeSavedGameColor(rawValue, currentColors[key]);
+  if (currentColors[key] === nextValue) return false;
+  state.currentGameColors = {
+    ...currentColors,
+    [key]: nextValue
+  };
+  return true;
+}
+
+function colorValueToHex(rawValue, fallback = '#5468a7') {
+  const color = getSupportedColorValue(rawValue) || getSupportedColorValue(fallback) || '#5468a7';
+  if (typeof document === 'undefined' || !document.body) {
+    return color.startsWith('#') ? color : fallback;
+  }
+
+  const probe = document.createElement('div');
+  probe.style.position = 'absolute';
+  probe.style.left = '-9999px';
+  probe.style.color = color;
+  document.body.appendChild(probe);
+  const resolved = getComputedStyle(probe).color;
+  probe.remove();
+
+  const match = resolved.match(/rgba?\(([^)]+)\)/i);
+  if (!match) {
+    return color.startsWith('#') ? color : fallback;
+  }
+
+  const [r, g, b] = match[1]
+    .split(',')
+    .slice(0, 3)
+    .map((part) => Math.max(0, Math.min(255, Math.round(Number.parseFloat(part.trim()) || 0))));
+
+  return '#' + [r, g, b]
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function colorValueToRgba(rawValue, alpha = 1, fallback = '#5468a7') {
+  const hex = colorValueToHex(rawValue, fallback);
+  const normalized = hex.startsWith('#') ? hex.slice(1) : '5468a7';
+  const safeHex = (normalized.length === 3
+    ? normalized.split('').map((value) => value + value).join('')
+    : normalized.padEnd(6, '0')).slice(0, 6);
+  const channels = [0, 2, 4].map((offset) => Number.parseInt(safeHex.slice(offset, offset + 2), 16) || 0);
+  const clampedAlpha = Math.max(0, Math.min(1, Number(alpha) || 0));
+  return `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${clampedAlpha})`;
+}
+
+function getTertiaryGameColor(rawValue, fallback = '#5468a7') {
+  const hex = colorValueToHex(rawValue, fallback);
+  const normalized = hex.startsWith('#') ? hex.slice(1) : '5468a7';
+  const safeHex = (normalized.length === 3
+    ? normalized.split('').map((value) => value + value).join('')
+    : normalized.padEnd(6, '0')).slice(0, 6);
+  const [r, g, b] = [0, 2, 4].map((offset) => Number.parseInt(safeHex.slice(offset, offset + 2), 16) || 0);
+  const distanceToBlack = (r * r) + (g * g) + (b * b);
+  const distanceToWhite = ((255 - r) * (255 - r)) + ((255 - g) * (255 - g)) + ((255 - b) * (255 - b));
+  return distanceToBlack >= distanceToWhite ? '#000000' : '#ffffff';
+}
+
+function applyGameshelfButtonColors(button, colors = null) {
+  if (!button) return;
+  const primaryColor = colors && colors.primaryColor ? colors.primaryColor : '#5468a7';
+  const tertiaryColor = getTertiaryGameColor(primaryColor, '#5468a7');
+  button.style.setProperty('--gameshelf-glow', 'rgba(224, 224, 224, 0.65)');
+  button.style.setProperty('--gameshelf-title-color', primaryColor);
+  button.style.setProperty('--gameshelf-title-outline', tertiaryColor);
+}
+
+async function syncStoreToServer() {
+  state.store.updatedAt = new Date().toISOString();
+  try {
+    const apiBases = getApiBaseCandidates();
+    let lastError = null;
+    for (const apiBase of apiBases) {
+      try {
+        const res = await fetch(apiBase + STORE_API_ROUTE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(state.store)
+        });
+        if (!res.ok) {
+          const message = await res.text();
+          throw new Error(message || 'Store sync failed');
+        }
+        return { serverSaved: true, localOnly: false, apiBase };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    return { serverSaved: false, localOnly: true, error: lastError };
+  } catch (error) {
+    return { serverSaved: false, localOnly: true, error };
+  }
+}
+
+function getGameshelfSourceGameSnapshot(gameId) {
+  const sourceGame = state.store.games.find((entry) => entry.id === gameId);
+  if (!sourceGame) return null;
+  const sourceIndex = state.store.games.findIndex((entry) => entry.id === gameId);
+  const isCurrent = gameId === state.currentGameId;
+  const colors = isCurrent ? getCurrentGameColors() : getSavedGameColors(sourceGame, sourceIndex);
+  return {
+    sourceGame,
+    isCurrent,
+    colors,
+    name: isCurrent ? getDocName() : (sourceGame.name || 'Untitled Game'),
+    nodes: cloneObj(isCurrent ? state.doc.nodes : sourceGame.nodes),
+    links: cloneObj(isCurrent ? state.doc.links : sourceGame.links)
+  };
+}
+
+async function duplicateSavedGame(gameId) {
+  const snapshot = getGameshelfSourceGameSnapshot(gameId);
+  if (!snapshot) return null;
+
+  const timestamp = new Date().toISOString();
+  const duplicatedGame = {
+    id: makeGameId(),
+    name: buildDuplicateGameName(snapshot.name),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    primaryColor: snapshot.colors.primaryColor,
+    secondaryColor: snapshot.colors.secondaryColor,
+    nodes: snapshot.nodes,
+    links: snapshot.links
+  };
+
+  state.store.updatedAt = timestamp;
+  state.store.games.push(duplicatedGame);
+  syncAllTagsFromStore();
+  renderGameshelf();
+  persistStoreLocally();
+  state.localOnlyChanges = true;
+  syncRecoveryDraftNow({ updateStatus: false });
+  updateActionUi();
+  setSaveStatus('local');
+  return duplicatedGame;
+}
+
+async function deleteSavedGame(gameId) {
+  const targetIndex = state.store.games.findIndex((entry) => entry.id === gameId);
+  if (targetIndex < 0) return false;
+  const isCurrent = gameId === state.currentGameId;
+
+  state.store.games.splice(targetIndex, 1);
+  state.store.updatedAt = new Date().toISOString();
+  if (isCurrent) state.currentGameId = null;
+  syncAllTagsFromStore();
+  renderGameshelf();
+  persistStoreLocally();
+  state.localOnlyChanges = true;
+  syncRecoveryDraftNow({ updateStatus: false });
+  updateActionUi();
+  if (isCurrent) renderAll();
+  setSaveStatus('local');
+  return true;
+}
+
+function normalizeSavedGame(raw, index) {
+  const doc = normalizeDoc(raw);
+  const createdAt = typeof (raw && raw.createdAt) === 'string' && raw.createdAt
+    ? raw.createdAt
+    : (typeof (raw && raw.updatedAt) === 'string' ? raw.updatedAt : doc.updatedAt);
+  const colors = getSavedGameColors(raw, index);
+  return {
+    id: raw && raw.id ? String(raw.id) : 'game-' + (index + 1),
+    name: raw && typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : getDocName(doc),
+    createdAt,
+    updatedAt: typeof (raw && raw.updatedAt) === 'string' ? raw.updatedAt : doc.updatedAt,
+    primaryColor: colors.primaryColor,
+    secondaryColor: colors.secondaryColor,
+    nodes: doc.nodes,
+    links: doc.links
+  };
+}
+
+function normalizeStore(raw) {
+  const incoming = raw && typeof raw === 'object' ? raw : {};
+  let games = [];
+
+  if (Array.isArray(incoming.games)) {
+    games = incoming.games.map(normalizeSavedGame);
+  } else if (Array.isArray(incoming.nodes) || Array.isArray(incoming.links)) {
+    games = [normalizeSavedGame(incoming, 0)];
+  }
+
+  return {
+    _comment: STORE_COMMENT,
+    updatedAt: typeof incoming.updatedAt === 'string' ? incoming.updatedAt : '',
+    games
+  };
+}
+
+function convertLegacyGamesToStore(legacyGames = []) {
+  const converted = legacyGames
+    .filter((game) => game && !game.archived)
+    .map((game, index) => ({
+      id: game.id || ('game-' + index),
+      name: game.name || 'Untitled',
+      createdAt: game.createdAt || game.updatedAt || '',
+      updatedAt: game.updatedAt || '',
+      nodes: [{
+        id: 'gm-01',
+        type: 'game',
+        x: 64,
+        y: 64,
+        width: TYPE_CONFIG.game.width,
+        height: TYPE_CONFIG.game.height,
+        title: game.name || 'Untitled',
+        tagline: game.tagline || '',
+        guideName: game.subtitle || '',
+        price: game.price || '',
+        tags: (game.tag || '').split(/[;,]/).map((tag) => tag.trim()).filter(Boolean),
+        body: (game.description || '').replace(/<[^>]+>/g, '').trim()
+      }],
+      links: []
+    }));
+
+  if (!converted.length) return null;
+  return {
+    _comment: STORE_COMMENT,
+    updatedAt: '',
+    games: converted
+  };
+}
+
+function normalizeIncomingStorePayload(raw) {
+  if (Array.isArray(raw)) {
+    const looksLikeCurrentStore = raw.some((game) => game && typeof game === 'object' && (Array.isArray(game.nodes) || Array.isArray(game.links)));
+    return looksLikeCurrentStore ? normalizeStore({ games: raw }) : convertLegacyGamesToStore(raw);
+  }
+
+  if (!raw || typeof raw !== 'object') return null;
+  if (raw._comment === STORE_COMMENT && Array.isArray(raw.games)) return normalizeStore(raw);
+  if (Array.isArray(raw.nodes) || Array.isArray(raw.links)) return normalizeStore(raw);
+  if (Array.isArray(raw.games)) {
+    const looksLikeCurrentStore = raw.games.some((game) => game && typeof game === 'object' && (Array.isArray(game.nodes) || Array.isArray(game.links)));
+    return looksLikeCurrentStore ? normalizeStore(raw) : convertLegacyGamesToStore(raw.games);
+  }
+
+  return null;
+}
+
+function createNode(type, x, y) {
+  const config = TYPE_CONFIG[type];
+  const nextOrderIndex = state.doc.nodes.reduce((maxOrderIndex, node) => {
+    const value = normalizeNodeOrderIndex(node && node.orderIndex);
+    return value == null ? maxOrderIndex : Math.max(maxOrderIndex, value);
+  }, 0) + 100;
+  return {
+    id: makeId(type),
+    type,
+    x: snap(x),
+    y: snap(y),
+    width: config.width,
+    height: config.height,
+    title: getDefaultNodeTitle(type),
+    tagline: type === 'game' ? 'Shall We Play A Game?' : '',
+    guideName: type === 'game' ? 'Mission Control' : '',
+    price: type === 'game' ? 'Free To Start / In App Purchases' : '',
+    builderNotes: '',
+    tags: [],
+    body: config.body,
+    varName: '',
+    acceptAny: false,
+    anytime: false,
+    anytimePairId: '',
+    rotation: 0,
+    orderIndex: nextOrderIndex
+  };
+}
+
+function syncAllTagsFromStore() {
+  allTags = [...ALL_TAGS];
+
+  const collectTags = (doc) => {
+    doc.nodes.forEach((node) => {
+      (node.tags || []).forEach((tag) => {
+        if (tag && !allTags.includes(tag)) allTags.push(tag);
+      });
+    });
+  };
+
+  state.store.games.forEach((game) => {
+    collectTags(game);
+  });
+
+  collectTags(state.doc);
+}
+
+function formatSavedGameLabel(game) {
+  if (!game.updatedAt) return game.name;
+
+  try {
+    const when = new Date(game.updatedAt);
+    if (Number.isNaN(when.getTime())) return game.name;
+    return game.name + ' | ' + when.toLocaleString();
+  } catch (error) {
+    return game.name;
+  }
+}
+
+function formatSavedGameshelfDate(game) {
+  const source = game && (game.updatedAt || game.createdAt);
+  if (!source) return 'Saved earlier';
+  try {
+    const when = new Date(source);
+    if (Number.isNaN(when.getTime())) return 'Saved earlier';
+    return 'Saved ' + when.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch (error) {
+    return 'Saved earlier';
+  }
+}
+
+function getSavedGameBubbleCount(game) {
+  if (!game || !Array.isArray(game.nodes)) return 0;
+  return game.nodes.filter((node) => node && (node.type === 'bubble' || node.type === 'reply')).length;
+}
+
+function getGameshelfGames() {
+  const games = [...(state.store.games || [])];
+  return games.sort((a, b) => compareSavedGamesAlphabetical(a, b));
+}
+
+function getGameshelfLoopCount(games) {
+  if (!Array.isArray(games) || games.length <= 1) return 1;
+  return Math.max(3, Math.ceil(GAMESHELF_MIN_RENDER_CARDS / games.length));
+}
+
+function measureGameshelfLoopHeight() {
+  if (!gameshelfList) return 0;
+  const originals = [...gameshelfList.querySelectorAll('.gameshelf-slot[data-loop-index="0"]')];
+  if (!originals.length) return 0;
+  const first = originals[0];
+  const nextLoopFirst = gameshelfList.querySelector('.gameshelf-slot[data-loop-index="1"]');
+  if (nextLoopFirst) {
+    return Math.max(0, Math.round(nextLoopFirst.offsetTop - first.offsetTop));
+  }
+  const last = originals[originals.length - 1];
+  return Math.max(0, Math.round((last.offsetTop - first.offsetTop) + last.offsetHeight));
+}
+
+function stopGameshelfAutoScroll(resetScroll = true) {
+  if (gameshelfAutoScrollFrame) {
+    window.cancelAnimationFrame(gameshelfAutoScrollFrame);
+    gameshelfAutoScrollFrame = 0;
+  }
+  gameshelfAutoScrollLastTime = 0;
+  gameshelfLoopHeight = 0;
+  if (resetScroll && gameshelfStream) {
+    gameshelfStream.scrollTop = 0;
+  }
+}
+
+function resetHomeScrollPositions() {
+  if (gameshelfStream) gameshelfStream.scrollTop = 0;
+  setViewportScrollPosition(0, 0);
+}
+
+function scheduleInitialScrollReset() {
+  if (state.initialScrollResetDone) return;
+  state.initialScrollResetDone = true;
+  window.requestAnimationFrame(() => {
+    resetHomeScrollPositions();
+    window.requestAnimationFrame(() => {
+      resetHomeScrollPositions();
+    });
+  });
+}
+
+function shouldPauseGameshelfAutoScroll() {
+  return !gameshelfStream
+    || (!!gameshelf && gameshelf.contains(document.activeElement));
+}
+
+function stepGameshelfAutoScroll(timestamp) {
+  if (!gameshelfStream || !gameshelfLoopHeight) {
+    stopGameshelfAutoScroll(false);
+    return;
+  }
+
+  if (!gameshelfAutoScrollLastTime) {
+    gameshelfAutoScrollLastTime = timestamp;
+  }
+
+  const delta = Math.min(40, timestamp - gameshelfAutoScrollLastTime);
+  gameshelfAutoScrollLastTime = timestamp;
+
+  if (!shouldPauseGameshelfAutoScroll()) {
+    gameshelfStream.scrollTop += delta * (GAMESHELF_AUTO_SCROLL_SPEED / 1000);
+    while (gameshelfStream.scrollTop >= gameshelfLoopHeight) {
+      gameshelfStream.scrollTop -= gameshelfLoopHeight;
+    }
+  }
+
+  gameshelfAutoScrollFrame = window.requestAnimationFrame(stepGameshelfAutoScroll);
+}
+
+function refreshGameshelfAutoScroll() {
+  if (!gameshelfStream || !gameshelfList) return;
+  stopGameshelfAutoScroll(false);
+}
+
+// Drag-to-scroll on gameshelf
+let gsDrag = false;
+let gsDragStartY = 0;
+let gsDragScrollTop = 0;
+let gsDragWasScrolling = false;
+
+if (gameshelfStream) {
+  gameshelfStream.addEventListener('mousedown', e => {
+    if (usesSingleSheetScroll()) return;
+    if (e.button !== 0) return;
+    gsDrag = true;
+    gsDragStartY = e.clientY;
+    gsDragScrollTop = gameshelfStream.scrollTop;
+    gsDragWasScrolling = !!gameshelfAutoScrollFrame;
+    if (gsDragWasScrolling) stopGameshelfAutoScroll(false);
+    gameshelfStream.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+}
+
+window.addEventListener('mousemove', e => {
+  if (usesSingleSheetScroll()) return;
+  if (!gsDrag) return;
+  gameshelfStream.scrollTop = gsDragScrollTop + (gsDragStartY - e.clientY);
+});
+
+window.addEventListener('mouseup', () => {
+  if (usesSingleSheetScroll()) return;
+  if (!gsDrag) return;
+  gsDrag = false;
+  if (gameshelfStream) gameshelfStream.style.cursor = '';
+  if (gsDragWasScrolling) refreshGameshelfAutoScroll();
+});
+
+function buildNowPlayingBadgeMarkup() {
+  return '<span class="gameshelf-game-badge">Now Playing</span>';
+}
+
+function startNewPhone() {
+  const preserveRecovery = hasPendingSaveChanges();
+  if (preserveRecovery) syncRecoveryDraftNow({ updateStatus: false });
+  seedPhone({ preserveRecovery });
+  return true;
+}
+
+function buildNewGameShelfButton(showNowPlayingBadge = false) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'gameshelf-game gameshelf-game--new';
+  applyGameshelfButtonColors(button);
+  button.innerHTML = `
+    ${showNowPlayingBadge ? buildNowPlayingBadgeMarkup() : ''}
+    <span class="gameshelf-game-status">+ CREATE</span>
+    <span class="gameshelf-game-title">New Game</span>
+    <span class="gameshelf-game-meta">Start from scratch</span>
+  `;
+  button.addEventListener('click', () => startNewPhone());
+  button.addEventListener('contextmenu', (event) => {
+    openGameshelfMenuForButton(button, event, { isNew: true });
+  });
+  return button;
+}
+
+function renderGameshelfPinned() {
+  if (!gameshelfPinned) return;
+  gameshelfPinned.innerHTML = '';
+  gameshelfPinned.hidden = true;
+}
+
+function renderGameshelf() {
+  if (!gameshelfList) return;
+  renderGameshelfPinned();
+  const games = getGameshelfGames();
+  gameshelfList.innerHTML = '';
+
+  if (!games.length) {
+    stopGameshelfAutoScroll();
+    const emptyEl = document.createElement('div');
+    emptyEl.className = 'gameshelf-empty';
+    emptyEl.textContent = 'No saved games on the gameshelf yet.';
+    gameshelfList.appendChild(emptyEl);
+    scheduleRecoverySync();
+    return;
+  }
+
+  games.forEach((game, index) => {
+    const slot = document.createElement('div');
+    slot.className = 'gameshelf-slot';
+
+    const button = document.createElement('button');
+    const isActive = game.id === state.currentGameId;
+    const isDirty = isActive && hasUnsavedChanges();
+    const colors = isActive ? getCurrentGameColors() : getSavedGameColors(game, index);
+
+    button.type = 'button';
+    button.className = 'gameshelf-game' + (isDirty ? ' is-dirty' : '');
+    button.dataset.gameId = game.id;
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    if (isActive) button.setAttribute('aria-current', 'true');
+    button.title = formatSavedGameLabel(game);
+    applyGameshelfButtonColors(button, colors);
+    button.innerHTML = `
+      ${isActive ? buildNowPlayingBadgeMarkup() : ''}
+      <span class="gameshelf-game-title">${escapeHtml(game.name || 'Untitled Game')}</span>
+    `;
+    button.addEventListener('click', () => {
+      requestOpenSavedGame(game.id, button);
+    });
+    button.addEventListener('contextmenu', (event) => {
+      openGameshelfMenuForButton(button, event, { gameId: game.id });
+    });
+
+    slot.appendChild(button);
+    gameshelfList.appendChild(slot);
+  });
+
+  stopGameshelfAutoScroll(false);
+  scheduleRecoverySync();
+}
+
+function getSavedGameUpdatedTime(game) {
+  if (!game || !game.updatedAt) return 0;
+
+  try {
+    const when = new Date(game.updatedAt);
+    return Number.isNaN(when.getTime()) ? 0 : when.getTime();
+  } catch (error) {
+    return 0;
+  }
+}
+
+function getSavedGameCreatedTime(game) {
+  if (!game || !game.createdAt) return getSavedGameUpdatedTime(game);
+
+  try {
+    const when = new Date(game.createdAt);
+    return Number.isNaN(when.getTime()) ? getSavedGameUpdatedTime(game) : when.getTime();
+  } catch (error) {
+    return getSavedGameUpdatedTime(game);
+  }
+}
+
+function compareSavedGamesAlphabetical(a, b) {
+  return String(a && a.name || '').localeCompare(String(b && b.name || ''), undefined, { sensitivity: 'base' });
+}
+
+function compareSavedGamesNewestFirst(a, b) {
+  const timeDiff = getSavedGameCreatedTime(b) - getSavedGameCreatedTime(a);
+  if (timeDiff !== 0) return timeDiff;
+  return compareSavedGamesAlphabetical(a, b);
+}
+
+function getLinkPortLabel(link) {
+  const fromPort = normalizeFromPort(getNode(link && link.from) || parseTypedNodeId(link && link.from)?.type, link && link.fromPort);
+  if (fromPort.startsWith('branch-')) {
+    return 'OUT ' + fromPort.replace('branch-', '');
+  }
+  return fromPort.replace('out-', '').toUpperCase();
+}
+
+function getLinkSelectionLabel(link) {
+  if (!link) return 'Connection';
+  return 'CONNECTION / ' + getLinkPortLabel(link);
+}
+
+function openSavedGame(gameId, options = {}) {
+  const game = state.store.games.find((entry) => entry.id === gameId);
+  if (!game) return;
+
+  runWithoutRecoverySync(() => {
+    state.currentGameId = game.id;
+    state.doc = normalizeDoc(game);
+    setCurrentGameColors(game);
+    syncAllTagsFromStore();
+    syncNextNodeNumbers();
+    state.selectedLinkId = null;
+    state.selectedId = state.doc.nodes.length ? state.doc.nodes[0].id : null;
+
+    try {
+      localStorage.setItem(LOCAL_OPEN_GAME_KEY, game.id);
+    } catch (error) {
+    }
+
+    rememberCleanSnapshot();
+    renderGameshelf();
+    renderAll();
+  });
+  if (options.preserveRecovery) {
+    setSaveStatus(state.localOnlyChanges ? 'local' : 'saved', 'Viewing Saved Game');
+  } else if (state.localOnlyChanges) {
+    syncRecoveryDraftNow({ updateStatus: false });
+    setSaveStatus('local', 'Local Changes Only');
+  } else {
+    clearRecoveryDraft();
+    setSaveStatus('saved', 'Viewing Saved Game');
+  }
+}
+
+function getRememberedOpenGameId() {
+  try {
+    return String(localStorage.getItem(LOCAL_OPEN_GAME_KEY) || '').trim();
+  } catch (error) {
+    return '';
+  }
+}
+
+function getEditorLaunchIntent() {
+  try {
+    const url = new URL(location.href);
+    const gameId = String(url.searchParams.get('gameId') || '').trim();
+    const newValue = String(url.searchParams.get('new') || '').trim().toLowerCase();
+    const wantsNew = newValue === '1' || newValue === 'true' || newValue === 'yes';
+    return {
+      gameId,
+      wantsNew,
+      explicit: wantsNew || !!gameId
+    };
+  } catch (error) {
+    return {
+      gameId: '',
+      wantsNew: false,
+      explicit: false
+    };
+  }
+}
+
+function clearEditorLaunchIntent() {
+  try {
+    const url = new URL(location.href);
+    let changed = false;
+    if (url.searchParams.has('new')) {
+      url.searchParams.delete('new');
+      changed = true;
+    }
+    if (!changed) return;
+    const nextUrl = url.pathname + url.search + url.hash;
+    history.replaceState(null, '', nextUrl);
+  } catch (error) {
+  }
+}
+
+function goToGamesPage() {
+  if (hasPendingSaveChanges()) {
+    syncRecoveryDraftNow({ updateStatus: false });
+  }
+  location.href = new URL(GAMES_PAGE_ROUTE, location.href).toString();
+}
+
+function renderTagPicker(node) {
+  const existingPills = [...nodeTagPicker.querySelectorAll('.tag-pill')];
+  existingPills.forEach((pill) => pill.remove());
+
+  const isGameNode = !!node && node.type === 'game';
+  const selectedTags = new Set(isGameNode ? (node.tags || []) : []);
+
+  allTags.forEach((tag) => {
+    const pill = document.createElement('button');
+    pill.type = 'button';
+    pill.className = 'tag-pill' + (selectedTags.has(tag) ? ' on' : '');
+    pill.textContent = tag;
+    pill.disabled = !isGameNode;
+    pill.addEventListener('click', () => {
+      if (!isGameNode) return;
+      const nextTags = new Set(node.tags || []);
+      if (nextTags.has(tag)) nextTags.delete(tag);
+      else nextTags.add(tag);
+      node.tags = [...nextTags];
+      renderTagPicker(node);
+      scheduleRecoverySync();
+    });
+    nodeTagPicker.insertBefore(pill, nodeTagNewInput);
+  });
+}
+
+function buildNodeBodyMarkup(node) {
+  const secondaryText = THREAD_LAYOUT_ENABLED
+    ? getPhoneSecondaryText(node)
+    : (node.body || '');
+  return secondaryText
+    ? `<div class="node-body">${escapeHtml(secondaryText)}</div>`
+    : '';
+}
+
+function buildNodeBubbleMarkup(node) {
+  if (!TYPE_CONFIG[node.type]) return '';
+  const side = getPhoneBubbleSide(node);
+  const tailClass = side === 'left'
+    ? 'node-bubble-tail--left'
+    : side === 'right'
+      ? 'node-bubble-tail--right'
+      : 'node-bubble-tail--none';
+  return `
+    <div class="node-bubble" aria-hidden="true">
+      <div class="node-bubble-shape"></div>
+      <div class="node-bubble-tail ${tailClass}"></div>
+    </div>
+  `;
+}
+
+function buildRotateHandleMarkup(node) {
+  return '';
+}
+
+function buildInPortMarkup(node) {
+  if (!node || node.type === 'game' || isAnytimeReplyNode(node)) return '';
+  return `
+    <button class="node-port node-port--in" data-port="in-left" type="button" tabindex="-1" aria-hidden="true"></button>
+  `;
+}
+
+function buildOutPortsMarkup(node) {
+  const ports = getNodeOutPorts(node);
+  return ports.map((port) => {
+    const sideClass = port === 'out-bottom' ? 'node-port--out-bottom' : 'node-port--out-right';
+    return `<button class="node-port ${sideClass}" data-port="${escapeHtml(port)}" type="button" tabindex="-1" aria-label="Connect from ${escapeHtml(getNodeAccessibleLabel(node))}"></button>`;
+  }).join('');
+}
+
+function getGameTitleStyle(node, titleOverride = null) {
+  if (!node) return '';
+  if (THREAD_LAYOUT_ENABLED && isBubbleLikeType(node.type)) return '';
+
+  const normalizedTitle = String(titleOverride != null ? titleOverride : node.title || '').trim().replace(/\s+/g, ' ');
+  const words = normalizedTitle ? normalizedTitle.split(' ') : [];
+  const longestWordLength = words.reduce((max, word) => Math.max(max, word.length), 0);
+  const length = normalizedTitle.length;
+
+  let fontSize = 0.92;
+  if (length > 16) fontSize = 0.84;
+  if (length > 24) fontSize = 0.76;
+  if (length > 34) fontSize = 0.68;
+  if (length > 46) fontSize = 0.6;
+
+  if (longestWordLength > 12) fontSize = Math.min(fontSize, 0.74);
+  if (longestWordLength > 16) fontSize = Math.min(fontSize, 0.64);
+
+  const lineHeight = fontSize <= 0.64 ? 1.05 : 1.12;
+  return ` style="font-size:${fontSize}rem;line-height:${lineHeight};"`;
+}
+
+function buildNodeMarkup(node) {
+  const config = TYPE_CONFIG[node.type];
+  const displayTitle = getNodeDisplayTitle(node);
+  const kicker = getNodeKicker(node);
+  const bodyMarkup = buildNodeBodyMarkup(node);
+  const headerMarkup = `
+    <div class="node-header">
+      <div class="node-title"${getGameTitleStyle(node, displayTitle)}>${escapeHtml(displayTitle)}</div>
+    </div>
+  `;
+  const metaMarkup = `
+    <div class="node-meta">
+      <div class="node-kicker">${escapeHtml(kicker)}</div>
+    </div>
+  `;
+  const codeMarkup = '';
+  const inPortMarkup = buildInPortMarkup(node);
+  const chromeMarkup = `
+    <div class="node-rotator">
+      ${buildRotateHandleMarkup(node)}
+      ${inPortMarkup}
+      ${buildNodeBubbleMarkup(node)}
+      ${buildOutPortsMarkup(node)}
+    </div>
+  `;
+  return `
+    ${metaMarkup}
+    <div class="node-card">
+      ${chromeMarkup}
+      <div class="node-content">
+        ${headerMarkup}
+        ${bodyMarkup}
+        ${codeMarkup}
+      </div>
+    </div>
+  `;
+}
+
+function getStencilPreviewNode(type) {
+  const baseNode = {
+    id: 'stencil-' + type,
+    type,
+    x: 0,
+    y: 0,
+    width: TYPE_CONFIG[type]?.width || 0,
+    height: TYPE_CONFIG[type]?.height || 0,
+    title: type === 'stop' ? 'Waypoint' : '',
+    tagline: '',
+    guideName: '',
+    price: '',
+    builderNotes: '',
+    tags: [],
+    body: '',
+    varName: '',
+    acceptAny: false,
+    anytime: false,
+    anytimePairId: '',
+    rotation: 0
+  };
+
+  if (type === 'bubble') {
+    baseNode.body = 'Guide message';
+  } else if (type === 'reply') {
+    baseNode.body = 'Player reply';
+  }
+
+  if (type === 'stop' || type === 'bubble' || type === 'reply') {
+    const size = getPhoneBubbleSize(
+      baseNode,
+      type === 'stop' ? TYPE_CONFIG.stop.width : PHONE_BUBBLE_MAX_WIDTH
+    );
+    baseNode.width = size.width;
+    baseNode.height = size.height;
+  }
+
+  return baseNode;
+}
+
+function buildStencilPreviewMarkup(type) {
+  const node = getStencilPreviewNode(type);
+  const shortcut = STENCIL_SHORTCUTS[type] || '';
+  return `
+    <span class="stencil-node-preview stencil-node-preview--${escapeHtml(type)}" style="--stencil-preview-width:${Math.round(node.width)}px; --stencil-preview-height:${Math.round(node.height)}px;">
+      <span class="stencil-node-shell node-shell node--${escapeHtml(type)}">
+        ${buildNodeMarkup(node)}
+      </span>
+    </span>
+    <span class="stencil-shortcut">${escapeHtml(shortcut)}</span>
+  `;
+}
+
+function renderStencilPreviews() {
+  if (!stencilBar) return;
+  stencilBar.querySelectorAll('[data-stencil]').forEach((button) => {
+    const type = String(button.dataset.stencil || '').trim();
+    if (!type || !TYPE_CONFIG[type]) return;
+    button.innerHTML = buildStencilPreviewMarkup(type);
+  });
+}
+
+function positionNodeElement(node, el) {
+  el.style.transform = 'translate(' + node.x + 'px,' + node.y + 'px)';
+  el.style.width = node.width + 'px';
+  el.style.height = node.height + 'px';
+  el.style.setProperty('--node-rotation', getNodeRotation(node) + 'deg');
+}
+
+function positionGhost(ghostEl, clientX, clientY) {
+  ghostEl.style.transform = 'translate(' + (clientX + 16) + 'px,' + (clientY + 16) + 'px) scale(' + state.zoom + ')';
+}
+
+function applyZoom() {
+  const base = getPhoneBaseSize();
+  const metrics = state.layoutMetrics || {
+    phoneWidth: PHONE_DEVICE_WIDTH,
+    phoneHeight: PHONE_MIN_DEVICE_HEIGHT,
+    phoneX: PHONE_DEVICE_X,
+    phoneY: PHONE_DEVICE_Y
+  };
+  phoneStage.style.width = Math.round(base.width) + 'px';
+  phoneStage.style.height = Math.round(base.height) + 'px';
+  phoneStage.style.zoom = String(state.zoom);
+  phone.style.width = Math.round(metrics.phoneWidth) + 'px';
+  phone.style.height = Math.round(metrics.phoneHeight) + 'px';
+  phone.style.left = Math.round(metrics.phoneX) + 'px';
+  phone.style.top = Math.round(metrics.phoneY) + 'px';
+}
+
+function setZoom(nextZoom, clientX, clientY) {
+  const roundedZoom = Math.round(clamp(nextZoom, ZOOM_MIN, ZOOM_MAX) * 100) / 100;
+  if (roundedZoom === state.zoom) return;
+
+  const rect = viewport.getBoundingClientRect();
+  const anchorX = clientX ?? (rect.left + rect.width / 2);
+  const anchorY = clientY ?? (rect.top + rect.height / 2);
+  const focus = phonePointFromClient(anchorX, anchorY);
+  const scroll = getViewportScrollPosition();
+
+  state.zoom = roundedZoom;
+  applyZoom();
+
+  if (usesSingleSheetScroll()) {
+    setViewportScrollPosition(
+      scroll.left + (focus.x * state.zoom) - (anchorX - rect.left),
+      scroll.top + (focus.y * state.zoom) - (anchorY - rect.top)
+    );
+  } else {
+    setViewportScrollPosition(
+      (focus.x * state.zoom) - (anchorX - rect.left),
+      (focus.y * state.zoom) - (anchorY - rect.top)
+    );
+  }
+
+  drawLinks();
+}
+
+function phonePointFromClient(clientX, clientY) {
+  const rect = viewport.getBoundingClientRect();
+  const scroll = usesSingleSheetScroll() ? { left: 0, top: 0 } : getViewportScrollPosition();
+  return {
+    inside: clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom,
+    x: (clientX - rect.left + scroll.left) / state.zoom,
+    y: (clientY - rect.top + scroll.top) / state.zoom
+  };
+}
+
+function createPreviewPath(sourceNode, endX, endY, targetNode = null) {
+  if (!sourceNode) return '';
+  if (targetNode) {
+    const route = getLinkRoute({
+      from: sourceNode.id,
+      to: targetNode.id,
+      fromPort: getAutoLinkPort(sourceNode) || 'out-right'
+    });
+    if (route) return route.path;
+  }
+
+  const start = getOutPortPoint(sourceNode);
+  const sourceCorridors = getNodeLinkCorridors(sourceNode);
+  const previewLaneX = Math.max(sourceCorridors ? sourceCorridors.right : start.x, start.x);
+  return buildRoundedPath([
+    { x: start.x, y: start.y },
+    { x: previewLaneX, y: start.y },
+    { x: previewLaneX, y: endY },
+    { x: endX, y: endY }
+  ]);
+}
+
+function getOutPortPoint(node, fromPort = 'out-right') {
+  const normalizedPort = normalizeFromPort(node, fromPort);
+  if (normalizedPort === 'out-bottom') {
+    return {
+      x: node.x + node.width / 2,
+      y: node.y + node.height + NODE_PORT_OFFSET
+    };
+  }
+  return {
+    x: node.x + node.width + NODE_PORT_OFFSET,
+    y: node.y + node.height / 2
+  };
+}
+
+function getInPortPoint(node) {
+  return {
+    x: node.x - NODE_PORT_OFFSET,
+    y: node.y + node.height / 2
+  };
+}
+
+function getLinkPoints(from, to, fromPort = 'out-right') {
+  const start = getOutPortPoint(from, fromPort);
+  const end = getInPortPoint(to);
+  return {
+    startX: start.x,
+    startY: start.y,
+    endX: end.x,
+    endY: end.y
+  };
+}
+
+function rangesOverlap(aStart, aEnd, bStart, bEnd) {
+  const minA = Math.min(aStart, aEnd);
+  const maxA = Math.max(aStart, aEnd);
+  const minB = Math.min(bStart, bEnd);
+  const maxB = Math.max(bStart, bEnd);
+  return maxA >= minB && maxB >= minA;
+}
+
+function getLinkObstacle(node) {
+  return {
+    left: node.x - LINK_NODE_CLEARANCE,
+    right: node.x + node.width + LINK_NODE_CLEARANCE,
+    top: node.y - LINK_NODE_CLEARANCE,
+    bottom: node.y + node.height + LINK_NODE_CLEARANCE
+  };
+}
+
+function getNodeLinkCorridors(node) {
+  const cell = getNodeGridCell(node);
+  if (!node || !cell) return null;
+
+  const major = getMajorGridSize();
+  const stageSize = getPhoneStageSize();
+  const phoneWidth = stageSize.width;
+  const phoneHeight = stageSize.height;
+  const obstacle = getLinkObstacle(node);
+
+  return {
+    left: clamp(Math.min((cell.col * major) + LINK_LANE_OFFSET, obstacle.left), LINK_LANE_OFFSET, phoneWidth - LINK_LANE_OFFSET),
+    right: clamp(Math.max(((cell.col + 1) * major) - LINK_LANE_OFFSET, obstacle.right), LINK_LANE_OFFSET, phoneWidth - LINK_LANE_OFFSET),
+    top: clamp(Math.min((cell.row * major) + LINK_LANE_OFFSET, obstacle.top), LINK_LANE_OFFSET, phoneHeight - LINK_LANE_OFFSET),
+    bottom: clamp(Math.max(((cell.row + 1) * major) - LINK_LANE_OFFSET, obstacle.bottom), LINK_LANE_OFFSET, phoneHeight - LINK_LANE_OFFSET)
+  };
+}
+
+function getSortedLaneYCandidates(fromNode, toNode, startY, endY) {
+  const phoneHeight = getPhoneStageSize().height;
+  const major = getMajorGridSize();
+  const rows = getPlacementGridRows();
+  const candidates = new Map();
+
+  function addCandidate(value, priority) {
+    const clampedValue = clamp(Math.round(value * 1000) / 1000, LINK_LANE_OFFSET, phoneHeight - LINK_LANE_OFFSET);
+    const key = clampedValue.toFixed(3);
+    const current = candidates.get(key);
+    if (!current || priority < current.priority) {
+      candidates.set(key, { value: clampedValue, priority });
+    }
+  }
+
+  for (let row = 0; row < rows; row += 1) {
+    addCandidate((row * major) + LINK_LANE_OFFSET, 0);
+    addCandidate(((row + 1) * major) - LINK_LANE_OFFSET, 0);
+  }
+
+  const fromCorridors = getNodeLinkCorridors(fromNode);
+  const toCorridors = getNodeLinkCorridors(toNode);
+  [fromCorridors, toCorridors].forEach((corridors) => {
+    if (!corridors) return;
+    addCandidate(corridors.top, 0);
+    addCandidate(corridors.bottom, 0);
+  });
+
+  state.doc.nodes.forEach((node) => {
+    if (!node || node.id === fromNode.id || node.id === toNode.id) return;
+    const corridors = getNodeLinkCorridors(node);
+    if (!corridors) return;
+    addCandidate(corridors.top, 1);
+    addCandidate(corridors.bottom, 1);
+  });
+
+  return [...candidates.values()]
+    .sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      const scoreA = Math.abs(a.value - startY) + Math.abs(a.value - endY);
+      const scoreB = Math.abs(b.value - startY) + Math.abs(b.value - endY);
+      if (scoreA !== scoreB) return scoreA - scoreB;
+      return a.value - b.value;
+    })
+    .map((entry) => entry.value);
+}
+
+function isSegmentClear(ax, ay, bx, by, ignoreNodeIds = []) {
+  const ignored = new Set(ignoreNodeIds.filter(Boolean));
+  return !state.doc.nodes.some((node) => {
+    if (!node || ignored.has(node.id)) return false;
+    const rect = getLinkObstacle(node);
+    if (Math.abs(ax - bx) < 0.001) {
+      return ax >= rect.left && ax <= rect.right && rangesOverlap(ay, by, rect.top, rect.bottom);
+    }
+    if (Math.abs(ay - by) < 0.001) {
+      return ay >= rect.top && ay <= rect.bottom && rangesOverlap(ax, bx, rect.left, rect.right);
+    }
+    return false;
+  });
+}
+
+function dedupeRoutePoints(points) {
+  const cleaned = [];
+  points.forEach((point) => {
+    if (!point) return;
+    const last = cleaned[cleaned.length - 1];
+    if (last && Math.abs(last.x - point.x) < 0.001 && Math.abs(last.y - point.y) < 0.001) return;
+    cleaned.push({ x: point.x, y: point.y });
+  });
+  return cleaned;
+}
+
+function removeCollinearRoutePoints(points) {
+  if (points.length <= 2) return points;
+  const cleaned = [points[0]];
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const prev = cleaned[cleaned.length - 1];
+    const current = points[index];
+    const next = points[index + 1];
+    const sameX = Math.abs(prev.x - current.x) < 0.001 && Math.abs(current.x - next.x) < 0.001;
+    const sameY = Math.abs(prev.y - current.y) < 0.001 && Math.abs(current.y - next.y) < 0.001;
+    if (sameX || sameY) continue;
+    cleaned.push(current);
+  }
+  cleaned.push(points[points.length - 1]);
+  return cleaned;
+}
+
+function buildRoundedPath(points, radius = LINK_CORNER_RADIUS) {
+  const routePoints = removeCollinearRoutePoints(dedupeRoutePoints(points));
+  if (!routePoints.length) return '';
+  if (routePoints.length === 1) return 'M ' + routePoints[0].x + ' ' + routePoints[0].y;
+
+  let d = 'M ' + routePoints[0].x + ' ' + routePoints[0].y;
+  for (let index = 1; index < routePoints.length; index += 1) {
+    const current = routePoints[index];
+    if (index === routePoints.length - 1) {
+      d += ' L ' + current.x + ' ' + current.y;
+      continue;
+    }
+
+    const prev = routePoints[index - 1];
+    const next = routePoints[index + 1];
+    const inDx = current.x - prev.x;
+    const inDy = current.y - prev.y;
+    const outDx = next.x - current.x;
+    const outDy = next.y - current.y;
+    const inLength = Math.hypot(inDx, inDy);
+    const outLength = Math.hypot(outDx, outDy);
+    const cornerRadius = Math.min(radius, inLength / 2, outLength / 2);
+
+    if (!cornerRadius || (!inDx && !inDy) || (!outDx && !outDy)) {
+      d += ' L ' + current.x + ' ' + current.y;
+      continue;
+    }
+
+    const cornerStart = {
+      x: current.x - Math.sign(inDx) * cornerRadius,
+      y: current.y - Math.sign(inDy) * cornerRadius
+    };
+    const cornerEnd = {
+      x: current.x + Math.sign(outDx) * cornerRadius,
+      y: current.y + Math.sign(outDy) * cornerRadius
+    };
+
+    d += ' L ' + cornerStart.x + ' ' + cornerStart.y;
+    d += ' Q ' + current.x + ' ' + current.y + ' ' + cornerEnd.x + ' ' + cornerEnd.y;
+  }
+  return d;
+}
+
+function getLinkRoute(link) {
+  const from = getNode(link.from);
+  const to = getNode(link.to);
+  if (!from || !to) return null;
+
+    const points = getLinkPoints(from, to, link.fromPort || 'out-right');
+  const fromCorridors = getNodeLinkCorridors(from);
+  const toCorridors = getNodeLinkCorridors(to);
+  if (!fromCorridors || !toCorridors) return null;
+
+  const startLaneX = Math.max(fromCorridors.right, points.startX);
+  const endLaneX = Math.min(toCorridors.left, points.endX);
+  const ignoreNodeIds = [from.id, to.id];
+
+  const candidateYs = getSortedLaneYCandidates(from, to, points.startY, points.endY);
+  let laneY = candidateYs.find((candidateY) =>
+    isSegmentClear(points.startX, points.startY, startLaneX, points.startY, ignoreNodeIds)
+    && isSegmentClear(startLaneX, points.startY, startLaneX, candidateY, ignoreNodeIds)
+    && isSegmentClear(startLaneX, candidateY, endLaneX, candidateY, ignoreNodeIds)
+    && isSegmentClear(endLaneX, candidateY, endLaneX, points.endY, ignoreNodeIds)
+    && isSegmentClear(endLaneX, points.endY, points.endX, points.endY, ignoreNodeIds)
+  );
+
+  if (laneY == null) laneY = candidateYs[0] ?? clamp((points.startY + points.endY) / 2, LINK_LANE_OFFSET, getPhoneStageSize().height - LINK_LANE_OFFSET);
+
+  const routePoints = [
+    { x: points.startX, y: points.startY },
+    { x: startLaneX, y: points.startY },
+    { x: startLaneX, y: laneY },
+    { x: endLaneX, y: laneY },
+    { x: endLaneX, y: points.endY },
+    { x: points.endX, y: points.endY }
+  ];
+
+  return {
+    points: removeCollinearRoutePoints(dedupeRoutePoints(routePoints)),
+    path: buildRoundedPath(routePoints)
+  };
+}
+
+function getDistanceToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSq = dx * dx + dy * dy;
+  if (lengthSq === 0) return Math.hypot(px - ax, py - ay);
+
+  const t = clamp((((px - ax) * dx) + ((py - ay) * dy)) / lengthSq, 0, 1);
+  const closestX = ax + (dx * t);
+  const closestY = ay + (dy * t);
+  return Math.hypot(px - closestX, py - closestY);
+}
+
+function findNearestLinkIdAtPoint(x, y, maxDistance = LINK_INTERACTION_RADIUS) {
+  let nearestLinkId = null;
+  let nearestDistance = maxDistance;
+
+  state.doc.links.forEach((link) => {
+    const route = getLinkRoute(link);
+    if (!route || !Array.isArray(route.points) || route.points.length < 2) return;
+
+    for (let index = 1; index < route.points.length; index += 1) {
+      const previous = route.points[index - 1];
+      const current = route.points[index];
+      const distance = getDistanceToSegment(x, y, previous.x, previous.y, current.x, current.y);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestLinkId = link.id;
+      }
+    }
+  });
+
+  return nearestLinkId;
+}
+
+function selectLinkAndRefresh(linkId) {
+  if (!linkId) return;
+  selectLink(linkId);
+  renderSelectionStates();
+  drawLinks();
+  updateSelectionUi();
+}
+
+function drawLinks() {
+  linkLayer.innerHTML = '';
+  const stageSize = getPhoneStageSize();
+  linkLayer.setAttribute('viewBox', '0 0 ' + stageSize.width + ' ' + stageSize.height);
+}
+
+function renderSelectionStates() {
+  nodeEls.forEach((el, id) => {
+    const node = getNode(id);
+    const sourceNode = state.connectDrag ? getNode(state.connectDrag.fromId) : null;
+    const isValidConnectTarget =
+      Boolean(state.connectDrag)
+      && state.hoverTargetId === id
+      && canNodeConnectTo(sourceNode, node);
+    const isDockTarget =
+      Boolean(state.dragNode)
+      && state.dockTargetId === id;
+    el.classList.toggle('selected', id === state.selectedId);
+    el.classList.toggle('connect-target', isValidConnectTarget || isDockTarget);
+  });
+  syncPhoneStartButton();
+}
+
+function bringNodeToFront(nodeId) {
+  const index = state.doc.nodes.findIndex((node) => node.id === nodeId);
+  if (index < 0) return;
+  const node = state.doc.nodes.splice(index, 1)[0];
+  state.doc.nodes.push(node);
+}
+
+function finishInlineNodeTitleEdit(nodeId, nextValue, commit) {
+  const node = getNode(nodeId);
+  if (commit && node && usesNodeTitle(node.type)) {
+    node.title = String(nextValue || '').trim() || TYPE_CONFIG[node.type].title;
+  }
+  renderAll();
+}
+
+function startInlineNodeTitleEdit(nodeId) {
+  const node = getNode(nodeId);
+  const el = nodeEls.get(nodeId);
+  if (!node || !usesNodeTitle(node.type) || !el) return;
+  if (el.querySelector('.node-title-input')) return;
+
+  const titleEl = el.querySelector('.node-title');
+  const titleWrap = titleEl ? titleEl.parentElement : null;
+  if (!titleEl || !titleWrap) return;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'node-title-input';
+  input.setAttribute('aria-label', TYPE_CONFIG[node.type].kicker + ' name');
+  input.value = String(node.title || TYPE_CONFIG[node.type].title);
+
+  titleEl.hidden = true;
+  titleWrap.appendChild(input);
+
+  const syncInspectorTitle = () => {
+    if (state.selectedId !== nodeId) return;
+    if (node.type === 'game') nodeTitleInput.value = input.value;
+    if (node.type === 'stop') stopNameInput.value = input.value;
+  };
+
+  const stopEvent = (event) => {
+    event.stopPropagation();
+  };
+
+  let finished = false;
+  const finish = (commit) => {
+    if (finished) return;
+    finished = true;
+    finishInlineNodeTitleEdit(nodeId, input.value, commit);
+  };
+
+  input.addEventListener('pointerdown', stopEvent);
+  input.addEventListener('click', stopEvent);
+  input.addEventListener('dblclick', stopEvent);
+  input.addEventListener('input', syncInspectorTitle);
+  input.addEventListener('keydown', (event) => {
+    stopEvent(event);
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      finish(true);
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      finish(false);
+    }
+  });
+  input.addEventListener('blur', () => finish(true));
+
+  selectNode(nodeId);
+  renderSelectionStates();
+  drawLinks();
+  updateSelectionUi();
+  syncInspectorTitle();
+
+  window.requestAnimationFrame(() => {
+    input.focus();
+    input.select();
+  });
+}
+
+function attachNodeEvents(el, node) {
+  let tripleClickCount = 0;
+  let tripleClickTimer = null;
+
+  el.addEventListener('click', (event) => {
+    if (event.target.closest('.node-port')) return;
+    if (!THREAD_LAYOUT_ENABLED && node.type === 'bubble') {
+      tripleClickCount++;
+      clearTimeout(tripleClickTimer);
+      tripleClickTimer = setTimeout(() => { tripleClickCount = 0; }, 400);
+      if (tripleClickCount >= 3) {
+        tripleClickCount = 0;
+        clearTimeout(tripleClickTimer);
+        event.preventDefault();
+        event.stopPropagation();
+        closeNodeContextMenu();
+        selectNode(node.id);
+        renderSelectionStates();
+        node.rotation = (getNodeRotation(node) + 90) % 360;
+        positionNodeElement(node, el);
+        drawLinks();
+        updateSelectionUi();
+        return;
+      }
+    }
+    const wasSelected = state.selectedId === node.id;
+    const editableTitleClicked = node.type === 'game' && !!event.target.closest('.node-title');
+    closeNodeContextMenu();
+    selectNode(node.id);
+    renderSelectionStates();
+    drawLinks();
+    updateSelectionUi();
+    if (editableTitleClicked && wasSelected) {
+      startInlineNodeTitleEdit(node.id);
+    }
+  });
+
+  el.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    if (event.target.closest('.node-port')) return;
+    const editableTitleClicked = node.type === 'game' && !!event.target.closest('.node-title');
+    closeNodeContextMenu();
+    if (node.type === 'game' || editableTitleClicked) {
+      event.preventDefault();
+      selectNode(node.id);
+      renderSelectionStates();
+      drawLinks();
+      updateSelectionUi();
+      return;
+    }
+    event.preventDefault();
+    selectNode(node.id);
+    renderSelectionStates();
+    drawLinks();
+    updateSelectionUi();
+    if (THREAD_LAYOUT_ENABLED) {
+      if (!canReorderPhoneThreadNode(node)) return;
+      const point = phonePointFromClient(event.clientX, event.clientY);
+      state.dropSlot = null;
+      hideBubbleDropLine();
+      state.dragNode = {
+        id: node.id,
+        offsetX: point.x - node.x,
+        offsetY: point.y - node.y,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        moved: false,
+        reorderOnly: true,
+        originX: node.x,
+        originY: node.y
+      };
+
+      const currentEl = nodeEls.get(node.id);
+      if (currentEl) {
+        currentEl.classList.add('dragging');
+        currentEl.setPointerCapture(event.pointerId);
+      }
+      return;
+    }
+
+    const point = phonePointFromClient(event.clientX, event.clientY);
+    const anytimePairNodes = isAnytimeNode(node) ? getAnytimePairNodes(getAnytimePairId(node)) : [];
+    state.dragNode = {
+      id: node.id,
+      offsetX: point.x - node.x,
+      offsetY: point.y - node.y,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      moved: false,
+      detachedIncoming: false,
+      dockCandidate: null,
+      subtreeIds: [...getAttachedSubtreeIds(node.id)],
+      anytimePairNodeIds: anytimePairNodes.map((candidate) => candidate.id)
+    };
+
+    const currentEl = nodeEls.get(node.id);
+    if (currentEl) {
+      currentEl.classList.add('dragging');
+      currentEl.setPointerCapture(event.pointerId);
+    }
+  });
+
+  if (node.type === 'game' || node.type === 'stop') {
+    el.addEventListener('dblclick', (event) => {
+      if (event.target.closest('.node-port')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      closeNodeContextMenu();
+      selectNode(node.id);
+      startInlineNodeTitleEdit(node.id);
+    });
+  }
+
+  el.querySelectorAll('.node-port[data-port^="out-"]').forEach((outPort) => {
+    outPort.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const fromPort = outPort.dataset.port || 'out-right';
+      const start = getOutPortPoint(node, fromPort);
+      selectNode(node.id);
+      state.connectDrag = {
+        fromId: node.id,
+        fromPort,
+        x: start.x,
+        y: start.y
+      };
+      drawLinks();
+      updateSelectionUi();
+    });
+  });
+
+  el.querySelectorAll('.node-port--in').forEach((inPort) => {
+    inPort.addEventListener('pointerdown', (event) => {
+      if (state.connectDrag) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    });
+  });
+
+  el.addEventListener('contextmenu', (event) => {
+    if (event.target.closest('.node-port')) return;
+    if (node.type === 'game') {
+      event.preventDefault();
+      event.stopPropagation();
+      closeNodeContextMenu();
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    selectNode(node.id);
+    renderSelectionStates();
+    drawLinks();
+    updateSelectionUi();
+    openNodeContextMenu(node.id, event.clientX, event.clientY);
+  });
+}
+
+function renderNode(node) {
+  const el = document.createElement('div');
+  el.className = 'node-shell node--' + node.type;
+  el.dataset.id = node.id;
+  el.innerHTML = buildNodeMarkup(node);
+  positionNodeElement(node, el);
+  attachNodeEvents(el, node);
+  nodeLayer.appendChild(el);
+  nodeEls.set(node.id, el);
+}
+
+function renderAll() {
+  applyPhoneThreadLayout();
+  updatePhoneChrome();
+  applyZoom();
+  renderGameshelf();
+  if (!state.dragNode || !state.dragNode.reorderOnly) {
+    state.dropSlot = null;
+    hideBubbleDropLine();
+  }
+  nodeLayer.innerHTML = '';
+  nodeEls.clear();
+  if (phoneStage) phoneStage.classList.toggle('is-home', !hasGameNode());
+  if (viewport) viewport.classList.toggle('is-home', !hasGameNode());
+
+  if (!hasGameNode()) {
+    const hint = document.createElement('div');
+    hint.className = 'phone-empty-hint';
+    hint.innerHTML = 'Choose a game to edit or right click for new.';
+    nodeLayer.appendChild(hint);
+  }
+
+  state.doc.nodes
+    .filter((node) => !(THREAD_LAYOUT_ENABLED && node.type === 'game'))
+    .forEach(renderNode);
+  updateStencilAvailability();
+  renderSelectionStates();
+  drawLinks();
+  updateSelectionUi();
+}
+
+function updateStencilAvailability() {
+  const gameTaken = hasGameNode();
+  stencilBar.querySelectorAll('[data-stencil]').forEach((button) => {
+    const isGameStencil = button.dataset.stencil === 'game';
+    const disabled = !gameTaken || (isGameStencil && gameTaken);
+    button.disabled = disabled;
+    button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+    button.title = '';
+  });
+}
+
+function updateSelectionUi() {
+  const node = getNode(state.selectedId);
+  const link = getLink(state.selectedLinkId);
+  const hasSelection = !!(node || link);
+  if (inspector) inspector.hidden = false;
+  objectCard.hidden = false;
+  inspectorContent.hidden = false;
+
+  const getInspCopy = key => document.querySelector(`#inspectorCopyStrings [data-copy="${key}"]`)?.textContent.trim() || '';
+  const nodeCopy = node ? (document.querySelector(`#stencilBar [data-stencil="${node.type}"]`)?.dataset.copy || '') : '';
+  const anytimeCopy = node && isAnytimeReplyNode(node)
+    ? getInspCopy('anytime-reply')
+    : node && isAnytimeGuideNode(node)
+      ? getInspCopy('anytime-guide')
+      : '';
+  inspectorCopy.textContent = node
+    ? (anytimeCopy || nodeCopy || '')
+    : link
+      ? getInspCopy('link')
+      : getInspCopy('default');
+
+  const isGameNode = !!node && node.type === 'game';
+  const isStopNode = !!node && node.type === 'stop';
+  const isReplyNode = !!node && node.type === 'reply';
+  const isLinkSelected = !!link;
+
+  titleField.hidden = isLinkSelected || !isGameNode;
+  stopNameField.hidden = isLinkSelected || !isStopNode;
+  varNameField.hidden = isLinkSelected || !isReplyNode;
+  varValuesField.hidden = true;
+  descriptionField.hidden = isLinkSelected || !node;
+  ifThenField.hidden = true;
+  taglineField.hidden = isLinkSelected || !isGameNode;
+  guideNameField.hidden = isLinkSelected || !isGameNode;
+  priceField.hidden = isLinkSelected || !isGameNode;
+  primaryColorField.hidden = isLinkSelected || !isGameNode;
+  secondaryColorField.hidden = isLinkSelected || !isGameNode;
+  tagsField.hidden = isLinkSelected || !isGameNode;
+  builderNotesField.hidden = isLinkSelected || !isGameNode;
+  const BODY_LABELS = { game: 'Description', stop: 'STOP NOTES', bubble: 'Guide Message', reply: 'ANSWER' };
+  nodeTitleLabel.textContent = 'GAME NAME';
+  nodeBodyLabel.textContent = node
+    ? (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'Notes'))
+    : 'Notes';
+  if (nodeBodyInfo) nodeBodyInfo.hidden = !isStopNode || isLinkSelected;
+
+  nodeTitleInput.disabled = !isGameNode;
+  stopNameInput.disabled = !isStopNode;
+  varNameInput.disabled = !isReplyNode;
+  nodeTaglineInput.disabled = !isGameNode;
+  nodeGuideNameInput.disabled = !isGameNode;
+  nodePriceInput.disabled = !isGameNode;
+  primaryColorInput.disabled = !isGameNode;
+  primaryColorPickerInput.disabled = !isGameNode;
+  secondaryColorInput.disabled = !isGameNode;
+  secondaryColorPickerInput.disabled = !isGameNode;
+  nodeTagNewInput.disabled = !isGameNode;
+  nodeTagAddBtn.disabled = !isGameNode;
+  nodeBuilderNotesInput.disabled = !isGameNode;
+  syncReplyModeInputs(node);
+  nodeBodyInput.disabled = isLinkSelected || !node || (isReplyNode && !!(node && node.acceptAny));
+
+  deleteBtn.disabled = node ? node.type === 'game' : !link;
+  deleteBtn.textContent = link ? 'Delete Connection' : 'Delete Object';
+
+  nodeTitleInput.value = isGameNode ? node.title : '';
+  stopNameInput.value = isStopNode && node ? node.title : '';
+  varNameInput.value = isReplyNode && node ? (node.varName || '') : '';
+  varNameInput.placeholder = 'e.g. name';
+  refreshVarNameHint();
+  varValueInputs.forEach((input) => { input.value = ''; input.disabled = true; });
+  varCorrectRadios.forEach((radio, i) => {
+    radio.checked = false;
+    radio.disabled = true;
+  });
+  nodeTaglineInput.value = isGameNode ? (node.tagline || '') : '';
+  nodeGuideNameInput.value = isGameNode ? (node.guideName || '') : '';
+  nodePriceInput.value = isGameNode ? (node.price || '') : '';
+  const currentColors = getCurrentGameColors();
+  primaryColorInput.value = isGameNode ? currentColors.primaryColor : '';
+  primaryColorInput.classList.remove('is-invalid');
+  primaryColorPickerInput.value = colorValueToHex(currentColors.primaryColor, '#5468a7');
+  secondaryColorInput.value = isGameNode ? currentColors.secondaryColor : '';
+  secondaryColorInput.classList.remove('is-invalid');
+  secondaryColorPickerInput.value = colorValueToHex(currentColors.secondaryColor, '#243256');
+  nodeTagNewInput.value = '';
+  renderTagPicker(node);
+  nodeBuilderNotesInput.value = isGameNode ? (node.builderNotes || '') : '';
+  nodeBodyInput.value = node ? (node.body || '') : '';
+  nodeBodyInput.placeholder = isReplyNode ? 'e.g. READY, YES, LETS GO' : '';
+  selectionId.textContent = node
+    ? 'ID: ' + formatNodeId(node.id)
+    : link
+      ? 'LINK: ' + link.id
+      : 'ID: none';
+  if (!node || node.type !== 'bubble' || document.activeElement !== nodeBodyInput) {
+    closeVariableAutocomplete();
+  }
+  updateActionUi();
+  refreshInspectorWindowUi();
+  scheduleRecoverySync();
+}
+
+function getAutoLinkSourceNode() {
+  const selectedNode = state.selectedId ? getNode(state.selectedId) : null;
+  if (selectedNode) return selectedNode;
+  return state.doc.nodes.length ? state.doc.nodes[state.doc.nodes.length - 1] : null;
+}
+
+function hasOutgoingLinkOnPort(nodeId, fromPort, links = state.doc.links) {
+  const normalizedPort = normalizeFromPort(getNode(nodeId) || parseTypedNodeId(nodeId)?.type, fromPort);
+  return links.some((link) => link.from === nodeId && normalizeFromPort(getNode(nodeId) || parseTypedNodeId(nodeId)?.type, link.fromPort) === normalizedPort);
+}
+
+function getAutoLinkPort(node) {
+  if (!node) return null;
+  const ports = getNodeOutPorts(node);
+  return ports.find((port) => !hasOutgoingLinkOnPort(node.id, port)) || null;
+}
+
+function getConnectedPlacementPosition(type, sourceNode, fromPort) {
+  const config = TYPE_CONFIG[type];
+  const bounds = getPlacementBounds(config.width, config.height);
+
+  const x = normalizeFromPort(sourceNode, fromPort) === 'out-bottom'
+    ? sourceNode.x
+    : sourceNode.x + sourceNode.width;
+  const y = normalizeFromPort(sourceNode, fromPort) === 'out-bottom'
+    ? sourceNode.y + sourceNode.height
+    : sourceNode.y;
+
+  return {
+    x: clamp(snap(x), bounds.minX, bounds.maxX),
+    y: clamp(snap(y), bounds.minY, bounds.maxY)
+  };
+}
+
+function getPuzzlePlacementPosition(type, sourceNode, preferredPort = null) {
+  const config = TYPE_CONFIG[type];
+  const bounds = getPlacementBounds(config.width, config.height);
+
+  if (type === 'game') {
+    const slot = getGameHomeSlot();
+    if (isAutoPlacementAvailable(slot.x, slot.y, config.width, config.height)) {
+      return slot;
+    }
+  }
+
+  if (sourceNode) {
+    const fromPort = preferredPort || getAutoLinkPort(sourceNode) || getNodeOutPorts(sourceNode)[0];
+    if (fromPort) {
+      const preferred = getConnectedPlacementPosition(type, sourceNode, fromPort);
+      if (isAutoPlacementAvailable(preferred.x, preferred.y, config.width, config.height)) {
+        return preferred;
+      }
+    }
+  }
+
+  const columns = getPlacementGridColumns();
+  const rows = getPlacementGridRows();
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < columns; col += 1) {
+      if (!isPlacementSlotAllowed(type, col, row)) continue;
+      const slot = getGridSlotPosition(type, col, row);
+      if (isAutoPlacementAvailable(slot.x, slot.y, config.width, config.height)) {
+        return slot;
+      }
+    }
+  }
+
+  if (sourceNode) {
+    const fallback = preferredPort || getNodeOutPorts(sourceNode)[0] || 'out-right';
+    return getConnectedPlacementPosition(type, sourceNode, fallback);
+  }
+
+  return {
+    x: clamp(snap((getPhoneStageSize().width / 2) - (config.width / 2)), bounds.minX, bounds.maxX),
+    y: clamp(snap((getPhoneStageSize().height / 2) - (config.height / 2)), bounds.minY, bounds.maxY)
+  };
+}
+
+function snapLinkedNodeToSource(node, sourceNode, fromPort) {
+  if (!node || !sourceNode || !fromPort) return false;
+  const preferred = getConnectedPlacementPosition(node.type, sourceNode, fromPort);
+  if (!isAutoPlacementAvailable(preferred.x, preferred.y, node.width, node.height, node.id)) return false;
+  node.x = preferred.x;
+  node.y = preferred.y;
+  return true;
+}
+
+function layoutOutgoingSubtree(nodeId, visited = new Set()) {
+  if (!nodeId || visited.has(nodeId)) return;
+  visited.add(nodeId);
+
+  const sourceNode = getNode(nodeId);
+  if (!sourceNode) return;
+
+  getOutgoingLinks(nodeId)
+    .slice()
+    .sort((a, b) => normalizeFromPort(sourceNode, a.fromPort).localeCompare(normalizeFromPort(sourceNode, b.fromPort)))
+    .forEach((link) => {
+      const targetNode = getNode(link.to);
+      if (!targetNode) return;
+      snapLinkedNodeToSource(targetNode, sourceNode, link.fromPort);
+      const targetEl = nodeEls.get(targetNode.id);
+      if (targetEl) positionNodeElement(targetNode, targetEl);
+      layoutOutgoingSubtree(targetNode.id, visited);
+    });
+}
+
+function getDockCandidateForNode(node, desiredX, desiredY, ignoreNodeIds = null) {
+  if (!node || node.type === 'game') return null;
+
+  const threshold = 54;
+  let best = null;
+  let bestDistance = threshold;
+
+  state.doc.nodes.forEach((sourceNode) => {
+    if (!sourceNode || sourceNode.id === node.id) return;
+    if (!canNodeConnectTo(sourceNode, node)) return;
+
+    getNodeOutPorts(sourceNode).forEach((fromPort) => {
+      if (hasOutgoingLinkOnPort(sourceNode.id, fromPort)) return;
+      const position = getConnectedPlacementPosition(node.type, sourceNode, fromPort);
+      if (!isAutoPlacementAvailable(position.x, position.y, node.width, node.height, ignoreNodeIds || node.id)) return;
+
+      const distance = Math.hypot(position.x - desiredX, position.y - desiredY);
+      if (distance > bestDistance) return;
+
+      bestDistance = distance;
+      best = {
+        sourceId: sourceNode.id,
+        fromPort,
+        x: position.x,
+        y: position.y
+      };
+    });
+  });
+
+  return best;
+}
+
+function tryAutoConnectNewNode(node, sourceNode) {
+  if (!node || !sourceNode || sourceNode.id === node.id) return;
+
+  const fromPort = getAutoLinkPort(sourceNode);
+  if (!fromPort) return;
+
+  try {
+    const created = createLink(sourceNode.id, node.id, fromPort);
+    if (created) snapLinkedNodeToSource(node, sourceNode, fromPort);
+  } catch (error) {
+  }
+}
+
+function isAutoPlacementAvailable(x, y, width, height, ignoreNodeId = null) {
+  const bounds = getPlacementBounds(width, height);
+  const shouldIgnore = ignoreNodeMatcher(ignoreNodeId);
+
+  if (x < bounds.minX || y < bounds.minY || x > bounds.maxX || y > bounds.maxY) return false;
+
+  return !state.doc.nodes.some((node) =>
+    !shouldIgnore(node.id) &&
+    x < node.x + node.width + AUTO_PLACE_GAP_X &&
+    x + width + AUTO_PLACE_GAP_X > node.x &&
+    y < node.y + node.height + AUTO_PLACE_GAP_Y &&
+    y + height + AUTO_PLACE_GAP_Y > node.y
+  );
+}
+
+function maybeSnapToMajorGrid(type, x, y, ignoreNodeId = null) {
+  let best = null;
+  let bestDistance = Infinity;
+  const columns = getPlacementGridColumns();
+  const rows = getPlacementGridRows();
+
+  if (type === 'game') {
+    const slot = getGameHomeSlot();
+    if (isAutoPlacementAvailable(slot.x, slot.y, TYPE_CONFIG.game.width, TYPE_CONFIG.game.height, ignoreNodeId)) {
+      return slot;
+    }
+  }
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < columns; col += 1) {
+      if (!isPlacementSlotAllowed(type, col, row)) continue;
+      const slot = getGridSlotPosition(type, col, row);
+      const dx = Math.abs(slot.x - x);
+      const dy = Math.abs(slot.y - y);
+      if (dx > MAJOR_GRID_SNAP_THRESHOLD || dy > MAJOR_GRID_SNAP_THRESHOLD) continue;
+      if (!isAutoPlacementAvailable(slot.x, slot.y, TYPE_CONFIG[type].width, TYPE_CONFIG[type].height, ignoreNodeId)) continue;
+      const distance = dx + dy;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = slot;
+      }
+    }
+  }
+
+  return best || { x, y };
+}
+
+function getAutoPlacementPosition(type, sourceNode) {
+  return getPuzzlePlacementPosition(type, sourceNode);
+}
+
+function getLegacyGridPlacementPosition(type, sourceNode) {
+  const config = TYPE_CONFIG[type];
+  const bounds = getPlacementBounds(config.width, config.height);
+  const columns = getPlacementGridColumns();
+  const rows = getPlacementGridRows();
+
+  if (type === 'game') {
+    const slot = getGameHomeSlot();
+    if (isAutoPlacementAvailable(slot.x, slot.y, config.width, config.height)) {
+      return slot;
+    }
+  }
+
+  if (sourceNode) {
+    const cell = getNodeGridCell(sourceNode);
+    if (cell && cell.col < columns - 1) {
+      const rightSlot = getGridSlotPosition(type, cell.col + 1, cell.row);
+      if (isAutoPlacementAvailable(rightSlot.x, rightSlot.y, config.width, config.height)) {
+        return rightSlot;
+      }
+    }
+  }
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < columns; col += 1) {
+      if (!isPlacementSlotAllowed(type, col, row)) continue;
+      const slot = getGridSlotPosition(type, col, row);
+      if (isAutoPlacementAvailable(slot.x, slot.y, config.width, config.height)) {
+        return slot;
+      }
+    }
+  }
+
+  if (sourceNode) {
+    return {
+      x: clamp(snap(sourceNode.x + sourceNode.width + AUTO_PLACE_GAP_X), bounds.minX, bounds.maxX),
+      y: clamp(snap(sourceNode.y), bounds.minY, bounds.maxY)
+    };
+  }
+
+  const rect = viewport.getBoundingClientRect();
+  const centerPoint = phonePointFromClient(
+    rect.left + (rect.width / 2),
+    rect.top + (rect.height / 2)
+  );
+
+  return {
+    x: clamp(snap(centerPoint.x - (config.width / 2)), bounds.minX, bounds.maxX),
+    y: clamp(snap(centerPoint.y - (config.height / 2)), bounds.minY, bounds.maxY)
+  };
+}
+
+function duplicateNode(nodeId) {
+  const source = getNode(nodeId);
+  if (!source || source.type === 'game') return null;
+  if (isAnytimeNode(source)) return duplicateAnytimePair(source);
+
+  const placement = getAutoPlacementPosition(source.type, source);
+  const nextOrderIndex = state.doc.nodes.reduce((maxOrderIndex, node) => {
+    const value = normalizeNodeOrderIndex(node && node.orderIndex);
+    return value == null ? maxOrderIndex : Math.max(maxOrderIndex, value);
+  }, 0) + 100;
+  const duplicate = {
+    id: makeId(source.type),
+    type: source.type,
+    x: placement.x,
+    y: placement.y,
+    width: TYPE_CONFIG[source.type].width,
+    height: TYPE_CONFIG[source.type].height,
+    title: usesNodeTitle(source.type) ? source.title : '',
+    tagline: source.tagline || '',
+    guideName: source.guideName || '',
+    price: source.price || '',
+    builderNotes: source.builderNotes || '',
+    tags: Array.isArray(source.tags) ? [...source.tags] : [],
+    body: source.body || '',
+    varName: source.varName || '',
+    acceptAny: !!source.acceptAny,
+    anytime: false,
+    anytimePairId: '',
+    rotation: getNodeRotation(source),
+    orderIndex: nextOrderIndex
+  };
+  if (duplicate.type === 'reply') {
+    duplicate.varName = makeUniqueReplyVariableName(
+      duplicate.varName || buildBestGuessReplyVariableName(duplicate, source),
+      duplicate.id
+    );
+  }
+
+  state.doc.nodes.push(duplicate);
+  tryAutoConnectNewNode(duplicate, source);
+  selectNode(duplicate.id);
+  renderAll();
+  return duplicate;
+}
+
+function addNode(type, x, y, options = {}) {
+  if (type === 'game' && hasGameNode()) {
+    return null;
+  }
+
+  const sourceNode = getAutoLinkSourceNode();
+  const node = createNode(type, x, y);
+  if (type === 'reply') ensureReplyVarName(node, sourceNode);
+  if (type === 'game') {
+    const slot = getGameHomeSlot();
+    node.x = slot.x;
+    node.y = slot.y;
+  }
+  const bounds = getPlacementBounds(node.width, node.height);
+  const clampedX = clamp(node.x, bounds.minX, bounds.maxX);
+  const clampedY = clamp(node.y, bounds.minY, bounds.maxY);
+  const snapped = options.skipMajorSnap
+    ? { x: clampedX, y: clampedY }
+    : maybeSnapToMajorGrid(type, clampedX, clampedY);
+  node.x = snapped.x;
+  node.y = snapped.y;
+  state.doc.nodes.push(node);
+  tryAutoConnectNewNode(node, sourceNode);
+  selectNode(node.id);
+  renderAll();
+  return node;
+}
+
+function getAutoAnytimePairPlacement() {
+  const replyConfig = TYPE_CONFIG.reply;
+  const bubbleConfig = TYPE_CONFIG.bubble;
+  const bounds = getPlacementBounds(replyConfig.width, replyConfig.height);
+  const columns = getPlacementGridColumns();
+  const rows = getPlacementGridRows();
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < columns; col += 1) {
+      if (!isPlacementSlotAllowed('reply', col, row)) continue;
+      const slot = getGridSlotPosition('reply', col, row);
+      const x = clamp(slot.x, bounds.minX, bounds.maxX);
+      const y = clamp(slot.y, bounds.minY, bounds.maxY);
+      if (!isAutoPlacementAvailable(x, y, replyConfig.width, replyConfig.height)) continue;
+      const tempReply = {
+        type: 'reply',
+        x,
+        y,
+        width: replyConfig.width,
+        height: replyConfig.height,
+        anytime: true
+      };
+      const bubblePos = getConnectedPlacementPosition('bubble', tempReply, 'out-right');
+      if (!isAutoPlacementAvailable(bubblePos.x, bubblePos.y, bubbleConfig.width, bubbleConfig.height)) continue;
+      return {
+        reply: { x, y },
+        bubble: bubblePos
+      };
+    }
+  }
+
+  const replyFallback = getPuzzlePlacementPosition('reply', null);
+  const tempReply = {
+    type: 'reply',
+    x: replyFallback.x,
+    y: replyFallback.y,
+    width: replyConfig.width,
+    height: replyConfig.height,
+    anytime: true
+  };
+  return {
+    reply: replyFallback,
+    bubble: getConnectedPlacementPosition('bubble', tempReply, 'out-right')
+  };
+}
+
+function insertAnytimePairAt(replyPosition, bubblePosition, sourceReply = null, sourceBubble = null) {
+  const pairId = makeAnytimePairId();
+  const replyNode = createNode('reply', replyPosition.x, replyPosition.y);
+  replyNode.anytime = true;
+  replyNode.anytimePairId = pairId;
+  replyNode.body = sourceReply ? (sourceReply.body || '') : '';
+  replyNode.varName = sourceReply
+    ? makeUniqueReplyVariableName(sourceReply.varName || buildBestGuessReplyVariableName(sourceReply, sourceReply), replyNode.id)
+    : '';
+  ensureReplyVarName(replyNode, sourceReply || null);
+
+  const bubbleNode = createNode('bubble', bubblePosition.x, bubblePosition.y);
+  bubbleNode.anytime = true;
+  bubbleNode.anytimePairId = pairId;
+  bubbleNode.body = sourceBubble ? (sourceBubble.body || '') : '';
+  bubbleNode.rotation = sourceBubble ? getNodeRotation(sourceBubble) : 0;
+
+  state.doc.nodes.push(replyNode, bubbleNode);
+  createLink(replyNode.id, bubbleNode.id, 'out-right');
+  selectNode(replyNode.id);
+  renderAll();
+  return { reply: replyNode, bubble: bubbleNode };
+}
+
+function addAnytimePairToVisiblePhone() {
+  const placement = getAutoAnytimePairPlacement();
+  return insertAnytimePairAt(placement.reply, placement.bubble);
+}
+
+function enableAnytimeForReply(replyNode) {
+  if (!replyNode || replyNode.type !== 'reply') return false;
+  if (isAnytimeReplyNode(replyNode)) return true;
+
+  if (getOutgoingLinks(replyNode.id).length) {
+    return false;
+  }
+
+  const bubblePosition = getConnectedPlacementPosition('bubble', {
+    ...replyNode,
+    anytime: true
+  }, 'out-right');
+  const bubbleConfig = TYPE_CONFIG.bubble;
+
+  if (!isAutoPlacementAvailable(bubblePosition.x, bubblePosition.y, bubbleConfig.width, bubbleConfig.height, replyNode.id)) {
+    return false;
+  }
+
+  const pairId = makeAnytimePairId();
+  replyNode.anytime = true;
+  replyNode.anytimePairId = pairId;
+
+  const bubbleNode = createNode('bubble', bubblePosition.x, bubblePosition.y);
+  bubbleNode.anytime = true;
+  bubbleNode.anytimePairId = pairId;
+  state.doc.nodes.push(bubbleNode);
+
+  if (!createLink(replyNode.id, bubbleNode.id, 'out-right')) {
+    replyNode.anytime = false;
+    replyNode.anytimePairId = '';
+    state.doc.nodes = state.doc.nodes.filter((node) => node.id !== bubbleNode.id);
+    return false;
+  }
+
+  return true;
+}
+
+function disableAnytimeForReply(replyNode) {
+  if (!replyNode || replyNode.type !== 'reply') return false;
+
+  const pairId = getAnytimePairId(replyNode);
+  if (!pairId) {
+    replyNode.anytime = false;
+    replyNode.anytimePairId = '';
+    return true;
+  }
+
+  const pairedGuideIds = new Set(
+    state.doc.nodes
+      .filter((node) => node.id !== replyNode.id && getAnytimePairId(node) === pairId)
+      .map((node) => node.id)
+  );
+
+  state.doc.nodes = state.doc.nodes.filter((node) => !pairedGuideIds.has(node.id));
+  state.doc.links = state.doc.links.filter((link) =>
+    !pairedGuideIds.has(link.from) &&
+    !pairedGuideIds.has(link.to) &&
+    !(link.from === replyNode.id && pairedGuideIds.has(link.to))
+  );
+
+  replyNode.anytime = false;
+  replyNode.anytimePairId = '';
+  state.selectedId = replyNode.id;
+  state.selectedLinkId = null;
+  return true;
+}
+
+function getReplyMode(node) {
+  if (!node || node.type !== 'reply') return 'normal';
+  if (node.anytime) return 'anytime';
+  if (node.acceptAny) return 'anyanswer';
+  return 'normal';
+}
+
+function syncReplyModeInputs(node) {
+  const isReplyNode = !!node && node.type === 'reply';
+  const mode = isReplyNode ? getReplyMode(node) : 'normal';
+
+  if (replyModeField) replyModeField.hidden = !isReplyNode;
+
+  [
+    [replyModeNormalInput, 'normal'],
+    [replyModeAnyAnswerInput, 'anyanswer'],
+    [replyModeAnytimeInput, 'anytime']
+  ].forEach(([input, value]) => {
+    if (!input) return;
+    input.checked = isReplyNode && mode === value;
+    input.disabled = !isReplyNode;
+  });
+}
+
+function duplicateAnytimePair(node) {
+  const pairId = getAnytimePairId(node);
+  if (!pairId) return null;
+  const sourceReply = state.doc.nodes.find((candidate) => isAnytimeReplyNode(candidate) && candidate.anytimePairId === pairId) || null;
+  const sourceBubble = state.doc.nodes.find((candidate) => isAnytimeGuideNode(candidate) && candidate.anytimePairId === pairId) || null;
+  if (!sourceReply) return null;
+  const placement = getAutoAnytimePairPlacement();
+  return insertAnytimePairAt(placement.reply, placement.bubble, sourceReply, sourceBubble);
+}
+
+function removeAnytimePair(pairId) {
+  const normalizedPairId = String(pairId || '').trim();
+  if (!normalizedPairId) return false;
+  const pairNodeIds = new Set(
+    state.doc.nodes
+      .filter((node) => getAnytimePairId(node) === normalizedPairId)
+      .map((node) => node.id)
+  );
+  if (!pairNodeIds.size) return false;
+  state.doc.nodes = state.doc.nodes.filter((node) => !pairNodeIds.has(node.id));
+  state.doc.links = state.doc.links.filter((link) => !pairNodeIds.has(link.from) && !pairNodeIds.has(link.to));
+  state.selectedLinkId = null;
+  state.selectedId = state.doc.nodes.length ? state.doc.nodes[state.doc.nodes.length - 1].id : null;
+  return true;
+}
+
+function removeSelectedNode() {
+  if (!state.selectedId) return;
+  const selectedNode = getNode(state.selectedId);
+  if (selectedNode && selectedNode.type === 'game') return;
+  if (selectedNode && getAnytimePairId(selectedNode)) {
+    if (removeAnytimePair(selectedNode.anytimePairId)) renderAll();
+    return;
+  }
+  const nodeId = state.selectedId;
+  state.doc.nodes = state.doc.nodes.filter((node) => node.id !== nodeId);
+  state.doc.links = state.doc.links.filter((link) => link.from !== nodeId && link.to !== nodeId);
+  state.selectedLinkId = null;
+  state.selectedId = state.doc.nodes.length ? state.doc.nodes[state.doc.nodes.length - 1].id : null;
+  renderAll();
+}
+
+function removeSelectedLink() {
+  if (!state.selectedLinkId) return;
+  const linkId = state.selectedLinkId;
+  const link = getLink(linkId);
+  if (isLockedAnytimePairLink(link)) {
+    clearSelection();
+    renderAll();
+    return;
+  }
+  state.doc.links = state.doc.links.filter((link) => link.id !== linkId);
+  clearSelection();
+  renderAll();
+}
+
+function startStencilDrag(type, event) {
+  if (type === 'game' && hasGameNode()) {
+    return;
+  }
+  const config = TYPE_CONFIG[type];
+  const threadWidth = PHONE_DEVICE_WIDTH - (PHONE_THREAD_SIDE_PADDING * 2);
+  const ghostNode = {
+    id: 'preview',
+    type,
+    width: config.width,
+    height: config.height,
+    title: config.title,
+    body: config.body
+  };
+  if (THREAD_LAYOUT_ENABLED && isPhoneThreadNode(ghostNode)) {
+    const ghostSize = getPhoneBubbleSize(
+      ghostNode,
+      type === 'stop' ? threadWidth : PHONE_BUBBLE_MAX_WIDTH
+    );
+    ghostNode.width = ghostSize.width;
+    ghostNode.height = ghostSize.height;
+  }
+  const ghost = document.createElement('div');
+  ghost.className = 'drag-ghost node-shell dragging node--' + type;
+  ghost.style.width = ghostNode.width + 'px';
+  ghost.style.height = ghostNode.height + 'px';
+  if (type === 'bubble') ghost.style.setProperty('--drag-tilt', '-1.15deg');
+  if (type === 'reply') ghost.style.setProperty('--drag-tilt', '1.15deg');
+  if (type === 'stop') ghost.style.setProperty('--drag-tilt', '0deg');
+  ghost.innerHTML = buildNodeMarkup(ghostNode);
+  document.body.appendChild(ghost);
+  positionGhost(ghost, event.clientX, event.clientY);
+
+  state.stencilDrag = {
+    type,
+    ghostEl: ghost
+  };
+  viewport.classList.add('drop-ready');
+}
+
+function stopStencilDrag(clientX, clientY) {
+  if (!state.stencilDrag) return;
+  const drag = state.stencilDrag;
+  const point = phonePointFromClient(clientX, clientY);
+
+  if (point.inside) {
+    const config = TYPE_CONFIG[drag.type];
+    addNode(drag.type, point.x - config.width / 2, point.y - config.height / 2);
+  }
+
+  drag.ghostEl.remove();
+  state.stencilDrag = null;
+  viewport.classList.remove('drop-ready');
+}
+
+function cancelStencilDrag() {
+  if (!state.stencilDrag) return;
+  state.stencilDrag.ghostEl.remove();
+  state.stencilDrag = null;
+  viewport.classList.remove('drop-ready');
+}
+
+function addNodeToVisiblePhone(type) {
+  if (!hasGameNode()) return null;
+  const sourceNode = getAutoLinkSourceNode();
+  const placement = getAutoPlacementPosition(type, sourceNode);
+  return addNode(
+    type,
+    placement.x,
+    placement.y,
+    { skipMajorSnap: true }
+  );
+}
+
+function getConnectTargetFromClientPoint(clientX, clientY) {
+  const hit = document.elementFromPoint(clientX, clientY);
+  const inPort = hit && hit.closest ? hit.closest('.node-port--in') : null;
+  const shell = inPort && inPort.closest ? inPort.closest('.node-shell') : null;
+  const node = shell ? getNode(shell.dataset.id) : null;
+  return node ? { node, shell, inPort } : null;
+}
+
+function updateHoverTarget(clientX, clientY) {
+  const target = getConnectTargetFromClientPoint(clientX, clientY);
+  const node = target ? target.node : null;
+  const sourceNode = state.connectDrag ? getNode(state.connectDrag.fromId) : null;
+  state.hoverTargetId = canNodeConnectTo(sourceNode, node) ? node.id : null;
+  renderSelectionStates();
+}
+
+function createLink(fromId, toId, fromPort = 'out-right') {
+  if (!fromId || !toId || fromId === toId) return;
+  const fromNode = getNode(fromId);
+  const toNode = getNode(toId);
+  if (!canNodeConnectTo(fromNode, toNode)) return;
+  const normalizedPort = normalizeFromPort(fromNode, fromPort);
+  if (hasOutgoingLinkOnPort(fromId, normalizedPort)) return null;
+  const exists = state.doc.links.some((link) => link.from === fromId && link.to === toId && normalizeFromPort(fromNode, link.fromPort) === normalizedPort);
+  if (exists) return;
+
+  const link = {
+    id: 'link-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+    from: fromId,
+    to: toId,
+    fromPort: normalizedPort
+  };
+  state.doc.links.push(link);
+  return link;
+}
+
+function stopConnectDrag(clientX, clientY) {
+  if (!state.connectDrag) return;
+  const target = getConnectTargetFromClientPoint(clientX, clientY);
+  const targetId = target ? target.node.id : null;
+  if (targetId && targetId !== state.connectDrag.fromId) {
+    const link = createLink(state.connectDrag.fromId, targetId, state.connectDrag.fromPort || 'out-right');
+    if (link) {
+      const sourceNode = getNode(link.from);
+      const targetNode = getNode(link.to);
+      snapLinkedNodeToSource(targetNode, sourceNode, link.fromPort);
+    }
+  }
+  state.connectDrag = null;
+  state.hoverTargetId = null;
+  renderAll();
+}
+
+function maybeAutoPan(clientX, clientY) {
+  const rect = viewport.getBoundingClientRect();
+  const threshold = 54;
+  const step = 26;
+  const scroll = getViewportScrollPosition();
+
+  let nextLeft = scroll.left;
+  let nextTop = scroll.top;
+  if (clientX < rect.left + threshold) nextLeft -= step;
+  if (clientX > rect.right - threshold) nextLeft += step;
+  if (clientY < rect.top + threshold) nextTop -= step;
+  if (clientY > rect.bottom - threshold) nextTop += step;
+  if (nextLeft !== scroll.left || nextTop !== scroll.top) {
+    setViewportScrollPosition(nextLeft, nextTop);
+  }
+}
+
+function seedPhone(options = {}) {
+  runWithoutRecoverySync(() => {
+    state.doc = cloneObj(EMPTY_DOC);
+    state.currentGameId = null;
+    clearSelection();
+    state.nextNodeNumbers = createNodeIdCounters();
+    const firstSlot = getGameHomeSlot();
+    const gameNode = createNode('game', firstSlot.x, firstSlot.y);
+    state.doc.nodes.push(gameNode);
+    setCurrentGameColors();
+    syncAllTagsFromStore();
+    rememberCleanSnapshot();
+    renderGameshelf();
+    applyZoom();
+    renderAll();
+    selectNode(gameNode.id);
+    renderSelectionStates();
+    drawLinks();
+    updateSelectionUi();
+  });
+  if (options.preserveRecovery) {
+    setSaveStatus(state.localOnlyChanges ? 'local' : 'idle', 'New Draft Ready');
+  } else if (state.localOnlyChanges) {
+    syncRecoveryDraftNow({ updateStatus: false });
+    setSaveStatus('local', 'Local Changes Only');
+  } else {
+    clearRecoveryDraft();
+    setSaveStatus('idle', 'New Draft Ready');
+  }
+}
+
+function serializeNodeState(node) {
+  return {
+    id: node.id,
+    type: node.type,
+    x: node.x,
+    y: node.y,
+    title: node.title,
+    tagline: node.tagline || '',
+    guideName: node.guideName || '',
+    price: node.price || '',
+    builderNotes: node.builderNotes || '',
+    tags: (node.tags || []).filter(Boolean),
+    body: node.body,
+    varName: node.varName || '',
+    acceptAny: !!node.acceptAny,
+    anytime: !!node.anytime,
+    anytimePairId: node.anytimePairId || '',
+    rotation: getNodeRotation(node),
+    orderIndex: normalizeNodeOrderIndex(node.orderIndex)
+  };
+}
+
+function serializeLinkState(link) {
+  return {
+    id: link.id,
+    from: link.from,
+    to: link.to,
+    fromPort: normalizeFromPort(getNode(link.from) || parseTypedNodeId(link.from)?.type, link.fromPort)
+  };
+}
+
+function serializeDocState(doc = state.doc, options = {}) {
+  const touchUpdatedAt = !!options.touchUpdatedAt;
+  return {
+    updatedAt: touchUpdatedAt
+      ? new Date().toISOString()
+      : (typeof (doc && doc.updatedAt) === 'string' ? doc.updatedAt : ''),
+    nodes: (doc && Array.isArray(doc.nodes) ? doc.nodes : []).map(serializeNodeState),
+    links: (doc && Array.isArray(doc.links) ? doc.links : []).map(serializeLinkState)
+  };
+}
+
+function serializeDoc() {
+  return serializeDocState(state.doc, { touchUpdatedAt: true });
+}
+
+function setSaveStatus(kind, text) {
+  state.saveUiState = kind || 'idle';
+  updateActionUi();
+}
+
+function readLocalStoreSnapshot() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LOCAL_STORE_KEY) || 'null');
+    return raw && typeof raw === 'object' ? normalizeStore(raw) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function getStoreUpdatedTime(store) {
+  if (!store || typeof store !== 'object') return 0;
+  const candidates = [store.updatedAt];
+  if (Array.isArray(store.games)) {
+    store.games.forEach((game) => {
+      candidates.push(game && game.updatedAt);
+      candidates.push(game && game.createdAt);
+    });
+  }
+  return candidates.reduce((latest, value) => {
+    if (typeof value !== 'string' || !value) return latest;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? Math.max(latest, parsed) : latest;
+  }, 0);
+}
+
+function pickPreferredStoreCandidate(candidates = []) {
+  let best = null;
+  let bestTime = -1;
+  candidates.forEach((candidate) => {
+    if (!candidate) return;
+    const candidateTime = getStoreUpdatedTime(candidate);
+    if (!best || candidateTime > bestTime) {
+      best = candidate;
+      bestTime = candidateTime;
+    }
+  });
+  return best;
+}
+
+function shouldKeepRecoveryDraft() {
+  return hasPendingSaveChanges();
+}
+
+function buildRecoverySnapshot() {
+  return JSON.stringify({
+    currentGameId: state.currentGameId || '',
+    currentGameColors: getCurrentGameColors(),
+    cleanSnapshot: state.cleanSnapshot || '',
+    localOnlyChanges: !!state.localOnlyChanges,
+    doc: serializeDocState(state.doc),
+    store: state.store
+  });
+}
+
+function clearRecoveryDraft() {
+  if (recoverySaveTimer) {
+    window.clearTimeout(recoverySaveTimer);
+    recoverySaveTimer = 0;
+  }
+  state.lastRecoverySnapshot = '';
+  try {
+    localStorage.removeItem(LOCAL_RECOVERY_KEY);
+  } catch (error) {
+  }
+}
+
+function syncRecoveryDraftNow(options = {}) {
+  if (state.suspendRecoverySync) return false;
+  if (recoverySaveTimer) {
+    window.clearTimeout(recoverySaveTimer);
+    recoverySaveTimer = 0;
+  }
+  if (!shouldKeepRecoveryDraft()) {
+    clearRecoveryDraft();
+    return false;
+  }
+
+  const snapshot = buildRecoverySnapshot();
+  if (snapshot === state.lastRecoverySnapshot) return false;
+
+  try {
+    const payload = JSON.parse(snapshot);
+    payload.version = RECOVERY_VERSION;
+    payload.storedAt = new Date().toISOString();
+    localStorage.setItem(LOCAL_RECOVERY_KEY, JSON.stringify(payload));
+    state.lastRecoverySnapshot = snapshot;
+    if (options.updateStatus !== false) setSaveStatus(state.localOnlyChanges ? 'local' : 'unsaved');
+    return true;
+  } catch (error) {
+    if (options.updateStatus !== false) setSaveStatus('error');
+    return false;
+  }
+}
+
+function scheduleRecoverySync(options = {}) {
+  if (state.suspendRecoverySync) return;
+
+  if (!shouldKeepRecoveryDraft()) {
+    clearRecoveryDraft();
+    return;
+  }
+
+  if (options.markDirty !== false && hasPendingSaveChanges()) {
+    setSaveStatus('unsaved');
+  }
+
+  if (options.immediate) {
+    syncRecoveryDraftNow(options);
+    return;
+  }
+
+  if (recoverySaveTimer) window.clearTimeout(recoverySaveTimer);
+  recoverySaveTimer = window.setTimeout(() => {
+    recoverySaveTimer = 0;
+    syncRecoveryDraftNow(options);
+  }, RECOVERY_SAVE_DELAY_MS);
+}
+
+function readRecoveryDraft() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LOCAL_RECOVERY_KEY) || 'null');
+    if (!raw || typeof raw !== 'object') return null;
+    const doc = normalizeDoc(raw.doc);
+    const store = normalizeStore(raw.store);
+    return {
+      version: raw.version,
+      storedAt: typeof raw.storedAt === 'string' ? raw.storedAt : '',
+      currentGameId: typeof raw.currentGameId === 'string' && raw.currentGameId.trim()
+        ? raw.currentGameId.trim()
+        : null,
+      currentGameColors: raw.currentGameColors && typeof raw.currentGameColors === 'object'
+        ? raw.currentGameColors
+        : null,
+      cleanSnapshot: typeof raw.cleanSnapshot === 'string' ? raw.cleanSnapshot : '',
+      localOnlyChanges: !!raw.localOnlyChanges,
+      doc,
+      store
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function runWithoutRecoverySync(work) {
+  const previous = state.suspendRecoverySync;
+  state.suspendRecoverySync = true;
+  try {
+    return work();
+  } finally {
+    state.suspendRecoverySync = previous;
+  }
+}
+
+function showGameshelfHome() {
+  runWithoutRecoverySync(() => {
+    state.doc = cloneObj(EMPTY_DOC);
+    state.currentGameId = null;
+    state.currentGameColors = null;
+    clearSelection();
+    state.nextNodeNumbers = createNodeIdCounters();
+    syncAllTagsFromStore();
+    rememberCleanSnapshot();
+    renderGameshelf();
+    applyZoom();
+    renderAll();
+    resetHomeScrollPositions();
+    scheduleInitialScrollReset();
+    drawLinks();
+    updateSelectionUi();
+  });
+  if (state.localOnlyChanges) {
+    syncRecoveryDraftNow({ updateStatus: false });
+    setSaveStatus('local', 'Local Changes Only');
+  } else {
+    clearRecoveryDraft();
+    setSaveStatus('idle', 'Gameshelf Only');
+  }
+}
+
+function restoreRecoveryWorkspace(recovery) {
+  if (!recovery) return false;
+  runWithoutRecoverySync(() => {
+    state.store = recovery.store;
+    state.doc = recovery.doc;
+    state.currentGameId = recovery.currentGameId;
+    state.localOnlyChanges = !!recovery.localOnlyChanges;
+    clearSelection();
+    syncAllTagsFromStore();
+    syncNextNodeNumbers();
+    setCurrentGameColors(recovery.currentGameColors);
+    state.cleanSnapshot = recovery.cleanSnapshot || getDocSnapshot(recovery.doc);
+    renderGameshelf();
+    applyZoom();
+    renderAll();
+    const gameNode = getGameNode();
+    if (gameNode) selectNode(gameNode.id);
+    renderSelectionStates();
+    scheduleInitialScrollReset();
+    drawLinks();
+    updateSelectionUi();
+  });
+  state.lastRecoverySnapshot = buildRecoverySnapshot();
+  setSaveStatus('draft', 'Recovered Local Draft');
+  return true;
+}
+
+function ensureAllReplyVarNames() {
+  let changed = false;
+  state.doc.nodes.forEach((node) => {
+    if (!node || node.type !== 'reply') return;
+    const before = normalizeVariableName(node.varName);
+    ensureReplyVarName(node);
+    if (normalizeVariableName(node.varName) !== before) changed = true;
+  });
+  return changed;
+}
+
+function persistStoreLocally() {
+  try {
+    localStorage.setItem(LOCAL_STORE_KEY, JSON.stringify(state.store));
+    if (state.currentGameId) localStorage.setItem(LOCAL_OPEN_GAME_KEY, state.currentGameId);
+    else localStorage.removeItem(LOCAL_OPEN_GAME_KEY);
+  } catch (error) {
+  }
+}
+
+function rememberPlayPreview(savedGame) {
+  if (!savedGame) return;
+  try {
+    sessionStorage.setItem(PLAY_PREVIEW_KEY, JSON.stringify({
+      game: savedGame,
+      storedAt: new Date().toISOString()
+    }));
+  } catch (error) {
+  }
+}
+
+function shouldStageCurrentGameForSave() {
+  if (!hasGameNode()) return false;
+  if (!state.currentGameId) return true;
+  if (hasUnsavedChanges()) return true;
+  return !state.store.games.some((game) => game.id === state.currentGameId);
+}
+
+function stageCurrentGameIntoStore() {
+  if (!shouldStageCurrentGameForSave()) return null;
+
+  const replyVarsFilled = ensureAllReplyVarNames();
+  if (replyVarsFilled) renderAll();
+
+  const docPayload = serializeDoc();
+  const existingGame = state.store.games.find((game) => game.id === state.currentGameId);
+  const existingIndex = state.store.games.findIndex((game) => game.id === state.currentGameId);
+  const savedGameId = state.currentGameId || makeGameId();
+  const savedGameName = getDocName(docPayload);
+  const fallbackColors = getSavedGameColors(
+    existingGame || { id: savedGameId, name: savedGameName },
+    existingIndex >= 0 ? existingIndex : state.store.games.length
+  );
+  const colors = {
+    primaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.primaryColor, fallbackColors.primaryColor),
+    secondaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.secondaryColor, fallbackColors.secondaryColor)
+  };
+  const savedGame = {
+    id: savedGameId,
+    name: savedGameName,
+    createdAt: existingGame && existingGame.createdAt ? existingGame.createdAt : docPayload.updatedAt,
+    updatedAt: docPayload.updatedAt,
+    primaryColor: colors.primaryColor,
+    secondaryColor: colors.secondaryColor,
+    nodes: docPayload.nodes,
+    links: docPayload.links
+  };
+
+  state.currentGameColors = { ...colors };
+  state.currentGameId = savedGame.id;
+  state.doc.updatedAt = docPayload.updatedAt;
+  state.store.updatedAt = docPayload.updatedAt;
+
+  if (existingIndex >= 0) state.store.games[existingIndex] = savedGame;
+  else state.store.games.push(savedGame);
+
+  syncAllTagsFromStore();
+  renderGameshelf();
+  persistStoreLocally();
+  return savedGame;
+}
+
+async function saveDoc(options = {}) {
+  const silent = !!options.silent;
+  const allowInteractiveFallback = options.allowInteractiveFallback !== false && !silent;
+  const needsCurrentGameStage = shouldStageCurrentGameForSave();
+  const hasPendingChanges = hasPendingSaveChanges() || needsCurrentGameStage;
+
+  if (!hasPendingChanges) {
+    if (!silent) setSaveStatus('idle');
+    return { savedGame: null, serverSaved: false, localOnly: false, skipped: true };
+  }
+
+  setSaveStatus('saving');
+  const savedGame = stageCurrentGameIntoStore();
+  if (!savedGame && !state.store.updatedAt) {
+    state.store.updatedAt = new Date().toISOString();
+  }
+  persistStoreLocally();
+  updateActionUi();
+  syncRecoveryDraftNow({ updateStatus: false });
+
+  try {
+    const syncResult = await syncStoreToBestAvailableTarget({ allowInteractiveFallback });
+    if (!syncResult || syncResult.localOnly) {
+      state.localOnlyChanges = true;
+      syncRecoveryDraftNow({ updateStatus: false });
+      setSaveStatus(syncResult && syncResult.cancelled ? 'unsaved' : 'local');
+      return { savedGame, serverSaved: false, localOnly: true, error: syncResult && syncResult.error ? syncResult.error : null, cancelled: !!(syncResult && syncResult.cancelled) };
+    }
+
+    state.localOnlyChanges = false;
+    if (savedGame) rememberCleanSnapshot();
+    renderGameshelf();
+    clearRecoveryDraft();
+    setSaveStatus('saved');
+    updateActionUi();
+    return {
+      savedGame,
+      serverSaved: !!syncResult.serverSaved,
+      fileSaved: !!syncResult.fileSaved,
+      downloaded: !!syncResult.downloaded,
+      localOnly: false,
+      apiBase: syncResult.apiBase,
+      storageKind: syncResult.storageKind || (syncResult.serverSaved ? 'server' : 'browser')
+    };
+  } catch (error) {
+    state.localOnlyChanges = true;
+    syncRecoveryDraftNow({ updateStatus: false });
+    setSaveStatus('local');
+    return { savedGame, serverSaved: false, localOnly: true, error };
+  }
+}
+
+async function playCurrentGame() {
+  if (!hasGameNode()) return;
+  const result = await saveDoc({ silent: true });
+  const savedGame = result && result.savedGame ? result.savedGame : null;
+  const gameQuery = savedGame && savedGame.name ? savedGame.name : getDocName();
+  if (!gameQuery) return;
+  rememberPlayPreview(savedGame);
+  const target = new URL('../play/index.html', location.href);
+  target.searchParams.set('game', gameQuery);
+  location.href = target.toString();
+}
+
+async function loadDoc() {
+  setSaveStatus('loading', 'Loading Games');
+  let apiStore = null;
+  let bundledStore = null;
+
+  try {
+    const apiUrls = getApiBaseCandidates().map((apiBase) => apiBase + STORE_API_ROUTE);
+    let res = null;
+    for (const url of apiUrls) {
+      try { res = await fetch(url, { cache: 'no-store' }); if (res.ok) break; } catch (e) {}
+    }
+    if (res.ok) {
+      const raw = await res.json();
+      apiStore = normalizeIncomingStorePayload(raw);
+    }
+  } catch (error) {
+  }
+
+  const fileStore = await readStoreFromRememberedFile();
+  const localStore = readLocalStoreSnapshot();
+  try {
+    if (!apiStore) {
+      const bundledResponse = await fetch(getBundledStoreFetchUrl(), { cache: 'no-store' });
+      if (bundledResponse.ok) {
+        bundledStore = normalizeIncomingStorePayload(await bundledResponse.json());
+      }
+    }
+  } catch (error) {
+  }
+
+  state.store = pickPreferredStoreCandidate([apiStore, fileStore, localStore, bundledStore]) || cloneObj(EMPTY_STORE);
+
+  const launchIntent = getEditorLaunchIntent();
+  const recovery = readRecoveryDraft();
+  if (launchIntent.gameId && recovery && recovery.currentGameId === launchIntent.gameId) {
+    if (restoreRecoveryWorkspace(recovery)) {
+      return;
+    }
+  }
+  if (!launchIntent.explicit && recovery) {
+    if (restoreRecoveryWorkspace(recovery)) {
+      return;
+    }
+  }
+
+  if (launchIntent.wantsNew) {
+    clearRecoveryDraft();
+    clearEditorLaunchIntent();
+    seedPhone();
+    return;
+  }
+
+  const preferredGameId = launchIntent.gameId || getRememberedOpenGameId();
+  if (preferredGameId) {
+    const preferredGame = state.store.games.find((game) => game && game.id === preferredGameId);
+    if (preferredGame) {
+      openSavedGame(preferredGame.id);
+      return;
+    }
+  }
+
+  const availableGames = getGameshelfGames();
+  if (availableGames.length) {
+    openSavedGame(availableGames[0].id);
+    return;
+  }
+
+  seedPhone();
+}
+
+renderStencilPreviews();
+
+stencilBar.querySelectorAll('[data-stencil]').forEach((button) => {
+  button.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    startStencilDrag(button.dataset.stencil, event);
+  });
+
+  button.addEventListener('dblclick', (event) => {
+    event.preventDefault();
+    cancelStencilDrag();
+    addNodeToVisiblePhone(button.dataset.stencil);
+  });
+});
+
+nodeTitleInput.addEventListener('input', () => {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'game') return;
+  node.title = nodeTitleInput.value || TYPE_CONFIG[node.type].title;
+  renderAll();
+});
+
+stopNameInput.addEventListener('input', () => {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'stop') return;
+  node.title = stopNameInput.value || TYPE_CONFIG.stop.title;
+  renderAll();
+});
+
+
+varNameInput.addEventListener('input', () => {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'reply') return;
+  node.varName = normalizeVariableName(varNameInput.value);
+  refreshVarNameHint();
+  renderAll();
+});
+
+const savedAnswerBodies = new Map();
+
+function setReplyAcceptAny(replyNode, enabled) {
+  if (!replyNode || replyNode.type !== 'reply') return false;
+  const shouldEnable = !!enabled;
+  if (!!replyNode.acceptAny === shouldEnable) return true;
+
+  replyNode.acceptAny = shouldEnable;
+  if (shouldEnable) {
+    savedAnswerBodies.set(replyNode.id, replyNode.body || '');
+    replyNode.body = '';
+  } else {
+    replyNode.body = savedAnswerBodies.get(replyNode.id) || '';
+  }
+
+  return true;
+}
+
+function setReplyMode(replyNode, mode) {
+  if (!replyNode || replyNode.type !== 'reply') return false;
+  const nextMode = String(mode || '').trim().toLowerCase();
+  const previous = {
+    acceptAny: !!replyNode.acceptAny,
+    anytime: !!replyNode.anytime,
+    anytimePairId: replyNode.anytimePairId || '',
+    body: replyNode.body || '',
+    hadSavedAnswer: savedAnswerBodies.has(replyNode.id),
+    savedAnswer: savedAnswerBodies.get(replyNode.id) || '',
+    selectedId: state.selectedId,
+    selectedLinkId: state.selectedLinkId
+  };
+
+  let changed = false;
+  if (nextMode === 'anytime') {
+    setReplyAcceptAny(replyNode, false);
+    changed = enableAnytimeForReply(replyNode);
+  } else if (nextMode === 'anyanswer') {
+    disableAnytimeForReply(replyNode);
+    changed = setReplyAcceptAny(replyNode, true);
+  } else {
+    disableAnytimeForReply(replyNode);
+    changed = setReplyAcceptAny(replyNode, false);
+  }
+
+  if (!changed) {
+    replyNode.acceptAny = previous.acceptAny;
+    replyNode.anytime = previous.anytime;
+    replyNode.anytimePairId = previous.anytimePairId;
+    replyNode.body = previous.body;
+    if (previous.hadSavedAnswer) savedAnswerBodies.set(replyNode.id, previous.savedAnswer);
+    else savedAnswerBodies.delete(replyNode.id);
+    state.selectedId = previous.selectedId;
+    state.selectedLinkId = previous.selectedLinkId;
+    syncReplyModeInputs(replyNode);
+    return false;
+  }
+
+  return true;
+}
+
+[replyModeNormalInput, replyModeAnyAnswerInput, replyModeAnytimeInput].forEach((input) => {
+  if (!input) return;
+  input.addEventListener('change', () => {
+    if (!input.checked) return;
+    const node = getNode(state.selectedId);
+    if (!node || node.type !== 'reply') return;
+    if (!setReplyMode(node, input.value)) return;
+    renderAll();
+  });
+});
+
+varValueInputs.forEach((input, i) => {
+  input.addEventListener('input', () => {
+    const node = getNode(state.selectedId);
+    if (!node || node.type !== 'ask') return;
+    node.varValues = normalizeVarValues(node.varValues);
+    node.varValues[i] = input.value;
+    renderAll();
+  });
+});
+
+varCorrectRadios.forEach((radio, i) => {
+  radio.addEventListener('click', () => {
+    const node = getNode(state.selectedId);
+    if (!node || node.type !== 'ask') return;
+    if (node.varCorrect === i) {
+      node.varCorrect = null;
+      radio.checked = false;
+    } else {
+      node.varCorrect = i;
+    }
+    renderAll();
+  });
+});
+
+
+nodeTaglineInput.addEventListener('input', () => {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'game') return;
+  node.tagline = nodeTaglineInput.value;
+  updateSelectionUi();
+});
+
+nodeBuilderNotesInput.addEventListener('input', () => {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'game') return;
+  node.builderNotes = nodeBuilderNotesInput.value;
+  renderGameshelf();
+});
+
+nodeGuideNameInput.addEventListener('input', () => {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'game') return;
+  node.guideName = nodeGuideNameInput.value;
+  updateSelectionUi();
+  updatePhoneChrome();
+});
+
+nodePriceInput.addEventListener('input', () => {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'game') return;
+  node.price = nodePriceInput.value;
+  updateSelectionUi();
+});
+
+function syncGameColorInputs() {
+  const colors = getCurrentGameColors();
+  if (primaryColorInput) {
+    primaryColorInput.value = colors.primaryColor;
+    primaryColorInput.classList.remove('is-invalid');
+  }
+  if (primaryColorPickerInput) {
+    primaryColorPickerInput.value = colorValueToHex(colors.primaryColor, '#5468a7');
+  }
+  if (secondaryColorInput) {
+    secondaryColorInput.value = colors.secondaryColor;
+    secondaryColorInput.classList.remove('is-invalid');
+  }
+  if (secondaryColorPickerInput) {
+    secondaryColorPickerInput.value = colorValueToHex(colors.secondaryColor, '#243256');
+  }
+}
+
+function commitCurrentGameColor(key, rawValue) {
+  if (!setCurrentGameColorValue(key, rawValue)) return false;
+  renderGameshelf();
+  updateActionUi();
+  return true;
+}
+
+function bindGameColorInputs(textInput, pickerInput, key, fallbackHex) {
+  if (!textInput || !pickerInput) return;
+
+  pickerInput.addEventListener('input', () => {
+    if (!commitCurrentGameColor(key, pickerInput.value)) return;
+    syncGameColorInputs();
+  });
+
+  textInput.addEventListener('input', () => {
+    const supportedValue = getSupportedColorValue(textInput.value);
+    const hasValue = !!textInput.value.trim();
+    textInput.classList.toggle('is-invalid', hasValue && !supportedValue);
+    if (!supportedValue) return;
+    commitCurrentGameColor(key, supportedValue);
+    pickerInput.value = colorValueToHex(supportedValue, fallbackHex);
+  });
+
+  textInput.addEventListener('blur', () => {
+    syncGameColorInputs();
+  });
+}
+
+bindGameColorInputs(primaryColorInput, primaryColorPickerInput, 'primaryColor', '#5468a7');
+bindGameColorInputs(secondaryColorInput, secondaryColorPickerInput, 'secondaryColor', '#243256');
+
+function addNewTag() {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'game') return;
+  const value = nodeTagNewInput.value.trim();
+  if (!value) return;
+  if (!allTags.includes(value)) allTags.push(value);
+  const nextTags = new Set(node.tags || []);
+  nextTags.add(value);
+  node.tags = [...nextTags];
+  nodeTagNewInput.value = '';
+  renderTagPicker(node);
+  syncPhoneStartButton();
+  scheduleRecoverySync();
+}
+
+nodeTagAddBtn.addEventListener('click', addNewTag);
+nodeTagNewInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  addNewTag();
+});
+
+nodeBodyInput.addEventListener('input', () => {
+  const node = getNode(state.selectedId);
+  if (!node) return;
+  node.body = nodeBodyInput.value;
+  renderAll();
+  updateVariableAutocomplete();
+});
+
+nodeBodyInput.addEventListener('click', updateVariableAutocomplete);
+nodeBodyInput.addEventListener('focus', updateVariableAutocomplete);
+nodeBodyInput.addEventListener('blur', () => {
+  window.setTimeout(() => {
+    if (document.activeElement !== nodeBodyInput) closeVariableAutocomplete();
+  }, 0);
+});
+nodeBodyInput.addEventListener('keyup', (event) => {
+  if (['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(event.key)) return;
+  updateVariableAutocomplete();
+});
+nodeBodyInput.addEventListener('keydown', (event) => {
+  if (!variableAutocomplete.open || !variableAutocomplete.items.length) return;
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    variableAutocomplete.activeIndex = (variableAutocomplete.activeIndex + 1) % variableAutocomplete.items.length;
+    renderVariableAutocomplete();
+    return;
+  }
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    variableAutocomplete.activeIndex = (variableAutocomplete.activeIndex - 1 + variableAutocomplete.items.length) % variableAutocomplete.items.length;
+    renderVariableAutocomplete();
+    return;
+  }
+  if (event.key === 'Enter' || event.key === 'Tab') {
+    event.preventDefault();
+    applyVariableAutocomplete(variableAutocomplete.items[variableAutocomplete.activeIndex]);
+    return;
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeVariableAutocomplete();
+  }
+});
+
+deleteBtn.addEventListener('click', () => {
+  if (state.selectedLinkId) {
+    removeSelectedLink();
+    return;
+  }
+  removeSelectedNode();
+});
+if (saveGameBtn) saveGameBtn.addEventListener('click', saveCurrentGameFromMenu);
+if (saveStatusPill) saveStatusPill.addEventListener('click', saveCurrentGameFromMenu);
+if (headerPlayGameBtn) headerPlayGameBtn.addEventListener('click', playCurrentGame);
+if (gamesListBtn) gamesListBtn.addEventListener('click', goToGamesPage);
+if (refreshPageBtn) {
+  refreshPageBtn.addEventListener('click', () => {
+    const menu = refreshPageBtn.closest('.mb-menu');
+    const panel = refreshPageBtn.closest('.mb-panel');
+    if (menu) menu.classList.remove('open');
+    if (panel) panel.hidden = true;
+    attemptRefresh();
+  });
+}
+if (nodeContextMenu) {
+  nodeContextMenu.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+}
+if (gameshelfContextMenu) {
+  gameshelfContextMenu.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+}
+if (duplicateNodeBtn) {
+  duplicateNodeBtn.addEventListener('click', () => {
+    const nodeId = state.contextMenuNodeId;
+    closeNodeContextMenu();
+    if (!nodeId) return;
+    duplicateNode(nodeId);
+  });
+}
+if (deleteNodeMenuBtn) {
+  deleteNodeMenuBtn.addEventListener('click', () => {
+    const nodeId = state.contextMenuNodeId;
+    const linkId = state.contextMenuLinkId;
+    closeNodeContextMenu();
+    if (linkId) {
+      selectLink(linkId);
+      removeSelectedLink();
+      return;
+    }
+    if (!nodeId) return;
+    selectNode(nodeId);
+    removeSelectedNode();
+  });
+}
+if (gameshelfMenuNewBtn) {
+  gameshelfMenuNewBtn.addEventListener('click', () => {
+    closeGameshelfContextMenu();
+    startNewPhone();
+  });
+}
+if (gameshelfMenuDuplicateBtn) {
+  gameshelfMenuDuplicateBtn.addEventListener('click', async () => {
+    const gameId = state.contextMenuGameshelfGameId;
+    closeGameshelfContextMenu();
+    if (!gameId) return;
+    await duplicateSavedGame(gameId);
+  });
+}
+if (gameshelfMenuDeleteBtn) {
+  gameshelfMenuDeleteBtn.addEventListener('click', async () => {
+    const gameId = state.contextMenuGameshelfGameId;
+    closeGameshelfContextMenu();
+    if (!gameId) return;
+    await deleteSavedGame(gameId);
+  });
+}
+if (newPhoneBtn) newPhoneBtn.addEventListener('click', startNewPhone);
+
+if (workspaceZoomOutBtn) workspaceZoomOutBtn.addEventListener('click', () => setZoom(state.zoom - ZOOM_STEP));
+if (workspaceZoomInBtn) workspaceZoomInBtn.addEventListener('click', () => setZoom(state.zoom + ZOOM_STEP));
+
+linkLayer.addEventListener('click', (event) => {
+  if (event.target !== linkLayer) return;
+  const point = phonePointFromClient(event.clientX, event.clientY);
+  const linkId = findNearestLinkIdAtPoint(point.x, point.y);
+  if (!linkId) return;
+  event.preventDefault();
+  event.stopPropagation();
+  closeNodeContextMenu();
+  selectLinkAndRefresh(linkId);
+});
+
+linkLayer.addEventListener('contextmenu', (event) => {
+  if (event.target !== linkLayer) return;
+  const point = phonePointFromClient(event.clientX, event.clientY);
+  const linkId = findNearestLinkIdAtPoint(point.x, point.y);
+  if (!linkId) return;
+  event.preventDefault();
+  event.stopPropagation();
+  closeNodeContextMenu();
+  selectLinkAndRefresh(linkId);
+  openLinkContextMenu(linkId, event.clientX, event.clientY);
+});
+
+phoneStage.addEventListener('click', (event) => {
+  closeNodeContextMenu();
+  if (state.suppressBackgroundClick) {
+    state.suppressBackgroundClick = false;
+    return;
+  }
+  if (event.target.closest && event.target.closest('.node-shell')) return;
+  if (
+    event.target !== phoneStage
+    && event.target !== phone
+    && event.target !== nodeLayer
+    && event.target !== linkLayer
+  ) return;
+  clearSelection();
+  renderSelectionStates();
+  drawLinks();
+  updateSelectionUi();
+});
+
+viewport.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0) return;
+  if (state.dragNode || state.stencilDrag || state.connectDrag) return;
+  const target = event.target;
+  if (target.closest && target.closest('.node-shell')) return;
+  if (target.closest && target.closest('.zoom-controls')) return;
+  if (target === linkLayer) {
+    const point = phonePointFromClient(event.clientX, event.clientY);
+    if (findNearestLinkIdAtPoint(point.x, point.y)) return;
+  }
+  const isPhoneTarget =
+    target === viewport ||
+    target === phoneStage ||
+    target === phone ||
+    target === nodeLayer ||
+    target === linkLayer;
+  if (!isPhoneTarget) return;
+
+  event.preventDefault();
+  state.panPhone = {
+    startX: event.clientX,
+    startY: event.clientY,
+    scrollLeft: getViewportScrollPosition().left,
+    scrollTop: getViewportScrollPosition().top,
+    moved: false
+  };
+  viewport.classList.add('panning');
+});
+
+viewport.addEventListener('contextmenu', (event) => {
+  if (hasGameNode()) return;
+  const target = event.target;
+  if (target && target.closest && target.closest('.zoom-controls')) return;
+  event.preventDefault();
+  closeNodeContextMenu();
+  closeGameshelfContextMenu();
+  openGameshelfContextMenu({ isNew: true, newOnly: true }, event.clientX, event.clientY);
+});
+
+viewport.addEventListener('wheel', (event) => {
+  if (!event.ctrlKey && !event.metaKey) return;
+  event.preventDefault();
+  const direction = event.deltaY > 0 ? -1 : 1;
+  setZoom(state.zoom + (ZOOM_STEP * direction), event.clientX, event.clientY);
+}, { passive: false });
+
+window.addEventListener('pointermove', (event) => {
+  if (state.inspectorDrag) {
+    const dx = event.clientX - state.inspectorDrag.startX;
+    const dy = event.clientY - state.inspectorDrag.startY;
+    state.inspectorPosition = clampInspectorPosition(
+      state.inspectorDrag.originX + dx,
+      state.inspectorDrag.originY + dy
+    );
+    applyInspectorPosition();
+    return;
+  }
+
+  if (state.stencilDrag) {
+    positionGhost(state.stencilDrag.ghostEl, event.clientX, event.clientY);
+    const point = phonePointFromClient(event.clientX, event.clientY);
+    viewport.classList.toggle('drop-ready', point.inside);
+    maybeAutoPan(event.clientX, event.clientY);
+  }
+
+  if (state.dragNode) {
+    const node = getNode(state.dragNode.id);
+    const el = nodeEls.get(state.dragNode.id);
+    if (!node || !el) return;
+    if (state.dragNode.reorderOnly) {
+      const point = phonePointFromClient(event.clientX, event.clientY);
+      const movedEnough =
+        Math.abs(event.clientX - state.dragNode.startClientX) > 3
+        || Math.abs(event.clientY - state.dragNode.startClientY) > 3;
+      if (movedEnough) state.dragNode.moved = true;
+      const rawY = clamp(
+        point.y - state.dragNode.offsetY,
+        state.layoutMetrics?.threadTop || (PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT),
+        getPhoneStageSize().height - node.height - 24
+      );
+      node.x = state.dragNode.originX;
+      if (!state.dragNode.moved) {
+        node.y = rawY;
+        state.dropSlot = null;
+        hideBubbleDropLine();
+        el.style.removeProperty('--drag-tilt');
+        positionNodeElement(node, el);
+        renderSelectionStates();
+        maybeAutoPan(event.clientX, event.clientY);
+        return;
+      }
+      const bubbleMidY = rawY + (node.height / 2);
+      const dropSlot = getNearestPhoneDropSlot(bubbleMidY, node.id);
+      state.dropSlot = dropSlot;
+      if (dropSlot) {
+        showBubbleDropLine(dropSlot);
+      } else {
+        hideBubbleDropLine();
+      }
+      const snapTargetY = dropSlot ? dropSlot.previewY : rawY;
+      const snapDistance = Math.abs(rawY - snapTargetY);
+      const snapStrength = clamp((120 - snapDistance) / 120, 0, 1);
+      let previewY = rawY + ((snapTargetY - rawY) * (0.28 + (snapStrength * 0.56)));
+      if (snapDistance < 10) previewY = snapTargetY;
+      node.y = Math.round(previewY);
+      const side = getPhoneBubbleSide(node);
+      const sideBias = side === 'right' ? 1.15 : side === 'left' ? -1.15 : 0;
+      const dragTilt = clamp(sideBias + ((event.clientX - state.dragNode.startClientX) / 34), -4.5, 4.5);
+      el.style.setProperty('--drag-tilt', dragTilt.toFixed(2) + 'deg');
+      positionNodeElement(node, el);
+      renderSelectionStates();
+      maybeAutoPan(event.clientX, event.clientY);
+      return;
+    }
+    const point = phonePointFromClient(event.clientX, event.clientY);
+    const anytimePairNodeIds = new Set(state.dragNode.anytimePairNodeIds || []);
+    const isLockedAnytimeDrag = anytimePairNodeIds.size > 1;
+    const movedEnough =
+      Math.abs(event.clientX - state.dragNode.startClientX) > 3
+      || Math.abs(event.clientY - state.dragNode.startClientY) > 3;
+    if (movedEnough && !state.dragNode.moved) {
+      state.dragNode.moved = true;
+      if (!isLockedAnytimeDrag) {
+        state.doc.links = state.doc.links.filter((link) => link.to !== state.dragNode.id);
+      }
+    }
+    const bounds = getPlacementBounds(node.width, node.height);
+    const nextX = clamp(point.x - state.dragNode.offsetX, bounds.minX, bounds.maxX);
+    const nextY = clamp(point.y - state.dragNode.offsetY, bounds.minY, bounds.maxY);
+    const dockCandidate = state.dragNode.moved
+      ? getDockCandidateForNode(node, nextX, nextY, state.dragNode.subtreeIds)
+      : null;
+    const snapped = dockCandidate
+      ? { x: dockCandidate.x, y: dockCandidate.y }
+      : maybeSnapToMajorGrid(node.type, nextX, nextY, isLockedAnytimeDrag ? anytimePairNodeIds : node.id);
+    state.dragNode.dockCandidate = dockCandidate;
+    state.dockTargetId = dockCandidate ? dockCandidate.sourceId : null;
+    const dx = snapped.x - node.x;
+    const dy = snapped.y - node.y;
+    node.x = snapped.x;
+    node.y = snapped.y;
+    if (isLockedAnytimeDrag && (dx !== 0 || dy !== 0)) {
+      (state.dragNode.anytimePairNodeIds || []).forEach((pairNodeId) => {
+        if (pairNodeId === node.id) return;
+        const pairNode = getNode(pairNodeId);
+        const pairEl = nodeEls.get(pairNodeId);
+        if (!pairNode) return;
+        const pairBounds = getPlacementBounds(pairNode.width, pairNode.height);
+        pairNode.x = clamp(pairNode.x + dx, pairBounds.minX, pairBounds.maxX);
+        pairNode.y = clamp(pairNode.y + dy, pairBounds.minY, pairBounds.maxY);
+        if (pairEl) positionNodeElement(pairNode, pairEl);
+      });
+    }
+    positionNodeElement(node, el);
+    if (state.dragNode.moved) {
+      layoutOutgoingSubtree(node.id);
+    }
+    renderSelectionStates();
+    drawLinks();
+    maybeAutoPan(event.clientX, event.clientY);
+  }
+
+  if (state.connectDrag) {
+    const point = phonePointFromClient(event.clientX, event.clientY);
+    const stageSize = getPhoneStageSize();
+    state.connectDrag.x = clamp(point.x, 0, stageSize.width);
+    state.connectDrag.y = clamp(point.y, 0, stageSize.height);
+    updateHoverTarget(event.clientX, event.clientY);
+    drawLinks();
+    maybeAutoPan(event.clientX, event.clientY);
+  }
+
+  if (state.panPhone) {
+    const dx = event.clientX - state.panPhone.startX;
+    const dy = event.clientY - state.panPhone.startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+      state.panPhone.moved = true;
+    }
+    setViewportScrollPosition(
+      state.panPhone.scrollLeft - dx,
+      state.panPhone.scrollTop - dy
+    );
+  }
+});
+
+window.addEventListener('pointerup', (event) => {
+  if (state.inspectorDrag) {
+    if (inspector) inspector.classList.remove('dragging');
+    state.inspectorDrag = null;
+  }
+
+  if (state.stencilDrag) stopStencilDrag(event.clientX, event.clientY);
+
+  if (state.dragNode) {
+    const dragState = state.dragNode;
+    const el = nodeEls.get(state.dragNode.id);
+    if (el) el.classList.remove('dragging');
+    if (dragState.reorderOnly) {
+      const node = getNode(dragState.id);
+      if (node && dragState.moved && state.dropSlot) {
+        node.x = dragState.originX;
+        node.y = Math.round(state.dropSlot.sortY);
+        reorderPhoneThreadNode(node.id, state.dropSlot.insertIndex);
+      }
+      if (el) el.style.removeProperty('--drag-tilt');
+      hideBubbleDropLine();
+      state.dropSlot = null;
+      state.dragNode = null;
+      state.dockTargetId = null;
+      if (dragState.moved) renderAll();
+      else renderSelectionStates();
+      return;
+    }
+    if (dragState.moved) {
+      const node = getNode(dragState.id);
+      if (node && dragState.dockCandidate) {
+        createLink(dragState.dockCandidate.sourceId, node.id, dragState.dockCandidate.fromPort);
+        const sourceNode = getNode(dragState.dockCandidate.sourceId);
+        if (sourceNode) snapLinkedNodeToSource(node, sourceNode, dragState.dockCandidate.fromPort);
+      }
+      if (node) layoutOutgoingSubtree(node.id);
+    }
+    state.dragNode = null;
+    state.dockTargetId = null;
+    if (dragState.moved) renderAll();
+    else renderSelectionStates();
+  }
+
+  if (state.connectDrag) stopConnectDrag(event.clientX, event.clientY);
+
+  if (state.panPhone) {
+    if (state.panPhone.moved) {
+      state.suppressBackgroundClick = true;
+    }
+    state.panPhone = null;
+    viewport.classList.remove('panning');
+  }
+});
+
+window.addEventListener('keydown', (event) => {
+  const activeTag = document.activeElement && document.activeElement.tagName;
+  const isTyping =
+    activeTag === 'INPUT'
+    || activeTag === 'TEXTAREA'
+    || activeTag === 'SELECT'
+    || (document.activeElement && document.activeElement.isContentEditable);
+
+  if (nodeContextMenu && !nodeContextMenu.hidden && event.key === 'Escape') {
+    event.preventDefault();
+    closeNodeContextMenu();
+    return;
+  }
+
+  if (gameshelfContextMenu && !gameshelfContextMenu.hidden && event.key === 'Escape') {
+    event.preventDefault();
+    closeGameshelfContextMenu();
+    return;
+  }
+
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+    event.preventDefault();
+    saveCurrentGameFromMenu();
+    return;
+  }
+
+  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+    event.preventDefault();
+    playCurrentGame();
+    return;
+  }
+
+  if (isZoomInShortcut(event)) {
+    if (isTyping && !(event.ctrlKey || event.metaKey)) return;
+    event.preventDefault();
+    setZoom(state.zoom + ZOOM_STEP);
+    return;
+  }
+
+  if (isZoomOutShortcut(event)) {
+    if (isTyping && !(event.ctrlKey || event.metaKey)) return;
+    event.preventDefault();
+    setZoom(state.zoom - ZOOM_STEP);
+    return;
+  }
+
+  if (isZoomResetShortcut(event)) {
+    if (isTyping && !(event.ctrlKey || event.metaKey)) return;
+    event.preventDefault();
+    setZoom(1);
+    return;
+  }
+
+  if (!isTyping && isLetterShortcut(event, 'KeyN')) {
+    event.preventDefault();
+    startNewPhone();
+    return;
+  }
+
+  if (!isTyping && isLetterShortcut(event, 'KeyS')) {
+    event.preventDefault();
+    addNodeToVisiblePhone('stop');
+    return;
+  }
+
+  if (!isTyping && isLetterShortcut(event, 'KeyG')) {
+    event.preventDefault();
+    addNodeToVisiblePhone('bubble');
+    return;
+  }
+
+  if (!isTyping && isLetterShortcut(event, 'KeyP')) {
+    event.preventDefault();
+    addNodeToVisiblePhone('reply');
+    return;
+  }
+
+  if (!isTyping && (event.key === 'Delete' || event.key === 'Backspace') && (state.selectedId || state.selectedLinkId)) {
+    event.preventDefault();
+    if (state.selectedLinkId) removeSelectedLink();
+    else removeSelectedNode();
+  }
+});
+
+// â”€â”€ Menubar dropdowns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+(function () {
+  const nav = document.getElementById('mbNav');
+  if (!nav) return;
+
+  function closeAll() {
+    nav.querySelectorAll('.mb-menu').forEach((m) => {
+      m.classList.remove('open');
+      const panel = document.getElementById(m.querySelector('[data-target]').dataset.target);
+      if (panel) panel.hidden = true;
+    });
+  }
+
+  nav.querySelectorAll('.mb-trigger').forEach((trigger) => {
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const panelId = trigger.dataset.target;
+      const menu = trigger.closest('.mb-menu');
+      const panel = document.getElementById(panelId);
+      const isOpen = !panel.hidden;
+      closeAll();
+      if (!isOpen) { panel.hidden = false; menu.classList.add('open'); }
+    });
+  });
+
+  nav.querySelectorAll('.mb-panel').forEach((panel) => {
+    panel.addEventListener('click', (e) => e.stopPropagation());
+  });
+
+  document.addEventListener('click', closeAll);
+
+}());
+
+window.addEventListener('pointerdown', (event) => {
+  if (!nodeContextMenu || nodeContextMenu.hidden) return;
+  if (nodeContextMenu.contains(event.target)) return;
+  closeNodeContextMenu();
+});
+
+window.addEventListener('pointerdown', (event) => {
+  if (!gameshelfContextMenu || gameshelfContextMenu.hidden) return;
+  if (gameshelfContextMenu.contains(event.target)) return;
+  closeGameshelfContextMenu();
+});
+
+window.addEventListener('resize', () => {
+  applyZoom();
+  drawLinks();
+  applyInspectorPosition();
+  refreshGameshelfAutoScroll();
+});
+
+startPhoneClock();
+applyZoom();
+loadDoc();
+
+
+

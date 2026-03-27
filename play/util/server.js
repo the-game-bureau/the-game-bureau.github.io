@@ -1,14 +1,14 @@
 // Run: node server.js
-// Then open: http://localhost:3000/private/builder.html
+// Then open: http://localhost:3000/builder/index.html
 const http  = require('http');
 const fs    = require('fs');
 const path  = require('path');
 const { execFile } = require('child_process');
 
 const PORT       = 3000;
-const GAMES_FILE  = path.join(__dirname, '..', 'data', 'games.json');
+const GAMES_FILE  = path.join(__dirname, '..', 'data', 'games_archive.json');
 const GAMES_NEW_FILE = path.join(__dirname, '..', 'data', 'games_new.json');
-const GAMES_PHONEANALOGY_FILE = path.join(__dirname, '..', 'data', 'games_phoneanalogy.json');
+const GAMES_PHONEANALOGY_FILE = path.join(__dirname, '..', 'data', 'games.json');
 const STOPS_FILE  = path.join(__dirname, '..', 'data', 'stops.json');
 const ROUTES_FILE = path.join(__dirname, '..', 'data', 'routes.json');
 const STATIC_DIR = path.join(__dirname, '..', '..');
@@ -48,7 +48,7 @@ http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
-  // POST /games — write games.json
+  // POST /games — write games_archive.json
   if (req.method === 'POST' && req.url === '/games') {
     let body = '';
     req.on('data', d => { body += d; });
@@ -85,7 +85,7 @@ http.createServer((req, res) => {
     return;
   }
 
-  // POST /games-phoneanalogy — write games_phoneanalogy.json
+  // POST /games-phoneanalogy — write games.json
   if (req.method === 'POST' && req.url === '/games-phoneanalogy') {
     let body = '';
     req.on('data', d => { body += d; });
@@ -148,7 +148,7 @@ http.createServer((req, res) => {
     return;
   }
 
-  // GET /games-phoneanalogy — read games_phoneanalogy.json
+  // GET /games-phoneanalogy — read games.json
   if (req.method === 'GET' && req.url === '/games-phoneanalogy') {
     try {
       const txt = fs.readFileSync(GAMES_PHONEANALOGY_FILE, 'utf8');
@@ -218,7 +218,7 @@ http.createServer((req, res) => {
     return;
   }
 
-  // GET /games — read games.json
+  // GET /games — read games_archive.json
   if (req.method === 'GET' && req.url === '/games') {
     try {
       const txt = fs.readFileSync(GAMES_FILE, 'utf8');
@@ -232,7 +232,7 @@ http.createServer((req, res) => {
   }
 
   // Static files
-  if (req.url === '/') { res.writeHead(302, { Location: '/play/private/builder.html' }); res.end(); return; }
+  if (req.url === '/') { res.writeHead(302, { Location: '/builder/index.html' }); res.end(); return; }
   let filePath = path.join(STATIC_DIR, req.url.split('?')[0]);
   const ext    = path.extname(filePath);
   if (!MIME[ext]) { res.writeHead(403); res.end(); return; }
@@ -242,4 +242,4 @@ http.createServer((req, res) => {
     res.end(data);
   });
 
-}).listen(PORT, () => console.log('http://localhost:' + PORT + '/play/private/builder.html'));
+}).listen(PORT, () => console.log('http://localhost:' + PORT + '/builder/index.html'));

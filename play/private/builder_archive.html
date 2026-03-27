@@ -1,0 +1,2810 @@
+<!DOCTYPE html>
+<!--
+  TGB Builder project note for humans and AI:
+  This builder writes JSON data that is read later by the game engine.
+  builder_archive.html writes play/data/games_archive.json and play/data/stops.json.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TGB Game Builder</title>
+  <link rel="icon" href="builder.ico" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#f4f4f4; --ink:#111111; --panel:#eaf0f5; --muted:#5a5a5a;
+      --ok:#1a6b3a; --warn:#9a5f00; --err:#c1121f;
+      --sans:"JetBrains Mono",monospace; --mono:"JetBrains Mono",monospace;
+      --bubble-gap:16px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;scrollbar-width:none;}
+    *::-webkit-scrollbar{display:none;}
+    html,body{height:100%;font-family:var(--sans);background:var(--bg);color:var(--ink);}
+    body{display:flex;flex-direction:column;overflow:hidden;}
+
+    /* ── Header ── */
+    .page-header{background:var(--ink);color:var(--bg);padding:14px 24px;flex-shrink:0;display:flex;align-items:center;gap:16px;}
+    .page-header .bureau{font-size:.62rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;opacity:.5;}
+    .page-header .tool{font-size:1rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;}
+    #globalSaveBtn{margin-left:auto;}
+
+    /* ── Workspace ── */
+    .workspace{flex:1;display:flex;flex-direction:column;padding:20px;overflow:hidden;gap:16px;}
+    .top-panels{display:flex;flex-direction:row;gap:20px;flex:1;min-height:0;overflow:hidden;}
+    .map-panel-wrap{flex-shrink:0;display:flex;gap:16px;min-height:0;align-items:stretch;}
+
+    /* ── Panel ── */
+    .panel{background:var(--panel);border:2px solid var(--ink);display:flex;flex-direction:column;min-width:0;}
+    .panel-head{padding:0 16px;border-bottom:2px solid var(--ink);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;height:48px;}
+    .panel-foot{padding:0 16px;border-top:2px solid var(--ink);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;height:48px;}
+    .panel-title{font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+    .panel-body{padding:0;overflow-y:auto;}
+
+    /* ── Games panel ── */
+    .games-panel{flex:3;min-width:0;}
+
+    /* ── Game row ── */
+    .game-row{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid rgba(17,17,17,.1);font-size:.78rem;cursor:pointer;user-select:none;}
+    .game-row:hover{background:rgba(100,160,240,.12);}
+    .game-row.selected{background:var(--ink);color:var(--bg);}
+    .game-row.selected .game-row-sub{color:rgba(255,255,255,.5);}
+    .game-row.selected.archived .game-row-name,.game-row.selected.archived .game-row-sub{color:rgba(255,255,255,.5);}
+    .game-row:last-child{border-bottom:none;}
+    .game-row-thumb{width:38px;height:38px;flex-shrink:0;object-fit:cover;border:1px solid rgba(17,17,17,.16);background:#fff;display:block;}
+    .game-row.selected .game-row-thumb{border-color:rgba(255,255,255,.28);}
+    .game-row-info{flex:1;min-width:0;}
+    .game-row-name{font-weight:600;line-height:1.35;white-space:normal;overflow-wrap:anywhere;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;}
+    .game-row-sub{font-size:.64rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .game-row.archived .game-row-name,.game-row.archived .game-row-sub{color:#bbb;}
+    .game-row.archived .game-row-thumb{opacity:.55;}
+
+    /* ── Buttons ── */
+    .btn{font-family:var(--sans);font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border:1px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer;border-radius:0;margin-top:0;width:auto;}
+    .btn:hover{background:var(--panel);}
+    .btn.primary{background:var(--ink);color:var(--bg);}
+    .btn.primary:hover{background:#333;}
+    .btn.active{background:var(--ink);color:var(--bg);}
+    .btn.danger{border-color:var(--err);color:var(--err);}
+    .btn.danger:hover{background:#fff0f0;}
+    .btn:disabled{opacity:.4;cursor:default;}
+
+    /* ── Details panel ── */
+    .details-panel{flex:7;min-width:0;display:flex;}
+
+    /* ── Stops panel ── */
+    .stops-panel{flex:3;min-width:0;display:flex;}
+
+    /* ── Stop details panel ── */
+    .stop-details-panel{flex:7;min-width:0;display:flex;flex-direction:column;}
+
+    /* ── Stop row ── */
+    .stop-row{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid rgba(17,17,17,.1);font-size:.76rem;cursor:pointer;user-select:none;}
+    .stop-row:hover{background:rgba(100,160,240,.12);}
+    .stop-row:last-child{border-bottom:none;}
+    .stop-row.drop-before{box-shadow:0 -2px 0 var(--ink);}
+    .stop-row.drop-after{box-shadow:0 2px 0 var(--ink);}
+    .stop-row.dragging{opacity:.4;}
+    .stop-row-info{flex:1;min-width:0;}
+    .stop-row-name{font-weight:600;line-height:1.35;white-space:normal;overflow-wrap:anywhere;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;}
+    .stop-row-sub{font-size:.64rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .stop-row.archived .stop-row-name,.stop-row.archived .stop-row-sub{color:#bbb;}
+    .stop-row.selected .stop-row-sub{color:rgba(255,255,255,.5);}
+    .stop-row.selected.archived .stop-row-name,.stop-row.selected.archived .stop-row-sub{color:rgba(255,255,255,.5);}
+    .stop-add-route{flex-shrink:0;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--ink);background:none;color:var(--ink);font-size:1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;opacity:.6;}
+    .stop-add-route:hover{opacity:1;background:var(--ink);color:#fff;}
+    .stop-row.selected .stop-add-route{border-color:#fff;color:#fff;opacity:1;}
+    .stop-add-route.no-game{opacity:.2;cursor:default;}
+    .reply-badge{font-size:.54rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;padding:2px 5px;border-radius:3px;flex-shrink:0;}
+    .rb-noreply{background:#9ca3af;} .rb-text{background:#1a73e8;} .rb-any{background:#f5a623;} .rb-choice{background:#9333ea;} .rb-anytime{background:#4ecf98;}
+
+    /* ── Form fields ── */
+    .field{padding:12px 16px;border-bottom:1px solid rgba(17,17,17,.1);}
+    .field:last-child{border-bottom:none;}
+    .field label{display:block;font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+    .field input,.field textarea,.field select{width:100%;font-family:var(--sans);font-size:.8rem;padding:6px 8px;border:1px solid rgba(17,17,17,.3);background:#fff;color:var(--ink);outline:none;border-radius:0;}
+    .field input:focus,.field textarea:focus{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);}
+    .field textarea{resize:vertical;line-height:1.4;}
+    .field-hint{font-size:.62rem;color:var(--muted);margin-top:4px;letter-spacing:.02em;}
+    /* ── Image picker ── */
+    .img-picker-wrap{display:flex;flex-direction:column;gap:6px;}
+    .img-picker-preview{max-height:60px;max-width:100%;border:1px solid rgba(17,17,17,.2);object-fit:contain;background:#fff;}
+    .img-picker-row{display:flex;align-items:center;gap:6px;}
+    .img-picker-row .img-pick-btn{flex-shrink:0;}
+    .img-picker-or{font-size:.58rem;color:var(--muted);flex-shrink:0;text-transform:uppercase;letter-spacing:.08em;}
+    .img-picker-row input[type="text"]{flex:1;font-family:var(--sans);font-size:.8rem;padding:6px 8px;border:1px solid rgba(17,17,17,.3);background:#fff;color:var(--ink);outline:none;border-radius:0;}
+    .img-picker-row input[type="text"]:focus{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);}
+
+    /* ── Share ── */
+    .share-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;}
+    .share-url{font-size:.68rem;color:var(--muted);word-break:break-all;line-height:1.5;flex:1;}
+    .share-btns{display:flex;gap:6px;}
+
+    /* ── Status ── */
+
+    /* ── Empty state ── */
+    .empty{padding:24px 16px;font-size:.7rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;}
+
+    /* ── Tag pills ── */
+    .tag-picker{display:flex;flex-wrap:wrap;gap:4px;padding-top:6px;}
+    .tag-pill{font-family:var(--sans);font-size:.58rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border:1px solid rgba(17,17,17,.3);border-radius:999px;background:#fff;color:var(--muted);cursor:pointer;user-select:none;}
+    .tag-pill:hover{border-color:var(--ink);color:var(--ink);}
+    .tag-pill.on{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+    #g-tagNewInput{font-family:var(--sans);font-size:.58rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border:1px dashed rgba(17,17,17,.3);border-radius:999px;background:#fff;color:var(--ink);outline:none;width:80px;}
+    #g-tagNewInput:focus{border-color:var(--ink);border-style:solid;}
+    .tag-add-btn{font-family:var(--sans);font-size:.62rem;font-weight:700;padding:2px 7px;border:1px solid var(--ink);border-radius:999px;background:#fff;color:var(--ink);cursor:pointer;}
+
+    /* ── Map panel — full-width horizontal strip ── */
+    .map-panel{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
+    .vars-panel{width:300px;min-width:260px;display:flex;flex-direction:column;}
+    .r-head-tools{display:flex;align-items:center;gap:6px;}
+    .r-scroll-btn{font-family:var(--sans);font-size:.72rem;font-weight:700;line-height:1;width:28px;height:28px;border:1px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+    .r-scroll-btn:hover:not(:disabled){background:var(--ink);color:var(--bg);}
+    .r-scroll-btn:disabled{opacity:.24;cursor:default;}
+    .r-drop-zone{display:flex;flex-direction:row;align-items:center;overflow-x:auto;overflow-y:hidden;padding:18px 34px 22px 20px;min-height:190px;flex-shrink:0;position:relative;background:linear-gradient(180deg,rgba(255,255,255,.88),rgba(226,236,246,.78)),repeating-linear-gradient(90deg,rgba(15,23,42,.03) 0 1px,transparent 1px 36px);box-shadow:inset 0 1px 0 rgba(255,255,255,.72),inset 0 -1px 0 rgba(15,23,42,.05);scroll-behavior:smooth;}
+    .r-drop-zone::before{content:'';position:absolute;left:20px;right:28px;top:50%;height:2px;transform:translateY(-50%);background:linear-gradient(90deg,rgba(15,23,42,.08),rgba(11,87,208,.16),rgba(15,23,42,.08));pointer-events:none;z-index:0;}
+    .r-drop-zone > *{position:relative;z-index:1;}
+    .r-drop-zone.drag-over{background:linear-gradient(180deg,rgba(239,247,255,.96),rgba(217,234,252,.9)),repeating-linear-gradient(90deg,rgba(11,87,208,.04) 0 1px,transparent 1px 36px);}
+    /* Octagon stop cards — two-layer for border */
+    .r-stop-wrap{position:relative;flex-shrink:0;width:176px;height:154px;background:linear-gradient(155deg,#0f172a,#020617);clip-path:polygon(18px 0,calc(100% - 18px) 0,100% 18px,100% calc(100% - 18px),calc(100% - 18px) 100%,18px 100%,0 calc(100% - 18px),0 18px);cursor:grab;box-shadow:0 16px 34px rgba(15,23,42,.16);transition:transform .18s ease,box-shadow .18s ease,background .18s ease;}
+    .r-stop-wrap:hover{transform:translateY(-4px);box-shadow:0 22px 38px rgba(15,23,42,.22);}
+    .r-stop-wrap.dragging{opacity:.42;transform:none;box-shadow:none;}
+    .r-stop-wrap.selected{background:linear-gradient(155deg,#0b57d0,#081427);}
+    .r-stop-wrap.anytime{background:linear-gradient(155deg,#0f766e,#05332f);}
+    .r-stop-wrap.anytime.selected{background:linear-gradient(155deg,#0d8b79,#064e3b);}
+    .r-insert-line{position:absolute;width:3px;top:18px;bottom:18px;background:#0057ff;box-shadow:0 0 0 4px rgba(0,87,255,.12);pointer-events:none;display:none;z-index:10;}
+    .r-stop-item{position:absolute;inset:2px;background:linear-gradient(180deg,#ffffff 0%,#f5f8fc 56%,#e9eef6 100%);user-select:none;clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 16px,100% calc(100% - 16px),calc(100% - 16px) 100%,16px 100%,0 calc(100% - 16px),0 16px);display:flex;flex-direction:column;text-align:left;padding:14px 14px 13px;gap:10px;overflow:hidden;}
+    .r-stop-wrap:hover .r-stop-item{background:linear-gradient(180deg,#ffffff 0%,#f1f6ff 56%,#e4edf9 100%);}
+    .r-stop-wrap.selected .r-stop-item{background:linear-gradient(180deg,#ffffff 0%,#f3f8ff 50%,#e4efff 100%);}
+    .r-stop-wrap.anytime .r-stop-item{background:linear-gradient(180deg,#f8fffc 0%,#ecfaf4 54%,#dff3ea 100%);}
+    .r-stop-wrap.anytime:hover .r-stop-item,.r-stop-wrap.anytime.selected .r-stop-item{background:linear-gradient(180deg,#fbfffd 0%,#eefcf6 54%,#d7f1e6 100%);}
+    .r-stop-top{display:flex;align-items:center;justify-content:flex-start;gap:8px;padding-right:28px;min-height:26px;}
+    .r-stop-top-actions{margin-left:auto;display:flex;align-items:center;gap:6px;}
+    .r-stop-num{font-size:.56rem;font-weight:700;color:#fff;line-height:1;letter-spacing:.18em;text-transform:uppercase;font-variant-numeric:tabular-nums;background:#0f172a;padding:6px 8px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);}
+    .r-stop-wrap.selected .r-stop-num{background:#0b57d0;}
+    .r-stop-wrap.anytime .r-stop-num{background:#0f766e;}
+    .r-ifthen-btn{height:24px;border:1px solid rgba(15,23,42,.16);background:rgba(255,255,255,.82);color:#475569;font-family:var(--sans);font-size:.52rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:0 8px;cursor:pointer;}
+    .r-ifthen-btn:hover,.r-ifthen-btn.active{background:#0f172a;color:#fff;border-color:#0f172a;}
+    .r-stop-type{font-size:.5rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border-radius:999px;padding:4px 8px;border:1px solid transparent;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:inset 0 0 0 1px rgba(255,255,255,.38);}
+    .r-stop-type.rb-noreply{background:#eef2f7;border-color:#d6dde7;color:#5b6472;}
+    .r-stop-type.rb-text{background:#e7f0ff;border-color:#c9dcff;color:#1a73e8;}
+    .r-stop-type.rb-any{background:#fff2d9;border-color:#ffd58a;color:#9a5f00;}
+    .r-stop-type.rb-choice{background:#f1e8ff;border-color:#dcc6ff;color:#7c3aed;}
+    .r-stop-type.rb-anytime{background:#dbfaea;border-color:#a7e7c8;color:#0f766e;}
+    .r-stop-body{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;min-height:0;overflow:hidden;flex:1;}
+    .r-stop-title{font-size:.84rem;font-weight:700;line-height:1.24;color:#0f172a;min-height:calc(2 * 1.24em + 2px);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;}
+    .r-stop-foot{display:flex;align-items:center;justify-content:flex-start;gap:6px;row-gap:5px;flex-wrap:wrap;font-size:.54rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5b6778;min-height:30px;margin-top:auto;padding-top:8px;border-top:1px solid rgba(148,163,184,.24);}
+    .r-stop-count{display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;background:rgba(255,255,255,.78);border:1px solid rgba(148,163,184,.26);}
+    .r-stop-flag{color:#b42318;background:#fff1f2;border:1px solid #fecdd3;border-radius:999px;padding:3px 7px;font-size:.5rem;letter-spacing:.12em;}
+    .r-stop-flag.missing{color:#9f1239;background:#fff1f2;border-color:#fecdd3;}
+    .r-stop-flag.branch{color:#b45309;background:#fff7ed;border-color:#fdba74;}
+    .r-remove-btn{position:absolute;top:12px;right:12px;padding:0;width:20px;height:20px;background:rgba(255,255,255,.96);border:1px solid rgba(17,17,17,.12);border-radius:50%;color:rgba(17,17,17,.45);font-size:.8rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--sans);box-shadow:0 4px 10px rgba(15,23,42,.08);opacity:0;transform:scale(.9);transition:opacity .14s ease,transform .14s ease,color .14s ease;}
+    .r-stop-wrap:hover .r-remove-btn,.r-stop-wrap.selected .r-remove-btn{opacity:1;transform:scale(1);}
+    .r-remove-btn:hover{color:#c00;}
+    .r-stop-arrow{flex-shrink:0;display:flex;align-items:center;align-self:center;color:rgba(15,23,42,.36);padding:0 10px;user-select:none;pointer-events:none;}
+    .r-stop-arrow svg{width:24px;height:10px;}
+    .r-branch-link{flex-shrink:0;display:flex;align-items:center;align-self:center;color:rgba(15,23,42,.42);padding:0 8px;user-select:none;pointer-events:none;}
+    .r-ifthen-wrap{position:relative;flex-shrink:0;width:224px;height:154px;background:linear-gradient(165deg,#fb923c,#c2410c);clip-path:polygon(50% 0,100% 20px,100% 100%,0 100%,0 20px);box-shadow:0 16px 28px rgba(124,45,18,.18);}
+    .r-ifthen-card{position:absolute;inset:2px;background:linear-gradient(180deg,#fffaf5 0%,#ffffff 46%,#fff0e6 100%);clip-path:polygon(50% 0,100% 18px,100% 100%,0 100%,0 18px);display:flex;flex-direction:column;padding:18px 12px 12px;gap:8px;overflow:hidden;}
+    .r-ifthen-remove{position:absolute;top:12px;right:12px;padding:0;width:20px;height:20px;border-radius:50%;border:1px solid rgba(17,17,17,.12);background:rgba(255,255,255,.96);color:rgba(17,17,17,.45);font-family:var(--sans);font-size:.8rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(15,23,42,.08);}
+    .r-ifthen-remove:hover{color:#c00;}
+    .r-ifthen-title{font-size:.58rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#c2410c;}
+    .r-ifthen-hint{font-size:.54rem;color:#9a3412;letter-spacing:.04em;}
+    .r-ifthen-list{display:flex;flex-direction:column;gap:6px;overflow:auto;padding-right:2px;}
+    .r-ifthen-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 22px;gap:6px;align-items:center;}
+    .r-ifthen-row.blank{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+    .r-ifthen-value,.r-ifthen-stop{width:100%;min-width:0;font-family:var(--sans);font-size:.62rem;padding:6px 7px;border:1px solid rgba(17,17,17,.18);background:#fff;color:var(--ink);outline:none;}
+    .r-ifthen-value:focus,.r-ifthen-stop:focus{border-color:#c2410c;box-shadow:inset 0 0 0 1px #c2410c;}
+    .r-ifthen-case-remove{width:22px;height:22px;padding:0;border:1px solid rgba(17,17,17,.14);background:#fff;color:#7f1d1d;font-family:var(--sans);font-size:.72rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .r-ifthen-case-remove:hover{border-color:#7f1d1d;background:#fff7f7;}
+    .r-anytime-gap{flex-shrink:0;width:20px;height:4px;align-self:center;border-radius:999px;background:linear-gradient(90deg,rgba(15,118,110,.28),rgba(15,118,110,.08));}
+    .r-anytime-divider{flex-shrink:0;width:2px;height:78px;background:linear-gradient(180deg,rgba(15,118,110,.24),rgba(15,23,42,.14));align-self:center;margin:0 18px;border-radius:999px;box-shadow:0 0 0 4px rgba(15,118,110,.06);}
+    .r-zone-empty{display:flex;align-items:center;justify-content:center;min-height:132px;padding:0 28px;font-size:.66rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;border:2px dashed rgba(15,23,42,.12);background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(238,244,251,.62));white-space:nowrap;flex:1;clip-path:polygon(18px 0,calc(100% - 18px) 0,100% 18px,100% calc(100% - 18px),calc(100% - 18px) 100%,18px 100%,0 calc(100% - 18px),0 18px);}
+    .vars-body{padding:0;overflow-y:auto;min-height:150px;}
+    .var-row{padding:10px 14px;border-bottom:1px solid rgba(17,17,17,.1);display:grid;gap:4px;}
+    .var-row:last-child{border-bottom:none;}
+    .var-name{font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+    .var-value{font-size:.76rem;line-height:1.35;color:var(--ink);word-break:break-word;white-space:normal;}
+    .var-value.empty{color:#94a3b8;font-style:italic;}
+    .anytime-tag{font-size:.54rem;font-weight:700;letter-spacing:.07em;color:#fff;padding:2px 4px;border-radius:3px;flex-shrink:0;text-transform:uppercase;background:#4ecf98;}
+
+    /* ── lp- section styles (stop detail header uses these) ── */
+    .lp-section{border-bottom:2px solid var(--ink);padding:14px 16px;}
+    .lp-section:last-child{border-bottom:none;}
+    .lp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+    .lp-title{font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+    .lp-btn{font-family:var(--sans);font-size:.64rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border:1px solid var(--ink);border-radius:0;background:#fff;color:var(--ink);cursor:pointer;margin-top:0;width:auto;}
+    .lp-btn:hover{background:var(--panel);}
+    .lp-btn.primary{background:var(--ink);color:var(--bg);}
+    .lp-btn.primary:hover{background:#333;}
+    .lp-btn.danger{border-color:var(--err);color:var(--err);}
+    .lp-btn.danger:hover{background:#fff0f0;}
+    .lp-btn:disabled{opacity:.4;cursor:default;}
+
+    /* ── Stop action icons ── */
+    .stop-action{color:#475569;background:#f8fafc;border:2px solid currentColor;padding:0;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;line-height:0;cursor:pointer;user-select:none;flex-shrink:0;}
+    .stop-action svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+    .stop-paste{color:#0f766e;background:#f0fdfa;}.stop-delete{color:#ff4d57;background:#fff;}
+    .stop-action.disabled{opacity:.3;cursor:not-allowed;}
+
+    /* ── Stop name editing ── */
+    .section-title-text{font-weight:700;font-size:.84rem;letter-spacing:.04em;text-transform:uppercase;}
+    .stop-title-edit[contenteditable="true"]{user-select:text;cursor:text;outline:none;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1.5px solid transparent;padding-bottom:1px;transition:border-color .15s;}
+    .stop-title-edit[contenteditable="true"]:hover{border-bottom-color:rgba(17,17,17,.3);}
+    .stop-title-edit[contenteditable="true"]:focus{text-overflow:clip;white-space:normal;border-bottom-color:var(--ink);}
+    .stop-name-group{display:inline-flex;align-items:center;gap:.26em;flex:0 1 auto;min-width:0;}
+    .stop-name-suffix{font-size:.84rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink);flex-shrink:0;user-select:none;}
+
+    /* ── Reply tags ── */
+    .reply-tag,.anytime-badge{font-size:.58rem;font-weight:700;letter-spacing:.1em;color:#fff;padding:2px 5px;border-radius:3px;flex-shrink:0;}
+    .reply-tag-noreply{background:#9ca3af;}.reply-tag-wordreply{background:#1a73e8;}.reply-tag-anyreply{background:#f5a623;}.reply-tag-choicereply{background:#9333ea;}.reply-tag-anytime{background:#4ecf98;}
+
+    /* ── Stop card body ── */
+    .stop-card-body{padding:14px 16px;background:none;display:grid;gap:var(--bubble-gap);}
+    .simple-stop-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .simple-stop-toolbar .add-bubble-btn{width:100%;display:flex;align-items:center;justify-content:center;}
+    .simple-stop-group{display:grid;gap:12px;padding:14px;border:1px solid rgba(17,17,17,.14);background:#f8fafc;}
+    .simple-stop-group-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+    .simple-stop-group-title{font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+    .simple-stop-group-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .simple-stop-field{display:grid;gap:6px;}
+    .simple-stop-textarea{width:100%;min-height:120px;font-family:var(--sans);font-size:.8rem;padding:10px 12px;border:1px solid rgba(17,17,17,.3);background:#fff;color:var(--ink);outline:none;border-radius:0;resize:vertical;line-height:1.45;}
+    .simple-stop-textarea:focus{border-color:var(--ink);}
+
+    /* ── Bubble editor ── */
+    .bubble-list{display:flex;flex-direction:column;gap:var(--bubble-gap);}
+    .bubble{border:2px solid var(--ink);border-radius:0;background:#fff;padding:12px;margin:0;cursor:default;position:relative;}
+    .bubble.photo-bubble{border-color:#60a5fa;}
+    .bubble.cta-bubble{background:#fff;border-color:#cc0000;}
+    .bubble-details-label{font-size:.64rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+    .bubble-top{position:absolute;top:8px;right:8px;display:flex;gap:4px;}
+    .bubble-type-row{display:flex;flex-wrap:wrap;align-items:center;column-gap:8px;row-gap:4px;margin-bottom:8px;}
+    .bubble-type-row label{margin:0;white-space:nowrap;cursor:pointer;font-size:.7rem;font-weight:600;color:var(--ink);letter-spacing:.04em;text-transform:none;}
+    .bubble-type-row input[type="radio"]{accent-color:#0f766e;cursor:pointer;margin:0;}
+    .bubble-type-row span.type-pair{display:inline-flex;align-items:center;gap:5px;min-height:18px;}
+    .simple-stop-group .bubble-type-row{display:grid;grid-template-columns:1fr;justify-items:start;}
+    .msg-type-section,.reply-fields,.bubble-reply-section{display:grid;gap:8px;}
+    .bubble-reply-section{margin-top:12px;}
+    .msg-type-section label,.reply-fields label{margin:0;font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+    .bubble-reply-label{margin:0;}
+    .bubble-chat-stage{border:1px solid #d7dde6;background:#f8fafc;padding:8px;min-height:56px;}
+    .bubble-html-shell{position:relative;background:#1a73e8;border-radius:20px;border-bottom-left-radius:5px;overflow:visible;max-width:min(90%,920px);}
+    .bubble-html-shell::before{content:'';position:absolute;bottom:0;left:-8px;width:20px;height:20px;background:#1a73e8;border-bottom-right-radius:16px;z-index:0;}
+    .bubble-html-shell::after{content:'';position:absolute;bottom:0;left:-12px;width:12px;height:20px;background:#fff;border-bottom-right-radius:10px;z-index:0;}
+    .bubble.cta-bubble .bubble-html-shell{background:#cc0000;}
+    .bubble.cta-bubble .bubble-html-shell::before{background:#cc0000;}
+    .bubble-html-input{position:relative;z-index:1;background:transparent;border:0;border-radius:20px;width:100%;color:#fff;padding:.55rem .85rem;font-size:1.3rem;font-weight:700;line-height:1.5;min-height:80px;resize:none;overflow:hidden;font-family:var(--sans);}
+    .bubble-html-input::placeholder{color:rgba(255,255,255,.7);}.bubble-html-input:focus{outline:none;}
+    .bubble-answer-shell{position:relative;margin-left:auto;background:#e5e7eb;color:#111827;border-radius:20px;border-bottom-right-radius:5px;max-width:min(80%,760px);}
+    .bubble-answer-shell::before{content:'';position:absolute;bottom:0;right:-8px;width:20px;height:20px;background:#e5e7eb;border-bottom-left-radius:16px;z-index:0;}
+    .bubble-answer-shell::after{content:'';position:absolute;bottom:0;right:-12px;width:12px;height:20px;background:#f8fafc;border-bottom-left-radius:10px;z-index:0;}
+    .bubble-answer-input{position:relative;z-index:1;width:100%;background:transparent;border:0;color:#111827;border-radius:20px;padding:.55rem .85rem;font-size:1.05rem;font-weight:600;line-height:1.45;min-height:50px;resize:none;overflow:hidden;font-family:var(--sans);}
+    .bubble-answer-input::placeholder{color:rgba(17,24,39,.5);}.bubble-answer-input:focus{outline:none;}
+    .bubble-flash{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#0f766e;opacity:0;transition:opacity .15s;}
+    .bubble-flash.visible{opacity:1;}
+    .field-hint.tight{margin-top:4px;}
+    .row{display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-bottom:12px;}
+    .row.full{grid-template-columns:1fr;}.row.no-margin{margin-bottom:0;}
+    /* Bubble input/textarea overrides (scoped to bubble editor) */
+    .bubble input[type="text"],.bubble textarea,.bubble select,.stop-card-body input[type="text"],.stop-card-body textarea,.stop-card-body select{width:100%;font-family:var(--sans);font-size:.82rem;padding:7px 9px;border:1px solid var(--ink);border-radius:0;background:#fff;color:var(--ink);outline:none;}
+    .bubble input[type="text"]:focus,.bubble textarea:focus{box-shadow:inset 0 0 0 2px var(--ink);}
+    .bubble textarea{resize:vertical;line-height:1.4;}
+    .stop-card-body label{display:block;font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+    /* Add bubble button */
+    .stop-card-body button.add-bubble-btn{font-family:var(--sans);font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:8px 14px;border:1px solid var(--ink);border-radius:0;background:var(--ink);color:var(--bg);cursor:pointer;margin-top:0;width:auto;}
+    .stop-card-body button.add-bubble-btn:hover{background:#333;}
+
+    /* ── Anytime editor ── */
+    .anytime-bubble-row{display:flex;flex-direction:column;gap:4px;}
+    .anytime-bubble-lbl{font-size:.6rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);}
+    .anytime-bubble-preview{display:flex;}.anytime-bubble-preview.right{justify-content:flex-end;}.anytime-bubble-preview.left{justify-content:flex-start;}
+    .anytime-chat-bubble{max-width:72%;padding:8px 12px;border-radius:18px;font-size:.86rem;line-height:1.4;}
+    .anytime-chat-bubble.player{background:#e5e7eb;color:#111;border-bottom-right-radius:4px;}
+    .anytime-chat-bubble.game{background:#1a73e8;color:#fff;border-bottom-left-radius:4px;}
+    .anytime-chat-bubble textarea,.anytime-chat-bubble input[type="text"]{background:transparent;border:none;outline:none;resize:none;font:inherit;color:inherit;width:100%;min-width:140px;padding:0;margin:0;}
+    .anytime-chat-bubble.player textarea::placeholder,.anytime-chat-bubble.player input[type="text"]::placeholder{color:rgba(0,0,0,.38);}
+    .anytime-chat-bubble.game textarea::placeholder,.anytime-chat-bubble.game input[type="text"]::placeholder{color:rgba(255,255,255,.55);}
+
+    /* ── Warnings ── */
+    .warnings{font-size:.82rem;color:#9a5f00;background:#fff7e8;border:1px solid #f1d7a3;padding:10px 14px;line-height:1.45;display:none;flex-shrink:0;}
+    .warnings ul{margin:0 0 0 16px;padding:0;}.warnings strong{display:block;margin-bottom:6px;}
+    /* ── Dirty badge ── */
+    .dirty-badge{font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9a5f00;background:#fff7e8;border:1px solid #f1d7a3;padding:2px 7px;margin-left:6px;display:none;}
+    .dirty-badge.visible{display:inline;}
+    /* ── Undo toast ── */
+    .undo-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:12px 16px;font-size:.82rem;letter-spacing:.03em;display:none;align-items:center;gap:12px;z-index:9999;border:1px solid #444;white-space:nowrap;}
+    .ctx-menu{position:fixed;background:#fff;border:2px solid var(--ink);z-index:9999;min-width:120px;display:none;flex-direction:column;}
+    .ctx-item{font-family:var(--sans);font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:8px 14px;cursor:pointer;user-select:none;color:var(--ink);}
+    .ctx-item:hover{background:var(--panel);}
+    .ctx-item.disabled{opacity:.35;pointer-events:none;}
+    .ctx-divider{border-top:1px solid rgba(17,17,17,.15);margin:4px 0;}
+    .ctx-item.ctx-danger{color:var(--err);}
+    .ctx-item.ctx-danger:hover{background:#fff0f0;}
+    .undo-toast button{border:1px solid #fff;color:#fff;background:transparent;padding:4px 10px;font-size:.74rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;font-family:var(--sans);margin-top:0;width:auto;}
+    .undo-toast button:hover{background:rgba(255,255,255,.15);}
+  </style>
+</head>
+<body>
+
+<header class="page-header">
+  <div class="bureau">The Game Bureau</div>
+  <div class="tool">Game Builder</div>
+  <button class="btn primary" id="globalSaveBtn">Save</button>
+  <button class="btn primary" id="g-publishBtn" style="display:none;">Publish</button>
+</header>
+
+<div class="workspace">
+<div class="top-panels">
+
+  <!-- ── GAMES PANEL ── -->
+  <div class="panel games-panel">
+    <div class="panel-head">
+      <span class="panel-title">Games</span>
+      <button class="btn" id="newGameBtn">New</button>
+    </div>
+    <div class="panel-body" id="gameList">
+      <div class="empty">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ── DETAILS PANEL ── -->
+  <div class="panel details-panel" id="detailsPanel">
+    <div class="panel-head">
+      <span class="panel-title" id="detailsTitle">Game Details</span>
+    </div>
+    <div class="panel-body" id="detailsBody">
+
+      <div class="field">
+        <label for="g-name">Game Name</label>
+        <input type="text" id="g-name" placeholder="Oswald's Diary" autocomplete="off">
+        <div class="field-hint" id="g-idHint" style="display:none;"></div>
+      </div>
+
+      <div class="field">
+        <label for="g-tagline">Tagline</label>
+        <input type="text" id="g-tagline" placeholder="A mystery hidden in plain sight" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label for="g-subtitle">Guide Name</label>
+        <input type="text" id="g-subtitle" placeholder="Mission Control" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label>Tags</label>
+        <div class="tag-picker" id="g-tagPicker">
+          <input type="text" id="g-tagNewInput" placeholder="New tag…" autocomplete="off">
+          <button type="button" class="tag-add-btn" id="g-tagAddBtn">+</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="g-desc">Description</label>
+        <textarea id="g-desc" rows="2" placeholder="Short description…"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="g-price">Price</label>
+        <input type="text" id="g-price" placeholder="Free To Start / In App Purchases" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label>Logo</label>
+        <div class="img-picker-wrap">
+          <img id="g-logo-preview" class="img-picker-preview" src="" alt="" style="display:none;">
+          <div class="img-picker-row">
+            <button type="button" class="btn img-pick-btn" onclick="document.getElementById('g-logo-file').click()">Choose File</button>
+            <input type="file" id="g-logo-file" accept="image/*,.webp" style="display:none;">
+            <span class="img-picker-or">or</span>
+            <input type="text" id="g-logo-url" placeholder="https://... or assets/logo.png" autocomplete="off">
+          </div>
+          <input type="hidden" id="g-logo">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Thumbnail</label>
+        <div class="img-picker-wrap">
+          <img id="g-thumbnail-preview" class="img-picker-preview" src="" alt="" style="display:none;">
+          <div class="img-picker-row">
+            <button type="button" class="btn img-pick-btn" onclick="document.getElementById('g-thumbnail-file').click()">Choose File</button>
+            <input type="file" id="g-thumbnail-file" accept="image/*,.webp" style="display:none;">
+            <span class="img-picker-or">or</span>
+            <input type="text" id="g-thumbnail-url" placeholder="https://... or assets/thumbnail.png" autocomplete="off">
+          </div>
+          <input type="hidden" id="g-thumbnail">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Favicon</label>
+        <div class="img-picker-wrap">
+          <img id="g-favicon-preview" class="img-picker-preview" src="" alt="" style="display:none;">
+          <div class="img-picker-row">
+            <button type="button" class="btn img-pick-btn" onclick="document.getElementById('g-favicon-file').click()">Choose File</button>
+            <input type="file" id="g-favicon-file" accept="image/*,.ico" style="display:none;">
+            <span class="img-picker-or">or</span>
+            <input type="text" id="g-favicon-url" placeholder="https://... or index.ico" autocomplete="off">
+          </div>
+          <input type="hidden" id="g-favicon">
+        </div>
+      </div>
+
+      <div class="field" id="g-shareField" style="display:none;">
+        <label>Share</label>
+        <div class="share-row">
+          <div id="g-shareUrl" class="share-url"></div>
+          <div class="share-btns">
+            <button class="btn" id="g-copyShareBtn">Copy</button>
+            <button class="btn" id="g-goShareBtn">Go</button>
+          </div>
+        </div>
+        <div class="share-row">
+          <div id="g-shareUrlLocal" class="share-url"></div>
+          <div class="share-btns">
+            <button class="btn" id="g-copyShareBtnLocal">Copy</button>
+            <button class="btn" id="g-goShareBtnLocal">Go</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── STOPS PANEL ── -->
+  <div class="panel stops-panel" id="stopsPanel">
+    <div class="panel-head">
+      <span class="panel-title">Stops</span>
+      <button class="btn" id="s-newBtn">New</button>
+    </div>
+    <div class="panel-body" id="stopsList">
+      <div class="empty">No stops yet.</div>
+    </div>
+  </div>
+
+  <!-- ── STOP DETAILS PANEL ── -->
+  <div class="panel stop-details-panel" id="stopDetailsPanel">
+    <div class="panel-head">
+      <span class="panel-title">Stop Details</span>
+      <button class="btn danger" id="s-archiveBtn" style="display:none;">Archive</button>
+    </div>
+    <div id="s-warnings" class="warnings"></div>
+    <div class="panel-body" id="s-stopDetail" style="overflow-y:auto;flex:1;"></div>
+  </div>
+
+</div><!-- /top-panels -->
+
+  <!-- ── MAP PANEL ── -->
+  <div class="map-panel-wrap">
+  <div class="panel map-panel">
+    <div class="panel-head">
+      <span class="panel-title" id="r-panelTitle">Game Stop Order</span>
+      <div class="r-head-tools">
+        <button class="r-scroll-btn" id="r-scrollLeftBtn" type="button" title="Scroll left" aria-label="Scroll left"><</button>
+        <button class="r-scroll-btn" id="r-scrollRightBtn" type="button" title="Scroll right" aria-label="Scroll right">></button>
+      </div>
+    </div>
+    <div class="r-drop-zone" id="r-dropZone">
+      <div class="r-zone-empty">Select a game</div>
+    </div>
+  </div>
+  <div class="panel vars-panel" id="varsPanel">
+    <div class="panel-head">
+      <span class="panel-title">Variables</span>
+    </div>
+    <div class="panel-body vars-body" id="r-varsList">
+      <div class="empty">Select a game</div>
+    </div>
+  </div>
+  </div><!-- /map-panel-wrap -->
+
+</div><!-- /workspace -->
+
+<div id="s-undoToast" class="undo-toast" role="status">
+  Stop deleted. <button id="s-undoDeleteBtn" type="button">Undo</button>
+</div>
+
+<div id="gameCtxMenu" class="ctx-menu">
+  <div class="ctx-item" id="ctxDuplicate">Duplicate</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" id="ctxArchive">Archive</div>
+  <div class="ctx-item ctx-danger" id="ctxDelete">Delete</div>
+</div>
+
+<div id="routeCtxMenu" class="ctx-menu">
+  <div class="ctx-item" id="rCtxDetach">Detach</div>
+</div>
+
+<div id="stopCtxMenu" class="ctx-menu">
+  <div class="ctx-item" id="sCtxDuplicate">Duplicate</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" id="sCtxArchive">Archive</div>
+  <div class="ctx-item ctx-danger" id="sCtxDelete">Delete</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// THE GAME BUREAU — GAME BUILDER
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// What this file is:
+//   A local-only admin tool for building SMS-based scavenger hunt / walking tour
+//   games on The Game Bureau platform.
+//
+// How it works:
+//   This page is served from the /games/private/ directory and requires a local
+//   Node.js server (server.js, typically at localhost:3000) to be running.
+//   The server exposes POST /games and POST /stops endpoints that write directly
+//   to games_archive.json and stops.json in the repository.  The "Publish" button calls
+//   POST /publish which runs a git commit + push to deploy to GitHub Pages.
+//   TGB Builder writes JSON data here so the game engine can read it later.
+//
+// How it fits into the project:
+//   - games_archive.json   — catalog of all game metadata (name, id, tags, images, etc.)
+//   - stops.json   — all stops across all games (messages, reply logic, routing)
+//   - go.html      — the public player page, reads from the JSON files at runtime
+//   - play.html    — alternate player entry point
+//
+// Panels (left → right):
+//   1. Games        — list of all games; click to select, right-click for actions
+//   2. Game Details — edit metadata for the selected game
+//   3. Game Stop Order (Map) — drag-and-drop stop ordering within a game route
+//   4. Stops        — master list of all stops; drag to reorder or into the route
+//   5. Stop Details — bubble editor for the selected stop's messages and replies
+//
+// NOTE: This file should NOT be opened directly via the filesystem (file://).
+//   Always open it through the local dev server so API calls succeed.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Detect whether we are running locally so we can show/enable the API and Publish button.
+// When deployed to GitHub Pages IS_LOCAL will be false and the builder is inaccessible.
+const IS_LOCAL = ['localhost','127.0.0.1'].includes(location.hostname);
+const API = IS_LOCAL ? 'http://localhost:3000' : null;
+// Base URL for shareable player links shown in the Game Details panel
+const SHARE_BASE       = 'https://the-game-bureau.github.io/the-game-bureau/play/index.html?id=';
+const SHARE_BASE_LOCAL = 'http://localhost:3000/play/index.html?id=';
+// Preset genre/category tags that appear as pills in the game details form
+const ALL_TAGS = ['Mystery','Puzzle','SMS','Walking Tour','Sports','History','Food','Adventure','Family','Conspiracy','Trivia','Horror','Romance','Comedy','Music','Culture','Night Life','City Tour','Scavenger Hunt','New Orleans'];
+
+// ══ STATE VARIABLES ══════════════════════════════════════════════════════════
+let games = [];            // Full array of game objects loaded from /games (games_archive.json)
+let selectedIndex = -1;   // Index into `games` of the currently selected game (-1 = none)
+let selectedStopIndex = -1; // Index into `state.stops` of the currently selected stop (-1 = none)
+let selectedTags = new Set(); // Tags that are toggled ON for the currently selected game
+let isNew = false;         // True when a new game form is open but not yet saved
+let allTags = [...ALL_TAGS]; // Working tag list — extended when the user adds a custom tag
+let gamesDirty = false;    // True when game route data changed outside the active game form and still needs saving
+
+// ══════════════════════════════════════════════
+// BUBBLE EDITOR — DATA / CONSTANTS
+// ══════════════════════════════════════════════
+
+// Skeleton structure written to stops.json when none exists yet
+const DEFAULT_DOC = {
+  _comment:'File: stops.json | Purpose: Source-of-truth game stops data.',
+  header:{title:'Scavenger Hunt',subtitle:'Mission Control',logoUrl:'logo.png',logoAlt:'Game Logo',faviconUrl:'index.ico',pageTitle:'WALKING TOUR'},
+  variables:[],routes:[],stops:[]
+};
+// Random reply suggestions auto-filled into new correct/incorrect reply bubbles
+const CORRECT_BUBBLE_SUGGESTIONS=['Correct. Nice work.','Great answer. Moving on.','You got it.','Perfect. Next clue unlocked.','Exactly right.','Right on target.','Nice catch. Continue.','That is correct.','Excellent. Proceed.','Yes. Keep going.'];
+const INCORRECT_BUBBLE_SUGGESTIONS=['Not quite. Try again.','Close, but not correct.','Incorrect. Give it another shot.','That answer does not match.','Nope. Try a different answer.','Almost. Re-read the clue.','Not yet. Check your spelling.','That is not the one.','Incorrect. One more try.','Try again before moving on.'];
+// Attach builder runtime options to the default doc header so they persist in stops.json
+DEFAULT_DOC.header.builderOptions={typingDelay:600,bubblePause:150,defaultPlaceholder:'Type here...'};
+
+let bubbleIdCounter = 1;          // Monotonic counter used when creating stable bubble IDs
+let state = Object.assign({}, DEFAULT_DOC, { stops: [] }); // Live in-memory document — mirrors what will be written to stops.json
+let loadedStopsSnapshot = null;   // Deep-clone of state at last save; compared against current state to detect unsaved changes
+let copiedStop = null;            // Holds a deep-cloned stop object for copy/paste (currently unused in UI but wired up)
+let undoDeleteTimer = null, deletedStopUndo = null; // Timer handle and saved stop object for the 5-second undo toast
+let isNewStop = false;            // True while a stop has been created locally but not yet saved to the server
+
+// ══ STATUS BAR HELPERS ════════════════════════════════════════════════════════
+
+function browserNotify(msg) {
+  const text=String(msg||'').trim();
+  if(!text) return;
+  window.alert(text);
+}
+function setStatus(msg, type) { browserNotify(msg); }
+function flashStatus(msg, type, ms) { browserNotify(msg); }
+// Returns an array of stop IDs that appear more than once (case-insensitive)
+function findDuplicates(values){const seen=new Set(),dupes=new Set();values.forEach(v=>{if(seen.has(v))dupes.add(v);else seen.add(v);});return Array.from(dupes);}
+// Collects all data-integrity warnings for the current stop set (duplicate IDs, multiple CTAs)
+function getValidationWarnings(){const warnings=[];const snp=state.stops.map(s=>String((s&&s.id)||'').trim()).filter(Boolean).map(name=>({raw:name,key:name.toLowerCase()}));const dupKeys=findDuplicates(snp.map(p=>p.key));if(dupKeys.length){const dn=dupKeys.map(k=>{const f=snp.find(p=>p.key===k);return f?f.raw:k;});warnings.push('Two stops cannot have the same name: '+dn.join(', '));}state.stops.forEach(stop=>{const cc=Array.isArray(stop.messages)?stop.messages.filter(b=>b&&b.callToAction).length:0;if(cc>1)warnings.push('Stop \u201c'+stop.id+'\u201d has '+cc+' call-to-action bubbles \u2014 only one is allowed per stop.');});return warnings;}
+// Re-renders the yellow warning banner above the stop detail panel; hides it when there are no warnings
+function renderWarnings(){const el=document.getElementById('s-warnings');if(!el)return[];const w=getValidationWarnings();if(!w.length){el.style.display='none';el.innerHTML='';return w;}el.style.display='';el.innerHTML='<strong>Validation Warnings</strong><ul>'+w.map(x=>'<li>'+x+'</li>').join('')+'</ul>';return w;}
+
+// ══════════════════════════════════════════════
+// BUBBLE EDITOR — UTILITIES
+// ══════════════════════════════════════════════
+
+// Simple deep-clone via JSON round-trip (safe for plain data objects with no functions/Date)
+function deepClone(v) { return JSON.parse(JSON.stringify(v)); }
+// Splits a textarea value into an array of answers, accepting newline, comma, or semicolon separators
+function parseAnswers(text) { return String(text||'').split(/\n|,|;/g).map(s=>s.trim()).filter(Boolean); }
+// Normalises a string for loose answer matching (lowercase, strip punctuation and whitespace)
+function norm(s) { return String(s||'').toLowerCase().replace(/[$,.\s]/g,''); }
+// Converts an answers array back to a newline-separated string for textarea display
+function answersToText(arr) { return Array.isArray(arr) ? arr.join('\n') : ''; }
+// Picks a random item from a suggestion list; returns empty string if the list is empty
+function pickRandomSuggestion(list) { if(!Array.isArray(list)||!list.length)return''; return list[Math.floor(Math.random()*list.length)]; }
+// Resizes a textarea to fit its content, respecting any CSS min-height
+function autoSizeTextarea(el) { if(!el)return; const m=parseInt((window.getComputedStyle(el).minHeight||'0').replace('px',''),10)||0; el.style.height='auto'; el.style.height=Math.max(el.scrollHeight,m)+'px'; }
+// Wires up auto-resize on input events and performs an initial resize after the next paint
+function bindAutoSizeTextarea(el) { if(!el)return; el.addEventListener('input',()=>autoSizeTextarea(el)); requestAnimationFrame(()=>autoSizeTextarea(el)); }
+// Generates a stable, unique bubble ID using timestamp + monotonic counter
+function createBubbleId() { return 'bubble_'+Date.now().toString(36)+'_'+(bubbleIdCounter++); }
+// Ensures a bubble object has a bubbleId, creating one if missing; returns the ID string
+function ensureBubbleId(bubble) { if(!bubble||typeof bubble!=='object')return''; if(!String(bubble.bubbleId||'').trim())bubble.bubbleId=createBubbleId(); return String(bubble.bubbleId); }
+// Strips HTML tags from bubble content for use in plain-text previews
+function stripHtmlPreview(text) { return String(text||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(); }
+// Replaces all bubbleIds in a stop's messages array with fresh IDs (used after copy/paste)
+function reseedStopBubbleIds(stop) { if(!stop||!Array.isArray(stop.messages))return; stop.messages.forEach(b=>{if(!b||typeof b!=='object')return; b.bubbleId=createBubbleId();}); }
+// WeakMap-based UID for DOM key tracking — avoids mutating bubble objects with transient display IDs
+const bubbleUidMap=new WeakMap(); let bubbleUidCounter=1;
+// Returns a stable render-time UID for a bubble object without touching the object's own properties
+function getBubbleUid(bubble) { if(!bubble||typeof bubble!=='object')return'bubble-0'; let id=bubbleUidMap.get(bubble); if(!id){id='bubble-'+(bubbleUidCounter++);bubbleUidMap.set(bubble,id);} return id; }
+// Converts arbitrary text into a safe JS variable key name, falling back to `fallback`
+function toVarKey(text,fallback) { const c=String(text||'').replace(/[^\w]+/g,'_').replace(/^_+|_+$/g,''); return c||String(fallback||'playerAnswer'); }
+// Ensures state.header.builderOptions is present and fully populated with defaults
+function ensureBuilderOptionsHeader(h) { if(!h||typeof h!=='object')return DEFAULT_DOC.header.builderOptions; if(!h.builderOptions||typeof h.builderOptions!=='object')h.builderOptions={}; const bo=h.builderOptions; if(typeof bo.typingDelay!=='number')bo.typingDelay=600; if(typeof bo.bubblePause!=='number')bo.bubblePause=150; if(typeof bo.defaultPlaceholder!=='string')bo.defaultPlaceholder='Type here...'; delete bo.correctReplies; delete bo.incorrectReplies; return bo; }
+// Returns the configured correct-reply suggestion list, falling back to the built-in defaults
+function getCorrectReplySuggestions() { return []; }
+// Returns the configured incorrect-reply suggestion list, falling back to the built-in defaults
+function getIncorrectReplySuggestions() { return []; }
+// Scans all stops and bubbles for storesAs values and returns a deduplicated list of variable names
+function getCurrentVariableNames() { const nv=raw=>{const s=String(raw||'').trim(),w=s.match(/^\{\{\s*([A-Za-z_]\w*)\s*\}\}$|^\{\s*([A-Za-z_]\w*)\s*\}$/);return w?(w[1]||w[2]):s;}; const names=[]; (state.stops||[]).forEach(stop=>{const key=nv((stop&&stop.playerReply&&stop.playerReply.storesAs)||''); if(key)names.push(key); (Array.isArray(stop&&stop.messages)?stop.messages:[]).forEach(b=>{const bk=nv((b&&b.storesAs)||''); if(bk)names.push(bk);}); }); return Array.from(new Set(names)); }
+// (no-op — variable hints removed)
+function getHtmlVariableHintText() { return ''; }
+function updateHtmlVariableHints() {}
+function createHtmlVariableHint() { return document.createDocumentFragment(); }
+
+// ══════════════════════════════════════════════
+// BUBBLE EDITOR — ENSURE FUNCTIONS
+// ══════════════════════════════════════════════
+// These functions normalise raw JSON data into the exact shape the editor expects,
+// filling in defaults and coercing stale field names from older stops.json formats.
+
+// Normalises a single bubble object, coercing unknown replyExpected / msgType values to safe defaults.
+// Also back-fills callToAction=true whenever a bubble expects a reply (covers the legacy `red`/`cmd` fields).
+function ensureBubble(b) {
+  if(!b||typeof b!=='object')return{bubbleId:createBubbleId(),html:'',callToAction:false,forAnswer:'',placeholder:'',bottomAdded:false,msgType:'text',src:'',alt:'',label:'',href:'',replyExpected:'no',answers:[],storesAs:'',replyResponse:'',fromPlayer:false};
+  const re=['no','word','any','multi'].includes(String(b.replyExpected||'no').toLowerCase())?String(b.replyExpected||'no').toLowerCase():'no';
+  const mt=['text','image','video','button','pay'].includes(String(b.msgType||'text').toLowerCase())?String(b.msgType||'text').toLowerCase():'text';
+  return{bubbleId:String(b.bubbleId||createBubbleId()),html:String(b.html??b.text??''),callToAction:re!=='no'?true:!!(b.callToAction||b.red||b.cmd),forAnswer:String(b.forAnswer||''),placeholder:String(b.placeholder||''),bottomAdded:!!b.bottomAdded,msgType:mt,src:String(b.src||''),alt:String(b.alt||''),label:String(b.label||''),href:String(b.href||''),replyExpected:re,answers:Array.isArray(b.answers)?b.answers.map(String):[],storesAs:String(b.storesAs||''),replyResponse:String(b.replyResponse||''),fromPlayer:!!(b.fromPlayer||b.direction==='fromPlayer')};
+}
+// Normalises a playerReply object; also handles the legacy `action` field name.
+// For 'any' reply type, preserves storesAs so the player's answer can be used in later bubbles.
+function ensurePlayerReply(r) {
+  if(!r||typeof r!=='object')return{type:'text',placeholder:'',answers:[],setsTeam:false,goTo:''};
+  const type=r.type==='any'?'any':'text';
+  const base={type};
+  if(type==='any'){base.placeholder=String(r.placeholder||'');base.storesAs=String(r.storesAs||'');return base;}
+  base.placeholder=String(r.placeholder||'');base.answers=Array.isArray(r.answers)?r.answers.map(x=>String(x)):[];base.setsTeam=!!r.setsTeam;base.anytime=!!r.anytime;base.goTo=String(r.goTo||'');return base;
+}
+function isPlayerBubble(bubble) {
+  return !!(bubble && (bubble.fromPlayer || bubble.direction === 'fromPlayer'));
+}
+function createSimpleMessageBubble(src, fromPlayer) {
+  const bubble=ensureBubble(src||null);
+  bubble.html=String((src&&(src.html??src.text))??bubble.html??'');
+  bubble.callToAction=false;
+  bubble.forAnswer='';
+  bubble.placeholder='';
+  bubble.bottomAdded=false;
+  bubble.msgType='text';
+  bubble.src='';
+  bubble.alt='';
+  bubble.label='';
+  bubble.href='';
+  bubble.replyExpected='no';
+  bubble.answers=[];
+  bubble.storesAs='';
+  bubble.replyResponse='';
+  bubble.fromPlayer=!!fromPlayer;
+  delete bubble.replyCorrect;
+  delete bubble.replyIncorrect;
+  delete bubble.direction;
+  return bubble;
+}
+function deriveOutgoingBubble(stop) {
+  const pr=(stop&&stop.playerReply)||(stop&&stop.action)||null;
+  const prompt=(Array.isArray(stop&&stop.messages)?stop.messages:Array.isArray(stop&&stop.reveal)?stop.reveal:[]).find(b=>b&&!isPlayerBubble(b)&&['word','any','branch'].includes(String(b.replyExpected||'').toLowerCase()));
+  if(prompt&&String(prompt.html??prompt.text??'').trim())return prompt;
+  if(prompt&&typeof prompt.replyResponse==='string'&&prompt.replyResponse.trim())return { html:prompt.replyResponse };
+  return null;
+}
+function deriveIncomingBubble(stop) {
+  const pr=(stop&&stop.playerReply)||(stop&&stop.action)||null;
+  if(pr&&Array.isArray(pr.answers)&&pr.answers.length)return { html:String(pr.answers[0]||''), fromPlayer:true };
+  if(pr&&typeof pr.playerText==='string'&&pr.playerText.trim())return { html:String(pr.playerText), fromPlayer:true };
+  if(pr&&pr.type==='button'&&typeof pr.text==='string'&&pr.text.trim())return { html:String(pr.playerText||pr.text), fromPlayer:true };
+  const prompt=(Array.isArray(stop&&stop.messages)?stop.messages:Array.isArray(stop&&stop.reveal)?stop.reveal:[]).find(b=>b&&['word','any','branch'].includes(String(b.replyExpected||'').toLowerCase()));
+  if(prompt&&Array.isArray(prompt.answers)&&prompt.answers.length)return { html:String(prompt.answers[0]||''), fromPlayer:true };
+  return null;
+}
+function finalizeSimpleMessageGroup(group) {
+  const firstRole=(group&&Array.isArray(group.order)&&group.order[0]==='trigger')?'trigger':'outgoing';
+  const outgoingBubble=createSimpleMessageBubble(group&&group.outgoing,false);
+  const triggerBubble=createSimpleMessageBubble(group&&group.trigger,true);
+  return firstRole==='trigger'?[triggerBubble,outgoingBubble]:[outgoingBubble,triggerBubble];
+}
+function createEmptySimpleMessageGroup(triggerFirst) {
+  return finalizeSimpleMessageGroup({order:[triggerFirst?'trigger':'outgoing'],outgoing:null,trigger:null});
+}
+function flattenSimpleMessageGroups(groups) {
+  return Array.isArray(groups)?groups.reduce((all,group)=>all.concat(Array.isArray(group)?group:[]),[]):[];
+}
+function buildSimpleStopMessageGroups(stop) {
+  const msgs=Array.isArray(stop&&stop.messages)?stop.messages:Array.isArray(stop&&stop.reveal)?stop.reveal:[];
+  const groups=[];
+  let pending=null;
+  const flushPending=()=>{if(!pending)return;groups.push(finalizeSimpleMessageGroup(pending));pending=null;};
+  msgs.forEach(src=>{
+    if(!src||typeof src!=='object')return;
+    const role=isPlayerBubble(src)?'trigger':'outgoing';
+    if(!pending){
+      pending={order:[role],outgoing:null,trigger:null};
+      pending[role]=src;
+      return;
+    }
+    if(!pending[role]){
+      pending[role]=src;
+      pending.order.push(role);
+      flushPending();
+      return;
+    }
+    flushPending();
+    pending={order:[role],outgoing:null,trigger:null};
+    pending[role]=src;
+  });
+  flushPending();
+  if(!groups.length){
+    const derivedOutgoing=deriveOutgoingBubble(stop);
+    const derivedTrigger=deriveIncomingBubble(stop);
+    groups.push(finalizeSimpleMessageGroup({
+      order:[derivedTrigger&&!derivedOutgoing?'trigger':'outgoing'],
+      outgoing:derivedOutgoing,
+      trigger:derivedTrigger
+    }));
+  }
+  return groups.length?groups:[createEmptySimpleMessageGroup(false)];
+}
+function normalizeSimpleStopMessages(stop, preserveEmptyMessages) {
+  const msgs=Array.isArray(stop&&stop.messages)?stop.messages:Array.isArray(stop&&stop.reveal)?stop.reveal:[];
+  const direct=msgs.map(src=>createSimpleMessageBubble(src,isPlayerBubble(src)));
+  const directFilled=direct.filter(b=>String(b.html||'').trim());
+  if(preserveEmptyMessages?direct.length:directFilled.length){
+    stop.messages=preserveEmptyMessages?direct:directFilled;
+    stop.playerReply=ensurePlayerReply(null);
+    return stop.messages;
+  }
+  const derived=[];
+  const derivedOutgoing=deriveOutgoingBubble(stop);
+  const derivedIncoming=deriveIncomingBubble(stop);
+  if(derivedOutgoing&&String(derivedOutgoing.html??derivedOutgoing.text??'').trim())derived.push(createSimpleMessageBubble(derivedOutgoing,false));
+  if(derivedIncoming&&String(derivedIncoming.html??derivedIncoming.text??'').trim())derived.push(createSimpleMessageBubble(derivedIncoming,true));
+  if(!derived.length)derived.push(createSimpleMessageBubble(null,false));
+  stop.messages=derived;
+  stop.playerReply=ensurePlayerReply(null);
+  return derived;
+}
+// Normalises a stop; also supports the legacy `reveal` field (old name for `messages`)
+function ensureStop(s,i,preserveEmptyMessages) {
+  const stop={id:String((s&&s.id)||('stop-'+(i+1))),name:String((s&&s.name)||''),messages:Array.isArray(s&&s.messages)?s.messages.map(ensureBubble):Array.isArray(s&&s.reveal)?s.reveal.map(ensureBubble):[],playerReply:ensurePlayerReply((s&&s.playerReply)||(s&&s.action)||null),archived:!!(s&&s.archived),createdAt:(s&&s.createdAt)||null,updatedAt:(s&&s.updatedAt)||null};
+  normalizeSimpleStopMessages(stop,!!preserveEmptyMessages);
+  return stop;
+}
+// Validates and normalises a full stops.json document object into the shape the editor requires
+function ensureDoc(doc) {
+  if(!doc||typeof doc!=='object'||Array.isArray(doc))throw new Error('Top-level JSON must be an object.');
+  const out=deepClone(DEFAULT_DOC);
+  if(doc.header&&typeof doc.header==='object')out.header=Object.assign({},out.header,doc.header);
+  ensureBuilderOptionsHeader(out.header);
+  if(!Array.isArray(doc.stops))throw new Error('Missing "stops" array.');
+  out.stops=doc.stops.map(ensureStop);
+  if(Array.isArray(doc.variables))out.variables=deepClone(doc.variables);
+  if(Array.isArray(doc.routes))out.routes=deepClone(doc.routes);
+  if(typeof doc._comment==='string')out._comment=doc._comment;
+  return out;
+}
+
+// ══════════════════════════════════════════════
+// BUBBLE EDITOR — STOP HELPERS
+// ══════════════════════════════════════════════
+
+// Finds the next available auto-increment number for a NEW-N stop ID (skips over any already in use)
+function nextStopNumber() { const ex=new Set(state.stops.map(s=>String(s.id||'').toUpperCase())); let n=state.stops.length+1; while(ex.has('NEW-'+n))n++; return n; }
+// Creates a blank stop with one empty guide bubble.
+function createEmptyStop() { const now=new Date().toISOString(); return{id:'NEW-'+nextStopNumber(),name:'',messages:[createSimpleMessageBubble(null,false)],playerReply:ensurePlayerReply(null),createdAt:now,updatedAt:now}; }
+let pendingBubbleFocusId = '';
+// Returns the reply-type label and CSS class for a stop's colored badge in the stops list
+function getReplyTag(stop) {
+  const pr=stop&&stop.playerReply;
+  if(!pr)return{label:'NOREPLY',cls:'reply-tag-noreply'};
+  if(pr.anytime)return{label:'ANYTIME',cls:'reply-tag-anytime'};
+  if(pr.type==='any')return{label:'ANYREPLY',cls:'reply-tag-anyreply'};
+  if(pr.type==='multi')return{label:'CHOICEREPLY',cls:'reply-tag-choicereply'};
+  if(pr.type==='text'&&Array.isArray(pr.answers)&&pr.answers.length)return{label:'WORDREPLY',cls:'reply-tag-wordreply'};
+  return{label:'NOREPLY',cls:'reply-tag-noreply'};
+}
+// True if the stop has at least one bubble marked as a call-to-action (red outline)
+function hasCallToActionBubble(stop){return!!(stop&&Array.isArray(stop.messages)&&stop.messages.some(b=>b&&b.callToAction));}
+// True if the stop has any bubble sent from the player direction (legacy data check)
+function hasFromPlayerBubble(stop){return!!(stop&&Array.isArray(stop.messages)&&stop.messages.some(b=>b&&b.direction==='fromPlayer'));}
+// Sets the playerReply type on a stop, initialising all required sub-arrays; for 'any' type,
+// auto-generates a storesAs variable name from the stop ID if one hasn't been set yet
+function setPlayerReplyType(stop,nextType){if(!stop)return;if(!stop.playerReply||typeof stop.playerReply!=='object')stop.playerReply=ensurePlayerReply(null);stop.playerReply.type=nextType==='any'?'any':'text';if(!Array.isArray(stop.playerReply.answers))stop.playerReply.answers=[];if(typeof stop.playerReply.storesAs!=='string')stop.playerReply.storesAs='';if(typeof stop.playerReply.placeholder!=='string')stop.playerReply.placeholder='';if(stop.playerReply.type==='any'&&!String(stop.playerReply.storesAs||'').trim())stop.playerReply.storesAs=toVarKey(stop.id+'_incoming','playerAnswer');}
+// Ensures a stop has at least one correct and (optionally) one incorrect reply bubble,
+// seeding them with random suggestion text if the arrays are empty
+function ensureReplyScaffoldForCallToAction(stop){if(!stop||!stop.playerReply||typeof stop.playerReply!=='object')stop.playerReply={type:'text',placeholder:'',answers:[],setsTeam:false,goTo:''};}
+function getCurrentGuideRadioLabel(){
+  const field=document.getElementById('g-subtitle');
+  const typed=field?String(field.value||'').trim():'';
+  if(typed)return typed+' (OR OTHER GUIDE) SAYS TO PLAYER . . .';
+  const game=selectedIndex>=0&&selectedIndex<games.length?games[selectedIndex]:null;
+  const subtitle=game?String(game.subtitle||'').trim():'';
+  return (subtitle||'{GUIDE NAME}')+' (OR OTHER GUIDE) SAYS TO PLAYER . . .';
+}
+function getCurrentPlayerReplyRadioLabel(){
+  const field=document.getElementById('g-subtitle');
+  const typed=field?String(field.value||'').trim():'';
+  if(typed)return 'PLAYER SAYS TO '+typed+' (OR OTHER GUIDE) . . .';
+  const game=selectedIndex>=0&&selectedIndex<games.length?games[selectedIndex]:null;
+  const subtitle=game?String(game.subtitle||'').trim():'';
+  return 'PLAYER SAYS TO '+(subtitle||'{GUIDE NAME}')+' (OR OTHER GUIDE) . . .';
+}
+
+// ══════════════════════════════════════════════
+// BUBBLE EDITOR — toDoc / dirty
+// ══════════════════════════════════════════════
+
+// Serialises the current in-memory `state` into the exact JSON shape written to stops.json.
+// Only includes variables/routes arrays when they are non-empty to keep the file clean.
+function toDoc() {
+  const header=Object.assign({},DEFAULT_DOC.header,state.header||{});
+  ensureBuilderOptionsHeader(header);
+  const doc={_comment:state._comment||DEFAULT_DOC._comment,header,stops:state.stops.map((s,i)=>{const n=ensureStop(s,i,true);const out={id:n.id,messages:n.messages,playerReply:n.playerReply,archived:n.archived};if(n.name)out.name=n.name;if(n.createdAt)out.createdAt=n.createdAt;if(n.updatedAt)out.updatedAt=n.updatedAt;return out;})};
+  if(Array.isArray(state.variables)&&state.variables.length)doc.variables=deepClone(state.variables);
+  if(Array.isArray(state.routes)&&state.routes.length)doc.routes=deepClone(state.routes);
+  // Keep pageTitle in sync with the header title so the player tab reads correctly
+  doc.header.pageTitle=doc.header.title||'';
+  return doc;
+}
+// Compares two document objects by their JSON representation (order-sensitive)
+function docsEqual(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+// Returns true if the current state differs from the last-saved snapshot.
+// `loadedStopsSnapshot` is null on first load, so we treat that as clean until the user edits.
+function isDirty(){if(!loadedStopsSnapshot)return false;return!docsEqual(toDoc(),loadedStopsSnapshot);}
+// Called after any edit to re-evaluate and show/hide the UNSAVED badge
+function markDirty(){renderDirtyBadge();}
+// Toggles the UNSAVED badge visibility based on whether isDirty() is true
+function renderDirtyBadge(){const badge=document.getElementById('s-dirtyBadge');if(!badge)return;badge.classList.toggle('visible',isDirty());}
+
+// ══════════════════════════════════════════════
+// BUBBLE EDITOR — UNDO TOAST
+// ══════════════════════════════════════════════
+
+// Shows the "Stop deleted. Undo" toast and stores the deleted stop so it can be restored.
+// Auto-dismisses after 5 seconds if the user does not click Undo.
+function showUndoToast(stopObj,index){deletedStopUndo={stop:stopObj,index};if(undoDeleteTimer)clearTimeout(undoDeleteTimer);const toast=document.getElementById('s-undoToast');if(toast)toast.style.display='flex';undoDeleteTimer=setTimeout(dismissUndoToast,5000);}
+// Clears the undo state and hides the toast (called on dismiss or after the timer fires)
+function dismissUndoToast(){if(undoDeleteTimer){clearTimeout(undoDeleteTimer);undoDeleteTimer=null;}deletedStopUndo=null;const toast=document.getElementById('s-undoToast');if(toast)toast.style.display='none';}
+
+document.getElementById('s-undoDeleteBtn').addEventListener('click', () => {
+  if(!deletedStopUndo) return;
+  const {stop, index} = deletedStopUndo;
+  // Re-insert the stop at its original position so the list order is preserved
+  state.stops.splice(index, 0, stop);
+  selectedStopIndex = index;
+  dismissUndoToast();
+  s_renderAll();
+});
+
+// ══════════════════════════════════════════════
+// BUBBLE EDITOR — RENDER BUBBLES
+// ══════════════════════════════════════════════
+
+// Converts a YouTube watch/short/embed URL into a canonical embed URL; returns null for non-YouTube URLs
+function getYouTubeEmbedUrl(src){const s=String(src||'').trim(),short=s.match(/youtu\.be\/([A-Za-z0-9_-]{11})/);if(short)return'https://www.youtube.com/embed/'+short[1];const watch=s.match(/[?&]v=([A-Za-z0-9_-]{11})/);if(watch)return'https://www.youtube.com/embed/'+watch[1];const embed=s.match(/youtube\.com\/embed\/([A-Za-z0-9_-]{11})/);if(embed)return'https://www.youtube.com/embed/'+embed[1];return null;}
+// Generates the HTML string stored in bubble.html based on the bubble's msgType and media fields.
+// Called whenever a media field changes so the stored HTML stays in sync with the form inputs.
+function generateBubbleHtml(bubble){const t=bubble.msgType||'text';if(t==='image')return'<img src="'+(bubble.src||'').replace(/"/g,'&quot;')+'" alt="'+(bubble.alt||'').replace(/"/g,'&quot;')+'" style="max-width:100%;">';if(t==='video'){const yt=getYouTubeEmbedUrl(bubble.src||'');if(yt)return'<iframe src="'+yt.replace(/"/g,'&quot;')+'" frameborder="0" allowfullscreen style="width:100%;aspect-ratio:16/9;display:block;"></iframe>';return'<video src="'+(bubble.src||'').replace(/"/g,'&quot;')+'" controls style="max-width:100%;"></video>';}if(t==='button')return'<a href="'+(bubble.href||'#').replace(/"/g,'&quot;')+'" class="action-btn">'+(bubble.label||'Button')+'</a>';if(t==='pay')return'<a href="'+(bubble.href||'#').replace(/"/g,'&quot;')+'" class="action-btn pay-btn">'+(bubble.label||'CLICK HERE TO BUY')+'</a>';return bubble.html||'';}
+
+// Renders an array of bubble objects into `container` as interactive editor cards.
+// `listKey` controls which suggestion set to use ('messages', 'correct', or 'incorrect').
+// `stopRef` is the parent stop object, needed so remove buttons can splice from the right array.
+function renderBubbles(container, bubbles, listKey, stopRef) {
+  container.innerHTML=''; container.classList.add('bubble-list');
+  bubbles.forEach((bubble, idx) => {
+    const bubbleId=ensureBubbleId(bubble);
+    if(!String(bubble.html||'').trim()){const sugg=listKey==='correct'?getCorrectReplySuggestions():listKey==='incorrect'?getIncorrectReplySuggestions():null;if(sugg&&sugg.length)bubble.html=pickRandomSuggestion(sugg);}
+    const wrap=document.createElement('div');
+    const isMessages=listKey==='messages',msgType=isMessages?(bubble.msgType||'text'):null;
+    const replyMode=String((bubble&&bubble.replyExpected)||'no').toLowerCase(),bubbleNeedsReply=replyMode==='word'||replyMode==='any';
+    wrap.className='bubble'+(isMessages&&bubbleNeedsReply?' cta-bubble':''); wrap.dataset.bubbleId=bubbleId;
+    if(isMessages){const dl=document.createElement('div');dl.className='bubble-details-label';dl.textContent='BUBBLE DETAILS';wrap.appendChild(dl);}
+    const topRow=document.createElement('div'); topRow.className='bubble-top';
+    const removeBtn=document.createElement('button'); removeBtn.type='button'; removeBtn.className='stop-action stop-delete bubble-remove'; removeBtn.title='REMOVE';
+    removeBtn.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><rect x="6" y="6" width="12" height="14" rx="2" ry="2"/><path d="M10 10v7"/><path d="M14 10v7"/></svg>';
+    topRow.appendChild(removeBtn); wrap.appendChild(topRow);
+    if(isMessages){
+      const typeRow=document.createElement('div'); typeRow.className='bubble-type-row';
+      const bubbleUid=bubbleId||getBubbleUid(bubble),radioName='msgtype-'+bubbleUid;
+      ['text','image','video','button','pay'].forEach(t=>{const rid=radioName+'-'+t;const radio=document.createElement('input');radio.type='radio';radio.name=radioName;radio.value=t;radio.id=rid;radio.checked=t===msgType;const rl=document.createElement('label');rl.htmlFor=rid;rl.textContent=t;const p=document.createElement('span');p.className='type-pair';p.appendChild(radio);p.appendChild(rl);typeRow.appendChild(p);});
+      wrap.appendChild(typeRow);
+      const sections={
+        text:(()=>{const d=document.createElement('div');d.className='msg-type-section';d.dataset.type='text';if(msgType!=='text')d.style.display='none';const ta=document.createElement('textarea');ta.className='bubble-html-input';ta.value=String(bubble.html||'');const shell=document.createElement('div');shell.className='bubble-html-shell';shell.appendChild(ta);d.appendChild(shell);d.appendChild(createHtmlVariableHint());bindAutoSizeTextarea(ta);return d;})(),
+        image:(()=>{const d=document.createElement('div');d.className='msg-type-section';d.dataset.type='image';if(msgType!=='image')d.style.display='none';d.innerHTML='<label>Image URL</label><input type="text" class="bubble-src-input" placeholder="https://..." value="'+String(bubble.src||'').replace(/"/g,'&quot;')+'"><label>Alt text</label><input type="text" class="bubble-alt-input" placeholder="description" value="'+String(bubble.alt||'').replace(/"/g,'&quot;')+'">';return d;})(),
+        video:(()=>{const d=document.createElement('div');d.className='msg-type-section';d.dataset.type='video';if(msgType!=='video')d.style.display='none';d.innerHTML='<label>Video URL</label><input type="text" class="bubble-src-input" placeholder="https://www.youtube.com/watch?v=..." value="'+String(bubble.src||'').replace(/"/g,'&quot;')+'">';return d;})(),
+        button:(()=>{const d=document.createElement('div');d.className='msg-type-section';d.dataset.type='button';if(msgType!=='button')d.style.display='none';d.innerHTML='<label>Button label</label><input type="text" class="bubble-label-input" placeholder="Click here" value="'+String(bubble.label||'').replace(/"/g,'&quot;')+'"><label>Link (href)</label><input type="text" class="bubble-href-input" placeholder="https://..." value="'+String(bubble.href||'').replace(/"/g,'&quot;')+'">';return d;})(),
+        pay:(()=>{const d=document.createElement('div');d.className='msg-type-section';d.dataset.type='pay';if(msgType!=='pay')d.style.display='none';d.innerHTML='<label>Pay button label</label><input type="text" class="bubble-label-input" placeholder="CLICK HERE TO BUY" value="'+String(bubble.label||'').replace(/"/g,'&quot;')+'"><label>Product link</label><input type="text" class="bubble-href-input" placeholder="https://..." value="'+String(bubble.href||'').replace(/"/g,'&quot;')+'">';return d;})()
+      };
+      Object.values(sections).forEach(s=>wrap.appendChild(s));
+      const applyVisualType=()=>{wrap.classList.toggle('photo-bubble',(bubble.msgType||'text')==='image');wrap.classList.toggle('cta-bubble',(bubble.replyExpected||'no')!=='no');};
+      applyVisualType();
+      typeRow.querySelectorAll('input[type="radio"]').forEach(radio=>{radio.addEventListener('change',e=>{bubble.msgType=e.target.value;wrap.querySelectorAll('.msg-type-section').forEach(s=>s.style.display=s.dataset.type===e.target.value?'':'none');bubble.html=generateBubbleHtml(bubble);applyVisualType();});});
+      const replyExpected=bubble.replyExpected||'no',replySection=document.createElement('div');replySection.className='bubble-reply-section';
+      const replyLbl=document.createElement('div');replyLbl.className='bubble-details-label bubble-reply-label';replyLbl.textContent='REPLY EXPECTED';replySection.appendChild(replyLbl);
+      const replyRow=document.createElement('div');replyRow.className='bubble-type-row';const rName='reply-'+bubbleUid;
+      ['no','word','any','multi'].forEach(val=>{const rid=rName+'-'+val;const r=document.createElement('input');r.type='radio';r.name=rName;r.value=val;r.id=rid;r.checked=replyExpected===val;const rl=document.createElement('label');rl.htmlFor=rid;rl.textContent=val.toUpperCase();const p=document.createElement('span');p.className='type-pair';p.appendChild(r);p.appendChild(rl);replyRow.appendChild(p);});
+      replySection.appendChild(replyRow);
+      const mkLbl=t=>{const l=document.createElement('label');l.textContent=t;return l;};
+      const mkTA=(val,onChange)=>{const ta=document.createElement('textarea');ta.value=val;ta.addEventListener('input',e=>onChange(e.target.value));return ta;};
+      const mkInput=(val,ph,onChange)=>{const inp=document.createElement('input');inp.type='text';inp.value=val;inp.placeholder=ph;inp.addEventListener('input',e=>onChange(e.target.value));return inp;};
+      const wordFields=document.createElement('div');wordFields.className='reply-fields';wordFields.style.display=replyExpected==='word'?'':'none';
+      const wPh=mkInput(bubble.placeholder||'',ensureBuilderOptionsHeader(state.header).defaultPlaceholder||'Type here...',v=>{bubble.placeholder=v;});
+      const wAnswers=mkTA(answersToText(bubble.answers||[]),v=>{bubble.answers=parseAnswers(v);});wAnswers.className='bubble-answer-input';wAnswers.placeholder='One per line or use ; separator';
+      const wAnswersShell=document.createElement('div');wAnswersShell.className='bubble-answer-shell';wAnswersShell.appendChild(wAnswers);
+      const wAnswersStage=document.createElement('div');wAnswersStage.className='bubble-chat-stage';wAnswersStage.appendChild(wAnswersShell);bindAutoSizeTextarea(wAnswers);
+      const expectedHint=document.createElement('p');expectedHint.className='field-hint tight';expectedHint.textContent='Separate acceptable replies with ; or one per line.';
+      [mkLbl('Typing Placeholder'),wPh,mkLbl('Expected Reply'),expectedHint,wAnswersStage].forEach(el=>wordFields.appendChild(el));
+      replySection.appendChild(wordFields);
+      const anyFields=document.createElement('div');anyFields.className='reply-fields';anyFields.style.display=replyExpected==='any'?'':'none';
+      const aPh=mkInput(bubble.placeholder||'',ensureBuilderOptionsHeader(state.header).defaultPlaceholder||'Type here...',v=>{bubble.placeholder=v;});
+      const aStores=mkInput(bubble.storesAs||'','{variable}',v=>{bubble.storesAs=v;updateHtmlVariableHints();});
+      const aResp=mkTA(bubble.replyResponse||'',v=>{bubble.replyResponse=v;});
+      [mkLbl('Typing Placeholder'),aPh,mkLbl('Reply Stored As'),aStores,mkLbl('Response'),aResp].forEach(el=>anyFields.appendChild(el));
+      replySection.appendChild(anyFields);
+      replyRow.querySelectorAll('input[type="radio"]').forEach(r=>{r.addEventListener('change',e=>{bubble.replyExpected=e.target.value;bubble.callToAction=e.target.value!=='no';wordFields.style.display=e.target.value==='word'?'':'none';anyFields.style.display=e.target.value==='any'?'':'none';applyVisualType();});});
+      wrap.appendChild(replySection);
+      const htmlInput=sections.text.querySelector('.bubble-html-input');if(htmlInput)htmlInput.addEventListener('input',e=>{bubble.html=e.target.value;});
+      [sections.image,sections.video].forEach(s=>{const si=s.querySelector('.bubble-src-input');if(si)si.addEventListener('input',e=>{bubble.src=e.target.value;bubble.html=generateBubbleHtml(bubble);});});
+      const altInput=sections.image.querySelector('.bubble-alt-input');if(altInput)altInput.addEventListener('input',e=>{bubble.alt=e.target.value;bubble.html=generateBubbleHtml(bubble);});
+      [sections.button,sections.pay].forEach(s=>{const li=s.querySelector('.bubble-label-input');if(li)li.addEventListener('input',e=>{bubble.label=e.target.value;bubble.html=generateBubbleHtml(bubble);});const hi=s.querySelector('.bubble-href-input');if(hi)hi.addEventListener('input',e=>{bubble.href=e.target.value;bubble.html=generateBubbleHtml(bubble);});});
+    }
+    removeBtn.addEventListener('click',()=>{const stop=stopRef||getSelectedStop();if(listKey==='messages'&&stop&&Array.isArray(stop.messages)){const si=stop.messages.indexOf(bubbles[idx]);if(si>=0)stop.messages.splice(si,1);}else bubbles.splice(idx,1);s_renderAll();});
+    container.appendChild(wrap);
+  });
+}
+
+// Renders the simplified "anytime" stop editor — a trigger-keyword input and a single reply bubble.
+// Anytime stops respond to a player's keyword at any point during the game, not just at a specific step.
+function renderAnytimeEditorInto(body, stop) {
+  const pr=stop.playerReply||(stop.playerReply=ensurePlayerReply(null));pr.anytime=true;
+  const triggerRow=document.createElement('div');triggerRow.className='anytime-bubble-row';
+  const triggerLbl=document.createElement('div');triggerLbl.className='anytime-bubble-lbl';triggerLbl.style.textAlign='right';triggerLbl.textContent='Player Types';
+  const triggerPreview=document.createElement('div');triggerPreview.className='anytime-bubble-preview right';
+  const triggerBubble=document.createElement('div');triggerBubble.className='anytime-chat-bubble player';
+  const triggerInput=document.createElement('input');triggerInput.type='text';triggerInput.placeholder='word1, word2, …';triggerInput.value=(pr.answers||[]).join(', ');
+  triggerInput.addEventListener('input',()=>{pr.answers=triggerInput.value.split(/[,\n]+/).map(s=>s.trim()).filter(Boolean);});
+  triggerBubble.appendChild(triggerInput);triggerPreview.appendChild(triggerBubble);triggerRow.appendChild(triggerLbl);triggerRow.appendChild(triggerPreview);body.appendChild(triggerRow);
+  const replyRow=document.createElement('div');replyRow.className='anytime-bubble-row';
+  const replyLbl=document.createElement('div');replyLbl.className='anytime-bubble-lbl';replyLbl.textContent='Reply shown to player';
+  const replyPreview=document.createElement('div');replyPreview.className='anytime-bubble-preview left';
+  const replyBubble=document.createElement('div');replyBubble.className='anytime-chat-bubble game';
+  const firstCorrect=(pr.correct&&pr.correct[0])||null;
+  const replyInput=document.createElement('textarea');replyInput.rows=2;replyInput.placeholder='Reply text…';replyInput.value=firstCorrect?(firstCorrect.html||'').replace(/<br\s*\/?>/gi,'\n'):'';
+  replyInput.addEventListener('input',()=>{if(!Array.isArray(pr.correct)||!pr.correct.length)pr.correct=[{bubbleId:createBubbleId(),html:''}];pr.correct[0].html=replyInput.value.replace(/\n/g,'<br>');});
+  replyBubble.appendChild(replyInput);replyPreview.appendChild(replyBubble);replyRow.appendChild(replyLbl);replyRow.appendChild(replyPreview);body.appendChild(replyRow);
+}
+
+// Renders the full stop editor: the outgoing message bubbles, an Add Bubble button,
+// and (for 'any' reply type) a variable-selector for storing the player's answer.
+function renderStopEditorInto(body, stop) {
+  const pr=stop&&stop.playerReply?stop.playerReply:ensurePlayerReply(null);stop.playerReply=pr;
+  if(hasCallToActionBubble(stop)||hasFromPlayerBubble(stop))setPlayerReplyType(stop,pr.type);
+  const msgBubblesDiv=document.createElement('div');renderBubbles(msgBubblesDiv,stop.messages||[],'messages',stop);body.appendChild(msgBubblesDiv);
+  const addRow=document.createElement('div');addRow.className='row';
+  const addInner=document.createElement('div');addInner.style.cssText='display:flex;align-items:center;gap:10px;';
+  const addBtn=document.createElement('button');addBtn.type='button';addBtn.className='add-bubble-btn';addBtn.textContent='Add Bubble';
+  const flashSpan=document.createElement('span');flashSpan.className='bubble-flash';
+  addBtn.addEventListener('click',()=>{stop.messages.push({bubbleId:createBubbleId(),msgType:'text',html:'',callToAction:false,bottomAdded:false});s_renderAll();flashSpan.textContent='Bubble Added';flashSpan.classList.add('visible');setTimeout(()=>flashSpan.classList.remove('visible'),1800);});
+  addInner.appendChild(addBtn);addInner.appendChild(flashSpan);addRow.appendChild(addInner);body.appendChild(addRow);
+}
+function renderSimpleStopEditorInto(body, stop) {
+  const bubbles=normalizeSimpleStopMessages(stop,true);
+  const syncBubbles=()=>{stop.messages=bubbles;stop.playerReply=ensurePlayerReply(null);};
+  const guideRadioLabel=getCurrentGuideRadioLabel();
+  const playerReplyRadioLabel=getCurrentPlayerReplyRadioLabel();
+
+  const toolbar=document.createElement('div');
+  toolbar.className='simple-stop-toolbar';
+  const addBubbleBtn=document.createElement('button');
+  addBubbleBtn.type='button';
+  addBubbleBtn.className='add-bubble-btn';
+  addBubbleBtn.textContent='Add Bubble';
+  addBubbleBtn.addEventListener('click',()=>{
+    const nextBubble=createSimpleMessageBubble(null,false);
+    bubbles.push(nextBubble);
+    pendingBubbleFocusId=nextBubble.bubbleId;
+    syncBubbles();
+    markDirty();
+    s_renderAll();
+  });
+  toolbar.appendChild(addBubbleBtn);
+  body.appendChild(toolbar);
+
+  bubbles.forEach((bubble,bubbleIndex)=>{
+    const bubbleWrap=document.createElement('div');
+    bubbleWrap.className='simple-stop-group';
+
+    const bubbleHeader=document.createElement('div');
+    bubbleHeader.className='simple-stop-group-header';
+    const bubbleTitle=document.createElement('div');
+    bubbleTitle.className='simple-stop-group-title';
+    bubbleTitle.textContent='Bubble '+String(bubbleIndex+1).padStart(2,'0');
+    const bubbleActions=document.createElement('div');
+    bubbleActions.className='simple-stop-group-actions';
+
+    const removeBtn=document.createElement('button');
+    removeBtn.type='button';
+    removeBtn.className='lp-btn danger';
+    removeBtn.textContent='Remove Bubble';
+    removeBtn.disabled=bubbles.length===1;
+    removeBtn.addEventListener('click',()=>{
+      if(bubbles.length===1)return;
+      bubbles.splice(bubbleIndex,1);
+      syncBubbles();
+      markDirty();
+      s_renderAll();
+    });
+    bubbleActions.appendChild(removeBtn);
+
+    bubbleHeader.appendChild(bubbleTitle);
+    bubbleHeader.appendChild(bubbleActions);
+    bubbleWrap.appendChild(bubbleHeader);
+
+    const speakerRow=document.createElement('div');
+    speakerRow.className='bubble-type-row';
+    const speakerName='bubble-speaker-'+(bubble.bubbleId||bubbleIndex);
+    [
+      { value:'guide-to-player', label:guideRadioLabel, fromPlayer:false },
+      { value:'player-correct-reply', label:playerReplyRadioLabel, fromPlayer:true }
+    ].forEach(option=>{
+      const id=speakerName+'-'+option.value;
+      const radio=document.createElement('input');
+      radio.type='radio';
+      radio.name=speakerName;
+      radio.value=option.value;
+      radio.id=id;
+      radio.checked=!!bubble.fromPlayer===option.fromPlayer;
+      radio.addEventListener('change',()=>{
+        bubble.fromPlayer=option.fromPlayer;
+        syncBubbles();
+        markDirty();
+      });
+      const label=document.createElement('label');
+      label.htmlFor=id;
+      label.textContent=option.label;
+      const pair=document.createElement('span');
+      pair.className='type-pair';
+      pair.appendChild(radio);
+      pair.appendChild(label);
+      speakerRow.appendChild(pair);
+    });
+    bubbleWrap.appendChild(speakerRow);
+
+    const fieldWrap=document.createElement('div');
+    fieldWrap.className='simple-stop-field';
+    const textarea=document.createElement('textarea');
+    textarea.className='simple-stop-textarea';
+    textarea.placeholder='Type bubble text...';
+    textarea.value=String(bubble.html||'');
+    textarea.addEventListener('input',()=>{
+      bubble.html=textarea.value;
+      syncBubbles();
+      markDirty();
+    });
+    bindAutoSizeTextarea(textarea);
+    fieldWrap.appendChild(textarea);
+    bubbleWrap.appendChild(fieldWrap);
+
+    body.appendChild(bubbleWrap);
+
+    if(bubble.bubbleId===pendingBubbleFocusId){
+      requestAnimationFrame(()=>{
+        textarea.focus();
+        textarea.scrollIntoView({ block:'nearest' });
+      });
+      pendingBubbleFocusId='';
+    }
+  });
+}
+
+// Returns the currently selected stop object from state, or null if no stop is selected
+function getSelectedStop() { if(selectedStopIndex<0||selectedStopIndex>=state.stops.length)return null; return state.stops[selectedStopIndex]; }
+function getGamesUsingStop(stopId) {
+  const key=String(stopId||'').trim();
+  if(!key)return[];
+  return games.filter(g=>{
+    if(!g||!Array.isArray(g.stops))return false;
+    return r_getRouteEntries(g).some(entry=>{
+      if(r_getRouteStopId(entry)===key)return true;
+      return r_getIfThenCases(entry).some(branchCase=>String(branchCase.stopId||'').trim()===key);
+    });
+  });
+}
+function removeStopFromAllGames(stopId) {
+  const key=String(stopId||'').trim();
+  if(!key)return 0;
+  let changed=0;
+  const now=new Date().toISOString();
+  games.forEach(g=>{
+    if(!g||!Array.isArray(g.stops))return;
+    const entries=r_getRouteEntries(g);
+    let entryChanged=false;
+    const nextEntries=entries.reduce((all,entry)=>{
+      if(r_getRouteStopId(entry)===key){
+        entryChanged=true;
+        return all;
+      }
+      const nextCases=r_getIfThenCases(entry).filter(branchCase=>String(branchCase.stopId||'').trim()!==key);
+      if(nextCases.length!==r_getIfThenCases(entry).length){
+        entryChanged=true;
+        entry=Object.assign({}, entry, { ifThen:nextCases.length?{ cases:nextCases }:null });
+      }
+      all.push(entry);
+      return all;
+    },[]);
+    if(!entryChanged)return;
+    r_setRouteEntries(g,nextEntries);
+    g.updatedAt=now;
+    changed++;
+  });
+  if(changed)gamesDirty=true;
+  return changed;
+}
+function getStopDeleteConfirmMessage(stop) {
+  const label=String((stop&&stop.id)||'this stop');
+  const usedBy=getGamesUsingStop(label);
+  if(!usedBy.length)return`Delete "${label}"? This cannot be undone.`;
+  const names=usedBy.map(g=>g.name||g.id||'(unnamed)').sort((a,b)=>a.localeCompare(b));
+  const countLabel=usedBy.length===1?'game':'games';
+  return `Delete "${label}"? This cannot be undone.\n\nWarning: this stop is currently in ${usedBy.length} ${countLabel}: ${names.join(', ')}.\nDeleting it will remove it from those game routes.\n\nContinue?`;
+}
+
+// ══════════════════════════════════════════════
+// BUBBLE EDITOR — STOP DETAIL PANEL
+// ══════════════════════════════════════════════
+
+// Rebuilds the entire stop detail panel for the currently selected stop index.
+// The stop editor is intentionally minimal: stop name plus a flat list of generic bubbles.
+function s_renderStopDetail() {
+  const detailEl = document.getElementById('s-stopDetail');
+  const panel = document.getElementById('stopDetailsPanel');
+  if(!detailEl) return;
+  const i = selectedStopIndex;
+  const archBtn = document.getElementById('s-archiveBtn');
+
+  if(i < 0 || i >= (state.stops || []).length) {
+    detailEl.innerHTML = '<div class="empty">Select a stop.</div>';
+    if(archBtn) archBtn.style.display = 'none';
+    return;
+  }
+
+  detailEl.innerHTML = '';
+  const stop = state.stops[i];
+  if(archBtn) { archBtn.style.display = isNewStop ? 'none' : ''; archBtn.textContent = stop.archived ? 'Unarchive' : 'Archive'; }
+
+  // Stop Name field → slug auto-generates the Stop ID, mirroring how Game Name → Game ID works
+  const nameField = document.createElement('div');
+  nameField.className = 'field';
+  const nameLabel = document.createElement('label');
+  nameLabel.textContent = 'Stop Name';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.placeholder = "Pete Fountain's Club";
+  nameInput.value = stop.name || '';
+  nameInput.autocomplete = 'off';
+  const idHint = document.createElement('div');
+  idHint.className = 'field-hint';
+  idHint.textContent = stop.id;
+  idHint.style.display = stop.id ? '' : 'none';
+  nameInput.addEventListener('input', () => {
+    stop.name = nameInput.value;
+    const slug = slugify(nameInput.value);
+    if(slug) { stop.id = slug; idHint.textContent = slug; idHint.style.display = ''; }
+    else { idHint.style.display = 'none'; }
+    markDirty();
+  });
+  nameInput.addEventListener('blur', () => {
+    stop.name = nameInput.value.trim();
+    const slug = slugify(stop.name) || stop.id || ('new-' + (i + 1));
+    stop.id = slug;
+    idHint.textContent = slug;
+    idHint.style.display = '';
+    renderStopsList();
+  });
+  nameInput.addEventListener('keydown', e => { if(e.key === 'Enter') nameInput.blur(); });
+  nameField.appendChild(nameLabel);
+  nameField.appendChild(nameInput);
+  nameField.appendChild(idHint);
+  detailEl.appendChild(nameField);
+
+  // Stop type selector — styled as BUBBLE DETAILS TYPE row
+  // Editor body
+  const body = document.createElement('div');
+  body.className = 'stop-card-body';
+  renderSimpleStopEditorInto(body, stop);
+  detailEl.appendChild(body);
+}
+
+// Full re-render of all stops-related UI: the list, the detail panel, warnings, and the dirty badge
+function s_renderAll() {
+  renderStopsList();
+  s_renderStopDetail();
+  renderWarnings();
+  renderDirtyBadge();
+  r_renderRoute();
+}
+
+// ══════════════════════════════════════════════
+// SAVE STOPS
+// ══════════════════════════════════════════════
+
+// POSTs the full stops document to the local server, then updates the snapshot so isDirty() resets.
+// Note: the global Save button calls saveAll() instead, which saves both games and stops together.
+async function saveStops() {
+  try {
+    const res = await fetch(API + '/stops', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(toDoc())
+    });
+    if(!res.ok) throw new Error('Server error ' + res.status);
+    // Update the snapshot so the dirty badge clears
+    loadedStopsSnapshot = deepClone(toDoc());
+    isNewStop = false;
+    setStatus('');
+    renderStopsList();
+  } catch(e) {
+    setStatus(e.message || 'Save failed.', 'err');
+  }
+}
+
+// ── Archive stop ──────────────────────────────
+// Toggles the stop's archived flag and immediately saves to the server.
+// On failure, reverts the flag so state stays consistent with what's on disk.
+document.getElementById('s-archiveBtn').addEventListener('click', async () => {
+  if(selectedStopIndex < 0 || selectedStopIndex >= (state.stops||[]).length) return;
+  const stop = state.stops[selectedStopIndex];
+  stop.archived = !stop.archived;
+  try {
+    const res = await fetch(API + '/stops', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(toDoc())
+    });
+    if(!res.ok) throw new Error('Server error ' + res.status);
+    loadedStopsSnapshot = deepClone(toDoc());
+    document.getElementById('s-archiveBtn').textContent = stop.archived ? 'Unarchive' : 'Archive';
+    s_renderAll();
+  } catch(e) {
+    // Revert the optimistic toggle if the save failed
+    stop.archived = !stop.archived;
+  }
+});
+
+// ── New stop ──────────────────────────────────
+// Creates a blank stop, appends it to state.stops, and opens it for editing.
+// isNewStop prevents the Archive button from showing until the stop is first saved.
+document.getElementById('s-newBtn').addEventListener('click', () => {
+  const stop = createEmptyStop();
+  state.stops.push(stop);
+  selectedStopIndex = state.stops.length - 1;
+  isNewStop = true;
+  s_renderAll();
+});
+
+// ══════════════════════════════════════════════
+// MAP / ROUTE
+// ══════════════════════════════════════════════
+// The Map panel shows the ordered list of stops assigned to the selected game.
+// Stops are dragged from the Stops panel into this panel to add them to a route.
+// Within the panel, stops can be reordered by dragging. Anytime stops always sort to the top.
+
+let r_dragging = null;  // Tracks the route item currently being dragged for in-panel reorder
+let r_autoScrollFrame = 0; // requestAnimationFrame handle for edge-drag horizontal scrolling
+let r_autoScrollDir = 0; // -1 = scroll left, 1 = scroll right, 0 = stop
+let r_pendingIfThenFocus = null;
+
+// Returns the currently selected game object, or null if none is selected
+function r_currentGame() { return selectedIndex >= 0 ? games[selectedIndex] : null; }
+function r_getStop(stopId) { return (state.stops||[]).find(x=>x&&x.id===stopId) || null; }
+function r_normalizeIfThenCase(branchCase) {
+  const src=branchCase&&typeof branchCase==='object'?branchCase:{};
+  return {
+    value:String(src.value??src.when??src.answer??'').trim(),
+    stopId:String(src.stopId??src.thenStopId??src.goToStopId??src.goTo??src.stop??'').trim()
+  };
+}
+function r_serializeIfThenCase(branchCase) {
+  const normalized=r_normalizeIfThenCase(branchCase);
+  if(!normalized.value&&!normalized.stopId)return null;
+  return normalized;
+}
+function r_normalizeIfThen(ifThen) {
+  if(!ifThen||typeof ifThen!=='object')return null;
+  const rawCases=Array.isArray(ifThen.cases)?ifThen.cases:Array.isArray(ifThen.values)?ifThen.values:[];
+  return { cases:rawCases.map(r_normalizeIfThenCase).filter(branchCase=>branchCase.value||branchCase.stopId) };
+}
+function r_serializeIfThen(ifThen) {
+  const normalized=r_normalizeIfThen(ifThen);
+  if(!normalized||!Array.isArray(normalized.cases))return null;
+  const cases=normalized.cases.map(r_serializeIfThenCase).filter(Boolean);
+  return { cases };
+}
+function r_normalizeRouteEntry(entry) {
+  if(typeof entry==='string')return { type:'stop', stopId:String(entry).trim(), ifThen:null };
+  if(!entry||typeof entry!=='object')return null;
+  const stopId=String(entry.stopId??entry.id??'').trim();
+  if(!stopId)return null;
+  return {
+    type:'stop',
+    stopId,
+    ifThen:r_normalizeIfThen(entry.ifThen||entry.branch||entry.ifThenTriangle||null)
+  };
+}
+function r_serializeRouteEntry(entry) {
+  const normalized=r_normalizeRouteEntry(entry);
+  if(!normalized||!normalized.stopId)return null;
+  const ifThen=r_serializeIfThen(normalized.ifThen);
+  if(!ifThen)return normalized.stopId;
+  return { type:'stop', stopId:normalized.stopId, ifThen };
+}
+function r_getRouteEntries(game) {
+  if(!game||!Array.isArray(game.stops))return [];
+  return game.stops.map(r_normalizeRouteEntry).filter(entry=>entry&&entry.stopId);
+}
+function r_setRouteEntries(game, entries) {
+  if(!game)return [];
+  const serialized=(Array.isArray(entries)?entries:[]).map(r_serializeRouteEntry).filter(Boolean);
+  game.stops=serialized;
+  return serialized;
+}
+function r_getRouteStopId(entry) {
+  return String((entry&&entry.stopId)||'').trim();
+}
+function r_getIfThenCases(entry) {
+  const ifThen=entry&&entry.ifThen;
+  if(!ifThen||!Array.isArray(ifThen.cases))return [];
+  return ifThen.cases.map(r_normalizeIfThenCase).filter(branchCase=>branchCase.value||branchCase.stopId);
+}
+function r_hasIfThen(entry) {
+  return !!(entry&&entry.ifThen);
+}
+function r_getIfThenStopOptions(currentStopId) {
+  return (state.stops||[])
+    .filter(stop=>stop&&!stop.archived&&!stop.playerReply?.anytime&&stop.id!==currentStopId)
+    .slice()
+    .sort((a,b)=>(a.name||a.id||'').localeCompare(b.name||b.id||''))
+    .map(stop=>({ id:stop.id, label:stop.name||stop.id||'(unnamed stop)' }));
+}
+function r_setPendingIfThenFocus(stopId, caseIndex, field) {
+  r_pendingIfThenFocus={ stopId:String(stopId||''), caseIndex:Number(caseIndex)||0, field:String(field||'value') };
+}
+function r_applyPendingIfThenFocus(stopId, caseIndex, field, el) {
+  if(!r_pendingIfThenFocus||!el)return;
+  if(r_pendingIfThenFocus.stopId!==String(stopId||''))return;
+  if(r_pendingIfThenFocus.caseIndex!==caseIndex)return;
+  if(r_pendingIfThenFocus.field!==field)return;
+  requestAnimationFrame(()=>{
+    el.focus();
+    if(typeof el.setSelectionRange==='function'){
+      const len=String(el.value||'').length;
+      el.setSelectionRange(len,len);
+    }
+  });
+  r_pendingIfThenFocus=null;
+}
+// Returns true if the stop with the given ID is an anytime stop (responds to a keyword globally)
+function r_isAnytime(stopId) { const s=r_getStop(stopId); return!!(s&&s.playerReply&&s.playerReply.anytime); }
+// Returns an ANYTIME badge HTML string for anytime stops, or empty string for regular stops
+function r_anytimeTag(stopId) { return r_isAnytime(stopId)?'<span class="anytime-tag">ANYTIME</span>':''; }
+function r_getRouteBadge(stop) {
+  if(!stop) return { cls:'rb-noreply', label:'MISSING' };
+  const cls = replyTagToRb(getReplyTag(stop).cls);
+  const labels = {
+    'rb-noreply':'NO REPLY',
+    'rb-text':'WORD',
+    'rb-any':'ANY',
+    'rb-choice':'CHOICE',
+    'rb-anytime':'ANYTIME'
+  };
+  return { cls, label: labels[cls] || 'NO REPLY' };
+}
+function r_normalizeVarName(raw) {
+  const s=String(raw||'').trim();
+  if(!s)return'';
+  const w=s.match(/^\{\{\s*([A-Za-z_]\w*)\s*\}\}$|^\{\s*([A-Za-z_]\w*)\s*\}$/);
+  return w?(w[1]||w[2]||''):s;
+}
+function r_collectTemplateVars(text, store) {
+  const src=String(text||'');
+  if(!src)return;
+  const re=/\{\{\s*([A-Za-z_]\w*)\s*\}\}|\{\s*([A-Za-z_]\w*)\s*\}/g;
+  let m;
+  while((m=re.exec(src))) {
+    const name=m[1]||m[2]||'';
+    if(name)store.add(name);
+  }
+}
+function r_collectBubbleVars(bubble, store) {
+  if(!bubble||typeof bubble!=='object')return;
+  const ownName=r_normalizeVarName(bubble.storesAs||'');
+  if(ownName)store.add(ownName);
+  [bubble.html,bubble.replyResponse,bubble.label,bubble.href,bubble.src].forEach(val=>r_collectTemplateVars(val, store));
+}
+function r_collectStopVars(stop, store) {
+  if(!stop||typeof stop!=='object')return;
+  const pr=stop.playerReply||{};
+  const prName=r_normalizeVarName(pr.storesAs||'');
+  if(prName)store.add(prName);
+  (Array.isArray(stop.messages)?stop.messages:[]).forEach(b=>r_collectBubbleVars(b, store));
+  (Array.isArray(pr.correct)?pr.correct:[]).forEach(b=>r_collectBubbleVars(b, store));
+  (Array.isArray(pr.incorrect)?pr.incorrect:[]).forEach(b=>r_collectBubbleVars(b, store));
+}
+function r_formatVariableValue(val) {
+  if(val===undefined||val===null)return'';
+  if(Array.isArray(val))return val.map(v=>r_formatVariableValue(v)).join(', ');
+  if(typeof val==='object'){ try{return JSON.stringify(val);}catch(_){ return String(val); } }
+  return String(val);
+}
+function r_getVariableEntry(name) {
+  const key=String(name||'').trim().toLowerCase();
+  const vars=Array.isArray(state.variables)?state.variables:[];
+  for(const entry of vars){
+    if(typeof entry==='string'){
+      if(entry.trim().toLowerCase()===key)return { name:entry, value:'' };
+      continue;
+    }
+    if(!entry||typeof entry!=='object')continue;
+    const candidate=String(entry.name||entry.key||entry.id||entry.variable||'').trim();
+    if(candidate&&candidate.toLowerCase()===key)return entry;
+  }
+  return null;
+}
+function r_getVariableValue(name) {
+  const entry=r_getVariableEntry(name);
+  if(entry==null)return'';
+  if(typeof entry!=='object')return'';
+  const candidates=['value','currentValue','defaultValue','default','initialValue','sample','example'];
+  for(const key of candidates){
+    if(entry[key]!==undefined&&entry[key]!==null&&String(entry[key])!=='')return r_formatVariableValue(entry[key]);
+  }
+  if(Array.isArray(entry.values)&&entry.values.length)return entry.values.map(v=>r_formatVariableValue(v)).join(', ');
+  return'';
+}
+function r_collectRouteEntryVars(entry, store) {
+  const stopId=r_getRouteStopId(entry);
+  if(stopId)r_collectStopVars(r_getStop(stopId), store);
+  r_getIfThenCases(entry).forEach(branchCase=>{
+    if(branchCase.stopId)r_collectStopVars(r_getStop(branchCase.stopId), store);
+  });
+}
+function r_getCurrentGameVariables() {
+  const game=r_currentGame();
+  if(!game||!Array.isArray(game.stops))return[];
+  const routeEntries=r_getRouteEntries(game);
+  const names=new Set();
+  routeEntries.forEach(entry=>r_collectRouteEntryVars(entry, names));
+  return Array.from(names).sort((a,b)=>a.localeCompare(b)).map(name=>({ name, value:r_getVariableValue(name) }));
+}
+function r_renderVariables() {
+  const el=document.getElementById('r-varsList');
+  const game=r_currentGame();
+  if(!el)return;
+  if(!game){el.innerHTML='<div class="empty">Select a game</div>';return;}
+  const vars=r_getCurrentGameVariables();
+  if(!vars.length){el.innerHTML='<div class="empty">No variables in this route.</div>';return;}
+  el.innerHTML='';
+  vars.forEach(v=>{
+    const row=document.createElement('div');
+    row.className='var-row';
+    const name=document.createElement('div');
+    name.className='var-name';
+    name.textContent=v.name;
+    const value=document.createElement('div');
+    value.className='var-value'+(v.value?'':' empty');
+    value.textContent=v.value||'—';
+    row.appendChild(name);
+    row.appendChild(value);
+    el.appendChild(row);
+  });
+}
+function r_updateScrollButtons() {
+  const zone=document.getElementById('r-dropZone');
+  const left=document.getElementById('r-scrollLeftBtn');
+  const right=document.getElementById('r-scrollRightBtn');
+  if(!zone||!left||!right)return;
+  const maxScroll=Math.max(0,zone.scrollWidth-zone.clientWidth);
+  const canScroll=maxScroll>4;
+  left.disabled=!canScroll||zone.scrollLeft<=4;
+  right.disabled=!canScroll||zone.scrollLeft>=maxScroll-4;
+}
+function r_scrollBy(delta) {
+  const zone=document.getElementById('r-dropZone');
+  if(!zone)return;
+  zone.scrollBy({ left:delta, behavior:'smooth' });
+}
+function r_stopAutoScroll() {
+  r_autoScrollDir=0;
+  if(r_autoScrollFrame){
+    cancelAnimationFrame(r_autoScrollFrame);
+    r_autoScrollFrame=0;
+  }
+}
+function r_stepAutoScroll() {
+  const zone=document.getElementById('r-dropZone');
+  if(!zone||!r_autoScrollDir){r_autoScrollFrame=0;return;}
+  zone.scrollLeft += r_autoScrollDir * 18;
+  r_updateScrollButtons();
+  r_autoScrollFrame=requestAnimationFrame(r_stepAutoScroll);
+}
+function r_setAutoScroll(dir) {
+  if(dir===r_autoScrollDir)return;
+  r_autoScrollDir=dir;
+  if(!dir){ if(r_autoScrollFrame){ cancelAnimationFrame(r_autoScrollFrame); r_autoScrollFrame=0; } return; }
+  if(!r_autoScrollFrame)r_autoScrollFrame=requestAnimationFrame(r_stepAutoScroll);
+}
+function r_handleEdgeScroll(clientX) {
+  const zone=document.getElementById('r-dropZone');
+  if(!zone)return;
+  if(zone.scrollWidth<=zone.clientWidth+4){ r_stopAutoScroll(); return; }
+  const rect=zone.getBoundingClientRect();
+  const gutter=Math.min(72, rect.width/4);
+  if(clientX < rect.left + gutter) r_setAutoScroll(-1);
+  else if(clientX > rect.right - gutter) r_setAutoScroll(1);
+  else r_stopAutoScroll();
+}
+function r_setStatus(msg,type) { browserNotify(msg); }
+// Hides the vertical insert line indicator
+function r_clearDropIndicators() { const l=document.getElementById('r-insertLine'); if(l) l.style.display='none'; }
+// Calculates where to insert a dragged item based on cursor X position (inserts left of midpoint)
+function r_getInsertionIndex(items,clientX) { for(let i=0;i<items.length;i++){const r=items[i].getBoundingClientRect();if(clientX<r.left+r.width/2)return i;}return items.length; }
+// Positions the vertical insert line between items based on cursor X
+function r_updateDropIndicator(items,clientX) {
+  const line=document.getElementById('r-insertLine'); if(!line) return;
+  const zone=document.getElementById('r-dropZone'); const zr=zone.getBoundingClientRect();
+  const idx=r_getInsertionIndex(items,clientX);
+  let x; if(idx<items.length){const r=items[idx].getBoundingClientRect();x=r.left-zr.left+zone.scrollLeft-1;}
+  else if(items.length){const r=items[items.length-1].getBoundingClientRect();x=r.right-zr.left+zone.scrollLeft+1;}
+  else{x=8;}
+  line.style.left=x+'px'; line.style.display='block';
+}
+// Re-sorts a game's stop array so anytime stops always appear before regular stops in the route
+function r_touchGame(game) {
+  if(!game)return;
+  game.updatedAt=new Date().toISOString();
+  gamesDirty=true;
+}
+function r_commitRouteEntries(game, entries) {
+  if(!game)return;
+  r_setRouteEntries(game, entries);
+  r_touchGame(game);
+}
+function r_sortRouteAnytimeFirst(game) {
+  if(!game||!Array.isArray(game.stops))return;
+  const current=r_getRouteEntries(game);
+  const next=[
+    ...current.filter(entry=>r_isAnytime(r_getRouteStopId(entry))),
+    ...current.filter(entry=>!r_isAnytime(r_getRouteStopId(entry)))
+  ];
+  if(JSON.stringify(current.map(r_serializeRouteEntry))===JSON.stringify(next.map(r_serializeRouteEntry)))return;
+  r_setRouteEntries(game,next);
+}
+// Adds a stop to the current game's route; anytime stops are inserted before the first regular stop
+function r_addStop(stopId) {
+  const game=r_currentGame(); if(!game)return;
+  const entries=r_getRouteEntries(game);
+  if(entries.some(entry=>r_getRouteStopId(entry)===stopId)){r_setStatus('Already in route.','warn');return;}
+  const nextEntry={ type:'stop', stopId:String(stopId||'').trim(), ifThen:null };
+  if(r_isAnytime(stopId)){
+    const firstRegular=entries.findIndex(entry=>!r_isAnytime(r_getRouteStopId(entry)));
+    entries.splice(firstRegular<0?entries.length:firstRegular,0,nextEntry);
+  } else {
+    entries.push(nextEntry);
+  }
+  r_commitRouteEntries(game, entries);
+  r_renderRoute();
+}
+function r_addIfThenToRouteIndex(routeIndex) {
+  const game=r_currentGame();
+  if(!game)return;
+  const entries=r_getRouteEntries(game);
+  const entry=entries[routeIndex];
+  const stopId=r_getRouteStopId(entry);
+  if(!entry||!stopId)return;
+  if(r_isAnytime(stopId)){browserNotify('IF THEN can only go after a regular stop.');return;}
+  entry.ifThen=entry.ifThen&&typeof entry.ifThen==='object'?entry.ifThen:{ cases:[] };
+  r_setPendingIfThenFocus(stopId, r_getIfThenCases(entry).length, 'value');
+  r_commitRouteEntries(game, entries);
+  r_renderRoute();
+}
+function r_removeIfThenFromRouteIndex(routeIndex) {
+  const game=r_currentGame();
+  if(!game)return;
+  const entries=r_getRouteEntries(game);
+  const entry=entries[routeIndex];
+  if(!entry)return;
+  entry.ifThen=null;
+  r_commitRouteEntries(game, entries);
+  r_renderRoute();
+}
+function r_renderIfThenCard(game, entry, routeIndex) {
+  const currentStopId=r_getRouteStopId(entry);
+  const wrap=document.createElement('div');
+  wrap.className='r-ifthen-wrap';
+
+  const card=document.createElement('div');
+  card.className='r-ifthen-card';
+
+  const removeBtn=document.createElement('button');
+  removeBtn.type='button';
+  removeBtn.className='r-ifthen-remove';
+  removeBtn.textContent='x';
+  removeBtn.title='Remove IF THEN';
+  removeBtn.addEventListener('click',e=>{
+    e.stopPropagation();
+    r_removeIfThenFromRouteIndex(routeIndex);
+  });
+  card.appendChild(removeBtn);
+
+  const title=document.createElement('div');
+  title.className='r-ifthen-title';
+  title.textContent='IF THEN';
+  card.appendChild(title);
+
+  const hint=document.createElement('div');
+  hint.className='r-ifthen-hint';
+  hint.textContent='Player value -> stop';
+  card.appendChild(hint);
+
+  const list=document.createElement('div');
+  list.className='r-ifthen-list';
+  const branchCases=r_getIfThenCases(entry);
+  const displayCases=branchCases.concat([{ value:'', stopId:'' }]);
+  const stopOptions=r_getIfThenStopOptions(currentStopId);
+
+  displayCases.forEach((branchCase, caseIndex)=>{
+    const isBlank=caseIndex>=branchCases.length;
+    const row=document.createElement('div');
+    row.className='r-ifthen-row'+(isBlank?' blank':'');
+
+    const valueInput=document.createElement('input');
+    valueInput.type='text';
+    valueInput.className='r-ifthen-value';
+    valueInput.placeholder='Value';
+    valueInput.value=branchCase.value||'';
+    valueInput.addEventListener('input',()=>{
+      const latestEntries=r_getRouteEntries(game);
+      const latestEntry=latestEntries[routeIndex];
+      if(!latestEntry)return;
+      latestEntry.ifThen=latestEntry.ifThen&&typeof latestEntry.ifThen==='object'?latestEntry.ifThen:{ cases:[] };
+      const latestCases=Array.isArray(latestEntry.ifThen.cases)?latestEntry.ifThen.cases:[];
+      if(isBlank){
+        if(!valueInput.value.trim())return;
+        latestCases.push({ value:valueInput.value, stopId:'' });
+        latestEntry.ifThen.cases=latestCases;
+        r_setPendingIfThenFocus(currentStopId, latestCases.length-1, 'value');
+        r_commitRouteEntries(game, latestEntries);
+        r_renderRoute();
+        return;
+      }
+      latestCases[caseIndex]=Object.assign({}, latestCases[caseIndex]||{}, { value:valueInput.value });
+      latestEntry.ifThen.cases=latestCases;
+      r_commitRouteEntries(game, latestEntries);
+    });
+    row.appendChild(valueInput);
+    r_applyPendingIfThenFocus(currentStopId, caseIndex, 'value', valueInput);
+
+    const stopSelect=document.createElement('select');
+    stopSelect.className='r-ifthen-stop';
+    const placeholder=document.createElement('option');
+    placeholder.value='';
+    placeholder.textContent='Then stop';
+    stopSelect.appendChild(placeholder);
+    stopOptions.forEach(option=>{
+      const opt=document.createElement('option');
+      opt.value=option.id;
+      opt.textContent=option.label;
+      stopSelect.appendChild(opt);
+    });
+    stopSelect.value=branchCase.stopId||'';
+    stopSelect.addEventListener('change',()=>{
+      const latestEntries=r_getRouteEntries(game);
+      const latestEntry=latestEntries[routeIndex];
+      if(!latestEntry)return;
+      latestEntry.ifThen=latestEntry.ifThen&&typeof latestEntry.ifThen==='object'?latestEntry.ifThen:{ cases:[] };
+      const latestCases=Array.isArray(latestEntry.ifThen.cases)?latestEntry.ifThen.cases:[];
+      if(isBlank){
+        if(!stopSelect.value)return;
+        latestCases.push({ value:'', stopId:stopSelect.value });
+        latestEntry.ifThen.cases=latestCases;
+        r_setPendingIfThenFocus(currentStopId, latestCases.length-1, 'stop');
+        r_commitRouteEntries(game, latestEntries);
+        r_renderRoute();
+        return;
+      }
+      latestCases[caseIndex]=Object.assign({}, latestCases[caseIndex]||{}, { stopId:stopSelect.value });
+      latestEntry.ifThen.cases=latestCases;
+      r_commitRouteEntries(game, latestEntries);
+    });
+    row.appendChild(stopSelect);
+    r_applyPendingIfThenFocus(currentStopId, caseIndex, 'stop', stopSelect);
+
+    if(!isBlank){
+      const removeCaseBtn=document.createElement('button');
+      removeCaseBtn.type='button';
+      removeCaseBtn.className='r-ifthen-case-remove';
+      removeCaseBtn.textContent='x';
+      removeCaseBtn.title='Remove value';
+      removeCaseBtn.addEventListener('click',()=>{
+        const latestEntries=r_getRouteEntries(game);
+        const latestEntry=latestEntries[routeIndex];
+        if(!latestEntry||!latestEntry.ifThen||!Array.isArray(latestEntry.ifThen.cases))return;
+        latestEntry.ifThen.cases.splice(caseIndex,1);
+        r_commitRouteEntries(game, latestEntries);
+        r_renderRoute();
+      });
+      row.appendChild(removeCaseBtn);
+    }
+
+    list.appendChild(row);
+  });
+
+  card.appendChild(list);
+  wrap.appendChild(card);
+  return wrap;
+}
+// Rebuilds the route panel DOM from the selected game's stops array
+function r_renderRoute() {
+  const zone=document.getElementById('r-dropZone');
+  const game=r_currentGame();
+  r_stopAutoScroll();
+  zone.innerHTML='';
+  document.getElementById('r-panelTitle').textContent = game ? 'Game Stop Order — '+(game.name||game.id||'') : 'Game Stop Order';
+  if(!game){zone.innerHTML='<div class="r-zone-empty">Select a game</div>';r_renderVariables();r_updateScrollButtons();return;}
+  if(!Array.isArray(game.stops))game.stops=[];
+  r_sortRouteAnytimeFirst(game);
+  const routeEntries=r_getRouteEntries(game);
+  if(!routeEntries.length){zone.innerHTML='<div class="r-zone-empty">Drag stops here</div>';r_renderVariables();r_updateScrollButtons();return;}
+  routeEntries.forEach((entry,idx)=>{
+    const sid=r_getRouteStopId(entry);
+    const stop=r_getStop(sid);
+    const routeBadge=r_getRouteBadge(stop);
+    const title=stop?(stop.name||stop.id||'(unnamed)'):(sid||'(missing stop)');
+    const subtitle=stop&&stop.name&&stop.id&&stop.name!==stop.id ? stop.id : (stop ? '' : 'Stop record not found');
+    const bubbleCount=Array.isArray(stop&&stop.messages)?stop.messages.length:0;
+    const isSelected=!!(selectedStopIndex>=0&&state.stops[selectedStopIndex]&&state.stops[selectedStopIndex].id===sid);
+    const wrap=document.createElement('div');
+    wrap.className='r-stop-wrap'+(r_isAnytime(sid)?' anytime':'')+(isSelected?' selected':'');wrap.draggable=true;wrap.dataset.idx=idx;
+    const item=document.createElement('div');
+    item.className='r-stop-item';
+    item.innerHTML='<button class="r-remove-btn" type="button" title="Remove">×</button><span class="r-stop-num">'+String(idx+1).padStart(2,'0')+'</span><span class="r-stop-id">'+sid+'</span>';
+    item.querySelector('.r-remove-btn').addEventListener('click',e=>{e.stopPropagation();game.stops.splice(idx,1);r_renderRoute();});
+    const removeBtn=item.querySelector('.r-remove-btn');
+    item.innerHTML='';
+    removeBtn.textContent='x';
+    item.title=subtitle?title+' ['+subtitle+']':title;
+    item.appendChild(removeBtn);
+    const top=document.createElement('div');
+    top.className='r-stop-top';
+    const num=document.createElement('span');
+    num.className='r-stop-num';
+    num.textContent=String(idx+1).padStart(2,'0');
+    const type=document.createElement('span');
+    type.className='r-stop-type '+routeBadge.cls;
+    type.textContent=routeBadge.label;
+    top.appendChild(num);
+    item.appendChild(top);
+    const body=document.createElement('div');
+    body.className='r-stop-body';
+    const titleEl=document.createElement('span');
+    titleEl.className='r-stop-title';
+    titleEl.textContent=title;
+    body.appendChild(titleEl);
+    item.appendChild(body);
+    const foot=document.createElement('div');
+    foot.className='r-stop-foot';
+    foot.appendChild(type);
+    const count=document.createElement('span');
+    count.className='r-stop-count';
+    count.textContent=bubbleCount+' bubble'+(bubbleCount===1?'':'s');
+    foot.appendChild(count);
+    if(!stop){
+      const missing=document.createElement('span');
+      missing.className='r-stop-flag missing';
+      missing.textContent='Missing';
+      foot.appendChild(missing);
+    }
+    if(stop&&hasCallToActionBubble(stop)){
+      const flag=document.createElement('span');
+      flag.className='r-stop-flag';
+      flag.textContent='CTA';
+      foot.appendChild(flag);
+    }
+    item.appendChild(foot);
+    wrap.addEventListener('click',()=>{ const si=(state.stops||[]).findIndex(s=>s.id===sid); if(si>=0){selectedStopIndex=si;isNewStop=false;s_renderAll();} });
+    wrap.addEventListener('dragstart',e=>{r_dragging={idx};e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(idx));setTimeout(()=>wrap.classList.add('dragging'),0);});
+    wrap.addEventListener('dragend',()=>{wrap.classList.remove('dragging');r_clearDropIndicators();r_dragging=null;r_stopAutoScroll();});
+    wrap.appendChild(item);
+    zone.appendChild(wrap);
+    if(idx<game.stops.length-1){
+      const nextSid=game.stops[idx+1];
+      if(r_isAnytime(sid)&&r_isAnytime(nextSid)){const gap=document.createElement('div');gap.className='r-anytime-gap';zone.appendChild(gap);}
+      else if(r_isAnytime(sid)&&!r_isAnytime(nextSid)){const div=document.createElement('div');div.className='r-anytime-divider';zone.appendChild(div);}
+      else if(!r_isAnytime(sid)&&!r_isAnytime(nextSid)){const arr=document.createElement('div');arr.className='r-stop-arrow';arr.innerHTML='<svg width="20" height="8" viewBox="0 0 20 8" fill="currentColor"><rect x="0" y="3" width="12" height="2"/><polygon points="11,0 20,4 11,8"/></svg>';zone.appendChild(arr);}
+    }
+  });
+  const il=document.createElement('div');il.id='r-insertLine';il.className='r-insert-line';zone.appendChild(il);
+  r_renderVariables();
+  r_updateScrollButtons();
+}
+r_renderRoute = function() {
+  const zone=document.getElementById('r-dropZone');
+  const game=r_currentGame();
+  r_stopAutoScroll();
+  zone.innerHTML='';
+  document.getElementById('r-panelTitle').textContent = game ? 'Game Stop Order — '+(game.name||game.id||'') : 'Game Stop Order';
+  if(!game){zone.innerHTML='<div class="r-zone-empty">Select a game</div>';r_renderVariables();r_updateScrollButtons();return;}
+  if(!Array.isArray(game.stops))game.stops=[];
+  r_sortRouteAnytimeFirst(game);
+  const routeEntries=r_getRouteEntries(game);
+  if(!routeEntries.length){zone.innerHTML='<div class="r-zone-empty">Drag stops here</div>';r_renderVariables();r_updateScrollButtons();return;}
+  routeEntries.forEach((entry,idx)=>{
+    const sid=r_getRouteStopId(entry);
+    const stop=r_getStop(sid);
+    const routeBadge=r_getRouteBadge(stop);
+    const title=stop?(stop.name||stop.id||'(unnamed)'):(sid||'(missing stop)');
+    const subtitle=stop&&stop.name&&stop.id&&stop.name!==stop.id ? stop.id : (stop ? '' : 'Stop record not found');
+    const bubbleCount=Array.isArray(stop&&stop.messages)?stop.messages.length:0;
+    const isSelected=!!(selectedStopIndex>=0&&state.stops[selectedStopIndex]&&state.stops[selectedStopIndex].id===sid);
+    const wrap=document.createElement('div');
+    wrap.className='r-stop-wrap'+(r_isAnytime(sid)?' anytime':'')+(isSelected?' selected':'');
+    wrap.draggable=true;
+    wrap.dataset.idx=idx;
+
+    const item=document.createElement('div');
+    item.className='r-stop-item';
+    item.title=subtitle?title+' ['+subtitle+']':title;
+
+    const removeBtn=document.createElement('button');
+    removeBtn.type='button';
+    removeBtn.className='r-remove-btn';
+    removeBtn.title='Remove stop from route';
+    removeBtn.textContent='x';
+    removeBtn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const entries=r_getRouteEntries(game);
+      entries.splice(idx,1);
+      r_commitRouteEntries(game, entries);
+      r_renderRoute();
+    });
+    item.appendChild(removeBtn);
+
+    const top=document.createElement('div');
+    top.className='r-stop-top';
+    const num=document.createElement('span');
+    num.className='r-stop-num';
+    num.textContent=String(idx+1).padStart(2,'0');
+    top.appendChild(num);
+    const topActions=document.createElement('div');
+    topActions.className='r-stop-top-actions';
+    if(!r_isAnytime(sid)){
+      const ifThenBtn=document.createElement('button');
+      ifThenBtn.type='button';
+      ifThenBtn.className='r-ifthen-btn'+(r_hasIfThen(entry)?' active':'');
+      ifThenBtn.textContent='△ IF';
+      ifThenBtn.title=r_hasIfThen(entry)?'Edit IF THEN' : 'Add IF THEN';
+      ifThenBtn.addEventListener('click',e=>{
+        e.stopPropagation();
+        r_addIfThenToRouteIndex(idx);
+      });
+      topActions.appendChild(ifThenBtn);
+    }
+    top.appendChild(topActions);
+    item.appendChild(top);
+
+    const body=document.createElement('div');
+    body.className='r-stop-body';
+    const titleEl=document.createElement('span');
+    titleEl.className='r-stop-title';
+    titleEl.textContent=title;
+    body.appendChild(titleEl);
+    item.appendChild(body);
+
+    const foot=document.createElement('div');
+    foot.className='r-stop-foot';
+    const type=document.createElement('span');
+    type.className='r-stop-type '+routeBadge.cls;
+    type.textContent=routeBadge.label;
+    foot.appendChild(type);
+    const count=document.createElement('span');
+    count.className='r-stop-count';
+    count.textContent=bubbleCount+' bubble'+(bubbleCount===1?'':'s');
+    foot.appendChild(count);
+    if(!stop){
+      const missing=document.createElement('span');
+      missing.className='r-stop-flag missing';
+      missing.textContent='Missing';
+      foot.appendChild(missing);
+    }
+    if(r_hasIfThen(entry)){
+      const branch=document.createElement('span');
+      branch.className='r-stop-flag branch';
+      branch.textContent='If Then';
+      foot.appendChild(branch);
+    }
+    if(stop&&hasCallToActionBubble(stop)){
+      const flag=document.createElement('span');
+      flag.className='r-stop-flag';
+      flag.textContent='CTA';
+      foot.appendChild(flag);
+    }
+    item.appendChild(foot);
+
+    wrap.addEventListener('click',()=>{ const si=(state.stops||[]).findIndex(s=>s.id===sid); if(si>=0){selectedStopIndex=si;isNewStop=false;s_renderAll();} });
+    wrap.addEventListener('dragstart',e=>{r_dragging={idx};e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(idx));setTimeout(()=>wrap.classList.add('dragging'),0);});
+    wrap.addEventListener('dragend',()=>{wrap.classList.remove('dragging');r_clearDropIndicators();r_dragging=null;r_stopAutoScroll();});
+    wrap.appendChild(item);
+    zone.appendChild(wrap);
+
+    if(r_hasIfThen(entry)){
+      const branchLink=document.createElement('div');
+      branchLink.className='r-branch-link';
+      branchLink.innerHTML='<svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 7h8"></path><path d="M6 2l5 5-5 5"></path><path d="M11 7h6"></path></svg>';
+      zone.appendChild(branchLink);
+      zone.appendChild(r_renderIfThenCard(game, entry, idx));
+    }
+
+    if(idx<routeEntries.length-1){
+      const nextSid=r_getRouteStopId(routeEntries[idx+1]);
+      if(r_isAnytime(sid)&&r_isAnytime(nextSid)){const gap=document.createElement('div');gap.className='r-anytime-gap';zone.appendChild(gap);}
+      else if(r_isAnytime(sid)&&!r_isAnytime(nextSid)){const div=document.createElement('div');div.className='r-anytime-divider';zone.appendChild(div);}
+      else if(!r_isAnytime(sid)&&!r_isAnytime(nextSid)){const arr=document.createElement('div');arr.className='r-stop-arrow';arr.innerHTML='<svg width="20" height="8" viewBox="0 0 20 8" fill="currentColor"><rect x="0" y="3" width="12" height="2"/><polygon points="11,0 20,4 11,8"/></svg>';zone.appendChild(arr);}
+    }
+  });
+  const il=document.createElement('div');
+  il.id='r-insertLine';
+  il.className='r-insert-line';
+  zone.appendChild(il);
+  r_renderVariables();
+  r_updateScrollButtons();
+};
+// IIFE: wires up drag-and-drop event handlers for the route drop zone.
+// Handles two distinct drag sources:
+//   1. Reordering within the route (r_dragging is set) — uses text/x-stop-index
+//   2. Adding a stop from the Stops list — uses text/x-stop-id (set in renderStopsList)
+(()=>{
+  const zone=document.getElementById('r-dropZone');
+  const leftBtn=document.getElementById('r-scrollLeftBtn');
+  const rightBtn=document.getElementById('r-scrollRightBtn');
+  leftBtn.addEventListener('click',()=>r_scrollBy(-260));
+  rightBtn.addEventListener('click',()=>r_scrollBy(260));
+  zone.addEventListener('scroll',r_updateScrollButtons);
+  zone.addEventListener('wheel',e=>{
+    if(zone.scrollWidth<=zone.clientWidth+4)return;
+    const delta=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;
+    if(!delta)return;
+    e.preventDefault();
+    zone.scrollLeft += delta;
+    r_updateScrollButtons();
+  },{passive:false});
+  window.addEventListener('resize',r_updateScrollButtons);
+  zone.addEventListener('dragover',e=>{
+    const types=Array.from(e.dataTransfer.types);
+    // In-panel reorder: show precise drop indicator line
+    if(r_dragging!=null){e.preventDefault();const items=Array.from(zone.querySelectorAll('.r-stop-wrap:not(.dragging)'));r_updateDropIndicator(items,e.clientX);r_handleEdgeScroll(e.clientX);}
+    // Cross-panel add: highlight the entire drop zone
+    else if(types.includes('text/x-stop-id')&&selectedIndex>=0){e.preventDefault();zone.classList.add('drag-over');r_handleEdgeScroll(e.clientX);}
+  });
+  zone.addEventListener('dragleave',e=>{if(!zone.contains(e.relatedTarget)){zone.classList.remove('drag-over');r_clearDropIndicators();r_stopAutoScroll();}});
+  zone.addEventListener('drop',e=>{
+    zone.classList.remove('drag-over');r_clearDropIndicators();r_stopAutoScroll();
+    if(r_dragging!=null){
+      e.preventDefault();const game=r_currentGame();if(!game)return;
+      const items=Array.from(zone.querySelectorAll('.r-stop-wrap:not(.dragging)'));
+      const insertionIndex=r_getInsertionIndex(items,e.clientX);
+      const from=r_dragging.idx;r_dragging=null;
+      const entries=r_getRouteEntries(game);
+      const[moved]=entries.splice(from,1);
+      entries.splice(insertionIndex,0,moved);
+      r_commitRouteEntries(game, entries);
+      r_sortRouteAnytimeFirst(game);
+      r_renderRoute();
+      return;
+    }
+    const sid=e.dataTransfer.getData('text/x-stop-id');
+    if(!sid||selectedIndex<0)return;
+    const dropStop=(state.stops||[]).find(s=>s.id===sid);
+    if(dropStop&&dropStop.archived)return;
+    e.preventDefault();r_addStop(sid);
+  });
+})();
+
+// ── Route item context menu ───────────────────
+(()=>{
+  const menu = document.getElementById('routeCtxMenu');
+  let targetIdx = -1;
+  function hideRouteCtx(){ menu.style.display='none'; targetIdx=-1; }
+  function showRouteCtx(x, y, idx){
+    targetIdx = idx;
+    menu.style.display='flex'; menu.style.left='0'; menu.style.top='0';
+    const mw=menu.offsetWidth, mh=menu.offsetHeight;
+    menu.style.left=Math.min(x, window.innerWidth-mw-4)+'px';
+    menu.style.top=Math.min(y, window.innerHeight-mh-4)+'px';
+  }
+  document.addEventListener('click', hideRouteCtx);
+  document.addEventListener('contextmenu', e=>{ if(!e.target.closest('#routeCtxMenu')) hideRouteCtx(); });
+  document.getElementById('rCtxDetach').addEventListener('click', ()=>{
+    const game=r_currentGame(); if(!game||targetIdx<0) return;
+    const entries=r_getRouteEntries(game);
+    entries.splice(targetIdx,1);
+    r_commitRouteEntries(game, entries);
+    hideRouteCtx();
+    r_renderRoute();
+  });
+  // Attach contextmenu to wraps — called from r_renderRoute via delegation on the zone
+  document.getElementById('r-dropZone').addEventListener('contextmenu', e=>{
+    const wrap=e.target.closest('.r-stop-wrap'); if(!wrap) return;
+    e.preventDefault(); e.stopPropagation(); showRouteCtx(e.clientX, e.clientY, Number(wrap.dataset.idx));
+  });
+})();
+
+
+// ══════════════════════════════════════════════
+// GAME LIST
+// ══════════════════════════════════════════════
+
+// Rebuilds the left-hand games list; most recently edited/created game first,
+// then a divider, then the rest alphabetically, then archived games alphabetically.
+function renderGameList() {
+  const el = document.getElementById('gameList');
+  if(!games.length) { el.innerHTML = '<div class="empty">No games yet.</div>'; return; }
+
+  const sortAlpha = arr => arr.sort((a,b) => (a.g.name||'').localeCompare(b.g.name||''));
+  const getTs = g => Math.max(g.updatedAt ? new Date(g.updatedAt).getTime() : 0, g.createdAt ? new Date(g.createdAt).getTime() : 0);
+
+  const activeAll = games.map((g,i) => ({g,i})).filter(({g}) => !g.archived);
+  const archived = sortAlpha(games.map((g,i) => ({g,i})).filter(({g}) => g.archived));
+
+  let recentEntry = null, recentTs = -1;
+  activeAll.forEach(e => { const ts = getTs(e.g); if(ts > recentTs) { recentTs = ts; recentEntry = e; } });
+  const active = sortAlpha(activeAll.filter(e => e !== recentEntry));
+
+  const makeRow = ({g, i}) => {
+    const row = document.createElement('div');
+    row.className = 'game-row' + (g.archived ? ' archived' : '') + (i === selectedIndex ? ' selected' : '');
+    row.dataset.i = i;
+    row.addEventListener('click', () => openDetails(i));
+    row.addEventListener('contextmenu', e => { e.preventDefault(); openDetails(i); showCtxMenu(e.clientX, e.clientY, i); });
+    const thumb = document.createElement('img');
+    thumb.className = 'game-row-thumb';
+    thumb.src = g.thumbnail || g.logo || 'assets/logo.png';
+    thumb.alt = '';
+    thumb.loading = 'lazy';
+    thumb.decoding = 'async';
+    thumb.draggable = false;
+    const info = document.createElement('div');
+    info.className = 'game-row-info';
+    const name = document.createElement('div');
+    name.className = 'game-row-name';
+    name.textContent = g.name || '(unnamed)';
+    info.appendChild(name);
+    row.appendChild(thumb);
+    row.appendChild(info);
+    return row;
+  };
+  const makeDivider = () => { const hr = document.createElement('hr'); hr.style.cssText = 'border:none;border-top:1px solid rgba(17,17,17,.1);margin:0;'; return hr; };
+
+  el.innerHTML = '';
+  if(recentEntry) {
+    el.appendChild(makeRow(recentEntry));
+    if(active.length || archived.length) el.appendChild(makeDivider());
+  }
+  active.forEach(e => el.appendChild(makeRow(e)));
+  if(archived.length) {
+    el.appendChild(makeDivider());
+    archived.forEach(e => el.appendChild(makeRow(e)));
+  }
+}
+
+// ── Details panel ──────────────────────────────────
+// Populates the Game Details panel with data from games[index] and refreshes dependent panels
+function openDetails(index) {
+  selectedIndex = index;
+  isNew = false;
+  const g = games[index];
+  document.getElementById('detailsTitle').textContent = 'Game Details';
+  document.getElementById('g-name').value = g.name || '';
+  document.getElementById('g-tagline').value = g.tagline || '';
+  document.getElementById('g-subtitle').value = g.subtitle || '';
+  document.getElementById('g-desc').value = g.description || '';
+  document.getElementById('g-price').value = g.price || '';
+  logoPicker.load(g.logo || 'assets/logo.png');
+  thumbnailPicker.load(g.thumbnail || 'assets/logo.png');
+  faviconPicker.load(g.favicon || 'index.ico');
+
+  const idHint = document.getElementById('g-idHint');
+  if(g.id) { idHint.textContent = g.id; idHint.style.display = ''; }
+  else { idHint.style.display = 'none'; }
+
+  const shareField = document.getElementById('g-shareField');
+  const shareUrl = document.getElementById('g-shareUrl');
+  if(g.id) { shareUrl.textContent = SHARE_BASE + g.id; document.getElementById('g-shareUrlLocal').textContent = SHARE_BASE_LOCAL + g.id; shareField.style.display = ''; }
+  else { shareField.style.display = 'none'; }
+
+  selectedTags = new Set((g.tag || '').split(/[;,]+/).map(t => t.trim()).filter(Boolean));
+  renderTags();
+
+  setGameStatus('');
+  s_refreshAddRouteButtons();
+  renderGameList();
+  s_renderStopDetail();
+  r_renderRoute();
+}
+
+// Resets the details panel to a blank "New Game" form without touching the games array
+function openNewGame() {
+  selectedIndex = -1;
+  isNew = true;
+  document.getElementById('detailsTitle').textContent = 'New Game';
+  document.getElementById('g-name').value = '';
+  document.getElementById('g-tagline').value = '';
+  document.getElementById('g-subtitle').value = 'Mission Control';
+  document.getElementById('g-desc').value = '';
+  document.getElementById('g-price').value = 'Free To Start / In App Purchases';
+  logoPicker.load('assets/logo.png', { blank:true });
+  thumbnailPicker.load('assets/logo.png', { blank:true });
+  faviconPicker.load('index.ico', { blank:true });
+  document.getElementById('g-idHint').style.display = 'none';
+  document.getElementById('g-shareField').style.display = 'none';
+  selectedTags = new Set();
+  renderTags();
+  setGameStatus('');
+  s_refreshAddRouteButtons();
+  renderGameList();
+  s_renderStopDetail();
+  r_renderRoute();
+  document.getElementById('g-name').focus();
+}
+
+// ── Stops list panel ──────────────────────────────────
+// Rebuilds the Stops panel list, grouped as: anytime stops → regular stops → archived stops.
+// Within each group stops are sorted alphabetically by ID.
+// Rows are click-to-select only; use the + button to add a stop to the current game's route.
+function renderStopsList() {
+  const el = document.getElementById('stopsList');
+  if(!state.stops.length) { el.innerHTML = '<div class="empty">No stops yet.</div>'; return; }
+
+  const alpha = arr => arr.slice().sort((a,b) => (a.s.id||'').localeCompare(b.s.id||''));
+  const anytime = alpha(state.stops.map((s,i) => ({s,i})).filter(({s}) => !s.archived && s.playerReply && s.playerReply.anytime));
+  const active  = alpha(state.stops.map((s,i) => ({s,i})).filter(({s}) => !s.archived && !(s.playerReply && s.playerReply.anytime)));
+  const archived = alpha(state.stops.map((s,i) => ({s,i})).filter(({s}) => s.archived));
+
+  const mkDivider = () => { const hr = document.createElement('hr'); hr.style.cssText = 'border:none;border-top:1px solid rgba(17,17,17,.1);margin:0;'; return hr; };
+  const makeRow = ({s, i}) => {
+    const row = document.createElement('div');
+    row.className = 'stop-row' + (s.archived ? ' archived' : '') + (i === selectedStopIndex ? ' selected' : '');
+    if(i === selectedStopIndex) row.style.cssText = 'background:var(--ink);color:#fff;';
+
+    const info = document.createElement('div');
+    info.className = 'stop-row-info';
+    const name = document.createElement('div');
+    name.className = 'stop-row-name';
+    name.textContent = s.name || s.id || '(unnamed)';
+    info.appendChild(name);
+
+    const tag = getReplyTag(s);
+    const badge = document.createElement('span');
+    badge.className = 'reply-badge ' + replyTagToRb(tag.cls);
+    badge.textContent = tag.label;
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'stop-add-route';
+    addBtn.textContent = '+';
+    addBtn.title = selectedIndex >= 0 ? 'Add to ' + (games[selectedIndex].name || 'route') : 'Select a game first';
+    if(selectedIndex < 0 || s.archived) addBtn.classList.add('no-game');
+    addBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if(selectedIndex < 0) return;
+      r_addStop(s.id);
+    });
+
+    row.appendChild(info);
+    row.appendChild(badge);
+    row.appendChild(addBtn);
+    row.addEventListener('click', () => {
+      selectedStopIndex = i;
+      isNewStop = false;
+      s_renderAll();
+    });
+    row.addEventListener('contextmenu', e => { e.preventDefault(); selectedStopIndex = i; isNewStop = false; s_renderAll(); showStopCtxMenu(e.clientX, e.clientY, i); });
+    return row;
+  };
+
+  el.innerHTML = '';
+  anytime.forEach(e => el.appendChild(makeRow(e)));
+  if(anytime.length && active.length) el.appendChild(mkDivider());
+  active.forEach(e => el.appendChild(makeRow(e)));
+  if(archived.length) {
+    el.appendChild(mkDivider());
+    archived.forEach(e => el.appendChild(makeRow(e)));
+  }
+}
+
+// Converts the reply-tag-* CSS class from getReplyTag() to the rb-* class used on stop list badges
+function replyTagToRb(cls) {
+  if(cls === 'reply-tag-noreply') return 'rb-noreply';
+  if(cls === 'reply-tag-wordreply') return 'rb-text';
+  if(cls === 'reply-tag-anyreply') return 'rb-any';
+  if(cls === 'reply-tag-choicereply') return 'rb-choice';
+  if(cls === 'reply-tag-anytime') return 'rb-anytime';
+  return 'rb-noreply';
+}
+
+// ── Tags ──────────────────────────────────────────
+// Re-renders all tag pills in the Game Details panel, marking selected ones with the 'on' class
+function renderTags() {
+  const el = document.getElementById('g-tagPicker');
+  const input = document.getElementById('g-tagNewInput');
+  const addBtn = document.getElementById('g-tagAddBtn');
+  [...el.children].forEach(c => { if(c !== input && c !== addBtn) c.remove(); });
+  allTags.forEach(tag => {
+    const pill = document.createElement('span');
+    pill.className = 'tag-pill' + (selectedTags.has(tag) ? ' on' : '');
+    pill.textContent = tag;
+    pill.addEventListener('click', () => {
+      if(selectedTags.has(tag)) selectedTags.delete(tag);
+      else selectedTags.add(tag);
+      renderTags();
+    });
+    el.insertBefore(pill, input);
+  });
+}
+
+// Reads the custom tag input, adds the value to allTags (if not present) and marks it selected
+function addNewTag() {
+  const input = document.getElementById('g-tagNewInput');
+  const val = input.value.trim();
+  if(!val) return;
+  if(!allTags.includes(val)) allTags.push(val);
+  selectedTags.add(val);
+  input.value = '';
+  renderTags();
+}
+
+document.getElementById('g-tagAddBtn').addEventListener('click', addNewTag);
+document.getElementById('g-tagNewInput').addEventListener('keydown', e => { if(e.key === 'Enter') { e.preventDefault(); addNewTag(); } });
+
+// Serialises the selected tags set to a semicolon-delimited string for storage in games_archive.json
+function getTagsValue() { return [...selectedTags].join(';'); }
+
+// ── Name → ID hint ────────────────────────────────
+// Live-updates the slug preview and shareable URL as the user types a game name
+document.getElementById('g-name').addEventListener('input', () => {
+  const id = slugify(document.getElementById('g-name').value);
+  const idHint = document.getElementById('g-idHint');
+  const shareField = document.getElementById('g-shareField');
+  const shareUrl = document.getElementById('g-shareUrl');
+  if(id) {
+    idHint.textContent = id; idHint.style.display = '';
+    shareUrl.textContent = SHARE_BASE + id; document.getElementById('g-shareUrlLocal').textContent = SHARE_BASE_LOCAL + id; shareField.style.display = '';
+  } else {
+    idHint.style.display = 'none'; shareField.style.display = 'none';
+  }
+});
+
+document.getElementById('g-subtitle').addEventListener('input', () => {
+  if(selectedStopIndex >= 0) s_renderStopDetail();
+});
+
+document.getElementById('g-copyShareBtn').addEventListener('click', () => {
+  const url = document.getElementById('g-shareUrl').textContent;
+  if(url) navigator.clipboard.writeText(url).catch(() => {});
+});
+
+document.getElementById('g-goShareBtn').addEventListener('click', () => {
+  const url = document.getElementById('g-shareUrl').textContent;
+  if(url) window.open(url, '_blank');
+});
+
+document.getElementById('g-copyShareBtnLocal').addEventListener('click', () => {
+  const url = document.getElementById('g-shareUrlLocal').textContent;
+  if(url) navigator.clipboard.writeText(url).catch(() => {});
+});
+
+document.getElementById('g-goShareBtnLocal').addEventListener('click', () => {
+  const url = document.getElementById('g-shareUrlLocal').textContent;
+  if(url) window.open(url, '_blank');
+});
+
+// ── Game duplicate / delete ────────────────────────────
+// Duplicates the game at the given index: clones it, appends " dup" to the name,
+// assigns a fresh ID and timestamps, saves immediately, and opens the new game
+function g_duplicateGame(index) {
+  const clone = deepClone(games[index]);
+  clone.id = slugify(clone.name || 'game') + '-' + Date.now();
+  clone.createdAt = new Date().toISOString();
+  clone.updatedAt = new Date().toISOString();
+  delete clone.archived;
+  games.push(clone);
+  selectedIndex = games.length - 1;
+  isNew = false;
+  openDetails(selectedIndex);
+  fetch(API + '/games', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({games})})
+    .then(r => { if(!r.ok) throw new Error(); setGameStatus('Saved.','ok'); setTimeout(()=>setGameStatus(''),2000); })
+    .catch(() => setGameStatus('Save failed.','err'));
+}
+
+// Removes the selected game from the array and saves; errors are silently swallowed since
+// the game is already gone from the in-memory list
+async function g_deleteGame() {
+  if(selectedIndex < 0) return;
+  games.splice(selectedIndex, 1);
+  selectedIndex = -1;
+  isNew = false;
+  document.getElementById('detailsTitle').textContent = 'Game Details';
+  renderGameList();
+  r_renderRoute();
+  try {
+    await fetch(API + '/games', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({games})});
+  } catch(e) {}
+}
+
+
+// ── Game row context menu ───────────────────────────────
+let ctxTargetIndex = -1; // The game index the context menu was opened on (may differ from selectedIndex)
+
+const ctxMenu = document.getElementById('gameCtxMenu');
+
+// Positions and shows the context menu at (x, y), clamped to stay within the viewport.
+// The menu is rendered at 0,0 first so offsetWidth/Height are accurate before repositioning.
+function showCtxMenu(x, y, gameIndex) {
+  ctxTargetIndex = gameIndex;
+  const g = games[gameIndex];
+  document.getElementById('ctxArchive').textContent = g && g.archived ? 'Unarchive' : 'Archive';
+  // Briefly show at top-left to measure actual rendered dimensions before placing at cursor
+  ctxMenu.style.display = 'flex';
+  ctxMenu.style.left = '0'; ctxMenu.style.top = '0';
+  const mw = ctxMenu.offsetWidth, mh = ctxMenu.offsetHeight;
+  // Clamp so the menu never overflows the right or bottom edge of the window
+  ctxMenu.style.left = Math.min(x, window.innerWidth - mw - 4) + 'px';
+  ctxMenu.style.top  = Math.min(y, window.innerHeight - mh - 4) + 'px';
+}
+
+// Hides the context menu and resets the target index
+function hideCtxMenu() { ctxMenu.style.display = 'none'; ctxTargetIndex = -1; }
+
+document.addEventListener('click', hideCtxMenu);
+document.addEventListener('keydown', e => { if(e.key === 'Escape') { hideCtxMenu(); hideStopCtxMenu(); } });
+
+document.getElementById('ctxDuplicate').addEventListener('click', () => {
+  if(ctxTargetIndex < 0) return;
+  g_duplicateGame(ctxTargetIndex);
+});
+
+document.getElementById('ctxArchive').addEventListener('click', async () => {
+  if(ctxTargetIndex < 0) return;
+  const g = games[ctxTargetIndex];
+  g.archived = !g.archived;
+  renderGameList();
+  fetch(API + '/games', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({games})}).catch(()=>{});
+});
+
+document.getElementById('ctxDelete').addEventListener('click', () => {
+  if(ctxTargetIndex < 0) return;
+  const g = games[ctxTargetIndex];
+  const name = g.name || 'this game';
+  if(!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  games.splice(ctxTargetIndex, 1);
+  if(selectedIndex === ctxTargetIndex) { selectedIndex = -1; isNew = false; }
+  else if(selectedIndex > ctxTargetIndex) selectedIndex--;
+  renderGameList();
+  fetch(API + '/games', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({games})}).catch(()=>{});
+});
+
+// ── Stop context menu ──────────────────────────────────
+const stopCtxMenu = document.getElementById('stopCtxMenu');
+let sCtxTargetIndex = -1;
+
+function showStopCtxMenu(x, y, stopIndex) {
+  sCtxTargetIndex = stopIndex;
+  const s = state.stops[stopIndex];
+  document.getElementById('sCtxArchive').textContent = s && s.archived ? 'Unarchive' : 'Archive';
+  stopCtxMenu.style.display = 'flex';
+  stopCtxMenu.style.left = '0'; stopCtxMenu.style.top = '0';
+  const mw = stopCtxMenu.offsetWidth, mh = stopCtxMenu.offsetHeight;
+  stopCtxMenu.style.left = Math.min(x, window.innerWidth - mw - 4) + 'px';
+  stopCtxMenu.style.top  = Math.min(y, window.innerHeight - mh - 4) + 'px';
+}
+function hideStopCtxMenu() { stopCtxMenu.style.display = 'none'; sCtxTargetIndex = -1; }
+
+document.addEventListener('click', hideStopCtxMenu);
+
+document.getElementById('sCtxDuplicate').addEventListener('click', () => {
+  if(sCtxTargetIndex < 0) return;
+  const now = new Date().toISOString();
+  const clone = deepClone(state.stops[sCtxTargetIndex]);
+  clone.id = (clone.id || 'stop') + '-' + Date.now();
+  clone.archived = false;
+  clone.createdAt = now;
+  clone.updatedAt = now;
+  state.stops.push(clone);
+  selectedStopIndex = state.stops.length - 1;
+  isNewStop = false;
+  s_renderAll();
+  markDirty();
+});
+
+document.getElementById('sCtxArchive').addEventListener('click', () => {
+  if(sCtxTargetIndex < 0) return;
+  const s = state.stops[sCtxTargetIndex];
+  s.archived = !s.archived;
+  s.updatedAt = new Date().toISOString();
+  s_renderAll();
+  markDirty();
+});
+
+document.getElementById('sCtxDelete').addEventListener('click', () => {
+  if(sCtxTargetIndex < 0) return;
+  const s = state.stops[sCtxTargetIndex];
+  if(!confirm(getStopDeleteConfirmMessage(s))) return;
+  removeStopFromAllGames(s&&s.id);
+  state.stops.splice(sCtxTargetIndex, 1);
+  if(selectedStopIndex === sCtxTargetIndex) { selectedStopIndex = -1; isNewStop = false; }
+  else if(selectedStopIndex > sCtxTargetIndex) selectedStopIndex--;
+  s_renderAll();
+  markDirty();
+});
+
+// ── Refresh add-to-route buttons ──────────────────────
+// Enables/disables the add-to-route buttons in the stops list based on whether a game is selected
+function s_refreshAddRouteButtons() {
+  const hasGame = selectedIndex >= 0;
+  document.querySelectorAll('.stop-add-route').forEach(btn => {
+    btn.classList.toggle('no-game', !hasGame);
+    btn.title = hasGame ? 'Add to ' + (games[selectedIndex].name || 'route') : 'Select a game first';
+  });
+}
+
+// ── Global save ────────────────────────────────────────
+document.getElementById('globalSaveBtn').addEventListener('click', saveAll);
+
+// Saves both the games list and the stops document in parallel.
+// Stops are only sent to the server if isDirty() is true, avoiding unnecessary writes.
+// On success, updates the snapshot so the dirty badge clears.
+async function saveAll() {
+  const btn = document.getElementById('globalSaveBtn');
+  btn.disabled = true;
+
+  try {
+    // Stamp updatedAt on the currently selected stop before serialising
+    if(isDirty() && selectedStopIndex >= 0 && selectedStopIndex < (state.stops||[]).length) {
+      state.stops[selectedStopIndex].updatedAt = new Date().toISOString();
+    }
+
+    // Duplicate stop ID check — block save if two stops share the same ID
+    if(isDirty()) {
+      const seen = new Map();
+      for(let idx = 0; idx < (state.stops||[]).length; idx++) {
+        const sid = state.stops[idx].id;
+        if(seen.has(sid)) {
+          flashStatus('Duplicate stop ID "' + sid + '". Rename one before saving.', 'err');
+          btn.disabled = false; return;
+        }
+        seen.set(sid, idx);
+      }
+    }
+
+    const [gRes, sRes] = await Promise.all([
+      (async () => {
+        const name = document.getElementById('g-name').value.trim();
+        if(name) {
+          const id = slugify(name);
+
+          // Duplicate ID check — block save if another game already uses this ID
+          const conflict = games.find((g, i) => g.id === id && i !== selectedIndex);
+          if(conflict) {
+            setGameStatus('ID "' + id + '" is already used by "' + conflict.name + '". Rename this game.', 'err');
+            return { ok: false, _blocked: true };
+          }
+          if(isNew) {
+            games.push({ id, name,
+              tagline: document.getElementById('g-tagline').value.trim(),
+              subtitle: document.getElementById('g-subtitle').value.trim(),
+              tag: getTagsValue(),
+              description: document.getElementById('g-desc').value.trim(),
+              price: document.getElementById('g-price').value.trim(),
+              logo: document.getElementById('g-logo').value.trim() || 'assets/logo.png',
+              thumbnail: document.getElementById('g-thumbnail').value.trim() || 'assets/logo.png',
+              favicon: document.getElementById('g-favicon').value.trim(),
+              featured: false, archived: false, stops: [],
+              createdAt: new Date().toISOString()
+            });
+            selectedIndex = games.length - 1;
+            isNew = false;
+          } else if(selectedIndex >= 0) {
+            const g = games[selectedIndex];
+            g.name = name; g.id = id;
+            g.tagline = document.getElementById('g-tagline').value.trim();
+            g.subtitle = document.getElementById('g-subtitle').value.trim();
+            g.tag = getTagsValue();
+            g.description = document.getElementById('g-desc').value.trim();
+            g.price = document.getElementById('g-price').value.trim();
+            g.logo = document.getElementById('g-logo').value.trim() || 'assets/logo.png';
+            g.thumbnail = document.getElementById('g-thumbnail').value.trim() || 'assets/logo.png';
+            g.favicon = document.getElementById('g-favicon').value.trim();
+            g.updatedAt = new Date().toISOString();
+          }
+        } else if(!gamesDirty) {
+          return { ok: true };
+        }
+        return fetch(API + '/games', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({games})
+        });
+      })(),
+      // Only POST stops if something actually changed — avoids a needless disk write
+      isDirty() ? fetch(API + '/stops', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(toDoc())
+      }) : Promise.resolve({ ok: true })
+    ]);
+
+    if(gRes && gRes._blocked) { btn.disabled = false; return; }
+    if(gRes && !gRes.ok) throw new Error('Games save failed');
+    if(!sRes.ok) throw new Error('Stops save failed');
+    gamesDirty = false;
+
+    // Re-check isDirty() here because the stops fetch only runs when dirty, so
+    // we only update the snapshot when it was actually sent
+    if(isDirty()) {
+      loadedStopsSnapshot = deepClone(toDoc());
+      isNewStop = false;
+    }
+    renderDirtyBadge();
+
+    // Update game panel UI if a game was saved
+    if(selectedIndex >= 0) {
+      const g = games[selectedIndex];
+      document.getElementById('detailsTitle').textContent = 'Game Details';
+      document.getElementById('g-idHint').textContent = g.id;
+      document.getElementById('g-idHint').style.display = '';
+      document.getElementById('g-shareUrl').textContent = SHARE_BASE + g.id;
+      document.getElementById('g-shareUrlLocal').textContent = SHARE_BASE_LOCAL + g.id;
+      document.getElementById('g-shareField').style.display = '';
+      renderGameList();
+    }
+    renderStopsList();
+
+    browserNotify('Saved.');
+  } catch(e) {
+    browserNotify(e.message || 'Save failed');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── New game ───────────────────────────────────────────
+document.getElementById('newGameBtn').addEventListener('click', openNewGame);
+
+// ── Game status ────────────────────────────────────────
+// Sets the Game Details panel status bar (separate from the stop status bar)
+function setGameStatus(msg, type) { browserNotify(msg); }
+
+// ── Slugify ───────────────────────────────────────
+// Converts a game name to a URL-safe id (e.g. "Oswald's Diary" → "oswalds-diary")
+function slugify(s) {
+  return s.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+
+// ══ INIT ══════════════════════════════════════════════════════════════════════
+
+// Bootstraps the builder: fetches games from the local API and stops from the static JSON file,
+// then renders all panels and opens a blank new-stop form ready for editing.
+async function init() {
+  try {
+    // Load games from the local Node server and stops from the static data file in parallel
+    const [gRes, sRes] = await Promise.all([fetch(API + '/games'), fetch('../data/stops.json')]);
+    const gData = await gRes.json();
+    const sData = await sRes.json();
+    games = Array.isArray(gData.games) ? gData.games : [];
+    games.forEach(game=>{
+      if(!game||!Array.isArray(game.stops)){ if(game)game.stops=[]; return; }
+      r_setRouteEntries(game, r_getRouteEntries(game));
+    });
+
+    const sState = (sData && Array.isArray(sData.stops)) ? ensureDoc(deepClone(sData)) : Object.assign({}, DEFAULT_DOC, { stops: [] });
+    state = sState;
+
+    renderGameList();
+    renderStopsList();
+    renderTags();
+    // Auto-open a new stop form so the editor is immediately ready to use
+    document.getElementById('s-newBtn').click();
+    // Take the snapshot AFTER the auto-created stop is added so isDirty() starts false —
+    // the badge should only appear when the user makes their own edits
+    loadedStopsSnapshot = deepClone(toDoc());
+  } catch(e) {
+    document.getElementById('gameList').innerHTML = '<div class="empty" style="color:var(--err)">Could not load — is server.js running?</div>';
+  }
+}
+
+// ── Panel footers ──────────────────────────────
+// Mirrors each panel's header into a sticky footer at the bottom of the panel.
+// This makes the New/Save/Archive buttons accessible without scrolling on tall panels.
+// A MutationObserver keeps the footer in sync when the header content changes dynamically
+// (e.g. the Archive button toggling between "Archive" and "Unarchive").
+function setupPanelFooters() {
+  document.querySelectorAll('.panel').forEach(panel => {
+    const head = panel.querySelector('.panel-head');
+    if(!head) return;
+    if(!head.querySelector('button')) return; // skip panels with no buttons in header
+
+    const foot = document.createElement('div');
+    foot.className = 'panel-foot';
+
+    function syncFoot() {
+      // Clone the header HTML into the footer, renaming all IDs with a -foot suffix
+      // to avoid duplicate IDs in the document
+      foot.innerHTML = head.innerHTML.replace(/\bid="([^"]+)"/g, 'id="$1-foot"');
+      // Wire footer button clicks through to their header counterparts so all logic stays in one place
+      foot.querySelectorAll('[id]').forEach(footEl => {
+        const origId = footEl.id.replace(/-foot$/, '');
+        footEl.addEventListener('click', e => {
+          e.stopPropagation();
+          document.getElementById(origId)?.click();
+        });
+      });
+    }
+
+    syncFoot();
+    // Re-sync whenever the header DOM changes (button text, disabled state, visibility, etc.)
+    new MutationObserver(syncFoot).observe(head, { subtree: true, childList: true, attributes: true, characterData: true });
+
+    panel.appendChild(foot);
+  });
+}
+
+// ── Image picker helpers ───────────────────────
+// Creates a coordinated image picker that accepts either a file upload or a URL.
+// The chosen value is stored in a hidden input so saveAll() can read it simply.
+// Returns a `load(val)` function used by openDetails/openNewGame to populate the picker.
+function setupImgPicker(fileInputId, urlInputId, hiddenId, previewId, defaultValue) {
+  const fileInput = document.getElementById(fileInputId);
+  const urlInput  = document.getElementById(urlInputId);
+  const hidden    = document.getElementById(hiddenId);
+  const preview   = document.getElementById(previewId);
+
+  function toRelativeDisplay(raw) {
+    const val = String(raw || '').trim();
+    if(!val) return '';
+    if(/^(https?:|data:|blob:)/i.test(val)) return val;
+    let path = val.replace(/^([A-Za-z]:)?[\\/]+fakepath[\\/]+/i, '');
+    path = path.split(/[?#]/)[0].replace(/\//g, '\\').replace(/^\.\//, '').replace(/^\.\\/, '');
+    if(/^play\\/i.test(path) || /^index\.ico$/i.test(path)) return path;
+    if(/^assets\\/i.test(path)) return 'play\\' + path;
+    const base = String(defaultValue || '').replace(/\//g, '\\');
+    const baseDir = base.includes('\\') ? base.slice(0, base.lastIndexOf('\\')) : '';
+    return baseDir ? ('play\\' + baseDir + '\\' + path) : path;
+  }
+
+  function setVisibleVal(display, editValue) {
+    const shown = String(display || '');
+    const editable = String(editValue != null ? editValue : shown);
+    urlInput.dataset.displayValue = shown;
+    urlInput.dataset.editValue = editable;
+    urlInput.value = shown;
+  }
+
+  function setVal(val, display, editValue) {
+    hidden.value = val;
+    if(val) {
+      preview.src = val;
+      preview.style.display = '';
+    } else {
+      preview.src = '';
+      preview.style.display = 'none';
+    }
+    setVisibleVal(display, editValue);
+  }
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const relativePath = toRelativeDisplay(fileInput.value || file.name);
+      setVal(e.target.result, relativePath, relativePath); // Stores as a data: URI
+    };
+    reader.readAsDataURL(file);
+  });
+
+  urlInput.addEventListener('input', () => {
+    // When a URL is typed, clear the file input so the two fields stay mutually exclusive
+    fileInput.value = '';
+    const raw = urlInput.value.trim();
+    hidden.value = raw;
+    if(raw) {
+      preview.src = raw;
+      preview.style.display = '';
+    } else {
+      preview.src = '';
+      preview.style.display = 'none';
+    }
+    urlInput.dataset.editValue = raw;
+    urlInput.dataset.displayValue = toRelativeDisplay(raw);
+  });
+
+  urlInput.addEventListener('focus', () => {
+    urlInput.value = urlInput.dataset.editValue || '';
+  });
+
+  urlInput.addEventListener('blur', () => {
+    urlInput.value = urlInput.dataset.displayValue || '';
+  });
+
+  // Expose a load() method so openDetails/openNewGame can populate the picker programmatically
+  return {
+    load: (val, options) => {
+      const raw = val || '';
+      const opts = options || {};
+      const display = opts.blank || (defaultValue && raw === defaultValue) ? '' : (opts.display || (String(raw).startsWith('data:') ? '' : toRelativeDisplay(raw)));
+      const editValue = opts.blank ? '' : (opts.editValue != null ? opts.editValue : (String(raw).startsWith('data:') ? display : raw));
+      setVal(raw, display, editValue);
+      fileInput.value = '';
+    }
+  };
+}
+
+const logoPicker      = setupImgPicker('g-logo-file',      'g-logo-url',      'g-logo',      'g-logo-preview',      'assets/logo.png');
+const thumbnailPicker = setupImgPicker('g-thumbnail-file', 'g-thumbnail-url', 'g-thumbnail', 'g-thumbnail-preview', 'assets/logo.png');
+const faviconPicker   = setupImgPicker('g-favicon-file',   'g-favicon-url',   'g-favicon',   'g-favicon-preview',   'index.ico');
+
+// ── Publish button (local only) ────────────────
+// The Publish button is hidden in production (GitHub Pages); only shown when running locally
+if(IS_LOCAL) document.getElementById('g-publishBtn').style.display = '';
+
+// Publish = saveAll() + POST /publish, which triggers a git commit and push on the server.
+// This deploys the updated games_archive.json and stops.json to GitHub Pages.
+document.getElementById('g-publishBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('g-publishBtn');
+  const orig = btn.textContent;
+  btn.textContent = 'Saving…';
+  btn.disabled = true;
+  try {
+    await saveAll();
+    btn.textContent = 'Publishing…';
+    const res = await fetch(API + '/publish', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ message: 'update game data' })
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || 'Publish failed');
+    btn.textContent = 'Published!';
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+  } catch(e) {
+    btn.textContent = 'Failed';
+    btn.title = e.message; // Error detail visible on hover
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; btn.title = ''; }, 3000);
+  }
+});
+
+init();
+</script>
+</body>
+</html>

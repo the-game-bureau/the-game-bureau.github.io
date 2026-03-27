@@ -106,7 +106,7 @@ function getGameDataFetchUrls() {
   getApiBaseCandidates().forEach((apiBase) => {
     urls.push(apiBase + '/games');
   });
-  urls.push('../data/games.json');
+  urls.push('../data/games_archive.json');
   return [...new Set(urls)];
 }
 
