@@ -3,6 +3,7 @@ const STORE_COMMENT = 'Supabase-backed game builder store.';
 const DEFAULT_SUPABASE_GAMES_TABLE = 'games';
 const SUPABASE_CONFIG_STORAGE_KEY = 'tgb-builder-supabase-config';
 const EDITOR_PAGE_ROUTE = 'builder.html';
+const PLAY_PAGE_ROUTE = '../play/index.html';
 const BIC_BLUE_INK = '#2f5cc2';
 const ARCHIVED_GAME_VALUE = 'YES';
 const ERASED_GAME_VALUE = 'YES';
@@ -27,6 +28,7 @@ const TYPE_CONFIG = {
 const gamesGrid = document.getElementById('gamesGrid');
 const newGameLink = document.getElementById('newGameLink');
 const editGameLink = document.getElementById('editGameLink');
+const playGameLink = document.getElementById('playGameLink');
 const renameGameLink = document.getElementById('renameGameLink');
 const duplicateGameLink = document.getElementById('duplicateGameLink');
 const archiveGameLink = document.getElementById('archiveGameLink');
@@ -836,6 +838,7 @@ function updateActionUi() {
   const canMutate = !state.readOnly;
   setActionLinkState(newGameLink, true, buildEditorUrl({ newGame: true }));
   setActionLinkState(editGameLink, hasActiveSelection, hasActiveSelection ? buildEditorUrl({ gameId: selectedGame.id }) : buildEditorUrl());
+  setActionLinkState(playGameLink, hasSelection, hasSelection ? buildPlayUrl(selectedGame.id) : '');
   setActionLinkState(renameGameLink, hasActiveSelection && canMutate, '#rename');
   setActionLinkState(duplicateGameLink, hasActiveSelection && canMutate, '#duplicate');
   setActionLinkState(archiveGameLink, hasActiveSelection && canMutate, '#archive');
@@ -905,7 +908,9 @@ function buildGameTile(game, index) {
   button.dataset.gameId = game.id;
   button.setAttribute('aria-pressed', game.id === state.selectedGameId ? 'true' : 'false');
   button.innerHTML = `
-    <span class="game-tile-screen" aria-hidden="true"></span>
+    <span class="game-tile-screen" aria-hidden="true">
+      <img class="game-tile-phone-art" src="phone.png?v=1774955400" alt="" decoding="async">
+    </span>
     <span class="game-tile-label">${escapeHtml(game.name || 'Untitled Game')}</span>
   `;
   applyTileColors(button, game, index);
@@ -1095,6 +1100,13 @@ function buildEditorUrl(options = {}) {
   return target.toString();
 }
 
+function buildPlayUrl(gameId = '') {
+  const target = new URL(PLAY_PAGE_ROUTE, location.href);
+  const selectedId = String(gameId || '').trim();
+  if (selectedId) target.searchParams.set('id', selectedId);
+  return target.toString();
+}
+
 function goToEditor(options = {}) {
   persistStoreLocally();
   try {
@@ -1103,6 +1115,14 @@ function goToEditor(options = {}) {
   } catch (error) {
   }
   location.href = buildEditorUrl(options);
+}
+
+function playSelectedGame(gameId = state.selectedGameId) {
+  const selectedId = String(gameId || '').trim();
+  const game = getGameById(selectedId);
+  if (!game || isErasedGame(game)) return;
+  closeGamesContextMenu();
+  location.href = buildPlayUrl(selectedId);
 }
 
 function startNewGame() {
@@ -1305,6 +1325,17 @@ if (editGameLink) {
     }
     event.preventDefault();
     editSelectedGame();
+  });
+}
+
+if (playGameLink) {
+  playGameLink.addEventListener('click', (event) => {
+    if (playGameLink.classList.contains('is-disabled')) {
+      event.preventDefault();
+      return;
+    }
+    event.preventDefault();
+    playSelectedGame();
   });
 }
 
