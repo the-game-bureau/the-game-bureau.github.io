@@ -34,6 +34,7 @@ const duplicateGameLink = document.getElementById('duplicateGameLink');
 const archiveGameLink = document.getElementById('archiveGameLink');
 const deleteGameBtn = document.getElementById('deleteGameBtn');
 const gamesContextMenu = document.getElementById('gamesContextMenu');
+const gamesMenuPlayBtn = document.getElementById('gamesMenuPlayBtn');
 const gamesMenuNewBtn = document.getElementById('gamesMenuNewBtn');
 const gamesMenuEditBtn = document.getElementById('gamesMenuEditBtn');
 const gamesMenuRenameBtn = document.getElementById('gamesMenuRenameBtn');
@@ -843,6 +844,7 @@ function updateActionUi() {
   setActionLinkState(duplicateGameLink, hasActiveSelection && canMutate, '#duplicate');
   setActionLinkState(archiveGameLink, hasActiveSelection && canMutate, '#archive');
   if (deleteGameBtn) deleteGameBtn.disabled = !hasSelection || !canMutate;
+  if (gamesMenuPlayBtn) gamesMenuPlayBtn.disabled = !hasSelection;
   if (gamesMenuNewBtn) gamesMenuNewBtn.disabled = false;
   if (gamesMenuEditBtn) gamesMenuEditBtn.disabled = !hasActiveSelection;
   if (gamesMenuRenameBtn) gamesMenuRenameBtn.disabled = !hasActiveSelection || !canMutate;
@@ -1048,8 +1050,13 @@ function openGamesContextMenu(clientX, clientY, gameId = '') {
   const isArchivedTarget = hasTargetGame && isArchivedGame(targetGame);
   const showActiveGameActions = hasTargetGame && !isArchivedTarget && !isErasedTarget;
   const showArchivedGameActions = hasTargetGame && isArchivedTarget && !isErasedTarget;
+  const showPlayAction = hasTargetGame && !isErasedTarget;
   const showEraseAction = hasTargetGame && !isErasedTarget;
   const canMutate = !state.readOnly;
+  if (gamesMenuPlayBtn) {
+    gamesMenuPlayBtn.hidden = !showPlayAction;
+    gamesMenuPlayBtn.disabled = !showPlayAction;
+  }
   if (gamesMenuNewBtn) {
     gamesMenuNewBtn.hidden = isArchivedTarget;
     gamesMenuNewBtn.disabled = false;
@@ -1364,6 +1371,7 @@ if (archiveGameLink) {
 }
 
 if (deleteGameBtn) deleteGameBtn.addEventListener('click', () => deleteSelectedGame());
+if (gamesMenuPlayBtn) gamesMenuPlayBtn.addEventListener('click', () => playSelectedGame(state.contextMenuGameId || state.selectedGameId));
 if (gamesMenuNewBtn) gamesMenuNewBtn.addEventListener('click', startNewGame);
 if (gamesMenuEditBtn) gamesMenuEditBtn.addEventListener('click', () => editSelectedGame(state.contextMenuGameId || state.selectedGameId));
 if (gamesMenuRenameBtn) gamesMenuRenameBtn.addEventListener('click', () => renameSelectedGame(state.contextMenuGameId || state.selectedGameId));
