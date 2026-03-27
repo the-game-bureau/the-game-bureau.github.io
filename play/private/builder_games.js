@@ -742,12 +742,12 @@ function updateActionUi() {
   const selectedGame = getSelectedGame();
   const hasSelection = !!selectedGame;
   const canMutate = !state.readOnly;
-  setActionLinkState(newGameLink, canMutate, buildEditorUrl({ newGame: true }));
-  setActionLinkState(editGameLink, hasSelection && canMutate, selectedGame ? buildEditorUrl({ gameId: selectedGame.id }) : '');
+  setActionLinkState(newGameLink, true, buildEditorUrl({ newGame: true }));
+  setActionLinkState(editGameLink, true, selectedGame ? buildEditorUrl({ gameId: selectedGame.id }) : buildEditorUrl());
   setActionLinkState(duplicateGameLink, hasSelection && canMutate, '#duplicate');
   if (deleteGameBtn) deleteGameBtn.disabled = !hasSelection || !canMutate;
-  if (gamesMenuNewBtn) gamesMenuNewBtn.disabled = !canMutate;
-  if (gamesMenuEditBtn) gamesMenuEditBtn.disabled = !hasSelection || !canMutate;
+  if (gamesMenuNewBtn) gamesMenuNewBtn.disabled = false;
+  if (gamesMenuEditBtn) gamesMenuEditBtn.disabled = false;
   if (gamesMenuDuplicateBtn) gamesMenuDuplicateBtn.disabled = !hasSelection || !canMutate;
   if (gamesMenuDeleteBtn) gamesMenuDeleteBtn.disabled = !hasSelection || !canMutate;
 }
@@ -778,11 +778,9 @@ function buildGameTile(game, index) {
   applyTileColors(button, game, index);
   button.addEventListener('click', () => setSelectedGame(game.id));
   button.addEventListener('dblclick', () => {
-    if (state.readOnly) return;
     editSelectedGame(game.id);
   });
   button.addEventListener('contextmenu', (event) => {
-    if (state.readOnly) return;
     event.preventDefault();
     setSelectedGame(game.id);
     openGamesContextMenu(event.clientX, event.clientY, game.id);
@@ -879,12 +877,14 @@ function openEraseConfirm(gameId) {
 }
 
 function openGamesContextMenu(clientX, clientY, gameId = '') {
-  if (!gamesContextMenu || state.readOnly) return;
+  if (!gamesContextMenu) return;
   state.contextMenuGameId = String(gameId || '').trim();
+  const targetGameId = state.contextMenuGameId || state.selectedGameId;
+  const canMutate = !state.readOnly;
   if (gamesMenuNewBtn) gamesMenuNewBtn.disabled = false;
-  if (gamesMenuEditBtn) gamesMenuEditBtn.disabled = !state.contextMenuGameId;
-  if (gamesMenuDuplicateBtn) gamesMenuDuplicateBtn.disabled = !state.contextMenuGameId;
-  if (gamesMenuDeleteBtn) gamesMenuDeleteBtn.disabled = !state.contextMenuGameId;
+  if (gamesMenuEditBtn) gamesMenuEditBtn.disabled = false;
+  if (gamesMenuDuplicateBtn) gamesMenuDuplicateBtn.disabled = !targetGameId || !canMutate;
+  if (gamesMenuDeleteBtn) gamesMenuDeleteBtn.disabled = !targetGameId || !canMutate;
   gamesContextMenu.hidden = false;
   gamesContextMenu.style.left = '0px';
   gamesContextMenu.style.top = '0px';
@@ -917,7 +917,6 @@ function buildEditorUrl(options = {}) {
 }
 
 function goToEditor(options = {}) {
-  if (state.readOnly) return;
   persistStoreLocally();
   try {
     if (options.gameId) localStorage.setItem(LOCAL_OPEN_GAME_KEY, options.gameId);
@@ -928,16 +927,17 @@ function goToEditor(options = {}) {
 }
 
 function startNewGame() {
-  if (state.readOnly) return;
   closeGamesContextMenu();
   goToEditor({ newGame: true });
 }
 
 function editSelectedGame(gameId = state.selectedGameId) {
-  if (state.readOnly) return;
   const selectedId = String(gameId || '').trim();
-  if (!selectedId) return;
   closeGamesContextMenu();
+  if (!selectedId) {
+    goToEditor();
+    return;
+  }
   goToEditor({ gameId: selectedId });
 }
 
@@ -1101,7 +1101,6 @@ if (eraseConfirmNoBtn) {
 }
 
 document.addEventListener('contextmenu', (event) => {
-  if (state.readOnly) return;
   if (isEraseConfirmOpen()) return;
   if (gamesContextMenu && gamesContextMenu.contains(event.target)) return;
   const tile = event.target instanceof Element ? event.target.closest('.game-tile') : null;
@@ -1122,12 +1121,12 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   if (isEraseConfirmOpen()) return;
-  if (state.readOnly) return;
   if (event.key === 'Enter' && getSelectedGame()) {
     event.preventDefault();
     editSelectedGame();
     return;
   }
+  if (state.readOnly) return;
   if ((event.key === 'Delete' || event.key === 'Backspace') && getSelectedGame()) {
     const targetTag = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : '';
     if (targetTag === 'input' || targetTag === 'textarea' || event.target.isContentEditable) return;
