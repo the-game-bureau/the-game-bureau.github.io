@@ -973,7 +973,7 @@ function openEraseConfirm(gameId) {
 function openGamesContextMenu(clientX, clientY, gameId = '') {
   if (!gamesContextMenu) return;
   state.contextMenuGameId = String(gameId || '').trim();
-  const targetGameId = state.contextMenuGameId || state.selectedGameId;
+  const targetGameId = state.contextMenuGameId;
   const targetGame = getGameById(targetGameId);
   const isArchivedTarget = isArchivedGame(targetGame);
   const hasTargetGame = !!targetGameId;
