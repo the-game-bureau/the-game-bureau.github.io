@@ -1050,7 +1050,7 @@ function openGamesContextMenu(clientX, clientY, gameId = '') {
   const isArchivedTarget = hasTargetGame && isArchivedGame(targetGame);
   const showActiveGameActions = hasTargetGame && !isArchivedTarget && !isErasedTarget;
   const showArchivedGameActions = hasTargetGame && isArchivedTarget && !isErasedTarget;
-  const showPlayAction = hasTargetGame && !isErasedTarget;
+  const showPlayAction = showActiveGameActions;
   const showEraseAction = hasTargetGame && !isErasedTarget;
   const canMutate = !state.readOnly;
   if (gamesMenuPlayBtn) {
