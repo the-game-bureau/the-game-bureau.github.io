@@ -1,4 +1,4 @@
-// TGB Builder writes JSON data that is read later by the game engine.
+﻿// TGB Builder writes JSON data that is read later by the game engine.
 const TYPE_CONFIG = {
   game: {
     width: 184,
@@ -53,6 +53,17 @@ const LOCAL_RECOVERY_KEY = 'tgb-games-phoneanalogy-recovery';
 const STORE_COMMENT = 'File: games_phoneanalogy.json | Purpose: phone-analogy graph-builder data written by TGB Builder for later game-engine use.';
 const RECOVERY_VERSION = 1;
 const RECOVERY_SAVE_DELAY_MS = 900;
+const PERSISTENCE_DB_NAME = 'tgb-builder-persistence';
+const PERSISTENCE_DB_VERSION = 1;
+const PERSISTENCE_STORE_NAME = 'handles';
+const STORE_FILE_HANDLE_KEY = 'games-phoneanalogy-handle';
+const STORE_FILE_TYPES = [{
+  description: 'TGB Game Library',
+  accept: {
+    'application/json': ['.json']
+  }
+}];
+const GAMES_PAGE_ROUTE = 'builder_games.html';
 
 const EMPTY_DOC = {
   updatedAt: '',
@@ -106,6 +117,12 @@ const PHONE_ANYTIME_ROW_GAP = 26;
 const PHONE_ANYTIME_BOTTOM_PADDING = 72;
 const PHONE_BUBBLE_MIN_WIDTH = 110;
 const PHONE_BUBBLE_MAX_WIDTH = 258;
+const SINGLE_SHEET_SCROLL = true;
+const STENCIL_SHORTCUTS = {
+  stop: 'S',
+  bubble: 'G',
+  reply: 'P'
+};
 
 function isLocalHostname(hostname = location.hostname) {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
@@ -125,6 +142,282 @@ function getGameDataFetchUrls() {
   });
   urls.push('../data/' + STORE_FILE_NAME);
   return [...new Set(urls)];
+}
+
+function getBundledStoreFetchUrl() {
+  return '../data/' + STORE_FILE_NAME;
+}
+
+function usesSingleSheetScroll() {
+  return SINGLE_SHEET_SCROLL;
+}
+
+function getViewportScrollPosition() {
+  if (usesSingleSheetScroll()) {
+    return {
+      left: window.scrollX || window.pageXOffset || 0,
+      top: window.scrollY || window.pageYOffset || 0
+    };
+  }
+  return {
+    left: viewport ? viewport.scrollLeft : 0,
+    top: viewport ? viewport.scrollTop : 0
+  };
+}
+
+function setViewportScrollPosition(left, top) {
+  const nextLeft = Math.max(0, Math.round(left));
+  const nextTop = Math.max(0, Math.round(top));
+  if (usesSingleSheetScroll()) {
+    window.scrollTo(nextLeft, nextTop);
+    return;
+  }
+  if (!viewport) return;
+  viewport.scrollLeft = nextLeft;
+  viewport.scrollTop = nextTop;
+}
+
+function supportsBrowserFileSave() {
+  return !!(window.isSecureContext && typeof window.showSaveFilePicker === 'function');
+}
+
+function getSerializedStoreText(store = state.store) {
+  return JSON.stringify(normalizeStore(store), null, 2) + '\n';
+}
+
+let persistenceDbPromise = null;
+
+function openPersistenceDb() {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  if (persistenceDbPromise) return persistenceDbPromise;
+
+  persistenceDbPromise = new Promise((resolve) => {
+    try {
+      const request = indexedDB.open(PERSISTENCE_DB_NAME, PERSISTENCE_DB_VERSION);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(PERSISTENCE_STORE_NAME)) {
+          db.createObjectStore(PERSISTENCE_STORE_NAME);
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+      request.onblocked = () => resolve(null);
+    } catch (error) {
+      resolve(null);
+    }
+  });
+
+  return persistenceDbPromise;
+}
+
+async function readPersistenceValue(key) {
+  const db = await openPersistenceDb();
+  if (!db) return null;
+
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(PERSISTENCE_STORE_NAME, 'readonly');
+      const store = tx.objectStore(PERSISTENCE_STORE_NAME);
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result ?? null);
+      request.onerror = () => resolve(null);
+      tx.onabort = () => resolve(null);
+    } catch (error) {
+      resolve(null);
+    }
+  });
+}
+
+async function writePersistenceValue(key, value) {
+  const db = await openPersistenceDb();
+  if (!db) return false;
+
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(PERSISTENCE_STORE_NAME, 'readwrite');
+      tx.objectStore(PERSISTENCE_STORE_NAME).put(value, key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    } catch (error) {
+      resolve(false);
+    }
+  });
+}
+
+async function deletePersistenceValue(key) {
+  const db = await openPersistenceDb();
+  if (!db) return false;
+
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(PERSISTENCE_STORE_NAME, 'readwrite');
+      tx.objectStore(PERSISTENCE_STORE_NAME).delete(key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    } catch (error) {
+      resolve(false);
+    }
+  });
+}
+
+async function readRememberedStoreFileHandle() {
+  return readPersistenceValue(STORE_FILE_HANDLE_KEY);
+}
+
+async function rememberStoreFileHandle(handle) {
+  if (!handle) return false;
+  return writePersistenceValue(STORE_FILE_HANDLE_KEY, handle);
+}
+
+async function forgetStoreFileHandle() {
+  return deletePersistenceValue(STORE_FILE_HANDLE_KEY);
+}
+
+async function queryFileHandlePermission(handle, mode = 'read') {
+  if (!handle || typeof handle.queryPermission !== 'function') return 'prompt';
+  try {
+    return await handle.queryPermission({ mode });
+  } catch (error) {
+    return 'prompt';
+  }
+}
+
+async function ensureFileHandlePermission(handle, mode = 'readwrite', options = {}) {
+  if (!handle) return false;
+  const allowPrompt = options.allowPrompt !== false;
+  let permission = await queryFileHandlePermission(handle, mode);
+  if (permission === 'granted') return true;
+  if (!allowPrompt || typeof handle.requestPermission !== 'function') return false;
+
+  try {
+    permission = await handle.requestPermission({ mode });
+    return permission === 'granted';
+  } catch (error) {
+    return false;
+  }
+}
+
+async function getWritableStoreFileHandle(options = {}) {
+  const allowPrompt = options.allowPrompt !== false;
+  const rememberedHandle = await readRememberedStoreFileHandle();
+  if (rememberedHandle && await ensureFileHandlePermission(rememberedHandle, 'readwrite', { allowPrompt })) {
+    return rememberedHandle;
+  }
+
+  if (!allowPrompt || !supportsBrowserFileSave()) return null;
+
+  const handle = await window.showSaveFilePicker({
+    suggestedName: STORE_FILE_NAME,
+    types: STORE_FILE_TYPES
+  });
+  if (!handle) return null;
+  await rememberStoreFileHandle(handle);
+  return handle;
+}
+
+async function syncStoreToBrowserFile(options = {}) {
+  if (!supportsBrowserFileSave()) return { fileSaved: false, supported: false };
+
+  try {
+    const handle = await getWritableStoreFileHandle({ allowPrompt: options.allowPrompt !== false });
+    if (!handle) return { fileSaved: false, supported: true };
+
+    const writable = await handle.createWritable();
+    await writable.write(getSerializedStoreText());
+    await writable.close();
+    await rememberStoreFileHandle(handle);
+    return { fileSaved: true, localOnly: false, storageKind: 'file' };
+  } catch (error) {
+    if (error && error.name === 'AbortError') {
+      return { fileSaved: false, supported: true, cancelled: true, error };
+    }
+    return { fileSaved: false, supported: true, error };
+  }
+}
+
+async function readStoreFromRememberedFile() {
+  if (!supportsBrowserFileSave()) return null;
+
+  try {
+    const handle = await readRememberedStoreFileHandle();
+    if (!handle) return null;
+    const permission = await queryFileHandlePermission(handle, 'read');
+    if (permission !== 'granted') return null;
+
+    const file = await handle.getFile();
+    const raw = JSON.parse(await file.text());
+    return normalizeIncomingStorePayload(raw);
+  } catch (error) {
+    if (error && (error.name === 'NotFoundError' || error.name === 'DataError')) {
+      await forgetStoreFileHandle();
+    }
+    return null;
+  }
+}
+
+function syncStoreToDownload() {
+  try {
+    const blob = new Blob([getSerializedStoreText()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = STORE_FILE_NAME;
+    link.rel = 'noopener';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    return { downloaded: true, localOnly: false, storageKind: 'download' };
+  } catch (error) {
+    return { downloaded: false, localOnly: true, error };
+  }
+}
+
+async function syncStoreToBestAvailableTarget(options = {}) {
+  const serverResult = await syncStoreToServer();
+  if (serverResult && serverResult.serverSaved) {
+    return { ...serverResult, storageKind: 'server' };
+  }
+
+  const fileResult = await syncStoreToBrowserFile({ allowPrompt: options.allowInteractiveFallback !== false });
+  if (fileResult && fileResult.fileSaved) {
+    return { serverSaved: false, fileSaved: true, localOnly: false, storageKind: fileResult.storageKind };
+  }
+  if (fileResult && fileResult.cancelled) {
+    return {
+      serverSaved: false,
+      fileSaved: false,
+      localOnly: true,
+      cancelled: true,
+      storageKind: 'cancelled',
+      error: fileResult.error || (serverResult ? serverResult.error : null)
+    };
+  }
+
+  if (options.allowInteractiveFallback !== false) {
+    const downloadResult = syncStoreToDownload();
+    if (downloadResult && downloadResult.downloaded) {
+      return { serverSaved: false, fileSaved: false, downloaded: true, localOnly: false, storageKind: 'download' };
+    }
+    return {
+      serverSaved: false,
+      fileSaved: false,
+      downloaded: false,
+      localOnly: true,
+      error: (downloadResult && downloadResult.error) || (fileResult && fileResult.error) || (serverResult && serverResult.error) || null
+    };
+  }
+
+  return {
+    serverSaved: false,
+    fileSaved: false,
+    localOnly: true,
+    error: (fileResult && fileResult.error) || (serverResult && serverResult.error) || null
+  };
 }
 
 function formatPhoneClock(date = new Date()) {
@@ -179,14 +472,15 @@ const outsideAnytimeLabel = document.getElementById('outsideAnytimeLabel');
 const inspector = document.getElementById('inspector');
 const inspectorWindowBar = document.getElementById('inspectorWindowBar');
 const inspectorWindowTitle = document.getElementById('inspectorWindowTitle');
+const inspectorWindowSubtitle = document.getElementById('inspectorWindowSubtitle');
 const inspectorStack = document.getElementById('inspectorStack');
 const stencilBar = document.getElementById('stencilBar');
 const headerPlayGameBtn = document.getElementById('headerPlayGameBtn');
+const gamesListBtn = document.getElementById('gamesListBtn');
 const workspaceZoomOutBtn = document.getElementById('workspaceZoomOutBtn');
 const workspaceZoomInBtn = document.getElementById('workspaceZoomInBtn');
 const objectCard = document.getElementById('objectCard');
 const inspectorContent = document.getElementById('inspectorContent');
-const behaviorCard = document.getElementById('behaviorCard');
 const inspectorCopy = document.getElementById('inspectorCopy');
 const titleField = document.getElementById('titleField');
 const stopNameField = document.getElementById('stopNameField');
@@ -494,9 +788,8 @@ function normalizeNodeOrderIndex(value) {
 function getNodeConversationRank(node) {
   if (!node) return 99;
   if (node.type === 'game') return 0;
-  if (node.type === 'stop') return 1;
-  if (isAnytimeNode(node)) return 3;
-  return 2;
+  if (isAnytimeNode(node)) return 2;
+  return 1;
 }
 
 function compareConversationNodes(a, b, nodeIndex = null) {
@@ -603,7 +896,7 @@ function guessVariableNameFromPrompt(value) {
   const prompt = String(value || '')
     .toLowerCase()
     .replace(/%\s*([A-Za-z_]\w*)\s*%/g, ' ')
-    .replace(/['’]/g, '')
+    .replace(/['â€™]/g, '')
     .replace(/[^a-z0-9\s]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -905,7 +1198,7 @@ function getPhoneSecondaryText(node) {
   }
   if (node.type === 'reply') {
     if (node.anytime) return 'Anytime trigger';
-    if (node.acceptAny) return 'Anyanswer';
+    if (node.acceptAny) return 'Any Answer';
     const varName = normalizeVariableName(node.varName);
     return varName ? 'Saved as %' + varName + '%' : '';
   }
@@ -919,16 +1212,25 @@ function getPhoneBubbleSide(node) {
   return 'center';
 }
 
-function canReorderPhoneBubble(node) {
-  return THREAD_LAYOUT_ENABLED
-    && !!node
+function isPhoneThreadNode(node) {
+  return !!node
     && !isAnytimeNode(node)
-    && (node.type === 'bubble' || node.type === 'reply');
+    && (node.type === 'stop' || node.type === 'bubble' || node.type === 'reply');
+}
+
+function canReorderPhoneThreadNode(node) {
+  return THREAD_LAYOUT_ENABLED && isPhoneThreadNode(node);
 }
 
 function getSortedConversationNodes(nodes) {
   const nodeIndex = new Map(state.doc.nodes.map((node, index) => [node.id, index]));
   return [...nodes].sort((a, b) => compareConversationNodes(a, b, nodeIndex));
+}
+
+function getSortedPhoneThreadNodes(excludeNodeId = null) {
+  return getSortedConversationNodes(
+    state.doc.nodes.filter((node) => node && node.id !== excludeNodeId && isPhoneThreadNode(node))
+  );
 }
 
 function getPhoneIncomingSourceId(node) {
@@ -941,21 +1243,8 @@ function getPhoneIncomingSourceId(node) {
   return incoming.length === 1 ? incoming[0].from : '';
 }
 
-function getPhonePinnedRows(excludeNodeId = null) {
-  return getSortedConversationNodes(
-    state.doc.nodes.filter((node) => node && node.id !== excludeNodeId && !isAnytimeNode(node) && node.type === 'stop')
-  ).map((node) => [node]);
-}
-
-function getPhoneMessageRows(excludeNodeId = null) {
-  const messageNodes = getSortedConversationNodes(
-    state.doc.nodes.filter((node) => (
-      node
-      && node.id !== excludeNodeId
-      && !isAnytimeNode(node)
-      && (node.type === 'bubble' || node.type === 'reply')
-    ))
-  );
+function getPhoneThreadRows(excludeNodeId = null) {
+  const messageNodes = getSortedPhoneThreadNodes(excludeNodeId);
   const rows = [];
 
   for (let index = 0; index < messageNodes.length; index += 1) {
@@ -983,12 +1272,10 @@ function getPhoneMessageRows(excludeNodeId = null) {
   return rows;
 }
 
-function reorderPhoneBubble(nodeId, insertIndex) {
+function reorderPhoneThreadNode(nodeId, insertIndex) {
   const node = getNode(nodeId);
-  if (!canReorderPhoneBubble(node)) return false;
-  const orderedNodes = getSortedConversationNodes(
-    state.doc.nodes.filter((candidate) => candidate && candidate.id !== nodeId && canReorderPhoneBubble(candidate))
-  );
+  if (!canReorderPhoneThreadNode(node)) return false;
+  const orderedNodes = getSortedPhoneThreadNodes(nodeId);
   const nextIndex = clamp(Number(insertIndex) || 0, 0, orderedNodes.length);
   orderedNodes.splice(nextIndex, 0, node);
   orderedNodes.forEach((candidate, index) => {
@@ -997,43 +1284,24 @@ function reorderPhoneBubble(nodeId, insertIndex) {
   return true;
 }
 
-function getPhoneThreadRows() {
-  return [
-    ...getPhonePinnedRows(),
-    ...getPhoneMessageRows()
-  ];
+function getPhoneThreadTop() {
+  return PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT + PHONE_THREAD_TOP_GAP;
 }
 
-function getPhoneMessageThreadTop(excludeNodeId = null) {
-  const threadTop = PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT + PHONE_THREAD_TOP_GAP;
-  const threadWidth = PHONE_DEVICE_WIDTH - (PHONE_THREAD_SIDE_PADDING * 2);
-  let y = threadTop;
-
-  getPhonePinnedRows(excludeNodeId).forEach((row) => {
-    const nodes = row.filter(Boolean);
-    if (!nodes.length) return;
-    const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
-    const perNodeMaxWidth = nodes.length > 1
-      ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((threadWidth - (gap * (nodes.length - 1))) / nodes.length))
-      : nodes.some((node) => node.type === 'stop') ? threadWidth : PHONE_BUBBLE_MAX_WIDTH;
-    const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
-    const rowHeight = sizes.reduce((maxHeight, size) => Math.max(maxHeight, size.height), 0);
-    y += rowHeight + PHONE_ROW_GAP;
-  });
-
-  return Math.round(y);
+function getPhoneRowMaxWidth(nodes, threadWidth) {
+  const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
+  return nodes.length > 1
+    ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((threadWidth - (gap * (nodes.length - 1))) / nodes.length))
+    : nodes.some((node) => node.type === 'stop') ? threadWidth : PHONE_BUBBLE_MAX_WIDTH;
 }
 
-function getPhoneProjectedMessageRows(excludeNodeId = null) {
+function getPhoneProjectedRows(rows, startY) {
   const threadWidth = PHONE_DEVICE_WIDTH - (PHONE_THREAD_SIDE_PADDING * 2);
-  let y = getPhoneMessageThreadTop(excludeNodeId);
+  let y = startY;
 
-  return getPhoneMessageRows(excludeNodeId).map((row) => {
+  return rows.map((row) => {
     const nodes = row.filter(Boolean);
-    const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
-    const perNodeMaxWidth = nodes.length > 1
-      ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((threadWidth - (gap * (nodes.length - 1))) / nodes.length))
-      : nodes.some((node) => node.type === 'stop') ? threadWidth : PHONE_BUBBLE_MAX_WIDTH;
+    const perNodeMaxWidth = getPhoneRowMaxWidth(nodes, threadWidth);
     const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
     const rowHeight = sizes.reduce((maxHeight, size) => Math.max(maxHeight, size.height), 0);
     const rowTop = Math.round(y);
@@ -1047,17 +1315,15 @@ function getPhoneProjectedMessageRows(excludeNodeId = null) {
   });
 }
 
-function getPhoneDropSlots(excludeNodeId = null) {
+function getPhoneRowDropSlots(projectedRows, startY) {
   const gapHalf = Math.round(PHONE_ROW_GAP / 2);
-  const messageTop = getPhoneMessageThreadTop(excludeNodeId);
   const minLineY = PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT + 10;
-  const projectedRows = getPhoneProjectedMessageRows(excludeNodeId);
   let insertIndex = 0;
   const slots = [{
     index: 0,
-    lineY: Math.max(minLineY, messageTop - gapHalf),
-    previewY: messageTop,
-    sortY: Math.max(minLineY, messageTop - gapHalf),
+    lineY: Math.max(minLineY, startY - gapHalf),
+    previewY: startY,
+    sortY: Math.max(minLineY, startY - gapHalf),
     insertIndex
   }];
 
@@ -1074,6 +1340,14 @@ function getPhoneDropSlots(excludeNodeId = null) {
   });
 
   return slots;
+}
+
+function getPhoneProjectedThreadRows(excludeNodeId = null) {
+  return getPhoneProjectedRows(getPhoneThreadRows(excludeNodeId), getPhoneThreadTop());
+}
+
+function getPhoneDropSlots(excludeNodeId = null) {
+  return getPhoneRowDropSlots(getPhoneProjectedThreadRows(excludeNodeId), getPhoneThreadTop());
 }
 
 function getNearestPhoneDropSlot(pointerY, excludeNodeId = null) {
@@ -1211,9 +1485,7 @@ function applyPhoneThreadLayout() {
     const nodes = row.filter(Boolean);
     if (!nodes.length) return;
     const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
-    const perNodeMaxWidth = nodes.length > 1
-      ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((threadWidth - (gap * (nodes.length - 1))) / nodes.length))
-      : PHONE_BUBBLE_MAX_WIDTH;
+    const perNodeMaxWidth = getPhoneRowMaxWidth(nodes, threadWidth);
     const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
     const rowHeight = sizes.reduce((maxHeight, size) => Math.max(maxHeight, size.height), 0);
 
@@ -1500,14 +1772,17 @@ function applyInspectorPosition() {
 
 function refreshInspectorWindowUi() {
   if (!inspector) return;
+  const node = getNode(state.selectedId);
+  const link = getLink(state.selectedLinkId);
   if (inspectorWindowTitle) {
-    const node = getNode(state.selectedId);
-    const link = getLink(state.selectedLinkId);
-    inspectorWindowTitle.textContent = node
-      ? (getNodeKicker(node) || 'Bubble') + ' Details'
+    inspectorWindowTitle.textContent = 'Details';
+  }
+  if (inspectorWindowSubtitle) {
+    inspectorWindowSubtitle.textContent = node
+      ? 'Editing ' + (getNodeKicker(node) || 'Selected Item') + '.'
       : link
-        ? 'Connection Details'
-        : 'Details';
+        ? 'Editing Connection.'
+        : 'Select something to edit.';
   }
   if (inspectorStack) inspectorStack.hidden = false;
   if (!inspector.hidden) {
@@ -2231,6 +2506,56 @@ function normalizeStore(raw) {
   };
 }
 
+function convertLegacyGamesToStore(legacyGames = []) {
+  const converted = legacyGames
+    .filter((game) => game && !game.archived)
+    .map((game, index) => ({
+      id: game.id || ('game-' + index),
+      name: game.name || 'Untitled',
+      createdAt: game.createdAt || game.updatedAt || '',
+      updatedAt: game.updatedAt || '',
+      nodes: [{
+        id: 'gm-01',
+        type: 'game',
+        x: 64,
+        y: 64,
+        width: TYPE_CONFIG.game.width,
+        height: TYPE_CONFIG.game.height,
+        title: game.name || 'Untitled',
+        tagline: game.tagline || '',
+        guideName: game.subtitle || '',
+        price: game.price || '',
+        tags: (game.tag || '').split(/[;,]/).map((tag) => tag.trim()).filter(Boolean),
+        body: (game.description || '').replace(/<[^>]+>/g, '').trim()
+      }],
+      links: []
+    }));
+
+  if (!converted.length) return null;
+  return {
+    _comment: STORE_COMMENT,
+    updatedAt: '',
+    games: converted
+  };
+}
+
+function normalizeIncomingStorePayload(raw) {
+  if (Array.isArray(raw)) {
+    const looksLikeCurrentStore = raw.some((game) => game && typeof game === 'object' && (Array.isArray(game.nodes) || Array.isArray(game.links)));
+    return looksLikeCurrentStore ? normalizeStore({ games: raw }) : convertLegacyGamesToStore(raw);
+  }
+
+  if (!raw || typeof raw !== 'object') return null;
+  if (raw._comment === STORE_COMMENT && Array.isArray(raw.games)) return normalizeStore(raw);
+  if (Array.isArray(raw.nodes) || Array.isArray(raw.links)) return normalizeStore(raw);
+  if (Array.isArray(raw.games)) {
+    const looksLikeCurrentStore = raw.games.some((game) => game && typeof game === 'object' && (Array.isArray(game.nodes) || Array.isArray(game.links)));
+    return looksLikeCurrentStore ? normalizeStore(raw) : convertLegacyGamesToStore(raw.games);
+  }
+
+  return null;
+}
+
 function createNode(type, x, y) {
   const config = TYPE_CONFIG[type];
   const nextOrderIndex = state.doc.nodes.reduce((maxOrderIndex, node) => {
@@ -2347,11 +2672,7 @@ function stopGameshelfAutoScroll(resetScroll = true) {
 
 function resetHomeScrollPositions() {
   if (gameshelfStream) gameshelfStream.scrollTop = 0;
-  if (viewport) {
-    viewport.scrollLeft = 0;
-    viewport.scrollTop = 0;
-  }
-  window.scrollTo(0, 0);
+  setViewportScrollPosition(0, 0);
 }
 
 function scheduleInitialScrollReset() {
@@ -2406,6 +2727,7 @@ let gsDragWasScrolling = false;
 
 if (gameshelfStream) {
   gameshelfStream.addEventListener('mousedown', e => {
+    if (usesSingleSheetScroll()) return;
     if (e.button !== 0) return;
     gsDrag = true;
     gsDragStartY = e.clientY;
@@ -2418,11 +2740,13 @@ if (gameshelfStream) {
 }
 
 window.addEventListener('mousemove', e => {
+  if (usesSingleSheetScroll()) return;
   if (!gsDrag) return;
   gameshelfStream.scrollTop = gsDragScrollTop + (gsDragStartY - e.clientY);
 });
 
 window.addEventListener('mouseup', () => {
+  if (usesSingleSheetScroll()) return;
   if (!gsDrag) return;
   gsDrag = false;
   if (gameshelfStream) gameshelfStream.style.cursor = '';
@@ -2601,6 +2925,48 @@ function getRememberedOpenGameId() {
   }
 }
 
+function getEditorLaunchIntent() {
+  try {
+    const url = new URL(location.href);
+    const gameId = String(url.searchParams.get('gameId') || '').trim();
+    const newValue = String(url.searchParams.get('new') || '').trim().toLowerCase();
+    const wantsNew = newValue === '1' || newValue === 'true' || newValue === 'yes';
+    return {
+      gameId,
+      wantsNew,
+      explicit: wantsNew || !!gameId
+    };
+  } catch (error) {
+    return {
+      gameId: '',
+      wantsNew: false,
+      explicit: false
+    };
+  }
+}
+
+function clearEditorLaunchIntent() {
+  try {
+    const url = new URL(location.href);
+    let changed = false;
+    if (url.searchParams.has('new')) {
+      url.searchParams.delete('new');
+      changed = true;
+    }
+    if (!changed) return;
+    const nextUrl = url.pathname + url.search + url.hash;
+    history.replaceState(null, '', nextUrl);
+  } catch (error) {
+  }
+}
+
+function goToGamesPage() {
+  if (hasPendingSaveChanges()) {
+    syncRecoveryDraftNow({ updateStatus: false });
+  }
+  location.href = new URL(GAMES_PAGE_ROUTE, location.href).toString();
+}
+
 function renderTagPicker(node) {
   const existingPills = [...nodeTagPicker.querySelectorAll('.tag-pill')];
   existingPills.forEach((pill) => pill.remove());
@@ -2731,6 +3097,68 @@ function buildNodeMarkup(node) {
   `;
 }
 
+function getStencilPreviewNode(type) {
+  const baseNode = {
+    id: 'stencil-' + type,
+    type,
+    x: 0,
+    y: 0,
+    width: TYPE_CONFIG[type]?.width || 0,
+    height: TYPE_CONFIG[type]?.height || 0,
+    title: type === 'stop' ? 'Waypoint' : '',
+    tagline: '',
+    guideName: '',
+    price: '',
+    builderNotes: '',
+    tags: [],
+    body: '',
+    varName: '',
+    acceptAny: false,
+    anytime: false,
+    anytimePairId: '',
+    rotation: 0
+  };
+
+  if (type === 'bubble') {
+    baseNode.body = 'Guide message';
+  } else if (type === 'reply') {
+    baseNode.body = 'Player reply';
+  }
+
+  if (type === 'stop' || type === 'bubble' || type === 'reply') {
+    const size = getPhoneBubbleSize(
+      baseNode,
+      type === 'stop' ? TYPE_CONFIG.stop.width : PHONE_BUBBLE_MAX_WIDTH
+    );
+    baseNode.width = size.width;
+    baseNode.height = size.height;
+  }
+
+  return baseNode;
+}
+
+function buildStencilPreviewMarkup(type) {
+  const node = getStencilPreviewNode(type);
+  const shortcut = STENCIL_SHORTCUTS[type] || '';
+  return `
+    <span class="stencil-node-preview stencil-node-preview--${escapeHtml(type)}" style="--stencil-preview-width:${Math.round(node.width)}px; --stencil-preview-height:${Math.round(node.height)}px;">
+      <span class="stencil-node-shell node-shell node--${escapeHtml(type)}">
+        ${buildNodeMarkup(node)}
+      </span>
+    </span>
+    <span class="stencil-shortcut">${escapeHtml(shortcut)}</span>
+  `;
+}
+
+function renderStencilPreviews() {
+  if (!stencilBar) return;
+  stencilBar.querySelectorAll('[data-stencil]').forEach((button) => {
+    const type = String(button.dataset.stencil || '').trim();
+    if (!type || !TYPE_CONFIG[type]) return;
+    button.innerHTML = buildStencilPreviewMarkup(type);
+  });
+}
+
 function positionNodeElement(node, el) {
   el.style.transform = 'translate(' + node.x + 'px,' + node.y + 'px)';
   el.style.width = node.width + 'px';
@@ -2739,7 +3167,7 @@ function positionNodeElement(node, el) {
 }
 
 function positionGhost(ghostEl, clientX, clientY) {
-  ghostEl.style.transform = 'translate(' + (clientX + 16) + 'px,' + (clientY + 16) + 'px) scale(.84)';
+  ghostEl.style.transform = 'translate(' + (clientX + 16) + 'px,' + (clientY + 16) + 'px) scale(' + state.zoom + ')';
 }
 
 function applyZoom() {
@@ -2767,22 +3195,33 @@ function setZoom(nextZoom, clientX, clientY) {
   const anchorX = clientX ?? (rect.left + rect.width / 2);
   const anchorY = clientY ?? (rect.top + rect.height / 2);
   const focus = phonePointFromClient(anchorX, anchorY);
+  const scroll = getViewportScrollPosition();
 
   state.zoom = roundedZoom;
   applyZoom();
 
-  viewport.scrollLeft = focus.x * state.zoom - (anchorX - rect.left);
-  viewport.scrollTop = focus.y * state.zoom - (anchorY - rect.top);
+  if (usesSingleSheetScroll()) {
+    setViewportScrollPosition(
+      scroll.left + (focus.x * state.zoom) - (anchorX - rect.left),
+      scroll.top + (focus.y * state.zoom) - (anchorY - rect.top)
+    );
+  } else {
+    setViewportScrollPosition(
+      (focus.x * state.zoom) - (anchorX - rect.left),
+      (focus.y * state.zoom) - (anchorY - rect.top)
+    );
+  }
 
   drawLinks();
 }
 
 function phonePointFromClient(clientX, clientY) {
   const rect = viewport.getBoundingClientRect();
+  const scroll = usesSingleSheetScroll() ? { left: 0, top: 0 } : getViewportScrollPosition();
   return {
     inside: clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom,
-    x: (clientX - rect.left + viewport.scrollLeft) / state.zoom,
-    y: (clientY - rect.top + viewport.scrollTop) / state.zoom
+    x: (clientX - rect.left + scroll.left) / state.zoom,
+    y: (clientY - rect.top + scroll.top) / state.zoom
   };
 }
 
@@ -3219,7 +3658,7 @@ function attachNodeEvents(el, node) {
       }
     }
     const wasSelected = state.selectedId === node.id;
-    const editableTitleClicked = usesNodeTitle(node.type) && !!event.target.closest('.node-title');
+    const editableTitleClicked = node.type === 'game' && !!event.target.closest('.node-title');
     closeNodeContextMenu();
     selectNode(node.id);
     renderSelectionStates();
@@ -3233,7 +3672,7 @@ function attachNodeEvents(el, node) {
   el.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     if (event.target.closest('.node-port')) return;
-    const editableTitleClicked = usesNodeTitle(node.type) && !!event.target.closest('.node-title');
+    const editableTitleClicked = node.type === 'game' && !!event.target.closest('.node-title');
     closeNodeContextMenu();
     if (node.type === 'game' || editableTitleClicked) {
       event.preventDefault();
@@ -3249,7 +3688,7 @@ function attachNodeEvents(el, node) {
     drawLinks();
     updateSelectionUi();
     if (THREAD_LAYOUT_ENABLED) {
-      if (!canReorderPhoneBubble(node)) return;
+      if (!canReorderPhoneThreadNode(node)) return;
       const point = phonePointFromClient(event.clientX, event.clientY);
       state.dropSlot = null;
       hideBubbleDropLine();
@@ -3409,9 +3848,8 @@ function updateSelectionUi() {
   const link = getLink(state.selectedLinkId);
   const hasSelection = !!(node || link);
   if (inspector) inspector.hidden = false;
-  objectCard.hidden = !hasSelection;
-  inspectorContent.hidden = !hasSelection;
-  behaviorCard.hidden = hasSelection;
+  objectCard.hidden = false;
+  inspectorContent.hidden = false;
 
   const getInspCopy = key => document.querySelector(`#inspectorCopyStrings [data-copy="${key}"]`)?.textContent.trim() || '';
   const nodeCopy = node ? (document.querySelector(`#stencilBar [data-stencil="${node.type}"]`)?.dataset.copy || '') : '';
@@ -3421,7 +3859,7 @@ function updateSelectionUi() {
       ? getInspCopy('anytime-guide')
       : '';
   inspectorCopy.textContent = node
-    ? (anytimeCopy || nodeCopy || 'Edit the selected object.')
+    ? (anytimeCopy || nodeCopy || '')
     : link
       ? getInspCopy('link')
       : getInspCopy('default');
@@ -4063,6 +4501,7 @@ function startStencilDrag(type, event) {
     return;
   }
   const config = TYPE_CONFIG[type];
+  const threadWidth = PHONE_DEVICE_WIDTH - (PHONE_THREAD_SIDE_PADDING * 2);
   const ghostNode = {
     id: 'preview',
     type,
@@ -4071,10 +4510,21 @@ function startStencilDrag(type, event) {
     title: config.title,
     body: config.body
   };
+  if (THREAD_LAYOUT_ENABLED && isPhoneThreadNode(ghostNode)) {
+    const ghostSize = getPhoneBubbleSize(
+      ghostNode,
+      type === 'stop' ? threadWidth : PHONE_BUBBLE_MAX_WIDTH
+    );
+    ghostNode.width = ghostSize.width;
+    ghostNode.height = ghostSize.height;
+  }
   const ghost = document.createElement('div');
-  ghost.className = 'drag-ghost node-shell node--' + type;
+  ghost.className = 'drag-ghost node-shell dragging node--' + type;
   ghost.style.width = ghostNode.width + 'px';
   ghost.style.height = ghostNode.height + 'px';
+  if (type === 'bubble') ghost.style.setProperty('--drag-tilt', '-1.15deg');
+  if (type === 'reply') ghost.style.setProperty('--drag-tilt', '1.15deg');
+  if (type === 'stop') ghost.style.setProperty('--drag-tilt', '0deg');
   ghost.innerHTML = buildNodeMarkup(ghostNode);
   document.body.appendChild(ghost);
   positionGhost(ghost, event.clientX, event.clientY);
@@ -4177,11 +4627,17 @@ function maybeAutoPan(clientX, clientY) {
   const rect = viewport.getBoundingClientRect();
   const threshold = 54;
   const step = 26;
+  const scroll = getViewportScrollPosition();
 
-  if (clientX < rect.left + threshold) viewport.scrollLeft -= step;
-  if (clientX > rect.right - threshold) viewport.scrollLeft += step;
-  if (clientY < rect.top + threshold) viewport.scrollTop -= step;
-  if (clientY > rect.bottom - threshold) viewport.scrollTop += step;
+  let nextLeft = scroll.left;
+  let nextTop = scroll.top;
+  if (clientX < rect.left + threshold) nextLeft -= step;
+  if (clientX > rect.right - threshold) nextLeft += step;
+  if (clientY < rect.top + threshold) nextTop -= step;
+  if (clientY > rect.bottom - threshold) nextTop += step;
+  if (nextLeft !== scroll.left || nextTop !== scroll.top) {
+    setViewportScrollPosition(nextLeft, nextTop);
+  }
 }
 
 function seedPhone(options = {}) {
@@ -4273,6 +4729,36 @@ function readLocalStoreSnapshot() {
   } catch (error) {
     return null;
   }
+}
+
+function getStoreUpdatedTime(store) {
+  if (!store || typeof store !== 'object') return 0;
+  const candidates = [store.updatedAt];
+  if (Array.isArray(store.games)) {
+    store.games.forEach((game) => {
+      candidates.push(game && game.updatedAt);
+      candidates.push(game && game.createdAt);
+    });
+  }
+  return candidates.reduce((latest, value) => {
+    if (typeof value !== 'string' || !value) return latest;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? Math.max(latest, parsed) : latest;
+  }, 0);
+}
+
+function pickPreferredStoreCandidate(candidates = []) {
+  let best = null;
+  let bestTime = -1;
+  candidates.forEach((candidate) => {
+    if (!candidate) return;
+    const candidateTime = getStoreUpdatedTime(candidate);
+    if (!best || candidateTime > bestTime) {
+      best = candidate;
+      bestTime = candidateTime;
+    }
+  });
+  return best;
 }
 
 function shouldKeepRecoveryDraft() {
@@ -4526,6 +5012,7 @@ function stageCurrentGameIntoStore() {
 
 async function saveDoc(options = {}) {
   const silent = !!options.silent;
+  const allowInteractiveFallback = options.allowInteractiveFallback !== false && !silent;
   const needsCurrentGameStage = shouldStageCurrentGameForSave();
   const hasPendingChanges = hasPendingSaveChanges() || needsCurrentGameStage;
 
@@ -4544,12 +5031,12 @@ async function saveDoc(options = {}) {
   syncRecoveryDraftNow({ updateStatus: false });
 
   try {
-    const syncResult = await syncStoreToServer();
-    if (!syncResult || !syncResult.serverSaved) {
+    const syncResult = await syncStoreToBestAvailableTarget({ allowInteractiveFallback });
+    if (!syncResult || syncResult.localOnly) {
       state.localOnlyChanges = true;
       syncRecoveryDraftNow({ updateStatus: false });
-      setSaveStatus('local');
-      return { savedGame, serverSaved: false, localOnly: true, error: syncResult && syncResult.error ? syncResult.error : null };
+      setSaveStatus(syncResult && syncResult.cancelled ? 'unsaved' : 'local');
+      return { savedGame, serverSaved: false, localOnly: true, error: syncResult && syncResult.error ? syncResult.error : null, cancelled: !!(syncResult && syncResult.cancelled) };
     }
 
     state.localOnlyChanges = false;
@@ -4558,7 +5045,15 @@ async function saveDoc(options = {}) {
     clearRecoveryDraft();
     setSaveStatus('saved');
     updateActionUi();
-    return { savedGame, serverSaved: true, localOnly: false, apiBase: syncResult.apiBase };
+    return {
+      savedGame,
+      serverSaved: !!syncResult.serverSaved,
+      fileSaved: !!syncResult.fileSaved,
+      downloaded: !!syncResult.downloaded,
+      localOnly: false,
+      apiBase: syncResult.apiBase,
+      storageKind: syncResult.storageKind || (syncResult.serverSaved ? 'server' : 'browser')
+    };
   } catch (error) {
     state.localOnlyChanges = true;
     syncRecoveryDraftNow({ updateStatus: false });
@@ -4580,61 +5075,76 @@ async function playCurrentGame() {
 }
 
 async function loadDoc() {
-  setSaveStatus('loading', 'Loading Gameshelf');
-  let nextStore = null;
+  setSaveStatus('loading', 'Loading Games');
+  let apiStore = null;
+  let bundledStore = null;
 
   try {
-    const urls = getGameDataFetchUrls();
+    const apiUrls = getApiBaseCandidates().map((apiBase) => apiBase + STORE_API_ROUTE);
     let res = null;
-    for (const url of urls) {
+    for (const url of apiUrls) {
       try { res = await fetch(url, { cache: 'no-store' }); if (res.ok) break; } catch (e) {}
     }
     if (res.ok) {
       const raw = await res.json();
-      if (raw && typeof raw === 'object' && Array.isArray(raw.games) && raw._comment === STORE_COMMENT) {
-        nextStore = normalizeStore(raw);
-      } else {
-        const legacy = Array.isArray(raw) ? raw : (Array.isArray(raw.games) ? raw.games : []);
-        const converted = legacy
-          .filter((g) => !g.archived)
-          .map((g, i) => ({
-            id: g.id || ('game-' + i),
-            name: g.name || 'Untitled',
-            createdAt: g.createdAt || g.updatedAt || '',
-            updatedAt: g.updatedAt || '',
-            nodes: [{
-              id: 'gm-01',
-              type: 'game',
-              x: 64, y: 64,
-              width: TYPE_CONFIG.game.width,
-              height: TYPE_CONFIG.game.height,
-              title: g.name || 'Untitled',
-              tagline: g.tagline || '',
-              guideName: g.subtitle || '',
-              price: g.price || '',
-              tags: (g.tag || '').split(/[;,]/).map((t) => t.trim()).filter(Boolean),
-              body: (g.description || '').replace(/<[^>]+>/g, '').trim()
-            }],
-            links: []
-          }));
-        if (converted.length > 0) {
-          nextStore = { _comment: STORE_COMMENT, updatedAt: '', games: converted };
-        }
+      apiStore = normalizeIncomingStorePayload(raw);
+    }
+  } catch (error) {
+  }
+
+  const fileStore = await readStoreFromRememberedFile();
+  const localStore = readLocalStoreSnapshot();
+  try {
+    if (!apiStore) {
+      const bundledResponse = await fetch(getBundledStoreFetchUrl(), { cache: 'no-store' });
+      if (bundledResponse.ok) {
+        bundledStore = normalizeIncomingStorePayload(await bundledResponse.json());
       }
     }
   } catch (error) {
   }
 
-  const localStore = readLocalStoreSnapshot();
-  state.store = nextStore || localStore || cloneObj(EMPTY_STORE);
+  state.store = pickPreferredStoreCandidate([apiStore, fileStore, localStore, bundledStore]) || cloneObj(EMPTY_STORE);
 
+  const launchIntent = getEditorLaunchIntent();
   const recovery = readRecoveryDraft();
-  if (recovery && restoreRecoveryWorkspace(recovery)) {
+  if (launchIntent.gameId && recovery && recovery.currentGameId === launchIntent.gameId) {
+    if (restoreRecoveryWorkspace(recovery)) {
+      return;
+    }
+  }
+  if (!launchIntent.explicit && recovery) {
+    if (restoreRecoveryWorkspace(recovery)) {
+      return;
+    }
+  }
+
+  if (launchIntent.wantsNew) {
+    clearRecoveryDraft();
+    clearEditorLaunchIntent();
+    seedPhone();
     return;
   }
 
-  showGameshelfHome();
+  const preferredGameId = launchIntent.gameId || getRememberedOpenGameId();
+  if (preferredGameId) {
+    const preferredGame = state.store.games.find((game) => game && game.id === preferredGameId);
+    if (preferredGame) {
+      openSavedGame(preferredGame.id);
+      return;
+    }
+  }
+
+  const availableGames = getGameshelfGames();
+  if (availableGames.length) {
+    openSavedGame(availableGames[0].id);
+    return;
+  }
+
+  seedPhone();
 }
+
+renderStencilPreviews();
 
 stencilBar.querySelectorAll('[data-stencil]').forEach((button) => {
   button.addEventListener('pointerdown', (event) => {
@@ -4924,6 +5434,7 @@ deleteBtn.addEventListener('click', () => {
 if (saveGameBtn) saveGameBtn.addEventListener('click', saveCurrentGameFromMenu);
 if (saveStatusPill) saveStatusPill.addEventListener('click', saveCurrentGameFromMenu);
 if (headerPlayGameBtn) headerPlayGameBtn.addEventListener('click', playCurrentGame);
+if (gamesListBtn) gamesListBtn.addEventListener('click', goToGamesPage);
 if (refreshPageBtn) {
   refreshPageBtn.addEventListener('click', () => {
     const menu = refreshPageBtn.closest('.mb-menu');
@@ -5057,8 +5568,8 @@ viewport.addEventListener('pointerdown', (event) => {
   state.panPhone = {
     startX: event.clientX,
     startY: event.clientY,
-    scrollLeft: viewport.scrollLeft,
-    scrollTop: viewport.scrollTop,
+    scrollLeft: getViewportScrollPosition().left,
+    scrollTop: getViewportScrollPosition().top,
     moved: false
   };
   viewport.classList.add('panning');
@@ -5140,7 +5651,8 @@ window.addEventListener('pointermove', (event) => {
       let previewY = rawY + ((snapTargetY - rawY) * (0.28 + (snapStrength * 0.56)));
       if (snapDistance < 10) previewY = snapTargetY;
       node.y = Math.round(previewY);
-      const sideBias = getPhoneBubbleSide(node) === 'right' ? 1.15 : -1.15;
+      const side = getPhoneBubbleSide(node);
+      const sideBias = side === 'right' ? 1.15 : side === 'left' ? -1.15 : 0;
       const dragTilt = clamp(sideBias + ((event.clientX - state.dragNode.startClientX) / 34), -4.5, 4.5);
       el.style.setProperty('--drag-tilt', dragTilt.toFixed(2) + 'deg');
       positionNodeElement(node, el);
@@ -5212,8 +5724,10 @@ window.addEventListener('pointermove', (event) => {
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
       state.panPhone.moved = true;
     }
-    viewport.scrollLeft = state.panPhone.scrollLeft - dx;
-    viewport.scrollTop = state.panPhone.scrollTop - dy;
+    setViewportScrollPosition(
+      state.panPhone.scrollLeft - dx,
+      state.panPhone.scrollTop - dy
+    );
   }
 });
 
@@ -5234,7 +5748,7 @@ window.addEventListener('pointerup', (event) => {
       if (node && dragState.moved && state.dropSlot) {
         node.x = dragState.originX;
         node.y = Math.round(state.dropSlot.sortY);
-        reorderPhoneBubble(node.id, state.dropSlot.insertIndex);
+        reorderPhoneThreadNode(node.id, state.dropSlot.insertIndex);
       }
       if (el) el.style.removeProperty('--drag-tilt');
       hideBubbleDropLine();
@@ -5355,7 +5869,7 @@ window.addEventListener('keydown', (event) => {
   }
 });
 
-// ── Menubar dropdowns ──────────────────────────────────────────────────────
+// â”€â”€ Menubar dropdowns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 (function () {
   const nav = document.getElementById('mbNav');
   if (!nav) return;
@@ -5410,3 +5924,6 @@ window.addEventListener('resize', () => {
 startPhoneClock();
 applyZoom();
 loadDoc();
+
+
+

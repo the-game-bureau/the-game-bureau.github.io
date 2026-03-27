@@ -2,22 +2,22 @@
 <!--
   TGB Builder project note for humans and AI:
   This builder writes JSON data that is read later by the game engine.
-  builder_phoneanalogy.html writes phone data to play/data/games_phoneanalogy.json.
+  builder_phoneanalogy.html stores phone data for later game-engine use.
 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TGB Game Builder</title>
+  <title>TGB Builder</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="builder_phoneanalogy.css?v=1774676400">
+  <link rel="stylesheet" href="builder_phoneanalogy.css?v=1774762000">
 </head>
-<body>
+<body class="builder-page builder-page--editor">
   <div class="app-shell">
 
-    <!-- ── Menubar ── -->
+    <!-- Menubar -->
     <div id="inspectorCopyStrings" hidden>
       <span data-copy="anytime-reply">A PLAYER MSG with ANYTIME turned on. Its paired GUIDE MSG responds whenever the player message matches.</span>
       <span data-copy="anytime-guide">The GUIDE MSG paired to an ANYTIME PLAYER MSG. After this message, the current prompt is shown again.</span>
@@ -25,33 +25,26 @@
       <span data-copy="default">Select an object to edit it. Connections can fan out to more than one destination.</span>
     </div>
 
-    <!-- ── Main ── -->
+    <!-- Editor Workspace -->
     <div class="main-grid">
-      <aside class="gameshelf" id="gameshelf" aria-label="Saved games">
-        <div class="gameshelf-head">
-          <h2 class="gameshelf-title">Games</h2>
+      <div class="paper-brand" aria-hidden="true">TGB Builder</div>
+      <div class="paper-tools">
+        <div class="zoom-controls" aria-label="Zoom controls">
+          <button class="zoom-pill-btn" id="workspaceZoomOutBtn" type="button" aria-label="Zoom out">-</button>
+          <button class="zoom-pill-btn" id="workspaceZoomInBtn" type="button" aria-label="Zoom in">+</button>
         </div>
-        <div class="gameshelf-pinned" id="gameshelfPinned" hidden></div>
-        <div class="gameshelf-stream" id="gameshelfStream">
-          <div class="gameshelf-list" id="gameshelfList">
-            <div class="gameshelf-empty">Loading gameshelf...</div>
-          </div>
-        </div>
-      </aside>
-      <section class="phone-shell">
-        <div class="workspace-ink-title">TGB BUILDER</div>
         <div class="workspace-actions">
+          <button class="workspace-action-btn workspace-action-btn--nav" id="gamesListBtn" type="button">Games</button>
           <button class="mb-status-pill workspace-action-btn" id="saveStatusPill" data-state="idle" type="button" disabled>Save</button>
           <button class="workspace-action-btn workspace-action-btn--play" id="headerPlayGameBtn" type="button">Play</button>
         </div>
-        <div class="zoom-controls" aria-label="Zoom controls">
-          <button class="zoom-pill-btn" id="workspaceZoomInBtn" type="button" aria-label="Zoom in">+</button>
-          <button class="zoom-pill-btn" id="workspaceZoomOutBtn" type="button" aria-label="Zoom out">-</button>
-        </div>
-        <div class="viewport" id="viewport">
+      </div>
+      <!-- Big Phone / Workspace -->
+      <section class="phone-shell pane pane--workspace">
+        <div class="viewport pane-body" id="viewport">
           <div class="phone-stage" id="phoneStage">
             <div id="stencilBar" class="phone-stencil-tray" aria-label="New blank bubbles">
-              <button class="stencil stencil--stop" data-stencil="stop" data-copy="This Waypoint Bubble doesn't really appear in the game. It's just for you, the builder. This is where you can make secret notes about the game stop, like its location, or background, or the answers to the upsoming questions. Think of it as a waypoint or a flag to help you." type="button" aria-label="New WAYPOINT bubble">
+              <button class="stencil stencil--stop" data-stencil="stop" data-copy="This Waypoint Bubble doesn't really appear in the game. It's just for you, the builder. This is where you can make secret notes about the game stop, like its location, or background, or the answers to the upcoming questions. Think of it as a waypoint or a flag to help you." type="button" aria-label="New WAYPOINT bubble">
                 <span class="stencil-seed stencil-seed--stop">
                   <span class="stencil-seed-label">WAYPOINT</span>
                 </span>
@@ -101,14 +94,15 @@ You can use previously stored data by typing % and choosing the previously store
         </div>
       </section>
 
-      <!-- ── Inspector ── -->
-      <aside class="inspector" id="inspector" hidden>
-        <div class="inspector-windowbar" id="inspectorWindowBar">
-          <div class="inspector-windowmeta">
-            <div class="inspector-windowtitle" id="inspectorWindowTitle">Details</div>
+      <!-- Details Pane -->
+      <aside class="inspector pane pane--details" id="inspector" hidden>
+        <div class="inspector-windowbar pane-head" id="inspectorWindowBar">
+          <div class="inspector-windowmeta pane-copy">
+            <div class="inspector-windowtitle pane-title" id="inspectorWindowTitle">Details</div>
+            <div class="pane-subtitle" id="inspectorWindowSubtitle">Select something to edit.</div>
           </div>
         </div>
-        <div class="inspector-stack" id="inspectorStack">
+        <div class="inspector-stack pane-body" id="inspectorStack">
           <section class="inspector-card" id="objectCard" hidden>
             <div id="inspectorContent" hidden>
               <p class="inspector-copy" id="inspectorCopy">
@@ -132,31 +126,31 @@ You can use previously stored data by typing % and choosing the previously store
               </div>
 
               <div class="field" id="varValuesField" hidden>
-                <div class="field-label">Values <span class="field-label-hint">(tap ✓ to mark correct)</span></div>
+                <div class="field-label">Values <span class="field-label-hint">(tap OK to mark correct)</span></div>
                 <div class="ifthen-grid">
                   <div class="ifthen-row">
                     <span class="ifthen-port-tag">Val 1</span>
                     <input id="varValue1" type="text" autocomplete="off" disabled>
                     <input class="var-correct-radio" type="radio" name="varCorrect" value="0" id="varCorrect0" disabled>
-                    <label class="var-correct-label" for="varCorrect0">✓</label>
+                    <label class="var-correct-label" for="varCorrect0">OK</label>
                   </div>
                   <div class="ifthen-row">
                     <span class="ifthen-port-tag">Val 2</span>
                     <input id="varValue2" type="text" autocomplete="off" disabled>
                     <input class="var-correct-radio" type="radio" name="varCorrect" value="1" id="varCorrect1" disabled>
-                    <label class="var-correct-label" for="varCorrect1">✓</label>
+                    <label class="var-correct-label" for="varCorrect1">OK</label>
                   </div>
                   <div class="ifthen-row">
                     <span class="ifthen-port-tag">Val 3</span>
                     <input id="varValue3" type="text" autocomplete="off" disabled>
                     <input class="var-correct-radio" type="radio" name="varCorrect" value="2" id="varCorrect2" disabled>
-                    <label class="var-correct-label" for="varCorrect2">✓</label>
+                    <label class="var-correct-label" for="varCorrect2">OK</label>
                   </div>
                   <div class="ifthen-row">
                     <span class="ifthen-port-tag">Val 4</span>
                     <input id="varValue4" type="text" autocomplete="off" disabled>
                     <input class="var-correct-radio" type="radio" name="varCorrect" value="3" id="varCorrect3" disabled>
-                    <label class="var-correct-label" for="varCorrect3">✓</label>
+                    <label class="var-correct-label" for="varCorrect3">OK</label>
                   </div>
                 </div>
               </div>
@@ -183,7 +177,7 @@ You can use previously stored data by typing % and choosing the previously store
                     </label>
                     <label class="mode-toggle-option" for="replyModeAnyAnswerInput">
                       <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModeAnyAnswerInput" value="anyanswer" disabled>
-                      <span class="mode-toggle-btn">Anyanswer</span>
+                      <span class="mode-toggle-btn">Any Answer</span>
                     </label>
                     <label class="mode-toggle-option" for="replyModeAnytimeInput">
                       <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModeAnytimeInput" value="anytime" disabled>
@@ -270,16 +264,6 @@ You can use previously stored data by typing % and choosing the previously store
             </div>
           </section>
 
-          <section class="inspector-card" id="behaviorCard">
-            <div class="insp-eyebrow">How It Works</div>
-            <h2>SMS Game Flow</h2>
-            <p class="inspector-copy">
-              Start with a <strong>Game</strong> node. Connect it to <strong>Stops</strong>, <strong>GUIDES</strong>, and <strong>PLAYER</strong> nodes to build the conversation.
-            </p>
-            <p class="mini-note">
-              <strong>Delete</strong> removes selected. <strong>Ctrl+S</strong> saves.
-            </p>
-          </section>
         </div>
       </aside>
     </div>
@@ -290,12 +274,12 @@ You can use previously stored data by typing % and choosing the previously store
     <button class="context-menu-item context-menu-item--danger" id="deleteNodeMenuBtn" type="button">Delete</button>
   </div>
 
-  <div class="context-menu" id="gameshelfContextMenu" hidden>
-    <button class="context-menu-item" id="gameshelfMenuNewBtn" type="button">NEW</button>
-    <button class="context-menu-item" id="gameshelfMenuDuplicateBtn" type="button">DUPLICATE</button>
-    <button class="context-menu-item context-menu-item--danger" id="gameshelfMenuDeleteBtn" type="button">DELETE</button>
-  </div>
-
-  <script src="builder_phoneanalogy.js?v=1774675600"></script>
+  <script src="builder_phoneanalogy.js?v=1774762000"></script>
 </body>
 </html>
+
+
+
+
+
+
