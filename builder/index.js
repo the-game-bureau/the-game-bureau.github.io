@@ -5,6 +5,10 @@ const SUPABASE_CONFIG_STORAGE_KEY = 'tgb-builder-supabase-config';
 const EDITOR_PAGE_ROUTE = 'builder.html';
 const BIC_BLUE_INK = '#2f5cc2';
 const ARCHIVED_GAME_VALUE = 'YES';
+const MOBILE_LONG_PRESS_MS = 420;
+const MOBILE_LONG_PRESS_MOVE_TOLERANCE = 16;
+const GAME_TILE_LABEL_MIN_FONT_SIZE_PX = 11;
+const GAME_TILE_LABEL_FONT_STEP_PX = 0.5;
 
 const EMPTY_STORE = {
   _comment: STORE_COMMENT,
@@ -44,7 +48,20 @@ const state = {
   readOnly: false,
   supabaseStatusMessage: '',
   eraseConfirmResolver: null,
-  eraseConfirmPreviousFocus: null
+  eraseConfirmPreviousFocus: null,
+  longPressTimer: null,
+  longPressTouchId: null,
+  longPressGameId: '',
+  longPressClientX: 0,
+  longPressClientY: 0,
+  longPressStartX: 0,
+  longPressStartY: 0,
+  longPressTriggered: false,
+  suppressNextTileClick: false,
+  suppressNextTileClickTimer: null,
+  suppressNextOutsideClick: false,
+  suppressNextOutsideClickTimer: null,
+  pendingTileLabelFitFrame: 0
 };
 
 const supabaseConfig = readSupabaseConfig();
@@ -629,13 +646,19 @@ function clearSelectedGame() {
   updateActionUi();
 }
 
-function setSelectedGame(gameId) {
+function setSelectedGame(gameId, options = {}) {
+  const keepIfSame = options.keepIfSame === true;
   const nextGameId = String(gameId || '').trim();
   if (!nextGameId) {
     clearSelectedGame();
     return;
   }
   if (nextGameId === state.selectedGameId) {
+    if (keepIfSame) {
+      renderGames();
+      updateActionUi();
+      return;
+    }
     clearSelectedGame();
     return;
   }
@@ -646,6 +669,84 @@ function setSelectedGame(gameId) {
   }
   renderGames();
   updateActionUi();
+}
+
+function clearTileClickSuppressionTimer() {
+  if (state.suppressNextTileClickTimer) {
+    window.clearTimeout(state.suppressNextTileClickTimer);
+    state.suppressNextTileClickTimer = null;
+  }
+}
+
+function suppressNextTileClick() {
+  state.suppressNextTileClick = true;
+  clearTileClickSuppressionTimer();
+  state.suppressNextTileClickTimer = window.setTimeout(() => {
+    state.suppressNextTileClick = false;
+    state.suppressNextTileClickTimer = null;
+  }, 450);
+}
+
+function clearOutsideClickSuppressionTimer() {
+  if (state.suppressNextOutsideClickTimer) {
+    window.clearTimeout(state.suppressNextOutsideClickTimer);
+    state.suppressNextOutsideClickTimer = null;
+  }
+}
+
+function suppressNextOutsideClick() {
+  state.suppressNextOutsideClick = true;
+  clearOutsideClickSuppressionTimer();
+  state.suppressNextOutsideClickTimer = window.setTimeout(() => {
+    state.suppressNextOutsideClick = false;
+    state.suppressNextOutsideClickTimer = null;
+  }, 450);
+}
+
+function clearLongPressTimer() {
+  if (state.longPressTimer) {
+    window.clearTimeout(state.longPressTimer);
+    state.longPressTimer = null;
+  }
+}
+
+function resetLongPressState() {
+  clearLongPressTimer();
+  state.longPressTouchId = null;
+  state.longPressGameId = '';
+  state.longPressClientX = 0;
+  state.longPressClientY = 0;
+  state.longPressStartX = 0;
+  state.longPressStartY = 0;
+  state.longPressTriggered = false;
+}
+
+function scheduleLongPress(touch, gameId = '') {
+  resetLongPressState();
+  state.longPressTouchId = touch.identifier;
+  state.longPressGameId = String(gameId || '').trim();
+  state.longPressClientX = touch.clientX;
+  state.longPressClientY = touch.clientY;
+  state.longPressStartX = touch.clientX;
+  state.longPressStartY = touch.clientY;
+  state.longPressTimer = window.setTimeout(() => {
+    const targetGameId = state.longPressGameId;
+    const clientX = state.longPressClientX;
+    const clientY = state.longPressClientY;
+    clearLongPressTimer();
+    state.longPressTriggered = true;
+    suppressNextTileClick();
+    suppressNextOutsideClick();
+    if (targetGameId) {
+      setSelectedGame(targetGameId, { keepIfSame: true });
+    }
+    openGamesContextMenu(clientX, clientY, targetGameId);
+  }, MOBILE_LONG_PRESS_MS);
+}
+
+function getTrackedTouch(touchList) {
+  if (state.longPressTouchId == null || !touchList) return null;
+  return Array.from(touchList).find((touch) => touch.identifier === state.longPressTouchId) || null;
 }
 
 function setActionLinkState(link, enabled, href = '') {
@@ -698,6 +799,42 @@ function applyTileColors(button, game, index) {
   button.style.setProperty('--game-outline', tertiaryColor);
 }
 
+function fitGameTileLabel(label) {
+  if (!(label instanceof HTMLElement)) return;
+  label.style.removeProperty('font-size');
+  label.classList.remove('game-tile-label--compact');
+
+  const availableWidth = label.clientWidth;
+  const availableHeight = label.clientHeight;
+  if (!availableWidth || !availableHeight) return;
+
+  let fontSize = Number.parseFloat(window.getComputedStyle(label).fontSize) || 0;
+  while (
+    fontSize > GAME_TILE_LABEL_MIN_FONT_SIZE_PX
+    && (label.scrollWidth > availableWidth + 1 || label.scrollHeight > availableHeight + 1)
+  ) {
+    fontSize = Math.max(GAME_TILE_LABEL_MIN_FONT_SIZE_PX, fontSize - GAME_TILE_LABEL_FONT_STEP_PX);
+    label.style.fontSize = `${fontSize}px`;
+  }
+
+  if (label.scrollWidth > availableWidth + 1 || label.scrollHeight > availableHeight + 1) {
+    label.classList.add('game-tile-label--compact');
+  }
+}
+
+function fitAllGameTileLabels() {
+  if (!gamesGrid) return;
+  gamesGrid.querySelectorAll('.game-tile-label').forEach((label) => fitGameTileLabel(label));
+}
+
+function queueGameTileLabelFit() {
+  if (state.pendingTileLabelFitFrame) return;
+  state.pendingTileLabelFitFrame = window.requestAnimationFrame(() => {
+    state.pendingTileLabelFitFrame = 0;
+    fitAllGameTileLabels();
+  });
+}
+
 function buildGameTile(game, index) {
   const button = document.createElement('button');
   button.type = 'button';
@@ -709,13 +846,20 @@ function buildGameTile(game, index) {
     <span class="game-tile-label">${escapeHtml(game.name || 'Untitled Game')}</span>
   `;
   applyTileColors(button, game, index);
-  button.addEventListener('click', () => setSelectedGame(game.id));
+  button.addEventListener('click', () => {
+    if (state.suppressNextTileClick) {
+      state.suppressNextTileClick = false;
+      clearTileClickSuppressionTimer();
+      return;
+    }
+    setSelectedGame(game.id);
+  });
   button.addEventListener('dblclick', () => {
     if (!isArchivedGame(game)) editSelectedGame(game.id);
   });
   button.addEventListener('contextmenu', (event) => {
     event.preventDefault();
-    setSelectedGame(game.id);
+    setSelectedGame(game.id, { keepIfSame: true });
     openGamesContextMenu(event.clientX, event.clientY, game.id);
   });
   return button;
@@ -771,6 +915,7 @@ function renderGames() {
     });
   }
   updateActionUi();
+  queueGameTileLabelFit();
 }
 
 function closeGamesContextMenu() {
@@ -1095,6 +1240,58 @@ if (gamesMenuDuplicateBtn) gamesMenuDuplicateBtn.addEventListener('click', () =>
 if (gamesMenuDeleteBtn) gamesMenuDeleteBtn.addEventListener('click', () => deleteSelectedGame(state.contextMenuGameId || state.selectedGameId));
 if (gamesMenuUnarchiveBtn) gamesMenuUnarchiveBtn.addEventListener('click', () => unarchiveSelectedGame(state.contextMenuGameId || state.selectedGameId));
 
+if (gamesGrid) {
+  gamesGrid.addEventListener('touchstart', (event) => {
+    if (isEraseConfirmOpen()) return;
+    if (!(event.target instanceof Element)) return;
+    if (gamesContextMenu && !gamesContextMenu.hidden && gamesContextMenu.contains(event.target)) return;
+    if (!event.touches || event.touches.length !== 1) {
+      resetLongPressState();
+      return;
+    }
+    const tile = event.target.closest('.game-tile');
+    const gameId = tile && tile instanceof HTMLElement ? String(tile.dataset.gameId || '').trim() : '';
+    scheduleLongPress(event.touches[0], gameId);
+  }, { passive: true });
+
+  gamesGrid.addEventListener('touchmove', (event) => {
+    const touch = getTrackedTouch(event.touches);
+    if (!touch) return;
+    state.longPressClientX = touch.clientX;
+    state.longPressClientY = touch.clientY;
+    const movedX = touch.clientX - state.longPressStartX;
+    const movedY = touch.clientY - state.longPressStartY;
+    if (Math.hypot(movedX, movedY) > MOBILE_LONG_PRESS_MOVE_TOLERANCE) {
+      resetLongPressState();
+    }
+  }, { passive: true });
+
+  gamesGrid.addEventListener('touchend', (event) => {
+    const touch = getTrackedTouch(event.changedTouches);
+    if (!touch) return;
+    const longPressTriggered = state.longPressTriggered;
+    resetLongPressState();
+    if (longPressTriggered) {
+      event.preventDefault();
+    }
+  });
+
+  gamesGrid.addEventListener('touchcancel', (event) => {
+    const touch = getTrackedTouch(event.changedTouches);
+    if (!touch && state.longPressTouchId == null) return;
+    resetLongPressState();
+  });
+}
+
+document.addEventListener('click', (event) => {
+  if (!state.suppressNextOutsideClick) return;
+  if (gamesContextMenu && gamesContextMenu.contains(event.target)) return;
+  state.suppressNextOutsideClick = false;
+  clearOutsideClickSuppressionTimer();
+  event.preventDefault();
+  event.stopPropagation();
+}, true);
+
 document.addEventListener('click', (event) => {
   if (gamesContextMenu && !gamesContextMenu.hidden && !gamesContextMenu.contains(event.target)) {
     closeGamesContextMenu();
@@ -1150,5 +1347,7 @@ document.addEventListener('keydown', (event) => {
     deleteSelectedGame();
   }
 });
+
+window.addEventListener('resize', queueGameTileLabelFit);
 
 loadStore();
