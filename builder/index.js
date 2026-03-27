@@ -4,6 +4,7 @@ const DEFAULT_SUPABASE_GAMES_TABLE = 'games';
 const SUPABASE_CONFIG_STORAGE_KEY = 'tgb-builder-supabase-config';
 const EDITOR_PAGE_ROUTE = 'builder.html';
 const BIC_BLUE_INK = '#2f5cc2';
+const ARCHIVED_GAME_VALUE = 'YES';
 
 const EMPTY_STORE = {
   _comment: STORE_COMMENT,
@@ -30,6 +31,7 @@ const gamesMenuEditBtn = document.getElementById('gamesMenuEditBtn');
 const gamesMenuRenameBtn = document.getElementById('gamesMenuRenameBtn');
 const gamesMenuDuplicateBtn = document.getElementById('gamesMenuDuplicateBtn');
 const gamesMenuDeleteBtn = document.getElementById('gamesMenuDeleteBtn');
+const gamesMenuUnarchiveBtn = document.getElementById('gamesMenuUnarchiveBtn');
 const eraseConfirmBackdrop = document.getElementById('eraseConfirmBackdrop');
 const eraseConfirmGameName = document.getElementById('eraseConfirmGameName');
 const eraseConfirmYesBtn = document.getElementById('eraseConfirmYesBtn');
@@ -156,6 +158,19 @@ function buildStoreFromGames(games = []) {
   });
 }
 
+function normalizeArchivedFlag(value) {
+  if (value === true) return ARCHIVED_GAME_VALUE;
+  if (typeof value !== 'string') return '';
+  const normalized = value.trim().toUpperCase();
+  return normalized === ARCHIVED_GAME_VALUE || normalized === 'TRUE' || normalized === '1'
+    ? ARCHIVED_GAME_VALUE
+    : '';
+}
+
+function isArchivedGame(game) {
+  return normalizeArchivedFlag(game && game.archived) === ARCHIVED_GAME_VALUE;
+}
+
 function serializeGameRow(game, index = 0) {
   const normalizedGame = normalizeGameEntry(game, index);
   const timestamp = normalizedGame.updatedAt || normalizedGame.createdAt || new Date().toISOString();
@@ -166,6 +181,7 @@ function serializeGameRow(game, index = 0) {
     updated_at: timestamp,
     primary_color: normalizedGame.primaryColor || null,
     secondary_color: normalizedGame.secondaryColor || null,
+    archived: normalizedGame.archived || null,
     nodes: Array.isArray(normalizedGame.nodes) ? normalizedGame.nodes : [],
     links: Array.isArray(normalizedGame.links) ? normalizedGame.links : []
   };
@@ -179,6 +195,7 @@ function normalizeGameRow(row, index = 0) {
     updatedAt: row && typeof row.updated_at === 'string' ? row.updated_at : '',
     primaryColor: row && typeof row.primary_color === 'string' ? row.primary_color : '',
     secondaryColor: row && typeof row.secondary_color === 'string' ? row.secondary_color : '',
+    archived: row && typeof row.archived === 'string' ? row.archived : '',
     nodes: Array.isArray(row && row.nodes) ? row.nodes : [],
     links: Array.isArray(row && row.links) ? row.links : []
   }, index);
@@ -213,7 +230,7 @@ function persistStoreLocally() {
 
 async function fetchGameRowsFromSupabase() {
   const response = await fetch(buildSupabaseTableUrl(supabaseConfig.gamesTable, {
-    select: 'id,name,created_at,updated_at,primary_color,secondary_color,nodes,links',
+    select: 'id,name,created_at,updated_at,primary_color,secondary_color,archived,nodes,links',
     order: 'name.asc'
   }), {
     cache: 'no-store',
@@ -313,7 +330,7 @@ async function renameGameInSupabase(previousGameId, game) {
   }
 }
 
-async function deleteGameFromSupabase(gameId) {
+async function setGameArchivedStateInSupabase(gameId, archivedValue) {
   if (!hasSupabaseStore()) {
     return {
       serverSaved: false,
@@ -325,18 +342,34 @@ async function deleteGameFromSupabase(gameId) {
     const response = await fetch(buildSupabaseTableUrl(supabaseConfig.gamesTable, {
       id: 'eq.' + gameId
     }), {
-      method: 'DELETE',
+      method: 'PATCH',
       headers: getSupabaseHeaders({
-        Prefer: 'return=minimal'
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation'
+      }),
+      body: JSON.stringify({
+        archived: archivedValue || null
       })
     });
     if (!response.ok) {
-      throw new Error(await response.text() || 'Supabase delete failed.');
+      throw new Error(await response.text() || 'Supabase archive update failed.');
+    }
+    const rows = await response.json();
+    if (!Array.isArray(rows) || !rows.length) {
+      throw new Error('Supabase archive update did not update any rows.');
     }
     return { serverSaved: true, error: null };
   } catch (error) {
     return { serverSaved: false, error };
   }
+}
+
+async function deleteGameFromSupabase(gameId) {
+  return setGameArchivedStateInSupabase(gameId, ARCHIVED_GAME_VALUE);
+}
+
+async function unarchiveGameInSupabase(gameId) {
+  return setGameArchivedStateInSupabase(gameId, null);
 }
 
 function getRawGameNodeTitle(rawGame) {
@@ -439,6 +472,7 @@ function normalizeGameEntry(rawGame, index = 0) {
     updatedAt: rawGame && typeof rawGame.updatedAt === 'string' ? rawGame.updatedAt : '',
     primaryColor: colors.primaryColor,
     secondaryColor: colors.secondaryColor,
+    archived: normalizeArchivedFlag(rawGame && rawGame.archived),
     nodes: Array.isArray(rawGame && rawGame.nodes) ? cloneObj(rawGame.nodes) : [],
     links: Array.isArray(rawGame && rawGame.links) ? cloneObj(rawGame.links) : []
   };
@@ -463,7 +497,7 @@ function normalizeStore(raw) {
 
 function convertLegacyGamesToStore(legacyGames = []) {
   const games = legacyGames
-    .filter((game) => game && !game.archived)
+    .filter((game) => game)
     .map((game, index) => ({
       id: game.id || ('game-' + index),
       name: game.name || 'Untitled Game',
@@ -471,6 +505,7 @@ function convertLegacyGamesToStore(legacyGames = []) {
       updatedAt: game.updatedAt || '',
       primaryColor: '',
       secondaryColor: '',
+      archived: normalizeArchivedFlag(game.archived),
       nodes: [{
         id: 'gm-01',
         type: 'game',
@@ -511,8 +546,16 @@ function compareSavedGamesAlphabetical(a, b) {
   return String(a && a.name || '').localeCompare(String(b && b.name || ''), undefined, { sensitivity: 'base' });
 }
 
-function getSortedGames() {
-  return [...state.store.games].sort(compareSavedGamesAlphabetical);
+function getSortedGames(games = state.store.games) {
+  return [...games].sort(compareSavedGamesAlphabetical);
+}
+
+function getActiveGames() {
+  return getSortedGames((state.store.games || []).filter((game) => game && !isArchivedGame(game)));
+}
+
+function getArchivedGames() {
+  return getSortedGames((state.store.games || []).filter((game) => isArchivedGame(game)));
 }
 
 function buildDuplicateGameName(baseName = 'Untitled Game') {
@@ -627,17 +670,19 @@ function setActionLinkState(link, enabled, href = '') {
 function updateActionUi() {
   const selectedGame = getSelectedGame();
   const hasSelection = !!selectedGame;
+  const hasActiveSelection = hasSelection && !isArchivedGame(selectedGame);
   const canMutate = !state.readOnly;
   setActionLinkState(newGameLink, true, buildEditorUrl({ newGame: true }));
-  setActionLinkState(editGameLink, true, selectedGame ? buildEditorUrl({ gameId: selectedGame.id }) : buildEditorUrl());
-  setActionLinkState(renameGameLink, hasSelection && canMutate, '#rename');
-  setActionLinkState(duplicateGameLink, hasSelection && canMutate, '#duplicate');
-  if (deleteGameBtn) deleteGameBtn.disabled = !hasSelection || !canMutate;
+  setActionLinkState(editGameLink, hasActiveSelection, hasActiveSelection ? buildEditorUrl({ gameId: selectedGame.id }) : buildEditorUrl());
+  setActionLinkState(renameGameLink, hasActiveSelection && canMutate, '#rename');
+  setActionLinkState(duplicateGameLink, hasActiveSelection && canMutate, '#duplicate');
+  if (deleteGameBtn) deleteGameBtn.disabled = !hasActiveSelection || !canMutate;
   if (gamesMenuNewBtn) gamesMenuNewBtn.disabled = false;
-  if (gamesMenuEditBtn) gamesMenuEditBtn.disabled = false;
-  if (gamesMenuRenameBtn) gamesMenuRenameBtn.disabled = !hasSelection || !canMutate;
-  if (gamesMenuDuplicateBtn) gamesMenuDuplicateBtn.disabled = !hasSelection || !canMutate;
-  if (gamesMenuDeleteBtn) gamesMenuDeleteBtn.disabled = !hasSelection || !canMutate;
+  if (gamesMenuEditBtn) gamesMenuEditBtn.disabled = !hasActiveSelection;
+  if (gamesMenuRenameBtn) gamesMenuRenameBtn.disabled = !hasActiveSelection || !canMutate;
+  if (gamesMenuDuplicateBtn) gamesMenuDuplicateBtn.disabled = !hasActiveSelection || !canMutate;
+  if (gamesMenuDeleteBtn) gamesMenuDeleteBtn.disabled = !hasActiveSelection || !canMutate;
+  if (gamesMenuUnarchiveBtn) gamesMenuUnarchiveBtn.disabled = !hasSelection || !isArchivedGame(selectedGame) || !canMutate;
 }
 
 function applyTileColors(button, game, index) {
@@ -656,7 +701,7 @@ function applyTileColors(button, game, index) {
 function buildGameTile(game, index) {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'game-tile' + (game.id === state.selectedGameId ? ' is-selected' : '');
+  button.className = 'game-tile' + (game.id === state.selectedGameId ? ' is-selected' : '') + (isArchivedGame(game) ? ' is-archived' : '');
   button.dataset.gameId = game.id;
   button.setAttribute('aria-pressed', game.id === state.selectedGameId ? 'true' : 'false');
   button.innerHTML = `
@@ -666,7 +711,7 @@ function buildGameTile(game, index) {
   applyTileColors(button, game, index);
   button.addEventListener('click', () => setSelectedGame(game.id));
   button.addEventListener('dblclick', () => {
-    editSelectedGame(game.id);
+    if (!isArchivedGame(game)) editSelectedGame(game.id);
   });
   button.addEventListener('contextmenu', (event) => {
     event.preventDefault();
@@ -676,10 +721,19 @@ function buildGameTile(game, index) {
   return button;
 }
 
+function buildArchivedDivider() {
+  const divider = document.createElement('div');
+  divider.className = 'games-archived-divider';
+  divider.innerHTML = '<span class="games-archived-divider-label">Archived</span>';
+  return divider;
+}
+
 function renderGames() {
   if (!gamesGrid) return;
   gamesGrid.innerHTML = '';
-  const games = getSortedGames();
+  const activeGames = getActiveGames();
+  const archivedGames = getArchivedGames();
+  const hasGames = activeGames.length || archivedGames.length;
 
   if (state.supabaseStatusMessage) {
     const notice = document.createElement('p');
@@ -688,7 +742,7 @@ function renderGames() {
     gamesGrid.appendChild(notice);
   }
 
-  if (!games.length) {
+  if (!hasGames) {
     const empty = document.createElement('div');
     empty.className = 'games-empty';
     if (state.readOnly && state.supabaseStatusMessage) {
@@ -707,9 +761,15 @@ function renderGames() {
     return;
   }
 
-  games.forEach((game, index) => {
+  activeGames.forEach((game, index) => {
     gamesGrid.appendChild(buildGameTile(game, index));
   });
+  if (archivedGames.length) {
+    gamesGrid.appendChild(buildArchivedDivider());
+    archivedGames.forEach((game, index) => {
+      gamesGrid.appendChild(buildGameTile(game, index));
+    });
+  }
   updateActionUi();
 }
 
@@ -745,7 +805,7 @@ function openEraseConfirm(gameId) {
   const game = getGameById(gameId);
   if (!game) return Promise.resolve(false);
   if (!eraseConfirmBackdrop || !eraseConfirmGameName || !eraseConfirmYesBtn || !eraseConfirmNoBtn) {
-    return Promise.resolve(window.confirm(`Are you sure you want to erase ${game.name || 'this game'}?`));
+    return Promise.resolve(window.confirm(`We don't really erase or delete around here, but would you like to archive ${game.name || 'this game'}?`));
   }
   if (state.eraseConfirmResolver) closeEraseConfirm(false);
   closeGamesContextMenu();
@@ -769,12 +829,34 @@ function openGamesContextMenu(clientX, clientY, gameId = '') {
   if (!gamesContextMenu) return;
   state.contextMenuGameId = String(gameId || '').trim();
   const targetGameId = state.contextMenuGameId || state.selectedGameId;
+  const targetGame = getGameById(targetGameId);
+  const isArchivedTarget = isArchivedGame(targetGame);
+  const hasTargetGame = !!targetGameId;
   const canMutate = !state.readOnly;
-  if (gamesMenuNewBtn) gamesMenuNewBtn.disabled = false;
-  if (gamesMenuEditBtn) gamesMenuEditBtn.disabled = false;
-  if (gamesMenuRenameBtn) gamesMenuRenameBtn.disabled = !targetGameId || !canMutate;
-  if (gamesMenuDuplicateBtn) gamesMenuDuplicateBtn.disabled = !targetGameId || !canMutate;
-  if (gamesMenuDeleteBtn) gamesMenuDeleteBtn.disabled = !targetGameId || !canMutate;
+  if (gamesMenuNewBtn) {
+    gamesMenuNewBtn.hidden = isArchivedTarget;
+    gamesMenuNewBtn.disabled = false;
+  }
+  if (gamesMenuEditBtn) {
+    gamesMenuEditBtn.hidden = isArchivedTarget;
+    gamesMenuEditBtn.disabled = !hasTargetGame || isArchivedTarget;
+  }
+  if (gamesMenuRenameBtn) {
+    gamesMenuRenameBtn.hidden = isArchivedTarget;
+    gamesMenuRenameBtn.disabled = !hasTargetGame || isArchivedTarget || !canMutate;
+  }
+  if (gamesMenuDuplicateBtn) {
+    gamesMenuDuplicateBtn.hidden = isArchivedTarget;
+    gamesMenuDuplicateBtn.disabled = !hasTargetGame || isArchivedTarget || !canMutate;
+  }
+  if (gamesMenuDeleteBtn) {
+    gamesMenuDeleteBtn.hidden = isArchivedTarget;
+    gamesMenuDeleteBtn.disabled = !hasTargetGame || isArchivedTarget || !canMutate;
+  }
+  if (gamesMenuUnarchiveBtn) {
+    gamesMenuUnarchiveBtn.hidden = !isArchivedTarget;
+    gamesMenuUnarchiveBtn.disabled = !hasTargetGame || !isArchivedTarget || !canMutate;
+  }
   gamesContextMenu.hidden = false;
   gamesContextMenu.style.left = '0px';
   gamesContextMenu.style.top = '0px';
@@ -819,6 +901,7 @@ function editSelectedGame(gameId = state.selectedGameId) {
     goToEditor();
     return;
   }
+  if (isArchivedGame(getGameById(selectedId))) return;
   goToEditor({ gameId: selectedId });
 }
 
@@ -827,7 +910,7 @@ async function renameSelectedGame(gameId = state.selectedGameId) {
   const targetId = String(gameId || '').trim();
   if (!targetId) return;
   const sourceGame = getGameById(targetId);
-  if (!sourceGame) return;
+  if (!sourceGame || isArchivedGame(sourceGame)) return;
   closeGamesContextMenu();
 
   const rawName = window.prompt('Rename game', sourceGame.name || 'Untitled Game');
@@ -862,7 +945,7 @@ async function renameSelectedGame(gameId = state.selectedGameId) {
 async function duplicateSelectedGame(gameId = state.selectedGameId) {
   if (state.readOnly) return;
   const sourceGame = state.store.games.find((game) => game && game.id === gameId);
-  if (!sourceGame) return;
+  if (!sourceGame || isArchivedGame(sourceGame)) return;
   closeGamesContextMenu();
 
   const timestamp = new Date().toISOString();
@@ -891,14 +974,14 @@ async function deleteSelectedGame(gameId = state.selectedGameId) {
   const targetId = String(gameId || '').trim();
   if (!targetId) return;
   const game = getGameById(targetId);
-  if (!game) return;
+  if (!game || isArchivedGame(game)) return;
   const confirmed = await openEraseConfirm(targetId);
   if (!confirmed) return;
 
   const preferredSelectedGameId = state.selectedGameId === targetId ? '' : state.selectedGameId;
   const result = await deleteGameFromSupabase(targetId);
   if (!result.serverSaved) {
-    state.supabaseStatusMessage = showSupabaseError(result.error, 'Could not delete this game from Supabase.');
+    state.supabaseStatusMessage = showSupabaseError(result.error, 'Could not archive this game in Supabase.');
     renderGames();
     return;
   }
@@ -906,6 +989,26 @@ async function deleteSelectedGame(gameId = state.selectedGameId) {
   state.selectedGameId = preferredSelectedGameId;
   persistStoreLocally();
   await loadStore({ preferredSelectedGameId });
+}
+
+async function unarchiveSelectedGame(gameId = state.selectedGameId) {
+  if (state.readOnly) return;
+  const targetId = String(gameId || '').trim();
+  if (!targetId) return;
+  const game = getGameById(targetId);
+  if (!game || !isArchivedGame(game)) return;
+  closeGamesContextMenu();
+
+  const result = await unarchiveGameInSupabase(targetId);
+  if (!result.serverSaved) {
+    state.supabaseStatusMessage = showSupabaseError(result.error, 'Could not unarchive this game in Supabase.');
+    renderGames();
+    return;
+  }
+
+  state.selectedGameId = targetId;
+  persistStoreLocally();
+  await loadStore({ preferredSelectedGameId: targetId });
 }
 
 async function loadStore(options = {}) {
@@ -938,7 +1041,7 @@ async function loadStore(options = {}) {
     }
   }
   if (!selectedId || !state.store.games.some((game) => game && game.id === selectedId)) {
-    const firstGame = getSortedGames()[0] || null;
+    const firstGame = getActiveGames()[0] || getArchivedGames()[0] || null;
     selectedId = firstGame ? firstGame.id : '';
   }
   state.selectedGameId = selectedId;
@@ -990,6 +1093,7 @@ if (gamesMenuEditBtn) gamesMenuEditBtn.addEventListener('click', () => editSelec
 if (gamesMenuRenameBtn) gamesMenuRenameBtn.addEventListener('click', () => renameSelectedGame(state.contextMenuGameId || state.selectedGameId));
 if (gamesMenuDuplicateBtn) gamesMenuDuplicateBtn.addEventListener('click', () => duplicateSelectedGame(state.contextMenuGameId || state.selectedGameId));
 if (gamesMenuDeleteBtn) gamesMenuDeleteBtn.addEventListener('click', () => deleteSelectedGame(state.contextMenuGameId || state.selectedGameId));
+if (gamesMenuUnarchiveBtn) gamesMenuUnarchiveBtn.addEventListener('click', () => unarchiveSelectedGame(state.contextMenuGameId || state.selectedGameId));
 
 document.addEventListener('click', (event) => {
   if (gamesContextMenu && !gamesContextMenu.hidden && !gamesContextMenu.contains(event.target)) {
@@ -1032,13 +1136,14 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   if (isEraseConfirmOpen()) return;
-  if (event.key === 'Enter' && getSelectedGame()) {
+  const selectedGame = getSelectedGame();
+  if (event.key === 'Enter' && selectedGame && !isArchivedGame(selectedGame)) {
     event.preventDefault();
     editSelectedGame();
     return;
   }
   if (state.readOnly) return;
-  if ((event.key === 'Delete' || event.key === 'Backspace') && getSelectedGame()) {
+  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedGame && !isArchivedGame(selectedGame)) {
     const targetTag = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : '';
     if (targetTag === 'input' || targetTag === 'textarea' || event.target.isContentEditable) return;
     event.preventDefault();

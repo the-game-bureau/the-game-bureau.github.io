@@ -67,6 +67,7 @@ const GAMES_PAGE_ROUTE = 'index.html';
 const SUPABASE_CONFIG_STORAGE_KEY = 'tgb-builder-supabase-config';
 const DEFAULT_SUPABASE_GAMES_TABLE = 'games';
 const SUPABASE_STORAGE_KIND = 'supabase';
+const ARCHIVED_GAME_VALUE = 'YES';
 const supabaseConfig = readSupabaseConfig();
 
 const EMPTY_DOC = {
@@ -211,6 +212,10 @@ function buildStoreFromGames(games = []) {
   return store;
 }
 
+function normalizeArchivedFlag(value) {
+  return typeof value === 'string' ? value.trim().toUpperCase() : '';
+}
+
 function serializeGameRow(game, index = 0) {
   const normalizedGame = normalizeSavedGame(game, index);
   const timestamp = normalizedGame.updatedAt || normalizedGame.createdAt || new Date().toISOString();
@@ -219,6 +224,7 @@ function serializeGameRow(game, index = 0) {
     name: normalizedGame.name || 'Untitled Game',
     primary_color: normalizedGame.primaryColor || null,
     secondary_color: normalizedGame.secondaryColor || null,
+    archived: normalizedGame.archived || null,
     nodes: Array.isArray(normalizedGame.nodes) ? normalizedGame.nodes : [],
     links: Array.isArray(normalizedGame.links) ? normalizedGame.links : [],
     created_at: normalizedGame.createdAt || timestamp,
@@ -234,12 +240,13 @@ function normalizeGameRow(row, index = 0) {
     updatedAt: row && typeof row.updated_at === 'string' ? row.updated_at : '',
     primaryColor: row && typeof row.primary_color === 'string' ? row.primary_color : '',
     secondaryColor: row && typeof row.secondary_color === 'string' ? row.secondary_color : '',
+    archived: row && typeof row.archived === 'string' ? row.archived : '',
     nodes: Array.isArray(row && row.nodes) ? row.nodes : [],
     links: Array.isArray(row && row.links) ? row.links : []
   }, index);
 }
 
-async function fetchGameRowsFromSupabase(select = 'id,name,primary_color,secondary_color,nodes,links,created_at,updated_at') {
+async function fetchGameRowsFromSupabase(select = 'id,name,primary_color,secondary_color,archived,nodes,links,created_at,updated_at') {
   const response = await fetch(buildSupabaseUrl({
     select,
     order: 'name.asc'
@@ -2628,6 +2635,7 @@ function normalizeSavedGame(raw, index) {
     updatedAt: typeof (raw && raw.updatedAt) === 'string' ? raw.updatedAt : doc.updatedAt,
     primaryColor: colors.primaryColor,
     secondaryColor: colors.secondaryColor,
+    archived: normalizeArchivedFlag(raw && raw.archived) === ARCHIVED_GAME_VALUE ? ARCHIVED_GAME_VALUE : '',
     nodes: doc.nodes,
     links: doc.links
   };
@@ -2652,7 +2660,7 @@ function normalizeStore(raw) {
 
 function convertLegacyGamesToStore(legacyGames = []) {
   const converted = legacyGames
-    .filter((game) => game && !game.archived)
+    .filter((game) => normalizeArchivedFlag(game && game.archived) !== ARCHIVED_GAME_VALUE)
     .map((game, index) => ({
       id: game.id || ('game-' + index),
       name: game.name || 'Untitled',
