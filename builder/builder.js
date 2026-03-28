@@ -1,4 +1,4 @@
-﻿// TGB Builder writes JSON data that is read later by the game engine.
+﻿// TGB Builder writes Supabase-backed game data that is read later by the game engine.
 const TYPE_CONFIG = {
   game: {
     width: 184,
@@ -50,7 +50,7 @@ const STORE_API_ROUTE = '/games-phoneanalogy';
 const LOCAL_STORE_KEY = 'tgb-games-phoneanalogy';
 const LOCAL_OPEN_GAME_KEY = 'tgb-games-phoneanalogy-open';
 const LOCAL_RECOVERY_KEY = 'tgb-games-phoneanalogy-recovery';
-const STORE_COMMENT = 'File: games.json | Purpose: phone-analogy graph-builder data written by TGB Builder for later game-engine use.';
+const STORE_COMMENT = 'Supabase-backed game builder store.';
 const RECOVERY_VERSION = 1;
 const RECOVERY_SAVE_DELAY_MS = 900;
 const PERSISTENCE_DB_NAME = 'tgb-builder-persistence';
@@ -86,9 +86,6 @@ const EMPTY_STORE = {
 const API = /^(http|https):$/.test(location.protocol) ? location.origin : null;
 const LOCAL_NODE_API = 'http://localhost:3000';
 const PLAY_PREVIEW_KEY = 'tgb-play-current-game';
-const ZOOM_MIN = 0.5;
-const ZOOM_MAX = 2;
-const ZOOM_STEP = 0.1;
 const PAPER_BASE_WIDTH = 1224;
 const PAPER_ASPECT_RATIO = 11 / 8.5;
 const GRID_COLUMNS = 5;
@@ -105,9 +102,9 @@ const LINK_NODE_CLEARANCE = 10;
 const LINK_CORNER_RADIUS = 16;
 const NODE_PORT_OFFSET = 8;
 const THREAD_LAYOUT_ENABLED = true;
-const PHONE_STAGE_WIDTH = 960;
 const PHONE_DEVICE_WIDTH = 470;
-const PHONE_DEVICE_X = Math.round((PHONE_STAGE_WIDTH - PHONE_DEVICE_WIDTH) / 2);
+const PHONE_STAGE_WIDTH = PHONE_DEVICE_WIDTH;
+const PHONE_DEVICE_X = 0;
 const PHONE_DEVICE_Y = 28;
 const PHONE_STATUSBAR_HEIGHT = 60;
 const PHONE_HEADER_HEIGHT = 72;
@@ -118,6 +115,8 @@ const PHONE_THREAD_BOTTOM_PADDING = 110;
 const PHONE_ROW_GAP = 20;
 const PHONE_BRANCH_GAP = 14;
 const PHONE_MIN_DEVICE_HEIGHT = 980;
+const PHONE_STENCIL_TRAY_GAP = 18;
+const PHONE_STENCIL_TRAY_HEIGHT = 104;
 const PHONE_ANYTIME_GAP = 86;
 const PHONE_ANYTIME_ROW_GAP = 26;
 const PHONE_ANYTIME_BOTTOM_PADDING = 72;
@@ -278,6 +277,42 @@ async function loadStoreFromSupabase() {
   try {
     const rows = await fetchGameRowsFromSupabase();
     return buildStoreFromGames(rows.map((row, index) => normalizeGameRow(row, index)));
+  } catch (error) {
+    return null;
+  }
+}
+
+async function fetchGameRowFromSupabase(gameId, select = 'id,name,primary_color,secondary_color,archived,erased,nodes,links,created_at,updated_at') {
+  const targetId = String(gameId || '').trim();
+  if (!targetId || !hasSupabaseStore()) return null;
+
+  const response = await fetch(buildSupabaseUrl({
+    select,
+    id: 'eq.' + targetId,
+    limit: '1'
+  }), {
+    cache: 'no-store',
+    headers: getSupabaseHeaders({
+      Accept: 'application/json'
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text() || 'Supabase game load failed');
+  }
+
+  const rows = await response.json();
+  return Array.isArray(rows) && rows.length ? rows[0] : null;
+}
+
+async function loadGameFromSupabase(gameId) {
+  if (!hasSupabaseStore()) return null;
+
+  try {
+    const row = await fetchGameRowFromSupabase(gameId);
+    if (!row) return null;
+    const game = normalizeGameRow(row, 0);
+    return normalizeErasedFlag(game && game.erased) === ERASED_GAME_VALUE ? null : game;
   } catch (error) {
     return null;
   }
@@ -637,8 +672,6 @@ const inspectorStack = document.getElementById('inspectorStack');
 const stencilBar = document.getElementById('stencilBar');
 const headerPlayGameBtn = document.getElementById('headerPlayGameBtn');
 const gamesListBtn = document.getElementById('gamesListBtn');
-const workspaceZoomOutBtn = document.getElementById('workspaceZoomOutBtn');
-const workspaceZoomInBtn = document.getElementById('workspaceZoomInBtn');
 const objectCard = document.getElementById('objectCard');
 const inspectorContent = document.getElementById('inspectorContent');
 const inspectorCopy = document.getElementById('inspectorCopy');
@@ -744,7 +777,6 @@ const state = {
   inspectorPosition: null,
   hoverTargetId: null,
   suppressBackgroundClick: false,
-  zoom: 1,
   layoutMetrics: null,
   dropSlot: null,
   currentGameColors: null,
@@ -802,7 +834,7 @@ function getPhoneBaseSize() {
   if (THREAD_LAYOUT_ENABLED) {
     const metrics = state.layoutMetrics || {
       stageWidth: PHONE_STAGE_WIDTH,
-      stageHeight: PHONE_DEVICE_Y + PHONE_MIN_DEVICE_HEIGHT + PHONE_ANYTIME_GAP + 180
+      stageHeight: PHONE_DEVICE_Y + PHONE_MIN_DEVICE_HEIGHT + PHONE_STENCIL_TRAY_GAP + PHONE_STENCIL_TRAY_HEIGHT + PHONE_ANYTIME_GAP + 76
     };
     return {
       width: metrics.stageWidth,
@@ -1611,7 +1643,7 @@ function getPhoneBubbleSize(node, maxWidth = PHONE_BUBBLE_MAX_WIDTH) {
 function updatePhoneChrome() {
   if (!phoneThreadName) return;
   if (!hasGameNode()) {
-    phoneThreadName.textContent = 'Gameshelf';
+    phoneThreadName.textContent = 'Game Builder';
     if (phoneThreadStatus) phoneThreadStatus.textContent = '';
     if (phoneStartBtn) phoneStartBtn.style.background = '';
     return;
@@ -1688,12 +1720,14 @@ function applyPhoneThreadLayout() {
     Math.round((threadBottom - PHONE_DEVICE_Y) + PHONE_COMPOSER_HEIGHT + 34)
   );
   const phoneBottom = PHONE_DEVICE_Y + phoneHeight;
+  const stencilTrayTop = phoneBottom + PHONE_STENCIL_TRAY_GAP;
+  const stencilTrayBottom = stencilTrayTop + PHONE_STENCIL_TRAY_HEIGHT;
   const anytimeRows = getPhoneAnytimeRows();
-  let anytimeY = phoneBottom + PHONE_ANYTIME_GAP;
+  let anytimeY = stencilTrayBottom + PHONE_ANYTIME_GAP;
 
   if (outsideAnytimeLabel) {
     outsideAnytimeLabel.hidden = anytimeRows.length === 0;
-    outsideAnytimeLabel.style.top = (phoneBottom + 28) + 'px';
+    outsideAnytimeLabel.style.top = (stencilTrayBottom + 28) + 'px';
   }
 
   anytimeRows.forEach((row) => {
@@ -1725,11 +1759,12 @@ function applyPhoneThreadLayout() {
 
   state.layoutMetrics = {
     stageWidth: PHONE_STAGE_WIDTH,
-    stageHeight: Math.max(phoneBottom + 40, anytimeRows.length ? anytimeY + PHONE_ANYTIME_BOTTOM_PADDING : phoneBottom + 44),
+    stageHeight: Math.max(stencilTrayBottom + 28, anytimeRows.length ? anytimeY + PHONE_ANYTIME_BOTTOM_PADDING : stencilTrayBottom + 28),
     phoneWidth: PHONE_DEVICE_WIDTH,
     phoneHeight,
     phoneX: PHONE_DEVICE_X,
     phoneY: PHONE_DEVICE_Y,
+    stencilTrayTop,
     threadLeft,
     threadTop,
     threadWidth
@@ -1934,9 +1969,6 @@ function refreshInspectorWindowUi() {
   if (!inspector) return;
   const node = getNode(state.selectedId);
   const link = getLink(state.selectedLinkId);
-  if (inspectorWindowTitle) {
-    inspectorWindowTitle.textContent = 'Details';
-  }
   if (inspectorWindowSubtitle) {
     inspectorWindowSubtitle.textContent = node
       ? 'Editing ' + (getNodeKicker(node) || 'Selected Item') + '.'
@@ -2232,24 +2264,6 @@ function isLetterShortcut(event, code) {
     && !event.ctrlKey
     && !event.metaKey
     && event.code === code;
-}
-
-function isZoomInShortcut(event) {
-  if (event.altKey) return false;
-  if (event.ctrlKey || event.metaKey) return event.code === 'Equal';
-  return event.code === 'Equal';
-}
-
-function isZoomOutShortcut(event) {
-  if (event.altKey) return false;
-  if (event.ctrlKey || event.metaKey) return event.code === 'Minus';
-  return event.code === 'Minus';
-}
-
-function isZoomResetShortcut(event) {
-  if (event.altKey) return false;
-  if (event.ctrlKey || event.metaKey) return event.code === 'Digit0';
-  return event.code === 'Digit0';
 }
 
 function closeNodeContextMenu() {
@@ -2923,6 +2937,7 @@ function buildNowPlayingBadgeMarkup() {
 function startNewPhone() {
   const preserveRecovery = hasPendingSaveChanges();
   if (preserveRecovery) syncRecoveryDraftNow({ updateStatus: false });
+  clearEditorLaunchIntent();
   seedPhone({ preserveRecovery });
   return true;
 }
@@ -2961,7 +2976,7 @@ function renderGameshelf() {
     stopGameshelfAutoScroll();
     const emptyEl = document.createElement('div');
     emptyEl.className = 'gameshelf-empty';
-    emptyEl.textContent = 'No saved games on the gameshelf yet.';
+    emptyEl.textContent = 'No saved games yet.';
     gameshelfList.appendChild(emptyEl);
     scheduleRecoverySync();
     return;
@@ -3064,6 +3079,9 @@ function openSavedGame(gameId, options = {}) {
       localStorage.setItem(LOCAL_OPEN_GAME_KEY, game.id);
     } catch (error) {
     }
+    if (options.updateUrl !== false) {
+      clearEditorLaunchIntent({ gameId: game.id });
+    }
 
     rememberCleanSnapshot();
     renderGameshelf();
@@ -3091,54 +3109,46 @@ function getRememberedOpenGameId() {
 async function syncStoreToSupabase() {
   if (!hasSupabaseStore()) return null;
 
-  state.store.updatedAt = new Date().toISOString();
-  const nextStore = normalizeStore(state.store);
-  state.store = nextStore;
+  const targetGame = state.store.games.find((game) => game && game.id === state.currentGameId) || state.store.games[0] || null;
+  if (!targetGame) {
+    return {
+      serverSaved: false,
+      localOnly: true,
+      error: new Error('No game ready to save.')
+    };
+  }
 
   try {
-    const existingRows = await fetchGameRowsFromSupabase('id');
-    const existingIds = new Set(
-      existingRows
-        .map((row) => String(row && row.id || '').trim())
-        .filter(Boolean)
+    const payload = serializeGameRow(targetGame, 0);
+    const response = await fetch(buildSupabaseUrl({
+      on_conflict: 'id'
+    }), {
+      method: 'POST',
+      headers: getSupabaseHeaders({
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=representation'
+      }),
+      body: JSON.stringify([payload])
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text() || 'Supabase save failed');
+    }
+
+    const rows = await response.json();
+    const savedGame = normalizeGameRow(
+      Array.isArray(rows) && rows.length ? rows[0] : payload,
+      0
     );
-    const nextRows = nextStore.games.map((game, index) => serializeGameRow(game, index));
-    const nextIds = new Set(nextRows.map((row) => row.id));
-
-    if (nextRows.length) {
-      const upsertResponse = await fetch(buildSupabaseUrl({
-        on_conflict: 'id'
-      }), {
-        method: 'POST',
-        headers: getSupabaseHeaders({
-          'Content-Type': 'application/json',
-          Prefer: 'resolution=merge-duplicates,return=minimal'
-        }),
-        body: JSON.stringify(nextRows)
-      });
-      if (!upsertResponse.ok) {
-        throw new Error(await upsertResponse.text() || 'Supabase sync failed');
-      }
-    }
-
-    const idsToDelete = [...existingIds].filter((id) => !nextIds.has(id));
-    for (const gameId of idsToDelete) {
-      const deleteResponse = await fetch(buildSupabaseUrl({
-        id: 'eq.' + gameId
-      }), {
-        method: 'DELETE',
-        headers: getSupabaseHeaders({
-          Prefer: 'return=minimal'
-        })
-      });
-      if (!deleteResponse.ok) {
-        throw new Error(await deleteResponse.text() || 'Supabase delete sync failed');
-      }
-    }
-
-    const rows = await fetchGameRowsFromSupabase();
-    state.store = buildStoreFromGames(rows.map((row, index) => normalizeGameRow(row, index)));
-    return { serverSaved: true, localOnly: false, storageKind: SUPABASE_STORAGE_KIND };
+    state.currentGameId = savedGame.id;
+    state.currentGameColors = {
+      primaryColor: savedGame.primaryColor,
+      secondaryColor: savedGame.secondaryColor
+    };
+    state.store = buildStoreFromGames([savedGame]);
+    syncAllTagsFromStore();
+    persistStoreLocally();
+    return { serverSaved: true, localOnly: false, storageKind: SUPABASE_STORAGE_KIND, savedGame };
   } catch (error) {
     return { serverSaved: false, localOnly: true, error };
   }
@@ -3164,24 +3174,28 @@ function getEditorLaunchIntent() {
   }
 }
 
-function clearEditorLaunchIntent() {
+function clearEditorLaunchIntent(options = {}) {
   try {
     const url = new URL(location.href);
-    let changed = false;
-    if (url.searchParams.has('new')) {
-      url.searchParams.delete('new');
-      changed = true;
+    url.searchParams.delete('new');
+    url.searchParams.delete('gameId');
+    const nextGameId = String(options.gameId || '').trim();
+    if (options.newGame) {
+      url.searchParams.set('new', '1');
+    } else if (nextGameId) {
+      url.searchParams.set('gameId', nextGameId);
     }
-    if (!changed) return;
     const nextUrl = url.pathname + url.search + url.hash;
     history.replaceState(null, '', nextUrl);
   } catch (error) {
   }
 }
 
-function goToGamesPage() {
-  if (hasPendingSaveChanges()) {
-    syncRecoveryDraftNow({ updateStatus: false });
+async function goToGamesPage() {
+  const needsSave = hasPendingSaveChanges() || shouldStageCurrentGameForSave();
+  if (needsSave) {
+    const result = await saveDoc({ silent: true });
+    if (result && result.localOnly) return;
   }
   location.href = new URL(GAMES_PAGE_ROUTE, location.href).toString();
 }
@@ -3386,7 +3400,7 @@ function positionNodeElement(node, el) {
 }
 
 function positionGhost(ghostEl, clientX, clientY) {
-  ghostEl.style.transform = 'translate(' + (clientX + 16) + 'px,' + (clientY + 16) + 'px) scale(' + state.zoom + ')';
+  ghostEl.style.transform = 'translate(' + (clientX + 16) + 'px,' + (clientY + 16) + 'px)';
 }
 
 function applyZoom() {
@@ -3395,43 +3409,22 @@ function applyZoom() {
     phoneWidth: PHONE_DEVICE_WIDTH,
     phoneHeight: PHONE_MIN_DEVICE_HEIGHT,
     phoneX: PHONE_DEVICE_X,
-    phoneY: PHONE_DEVICE_Y
+    phoneY: PHONE_DEVICE_Y,
+    stencilTrayTop: PHONE_DEVICE_Y + PHONE_MIN_DEVICE_HEIGHT + PHONE_STENCIL_TRAY_GAP
   };
   phoneStage.style.width = Math.round(base.width) + 'px';
   phoneStage.style.height = Math.round(base.height) + 'px';
-  phoneStage.style.zoom = String(state.zoom);
+  phoneStage.style.removeProperty('zoom');
   phone.style.width = Math.round(metrics.phoneWidth) + 'px';
   phone.style.height = Math.round(metrics.phoneHeight) + 'px';
   phone.style.left = Math.round(metrics.phoneX) + 'px';
   phone.style.top = Math.round(metrics.phoneY) + 'px';
-}
-
-function setZoom(nextZoom, clientX, clientY) {
-  const roundedZoom = Math.round(clamp(nextZoom, ZOOM_MIN, ZOOM_MAX) * 100) / 100;
-  if (roundedZoom === state.zoom) return;
-
-  const rect = viewport.getBoundingClientRect();
-  const anchorX = clientX ?? (rect.left + rect.width / 2);
-  const anchorY = clientY ?? (rect.top + rect.height / 2);
-  const focus = phonePointFromClient(anchorX, anchorY);
-  const scroll = getViewportScrollPosition();
-
-  state.zoom = roundedZoom;
-  applyZoom();
-
-  if (usesSingleSheetScroll()) {
-    setViewportScrollPosition(
-      scroll.left + (focus.x * state.zoom) - (anchorX - rect.left),
-      scroll.top + (focus.y * state.zoom) - (anchorY - rect.top)
-    );
-  } else {
-    setViewportScrollPosition(
-      (focus.x * state.zoom) - (anchorX - rect.left),
-      (focus.y * state.zoom) - (anchorY - rect.top)
-    );
+  const phoneCenterX = Math.round(metrics.phoneX + (metrics.phoneWidth / 2));
+  if (stencilBar) {
+    stencilBar.style.top = Math.round(metrics.stencilTrayTop) + 'px';
+    stencilBar.style.left = phoneCenterX + 'px';
   }
-
-  drawLinks();
+  if (outsideAnytimeLabel) outsideAnytimeLabel.style.left = phoneCenterX + 'px';
 }
 
 function phonePointFromClient(clientX, clientY) {
@@ -3439,8 +3432,8 @@ function phonePointFromClient(clientX, clientY) {
   const scroll = usesSingleSheetScroll() ? { left: 0, top: 0 } : getViewportScrollPosition();
   return {
     inside: clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom,
-    x: (clientX - rect.left + scroll.left) / state.zoom,
-    y: (clientY - rect.top + scroll.top) / state.zoom
+    x: clientX - rect.left + scroll.left,
+    y: clientY - rect.top + scroll.top
   };
 }
 
@@ -4038,7 +4031,7 @@ function renderAll() {
   if (!hasGameNode()) {
     const hint = document.createElement('div');
     hint.className = 'phone-empty-hint';
-    hint.innerHTML = 'Choose a game to edit or right click for new.';
+    hint.innerHTML = 'Click Games to choose a game.';
     nodeLayer.appendChild(hint);
   }
 
@@ -5116,7 +5109,7 @@ function showGameshelfHome() {
     setSaveStatus('local', 'Local Changes Only');
   } else {
     clearRecoveryDraft();
-    setSaveStatus('idle', 'Gameshelf Only');
+    setSaveStatus('idle', 'No Game Open');
   }
 }
 
@@ -5231,7 +5224,6 @@ function stageCurrentGameIntoStore() {
 
 async function saveDoc(options = {}) {
   const silent = !!options.silent;
-  const allowInteractiveFallback = options.allowInteractiveFallback !== false && !silent;
   const needsCurrentGameStage = shouldStageCurrentGameForSave();
   const hasPendingChanges = hasPendingSaveChanges() || needsCurrentGameStage;
 
@@ -5250,7 +5242,7 @@ async function saveDoc(options = {}) {
   syncRecoveryDraftNow({ updateStatus: false });
 
   try {
-    const syncResult = await syncStoreToBestAvailableTarget({ allowInteractiveFallback });
+    const syncResult = await syncStoreToSupabase();
     if (!syncResult || syncResult.localOnly) {
       state.localOnlyChanges = true;
       syncRecoveryDraftNow({ updateStatus: false });
@@ -5259,19 +5251,20 @@ async function saveDoc(options = {}) {
     }
 
     state.localOnlyChanges = false;
+    const persistedGame = syncResult.savedGame || savedGame;
+    if (persistedGame && persistedGame.id) {
+      clearEditorLaunchIntent({ gameId: persistedGame.id });
+    }
     if (savedGame) rememberCleanSnapshot();
     renderGameshelf();
     clearRecoveryDraft();
     setSaveStatus('saved');
     updateActionUi();
     return {
-      savedGame,
+      savedGame: persistedGame,
       serverSaved: !!syncResult.serverSaved,
-      fileSaved: !!syncResult.fileSaved,
-      downloaded: !!syncResult.downloaded,
       localOnly: false,
-      apiBase: syncResult.apiBase,
-      storageKind: syncResult.storageKind || (syncResult.serverSaved ? 'server' : 'browser')
+      storageKind: syncResult.storageKind || SUPABASE_STORAGE_KIND
     };
   } catch (error) {
     state.localOnlyChanges = true;
@@ -5285,48 +5278,17 @@ async function playCurrentGame() {
   if (!hasGameNode()) return;
   const result = await saveDoc({ silent: true });
   const savedGame = result && result.savedGame ? result.savedGame : null;
-  const gameQuery = savedGame && savedGame.name ? savedGame.name : getDocName();
-  if (!gameQuery) return;
+  const gameId = savedGame && savedGame.id ? savedGame.id : state.currentGameId;
+  if (!gameId) return;
   rememberPlayPreview(savedGame);
   const target = new URL('../play/index.html', location.href);
-  target.searchParams.set('game', gameQuery);
+  target.searchParams.set('id', gameId);
   location.href = target.toString();
 }
 
 async function loadDoc() {
-  setSaveStatus('loading', 'Loading Games');
-  let supabaseStore = null;
-  let apiStore = null;
-  let bundledStore = null;
-
-  supabaseStore = await loadStoreFromSupabase();
-
-  try {
-    const apiUrls = getApiBaseCandidates().map((apiBase) => apiBase + STORE_API_ROUTE);
-    let res = null;
-    for (const url of apiUrls) {
-      try { res = await fetch(url, { cache: 'no-store' }); if (res.ok) break; } catch (e) {}
-    }
-    if (res.ok) {
-      const raw = await res.json();
-      apiStore = normalizeIncomingStorePayload(raw);
-    }
-  } catch (error) {
-  }
-
-  const fileStore = await readStoreFromRememberedFile();
-  const localStore = readLocalStoreSnapshot();
-  try {
-    if (!supabaseStore && !apiStore) {
-      const bundledResponse = await fetch(getBundledStoreFetchUrl(), { cache: 'no-store' });
-      if (bundledResponse.ok) {
-        bundledStore = normalizeIncomingStorePayload(await bundledResponse.json());
-      }
-    }
-  } catch (error) {
-  }
-
-  state.store = pickPreferredStoreCandidate([supabaseStore, apiStore, fileStore, localStore, bundledStore]) || cloneObj(EMPTY_STORE);
+  setSaveStatus('loading', 'Loading Game');
+  state.store = cloneObj(EMPTY_STORE);
 
   const launchIntent = getEditorLaunchIntent();
   const recovery = readRecoveryDraft();
@@ -5348,18 +5310,29 @@ async function loadDoc() {
     return;
   }
 
-  const preferredGameId = launchIntent.gameId || getRememberedOpenGameId();
-  if (preferredGameId) {
-    const preferredGame = state.store.games.find((game) => game && game.id === preferredGameId);
-    if (preferredGame) {
-      openSavedGame(preferredGame.id);
+  if (!launchIntent.explicit) {
+    seedPhone({ preserveRecovery: true });
+    return;
+  }
+
+  if (launchIntent.gameId) {
+    const remoteGame = await loadGameFromSupabase(launchIntent.gameId);
+    if (remoteGame) {
+      state.store = buildStoreFromGames([remoteGame]);
+      openSavedGame(remoteGame.id, { updateUrl: false });
       return;
     }
   }
 
-  const availableGames = getGameshelfGames();
-  if (availableGames.length) {
-    openSavedGame(availableGames[0].id);
+  if (recovery) {
+    if (restoreRecoveryWorkspace(recovery)) {
+      return;
+    }
+  }
+
+  if (launchIntent.gameId) {
+    clearEditorLaunchIntent();
+    seedPhone();
     return;
   }
 
@@ -5723,9 +5696,6 @@ if (gameshelfMenuDeleteBtn) {
 }
 if (newPhoneBtn) newPhoneBtn.addEventListener('click', startNewPhone);
 
-if (workspaceZoomOutBtn) workspaceZoomOutBtn.addEventListener('click', () => setZoom(state.zoom - ZOOM_STEP));
-if (workspaceZoomInBtn) workspaceZoomInBtn.addEventListener('click', () => setZoom(state.zoom + ZOOM_STEP));
-
 linkLayer.addEventListener('click', (event) => {
   if (event.target !== linkLayer) return;
   const point = phonePointFromClient(event.clientX, event.clientY);
@@ -5773,7 +5743,6 @@ viewport.addEventListener('pointerdown', (event) => {
   if (state.dragNode || state.stencilDrag || state.connectDrag) return;
   const target = event.target;
   if (target.closest && target.closest('.node-shell')) return;
-  if (target.closest && target.closest('.zoom-controls')) return;
   if (target === linkLayer) {
     const point = phonePointFromClient(event.clientX, event.clientY);
     if (findNearestLinkIdAtPoint(point.x, point.y)) return;
@@ -5799,20 +5768,11 @@ viewport.addEventListener('pointerdown', (event) => {
 
 viewport.addEventListener('contextmenu', (event) => {
   if (hasGameNode()) return;
-  const target = event.target;
-  if (target && target.closest && target.closest('.zoom-controls')) return;
   event.preventDefault();
   closeNodeContextMenu();
   closeGameshelfContextMenu();
   openGameshelfContextMenu({ isNew: true, newOnly: true }, event.clientX, event.clientY);
 });
-
-viewport.addEventListener('wheel', (event) => {
-  if (!event.ctrlKey && !event.metaKey) return;
-  event.preventDefault();
-  const direction = event.deltaY > 0 ? -1 : 1;
-  setZoom(state.zoom + (ZOOM_STEP * direction), event.clientX, event.clientY);
-}, { passive: false });
 
 window.addEventListener('pointermove', (event) => {
   if (state.inspectorDrag) {
@@ -6039,27 +5999,6 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (isZoomInShortcut(event)) {
-    if (isTyping && !(event.ctrlKey || event.metaKey)) return;
-    event.preventDefault();
-    setZoom(state.zoom + ZOOM_STEP);
-    return;
-  }
-
-  if (isZoomOutShortcut(event)) {
-    if (isTyping && !(event.ctrlKey || event.metaKey)) return;
-    event.preventDefault();
-    setZoom(state.zoom - ZOOM_STEP);
-    return;
-  }
-
-  if (isZoomResetShortcut(event)) {
-    if (isTyping && !(event.ctrlKey || event.metaKey)) return;
-    event.preventDefault();
-    setZoom(1);
-    return;
-  }
-
   if (!isTyping && isLetterShortcut(event, 'KeyN')) {
     event.preventDefault();
     startNewPhone();
@@ -6146,6 +6085,7 @@ window.addEventListener('resize', () => {
 startPhoneClock();
 applyZoom();
 loadDoc();
+
 
 
 

@@ -2450,7 +2450,7 @@ function updateSelectionUi() {
   if (inspector) inspector.hidden = !hasSelection;
   objectCard.hidden = !hasSelection;
   inspectorContent.hidden = !hasSelection;
-  behaviorCard.hidden = hasSelection;
+  if (behaviorCard) behaviorCard.hidden = hasSelection;
 
   const getInspCopy = key => document.querySelector(`#inspectorCopyStrings [data-copy="${key}"]`)?.textContent.trim() || '';
   const nodeCopy = node ? (document.querySelector(`#stencilBar [data-stencil="${node.type}"]`)?.dataset.copy || '') : '';
