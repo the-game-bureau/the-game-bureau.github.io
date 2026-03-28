@@ -107,7 +107,7 @@ const PHONE_STAGE_WIDTH = PHONE_DEVICE_WIDTH;
 const PHONE_DEVICE_X = 0;
 const PHONE_DEVICE_Y = 28;
 const PHONE_STATUSBAR_HEIGHT = 60;
-const PHONE_HEADER_HEIGHT = 72;
+const PHONE_HEADER_HEIGHT = 102;
 const PHONE_COMPOSER_HEIGHT = 84;
 const PHONE_THREAD_SIDE_PADDING = 28;
 const PHONE_THREAD_TOP_GAP = 28;
@@ -122,9 +122,10 @@ const PHONE_ANYTIME_ROW_GAP = 26;
 const PHONE_ANYTIME_BOTTOM_PADDING = 72;
 const PHONE_BUBBLE_MIN_WIDTH = 110;
 const PHONE_BUBBLE_MAX_WIDTH = 258;
+const STENCIL_DRAG_START_DISTANCE = 6;
 const SINGLE_SHEET_SCROLL = true;
 const STENCIL_SHORTCUTS = {
-  stop: 'S',
+  stop: 'W',
   bubble: 'G',
   reply: 'P'
 };
@@ -661,6 +662,7 @@ const gameshelfStream = document.getElementById('gameshelfStream');
 const gameshelfList = document.getElementById('gameshelfList');
 const phoneStatusbarTime = document.querySelector('.phone-statusbar-time');
 const phoneStartBtn = document.getElementById('phoneStartBtn');
+const phoneThreadMeta = document.getElementById('phoneThreadMeta');
 const phoneThreadName = document.getElementById('phoneThreadName');
 const phoneThreadStatus = document.getElementById('phoneThreadStatus');
 const outsideAnytimeLabel = document.getElementById('outsideAnytimeLabel');
@@ -768,6 +770,7 @@ const state = {
   rotateNode: null,
   dockTargetId: null,
   panPhone: null,
+  stencilPress: null,
   stencilDrag: null,
   connectDrag: null,
   inspectorDrag: null,
@@ -917,32 +920,40 @@ function usesNodeTitle(type) {
   return type === 'game' || type === 'stop';
 }
 
-function getDefaultNodeTitle(type) {
+function getDefaultNodeTitle(type, id = '') {
+  if (type === 'stop') {
+    const parsed = parseTypedNodeId(id);
+    if (parsed && parsed.type === 'stop' && Number.isFinite(parsed.number)) {
+      return 'Waypoint ' + parsed.number;
+    }
+    const fallbackNumber = Math.max(1, (state.nextNodeNumbers && state.nextNodeNumbers.stop ? state.nextNodeNumbers.stop : 1) - 1);
+    return 'Waypoint ' + fallbackNumber;
+  }
   return usesNodeTitle(type) ? TYPE_CONFIG[type].title : '';
 }
 
 function formatNodeId(id) {
+  const parsed = parseTypedNodeId(id);
+  if (parsed && parsed.type === 'stop' && Number.isFinite(parsed.number)) {
+    return 'WP-' + String(parsed.number).padStart(2, '0');
+  }
   return String(id || '').trim().toUpperCase();
 }
 
 function getNodeMessagePreview(node) {
   if (!node || !isBubbleLikeType(node.type)) return '';
   if (node.type === 'reply') {
-    const guessText = String(node.body || '').replace(/\s+/g, ' ').trim();
+    const guessText = summarizeMessageText(node.body, 18);
     if (guessText) {
-      return guessText.length > 18
-        ? guessText.slice(0, 18).trimEnd() + '...'
-        : guessText;
+      return guessText;
     }
     const varName = normalizeVariableName(node.varName);
     if (varName) return varName;
     return 'Incoming message';
   }
-  const body = String(node.body || '').replace(/\s+/g, ' ').trim();
+  const body = summarizeMessageText(node.body, 18);
   if (!body) return '';
-  return body.length > 18
-    ? body.slice(0, 18).trimEnd() + '...'
-    : body;
+  return body;
 }
 
 function normalizeVariableName(value) {
@@ -1278,6 +1289,55 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function sanitizeMessageHtml(value) {
+  const template = document.createElement('template');
+  template.innerHTML = String(value || '');
+  template.content.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach((node) => node.remove());
+  template.content.querySelectorAll('*').forEach((node) => {
+    [...node.attributes].forEach((attr) => {
+      const name = attr.name.toLowerCase();
+      const attrValue = String(attr.value || '');
+      if (name.startsWith('on')) {
+        node.removeAttribute(attr.name);
+        return;
+      }
+      if ((name === 'href' || name === 'src' || name === 'xlink:href') && /^\s*javascript:/i.test(attrValue)) {
+        node.removeAttribute(attr.name);
+      }
+    });
+  });
+  return template.innerHTML;
+}
+
+function htmlMessageToPlainText(value) {
+  const source = String(value || '')
+    .replace(/<\s*\/\s*br\s*>/gi, '\n')
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|blockquote|h[1-6]|tr|section|article)>/gi, '\n');
+  const template = document.createElement('template');
+  template.innerHTML = source;
+  return String(template.content.textContent || '')
+    .replace(/\u00a0/g, ' ');
+}
+
+function summarizeMessageText(value, maxLength = 120) {
+  const normalized = htmlMessageToPlainText(value).replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+  return normalized.length > maxLength
+    ? normalized.slice(0, maxLength).trimEnd() + '...'
+    : normalized;
+}
+
+function renderMessageHtml(value, fallback = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return escapeHtml(fallback).replace(/\n/g, '<br>');
+  return sanitizeMessageHtml(
+    raw
+      .replace(/<\s*\/\s*br\s*>/gi, '<br>')
+      .replace(/\n/g, '<br>')
+  );
+}
+
 function getNode(id) {
   return state.doc.nodes.find((node) => node.id === id) || null;
 }
@@ -1365,19 +1425,72 @@ function summarizePhoneText(value, maxLength = 120) {
     : normalized;
 }
 
+let phoneTextMeasureContext = null;
+
+function getPhoneTextMeasureContext() {
+  if (phoneTextMeasureContext || typeof document === 'undefined') return phoneTextMeasureContext;
+  const canvas = document.createElement('canvas');
+  phoneTextMeasureContext = canvas.getContext('2d');
+  if (phoneTextMeasureContext) {
+    phoneTextMeasureContext.font = '400 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  }
+  return phoneTextMeasureContext;
+}
+
+function measurePhoneTextWidth(text, fallbackCharWidth = 8.4) {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return 0;
+  const context = getPhoneTextMeasureContext();
+  if (!context) return normalized.length * fallbackCharWidth;
+  return Math.ceil(context.measureText(normalized).width);
+}
+
+function estimatePhoneBubbleContentWidth(text, basePadding = 36, fallbackCharWidth = 8.4) {
+  const lines = String(text || '')
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  const longestLineWidth = lines.reduce((max, line) => Math.max(max, measurePhoneTextWidth(line, fallbackCharWidth)), 0);
+  if (!longestLineWidth) return basePadding + 44;
+  return basePadding + longestLineWidth;
+}
+
+function estimateWrappedLineCount(text, availableWidth, fallbackCharWidth = 8.4) {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return 0;
+  const safeWidth = Math.max(24, availableWidth);
+  const fullWidth = measurePhoneTextWidth(normalized, fallbackCharWidth);
+  if (fullWidth <= safeWidth) return 1;
+  const words = normalized.split(' ');
+  if (words.length <= 1) {
+    return Math.max(1, Math.ceil(fullWidth / safeWidth));
+  }
+  let lines = 1;
+  let currentLine = '';
+  words.forEach((word) => {
+    const candidate = currentLine ? currentLine + ' ' + word : word;
+    if (!currentLine || measurePhoneTextWidth(candidate, fallbackCharWidth) <= safeWidth) {
+      currentLine = candidate;
+      return;
+    }
+    lines += 1;
+    currentLine = word;
+  });
+  return lines;
+}
+
 function getPhonePrimaryText(node) {
   if (!node) return '';
   if (node.type === 'game' || node.type === 'stop') {
     return String(node.title || TYPE_CONFIG[node.type].title || '').trim();
   }
   if (node.type === 'reply') {
-    if (node.acceptAny) return 'Any incoming message';
-    const body = summarizePhoneText(node.body, 160);
+    const body = summarizeMessageText(node.body, 160);
     if (body) return body;
     const varName = normalizeVariableName(node.varName);
-    return varName ? '%' + varName + '%' : 'Incoming message';
+    return varName ? '%' + varName + '%' : '';
   }
-  return summarizePhoneText(node.body, 160) || 'Outgoing message';
+  return summarizeMessageText(node.body, 160);
 }
 
 function getPhoneSecondaryText(node) {
@@ -1386,7 +1499,7 @@ function getPhoneSecondaryText(node) {
     return summarizePhoneText(node.tagline || node.body, 140);
   }
   if (node.type === 'stop') {
-    return summarizePhoneText(node.body, 120);
+    return '';
   }
   if (node.type === 'reply') {
     if (node.anytime) return 'Anytime trigger';
@@ -1400,6 +1513,7 @@ function getPhoneSecondaryText(node) {
 function getPhoneBubbleSide(node) {
   if (!node) return 'center';
   if (node.type === 'reply') return 'right';
+  if (node.type === 'stop') return 'left';
   if (node.type === 'bubble') return 'left';
   return 'center';
 }
@@ -1484,7 +1598,7 @@ function getPhoneRowMaxWidth(nodes, threadWidth) {
   const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
   return nodes.length > 1
     ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((threadWidth - (gap * (nodes.length - 1))) / nodes.length))
-    : nodes.some((node) => node.type === 'stop') ? threadWidth : PHONE_BUBBLE_MAX_WIDTH;
+    : nodes.some((node) => node.type === 'stop' || node.type === 'bubble' || node.type === 'reply') ? threadWidth : PHONE_BUBBLE_MAX_WIDTH;
 }
 
 function getPhoneProjectedRows(rows, startY) {
@@ -1597,40 +1711,66 @@ function getPhoneAnytimeRows() {
   return rows;
 }
 
-function estimatePhoneTextLines(text, width) {
+function estimatePhoneTextLines(text, width, horizontalPadding = 34) {
   const normalized = String(text || '').trim();
   if (!normalized) return 0;
-  const lineWidth = Math.max(12, Math.floor((width - 34) / 8.4));
+  const availableWidth = Math.max(24, width - horizontalPadding);
   return normalized
     .split(/\n+/)
-    .reduce((total, line) => total + Math.max(1, Math.ceil(line.length / lineWidth)), 0);
+    .reduce((total, line) => total + Math.max(1, estimateWrappedLineCount(line, availableWidth)), 0);
 }
 
 function getPhoneBubbleSize(node, maxWidth = PHONE_BUBBLE_MAX_WIDTH) {
+  const isMessageBubble = node.type === 'bubble' || node.type === 'reply';
   const preferredWidths = {
     game: 254,
-    stop: Math.round(maxWidth),
+    stop: 248,
     bubble: 252,
-    reply: 226
+    reply: 252
   };
-  const preferredWidth = preferredWidths[node.type] || PHONE_BUBBLE_MAX_WIDTH;
+  const minWidths = {
+    game: PHONE_BUBBLE_MIN_WIDTH,
+    stop: 168,
+    bubble: 78,
+    reply: 78
+  };
+  const primaryText = getPhonePrimaryText(node);
+  const preferredWidth = isMessageBubble
+    ? estimatePhoneBubbleContentWidth(primaryText, 28, 8.2)
+    : node.type === 'stop'
+      ? Math.round(maxWidth)
+      : (preferredWidths[node.type] || PHONE_BUBBLE_MAX_WIDTH);
+  const minWidth = minWidths[node.type] || PHONE_BUBBLE_MIN_WIDTH;
   const safeMaxWidth = Math.max(
-    PHONE_BUBBLE_MIN_WIDTH,
-    node.type === 'stop'
+    minWidth,
+    (node.type === 'stop' || isMessageBubble)
       ? Math.round(maxWidth)
       : Math.min(PHONE_BUBBLE_MAX_WIDTH, Math.round(maxWidth))
   );
-  const width = clamp(Math.min(preferredWidth, safeMaxWidth), PHONE_BUBBLE_MIN_WIDTH, safeMaxWidth);
-  const primaryLines = estimatePhoneTextLines(getPhonePrimaryText(node), width);
-  const secondaryLines = estimatePhoneTextLines(getPhoneSecondaryText(node), width);
+  const width = clamp(Math.min(preferredWidth, safeMaxWidth), minWidth, safeMaxWidth);
+  const textPadding = isMessageBubble ? 26 : node.type === 'stop' ? 70 : 34;
+  const primaryLines = estimatePhoneTextLines(primaryText, width, textPadding);
+  const secondaryLines = estimatePhoneTextLines(getPhoneSecondaryText(node), width, textPadding);
   const minHeights = {
     game: 88,
-    stop: 84,
-    bubble: 74,
-    reply: 72
+    stop: 58,
+    bubble: 38,
+    reply: 38
+  };
+  const extraPrimaryLineHeights = {
+    stop: 17,
+    bubble: 16,
+    reply: 16
+  };
+  const extraSecondaryLineHeights = {
+    stop: 0,
+    bubble: 0,
+    reply: 0
   };
   const height = clamp(
-    (minHeights[node.type] || 74) + Math.max(0, primaryLines - 1) * 22 + secondaryLines * 16,
+    (minHeights[node.type] || 74)
+      + Math.max(0, primaryLines - 1) * (extraPrimaryLineHeights[node.type] || 22)
+      + secondaryLines * (extraSecondaryLineHeights[node.type] || 16),
     minHeights[node.type] || 74,
     220
   );
@@ -1642,13 +1782,22 @@ function getPhoneBubbleSize(node, maxWidth = PHONE_BUBBLE_MAX_WIDTH) {
 
 function updatePhoneChrome() {
   if (!phoneThreadName) return;
+  const syncPhoneThreadMeta = (clickable) => {
+    if (!phoneThreadMeta) return;
+    phoneThreadMeta.dataset.clickable = clickable ? 'true' : 'false';
+    phoneThreadMeta.setAttribute('aria-disabled', clickable ? 'false' : 'true');
+    phoneThreadMeta.setAttribute('aria-label', clickable ? 'Edit game details' : 'Game details unavailable');
+    phoneThreadMeta.tabIndex = clickable ? 0 : -1;
+  };
   if (!hasGameNode()) {
+    syncPhoneThreadMeta(false);
     phoneThreadName.textContent = 'Game Builder';
     if (phoneThreadStatus) phoneThreadStatus.textContent = '';
     if (phoneStartBtn) phoneStartBtn.style.background = '';
     return;
   }
   const gameNode = getGameNode();
+  syncPhoneThreadMeta(!!gameNode);
   phoneThreadName.textContent = getDocName();
   if (phoneThreadStatus) phoneThreadStatus.textContent = gameNode?.guideName || '';
   if (phoneStartBtn) {
@@ -1658,6 +1807,15 @@ function updatePhoneChrome() {
 }
 
 function syncPhoneStartButton() {}
+
+function openGameDetailsFromPhoneHeader() {
+  const gameNode = getGameNode();
+  if (!gameNode) return;
+  selectNode(gameNode.id);
+  renderSelectionStates();
+  drawLinks();
+  updateSelectionUi();
+}
 
 function applyPhoneThreadLayout() {
   if (!THREAD_LAYOUT_ENABLED) return;
@@ -2026,6 +2184,7 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
   const rawType = raw && raw.type ? String(raw.type) : 'stop';
   const type = typeOverride || getNormalizedNodeType(raw);
   const config = TYPE_CONFIG[type];
+  const id = idOverride || makeId(type);
   const gameSlot = type === 'game' ? getGameHomeSlot() : null;
   const anytime = (type === 'reply' || type === 'bubble') && !!(raw && raw.anytime);
   const anytimePairId = anytime
@@ -2036,7 +2195,7 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     : raw && raw.body ? String(raw.body) : config.body;
   const replyVarName = type === 'reply' ? getLegacyReplyVarName(raw) : '';
   return {
-    id: idOverride || makeId(type),
+    id,
     type,
     x: gameSlot ? gameSlot.x : normalizeGridAnchoredValue(raw && raw.x, 'x'),
     y: gameSlot ? gameSlot.y : normalizeGridAnchoredValue(raw && raw.y, 'y'),
@@ -2044,7 +2203,7 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     height: config.height,
     title: usesNodeTitle(type) && raw && typeof raw.title === 'string' && raw.title.trim()
       ? String(raw.title)
-      : getDefaultNodeTitle(type),
+      : getDefaultNodeTitle(type, id),
     tagline: raw && typeof raw.tagline === 'string' ? raw.tagline : '',
     guideName: raw && typeof raw.guideName === 'string' ? raw.guideName : '',
     price: raw && typeof raw.price === 'string' ? raw.price : '',
@@ -2735,18 +2894,19 @@ function normalizeIncomingStorePayload(raw) {
 
 function createNode(type, x, y) {
   const config = TYPE_CONFIG[type];
+  const id = makeId(type);
   const nextOrderIndex = state.doc.nodes.reduce((maxOrderIndex, node) => {
     const value = normalizeNodeOrderIndex(node && node.orderIndex);
     return value == null ? maxOrderIndex : Math.max(maxOrderIndex, value);
   }, 0) + 100;
   return {
-    id: makeId(type),
+    id,
     type,
     x: snap(x),
     y: snap(y),
     width: config.width,
     height: config.height,
-    title: getDefaultNodeTitle(type),
+    title: getDefaultNodeTitle(type, id),
     tagline: type === 'game' ? 'Shall We Play A Game?' : '',
     guideName: type === 'game' ? 'Mission Control' : '',
     price: type === 'game' ? 'Free To Start / In App Purchases' : '',
@@ -3231,8 +3391,18 @@ function buildNodeBodyMarkup(node) {
     ? getPhoneSecondaryText(node)
     : (node.body || '');
   return secondaryText
-    ? `<div class="node-body">${escapeHtml(secondaryText)}</div>`
+    ? `<div class="node-body">${!THREAD_LAYOUT_ENABLED && isBubbleLikeType(node.type) ? renderMessageHtml(secondaryText) : escapeHtml(secondaryText)}</div>`
     : '';
+}
+
+function buildNodeTitleMarkup(node, displayTitle) {
+  if (!isBubbleLikeType(node.type)) {
+    return `<div class="node-title"${getGameTitleStyle(node, displayTitle)}>${escapeHtml(displayTitle)}</div>`;
+  }
+  const fallbackTitle = node.type === 'reply'
+    ? (normalizeVariableName(node.varName) ? '%' + normalizeVariableName(node.varName) + '%' : '')
+    : '';
+  return `<div class="node-title"${getGameTitleStyle(node, displayTitle)}>${renderMessageHtml(node.body, fallbackTitle)}</div>`;
 }
 
 function buildNodeBubbleMarkup(node) {
@@ -3299,7 +3469,7 @@ function buildNodeMarkup(node) {
   const bodyMarkup = buildNodeBodyMarkup(node);
   const headerMarkup = `
     <div class="node-header">
-      <div class="node-title"${getGameTitleStyle(node, displayTitle)}>${escapeHtml(displayTitle)}</div>
+      ${buildNodeTitleMarkup(node, displayTitle)}
     </div>
   `;
   const metaMarkup = `
@@ -4014,6 +4184,43 @@ function renderNode(node) {
   nodeEls.set(node.id, el);
 }
 
+function syncRenderedMessageNodeHeights() {
+  if (!THREAD_LAYOUT_ENABLED) return false;
+  let changed = false;
+
+  state.doc.nodes.forEach((node) => {
+    if (!node || (node.type !== 'bubble' && node.type !== 'reply')) return;
+    const el = nodeEls.get(node.id);
+    if (!el) return;
+    const card = el.querySelector('.node-card');
+    const content = el.querySelector('.node-content');
+    if (!card || !content) return;
+
+    const previousShellHeight = el.style.height;
+    const previousCardHeight = card.style.height;
+    const previousContentHeight = content.style.height;
+
+    el.style.height = 'auto';
+    card.style.height = 'auto';
+    content.style.height = 'auto';
+
+    const measuredHeight = Math.max(38, Math.ceil(card.getBoundingClientRect().height));
+
+    el.style.height = previousShellHeight;
+    card.style.height = previousCardHeight;
+    content.style.height = previousContentHeight;
+
+    if (Math.abs(measuredHeight - node.height) > 2) {
+      node.height = measuredHeight;
+      changed = true;
+    }
+  });
+
+  return changed;
+}
+
+let isSyncingRenderedMessageHeights = false;
+
 function renderAll() {
   applyPhoneThreadLayout();
   updatePhoneChrome();
@@ -4038,6 +4245,12 @@ function renderAll() {
   state.doc.nodes
     .filter((node) => !(THREAD_LAYOUT_ENABLED && node.type === 'game'))
     .forEach(renderNode);
+  if (!isSyncingRenderedMessageHeights && syncRenderedMessageNodeHeights()) {
+    isSyncingRenderedMessageHeights = true;
+    renderAll();
+    isSyncingRenderedMessageHeights = false;
+    return;
+  }
   updateStencilAvailability();
   renderSelectionStates();
   drawLinks();
@@ -4094,7 +4307,7 @@ function updateSelectionUi() {
   secondaryColorField.hidden = isLinkSelected || !isGameNode;
   tagsField.hidden = isLinkSelected || !isGameNode;
   builderNotesField.hidden = isLinkSelected || !isGameNode;
-  const BODY_LABELS = { game: 'Description', stop: 'STOP NOTES', bubble: 'Guide Message', reply: 'ANSWER' };
+  const BODY_LABELS = { game: 'Description', stop: 'NOTES', bubble: 'Guide Message', reply: 'ANSWER' };
   nodeTitleLabel.textContent = 'GAME NAME';
   nodeBodyLabel.textContent = node
     ? (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'Notes'))
@@ -4748,6 +4961,29 @@ function startStencilDrag(type, event) {
   viewport.classList.add('drop-ready');
 }
 
+function startStencilPress(type, event) {
+  if (!TYPE_CONFIG[type]) return;
+  if (type === 'game' && hasGameNode()) return;
+  state.stencilPress = {
+    type,
+    pointerId: event.pointerId,
+    startClientX: event.clientX,
+    startClientY: event.clientY
+  };
+}
+
+function maybeStartStencilDrag(event) {
+  const press = state.stencilPress;
+  if (!press || state.stencilDrag) return;
+  if (press.pointerId != null && event.pointerId != null && press.pointerId !== event.pointerId) return;
+  const movedEnough =
+    Math.abs(event.clientX - press.startClientX) >= STENCIL_DRAG_START_DISTANCE
+    || Math.abs(event.clientY - press.startClientY) >= STENCIL_DRAG_START_DISTANCE;
+  if (!movedEnough) return;
+  state.stencilPress = null;
+  startStencilDrag(press.type, event);
+}
+
 function stopStencilDrag(clientX, clientY) {
   if (!state.stencilDrag) return;
   const drag = state.stencilDrag;
@@ -4768,6 +5004,10 @@ function cancelStencilDrag() {
   state.stencilDrag.ghostEl.remove();
   state.stencilDrag = null;
   viewport.classList.remove('drop-ready');
+}
+
+function clearStencilPress() {
+  state.stencilPress = null;
 }
 
 function addNodeToVisiblePhone(type) {
@@ -5341,15 +5581,29 @@ async function loadDoc() {
 
 renderStencilPreviews();
 
+if (phoneThreadMeta) {
+  phoneThreadMeta.addEventListener('click', () => {
+    openGameDetailsFromPhoneHeader();
+  });
+
+  phoneThreadMeta.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    openGameDetailsFromPhoneHeader();
+  });
+}
+
 stencilBar.querySelectorAll('[data-stencil]').forEach((button) => {
   button.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     event.preventDefault();
-    startStencilDrag(button.dataset.stencil, event);
+    clearStencilPress();
+    startStencilPress(button.dataset.stencil, event);
   });
 
   button.addEventListener('dblclick', (event) => {
     event.preventDefault();
+    clearStencilPress();
     cancelStencilDrag();
     addNodeToVisiblePhone(button.dataset.stencil);
   });
@@ -5775,6 +6029,8 @@ viewport.addEventListener('contextmenu', (event) => {
 });
 
 window.addEventListener('pointermove', (event) => {
+  maybeStartStencilDrag(event);
+
   if (state.inspectorDrag) {
     const dx = event.clientX - state.inspectorDrag.startX;
     const dy = event.clientY - state.inspectorDrag.startY;
@@ -5920,6 +6176,7 @@ window.addEventListener('pointerup', (event) => {
   }
 
   if (state.stencilDrag) stopStencilDrag(event.clientX, event.clientY);
+  clearStencilPress();
 
   if (state.dragNode) {
     const dragState = state.dragNode;
@@ -5967,6 +6224,11 @@ window.addEventListener('pointerup', (event) => {
   }
 });
 
+window.addEventListener('pointercancel', () => {
+  clearStencilPress();
+  cancelStencilDrag();
+});
+
 window.addEventListener('keydown', (event) => {
   const activeTag = document.activeElement && document.activeElement.tagName;
   const isTyping =
@@ -6005,7 +6267,7 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (!isTyping && isLetterShortcut(event, 'KeyS')) {
+  if (!isTyping && isLetterShortcut(event, 'KeyW')) {
     event.preventDefault();
     addNodeToVisiblePhone('stop');
     return;
