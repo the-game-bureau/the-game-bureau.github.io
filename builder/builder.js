@@ -64,6 +64,7 @@ const STORE_FILE_TYPES = [{
   }
 }];
 const GAMES_PAGE_ROUTE = 'index.html';
+const HEADER_GAME_NEW_VALUE = '__new-game__';
 const SUPABASE_CONFIG_STORAGE_KEY = 'tgb-builder-supabase-config';
 const DEFAULT_SUPABASE_GAMES_TABLE = 'games';
 const SUPABASE_STORAGE_KIND = 'supabase';
@@ -277,6 +278,17 @@ async function loadStoreFromSupabase() {
 
   try {
     const rows = await fetchGameRowsFromSupabase();
+    return buildStoreFromGames(rows.map((row, index) => normalizeGameRow(row, index)));
+  } catch (error) {
+    return null;
+  }
+}
+
+async function loadHeaderGameStoreFromSupabase() {
+  if (!hasSupabaseStore()) return null;
+
+  try {
+    const rows = await fetchGameRowsFromSupabase('id,name,archived,erased,created_at,updated_at');
     return buildStoreFromGames(rows.map((row, index) => normalizeGameRow(row, index)));
   } catch (error) {
     return null;
@@ -673,7 +685,7 @@ const inspectorWindowSubtitle = document.getElementById('inspectorWindowSubtitle
 const inspectorStack = document.getElementById('inspectorStack');
 const stencilBar = document.getElementById('stencilBar');
 const headerPlayGameBtn = document.getElementById('headerPlayGameBtn');
-const gamesListBtn = document.getElementById('gamesListBtn');
+const headerGameSelect = document.getElementById('headerGameSelect');
 const objectCard = document.getElementById('objectCard');
 const inspectorContent = document.getElementById('inspectorContent');
 const inspectorCopy = document.getElementById('inspectorCopy');
@@ -757,6 +769,7 @@ if ('scrollRestoration' in history) {
 
 const state = {
   store: cloneObj(EMPTY_STORE),
+  headerGames: [],
   doc: cloneObj(EMPTY_DOC),
   currentGameId: null,
   cleanSnapshot: null,
@@ -2411,6 +2424,7 @@ function updateActionUi() {
     saveStatusPill.setAttribute('aria-busy', isSaveBusy ? 'true' : 'false');
   }
   if (headerPlayGameBtn) headerPlayGameBtn.disabled = !hasGame;
+  if (headerGameSelect) headerGameSelect.disabled = isSaveBusy;
 }
 
 function isRefreshShortcut(event) {
@@ -2775,6 +2789,7 @@ async function duplicateSavedGame(gameId) {
 
   state.store.updatedAt = timestamp;
   state.store.games.push(duplicatedGame);
+  upsertHeaderGame(duplicatedGame);
   syncAllTagsFromStore();
   renderGameshelf();
   persistStoreLocally();
@@ -2793,6 +2808,7 @@ async function deleteSavedGame(gameId) {
   state.store.games.splice(targetIndex, 1);
   state.store.updatedAt = new Date().toISOString();
   if (isCurrent) state.currentGameId = null;
+  removeHeaderGame(gameId);
   syncAllTagsFromStore();
   renderGameshelf();
   persistStoreLocally();
@@ -3209,6 +3225,101 @@ function compareSavedGamesNewestFirst(a, b) {
   return compareSavedGamesAlphabetical(a, b);
 }
 
+function buildHeaderGameList(games = []) {
+  const gameMap = new Map();
+
+  games.forEach((rawGame, index) => {
+    if (!rawGame) return;
+    const normalizedGame = normalizeSavedGame(rawGame, index);
+    const gameId = String(normalizedGame.id || '').trim();
+    if (!gameId) return;
+    if (normalizeErasedFlag(normalizedGame.erased) === ERASED_GAME_VALUE) return;
+    gameMap.set(gameId, normalizedGame);
+  });
+
+  return [...gameMap.values()].sort(compareSavedGamesAlphabetical);
+}
+
+function getCurrentHeaderGameEntry() {
+  if (!state.currentGameId || !hasGameNode()) return null;
+  const sourceGame = state.headerGames.find((game) => game && game.id === state.currentGameId)
+    || state.store.games.find((game) => game && game.id === state.currentGameId)
+    || { id: state.currentGameId };
+  return normalizeSavedGame({
+    ...sourceGame,
+    id: state.currentGameId,
+    name: getDocName(),
+    updatedAt: state.doc && state.doc.updatedAt ? state.doc.updatedAt : (sourceGame.updatedAt || ''),
+    nodes: Array.isArray(state.doc.nodes) ? state.doc.nodes : sourceGame.nodes,
+    links: Array.isArray(state.doc.links) ? state.doc.links : sourceGame.links
+  }, 0);
+}
+
+function getHeaderGames() {
+  const games = [...(state.headerGames || []), ...(state.store.games || [])];
+  const currentGame = getCurrentHeaderGameEntry();
+  if (currentGame) games.push(currentGame);
+  return buildHeaderGameList(games);
+}
+
+function renderHeaderGameSelect() {
+  if (!headerGameSelect) return;
+
+  const games = getHeaderGames();
+  headerGameSelect.innerHTML = '';
+
+  const newOption = document.createElement('option');
+  newOption.value = HEADER_GAME_NEW_VALUE;
+  newOption.textContent = 'NEW GAME';
+  headerGameSelect.appendChild(newOption);
+
+  games.forEach((game) => {
+    const option = document.createElement('option');
+    option.value = game.id;
+    option.textContent = game.name || 'Untitled Game';
+    headerGameSelect.appendChild(option);
+  });
+
+  const selectedValue = state.currentGameId && games.some((game) => game.id === state.currentGameId)
+    ? state.currentGameId
+    : HEADER_GAME_NEW_VALUE;
+  headerGameSelect.value = selectedValue;
+  const selectedOption = headerGameSelect.options[headerGameSelect.selectedIndex];
+  headerGameSelect.title = selectedOption ? selectedOption.textContent : 'Games';
+}
+
+function setHeaderGames(games = []) {
+  state.headerGames = buildHeaderGameList(games);
+  renderHeaderGameSelect();
+}
+
+function upsertHeaderGame(game) {
+  if (!game || !game.id) {
+    renderHeaderGameSelect();
+    return;
+  }
+  state.headerGames = buildHeaderGameList([
+    ...(state.headerGames || []).filter((entry) => entry && entry.id !== game.id),
+    game
+  ]);
+  renderHeaderGameSelect();
+}
+
+function removeHeaderGame(gameId) {
+  const targetId = String(gameId || '').trim();
+  if (!targetId) return;
+  state.headerGames = buildHeaderGameList((state.headerGames || []).filter((entry) => entry && entry.id !== targetId));
+  renderHeaderGameSelect();
+}
+
+async function refreshHeaderGames() {
+  const remoteStore = await loadHeaderGameStoreFromSupabase();
+  const localStore = readLocalStoreSnapshot();
+  const currentStore = buildStoreFromGames([...(state.headerGames || []), ...(state.store.games || [])]);
+  const preferredStore = pickPreferredStoreCandidate([remoteStore, localStore, currentStore]);
+  setHeaderGames(preferredStore && Array.isArray(preferredStore.games) ? preferredStore.games : []);
+}
+
 function getLinkPortLabel(link) {
   const fromPort = normalizeFromPort(getNode(link && link.from) || parseTypedNodeId(link && link.from)?.type, link && link.fromPort);
   if (fromPort.startsWith('branch-')) {
@@ -3244,6 +3355,7 @@ function openSavedGame(gameId, options = {}) {
     }
 
     rememberCleanSnapshot();
+    upsertHeaderGame(game);
     renderGameshelf();
     renderAll();
   });
@@ -3349,15 +3461,6 @@ function clearEditorLaunchIntent(options = {}) {
     history.replaceState(null, '', nextUrl);
   } catch (error) {
   }
-}
-
-async function goToGamesPage() {
-  const needsSave = hasPendingSaveChanges() || shouldStageCurrentGameForSave();
-  if (needsSave) {
-    const result = await saveDoc({ silent: true });
-    if (result && result.localOnly) return;
-  }
-  location.href = new URL(GAMES_PAGE_ROUTE, location.href).toString();
 }
 
 function renderTagPicker(node) {
@@ -5102,6 +5205,7 @@ function seedPhone(options = {}) {
     const gameNode = createNode('game', firstSlot.x, firstSlot.y);
     state.doc.nodes.push(gameNode);
     setCurrentGameColors();
+    renderHeaderGameSelect();
     syncAllTagsFromStore();
     rememberCleanSnapshot();
     renderGameshelf();
@@ -5357,6 +5461,7 @@ function restoreRecoveryWorkspace(recovery) {
   if (!recovery) return false;
   runWithoutRecoverySync(() => {
     state.store = recovery.store;
+    state.headerGames = buildHeaderGameList(recovery.store && recovery.store.games ? recovery.store.games : []);
     state.doc = recovery.doc;
     state.currentGameId = recovery.currentGameId;
     state.localOnlyChanges = !!recovery.localOnlyChanges;
@@ -5365,6 +5470,7 @@ function restoreRecoveryWorkspace(recovery) {
     syncNextNodeNumbers();
     setCurrentGameColors(recovery.currentGameColors);
     state.cleanSnapshot = recovery.cleanSnapshot || getDocSnapshot(recovery.doc);
+    renderHeaderGameSelect();
     renderGameshelf();
     applyZoom();
     renderAll();
@@ -5456,6 +5562,7 @@ function stageCurrentGameIntoStore() {
   if (existingIndex >= 0) state.store.games[existingIndex] = savedGame;
   else state.store.games.push(savedGame);
 
+  upsertHeaderGame(savedGame);
   syncAllTagsFromStore();
   renderGameshelf();
   persistStoreLocally();
@@ -5613,6 +5720,7 @@ nodeTitleInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
   if (!node || node.type !== 'game') return;
   node.title = nodeTitleInput.value || TYPE_CONFIG[node.type].title;
+  renderHeaderGameSelect();
   renderAll();
 });
 
@@ -5883,7 +5991,29 @@ deleteBtn.addEventListener('click', () => {
 if (saveGameBtn) saveGameBtn.addEventListener('click', saveCurrentGameFromMenu);
 if (saveStatusPill) saveStatusPill.addEventListener('click', saveCurrentGameFromMenu);
 if (headerPlayGameBtn) headerPlayGameBtn.addEventListener('click', playCurrentGame);
-if (gamesListBtn) gamesListBtn.addEventListener('click', goToGamesPage);
+if (headerGameSelect) {
+  headerGameSelect.addEventListener('change', () => {
+    const selectedValue = String(headerGameSelect.value || '').trim();
+    if (!selectedValue || state.saveUiState === 'saving' || state.saveUiState === 'loading') {
+      renderHeaderGameSelect();
+      return;
+    }
+    if (selectedValue === HEADER_GAME_NEW_VALUE) {
+      startNewPhone();
+      return;
+    }
+    if (selectedValue === state.currentGameId) {
+      renderHeaderGameSelect();
+      return;
+    }
+    if (hasPendingSaveChanges()) syncRecoveryDraftNow({ updateStatus: false });
+    const target = new URL(location.href);
+    target.searchParams.delete('new');
+    target.searchParams.delete('gameId');
+    target.searchParams.set('gameId', selectedValue);
+    location.href = target.toString();
+  });
+}
 if (refreshPageBtn) {
   refreshPageBtn.addEventListener('click', () => {
     const menu = refreshPageBtn.closest('.mb-menu');
@@ -6344,9 +6474,15 @@ window.addEventListener('resize', () => {
   refreshGameshelfAutoScroll();
 });
 
-startPhoneClock();
-applyZoom();
-loadDoc();
+async function initializeBuilder() {
+  startPhoneClock();
+  applyZoom();
+  renderHeaderGameSelect();
+  await loadDoc();
+  await refreshHeaderGames();
+}
+
+initializeBuilder();
 
 
 
