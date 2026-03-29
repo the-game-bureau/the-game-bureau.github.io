@@ -527,11 +527,18 @@ const phoneThreadAvatar = document.getElementById('phoneThreadAvatar');
 const phoneThreadStatus = document.getElementById('phoneThreadStatus');
 const outsideAnytimeLabel = document.getElementById('outsideAnytimeLabel');
 const inspector = document.getElementById('inspector');
+const objectInspector = document.getElementById('objectInspector');
+const objectInspectorTitle = document.getElementById('objectInspectorTitle');
+const objectDetailsCard = document.getElementById('objectDetailsCard');
 const inspectorWindowBar = document.getElementById('inspectorWindowBar');
 const inspectorWindowTitle = document.getElementById('inspectorWindowTitle');
 const inspectorWindowSubtitle = document.getElementById('inspectorWindowSubtitle');
 const gameDetailsToggleBtn = document.getElementById('gameDetailsToggleBtn');
 const inspectorStack = document.getElementById('inspectorStack');
+const objectInspectorStack = document.getElementById('objectInspectorStack');
+const objectInspectorContent = document.getElementById('objectInspectorContent');
+const objectInspectorCopy = document.getElementById('objectInspectorCopy');
+const mainGrid = document.getElementById('mainGrid');
 const stencilBar = document.getElementById('stencilBar');
 const gamePickerPlayBtn = document.getElementById('gamePickerPlayBtn');
 const gamePickerSelect = document.getElementById('gamePickerSelect');
@@ -547,13 +554,14 @@ const priceField = document.getElementById('priceField');
 const primaryColorField = document.getElementById('primaryColorField');
 const secondaryColorField = document.getElementById('secondaryColorField');
 const tagsField = document.getElementById('tagsField');
-const builderNotesField = document.getElementById('builderNotesField');
-const nodeBuilderNotesInput = document.getElementById('nodeBuilderNotesInput');
 const descriptionField = document.getElementById('descriptionField');
+const objectDescriptionField = document.getElementById('objectDescriptionField');
 const ifThenField = document.getElementById('ifThenField');
-const nodeTitleLabel = document.getElementById('nodeTitleLabel');
+const nodeTitleLabelText = document.getElementById('nodeTitleLabelText');
 const nodeTitleInput = document.getElementById('nodeTitleInput');
 const stopNameInput = document.getElementById('stopNameInput');
+const objectStopNameField = document.getElementById('objectStopNameField');
+const objectStopNameInput = document.getElementById('objectStopNameInput');
 const nodeTaglineInput = document.getElementById('nodeTaglineInput');
 const nodeGuideNameInput = document.getElementById('nodeGuideNameInput');
 const nodeGuideImageInput = document.getElementById('nodeGuideImageInput');
@@ -572,14 +580,25 @@ const nodeBodyLabel = document.getElementById('nodeBodyLabel');
 const nodeBodyInfo = document.getElementById('nodeBodyInfo');
 const nodeBodyInput = document.getElementById('nodeBodyInput');
 const nodeBodyAutocomplete = document.getElementById('nodeBodyAutocomplete');
+const objectBodyLabel = document.getElementById('objectBodyLabel');
+const objectBodyInfo = document.getElementById('objectBodyInfo');
+const objectBodyInput = document.getElementById('objectBodyInput');
+const objectBodyAutocomplete = document.getElementById('objectBodyAutocomplete');
 const replyModeField = document.getElementById('replyModeField');
 const replyModeNormalInput = document.getElementById('replyModeNormalInput');
 const replyModeAnyAnswerInput = document.getElementById('replyModeAnyAnswerInput');
 const replyModeAnytimeInput = document.getElementById('replyModeAnytimeInput');
+const objectReplyModeField = document.getElementById('objectReplyModeField');
+const objectReplyModeNormalInput = document.getElementById('objectReplyModeNormalInput');
+const objectReplyModeAnyAnswerInput = document.getElementById('objectReplyModeAnyAnswerInput');
+const objectReplyModeAnytimeInput = document.getElementById('objectReplyModeAnytimeInput');
 
 const varNameField = document.getElementById('varNameField');
 const varNameInput = document.getElementById('varNameInput');
 const varNameHint = document.getElementById('varNameHint');
+const objectVarNameField = document.getElementById('objectVarNameField');
+const objectVarNameInput = document.getElementById('objectVarNameInput');
+const objectVarNameHint = document.getElementById('objectVarNameHint');
 const varValuesField = document.getElementById('varValuesField');
 const varValueInputs = [1, 2, 3, 4].map((index) => document.getElementById('varValue' + index));
 const varCorrectRadios = [0, 1, 2, 3].map((index) => document.getElementById('varCorrect' + index));
@@ -589,6 +608,7 @@ const archiveGameBtn = document.getElementById('archiveGameBtn');
 const duplicateGameStatus = document.getElementById('duplicateGameStatus');
 const gameEraseBtn = document.getElementById('gameEraseBtn');
 const deleteBtn = document.getElementById('deleteBtn');
+const objectDeleteBtn = document.getElementById('objectDeleteBtn');
 const saveGameBtn = document.getElementById('saveGameBtn') || document.getElementById('playGameBtn');
 const newPhoneBtn = document.getElementById('newPhoneBtn');
 const refreshPageBtn = document.getElementById('refreshPageBtn');
@@ -668,6 +688,7 @@ const state = {
   saveUiState: 'loading',
   showHeaderOnlyMode: true,
   gameDetailsCollapsed: false,
+  objectInspectorVisible: false,
   duplicateGameActionBusy: false,
   duplicateGameFeedback: '',
   archiveGameActionBusy: false,
@@ -1084,10 +1105,10 @@ function makeUniqueReplyVariableName(baseName, ignoreNodeId = null) {
 }
 
 function refreshVarNameHint() {
-  if (!varNameHint || !varNameInput) return;
+  if (!objectVarNameHint || !objectVarNameInput) return;
   const node = getNode(state.selectedId);
-  if (!node || node.type !== 'reply') { varNameHint.hidden = true; return; }
-  const name = normalizeVariableName(varNameInput.value);
+  if (!node || node.type !== 'reply') { objectVarNameHint.hidden = true; return; }
+  const name = normalizeVariableName(objectVarNameInput.value);
   let msg = '';
   if (!name) {
     msg = 'Required.';
@@ -1095,9 +1116,9 @@ function refreshVarNameHint() {
     const usedNames = getUsedReplyVariableNames(node.id);
     if (usedNames.has(name.toLowerCase())) msg = 'Already used in this game.';
   }
-  varNameHint.textContent = msg;
-  varNameHint.hidden = !msg;
-  varNameInput.classList.toggle('is-invalid', !!msg);
+  objectVarNameHint.textContent = msg;
+  objectVarNameHint.hidden = !msg;
+  objectVarNameInput.classList.toggle('is-invalid', !!msg);
 }
 
 function buildBestGuessReplyVariableName(node, preferredSource = null) {
@@ -1896,19 +1917,19 @@ function closeVariableAutocomplete() {
   variableAutocomplete.activeIndex = 0;
   variableAutocomplete.tokenStart = -1;
   variableAutocomplete.tokenEnd = -1;
-  if (nodeBodyAutocomplete) {
-    nodeBodyAutocomplete.hidden = true;
-    nodeBodyAutocomplete.innerHTML = '';
+  if (objectBodyAutocomplete) {
+    objectBodyAutocomplete.hidden = true;
+    objectBodyAutocomplete.innerHTML = '';
   }
 }
 
 function renderVariableAutocomplete() {
-  if (!nodeBodyAutocomplete || !variableAutocomplete.open || !variableAutocomplete.items.length) {
+  if (!objectBodyAutocomplete || !variableAutocomplete.open || !variableAutocomplete.items.length) {
     closeVariableAutocomplete();
     return;
   }
 
-  nodeBodyAutocomplete.innerHTML = '';
+  objectBodyAutocomplete.innerHTML = '';
   variableAutocomplete.items.forEach((name, index) => {
     const button = document.createElement('button');
     button.type = 'button';
@@ -1920,19 +1941,19 @@ function renderVariableAutocomplete() {
       event.preventDefault();
       applyVariableAutocomplete(name);
     });
-    nodeBodyAutocomplete.appendChild(button);
+    objectBodyAutocomplete.appendChild(button);
   });
-  nodeBodyAutocomplete.hidden = false;
+  objectBodyAutocomplete.hidden = false;
 }
 
 function getVariableAutocompleteContext() {
   const node = getNode(state.selectedId);
-  if (!node || node.type !== 'bubble' || nodeBodyInput.disabled) return null;
-  if (document.activeElement !== nodeBodyInput) return null;
-  if (nodeBodyInput.selectionStart !== nodeBodyInput.selectionEnd) return null;
+  if (!node || node.type !== 'bubble' || objectBodyInput.disabled) return null;
+  if (document.activeElement !== objectBodyInput) return null;
+  if (objectBodyInput.selectionStart !== objectBodyInput.selectionEnd) return null;
 
-  const value = nodeBodyInput.value;
-  const caretIndex = nodeBodyInput.selectionStart;
+  const value = objectBodyInput.value;
+  const caretIndex = objectBodyInput.selectionStart;
   if (typeof caretIndex !== 'number') return null;
 
   const beforeCaret = value.slice(0, caretIndex);
@@ -1982,15 +2003,15 @@ function applyVariableAutocomplete(name) {
   if (!variableAutocomplete.open) return;
 
   const insertion = '%' + name + '%';
-  const currentValue = nodeBodyInput.value;
+  const currentValue = objectBodyInput.value;
   const nextValue = currentValue.slice(0, variableAutocomplete.tokenStart) + insertion + currentValue.slice(variableAutocomplete.tokenEnd);
   const caret = variableAutocomplete.tokenStart + insertion.length;
 
   node.body = nextValue;
   closeVariableAutocomplete();
   renderAll();
-  nodeBodyInput.focus();
-  nodeBodyInput.setSelectionRange(caret, caret);
+  objectBodyInput.focus();
+  objectBodyInput.setSelectionRange(caret, caret);
 }
 
 function countLinks(id, direction) {
@@ -2027,6 +2048,25 @@ function applyInspectorPosition() {
   inspector.style.right = '';
 }
 
+function getObjectInspectorHeading(node, link) {
+  if (link) return 'CONNECTION DETAILS';
+  if (!node) return 'OBJECT DETAILS';
+  if (node.type === 'bubble') return 'GUIDE MSG DETAILS';
+  if (node.type === 'reply') return 'PLAYER DETAILS';
+  if (node.type === 'stop') return 'WAYPOINT DETAILS';
+  return 'OBJECT DETAILS';
+}
+
+function syncInspectorHosts(node = getNode(state.selectedId), link = getLink(state.selectedLinkId)) {
+  const showObjectInspector = !!link || !!(node && node.type !== 'game');
+  state.objectInspectorVisible = showObjectInspector;
+  if (mainGrid) mainGrid.classList.toggle('has-object-inspector', showObjectInspector);
+  if (objectInspector) objectInspector.hidden = !showObjectInspector;
+  if (objectInspectorTitle) objectInspectorTitle.textContent = getObjectInspectorHeading(node, link);
+  if (objectInspectorStack) objectInspectorStack.hidden = !showObjectInspector;
+  if (inspectorStack) inspectorStack.hidden = state.gameDetailsCollapsed;
+}
+
 function setGameDetailsCollapsed(collapsed) {
   state.gameDetailsCollapsed = !!collapsed;
   if (inspector) inspector.classList.toggle('is-collapsed', state.gameDetailsCollapsed);
@@ -2040,7 +2080,7 @@ function setGameDetailsCollapsed(collapsed) {
   }
 }
 
-function getCurrentGuideImageUrl(node = getNode(state.selectedId)) {
+function getCurrentGuideImageUrl(node = getGameNode()) {
   if (!node || node.type !== 'game') return '';
   return String(node.guideImageUrl || '').trim();
 }
@@ -2111,7 +2151,7 @@ function updateGuideImagePreview(node = getNode(state.selectedId)) {
 }
 
 function syncSelectedGameGuideImageFromInput() {
-  const node = getNode(state.selectedId);
+  const node = getGameNode();
   if (!node || node.type !== 'game' || !nodeGuideImageInput) return false;
   const nextValue = String(nodeGuideImageInput.value || '');
   if ((node.guideImageUrl || '') === nextValue) return false;
@@ -2871,7 +2911,7 @@ function showArchiveGameError(message, error) {
 }
 
 async function toggleCurrentGameArchiveState() {
-  if (state.archiveGameActionBusy || !hasGameNode()) return false;
+  if (state.archiveGameActionBusy || !getCurrentGameArchiveEntry()) return false;
   if (!hasSupabaseStore()) {
     showArchiveGameError('Could not update this game in the database.', new Error('Supabase is not configured.'));
     return false;
@@ -2936,7 +2976,7 @@ async function toggleCurrentGameArchiveState() {
 }
 
 async function duplicateCurrentGameAndOpen() {
-  if (state.duplicateGameActionBusy || !hasGameNode()) return null;
+  if (state.duplicateGameActionBusy || !getCurrentHeaderGameEntry()) return null;
   if (!hasSupabaseStore()) {
     showDuplicateGameError('Could not duplicate this game in the database.', new Error('Supabase is not configured.'));
     return null;
@@ -3112,7 +3152,7 @@ async function applyCurrentGameDisposition(action) {
 }
 
 async function openGameEraseFlow() {
-  if (state.gameEraseActionBusy || !hasGameNode()) return false;
+  if (state.gameEraseActionBusy || !getCurrentGameArchiveEntry()) return false;
   const action = await openGameEraseDialog();
   if (!action) return false;
   return applyCurrentGameDisposition(action);
@@ -3505,17 +3545,17 @@ function buildHeaderGameList(games = []) {
 }
 
 function getCurrentHeaderGameEntry() {
-  if (!state.currentGameId || !hasGameNode()) return null;
+  if (!state.currentGameId) return null;
   const sourceGame = state.headerGames.find((game) => game && game.id === state.currentGameId)
     || state.store.games.find((game) => game && game.id === state.currentGameId)
     || { id: state.currentGameId };
   return normalizeSavedGame({
     ...sourceGame,
     id: state.currentGameId,
-    name: getDocName(),
+    name: hasGameNode() ? getDocName() : (sourceGame.name || 'Untitled Game'),
     updatedAt: state.doc && state.doc.updatedAt ? state.doc.updatedAt : (sourceGame.updatedAt || ''),
-    nodes: Array.isArray(state.doc.nodes) ? state.doc.nodes : sourceGame.nodes,
-    links: Array.isArray(state.doc.links) ? state.doc.links : sourceGame.links
+    nodes: Array.isArray(state.doc.nodes) && state.doc.nodes.length ? state.doc.nodes : sourceGame.nodes,
+    links: Array.isArray(state.doc.links) && state.doc.links.length ? state.doc.links : sourceGame.links
   }, 0);
 }
 
@@ -4723,57 +4763,127 @@ function updateStencilAvailability() {
   });
 }
 
-function updateSelectionUi() {
-  const node = getNode(state.selectedId);
-  const link = getLink(state.selectedLinkId);
-  const hasSelection = !!(node || link);
-  if (inspector) inspector.hidden = false;
-  objectCard.hidden = false;
-  inspectorContent.hidden = false;
+function syncDetailsSectionVisibility() {
+  if (!inspectorContent) return;
+  inspectorContent.querySelectorAll('.details-section').forEach((section) => {
+    const hasVisibleField = Array.from(section.querySelectorAll('.field, .mini-note'))
+      .some((element) => !element.hidden);
+    section.hidden = !hasVisibleField;
+  });
+}
 
-  const getInspCopy = key => document.querySelector(`#inspectorCopyStrings [data-copy="${key}"]`)?.textContent.trim() || '';
-  const nodeCopy = node ? (document.querySelector(`#stencilBar [data-stencil="${node.type}"]`)?.dataset.copy || '') : '';
-  const anytimeCopy = node && isAnytimeReplyNode(node)
-    ? getInspCopy('anytime-reply')
-    : node && isAnytimeGuideNode(node)
-      ? getInspCopy('anytime-guide')
-      : '';
-  inspectorCopy.textContent = node
-    ? (anytimeCopy || nodeCopy || '')
-    : link
-      ? getInspCopy('link')
-      : getInspCopy('default');
+function updateObjectInspectorUi(node, link, copyText) {
+  const hasObjectSelection = !!link || !!(node && node.type !== 'game');
+  if (objectDetailsCard) objectDetailsCard.hidden = !hasObjectSelection;
+  if (objectInspectorContent) objectInspectorContent.hidden = !hasObjectSelection;
+  if (!hasObjectSelection) {
+    if (objectStopNameField) objectStopNameField.hidden = true;
+    if (objectVarNameField) objectVarNameField.hidden = true;
+    if (objectDescriptionField) objectDescriptionField.hidden = true;
+    if (objectDeleteBtn) {
+      objectDeleteBtn.hidden = true;
+      objectDeleteBtn.disabled = true;
+    }
+    closeVariableAutocomplete();
+    return;
+  }
 
-  const isGameNode = !!node && node.type === 'game';
   const isStopNode = !!node && node.type === 'stop';
   const isReplyNode = !!node && node.type === 'reply';
   const isLinkSelected = !!link;
-  if (inspectorContent) inspectorContent.classList.toggle('is-game-details', isGameNode && !isLinkSelected);
+  const BODY_LABELS = { stop: 'NOTES', bubble: 'GUIDE MESSAGE', reply: 'ANSWER' };
 
-  titleField.hidden = isLinkSelected || !isGameNode;
-  stopNameField.hidden = isLinkSelected || !isStopNode;
-  varNameField.hidden = isLinkSelected || !isReplyNode;
+  if (objectInspectorCopy) objectInspectorCopy.textContent = copyText || '';
+  if (objectStopNameField) objectStopNameField.hidden = isLinkSelected || !isStopNode;
+  if (objectVarNameField) objectVarNameField.hidden = isLinkSelected || !isReplyNode;
+  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node;
+  if (objectBodyLabel) {
+    objectBodyLabel.textContent = node
+      ? (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'NOTES'))
+      : 'NOTES';
+  }
+  if (objectBodyInfo) objectBodyInfo.hidden = !isStopNode || isLinkSelected;
+
+  if (objectStopNameInput) {
+    objectStopNameInput.disabled = !isStopNode;
+    objectStopNameInput.value = isStopNode && node ? node.title : '';
+  }
+  if (objectVarNameInput) {
+    objectVarNameInput.disabled = !isReplyNode;
+    objectVarNameInput.value = isReplyNode && node ? (node.varName || '') : '';
+    objectVarNameInput.placeholder = 'e.g. name';
+    objectVarNameInput.classList.toggle('is-invalid', false);
+  }
+  if (objectVarNameHint) objectVarNameHint.hidden = !isReplyNode;
+  refreshVarNameHint();
+  syncReplyModeInputs(node);
+  if (objectBodyInput) {
+    objectBodyInput.disabled = isLinkSelected || !node || (isReplyNode && !!(node && node.acceptAny));
+    objectBodyInput.value = node ? (node.body || '') : '';
+    objectBodyInput.placeholder = isReplyNode ? 'e.g. READY, YES, LETS GO' : '';
+  }
+  if (!node || node.type !== 'bubble' || document.activeElement !== objectBodyInput) {
+    closeVariableAutocomplete();
+  }
+  if (objectDeleteBtn) {
+    objectDeleteBtn.hidden = false;
+    objectDeleteBtn.disabled = node ? node.type === 'game' : !link;
+    objectDeleteBtn.textContent = link ? 'Delete Connection' : 'Delete Object';
+  }
+}
+
+function updateSelectionUi(options = {}) {
+  const skipRecoverySync = !!options.skipRecoverySync;
+  const selectedNode = getNode(state.selectedId);
+  const selectedLink = getLink(state.selectedLinkId);
+  const gameNode = getGameNode();
+  const currentGameEntry = getCurrentHeaderGameEntry() || getCurrentGameArchiveEntry();
+  const showGameDetails = !!(gameNode || currentGameEntry);
+  if (inspector) inspector.hidden = !showGameDetails;
+  objectCard.hidden = !showGameDetails;
+  inspectorContent.hidden = !showGameDetails;
+
+  const getInspCopy = key => document.querySelector(`#inspectorCopyStrings [data-copy="${key}"]`)?.textContent.trim() || '';
+  const nodeCopy = selectedNode ? (document.querySelector(`#stencilBar [data-stencil="${selectedNode.type}"]`)?.dataset.copy || '') : '';
+  const anytimeCopy = selectedNode && isAnytimeReplyNode(selectedNode)
+    ? getInspCopy('anytime-reply')
+    : selectedNode && isAnytimeGuideNode(selectedNode)
+      ? getInspCopy('anytime-guide')
+      : '';
+  const objectCopyText = selectedNode
+    ? (anytimeCopy || nodeCopy || '')
+    : selectedLink
+      ? getInspCopy('link')
+      : getInspCopy('default');
+  if (inspectorCopy) {
+    inspectorCopy.textContent = showGameDetails ? '' : getInspCopy('default');
+    inspectorCopy.hidden = !inspectorCopy.textContent;
+  }
+
+  const isGameNode = !!gameNode;
+  syncInspectorHosts(selectedNode, selectedLink);
+  if (inspectorContent) inspectorContent.classList.add('is-game-details');
+
+  titleField.hidden = !showGameDetails;
+  stopNameField.hidden = true;
+  varNameField.hidden = true;
   varValuesField.hidden = true;
-  descriptionField.hidden = isLinkSelected || !node;
+  descriptionField.hidden = !showGameDetails;
   ifThenField.hidden = true;
-  taglineField.hidden = isLinkSelected || !isGameNode;
-  guideNameField.hidden = isLinkSelected || !isGameNode;
-  guideImageField.hidden = isLinkSelected || !isGameNode;
-  priceField.hidden = isLinkSelected || !isGameNode;
-  primaryColorField.hidden = isLinkSelected || !isGameNode;
-  secondaryColorField.hidden = isLinkSelected || !isGameNode;
-  tagsField.hidden = isLinkSelected || !isGameNode;
-  builderNotesField.hidden = isLinkSelected || !isGameNode;
-  const BODY_LABELS = { game: 'Description', stop: 'NOTES', bubble: 'Guide Message', reply: 'ANSWER' };
-  nodeTitleLabel.textContent = 'GAME NAME';
-  nodeBodyLabel.textContent = node
-    ? (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'Notes'))
-    : 'Notes';
-  if (nodeBodyInfo) nodeBodyInfo.hidden = !isStopNode || isLinkSelected;
+  taglineField.hidden = !showGameDetails;
+  guideNameField.hidden = !showGameDetails;
+  guideImageField.hidden = !showGameDetails;
+  priceField.hidden = !showGameDetails;
+  primaryColorField.hidden = !showGameDetails;
+  secondaryColorField.hidden = !showGameDetails;
+  tagsField.hidden = !showGameDetails;
+  if (nodeTitleLabelText) nodeTitleLabelText.textContent = 'GAME NAME';
+  nodeBodyLabel.textContent = 'DESCRIPTION';
+  if (nodeBodyInfo) nodeBodyInfo.hidden = true;
 
   nodeTitleInput.disabled = !isGameNode;
-  stopNameInput.disabled = !isStopNode;
-  varNameInput.disabled = !isReplyNode;
+  stopNameInput.disabled = true;
+  varNameInput.disabled = true;
   nodeTaglineInput.disabled = !isGameNode;
   nodeGuideNameInput.disabled = !isGameNode;
   nodeGuideImageInput.disabled = !isGameNode;
@@ -4784,26 +4894,25 @@ function updateSelectionUi() {
   secondaryColorPickerInput.disabled = !isGameNode;
   nodeTagNewInput.disabled = !isGameNode;
   nodeTagAddBtn.disabled = !isGameNode;
-  nodeBuilderNotesInput.disabled = !isGameNode;
-  syncReplyModeInputs(node);
-  nodeBodyInput.disabled = isLinkSelected || !node || (isReplyNode && !!(node && node.acceptAny));
+  nodeBodyInput.disabled = !isGameNode;
 
   const currentGameArchived = isCurrentGameArchived();
-  const duplicateGameDisabled = !hasGameNode()
+  const hasLoadedGame = !!(currentGameEntry || gameNode);
+  const duplicateGameDisabled = !hasLoadedGame
     || !hasSupabaseStore()
     || state.saveUiState === 'saving'
     || state.saveUiState === 'loading'
     || state.duplicateGameActionBusy
     || state.archiveGameActionBusy
     || state.gameEraseActionBusy;
-  const archiveGameDisabled = !hasGameNode()
+  const archiveGameDisabled = !hasLoadedGame
     || !hasSupabaseStore()
     || state.saveUiState === 'saving'
     || state.saveUiState === 'loading'
     || state.duplicateGameActionBusy
     || state.archiveGameActionBusy
     || state.gameEraseActionBusy;
-  const showGameEraseAction = isGameNode || currentGameArchived;
+  const showGameEraseAction = hasLoadedGame || currentGameArchived;
   const gameEraseDisabled = !showGameEraseAction
     || !hasSupabaseStore()
     || state.saveUiState === 'saving'
@@ -4843,9 +4952,9 @@ function updateSelectionUi() {
     duplicateGameStatus.hidden = !state.duplicateGameFeedback;
     duplicateGameStatus.textContent = state.duplicateGameFeedback;
   }
-  deleteBtn.hidden = isGameNode;
-  deleteBtn.disabled = node ? node.type === 'game' : !link;
-  deleteBtn.textContent = link ? 'Delete Connection' : 'Delete Object';
+  deleteBtn.hidden = true;
+  deleteBtn.disabled = true;
+  deleteBtn.textContent = 'Delete Object';
   if (gameEraseBtn) {
     gameEraseBtn.hidden = !showGameEraseAction;
     gameEraseBtn.disabled = gameEraseDisabled;
@@ -4855,44 +4964,43 @@ function updateSelectionUi() {
     gameEraseBtn.setAttribute('aria-label', gameEraseBtn.title);
   }
 
-  nodeTitleInput.value = isGameNode ? node.title : '';
-  stopNameInput.value = isStopNode && node ? node.title : '';
-  varNameInput.value = isReplyNode && node ? (node.varName || '') : '';
+  nodeTitleInput.value = isGameNode && gameNode ? gameNode.title : (currentGameEntry ? (currentGameEntry.name || '') : '');
+  stopNameInput.value = '';
+  varNameInput.value = '';
   varNameInput.placeholder = 'e.g. name';
-  refreshVarNameHint();
   varValueInputs.forEach((input) => { input.value = ''; input.disabled = true; });
   varCorrectRadios.forEach((radio, i) => {
     radio.checked = false;
     radio.disabled = true;
   });
-  nodeTaglineInput.value = isGameNode ? (node.tagline || '') : '';
-  nodeGuideNameInput.value = isGameNode ? (node.guideName || '') : '';
-  nodeGuideImageInput.value = isGameNode ? (node.guideImageUrl || '') : '';
-  nodePriceInput.value = isGameNode ? (node.price || '') : '';
-  updateGuideImagePreview(node);
+  nodeTaglineInput.value = isGameNode && gameNode ? (gameNode.tagline || '') : '';
+  nodeGuideNameInput.value = isGameNode && gameNode ? (gameNode.guideName || '') : '';
+  nodeGuideImageInput.value = isGameNode && gameNode ? (gameNode.guideImageUrl || '') : '';
+  nodePriceInput.value = isGameNode && gameNode ? (gameNode.price || '') : '';
+  updateGuideImagePreview(gameNode);
   const currentColors = getCurrentGameColors();
-  primaryColorInput.value = isGameNode ? currentColors.primaryColor : '';
+  primaryColorInput.value = showGameDetails ? currentColors.primaryColor : '';
   primaryColorInput.classList.remove('is-invalid');
   primaryColorPickerInput.value = colorValueToHex(currentColors.primaryColor, '#5468a7');
-  secondaryColorInput.value = isGameNode ? currentColors.secondaryColor : '';
+  secondaryColorInput.value = showGameDetails ? currentColors.secondaryColor : '';
   secondaryColorInput.classList.remove('is-invalid');
   secondaryColorPickerInput.value = colorValueToHex(currentColors.secondaryColor, '#243256');
   nodeTagNewInput.value = '';
-  renderTagPicker(node);
-  nodeBuilderNotesInput.value = isGameNode ? (node.builderNotes || '') : '';
-  nodeBodyInput.value = node ? (node.body || '') : '';
-  nodeBodyInput.placeholder = isReplyNode ? 'e.g. READY, YES, LETS GO' : '';
-  selectionId.textContent = node
-    ? 'ID: ' + formatNodeId(node.id)
-    : link
-      ? 'LINK: ' + link.id
-      : 'ID: none';
-  if (!node || node.type !== 'bubble' || document.activeElement !== nodeBodyInput) {
-    closeVariableAutocomplete();
-  }
+  renderTagPicker(gameNode);
+  nodeBodyInput.value = gameNode ? (gameNode.body || '') : '';
+  nodeBodyInput.placeholder = '';
+  selectionId.textContent = gameNode
+    ? '(ID: ' + formatNodeId(gameNode.id) + ')'
+    : currentGameEntry && currentGameEntry.id
+      ? '(ID: ' + String(currentGameEntry.id).trim().toUpperCase() + ')'
+      : '(ID: none)';
+  selectionId.hidden = !showGameDetails;
+  syncDetailsSectionVisibility();
+  closeVariableAutocomplete();
+  updateObjectInspectorUi(selectedNode, selectedLink, objectCopyText);
   updateActionUi();
   refreshInspectorWindowUi();
-  scheduleRecoverySync();
+  if (!skipRecoverySync) scheduleRecoverySync();
 }
 
 function getAutoLinkSourceNode() {
@@ -5377,12 +5485,12 @@ function syncReplyModeInputs(node) {
   const isReplyNode = !!node && node.type === 'reply';
   const mode = isReplyNode ? getReplyMode(node) : 'normal';
 
-  if (replyModeField) replyModeField.hidden = !isReplyNode;
+  if (objectReplyModeField) objectReplyModeField.hidden = !isReplyNode;
 
   [
-    [replyModeNormalInput, 'normal'],
-    [replyModeAnyAnswerInput, 'anyanswer'],
-    [replyModeAnytimeInput, 'anytime']
+    [objectReplyModeNormalInput, 'normal'],
+    [objectReplyModeAnyAnswerInput, 'anyanswer'],
+    [objectReplyModeAnytimeInput, 'anytime']
   ].forEach(([input, value]) => {
     if (!input) return;
     input.checked = isReplyNode && mode === value;
@@ -5700,7 +5808,7 @@ function serializeDoc() {
 function setSaveStatus(kind, text) {
   state.saveUiState = kind || 'idle';
   updateActionUi();
-  updateSelectionUi();
+  updateSelectionUi({ skipRecoverySync: true });
 }
 
 function readLocalStoreSnapshot() {
@@ -6164,10 +6272,17 @@ stencilBar.querySelectorAll('[data-stencil]').forEach((button) => {
 });
 
 nodeTitleInput.addEventListener('input', () => {
-  const node = getNode(state.selectedId);
+  const node = getGameNode();
   if (!node || node.type !== 'game') return;
   node.title = nodeTitleInput.value || TYPE_CONFIG[node.type].title;
   renderGamePickerSelect();
+  renderAll();
+});
+
+objectStopNameInput.addEventListener('input', () => {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'stop') return;
+  node.title = objectStopNameInput.value || TYPE_CONFIG.stop.title;
   renderAll();
 });
 
@@ -6178,6 +6293,14 @@ stopNameInput.addEventListener('input', () => {
   renderAll();
 });
 
+
+objectVarNameInput.addEventListener('input', () => {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'reply') return;
+  node.varName = normalizeVariableName(objectVarNameInput.value);
+  refreshVarNameHint();
+  renderAll();
+});
 
 varNameInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
@@ -6258,6 +6381,21 @@ function setReplyMode(replyNode, mode) {
   });
 });
 
+[
+  objectReplyModeNormalInput,
+  objectReplyModeAnyAnswerInput,
+  objectReplyModeAnytimeInput
+].forEach((input) => {
+  if (!input) return;
+  input.addEventListener('change', () => {
+    if (!input.checked) return;
+    const node = getNode(state.selectedId);
+    if (!node || node.type !== 'reply') return;
+    if (!setReplyMode(node, input.value)) return;
+    renderAll();
+  });
+});
+
 varValueInputs.forEach((input, i) => {
   input.addEventListener('input', () => {
     const node = getNode(state.selectedId);
@@ -6284,21 +6422,14 @@ varCorrectRadios.forEach((radio, i) => {
 
 
 nodeTaglineInput.addEventListener('input', () => {
-  const node = getNode(state.selectedId);
+  const node = getGameNode();
   if (!node || node.type !== 'game') return;
   node.tagline = nodeTaglineInput.value;
   updateSelectionUi();
 });
 
-nodeBuilderNotesInput.addEventListener('input', () => {
-  const node = getNode(state.selectedId);
-  if (!node || node.type !== 'game') return;
-  node.builderNotes = nodeBuilderNotesInput.value;
-  renderGameshelf();
-});
-
 nodeGuideNameInput.addEventListener('input', () => {
-  const node = getNode(state.selectedId);
+  const node = getGameNode();
   if (!node || node.type !== 'game') return;
   node.guideName = nodeGuideNameInput.value;
   updateSelectionUi();
@@ -6307,7 +6438,7 @@ nodeGuideNameInput.addEventListener('input', () => {
 
 nodeGuideImageInput.addEventListener('input', () => {
   syncSelectedGameGuideImageFromInput();
-  const node = getNode(state.selectedId);
+  const node = getGameNode();
   if (!node || node.type !== 'game') return;
   updateSelectionUi();
   updatePhoneChrome();
@@ -6362,7 +6493,7 @@ if (guideImageLightboxCloseBtn) {
 }
 
 nodePriceInput.addEventListener('input', () => {
-  const node = getNode(state.selectedId);
+  const node = getGameNode();
   if (!node || node.type !== 'game') return;
   node.price = nodePriceInput.value;
   updateSelectionUi();
@@ -6419,7 +6550,7 @@ bindGameColorInputs(primaryColorInput, primaryColorPickerInput, 'primaryColor', 
 bindGameColorInputs(secondaryColorInput, secondaryColorPickerInput, 'secondaryColor', '#243256');
 
 function addNewTag() {
-  const node = getNode(state.selectedId);
+  const node = getGameNode();
   if (!node || node.type !== 'game') return;
   const value = nodeTagNewInput.value.trim();
   if (!value) return;
@@ -6441,25 +6572,32 @@ nodeTagNewInput.addEventListener('keydown', (event) => {
 });
 
 nodeBodyInput.addEventListener('input', () => {
+  const node = getGameNode();
+  if (!node || node.type !== 'game') return;
+  node.body = nodeBodyInput.value;
+  renderAll();
+});
+
+objectBodyInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
   if (!node) return;
-  node.body = nodeBodyInput.value;
+  node.body = objectBodyInput.value;
   renderAll();
   updateVariableAutocomplete();
 });
 
-nodeBodyInput.addEventListener('click', updateVariableAutocomplete);
-nodeBodyInput.addEventListener('focus', updateVariableAutocomplete);
-nodeBodyInput.addEventListener('blur', () => {
+objectBodyInput.addEventListener('click', updateVariableAutocomplete);
+objectBodyInput.addEventListener('focus', updateVariableAutocomplete);
+objectBodyInput.addEventListener('blur', () => {
   window.setTimeout(() => {
-    if (document.activeElement !== nodeBodyInput) closeVariableAutocomplete();
+    if (document.activeElement !== objectBodyInput) closeVariableAutocomplete();
   }, 0);
 });
-nodeBodyInput.addEventListener('keyup', (event) => {
+objectBodyInput.addEventListener('keyup', (event) => {
   if (['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(event.key)) return;
   updateVariableAutocomplete();
 });
-nodeBodyInput.addEventListener('keydown', (event) => {
+objectBodyInput.addEventListener('keydown', (event) => {
   if (!variableAutocomplete.open || !variableAutocomplete.items.length) return;
   if (event.key === 'ArrowDown') {
     event.preventDefault();
@@ -6484,7 +6622,7 @@ nodeBodyInput.addEventListener('keydown', (event) => {
   }
 });
 
-deleteBtn.addEventListener('click', () => {
+objectDeleteBtn.addEventListener('click', () => {
   if (state.selectedLinkId) {
     removeSelectedLink();
     return;
