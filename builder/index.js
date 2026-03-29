@@ -540,6 +540,7 @@ const objectInspectorContent = document.getElementById('objectInspectorContent')
 const objectInspectorCopy = document.getElementById('objectInspectorCopy');
 const mainGrid = document.getElementById('mainGrid');
 const stencilBar = document.getElementById('stencilBar');
+const addPanel = document.getElementById('addPanel');
 const gamePickerPlayBtn = document.getElementById('gamePickerPlayBtn');
 const gamePickerSelect = document.getElementById('gamePickerSelect');
 const objectCard = document.getElementById('objectCard');
@@ -4761,6 +4762,13 @@ function updateStencilAvailability() {
     button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
     button.title = '';
   });
+  if (addPanel) {
+    addPanel.querySelectorAll('[data-add-stencil]').forEach((button) => {
+      const disabled = !gameTaken;
+      button.disabled = disabled;
+      button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+    });
+  }
 }
 
 function syncDetailsSectionVisibility() {
@@ -6270,6 +6278,15 @@ stencilBar.querySelectorAll('[data-stencil]').forEach((button) => {
     addNodeToVisiblePhone(button.dataset.stencil);
   });
 });
+
+if (addPanel) {
+  addPanel.querySelectorAll('[data-add-stencil]').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      addNodeToVisiblePhone(button.dataset.addStencil);
+    });
+  });
+}
 
 nodeTitleInput.addEventListener('input', () => {
   const node = getGameNode();
