@@ -7,15 +7,16 @@ import webbrowser
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 PAGES = {
-    "builder": "http://localhost:3000/builder/index.html",
-    "builder_editor": "http://localhost:3000/builder/builder.html",
+    "builder": "http://localhost:3000/archive/index_old.html",
+    "builder_editor": "http://localhost:3000/builder/index.html",
     "builder_archive": "http://localhost:3000/play/private/builder_archive.html",
     "builder_new": "http://localhost:3000/play/private/builder_new.html",
 }
 
 PAGE_ALIASES = {
     "builder": "builder",
-    "index.html": "builder",
+    "index.html": "builder_editor",
+    "index_old.html": "builder",
     "builder_editor": "builder_editor",
     "editor": "builder_editor",
     "builder.html": "builder_editor",
@@ -53,8 +54,8 @@ threading.Timer(0.8, lambda: webbrowser.open(URL)).start()
 print("Starting local server on http://localhost:3000")
 print("Opening:", URL)
 print("Also available:")
+print("  http://localhost:3000/archive/index_old.html")
 print("  http://localhost:3000/builder/index.html")
-print("  http://localhost:3000/builder/builder.html")
 print("  http://localhost:3000/play/private/builder_archive.html")
 print("  http://localhost:3000/play/private/builder_new.html")
 print("Shortcuts:")

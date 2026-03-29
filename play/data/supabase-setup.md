@@ -14,10 +14,10 @@ supabase link --project-ref qmaafbncpzrdmqapkkgr
 ```
 
 Browser config:
-Edit [supabase-config.js](/c:/Code/the-game-bureau/builder/supabase-config.js) and paste your Supabase publishable key into `publishableKey`.
+Edit [supabase-config.js](/c:/Code/the-game-bureau/play/data/supabase-config.js) and paste your Supabase publishable key into `publishableKey`.
 
 SQL bootstrap:
-Run the SQL in [supabase.sql](/c:/Code/the-game-bureau/builder/supabase.sql) in the Supabase SQL editor.
+Run the SQL in [supabase.sql](/c:/Code/the-game-bureau/play/data/supabase.sql) in the Supabase SQL editor.
 
 What this setup does:
 - Creates a row-based `games` table for the builder index page

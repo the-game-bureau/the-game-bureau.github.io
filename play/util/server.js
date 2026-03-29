@@ -1,5 +1,5 @@
 // Run: node server.js
-// Then open: http://localhost:3000/builder/index.html
+// Then open: http://localhost:3000/archive/index_old.html
 const http  = require('http');
 const fs    = require('fs');
 const path  = require('path');
@@ -8,7 +8,6 @@ const { execFile } = require('child_process');
 const PORT       = 3000;
 const GAMES_FILE  = path.join(__dirname, '..', 'data', 'games_archive.json');
 const GAMES_NEW_FILE = path.join(__dirname, '..', 'data', 'games_new.json');
-const GAMES_PHONEANALOGY_FILE = path.join(__dirname, '..', 'data', 'games.json');
 const STOPS_FILE  = path.join(__dirname, '..', 'data', 'stops.json');
 const ROUTES_FILE = path.join(__dirname, '..', 'data', 'routes.json');
 const STATIC_DIR = path.join(__dirname, '..', '..');
@@ -26,21 +25,6 @@ const MIME = {
   '.gif':  'image/gif',
   '.svg':  'image/svg+xml',
 };
-
-function writeJsonFileSafely(filePath, data) {
-  const payload = JSON.stringify(data, null, 2) + '\n';
-  const tempPath = filePath + '.tmp';
-  const backupPath = filePath + '.bak';
-  fs.writeFileSync(tempPath, payload, 'utf8');
-  try {
-    if (fs.existsSync(filePath)) {
-      fs.copyFileSync(filePath, backupPath);
-    }
-    fs.copyFileSync(tempPath, filePath);
-  } finally {
-    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-  }
-}
 
 http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -75,24 +59,6 @@ http.createServer((req, res) => {
       try {
         const data = JSON.parse(body);
         fs.writeFileSync(GAMES_NEW_FILE, JSON.stringify(data, null, 2) + '\n', 'utf8');
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end('{"ok":true}');
-      } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
-      }
-    });
-    return;
-  }
-
-  // POST /games-phoneanalogy — write games.json
-  if (req.method === 'POST' && req.url === '/games-phoneanalogy') {
-    let body = '';
-    req.on('data', d => { body += d; });
-    req.on('end', () => {
-      try {
-        const data = JSON.parse(body);
-        writeJsonFileSafely(GAMES_PHONEANALOGY_FILE, data);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end('{"ok":true}');
       } catch (e) {
@@ -139,19 +105,6 @@ http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/games-new') {
     try {
       const txt = fs.readFileSync(GAMES_NEW_FILE, 'utf8');
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(txt);
-    } catch (e) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end('{"games":[]}');
-    }
-    return;
-  }
-
-  // GET /games-phoneanalogy — read games.json
-  if (req.method === 'GET' && req.url === '/games-phoneanalogy') {
-    try {
-      const txt = fs.readFileSync(GAMES_PHONEANALOGY_FILE, 'utf8');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(txt);
     } catch (e) {
@@ -232,7 +185,7 @@ http.createServer((req, res) => {
   }
 
   // Static files
-  if (req.url === '/') { res.writeHead(302, { Location: '/builder/index.html' }); res.end(); return; }
+  if (req.url === '/') { res.writeHead(302, { Location: '/archive/index_old.html' }); res.end(); return; }
   let filePath = path.join(STATIC_DIR, req.url.split('?')[0]);
   const ext    = path.extname(filePath);
   if (!MIME[ext]) { res.writeHead(403); res.end(); return; }
@@ -242,4 +195,4 @@ http.createServer((req, res) => {
     res.end(data);
   });
 
-}).listen(PORT, () => console.log('http://localhost:' + PORT + '/builder/index.html'));
+}).listen(PORT, () => console.log('http://localhost:' + PORT + '/archive/index_old.html'));
