@@ -1694,13 +1694,7 @@ function getPhoneBubbleSize(node, maxWidth = PHONE_BUBBLE_MAX_WIDTH) {
 
 function updatePhoneChrome() {
   if (!phoneThreadName) return;
-  const syncPhoneThreadMeta = (clickable) => {
-    if (!phoneThreadMeta) return;
-    phoneThreadMeta.dataset.clickable = clickable ? 'true' : 'false';
-    phoneThreadMeta.setAttribute('aria-disabled', clickable ? 'false' : 'true');
-    phoneThreadMeta.setAttribute('aria-label', clickable ? 'Edit game details' : 'Game details unavailable');
-    phoneThreadMeta.tabIndex = clickable ? 0 : -1;
-  };
+  const syncPhoneThreadMeta = (_clickable) => {};
   if (!hasGameNode()) {
     syncPhoneThreadMeta(false);
     phoneThreadName.textContent = 'Game Builder';
@@ -2053,7 +2047,7 @@ function getObjectInspectorHeading(node, link) {
   if (link) return 'CONNECTION DETAILS';
   if (!node) return 'OBJECT DETAILS';
   if (node.type === 'bubble') return 'GUIDE MSG DETAILS';
-  if (node.type === 'reply') return 'PLAYER DETAILS';
+  if (node.type === 'reply') return 'PLAYER MSG DETAILS';
   if (node.type === 'stop') return 'WAYPOINT DETAILS';
   return 'OBJECT DETAILS';
 }
@@ -2062,7 +2056,10 @@ function syncInspectorHosts(node = getNode(state.selectedId), link = getLink(sta
   const showObjectInspector = !!link || !!(node && node.type !== 'game');
   state.objectInspectorVisible = showObjectInspector;
   if (mainGrid) mainGrid.classList.toggle('has-object-inspector', showObjectInspector);
-  if (objectInspector) objectInspector.hidden = !showObjectInspector;
+  if (objectInspector) {
+    objectInspector.hidden = !showObjectInspector;
+    objectInspector.dataset.nodeType = node ? (node.type || '') : (link ? 'link' : '');
+  }
   if (objectInspectorTitle) objectInspectorTitle.textContent = getObjectInspectorHeading(node, link);
   if (objectInspectorStack) objectInspectorStack.hidden = !showObjectInspector;
   if (inspectorStack) inspectorStack.hidden = state.gameDetailsCollapsed;
@@ -4836,7 +4833,7 @@ function updateObjectInspectorUi(node, link, copyText) {
   if (objectDeleteBtn) {
     objectDeleteBtn.hidden = false;
     objectDeleteBtn.disabled = node ? node.type === 'game' : !link;
-    objectDeleteBtn.textContent = link ? 'Delete Connection' : 'Delete Object';
+    objectDeleteBtn.textContent = 'Delete';
   }
 }
 
@@ -6281,9 +6278,16 @@ stencilBar.querySelectorAll('[data-stencil]').forEach((button) => {
 
 if (addPanel) {
   addPanel.querySelectorAll('[data-add-stencil]').forEach((button) => {
-    button.addEventListener('click', (event) => {
+    button.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
       event.preventDefault();
-      addNodeToVisiblePhone(button.dataset.addStencil);
+      clearStencilPress();
+      startStencilPress(button.dataset.addStencil, event);
+    });
+
+    button.addEventListener('pointerup', (event) => {
+      if (event.button !== 0) return;
+      if (state.stencilPress) addNodeToVisiblePhone(button.dataset.addStencil);
     });
   });
 }
