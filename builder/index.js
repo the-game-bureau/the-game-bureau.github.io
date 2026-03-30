@@ -581,6 +581,8 @@ const nodeBodyLabel = document.getElementById('nodeBodyLabel');
 const nodeBodyInfo = document.getElementById('nodeBodyInfo');
 const nodeBodyInput = document.getElementById('nodeBodyInput');
 const nodeBodyAutocomplete = document.getElementById('nodeBodyAutocomplete');
+const nodeBodyHtmlNote = document.getElementById('nodeBodyHtmlNote');
+const objectBodyAnswerNote = document.getElementById('objectBodyAnswerNote');
 const objectBodyLabel = document.getElementById('objectBodyLabel');
 const objectBodyInfo = document.getElementById('objectBodyInfo');
 const objectBodyInput = document.getElementById('objectBodyInput');
@@ -614,12 +616,8 @@ const saveGameBtn = document.getElementById('saveGameBtn') || document.getElemen
 const newPhoneBtn = document.getElementById('newPhoneBtn');
 const refreshPageBtn = document.getElementById('refreshPageBtn');
 const nodeContextMenu = document.getElementById('nodeContextMenu');
-const gameshelfContextMenu = document.getElementById('gameshelfContextMenu');
 const duplicateNodeBtn = document.getElementById('duplicateNodeBtn');
 const deleteNodeMenuBtn = document.getElementById('deleteNodeMenuBtn');
-const gameshelfMenuNewBtn = document.getElementById('gameshelfMenuNewBtn');
-const gameshelfMenuDuplicateBtn = document.getElementById('gameshelfMenuDuplicateBtn');
-const gameshelfMenuDeleteBtn = document.getElementById('gameshelfMenuDeleteBtn');
 const gameEraseBackdrop = document.getElementById('gameEraseBackdrop');
 const gameEraseConfirmBtn = document.getElementById('gameEraseConfirmBtn');
 const gameArchiveConfirmBtn = document.getElementById('gameArchiveConfirmBtn');
@@ -663,8 +661,6 @@ const state = {
   cleanSnapshot: null,
   contextMenuNodeId: null,
   contextMenuLinkId: null,
-  contextMenuGameshelfGameId: null,
-  contextMenuGameshelfIsNew: false,
   selectedId: null,
   selectedLinkId: null,
   dragNode: null,
@@ -1757,7 +1753,11 @@ function applyPhoneThreadLayout() {
     const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
     const perNodeMaxWidth = getPhoneRowMaxWidth(nodes, threadWidth);
     const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
-    const rowHeight = sizes.reduce((maxHeight, size) => Math.max(maxHeight, size.height), 0);
+    const effectiveHeights = sizes.map((size, i) => {
+      const node = nodes[i];
+      return (node.type === 'bubble' || node.type === 'reply') ? Math.max(size.height, node.height || 0) : size.height;
+    });
+    const rowHeight = effectiveHeights.reduce((maxHeight, h) => Math.max(maxHeight, h), 0);
 
     if (nodes.length === 1) {
       const node = nodes[0];
@@ -1769,7 +1769,7 @@ function applyPhoneThreadLayout() {
       node.x = Math.round(x);
       node.y = Math.round(y);
       node.width = size.width;
-      node.height = size.height;
+      node.height = effectiveHeights[0];
       y += rowHeight + PHONE_ROW_GAP;
       return;
     }
@@ -1785,7 +1785,7 @@ function applyPhoneThreadLayout() {
       node.x = Math.round(cursorX);
       node.y = Math.round(y);
       node.width = size.width;
-      node.height = size.height;
+      node.height = effectiveHeights[index];
       cursorX += size.width + gap;
     });
 
@@ -1816,7 +1816,11 @@ function applyPhoneThreadLayout() {
       ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((PHONE_STAGE_WIDTH - 160 - (gap * (nodes.length - 1))) / nodes.length))
       : PHONE_BUBBLE_MAX_WIDTH - 12;
     const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
-    const rowHeight = sizes.reduce((maxHeight, size) => Math.max(maxHeight, size.height), 0);
+    const effectiveHeights = sizes.map((size, i) => {
+      const node = nodes[i];
+      return (node.type === 'bubble' || node.type === 'reply') ? Math.max(size.height, node.height || 0) : size.height;
+    });
+    const rowHeight = effectiveHeights.reduce((maxHeight, h) => Math.max(maxHeight, h), 0);
     const totalWidth = sizes.reduce((sum, size) => sum + size.width, 0) + (gap * (nodes.length - 1));
     let cursorX = Math.round((PHONE_STAGE_WIDTH - totalWidth) / 2);
     const sides = nodes.map((node) => getPhoneBubbleSide(node));
@@ -1828,7 +1832,7 @@ function applyPhoneThreadLayout() {
       node.x = Math.round(cursorX);
       node.y = Math.round(anytimeY);
       node.width = size.width;
-      node.height = size.height;
+      node.height = effectiveHeights[index];
       cursorX += size.width + gap;
     });
 
@@ -2485,12 +2489,6 @@ function closeNodeContextMenu() {
   state.contextMenuLinkId = null;
 }
 
-function closeGameshelfContextMenu() {
-  if (!gameshelfContextMenu || gameshelfContextMenu.hidden) return;
-  gameshelfContextMenu.hidden = true;
-  state.contextMenuGameshelfGameId = null;
-  state.contextMenuGameshelfIsNew = false;
-}
 
 function openNodeContextMenu(nodeId, clientX, clientY) {
   if (!nodeContextMenu) return;
@@ -2503,7 +2501,7 @@ function openNodeContextMenu(nodeId, clientX, clientY) {
   if (duplicateNodeBtn) duplicateNodeBtn.disabled = node.type === 'game';
   if (duplicateNodeBtn) duplicateNodeBtn.hidden = false;
   if (deleteNodeMenuBtn) deleteNodeMenuBtn.disabled = false;
-  if (deleteNodeMenuBtn) deleteNodeMenuBtn.textContent = 'Delete';
+  if (deleteNodeMenuBtn) deleteNodeMenuBtn.textContent = 'Erase';
   nodeContextMenu.hidden = false;
   nodeContextMenu.style.left = '0px';
   nodeContextMenu.style.top = '0px';
@@ -2517,61 +2515,6 @@ function openNodeContextMenu(nodeId, clientX, clientY) {
   nodeContextMenu.style.top = Math.max(margin, top) + 'px';
 }
 
-function openLinkContextMenu(linkId, clientX, clientY) {
-  if (!nodeContextMenu) return;
-
-  const link = getLink(linkId);
-  if (!link) return;
-  const lockedPairLink = isLockedAnytimePairLink(link);
-
-  state.contextMenuNodeId = null;
-  state.contextMenuLinkId = linkId;
-  if (duplicateNodeBtn) duplicateNodeBtn.hidden = true;
-  if (deleteNodeMenuBtn) deleteNodeMenuBtn.disabled = lockedPairLink;
-  if (deleteNodeMenuBtn) deleteNodeMenuBtn.textContent = 'Delete Connection';
-  nodeContextMenu.hidden = false;
-  nodeContextMenu.style.left = '0px';
-  nodeContextMenu.style.top = '0px';
-
-  const margin = 10;
-  const menuWidth = nodeContextMenu.offsetWidth || 160;
-  const menuHeight = nodeContextMenu.offsetHeight || 96;
-  const left = Math.min(clientX, window.innerWidth - menuWidth - margin);
-  const top = Math.min(clientY, window.innerHeight - menuHeight - margin);
-  nodeContextMenu.style.left = Math.max(margin, left) + 'px';
-  nodeContextMenu.style.top = Math.max(margin, top) + 'px';
-}
-
-function openGameshelfContextMenu(options = {}, clientX, clientY) {
-  if (!gameshelfContextMenu) return;
-  const gameId = String(options.gameId || '').trim();
-  const isNew = !!options.isNew;
-  const newOnly = !!options.newOnly;
-
-  state.contextMenuGameshelfGameId = gameId || null;
-  state.contextMenuGameshelfIsNew = isNew;
-  if (gameshelfMenuNewBtn) gameshelfMenuNewBtn.disabled = false;
-  if (gameshelfMenuDuplicateBtn) {
-    gameshelfMenuDuplicateBtn.hidden = newOnly;
-    gameshelfMenuDuplicateBtn.disabled = newOnly || isNew || !gameId;
-  }
-  if (gameshelfMenuDeleteBtn) {
-    gameshelfMenuDeleteBtn.hidden = newOnly;
-    gameshelfMenuDeleteBtn.disabled = newOnly || isNew || !gameId;
-  }
-
-  gameshelfContextMenu.hidden = false;
-  gameshelfContextMenu.style.left = '0px';
-  gameshelfContextMenu.style.top = '0px';
-
-  const margin = 10;
-  const menuWidth = gameshelfContextMenu.offsetWidth || 180;
-  const menuHeight = gameshelfContextMenu.offsetHeight || 132;
-  const left = Math.min(clientX, window.innerWidth - menuWidth - margin);
-  const top = Math.min(clientY, window.innerHeight - menuHeight - margin);
-  gameshelfContextMenu.style.left = Math.max(margin, left) + 'px';
-  gameshelfContextMenu.style.top = Math.max(margin, top) + 'px';
-}
 
 function reloadPage() {
   location.reload();
@@ -2602,14 +2545,6 @@ async function saveCurrentGameFromMenu() {
   await saveDoc();
 }
 
-function openGameshelfMenuForButton(button, event, options = {}) {
-  if (!button || !event) return;
-  event.preventDefault();
-  event.stopPropagation();
-  closeNodeContextMenu();
-  closeGameshelfContextMenu();
-  openGameshelfContextMenu(options, event.clientX, event.clientY);
-}
 
 function buildDuplicateGameName(baseName = 'Untitled Game') {
   const sourceName = String(baseName || 'Untitled Game').trim() || 'Untitled Game';
@@ -2961,11 +2896,8 @@ async function toggleCurrentGameArchiveState() {
     upsertStoredGame(savedGame);
     if (wasArchived) {
       openSavedGame(savedGame.id);
-      setArchiveGameFeedback('unarchived');
-    } else {
-      startNewPhone();
-      setArchiveGameFeedback('archived');
     }
+    setArchiveGameFeedback(wasArchived ? 'unarchived' : 'archived');
     return true;
   } finally {
     state.archiveGameActionBusy = false;
@@ -3416,9 +3348,6 @@ function buildNewGameShelfButton(showNowPlayingBadge = false) {
     <span class="gameshelf-game-meta">Start from scratch</span>
   `;
   button.addEventListener('click', () => startNewPhone());
-  button.addEventListener('contextmenu', (event) => {
-    openGameshelfMenuForButton(button, event, { isNew: true });
-  });
   return button;
 }
 
@@ -3466,9 +3395,6 @@ function renderGameshelf() {
     `;
     button.addEventListener('click', () => {
       requestOpenSavedGame(game.id, button);
-    });
-    button.addEventListener('contextmenu', (event) => {
-      openGameshelfMenuForButton(button, event, { gameId: game.id });
     });
 
     slot.appendChild(button);
@@ -4807,6 +4733,7 @@ function updateObjectInspectorUi(node, link, copyText) {
       ? (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'NOTES'))
       : 'NOTES';
   }
+  if (nodeBodyHtmlNote) nodeBodyHtmlNote.hidden = !(node && node.type === 'bubble');
   if (objectBodyInfo) objectBodyInfo.hidden = !isStopNode || isLinkSelected;
 
   if (objectStopNameInput) {
@@ -4833,7 +4760,7 @@ function updateObjectInspectorUi(node, link, copyText) {
   if (objectDeleteBtn) {
     objectDeleteBtn.hidden = false;
     objectDeleteBtn.disabled = node ? node.type === 'game' : !link;
-    objectDeleteBtn.textContent = 'Delete';
+    objectDeleteBtn.textContent = 'Erase';
   }
 }
 
@@ -4885,6 +4812,7 @@ function updateSelectionUi(options = {}) {
   if (nodeTitleLabelText) nodeTitleLabelText.textContent = 'GAME NAME';
   nodeBodyLabel.textContent = 'DESCRIPTION';
   if (nodeBodyInfo) nodeBodyInfo.hidden = true;
+  if (nodeBodyHtmlNote) nodeBodyHtmlNote.hidden = true;
 
   nodeTitleInput.disabled = !isGameNode;
   stopNameInput.disabled = true;
@@ -4940,11 +4868,7 @@ function updateSelectionUi(options = {}) {
     archiveGameBtn.disabled = archiveGameDisabled;
     archiveGameBtn.textContent = state.archiveGameActionBusy
       ? (currentGameArchived ? 'Unarchiving...' : 'Archiving...')
-      : state.archiveGameFeedback === 'archived'
-        ? 'Archived'
-        : state.archiveGameFeedback === 'unarchived'
-          ? 'Unarchived'
-          : (currentGameArchived ? 'Unarchive' : 'Archive');
+      : (currentGameArchived ? 'Unarchive' : 'Archive');
     archiveGameBtn.classList.toggle('is-success', !!state.archiveGameFeedback && !state.archiveGameActionBusy);
     archiveGameBtn.title = !hasSupabaseStore()
       ? 'Supabase is required to archive or unarchive a game'
@@ -4959,7 +4883,7 @@ function updateSelectionUi(options = {}) {
   }
   deleteBtn.hidden = true;
   deleteBtn.disabled = true;
-  deleteBtn.textContent = 'Delete Object';
+  deleteBtn.textContent = 'Erase';
   if (gameEraseBtn) {
     gameEraseBtn.hidden = !showGameEraseAction;
     gameEraseBtn.disabled = gameEraseDisabled;
@@ -5269,10 +5193,14 @@ function duplicateNode(nodeId) {
   if (isAnytimeNode(source)) return duplicateAnytimePair(source);
 
   const placement = getAutoPlacementPosition(source.type, source);
-  const nextOrderIndex = state.doc.nodes.reduce((maxOrderIndex, node) => {
-    const value = normalizeNodeOrderIndex(node && node.orderIndex);
-    return value == null ? maxOrderIndex : Math.max(maxOrderIndex, value);
-  }, 0) + 100;
+  const isThreadNode = source.type === 'bubble' || source.type === 'reply' || source.type === 'stop';
+  const sourceOrderIndex = normalizeNodeOrderIndex(source.orderIndex);
+  const duplicateOrderIndex = isThreadNode && sourceOrderIndex != null
+    ? sourceOrderIndex + 50
+    : (state.doc.nodes.reduce((maxOrderIndex, node) => {
+        const value = normalizeNodeOrderIndex(node && node.orderIndex);
+        return value == null ? maxOrderIndex : Math.max(maxOrderIndex, value);
+      }, 0) + 100);
   const duplicate = {
     id: makeId(source.type),
     type: source.type,
@@ -5293,7 +5221,7 @@ function duplicateNode(nodeId) {
     anytime: false,
     anytimePairId: '',
     rotation: getNodeRotation(source),
-    orderIndex: nextOrderIndex
+    orderIndex: duplicateOrderIndex
   };
   if (duplicate.type === 'reply') {
     duplicate.varName = makeUniqueReplyVariableName(
@@ -5491,6 +5419,7 @@ function syncReplyModeInputs(node) {
   const mode = isReplyNode ? getReplyMode(node) : 'normal';
 
   if (objectReplyModeField) objectReplyModeField.hidden = !isReplyNode;
+  if (objectBodyAnswerNote) objectBodyAnswerNote.hidden = !(isReplyNode && mode === 'normal');
 
   [
     [objectReplyModeNormalInput, 'normal'],
@@ -6729,11 +6658,6 @@ if (nodeContextMenu) {
     event.stopPropagation();
   });
 }
-if (gameshelfContextMenu) {
-  gameshelfContextMenu.addEventListener('click', (event) => {
-    event.stopPropagation();
-  });
-}
 if (duplicateNodeBtn) {
   duplicateNodeBtn.addEventListener('click', () => {
     const nodeId = state.contextMenuNodeId;
@@ -6757,28 +6681,6 @@ if (deleteNodeMenuBtn) {
     removeSelectedNode();
   });
 }
-if (gameshelfMenuNewBtn) {
-  gameshelfMenuNewBtn.addEventListener('click', () => {
-    closeGameshelfContextMenu();
-    startNewPhone();
-  });
-}
-if (gameshelfMenuDuplicateBtn) {
-  gameshelfMenuDuplicateBtn.addEventListener('click', async () => {
-    const gameId = state.contextMenuGameshelfGameId;
-    closeGameshelfContextMenu();
-    if (!gameId) return;
-    await duplicateSavedGame(gameId);
-  });
-}
-if (gameshelfMenuDeleteBtn) {
-  gameshelfMenuDeleteBtn.addEventListener('click', async () => {
-    const gameId = state.contextMenuGameshelfGameId;
-    closeGameshelfContextMenu();
-    if (!gameId) return;
-    await deleteSavedGame(gameId);
-  });
-}
 if (newPhoneBtn) newPhoneBtn.addEventListener('click', startNewPhone);
 
 linkLayer.addEventListener('click', (event) => {
@@ -6790,18 +6692,6 @@ linkLayer.addEventListener('click', (event) => {
   event.stopPropagation();
   closeNodeContextMenu();
   selectLinkAndRefresh(linkId);
-});
-
-linkLayer.addEventListener('contextmenu', (event) => {
-  if (event.target !== linkLayer) return;
-  const point = phonePointFromClient(event.clientX, event.clientY);
-  const linkId = findNearestLinkIdAtPoint(point.x, point.y);
-  if (!linkId) return;
-  event.preventDefault();
-  event.stopPropagation();
-  closeNodeContextMenu();
-  selectLinkAndRefresh(linkId);
-  openLinkContextMenu(linkId, event.clientX, event.clientY);
 });
 
 phoneStage.addEventListener('click', (event) => {
@@ -6849,14 +6739,6 @@ viewport.addEventListener('pointerdown', (event) => {
     moved: false
   };
   viewport.classList.add('panning');
-});
-
-viewport.addEventListener('contextmenu', (event) => {
-  if (hasGameNode()) return;
-  event.preventDefault();
-  closeNodeContextMenu();
-  closeGameshelfContextMenu();
-  openGameshelfContextMenu({ isNew: true, newOnly: true }, event.clientX, event.clientY);
 });
 
 window.addEventListener('pointermove', (event) => {
@@ -7090,11 +6972,6 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (gameshelfContextMenu && !gameshelfContextMenu.hidden && event.key === 'Escape') {
-    event.preventDefault();
-    closeGameshelfContextMenu();
-    return;
-  }
 
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
     event.preventDefault();
@@ -7176,12 +7053,6 @@ window.addEventListener('pointerdown', (event) => {
   if (!nodeContextMenu || nodeContextMenu.hidden) return;
   if (nodeContextMenu.contains(event.target)) return;
   closeNodeContextMenu();
-});
-
-window.addEventListener('pointerdown', (event) => {
-  if (!gameshelfContextMenu || gameshelfContextMenu.hidden) return;
-  if (gameshelfContextMenu.contains(event.target)) return;
-  closeGameshelfContextMenu();
 });
 
 window.addEventListener('resize', () => {
