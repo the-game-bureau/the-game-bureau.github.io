@@ -1448,11 +1448,8 @@ function getPhonePrimaryText(node) {
     return String(node.title || TYPE_CONFIG[node.type].title || '').trim();
   }
   if (node.type === 'reply') {
-    if (node.acceptAny) return 'any';
-    const body = summarizeMessageText(node.body, 160);
-    if (body) return body;
-    const varName = normalizeVariableName(node.varName);
-    return varName ? '%' + varName + '%' : '';
+    if (node.acceptAny) return 'ANY PLAYER MSG';
+    return summarizeMessageText(node.body, 160);
   }
   return summarizeMessageText(node.body, 160);
 }
@@ -2061,6 +2058,7 @@ function applyVariableAutocomplete(name) {
   const caret = variableAutocomplete.tokenStart + insertion.length;
 
   node.body = nextValue;
+  objectBodyInput.value = nextValue;
   closeVariableAutocomplete();
   renderAll();
   objectBodyInput.focus();
@@ -2512,8 +2510,8 @@ function updateActionUi() {
     gamePickerSaveBtn.disabled = !canSave;
     gamePickerSaveBtn.dataset.state = isSaveBusy ? 'saving' : (canSave ? 'dirty' : 'idle');
     gamePickerSaveBtn.textContent = 'Save';
-    gamePickerSaveBtn.title = 'Save';
-    gamePickerSaveBtn.setAttribute('aria-label', 'Save');
+    gamePickerSaveBtn.title = 'Save (Ctrl+S)';
+    gamePickerSaveBtn.setAttribute('aria-label', 'Save (Ctrl+S)');
     gamePickerSaveBtn.setAttribute('aria-busy', isSaveBusy ? 'true' : 'false');
   }
   if (gamePickerPlayBtn) {
@@ -3871,10 +3869,10 @@ function buildNodeTitleMarkup(node, displayTitle) {
   if (!isBubbleLikeType(node.type)) {
     return `<div class="node-title"${getGameTitleStyle(node, displayTitle)}>${escapeHtml(displayTitle)}</div>`;
   }
-  const fallbackTitle = node.type === 'reply'
-    ? (normalizeVariableName(node.varName) ? '%' + normalizeVariableName(node.varName) + '%' : '')
-    : '';
-  return `<div class="node-title"${getGameTitleStyle(node, displayTitle)}>${renderMessageHtml(node.body, fallbackTitle)}</div>`;
+  if (node.type === 'reply' && node.acceptAny) {
+    return `<div class="node-title"${getGameTitleStyle(node, displayTitle)}>${escapeHtml('ANY PLAYER MSG')}</div>`;
+  }
+  return `<div class="node-title"${getGameTitleStyle(node, displayTitle)}>${renderMessageHtml(node.body, '')}</div>`;
 }
 
 function buildNodeBubbleMarkup(node) {
@@ -4776,7 +4774,7 @@ function updateObjectInspectorUi(node, link, copyText) {
   const isStopNode = !!node && node.type === 'stop';
   const isReplyNode = !!node && node.type === 'reply';
   const isLinkSelected = !!link;
-  const BODY_LABELS = { stop: 'NOTES', bubble: 'GUIDE MESSAGE', reply: 'ANSWER' };
+  const BODY_LABELS = { stop: 'NOTES', bubble: 'GUIDE MESSAGE', reply: 'PLAYER MESSAGE' };
 
   if (objectInspectorCopy) objectInspectorCopy.textContent = copyText || '';
   if (objectStopNameField) objectStopNameField.hidden = isLinkSelected || !isStopNode;
@@ -4805,8 +4803,10 @@ function updateObjectInspectorUi(node, link, copyText) {
   syncReplyModeInputs(node);
   if (objectBodyInput) {
     objectBodyInput.disabled = isLinkSelected || !node || (isReplyNode && !!(node && node.acceptAny));
-    objectBodyInput.value = node ? (node.body || '') : '';
-    objectBodyInput.placeholder = isReplyNode ? 'e.g. READY, YES, LETS GO' : '';
+    if (document.activeElement !== objectBodyInput) {
+      objectBodyInput.value = node ? (node.body || '') : '';
+    }
+    objectBodyInput.placeholder = '';
   }
   if (!node || node.type !== 'bubble' || document.activeElement !== objectBodyInput) {
     closeVariableAutocomplete();
@@ -4979,7 +4979,7 @@ function updateSelectionUi(options = {}) {
       : '(ID: none)';
   selectionId.hidden = !showGameDetails;
   syncDetailsSectionVisibility();
-  closeVariableAutocomplete();
+  if (document.activeElement !== objectBodyInput) closeVariableAutocomplete();
   updateObjectInspectorUi(selectedNode, selectedLink, objectCopyText);
   updateActionUi();
   refreshInspectorWindowUi();
@@ -6676,6 +6676,12 @@ if (gameEraseCancelBtn) {
 }
 if (saveGameBtn) saveGameBtn.addEventListener('click', saveCurrentGameFromMenu);
 if (gamePickerSaveBtn) gamePickerSaveBtn.addEventListener('click', saveCurrentGameFromMenu);
+document.addEventListener('keydown', (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+    event.preventDefault();
+    saveCurrentGameFromMenu();
+  }
+});
 if (gamePickerPlayBtn) gamePickerPlayBtn.addEventListener('click', playCurrentGame);
 if (gameDetailsToggleBtn) {
   gameDetailsToggleBtn.addEventListener('click', () => {
