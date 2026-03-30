@@ -21,7 +21,7 @@ const TYPE_CONFIG = {
     height: 92,
     kicker: 'GUIDE MSG',
     title: '',
-    body: '',
+    body: 'How many states are there in the USA?',
     code: 'BB'
   },
   reply: {
@@ -29,7 +29,7 @@ const TYPE_CONFIG = {
     height: 88,
     kicker: 'PLAYER MSG',
     title: '',
-    body: 'fifty,50',
+    body: '50,fifty',
     code: 'RP'
   },
 };
@@ -45,7 +45,6 @@ const NODE_TYPE_BY_PREFIX = Object.fromEntries(
 
 const ALL_TAGS = ['Mystery', 'Puzzle', 'SMS', 'Walking Tour', 'Sports', 'History', 'Food', 'Adventure', 'Family', 'Conspiracy', 'Trivia', 'Horror', 'Romance', 'Comedy', 'Music', 'Culture', 'Night Life', 'City Tour', 'Scavenger Hunt', 'New Orleans'];
 
-const LOCAL_STORE_KEY = 'tgb-games-phoneanalogy';
 const LOCAL_OPEN_GAME_KEY = 'tgb-games-phoneanalogy-open';
 const LOCAL_RECOVERY_KEY = 'tgb-games-phoneanalogy-recovery';
 const EDITOR_LAUNCH_INTENT_KEY = 'tgb-builder-launch-intent';
@@ -61,6 +60,58 @@ const SUPABASE_STORAGE_KIND = 'supabase';
 const ARCHIVED_GAME_VALUE = 'YES';
 const ERASED_GAME_VALUE = 'YES';
 const supabaseConfig = readSupabaseConfig();
+
+// Load tags from Supabase on startup
+let allTags = [...ALL_TAGS];
+
+async function loadTagsFromSupabase() {
+  try {
+    // Get supabase client - check if window.supabase exists or use the global
+    const supabaseClient = window.supabase?.createClient 
+      ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.key)
+      : null;
+    
+    if (!supabaseClient) return; // Supabase not configured, use defaults
+    
+    const { data, error } = await supabaseClient
+      .from('tags')
+      .select('name')
+      .order('name');
+    
+    if (error) {
+      console.warn('Failed to load tags from Supabase:', error);
+      return;
+    }
+    
+    if (data && data.length > 0) {
+      const tagNames = data.map(t => t.name);
+      allTags = [...new Set([...ALL_TAGS, ...tagNames])];
+    }
+  } catch (err) {
+    console.warn('Error loading tags from Supabase:', err);
+  }
+}
+
+async function saveNewTagToSupabase(tagName) {
+  try {
+    const supabaseClient = window.supabase?.createClient 
+      ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.key)
+      : null;
+    
+    if (!supabaseClient) return; // Supabase not configured
+    
+    const { error } = await supabaseClient
+      .from('tags')
+      .insert([{ name: tagName }])
+      .select();
+    
+    if (error && error.code !== '23505') { // 23505 is unique constraint violation (tag already exists)
+      console.warn('Failed to save tag to Supabase:', error);
+    }
+  } catch (err) {
+    console.warn('Error saving tag to Supabase:', err);
+  }
+}
 
 const EMPTY_DOC = {
   updatedAt: '',
@@ -583,6 +634,7 @@ const nodeBodyInput = document.getElementById('nodeBodyInput');
 const nodeBodyAutocomplete = document.getElementById('nodeBodyAutocomplete');
 const nodeBodyHtmlNote = document.getElementById('nodeBodyHtmlNote');
 const objectBodyAnswerNote = document.getElementById('objectBodyAnswerNote');
+const objectBodyHtmlNote = document.getElementById('objectBodyHtmlNote');
 const objectBodyLabel = document.getElementById('objectBodyLabel');
 const objectBodyInfo = document.getElementById('objectBodyInfo');
 const objectBodyInput = document.getElementById('objectBodyInput');
@@ -631,7 +683,10 @@ bubbleDropLine.hidden = true;
 if (phoneStage) phoneStage.appendChild(bubbleDropLine);
 
 const nodeEls = new Map();
-let allTags = [...ALL_TAGS];
+
+// Load tags from Supabase asynchronously
+loadTagsFromSupabase().catch(err => console.warn('Failed to initialize tags:', err));
+
 let phoneClockTimer = null;
 let gameshelfAutoScrollFrame = 0;
 let gameshelfAutoScrollLastTime = 0;
@@ -1393,6 +1448,7 @@ function getPhonePrimaryText(node) {
     return String(node.title || TYPE_CONFIG[node.type].title || '').trim();
   }
   if (node.type === 'reply') {
+    if (node.acceptAny) return 'any';
     const body = summarizeMessageText(node.body, 160);
     if (body) return body;
     const varName = normalizeVariableName(node.varName);
@@ -1411,9 +1467,7 @@ function getPhoneSecondaryText(node) {
   }
   if (node.type === 'reply') {
     if (node.anytime) return 'Anytime trigger';
-    if (node.acceptAny) return 'Any Answer';
-    const varName = normalizeVariableName(node.varName);
-    return varName ? 'Saved as %' + varName + '%' : '';
+    return '';
   }
   return node.anytime ? 'Paired anytime response' : '';
 }
@@ -5420,6 +5474,8 @@ function syncReplyModeInputs(node) {
 
   if (objectReplyModeField) objectReplyModeField.hidden = !isReplyNode;
   if (objectBodyAnswerNote) objectBodyAnswerNote.hidden = !(isReplyNode && mode === 'normal');
+  if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble');
+  if (objectDescriptionField) objectDescriptionField.hidden = isReplyNode && mode === 'anyanswer';
 
   [
     [objectReplyModeNormalInput, 'normal'],
@@ -6504,7 +6560,11 @@ function addNewTag() {
   if (!node || node.type !== 'game') return;
   const value = nodeTagNewInput.value.trim();
   if (!value) return;
-  if (!allTags.includes(value)) allTags.push(value);
+  if (!allTags.includes(value)) {
+    allTags.push(value);
+    // Try to save new tag to Supabase
+    saveNewTagToSupabase(value).catch(err => console.warn('Failed to save tag to Supabase:', err));
+  }
   const nextTags = new Set(node.tags || []);
   nextTags.add(value);
   node.tags = [...nextTags];

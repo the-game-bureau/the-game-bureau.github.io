@@ -81,3 +81,50 @@ on public.games
 for delete
 to anon, authenticated
 using (true);
+
+-- Tags table for managing tag pool
+create table if not exists public.tags (
+  id text primary key default gen_random_uuid()::text,
+  name text unique not null,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+alter table public.tags enable row level security;
+
+drop policy if exists "Public can read tags" on public.tags;
+create policy "Public can read tags"
+on public.tags
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Public can insert tags" on public.tags;
+create policy "Public can insert tags"
+on public.tags
+for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists "Public can update tags" on public.tags;
+create policy "Public can update tags"
+on public.tags
+for update
+to anon, authenticated
+using (true)
+with check (true);
+
+drop policy if exists "Public can delete tags" on public.tags;
+create policy "Public can delete tags"
+on public.tags
+for delete
+to anon, authenticated
+using (true);
+
+-- Bootstrap with default tags
+insert into public.tags (name) values 
+('Mystery'), ('Puzzle'), ('SMS'), ('Walking Tour'), ('Sports'), 
+('History'), ('Food'), ('Adventure'), ('Family'), ('Conspiracy'), 
+('Trivia'), ('Horror'), ('Romance'), ('Comedy'), ('Music'), 
+('Culture'), ('Night Life'), ('City Tour'), ('Scavenger Hunt'), 
+('New Orleans')
+on conflict (name) do nothing;
