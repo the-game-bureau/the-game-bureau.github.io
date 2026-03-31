@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0c0c0c">
+  <title>The Game Bureau — Checkout</title>
+  <link rel="icon" href="../index.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      margin: 0; padding: 0;
+      background: #0c0c0c;
+      min-height: 100%;
+    }
+
+    body {
+      color: #fff;
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100svh;
+      padding: 32px 24px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    .kicker {
+      font-size: .62rem;
+      font-weight: 700;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, .32);
+      margin-bottom: 16px;
+    }
+
+    .heading {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(2.4rem, 11vw, 3.2rem);
+      letter-spacing: .04em;
+      line-height: .94;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+
+    .subtext {
+      font-size: .9rem;
+      font-weight: 400;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, .48);
+      margin-bottom: 36px;
+    }
+
+    .go-btn {
+      width: 100%;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      color: #0c0c0c;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.2rem;
+      letter-spacing: .2em;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      text-decoration: none;
+      touch-action: manipulation;
+      transition: opacity .1s, transform .1s;
+      margin-bottom: 16px;
+    }
+    .go-btn:active { opacity: .78; transform: scale(.977); }
+
+    .back-link {
+      font-size: .75rem;
+      color: rgba(255, 255, 255, .3);
+      text-decoration: none;
+      letter-spacing: .04em;
+    }
+    .back-link:active { color: rgba(255, 255, 255, .55); }
+
+    .error-msg {
+      font-size: .85rem;
+      color: #f87171;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    /* spinner shown while auto-redirecting */
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 2px solid rgba(255,255,255,.12);
+      border-top-color: rgba(255,255,255,.55);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner[hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <!-- content injected by JS -->
+  </div>
+
+  <script src="data/lemon-config.js"></script>
+  <script>
+    const params  = new URLSearchParams(location.search);
+    const gameId  = (params.get('game') || params.get('id') || '').trim();
+    const variantOverride = (params.get('variant') || '').trim();
+    const cfg = window.TGB_LEMON_CONFIG || {};
+    const card = document.getElementById('card');
+
+    // ── Build return URL ────────────────────────────────────────────────────
+    function buildReturnUrl() {
+      const base = location.origin + location.pathname.replace('pay.html', 'index.html');
+      const u = new URL(base);
+      if (gameId) u.searchParams.set('game', gameId);
+      u.searchParams.set('paid', '1');
+      return u.toString();
+    }
+
+    // ── Build LemonSqueezy checkout URL ─────────────────────────────────────
+    function buildCheckoutUrl() {
+      const slug    = cfg.storeSlug;
+      const variant = variantOverride || cfg.variantId;
+      if (!slug || !variant) return null;
+
+      const base = `https://${slug}.lemonsqueezy.com/buy/${variant}`;
+      const u = new URL(base);
+      u.searchParams.set('checkout[redirect_url]', buildReturnUrl());
+      if (gameId) u.searchParams.set('checkout[custom][game_id]', gameId);
+      return u.toString();
+    }
+
+    // ── Render error state ──────────────────────────────────────────────────
+    function renderError(msg) {
+      card.innerHTML = `
+        <p class="kicker">The Game Bureau</p>
+        <p class="error-msg">${msg}</p>
+        ${gameId ? `<br><a class="back-link" href="index.html?game=${encodeURIComponent(gameId)}">← Back to game</a>` : ''}
+      `;
+    }
+
+    // ── Main ────────────────────────────────────────────────────────────────
+    if (!cfg.enabled) {
+      renderError('Payments are not configured yet.');
+    } else {
+      const checkoutUrl = buildCheckoutUrl();
+      if (!checkoutUrl) {
+        renderError('Checkout configuration is missing a store or variant ID.');
+      } else {
+        // Show a brief holding screen then redirect
+        const returnUrl = buildReturnUrl();
+        card.innerHTML = `
+          <div class="spinner" id="spinner"></div>
+          <p class="kicker">The Game Bureau</p>
+          <h1 class="heading">One More Step</h1>
+          <p class="subtext">You're heading to checkout.<br>We'll bring you right back when you're done.</p>
+          <a class="go-btn" id="checkoutBtn" href="${checkoutUrl}">CHECKOUT</a>
+          ${gameId ? `<a class="back-link" href="index.html?game=${encodeURIComponent(gameId)}">← Back to game</a>` : ''}
+        `;
+        // Auto-redirect after 1.8s; the button is there as a fallback
+        setTimeout(() => { location.href = checkoutUrl; }, 1800);
+      }
+    }
+  </script>
+</body>
+</html>

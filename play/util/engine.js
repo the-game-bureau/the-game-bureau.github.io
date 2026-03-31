@@ -400,8 +400,50 @@ function applyGuideCapsLoop(root) {
   textNodes.forEach(wrapGuideCapsTextNode);
 }
 
+function openButtonLightbox(url) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'btn-lightbox-backdrop';
+  const frame = document.createElement('div');
+  frame.className = 'btn-lightbox-frame';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'btn-lightbox-close';
+  closeBtn.type = 'button';
+  closeBtn.textContent = '\u00d7';
+  const iframe = document.createElement('iframe');
+  iframe.className = 'btn-lightbox-iframe';
+  iframe.src = url;
+  iframe.allow = 'payment';
+  frame.appendChild(closeBtn);
+  frame.appendChild(iframe);
+  backdrop.appendChild(frame);
+  document.body.appendChild(backdrop);
+  function close() { backdrop.remove(); }
+  closeBtn.addEventListener('click', close);
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+  document.addEventListener('keydown', function onKey(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); }
+  });
+}
+
 function addMsg(msg, animate) {
   if (!msg.html && !msg.text) return null;
+
+  if (msg.isButton) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg msg-action-btn';
+    if (!animate) wrap.style.animation = 'none';
+    const btn = document.createElement('button');
+    btn.className = 'msg-btn';
+    btn.type = 'button';
+    btn.textContent = msg.text || 'BUY GAME TO CONTINUE';
+    if (msg.buttonUrl) {
+      btn.addEventListener('click', () => openButtonLightbox(msg.buttonUrl));
+    }
+    wrap.appendChild(btn);
+    chatEl.appendChild(wrap);
+    return wrap;
+  }
+
   const wrap = document.createElement('div');
   const isCallToAction = !!msg.callToAction;
   wrap.className = 'msg ' + (msg.fromPlayer ? 'from-player' : 'from-game') + (isCallToAction ? ' call-to-action' : '');
@@ -474,6 +516,8 @@ function normalizeBubble(bubble) {
     bubbleId: typeof bubble.bubbleId === 'string' ? bubble.bubbleId : '',
     html: typeof bubble.html === 'string' ? bubble.html : '',
     text: typeof bubble.text === 'string' ? bubble.text : '',
+    isButton: !!bubble.isButton,
+    buttonUrl: typeof bubble.buttonUrl === 'string' ? bubble.buttonUrl : '',
     fromPlayer: !!(bubble.fromPlayer || bubble.direction === 'fromPlayer'),
     autoAdvance: !!bubble.autoAdvance,
     callToAction: needsReply,
@@ -755,6 +799,12 @@ function applyHeaderConfig(config) {
     link.rel = 'icon';
     link.href = header.faviconUrl;
     document.head.appendChild(link);
+  }
+  if (header.primaryColor) {
+    document.documentElement.style.setProperty('--game-primary', header.primaryColor);
+  }
+  if (header.tertiaryColor) {
+    document.documentElement.style.setProperty('--game-tertiary', header.tertiaryColor);
   }
 }
 

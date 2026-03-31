@@ -31,18 +31,36 @@
 
     <div class="title-wrap">
       <div id="gameTitle"></div>
-      <div id="gameGuide"><span class="guide-label">Your Guide</span><span class="guide-val" id="guideVal"></span></div>
-      <div id="price">
-        <span class="price-label">Price</span>
-        <span class="price-val" id="priceVal"></span>
+      <div id="taglineWrap" hidden>
+        <div class="title-rule"></div>
+        <div id="gameTagline"></div>
+        <div class="title-rule"></div>
       </div>
     </div>
 
     <div id="tags"></div>
 
+    <div id="price">
+      <span class="price-label">Price</span>
+      <span class="price-val" id="priceVal"></span>
+    </div>
+
     <hr class="divider">
 
     <p id="desc"></p>
+
+    <div id="guideSection" hidden>
+      <div class="guide-container">
+        <div class="guide-thumbnail">
+          <img id="guideImage" alt="Guide">
+        </div>
+        <div class="guide-info">
+          <div class="guide-label">Your Guide</div>
+          <div class="guide-val" id="guideVal"></div>
+          <div class="guide-bio" id="guideBio" hidden></div>
+        </div>
+      </div>
+    </div>
 
     <div class="go-wrap">
       <button id="goBtn">PLAY</button>
@@ -114,7 +132,7 @@
     async function fetchGameById(id) {
       if (!_sbCfg) return null;
       const res = await fetch(buildSupabaseUrl({
-        select: 'id,name,nodes,links',
+        select: 'id,name,primary_color,secondary_color,nodes,links',
         id: 'eq.' + id,
         limit: '1'
       }), { cache: 'no-store', headers: sbHeaders() });
@@ -134,13 +152,18 @@
         id: row.id || '',
         name: (gn && gn.title) || row.name || 'Untitled Game',
         subtitle: (gn && gn.guideName) || '',
+        guideBio: (gn && gn.guideBio) || '',
         price: (gn && gn.price) || '',
         tags: Array.isArray(gn && gn.tags) ? gn.tags : [],
         descriptionText: (gn && gn.body) || '',
         descriptionHtml: null,
-        logo: (gn && gn.guideImageUrl) || '',
+        logo: (gn && gn.logoUrl) || '',
+        guideImage: (gn && gn.guideImageUrl) || 'https://upload.wikimedia.org/wikipedia/commons/6/60/Eugene_F._Kranz_at_his_console_at_the_NASA_Mission_Control_Center.jpg',
         favicon: '',
         thumbnail: '',
+        tagline: (gn && gn.tagline) || '',
+        primaryColor: (typeof row.primary_color === 'string' && row.primary_color.trim()) || '',
+        secondaryColor: (typeof row.secondary_color === 'string' && row.secondary_color.trim()) || '',
         query: row.id || ''
       };
     }
@@ -209,6 +232,9 @@
     }
 
     function renderLanding(game) {
+      if (game.primaryColor) document.documentElement.style.setProperty('--primary', game.primaryColor);
+      if (game.secondaryColor) document.documentElement.style.setProperty('--secondary', game.secondaryColor);
+
       const shareQuery = game.query || game.name || game.id || '';
       const prodUrl = 'https://the-game-bureau.github.io/the-game-bureau/play/index.html?game=' + encodeURIComponent(shareQuery);
       const shareUrl = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
@@ -219,6 +245,8 @@
       const firstLine = (fullDescText || String(fullDescHtml).replace(/<[^>]+>/g, ' '))
         .split('\n')[0]
         .trim();
+
+      console.log('renderLanding game object:', { name: game.name, subtitle: game.subtitle, logo: game.logo, tagline: game.tagline });
 
       resolvedGameQuery = shareQuery;
       document.title = game.name || game.id;
@@ -236,22 +264,57 @@
 
       const logo = document.getElementById('gameLogo');
       if (game.logo) {
+        console.log('Setting gameLogo src:', game.logo);
         logo.src = game.logo;
         logo.classList.add('show');
+        console.log('gameLogo classList after add:', logo.classList);
+        logo.onerror = () => console.error('Failed to load gameLogo image:', game.logo);
       } else {
+        console.log('No game.logo, hiding gameLogo');
         logo.removeAttribute('src');
         logo.classList.remove('show');
       }
 
-      document.getElementById('gameTitle').textContent = game.name || game.id;
+      const gameTitleEl = document.getElementById('gameTitle');
+      gameTitleEl.textContent = game.name || game.id;
+      gameTitleEl.style.color = game.primaryColor || '';
 
-      const gameGuide = document.getElementById('gameGuide');
-      if (game.subtitle) {
-        document.getElementById('guideVal').textContent = game.subtitle;
-        gameGuide.classList.add('show');
+      const taglineWrap = document.getElementById('taglineWrap');
+      if (game.tagline) {
+        document.getElementById('gameTagline').textContent = game.tagline;
+        taglineWrap.querySelectorAll('.title-rule').forEach(r => r.style.background = game.primaryColor || '');
+        taglineWrap.hidden = false;
       } else {
+        taglineWrap.hidden = true;
+      }
+
+      const guideSection = document.getElementById('guideSection');
+      const guideImage = document.getElementById('guideImage');
+      if (game.subtitle) {
+        console.log('Displaying guide section with subtitle:', game.subtitle);
+        document.getElementById('guideVal').textContent = game.subtitle;
+        const guideBioEl = document.getElementById('guideBio');
+        if (game.guideBio) {
+          guideBioEl.textContent = game.guideBio;
+          guideBioEl.hidden = false;
+        } else {
+          guideBioEl.textContent = '';
+          guideBioEl.hidden = true;
+        }
+        if (game.guideImage) {
+          guideImage.src = game.guideImage;
+          guideImage.classList.add('show');
+        } else {
+          guideImage.removeAttribute('src');
+          guideImage.classList.remove('show');
+        }
+        guideSection.hidden = false;
+      } else {
+        console.log('No subtitle, hiding guide section');
         document.getElementById('guideVal').textContent = '';
-        gameGuide.classList.remove('show');
+        guideImage.removeAttribute('src');
+        guideImage.classList.remove('show');
+        guideSection.hidden = true;
       }
 
       const tagsEl = document.getElementById('tags');
@@ -274,7 +337,10 @@
         priceEl.classList.remove('show');
       }
 
-      document.getElementById('goBtn').onclick = launchGame;
+      const goBtnEl = document.getElementById('goBtn');
+      goBtnEl.onclick = launchGame;
+      goBtnEl.style.background = game.primaryColor || '';
+      goBtnEl.style.color = game.secondaryColor || '';
 
       const px = Math.round(180 * Math.min(window.devicePixelRatio || 2, 3));
       document.getElementById('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + px + 'x' + px + '&data=' + encodeURIComponent(shareUrl);

@@ -106,7 +106,8 @@
       varName: varName,
       replyMode: replyMode,
       anytime: !!node.anytime,
-      anytimePairId: safeString(node.anytimePairId || node.pairId).trim()
+      anytimePairId: safeString(node.anytimePairId || node.pairId).trim(),
+      buttonUrl: safeString(node.buttonUrl).trim()
     };
   }
 
@@ -131,6 +132,8 @@
       name: safeString(game.name).trim() || fallbackName,
       createdAt: safeString(game.createdAt),
       updatedAt: safeString(game.updatedAt),
+      primaryColor: safeString(game.primaryColor || game.primary_color).trim(),
+      secondaryColor: safeString(game.secondaryColor || game.secondary_color).trim(),
       nodes,
       links
     };
@@ -172,6 +175,46 @@
     return raw.games.map(normalizeGraphGame);
   }
 
+  function getSupabaseCfg() {
+    return (window.TGB_SUPABASE_CONFIG && window.TGB_SUPABASE_CONFIG.enabled)
+      ? window.TGB_SUPABASE_CONFIG : null;
+  }
+
+  async function fetchGameFromSupabase(query) {
+    const cfg = getSupabaseCfg();
+    if (!cfg || !query) return null;
+    const headers = {
+      apikey: cfg.publishableKey,
+      Authorization: 'Bearer ' + cfg.publishableKey,
+      Accept: 'application/json'
+    };
+    // Try by exact ID first
+    try {
+      const byId = new URL('/rest/v1/' + encodeURIComponent(cfg.gamesTable), cfg.url + '/');
+      byId.searchParams.set('select', 'id,name,primary_color,secondary_color,nodes,links');
+      byId.searchParams.set('id', 'eq.' + query);
+      byId.searchParams.set('limit', '1');
+      const res = await fetch(byId.toString(), { cache: 'no-store', headers });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length) return rows[0];
+      }
+    } catch (e) {}
+    // Try by name (case-insensitive)
+    try {
+      const byName = new URL('/rest/v1/' + encodeURIComponent(cfg.gamesTable), cfg.url + '/');
+      byName.searchParams.set('select', 'id,name,primary_color,secondary_color,nodes,links');
+      byName.searchParams.set('name', 'ilike.' + query);
+      byName.searchParams.set('limit', '1');
+      const res = await fetch(byName.toString(), { cache: 'no-store', headers });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length) return rows[0];
+      }
+    } catch (e) {}
+    return null;
+  }
+
   async function fetchGraphGames() {
     const urls = [
       ...getApiBaseCandidates().map((apiBase) => apiBase + '/games-new'),
@@ -207,6 +250,12 @@
     if (requested) {
       const preview = readPreviewGame();
       if (preview && matchesGraphGame(preview, requested)) return preview;
+    }
+
+    // Try Supabase first when a query is given
+    if (requested) {
+      const sbRow = await fetchGameFromSupabase(requested);
+      if (sbRow) return normalizeGraphGame(sbRow);
     }
 
     const fetchedGames = await fetchGraphGames();
@@ -508,7 +557,7 @@
           return;
         }
       }
-      if (node.type === 'bubble' || node.type === 'reply') addMessage(node);
+      if (node.type === 'bubble' || node.type === 'reply' || node.type === 'button') addMessage(node);
 
       const childIds = getOrderedOutgoingIds(lookup, nodeId);
       if (node.type === 'bubble') {
@@ -651,6 +700,16 @@
 
   function toEngineMessage(node) {
     const body = safeString(node && node.body).trim();
+    if (node.type === 'button') {
+      const label = safeString(node && node.title).trim() || 'BUY GAME TO CONTINUE';
+      const url = safeString(node && node.buttonUrl).trim();
+      return {
+        isButton: true,
+        text: label,
+        buttonUrl: url,
+        bubbleId: node.id
+      };
+    }
     if (node.type === 'reply') {
       const replyModeRaw = String(node && node.replyMode || '').trim().toLowerCase();
       if (replyModeRaw === 'branch') {
@@ -724,7 +783,9 @@
         title,
         subtitle: gameNode ? safeString(gameNode.guideName).trim() : '',
         pageTitle: title,
-        status: 'online'
+        status: 'online',
+        primaryColor: safeString(game && game.primaryColor).trim(),
+        tertiaryColor: gameNode ? safeString(gameNode.tertiaryColor).trim() : ''
       },
       startIndex: anytimeStops.length,
       routes: [],

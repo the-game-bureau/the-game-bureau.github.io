@@ -32,12 +32,21 @@ const TYPE_CONFIG = {
     body: '50,fifty',
     code: 'RP'
   },
+  button: {
+    width: 236,
+    height: 70,
+    kicker: 'BUTTON',
+    title: 'BUY GAME TO CONTINUE',
+    body: '',
+    code: 'BT'
+  },
 };
 const NODE_ID_PREFIX = {
   game: 'gm',
   stop: 'st',
   bubble: 'gd',
-  reply: 'pl'
+  reply: 'pl',
+  button: 'bt'
 };
 const NODE_TYPE_BY_PREFIX = Object.fromEntries(
   Object.entries(NODE_ID_PREFIX).map(([type, prefix]) => [prefix, type])
@@ -167,7 +176,8 @@ const SINGLE_SHEET_SCROLL = true;
 const STENCIL_SHORTCUTS = {
   stop: 'W',
   bubble: 'G',
-  reply: 'P'
+  reply: 'P',
+  button: 'B'
 };
 
 function normalizeSupabaseUrl(value) {
@@ -600,8 +610,11 @@ const inspectorCopy = document.getElementById('inspectorCopy');
 const titleField = document.getElementById('titleField');
 const stopNameField = document.getElementById('stopNameField');
 const taglineField = document.getElementById('taglineField');
+const playersField = document.getElementById('playersField');
 const guideNameField = document.getElementById('guideNameField');
+const gameLogoField = document.getElementById('gameLogoField');
 const guideImageField = document.getElementById('guideImageField');
+const guideBioField = document.getElementById('guideBioField');
 const priceField = document.getElementById('priceField');
 const primaryColorField = document.getElementById('primaryColorField');
 const secondaryColorField = document.getElementById('secondaryColorField');
@@ -615,7 +628,13 @@ const stopNameInput = document.getElementById('stopNameInput');
 const objectStopNameField = document.getElementById('objectStopNameField');
 const objectStopNameInput = document.getElementById('objectStopNameInput');
 const nodeTaglineInput = document.getElementById('nodeTaglineInput');
+const nodePlayersInput = document.getElementById('nodePlayersInput');
 const nodeGuideNameInput = document.getElementById('nodeGuideNameInput');
+const nodeGuideBioInput = document.getElementById('nodeGuideBioInput');
+const nodeGameLogoInput = document.getElementById('nodeGameLogoInput');
+const gameLogoThumbBtn = document.getElementById('gameLogoThumbBtn');
+const gameLogoThumbImage = document.getElementById('gameLogoThumbImage');
+const gameLogoThumbPlaceholder = document.getElementById('gameLogoThumbPlaceholder');
 const nodeGuideImageInput = document.getElementById('nodeGuideImageInput');
 const guideImageThumbBtn = document.getElementById('guideImageThumbBtn');
 const guideImageThumbImage = document.getElementById('guideImageThumbImage');
@@ -625,6 +644,9 @@ const primaryColorInput = document.getElementById('primaryColorInput');
 const primaryColorPickerInput = document.getElementById('primaryColorPickerInput');
 const secondaryColorInput = document.getElementById('secondaryColorInput');
 const secondaryColorPickerInput = document.getElementById('secondaryColorPickerInput');
+const tertiaryColorField = document.getElementById('tertiaryColorField');
+const tertiaryColorInput = document.getElementById('tertiaryColorInput');
+const tertiaryColorPickerInput = document.getElementById('tertiaryColorPickerInput');
 const nodeTagPicker = document.getElementById('nodeTagPicker');
 const nodeTagNewInput = document.getElementById('nodeTagNewInput');
 const nodeTagAddBtn = document.getElementById('nodeTagAddBtn');
@@ -664,6 +686,10 @@ const duplicateGameStatus = document.getElementById('duplicateGameStatus');
 const gameEraseBtn = document.getElementById('gameEraseBtn');
 const deleteBtn = document.getElementById('deleteBtn');
 const objectDeleteBtn = document.getElementById('objectDeleteBtn');
+const objectButtonNameField = document.getElementById('objectButtonNameField');
+const objectButtonNameInput = document.getElementById('objectButtonNameInput');
+const objectButtonTargetField = document.getElementById('objectButtonTargetField');
+const objectButtonTargetInput = document.getElementById('objectButtonTargetInput');
 const saveGameBtn = document.getElementById('saveGameBtn') || document.getElementById('playGameBtn');
 const newPhoneBtn = document.getElementById('newPhoneBtn');
 const refreshPageBtn = document.getElementById('refreshPageBtn');
@@ -880,7 +906,7 @@ function createNodeIdCounters() {
 }
 
 function usesNodeTitle(type) {
-  return type === 'game' || type === 'stop';
+  return type === 'game' || type === 'stop' || type === 'button';
 }
 
 function getDefaultNodeTitle(type, id = '') {
@@ -1444,7 +1470,7 @@ function estimateWrappedLineCount(text, availableWidth, fallbackCharWidth = 8.4)
 
 function getPhonePrimaryText(node) {
   if (!node) return '';
-  if (node.type === 'game' || node.type === 'stop') {
+  if (node.type === 'game' || node.type === 'stop' || node.type === 'button') {
     return String(node.title || TYPE_CONFIG[node.type].title || '').trim();
   }
   if (node.type === 'reply') {
@@ -1474,13 +1500,14 @@ function getPhoneBubbleSide(node) {
   if (node.type === 'reply') return 'right';
   if (node.type === 'stop') return 'left';
   if (node.type === 'bubble') return 'left';
+  if (node.type === 'button') return 'center';
   return 'center';
 }
 
 function isPhoneThreadNode(node) {
   return !!node
     && !isAnytimeNode(node)
-    && (node.type === 'stop' || node.type === 'bubble' || node.type === 'reply');
+    && (node.type === 'stop' || node.type === 'bubble' || node.type === 'reply' || node.type === 'button');
 }
 
 function canReorderPhoneThreadNode(node) {
@@ -1557,7 +1584,7 @@ function getPhoneRowMaxWidth(nodes, threadWidth) {
   const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
   return nodes.length > 1
     ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((threadWidth - (gap * (nodes.length - 1))) / nodes.length))
-    : nodes.some((node) => node.type === 'stop' || node.type === 'bubble' || node.type === 'reply') ? threadWidth : PHONE_BUBBLE_MAX_WIDTH;
+    : nodes.some((node) => node.type === 'stop' || node.type === 'bubble' || node.type === 'reply' || node.type === 'button') ? threadWidth : PHONE_BUBBLE_MAX_WIDTH;
 }
 
 function getPhoneProjectedRows(rows, startY) {
@@ -1685,46 +1712,51 @@ function getPhoneBubbleSize(node, maxWidth = PHONE_BUBBLE_MAX_WIDTH) {
     game: 254,
     stop: 248,
     bubble: 252,
-    reply: 252
+    reply: 252,
+    button: 248
   };
   const minWidths = {
     game: PHONE_BUBBLE_MIN_WIDTH,
     stop: 168,
     bubble: 78,
-    reply: 78
+    reply: 78,
+    button: 168
   };
   const primaryText = getPhonePrimaryText(node);
   const preferredWidth = isMessageBubble
     ? estimatePhoneBubbleContentWidth(primaryText, 28, 8.2)
-    : node.type === 'stop'
+    : (node.type === 'stop' || node.type === 'button')
       ? Math.round(maxWidth)
       : (preferredWidths[node.type] || PHONE_BUBBLE_MAX_WIDTH);
   const minWidth = minWidths[node.type] || PHONE_BUBBLE_MIN_WIDTH;
   const safeMaxWidth = Math.max(
     minWidth,
-    (node.type === 'stop' || isMessageBubble)
+    (node.type === 'stop' || node.type === 'button' || isMessageBubble)
       ? Math.round(maxWidth)
       : Math.min(PHONE_BUBBLE_MAX_WIDTH, Math.round(maxWidth))
   );
   const width = clamp(Math.min(preferredWidth, safeMaxWidth), minWidth, safeMaxWidth);
-  const textPadding = isMessageBubble ? 26 : node.type === 'stop' ? 70 : 34;
+  const textPadding = isMessageBubble ? 26 : (node.type === 'stop' || node.type === 'button') ? 70 : 34;
   const primaryLines = estimatePhoneTextLines(primaryText, width, textPadding);
   const secondaryLines = estimatePhoneTextLines(getPhoneSecondaryText(node), width, textPadding);
   const minHeights = {
     game: 88,
     stop: 58,
     bubble: 38,
-    reply: 38
+    reply: 38,
+    button: 52
   };
   const extraPrimaryLineHeights = {
     stop: 17,
     bubble: 16,
-    reply: 16
+    reply: 16,
+    button: 16
   };
   const extraSecondaryLineHeights = {
     stop: 0,
     bubble: 0,
-    reply: 0
+    reply: 0,
+    button: 0
   };
   const height = clamp(
     (minHeights[node.type] || 74)
@@ -1751,6 +1783,23 @@ function updatePhoneChrome() {
     }
     if (phoneThreadStatus) phoneThreadStatus.textContent = '';
     if (phoneStartBtn) phoneStartBtn.style.background = '';
+    if (phone) {
+      phone.style.removeProperty('--game-primary');
+      phone.style.removeProperty('--game-secondary');
+    }
+    if (phoneStage) {
+      phoneStage.style.removeProperty('--game-primary');
+      phoneStage.style.removeProperty('--game-secondary');
+      phoneStage.style.removeProperty('--game-tertiary');
+    }
+    if (addPanel) {
+      addPanel.style.removeProperty('--game-primary');
+      addPanel.style.removeProperty('--game-tertiary');
+    }
+    if (objectInspector) {
+      objectInspector.style.removeProperty('--game-primary');
+      objectInspector.style.removeProperty('--game-tertiary');
+    }
     return;
   }
   const gameNode = getGameNode();
@@ -1767,9 +1816,27 @@ function updatePhoneChrome() {
     phoneThreadAvatar.dataset.hasImage = guideImageUrl ? 'true' : 'false';
   }
   if (phoneThreadStatus) phoneThreadStatus.textContent = gameNode?.guideName || '';
+  const { primaryColor, secondaryColor } = getCurrentGameColors();
   if (phoneStartBtn) {
-    const { primaryColor } = getCurrentGameColors();
     phoneStartBtn.style.background = primaryColor || '';
+  }
+  const tertiaryColor = getGameNode()?.tertiaryColor || '';
+  if (phone) {
+    phone.style.setProperty('--game-primary', primaryColor || '');
+    phone.style.setProperty('--game-secondary', secondaryColor || '');
+  }
+  if (phoneStage) {
+    phoneStage.style.setProperty('--game-primary', primaryColor || '');
+    phoneStage.style.setProperty('--game-secondary', secondaryColor || '');
+    phoneStage.style.setProperty('--game-tertiary', tertiaryColor || '');
+  }
+  if (addPanel) {
+    addPanel.style.setProperty('--game-primary', primaryColor || '');
+    addPanel.style.setProperty('--game-tertiary', tertiaryColor || '');
+  }
+  if (objectInspector) {
+    objectInspector.style.setProperty('--game-primary', primaryColor || '');
+    objectInspector.style.setProperty('--game-tertiary', tertiaryColor || '');
   }
 }
 
@@ -1806,7 +1873,7 @@ function applyPhoneThreadLayout() {
     const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
     const effectiveHeights = sizes.map((size, i) => {
       const node = nodes[i];
-      return (node.type === 'bubble' || node.type === 'reply') ? Math.max(size.height, node.height || 0) : size.height;
+      return (node.type === 'bubble' || node.type === 'reply' || node.type === 'button') ? Math.max(size.height, node.height || 0) : size.height;
     });
     const rowHeight = effectiveHeights.reduce((maxHeight, h) => Math.max(maxHeight, h), 0);
 
@@ -2105,6 +2172,7 @@ function getObjectInspectorHeading(node, link) {
   if (node.type === 'bubble') return 'GUIDE MSG DETAILS';
   if (node.type === 'reply') return 'PLAYER MSG DETAILS';
   if (node.type === 'stop') return 'WAYPOINT DETAILS';
+  if (node.type === 'button') return 'BUTTON DETAILS';
   return 'OBJECT DETAILS';
 }
 
@@ -2132,6 +2200,11 @@ function setGameDetailsCollapsed(collapsed) {
     gameDetailsToggleBtn.setAttribute('aria-label', isCollapsed ? 'Expand game details' : 'Collapse game details');
     gameDetailsToggleBtn.title = isCollapsed ? 'Expand game details' : 'Collapse game details';
   }
+}
+
+function getCurrentGameLogoUrl(node = getGameNode()) {
+  if (!node || node.type !== 'game') return '';
+  return String(node.logoUrl || '').trim();
 }
 
 function getCurrentGuideImageUrl(node = getGameNode()) {
@@ -2165,6 +2238,61 @@ function openGuideImageLightbox() {
   guideImageLightboxBackdrop.hidden = false;
   document.body.classList.add('guide-image-lightbox-open');
   if (guideImageLightboxCloseBtn) guideImageLightboxCloseBtn.focus();
+  return true;
+}
+
+function updateGameLogoPreview(node = getNode(state.selectedId)) {
+  const imageUrl = getCurrentGameLogoUrl(node);
+  const hasImage = !!imageUrl;
+
+  if (gameLogoThumbBtn) {
+    gameLogoThumbBtn.disabled = !hasImage;
+    gameLogoThumbBtn.classList.toggle('is-empty', !hasImage);
+    gameLogoThumbBtn.classList.remove('is-broken');
+    gameLogoThumbBtn.setAttribute('aria-label', hasImage ? 'Open game logo preview' : 'No game logo selected');
+  }
+
+  if (!hasImage) {
+    if (gameLogoThumbImage) {
+      gameLogoThumbImage.hidden = true;
+      gameLogoThumbImage.removeAttribute('src');
+    }
+    if (gameLogoThumbPlaceholder) {
+      gameLogoThumbPlaceholder.hidden = false;
+      gameLogoThumbPlaceholder.textContent = 'No image';
+    }
+    return;
+  }
+
+  if (gameLogoThumbImage) {
+    gameLogoThumbImage.hidden = false;
+    gameLogoThumbImage.src = imageUrl;
+  }
+  if (gameLogoThumbPlaceholder) {
+    gameLogoThumbPlaceholder.hidden = true;
+  }
+  if (isGuideImageLightboxOpen() && guideImageLightboxImage) {
+    guideImageLightboxImage.src = imageUrl;
+  }
+}
+
+function openGameLogoLightbox() {
+  const imageUrl = getCurrentGameLogoUrl();
+  if (!imageUrl || !guideImageLightboxBackdrop || !guideImageLightboxImage) return false;
+  state.guideImageLightboxPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  guideImageLightboxImage.src = imageUrl;
+  guideImageLightboxBackdrop.hidden = false;
+  document.body.classList.add('guide-image-lightbox-open');
+  if (guideImageLightboxCloseBtn) guideImageLightboxCloseBtn.focus();
+  return true;
+}
+
+function syncSelectedGameLogoFromInput() {
+  const node = getGameNode();
+  if (!node || node.type !== 'game' || !nodeGameLogoInput) return false;
+  const nextValue = String(nodeGameLogoInput.value || '');
+  if ((node.logoUrl || '') === nextValue) return false;
+  node.logoUrl = nextValue;
   return true;
 }
 
@@ -2296,8 +2424,11 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
       ? String(raw.title)
       : getDefaultNodeTitle(type, id),
     tagline: raw && typeof raw.tagline === 'string' ? raw.tagline : '',
+    players: raw && typeof raw.players === 'string' ? raw.players : '',
     guideName: raw && typeof raw.guideName === 'string' ? raw.guideName : '',
+    guideBio: raw && typeof raw.guideBio === 'string' ? raw.guideBio : '',
     guideImageUrl: raw && typeof raw.guideImageUrl === 'string' ? raw.guideImageUrl : '',
+    logoUrl: raw && typeof raw.logoUrl === 'string' ? raw.logoUrl : '',
     price: raw && typeof raw.price === 'string' ? raw.price : '',
     builderNotes: raw && typeof raw.builderNotes === 'string' ? raw.builderNotes : '',
     tags: Array.isArray(raw && raw.tags)
@@ -2312,6 +2443,8 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     acceptAny: type === 'reply' ? !!(raw && raw.acceptAny) : false,
     anytime,
     anytimePairId,
+    buttonUrl: raw && typeof raw.buttonUrl === 'string' ? raw.buttonUrl : '',
+    tertiaryColor: raw && typeof raw.tertiaryColor === 'string' ? raw.tertiaryColor : '',
     rotation: normalizeNodeRotation(raw && raw.rotation, type),
     orderIndex: normalizeNodeOrderIndex(raw && raw.orderIndex)
   };
@@ -2432,12 +2565,16 @@ function getDocSnapshot(doc = state.doc) {
       y: node.y,
       title: node.title,
       tagline: node.tagline || '',
+      players: node.players || '',
       guideName: node.guideName || '',
+      guideBio: node.guideBio || '',
       guideImageUrl: node.guideImageUrl || '',
       price: node.price || '',
       builderNotes: node.builderNotes || '',
       tags: (node.tags || []).filter(Boolean),
       body: node.body || '',
+      buttonUrl: node.buttonUrl || '',
+      tertiaryColor: node.tertiaryColor || '',
       varName: node.varName || '',
       acceptAny: !!node.acceptAny,
       anytime: !!node.anytime,
@@ -3193,12 +3330,17 @@ function createNode(type, x, y) {
     height: config.height,
     title: getDefaultNodeTitle(type, id),
     tagline: type === 'game' ? 'Shall We Play A Game?' : '',
+    players: '',
     guideName: type === 'game' ? 'Mission Control' : '',
+    guideBio: '',
     guideImageUrl: '',
+    logoUrl: '',
     price: type === 'game' ? 'Free To Start / In App Purchases' : '',
     builderNotes: '',
     tags: [],
     body: config.body,
+    buttonUrl: '',
+    tertiaryColor: '',
     varName: '',
     acceptAny: false,
     anytime: false,
@@ -3877,6 +4019,7 @@ function buildNodeTitleMarkup(node, displayTitle) {
 
 function buildNodeBubbleMarkup(node) {
   if (!TYPE_CONFIG[node.type]) return '';
+  if (node.type === 'button') return '';
   const side = getPhoneBubbleSide(node);
   const tailClass = side === 'left'
     ? 'node-bubble-tail--left'
@@ -3980,7 +4123,9 @@ function getStencilPreviewNode(type) {
     height: TYPE_CONFIG[type]?.height || 0,
     title: type === 'stop' ? 'Waypoint' : '',
     tagline: '',
+    players: '',
     guideName: '',
+    guideBio: '',
     guideImageUrl: '',
     price: '',
     builderNotes: '',
@@ -3997,12 +4142,14 @@ function getStencilPreviewNode(type) {
     baseNode.body = 'Guide message';
   } else if (type === 'reply') {
     baseNode.body = 'Player reply';
+  } else if (type === 'button') {
+    baseNode.title = 'BUY GAME TO CONTINUE';
   }
 
-  if (type === 'stop' || type === 'bubble' || type === 'reply') {
+  if (type === 'stop' || type === 'bubble' || type === 'reply' || type === 'button') {
     const size = getPhoneBubbleSize(
       baseNode,
-      type === 'stop' ? TYPE_CONFIG.stop.width : PHONE_BUBBLE_MAX_WIDTH
+      (type === 'stop' || type === 'button') ? TYPE_CONFIG[type].width : PHONE_BUBBLE_MAX_WIDTH
     );
     baseNode.width = size.width;
     baseNode.height = size.height;
@@ -4773,13 +4920,16 @@ function updateObjectInspectorUi(node, link, copyText) {
 
   const isStopNode = !!node && node.type === 'stop';
   const isReplyNode = !!node && node.type === 'reply';
+  const isButtonNode = !!node && node.type === 'button';
   const isLinkSelected = !!link;
   const BODY_LABELS = { stop: 'NOTES', bubble: 'GUIDE MESSAGE', reply: 'PLAYER MESSAGE' };
 
   if (objectInspectorCopy) objectInspectorCopy.textContent = copyText || '';
   if (objectStopNameField) objectStopNameField.hidden = isLinkSelected || !isStopNode;
   if (objectVarNameField) objectVarNameField.hidden = isLinkSelected || !isReplyNode;
-  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node;
+  if (objectButtonNameField) objectButtonNameField.hidden = isLinkSelected || !isButtonNode;
+  if (objectButtonTargetField) objectButtonTargetField.hidden = isLinkSelected || !isButtonNode;
+  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node || isButtonNode;
   if (objectBodyLabel) {
     objectBodyLabel.textContent = node
       ? (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'NOTES'))
@@ -4800,6 +4950,14 @@ function updateObjectInspectorUi(node, link, copyText) {
   }
   if (objectVarNameHint) objectVarNameHint.hidden = !isReplyNode;
   refreshVarNameHint();
+  if (objectButtonNameInput) {
+    objectButtonNameInput.disabled = !isButtonNode;
+    objectButtonNameInput.value = isButtonNode && node ? (node.title || '') : '';
+  }
+  if (objectButtonTargetInput) {
+    objectButtonTargetInput.disabled = !isButtonNode;
+    objectButtonTargetInput.value = isButtonNode && node ? (node.buttonUrl || '') : '';
+  }
   syncReplyModeInputs(node);
   if (objectBodyInput) {
     objectBodyInput.disabled = isLinkSelected || !node || (isReplyNode && !!(node && node.acceptAny));
@@ -4857,11 +5015,14 @@ function updateSelectionUi(options = {}) {
   descriptionField.hidden = !showGameDetails;
   ifThenField.hidden = true;
   taglineField.hidden = !showGameDetails;
+  playersField.hidden = !showGameDetails;
   guideNameField.hidden = !showGameDetails;
+  guideBioField.hidden = !showGameDetails;
   guideImageField.hidden = !showGameDetails;
   priceField.hidden = !showGameDetails;
   primaryColorField.hidden = !showGameDetails;
   secondaryColorField.hidden = !showGameDetails;
+  if (tertiaryColorField) tertiaryColorField.hidden = !showGameDetails;
   tagsField.hidden = !showGameDetails;
   if (nodeTitleLabelText) nodeTitleLabelText.textContent = 'GAME NAME';
   nodeBodyLabel.textContent = 'DESCRIPTION';
@@ -4872,13 +5033,18 @@ function updateSelectionUi(options = {}) {
   stopNameInput.disabled = true;
   varNameInput.disabled = true;
   nodeTaglineInput.disabled = !isGameNode;
+  nodeGameLogoInput.disabled = !isGameNode;
+  nodePlayersInput.disabled = !isGameNode;
   nodeGuideNameInput.disabled = !isGameNode;
+  nodeGuideBioInput.disabled = !isGameNode;
   nodeGuideImageInput.disabled = !isGameNode;
   nodePriceInput.disabled = !isGameNode;
   primaryColorInput.disabled = !isGameNode;
   primaryColorPickerInput.disabled = !isGameNode;
   secondaryColorInput.disabled = !isGameNode;
   secondaryColorPickerInput.disabled = !isGameNode;
+  if (tertiaryColorInput) tertiaryColorInput.disabled = !isGameNode;
+  if (tertiaryColorPickerInput) tertiaryColorPickerInput.disabled = !isGameNode;
   nodeTagNewInput.disabled = !isGameNode;
   nodeTagAddBtn.disabled = !isGameNode;
   nodeBodyInput.disabled = !isGameNode;
@@ -4957,9 +5123,13 @@ function updateSelectionUi(options = {}) {
     radio.disabled = true;
   });
   nodeTaglineInput.value = isGameNode && gameNode ? (gameNode.tagline || '') : '';
+  nodeGameLogoInput.value = isGameNode && gameNode ? (gameNode.logoUrl || '') : '';
+  nodePlayersInput.value = isGameNode && gameNode ? (gameNode.players || '') : '';
   nodeGuideNameInput.value = isGameNode && gameNode ? (gameNode.guideName || '') : '';
+  nodeGuideBioInput.value = isGameNode && gameNode ? (gameNode.guideBio || '') : '';
   nodeGuideImageInput.value = isGameNode && gameNode ? (gameNode.guideImageUrl || '') : '';
   nodePriceInput.value = isGameNode && gameNode ? (gameNode.price || '') : '';
+  updateGameLogoPreview(gameNode);
   updateGuideImagePreview(gameNode);
   const currentColors = getCurrentGameColors();
   primaryColorInput.value = showGameDetails ? currentColors.primaryColor : '';
@@ -4968,6 +5138,14 @@ function updateSelectionUi(options = {}) {
   secondaryColorInput.value = showGameDetails ? currentColors.secondaryColor : '';
   secondaryColorInput.classList.remove('is-invalid');
   secondaryColorPickerInput.value = colorValueToHex(currentColors.secondaryColor, '#243256');
+  const tertiaryColorValue = (showGameDetails && gameNode) ? (gameNode.tertiaryColor || '') : '';
+  if (tertiaryColorInput) {
+    tertiaryColorInput.value = tertiaryColorValue;
+    tertiaryColorInput.classList.remove('is-invalid');
+  }
+  if (tertiaryColorPickerInput) {
+    tertiaryColorPickerInput.value = colorValueToHex(tertiaryColorValue, '#ffffff');
+  }
   nodeTagNewInput.value = '';
   renderTagPicker(gameNode);
   nodeBodyInput.value = gameNode ? (gameNode.body || '') : '';
@@ -5247,7 +5425,7 @@ function duplicateNode(nodeId) {
   if (isAnytimeNode(source)) return duplicateAnytimePair(source);
 
   const placement = getAutoPlacementPosition(source.type, source);
-  const isThreadNode = source.type === 'bubble' || source.type === 'reply' || source.type === 'stop';
+  const isThreadNode = source.type === 'bubble' || source.type === 'reply' || source.type === 'stop' || source.type === 'button';
   const sourceOrderIndex = normalizeNodeOrderIndex(source.orderIndex);
   const duplicateOrderIndex = isThreadNode && sourceOrderIndex != null
     ? sourceOrderIndex + 50
@@ -5264,12 +5442,16 @@ function duplicateNode(nodeId) {
     height: TYPE_CONFIG[source.type].height,
     title: usesNodeTitle(source.type) ? source.title : '',
     tagline: source.tagline || '',
+    players: source.players || '',
     guideName: source.guideName || '',
+    guideBio: source.guideBio || '',
     guideImageUrl: source.guideImageUrl || '',
     price: source.price || '',
     builderNotes: source.builderNotes || '',
     tags: Array.isArray(source.tags) ? [...source.tags] : [],
     body: source.body || '',
+    buttonUrl: source.buttonUrl || '',
+    tertiaryColor: source.tertiaryColor || '',
     varName: source.varName || '',
     acceptAny: !!source.acceptAny,
     anytime: false,
@@ -5475,7 +5657,8 @@ function syncReplyModeInputs(node) {
   if (objectReplyModeField) objectReplyModeField.hidden = !isReplyNode;
   if (objectBodyAnswerNote) objectBodyAnswerNote.hidden = !(isReplyNode && mode === 'normal');
   if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble');
-  if (objectDescriptionField) objectDescriptionField.hidden = isReplyNode && mode === 'anyanswer';
+  const isButtonNode = !!node && node.type === 'button';
+  if (objectDescriptionField) objectDescriptionField.hidden = isButtonNode || (isReplyNode && mode === 'anyanswer');
 
   [
     [objectReplyModeNormalInput, 'normal'],
@@ -5756,12 +5939,17 @@ function serializeNodeState(node) {
     y: node.y,
     title: node.title,
     tagline: node.tagline || '',
+    players: node.players || '',
     guideName: node.guideName || '',
+    guideBio: node.guideBio || '',
     guideImageUrl: node.guideImageUrl || '',
+    logoUrl: node.logoUrl || '',
     price: node.price || '',
     builderNotes: node.builderNotes || '',
     tags: (node.tags || []).filter(Boolean),
     body: node.body,
+    buttonUrl: node.buttonUrl || '',
+    tertiaryColor: node.tertiaryColor || '',
     varName: node.varName || '',
     acceptAny: !!node.acceptAny,
     anytime: !!node.anytime,
@@ -6158,7 +6346,7 @@ async function playCurrentGame() {
       || state.store.games.find((game) => game && game.id === selectedGamePickerId)
       || null;
     rememberPlayPreview(previewGame);
-    const target = new URL('play.html', location.href);
+    const target = new URL('../play/index.html', location.href);
     target.searchParams.set('id', selectedGamePickerId);
     location.href = target.toString();
     return;
@@ -6172,7 +6360,7 @@ async function playCurrentGame() {
   const gameId = savedGame && savedGame.id ? savedGame.id : state.currentGameId;
   if (!gameId) return;
   rememberPlayPreview(savedGame);
-  const target = new URL('play.html', location.href);
+  const target = new URL('../play/index.html', location.href);
   target.searchParams.set('id', gameId);
   location.href = target.toString();
 }
@@ -6308,6 +6496,24 @@ objectVarNameInput.addEventListener('input', () => {
   renderAll();
 });
 
+if (objectButtonTargetInput) {
+  objectButtonTargetInput.addEventListener('input', () => {
+    const node = getNode(state.selectedId);
+    if (!node || node.type !== 'button') return;
+    node.buttonUrl = objectButtonTargetInput.value;
+    scheduleRecoverySync();
+  });
+}
+
+if (objectButtonNameInput) {
+  objectButtonNameInput.addEventListener('input', () => {
+    const node = getNode(state.selectedId);
+    if (!node || node.type !== 'button') return;
+    node.title = objectButtonNameInput.value || TYPE_CONFIG[node.type].title;
+    renderAll();
+  });
+}
+
 varNameInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
   if (!node || node.type !== 'reply') return;
@@ -6434,12 +6640,38 @@ nodeTaglineInput.addEventListener('input', () => {
   updateSelectionUi();
 });
 
+nodePlayersInput.addEventListener('input', () => {
+  const node = getGameNode();
+  if (!node || node.type !== 'game') return;
+  node.players = nodePlayersInput.value;
+  updateSelectionUi();
+});
+
 nodeGuideNameInput.addEventListener('input', () => {
   const node = getGameNode();
   if (!node || node.type !== 'game') return;
   node.guideName = nodeGuideNameInput.value;
   updateSelectionUi();
   updatePhoneChrome();
+});
+
+nodeGuideBioInput.addEventListener('input', () => {
+  const node = getGameNode();
+  if (!node || node.type !== 'game') return;
+  node.guideBio = nodeGuideBioInput.value;
+  updateSelectionUi();
+});
+
+nodeGameLogoInput.addEventListener('input', () => {
+  syncSelectedGameLogoFromInput();
+  const node = getGameNode();
+  if (!node || node.type !== 'game') return;
+  updateSelectionUi();
+});
+
+nodeGameLogoInput.addEventListener('change', () => {
+  syncSelectedGameLogoFromInput();
+  updateSelectionUi();
 });
 
 nodeGuideImageInput.addEventListener('input', () => {
@@ -6455,6 +6687,35 @@ nodeGuideImageInput.addEventListener('change', () => {
   updateSelectionUi();
   updatePhoneChrome();
 });
+
+if (gameLogoThumbImage) {
+  gameLogoThumbImage.addEventListener('error', () => {
+    if (gameLogoThumbBtn) {
+      gameLogoThumbBtn.disabled = true;
+      gameLogoThumbBtn.classList.add('is-broken');
+    }
+    if (gameLogoThumbImage) gameLogoThumbImage.hidden = true;
+    if (gameLogoThumbPlaceholder) {
+      gameLogoThumbPlaceholder.hidden = false;
+      gameLogoThumbPlaceholder.textContent = 'Bad image';
+    }
+  });
+
+  gameLogoThumbImage.addEventListener('load', () => {
+    if (gameLogoThumbBtn) {
+      gameLogoThumbBtn.disabled = !getCurrentGameLogoUrl();
+      gameLogoThumbBtn.classList.remove('is-broken');
+    }
+    if (gameLogoThumbImage) gameLogoThumbImage.hidden = false;
+    if (gameLogoThumbPlaceholder) gameLogoThumbPlaceholder.hidden = true;
+  });
+}
+
+if (gameLogoThumbBtn) {
+  gameLogoThumbBtn.addEventListener('click', () => {
+    openGameLogoLightbox();
+  });
+}
 
 if (guideImageThumbImage) {
   guideImageThumbImage.addEventListener('error', () => {
@@ -6554,6 +6815,48 @@ function bindGameColorInputs(textInput, pickerInput, key, fallbackHex) {
 
 bindGameColorInputs(primaryColorInput, primaryColorPickerInput, 'primaryColor', '#5468a7');
 bindGameColorInputs(secondaryColorInput, secondaryColorPickerInput, 'secondaryColor', '#243256');
+
+if (tertiaryColorPickerInput) {
+  tertiaryColorPickerInput.addEventListener('input', () => {
+    const node = getGameNode();
+    if (!node) return;
+    node.tertiaryColor = tertiaryColorPickerInput.value;
+    if (tertiaryColorInput) {
+      tertiaryColorInput.value = tertiaryColorPickerInput.value;
+      tertiaryColorInput.classList.remove('is-invalid');
+    }
+    updatePhoneChrome();
+    renderAll();
+    scheduleRecoverySync();
+  });
+}
+
+if (tertiaryColorInput) {
+  tertiaryColorInput.addEventListener('input', () => {
+    const node = getGameNode();
+    if (!node) return;
+    const supportedValue = getSupportedColorValue(tertiaryColorInput.value);
+    const hasValue = !!tertiaryColorInput.value.trim();
+    tertiaryColorInput.classList.toggle('is-invalid', hasValue && !supportedValue);
+    if (!supportedValue) return;
+    node.tertiaryColor = supportedValue;
+    if (tertiaryColorPickerInput) tertiaryColorPickerInput.value = colorValueToHex(supportedValue, '#ffffff');
+    updatePhoneChrome();
+    renderAll();
+    scheduleRecoverySync();
+  });
+
+  tertiaryColorInput.addEventListener('blur', () => {
+    const node = getGameNode();
+    if (tertiaryColorInput) {
+      tertiaryColorInput.value = (node && node.tertiaryColor) || '';
+      tertiaryColorInput.classList.remove('is-invalid');
+    }
+    if (tertiaryColorPickerInput) {
+      tertiaryColorPickerInput.value = colorValueToHex((node && node.tertiaryColor) || '', '#ffffff');
+    }
+  });
+}
 
 function addNewTag() {
   const node = getGameNode();
@@ -7072,6 +7375,12 @@ window.addEventListener('keydown', (event) => {
   if (!isTyping && isLetterShortcut(event, 'KeyP')) {
     event.preventDefault();
     addNodeToVisiblePhone('reply');
+    return;
+  }
+
+  if (!isTyping && isLetterShortcut(event, 'KeyB')) {
+    event.preventDefault();
+    addNodeToVisiblePhone('button');
     return;
   }
 
