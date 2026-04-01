@@ -93,8 +93,15 @@ async function loadTagsFromSupabase() {
     }
     
     if (data && data.length > 0) {
-      const tagNames = data.map(t => t.name);
-      allTags = [...new Set([...ALL_TAGS, ...tagNames])];
+      const seenLower = new Set(ALL_TAGS.map(t => t.toLowerCase()));
+      const merged = [...ALL_TAGS];
+      data.forEach(row => {
+        if (row.name && !seenLower.has(row.name.toLowerCase())) {
+          seenLower.add(row.name.toLowerCase());
+          merged.push(row.name);
+        }
+      });
+      allTags = merged;
     }
   } catch (err) {
     console.warn('Error loading tags from Supabase:', err);
@@ -120,6 +127,38 @@ async function saveNewTagToSupabase(tagName) {
   } catch (err) {
     console.warn('Error saving tag to Supabase:', err);
   }
+}
+
+async function deleteTagFromSupabase(tagName) {
+  try {
+    const supabaseClient = window.supabase?.createClient
+      ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.key)
+      : null;
+    if (!supabaseClient) return;
+    const { error } = await supabaseClient.from('tags').delete().eq('name', tagName);
+    if (error) console.warn('Failed to delete tag from Supabase:', error);
+  } catch (err) {
+    console.warn('Error deleting tag from Supabase:', err);
+  }
+}
+
+function deleteTagGlobally(tagName) {
+  const tagLower = tagName.toLowerCase();
+  const idx = allTags.findIndex(t => t.toLowerCase() === tagLower);
+  if (idx !== -1) allTags.splice(idx, 1);
+
+  const removeFromDoc = (doc) => {
+    doc.nodes.forEach((node) => {
+      if (node.tags) node.tags = node.tags.filter(t => t.toLowerCase() !== tagLower);
+    });
+  };
+  state.store.games.forEach((game) => removeFromDoc(game));
+  removeFromDoc(state.doc);
+
+  deleteTagFromSupabase(tagName).catch(err => console.warn('Failed to delete tag from Supabase:', err));
+
+  renderTagPicker(getGameNode());
+  scheduleRecoverySync();
 }
 
 const EMPTY_DOC = {
@@ -619,6 +658,8 @@ const priceField = document.getElementById('priceField');
 const primaryColorField = document.getElementById('primaryColorField');
 const secondaryColorField = document.getElementById('secondaryColorField');
 const tagsField = document.getElementById('tagsField');
+const teamsField = document.getElementById('teamsField');
+const teamInputs = [1,2,3,4,5,6,7,8].map(i => document.getElementById('teamInput' + i));
 const descriptionField = document.getElementById('descriptionField');
 const objectDescriptionField = document.getElementById('objectDescriptionField');
 const ifThenField = document.getElementById('ifThenField');
@@ -1820,7 +1861,7 @@ function updatePhoneChrome() {
   if (phoneStartBtn) {
     phoneStartBtn.style.background = primaryColor || '';
   }
-  const tertiaryColor = getGameNode()?.tertiaryColor || '';
+  const tertiaryColor = getGameNode()?.tertiaryColor || getEffectiveTertiary(primaryColor, secondaryColor);
   if (phone) {
     phone.style.setProperty('--game-primary', primaryColor || '');
     phone.style.setProperty('--game-secondary', secondaryColor || '');
@@ -2436,6 +2477,9 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
       : typeof (raw && raw.tag) === 'string'
         ? raw.tag.split(/[;,]+/).map((tag) => tag.trim()).filter(Boolean)
         : [],
+    teams: Array.isArray(raw && raw.teams)
+      ? raw.teams.map((t) => typeof t === 'string' ? t : '')
+      : [],
     body: type === 'reply' && !normalizeVariableName(raw && raw.varName) && isVariableOnlyBody(rawBody)
       ? ''
       : rawBody,
@@ -2572,6 +2616,7 @@ function getDocSnapshot(doc = state.doc) {
       price: node.price || '',
       builderNotes: node.builderNotes || '',
       tags: (node.tags || []).filter(Boolean),
+      teams: Array.isArray(node.teams) ? node.teams : [],
       body: node.body || '',
       buttonUrl: node.buttonUrl || '',
       tertiaryColor: node.tertiaryColor || '',
@@ -2883,13 +2928,29 @@ function getTertiaryGameColor(rawValue, fallback = '#5468a7') {
   const [r, g, b] = [0, 2, 4].map((offset) => Number.parseInt(safeHex.slice(offset, offset + 2), 16) || 0);
   const distanceToBlack = (r * r) + (g * g) + (b * b);
   const distanceToWhite = ((255 - r) * (255 - r)) + ((255 - g) * (255 - g)) + ((255 - b) * (255 - b));
-  return distanceToBlack >= distanceToWhite ? '#000000' : '#ffffff';
+  return distanceToBlack >= distanceToWhite ? 'BLACK' : 'WHITE';
+}
+
+function isBlackOrWhite(colorValue) {
+  const v = (colorValue || '').trim().toLowerCase();
+  if (v === 'black' || v === '#000' || v === '#000000') return 'black';
+  if (v === 'white' || v === '#fff' || v === '#ffffff') return 'white';
+  return null;
+}
+
+function getEffectiveTertiary(primaryColor, secondaryColor) {
+  const primaryBW = isBlackOrWhite(primaryColor);
+  if (primaryBW) return primaryBW === 'black' ? 'WHITE' : 'BLACK';
+  const secondaryBW = isBlackOrWhite(secondaryColor);
+  if (secondaryBW) return secondaryBW === 'black' ? 'WHITE' : 'BLACK';
+  return getTertiaryGameColor(primaryColor);
 }
 
 function applyGameshelfButtonColors(button, colors = null) {
   if (!button) return;
   const primaryColor = colors && colors.primaryColor ? colors.primaryColor : '#5468a7';
-  const tertiaryColor = getTertiaryGameColor(primaryColor, '#5468a7');
+  const secondaryColor = colors && colors.secondaryColor ? colors.secondaryColor : '#243256';
+  const tertiaryColor = getEffectiveTertiary(primaryColor, secondaryColor);
   button.style.setProperty('--gameshelf-glow', 'rgba(224, 224, 224, 0.65)');
   button.style.setProperty('--gameshelf-title-color', primaryColor);
   button.style.setProperty('--gameshelf-title-outline', tertiaryColor);
@@ -3352,11 +3413,15 @@ function createNode(type, x, y) {
 
 function syncAllTagsFromStore() {
   allTags = [...ALL_TAGS];
+  const lowerSet = new Set(allTags.map(t => t.toLowerCase()));
 
   const collectTags = (doc) => {
     doc.nodes.forEach((node) => {
       (node.tags || []).forEach((tag) => {
-        if (tag && !allTags.includes(tag)) allTags.push(tag);
+        if (tag && !lowerSet.has(tag.toLowerCase())) {
+          lowerSet.add(tag.toLowerCase());
+          allTags.push(tag);
+        }
       });
     });
   };
@@ -3973,28 +4038,48 @@ function clearEditorLaunchIntent() {
 }
 
 function renderTagPicker(node) {
-  const existingPills = [...nodeTagPicker.querySelectorAll('.tag-pill')];
-  existingPills.forEach((pill) => pill.remove());
+  const existingWraps = [...nodeTagPicker.querySelectorAll('.tag-pill-wrap')];
+  existingWraps.forEach((wrap) => wrap.remove());
 
   const isGameNode = !!node && node.type === 'game';
-  const selectedTags = new Set(isGameNode ? (node.tags || []) : []);
+  const selectedLower = new Set(isGameNode ? (node.tags || []).map(t => t.toLowerCase()) : []);
 
   allTags.forEach((tag) => {
+    const tagLower = tag.toLowerCase();
+    const wrap = document.createElement('span');
+    wrap.className = 'tag-pill-wrap';
+
     const pill = document.createElement('button');
     pill.type = 'button';
-    pill.className = 'tag-pill' + (selectedTags.has(tag) ? ' on' : '');
+    pill.className = 'tag-pill' + (selectedLower.has(tagLower) ? ' on' : '');
     pill.textContent = tag;
     pill.disabled = !isGameNode;
     pill.addEventListener('click', () => {
       if (!isGameNode) return;
-      const nextTags = new Set(node.tags || []);
-      if (nextTags.has(tag)) nextTags.delete(tag);
-      else nextTags.add(tag);
-      node.tags = [...nextTags];
+      const nextLower = new Set((node.tags || []).map(t => t.toLowerCase()));
+      if (nextLower.has(tagLower)) {
+        node.tags = (node.tags || []).filter(t => t.toLowerCase() !== tagLower);
+      } else {
+        node.tags = [...(node.tags || []), tag];
+      }
       renderTagPicker(node);
       scheduleRecoverySync();
     });
-    nodeTagPicker.insertBefore(pill, nodeTagNewInput);
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'tag-delete-btn';
+    delBtn.textContent = '×';
+    delBtn.setAttribute('aria-label', 'Delete tag ' + tag);
+    delBtn.disabled = !isGameNode;
+    delBtn.addEventListener('click', () => {
+      if (!isGameNode) return;
+      deleteTagGlobally(tag);
+    });
+
+    wrap.appendChild(pill);
+    wrap.appendChild(delBtn);
+    nodeTagPicker.insertBefore(wrap, nodeTagNewInput);
   });
 }
 
@@ -5024,6 +5109,7 @@ function updateSelectionUi(options = {}) {
   secondaryColorField.hidden = !showGameDetails;
   if (tertiaryColorField) tertiaryColorField.hidden = !showGameDetails;
   tagsField.hidden = !showGameDetails;
+  if (teamsField) teamsField.hidden = !showGameDetails;
   if (nodeTitleLabelText) nodeTitleLabelText.textContent = 'GAME NAME';
   nodeBodyLabel.textContent = 'DESCRIPTION';
   if (nodeBodyInfo) nodeBodyInfo.hidden = true;
@@ -5047,6 +5133,7 @@ function updateSelectionUi(options = {}) {
   if (tertiaryColorPickerInput) tertiaryColorPickerInput.disabled = !isGameNode;
   nodeTagNewInput.disabled = !isGameNode;
   nodeTagAddBtn.disabled = !isGameNode;
+  teamInputs.forEach(inp => { if (inp) inp.disabled = !isGameNode; });
   nodeBodyInput.disabled = !isGameNode;
 
   const currentGameArchived = isCurrentGameArchived();
@@ -5138,7 +5225,11 @@ function updateSelectionUi(options = {}) {
   secondaryColorInput.value = showGameDetails ? currentColors.secondaryColor : '';
   secondaryColorInput.classList.remove('is-invalid');
   secondaryColorPickerInput.value = colorValueToHex(currentColors.secondaryColor, '#243256');
-  const tertiaryColorValue = (showGameDetails && gameNode) ? (gameNode.tertiaryColor || '') : '';
+  let tertiaryColorValue = (showGameDetails && gameNode) ? (gameNode.tertiaryColor || '') : '';
+  if (!tertiaryColorValue && isGameNode && gameNode) {
+    tertiaryColorValue = getEffectiveTertiary(currentColors.primaryColor || '#5468a7', currentColors.secondaryColor || '#243256');
+    gameNode.tertiaryColor = tertiaryColorValue;
+  }
   if (tertiaryColorInput) {
     tertiaryColorInput.value = tertiaryColorValue;
     tertiaryColorInput.classList.remove('is-invalid');
@@ -5148,6 +5239,9 @@ function updateSelectionUi(options = {}) {
   }
   nodeTagNewInput.value = '';
   renderTagPicker(gameNode);
+  teamInputs.forEach((inp, i) => {
+    if (inp) inp.value = (isGameNode && gameNode && gameNode.teams) ? (gameNode.teams[i] || '') : '';
+  });
   nodeBodyInput.value = gameNode ? (gameNode.body || '') : '';
   nodeBodyInput.placeholder = '';
   selectionId.textContent = gameNode
@@ -5947,6 +6041,7 @@ function serializeNodeState(node) {
     price: node.price || '',
     builderNotes: node.builderNotes || '',
     tags: (node.tags || []).filter(Boolean),
+    teams: Array.isArray(node.teams) ? node.teams : [],
     body: node.body,
     buttonUrl: node.buttonUrl || '',
     tertiaryColor: node.tertiaryColor || '',
@@ -6346,9 +6441,9 @@ async function playCurrentGame() {
       || state.store.games.find((game) => game && game.id === selectedGamePickerId)
       || null;
     rememberPlayPreview(previewGame);
-    const target = new URL('../play/index.html', location.href);
+    const target = new URL('../game/play/index.html', location.href);
     target.searchParams.set('id', selectedGamePickerId);
-    location.href = target.toString();
+    window.open(target.toString(), '_blank');
     return;
   }
   const requiresProtectiveSave = canSaveCurrentGame();
@@ -6360,9 +6455,9 @@ async function playCurrentGame() {
   const gameId = savedGame && savedGame.id ? savedGame.id : state.currentGameId;
   if (!gameId) return;
   rememberPlayPreview(savedGame);
-  const target = new URL('../play/index.html', location.href);
+  const target = new URL('../game/play/index.html', location.href);
   target.searchParams.set('id', gameId);
-  location.href = target.toString();
+  window.open(target.toString(), '_blank');
 }
 
 async function loadDoc() {
@@ -6766,6 +6861,18 @@ nodePriceInput.addEventListener('input', () => {
   updateSelectionUi();
 });
 
+teamInputs.forEach((inp, i) => {
+  if (!inp) return;
+  inp.addEventListener('input', () => {
+    const node = getGameNode();
+    if (!node || node.type !== 'game') return;
+    if (!node.teams) node.teams = [];
+    node.teams[i] = inp.value;
+    scheduleRecoverySync();
+    updateActionUi();
+  });
+});
+
 function syncGameColorInputs() {
   const colors = getCurrentGameColors();
   if (primaryColorInput) {
@@ -6863,14 +6970,17 @@ function addNewTag() {
   if (!node || node.type !== 'game') return;
   const value = nodeTagNewInput.value.trim();
   if (!value) return;
-  if (!allTags.includes(value)) {
-    allTags.push(value);
+  const valueLower = value.toLowerCase();
+  const existing = allTags.find(t => t.toLowerCase() === valueLower);
+  const canonical = existing || value;
+  if (!existing) {
+    allTags.push(canonical);
     // Try to save new tag to Supabase
-    saveNewTagToSupabase(value).catch(err => console.warn('Failed to save tag to Supabase:', err));
+    saveNewTagToSupabase(canonical).catch(err => console.warn('Failed to save tag to Supabase:', err));
   }
-  const nextTags = new Set(node.tags || []);
-  nextTags.add(value);
-  node.tags = [...nextTags];
+  if (!(node.tags || []).some(t => t.toLowerCase() === valueLower)) {
+    node.tags = [...(node.tags || []), canonical];
+  }
   nodeTagNewInput.value = '';
   renderTagPicker(node);
   syncPhoneStartButton();
@@ -7443,6 +7553,14 @@ window.addEventListener('beforeunload', (event) => {
   event.preventDefault();
   event.returnValue = '';
 });
+
+if (inspector) {
+  inspector.addEventListener('input', (e) => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+      updateActionUi();
+    }
+  });
+}
 
 window.addEventListener('pagehide', () => {
   if (!canSaveCurrentGame()) return;

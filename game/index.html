@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="index.css">
+  <link rel="stylesheet" href="landing.css">
 </head>
 <body>
 
@@ -88,22 +88,8 @@
 
   <div id="error"></div>
 
-  <!-- Game shell — revealed after GO is tapped -->
-  <div id="game-shell" style="display:none; width:100%; flex:1 1 auto; min-height:0; flex-direction:column;">
-    <div class="icon-preload" aria-hidden="true"></div>
-    <div class="contact-header">
-      <div class="avatar"><img id="header-logo" src="assets/logo.png" alt=""></div>
-      <div class="contact-name" id="header-title"></div>
-      <div class="contact-name" id="header-subtitle"></div>
-      <div class="contact-status"><div class="online-dot"></div><span id="header-status">online</span></div>
-      <button class="restart-btn" id="restartBtn" type="button">↺ RESTART</button>
-    </div>
-    <div class="chat" id="chat"></div>
-    <div class="input-area" id="input-area"></div>
-  </div>
-
-  <script src="data/supabase-config.js"></script>
-  <script src="util/games_new_runtime.js?v=1774522000"></script>
+  <script src="config/supabase.js"></script>
+  <script src="lib/runtime.js?v=1774522000"></script>
   <script>
     const params = new URLSearchParams(location.search);
     const requestedGame = (params.get('game') || params.get('id') || '').trim();
@@ -173,6 +159,7 @@
       const el = document.getElementById('error');
       el.textContent = msg;
       el.style.display = '';
+      document.getElementById('landing').style.display = 'block';
     }
 
     function escapeHtml(value) {
@@ -189,18 +176,7 @@
     }
 
     function launchGame() {
-      document.getElementById('landing').style.display    = 'none';
-      document.getElementById('game-shell').style.display = 'flex';
-      document.body.classList.add('game-active');
-      history.replaceState(null, '', '?game=' + encodeURIComponent(resolvedGameQuery));
-      ['../index.css', 'game.css?v=1774511700'].forEach(href => {
-        const l = document.createElement('link');
-        l.rel = 'stylesheet'; l.href = href;
-        document.head.appendChild(l);
-      });
-      const s = document.createElement('script');
-      s.src = 'util/engine.js?v=1774522000';
-      document.body.appendChild(s);
+      window.location.href = 'play/index.html?id=' + encodeURIComponent(resolvedGameQuery);
     }
 
     function mostRecentOldGame(games) {
@@ -386,7 +362,7 @@
         }
 
         // 3. Fall back to local games_archive.json
-        const response = await fetch('data/games_archive.json', { cache: 'no-store' });
+        const response = await fetch('config/games_archive.json', { cache: 'no-store' });
         const data = await response.json();
         const games = Array.isArray(data) ? data : (data.games || []);
         const matcher = window.TGBGamesNewRuntime ? window.TGBGamesNewRuntime.slugify : (value) => String(value || '').toLowerCase();

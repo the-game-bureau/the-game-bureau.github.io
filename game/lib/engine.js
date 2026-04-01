@@ -1,6 +1,6 @@
 /*
   File: engine.js
-  Purpose: Main game runtime. Loads stops.json, renders chat UI, validates answers, saves progress, and advances game state.
+  Purpose: Main game runtime. Loads game data from Supabase via runtime.js, renders chat UI, validates answers, saves progress, and advances game state.
 */
 
 const TEAM_LETTER_MAP = { a: 'beignet', b: 'lagniappe', c: 'rougarou', d: 'tch' };
@@ -8,7 +8,7 @@ const TEAM_KEY_MAP = { beignet: 'beignet', lagniappe: 'lagniappe', tchoupitoulas
 const REVEAL_ALL = new URLSearchParams(location.search).has('reveal');
 const START_STOP = new URLSearchParams(location.search).get('start');
 const PREVIEW_MODE = new URLSearchParams(location.search).has('preview');
-const GAME_PARAM = (new URLSearchParams(location.search).get('game') || '').trim();
+const GAME_PARAM = (new URLSearchParams(location.search).get('game') || new URLSearchParams(location.search).get('id') || '').trim();
 
 function slugify(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -692,92 +692,7 @@ async function loadStops() {
       }
     } catch (e) {}
   }
-  let gameMatch = null;
-  if (!payload) {
-    let stopsPath = 'data/stops.json';
-    if (GAME_PARAM) {
-      try {
-        const gamesResp = await fetch('data/games_archive.json', { cache: 'no-store' });
-        if (gamesResp.ok) {
-          const gamesData = await gamesResp.json();
-          const list = Array.isArray(gamesData) ? gamesData : (gamesData.games || []);
-          const match = list.find(function(g) {
-            return slugify(g.name) === slugify(GAME_PARAM) || slugify(g.id) === slugify(GAME_PARAM);
-          });
-          if (match) {
-            gameMatch = match;
-            if (match.stopsPath) stopsPath = match.stopsPath;
-            else stopsPath = match.id + '/stops.json';
-          }
-        }
-      } catch (e) {}
-    }
-    const resp = await fetch(stopsPath, { cache: 'no-store' });
-    if (!resp.ok) throw new Error('Unable to load ' + stopsPath);
-    payload = await resp.json();
-  }
-  const list = Array.isArray(payload) ? payload : payload && Array.isArray(payload.stops) ? payload.stops : [];
-  const header = payload && typeof payload === 'object' && payload.header && typeof payload.header === 'object'
-    ? payload.header
-    : {};
-  // Overlay game-specific metadata from games_archive.json onto the stops header
-  if (gameMatch) {
-    if (gameMatch.name) {
-      header.title = gameMatch.name;
-      header.pageTitle = gameMatch.name;
-    }
-    if (gameMatch.subtitle) header.subtitle = gameMatch.subtitle;
-    if (gameMatch.logo)     header.logoUrl  = gameMatch.logo;
-    if (gameMatch.favicon)  header.faviconUrl = gameMatch.favicon;
-  }
-  // Build the ordered stop list for this game.
-  // game.stops is the authoritative play order (anytime stops first, then linear stops).
-  // Filter+reorder so the engine only sees this game's stops in the correct sequence.
-  var orderedList = list;
-  var startIndex = 0;
-  allStopsById = {};
-  list.forEach(function(s) {
-    const rawId = String((s && s.id) || '').trim();
-    if (!rawId) return;
-    allStopsById[rawId] = s;
-    allStopsById[rawId.toLowerCase()] = s;
-  });
-  if (gameMatch && Array.isArray(gameMatch.stops) && gameMatch.stops.length) {
-    var routeEntries = gameMatch.stops.map(normalizeGameRouteEntry).filter(Boolean);
-    orderedList = [];
-    routeEntries.forEach(function(entry) {
-      var rawStop = allStopsById[entry.stopId] || allStopsById[String(entry.stopId).toLowerCase()];
-      if (!rawStop) return;
-      var stop = normalizeStop(rawStop, orderedList.length);
-      stop.routeIfThen = normalizeRouteBranch(entry.ifThen);
-      stop.routeBranchKey = entry.stopId;
-      orderedList.push(stop);
-
-      var branchKey = getRouteBranchStorageKey(stop);
-      var savedBranchStopId = branchKey ? String(state.vars[branchKey] || '').trim() : '';
-      if (!savedBranchStopId) return;
-      var injectedRaw = allStopsById[savedBranchStopId] || allStopsById[savedBranchStopId.toLowerCase()];
-      if (!injectedRaw) return;
-      var injected = normalizeStop(injectedRaw, orderedList.length);
-      injected.routeInjected = true;
-      injected.routeInjectedFrom = branchKey;
-      injected.routeInjectedTargetId = savedBranchStopId;
-      orderedList.push(injected);
-    });
-    // First non-anytime stop is the entry point (anytime stops are sorted first by builder)
-    for (var si = 0; si < orderedList.length; si++) {
-      var pr = orderedList[si].playerReply;
-      if (!(pr && pr.anytime)) { startIndex = si; break; }
-    }
-  }
-  return {
-    stops: Array.isArray(orderedList) ? orderedList.map(function(stop, index) {
-      return stop && stop.messages && stop.playerReply ? stop : normalizeStop(stop, index);
-    }) : [],
-    header,
-    startIndex: startIndex,
-    routes: Array.isArray(payload && payload.routes) ? payload.routes : []
-  };
+  throw new Error('Game not found. Check the ?game= parameter and Supabase configuration.');
 }
 
 function applyHeaderConfig(config) {
@@ -786,8 +701,8 @@ function applyHeaderConfig(config) {
   if (headerSubtitleEl) headerSubtitleEl.textContent = header.subtitle;
   if (headerStatusEl) headerStatusEl.textContent = header.status || 'online';
   if (headerLogoEl) {
-    headerLogoEl.src = header.logoUrl || DEFAULT_HEADER.logoUrl;
-    headerLogoEl.alt = header.logoAlt || header.title;
+    headerLogoEl.src = header.guideImageUrl || header.logoUrl || DEFAULT_HEADER.logoUrl;
+    headerLogoEl.alt = header.subtitle || header.logoAlt || header.title;
   }
   document.title = header.pageTitle || header.title || DEFAULT_HEADER.pageTitle;
   const opts = header.builderOptions || {};
@@ -860,7 +775,10 @@ function renderInput(disabled) {
   const sendBtn = document.createElement('button');
   sendBtn.className = 'submit-btn';
   sendBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
-  sendBtn.disabled = !!disabled;
+  sendBtn.disabled = true;
+  input.addEventListener('input', () => {
+    sendBtn.disabled = disabled || !input.value.trim();
+  });
 
   // Shared anytime check — returns true if an anytime stop matched and was triggered.
   // State.step is NOT changed; the player stays at their current stop after the reply.
@@ -1224,7 +1142,7 @@ function doAdvance(matchedAnswer, options) {
 }
 
 function showNoStops(message) {
-  addMsg({ html: message || 'No tour stops found in stops.json.' }, false);
+  addMsg({ html: message || 'No stops configured for this game.' }, false);
   hideInputArea();
   scrollBottom(false);
 }
@@ -1315,12 +1233,12 @@ async function initGame() {
       state.step = loaded.startIndex;
     }
   } catch (err) {
-    showNoStops('Failed to load stops.json. Run a local server and verify the file exists.');
+    showNoStops('Failed to load game. Check the ?game= parameter and Supabase configuration.');
     return;
   }
 
   if (!stops.length) {
-    showNoStops('No tour stops yet. Build stops in builder_archive.html and save to stops.json.');
+    showNoStops('No stops configured for this game.');
     return;
   }
 

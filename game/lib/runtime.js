@@ -1,8 +1,5 @@
 (function (global) {
-  const API = /^(http|https):$/.test(location.protocol) ? location.origin : null;
-  const LOCAL_NODE_API = 'http://localhost:3000';
   const PREVIEW_KEY = 'tgb-play-current-game';
-  const LOCAL_STORE_KEY = 'tgb-games-new';
 
   function slugify(value) {
     return String(value || '')
@@ -13,18 +10,6 @@
 
   function safeString(value) {
     return typeof value === 'string' ? value : '';
-  }
-
-  function isLocalHostname(hostname) {
-    const name = typeof hostname === 'string' ? hostname : location.hostname;
-    return name === 'localhost' || name === '127.0.0.1' || name === '::1' || name === '[::1]';
-  }
-
-  function getApiBaseCandidates() {
-    const bases = [];
-    if (API) bases.push(API);
-    if (!bases.includes(LOCAL_NODE_API) && (!API || isLocalHostname())) bases.push(LOCAL_NODE_API);
-    return bases;
   }
 
   function getDeclaredVariableKeys(value) {
@@ -148,33 +133,6 @@
       || target === slugify(root && root.title);
   }
 
-  function getGraphGameTime(game) {
-    const created = game && game.createdAt ? new Date(game.createdAt).getTime() : 0;
-    const updated = game && game.updatedAt ? new Date(game.updatedAt).getTime() : 0;
-    return Math.max(
-      Number.isNaN(created) ? 0 : created,
-      Number.isNaN(updated) ? 0 : updated
-    );
-  }
-
-  function getMostRecentGraphGame(games) {
-    const list = Array.isArray(games) ? games : [];
-    if (!list.length) return null;
-    return list.reduce((best, candidate) => {
-      if (!best) return candidate;
-      const timeDiff = getGraphGameTime(candidate) - getGraphGameTime(best);
-      if (timeDiff !== 0) return timeDiff > 0 ? candidate : best;
-      return String(candidate.name || candidate.id).localeCompare(String(best.name || best.id), undefined, { sensitivity: 'base' }) < 0
-        ? candidate
-        : best;
-    }, null);
-  }
-
-  function getGraphGamesFromStore(raw) {
-    if (!raw || typeof raw !== 'object' || !Array.isArray(raw.games)) return [];
-    return raw.games.map(normalizeGraphGame);
-  }
-
   function getSupabaseCfg() {
     return (window.TGB_SUPABASE_CONFIG && window.TGB_SUPABASE_CONFIG.enabled)
       ? window.TGB_SUPABASE_CONFIG : null;
@@ -200,7 +158,7 @@
         if (Array.isArray(rows) && rows.length) return rows[0];
       }
     } catch (e) {}
-    // Try by name (case-insensitive)
+    // Try by exact name (case-insensitive)
     try {
       const byName = new URL('/rest/v1/' + encodeURIComponent(cfg.gamesTable), cfg.url + '/');
       byName.searchParams.set('select', 'id,name,primary_color,secondary_color,nodes,links');
@@ -215,34 +173,12 @@
     return null;
   }
 
-  async function fetchGraphGames() {
-    const urls = [
-      ...getApiBaseCandidates().map((apiBase) => apiBase + '/games-new'),
-      'data/games_new.json'
-    ].filter((url, index, list) => list.indexOf(url) === index);
-    for (const url of urls) {
-      try {
-        const response = await fetch(url, { cache: 'no-store' });
-        if (!response.ok) continue;
-        const raw = await response.json();
-        const games = getGraphGamesFromStore(raw);
-        if (games.length) return games;
-      } catch (error) {
-      }
-    }
-    return [];
-  }
-
   function readPreviewGame() {
     const raw = readStorageJson(sessionStorage, PREVIEW_KEY);
     if (!raw) return null;
     const game = raw && raw.game ? raw.game : raw;
     if (!game || typeof game !== 'object') return null;
     return normalizeGraphGame(game);
-  }
-
-  function readLocalGraphGames() {
-    return getGraphGamesFromStore(readStorageJson(localStorage, LOCAL_STORE_KEY));
   }
 
   async function loadGraphGame(query) {
@@ -252,22 +188,13 @@
       if (preview && matchesGraphGame(preview, requested)) return preview;
     }
 
-    // Try Supabase first when a query is given
+    // Try Supabase when a query is given
     if (requested) {
       const sbRow = await fetchGameFromSupabase(requested);
       if (sbRow) return normalizeGraphGame(sbRow);
     }
 
-    const fetchedGames = await fetchGraphGames();
-    const fetchedMatch = requested
-      ? fetchedGames.find((game) => matchesGraphGame(game, requested))
-      : getMostRecentGraphGame(fetchedGames);
-    if (fetchedMatch) return fetchedMatch;
-
-    const localGames = readLocalGraphGames();
-    return requested
-      ? (localGames.find((game) => matchesGraphGame(game, requested)) || null)
-      : getMostRecentGraphGame(localGames);
+    return null;
   }
 
   function getGameNode(game) {
@@ -785,7 +712,9 @@
         pageTitle: title,
         status: 'online',
         primaryColor: safeString(game && game.primaryColor).trim(),
-        tertiaryColor: gameNode ? safeString(gameNode.tertiaryColor).trim() : ''
+        tertiaryColor: gameNode ? safeString(gameNode.tertiaryColor).trim() : '',
+        logoUrl: gameNode ? safeString(gameNode.logoUrl).trim() : '',
+        guideImageUrl: gameNode ? safeString(gameNode.guideImageUrl).trim() : ''
       },
       startIndex: anytimeStops.length,
       routes: [],

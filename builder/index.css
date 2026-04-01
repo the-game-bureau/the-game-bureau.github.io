@@ -2916,15 +2916,28 @@ code{font-family:"IBM Plex Mono",monospace;}
 
 .tag-picker{display:flex;flex-wrap:wrap;gap:6px;padding-top:2px;min-width:0;}
 
+.tag-pill-wrap{display:inline-flex;align-items:stretch;}
+
 .tag-pill{
   font-size:.62rem;font-weight:700;
   letter-spacing:.05em;text-transform:uppercase;
-  padding:4px 9px;border:1px solid rgba(119,255,165,.22);
+  padding:4px 9px;border:1px solid rgba(119,255,165,.22);border-right:none;
   border-radius:0;background:rgba(0,0,0,.26);color:#94f8ad;
   cursor:pointer;user-select:none;
 }
 .tag-pill:hover{border-color:rgba(149,255,182,.48);color:#cbffd6;}
 .tag-pill.on{background:rgba(37,108,55,.38);color:#d3ffdc;border-color:rgba(149,255,182,.54);}
+
+.tag-delete-btn{
+  font-size:.72rem;font-weight:700;line-height:1;
+  padding:4px 6px;border:1px solid rgba(119,255,165,.22);
+  border-radius:0;background:rgba(0,0,0,.26);color:rgba(148,248,173,.5);
+  cursor:pointer;
+}
+.tag-delete-btn:hover{background:rgba(180,30,30,.4);border-color:rgba(255,120,120,.5);color:#ffb3b3;}
+.tag-delete-btn:disabled{opacity:.42;cursor:not-allowed;}
+
+.team-names-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;}
 
 #nodeTagNewInput{
   min-width:0;
@@ -3437,24 +3450,12 @@ code{font-family:"IBM Plex Mono",monospace;}
 .phone-threadaction{
   align-self:center;
   justify-self:end;
-  position:relative;
-  width:22px;
-  height:16px;
-  border:2px solid var(--game-primary, #0a84ff);
-  border-radius:5px;
-  pointer-events:none;
-}
-
-.phone-threadaction::after{
-  content:"";
-  position:absolute;
-  top:3px;
-  right:-6px;
-  width:6px;
-  height:8px;
-  border:2px solid var(--game-primary, #0a84ff);
-  border-left:none;
-  border-radius:0 4px 4px 0;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:0.03em;
+  color:var(--game-primary, #0a84ff);
+  text-decoration:none;
+  line-height:1;
 }
 
 .phone-composebar{
@@ -4617,6 +4618,7 @@ code{font-family:"IBM Plex Mono",monospace;}
 .mode-toggle-btn,
 .var-correct-label,
 .tag-pill,
+.tag-delete-btn,
 #nodeTagNewInput,
 .tag-add-btn,
 .insp-btn,
@@ -4648,6 +4650,7 @@ code{font-family:"IBM Plex Mono",monospace;}
 .mode-toggle-btn,
 .var-correct-label,
 .tag-pill,
+.tag-delete-btn,
 #nodeTagNewInput,
 .tag-add-btn,
 .insp-btn{
@@ -4669,10 +4672,17 @@ code{font-family:"IBM Plex Mono",monospace;}
 .mode-toggle-option:hover .mode-toggle-btn,
 .var-correct-label:hover,
 .tag-pill:hover,
+.tag-delete-btn:hover,
 .insp-btn:hover,
 .tag-add-btn:hover{
   border-color:rgba(var(--bic-blue-rgb), .32);
   background:rgba(240,247,255,.96);
+}
+
+.tag-delete-btn:hover{
+  background:rgba(255,236,234,.96);
+  border-color:rgba(180,77,63,.28);
+  color:#b44d3f;
 }
 
 .insp-btn--danger{
@@ -4806,6 +4816,7 @@ code{font-family:"IBM Plex Mono",monospace;}
 .insp-btn,
 .tag-add-btn,
 .tag-pill,
+.tag-delete-btn,
 .var-correct-label{
   transition:transform .12s ease, background .12s ease, border-color .12s ease, color .12s ease, box-shadow .12s ease;
 }
@@ -4814,12 +4825,14 @@ code{font-family:"IBM Plex Mono",monospace;}
 .insp-btn:hover,
 .tag-add-btn:hover,
 .tag-pill:hover,
+.tag-delete-btn:hover,
 .var-correct-label:hover{
   transform:translateY(-1px);
 }
 
 .insp-btn:disabled,
 .tag-add-btn:disabled,
+.tag-delete-btn:disabled,
 #nodeTagNewInput:disabled,
 .var-correct-radio:disabled + .var-correct-label{
   box-shadow:none;
@@ -5869,6 +5882,7 @@ body.builder-page--editor .field-autocomplete-item,
 body.builder-page--editor .field-info,
 body.builder-page--editor .field-tooltip,
 body.builder-page--editor .tag-pill,
+body.builder-page--editor .tag-delete-btn,
 body.builder-page--editor #nodeTagNewInput,
 body.builder-page--editor .tag-add-btn,
 body.builder-page--editor .stat-label,
@@ -6032,7 +6046,7 @@ body.builder-page--editor .pane-subtitle{
 }
 
 body.builder-page--editor .inspector-stack{
-  max-width:min(100%, 1040px);
+  max-width:100%;
   padding:8px 10px 10px;
 }
 
@@ -6056,11 +6070,6 @@ body.builder-page--editor #objectInspectorContent{
   display:flex;
   flex-direction:column;
   gap:6px;
-}
-
-body.builder-page--editor #inspectorContent.is-game-details{
-  grid-template-columns:repeat(2, minmax(0, 1fr));
-  grid-auto-flow:dense;
 }
 
 body.builder-page--editor #inspectorContent > *{
@@ -6135,6 +6144,22 @@ body.builder-page--editor .tag-picker{
   padding-top:0;
 }
 
+body.builder-page--editor .tag-pill-wrap{
+  display:inline-flex;
+  align-items:stretch;
+}
+
+body.builder-page--editor .tag-pill{
+  border-right:none;
+  border-radius:14px 0 0 14px;
+}
+
+body.builder-page--editor .tag-delete-btn{
+  border-radius:0 14px 14px 0;
+  font-size:.68rem;
+  padding:3px 7px;
+}
+
 body.builder-page--editor #nodeTagNewInput{
   flex:1 1 132px;
   min-width:120px;
@@ -6184,12 +6209,29 @@ body.builder-page--editor .details-section-grid > .mini-note{
 body.builder-page--editor .details-section-grid--identity #titleField,
 body.builder-page--editor .details-section-grid--identity #stopNameField,
 body.builder-page--editor .details-section-grid--identity #varNameField,
+body.builder-page--editor .details-section-grid--identity #gameLogoField,
 body.builder-page--editor .details-section-grid--identity #descriptionField,
+body.builder-page--editor .details-section-grid--guide #guideNameField,
 body.builder-page--editor .details-section-grid--guide #guideImageField,
+body.builder-page--editor .details-section-grid--guide #guideBioField,
 body.builder-page--editor .details-section-grid--logic #ifThenField,
 body.builder-page--editor .details-section-grid--logic #varValuesField,
-body.builder-page--editor .details-section-grid--tags #tagsField{
+body.builder-page--editor .details-section-grid--tags #tagsField,
+body.builder-page--editor .details-section-grid--teams #teamsField{
   grid-column:1 / -1;
+}
+
+body.builder-page--editor .details-section-grid--teams{
+  grid-template-columns:1fr;
+}
+
+body.builder-page--editor .team-names-grid{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+
+body.builder-page--editor .team-names-grid input{
+  width:100%;
+  min-width:0;
 }
 
 body.builder-page--editor .details-section-grid--game-details{
@@ -6213,41 +6255,98 @@ body.builder-page--editor .details-section-grid--content{
   grid-template-columns:repeat(2, minmax(0, 1fr));
 }
 
-body.builder-page--editor #inspectorContent.is-game-details {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: start;
+body.builder-page--editor .inspector-stack{
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
 }
 
-/* ── Column 1: game stuff ── */
-body.builder-page--editor #inspectorContent.is-game-details #detailsIdentitySection{
-  grid-column: 1;
-  grid-row: 1;
+body.builder-page--editor .inspector-card{
+  width:100%;
+  box-sizing:border-box;
 }
 
-body.builder-page--editor #inspectorContent.is-game-details #detailsGameDetailsSection{
-  grid-column: 1;
-  grid-row: 2;
+body.builder-page--editor #inspectorContent{
+  width:100%;
+  box-sizing:border-box;
 }
 
-body.builder-page--editor #inspectorContent.is-game-details #detailsColorsSection{
-  grid-column: 3;
-  grid-row: 2;
+body.builder-page--editor #inspectorContent.is-game-details{
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  align-items:stretch;
 }
 
-/* ── Column 2: guide stuff ── */
-body.builder-page--editor #inspectorContent.is-game-details #detailsGuideSection{
-  grid-column: 2;
-  grid-row: 1 / span 3;
+body.builder-page--editor .game-details-col{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:0;
+  width:100%;
+  box-sizing:border-box;
 }
 
-/* ── Column 3: tags ── */
-body.builder-page--editor #inspectorContent.is-game-details #detailsTagsSection{
-  grid-column: 3;
-  grid-row: 1 / span 3;
+body.builder-page--editor .game-details-col .details-section{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  width:100%;
+  box-sizing:border-box;
+}
+
+body.builder-page--editor .game-details-col .details-section-grid{
+  flex:1;
+  width:100%;
+}
+
+body.builder-page--editor .game-details-col .field{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  width:100%;
+  box-sizing:border-box;
+}
+
+body.builder-page--editor .game-details-col .field input[type="text"],
+body.builder-page--editor .game-details-col .field textarea{
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+}
+
+body.builder-page--editor .game-details-col .field textarea{
+  flex:1;
+  min-height:60px;
+}
+
+body.builder-page--editor .game-details-col .color-field-controls{
+  width:100%;
+}
+
+body.builder-page--editor .game-details-col .color-field-controls input[type="text"]{
+  flex:1;
+  min-width:0;
+}
+
+body.builder-page--editor .game-details-col .guide-image-input-row{
+  width:100%;
+}
+
+body.builder-page--editor .game-details-col .tag-picker{
+  width:100%;
+}
+
+body.builder-page--editor .game-details-col .team-names-grid{
+  width:100%;
+}
+
+body.builder-page--editor .game-details-col .team-names-grid input{
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
 }
 
 body.builder-page--editor #inspectorContent.is-game-details #detailsLogicSection{
-  grid-column: 1 / -1;
+  grid-column:1 / -1;
 }
 
 body.builder-page--editor #inspectorContent.is-game-details #detailsContentSection,
@@ -6282,8 +6381,12 @@ body.builder-page--editor #nodeTagNewInput{
   max-width:100%;
 }
 
-body.builder-page--editor #nodeGuideImageInput{
+body.builder-page--editor #nodeGuideImageInput,
+body.builder-page--editor #nodeGameLogoInput,
+body.builder-page--editor #nodeGuideBioInput{
+  width:100%;
   min-width:0;
+  box-sizing:border-box;
 }
 
 body.builder-page--editor #descriptionField{
@@ -6348,6 +6451,11 @@ body.builder-page--editor .guide-image-input-row{
   grid-template-columns:44px minmax(0, 1fr);
   gap:8px;
   align-items:stretch;
+}
+
+body.builder-page--editor .guide-image-input-row input[type="text"]{
+  width:100%;
+  min-width:0;
 }
 
 body.builder-page--editor .guide-image-thumb{

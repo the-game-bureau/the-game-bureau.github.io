@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0c0c0c">
+  <title>The Game Bureau</title>
+  <link id="favicon" rel="icon" href="../../index.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../index.css">
+  <link rel="stylesheet" href="game.css">
+</head>
+<body class="game-active">
+
+  <div class="icon-preload" aria-hidden="true"></div>
+  <div class="contact-header">
+    <div class="avatar"><img id="header-logo" alt=""></div>
+    <div class="contact-name" id="header-title"></div>
+    <div class="contact-name" id="header-subtitle"></div>
+    <div class="contact-status"><div class="online-dot"></div><span id="header-status">online</span></div>
+    <button class="restart-btn" id="restartBtn" type="button">↺ RESTART</button>
+  </div>
+  <div class="chat" id="chat"></div>
+  <div class="input-area" id="input-area"></div>
+
+  <script src="../config/supabase.js"></script>
+  <script>
+    (function () {
+      const cfg = window.TGB_SUPABASE_CONFIG && window.TGB_SUPABASE_CONFIG.enabled
+        ? window.TGB_SUPABASE_CONFIG : null;
+      if (!cfg) return;
+      const gameId = (new URLSearchParams(location.search).get('id') || new URLSearchParams(location.search).get('game') || '').trim();
+      if (!gameId) return;
+      const url = new URL('/rest/v1/' + encodeURIComponent(cfg.gamesTable), cfg.url + '/');
+      url.searchParams.set('select', 'id,name,primary_color,secondary_color,nodes');
+      url.searchParams.set('id', 'eq.' + gameId);
+      url.searchParams.set('limit', '1');
+      fetch(url.toString(), {
+        cache: 'no-store',
+        headers: { apikey: cfg.publishableKey, Authorization: 'Bearer ' + cfg.publishableKey, Accept: 'application/json' }
+      }).then(r => r.ok ? r.json() : null).then(rows => {
+        const row = Array.isArray(rows) && rows.length ? rows[0] : null;
+        if (!row) return;
+        const nodes = Array.isArray(row.nodes) ? row.nodes : [];
+        const gn = nodes.find(n => n && n.type === 'game') || null;
+        const guideImg = (gn && gn.guideImageUrl) || '';
+        const logoImg = (gn && gn.logoUrl) || '';
+        const headerLogo = document.getElementById('header-logo');
+        if (headerLogo && (guideImg || logoImg)) headerLogo.src = guideImg || logoImg;
+        if (gn && gn.title) document.title = gn.title;
+        if (row.primary_color) document.documentElement.style.setProperty('--game-primary', row.primary_color);
+        if (gn && gn.tertiaryColor) document.documentElement.style.setProperty('--game-tertiary', gn.tertiaryColor);
+      }).catch(() => {});
+    })();
+  </script>
+  <script src="../lib/runtime.js?v=1774522000"></script>
+  <script src="../lib/engine.js?v=1774522000"></script>
+
+</body>
+</html>
