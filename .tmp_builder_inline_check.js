@@ -1,4 +1,4 @@
-﻿// TGB Builder writes Supabase-backed game data that is read later by the game engine.
+// TGB Builder writes Supabase-backed game data that is read later by the game engine.
 const TYPE_CONFIG = {
   game: {
     width: 184,
@@ -1142,7 +1142,7 @@ function guessVariableNameFromPrompt(value) {
   const prompt = String(value || '')
     .toLowerCase()
     .replace(/%\s*([A-Za-z_]\w*)\s*%/g, ' ')
-    .replace(/['â€™]/g, '')
+    .replace(/['’]/g, '')
     .replace(/[^a-z0-9\s]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -4084,7 +4084,7 @@ function renderTagPicker(node) {
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.className = 'tag-delete-btn';
-    delBtn.textContent = '×';
+    delBtn.textContent = '�';
     delBtn.setAttribute('aria-label', 'Delete tag ' + tag);
     delBtn.disabled = !isGameNode;
     delBtn.addEventListener('click', () => {
@@ -7516,7 +7516,7 @@ window.addEventListener('keydown', (event) => {
   }
 });
 
-// â”€â”€ Menubar dropdowns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Menubar dropdowns ──────────────────────────────────────────────────────
 (function () {
   const nav = document.getElementById('mbNav');
   if (!nav) return;
@@ -7591,7 +7591,3 @@ async function initializeBuilder() {
 }
 
 initializeBuilder();
-
-
-
-
