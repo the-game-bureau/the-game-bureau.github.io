@@ -1,3 +1,13 @@
+﻿
+window.TGB_SUPABASE_CONFIG = {
+  enabled: true,
+  url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+  publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
+  gamesTable: 'games'
+};
+
+  </script>
+  <script>
 // TGB Builder writes Supabase-backed game data that is read later by the game engine.
 const TYPE_CONFIG = {
   game: {
@@ -69,6 +79,11 @@ const SUPABASE_STORAGE_KIND = 'supabase';
 const ARCHIVED_GAME_VALUE = 'YES';
 const ERASED_GAME_VALUE = 'YES';
 const supabaseConfig = readSupabaseConfig();
+
+const BUILDER_AUTH_STORAGE_KEY = 'tgb-builder-auth-session';
+const BUILDER_AUTH_REFRESH_BUFFER_MS = 60000;
+const BUILDER_ALLOWED_EMAILS = [];
+let builderHasInitialized = false;
 
 // Load tags from Supabase on startup
 let allTags = [...ALL_TAGS];
@@ -303,6 +318,258 @@ function getSupabaseHeaders(extraHeaders = {}) {
     Authorization: 'Bearer ' + supabaseConfig.publishableKey,
     ...extraHeaders
   };
+}
+
+function buildSupabaseAuthUrl(pathName) {
+  return new URL('/auth/v1/' + String(pathName || '').replace(/^\/+/, ''), supabaseConfig.url + '/').toString();
+}
+
+function normalizeAuthEmail(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function isAllowedBuilderEmail(email) {
+  const normalizedEmail = normalizeAuthEmail(email);
+  if (!normalizedEmail) return false;
+  if (!BUILDER_ALLOWED_EMAILS.length) return true;
+  return BUILDER_ALLOWED_EMAILS.map(normalizeAuthEmail).includes(normalizedEmail);
+}
+
+function readBuilderAuthSession() {
+  try {
+    return JSON.parse(localStorage.getItem(BUILDER_AUTH_STORAGE_KEY) || 'null');
+  } catch (error) {
+    return null;
+  }
+}
+
+function persistBuilderAuthSession(session) {
+  try {
+    if (session) localStorage.setItem(BUILDER_AUTH_STORAGE_KEY, JSON.stringify(session));
+    else localStorage.removeItem(BUILDER_AUTH_STORAGE_KEY);
+  } catch (error) {
+  }
+}
+
+function clearBuilderAuthSession() {
+  persistBuilderAuthSession(null);
+}
+
+function getBuilderSessionExpiryTime(session) {
+  if (!session || typeof session.expires_at !== 'number') return 0;
+  return session.expires_at * 1000;
+}
+
+function setBuilderAuthStatus(message, state = '') {
+  if (!builderAuthStatus) return;
+  builderAuthStatus.textContent = message || '';
+  if (state) builderAuthStatus.dataset.state = state;
+  else builderAuthStatus.removeAttribute('data-state');
+}
+
+async function readSupabaseAuthError(response, fallbackMessage) {
+  const fallback = fallbackMessage || 'Request failed.';
+
+  try {
+    const text = await response.text();
+    if (!text) return fallback;
+
+    try {
+      const payload = JSON.parse(text);
+      return payload.msg || payload.message || payload.error_description || payload.error || fallback;
+    } catch (parseError) {
+      return text;
+    }
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function setBuilderAuthLocked(locked) {
+  document.body.classList.toggle('builder-auth-locked', !!locked);
+  document.body.classList.toggle('builder-auth-ready', !locked);
+  if (builderAuthScreen) builderAuthScreen.hidden = !locked;
+}
+
+async function fetchBuilderAuthUser(accessToken) {
+  const response = await fetch(buildSupabaseAuthUrl('user'), {
+    headers: {
+      apikey: supabaseConfig.publishableKey,
+      Authorization: 'Bearer ' + accessToken
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(await readSupabaseAuthError(response, 'Could not verify the current user.'));
+  }
+
+  return response.json();
+}
+
+async function refreshBuilderAuthSession(session) {
+  if (!session || !session.refresh_token) return null;
+
+  const response = await fetch(buildSupabaseAuthUrl('token?grant_type=refresh_token'), {
+    method: 'POST',
+    headers: {
+      apikey: supabaseConfig.publishableKey,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ refresh_token: session.refresh_token })
+  });
+
+  if (!response.ok) {
+    throw new Error(await readSupabaseAuthError(response, 'Session refresh failed.'));
+  }
+
+  const payload = await response.json();
+  const user = payload.user || await fetchBuilderAuthUser(payload.access_token);
+  return {
+    access_token: payload.access_token,
+    refresh_token: payload.refresh_token || session.refresh_token,
+    expires_at: payload.expires_at || Math.floor((Date.now() + ((payload.expires_in || 3600) * 1000)) / 1000),
+    user
+  };
+}
+
+async function signInToBuilder(email, password) {
+  const response = await fetch(buildSupabaseAuthUrl('token?grant_type=password'), {
+    method: 'POST',
+    headers: {
+      apikey: supabaseConfig.publishableKey,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ email, password })
+  });
+
+  if (!response.ok) {
+    throw new Error(await readSupabaseAuthError(response, 'Sign-in failed.'));
+  }
+
+  const payload = await response.json();
+  const user = payload.user || await fetchBuilderAuthUser(payload.access_token);
+  return {
+    access_token: payload.access_token,
+    refresh_token: payload.refresh_token,
+    expires_at: payload.expires_at || Math.floor((Date.now() + ((payload.expires_in || 3600) * 1000)) / 1000),
+    user
+  };
+}
+
+async function restoreBuilderAuthSession() {
+  const storedSession = readBuilderAuthSession();
+  if (!storedSession || !storedSession.access_token) return null;
+
+  try {
+    const expiresAt = getBuilderSessionExpiryTime(storedSession);
+    let session = storedSession;
+    if (!expiresAt || expiresAt <= (Date.now() + BUILDER_AUTH_REFRESH_BUFFER_MS)) {
+      session = await refreshBuilderAuthSession(storedSession);
+      persistBuilderAuthSession(session);
+    } else if (!session.user || !session.user.email) {
+      session.user = await fetchBuilderAuthUser(session.access_token);
+      persistBuilderAuthSession(session);
+    }
+
+    if (!isAllowedBuilderEmail(session.user && session.user.email)) {
+      clearBuilderAuthSession();
+      throw new Error('This account is not authorized for the builder.');
+    }
+
+    return session;
+  } catch (error) {
+    clearBuilderAuthSession();
+    throw error;
+  }
+}
+
+async function unlockBuilderForSession(session) {
+  persistBuilderAuthSession(session);
+  setBuilderAuthLocked(false);
+  if (builderAuthPasswordInput) builderAuthPasswordInput.value = '';
+  setBuilderAuthStatus(session && session.user && session.user.email ? 'Signed in as ' + session.user.email : '', 'success');
+  if (!builderHasInitialized) {
+    builderHasInitialized = true;
+    await initializeBuilder();
+  }
+}
+
+async function ensureBuilderAccess() {
+  if (!hasSupabaseStore()) {
+    setBuilderAuthLocked(true);
+    setBuilderAuthStatus('Builder auth is unavailable because Supabase is not configured.', 'error');
+    if (builderAuthSubmitBtn) builderAuthSubmitBtn.disabled = true;
+    return false;
+  }
+
+  try {
+    const session = await restoreBuilderAuthSession();
+    if (!session) {
+      setBuilderAuthLocked(true);
+      setBuilderAuthStatus('Sign in with an admin account to open the builder.');
+      return false;
+    }
+    await unlockBuilderForSession(session);
+    return true;
+  } catch (error) {
+    setBuilderAuthLocked(true);
+    setBuilderAuthStatus(error instanceof Error ? error.message : String(error), 'error');
+    return false;
+  }
+}
+
+async function handleBuilderAuthSubmit(event) {
+  event.preventDefault();
+  if (!builderAuthEmailInput || !builderAuthPasswordInput || !builderAuthSubmitBtn) return;
+
+  const email = builderAuthEmailInput.value.trim();
+  const password = builderAuthPasswordInput.value;
+  if (!email || !password) {
+    setBuilderAuthStatus('Enter both email and password.', 'error');
+    return;
+  }
+
+  builderAuthSubmitBtn.disabled = true;
+  setBuilderAuthStatus('Signing in...');
+
+  try {
+    const session = await signInToBuilder(email, password);
+    if (!isAllowedBuilderEmail(session.user && session.user.email)) {
+      throw new Error('This account is not authorized for the builder.');
+    }
+    await unlockBuilderForSession(session);
+  } catch (error) {
+    clearBuilderAuthSession();
+    setBuilderAuthLocked(true);
+    setBuilderAuthStatus(error instanceof Error ? error.message : String(error), 'error');
+  } finally {
+    builderAuthSubmitBtn.disabled = false;
+  }
+}
+
+async function handleBuilderSignOut() {
+  const session = readBuilderAuthSession();
+  clearBuilderAuthSession();
+  setBuilderAuthLocked(true);
+  setBuilderAuthStatus('Signed out. Sign in to reopen the builder.');
+  if (builderAuthEmailInput) builderAuthEmailInput.focus();
+
+  if (session && session.access_token) {
+    try {
+      await fetch(buildSupabaseAuthUrl('logout'), {
+        method: 'POST',
+        headers: {
+          apikey: supabaseConfig.publishableKey,
+          Authorization: 'Bearer ' + session.access_token
+        }
+      });
+    } catch (error) {
+    }
+  }
+}
+
+async function bootstrapBuilder() {
+  await ensureBuilderAccess();
 }
 
 function buildStoreFromGames(games = []) {
@@ -655,6 +922,13 @@ const mainGrid = document.getElementById('mainGrid');
 const stencilBar = document.getElementById('stencilBar');
 const addPanel = document.getElementById('addPanel');
 const gamePickerPlayBtn = document.getElementById('gamePickerPlayBtn');
+const builderAuthScreen = document.getElementById('builderAuthScreen');
+const builderAuthForm = document.getElementById('builderAuthForm');
+const builderAuthEmailInput = document.getElementById('builderAuthEmail');
+const builderAuthPasswordInput = document.getElementById('builderAuthPassword');
+const builderAuthSubmitBtn = document.getElementById('builderAuthSubmitBtn');
+const builderAuthStatus = document.getElementById('builderAuthStatus');
+const builderSignOutBtn = document.getElementById('builderSignOutBtn');
 const gamePickerSelect = document.getElementById('gamePickerSelect');
 const objectCard = document.getElementById('objectCard');
 const inspectorContent = document.getElementById('inspectorContent');
@@ -1142,7 +1416,7 @@ function guessVariableNameFromPrompt(value) {
   const prompt = String(value || '')
     .toLowerCase()
     .replace(/%\s*([A-Za-z_]\w*)\s*%/g, ' ')
-    .replace(/['’]/g, '')
+    .replace(/['â€™]/g, '')
     .replace(/[^a-z0-9\s]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -4084,7 +4358,7 @@ function renderTagPicker(node) {
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.className = 'tag-delete-btn';
-    delBtn.textContent = '�';
+    delBtn.textContent = '×';
     delBtn.setAttribute('aria-label', 'Delete tag ' + tag);
     delBtn.disabled = !isGameNode;
     delBtn.addEventListener('click', () => {
@@ -7111,6 +7385,12 @@ document.addEventListener('keydown', (event) => {
   }
 });
 if (gamePickerPlayBtn) gamePickerPlayBtn.addEventListener('click', playCurrentGame);
+if (builderAuthForm) {
+  builderAuthForm.addEventListener('submit', handleBuilderAuthSubmit);
+}
+if (builderSignOutBtn) {
+  builderSignOutBtn.addEventListener('click', handleBuilderSignOut);
+}
 if (gameDetailsToggleBtn) {
   gameDetailsToggleBtn.addEventListener('click', () => {
     setGameDetailsCollapsed(!state.gameDetailsCollapsed);
@@ -7516,7 +7796,7 @@ window.addEventListener('keydown', (event) => {
   }
 });
 
-// ── Menubar dropdowns ──────────────────────────────────────────────────────
+// â”€â”€ Menubar dropdowns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 (function () {
   const nav = document.getElementById('mbNav');
   if (!nav) return;
@@ -7590,4 +7870,10 @@ async function initializeBuilder() {
   await refreshHeaderGames();
 }
 
-initializeBuilder();
+bootstrapBuilder();
+
+
+
+
+
+  
