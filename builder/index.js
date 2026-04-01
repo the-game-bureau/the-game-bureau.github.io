@@ -2480,9 +2480,11 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     teams: Array.isArray(raw && raw.teams)
       ? raw.teams.map((t) => typeof t === 'string' ? t : '')
       : [],
-    body: type === 'reply' && !normalizeVariableName(raw && raw.varName) && isVariableOnlyBody(rawBody)
+    body: (type === 'reply' && !!(raw && raw.acceptAny))
       ? ''
-      : rawBody,
+      : (type === 'reply' && !normalizeVariableName(raw && raw.varName) && isVariableOnlyBody(rawBody))
+        ? ''
+        : rawBody,
     varName: replyVarName,
     acceptAny: type === 'reply' ? !!(raw && raw.acceptAny) : false,
     anytime,
@@ -6441,7 +6443,7 @@ async function playCurrentGame() {
       || state.store.games.find((game) => game && game.id === selectedGamePickerId)
       || null;
     rememberPlayPreview(previewGame);
-    const target = new URL('../game/play/index.html', location.href);
+    const target = new URL('../game/index.html', location.href);
     target.searchParams.set('id', selectedGamePickerId);
     window.open(target.toString(), '_blank');
     return;
@@ -6455,7 +6457,7 @@ async function playCurrentGame() {
   const gameId = savedGame && savedGame.id ? savedGame.id : state.currentGameId;
   if (!gameId) return;
   rememberPlayPreview(savedGame);
-  const target = new URL('../game/play/index.html', location.href);
+  const target = new URL('../game/index.html', location.href);
   target.searchParams.set('id', gameId);
   window.open(target.toString(), '_blank');
 }

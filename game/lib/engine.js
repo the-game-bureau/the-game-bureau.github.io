@@ -692,6 +692,65 @@ async function loadStops() {
       }
     } catch (e) {}
   }
+  // Fallback: load legacy game from local config files
+  if (!payload && GAME_PARAM) {
+    try {
+      const configBase = location.pathname.includes('/play/') ? '../config/' : 'config/';
+      const [archiveRes, stopsRes] = await Promise.all([
+        fetch(configBase + 'games_archive.json', { cache: 'no-store' }),
+        fetch(configBase + 'stops.json', { cache: 'no-store' })
+      ]);
+      if (archiveRes.ok && stopsRes.ok) {
+        const archiveData = await archiveRes.json();
+        const stopsData = await stopsRes.json();
+        const gameParamLower = GAME_PARAM.toLowerCase();
+        const gameEntry = (archiveData.games || []).find(function(g) {
+          return g && (String(g.id || '').toLowerCase() === gameParamLower ||
+                       String(g.name || '').toLowerCase() === gameParamLower);
+        });
+        if (gameEntry && Array.isArray(gameEntry.stops) && gameEntry.stops.length) {
+          const allStopsList = Array.isArray(stopsData.stops) ? stopsData.stops : [];
+          const stopsLookup = {};
+          allStopsList.forEach(function(s) { if (s && s.id) stopsLookup[s.id] = s; });
+          const selectedRaw = gameEntry.stops.map(function(id) { return stopsLookup[id]; }).filter(Boolean);
+          if (selectedRaw.length) {
+            // In legacy format, type='text' with no answers means accept any input.
+            // Post-process after normalization so this stays isolated to the legacy path.
+            function legacyFixPlayerReply(ns) {
+              if (ns && ns.playerReply && ns.playerReply.type === 'text' && !ns.playerReply.answers.length) {
+                ns.playerReply = { type: 'any', placeholder: ns.playerReply.placeholder || '', storesAs: ns.playerReply.storesAs || '', nextStopId: ns.playerReply.nextStopId || '' };
+              }
+              return ns;
+            }
+            allStopsById = {};
+            allStopsList.forEach(function(s) {
+              if (!s || !s.id) return;
+              const norm = legacyFixPlayerReply(normalizeStop(s, 0));
+              allStopsById[s.id] = norm;
+              allStopsById[String(s.id).toLowerCase()] = norm;
+            });
+            const baseHeader = stopsData.header || {};
+            const header = {
+              title: gameEntry.name || baseHeader.title || 'Scavenger Hunt',
+              subtitle: gameEntry.subtitle || baseHeader.subtitle || 'Mission Control',
+              guideImageUrl: gameEntry.logo || gameEntry.guideImageUrl || '',
+              logoUrl: baseHeader.logoUrl || '',
+              pageTitle: gameEntry.name || baseHeader.pageTitle || 'Scavenger Hunt',
+              primaryColor: gameEntry.primaryColor || gameEntry.primary_color || '',
+              tertiaryColor: gameEntry.tertiaryColor || '',
+              faviconUrl: gameEntry.favicon || baseHeader.faviconUrl || '',
+              builderOptions: baseHeader.builderOptions || {}
+            };
+            return {
+              stops: selectedRaw.map(function(s, i) { return legacyFixPlayerReply(normalizeStop(s, i)); }),
+              routes: [],
+              header: header
+            };
+          }
+        }
+      }
+    } catch (e) {}
+  }
   throw new Error('Game not found. Check the ?game= parameter and Supabase configuration.');
 }
 
@@ -701,7 +760,8 @@ function applyHeaderConfig(config) {
   if (headerSubtitleEl) headerSubtitleEl.textContent = header.subtitle;
   if (headerStatusEl) headerStatusEl.textContent = header.status || 'online';
   if (headerLogoEl) {
-    headerLogoEl.src = header.guideImageUrl || header.logoUrl || DEFAULT_HEADER.logoUrl;
+    const imgSrc = header.guideImageUrl || header.logoUrl || '';
+    if (imgSrc) headerLogoEl.src = imgSrc;
     headerLogoEl.alt = header.subtitle || header.logoAlt || header.title;
   }
   document.title = header.pageTitle || header.title || DEFAULT_HEADER.pageTitle;
@@ -1020,7 +1080,8 @@ function stopNeedsReply(stop, stopIndex) {
   const startIndex = getEntryStartIndexForStop(stopIndex);
   if (getReplyTriggerIndex(stop, startIndex) >= 0) return true;
   const tail = stop && Array.isArray(stop.messages) ? stop.messages.slice(startIndex) : [];
-  return !!tail.some((m) => m && m.callToAction);
+  if (tail.some((m) => m && m.callToAction)) return true;
+  return !!(stop && stop.playerReply && stop.playerReply.type === 'any');
 }
 
 function renderInputOrAutoAdvance() {

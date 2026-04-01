@@ -90,6 +90,7 @@
       body: type === 'reply' && !explicitVarName && isVariableOnlyBody(body) ? '' : body,
       varName: varName,
       replyMode: replyMode,
+      acceptAny: type === 'reply' ? !!node.acceptAny : false,
       anytime: !!node.anytime,
       anytimePairId: safeString(node.anytimePairId || node.pairId).trim(),
       buttonUrl: safeString(node.buttonUrl).trim()
@@ -655,25 +656,24 @@
           bubbleId: node.id
         };
       }
-      const replyMode = normalizeReplyMode(replyModeRaw);
       const explicitVarName = normalizeVariableName(node && node.varName);
-      if (body) {
-        const guessText = stripVariableMarkers(body);
+      if (node.acceptAny || !body) {
         return {
-          text: guessText || 'Reply',
+          text: explicitVarName || '',
           fromPlayer: true,
-          storesAs: explicitVarName,
-          answers: guessText || '',
+          replyExpected: 'any',
           placeholder: '',
+          storesAs: explicitVarName,
           bubbleId: node.id
         };
       }
+      const guessText = stripVariableMarkers(body);
       return {
-        text: explicitVarName || 'Reply',
+        text: guessText || 'Reply',
         fromPlayer: true,
-        replyExpected: 'any',
-        placeholder: '',
         storesAs: explicitVarName,
+        answers: guessText || '',
+        placeholder: '',
         bubbleId: node.id
       };
     }
