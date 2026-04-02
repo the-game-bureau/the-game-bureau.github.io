@@ -7,9 +7,646 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#ffffff">
   <title>Loading…</title>
-  <link id="favicon" rel="icon" href="../index.ico" type="image/x-icon">
-  <link rel="stylesheet" href="../index.css">
-  <link rel="stylesheet" href="game.css">
+  <link id="favicon" rel="icon" href="index.ico" type="image/x-icon">
+  <style>
+    /* ── Base chat UI (archive/index.css) ── */
+    .icon-preload {
+      position: absolute;
+      width: 0;
+      height: 0;
+      overflow: hidden;
+      pointer-events: none;
+      background-image: url("index.ico");
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body.game-active {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #ffffff;
+      color: #111827;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #game-shell {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .contact-header {
+      background: #f9f9f9;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0.5rem 1rem 0.6rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .avatar {
+      height: 36px;
+      width: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+      margin-bottom: 0.2rem;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      user-select: none;
+    }
+
+    .avatar img {
+      height: 100%;
+      width: auto;
+      object-fit: contain;
+      pointer-events: none;
+      filter: brightness(0) saturate(100%);
+    }
+
+    .contact-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #111827;
+      line-height: 1.3;
+    }
+
+    #header-title { font-weight: 700; }
+
+    .contact-tagline {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: #6b7280;
+      line-height: 1.25;
+      text-align: center;
+    }
+
+    .contact-status {
+      font-size: 0.72rem;
+      color: #6b7280;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .online-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4ecf98;
+      flex-shrink: 0;
+    }
+
+    .restart-btn {
+      position: absolute;
+      right: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      color: #6b7280;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      padding: 0.25rem 0.55rem;
+      cursor: pointer;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .restart-btn:active { background: #f3f4f6; }
+
+    .chat {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 1rem 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .msg {
+      max-width: 80%;
+      animation: slideIn 0.25s ease;
+    }
+
+    .msg.from-game { align-self: flex-start; }
+    .msg.from-player { align-self: flex-end; }
+
+    .msg-bubble {
+      padding: 0.6rem 0.9rem;
+      border-radius: 20px;
+      line-height: 1.5;
+      word-wrap: break-word;
+      font-size: 1.5rem;
+      font-weight: 700;
+      overflow: visible;
+      position: relative;
+    }
+
+    .msg.has-img .msg-bubble { padding: 0; }
+
+    .msg.from-game.has-img .msg-bubble {
+      background: #1a73e8;
+      border: 0;
+      padding: 0.35rem;
+      border-bottom-left-radius: 5px;
+      overflow: visible;
+    }
+    .msg.from-game.has-img .msg-bubble::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: -8px;
+      width: 20px;
+      height: 20px;
+      background: #1a73e8;
+      border-bottom-right-radius: 16px;
+      z-index: -1;
+    }
+    .msg.from-game.has-img .msg-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: -12px;
+      width: 12px;
+      height: 20px;
+      background: #ffffff;
+      border-bottom-right-radius: 10px;
+      z-index: 0;
+    }
+
+    .msg.from-game .msg-bubble {
+      background: #1a73e8;
+      border-bottom-left-radius: 5px;
+      color: #ffffff;
+    }
+
+    .msg.from-game:not(.has-img) .msg-bubble::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: -8px;
+      width: 20px;
+      height: 20px;
+      background: #1a73e8;
+      border-bottom-right-radius: 16px;
+      z-index: -1;
+    }
+    .msg.from-game:not(.has-img) .msg-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: -12px;
+      width: 12px;
+      height: 20px;
+      background: #ffffff;
+      border-bottom-right-radius: 10px;
+      z-index: 0;
+    }
+
+    .msg.from-player .msg-bubble {
+      background: #e5e7eb;
+      color: #111827;
+      border-bottom-right-radius: 5px;
+    }
+
+    .msg.from-player:not(.has-img) .msg-bubble::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      right: -8px;
+      width: 20px;
+      height: 20px;
+      background: #e5e7eb;
+      border-bottom-left-radius: 16px;
+      z-index: -1;
+    }
+    .msg.from-player:not(.has-img) .msg-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      right: -12px;
+      width: 12px;
+      height: 20px;
+      background: #ffffff;
+      border-bottom-left-radius: 10px;
+      z-index: 0;
+    }
+
+    .msg.call-to-action .msg-bubble { background: #cc0000; }
+    .msg.call-to-action:not(.has-img) .msg-bubble::before { background: #cc0000; }
+
+    .msg-bubble p { margin: 0 0 0.6rem; }
+    .msg-bubble p:last-child { margin-bottom: 0; }
+    .msg-bubble a { color: #ffffff; word-break: break-all; }
+    .msg.from-player .msg-bubble a { color: #1a73e8; }
+
+    .msg.from-game .msg-bubble:has(.action-btn) { background: #cc0000; }
+    .msg.from-game:not(.has-img) .msg-bubble:has(.action-btn)::before { background: #cc0000; }
+
+    .msg-bubble .action-btn {
+      color: #ffffff;
+      text-decoration: underline;
+      word-break: break-all;
+    }
+
+    .msg.has-img { max-width: 92%; }
+
+    .msg-bubble img {
+      width: 100%;
+      max-width: 100%;
+      display: block;
+      cursor: zoom-in;
+    }
+    .msg.from-game.has-img .msg-bubble img { border-radius: 14px; }
+
+    .lb {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.93);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+    }
+    .lb.open { display: flex; }
+    .lb img {
+      max-width: 100vw;
+      max-height: 100vh;
+      object-fit: contain;
+    }
+
+    .typing {
+      align-self: flex-start;
+      background: #e5e7eb;
+      border-radius: 999px;
+      padding: 0.55rem 0.9rem;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      position: relative;
+    }
+    .typing::before {
+      content: '';
+      position: absolute;
+      left: 10px;
+      bottom: -8px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #e5e7eb;
+    }
+    .typing::after {
+      content: '';
+      position: absolute;
+      left: 2px;
+      bottom: -15px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #e5e7eb;
+    }
+    .typing span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #8e8e93;
+      animation: typingBounce 1.2s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+    .input-area {
+      background: #ffffff;
+      border-top: 1px solid #e5e7eb;
+      padding: 0.6rem 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .answer-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .answer-input {
+      flex: 1;
+      background: #f3f4f6;
+      border: 2px solid #e5e7eb;
+      border-radius: 24px;
+      padding: 0.6rem 1rem;
+      color: #111827;
+      font-size: 1rem;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+      transition: border-color 0.2s, opacity 0.2s;
+    }
+    .answer-input:focus { border-color: #1a73e8; }
+    .answer-input:disabled { opacity: 0.4; }
+    .answer-input.wrong {
+      border-color: #e85568;
+      animation: shake 0.35s ease;
+    }
+    .answer-input::placeholder { color: #9ca3af; }
+    .answer-input::-webkit-contacts-auto-fill-button,
+    .answer-input::-webkit-credentials-auto-fill-button {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .submit-btn {
+      background: #1a73e8;
+      border: none;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s, transform 0.1s, opacity 0.2s;
+    }
+    .submit-btn:active { transform: scale(0.9); background: #1557b0; }
+    .submit-btn:disabled { opacity: 0.35; cursor: default; }
+
+    .btn-choices {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .choice-btn {
+      padding: 0.7rem 1rem;
+      border-radius: 12px;
+      border: 2px solid;
+      background: transparent;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: opacity 0.15s;
+    }
+    .choice-btn:active { opacity: 0.6; }
+    .choice-btn.team-beignet { border-color: #6aaef7; color: #6aaef7; }
+    .choice-btn.team-lagniappe { border-color: #f5a623; color: #f5a623; }
+    .choice-btn.team-rougarou { border-color: #e85568; color: #e85568; }
+    .choice-btn.team-tch { border-color: #4ecf98; color: #4ecf98; }
+    .choice-btn.neutral { border-color: #d1d5db; color: #374151; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-7px); }
+      75% { transform: translateX(7px); }
+    }
+    @keyframes typingBounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-5px); }
+    }
+
+    /* ── iMessage overlay (game/play/game.css) ── */
+    .msg-bubble {
+      font-size: 1.25rem;
+      font-weight: 400;
+      line-height: 1.45;
+    }
+
+    .contact-header.compact {
+      position: relative;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 3px;
+      padding: max(env(safe-area-inset-top), 0px) 70px 10px;
+      min-height: calc(max(env(safe-area-inset-top), 44px) + 54px);
+      background: rgba(249, 249, 249, 0.97);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 0.5px solid rgba(0, 0, 0, 0.2);
+    }
+
+    .contact-header.compact .avatar {
+      width: auto;
+      max-width: calc(100vw - 140px);
+      height: 36px;
+      min-width: 36px;
+      margin-bottom: 0;
+      border-radius: 8px;
+      overflow: hidden;
+      background: transparent;
+      flex-shrink: 0;
+    }
+    .avatar img { filter: none; }
+    .contact-header.compact .avatar img {
+      height: 100%;
+      width: auto;
+      max-width: 100%;
+      object-fit: contain;
+      filter: none;
+    }
+
+    .game-thumbnail {
+      display: none;
+      height: 36px;
+      width: auto;
+      max-width: calc(100vw - 140px);
+      border-radius: 8px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    .game-thumbnail.show { display: block; }
+
+    .header-info {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .contact-header.compact .contact-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: calc(100vw - 140px);
+    }
+
+    .contact-header.compact .contact-tagline {
+      max-width: calc(100vw - 140px);
+      color: #6b7280;
+      font-size: 0.72rem;
+      font-weight: 500;
+      line-height: 1.25;
+      text-align: center;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      overflow: hidden;
+    }
+
+    .contact-header.compact #header-subtitle { display: none; }
+
+    .contact-header.compact .contact-status {
+      margin-top: 0;
+      font-size: 0.7rem;
+      color: #8e8e93;
+    }
+
+    .contact-header.compact .restart-btn {
+      position: absolute;
+      right: 14px;
+      bottom: 10px;
+      transform: none;
+      border: none;
+      background: none;
+      color: #1a73e8;
+      font-size: 0.82rem;
+      font-weight: 500;
+      letter-spacing: 0;
+      padding: 8px 0;
+      min-height: 44px;
+      display: flex;
+      align-items: flex-end;
+    }
+    .contact-header.compact .restart-btn:active { opacity: 0.5; background: none; }
+
+    .chat {
+      padding: 1rem 0.85rem 0.5rem;
+      gap: 0.5rem;
+    }
+
+    .msg { max-width: 88%; }
+
+    .msg-bubble {
+      padding: 0.75rem 1.1rem;
+      border-radius: 22px;
+    }
+
+    .msg.from-game .msg-caps-loop {
+      display: inline-block;
+      font-weight: 700;
+      transform-origin: 50% 60%;
+      animation: msgCapsLoop 1.15s ease-in-out infinite;
+    }
+
+    @keyframes msgCapsLoop {
+      0%, 100% { transform: scale(0.92); }
+      50% { transform: scale(1.08); }
+    }
+
+    .msg.msg-action-btn {
+      max-width: 100%;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-self: stretch;
+      margin: 4px 0;
+    }
+
+    .msg-btn {
+      display: block;
+      width: 100%;
+      padding: 14px 20px;
+      background: var(--game-primary, #5468a7);
+      color: var(--game-tertiary, #fff);
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: .03em;
+      text-align: center;
+      text-decoration: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: opacity .12s, transform .1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .msg-btn:active { opacity: .78; transform: scale(.977); }
+
+    .btn-lightbox-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .btn-lightbox-frame {
+      position: relative;
+      width: min(480px, calc(100vw - 32px));
+      height: min(680px, calc(100vh - 32px));
+      background: #fff;
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .btn-lightbox-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, .3);
+      color: #fff;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-lightbox-close:active { opacity: .75; }
+
+    .btn-lightbox-iframe { flex: 1; width: 100%; border: none; }
+
+    .input-area {
+      padding: 10px 12px max(env(safe-area-inset-bottom), 10px);
+      background: #f9f9f9;
+      border-top: 0.5px solid rgba(0,0,0,0.15);
+    }
+
+    .answer-row { gap: 8px; }
+
+    .answer-input {
+      font-size: 1rem;
+      padding: 0.75rem 1.1rem;
+      border-radius: 22px;
+      min-height: 44px;
+    }
+
+    .submit-btn { width: 44px; height: 44px; flex-shrink: 0; }
+  </style>
 </head>
 <body class="game-active">
   <div class="icon-preload" aria-hidden="true"></div>
@@ -94,12 +731,12 @@
     }
     function normalizeVarKey(raw) {
       const s = String(raw || '').trim();
-      const m = s.match(/^\{\{\s*([A-Za-z_]\w*)\s*\}\}$/) || s.match(/^\{\s*([A-Za-z_]\w*)\s*\}$/);
+      const m = s.match(/^\{\{\s*([A-Za-z_]\w*)\s*\}\}$/) || s.match(/^\{\s*([A-Za-z_]\w*)\s*\}$/) || s.match(/^%\s*([A-Za-z_]\w*)\s*%$/);
       return m ? m[1] : s;
     }
     function interpolate(str) {
-      return String(str || '').replace(/\{\{\s*([A-Za-z_]\w*)\s*\}\}|\{\s*([A-Za-z_]\w*)\s*\}/g, (match, k1, k2) => {
-        const key = k1 || k2;
+      return String(str || '').replace(/\{\{\s*([A-Za-z_]\w*)\s*\}\}|\{\s*([A-Za-z_]\w*)\s*\}|%\s*([A-Za-z_]\w*)\s*%/g, (match, k1, k2, k3) => {
+        const key = k1 || k2 || k3;
         return Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : match;
       });
     }
@@ -222,15 +859,24 @@
           return;
         }
 
-        const answers  = triggerBubble
-          ? (triggerText ? [triggerText] : [])
-          : (reply.answers || []).map(a => String(a || '').trim()).filter(Boolean);
-        const isAny    = !triggerBubble && (reply.type === 'any' || answers.length === 0);
-        const correct  = triggerBubble
-          ? answers.length > 0 && answers.some(a => val.toLowerCase() === String(a || '').trim().toLowerCase())
-          : (isAny || answers.some(a => norm(a) === norm(val)));
+        let answers = [];
+        let isAny = false;
+        let varKey = '';
+        
+        if (triggerBubble) {
+          answers = Array.isArray(triggerBubble.answers) && triggerBubble.answers.length > 0 
+            ? triggerBubble.answers 
+            : (triggerText ? triggerText.split(/\n|;|,/g).map(s=>s.trim()).filter(Boolean) : []);
+          isAny = triggerBubble.replyExpected === 'any';
+          varKey = normalizeVarKey(triggerBubble.storesAs || '');
+        } else {
+          answers = (reply.answers || []).map(a => String(a || '').trim()).filter(Boolean);
+          isAny = reply.type === 'any' || answers.length === 0;
+          varKey = normalizeVarKey(reply.storesAs || '');
+        }
 
-        const varKey = normalizeVarKey(reply.storesAs || '');
+        const correct = isAny || answers.some(a => norm(a) === norm(val));
+
         if (varKey && correct) { vars[varKey] = val; saveVars(); }
 
         disableInput();
@@ -322,52 +968,214 @@
     // ── Boot ──────────────────────────────────────────────────────
     disableInput();
 
-    Promise.all([
-      fetch('data/games_archive.json').then(r => r.json()),
-      fetch('data/stops.json').then(r => r.json())
-    ]).then(([gamesData, stopsData]) => {
-      const games   = Array.isArray(gamesData) ? gamesData : (gamesData.games || []);
-      const game    = games.find(g => g.id === gameId) || games.find(g => !g.archived);
+    const SB_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
+      table: 'games'
+    };
 
-      if (game) {
-        document.title = game.name || game.id;
-        if (game.favicon) document.getElementById('favicon').href = game.favicon;
-        document.getElementById('header-title').textContent    = game.name || game.id;
-        headerTaglineEl.textContent = game.tagline || '';
-        headerTaglineEl.hidden = !String(game.tagline || '').trim();
-        document.getElementById('header-subtitle').textContent = game.subtitle || '';
-        if (game.thumbnail) {
-          document.getElementById('gameThumbnail').src = game.thumbnail;
+    async function fetchGameFromSupabase(id) {
+      const requestUrl = new URL(`rest/v1/${SB_CONFIG.table}`, `${SB_CONFIG.url.replace(/\/+$/, '')}/`);
+      requestUrl.searchParams.set('select', '*');
+      requestUrl.searchParams.set('id', `eq.${id}`);
+      requestUrl.searchParams.set('limit', '1');
+
+      const response = await fetch(requestUrl.toString(), {
+        headers: {
+          apikey: SB_CONFIG.key,
+          Authorization: `Bearer ${SB_CONFIG.key}`,
+          Accept: 'application/json'
+        },
+        cache: 'no-store'
+      });
+
+      if (!response.ok) throw new Error('Network error');
+      const rows = await response.json();
+      return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+    }
+
+    function buildLegacyPayload(gameData) {
+      const nodes = Array.isArray(gameData.nodes) ? gameData.nodes : [];
+      const sortedNodes = [...nodes].sort((a, b) => {
+        const rankA = a.type === 'game' ? 0 : (a.anytime ? 2 : 1);
+        const rankB = b.type === 'game' ? 0 : (b.anytime ? 2 : 1);
+        if (rankA !== rankB) return rankA - rankB;
+        return (a.orderIndex || 0) - (b.orderIndex || 0);
+      });
+
+      const stops = [];
+      let currentStop = null;
+
+      sortedNodes.forEach(node => {
+        if (node.type === 'game') return;
+
+        if (node.anytime) {
+          if (node.type === 'reply') {
+            stops.push({
+              id: node.id,
+              playerReply: {
+                anytime: true,
+                anytimePairId: node.anytimePairId,
+                answers: node.body ? node.body.split(/\n|;|,/g).map(s=>s.trim()).filter(Boolean) : [],
+                storesAs: node.varName,
+                type: node.acceptAny ? 'any' : 'text'
+              },
+              messages: []
+            });
+          } else if (node.type === 'bubble') {
+            const target = stops.find(s => s.playerReply?.anytimePairId === node.anytimePairId);
+            if (target) {
+              target.messages.push({
+                bubbleId: node.id,
+                text: node.body,
+                html: node.body
+              });
+            }
+          }
+          return;
+        }
+
+        if (node.type === 'stop') {
+          currentStop = {
+            id: node.id,
+            title: node.title,
+            messages: [],
+            playerReply: null
+          };
+          stops.push(currentStop);
+        } else if (node.type === 'bubble') {
+          if (!currentStop) {
+            currentStop = { id: 'virtual-stop', messages: [], playerReply: null };
+            stops.push(currentStop);
+          }
+          currentStop.messages.push({
+            bubbleId: node.id,
+            text: node.body,
+            html: node.body,
+            callToAction: false
+          });
+        } else if (node.type === 'button') {
+          if (!currentStop) {
+            currentStop = { id: 'virtual-stop', messages: [], playerReply: null };
+            stops.push(currentStop);
+          }
+          currentStop.messages.push({
+            bubbleId: node.id,
+            text: node.title,
+            html: node.title,
+            isButton: true,
+            buttonUrl: node.buttonUrl,
+            callToAction: false
+          });
+        } else if (node.type === 'reply') {
+          if (!currentStop) {
+            currentStop = { id: 'virtual-stop', messages: [], playerReply: null };
+            stops.push(currentStop);
+          }
+          if (currentStop.messages.length > 0) {
+            currentStop.messages[currentStop.messages.length - 1].callToAction = true;
+          }
+          const answers = node.body ? node.body.split(/\n|;|,/g).map(s=>s.trim()).filter(Boolean) : [];
+          currentStop.messages.push({
+            bubbleId: node.id,
+            fromPlayer: true,
+            text: answers[0] || node.varName || '[Answered]',
+            html: answers[0] || node.varName || '[Answered]',
+            replyExpected: node.acceptAny ? 'any' : 'word',
+            answers: answers,
+            storesAs: node.varName,
+            placeholder: 'Type here...'
+          });
+        }
+      });
+
+      return { stops };
+    }
+
+    if (!gameId) {
+      chatEl.textContent = 'Game not found. Check the ?id= parameter.';
+    } else {
+      fetchGameFromSupabase(gameId).then(gameData => {
+        if (!gameData) {
+          chatEl.textContent = 'Game not found in database.';
+          return;
+        }
+
+        const gameNode = (gameData.nodes || []).find(n => n.type === 'game') || {};
+
+        document.title = gameNode.title || gameData.name || gameId;
+        document.getElementById('header-title').textContent = gameNode.title || gameData.name || gameId;
+        headerTaglineEl.textContent = gameNode.tagline || '';
+        headerTaglineEl.hidden = !String(gameNode.tagline || '').trim();
+        document.getElementById('header-subtitle').textContent = gameNode.guideName || '';
+        
+        if (gameNode.guideImageUrl) {
+          document.getElementById('gameThumbnail').src = gameNode.guideImageUrl;
           document.getElementById('gameThumbnail').classList.add('show');
           document.getElementById('header-logo').closest('.avatar').style.display = 'none';
-        } else if (game.logo) {
-          document.getElementById('header-logo').src = game.logo;
+        } else if (gameNode.logoUrl) {
+          document.getElementById('header-logo').src = gameNode.logoUrl;
         }
-      }
 
-      const allStops = Array.isArray(stopsData) ? stopsData : (stopsData.stops || []);
-      const stopMap  = Object.fromEntries(allStops.map(s => [s.id.toLowerCase(), s]));
-      anytimeStops   = allStops.filter(s => !s.archived && s.playerReply?.anytime);
-      const routeIds = Array.isArray(game && game.stops) ? game.stops : [];
-      gameStops = routeIds.map(sid => stopMap[sid.toLowerCase()]).filter(s => s && !s.playerReply?.anytime);
+        if (gameNode.primaryColor) {
+          document.documentElement.style.setProperty('--game-primary', gameNode.primaryColor);
+        }
+        if (gameNode.tertiaryColor) {
+          document.documentElement.style.setProperty('--game-tertiary', gameNode.tertiaryColor);
+        }
 
-      if (!gameStops.length) { chatEl.textContent = 'No stops configured for this game.'; return; }
+        const payload = buildLegacyPayload(gameData);
+        const allStops = payload.stops || [];
+        
+        anytimeStops = allStops.filter(s => s.playerReply?.anytime);
+        gameStops = allStops.filter(s => !s.playerReply?.anytime);
 
-      vars = loadVars();
-      const savedStep = Math.min(loadStep(), gameStops.length - 1);
+        if (!gameStops.length) { chatEl.textContent = 'No stops configured for this game.'; return; }
+
+        vars = loadVars();
+        const savedStep = Math.min(loadStep(), gameStops.length - 1);
         if (savedStep > 0) {
           for (let i = 0; i < savedStep; i++) {
             const stop = gameStops[i];
+            let hasTriggerBubble = false;
             (stop.messages || []).filter(m => (m.html || m.text || '').trim()).forEach(m => {
-              addBubble(m.html || m.text || '', !(m.fromPlayer || m.direction === 'fromPlayer'));
+              if (m.fromPlayer || m.direction === 'fromPlayer') {
+                hasTriggerBubble = true;
+                let replyText = m.text || m.html;
+                const varKey = m.storesAs ? normalizeVarKey(m.storesAs) : '';
+                if (varKey && vars[varKey]) {
+                  replyText = vars[varKey];
+                }
+                addBubble(replyText, false);
+              } else {
+                addBubble(m.html || m.text || '', true);
+              }
             });
+            
+            if (!hasTriggerBubble && stop.playerReply) {
+              const pr = stop.playerReply;
+              let replyText = '';
+              const varKey = pr.storesAs ? normalizeVarKey(pr.storesAs) : '';
+              if (varKey && vars[varKey]) {
+                replyText = vars[varKey];
+              } else if (pr.answers && pr.answers.length > 0) {
+                replyText = pr.answers[0];
+              } else {
+                replyText = '[Answered]';
+              }
+              if (replyText) {
+                addBubble(replyText, false);
+              }
+            }
           }
         }
-      playStop(savedStep);
-    }).catch(err => {
-      console.error(err);
-      chatEl.textContent = 'Could not load game data.';
-    });
+        playStop(savedStep);
+
+      }).catch(err => {
+        console.error(err);
+        chatEl.textContent = 'Could not load game data.';
+      });
+    }
   </script>
 </body>
 </html>
