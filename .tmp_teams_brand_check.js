@@ -1,335 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-  <title>Team Cipher</title>
-  <style>
-    /* ── SWISS X DA VINCI DESIGN SYSTEM ── */
-    :root {
-      --bg: #F4F1EA; /* Aged Parchment White */
-      --text: #1A1C20; /* Deep Charcoal Ink */
-      --primary: #B08D57;
-      --accent: #B08D57; /* Burnished Gold / Brass */
-      --secondary: #1F2A38; /* Deep Cryptic Blue */
-      --gray: #E6E2D6; /* Shaded Parchment */
-      --on-secondary: #FFFFFF;
-      
-      --border-thick: 3px solid var(--text);
-      --border-thin: 1px solid var(--text);
-      --border-gold: 2px solid var(--accent);
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-      -webkit-font-smoothing: antialiased;
-      line-height: 1.5;
-      padding: 20px;
-      font-size: 16px;
-      touch-action: pan-y;
-      background-image: radial-gradient(circle at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.03) 100%);
-      min-height: 100vh;
-    }
-
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      padding-bottom: 80px;
-    }
-
-    /* Typography */
-    h1 {
-      font-size: clamp(2.5rem, 8vw, 4rem);
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em; 
-      line-height: 0.9;
-      margin-bottom: 8px;
-    }
-
-    .brandline {
-      margin: 0 0 8px;
-      color: var(--secondary);
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      opacity: 0.78;
-    }
-
-    .tagline {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--primary);
-      margin-bottom: 24px;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      border-bottom: 3px solid var(--secondary);
-      padding-bottom: 12px;
-    }
-
-    h2 {
-      font-size: 1.1rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      border-bottom: var(--border-thin);
-      padding-bottom: 8px;
-      margin-bottom: 24px;
-      color: var(--secondary);
-    }
-
-    p { margin-bottom: 20px; color: #4A4A4A; }
-
-    /* Layout & Utilities */
-    .hidden { display: none !important; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    
-    /* Buttons */
-    .btn {
-      background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 18%, #ffffff) 0%, color-mix(in srgb, var(--primary) 8%, transparent) 100%);
-      color: var(--secondary);
-      border: 3px solid var(--primary);
-      box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 20%, transparent);
-      padding: 16px 10px;
-      font-size: 1.2rem;
-      font-weight: 700;
-      font-family: inherit;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all 0.1s ease;
-      width: 100%;
-      display: block;
-      text-align: center;
-      letter-spacing: 0.05em;
-    }
-    .btn:active { background: var(--primary); color: var(--on-secondary); border-color: var(--primary); box-shadow: 0 4px 10px color-mix(in srgb, var(--primary) 18%, transparent); }
-    .btn:disabled { opacity: 0.45; pointer-events: none; background: color-mix(in srgb, var(--secondary) 10%, transparent); border-color: color-mix(in srgb, var(--secondary) 45%, transparent); color: var(--secondary); box-shadow: none; }
-
-    .btn-accent { 
-      background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 82%, #ffffff 18%) 0%, var(--primary) 100%); 
-      color: var(--on-secondary); 
-      border: 3px solid var(--primary); 
-      margin-top: 24px; 
-      box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 28%, transparent);
-    }
-    .btn-accent:active { background: var(--secondary); border-color: var(--secondary); color: var(--on-secondary); }
-
-    .btn-text {
-      background: transparent; border: none; color: var(--primary);
-      text-decoration: underline; padding: 10px 0; font-size: 1rem; margin-top: 10px;
-      text-transform: none; letter-spacing: normal;
-      font-weight: 700;
-    }
-    .btn-text:active { color: var(--secondary); background: transparent; }
-
-    /* Inputs */
-    .input-group { margin-bottom: 12px; }
-    input[type="text"] {
-      width: 100%; border: none; border-bottom: 1px solid color-mix(in srgb, var(--secondary) 55%, transparent);
-      padding: 12px 0; font-size: 1.2rem; font-family: inherit;
-      background: transparent; outline: none; border-radius: 0;
-      color: var(--secondary);
-      font-weight: 500;
-    }
-    input[type="text"]:focus { border-bottom: 2px solid var(--primary); margin-bottom: -1px; }
-    input[type="text"]::placeholder { color: #A0A0A0; font-weight: 400; }
-
-    /* ── DRAG & DROP UI (TEAMS) ── */
-    #avatar-pool {
-      min-height: 60px;
-      padding: 12px;
-      border: 2px dashed var(--primary);
-      background: color-mix(in srgb, var(--primary) 8%, var(--bg));
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 24px;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .dropzone {
-      border: 1px solid color-mix(in srgb, var(--secondary) 45%, transparent);
-      background: color-mix(in srgb, var(--primary) 7%, var(--gray));
-      padding: 16px 10px;
-      min-height: 80px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-content: flex-start;
-      align-items: flex-start;
-      justify-content: center;
-      position: relative;
-    }
-    .dropzone::before {
-      content: ''; position: absolute; top: 3px; left: 3px; right: 3px; bottom: 3px;
-      border: 1px solid rgba(0,0,0,0.05); pointer-events: none;
-    }
-    .dropzone.drag-over { background: var(--primary); border-color: var(--primary); color: var(--on-secondary); }
-    
-    .team-box-title {
-      width: 100%;
-      text-align: center;
-      font-weight: 700;
-      text-transform: uppercase;
-      margin-bottom: 10px;
-      font-size: 0.9rem;
-      letter-spacing: 0.05em;
-      color: var(--secondary);
-    }
-
-    .avatar {
-      width: 40px; height: 40px;
-      cursor: grab;
-      touch-action: none;
-      flex-shrink: 0;
-      position: relative;
-      z-index: 10;
-      filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.3));
-    }
-    .avatar:active { cursor: grabbing; }
-    .avatar.is-dragging {
-      position: fixed;
-      pointer-events: none;
-      z-index: 1000;
-      opacity: 0.9;
-      transform: scale(1.15);
-      filter: drop-shadow(0px 10px 12px rgba(0,0,0,0.4));
-    }
-
-    /* Cards (Cipher Grid) */
-    .card {
-      border: 1px solid color-mix(in srgb, var(--secondary) 38%, transparent);
-      background: var(--bg);
-      padding: 16px 10px;
-      text-align: center;
-      cursor: pointer;
-      font-weight: 700;
-      user-select: none;
-      color: var(--secondary);
-      transition: background 0.1s, color 0.1s;
-    }
-    .card.selected { background: var(--secondary); color: var(--on-secondary); border-color: var(--secondary); }
-    .card.shake { animation: shake 0.4s; border-color: var(--primary); color: var(--primary); }
-    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
-
-    /* Clues Section */
-    .clue-block {
-      border: 1px solid color-mix(in srgb, var(--secondary) 38%, transparent); 
-      padding: 20px;
-      margin-bottom: 16px; 
-      background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 9%, #ffffff) 0%, color-mix(in srgb, var(--primary) 4%, var(--gray)) 100%);
-      position: relative;
-    }
-    .clue-block::after {
-      content: ''; position: absolute; top: 4px; left: 4px; right: 4px; bottom: 4px;
-      border: 1px solid rgba(0,0,0,0.1); pointer-events: none;
-    }
-    .clue-block.solved { opacity: 0.4; border-style: dashed; }
-    .clue-title { font-weight: 700; font-size: 1.2rem; text-transform: uppercase; margin-bottom: 8px; color: var(--secondary); letter-spacing: 0.05em;}
-    .clue-text { font-size: 0.95rem; line-height: 1.5; color: var(--text); }
-
-    /* Solved Rows */
-    .solved-row {
-      background: var(--secondary); color: var(--on-secondary);
-      padding: 20px; margin-bottom: 12px; font-weight: 700;
-      letter-spacing: 0.05em; text-transform: uppercase;
-      border: 1px solid var(--text);
-    }
-    .solved-row span { font-weight: 400; font-size: 0.95rem; display: block; margin-top: 6px; color: var(--primary); text-transform: none; letter-spacing: normal;}
-
-    /* Consistent Shadow Box Toast */
-    .toast {
-      position: fixed; 
-      bottom: 40px; 
-      left: 50%; 
-      transform: translate(-50%, 200%);
-      background: var(--bg); 
-      color: var(--text);
-      padding: 16px 24px; 
-      text-align: center; 
-      font-weight: 700; 
-      text-transform: uppercase;
-      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-      z-index: 2000;
-      border: 2px solid var(--text);
-      box-shadow: 0 15px 30px rgba(0,0,0,0.3);
-      letter-spacing: 0.05em;
-      min-width: 280px;
-      width: max-content;
-      max-width: 90vw;
-    }
-    .toast.show { transform: translate(-50%, 0); }
-    .toast.error { border-color: var(--accent); color: var(--accent); }
-  </style>
-</head>
-<body>
-
-<div class="toast" id="toast">Message</div>
-
-<div class="container">
-  
-  <div id="view-players">
-    <p class="brandline" data-brandline>THE GAME BUREAU</p>
-    <h1>Team Cipher</h1>
-    <div class="tagline">Surprise! We pick the teams!</div>
-    <h2>1. Enter Player Names</h2>
-    <p>Provide first and last names for everyone playing today.</p>
-    
-    <div id="player-inputs"></div>
-    <button class="btn btn-text" id="addPlayerBtn" onclick="App.addPlayerInput()">+ Add Another Player</button>
-    
-    <button class="btn btn-accent" onclick="App.processPlayers()">Next: Team Headcounts</button>
-  </div>
-
-  <div id="view-results" class="hidden">
-    <p class="brandline" data-brandline>THE GAME BUREAU</p>
-    <h1>Team Cipher</h1>
-    <div class="tagline">Surprise! We pick the teams!</div>
-    <h2>Team Assignments</h2>
-    <p id="results-text">We've generated your teams.</p>
-    
-    <div id="results-container" style="margin-bottom: 32px;"></div>
-    
-    <button class="btn btn-accent" onclick="App.playGame()">PLAY</button>
-  </div>
-
-  <div id="view-teams" class="hidden">
-    <p class="brandline" data-brandline>THE GAME BUREAU</p>
-    <h1>Team Cipher</h1>
-    <div class="tagline">Surprise! We pick the teams!</div>
-    <h2>2. Team Headcounts</h2>
-    <p>Drag players into the team boxes below to set the size of each team. Leave a box empty if you don't need it. Don't worry about who is on what team yet.</p>
-
-    <div id="avatar-pool" class="dropzone" data-id="pool"></div>
-    <div class="grid-2" id="team-dropzones"></div>
-
-    <button class="btn btn-accent" id="btn-start-cipher" onclick="App.generateCipher()" disabled>Start Cipher</button>
-  </div>
-
-  <div id="view-game" class="hidden">
-    <p class="brandline" data-brandline>THE GAME BUREAU</p>
-    <h1>Team Cipher</h1>
-    <div class="tagline">Surprise! We pick the teams!</div>
-    <h2>3. Decipher the teams</h2>
-    
-    <div id="solved-container"></div>
-    <div id="clues-container"></div>
-    
-    <div class="grid-2" id="names-grid" style="margin-top: 32px; margin-bottom: 32px;"></div>
-    
-    <button class="btn btn-accent" id="btn-submit" onclick="Game.submit()" disabled>Submit Guess</button>
-  </div>
-
-</div>
-
-<script>
-/* ── URL PARAMETERS ── */
+﻿/* â”€â”€ URL PARAMETERS â”€â”€ */
 const urlParams = new URLSearchParams(window.location.search);
 const GAME_ID = urlParams.get('id') || '';
 const SB_CONFIG = {
@@ -339,7 +8,7 @@ const SB_CONFIG = {
   table: 'games'
 };
 
-/* ── SHUFFLE HELPERS ── */
+/* â”€â”€ SHUFFLE HELPERS â”€â”€ */
 function cyrb53(str, seed = 0) {
   let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
   for (let i = 0, ch; i < str.length; i++) {
@@ -372,7 +41,7 @@ function seededShuffle(array, prng) {
   return arr;
 }
 
-/* ── UTILITIES ── */
+/* â”€â”€ UTILITIES â”€â”€ */
 const Utils = {
   showToast: (msg, isError = false) => {
     const el = document.getElementById('toast');
@@ -477,7 +146,7 @@ function getTeamNames(count) {
   return normalizeTeamNames(configuredTeamNames, count);
 }
 
-/* ── CUSTOM DRAG & DROP FOR MOBILE/DESKTOP ── */
+/* â”€â”€ CUSTOM DRAG & DROP FOR MOBILE/DESKTOP â”€â”€ */
 const DND = (() => {
   let activeAvatar = null;
   let initialX, initialY;
@@ -559,11 +228,10 @@ const DND = (() => {
   return { init };
 })();
 
-/* ── APP STATE & FLOW ── */
+/* â”€â”€ APP STATE & FLOW â”€â”€ */
 const App = (() => {
   let playersData = [];
   let playerInputsCount = 0;
-  let currentTeamsData = [];
   const addPlayerBtn = document.getElementById('addPlayerBtn');
 
   const syncAddPlayerButton = () => {
@@ -586,12 +254,6 @@ const App = (() => {
   const playGame = () => {
     const target = new URL('../play.html', window.location.href);
     if (GAME_ID) target.searchParams.set('id', GAME_ID);
-    if (Array.isArray(currentTeamsData) && currentTeamsData.length) {
-      target.searchParams.set('teams', JSON.stringify(currentTeamsData.map((team) => ({
-        name: team && team.name ? String(team.name) : '',
-        players: Array.isArray(team && team.members) ? team.members.map((member) => String(member)) : []
-      }))));
-    }
     window.location.href = target.toString();
   };
 
@@ -661,10 +323,6 @@ const App = (() => {
       document.getElementById('results-text').textContent = "Playing solo? We've generated a team name just for you.";
 
       let teamName = getTeamNames(1)[0];
-      currentTeamsData = [{
-        name: teamName,
-        members: [playersData[0].fullName]
-      }];
 
       let container = document.getElementById('results-container');
       container.innerHTML = `<div class="solved-row">${teamName} <span>${playersData[0].fullName}</span></div>`;
@@ -801,10 +459,6 @@ const App = (() => {
         clue: clueText
       });
     });
-    currentTeamsData = teamsData.map((team) => ({
-      name: team.name,
-      members: [...team.members]
-    }));
 
     let maxTeamSize = Math.max(...teamSizes);
     if (maxTeamSize <= 1 || teamSizes.length === 1) {
@@ -819,7 +473,7 @@ const App = (() => {
       
       let container = document.getElementById('results-container');
       container.innerHTML = teamsData.map(t => `
-        <div class="solved-row">${t.name} <span>${t.members.join(' • ')}</span></div>
+        <div class="solved-row">${t.name} <span>${t.members.join(' â€¢ ')}</span></div>
       `).join('');
       return;
     }
@@ -834,7 +488,7 @@ const App = (() => {
   return { addPlayerInput, processPlayers, checkTeamsReady, generateCipher, playGame };
 })();
 
-/* ── GAME LOGIC ── */
+/* â”€â”€ GAME LOGIC â”€â”€ */
 const Game = (() => {
   let TEAMS = [], ALL_NAMES = [], selected = new Set(), solved = new Set();
 
@@ -899,7 +553,7 @@ const Game = (() => {
       
       let row = document.createElement('div');
       row.className = 'solved-row';
-      row.innerHTML = `${matchedTeam.name} <span>${matchedTeam.members.join(' • ')}</span>`;
+      row.innerHTML = `${matchedTeam.name} <span>${matchedTeam.members.join(' â€¢ ')}</span>`;
       document.getElementById('solved-container').appendChild(row);
       
       render();
@@ -917,6 +571,3 @@ const Game = (() => {
 
   return { init, toggle, submit };
 })();
-</script>
-</body>
-</html>
