@@ -8,7 +8,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 PAGES = {
     "builder": "http://localhost:3000/archive/index_old.html",
-    "builder_editor": "http://localhost:3000/builder/index.html",
+    "builder_editor": "http://localhost:3000/archive/builder/index.html",
     "builder_archive": "http://localhost:3000/play/private/builder_archive.html",
     "builder_new": "http://localhost:3000/play/private/builder_new.html",
 }
@@ -55,7 +55,7 @@ print("Starting local server on http://localhost:3000")
 print("Opening:", URL)
 print("Also available:")
 print("  http://localhost:3000/archive/index_old.html")
-print("  http://localhost:3000/builder/index.html")
+print("  http://localhost:3000/archive/builder/index.html")
 print("  http://localhost:3000/play/private/builder_archive.html")
 print("  http://localhost:3000/play/private/builder_new.html")
 print("Shortcuts:")

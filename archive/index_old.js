@@ -3,8 +3,8 @@ const EDITOR_LAUNCH_INTENT_KEY = 'tgb-builder-launch-intent';
 const STORE_COMMENT = 'Supabase-backed game builder store.';
 const DEFAULT_SUPABASE_GAMES_TABLE = 'games';
 const SUPABASE_CONFIG_STORAGE_KEY = 'tgb-builder-supabase-config';
-const EDITOR_PAGE_ROUTE = '../builder/index.html';
-const PLAY_PAGE_ROUTE = '../builder/play.html';
+const EDITOR_PAGE_ROUTE = './builder/index.html';
+const PLAY_PAGE_ROUTE = './builder/play.html';
 const BIC_BLUE_INK = '#2f5cc2';
 const ARCHIVED_GAME_VALUE = 'YES';
 const ERASED_GAME_VALUE = 'YES';
@@ -912,7 +912,7 @@ function buildGameTile(game, index) {
   button.setAttribute('aria-pressed', game.id === state.selectedGameId ? 'true' : 'false');
   button.innerHTML = `
     <span class="game-tile-screen" aria-hidden="true">
-      <img class="game-tile-phone-art" src="../builder/assets/phone.png?v=1774955400" alt="" decoding="async">
+      <img class="game-tile-phone-art" src="builder/assets/phone.png?v=1774955400" alt="" decoding="async">
     </span>
     <span class="game-tile-label">${escapeHtml(game.name || 'Untitled Game')}</span>
   `;
