@@ -1,4 +1,4 @@
-﻿// TGB Builder writes Supabase-backed game data that is read later by the game engine.
+﻿﻿﻿// TGB Builder writes Supabase-backed game data that is read later by the game engine.
 const TYPE_CONFIG = {
   game: {
     width: 184,
@@ -21,7 +21,7 @@ const TYPE_CONFIG = {
     height: 92,
     kicker: 'GUIDE MSG',
     title: '',
-    body: 'How many states are there in the USA?',
+    body: '',
     code: 'BB'
   },
   reply: {
@@ -32,21 +32,12 @@ const TYPE_CONFIG = {
     body: '50,fifty',
     code: 'RP'
   },
-  button: {
-    width: 236,
-    height: 70,
-    kicker: 'BUTTON',
-    title: 'BUY GAME TO CONTINUE',
-    body: '',
-    code: 'BT'
-  },
 };
 const NODE_ID_PREFIX = {
   game: 'gm',
   stop: 'st',
   bubble: 'gd',
-  reply: 'pl',
-  button: 'bt'
+  reply: 'pl'
 };
 const NODE_TYPE_BY_PREFIX = Object.fromEntries(
   Object.entries(NODE_ID_PREFIX).map(([type, prefix]) => [prefix, type])
@@ -225,8 +216,7 @@ const SINGLE_SHEET_SCROLL = true;
 const STENCIL_SHORTCUTS = {
   stop: 'W',
   bubble: 'G',
-  reply: 'P',
-  button: 'B'
+  reply: 'P'
 };
 
 function normalizeSupabaseUrl(value) {
@@ -960,7 +950,7 @@ function createNodeIdCounters() {
 }
 
 function usesNodeTitle(type) {
-  return type === 'game' || type === 'stop' || type === 'button';
+  return type === 'game' || type === 'stop';
 }
 
 function getDefaultNodeTitle(type, id = '') {
@@ -1524,7 +1514,7 @@ function estimateWrappedLineCount(text, availableWidth, fallbackCharWidth = 8.4)
 
 function getPhonePrimaryText(node) {
   if (!node) return '';
-  if (node.type === 'game' || node.type === 'stop' || node.type === 'button') {
+  if (node.type === 'game' || node.type === 'stop') {
     return String(node.title || TYPE_CONFIG[node.type].title || '').trim();
   }
   if (node.type === 'reply') {
@@ -1554,14 +1544,13 @@ function getPhoneBubbleSide(node) {
   if (node.type === 'reply') return 'right';
   if (node.type === 'stop') return 'left';
   if (node.type === 'bubble') return 'left';
-  if (node.type === 'button') return 'center';
   return 'center';
 }
 
 function isPhoneThreadNode(node) {
   return !!node
     && !isAnytimeNode(node)
-    && (node.type === 'stop' || node.type === 'bubble' || node.type === 'reply' || node.type === 'button');
+    && (node.type === 'stop' || node.type === 'bubble' || node.type === 'reply');
 }
 
 function canReorderPhoneThreadNode(node) {
@@ -1638,7 +1627,7 @@ function getPhoneRowMaxWidth(nodes, threadWidth) {
   const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
   return nodes.length > 1
     ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((threadWidth - (gap * (nodes.length - 1))) / nodes.length))
-    : nodes.some((node) => node.type === 'stop' || node.type === 'bubble' || node.type === 'reply' || node.type === 'button') ? threadWidth : PHONE_BUBBLE_MAX_WIDTH;
+    : nodes.some((node) => node.type === 'stop' || node.type === 'bubble' || node.type === 'reply') ? threadWidth : PHONE_BUBBLE_MAX_WIDTH;
 }
 
 function getPhoneProjectedRows(rows, startY) {
@@ -1766,51 +1755,46 @@ function getPhoneBubbleSize(node, maxWidth = PHONE_BUBBLE_MAX_WIDTH) {
     game: 254,
     stop: 248,
     bubble: 252,
-    reply: 252,
-    button: 248
+    reply: 252
   };
   const minWidths = {
     game: PHONE_BUBBLE_MIN_WIDTH,
     stop: 168,
     bubble: 78,
-    reply: 78,
-    button: 168
+    reply: 78
   };
   const primaryText = getPhonePrimaryText(node);
   const preferredWidth = isMessageBubble
     ? estimatePhoneBubbleContentWidth(primaryText, 28, 8.2)
-    : (node.type === 'stop' || node.type === 'button')
+    : (node.type === 'stop')
       ? Math.round(maxWidth)
       : (preferredWidths[node.type] || PHONE_BUBBLE_MAX_WIDTH);
   const minWidth = minWidths[node.type] || PHONE_BUBBLE_MIN_WIDTH;
   const safeMaxWidth = Math.max(
     minWidth,
-    (node.type === 'stop' || node.type === 'button' || isMessageBubble)
+    (node.type === 'stop' || isMessageBubble)
       ? Math.round(maxWidth)
       : Math.min(PHONE_BUBBLE_MAX_WIDTH, Math.round(maxWidth))
   );
   const width = clamp(Math.min(preferredWidth, safeMaxWidth), minWidth, safeMaxWidth);
-  const textPadding = isMessageBubble ? 26 : (node.type === 'stop' || node.type === 'button') ? 70 : 34;
+  const textPadding = isMessageBubble ? 26 : (node.type === 'stop') ? 70 : 34;
   const primaryLines = estimatePhoneTextLines(primaryText, width, textPadding);
   const secondaryLines = estimatePhoneTextLines(getPhoneSecondaryText(node), width, textPadding);
   const minHeights = {
     game: 88,
     stop: 58,
     bubble: 38,
-    reply: 38,
-    button: 52
+    reply: 38
   };
   const extraPrimaryLineHeights = {
     stop: 17,
     bubble: 16,
-    reply: 16,
-    button: 16
+    reply: 16
   };
   const extraSecondaryLineHeights = {
     stop: 0,
     bubble: 0,
-    reply: 0,
-    button: 0
+    reply: 0
   };
   const height = clamp(
     (minHeights[node.type] || 74)
@@ -1927,7 +1911,7 @@ function applyPhoneThreadLayout() {
     const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
     const effectiveHeights = sizes.map((size, i) => {
       const node = nodes[i];
-      return (node.type === 'bubble' || node.type === 'reply' || node.type === 'button') ? Math.max(size.height, node.height || 0) : size.height;
+      return (node.type === 'bubble' || node.type === 'reply') ? Math.max(size.height, node.height || 0) : size.height;
     });
     const rowHeight = effectiveHeights.reduce((maxHeight, h) => Math.max(maxHeight, h), 0);
 
@@ -2226,7 +2210,6 @@ function getObjectInspectorHeading(node, link) {
   if (node.type === 'bubble') return 'GUIDE MSG DETAILS';
   if (node.type === 'reply') return 'PLAYER MSG DETAILS';
   if (node.type === 'stop') return 'WAYPOINT DETAILS';
-  if (node.type === 'button') return 'BUTTON DETAILS';
   return 'OBJECT DETAILS';
 }
 
@@ -2628,12 +2611,12 @@ function getDocSnapshot(doc = state.doc) {
       guideName: node.guideName || '',
       guideBio: node.guideBio || '',
       guideImageUrl: node.guideImageUrl || '',
+      logoUrl: node.logoUrl || '',
       price: node.price || '',
       builderNotes: node.builderNotes || '',
       tags: (node.tags || []).filter(Boolean),
       teams: Array.isArray(node.teams) ? node.teams : [],
       body: node.body || '',
-      buttonUrl: node.buttonUrl || '',
       tertiaryColor: node.tertiaryColor || '',
       varName: node.varName || '',
       acceptAny: !!node.acceptAny,
@@ -3415,7 +3398,6 @@ function createNode(type, x, y) {
     builderNotes: '',
     tags: [],
     body: config.body,
-    buttonUrl: '',
     tertiaryColor: '',
     varName: '',
     acceptAny: false,
@@ -4119,7 +4101,6 @@ function buildNodeTitleMarkup(node, displayTitle) {
 
 function buildNodeBubbleMarkup(node) {
   if (!TYPE_CONFIG[node.type]) return '';
-  if (node.type === 'button') return '';
   const side = getPhoneBubbleSide(node);
   const tailClass = side === 'left'
     ? 'node-bubble-tail--left'
@@ -4238,18 +4219,14 @@ function getStencilPreviewNode(type) {
     rotation: 0
   };
 
-  if (type === 'bubble') {
-    baseNode.body = 'Guide message';
-  } else if (type === 'reply') {
+  if (type === 'reply') {
     baseNode.body = 'Player reply';
-  } else if (type === 'button') {
-    baseNode.title = 'BUY GAME TO CONTINUE';
   }
 
-  if (type === 'stop' || type === 'bubble' || type === 'reply' || type === 'button') {
+  if (type === 'stop' || type === 'bubble' || type === 'reply') {
     const size = getPhoneBubbleSize(
       baseNode,
-      (type === 'stop' || type === 'button') ? TYPE_CONFIG[type].width : PHONE_BUBBLE_MAX_WIDTH
+      (type === 'stop') ? TYPE_CONFIG[type].width : PHONE_BUBBLE_MAX_WIDTH
     );
     baseNode.width = size.width;
     baseNode.height = size.height;
@@ -5020,16 +4997,13 @@ function updateObjectInspectorUi(node, link, copyText) {
 
   const isStopNode = !!node && node.type === 'stop';
   const isReplyNode = !!node && node.type === 'reply';
-  const isButtonNode = !!node && node.type === 'button';
   const isLinkSelected = !!link;
   const BODY_LABELS = { stop: 'NOTES', bubble: 'GUIDE MESSAGE', reply: 'PLAYER MESSAGE' };
 
   if (objectInspectorCopy) objectInspectorCopy.textContent = copyText || '';
   if (objectStopNameField) objectStopNameField.hidden = isLinkSelected || !isStopNode;
   if (objectVarNameField) objectVarNameField.hidden = isLinkSelected || !isReplyNode;
-  if (objectButtonNameField) objectButtonNameField.hidden = isLinkSelected || !isButtonNode;
-  if (objectButtonTargetField) objectButtonTargetField.hidden = isLinkSelected || !isButtonNode;
-  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node || isButtonNode;
+  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node;
   if (objectBodyLabel) {
     objectBodyLabel.textContent = node
       ? (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'NOTES'))
@@ -5050,14 +5024,6 @@ function updateObjectInspectorUi(node, link, copyText) {
   }
   if (objectVarNameHint) objectVarNameHint.hidden = !isReplyNode;
   refreshVarNameHint();
-  if (objectButtonNameInput) {
-    objectButtonNameInput.disabled = !isButtonNode;
-    objectButtonNameInput.value = isButtonNode && node ? (node.title || '') : '';
-  }
-  if (objectButtonTargetInput) {
-    objectButtonTargetInput.disabled = !isButtonNode;
-    objectButtonTargetInput.value = isButtonNode && node ? (node.buttonUrl || '') : '';
-  }
   syncReplyModeInputs(node);
   if (objectBodyInput) {
     objectBodyInput.disabled = isLinkSelected || !node || (isReplyNode && !!(node && node.acceptAny));
@@ -5534,7 +5500,7 @@ function duplicateNode(nodeId) {
   if (isAnytimeNode(source)) return duplicateAnytimePair(source);
 
   const placement = getAutoPlacementPosition(source.type, source);
-  const isThreadNode = source.type === 'bubble' || source.type === 'reply' || source.type === 'stop' || source.type === 'button';
+  const isThreadNode = source.type === 'bubble' || source.type === 'reply' || source.type === 'stop';
   const sourceOrderIndex = normalizeNodeOrderIndex(source.orderIndex);
   const duplicateOrderIndex = isThreadNode && sourceOrderIndex != null
     ? sourceOrderIndex + 50
@@ -5766,8 +5732,7 @@ function syncReplyModeInputs(node) {
   if (objectReplyModeField) objectReplyModeField.hidden = !isReplyNode;
   if (objectBodyAnswerNote) objectBodyAnswerNote.hidden = !(isReplyNode && mode === 'normal');
   if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble');
-  const isButtonNode = !!node && node.type === 'button';
-  if (objectDescriptionField) objectDescriptionField.hidden = isButtonNode || (isReplyNode && mode === 'anyanswer');
+  if (objectDescriptionField) objectDescriptionField.hidden = (isReplyNode && mode === 'anyanswer');
 
   [
     [objectReplyModeNormalInput, 'normal'],
@@ -6058,7 +6023,6 @@ function serializeNodeState(node) {
     tags: (node.tags || []).filter(Boolean),
     teams: Array.isArray(node.teams) ? node.teams : [],
     body: node.body,
-    buttonUrl: node.buttonUrl || '',
     tertiaryColor: node.tertiaryColor || '',
     varName: node.varName || '',
     acceptAny: !!node.acceptAny,
@@ -6606,23 +6570,6 @@ objectVarNameInput.addEventListener('input', () => {
   renderAll();
 });
 
-if (objectButtonTargetInput) {
-  objectButtonTargetInput.addEventListener('input', () => {
-    const node = getNode(state.selectedId);
-    if (!node || node.type !== 'button') return;
-    node.buttonUrl = objectButtonTargetInput.value;
-    scheduleRecoverySync();
-  });
-}
-
-if (objectButtonNameInput) {
-  objectButtonNameInput.addEventListener('input', () => {
-    const node = getNode(state.selectedId);
-    if (!node || node.type !== 'button') return;
-    node.title = objectButtonNameInput.value || TYPE_CONFIG[node.type].title;
-    renderAll();
-  });
-}
 
 varNameInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
@@ -7591,7 +7538,3 @@ async function initializeBuilder() {
 }
 
 initializeBuilder();
-
-
-
-

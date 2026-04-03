@@ -93,7 +93,6 @@
       acceptAny: type === 'reply' ? !!node.acceptAny : false,
       anytime: !!node.anytime,
       anytimePairId: safeString(node.anytimePairId || node.pairId).trim(),
-      buttonUrl: safeString(node.buttonUrl).trim()
     };
   }
 
@@ -628,16 +627,6 @@
 
   function toEngineMessage(node) {
     const body = safeString(node && node.body).trim();
-    if (node.type === 'button') {
-      const label = safeString(node && node.title).trim() || 'BUY GAME TO CONTINUE';
-      const url = safeString(node && node.buttonUrl).trim();
-      return {
-        isButton: true,
-        text: label,
-        buttonUrl: url,
-        bubbleId: node.id
-      };
-    }
     if (node.type === 'reply') {
       const replyModeRaw = String(node && node.replyMode || '').trim().toLowerCase();
       if (replyModeRaw === 'branch') {

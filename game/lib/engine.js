@@ -428,22 +428,6 @@ function openButtonLightbox(url) {
 function addMsg(msg, animate) {
   if (!msg.html && !msg.text) return null;
 
-  if (msg.isButton) {
-    const wrap = document.createElement('div');
-    wrap.className = 'msg msg-action-btn';
-    if (!animate) wrap.style.animation = 'none';
-    const btn = document.createElement('button');
-    btn.className = 'msg-btn';
-    btn.type = 'button';
-    btn.textContent = msg.text || 'BUY GAME TO CONTINUE';
-    if (msg.buttonUrl) {
-      btn.addEventListener('click', () => openButtonLightbox(msg.buttonUrl));
-    }
-    wrap.appendChild(btn);
-    chatEl.appendChild(wrap);
-    return wrap;
-  }
-
   const wrap = document.createElement('div');
   const isCallToAction = !!msg.callToAction;
   wrap.className = 'msg ' + (msg.fromPlayer ? 'from-player' : 'from-game') + (isCallToAction ? ' call-to-action' : '');
@@ -456,6 +440,17 @@ function addMsg(msg, animate) {
   } else {
     bubble.textContent = interpolate(msg.text || '');
   }
+
+  bubble.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', e => {
+      const url = a.href;
+      if (url && /^https?:\/\//i.test(url)) {
+        e.preventDefault();
+        openButtonLightbox(url);
+      }
+    });
+  });
+
   if (!msg.fromPlayer) applyGuideCapsLoop(bubble);
   if (bubble.querySelector('img')) wrap.classList.add('has-img');
   wrap.appendChild(bubble);
@@ -516,8 +511,6 @@ function normalizeBubble(bubble) {
     bubbleId: typeof bubble.bubbleId === 'string' ? bubble.bubbleId : '',
     html: typeof bubble.html === 'string' ? bubble.html : '',
     text: typeof bubble.text === 'string' ? bubble.text : '',
-    isButton: !!bubble.isButton,
-    buttonUrl: typeof bubble.buttonUrl === 'string' ? bubble.buttonUrl : '',
     fromPlayer: !!(bubble.fromPlayer || bubble.direction === 'fromPlayer'),
     autoAdvance: !!bubble.autoAdvance,
     callToAction: needsReply,
@@ -539,15 +532,6 @@ function normalizeBubble(bubble) {
 function normalizePlayerReply(playerReply) {
   if (!playerReply || typeof playerReply !== 'object') return { type: 'text', placeholder: '', answers: [] };
   const type = playerReply.type || 'text';
-
-  if (type === 'button') {
-    return {
-      type: 'button',
-      text: playerReply.text || 'Continue',
-      playerText: playerReply.playerText || playerReply.text || 'Continue',
-      nextStopId: String(playerReply.nextStopId || '').trim()
-    };
-  }
 
   if (type === 'win') {
     return {
@@ -800,24 +784,6 @@ function renderInput(disabled) {
   const routeBranchCases = getRouteBranchCases(stops[state.step]);
   if (playerReply.type === 'win' && !routeBranchCases.length) return;
   showInputArea();
-
-  if (playerReply.type === 'button') {
-    const wrap = document.createElement('div');
-    wrap.className = 'btn-choices';
-    const btn = document.createElement('button');
-    btn.className = 'choice-btn neutral';
-    btn.textContent = playerReply.text;
-    btn.disabled = !!disabled;
-    if (!disabled) {
-      btn.addEventListener('click', () => {
-        addMsg({ fromPlayer: true, text: playerReply.playerText || playerReply.text }, true);
-        doAdvance();
-      });
-    }
-    wrap.appendChild(btn);
-    inputAreaEl.appendChild(wrap);
-    return;
-  }
 
   const row = document.createElement('div');
   row.className = 'answer-row';
@@ -1213,9 +1179,6 @@ function buildRevealPlayerReplyMessage(playerReply) {
   if (playerReply.type === 'win') {
     return { fromPlayer: true, text: 'WIN' };
   }
-  if (playerReply.type === 'button') {
-    return { fromPlayer: true, text: playerReply.playerText || playerReply.text || 'Continue' };
-  }
   if (playerReply.type === 'any') {
     const stored = playerReply.storesAs ? getStateVar(playerReply.storesAs) : undefined;
     return { fromPlayer: true, text: stored || '[any answer]' };
@@ -1272,9 +1235,6 @@ function replayProgress() {
         if (matchedBranch && String(matchedBranch.reply || '').trim()) {
           addMsg({ html: matchedBranch.reply }, false);
         }
-      }
-      if (pr.type === 'button') {
-        addMsg({ fromPlayer: true, text: pr.playerText || pr.text || '' }, false);
       }
     }
   }
