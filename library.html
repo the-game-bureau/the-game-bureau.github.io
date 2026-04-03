@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0c1428">
-  <title>Our Games | The Game Bureau</title>
+  <title>Library | The Game Bureau</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -177,11 +177,14 @@
     .play-action {
       margin-top: auto;
       padding-top: 1.5rem;
+      display: flex;
+      gap: 0.75rem;
+      align-items: stretch;
     }
 
     .play-btn {
       display: block;
-      width: 100%;
+      flex: 1 1 0;
       text-align: center;
       padding: 0.875rem;
       background: var(--primary); 
@@ -196,12 +199,107 @@
     .play-btn:hover { background: var(--primary-hover); }
     .play-btn:active { transform: scale(0.97); }
 
+    .edit-btn {
+      display: block;
+      flex: 1 1 0;
+      text-align: center;
+      padding: 0.875rem;
+      background: transparent;
+      color: var(--text-main);
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 1rem;
+      border: 1px solid var(--primary);
+      transition: background-color 0.2s, color 0.2s, transform 0.1s;
+    }
+
+    .edit-btn:hover {
+      background: rgba(51, 230, 230, 0.12);
+      color: var(--primary);
+    }
+
+    .edit-btn:active { transform: scale(0.97); }
+
+    .admin-mode-indicator {
+      position: fixed;
+      right: 1.25rem;
+      bottom: 5.75rem;
+      z-index: 120;
+      display: none;
+      padding: 0.6rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid rgba(51, 230, 230, 0.25);
+      background: rgba(20, 30, 53, 0.92);
+      color: var(--primary);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      box-shadow: var(--shadow-md);
+    }
+
+    .admin-mode-indicator[data-visible="true"] {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .admin-mode-indicator::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green-dot);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.65);
+    }
+
+    .admin-mode-toggle {
+      position: fixed;
+      right: 1.25rem;
+      bottom: 1.25rem;
+      z-index: 130;
+      border: 1px solid rgba(51, 230, 230, 0.22);
+      background: rgba(20, 30, 53, 0.94);
+      color: var(--text-main);
+      border-radius: 999px;
+      padding: 0.95rem 1.1rem;
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+      transition: transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .admin-mode-toggle:hover {
+      transform: translateY(-2px);
+      border-color: rgba(51, 230, 230, 0.42);
+    }
+
+    .admin-mode-toggle[data-active="true"] {
+      background: var(--primary);
+      color: #0c1428;
+      border-color: var(--primary);
+    }
+
     .empty-state { text-align: center; grid-column: 1 / -1; color: var(--text-muted); padding: 3rem 0; }
     .error-state { color: var(--text-muted); font-weight: 500; text-align: center; grid-column: 1 / -1; padding: 2rem; background: var(--card-bg); border-radius: 12px; border: 1px solid #522; }
 
     @media (max-width: 640px) {
       .hero h1 { font-size: 2.25rem; }
       .app-container { padding: 2rem 1rem 4rem 1rem; }
+      .play-action { flex-direction: column; }
+      .admin-mode-toggle {
+        right: 1rem;
+        bottom: 1rem;
+      }
+      .admin-mode-indicator {
+        right: 1rem;
+        bottom: 5.5rem;
+      }
     }
 
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -216,7 +314,7 @@
 
   <main class="app-container">
     <section class="hero">
-      <h1>Our Games</h1>
+      <h1>Library</h1>
       <p>We create real world games that intertwine technology with the human experience.</p>
       <div class="badge">No app necessary</div>
     </section>
@@ -230,6 +328,9 @@
     </ul>
   </main>
 
+  <div class="admin-mode-indicator" id="adminModeIndicator" data-visible="false">Admin Mode</div>
+  <button class="admin-mode-toggle" id="adminModeToggle" type="button" data-active="false" aria-pressed="false">Admin Mode</button>
+
   <script>
     window.TGB_SUPABASE_CONFIG = {
       enabled: true,
@@ -237,6 +338,38 @@
       publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
       gamesTable: 'games'
     };
+
+    const ADMIN_MODE_KEY = 'tgb-library-admin-mode';
+    let adminModeEnabled = false;
+
+    function readAdminMode() {
+      try {
+        return sessionStorage.getItem(ADMIN_MODE_KEY) === 'true';
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function writeAdminMode(value) {
+      try {
+        sessionStorage.setItem(ADMIN_MODE_KEY, value ? 'true' : 'false');
+      } catch (error) {
+        // Ignore storage issues and keep the in-memory state.
+      }
+    }
+
+    function updateAdminModeUi() {
+      const toggle = document.getElementById('adminModeToggle');
+      const indicator = document.getElementById('adminModeIndicator');
+      if (toggle) {
+        toggle.dataset.active = adminModeEnabled ? 'true' : 'false';
+        toggle.setAttribute('aria-pressed', adminModeEnabled ? 'true' : 'false');
+        toggle.textContent = adminModeEnabled ? 'Admin On' : 'Admin Mode';
+      }
+      if (indicator) {
+        indicator.dataset.visible = adminModeEnabled ? 'true' : 'false';
+      }
+    }
 
     async function fetchGames(config) {
       const baseUrl = `${config.url.replace(/\/+$/, '')}/`;
@@ -314,6 +447,14 @@
         playLink.textContent = 'Play Game';
         playAction.appendChild(playLink);
 
+        if (adminModeEnabled) {
+          const editLink = document.createElement('a');
+          editLink.className = 'edit-btn';
+          editLink.href = `builder.html?id=${encodeURIComponent(game.id ?? '')}`;
+          editLink.textContent = 'Edit';
+          playAction.appendChild(editLink);
+        }
+
         li.append(titleWrap, playAction);
         listContainer.appendChild(li);
       });
@@ -341,6 +482,16 @@
         searchInput.addEventListener('input', (e) => {
           renderList(listContainer, games, e.target.value);
         });
+
+        const adminModeToggle = document.getElementById('adminModeToggle');
+        if (adminModeToggle) {
+          adminModeToggle.addEventListener('click', () => {
+            adminModeEnabled = !adminModeEnabled;
+            writeAdminMode(adminModeEnabled);
+            updateAdminModeUi();
+            renderList(listContainer, games, searchInput.value);
+          });
+        }
       } catch (err) {
         console.error('Database fetch error:', err);
         const errorMessage = err instanceof Error ? err.message : String(err);
@@ -348,7 +499,11 @@
       }
     }
 
-    document.addEventListener('DOMContentLoaded', loadGames);
+    document.addEventListener('DOMContentLoaded', () => {
+      adminModeEnabled = readAdminMode();
+      updateAdminModeUi();
+      loadGames();
+    });
   </script>
 </body>
 </html>
