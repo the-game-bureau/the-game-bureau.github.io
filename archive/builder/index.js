@@ -6420,7 +6420,7 @@ async function playCurrentGame() {
       || state.store.games.find((game) => game && game.id === selectedGamePickerId)
       || null;
     rememberPlayPreview(previewGame);
-    const target = new URL('../game/index.html', location.href);
+    const target = new URL('../../game.html', location.href);
     target.searchParams.set('id', selectedGamePickerId);
     window.open(target.toString(), '_blank');
     return;
@@ -6434,7 +6434,7 @@ async function playCurrentGame() {
   const gameId = savedGame && savedGame.id ? savedGame.id : state.currentGameId;
   if (!gameId) return;
   rememberPlayPreview(savedGame);
-  const target = new URL('../game/index.html', location.href);
+  const target = new URL('../../game.html', location.href);
   target.searchParams.set('id', gameId);
   window.open(target.toString(), '_blank');
 }
