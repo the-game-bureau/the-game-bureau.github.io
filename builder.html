@@ -7505,8 +7505,6 @@ body.builder-auth-ready .builder-auth-signout{
                 <option value="__new-game__">NEW GAME</option>
               </select>
             </div>
-            <button class="games-page-link games-page-link--action games-page-link--save game-picker-btn" id="gamePickerSaveBtn" type="button" data-state="idle" aria-busy="false">Save</button>
-            <button class="games-page-link games-page-link--action games-page-link--play game-picker-btn" id="gamePickerPlayBtn" type="button" aria-disabled="true">PREVIEW</button>
             <button class="games-page-link games-page-link--action game-picker-btn builder-auth-signout" id="builderSignOutBtn" type="button" aria-label="Sign out" title="Sign out"><svg class="builder-auth-signout-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
           </div>
         </div>
@@ -7526,12 +7524,12 @@ body.builder-auth-ready .builder-auth-signout{
               <div class="inspector-windowtitle" id="inspectorWindowTitle">GAME DETAILS</div>
               <div class="inspector-windowtools">
                 <div class="inspector-actions inspector-actions--header">
+                  <button class="insp-btn" id="gamePickerSaveBtn" type="button" data-state="idle" aria-busy="false">Save</button>
+                  <button class="insp-btn" id="gamePickerPlayBtn" type="button" aria-disabled="true">Preview</button>
                   <button class="insp-btn insp-btn--duplicate" id="duplicateGameBtn" type="button">Duplicate</button>
-                  <button class="insp-btn insp-btn--archive" id="featureGameBtn" type="button">Feature</button>
                   <button class="insp-btn insp-btn--archive" id="archiveGameBtn" type="button">Archive</button>
                   <button class="insp-btn insp-btn--danger inspector-eraser-btn" id="gameEraseBtn" type="button" hidden title="Erase or archive game" aria-label="Erase or archive game">Erase</button>
                 </div>
-                <button class="inspector-windowtoggle" id="gameDetailsToggleBtn" type="button" aria-controls="inspectorStack" aria-expanded="true" aria-label="Collapse game details" title="Collapse game details">&#9650;</button>
               </div>
             </div>
             <div class="pane-subtitle" id="inspectorWindowSubtitle" hidden>Select something to edit.</div>
@@ -8112,8 +8110,9 @@ body.builder-auth-ready .builder-auth-signout{
                 <div class="mini-note" id="selectionId">ID: none</div>
 
                 <div class="inspector-actions">
+                  <button class="insp-btn" id="gamePickerSaveBtn" type="button" data-state="idle" aria-busy="false">Save</button>
+                  <button class="insp-btn" id="gamePickerPlayBtn" type="button" aria-disabled="true">Preview</button>
                   <button class="insp-btn insp-btn--duplicate" id="duplicateGameBtn" type="button">Duplicate</button>
-                  <button class="insp-btn insp-btn--archive" id="featureGameBtn" type="button">Feature</button>
                   <button class="insp-btn insp-btn--archive" id="archiveGameBtn" type="button">Archive</button>
                   <button class="insp-btn insp-btn--danger inspector-eraser-btn" id="gameEraseBtn" type="button" hidden title="Erase or archive game" aria-label="Erase or archive game">Erase</button>
                   <button class="insp-btn insp-btn--danger" id="deleteBtn" type="button" disabled>Erase</button>
@@ -8251,7 +8250,8 @@ const NODE_TYPE_BY_PREFIX = Object.fromEntries(
   Object.entries(NODE_ID_PREFIX).map(([type, prefix]) => [prefix, type])
 );
 
-const ALL_TAGS = ['Mystery', 'Puzzle', 'SMS', 'Walking Tour', 'Sports', 'History', 'Food', 'Adventure', 'Family', 'Conspiracy', 'Trivia', 'Horror', 'Romance', 'Comedy', 'Music', 'Culture', 'Night Life', 'City Tour', 'Scavenger Hunt', 'New Orleans'];
+const ALL_TAGS = ['Featured', 'Mystery', 'Puzzle', 'SMS', 'Walking Tour', 'Sports', 'History', 'Food', 'Adventure', 'Family', 'Conspiracy', 'Trivia', 'Horror', 'Romance', 'Comedy', 'Music', 'Culture', 'Night Life', 'City Tour', 'Scavenger Hunt', 'New Orleans'];
+const FEATURED_TAG = 'Featured';
 
 const LOCAL_OPEN_GAME_KEY = 'tgb-games-phoneanalogy-open';
 const LOCAL_RECOVERY_KEY = 'tgb-games-phoneanalogy-recovery';
@@ -8364,6 +8364,7 @@ async function deleteTagFromSupabase(tagName) {
 
 function deleteTagGlobally(tagName) {
   const tagLower = tagName.toLowerCase();
+  if (tagLower === FEATURED_TAG.toLowerCase()) return;
   const idx = allTags.findIndex(t => t.toLowerCase() === tagLower);
   if (idx !== -1) allTags.splice(idx, 1);
 
@@ -11229,7 +11230,7 @@ function syncInspectorHosts(node = getNode(state.selectedId), link = getLink(sta
 }
 
 function setGameDetailsCollapsed(collapsed) {
-  state.gameDetailsCollapsed = !!collapsed;
+  state.gameDetailsCollapsed = false;
   if (inspector) inspector.classList.toggle('is-collapsed', state.gameDetailsCollapsed);
   if (inspectorStack) inspectorStack.hidden = state.gameDetailsCollapsed;
   if (gameDetailsToggleBtn) {
@@ -12076,7 +12077,9 @@ function isCurrentGameArchived() {
 }
 
 function isCurrentGameFeatured() {
-  return normalizeFeaturedFlag(getCurrentGameArchiveEntry()?.featured) === FEATURED_GAME_VALUE;
+  const gameNode = getGameNode();
+  const tags = Array.isArray(gameNode && gameNode.tags) ? gameNode.tags : [];
+  return tags.some((tag) => String(tag || '').trim().toLowerCase() === FEATURED_TAG.toLowerCase());
 }
 
 function setArchiveGameFeedback(kind = '', options = {}) {
@@ -12142,7 +12145,7 @@ async function toggleCurrentGameArchiveState() {
 
   try {
     const saveResult = await saveDoc({ silent: true });
-    if (!saveResult || saveResult.localOnly) {
+    if (!saveResult || saveResult.error) {
       showArchiveGameError(
         'Could not update this game in the database.',
         saveResult && saveResult.error ? saveResult.error : new Error('This game could not be saved to Supabase first.')
@@ -12191,11 +12194,8 @@ async function toggleCurrentGameArchiveState() {
 
 async function toggleCurrentGameFeaturedState() {
   if (state.featureGameActionBusy || !getCurrentGameArchiveEntry()) return false;
-  if (!hasSupabaseStore()) {
-    showFeatureGameError('Could not update the featured game in the database.', new Error('Supabase is not configured.'));
-    return false;
-  }
-
+  const gameNode = getGameNode();
+  if (!gameNode || gameNode.type !== 'game') return false;
   const wasFeatured = isCurrentGameFeatured();
   state.featureGameActionBusy = true;
   setDuplicateGameFeedback('');
@@ -12204,52 +12204,18 @@ async function toggleCurrentGameFeaturedState() {
   updateSelectionUi();
 
   try {
+    const nextTags = Array.isArray(gameNode.tags) ? [...gameNode.tags] : [];
+    const filteredTags = nextTags.filter((tag) => String(tag || '').trim().toLowerCase() !== FEATURED_TAG.toLowerCase());
+    gameNode.tags = wasFeatured ? filteredTags : [...filteredTags, FEATURED_TAG];
+    renderTagPicker(gameNode);
     const saveResult = await saveDoc({ silent: true });
     if (!saveResult || saveResult.localOnly) {
       showFeatureGameError(
-        'Could not update the featured game in the database.',
-        saveResult && saveResult.error ? saveResult.error : new Error('This game could not be saved to Supabase first.')
+        'Could not update the featured tag.',
+        saveResult && saveResult.error ? saveResult.error : new Error('This game could not be saved.')
       );
       return false;
     }
-
-    const targetId = String((saveResult.savedGame && saveResult.savedGame.id) || state.currentGameId || '').trim();
-    if (!targetId) {
-      showFeatureGameError('Could not update the featured game in the database.', new Error('No saved game is available to update.'));
-      return false;
-    }
-
-    const updateResult = await setCurrentFeaturedGameInSupabase(targetId, wasFeatured ? '' : FEATURED_GAME_VALUE);
-    if (!updateResult.serverSaved) {
-      showFeatureGameError('Could not update the featured game in the database.', updateResult.error);
-      return false;
-    }
-
-    const clearFeatured = (entry) => {
-      if (!entry) return entry;
-      return setGameFeaturedState(entry, '');
-    };
-
-    state.store.games = state.store.games.map(clearFeatured);
-    state.headerGames = state.headerGames.map(clearFeatured);
-
-    const existingSavedGame = state.store.games.find((entry) => entry && entry.id === targetId)
-      || getCurrentHeaderGameEntry()
-      || { id: targetId };
-    const savedGame = updateResult.savedGame || normalizeSavedGame({
-      ...existingSavedGame,
-      id: targetId,
-      featured: wasFeatured ? '' : FEATURED_GAME_VALUE,
-      updatedAt: new Date().toISOString()
-    }, 0);
-
-    state.localOnlyChanges = false;
-    const currentGameNode = getGameNode();
-    if (currentGameNode && currentGameNode.type === 'game') {
-      currentGameNode.featured = wasFeatured ? '' : FEATURED_GAME_VALUE;
-    }
-    upsertStoredGame(savedGame);
-    await refreshHeaderGames();
     setFeatureGameFeedback(wasFeatured ? 'unfeatured' : 'featured');
     return true;
   } finally {
@@ -13187,9 +13153,14 @@ function renderTagPicker(node) {
     delBtn.className = 'tag-delete-btn';
     delBtn.textContent = '×';
     delBtn.setAttribute('aria-label', 'Delete tag ' + tag);
-    delBtn.disabled = !isGameNode;
+    const isProtectedTag = tagLower === FEATURED_TAG.toLowerCase();
+    delBtn.disabled = !isGameNode || isProtectedTag;
+    if (isProtectedTag) {
+      delBtn.hidden = true;
+    }
     delBtn.addEventListener('click', () => {
       if (!isGameNode) return;
+      if (isProtectedTag) return;
       deleteTagGlobally(tag);
     });
 
@@ -14286,7 +14257,6 @@ function updateSelectionUi(options = {}) {
     || state.archiveGameActionBusy
     || state.gameEraseActionBusy;
   const featureGameDisabled = !hasLoadedGame
-    || !hasSupabaseStore()
     || state.saveUiState === 'saving'
     || state.saveUiState === 'loading'
     || state.duplicateGameActionBusy
@@ -14321,13 +14291,11 @@ function updateSelectionUi(options = {}) {
         ? (currentGameFeatured ? 'Featured' : 'Unfeatured')
         : (currentGameFeatured ? 'Unfeature' : 'Feature');
     featureGameBtn.classList.toggle('is-success', !!state.featureGameFeedback && !state.featureGameActionBusy);
-    featureGameBtn.title = !hasSupabaseStore()
-      ? 'Supabase is required to set the featured game'
-      : state.featureGameActionBusy
+    featureGameBtn.title = state.featureGameActionBusy
         ? (currentGameFeatured ? 'Removing featured status...' : 'Setting featured status...')
         : currentGameFeatured
-          ? 'Remove this game as the single featured game'
-          : 'Make this game the single featured game';
+          ? 'Remove the Featured tag from this game'
+          : 'Add the Featured tag to this game';
     featureGameBtn.setAttribute('aria-label', featureGameBtn.title);
   }
   if (archiveGameBtn) {
@@ -16356,11 +16324,6 @@ if (builderAuthRequestBtn) {
 }
 if (builderSignOutBtn) {
   builderSignOutBtn.addEventListener('click', handleBuilderSignOut);
-}
-if (gameDetailsToggleBtn) {
-  gameDetailsToggleBtn.addEventListener('click', () => {
-    setGameDetailsCollapsed(!state.gameDetailsCollapsed);
-  });
 }
 if (gamePickerSelect) {
   gamePickerSelect.addEventListener('change', async () => {
