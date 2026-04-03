@@ -151,6 +151,43 @@
       position: relative;
     }
 
+    .featured-shell {
+      display: grid;
+      gap: 1rem;
+      margin: 0 0 2.4rem;
+    }
+
+    .featured-shell[hidden] {
+      display: none;
+    }
+
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      width: fit-content;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(245, 247, 251, 0.62);
+    }
+
+    .section-label::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 14px rgba(255, 255, 255, 0.38);
+    }
+
+    .featured-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      list-style: none;
+    }
+
     #gameSearch {
       width: 100%;
       padding: 1.05rem 1.15rem;
@@ -535,6 +572,11 @@
     <div class="search-wrapper">
       <input type="text" id="gameSearch" placeholder="Search the catalog...">
     </div>
+
+    <section class="featured-shell" id="featuredShell" hidden>
+      <div class="section-label">Featured Tonight</div>
+      <ul class="featured-grid" id="featuredGameContainer"></ul>
+    </section>
     
     <ul class="game-grid" id="gamesListContainer">
       <li class="empty-state">Loading games engine...</li>
@@ -554,6 +596,9 @@
 
     const ADMIN_MODE_KEY = 'tgb-library-admin-mode';
     let adminModeEnabled = false;
+    const GAMES_SCHEMA = {
+      featured: true
+    };
 
     function readAdminMode() {
       try {
@@ -584,10 +629,23 @@
       }
     }
 
-    async function fetchGames(config) {
+    function getMissingGamesColumnName(errorMessage = '') {
+      const message = String(errorMessage || '');
+      const match = message.match(/column\s+games\.([a-z_]+)\s+does\s+not\s+exist/i);
+      return match ? String(match[1] || '').trim().toLowerCase() : '';
+    }
+
+    function buildGameSelect() {
+      const columns = ['id', 'name', 'primary_color', 'secondary_color', 'archived', 'nodes'];
+      if (GAMES_SCHEMA.featured) columns.splice(4, 0, 'featured');
+      return columns.join(',');
+    }
+
+    async function fetchGames(config, selectOverride = '') {
       const baseUrl = `${config.url.replace(/\/+$/, '')}/`;
       const requestUrl = new URL(`rest/v1/${config.gamesTable}`, baseUrl);
-      requestUrl.searchParams.set('select', 'id,name,primary_color,secondary_color,nodes');
+      const select = selectOverride || buildGameSelect();
+      requestUrl.searchParams.set('select', select);
       requestUrl.searchParams.set('order', 'name.asc');
 
       const response = await fetch(requestUrl.toString(), {
@@ -613,6 +671,12 @@
           // Fall back to the status-based message when no JSON body is available.
         }
 
+        const missingColumn = getMissingGamesColumnName(message);
+        if (missingColumn === 'featured' && GAMES_SCHEMA.featured) {
+          GAMES_SCHEMA.featured = false;
+          return fetchGames(config, buildGameSelect());
+        }
+
         throw new Error(message);
       }
 
@@ -631,6 +695,12 @@
     function getGameNode(game) {
       if (!game || !Array.isArray(game.nodes)) return null;
       return game.nodes.find((node) => node && node.type === 'game') || null;
+    }
+
+    function getFeaturedState(game) {
+      const gameNode = getGameNode(game);
+      const raw = String(game && game.featured || gameNode && gameNode.featured || '').trim().toUpperCase();
+      return raw === 'YES' ? 'YES' : '';
     }
 
     function getGamePalette(game) {
@@ -657,7 +727,7 @@
 
     function getGameImageUrl(game) {
       const gameNode = getGameNode(game);
-      return resolveLibraryAssetUrl(gameNode && (gameNode.guideImage || gameNode.guideImageUrl || gameNode.logo || gameNode.logoUrl) || '');
+      return resolveLibraryAssetUrl(gameNode && (gameNode.logo || gameNode.logoUrl || gameNode.guideImage || gameNode.guideImageUrl) || '');
     }
 
     function getGameStyleName(index) {
@@ -678,110 +748,144 @@
       return 'A live local experience with enough atmosphere to take over the room.';
     }
 
-    function renderList(listContainer, games, filter = '') {
+    function isGameFeatured(game) {
+      return getFeaturedState(game) === 'YES';
+    }
+
+    function filterGames(games, filter = '') {
+      const normalizedFilter = String(filter || '').trim().toLowerCase();
+      return games.filter((game) => {
+        const isArchived = typeof game?.archived === 'string' && game.archived.trim();
+        if (isArchived) return false;
+        if (!normalizedFilter) return true;
+        return (game.name || '').toLowerCase().includes(normalizedFilter);
+      });
+    }
+
+    function createGameCard(game, index, options = {}) {
+      const palette = getGamePalette(game);
+      const styleName = getGameStyleName(index);
+      const typeLabel = options.typeLabel || getGameTypeLabel(game, index);
+      const caption = getGameCaption(game);
+      const isFeaturedCard = !!options.featuredCard;
+
+      const li = document.createElement('li');
+      li.className = 'game-card';
+      li.dataset.style = styleName;
+      if (isFeaturedCard) li.classList.add('is-featured');
+      li.style.animationDelay = `${(index % 10) * 0.1}s`;
+      li.style.setProperty('--game-primary', palette.primary);
+      li.style.setProperty('--game-secondary', palette.secondary);
+      li.style.setProperty('--game-tertiary', palette.tertiary);
+
+      const objectWrap = document.createElement('div');
+      objectWrap.className = 'game-object';
+
+      const photo = document.createElement('div');
+      photo.className = 'game-photo';
+      const imageUrl = getGameImageUrl(game);
+      if (imageUrl) {
+        photo.style.backgroundImage = `url("${imageUrl.replace(/["\\]/g, '\\$&')}")`;
+      }
+
+      const objectInner = document.createElement('div');
+      objectInner.className = 'game-object-inner';
+
+      const emblem = document.createElement('div');
+      emblem.className = 'game-emblem';
+      emblem.textContent = isFeaturedCard ? 'Featured' : 'Play';
+
+      const label = document.createElement('div');
+      label.className = 'game-label';
+
+      const type = document.createElement('div');
+      type.className = 'game-type';
+      type.textContent = typeLabel;
+
+      const title = document.createElement('h2');
+      title.className = 'game-title';
+      title.textContent = game.name || 'Untitled Game';
+
+      label.append(type, title);
+      objectInner.append(emblem, label);
+      objectWrap.append(photo, objectInner);
+
+      const body = document.createElement('div');
+      body.className = 'game-card-body';
+
+      const meta = document.createElement('div');
+      meta.className = 'game-meta';
+
+      const chip = document.createElement('div');
+      chip.className = 'game-chip';
+      chip.textContent = typeLabel;
+
+      const indexLabel = document.createElement('div');
+      indexLabel.className = 'game-index';
+      indexLabel.textContent = isFeaturedCard
+        ? 'Now Showing'
+        : `No. ${String(index + 1).padStart(2, '0')}`;
+
+      meta.append(chip, indexLabel);
+
+      const captionEl = document.createElement('p');
+      captionEl.className = 'game-caption';
+      captionEl.textContent = caption;
+
+      const playAction = document.createElement('div');
+      playAction.className = 'play-action';
+
+      const playLink = document.createElement('a');
+      playLink.className = 'play-btn';
+      playLink.href = `game.html?id=${encodeURIComponent(game.id ?? '')}`;
+      playLink.textContent = 'Play Game';
+      playAction.appendChild(playLink);
+
+      if (adminModeEnabled) {
+        const editLink = document.createElement('a');
+        editLink.className = 'edit-btn';
+        editLink.href = `builder.html?id=${encodeURIComponent(game.id ?? '')}`;
+        editLink.textContent = 'Edit';
+        playAction.appendChild(editLink);
+      }
+
+      body.append(meta, captionEl, playAction);
+      li.append(objectWrap, body);
+      return li;
+    }
+
+    function renderFeatured(featuredContainer, featuredShell, games, filter = '') {
+      if (!featuredContainer || !featuredShell) return;
+      featuredContainer.innerHTML = '';
+      const filteredGames = filterGames(games, filter);
+      const featuredGame = filteredGames.find((game) => isGameFeatured(game)) || null;
+      featuredShell.hidden = !featuredGame;
+      if (!featuredGame) return;
+      featuredContainer.appendChild(createGameCard(featuredGame, 0, {
+        featuredCard: true,
+        typeLabel: 'Featured Game'
+      }));
+    }
+
+    function renderList(listContainer, featuredContainer, featuredShell, games, filter = '') {
       listContainer.innerHTML = '';
+      renderFeatured(featuredContainer, featuredShell, games, filter);
 
-      const filteredGames = games.filter((game) =>
-        (game.name || '').toLowerCase().includes(filter.toLowerCase())
-      );
-
+      const filteredGames = filterGames(games, filter);
       if (filteredGames.length === 0) {
         renderEmptyState(listContainer, 'No games match your search.');
         return;
       }
 
       filteredGames.forEach((game, index) => {
-        const palette = getGamePalette(game);
-        const styleName = getGameStyleName(index);
-        const typeLabel = getGameTypeLabel(game, index);
-        const caption = getGameCaption(game);
-
-        const li = document.createElement('li');
-        li.className = 'game-card';
-        li.dataset.style = styleName;
-        if (index === 0) li.classList.add('is-featured');
-        li.style.animationDelay = `${(index % 10) * 0.1}s`;
-        li.style.setProperty('--game-primary', palette.primary);
-        li.style.setProperty('--game-secondary', palette.secondary);
-        li.style.setProperty('--game-tertiary', palette.tertiary);
-
-        const objectWrap = document.createElement('div');
-        objectWrap.className = 'game-object';
-
-        const photo = document.createElement('div');
-        photo.className = 'game-photo';
-        const imageUrl = getGameImageUrl(game);
-        if (imageUrl) {
-          photo.style.backgroundImage = `url("${imageUrl.replace(/["\\]/g, '\\$&')}")`;
-        }
-
-        const objectInner = document.createElement('div');
-        objectInner.className = 'game-object-inner';
-
-        const emblem = document.createElement('div');
-        emblem.className = 'game-emblem';
-        emblem.textContent = index === 0 ? 'Featured' : 'Play';
-
-        const label = document.createElement('div');
-        label.className = 'game-label';
-
-        const type = document.createElement('div');
-        type.className = 'game-type';
-        type.textContent = typeLabel;
-
-        const title = document.createElement('h2');
-        title.className = 'game-title';
-        title.textContent = game.name || 'Untitled Game';
-
-        label.append(type, title);
-        objectInner.append(emblem, label);
-        objectWrap.append(photo, objectInner);
-
-        const body = document.createElement('div');
-        body.className = 'game-card-body';
-
-        const meta = document.createElement('div');
-        meta.className = 'game-meta';
-
-        const chip = document.createElement('div');
-        chip.className = 'game-chip';
-        chip.textContent = typeLabel;
-
-        const indexLabel = document.createElement('div');
-        indexLabel.className = 'game-index';
-        indexLabel.textContent = `No. ${String(index + 1).padStart(2, '0')}`;
-
-        meta.append(chip, indexLabel);
-
-        const captionEl = document.createElement('p');
-        captionEl.className = 'game-caption';
-        captionEl.textContent = caption;
-
-        const playAction = document.createElement('div');
-        playAction.className = 'play-action';
-
-        const playLink = document.createElement('a');
-        playLink.className = 'play-btn';
-        playLink.href = `game.html?id=${encodeURIComponent(game.id ?? '')}`;
-        playLink.textContent = 'Play Game';
-        playAction.appendChild(playLink);
-
-        if (adminModeEnabled) {
-          const editLink = document.createElement('a');
-          editLink.className = 'edit-btn';
-          editLink.href = `builder.html?id=${encodeURIComponent(game.id ?? '')}`;
-          editLink.textContent = 'Edit';
-          playAction.appendChild(editLink);
-        }
-
-        body.append(meta, captionEl, playAction);
-        li.append(objectWrap, body);
-        listContainer.appendChild(li);
+        listContainer.appendChild(createGameCard(game, index));
       });
     }
 
     async function loadGames() {
       const listContainer = document.getElementById('gamesListContainer');
+      const featuredContainer = document.getElementById('featuredGameContainer');
+      const featuredShell = document.getElementById('featuredShell');
       const searchInput = document.getElementById('gameSearch');
 
       if (!window.TGB_SUPABASE_CONFIG) {
@@ -797,10 +901,10 @@
           return;
         }
 
-        renderList(listContainer, games);
+        renderList(listContainer, featuredContainer, featuredShell, games);
 
         searchInput.addEventListener('input', (e) => {
-          renderList(listContainer, games, e.target.value);
+          renderList(listContainer, featuredContainer, featuredShell, games, e.target.value);
         });
 
         const adminModeToggle = document.getElementById('adminModeToggle');
@@ -809,7 +913,7 @@
             adminModeEnabled = !adminModeEnabled;
             writeAdminMode(adminModeEnabled);
             updateAdminModeUi();
-            renderList(listContainer, games, searchInput.value);
+            renderList(listContainer, featuredContainer, featuredShell, games, searchInput.value);
           });
         }
       } catch (err) {

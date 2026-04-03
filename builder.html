@@ -7527,6 +7527,7 @@ body.builder-auth-ready .builder-auth-signout{
               <div class="inspector-windowtools">
                 <div class="inspector-actions inspector-actions--header">
                   <button class="insp-btn insp-btn--duplicate" id="duplicateGameBtn" type="button">Duplicate</button>
+                  <button class="insp-btn insp-btn--archive" id="featureGameBtn" type="button">Feature</button>
                   <button class="insp-btn insp-btn--archive" id="archiveGameBtn" type="button">Archive</button>
                   <button class="insp-btn insp-btn--danger inspector-eraser-btn" id="gameEraseBtn" type="button" hidden title="Erase or archive game" aria-label="Erase or archive game">Erase</button>
                 </div>
@@ -7619,6 +7620,11 @@ body.builder-auth-ready .builder-auth-signout{
                     <div class="field" id="priceField">
                       <label class="field-label" for="nodePriceInput">Price</label>
                       <input id="nodePriceInput" type="text" autocomplete="off" disabled>
+                    </div>
+
+                    <div class="field" id="cityField">
+                      <label class="field-label" for="nodeCityInput">City</label>
+                      <input id="nodeCityInput" type="text" autocomplete="off" disabled>
                     </div>
 
                     <div class="field" id="playersField">
@@ -8023,6 +8029,11 @@ body.builder-auth-ready .builder-auth-signout{
                   <input id="nodePriceInput" type="text" autocomplete="off" disabled>
                 </div>
 
+                <div class="field" id="cityField">
+                  <label class="field-label" for="nodeCityInput">City</label>
+                  <input id="nodeCityInput" type="text" autocomplete="off" disabled>
+                </div>
+
                 <div class="field" id="primaryColorField">
                   <label class="field-label" for="primaryColorInput">Primary Color</label>
                   <div class="color-field-controls">
@@ -8102,6 +8113,7 @@ body.builder-auth-ready .builder-auth-signout{
 
                 <div class="inspector-actions">
                   <button class="insp-btn insp-btn--duplicate" id="duplicateGameBtn" type="button">Duplicate</button>
+                  <button class="insp-btn insp-btn--archive" id="featureGameBtn" type="button">Feature</button>
                   <button class="insp-btn insp-btn--archive" id="archiveGameBtn" type="button">Archive</button>
                   <button class="insp-btn insp-btn--danger inspector-eraser-btn" id="gameEraseBtn" type="button" hidden title="Erase or archive game" aria-label="Erase or archive game">Erase</button>
                   <button class="insp-btn insp-btn--danger" id="deleteBtn" type="button" disabled>Erase</button>
@@ -8255,6 +8267,11 @@ const DEFAULT_SUPABASE_GAMES_TABLE = 'games';
 const SUPABASE_STORAGE_KIND = 'supabase';
 const ARCHIVED_GAME_VALUE = 'YES';
 const ERASED_GAME_VALUE = 'YES';
+const FEATURED_GAME_VALUE = 'YES';
+const SUPABASE_GAMES_SCHEMA = {
+  featured: true,
+  city: true
+};
 const supabaseConfig = readSupabaseConfig();
 
 const BUILDER_AUTH_STORAGE_KEY = 'tgb-builder-auth-session';
@@ -8858,41 +8875,125 @@ function normalizeErasedFlag(value) {
   return typeof value === 'string' ? value.trim().toUpperCase() : '';
 }
 
+function normalizeFeaturedFlag(value) {
+  if (value === true) return FEATURED_GAME_VALUE;
+  return typeof value === 'string' ? value.trim().toUpperCase() : '';
+}
+
+function getFeaturedFlagFromNodes(nodes = []) {
+  if (!Array.isArray(nodes)) return '';
+  const gameNode = nodes.find((node) => node && node.type === 'game');
+  return normalizeFeaturedFlag(gameNode && gameNode.featured) === FEATURED_GAME_VALUE ? FEATURED_GAME_VALUE : '';
+}
+
+function applyFeaturedFlagToNodes(nodes = [], featuredValue = '') {
+  if (!Array.isArray(nodes)) return [];
+  const normalizedFeatured = normalizeFeaturedFlag(featuredValue) === FEATURED_GAME_VALUE ? FEATURED_GAME_VALUE : '';
+  return nodes.map((node) => {
+    if (!node || node.type !== 'game') return node;
+    return {
+      ...node,
+      featured: normalizedFeatured
+    };
+  });
+}
+
+function setGameFeaturedState(game, featuredValue = '') {
+  if (!game || typeof game !== 'object') return game;
+  const normalizedFeatured = normalizeFeaturedFlag(featuredValue) === FEATURED_GAME_VALUE ? FEATURED_GAME_VALUE : '';
+  return normalizeSavedGame({
+    ...game,
+    featured: normalizedFeatured,
+    nodes: applyFeaturedFlagToNodes(Array.isArray(game.nodes) ? game.nodes : [], normalizedFeatured)
+  }, 0);
+}
+
+function getMissingGamesColumnName(errorMessage = '') {
+  const message = String(errorMessage || '');
+  const match = message.match(/column\s+games\.([a-z_]+)\s+does\s+not\s+exist/i);
+  return match ? String(match[1] || '').trim().toLowerCase() : '';
+}
+
+function markMissingGamesColumn(columnName = '') {
+  if (columnName === 'featured' || columnName === 'city') {
+    SUPABASE_GAMES_SCHEMA[columnName] = false;
+  }
+}
+
+function buildGamesSelectColumns(columns = []) {
+  return columns.filter((column) => {
+    if (column === 'featured') return SUPABASE_GAMES_SCHEMA.featured;
+    if (column === 'city') return SUPABASE_GAMES_SCHEMA.city;
+    return true;
+  }).join(',');
+}
+
 function serializeGameRow(game, index = 0) {
   const normalizedGame = normalizeSavedGame(game, index);
   const timestamp = normalizedGame.updatedAt || normalizedGame.createdAt || new Date().toISOString();
-  return {
+  const payload = {
     id: normalizedGame.id,
     name: normalizedGame.name || 'Untitled Game',
     primary_color: normalizedGame.primaryColor || null,
     secondary_color: normalizedGame.secondaryColor || null,
     archived: normalizedGame.archived || null,
     erased: normalizedGame.erased || null,
-    nodes: Array.isArray(normalizedGame.nodes) ? normalizedGame.nodes : [],
+    nodes: applyFeaturedFlagToNodes(Array.isArray(normalizedGame.nodes) ? normalizedGame.nodes : [], normalizedGame.featured),
     links: Array.isArray(normalizedGame.links) ? normalizedGame.links : [],
     created_at: normalizedGame.createdAt || timestamp,
     updated_at: timestamp
   };
+  if (SUPABASE_GAMES_SCHEMA.city) payload.city = normalizedGame.city || null;
+  if (SUPABASE_GAMES_SCHEMA.featured) payload.featured = normalizedGame.featured || null;
+  return payload;
 }
 
 function normalizeGameRow(row, index = 0) {
+  const rowCity = row && typeof row.city === 'string' ? row.city : '';
+  const rowNodes = Array.isArray(row && row.nodes) ? row.nodes : [];
+  const nodes = rowCity
+    ? rowNodes.map((node) => {
+        if (!node || node.type !== 'game' || (typeof node.city === 'string' && node.city.trim())) return node;
+        return {
+          ...node,
+          city: rowCity
+        };
+      })
+    : rowNodes;
+  const featured = row && typeof row.featured === 'string' ? row.featured : getFeaturedFlagFromNodes(nodes);
   return normalizeSavedGame({
     id: row && row.id,
     name: row && row.name,
+    city: rowCity,
     createdAt: row && typeof row.created_at === 'string' ? row.created_at : '',
     updatedAt: row && typeof row.updated_at === 'string' ? row.updated_at : '',
     primaryColor: row && typeof row.primary_color === 'string' ? row.primary_color : '',
     secondaryColor: row && typeof row.secondary_color === 'string' ? row.secondary_color : '',
+    featured,
     archived: row && typeof row.archived === 'string' ? row.archived : '',
     erased: row && typeof row.erased === 'string' ? row.erased : '',
-    nodes: Array.isArray(row && row.nodes) ? row.nodes : [],
+    nodes,
     links: Array.isArray(row && row.links) ? row.links : []
   }, index);
 }
 
-async function fetchGameRowsFromSupabase(select = 'id,name,primary_color,secondary_color,archived,erased,nodes,links,created_at,updated_at') {
+async function fetchGameRowsFromSupabase(select = null) {
+  const resolvedSelect = select || buildGamesSelectColumns([
+    'id',
+    'name',
+    'city',
+    'primary_color',
+    'secondary_color',
+    'featured',
+    'archived',
+    'erased',
+    'nodes',
+    'links',
+    'created_at',
+    'updated_at'
+  ]);
   const response = await fetch(buildSupabaseUrl({
-    select,
+    select: resolvedSelect,
     order: 'name.asc'
   }), {
     cache: 'no-store',
@@ -8901,7 +9002,16 @@ async function fetchGameRowsFromSupabase(select = 'id,name,primary_color,seconda
     })
   });
   if (!response.ok) {
-    throw new Error(await response.text() || 'Supabase load failed');
+    const message = await response.text() || 'Supabase load failed';
+    const missingColumn = getMissingGamesColumnName(message);
+    if (missingColumn) {
+      markMissingGamesColumn(missingColumn);
+      const nextSelect = buildGamesSelectColumns((resolvedSelect || '').split(',').map((value) => value.trim()).filter(Boolean));
+      if (nextSelect && nextSelect !== resolvedSelect) {
+        return fetchGameRowsFromSupabase(nextSelect);
+      }
+    }
+    throw new Error(message);
   }
   const rows = await response.json();
   return Array.isArray(rows) ? rows : [];
@@ -8922,19 +9032,42 @@ async function loadHeaderGameStoreFromSupabase() {
   if (!hasSupabaseStore()) return null;
 
   try {
-    const rows = await fetchGameRowsFromSupabase('id,name,archived,erased,created_at,updated_at');
+    const rows = await fetchGameRowsFromSupabase(buildGamesSelectColumns([
+      'id',
+      'name',
+      'city',
+      'featured',
+      'archived',
+      'erased',
+      'created_at',
+      'updated_at'
+    ]));
     return buildStoreFromGames(rows.map((row, index) => normalizeGameRow(row, index)));
   } catch (error) {
     return null;
   }
 }
 
-async function fetchGameRowFromSupabase(gameId, select = 'id,name,primary_color,secondary_color,archived,erased,nodes,links,created_at,updated_at') {
+async function fetchGameRowFromSupabase(gameId, select = null) {
   const targetId = String(gameId || '').trim();
   if (!targetId || !hasSupabaseStore()) return null;
+  const resolvedSelect = select || buildGamesSelectColumns([
+    'id',
+    'name',
+    'city',
+    'primary_color',
+    'secondary_color',
+    'featured',
+    'archived',
+    'erased',
+    'nodes',
+    'links',
+    'created_at',
+    'updated_at'
+  ]);
 
   const response = await fetch(buildSupabaseUrl({
-    select,
+    select: resolvedSelect,
     id: 'eq.' + targetId,
     limit: '1'
   }), {
@@ -8945,7 +9078,16 @@ async function fetchGameRowFromSupabase(gameId, select = 'id,name,primary_color,
   });
 
   if (!response.ok) {
-    throw new Error(await response.text() || 'Supabase game load failed');
+    const message = await response.text() || 'Supabase game load failed';
+    const missingColumn = getMissingGamesColumnName(message);
+    if (missingColumn) {
+      markMissingGamesColumn(missingColumn);
+      const nextSelect = buildGamesSelectColumns((resolvedSelect || '').split(',').map((value) => value.trim()).filter(Boolean));
+      if (nextSelect && nextSelect !== resolvedSelect) {
+        return fetchGameRowFromSupabase(targetId, nextSelect);
+      }
+    }
+    throw new Error(message);
   }
 
   const rows = await response.json();
@@ -9039,6 +9181,72 @@ async function setGameErasedStateInSupabase(gameId, erasedValue) {
       serverSaved: true,
       error: null,
       savedGame: normalizeGameRow(rows[0], 0)
+    };
+  } catch (error) {
+    return { serverSaved: false, error, savedGame: null };
+  }
+}
+
+async function setCurrentFeaturedGameInSupabase(gameId, featuredValue) {
+  const targetId = String(gameId || '').trim();
+  if (!targetId || !hasSupabaseStore()) {
+    return {
+      serverSaved: false,
+      error: new Error('Supabase is not configured.'),
+      savedGame: null
+    };
+  }
+
+  try {
+    const rows = await fetchGameRowsFromSupabase();
+    const games = rows.map((row, index) => normalizeGameRow(row, index));
+    const updates = games
+      .map((game) => {
+        const nextFeatured = game.id === targetId ? featuredValue : '';
+        const nextGame = setGameFeaturedState(game, nextFeatured);
+        const beforeFeatured = normalizeFeaturedFlag(game.featured);
+        const afterFeatured = normalizeFeaturedFlag(nextGame.featured);
+        const beforeNodeFeatured = getFeaturedFlagFromNodes(game.nodes);
+        const afterNodeFeatured = getFeaturedFlagFromNodes(nextGame.nodes);
+        if (beforeFeatured === afterFeatured && beforeNodeFeatured === afterNodeFeatured) return null;
+        return nextGame;
+      })
+      .filter(Boolean);
+
+    if (!updates.length) {
+      const existing = games.find((game) => game && game.id === targetId) || null;
+      return {
+        serverSaved: !!existing,
+        error: existing ? null : new Error('No saved game was available to feature.'),
+        savedGame: existing ? setGameFeaturedState(existing, featuredValue) : null
+      };
+    }
+
+    const response = await fetch(buildSupabaseUrl({
+      on_conflict: 'id'
+    }), {
+      method: 'POST',
+      headers: getSupabaseHeaders({
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=representation'
+      }),
+      body: JSON.stringify(updates.map((game, index) => serializeGameRow(game, index)))
+    });
+    if (!response.ok) {
+      throw new Error(await response.text() || 'Supabase featured update failed.');
+    }
+    const savedRows = await response.json();
+    if (!Array.isArray(savedRows) || !savedRows.length) {
+      throw new Error('Supabase featured update did not update any rows.');
+    }
+    const savedGames = savedRows.map((row, index) => normalizeGameRow(row, index));
+    const savedGame = savedGames.find((game) => game && game.id === targetId)
+      || updates.find((game) => game && game.id === targetId)
+      || null;
+    return {
+      serverSaved: true,
+      error: null,
+      savedGame
     };
   } catch (error) {
     return { serverSaved: false, error, savedGame: null };
@@ -9214,6 +9422,7 @@ const gameLogoField = document.getElementById('gameLogoField');
 const guideImageField = document.getElementById('guideImageField');
 const guideBioField = document.getElementById('guideBioField');
 const priceField = document.getElementById('priceField');
+const cityField = document.getElementById('cityField');
 const primaryColorField = document.getElementById('primaryColorField');
 const secondaryColorField = document.getElementById('secondaryColorField');
 const tagsField = document.getElementById('tagsField');
@@ -9240,6 +9449,7 @@ const guideImageThumbBtn = document.getElementById('guideImageThumbBtn');
 const guideImageThumbImage = document.getElementById('guideImageThumbImage');
 const guideImageThumbPlaceholder = document.getElementById('guideImageThumbPlaceholder');
 const nodePriceInput = document.getElementById('nodePriceInput');
+const nodeCityInput = document.getElementById('nodeCityInput');
 const primaryColorInput = document.getElementById('primaryColorInput');
 const primaryColorPickerInput = document.getElementById('primaryColorPickerInput');
 const secondaryColorInput = document.getElementById('secondaryColorInput');
@@ -9281,6 +9491,7 @@ const varValueInputs = [1, 2, 3, 4].map((index) => document.getElementById('varV
 const varCorrectRadios = [0, 1, 2, 3].map((index) => document.getElementById('varCorrect' + index));
 const selectionId = document.getElementById('selectionId');
 const duplicateGameBtn = document.getElementById('duplicateGameBtn');
+const featureGameBtn = document.getElementById('featureGameBtn');
 const archiveGameBtn = document.getElementById('archiveGameBtn');
 const duplicateGameStatus = document.getElementById('duplicateGameStatus');
 const gameEraseBtn = document.getElementById('gameEraseBtn');
@@ -9382,6 +9593,8 @@ const state = {
   objectInspectorVisible: false,
   duplicateGameActionBusy: false,
   duplicateGameFeedback: '',
+  featureGameActionBusy: false,
+  featureGameFeedback: '',
   archiveGameActionBusy: false,
   archiveGameFeedback: '',
   gameEraseDialogResolver: null,
@@ -11250,6 +11463,8 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
       ? String(raw.title)
       : getDefaultNodeTitle(type, id),
     tagline: raw && typeof raw.tagline === 'string' ? raw.tagline : '',
+    featured: raw && typeof raw.featured === 'string' ? raw.featured : '',
+    city: raw && typeof raw.city === 'string' ? raw.city : '',
     players: raw && typeof raw.players === 'string' ? raw.players : '',
     guideName: raw && typeof raw.guideName === 'string' ? raw.guideName : '',
     guideBio: raw && typeof raw.guideBio === 'string' ? raw.guideBio : '',
@@ -11396,6 +11611,8 @@ function getDocSnapshot(doc = state.doc) {
       y: node.y,
       title: node.title,
       tagline: node.tagline || '',
+      featured: node.featured || '',
+      city: node.city || '',
       players: node.players || '',
       guideName: node.guideName || '',
       guideBio: node.guideBio || '',
@@ -11772,6 +11989,7 @@ async function duplicateSavedGame(gameId) {
     updatedAt: timestamp,
     primaryColor: snapshot.colors.primaryColor,
     secondaryColor: snapshot.colors.secondaryColor,
+    featured: '',
     nodes: snapshot.nodes,
     links: snapshot.links
   };
@@ -11857,6 +12075,10 @@ function isCurrentGameArchived() {
   return normalizeArchivedFlag(getCurrentGameArchiveEntry()?.archived) === ARCHIVED_GAME_VALUE;
 }
 
+function isCurrentGameFeatured() {
+  return normalizeFeaturedFlag(getCurrentGameArchiveEntry()?.featured) === FEATURED_GAME_VALUE;
+}
+
 function setArchiveGameFeedback(kind = '', options = {}) {
   const nextKind = String(kind || '').trim().toLowerCase();
   state.archiveGameFeedback = nextKind === 'archived' || nextKind === 'unarchived' ? nextKind : '';
@@ -11872,6 +12094,30 @@ function setArchiveGameFeedback(kind = '', options = {}) {
     state.archiveGameFeedback = '';
     updateSelectionUi();
   }, duration);
+}
+
+function setFeatureGameFeedback(kind = '', options = {}) {
+  const nextKind = String(kind || '').trim().toLowerCase();
+  state.featureGameFeedback = nextKind === 'featured' || nextKind === 'unfeatured' ? nextKind : '';
+  if (state.featureGameFeedbackTimer) {
+    window.clearTimeout(state.featureGameFeedbackTimer);
+    state.featureGameFeedbackTimer = 0;
+  }
+  updateSelectionUi();
+  if (!state.featureGameFeedback) return;
+  const duration = Math.max(0, Number(options.durationMs) || 2600);
+  state.featureGameFeedbackTimer = window.setTimeout(() => {
+    state.featureGameFeedbackTimer = 0;
+    state.featureGameFeedback = '';
+    updateSelectionUi();
+  }, duration);
+}
+
+function showFeatureGameError(message, error) {
+  const detail = error && typeof error.message === 'string' && error.message.trim()
+    ? '\n\n' + error.message.trim()
+    : '';
+  window.alert(message + detail);
 }
 
 function showArchiveGameError(message, error) {
@@ -11943,6 +12189,75 @@ async function toggleCurrentGameArchiveState() {
   }
 }
 
+async function toggleCurrentGameFeaturedState() {
+  if (state.featureGameActionBusy || !getCurrentGameArchiveEntry()) return false;
+  if (!hasSupabaseStore()) {
+    showFeatureGameError('Could not update the featured game in the database.', new Error('Supabase is not configured.'));
+    return false;
+  }
+
+  const wasFeatured = isCurrentGameFeatured();
+  state.featureGameActionBusy = true;
+  setDuplicateGameFeedback('');
+  setArchiveGameFeedback('');
+  setFeatureGameFeedback('');
+  updateSelectionUi();
+
+  try {
+    const saveResult = await saveDoc({ silent: true });
+    if (!saveResult || saveResult.localOnly) {
+      showFeatureGameError(
+        'Could not update the featured game in the database.',
+        saveResult && saveResult.error ? saveResult.error : new Error('This game could not be saved to Supabase first.')
+      );
+      return false;
+    }
+
+    const targetId = String((saveResult.savedGame && saveResult.savedGame.id) || state.currentGameId || '').trim();
+    if (!targetId) {
+      showFeatureGameError('Could not update the featured game in the database.', new Error('No saved game is available to update.'));
+      return false;
+    }
+
+    const updateResult = await setCurrentFeaturedGameInSupabase(targetId, wasFeatured ? '' : FEATURED_GAME_VALUE);
+    if (!updateResult.serverSaved) {
+      showFeatureGameError('Could not update the featured game in the database.', updateResult.error);
+      return false;
+    }
+
+    const clearFeatured = (entry) => {
+      if (!entry) return entry;
+      return setGameFeaturedState(entry, '');
+    };
+
+    state.store.games = state.store.games.map(clearFeatured);
+    state.headerGames = state.headerGames.map(clearFeatured);
+
+    const existingSavedGame = state.store.games.find((entry) => entry && entry.id === targetId)
+      || getCurrentHeaderGameEntry()
+      || { id: targetId };
+    const savedGame = updateResult.savedGame || normalizeSavedGame({
+      ...existingSavedGame,
+      id: targetId,
+      featured: wasFeatured ? '' : FEATURED_GAME_VALUE,
+      updatedAt: new Date().toISOString()
+    }, 0);
+
+    state.localOnlyChanges = false;
+    const currentGameNode = getGameNode();
+    if (currentGameNode && currentGameNode.type === 'game') {
+      currentGameNode.featured = wasFeatured ? '' : FEATURED_GAME_VALUE;
+    }
+    upsertStoredGame(savedGame);
+    await refreshHeaderGames();
+    setFeatureGameFeedback(wasFeatured ? 'unfeatured' : 'featured');
+    return true;
+  } finally {
+    state.featureGameActionBusy = false;
+    updateSelectionUi();
+  }
+}
+
 async function duplicateCurrentGameAndOpen() {
   if (state.duplicateGameActionBusy || !getCurrentHeaderGameEntry()) return null;
   if (!hasSupabaseStore()) {
@@ -11980,6 +12295,7 @@ async function duplicateCurrentGameAndOpen() {
       updatedAt: timestamp,
       primaryColor: snapshot.colors.primaryColor,
       secondaryColor: snapshot.colors.secondaryColor,
+      featured: '',
       archived: '',
       erased: '',
       nodes: snapshot.nodes,
@@ -12135,10 +12451,19 @@ function normalizeSavedGame(raw, index) {
   return {
     id: raw && raw.id ? String(raw.id) : 'game-' + (index + 1),
     name: raw && typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : getDocName(doc),
+    city: raw && typeof raw.city === 'string'
+      ? raw.city
+      : (() => {
+          const gameNode = doc.nodes.find((node) => node && node.type === 'game');
+          return gameNode && typeof gameNode.city === 'string' ? gameNode.city : '';
+        })(),
     createdAt,
     updatedAt: typeof (raw && raw.updatedAt) === 'string' ? raw.updatedAt : doc.updatedAt,
     primaryColor: colors.primaryColor,
     secondaryColor: colors.secondaryColor,
+    featured: normalizeFeaturedFlag(raw && raw.featured) === FEATURED_GAME_VALUE
+      ? FEATURED_GAME_VALUE
+      : getFeaturedFlagFromNodes(doc.nodes),
     archived: normalizeArchivedFlag(raw && raw.archived) === ARCHIVED_GAME_VALUE ? ARCHIVED_GAME_VALUE : '',
     erased: normalizeErasedFlag(raw && raw.erased) === ERASED_GAME_VALUE ? ERASED_GAME_VALUE : '',
     nodes: doc.nodes,
@@ -12179,6 +12504,8 @@ function createNode(type, x, y) {
     height: config.height,
     title: getDefaultNodeTitle(type, id),
     tagline: type === 'game' ? 'Shall We Play A Game?' : '',
+    featured: '',
+    city: '',
     players: '',
     guideName: type === 'game' ? 'Mission Control' : '',
     guideBio: '',
@@ -13903,6 +14230,7 @@ function updateSelectionUi(options = {}) {
   ifThenField.hidden = true;
   taglineField.hidden = !showGameDetails;
   playersField.hidden = !showGameDetails;
+  if (cityField) cityField.hidden = !showGameDetails;
   guideNameField.hidden = !showGameDetails;
   guideBioField.hidden = !showGameDetails;
   guideImageField.hidden = !showGameDetails;
@@ -13923,6 +14251,7 @@ function updateSelectionUi(options = {}) {
   nodeTaglineInput.disabled = !isGameNode;
   nodeGameLogoInput.disabled = !isGameNode;
   nodePlayersInput.disabled = !isGameNode;
+  if (nodeCityInput) nodeCityInput.disabled = !isGameNode;
   nodeGuideNameInput.disabled = !isGameNode;
   nodeGuideBioInput.disabled = !isGameNode;
   nodeGuideImageInput.disabled = !isGameNode;
@@ -13939,6 +14268,7 @@ function updateSelectionUi(options = {}) {
   nodeBodyInput.disabled = !isGameNode;
 
   const currentGameArchived = isCurrentGameArchived();
+  const currentGameFeatured = isCurrentGameFeatured();
   const hasLoadedGame = !!(currentGameEntry || gameNode);
   const duplicateGameDisabled = !hasLoadedGame
     || !hasSupabaseStore()
@@ -13952,6 +14282,15 @@ function updateSelectionUi(options = {}) {
     || state.saveUiState === 'saving'
     || state.saveUiState === 'loading'
     || state.duplicateGameActionBusy
+    || state.featureGameActionBusy
+    || state.archiveGameActionBusy
+    || state.gameEraseActionBusy;
+  const featureGameDisabled = !hasLoadedGame
+    || !hasSupabaseStore()
+    || state.saveUiState === 'saving'
+    || state.saveUiState === 'loading'
+    || state.duplicateGameActionBusy
+    || state.featureGameActionBusy
     || state.archiveGameActionBusy
     || state.gameEraseActionBusy;
   const showGameEraseAction = hasLoadedGame || currentGameArchived;
@@ -13960,6 +14299,7 @@ function updateSelectionUi(options = {}) {
     || state.saveUiState === 'saving'
     || state.saveUiState === 'loading'
     || state.duplicateGameActionBusy
+    || state.featureGameActionBusy
     || state.archiveGameActionBusy
     || state.gameEraseActionBusy;
   if (duplicateGameBtn) {
@@ -13972,6 +14312,23 @@ function updateSelectionUi(options = {}) {
       ? 'Supabase is required to duplicate a game'
       : (state.duplicateGameActionBusy ? 'Duplicating game...' : 'Duplicate this game');
     duplicateGameBtn.setAttribute('aria-label', duplicateGameBtn.title);
+  }
+  if (featureGameBtn) {
+    featureGameBtn.disabled = featureGameDisabled;
+    featureGameBtn.textContent = state.featureGameActionBusy
+      ? (currentGameFeatured ? 'Unfeaturing...' : 'Featuring...')
+      : state.featureGameFeedback
+        ? (currentGameFeatured ? 'Featured' : 'Unfeatured')
+        : (currentGameFeatured ? 'Unfeature' : 'Feature');
+    featureGameBtn.classList.toggle('is-success', !!state.featureGameFeedback && !state.featureGameActionBusy);
+    featureGameBtn.title = !hasSupabaseStore()
+      ? 'Supabase is required to set the featured game'
+      : state.featureGameActionBusy
+        ? (currentGameFeatured ? 'Removing featured status...' : 'Setting featured status...')
+        : currentGameFeatured
+          ? 'Remove this game as the single featured game'
+          : 'Make this game the single featured game';
+    featureGameBtn.setAttribute('aria-label', featureGameBtn.title);
   }
   if (archiveGameBtn) {
     archiveGameBtn.disabled = archiveGameDisabled;
@@ -14014,6 +14371,7 @@ function updateSelectionUi(options = {}) {
   nodeTaglineInput.value = isGameNode && gameNode ? (gameNode.tagline || '') : '';
   nodeGameLogoInput.value = isGameNode && gameNode ? (gameNode.logoUrl || '') : '';
   nodePlayersInput.value = isGameNode && gameNode ? (gameNode.players || '') : '';
+  if (nodeCityInput) nodeCityInput.value = isGameNode && gameNode ? (gameNode.city || '') : '';
   nodeGuideNameInput.value = isGameNode && gameNode ? (gameNode.guideName || '') : '';
   nodeGuideBioInput.value = isGameNode && gameNode ? (gameNode.guideBio || '') : '';
   nodeGuideImageInput.value = isGameNode && gameNode ? (gameNode.guideImageUrl || '') : '';
@@ -14835,6 +15193,7 @@ function serializeNodeState(node) {
     y: node.y,
     title: node.title,
     tagline: node.tagline || '',
+    city: node.city || '',
     players: node.players || '',
     guideName: node.guideName || '',
     guideBio: node.guideBio || '',
@@ -15157,10 +15516,15 @@ function stageCurrentGameIntoStore() {
   const savedGame = {
     id: savedGameId,
     name: savedGameName,
+    city: (() => {
+      const gameNode = docPayload.nodes.find((node) => node && node.type === 'game');
+      return gameNode && typeof gameNode.city === 'string' ? gameNode.city : (existingGame && existingGame.city ? existingGame.city : '');
+    })(),
     createdAt: existingGame && existingGame.createdAt ? existingGame.createdAt : docPayload.updatedAt,
     updatedAt: docPayload.updatedAt,
     primaryColor: colors.primaryColor,
     secondaryColor: colors.secondaryColor,
+    featured: existingGame && existingGame.featured ? existingGame.featured : '',
     archived: existingGame && existingGame.archived ? existingGame.archived : '',
     erased: existingGame && existingGame.erased ? existingGame.erased : '',
     nodes: docPayload.nodes,
@@ -15273,11 +15637,6 @@ async function loadDoc() {
       return;
     }
   }
-  if (!launchIntent.explicit && recovery) {
-    if (restoreRecoveryWorkspace(recovery)) {
-      return;
-    }
-  }
 
   if (launchIntent.wantsNew) {
     clearRecoveryDraft();
@@ -15309,11 +15668,12 @@ async function loadDoc() {
 
   if (launchIntent.gameId) {
     clearEditorLaunchIntent();
-    seedPhone();
+    showGameshelfHome();
     return;
   }
 
-  seedPhone();
+  showGameshelfHome();
+  setHeaderOnlyMode(true);
 }
 
 renderStencilPreviews();
@@ -15543,6 +15903,15 @@ nodePlayersInput.addEventListener('input', () => {
   node.players = nodePlayersInput.value;
   updateSelectionUi();
 });
+
+if (nodeCityInput) {
+  nodeCityInput.addEventListener('input', () => {
+    const node = getGameNode();
+    if (!node || node.type !== 'game') return;
+    node.city = nodeCityInput.value;
+    updateSelectionUi();
+  });
+}
 
 nodeGuideNameInput.addEventListener('input', () => {
   const node = getGameNode();
@@ -15930,6 +16299,11 @@ if (guideInsertLinkPanel) {
 if (duplicateGameBtn) {
   duplicateGameBtn.addEventListener('click', async () => {
     await duplicateCurrentGameAndOpen();
+  });
+}
+if (featureGameBtn) {
+  featureGameBtn.addEventListener('click', async () => {
+    await toggleCurrentGameFeaturedState();
   });
 }
 if (archiveGameBtn) {
@@ -16494,18 +16868,3 @@ bootstrapBuilder();
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
