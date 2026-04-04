@@ -2872,6 +2872,7 @@ code{font-family:"IBM Plex Mono",monospace;}
 }
 .field-hint{font-size:.64rem;color:#f3b15b;letter-spacing:.04em;}
 .field input.is-invalid{border-color:#f3b15b;}
+.field textarea.is-invalid{border-color:#f3b15b;}
 .accept-any-row{display:flex;align-items:center;flex-wrap:wrap;gap:7px;font-family:"IBM Plex Mono",monospace;font-size:.58rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9df2b4;cursor:pointer;user-select:none;padding:4px 0;}
 .accept-any-row input[type="checkbox"]{flex-shrink:0;width:13px;height:13px;accent-color:#66ff96;cursor:pointer;}
 
@@ -6414,6 +6415,32 @@ body.builder-page--editor .field-label-meta{
   letter-spacing:.08em;
 }
 
+body.builder-page--editor .field-generate-btn{
+  appearance:none;
+  border:0;
+  background:none;
+  padding:0;
+  color:rgba(var(--bic-blue-rgb), .82);
+  font:inherit;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  cursor:pointer;
+  text-decoration:none;
+}
+
+body.builder-page--editor .field-generate-btn:hover,
+body.builder-page--editor .field-generate-btn:focus-visible{
+  color:rgba(var(--bic-blue-rgb), 1);
+  outline:none;
+}
+
+body.builder-page--editor .field-generate-status{
+  margin-top:8px;
+  color:#f3b15b;
+  font-size:.72rem;
+  letter-spacing:.03em;
+}
+
 body.builder-page--editor #nodeTitleInput,
 body.builder-page--editor #stopNameInput,
 body.builder-page--editor #varNameInput,
@@ -7588,8 +7615,9 @@ body.builder-auth-ready .builder-auth-signout{
                     </div>
 
                     <div class="field" id="descriptionField">
-                      <label class="field-label" for="nodeBodyInput">
+                      <label class="field-label field-label--with-meta" for="nodeBodyInput">
                         <span id="nodeBodyLabel">Description</span>
+                        <button class="field-generate-btn" type="button" data-generate-description-btn>(GENERATE)</button>
                         <span class="field-info" id="nodeBodyInfo" tabindex="0" role="note" aria-label="Not seen by the player." hidden>
                           i
                           <span class="field-tooltip" role="tooltip">Not seen by the player.</span>
@@ -7612,6 +7640,7 @@ body.builder-auth-ready .builder-auth-signout{
 
                       <textarea id="nodeBodyInput" disabled></textarea>
                       <div class="field-autocomplete" id="nodeBodyAutocomplete" hidden role="listbox" aria-label="Current variables"></div>
+                      <div class="field-generate-status" data-generate-description-status hidden></div>
                       <div class="mini-note" id="nodeBodyHtmlNote" hidden>HTML OK.</div>
                     </div>
                   </div>
@@ -7889,6 +7918,18 @@ body.builder-auth-ready .builder-auth-signout{
                   <input id="objectStopNameInput" type="text" autocomplete="off" disabled>
                 </div>
 
+                <div class="field" id="objectWaypointGroupField" hidden>
+                  <div class="field-label">WAYPOINT GROUP</div>
+                  <div class="mode-toggle" role="group" aria-label="Waypoint group">
+                    <button class="mode-toggle-btn waypoint-group-btn" data-waypoint-group-btn="A" type="button" disabled aria-pressed="false">A</button>
+                    <button class="mode-toggle-btn waypoint-group-btn" data-waypoint-group-btn="B" type="button" disabled aria-pressed="false">B</button>
+                    <button class="mode-toggle-btn waypoint-group-btn" data-waypoint-group-btn="C" type="button" disabled aria-pressed="false">C</button>
+                    <button class="mode-toggle-btn waypoint-group-btn" data-waypoint-group-btn="D" type="button" disabled aria-pressed="false">D</button>
+                    <button class="mode-toggle-btn waypoint-group-btn" data-waypoint-group-btn="E" type="button" disabled aria-pressed="false">E</button>
+                  </div>
+                  <div class="field-hint">Tap the active letter again to clear the group.</div>
+                </div>
+
                 <div class="field" id="objectVarNameField" hidden>
                   <label class="field-label" for="objectVarNameInput">MESSAGE NAME (FOR STORAGE AND FUTURE USE)</label>
                   <input id="objectVarNameInput" type="text" placeholder="e.g. name" autocomplete="off" disabled>
@@ -7929,6 +7970,7 @@ body.builder-auth-ready .builder-auth-signout{
                   </label>
                   <textarea id="objectBodyInput" disabled></textarea>
                   <div class="field-autocomplete" id="objectBodyAutocomplete" hidden role="listbox" aria-label="Current variables"></div>
+                  <div class="field-hint" id="objectBodyRequiredHint" hidden></div>
                   <div class="mini-note" id="objectBodyHtmlNote" hidden>HTML OK. Use Insert for previously stored info or links.</div>
                   <div class="mini-note" id="objectBodyAnswerNote" hidden>HTML OK. Separate acceptable answers with a comma.</div>
                 </div>
@@ -8220,7 +8262,7 @@ const TYPE_CONFIG = {
     width: 236,
     height: 90,
     kicker: 'WAYPOINT',
-    title: 'Waypoint Name',
+    title: 'WAYPOINT NAME',
     body: '',
     code: 'ST'
   },
@@ -8237,7 +8279,7 @@ const TYPE_CONFIG = {
     height: 88,
     kicker: 'PLAYER MSG',
     title: '',
-    body: '50,fifty',
+    body: '',
     code: 'RP'
   },
   button: {
@@ -9447,6 +9489,8 @@ const nodeTitleInput = document.getElementById('nodeTitleInput');
 const stopNameInput = document.getElementById('stopNameInput');
 const objectStopNameField = document.getElementById('objectStopNameField');
 const objectStopNameInput = document.getElementById('objectStopNameInput');
+const objectWaypointGroupField = document.getElementById('objectWaypointGroupField');
+const objectWaypointGroupButtons = Array.from(document.querySelectorAll('[data-waypoint-group-btn]'));
 const nodeTaglineInput = document.getElementById('nodeTaglineInput');
 const nodePlayersInput = document.getElementById('nodePlayersInput');
 const nodeGuideNameInput = document.getElementById('nodeGuideNameInput');
@@ -9474,6 +9518,8 @@ const nodeTagAddBtn = document.getElementById('nodeTagAddBtn');
 const nodeBodyLabel = document.getElementById('nodeBodyLabel');
 const nodeBodyInfo = document.getElementById('nodeBodyInfo');
 const nodeBodyInput = document.getElementById('nodeBodyInput');
+const generateDescriptionBtn = descriptionField ? descriptionField.querySelector('[data-generate-description-btn]') : null;
+const generateDescriptionStatus = descriptionField ? descriptionField.querySelector('[data-generate-description-status]') : null;
 const nodeBodyAutocomplete = document.getElementById('nodeBodyAutocomplete');
 const nodeBodyHtmlNote = document.getElementById('nodeBodyHtmlNote');
 const objectBodyAnswerNote = document.getElementById('objectBodyAnswerNote');
@@ -9482,6 +9528,7 @@ const objectBodyLabel = document.getElementById('objectBodyLabel');
 const objectBodyInfo = document.getElementById('objectBodyInfo');
 const objectBodyInput = document.getElementById('objectBodyInput');
 const objectBodyAutocomplete = document.getElementById('objectBodyAutocomplete');
+const objectBodyRequiredHint = document.getElementById('objectBodyRequiredHint');
 const replyModeField = document.getElementById('replyModeField');
 const replyModeNormalInput = document.getElementById('replyModeNormalInput');
 const replyModeAnyAnswerInput = document.getElementById('replyModeAnyAnswerInput');
@@ -9749,14 +9796,35 @@ function usesNodeTitle(type) {
   return type === 'game' || type === 'stop' || type === 'button';
 }
 
+function normalizeWaypointTitle(value, fallback = '') {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (normalized) return normalized;
+  return String(fallback || '').trim().toUpperCase();
+}
+
+const WAYPOINT_GROUP_OPTIONS = ['A', 'B', 'C', 'D', 'E'];
+const LEGACY_WAYPOINT_GROUP_MAP = {
+  '1': 'A',
+  '2': 'B',
+  '3': 'C',
+  '4': 'D',
+  '5': 'E'
+};
+
+function normalizeWaypointGroup(value) {
+  const normalized = String(value || '').trim().toUpperCase();
+  const mapped = LEGACY_WAYPOINT_GROUP_MAP[normalized] || normalized;
+  return WAYPOINT_GROUP_OPTIONS.includes(mapped) ? mapped : '';
+}
+
 function getDefaultNodeTitle(type, id = '') {
   if (type === 'stop') {
     const parsed = parseTypedNodeId(id);
     if (parsed && parsed.type === 'stop' && Number.isFinite(parsed.number)) {
-      return 'Waypoint ' + parsed.number;
+      return normalizeWaypointTitle('Waypoint ' + parsed.number);
     }
     const fallbackNumber = Math.max(1, (state.nextNodeNumbers && state.nextNodeNumbers.stop ? state.nextNodeNumbers.stop : 1) - 1);
-    return 'Waypoint ' + fallbackNumber;
+    return normalizeWaypointTitle('Waypoint ' + fallbackNumber);
   }
   return usesNodeTitle(type) ? TYPE_CONFIG[type].title : '';
 }
@@ -10039,6 +10107,73 @@ function refreshVarNameHint() {
   objectVarNameInput.classList.toggle('is-invalid', !!msg);
 }
 
+function refreshReplyBodyHint() {
+  if (!objectBodyRequiredHint || !objectBodyInput) return;
+  const node = getNode(state.selectedId);
+  const requiresBody = !!node && node.type === 'reply' && !node.acceptAny;
+  const message = requiresBody && !String(objectBodyInput.value || '').trim()
+    ? 'Required.'
+    : '';
+  objectBodyRequiredHint.textContent = message;
+  objectBodyRequiredHint.hidden = !message;
+  objectBodyInput.classList.toggle('is-invalid', !!message);
+}
+
+function getReplyValidationIssue(node) {
+  if (!node || node.type !== 'reply') return null;
+  if (!normalizeVariableName(node.varName)) {
+    return {
+      nodeId: node.id,
+      field: 'varName',
+      message: 'Each PLAYER MSG needs a Message Name.'
+    };
+  }
+  if (!node.acceptAny && !String(node.body || '').trim()) {
+    return {
+      nodeId: node.id,
+      field: 'body',
+      message: 'Each PLAYER MSG needs at least 1 character in Player Message.'
+    };
+  }
+  return null;
+}
+
+function getFirstReplyValidationIssue() {
+  const replyNodes = getSortedConversationNodesFromList(
+    state.doc.nodes.filter((node) => node && node.type === 'reply'),
+    state.doc.nodes
+  );
+  for (const node of replyNodes) {
+    const issue = getReplyValidationIssue(node);
+    if (issue) return issue;
+  }
+  return null;
+}
+
+function focusReplyValidationIssue(issue) {
+  if (!issue || !issue.nodeId) return;
+  selectNode(issue.nodeId);
+  renderAll();
+  requestAnimationFrame(() => {
+    const target = issue.field === 'varName' ? objectVarNameInput : objectBodyInput;
+    if (!target || target.disabled || typeof target.focus !== 'function') return;
+    try {
+      target.focus({ preventScroll: true });
+    } catch (error) {
+      target.focus();
+    }
+  });
+}
+
+function validateReplyNodes(options = {}) {
+  const issue = getFirstReplyValidationIssue();
+  if (!issue) return null;
+  focusReplyValidationIssue(issue);
+  if (options.showAlert !== false) window.alert(issue.message);
+  setSaveStatus('unsaved', 'Finish PLAYER MSG details');
+  return issue;
+}
+
 function buildBestGuessReplyVariableName(node, preferredSource = null) {
   const promptSource = findReplyPromptSourceNode(node, preferredSource);
   const baseName = promptSource ? guessVariableNameFromPrompt(promptSource.body) : '';
@@ -10058,6 +10193,26 @@ function getNodeDisplayTitle(node) {
     ? String(node.title || '').trim()
     : getNodeMessagePreview(node);
   return node.type === 'reply' ? title.toUpperCase() : title;
+}
+
+function setGenerateDescriptionStatus(message = '') {
+  if (!generateDescriptionStatus) return;
+  const text = String(message || '').trim();
+  generateDescriptionStatus.textContent = text;
+  generateDescriptionStatus.hidden = !text;
+}
+
+function buildLocalGameDescription(gameNode) {
+  const title = String(gameNode && gameNode.title || '').trim() || 'YOUR GAME';
+  const city = String(gameNode && gameNode.city || '').trim();
+  const players = String(gameNode && gameNode.players || '').trim();
+  const cityClause = city
+    ? `across the streets of ${city}`
+    : 'across city streets';
+  const playerClause = players
+    ? ` Designed for ${players},`
+    : '';
+  return `${title} is a scavenger hunt and escape room style adventure played ${cityClause}. Players follow clues, solve puzzles, and unlock waypoint after waypoint as the city becomes the game board.${playerClause} each stop reveals the next piece of the mystery and pushes the team deeper into the story.`;
 }
 
 function getNodeKicker(node) {
@@ -11471,7 +11626,9 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     width: config.width,
     height: config.height,
     title: usesNodeTitle(type) && raw && typeof raw.title === 'string' && raw.title.trim()
-      ? String(raw.title)
+      ? (type === 'stop'
+          ? normalizeWaypointTitle(raw.title, getDefaultNodeTitle(type, id))
+          : String(raw.title))
       : getDefaultNodeTitle(type, id),
     tagline: raw && typeof raw.tagline === 'string' ? raw.tagline : '',
     featured: raw && typeof raw.featured === 'string' ? raw.featured : '',
@@ -11491,6 +11648,7 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     teams: Array.isArray(raw && raw.teams)
       ? raw.teams.map((t) => typeof t === 'string' ? t : '')
       : [],
+    waypointGroup: type === 'stop' ? normalizeWaypointGroup(raw && raw.waypointGroup) : '',
     body: (type === 'reply' && !!(raw && raw.acceptAny))
       ? ''
       : (type === 'reply' && !normalizeVariableName(raw && raw.varName) && isVariableOnlyBody(rawBody))
@@ -12490,6 +12648,8 @@ function createNode(type, x, y) {
     price: type === 'game' ? 'Free To Start / In App Purchases' : '',
     builderNotes: '',
     tags: [],
+    teams: [],
+    waypointGroup: '',
     body: config.body,
     buttonUrl: '',
     tertiaryColor: '',
@@ -13743,7 +13903,9 @@ function bringNodeToFront(nodeId) {
 function finishInlineNodeTitleEdit(nodeId, nextValue, commit) {
   const node = getNode(nodeId);
   if (commit && node && usesNodeTitle(node.type)) {
-    node.title = String(nextValue || '').trim() || TYPE_CONFIG[node.type].title;
+    node.title = node.type === 'stop'
+      ? normalizeWaypointTitle(nextValue, TYPE_CONFIG[node.type].title)
+      : (String(nextValue || '').trim() || TYPE_CONFIG[node.type].title);
   }
   renderAll();
 }
@@ -13762,7 +13924,10 @@ function startInlineNodeTitleEdit(nodeId) {
   input.type = 'text';
   input.className = 'node-title-input';
   input.setAttribute('aria-label', TYPE_CONFIG[node.type].kicker + ' name');
-  input.value = String(node.title || TYPE_CONFIG[node.type].title);
+  input.value = node.type === 'stop'
+    ? normalizeWaypointTitle(node.title, TYPE_CONFIG[node.type].title)
+    : String(node.title || TYPE_CONFIG[node.type].title);
+  if (node.type === 'stop') input.style.textTransform = 'uppercase';
 
   titleEl.hidden = true;
   titleWrap.appendChild(input);
@@ -13770,7 +13935,10 @@ function startInlineNodeTitleEdit(nodeId) {
   const syncInspectorTitle = () => {
     if (state.selectedId !== nodeId) return;
     if (node.type === 'game') nodeTitleInput.value = input.value;
-    if (node.type === 'stop') stopNameInput.value = input.value;
+    if (node.type === 'stop') {
+      input.value = normalizeWaypointTitle(input.value, TYPE_CONFIG.stop.title);
+      stopNameInput.value = input.value;
+    }
   };
 
   const stopEvent = (event) => {
@@ -14090,8 +14258,11 @@ function updateObjectInspectorUi(node, link, copyText) {
   if (objectInspectorContent) objectInspectorContent.hidden = !hasObjectSelection;
   if (!hasObjectSelection) {
     if (objectStopNameField) objectStopNameField.hidden = true;
+    if (objectWaypointGroupField) objectWaypointGroupField.hidden = true;
     if (objectVarNameField) objectVarNameField.hidden = true;
     if (objectDescriptionField) objectDescriptionField.hidden = true;
+    if (objectBodyRequiredHint) objectBodyRequiredHint.hidden = true;
+    if (objectBodyInput) objectBodyInput.classList.remove('is-invalid');
     if (objectDeleteBtn) {
       objectDeleteBtn.hidden = true;
       objectDeleteBtn.disabled = true;
@@ -14114,6 +14285,7 @@ function updateObjectInspectorUi(node, link, copyText) {
 
   if (objectInspectorCopy) objectInspectorCopy.textContent = copyText || '';
   if (objectStopNameField) objectStopNameField.hidden = isLinkSelected || !isStopNode;
+  if (objectWaypointGroupField) objectWaypointGroupField.hidden = isLinkSelected || !isStopNode;
   if (objectVarNameField) objectVarNameField.hidden = isLinkSelected || !isReplyNode;
   if (objectButtonNameField) objectButtonNameField.hidden = isLinkSelected || !isButtonNode;
   if (objectButtonTargetField) objectButtonTargetField.hidden = isLinkSelected || !isButtonNode;
@@ -14128,8 +14300,9 @@ function updateObjectInspectorUi(node, link, copyText) {
 
   if (objectStopNameInput) {
     objectStopNameInput.disabled = !isStopNode;
-    objectStopNameInput.value = isStopNode && node ? node.title : '';
+    objectStopNameInput.value = isStopNode && node ? normalizeWaypointTitle(node.title, '') : '';
   }
+  syncWaypointGroupButtons(isStopNode && node ? node.waypointGroup : '', !isStopNode);
   if (objectVarNameInput) {
     objectVarNameInput.disabled = !isReplyNode;
     objectVarNameInput.value = isReplyNode && node ? (node.varName || '') : '';
@@ -14154,6 +14327,7 @@ function updateObjectInspectorUi(node, link, copyText) {
     }
     objectBodyInput.placeholder = '';
   }
+  refreshReplyBodyHint();
   if (!node || node.type !== 'bubble' || document.activeElement !== objectBodyInput) {
     closeVariableAutocomplete();
   }
@@ -14681,6 +14855,8 @@ function duplicateNode(nodeId) {
     price: source.price || '',
     builderNotes: source.builderNotes || '',
     tags: Array.isArray(source.tags) ? [...source.tags] : [],
+    teams: Array.isArray(source.teams) ? [...source.teams] : [],
+    waypointGroup: source.type === 'stop' ? normalizeWaypointGroup(source.waypointGroup) : '',
     body: source.body || '',
     buttonUrl: source.buttonUrl || '',
     tertiaryColor: source.tertiaryColor || '',
@@ -14691,11 +14867,8 @@ function duplicateNode(nodeId) {
     rotation: getNodeRotation(source),
     orderIndex: duplicateOrderIndex
   };
-  if (duplicate.type === 'reply') {
-    duplicate.varName = makeUniqueReplyVariableName(
-      duplicate.varName || buildBestGuessReplyVariableName(duplicate, source),
-      duplicate.id
-    );
+  if (duplicate.type === 'reply' && duplicate.varName) {
+    duplicate.varName = makeUniqueReplyVariableName(duplicate.varName, duplicate.id);
   }
 
   state.doc.nodes.push(duplicate);
@@ -14712,7 +14885,6 @@ function addNode(type, x, y, options = {}) {
 
   const sourceNode = getAutoLinkSourceNode();
   const node = createNode(type, x, y);
-  if (type === 'reply') ensureReplyVarName(node, sourceNode);
   if (type === 'game') {
     const slot = getGameHomeSlot();
     node.x = slot.x;
@@ -14786,9 +14958,8 @@ function insertAnytimePairAt(replyPosition, bubblePosition, sourceReply = null, 
   replyNode.anytimePairId = pairId;
   replyNode.body = sourceReply ? (sourceReply.body || '') : '';
   replyNode.varName = sourceReply
-    ? makeUniqueReplyVariableName(sourceReply.varName || buildBestGuessReplyVariableName(sourceReply, sourceReply), replyNode.id)
+    ? (sourceReply.varName ? makeUniqueReplyVariableName(sourceReply.varName, replyNode.id) : '')
     : '';
-  ensureReplyVarName(replyNode, sourceReply || null);
 
   const bubbleNode = createNode('bubble', bubblePosition.x, bubblePosition.y);
   bubbleNode.anytime = true;
@@ -14900,6 +15071,17 @@ function syncReplyModeInputs(node) {
     if (!input) return;
     input.checked = isReplyNode && mode === value;
     input.disabled = !isReplyNode;
+  });
+}
+
+function syncWaypointGroupButtons(groupValue, disabled = false) {
+  const normalizedGroup = normalizeWaypointGroup(groupValue);
+  objectWaypointGroupButtons.forEach((button) => {
+    const buttonGroup = normalizeWaypointGroup(button && button.dataset ? button.dataset.waypointGroupBtn : '');
+    const isActive = !disabled && !!buttonGroup && buttonGroup === normalizedGroup;
+    button.disabled = !!disabled;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
   });
 }
 
@@ -15181,6 +15363,7 @@ function serializeNodeState(node) {
     builderNotes: node.builderNotes || '',
     tags: (node.tags || []).filter(Boolean),
     teams: Array.isArray(node.teams) ? node.teams : [],
+    waypointGroup: node.type === 'stop' ? normalizeWaypointGroup(node.waypointGroup) : '',
     body: node.body,
     buttonUrl: node.buttonUrl || '',
     tertiaryColor: node.tertiaryColor || '',
@@ -15475,8 +15658,6 @@ function stageCurrentGameIntoStore() {
   if (!shouldStageCurrentGameForSave()) return null;
 
   syncSelectedGameGuideImageFromInput();
-  const replyVarsFilled = ensureAllReplyVarNames();
-  if (replyVarsFilled) renderAll();
 
   const docPayload = serializeDoc();
   const existingGame = state.store.games.find((game) => game.id === state.currentGameId);
@@ -15532,6 +15713,20 @@ async function saveDoc(options = {}) {
   if (!hasPendingChanges) {
     if (!silent) setSaveStatus('idle');
     return { savedGame: null, serverSaved: false, localOnly: false, skipped: true };
+  }
+
+  if (hasGameNode()) {
+    const validationIssue = validateReplyNodes({ showAlert: true });
+    if (validationIssue) {
+      return {
+        savedGame: null,
+        serverSaved: false,
+        localOnly: false,
+        skipped: true,
+        validationFailed: true,
+        error: new Error(validationIssue.message)
+      };
+    }
   }
 
   setSaveStatus('saving');
@@ -15711,6 +15906,7 @@ nodeTitleInput.addEventListener('input', () => {
 objectStopNameInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
   if (!node || node.type !== 'stop') return;
+  objectStopNameInput.value = normalizeWaypointTitle(objectStopNameInput.value, TYPE_CONFIG.stop.title);
   node.title = objectStopNameInput.value || TYPE_CONFIG.stop.title;
   renderAll();
 });
@@ -15718,6 +15914,7 @@ objectStopNameInput.addEventListener('input', () => {
 stopNameInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
   if (!node || node.type !== 'stop') return;
+  stopNameInput.value = normalizeWaypointTitle(stopNameInput.value, TYPE_CONFIG.stop.title);
   node.title = stopNameInput.value || TYPE_CONFIG.stop.title;
   renderAll();
 });
@@ -15729,6 +15926,18 @@ objectVarNameInput.addEventListener('input', () => {
   node.varName = normalizeVariableName(objectVarNameInput.value);
   refreshVarNameHint();
   renderAll();
+});
+
+objectWaypointGroupButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    const node = getNode(state.selectedId);
+    if (!node || node.type !== 'stop') return;
+    const buttonGroup = normalizeWaypointGroup(button && button.dataset ? button.dataset.waypointGroupBtn : '');
+    const currentGroup = normalizeWaypointGroup(node.waypointGroup);
+    node.waypointGroup = currentGroup === buttonGroup ? '' : buttonGroup;
+    syncWaypointGroupButtons(node.waypointGroup, false);
+    renderAll();
+  });
 });
 
 if (objectButtonTargetInput) {
@@ -16154,6 +16363,7 @@ objectBodyInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
   if (!node) return;
   node.body = objectBodyInput.value;
+  refreshReplyBodyHint();
   rememberGuideInsertSelection();
   renderAll();
   updateVariableAutocomplete();
@@ -16202,6 +16412,21 @@ objectBodyInput.addEventListener('keydown', (event) => {
     closeVariableAutocomplete();
   }
 });
+
+if (generateDescriptionBtn) {
+  generateDescriptionBtn.addEventListener('click', () => {
+    const node = getGameNode();
+    if (!node || node.type !== 'game' || nodeBodyInput.disabled) {
+      setGenerateDescriptionStatus('Open a game first.');
+      return;
+    }
+    const nextDescription = buildLocalGameDescription(node);
+    node.body = nextDescription;
+    nodeBodyInput.value = nextDescription;
+    setGenerateDescriptionStatus('Generate a description locally');
+    renderAll();
+  });
+}
 
 objectDeleteBtn.addEventListener('click', () => {
   if (state.selectedLinkId) {

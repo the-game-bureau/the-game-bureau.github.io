@@ -1,16 +1,80 @@
 // Run: node server.js
-// Then open: http://localhost:3000/archive/index_old.html
+// Then open: http://localhost:3000/builder.html
 const http  = require('http');
 const fs    = require('fs');
 const path  = require('path');
 const { execFile } = require('child_process');
+
+function parseEnvValue(rawValue) {
+  const trimmed = String(rawValue || '').trim();
+  if (!trimmed) return '';
+
+  const quote = trimmed[0];
+  if ((quote === '"' || quote === "'") && trimmed.endsWith(quote)) {
+    const inner = trimmed.slice(1, -1);
+    if (quote === '"') {
+      return inner
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, '\\');
+    }
+    return inner;
+  }
+
+  return trimmed.replace(/\s+#.*$/, '').trim();
+}
+
+function isPlaceholderApiKey(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return !normalized || normalized === 'your_openai_api_key_here';
+}
+
+function loadEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) return;
+  const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
+  lines.forEach((line) => {
+    const trimmed = String(line || '').trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+
+    const normalized = trimmed.startsWith('export ') ? trimmed.slice(7).trim() : trimmed;
+    const match = normalized.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    if (!match) return;
+
+    const key = match[1];
+    const value = parseEnvValue(match[2]);
+    const existing = typeof process.env[key] === 'string' ? process.env[key].trim() : '';
+    if (existing && !isPlaceholderApiKey(existing)) return;
+    process.env[key] = value;
+  });
+}
+
+function loadLocalEnvFiles() {
+  const repoRoot = path.join(__dirname, '..', '..', '..');
+  const candidates = [
+    path.join(repoRoot, '.env'),
+    path.join(repoRoot, '.env.local'),
+    path.join(__dirname, '.env'),
+    path.join(__dirname, '.env.local')
+  ];
+  const seen = new Set();
+  candidates.forEach((filePath) => {
+    const normalized = path.normalize(filePath);
+    if (seen.has(normalized)) return;
+    seen.add(normalized);
+    loadEnvFile(normalized);
+  });
+}
+
+loadLocalEnvFiles();
 
 const PORT       = 3000;
 const GAMES_FILE  = path.join(__dirname, '..', 'data', 'games_archive.json');
 const GAMES_NEW_FILE = path.join(__dirname, '..', 'data', 'games_new.json');
 const STOPS_FILE  = path.join(__dirname, '..', 'data', 'stops.json');
 const ROUTES_FILE = path.join(__dirname, '..', 'data', 'routes.json');
-const STATIC_DIR = path.join(__dirname, '..', '..');
+const STATIC_DIR = path.join(__dirname, '..', '..', '..');
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
 const WAYPOINT_SUGGEST_MODEL = process.env.OPENAI_MODEL || 'gpt-5';
@@ -33,6 +97,10 @@ const MIME = {
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(payload));
+}
+
+function getMissingOpenAiKeyMessage() {
+  return 'OPENAI_API_KEY is missing or still set to the placeholder value in c:\\Code\\the-game-bureau\\.env.';
 }
 
 function readJsonBody(req) {
@@ -259,6 +327,10 @@ function buildWaypointSuggestionInput(payload, locationContext, inspirationGames
   return lines.join('\n');
 }
 
+function buildGameDescriptionInput(gameName) {
+  return 'generate a description for a scavenger hunt/escape room style game that takes place on city streets. The game is named ' + gameName;
+}
+
 async function requestWaypointSuggestionFromOpenAi(payload, locationContext, inspirationGames) {
   const response = await fetch(OPENAI_RESPONSES_URL, {
     method: 'POST',
@@ -287,7 +359,36 @@ async function requestWaypointSuggestionFromOpenAi(payload, locationContext, ins
   return suggestion;
 }
 
+async function requestGameDescriptionFromOpenAi(gameName) {
+  const response = await fetch(OPENAI_RESPONSES_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + process.env.OPENAI_API_KEY
+    },
+    body: JSON.stringify({
+      model: WAYPOINT_SUGGEST_MODEL,
+      store: false,
+      instructions: 'You help The Game Bureau write short, vivid descriptions for scavenger hunt and escape room style games played on city streets. Return plain text only with no quotation marks.',
+      input: buildGameDescriptionInput(gameName)
+    })
+  });
+  const json = await response.json();
+  if (!response.ok) {
+    const message = json && json.error && typeof json.error.message === 'string'
+      ? json.error.message
+      : 'OpenAI description request failed.';
+    throw new Error(message);
+  }
+  const description = extractOpenAiText(json);
+  if (!description) {
+    throw new Error('OpenAI did not return any description text.');
+  }
+  return description;
+}
+
 http.createServer((req, res) => {
+  loadLocalEnvFiles();
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, anthropic-version');
@@ -324,8 +425,8 @@ http.createServer((req, res) => {
   if (req.method === 'POST' && req.url === '/ai/waypoint-suggest') {
     (async () => {
       try {
-        if (!process.env.OPENAI_API_KEY) {
-          sendJson(res, 503, { error: 'OPENAI_API_KEY is not set on the local server.' });
+        if (isPlaceholderApiKey(process.env.OPENAI_API_KEY)) {
+          sendJson(res, 503, { error: getMissingOpenAiKeyMessage() });
           return;
         }
 
@@ -348,6 +449,30 @@ http.createServer((req, res) => {
   }
 
   // POST /games — write games_archive.json
+  if (req.method === 'POST' && req.url === '/ai/game-description') {
+    (async () => {
+      try {
+        if (isPlaceholderApiKey(process.env.OPENAI_API_KEY)) {
+          sendJson(res, 503, { error: getMissingOpenAiKeyMessage() });
+          return;
+        }
+
+        const payload = await readJsonBody(req);
+        const gameName = String(payload && payload.gameName ? payload.gameName : '').trim();
+        if (!gameName) {
+          sendJson(res, 400, { error: 'Game name is required.' });
+          return;
+        }
+
+        const description = await requestGameDescriptionFromOpenAi(gameName);
+        sendJson(res, 200, { description });
+      } catch (error) {
+        sendJson(res, 500, { error: error && error.message ? error.message : 'Game description generation failed.' });
+      }
+    })();
+    return;
+  }
+
   if (req.method === 'POST' && req.url === '/games') {
     let body = '';
     req.on('data', d => { body += d; });
@@ -500,9 +625,17 @@ http.createServer((req, res) => {
   }
 
   // Static files
-  if (req.url === '/') { res.writeHead(302, { Location: '/archive/index_old.html' }); res.end(); return; }
-  let filePath = path.join(STATIC_DIR, req.url.split('?')[0]);
-  const ext    = path.extname(filePath);
+  if (req.url === '/') { res.writeHead(302, { Location: '/builder.html' }); res.end(); return; }
+  const requestPath = decodeURIComponent(String(req.url || '').split('?')[0] || '/');
+  const relativePath = requestPath.replace(/^\/+/, '');
+  const staticRoot = path.resolve(STATIC_DIR);
+  const filePath = path.resolve(staticRoot, relativePath || 'builder.html');
+  if (filePath !== staticRoot && !filePath.startsWith(staticRoot + path.sep)) {
+    res.writeHead(403);
+    res.end();
+    return;
+  }
+  const ext = path.extname(filePath);
   if (!MIME[ext]) { res.writeHead(403); res.end(); return; }
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end(); return; }
@@ -510,4 +643,4 @@ http.createServer((req, res) => {
     res.end(data);
   });
 
-}).listen(PORT, () => console.log('http://localhost:' + PORT + '/archive/index_old.html'));
+}).listen(PORT, () => console.log('http://localhost:' + PORT + '/builder.html'));

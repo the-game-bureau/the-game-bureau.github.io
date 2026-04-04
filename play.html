@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#ffffff">
   <title>Loading…</title>
-  <link id="favicon" rel="icon" href="index.ico" type="image/x-icon">
+  <link id="favicon" rel="icon" href="assets/tgb.ico" type="image/x-icon">
   <style>
     /* ── Base chat UI (archive/index.css) ── */
     .icon-preload {
@@ -16,7 +16,7 @@
       height: 0;
       overflow: hidden;
       pointer-events: none;
-      background-image: url("index.ico");
+      background-image: url("assets/tgb.ico");
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -683,8 +683,8 @@
 
   <div class="input-area" id="input-area">
     <div class="answer-row">
-      <input id="gameInput" type="text" class="answer-input" autocomplete="off" placeholder="" disabled>
-      <button id="gameSubmitBtn" class="submit-btn" aria-label="Send" disabled>
+      <input id="gameInput" type="text" class="answer-input" autocomplete="off" placeholder="Message">
+      <button id="gameSubmitBtn" class="submit-btn" aria-label="Send">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z" fill="white" stroke="white"/></svg>
       </button>
     </div>
@@ -707,6 +707,7 @@
       const submitBtn   = document.getElementById('gameSubmitBtn');
     let gameStops          = [];
     let anytimeStops       = [];
+    let baseGameStops      = [];
     let currentStopIndex   = 0;
     let currentBubbleIndex = 0;
     let _submitHandler     = null;
@@ -717,6 +718,9 @@
     let lemonSetupComplete = false;
     let stopCheckoutContext = null;
     let activeCheckoutContext = null;
+    let scrollBottomRaf = 0;
+    let scrollBottomTimeouts = [];
+    let chatResizeObserver = null;
 
     // ── Persistence ──────────────────────────────────────────────
     function saveStep(i) {
@@ -797,13 +801,104 @@
     function pick(arr) {
       return arr[Math.floor(Math.random() * arr.length)];
     }
+    function performScrollBottom() {
+      if (!chatEl) return;
+      chatEl.scrollTop = Math.max(0, chatEl.scrollHeight - chatEl.clientHeight);
+    }
+    function clearScheduledScrollBottom() {
+      if (scrollBottomRaf) {
+        cancelAnimationFrame(scrollBottomRaf);
+        scrollBottomRaf = 0;
+      }
+      scrollBottomTimeouts.forEach((timeoutId) => clearTimeout(timeoutId));
+      scrollBottomTimeouts = [];
+    }
     function scrollBottom() {
-      chatEl.scrollTop = chatEl.scrollHeight;
+      performScrollBottom();
+      clearScheduledScrollBottom();
+      scrollBottomRaf = requestAnimationFrame(() => {
+        performScrollBottom();
+        scrollBottomRaf = requestAnimationFrame(() => {
+          performScrollBottom();
+          scrollBottomRaf = 0;
+        });
+      });
+      [90, 220, 420].forEach((delay) => {
+        scrollBottomTimeouts.push(setTimeout(performScrollBottom, delay));
+      });
+    }
+    function bindBubbleAutoScroll(container) {
+      if (!container) return;
+      container.querySelectorAll('img').forEach((img) => {
+        if (!img || img.complete) return;
+        const settle = () => scrollBottom();
+        img.addEventListener('load', settle, { once: true });
+        img.addEventListener('error', settle, { once: true });
+      });
+    }
+    function installPinnedChatAutoScroll() {
+      const handleViewportShift = () => scrollBottom();
+      window.addEventListener('resize', handleViewportShift);
+      window.addEventListener('orientationchange', handleViewportShift);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', handleViewportShift);
+        window.visualViewport.addEventListener('scroll', handleViewportShift);
+      }
+      if (gameInput) {
+        gameInput.addEventListener('focus', () => scrollBottom());
+      }
+      if (typeof ResizeObserver !== 'undefined' && chatEl && !chatResizeObserver) {
+        chatResizeObserver = new ResizeObserver(() => {
+          performScrollBottom();
+        });
+        chatResizeObserver.observe(chatEl);
+        if (inputAreaEl) chatResizeObserver.observe(inputAreaEl);
+      }
     }
     function normalizeVarKey(raw) {
       const s = String(raw || '').trim();
       const m = s.match(/^\{\{\s*([A-Za-z_]\w*)\s*\}\}$/) || s.match(/^\{\s*([A-Za-z_]\w*)\s*\}$/) || s.match(/^%\s*([A-Za-z_]\w*)\s*%$/);
       return m ? m[1] : s;
+    }
+    function normalizeWaypointGroup(value) {
+      const group = String(value || '').trim().toUpperCase();
+      const mapped = ({ '1': 'A', '2': 'B', '3': 'C', '4': 'D', '5': 'E' })[group] || group;
+      return /^[A-E]$/.test(mapped) ? mapped : '';
+    }
+    function getActiveTeamNumber(currentVars) {
+      const keys = currentVars && typeof currentVars === 'object' ? Object.keys(currentVars) : [];
+      const normalizedKeys = new Set(keys.map((key) => String(normalizeVarKey(key) || '').trim().toLowerCase()));
+      for (let teamNumber = 1; teamNumber <= 8; teamNumber += 1) {
+        if (normalizedKeys.has('team' + teamNumber)) return teamNumber;
+      }
+      return 1;
+    }
+    function rotateGroupedWaypointStops(stops, currentVars) {
+      const safeStops = Array.isArray(stops) ? stops.slice() : [];
+      const groupedIndices = new Map();
+
+      safeStops.forEach((stop, index) => {
+        const group = normalizeWaypointGroup(stop && stop.waypointGroup);
+        if (!group) return;
+        if (!groupedIndices.has(group)) groupedIndices.set(group, []);
+        groupedIndices.get(group).push(index);
+      });
+
+      const teamNumber = getActiveTeamNumber(currentVars);
+      groupedIndices.forEach((indices) => {
+        if (!Array.isArray(indices) || indices.length < 2) return;
+        const offset = (teamNumber - 1) % indices.length;
+        if (!offset) return;
+        const sourceStops = indices.map((index) => safeStops[index]);
+        indices.forEach((targetIndex, sequenceIndex) => {
+          safeStops[targetIndex] = sourceStops[(sequenceIndex + offset) % sourceStops.length];
+        });
+      });
+
+      return safeStops;
+    }
+    function refreshGroupedGameStops() {
+      gameStops = rotateGroupedWaypointStops(baseGameStops, vars);
     }
     function parseUrl(value) {
       try {
@@ -1248,6 +1343,7 @@
 
       wrap.appendChild(bubble);
       chatEl.appendChild(wrap);
+      bindBubbleAutoScroll(wrap);
       scrollBottom();
       return wrap;
     }
@@ -1319,17 +1415,18 @@
 
     // ── Permanent input bar ───────────────────────────────────────
     function hideInputArea() {
-      if(inputAreaEl) inputAreaEl.style.display = 'none';
+      if(inputAreaEl) inputAreaEl.style.display = '';
     }
     function showInputArea() {
       if(inputAreaEl) inputAreaEl.style.display = '';
     }
     function disableInput() {
-      hideInputArea();
-      gameInput.disabled = true;
+      showInputArea();
       gameInput.value = '';
-      gameInput.placeholder = '';
-      submitBtn.disabled = true;
+      gameInput.placeholder = 'Message';
+      gameInput.classList.remove('wrong');
+      gameInput.disabled = false;
+      submitBtn.disabled = false;
       _submitHandler = null;
     }
 
@@ -1341,6 +1438,7 @@
       const reply = stop.playerReply || {};
       const triggerText = triggerBubble ? String(triggerBubble.html || triggerBubble.text || '').trim() : '';
       const placeholder = triggerBubble ? (triggerBubble.placeholder || '') : (reply.placeholder || '');
+      gameInput.value = '';
       gameInput.placeholder = placeholder || 'Type here…';
       gameInput.disabled = false;
       submitBtn.disabled = false;
@@ -1380,7 +1478,11 @@
 
         const correct = isAny || answers.some(a => norm(a) === norm(val));
 
-        if (varKey && correct) { vars[varKey] = val; saveVars(); }
+        if (varKey && correct) {
+          vars[varKey] = val;
+          saveVars();
+          refreshGroupedGameStops();
+        }
 
         disableInput();
         addBubble(val, false);
@@ -1501,6 +1603,7 @@
     // ── Restart ───────────────────────────────────────────────────
     document.getElementById('restartBtn').addEventListener('click', () => {
       clearSave();
+      refreshGroupedGameStops();
       chatEl.innerHTML = '';
       disableInput();
       playStop(0);
@@ -1508,6 +1611,7 @@
 
     // ── Boot ──────────────────────────────────────────────────────
     disableInput();
+    installPinnedChatAutoScroll();
 
     const SB_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -1629,6 +1733,7 @@
           currentStop = {
             id: node.id,
             title: node.title,
+            waypointGroup: normalizeWaypointGroup(node.waypointGroup),
             messages: [],
             playerReply: null
           };
@@ -1715,11 +1820,12 @@
         const allStops = payload.stops || [];
         
         anytimeStops = allStops.filter(s => s.playerReply?.anytime);
-        gameStops = allStops.filter(s => !s.playerReply?.anytime);
+        baseGameStops = allStops.filter(s => !s.playerReply?.anytime);
+        vars = loadVars();
+        refreshGroupedGameStops();
 
         if (!gameStops.length) { chatEl.textContent = 'No stops configured for this game.'; return; }
 
-        vars = loadVars();
         const savedStep = Math.min(loadStep(), gameStops.length - 1);
         if (savedStep > 0) {
           for (let i = 0; i < savedStep; i++) {
