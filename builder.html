@@ -5776,6 +5776,28 @@ body.builder-page--editor .add-panel-body{
   padding:10px;
 }
 
+body.builder-page--editor .add-panel-section{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:0;
+}
+
+body.builder-page--editor .add-panel-section + .add-panel-section{
+  margin-top:8px;
+  padding-top:10px;
+  border-top:1px solid rgba(var(--bic-blue-rgb), .12);
+}
+
+body.builder-page--editor .add-panel-section-label{
+  margin:0 2px;
+  color:rgba(var(--bic-blue-rgb), .62);
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+
 body.builder-page--editor .add-btn{
   display:flex;
   align-items:center;
@@ -5835,6 +5857,91 @@ body.builder-page--editor .add-btn--button{
   background:var(--game-primary, #5468a7);
   border-color:transparent;
   color:var(--game-tertiary, #fff);
+}
+
+body.builder-page--editor .waypoint-library{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  max-height:min(56vh, 720px);
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding-right:2px;
+}
+
+body.builder-page--editor .waypoint-library-status{
+  margin:2px 2px 0;
+  color:rgba(var(--bic-blue-rgb), .64);
+  font-size:.78rem;
+  line-height:1.4;
+}
+
+body.builder-page--editor .waypoint-library-btn{
+  display:block;
+  width:100%;
+  padding:0;
+  border:none;
+  background:transparent;
+  text-align:left;
+  cursor:pointer;
+}
+
+body.builder-page--editor .waypoint-library-btn:disabled{
+  opacity:.4;
+  cursor:not-allowed;
+}
+
+body.builder-page--editor .waypoint-library-btn:focus-visible{
+  outline:2px solid rgba(var(--bic-blue-rgb), .26);
+  outline-offset:2px;
+  border-radius:12px;
+}
+
+body.builder-page--editor .waypoint-library-card{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  width:100%;
+  min-width:0;
+  padding:9px 10px 10px;
+  border:1px solid rgba(42,33,14,.24);
+  border-radius:12px;
+  background:linear-gradient(180deg, #ffe06a 0%, #ffd84a 52%, #f3c428 100%);
+  color:#2b2110;
+  box-shadow:0 2px 6px rgba(42,33,14,.1);
+  transition:filter .12s ease, transform .12s ease;
+}
+
+body.builder-page--editor .waypoint-library-btn:hover:not(:disabled) .waypoint-library-card{
+  filter:brightness(1.04);
+}
+
+body.builder-page--editor .waypoint-library-btn:active:not(:disabled) .waypoint-library-card{
+  transform:translateY(1px);
+}
+
+body.builder-page--editor .waypoint-library-game{
+  display:block;
+  font-size:.62rem;
+  font-weight:600;
+  letter-spacing:.08em;
+  line-height:1.2;
+  opacity:.72;
+  text-transform:uppercase;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+
+body.builder-page--editor .waypoint-library-name{
+  display:block;
+  font-size:.9rem;
+  font-weight:700;
+  line-height:1.05;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  text-wrap:balance;
 }
 
 body.builder-page--editor .phone-stencil-tray{
@@ -7848,18 +7955,26 @@ body.builder-auth-ready .builder-auth-signout{
             </div>
           </div>
           <div class="add-panel-body">
-            <button class="add-btn add-btn--stop" data-add-stencil="stop" type="button" disabled aria-label="Add waypoint">
-              <span class="add-btn-label">WAYPOINT</span>
-              <span class="add-btn-key">W</span>
-            </button>
-            <button class="add-btn add-btn--bubble" data-add-stencil="bubble" type="button" disabled aria-label="Add guide message">
-              <span class="add-btn-label">GUIDE</span>
-              <span class="add-btn-key">G</span>
-            </button>
-            <button class="add-btn add-btn--reply" data-add-stencil="reply" type="button" disabled aria-label="Add player message">
-              <span class="add-btn-label">PLAYER</span>
-              <span class="add-btn-key">P</span>
-            </button>
+            <div class="add-panel-section">
+              <div class="add-panel-section-label">NEW</div>
+              <button class="add-btn add-btn--stop" data-add-stencil="stop" type="button" disabled aria-label="Add waypoint">
+                <span class="add-btn-label">WAYPOINT</span>
+                <span class="add-btn-key">W</span>
+              </button>
+              <button class="add-btn add-btn--bubble" data-add-stencil="bubble" type="button" disabled aria-label="Add guide message">
+                <span class="add-btn-label">GUIDE</span>
+                <span class="add-btn-key">G</span>
+              </button>
+              <button class="add-btn add-btn--reply" data-add-stencil="reply" type="button" disabled aria-label="Add player message">
+                <span class="add-btn-label">PLAYER</span>
+                <span class="add-btn-key">P</span>
+              </button>
+            </div>
+            <div class="add-panel-section">
+              <div class="add-panel-section-label">WAYPOINT LIBRARY</div>
+              <div class="waypoint-library-status" id="waypointLibraryStatus">Loading saved waypoints...</div>
+              <div class="waypoint-library" id="waypointLibraryList" aria-label="Waypoint library"></div>
+            </div>
           </div>
         </aside>
 
@@ -8205,6 +8320,10 @@ body.builder-auth-ready .builder-auth-signout{
     <button class="context-menu-item context-menu-item--danger" id="deleteNodeMenuBtn" type="button">Erase</button>
   </div>
 
+  <div class="context-menu" id="waypointLibraryContextMenu" hidden>
+    <button class="context-menu-item" id="waypointLibraryOpenGameBtn" type="button">OPEN GAME?</button>
+  </div>
+
   <div class="erase-note-backdrop" id="gameEraseBackdrop" hidden>
     <div class="erase-note" role="dialog" aria-modal="true" aria-labelledby="gameEraseMessage">
       <p class="erase-note-message" id="gameEraseMessage">Erase?</p>
@@ -8212,6 +8331,18 @@ body.builder-auth-ready .builder-auth-signout{
         <button class="erase-note-btn erase-note-btn--confirm" id="gameEraseConfirmBtn" type="button">Erase</button>
         <button class="erase-note-btn erase-note-btn--archive" id="gameArchiveConfirmBtn" type="button">Archive</button>
         <button class="erase-note-btn erase-note-btn--cancel" id="gameEraseCancelBtn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="erase-note-backdrop" id="waypointEraseBackdrop" hidden>
+    <div class="erase-note" role="dialog" aria-modal="true" aria-labelledby="waypointEraseMessage">
+      <p class="erase-note-message" id="waypointEraseMessage">Erase this waypoint from the current game only?</p>
+      <div class="erase-note-game" id="waypointEraseDetail">Choose whether to remove just the waypoint or the waypoint and its bubbles.</div>
+      <div class="erase-note-actions">
+        <button class="erase-note-btn" id="waypointEraseOnlyBtn" type="button">Waypoint Only</button>
+        <button class="erase-note-btn erase-note-btn--confirm" id="waypointEraseBundleBtn" type="button">Waypoint and Bubbles</button>
+        <button class="erase-note-btn erase-note-btn--cancel" id="waypointEraseCancelBtn" type="button">Cancel</button>
       </div>
     </div>
   </div>
@@ -9458,6 +9589,8 @@ const phoneThreadName = document.getElementById('phoneThreadName');
 const phoneThreadAvatar = document.getElementById('phoneThreadAvatar');
 const phoneThreadStatus = document.getElementById('phoneThreadStatus');
 const outsideAnytimeLabel = document.getElementById('outsideAnytimeLabel');
+const waypointLibraryList = document.getElementById('waypointLibraryList');
+const waypointLibraryStatus = document.getElementById('waypointLibraryStatus');
 const inspector = document.getElementById('inspector');
 const objectInspector = document.getElementById('objectInspector');
 const objectInspectorTitle = document.getElementById('objectInspectorTitle');
@@ -9590,10 +9723,16 @@ const refreshPageBtn = document.getElementById('refreshPageBtn');
 const nodeContextMenu = document.getElementById('nodeContextMenu');
 const duplicateNodeBtn = document.getElementById('duplicateNodeBtn');
 const deleteNodeMenuBtn = document.getElementById('deleteNodeMenuBtn');
+const waypointLibraryContextMenu = document.getElementById('waypointLibraryContextMenu');
+const waypointLibraryOpenGameBtn = document.getElementById('waypointLibraryOpenGameBtn');
 const gameEraseBackdrop = document.getElementById('gameEraseBackdrop');
 const gameEraseConfirmBtn = document.getElementById('gameEraseConfirmBtn');
 const gameArchiveConfirmBtn = document.getElementById('gameArchiveConfirmBtn');
 const gameEraseCancelBtn = document.getElementById('gameEraseCancelBtn');
+const waypointEraseBackdrop = document.getElementById('waypointEraseBackdrop');
+const waypointEraseOnlyBtn = document.getElementById('waypointEraseOnlyBtn');
+const waypointEraseBundleBtn = document.getElementById('waypointEraseBundleBtn');
+const waypointEraseCancelBtn = document.getElementById('waypointEraseCancelBtn');
 const guideImageLightboxBackdrop = document.getElementById('guideImageLightboxBackdrop');
 const guideImageLightboxImage = document.getElementById('guideImageLightboxImage');
 const guideImageLightboxCloseBtn = document.getElementById('guideImageLightboxCloseBtn');
@@ -9648,6 +9787,7 @@ const state = {
   cleanSnapshot: null,
   contextMenuNodeId: null,
   contextMenuLinkId: null,
+  waypointLibraryContextEntryId: null,
   selectedId: null,
   selectedLinkId: null,
   dragNode: null,
@@ -9656,6 +9796,9 @@ const state = {
   panPhone: null,
   stencilPress: null,
   stencilDrag: null,
+  waypointLibraryPress: null,
+  waypointLibraryDrag: null,
+  waypointLibrarySuppressClick: false,
   connectDrag: null,
   inspectorDrag: null,
   suspendRecoverySync: false,
@@ -9682,6 +9825,12 @@ const state = {
   gameEraseDialogResolver: null,
   gameEraseDialogPreviousFocus: null,
   gameEraseActionBusy: false,
+  waypointEraseDialogResolver: null,
+  waypointEraseDialogPreviousFocus: null,
+  waypointLibraryEntries: [],
+  waypointLibraryLoading: false,
+  waypointLibraryStatusText: '',
+  waypointLibraryRefreshToken: 0,
   guideImageLightboxPreviousFocus: null,
   guideInsertMenuPreviousFocus: null,
   guideInsertSelectionStart: null,
@@ -9962,6 +10111,13 @@ function assignSequentialOrderIndices(nodes) {
     .forEach((node, index) => {
       node.orderIndex = (index + 1) * 100;
     });
+}
+
+function getSortedConversationNodesFromList(nodes, sourceNodes = null) {
+  const safeNodes = Array.isArray(nodes) ? nodes.filter(Boolean) : [];
+  const baseNodes = Array.isArray(sourceNodes) ? sourceNodes.filter(Boolean) : safeNodes;
+  const nodeIndex = new Map(baseNodes.map((node, index) => [node.id, index]));
+  return [...safeNodes].sort((a, b) => compareConversationNodes(a, b, nodeIndex));
 }
 
 function getAnytimePairNodes(pairId) {
@@ -12063,12 +12219,24 @@ function isLetterShortcut(event, code) {
 }
 
 function closeNodeContextMenu() {
-  if (!nodeContextMenu || nodeContextMenu.hidden) return;
-  nodeContextMenu.hidden = true;
-  state.contextMenuNodeId = null;
-  state.contextMenuLinkId = null;
+  if (nodeContextMenu && !nodeContextMenu.hidden) {
+    nodeContextMenu.hidden = true;
+    state.contextMenuNodeId = null;
+    state.contextMenuLinkId = null;
+  }
+  closeWaypointLibraryContextMenu();
 }
 
+function closeWaypointLibraryContextMenu() {
+  if (!waypointLibraryContextMenu || waypointLibraryContextMenu.hidden) return;
+  waypointLibraryContextMenu.hidden = true;
+  state.waypointLibraryContextEntryId = null;
+}
+
+function closeAllContextMenus() {
+  closeNodeContextMenu();
+  closeWaypointLibraryContextMenu();
+}
 
 function openNodeContextMenu(nodeId, clientX, clientY) {
   if (!nodeContextMenu) return;
@@ -12076,12 +12244,13 @@ function openNodeContextMenu(nodeId, clientX, clientY) {
   const node = getNode(nodeId);
   if (!node) return;
 
+  closeWaypointLibraryContextMenu();
   state.contextMenuNodeId = nodeId;
   state.contextMenuLinkId = null;
   if (duplicateNodeBtn) duplicateNodeBtn.disabled = node.type === 'game';
   if (duplicateNodeBtn) duplicateNodeBtn.hidden = false;
   if (deleteNodeMenuBtn) deleteNodeMenuBtn.disabled = false;
-  if (deleteNodeMenuBtn) deleteNodeMenuBtn.textContent = 'Erase';
+  if (deleteNodeMenuBtn) deleteNodeMenuBtn.textContent = node.type === 'stop' ? 'Erase...' : 'Erase';
   nodeContextMenu.hidden = false;
   nodeContextMenu.style.left = '0px';
   nodeContextMenu.style.top = '0px';
@@ -12093,6 +12262,27 @@ function openNodeContextMenu(nodeId, clientX, clientY) {
   const top = Math.min(clientY, window.innerHeight - menuHeight - margin);
   nodeContextMenu.style.left = Math.max(margin, left) + 'px';
   nodeContextMenu.style.top = Math.max(margin, top) + 'px';
+}
+
+function openWaypointLibraryContextMenu(entryId, clientX, clientY) {
+  if (!waypointLibraryContextMenu || !waypointLibraryOpenGameBtn) return;
+  const entry = getWaypointLibraryEntry(entryId);
+  if (!entry) return;
+
+  closeNodeContextMenu();
+  state.waypointLibraryContextEntryId = entry.id;
+  waypointLibraryOpenGameBtn.disabled = !String(entry.sourceGameId || '').trim() || entry.sourceGameId === state.currentGameId;
+  waypointLibraryContextMenu.hidden = false;
+  waypointLibraryContextMenu.style.left = '0px';
+  waypointLibraryContextMenu.style.top = '0px';
+
+  const margin = 10;
+  const menuWidth = waypointLibraryContextMenu.offsetWidth || 180;
+  const menuHeight = waypointLibraryContextMenu.offsetHeight || 62;
+  const left = Math.min(clientX, window.innerWidth - menuWidth - margin);
+  const top = Math.min(clientY, window.innerHeight - menuHeight - margin);
+  waypointLibraryContextMenu.style.left = Math.max(margin, left) + 'px';
+  waypointLibraryContextMenu.style.top = Math.max(margin, top) + 'px';
 }
 
 
@@ -12665,6 +12855,48 @@ function openGameEraseDialog() {
   });
   return new Promise((resolve) => {
     state.gameEraseDialogResolver = resolve;
+  });
+}
+
+function isWaypointEraseDialogOpen() {
+  return !!(waypointEraseBackdrop && !waypointEraseBackdrop.hidden);
+}
+
+function closeWaypointEraseDialog(action = '') {
+  if (!waypointEraseBackdrop || waypointEraseBackdrop.hidden) return;
+  const resolver = state.waypointEraseDialogResolver;
+  const previousFocus = state.waypointEraseDialogPreviousFocus;
+  state.waypointEraseDialogResolver = null;
+  state.waypointEraseDialogPreviousFocus = null;
+  waypointEraseBackdrop.hidden = true;
+  document.body.classList.remove('erase-note-open');
+  if (previousFocus && typeof previousFocus.focus === 'function') {
+    try {
+      previousFocus.focus({ preventScroll: true });
+    } catch (error) {
+      previousFocus.focus();
+    }
+  }
+  if (typeof resolver === 'function') resolver(action);
+}
+
+function openWaypointEraseDialog() {
+  if (!waypointEraseBackdrop || !waypointEraseOnlyBtn || !waypointEraseBundleBtn || !waypointEraseCancelBtn) {
+    return Promise.resolve('');
+  }
+  if (state.waypointEraseDialogResolver) closeWaypointEraseDialog('');
+  state.waypointEraseDialogPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  waypointEraseBackdrop.hidden = false;
+  document.body.classList.add('erase-note-open');
+  requestAnimationFrame(() => {
+    try {
+      waypointEraseCancelBtn.focus({ preventScroll: true });
+    } catch (error) {
+      waypointEraseCancelBtn.focus();
+    }
+  });
+  return new Promise((resolve) => {
+    state.waypointEraseDialogResolver = resolve;
   });
 }
 
@@ -13267,6 +13499,168 @@ async function refreshHeaderGames() {
   setHeaderGames(mergedGames);
 }
 
+function isSavedLegacyAnytimeNode(node) {
+  return !!(node && node.anytime && String(node.anytimePairId || '').trim());
+}
+
+function isSavedConversationThreadNode(node) {
+  return !!node
+    && !isSavedLegacyAnytimeNode(node)
+    && (node.type === 'stop' || node.type === 'bubble' || node.type === 'reply' || node.type === 'button');
+}
+
+function getWaypointGroupsFromSavedGame(game) {
+  const sourceNodes = Array.isArray(game && game.nodes) ? game.nodes.filter(Boolean) : [];
+  const threadNodes = getSortedConversationNodesFromList(
+    sourceNodes.filter((node) => isSavedConversationThreadNode(node)),
+    sourceNodes
+  );
+  const groups = [];
+  let currentGroup = null;
+
+  threadNodes.forEach((node) => {
+    if (node.type === 'stop') {
+      currentGroup = {
+        stop: node,
+        nodes: [node]
+      };
+      groups.push(currentGroup);
+      return;
+    }
+    if (!currentGroup) return;
+    currentGroup.nodes.push(node);
+  });
+
+  return groups.filter((group) => group && group.stop);
+}
+
+function extractWaypointLibraryEntriesFromGame(game) {
+  if (!game || !Array.isArray(game.nodes) || !game.nodes.length) return [];
+  const gameName = String(game.name || 'Untitled Game').trim() || 'Untitled Game';
+  const sourceLinks = Array.isArray(game.links) ? game.links.filter(Boolean) : [];
+
+  return getWaypointGroupsFromSavedGame(game).map((group) => {
+    const nodeIds = new Set(group.nodes.map((node) => node.id));
+    const internalLinks = sourceLinks.filter((link) => nodeIds.has(link.from) && nodeIds.has(link.to));
+    const stopTitle = normalizeWaypointTitle(group.stop.title, TYPE_CONFIG.stop.title);
+    return {
+      id: String(game.id || '') + '::' + String(group.stop.id || ''),
+      sourceGameId: String(game.id || ''),
+      sourceGameName: gameName,
+      waypointId: String(group.stop.id || ''),
+      stopTitle,
+      nodes: group.nodes.map((node) => cloneObj(node)),
+      links: internalLinks.map((link) => cloneObj(link))
+    };
+  });
+}
+
+function mergeWaypointLibraryGames(gameLists = []) {
+  const mergedById = new Map();
+
+  gameLists.forEach((games) => {
+    (Array.isArray(games) ? games : []).forEach((rawGame, index) => {
+      if (!rawGame) return;
+      const normalizedGame = normalizeSavedGame(rawGame, index);
+      const gameId = String(normalizedGame.id || '').trim();
+      if (!gameId) return;
+      if (normalizeErasedFlag(normalizedGame.erased) === ERASED_GAME_VALUE) return;
+      const existing = mergedById.get(gameId);
+      const existingHasNodes = !!(existing && Array.isArray(existing.nodes) && existing.nodes.length);
+      const nextHasNodes = Array.isArray(normalizedGame.nodes) && normalizedGame.nodes.length > 0;
+      const shouldReplace = !existing
+        || (nextHasNodes && !existingHasNodes)
+        || (nextHasNodes === existingHasNodes && getSavedGameUpdatedTime(normalizedGame) >= getSavedGameUpdatedTime(existing));
+      if (!shouldReplace) return;
+      mergedById.set(gameId, normalizedGame);
+    });
+  });
+
+  return [...mergedById.values()];
+}
+
+function compareWaypointLibraryEntries(a, b) {
+  const titleDiff = String(a && a.stopTitle || '').localeCompare(String(b && b.stopTitle || ''), undefined, { sensitivity: 'base' });
+  if (titleDiff !== 0) return titleDiff;
+  const gameDiff = String(a && a.sourceGameName || '').localeCompare(String(b && b.sourceGameName || ''), undefined, { sensitivity: 'base' });
+  if (gameDiff !== 0) return gameDiff;
+  return String(a && a.id || '').localeCompare(String(b && b.id || ''), undefined, { sensitivity: 'base' });
+}
+
+function getWaypointLibraryEntry(entryId) {
+  const targetId = String(entryId || '').trim();
+  if (!targetId) return null;
+  return (state.waypointLibraryEntries || []).find((entry) => entry && entry.id === targetId) || null;
+}
+
+function buildWaypointLibraryCardMarkup(entry) {
+  return `
+    <span class="waypoint-library-card">
+      <span class="waypoint-library-game">${escapeHtml(entry && entry.sourceGameName || '')}</span>
+      <span class="waypoint-library-name">${escapeHtml(entry && entry.stopTitle || TYPE_CONFIG.stop.title)}</span>
+    </span>
+  `;
+}
+
+function renderWaypointLibrary() {
+  if (!waypointLibraryList || !waypointLibraryStatus) return;
+  waypointLibraryList.innerHTML = '';
+  const entries = Array.isArray(state.waypointLibraryEntries) ? state.waypointLibraryEntries : [];
+
+  if (state.waypointLibraryLoading) {
+    waypointLibraryStatus.hidden = false;
+    waypointLibraryStatus.textContent = state.waypointLibraryStatusText || 'Loading saved waypoints...';
+    return;
+  }
+
+  if (!entries.length) {
+    waypointLibraryStatus.hidden = false;
+    waypointLibraryStatus.textContent = state.waypointLibraryStatusText || 'No saved waypoints yet.';
+    return;
+  }
+
+  waypointLibraryStatus.hidden = !String(state.waypointLibraryStatusText || '').trim();
+  waypointLibraryStatus.textContent = state.waypointLibraryStatusText || '';
+
+  entries.forEach((entry) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'waypoint-library-btn';
+    button.dataset.waypointLibraryId = entry.id;
+    button.innerHTML = buildWaypointLibraryCardMarkup(entry);
+    waypointLibraryList.appendChild(button);
+  });
+}
+
+async function refreshWaypointLibrary(options = {}) {
+  const refreshToken = state.waypointLibraryRefreshToken + 1;
+  state.waypointLibraryRefreshToken = refreshToken;
+  state.waypointLibraryLoading = true;
+  state.waypointLibraryStatusText = options.message || 'Loading saved waypoints...';
+  renderWaypointLibrary();
+
+  const currentGame = getCurrentHeaderGameEntry();
+  const localStore = readLocalStoreSnapshot();
+  const remoteStore = options.skipRemote ? null : await loadStoreFromSupabase();
+  if (refreshToken !== state.waypointLibraryRefreshToken) return;
+
+  const mergedGames = mergeWaypointLibraryGames([
+    remoteStore && Array.isArray(remoteStore.games) ? remoteStore.games : [],
+    localStore && Array.isArray(localStore.games) ? localStore.games : [],
+    state.store && Array.isArray(state.store.games) ? state.store.games : [],
+    currentGame ? [currentGame] : []
+  ]);
+
+  state.waypointLibraryEntries = mergedGames
+    .flatMap((game) => extractWaypointLibraryEntriesFromGame(game))
+    .sort(compareWaypointLibraryEntries);
+  state.waypointLibraryLoading = false;
+  state.waypointLibraryStatusText = state.waypointLibraryEntries.length
+    ? ''
+    : 'No saved waypoints yet.';
+  renderWaypointLibrary();
+}
+
 function getLinkPortLabel(link) {
   const fromPort = normalizeFromPort(getNode(link && link.from) || parseTypedNodeId(link && link.from)?.type, link && link.fromPort);
   if (fromPort.startsWith('branch-')) {
@@ -13319,6 +13713,7 @@ function openSavedGame(gameId, options = {}) {
     clearRecoveryDraft();
     setSaveStatus('saved', 'Viewing Saved Game');
   }
+  void refreshWaypointLibrary({ message: 'Loading saved waypoints...' });
 }
 
 async function openSavedGameById(gameId, options = {}) {
@@ -14513,7 +14908,7 @@ function updateObjectInspectorUi(node, link, copyText) {
   if (objectDeleteBtn) {
     objectDeleteBtn.hidden = false;
     objectDeleteBtn.disabled = node ? node.type === 'game' : !link;
-    objectDeleteBtn.textContent = 'Erase';
+    objectDeleteBtn.textContent = isStopNode ? 'Erase...' : 'Erase';
   }
 }
 
@@ -15299,7 +15694,24 @@ function removeAnytimePair(pairId) {
   return true;
 }
 
-function removeSelectedNode() {
+function removeNodeIds(nodeIds) {
+  const idsToRemove = new Set((Array.isArray(nodeIds) ? nodeIds : []).map((id) => String(id || '').trim()).filter(Boolean));
+  if (!idsToRemove.size) return false;
+  state.doc.nodes = state.doc.nodes.filter((node) => !idsToRemove.has(node.id));
+  state.doc.links = state.doc.links.filter((link) => !idsToRemove.has(link.from) && !idsToRemove.has(link.to));
+  state.selectedLinkId = null;
+  state.selectedId = state.doc.nodes.length ? state.doc.nodes[state.doc.nodes.length - 1].id : null;
+  return true;
+}
+
+function getWaypointBundleNodeIds(stopNodeId) {
+  const group = getWaypointConversationGroupForNode(stopNodeId);
+  return group && Array.isArray(group.nodes)
+    ? group.nodes.map((node) => node.id)
+    : [];
+}
+
+async function removeSelectedNode() {
   if (!state.selectedId) return;
   const selectedNode = getNode(state.selectedId);
   if (selectedNode && selectedNode.type === 'game') return;
@@ -15307,11 +15719,18 @@ function removeSelectedNode() {
     if (removeAnytimePair(selectedNode.anytimePairId)) renderAll();
     return;
   }
-  const nodeId = state.selectedId;
-  state.doc.nodes = state.doc.nodes.filter((node) => node.id !== nodeId);
-  state.doc.links = state.doc.links.filter((link) => link.from !== nodeId && link.to !== nodeId);
-  state.selectedLinkId = null;
-  state.selectedId = state.doc.nodes.length ? state.doc.nodes[state.doc.nodes.length - 1].id : null;
+  if (selectedNode && selectedNode.type === 'stop') {
+    const action = await openWaypointEraseDialog();
+    if (action === 'waypoint-only') {
+      removeNodeIds([selectedNode.id]);
+      renderAll();
+    } else if (action === 'waypoint-and-bubbles') {
+      removeNodeIds(getWaypointBundleNodeIds(selectedNode.id));
+      renderAll();
+    }
+    return;
+  }
+  removeNodeIds([state.selectedId]);
   renderAll();
 }
 
@@ -15416,6 +15835,131 @@ function cancelStencilDrag() {
 
 function clearStencilPress() {
   state.stencilPress = null;
+}
+
+function clearWaypointLibraryPress() {
+  state.waypointLibraryPress = null;
+}
+
+function buildWaypointLibraryGhostMarkup(entry) {
+  return buildWaypointLibraryCardMarkup(entry);
+}
+
+function startWaypointLibraryDrag(entry, event) {
+  if (!entry) return;
+  const ghost = document.createElement('div');
+  ghost.className = 'drag-ghost';
+  ghost.style.width = '220px';
+  ghost.innerHTML = buildWaypointLibraryGhostMarkup(entry);
+  document.body.appendChild(ghost);
+  positionGhost(ghost, event.clientX, event.clientY);
+  state.waypointLibraryDrag = {
+    entryId: entry.id,
+    ghostEl: ghost
+  };
+  state.waypointLibrarySuppressClick = true;
+  viewport.classList.add('drop-ready');
+}
+
+function maybeStartWaypointLibraryDrag(event) {
+  const press = state.waypointLibraryPress;
+  if (!press || state.waypointLibraryDrag) return;
+  if (press.pointerId != null && event.pointerId != null && press.pointerId !== event.pointerId) return;
+  const movedEnough =
+    Math.abs(event.clientX - press.startClientX) >= STENCIL_DRAG_START_DISTANCE
+    || Math.abs(event.clientY - press.startClientY) >= STENCIL_DRAG_START_DISTANCE;
+  if (!movedEnough) return;
+  const entry = getWaypointLibraryEntry(press.entryId);
+  clearWaypointLibraryPress();
+  if (!entry) return;
+  startWaypointLibraryDrag(entry, event);
+}
+
+function stopWaypointLibraryDrag(clientX, clientY) {
+  if (!state.waypointLibraryDrag) return;
+  const drag = state.waypointLibraryDrag;
+  const point = phonePointFromClient(clientX, clientY);
+  if (point.inside) {
+    insertWaypointLibraryEntry(drag.entryId);
+  }
+  drag.ghostEl.remove();
+  state.waypointLibraryDrag = null;
+  viewport.classList.remove('drop-ready');
+}
+
+function cancelWaypointLibraryDrag() {
+  if (!state.waypointLibraryDrag) return;
+  state.waypointLibraryDrag.ghostEl.remove();
+  state.waypointLibraryDrag = null;
+  viewport.classList.remove('drop-ready');
+}
+
+function makeManualLinkId() {
+  return 'link-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+}
+
+function insertWaypointLibraryEntry(entryId) {
+  const entry = getWaypointLibraryEntry(entryId);
+  if (!entry) return null;
+  if (!hasGameNode()) {
+    window.alert('Open or create a game first.');
+    return null;
+  }
+
+  const sourceNodes = getSortedConversationNodesFromList(entry.nodes, entry.nodes);
+  if (!sourceNodes.length) return null;
+
+  const existingIds = new Set(state.doc.nodes.map((node) => node.id));
+  const sourceById = new Map(sourceNodes.map((node) => [node.id, node]));
+  const idMap = new Map();
+  sourceNodes.forEach((sourceNode) => {
+    idMap.set(sourceNode.id, makeId(sourceNode.type, state.nextNodeNumbers, existingIds));
+  });
+
+  const nextOrderIndexBase = state.doc.nodes.reduce((maxOrderIndex, node) => {
+    const value = normalizeNodeOrderIndex(node && node.orderIndex);
+    return value == null ? maxOrderIndex : Math.max(maxOrderIndex, value);
+  }, 0) + 100;
+
+  const clonedNodes = sourceNodes.map((sourceNode, index) => {
+    const nextId = idMap.get(sourceNode.id);
+    const clonedNode = normalizeNode({ ...sourceNode, id: nextId }, sourceNode.type, nextId);
+    clonedNode.orderIndex = nextOrderIndexBase + (index * 100);
+    clonedNode.x = sourceNode.x;
+    clonedNode.y = sourceNode.y;
+    if (clonedNode.type === 'reply' && normalizeVariableName(clonedNode.varName)) {
+      clonedNode.varName = makeUniqueReplyVariableName(clonedNode.varName, clonedNode.id);
+    }
+    return clonedNode;
+  });
+
+  const clonedLinks = (Array.isArray(entry.links) ? entry.links : [])
+    .map((link) => {
+      const fromId = idMap.get(link.from);
+      const toId = idMap.get(link.to);
+      const fromNode = sourceById.get(link.from) || null;
+      if (!fromId || !toId) return null;
+      return {
+        id: makeManualLinkId(),
+        from: fromId,
+        to: toId,
+        fromPort: normalizeFromPort(fromNode || parseTypedNodeId(link.from)?.type, link.fromPort)
+      };
+    })
+    .filter(Boolean);
+
+  state.doc.nodes.push(...clonedNodes);
+  state.doc.links.push(...clonedLinks);
+
+  const firstInsertedNode = clonedNodes.find((node) => node.type === 'stop') || clonedNodes[0] || null;
+  const sourceNode = getAutoLinkSourceNode();
+  if (sourceNode && firstInsertedNode && canNodeConnectTo(sourceNode, firstInsertedNode)) {
+    createLink(sourceNode.id, firstInsertedNode.id, getAutoLinkPort(sourceNode) || 'out-right');
+  }
+
+  if (firstInsertedNode) selectNode(firstInsertedNode.id);
+  renderAll();
+  return firstInsertedNode;
 }
 
 function addNodeToVisiblePhone(type) {
@@ -15531,6 +16075,7 @@ function seedPhone(options = {}) {
     clearRecoveryDraft();
     setSaveStatus('idle', 'New Draft Ready');
   }
+  void refreshWaypointLibrary({ message: 'Loading saved waypoints...' });
 }
 
 function serializeNodeState(node) {
@@ -15772,6 +16317,7 @@ function showGameshelfHome() {
     clearRecoveryDraft();
     setSaveStatus('idle', 'No Game Open');
   }
+  void refreshWaypointLibrary({ message: 'Loading saved waypoints...' });
 }
 
 function restoreRecoveryWorkspace(recovery) {
@@ -15801,6 +16347,7 @@ function restoreRecoveryWorkspace(recovery) {
   });
   state.lastRecoverySnapshot = buildRecoverySnapshot();
   setSaveStatus('draft', 'Recovered Local Draft');
+  void refreshWaypointLibrary({ message: 'Loading saved waypoints...' });
   return true;
 }
 
@@ -15932,6 +16479,7 @@ async function saveDoc(options = {}) {
       state.localOnlyChanges = true;
       syncRecoveryDraftNow({ updateStatus: false });
       setSaveStatus(syncResult && syncResult.cancelled ? 'unsaved' : 'local');
+      void refreshWaypointLibrary({ skipRemote: true, message: 'Refreshing saved waypoints...' });
       return { savedGame, serverSaved: false, localOnly: true, error: syncResult && syncResult.error ? syncResult.error : null, cancelled: !!(syncResult && syncResult.cancelled) };
     }
 
@@ -15945,6 +16493,7 @@ async function saveDoc(options = {}) {
     clearRecoveryDraft();
     setSaveStatus('saved');
     updateActionUi();
+    void refreshWaypointLibrary({ message: 'Refreshing saved waypoints...' });
     return {
       savedGame: persistedGame,
       serverSaved: !!syncResult.serverSaved,
@@ -15955,6 +16504,7 @@ async function saveDoc(options = {}) {
     state.localOnlyChanges = true;
     syncRecoveryDraftNow({ updateStatus: false });
     setSaveStatus('local');
+    void refreshWaypointLibrary({ skipRemote: true, message: 'Refreshing saved waypoints...' });
     return { savedGame, serverSaved: false, localOnly: true, error };
   }
 }
@@ -16080,6 +16630,37 @@ if (addPanel) {
       if (event.button !== 0) return;
       if (state.stencilPress) addNodeToVisiblePhone(button.dataset.addStencil);
     });
+  });
+}
+if (waypointLibraryList) {
+  waypointLibraryList.addEventListener('pointerdown', (event) => {
+    const button = event.target.closest('[data-waypoint-library-id]');
+    if (!button || event.button !== 0) return;
+    closeNodeContextMenu();
+    state.waypointLibraryPress = {
+      entryId: button.dataset.waypointLibraryId,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY
+    };
+  });
+
+  waypointLibraryList.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-waypoint-library-id]');
+    if (!button) return;
+    if (state.waypointLibrarySuppressClick) {
+      state.waypointLibrarySuppressClick = false;
+      return;
+    }
+    insertWaypointLibraryEntry(button.dataset.waypointLibraryId);
+  });
+
+  waypointLibraryList.addEventListener('contextmenu', (event) => {
+    const button = event.target.closest('[data-waypoint-library-id]');
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openWaypointLibraryContextMenu(button.dataset.waypointLibraryId, event.clientX, event.clientY);
   });
 }
 
@@ -16646,12 +17227,12 @@ if (generateDescriptionBtn) {
   });
 }
 
-objectDeleteBtn.addEventListener('click', () => {
+objectDeleteBtn.addEventListener('click', async () => {
   if (state.selectedLinkId) {
     removeSelectedLink();
     return;
   }
-  removeSelectedNode();
+  await removeSelectedNode();
 });
 if (objectInsertBtn) {
   objectInsertBtn.addEventListener('pointerdown', (event) => {
@@ -16814,6 +17395,11 @@ if (nodeContextMenu) {
     event.stopPropagation();
   });
 }
+if (waypointLibraryContextMenu) {
+  waypointLibraryContextMenu.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+}
 if (duplicateNodeBtn) {
   duplicateNodeBtn.addEventListener('click', () => {
     const nodeId = state.contextMenuNodeId;
@@ -16823,7 +17409,7 @@ if (duplicateNodeBtn) {
   });
 }
 if (deleteNodeMenuBtn) {
-  deleteNodeMenuBtn.addEventListener('click', () => {
+  deleteNodeMenuBtn.addEventListener('click', async () => {
     const nodeId = state.contextMenuNodeId;
     const linkId = state.contextMenuLinkId;
     closeNodeContextMenu();
@@ -16834,7 +17420,36 @@ if (deleteNodeMenuBtn) {
     }
     if (!nodeId) return;
     selectNode(nodeId);
-    removeSelectedNode();
+    await removeSelectedNode();
+  });
+}
+if (waypointLibraryOpenGameBtn) {
+  waypointLibraryOpenGameBtn.addEventListener('click', async () => {
+    const entryId = state.waypointLibraryContextEntryId;
+    const entry = getWaypointLibraryEntry(entryId);
+    closeWaypointLibraryContextMenu();
+    if (!entry || !entry.sourceGameId) return;
+    await openSavedGameById(entry.sourceGameId, { preserveRecovery: hasPendingSaveChanges() });
+  });
+}
+if (waypointEraseBackdrop) {
+  waypointEraseBackdrop.addEventListener('click', (event) => {
+    if (event.target === waypointEraseBackdrop) closeWaypointEraseDialog('');
+  });
+}
+if (waypointEraseOnlyBtn) {
+  waypointEraseOnlyBtn.addEventListener('click', () => {
+    closeWaypointEraseDialog('waypoint-only');
+  });
+}
+if (waypointEraseBundleBtn) {
+  waypointEraseBundleBtn.addEventListener('click', () => {
+    closeWaypointEraseDialog('waypoint-and-bubbles');
+  });
+}
+if (waypointEraseCancelBtn) {
+  waypointEraseCancelBtn.addEventListener('click', () => {
+    closeWaypointEraseDialog('');
   });
 }
 if (newPhoneBtn) newPhoneBtn.addEventListener('click', startNewPhone);
@@ -16898,6 +17513,7 @@ viewport.addEventListener('pointerdown', (event) => {
 });
 
 window.addEventListener('pointermove', (event) => {
+  maybeStartWaypointLibraryDrag(event);
   maybeStartStencilDrag(event);
 
   if (state.inspectorDrag) {
@@ -16913,6 +17529,13 @@ window.addEventListener('pointermove', (event) => {
 
   if (state.stencilDrag) {
     positionGhost(state.stencilDrag.ghostEl, event.clientX, event.clientY);
+    const point = phonePointFromClient(event.clientX, event.clientY);
+    viewport.classList.toggle('drop-ready', point.inside);
+    maybeAutoPan(event.clientX, event.clientY);
+  }
+
+  if (state.waypointLibraryDrag) {
+    positionGhost(state.waypointLibraryDrag.ghostEl, event.clientX, event.clientY);
     const point = phonePointFromClient(event.clientX, event.clientY);
     viewport.classList.toggle('drop-ready', point.inside);
     maybeAutoPan(event.clientX, event.clientY);
@@ -17044,6 +17667,8 @@ window.addEventListener('pointerup', (event) => {
     state.inspectorDrag = null;
   }
 
+  if (state.waypointLibraryDrag) stopWaypointLibraryDrag(event.clientX, event.clientY);
+  clearWaypointLibraryPress();
   if (state.stencilDrag) stopStencilDrag(event.clientX, event.clientY);
   clearStencilPress();
 
@@ -17094,6 +17719,8 @@ window.addEventListener('pointerup', (event) => {
 });
 
 window.addEventListener('pointercancel', () => {
+  clearWaypointLibraryPress();
+  cancelWaypointLibraryDrag();
   clearStencilPress();
   cancelStencilDrag();
 });
@@ -17122,9 +17749,17 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (nodeContextMenu && !nodeContextMenu.hidden && event.key === 'Escape') {
+  if (isWaypointEraseDialogOpen()) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeWaypointEraseDialog('');
+    }
+    return;
+  }
+
+  if (((nodeContextMenu && !nodeContextMenu.hidden) || (waypointLibraryContextMenu && !waypointLibraryContextMenu.hidden)) && event.key === 'Escape') {
     event.preventDefault();
-    closeNodeContextMenu();
+    closeAllContextMenus();
     return;
   }
 
@@ -17235,9 +17870,13 @@ window.addEventListener('resize', () => {
 }());
 
 window.addEventListener('pointerdown', (event) => {
-  if (!nodeContextMenu || nodeContextMenu.hidden) return;
-  if (nodeContextMenu.contains(event.target)) return;
-  closeNodeContextMenu();
+  const target = event.target;
+  const nodeMenuOpen = !!(nodeContextMenu && !nodeContextMenu.hidden);
+  const libraryMenuOpen = !!(waypointLibraryContextMenu && !waypointLibraryContextMenu.hidden);
+  if (!nodeMenuOpen && !libraryMenuOpen) return;
+  if (nodeMenuOpen && nodeContextMenu.contains(target)) return;
+  if (libraryMenuOpen && waypointLibraryContextMenu.contains(target)) return;
+  closeAllContextMenus();
 });
 
 window.addEventListener('resize', () => {
@@ -17273,6 +17912,7 @@ async function initializeBuilder() {
   setGameDetailsCollapsed(false);
   await loadDoc();
   await refreshHeaderGames();
+  await refreshWaypointLibrary();
 }
 
 bootstrapBuilder();
