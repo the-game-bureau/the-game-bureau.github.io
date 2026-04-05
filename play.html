@@ -448,14 +448,13 @@
     }
 
     .contact-header.compact .avatar {
-      width: auto;
-      max-width: calc(100vw - 140px);
+      width: 36px;
       height: 36px;
       min-width: 36px;
       margin-bottom: 0;
-      border-radius: 8px;
+      border-radius: 999px;
       overflow: hidden;
-      background: transparent;
+      background: #e5e7eb;
       flex-shrink: 0;
     }
     .avatar img { filter: none; }
@@ -465,6 +464,20 @@
       max-width: 100%;
       object-fit: contain;
       filter: none;
+      opacity: 0;
+      transition: opacity .12s ease;
+    }
+    .contact-header.compact .avatar.has-logo {
+      width: auto;
+      max-width: calc(100vw - 140px);
+      border-radius: 8px;
+      background: transparent;
+    }
+    .contact-header.compact .avatar.has-logo img {
+      opacity: 1;
+    }
+    .contact-header.compact .avatar.is-placeholder img {
+      display: none;
     }
 
     .game-thumbnail {
@@ -667,7 +680,7 @@
 
   <div class="contact-header compact">
     <img class="game-thumbnail" id="gameThumbnail" alt="">
-    <div class="avatar"><img id="header-logo" src="assets/logo.png" alt=""></div>
+    <div class="avatar is-placeholder"><img id="header-logo" alt="" hidden></div>
     <div class="header-info">
       <div class="contact-name" id="header-title"></div>
       <div class="contact-name" id="header-subtitle"></div>
@@ -725,6 +738,8 @@
     let activeStop = null;
     let activeFlowKind = 'main';
     let activeInterruptContext = null;
+    let mainFlowCompleted = false;
+    let headerLogoLoadToken = 0;
     let messageFlowToken = 0;
     let messageFlowTimeouts = [];
 
@@ -1605,16 +1620,35 @@
 
     function tryStartAnytimeInterrupt(value) {
       const typedValue = String(value || '').trim();
-      if (!typedValue || activeInterruptContext || !activeStop) return false;
+      const canInterruptFromCurrentState = !!activeStop || mainFlowCompleted;
+      if (!typedValue || activeInterruptContext || !canInterruptFromCurrentState) return false;
       const anytimeMatch = getMatchingInlineAnytimeStop(typedValue);
       if (!anytimeMatch) return false;
       activeInterruptContext = {
         resumeStopId: activeStop && activeStop.id ? activeStop.id : '',
-        resumeStopIndex: currentStopIndex
+        resumeStopIndex: activeStop ? currentStopIndex : -1
       };
       clearPendingMessageFlow();
       disableInput();
       playAnytimeInterruptStop(anytimeMatch, typedValue);
+      return true;
+    }
+
+    function tryStartLegacyAnytimeAfterCompletion(value) {
+      const typedValue = String(value || '').trim();
+      if (!typedValue || activeInterruptContext || activeStop || !mainFlowCompleted) return false;
+      const legacyAnytimeMatch = legacyAnytimeStops.find((candidateStop) =>
+        (candidateStop.playerReply?.answers || []).some((answer) => norm(answer) === norm(typedValue))
+      );
+      if (!legacyAnytimeMatch) return false;
+      disableInput();
+      addBubble(typedValue, false);
+      const messages = getStopMessages(legacyAnytimeMatch);
+      showMessages(messages, () => {
+        activeStop = null;
+        activeFlowKind = 'main';
+        disableInput();
+      });
       return true;
     }
 
@@ -1701,6 +1735,7 @@
       const typedValue = String(gameInput.value || '').trim();
       if (!typedValue) return;
       if (tryStartAnytimeInterrupt(typedValue)) return;
+      if (tryStartLegacyAnytimeAfterCompletion(typedValue)) return;
       if (_submitHandler) _submitHandler(typedValue);
     }
 
@@ -1716,6 +1751,7 @@
       const flowKind = String(options.flowKind || 'main');
       const stop = gameStops[index];
       if (!stop) {
+        if (flowKind === 'main') mainFlowCompleted = true;
         activeStop = null;
         activeFlowKind = 'main';
         disableInput();
@@ -1724,7 +1760,10 @@
 
       clearPendingMessageFlow();
       disableInput();
-      if (flowKind === 'main') currentStopIndex = index;
+      if (flowKind === 'main') {
+        currentStopIndex = index;
+        mainFlowCompleted = false;
+      }
       currentBubbleIndex = Math.max(0, startIndex || 0);
       stopCheckoutContext = null;
       activeCheckoutContext = null;
@@ -1783,6 +1822,7 @@
     function advanceStop() {
       const next = currentStopIndex + 1;
       if (next >= gameStops.length) {
+        mainFlowCompleted = true;
         activeStop = null;
         activeFlowKind = 'main';
         disableInput();
@@ -1796,6 +1836,7 @@
       clearSave();
       refreshGroupedGameStops();
       activeInterruptContext = null;
+      mainFlowCompleted = false;
       activeStop = null;
       activeFlowKind = 'main';
       stopCheckoutContext = null;
@@ -1857,20 +1898,41 @@
 
       const guideImageUrl = resolveAssetUrl((gameNode && (gameNode.guideImage || gameNode.guideImageUrl)) || '');
       const logoUrl = resolveAssetUrl((gameNode && (gameNode.logo || gameNode.logoUrl)) || '');
-      const fallbackLogoUrl = logoUrl || resolveAssetUrl('assets/logo.png') || 'assets/logo.png';
+      const logoAlt = (gameNode && (gameNode.title || gameNode.guideName)) || 'Game Logo';
+      const loadToken = ++headerLogoLoadToken;
 
-      headerLogoEl.onerror = () => {
-        headerLogoEl.onerror = null;
-        headerLogoEl.src = resolveAssetUrl('assets/logo.png') || 'assets/logo.png';
-      };
-      headerLogoEl.src = fallbackLogoUrl;
-      headerLogoEl.alt = (gameNode && (gameNode.title || gameNode.guideName)) || 'Game Logo';
+      headerLogoEl.hidden = true;
+      headerLogoEl.alt = logoAlt;
+      headerLogoEl.onload = null;
+      headerLogoEl.onerror = null;
+      headerLogoEl.removeAttribute('src');
+      avatarWrap.classList.remove('has-logo');
+      avatarWrap.classList.add('is-placeholder');
 
       avatarWrap.style.display = '';
       thumbnailEl.classList.remove('show');
       thumbnailEl.removeAttribute('src');
       thumbnailEl.onerror = null;
       thumbnailEl.alt = (gameNode && (gameNode.guideName || gameNode.title)) || 'Guide image';
+
+      if (logoUrl) {
+        const preloadLogo = new Image();
+        preloadLogo.onload = () => {
+          if (loadToken !== headerLogoLoadToken) return;
+          headerLogoEl.src = logoUrl;
+          headerLogoEl.hidden = false;
+          avatarWrap.classList.remove('is-placeholder');
+          avatarWrap.classList.add('has-logo');
+        };
+        preloadLogo.onerror = () => {
+          if (loadToken !== headerLogoLoadToken) return;
+          headerLogoEl.hidden = true;
+          headerLogoEl.removeAttribute('src');
+          avatarWrap.classList.remove('has-logo');
+          avatarWrap.classList.add('is-placeholder');
+        };
+        preloadLogo.src = logoUrl;
+      }
 
       if (!guideImageUrl) return;
 

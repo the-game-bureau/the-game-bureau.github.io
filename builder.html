@@ -9886,7 +9886,7 @@ function getPhoneBaseSize() {
   if (THREAD_LAYOUT_ENABLED) {
     const metrics = state.layoutMetrics || {
       stageWidth: PHONE_STAGE_WIDTH,
-      stageHeight: PHONE_DEVICE_Y + PHONE_MIN_DEVICE_HEIGHT + PHONE_STENCIL_TRAY_GAP + PHONE_STENCIL_TRAY_HEIGHT + PHONE_ANYTIME_GAP + 76
+      stageHeight: PHONE_DEVICE_Y + PHONE_MIN_DEVICE_HEIGHT + PHONE_STENCIL_TRAY_GAP + PHONE_STENCIL_TRAY_HEIGHT + 76
     };
     return {
       width: metrics.stageWidth,
@@ -10734,14 +10734,19 @@ function getPhoneSecondaryText(node) {
     return summarizePhoneText(node.tagline || node.body, 140);
   }
   if (node.type === 'stop') {
-    if (isInlineAnytimeWaypointNode(node)) return 'Anytime waypoint';
     return '';
   }
   if (node.type === 'reply') {
-    if (isInlineAnytimeReplyNode(node)) return 'Anytime trigger';
     return '';
   }
   return node.anytime ? 'Paired anytime response' : '';
+}
+
+function isPhoneTextOnlyAnytimeReplyNode(node) {
+  return !!THREAD_LAYOUT_ENABLED
+    && !!node
+    && node.type === 'reply'
+    && (isInlineAnytimeReplyNode(node) || isAnytimeReplyNode(node));
 }
 
 function getPhoneBubbleSide(node) {
@@ -10893,8 +10898,19 @@ function reorderPhoneThreadNode(nodeId, insertIndex) {
   return true;
 }
 
-function getPhoneThreadTop() {
+function getPhoneBaseThreadTop() {
   return PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT + PHONE_THREAD_TOP_GAP;
+}
+
+function getPhoneAnytimeProjectedRows(excludeNodeId = null) {
+  return getPhoneProjectedRows(getPhoneAnytimeRows(excludeNodeId), getPhoneBaseThreadTop());
+}
+
+function getPhoneThreadTop(excludeNodeId = null) {
+  const anytimeProjectedRows = getPhoneAnytimeProjectedRows(excludeNodeId);
+  return anytimeProjectedRows.length
+    ? anytimeProjectedRows[anytimeProjectedRows.length - 1].nextRowTop + PHONE_ROW_GAP
+    : getPhoneBaseThreadTop();
 }
 
 function getPhoneRowMaxWidth(nodes, threadWidth) {
@@ -10952,11 +10968,11 @@ function getPhoneRowDropSlots(projectedRows, startY) {
 }
 
 function getPhoneProjectedThreadRows(excludeNodeId = null) {
-  return getPhoneProjectedRows(getPhoneThreadRows(excludeNodeId), getPhoneThreadTop());
+  return getPhoneProjectedRows(getPhoneThreadRows(excludeNodeId), getPhoneThreadTop(excludeNodeId));
 }
 
 function getPhoneDropSlots(excludeNodeId = null) {
-  return getPhoneRowDropSlots(getPhoneProjectedThreadRows(excludeNodeId), getPhoneThreadTop());
+  return getPhoneRowDropSlots(getPhoneProjectedThreadRows(excludeNodeId), getPhoneThreadTop(excludeNodeId));
 }
 
 function getNearestPhoneDropSlot(pointerY, excludeNodeId = null) {
@@ -11179,61 +11195,68 @@ function applyPhoneThreadLayout() {
 
   const threadLeft = PHONE_DEVICE_X + PHONE_THREAD_SIDE_PADDING;
   const threadWidth = PHONE_DEVICE_WIDTH - (PHONE_THREAD_SIDE_PADDING * 2);
-  const threadTop = PHONE_DEVICE_Y + PHONE_STATUSBAR_HEIGHT + PHONE_HEADER_HEIGHT + PHONE_THREAD_TOP_GAP;
+  const threadTop = getPhoneBaseThreadTop();
   const startNode = getGameNode();
   if (startNode) {
     startNode.width = TYPE_CONFIG.game.width;
     startNode.height = TYPE_CONFIG.game.height;
   }
-  const rows = getPhoneThreadRows();
-  let y = threadTop;
+  const anytimeProjectedRows = getPhoneAnytimeProjectedRows();
+  const mainThreadTop = anytimeProjectedRows.length
+    ? anytimeProjectedRows[anytimeProjectedRows.length - 1].nextRowTop + PHONE_ROW_GAP
+    : threadTop;
+  const rows = getPhoneProjectedRows(getPhoneThreadRows(), mainThreadTop);
 
-  rows.forEach((row) => {
-    const nodes = row.filter(Boolean);
-    if (!nodes.length) return;
-    const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
-    const perNodeMaxWidth = getPhoneRowMaxWidth(nodes, threadWidth);
-    const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
-    const effectiveHeights = sizes.map((size, i) => {
-      const node = nodes[i];
-      return (node.type === 'bubble' || node.type === 'reply' || node.type === 'button') ? Math.max(size.height, node.height || 0) : size.height;
+  function positionProjectedRows(projectedRows) {
+    projectedRows.forEach((row) => {
+      const nodes = row.nodes.filter(Boolean);
+      if (!nodes.length) return;
+      const gap = nodes.length > 1 ? PHONE_BRANCH_GAP : 0;
+      const perNodeMaxWidth = getPhoneRowMaxWidth(nodes, threadWidth);
+      const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
+      const effectiveHeights = sizes.map((size, i) => {
+        const node = nodes[i];
+        return (node.type === 'bubble' || node.type === 'reply' || node.type === 'button') ? Math.max(size.height, node.height || 0) : size.height;
+      });
+
+      if (nodes.length === 1) {
+        const node = nodes[0];
+        const size = sizes[0];
+        const side = getPhoneBubbleSide(node);
+        let x = threadLeft;
+        if (side === 'right') x = threadLeft + threadWidth - size.width;
+        if (side === 'center') x = threadLeft + ((threadWidth - size.width) / 2);
+        node.x = Math.round(x);
+        node.y = Math.round(row.rowTop);
+        node.width = size.width;
+        node.height = effectiveHeights[0];
+        return;
+      }
+
+      const totalWidth = sizes.reduce((sum, size) => sum + size.width, 0) + (gap * (nodes.length - 1));
+      const sides = nodes.map((node) => getPhoneBubbleSide(node));
+      let cursorX = threadLeft + Math.round((threadWidth - totalWidth) / 2);
+      if (sides.every((side) => side === 'left')) cursorX = threadLeft;
+      if (sides.every((side) => side === 'right')) cursorX = threadLeft + threadWidth - totalWidth;
+
+      nodes.forEach((node, index) => {
+        const size = sizes[index];
+        node.x = Math.round(cursorX);
+        node.y = Math.round(row.rowTop);
+        node.width = size.width;
+        node.height = effectiveHeights[index];
+        cursorX += size.width + gap;
+      });
     });
-    const rowHeight = effectiveHeights.reduce((maxHeight, h) => Math.max(maxHeight, h), 0);
+  }
 
-    if (nodes.length === 1) {
-      const node = nodes[0];
-      const size = sizes[0];
-      const side = getPhoneBubbleSide(node);
-      let x = threadLeft;
-      if (side === 'right') x = threadLeft + threadWidth - size.width;
-      if (side === 'center') x = threadLeft + ((threadWidth - size.width) / 2);
-      node.x = Math.round(x);
-      node.y = Math.round(y);
-      node.width = size.width;
-      node.height = effectiveHeights[0];
-      y += rowHeight + PHONE_ROW_GAP;
-      return;
-    }
+  positionProjectedRows(anytimeProjectedRows);
+  positionProjectedRows(rows);
 
-    const totalWidth = sizes.reduce((sum, size) => sum + size.width, 0) + (gap * (nodes.length - 1));
-    const sides = nodes.map((node) => getPhoneBubbleSide(node));
-    let cursorX = threadLeft + Math.round((threadWidth - totalWidth) / 2);
-    if (sides.every((side) => side === 'left')) cursorX = threadLeft;
-    if (sides.every((side) => side === 'right')) cursorX = threadLeft + threadWidth - totalWidth;
-
-    nodes.forEach((node, index) => {
-      const size = sizes[index];
-      node.x = Math.round(cursorX);
-      node.y = Math.round(y);
-      node.width = size.width;
-      node.height = effectiveHeights[index];
-      cursorX += size.width + gap;
-    });
-
-    y += rowHeight + PHONE_ROW_GAP;
-  });
-
-  const threadBottom = Math.max(threadTop, y - PHONE_ROW_GAP);
+  const allProjectedRows = [...anytimeProjectedRows, ...rows];
+  const threadBottom = allProjectedRows.length
+    ? Math.max(threadTop, allProjectedRows[allProjectedRows.length - 1].rowTop + allProjectedRows[allProjectedRows.length - 1].rowHeight)
+    : threadTop;
   const phoneHeight = Math.max(
     PHONE_MIN_DEVICE_HEIGHT,
     Math.round((threadBottom - PHONE_DEVICE_Y) + PHONE_COMPOSER_HEIGHT + 34)
@@ -11241,55 +11264,21 @@ function applyPhoneThreadLayout() {
   const phoneBottom = PHONE_DEVICE_Y + phoneHeight;
   const stencilTrayTop = phoneBottom + PHONE_STENCIL_TRAY_GAP;
   const stencilTrayBottom = stencilTrayTop + PHONE_STENCIL_TRAY_HEIGHT;
-  const anytimeRows = getPhoneAnytimeRows();
-  let anytimeY = stencilTrayBottom + PHONE_ANYTIME_GAP;
 
   if (outsideAnytimeLabel) {
-    outsideAnytimeLabel.hidden = anytimeRows.length === 0;
-    outsideAnytimeLabel.style.top = (stencilTrayBottom + 28) + 'px';
+    outsideAnytimeLabel.hidden = true;
   }
-
-  anytimeRows.forEach((row) => {
-    const nodes = row.filter(Boolean);
-    if (!nodes.length) return;
-    const gap = PHONE_BRANCH_GAP;
-    const perNodeMaxWidth = nodes.length > 1
-      ? Math.max(PHONE_BUBBLE_MIN_WIDTH, Math.floor((PHONE_STAGE_WIDTH - 160 - (gap * (nodes.length - 1))) / nodes.length))
-      : PHONE_BUBBLE_MAX_WIDTH - 12;
-    const sizes = nodes.map((node) => getPhoneBubbleSize(node, perNodeMaxWidth));
-    const effectiveHeights = sizes.map((size, i) => {
-      const node = nodes[i];
-      return (node.type === 'bubble' || node.type === 'reply') ? Math.max(size.height, node.height || 0) : size.height;
-    });
-    const rowHeight = effectiveHeights.reduce((maxHeight, h) => Math.max(maxHeight, h), 0);
-    const totalWidth = sizes.reduce((sum, size) => sum + size.width, 0) + (gap * (nodes.length - 1));
-    let cursorX = Math.round((PHONE_STAGE_WIDTH - totalWidth) / 2);
-    const sides = nodes.map((node) => getPhoneBubbleSide(node));
-    if (nodes.length === 1 && sides[0] === 'left') cursorX = PHONE_DEVICE_X;
-    if (nodes.length === 1 && sides[0] === 'right') cursorX = PHONE_STAGE_WIDTH - PHONE_DEVICE_X - sizes[0].width;
-
-    nodes.forEach((node, index) => {
-      const size = sizes[index];
-      node.x = Math.round(cursorX);
-      node.y = Math.round(anytimeY);
-      node.width = size.width;
-      node.height = effectiveHeights[index];
-      cursorX += size.width + gap;
-    });
-
-    anytimeY += rowHeight + PHONE_ANYTIME_ROW_GAP;
-  });
 
   state.layoutMetrics = {
     stageWidth: PHONE_STAGE_WIDTH,
-    stageHeight: Math.max(stencilTrayBottom + 28, anytimeRows.length ? anytimeY + PHONE_ANYTIME_BOTTOM_PADDING : stencilTrayBottom + 28),
+    stageHeight: stencilTrayBottom + 28,
     phoneWidth: PHONE_DEVICE_WIDTH,
     phoneHeight,
     phoneX: PHONE_DEVICE_X,
     phoneY: PHONE_DEVICE_Y,
     stencilTrayTop,
     threadLeft,
-    threadTop,
+    threadTop: mainThreadTop,
     threadWidth
   };
 }
@@ -13994,11 +13983,13 @@ function buildNodeMarkup(node) {
       ${buildNodeTitleMarkup(node, displayTitle)}
     </div>
   `;
-  const metaMarkup = `
-    <div class="node-meta">
-      <div class="node-kicker">${escapeHtml(kicker)}</div>
-    </div>
-  `;
+  const metaMarkup = isPhoneTextOnlyAnytimeReplyNode(node)
+    ? ''
+    : `
+      <div class="node-meta">
+        <div class="node-kicker">${escapeHtml(kicker)}</div>
+      </div>
+    `;
   const codeMarkup = '';
   const inPortMarkup = buildInPortMarkup(node);
   const chromeMarkup = `
