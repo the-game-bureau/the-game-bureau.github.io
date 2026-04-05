@@ -6,8 +6,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#ffffff">
-  <title>Loading…</title>
-  <link id="favicon" rel="icon" href="assets/tgb.ico" type="image/x-icon">
+  <title>PLAY ERROR | THE GAME BUREAU</title>
+  <link id="favicon" rel="icon" href="../assets/tgb.ico" type="image/x-icon">
   <style>
     /* ── Base chat UI (archive/index.css) ── */
     .icon-preload {
@@ -16,7 +16,7 @@
       height: 0;
       overflow: hidden;
       pointer-events: none;
-      background-image: url("assets/tgb.ico");
+      background-image: url("../assets/tgb.ico");
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -137,6 +137,42 @@
       display: flex;
       flex-direction: column;
       gap: 0.35rem;
+    }
+
+    .chat-empty-state {
+      margin: auto 0;
+      padding: 1.25rem 1rem;
+      text-align: center;
+      display: grid;
+      gap: 0.9rem;
+      justify-items: center;
+      color: #374151;
+    }
+
+    .chat-empty-message {
+      font-size: 1.2rem;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .chat-empty-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0.7rem 1rem;
+      border-radius: 999px;
+      border: 1px solid rgba(17, 24, 39, 0.14);
+      background: rgba(255,255,255,0.88);
+      color: #111827;
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 700;
+      transition: transform 0.12s ease, background-color 0.18s ease;
+    }
+
+    .chat-empty-link:active {
+      transform: scale(0.98);
     }
 
     .msg {
@@ -1020,7 +1056,7 @@
       if (lemonConfigPromise) return lemonConfigPromise;
       lemonConfigPromise = new Promise((resolve) => {
         const script = document.createElement('script');
-        script.src = new URL('archive/game/config/lemon-config.js', window.location.href).toString();
+        script.src = new URL('../archive/game/config/lemon-config.js', window.location.href).toString();
         script.async = true;
         script.onload = () => resolve(hasUsableLemonConfig(window.TGB_LEMON_CONFIG) ? window.TGB_LEMON_CONFIG : null);
         script.onerror = () => resolve(null);
@@ -2061,8 +2097,17 @@
       return { stops };
     }
 
+    function renderMissingGameSelection() {
+      chatEl.innerHTML = `
+        <div class="chat-empty-state">
+          <div class="chat-empty-message">NO GAME LOADED</div>
+          <a class="chat-empty-link" href="../library/index.html">GO BACK TO LIBRARY</a>
+        </div>
+      `;
+    }
+
     if (!gameId) {
-      chatEl.textContent = 'Game not found. Check the ?id= parameter.';
+      renderMissingGameSelection();
     } else {
       fetchGameFromSupabase(gameId).then(gameData => {
         if (!gameData) {
@@ -2075,7 +2120,7 @@
         const gameTitle = gameNode.title || gameData.name || gameId;
         const headerTitle = String(gameNode.guideName || '').trim() || gameTitle;
 
-        document.title = gameTitle;
+        document.title = `LIVE! | ${gameTitle} | THE GAME BUREAU`;
         document.getElementById('header-title').textContent = headerTitle;
         document.getElementById('header-subtitle').textContent = gameNode.guideName || '';
 

@@ -13,8 +13,8 @@ SERVER_DIR = os.path.join(ROOT_DIR, "archive", "game", "lib")
 ENV_PATH = Path(ROOT_DIR) / ".env"
 
 PAGES = {
-    "builder": "http://localhost:3000/builder.html",
-    "builder_editor": "http://localhost:3000/builder.html",
+    "builder": "http://localhost:3000/builder",
+    "builder_editor": "http://localhost:3000/builder",
     "classic": "http://localhost:3000/archive/index_old.html",
     "builder_archive": "http://localhost:3000/play/private/builder_archive.html",
     "builder_new": "http://localhost:3000/play/private/builder_new.html",
@@ -100,8 +100,8 @@ def main():
     print(read_openai_key_status())
     print("Will open when ready:", url)
     print("Also available:")
-    print("  http://localhost:3000/builder.html")
-    print("  http://localhost:3000/archive/builder/index.html")
+    print("  http://localhost:3000/")
+    print("  http://localhost:3000/builder")
     print("  http://localhost:3000/archive/index_old.html")
     print("Shortcuts:")
     print("  python server_start.py builder")

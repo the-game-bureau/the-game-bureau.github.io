@@ -7,8 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#000000">
-  <title>Play | The Game Bureau</title>
-  <link rel="icon" href="assets/tgb.ico" type="image/x-icon">
+  <title>GAME ERROR | THE GAME BUREAU</title>
+  <link rel="icon" href="../assets/tgb.ico" type="image/x-icon">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -66,6 +66,45 @@
     }
 
     .back-btn:active {
+      transform: scale(0.98);
+      opacity: 0.9;
+    }
+
+    .game-empty-state {
+      width: 100%;
+      max-width: 480px;
+      margin-top: 3.5rem;
+      display: grid;
+      gap: 1rem;
+      justify-items: center;
+      text-align: center;
+    }
+
+    .game-empty-message {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(2.2rem, 8vw, 3.2rem);
+      letter-spacing: 0.04em;
+      color: var(--primary);
+    }
+
+    .game-empty-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0.8rem 1.2rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: var(--fg);
+      text-decoration: none;
+      font-size: 0.92rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      transition: transform 0.1s, opacity 0.2s, background-color 0.2s;
+    }
+
+    .game-empty-link:active {
       transform: scale(0.98);
       opacity: 0.9;
     }
@@ -513,7 +552,7 @@
 <body>
 
   <div class="page-nav">
-    <a href="library.html" class="back-btn">Games Library</a>
+    <a href="../library" class="back-btn">Games Library</a>
   </div>
 
   <div id="landing">
@@ -580,6 +619,23 @@
       heading.style.padding = '0 1rem';
       heading.textContent = message;
       document.body.appendChild(heading);
+    }
+
+    function renderMissingGameSelection() {
+      const pageNav = document.querySelector('.page-nav');
+      document.body.innerHTML = '';
+
+      if (pageNav) {
+        document.body.appendChild(pageNav);
+      }
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'game-empty-state';
+      wrapper.innerHTML = `
+        <div class="game-empty-message">NO GAME LOADED</div>
+        <a class="game-empty-link" href="../library/index.html">GO BACK TO LIBRARY</a>
+      `;
+      document.body.appendChild(wrapper);
     }
 
     function getDatabaseOrigin() {
@@ -1113,7 +1169,7 @@
 
     async function init() {
       if (!gameId) {
-        renderFatalState('No Game ID Found');
+        renderMissingGameSelection();
         return;
       }
 
@@ -1132,7 +1188,9 @@
         const gameNode = game.nodes?.find((node) => node.type === 'game') || {};
         const images = applyGameImages(gameNode);
 
-        document.getElementById('gameTitle').textContent = game.name || 'Untitled Game';
+        const gameName = String(game.name || 'Untitled Game').trim() || 'Untitled Game';
+        document.title = `${gameName} | The Game Bureau`;
+        document.getElementById('gameTitle').textContent = gameName;
         document.getElementById('gameTagline').textContent = gameNode.tagline || '';
 
         if (gameNode.guideName) {
@@ -1156,11 +1214,12 @@
           });
         }
 
-        const gameUrl = new URL(`game.html?id=${encodeURIComponent(gameId)}`, window.location.href).toString();
-        renderQrCode(document.getElementById('qrcode'), gameUrl, 180);
+        const gameUrl = new URL('../game', window.location.href);
+        gameUrl.searchParams.set('id', gameId);
+        renderQrCode(document.getElementById('qrcode'), gameUrl.toString(), 180);
 
-        document.getElementById('smsBtn').href = `sms:?body=Join me for this experience: ${encodeURIComponent(gameUrl)}`;
-        document.getElementById('startBtn').href = `play.html?id=${encodeURIComponent(gameId)}`;
+        document.getElementById('smsBtn').href = `sms:?body=Join me for this experience: ${encodeURIComponent(gameUrl.toString())}`;
+        document.getElementById('startBtn').href = `../play?id=${encodeURIComponent(gameId)}`;
         document.getElementById('landing').style.display = 'block';
       } catch (error) {
         console.error('Game fetch error:', error);
