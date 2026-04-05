@@ -4117,6 +4117,13 @@ code{font-family:"IBM Plex Mono",monospace;}
   --waypoint-label:rgba(43,33,16,.66);
 }
 
+.node-shell.node--stop.is-anytime-waypoint{
+  --waypoint-fill:linear-gradient(180deg, #d8dde8 0%, #c2cad8 52%, #a6b0c2 100%);
+  --waypoint-edge:rgba(42, 52, 70, .34);
+  --waypoint-ink:#203042;
+  --waypoint-label:rgba(32, 48, 66, .66);
+}
+
 .node--stop .node-bubble{
   display:none;
 }
@@ -7950,6 +7957,20 @@ body.builder-auth-ready .builder-auth-signout{
                   </div>
                 </div>
 
+                <div class="field" id="objectReplyTimingField" hidden>
+                  <div class="field-label">TIMING</div>
+                  <div class="mode-toggle" role="radiogroup" aria-label="Player message timing">
+                    <label class="mode-toggle-option" for="objectReplyTimingInlineInput">
+                      <input class="mode-toggle-input" type="radio" name="objectReplyTiming" id="objectReplyTimingInlineInput" value="inline" disabled>
+                      <span class="mode-toggle-btn">Inline</span>
+                    </label>
+                    <label class="mode-toggle-option" for="objectReplyTimingAnytimeInput">
+                      <input class="mode-toggle-input" type="radio" name="objectReplyTiming" id="objectReplyTimingAnytimeInput" value="anytime" disabled>
+                      <span class="mode-toggle-btn">Anytime</span>
+                    </label>
+                  </div>
+                </div>
+
                 <div class="field" id="objectButtonNameField" hidden>
                   <label class="field-label" for="objectButtonNameInput">BUTTON NAME</label>
                   <input id="objectButtonNameInput" type="text" autocomplete="off" disabled>
@@ -9537,6 +9558,9 @@ const objectReplyModeField = document.getElementById('objectReplyModeField');
 const objectReplyModeNormalInput = document.getElementById('objectReplyModeNormalInput');
 const objectReplyModeAnyAnswerInput = document.getElementById('objectReplyModeAnyAnswerInput');
 const objectReplyModeAnytimeInput = document.getElementById('objectReplyModeAnytimeInput');
+const objectReplyTimingField = document.getElementById('objectReplyTimingField');
+const objectReplyTimingInlineInput = document.getElementById('objectReplyTimingInlineInput');
+const objectReplyTimingAnytimeInput = document.getElementById('objectReplyTimingAnytimeInput');
 
 const varNameField = document.getElementById('varNameField');
 const varNameInput = document.getElementById('varNameInput');
@@ -9862,21 +9886,37 @@ function normalizeVariableName(value) {
     .trim();
 }
 
+function getRawAnytimePairId(node) {
+  return String(node && node.anytimePairId || '').trim();
+}
+
+function isLegacyAnytimeReplyNode(node) {
+  return !!node && node.type === 'reply' && !!node.anytime && !!getRawAnytimePairId(node);
+}
+
+function isLegacyAnytimeGuideNode(node) {
+  return !!node && node.type === 'bubble' && !!node.anytime && !!getRawAnytimePairId(node);
+}
+
+function isInlineAnytimeReplyNode(node) {
+  return !!node && node.type === 'reply' && !!node.anytime && !getRawAnytimePairId(node);
+}
+
 function isAnytimeReplyNode(node) {
-  return !!node && node.type === 'reply' && !!node.anytime;
+  return isLegacyAnytimeReplyNode(node);
 }
 
 function isAnytimeGuideNode(node) {
-  return !!node && node.type === 'bubble' && !!node.anytime;
+  return isLegacyAnytimeGuideNode(node);
 }
 
 function isAnytimeNode(node) {
-  return isAnytimeReplyNode(node) || isAnytimeGuideNode(node);
+  return isLegacyAnytimeReplyNode(node) || isLegacyAnytimeGuideNode(node);
 }
 
 function getAnytimePairId(node) {
   return isAnytimeNode(node)
-    ? String(node.anytimePairId || '').trim()
+    ? getRawAnytimePairId(node)
     : '';
 }
 
@@ -10155,7 +10195,11 @@ function focusReplyValidationIssue(issue) {
   selectNode(issue.nodeId);
   renderAll();
   requestAnimationFrame(() => {
-    const target = issue.field === 'varName' ? objectVarNameInput : objectBodyInput;
+    const target = issue.field === 'varName'
+      ? objectVarNameInput
+      : issue.field === 'timing'
+        ? (objectReplyTimingAnytimeInput || objectReplyTimingInlineInput)
+        : objectBodyInput;
     if (!target || target.disabled || typeof target.focus !== 'function') return;
     try {
       target.focus({ preventScroll: true });
@@ -10166,12 +10210,65 @@ function focusReplyValidationIssue(issue) {
 }
 
 function validateReplyNodes(options = {}) {
-  const issue = getFirstReplyValidationIssue();
+  const issue = getFirstReplyValidationIssue() || getFirstAnytimeWaypointValidationIssue();
   if (!issue) return null;
   focusReplyValidationIssue(issue);
   if (options.showAlert !== false) window.alert(issue.message);
   setSaveStatus('unsaved', 'Finish PLAYER MSG details');
   return issue;
+}
+
+function getFirstAnytimeWaypointValidationIssue() {
+  const waypointGroups = getConversationWaypointGroups();
+  for (const group of waypointGroups) {
+    if (!group || !group.stop) continue;
+    const anytimeReplies = getInlineAnytimeRepliesInWaypointGroup(group);
+    const stopTitle = normalizeWaypointTitle(group.stop.title, TYPE_CONFIG.stop.title);
+    const firstReply = getWaypointRepliesInGroup(group)[0] || null;
+    if (anytimeReplies.length && firstReply && firstReply.id !== anytimeReplies[0].id) {
+      return {
+        nodeId: anytimeReplies[0].id,
+        field: 'timing',
+        message: `${stopTitle} must use ANYTIME on the first PLAYER MSG in that WAYPOINT.`
+      };
+    }
+    if (anytimeReplies.length <= 1) continue;
+    return {
+      nodeId: anytimeReplies[1].id,
+      field: 'timing',
+      message: `${stopTitle} has more than one ANYTIME PLAYER MSG.`
+    };
+  }
+  return null;
+}
+
+function canEnableInlineAnytimeForReply(replyNode, options = {}) {
+  if (!replyNode || replyNode.type !== 'reply') return false;
+  const waypointGroup = getWaypointConversationGroupForNode(replyNode.id);
+  if (!waypointGroup || !waypointGroup.stop) {
+    if (options.showAlert !== false) {
+      window.alert('ANYTIME PLAYER MSG must live inside a WAYPOINT.');
+    }
+    return false;
+  }
+  const existingReplies = getInlineAnytimeRepliesInWaypointGroup(waypointGroup)
+    .filter((node) => node.id !== replyNode.id);
+  if (existingReplies.length) {
+    if (options.showAlert !== false) {
+      const stopTitle = normalizeWaypointTitle(waypointGroup.stop.title, TYPE_CONFIG.stop.title);
+      window.alert(`${stopTitle} already has an ANYTIME PLAYER MSG. A WAYPOINT can only have one.`);
+    }
+    return false;
+  }
+  const firstReply = getWaypointRepliesInGroup(waypointGroup)[0] || null;
+  if (firstReply && firstReply.id !== replyNode.id) {
+    if (options.showAlert !== false) {
+      const stopTitle = normalizeWaypointTitle(waypointGroup.stop.title, TYPE_CONFIG.stop.title);
+      window.alert(`${stopTitle} can only use ANYTIME on the first PLAYER MSG in that WAYPOINT.`);
+    }
+    return false;
+  }
+  return true;
 }
 
 function buildBestGuessReplyVariableName(node, preferredSource = null) {
@@ -10481,10 +10578,11 @@ function getPhoneSecondaryText(node) {
     return summarizePhoneText(node.tagline || node.body, 140);
   }
   if (node.type === 'stop') {
+    if (isInlineAnytimeWaypointNode(node)) return 'Anytime waypoint';
     return '';
   }
   if (node.type === 'reply') {
-    if (node.anytime) return 'Anytime trigger';
+    if (isInlineAnytimeReplyNode(node)) return 'Anytime trigger';
     return '';
   }
   return node.anytime ? 'Paired anytime response' : '';
@@ -10499,10 +10597,75 @@ function getPhoneBubbleSide(node) {
   return 'center';
 }
 
-function isPhoneThreadNode(node) {
+function isConversationThreadNode(node) {
   return !!node
     && !isAnytimeNode(node)
     && (node.type === 'stop' || node.type === 'bubble' || node.type === 'reply' || node.type === 'button');
+}
+
+function getConversationWaypointGroups(excludeNodeId = null) {
+  const threadNodes = getSortedConversationNodes(
+    state.doc.nodes.filter((node) => node && node.id !== excludeNodeId && isConversationThreadNode(node))
+  );
+  const groups = [];
+  let currentGroup = null;
+
+  threadNodes.forEach((node) => {
+    if (node.type === 'stop') {
+      currentGroup = {
+        stop: node,
+        nodes: [node]
+      };
+      groups.push(currentGroup);
+      return;
+    }
+
+    if (!currentGroup) {
+      currentGroup = {
+        stop: null,
+        nodes: []
+      };
+      groups.push(currentGroup);
+    }
+
+    currentGroup.nodes.push(node);
+  });
+
+  return groups;
+}
+
+function getWaypointConversationGroupForNode(nodeId, excludeNodeId = null) {
+  const targetId = String(nodeId || '').trim();
+  if (!targetId) return null;
+  return getConversationWaypointGroups(excludeNodeId)
+    .find((group) => group && Array.isArray(group.nodes) && group.nodes.some((node) => node.id === targetId)) || null;
+}
+
+function getInlineAnytimeRepliesInWaypointGroup(group) {
+  return group && Array.isArray(group.nodes)
+    ? group.nodes.filter((node) => isInlineAnytimeReplyNode(node))
+    : [];
+}
+
+function getWaypointRepliesInGroup(group) {
+  return group && Array.isArray(group.nodes)
+    ? group.nodes.filter((node) => node && node.type === 'reply')
+    : [];
+}
+
+function isInlineAnytimeWaypointGroup(group) {
+  return !!(group && group.stop && getInlineAnytimeRepliesInWaypointGroup(group).length);
+}
+
+function isInlineAnytimeWaypointNode(node) {
+  if (!node || !node.id) return false;
+  return isInlineAnytimeWaypointGroup(getWaypointConversationGroupForNode(node.id));
+}
+
+function isPhoneThreadNode(node) {
+  return !!node
+    && isConversationThreadNode(node)
+    && !isInlineAnytimeWaypointNode(node);
 }
 
 function canReorderPhoneThreadNode(node) {
@@ -10515,9 +10678,9 @@ function getSortedConversationNodes(nodes) {
 }
 
 function getSortedPhoneThreadNodes(excludeNodeId = null) {
-  return getSortedConversationNodes(
-    state.doc.nodes.filter((node) => node && node.id !== excludeNodeId && isPhoneThreadNode(node))
-  );
+  return getConversationWaypointGroups(excludeNodeId)
+    .filter((group) => !isInlineAnytimeWaypointGroup(group))
+    .flatMap((group) => group.nodes);
 }
 
 function getPhoneIncomingSourceId(node) {
@@ -10530,8 +10693,7 @@ function getPhoneIncomingSourceId(node) {
   return incoming.length === 1 ? incoming[0].from : '';
 }
 
-function getPhoneThreadRows(excludeNodeId = null) {
-  const messageNodes = getSortedPhoneThreadNodes(excludeNodeId);
+function buildPhoneRowsFromNodes(messageNodes = []) {
   const rows = [];
 
   for (let index = 0; index < messageNodes.length; index += 1) {
@@ -10557,6 +10719,10 @@ function getPhoneThreadRows(excludeNodeId = null) {
   }
 
   return rows;
+}
+
+function getPhoneThreadRows(excludeNodeId = null) {
+  return buildPhoneRowsFromNodes(getSortedPhoneThreadNodes(excludeNodeId));
 }
 
 function reorderPhoneThreadNode(nodeId, insertIndex) {
@@ -10688,6 +10854,12 @@ function getPhoneAnytimeRows() {
     seenNodeIds.add(node.id);
     rows.push([node]);
   });
+
+  getConversationWaypointGroups()
+    .filter((group) => isInlineAnytimeWaypointGroup(group))
+    .forEach((group) => {
+      buildPhoneRowsFromNodes(group.nodes).forEach((row) => rows.push(row));
+    });
 
   return rows;
 }
@@ -14143,7 +14315,7 @@ function attachNodeEvents(el, node) {
 
 function renderNode(node) {
   const el = document.createElement('div');
-  el.className = 'node-shell node--' + node.type;
+  el.className = 'node-shell node--' + node.type + (isInlineAnytimeWaypointNode(node) ? ' is-anytime-waypoint' : '');
   el.dataset.id = node.id;
   el.innerHTML = buildNodeMarkup(node);
   positionNodeElement(node, el);
@@ -15048,16 +15220,23 @@ function disableAnytimeForReply(replyNode) {
 
 function getReplyMode(node) {
   if (!node || node.type !== 'reply') return 'normal';
-  if (node.anytime) return 'anytime';
   if (node.acceptAny) return 'anyanswer';
   return 'normal';
 }
 
+function getReplyTiming(node) {
+  if (!node || node.type !== 'reply') return 'inline';
+  return !!node.anytime ? 'anytime' : 'inline';
+}
+
 function syncReplyModeInputs(node) {
   const isReplyNode = !!node && node.type === 'reply';
+  const isLegacyAnytimeReply = isReplyNode && isLegacyAnytimeReplyNode(node);
   const mode = isReplyNode ? getReplyMode(node) : 'normal';
+  const timing = isReplyNode ? getReplyTiming(node) : 'inline';
 
   if (objectReplyModeField) objectReplyModeField.hidden = !isReplyNode;
+  if (objectReplyTimingField) objectReplyTimingField.hidden = !(isReplyNode && !isLegacyAnytimeReply && mode === 'normal');
   if (objectBodyAnswerNote) objectBodyAnswerNote.hidden = !(isReplyNode && mode === 'normal');
   if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble');
   const isButtonNode = !!node && node.type === 'button';
@@ -15071,6 +15250,15 @@ function syncReplyModeInputs(node) {
     if (!input) return;
     input.checked = isReplyNode && mode === value;
     input.disabled = !isReplyNode;
+  });
+
+  [
+    [objectReplyTimingInlineInput, 'inline'],
+    [objectReplyTimingAnytimeInput, 'anytime']
+  ].forEach(([input, value]) => {
+    if (!input) return;
+    input.checked = isReplyNode && !isLegacyAnytimeReply && mode === 'normal' && timing === value;
+    input.disabled = !isReplyNode || isLegacyAnytimeReply || mode !== 'normal';
   });
 }
 
@@ -15999,14 +16187,10 @@ function setReplyMode(replyNode, mode) {
   };
 
   let changed = false;
-  if (nextMode === 'anytime') {
-    setReplyAcceptAny(replyNode, false);
-    changed = enableAnytimeForReply(replyNode);
-  } else if (nextMode === 'anyanswer') {
+  if (nextMode === 'anyanswer') {
     disableAnytimeForReply(replyNode);
-    changed = setReplyAcceptAny(replyNode, true);
+    changed = !!previous.anytime || !!previous.anytimePairId || setReplyAcceptAny(replyNode, true);
   } else {
-    disableAnytimeForReply(replyNode);
     changed = setReplyAcceptAny(replyNode, false);
   }
 
@@ -16023,6 +16207,26 @@ function setReplyMode(replyNode, mode) {
     return false;
   }
 
+  return true;
+}
+
+function setReplyTiming(replyNode, timing) {
+  if (!replyNode || replyNode.type !== 'reply') return false;
+  const nextTiming = String(timing || '').trim().toLowerCase();
+  const previousTiming = getReplyTiming(replyNode);
+  if (nextTiming !== 'anytime' && nextTiming !== 'inline') return false;
+  if (previousTiming === nextTiming && !(nextTiming === 'anytime' && getRawAnytimePairId(replyNode))) return true;
+
+  if (nextTiming === 'anytime') {
+    if (!canEnableInlineAnytimeForReply(replyNode, { showAlert: true })) return false;
+    if (replyNode.acceptAny) setReplyAcceptAny(replyNode, false);
+    disableAnytimeForReply(replyNode);
+    replyNode.anytime = true;
+    replyNode.anytimePairId = '';
+    return true;
+  }
+
+  disableAnytimeForReply(replyNode);
   return true;
 }
 
@@ -16048,6 +16252,20 @@ function setReplyMode(replyNode, mode) {
     const node = getNode(state.selectedId);
     if (!node || node.type !== 'reply') return;
     if (!setReplyMode(node, input.value)) return;
+    renderAll();
+  });
+});
+
+[
+  objectReplyTimingInlineInput,
+  objectReplyTimingAnytimeInput
+].forEach((input) => {
+  if (!input) return;
+  input.addEventListener('change', () => {
+    if (!input.checked) return;
+    const node = getNode(state.selectedId);
+    if (!node || node.type !== 'reply') return;
+    if (!setReplyTiming(node, input.value)) return;
     renderAll();
   });
 });

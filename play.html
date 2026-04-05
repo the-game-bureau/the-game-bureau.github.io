@@ -707,6 +707,7 @@
       const submitBtn   = document.getElementById('gameSubmitBtn');
     let gameStops          = [];
     let anytimeStops       = [];
+    let legacyAnytimeStops = [];
     let baseGameStops      = [];
     let currentStopIndex   = 0;
     let currentBubbleIndex = 0;
@@ -721,6 +722,11 @@
     let scrollBottomRaf = 0;
     let scrollBottomTimeouts = [];
     let chatResizeObserver = null;
+    let activeStop = null;
+    let activeFlowKind = 'main';
+    let activeInterruptContext = null;
+    let messageFlowToken = 0;
+    let messageFlowTimeouts = [];
 
     // ── Persistence ──────────────────────────────────────────────
     function saveStep(i) {
@@ -826,6 +832,26 @@
       [90, 220, 420].forEach((delay) => {
         scrollBottomTimeouts.push(setTimeout(performScrollBottom, delay));
       });
+    }
+    function removeTypingIndicators() {
+      if (!chatEl) return;
+      chatEl.querySelectorAll('.typing').forEach((indicator) => indicator.remove());
+    }
+    function clearPendingMessageFlow() {
+      messageFlowToken += 1;
+      messageFlowTimeouts.forEach((timeoutId) => clearTimeout(timeoutId));
+      messageFlowTimeouts = [];
+      removeTypingIndicators();
+      return messageFlowToken;
+    }
+    function scheduleMessageFlow(callback, delay, flowToken = messageFlowToken) {
+      const timeoutId = setTimeout(() => {
+        messageFlowTimeouts = messageFlowTimeouts.filter((candidate) => candidate !== timeoutId);
+        if (flowToken !== messageFlowToken) return;
+        callback();
+      }, Math.max(0, Number(delay) || 0));
+      messageFlowTimeouts.push(timeoutId);
+      return timeoutId;
     }
     function bindBubbleAutoScroll(container) {
       if (!container) return;
@@ -1109,7 +1135,7 @@
       return null;
     }
     function currentStopHasPendingCheckout(unlockKey) {
-      const stop = gameStops[currentStopIndex];
+      const stop = activeStop || gameStops[currentStopIndex];
       if (!stop) return false;
       const target = getPendingCheckoutTarget(getInitialStopMessages(getStopMessages(stop), currentBubbleIndex), 0);
       return !!(target && (!unlockKey || target.unlockKey === unlockKey));
@@ -1155,6 +1181,29 @@
       const start = Math.max(0, fromIndex || 0);
       const idx = getTriggerIndex(messages, start);
       return idx < 0 ? messages.slice(start) : messages.slice(start, idx);
+    }
+    function getStopById(stopId, stopsList = gameStops) {
+      const normalizedId = String(stopId || '').trim();
+      if (!normalizedId || !Array.isArray(stopsList)) return null;
+      return stopsList.find((stop) => stop && String(stop.id || '').trim() === normalizedId) || null;
+    }
+    function storeReplyValue(varKey, value) {
+      const normalizedKey = normalizeVarKey(varKey || '');
+      if (!normalizedKey) return;
+      vars[normalizedKey] = value;
+      saveVars();
+      refreshGroupedGameStops();
+    }
+    function getMatchingInlineAnytimeStop(value) {
+      const typed = String(value || '').trim();
+      if (!typed) return null;
+      return anytimeStops.find((stop) => {
+        const trigger = stop && stop.anytimeTrigger;
+        const answers = Array.isArray(trigger && trigger.answers)
+          ? trigger.answers.map((answer) => String(answer || '').trim()).filter(Boolean)
+          : [];
+        return answers.some((answer) => norm(answer) === norm(typed));
+      }) || null;
     }
     function getPreviousGuideBubble(messages, triggerIndex) {
       for (let i = Math.max(0, triggerIndex - 1); i >= 0; i -= 1) {
@@ -1303,7 +1352,9 @@
         unlockKey,
         sourceUrl: parsedUrl.toString(),
         resolvedUrl: resolvedCheckoutUrl,
-        stopIndex: currentStopIndex
+        stopIndex: currentStopIndex,
+        stopId: activeStop && activeStop.id ? activeStop.id : '',
+        flowKind: activeFlowKind
       };
 
       try {
@@ -1364,8 +1415,10 @@
         });
       }
 
+      const currentStopId = activeStop && activeStop.id ? activeStop.id : '';
       const shouldResume = currentStopHasPendingCheckout(unlockKey)
-        || !!(activeCheckoutContext && activeCheckoutContext.stopIndex === currentStopIndex);
+        || !!(activeCheckoutContext && activeCheckoutContext.stopId === currentStopId)
+        || !!(stopCheckoutContext && stopCheckoutContext.stopId === currentStopId);
 
       activeCheckoutContext = null;
       stopCheckoutContext = null;
@@ -1374,6 +1427,10 @@
 
       disableInput();
       const finish = () => {
+        if (activeFlowKind === 'interrupt') {
+          finishAnytimeInterrupt();
+          return;
+        }
         saveStep(currentStopIndex + 1);
         advanceStop();
       };
@@ -1396,19 +1453,27 @@
 
     // ── Message sequencing ────────────────────────────────────────
       function showMessages(messages, onDone) {
+        const flowToken = clearPendingMessageFlow();
         let i = 0;
         function next() {
-          if (i >= messages.length) { onDone && onDone(); return; }
+          if (flowToken !== messageFlowToken) return;
+          if (i >= messages.length) {
+            if (onDone) onDone();
+            return;
+          }
           const msg = messages[i++];
           const html = msg.html || msg.text || '';
           const fromGame = !(msg && (msg.fromPlayer || msg.direction === 'fromPlayer'));
-            if (!html) { next(); return; }
+          if (!html) {
+            next();
+            return;
+          }
           const indicator = showTypingIndicator();
-          setTimeout(() => {
-            indicator.remove();
-              addBubble(msg, fromGame);
-            setTimeout(next, BUBBLE_PAUSE);
-          }, TYPING_DELAY);
+          scheduleMessageFlow(() => {
+            if (indicator && indicator.isConnected) indicator.remove();
+            addBubble(msg, fromGame);
+            scheduleMessageFlow(next, BUBBLE_PAUSE, flowToken);
+          }, TYPING_DELAY, flowToken);
         }
         next();
     }
@@ -1430,8 +1495,134 @@
       _submitHandler = null;
     }
 
-    function showTextInput(stop, startIndex = 0) {
+    function finishAnytimeInterrupt() {
+      const context = activeInterruptContext || {};
+      activeInterruptContext = null;
+      stopCheckoutContext = null;
+      activeCheckoutContext = null;
+      refreshGroupedGameStops();
+      if (!gameStops.length) {
+        activeStop = null;
+        activeFlowKind = 'main';
+        disableInput();
+        return;
+      }
+
+      let resumeIndex = -1;
+      if (context.resumeStopId) {
+        resumeIndex = gameStops.findIndex((stop) => stop && stop.id === context.resumeStopId);
+      }
+      if (resumeIndex < 0 && Number.isFinite(context.resumeStopIndex)) {
+        resumeIndex = Math.max(0, Math.min(context.resumeStopIndex, gameStops.length - 1));
+      }
+      if (resumeIndex < 0) {
+        activeStop = null;
+        activeFlowKind = 'main';
+        disableInput();
+        return;
+      }
+
+      playStop(resumeIndex, 0, { flowKind: 'main' });
+    }
+
+    function continueStopAfterReply(stop, nextBubbleIndex, options = {}) {
+      const flowKind = String(options.flowKind || activeFlowKind || 'main');
+      const allMessages = getStopMessages(stop);
+      const trailingMessages = getInitialStopMessages(allMessages, nextBubbleIndex);
+      const trailingCheckout = getPendingCheckoutTarget(trailingMessages, 0);
+      const trailingCheckoutUnlocked = !!(trailingCheckout && isCheckoutUnlocked(trailingCheckout.unlockKey));
+      const finish = () => {
+        currentBubbleIndex = nextBubbleIndex;
+        if (trailingCheckout) {
+          stopCheckoutContext = {
+            ...trailingCheckout,
+            stopIndex: currentStopIndex,
+            stopId: stop && stop.id ? stop.id : '',
+            flowKind
+          };
+          if (trailingCheckoutUnlocked) {
+            completeCheckoutFlow({
+              unlockKey: trailingCheckout.unlockKey,
+              sourceUrl: trailingCheckout.url,
+              guideText: 'Payment already confirmed. Let\u2019s keep going.'
+            });
+            return;
+          }
+          disableInput();
+          return;
+        }
+        if (getTriggerBubble(allMessages, nextBubbleIndex)) {
+          showTextInput(stop, nextBubbleIndex, { flowKind });
+          return;
+        }
+        if (flowKind === 'interrupt') {
+          finishAnytimeInterrupt();
+          return;
+        }
+        saveStep(currentStopIndex + 1);
+        advanceStop();
+      };
+
+      if (trailingMessages.length) {
+        showMessages(trailingMessages, finish);
+      } else {
+        finish();
+      }
+    }
+
+    function playAnytimeInterruptStop(stop, triggerValue) {
+      if (!stop) return false;
+      disableInput();
+      activeStop = stop;
+      activeFlowKind = 'interrupt';
+      currentBubbleIndex = 0;
+      stopCheckoutContext = null;
+      activeCheckoutContext = null;
+
+      const messages = getStopMessages(stop);
+      const triggerIndex = Number.isInteger(stop.anytimeTriggerIndex)
+        ? stop.anytimeTriggerIndex
+        : messages.findIndex((message) => !!(message && message.anytime));
+      const introMessages = triggerIndex > 0 ? messages.slice(0, triggerIndex) : [];
+      const triggerBubble = triggerIndex >= 0 ? messages[triggerIndex] : null;
+      const continueInterrupt = () => {
+        if (triggerBubble) {
+          addBubble(triggerValue, false);
+          storeReplyValue(triggerBubble.storesAs || '', triggerValue);
+          continueStopAfterReply(stop, triggerIndex + 1, { flowKind: 'interrupt' });
+          return;
+        }
+        continueStopAfterReply(stop, 0, { flowKind: 'interrupt' });
+      };
+
+      if (introMessages.length) {
+        showMessages(introMessages, continueInterrupt);
+      } else {
+        continueInterrupt();
+      }
+      return true;
+    }
+
+    function tryStartAnytimeInterrupt(value) {
+      const typedValue = String(value || '').trim();
+      if (!typedValue || activeInterruptContext || !activeStop) return false;
+      const anytimeMatch = getMatchingInlineAnytimeStop(typedValue);
+      if (!anytimeMatch) return false;
+      activeInterruptContext = {
+        resumeStopId: activeStop && activeStop.id ? activeStop.id : '',
+        resumeStopIndex: currentStopIndex
+      };
+      clearPendingMessageFlow();
+      disableInput();
+      playAnytimeInterruptStop(anytimeMatch, typedValue);
+      return true;
+    }
+
+    function showTextInput(stop, startIndex = 0, options = {}) {
+      const flowKind = String(options.flowKind || activeFlowKind || 'main');
       showInputArea();
+      activeStop = stop || activeStop;
+      activeFlowKind = flowKind;
       const allMessages = getStopMessages(stop);
       const triggerIndex = getTriggerIndex(allMessages, startIndex);
       const triggerBubble = getTriggerBubble(allMessages, startIndex);
@@ -1444,19 +1635,18 @@
       submitBtn.disabled = false;
       setTimeout(() => gameInput.focus(), 80);
 
-      _submitHandler = function() {
-        const val = gameInput.value.trim();
+      _submitHandler = function(forcedValue) {
+        const val = String(forcedValue != null ? forcedValue : gameInput.value).trim();
         if (!val) return;
 
-        // Anytime stops intercept any input regardless of current stop
-        const anytimeMatch = anytimeStops.find(s =>
-          (s.playerReply?.answers || []).some(a => norm(a) === norm(val))
+        const legacyAnytimeMatch = legacyAnytimeStops.find((candidateStop) =>
+          (candidateStop.playerReply?.answers || []).some((answer) => norm(answer) === norm(val))
         );
-        if (anytimeMatch) {
+        if (legacyAnytimeMatch) {
           disableInput();
           addBubble(val, false);
-          const msgs = getStopMessages(anytimeMatch);
-          showMessages(msgs, () => showTextInput(stop, startIndex));
+          const msgs = getStopMessages(legacyAnytimeMatch);
+          showMessages(msgs, () => showTextInput(stop, startIndex, { flowKind }));
           return;
         }
 
@@ -1478,10 +1668,8 @@
 
         const correct = isAny || answers.some(a => norm(a) === norm(val));
 
-        if (varKey && correct) {
-          vars[varKey] = val;
-          saveVars();
-          refreshGroupedGameStops();
+        if (correct) {
+          storeReplyValue(varKey, val);
         }
 
         disableInput();
@@ -1489,7 +1677,7 @@
 
         if (!correct) {
           const after = () => {
-            showTextInput(stop, startIndex);
+            showTextInput(stop, startIndex, { flowKind });
             setTimeout(() => gameInput.focus(), 80);
           };
           if (triggerBubble) {
@@ -1504,57 +1692,45 @@
           return;
         }
 
-        const nextBubbleIndex = triggerBubble ? (getTriggerIndex(allMessages, startIndex) + 1) : allMessages.length;
-        const trailingMessages = triggerBubble ? getInitialStopMessages(allMessages, nextBubbleIndex) : [];
-        const trailingCheckout = getPendingCheckoutTarget(trailingMessages, 0);
-        const trailingCheckoutUnlocked = !!(trailingCheckout && isCheckoutUnlocked(trailingCheckout.unlockKey));
-        const advance = () => {
-          currentBubbleIndex = nextBubbleIndex;
-          if (trailingCheckout) {
-            stopCheckoutContext = {
-              ...trailingCheckout,
-              stopIndex: currentStopIndex
-            };
-            if (trailingCheckoutUnlocked) {
-              completeCheckoutFlow({
-                unlockKey: trailingCheckout.unlockKey,
-                sourceUrl: trailingCheckout.url,
-                guideText: 'Payment already confirmed. Let\u2019s keep going.'
-              });
-              return;
-            }
-            disableInput();
-            return;
-          }
-          if (triggerBubble && getTriggerBubble(allMessages, nextBubbleIndex)) {
-            showTextInput(stop, nextBubbleIndex);
-            return;
-          }
-          saveStep(currentStopIndex + 1);
-          advanceStop();
-        };
-        const toShow = [];
-        trailingMessages.forEach(m => toShow.push(m));
-        if (toShow.length) {
-          showMessages(toShow, advance);
-        } else {
-          advance();
-        }
+        const nextBubbleIndex = triggerBubble ? (triggerIndex + 1) : allMessages.length;
+        continueStopAfterReply(stop, nextBubbleIndex, { flowKind });
       };
     }
 
-    submitBtn.addEventListener('click', () => { if (_submitHandler) _submitHandler(); });
-    gameInput.addEventListener('keydown', e => { if (e.key === 'Enter' && _submitHandler) _submitHandler(); });
+    function handleComposerSubmit() {
+      const typedValue = String(gameInput.value || '').trim();
+      if (!typedValue) return;
+      if (tryStartAnytimeInterrupt(typedValue)) return;
+      if (_submitHandler) _submitHandler(typedValue);
+    }
+
+    submitBtn.addEventListener('click', handleComposerSubmit);
+    gameInput.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      handleComposerSubmit();
+    });
 
     // ── Stop flow ─────────────────────────────────────────────────
-    function playStop(index, startIndex = 0) {
+    function playStop(index, startIndex = 0, options = {}) {
+      const flowKind = String(options.flowKind || 'main');
+      const stop = gameStops[index];
+      if (!stop) {
+        activeStop = null;
+        activeFlowKind = 'main';
+        disableInput();
+        return;
+      }
+
+      clearPendingMessageFlow();
       disableInput();
-      currentStopIndex = index;
+      if (flowKind === 'main') currentStopIndex = index;
       currentBubbleIndex = Math.max(0, startIndex || 0);
       stopCheckoutContext = null;
       activeCheckoutContext = null;
-      const stop    = gameStops[index];
-      const reply   = stop.playerReply || {};
+      activeStop = stop;
+      activeFlowKind = flowKind;
+      const reply = stop.playerReply || {};
       const messages = getStopMessages(stop);
       const initialMessages = getInitialStopMessages(messages, currentBubbleIndex);
       const hasTrigger = !!getTriggerBubble(messages, currentBubbleIndex);
@@ -1573,7 +1749,9 @@
         if (pendingCheckout) {
           stopCheckoutContext = {
             ...pendingCheckout,
-            stopIndex: index
+            stopIndex: index,
+            stopId: stop.id,
+            flowKind
           };
           if (checkoutUnlocked) {
             completeCheckoutFlow({
@@ -1587,26 +1765,45 @@
           return;
         }
         if (needsInput) {
-          showTextInput(stop, currentBubbleIndex);
+          showTextInput(stop, currentBubbleIndex, { flowKind });
         } else {
-          setTimeout(() => { saveStep(index + 1); advanceStop(); }, 400);
+          const flowToken = clearPendingMessageFlow();
+          scheduleMessageFlow(() => {
+            if (flowKind === 'interrupt') {
+              finishAnytimeInterrupt();
+              return;
+            }
+            saveStep(index + 1);
+            advanceStop();
+          }, 400, flowToken);
         }
       });
     }
 
     function advanceStop() {
       const next = currentStopIndex + 1;
-      if (next >= gameStops.length) { disableInput(); return; }
-      playStop(next);
+      if (next >= gameStops.length) {
+        activeStop = null;
+        activeFlowKind = 'main';
+        disableInput();
+        return;
+      }
+      playStop(next, 0, { flowKind: 'main' });
     }
 
     // ── Restart ───────────────────────────────────────────────────
     document.getElementById('restartBtn').addEventListener('click', () => {
       clearSave();
       refreshGroupedGameStops();
+      activeInterruptContext = null;
+      activeStop = null;
+      activeFlowKind = 'main';
+      stopCheckoutContext = null;
+      activeCheckoutContext = null;
+      clearPendingMessageFlow();
       chatEl.innerHTML = '';
       disableInput();
-      playStop(0);
+      playStop(0, 0, { flowKind: 'main' });
     });
 
     // ── Boot ──────────────────────────────────────────────────────
@@ -1690,9 +1887,11 @@
 
     function buildLegacyPayload(gameData) {
       const nodes = Array.isArray(gameData.nodes) ? gameData.nodes : [];
+      const isLegacyAnytimeNodeData = (node) => !!(node && node.anytime && String(node.anytimePairId || '').trim());
+      const isInlineAnytimeReplyData = (node) => !!(node && node.type === 'reply' && node.anytime && !String(node.anytimePairId || '').trim());
       const sortedNodes = [...nodes].sort((a, b) => {
-        const rankA = a.type === 'game' ? 0 : (a.anytime ? 2 : 1);
-        const rankB = b.type === 'game' ? 0 : (b.anytime ? 2 : 1);
+        const rankA = a.type === 'game' ? 0 : (isLegacyAnytimeNodeData(a) ? 2 : 1);
+        const rankB = b.type === 'game' ? 0 : (isLegacyAnytimeNodeData(b) ? 2 : 1);
         if (rankA !== rankB) return rankA - rankB;
         return (a.orderIndex || 0) - (b.orderIndex || 0);
       });
@@ -1703,7 +1902,7 @@
       sortedNodes.forEach(node => {
         if (node.type === 'game') return;
 
-        if (node.anytime) {
+        if (isLegacyAnytimeNodeData(node)) {
           if (node.type === 'reply') {
             stops.push({
               id: node.id,
@@ -1781,9 +1980,20 @@
             replyExpected: node.acceptAny ? 'any' : 'word',
             answers: answers,
             storesAs: node.varName,
-            placeholder: 'Type here...'
+            placeholder: 'Type here...',
+            anytime: isInlineAnytimeReplyData(node)
           });
         }
+      });
+
+      stops.forEach((stop) => {
+        if (!stop || stop.playerReply?.anytime) return;
+        const anytimeTriggerIndex = Array.isArray(stop.messages)
+          ? stop.messages.findIndex((message) => !!(message && message.anytime))
+          : -1;
+        stop.inlineAnytime = anytimeTriggerIndex >= 0;
+        stop.anytimeTriggerIndex = anytimeTriggerIndex;
+        stop.anytimeTrigger = anytimeTriggerIndex >= 0 ? stop.messages[anytimeTriggerIndex] : null;
       });
 
       return { stops };
@@ -1819,8 +2029,9 @@
         const payload = buildLegacyPayload(gameData);
         const allStops = payload.stops || [];
         
-        anytimeStops = allStops.filter(s => s.playerReply?.anytime);
-        baseGameStops = allStops.filter(s => !s.playerReply?.anytime);
+        legacyAnytimeStops = allStops.filter((stop) => stop.playerReply?.anytime);
+        anytimeStops = allStops.filter((stop) => stop.inlineAnytime);
+        baseGameStops = allStops.filter((stop) => !stop.playerReply?.anytime && !stop.inlineAnytime);
         vars = loadVars();
         refreshGroupedGameStops();
 
