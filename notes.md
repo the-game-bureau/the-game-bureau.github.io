@@ -67,6 +67,7 @@ Go ahead and get your phones out — I'll have you scan a QR code so I can send 
 - [ ] **Variable Logic:** Make variables persistent across refresh/save to DB; allow input, recall, and routing.
 - [ ] **Scaling:** Ensure team formation works for any number of people.
 - [ ] **Navigation:** Route based on answer (e.g., redirect to "correct/incorrect" or specific URLs based on receipt number/PAY).
+- [ ] Add a starting location map.
 
 ### UI/UX & Builder Fixes
 
@@ -78,6 +79,9 @@ Go ahead and get your phones out — I'll have you scan a QR code so I can send 
   - Links: Bold, white, and underlined.
   - Player msg label goes under bubble; remove bubble shadow.
 - [ ] **Admin Features:** If `builder.html` has `?id=*` in URL, load that specific game.
+- [ ] QR codes not working
+- [ ] fix share setting. just show url and copy button and instruct to send via text message
+- [ ]
 
 ### AI & Automation
 
@@ -91,6 +95,10 @@ Go ahead and get your phones out — I'll have you scan a QR code so I can send 
 - [ ] **Team Agency:** Allow players to pick own teams (optional); allow teams to change names.
 - [ ] **Social:** Add "share with friends" button at end; implement hashtag for photo posts.
 - [ ] **Tutorial:** Build out builder tutorial and create "How to Play" standard verbiage.
+
+Storytelling
+
+Set the scene, I'm talking about the old dossier experience. For example, with Oswald link to all my research.
 
 ---
 

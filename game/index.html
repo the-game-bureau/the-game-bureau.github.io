@@ -269,29 +269,46 @@
       letter-spacing: 0.1em;
     }
 
-    .qr-container {
-      background: #ffffff;
-      padding: 16px;
-      margin: 1.5rem auto;
-      border-radius: 14px;
-      width: fit-content;
+    .share-instruction {
+      padding: 0.75rem 1rem 0;
+      font-size: 0.75rem;
+      color: var(--muted);
     }
 
-    #qrcode img { display: block; }
+    .url-display-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem 1rem;
+    }
 
-    .sms-btn {
-      display: block;
-      padding: 1.25rem;
-      border-top: 1px solid var(--primary);
+    .url-display {
+      flex: 1;
+      font-size: 0.7rem;
       color: var(--primary);
-      font-family: 'Bebas Neue', sans-serif;
-      text-decoration: none;
-      font-size: 1.4rem;
-      letter-spacing: 0.08em;
-      transition: background-color 0.2s;
+      word-break: break-all;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--primary);
+      border-radius: 8px;
+      padding: 0.5rem 0.6rem;
+      user-select: all;
     }
 
-    .sms-btn:active { background-color: rgba(255,255,255,0.05); }
+    .copy-btn {
+      flex-shrink: 0;
+      padding: 0.5rem 1rem;
+      background: var(--primary);
+      color: var(--secondary);
+      border: none;
+      border-radius: 8px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.1rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .copy-btn:active { opacity: 0.7; }
 
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -584,10 +601,11 @@
 
     <div class="share-section">
       <div class="share-heading">Invite Players</div>
-      <div class="qr-container">
-        <div id="qrcode"></div>
+      <p class="share-instruction">Copy the link and send it via text message.</p>
+      <div class="url-display-wrap">
+        <span id="gameUrlDisplay" class="url-display"></span>
+        <button id="copyUrlBtn" class="copy-btn">COPY</button>
       </div>
-      <a href="#" class="sms-btn" id="smsBtn">SEND INVITE LINK</a>
     </div>
   </div>
 
@@ -1216,9 +1234,16 @@
 
         const gameUrl = new URL('../game', window.location.href);
         gameUrl.searchParams.set('id', gameId);
-        renderQrCode(document.getElementById('qrcode'), gameUrl.toString(), 180);
+        const gameUrlStr = gameUrl.toString();
 
-        document.getElementById('smsBtn').href = `sms:?body=Join me for this experience: ${encodeURIComponent(gameUrl.toString())}`;
+        document.getElementById('gameUrlDisplay').textContent = gameUrlStr;
+        document.getElementById('copyUrlBtn').addEventListener('click', () => {
+          navigator.clipboard.writeText(gameUrlStr).then(() => {
+            const btn = document.getElementById('copyUrlBtn');
+            btn.textContent = 'COPIED!';
+            setTimeout(() => { btn.textContent = 'COPY'; }, 2000);
+          });
+        });
         document.getElementById('startBtn').href = `../play?id=${encodeURIComponent(gameId)}`;
         document.getElementById('landing').style.display = 'block';
       } catch (error) {
