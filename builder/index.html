@@ -4453,6 +4453,15 @@ code{font-family:"IBM Plex Mono",monospace;}
   box-shadow:0 0 0 3px rgba(11,147,246,.18);
 }
 
+/* Image inserts in bubble messages */
+.node--bubble .node-title img{
+  display:block;
+  max-width:min(85%, calc(var(--phone-device-w, 470px) * 0.85));
+  height:auto;
+  border-radius:10px;
+  margin-top:2px;
+}
+
 /* Reply (player msg) phone-pane overrides â€” mirrors node--bubble approach */
 .node--reply .node-bubble{
   display:none;
@@ -8898,6 +8907,7 @@ body.builder-auth-ready .builder-auth-signout{
     <div class="guide-insert-menu-root" id="guideInsertRoot">
       <button class="guide-insert-menu-item" id="guideInsertStoredInfoBtn" type="button">PREVIOUSLY STORED INFO</button>
       <button class="guide-insert-menu-item" id="guideInsertLinkBtn" type="button">LINK</button>
+      <button class="guide-insert-menu-item" id="guideInsertImageBtn" type="button">IMAGE</button>
     </div>
 
     <div class="guide-insert-menu-panel" id="guideInsertVariablePanel" hidden>
@@ -8926,6 +8936,22 @@ body.builder-auth-ready .builder-auth-signout{
 
       <div class="guide-insert-link-actions">
         <button class="guide-insert-submit" id="guideInsertLinkSubmitBtn" type="submit">INSERT LINK</button>
+      </div>
+    </form>
+
+    <form class="guide-insert-menu-panel" id="guideInsertImagePanel" hidden>
+      <div class="guide-insert-menu-topline">
+        <button class="guide-insert-menu-back" id="guideInsertImageBackBtn" type="button">Back</button>
+        <div class="guide-insert-menu-heading">IMAGE</div>
+      </div>
+
+      <label class="guide-insert-field" for="guideInsertImageAddressInput">
+        <span class="guide-insert-field-label">ADDRESS</span>
+        <input id="guideInsertImageAddressInput" type="text" placeholder="https://..." autocomplete="off">
+      </label>
+
+      <div class="guide-insert-link-actions">
+        <button class="guide-insert-submit" id="guideInsertImageSubmitBtn" type="submit">INSERT IMAGE</button>
       </div>
     </form>
   </div>
@@ -10456,6 +10482,11 @@ const guideInsertLinkBackBtn = document.getElementById('guideInsertLinkBackBtn')
 const guideInsertLinkTextInput = document.getElementById('guideInsertLinkTextInput');
 const guideInsertLinkAddressInput = document.getElementById('guideInsertLinkAddressInput');
 const guideInsertLinkSubmitBtn = document.getElementById('guideInsertLinkSubmitBtn');
+const guideInsertImageBtn = document.getElementById('guideInsertImageBtn');
+const guideInsertImagePanel = document.getElementById('guideInsertImagePanel');
+const guideInsertImageBackBtn = document.getElementById('guideInsertImageBackBtn');
+const guideInsertImageAddressInput = document.getElementById('guideInsertImageAddressInput');
+const guideInsertImageSubmitBtn = document.getElementById('guideInsertImageSubmitBtn');
 const bubbleDropLine = document.createElement('div');
 bubbleDropLine.className = 'bubble-drop-line';
 bubbleDropLine.hidden = true;
@@ -12126,6 +12157,7 @@ function showGuideInsertRoot() {
   if (guideInsertRoot) guideInsertRoot.hidden = false;
   if (guideInsertVariablePanel) guideInsertVariablePanel.hidden = true;
   if (guideInsertLinkPanel) guideInsertLinkPanel.hidden = true;
+  if (guideInsertImagePanel) guideInsertImagePanel.hidden = true;
   if (guideInsertStoredInfoBtn) guideInsertStoredInfoBtn.disabled = false;
   requestAnimationFrame(positionGuideInsertMenu);
 }
@@ -12139,9 +12171,11 @@ function closeGuideInsertMenu(options = {}) {
   if (guideInsertRoot) guideInsertRoot.hidden = false;
   if (guideInsertVariablePanel) guideInsertVariablePanel.hidden = true;
   if (guideInsertLinkPanel) guideInsertLinkPanel.hidden = true;
+  if (guideInsertImagePanel) guideInsertImagePanel.hidden = true;
   if (guideInsertVariableList) guideInsertVariableList.innerHTML = '';
   if (guideInsertLinkTextInput) guideInsertLinkTextInput.value = '';
   if (guideInsertLinkAddressInput) guideInsertLinkAddressInput.value = '';
+  if (guideInsertImageAddressInput) guideInsertImageAddressInput.value = '';
   guideInsertMenu.style.left = '';
   guideInsertMenu.style.top = '';
   if (
@@ -12396,6 +12430,7 @@ function openGuideInsertLinkPanel() {
   if (guideInsertRoot) guideInsertRoot.hidden = true;
   if (guideInsertVariablePanel) guideInsertVariablePanel.hidden = true;
   if (guideInsertLinkPanel) guideInsertLinkPanel.hidden = false;
+  if (guideInsertImagePanel) guideInsertImagePanel.hidden = true;
   if (guideInsertLinkTextInput) guideInsertLinkTextInput.value = '';
   if (guideInsertLinkAddressInput) guideInsertLinkAddressInput.value = '';
   requestAnimationFrame(() => {
@@ -12405,6 +12440,24 @@ function openGuideInsertLinkPanel() {
       guideInsertLinkTextInput.focus({ preventScroll: true });
     } catch (error) {
       guideInsertLinkTextInput.focus();
+    }
+  });
+}
+
+function openGuideInsertImagePanel() {
+  if (!guideInsertMenu || guideInsertMenu.hidden) return;
+  if (guideInsertRoot) guideInsertRoot.hidden = true;
+  if (guideInsertVariablePanel) guideInsertVariablePanel.hidden = true;
+  if (guideInsertLinkPanel) guideInsertLinkPanel.hidden = true;
+  if (guideInsertImagePanel) guideInsertImagePanel.hidden = false;
+  if (guideInsertImageAddressInput) guideInsertImageAddressInput.value = '';
+  requestAnimationFrame(() => {
+    positionGuideInsertMenu();
+    if (!guideInsertImageAddressInput) return;
+    try {
+      guideInsertImageAddressInput.focus({ preventScroll: true });
+    } catch (error) {
+      guideInsertImageAddressInput.focus();
     }
   });
 }
@@ -18579,6 +18632,33 @@ if (guideInsertLinkPanel) {
       return;
     }
     insertTextIntoGuideMessage('<A HREF="' + escapeInsertedHtml(address) + '">' + escapeInsertedHtml(text) + '</A>');
+  });
+}
+if (guideInsertImageBtn) {
+  guideInsertImageBtn.addEventListener('click', () => {
+    openGuideInsertImagePanel();
+  });
+}
+if (guideInsertImageBackBtn) {
+  guideInsertImageBackBtn.addEventListener('click', () => {
+    showGuideInsertRoot();
+    if (!guideInsertImageBtn) return;
+    try {
+      guideInsertImageBtn.focus({ preventScroll: true });
+    } catch (error) {
+      guideInsertImageBtn.focus();
+    }
+  });
+}
+if (guideInsertImagePanel) {
+  guideInsertImagePanel.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const address = String(guideInsertImageAddressInput ? guideInsertImageAddressInput.value : '').trim();
+    if (!address) {
+      if (guideInsertImageAddressInput) guideInsertImageAddressInput.focus();
+      return;
+    }
+    insertTextIntoGuideMessage('<IMG SRC="' + escapeInsertedHtml(address) + '">');
   });
 }
 if (duplicateGameBtn) {
