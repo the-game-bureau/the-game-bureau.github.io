@@ -6737,6 +6737,10 @@ body.builder-page--editor .guide-insert-menu-panel{
   gap:8px;
 }
 
+body.builder-page--editor .guide-insert-menu.is-direct #guideInsertVariablePanel .guide-insert-menu-topline{
+  display:none;
+}
+
 body.builder-page--editor .guide-insert-menu-topline{
   display:flex;
   align-items:center;
@@ -8476,9 +8480,21 @@ body.builder-auth-ready .builder-auth-signout{
                 <span class="add-btn-label">WAYPOINT</span>
                 <span class="add-btn-key">W</span>
               </button>
-              <button class="add-btn add-btn--bubble" data-add-stencil="bubble" type="button" disabled aria-label="Add guide message">
-                <span class="add-btn-label">GUIDE</span>
-                <span class="add-btn-key">G</span>
+              <button class="add-btn add-btn--bubble" data-add-stencil="bubble" data-add-kind="text" type="button" disabled aria-label="Add guide text message">
+                <span class="add-btn-label">GUIDE TEXT</span>
+                <span class="add-btn-key">T</span>
+              </button>
+              <button class="add-btn add-btn--bubble" data-add-stencil="bubble" data-add-kind="image" type="button" disabled aria-label="Add guide image message">
+                <span class="add-btn-label">GUIDE IMAGE</span>
+                <span class="add-btn-key">I</span>
+              </button>
+              <button class="add-btn add-btn--bubble" data-add-stencil="bubble" data-add-kind="video" type="button" disabled aria-label="Add guide video message">
+                <span class="add-btn-label">GUIDE VIDEO</span>
+                <span class="add-btn-key">V</span>
+              </button>
+              <button class="add-btn add-btn--bubble" data-add-stencil="bubble" data-add-kind="link" type="button" disabled aria-label="Add guide link message">
+                <span class="add-btn-label">GUIDE LINK</span>
+                <span class="add-btn-key">L</span>
               </button>
               <button class="add-btn add-btn--reply" data-add-stencil="reply" type="button" disabled aria-label="Add player message">
                 <span class="add-btn-label">PLAYER</span>
@@ -8614,6 +8630,22 @@ body.builder-auth-ready .builder-auth-signout{
                   <input id="objectButtonTargetInput" type="text" placeholder="https://..." autocomplete="off" disabled>
                 </div>
 
+                <div class="field" id="objectBubbleImageField" hidden>
+                  <label class="field-label field-label--with-meta" for="objectBubbleImageInput">IMAGE ADDRESS<span class="field-info" tabindex="0" role="note" aria-label="Cut and paste an image URL or choose an uploaded one.">i<span class="field-tooltip" role="tooltip">Cut and paste an image URL or choose an uploaded one.</span></span></label>
+                  <div class="guide-image-input-row guide-image-input-row--with-asset">
+                    <button class="guide-image-thumb" id="objectBubbleImageThumbBtn" type="button" disabled aria-label="No image selected">
+                      <img class="guide-image-thumb-image" id="objectBubbleImageThumbImage" alt="Image thumbnail" hidden>
+                      <span class="guide-image-thumb-placeholder" id="objectBubbleImageThumbPlaceholder">No image</span>
+                    </button>
+                    <input id="objectBubbleImageInput" type="text" placeholder="https://..." autocomplete="off" disabled>
+                    <button class="guide-image-asset-btn" id="objectBubbleImageOnlinePickBtn" type="button" disabled aria-label="Pick uploaded image asset" title="Pick uploaded image asset" aria-expanded="false" aria-controls="objectBubbleImageOnlineMenu">Uploaded</button>
+                  </div>
+                  <div class="guide-image-asset-menu" id="objectBubbleImageOnlineMenu" hidden>
+                    <div class="guide-image-asset-list" id="objectBubbleImageOnlineList" role="listbox" aria-label="Uploaded image assets"></div>
+                  </div>
+                  <div class="field-hint" id="objectBubbleImageAssetStatus" aria-live="polite"></div>
+                </div>
+
                 <div class="field" id="objectDescriptionField" hidden>
                   <label class="field-label" for="objectBodyInput">
                     <span id="objectBodyLabel">NOTES</span>
@@ -8625,7 +8657,7 @@ body.builder-auth-ready .builder-auth-signout{
                   <textarea id="objectBodyInput" disabled></textarea>
                   <div class="field-autocomplete" id="objectBodyAutocomplete" hidden role="listbox" aria-label="Current variables"></div>
                   <div class="field-hint" id="objectBodyRequiredHint" hidden></div>
-                  <div class="mini-note" id="objectBodyHtmlNote" hidden>HTML OK. Use Insert for previously stored info or links.</div>
+                  <div class="mini-note" id="objectBodyHtmlNote" hidden>HTML OK.</div>
                   <div class="mini-note" id="objectBodyAnswerNote" hidden>HTML OK. Separate acceptable answers with a comma.</div>
                 </div>
 
@@ -10389,6 +10421,15 @@ const guideImageAssetStatus = document.getElementById('guideImageAssetStatus');
 const guideImageThumbBtn = document.getElementById('guideImageThumbBtn');
 const guideImageThumbImage = document.getElementById('guideImageThumbImage');
 const guideImageThumbPlaceholder = document.getElementById('guideImageThumbPlaceholder');
+const objectBubbleImageField = document.getElementById('objectBubbleImageField');
+const objectBubbleImageInput = document.getElementById('objectBubbleImageInput');
+const objectBubbleImageOnlinePickBtn = document.getElementById('objectBubbleImageOnlinePickBtn');
+const objectBubbleImageOnlineMenu = document.getElementById('objectBubbleImageOnlineMenu');
+const objectBubbleImageOnlineList = document.getElementById('objectBubbleImageOnlineList');
+const objectBubbleImageAssetStatus = document.getElementById('objectBubbleImageAssetStatus');
+const objectBubbleImageThumbBtn = document.getElementById('objectBubbleImageThumbBtn');
+const objectBubbleImageThumbImage = document.getElementById('objectBubbleImageThumbImage');
+const objectBubbleImageThumbPlaceholder = document.getElementById('objectBubbleImageThumbPlaceholder');
 const nodePriceInput = document.getElementById('nodePriceInput');
 const nodeCityInput = document.getElementById('nodeCityInput');
 const nodeStartingLocationInput = document.getElementById('nodeStartingLocationInput');
@@ -11212,6 +11253,9 @@ function buildLocalGameDescription(gameNode) {
 
 function getNodeKicker(node) {
   if (!node) return '';
+  if (node.type === 'bubble' && node.kind) {
+    return 'GUIDE ' + node.kind.toUpperCase();
+  }
   return TYPE_CONFIG[node.type]?.kicker || '';
 }
 
@@ -12168,6 +12212,7 @@ function closeGuideInsertMenu(options = {}) {
   const previousFocus = state.guideInsertMenuPreviousFocus;
   state.guideInsertMenuPreviousFocus = null;
   guideInsertMenu.hidden = true;
+  guideInsertMenu.classList.remove('is-direct');
   if (guideInsertRoot) guideInsertRoot.hidden = false;
   if (guideInsertVariablePanel) guideInsertVariablePanel.hidden = true;
   if (guideInsertLinkPanel) guideInsertLinkPanel.hidden = true;
@@ -12469,17 +12514,23 @@ function openGuideInsertMenu() {
   rememberGuideInsertSelection();
   closeVariableAutocomplete();
   guideInsertMenu.hidden = false;
-  showGuideInsertRoot();
-  requestAnimationFrame(() => {
-    positionGuideInsertMenu();
-    const focusTarget = guideInsertStoredInfoBtn || guideInsertLinkBtn;
-    if (!focusTarget) return;
-    try {
-      focusTarget.focus({ preventScroll: true });
-    } catch (error) {
-      focusTarget.focus();
-    }
-  });
+  if (node.kind === 'text') {
+    guideInsertMenu.classList.add('is-direct');
+    openGuideInsertVariablePanel();
+  } else {
+    guideInsertMenu.classList.remove('is-direct');
+    showGuideInsertRoot();
+    requestAnimationFrame(() => {
+      positionGuideInsertMenu();
+      const focusTarget = guideInsertStoredInfoBtn || guideInsertLinkBtn;
+      if (!focusTarget) return;
+      try {
+        focusTarget.focus({ preventScroll: true });
+      } catch (error) {
+        focusTarget.focus();
+      }
+    });
+  }
 }
 
 function toggleGuideInsertMenu() {
@@ -12631,7 +12682,11 @@ function applyInspectorPosition() {
 function getObjectInspectorHeading(node, link) {
   if (link) return 'CONNECTION DETAILS';
   if (!node) return 'OBJECT DETAILS';
-  if (node.type === 'bubble') return 'GUIDE MSG DETAILS';
+  if (node.type === 'bubble') {
+    if (node.kind === 'image') return 'GUIDE IMAGE DETAILS';
+    if (node.kind === 'text') return 'GUIDE TEXT DETAILS';
+    return 'GUIDE MSG DETAILS';
+  }
   if (node.type === 'reply') return 'PLAYER MSG DETAILS';
   if (node.type === 'stop') return 'WAYPOINT DETAILS';
   if (node.type === 'button') return 'BUTTON DETAILS';
@@ -13099,6 +13154,124 @@ function syncSelectedGameGuideImageFromInput() {
   return true;
 }
 
+function getCurrentBubbleImageUrl(node) {
+  if (!node || node.type !== 'bubble') return '';
+  return String(node.body || '').trim();
+}
+
+function setBubbleImageAssetStatus(message) {
+  const nextMessage = String(message || '').trim();
+  const hasError = !!nextMessage;
+  if (objectBubbleImageAssetStatus) {
+    objectBubbleImageAssetStatus.textContent = hasError ? nextMessage : '';
+    objectBubbleImageAssetStatus.hidden = !hasError;
+    objectBubbleImageAssetStatus.classList.toggle('is-error', hasError);
+  }
+}
+
+function setBubbleImageOnlineMenuOpen(isOpen) {
+  const shouldOpen = !!isOpen;
+  if (objectBubbleImageOnlineMenu) objectBubbleImageOnlineMenu.hidden = !shouldOpen;
+  if (objectBubbleImageOnlinePickBtn) objectBubbleImageOnlinePickBtn.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+}
+
+function populateBubbleImageOnlineMenu(assets) {
+  if (!objectBubbleImageOnlineList) return;
+  const currentFileName = normalizeAssetFileName(getCurrentBubbleImageUrl(getNode(state.selectedId)));
+  objectBubbleImageOnlineList.innerHTML = '';
+  assets.forEach((asset) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'guide-image-asset-item' + (normalizeAssetFileName(asset.url) === currentFileName ? ' is-selected' : '');
+    item.setAttribute('data-asset-url', asset.url);
+    const thumb = document.createElement('img');
+    thumb.className = 'guide-image-asset-thumb';
+    thumb.src = asset.url;
+    thumb.alt = '';
+    thumb.setAttribute('aria-hidden', 'true');
+    const name = document.createElement('span');
+    name.className = 'guide-image-asset-name';
+    name.textContent = asset.name || asset.url;
+    item.appendChild(thumb);
+    item.appendChild(name);
+    objectBubbleImageOnlineList.appendChild(item);
+  });
+  setBubbleImageOnlineMenuOpen(!!assets.length);
+}
+
+function syncSelectedBubbleImageFromInput() {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'bubble' || node.kind !== 'image' || !objectBubbleImageInput) return false;
+  const nextValue = String(objectBubbleImageInput.value || '');
+  if ((node.body || '') === nextValue) return false;
+  node.body = nextValue;
+  return true;
+}
+
+function updateBubbleImagePreview(node) {
+  const imageUrl = getCurrentBubbleImageUrl(node);
+  const hasImage = !!imageUrl;
+  if (objectBubbleImageThumbBtn) {
+    objectBubbleImageThumbBtn.disabled = !hasImage;
+    objectBubbleImageThumbBtn.classList.toggle('is-empty', !hasImage);
+    objectBubbleImageThumbBtn.classList.remove('is-broken');
+    objectBubbleImageThumbBtn.setAttribute('aria-label', hasImage ? 'Open image preview' : 'No image selected');
+  }
+  if (!hasImage) {
+    if (objectBubbleImageThumbImage) objectBubbleImageThumbImage.hidden = true;
+    if (objectBubbleImageThumbPlaceholder) objectBubbleImageThumbPlaceholder.hidden = false;
+    return;
+  }
+  if (objectBubbleImageThumbImage) {
+    objectBubbleImageThumbImage.hidden = false;
+    objectBubbleImageThumbImage.src = imageUrl;
+  }
+  if (objectBubbleImageThumbPlaceholder) objectBubbleImageThumbPlaceholder.hidden = true;
+}
+
+async function openBubbleImageOnlinePicker(forceRefresh = false) {
+  if (!objectBubbleImageOnlinePickBtn || !objectBubbleImageOnlineMenu || !objectBubbleImageOnlineList || !objectBubbleImageInput || objectBubbleImageInput.disabled) return false;
+  if (!forceRefresh && !objectBubbleImageOnlineMenu.hidden) {
+    setBubbleImageOnlineMenuOpen(false);
+    return true;
+  }
+  setBubbleImageAssetStatus('');
+  objectBubbleImageOnlinePickBtn.disabled = true;
+  objectBubbleImageOnlinePickBtn.textContent = 'Loading';
+  try {
+    const assets = await fetchPublishedGameLogoAssets(forceRefresh);
+    populateBubbleImageOnlineMenu(assets);
+    const firstItem = objectBubbleImageOnlineList.querySelector('.guide-image-asset-item');
+    if (firstItem) firstItem.focus();
+  } catch (error) {
+    setBubbleImageOnlineMenuOpen(false);
+    setBubbleImageAssetStatus(GUIDE_IMAGE_ONLINE_ASSET_ERROR_MESSAGE);
+    return false;
+  } finally {
+    objectBubbleImageOnlinePickBtn.disabled = !objectBubbleImageInput || !!objectBubbleImageInput.disabled;
+    objectBubbleImageOnlinePickBtn.textContent = 'Uploaded';
+  }
+  return true;
+}
+
+async function applyPublishedBubbleImageUrl(url) {
+  const node = getNode(state.selectedId);
+  if (!node || node.type !== 'bubble' || node.kind !== 'image' || !objectBubbleImageInput) return false;
+  const nextUrl = String(url || '').trim();
+  if (!nextUrl) return false;
+  const existsOnline = await probeImageUrl(nextUrl);
+  if (!existsOnline) {
+    setBubbleImageAssetStatus(GUIDE_IMAGE_ASSET_NOT_FOUND_MESSAGE);
+    return false;
+  }
+  objectBubbleImageInput.value = nextUrl;
+  setBubbleImageAssetStatus('');
+  syncSelectedBubbleImageFromInput();
+  updateBubbleImagePreview(node);
+  renderAll();
+  return true;
+}
+
 function refreshInspectorWindowUi() {
   if (!inspector) return;
   const node = getNode(state.selectedId);
@@ -13215,7 +13388,10 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     buttonUrl: raw && typeof raw.buttonUrl === 'string' ? raw.buttonUrl : '',
     tertiaryColor: raw && typeof raw.tertiaryColor === 'string' ? raw.tertiaryColor : '',
     rotation: normalizeNodeRotation(raw && raw.rotation, type),
-    orderIndex: normalizeNodeOrderIndex(raw && raw.orderIndex)
+    orderIndex: normalizeNodeOrderIndex(raw && raw.orderIndex),
+    kind: type === 'bubble'
+      ? (raw && typeof raw.kind === 'string' && raw.kind ? raw.kind : 'text')
+      : ''
   };
 }
 
@@ -14290,7 +14466,8 @@ function createNode(type, x, y) {
     anytime: false,
     anytimePairId: '',
     rotation: 0,
-    orderIndex: nextOrderIndex
+    orderIndex: nextOrderIndex,
+    kind: ''
   };
 }
 
@@ -16099,7 +16276,8 @@ function updateObjectInspectorUi(node, link, copyText) {
   const isGuideNode = !!node && node.type === 'bubble';
   const isButtonNode = !!node && node.type === 'button';
   const isLinkSelected = !!link;
-  const BODY_LABELS = { stop: 'NOTES', bubble: 'GUIDE MESSAGE (OUTGOING STATEMENT OR QUESTION)', reply: 'PLAYER MESSAGE' };
+  const isImageBubble = isGuideNode && node.kind === 'image';
+  const BODY_LABELS = { stop: 'NOTES', bubble: 'GUIDE TEXT', reply: 'PLAYER MESSAGE' };
 
   if (objectInspectorCopy) objectInspectorCopy.textContent = copyText || '';
   if (objectStopNameField) objectStopNameField.hidden = isLinkSelected || !isStopNode;
@@ -16107,13 +16285,21 @@ function updateObjectInspectorUi(node, link, copyText) {
   if (objectVarNameField) objectVarNameField.hidden = isLinkSelected || !isReplyNode;
   if (objectButtonNameField) objectButtonNameField.hidden = isLinkSelected || !isButtonNode;
   if (objectButtonTargetField) objectButtonTargetField.hidden = isLinkSelected || !isButtonNode;
-  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node || isButtonNode;
+  if (objectBubbleImageField) objectBubbleImageField.hidden = !isImageBubble;
+  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node || isButtonNode || isImageBubble;
   if (objectBodyLabel) {
     objectBodyLabel.textContent = node
-      ? (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'NOTES'))
+      ? (isImageBubble ? 'IMAGE ADDRESS' : (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'NOTES')))
       : 'NOTES';
   }
-  if (nodeBodyHtmlNote) nodeBodyHtmlNote.hidden = !(node && node.type === 'bubble');
+  if (nodeBodyHtmlNote) {
+    nodeBodyHtmlNote.hidden = !(node && node.type === 'bubble') || isImageBubble;
+    if (node && node.kind === 'text') {
+      nodeBodyHtmlNote.textContent = 'HTML OK. Use INSERT STORED INFO to insert previously stored info.';
+    } else {
+      nodeBodyHtmlNote.textContent = 'HTML OK.';
+    }
+  }
   if (objectBodyInfo) objectBodyInfo.hidden = !isStopNode || isLinkSelected;
 
   if (objectStopNameInput) {
@@ -16144,14 +16330,27 @@ function updateObjectInspectorUi(node, link, copyText) {
       objectBodyInput.value = node ? (node.body || '') : '';
     }
     objectBodyInput.placeholder = '';
+    objectBodyInput.rows = isImageBubble ? 1 : null;
+    objectBodyInput.style.resize = isImageBubble ? 'none' : '';
   }
+  if (objectBubbleImageInput) {
+    objectBubbleImageInput.disabled = !isImageBubble;
+    if (document.activeElement !== objectBubbleImageInput) {
+      objectBubbleImageInput.value = isImageBubble ? (node.body || '') : '';
+    }
+  }
+  if (objectBubbleImageOnlinePickBtn) objectBubbleImageOnlinePickBtn.disabled = !isImageBubble;
+  if (!isImageBubble) setBubbleImageOnlineMenuOpen(false);
+  setBubbleImageAssetStatus('');
+  updateBubbleImagePreview(isImageBubble ? node : null);
   refreshReplyBodyHint();
   if (!node || node.type !== 'bubble' || document.activeElement !== objectBodyInput) {
     closeVariableAutocomplete();
   }
   if (objectInsertBtn) {
-    objectInsertBtn.hidden = isLinkSelected || !isGuideNode;
-    objectInsertBtn.disabled = isLinkSelected || !isGuideNode;
+    objectInsertBtn.hidden = isLinkSelected || !isGuideNode || isImageBubble;
+    objectInsertBtn.disabled = isLinkSelected || !isGuideNode || isImageBubble;
+    objectInsertBtn.textContent = (node && node.kind === 'text') ? 'Insert Stored Info' : 'Insert';
   }
   if (isLinkSelected || !isGuideNode) {
     closeGuideInsertMenu({ restoreFocus: false });
@@ -16723,6 +16922,7 @@ function addNode(type, x, y, options = {}) {
 
   const sourceNode = getAutoLinkSourceNode();
   const node = createNode(type, x, y);
+  if (options.kind) node.kind = options.kind;
   if (type === 'game') {
     const slot = getGameHomeSlot();
     node.x = slot.x;
@@ -16904,9 +17104,9 @@ function syncReplyModeInputs(node) {
   if (objectReplyModeField) objectReplyModeField.hidden = !isReplyNode;
   if (objectReplyTimingField) objectReplyTimingField.hidden = !(isReplyNode && !isLegacyAnytimeReply && mode === 'normal');
   if (objectBodyAnswerNote) objectBodyAnswerNote.hidden = !(isReplyNode && mode === 'normal');
-  if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble');
+  if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble') || (node && node.kind === 'image');
   const isButtonNode = !!node && node.type === 'button';
-  if (objectDescriptionField) objectDescriptionField.hidden = isButtonNode || (isReplyNode && mode === 'anyanswer');
+  if (objectDescriptionField) objectDescriptionField.hidden = isButtonNode || (isReplyNode && mode === 'anyanswer') || (node && node.type === 'bubble' && node.kind === 'image');
 
   [
     [objectReplyModeNormalInput, 'normal'],
@@ -17019,7 +17219,7 @@ function removeSelectedLink() {
   renderAll();
 }
 
-function startStencilDrag(type, event) {
+function startStencilDrag(type, event, kind = '') {
   if (type === 'game' && hasGameNode()) {
     return;
   }
@@ -17054,16 +17254,18 @@ function startStencilDrag(type, event) {
 
   state.stencilDrag = {
     type,
+    kind,
     ghostEl: ghost
   };
   viewport.classList.add('drop-ready');
 }
 
-function startStencilPress(type, event) {
+function startStencilPress(type, event, kind = '') {
   if (!TYPE_CONFIG[type]) return;
   if (type === 'game' && hasGameNode()) return;
   state.stencilPress = {
     type,
+    kind,
     pointerId: event.pointerId,
     startClientX: event.clientX,
     startClientY: event.clientY
@@ -17079,7 +17281,7 @@ function maybeStartStencilDrag(event) {
     || Math.abs(event.clientY - press.startClientY) >= STENCIL_DRAG_START_DISTANCE;
   if (!movedEnough) return;
   state.stencilPress = null;
-  startStencilDrag(press.type, event);
+  startStencilDrag(press.type, event, press.kind || '');
 }
 
 function stopStencilDrag(clientX, clientY) {
@@ -17089,7 +17291,7 @@ function stopStencilDrag(clientX, clientY) {
 
   if (point.inside) {
     const config = TYPE_CONFIG[drag.type];
-    addNode(drag.type, point.x - config.width / 2, point.y - config.height / 2);
+    addNode(drag.type, point.x - config.width / 2, point.y - config.height / 2, { kind: drag.kind || '' });
   }
 
   drag.ghostEl.remove();
@@ -17233,7 +17435,7 @@ function insertWaypointLibraryEntry(entryId) {
   return firstInsertedNode;
 }
 
-function addNodeToVisiblePhone(type) {
+function addNodeToVisiblePhone(type, kind = '') {
   if (!hasGameNode()) return null;
   const sourceNode = getAutoLinkSourceNode();
   const placement = getAutoPlacementPosition(type, sourceNode);
@@ -17241,7 +17443,7 @@ function addNodeToVisiblePhone(type) {
     type,
     placement.x,
     placement.y,
-    { skipMajorSnap: true }
+    { skipMajorSnap: true, kind }
   );
 }
 
@@ -17898,12 +18100,12 @@ if (addPanel) {
       if (event.button !== 0) return;
       event.preventDefault();
       clearStencilPress();
-      startStencilPress(button.dataset.addStencil, event);
+      startStencilPress(button.dataset.addStencil, event, button.dataset.addKind || '');
     });
 
     button.addEventListener('pointerup', (event) => {
       if (event.button !== 0) return;
-      if (state.stencilPress) addNodeToVisiblePhone(button.dataset.addStencil);
+      if (state.stencilPress) addNodeToVisiblePhone(button.dataset.addStencil, button.dataset.addKind || '');
     });
   });
 }
@@ -18241,7 +18443,79 @@ document.addEventListener('click', (event) => {
   if (guideImageOnlineMenu && !guideImageOnlineMenu.hidden && guideImageField && !guideImageField.contains(target)) {
     setGuideImageOnlineMenuOpen(false);
   }
+  if (objectBubbleImageOnlineMenu && !objectBubbleImageOnlineMenu.hidden && objectBubbleImageField && !objectBubbleImageField.contains(target)) {
+    setBubbleImageOnlineMenuOpen(false);
+  }
 });
+
+if (objectBubbleImageInput) {
+  objectBubbleImageInput.addEventListener('input', () => {
+    setBubbleImageAssetStatus('');
+    syncSelectedBubbleImageFromInput();
+    const node = getNode(state.selectedId);
+    updateBubbleImagePreview(node);
+    renderAll();
+  });
+  objectBubbleImageInput.addEventListener('change', () => {
+    setBubbleImageAssetStatus('');
+    syncSelectedBubbleImageFromInput();
+    const node = getNode(state.selectedId);
+    updateBubbleImagePreview(node);
+    renderAll();
+  });
+}
+
+if (objectBubbleImageOnlinePickBtn && objectBubbleImageOnlineList) {
+  objectBubbleImageOnlinePickBtn.addEventListener('click', async () => {
+    if (objectBubbleImageOnlinePickBtn.disabled) return;
+    await openBubbleImageOnlinePicker(false);
+  });
+  objectBubbleImageOnlineList.addEventListener('click', async (event) => {
+    const assetItem = event.target instanceof Element ? event.target.closest('.guide-image-asset-item') : null;
+    const nextUrl = assetItem ? String(assetItem.getAttribute('data-asset-url') || '').trim() : '';
+    if (!nextUrl) return;
+    const applied = await applyPublishedBubbleImageUrl(nextUrl);
+    if (applied) setBubbleImageOnlineMenuOpen(false);
+  });
+}
+
+if (objectBubbleImageThumbImage) {
+  objectBubbleImageThumbImage.addEventListener('error', () => {
+    if (objectBubbleImageThumbBtn) {
+      objectBubbleImageThumbBtn.disabled = true;
+      objectBubbleImageThumbBtn.classList.add('is-broken');
+    }
+    objectBubbleImageThumbImage.hidden = true;
+    if (objectBubbleImageThumbPlaceholder) {
+      objectBubbleImageThumbPlaceholder.hidden = false;
+      objectBubbleImageThumbPlaceholder.textContent = 'Bad image';
+    }
+  });
+  objectBubbleImageThumbImage.addEventListener('load', () => {
+    const node = getNode(state.selectedId);
+    if (objectBubbleImageThumbBtn) {
+      objectBubbleImageThumbBtn.disabled = !getCurrentBubbleImageUrl(node);
+      objectBubbleImageThumbBtn.classList.remove('is-broken');
+    }
+    objectBubbleImageThumbImage.hidden = false;
+    if (objectBubbleImageThumbPlaceholder) objectBubbleImageThumbPlaceholder.hidden = true;
+  });
+}
+
+if (objectBubbleImageThumbBtn) {
+  objectBubbleImageThumbBtn.addEventListener('click', () => {
+    const node = getNode(state.selectedId);
+    const url = getCurrentBubbleImageUrl(node);
+    if (!url || !guideImageLightboxBackdrop || !guideImageLightboxImage) return;
+    state.guideImageLightboxPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    guideImageLightboxImage.src = url;
+    guideImageLightboxBackdrop.hidden = false;
+    document.body.classList.add('guide-image-lightbox-open');
+    if (guideImageLightboxCloseBtn) {
+      try { guideImageLightboxCloseBtn.focus({ preventScroll: true }); } catch (e) { guideImageLightboxCloseBtn.focus(); }
+    }
+  });
+}
 
 nodeGuideImageInput.addEventListener('input', () => {
   setGuideImageAssetStatus('');
@@ -19157,9 +19431,27 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (!isTyping && isLetterShortcut(event, 'KeyG')) {
+  if (!isTyping && isLetterShortcut(event, 'KeyT')) {
     event.preventDefault();
-    addNodeToVisiblePhone('bubble');
+    addNodeToVisiblePhone('bubble', 'text');
+    return;
+  }
+
+  if (!isTyping && isLetterShortcut(event, 'KeyI')) {
+    event.preventDefault();
+    addNodeToVisiblePhone('bubble', 'image');
+    return;
+  }
+
+  if (!isTyping && isLetterShortcut(event, 'KeyV')) {
+    event.preventDefault();
+    addNodeToVisiblePhone('bubble', 'video');
+    return;
+  }
+
+  if (!isTyping && isLetterShortcut(event, 'KeyL')) {
+    event.preventDefault();
+    addNodeToVisiblePhone('bubble', 'link');
     return;
   }
 
