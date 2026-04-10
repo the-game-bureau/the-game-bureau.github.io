@@ -6522,7 +6522,7 @@ body.builder-page--editor .inspector-windowinfo{
   width:16px;
   height:16px;
   font-size:.58rem;
-  color:inherit;
+  color:var(--game-quaternary, #243256);
   opacity:.88;
 }
 
@@ -15728,6 +15728,21 @@ function getEditorLaunchIntent() {
   }
 }
 
+let builderInitialized = false;
+
+function syncGameIdToUrl() {
+  if (!builderInitialized) return;
+  try {
+    const url = new URL(location.href);
+    if (state.currentGameId) {
+      url.searchParams.set('id', state.currentGameId);
+    } else {
+      url.searchParams.delete('id');
+    }
+    history.replaceState(null, '', url.pathname + url.search + url.hash);
+  } catch (e) {}
+}
+
 function clearEditorLaunchIntent() {
   try {
     sessionStorage.removeItem(EDITOR_LAUNCH_INTENT_KEY);
@@ -17006,6 +17021,7 @@ function updateObjectInspectorUi(node, link, copyText) {
 }
 
 function updateSelectionUi(options = {}) {
+  syncGameIdToUrl();
   const skipRecoverySync = !!options.skipRecoverySync;
   const selectedNode = getNode(state.selectedId);
   const selectedLink = getLink(state.selectedLinkId);
@@ -18711,14 +18727,37 @@ async function loadDoc() {
       seedPhone({ preserveRecovery: true });
       return;
     }
-    // Temporary default: load by ID
-    const defaultGame = await loadGameFromSupabase('dealertire');
-    if (defaultGame) {
-      clearRecoveryDraft();
-      state.store = buildStoreFromGames([defaultGame]);
-      openSavedGame(defaultGame.id, { updateUrl: false });
-      return;
+    // Default: try last opened game from localStorage, then most recently updated from Supabase
+    const lastOpenedId = String(localStorage.getItem(LOCAL_OPEN_GAME_KEY) || '').trim();
+    if (lastOpenedId) {
+      const lastGame = await loadGameFromSupabase(lastOpenedId);
+      if (lastGame) {
+        clearRecoveryDraft();
+        state.store = buildStoreFromGames([lastGame]);
+        openSavedGame(lastGame.id, { updateUrl: false });
+        return;
+      }
     }
+    // Fall back to most recently updated game
+    try {
+      const recentSelect = buildGamesSelectColumns(['id', 'name', 'city', 'primary_color', 'secondary_color', 'featured', 'archived', 'erased', 'nodes', 'links', 'created_at', 'updated_at']);
+      const recentResponse = await fetch(buildSupabaseUrl({ select: recentSelect, order: 'updated_at.desc', limit: '1' }), {
+        cache: 'no-store',
+        headers: getSupabaseHeaders({ Accept: 'application/json' })
+      });
+      if (recentResponse.ok) {
+        const recentRows = await recentResponse.json();
+        if (Array.isArray(recentRows) && recentRows.length > 0) {
+          const recentGame = normalizeGameRow(recentRows[0], 0);
+          if (recentGame) {
+            clearRecoveryDraft();
+            state.store = buildStoreFromGames([recentGame]);
+            openSavedGame(recentGame.id, { updateUrl: false });
+            return;
+          }
+        }
+      }
+    } catch (e) {}
     showGameshelfHome();
     setHeaderOnlyMode(true);
     return;
@@ -20495,6 +20534,8 @@ async function initializeBuilder() {
   applyZoom();
   setGameDetailsCollapsed(false);
   await loadDoc();
+  builderInitialized = true;
+  syncGameIdToUrl();
   await refreshHeaderGames();
   await mergeAllGameTagsToSupabase().catch(err => console.warn('Failed to merge game tags to Supabase:', err));
   await refreshWaypointLibrary();
