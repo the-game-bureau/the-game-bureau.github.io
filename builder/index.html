@@ -2493,8 +2493,8 @@ code{font-family:"IBM Plex Mono",monospace;}
 /* â”€â”€ Bubble â”€â”€ */
 .node--bubble{width:108px;height:108px;}
 .node--bubble .node-card{
-  --bubble-fill:#7ca2b8;
-  --bubble-stroke:#4c7185;
+  --bubble-fill:#005a87;
+  --bubble-stroke:#003d5e;
   border-radius:18px;
   background:transparent;
   overflow:visible;
@@ -3035,7 +3035,7 @@ code{font-family:"IBM Plex Mono",monospace;}
 .tag-delete-btn:hover{background:rgba(180,30,30,.4);border-color:rgba(255,120,120,.5);color:#ffb3b3;}
 .tag-delete-btn:disabled{opacity:.42;cursor:not-allowed;}
 
-.team-names-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;}
+.team-names-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;}
 
 #nodeTagNewInput{
   min-width:0;
@@ -4493,8 +4493,12 @@ code{font-family:"IBM Plex Mono",monospace;}
   font-weight:700;
   text-decoration:underline;
   text-underline-offset:2px;
-  word-break:break-all;
+  word-break:break-word;
+  cursor:pointer;
 }
+
+.node--bubble{cursor:grab;}
+.node--bubble.dragging{cursor:grabbing;}
 
 /* Image inserts in text bubble messages (HTML img tags in body) */
 .node--bubble:not(.node-kind--image) .node-title img{
@@ -4555,6 +4559,7 @@ code{font-family:"IBM Plex Mono",monospace;}
   width:100%;
   border-radius:22px 22px 22px 6px;
   margin:0;
+  pointer-events:none;
 }
 .node-kind--video .node-title video{
   height:auto;
@@ -4614,6 +4619,11 @@ code{font-family:"IBM Plex Mono",monospace;}
 
 .node-shell.node--reply:hover .node-card{
   filter:none;
+}
+
+.node-shell.selected.node--reply .node-card,
+.node-shell.connect-target.node--reply .node-card{
+  box-shadow:0 0 0 3px rgba(255,255,255,.9);
 }
 
 .node--reply .node-title,
@@ -5789,10 +5799,10 @@ body.builder-page--editor .games-page-hero{
   margin:0 0 16px;
   column-gap:20px;
   row-gap:0;
-  padding:0;
-  border-radius:0;
-  background:transparent;
-  border:none;
+  padding:8px 10px;
+  border-radius:12px;
+  background:rgba(var(--bic-blue-rgb), .2);
+  border:1px solid rgba(var(--bic-blue-rgb), .16);
   backdrop-filter:none;
   overflow:visible;
   color:var(--bic-blue);
@@ -5964,10 +5974,10 @@ body.builder-page--editor .game-picker-select-wrap{
   min-height:42px;
   border:none;
   border-radius:10px;
-  background:rgba(255,255,255,.28);
+  background:rgba(255,255,255,.55);
   color:var(--bic-blue);
-  border:1px solid rgba(var(--bic-blue-rgb), .42);
-  box-shadow:0 4px 12px rgba(var(--bic-blue-rgb), .18), inset 0 0 0 1px rgba(255,255,255,.55);
+  border:1px solid rgba(255,255,255,.3);
+  box-shadow:none;
   transition:background-color .14s ease, box-shadow .14s ease, opacity .14s ease;
 }
 
@@ -6138,6 +6148,10 @@ body.builder-page--editor .add-btn:active:not(:disabled){
 body.builder-page--editor .add-btn:disabled{
   opacity:.35;
   cursor:not-allowed;
+}
+
+body.builder-page--editor .add-btn-label{
+  white-space:nowrap;
 }
 
 body.builder-page--editor .add-btn-key{
@@ -8572,7 +8586,7 @@ body.builder-auth-ready .builder-auth-signout{
                   <div class="details-section-title">Guide</div>
                   <div class="details-section-grid details-section-grid--guide">
                     <div class="field" id="guideNameField">
-                      <label class="field-label" for="nodeGuideNameInput">Guide Name</label>
+                      <label class="field-label field-label--with-meta" for="nodeGuideNameInput">Guide Name<span class="field-info" tabindex="0" role="note" aria-label="The narrator of the game.">i<span class="field-tooltip" role="tooltip">The narrator of the game.</span></span></label>
                       <input id="nodeGuideNameInput" type="text" autocomplete="off" disabled>
                     </div>
 
@@ -9551,8 +9565,8 @@ const PHONE_COMPOSER_HEIGHT = 84;
 const PHONE_THREAD_SIDE_PADDING = 28;
 const PHONE_THREAD_TOP_GAP = 28;
 const PHONE_THREAD_BOTTOM_PADDING = 110;
-const PHONE_ROW_GAP = 20;
-const PHONE_BRANCH_GAP = 14;
+const PHONE_ROW_GAP = 24;
+const PHONE_BRANCH_GAP = 24;
 const PHONE_MIN_DEVICE_HEIGHT = 980;
 const PHONE_STENCIL_TRAY_GAP = 18;
 const PHONE_STENCIL_TRAY_HEIGHT = 104;
@@ -13767,7 +13781,8 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     orderIndex: normalizeNodeOrderIndex(raw && raw.orderIndex),
     kind: type === 'bubble'
       ? (raw && typeof raw.kind === 'string' && raw.kind ? raw.kind : 'text')
-      : ''
+      : '',
+    linkUrl: type === 'bubble' ? (raw && typeof raw.linkUrl === 'string' ? raw.linkUrl : '') : ''
   };
 }
 
@@ -16443,9 +16458,27 @@ function attachNodeEvents(el, node) {
     }
   });
 
+  if (node.type === 'bubble' && node.kind === 'link') {
+    el.addEventListener('pointerup', (event) => {
+      if (event.button !== 0) return;
+      if (!event.target.closest('.node-link-preview')) return;
+      if (state.dragNode && state.dragNode.moved) return;
+      const url = String(node.linkUrl || '').trim();
+      if (url) window.open(url, '_blank', 'noopener');
+    });
+  }
+
   el.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     if (event.target.closest('.node-port')) return;
+    if (node.type === 'bubble' && node.kind === 'link' && event.target.closest('.node-link-preview')) {
+      event.preventDefault();
+      selectNode(node.id);
+      renderSelectionStates();
+      drawLinks();
+      updateSelectionUi();
+      return;
+    }
     const editableTitleClicked = node.type === 'game' && !!event.target.closest('.node-title');
     closeNodeContextMenu();
     if (node.type === 'game' || editableTitleClicked) {
@@ -17868,9 +17901,19 @@ function stopStencilDrag(clientX, clientY) {
 
   if (point.inside) {
     const config = TYPE_CONFIG[drag.type];
-    addNode(drag.type, point.x - config.width / 2, point.y - config.height / 2, { kind: drag.kind || '' });
+    if (THREAD_LAYOUT_ENABLED && state.dropSlot) {
+      const slot = state.dropSlot;
+      const sourceNode = getAutoLinkSourceNode();
+      const placement = getAutoPlacementPosition(drag.type, sourceNode);
+      const node = addNode(drag.type, placement.x, Math.round(slot.sortY), { kind: drag.kind || '', skipMajorSnap: true });
+      if (node) reorderPhoneThreadNode(node.id, slot.insertIndex);
+    } else {
+      addNode(drag.type, point.x - config.width / 2, point.y - config.height / 2, { kind: drag.kind || '' });
+    }
   }
 
+  hideBubbleDropLine();
+  state.dropSlot = null;
   drag.ghostEl.remove();
   state.stencilDrag = null;
   viewport.classList.remove('drop-ready');
@@ -19924,6 +19967,15 @@ window.addEventListener('pointermove', (event) => {
     positionGhost(state.stencilDrag.ghostEl, event.clientX, event.clientY);
     const point = phonePointFromClient(event.clientX, event.clientY);
     viewport.classList.toggle('drop-ready', point.inside);
+    if (THREAD_LAYOUT_ENABLED && point.inside) {
+      const dropSlot = getNearestPhoneDropSlot(point.y);
+      state.dropSlot = dropSlot;
+      if (dropSlot) showBubbleDropLine(dropSlot);
+      else hideBubbleDropLine();
+    } else {
+      state.dropSlot = null;
+      hideBubbleDropLine();
+    }
     maybeAutoPan(event.clientX, event.clientY);
   }
 
@@ -20079,6 +20131,7 @@ window.addEventListener('pointerup', (event) => {
       if (el) el.style.removeProperty('--drag-tilt');
       hideBubbleDropLine();
       state.dropSlot = null;
+      state.lastDragMoved = dragState.moved;
       state.dragNode = null;
       state.dockTargetId = null;
       if (dragState.moved) renderAll();
@@ -20094,6 +20147,7 @@ window.addEventListener('pointerup', (event) => {
       }
       if (node) layoutOutgoingSubtree(node.id);
     }
+    state.lastDragMoved = dragState.moved;
     state.dragNode = null;
     state.dockTargetId = null;
     if (dragState.moved) renderAll();
@@ -20401,9 +20455,9 @@ function positionFieldTooltip(info) {
   const gap = 8;
   let left = rect.left + rect.width / 2 - layerRect.width / 2;
   left = Math.max(gap, Math.min(left, window.innerWidth - layerRect.width - gap));
-  let top = rect.bottom + gap;
-  if (top + layerRect.height > window.innerHeight - gap) {
-    top = Math.max(gap, rect.top - layerRect.height - gap);
+  let top = rect.top - layerRect.height - gap;
+  if (top < gap) {
+    top = rect.bottom + gap;
   }
   fieldTooltipLayer.style.left = Math.round(left) + 'px';
   fieldTooltipLayer.style.top = Math.round(top) + 'px';
