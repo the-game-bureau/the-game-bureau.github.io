@@ -4487,13 +4487,28 @@ code{font-family:"IBM Plex Mono",monospace;}
   box-shadow:0 0 0 3px rgba(0,0,0,.12);
 }
 
+/* CTA bubble preview */
+.node-cta-preview{
+  display:block;
+  width:100%;
+  padding:10px 16px;
+  border-radius:14px;
+  background:var(--game-primary, #0b93f6);
+  color:var(--game-quaternary, #ffffff);
+  font-weight:700;
+  font-size:.95rem;
+  text-align:center;
+  box-sizing:border-box;
+  cursor:pointer;
+}
+
 /* Link bubble preview */
 .node-link-preview{
   color:#0b93f6;
   font-weight:700;
   text-decoration:underline;
   text-underline-offset:2px;
-  word-break:break-word;
+  overflow-wrap:break-word;
   cursor:pointer;
 }
 
@@ -4589,6 +4604,7 @@ code{font-family:"IBM Plex Mono",monospace;}
   background:#0b93f6;
   border-radius:28px 28px 10px 28px;
   box-shadow:none;
+  justify-content:center;
 }
 
 .node--reply .node-card::before{
@@ -8770,6 +8786,10 @@ body.builder-auth-ready .builder-auth-signout{
                 <span class="add-btn-label">GUIDE LINK</span>
                 <span class="add-btn-key">L</span>
               </button>
+              <button class="add-btn add-btn--bubble" data-add-stencil="bubble" data-add-kind="cta" type="button" disabled aria-label="Add guide button message">
+                <span class="add-btn-label">GUIDE BUTTON</span>
+                <span class="add-btn-key">B</span>
+              </button>
               <button class="add-btn add-btn--reply" data-add-stencil="reply" type="button" disabled aria-label="Add player message">
                 <span class="add-btn-label">PLAYER REPLY</span>
                 <span class="add-btn-key">P</span>
@@ -8932,7 +8952,17 @@ body.builder-auth-ready .builder-auth-signout{
 
                 <div class="field" id="objectBubbleLinkUrlField" hidden>
                   <label class="field-label" for="objectBubbleLinkUrlInput">LINK ADDRESS</label>
-                  <input id="objectBubbleLinkUrlInput" type="text" placeholder="https://..." autocomplete="off" disabled>
+                  <input id="objectBubbleLinkUrlInput" type="text" autocomplete="off" disabled>
+                </div>
+
+                <div class="field" id="objectBubbleCtaTextField" hidden>
+                  <label class="field-label" for="objectBubbleCtaTextInput">BUTTON TEXT</label>
+                  <input id="objectBubbleCtaTextInput" type="text" autocomplete="off" disabled>
+                </div>
+
+                <div class="field" id="objectBubbleCtaUrlField" hidden>
+                  <label class="field-label" for="objectBubbleCtaUrlInput">BUTTON ADDRESS</label>
+                  <input id="objectBubbleCtaUrlInput" type="text" autocomplete="off" disabled>
                 </div>
 
                 <div class="field" id="objectDescriptionField" hidden>
@@ -10729,6 +10759,10 @@ const objectBubbleVideoInput = document.getElementById('objectBubbleVideoInput')
 const objectBubbleLinkTextField = document.getElementById('objectBubbleLinkTextField');
 const objectBubbleLinkTextInput = document.getElementById('objectBubbleLinkTextInput');
 const objectBubbleLinkUrlField = document.getElementById('objectBubbleLinkUrlField');
+const objectBubbleCtaTextField = document.getElementById('objectBubbleCtaTextField');
+const objectBubbleCtaTextInput = document.getElementById('objectBubbleCtaTextInput');
+const objectBubbleCtaUrlField = document.getElementById('objectBubbleCtaUrlField');
+const objectBubbleCtaUrlInput = document.getElementById('objectBubbleCtaUrlInput');
 const objectBubbleLinkUrlInput = document.getElementById('objectBubbleLinkUrlInput');
 const objectBubbleImageThumbBtn = document.getElementById('objectBubbleImageThumbBtn');
 const objectBubbleImageThumbImage = document.getElementById('objectBubbleImageThumbImage');
@@ -11560,6 +11594,7 @@ function buildLocalGameDescription(gameNode) {
 function getNodeKicker(node) {
   if (!node) return '';
   if (node.type === 'bubble' && node.kind) {
+    if (node.kind === 'cta') return 'GUIDE BUTTON';
     return 'GUIDE ' + node.kind.toUpperCase();
   }
   return TYPE_CONFIG[node.type]?.kicker || '';
@@ -11790,8 +11825,18 @@ function summarizePhoneText(value, maxLength = 120) {
 }
 
 let phoneTextMeasureContext = null;
+let phoneTextMeasureContextBold = null;
 
-function getPhoneTextMeasureContext() {
+function getPhoneTextMeasureContext(bold = false) {
+  if (bold) {
+    if (phoneTextMeasureContextBold || typeof document === 'undefined') return phoneTextMeasureContextBold;
+    const canvas = document.createElement('canvas');
+    phoneTextMeasureContextBold = canvas.getContext('2d');
+    if (phoneTextMeasureContextBold) {
+      phoneTextMeasureContextBold.font = '700 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    }
+    return phoneTextMeasureContextBold;
+  }
   if (phoneTextMeasureContext || typeof document === 'undefined') return phoneTextMeasureContext;
   const canvas = document.createElement('canvas');
   phoneTextMeasureContext = canvas.getContext('2d');
@@ -11801,20 +11846,20 @@ function getPhoneTextMeasureContext() {
   return phoneTextMeasureContext;
 }
 
-function measurePhoneTextWidth(text, fallbackCharWidth = 8.4) {
+function measurePhoneTextWidth(text, fallbackCharWidth = 8.4, bold = false) {
   const normalized = String(text || '').replace(/\s+/g, ' ').trim();
   if (!normalized) return 0;
-  const context = getPhoneTextMeasureContext();
+  const context = getPhoneTextMeasureContext(bold);
   if (!context) return normalized.length * fallbackCharWidth;
   return Math.ceil(context.measureText(normalized).width);
 }
 
-function estimatePhoneBubbleContentWidth(text, basePadding = 36, fallbackCharWidth = 8.4) {
+function estimatePhoneBubbleContentWidth(text, basePadding = 36, fallbackCharWidth = 8.4, bold = false) {
   const lines = String(text || '')
     .split(/\n+/)
     .map((line) => line.replace(/\s+/g, ' ').trim())
     .filter(Boolean);
-  const longestLineWidth = lines.reduce((max, line) => Math.max(max, measurePhoneTextWidth(line, fallbackCharWidth)), 0);
+  const longestLineWidth = lines.reduce((max, line) => Math.max(max, measurePhoneTextWidth(line, fallbackCharWidth, bold)), 0);
   if (!longestLineWidth) return basePadding + 44;
   return basePadding + longestLineWidth;
 }
@@ -11852,8 +11897,8 @@ function getPhonePrimaryText(node) {
     if (node.acceptAny) return 'ANY PLAYER MSG';
     return summarizeMessageText(node.body, 160);
   }
-  if (node.type === 'bubble' && node.kind === 'link') {
-    return summarizeMessageText(node.body, 160) || String(node.linkUrl || '').trim() || 'Link';
+  if (node.type === 'bubble' && (node.kind === 'link' || node.kind === 'cta')) {
+    return summarizeMessageText(node.body, 160) || String(node.linkUrl || '').trim() || (node.kind === 'cta' ? 'Button' : 'Link');
   }
   return summarizeMessageText(node.body, 160);
 }
@@ -12182,6 +12227,10 @@ function estimatePhoneTextLines(text, width, horizontalPadding = 34) {
 }
 
 function getPhoneBubbleSize(node, maxWidth = PHONE_BUBBLE_MAX_WIDTH) {
+  // CTA bubbles: always full width
+  if (node.type === 'bubble' && node.kind === 'cta') {
+    return { width: Math.round(maxWidth || PHONE_BUBBLE_MAX_WIDTH), height: Math.max(38, node.height || 38) };
+  }
   // Image/video bubbles: 6px padding each side — bubble sizes to media's natural width
   if (node.type === 'bubble' && (node.kind === 'image' || node.kind === 'video')) {
     const natW = node._naturalImageWidth;
@@ -12207,7 +12256,7 @@ function getPhoneBubbleSize(node, maxWidth = PHONE_BUBBLE_MAX_WIDTH) {
   };
   const primaryText = getPhonePrimaryText(node);
   const preferredWidth = isMessageBubble
-    ? estimatePhoneBubbleContentWidth(primaryText, 28, 8.2)
+    ? estimatePhoneBubbleContentWidth(primaryText, 28, 8.2, node.kind === 'link')
     : (node.type === 'stop' || node.type === 'button')
       ? Math.round(maxWidth)
       : (preferredWidths[node.type] || PHONE_BUBBLE_MAX_WIDTH);
@@ -13072,6 +13121,7 @@ function getObjectInspectorHeading(node, link) {
     if (node.kind === 'image') return 'GUIDE IMAGE DETAILS';
     if (node.kind === 'video') return 'GUIDE VIDEO DETAILS';
     if (node.kind === 'link') return 'GUIDE LINK DETAILS';
+    if (node.kind === 'cta') return 'GUIDE BUTTON DETAILS';
     if (node.kind === 'text') return 'GUIDE TEXT DETAILS';
     return 'GUIDE MSG DETAILS';
   }
@@ -15792,6 +15842,10 @@ function buildNodeTitleMarkup(node, displayTitle) {
     const text = String(node.body || '').trim() || String(node.linkUrl || '').trim() || 'Link';
     return `<div class="node-title"><span class="node-link-preview">${escapeHtml(text)}</span></div>`;
   }
+  if (node.type === 'bubble' && node.kind === 'cta') {
+    const text = String(node.body || '').trim() || String(node.linkUrl || '').trim() || 'Button';
+    return `<div class="node-title"><span class="node-cta-preview">${escapeHtml(text)}</span></div>`;
+  }
   return `<div class="node-title"${getGameTitleStyle(node, displayTitle)}>${renderMessageHtml(node.body, '')}</div>`;
 }
 
@@ -16458,10 +16512,11 @@ function attachNodeEvents(el, node) {
     }
   });
 
-  if (node.type === 'bubble' && node.kind === 'link') {
+  if (node.type === 'bubble' && (node.kind === 'link' || node.kind === 'cta')) {
+    const previewSelector = node.kind === 'link' ? '.node-link-preview' : '.node-cta-preview';
     el.addEventListener('pointerup', (event) => {
       if (event.button !== 0) return;
-      if (!event.target.closest('.node-link-preview')) return;
+      if (!event.target.closest(previewSelector)) return;
       if (state.dragNode && state.dragNode.moved) return;
       const url = String(node.linkUrl || '').trim();
       if (url) window.open(url, '_blank', 'noopener');
@@ -16471,7 +16526,7 @@ function attachNodeEvents(el, node) {
   el.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     if (event.target.closest('.node-port')) return;
-    if (node.type === 'bubble' && node.kind === 'link' && event.target.closest('.node-link-preview')) {
+    if (node.type === 'bubble' && (node.kind === 'link' || node.kind === 'cta') && event.target.closest(node.kind === 'link' ? '.node-link-preview' : '.node-cta-preview')) {
       event.preventDefault();
       selectNode(node.id);
       renderSelectionStates();
@@ -16815,6 +16870,8 @@ function updateObjectInspectorUi(node, link, copyText) {
     if (objectBubbleVideoField) objectBubbleVideoField.hidden = true;
     if (objectBubbleLinkTextField) objectBubbleLinkTextField.hidden = true;
     if (objectBubbleLinkUrlField) objectBubbleLinkUrlField.hidden = true;
+    if (objectBubbleCtaTextField) objectBubbleCtaTextField.hidden = true;
+    if (objectBubbleCtaUrlField) objectBubbleCtaUrlField.hidden = true;
     if (objectDescriptionField) objectDescriptionField.hidden = true;
     if (objectBodyRequiredHint) objectBodyRequiredHint.hidden = true;
     if (objectBodyInput) objectBodyInput.classList.remove('is-invalid');
@@ -16839,7 +16896,8 @@ function updateObjectInspectorUi(node, link, copyText) {
   const isImageBubble = isGuideNode && node.kind === 'image';
   const isVideoBubble = isGuideNode && node.kind === 'video';
   const isLinkBubble = isGuideNode && node.kind === 'link';
-  const isMediaBubble = isImageBubble || isVideoBubble || isLinkBubble;
+  const isCtaBubble = isGuideNode && node.kind === 'cta';
+  const isMediaBubble = isImageBubble || isVideoBubble || isLinkBubble || isCtaBubble;
   const BODY_LABELS = { stop: 'NOTES', bubble: 'GUIDE TEXT', reply: 'PLAYER MESSAGE' };
 
   if (objectInspectorCopy) objectInspectorCopy.textContent = copyText || '';
@@ -16852,7 +16910,9 @@ function updateObjectInspectorUi(node, link, copyText) {
   if (objectBubbleVideoField) objectBubbleVideoField.hidden = !isVideoBubble;
   if (objectBubbleLinkTextField) objectBubbleLinkTextField.hidden = !isLinkBubble;
   if (objectBubbleLinkUrlField) objectBubbleLinkUrlField.hidden = !isLinkBubble;
-  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node || isButtonNode || isMediaBubble;
+  if (objectBubbleCtaTextField) objectBubbleCtaTextField.hidden = !isCtaBubble;
+  if (objectBubbleCtaUrlField) objectBubbleCtaUrlField.hidden = !isCtaBubble;
+  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node || isButtonNode || isImageBubble || isVideoBubble || isLinkBubble;
   if (objectBodyLabel) {
     objectBodyLabel.textContent = node
       ? (isImageBubble ? 'IMAGE ADDRESS' : isVideoBubble ? 'VIDEO ADDRESS' : (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'NOTES')))
@@ -16892,39 +16952,31 @@ function updateObjectInspectorUi(node, link, copyText) {
   syncReplyModeInputs(node);
   if (objectBodyInput) {
     objectBodyInput.disabled = isLinkSelected || !node || (isReplyNode && !!(node && node.acceptAny));
-    if (document.activeElement !== objectBodyInput) {
+    if (document.activeElement !== objectBodyInput || objectBodyInput.dataset.nodeId !== (node && node.id)) {
       objectBodyInput.value = node ? (node.body || '') : '';
+      objectBodyInput.dataset.nodeId = node ? node.id : '';
     }
     objectBodyInput.placeholder = '';
     objectBodyInput.rows = isImageBubble ? 1 : null;
     objectBodyInput.style.resize = isImageBubble ? 'none' : '';
   }
-  if (objectBubbleImageInput) {
-    objectBubbleImageInput.disabled = !isImageBubble;
-    if (document.activeElement !== objectBubbleImageInput) {
-      objectBubbleImageInput.value = isImageBubble ? (node.body || '') : '';
+  const nodeId = node ? node.id : '';
+  function syncInput(input, active, value) {
+    if (!input) return;
+    input.disabled = !active;
+    if (document.activeElement !== input || input.dataset.nodeId !== nodeId) {
+      input.value = active ? (value || '') : '';
+      input.dataset.nodeId = nodeId;
     }
   }
+  syncInput(objectBubbleImageInput, isImageBubble, node && node.body);
   if (objectBubbleImageOnlinePickBtn) objectBubbleImageOnlinePickBtn.disabled = !isImageBubble;
   if (!isImageBubble) setBubbleImageOnlineMenuOpen(false);
-  if (objectBubbleVideoInput) {
-    objectBubbleVideoInput.disabled = !isVideoBubble;
-    if (document.activeElement !== objectBubbleVideoInput) {
-      objectBubbleVideoInput.value = isVideoBubble ? (node.body || '') : '';
-    }
-  }
-  if (objectBubbleLinkTextInput) {
-    objectBubbleLinkTextInput.disabled = !isLinkBubble;
-    if (document.activeElement !== objectBubbleLinkTextInput) {
-      objectBubbleLinkTextInput.value = isLinkBubble ? (node.body || '') : '';
-    }
-  }
-  if (objectBubbleLinkUrlInput) {
-    objectBubbleLinkUrlInput.disabled = !isLinkBubble;
-    if (document.activeElement !== objectBubbleLinkUrlInput) {
-      objectBubbleLinkUrlInput.value = isLinkBubble ? (node.linkUrl || '') : '';
-    }
-  }
+  syncInput(objectBubbleVideoInput, isVideoBubble, node && (node.body || 'https://'));
+  syncInput(objectBubbleLinkTextInput, isLinkBubble, node && node.body);
+  syncInput(objectBubbleLinkUrlInput, isLinkBubble, node && (node.linkUrl || 'https://'));
+  syncInput(objectBubbleCtaTextInput, isCtaBubble, node && node.body);
+  syncInput(objectBubbleCtaUrlInput, isCtaBubble, node && (node.linkUrl || 'https://'));
   setBubbleImageAssetStatus('');
   updateBubbleImagePreview(isImageBubble ? node : null);
   refreshReplyBodyHint();
@@ -17714,9 +17766,9 @@ function syncReplyModeInputs(node) {
   if (objectReplyModeField) objectReplyModeField.hidden = !isReplyNode;
   if (objectReplyTimingField) objectReplyTimingField.hidden = !(isReplyNode && !isLegacyAnytimeReply && mode === 'normal');
   if (objectBodyAnswerNote) objectBodyAnswerNote.hidden = !(isReplyNode && mode === 'normal');
-  if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble') || (node && (node.kind === 'image' || node.kind === 'video'));
+  if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble') || (node && (node.kind === 'image' || node.kind === 'video' || node.kind === 'link' || node.kind === 'cta'));
   const isButtonNode = !!node && node.type === 'button';
-  if (objectDescriptionField) objectDescriptionField.hidden = isButtonNode || (isReplyNode && mode === 'anyanswer') || (node && node.type === 'bubble' && (node.kind === 'image' || node.kind === 'video' || node.kind === 'link'));
+  if (objectDescriptionField) objectDescriptionField.hidden = isButtonNode || (isReplyNode && mode === 'anyanswer') || (node && node.type === 'bubble' && (node.kind === 'image' || node.kind === 'video' || node.kind === 'link' || node.kind === 'cta'));
 
   [
     [objectReplyModeNormalInput, 'normal'],
@@ -19111,6 +19163,7 @@ if (objectBubbleVideoInput) {
   objectBubbleVideoInput.addEventListener('change', syncVideo);
 }
 
+
 if (objectBubbleLinkTextInput) {
   const syncLinkText = () => {
     const node = getNode(state.selectedId);
@@ -19121,6 +19174,30 @@ if (objectBubbleLinkTextInput) {
   };
   objectBubbleLinkTextInput.addEventListener('input', syncLinkText);
   objectBubbleLinkTextInput.addEventListener('change', syncLinkText);
+}
+
+if (objectBubbleCtaTextInput) {
+  const syncCtaText = () => {
+    const node = getNode(state.selectedId);
+    if (!node || node.kind !== 'cta') return;
+    node.body = String(objectBubbleCtaTextInput.value || '');
+    renderAll();
+    scheduleRecoverySync();
+  };
+  objectBubbleCtaTextInput.addEventListener('input', syncCtaText);
+  objectBubbleCtaTextInput.addEventListener('change', syncCtaText);
+}
+
+if (objectBubbleCtaUrlInput) {
+  const syncCtaUrl = () => {
+    const node = getNode(state.selectedId);
+    if (!node || node.kind !== 'cta') return;
+    node.linkUrl = String(objectBubbleCtaUrlInput.value || '');
+    renderAll();
+    scheduleRecoverySync();
+  };
+  objectBubbleCtaUrlInput.addEventListener('input', syncCtaUrl);
+  objectBubbleCtaUrlInput.addEventListener('change', syncCtaUrl);
 }
 
 if (objectBubbleLinkUrlInput) {
@@ -19570,6 +19647,7 @@ nodeBodyInput.addEventListener('input', () => {
 objectBodyInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
   if (!node) return;
+  objectBodyInput.dataset.nodeId = node.id;
   node.body = objectBodyInput.value;
   refreshReplyBodyHint();
   rememberGuideInsertSelection();
