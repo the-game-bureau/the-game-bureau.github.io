@@ -231,8 +231,8 @@
     }
 
     .game-card-body {
-      display: grid;
-      grid-template-rows: auto auto 1fr auto auto;
+      display: flex;
+      flex-direction: column;
       gap: 0.85rem;
       padding: 1rem 1rem 1.1rem;
     }
@@ -267,31 +267,31 @@
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
-      align-self: start;
     }
 
     .game-tags {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.45rem;
+      align-items: center;
+      gap: 0;
     }
 
-    .game-chip {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 32px;
-      padding: 0.35rem 0.72rem;
-      border-radius: 999px;
-      border: 1px solid var(--line-soft);
-      background: #faf7f1;
-      color: #5f594f;
+    .game-tag {
+      flex-shrink: 0;
       font-family: 'Archivo', sans-serif;
-      font-size: 0.66rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
+      font-size: 0.65rem;
+      font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--game-tertiary, #ffffff);
       white-space: nowrap;
+    }
+
+    .game-tag-sep {
+      flex-shrink: 0;
+      margin: 0 0.5rem;
+      opacity: 0.55;
+      font-size: 0.85rem;
     }
 
     .play-action {
@@ -299,6 +299,7 @@
       align-items: stretch;
       gap: 0.7rem;
       margin-top: auto;
+      padding-top: 0;
     }
 
     .play-btn,
@@ -713,6 +714,8 @@
 
     function createGameCard(game, index) {
       const palette = getGamePalette(game);
+      const gameNode = getGameNode(game) || {};
+      const defaultEmoji = gameNode.defaultEmoji || '🧩';
       const tagLabels = getGameTagLabels(game);
       const caption = getGameCaption(game);
       const eyebrow = getGameEyebrow(game);
@@ -727,6 +730,7 @@
       li.style.animationDelay = `${(index % 10) * 0.1}s`;
       li.style.setProperty('--game-primary', palette.primary);
       li.style.setProperty('--game-secondary', palette.secondary);
+      li.style.setProperty('--game-tertiary', palette.tertiary);
       li.style.animation = 'slideUp 0.45s ease-out backwards';
       li.addEventListener('click', () => {
         window.location.href = detailHref;
@@ -782,11 +786,17 @@
 
       const tagsWrap = document.createElement('div');
       tagsWrap.className = 'game-tags';
-      tagLabels.forEach((tagLabel) => {
-        const chip = document.createElement('div');
-        chip.className = 'game-chip';
-        chip.textContent = tagLabel;
-        tagsWrap.appendChild(chip);
+      tagLabels.forEach((tagLabel, i) => {
+        if (i > 0) {
+          const sep = document.createElement('span');
+          sep.className = 'game-tag-sep';
+          sep.textContent = defaultEmoji;
+          tagsWrap.appendChild(sep);
+        }
+        const span = document.createElement('span');
+        span.className = 'game-tag';
+        span.textContent = tagLabel;
+        tagsWrap.appendChild(span);
       });
 
       const captionEl = document.createElement('p');
