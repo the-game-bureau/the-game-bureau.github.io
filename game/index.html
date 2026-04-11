@@ -254,10 +254,11 @@
     /* ── INVITE ── */
     .invite-header {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.75rem;
-      letter-spacing: 0.04em;
+      font-size: 2.2rem;
+      letter-spacing: 0.02em;
       color: #000;
       margin-bottom: var(--v);
+      text-align: center;
     }
     #inviteSection {
       background: #fff;
@@ -349,6 +350,13 @@
       text-align: center;
     }
     .copy-btn:active { opacity: 0.72; }
+
+    .invite-share-block {
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+      width: 100%;
+    }
 
     /* ── CTA BAR ── */
     #ctaBar {
@@ -454,15 +462,13 @@
 
       <div class="invite-qr-block">
         <div class="qr-card" id="qrContainer"></div>
-        <p class="invite-caption">Hold up your phone for other players to scan.</p>
+        <p class="invite-caption">Hold up your phone for others to scan.</p>
       </div>
 
       <div class="invite-or">OR</div>
 
-      <div class="invite-url-block">
-        <span id="gameUrlDisplay"></span>
-        <button id="copyUrlBtn" class="copy-btn">Copy Link</button>
-        <p class="invite-caption">Send this link to other players by text message.</p>
+      <div class="invite-share-block">
+        <button id="shareBtn" class="copy-btn" style="display:none">Click Here to Invite Players by Text</button>
       </div>
     </section>
 
@@ -1119,21 +1125,23 @@
 
         const qrUrl = `https://the-game-bureau.github.io/the-game-bureau/game/index.html?id=${encodeURIComponent(gameId)}`;
 
-        document.getElementById('gameUrlDisplay').textContent = qrUrl;
-        document.getElementById('copyUrlBtn').addEventListener('click', () => {
-          navigator.clipboard.writeText(qrUrl).then(() => {
-            const btn = document.getElementById('copyUrlBtn');
-            btn.textContent = 'Copied!';
-            setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+        const shareBtn = document.getElementById('shareBtn');
+
+        if (navigator.share) {
+          shareBtn.style.display = '';
+          shareBtn.style.background = primaryColor;
+          shareBtn.addEventListener('click', () => {
+            navigator.share({ title: gameName, url: qrUrl }).catch(() => {});
           });
-        });
+        }
+
         document.getElementById('startBtn').href = `../play/?id=${encodeURIComponent(gameId)}`;
         try {
           new QRCode(document.getElementById('qrContainer'), {
             text: qrUrl,
             width: 200,
             height: 200,
-            colorDark: '#000000',
+            colorDark: primaryColor || '#000000',
             colorLight: '#ffffff',
             correctLevel: QRCode.CorrectLevel.M
           });
