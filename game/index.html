@@ -506,14 +506,20 @@
         return '';
       }
 
-      const rawValue = value.trim();
+      const rawValue = value.trim().replace(
+        'https://the-game-bureau.github.io/the-game-bureau/',
+        'https://the-game-bureau.github.io/'
+      );
 
       if (rawValue.startsWith('data:') || rawValue.startsWith('blob:')) {
         return rawValue;
       }
 
       try {
-        const resolvedUrl = new URL(rawValue, window.location.href);
+        const base = /^assets\//i.test(rawValue)
+          ? new URL('../', window.location.href).toString()
+          : window.location.href;
+        const resolvedUrl = new URL(rawValue, base);
         const protocol = String(resolvedUrl.protocol || '').toLowerCase();
         return protocol === 'http:' || protocol === 'https:' || protocol === 'file:' ? resolvedUrl.toString() : '';
       } catch (error) {
@@ -1058,7 +1064,7 @@
         const gameName = String(game.name || 'Untitled Game').trim() || 'Untitled Game';
         document.title = `${gameName} | The Game Bureau`;
 
-        const qrUrl = `https://the-game-bureau.io/game/index.html?id=${encodeURIComponent(gameId)}`;
+        const qrUrl = `https://the-game-bureau.github.io/game/index.html?id=${encodeURIComponent(gameId)}`;
         const ogImage = images.logoUrl || images.guideUrl || '';
         const setMeta = (sel, val) => { const el = document.querySelector(sel); if (el && val) el.setAttribute('content', val); };
         setMeta('meta[property="og:title"]', `${gameName} | The Game Bureau`);
