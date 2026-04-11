@@ -12,76 +12,83 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <style>
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --pad: 1.25rem;   /* horizontal page padding */
+      --v: 1.5rem;      /* vertical section padding */
+      --gap: 0.75rem;   /* internal element gap */
+    }
+
     body {
       font-family: 'DM Sans', sans-serif;
       min-height: 100vh;
-      padding-bottom: calc(110px + env(safe-area-inset-bottom));
+      padding-bottom: calc(90px + env(safe-area-inset-bottom));
     }
 
-    /* ── Landing wrapper ── */
     #landing {
       max-width: 480px;
       width: 100%;
       margin: 0 auto;
       display: none;
-      animation: fadeIn 0.4s ease-out;
+      animation: fadeIn 0.35s ease-out;
     }
 
-    /* ── Hero ── */
+    /* ── HERO ── */
     .hero {
-      padding: 3rem 1.25rem 2rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      gap: 0.5rem;
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      background: var(--secondary);
     }
 
     #landingLogo {
-      width: 50%;
-      height: auto;
-      object-fit: contain;
       display: none;
-      margin-bottom: 0.75rem;
-    }
-
-    h1 {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(3.5rem, 15vw, 5.5rem);
-      line-height: 0.9;
-      letter-spacing: 0.02em;
+      position: absolute;
+      inset: 0;
       width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
-    #gameTagline {
-      font-size: 1.05rem;
-      font-weight: 400;
-      line-height: 1.45;
-      opacity: 0.75;
-      margin-top: 0.25rem;
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, var(--primary, #000) 10%, rgba(0,0,0,0.35) 55%, transparent 100%);
     }
 
-    #tagsContainer {
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      padding: clamp(140px, 45vw, 220px) var(--pad) var(--v);
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(3rem, 14vw, 4.75rem);
+      line-height: 0.88;
+      letter-spacing: 0.02em;
+    }
+
+    .hero-meta {
+      padding: var(--gap) var(--pad) 0;
       display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 0;
       flex-wrap: nowrap;
       overflow-x: auto;
-      gap: 0;
-      width: 100%;
-      padding: 0.5rem 0 0.25rem;
-      justify-content: center;
-      align-items: center;
-      -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
-      margin-top: 0.5rem;
+      -webkit-overflow-scrolling: touch;
     }
-    #tagsContainer::-webkit-scrollbar { display: none; }
+    .hero-meta::-webkit-scrollbar { display: none; }
+    .hero-meta:empty { display: none; }
 
     .tag {
       flex-shrink: 0;
@@ -90,47 +97,55 @@
       text-transform: uppercase;
       letter-spacing: 0.1em;
       color: var(--tertiary);
-      background: none;
-      border: none;
-      padding: 0.2rem 0;
       white-space: nowrap;
     }
+    .tag-sep {
+      flex-shrink: 0;
+      margin: 0 0.5rem;
+      opacity: 0.55;
+      font-size: 0.85rem;
+      line-height: 1;
+    }
 
-    .tag + .tag::before {
-      content: '·';
-      margin: 0 0.55rem;
-      color: var(--secondary);
-      opacity: 0.6;
-      font-weight: 400;
+    /* ── BODY ── */
+    .body-pad { padding: 0 var(--pad); }
+
+    #gameTagline {
+      margin-top: var(--gap);
       font-size: 1rem;
-    }
-
-    /* ── Content sections ── */
-    .content-section {
-      border-top: 2px solid var(--secondary);
-      padding: 1.5rem 1.25rem;
-    }
-
-    .section-label {
-      display: block;
-      font-size: 0.7rem;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.12em;
       color: var(--secondary);
-      margin-bottom: 0.85rem;
+      line-height: 1.45;
+    }
+    #gameTagline:empty { display: none; }
+
+    /* ── SECTION BLOCKS ── */
+    .block {
+      padding: var(--v) var(--pad);
+      border-top: 1px solid var(--secondary);
     }
 
-    /* ── Description ── */
-    #descSection { display: none; }
+    .block-label {
+      display: block;
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--secondary);
+      margin-bottom: var(--gap);
+    }
 
+    /* ── ABOUT ── */
+    #descSection { display: none; border-top: none; padding-top: var(--v); }
     #desc {
-      font-size: 1rem;
-      line-height: 1.65;
+      font-size: 1.1rem;
+      line-height: 1.7;
       white-space: pre-line;
     }
 
-    /* ── How to Play (collapsible) ── */
+    /* ── HOW TO PLAY ── */
     #howToPlaySection { display: none; }
 
     .section-toggle {
@@ -138,7 +153,6 @@
       background: none;
       border: none;
       padding: 0;
-      margin: 0;
       cursor: pointer;
       display: flex;
       justify-content: space-between;
@@ -146,174 +160,197 @@
       color: inherit;
       font-family: inherit;
     }
-
-    .section-toggle .section-label { margin-bottom: 0; }
+    .section-toggle .block-label { margin-bottom: 0; }
 
     .toggle-arrow {
-      font-size: 1.1rem;
+      font-size: 1rem;
       color: var(--secondary);
       transition: transform 0.25s ease;
       flex-shrink: 0;
       line-height: 1;
     }
-
-    .section-toggle[aria-expanded="true"] .toggle-arrow {
-      transform: rotate(180deg);
-    }
+    .section-toggle[aria-expanded="true"] .toggle-arrow { transform: rotate(180deg); }
 
     .collapsible-body {
       display: grid;
       grid-template-rows: 0fr;
       transition: grid-template-rows 0.3s ease;
     }
-
-    .section-toggle[aria-expanded="true"] + .collapsible-body {
-      grid-template-rows: 1fr;
-    }
+    .section-toggle[aria-expanded="true"] + .collapsible-body { grid-template-rows: 1fr; }
 
     .collapsible-body p {
       overflow: hidden;
-      padding-top: 0;
-      font-size: 1rem;
-      line-height: 1.65;
+      font-size: 1.1rem;
+      line-height: 1.7;
       white-space: pre-line;
+      padding-top: 0;
       transition: padding-top 0.3s ease;
     }
+    .section-toggle[aria-expanded="true"] + .collapsible-body p { padding-top: 1rem; }
 
-    .section-toggle[aria-expanded="true"] + .collapsible-body p {
-      padding-top: 1rem;
-    }
-
-    /* ── Mission Guide ── */
+    /* ── MISSION GUIDE ── */
     #guideSection { display: none; }
 
-    .guide-inner {
-      display: flex;
+    .guide-card {
+      display: grid;
+      grid-template-columns: 60px 1fr;
+      gap: var(--v);
       align-items: center;
-      gap: 1rem;
     }
 
-    .guide-img-wrap {
-      width: 52px;
-      height: 52px;
-      border-radius: 999px;
-      border: 2px solid var(--secondary);
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-
-    .guide-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
-
-    .guide-info h3 {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.1rem;
-      letter-spacing: 0.06em;
-      margin-bottom: 0.2rem;
-    }
-
-    .guide-info p {
-      font-size: 0.875rem;
-      line-height: 1.45;
-      opacity: 0.75;
-    }
-
-    /* ── Invite Players ── */
-    .share-section {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1.25rem;
-    }
-
-    .share-option {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.6rem;
-    }
-
-    .share-option-label {
-      font-size: 0.7rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: var(--secondary);
-      align-self: flex-start;
-    }
-
-    .share-qr-wrap {
-      background: #fff;
+    .guide-avatar {
+      width: 60px;
+      height: 60px;
       border-radius: 12px;
-      padding: 12px;
-      border: 2px solid var(--secondary);
+      object-fit: cover;
+      border: 1.5px solid var(--secondary);
+      display: block;
     }
 
-    .share-caption {
-      font-size: 0.85rem;
+    .guide-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.15rem;
+      letter-spacing: 0.06em;
+      margin-bottom: calc(var(--gap) / 3);
+    }
+
+    .guide-bio {
+      font-size: 1rem;
+      line-height: 1.5;
+      opacity: 0.72;
+    }
+
+    /* ── STARTING LOCATION ── */
+    #startingLocationSection { display: none; }
+
+    .location-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--gap);
+      text-decoration: none;
+      color: inherit;
+      padding: var(--gap) var(--pad);
+      margin: 0 calc(var(--pad) * -1);
+      border-radius: 10px;
+      transition: opacity 0.18s;
+    }
+    .location-link:active { opacity: 0.65; }
+
+    .location-link-text {
+      font-size: 0.95rem;
+      font-weight: 500;
+      word-break: break-all;
+      line-height: 1.4;
+      opacity: 0.9;
+    }
+
+    .location-link-arrow {
+      flex-shrink: 0;
+      font-size: 1.25rem;
+      color: var(--tertiary);
+    }
+
+    /* ── INVITE ── */
+    .invite-header {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.75rem;
+      letter-spacing: 0.04em;
+      color: #000;
+      margin-bottom: var(--v);
+    }
+    #inviteSection {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 20px;
+      margin: 0 var(--pad) calc(var(--v) * 2);
+      padding: calc(var(--v) * 1.5) var(--pad);
+      color: #111;
+    }
+
+
+    .invite-qr-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--gap);
+    }
+
+    .qr-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 6px 28px rgba(0,0,0,0.25);
+    }
+
+    #inviteSection { font-size: 1.05rem; }
+
+    .invite-caption {
+      font-size: inherit;
       text-align: center;
+      line-height: 1.55;
       opacity: 0.75;
     }
 
-    .url-display-wrap {
+    .invite-or {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: var(--gap);
       width: 100%;
-    }
-
-    .url-display {
-      flex: 1;
-      font-size: 0.65rem;
-      font-family: 'Courier New', monospace;
-      word-break: break-all;
-      background: transparent;
-      color: var(--quaternary);
-      border: none;
-      border-bottom: 1.5px solid var(--secondary);
-      border-radius: 0;
-      padding: 0.5rem 0.25rem;
-      opacity: 0.8;
-      user-select: all;
-    }
-
-    .copy-btn {
-      flex-shrink: 0;
-      padding: 0.5rem 1.1rem;
-      background: var(--tertiary);
-      color: var(--quaternary);
-      border: 2px solid var(--secondary);
-      border-radius: 999px;
+      margin: var(--v) 0;
       font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.1rem;
-      letter-spacing: 0.08em;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-
-    .copy-btn:active { opacity: 0.7; }
-
-    .share-or {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      width: 100%;
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 0.75rem;
+      font-size: inherit;
       letter-spacing: 0.14em;
-      color: var(--secondary);
+      color: #555;
     }
-
-    .share-or::before,
-    .share-or::after {
+    .invite-or::before,
+    .invite-or::after {
       content: '';
       flex: 1;
       height: 1px;
-      background: var(--secondary);
-      opacity: 0.5;
+      background: currentColor;
     }
 
-    /* ── Sticky CTA ── */
+    .invite-url-block {
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+      width: 100%;
+    }
+
+
+    #gameUrlDisplay {
+      display: block;
+      font-size: inherit;
+      font-family: 'Courier New', monospace;
+      word-break: break-all;
+      line-height: 1.6;
+      user-select: all;
+      background: #f4f4f4;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: var(--gap) var(--pad);
+      letter-spacing: 0.02em;
+      color: #222;
+    }
+
+    .copy-btn {
+      width: 100%;
+      padding: var(--gap) var(--pad);
+      background: #000;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.3rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: opacity 0.18s;
+      text-align: center;
+    }
+    .copy-btn:active { opacity: 0.72; }
+
+    /* ── CTA BAR ── */
     #ctaBar {
       position: fixed;
       bottom: 0;
@@ -322,9 +359,9 @@
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 0.35rem;
-      padding: 0.85rem 1.25rem max(env(safe-area-inset-bottom), 0.85rem);
-      border-top: 2px solid var(--secondary);
+      gap: calc(var(--gap) / 2);
+      padding: var(--gap) var(--pad) max(env(safe-area-inset-bottom), var(--gap));
+      border-top: 1px solid var(--secondary);
       z-index: 100;
     }
 
@@ -332,304 +369,58 @@
       display: block;
       width: 100%;
       max-width: 480px;
-      padding: 1rem;
+      padding: 1rem 1.5rem;
       background: var(--tertiary);
       color: var(--quaternary);
       text-decoration: none;
       font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.5rem;
-      letter-spacing: 0.08em;
-      border-radius: 999px;
-      border: 2px solid var(--secondary);
+      font-size: 1.45rem;
+      letter-spacing: 0.06em;
+      border-radius: 12px;
       text-align: center;
-      transition: transform 0.1s, opacity 0.2s;
+      transition: transform 0.1s, opacity 0.18s;
     }
-
-    .play-btn:active { transform: scale(0.98); opacity: 0.9; }
+    .play-btn:active { transform: scale(0.98); opacity: 0.88; }
 
     #gamePrice {
-      font-size: 0.7rem;
+      font-size: 0.62rem;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.12em;
-      opacity: 0.7;
+      letter-spacing: 0.14em;
+      opacity: 0.6;
     }
 
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* ── Bubble text — large and readable ── */
-    .msg-bubble {
-      font-size: 1.25rem;
-      font-weight: 400;
-      line-height: 1.45;
-    }
-
-    /* ── iMessage-style header ── */
-    .contact-header.compact {
-      position: relative;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 3px;
-      padding: max(env(safe-area-inset-top), 0px) 70px 10px;
-      min-height: calc(max(env(safe-area-inset-top), 44px) + 54px);
-      background: rgba(249, 249, 249, 0.97);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-bottom: 0.5px solid rgba(0, 0, 0, 0.2);
-    }
-
-    /* Avatar logo — full colour, contain so wide logos aren't cropped */
-    .contact-header.compact .avatar {
-      width: auto;
-      max-width: calc(100vw - 140px);
-      height: 36px;
-      min-width: 36px;
-      margin-bottom: 0;
-      border-radius: 8px;
-      overflow: hidden;
-      background: transparent;
-      flex-shrink: 0;
-    }
-    .avatar img {
-      filter: none;
-    }
-    .contact-header.compact .avatar img {
-      height: 100%;
-      width: auto;
-      max-width: 100%;
-      object-fit: contain;
-      filter: none;
-    }
-
-    /* Thumbnail replaces avatar */
-    .game-thumbnail {
-      display: none;
-      height: 36px;
-      width: auto;
-      max-width: calc(100vw - 140px);
-      border-radius: 8px;
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-    .game-thumbnail.show { display: block; }
-
-    /* Info block: name + status, centered */
-    .header-info {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1px;
-      min-width: 0;
-    }
-
-    .contact-header.compact .contact-name {
-      font-size: 0.85rem;
-      font-weight: 600;
-      line-height: 1.2;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: calc(100vw - 140px);
-    }
-
-    .contact-header.compact .contact-tagline {
-      max-width: calc(100vw - 140px);
-      color: #6b7280;
-      font-size: 0.72rem;
-      font-weight: 500;
-      line-height: 1.25;
-      text-align: center;
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
-      line-clamp: 2;
-      overflow: hidden;
-    }
-
-    /* Hide subtitle — iMessage only shows name */
-    .contact-header.compact #header-subtitle { display: none; }
-
-    .contact-header.compact .contact-status {
-      margin-top: 0;
-      font-size: 0.7rem;
-      color: #8e8e93;
-    }
-
-    /* Restart button */
-    .contact-header.compact .restart-btn {
-      position: absolute;
-      right: 14px;
-      bottom: 10px;
-      transform: none;
-      border: none;
-      background: none;
-      color: #1a73e8;
-      font-size: 0.82rem;
-      font-weight: 500;
-      letter-spacing: 0;
-      padding: 8px 0;
-      min-height: 44px;
-      display: flex;
-      align-items: flex-end;
-    }
-    .contact-header.compact .restart-btn:active {
-      opacity: 0.5;
-      background: none;
-    }
-
-    /* ── Chat area ── */
-    .chat {
-      padding: 1rem 0.85rem 0.5rem;
-      gap: 0.5rem;
-    }
-
-    /* Bubbles: wider on mobile, comfortable padding */
-    .msg { max-width: 88%; }
-
-    .msg-bubble {
-      padding: 0.75rem 1.1rem;
-      border-radius: 22px;
-    }
-
-    .msg.from-game .msg-caps-loop {
-      display: inline-block;
-      font-weight: 700;
-      transform-origin: 50% 60%;
-      animation: msgCapsLoop 1.15s ease-in-out infinite;
-    }
-
-    @keyframes msgCapsLoop {
-      0%, 100% { transform: scale(0.92); }
-      50% { transform: scale(1.08); }
-    }
-
-    /* ── Button node ── */
-    .msg.msg-action-btn {
-      max-width: 100%;
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      align-self: stretch;
-      margin: 4px 0;
-    }
-
-    .msg-btn {
-      display: block;
-      width: 100%;
-      padding: 14px 20px;
-      background: var(--game-primary, #5468a7);
-      color: var(--game-tertiary, #fff);
-      font-size: 1rem;
-      font-weight: 600;
-      letter-spacing: .03em;
-      text-align: center;
-      text-decoration: none;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: opacity .12s, transform .1s;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .msg-btn:active {
-      opacity: .78;
-      transform: scale(.977);
-    }
-
-    /* ── Button lightbox ── */
-    .btn-lightbox-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, .6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    }
-
-    .btn-lightbox-frame {
-      position: relative;
-      width: min(480px, calc(100vw - 32px));
-      height: min(680px, calc(100vh - 32px));
-      background: #fff;
-      border-radius: 16px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .btn-lightbox-close {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 1;
-      width: 32px;
-      height: 32px;
-      border: none;
-      border-radius: 50%;
-      background: rgba(0, 0, 0, .3);
-      color: #fff;
-      font-size: 20px;
-      line-height: 1;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .btn-lightbox-close:active { opacity: .75; }
-
-    .btn-lightbox-iframe {
-      flex: 1;
-      width: 100%;
-      border: none;
-    }
-
-    /* ── Input area — fixed at bottom with safe area ── */
-    .input-area {
-      padding: 10px 12px max(env(safe-area-inset-bottom), 10px);
-      background: #f9f9f9;
-      border-top: 0.5px solid rgba(0,0,0,0.15);
-    }
-
-    /* Input row */
-    .answer-row { gap: 8px; }
-
-    /* Text input — 16px min to prevent iOS zoom on focus */
-    .answer-input {
-      font-size: 1rem;
-      padding: 0.75rem 1.1rem;
-      border-radius: 22px;
-      min-height: 44px;
-    }
-
-    /* Send button — 48px tap target */
-    .submit-btn {
-      width: 44px;
-      height: 44px;
-      flex-shrink: 0;
-    }
   </style>
 </head>
 <body>
 
   <div id="landing">
 
-    <section class="hero">
+    <!-- HERO: full-bleed logo + title overlay -->
+    <div class="hero">
       <img id="landingLogo" src="" alt="Game Logo">
-      <h1 id="gameTitle"></h1>
-      <p id="gameTagline"></p>
-      <div id="tagsContainer"></div>
-    </section>
+      <div class="hero-overlay"></div>
+      <div class="hero-content">
+        <h1 id="gameTitle"></h1>
+        <p id="gameTagline"></p>
+      </div>
+    </div>
 
-    <section class="content-section" id="descSection">
-      <span class="section-label">About</span>
+    <!-- TAGS -->
+    <div class="hero-meta" id="tagsContainer"></div>
+
+    <!-- ABOUT -->
+    <section class="block" id="descSection">
+      <span class="block-label">About</span>
       <p id="desc"></p>
     </section>
 
-    <section class="content-section" id="howToPlaySection">
+    <!-- HOW TO PLAY -->
+    <section class="block" id="howToPlaySection">
       <button class="section-toggle" id="howToPlayToggle" aria-expanded="false">
-        <span class="section-label">How to Play</span>
+        <span class="block-label">How to Play</span>
         <span class="toggle-arrow">↓</span>
       </button>
       <div class="collapsible-body">
@@ -637,33 +428,41 @@
       </div>
     </section>
 
-    <section class="content-section" id="guideSection">
-      <div class="guide-inner">
-        <div class="guide-img-wrap">
-          <img id="guideAvatar" src="" alt="Guide">
-        </div>
-        <div class="guide-info">
-          <h3 id="guideNameDisplay"></h3>
-          <p id="guideDescription"></p>
+    <!-- MISSION GUIDE -->
+    <section class="block" id="guideSection">
+      <div class="guide-card">
+        <img id="guideAvatar" src="" alt="Guide" class="guide-avatar">
+        <div>
+          <div class="guide-name" id="guideNameDisplay"></div>
+          <p class="guide-bio" id="guideDescription"></p>
         </div>
       </div>
     </section>
 
-    <section class="content-section share-section">
-      <span class="section-label">Invite Players</span>
-      <div class="share-option">
-        <div class="share-option-label">Scan QR Code</div>
-        <div class="share-qr-wrap" id="qrContainer"></div>
-        <p class="share-caption">Hold up your phone for other players to scan.</p>
+    <!-- STARTING LOCATION -->
+    <section class="block" id="startingLocationSection">
+      <span class="block-label">Starting Location</span>
+      <a id="startingLocationLink" href="#" target="_blank" rel="noopener" class="location-link">
+        <span class="location-link-text" id="startingLocationText"></span>
+        <span class="location-link-arrow">→</span>
+      </a>
+    </section>
+
+    <!-- INVITE PLAYERS -->
+    <section id="inviteSection">
+      <div class="invite-header">Invite Players</div>
+
+      <div class="invite-qr-block">
+        <div class="qr-card" id="qrContainer"></div>
+        <p class="invite-caption">Hold up your phone for other players to scan.</p>
       </div>
-      <div class="share-or">OR</div>
-      <div class="share-option">
-        <div class="share-option-label">Send Link</div>
-        <div class="url-display-wrap">
-          <span id="gameUrlDisplay" class="url-display"></span>
-          <button id="copyUrlBtn" class="copy-btn">COPY</button>
-        </div>
-        <p class="share-caption">Copy the link and send it to your players by text message.</p>
+
+      <div class="invite-or">OR</div>
+
+      <div class="invite-url-block">
+        <span id="gameUrlDisplay"></span>
+        <button id="copyUrlBtn" class="copy-btn">Copy Link</button>
+        <p class="invite-caption">Send this link to other players by text message.</p>
       </div>
     </section>
 
@@ -1256,6 +1055,7 @@
         document.body.style.background = primaryColor;
 
         const gameNode = game.nodes?.find((node) => node.type === 'game') || {};
+        const defaultEmoji = gameNode.defaultEmoji || '🧩';
 
         const tertiaryColor = gameNode.tertiaryColor || '#ffffff';
         const quaternaryColor = gameNode.quaternaryColor || '#ffffff';
@@ -1289,6 +1089,13 @@
           document.getElementById('guideAvatar').src = gImg;
         }
 
+        const startingLocation = gameNode.startingLocation || '';
+        if (startingLocation && startingLocation !== 'http://') {
+          document.getElementById('startingLocationSection').style.display = 'block';
+          document.getElementById('startingLocationLink').href = startingLocation;
+          document.getElementById('startingLocationText').textContent = startingLocation;
+        }
+
         const bodyText = gameNode.body || '';
         document.getElementById('desc').textContent = bodyText;
         if (bodyText) document.getElementById('descSection').style.display = 'block';
@@ -1296,7 +1103,13 @@
 
         const tagsContainer = document.getElementById('tagsContainer');
         if (Array.isArray(gameNode.tags)) {
-          gameNode.tags.forEach((tagValue) => {
+          gameNode.tags.forEach((tagValue, i) => {
+            if (i > 0) {
+              const sep = document.createElement('span');
+              sep.className = 'tag-sep';
+              sep.textContent = defaultEmoji;
+              tagsContainer.appendChild(sep);
+            }
             const span = document.createElement('span');
             span.className = 'tag';
             span.textContent = tagValue;
@@ -1310,8 +1123,8 @@
         document.getElementById('copyUrlBtn').addEventListener('click', () => {
           navigator.clipboard.writeText(qrUrl).then(() => {
             const btn = document.getElementById('copyUrlBtn');
-            btn.textContent = 'COPIED!';
-            setTimeout(() => { btn.textContent = 'COPY'; }, 2000);
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
           });
         });
         document.getElementById('startBtn').href = `../play/?id=${encodeURIComponent(gameId)}`;
@@ -1329,7 +1142,6 @@
         const ctaBar = document.getElementById('ctaBar');
         ctaBar.style.background = primaryColor;
         ctaBar.style.display = 'flex';
-        history.replaceState(null, '', window.location.pathname);
       } catch (error) {
         console.error('Game fetch error:', error);
         renderFatalState('Error Loading Game');
