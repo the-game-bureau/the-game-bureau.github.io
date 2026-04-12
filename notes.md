@@ -143,6 +143,7 @@ For example, with Oswald, link to all my research.
 - [ ] Do a time travel game.
 - [ ] Include the church that used to be in Lafayette Square.
 - [ ] Old Absinthe house has football helmets
+- [ ] Share image from game page link
 
 Previous Tour Stops:
 
