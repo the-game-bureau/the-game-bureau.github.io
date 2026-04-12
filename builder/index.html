@@ -2738,6 +2738,15 @@ code{font-family:"IBM Plex Mono",monospace;}
   min-width:0;
 }
 .field-url-row input{flex:1;min-width:0;}
+
+.field-latlon-row{
+  display:flex;
+  gap:6px;
+  align-items:center;
+  margin-top:6px;
+  min-width:0;
+}
+.field-latlon-row input{flex:1;min-width:0;}
 .field-url-btn{
   appearance:none;
   border:1px solid rgba(var(--bic-blue-rgb),.35);
@@ -2925,7 +2934,7 @@ code{font-family:"IBM Plex Mono",monospace;}
     inset 0 0 18px rgba(29,97,48,.18),
     0 0 0 3px rgba(51,181,87,.12);
 }
-.field-hint{font-size:.64rem;color:#f3b15b;letter-spacing:.04em;}
+.field-hint{font-size:.64rem;color:var(--bic-blue, #2f5cc2);letter-spacing:.04em;}
 .field input.is-invalid{border-color:#f3b15b;}
 .field textarea.is-invalid{border-color:#f3b15b;}
 .accept-any-row{display:flex;align-items:center;flex-wrap:wrap;gap:7px;font-family:"IBM Plex Mono",monospace;font-size:.58rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9df2b4;cursor:pointer;user-select:none;padding:4px 0;}
@@ -8589,11 +8598,9 @@ body.builder-auth-ready .builder-auth-signout{
                     </div>
 
                     <div class="field" id="startingLocationField">
-                      <label class="field-label" for="nodeStartingLocationInput">Start</label>
-                      <div class="field-url-row">
-                        <input id="nodeStartingLocationInput" type="text" placeholder="http://" autocomplete="off" disabled>
-                        <button class="field-url-btn" id="nodeStartingLocationMapBtn" type="button" disabled>MAP</button>
-                      </div>
+                      <label class="field-label" for="nodeStartingLocationRawInput">Start Location</label>
+                      <textarea id="nodeStartingLocationRawInput" class="field-textarea" rows="4" placeholder="///wizard.brother.sediment&#10;https://w3w.co/wizard.brother.sediment&#10;29.957835, -90.063496" autocomplete="off" disabled></textarea>
+                      <p class="field-hint">Use <strong>what3words.com</strong> to find your location, tap Share, then copy and paste the info here. Turn <strong>Lon.</strong> and <strong>Lat.</strong> on under Settings first.</p>
                     </div>
 
                     <div class="field" id="descriptionField">
@@ -9181,11 +9188,9 @@ body.builder-auth-ready .builder-auth-signout{
                 </div>
 
                 <div class="field" id="startingLocationField">
-                  <label class="field-label" for="nodeStartingLocationInput">Start</label>
-                  <div class="field-url-row">
-                    <input id="nodeStartingLocationInput" type="text" placeholder="http://" autocomplete="off" disabled>
-                    <button class="field-url-btn" id="nodeStartingLocationMapBtn" type="button" disabled>MAP</button>
-                  </div>
+                  <label class="field-label" for="nodeStartingLocationRawInput">Start Location</label>
+                  <textarea id="nodeStartingLocationRawInput" class="field-textarea" rows="4" placeholder="///wizard.brother.sediment&#10;https://w3w.co/wizard.brother.sediment&#10;29.957835, -90.063496" autocomplete="off" disabled></textarea>
+                  <p class="field-hint">Use <strong>what3words.com</strong> to find your location, tap Share, then copy and paste the info here. Turn <strong>Lon.</strong> and <strong>Lat.</strong> on under Settings first.</p>
                 </div>
 
                 <div class="field" id="primaryColorField">
@@ -10838,8 +10843,7 @@ const objectBubbleImageThumbImage = document.getElementById('objectBubbleImageTh
 const objectBubbleImageThumbPlaceholder = document.getElementById('objectBubbleImageThumbPlaceholder');
 const nodePriceInput = document.getElementById('nodePriceInput');
 const nodeCityInput = document.getElementById('nodeCityInput');
-const nodeStartingLocationInput = document.getElementById('nodeStartingLocationInput');
-const nodeStartingLocationMapBtn = document.getElementById('nodeStartingLocationMapBtn');
+const nodeStartingLocationRawInput = document.getElementById('nodeStartingLocationRawInput');
 const primaryColorInput = document.getElementById('primaryColorInput');
 const primaryColorPickerInput = document.getElementById('primaryColorPickerInput');
 const secondaryColorInput = document.getElementById('secondaryColorInput');
@@ -13869,6 +13873,8 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     featured: raw && typeof raw.featured === 'string' ? raw.featured : '',
     city: raw && typeof raw.city === 'string' ? raw.city : '',
     startingLocation: raw && typeof raw.startingLocation === 'string' ? raw.startingLocation : '',
+    startingLocationLat: raw && typeof raw.startingLocationLat === 'number' ? raw.startingLocationLat : null,
+    startingLocationLon: raw && typeof raw.startingLocationLon === 'number' ? raw.startingLocationLon : null,
     howToPlay: raw && typeof raw.howToPlay === 'string' ? raw.howToPlay : '',
 
     guideName: raw && typeof raw.guideName === 'string' ? raw.guideName : '',
@@ -14024,6 +14030,8 @@ function getDocSnapshot(doc = state.doc) {
       featured: node.featured || '',
       city: node.city || '',
       startingLocation: node.startingLocation || '',
+      startingLocationLat: node.startingLocationLat ?? null,
+      startingLocationLon: node.startingLocationLon ?? null,
       howToPlay: node.howToPlay || '',
       guideName: node.guideName || '',
       guideBio: node.guideBio || '',
@@ -14994,7 +15002,9 @@ function createNode(type, x, y) {
     tagline: type === 'game' ? 'Shall We Play A Game?' : '',
     featured: '',
     city: '',
-    startingLocation: type === 'game' ? 'https://w3w.co/wizard.brother.sediment' : '',
+    startingLocation: type === 'game' ? 'https://what3words.com/tolls.scanning.tummy' : '',
+    startingLocationLat: null,
+    startingLocationLon: null,
     howToPlay: '',
     guideName: type === 'game' ? 'Mission Control' : '',
     guideBio: '',
@@ -17161,9 +17171,8 @@ function updateSelectionUi(options = {}) {
   if (!isGameNode) setGameLogoOnlineMenuOpen(false);
 
   if (nodeCityInput) nodeCityInput.disabled = !isGameNode;
-  nodeStartingLocationInput.disabled = !isGameNode;
+  nodeStartingLocationRawInput.disabled = !isGameNode;
   nodeHowToPlayInput.disabled = !isGameNode;
-  nodeStartingLocationMapBtn.disabled = !isGameNode;
   nodeGuideNameInput.disabled = !isGameNode;
   nodeGuideBioInput.disabled = !isGameNode;
   nodeGuideImageInput.disabled = !isGameNode;
@@ -17290,7 +17299,19 @@ function updateSelectionUi(options = {}) {
   }
 
   if (nodeCityInput) nodeCityInput.value = isGameNode && gameNode ? (gameNode.city || '') : '';
-  nodeStartingLocationInput.value = isGameNode && gameNode ? (gameNode.startingLocation || 'http://') : '';
+  if (isGameNode && gameNode) {
+    const lines = [];
+    const loc = gameNode.startingLocation || '';
+    const w3wMatch = loc.match(/(?:what3words\.com\/|w3w\.co\/|^\/\/\/|^)([a-z]+\.[a-z]+\.[a-z]+)(?:[?#].*)?$/i);
+    if (w3wMatch) lines.push(`///${w3wMatch[1].toLowerCase()}`);
+    if (loc) lines.push(loc);
+    const lat = gameNode.startingLocationLat;
+    const lon = gameNode.startingLocationLon;
+    if (lat != null && lon != null) lines.push(`${lat}, ${lon}`);
+    nodeStartingLocationRawInput.value = lines.join('\n');
+  } else {
+    nodeStartingLocationRawInput.value = '';
+  }
   nodeHowToPlayInput.value = isGameNode && gameNode ? (gameNode.howToPlay || '') : '';
   nodeGuideNameInput.value = isGameNode && gameNode ? (gameNode.guideName || '') : '';
   nodeGuideBioInput.value = isGameNode && gameNode ? (gameNode.guideBio || '') : '';
@@ -17636,6 +17657,8 @@ function duplicateNode(nodeId) {
     title: usesNodeTitle(source.type) ? source.title : '',
     tagline: source.tagline || '',
     startingLocation: source.startingLocation || '',
+    startingLocationLat: source.startingLocationLat ?? null,
+    startingLocationLon: source.startingLocationLon ?? null,
     howToPlay: source.howToPlay || '',
     guideName: source.guideName || '',
     guideBio: source.guideBio || '',
@@ -18323,6 +18346,8 @@ function serializeNodeState(node) {
     tagline: node.tagline || '',
     city: node.city || '',
     startingLocation: node.startingLocation || '',
+    startingLocationLat: node.startingLocationLat ?? null,
+    startingLocationLon: node.startingLocationLon ?? null,
     howToPlay: node.howToPlay || '',
     guideName: node.guideName || '',
     guideBio: node.guideBio || '',
@@ -19176,18 +19201,40 @@ if (nodeCityInput) {
   });
 }
 
-nodeStartingLocationInput.addEventListener('input', () => {
+nodeStartingLocationRawInput.addEventListener('input', () => {
   const node = getGameNode();
   if (!node || node.type !== 'game') return;
-  node.startingLocation = nodeStartingLocationInput.value;
+  const raw = nodeStartingLocationRawInput.value;
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // URL line
+  const urlLine = lines.find(l => /^https?:\/\//i.test(l));
+  // w3w shorthand line (///word.word.word) — use to build URL if no URL line
+  const w3wLine = lines.find(l => /^\/\/\/[a-z]+\.[a-z]+\.[a-z]+$/i.test(l));
+  // Coordinates line
+  const coordLine = lines.find(l => /^-?[\d.]+\s*,\s*-?[\d.]+$/.test(l));
+
+  if (urlLine) {
+    node.startingLocation = urlLine;
+  } else if (w3wLine) {
+    const words = w3wLine.replace('///', '').toLowerCase();
+    node.startingLocation = `https://what3words.com/${words}`;
+  } else {
+    node.startingLocation = '';
+  }
+
+  if (coordLine) {
+    const parts = coordLine.split(',');
+    node.startingLocationLat = parseFloat(parts[0]) || null;
+    node.startingLocationLon = parseFloat(parts[1]) || null;
+  } else {
+    node.startingLocationLat = null;
+    node.startingLocationLon = null;
+  }
+
   updateSelectionUi();
 });
 
-
-nodeStartingLocationMapBtn.addEventListener('click', () => {
-  const url = nodeStartingLocationInput.value.trim() || 'https://w3w.co/wizard.brother.sediment';
-  window.open(url, '_blank', 'noopener');
-});
 
 nodeHowToPlayInput.addEventListener('input', () => {
   const node = getGameNode();
