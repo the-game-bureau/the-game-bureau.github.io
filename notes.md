@@ -144,6 +144,8 @@ For example, with Oswald, link to all my research.
 - [ ] Include the church that used to be in Lafayette Square.
 - [ ] Old Absinthe house has football helmets
 - [ ] Share image from game page link
+- [ ] introduce team leader concept that person not only shares location but meetup time. It adds adventure.
+- [ ] 
 
 Previous Tour Stops:
 
