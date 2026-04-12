@@ -1,14 +1,17 @@
-// Fix database URLs: the-game-bureau.io/ → the-game-bureau.github.io/
+// Fix database URLs → thegamebureau.com
 // Run with: node migrate-urls.js
 
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 
-const OLD_DOMAIN = 'https://the-game-bureau.io/';
-const NEW_DOMAIN = 'https://the-game-bureau.github.io/';
+const OLD_DOMAINS = [
+  'https://the-game-bureau.github.io/the-game-bureau/',
+  'https://the-game-bureau.github.io/',
+  'https://the-game-bureau.io/',
+];
+const NEW_DOMAIN = 'https://thegamebureau.com/';
 
 async function fixUrls() {
-  // Fetch all games
   const res = await fetch(`${SUPABASE_URL}/rest/v1/games?select=id,nodes`, {
     headers: {
       'apikey': SUPABASE_KEY,
@@ -27,11 +30,14 @@ async function fixUrls() {
   let updated = 0;
 
   for (const game of games) {
-    const nodesStr = JSON.stringify(game.nodes);
-    if (!nodesStr.includes(OLD_DOMAIN)) continue;
+    let nodesStr = JSON.stringify(game.nodes);
+    const original = nodesStr;
 
-    const fixedStr = nodesStr.split(OLD_DOMAIN).join(NEW_DOMAIN);
-    const fixedNodes = JSON.parse(fixedStr);
+    for (const old of OLD_DOMAINS) {
+      nodesStr = nodesStr.split(old).join(NEW_DOMAIN);
+    }
+
+    if (nodesStr === original) continue;
 
     const patch = await fetch(`${SUPABASE_URL}/rest/v1/games?id=eq.${game.id}`, {
       method: 'PATCH',
@@ -41,7 +47,7 @@ async function fixUrls() {
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal',
       },
-      body: JSON.stringify({ nodes: fixedNodes })
+      body: JSON.stringify({ nodes: JSON.parse(nodesStr) })
     });
 
     if (patch.ok) {
