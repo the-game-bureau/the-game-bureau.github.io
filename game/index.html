@@ -90,9 +90,8 @@
     /* ── TAGS ── */
     #heroTagsRow {
       display: none;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: 0.3rem 1rem;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.3rem 0.5rem;
       padding: 0.9rem var(--pad) 0;
     }
     .hero-tag {
@@ -102,6 +101,7 @@
       letter-spacing: 0.12em;
       color: var(--secondary);
       white-space: nowrap;
+      text-align: center;
     }
 
     /* ── BODY ── */
@@ -281,6 +281,8 @@
     /* ── START ── */
     #startingLocationSection {
       display: none;
+      position: relative;
+      overflow: hidden;
       background: #fff;
       border: 2px solid var(--primary);
       border-radius: 20px;
@@ -292,6 +294,15 @@
       align-items: center;
       gap: 1.1rem;
       box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+    .start-bg-map {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0.15;
+      border-radius: 18px;
+      pointer-events: none;
     }
 
     .start-header {
@@ -312,6 +323,15 @@
       background: var(--secondary);
       margin-top: 1.1rem;
     }
+
+    .start-blurb {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: #555;
+      text-align: center;
+      margin-top: -0.25rem;
+    }
+    .start-blurb strong { color: var(--primary); }
 
     .start-map {
       display: block;
@@ -686,7 +706,9 @@
 
     <!-- START -->
     <section id="startingLocationSection">
+      <div id="startBgMap" class="start-bg-map"></div>
       <div class="start-header">Rendezvous</div>
+      <p id="startBlurb" class="start-blurb"></p>
 
       <div class="start-map-wrap">
         <a id="startingLocationMapLink" href="#" target="_blank" rel="noopener" class="start-map">
@@ -1352,6 +1374,7 @@
 
         const gameName = String(game.name || 'Untitled Game').trim() || 'Untitled Game';
         document.title = `${gameName} | The Game Bureau`;
+        document.getElementById('startBlurb').innerHTML = `This is where <strong>${gameName}</strong> begins. Set your start time. Rally a team or go it alone. The game clock starts when you get here. Be ready to move.`;
 
         const qrUrl = `https://thegamebureau.com/game/index.html?id=${encodeURIComponent(gameId)}`;
         const ogImage = images.logoUrl || images.guideUrl || '';
@@ -1382,7 +1405,12 @@
         // START
         const startingLocation = (gameNode.startingLocation || '').trim();
         const startingLocationValid = startingLocation && startingLocation !== 'http://' && startingLocation !== 'https://';
-        document.getElementById('startingLocationSection').style.display = 'flex';
+        const isLocationBased = gameNode.locationBased === 'YES';
+        if (!isLocationBased) {
+          document.getElementById('startingLocationSection').style.display = 'none';
+        } else {
+          document.getElementById('startingLocationSection').style.display = 'flex';
+        }
 
         if (startingLocationValid) {
           const w3wMatch = startingLocation.match(/(?:what3words\.com\/|w3w\.co\/|^\/\/\/|^)([a-z]+\.[a-z]+\.[a-z]+)(?:[?#].*)?$/i);
@@ -1496,6 +1524,10 @@
               ctx.arc(cx, cy - 10, 4, 0, Math.PI * 2);
               ctx.fillStyle = '#fff';
               ctx.fill();
+
+              try {
+                document.getElementById('startBgMap').style.backgroundImage = `url(${canvas.toDataURL()})`;
+              } catch (e) {}
             })();
           }
         } else {
@@ -1520,7 +1552,7 @@
             span.textContent = tagValue;
             heroTagsRow.appendChild(span);
           });
-          heroTagsRow.style.display = 'flex';
+          heroTagsRow.style.display = 'grid';
         }
 
         // INVITE_PLAYERS — share button

@@ -145,7 +145,7 @@ For example, with Oswald, link to all my research.
 - [ ] Old Absinthe house has football helmets
 - [ ] Share image from game page link
 - [ ] introduce team leader concept that person not only shares location but meetup time. It adds adventure.
-- [ ] 
+- [ ]
 
 Previous Tour Stops:
 
@@ -197,6 +197,8 @@ Teams must coordinate with their "Partner Team" in the square.
 * **Hale Boggs:** "He investigated a murder. He questioned the answer. He boarded a plane and vanished. The building next to you bears his name. Who was he?" ( **Answer: Hale Boggs** )
 * **The Beacon:** "TAKE A PIC OF THE BEACON OF LIGHT STANDING BETWEEN JULIA AND HER BROTHER GIROD. Send me the name of the restaurant we're going to." ( **Answer: Junebug** )
 * **The Final Sprint:** "🎉 You've completed the game! But wait! Quick! 🏃 Text **[TEAM_NAME]** to **504.581.5652** right now... The first team to do so wins a prize! 🏆"
+
+create a collection of materials to review before hand from game page and a share button after so they can send themselves the game information after.
 
 ---
 
