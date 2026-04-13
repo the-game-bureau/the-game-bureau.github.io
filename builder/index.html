@@ -4634,6 +4634,82 @@ code{font-family:"IBM Plex Mono",monospace;}
   padding:12px;
 }
 
+/* Audio-kind bubble: iMessage-style voice message player */
+.node-kind--audio .node-content{
+  padding:6px;
+}
+.node-kind--audio .node-header{
+  padding:0;
+  margin:0;
+}
+.node-kind--audio .node-title{
+  margin:0;
+  padding:0;
+  line-height:1;
+}
+.imsg-audio{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:7px 10px;
+  min-width:180px;
+  box-sizing:border-box;
+}
+.imsg-audio-placeholder{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:46px;
+  font-size:.7rem;
+  opacity:.6;
+  color:#fff;
+  padding:12px;
+}
+.imsg-play{
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background:rgba(255,255,255,0.9);
+  border:none;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  cursor:pointer;
+  color:#555;
+  padding:0;
+  position:relative;
+  z-index:10;
+}
+.imsg-play:hover{
+  background:rgba(255,255,255,1);
+}
+@keyframes imsg-spin{to{transform:rotate(360deg)}}
+.imsg-wave{
+  flex:1;
+  display:flex;
+  align-items:center;
+  gap:1.5px;
+  height:24px;
+  overflow:hidden;
+}
+.imsg-wave span{
+  display:block;
+  width:2px;
+  background:rgba(255,255,255,0.72);
+  border-radius:1px;
+  flex-shrink:0;
+}
+.imsg-time{
+  font-size:11px;
+  color:rgba(255,255,255,0.85);
+  font-family:-apple-system,'SF Pro Text',sans-serif;
+  flex-shrink:0;
+  min-width:26px;
+  text-align:right;
+  letter-spacing:-0.2px;
+}
+
 /* Reply (player msg) phone-pane overrides â€” mirrors node--bubble approach */
 .node--reply .node-bubble{
   display:none;
@@ -8825,6 +8901,10 @@ body.builder-auth-ready .builder-auth-signout{
                 <span class="add-btn-label">GUIDE VIDEO</span>
                 <span class="add-btn-key">V</span>
               </button>
+              <button class="add-btn add-btn--bubble" data-add-stencil="bubble" data-add-kind="audio" type="button" disabled aria-label="Add guide audio message">
+                <span class="add-btn-label">GUIDE AUDIO</span>
+                <span class="add-btn-key">U</span>
+              </button>
               <button class="add-btn add-btn--bubble" data-add-stencil="bubble" data-add-kind="link" type="button" disabled aria-label="Add guide link message">
                 <span class="add-btn-label">GUIDE LINK</span>
                 <span class="add-btn-key">L</span>
@@ -9018,6 +9098,12 @@ body.builder-auth-ready .builder-auth-signout{
                 <div class="field" id="objectBubbleVideoField" hidden>
                   <label class="field-label" for="objectBubbleVideoInput">VIDEO ADDRESS</label>
                   <input id="objectBubbleVideoInput" type="text" placeholder="http://" autocomplete="off" disabled style="width:100%;">
+                </div>
+
+                <div class="field" id="objectBubbleAudioField" hidden>
+                  <label class="field-label" for="objectBubbleAudioInput">AUDIO ADDRESS</label>
+                  <input id="objectBubbleAudioInput" type="text" placeholder="YouTube URL or .wav / .mp3" autocomplete="off" disabled style="width:100%;">
+                  <div class="field-hint">Paste a YouTube URL or a direct link to a .wav or .mp3 file.</div>
                 </div>
 
                 <div class="field" id="objectBubbleLinkTextField" hidden>
@@ -10830,6 +10916,8 @@ const objectBubbleImageOnlineList = document.getElementById('objectBubbleImageOn
 const objectBubbleImageAssetStatus = document.getElementById('objectBubbleImageAssetStatus');
 const objectBubbleVideoField = document.getElementById('objectBubbleVideoField');
 const objectBubbleVideoInput = document.getElementById('objectBubbleVideoInput');
+const objectBubbleAudioField = document.getElementById('objectBubbleAudioField');
+const objectBubbleAudioInput = document.getElementById('objectBubbleAudioInput');
 const objectBubbleLinkTextField = document.getElementById('objectBubbleLinkTextField');
 const objectBubbleLinkTextInput = document.getElementById('objectBubbleLinkTextInput');
 const objectBubbleLinkUrlField = document.getElementById('objectBubbleLinkUrlField');
@@ -11750,6 +11838,18 @@ function getVideoEmbedSrc(url) {
   if (vimeo) return { type: 'iframe', src: 'https://player.vimeo.com/video/' + vimeo[1] };
   // Direct video file
   return { type: 'video', src: s };
+}
+
+function getAudioSrc(url) {
+  const s = String(url || '').trim();
+  if (!s) return null;
+  // YouTube → audio-only embed (no controls, just play audio via compact iframe)
+  const ytShort = s.match(/youtu\.be\/([A-Za-z0-9_-]+)/);
+  if (ytShort) return { type: 'iframe', src: 'https://www.youtube-nocookie.com/embed/' + ytShort[1] + '?controls=1&modestbranding=1&rel=0' };
+  const ytWatch = s.match(/youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/)([A-Za-z0-9_-]+)/);
+  if (ytWatch) return { type: 'iframe', src: 'https://www.youtube-nocookie.com/embed/' + ytWatch[1] + '?controls=1&modestbranding=1&rel=0' };
+  // Direct audio file
+  return { type: 'audio', src: s };
 }
 
 function escapeHtml(value) {
@@ -13193,6 +13293,7 @@ function getObjectInspectorHeading(node, link) {
   if (node.type === 'bubble') {
     if (node.kind === 'image') return 'GUIDE IMAGE DETAILS';
     if (node.kind === 'video') return 'GUIDE VIDEO DETAILS';
+    if (node.kind === 'audio') return 'GUIDE AUDIO DETAILS';
     if (node.kind === 'link') return 'GUIDE LINK DETAILS';
     if (node.kind === 'cta') return 'GUIDE BUTTON DETAILS';
     if (node.kind === 'text') return 'GUIDE TEXT DETAILS';
@@ -15935,6 +16036,16 @@ function buildNodeTitleMarkup(node, displayTitle) {
       : `<span class="node-image-placeholder">No video</span>`;
     return `<div class="node-title">${content}</div>`;
   }
+  if (node.type === 'bubble' && node.kind === 'audio') {
+    const url = String(node.body || '').trim();
+    if (!url) {
+      return `<div class="node-title"><div class="imsg-audio-placeholder">No audio</div></div>`;
+    }
+    const waveHeights = [22,38,60,42,78,35,58,44,82,30,54,48,88,40,70,28,62,52,84,36,68,50,80,32,58,45,76,25,60,50,85,38,65,48,80];
+    const bars = waveHeights.map(h => `<span style="height:${h}%"></span>`).join('');
+    const playIcon = `<svg width="11" height="13" viewBox="0 0 11 13" fill="currentColor"><path d="M1 1.5l9 5-9 5v-10z"/></svg>`;
+    return `<div class="node-title"><div class="imsg-audio"><button class="imsg-play" tabindex="-1" type="button" aria-hidden="true">${playIcon}</button><div class="imsg-wave">${bars}</div><span class="imsg-time">0:00</span></div></div>`;
+  }
   if (node.type === 'bubble' && node.kind === 'link') {
     const text = String(node.body || '').trim() || String(node.linkUrl || '').trim() || 'Link';
     return `<div class="node-title"><span class="node-link-preview">${escapeHtml(text)}</span></div>`;
@@ -16965,6 +17076,7 @@ function updateObjectInspectorUi(node, link, copyText) {
     if (objectWaypointGroupField) objectWaypointGroupField.hidden = true;
     if (objectVarNameField) objectVarNameField.hidden = true;
     if (objectBubbleVideoField) objectBubbleVideoField.hidden = true;
+    if (objectBubbleAudioField) objectBubbleAudioField.hidden = true;
     if (objectBubbleLinkTextField) objectBubbleLinkTextField.hidden = true;
     if (objectBubbleLinkUrlField) objectBubbleLinkUrlField.hidden = true;
     if (objectBubbleCtaTextField) objectBubbleCtaTextField.hidden = true;
@@ -16992,9 +17104,10 @@ function updateObjectInspectorUi(node, link, copyText) {
   const isLinkSelected = !!link;
   const isImageBubble = isGuideNode && node.kind === 'image';
   const isVideoBubble = isGuideNode && node.kind === 'video';
+  const isAudioBubble = isGuideNode && node.kind === 'audio';
   const isLinkBubble = isGuideNode && node.kind === 'link';
   const isCtaBubble = isGuideNode && node.kind === 'cta';
-  const isMediaBubble = isImageBubble || isVideoBubble || isLinkBubble || isCtaBubble;
+  const isMediaBubble = isImageBubble || isVideoBubble || isAudioBubble || isLinkBubble || isCtaBubble;
   const BODY_LABELS = { stop: 'NOTES', bubble: 'GUIDE TEXT', reply: 'PLAYER MESSAGE' };
 
   if (objectInspectorCopy) objectInspectorCopy.textContent = copyText || '';
@@ -17005,14 +17118,15 @@ function updateObjectInspectorUi(node, link, copyText) {
   if (objectButtonTargetField) objectButtonTargetField.hidden = isLinkSelected || !isButtonNode;
   if (objectBubbleImageField) objectBubbleImageField.hidden = !isImageBubble;
   if (objectBubbleVideoField) objectBubbleVideoField.hidden = !isVideoBubble;
+  if (objectBubbleAudioField) objectBubbleAudioField.hidden = !isAudioBubble;
   if (objectBubbleLinkTextField) objectBubbleLinkTextField.hidden = !isLinkBubble;
   if (objectBubbleLinkUrlField) objectBubbleLinkUrlField.hidden = !isLinkBubble;
   if (objectBubbleCtaTextField) objectBubbleCtaTextField.hidden = !isCtaBubble;
   if (objectBubbleCtaUrlField) objectBubbleCtaUrlField.hidden = !isCtaBubble;
-  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node || isButtonNode || isImageBubble || isVideoBubble || isLinkBubble;
+  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node || isButtonNode || isImageBubble || isVideoBubble || isAudioBubble || isLinkBubble;
   if (objectBodyLabel) {
     objectBodyLabel.textContent = node
-      ? (isImageBubble ? 'IMAGE ADDRESS' : isVideoBubble ? 'VIDEO ADDRESS' : (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'NOTES')))
+      ? (isImageBubble ? 'IMAGE ADDRESS' : isVideoBubble ? 'VIDEO ADDRESS' : isAudioBubble ? 'AUDIO ADDRESS' : (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'NOTES')))
       : 'NOTES';
   }
   if (nodeBodyHtmlNote) {
@@ -17070,6 +17184,7 @@ function updateObjectInspectorUi(node, link, copyText) {
   if (objectBubbleImageOnlinePickBtn) objectBubbleImageOnlinePickBtn.disabled = !isImageBubble;
   if (!isImageBubble) setBubbleImageOnlineMenuOpen(false);
   syncInput(objectBubbleVideoInput, isVideoBubble, node && (node.body || 'https://'));
+  syncInput(objectBubbleAudioInput, isAudioBubble, node && (node.body || ''));
   syncInput(objectBubbleLinkTextInput, isLinkBubble, node && node.body);
   syncInput(objectBubbleLinkUrlInput, isLinkBubble, node && (node.linkUrl || 'https://'));
   syncInput(objectBubbleCtaTextInput, isCtaBubble, node && node.body);
@@ -17879,9 +17994,9 @@ function syncReplyModeInputs(node) {
   if (objectReplyModeField) objectReplyModeField.hidden = !isReplyNode;
   if (objectReplyTimingField) objectReplyTimingField.hidden = !(isReplyNode && !isLegacyAnytimeReply && mode === 'normal');
   if (objectBodyAnswerNote) objectBodyAnswerNote.hidden = !(isReplyNode && mode === 'normal');
-  if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble') || (node && (node.kind === 'image' || node.kind === 'video' || node.kind === 'link' || node.kind === 'cta'));
+  if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble') || (node && (node.kind === 'image' || node.kind === 'video' || node.kind === 'audio' || node.kind === 'link' || node.kind === 'cta'));
   const isButtonNode = !!node && node.type === 'button';
-  if (objectDescriptionField) objectDescriptionField.hidden = isButtonNode || (isReplyNode && mode === 'anyanswer') || (node && node.type === 'bubble' && (node.kind === 'image' || node.kind === 'video' || node.kind === 'link' || node.kind === 'cta'));
+  if (objectDescriptionField) objectDescriptionField.hidden = isButtonNode || (isReplyNode && mode === 'anyanswer') || (node && node.type === 'bubble' && (node.kind === 'image' || node.kind === 'video' || node.kind === 'audio' || node.kind === 'link' || node.kind === 'cta'));
 
   [
     [objectReplyModeNormalInput, 'normal'],
@@ -19332,6 +19447,16 @@ if (objectBubbleVideoInput) {
   objectBubbleVideoInput.addEventListener('change', syncVideo);
 }
 
+if (objectBubbleAudioInput) {
+  const syncAudio = () => {
+    const node = getNode(state.selectedId);
+    if (!node || node.kind !== 'audio') return;
+    node.body = String(objectBubbleAudioInput.value || '');
+    node.height = 38;
+    renderAll();
+  };
+  objectBubbleAudioInput.addEventListener('change', syncAudio);
+}
 
 if (objectBubbleLinkTextInput) {
   const syncLinkText = () => {
@@ -20506,6 +20631,12 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
+  if (!isTyping && isLetterShortcut(event, 'KeyU')) {
+    event.preventDefault();
+    addNodeToVisiblePhone('bubble', 'audio');
+    return;
+  }
+
   if (!isTyping && isLetterShortcut(event, 'KeyL')) {
     event.preventDefault();
     addNodeToVisiblePhone('bubble', 'link');
@@ -20773,6 +20904,119 @@ window.addEventListener('resize', () => {
   if (!activeFieldTooltipInfo) return;
   positionFieldTooltip(activeFieldTooltipInfo);
 });
+
+// ── iMessage audio player ────────────────────────────────────────────────────
+const IMSG_ICON_PLAY  = `<svg width="11" height="13" viewBox="0 0 11 13" fill="currentColor"><path d="M1 1.5l9 5-9 5v-10z"/></svg>`;
+const IMSG_ICON_PAUSE = `<svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect x="1" y="1" width="3" height="9" rx="1"/><rect x="7" y="1" width="3" height="9" rx="1"/></svg>`;
+const IMSG_ICON_SPIN  = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation:imsg-spin 0.75s linear infinite"><circle cx="6.5" cy="6.5" r="4.5" opacity="0.25"/><path d="M6.5 2A4.5 4.5 0 0 1 11 6.5"/></svg>`;
+
+// Resolve a raw URL to a playable audio src, fetching page-based URLs as needed.
+// Result is cached on the node object keyed by raw URL.
+async function resolveAudioSrc(node) {
+  const raw = String(node.body || '').trim();
+  if (!raw) return null;
+  if (node._resolvedAudioRaw === raw && node._resolvedAudioSrc !== undefined) return node._resolvedAudioSrc;
+  node._resolvedAudioRaw = raw;
+  node._resolvedAudioSrc = undefined;
+
+  // YouTube — no audio-only extraction possible client-side
+  if (/youtu\.be\/|youtube\.com\//.test(raw)) { node._resolvedAudioSrc = null; return null; }
+
+  // Direct audio file extension
+  if (/\.(mp3|wav|ogg|m4a|aac|flac)(\?|#|$)/i.test(raw)) {
+    node._resolvedAudioSrc = raw; return raw;
+  }
+
+  // myinstants page URL — proxy-fetch HTML, extract direct audio src
+  if (/myinstants\.com/.test(raw)) {
+    try {
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(raw)}`;
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error(`proxy ${res.status}`);
+      const data = await res.json();
+      const html = data.contents || '';
+      // Try multiple patterns: onclick, download href, <audio src>
+      const patterns = [
+        /onclick="play\('([^']+)'/,
+        /href="([^"]*\/media\/sounds\/[^"]+\.mp3)"/,
+        /<audio[^>]+src="([^"]+)"/,
+        /data-url="([^"]+\.mp3)"/,
+      ];
+      for (const pat of patterns) {
+        const m = html.match(pat);
+        if (m && m[1]) {
+          const src = m[1].startsWith('http') ? m[1] : 'https://www.myinstants.com' + m[1];
+          console.log('[audio] myinstants resolved:', src);
+          node._resolvedAudioSrc = src; return src;
+        }
+      }
+      console.warn('[audio] myinstants: no audio URL found in page');
+    } catch (err) {
+      console.error('[audio] myinstants fetch failed:', err);
+    }
+    node._resolvedAudioSrc = null; return null;
+  }
+
+  // Anything else — treat as direct audio URL
+  node._resolvedAudioSrc = raw; return raw;
+}
+
+// Stop pointerdown on the play button from reaching the node drag system.
+document.addEventListener('pointerdown', (e) => {
+  if (e.target.closest('.imsg-play')) e.stopPropagation();
+}, true);
+
+let _imsgAudio = null;
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.imsg-play');
+  if (!btn) return;
+  e.stopPropagation();
+
+  const shell = btn.closest('[data-id]');
+  const node = shell ? getNode(shell.dataset.id) : null;
+  if (!node || node.kind !== 'audio') return;
+
+  // YouTube → open in tab
+  if (/youtu\.be\/|youtube\.com\//.test(node.body || '')) {
+    window.open(node.body, '_blank', 'noopener'); return;
+  }
+
+  // Same clip playing → pause
+  if (_imsgAudio && !_imsgAudio.paused && _imsgAudio._nodeId === node.id) {
+    _imsgAudio.pause(); btn.innerHTML = IMSG_ICON_PLAY; return;
+  }
+
+  // Stop whatever else is playing
+  if (_imsgAudio) { _imsgAudio.pause(); _imsgAudio = null; }
+
+  // Resolve URL (may require a network round-trip for page URLs)
+  btn.innerHTML = IMSG_ICON_SPIN;
+  const src = await resolveAudioSrc(node);
+  console.log('[audio] playing src:', src);
+  if (!src) { btn.innerHTML = IMSG_ICON_PLAY; return; }
+
+  const reset = () => { btn.innerHTML = IMSG_ICON_PLAY; _imsgAudio = null; };
+  _imsgAudio = new Audio(src);
+  _imsgAudio._nodeId = node.id;
+  _imsgAudio.volume = 1;
+  btn.innerHTML = IMSG_ICON_PAUSE;
+  _imsgAudio.addEventListener('error', (e) => {
+    console.error('[audio] error:', _imsgAudio.error?.message, _imsgAudio.error?.code, src);
+    reset();
+  });
+  _imsgAudio.addEventListener('ended', reset);
+  _imsgAudio.play().catch((err) => { console.error('[audio] play() rejected:', err); reset(); });
+});
+
+// Invalidate cached resolved URL when address changes
+if (objectBubbleAudioInput) {
+  objectBubbleAudioInput.addEventListener('change', () => {
+    const node = getNode(state.selectedId);
+    if (node) { node._resolvedAudioSrc = undefined; node._resolvedAudioRaw = null; }
+  });
+}
+// ────────────────────────────────────────────────────────────────────────────
 
   </script>
 </body>

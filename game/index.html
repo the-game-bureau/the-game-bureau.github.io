@@ -21,7 +21,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Outfit:wght@500;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <style>
@@ -373,54 +373,56 @@
       box-sizing: content-box;
     }
 
+    /* w3w callout badge — floats above the pin */
     .start-map-address {
       position: absolute;
+      pointer-events: none;
+      font-family: 'Source Sans 3', 'Outfit', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      text-align: center;
+      display: none;
+    }
+    .start-map-callout {
+      display: inline-block;
+      top: 65px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.96);
+      border-radius: 20px;
+      padding: 3px 11px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.28);
+    }
+    .start-map-callout::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid rgba(255, 255, 255, 0.96);
+      filter: drop-shadow(0 1px 1px rgba(0,0,0,0.12));
+    }
+    .start-map-error {
+      display: block;
       bottom: 16px;
       left: 16px;
       right: 16px;
-      background: rgba(0,0,0,0.55);
+      background: rgba(0, 0, 0, 0.55);
       color: #fff;
-      font-family: monospace;
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-align: center;
-      padding: 0.4rem 0.5rem;
-      border-radius: 0 0 12px 12px;
-      pointer-events: none;
+      padding: 0.35rem 0.5rem;
+      border-radius: 0 0 10px 10px;
     }
+    .start-map-address .w3w-slash { color: #E11F26; }
+    .start-map-address .w3w-words { color: #0A3049; }
 
-
-
-    .start-provided-by {
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--primary);
-      opacity: 0.5;
-      margin-bottom: -0.5rem;
-    }
-
-    .start-w3w-logo {
-      width: 120px;
+.start-w3w-logo {
+      width: 110px;
       height: auto;
-      opacity: 0.75;
-    }
-
-    .start-w3w-hint {
-      font-size: 0.82rem;
-      color: var(--primary);
-      opacity: 0.55;
-      text-align: center;
-      line-height: 1.5;
-      width: 100%;
-    }
-
-    .start-btn-action {
-      font-size: 1.05rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
     }
 
     .start-btn-w3w {
@@ -748,7 +750,6 @@
         <span class="start-map-address" id="startDefinitionAddress"></span>
       </div>
 
-      <p class="start-provided-by">Location Services Provided By:</p>
       <img src="https://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io/main/assets/w3w_HorizontalLogo_RGB_Fullcolour_ENG-1100x330.png" alt="what3words" class="start-w3w-logo">
 
     </section>
@@ -833,7 +834,9 @@
 
       const rawValue = value.trim()
         .replace('https://the-game-bureau.github.io/the-game-bureau/', 'https://thegamebureau.com/')
-        .replace('https://the-game-bureau.github.io/', 'https://thegamebureau.com/');
+        .replace('https://the-game-bureau.github.io/', 'https://thegamebureau.com/')
+        .replace('http://thegamebureau.com/assets/', 'https://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io/main/assets/')
+        .replace('https://thegamebureau.com/assets/', 'https://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io/main/assets/');
 
       if (rawValue.startsWith('data:') || rawValue.startsWith('blob:')) {
         return rawValue;
@@ -1443,7 +1446,11 @@
 
           document.getElementById('startingLocationMapLink').href = webUrl;
           document.getElementById('startingLocationMapLink').addEventListener('click', openW3w);
-          if (words) document.getElementById('startDefinitionAddress').textContent = `///${words}`;
+          if (words) {
+            const addrEl = document.getElementById('startDefinitionAddress');
+            addrEl.className = 'start-map-address start-map-callout';
+            addrEl.innerHTML = `<span class="w3w-slash">///</span><span class="w3w-words">${words}</span>`;
+          }
 
           // Render OSM tile map if coordinates are stored
           const mapLat = gameNode.startingLocationLat;
@@ -1484,6 +1491,32 @@
                 }
               }
               await Promise.all(loads);
+
+              // Draw w3w grid overlay (3m² squares, visually representative)
+              const gridStep = 14;
+              const pinX = cx;       // 100
+              const pinY = cy - 10;  // 90 — pin circle centre
+              const half = gridStep / 2;
+              // Align so pin sits at centre of a grid cell
+              const offGX = ((pinX - half) % gridStep + gridStep) % gridStep;
+              const offGY = ((pinY - half) % gridStep + gridStep) % gridStep;
+
+              ctx.save();
+              ctx.strokeStyle = 'rgba(10, 48, 73, 0.18)';
+              ctx.lineWidth = 0.5;
+              ctx.beginPath();
+              for (let x = offGX; x <= 200; x += gridStep) { ctx.moveTo(x, 0); ctx.lineTo(x, 200); }
+              for (let y = offGY; y <= 200; y += gridStep) { ctx.moveTo(0, y); ctx.lineTo(200, y); }
+              ctx.stroke();
+
+              // Highlighted cell at pin location
+              ctx.fillStyle = 'rgba(225, 31, 38, 0.14)';
+              ctx.fillRect(pinX - half, pinY - half, gridStep, gridStep);
+              ctx.strokeStyle = '#E11F26';
+              ctx.lineWidth = 1.5;
+              ctx.strokeRect(pinX - half, pinY - half, gridStep, gridStep);
+              ctx.restore();
+
               // Draw pin
               const pinColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary').trim() || '#e94560';
               ctx.beginPath();
@@ -1506,7 +1539,9 @@
         } else {
           document.getElementById('startingLocationMapLink').style.pointerEvents = 'none';
           document.getElementById('startingLocationMapLink').style.opacity = '0.4';
-          document.getElementById('startDefinitionAddress').textContent = 'ERROR — No location set';
+          const errEl = document.getElementById('startDefinitionAddress');
+          errEl.className = 'start-map-address start-map-error';
+          errEl.textContent = 'ERROR — No location set';
         }
         // /START
 
