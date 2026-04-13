@@ -284,6 +284,37 @@
       z-index: 0;
     }
 
+    .msg.from-player.has-img .msg-bubble {
+      background: #e5e7eb;
+      border: 0;
+      padding: 0.35rem;
+      border-bottom-right-radius: 5px;
+      overflow: visible;
+    }
+    .msg.from-player.has-img .msg-bubble::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      right: -8px;
+      width: 20px;
+      height: 20px;
+      background: #e5e7eb;
+      border-bottom-left-radius: 16px;
+      z-index: -1;
+    }
+    .msg.from-player.has-img .msg-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      right: -12px;
+      width: 12px;
+      height: 20px;
+      background: #ffffff;
+      border-bottom-left-radius: 10px;
+      z-index: 0;
+    }
+    .msg.from-player.has-img .msg-bubble img { border-radius: 14px; }
+
     .msg.call-to-action .msg-bubble { background: #cc0000; }
     .msg.call-to-action:not(.has-img) .msg-bubble::before { background: #cc0000; }
 
@@ -730,6 +761,8 @@
 
   <div class="chat" id="chat"></div>
 
+  <div class="lb" id="lb"><img id="lb-img" src="" alt=""></div>
+
   <div class="input-area" id="input-area">
     <div class="answer-row">
       <input id="gameInput" type="text" class="answer-input" autocomplete="off" placeholder="Message">
@@ -754,6 +787,43 @@
       const inputAreaEl = document.getElementById('input-area');
       const gameInput   = document.getElementById('gameInput');
       const submitBtn   = document.getElementById('gameSubmitBtn');
+
+    // ── Image lightbox ────────────────────────────────────────────
+    (function () {
+      const lb    = document.getElementById('lb');
+      const lbImg = document.getElementById('lb-img');
+      if (!lb || !lbImg) return;
+
+      function openLb(src) {
+        lbImg.src = src;
+        lb.classList.add('open');
+      }
+      function closeLb() {
+        lb.classList.remove('open');
+        lbImg.src = '';
+      }
+
+      // Click any bubble image to open
+      document.addEventListener('click', function (e) {
+        const img = e.target.closest('.msg-bubble img');
+        if (img) { e.preventDefault(); openLb(img.src); }
+      });
+
+      // Click the backdrop to close
+      lb.addEventListener('click', closeLb);
+
+      // Swipe any direction to close
+      let touchStartX = 0, touchStartY = 0;
+      lb.addEventListener('touchstart', function (e) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }, { passive: true });
+      lb.addEventListener('touchend', function (e) {
+        const dx = Math.abs(e.changedTouches[0].clientX - touchStartX);
+        const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+        if (dx > 40 || dy > 40) closeLb();
+      }, { passive: true });
+    })();
     let gameStops          = [];
     let anytimeStops       = [];
     let legacyAnytimeStops = [];
@@ -993,6 +1063,7 @@
       if (!url || url.origin !== window.location.origin) return false;
       const path = String(url.pathname || '').toLowerCase();
       return path.endsWith('/archive/game/pay.html')
+        || path.endsWith('/pay/index.html')
         || (path.endsWith('/pay.html') && (
           url.searchParams.has('variant')
           || url.searchParams.has('game')
@@ -1001,7 +1072,10 @@
     }
     function isLemonCheckoutUrl(value) {
       const url = value instanceof URL ? value : parseUrl(value);
-      return !!(url && isLemonHost(url.hostname) && /\/buy\//i.test(String(url.pathname || '')));
+      if (!url) return false;
+      if (isLemonHost(url.hostname) && /\/(buy|checkout\/buy)\//i.test(String(url.pathname || ''))) return true;
+      if (url.hostname === 'app.lemonsqueezy.com' && /\/share\//i.test(String(url.pathname || ''))) return true;
+      return false;
     }
     function isCheckoutPauseUrl(value) {
       return isLemonCheckoutUrl(value) || isLocalPayPageUrl(value);
@@ -1086,7 +1160,7 @@
       if (lemonScriptPromise) return lemonScriptPromise;
       lemonScriptPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'https://app.lemonsqueezy.com/js/lemon.js';
+        script.src = 'https://assets.lemonsqueezy.com/lemon.js';
         script.async = true;
         script.onload = () => {
           try {
@@ -1421,6 +1495,19 @@
       window.location.href = resolvedCheckoutUrl;
     }
 
+    function renderImageUrls(html) {
+      // Replace bare image URLs with <img> tags (iMessage-style inline images)
+      return html.replace(
+        /(https?:\/\/[^\s<>"']+\.(?:jpe?g|png|gif|webp|avif)(?:\?[^\s<>"']*)?)/gi,
+        function (url, _m, offset, str) {
+          // Skip if already inside an HTML tag attribute
+          const before = str.slice(0, offset);
+          if (before.lastIndexOf('<') > before.lastIndexOf('>')) return url;
+          return '<img src="' + url + '">';
+        }
+      );
+    }
+
     function addBubble(content, fromGame = true) {
       const isObj = typeof content === 'object' && content !== null;
       const html = isObj ? (content.html || content.text || '') : content;
@@ -1430,7 +1517,7 @@
       wrap.className = 'msg ' + (fromGame ? 'from-game' : 'from-player');
       const bubble = document.createElement('div');
       bubble.className = 'msg-bubble';
-      bubble.innerHTML = interpolate(String(html || '')).replace(/\n/g, '<br>');
+      bubble.innerHTML = renderImageUrls(interpolate(String(html || '')).replace(/\n/g, '<br>'));
       if (bubble.querySelector('img')) wrap.classList.add('has-img');
       
       bubble.querySelectorAll('a').forEach(a => {

@@ -6535,6 +6535,128 @@ body.builder-page--editor #inspector{
   border-color:var(--game-primary, var(--bic-blue));
 }
 
+/* ── Game Notes Popup ── */
+.game-notes-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(var(--bic-blue-rgb),.28);
+  backdrop-filter:blur(3px);
+  -webkit-backdrop-filter:blur(3px);
+  z-index:199;
+}
+.game-notes-backdrop[hidden]{ display:none; }
+.game-notes-popup{
+  position:fixed;
+  inset:0;
+  margin:auto;
+  width:min(640px, 92vw);
+  height:min(560px, 85vh);
+  display:flex;
+  flex-direction:column;
+  background:#fafaf2;
+  border:1px solid rgba(var(--bic-blue-rgb),.16);
+  border-radius:16px;
+  box-shadow:
+    0 24px 60px rgba(var(--bic-blue-rgb),.2),
+    0 2px 0 rgba(255,255,255,.9) inset;
+  z-index:200;
+  overflow:hidden;
+}
+.game-notes-popup[hidden]{ display:none; }
+.game-notes-popup-bar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 14px;
+  background:var(--bic-blue);
+  flex-shrink:0;
+  border-radius:15px 15px 0 0;
+}
+.game-notes-popup-title{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:.72rem;
+  font-weight:600;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+.game-notes-save-status{
+  font-size:.62rem;
+  letter-spacing:.06em;
+  color:rgba(255,255,255,.65);
+  font-family:"IBM Plex Mono",monospace;
+  margin-left:auto;
+}
+.game-notes-close-btn{
+  background:none;
+  border:none;
+  color:rgba(255,255,255,.7);
+  font-size:1.2rem;
+  line-height:1;
+  cursor:pointer;
+  padding:2px 6px;
+  border-radius:4px;
+  flex-shrink:0;
+}
+.game-notes-close-btn:hover{ color:#fff; background:rgba(255,255,255,.15); }
+.game-notes-paper{
+  flex:1;
+  overflow:hidden;
+  position:relative;
+  /* looseleaf lines + margin */
+  --ln:28px;
+  background-color:#fafaf2;
+  background-image:
+    linear-gradient(90deg, transparent 52px, rgba(220,80,80,.3) 52px, rgba(220,80,80,.3) 53px, transparent 53px),
+    repeating-linear-gradient(transparent 0px, transparent 27px, rgba(150,185,255,.7) 27px, rgba(150,185,255,.7) 28px);
+  background-size:100% 100%, 100% var(--ln);
+  background-position:0 0;
+}
+.game-notes-textarea{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  background:transparent;
+  border:none;
+  color:#1a2440;
+  font-family:"IBM Plex Mono",monospace;
+  font-size:0.84rem;
+  line-height:var(--ln);
+  padding:0 18px 0 68px;
+  resize:none;
+  outline:none;
+  box-sizing:border-box;
+  overflow-y:auto;
+}
+.game-notes-textarea::placeholder{
+  color:rgba(var(--bic-blue-rgb),.35);
+  font-style:italic;
+}
+.insp-btn--notes[aria-pressed="true"]{
+  background:rgba(var(--bic-blue-rgb),.15);
+}
+@media (max-width:600px){
+  .game-notes-popup{
+    inset:auto 0 0 0;
+    margin:0;
+    width:100%;
+    height:80svh;
+    border-radius:20px 20px 0 0;
+    border-bottom:none;
+  }
+  .game-notes-popup-bar{
+    border-radius:19px 19px 0 0;
+  }
+  .game-notes-textarea{
+    font-size:1rem;
+    line-height:var(--ln);
+  }
+}
+
 body.builder-page--editor .inspector::before{
   content:none;
 }
@@ -6858,6 +6980,7 @@ body.builder-page--editor .details-section-title{
 
 body.builder-page--editor #detailsBrandSection .details-section-title,
 body.builder-page--editor #detailsGameDetailsSection .details-section-title,
+body.builder-page--editor #detailsRendezvousSection .details-section-title,
 body.builder-page--editor #detailsTagsSection .details-section-title,
 body.builder-page--editor #detailsTeamsSection .details-section-title,
 body.builder-page--editor #detailsGuideSection .details-section-title{
@@ -8541,6 +8664,7 @@ body.builder-auth-ready .builder-auth-signout{
               </div>
               <div class="inspector-windowtools">
                 <div class="inspector-actions inspector-actions--header">
+                  <button class="insp-btn insp-btn--notes" id="gameNotesBtn" type="button" aria-pressed="false">Notes</button>
                   <button class="insp-btn" id="gamePickerSaveBtn" type="button" data-state="idle" aria-busy="false">Save</button>
                   <button class="insp-btn" id="gamePickerPlayBtn" type="button" aria-disabled="true">Preview</button>
                   <button class="insp-btn insp-btn--duplicate" id="duplicateGameBtn" type="button">Duplicate</button>
@@ -8725,7 +8849,7 @@ body.builder-auth-ready .builder-auth-signout{
                     </div>
 
                     <div class="field" id="cityField">
-                      <label class="field-label" for="nodeCityInput">City</label>
+                      <label class="field-label" for="nodeCityInput">City, State</label>
                       <input id="nodeCityInput" type="text" autocomplete="off" disabled>
                     </div>
 
@@ -8824,6 +8948,7 @@ body.builder-auth-ready .builder-auth-signout{
                     </div>
                   </div>
                 </section>
+
 
               <section class="details-section" id="detailsLogicSection">
                 <div class="details-section-title">Logic</div>
@@ -9096,7 +9221,7 @@ body.builder-auth-ready .builder-auth-signout{
                 </div>
 
                 <div class="field" id="objectButtonTargetField" hidden>
-                  <label class="field-label" for="objectButtonTargetInput">TARGET WEB PAGE</label>
+                  <label class="field-label field-label--with-meta" for="objectButtonTargetInput">TARGET WEB PAGE<span class="field-info" tabindex="0" role="note" aria-label="Useful for sending players to the Team Cipher and Payment Portal.">i<span class="field-tooltip" role="tooltip">Useful for sending players to the Team Cipher and Payment Portal.</span></span></label>
                   <input id="objectButtonTargetInput" type="text" placeholder="http://" autocomplete="off" disabled>
                 </div>
 
@@ -9306,7 +9431,7 @@ body.builder-auth-ready .builder-auth-signout{
                 </div>
 
                 <div class="field" id="cityField">
-                  <label class="field-label" for="nodeCityInput">City</label>
+                  <label class="field-label" for="nodeCityInput">City, State</label>
                   <input id="nodeCityInput" type="text" autocomplete="off" disabled>
                 </div>
 
@@ -9415,6 +9540,19 @@ body.builder-auth-ready .builder-auth-signout{
         </template>
       </div>
     </main>
+  </div>
+
+  <!-- Game Notes popup -->
+  <div class="game-notes-backdrop" id="gameNotesBackdrop" hidden></div>
+  <div class="game-notes-popup" id="gameNotesPopup" hidden role="dialog" aria-modal="true" aria-label="Game Notes">
+    <div class="game-notes-popup-bar">
+      <span class="game-notes-popup-title">GAME NOTES<span class="field-info" tabindex="0" role="note" aria-label="Use this area to take field notes about any aspect of this game in particular for future reference during game design.">i<span class="field-tooltip" role="tooltip">Use this area to take field notes about any aspect of this game in particular for future reference during game design.</span></span></span>
+      <span class="game-notes-save-status" id="gameNotesSaveStatus" aria-live="polite"></span>
+      <button class="game-notes-close-btn" id="gameNotesCloseBtn" type="button" aria-label="Close notes">&#x2715;</button>
+    </div>
+    <div class="game-notes-paper">
+      <textarea id="gameNotesInput" class="game-notes-textarea" placeholder="Field notes…"></textarea>
+    </div>
   </div>
 
   <div class="context-menu" id="nodeContextMenu" hidden>
@@ -9727,6 +9865,55 @@ async function deleteTagFromSupabase(tagName) {
     }
   } catch (err) {
     console.warn('Error deleting tag from Supabase:', err);
+  }
+}
+
+// ── Game Notes ──
+async function loadGameNotes(gameId) {
+  if (!hasSupabaseStore() || !gameId) return;
+  try {
+    const response = await fetch(
+      buildSupabaseUrl({ game_id: 'eq.' + gameId, select: 'notes' }, 'game_notes'),
+      { cache: 'no-store', headers: getSupabaseHeaders({ Accept: 'application/json' }) }
+    );
+    if (!response.ok) {
+      console.error('[game_notes] load failed', response.status, await response.text());
+      return;
+    }
+    const rows = await response.json();
+    console.log('[game_notes] loaded', rows);
+    const el = document.getElementById('gameNotesInput');
+    if (el) el.value = (Array.isArray(rows) && rows.length && rows[0].notes) ? rows[0].notes : '';
+  } catch (err) {
+    console.error('[game_notes] load error', err);
+  }
+}
+
+async function saveGameNotes(gameId, notes) {
+  if (!hasSupabaseStore() || !gameId) return;
+  const statusEl = document.getElementById('gameNotesSaveStatus');
+  if (statusEl) statusEl.textContent = 'SAVING…';
+  try {
+    const response = await fetch(
+      buildSupabaseUrl({ on_conflict: 'game_id' }, 'game_notes'),
+      {
+        method: 'POST',
+        headers: getSupabaseHeaders({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }),
+        body: JSON.stringify([{ game_id: gameId, notes }])
+      }
+    );
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('[game_notes] save failed', response.status, errText);
+      throw new Error(errText || 'save failed');
+    }
+    if (statusEl) {
+      statusEl.textContent = 'SAVED';
+      setTimeout(() => { if (statusEl.textContent === 'SAVED') statusEl.textContent = ''; }, 2000);
+    }
+  } catch (err) {
+    console.error('[game_notes] save error', err);
+    if (statusEl) statusEl.textContent = 'ERROR';
   }
 }
 
@@ -15830,6 +16017,9 @@ function openSavedGame(gameId, options = {}) {
     setSaveStatus('saved', 'Viewing Saved Game');
   }
   void refreshWaypointLibrary({ message: 'Loading saved waypoints...' });
+  const _gameNotesInput = document.getElementById('gameNotesInput');
+  if (_gameNotesInput) _gameNotesInput.value = '';
+  void loadGameNotes(game.id);
 }
 
 async function openSavedGameById(gameId, options = {}) {
@@ -18508,6 +18698,7 @@ function serializeNodeState(node) {
     title: node.title,
     tagline: node.tagline || '',
     city: node.city || '',
+    locationBased: node.locationBased === 'YES' ? 'YES' : 'NO',
     startingLocation: node.startingLocation || '',
     startingLocationLat: node.startingLocationLat ?? null,
     startingLocationLon: node.startingLocationLon ?? null,
@@ -18775,6 +18966,9 @@ function restoreRecoveryWorkspace(recovery) {
   state.lastRecoverySnapshot = buildRecoverySnapshot();
   setSaveStatus('draft', 'Recovered Local Draft');
   void refreshWaypointLibrary({ message: 'Loading saved waypoints...' });
+  const _recoveryNotesInput = document.getElementById('gameNotesInput');
+  if (_recoveryNotesInput) _recoveryNotesInput.value = '';
+  void loadGameNotes(recovery.currentGameId);
   return true;
 }
 
@@ -20170,6 +20364,41 @@ if (duplicateGameBtn) {
     await duplicateCurrentGameAndOpen();
   });
 }
+const gameNotesInput = document.getElementById('gameNotesInput');
+if (gameNotesInput) {
+  let _gameNotesSaveTimer = null;
+  gameNotesInput.addEventListener('input', () => {
+    const statusEl = document.getElementById('gameNotesSaveStatus');
+    if (statusEl) statusEl.textContent = '…';
+    clearTimeout(_gameNotesSaveTimer);
+    _gameNotesSaveTimer = setTimeout(() => {
+      const gid = state.currentGameId;
+      if (gid) void saveGameNotes(gid, gameNotesInput.value);
+    }, 1200);
+  });
+}
+const gameNotesBtn = document.getElementById('gameNotesBtn');
+const gameNotesPopup = document.getElementById('gameNotesPopup');
+const gameNotesBackdrop = document.getElementById('gameNotesBackdrop');
+const gameNotesCloseBtn = document.getElementById('gameNotesCloseBtn');
+function openGameNotesPopup() {
+  if (!gameNotesPopup) return;
+  gameNotesPopup.hidden = false;
+  if (gameNotesBackdrop) gameNotesBackdrop.hidden = false;
+  if (gameNotesBtn) gameNotesBtn.setAttribute('aria-pressed', 'true');
+  if (gameNotesInput) gameNotesInput.focus();
+}
+function closeGameNotesPopup() {
+  if (!gameNotesPopup) return;
+  gameNotesPopup.hidden = true;
+  if (gameNotesBackdrop) gameNotesBackdrop.hidden = true;
+  if (gameNotesBtn) gameNotesBtn.setAttribute('aria-pressed', 'false');
+}
+if (gameNotesBtn) gameNotesBtn.addEventListener('click', () => {
+  gameNotesPopup && gameNotesPopup.hidden ? openGameNotesPopup() : closeGameNotesPopup();
+});
+if (gameNotesCloseBtn) gameNotesCloseBtn.addEventListener('click', closeGameNotesPopup);
+if (gameNotesBackdrop) gameNotesBackdrop.addEventListener('click', closeGameNotesPopup);
 if (featureGameBtn) {
   featureGameBtn.addEventListener('click', async () => {
     await toggleCurrentGameFeaturedState();

@@ -145,7 +145,13 @@ For example, with Oswald, link to all my research.
 - [ ] Old Absinthe house has football helmets
 - [ ] Share image from game page link
 - [ ] introduce team leader concept that person not only shares location but meetup time. It adds adventure.
-- [ ]
+- [ ] Set a date and time to start and get sponsorship from a bar to end at their bar with away team fans.
+- [ ] Streetcar puzzle of some sort
+- [ ] add a sense of urgency by slotting people into different start times. that way away team games can end with a pep rally.
+- [ ] each game has a notes section on builder so builders can make notes on the fly without having to track them down later.
+- [ ] pay builders based on purchase reports
+- [ ] look at other coop tour websites
+- [ ] FULL BRANCHING, RIGHT NOW WE CAN'T EVEN GIVE A SPECIALTY REPLY TO A WRONG ANSWER
 
 Previous Tour Stops:
 
