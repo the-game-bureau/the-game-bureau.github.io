@@ -255,6 +255,7 @@
       background: #fff;
       border: 2px solid var(--primary);
       border-radius: 20px;
+      aspect-ratio: 1 / 1;
       margin: calc(var(--v) * 1.5) var(--pad) calc(var(--v) * 1.5);
       padding: 1.75rem var(--pad);
       color: #111;
@@ -262,36 +263,46 @@
       align-items: center;
       gap: 1.1rem;
       box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      cursor: pointer;
+      user-select: none;
     }
+    #startingLocationSection:active { opacity: 0.88; }
     .start-bg-map {
       position: absolute;
       inset: 0;
       background-size: cover;
       background-position: center;
-      opacity: 0.32;
+      opacity: 0.55;
       border-radius: 18px;
       pointer-events: none;
     }
 
-    .start-header {
-      font-family: 'Outfit', sans-serif;
-      font-weight: 700;
-      font-size: 1.9rem;
-      letter-spacing: 0.01em;
-      color: var(--primary);
-      -webkit-text-stroke: 1.5px var(--secondary);
-      paint-order: stroke fill;
-      text-align: center;
-      text-transform: uppercase;
-      width: 100%;
-    }
     .start-header::after {
       content: '';
       display: block;
       width: 100%;
       height: 1px;
-      background: var(--tertiary);
+      background: var(--secondary);
       margin-top: 1.1rem;
+      position: relative;
+      z-index: 10;
+    }
+    .start-header {
+      position: relative;
+      z-index: 1;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.9rem;
+      letter-spacing: 0.01em;
+      color: var(--primary);
+      text-shadow:
+        -1.5px -1.5px 0 var(--secondary),
+         1.5px -1.5px 0 var(--secondary),
+        -1.5px  1.5px 0 var(--secondary),
+         1.5px  1.5px 0 var(--secondary);
+      text-align: center;
+      text-transform: uppercase;
+      width: 100%;
     }
 
     .start-blurb {
@@ -309,54 +320,61 @@
       padding: 0.75rem 1rem;
       box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     }
-    .start-blurb strong { color: var(--tertiary); }
+    .start-blurb strong { color: var(--primary); }
 
     .start-map-pin { fill: var(--secondary); }
 
-    .start-map-wrap {
-      position: relative;
-      width: 200px;
-      height: 200px;
-      flex-shrink: 0;
-      background: #e8e3da center/cover no-repeat;
-      border-radius: 16px;
-      border: 2px solid var(--secondary);
-      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
-      cursor: pointer;
-      user-select: none;
-      overflow: hidden;
-    }
-    .start-map-wrap:active { opacity: 0.82; }
-
-    /* w3w badge — overlaid on the map */
+    /* w3w badge — absolutely positioned off-center */
     .start-map-address {
       display: none;
       position: absolute;
+      top: 65%;
+      left: 5%;
+      z-index: 2;
       pointer-events: none;
       font-family: 'Source Sans 3', 'Outfit', sans-serif;
-      font-size: 0.78rem;
+      font-size: 0.8rem;
       font-weight: 600;
-      letter-spacing: 0.02em;
+      letter-spacing: 0;
       white-space: nowrap;
       text-align: center;
     }
-    .start-map-callout {
-      display: inline-block;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -130%);
-      background: rgba(255,255,255,0.96);
-      border-radius: 20px;
-      padding: 3px 11px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.28);
+    #startLineSvg {
+      display: none;
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      overflow: visible;
     }
-    .start-map-address .w3w-slash { color: #E11F26; }
+    @keyframes tap-dot {
+      0%   { transform: scale(1); }
+      8%   { transform: scale(0.55); }
+      22%  { transform: scale(1.25); }
+      34%  { transform: scale(0.92); }
+      44%  { transform: scale(1); }
+      100% { transform: scale(1); }
+    }
+    #startLineSvg circle {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: tap-dot 2.6s ease-in-out infinite;
+    }
+    .start-map-callout {
+      display: inline-flex;
+      align-items: center;
+      background: #fff;
+      border-radius: 6px;
+      border-left: 3px solid #E11F26;
+      padding: 4px 10px 4px 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+      gap: 1px;
+    }
+    .start-map-address .w3w-slash { color: #E11F26; font-weight: 800; font-style: italic; }
     .start-map-address .w3w-words { color: #0A3049; }
 
-.start-w3w-logo {
-      width: 110px;
-      height: auto;
-    }
 
     .start-btn-w3w {
       font-size: 0.78rem;
@@ -403,8 +421,10 @@
       display: block;
       width: 100%;
       height: 1px;
-      background: var(--tertiary);
+      background: var(--secondary);
       margin-top: 1.1rem;
+      position: relative;
+      z-index: 10;
     }
 
     /* INVITE_PLAYERS: qr code block */
@@ -661,11 +681,19 @@
       <div class="start-header">RENDEZVOUS</div>
       <p id="startBlurb" class="start-blurb"></p>
 
-      <div class="start-map-wrap" id="startMapWrap">
-        <div class="start-map-address" id="startDefinitionAddress"></div>
-      </div>
+      <div class="start-map-address" id="startDefinitionAddress"></div>
 
-      <img src="https://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io/main/assets/w3w_HorizontalLogo_RGB_Fullcolour_ENG-1100x330.png" alt="what3words" class="start-w3w-logo">
+      <svg id="startLineSvg" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lineGrad" x1="25" y1="68" x2="50" y2="50" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#E11F26" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#E11F26" stop-opacity="1"/>
+          </linearGradient>
+        </defs>
+        <line x1="25" y1="68" x2="50" y2="50" stroke="url(#lineGrad)" stroke-width="1" stroke-linecap="round"/>
+        <circle cx="50" cy="50" r="2.2" fill="#E11F26"/>
+      </svg>
+
 
     </section>
 
@@ -714,7 +742,7 @@
     };
 
 
-    const W3W_API_KEY = '142RBYM4';
+    const W3W_API_KEY = 'TUHUIBI3';
 
     const urlParams = new URLSearchParams(window.location.search);
     const gameId = urlParams.get('id');
@@ -1310,7 +1338,7 @@
         const gameName = String(game.name || 'Untitled Game').trim() || 'Untitled Game';
         document.title = `${gameName} | The Game Bureau`;
         const city = (gameNode.city || game.city || '').trim();
-        document.getElementById('startBlurb').innerHTML = `Use the map to find exactly where in <strong>${city}</strong> the game starts.`;
+        document.getElementById('startBlurb').innerHTML = `You must go to <strong>${city}</strong> to play this game. Tap to reveal the starting point.`;
 
         const qrUrl = `https://thegamebureau.com/game/index.html?id=${encodeURIComponent(gameId)}`;
         const ogImage = images.logoUrl || images.guideUrl || '';
@@ -1347,62 +1375,7 @@
         } else {
           document.getElementById('startingLocationSection').style.display = 'flex';
 
-          // Render OSM tile map background from city/state via Nominatim geocoding
-          const mapCity = (gameNode.city || '').trim();
-          if (mapCity) {
-            const bgMap = document.getElementById('startBgMap');
-            (async () => {
-              try {
-                const geo = await fetch(
-                  `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapCity)}&format=json&limit=1`,
-                  { headers: { 'Accept-Language': 'en' } }
-                );
-                const places = await geo.json();
-                if (!places.length) return;
-                const mapLat = parseFloat(places[0].lat);
-                const mapLon = parseFloat(places[0].lon);
-
-                const W = bgMap.offsetWidth  || 640;
-                const H = bgMap.offsetHeight || 400;
-                const canvas = document.createElement('canvas');
-                canvas.width  = W;
-                canvas.height = H;
-                const ctx = canvas.getContext('2d');
-                const zoom     = 12;
-                const tileSize = 256;
-                const n        = Math.pow(2, zoom);
-                const tileXf   = (mapLon + 180) / 360 * n;
-                const latRad   = mapLat * Math.PI / 180;
-                const tileYf   = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
-                const tileXi   = Math.floor(tileXf);
-                const tileYi   = Math.floor(tileYf);
-                const offX     = (tileXf - tileXi) * tileSize;
-                const offY     = (tileYf - tileYi) * tileSize;
-                const cx = W / 2, cy = H / 2;
-                const rangeX = Math.ceil(W / tileSize / 2) + 1;
-                const rangeY = Math.ceil(H / tileSize / 2) + 1;
-
-                const loads = [];
-                for (let dy = -rangeY; dy <= rangeY; dy++) {
-                  for (let dx = -rangeX; dx <= rangeX; dx++) {
-                    loads.push(new Promise(resolve => {
-                      const img = new Image();
-                      img.crossOrigin = 'anonymous';
-                      img.onload  = () => { ctx.drawImage(img, Math.round(cx - offX + dx * tileSize), Math.round(cy - offY + dy * tileSize), tileSize, tileSize); resolve(); };
-                      img.onerror = resolve;
-                      img.src = `https://tile.openstreetmap.org/${zoom}/${tileXi + dx}/${tileYi + dy}.png`;
-                    }));
-                  }
-                }
-                await Promise.all(loads);
-                try { bgMap.style.backgroundImage = `url(${canvas.toDataURL()})`; } catch(e) {}
-              } catch(e) {}
-            })();
-          }
-        }
-
-        if (isLocationBased) {
-          // Parse w3w words from any stored format, fall back to raw value
+          // Parse w3w words from any stored format
           let words = null;
           const urlMatch = startingLocation.match(/(?:what3words\.com|w3w\.co)\/([a-z]+\.[a-z]+\.[a-z]+)/i);
           const rawMatch = startingLocation.match(/\/{1,3}([a-z]+\.[a-z]+\.[a-z]+)/i);
@@ -1419,7 +1392,7 @@
             document.getElementById('w3wLightboxFrame').src = '';
           };
 
-          document.getElementById('startMapWrap').onclick = () => {
+          document.getElementById('startingLocationSection').onclick = () => {
             document.getElementById('w3wLightboxFrame').src = webUrl || 'https://what3words.com';
             document.getElementById('w3wLightboxLabel').textContent = words ? `///${words}` : gameName;
             document.getElementById('w3wLightbox').classList.add('open');
@@ -1427,70 +1400,70 @@
           };
 
           if (words) {
-            // Show badge
+            // Show w3w badge and line-to-center
             const addrEl = document.getElementById('startDefinitionAddress');
             addrEl.className = 'start-map-address start-map-callout';
             addrEl.innerHTML = `<span class="w3w-slash">///</span><span class="w3w-words">${words}</span>`;
+            const lineSvg = document.getElementById('startLineSvg');
+            if (lineSvg) lineSvg.style.display = 'block';
+          }
 
-            // Fetch coordinates from W3W API and render OSM tile map
-            (async () => {
-              try {
-                const w3wRes = await fetch(
-                  `https://api.what3words.com/v3/convert-to-coordinates?words=${encodeURIComponent(words)}&key=${W3W_API_KEY}`
+          // Render OSM tile map background — stored coordinates (zoom 15) or city fallback (zoom 12)
+          const bgMap = document.getElementById('startBgMap');
+          (async () => {
+            try {
+              let mapLat = typeof gameNode.startingLocationLat === 'number' ? gameNode.startingLocationLat : null;
+              let mapLon = typeof gameNode.startingLocationLon === 'number' ? gameNode.startingLocationLon : null;
+              const zoom = (mapLat != null && mapLon != null) ? 15 : 12;
+
+              if (mapLat == null || mapLon == null) {
+                const mapCity = (gameNode.city || '').trim();
+                if (!mapCity) return;
+                const geo = await fetch(
+                  `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapCity)}&format=json&limit=1`,
+                  { headers: { 'Accept-Language': 'en' } }
                 );
-                const w3wData = await w3wRes.json();
-                if (!w3wData.coordinates) return;
-                const mapLat = w3wData.coordinates.lat;
-                const mapLon = w3wData.coordinates.lng;
+                const places = await geo.json();
+                if (!places.length) return;
+                mapLat = parseFloat(places[0].lat);
+                mapLon = parseFloat(places[0].lon);
+              }
 
-                const canvas = document.createElement('canvas');
-                canvas.width = 200; canvas.height = 200;
-                const ctx = canvas.getContext('2d');
-                const zoom = 16, tileSize = 256;
-                const n = Math.pow(2, zoom);
-                const tileXf = (mapLon + 180) / 360 * n;
-                const latRad = mapLat * Math.PI / 180;
-                const tileYf = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
-                const tileXi = Math.floor(tileXf), tileYi = Math.floor(tileYf);
-                const offX = (tileXf - tileXi) * tileSize, offY = (tileYf - tileYi) * tileSize;
-                const cx = 100, cy = 100;
+              const W = bgMap.offsetWidth  || 640;
+              const H = bgMap.offsetHeight || 400;
+              const canvas = document.createElement('canvas');
+              canvas.width  = W;
+              canvas.height = H;
+              const ctx = canvas.getContext('2d');
+              const tileSize = 256;
+              const n        = Math.pow(2, zoom);
+              const tileXf   = (mapLon + 180) / 360 * n;
+              const latRad   = mapLat * Math.PI / 180;
+              const tileYf   = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
+              const tileXi   = Math.floor(tileXf);
+              const tileYi   = Math.floor(tileYf);
+              const offX     = (tileXf - tileXi) * tileSize;
+              const offY     = (tileYf - tileYi) * tileSize;
+              const cx = W / 2, cy = H / 2;
+              const rangeX = Math.ceil(W / tileSize / 2) + 1;
+              const rangeY = Math.ceil(H / tileSize / 2) + 1;
 
-                const loads = [];
-                for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+              const loads = [];
+              for (let dy = -rangeY; dy <= rangeY; dy++) {
+                for (let dx = -rangeX; dx <= rangeX; dx++) {
                   loads.push(new Promise(resolve => {
-                    const img = new Image(); img.crossOrigin = 'anonymous';
-                    img.onload = () => { ctx.drawImage(img, Math.round(cx - offX + dx * tileSize), Math.round(cy - offY + dy * tileSize), tileSize, tileSize); resolve(); };
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload  = () => { ctx.drawImage(img, Math.round(cx - offX + dx * tileSize), Math.round(cy - offY + dy * tileSize), tileSize, tileSize); resolve(); };
                     img.onerror = resolve;
                     img.src = `https://tile.openstreetmap.org/${zoom}/${tileXi + dx}/${tileYi + dy}.png`;
                   }));
                 }
-                await Promise.all(loads);
-
-                // w3w grid overlay
-                const gridStep = 14, pinX = cx, pinY = cy - 10, half = gridStep / 2;
-                const offGX = ((pinX - half) % gridStep + gridStep) % gridStep;
-                const offGY = ((pinY - half) % gridStep + gridStep) % gridStep;
-                ctx.save();
-                ctx.strokeStyle = 'rgba(10,48,73,0.18)'; ctx.lineWidth = 0.5; ctx.beginPath();
-                for (let x = offGX; x <= 200; x += gridStep) { ctx.moveTo(x,0); ctx.lineTo(x,200); }
-                for (let y = offGY; y <= 200; y += gridStep) { ctx.moveTo(0,y); ctx.lineTo(200,y); }
-                ctx.stroke();
-                ctx.fillStyle = 'rgba(225,31,38,0.14)';
-                ctx.fillRect(pinX-half, pinY-half, gridStep, gridStep);
-                ctx.strokeStyle = '#E11F26'; ctx.lineWidth = 1.5;
-                ctx.strokeRect(pinX-half, pinY-half, gridStep, gridStep);
-                ctx.restore();
-
-                // pin
-                const pinColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary').trim() || '#e94560';
-                ctx.beginPath(); ctx.arc(cx, cy-10, 9, 0, Math.PI*2); ctx.fillStyle = pinColor; ctx.fill();
-                ctx.beginPath(); ctx.moveTo(cx, cy+2); ctx.lineTo(cx-7, cy-8); ctx.lineTo(cx+7, cy-8); ctx.closePath(); ctx.fillStyle = pinColor; ctx.fill();
-                ctx.beginPath(); ctx.arc(cx, cy-10, 4, 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill();
-
-                try { mapWrap.style.backgroundImage = `url(${canvas.toDataURL()})`; } catch(e) {}
-              } catch(e) {}
-            })();
-          }
+              }
+              await Promise.all(loads);
+              try { bgMap.style.backgroundImage = `url(${canvas.toDataURL()})`; } catch(e) {}
+            } catch(e) {}
+          })();
         }
         // /START
 

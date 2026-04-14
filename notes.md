@@ -153,6 +153,7 @@ For example, with Oswald, link to all my research.
 - [ ] pay builders based on purchase reports
 - [ ] look at other coop tour websites
 - [ ] FULL BRANCHING, RIGHT NOW WE CAN'T EVEN GIVE A SPECIALTY REPLY TO A WRONG ANSWER
+- [ ] Film from stop locations and show video. This could give the talking statues effect. Live tours could even project onto the statue to give the haunted mansion effect.
 
 Previous Tour Stops:
 
