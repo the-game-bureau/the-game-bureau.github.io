@@ -2935,6 +2935,12 @@ code{font-family:"IBM Plex Mono",monospace;}
     0 0 0 3px rgba(51,181,87,.12);
 }
 .field-hint{font-size:.64rem;color:var(--bic-blue, #2f5cc2);letter-spacing:.04em;}
+.start-location-coords{display:flex;gap:.5rem;}
+.start-location-coords input{flex:1;min-width:0;}
+.start-location-status{font-size:.78rem;min-height:1.2em;margin-top:.25rem;letter-spacing:.02em;}
+.start-location-status.loading{color:#999;}
+.start-location-status.resolved{color:var(--inspector-accent,#1a1a2e);font-weight:600;font-family:monospace;}
+.start-location-status.error{color:#c0392b;}
 .field input.is-invalid{border-color:#f3b15b;}
 .field textarea.is-invalid{border-color:#f3b15b;}
 .accept-any-row{display:flex;align-items:center;flex-wrap:wrap;gap:7px;font-family:"IBM Plex Mono",monospace;font-size:.58rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9df2b4;cursor:pointer;user-select:none;padding:4px 0;}
@@ -6898,7 +6904,6 @@ body.builder-page--editor .color-picker-tertiary-mark{
   text-shadow:0 1px 1px rgba(0,0,0,.12);
 }
 body.builder-page--editor #inspector .color-picker-swatch{
-  box-shadow:0 0 0 4px #fff;
   border-radius:12px;
 }
 body.builder-page--editor #inspector .color-picker-input,
@@ -8854,9 +8859,13 @@ body.builder-auth-ready .builder-auth-signout{
                     </div>
 
                     <div class="field" id="startingLocationField">
-                      <label class="field-label" for="nodeStartingLocationRawInput">Start Location</label>
-                      <textarea id="nodeStartingLocationRawInput" class="field-textarea" rows="4" placeholder="///wizard.brother.sediment&#10;https://w3w.co/wizard.brother.sediment&#10;29.957835, -90.063496" autocomplete="off" disabled></textarea>
-                      <p class="field-hint">Use <strong>what3words.com</strong> to find your location, tap Share, then copy and paste the info here. Turn <strong>Lon.</strong> and <strong>Lat.</strong> on under Settings first.</p>
+                      <label class="field-label">Start Location</label>
+                      <div class="start-location-coords">
+                        <input id="nodeStartLatInput" type="number" step="any" min="-90" max="90" placeholder="Latitude  e.g. 29.9578" autocomplete="off" disabled>
+                        <input id="nodeStartLonInput" type="number" step="any" min="-180" max="180" placeholder="Longitude  e.g. -90.0635" autocomplete="off" disabled>
+                      </div>
+                      <div class="start-location-status" id="startLocationStatus"></div>
+                      <p class="field-hint">Right-click any spot in <strong>Google Maps</strong> to copy coordinates.</p>
                     </div>
 
                   </div>
@@ -9436,9 +9445,13 @@ body.builder-auth-ready .builder-auth-signout{
                 </div>
 
                 <div class="field" id="startingLocationField">
-                  <label class="field-label" for="nodeStartingLocationRawInput">Start Location</label>
-                  <textarea id="nodeStartingLocationRawInput" class="field-textarea" rows="4" placeholder="///wizard.brother.sediment&#10;https://w3w.co/wizard.brother.sediment&#10;29.957835, -90.063496" autocomplete="off" disabled></textarea>
-                  <p class="field-hint">Use <strong>what3words.com</strong> to find your location, tap Share, then copy and paste the info here. Turn <strong>Lon.</strong> and <strong>Lat.</strong> on under Settings first.</p>
+                  <label class="field-label">Start Location</label>
+                  <div class="start-location-coords">
+                    <input id="nodeStartLatInput" type="number" step="any" min="-90" max="90" placeholder="Latitude  e.g. 29.9578" autocomplete="off" disabled>
+                    <input id="nodeStartLonInput" type="number" step="any" min="-180" max="180" placeholder="Longitude  e.g. -90.0635" autocomplete="off" disabled>
+                  </div>
+                  <div class="start-location-status" id="startLocationStatus"></div>
+                  <p class="field-hint">Right-click any spot in <strong>Google Maps</strong> to copy coordinates.</p>
                 </div>
 
                 <div class="field" id="primaryColorField">
@@ -11154,9 +11167,12 @@ const objectBubbleLinkUrlInput = document.getElementById('objectBubbleLinkUrlInp
 const objectBubbleImageThumbBtn = document.getElementById('objectBubbleImageThumbBtn');
 const objectBubbleImageThumbImage = document.getElementById('objectBubbleImageThumbImage');
 const objectBubbleImageThumbPlaceholder = document.getElementById('objectBubbleImageThumbPlaceholder');
+const W3W_API_KEY = '142RBYM4';
 const nodePriceInput = document.getElementById('nodePriceInput');
 const nodeCityInput = document.getElementById('nodeCityInput');
-const nodeStartingLocationRawInput = document.getElementById('nodeStartingLocationRawInput');
+const nodeStartLatInput  = document.getElementById('nodeStartLatInput');
+const nodeStartLonInput  = document.getElementById('nodeStartLonInput');
+const startLocationStatus = document.getElementById('startLocationStatus');
 const locationBasedNoInput = document.getElementById('locationBasedNoInput');
 const locationBasedYesInput = document.getElementById('locationBasedYesInput');
 const primaryColorInput = document.getElementById('primaryColorInput');
@@ -17519,7 +17535,8 @@ function updateSelectionUi(options = {}) {
   if (!isGameNode) setGameLogoOnlineMenuOpen(false);
 
   if (nodeCityInput) nodeCityInput.disabled = !isGameNode;
-  nodeStartingLocationRawInput.disabled = !isGameNode;
+  if (nodeStartLatInput) nodeStartLatInput.disabled = !isGameNode;
+  if (nodeStartLonInput) nodeStartLonInput.disabled = !isGameNode;
   nodeHowToPlayInput.disabled = !isGameNode;
   nodeGuideNameInput.disabled = !isGameNode;
   nodeGuideBioInput.disabled = !isGameNode;
@@ -17653,17 +17670,17 @@ function updateSelectionUi(options = {}) {
   if (locationBasedNoInput) locationBasedNoInput.disabled = !isGameNode;
   if (locationBasedYesInput) locationBasedYesInput.disabled = !isGameNode;
   if (isGameNode && gameNode) {
-    const lines = [];
-    const loc = gameNode.startingLocation || '';
-    const w3wMatch = loc.match(/(?:what3words\.com\/|w3w\.co\/|^\/\/\/|^)([a-z]+\.[a-z]+\.[a-z]+)(?:[?#].*)?$/i);
-    if (w3wMatch) lines.push(`///${w3wMatch[1].toLowerCase()}`);
-    if (loc) lines.push(loc);
     const lat = gameNode.startingLocationLat;
     const lon = gameNode.startingLocationLon;
-    if (lat != null && lon != null) lines.push(`${lat}, ${lon}`);
-    nodeStartingLocationRawInput.value = lines.join('\n');
+    if (nodeStartLatInput) nodeStartLatInput.value = lat != null ? lat : '';
+    if (nodeStartLonInput) nodeStartLonInput.value = lon != null ? lon : '';
+    const loc = gameNode.startingLocation || '';
+    const w3wMatch = loc.match(/(?:what3words\.com\/|w3w\.co\/)([a-z]+\.[a-z]+\.[a-z]+)/i);
+    setStartLocationStatus(w3wMatch ? `///${w3wMatch[1].toLowerCase()}` : '', w3wMatch ? 'resolved' : '');
   } else {
-    nodeStartingLocationRawInput.value = '';
+    if (nodeStartLatInput) nodeStartLatInput.value = '';
+    if (nodeStartLonInput) nodeStartLonInput.value = '';
+    setStartLocationStatus('', '');
   }
   nodeHowToPlayInput.value = isGameNode && gameNode ? (gameNode.howToPlay || '') : '';
   nodeGuideNameInput.value = isGameNode && gameNode ? (gameNode.guideName || '') : '';
@@ -17712,6 +17729,7 @@ function updateSelectionUi(options = {}) {
   if (quaternaryColorPickerInput) {
     quaternaryColorPickerInput.value = colorValueToHex(quaternaryColorValue, quaternaryColorFallback);
   }
+  syncSwatchBorders();
   nodeTagNewInput.value = '';
   renderTagPicker(gameNode);
   teamInputs.forEach((inp, i) => {
@@ -19569,39 +19587,65 @@ if (nodeCityInput) {
   });
 });
 
-nodeStartingLocationRawInput.addEventListener('input', () => {
+let w3wDebounce = null;
+
+function setStartLocationStatus(text, cls) {
+  if (!startLocationStatus) return;
+  startLocationStatus.textContent = text;
+  startLocationStatus.className = 'start-location-status' + (cls ? ' ' + cls : '');
+}
+
+function onStartCoordInput(e) {
   const node = getGameNode();
   if (!node || node.type !== 'game') return;
-  const raw = nodeStartingLocationRawInput.value;
-  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
 
-  // URL line
-  const urlLine = lines.find(l => /^https?:\/\//i.test(l));
-  // w3w shorthand line (///word.word.word) — use to build URL if no URL line
-  const w3wLine = lines.find(l => /^\/\/\/[a-z]+\.[a-z]+\.[a-z]+$/i.test(l));
-  // Coordinates line
-  const coordLine = lines.find(l => /^-?[\d.]+\s*,\s*-?[\d.]+$/.test(l));
+  // Read from the same panel that fired the event
+  const row = e.target.closest('.start-location-coords');
+  const latEl = row ? row.querySelector('[id="nodeStartLatInput"]') : nodeStartLatInput;
+  const lonEl = row ? row.querySelector('[id="nodeStartLonInput"]') : nodeStartLonInput;
 
-  if (urlLine) {
-    node.startingLocation = urlLine;
-  } else if (w3wLine) {
-    const words = w3wLine.replace('///', '').toLowerCase();
-    node.startingLocation = `https://what3words.com/${words}`;
-  } else {
-    node.startingLocation = '';
-  }
+  const lat = parseFloat(latEl.value);
+  const lon = parseFloat(lonEl.value);
+  const latOk = !isNaN(lat) && lat >= -90  && lat <= 90;
+  const lonOk = !isNaN(lon) && lon >= -180 && lon <= 180;
 
-  if (coordLine) {
-    const parts = coordLine.split(',');
-    node.startingLocationLat = parseFloat(parts[0]) || null;
-    node.startingLocationLon = parseFloat(parts[1]) || null;
-  } else {
+  if (!latOk || !lonOk) {
     node.startingLocationLat = null;
     node.startingLocationLon = null;
+    node.startingLocation = '';
+    setStartLocationStatus((latEl.value || lonEl.value) ? 'Enter both lat and lon' : '', '');
+    updateSelectionUi();
+    return;
   }
 
-  updateSelectionUi();
-});
+  node.startingLocationLat = lat;
+  node.startingLocationLon = lon;
+  setStartLocationStatus('Fetching address\u2026', 'loading');
+
+  clearTimeout(w3wDebounce);
+  w3wDebounce = setTimeout(async () => {
+    try {
+      const res = await fetch(
+        `https://api.what3words.com/v3/convert-to-3wa?coordinates=${lat},${lon}&key=${W3W_API_KEY}&language=en`
+      );
+      const data = await res.json();
+      if (data.words) {
+        node.startingLocation = `https://what3words.com/${data.words}`;
+        setStartLocationStatus(`///${data.words}`, 'resolved');
+      } else {
+        node.startingLocation = '';
+        setStartLocationStatus('Could not resolve address', 'error');
+      }
+    } catch (e) {
+      node.startingLocation = '';
+      setStartLocationStatus('Network error \u2014 check API key', 'error');
+    }
+    updateSelectionUi();
+  }, 600);
+}
+
+if (nodeStartLatInput) nodeStartLatInput.addEventListener('input', onStartCoordInput);
+if (nodeStartLonInput) nodeStartLonInput.addEventListener('input', onStartCoordInput);
 
 
 nodeHowToPlayInput.addEventListener('input', () => {
@@ -19934,6 +19978,21 @@ teamInputs.forEach((inp, i) => {
   });
 });
 
+function syncSwatchBorders() {
+  const colors = getCurrentGameColors();
+  const primary = colorValueToHex(colors.primaryColor, '#5468a7');
+  const secondary = colorValueToHex(colors.secondaryColor, '#243256');
+  const apply = (input, borderColor) => {
+    if (!input) return;
+    const swatch = input.closest('.color-picker-swatch');
+    if (swatch) swatch.style.boxShadow = `0 0 0 3px ${borderColor}`;
+  };
+  apply(primaryColorPickerInput, secondary);
+  apply(secondaryColorPickerInput, primary);
+  apply(tertiaryColorPickerInput, primary);
+  apply(quaternaryColorPickerInput, primary);
+}
+
 function syncGameColorInputs() {
   const colors = getCurrentGameColors();
   if (primaryColorInput) {
@@ -19950,6 +20009,7 @@ function syncGameColorInputs() {
   if (secondaryColorPickerInput) {
     secondaryColorPickerInput.value = colorValueToHex(colors.secondaryColor, '#243256');
   }
+  syncSwatchBorders();
 }
 
 function commitCurrentGameColor(key, rawValue) {
