@@ -68,6 +68,7 @@ Go ahead and get your phones out — I’ll have you scan a QR code so I can sen
 
 ## Core Functionality
 
+- [ ] fix map link without providing lat and long
 - [ ] **Team Cipher:** Lock in team assignment. Don’t rely on player choice. Pull names from Game Specific.
 - [ ] **Handshake:** Play code should expire. Base code on purchase date.
 - [ ] **Variable Logic:** Make variables persistent across refresh and save to DB. Allow input, recall, and routing.

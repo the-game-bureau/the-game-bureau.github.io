@@ -268,7 +268,7 @@
       inset: 0;
       background-size: cover;
       background-position: center;
-      opacity: 0.15;
+      opacity: 0.32;
       border-radius: 18px;
       pointer-events: none;
     }
@@ -311,34 +311,26 @@
     }
     .start-blurb strong { color: var(--tertiary); }
 
-    .start-map {
-      display: block;
-      width: 200px;
-      height: 200px;
-      border-radius: 10px;
-      overflow: hidden;
-      text-decoration: none;
-      flex-shrink: 0;
-    }
-    .start-map svg { display: block; width: 100%; height: 100%; }
     .start-map-pin { fill: var(--secondary); }
-    .start-map:active { opacity: 0.8; }
 
     .start-map-wrap {
       position: relative;
       width: 200px;
       height: 200px;
       flex-shrink: 0;
-      background: #fff;
+      background: #e8e3da center/cover no-repeat;
       border-radius: 16px;
-      padding: 16px;
       border: 2px solid var(--secondary);
       box-shadow: 0 4px 24px rgba(0,0,0,0.15);
-      box-sizing: content-box;
+      cursor: pointer;
+      user-select: none;
+      overflow: hidden;
     }
+    .start-map-wrap:active { opacity: 0.82; }
 
-    /* w3w callout badge — floats above the pin */
+    /* w3w badge — overlaid on the map */
     .start-map-address {
+      display: none;
       position: absolute;
       pointer-events: none;
       font-family: 'Source Sans 3', 'Outfit', sans-serif;
@@ -347,39 +339,16 @@
       letter-spacing: 0.02em;
       white-space: nowrap;
       text-align: center;
-      display: none;
     }
     .start-map-callout {
       display: inline-block;
-      top: 65px;
+      top: 50%;
       left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255, 255, 255, 0.96);
+      transform: translate(-50%, -130%);
+      background: rgba(255,255,255,0.96);
       border-radius: 20px;
       padding: 3px 11px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.28);
-    }
-    .start-map-callout::after {
-      content: '';
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 0; height: 0;
-      border-left: 5px solid transparent;
-      border-right: 5px solid transparent;
-      border-top: 6px solid rgba(255, 255, 255, 0.96);
-      filter: drop-shadow(0 1px 1px rgba(0,0,0,0.12));
-    }
-    .start-map-error {
-      display: block;
-      bottom: 16px;
-      left: 16px;
-      right: 16px;
-      background: rgba(0, 0, 0, 0.55);
-      color: #fff;
-      padding: 0.35rem 0.5rem;
-      border-radius: 0 0 10px 10px;
     }
     .start-map-address .w3w-slash { color: #E11F26; }
     .start-map-address .w3w-words { color: #0A3049; }
@@ -692,28 +661,8 @@
       <div class="start-header">RENDEZVOUS</div>
       <p id="startBlurb" class="start-blurb"></p>
 
-      <div class="start-map-wrap">
-        <a id="startingLocationMapLink" href="#" target="_blank" rel="noopener" class="start-map">
-          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" width="200" height="200">
-            <rect width="200" height="200" fill="#e8e3da"/>
-            <rect x="0"   y="0"   width="58"  height="56" fill="#d8d0c4"/>
-            <rect x="68"  y="0"   width="64"  height="56" fill="#cee8b8"/>
-            <rect x="142" y="0"   width="58"  height="56" fill="#d8d0c4"/>
-            <rect x="0"   y="66"  width="58"  height="68" fill="#d8d0c4"/>
-            <rect x="68"  y="66"  width="64"  height="68" fill="#d8d0c4"/>
-            <rect x="142" y="66"  width="58"  height="68" fill="#d8d0c4"/>
-            <rect x="0"   y="144" width="58"  height="56" fill="#d8d0c4"/>
-            <rect x="68"  y="144" width="64"  height="56" fill="#d8d0c4"/>
-            <rect x="142" y="144" width="58"  height="56" fill="#d8d0c4"/>
-            <rect x="0"   y="56"  width="200" height="11" fill="#f5f2ec"/>
-            <rect x="0"   y="134" width="200" height="11" fill="#f5f2ec"/>
-            <rect x="58"  y="0"   width="11"  height="200" fill="#f5f2ec"/>
-            <rect x="132" y="0"   width="11"  height="200" fill="#f5f2ec"/>
-            <ellipse cx="100" cy="112" rx="13" ry="5" fill="rgba(0,0,0,0.18)"/>
-            <path d="M100 72c-10.5 0-19 8.5-19 19 0 14.2 19 37 19 37s19-22.8 19-37c0-10.5-8.5-19-19-19zm0 26c-3.9 0-7-3.1-7-7s3.1-7 7-7 7 3.1 7 7-3.1 7-7 7z" class="start-map-pin"/>
-          </svg>
-        </a>
-        <span class="start-map-address" id="startDefinitionAddress"></span>
+      <div class="start-map-wrap" id="startMapWrap">
+        <div class="start-map-address" id="startDefinitionAddress"></div>
       </div>
 
       <img src="https://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io/main/assets/w3w_HorizontalLogo_RGB_Fullcolour_ENG-1100x330.png" alt="what3words" class="start-w3w-logo">
@@ -763,6 +712,9 @@
       key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
       table: 'games'
     };
+
+
+    const W3W_API_KEY = '142RBYM4';
 
     const urlParams = new URLSearchParams(window.location.search);
     const gameId = urlParams.get('id');
@@ -1389,137 +1341,156 @@
         // START
         const startingLocation = (gameNode.startingLocation || '').trim();
         const startingLocationValid = startingLocation && startingLocation !== 'http://' && startingLocation !== 'https://';
-        const isLocationBased = gameNode.locationBased === 'YES';
+        const isLocationBased = gameNode.locationBased === 'YES' || gameNode.locationBased === true;
         if (!isLocationBased) {
           document.getElementById('startingLocationSection').style.display = 'none';
         } else {
           document.getElementById('startingLocationSection').style.display = 'flex';
+
+          // Render OSM tile map background from city/state via Nominatim geocoding
+          const mapCity = (gameNode.city || '').trim();
+          if (mapCity) {
+            const bgMap = document.getElementById('startBgMap');
+            (async () => {
+              try {
+                const geo = await fetch(
+                  `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapCity)}&format=json&limit=1`,
+                  { headers: { 'Accept-Language': 'en' } }
+                );
+                const places = await geo.json();
+                if (!places.length) return;
+                const mapLat = parseFloat(places[0].lat);
+                const mapLon = parseFloat(places[0].lon);
+
+                const W = bgMap.offsetWidth  || 640;
+                const H = bgMap.offsetHeight || 400;
+                const canvas = document.createElement('canvas');
+                canvas.width  = W;
+                canvas.height = H;
+                const ctx = canvas.getContext('2d');
+                const zoom     = 12;
+                const tileSize = 256;
+                const n        = Math.pow(2, zoom);
+                const tileXf   = (mapLon + 180) / 360 * n;
+                const latRad   = mapLat * Math.PI / 180;
+                const tileYf   = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
+                const tileXi   = Math.floor(tileXf);
+                const tileYi   = Math.floor(tileYf);
+                const offX     = (tileXf - tileXi) * tileSize;
+                const offY     = (tileYf - tileYi) * tileSize;
+                const cx = W / 2, cy = H / 2;
+                const rangeX = Math.ceil(W / tileSize / 2) + 1;
+                const rangeY = Math.ceil(H / tileSize / 2) + 1;
+
+                const loads = [];
+                for (let dy = -rangeY; dy <= rangeY; dy++) {
+                  for (let dx = -rangeX; dx <= rangeX; dx++) {
+                    loads.push(new Promise(resolve => {
+                      const img = new Image();
+                      img.crossOrigin = 'anonymous';
+                      img.onload  = () => { ctx.drawImage(img, Math.round(cx - offX + dx * tileSize), Math.round(cy - offY + dy * tileSize), tileSize, tileSize); resolve(); };
+                      img.onerror = resolve;
+                      img.src = `https://tile.openstreetmap.org/${zoom}/${tileXi + dx}/${tileYi + dy}.png`;
+                    }));
+                  }
+                }
+                await Promise.all(loads);
+                try { bgMap.style.backgroundImage = `url(${canvas.toDataURL()})`; } catch(e) {}
+              } catch(e) {}
+            })();
+          }
         }
 
-        if (startingLocationValid) {
-          const w3wMatch = startingLocation.match(/(?:what3words\.com\/|w3w\.co\/|^\/\/\/|^)([a-z]+\.[a-z]+\.[a-z]+)(?:[?#].*)?$/i);
-          const words = w3wMatch ? w3wMatch[1].toLowerCase() : null;
-          const webUrl = words ? `https://what3words.com/${words}` : startingLocation;
+        if (isLocationBased) {
+          // Parse w3w words from any stored format, fall back to raw value
+          let words = null;
+          const urlMatch = startingLocation.match(/(?:what3words\.com|w3w\.co)\/([a-z]+\.[a-z]+\.[a-z]+)/i);
+          const rawMatch = startingLocation.match(/\/{1,3}([a-z]+\.[a-z]+\.[a-z]+)/i);
+          if (urlMatch) words = urlMatch[1].toLowerCase();
+          else if (rawMatch) words = rawMatch[1].toLowerCase();
 
-          const lightbox = document.getElementById('w3wLightbox');
-          const lightboxFrame = document.getElementById('w3wLightboxFrame');
-          const lightboxClose = document.getElementById('w3wLightboxClose');
+          const webUrl = words
+            ? `https://what3words.com/${words}`
+            : startingLocationValid ? startingLocation : null;
 
-          function openW3w(e) {
-            e.preventDefault();
-            lightboxFrame.src = webUrl;
-            document.getElementById('w3wLightboxLabel').textContent = gameName;
-            lightbox.classList.add('open');
-            document.body.style.overflow = 'hidden';
-          }
-          lightboxClose.addEventListener('click', () => {
-            lightbox.classList.remove('open');
+          document.getElementById('w3wLightboxClose').onclick = () => {
+            document.getElementById('w3wLightbox').classList.remove('open');
             document.body.style.overflow = '';
-            lightboxFrame.src = '';
-          });
+            document.getElementById('w3wLightboxFrame').src = '';
+          };
 
-          document.getElementById('startingLocationMapLink').href = webUrl;
-          document.getElementById('startingLocationMapLink').addEventListener('click', openW3w);
+          document.getElementById('startMapWrap').onclick = () => {
+            document.getElementById('w3wLightboxFrame').src = webUrl || 'https://what3words.com';
+            document.getElementById('w3wLightboxLabel').textContent = words ? `///${words}` : gameName;
+            document.getElementById('w3wLightbox').classList.add('open');
+            document.body.style.overflow = 'hidden';
+          };
+
           if (words) {
+            // Show badge
             const addrEl = document.getElementById('startDefinitionAddress');
             addrEl.className = 'start-map-address start-map-callout';
             addrEl.innerHTML = `<span class="w3w-slash">///</span><span class="w3w-words">${words}</span>`;
-          }
 
-          // Render OSM tile map if coordinates are stored
-          const mapLat = gameNode.startingLocationLat;
-          const mapLon = gameNode.startingLocationLon;
-          if (mapLat != null && mapLon != null) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 200;
-            canvas.height = 200;
-            const mapLink = document.getElementById('startingLocationMapLink');
-            mapLink.innerHTML = '';
-            mapLink.appendChild(canvas);
+            // Fetch coordinates from W3W API and render OSM tile map
             (async () => {
-              const zoom = 16;
-              const ctx = canvas.getContext('2d');
-              const tileSize = 256;
-              const n = Math.pow(2, zoom);
-              const tileXf = (mapLon + 180) / 360 * n;
-              const latRad = mapLat * Math.PI / 180;
-              const tileYf = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
-              const tileXi = Math.floor(tileXf);
-              const tileYi = Math.floor(tileYf);
-              const offX = (tileXf - tileXi) * tileSize;
-              const offY = (tileYf - tileYi) * tileSize;
-              const cx = 100, cy = 100;
-              const loads = [];
-              for (let dy = -1; dy <= 1; dy++) {
-                for (let dx = -1; dx <= 1; dx++) {
+              try {
+                const w3wRes = await fetch(
+                  `https://api.what3words.com/v3/convert-to-coordinates?words=${encodeURIComponent(words)}&key=${W3W_API_KEY}`
+                );
+                const w3wData = await w3wRes.json();
+                if (!w3wData.coordinates) return;
+                const mapLat = w3wData.coordinates.lat;
+                const mapLon = w3wData.coordinates.lng;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 200; canvas.height = 200;
+                const ctx = canvas.getContext('2d');
+                const zoom = 16, tileSize = 256;
+                const n = Math.pow(2, zoom);
+                const tileXf = (mapLon + 180) / 360 * n;
+                const latRad = mapLat * Math.PI / 180;
+                const tileYf = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
+                const tileXi = Math.floor(tileXf), tileYi = Math.floor(tileYf);
+                const offX = (tileXf - tileXi) * tileSize, offY = (tileYf - tileYi) * tileSize;
+                const cx = 100, cy = 100;
+
+                const loads = [];
+                for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
                   loads.push(new Promise(resolve => {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload = () => {
-                      ctx.drawImage(img, Math.round(cx - offX + dx * tileSize), Math.round(cy - offY + dy * tileSize), tileSize, tileSize);
-                      resolve();
-                    };
+                    const img = new Image(); img.crossOrigin = 'anonymous';
+                    img.onload = () => { ctx.drawImage(img, Math.round(cx - offX + dx * tileSize), Math.round(cy - offY + dy * tileSize), tileSize, tileSize); resolve(); };
                     img.onerror = resolve;
                     img.src = `https://tile.openstreetmap.org/${zoom}/${tileXi + dx}/${tileYi + dy}.png`;
                   }));
                 }
-              }
-              await Promise.all(loads);
+                await Promise.all(loads);
 
-              // Draw w3w grid overlay (3m² squares, visually representative)
-              const gridStep = 14;
-              const pinX = cx;       // 100
-              const pinY = cy - 10;  // 90 — pin circle centre
-              const half = gridStep / 2;
-              // Align so pin sits at centre of a grid cell
-              const offGX = ((pinX - half) % gridStep + gridStep) % gridStep;
-              const offGY = ((pinY - half) % gridStep + gridStep) % gridStep;
+                // w3w grid overlay
+                const gridStep = 14, pinX = cx, pinY = cy - 10, half = gridStep / 2;
+                const offGX = ((pinX - half) % gridStep + gridStep) % gridStep;
+                const offGY = ((pinY - half) % gridStep + gridStep) % gridStep;
+                ctx.save();
+                ctx.strokeStyle = 'rgba(10,48,73,0.18)'; ctx.lineWidth = 0.5; ctx.beginPath();
+                for (let x = offGX; x <= 200; x += gridStep) { ctx.moveTo(x,0); ctx.lineTo(x,200); }
+                for (let y = offGY; y <= 200; y += gridStep) { ctx.moveTo(0,y); ctx.lineTo(200,y); }
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(225,31,38,0.14)';
+                ctx.fillRect(pinX-half, pinY-half, gridStep, gridStep);
+                ctx.strokeStyle = '#E11F26'; ctx.lineWidth = 1.5;
+                ctx.strokeRect(pinX-half, pinY-half, gridStep, gridStep);
+                ctx.restore();
 
-              ctx.save();
-              ctx.strokeStyle = 'rgba(10, 48, 73, 0.18)';
-              ctx.lineWidth = 0.5;
-              ctx.beginPath();
-              for (let x = offGX; x <= 200; x += gridStep) { ctx.moveTo(x, 0); ctx.lineTo(x, 200); }
-              for (let y = offGY; y <= 200; y += gridStep) { ctx.moveTo(0, y); ctx.lineTo(200, y); }
-              ctx.stroke();
+                // pin
+                const pinColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary').trim() || '#e94560';
+                ctx.beginPath(); ctx.arc(cx, cy-10, 9, 0, Math.PI*2); ctx.fillStyle = pinColor; ctx.fill();
+                ctx.beginPath(); ctx.moveTo(cx, cy+2); ctx.lineTo(cx-7, cy-8); ctx.lineTo(cx+7, cy-8); ctx.closePath(); ctx.fillStyle = pinColor; ctx.fill();
+                ctx.beginPath(); ctx.arc(cx, cy-10, 4, 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill();
 
-              // Highlighted cell at pin location
-              ctx.fillStyle = 'rgba(225, 31, 38, 0.14)';
-              ctx.fillRect(pinX - half, pinY - half, gridStep, gridStep);
-              ctx.strokeStyle = '#E11F26';
-              ctx.lineWidth = 1.5;
-              ctx.strokeRect(pinX - half, pinY - half, gridStep, gridStep);
-              ctx.restore();
-
-              // Draw pin
-              const pinColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary').trim() || '#e94560';
-              ctx.beginPath();
-              ctx.arc(cx, cy - 10, 9, 0, Math.PI * 2);
-              ctx.fillStyle = pinColor;
-              ctx.fill();
-              ctx.beginPath();
-              ctx.moveTo(cx, cy + 2);
-              ctx.lineTo(cx - 7, cy - 8);
-              ctx.lineTo(cx + 7, cy - 8);
-              ctx.closePath();
-              ctx.fillStyle = pinColor;
-              ctx.fill();
-              ctx.beginPath();
-              ctx.arc(cx, cy - 10, 4, 0, Math.PI * 2);
-              ctx.fillStyle = '#fff';
-              ctx.fill();
-
-              try {
-                document.getElementById('startBgMap').style.backgroundImage = `url(${canvas.toDataURL()})`;
-              } catch (e) {}
+                try { mapWrap.style.backgroundImage = `url(${canvas.toDataURL()})`; } catch(e) {}
+              } catch(e) {}
             })();
           }
-        } else {
-          document.getElementById('startingLocationMapLink').style.pointerEvents = 'none';
-          document.getElementById('startingLocationMapLink').style.opacity = '0.4';
-          const errEl = document.getElementById('startDefinitionAddress');
-          errEl.className = 'start-map-address start-map-error';
-          errEl.textContent = 'ERROR — No location set';
         }
         // /START
 
