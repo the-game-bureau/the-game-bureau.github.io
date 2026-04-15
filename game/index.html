@@ -422,7 +422,7 @@
       right: 1rem;
       z-index: 1;
       font-family: 'Outfit', sans-serif;
-      font-size: 1.5rem;
+      font-size: 0.85rem;
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
@@ -1605,8 +1605,21 @@
           const bgMap = document.getElementById('startBgMap');
           (async () => {
             try {
-              let lat = mapLat, lon = mapLon;
-              const zoom = lat != null ? 15 : 12;
+              let lat = null, lon = null;
+
+              // 1. w3w → most precise
+              if (words) {
+                try {
+                  const res  = await fetch(`https://api.what3words.com/v3/convert-to-coordinates?words=${encodeURIComponent(words)}&key=${W3W_API_KEY}`);
+                  const data = await res.json();
+                  if (data.coordinates) { lat = data.coordinates.lat; lon = data.coordinates.lng; }
+                } catch(e) {}
+              }
+
+              // 2. stored lat/lon
+              if (lat == null && mapLat != null) { lat = mapLat; lon = mapLon; }
+
+              // 3. Nominatim city geocode
               if (lat == null) {
                 const mapCity = (gameNode.city || '').trim();
                 if (!mapCity) return;
@@ -1616,13 +1629,15 @@
                 lat = parseFloat(places[0].lat);
                 lon = parseFloat(places[0].lon);
               }
-              // Backfill coordinate-only links once coordinates are resolved
-              if (!deepLinks.waze || !deepLinks.apple || !deepLinks.google) {
-                const resolvedLL = `${lat},${lon}`;
-                if (!deepLinks.waze)   { deepLinks.waze   = `waze://ul?ll=${resolvedLL}&navigate=yes`; mapUrls.waze = `https://waze.com/ul?ll=${resolvedLL}&navigate=yes`; }
-                if (!deepLinks.apple)  { deepLinks.apple  = `maps://?ll=${resolvedLL}`; }
-                if (!deepLinks.google) { deepLinks.google = `comgooglemaps://?q=${resolvedLL}`; }
-              }
+
+              // Backfill all coordinate-only deep links
+              const resolvedLL = `${lat},${lon}`;
+              deepLinks.waze   = `waze://ul?ll=${resolvedLL}&navigate=yes`;
+              deepLinks.apple  = `maps://?ll=${resolvedLL}`;
+              deepLinks.google = `comgooglemaps://?q=${resolvedLL}`;
+              mapUrls.waze     = `https://waze.com/ul?ll=${resolvedLL}&navigate=yes`;
+
+              const zoom = (words || mapLat != null) ? 15 : 12;
               const W = bgMap.offsetWidth || 640, H = bgMap.offsetHeight || 400;
               const canvas = document.createElement('canvas');
               canvas.width = W; canvas.height = H;
