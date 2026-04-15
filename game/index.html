@@ -344,7 +344,7 @@
       overflow: visible;
     }
     .start-waypoint-pin {
-      fill: var(--secondary);
+      fill: var(--primary);
     }
     .start-panel {
       width: 78%;
@@ -819,6 +819,12 @@
         <button class="start-map-btn" data-map="apple">Apple Maps</button>
         <button class="start-map-btn" data-map="google">Google Maps</button>
         <button class="start-map-btn" data-map="w3w">what3words</button>
+      </div>
+      <div class="start-map-buttons start-panel" id="startFallbackButtons">
+        <button class="start-close-btn" id="startFallbackCloseBtn">✕</button>
+        <div class="start-map-label" id="startFallbackLabel">App not installed</div>
+        <button class="start-map-btn" id="startDownloadBtn">Download App</button>
+        <button class="start-map-btn" data-map="w3w">Use what3words</button>
       </div>
       <div class="start-city-label" style="top:0.9rem; left:1rem; right:auto; font-size:1.5rem;">Rendezvous</div>
       <div id="startCityLabel" class="start-city-label"></div>
@@ -1516,6 +1522,18 @@
             google: `https://www.google.com/maps/search/?api=1&query=${ll || locQ}`,
             w3w:    webUrl || 'https://what3words.com',
           };
+          // Iframe-friendly URLs for the desktop lightbox (the "w3w frame").
+          // Apple Maps blocks iframe embedding, so we substitute OpenStreetMap's
+          // embed (iframe-safe, no key) centered on the same coordinates.
+          const bboxPad = 0.003;
+          const osmEmbedUrl = (mapLat != null && mapLon != null)
+            ? `https://www.openstreetmap.org/export/embed.html?bbox=${mapLon - bboxPad},${mapLat - bboxPad},${mapLon + bboxPad},${mapLat + bboxPad}&marker=${mapLat},${mapLon}&layer=mapnik`
+            : null;
+          const frameUrls = {
+            apple:  osmEmbedUrl,
+            google: `https://maps.google.com/maps?q=${ll || locQ}&output=embed`,
+            w3w:    mapUrls.w3w,
+          };
 
           // Lightbox
           const lightbox = document.getElementById('w3wLightbox');
@@ -1534,15 +1552,31 @@
           };
           document.getElementById('w3wLightboxClose').onclick = closeLightbox;
 
+          // Platform detection
+          const ua = navigator.userAgent;
+          const isIOS = /iPhone|iPad|iPod/i.test(ua);
+          const isAndroid = /Android/i.test(ua);
+          const isMobile = isIOS || isAndroid;
+
+          const storeUrls = {
+            apple:  'https://apps.apple.com/app/maps/id915056765',
+            google: isIOS
+              ? 'https://apps.apple.com/app/google-maps/id585027354'
+              : 'https://play.google.com/store/apps/details?id=com.google.android.apps.maps',
+          };
+
           // Panel flip
           const blurb = document.getElementById('startBlurb');
           const btns  = document.getElementById('startMapButtons');
+          const fallbackPanel = document.getElementById('startFallbackButtons');
+          const fallbackLabel = document.getElementById('startFallbackLabel');
+          const downloadBtn = document.getElementById('startDownloadBtn');
           const flip = (show, hide) => {
             hide.classList.add('flip-out');
             setTimeout(() => {
               hide.style.display = 'none';
               hide.classList.remove('flip-out');
-              show.style.display = show === btns ? 'flex' : '';
+              show.style.display = (show === btns || show === fallbackPanel) ? 'flex' : '';
               show.classList.add('flip-in');
               show.addEventListener('animationend', () => show.classList.remove('flip-in'), { once: true });
             }, 230);
@@ -1550,10 +1584,13 @@
 
           document.getElementById('startingLocationSection').onclick = () => {
             if (btns.style.display === 'flex') flip(blurb, btns);
+            else if (fallbackPanel.style.display === 'flex') flip(blurb, fallbackPanel);
             else flip(btns, blurb);
           };
           document.getElementById('startMapButtons').onclick = (e) => { if (e.target === e.currentTarget) flip(blurb, btns); };
           document.getElementById('startCloseBtn').onclick   = (e) => { e.stopPropagation(); flip(blurb, btns); };
+          fallbackPanel.onclick = (e) => { if (e.target === e.currentTarget) flip(blurb, fallbackPanel); };
+          document.getElementById('startFallbackCloseBtn').onclick = (e) => { e.stopPropagation(); flip(blurb, fallbackPanel); };
 
           const deepLinks = {
             apple:  ll ? `maps://?ll=${ll}` : null,
@@ -1561,17 +1598,18 @@
           };
           const appNames = { apple: 'Apple Maps', google: 'Google Maps' };
 
-          const toast = document.getElementById('appToast');
-          let toastTimer;
-          const showToast = (msg) => {
-            clearTimeout(toastTimer);
-            toast.textContent = msg;
-            toast.classList.add('show');
-            toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
+          const showFallback = (key) => {
+            fallbackLabel.textContent = `${appNames[key]} not installed`;
+            downloadBtn.textContent = `Get ${appNames[key]}`;
+            downloadBtn.onclick = (e) => {
+              e.stopPropagation();
+              window.open(storeUrls[key], '_blank');
+            };
+            flip(fallbackPanel, btns);
           };
 
           const tryDeepLink = (key) => {
-            if (!deepLinks[key]) { showToast(`Download ${appNames[key]} to use this feature`); return; }
+            if (!deepLinks[key]) { showFallback(key); return; }
             let appOpened = false;
             const onHide = () => { appOpened = true; };
             document.addEventListener('visibilitychange', onHide, { once: true });
@@ -1580,7 +1618,7 @@
             setTimeout(() => {
               document.removeEventListener('visibilitychange', onHide);
               window.removeEventListener('blur', onHide);
-              if (!appOpened) showToast(`Download ${appNames[key]} to use this feature`);
+              if (!appOpened) showFallback(key);
             }, 1500);
           };
 
@@ -1588,8 +1626,23 @@
             btn.addEventListener('click', e => {
               e.stopPropagation();
               const key = btn.dataset.map;
-              if (key === 'w3w') openLightbox(mapUrls[key], btn.textContent);
-              else tryDeepLink(key);
+              if (!key) return; // e.g. the Download button handles itself
+              if (key === 'w3w') { openLightbox(mapUrls[key], btn.textContent); return; }
+              // Desktop → open in lightbox frame with button's label.
+              // Apple Maps blocks iframe embedding, so fall back to OSM embed
+              // when coordinates exist, or a new tab if not.
+              if (!isMobile) {
+                if (key === 'apple' && !frameUrls.apple) {
+                  window.open(mapUrls[key], '_blank');
+                } else {
+                  openLightbox(frameUrls[key], btn.textContent);
+                }
+                return;
+              }
+              // Apple Maps on Android → web version (no native app)
+              if (key === 'apple' && isAndroid) { window.open(mapUrls[key], '_blank'); return; }
+              // Mobile → try deep link with fallback panel
+              tryDeepLink(key);
             });
           });
 
