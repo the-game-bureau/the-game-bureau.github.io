@@ -39,6 +39,8 @@
       font-family: 'DM Sans', sans-serif;
       min-height: 100vh;
       padding-bottom: calc(90px + env(safe-area-inset-bottom));
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     #landing {
@@ -300,11 +302,8 @@
       font-size: 1.9rem;
       letter-spacing: 0.01em;
       color: var(--primary);
-      text-shadow:
-        -0.75px -0.75px 0 var(--secondary),
-         0.75px -0.75px 0 var(--secondary),
-        -0.75px  0.75px 0 var(--secondary),
-         0.75px  0.75px 0 var(--secondary);
+      -webkit-text-stroke: 0.75px var(--secondary);
+      paint-order: stroke fill;
       text-align: center;
       text-transform: uppercase;
       width: 100%;
@@ -312,6 +311,8 @@
 
     .start-blurb {
       font-size: var(--body-size);
+      font-weight: 500;
+      letter-spacing: 0.005em;
       line-height: 1.6;
       color: #333;
       text-align: center;
@@ -381,13 +382,13 @@
     }
     .start-map-label {
       font-family: 'Outfit', sans-serif;
-      font-size: 0.75rem;
+      font-size: 0.95rem;
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
       color: var(--secondary);
       text-align: center;
-      padding: 0 0.25rem 0.25rem;
+      padding: 0 0.25rem 0.5rem;
     }
     .start-close-btn {
       align-self: flex-end;
@@ -422,23 +423,43 @@
       right: 1rem;
       z-index: 1;
       font-family: 'Outfit', sans-serif;
-      font-size: 0.85rem;
+      font-size: 1.05rem;
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
       color: var(--primary);
-      text-shadow:
-        -0.75px -0.75px 0 var(--secondary),
-         0.75px -0.75px 0 var(--secondary),
-        -0.75px  0.75px 0 var(--secondary),
-         0.75px  0.75px 0 var(--secondary);
+      -webkit-text-stroke: 0.6px var(--secondary);
+      paint-order: stroke fill;
+      pointer-events: none;
+    }
+    .start-rendezvous-label {
+      position: absolute;
+      top: 0.9rem;
+      left: 1rem;
+      z-index: 1;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.9rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+      color: var(--primary);
+      -webkit-text-stroke: 0.75px var(--secondary);
+      paint-order: stroke fill;
       pointer-events: none;
     }
     #startingLocationSection .start-blurb {
       margin-top: 0;
       width: 100%;
-      padding: 1rem 1.25rem;
-      background: rgba(255,255,255,0.55);
+      padding: 1.25rem 1.5rem;
+      background: linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0.58) 100%);
+      backdrop-filter: blur(18px) saturate(160%);
+      -webkit-backdrop-filter: blur(18px) saturate(160%);
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.55);
+      box-shadow:
+        0 12px 40px rgba(0,0,0,0.14),
+        0 2px 8px rgba(0,0,0,0.06),
+        inset 0 1px 0 rgba(255,255,255,0.7);
       z-index: 3;
       opacity: 1;
     }
@@ -492,22 +513,29 @@
     /* ── INVITE ── */
     /* ── INVITE_PLAYERS ── */
     #inviteSection {
+      position: relative;
+      overflow: hidden;
       background: #fff;
       border: 2px solid var(--primary);
       border-radius: 20px;
+      aspect-ratio: 1 / 1;
       margin: calc(var(--v) * 1.5) var(--pad) calc(var(--v) * 2);
       padding: var(--v) var(--pad);
       color: #111;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1.1rem;
       box-shadow: 0 8px 32px rgba(0,0,0,0.12);
     }
 
 
+    /* INVITE_PLAYERS: print-only flyer (hidden on screen) */
+    .invite-flyer-top,
+    .invite-flyer-bottom { display: none; }
+
     /* INVITE_PLAYERS: section title */
     .invite-header {
+      position: absolute;
+      top: 0.9rem;
+      left: 1rem;
+      z-index: 4;
       font-family: 'Outfit', sans-serif;
       font-weight: 700;
       font-size: 1.9rem;
@@ -515,100 +543,113 @@
       color: var(--primary);
       -webkit-text-stroke: 0.75px var(--secondary);
       paint-order: stroke fill;
-      text-align: center;
       text-transform: uppercase;
-      width: 100%;
+      pointer-events: none;
     }
-    .invite-header::after {
-      content: '';
-      display: block;
-      width: 100%;
-      height: 1px;
-      background: var(--secondary);
-      margin-top: 1.4rem;
+
+    /* INVITE_PLAYERS: qr flip card */
+    .qr-flip {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: clamp(200px, 50vw, 240px);
+      height: clamp(200px, 50vw, 240px);
+      transform: translate(-50%, -50%);
+      perspective: 1200px;
+      z-index: 3;
+    }
+    .qr-flip-inner {
       position: relative;
-      z-index: 10;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+      transform-style: preserve-3d;
     }
-
-    /* INVITE_PLAYERS: qr code block */
-    .invite-qr-block {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.9rem;
+    .qr-flip.flipped .qr-flip-inner {
+      transform: rotateY(180deg);
     }
-
-    /* INVITE_PLAYERS: qr code card */
-    .qr-card {
+    .qr-face {
+      position: absolute;
+      inset: 0;
       background: #fff;
       border-radius: 16px;
-      padding: 20px;
       border: 2px solid var(--secondary);
       box-shadow: 0 4px 24px rgba(0,0,0,0.15);
-    }
-
-    /* INVITE_PLAYERS: caption above qr code */
-    .invite-caption {
-      font-size: var(--body-size);
-      line-height: 1.6;
-      color: #333;
-      text-align: center;
-      background: rgba(255,255,255,0.92);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
-      border-radius: 10px;
-      padding: 1rem 1.25rem;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-      width: 100%;
-    }
-
-    /* INVITE_PLAYERS: or divider */
-    .invite-or {
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
       display: flex;
       align-items: center;
-      gap: var(--gap);
-      width: 100%;
-      margin: 0;
-      font-family: 'Outfit', sans-serif;
-      font-weight: 700;
-      font-size: var(--body-size);
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--secondary);
+      justify-content: center;
     }
-    .invite-or::before,
-    .invite-or::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: currentColor;
+    .qr-face-front { padding: 16px; }
+    .qr-face-back {
+      transform: rotateY(180deg);
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: 0.5rem;
+      padding: 0.85rem 1rem 1rem;
+    }
+    .qr-face-back .start-close-btn { align-self: flex-end; }
+    .qr-face-back .start-map-label { padding: 0 0.25rem 0.4rem; }
+    #qrContainer {
+      display: block;
+      line-height: 0;
+    }
+    #qrContainer > * {
+      width: clamp(168px, 42vw, 208px) !important;
+      height: clamp(168px, 42vw, 208px) !important;
     }
 
-    /* INVITE_PLAYERS: share button */
-    .copy-btn {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      padding: 1.35rem var(--pad);
-      background: var(--primary);
-      color: #fff;
-      border: 2px solid var(--secondary);
-      border-radius: 16px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+    /* INVITE_PLAYERS: caption (bottom-right corner label) */
+    .invite-caption {
+      position: absolute;
+      bottom: 0.9rem;
+      right: 1rem;
+      margin: 0;
+      white-space: nowrap;
       font-family: 'Outfit', sans-serif;
-      font-size: var(--body-size);
+      font-size: clamp(0.7rem, 2.4vw, 0.9rem);
       font-weight: 700;
       letter-spacing: 0.06em;
+      line-height: 1;
       text-transform: uppercase;
-      cursor: pointer;
-      transition: opacity 0.18s, transform 0.12s;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.2rem;
+      text-align: right;
+      color: var(--primary);
+      -webkit-text-stroke: 0.6px var(--secondary);
+      paint-order: stroke fill;
+      pointer-events: none;
+      z-index: 4;
     }
-    .copy-btn:active { opacity: 0.82; transform: scale(0.97); }
+
+    /* INVITE_PLAYERS: share icon button (top-right) */
+    .invite-share-btn {
+      position: absolute;
+      top: 0.9rem;
+      right: 1rem;
+      z-index: 5;
+      width: 2.4rem;
+      height: 2.4rem;
+      padding: 0;
+      border-radius: 50%;
+      border: 2px solid var(--primary);
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: var(--primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      transition: transform 0.18s ease, opacity 0.18s ease;
+    }
+    .invite-share-btn:active { transform: scale(0.92); opacity: 0.85; }
+    .invite-share-btn svg {
+      width: 1.15rem;
+      height: 1.15rem;
+      display: block;
+    }
 
     /* ── /INVITE_PLAYERS ── */
 
@@ -760,6 +801,158 @@
 
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
+    @media print {
+      @page { size: letter; margin: 1.4cm; }
+
+      body * { visibility: hidden; }
+      #inviteSection,
+      #inviteSection .invite-flyer-top,
+      #inviteSection .invite-flyer-top *,
+      #inviteSection .invite-flyer-bottom,
+      #inviteSection .invite-flyer-bottom *,
+      #inviteSection .qr-flip,
+      #inviteSection .qr-flip-inner,
+      #inviteSection .qr-face-front,
+      #inviteSection .qr-face-front * { visibility: visible; }
+
+      body {
+        background: #fff !important;
+        color: #000 !important;
+        padding: 0 !important;
+      }
+
+      #inviteSection {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        aspect-ratio: auto;
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        margin: 0;
+        background: #fff;
+        display: block;
+      }
+
+      .invite-flyer-top,
+      .invite-flyer-bottom { display: block; }
+
+      .invite-flyer-title {
+        font-family: 'Outfit', 'Bebas Neue', sans-serif;
+        font-weight: 700;
+        font-size: 44pt;
+        line-height: 1;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+        text-align: center;
+        color: #000;
+        margin: 0 0 0.4cm;
+      }
+      .invite-flyer-tagline {
+        font-family: 'DM Sans', serif;
+        font-style: italic;
+        font-size: 14pt;
+        line-height: 1.3;
+        text-align: center;
+        color: #333;
+        margin: 0 0 1.1cm;
+      }
+      .invite-flyer-tagline:empty { display: none; }
+
+      #inviteSection .qr-flip {
+        position: static;
+        transform: none;
+        perspective: none;
+        width: 9cm;
+        height: 9cm;
+        margin: 0 auto 0.5cm;
+      }
+      #inviteSection .qr-flip-inner { transform: none !important; }
+      #inviteSection .qr-face-front {
+        position: static;
+        border: none;
+        box-shadow: none;
+        padding: 0;
+      }
+      #inviteSection .qr-face-front #qrContainer > * {
+        width: 9cm !important;
+        height: 9cm !important;
+      }
+
+      .invite-flyer-scan {
+        font-family: 'Outfit', sans-serif;
+        font-size: 9pt;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        text-align: center;
+        color: #555;
+        margin: 0 0 0.9cm;
+      }
+      .invite-flyer-desc {
+        font-family: 'DM Sans', serif;
+        font-size: 11pt;
+        line-height: 1.5;
+        text-align: center;
+        color: #222;
+        max-width: 14cm;
+        margin: 0 auto 1cm;
+      }
+      .invite-flyer-desc:empty { display: none; }
+
+      .invite-flyer-meta {
+        display: flex;
+        justify-content: center;
+        gap: 1.4cm;
+        border-top: 1.5pt solid #000;
+        border-bottom: 1.5pt solid #000;
+        padding: 0.55cm 0;
+        margin: 0 auto 0.9cm;
+        max-width: 16cm;
+      }
+      .invite-flyer-meta-row {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.15cm;
+      }
+      .invite-flyer-meta-label {
+        font-family: 'Outfit', sans-serif;
+        font-size: 7.5pt;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #777;
+      }
+      .invite-flyer-meta-value {
+        font-family: 'Outfit', sans-serif;
+        font-size: 13pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #000;
+      }
+
+      .invite-flyer-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-family: 'Outfit', sans-serif;
+        font-size: 8pt;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #555;
+        margin-top: 0.6cm;
+      }
+      .invite-flyer-brand { font-weight: 700; color: #000; }
+      .invite-flyer-url { color: #555; }
+
+      #inviteSection .invite-header,
+      #inviteSection .invite-share-btn,
+      #inviteSection .invite-caption,
+      #inviteSection .qr-face-back { display: none !important; }
+    }
+
   </style>
 </head>
 <body>
@@ -831,7 +1024,7 @@
         <button class="start-map-btn" id="startActionApp">Open In App</button>
         <button class="start-map-btn" id="startActionDownload">Download App</button>
       </div>
-      <div class="start-city-label" style="top:0.9rem; left:1rem; right:auto; font-size:1.5rem;">Rendezvous</div>
+      <div class="start-rendezvous-label">Rendezvous</div>
       <div id="startCityLabel" class="start-city-label"></div>
 
     </section>
@@ -839,17 +1032,57 @@
     <!-- INVITE PLAYERS -->
     <!-- INVITE_PLAYERS -->
     <section id="inviteSection">
+      <div class="invite-flyer-top" aria-hidden="true">
+        <h1 class="invite-flyer-title" id="flyerTitle"></h1>
+        <p class="invite-flyer-tagline" id="flyerTagline"></p>
+      </div>
       <div class="invite-header">Invite Players</div>
 
-      <p class="invite-caption">Hold up your phone for players to scan.</p>
+      <button class="invite-share-btn" id="inviteShareBtn" aria-label="Share game">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/>
+          <polyline points="16 6 12 2 8 6"/>
+          <line x1="12" y1="2" x2="12" y2="15"/>
+        </svg>
+      </button>
 
-      <div class="invite-qr-block">
-        <div class="qr-card" id="qrContainer"></div>
+      <div class="qr-flip" id="qrFlip">
+        <div class="qr-flip-inner">
+          <div class="qr-face qr-face-front">
+            <div id="qrContainer"></div>
+          </div>
+          <div class="qr-face qr-face-back">
+            <button class="start-close-btn" id="qrFlipCloseBtn">✕</button>
+            <div class="start-map-label">Invite by text</div>
+            <button class="start-map-btn" id="inviteShareNativeBtn" style="display:none">Send</button>
+          </div>
+        </div>
       </div>
 
-      <div class="invite-or">OR</div>
+      <p class="invite-caption" id="inviteCaption">Hold up your phone for players to scan</p>
 
-      <button id="shareBtn" class="copy-btn" style="display:none">Invite Players by Text</button>
+      <div class="invite-flyer-bottom" aria-hidden="true">
+        <div class="invite-flyer-scan">Scan with any phone camera to play</div>
+        <p class="invite-flyer-desc" id="flyerDesc"></p>
+        <div class="invite-flyer-meta">
+          <div class="invite-flyer-meta-row" id="flyerCityRow">
+            <span class="invite-flyer-meta-label">Rendezvous</span>
+            <span class="invite-flyer-meta-value" id="flyerCity"></span>
+          </div>
+          <div class="invite-flyer-meta-row" id="flyerGuideRow">
+            <span class="invite-flyer-meta-label">Guide</span>
+            <span class="invite-flyer-meta-value" id="flyerGuide"></span>
+          </div>
+          <div class="invite-flyer-meta-row" id="flyerPriceRow">
+            <span class="invite-flyer-meta-label">Price</span>
+            <span class="invite-flyer-meta-value" id="flyerPrice"></span>
+          </div>
+        </div>
+        <div class="invite-flyer-footer">
+          <div class="invite-flyer-brand">The Game Bureau</div>
+          <div class="invite-flyer-url" id="flyerUrl"></div>
+        </div>
+      </div>
     </section>
     <!-- /INVITE_PLAYERS -->
 
@@ -1491,6 +1724,23 @@
         setMeta('meta[name="twitter:image"]', ogImage);
         const gameTitleEl = document.getElementById('gameTitle');
         gameTitleEl.textContent = gameName;
+
+        // INVITE_PLAYERS — flyer fields (only visible on print)
+        document.getElementById('flyerTitle').textContent = gameName;
+        document.getElementById('flyerTagline').textContent = gameNode.tagline || '';
+        document.getElementById('flyerDesc').textContent = gameNode.body || '';
+        document.getElementById('flyerUrl').textContent = qrUrl.replace(/^https?:\/\//, '');
+        const setFlyerMeta = (rowId, valueId, value) => {
+          const v = (value || '').trim();
+          if (v) {
+            document.getElementById(valueId).textContent = v;
+          } else {
+            document.getElementById(rowId).style.display = 'none';
+          }
+        };
+        setFlyerMeta('flyerCityRow', 'flyerCity', gameNode.city);
+        setFlyerMeta('flyerGuideRow', 'flyerGuide', gameNode.guideName);
+        setFlyerMeta('flyerPriceRow', 'flyerPrice', (gameNode.price || 'FREE'));
         gameTitleEl.style.color = secondaryColor;
         document.getElementById('gameTagline').textContent = gameNode.tagline || '';
 
@@ -1727,15 +1977,30 @@
         if (bodyText) document.getElementById('descSection').style.display = 'block';
         document.getElementById('gamePrice').textContent = (gameNode.price || 'FREE').toUpperCase();
 
-        // INVITE_PLAYERS — share button
-        const shareBtn = document.getElementById('shareBtn');
-        shareBtn.style.display = '';
-        shareBtn.style.background = primaryColor;
-        if (navigator.share) {
-          shareBtn.addEventListener('click', () => {
-            navigator.share({ title: gameName, url: qrUrl }).catch(() => {});
+        // INVITE_PLAYERS — share button flips QR card to reveal share/copy actions
+        (() => {
+          const qrFlip = document.getElementById('qrFlip');
+          const shareBtn = document.getElementById('inviteShareBtn');
+          const closeBtn = document.getElementById('qrFlipCloseBtn');
+          const nativeBtn = document.getElementById('inviteShareNativeBtn');
+
+          shareBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            qrFlip.classList.toggle('flipped');
           });
-        }
+          closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            qrFlip.classList.remove('flipped');
+          });
+
+          if (navigator.share) {
+            nativeBtn.style.display = '';
+            nativeBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              navigator.share({ title: gameName, url: qrUrl }).catch(() => {});
+            });
+          }
+        })();
 
         document.getElementById('startBtn').href = `../play/index.html?id=${encodeURIComponent(gameId)}`;
 
