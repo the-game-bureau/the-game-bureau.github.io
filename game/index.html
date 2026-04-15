@@ -1574,17 +1574,16 @@
           };
 
           const tryDeepLink = (key) => {
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            document.body.appendChild(iframe);
-            iframe.src = deepLinks[key];
-            const t = setTimeout(() => {
-              document.body.removeChild(iframe);
-              showToast(`Download ${appNames[key]} to use this feature`);
-            }, 800);
-            const cancel = () => { clearTimeout(t); document.body.removeChild(iframe); };
-            window.addEventListener('blur', cancel, { once: true });
-            document.addEventListener('visibilitychange', () => { if (document.hidden) cancel(); }, { once: true });
+            let appOpened = false;
+            const onHide = () => { appOpened = true; };
+            document.addEventListener('visibilitychange', onHide, { once: true });
+            window.addEventListener('blur', onHide, { once: true });
+            window.location.href = deepLinks[key];
+            setTimeout(() => {
+              document.removeEventListener('visibilitychange', onHide);
+              window.removeEventListener('blur', onHide);
+              if (!appOpened) showToast(`Download ${appNames[key]} to use this feature`);
+            }, 1500);
           };
 
           document.querySelectorAll('.start-map-btn').forEach(btn => {
