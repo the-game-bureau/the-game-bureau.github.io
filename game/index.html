@@ -824,11 +824,12 @@
         <button class="start-map-btn" data-map="google">Google Maps</button>
         <button class="start-map-btn" data-map="w3w">what3words</button>
       </div>
-      <div class="start-map-buttons start-panel" id="startFallbackButtons">
-        <button class="start-close-btn" id="startFallbackCloseBtn">✕</button>
-        <div class="start-map-label" id="startFallbackLabel">App not installed</div>
-        <button class="start-map-btn" id="startDownloadBtn">Download App</button>
-        <button class="start-map-btn" data-map="w3w">Use what3words</button>
+      <div class="start-map-buttons start-panel" id="startMapActions">
+        <button class="start-close-btn" id="startActionsCloseBtn">✕</button>
+        <div class="start-map-label" id="startActionsLabel">Apple Maps</div>
+        <button class="start-map-btn" id="startActionFrame">Open Here</button>
+        <button class="start-map-btn" id="startActionApp">Open In App</button>
+        <button class="start-map-btn" id="startActionDownload">Download App</button>
       </div>
       <div class="start-city-label" style="top:0.9rem; left:1rem; right:auto; font-size:1.5rem;">Rendezvous</div>
       <div id="startCityLabel" class="start-city-label"></div>
@@ -1567,20 +1568,30 @@
             google: isIOS
               ? 'https://apps.apple.com/app/google-maps/id585027354'
               : 'https://play.google.com/store/apps/details?id=com.google.android.apps.maps',
+            w3w:    'https://what3words.com/products/what3words-app',
           };
+          const deepLinks = {
+            apple:  ll ? `maps://?ll=${ll}` : null,
+            google: ll ? `comgooglemaps://?q=${ll}` : null,
+            w3w:    words ? `https://w3w.co/${words}` : null,
+          };
+          const appNames = { apple: 'Apple Maps', google: 'Google Maps', w3w: 'what3words' };
 
           // Panel flip
           const blurb = document.getElementById('startBlurb');
           const btns  = document.getElementById('startMapButtons');
-          const fallbackPanel = document.getElementById('startFallbackButtons');
-          const fallbackLabel = document.getElementById('startFallbackLabel');
-          const downloadBtn = document.getElementById('startDownloadBtn');
+          const actionsPanel = document.getElementById('startMapActions');
+          const actionsLabel = document.getElementById('startActionsLabel');
+          const actionFrame = document.getElementById('startActionFrame');
+          const actionApp = document.getElementById('startActionApp');
+          const actionDownload = document.getElementById('startActionDownload');
+          const flippablePanels = [btns, actionsPanel];
           const flip = (show, hide) => {
             hide.classList.add('flip-out');
             setTimeout(() => {
               hide.style.display = 'none';
               hide.classList.remove('flip-out');
-              show.style.display = (show === btns || show === fallbackPanel) ? 'flex' : '';
+              show.style.display = flippablePanels.includes(show) ? 'flex' : '';
               show.classList.add('flip-in');
               show.addEventListener('animationend', () => show.classList.remove('flip-in'), { once: true });
             }, 230);
@@ -1588,65 +1599,55 @@
 
           document.getElementById('startingLocationSection').onclick = () => {
             if (btns.style.display === 'flex') flip(blurb, btns);
-            else if (fallbackPanel.style.display === 'flex') flip(blurb, fallbackPanel);
+            else if (actionsPanel.style.display === 'flex') flip(blurb, actionsPanel);
             else flip(btns, blurb);
           };
-          document.getElementById('startMapButtons').onclick = (e) => { if (e.target === e.currentTarget) flip(blurb, btns); };
+          document.getElementById('startMapButtons').onclick = (e) => { e.stopPropagation(); if (e.target === e.currentTarget) flip(blurb, btns); };
           document.getElementById('startCloseBtn').onclick   = (e) => { e.stopPropagation(); flip(blurb, btns); };
-          fallbackPanel.onclick = (e) => { if (e.target === e.currentTarget) flip(blurb, fallbackPanel); };
-          document.getElementById('startFallbackCloseBtn').onclick = (e) => { e.stopPropagation(); flip(blurb, fallbackPanel); };
+          actionsPanel.onclick = (e) => { e.stopPropagation(); if (e.target === e.currentTarget) flip(btns, actionsPanel); };
+          document.getElementById('startActionsCloseBtn').onclick = (e) => { e.stopPropagation(); flip(btns, actionsPanel); };
 
-          const deepLinks = {
-            apple:  ll ? `maps://?ll=${ll}` : null,
-            google: ll ? `comgooglemaps://?q=${ll}` : null,
-          };
-          const appNames = { apple: 'Apple Maps', google: 'Google Maps' };
-
-          const showFallback = (key) => {
-            fallbackLabel.textContent = `${appNames[key]} not installed`;
-            downloadBtn.textContent = `Get ${appNames[key]}`;
-            downloadBtn.onclick = (e) => {
+          const showActions = (key) => {
+            actionsLabel.textContent = appNames[key];
+            // 1) Open in lightbox — Apple Maps blocks iframe embed; fall back to new tab
+            actionFrame.onclick = (e) => {
               e.stopPropagation();
-              window.open(storeUrls[key], '_blank');
+              if (key === 'apple' && !frameUrls.apple) {
+                window.open(mapUrls[key], '_blank');
+              } else {
+                openLightbox(frameUrls[key] || mapUrls[key], appNames[key]);
+              }
             };
-            flip(fallbackPanel, btns);
+            // 2) Open in app — deep link / universal link
+            actionApp.onclick = (e) => {
+              e.stopPropagation();
+              const link = deepLinks[key] || mapUrls[key];
+              if (link) window.location.href = link;
+            };
+            // 3) Download app — store listing
+            actionDownload.onclick = (e) => {
+              e.stopPropagation();
+              if (storeUrls[key]) window.open(storeUrls[key], '_blank');
+            };
+            flip(actionsPanel, btns);
           };
 
-          const tryDeepLink = (key) => {
-            if (!deepLinks[key]) { showFallback(key); return; }
-            let appOpened = false;
-            const onHide = () => { appOpened = true; };
-            document.addEventListener('visibilitychange', onHide, { once: true });
-            window.addEventListener('blur', onHide, { once: true });
-            window.location.href = deepLinks[key];
-            setTimeout(() => {
-              document.removeEventListener('visibilitychange', onHide);
-              window.removeEventListener('blur', onHide);
-              if (!appOpened) showFallback(key);
-            }, 1500);
-          };
-
-          document.querySelectorAll('.start-map-btn').forEach(btn => {
+          document.querySelectorAll('#startMapButtons .start-map-btn').forEach(btn => {
             btn.addEventListener('click', e => {
               e.stopPropagation();
               const key = btn.dataset.map;
-              if (!key) return; // e.g. the Download button handles itself
-              if (key === 'w3w') { openLightbox(mapUrls[key], btn.textContent); return; }
-              // Desktop → open in lightbox frame with button's label.
-              // Apple Maps blocks iframe embedding, so fall back to OSM embed
-              // when coordinates exist, or a new tab if not.
+              if (!key) return;
+              // Desktop: skip the sub-panel and go straight to "Open Here"
               if (!isMobile) {
                 if (key === 'apple' && !frameUrls.apple) {
                   window.open(mapUrls[key], '_blank');
                 } else {
-                  openLightbox(frameUrls[key], btn.textContent);
+                  openLightbox(frameUrls[key] || mapUrls[key], appNames[key]);
                 }
                 return;
               }
-              // Apple Maps on Android → web version (no native app)
-              if (key === 'apple' && isAndroid) { window.open(mapUrls[key], '_blank'); return; }
-              // Mobile → try deep link with fallback panel
-              tryDeepLink(key);
+              // Mobile: show the 3-action sub-panel
+              showActions(key);
             });
           });
 
