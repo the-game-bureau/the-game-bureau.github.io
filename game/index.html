@@ -409,7 +409,7 @@
       font-weight: 700;
       font-size: 0.9rem;
       letter-spacing: 0.03em;
-      text-decoration: none;
+      cursor: pointer;
       background: #fff;
       color: var(--primary);
       border: 2px solid var(--primary);
@@ -684,6 +684,29 @@
     }
     /* ── /W3W LIGHTBOX ── */
 
+    /* ── APP TOAST ── */
+    #appToast {
+      position: fixed;
+      bottom: calc(env(safe-area-inset-bottom) + 1.5rem);
+      left: 50%;
+      transform: translateX(-50%) translateY(150%);
+      opacity: 0;
+      z-index: 300;
+      background: #111;
+      color: #fff;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.85rem 1.25rem;
+      border-radius: 12px;
+      white-space: nowrap;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      pointer-events: none;
+    }
+    #appToast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    /* ── /APP TOAST ── */
+
     /* ── CTA BAR ── */
     #ctaBar {
       position: fixed;
@@ -793,11 +816,10 @@
       <div class="start-map-buttons start-panel" id="startMapButtons">
         <button class="start-close-btn" id="startCloseBtn">✕</button>
         <div class="start-map-label">Reveal starting point with...</div>
-        <a id="startAppleMaps" class="start-map-btn" target="_blank">Apple Maps</a>
-        <a id="startBing" class="start-map-btn" target="_blank">Bing Maps</a>
-        <a id="startGoogleMaps" class="start-map-btn" target="_blank">Google Maps</a>
-        <a id="startWaze" class="start-map-btn" target="_blank">Waze</a>
-        <a id="startW3W" class="start-map-btn" target="_blank">what3words</a>
+        <button class="start-map-btn" data-map="apple">Apple Maps</button>
+        <button class="start-map-btn" data-map="google">Google Maps</button>
+        <button class="start-map-btn" data-map="waze">Waze</button>
+        <button class="start-map-btn" data-map="w3w">what3words</button>
       </div>
       <div class="start-city-label" style="top:0.9rem; left:1rem; right:auto; font-size:1.5rem;">Rendezvous</div>
       <div id="startCityLabel" class="start-city-label"></div>
@@ -822,6 +844,8 @@
     <!-- /INVITE_PLAYERS -->
 
   </div>
+
+  <div id="appToast"></div>
 
   <!-- W3W LIGHTBOX -->
   <div id="w3wLightbox">
@@ -1474,134 +1498,152 @@
         }
 
         // START
-        const startingLocation = (gameNode.startingLocation || '').trim();
-        const startingLocationValid = startingLocation && startingLocation !== 'http://' && startingLocation !== 'https://';
         const isLocationBased = gameNode.locationBased === 'YES' || gameNode.locationBased === true;
+        if (isLocationBased) {
+          const startingLocation = (gameNode.startingLocation || '').trim();
+          const startingLocationValid = startingLocation && startingLocation !== 'http://' && startingLocation !== 'https://';
 
-        let words = null;
-        const urlMatch = startingLocation.match(/(?:what3words\.com|w3w\.co)\/([a-z]+\.[a-z]+\.[a-z]+)/i);
-        const rawMatch = startingLocation.match(/\/{1,3}([a-z]+\.[a-z]+\.[a-z]+)/i);
-        if (urlMatch) words = urlMatch[1].toLowerCase();
-        else if (rawMatch) words = rawMatch[1].toLowerCase();
-        const webUrl = words
-          ? `https://what3words.com/${words}`
-          : startingLocationValid ? startingLocation : null;
-        if (!isLocationBased) {
-          document.getElementById('startingLocationSection').style.display = 'none';
-        } else {
-          document.getElementById('startingLocationSection').style.display = 'flex';
-          document.getElementById('startBlurb').innerHTML = `You must go to <strong>${city}</strong> to play this game. Tap to reveal the starting point.`;
-          document.getElementById('startCityLabel').textContent = (gameNode.city || city || '').trim();
+          const urlMatch = startingLocation.match(/(?:what3words\.com|w3w\.co)\/([a-z]+\.[a-z]+\.[a-z]+)/i);
+          const rawMatch = startingLocation.match(/\/{1,3}([a-z]+\.[a-z]+\.[a-z]+)/i);
+          const words = urlMatch ? urlMatch[1].toLowerCase() : rawMatch ? rawMatch[1].toLowerCase() : null;
+          const webUrl = words ? `https://what3words.com/${words}` : startingLocationValid ? startingLocation : null;
 
-          // Build map URLs from stored coordinates or w3w
           const mapLat = typeof gameNode.startingLocationLat === 'number' ? gameNode.startingLocationLat : null;
           const mapLon = typeof gameNode.startingLocationLon === 'number' ? gameNode.startingLocationLon : null;
-          const mapQuery = (mapLat != null && mapLon != null)
-            ? `${mapLat},${mapLon}`
-            : encodeURIComponent(words ? `${words}` : (gameNode.city || city || ''));
-          const ll = (mapLat != null && mapLon != null) ? `${mapLat},${mapLon}` : null;
-          const locQ = encodeURIComponent(words || city || '');
-          document.getElementById('startAppleMaps').href  = `https://maps.apple.com/?q=${mapQuery}`;
-          document.getElementById('startBing').href       = ll ? `https://bing.com/maps/default.aspx?cp=${mapLat}~${mapLon}&lvl=15` : `https://bing.com/maps?q=${locQ}`;
-          document.getElementById('startGoogleMaps').href = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
-          document.getElementById('startWaze').href       = ll ? `https://waze.com/ul?ll=${ll}&navigate=yes` : `https://waze.com/ul?q=${locQ}`;
-          document.getElementById('startW3W').href        = webUrl || 'https://what3words.com';
-
-          const blurb = document.getElementById('startBlurb');
-          const btns  = document.getElementById('startMapButtons');
-
-          const showButtons = () => {
-            blurb.classList.add('flip-out');
-            setTimeout(() => {
-              blurb.style.display = 'none';
-              blurb.classList.remove('flip-out');
-              btns.style.display = 'flex';
-              btns.classList.add('flip-in');
-              btns.addEventListener('animationend', () => btns.classList.remove('flip-in'), { once: true });
-            }, 230);
+          const ll     = mapLat != null ? `${mapLat},${mapLon}` : null;
+          const locQ   = encodeURIComponent(words || city || '');
+          const mapUrls = {
+            apple:  `https://maps.apple.com/?q=${ll || locQ}`,
+            google: `https://www.google.com/maps/search/?api=1&query=${ll || locQ}`,
+            waze:   ll ? `https://waze.com/ul?ll=${ll}&navigate=yes` : `https://waze.com/ul?q=${locQ}`,
+            w3w:    webUrl || 'https://what3words.com',
           };
 
-          const showBlurb = () => {
-            btns.classList.add('flip-out');
+          // Lightbox
+          const lightbox = document.getElementById('w3wLightbox');
+          const lbFrame  = document.getElementById('w3wLightboxFrame');
+          const lbLabel  = document.getElementById('w3wLightboxLabel');
+          const openLightbox = (url, label) => {
+            lbFrame.src = url;
+            lbLabel.textContent = label;
+            lightbox.classList.add('open');
+            document.body.style.overflow = 'hidden';
+          };
+          const closeLightbox = () => {
+            lightbox.classList.remove('open');
+            document.body.style.overflow = '';
+            lbFrame.src = '';
+          };
+          document.getElementById('w3wLightboxClose').onclick = closeLightbox;
+
+          // Panel flip
+          const blurb = document.getElementById('startBlurb');
+          const btns  = document.getElementById('startMapButtons');
+          const flip = (show, hide) => {
+            hide.classList.add('flip-out');
             setTimeout(() => {
-              btns.style.display = 'none';
-              btns.classList.remove('flip-out');
-              blurb.style.display = '';
-              blurb.classList.add('flip-in');
-              blurb.addEventListener('animationend', () => blurb.classList.remove('flip-in'), { once: true });
+              hide.style.display = 'none';
+              hide.classList.remove('flip-out');
+              show.style.display = show === btns ? 'flex' : '';
+              show.classList.add('flip-in');
+              show.addEventListener('animationend', () => show.classList.remove('flip-in'), { once: true });
             }, 230);
           };
 
           document.getElementById('startingLocationSection').onclick = () => {
-            if (btns.style.display === 'flex') showBlurb();
-            else showButtons();
+            if (btns.style.display === 'flex') flip(blurb, btns);
+            else flip(btns, blurb);
           };
-          document.getElementById('startMapButtons').onclick = (e) => {
-            if (e.target === e.currentTarget) showBlurb();
+          document.getElementById('startMapButtons').onclick = (e) => { if (e.target === e.currentTarget) flip(blurb, btns); };
+          document.getElementById('startCloseBtn').onclick   = (e) => { e.stopPropagation(); flip(blurb, btns); };
+
+          const deepLinks = {
+            apple:  ll ? `maps://?ll=${ll}` : `maps://?q=${locQ}`,
+            google: ll ? `comgooglemaps://?q=${ll}` : `comgooglemaps://?q=${locQ}`,
+            waze:   ll ? `waze://ul?ll=${ll}&navigate=yes` : `waze://ul?q=${locQ}`,
           };
-          document.getElementById('startCloseBtn').onclick = (e) => {
-            e.stopPropagation();
-            showBlurb();
+          const appNames = { apple: 'Apple Maps', google: 'Google Maps', waze: 'Waze' };
+
+          const toast = document.getElementById('appToast');
+          let toastTimer;
+          const showToast = (msg) => {
+            clearTimeout(toastTimer);
+            toast.textContent = msg;
+            toast.classList.add('show');
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
           };
+
+          const tryDeepLink = (key) => {
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+            iframe.src = deepLinks[key];
+            const t = setTimeout(() => {
+              document.body.removeChild(iframe);
+              showToast(`Download ${appNames[key]} to use this feature`);
+            }, 800);
+            const cancel = () => { clearTimeout(t); document.body.removeChild(iframe); };
+            window.addEventListener('blur', cancel, { once: true });
+            document.addEventListener('visibilitychange', () => { if (document.hidden) cancel(); }, { once: true });
+          };
+
           document.querySelectorAll('.start-map-btn').forEach(btn => {
-            btn.addEventListener('click', e => e.stopPropagation());
+            btn.addEventListener('click', e => {
+              e.stopPropagation();
+              const key = btn.dataset.map;
+              if (key === 'w3w') openLightbox(mapUrls[key], btn.textContent);
+              else tryDeepLink(key);
+            });
           });
 
+          // Populate
+          document.getElementById('startingLocationSection').style.display = 'flex';
+          document.getElementById('startBlurb').innerHTML = `You must go to <strong>${city}</strong> to play this game. Tap to reveal the starting point.`;
+          document.getElementById('startCityLabel').textContent = (gameNode.city || city || '').trim();
+
+          // OSM background map
           const bgMap = document.getElementById('startBgMap');
           (async () => {
             try {
-              let mapLat = typeof gameNode.startingLocationLat === 'number' ? gameNode.startingLocationLat : null;
-              let mapLon = typeof gameNode.startingLocationLon === 'number' ? gameNode.startingLocationLon : null;
-              const zoom = (mapLat != null && mapLon != null) ? 15 : 12;
-
-              if (mapLat == null || mapLon == null) {
+              let lat = mapLat, lon = mapLon;
+              const zoom = lat != null ? 15 : 12;
+              if (lat == null) {
                 const mapCity = (gameNode.city || '').trim();
                 if (!mapCity) return;
-                const geo = await fetch(
-                  `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapCity)}&format=json&limit=1`,
-                  { headers: { 'Accept-Language': 'en' } }
-                );
-                const places = await geo.json();
+                const res    = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapCity)}&format=json&limit=1`, { headers: { 'Accept-Language': 'en' } });
+                const places = await res.json();
                 if (!places.length) return;
-                mapLat = parseFloat(places[0].lat);
-                mapLon = parseFloat(places[0].lon);
+                lat = parseFloat(places[0].lat);
+                lon = parseFloat(places[0].lon);
               }
-
-              const W = bgMap.offsetWidth  || 640;
-              const H = bgMap.offsetHeight || 400;
+              const W = bgMap.offsetWidth || 640, H = bgMap.offsetHeight || 400;
               const canvas = document.createElement('canvas');
-              canvas.width  = W;
-              canvas.height = H;
+              canvas.width = W; canvas.height = H;
               const ctx = canvas.getContext('2d');
-              const tileSize = 256;
-              const n      = Math.pow(2, zoom);
-              const tileXf = (mapLon + 180) / 360 * n;
-              const latRad = mapLat * Math.PI / 180;
-              const tileYf = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
-              const tileXi = Math.floor(tileXf);
-              const tileYi = Math.floor(tileYf);
-              const offX   = (tileXf - tileXi) * tileSize;
-              const offY   = (tileYf - tileYi) * tileSize;
+              const ts = 256, n = Math.pow(2, zoom);
+              const tXf = (lon + 180) / 360 * n;
+              const tYf = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
+              const tXi = Math.floor(tXf), tYi = Math.floor(tYf);
+              const oX = (tXf - tXi) * ts, oY = (tYf - tYi) * ts;
               const cx = W / 2, cy = H / 2;
-              const rangeX = Math.ceil(W / tileSize / 2) + 1;
-              const rangeY = Math.ceil(H / tileSize / 2) + 1;
-
-              const loads = [];
-              for (let dy = -rangeY; dy <= rangeY; dy++) {
-                for (let dx = -rangeX; dx <= rangeX; dx++) {
-                  loads.push(new Promise(resolve => {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload  = () => { ctx.drawImage(img, Math.round(cx - offX + dx * tileSize), Math.round(cy - offY + dy * tileSize), tileSize, tileSize); resolve(); };
-                    img.onerror = resolve;
-                    img.src = `https://tile.openstreetmap.org/${zoom}/${tileXi + dx}/${tileYi + dy}.png`;
-                  }));
-                }
-              }
-              await Promise.all(loads);
+              const rX = Math.ceil(W / ts / 2) + 1, rY = Math.ceil(H / ts / 2) + 1;
+              await Promise.all(
+                Array.from({ length: (2*rY+1)*(2*rX+1) }, (_, i) => {
+                  const dy = Math.floor(i / (2*rX+1)) - rY;
+                  const dx = (i % (2*rX+1)) - rX;
+                  return new Promise(r => {
+                    const img = new Image(); img.crossOrigin = 'anonymous';
+                    img.onload  = () => { ctx.drawImage(img, Math.round(cx - oX + dx*ts), Math.round(cy - oY + dy*ts), ts, ts); r(); };
+                    img.onerror = r;
+                    img.src = `https://tile.openstreetmap.org/${zoom}/${tXi+dx}/${tYi+dy}.png`;
+                  });
+                })
+              );
               try { bgMap.style.backgroundImage = `url(${canvas.toDataURL()})`; } catch(e) {}
             } catch(e) {}
           })();
+        } else {
+          document.getElementById('startingLocationSection').style.display = 'none';
         }
         // /START
 
