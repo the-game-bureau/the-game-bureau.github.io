@@ -22,6 +22,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Regenerate asset manifest
+        run: |
+          python3 << 'EOF'
+          import os, json
+          exts = {'.jpg','.jpeg','.png','.gif','.svg','.webp','.avif','.ico','.bmp','.tiff','.tif'}
+          exclude = {'404.webp','builder.ico','builder.png','share-thumbnail.png'}
+          files = sorted(f for f in os.listdir('assets') if os.path.splitext(f)[1].lower() in exts and f not in exclude)
+          with open('assets/asset-manifest.json','w') as fh:
+              json.dump({'files': files}, fh, indent=2)
+              fh.write('\n')
+          print(f'Wrote {len(files)} entries to asset-manifest.json')
+          EOF
+
       - name: Build public site
         run: |
           rsync -av \
