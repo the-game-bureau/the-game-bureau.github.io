@@ -1515,7 +1515,7 @@
           const mapUrls = {
             apple:  `https://maps.apple.com/?q=${ll || locQ}`,
             google: `https://www.google.com/maps/search/?api=1&query=${ll || locQ}`,
-            waze:   ll ? `https://waze.com/ul?ll=${ll}&navigate=yes` : `https://waze.com/ul?q=${locQ}`,
+            waze:   ll ? `https://waze.com/ul?ll=${ll}&navigate=yes` : null,
             w3w:    webUrl || 'https://what3words.com',
           };
 
@@ -1558,9 +1558,9 @@
           document.getElementById('startCloseBtn').onclick   = (e) => { e.stopPropagation(); flip(blurb, btns); };
 
           const deepLinks = {
-            apple:  ll ? `maps://?ll=${ll}` : `maps://?q=${locQ}`,
-            google: ll ? `comgooglemaps://?q=${ll}` : `comgooglemaps://?q=${locQ}`,
-            waze:   ll ? `waze://ul?ll=${ll}&navigate=yes` : `waze://ul?q=${locQ}`,
+            apple:  ll ? `maps://?ll=${ll}` : null,
+            google: ll ? `comgooglemaps://?q=${ll}` : null,
+            waze:   ll ? `waze://ul?ll=${ll}&navigate=yes` : null,
           };
           const appNames = { apple: 'Apple Maps', google: 'Google Maps', waze: 'Waze' };
 
@@ -1574,6 +1574,7 @@
           };
 
           const tryDeepLink = (key) => {
+            if (!deepLinks[key]) { showToast(`Download ${appNames[key]} to use this feature`); return; }
             let appOpened = false;
             const onHide = () => { appOpened = true; };
             document.addEventListener('visibilitychange', onHide, { once: true });
@@ -1614,6 +1615,13 @@
                 if (!places.length) return;
                 lat = parseFloat(places[0].lat);
                 lon = parseFloat(places[0].lon);
+              }
+              // Backfill coordinate-only links once coordinates are resolved
+              if (!deepLinks.waze || !deepLinks.apple || !deepLinks.google) {
+                const resolvedLL = `${lat},${lon}`;
+                if (!deepLinks.waze)   { deepLinks.waze   = `waze://ul?ll=${resolvedLL}&navigate=yes`; mapUrls.waze = `https://waze.com/ul?ll=${resolvedLL}&navigate=yes`; }
+                if (!deepLinks.apple)  { deepLinks.apple  = `maps://?ll=${resolvedLL}`; }
+                if (!deepLinks.google) { deepLinks.google = `comgooglemaps://?q=${resolvedLL}`; }
               }
               const W = bgMap.offsetWidth || 640, H = bgMap.offsetHeight || 400;
               const canvas = document.createElement('canvas');
