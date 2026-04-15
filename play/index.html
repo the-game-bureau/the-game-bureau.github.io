@@ -342,6 +342,38 @@
     }
     .msg.from-game.has-img .msg-bubble img { border-radius: 14px; }
 
+    /* video bubble */
+    .msg.has-video { width: min(80%, 300px); }
+    .msg.has-video .msg-bubble { padding: 0; background: #000; overflow: hidden; }
+    .msg.has-video.from-game .msg-bubble { border-bottom-left-radius: 5px; }
+    .msg.has-video .msg-bubble::before,
+    .msg.has-video .msg-bubble::after { display: none; }
+    .bubble-video-wrap { position: relative; width: 100%; aspect-ratio: 16/9; cursor: pointer; display: block; text-decoration: none; overflow: hidden; border-radius: inherit; }
+    .bubble-video-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; border: none; }
+    .bubble-video-wrap video { position: absolute; inset: 0; width: 100%; height: 100%; border: none; display: block; }
+    .bubble-video-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); }
+    .bubble-video-play svg { width: 48px; height: 48px; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5)); }
+
+    /* audio bubble */
+    .bubble-audio { display: flex; align-items: center; gap: 10px; padding: 2px 0; }
+    .bubble-audio-play { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.25); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; }
+    .from-player .bubble-audio-play { background: rgba(0,0,0,0.12); color: #333; }
+    .bubble-audio-play svg { width: 14px; height: 14px; }
+    .bubble-audio-wave { display: flex; align-items: center; gap: 2px; height: 28px; flex: 1; }
+    .bubble-audio-wave span { flex: 1; border-radius: 2px; background: rgba(255,255,255,0.7); transition: background 0.15s; min-width: 2px; }
+    .from-player .bubble-audio-wave span { background: rgba(0,0,0,0.2); }
+    .bubble-audio-time { font-size: 0.75rem; opacity: 0.75; white-space: nowrap; }
+
+    /* link bubble */
+    .bubble-link { display: flex; align-items: center; gap: 8px; text-decoration: none !important; color: inherit !important; }
+    .bubble-link-icon { flex-shrink: 0; opacity: 0.75; }
+    .bubble-link-text { word-break: break-word; text-decoration: underline; }
+
+    /* button bubble */
+    .msg:has(.bubble-btn) { min-width: 45%; }
+    .bubble-btn { display: block; padding: 0.55em 1.1em; width: 100%; background: var(--game-primary, #5468a7); color: var(--game-quaternary, #fff); border-radius: 14px; text-decoration: none; text-align: center; font-size: 0.95em; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .12s; box-sizing: border-box; }
+    .bubble-btn:active { opacity: .75; }
+
     .lb {
       display: none;
       position: fixed;
@@ -1392,7 +1424,9 @@
           embedUrl.searchParams.set('playsinline', '1');
           return {
             src: embedUrl.toString(),
-            allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
+            allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
+            youTubeId,
+            thumbnail: 'https://img.youtube.com/vi/' + encodeURIComponent(youTubeId) + '/hqdefault.jpg'
           };
         }
 
@@ -1511,16 +1545,48 @@
     function addBubble(content, fromGame = true) {
       const isObj = typeof content === 'object' && content !== null;
       const html = isObj ? (content.html || content.text || '') : content;
+      const kind = isObj ? (content.kind || 'text') : 'text';
 
       const wrap = document.createElement('div');
-
       wrap.className = 'msg ' + (fromGame ? 'from-game' : 'from-player');
+
       const bubble = document.createElement('div');
       bubble.className = 'msg-bubble';
       bubble.innerHTML = renderImageUrls(interpolate(String(html || '')).replace(/\n/g, '<br>'));
-      if (bubble.querySelector('img')) wrap.classList.add('has-img');
-      
-      bubble.querySelectorAll('a').forEach(a => {
+
+      if (kind === 'image' || bubble.querySelector('img')) wrap.classList.add('has-img');
+      if (kind === 'video') wrap.classList.add('has-video');
+
+      // audio: wire up play button
+      const audioEl = bubble.querySelector('.bubble-audio');
+      if (audioEl) {
+        const src = audioEl.dataset.audioSrc;
+        const playBtn = audioEl.querySelector('.bubble-audio-play');
+        const timeEl = audioEl.querySelector('.bubble-audio-time');
+        if (src && playBtn) {
+          const audio = new Audio(src);
+          let raf;
+          const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+          audio.addEventListener('loadedmetadata', () => { if (timeEl) timeEl.textContent = fmt(audio.duration); });
+          audio.addEventListener('timeupdate', () => { if (timeEl) timeEl.textContent = fmt(audio.currentTime); });
+          audio.addEventListener('ended', () => {
+            playBtn.innerHTML = '<svg viewBox="0 0 11 13" fill="currentColor"><path d="M1 1.5l9 5-9 5v-10z"/></svg>';
+            cancelAnimationFrame(raf);
+          });
+          playBtn.addEventListener('click', () => {
+            if (audio.paused) {
+              audio.play();
+              playBtn.innerHTML = '<svg viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1" width="3.5" height="10" rx="1"/><rect x="7.5" y="1" width="3.5" height="10" rx="1"/></svg>';
+            } else {
+              audio.pause();
+              playBtn.innerHTML = '<svg viewBox="0 0 11 13" fill="currentColor"><path d="M1 1.5l9 5-9 5v-10z"/></svg>';
+            }
+          });
+        }
+      }
+
+      // links: open in lightbox (skip action-btn and bubble-video-wrap which handle themselves)
+      bubble.querySelectorAll('a:not(.action-btn):not(.bubble-video-wrap)').forEach(a => {
         a.addEventListener('click', e => {
           const url = a.href;
           if (url && /^https?:\/\//i.test(url)) {
@@ -1529,6 +1595,18 @@
           }
         });
       });
+
+      // action-btn links
+      bubble.querySelectorAll('a.action-btn').forEach(a => {
+        a.addEventListener('click', e => {
+          const url = a.href;
+          if (url && /^https?:\/\//i.test(url)) {
+            e.preventDefault();
+            openButtonLightbox(url);
+          }
+        });
+      });
+
 
       wrap.appendChild(bubble);
       chatEl.appendChild(wrap);
@@ -2127,10 +2205,51 @@
             currentStop = { id: 'virtual-stop', messages: [], playerReply: null };
             stops.push(currentStop);
           }
+          const bubbleKind = node.kind || 'text';
+          let bubbleHtml = node.body || '';
+          if (bubbleKind === 'image') {
+            const src = String(node.body || '').trim();
+            bubbleHtml = src ? `<img src="${escapeAttr(src)}" alt="">` : '';
+          } else if (bubbleKind === 'video') {
+            const src = String(node.body || '').trim();
+            const cfg = src ? getVideoLightboxConfig(src) : null;
+            if (cfg && cfg.thumbnail) {
+              // YouTube: thumbnail card linking to YouTube (avoids embed restrictions)
+              const playIcon = `<svg viewBox="0 0 68 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="68" height="48" rx="10" fill="#FF0000"/><path d="M45 24L27 34.5V13.5L45 24Z" fill="white"/></svg>`;
+              bubbleHtml = `<a class="bubble-video-wrap" href="${escapeAttr(src)}" target="_blank" rel="noopener" data-video-src="${escapeAttr(src)}"><img src="${escapeAttr(cfg.thumbnail)}" alt="Video"><div class="bubble-video-play">${playIcon}</div></a>`;
+            } else if (cfg) {
+              // Vimeo or other embeddable sources
+              bubbleHtml = `<div class="bubble-video-wrap" data-video-src="${escapeAttr(src)}"><iframe src="${escapeAttr(cfg.src)}" allow="${escapeAttr(cfg.allow)}" allowfullscreen></iframe></div>`;
+            } else if (src) {
+              bubbleHtml = `<div class="bubble-video-wrap" data-video-src="${escapeAttr(src)}"><video src="${escapeAttr(src)}" controls playsinline></video></div>`;
+            } else {
+              bubbleHtml = '';
+            }
+          } else if (bubbleKind === 'audio') {
+            const src = String(node.body || '').trim();
+            const waveHeights = [22,38,60,42,78,35,58,44,82,30,54,48,88,40,70,28,62,52,84,36,68,50,80,32,58,45,76,25,60,50,85,38,65,48,80];
+            const bars = waveHeights.map(h => `<span style="height:${h}%"></span>`).join('');
+            bubbleHtml = src
+              ? `<div class="bubble-audio" data-audio-src="${escapeAttr(src)}"><button class="bubble-audio-play" type="button" aria-label="Play audio"><svg viewBox="0 0 11 13" fill="currentColor"><path d="M1 1.5l9 5-9 5v-10z"/></svg></button><div class="bubble-audio-wave">${bars}</div><span class="bubble-audio-time">0:00</span></div>`
+              : '';
+          } else if (bubbleKind === 'link') {
+            const url = String(node.linkUrl || '').trim();
+            const label = String(node.body || '').trim() || url;
+            bubbleHtml = url
+              ? `<a class="bubble-link" href="${escapeAttr(url)}" target="_blank" rel="noopener"><svg class="bubble-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span class="bubble-link-text">${escapeHtml(label)}</span></a>`
+              : escapeHtml(label);
+          } else if (bubbleKind === 'cta') {
+            const url = String(node.linkUrl || '').trim();
+            const label = String(node.body || '').trim() || 'Continue';
+            bubbleHtml = url
+              ? `<a class="bubble-btn" href="${escapeAttr(url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`
+              : `<span class="bubble-btn">${escapeHtml(label)}</span>`;
+          }
           currentStop.messages.push({
             bubbleId: node.id,
+            kind: bubbleKind,
             text: node.body,
-            html: node.body,
+            html: bubbleHtml,
             callToAction: false
           });
         } else if (node.type === 'button') {
@@ -2142,10 +2261,11 @@
           const buttonUrl = String(node.buttonUrl || '').trim();
           currentStop.messages.push({
             bubbleId: node.id,
+            kind: 'button',
             text: buttonLabel,
             html: buttonUrl
-              ? `<a class="action-btn" href="${escapeAttr(buttonUrl)}">${escapeHtml(buttonLabel)}</a>`
-              : escapeHtml(buttonLabel),
+              ? `<a class="bubble-btn" href="${escapeAttr(buttonUrl)}" target="_blank" rel="noopener">${escapeHtml(buttonLabel)}</a>`
+              : `<span class="bubble-btn">${escapeHtml(buttonLabel)}</span>`,
             buttonUrl: buttonUrl,
           });
         } else if (node.type === 'reply') {
@@ -2213,8 +2333,9 @@
 
         applyHeaderImages(gameNode);
 
-        if (gameNode.primaryColor) {
-          document.documentElement.style.setProperty('--game-primary', gameNode.primaryColor);
+        const primaryColor = gameData.primary_color || gameNode.primaryColor;
+        if (primaryColor) {
+          document.documentElement.style.setProperty('--game-primary', primaryColor);
         }
         if (gameNode.tertiaryColor) {
           document.documentElement.style.setProperty('--game-tertiary', gameNode.tertiaryColor);

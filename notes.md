@@ -99,6 +99,7 @@ Go ahead and get your phones out — I’ll have you scan a QR code so I can sen
 - [X] **Admin Features:** If `builder.html` has `?id=*` in the URL, load that specific game.
 - [ ] QR codes not working on game page.
 - [ ] Fix share setting. Just show URL and copy button and instruct user to send via text message.
+- [ ] separate bubble for video and youtube video
 
 ## AI & Automation
 
