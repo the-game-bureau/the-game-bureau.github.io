@@ -486,6 +486,31 @@
     .submit-btn:active { transform: scale(0.9); background: #1557b0; }
     .submit-btn:disabled { opacity: 0.35; cursor: default; }
 
+    .photo-input { display: none; }
+
+    .photo-btn {
+      background: #f3f4f6;
+      border: 2px solid #e5e7eb;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      color: #6b7280;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s, transform 0.1s, opacity 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .photo-btn:active { transform: scale(0.9); background: #e5e7eb; }
+    .photo-btn:disabled { opacity: 0.35; cursor: default; }
+    .photo-btn svg {
+      width: 21px;
+      height: 21px;
+      display: block;
+    }
+
     .btn-choices {
       display: flex;
       flex-direction: column;
@@ -797,6 +822,13 @@
 
   <div class="input-area" id="input-area">
     <div class="answer-row">
+      <button id="photoBtn" class="photo-btn" type="button" aria-label="Upload photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 8.5a2 2 0 0 1 2-2h2.2l1.1-1.7A2 2 0 0 1 11 4h2a2 2 0 0 1 1.7.8l1.1 1.7H18a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/>
+          <circle cx="12" cy="13" r="3.2"/>
+        </svg>
+      </button>
+      <input id="photoInput" class="photo-input" type="file" accept="image/*" capture="environment">
       <input id="gameInput" type="text" class="answer-input" autocomplete="off" placeholder="Message">
       <button id="gameSubmitBtn" class="submit-btn" aria-label="Send">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z" fill="white" stroke="white"/></svg>
@@ -814,11 +846,16 @@
     const CHECKOUT_UNLOCKS_KEY = STORE_KEY + '_checkout_unlocks';
     const PLAYER_SESSION_KEY = STORE_KEY + '_player_id';
     const CHECKOUT_SUCCESS_COPY = 'Payment confirmed. Let\u2019s keep going.';
+    const PHOTO_STORAGE_BUCKET = 'game-photo-submissions';
+    const PHOTO_SUBMISSIONS_TABLE = 'photo_submissions';
+    const MAX_PHOTO_UPLOAD_BYTES = 10 * 1024 * 1024;
 
       const chatEl      = document.getElementById('chat');
       const inputAreaEl = document.getElementById('input-area');
       const gameInput   = document.getElementById('gameInput');
       const submitBtn   = document.getElementById('gameSubmitBtn');
+      const photoBtn    = document.getElementById('photoBtn');
+      const photoInput  = document.getElementById('photoInput');
 
     // ── Image lightbox ────────────────────────────────────────────
     (function () {
@@ -1614,6 +1651,186 @@
       scrollBottom();
       return wrap;
     }
+
+    function setPhotoUploadBusy(isBusy) {
+      if (!photoBtn || !photoInput) return;
+      photoBtn.disabled = !!isBusy;
+      photoInput.disabled = !!isBusy;
+    }
+
+    function sanitizePhotoPathSegment(value, fallback) {
+      const clean = String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80);
+      return clean || fallback;
+    }
+
+    function getPhotoExtension(file) {
+      const mime = String(file && file.type || '').toLowerCase();
+      if (mime === 'image/jpeg') return 'jpg';
+      if (mime === 'image/png') return 'png';
+      if (mime === 'image/webp') return 'webp';
+      if (mime === 'image/gif') return 'gif';
+      if (mime === 'image/heic') return 'heic';
+      if (mime === 'image/heif') return 'heif';
+
+      const match = String(file && file.name || '').match(/\.([a-z0-9]{2,5})$/i);
+      const ext = match ? match[1].toLowerCase() : '';
+      return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'].includes(ext)
+        ? (ext === 'jpeg' ? 'jpg' : ext)
+        : '';
+    }
+
+    function getPhotoUploadMimeType(file, extension) {
+      if (file && /^image\//i.test(String(file.type || ''))) return file.type;
+      if (extension === 'png') return 'image/png';
+      if (extension === 'webp') return 'image/webp';
+      if (extension === 'gif') return 'image/gif';
+      if (extension === 'heic') return 'image/heic';
+      if (extension === 'heif') return 'image/heif';
+      return 'image/jpeg';
+    }
+
+    function getActivePhotoContext() {
+      const stop = activeStop || gameStops[currentStopIndex] || null;
+      return {
+        stop_id: stop && stop.id ? String(stop.id) : '',
+        stop_title: stop && stop.title ? String(stop.title) : '',
+        stop_index: Number.isFinite(currentStopIndex) ? currentStopIndex : null,
+        flow_kind: activeFlowKind || 'main'
+      };
+    }
+
+    function buildPhotoStoragePath(file) {
+      const context = getActivePhotoContext();
+      const extension = getPhotoExtension(file);
+      if (!extension) throw new Error('Choose an image file.');
+
+      const gamePart = sanitizePhotoPathSegment(gameId || 'game', 'game');
+      const playerPart = sanitizePhotoPathSegment(getPlayerSessionId(), 'player');
+      const stopPart = sanitizePhotoPathSegment(context.stop_id || ('stop-' + ((context.stop_index || 0) + 1)), 'stop');
+      const nonce = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+      return `${gamePart}/${playerPart}/${stopPart}/${nonce}.${extension}`;
+    }
+
+    function buildStorageObjectUrl(bucket, path) {
+      const encodedPath = String(path || '').split('/').map(encodeURIComponent).join('/');
+      return new URL(`/storage/v1/object/${encodeURIComponent(bucket)}/${encodedPath}`, SB_CONFIG.url.replace(/\/+$/, '') + '/').toString();
+    }
+
+    async function readSupabaseError(response, fallbackMessage) {
+      const fallback = fallbackMessage || 'Request failed.';
+      try {
+        const text = await response.text();
+        if (!text) return fallback;
+        try {
+          const payload = JSON.parse(text);
+          return payload.message || payload.error_description || payload.error || text || fallback;
+        } catch (parseError) {
+          return text || fallback;
+        }
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    async function insertPhotoSubmission(file, storagePath) {
+      const context = getActivePhotoContext();
+      const requestUrl = new URL(`rest/v1/${PHOTO_SUBMISSIONS_TABLE}`, `${SB_CONFIG.url.replace(/\/+$/, '')}/`);
+      const payload = {
+        game_id: String(gameId || ''),
+        player_id: getPlayerSessionId(),
+        storage_bucket: PHOTO_STORAGE_BUCKET,
+        storage_path: storagePath,
+        file_name: String(file && file.name || ''),
+        mime_type: getPhotoUploadMimeType(file, getPhotoExtension(file)),
+        file_size: file && Number.isFinite(file.size) ? file.size : null,
+        stop_id: context.stop_id,
+        stop_title: context.stop_title,
+        stop_index: context.stop_index,
+        flow_kind: context.flow_kind,
+        player_vars: vars && typeof vars === 'object' ? vars : {},
+        page_url: window.location.href,
+        user_agent: navigator.userAgent || ''
+      };
+
+      const response = await fetch(requestUrl.toString(), {
+        method: 'POST',
+        headers: {
+          apikey: SB_CONFIG.key,
+          Authorization: `Bearer ${SB_CONFIG.key}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error(await readSupabaseError(response, 'Could not save photo submission.'));
+      }
+    }
+
+    async function uploadPhotoToSupabase(file) {
+      if (!gameId) throw new Error('No game is loaded.');
+      if (!file) throw new Error('Choose a photo first.');
+      if (file.size > MAX_PHOTO_UPLOAD_BYTES) throw new Error('Choose a photo under 10 MB.');
+      const extension = getPhotoExtension(file);
+      if (!extension) throw new Error('Choose an image file.');
+
+      const storagePath = buildPhotoStoragePath(file);
+      const response = await fetch(buildStorageObjectUrl(PHOTO_STORAGE_BUCKET, storagePath), {
+        method: 'POST',
+        headers: {
+          apikey: SB_CONFIG.key,
+          Authorization: `Bearer ${SB_CONFIG.key}`,
+          'Content-Type': getPhotoUploadMimeType(file, extension),
+          'x-upsert': 'false'
+        },
+        body: file
+      });
+
+      if (!response.ok) {
+        throw new Error(await readSupabaseError(response, 'Could not upload photo.'));
+      }
+
+      await insertPhotoSubmission(file, storagePath);
+      return storagePath;
+    }
+
+    function showLocalPhotoBubble(file) {
+      const previewUrl = URL.createObjectURL(file);
+      const wrap = addBubble({
+        kind: 'image',
+        html: `<img src="${escapeAttr(previewUrl)}" alt="Submitted photo">`
+      }, false);
+      const image = wrap && wrap.querySelector('img');
+      const releasePreview = () => URL.revokeObjectURL(previewUrl);
+      if (image && !image.complete) image.addEventListener('load', releasePreview, { once: true });
+      else setTimeout(releasePreview, 1000);
+      setTimeout(releasePreview, 60000);
+    }
+
+    async function handlePhotoSelection() {
+      const file = photoInput && photoInput.files ? photoInput.files[0] : null;
+      if (!file) return;
+
+      showLocalPhotoBubble(file);
+      setPhotoUploadBusy(true);
+      try {
+        await uploadPhotoToSupabase(file);
+        addBubble('Photo received.', true);
+      } catch (error) {
+        console.error('Photo upload failed:', error);
+        addBubble('That photo did not upload. Try again.', true);
+      } finally {
+        setPhotoUploadBusy(false);
+        if (photoInput) photoInput.value = '';
+      }
+    }
+
     function completeCheckoutFlow(context = {}) {
       const unlockKey = context.unlockKey
         || (activeCheckoutContext && activeCheckoutContext.unlockKey)
@@ -1946,6 +2163,13 @@
       event.preventDefault();
       handleComposerSubmit();
     });
+    if (photoBtn && photoInput) {
+      photoBtn.addEventListener('click', () => {
+        if (photoBtn.disabled) return;
+        photoInput.click();
+      });
+      photoInput.addEventListener('change', handlePhotoSelection);
+    }
 
     // ── Stop flow ─────────────────────────────────────────────────
     function playStop(index, startIndex = 0, options = {}) {

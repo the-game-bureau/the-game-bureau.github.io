@@ -6,8 +6,6 @@ epcot leave a legacy - do a virtual version
 participation like wwii museum stickers on street signs
 have players find a specific brick at WWII Museum
 
-
-
 ## Builder Files
 
 - **builder/index.html**
@@ -86,6 +84,9 @@ Go ahead and get your phones out — I’ll have you scan a QR code so I can sen
 - [ ] Make it easy to insert links and variables in a text bubble
 - [ ] Button Bubble
 - [ ] Fix ID in BUILDER
+- [ ] https://www.instagram.com/reels/DXI_V7xjuIF/ qr code on a bracelet gives you a disposible camera
+- [ ] qr code on team jersey for fans to scan?
+- [ ] https://www.instagram.com/reels/DXJVVJGjknI/ qr scavenger hunt card takes you to a private photo album
 
 ## UI / UX & Builder Fixes
 
