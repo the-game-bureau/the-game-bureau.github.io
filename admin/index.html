@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>ADMIN | THE GAME BUREAU</title>
+  <link rel="icon" href="../assets/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);
+      --bic-red: #c23737;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255,255,255,0.92);
+      --mist: var(--paper-base);
+      --accent: var(--bic-blue);
+      --danger: #a03f2d;
+      --success: #2f6b3d;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+      color: var(--ink);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .app {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 40px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .brand {
+      display: grid;
+      gap: 4px;
+    }
+
+    .section-head {
+      display: grid;
+      gap: 4px;
+      margin: 0 0 14px;
+    }
+
+    .kicker {
+      margin: 0;
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--bic-blue);
+      font-size: 4.5rem;
+      letter-spacing: 0;
+      line-height: 0.92;
+      text-shadow: 0 6px 14px rgba(var(--bic-blue-rgb), 0.08);
+    }
+
+    h2 {
+      margin: 0;
+      color: var(--bic-blue);
+      font-size: 3rem;
+      letter-spacing: 0;
+      line-height: 1;
+    }
+
+    .copy {
+      margin: 0;
+      max-width: 620px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 14px;
+      margin-bottom: 18px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 18px 36px var(--paper-shadow);
+    }
+
+    .toolbar input {
+      min-width: min(100%, 260px);
+      flex: 1;
+      height: 42px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.86);
+    }
+
+    .toolbar input:focus,
+    .auth input:focus {
+      outline: 2px solid rgba(var(--bic-blue-rgb), 0.24);
+      outline-offset: 2px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.92);
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    .signout-btn {
+      width: 42px;
+      min-width: 42px;
+      height: 42px;
+      min-height: 42px;
+      padding: 0;
+      line-height: 0;
+    }
+
+    .signout-btn svg {
+      width: 31px;
+      height: 31px;
+      display: block;
+      flex: 0 0 auto;
+    }
+
+    .auth {
+      width: min(430px, 100%);
+      margin: 12vh auto 0;
+      padding: 22px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 26px 60px rgba(var(--bic-blue-rgb), 0.18);
+    }
+
+    .auth h1 {
+      margin-bottom: 10px;
+      font-size: 2.4rem;
+    }
+
+    .auth-form {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .auth label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .auth input {
+      height: 44px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.86);
+    }
+
+    .status {
+      min-height: 22px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .status.error {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .status.success {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 14px;
+    }
+
+    .admin-section {
+      margin-top: 34px;
+    }
+
+    .admin-library-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .admin-game-card {
+      --game-primary: var(--bic-blue);
+      --game-secondary: rgba(var(--bic-blue-rgb), 0.72);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 10px 22px var(--paper-shadow);
+    }
+
+    .admin-game-media {
+      position: relative;
+      aspect-ratio: 2 / 1;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, var(--game-secondary), var(--game-primary)),
+        rgba(var(--bic-blue-rgb), 0.08);
+    }
+
+    .admin-game-media::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(0,0,0,0.16));
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .admin-game-image {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .admin-game-monogram {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      display: grid;
+      place-items: center;
+      color: rgba(255,255,255,0.86);
+      font-size: 1.9rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .admin-game-media[data-has-image="true"] .admin-game-monogram {
+      opacity: 0.2;
+    }
+
+    .admin-game-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 3;
+      padding: 4px 6px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.92);
+      color: var(--game-primary);
+      font-size: 0.58rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .admin-game-body {
+      display: grid;
+      gap: 5px;
+      padding: 8px;
+    }
+
+    .admin-game-eyebrow {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      line-height: 1.25;
+      text-transform: uppercase;
+      word-break: break-word;
+    }
+
+    .admin-game-title {
+      margin: 0;
+      color: var(--game-primary);
+      font-size: 0.95rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      line-height: 1.05;
+    }
+
+    .admin-game-caption {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.72rem;
+      line-height: 1.3;
+      display: -webkit-box;
+      line-clamp: 1;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .admin-game-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .admin-game-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 7px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.92);
+      font-size: 0.64rem;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-align: center;
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+
+    .admin-game-btn.primary {
+      border-color: var(--game-primary);
+      background: var(--game-primary);
+      color: #fff;
+    }
+
+    .photo-card {
+      overflow: hidden;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 18px 36px var(--paper-shadow);
+    }
+
+    .photo-link {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        rgba(var(--bic-blue-rgb), 0.08);
+      background-size: 24px 24px, 24px 24px, 100% 100%;
+      border: 0;
+      padding: 0;
+      cursor: zoom-in;
+    }
+
+    .photo-link img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .meta {
+      display: grid;
+      gap: 6px;
+      padding: 12px;
+      font-size: 0.86rem;
+      line-height: 1.35;
+    }
+
+    .meta strong {
+      font-size: 0.95rem;
+    }
+
+    .meta span {
+      color: var(--muted);
+      word-break: break-word;
+    }
+
+    .empty {
+      display: grid;
+      place-items: center;
+      grid-column: 1 / -1;
+      min-height: 260px;
+      padding: 24px;
+      color: var(--muted);
+      background: var(--paper);
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(2, 6, 23, 0.88);
+    }
+
+    .lightbox.open {
+      display: flex;
+    }
+
+    .lightbox img {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .lightbox-close {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 8px;
+      color: #fff;
+      background: rgba(0,0,0,0.35);
+      cursor: pointer;
+      font-size: 1.2rem;
+      font-weight: 900;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 700px) {
+      .app {
+        width: min(100vw - 22px, 1180px);
+        padding-top: 16px;
+      }
+
+      .topbar {
+        display: grid;
+      }
+
+      .topbar-actions {
+        justify-content: stretch;
+      }
+
+      .topbar-actions .btn {
+        flex: 1;
+      }
+
+      .topbar-actions .signout-btn {
+        flex: 0 0 42px;
+      }
+
+      h1 {
+        font-size: 3rem;
+      }
+
+      h2 {
+        font-size: 2rem;
+      }
+
+      .toolbar {
+        display: grid;
+      }
+
+      .toolbar input,
+      .toolbar .btn {
+        width: 100%;
+      }
+
+      .admin-library-grid {
+        grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="auth" id="authPanel">
+      <p class="kicker">The Game Bureau</p>
+      <h1>Admin</h1>
+      <p class="copy">Sign in with an admin account.</p>
+      <form class="auth-form" id="authForm">
+        <label>
+          Email
+          <input id="emailInput" type="email" autocomplete="username" required>
+        </label>
+        <label>
+          Password
+          <input id="passwordInput" type="password" autocomplete="current-password" required>
+        </label>
+        <button class="btn primary" id="signInBtn" type="submit">Sign In</button>
+      </form>
+      <p class="status" id="authStatus" aria-live="polite"></p>
+    </section>
+
+    <section id="reviewPanel" class="hidden">
+      <div class="topbar">
+        <div class="brand">
+          <p class="kicker">The Game Bureau</p>
+          <h1>Admin</h1>
+          <p class="copy" id="signedInCopy"></p>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn" href="../builder/">Builder</a>
+          <a class="btn" href="../library/">Library</a>
+          <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="Sign out" title="Sign out">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <section class="admin-section" aria-labelledby="libraryHeading">
+        <div class="section-head">
+          <p class="kicker">Manage</p>
+          <h2 id="libraryHeading">Library</h2>
+          <p class="copy">Live games ready for mission control.</p>
+        </div>
+        <p class="status" id="libraryStatus" aria-live="polite"></p>
+        <div class="admin-library-grid" id="gameGrid"></div>
+      </section>
+
+      <section class="admin-section" aria-labelledby="photosHeading">
+        <div class="section-head">
+          <p class="kicker">Review</p>
+          <h2 id="photosHeading">Recent Photos</h2>
+          <p class="copy">Player photo submissions from live games.</p>
+        </div>
+
+        <div class="toolbar">
+          <input id="gameFilterInput" type="text" placeholder="Filter by game id">
+          <button class="btn primary" id="refreshBtn" type="button">Refresh</button>
+          <button class="btn" id="clearFilterBtn" type="button">Clear</button>
+        </div>
+
+        <p class="status" id="reviewStatus" aria-live="polite"></p>
+        <div class="grid" id="photoGrid"></div>
+      </section>
+    </section>
+  </main>
+
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Close">x</button>
+    <img id="lightboxImage" src="" alt="">
+  </div>
+
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+
+    const AUTH_STORAGE_KEY = 'tgb-photo-review-auth-session';
+    const PHOTO_BUCKET = 'game-photo-submissions';
+    const PAGE_LIMIT = 60;
+    const SIGNED_URL_SECONDS = 60 * 60;
+    const GAMES_SCHEMA = {
+      tagline: true,
+      featured: true
+    };
+
+    const authPanel = document.getElementById('authPanel');
+    const reviewPanel = document.getElementById('reviewPanel');
+    const authForm = document.getElementById('authForm');
+    const emailInput = document.getElementById('emailInput');
+    const passwordInput = document.getElementById('passwordInput');
+    const signInBtn = document.getElementById('signInBtn');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const clearFilterBtn = document.getElementById('clearFilterBtn');
+    const gameFilterInput = document.getElementById('gameFilterInput');
+    const authStatus = document.getElementById('authStatus');
+    const reviewStatus = document.getElementById('reviewStatus');
+    const libraryStatus = document.getElementById('libraryStatus');
+    const signedInCopy = document.getElementById('signedInCopy');
+    const gameGrid = document.getElementById('gameGrid');
+    const photoGrid = document.getElementById('photoGrid');
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImage = document.getElementById('lightboxImage');
+    const lightboxClose = document.getElementById('lightboxClose');
+
+    let currentSession = null;
+
+    function authUrl(path) {
+      return new URL('/auth/v1/' + String(path || '').replace(/^\/+/, ''), SUPABASE_CONFIG.url + '/').toString();
+    }
+
+    function restUrl(table, params = {}) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          url.searchParams.set(key, String(value));
+        }
+      });
+      return url.toString();
+    }
+
+    function encodeStoragePath(path) {
+      return String(path || '').split('/').map(encodeURIComponent).join('/');
+    }
+
+    function storageSignUrl(bucket, path) {
+      const objectPath = encodeURIComponent(bucket) + '/' + encodeStoragePath(path);
+      return new URL('/storage/v1/object/sign/' + objectPath, SUPABASE_CONFIG.url + '/').toString();
+    }
+
+    function resolveSignedStorageUrl(value) {
+      const signed = String(value || '').trim();
+      if (!signed) return '';
+      if (/^https?:\/\//i.test(signed)) return signed;
+
+      const origin = new URL(SUPABASE_CONFIG.url).origin;
+      if (signed.startsWith('/storage/v1/')) return origin + signed;
+      if (signed.startsWith('/object/')) return origin + '/storage/v1' + signed;
+      if (signed.startsWith('storage/v1/')) return origin + '/' + signed;
+      if (signed.startsWith('object/')) return origin + '/storage/v1/' + signed;
+
+      return new URL(signed, origin + '/storage/v1/').toString();
+    }
+
+    function setStatus(el, message, state = '') {
+      if (!el) return;
+      el.textContent = message || '';
+      el.classList.toggle('error', state === 'error');
+      el.classList.toggle('success', state === 'success');
+    }
+
+    async function readError(response, fallback) {
+      try {
+        const text = await response.text();
+        if (!text) return fallback;
+        try {
+          const payload = JSON.parse(text);
+          const message = payload.message || payload.msg || payload.error_description || payload.error || text;
+          if (/public\.admin_users|admin_users/i.test(message) && /schema cache|could not find/i.test(message)) {
+            return 'Admin access is not set up yet. Run supabase/photo-submissions.sql in Supabase, then add your email to public.admin_users.';
+          }
+          return message;
+        } catch (error) {
+          return text;
+        }
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    function readStoredSession() {
+      try {
+        return JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || 'null');
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function storeSession(session) {
+      try {
+        if (session) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+        else localStorage.removeItem(AUTH_STORAGE_KEY);
+      } catch (error) {
+      }
+    }
+
+    async function signIn(email, password) {
+      const response = await fetch(authUrl('token?grant_type=password'), {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_CONFIG.publishableKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!response.ok) {
+        throw new Error(await readError(response, 'Sign in failed.'));
+      }
+
+      return response.json();
+    }
+
+    async function refreshSession(session) {
+      if (!session || !session.refresh_token) return null;
+      const response = await fetch(authUrl('token?grant_type=refresh_token'), {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_CONFIG.publishableKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ refresh_token: session.refresh_token })
+      });
+
+      if (!response.ok) return null;
+      return response.json();
+    }
+
+    async function getUsableSession() {
+      const stored = readStoredSession();
+      if (!stored || !stored.access_token) return null;
+      const expiresAt = Number(stored.expires_at || 0) * 1000;
+      if (expiresAt && expiresAt > Date.now() + 60000) return stored;
+      const refreshed = await refreshSession(stored);
+      if (refreshed && refreshed.access_token) {
+        storeSession(refreshed);
+        return refreshed;
+      }
+      storeSession(null);
+      return null;
+    }
+
+    function authHeaders(extra = {}) {
+      return {
+        apikey: SUPABASE_CONFIG.publishableKey,
+        Authorization: 'Bearer ' + currentSession.access_token,
+        ...extra
+      };
+    }
+
+    async function verifyAdmin() {
+      const email = currentSession && currentSession.user ? currentSession.user.email : '';
+      const response = await fetch(restUrl('admin_users', {
+        select: 'email',
+        email: 'eq.' + email,
+        limit: '1'
+      }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        throw new Error(await readError(response, 'Could not verify admin access.'));
+      }
+
+      const rows = await response.json();
+      return Array.isArray(rows) && rows.length > 0;
+    }
+
+    function getMissingGamesColumnName(errorMessage = '') {
+      const message = String(errorMessage || '');
+      const match = message.match(/column\s+games\.([a-z_]+)\s+does\s+not\s+exist/i);
+      if (match) return String(match[1] || '').trim().toLowerCase();
+      const schemaMatch = message.match(/could not find the ['"]?([a-z_]+)['"]? column of ['"]?games/i);
+      return schemaMatch ? String(schemaMatch[1] || '').trim().toLowerCase() : '';
+    }
+
+    function buildGameSelect() {
+      const columns = [
+        'id',
+        'name',
+        'primary_color',
+        'secondary_color',
+        'city',
+        'archived',
+        'erased',
+        'tags',
+        'body',
+        'logo_url',
+        'guide_image_url'
+      ];
+      if (GAMES_SCHEMA.featured) columns.splice(5, 0, 'featured');
+      if (GAMES_SCHEMA.tagline) columns.splice(2, 0, 'tagline');
+      return columns.join(',');
+    }
+
+    async function fetchGames(selectOverride = '') {
+      const response = await fetch(restUrl('games', {
+        select: selectOverride || buildGameSelect(),
+        order: 'name.asc'
+      }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        const message = await readError(response, 'Could not load games.');
+        const missingColumn = getMissingGamesColumnName(message);
+        if (missingColumn === 'tagline' && GAMES_SCHEMA.tagline) {
+          GAMES_SCHEMA.tagline = false;
+          return fetchGames(buildGameSelect());
+        }
+        if (missingColumn === 'featured' && GAMES_SCHEMA.featured) {
+          GAMES_SCHEMA.featured = false;
+          return fetchGames(buildGameSelect());
+        }
+        throw new Error(message);
+      }
+
+      return response.json();
+    }
+
+    async function fetchSubmissions() {
+      const gameFilter = String(gameFilterInput.value || '').trim();
+      const params = {
+        select: 'id,created_at,game_id,player_id,storage_bucket,storage_path,file_name,mime_type,file_size,stop_id,stop_title,stop_index,flow_kind,status',
+        order: 'created_at.desc',
+        limit: String(PAGE_LIMIT)
+      };
+      if (gameFilter) params.game_id = 'eq.' + gameFilter;
+
+      const response = await fetch(restUrl('photo_submissions', params), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        throw new Error(await readError(response, 'Could not load photos.'));
+      }
+
+      return response.json();
+    }
+
+    async function createSignedUrl(row) {
+      const bucket = row.storage_bucket || PHOTO_BUCKET;
+      const response = await fetch(storageSignUrl(bucket, row.storage_path), {
+        method: 'POST',
+        headers: authHeaders({
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        }),
+        body: JSON.stringify({ expiresIn: SIGNED_URL_SECONDS })
+      });
+
+      if (!response.ok) {
+        throw new Error(await readError(response, 'Could not sign photo URL.'));
+      }
+
+      const payload = await response.json();
+      const signed = payload.signedURL || payload.signedUrl || payload.signed_url || '';
+      return resolveSignedStorageUrl(signed);
+    }
+
+    function formatDate(value) {
+      if (!value) return '';
+      try {
+        return new Intl.DateTimeFormat(undefined, {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        }).format(new Date(value));
+      } catch (error) {
+        return String(value);
+      }
+    }
+
+    function formatSize(bytes) {
+      const size = Number(bytes || 0);
+      if (!size) return '';
+      if (size < 1024 * 1024) return Math.round(size / 1024) + ' KB';
+      return (size / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function isFilledArchiveValue(value) {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'string') {
+        const trimmed = value.trim().toLowerCase();
+        return !!trimmed && trimmed !== 'false' && trimmed !== '0' && trimmed !== 'no';
+      }
+      return !!value;
+    }
+
+    function isLiveGame(game) {
+      return !isFilledArchiveValue(game && game.archived) && !isFilledArchiveValue(game && game.erased);
+    }
+
+    function getGamePalette(game) {
+      return {
+        primary: String(game && (game.primary_color || game.primaryColor) || '').trim() || '#2d4880',
+        secondary: String(game && (game.secondary_color || game.secondaryColor) || '').trim() || 'rgba(45,72,128,0.72)'
+      };
+    }
+
+    function resolveAdminAssetUrl(value) {
+      const raw = String(value || '').trim().replace(/\\/g, '/')
+        .replace('https://the-game-bureau.github.io/the-game-bureau/', 'https://thegamebureau.com/')
+        .replace('https://the-game-bureau.github.io/', 'https://thegamebureau.com/');
+      if (!raw) return '';
+      if (raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
+      try {
+        const base = /^assets\//i.test(raw) ? new URL('../', window.location.href).toString() : window.location.href;
+        const resolved = new URL(raw, base);
+        const protocol = String(resolved.protocol || '').toLowerCase();
+        return protocol === 'http:' || protocol === 'https:' || protocol === 'file:' ? resolved.toString() : '';
+      } catch (error) {
+        return '';
+      }
+    }
+
+    function getGameImageUrl(game) {
+      return resolveAdminAssetUrl(game && (
+        game.logo_url ||
+        game.logoUrl ||
+        game.logo ||
+        game.guide_image_url ||
+        game.guideImageUrl
+      ) || '');
+    }
+
+    function getGameMonogram(game) {
+      const title = String(game && game.name || 'Game').trim();
+      const words = title.match(/[A-Za-z0-9]+/g) || [];
+      if (words.length >= 2) return ((words[0][0] || '') + (words[1][0] || '')).toUpperCase();
+      return title.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || 'TG';
+    }
+
+    function getGameCaption(game) {
+      const tagline = String(game && game.tagline || '').replace(/\s+/g, ' ').trim();
+      const body = String(game && game.body || '').replace(/\s+/g, ' ').trim();
+      const caption = tagline || body || 'A live local experience by The Game Bureau.';
+      return caption.length > 100 ? caption.slice(0, 97).trimEnd() + '...' : caption;
+    }
+
+    function isGameFeatured(game) {
+      const featuredField = game && game.featured;
+      if (typeof featuredField === 'boolean') return featuredField;
+      if (typeof featuredField === 'string' && featuredField.trim()) return true;
+      const tags = Array.isArray(game && game.tags) ? game.tags : [];
+      return tags.some((tag) => String(tag || '').trim().toLowerCase() === 'featured');
+    }
+
+    function sortGamesForAdminLibrary(games) {
+      return [...games].sort((left, right) => {
+        const featuredDelta = Number(isGameFeatured(right)) - Number(isGameFeatured(left));
+        if (featuredDelta !== 0) return featuredDelta;
+        return String(left && left.name || 'Untitled Game').localeCompare(
+          String(right && right.name || 'Untitled Game'),
+          undefined,
+          { sensitivity: 'base' }
+        );
+      });
+    }
+
+    function openLightbox(src, alt) {
+      lightboxImage.src = src;
+      lightboxImage.alt = alt || 'Submitted photo';
+      lightbox.classList.add('open');
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('open');
+      lightboxImage.src = '';
+      lightboxImage.alt = '';
+    }
+
+    function escapeHtml(value) {
+      return String(value || '').replace(/[&<>"']/g, (ch) => (
+        ch === '&' ? '&amp;'
+          : ch === '<' ? '&lt;'
+          : ch === '>' ? '&gt;'
+          : ch === '"' ? '&quot;'
+          : '&#39;'
+      ));
+    }
+
+    function renderLibraryEmpty(message) {
+      gameGrid.innerHTML = '';
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = message;
+      gameGrid.appendChild(empty);
+    }
+
+    function createAdminGameCard(game) {
+      const gameId = String(game && game.id || '').trim();
+      const palette = getGamePalette(game);
+      const card = document.createElement('article');
+      card.className = 'admin-game-card';
+      card.style.setProperty('--game-primary', palette.primary);
+      card.style.setProperty('--game-secondary', palette.secondary);
+
+      const media = document.createElement('div');
+      media.className = 'admin-game-media';
+
+      const monogram = document.createElement('div');
+      monogram.className = 'admin-game-monogram';
+      monogram.textContent = getGameMonogram(game);
+      media.appendChild(monogram);
+
+      const imageUrl = getGameImageUrl(game);
+      media.dataset.hasImage = imageUrl ? 'true' : 'false';
+      if (imageUrl) {
+        const image = document.createElement('img');
+        image.className = 'admin-game-image';
+        image.src = imageUrl;
+        image.alt = '';
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.addEventListener('error', () => {
+          image.remove();
+          media.dataset.hasImage = 'false';
+        });
+        media.appendChild(image);
+      }
+
+      if (isGameFeatured(game)) {
+        const badge = document.createElement('div');
+        badge.className = 'admin-game-badge';
+        badge.textContent = 'Featured';
+        media.appendChild(badge);
+      }
+
+      const body = document.createElement('div');
+      body.className = 'admin-game-body';
+
+      const eyebrow = document.createElement('p');
+      eyebrow.className = 'admin-game-eyebrow';
+      eyebrow.textContent = String(game && game.city || '').trim() || gameId || 'Game';
+
+      const title = document.createElement('h3');
+      title.className = 'admin-game-title';
+      title.textContent = String(game && game.name || '').trim() || 'Untitled Game';
+
+      const caption = document.createElement('p');
+      caption.className = 'admin-game-caption';
+      caption.textContent = getGameCaption(game);
+
+      const actions = document.createElement('div');
+      actions.className = 'admin-game-actions';
+
+      const preview = document.createElement('a');
+      preview.className = 'admin-game-btn primary';
+      preview.href = '../game/index.html?id=' + encodeURIComponent(gameId);
+      preview.textContent = 'Preview';
+
+      const edit = document.createElement('a');
+      edit.className = 'admin-game-btn';
+      edit.href = '../builder/index.html?id=' + encodeURIComponent(gameId);
+      edit.textContent = 'Edit';
+
+      actions.append(preview, edit);
+      body.append(eyebrow, title, caption, actions);
+      card.append(media, body);
+      return card;
+    }
+
+    function renderAdminLibrary(games) {
+      const liveGames = sortGamesForAdminLibrary((Array.isArray(games) ? games : []).filter(isLiveGame));
+      gameGrid.innerHTML = '';
+
+      if (!liveGames.length) {
+        renderLibraryEmpty('No live games found.');
+        setStatus(libraryStatus, 'No live games found.');
+        return;
+      }
+
+      liveGames.forEach((game) => {
+        gameGrid.appendChild(createAdminGameCard(game));
+      });
+      setStatus(libraryStatus, 'Showing ' + liveGames.length + ' library game' + (liveGames.length === 1 ? '.' : 's.'), 'success');
+    }
+
+    function renderEmpty(message) {
+      photoGrid.innerHTML = '<div class="empty">' + escapeHtml(message) + '</div>';
+    }
+
+    function renderPhotos(items) {
+      if (!items.length) {
+        renderEmpty('No photos found.');
+        return;
+      }
+
+      photoGrid.innerHTML = items.map((item, index) => `
+        <article class="photo-card">
+          <button class="photo-link" type="button" data-index="${index}" aria-label="Open photo">
+            <img src="${escapeHtml(item.signedUrl)}" alt="${escapeHtml(item.file_name || 'Submitted photo')}" loading="lazy">
+          </button>
+          <div class="meta">
+            <strong>${escapeHtml(item.stop_title || item.game_id || 'Photo')}</strong>
+            <span>${escapeHtml(formatDate(item.created_at))}</span>
+            <span>Game: ${escapeHtml(item.game_id)}</span>
+            <span>Player: ${escapeHtml(item.player_id)}</span>
+            <span>${escapeHtml(item.file_name || '')}${item.file_size ? ' - ' + escapeHtml(formatSize(item.file_size)) : ''}</span>
+            <span>${escapeHtml(item.status || 'submitted')}</span>
+          </div>
+        </article>
+      `).join('');
+
+      photoGrid.querySelectorAll('.photo-link').forEach((button) => {
+        button.addEventListener('click', () => {
+          const index = Number(button.dataset.index || -1);
+          const item = items[index];
+          if (item && item.signedUrl) openLightbox(item.signedUrl, item.file_name);
+        });
+      });
+    }
+
+    async function loadAdminLibrary() {
+      setStatus(libraryStatus, 'Loading library...');
+      renderLibraryEmpty('Loading games...');
+
+      try {
+        const games = await fetchGames();
+        renderAdminLibrary(games);
+      } catch (error) {
+        console.error(error);
+        renderLibraryEmpty('Could not load games.');
+        setStatus(libraryStatus, error instanceof Error ? error.message : String(error), 'error');
+      }
+    }
+
+    async function loadPhotos() {
+      refreshBtn.disabled = true;
+      setStatus(reviewStatus, 'Loading photos...');
+      renderEmpty('Loading...');
+
+      try {
+        const rows = await fetchSubmissions();
+        const withUrls = await Promise.all(rows.map(async (row) => {
+          try {
+            return {
+              ...row,
+              signedUrl: await createSignedUrl(row)
+            };
+          } catch (error) {
+            console.warn('Could not sign photo URL.', row && row.storage_path, error);
+            return {
+              ...row,
+              signedUrl: ''
+            };
+          }
+        }));
+        const visibleRows = withUrls.filter((row) => row.signedUrl);
+        renderPhotos(visibleRows);
+        const skipped = withUrls.length - visibleRows.length;
+        const suffix = skipped ? ' ' + skipped + ' could not be previewed.' : '';
+        setStatus(reviewStatus, 'Showing ' + visibleRows.length + ' recent photo' + (visibleRows.length === 1 ? '.' : 's.') + suffix, 'success');
+      } catch (error) {
+        console.error(error);
+        renderEmpty('Could not load photos.');
+        setStatus(reviewStatus, error instanceof Error ? error.message : String(error), 'error');
+      } finally {
+        refreshBtn.disabled = false;
+      }
+    }
+
+    function showAuth() {
+      authPanel.classList.remove('hidden');
+      reviewPanel.classList.add('hidden');
+      setStatus(authStatus, 'Sign in with an admin account.');
+    }
+
+    async function showReview(session) {
+      currentSession = session;
+      const email = session && session.user ? session.user.email : '';
+      signedInCopy.textContent = email ? 'Signed in as ' + email + '.' : '';
+      authPanel.classList.add('hidden');
+      reviewPanel.classList.remove('hidden');
+      await Promise.allSettled([loadAdminLibrary(), loadPhotos()]);
+    }
+
+    authForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = String(emailInput.value || '').trim();
+      const password = String(passwordInput.value || '');
+      if (!email || !password) return;
+
+      signInBtn.disabled = true;
+      setStatus(authStatus, 'Signing in...');
+      try {
+        const session = await signIn(email, password);
+        currentSession = session;
+        storeSession(session);
+        const isAdmin = await verifyAdmin();
+        if (!isAdmin) {
+          storeSession(null);
+          currentSession = null;
+          throw new Error('This account is signed in, but it is not on the photo admin list.');
+        }
+        passwordInput.value = '';
+        setStatus(authStatus, '');
+        await showReview(session);
+      } catch (error) {
+        setStatus(authStatus, error instanceof Error ? error.message : String(error), 'error');
+      } finally {
+        signInBtn.disabled = false;
+      }
+    });
+
+    signOutBtn.addEventListener('click', () => {
+      currentSession = null;
+      storeSession(null);
+      gameGrid.innerHTML = '';
+      photoGrid.innerHTML = '';
+      showAuth();
+    });
+
+    refreshBtn.addEventListener('click', loadPhotos);
+    clearFilterBtn.addEventListener('click', () => {
+      gameFilterInput.value = '';
+      loadPhotos();
+    });
+    gameFilterInput.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      loadPhotos();
+    });
+
+    lightbox.addEventListener('click', (event) => {
+      if (event.target === lightbox) closeLightbox();
+    });
+    lightboxClose.addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeLightbox();
+    });
+
+    (async function init() {
+      const initialParams = new URLSearchParams(window.location.search);
+      gameFilterInput.value = initialParams.get('game') || initialParams.get('id') || '';
+
+      const session = await getUsableSession();
+      if (!session) {
+        showAuth();
+        return;
+      }
+
+      currentSession = session;
+      try {
+        const isAdmin = await verifyAdmin();
+        if (!isAdmin) {
+          storeSession(null);
+          currentSession = null;
+          showAuth();
+          setStatus(authStatus, 'This account is signed in, but it is not on the photo admin list.', 'error');
+          return;
+        }
+        await showReview(session);
+      } catch (error) {
+        console.error(error);
+        storeSession(null);
+        currentSession = null;
+        showAuth();
+        setStatus(authStatus, error instanceof Error ? error.message : String(error), 'error');
+      }
+    })();
+  </script>
+</body>
+</html>

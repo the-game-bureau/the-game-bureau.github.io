@@ -62,6 +62,42 @@ on public.photo_submissions (status, created_at desc);
 
 alter table public.photo_submissions enable row level security;
 
+create table if not exists public.admin_users (
+  email text primary key,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+alter table public.admin_users enable row level security;
+
+grant select on public.admin_users to authenticated;
+
+drop policy if exists "Authenticated can read own admin row" on public.admin_users;
+create policy "Authenticated can read own admin row"
+on public.admin_users
+for select
+to authenticated
+using (lower(email) = lower(coalesce(auth.jwt()->>'email', '')));
+
+create or replace function public.is_photo_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.admin_users
+    where lower(email) = lower(coalesce(auth.jwt()->>'email', ''))
+  );
+$$;
+
+revoke all on function public.is_photo_admin() from public;
+grant execute on function public.is_photo_admin() to authenticated;
+
+-- Add yourself after this setup runs:
+-- insert into public.admin_users (email) values ('you@example.com') on conflict (email) do nothing;
+
 grant usage on schema public to anon, authenticated;
 grant insert on public.photo_submissions to anon, authenticated;
 grant select, update, delete on public.photo_submissions to authenticated;
@@ -83,22 +119,22 @@ create policy "Authenticated can review game photo metadata"
 on public.photo_submissions
 for select
 to authenticated
-using (true);
+using (public.is_photo_admin());
 
 drop policy if exists "Authenticated can update game photo reviews" on public.photo_submissions;
 create policy "Authenticated can update game photo reviews"
 on public.photo_submissions
 for update
 to authenticated
-using (true)
-with check (true);
+using (public.is_photo_admin())
+with check (public.is_photo_admin());
 
 drop policy if exists "Authenticated can delete game photo metadata" on public.photo_submissions;
 create policy "Authenticated can delete game photo metadata"
 on public.photo_submissions
 for delete
 to authenticated
-using (true);
+using (public.is_photo_admin());
 
 drop policy if exists "Anyone can upload game photos" on storage.objects;
 create policy "Anyone can upload game photos"
@@ -115,11 +151,17 @@ create policy "Authenticated can view game photos"
 on storage.objects
 for select
 to authenticated
-using (bucket_id = 'game-photo-submissions');
+using (
+  bucket_id = 'game-photo-submissions'
+  and public.is_photo_admin()
+);
 
 drop policy if exists "Authenticated can remove game photos" on storage.objects;
 create policy "Authenticated can remove game photos"
 on storage.objects
 for delete
 to authenticated
-using (bucket_id = 'game-photo-submissions');
+using (
+  bucket_id = 'game-photo-submissions'
+  and public.is_photo_admin()
+);

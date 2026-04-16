@@ -302,8 +302,7 @@
       padding-top: 0;
     }
 
-    .play-btn,
-    .edit-btn {
+    .play-btn {
       display: inline-flex;
       flex: 1 1 0;
       align-items: center;
@@ -326,63 +325,8 @@
       border: 1px solid var(--accent);
     }
 
-    .edit-btn {
-      background: transparent;
-      color: var(--ink);
-      border: 1px solid var(--line);
-    }
-
-    .play-btn:hover,
-    .edit-btn:hover {
+    .play-btn:hover {
       transform: translateY(-1px);
-    }
-
-    .admin-mode-toggle {
-      position: fixed;
-      right: 1.25rem;
-      bottom: 1.25rem;
-      z-index: 130;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.94);
-      color: var(--ink);
-      border-radius: 999px;
-      padding: 0.9rem 1.1rem;
-      font-family: 'Archivo', sans-serif;
-      font-size: 0.76rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      cursor: pointer;
-      box-shadow: var(--shadow-sm);
-      transition: transform 0.14s ease, background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-    }
-
-    .admin-mode-toggle::before {
-      content: '';
-      width: 8px;
-      height: 8px;
-      margin-right: 0.55rem;
-      display: inline-block;
-      vertical-align: middle;
-      border-radius: 50%;
-      background: rgba(29, 28, 24, 0.22);
-      transition: background-color 0.18s ease, box-shadow 0.18s ease;
-    }
-
-    .admin-mode-toggle:hover {
-      transform: translateY(-2px);
-      border-color: #c7bfb3;
-    }
-
-    .admin-mode-toggle[data-active="true"] {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #ffffff;
-    }
-
-    .admin-mode-toggle[data-active="true"]::before {
-      background: var(--green-dot);
-      box-shadow: 0 0 12px rgba(16, 185, 129, 0.65);
     }
 
     .empty-state,
@@ -498,8 +442,6 @@
     </section>
   </main>
 
-  <button class="admin-mode-toggle" id="adminModeToggle" type="button" data-active="false" aria-pressed="false">Admin Mode</button>
-
   <script>
     window.TGB_SUPABASE_CONFIG = {
       enabled: true,
@@ -508,37 +450,10 @@
       gamesTable: 'games'
     };
 
-    const ADMIN_MODE_KEY = 'tgb-library-admin-mode';
-    let adminModeEnabled = false;
     const GAMES_SCHEMA = {
       tagline: true,
       featured: true
     };
-
-    function readAdminMode() {
-      try {
-        return sessionStorage.getItem(ADMIN_MODE_KEY) === 'true';
-      } catch (error) {
-        return false;
-      }
-    }
-
-    function writeAdminMode(value) {
-      try {
-        sessionStorage.setItem(ADMIN_MODE_KEY, value ? 'true' : 'false');
-      } catch (error) {
-        // Ignore storage issues and keep the in-memory state.
-      }
-    }
-
-    function updateAdminModeUi() {
-      const toggle = document.getElementById('adminModeToggle');
-      if (toggle) {
-        toggle.dataset.active = adminModeEnabled ? 'true' : 'false';
-        toggle.setAttribute('aria-pressed', adminModeEnabled ? 'true' : 'false');
-        toggle.textContent = adminModeEnabled ? 'Admin Mode On' : 'Admin Mode';
-      }
-    }
 
     function getMissingGamesColumnName(errorMessage = '') {
       const message = String(errorMessage || '');
@@ -837,14 +752,6 @@
       playLink.textContent = 'Preview';
       playAction.appendChild(playLink);
 
-      if (adminModeEnabled) {
-        const editLink = document.createElement('a');
-        editLink.className = 'edit-btn';
-        editLink.href = `../builder/index.html?id=${encodeURIComponent(game.id ?? '')}`;
-        editLink.textContent = 'Edit';
-        playAction.appendChild(editLink);
-      }
-
       body.append(eyebrowEl, title, captionEl, tagsWrap, playAction);
       li.append(media, body);
       return li;
@@ -897,15 +804,6 @@
 
         renderList(listContainer, games);
 
-        const adminModeToggle = document.getElementById('adminModeToggle');
-        if (adminModeToggle) {
-          adminModeToggle.addEventListener('click', () => {
-            adminModeEnabled = !adminModeEnabled;
-            writeAdminMode(adminModeEnabled);
-            updateAdminModeUi();
-            renderList(listContainer, games);
-          });
-        }
       } catch (err) {
         console.error('Database fetch error:', err);
         const errorMessage = err instanceof Error ? err.message : String(err);
@@ -914,8 +812,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      adminModeEnabled = readAdminMode();
-      updateAdminModeUi();
       loadGames();
     });
   </script>
