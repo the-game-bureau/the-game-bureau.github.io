@@ -19,6 +19,7 @@ $$;
 create table if not exists public.games (
   id text primary key,
   name text not null default 'Untitled Game',
+  tagline text,
   primary_color text,
   secondary_color text,
   archived text,
@@ -31,6 +32,7 @@ create table if not exists public.games (
 
 alter table public.games
   add column if not exists name text not null default 'Untitled Game',
+  add column if not exists tagline text,
   add column if not exists primary_color text,
   add column if not exists secondary_color text,
   add column if not exists archived text,

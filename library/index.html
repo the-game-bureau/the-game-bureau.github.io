@@ -511,6 +511,7 @@
     const ADMIN_MODE_KEY = 'tgb-library-admin-mode';
     let adminModeEnabled = false;
     const GAMES_SCHEMA = {
+      tagline: true,
       featured: true
     };
 
@@ -548,6 +549,7 @@
     function buildGameSelect() {
       const columns = ['id', 'name', 'primary_color', 'secondary_color', 'archived', 'erased', 'nodes'];
       if (GAMES_SCHEMA.featured) columns.splice(4, 0, 'featured');
+      if (GAMES_SCHEMA.tagline) columns.splice(2, 0, 'tagline');
       return columns.join(',');
     }
 
@@ -582,6 +584,10 @@
         }
 
         const missingColumn = getMissingGamesColumnName(message);
+        if (missingColumn === 'tagline' && GAMES_SCHEMA.tagline) {
+          GAMES_SCHEMA.tagline = false;
+          return fetchGames(config, buildGameSelect());
+        }
         if (missingColumn === 'featured' && GAMES_SCHEMA.featured) {
           GAMES_SCHEMA.featured = false;
           return fetchGames(config, buildGameSelect());
@@ -611,6 +617,7 @@
       const gameNode = getGameNode(game) || {};
       return [
         game && game.name,
+        game && game.tagline,
         game && game.city,
         gameNode.city,
         gameNode.tagline,
@@ -691,7 +698,7 @@
 
     function getGameCaption(game) {
       const gameNode = getGameNode(game);
-      const tagline = String(gameNode && gameNode.tagline || '').replace(/\s+/g, ' ').trim();
+      const tagline = String(game && game.tagline || gameNode && gameNode.tagline || '').replace(/\s+/g, ' ').trim();
       if (tagline) return tagline.length > 120 ? tagline.slice(0, 117).trimEnd() + '...' : tagline;
       return 'A live local experience designed to get people moving through a shared place together.';
     }

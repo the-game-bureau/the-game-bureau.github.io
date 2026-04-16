@@ -9842,6 +9842,7 @@ const ARCHIVED_GAME_VALUE = 'YES';
 const ERASED_GAME_VALUE = 'YES';
 const FEATURED_GAME_VALUE = 'YES';
 const SUPABASE_GAMES_SCHEMA = {
+  tagline: true,
   featured: true,
   city: true
 };
@@ -10569,13 +10570,14 @@ function getMissingGamesColumnName(errorMessage = '') {
 }
 
 function markMissingGamesColumn(columnName = '') {
-  if (columnName === 'featured' || columnName === 'city') {
+  if (columnName === 'tagline' || columnName === 'featured' || columnName === 'city') {
     SUPABASE_GAMES_SCHEMA[columnName] = false;
   }
 }
 
 function buildGamesSelectColumns(columns = []) {
   return columns.filter((column) => {
+    if (column === 'tagline') return SUPABASE_GAMES_SCHEMA.tagline;
     if (column === 'featured') return SUPABASE_GAMES_SCHEMA.featured;
     if (column === 'city') return SUPABASE_GAMES_SCHEMA.city;
     return true;
@@ -10597,6 +10599,7 @@ function serializeGameRow(game, index = 0) {
     created_at: normalizedGame.createdAt || timestamp,
     updated_at: timestamp
   };
+  if (SUPABASE_GAMES_SCHEMA.tagline) payload.tagline = normalizedGame.tagline || null;
   if (SUPABASE_GAMES_SCHEMA.city) payload.city = normalizedGame.city || null;
   if (SUPABASE_GAMES_SCHEMA.featured) payload.featured = normalizedGame.featured || null;
   return payload;
@@ -10604,20 +10607,22 @@ function serializeGameRow(game, index = 0) {
 
 function normalizeGameRow(row, index = 0) {
   const rowCity = row && typeof row.city === 'string' ? row.city : '';
+  const rowTagline = row && typeof row.tagline === 'string' ? row.tagline : '';
   const rowNodes = Array.isArray(row && row.nodes) ? row.nodes : [];
-  const nodes = rowCity
+  const nodes = (rowCity || rowTagline)
     ? rowNodes.map((node) => {
-        if (!node || node.type !== 'game' || (typeof node.city === 'string' && node.city.trim())) return node;
-        return {
-          ...node,
-          city: rowCity
-        };
+        if (!node || node.type !== 'game') return node;
+        const updates = {};
+        if (rowCity && !(typeof node.city === 'string' && node.city.trim())) updates.city = rowCity;
+        if (rowTagline && !(typeof node.tagline === 'string' && node.tagline.trim())) updates.tagline = rowTagline;
+        return Object.keys(updates).length ? { ...node, ...updates } : node;
       })
     : rowNodes;
   const featured = row && typeof row.featured === 'string' ? row.featured : getFeaturedFlagFromNodes(nodes);
   return normalizeSavedGame({
     id: row && row.id,
     name: row && row.name,
+    tagline: rowTagline,
     city: rowCity,
     createdAt: row && typeof row.created_at === 'string' ? row.created_at : '',
     updatedAt: row && typeof row.updated_at === 'string' ? row.updated_at : '',
@@ -10635,6 +10640,7 @@ async function fetchGameRowsFromSupabase(select = null) {
   const resolvedSelect = select || buildGamesSelectColumns([
     'id',
     'name',
+    'tagline',
     'city',
     'primary_color',
     'secondary_color',
@@ -10708,6 +10714,7 @@ async function fetchGameRowFromSupabase(gameId, select = null) {
   const resolvedSelect = select || buildGamesSelectColumns([
     'id',
     'name',
+    'tagline',
     'city',
     'primary_color',
     'secondary_color',
@@ -15379,6 +15386,12 @@ function normalizeSavedGame(raw, index) {
   return {
     id: raw && raw.id ? String(raw.id) : 'game-' + (index + 1),
     name: raw && typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : getDocName(doc),
+    tagline: raw && typeof raw.tagline === 'string'
+      ? raw.tagline
+      : (() => {
+          const gameNode = doc.nodes.find((node) => node && node.type === 'game');
+          return gameNode && typeof gameNode.tagline === 'string' ? gameNode.tagline : '';
+        })(),
     city: raw && typeof raw.city === 'string'
       ? raw.city
       : (() => {
