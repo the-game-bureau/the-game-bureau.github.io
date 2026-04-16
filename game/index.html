@@ -12,12 +12,14 @@
 
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="The Game Bureau">
-  <meta property="og:title" content="The Game Bureau">
-  <meta property="og:description" content="A live local experience by The Game Bureau.">
-  <meta property="og:image" content="https://thegamebureau.com/assets/logo.png">
+  <meta property="og:title" content="">
+  <meta property="og:description" content="">
+  <meta property="og:image" content="">
   <meta property="og:url" content="https://thegamebureau.com/game/index.html">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:image" content="https://thegamebureau.com/assets/logo.png">
+  <meta name="twitter:title" content="">
+  <meta name="twitter:description" content="">
+  <meta name="twitter:image" content="">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -644,7 +646,7 @@
     }
 
 
-    /* ── W3W LIGHTBOX ── */
+    /* ── what3words lightbox ── */
     #w3wLightbox {
       display: none;
       position: fixed;
@@ -718,7 +720,7 @@
       border: none;
       display: block;
     }
-    /* ── /W3W LIGHTBOX ── */
+    /* ── /what3words lightbox ── */
 
     /* ── APP TOAST ── */
     #appToast {
@@ -912,7 +914,7 @@
 
   <div id="appToast"></div>
 
-  <!-- W3W LIGHTBOX -->
+  <!-- what3words lightbox -->
   <div id="w3wLightbox">
     <div id="w3wLightboxBar">
       <span id="w3wLightboxLabel"></span>
@@ -923,7 +925,7 @@
     </div>
     <iframe id="w3wLightboxFrame" src="" allow="geolocation" title="what3words map"></iframe>
   </div>
-  <!-- /W3W LIGHTBOX -->
+  <!-- /what3words lightbox -->
 
   <div id="ctaBar">
     <a href="#" class="play-btn" id="startBtn">Start Game</a>
@@ -938,7 +940,7 @@
     };
 
 
-    const W3W_API_KEY = 'TUHUIBI3';
+    const what3wordsApiKey = 'TUHUIBI3';
 
     const urlParams = new URLSearchParams(window.location.search);
     const gameId = urlParams.get('id');
@@ -1537,7 +1539,7 @@
           startingLocation:    game.starting_location,
           startingLocationLat: game.starting_location_lat,
           startingLocationLon: game.starting_location_lon,
-          logoUrl:             game.logo_url,
+          logoUrl:             game.logo_url || game.logoUrl || game.logo,
         };
         const defaultEmoji = gameNode.defaultEmoji || '🧩';
 
@@ -1549,23 +1551,26 @@
         const images = applyGameImages(gameNode);
 
         const gameName = String(game.name || 'Untitled Game').trim() || 'Untitled Game';
+        const gameTagline = String(game.tagline || gameNode.tagline || '').trim();
         document.title = `${gameName} | The Game Bureau`;
         const city = (gameNode.city || game.city || '').trim();
         document.getElementById('startBlurb').innerHTML = `You must go to <strong>${city}</strong> to play this game. Tap to reveal the starting point.`;
 
         const qrUrl = `https://thegamebureau.com/game/index.html?id=${encodeURIComponent(gameId)}`;
-        const ogImage = images.logoUrl || images.guideUrl || 'https://thegamebureau.com/assets/logo.png';
-        const setMeta = (sel, val) => { const el = document.querySelector(sel); if (el && val) el.setAttribute('content', val); };
-        setMeta('meta[property="og:title"]', `${gameName} | The Game Bureau`);
-        setMeta('meta[property="og:description"]', game.tagline || gameNode.tagline || 'A live local experience by The Game Bureau.');
+        const ogImage = images.logoUrl;
+        const setMeta = (sel, val) => { const el = document.querySelector(sel); if (el) el.setAttribute('content', val || ''); };
+        setMeta('meta[property="og:title"]', gameName);
+        setMeta('meta[property="og:description"]', gameTagline);
         document.querySelector('meta[property="og:image"]')?.setAttribute('content', ogImage);
         setMeta('meta[property="og:url"]', qrUrl);
+        setMeta('meta[name="twitter:title"]', gameName);
+        setMeta('meta[name="twitter:description"]', gameTagline);
         document.querySelector('meta[name="twitter:image"]')?.setAttribute('content', ogImage);
         const gameTitleEl = document.getElementById('gameTitle');
         gameTitleEl.textContent = gameName;
 
         gameTitleEl.style.color = secondaryColor;
-        document.getElementById('gameTagline').textContent = game.tagline || gameNode.tagline || '';
+        document.getElementById('gameTagline').textContent = gameTagline;
 
         if (gameNode.howToPlay) {
           document.getElementById('howToPlaySection').style.display = 'block';
@@ -1593,12 +1598,32 @@
 
           const mapLat = typeof gameNode.startingLocationLat === 'number' ? gameNode.startingLocationLat : null;
           const mapLon = typeof gameNode.startingLocationLon === 'number' ? gameNode.startingLocationLon : null;
-          const ll     = mapLat != null ? `${mapLat},${mapLon}` : null;
+          const ll     = mapLat != null && mapLon != null ? `${mapLat},${mapLon}` : null;
           const locQ   = encodeURIComponent(words || city || '');
+          const what3wordsCoordsUrl = (coords) => {
+            if (!coords) return null;
+            const [lat, lng] = String(coords).split(',').map(value => value.trim());
+            return lat && lng
+              ? `https://what3words.com/?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`
+              : null;
+          };
+          const what3wordsPinUrl = (coords) => words
+            ? `https://what3words.com/${words}`
+            : what3wordsCoordsUrl(coords) || webUrl || 'https://what3words.com';
+          const what3wordsAppUrl = (coords) => words
+            ? `https://w3w.co/${words}`
+            : what3wordsCoordsUrl(coords);
+          const applePinLabel = encodeURIComponent(`${gameName} starting point`);
+          const appleMapsUrl = (coords) => coords
+            ? `https://maps.apple.com/?ll=${coords}&q=${applePinLabel}`
+            : `https://maps.apple.com/?q=${locQ}`;
+          const appleMapsAppUrl = (coords) => coords
+            ? `maps://?ll=${coords}&q=${applePinLabel}`
+            : locQ ? `maps://?q=${locQ}` : null;
           const mapUrls = {
-            apple:  `https://maps.apple.com/?q=${ll || locQ}`,
+            apple:  appleMapsUrl(ll),
             google: `https://www.google.com/maps/search/?api=1&query=${ll || locQ}`,
-            w3w:    webUrl || 'https://what3words.com',
+            w3w:    what3wordsPinUrl(ll),
           };
           // Iframe-friendly URLs for the desktop lightbox (the "w3w frame").
           // Apple Maps blocks iframe embedding, so we substitute OpenStreetMap's
@@ -1644,9 +1669,9 @@
             w3w:    'https://what3words.com/products/what3words-app',
           };
           const deepLinks = {
-            apple:  ll ? `maps://?ll=${ll}` : null,
+            apple:  appleMapsAppUrl(ll),
             google: ll ? `comgooglemaps://?q=${ll}` : null,
-            w3w:    words ? `https://w3w.co/${words}` : null,
+            w3w:    what3wordsAppUrl(ll),
           };
           const appNames = { apple: 'Apple Maps', google: 'Google Maps', w3w: 'what3words' };
 
@@ -1734,7 +1759,7 @@
               // 1. w3w → most precise
               if (words) {
                 try {
-                  const res  = await fetch(`https://api.what3words.com/v3/convert-to-coordinates?words=${encodeURIComponent(words)}&key=${W3W_API_KEY}`);
+                  const res  = await fetch(`https://api.what3words.com/v3/convert-to-coordinates?words=${encodeURIComponent(words)}&key=${what3wordsApiKey}`);
                   const data = await res.json();
                   if (data.coordinates) { lat = data.coordinates.lat; lon = data.coordinates.lng; }
                 } catch(e) {}
@@ -1754,10 +1779,14 @@
                 lon = parseFloat(places[0].lon);
               }
 
-              // Backfill all coordinate-only deep links
+              // Backfill links that need resolved coordinates for a pinned destination.
               const resolvedLL = `${lat},${lon}`;
-              deepLinks.apple  = `maps://?ll=${resolvedLL}`;
+              mapUrls.apple    = appleMapsUrl(resolvedLL);
+              deepLinks.apple  = appleMapsAppUrl(resolvedLL);
               deepLinks.google = `comgooglemaps://?q=${resolvedLL}`;
+              mapUrls.w3w      = what3wordsPinUrl(resolvedLL);
+              frameUrls.w3w    = mapUrls.w3w;
+              deepLinks.w3w    = what3wordsAppUrl(resolvedLL);
 
               const zoom = (words || mapLat != null) ? 15 : 12;
               const W = bgMap.offsetWidth || 640, H = bgMap.offsetHeight || 400;
@@ -1794,13 +1823,19 @@
         // ── SHARE ──
         {
           document.getElementById('shareSection').style.display = 'flex';
+          const shareText = gameTagline || gameName;
+          const clipboardShareText = [
+            gameName,
+            gameTagline,
+            qrUrl
+          ].filter(Boolean).join('\n');
 
           document.getElementById('shareBtn').addEventListener('click', (e) => {
             e.stopPropagation();
             if (navigator.share) {
-              navigator.share({ title: gameName, url: qrUrl }).catch(() => {});
+              navigator.share({ title: gameName, text: shareText, url: qrUrl }).catch(() => {});
             } else {
-              navigator.clipboard?.writeText(qrUrl).catch(() => {});
+              navigator.clipboard?.writeText(clipboardShareText).catch(() => {});
             }
           });
 
