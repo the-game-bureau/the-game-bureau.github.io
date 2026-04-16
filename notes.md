@@ -2,6 +2,12 @@
 
 **Project note:** TGB Builder writes data that is read later by the game engine.
 
+epcot leave a legacy - do a virtual version
+participation like wwii museum stickers on street signs
+have players find a specific brick at WWII Museum
+
+
+
 ## Builder Files
 
 - **builder/index.html**
