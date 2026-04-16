@@ -10606,33 +10606,38 @@ function serializeGameRow(game, index = 0) {
 }
 
 function normalizeGameRow(row, index = 0) {
-  const rowCity = row && typeof row.city === 'string' ? row.city : '';
-  const rowTagline = row && typeof row.tagline === 'string' ? row.tagline : '';
-  const rowNodes = Array.isArray(row && row.nodes) ? row.nodes : [];
-  const nodes = (rowCity || rowTagline)
-    ? rowNodes.map((node) => {
-        if (!node || node.type !== 'game') return node;
-        const updates = {};
-        if (rowCity && !(typeof node.city === 'string' && node.city.trim())) updates.city = rowCity;
-        if (rowTagline && !(typeof node.tagline === 'string' && node.tagline.trim())) updates.tagline = rowTagline;
-        return Object.keys(updates).length ? { ...node, ...updates } : node;
-      })
-    : rowNodes;
-  const featured = row && typeof row.featured === 'string' ? row.featured : getFeaturedFlagFromNodes(nodes);
   return normalizeSavedGame({
-    id: row && row.id,
-    name: row && row.name,
-    tagline: rowTagline,
-    city: rowCity,
-    createdAt: row && typeof row.created_at === 'string' ? row.created_at : '',
-    updatedAt: row && typeof row.updated_at === 'string' ? row.updated_at : '',
-    primaryColor: row && typeof row.primary_color === 'string' ? row.primary_color : '',
-    secondaryColor: row && typeof row.secondary_color === 'string' ? row.secondary_color : '',
-    featured,
-    archived: row && typeof row.archived === 'string' ? row.archived : '',
-    erased: row && typeof row.erased === 'string' ? row.erased : '',
-    nodes,
-    links: Array.isArray(row && row.links) ? row.links : []
+    id:                    row && row.id,
+    name:                  row && row.name,
+    tagline:               row && typeof row.tagline === 'string' ? row.tagline : '',
+    city:                  row && typeof row.city === 'string' ? row.city : '',
+    createdAt:             row && typeof row.created_at === 'string' ? row.created_at : '',
+    updatedAt:             row && typeof row.updated_at === 'string' ? row.updated_at : '',
+    primaryColor:          row && typeof row.primary_color === 'string' ? row.primary_color : '',
+    secondaryColor:        row && typeof row.secondary_color === 'string' ? row.secondary_color : '',
+    featured:              row && row.featured || '',
+    archived:              row && typeof row.archived === 'string' ? row.archived : '',
+    erased:                row && typeof row.erased === 'string' ? row.erased : '',
+    nodes:                 Array.isArray(row && row.nodes) ? row.nodes : [],
+    links:                 Array.isArray(row && row.links) ? row.links : [],
+    body:                  row && row.body,
+    price:                 row && row.price,
+    how_to_play:           row && row.how_to_play,
+    builder_notes:         row && row.builder_notes,
+    default_emoji:         row && row.default_emoji,
+    guide_name:            row && row.guide_name,
+    guide_bio:             row && row.guide_bio,
+    guide_image_url:       row && row.guide_image_url,
+    logo_url:              row && row.logo_url,
+    link_url:              row && row.link_url,
+    button_url:            row && row.button_url,
+    tertiary_color:        row && row.tertiary_color,
+    quaternary_color:      row && row.quaternary_color,
+    starting_location:     row && row.starting_location,
+    starting_location_lat: row && row.starting_location_lat,
+    starting_location_lon: row && row.starting_location_lon,
+    location_based:        row && row.location_based,
+    teams:                 row && row.teams,
   }, index);
 }
 
@@ -10650,7 +10655,25 @@ async function fetchGameRowsFromSupabase(select = null) {
     'nodes',
     'links',
     'created_at',
-    'updated_at'
+    'updated_at',
+    'body',
+    'price',
+    'how_to_play',
+    'builder_notes',
+    'default_emoji',
+    'guide_name',
+    'guide_bio',
+    'guide_image_url',
+    'logo_url',
+    'link_url',
+    'button_url',
+    'tertiary_color',
+    'quaternary_color',
+    'starting_location',
+    'starting_location_lat',
+    'starting_location_lon',
+    'location_based',
+    'teams'
   ]);
   const response = await fetch(buildSupabaseUrl({
     select: resolvedSelect,
@@ -11425,6 +11448,7 @@ const state = {
   layoutMetrics: null,
   dropSlot: null,
   currentGameColors: null,
+  currentGameMeta: null,
   nextNodeNumbers: createNodeIdCounters(),
   initialScrollResetDone: false,
   saveUiState: 'loading',
@@ -13665,9 +13689,8 @@ function setGameDetailsCollapsed(collapsed) {
   }
 }
 
-function getCurrentGameLogoUrl(node = getGameNode()) {
-  if (!node || node.type !== 'game') return '';
-  return String(node.logoUrl || '').trim();
+function getCurrentGameLogoUrl() {
+  return String((state.currentGameMeta && state.currentGameMeta.logoUrl) || '').trim();
 }
 
 function normalizeAssetFileName(value) {
@@ -13966,9 +13989,8 @@ async function openGuideImageOnlinePicker(forceRefresh = false) {
   }
 }
 
-function getCurrentGuideImageUrl(node = getGameNode()) {
-  if (!node || node.type !== 'game') return '';
-  return String(node.guideImageUrl || '').trim();
+function getCurrentGuideImageUrl() {
+  return String((state.currentGameMeta && state.currentGameMeta.guideImageUrl) || '').trim();
 }
 
 function isGuideImageLightboxOpen() {
@@ -14000,8 +14022,8 @@ function openGuideImageLightbox() {
   return true;
 }
 
-function updateGameLogoPreview(node = getNode(state.selectedId)) {
-  const imageUrl = getCurrentGameLogoUrl(node);
+function updateGameLogoPreview() {
+  const imageUrl = getCurrentGameLogoUrl();
   const hasImage = !!imageUrl;
 
   if (gameLogoThumbBtn) {
@@ -14047,16 +14069,15 @@ function openGameLogoLightbox() {
 }
 
 function syncSelectedGameLogoFromInput() {
-  const node = getGameNode();
-  if (!node || node.type !== 'game' || !nodeGameLogoInput) return false;
+  if (!getGameNode() || !state.currentGameMeta || !nodeGameLogoInput) return false;
   const nextValue = String(nodeGameLogoInput.value || '');
-  if ((node.logoUrl || '') === nextValue) return false;
-  node.logoUrl = nextValue;
+  if ((state.currentGameMeta.logoUrl || '') === nextValue) return false;
+  state.currentGameMeta.logoUrl = nextValue;
   return true;
 }
 
-function updateGuideImagePreview(node = getNode(state.selectedId)) {
-  const imageUrl = getCurrentGuideImageUrl(node);
+function updateGuideImagePreview() {
+  const imageUrl = getCurrentGuideImageUrl();
   const hasImage = !!imageUrl;
 
   if (guideImageThumbBtn) {
@@ -14092,11 +14113,10 @@ function updateGuideImagePreview(node = getNode(state.selectedId)) {
 }
 
 function syncSelectedGameGuideImageFromInput() {
-  const node = getGameNode();
-  if (!node || node.type !== 'game' || !nodeGuideImageInput) return false;
+  if (!getGameNode() || !state.currentGameMeta || !nodeGuideImageInput) return false;
   const nextValue = String(nodeGuideImageInput.value || '');
-  if ((node.guideImageUrl || '') === nextValue) return false;
-  node.guideImageUrl = nextValue;
+  if ((state.currentGameMeta.guideImageUrl || '') === nextValue) return false;
+  state.currentGameMeta.guideImageUrl = nextValue;
   return true;
 }
 
@@ -14788,6 +14808,32 @@ function getCurrentGameColors() {
   };
 }
 
+function initGameMeta(game) {
+  const g = game && typeof game === 'object' ? game : {};
+  // Fall back to the game node in nodes[] for localStorage/legacy data that predates flat columns
+  const nodes = Array.isArray(g.nodes) ? g.nodes : [];
+  const gn = nodes.find(n => n && n.type === 'game') || {};
+  return {
+    body:                 g.body            ?? gn.body            ?? '',
+    tagline:              g.tagline         ?? gn.tagline         ?? '',
+    defaultEmoji:         g.default_emoji   ?? gn.defaultEmoji    ?? '',
+    logoUrl:              g.logo_url        ?? gn.logoUrl         ?? gn.logo         ?? '',
+    city:                 g.city            ?? gn.city            ?? '',
+    startingLocation:     g.starting_location    ?? gn.startingLocation    ?? '',
+    startingLocationLat:  g.starting_location_lat != null ? Number(g.starting_location_lat) : (gn.startingLocationLat ?? null),
+    startingLocationLon:  g.starting_location_lon != null ? Number(g.starting_location_lon) : (gn.startingLocationLon ?? null),
+    locationBased:        g.location_based  != null ? !!g.location_based  : (gn.locationBased === 'YES' || gn.locationBased === true),
+    howToPlay:            g.how_to_play     ?? gn.howToPlay       ?? '',
+    guideName:            g.guide_name      ?? gn.guideName       ?? '',
+    guideBio:             g.guide_bio       ?? gn.guideBio        ?? '',
+    guideImageUrl:        g.guide_image_url ?? gn.guideImageUrl   ?? gn.guideImage   ?? '',
+    price:                g.price           ?? gn.price           ?? '',
+    tertiaryColor:        g.tertiary_color  ?? gn.tertiaryColor   ?? '',
+    quaternaryColor:      g.quaternary_color ?? gn.quaternaryColor ?? '',
+    teams:                Array.isArray(g.teams) ? g.teams : (Array.isArray(gn.teams) ? gn.teams : []),
+  };
+}
+
 function setCurrentGameColors(nextColors = null) {
   const incoming = nextColors && typeof nextColors === 'object' ? nextColors : {};
   const fallback = getCurrentGameColorFallback();
@@ -15384,31 +15430,37 @@ function normalizeSavedGame(raw, index) {
     : (typeof (raw && raw.updatedAt) === 'string' ? raw.updatedAt : doc.updatedAt);
   const colors = getSavedGameColors(raw, index);
   return {
-    id: raw && raw.id ? String(raw.id) : 'game-' + (index + 1),
-    name: raw && typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : getDocName(doc),
-    tagline: raw && typeof raw.tagline === 'string'
-      ? raw.tagline
-      : (() => {
-          const gameNode = doc.nodes.find((node) => node && node.type === 'game');
-          return gameNode && typeof gameNode.tagline === 'string' ? gameNode.tagline : '';
-        })(),
-    city: raw && typeof raw.city === 'string'
-      ? raw.city
-      : (() => {
-          const gameNode = doc.nodes.find((node) => node && node.type === 'game');
-          return gameNode && typeof gameNode.city === 'string' ? gameNode.city : '';
-        })(),
+    id:                    raw && raw.id ? String(raw.id) : 'game-' + (index + 1),
+    name:                  raw && typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : getDocName(doc),
+    tagline:               raw && typeof raw.tagline === 'string' ? raw.tagline : '',
+    city:                  raw && typeof raw.city === 'string' ? raw.city : '',
     createdAt,
-    updatedAt: typeof (raw && raw.updatedAt) === 'string' ? raw.updatedAt : doc.updatedAt,
-    primaryColor: colors.primaryColor,
-    secondaryColor: colors.secondaryColor,
-    featured: normalizeFeaturedFlag(raw && raw.featured) === FEATURED_GAME_VALUE
-      ? FEATURED_GAME_VALUE
-      : getFeaturedFlagFromNodes(doc.nodes),
-    archived: normalizeArchivedFlag(raw && raw.archived) === ARCHIVED_GAME_VALUE ? ARCHIVED_GAME_VALUE : '',
-    erased: normalizeErasedFlag(raw && raw.erased) === ERASED_GAME_VALUE ? ERASED_GAME_VALUE : '',
-    nodes: doc.nodes,
-    links: doc.links
+    updatedAt:             typeof (raw && raw.updatedAt) === 'string' ? raw.updatedAt : doc.updatedAt,
+    primaryColor:          colors.primaryColor,
+    secondaryColor:        colors.secondaryColor,
+    featured:              normalizeFeaturedFlag(raw && raw.featured) === FEATURED_GAME_VALUE ? FEATURED_GAME_VALUE : '',
+    archived:              normalizeArchivedFlag(raw && raw.archived) === ARCHIVED_GAME_VALUE ? ARCHIVED_GAME_VALUE : '',
+    erased:                normalizeErasedFlag(raw && raw.erased) === ERASED_GAME_VALUE ? ERASED_GAME_VALUE : '',
+    nodes:                 doc.nodes,
+    links:                 doc.links,
+    body:                  raw && raw.body,
+    price:                 raw && raw.price,
+    how_to_play:           raw && raw.how_to_play,
+    builder_notes:         raw && raw.builder_notes,
+    default_emoji:         raw && raw.default_emoji,
+    guide_name:            raw && raw.guide_name,
+    guide_bio:             raw && raw.guide_bio,
+    guide_image_url:       raw && raw.guide_image_url,
+    logo_url:              raw && raw.logo_url,
+    link_url:              raw && raw.link_url,
+    button_url:            raw && raw.button_url,
+    tertiary_color:        raw && raw.tertiary_color,
+    quaternary_color:      raw && raw.quaternary_color,
+    starting_location:     raw && raw.starting_location,
+    starting_location_lat: raw && raw.starting_location_lat,
+    starting_location_lon: raw && raw.starting_location_lon,
+    location_based:        raw && raw.location_based,
+    teams:                 raw && raw.teams,
   };
 }
 
@@ -16101,6 +16153,7 @@ function openSavedGame(gameId, options = {}) {
     state.currentGameId = game.id;
     state.doc = normalizeDoc(game);
     setCurrentGameColors(game);
+    state.currentGameMeta = initGameMeta(game);
     syncAllTagsFromStore();
     syncNextNodeNumbers();
     state.selectedLinkId = null;
@@ -17754,29 +17807,30 @@ function updateSelectionUi(options = {}) {
     radio.checked = false;
     radio.disabled = true;
   });
-  nodeTaglineInput.value = isGameNode && gameNode ? (gameNode.tagline || '') : '';
-  nodeDefaultEmojiInput.value = isGameNode && gameNode ? (gameNode.defaultEmoji || '') : '';
-  nodeGameLogoInput.value = isGameNode && gameNode ? (gameNode.logoUrl || '') : '';
+  nodeTaglineInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.tagline || '') : '';
+  nodeDefaultEmojiInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.defaultEmoji || '') : '';
+  nodeGameLogoInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.logoUrl || '') : '';
   setGameLogoAssetStatus('');
   if (gameLogoOnlineMenu && isGameNode && !gameLogoOnlineMenu.hidden && Array.isArray(gameLogoOnlineAssetsCache)) {
     populateGameLogoOnlineMenu(gameLogoOnlineAssetsCache);
   }
 
-  if (nodeCityInput) nodeCityInput.value = isGameNode && gameNode ? (gameNode.city || '') : '';
+  const meta = state.currentGameMeta || {};
+  if (nodeCityInput) nodeCityInput.value = isGameNode ? (meta.city || '') : '';
   if (nodeCoordinatesInput) {
-    const lat = isGameNode && gameNode ? gameNode.startingLocationLat : null;
-    const lon = isGameNode && gameNode ? gameNode.startingLocationLon : null;
+    const lat = isGameNode ? meta.startingLocationLat : null;
+    const lon = isGameNode ? meta.startingLocationLon : null;
     nodeCoordinatesInput.value = (lat != null && lon != null) ? `${lat}, ${lon}` : '';
   }
-  const isLocationBased = isGameNode && gameNode && gameNode.locationBased === 'YES';
+  const isLocationBased = isGameNode && !!meta.locationBased;
   if (locationBasedToggle) {
     locationBasedToggle.checked  = isLocationBased;
     locationBasedToggle.disabled = !isGameNode;
   }
   if (locationBasedLabelNo)  locationBasedLabelNo.classList.toggle('is-active', !isLocationBased);
   if (locationBasedLabelYes) locationBasedLabelYes.classList.toggle('is-active',  isLocationBased);
-  if (isGameNode && gameNode) {
-    const loc = gameNode.startingLocation || '';
+  if (isGameNode) {
+    const loc = meta.startingLocation || '';
     if (nodeStartLocationInput) nodeStartLocationInput.value = loc;
     const w3wMatch = loc.match(/(?:what3words\.com\/|w3w\.co\/|\/\/\/?|^)([a-z]+\.[a-z]+\.[a-z]+)$/i);
     const w3wWords = w3wMatch ? w3wMatch[1].toLowerCase() : null;
@@ -17785,17 +17839,17 @@ function updateSelectionUi(options = {}) {
     if (nodeStartLocationInput) nodeStartLocationInput.value = '';
     setStartLocationStatus('', '');
   }
-  nodeHowToPlayInput.value = isGameNode && gameNode ? (gameNode.howToPlay || '') : '';
-  nodeGuideNameInput.value = isGameNode && gameNode ? (gameNode.guideName || '') : '';
-  nodeGuideBioInput.value = isGameNode && gameNode ? (gameNode.guideBio || '') : '';
-  nodeGuideImageInput.value = isGameNode && gameNode ? (gameNode.guideImageUrl || '') : '';
+  nodeHowToPlayInput.value = isGameNode ? (meta.howToPlay || '') : '';
+  nodeGuideNameInput.value = isGameNode ? (meta.guideName || '') : '';
+  nodeGuideBioInput.value = isGameNode ? (meta.guideBio || '') : '';
+  nodeGuideImageInput.value = isGameNode ? (meta.guideImageUrl || '') : '';
   setGuideImageAssetStatus('');
   if (guideImageOnlineMenu && isGameNode && !guideImageOnlineMenu.hidden && Array.isArray(gameLogoOnlineAssetsCache)) {
     populateGuideImageOnlineMenu(gameLogoOnlineAssetsCache);
   }
-  nodePriceInput.value = isGameNode && gameNode ? (gameNode.price || '') : '';
-  updateGameLogoPreview(gameNode);
-  updateGuideImagePreview(gameNode);
+  nodePriceInput.value = isGameNode ? (meta.price || '') : '';
+  updateGameLogoPreview();
+  updateGuideImagePreview();
   const currentColors = getCurrentGameColors();
   primaryColorInput.value = showGameDetails ? currentColors.primaryColor : '';
   primaryColorInput.classList.remove('is-invalid');
@@ -17803,16 +17857,16 @@ function updateSelectionUi(options = {}) {
   secondaryColorInput.value = showGameDetails ? currentColors.secondaryColor : '';
   secondaryColorInput.classList.remove('is-invalid');
   secondaryColorPickerInput.value = colorValueToHex(currentColors.secondaryColor, '#243256');
-  let tertiaryColorValue = (showGameDetails && gameNode)
-    ? normalizeTertiaryColorValue(gameNode.tertiaryColor)
+  let tertiaryColorValue = (showGameDetails && meta.tertiaryColor)
+    ? normalizeTertiaryColorValue(meta.tertiaryColor)
     : '';
-  if (isGameNode && gameNode) {
+  if (isGameNode) {
     if (!tertiaryColorValue) {
       tertiaryColorValue = normalizeTertiaryColorValue(
         getEffectiveTertiary(currentColors.primaryColor || '#5468a7', currentColors.secondaryColor || '#243256')
       );
     }
-    gameNode.tertiaryColor = tertiaryColorValue;
+    if (state.currentGameMeta) state.currentGameMeta.tertiaryColor = tertiaryColorValue;
   }
   if (tertiaryColorInput) {
     tertiaryColorInput.value = tertiaryColorValue;
@@ -17822,8 +17876,8 @@ function updateSelectionUi(options = {}) {
     tertiaryColorPickerInput.value = colorValueToHex(tertiaryColorValue, '#ffffff');
   }
   const quaternaryColorFallback = getQuaternaryColorFallback(currentColors.primaryColor, currentColors.secondaryColor);
-  const quaternaryColorValue = (showGameDetails && gameNode)
-    ? normalizeQuaternaryColorValue(gameNode.quaternaryColor, quaternaryColorFallback)
+  const quaternaryColorValue = (showGameDetails && meta)
+    ? normalizeQuaternaryColorValue(meta.quaternaryColor, quaternaryColorFallback)
     : '';
   if (quaternaryColorInput) {
     quaternaryColorInput.value = quaternaryColorValue;
@@ -17836,9 +17890,9 @@ function updateSelectionUi(options = {}) {
   nodeTagNewInput.value = '';
   renderTagPicker(gameNode);
   teamInputs.forEach((inp, i) => {
-    if (inp) inp.value = isGameNode && gameNode ? (getNormalizedTeamValues(gameNode)[i] || '') : '';
+    if (inp) inp.value = isGameNode ? (getNormalizedTeamValues(meta)[i] || '') : '';
   });
-  nodeBodyInput.value = gameNode ? (gameNode.body || '') : '';
+  nodeBodyInput.value = isGameNode ? (meta.body || '') : '';
   nodeBodyInput.placeholder = '';
   selectionId.textContent = currentGameEntry && currentGameEntry.id
     ? '(ID: ' + String(currentGameEntry.id).trim() + ')'
@@ -18787,6 +18841,7 @@ function seedPhone(options = {}) {
     const gameNode = createNode('game', firstSlot.x, firstSlot.y);
     state.doc.nodes.push(gameNode);
     setCurrentGameColors();
+    state.currentGameMeta = initGameMeta({});
     renderGamePickerSelect();
     syncAllTagsFromStore();
     rememberCleanSnapshot();
@@ -18811,35 +18866,36 @@ function seedPhone(options = {}) {
 }
 
 function serializeNodeState(node) {
+  const meta = (node.type === 'game' && state.currentGameMeta) ? state.currentGameMeta : null;
   return {
     id: node.id,
     type: node.type,
     x: node.x,
     y: node.y,
     title: node.title,
-    tagline: node.tagline || '',
-    city: node.city || '',
-    locationBased: node.locationBased === 'YES' ? 'YES' : 'NO',
-    startingLocation: node.startingLocation || '',
-    startingLocationLat: node.startingLocationLat ?? null,
-    startingLocationLon: node.startingLocationLon ?? null,
-    howToPlay: node.howToPlay || '',
-    guideName: node.guideName || '',
-    guideBio: node.guideBio || '',
-    guideImageUrl: node.guideImageUrl || '',
-    logoUrl: node.logoUrl || '',
-    price: node.price || '',
+    tagline: (meta ? meta.tagline : node.tagline) || '',
+    city: (meta ? meta.city : node.city) || '',
+    locationBased: (meta ? (meta.locationBased ? 'YES' : 'NO') : (node.locationBased === 'YES' ? 'YES' : 'NO')),
+    startingLocation: (meta ? meta.startingLocation : node.startingLocation) || '',
+    startingLocationLat: (meta ? meta.startingLocationLat : node.startingLocationLat) ?? null,
+    startingLocationLon: (meta ? meta.startingLocationLon : node.startingLocationLon) ?? null,
+    howToPlay: (meta ? meta.howToPlay : node.howToPlay) || '',
+    guideName: (meta ? meta.guideName : node.guideName) || '',
+    guideBio: (meta ? meta.guideBio : node.guideBio) || '',
+    guideImageUrl: (meta ? meta.guideImageUrl : node.guideImageUrl) || '',
+    logoUrl: (meta ? meta.logoUrl : node.logoUrl) || '',
+    price: (meta ? meta.price : node.price) || '',
     builderNotes: node.builderNotes || '',
     tags: (node.tags || []).filter(Boolean),
-    ...getTeamFieldState(node),
+    ...getTeamFieldState(meta || node),
     waypointGroup: node.type === 'stop' ? normalizeWaypointGroup(node.waypointGroup) : '',
-    body: node.body,
+    body: meta ? meta.body : node.body,
     kind: node.kind || '',
     linkUrl: node.linkUrl || '',
     buttonUrl: node.buttonUrl || '',
-    tertiaryColor: node.tertiaryColor || '',
-    quaternaryColor: node.quaternaryColor || '',
-    defaultEmoji: node.defaultEmoji || '',
+    tertiaryColor: (meta ? meta.tertiaryColor : node.tertiaryColor) || '',
+    quaternaryColor: (meta ? meta.quaternaryColor : node.quaternaryColor) || '',
+    defaultEmoji: (meta ? meta.defaultEmoji : node.defaultEmoji) || '',
     varName: node.varName || '',
     acceptAny: !!node.acceptAny,
     anytime: !!node.anytime,
@@ -19150,22 +19206,54 @@ function stageCurrentGameIntoStore() {
     primaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.primaryColor, fallbackColors.primaryColor),
     secondaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.secondaryColor, fallbackColors.secondaryColor)
   };
+  const _gn = docPayload.nodes.find((node) => node && node.type === 'game') || {};
+  const _meta = state.currentGameMeta || {};
   const savedGame = {
     id: savedGameId,
     name: savedGameName,
-    city: (() => {
-      const gameNode = docPayload.nodes.find((node) => node && node.type === 'game');
-      return gameNode && typeof gameNode.city === 'string' ? gameNode.city : (existingGame && existingGame.city ? existingGame.city : '');
-    })(),
-    createdAt: existingGame && existingGame.createdAt ? existingGame.createdAt : docPayload.updatedAt,
-    updatedAt: docPayload.updatedAt,
-    primaryColor: colors.primaryColor,
-    secondaryColor: colors.secondaryColor,
-    featured: existingGame && existingGame.featured ? existingGame.featured : '',
-    archived: existingGame && existingGame.archived ? existingGame.archived : '',
-    erased: existingGame && existingGame.erased ? existingGame.erased : '',
-    nodes: docPayload.nodes,
-    links: docPayload.links
+    city:                  _meta.city || (existingGame && existingGame.city ? existingGame.city : ''),
+    createdAt:             existingGame && existingGame.createdAt ? existingGame.createdAt : docPayload.updatedAt,
+    updatedAt:             docPayload.updatedAt,
+    primaryColor:          colors.primaryColor,
+    secondaryColor:        colors.secondaryColor,
+    featured:              !!(existingGame && existingGame.featured),
+    archived:              existingGame && existingGame.archived ? existingGame.archived : '',
+    erased:                existingGame && existingGame.erased ? existingGame.erased : '',
+    body:                  _meta.body || null,
+    kind:                  _gn.kind || null,
+    price:                 _meta.price || null,
+    tags:                  Array.isArray(_gn.tags) ? _gn.tags : null,
+    how_to_play:           _meta.howToPlay || null,
+    builder_notes:         _gn.builderNotes || null,
+    default_emoji:         _meta.defaultEmoji || null,
+    guide_name:            _meta.guideName || null,
+    guide_bio:             _meta.guideBio || null,
+    guide_image_url:       _meta.guideImageUrl || null,
+    logo_url:              _meta.logoUrl || null,
+    link_url:              _gn.linkUrl || null,
+    button_url:            _gn.buttonUrl || null,
+    tertiary_color:        _meta.tertiaryColor || null,
+    quaternary_color:      _meta.quaternaryColor || null,
+    waypoint_group:        _gn.waypointGroup || null,
+    starting_location:     _meta.startingLocation || null,
+    starting_location_lat: typeof _meta.startingLocationLat === 'number' ? _meta.startingLocationLat : null,
+    starting_location_lon: typeof _meta.startingLocationLon === 'number' ? _meta.startingLocationLon : null,
+    location_based:        !!_meta.locationBased,
+    var_name:              _gn.varName || null,
+    anytime_pair_id:       _gn.anytimePairId || null,
+    accept_any:            typeof _gn.acceptAny === 'boolean' ? _gn.acceptAny : null,
+    anytime:               typeof _gn.anytime === 'boolean' ? _gn.anytime : null,
+    teams:                 Array.isArray(_meta.teams) ? _meta.teams : null,
+    team1:                 Array.isArray(_meta.teams) ? (_meta.teams[0] || null) : null,
+    team2:                 Array.isArray(_meta.teams) ? (_meta.teams[1] || null) : null,
+    team3:                 Array.isArray(_meta.teams) ? (_meta.teams[2] || null) : null,
+    team4:                 Array.isArray(_meta.teams) ? (_meta.teams[3] || null) : null,
+    team5:                 Array.isArray(_meta.teams) ? (_meta.teams[4] || null) : null,
+    team6:                 Array.isArray(_meta.teams) ? (_meta.teams[5] || null) : null,
+    team7:                 Array.isArray(_meta.teams) ? (_meta.teams[6] || null) : null,
+    team8:                 Array.isArray(_meta.teams) ? (_meta.teams[7] || null) : null,
+    nodes:                 docPayload.nodes,
+    links:                 docPayload.links
   };
 
   state.currentGameId = savedGame.id;
@@ -19657,43 +19745,40 @@ varCorrectRadios.forEach((radio, i) => {
 
 
 nodeTaglineInput.addEventListener('input', () => {
-  const node = getGameNode();
-  if (!node || node.type !== 'game') return;
-  node.tagline = nodeTaglineInput.value;
+  if (!getGameNode() || !state.currentGameMeta) return;
+  state.currentGameMeta.tagline = nodeTaglineInput.value;
   updateSelectionUi();
 });
 
 nodeDefaultEmojiInput.addEventListener('input', () => {
-  const node = getGameNode();
-  if (!node || node.type !== 'game') return;
-  node.defaultEmoji = nodeDefaultEmojiInput.value;
+  if (!getGameNode() || !state.currentGameMeta) return;
+  state.currentGameMeta.defaultEmoji = nodeDefaultEmojiInput.value;
   updateSelectionUi();
 });
 
 
 if (nodeCityInput) {
   nodeCityInput.addEventListener('input', () => {
-    const node = getGameNode();
-    if (!node || node.type !== 'game') return;
-    node.city = nodeCityInput.value;
+    if (!getGameNode() || !state.currentGameMeta) return;
+    state.currentGameMeta.city = nodeCityInput.value;
     updateSelectionUi();
     // Auto-fill coordinates from city if blank
-    if (nodeCoordinatesInput && !nodeCoordinatesInput.value.trim() && node.city.trim()) {
+    if (nodeCoordinatesInput && !nodeCoordinatesInput.value.trim() && state.currentGameMeta.city.trim()) {
       clearTimeout(nodeCityInput._geoTimer);
       nodeCityInput._geoTimer = setTimeout(async () => {
         try {
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(node.city)}&format=json&limit=1`,
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(state.currentGameMeta.city)}&format=json&limit=1`,
             { headers: { 'Accept-Language': 'en' } }
           );
           const places = await res.json();
           if (!places.length) return;
           const lat = parseFloat(parseFloat(places[0].lat).toFixed(6));
           const lon = parseFloat(parseFloat(places[0].lon).toFixed(6));
-          if (nodeCoordinatesInput.value.trim()) return; // user filled it in while we waited
+          if (nodeCoordinatesInput.value.trim()) return;
           nodeCoordinatesInput.value = `${lat}, ${lon}`;
-          node.startingLocationLat = lat;
-          node.startingLocationLon = lon;
+          state.currentGameMeta.startingLocationLat = lat;
+          state.currentGameMeta.startingLocationLon = lon;
         } catch(e) {}
       }, 900);
     }
@@ -19702,25 +19787,23 @@ if (nodeCityInput) {
 
 if (nodeCoordinatesInput) {
   nodeCoordinatesInput.addEventListener('input', () => {
-    const node = getGameNode();
-    if (!node || node.type !== 'game') return;
+    if (!getGameNode() || !state.currentGameMeta) return;
     const raw = nodeCoordinatesInput.value.trim();
     const match = raw.match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
     if (match) {
-      node.startingLocationLat = parseFloat(match[1]);
-      node.startingLocationLon = parseFloat(match[2]);
+      state.currentGameMeta.startingLocationLat = parseFloat(match[1]);
+      state.currentGameMeta.startingLocationLon = parseFloat(match[2]);
     } else {
-      node.startingLocationLat = null;
-      node.startingLocationLon = null;
+      state.currentGameMeta.startingLocationLat = null;
+      state.currentGameMeta.startingLocationLon = null;
     }
   });
 }
 
 if (locationBasedToggle) {
   locationBasedToggle.addEventListener('change', () => {
-    const node = getGameNode();
-    if (!node || node.type !== 'game') return;
-    node.locationBased = locationBasedToggle.checked ? 'YES' : 'NO';
+    if (!getGameNode() || !state.currentGameMeta) return;
+    state.currentGameMeta.locationBased = locationBasedToggle.checked;
     updateSelectionUi();
   });
 }
@@ -19744,10 +19827,9 @@ function setStartLocationStatus(text, cls, href) {
 
 
 function onStartLocationInput() {
-  const node = getGameNode();
-  if (!node || node.type !== 'game') return;
+  if (!getGameNode() || !state.currentGameMeta) return;
   const val = (nodeStartLocationInput ? nodeStartLocationInput.value : '').trim();
-  node.startingLocation = val;
+  state.currentGameMeta.startingLocation = val;
   const w3wMatch = val.match(/(?:what3words\.com\/|w3w\.co\/)([a-z]+\.[a-z]+\.[a-z]+)/i);
   if (w3wMatch) {
     setStartLocationStatus(w3wMatch[1].toLowerCase(), 'resolved', `https://what3words.com/${w3wMatch[1].toLowerCase()}`);
@@ -19761,24 +19843,21 @@ if (nodeStartLocationInput) nodeStartLocationInput.addEventListener('input', onS
 
 
 nodeHowToPlayInput.addEventListener('input', () => {
-  const node = getGameNode();
-  if (!node || node.type !== 'game') return;
-  node.howToPlay = nodeHowToPlayInput.value;
+  if (!getGameNode() || !state.currentGameMeta) return;
+  state.currentGameMeta.howToPlay = nodeHowToPlayInput.value;
   updateSelectionUi();
 });
 
 nodeGuideNameInput.addEventListener('input', () => {
-  const node = getGameNode();
-  if (!node || node.type !== 'game') return;
-  node.guideName = nodeGuideNameInput.value;
+  if (!getGameNode() || !state.currentGameMeta) return;
+  state.currentGameMeta.guideName = nodeGuideNameInput.value;
   updateSelectionUi();
   updatePhoneChrome();
 });
 
 nodeGuideBioInput.addEventListener('input', () => {
-  const node = getGameNode();
-  if (!node || node.type !== 'game') return;
-  node.guideBio = nodeGuideBioInput.value;
+  if (!getGameNode() || !state.currentGameMeta) return;
+  state.currentGameMeta.guideBio = nodeGuideBioInput.value;
   updateSelectionUi();
 });
 
@@ -20073,18 +20152,16 @@ if (guideImageLightboxCloseBtn) {
 }
 
 nodePriceInput.addEventListener('input', () => {
-  const node = getGameNode();
-  if (!node || node.type !== 'game') return;
-  node.price = nodePriceInput.value;
+  if (!getGameNode() || !state.currentGameMeta) return;
+  state.currentGameMeta.price = nodePriceInput.value;
   updateSelectionUi();
 });
 
 teamInputs.forEach((inp, i) => {
   if (!inp) return;
   inp.addEventListener('input', () => {
-    const node = getGameNode();
-    if (!node || node.type !== 'game') return;
-    setTeamFieldValue(node, i, inp.value);
+    if (!getGameNode() || !state.currentGameMeta) return;
+    setTeamFieldValue(state.currentGameMeta, i, inp.value);
     scheduleRecoverySync();
     updateActionUi();
   });
@@ -20203,12 +20280,11 @@ function syncCurrentTertiaryInputs() {
 }
 
 function commitCurrentTertiaryColor(rawValue) {
-  const node = getGameNode();
-  if (!node) return false;
-  const nextValue = normalizeTertiaryColorValue(rawValue, node.tertiaryColor || '#ffffff');
+  if (!getGameNode() || !state.currentGameMeta) return false;
+  const nextValue = normalizeTertiaryColorValue(rawValue, state.currentGameMeta.tertiaryColor || '#ffffff');
   if (!nextValue) return false;
-  if (colorsMatch(node.tertiaryColor, nextValue)) return false;
-  node.tertiaryColor = nextValue;
+  if (colorsMatch(state.currentGameMeta.tertiaryColor, nextValue)) return false;
+  state.currentGameMeta.tertiaryColor = nextValue;
   return true;
 }
 
@@ -20227,16 +20303,15 @@ function syncCurrentQuaternaryInputs() {
 }
 
 function commitCurrentQuaternaryColor(rawValue) {
-  const node = getGameNode();
-  if (!node) return false;
+  if (!getGameNode() || !state.currentGameMeta) return false;
   const currentColors = getCurrentGameColors();
   const nextValue = normalizeQuaternaryColorValue(
     rawValue,
     getQuaternaryColorFallback(currentColors.primaryColor, currentColors.secondaryColor)
   );
   if (!nextValue) return false;
-  if (colorsMatch(node.quaternaryColor, nextValue)) return false;
-  node.quaternaryColor = nextValue;
+  if (colorsMatch(state.currentGameMeta.quaternaryColor, nextValue)) return false;
+  state.currentGameMeta.quaternaryColor = nextValue;
   return true;
 }
 
@@ -20357,9 +20432,8 @@ nodeTagNewInput.addEventListener('keydown', (event) => {
 });
 
 nodeBodyInput.addEventListener('input', () => {
-  const node = getGameNode();
-  if (!node || node.type !== 'game') return;
-  node.body = nodeBodyInput.value;
+  if (!getGameNode() || !state.currentGameMeta) return;
+  state.currentGameMeta.body = nodeBodyInput.value;
   renderAll();
 });
 
