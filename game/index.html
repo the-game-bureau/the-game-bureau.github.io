@@ -870,13 +870,6 @@
               <button class="start-map-btn" data-map="google">Google Maps</button>
               <button class="start-map-btn" data-map="w3w">what3words</button>
             </div>
-            <div class="start-map-buttons" id="startMapActions" style="display:none">
-              <button class="start-close-btn" id="startActionsCloseBtn">✕</button>
-              <div class="start-map-label" id="startActionsLabel">Apple Maps</div>
-              <button class="start-map-btn" id="startActionFrame">Open Here</button>
-              <button class="start-map-btn" id="startActionApp">Open In App</button>
-              <button class="start-map-btn" id="startActionDownload">Download App</button>
-            </div>
           </div>
         </div>
       </div>
@@ -1610,28 +1603,22 @@
           const what3wordsPinUrl = (coords) => words
             ? `https://what3words.com/${words}`
             : what3wordsCoordsUrl(coords) || webUrl || 'https://what3words.com';
-          const what3wordsAppUrl = (coords) => words
-            ? `https://w3w.co/${words}`
-            : what3wordsCoordsUrl(coords);
           const applePinLabel = encodeURIComponent(`${gameName} starting point`);
           const appleMapsUrl = (coords) => coords
             ? `https://maps.apple.com/?ll=${coords}&q=${applePinLabel}`
             : `https://maps.apple.com/?q=${locQ}`;
-          const appleMapsAppUrl = (coords) => coords
-            ? `maps://?ll=${coords}&q=${applePinLabel}`
-            : locQ ? `maps://?q=${locQ}` : null;
           const mapUrls = {
             apple:  appleMapsUrl(ll),
             google: `https://www.google.com/maps/search/?api=1&query=${ll || locQ}`,
             w3w:    what3wordsPinUrl(ll),
           };
-          // Iframe-friendly URLs for the desktop lightbox (the "w3w frame").
+          // Iframe-friendly URLs for the map lightbox.
           // Apple Maps blocks iframe embedding, so we substitute OpenStreetMap's
           // embed (iframe-safe, no key) centered on the same coordinates.
           const bboxPad = 0.003;
-          const osmEmbedUrl = (mapLat != null && mapLon != null)
-            ? `https://www.openstreetmap.org/export/embed.html?bbox=${mapLon - bboxPad},${mapLat - bboxPad},${mapLon + bboxPad},${mapLat + bboxPad}&marker=${mapLat},${mapLon}&layer=mapnik`
-            : null;
+          const osmEmbedUrlFor = (lat, lon) =>
+            `https://www.openstreetmap.org/export/embed.html?bbox=${lon - bboxPad},${lat - bboxPad},${lon + bboxPad},${lat + bboxPad}&marker=${lat},${lon}&layer=mapnik`;
+          const osmEmbedUrl = (mapLat != null && mapLon != null) ? osmEmbedUrlFor(mapLat, mapLon) : null;
           const frameUrls = {
             apple:  osmEmbedUrl,
             google: `https://maps.google.com/maps?q=${ll || locQ}&output=embed`,
@@ -1655,39 +1642,15 @@
           };
           document.getElementById('w3wLightboxClose').onclick = closeLightbox;
 
-          // Platform detection
-          const ua = navigator.userAgent;
-          const isIOS = /iPhone|iPad|iPod/i.test(ua);
-          const isAndroid = /Android/i.test(ua);
-          const isMobile = isIOS || isAndroid;
-
-          const storeUrls = {
-            apple:  'https://apps.apple.com/app/maps/id915056765',
-            google: isIOS
-              ? 'https://apps.apple.com/app/google-maps/id585027354'
-              : 'https://play.google.com/store/apps/details?id=com.google.android.apps.maps',
-            w3w:    'https://what3words.com/products/what3words-app',
-          };
-          const deepLinks = {
-            apple:  appleMapsAppUrl(ll),
-            google: ll ? `comgooglemaps://?q=${ll}` : null,
-            w3w:    what3wordsAppUrl(ll),
-          };
           const appNames = { apple: 'Apple Maps', google: 'Google Maps', w3w: 'what3words' };
 
           // Panel flip
           const btns  = document.getElementById('startMapButtons');
-          const actionsPanel = document.getElementById('startMapActions');
-          const actionsLabel = document.getElementById('startActionsLabel');
-          const actionFrame = document.getElementById('startActionFrame');
-          const actionApp = document.getElementById('startActionApp');
-          const actionDownload = document.getElementById('startActionDownload');
           const startFlip = document.getElementById('startFlip');
 
           const flipToFront = () => startFlip.classList.remove('flipped');
           const flipToBack  = () => {
             btns.style.display = 'flex';
-            actionsPanel.style.display = 'none';
             startFlip.classList.add('flipped');
           };
 
@@ -1697,51 +1660,13 @@
           };
           document.getElementById('startMapButtons').onclick = (e) => { e.stopPropagation(); if (e.target === e.currentTarget) flipToFront(); };
           document.getElementById('startCloseBtn').onclick   = (e) => { e.stopPropagation(); flipToFront(); };
-          actionsPanel.onclick = (e) => { e.stopPropagation(); if (e.target === e.currentTarget) { btns.style.display = 'flex'; actionsPanel.style.display = 'none'; } };
-          document.getElementById('startActionsCloseBtn').onclick = (e) => { e.stopPropagation(); btns.style.display = 'flex'; actionsPanel.style.display = 'none'; };
-
-          const showActions = (key) => {
-            actionsLabel.textContent = appNames[key];
-            // 1) Open in lightbox — Apple Maps blocks iframe embed; fall back to new tab
-            actionFrame.onclick = (e) => {
-              e.stopPropagation();
-              if (key === 'apple' && !frameUrls.apple) {
-                window.open(mapUrls[key], '_blank');
-              } else {
-                openLightbox(frameUrls[key] || mapUrls[key], appNames[key]);
-              }
-            };
-            // 2) Open in app — deep link / universal link
-            actionApp.onclick = (e) => {
-              e.stopPropagation();
-              const link = deepLinks[key] || mapUrls[key];
-              if (link) window.location.href = link;
-            };
-            // 3) Download app — store listing
-            actionDownload.onclick = (e) => {
-              e.stopPropagation();
-              if (storeUrls[key]) window.open(storeUrls[key], '_blank');
-            };
-            btns.style.display = 'none';
-            actionsPanel.style.display = 'flex';
-          };
 
           document.querySelectorAll('#startMapButtons .start-map-btn').forEach(btn => {
             btn.addEventListener('click', e => {
               e.stopPropagation();
               const key = btn.dataset.map;
               if (!key) return;
-              // Desktop: skip the sub-panel and go straight to "Open Here"
-              if (!isMobile) {
-                if (key === 'apple' && !frameUrls.apple) {
-                  window.open(mapUrls[key], '_blank');
-                } else {
-                  openLightbox(frameUrls[key] || mapUrls[key], appNames[key]);
-                }
-                return;
-              }
-              // Mobile: show the 3-action sub-panel
-              showActions(key);
+              openLightbox(frameUrls[key] || mapUrls[key], appNames[key]);
             });
           });
 
@@ -1782,11 +1707,11 @@
               // Backfill links that need resolved coordinates for a pinned destination.
               const resolvedLL = `${lat},${lon}`;
               mapUrls.apple    = appleMapsUrl(resolvedLL);
-              deepLinks.apple  = appleMapsAppUrl(resolvedLL);
-              deepLinks.google = `comgooglemaps://?q=${resolvedLL}`;
+              mapUrls.google   = `https://www.google.com/maps/search/?api=1&query=${resolvedLL}`;
+              frameUrls.apple  = osmEmbedUrlFor(lat, lon);
+              frameUrls.google = `https://maps.google.com/maps?q=${resolvedLL}&output=embed`;
               mapUrls.w3w      = what3wordsPinUrl(resolvedLL);
               frameUrls.w3w    = mapUrls.w3w;
-              deepLinks.w3w    = what3wordsAppUrl(resolvedLL);
 
               const zoom = (words || mapLat != null) ? 15 : 12;
               const W = bgMap.offsetWidth || 640, H = bgMap.offsetHeight || 400;
