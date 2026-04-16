@@ -347,29 +347,36 @@
     .start-waypoint-pin {
       fill: var(--primary);
     }
-    .start-panel {
+    .start-flip {
       width: 78%;
       z-index: 3;
+      perspective: 1200px;
     }
-    @keyframes start-flip-out {
-      0%   { transform: scaleX(1);   opacity: 1; }
-      45%  { transform: scaleX(0);   opacity: 0; }
-      100% { transform: scaleX(0);   opacity: 0; }
+    .start-flip-inner {
+      display: grid;
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-style: preserve-3d;
     }
-    @keyframes start-flip-in {
-      0%   { transform: scaleX(0);   opacity: 0; }
-      55%  { transform: scaleX(0);   opacity: 0; }
-      100% { transform: scaleX(1);   opacity: 1; }
+    .start-flip.flipped .start-flip-inner {
+      transform: rotateY(180deg);
     }
-    .start-panel.flip-out {
-      animation: start-flip-out 0.45s ease forwards;
-      pointer-events: none;
+    .start-flip-face {
+      grid-area: 1 / 1;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      width: 100%;
     }
-    .start-panel.flip-in {
-      animation: start-flip-in 0.45s ease forwards;
+    .start-flip-front {
+      display: flex;
+      align-items: center;
+    }
+    .start-flip-back {
+      transform: rotateY(180deg);
+      display: flex;
+      flex-direction: column;
     }
     .start-map-buttons {
-      display: none;
+      display: flex;
       flex-direction: column;
       gap: 0.5rem;
       padding: 0.75rem;
@@ -420,13 +427,17 @@
     .start-city-label {
       position: absolute;
       bottom: 0.9rem;
-      right: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
       z-index: 1;
       font-family: 'Outfit', sans-serif;
-      font-size: 1.05rem;
+      font-size: clamp(0.7rem, 2.4vw, 0.9rem);
       font-weight: 700;
       letter-spacing: 0.06em;
+      line-height: 1;
       text-transform: uppercase;
+      text-align: center;
+      white-space: nowrap;
       color: var(--primary);
       -webkit-text-stroke: 0.6px var(--secondary);
       paint-order: stroke fill;
@@ -605,7 +616,8 @@
     .invite-caption {
       position: absolute;
       bottom: 0.9rem;
-      right: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
       margin: 0;
       white-space: nowrap;
       font-family: 'Outfit', sans-serif;
@@ -614,7 +626,7 @@
       letter-spacing: 0.06em;
       line-height: 1;
       text-transform: uppercase;
-      text-align: right;
+      text-align: center;
       color: var(--primary);
       -webkit-text-stroke: 0.6px var(--secondary);
       paint-order: stroke fill;
@@ -1009,20 +1021,28 @@
         <!-- inner dot -->
         <circle cx="30" cy="28" r="10" fill="white" opacity="0.9"/>
       </svg>
-      <p id="startBlurb" class="start-blurb start-panel"></p>
-      <div class="start-map-buttons start-panel" id="startMapButtons">
-        <button class="start-close-btn" id="startCloseBtn">✕</button>
-        <div class="start-map-label">Reveal starting point with...</div>
-        <button class="start-map-btn" data-map="apple">Apple Maps</button>
-        <button class="start-map-btn" data-map="google">Google Maps</button>
-        <button class="start-map-btn" data-map="w3w">what3words</button>
-      </div>
-      <div class="start-map-buttons start-panel" id="startMapActions">
-        <button class="start-close-btn" id="startActionsCloseBtn">✕</button>
-        <div class="start-map-label" id="startActionsLabel">Apple Maps</div>
-        <button class="start-map-btn" id="startActionFrame">Open Here</button>
-        <button class="start-map-btn" id="startActionApp">Open In App</button>
-        <button class="start-map-btn" id="startActionDownload">Download App</button>
+      <div class="start-flip" id="startFlip">
+        <div class="start-flip-inner">
+          <div class="start-flip-face start-flip-front">
+            <p id="startBlurb" class="start-blurb"></p>
+          </div>
+          <div class="start-flip-face start-flip-back">
+            <div class="start-map-buttons" id="startMapButtons">
+              <button class="start-close-btn" id="startCloseBtn">✕</button>
+              <div class="start-map-label">Reveal starting point with...</div>
+              <button class="start-map-btn" data-map="apple">Apple Maps</button>
+              <button class="start-map-btn" data-map="google">Google Maps</button>
+              <button class="start-map-btn" data-map="w3w">what3words</button>
+            </div>
+            <div class="start-map-buttons" id="startMapActions" style="display:none">
+              <button class="start-close-btn" id="startActionsCloseBtn">✕</button>
+              <div class="start-map-label" id="startActionsLabel">Apple Maps</div>
+              <button class="start-map-btn" id="startActionFrame">Open Here</button>
+              <button class="start-map-btn" id="startActionApp">Open In App</button>
+              <button class="start-map-btn" id="startActionDownload">Download App</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="start-rendezvous-label">Rendezvous</div>
       <div id="startCityLabel" class="start-city-label"></div>
@@ -1732,13 +1752,13 @@
         document.getElementById('startBlurb').innerHTML = `You must go to <strong>${city}</strong> to play this game. Tap to reveal the starting point.`;
 
         const qrUrl = `https://thegamebureau.com/game/index.html?id=${encodeURIComponent(gameId)}`;
-        const ogImage = images.logoUrl || images.guideUrl || '';
+        const ogImage = images.logoUrl || images.guideUrl || 'https://thegamebureau.com/assets/logo.png';
         const setMeta = (sel, val) => { const el = document.querySelector(sel); if (el && val) el.setAttribute('content', val); };
         setMeta('meta[property="og:title"]', `${gameName} | The Game Bureau`);
         setMeta('meta[property="og:description"]', game.tagline || gameNode.tagline || 'A live local experience by The Game Bureau.');
-        setMeta('meta[property="og:image"]', ogImage);
+        document.querySelector('meta[property="og:image"]')?.setAttribute('content', ogImage);
         setMeta('meta[property="og:url"]', qrUrl);
-        setMeta('meta[name="twitter:image"]', ogImage);
+        document.querySelector('meta[name="twitter:image"]')?.setAttribute('content', ogImage);
         const gameTitleEl = document.getElementById('gameTitle');
         gameTitleEl.textContent = gameName;
 
@@ -1845,34 +1865,29 @@
           const appNames = { apple: 'Apple Maps', google: 'Google Maps', w3w: 'what3words' };
 
           // Panel flip
-          const blurb = document.getElementById('startBlurb');
           const btns  = document.getElementById('startMapButtons');
           const actionsPanel = document.getElementById('startMapActions');
           const actionsLabel = document.getElementById('startActionsLabel');
           const actionFrame = document.getElementById('startActionFrame');
           const actionApp = document.getElementById('startActionApp');
           const actionDownload = document.getElementById('startActionDownload');
-          const flippablePanels = [btns, actionsPanel];
-          const flip = (show, hide) => {
-            hide.classList.add('flip-out');
-            setTimeout(() => {
-              hide.style.display = 'none';
-              hide.classList.remove('flip-out');
-              show.style.display = flippablePanels.includes(show) ? 'flex' : '';
-              show.classList.add('flip-in');
-              show.addEventListener('animationend', () => show.classList.remove('flip-in'), { once: true });
-            }, 230);
+          const startFlip = document.getElementById('startFlip');
+
+          const flipToFront = () => startFlip.classList.remove('flipped');
+          const flipToBack  = () => {
+            btns.style.display = 'flex';
+            actionsPanel.style.display = 'none';
+            startFlip.classList.add('flipped');
           };
 
           document.getElementById('startingLocationSection').onclick = () => {
-            if (btns.style.display === 'flex') flip(blurb, btns);
-            else if (actionsPanel.style.display === 'flex') flip(blurb, actionsPanel);
-            else flip(btns, blurb);
+            if (startFlip.classList.contains('flipped')) flipToFront();
+            else flipToBack();
           };
-          document.getElementById('startMapButtons').onclick = (e) => { e.stopPropagation(); if (e.target === e.currentTarget) flip(blurb, btns); };
-          document.getElementById('startCloseBtn').onclick   = (e) => { e.stopPropagation(); flip(blurb, btns); };
-          actionsPanel.onclick = (e) => { e.stopPropagation(); if (e.target === e.currentTarget) flip(btns, actionsPanel); };
-          document.getElementById('startActionsCloseBtn').onclick = (e) => { e.stopPropagation(); flip(btns, actionsPanel); };
+          document.getElementById('startMapButtons').onclick = (e) => { e.stopPropagation(); if (e.target === e.currentTarget) flipToFront(); };
+          document.getElementById('startCloseBtn').onclick   = (e) => { e.stopPropagation(); flipToFront(); };
+          actionsPanel.onclick = (e) => { e.stopPropagation(); if (e.target === e.currentTarget) { btns.style.display = 'flex'; actionsPanel.style.display = 'none'; } };
+          document.getElementById('startActionsCloseBtn').onclick = (e) => { e.stopPropagation(); btns.style.display = 'flex'; actionsPanel.style.display = 'none'; };
 
           const showActions = (key) => {
             actionsLabel.textContent = appNames[key];
@@ -1896,7 +1911,8 @@
               e.stopPropagation();
               if (storeUrls[key]) window.open(storeUrls[key], '_blank');
             };
-            flip(actionsPanel, btns);
+            btns.style.display = 'none';
+            actionsPanel.style.display = 'flex';
           };
 
           document.querySelectorAll('#startMapButtons .start-map-btn').forEach(btn => {
