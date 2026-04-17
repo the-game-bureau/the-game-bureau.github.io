@@ -1,12 +1,16 @@
-// Replace http://thegamebureau.com/assets/* → raw.githubusercontent.com
+// Normalize database asset URLs to https://thegamebureau.com/assets/games/*
 // Run with: node migrate-asset-urls.js
 
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 
 const REPLACEMENTS = [
-  ['http://thegamebureau.com/assets/', 'https://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io/main/assets/'],
-  ['https://thegamebureau.com/assets/', 'https://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io/main/assets/'],
+  ['https://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io/main/assets/', 'https://thegamebureau.com/assets/'],
+  ['http://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io/main/assets/', 'https://thegamebureau.com/assets/'],
+  ['https://the-game-bureau.github.io/the-game-bureau/', 'https://thegamebureau.com/'],
+  ['https://the-game-bureau.github.io/', 'https://thegamebureau.com/'],
+  ['assets/teams/', 'assets/games/'],
+  ['assets/vendors/', 'assets/games/'],
 ];
 
 async function run() {
@@ -34,7 +38,6 @@ async function run() {
     if (replaced === original) continue;
 
     const updatedGame = JSON.parse(replaced);
-    // Only send back columns that may have changed (exclude id)
     const { id, ...fields } = updatedGame;
     const patch = await fetch(`${SUPABASE_URL}/rest/v1/games?id=eq.${game.id}`, {
       method: 'PATCH',

@@ -1249,6 +1249,15 @@
       outline: none;
     }
 
+    .hero-placeholder-image {
+      display: block;
+      width: 100%;
+      height: 100%;
+      aspect-ratio: 5 / 3;
+      object-fit: cover;
+      margin: 0;
+    }
+
     .featured-hero-placeholder {
       display: grid;
       place-items: center;
@@ -1545,6 +1554,31 @@
         flex-direction: row;
       }
     }
+
+    .admin-btn {
+      position: fixed;
+      right: 0.75rem;
+      bottom: 0.75rem;
+      padding: 0.25rem 0.55rem;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--paper);
+      color: var(--muted);
+      text-decoration: none;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 0.68rem;
+      letter-spacing: 0.02em;
+      opacity: 0.55;
+      z-index: 50;
+    }
+
+    .admin-btn:hover,
+    .admin-btn:focus-visible {
+      background: var(--ink);
+      color: var(--paper);
+      opacity: 1;
+      outline: none;
+    }
   </style>
 
 </head>
@@ -1564,30 +1598,9 @@
             <span class="quest-step"><span class="quest-icon win" aria-hidden="true"></span>Unlock the win</span>
           </div>
         </div>
-        <div class="hero-stage" id="featuredGameHero">
-          <div class="featured-hero-media">
-            <img class="featured-hero-image" id="featuredHeroImage" src="../../assets/home/home-map-poster-clean.png" alt="">
-            <div class="featured-hero-placeholder" id="featuredHeroPlaceholder" hidden>TG</div>
-            <p class="featured-hero-label">Featured</p>
-          </div>
-          <div class="featured-hero-card">
-            <h2 class="featured-hero-title" id="featuredHeroTitle">Loading featured game</h2>
-            <p class="featured-hero-caption" id="featuredHeroCaption">The first live game will appear here.</p>
-            <div class="featured-hero-tags" id="featuredHeroTags" aria-label="Featured game tags"></div>
-            <a class="featured-hero-link" id="featuredHeroLink" href="#gamesListContainer">Preview</a>
-          </div>
-          <div class="hero-device">
-            <div class="hero-art-panel">
-              <img class="hero-art" src="../../assets/brand/share-thumbnail.png" alt="">
-              <div class="reward-badge">GO</div>
-            </div>
-            <div class="hero-token-row">
-              <span class="hero-token"></span>
-              <span class="hero-token"></span>
-              <span class="hero-token"></span>
-            </div>
-          </div>
-        </div>
+        <figure class="hero-stage" aria-hidden="true">
+          <img class="hero-placeholder-image" src="../../assets/home/home-map-poster-clean.png" alt="">
+        </figure>
       </section>
     </header>
 
@@ -1611,6 +1624,7 @@
       </div>
     </footer>
   </main>
+  <a class="admin-btn" href="../../admin/">Admin</a>
 
   <script>
     window.TGB_SUPABASE_CONFIG = {
@@ -1930,100 +1944,13 @@
       });
     }
 
-    function getGameIdKey(game) {
-      if (!game || game.id === undefined || game.id === null) return '';
-      return String(game.id);
-    }
-
-    function isSameGame(left, right) {
-      const leftKey = getGameIdKey(left);
-      const rightKey = getGameIdKey(right);
-      if (leftKey && rightKey) return leftKey === rightKey;
-      return left === right;
-    }
-
-    function hashString(value) {
-      return Array.from(String(value || '')).reduce((hash, char) => {
-        return ((hash << 5) - hash + char.charCodeAt(0)) >>> 0;
-      }, 0);
-    }
-
-    function getFeaturedHeroGame(games) {
-      const featuredGames = sortGamesForLibrary(filterGames(games).filter(isGameFeatured));
-      if (featuredGames.length === 0) return null;
-
-      const today = new Date();
-      const rotationKey = [
-        today.getFullYear(),
-        String(today.getMonth() + 1).padStart(2, '0'),
-        String(today.getDate()).padStart(2, '0'),
-        featuredGames.map((game) => getGameIdKey(game) || game.name || '').join('|')
-      ].join('-');
-
-      return featuredGames[hashString(rotationKey) % featuredGames.length];
-    }
-
-    function updateFeaturedHero(games) {
-      const hero = document.getElementById('featuredGameHero');
-      const title = document.getElementById('featuredHeroTitle');
-      const caption = document.getElementById('featuredHeroCaption');
-      const link = document.getElementById('featuredHeroLink');
-      const image = document.getElementById('featuredHeroImage');
-      const placeholder = document.getElementById('featuredHeroPlaceholder');
-      const tagsWrap = document.getElementById('featuredHeroTags');
-      if (!hero || !title || !caption || !link || !image || !placeholder || !tagsWrap) return null;
-
-      const featuredGame = getFeaturedHeroGame(games);
-      if (!featuredGame) {
-        hero.hidden = true;
-        return null;
-      }
-
-      const palette = getGamePalette(featuredGame);
-      const imageUrl = getGameImageUrl(featuredGame);
-      const detailHref = `../../game/run/index.html?id=${encodeURIComponent(featuredGame.id ?? '')}`;
-      hero.hidden = false;
-      hero.style.setProperty('--featured-game-primary', palette.primary);
-      hero.style.setProperty('--featured-game-secondary', palette.secondary);
-      title.textContent = featuredGame.name || 'Untitled Game';
-      caption.textContent = getGameCaption(featuredGame);
-      link.href = detailHref;
-      link.textContent = 'Preview';
-      placeholder.textContent = getGameMonogram(featuredGame);
-      tagsWrap.innerHTML = '';
-      getGameTagLabels(featuredGame).forEach((tagLabel) => {
-        const tag = document.createElement('span');
-        tag.className = 'featured-hero-tag';
-        tag.textContent = tagLabel;
-        tagsWrap.appendChild(tag);
-      });
-
-      if (imageUrl) {
-        image.hidden = false;
-        placeholder.hidden = true;
-        image.src = imageUrl;
-        image.alt = '';
-        image.onerror = () => {
-          image.hidden = true;
-          placeholder.hidden = false;
-        };
-      } else {
-        image.hidden = true;
-        placeholder.hidden = false;
-      }
-
-      return featuredGame;
-    }
-
-    function renderList(listContainer, games, filter = '', excludedGame = null) {
+    function renderList(listContainer, games, filter = '') {
       listContainer.innerHTML = '';
 
-      const filteredGames = filterGames(games, filter);
-      const orderedGames = sortGamesForLibrary(filteredGames)
-        .filter((game) => !excludedGame || !isSameGame(game, excludedGame));
+      const orderedGames = sortGamesForLibrary(filterGames(games, filter));
 
       if (orderedGames.length === 0) {
-        renderEmptyState(listContainer, excludedGame ? 'No other games available right now.' : 'No games match your search.');
+        renderEmptyState(listContainer, 'No games match your search.');
         return;
       }
 
@@ -2051,8 +1978,7 @@
         const kicker = document.getElementById('game-count-kicker');
         if (kicker) { const liveCount = games.filter(isLiveGame).length; kicker.textContent = liveCount + ' Live Game' + (liveCount !== 1 ? 's' : ''); }
 
-        const featuredGame = updateFeaturedHero(games);
-        renderList(listContainer, games, '', featuredGame);
+        renderList(listContainer, games);
 
       } catch (err) {
         console.error('Database fetch error:', err);

@@ -57,7 +57,7 @@
     .topbar {
       display: flex;
       align-items: flex-start;
-      justify-content: space-between;
+      justify-content: flex-end;
       gap: 16px;
       margin-bottom: 18px;
     }
@@ -369,6 +369,25 @@
       text-transform: uppercase;
     }
 
+    .admin-game-status {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 3;
+      padding: 4px 6px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.92);
+      font-size: 0.58rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .admin-game-status.archived { color: #8a6d1e; border: 1px solid rgba(138, 109, 30, 0.45); }
+    .admin-game-status.erased { color: var(--danger); border: 1px solid rgba(160, 63, 45, 0.45); }
+
+    .admin-game-card.is-archived { opacity: 0.78; }
+    .admin-game-card.is-erased { opacity: 0.55; }
+
     .admin-game-body {
       display: grid;
       gap: 5px;
@@ -531,11 +550,6 @@
 
     <section id="reviewPanel" class="hidden">
       <div class="topbar">
-        <div class="brand">
-          <p class="kicker">The Game Bureau</p>
-          <h1>Admin</h1>
-          <p class="copy" id="signedInCopy"></p>
-        </div>
         <div class="topbar-actions">
           <a class="btn" href="./">← Admin</a>
           <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="Sign out" title="Sign out">
@@ -551,7 +565,7 @@
         <div class="section-head">
           <p class="kicker">Manage</p>
           <h2 id="libraryHeading">Library</h2>
-          <p class="copy">All current live games.</p>
+          <p class="copy">All games — live, archived, and erased.</p>
           <a class="btn" href="builder.html?new=1" style="width:25%">New</a>
         </div>
         <p class="status" id="libraryStatus" aria-live="polite"></p>
@@ -581,7 +595,6 @@
     const signOutBtn = document.getElementById('signOutBtn');
     const authStatus = document.getElementById('authStatus');
     const libraryStatus = document.getElementById('libraryStatus');
-    const signedInCopy = document.getElementById('signedInCopy');
     const gameGrid = document.getElementById('gameGrid');
 
     let currentSession = null;
@@ -781,6 +794,12 @@
       return !isFilledArchiveValue(game && game.archived) && !isFilledArchiveValue(game && game.erased);
     }
 
+    function getGameState(game) {
+      if (isFilledArchiveValue(game && game.erased)) return 'erased';
+      if (isFilledArchiveValue(game && game.archived)) return 'archived';
+      return 'live';
+    }
+
     function getGamePalette(game) {
       return {
         primary: String(game && (game.primary_color || game.primaryColor) || '').trim() || '#2d4880',
@@ -837,7 +856,10 @@
     }
 
     function sortGamesForAdminLibrary(games) {
+      const stateOrder = { live: 0, archived: 1, erased: 2 };
       return [...games].sort((left, right) => {
+        const stateDelta = stateOrder[getGameState(left)] - stateOrder[getGameState(right)];
+        if (stateDelta !== 0) return stateDelta;
         const featuredDelta = Number(isGameFeatured(right)) - Number(isGameFeatured(left));
         if (featuredDelta !== 0) return featuredDelta;
         return String(left && left.name || 'Untitled Game').localeCompare(
@@ -859,8 +881,10 @@
     function createAdminGameCard(game) {
       const gameId = String(game && game.id || '').trim();
       const palette = getGamePalette(game);
+      const state = getGameState(game);
       const card = document.createElement('article');
       card.className = 'admin-game-card';
+      if (state !== 'live') card.classList.add('is-' + state);
       card.style.setProperty('--game-primary', palette.primary);
       card.style.setProperty('--game-secondary', palette.secondary);
 
@@ -893,6 +917,13 @@
         badge.className = 'admin-game-badge';
         badge.textContent = 'Featured';
         media.appendChild(badge);
+      }
+
+      if (state !== 'live') {
+        const statusBadge = document.createElement('div');
+        statusBadge.className = 'admin-game-status ' + state;
+        statusBadge.textContent = state;
+        media.appendChild(statusBadge);
       }
 
       const body = document.createElement('div');
@@ -930,19 +961,29 @@
     }
 
     function renderAdminLibrary(games) {
-      const liveGames = sortGamesForAdminLibrary((Array.isArray(games) ? games : []).filter(isLiveGame));
+      const allGames = sortGamesForAdminLibrary(Array.isArray(games) ? games : []);
       gameGrid.innerHTML = '';
 
-      if (!liveGames.length) {
-        renderLibraryEmpty('No live games found.');
-        setStatus(libraryStatus, 'No live games found.');
+      if (!allGames.length) {
+        renderLibraryEmpty('No games found.');
+        setStatus(libraryStatus, 'No games found.');
         return;
       }
 
-      liveGames.forEach((game) => {
+      const counts = allGames.reduce((acc, game) => {
+        acc[getGameState(game)] = (acc[getGameState(game)] || 0) + 1;
+        return acc;
+      }, {});
+
+      allGames.forEach((game) => {
         gameGrid.appendChild(createAdminGameCard(game));
       });
-      setStatus(libraryStatus, 'Showing ' + liveGames.length + ' library game' + (liveGames.length === 1 ? '.' : 's.'), 'success');
+
+      const parts = [];
+      if (counts.live) parts.push(counts.live + ' live');
+      if (counts.archived) parts.push(counts.archived + ' archived');
+      if (counts.erased) parts.push(counts.erased + ' erased');
+      setStatus(libraryStatus, 'Showing ' + allGames.length + ' game' + (allGames.length === 1 ? '' : 's') + ' (' + parts.join(', ') + ').', 'success');
     }
 
     async function loadAdminLibrary() {
@@ -967,8 +1008,6 @@
 
     async function showReview(session) {
       currentSession = session;
-      const email = session && session.user ? session.user.email : '';
-      signedInCopy.textContent = email ? 'Signed in as ' + email + '.' : '';
       authPanel.classList.add('hidden');
       reviewPanel.classList.remove('hidden');
       await loadAdminLibrary();
