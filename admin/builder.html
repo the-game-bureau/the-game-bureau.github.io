@@ -10591,6 +10591,9 @@ function buildGamesSelectColumns(columns = []) {
 function serializeGameRow(game, index = 0) {
   const normalizedGame = normalizeSavedGame(game, index);
   const timestamp = normalizedGame.updatedAt || normalizedGame.createdAt || new Date().toISOString();
+  const normalizedNodes = Array.isArray(normalizedGame.nodes) ? normalizedGame.nodes : [];
+  const gameNode = normalizedNodes.find((node) => node && node.type === 'game') || {};
+
   const payload = {
     id: normalizedGame.id,
     name: normalizedGame.name || 'Untitled Game',
@@ -10598,14 +10601,32 @@ function serializeGameRow(game, index = 0) {
     secondary_color: normalizedGame.secondaryColor || null,
     archived: normalizedGame.archived || null,
     erased: normalizedGame.erased || null,
-    nodes: applyFeaturedFlagToNodes(Array.isArray(normalizedGame.nodes) ? normalizedGame.nodes : [], normalizedGame.featured),
+    nodes: applyFeaturedFlagToNodes(normalizedNodes, normalizedGame.featured),
     links: Array.isArray(normalizedGame.links) ? normalizedGame.links : [],
     created_at: normalizedGame.createdAt || timestamp,
     updated_at: timestamp
   };
-  if (SUPABASE_GAMES_SCHEMA.tagline) payload.tagline = normalizedGame.tagline || null;
-  if (SUPABASE_GAMES_SCHEMA.city) payload.city = normalizedGame.city || null;
+
+  Object.entries(GAME_COLUMN_TO_NODE_FIELD).forEach(([column, field]) => {
+    const value = gameNode[field];
+    if (value === undefined) return;
+    if (value === null || value === '') {
+      payload[column] = null;
+    } else {
+      payload[column] = value;
+    }
+  });
+
+  if (Array.isArray(gameNode.tags)) payload.tags = gameNode.tags.filter(Boolean);
+  if (Array.isArray(gameNode.teams)) payload.teams = gameNode.teams.filter(Boolean);
+  TEAM_FIELD_KEYS.forEach((key) => {
+    if (typeof gameNode[key] === 'string') payload[key] = gameNode[key] || null;
+  });
+
+  if (SUPABASE_GAMES_SCHEMA.tagline) payload.tagline = normalizedGame.tagline || gameNode.tagline || null;
+  if (SUPABASE_GAMES_SCHEMA.city) payload.city = normalizedGame.city || gameNode.city || null;
   if (SUPABASE_GAMES_SCHEMA.featured) payload.featured = normalizedGame.featured || null;
+
   return payload;
 }
 
@@ -10642,6 +10663,21 @@ function normalizeGameRow(row, index = 0) {
     starting_location_lon: row && row.starting_location_lon,
     location_based:        row && row.location_based,
     teams:                 row && row.teams,
+    kind:                  row && row.kind,
+    tags:                  row && row.tags,
+    waypoint_group:        row && row.waypoint_group,
+    var_name:              row && row.var_name,
+    anytime_pair_id:       row && row.anytime_pair_id,
+    accept_any:            row && row.accept_any,
+    anytime:               row && row.anytime,
+    team01:                row && row.team01,
+    team02:                row && row.team02,
+    team03:                row && row.team03,
+    team04:                row && row.team04,
+    team05:                row && row.team05,
+    team06:                row && row.team06,
+    team07:                row && row.team07,
+    team08:                row && row.team08,
   }, index);
 }
 
@@ -10677,7 +10713,22 @@ async function fetchGameRowsFromSupabase(select = null) {
     'starting_location_lat',
     'starting_location_lon',
     'location_based',
-    'teams'
+    'teams',
+    'kind',
+    'tags',
+    'waypoint_group',
+    'var_name',
+    'anytime_pair_id',
+    'accept_any',
+    'anytime',
+    'team01',
+    'team02',
+    'team03',
+    'team04',
+    'team05',
+    'team06',
+    'team07',
+    'team08'
   ]);
   const response = await fetch(buildSupabaseUrl({
     select: resolvedSelect,
@@ -10751,7 +10802,40 @@ async function fetchGameRowFromSupabase(gameId, select = null) {
     'nodes',
     'links',
     'created_at',
-    'updated_at'
+    'updated_at',
+    'body',
+    'price',
+    'how_to_play',
+    'builder_notes',
+    'default_emoji',
+    'guide_name',
+    'guide_bio',
+    'guide_image_url',
+    'logo_url',
+    'link_url',
+    'button_url',
+    'tertiary_color',
+    'quaternary_color',
+    'starting_location',
+    'starting_location_lat',
+    'starting_location_lon',
+    'location_based',
+    'teams',
+    'kind',
+    'tags',
+    'waypoint_group',
+    'var_name',
+    'anytime_pair_id',
+    'accept_any',
+    'anytime',
+    'team01',
+    'team02',
+    'team03',
+    'team04',
+    'team05',
+    'team06',
+    'team07',
+    'team08'
   ]);
 
   const response = await fetch(buildSupabaseUrl({
@@ -14482,10 +14566,30 @@ function getNodeGridCell(node) {
 
 function getDocSnapshot(doc = state.doc) {
   const colors = getCurrentGameColors();
+  const meta = state.currentGameMeta || {};
   return JSON.stringify({
     currentGameId: state.currentGameId || '',
     primaryColor: colors.primaryColor,
     secondaryColor: colors.secondaryColor,
+    meta: {
+      body: meta.body || '',
+      tagline: meta.tagline || '',
+      defaultEmoji: meta.defaultEmoji || '',
+      logoUrl: meta.logoUrl || '',
+      city: meta.city || '',
+      startingLocation: meta.startingLocation || '',
+      startingLocationLat: meta.startingLocationLat ?? null,
+      startingLocationLon: meta.startingLocationLon ?? null,
+      locationBased: !!meta.locationBased,
+      howToPlay: meta.howToPlay || '',
+      guideName: meta.guideName || '',
+      guideBio: meta.guideBio || '',
+      guideImageUrl: meta.guideImageUrl || '',
+      price: meta.price || '',
+      tertiaryColor: meta.tertiaryColor || '',
+      quaternaryColor: meta.quaternaryColor || '',
+      teams: Array.isArray(meta.teams) ? meta.teams : []
+    },
     nodes: doc.nodes.map((node) => ({
       id: node.id,
       type: node.type,
@@ -15433,8 +15537,62 @@ async function openGameEraseFlow() {
   return applyCurrentGameDisposition(action);
 }
 
+const GAME_COLUMN_TO_NODE_FIELD = {
+  tagline: 'tagline',
+  city: 'city',
+  body: 'body',
+  price: 'price',
+  how_to_play: 'howToPlay',
+  builder_notes: 'builderNotes',
+  default_emoji: 'defaultEmoji',
+  guide_name: 'guideName',
+  guide_bio: 'guideBio',
+  guide_image_url: 'guideImageUrl',
+  logo_url: 'logoUrl',
+  link_url: 'linkUrl',
+  button_url: 'buttonUrl',
+  tertiary_color: 'tertiaryColor',
+  quaternary_color: 'quaternaryColor',
+  starting_location: 'startingLocation',
+  starting_location_lat: 'startingLocationLat',
+  starting_location_lon: 'startingLocationLon',
+  location_based: 'locationBased',
+  kind: 'kind',
+  var_name: 'varName',
+  waypoint_group: 'waypointGroup',
+  accept_any: 'acceptAny',
+  anytime: 'anytime',
+  anytime_pair_id: 'anytimePairId'
+};
+
+function overlayColumnsOntoGameNode(doc, raw) {
+  if (!doc || !Array.isArray(doc.nodes) || !raw) return doc;
+  const gameNodeIndex = doc.nodes.findIndex((node) => node && node.type === 'game');
+  if (gameNodeIndex < 0) return doc;
+  const gameNode = { ...doc.nodes[gameNodeIndex] };
+
+  if (typeof raw.name === 'string' && raw.name.trim()) gameNode.title = raw.name;
+
+  Object.entries(GAME_COLUMN_TO_NODE_FIELD).forEach(([column, field]) => {
+    if (!(column in raw)) return;
+    const value = raw[column];
+    if (value === undefined) return;
+    gameNode[field] = value == null ? '' : value;
+  });
+
+  if (Array.isArray(raw.tags)) gameNode.tags = raw.tags.filter(Boolean);
+  if (Array.isArray(raw.teams)) gameNode.teams = raw.teams.filter(Boolean);
+
+  TEAM_FIELD_KEYS.forEach((key) => {
+    if (typeof raw[key] === 'string') gameNode[key] = raw[key];
+  });
+
+  doc.nodes = doc.nodes.map((node, idx) => idx === gameNodeIndex ? gameNode : node);
+  return doc;
+}
+
 function normalizeSavedGame(raw, index) {
-  const doc = normalizeDoc(raw);
+  const doc = overlayColumnsOntoGameNode(normalizeDoc(raw), raw);
   const createdAt = typeof (raw && raw.createdAt) === 'string' && raw.createdAt
     ? raw.createdAt
     : (typeof (raw && raw.updatedAt) === 'string' ? raw.updatedAt : doc.updatedAt);
