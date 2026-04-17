@@ -11156,36 +11156,36 @@ const GUIDE_IMAGE_ONLINE_ASSET_ERROR_MESSAGE = GAME_LOGO_ONLINE_ASSET_ERROR_MESS
 const BUILDER_PAGE_MODE = getBuilderPageMode();
 const BUILDER_TUTORIAL_MODE = 'tutorial';
 const GAME_LOGO_FALLBACK_ASSET_NAMES = [
-  '360insights_logo.jpg',
-  'Arizona.gif',
-  'army.png',
-  'Army_West_Point_logo.svg',
-  'Atlanta.gif',
-  'atlas.png',
-  'Carolina.gif',
-  'Cleveland.gif',
-  'dealer-tire.svg',
-  'dealertire.jpeg',
-  'Flag_of_Arizona.svg',
-  'gbw.png',
-  'GreenBay.gif',
-  'guide_cardinals.jpg',
-  'Jacksonville.gif',
-  'lafayette.png',
-  'LasVegas.gif',
-  'logo.png',
-  'Minnesota.gif',
-  'NewOrleans.gif',
-  'oswaldmugshot.webp',
-  'Passport.avif',
-  'passport.png',
-  'saj.png',
-  'scrappy.jpg',
-  'shell-1971.png',
-  'southern-miss.svg',
-  'TampaBay.gif',
-  'tgb.ico',
-  'utsa.jpg'
+  'vendors/360insights_logo.jpg',
+  'teams/Arizona.gif',
+  'teams/army.png',
+  'teams/Army_West_Point_logo.svg',
+  'teams/Atlanta.gif',
+  'games/atlas.png',
+  'teams/Carolina.gif',
+  'teams/Cleveland.gif',
+  'vendors/dealer-tire.svg',
+  'vendors/dealertire.jpeg',
+  'games/Flag_of_Arizona.svg',
+  'teams/gbw.png',
+  'teams/GreenBay.gif',
+  'games/guide_cardinals.jpg',
+  'teams/Jacksonville.gif',
+  'teams/lafayette.png',
+  'teams/LasVegas.gif',
+  'brand/logo.png',
+  'teams/Minnesota.gif',
+  'teams/NewOrleans.gif',
+  'games/oswaldmugshot.webp',
+  'games/Passport.avif',
+  'games/passport.png',
+  'teams/saj.png',
+  'games/scrappy.jpg',
+  'games/shell-1971.png',
+  'teams/southern-miss.svg',
+  'teams/TampaBay.gif',
+  'brand/tgb.ico',
+  'teams/utsa.jpg'
 ];
 const TEAM_FIELD_KEYS = Array.from({ length: 8 }, (_, index) => `team${String(index + 1).padStart(2, '0')}`);
 const teamInputs = TEAM_FIELD_KEYS.map((key) => document.getElementById(key + 'Input'));
@@ -13694,13 +13694,19 @@ function getCurrentGameLogoUrl() {
 }
 
 function normalizeAssetFileName(value) {
-  return String(value || '').trim().split(/[\\/]/).pop() || '';
+  const s = String(value || '').trim();
+  if (!s) return '';
+  if (s.startsWith(GAME_LOGO_ASSET_BASE_URL))
+    return decodeURIComponent(s.slice(GAME_LOGO_ASSET_BASE_URL.length));
+  const m = s.match(/(?:^|[\\/])assets[\\/](.+)$/i);
+  if (m) return m[1].replace(/\\/g, '/');
+  return s.replace(/\\/g, '/');
 }
 
 function buildPublishedGameLogoAssetUrl(fileName) {
   const normalizedFileName = normalizeAssetFileName(fileName);
   return normalizedFileName
-    ? `${GAME_LOGO_ASSET_BASE_URL}${encodeURIComponent(normalizedFileName)}`
+    ? GAME_LOGO_ASSET_BASE_URL + normalizedFileName.split('/').map(encodeURIComponent).join('/')
     : '';
 }
 
