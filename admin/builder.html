@@ -10607,25 +10607,28 @@ function serializeGameRow(game, index = 0) {
     updated_at: timestamp
   };
 
+  // Prefer the authoritative top-level column value over the node's potentially stale value.
+  // Omit a column from the payload entirely when we have no real value — never write null/''
+  // because that wipes data the human may be editing directly in Supabase.
+  const emitColumn = (column, value) => {
+    if (value === undefined || value === null) return;
+    if (typeof value === 'string' && value.length === 0) return;
+    if (Array.isArray(value) && value.length === 0) return;
+    payload[column] = value;
+  };
+
   Object.entries(GAME_COLUMN_TO_NODE_FIELD).forEach(([column, field]) => {
-    const value = gameNode[field];
-    if (value === undefined) return;
-    if (value === null || value === '') {
-      payload[column] = null;
-    } else {
-      payload[column] = value;
-    }
+    const topLevel = normalizedGame[column];
+    emitColumn(column, topLevel !== undefined && topLevel !== null ? topLevel : gameNode[field]);
   });
 
-  if (Array.isArray(gameNode.tags)) payload.tags = gameNode.tags.filter(Boolean);
-  if (Array.isArray(gameNode.teams)) payload.teams = gameNode.teams.filter(Boolean);
-  TEAM_FIELD_KEYS.forEach((key) => {
-    if (typeof gameNode[key] === 'string') payload[key] = gameNode[key] || null;
-  });
+  if (Array.isArray(gameNode.tags)) emitColumn('tags', gameNode.tags.filter(Boolean));
+  if (Array.isArray(gameNode.teams)) emitColumn('teams', gameNode.teams.filter(Boolean));
+  TEAM_FIELD_KEYS.forEach((key) => emitColumn(key, gameNode[key]));
 
-  if (SUPABASE_GAMES_SCHEMA.tagline) payload.tagline = normalizedGame.tagline || gameNode.tagline || null;
-  if (SUPABASE_GAMES_SCHEMA.city) payload.city = normalizedGame.city || gameNode.city || null;
-  if (SUPABASE_GAMES_SCHEMA.featured) payload.featured = normalizedGame.featured || null;
+  if (SUPABASE_GAMES_SCHEMA.tagline) emitColumn('tagline', normalizedGame.tagline || gameNode.tagline);
+  if (SUPABASE_GAMES_SCHEMA.city) emitColumn('city', normalizedGame.city || gameNode.city);
+  if (SUPABASE_GAMES_SCHEMA.featured) emitColumn('featured', normalizedGame.featured);
 
   return payload;
 }
