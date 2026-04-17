@@ -1935,9 +1935,25 @@
       return left === right;
     }
 
+    function hashString(value) {
+      return Array.from(String(value || '')).reduce((hash, char) => {
+        return ((hash << 5) - hash + char.charCodeAt(0)) >>> 0;
+      }, 0);
+    }
+
     function getFeaturedHeroGame(games) {
-      const liveGames = sortGamesForLibrary(filterGames(games));
-      return liveGames.find(isGameFeatured) || liveGames[0] || null;
+      const featuredGames = sortGamesForLibrary(filterGames(games).filter(isGameFeatured));
+      if (featuredGames.length === 0) return null;
+
+      const today = new Date();
+      const rotationKey = [
+        today.getFullYear(),
+        String(today.getMonth() + 1).padStart(2, '0'),
+        String(today.getDate()).padStart(2, '0'),
+        featuredGames.map((game) => getGameIdKey(game) || game.name || '').join('|')
+      ].join('-');
+
+      return featuredGames[hashString(rotationKey) % featuredGames.length];
     }
 
     function updateFeaturedHero(games) {
@@ -1951,11 +1967,15 @@
       if (!hero || !title || !caption || !link || !image || !placeholder || !tagsWrap) return null;
 
       const featuredGame = getFeaturedHeroGame(games);
-      if (!featuredGame) return null;
+      if (!featuredGame) {
+        hero.hidden = true;
+        return null;
+      }
 
       const palette = getGamePalette(featuredGame);
       const imageUrl = getGameImageUrl(featuredGame);
       const detailHref = `../game/index.html?id=${encodeURIComponent(featuredGame.id ?? '')}`;
+      hero.hidden = false;
       hero.style.setProperty('--featured-game-primary', palette.primary);
       hero.style.setProperty('--featured-game-secondary', palette.secondary);
       title.textContent = featuredGame.name || 'Untitled Game';
