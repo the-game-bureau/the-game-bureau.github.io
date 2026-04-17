@@ -606,7 +606,6 @@
           <p class="copy" id="signedInCopy"></p>
         </div>
         <div class="topbar-actions">
-          <a class="btn" href="../photos/">Photos</a>
           <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="Sign out" title="Sign out">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -626,8 +625,30 @@
         <p class="status" id="libraryStatus" aria-live="polite"></p>
         <div class="admin-library-grid" id="gameGrid"></div>
       </section>
+
+      <section class="admin-section" aria-labelledby="photosHeading">
+        <div class="section-head">
+          <p class="kicker">Review</p>
+          <h2 id="photosHeading">Recent Photos</h2>
+          <p class="copy">Player photo submissions from live games.</p>
+        </div>
+
+        <div class="toolbar">
+          <input id="gameFilterInput" type="text" placeholder="Filter by game id">
+          <button class="btn primary" id="refreshBtn" type="button">Refresh</button>
+          <button class="btn" id="clearFilterBtn" type="button">Clear</button>
+        </div>
+
+        <p class="status" id="reviewStatus" aria-live="polite"></p>
+        <div class="grid" id="photoGrid"></div>
+      </section>
     </section>
   </main>
+
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Close">x</button>
+    <img id="lightboxImage" src="" alt="">
+  </div>
 
   <script>
     const SUPABASE_CONFIG = {
@@ -636,6 +657,9 @@
     };
 
     const AUTH_STORAGE_KEY = 'tgb-photo-review-auth-session';
+    const PHOTO_BUCKET = 'game-photo-submissions';
+    const PAGE_LIMIT = 60;
+    const SIGNED_URL_SECONDS = 60 * 60;
     const GAMES_SCHEMA = {
       tagline: true,
       featured: true
@@ -648,10 +672,18 @@
     const passwordInput = document.getElementById('passwordInput');
     const signInBtn = document.getElementById('signInBtn');
     const signOutBtn = document.getElementById('signOutBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const clearFilterBtn = document.getElementById('clearFilterBtn');
+    const gameFilterInput = document.getElementById('gameFilterInput');
     const authStatus = document.getElementById('authStatus');
+    const reviewStatus = document.getElementById('reviewStatus');
     const libraryStatus = document.getElementById('libraryStatus');
     const signedInCopy = document.getElementById('signedInCopy');
     const gameGrid = document.getElementById('gameGrid');
+    const photoGrid = document.getElementById('photoGrid');
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImage = document.getElementById('lightboxImage');
+    const lightboxClose = document.getElementById('lightboxClose');
 
     let currentSession = null;
 
@@ -667,6 +699,29 @@
         }
       });
       return url.toString();
+    }
+
+    function encodeStoragePath(path) {
+      return String(path || '').split('/').map(encodeURIComponent).join('/');
+    }
+
+    function storageSignUrl(bucket, path) {
+      const objectPath = encodeURIComponent(bucket) + '/' + encodeStoragePath(path);
+      return new URL('/storage/v1/object/sign/' + objectPath, SUPABASE_CONFIG.url + '/').toString();
+    }
+
+    function resolveSignedStorageUrl(value) {
+      const signed = String(value || '').trim();
+      if (!signed) return '';
+      if (/^https?:\/\//i.test(signed)) return signed;
+
+      const origin = new URL(SUPABASE_CONFIG.url).origin;
+      if (signed.startsWith('/storage/v1/')) return origin + signed;
+      if (signed.startsWith('/object/')) return origin + '/storage/v1' + signed;
+      if (signed.startsWith('storage/v1/')) return origin + '/' + signed;
+      if (signed.startsWith('object/')) return origin + '/storage/v1/' + signed;
+
+      return new URL(signed, origin + '/storage/v1/').toString();
     }
 
     function setStatus(el, message, state = '') {
@@ -837,6 +892,66 @@
       return response.json();
     }
 
+    async function fetchSubmissions() {
+      const gameFilter = String(gameFilterInput.value || '').trim();
+      const params = {
+        select: 'id,created_at,game_id,player_id,storage_bucket,storage_path,file_name,mime_type,file_size,stop_id,stop_title,stop_index,flow_kind,status',
+        order: 'created_at.desc',
+        limit: String(PAGE_LIMIT)
+      };
+      if (gameFilter) params.game_id = 'eq.' + gameFilter;
+
+      const response = await fetch(restUrl('photo_submissions', params), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        throw new Error(await readError(response, 'Could not load photos.'));
+      }
+
+      return response.json();
+    }
+
+    async function createSignedUrl(row) {
+      const bucket = row.storage_bucket || PHOTO_BUCKET;
+      const response = await fetch(storageSignUrl(bucket, row.storage_path), {
+        method: 'POST',
+        headers: authHeaders({
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        }),
+        body: JSON.stringify({ expiresIn: SIGNED_URL_SECONDS })
+      });
+
+      if (!response.ok) {
+        throw new Error(await readError(response, 'Could not sign photo URL.'));
+      }
+
+      const payload = await response.json();
+      const signed = payload.signedURL || payload.signedUrl || payload.signed_url || '';
+      return resolveSignedStorageUrl(signed);
+    }
+
+    function formatDate(value) {
+      if (!value) return '';
+      try {
+        return new Intl.DateTimeFormat(undefined, {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        }).format(new Date(value));
+      } catch (error) {
+        return String(value);
+      }
+    }
+
+    function formatSize(bytes) {
+      const size = Number(bytes || 0);
+      if (!size) return '';
+      if (size < 1024 * 1024) return Math.round(size / 1024) + ' KB';
+      return (size / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
     function isFilledArchiveValue(value) {
       if (typeof value === 'boolean') return value;
       if (typeof value === 'string') {
@@ -915,6 +1030,28 @@
           { sensitivity: 'base' }
         );
       });
+    }
+
+    function openLightbox(src, alt) {
+      lightboxImage.src = src;
+      lightboxImage.alt = alt || 'Submitted photo';
+      lightbox.classList.add('open');
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('open');
+      lightboxImage.src = '';
+      lightboxImage.alt = '';
+    }
+
+    function escapeHtml(value) {
+      return String(value || '').replace(/[&<>"']/g, (ch) => (
+        ch === '&' ? '&amp;'
+          : ch === '<' ? '&lt;'
+          : ch === '>' ? '&gt;'
+          : ch === '"' ? '&quot;'
+          : '&#39;'
+      ));
     }
 
     function renderLibraryEmpty(message) {
@@ -1014,6 +1151,41 @@
       setStatus(libraryStatus, 'Showing ' + liveGames.length + ' library game' + (liveGames.length === 1 ? '.' : 's.'), 'success');
     }
 
+    function renderEmpty(message) {
+      photoGrid.innerHTML = '<div class="empty">' + escapeHtml(message) + '</div>';
+    }
+
+    function renderPhotos(items) {
+      if (!items.length) {
+        renderEmpty('No photos found.');
+        return;
+      }
+
+      photoGrid.innerHTML = items.map((item, index) => `
+        <article class="photo-card">
+          <button class="photo-link" type="button" data-index="${index}" aria-label="Open photo">
+            <img src="${escapeHtml(item.signedUrl)}" alt="${escapeHtml(item.file_name || 'Submitted photo')}" loading="lazy">
+          </button>
+          <div class="meta">
+            <strong>${escapeHtml(item.stop_title || item.game_id || 'Photo')}</strong>
+            <span>${escapeHtml(formatDate(item.created_at))}</span>
+            <span>Game: ${escapeHtml(item.game_id)}</span>
+            <span>Player: ${escapeHtml(item.player_id)}</span>
+            <span>${escapeHtml(item.file_name || '')}${item.file_size ? ' - ' + escapeHtml(formatSize(item.file_size)) : ''}</span>
+            <span>${escapeHtml(item.status || 'submitted')}</span>
+          </div>
+        </article>
+      `).join('');
+
+      photoGrid.querySelectorAll('.photo-link').forEach((button) => {
+        button.addEventListener('click', () => {
+          const index = Number(button.dataset.index || -1);
+          const item = items[index];
+          if (item && item.signedUrl) openLightbox(item.signedUrl, item.file_name);
+        });
+      });
+    }
+
     async function loadAdminLibrary() {
       setStatus(libraryStatus, 'Loading library...');
       renderLibraryEmpty('Loading games...');
@@ -1025,6 +1197,41 @@
         console.error(error);
         renderLibraryEmpty('Could not load games.');
         setStatus(libraryStatus, error instanceof Error ? error.message : String(error), 'error');
+      }
+    }
+
+    async function loadPhotos() {
+      refreshBtn.disabled = true;
+      setStatus(reviewStatus, 'Loading photos...');
+      renderEmpty('Loading...');
+
+      try {
+        const rows = await fetchSubmissions();
+        const withUrls = await Promise.all(rows.map(async (row) => {
+          try {
+            return {
+              ...row,
+              signedUrl: await createSignedUrl(row)
+            };
+          } catch (error) {
+            console.warn('Could not sign photo URL.', row && row.storage_path, error);
+            return {
+              ...row,
+              signedUrl: ''
+            };
+          }
+        }));
+        const visibleRows = withUrls.filter((row) => row.signedUrl);
+        renderPhotos(visibleRows);
+        const skipped = withUrls.length - visibleRows.length;
+        const suffix = skipped ? ' ' + skipped + ' could not be previewed.' : '';
+        setStatus(reviewStatus, 'Showing ' + visibleRows.length + ' recent photo' + (visibleRows.length === 1 ? '.' : 's.') + suffix, 'success');
+      } catch (error) {
+        console.error(error);
+        renderEmpty('Could not load photos.');
+        setStatus(reviewStatus, error instanceof Error ? error.message : String(error), 'error');
+      } finally {
+        refreshBtn.disabled = false;
       }
     }
 
@@ -1040,7 +1247,7 @@
       signedInCopy.textContent = email ? 'Signed in as ' + email + '.' : '';
       authPanel.classList.add('hidden');
       reviewPanel.classList.remove('hidden');
-      await loadAdminLibrary();
+      await Promise.allSettled([loadAdminLibrary(), loadPhotos()]);
     }
 
     authForm.addEventListener('submit', async (event) => {
@@ -1059,7 +1266,7 @@
         if (!isAdmin) {
           storeSession(null);
           currentSession = null;
-          throw new Error('This account is signed in, but it is not on the admin list.');
+          throw new Error('This account is signed in, but it is not on the photo admin list.');
         }
         passwordInput.value = '';
         setStatus(authStatus, '');
@@ -1075,10 +1282,33 @@
       currentSession = null;
       storeSession(null);
       gameGrid.innerHTML = '';
+      photoGrid.innerHTML = '';
       showAuth();
     });
 
+    refreshBtn.addEventListener('click', loadPhotos);
+    clearFilterBtn.addEventListener('click', () => {
+      gameFilterInput.value = '';
+      loadPhotos();
+    });
+    gameFilterInput.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      loadPhotos();
+    });
+
+    lightbox.addEventListener('click', (event) => {
+      if (event.target === lightbox) closeLightbox();
+    });
+    lightboxClose.addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeLightbox();
+    });
+
     (async function init() {
+      const initialParams = new URLSearchParams(window.location.search);
+      gameFilterInput.value = initialParams.get('game') || initialParams.get('id') || '';
+
       const session = await getUsableSession();
       if (!session) {
         showAuth();
@@ -1092,7 +1322,7 @@
           storeSession(null);
           currentSession = null;
           showAuth();
-          setStatus(authStatus, 'This account is signed in, but it is not on the admin list.', 'error');
+          setStatus(authStatus, 'This account is signed in, but it is not on the photo admin list.', 'error');
           return;
         }
         await showReview(session);
