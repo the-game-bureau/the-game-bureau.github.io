@@ -14561,7 +14561,7 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
         : [],
     ...teamFieldState,
     waypointGroup: type === 'stop' ? normalizeWaypointGroup(raw && raw.waypointGroup) : '',
-    body: (type === 'reply' && !!(raw && raw.acceptAny))
+    body: (type === 'reply' && (!!(raw && raw.acceptAny) || (raw && raw.kind === 'photo')))
       ? ''
       : (type === 'reply' && !normalizeVariableName(raw && raw.varName) && isVariableOnlyBody(rawBody))
         ? ''
@@ -14578,7 +14578,9 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     orderIndex: normalizeNodeOrderIndex(raw && raw.orderIndex),
     kind: type === 'bubble'
       ? (raw && typeof raw.kind === 'string' && raw.kind ? raw.kind : 'text')
-      : '',
+      : type === 'reply'
+        ? (raw && raw.kind === 'photo' ? 'photo' : '')
+        : '',
     linkUrl: type === 'bubble' ? (raw && typeof raw.linkUrl === 'string' ? raw.linkUrl : '') : ''
   };
 }
