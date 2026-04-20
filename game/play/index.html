@@ -2394,7 +2394,9 @@
     function buildLegacyPayload(gameData) {
       const nodes = Array.isArray(gameData.nodes) ? gameData.nodes : [];
       const isLegacyAnytimeNodeData = (node) => !!(node && node.anytime && String(node.anytimePairId || '').trim());
-      const isInlineAnytimeReplyData = (node) => !!(node && node.type === 'reply' && node.anytime && !String(node.anytimePairId || '').trim());
+      // LEGACY ANYTIME-WAYPOINT: orphan anytime replies (no pair) are no longer treated
+      // as inline-in-waypoint triggers. They fall through to the regular reply path.
+      const isInlineAnytimeReplyData = (_node) => false;
       const sortedNodes = [...nodes].sort((a, b) => {
         const rankA = a.type === 'game' ? 0 : (isLegacyAnytimeNodeData(a) ? 2 : 1);
         const rankB = b.type === 'game' ? 0 : (isLegacyAnytimeNodeData(b) ? 2 : 1);

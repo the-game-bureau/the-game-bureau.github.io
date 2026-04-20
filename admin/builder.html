@@ -19882,8 +19882,14 @@ function setReplyTiming(replyNode, timing) {
   if (nextTiming === 'anytime') {
     if (replyNode.acceptAny) setReplyAcceptAny(replyNode, false);
     // Anytime replies are global in the new model — always paired with a guide bubble.
-    // enableAnytimeForReply no-ops if the reply already has a pair.
-    return enableAnytimeForReply(replyNode);
+    // enableAnytimeForReply bails if the reply already has outgoing links (can't auto-place the pair).
+    if (enableAnytimeForReply(replyNode)) return true;
+    if (getOutgoingLinks(replyNode.id).length) {
+      window.alert('Remove outgoing connections from this PLAYER MSG before switching it to ANYTIME.');
+    } else {
+      window.alert('Could not create the paired GUIDE MSG — try moving this node to a clearer area.');
+    }
+    return false;
   }
 
   disableAnytimeForReply(replyNode);
