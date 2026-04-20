@@ -1837,9 +1837,28 @@
       if (!uploaded) return;
 
       // PHOTO-mode reply: submitting any photo satisfies the reply and advances the flow.
-      if (activePhotoReplyContext) {
-        const ctx = activePhotoReplyContext;
-        activePhotoReplyContext = null;
+      let ctx = activePhotoReplyContext;
+      activePhotoReplyContext = null;
+
+      // Fallback: if context isn't pre-set (e.g. input was never focused) but the
+      // currently active stop has a photo trigger at the current position, build one.
+      if (!ctx && activeStop) {
+        const allMessages = getStopMessages(activeStop);
+        const triggerIndex = getTriggerIndex(allMessages, currentBubbleIndex);
+        const triggerBubble = triggerIndex >= 0 ? allMessages[triggerIndex] : null;
+        if (triggerBubble && (triggerBubble.kind === 'photo' || triggerBubble.replyExpected === 'photo')) {
+          ctx = {
+            stop: activeStop,
+            startIndex: currentBubbleIndex,
+            triggerIndex,
+            triggerBubble,
+            allMessages,
+            flowKind: activeFlowKind || 'main'
+          };
+        }
+      }
+
+      if (ctx) {
         const triggerBubble = ctx.triggerBubble;
         if (triggerBubble && triggerBubble.storesAs) {
           storeReplyValue(normalizeVarKey(triggerBubble.storesAs), '[photo]');

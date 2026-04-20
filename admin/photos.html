@@ -525,6 +525,7 @@
           <button class="btn" id="selectAllBtn" type="button" disabled>Select All</button>
           <button class="btn" id="deselectAllBtn" type="button" disabled>Deselect</button>
           <button class="btn primary" id="downloadZipBtn" type="button" disabled>Download ZIP</button>
+          <button class="btn" id="deleteSelectedBtn" type="button" disabled style="border-color:#c23737;color:#c23737">Delete</button>
         </div>
 
         <p class="status" id="reviewStatus" aria-live="polite"></p>
@@ -561,6 +562,7 @@
     const selectAllBtn = document.getElementById('selectAllBtn');
     const deselectAllBtn = document.getElementById('deselectAllBtn');
     const downloadZipBtn = document.getElementById('downloadZipBtn');
+    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
     const gameFilterInput = document.getElementById('gameFilterInput');
     const authStatus = document.getElementById('authStatus');
     const reviewStatus = document.getElementById('reviewStatus');
@@ -818,6 +820,10 @@
         downloadZipBtn.disabled = count === 0;
         downloadZipBtn.textContent = count > 0 ? `Download ZIP (${count})` : 'Download ZIP';
       }
+      if (deleteSelectedBtn) {
+        deleteSelectedBtn.disabled = count === 0;
+        deleteSelectedBtn.textContent = count > 0 ? `Delete (${count})` : 'Delete';
+      }
       if (selectAllBtn) selectAllBtn.disabled = !currentPhotos.length;
       if (deselectAllBtn) deselectAllBtn.disabled = count === 0;
     }
@@ -964,6 +970,67 @@
       }
     }
 
+    async function deleteSelectedPhotos() {
+      const selected = currentPhotos.filter((item) => selectedPhotoIds.has(String(item.id || '')));
+      if (!selected.length) return;
+      const confirmed = window.confirm(
+        `Permanently delete ${selected.length} photo${selected.length === 1 ? '' : 's'}?\n\n`
+        + `This removes the file from storage and the submission record from the database. Cannot be undone.`
+      );
+      if (!confirmed) return;
+
+      deleteSelectedBtn.disabled = true;
+      const originalLabel = deleteSelectedBtn.textContent;
+      deleteSelectedBtn.textContent = `Deleting 0/${selected.length}...`;
+      setStatus(reviewStatus, `Deleting ${selected.length} photo${selected.length === 1 ? '' : 's'}...`);
+
+      let deletedCount = 0;
+      const failures = [];
+      for (const item of selected) {
+        try {
+          // Remove storage object first so we don't end up with orphaned files if the row delete fails.
+          if (item.storage_path) {
+            const bucket = item.storage_bucket || PHOTO_BUCKET;
+            const storageUrl = new URL(
+              '/storage/v1/object/' + encodeURIComponent(bucket) + '/' + encodeStoragePath(item.storage_path),
+              SUPABASE_CONFIG.url + '/'
+            ).toString();
+            const storageRes = await fetch(storageUrl, { method: 'DELETE', headers: authHeaders() });
+            if (!storageRes.ok && storageRes.status !== 404) {
+              throw new Error(await readError(storageRes, 'storage DELETE failed'));
+            }
+          }
+
+          const rowUrl = restUrl('photo_submissions', { id: 'eq.' + item.id });
+          const rowRes = await fetch(rowUrl, { method: 'DELETE', headers: authHeaders() });
+          if (!rowRes.ok) {
+            throw new Error(await readError(rowRes, 'row DELETE failed'));
+          }
+
+          selectedPhotoIds.delete(String(item.id));
+          deletedCount += 1;
+          deleteSelectedBtn.textContent = `Deleting ${deletedCount}/${selected.length}...`;
+        } catch (err) {
+          console.error('Delete failed for', item && item.id, err);
+          failures.push(item && item.id);
+        }
+      }
+
+      deleteSelectedBtn.textContent = originalLabel;
+
+      if (failures.length) {
+        setStatus(
+          reviewStatus,
+          `Deleted ${deletedCount}; ${failures.length} failed.`,
+          failures.length === selected.length ? 'error' : ''
+        );
+      } else {
+        setStatus(reviewStatus, `Deleted ${deletedCount} photo${deletedCount === 1 ? '' : 's'}.`, 'success');
+      }
+
+      await loadPhotos();
+    }
+
     async function loadPhotos() {
       refreshBtn.disabled = true;
       setStatus(reviewStatus, 'Loading photos...');
@@ -1067,6 +1134,9 @@
     }
     if (downloadZipBtn) {
       downloadZipBtn.addEventListener('click', downloadSelectedAsZip);
+    }
+    if (deleteSelectedBtn) {
+      deleteSelectedBtn.addEventListener('click', deleteSelectedPhotos);
     }
     gameFilterInput.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter') return;
