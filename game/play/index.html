@@ -2301,6 +2301,55 @@
       table: 'games'
     };
 
+    async function fetchAnytimeRepliesFromSupabase(gameId) {
+      if (!gameId) return [];
+      const requestUrl = new URL(`rest/v1/anytime_replies`, `${SB_CONFIG.url.replace(/\/+$/, '')}/`);
+      requestUrl.searchParams.set('select', '*');
+      requestUrl.searchParams.set('game_id', `eq.${gameId}`);
+      requestUrl.searchParams.set('order', 'order_index.asc');
+      try {
+        const response = await fetch(requestUrl.toString(), {
+          headers: {
+            apikey: SB_CONFIG.key,
+            Authorization: `Bearer ${SB_CONFIG.key}`,
+            Accept: 'application/json'
+          },
+          cache: 'no-store'
+        });
+        if (!response.ok) return [];
+        const rows = await response.json();
+        return Array.isArray(rows) ? rows : [];
+      } catch (err) {
+        console.warn('Could not load anytime replies', err);
+        return [];
+      }
+    }
+
+    function buildAnytimeReplyStopsFromRows(rows) {
+      return (Array.isArray(rows) ? rows : [])
+        .filter((row) => row && String(row.trigger_text || '').trim())
+        .map((row) => {
+          const triggerText = String(row.trigger_text || '');
+          const answers = triggerText.split(/\n|;|,/g).map((s) => s.trim()).filter(Boolean);
+          const responseText = String(row.response_text || '');
+          return {
+            id: 'any-' + row.id,
+            playerReply: {
+              anytime: true,
+              anytimePairId: row.id,
+              answers,
+              storesAs: '',
+              type: 'text'
+            },
+            messages: responseText ? [{
+              bubbleId: row.id,
+              text: responseText,
+              html: responseText
+            }] : []
+          };
+        });
+    }
+
     async function fetchGameFromSupabase(id) {
       const requestUrl = new URL(`rest/v1/${SB_CONFIG.table}`, `${SB_CONFIG.url.replace(/\/+$/, '')}/`);
       requestUrl.searchParams.set('select', '*');
@@ -2565,7 +2614,7 @@
     if (!gameId) {
       renderMissingGameSelection();
     } else {
-      fetchGameFromSupabase(gameId).then(gameData => {
+      fetchGameFromSupabase(gameId).then(async (gameData) => {
         if (!gameData) {
           chatEl.textContent = 'Game not found in database.';
           return;
@@ -2603,8 +2652,10 @@
 
         const payload = buildLegacyPayload(gameData);
         const allStops = payload.stops || [];
-        
-        legacyAnytimeStops = allStops.filter((stop) => stop.playerReply?.anytime);
+
+        // SPECIFIC ANYTIME replies now live in the anytime_replies table, not in nodes.
+        const anytimeReplyRows = await fetchAnytimeRepliesFromSupabase(gameId);
+        legacyAnytimeStops = buildAnytimeReplyStopsFromRows(anytimeReplyRows);
         anytimeStops = allStops.filter((stop) => stop.inlineAnytime);
         baseGameStops = allStops.filter((stop) => !stop.playerReply?.anytime && !stop.inlineAnytime);
         vars = loadVars();

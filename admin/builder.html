@@ -7127,6 +7127,60 @@ body.builder-page--editor .details-section-grid .field-url-row{
   min-width:0;
 }
 
+.anytime-replies-list{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-bottom:6px;
+}
+.anytime-reply-row{
+  display:grid;
+  grid-template-columns:1fr 24px;
+  gap:4px;
+  padding:6px;
+  border:1px solid var(--line, #ccc);
+  border-radius:6px;
+  background:rgba(255,255,255,0.4);
+}
+.anytime-reply-row .anytime-reply-trigger{
+  grid-column:1 / 2;
+  font-weight:600;
+}
+.anytime-reply-row .anytime-reply-response{
+  grid-column:1 / 2;
+  min-height:44px;
+  resize:vertical;
+  font-family:inherit;
+}
+.anytime-reply-row .anytime-reply-delete{
+  grid-column:2 / 3;
+  grid-row:1 / 3;
+  align-self:start;
+  justify-self:end;
+  width:24px;
+  height:24px;
+  padding:0;
+  border:1px solid var(--line, #ccc);
+  border-radius:4px;
+  background:transparent;
+  color:inherit;
+  cursor:pointer;
+  font-size:16px;
+  line-height:1;
+}
+.anytime-reply-row .anytime-reply-delete:hover{
+  background:#f3a6bf;
+  color:#fff;
+}
+.anytime-replies-status{
+  margin:0;
+  min-height:1em;
+  font-size:0.82em;
+  color:var(--muted, #666);
+}
+.anytime-replies-status[data-state="error"]{ color:#c23737; }
+.anytime-replies-status[data-state="success"]{ color:#2f6b3d; }
+
 body.builder-page--editor .details-section-grid > .field,
 body.builder-page--editor .details-section-grid > .mini-note{
   min-width:0;
@@ -9058,6 +9112,18 @@ body.builder-auth-ready .builder-auth-signout{
                         <input id="nodeTagNewInput" type="text" placeholder="New tag..." autocomplete="off" disabled>
                         <button type="button" class="tag-add-btn" id="nodeTagAddBtn" disabled>+</button>
                       </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="details-section" id="detailsAnytimeRepliesSection">
+                  <div class="details-section-title">Anytime Replies</div>
+                  <div class="details-section-grid">
+                    <div class="field" id="anytimeRepliesField">
+                      <label class="field-label field-label--with-meta">SPECIFIC ANYTIME<span class="field-info" tabindex="0" role="note" aria-label="Triggers fire whenever the player types a match, regardless of where they are in the game. Stored in the anytime_replies Supabase table.">i<span class="field-tooltip" role="tooltip">Triggers fire whenever the player types a match, regardless of where they are in the game. Stored in the anytime_replies Supabase table.</span></span></label>
+                      <div id="anytimeRepliesList" class="anytime-replies-list" aria-live="polite"></div>
+                      <button type="button" class="tag-add-btn" id="anytimeReplyAddBtn" disabled>+ Add Reply</button>
+                      <p class="anytime-replies-status" id="anytimeRepliesStatus" aria-live="polite"></p>
                     </div>
                   </div>
                 </section>
@@ -16414,6 +16480,7 @@ function openSavedGame(gameId, options = {}) {
   const _gameNotesInput = document.getElementById('gameNotesInput');
   if (_gameNotesInput) _gameNotesInput.value = '';
   void loadGameNotes(game.id);
+  void loadAnytimeRepliesForCurrentGame();
 }
 
 async function openSavedGameById(gameId, options = {}) {
@@ -17898,6 +17965,7 @@ function updateSelectionUi(options = {}) {
   if (tertiaryColorField) tertiaryColorField.hidden = !showGameDetails;
   if (quaternaryColorField) quaternaryColorField.hidden = !showGameDetails;
   tagsField.hidden = !showGameDetails;
+  if (anytimeRepliesField) anytimeRepliesField.hidden = !showGameDetails;
   if (teamsField) teamsField.hidden = !showGameDetails;
   if (nodeTitleLabelText) nodeTitleLabelText.textContent = 'GAME NAME';
   nodeBodyLabel.textContent = 'GAME DESCRIPTION';
@@ -18616,7 +18684,8 @@ function syncReplyModeInputs(node) {
   const timing = isReplyNode ? getReplyTiming(node) : 'inline';
 
   if (objectReplyModeField) objectReplyModeField.hidden = !isReplyNode;
-  if (objectReplyTimingField) objectReplyTimingField.hidden = !(isReplyNode && !isLegacyAnytimeReply && mode === 'normal');
+  // TIMING (Inline/Anytime) is disabled — anytime replies now live in the anytime_replies table.
+  if (objectReplyTimingField) objectReplyTimingField.hidden = true;
   if (objectBodyAnswerNote) objectBodyAnswerNote.hidden = !(isReplyNode && mode === 'normal');
   if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble') || (node && (node.kind === 'image' || node.kind === 'video' || node.kind === 'audio' || node.kind === 'link' || node.kind === 'cta'));
   const isButtonNode = !!node && node.type === 'button';
@@ -21659,6 +21728,188 @@ if (objectBubbleAudioInput) {
   });
 }
 // ────────────────────────────────────────────────────────────────────────────
+
+// ── Anytime Replies: CRUD against the anytime_replies Supabase table ────────
+const ANYTIME_REPLIES_TABLE = 'anytime_replies';
+const anytimeRepliesField = document.getElementById('anytimeRepliesField');
+const anytimeRepliesList = document.getElementById('anytimeRepliesList');
+const anytimeReplyAddBtn = document.getElementById('anytimeReplyAddBtn');
+const anytimeRepliesStatus = document.getElementById('anytimeRepliesStatus');
+const detailsAnytimeRepliesSection = document.getElementById('detailsAnytimeRepliesSection');
+
+state.anytimeReplies = [];
+
+function getAnytimeAuthHeaders(extra = {}) {
+  const session = readBuilderAuthSession();
+  const token = session && session.access_token ? session.access_token : supabaseConfig.publishableKey;
+  return {
+    apikey: supabaseConfig.publishableKey,
+    Authorization: 'Bearer ' + token,
+    ...extra
+  };
+}
+
+function setAnytimeRepliesStatus(message, state = '') {
+  if (!anytimeRepliesStatus) return;
+  anytimeRepliesStatus.textContent = message || '';
+  if (state) anytimeRepliesStatus.dataset.state = state;
+  else anytimeRepliesStatus.removeAttribute('data-state');
+  if (message) {
+    const snapshot = message;
+    setTimeout(() => {
+      if (anytimeRepliesStatus.textContent === snapshot) setAnytimeRepliesStatus('');
+    }, 2500);
+  }
+}
+
+function createAnytimeReplyRowEl(row) {
+  const el = document.createElement('div');
+  el.className = 'anytime-reply-row';
+  el.dataset.id = row.id || '';
+
+  const trigger = document.createElement('input');
+  trigger.type = 'text';
+  trigger.className = 'anytime-reply-trigger';
+  trigger.placeholder = 'trigger (comma-separated for multiple)';
+  trigger.value = row.trigger_text || '';
+  trigger.addEventListener('blur', () => persistAnytimeReplyField(row, 'trigger_text', trigger.value));
+
+  const response = document.createElement('textarea');
+  response.className = 'anytime-reply-response';
+  response.placeholder = 'response';
+  response.rows = 2;
+  response.value = row.response_text || '';
+  response.addEventListener('blur', () => persistAnytimeReplyField(row, 'response_text', response.value));
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'anytime-reply-delete';
+  del.title = 'Delete this reply';
+  del.textContent = '\u00d7';
+  del.addEventListener('click', () => removeAnytimeReply(row));
+
+  el.append(trigger, response, del);
+  return el;
+}
+
+function renderAnytimeRepliesList() {
+  if (!anytimeRepliesList) return;
+  anytimeRepliesList.innerHTML = '';
+  (state.anytimeReplies || []).forEach((row) => {
+    anytimeRepliesList.appendChild(createAnytimeReplyRowEl(row));
+  });
+  if (anytimeReplyAddBtn) anytimeReplyAddBtn.disabled = !state.currentGameId;
+}
+
+async function loadAnytimeRepliesForCurrentGame() {
+  state.anytimeReplies = [];
+  const gameId = state.currentGameId;
+  if (!gameId || !hasSupabaseStore()) {
+    renderAnytimeRepliesList();
+    return;
+  }
+  try {
+    const url = buildSupabaseUrl({
+      select: '*',
+      game_id: 'eq.' + gameId,
+      order: 'order_index.asc'
+    }, ANYTIME_REPLIES_TABLE);
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: getSupabaseHeaders({ Accept: 'application/json' })
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (Array.isArray(rows)) state.anytimeReplies = rows;
+    }
+  } catch (e) {
+    setAnytimeRepliesStatus('Could not load anytime replies: ' + e.message, 'error');
+  }
+  renderAnytimeRepliesList();
+}
+
+async function addAnytimeReply() {
+  if (!state.currentGameId) return;
+  const nextOrder = (state.anytimeReplies || []).reduce((m, r) => Math.max(m, Number(r.order_index) || 0), 0) + 10;
+  const payload = {
+    game_id: state.currentGameId,
+    trigger_text: '',
+    response_text: '',
+    order_index: nextOrder
+  };
+  try {
+    const url = buildSupabaseUrl({}, ANYTIME_REPLIES_TABLE);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: getAnytimeAuthHeaders({
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+        Accept: 'application/json'
+      }),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      setAnytimeRepliesStatus('Add failed: ' + (await res.text() || res.status), 'error');
+      return;
+    }
+    const rows = await res.json();
+    if (Array.isArray(rows) && rows[0]) {
+      state.anytimeReplies.push(rows[0]);
+      renderAnytimeRepliesList();
+      setAnytimeRepliesStatus('Added.', 'success');
+      const lastRowEl = anytimeRepliesList && anytimeRepliesList.lastElementChild;
+      const triggerInput = lastRowEl && lastRowEl.querySelector('.anytime-reply-trigger');
+      if (triggerInput) triggerInput.focus();
+    }
+  } catch (e) {
+    setAnytimeRepliesStatus('Add failed: ' + e.message, 'error');
+  }
+}
+
+async function persistAnytimeReplyField(row, field, value) {
+  if (!row || !row.id) return;
+  const nextValue = String(value == null ? '' : value);
+  if (String(row[field] == null ? '' : row[field]) === nextValue) return;
+  row[field] = nextValue;
+  try {
+    const url = buildSupabaseUrl({ id: 'eq.' + row.id }, ANYTIME_REPLIES_TABLE);
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: getAnytimeAuthHeaders({
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal'
+      }),
+      body: JSON.stringify({ [field]: nextValue })
+    });
+    if (!res.ok) {
+      setAnytimeRepliesStatus('Save failed: ' + (await res.text() || res.status), 'error');
+      return;
+    }
+    setAnytimeRepliesStatus('Saved.', 'success');
+  } catch (e) {
+    setAnytimeRepliesStatus('Save failed: ' + e.message, 'error');
+  }
+}
+
+async function removeAnytimeReply(row) {
+  if (!row || !row.id) return;
+  if (!window.confirm('Delete this anytime reply?')) return;
+  try {
+    const url = buildSupabaseUrl({ id: 'eq.' + row.id }, ANYTIME_REPLIES_TABLE);
+    const res = await fetch(url, { method: 'DELETE', headers: getAnytimeAuthHeaders() });
+    if (!res.ok) {
+      setAnytimeRepliesStatus('Delete failed: ' + (await res.text() || res.status), 'error');
+      return;
+    }
+    state.anytimeReplies = (state.anytimeReplies || []).filter((r) => r.id !== row.id);
+    renderAnytimeRepliesList();
+    setAnytimeRepliesStatus('Deleted.', 'success');
+  } catch (e) {
+    setAnytimeRepliesStatus('Delete failed: ' + e.message, 'error');
+  }
+}
+
+if (anytimeReplyAddBtn) anytimeReplyAddBtn.addEventListener('click', addAnytimeReply);
 
   </script>
 </body>
