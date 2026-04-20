@@ -12123,7 +12123,9 @@ function focusReplyValidationIssue(issue) {
 }
 
 function validateReplyNodes(options = {}) {
-  const issue = getFirstReplyValidationIssue() || getFirstAnytimeWaypointValidationIssue();
+  // LEGACY ANYTIME-WAYPOINT: waypoint-coupled anytime validation removed — anytime replies are now global
+  // const issue = getFirstReplyValidationIssue() || getFirstAnytimeWaypointValidationIssue();
+  const issue = getFirstReplyValidationIssue();
   if (!issue) return null;
   focusReplyValidationIssue(issue);
   if (options.showAlert !== false) window.alert(issue.message);
@@ -12132,6 +12134,10 @@ function validateReplyNodes(options = {}) {
 }
 
 function getFirstAnytimeWaypointValidationIssue() {
+  // LEGACY ANYTIME-WAYPOINT: anytime replies are no longer scoped to waypoint groups.
+  // Preserving function shell so any stray callers don't break.
+  return null;
+  /* LEGACY BODY — restore if reintroducing waypoint-scoped anytime:
   const waypointGroups = getConversationWaypointGroups();
   for (const group of waypointGroups) {
     if (!group || !group.stop) continue;
@@ -12153,10 +12159,14 @@ function getFirstAnytimeWaypointValidationIssue() {
     };
   }
   return null;
+  */
 }
 
 function canEnableInlineAnytimeForReply(replyNode, options = {}) {
+  // LEGACY ANYTIME-WAYPOINT: anytime replies are now global, no waypoint eligibility check.
   if (!replyNode || replyNode.type !== 'reply') return false;
+  return true;
+  /* LEGACY BODY — restore if reintroducing waypoint-scoped anytime:
   const waypointGroup = getWaypointConversationGroupForNode(replyNode.id);
   if (!waypointGroup || !waypointGroup.stop) {
     if (options.showAlert !== false) {
@@ -12182,6 +12192,7 @@ function canEnableInlineAnytimeForReply(replyNode, options = {}) {
     return false;
   }
   return true;
+  */
 }
 
 function buildBestGuessReplyVariableName(node, preferredSource = null) {
@@ -12620,9 +12631,13 @@ function getWaypointConversationGroupForNode(nodeId, excludeNodeId = null) {
 }
 
 function getInlineAnytimeRepliesInWaypointGroup(group) {
+  // LEGACY ANYTIME-WAYPOINT: anytime replies are no longer grouped inside waypoints.
+  return [];
+  /* LEGACY BODY:
   return group && Array.isArray(group.nodes)
     ? group.nodes.filter((node) => isInlineAnytimeReplyNode(node))
     : [];
+  */
 }
 
 function getWaypointRepliesInGroup(group) {
@@ -12632,12 +12647,18 @@ function getWaypointRepliesInGroup(group) {
 }
 
 function isInlineAnytimeWaypointGroup(group) {
-  return !!(group && group.stop && getInlineAnytimeRepliesInWaypointGroup(group).length);
+  // LEGACY ANYTIME-WAYPOINT: no more waypoint-scoped anytime groups.
+  return false;
+  /* LEGACY: return !!(group && group.stop && getInlineAnytimeRepliesInWaypointGroup(group).length); */
 }
 
 function isInlineAnytimeWaypointNode(node) {
+  // LEGACY ANYTIME-WAYPOINT: no node is flagged as living in a waypoint-anytime group.
+  return false;
+  /* LEGACY:
   if (!node || !node.id) return false;
   return isInlineAnytimeWaypointGroup(getWaypointConversationGroupForNode(node.id));
+  */
 }
 
 function isPhoneThreadNode(node) {
@@ -12850,11 +12871,12 @@ function getPhoneAnytimeRows() {
     rows.push([node]);
   });
 
-  getConversationWaypointGroups()
-    .filter((group) => isInlineAnytimeWaypointGroup(group))
-    .forEach((group) => {
-      buildPhoneRowsFromNodes(group.nodes).forEach((row) => rows.push(row));
-    });
+  // LEGACY ANYTIME-WAYPOINT: inline anytime groups inside waypoints are disabled.
+  // getConversationWaypointGroups()
+  //   .filter((group) => isInlineAnytimeWaypointGroup(group))
+  //   .forEach((group) => {
+  //     buildPhoneRowsFromNodes(group.nodes).forEach((row) => rows.push(row));
+  //   });
 
   return rows;
 }
@@ -19855,15 +19877,13 @@ function setReplyTiming(replyNode, timing) {
   const nextTiming = String(timing || '').trim().toLowerCase();
   const previousTiming = getReplyTiming(replyNode);
   if (nextTiming !== 'anytime' && nextTiming !== 'inline') return false;
-  if (previousTiming === nextTiming && !(nextTiming === 'anytime' && getRawAnytimePairId(replyNode))) return true;
+  if (previousTiming === nextTiming && getRawAnytimePairId(replyNode)) return true;
 
   if (nextTiming === 'anytime') {
-    if (!canEnableInlineAnytimeForReply(replyNode, { showAlert: true })) return false;
     if (replyNode.acceptAny) setReplyAcceptAny(replyNode, false);
-    disableAnytimeForReply(replyNode);
-    replyNode.anytime = true;
-    replyNode.anytimePairId = '';
-    return true;
+    // Anytime replies are global in the new model — always paired with a guide bubble.
+    // enableAnytimeForReply no-ops if the reply already has a pair.
+    return enableAnytimeForReply(replyNode);
   }
 
   disableAnytimeForReply(replyNode);

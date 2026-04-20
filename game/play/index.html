@@ -2052,20 +2052,37 @@
       return true;
     }
 
-    function tryStartLegacyAnytimeAfterCompletion(value) {
+    // Global SPECIFIC ANYTIME: paired PLAYER MSG + GUIDE MSG fires whenever the
+    // typed text matches, regardless of active stop or main-flow state. Pending
+    // state is preserved and resumed after the paired guide message finishes.
+    function tryStartPairedAnytimeInterrupt(value) {
       const typedValue = String(value || '').trim();
-      if (!typedValue || activeInterruptContext || activeStop || !mainFlowCompleted) return false;
-      const legacyAnytimeMatch = legacyAnytimeStops.find((candidateStop) =>
+      if (!typedValue || activeInterruptContext) return false;
+      const pairedMatch = legacyAnytimeStops.find((candidateStop) =>
         (candidateStop.playerReply?.answers || []).some((answer) => norm(answer) === norm(typedValue))
       );
-      if (!legacyAnytimeMatch) return false;
+      if (!pairedMatch) return false;
+
+      const canResume = !!activeStop || !mainFlowCompleted;
+      if (canResume) {
+        activeInterruptContext = {
+          resumeStopId: activeStop && activeStop.id ? activeStop.id : '',
+          resumeStopIndex: activeStop ? currentStopIndex : -1
+        };
+        clearPendingMessageFlow();
+      }
+
       disableInput();
       addBubble(typedValue, false);
-      const messages = getStopMessages(legacyAnytimeMatch);
+      const messages = getStopMessages(pairedMatch);
       showMessages(messages, () => {
-        activeStop = null;
-        activeFlowKind = 'main';
-        disableInput();
+        if (canResume) {
+          finishAnytimeInterrupt();
+        } else {
+          activeStop = null;
+          activeFlowKind = 'main';
+          disableInput();
+        }
       });
       return true;
     }
@@ -2152,8 +2169,10 @@
     function handleComposerSubmit() {
       const typedValue = String(gameInput.value || '').trim();
       if (!typedValue) return;
+      // Paired SPECIFIC-ANYTIME fires first (global, interrupts anything),
+      // then the legacy inline-anytime-in-waypoint path.
+      if (tryStartPairedAnytimeInterrupt(typedValue)) return;
       if (tryStartAnytimeInterrupt(typedValue)) return;
-      if (tryStartLegacyAnytimeAfterCompletion(typedValue)) return;
       if (_submitHandler) _submitHandler(typedValue);
     }
 
