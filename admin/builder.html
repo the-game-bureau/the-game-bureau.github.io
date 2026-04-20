@@ -7214,6 +7214,29 @@ body.builder-page--editor .field-label-meta{
   letter-spacing:.08em;
 }
 
+.selection-id-editable{
+  display:inline-block;
+  min-width:1ch;
+  padding:0 2px;
+  border-radius:3px;
+  outline:none;
+  cursor:text;
+  font:inherit;
+  color:inherit;
+  white-space:pre;
+}
+.selection-id-editable:hover{
+  background:rgba(var(--bic-blue-rgb,45,72,128), .08);
+}
+.selection-id-editable:focus{
+  background:rgba(var(--bic-blue-rgb,45,72,128), .14);
+  box-shadow:inset 0 -1px 0 currentColor;
+}
+.selection-id-editable[data-invalid="true"]{
+  background:rgba(194, 55, 55, 0.18);
+  color:#c23737;
+}
+
 body.builder-page--editor #inspector .details-section-title,
 body.builder-page--editor #inspector .field-label,
 body.builder-page--editor #inspector .field-label-meta,
@@ -8859,7 +8882,7 @@ body.builder-auth-ready .builder-auth-signout{
                     <div class="field" id="titleField">
                       <label class="field-label field-label--with-meta" id="nodeTitleLabel" for="nodeTitleInput">
                         <span class="field-label-text" id="nodeTitleLabelText">Game Name</span>
-                        <span class="field-label-meta" id="selectionId" hidden>(ID: none)</span>
+                        <span class="field-label-meta" id="selectionId" hidden>(ID: <span class="selection-id-editable" id="selectionIdInput" contenteditable="false" spellcheck="false" aria-label="Game ID (click to edit)"></span>)</span>
                       </label>
                       <input id="nodeTitleInput" type="text" autocomplete="off" disabled>
                     </div>
@@ -11516,6 +11539,7 @@ const varValuesField = document.getElementById('varValuesField');
 const varValueInputs = [1, 2, 3, 4].map((index) => document.getElementById('varValue' + index));
 const varCorrectRadios = [0, 1, 2, 3].map((index) => document.getElementById('varCorrect' + index));
 const selectionId = document.getElementById('selectionId');
+const selectionIdInput = document.getElementById('selectionIdInput');
 const objectSelectionId = document.getElementById('objectSelectionId');
 const duplicateGameBtn = document.getElementById('duplicateGameBtn');
 const featureGameBtn = document.getElementById('featureGameBtn');
@@ -18184,9 +18208,18 @@ function updateSelectionUi(options = {}) {
   });
   nodeBodyInput.value = isGameNode ? (meta.body || '') : '';
   nodeBodyInput.placeholder = '';
-  selectionId.textContent = currentGameEntry && currentGameEntry.id
-    ? '(ID: ' + String(currentGameEntry.id).trim() + ')'
-    : '(ID: none)';
+  // selectionId wraps: "(ID: <span id=selectionIdInput contenteditable>id</span>)"
+  const currentId = currentGameEntry && currentGameEntry.id ? String(currentGameEntry.id).trim() : '';
+  if (selectionIdInput) {
+    if (document.activeElement !== selectionIdInput) {
+      selectionIdInput.textContent = currentId || 'none';
+    }
+    selectionIdInput.contentEditable = !!(showGameDetails && currentId);
+    selectionIdInput.removeAttribute('data-invalid');
+    selectionIdInput.title = showGameDetails && currentId
+      ? 'Click to rename this game ID (must be unique)'
+      : '';
+  }
   selectionId.hidden = !showGameDetails;
   syncDetailsSectionVisibility();
   if (document.activeElement !== objectBodyInput) closeVariableAutocomplete();
@@ -21939,6 +21972,130 @@ async function removeAnytimeReply(row) {
 }
 
 if (anytimeReplyAddBtn) anytimeReplyAddBtn.addEventListener('click', addAnytimeReply);
+
+// ── Editable Game ID ────────────────────────────────────────────────────────
+const GAME_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+function normalizeGameIdInput(value) {
+  return String(value || '').replace(/\s+/g, '').trim();
+}
+
+async function renameCurrentGameId(nextId) {
+  const oldId = String(state.currentGameId || '').trim();
+  const trimmed = normalizeGameIdInput(nextId);
+  if (!trimmed) return { ok: false, error: 'Game ID cannot be empty.' };
+  if (trimmed === oldId) return { ok: true, unchanged: true };
+  if (!GAME_ID_PATTERN.test(trimmed)) {
+    return { ok: false, error: 'Game ID must be 1-64 characters of letters, numbers, underscores, or hyphens.' };
+  }
+
+  // Local uniqueness check
+  const clash = (state.headerGames || []).some((g) => g && g.id === trimmed)
+    || (state.store.games || []).some((g) => g && g.id === trimmed);
+  if (clash) return { ok: false, error: `A game with ID "${trimmed}" already exists.` };
+
+  if (!hasSupabaseStore()) return { ok: false, error: 'Supabase is not configured.' };
+
+  try {
+    const url = buildSupabaseUrl({ id: 'eq.' + oldId });
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: getAnytimeAuthHeaders({
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal'
+      }),
+      body: JSON.stringify({ id: trimmed })
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      let msg = text || ('HTTP ' + res.status);
+      if (/foreign key/i.test(text)) {
+        msg = 'Cannot rename: other tables still reference the old ID. Run the ON UPDATE CASCADE migration (_dev/docs/supabase/cascade-game-id.sql) in the Supabase SQL editor, then try again.';
+      }
+      return { ok: false, error: msg };
+    }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+
+  // Update local state to match.
+  state.currentGameId = trimmed;
+  if (Array.isArray(state.store.games)) {
+    state.store.games.forEach((g) => { if (g && g.id === oldId) g.id = trimmed; });
+  }
+  if (Array.isArray(state.headerGames)) {
+    state.headerGames.forEach((g) => { if (g && g.id === oldId) g.id = trimmed; });
+  }
+  try {
+    if (localStorage.getItem(LOCAL_OPEN_GAME_KEY) === oldId) {
+      localStorage.setItem(LOCAL_OPEN_GAME_KEY, trimmed);
+    }
+  } catch (error) {}
+  try { syncGameIdToUrl(); } catch (error) {}
+  renderGameshelf();
+  renderGamePickerSelect();
+  updateSelectionUi();
+  return { ok: true };
+}
+
+if (selectionIdInput) {
+  let idBeforeEdit = '';
+
+  selectionIdInput.addEventListener('focus', () => {
+    idBeforeEdit = selectionIdInput.textContent || '';
+    // Select all contents for quick overwrite
+    const range = document.createRange();
+    range.selectNodeContents(selectionIdInput);
+    const sel = window.getSelection();
+    if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+  });
+
+  selectionIdInput.addEventListener('input', () => {
+    const value = normalizeGameIdInput(selectionIdInput.textContent || '');
+    const invalid = value && !GAME_ID_PATTERN.test(value);
+    selectionIdInput.toggleAttribute('data-invalid', !!invalid);
+  });
+
+  selectionIdInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      selectionIdInput.blur();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      selectionIdInput.textContent = idBeforeEdit;
+      selectionIdInput.removeAttribute('data-invalid');
+      selectionIdInput.blur();
+    }
+  });
+
+  selectionIdInput.addEventListener('blur', async () => {
+    const proposed = normalizeGameIdInput(selectionIdInput.textContent || '');
+    const previous = idBeforeEdit;
+    idBeforeEdit = '';
+
+    if (!proposed || proposed === previous) {
+      selectionIdInput.textContent = previous || (state.currentGameId || 'none');
+      selectionIdInput.removeAttribute('data-invalid');
+      return;
+    }
+
+    if (!window.confirm(`Rename game ID from "${previous}" to "${proposed}"?\n\nAll references in other tables must already allow ON UPDATE CASCADE.`)) {
+      selectionIdInput.textContent = previous;
+      selectionIdInput.removeAttribute('data-invalid');
+      return;
+    }
+
+    const result = await renameCurrentGameId(proposed);
+    if (!result.ok) {
+      window.alert(result.error || 'Could not rename game ID.');
+      selectionIdInput.textContent = previous;
+      selectionIdInput.setAttribute('data-invalid', 'true');
+      return;
+    }
+    selectionIdInput.removeAttribute('data-invalid');
+    selectionIdInput.textContent = state.currentGameId || '';
+  });
+}
 
   </script>
 </body>
