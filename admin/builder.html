@@ -10161,6 +10161,8 @@ const PHONE_ANYTIME_ROW_GAP = 26;
 const PHONE_ANYTIME_BOTTOM_PADDING = 72;
 const PHONE_BUBBLE_MIN_WIDTH = 110;
 const PHONE_BUBBLE_MAX_WIDTH = 258;
+// Matches iMessage's collapsed photo/video width (~240-258pt on a 375pt screen).
+const PHONE_IMAGE_BUBBLE_WIDTH = 248;
 const STENCIL_DRAG_START_DISTANCE = 6;
 const SINGLE_SHEET_SCROLL = true;
 const STENCIL_SHORTCUTS = {
@@ -12947,13 +12949,19 @@ function getPhoneBubbleSize(node, maxWidth = PHONE_BUBBLE_MAX_WIDTH) {
   if (node.type === 'bubble' && node.kind === 'cta') {
     return { width: Math.round(maxWidth || PHONE_BUBBLE_MAX_WIDTH), height: Math.max(38, node.height || 38) };
   }
-  // Image/video bubbles: 6px padding each side — bubble sizes to media's natural width
+  // Image/video bubbles: match iMessage's collapsed photo width. Fixed display
+  // width regardless of source size; height scales to the media's aspect ratio
+  // so portraits stay tall and landscapes stay short.
   if (node.type === 'bubble' && (node.kind === 'image' || node.kind === 'video')) {
-    const natW = node._naturalImageWidth;
-    const w = natW
-      ? clamp(Math.round(natW + 12), PHONE_BUBBLE_MIN_WIDTH, Math.round(maxWidth || PHONE_BUBBLE_MAX_WIDTH))
-      : Math.round(maxWidth || PHONE_BUBBLE_MAX_WIDTH);
-    return { width: w, height: Math.max(38, node.height || 38) };
+    const cap = Math.min(PHONE_IMAGE_BUBBLE_WIDTH, Math.round(maxWidth || PHONE_BUBBLE_MAX_WIDTH));
+    const width = Math.max(PHONE_BUBBLE_MIN_WIDTH, cap);
+    const natW = Number(node._naturalImageWidth) || 0;
+    const natH = Number(node._naturalImageHeight) || 0;
+    const mediaWidth = Math.max(0, width - 12); // 6px padding each side
+    const mediaHeight = natW > 0 && natH > 0
+      ? Math.round(mediaWidth * (natH / natW))
+      : Math.round(mediaWidth * 0.75); // default 4:3 landscape when aspect unknown
+    return { width, height: Math.max(38, mediaHeight + 12, node.height || 38) };
   }
   const isMessageBubble = node.type === 'bubble' || node.type === 'reply';
   const preferredWidths = {
