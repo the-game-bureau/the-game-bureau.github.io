@@ -8976,6 +8976,10 @@ body.builder-auth-ready .builder-auth-signout{
                             <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModeNormalInput" value="normal" disabled>
                             <span class="mode-toggle-btn">Specific</span>
                           </label>
+                          <label class="mode-toggle-option" for="replyModePhotoInput">
+                            <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModePhotoInput" value="photo" disabled>
+                            <span class="mode-toggle-btn">Photo</span>
+                          </label>
                         </div>
                       </div>
 
@@ -9377,6 +9381,10 @@ body.builder-auth-ready .builder-auth-signout{
                       <input class="mode-toggle-input" type="radio" name="objectReplyMode" id="objectReplyModeNormalInput" value="normal" disabled>
                       <span class="mode-toggle-btn">Specific</span>
                     </label>
+                    <label class="mode-toggle-option" for="objectReplyModePhotoInput">
+                      <input class="mode-toggle-input" type="radio" name="objectReplyMode" id="objectReplyModePhotoInput" value="photo" disabled>
+                      <span class="mode-toggle-btn">Photo</span>
+                    </label>
                   </div>
                 </div>
 
@@ -9652,6 +9660,10 @@ body.builder-auth-ready .builder-auth-signout{
                       <label class="mode-toggle-option" for="replyModeNormalInput">
                         <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModeNormalInput" value="normal" disabled>
                         <span class="mode-toggle-btn">Specific</span>
+                      </label>
+                      <label class="mode-toggle-option" for="replyModePhotoInput">
+                        <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModePhotoInput" value="photo" disabled>
+                        <span class="mode-toggle-btn">Photo</span>
                       </label>
                     </div>
                   </div>
@@ -11484,10 +11496,12 @@ const replyModeField = document.getElementById('replyModeField');
 const replyModeNormalInput = document.getElementById('replyModeNormalInput');
 const replyModeAnyAnswerInput = document.getElementById('replyModeAnyAnswerInput');
 const replyModeAnytimeInput = document.getElementById('replyModeAnytimeInput');
+const replyModePhotoInput = document.getElementById('replyModePhotoInput');
 const objectReplyModeField = document.getElementById('objectReplyModeField');
 const objectReplyModeNormalInput = document.getElementById('objectReplyModeNormalInput');
 const objectReplyModeAnyAnswerInput = document.getElementById('objectReplyModeAnyAnswerInput');
 const objectReplyModeAnytimeInput = document.getElementById('objectReplyModeAnytimeInput');
+const objectReplyModePhotoInput = document.getElementById('objectReplyModePhotoInput');
 const objectReplyTimingField = document.getElementById('objectReplyTimingField');
 const objectReplyTimingInlineInput = document.getElementById('objectReplyTimingInlineInput');
 const objectReplyTimingAnytimeInput = document.getElementById('objectReplyTimingAnytimeInput');
@@ -17848,8 +17862,9 @@ function updateObjectInspectorUi(node, link, copyText) {
     objectButtonTargetInput.value = isButtonNode && node ? (node.buttonUrl || '') : '';
   }
   syncReplyModeInputs(node);
+  const replyMode = isReplyNode ? getReplyMode(node) : '';
   if (objectBodyInput) {
-    objectBodyInput.disabled = isLinkSelected || !node || (isReplyNode && !!(node && node.acceptAny));
+    objectBodyInput.disabled = isLinkSelected || !node || (isReplyNode && (replyMode === 'anyanswer' || replyMode === 'photo'));
     if (document.activeElement !== objectBodyInput || objectBodyInput.dataset.nodeId !== (node && node.id)) {
       objectBodyInput.value = node ? (node.body || '') : '';
       objectBodyInput.dataset.nodeId = node ? node.id : '';
@@ -18662,6 +18677,7 @@ function disableAnytimeForReply(replyNode) {
 
 function getReplyMode(node) {
   if (!node || node.type !== 'reply') return 'normal';
+  if (node.kind === 'photo') return 'photo';
   if (node.acceptAny) return 'anyanswer';
   return 'normal';
 }
@@ -18683,12 +18699,13 @@ function syncReplyModeInputs(node) {
   if (objectBodyAnswerNote) objectBodyAnswerNote.hidden = !(isReplyNode && mode === 'normal');
   if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble') || (node && (node.kind === 'image' || node.kind === 'video' || node.kind === 'audio' || node.kind === 'link' || node.kind === 'cta'));
   const isButtonNode = !!node && node.type === 'button';
-  if (objectDescriptionField) objectDescriptionField.hidden = isButtonNode || (isReplyNode && mode === 'anyanswer') || (node && node.type === 'bubble' && (node.kind === 'image' || node.kind === 'video' || node.kind === 'audio' || node.kind === 'link' || node.kind === 'cta'));
+  if (objectDescriptionField) objectDescriptionField.hidden = isButtonNode || (isReplyNode && (mode === 'anyanswer' || mode === 'photo')) || (node && node.type === 'bubble' && (node.kind === 'image' || node.kind === 'video' || node.kind === 'audio' || node.kind === 'link' || node.kind === 'cta'));
 
   [
     [objectReplyModeNormalInput, 'normal'],
     [objectReplyModeAnyAnswerInput, 'anyanswer'],
-    [objectReplyModeAnytimeInput, 'anytime']
+    [objectReplyModeAnytimeInput, 'anytime'],
+    [objectReplyModePhotoInput, 'photo']
   ].forEach(([input, value]) => {
     if (!input) return;
     input.checked = isReplyNode && mode === value;
@@ -19911,12 +19928,26 @@ function setReplyMode(replyNode, mode) {
     selectedLinkId: state.selectedLinkId
   };
 
+  const previousKind = replyNode.kind || '';
   let changed = false;
   if (nextMode === 'anyanswer') {
     disableAnytimeForReply(replyNode);
-    changed = !!previous.anytime || !!previous.anytimePairId || setReplyAcceptAny(replyNode, true);
+    if (replyNode.kind === 'photo') replyNode.kind = '';
+    changed = !!previous.anytime || !!previous.anytimePairId || previousKind === 'photo' || setReplyAcceptAny(replyNode, true);
+  } else if (nextMode === 'photo') {
+    disableAnytimeForReply(replyNode);
+    // Clearing acceptAny saves/restores body; stash here too so we don't lose trigger text.
+    if (replyNode.acceptAny) setReplyAcceptAny(replyNode, false);
+    if (!savedAnswerBodies.has(replyNode.id)) savedAnswerBodies.set(replyNode.id, replyNode.body || '');
+    replyNode.body = '';
+    replyNode.kind = 'photo';
+    changed = previousKind !== 'photo' || !!previous.acceptAny || !!previous.anytime;
   } else {
-    changed = setReplyAcceptAny(replyNode, false);
+    if (replyNode.kind === 'photo') {
+      replyNode.kind = '';
+      replyNode.body = savedAnswerBodies.get(replyNode.id) || '';
+    }
+    changed = previousKind === 'photo' || setReplyAcceptAny(replyNode, false);
   }
 
   if (!changed) {
@@ -19924,6 +19955,7 @@ function setReplyMode(replyNode, mode) {
     replyNode.anytime = previous.anytime;
     replyNode.anytimePairId = previous.anytimePairId;
     replyNode.body = previous.body;
+    replyNode.kind = previousKind;
     if (previous.hadSavedAnswer) savedAnswerBodies.set(replyNode.id, previous.savedAnswer);
     else savedAnswerBodies.delete(replyNode.id);
     state.selectedId = previous.selectedId;
@@ -19959,7 +19991,7 @@ function setReplyTiming(replyNode, timing) {
   return true;
 }
 
-[replyModeNormalInput, replyModeAnyAnswerInput, replyModeAnytimeInput].forEach((input) => {
+[replyModeNormalInput, replyModeAnyAnswerInput, replyModeAnytimeInput, replyModePhotoInput].forEach((input) => {
   if (!input) return;
   input.addEventListener('change', () => {
     if (!input.checked) return;
@@ -19973,7 +20005,8 @@ function setReplyTiming(replyNode, timing) {
 [
   objectReplyModeNormalInput,
   objectReplyModeAnyAnswerInput,
-  objectReplyModeAnytimeInput
+  objectReplyModeAnytimeInput,
+  objectReplyModePhotoInput
 ].forEach((input) => {
   if (!input) return;
   input.addEventListener('change', () => {

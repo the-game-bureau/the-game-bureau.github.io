@@ -901,6 +901,7 @@
     let currentStopIndex   = 0;
     let currentBubbleIndex = 0;
     let _submitHandler     = null;
+    let activePhotoReplyContext = null;
     let vars               = {};
     let checkoutUnlocksCache = null;
     let lemonScriptPromise = null;
@@ -1820,9 +1821,10 @@
 
       showLocalPhotoBubble(file);
       setPhotoUploadBusy(true);
+      let uploaded = false;
       try {
         await uploadPhotoToSupabase(file);
-        addBubble('Photo received.', true);
+        uploaded = true;
       } catch (error) {
         console.error('Photo upload failed:', error);
         addBubble('That photo did not upload. Try again.', true);
@@ -1830,6 +1832,24 @@
         setPhotoUploadBusy(false);
         if (photoInput) photoInput.value = '';
       }
+
+      if (!uploaded) return;
+
+      // PHOTO-mode reply: submitting any photo satisfies the reply and advances the flow.
+      if (activePhotoReplyContext) {
+        const ctx = activePhotoReplyContext;
+        activePhotoReplyContext = null;
+        const triggerBubble = ctx.triggerBubble;
+        if (triggerBubble && triggerBubble.storesAs) {
+          storeReplyValue(normalizeVarKey(triggerBubble.storesAs), '[photo]');
+        }
+        disableInput();
+        const nextBubbleIndex = triggerBubble ? (ctx.triggerIndex + 1) : (ctx.allMessages ? ctx.allMessages.length : 0);
+        continueStopAfterReply(ctx.stop, nextBubbleIndex, { flowKind: ctx.flowKind });
+        return;
+      }
+
+      addBubble('Photo received.', true);
     }
 
     function completeCheckoutFlow(context = {}) {
@@ -2097,13 +2117,28 @@
       const triggerIndex = getTriggerIndex(allMessages, startIndex);
       const triggerBubble = getTriggerBubble(allMessages, startIndex);
       const reply = stop.playerReply || {};
+      const isPhotoReply = !!(triggerBubble && (triggerBubble.kind === 'photo' || triggerBubble.replyExpected === 'photo'));
       const triggerText = triggerBubble ? String(triggerBubble.html || triggerBubble.text || '').trim() : '';
       const placeholder = triggerBubble ? (triggerBubble.placeholder || '') : (reply.placeholder || '');
       gameInput.value = '';
-      gameInput.placeholder = placeholder || 'Type here…';
-      gameInput.disabled = false;
-      submitBtn.disabled = false;
-      setTimeout(() => gameInput.focus(), 80);
+      gameInput.placeholder = placeholder || (isPhotoReply ? 'Tap the camera to send a photo' : 'Type here…');
+      gameInput.disabled = isPhotoReply;
+      submitBtn.disabled = isPhotoReply;
+      if (!isPhotoReply) setTimeout(() => gameInput.focus(), 80);
+
+      if (isPhotoReply) {
+        activePhotoReplyContext = {
+          stop,
+          startIndex,
+          triggerIndex,
+          triggerBubble,
+          allMessages,
+          flowKind
+        };
+        _submitHandler = null;
+        return;
+      }
+      activePhotoReplyContext = null;
 
       _submitHandler = function(forcedValue) {
         const val = String(forcedValue != null ? forcedValue : gameInput.value).trim();
@@ -2576,16 +2611,18 @@
             currentStop.messages[currentStop.messages.length - 1].callToAction = true;
           }
           const answers = node.body ? node.body.split(/\n|;|,/g).map(s=>s.trim()).filter(Boolean) : [];
+          const isPhotoReply = node.kind === 'photo';
           currentStop.messages.push({
             bubbleId: node.id,
             fromPlayer: true,
-            text: answers[0] || node.varName || '[Answered]',
-            html: answers[0] || node.varName || '[Answered]',
-            replyExpected: node.acceptAny ? 'any' : 'word',
+            text: answers[0] || node.varName || (isPhotoReply ? '[Photo]' : '[Answered]'),
+            html: answers[0] || node.varName || (isPhotoReply ? '[Photo]' : '[Answered]'),
+            replyExpected: isPhotoReply ? 'photo' : (node.acceptAny ? 'any' : 'word'),
             answers: answers,
             storesAs: node.varName,
-            placeholder: 'Type here...',
-            anytime: isInlineAnytimeReplyData(node)
+            placeholder: isPhotoReply ? 'Tap the camera to send a photo' : 'Type here...',
+            anytime: isInlineAnytimeReplyData(node),
+            kind: isPhotoReply ? 'photo' : ''
           });
         }
       });
