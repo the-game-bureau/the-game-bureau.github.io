@@ -6682,6 +6682,20 @@ body.builder-page--editor #inspector{
   font-family:"IBM Plex Mono",monospace;
   margin-left:auto;
 }
+.game-notes-save-btn{
+  background:rgba(255,255,255,.18);
+  border:1px solid rgba(255,255,255,.3);
+  color:#fff;
+  font-family:"IBM Plex Mono",monospace;
+  font-size:.62rem;
+  font-weight:600;
+  letter-spacing:.08em;
+  cursor:pointer;
+  padding:3px 10px;
+  border-radius:4px;
+  flex-shrink:0;
+}
+.game-notes-save-btn:hover{ background:rgba(255,255,255,.28); }
 .game-notes-close-btn{
   background:none;
   border:none;
@@ -7598,8 +7612,10 @@ body.builder-page--editor .guide-image-asset-list{
 body.builder-page--editor .guide-image-asset-item{
   display:grid;
   grid-template-columns:40px minmax(0, 1fr);
+  grid-template-rows:40px;
   gap:10px;
   align-items:center;
+  overflow:hidden;
   width:100%;
   padding:6px 8px;
   border:1px solid rgba(var(--bic-blue-rgb), .14);
@@ -7630,7 +7646,9 @@ body.builder-page--editor .guide-image-asset-item.is-selected{
 body.builder-page--editor .guide-image-asset-item-thumb{
   display:block;
   width:40px;
+  min-width:40px;
   height:40px;
+  max-height:40px;
   border-radius:8px;
   object-fit:cover;
   background:rgba(var(--bic-blue-rgb), .06);
@@ -9648,6 +9666,7 @@ body.builder-auth-ready .builder-auth-signout{
     <div class="game-notes-popup-bar">
       <span class="game-notes-popup-title">GAME NOTES<span class="field-info" tabindex="0" role="note" aria-label="Use this area to take field notes about any aspect of this game in particular for future reference during game design.">i<span class="field-tooltip" role="tooltip">Use this area to take field notes about any aspect of this game in particular for future reference during game design.</span></span></span>
       <span class="game-notes-save-status" id="gameNotesSaveStatus" aria-live="polite"></span>
+      <button class="game-notes-save-btn" id="gameNotesSaveBtn" type="button">SAVE</button>
       <button class="game-notes-close-btn" id="gameNotesCloseBtn" type="button" aria-label="Close notes">&#x2715;</button>
     </div>
     <div class="game-notes-paper">
@@ -12983,15 +13002,12 @@ function updatePhoneChrome() {
     phoneThreadAvatar.dataset.hasImage = guideImageUrl ? 'true' : 'false';
   }
   if (phoneThreadStatus) phoneThreadStatus.textContent = gameNode?.guideName || '';
-  const { primaryColor, secondaryColor } = getCurrentGameColors();
+  const { primaryColor, secondaryColor, tertiaryColor: rawTertiary, quaternaryColor: rawQuaternary } = getCurrentGameColors();
   if (phoneStartBtn) {
     phoneStartBtn.style.background = primaryColor || '';
   }
-  const tertiaryColor = getGameNode()?.tertiaryColor || getEffectiveTertiary(primaryColor, secondaryColor);
-  const quaternaryColor = normalizeQuaternaryColorValue(
-    getGameNode()?.quaternaryColor,
-    getQuaternaryColorFallback(primaryColor, secondaryColor)
-  );
+  const tertiaryColor = rawTertiary || getEffectiveTertiary(primaryColor, secondaryColor);
+  const quaternaryColor = normalizeQuaternaryColorValue(rawQuaternary, getQuaternaryColorFallback(primaryColor, secondaryColor));
   if (phone) {
     phone.style.setProperty('--game-primary', primaryColor || '');
     phone.style.setProperty('--game-secondary', secondaryColor || '');
@@ -14144,8 +14160,10 @@ function updateGameLogoPreview() {
   }
 
   if (gameLogoThumbImage) {
-    gameLogoThumbImage.hidden = false;
-    gameLogoThumbImage.src = imageUrl;
+    if (gameLogoThumbImage.src !== imageUrl) {
+      gameLogoThumbImage.hidden = true;
+      gameLogoThumbImage.src = imageUrl;
+    }
   }
   if (gameLogoThumbPlaceholder) {
     gameLogoThumbPlaceholder.hidden = true;
@@ -14199,8 +14217,10 @@ function updateGuideImagePreview() {
   }
 
   if (guideImageThumbImage) {
-    guideImageThumbImage.hidden = false;
-    guideImageThumbImage.src = imageUrl;
+    if (guideImageThumbImage.src !== imageUrl) {
+      guideImageThumbImage.hidden = true;
+      guideImageThumbImage.src = imageUrl;
+    }
   }
   if (guideImageThumbPlaceholder) {
     guideImageThumbPlaceholder.hidden = true;
@@ -14249,12 +14269,13 @@ function populateBubbleImageOnlineMenu(assets) {
     item.className = 'guide-image-asset-item' + (normalizeAssetFileName(asset.url) === currentFileName ? ' is-selected' : '');
     item.setAttribute('data-asset-url', asset.url);
     const thumb = document.createElement('img');
-    thumb.className = 'guide-image-asset-thumb';
+    thumb.className = 'guide-image-asset-item-thumb';
     thumb.src = asset.url;
     thumb.alt = '';
+    thumb.loading = 'lazy';
     thumb.setAttribute('aria-hidden', 'true');
     const name = document.createElement('span');
-    name.className = 'guide-image-asset-name';
+    name.className = 'guide-image-asset-item-name';
     name.textContent = asset.name || asset.url;
     item.appendChild(thumb);
     item.appendChild(name);
@@ -14920,9 +14941,12 @@ function getCurrentGameColorFallback() {
 
 function getCurrentGameColors() {
   const fallback = getCurrentGameColorFallback();
+  const colors = state.currentGameColors && typeof state.currentGameColors === 'object' ? state.currentGameColors : {};
   return {
-    primaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.primaryColor, fallback.primaryColor),
-    secondaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.secondaryColor, fallback.secondaryColor)
+    primaryColor: normalizeSavedGameColor(colors.primaryColor, fallback.primaryColor),
+    secondaryColor: normalizeSavedGameColor(colors.secondaryColor, fallback.secondaryColor),
+    tertiaryColor: colors.tertiaryColor || '',
+    quaternaryColor: colors.quaternaryColor || ''
   };
 }
 
@@ -14957,22 +14981,30 @@ function setCurrentGameColors(nextColors = null) {
   const fallback = getCurrentGameColorFallback();
   const primaryColor = normalizeSavedGameColor(incoming.primaryColor, fallback.primaryColor);
   const secondaryColor = normalizeSavedGameColor(incoming.secondaryColor, fallback.secondaryColor);
-  state.currentGameColors = {
-    primaryColor,
-    secondaryColor
-  };
+  const rawTertiary = incoming.tertiary_color ?? incoming.tertiaryColor ?? '';
+  const rawQuaternary = incoming.quaternary_color ?? incoming.quaternaryColor ?? '';
+  const tertiaryColor = normalizeTertiaryColorValue(rawTertiary)
+    || normalizeTertiaryColorValue(getEffectiveTertiary(primaryColor, secondaryColor));
+  const quaternaryColor = normalizeQuaternaryColorValue(rawQuaternary, getQuaternaryColorFallback(primaryColor, secondaryColor))
+    || getQuaternaryColorFallback(primaryColor, secondaryColor);
+  state.currentGameColors = { primaryColor, secondaryColor, tertiaryColor, quaternaryColor };
   return state.currentGameColors;
 }
 
 function setCurrentGameColorValue(key, rawValue) {
-  if (key !== 'primaryColor' && key !== 'secondaryColor') return false;
+  const validKeys = ['primaryColor', 'secondaryColor', 'tertiaryColor', 'quaternaryColor'];
+  if (!validKeys.includes(key)) return false;
   const currentColors = getCurrentGameColors();
-  const nextValue = normalizeSavedGameColor(rawValue, currentColors[key]);
-  if (currentColors[key] === nextValue) return false;
-  state.currentGameColors = {
-    ...currentColors,
-    [key]: nextValue
-  };
+  let nextValue;
+  if (key === 'tertiaryColor') {
+    nextValue = normalizeTertiaryColorValue(rawValue, currentColors.tertiaryColor || '#ffffff');
+  } else if (key === 'quaternaryColor') {
+    nextValue = normalizeQuaternaryColorValue(rawValue, currentColors.quaternaryColor || getQuaternaryColorFallback(currentColors.primaryColor, currentColors.secondaryColor));
+  } else {
+    nextValue = normalizeSavedGameColor(rawValue, currentColors[key]);
+  }
+  if (!nextValue || currentColors[key] === nextValue) return false;
+  state.currentGameColors = { ...currentColors, [key]: nextValue };
   return true;
 }
 
@@ -18029,34 +18061,19 @@ function updateSelectionUi(options = {}) {
   secondaryColorInput.value = showGameDetails ? currentColors.secondaryColor : '';
   secondaryColorInput.classList.remove('is-invalid');
   secondaryColorPickerInput.value = colorValueToHex(currentColors.secondaryColor, '#243256');
-  let tertiaryColorValue = (showGameDetails && meta.tertiaryColor)
-    ? normalizeTertiaryColorValue(meta.tertiaryColor)
-    : '';
-  if (isGameNode) {
-    if (!tertiaryColorValue) {
-      tertiaryColorValue = normalizeTertiaryColorValue(
-        getEffectiveTertiary(currentColors.primaryColor || '#5468a7', currentColors.secondaryColor || '#243256')
-      );
-    }
-    if (state.currentGameMeta) state.currentGameMeta.tertiaryColor = tertiaryColorValue;
-  }
   if (tertiaryColorInput) {
-    tertiaryColorInput.value = tertiaryColorValue;
+    tertiaryColorInput.value = showGameDetails ? currentColors.tertiaryColor : '';
     tertiaryColorInput.classList.remove('is-invalid');
   }
   if (tertiaryColorPickerInput) {
-    tertiaryColorPickerInput.value = colorValueToHex(tertiaryColorValue, '#ffffff');
+    tertiaryColorPickerInput.value = colorValueToHex(currentColors.tertiaryColor, '#ffffff');
   }
-  const quaternaryColorFallback = getQuaternaryColorFallback(currentColors.primaryColor, currentColors.secondaryColor);
-  const quaternaryColorValue = (showGameDetails && meta)
-    ? normalizeQuaternaryColorValue(meta.quaternaryColor, quaternaryColorFallback)
-    : '';
   if (quaternaryColorInput) {
-    quaternaryColorInput.value = quaternaryColorValue;
+    quaternaryColorInput.value = showGameDetails ? currentColors.quaternaryColor : '';
     quaternaryColorInput.classList.remove('is-invalid');
   }
   if (quaternaryColorPickerInput) {
-    quaternaryColorPickerInput.value = colorValueToHex(quaternaryColorValue, quaternaryColorFallback);
+    quaternaryColorPickerInput.value = colorValueToHex(currentColors.quaternaryColor, '#243256');
   }
   syncSwatchBorders();
   nodeTagNewInput.value = '';
@@ -19376,7 +19393,9 @@ function stageCurrentGameIntoStore() {
   );
   const colors = {
     primaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.primaryColor, fallbackColors.primaryColor),
-    secondaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.secondaryColor, fallbackColors.secondaryColor)
+    secondaryColor: normalizeSavedGameColor(state.currentGameColors && state.currentGameColors.secondaryColor, fallbackColors.secondaryColor),
+    tertiaryColor: (state.currentGameColors && state.currentGameColors.tertiaryColor) || '',
+    quaternaryColor: (state.currentGameColors && state.currentGameColors.quaternaryColor) || ''
   };
   const _gn = docPayload.nodes.find((node) => node && node.type === 'game') || {};
   const _meta = state.currentGameMeta || {};
@@ -19404,8 +19423,8 @@ function stageCurrentGameIntoStore() {
     logo_url:              _meta.logoUrl || null,
     link_url:              _gn.linkUrl || null,
     button_url:            _gn.buttonUrl || null,
-    tertiary_color:        _meta.tertiaryColor || null,
-    quaternary_color:      _meta.quaternaryColor || null,
+    tertiary_color:        colors.tertiaryColor || null,
+    quaternary_color:      colors.quaternaryColor || null,
     waypoint_group:        _gn.waypointGroup || null,
     starting_location:     _meta.startingLocation || null,
     starting_location_lat: typeof _meta.startingLocationLat === 'number' ? _meta.startingLocationLat : null,
@@ -20370,6 +20389,20 @@ function syncGameColorInputs() {
   if (secondaryColorPickerInput) {
     secondaryColorPickerInput.value = colorValueToHex(colors.secondaryColor, '#243256');
   }
+  if (tertiaryColorInput) {
+    tertiaryColorInput.value = colors.tertiaryColor;
+    tertiaryColorInput.classList.remove('is-invalid');
+  }
+  if (tertiaryColorPickerInput) {
+    tertiaryColorPickerInput.value = colorValueToHex(colors.tertiaryColor, '#ffffff');
+  }
+  if (quaternaryColorInput) {
+    quaternaryColorInput.value = colors.quaternaryColor;
+    quaternaryColorInput.classList.remove('is-invalid');
+  }
+  if (quaternaryColorPickerInput) {
+    quaternaryColorPickerInput.value = colorValueToHex(colors.quaternaryColor, '#243256');
+  }
   syncSwatchBorders();
 }
 
@@ -20439,139 +20472,8 @@ function colorsMatch(a, b) {
   return colorValueToHex(a, '#000000').toLowerCase() === colorValueToHex(b, '#000000').toLowerCase();
 }
 
-function syncCurrentTertiaryInputs() {
-  const node = getGameNode();
-  const tertiaryValue = (node && node.tertiaryColor) || '';
-  if (tertiaryColorInput) {
-    tertiaryColorInput.value = tertiaryValue;
-    tertiaryColorInput.classList.remove('is-invalid');
-  }
-  if (tertiaryColorPickerInput) {
-    tertiaryColorPickerInput.value = colorValueToHex(tertiaryValue, '#ffffff');
-  }
-}
-
-function commitCurrentTertiaryColor(rawValue) {
-  if (!getGameNode() || !state.currentGameMeta) return false;
-  const nextValue = normalizeTertiaryColorValue(rawValue, state.currentGameMeta.tertiaryColor || '#ffffff');
-  if (!nextValue) return false;
-  if (colorsMatch(state.currentGameMeta.tertiaryColor, nextValue)) return false;
-  state.currentGameMeta.tertiaryColor = nextValue;
-  return true;
-}
-
-function syncCurrentQuaternaryInputs() {
-  const node = getGameNode();
-  const currentColors = getCurrentGameColors();
-  const fallback = getQuaternaryColorFallback(currentColors.primaryColor, currentColors.secondaryColor);
-  const quaternaryValue = normalizeQuaternaryColorValue(node && node.quaternaryColor, fallback);
-  if (quaternaryColorInput) {
-    quaternaryColorInput.value = quaternaryValue;
-    quaternaryColorInput.classList.remove('is-invalid');
-  }
-  if (quaternaryColorPickerInput) {
-    quaternaryColorPickerInput.value = colorValueToHex(quaternaryValue, fallback);
-  }
-}
-
-function commitCurrentQuaternaryColor(rawValue) {
-  if (!getGameNode() || !state.currentGameMeta) return false;
-  const currentColors = getCurrentGameColors();
-  const nextValue = normalizeQuaternaryColorValue(
-    rawValue,
-    getQuaternaryColorFallback(currentColors.primaryColor, currentColors.secondaryColor)
-  );
-  if (!nextValue) return false;
-  if (colorsMatch(state.currentGameMeta.quaternaryColor, nextValue)) return false;
-  state.currentGameMeta.quaternaryColor = nextValue;
-  return true;
-}
-
-if (tertiaryColorPickerInput) {
-  tertiaryColorPickerInput.addEventListener('input', () => {
-    if (!commitCurrentTertiaryColor(tertiaryColorPickerInput.value)) {
-      syncCurrentTertiaryInputs();
-      return;
-    }
-    syncCurrentTertiaryInputs();
-    updatePhoneChrome();
-    renderAll();
-    scheduleRecoverySync();
-  });
-}
-
-if (tertiaryColorInput) {
-  tertiaryColorInput.addEventListener('input', () => {
-    const supportedValue = getSupportedColorValue(tertiaryColorInput.value);
-    const hasValue = !!tertiaryColorInput.value.trim();
-    tertiaryColorInput.classList.toggle('is-invalid', hasValue && !supportedValue);
-    if (!supportedValue) return;
-    if (!commitCurrentTertiaryColor(supportedValue)) {
-      syncCurrentTertiaryInputs();
-      return;
-    }
-    syncCurrentTertiaryInputs();
-    updatePhoneChrome();
-    renderAll();
-    scheduleRecoverySync();
-  });
-
-  tertiaryColorInput.addEventListener('blur', () => {
-    const parsed = parseColorInput(tertiaryColorInput.value);
-    if (parsed && commitCurrentTertiaryColor(parsed)) {
-      syncCurrentTertiaryInputs();
-      updatePhoneChrome();
-      renderAll();
-      scheduleRecoverySync();
-    } else {
-      syncCurrentTertiaryInputs();
-    }
-    if (tertiaryColorInput.value) tertiaryColorInput.value = tertiaryColorInput.value.toUpperCase();
-  });
-}
-
-if (quaternaryColorPickerInput) {
-  quaternaryColorPickerInput.addEventListener('input', () => {
-    if (!commitCurrentQuaternaryColor(quaternaryColorPickerInput.value)) {
-      syncCurrentQuaternaryInputs();
-      return;
-    }
-    syncCurrentQuaternaryInputs();
-    updatePhoneChrome();
-    renderAll();
-    scheduleRecoverySync();
-  });
-}
-
-if (quaternaryColorInput) {
-  quaternaryColorInput.addEventListener('input', () => {
-    const supportedValue = getSupportedColorValue(quaternaryColorInput.value);
-    const hasValue = !!quaternaryColorInput.value.trim();
-    quaternaryColorInput.classList.toggle('is-invalid', hasValue && !supportedValue);
-    if (!supportedValue) return;
-    if (!commitCurrentQuaternaryColor(supportedValue)) {
-      syncCurrentQuaternaryInputs();
-      return;
-    }
-    syncCurrentQuaternaryInputs();
-    updatePhoneChrome();
-    renderAll();
-    scheduleRecoverySync();
-  });
-
-  quaternaryColorInput.addEventListener('blur', () => {
-    const parsed = parseColorInput(quaternaryColorInput.value);
-    if (parsed && commitCurrentQuaternaryColor(parsed)) {
-      syncCurrentQuaternaryInputs();
-      updatePhoneChrome();
-      renderAll();
-      scheduleRecoverySync();
-    } else {
-      syncCurrentQuaternaryInputs();
-    }
-    if (quaternaryColorInput.value) quaternaryColorInput.value = quaternaryColorInput.value.toUpperCase();
-  });
-}
+bindGameColorInputs(tertiaryColorInput, tertiaryColorPickerInput, 'tertiaryColor');
+bindGameColorInputs(quaternaryColorInput, quaternaryColorPickerInput, 'quaternaryColor');
 
 function addNewTag() {
   const node = getGameNode();
@@ -20783,8 +20685,8 @@ if (duplicateGameBtn) {
   });
 }
 const gameNotesInput = document.getElementById('gameNotesInput');
+let _gameNotesSaveTimer = null;
 if (gameNotesInput) {
-  let _gameNotesSaveTimer = null;
   gameNotesInput.addEventListener('input', () => {
     const statusEl = document.getElementById('gameNotesSaveStatus');
     if (statusEl) statusEl.textContent = '…';
@@ -20793,6 +20695,14 @@ if (gameNotesInput) {
       const gid = state.currentGameId;
       if (gid) void saveGameNotes(gid, gameNotesInput.value);
     }, 1200);
+  });
+}
+const gameNotesSaveBtn = document.getElementById('gameNotesSaveBtn');
+if (gameNotesSaveBtn) {
+  gameNotesSaveBtn.addEventListener('click', () => {
+    clearTimeout(_gameNotesSaveTimer);
+    const gid = state.currentGameId;
+    if (gid && gameNotesInput) void saveGameNotes(gid, gameNotesInput.value);
   });
 }
 const gameNotesBtn = document.getElementById('gameNotesBtn');
