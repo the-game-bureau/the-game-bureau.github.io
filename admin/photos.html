@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     * { box-sizing: border-box; }
 
@@ -292,11 +293,46 @@
     }
 
     .photo-card {
+      position: relative;
       overflow: hidden;
       background: var(--paper);
       border: 1px solid var(--line);
       border-radius: 8px;
       box-shadow: 0 18px 36px var(--paper-shadow);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .photo-card.is-selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent), 0 18px 36px var(--paper-shadow);
+    }
+
+    .photo-select {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 2;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.9);
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1;
+      user-select: none;
+    }
+
+    .photo-select:hover { background: var(--paper); }
+    .photo-select[aria-pressed="true"] {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
     }
 
     .photo-link {
@@ -486,6 +522,9 @@
           <input id="gameFilterInput" type="text" placeholder="Filter by game id">
           <button class="btn primary" id="refreshBtn" type="button">Refresh</button>
           <button class="btn" id="clearFilterBtn" type="button">Clear</button>
+          <button class="btn" id="selectAllBtn" type="button" disabled>Select All</button>
+          <button class="btn" id="deselectAllBtn" type="button" disabled>Deselect</button>
+          <button class="btn primary" id="downloadZipBtn" type="button" disabled>Download ZIP</button>
         </div>
 
         <p class="status" id="reviewStatus" aria-live="polite"></p>
@@ -519,6 +558,9 @@
     const signOutBtn = document.getElementById('signOutBtn');
     const refreshBtn = document.getElementById('refreshBtn');
     const clearFilterBtn = document.getElementById('clearFilterBtn');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const deselectAllBtn = document.getElementById('deselectAllBtn');
+    const downloadZipBtn = document.getElementById('downloadZipBtn');
     const gameFilterInput = document.getElementById('gameFilterInput');
     const authStatus = document.getElementById('authStatus');
     const reviewStatus = document.getElementById('reviewStatus');
@@ -767,35 +809,159 @@
       photoGrid.innerHTML = '<div class="empty">' + escapeHtml(message) + '</div>';
     }
 
+    let currentPhotos = [];
+    const selectedPhotoIds = new Set();
+
+    function updateSelectionUi() {
+      const count = selectedPhotoIds.size;
+      if (downloadZipBtn) {
+        downloadZipBtn.disabled = count === 0;
+        downloadZipBtn.textContent = count > 0 ? `Download ZIP (${count})` : 'Download ZIP';
+      }
+      if (selectAllBtn) selectAllBtn.disabled = !currentPhotos.length;
+      if (deselectAllBtn) deselectAllBtn.disabled = count === 0;
+    }
+
+    function togglePhotoSelection(id, force) {
+      if (!id) return;
+      const shouldSelect = typeof force === 'boolean' ? force : !selectedPhotoIds.has(id);
+      if (shouldSelect) selectedPhotoIds.add(id);
+      else selectedPhotoIds.delete(id);
+      const card = photoGrid.querySelector(`[data-card-id="${CSS.escape(id)}"]`);
+      if (card) {
+        card.classList.toggle('is-selected', shouldSelect);
+        const btn = card.querySelector('.photo-select');
+        if (btn) btn.setAttribute('aria-pressed', shouldSelect ? 'true' : 'false');
+      }
+      updateSelectionUi();
+    }
+
     function renderPhotos(items) {
-      if (!items.length) {
+      currentPhotos = Array.isArray(items) ? items : [];
+      const validIds = new Set(currentPhotos.map((item) => String(item.id || '')));
+      [...selectedPhotoIds].forEach((id) => { if (!validIds.has(id)) selectedPhotoIds.delete(id); });
+
+      if (!currentPhotos.length) {
         renderEmpty('No photos found.');
+        updateSelectionUi();
         return;
       }
 
-      photoGrid.innerHTML = items.map((item, index) => `
-        <article class="photo-card">
-          <button class="photo-link" type="button" data-index="${index}" aria-label="Open photo">
-            <img src="${escapeHtml(item.signedUrl)}" alt="${escapeHtml(item.file_name || 'Submitted photo')}" loading="lazy">
-          </button>
-          <div class="meta">
-            <strong>${escapeHtml(item.stop_title || item.game_id || 'Photo')}</strong>
-            <span>${escapeHtml(formatDate(item.created_at))}</span>
-            <span>Game: ${escapeHtml(item.game_id)}</span>
-            <span>Player: ${escapeHtml(item.player_id)}</span>
-            <span>${escapeHtml(item.file_name || '')}${item.file_size ? ' - ' + escapeHtml(formatSize(item.file_size)) : ''}</span>
-            <span>${escapeHtml(item.status || 'submitted')}</span>
-          </div>
-        </article>
-      `).join('');
+      photoGrid.innerHTML = currentPhotos.map((item, index) => {
+        const id = String(item.id || '');
+        const isSelected = selectedPhotoIds.has(id);
+        return `
+          <article class="photo-card${isSelected ? ' is-selected' : ''}" data-card-id="${escapeAttr(id)}">
+            <button class="photo-select" type="button" data-select-id="${escapeAttr(id)}" aria-pressed="${isSelected}" aria-label="Select photo">${isSelected ? '\u2713' : ''}</button>
+            <button class="photo-link" type="button" data-index="${index}" aria-label="Open photo">
+              <img src="${escapeHtml(item.signedUrl)}" alt="${escapeHtml(item.file_name || 'Submitted photo')}" loading="lazy">
+            </button>
+            <div class="meta">
+              <strong>${escapeHtml(item.stop_title || item.game_id || 'Photo')}</strong>
+              <span>${escapeHtml(formatDate(item.created_at))}</span>
+              <span>Game: ${escapeHtml(item.game_id)}</span>
+              <span>Player: ${escapeHtml(item.player_id)}</span>
+              <span>${escapeHtml(item.file_name || '')}${item.file_size ? ' - ' + escapeHtml(formatSize(item.file_size)) : ''}</span>
+              <span>${escapeHtml(item.status || 'submitted')}</span>
+            </div>
+          </article>
+        `;
+      }).join('');
 
       photoGrid.querySelectorAll('.photo-link').forEach((button) => {
         button.addEventListener('click', () => {
           const index = Number(button.dataset.index || -1);
-          const item = items[index];
+          const item = currentPhotos[index];
           if (item && item.signedUrl) openLightbox(item.signedUrl, item.file_name);
         });
       });
+
+      photoGrid.querySelectorAll('.photo-select').forEach((button) => {
+        button.addEventListener('click', (event) => {
+          event.stopPropagation();
+          togglePhotoSelection(button.dataset.selectId);
+        });
+      });
+
+      updateSelectionUi();
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value);
+    }
+
+    function buildZipFileName(item, usedNames) {
+      const originalName = String(item && item.file_name || '').trim();
+      const safeGame = String(item && item.game_id || 'game').replace(/[^A-Za-z0-9_-]+/g, '_');
+      const safePlayer = String(item && item.player_id || 'player').replace(/[^A-Za-z0-9_-]+/g, '_');
+      const ext = (originalName.match(/\.[A-Za-z0-9]+$/) || ['.jpg'])[0];
+      const baseName = originalName
+        ? originalName.replace(/[^A-Za-z0-9._-]+/g, '_')
+        : `${safePlayer}_${String(item.id || '').slice(0, 8)}${ext}`;
+      let candidate = `${safeGame}/${baseName}`;
+      let counter = 2;
+      while (usedNames.has(candidate)) {
+        const dot = baseName.lastIndexOf('.');
+        const stem = dot > 0 ? baseName.slice(0, dot) : baseName;
+        const tail = dot > 0 ? baseName.slice(dot) : '';
+        candidate = `${safeGame}/${stem}_${counter}${tail}`;
+        counter += 1;
+      }
+      usedNames.add(candidate);
+      return candidate;
+    }
+
+    async function downloadSelectedAsZip() {
+      if (typeof JSZip !== 'function') {
+        setStatus(reviewStatus, 'ZIP library failed to load.', 'error');
+        return;
+      }
+      const selected = currentPhotos.filter((item) => selectedPhotoIds.has(String(item.id || '')));
+      if (!selected.length) return;
+
+      downloadZipBtn.disabled = true;
+      const originalLabel = downloadZipBtn.textContent;
+      downloadZipBtn.textContent = `Zipping 0/${selected.length}...`;
+      setStatus(reviewStatus, `Building ZIP for ${selected.length} photo${selected.length === 1 ? '' : 's'}...`);
+
+      try {
+        const zip = new JSZip();
+        const usedNames = new Set();
+        let done = 0;
+        for (const item of selected) {
+          if (!item.signedUrl) { done += 1; continue; }
+          try {
+            const response = await fetch(item.signedUrl);
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            const blob = await response.blob();
+            zip.file(buildZipFileName(item, usedNames), blob);
+          } catch (err) {
+            console.warn('Could not fetch for zip:', item.id, err);
+          }
+          done += 1;
+          downloadZipBtn.textContent = `Zipping ${done}/${selected.length}...`;
+        }
+
+        const zipBlob = await zip.generateAsync({ type: 'blob' }, (meta) => {
+          downloadZipBtn.textContent = `Packing ${Math.round(meta.percent)}%`;
+        });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `photos-${new Date().toISOString().slice(0, 10)}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+        setStatus(reviewStatus, `Downloaded ${selected.length} photo${selected.length === 1 ? '' : 's'}.`, 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(reviewStatus, 'Could not build ZIP: ' + (err instanceof Error ? err.message : String(err)), 'error');
+      } finally {
+        downloadZipBtn.textContent = originalLabel;
+        updateSelectionUi();
+      }
     }
 
     async function loadPhotos() {
@@ -886,6 +1052,22 @@
       gameFilterInput.value = '';
       loadPhotos();
     });
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', () => {
+        currentPhotos.forEach((item) => {
+          const id = String(item.id || '');
+          if (id) togglePhotoSelection(id, true);
+        });
+      });
+    }
+    if (deselectAllBtn) {
+      deselectAllBtn.addEventListener('click', () => {
+        [...selectedPhotoIds].forEach((id) => togglePhotoSelection(id, false));
+      });
+    }
+    if (downloadZipBtn) {
+      downloadZipBtn.addEventListener('click', downloadSelectedAsZip);
+    }
     gameFilterInput.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter') return;
       event.preventDefault();
