@@ -134,28 +134,6 @@
 
     .restart-btn:active { background: #f3f4f6; }
 
-    .fullscreen-btn {
-      position: absolute;
-      right: calc(1rem + 86px);
-      top: 50%;
-      transform: translateY(-50%);
-      width: 30px;
-      height: 30px;
-      padding: 0;
-      display: grid;
-      place-items: center;
-      background: none;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      color: #6b7280;
-      cursor: pointer;
-    }
-    .fullscreen-btn svg { width: 16px; height: 16px; display: block; }
-    .fullscreen-btn:active { background: #f3f4f6; }
-    .fullscreen-btn[hidden] { display: none; }
-    body.is-fullscreen .fullscreen-btn .fs-enter { display: none; }
-    body:not(.is-fullscreen) .fullscreen-btn .fs-exit { display: none; }
-
     .chat {
       flex: 1;
       min-height: 0;
@@ -842,14 +820,6 @@
         <span id="header-status">online</span>
       </div>
     </div>
-    <button class="fullscreen-btn" id="fullscreenBtn" type="button" aria-label="Toggle full screen" title="Full screen" hidden>
-      <svg class="fs-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/>
-      </svg>
-      <svg class="fs-exit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/>
-      </svg>
-    </button>
     <button class="restart-btn" id="restartBtn" type="button">↺ RESTART</button>
   </div>
 
@@ -2365,36 +2335,6 @@
       }
       playStop(next, 0, { flowKind: 'main' });
     }
-
-    // ── Fullscreen ────────────────────────────────────────────────
-    (function setupFullscreenToggle() {
-      const btn = document.getElementById('fullscreenBtn');
-      if (!btn) return;
-      const root = document.documentElement;
-      const supportsApi = !!(root.requestFullscreen || root.webkitRequestFullscreen || root.msRequestFullscreen);
-      // iOS Safari can't go fullscreen on arbitrary elements; hide the button there.
-      if (!supportsApi) return;
-      btn.hidden = false;
-
-      function isFullscreen() {
-        return !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
-      }
-      function syncBtn() {
-        document.body.classList.toggle('is-fullscreen', isFullscreen());
-        btn.title = isFullscreen() ? 'Exit full screen' : 'Full screen';
-      }
-      btn.addEventListener('click', () => {
-        if (isFullscreen()) {
-          (document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen || function(){}).call(document);
-        } else {
-          (root.requestFullscreen || root.webkitRequestFullscreen || root.msRequestFullscreen || function(){}).call(root);
-        }
-      });
-      document.addEventListener('fullscreenchange', syncBtn);
-      document.addEventListener('webkitfullscreenchange', syncBtn);
-      document.addEventListener('msfullscreenchange', syncBtn);
-      syncBtn();
-    })();
 
     // ── Restart ───────────────────────────────────────────────────
     document.getElementById('restartBtn').addEventListener('click', () => {
