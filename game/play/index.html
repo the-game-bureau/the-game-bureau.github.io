@@ -1832,17 +1832,15 @@
         uploaded = true;
       } catch (error) {
         console.error('Photo upload failed:', error);
-        addBubble('That photo did not upload. Try again.', true);
+        addBubble("That photo didn't upload. That's ok, take the photo with your phone's camera and save it for later. Type NEXT here to continue.", true);
       } finally {
         setPhotoUploadBusy(false);
         if (photoInput) photoInput.value = '';
       }
 
-      if (!uploaded) return;
-
-      // PHOTO-mode reply: submitting any photo satisfies the reply and advances the flow.
+      // PHOTO-mode reply: submitting any photo (or typing NEXT after a failure)
+      // satisfies the reply and advances the flow.
       let ctx = activePhotoReplyContext;
-      activePhotoReplyContext = null;
 
       // Fallback: if context isn't pre-set (e.g. input was never focused) but the
       // currently active stop has a photo trigger at the current position, build one.
@@ -1861,6 +1859,38 @@
           };
         }
       }
+
+      if (!uploaded) {
+        if (!ctx) return;
+        // Enable the text box so the player can type NEXT to continue past the failure.
+        gameInput.value = '';
+        gameInput.placeholder = 'Type NEXT to continue';
+        gameInput.disabled = false;
+        submitBtn.disabled = false;
+        setTimeout(() => gameInput.focus(), 80);
+        const pendingCtx = ctx;
+        _submitHandler = function(forcedValue) {
+          const val = String(forcedValue != null ? forcedValue : gameInput.value).trim();
+          if (!val) return;
+          if (norm(val) !== norm('NEXT')) {
+            gameInput.classList.add('wrong');
+            setTimeout(() => gameInput.classList.remove('wrong'), 400);
+            return;
+          }
+          activePhotoReplyContext = null;
+          const triggerBubble = pendingCtx.triggerBubble;
+          if (triggerBubble && triggerBubble.storesAs) {
+            storeReplyValue(normalizeVarKey(triggerBubble.storesAs), '[photo-skipped]');
+          }
+          disableInput();
+          addBubble(val, false);
+          const nextBubbleIndex = triggerBubble ? (pendingCtx.triggerIndex + 1) : (pendingCtx.allMessages ? pendingCtx.allMessages.length : 0);
+          continueStopAfterReply(pendingCtx.stop, nextBubbleIndex, { flowKind: pendingCtx.flowKind });
+        };
+        return;
+      }
+
+      activePhotoReplyContext = null;
 
       if (ctx) {
         const triggerBubble = ctx.triggerBubble;
