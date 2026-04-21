@@ -1711,6 +1711,11 @@
       };
     }
 
+    function getTeamColorSlug() {
+      const raw = vars && typeof vars === 'object' ? vars['team_color'] : '';
+      return sanitizePhotoPathSegment(raw, '');
+    }
+
     function buildPhotoStoragePath(file) {
       const context = getActivePhotoContext();
       const extension = getPhotoExtension(file);
@@ -1719,8 +1724,10 @@
       const gamePart = sanitizePhotoPathSegment(gameId || 'game', 'game');
       const playerPart = sanitizePhotoPathSegment(getPlayerSessionId(), 'player');
       const stopPart = sanitizePhotoPathSegment(context.stop_id || ('stop-' + ((context.stop_index || 0) + 1)), 'stop');
+      const teamSlug = getTeamColorSlug();
       const nonce = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-      return `${gamePart}/${playerPart}/${stopPart}/${nonce}.${extension}`;
+      const fileStem = teamSlug ? `${teamSlug}-${nonce}` : nonce;
+      return `${gamePart}/${playerPart}/${stopPart}/${fileStem}.${extension}`;
     }
 
     function buildStorageObjectUrl(bucket, path) {
@@ -1747,12 +1754,17 @@
     async function insertPhotoSubmission(file, storagePath) {
       const context = getActivePhotoContext();
       const requestUrl = new URL(`rest/v1/${PHOTO_SUBMISSIONS_TABLE}`, `${SB_CONFIG.url.replace(/\/+$/, '')}/`);
+      const rawTeamColor = vars && typeof vars === 'object' ? String(vars['team_color'] || '').trim() : '';
+      const originalFileName = String(file && file.name || '');
+      const decoratedFileName = rawTeamColor
+        ? `[${rawTeamColor}] ${originalFileName}`.trim()
+        : originalFileName;
       const payload = {
         game_id: String(gameId || ''),
         player_id: getPlayerSessionId(),
         storage_bucket: PHOTO_STORAGE_BUCKET,
         storage_path: storagePath,
-        file_name: String(file && file.name || ''),
+        file_name: decoratedFileName,
         mime_type: getPhotoUploadMimeType(file, getPhotoExtension(file)),
         file_size: file && Number.isFinite(file.size) ? file.size : null,
         stop_id: context.stop_id,
