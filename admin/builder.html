@@ -4148,12 +4148,18 @@ code{font-family:"IBM Plex Mono",monospace;}
   bottom:-16px;
 }
 
-/* PLAYER MSG per-answer out-ports: give them their own tint so the author
-   can see the routing fan-out against the default out-right. */
+/* PLAYER MSG per-answer out-ports: smaller hit-zone and an accent tint so
+   the routing fan-out is visible and each port is independently clickable. */
 .node-port[data-port^="out-ans-"]{
   display:block;
+  width:22px;
+  height:22px;
+  right:-11px;
+  transform:translateY(-50%);
 }
 .node-port[data-port^="out-ans-"]::after{
+  width:10px;
+  height:10px;
   border-color: var(--accent, #5468a7);
   background: color-mix(in srgb, var(--accent, #5468a7) 18%, #fff);
 }
@@ -16834,13 +16840,6 @@ function buildOutPortsMarkup(node) {
   const ports = getNodeOutPorts(node);
   const replyAnswers = (node && node.type === 'reply') ? getReplyAnswers(node) : [];
   const hasAnswerPorts = replyAnswers.length >= 2;
-  // When a PLAYER MSG exposes per-answer ports, distribute all right-side ports
-  // evenly: out-right is the "default / any-match" fallback at the top, then
-  // one out-ans-N slot for each answer below it. out-bottom stays at bottom.
-  const rightPorts = ports.filter((p) => p !== 'out-bottom');
-  const slotForPort = new Map();
-  rightPorts.forEach((port, index) => slotForPort.set(port, index));
-  const slotCount = rightPorts.length;
 
   return ports.map((port) => {
     if (port === 'out-bottom') {
@@ -16848,15 +16847,14 @@ function buildOutPortsMarkup(node) {
     }
     let styleAttr = '';
     let titleAttr = '';
-    if (hasAnswerPorts && slotCount > 1) {
-      const slot = slotForPort.get(port) ?? 0;
-      const topPct = ((slot + 1) / (slotCount + 1) * 100).toFixed(2);
-      styleAttr = ` style="top:${topPct}%"`;
-    }
     if (port.startsWith('out-ans-')) {
       const idx = Number(port.slice('out-ans-'.length)) || 0;
       const answer = replyAnswers[idx] || '';
       titleAttr = answer ? ` title="Route when player answers: ${escapeHtml(answer)}"` : ` title="Answer ${idx + 1}"`;
+      // Stack the per-answer ports below the node with a fixed pixel gap so
+      // they never overlap out-right regardless of node height.
+      const top = `calc(100% + ${10 + idx * 24}px)`;
+      styleAttr = ` style="top:${top}"`;
     } else if (port === 'out-right' && hasAnswerPorts) {
       titleAttr = ` title="Default branch (any answer not routed below)"`;
     }
@@ -17069,19 +17067,18 @@ function getOutPortPoint(node, fromPort = 'out-right') {
       y: node.y + node.height + NODE_PORT_OFFSET
     };
   }
-  // Match buildOutPortsMarkup's vertical distribution when a PLAYER MSG has
-  // per-answer out-ans-N ports.
-  const rightPorts = getNodeOutPorts(node).filter((p) => p !== 'out-bottom');
-  const replyAnswers = (node && node.type === 'reply') ? getReplyAnswers(node) : [];
-  const hasAnswerPorts = replyAnswers.length >= 2;
-  let relativeY = node.height / 2;
-  if (hasAnswerPorts && rightPorts.length > 1) {
-    const slot = rightPorts.indexOf(normalizedPort);
-    if (slot >= 0) relativeY = ((slot + 1) / (rightPorts.length + 1)) * node.height;
+  // Per-answer ports on PLAYER MSG stack below the node's right edge with a
+  // fixed px gap (mirrors the calc() in buildOutPortsMarkup).
+  if (typeof normalizedPort === 'string' && normalizedPort.startsWith('out-ans-')) {
+    const idx = Number(normalizedPort.slice('out-ans-'.length)) || 0;
+    return {
+      x: node.x + node.width + NODE_PORT_OFFSET,
+      y: node.y + node.height + 10 + idx * 24
+    };
   }
   return {
     x: node.x + node.width + NODE_PORT_OFFSET,
-    y: node.y + relativeY
+    y: node.y + node.height / 2
   };
 }
 
