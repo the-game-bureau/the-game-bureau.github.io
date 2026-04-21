@@ -2209,13 +2209,13 @@
       const triggerText = triggerBubble ? String(triggerBubble.html || triggerBubble.text || '').trim() : '';
       const placeholder = triggerBubble ? (triggerBubble.placeholder || '') : (reply.placeholder || '');
       gameInput.value = '';
-      gameInput.placeholder = placeholder || (isPhotoReply ? 'Tap the camera to send a photo' : 'Type here…');
-      gameInput.disabled = isPhotoReply;
-      submitBtn.disabled = isPhotoReply;
-      if (!isPhotoReply) setTimeout(() => gameInput.focus(), 80);
+      gameInput.placeholder = placeholder || (isPhotoReply ? 'Tap camera, or type SKIP to continue' : 'Type here…');
+      gameInput.disabled = false;
+      submitBtn.disabled = false;
+      setTimeout(() => gameInput.focus(), 80);
 
       if (isPhotoReply) {
-        activePhotoReplyContext = {
+        const photoCtx = {
           stop,
           startIndex,
           triggerIndex,
@@ -2223,7 +2223,25 @@
           allMessages,
           flowKind
         };
-        _submitHandler = null;
+        activePhotoReplyContext = photoCtx;
+        _submitHandler = function(forcedValue) {
+          const val = String(forcedValue != null ? forcedValue : gameInput.value).trim();
+          if (!val) return;
+          if (norm(val) !== norm('SKIP')) {
+            gameInput.classList.add('wrong');
+            setTimeout(() => gameInput.classList.remove('wrong'), 400);
+            return;
+          }
+          activePhotoReplyContext = null;
+          const tb = photoCtx.triggerBubble;
+          if (tb && tb.storesAs) {
+            storeReplyValue(normalizeVarKey(tb.storesAs), '[photo-skipped]');
+          }
+          disableInput();
+          addBubble(val, false);
+          const nextBubbleIndex = tb ? (photoCtx.triggerIndex + 1) : (photoCtx.allMessages ? photoCtx.allMessages.length : 0);
+          continueStopAfterReply(photoCtx.stop, nextBubbleIndex, { flowKind: photoCtx.flowKind });
+        };
         return;
       }
       activePhotoReplyContext = null;
