@@ -1727,6 +1727,11 @@
       return sanitizePhotoPathSegment(raw, '');
     }
 
+    function getPlayerNameSlug() {
+      const raw = vars && typeof vars === 'object' ? vars['player_name'] : '';
+      return sanitizePhotoPathSegment(raw, '');
+    }
+
     function buildPhotoStoragePath(file) {
       const context = getActivePhotoContext();
       const extension = getPhotoExtension(file);
@@ -1736,8 +1741,10 @@
       const playerPart = sanitizePhotoPathSegment(getPlayerSessionId(), 'player');
       const stopPart = sanitizePhotoPathSegment(context.stop_id || ('stop-' + ((context.stop_index || 0) + 1)), 'stop');
       const teamSlug = getTeamColorSlug();
+      const nameSlug = getPlayerNameSlug();
       const nonce = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-      const fileStem = teamSlug ? `${teamSlug}-${nonce}` : nonce;
+      const prefixParts = [teamSlug, nameSlug].filter(Boolean);
+      const fileStem = prefixParts.length ? `${prefixParts.join('-')}-${nonce}` : nonce;
       return `${gamePart}/${playerPart}/${stopPart}/${fileStem}.${extension}`;
     }
 
@@ -1766,9 +1773,13 @@
       const context = getActivePhotoContext();
       const requestUrl = new URL(`rest/v1/${PHOTO_SUBMISSIONS_TABLE}`, `${SB_CONFIG.url.replace(/\/+$/, '')}/`);
       const rawTeamColor = vars && typeof vars === 'object' ? String(vars['team_color'] || '').trim() : '';
+      const rawPlayerName = vars && typeof vars === 'object' ? String(vars['player_name'] || '').trim() : '';
       const originalFileName = String(file && file.name || '');
-      const decoratedFileName = rawTeamColor
-        ? `[${rawTeamColor}] ${originalFileName}`.trim()
+      const tagParts = [];
+      if (rawTeamColor) tagParts.push(rawTeamColor);
+      if (rawPlayerName) tagParts.push(rawPlayerName);
+      const decoratedFileName = tagParts.length
+        ? `[${tagParts.join(' - ')}] ${originalFileName}`.trim()
         : originalFileName;
       const payload = {
         game_id: String(gameId || ''),
