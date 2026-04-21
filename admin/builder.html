@@ -4148,25 +4148,6 @@ code{font-family:"IBM Plex Mono",monospace;}
   bottom:-16px;
 }
 
-/* PLAYER MSG per-answer out-ports: smaller hit-zone and an accent tint so
-   the routing fan-out is visible and each port is independently clickable. */
-.node-port[data-port^="out-ans-"]{
-  display:block;
-  width:22px;
-  height:22px;
-  right:-11px;
-  transform:translateY(-50%);
-}
-.node-port[data-port^="out-ans-"]::after{
-  width:10px;
-  height:10px;
-  border-color: var(--accent, #5468a7);
-  background: color-mix(in srgb, var(--accent, #5468a7) 18%, #fff);
-}
-.node-port[data-port^="out-ans-"]:hover::after{
-  border-color: var(--accent, #5468a7);
-  background: color-mix(in srgb, var(--accent, #5468a7) 40%, #fff);
-}
 
 .node--game,
 .node--stop,
@@ -7147,6 +7128,42 @@ body.builder-page--editor .details-section-grid .field-url-row{
   min-width:0;
 }
 
+.answer-responses-list{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-top:4px;
+}
+.answer-response-row{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  align-items:center;
+  gap:8px;
+}
+.answer-response-row .answer-tag{
+  padding:3px 7px;
+  border:1px solid var(--line, rgba(0,0,0,.18));
+  border-radius:6px;
+  background:rgba(255,255,255,0.5);
+  font-size:0.78em;
+  font-weight:700;
+  letter-spacing:0.04em;
+  max-width:120px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.answer-response-row textarea{
+  width:100%;
+  min-height:34px;
+  padding:6px 8px;
+  border:1px solid var(--line, rgba(0,0,0,.18));
+  border-radius:6px;
+  font:inherit;
+  resize:vertical;
+  box-sizing:border-box;
+}
+
 .anytime-replies-list{
   display:flex;
   flex-direction:column;
@@ -9490,6 +9507,10 @@ body.builder-auth-ready .builder-auth-signout{
                   <div class="field-hint" id="objectBodyRequiredHint" hidden></div>
                   <div class="mini-note" id="objectBodyHtmlNote" hidden>HTML OK.</div>
                   <div class="mini-note" id="objectBodyAnswerNote" hidden>HTML OK. Separate acceptable answers with a comma.</div>
+                  <div class="field" id="answerResponsesField" hidden>
+                    <div class="field-label">PER-ANSWER RESPONSES</div>
+                    <div id="answerResponsesList" class="answer-responses-list" aria-live="polite"></div>
+                  </div>
                 </div>
 
                 <div class="inspector-actions inspector-actions--footer">
@@ -11519,6 +11540,8 @@ const nodeBodyAutocomplete = document.getElementById('nodeBodyAutocomplete');
 const nodeBodyHtmlNote = document.getElementById('nodeBodyHtmlNote');
 const objectBodyAnswerNote = document.getElementById('objectBodyAnswerNote');
 const objectBodyHtmlNote = document.getElementById('objectBodyHtmlNote');
+const answerResponsesField = document.getElementById('answerResponsesField');
+const answerResponsesList = document.getElementById('answerResponsesList');
 const objectBodyLabel = document.getElementById('objectBodyLabel');
 const objectBodyInfo = document.getElementById('objectBodyInfo');
 const objectBodyInput = document.getElementById('objectBodyInput');
@@ -13308,16 +13331,7 @@ function getReplyAnswers(node) {
 function getNodeOutPorts(nodeOrType) {
   const type = typeof nodeOrType === 'string' ? nodeOrType : (nodeOrType && nodeOrType.type);
   if (type === 'bubble') return isAnytimeGuideNode(nodeOrType) ? [] : ['out-right'];
-  if (type === 'reply') {
-    if (isAnytimeReplyNode(nodeOrType)) return ['out-right'];
-    // When a PLAYER MSG has 2+ specific answers, expose one extra port per answer
-    // so the author can route each answer to a different follow-up node. The
-    // existing out-right stays as the default/fallback; out-bottom stays as the
-    // retry/incorrect path.
-    const answers = typeof nodeOrType === 'object' ? getReplyAnswers(nodeOrType) : [];
-    const extras = answers.length >= 2 ? answers.map((_, index) => 'out-ans-' + index) : [];
-    return ['out-right', 'out-bottom', ...extras];
-  }
+  if (type === 'reply') return isAnytimeReplyNode(nodeOrType) ? ['out-right'] : ['out-right', 'out-bottom'];
   if (TYPE_CONFIG[type]) return ['out-right'];
   return [];
 }
@@ -14629,6 +14643,9 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
       : type === 'reply'
         ? (raw && raw.kind === 'photo' ? 'photo' : '')
         : '',
+    answerResponses: type === 'reply' && Array.isArray(raw && raw.answerResponses)
+      ? raw.answerResponses.map((v) => String(v || ''))
+      : [],
     linkUrl: type === 'bubble' ? (raw && typeof raw.linkUrl === 'string' ? raw.linkUrl : '') : ''
   };
 }
@@ -14794,6 +14811,7 @@ function getDocSnapshot(doc = state.doc) {
       acceptAny: !!node.acceptAny,
       anytime: !!node.anytime,
       anytimePairId: node.anytimePairId || '',
+      answerResponses: Array.isArray(node.answerResponses) ? node.answerResponses.map((v) => String(v || '')) : [],
       rotation: getNodeRotation(node),
       orderIndex: normalizeNodeOrderIndex(node.orderIndex)
     })),
@@ -15872,7 +15890,8 @@ function createNode(type, x, y) {
     anytimePairId: '',
     rotation: 0,
     orderIndex: nextOrderIndex,
-    kind: ''
+    kind: '',
+    answerResponses: []
   };
 }
 
@@ -16838,27 +16857,9 @@ function buildInPortMarkup(node) {
 
 function buildOutPortsMarkup(node) {
   const ports = getNodeOutPorts(node);
-  const replyAnswers = (node && node.type === 'reply') ? getReplyAnswers(node) : [];
-  const hasAnswerPorts = replyAnswers.length >= 2;
-
   return ports.map((port) => {
-    if (port === 'out-bottom') {
-      return `<button class="node-port node-port--out-bottom" data-port="${escapeHtml(port)}" type="button" tabindex="-1" aria-label="Retry branch"></button>`;
-    }
-    let styleAttr = '';
-    let titleAttr = '';
-    if (port.startsWith('out-ans-')) {
-      const idx = Number(port.slice('out-ans-'.length)) || 0;
-      const answer = replyAnswers[idx] || '';
-      titleAttr = answer ? ` title="Route when player answers: ${escapeHtml(answer)}"` : ` title="Answer ${idx + 1}"`;
-      // Stack the per-answer ports below the node with a fixed pixel gap so
-      // they never overlap out-right regardless of node height.
-      const top = `calc(100% + ${10 + idx * 24}px)`;
-      styleAttr = ` style="top:${top}"`;
-    } else if (port === 'out-right' && hasAnswerPorts) {
-      titleAttr = ` title="Default branch (any answer not routed below)"`;
-    }
-    return `<button class="node-port node-port--out-right" data-port="${escapeHtml(port)}" type="button" tabindex="-1"${styleAttr}${titleAttr} aria-label="Connect from ${escapeHtml(getNodeAccessibleLabel(node))}"></button>`;
+    const sideClass = port === 'out-bottom' ? 'node-port--out-bottom' : 'node-port--out-right';
+    return `<button class="node-port ${sideClass}" data-port="${escapeHtml(port)}" type="button" tabindex="-1" aria-label="Connect from ${escapeHtml(getNodeAccessibleLabel(node))}"></button>`;
   }).join('');
 }
 
@@ -17065,15 +17066,6 @@ function getOutPortPoint(node, fromPort = 'out-right') {
     return {
       x: node.x + node.width / 2,
       y: node.y + node.height + NODE_PORT_OFFSET
-    };
-  }
-  // Per-answer ports on PLAYER MSG stack below the node's right edge with a
-  // fixed px gap (mirrors the calc() in buildOutPortsMarkup).
-  if (typeof normalizedPort === 'string' && normalizedPort.startsWith('out-ans-')) {
-    const idx = Number(normalizedPort.slice('out-ans-'.length)) || 0;
-    return {
-      x: node.x + node.width + NODE_PORT_OFFSET,
-      y: node.y + node.height + 10 + idx * 24
     };
   }
   return {
@@ -18773,6 +18765,48 @@ function getReplyTiming(node) {
   return !!node.anytime ? 'anytime' : 'inline';
 }
 
+function renderAnswerResponseInputs(node) {
+  if (!answerResponsesField || !answerResponsesList) return;
+  const answers = node ? getReplyAnswers(node) : [];
+  if (!node || answers.length < 2) {
+    answerResponsesField.hidden = true;
+    answerResponsesList.innerHTML = '';
+    return;
+  }
+  if (!Array.isArray(node.answerResponses)) node.answerResponses = [];
+  while (node.answerResponses.length < answers.length) node.answerResponses.push('');
+
+  answerResponsesField.hidden = false;
+  answerResponsesList.innerHTML = '';
+  answers.forEach((answer, idx) => {
+    const row = document.createElement('div');
+    row.className = 'answer-response-row';
+
+    const tag = document.createElement('span');
+    tag.className = 'answer-tag';
+    tag.textContent = answer;
+    tag.title = answer;
+
+    const input = document.createElement('textarea');
+    input.rows = 1;
+    input.placeholder = 'Guide response when player types "' + answer + '"';
+    input.value = String(node.answerResponses[idx] || '');
+    input.dataset.answerIndex = String(idx);
+    input.dataset.nodeId = node.id;
+    input.addEventListener('input', () => {
+      const target = getNode(input.dataset.nodeId);
+      if (!target || target.type !== 'reply') return;
+      if (!Array.isArray(target.answerResponses)) target.answerResponses = [];
+      while (target.answerResponses.length <= idx) target.answerResponses.push('');
+      target.answerResponses[idx] = input.value;
+      scheduleRecoverySync();
+    });
+
+    row.append(tag, input);
+    answerResponsesList.appendChild(row);
+  });
+}
+
 function syncReplyModeInputs(node) {
   const isReplyNode = !!node && node.type === 'reply';
   const isLegacyAnytimeReply = isReplyNode && isLegacyAnytimeReplyNode(node);
@@ -18786,6 +18820,8 @@ function syncReplyModeInputs(node) {
   if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble') || (node && (node.kind === 'image' || node.kind === 'video' || node.kind === 'audio' || node.kind === 'link' || node.kind === 'cta'));
   const isButtonNode = !!node && node.type === 'button';
   if (objectDescriptionField) objectDescriptionField.hidden = isButtonNode || (isReplyNode && (mode === 'anyanswer' || mode === 'photo')) || (node && node.type === 'bubble' && (node.kind === 'image' || node.kind === 'video' || node.kind === 'audio' || node.kind === 'link' || node.kind === 'cta'));
+
+  renderAnswerResponseInputs(isReplyNode && mode === 'normal' ? node : null);
 
   [
     [objectReplyModeNormalInput, 'normal'],
@@ -19277,6 +19313,7 @@ function serializeNodeState(node) {
     acceptAny: !!node.acceptAny,
     anytime: !!node.anytime,
     anytimePairId: node.anytimePairId || '',
+    answerResponses: Array.isArray(node.answerResponses) ? node.answerResponses.map((v) => String(v || '')) : [],
     rotation: getNodeRotation(node),
     orderIndex: normalizeNodeOrderIndex(node.orderIndex)
   };
