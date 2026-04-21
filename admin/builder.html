@@ -13290,10 +13290,25 @@ function ignoreNodeMatcher(ignoreNodeId) {
   return (nodeId) => nodeId === ignoreNodeId;
 }
 
+function getReplyAnswers(node) {
+  if (!node || node.type !== 'reply') return [];
+  const raw = String(node.body || '');
+  return raw.split(/\n|;|,/g).map((s) => s.trim()).filter(Boolean);
+}
+
 function getNodeOutPorts(nodeOrType) {
   const type = typeof nodeOrType === 'string' ? nodeOrType : (nodeOrType && nodeOrType.type);
   if (type === 'bubble') return isAnytimeGuideNode(nodeOrType) ? [] : ['out-right'];
-  if (type === 'reply') return isAnytimeReplyNode(nodeOrType) ? ['out-right'] : ['out-right', 'out-bottom'];
+  if (type === 'reply') {
+    if (isAnytimeReplyNode(nodeOrType)) return ['out-right'];
+    // When a PLAYER MSG has 2+ specific answers, expose one extra port per answer
+    // so the author can route each answer to a different follow-up node. The
+    // existing out-right stays as the default/fallback; out-bottom stays as the
+    // retry/incorrect path.
+    const answers = typeof nodeOrType === 'object' ? getReplyAnswers(nodeOrType) : [];
+    const extras = answers.length >= 2 ? answers.map((_, index) => 'out-ans-' + index) : [];
+    return ['out-right', 'out-bottom', ...extras];
+  }
   if (TYPE_CONFIG[type]) return ['out-right'];
   return [];
 }
@@ -16814,9 +16829,35 @@ function buildInPortMarkup(node) {
 
 function buildOutPortsMarkup(node) {
   const ports = getNodeOutPorts(node);
+  const replyAnswers = (node && node.type === 'reply') ? getReplyAnswers(node) : [];
+  const hasAnswerPorts = replyAnswers.length >= 2;
+  // When a PLAYER MSG exposes per-answer ports, distribute all right-side ports
+  // evenly: out-right is the "default / any-match" fallback at the top, then
+  // one out-ans-N slot for each answer below it. out-bottom stays at bottom.
+  const rightPorts = ports.filter((p) => p !== 'out-bottom');
+  const slotForPort = new Map();
+  rightPorts.forEach((port, index) => slotForPort.set(port, index));
+  const slotCount = rightPorts.length;
+
   return ports.map((port) => {
-    const sideClass = port === 'out-bottom' ? 'node-port--out-bottom' : 'node-port--out-right';
-    return `<button class="node-port ${sideClass}" data-port="${escapeHtml(port)}" type="button" tabindex="-1" aria-label="Connect from ${escapeHtml(getNodeAccessibleLabel(node))}"></button>`;
+    if (port === 'out-bottom') {
+      return `<button class="node-port node-port--out-bottom" data-port="${escapeHtml(port)}" type="button" tabindex="-1" aria-label="Retry branch"></button>`;
+    }
+    let styleAttr = '';
+    let titleAttr = '';
+    if (hasAnswerPorts && slotCount > 1) {
+      const slot = slotForPort.get(port) ?? 0;
+      const topPct = ((slot + 1) / (slotCount + 1) * 100).toFixed(2);
+      styleAttr = ` style="top:${topPct}%"`;
+    }
+    if (port.startsWith('out-ans-')) {
+      const idx = Number(port.slice('out-ans-'.length)) || 0;
+      const answer = replyAnswers[idx] || '';
+      titleAttr = answer ? ` title="Route when player answers: ${escapeHtml(answer)}"` : ` title="Answer ${idx + 1}"`;
+    } else if (port === 'out-right' && hasAnswerPorts) {
+      titleAttr = ` title="Default branch (any answer not routed below)"`;
+    }
+    return `<button class="node-port node-port--out-right" data-port="${escapeHtml(port)}" type="button" tabindex="-1"${styleAttr}${titleAttr} aria-label="Connect from ${escapeHtml(getNodeAccessibleLabel(node))}"></button>`;
   }).join('');
 }
 
@@ -17025,9 +17066,19 @@ function getOutPortPoint(node, fromPort = 'out-right') {
       y: node.y + node.height + NODE_PORT_OFFSET
     };
   }
+  // Match buildOutPortsMarkup's vertical distribution when a PLAYER MSG has
+  // per-answer out-ans-N ports.
+  const rightPorts = getNodeOutPorts(node).filter((p) => p !== 'out-bottom');
+  const replyAnswers = (node && node.type === 'reply') ? getReplyAnswers(node) : [];
+  const hasAnswerPorts = replyAnswers.length >= 2;
+  let relativeY = node.height / 2;
+  if (hasAnswerPorts && rightPorts.length > 1) {
+    const slot = rightPorts.indexOf(normalizedPort);
+    if (slot >= 0) relativeY = ((slot + 1) / (rightPorts.length + 1)) * node.height;
+  }
   return {
     x: node.x + node.width + NODE_PORT_OFFSET,
-    y: node.y + node.height / 2
+    y: node.y + relativeY
   };
 }
 

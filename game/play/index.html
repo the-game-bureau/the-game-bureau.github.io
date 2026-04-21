@@ -2195,7 +2195,14 @@
           varKey = normalizeVarKey(reply.storesAs || '');
         }
 
-        const correct = isAny || answers.some(a => norm(a) === norm(val));
+        // Per-answer routing: when the PLAYER MSG author drew a link from
+        // out-ans-N to a specific guide bubble, play that bubble as the
+        // response before continuing the main flow.
+        let matchedIndex = -1;
+        if (!isAny) {
+          matchedIndex = answers.findIndex((a) => norm(a) === norm(val));
+        }
+        const correct = isAny || matchedIndex >= 0;
 
         if (correct) {
           storeReplyValue(varKey, val);
@@ -2222,7 +2229,13 @@
         }
 
         const nextBubbleIndex = triggerBubble ? (triggerIndex + 1) : allMessages.length;
-        continueStopAfterReply(stop, nextBubbleIndex, { flowKind });
+        const routes = triggerBubble && triggerBubble.answerRoutes;
+        const routedBubble = (routes && matchedIndex >= 0) ? routes[matchedIndex] : null;
+        if (routedBubble && (routedBubble.html || routedBubble.text || '').trim()) {
+          showMessages([routedBubble], () => continueStopAfterReply(stop, nextBubbleIndex, { flowKind }));
+        } else {
+          continueStopAfterReply(stop, nextBubbleIndex, { flowKind });
+        }
       };
     }
 
@@ -2502,6 +2515,7 @@
 
     function buildLegacyPayload(gameData) {
       const nodes = Array.isArray(gameData.nodes) ? gameData.nodes : [];
+      const links = Array.isArray(gameData.links) ? gameData.links : [];
       const isLegacyAnytimeNodeData = (node) => !!(node && node.anytime && String(node.anytimePairId || '').trim());
       // LEGACY ANYTIME-WAYPOINT: orphan anytime replies (no pair) are no longer treated
       // as inline-in-waypoint triggers. They fall through to the regular reply path.
@@ -2513,6 +2527,32 @@
         return (a.orderIndex || 0) - (b.orderIndex || 0);
       });
 
+      // Per-answer routes: for each reply node, collect { [answerIndex]: targetBubbleBody }
+      // from links using fromPort='out-ans-N'. The runtime plays that body as the
+      // guide's response when the matching answer is typed.
+      // Also collect the IDs of the routed bubbles so we can exclude them from the
+      // main linear flow (otherwise they'd play again in their natural order).
+      const nodeById = new Map(nodes.filter((n) => n && n.id).map((n) => [n.id, n]));
+      const answerRoutesByReplyId = new Map();
+      const routedBubbleIds = new Set();
+      links.forEach((link) => {
+        if (!link || typeof link.fromPort !== 'string') return;
+        const m = link.fromPort.match(/^out-ans-(\d+)$/);
+        if (!m) return;
+        const fromNode = nodeById.get(link.from);
+        const toNode = nodeById.get(link.to);
+        if (!fromNode || fromNode.type !== 'reply' || !toNode || toNode.type !== 'bubble') return;
+        const idx = Number(m[1]);
+        if (!Number.isInteger(idx) || idx < 0) return;
+        if (!answerRoutesByReplyId.has(fromNode.id)) answerRoutesByReplyId.set(fromNode.id, {});
+        answerRoutesByReplyId.get(fromNode.id)[idx] = {
+          bubbleId: toNode.id,
+          text: toNode.body || '',
+          html: toNode.body || ''
+        };
+        routedBubbleIds.add(toNode.id);
+      });
+
       const stops = [];
       let currentStop = null;
 
@@ -2522,6 +2562,10 @@
         // Orphan anytime nodes (anytime=true with no pairId) are leftover data from the
         // pre-decouple refactor. Skip them entirely so they don't break the main flow.
         if (node && node.anytime && !String(node.anytimePairId || '').trim()) return;
+
+        // Bubbles used exclusively as per-answer route targets play inline from the
+        // reply handler — skip them here so they don't render twice.
+        if (node && node.type === 'bubble' && routedBubbleIds.has(node.id)) return;
 
         if (isLegacyAnytimeNodeData(node)) {
           if (node.type === 'reply') {
@@ -2636,6 +2680,7 @@
           }
           const answers = node.body ? node.body.split(/\n|;|,/g).map(s=>s.trim()).filter(Boolean) : [];
           const isPhotoReply = node.kind === 'photo';
+          const answerRoutes = answerRoutesByReplyId.get(node.id) || null;
           currentStop.messages.push({
             bubbleId: node.id,
             fromPlayer: true,
@@ -2646,7 +2691,8 @@
             storesAs: node.varName,
             placeholder: isPhotoReply ? 'Tap the camera to send a photo' : 'Type here...',
             anytime: isInlineAnytimeReplyData(node),
-            kind: isPhotoReply ? 'photo' : ''
+            kind: isPhotoReply ? 'photo' : '',
+            answerRoutes: answerRoutes
           });
         }
       });
