@@ -1094,6 +1094,19 @@
       }
       return 1;
     }
+    const TEAM_COLOR_ORDER = ['blue', 'black', 'purple', 'silver', 'orange'];
+    function getTeamColorRotationIndex(currentVars) {
+      if (!currentVars || typeof currentVars !== 'object') return -1;
+      const raw = String(currentVars['team_color'] || '').trim().toLowerCase();
+      if (!raw) return -1;
+      const idx = TEAM_COLOR_ORDER.indexOf(raw);
+      return idx >= 0 ? idx : -1;
+    }
+    function getWaypointRotationOffset(currentVars) {
+      const colorIdx = getTeamColorRotationIndex(currentVars);
+      if (colorIdx >= 0) return colorIdx;
+      return getActiveTeamNumber(currentVars) - 1;
+    }
     function rotateGroupedWaypointStops(stops, currentVars) {
       const safeStops = Array.isArray(stops) ? stops.slice() : [];
       const groupedIndices = new Map();
@@ -1105,10 +1118,10 @@
         groupedIndices.get(group).push(index);
       });
 
-      const teamNumber = getActiveTeamNumber(currentVars);
+      const rotationBase = getWaypointRotationOffset(currentVars);
       groupedIndices.forEach((indices) => {
         if (!Array.isArray(indices) || indices.length < 2) return;
-        const offset = (teamNumber - 1) % indices.length;
+        const offset = ((rotationBase % indices.length) + indices.length) % indices.length;
         if (!offset) return;
         const sourceStops = indices.map((index) => safeStops[index]);
         indices.forEach((targetIndex, sequenceIndex) => {
