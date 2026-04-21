@@ -227,3 +227,11 @@ create a collection of materials to review before hand from game page and a shar
 If players get stuck, the game repeatedly directs them:
 
 > "Ooh, not quite! 🤔 Text **504-581-5652** and Mission Control will get you sorted."
+
+Movies Tour
+
+St. Charles Theaters
+St. Charles and Poydras
+https://www.hmdb.org/m.asp?m=51592
+Vitascope Hall
+https://neworleansentertainment.org/vitascopehall
