@@ -18775,9 +18775,32 @@ function renderAnswerResponseInputs(node) {
   }
   if (!Array.isArray(node.answerResponses)) node.answerResponses = [];
   while (node.answerResponses.length < answers.length) node.answerResponses.push('');
-
   answerResponsesField.hidden = false;
+
+  // If we're already showing the inputs for this same node + same answer count
+  // and same tags, just refresh the values (when the user isn't currently typing
+  // in one of them) instead of replacing the DOM. Replacing the DOM during a
+  // keystroke kills the focus on the textarea the user is editing.
+  const existingRows = answerResponsesList.querySelectorAll('.answer-response-row');
+  const sameShape =
+    existingRows.length === answers.length
+    && answerResponsesList.dataset.nodeId === node.id
+    && Array.from(existingRows).every((row, i) => {
+      const tag = row.querySelector('.answer-tag');
+      return tag && tag.textContent === answers[i];
+    });
+  if (sameShape) {
+    existingRows.forEach((row, i) => {
+      const input = row.querySelector('textarea');
+      if (!input || document.activeElement === input) return;
+      const next = String(node.answerResponses[i] || '');
+      if (input.value !== next) input.value = next;
+    });
+    return;
+  }
+
   answerResponsesList.innerHTML = '';
+  answerResponsesList.dataset.nodeId = node.id;
   answers.forEach((answer, idx) => {
     const row = document.createElement('div');
     row.className = 'answer-response-row';
@@ -18793,6 +18816,8 @@ function renderAnswerResponseInputs(node) {
     input.value = String(node.answerResponses[idx] || '');
     input.dataset.answerIndex = String(idx);
     input.dataset.nodeId = node.id;
+    input.addEventListener('pointerdown', (event) => event.stopPropagation());
+    input.addEventListener('click', (event) => event.stopPropagation());
     input.addEventListener('input', () => {
       const target = getNode(input.dataset.nodeId);
       if (!target || target.type !== 'reply') return;
