@@ -6,6 +6,19 @@
   <meta name="theme-color" content="#2a1746" />
   <title>JAZZ FEST SAMPLER</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
+
+  <!-- Share card: OG + Twitter use main.jpg as the preview thumbnail. -->
+  <meta name="description" content="one song from everyone in town — Jazz Fest 2026 Sampler">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://thegamebureau.com/sampler/">
+  <meta property="og:title" content="Jazz Fest 2026 Sampler">
+  <meta property="og:description" content="one song from everyone in town">
+  <meta property="og:image" content="https://thegamebureau.com/sampler/main.jpg">
+  <meta property="og:image:alt" content="Jazz Fest 2026 Sampler">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Jazz Fest 2026 Sampler">
+  <meta name="twitter:description" content="one song from everyone in town">
+  <meta name="twitter:image" content="https://thegamebureau.com/sampler/main.jpg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Figtree:wght@400;600;800&display=swap" rel="stylesheet">
@@ -414,7 +427,7 @@
       border: 2px solid var(--plum-deep);
       color: #fff;
       pointer-events: auto;  /* needed so hover fires the title tooltip */
-      cursor: help;
+      cursor: inherit;
       background: var(--cream);
       color: var(--plum-deep);
     }
@@ -520,7 +533,7 @@
       color: var(--cream);
       padding: 0.65rem 0.85rem calc(0.65rem + env(safe-area-inset-bottom));
       display: grid;
-      grid-template-columns: 46px 1fr auto auto;
+      grid-template-columns: 46px 1fr auto auto auto;
       gap: 0.65rem;
       align-items: center;
       transform: translateY(110%);
@@ -806,6 +819,9 @@
     <button class="np-btn primary" id="np-toggle" aria-label="Play/Pause">
       <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
     </button>
+    <button class="np-btn" id="np-next" aria-label="Next">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M15 5h2v14h-2zM4 5l11 7L4 19z"/></svg>
+    </button>
     <div class="progress"><div id="np-progress"></div></div>
   </div>
 
@@ -986,6 +1002,7 @@
     const npTrack = document.getElementById('np-track');
     const npToggle = document.getElementById('np-toggle');
     const npPrev = document.getElementById('np-prev');
+    const npNext = document.getElementById('np-next');
     const npProgress = document.getElementById('np-progress');
 
     const ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
@@ -1128,11 +1145,17 @@
     function openLightbox({ url, title }) {
       if (!url) return;
       const embed = toEmbedUrl(url);
+      // Services that refuse iframe embedding (YouTube Music, Google/Gemini,
+      // Spotify search) go straight to a new tab — no useless blank iframe.
+      if (!embed) {
+        window.open(url, '_blank', 'noopener');
+        return;
+      }
       lightboxTitle.textContent = title || '';
       lightboxExt.href = url;
       lightboxFallbackLink.href = url;
-      lightbox.classList.toggle('no-embed', !embed);
-      lightboxFrame.src = embed || 'about:blank';
+      lightbox.classList.remove('no-embed');
+      lightboxFrame.src = embed;
       lightbox.classList.add('show');
       lightbox.setAttribute('aria-hidden', 'false');
       // Pause any playing sample so we don't talk over the lightbox.
@@ -1275,6 +1298,18 @@
       npToggle.innerHTML = state.isPlaying ? ICON_PAUSE : ICON_PLAY;
     }
 
+    function scrollActiveIntoView() {
+      const it = state.items[state.currentIndex];
+      if (!it || !it.rowEl) return;
+      const rect = it.rowEl.getBoundingClientRect();
+      const npH = np.classList.contains('show') ? np.getBoundingClientRect().height : 0;
+      const viewportBottom = window.innerHeight - npH;
+      // Only scroll if the row is off-screen or hidden behind the now-playing bar.
+      if (rect.top < 0 || rect.bottom > viewportBottom) {
+        it.rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
     function playIndex(index) {
       const it = state.items[index];
       if (!it || !it.track || !it.track.preview) return;
@@ -1282,6 +1317,8 @@
       audio.src = it.track.preview;
       const p = audio.play();
       if (p && typeof p.catch === 'function') p.catch((err) => console.warn('Playback failed', err));
+      // Reveal the row that's now playing (doesn't fire on pause/resume).
+      requestAnimationFrame(scrollActiveIntoView);
     }
 
     function togglePlay(index) {
@@ -1323,6 +1360,15 @@
     });
     npPrev.addEventListener('click', () => {
       for (let i = state.currentIndex - 1; i >= 0; i--) {
+        const t = state.items[i].track;
+        if (t && t.preview) { playIndex(i); return; }
+      }
+    });
+
+    npNext.addEventListener('click', () => {
+      // If nothing's playing yet, start with the first playable row.
+      const from = state.currentIndex < 0 ? -1 : state.currentIndex;
+      for (let i = from + 1; i < state.items.length; i++) {
         const t = state.items[i].track;
         if (t && t.preview) { playIndex(i); return; }
       }
