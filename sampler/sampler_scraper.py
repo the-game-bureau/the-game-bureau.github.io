@@ -213,6 +213,7 @@ FESTIVAL_STAGES = (
     "jazz and heritage stage",
     "rhythmpourium",           # Fairgrounds interview/demo tent
     "allison miner music heritage stage",  # Fairgrounds interview stage
+    "native american circle",  # Fairgrounds — Native Nations Intertribal demos
 )
 
 # --------------------------------------------------------------------------
