@@ -6,7 +6,7 @@ PROJECT
 -------
 The Sampler is a single-page mobile web app at /sampler that plays a 30-second
 preview of the most popular song by every artist playing New Orleans that day
-(Apr 23 – May 3, 2026). Tagline: "one song from everyone in town." The page
+(Apr 23 – May 3, 2026). Tagline: "thirty seconds of sound from everyone in town." The page
 is static HTML + JS; all data lives in ./sampler.json next to index.html.
 
     sampler/
@@ -26,16 +26,17 @@ PIPELINE
    A post-merge pass collapses "bare" rows (artist + date only, from
    nojazzfest) when a detailed row for the same (artist, date) exists.
 3. Resolve each show's most-popular track via a chained lookup:
-     Deezer (play)  →  Apple Music (play)  →  YouTube Music (open)  →  Spotify (search)
+     Deezer preview  →  Apple preview  →  Deezer/Apple metadata
+     →  YouTube Music scrape  →  YouTube scrape  →  Spotify search
    The first service with an in-browser preview wins. If none have a preview,
-   we fall back to an open-link (YouTube Music search URL) the UI opens in a
-   lightbox.
+   the resolver still tries to return a specific song title, thumbnail, and
+   track page before falling back to a generic search URL.
 
 sampler.json SCHEMA  (index.html is the consumer — keep in sync)
 ----------------------------------------------------------------
 {
   "meta": {
-    "tagline": "one song from everyone in town",
+    "tagline": "thirty seconds of sound from everyone in town",
     "last_updated": "YYYY-MM-DD",
     "sources": [ "<source url>", ... ]
   },
@@ -45,8 +46,8 @@ sampler.json SCHEMA  (index.html is the consumer — keep in sync)
       "date":     "YYYY-MM-DD",         # required. filters which day renders.
       "time":     "HH:MM" | null,       # 24h. 25:00..29:59 for post-midnight
                                         # late-night shows (01:00 AM → "25:00").
-      "location": str | null,           # venue (club) or "Fair Grounds".
-      "stage":    str | null,           # only when location=="Fair Grounds".
+      "location": str | null,           # venue (club) or "Fairgrounds".
+      "stage":    str | null,           # only when location=="Fairgrounds".
       "source":   "nojazzfest" | "jazzfestgrids" | "nola.show",
       "query":    str | null,           # optional: override artist string sent
                                         # to the resolver (for billed-together
@@ -155,6 +156,12 @@ FESTIVAL_DATES = {
     "friday, april 24": "2026-04-24",
     "saturday, april 25": "2026-04-25",
     "sunday, april 26": "2026-04-26",
+    # "Between" days — no Fairgrounds programming, but nola.show lists a
+    # full slate of club/night shows under these headings. Without them the
+    # scraper silently drops 27–29th.
+    "monday, april 27": "2026-04-27",
+    "tuesday, april 28": "2026-04-28",
+    "wednesday, april 29": "2026-04-29",
     "thursday, april 30": "2026-04-30",
     "friday, may 1": "2026-05-01",
     "saturday, may 2": "2026-05-02",
@@ -170,8 +177,9 @@ SCHEMA_VERSION = 1
 VALID_TRACK_SOURCES = {"deezer", "itunes", "youtube", "spotify"}
 VALID_TRACK_MODES = {"play", "open", "search"}
 
-# Resolver chain the UI expects, in preference order. The scraper and the
-# browser's live-lookup fallback both walk this list.
+# Resolver chain the UI expects, in preference order. The scraper's no-API
+# YouTube scrapes run after Deezer/Apple metadata and before search-only
+# fallback.
 RESOLVER_CHAIN = ("deezer", "itunes", "youtube", "spotify")
 
 # Show date range the UI's day strip covers (mirrors DAYS below).
@@ -179,7 +187,7 @@ DATE_RANGE_START = "2026-04-23"
 DATE_RANGE_END   = "2026-05-03"
 
 # Festival stage names the nola.show scraper recognizes. Rows on these stages
-# get location="Fair Grounds" and stage=<the stage>; all other rows get the
+# get location="Fairgrounds" and stage=<the stage>; all other rows get the
 # venue as location and stage=null. This is a contract with the UI's two-line
 # "venue · stage" display in the sub info.
 FESTIVAL_STAGES = (
@@ -196,7 +204,91 @@ FESTIVAL_STAGES = (
     "people's health stage",
     "ochsner",
     "kids tent",
+    "jazz & heritage stage",   # Fairgrounds — nola.show lists daytime performers here
+    "jazz and heritage stage",
+    "rhythmpourium",           # Fairgrounds interview/demo tent
+    "allison miner music heritage stage",  # Fairgrounds interview stage
 )
+
+# --------------------------------------------------------------------------
+# Manual artist overrides — applied during every scrape, before resolver runs.
+# Keys are lowercase artist names (normalized by norm_artist). When a show's
+# artist matches, we attach the override `query` to that show; the resolver
+# (Deezer/Apple/YouTube) then searches the override string instead of the
+# literal artist name, which steers it to the correct result for artists
+# whose names collide with famous songs or other performers.
+#
+# Any existing cached `track` on the show is cleared when an override is
+# applied, so re-running the scraper picks fresh tracks based on the
+# override query. Add entries here for any future mismatches you spot.
+# --------------------------------------------------------------------------
+ARTIST_OVERRIDES: dict[str, dict] = {
+    # NOLA group, not Beyoncé's single.
+    "single ladies": {"query": "Single Ladies New Orleans brass band"},
+    # Local New Orleans musician — otherwise matches unrelated acts.
+    "tom legget": {"query": "Tom Legget New Orleans"},
+}
+
+
+def apply_artist_overrides(shows) -> int:
+    """Attach `query` overrides and drop stale tracks in place.
+
+    Accepts either a list of Show dataclass instances (from scrape step) or
+    a list of dicts (post-merge). Returns the number of shows modified.
+    """
+    modified = 0
+    for s in shows:
+        if isinstance(s, dict):
+            artist = s.get("artist") or ""
+        else:
+            artist = s.artist or ""
+        override = ARTIST_OVERRIDES.get(norm_artist(artist))
+        if not override:
+            continue
+        new_query = override.get("query")
+        if not new_query:
+            continue
+        if isinstance(s, dict):
+            if s.get("query") != new_query:
+                s["query"] = new_query
+                # Cached track came from the wrong search — force re-resolve.
+                s.pop("track", None)
+                modified += 1
+        else:
+            if s.query != new_query:
+                s.query = new_query
+                modified += 1
+    return modified
+
+
+def reclassify_fair_grounds_stages(shows) -> int:
+    """Normalize rows whose Fairgrounds stage got captured as the venue.
+
+    nola.show sometimes lists stages like "Jazz & Heritage Stage" or
+    "Rhythmpourium" in the venue slot with stage=None. These stages live at
+    the Fairgrounds — the venue — so we preserve the stage name and set
+    the venue correctly:
+        location = "Fairgrounds"   (the venue)
+        stage    = <the stage>      (the stage within the venue)
+
+    Runs on both Show instances and dicts so it's safe anywhere in the
+    pipeline. Returns the number of rows modified.
+    """
+    modified = 0
+    for s in shows:
+        loc = (s.get("location") if isinstance(s, dict) else s.location) or ""
+        if not loc or loc.lower() == "fairgrounds":
+            continue
+        if not _looks_like_festival_stage(loc):
+            continue
+        if isinstance(s, dict):
+            s["location"] = "Fairgrounds"
+            s["stage"] = loc
+        else:
+            s.location = "Fairgrounds"
+            s.stage = loc
+        modified += 1
+    return modified
 
 # Days offered by the interactive prompt. Must match the browser's DAYS list.
 DAYS = [
@@ -269,8 +361,66 @@ def norm(s: Optional[str]) -> str:
     return re.sub(r"\s+", " ", (s or "")).strip()
 
 
+_ARTIST_CHAR_TRANSLATION = str.maketrans({
+    "’": "'",
+    "‘": "'",
+    "‛": "'",
+    "`": "'",
+    "´": "'",
+    "“": '"',
+    "”": '"',
+    "„": '"',
+    "–": "-",
+    "—": "-",
+    "−": "-",
+    "…": "",
+})
+
+
 def norm_artist(s: Optional[str]) -> str:
-    return norm(s).lower()
+    s = norm(s).translate(_ARTIST_CHAR_TRANSLATION).lower()
+    s = re.sub(r"\s*&\s*", " and ", s)
+    s = re.sub(r"\s+", " ", s)
+    return s.strip()
+
+
+def loose_artist_key(s: Optional[str]) -> str:
+    """A forgiving key for dropping source duplicates, not display text."""
+    s = norm_artist(s)
+    s = re.sub(r"\b(feat|ft|featuring)\.?\b", " featuring ", s)
+    s = re.sub(r"[^a-z0-9]+", " ", s)
+    s = re.sub(r"\b(the|and)\b", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _artist_key_tokens(key: str) -> set[str]:
+    return {t for t in key.split() if t}
+
+
+def loose_artist_match(a: Optional[str], b: Optional[str]) -> bool:
+    """True when two source names are clearly the same billing.
+
+    This is intentionally used only for dropping bare source rows. It allows
+    containment, so an untimed official artist row can collapse into a timed
+    combined/parade row that contains that artist's name.
+    """
+    ka = loose_artist_key(a)
+    kb = loose_artist_key(b)
+    if not ka or not kb:
+        return False
+    if ka == kb:
+        return True
+
+    ta = _artist_key_tokens(ka)
+    tb = _artist_key_tokens(kb)
+    if not ta or not tb:
+        return False
+
+    smaller = ta if len(ta) <= len(tb) else tb
+    larger = tb if smaller is ta else ta
+    if len(smaller) == 1 and len(next(iter(smaller))) < 5:
+        return False
+    return smaller.issubset(larger)
 
 
 def norm_location(s: Optional[str]) -> str:
@@ -556,7 +706,7 @@ def scrape_nola_show(html: str) -> list[Show]:
                     artist=artist,
                     date=current_date,
                     time=parse_time(time_raw),
-                    location="Fair Grounds" if is_stage else stage_name,
+                    location="Fairgrounds" if is_stage else stage_name,
                     stage=stage_name if is_stage else None,
                     source="nola.show",
                 ))
@@ -741,13 +891,202 @@ def itunes_result(pick: dict) -> dict:
     }
 
 
-def youtube_music_link(query: str, song_title: str = "") -> dict:
+_YT_INITIAL_DATA_MARKERS = (
+    "var ytInitialData =",
+    "window[\"ytInitialData\"] =",
+    "ytInitialData =",
+)
+
+
+def _extract_yt_initial_data(html: str) -> Optional[dict]:
+    """Read the embedded ytInitialData JSON without relying on regex braces."""
+    decoder = json.JSONDecoder()
+    for marker in _YT_INITIAL_DATA_MARKERS:
+        idx = html.find(marker)
+        if idx < 0:
+            continue
+        start = html.find("{", idx + len(marker))
+        if start < 0:
+            continue
+        try:
+            data, _ = decoder.raw_decode(html[start:])
+            if isinstance(data, dict):
+                return data
+        except ValueError:
+            continue
+    return None
+
+
+def _walk_json(value):
+    if isinstance(value, dict):
+        yield value
+        for child in value.values():
+            yield from _walk_json(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _walk_json(child)
+
+
+def _yt_text(value) -> str:
+    if not isinstance(value, dict):
+        return ""
+    if value.get("simpleText"):
+        return norm(value.get("simpleText"))
+    runs = value.get("runs")
+    if isinstance(runs, list):
+        return norm("".join(str(r.get("text") or "") for r in runs if isinstance(r, dict)))
+    return ""
+
+
+def _best_thumbnail(value) -> str:
+    best_url = ""
+    best_score = -1
+    for node in _walk_json(value):
+        if not isinstance(node, dict):
+            continue
+        thumbs = node.get("thumbnails")
+        if not isinstance(thumbs, list):
+            continue
+        for thumb in thumbs:
+            if not isinstance(thumb, dict):
+                continue
+            url = thumb.get("url") or ""
+            if not url:
+                continue
+            width = int(thumb.get("width") or 0)
+            height = int(thumb.get("height") or 0)
+            score = width * height
+            if score >= best_score:
+                best_url = url
+                best_score = score
+    return best_url
+
+
+def _find_watch_video_id(value) -> str:
+    for node in _walk_json(value):
+        if not isinstance(node, dict):
+            continue
+        endpoint = node.get("watchEndpoint")
+        if isinstance(endpoint, dict) and endpoint.get("videoId"):
+            return str(endpoint["videoId"])
+    return ""
+
+
+def _music_item_title(renderer: dict) -> str:
+    columns = renderer.get("flexColumns") or []
+    for column in columns:
+        if not isinstance(column, dict):
+            continue
+        text = (column.get("musicResponsiveListItemFlexColumnRenderer") or {}).get("text") or {}
+        title = _yt_text(text)
+        if title:
+            return title
+    return _yt_text(renderer.get("title") or {})
+
+
+def _fetch_yt_initial_data(url: str, timeout: int = 15) -> Optional[dict]:
+    try:
+        req = Request(url, headers={
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "en-US,en;q=0.9",
+        })
+        with urlopen(req, timeout=timeout) as r:
+            html = r.read().decode("utf-8", errors="replace")
+    except Exception:
+        return None
+    return _extract_yt_initial_data(html)
+
+
+def resolve_youtube_music(query: str, song_title: str = "") -> Optional[dict]:
+    """Scrape music.youtube.com for a specific watchable music result."""
     q = f"{query} {song_title}".strip() if song_title else query
+    data = _fetch_yt_initial_data(f"https://music.youtube.com/search?q={quote(q)}")
+    if not data:
+        return None
+
+    try:
+        for node in _walk_json(data):
+            renderer = node.get("musicResponsiveListItemRenderer") if isinstance(node, dict) else None
+            if not isinstance(renderer, dict):
+                continue
+            vid = _find_watch_video_id(renderer)
+            title = _music_item_title(renderer)
+            if vid and title:
+                return {
+                    "title": title,
+                    "video_id": vid,
+                    "url": f"https://music.youtube.com/watch?v={vid}",
+                    "cover": _best_thumbnail(renderer),
+                }
+    except (KeyError, TypeError, ValueError):
+        return None
+    return None
+
+
+def resolve_youtube(query: str) -> Optional[dict]:
+    """Scrape youtube.com/results for the top video matching `query`.
+
+    Returns {title, video_id, url, cover} for the first videoRenderer found, or
+    None. Uses the public page's embedded ytInitialData JSON, so every failure
+    path is graceful and the caller can fall back to a search URL.
+    """
+    data = _fetch_yt_initial_data(f"https://www.youtube.com/results?search_query={quote(query)}")
+    if not data:
+        return None
+
+    try:
+        for node in _walk_json(data):
+            video = node.get("videoRenderer") if isinstance(node, dict) else None
+            if not isinstance(video, dict):
+                continue
+            vid = video.get("videoId")
+            title = _yt_text(video.get("title") or {})
+            if title and vid:
+                return {
+                    "title": title,
+                    "video_id": str(vid),
+                    "url": f"https://music.youtube.com/watch?v={vid}",
+                    "cover": _best_thumbnail(video),
+                }
+    except (KeyError, TypeError, ValueError):
+        return None
+    return None
+
+
+def youtube_open_result(found: dict) -> dict:
     return {
         "source": "youtube",
         "mode": "open",
-        "title": song_title or "Open in YouTube Music",
-        "url": f"https://music.youtube.com/search?q={quote(q)}",
+        "title": found.get("title") or "",
+        "url": found.get("url") or "",
+        "cover": found.get("cover") or "",
+    }
+
+
+def youtube_music_link(query: str, song_title: str = "") -> dict:
+    """Prefer a carried song title (from Deezer/Apple metadata). If we have
+    none, scrape YouTube to get an actual track title + a direct watch URL.
+    Last resort: a YouTube Music search page with "no track found" as label."""
+    title = song_title
+    url = None
+
+    if not title:
+        found = resolve_youtube(query)
+        if found:
+            title = found["title"]
+            url = found["url"]
+            return youtube_open_result(found)
+
+    if not url:
+        q = f"{query} {song_title}".strip() if song_title else query
+        url = f"https://music.youtube.com/search?q={quote(q)}"
+
+    return {
+        "source": "youtube",
+        "mode": "search",
+        "title": title or "no track found",
+        "url": url,
     }
 
 
@@ -755,35 +1094,53 @@ def spotify_search(query: str) -> dict:
     return {
         "source": "spotify",
         "mode": "search",
-        "title": "search on Spotify",
+        "title": "no track found",
         "url": f"https://open.spotify.com/search/{quote(query)}",
     }
 
 
 def resolve_track(query: str, skip: Iterable[str] = ()) -> dict:
-    """Chain: Deezer (play) → Apple (play) → YouTube Music (open) → Spotify search."""
+    """Chain previews first, then specific metadata/scrapes, then search."""
     skip_set = set(skip)
     d_artist = d_track = None
+    fallback: Optional[dict] = None
+
     if "deezer" not in skip_set:
         d_artist, d_track = resolve_deezer(query)
         if d_track and d_track.get("preview"):
             return deezer_result(d_artist, d_track)
+        if d_track:
+            fallback = deezer_result(d_artist, d_track)
+
     i_pick = None
     if "itunes" not in skip_set:
         i_pick = resolve_itunes(query)
         if i_pick and i_pick.get("previewUrl"):
             return itunes_result(i_pick)
+        if i_pick and not fallback:
+            fallback = itunes_result(i_pick)
 
     # No in-browser preview available. Carry through any song title we found so
-    # the YouTube Music search lands closer to the actual track.
+    # the no-API YouTube scrapes and last-resort search land closer to the
+    # actual track.
     song_title = ""
-    if d_track:
-        song_title = d_track.get("title_short") or d_track.get("title") or ""
-    elif i_pick:
-        song_title = i_pick.get("trackName") or ""
+    if fallback:
+        song_title = fallback.get("title") or ""
 
     if "youtube" not in skip_set:
-        return youtube_music_link(query, song_title)
+        found = resolve_youtube_music(query, song_title)
+        if found:
+            return youtube_open_result(found)
+        q = f"{query} {song_title}".strip() if song_title else query
+        found = resolve_youtube(q)
+        if found:
+            return youtube_open_result(found)
+
+    if fallback and fallback.get("title"):
+        return fallback
+
+    if "youtube" not in skip_set:
+        return youtube_music_link(query, "")
     return spotify_search(query)
 
 
@@ -806,7 +1163,14 @@ def resolve_shows(
             continue
         tasks.append(s)
 
-    stats = {"deezer_play": 0, "itunes_play": 0, "youtube_open": 0, "search": 0}
+    stats = {
+        "deezer_play": 0,
+        "deezer_open": 0,
+        "itunes_play": 0,
+        "itunes_open": 0,
+        "youtube_open": 0,
+        "search": 0,
+    }
     if not tasks:
         print("Nothing to resolve. Pass --force-resolve to re-run.")
         return stats
@@ -843,7 +1207,7 @@ def load_existing() -> dict:
         return json.loads(JSON_PATH.read_text(encoding="utf-8"))
     return {
         "meta": {
-            "tagline": "one song from everyone in town",
+            "tagline": "thirty seconds of sound from everyone in town",
             "last_updated": None,
             "sources": list(SOURCES.values()),
         },
@@ -909,12 +1273,17 @@ def dedupe_bare_rows(shows: list[dict]) -> tuple[list[dict], int]:
 
     Returns (keep, dropped_count).
     """
+    detailed_by_date: dict[str, list[dict]] = {}
     by_key: dict[tuple, list[int]] = {}
     for i, s in enumerate(shows):
-        key = (norm_artist(s.get("artist") or ""), s.get("date") or "")
+        date = s.get("date") or ""
+        artist = s.get("artist") or ""
+        key = (loose_artist_key(artist), date)
         if not key[0] or not key[1]:
             continue
         by_key.setdefault(key, []).append(i)
+        if s.get("time") or s.get("location"):
+            detailed_by_date.setdefault(date, []).append(s)
 
     drop: set[int] = set()
     for indices in by_key.values():
@@ -928,6 +1297,16 @@ def dedupe_bare_rows(shows: list[dict]) -> tuple[list[dict], int]:
             for i in indices:
                 if not shows[i].get("time") and not shows[i].get("location"):
                     drop.add(i)
+
+    for i, s in enumerate(shows):
+        if i in drop or s.get("time") or s.get("location"):
+            continue
+        date = s.get("date") or ""
+        artist = s.get("artist") or ""
+        if not date or not artist:
+            continue
+        if any(loose_artist_match(artist, d.get("artist") or "") for d in detailed_by_date.get(date, [])):
+            drop.add(i)
 
     if not drop:
         return shows, 0
@@ -995,8 +1374,8 @@ def validate_show(show: dict, idx: int = 0) -> list[str]:
 
     stage = show.get("stage")
     location = show.get("location")
-    if stage and location != "Fair Grounds":
-        issues.append(f"{p}has stage but location is not 'Fair Grounds' (location={location!r})")
+    if stage and location != "Fairgrounds":
+        issues.append(f"{p}has stage but location is not 'Fairgrounds' (location={location!r})")
 
     src = show.get("source")
     if src and src not in {"nojazzfest", "jazzfestgrids", "nola.show"}:
@@ -1139,6 +1518,12 @@ def main() -> int:
     merged, dropped_bare = dedupe_bare_rows(merged)
     if dropped_bare:
         print(f"  ✓ collapsed {dropped_bare} bare nojazzfest row(s) into detailed matches")
+    reclassified = reclassify_fair_grounds_stages(merged)
+    if reclassified:
+        print(f"  ✓ reclassified {reclassified} Fairgrounds stage row(s)")
+    overridden = apply_artist_overrides(merged)
+    if overridden:
+        print(f"  ✓ applied {overridden} artist override(s) — stale tracks cleared for re-resolve")
     data["shows"] = merged
 
     # Resolve
@@ -1274,8 +1659,17 @@ def interactive_main() -> int:
 
     merged, added, updated = merge(data.get("shows", []), gathered, only_date=target_dates)
     merged, dropped_bare = dedupe_bare_rows(merged)
+    reclassified = reclassify_fair_grounds_stages(merged)
+    overridden = apply_artist_overrides(merged)
     data["shows"] = merged
-    extra = f" · collapsed {dropped_bare} bare row(s)" if dropped_bare else ""
+    extras = []
+    if dropped_bare:
+        extras.append(f"collapsed {dropped_bare} bare row(s)")
+    if reclassified:
+        extras.append(f"reclassified {reclassified} Fairgrounds row(s)")
+    if overridden:
+        extras.append(f"{overridden} artist override(s) applied")
+    extra = " · " + " · ".join(extras) if extras else ""
     print(f"\n  Scrape: +{added} new, ~{updated} updated{extra}")
 
     # Resolve tracks for every date in the range.
