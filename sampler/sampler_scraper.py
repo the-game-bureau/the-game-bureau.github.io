@@ -108,6 +108,7 @@ import json
 import re
 import ssl
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, asdict
@@ -871,14 +872,52 @@ def deezer_result(artist: Optional[dict], track: dict) -> dict:
     }
 
 
+# iTunes throttling gets nasty fast once Apple decides we're a bad neighbor.
+# Rather than retry forever (wasting ~4.5s per row on hopeless lookups) or
+# kill the whole run, we short-circuit iTunes for the rest of the batch after
+# N consecutive throttle responses. Deezer + YouTube keep running for every
+# remaining row, and the user re-runs (F5) later once Apple has cooled off.
+_ITUNES_THROTTLE_THRESHOLD = 3
+_itunes_lock = threading.Lock()
+_itunes_state = {"throttled": 0, "cooldown": False, "announced": False}
+
+
+def _itunes_note_throttle() -> None:
+    with _itunes_lock:
+        _itunes_state["throttled"] += 1
+        if (_itunes_state["throttled"] >= _ITUNES_THROTTLE_THRESHOLD
+                and not _itunes_state["cooldown"]):
+            _itunes_state["cooldown"] = True
+
+
+def _itunes_note_success() -> None:
+    with _itunes_lock:
+        _itunes_state["throttled"] = 0
+
+
+def _itunes_in_cooldown() -> bool:
+    with _itunes_lock:
+        if _itunes_state["cooldown"] and not _itunes_state["announced"]:
+            _itunes_state["announced"] = True
+            print(f"  ! iTunes throttled {_ITUNES_THROTTLE_THRESHOLD}× — "
+                  "skipping iTunes for the rest of this run. "
+                  "Deezer and YouTube still active. Re-run later to retry.",
+                  file=sys.stderr)
+        return _itunes_state["cooldown"]
+
+
 def resolve_itunes(query: str) -> Optional[dict]:
-    """iTunes Search API with retry/backoff. Apple throttles aggressively
-    (HTTP 403 / empty responses) once per-IP request volume climbs — which
-    is exactly what happens when we blast through 2000 resolutions in one
-    run. Prior to this we silently failed on the first hiccup and fell
-    through to YouTube Music, producing the lopsided hit-count between
-    Day 1 (resolved early, cached) and every later day.
+    """iTunes Search API with retry/backoff + run-scoped cooldown.
+
+    Apple throttles aggressively (HTTP 403 / 429 / empty responses) once
+    per-IP request volume climbs. Each attempt retries up to 3× with growing
+    backoff; if we see N consecutive throttle responses across the whole
+    batch, iTunes is considered "cooling down" for the rest of the run and
+    subsequent calls short-circuit to None without hitting the network.
     """
+    if _itunes_in_cooldown():
+        return None
+
     # Ask for more results than we strictly need so we can walk down the
     # relevance-ordered list if the top match has no preview URL (Apple's
     # rights-cleared set is spotty for indie/NOLA-local acts).
@@ -891,6 +930,7 @@ def resolve_itunes(query: str) -> Optional[dict]:
     for attempt in range(3):
         try:
             data = fetch_json(url)
+            _itunes_note_success()
             results = data.get("results") or []
             if not results:
                 return None
@@ -904,6 +944,9 @@ def resolve_itunes(query: str) -> Optional[dict]:
             # 403/429/503 → wait and retry. Anything else → give up.
             if e.code not in (403, 429, 500, 502, 503, 504):
                 return None
+            _itunes_note_throttle()
+            if _itunes_in_cooldown():
+                return None  # run-wide throttle — stop burning time on iTunes
             if attempt < 2:
                 time.sleep(1.5 * (attempt + 1))
             else:
@@ -1116,28 +1159,26 @@ def youtube_open_result(found: dict) -> dict:
 
 
 def youtube_music_link(query: str, song_title: str = "") -> dict:
-    """Prefer a carried song title (from Deezer/Apple metadata). If we have
-    none, scrape YouTube to get an actual track title + a direct watch URL.
-    Last resort: a YouTube Music search page with "no track found" as label."""
-    title = song_title
-    url = None
+    """Scrape YouTube Music (and fall back to regular YouTube) for a specific
+    watchable track. A /watch?v=<id> URL is embeddable in the browser
+    lightbox via youtube.com/embed/<id>; a /search?q=... URL is not.
 
-    if not title:
-        found = resolve_youtube(query)
-        if found:
-            title = found["title"]
-            url = found["url"]
-            return youtube_open_result(found)
+    We always try to resolve a watch URL, even when Deezer/Apple already
+    carried a song title through — the search-only URL is strictly worse
+    for the UI (lightbox can't embed it, user has to bounce to a new tab).
+    """
+    found = resolve_youtube_music(query, song_title) or resolve_youtube(query)
+    if found:
+        return youtube_open_result(found)
 
-    if not url:
-        q = f"{query} {song_title}".strip() if song_title else query
-        url = f"https://music.youtube.com/search?q={quote(q)}"
-
+    # Nothing found — fall back to a raw YouTube Music search page. These
+    # still open correctly via window.open; they just don't embed.
+    q = f"{query} {song_title}".strip() if song_title else query
     return {
         "source": "youtube",
         "mode": "search",
-        "title": title or "no track found",
-        "url": url,
+        "title": song_title or "no track found",
+        "url": f"https://music.youtube.com/search?q={quote(q)}",
     }
 
 
@@ -1791,19 +1832,13 @@ if __name__ == "__main__":
                 pass
 
     # Default behavior when you just "Run Python File" in VS Code (no args):
-    # walk today's rows and try to upgrade YouTube/Spotify fallbacks into real
-    # Deezer/Apple previews. Leaves already-playable rows alone so every run
-    # is cheap and strictly improves the catalog. Run with --force-resolve
-    # for a full refresh, or -i / --interactive for the date-picker prompt.
+    # walk every day's rows and try to upgrade YouTube/Spotify fallbacks into
+    # real Deezer/Apple previews. Skips already-playable rows so each run is
+    # strictly an improvement over the last. Run with --force-resolve for a
+    # full refresh, or -i / --interactive for the date-picker prompt.
     if len(sys.argv) == 1:
-        today = datetime.now().strftime("%Y-%m-%d")
-        target = max(today, DAYS[0]["iso"])
-        if target > DAYS[-1]["iso"]:
-            print(f"  Past the end of Jazz Fest 2026 ({DAYS[-1]['iso']}). "
-                  "Nothing to do — run with -i to pick any day.")
-            sys.exit(0)
-        print(f"  → Quick run: upgrading fallback rows on {target} (no scrape)\n")
-        sys.argv += ["--no-scrape", "--upgrade-fallbacks", "--date", target]
+        print(f"  → Quick run: upgrading fallback rows across all days (no scrape)\n")
+        sys.argv += ["--no-scrape", "--upgrade-fallbacks"]
     elif sys.argv[1] in ("-i", "--interactive"):
         sys.argv.pop(1)
         sys.exit(interactive_main())
