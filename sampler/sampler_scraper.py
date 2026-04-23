@@ -882,21 +882,38 @@ def deezer_result(artist: Optional[dict], track: dict) -> dict:
 # N consecutive throttle responses. Deezer + YouTube keep running for every
 # remaining row, and the user re-runs (F5) later once Apple has cooled off.
 _ITUNES_THROTTLE_THRESHOLD = 3
+_ITUNES_TIMEOUT_THRESHOLD = 2   # consecutive total-timeouts before abort
 _itunes_lock = threading.Lock()
-_itunes_state = {"throttled": 0, "cooldown": False, "announced": False}
+_itunes_state = {"throttled": 0, "timeouts": 0, "cooldown": False, "announced": False}
+
+
+class AppleMusicUnreachable(RuntimeError):
+    """Raised from a worker when Apple Music has timed out enough times that
+    continuing the run is pointless. Propagates up to main(), which catches
+    it and exits cleanly."""
 
 
 def _itunes_note_throttle() -> None:
     with _itunes_lock:
         _itunes_state["throttled"] += 1
+        _itunes_state["timeouts"] = 0  # throttle ≠ timeout; reset the counter
         if (_itunes_state["throttled"] >= _ITUNES_THROTTLE_THRESHOLD
                 and not _itunes_state["cooldown"]):
             _itunes_state["cooldown"] = True
 
 
+def _itunes_note_timeout() -> int:
+    """Record a run-to-completion timeout on iTunes. Returns the new count
+    so the caller can decide whether to abort the whole run."""
+    with _itunes_lock:
+        _itunes_state["timeouts"] += 1
+        return _itunes_state["timeouts"]
+
+
 def _itunes_note_success() -> None:
     with _itunes_lock:
         _itunes_state["throttled"] = 0
+        _itunes_state["timeouts"] = 0
 
 
 def _itunes_in_cooldown() -> bool:
@@ -960,8 +977,17 @@ def resolve_itunes(query: str) -> Optional[dict]:
         except (URLError, TimeoutError):
             if attempt < 2:
                 time.sleep(1.0 * (attempt + 1))
-            else:
-                return None
+                continue
+            # All 3 attempts timed out for this query. Count it; if we've
+            # hit the threshold, abort the entire run — continuing would
+            # just waste time on a dead API.
+            count = _itunes_note_timeout()
+            if count >= _ITUNES_TIMEOUT_THRESHOLD:
+                raise AppleMusicUnreachable(
+                    f"Apple Music timed out {count}× in a row on '{query[:40]}'. "
+                    "Aborting the run — try again later."
+                )
+            return None
         except Exception:
             return None
     return None
@@ -1296,6 +1322,9 @@ def resolve_shows(
         q = show.get("query") or show.get("artist") or ""
         try:
             track = resolve_track(q, skip=skip)
+        except AppleMusicUnreachable:
+            # Fatal for this run — let it bubble up so main() can abort.
+            raise
         except Exception as e:  # network hiccup, etc.
             print(f"  ! resolver crashed on '{q}': {e}", file=sys.stderr)
             track = spotify_search(q)
@@ -1797,14 +1826,18 @@ def main() -> int:
     # Resolve
     resolve_stats = {}
     if not args.no_resolve:
-        resolve_stats = resolve_shows(
-            merged,
-            force=args.force_resolve,
-            skip=skip_set,
-            workers=args.workers,
-            only_date=args.date,
-            upgrade_only=args.upgrade_fallbacks,
-        )
+        try:
+            resolve_stats = resolve_shows(
+                merged,
+                force=args.force_resolve,
+                skip=skip_set,
+                workers=args.workers,
+                only_date=args.date,
+                upgrade_only=args.upgrade_fallbacks,
+            )
+        except AppleMusicUnreachable as e:
+            print(f"\n  ✗ {e}", file=sys.stderr)
+            return 2
 
     merged.sort(key=lambda s: (
         s.get("date") or "9999",
@@ -1946,7 +1979,11 @@ def interactive_main() -> int:
 
     # Resolve tracks for every date in the range.
     print()
-    stats = resolve_shows(merged, force=False, skip=set(), workers=4, only_date=target_dates)
+    try:
+        stats = resolve_shows(merged, force=False, skip=set(), workers=4, only_date=target_dates)
+    except AppleMusicUnreachable as e:
+        print(f"\n  ✗ {e}", file=sys.stderr)
+        return 2
 
     merged.sort(key=lambda s: (
         s.get("date") or "9999",
