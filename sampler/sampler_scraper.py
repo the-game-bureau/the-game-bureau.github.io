@@ -385,6 +385,10 @@ _ARTIST_CHAR_TRANSLATION = str.maketrans({
 def norm_artist(s: Optional[str]) -> str:
     s = norm(s).translate(_ARTIST_CHAR_TRANSLATION).lower()
     s = re.sub(r"\s*&\s*", " and ", s)
+    # Strip all non-word / non-space characters so trivial punctuation spacing
+    # variations ("A: B" vs "A : B" vs "A:B") collapse to the same key and
+    # don't leak past the dedup step.
+    s = re.sub(r"[^\w\s]", " ", s)
     s = re.sub(r"\s+", " ", s)
     return s.strip()
 
@@ -1326,6 +1330,85 @@ def load_existing() -> dict:
     }
 
 
+SKIM_PATH = SCRIPT_DIR / "sampler.txt"
+
+
+def _format_time(raw: Optional[str]) -> str:
+    """HH:MM (24h, possibly 25:00+ for late-night) → '11:20 AM' / '1:00 AM (+1)'."""
+    if not raw:
+        return "     "
+    try:
+        h, m = raw.split(":")
+        h_i, m_i = int(h), int(m)
+    except (ValueError, AttributeError):
+        return raw
+    post_midnight = h_i >= 24
+    h_disp = h_i - 24 if post_midnight else h_i
+    ampm = "AM" if h_disp < 12 else "PM"
+    h12 = 12 if h_disp % 12 == 0 else h_disp % 12
+    label = f"{h12:>2}:{m_i:02d} {ampm}"
+    return f"{label} (+1)" if post_midnight else f"{label}    "
+
+
+def write_skim(data: dict) -> None:
+    """Write a human-readable plain-text digest of sampler.json alongside it.
+
+    Groups shows by date, sorts by time within each date, and prints only the
+    fields useful for a skim pass — artist, venue/stage, track source/mode,
+    track title. Drops URLs, covers, and preview links (the noise).
+    """
+    shows = data.get("shows") or []
+    # Bucket by date.
+    by_date: dict[str, list[dict]] = {}
+    for s in shows:
+        by_date.setdefault(s.get("date") or "unknown", []).append(s)
+
+    lines: list[str] = []
+    meta = data.get("meta") or {}
+    tagline = meta.get("tagline") or ""
+    lu = meta.get("last_updated") or ""
+    lines.append(f"# Jazz Fest 2026 Sampler — skim view")
+    if tagline:
+        lines.append(f"# {tagline}")
+    lines.append(f"# {len(shows)} shows · generated {lu}")
+    lines.append("")
+
+    def _sort_key(row: dict) -> tuple:
+        t = row.get("time") or ""
+        try:
+            h, m = t.split(":")
+            h_i, m_i = int(h), int(m)
+            # Late-night (00-05) sort after evening of same "night".
+            if h_i < 6:
+                h_i += 24
+            return (h_i * 60 + m_i, (row.get("location") or "").lower(),
+                    (row.get("artist") or "").lower())
+        except ValueError:
+            return (99999, (row.get("location") or "").lower(),
+                    (row.get("artist") or "").lower())
+
+    for date in sorted(by_date):
+        day_shows = sorted(by_date[date], key=_sort_key)
+        lines.append(f"=== {date}  ({len(day_shows)} shows) ===")
+        for s in day_shows:
+            t = s.get("track") or {}
+            src_mode = f"{t.get('source') or '-'}/{t.get('mode') or '-'}"
+            stage = s.get("stage")
+            loc = s.get("location") or ""
+            where = f"{loc} · {stage}" if stage else loc
+            title = t.get("title") or ""
+            time_label = _format_time(s.get("time"))
+            artist = (s.get("artist") or "")[:44]
+            where_trunc = where[:38]
+            lines.append(
+                f"  {time_label}  {artist:<44}  {where_trunc:<38}  "
+                f"{src_mode:<14}  — {title}"
+            )
+        lines.append("")
+
+    SKIM_PATH.write_text("\n".join(lines), encoding="utf-8")
+
+
 def save(data: dict, dry_run: bool) -> None:
     data.setdefault("meta", {})["last_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     payload = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
@@ -1334,6 +1417,11 @@ def save(data: dict, dry_run: bool) -> None:
         print(payload[:900] + ("\n…(truncated)" if len(payload) > 900 else ""))
         return
     JSON_PATH.write_text(payload, encoding="utf-8")
+    # Also refresh the plain-text skim for quick manual review.
+    try:
+        write_skim(data)
+    except Exception as e:
+        print(f"  ! skim write failed: {e}", file=sys.stderr)
 
 
 def merge(existing_shows: list[dict], incoming: list[Show],
@@ -1423,6 +1511,68 @@ def dedupe_bare_rows(shows: list[dict]) -> tuple[list[dict], int]:
         return shows, 0
     kept = [s for i, s in enumerate(shows) if i not in drop]
     return kept, len(drop)
+
+
+def consolidate_duplicate_rows(shows: list[dict]) -> tuple[list[dict], int]:
+    """Collapse rows that describe the same performance slot.
+
+    nola.show occasionally emits near-duplicate rows for the same act in the
+    same venue/time — the only difference is artist-string punctuation (e.g.
+    "LATE NIGHT Thursday: Pocket Chocolate" vs "… Thursday : Pocket Chocolate").
+    Our dedupe key uses norm_artist which now strips punctuation, so these
+    hash to the same bucket. For each bucket we keep the row with the best
+    track and drop the rest. Ranking:
+        3 — playable preview (mode='play' with preview URL)
+        2 — direct track page (mode='open')
+        1 — search fallback (mode='search')
+        0 — no track field
+    Ties fall to the row that appeared first (stable).
+
+    Returns (kept_rows, dropped_count).
+    """
+    def score(row: dict) -> int:
+        t = row.get("track") or {}
+        mode = t.get("mode")
+        if mode == "play" and t.get("preview"):
+            return 3
+        if mode == "open":
+            return 2
+        if mode == "search":
+            return 1
+        return 0
+
+    by_key: dict[tuple, list[int]] = {}
+    for i, s in enumerate(shows):
+        key = (
+            norm_artist(s.get("artist") or ""),
+            s.get("date") or "",
+            s.get("time") or "",
+            norm_location(s.get("location") or ""),
+        )
+        # Skip rows missing identifying info — don't want to collapse those.
+        if not key[0] or not key[1]:
+            continue
+        by_key.setdefault(key, []).append(i)
+
+    to_drop: set[int] = set()
+    for indices in by_key.values():
+        if len(indices) < 2:
+            continue
+        # Rank by score descending, stable by original index on ties.
+        ranked = sorted(indices, key=lambda i: (-score(shows[i]), i))
+        keeper = shows[ranked[0]]
+        # Merge useful metadata from losers into keeper before dropping them.
+        for loser_idx in ranked[1:]:
+            loser = shows[loser_idx]
+            for field in ("query", "stage"):
+                if not keeper.get(field) and loser.get(field):
+                    keeper[field] = loser[field]
+            to_drop.add(loser_idx)
+
+    if not to_drop:
+        return shows, 0
+    kept = [s for i, s in enumerate(shows) if i not in to_drop]
+    return kept, len(to_drop)
 
 
 # ---------- Schema validation --------------------------------------------
@@ -1633,6 +1783,9 @@ def main() -> int:
     merged, dropped_bare = dedupe_bare_rows(merged)
     if dropped_bare:
         print(f"  ✓ collapsed {dropped_bare} bare nojazzfest row(s) into detailed matches")
+    merged, dropped_dupes = consolidate_duplicate_rows(merged)
+    if dropped_dupes:
+        print(f"  ✓ consolidated {dropped_dupes} duplicate row(s) (kept best track)")
     reclassified = reclassify_fair_grounds_stages(merged)
     if reclassified:
         print(f"  ✓ reclassified {reclassified} Fairgrounds stage row(s)")
@@ -1775,12 +1928,15 @@ def interactive_main() -> int:
 
     merged, added, updated = merge(data.get("shows", []), gathered, only_date=target_dates)
     merged, dropped_bare = dedupe_bare_rows(merged)
+    merged, dropped_dupes = consolidate_duplicate_rows(merged)
     reclassified = reclassify_fair_grounds_stages(merged)
     overridden = apply_artist_overrides(merged)
     data["shows"] = merged
     extras = []
     if dropped_bare:
         extras.append(f"collapsed {dropped_bare} bare row(s)")
+    if dropped_dupes:
+        extras.append(f"consolidated {dropped_dupes} dup row(s)")
     if reclassified:
         extras.append(f"reclassified {reclassified} Fairgrounds row(s)")
     if overridden:
