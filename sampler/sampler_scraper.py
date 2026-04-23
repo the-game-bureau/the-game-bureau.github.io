@@ -83,11 +83,14 @@ them in sync.
 
 USAGE
 -----
-  python sampler_scraper.py                     # interactive — prompts for a day
+  python sampler_scraper.py                     # quick default — upgrades
+                                                 # today's fallback rows only
+  python sampler_scraper.py -i                  # interactive day-picker prompt
   python sampler_scraper.py --date 2026-04-23   # non-interactive, one day
   python sampler_scraper.py --no-scrape         # just re-run the resolver
   python sampler_scraper.py --no-resolve        # just scrape
   python sampler_scraper.py --force-resolve     # re-resolve every show
+  python sampler_scraper.py --upgrade-fallbacks # only re-resolve rows with no preview
   python sampler_scraper.py --skip deezer       # skip a resolver
   python sampler_scraper.py --only nola.show    # limit scraping source
   python sampler_scraper.py --workers 8         # resolver concurrency
@@ -105,6 +108,7 @@ import json
 import re
 import ssl
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
@@ -811,7 +815,13 @@ def scrape_jazzfestgrids(html: str) -> list[Show]:
 
 
 def resolve_deezer(query: str) -> tuple[Optional[dict], Optional[dict]]:
-    """Return (artist, track) dicts from Deezer. Either may be None."""
+    """Return (artist, track) dicts from Deezer. Either may be None.
+
+    Prefers the artist's #1 track; walks down the top 20 only if higher-
+    ranked tracks lack a preview (rights restrictions, etc). This maximizes
+    playable Deezer previews and minimizes YouTube-fallback rows while still
+    landing on the most popular song when possible.
+    """
     try:
         s = fetch_json(f"https://api.deezer.com/search/artist?limit=1&q={quote(query)}")
     except Exception:
@@ -820,11 +830,19 @@ def resolve_deezer(query: str) -> tuple[Optional[dict], Optional[dict]]:
     if not artist:
         return (None, None)
     try:
-        t = fetch_json(f"https://api.deezer.com/artist/{artist['id']}/top?limit=1")
+        t = fetch_json(f"https://api.deezer.com/artist/{artist['id']}/top?limit=20")
     except Exception:
         return (artist, None)
-    track = (t.get("data") or [None])[0] if isinstance(t, dict) else None
-    return (artist, track)
+    tracks = t.get("data") or [] if isinstance(t, dict) else []
+    if not tracks:
+        return (artist, None)
+    # First track with a preview (ordered by popularity). Falls back to the
+    # #1 track with no preview, which lets deezer_result return mode='open'
+    # instead of triggering the full chain — still better than a YT search.
+    for track in tracks:
+        if track.get("preview"):
+            return (artist, track)
+    return (artist, tracks[0])
 
 
 def deezer_result(artist: Optional[dict], track: dict) -> dict:
@@ -854,19 +872,52 @@ def deezer_result(artist: Optional[dict], track: dict) -> dict:
 
 
 def resolve_itunes(query: str) -> Optional[dict]:
+    """iTunes Search API with retry/backoff. Apple throttles aggressively
+    (HTTP 403 / empty responses) once per-IP request volume climbs — which
+    is exactly what happens when we blast through 2000 resolutions in one
+    run. Prior to this we silently failed on the first hiccup and fell
+    through to YouTube Music, producing the lopsided hit-count between
+    Day 1 (resolved early, cached) and every later day.
+    """
+    # Ask for more results than we strictly need so we can walk down the
+    # relevance-ordered list if the top match has no preview URL (Apple's
+    # rights-cleared set is spotty for indie/NOLA-local acts).
     url = (
         "https://itunes.apple.com/search?"
-        f"term={quote(query)}&entity=song&attribute=artistTerm&limit=5&media=music"
+        f"term={quote(query)}&entity=song&attribute=artistTerm&limit=25&media=music"
     )
-    try:
-        data = fetch_json(url)
-    except Exception:
-        return None
-    results = data.get("results") or []
-    if not results:
-        return None
-    with_preview = next((r for r in results if r.get("previewUrl")), None)
-    return with_preview or results[0]
+    # Three attempts with growing backoff. Most throttle windows clear
+    # within a second or two.
+    for attempt in range(3):
+        try:
+            data = fetch_json(url)
+            results = data.get("results") or []
+            if not results:
+                return None
+            # Highest-ranked track with a preview wins; fall back to #1
+            # without preview if nothing in the set is playable.
+            for r in results:
+                if r.get("previewUrl"):
+                    return r
+            return results[0]
+        except HTTPError as e:
+            # 403/429/503 → wait and retry. Anything else → give up.
+            if e.code not in (403, 429, 500, 502, 503, 504):
+                return None
+            if attempt < 2:
+                time.sleep(1.5 * (attempt + 1))
+            else:
+                print(f"  ! iTunes throttled (HTTP {e.code}) on '{query[:40]}'",
+                      file=sys.stderr)
+                return None
+        except (URLError, TimeoutError):
+            if attempt < 2:
+                time.sleep(1.0 * (attempt + 1))
+            else:
+                return None
+        except Exception:
+            return None
+    return None
 
 
 def itunes_result(pick: dict) -> dict:
@@ -1153,13 +1204,32 @@ def resolve_shows(
     skip: Iterable[str] = (),
     workers: int = 4,
     only_date=None,
+    upgrade_only: bool = False,
 ) -> dict:
+    """Re-run the resolver chain on rows that need it.
+
+    Modes:
+      - force=True: re-resolve every matching row (expensive but thorough).
+      - upgrade_only=True: re-resolve only rows that currently lack a
+        playable preview (YouTube/Spotify fallbacks, mode='open' without
+        preview, or missing tracks). Rows already showing a Deezer/Apple
+        playable preview are left alone — this is the cheap way to try to
+        upgrade fallback rows without disturbing the ones that already work.
+      - neither: resolve rows that have never been resolved.
+    """
     allowed = _normalize_date_filter(only_date)
     tasks = []
     for s in shows:
         if allowed is not None and s.get("date") not in allowed:
             continue
-        if s.get("track") and not force:
+        if upgrade_only:
+            t = s.get("track") or {}
+            # Skip rows that already have a working in-browser preview.
+            if t.get("mode") == "play" and t.get("preview"):
+                continue
+            # Clear the fallback track so the resolver re-runs fresh.
+            s.pop("track", None)
+        elif s.get("track") and not force:
             continue
         tasks.append(s)
 
@@ -1460,7 +1530,11 @@ def main() -> int:
     parser.add_argument("--no-resolve", action="store_true",
                         help="Skip resolution; just scrape")
     parser.add_argument("--force-resolve", action="store_true",
-                        help="Re-resolve shows that already have a track")
+                        help="Re-resolve every matching show (slow, thorough)")
+    parser.add_argument("--upgrade-fallbacks", action="store_true",
+                        help="Only re-resolve rows without a playable preview "
+                             "(upgrades YouTube/Spotify fallbacks; leaves "
+                             "working Deezer/Apple rows alone)")
     parser.add_argument("--skip", default="",
                         help="Comma-separated resolvers to skip: deezer,itunes,youtube")
     parser.add_argument("--workers", type=int, default=4,
@@ -1535,6 +1609,7 @@ def main() -> int:
             skip=skip_set,
             workers=args.workers,
             only_date=args.date,
+            upgrade_only=args.upgrade_fallbacks,
         )
 
     merged.sort(key=lambda s: (
@@ -1705,11 +1780,32 @@ if __name__ == "__main__":
     # Reconfiguring here keeps our progress output portable without surgery
     # on every print statement.
     for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8", errors="replace")
-        except Exception:
-            pass
-    # No args → interactive prompt. Any args → argparse (for scripts/automation).
+        # reconfigure() exists on TextIOWrapper (the actual runtime type) but
+        # not on TextIO (what type stubs expose), so Pylance flags direct
+        # access. Fetch dynamically to keep the tool quiet.
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+    # Default behavior when you just "Run Python File" in VS Code (no args):
+    # walk today's rows and try to upgrade YouTube/Spotify fallbacks into real
+    # Deezer/Apple previews. Leaves already-playable rows alone so every run
+    # is cheap and strictly improves the catalog. Run with --force-resolve
+    # for a full refresh, or -i / --interactive for the date-picker prompt.
     if len(sys.argv) == 1:
+        today = datetime.now().strftime("%Y-%m-%d")
+        target = max(today, DAYS[0]["iso"])
+        if target > DAYS[-1]["iso"]:
+            print(f"  Past the end of Jazz Fest 2026 ({DAYS[-1]['iso']}). "
+                  "Nothing to do — run with -i to pick any day.")
+            sys.exit(0)
+        print(f"  → Quick run: upgrading fallback rows on {target} (no scrape)\n")
+        sys.argv += ["--no-scrape", "--upgrade-fallbacks", "--date", target]
+    elif sys.argv[1] in ("-i", "--interactive"):
+        sys.argv.pop(1)
         sys.exit(interactive_main())
+
     sys.exit(main())
