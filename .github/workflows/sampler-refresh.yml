@@ -1,0 +1,76 @@
+name: Refresh Jazz Fest Sampler
+
+# Runs the scraper every 30 minutes to upgrade YouTube/Spotify fallbacks into
+# real Deezer/Apple previews as artists come back into API availability.
+# Auto-commits any changes to sampler.json / sampler.txt — which triggers the
+# deploy workflow and pushes fresh data to the live site.
+#
+# Cron schedule below is in UTC. During Jazz Fest 2026 (late April / early
+# May) New Orleans is on CDT (UTC-5), so UTC 13-22 = 8am-5:30pm Central.
+# The bash guard below is belt-and-suspenders: it double-checks Central time
+# and bails if we're past 6pm, in case GitHub queues a run late.
+
+on:
+  schedule:
+    - cron: "0,30 13-22 * * *"     # every :00 and :30, UTC 13-22
+  workflow_dispatch: {}             # allow manual "Run workflow" from the UI
+
+permissions:
+  contents: write                   # needed to push the auto-commit
+
+concurrency:
+  group: sampler-refresh
+  cancel-in-progress: false          # let long runs finish; skip overlaps instead
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Stop after 6pm Central
+        id: time-check
+        run: |
+          central_hour=$(TZ='America/Chicago' date +%H)
+          echo "Central hour: $central_hour"
+          if [ "$central_hour" -ge 18 ]; then
+            echo "after_6pm=true" >> "$GITHUB_OUTPUT"
+            echo "Past 6pm Central — skipping this run."
+          else
+            echo "after_6pm=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.time-check.outputs.after_6pm != 'true'
+        uses: actions/checkout@v4
+        with:
+          # Full history isn't needed, but we do need fetch-depth > 0 so the
+          # auto-commit can build on HEAD.
+          fetch-depth: 1
+
+      - name: Set up Python
+        if: steps.time-check.outputs.after_6pm != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        if: steps.time-check.outputs.after_6pm != 'true'
+        run: pip install beautifulsoup4
+
+      - name: Upgrade fallback tracks (all days)
+        if: steps.time-check.outputs.after_6pm != 'true'
+        run: python sampler/sampler_scraper.py --no-scrape --upgrade-fallbacks
+
+      - name: Commit & push if sampler changed
+        if: steps.time-check.outputs.after_6pm != 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add sampler/sampler.json sampler/sampler.txt
+          if git diff --cached --quiet; then
+            echo "No sampler changes — nothing to commit."
+            exit 0
+          fi
+          stamp=$(TZ='America/Chicago' date +'%Y-%m-%d %H:%M %Z')
+          git commit -m "auto: refresh sampler tracks ($stamp)"
+          git push
