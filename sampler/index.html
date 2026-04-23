@@ -291,9 +291,9 @@
 
     .row.link-only .track { color: var(--cream-dim); }
 
-    /* Lightbox — used to embed YouTube tracks inline instead of bouncing to
-       a new tab. music.youtube.com refuses iframes but plain youtube.com/embed
-       works, so we transform the URL before loading. */
+    /* Lightbox — holds every out-of-player content: YouTube videos, Apple/
+       Deezer track-page embeds, and a fallback "open in new tab" card for
+       URLs whose host refuses iframe embedding (Spotify search, Google). */
     .lightbox {
       display: none;
       position: fixed;
@@ -325,6 +325,40 @@
       display: block;
       background: #000;
     }
+    .lightbox.no-embed .lightbox-frame { display: none; }
+    .lightbox-fallback {
+      display: none;
+      width: 100%;
+      height: 100%;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding: 2rem;
+      text-align: center;
+      color: var(--cream);
+      background: var(--plum);
+    }
+    .lightbox.no-embed .lightbox-fallback { display: flex; }
+    .lightbox-fallback .big {
+      font-family: 'Alfa Slab One', Georgia, serif;
+      font-size: 1.05rem;
+      text-transform: uppercase;
+    }
+    .lightbox-fallback p { max-width: 22rem; font-size: 0.9rem; color: var(--cream-dim); }
+    .lightbox-fallback a {
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--gold);
+      border-radius: 999px;
+      color: var(--gold);
+      text-decoration: none;
+      font-family: 'Figtree', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .lightbox-fallback a:hover { background: var(--gold); color: var(--plum-deep); }
     .lightbox-close {
       position: absolute;
       top: 0.5rem;
@@ -344,6 +378,7 @@
       justify-content: center;
     }
     .lightbox-close:hover { background: var(--cream); color: var(--plum-deep); }
+
     .row.missing .art { opacity: 0.45; }
     .row.missing .artist,
     .row.missing .track,
@@ -632,14 +667,20 @@
   <audio id="audio" preload="none" playsinline></audio>
 
   <div class="lightbox" id="lightbox" aria-hidden="true">
-    <div class="lightbox-card" role="dialog" aria-modal="true" aria-label="Video preview">
+    <div class="lightbox-card" role="dialog" aria-modal="true" aria-label="Track preview">
       <button type="button" class="lightbox-close" id="lightbox-close" aria-label="Close">×</button>
       <iframe class="lightbox-frame" id="lightbox-frame" src="about:blank"
               allow="autoplay; encrypted-media; picture-in-picture"
               allowfullscreen
               referrerpolicy="no-referrer"></iframe>
+      <div class="lightbox-fallback" id="lightbox-fallback">
+        <div class="big">Can't preview here</div>
+        <p>This site blocks embedded previews. Open it in a new tab to continue.</p>
+        <a id="lightbox-ext" target="_blank" rel="noopener">Open in new tab ↗</a>
+      </div>
     </div>
   </div>
+
 
   <script>
     // ---------- Config -----------------------------------------------------
@@ -1039,9 +1080,8 @@
       const it = state.items[index];
       if (!it || !it.track) return;
 
-      // Non-playable row (YouTube/Spotify fallback): try to open it in the
-      // lightbox (YouTube) or a new tab (Spotify search, etc). Previously
-      // these rows were silent no-ops.
+      // Non-playable row (YouTube/Spotify fallback): bounce the URL to a
+      // new tab. Previously these rows were silent no-ops.
       if (!it.track.preview) {
         if (it.track.url) openExternal(it.track.url);
         return;
@@ -1056,33 +1096,65 @@
       playIndex(index);
     }
 
-    // ---------- Lightbox (YouTube embeds) ---------------------------------
+    // ---------- Lightbox --------------------------------------------------
+    // Any URL that used to bounce to a new tab now opens in this lightbox.
+    // Hosts that allow iframe embedding (YouTube watch pages, Apple Music
+    // track pages, Deezer track pages) render inline in the frame. Hosts
+    // that refuse iframes (Spotify search, YouTube Music search, Google)
+    // show a fallback card with a big "Open in new tab" button.
     const lightbox = document.getElementById('lightbox');
     const lightboxFrame = document.getElementById('lightbox-frame');
     const lightboxClose = document.getElementById('lightbox-close');
+    const lightboxExt = document.getElementById('lightbox-ext');
 
-    // music.youtube.com refuses iframe embedding, but plain youtube.com/embed
-    // works. Transform YouTube URLs we recognize; return null for anything
-    // else so the caller falls back to window.open.
-    function toYouTubeEmbed(url) {
+    function toEmbedUrl(url) {
       if (!url) return null;
       try {
         const u = new URL(url);
         const host = u.hostname;
-        if (!(host.endsWith('youtube.com') || host === 'youtu.be')) return null;
-        let vid = null;
-        if (host === 'youtu.be') {
-          vid = u.pathname.slice(1).split('/')[0] || null;
-        } else {
-          vid = u.searchParams.get('v');
+
+        // YouTube /watch?v=ID → youtube.com/embed/ID (music.youtube.com and
+        // plain youtube.com watch URLs both work once transformed).
+        if (host.endsWith('youtube.com') || host === 'youtu.be') {
+          let vid = null;
+          if (host === 'youtu.be') {
+            vid = u.pathname.slice(1).split('/')[0] || null;
+          } else {
+            vid = u.searchParams.get('v');
+          }
+          if (vid && /^[\w-]{6,}$/.test(vid)) {
+            return `https://www.youtube.com/embed/${vid}?autoplay=1&rel=0`;
+          }
+          return null;  // search URLs, shorts, etc. → fallback card
         }
-        if (!vid || !/^[\w-]{6,}$/.test(vid)) return null;
-        return `https://www.youtube.com/embed/${vid}?autoplay=1&rel=0`;
+
+        // Apple Music: music.apple.com/... → embed.music.apple.com/...
+        if (host === 'music.apple.com' || host.endsWith('.music.apple.com')) {
+          if (host !== 'embed.music.apple.com') u.hostname = 'embed.music.apple.com';
+          return u.toString();
+        }
+
+        // Deezer: www.deezer.com/[locale/]track/ID → widget.deezer.com/widget/dark/track/ID
+        if (host === 'www.deezer.com' || host === 'deezer.com') {
+          const m = /\/track\/(\d+)/.exec(u.pathname);
+          if (m) return `https://widget.deezer.com/widget/dark/track/${m[1]}`;
+        }
+
+        return null;
       } catch (_) { return null; }
     }
 
-    function openLightbox(embedUrl) {
-      lightboxFrame.src = embedUrl;
+    function openLightbox(url) {
+      if (!url) return;
+      const embed = toEmbedUrl(url);
+      if (embed) {
+        lightbox.classList.remove('no-embed');
+        lightboxFrame.src = embed;
+      } else {
+        lightbox.classList.add('no-embed');
+        lightboxFrame.src = 'about:blank';
+      }
+      if (lightboxExt) lightboxExt.href = url;
       lightbox.classList.add('show');
       lightbox.setAttribute('aria-hidden', 'false');
       // Pause the sampler's audio so we're not playing two things at once.
@@ -1091,15 +1163,14 @@
 
     function closeLightbox() {
       lightbox.classList.remove('show');
+      lightbox.classList.remove('no-embed');
       lightbox.setAttribute('aria-hidden', 'true');
-      lightboxFrame.src = 'about:blank';  // stops YouTube audio
+      lightboxFrame.src = 'about:blank';  // stops embedded audio/video
     }
 
-    // Router: YouTube → lightbox embed; everything else → new tab.
+    // Every out-of-player link routes through the lightbox.
     function openExternal(url) {
-      const embed = toYouTubeEmbed(url);
-      if (embed) openLightbox(embed);
-      else window.open(url, '_blank', 'noopener');
+      openLightbox(url);
     }
 
     lightboxClose.addEventListener('click', closeLightbox);
