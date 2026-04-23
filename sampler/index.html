@@ -289,6 +289,26 @@
     .sub .time { color: var(--gold); }
     .row.playing .sub .time { color: var(--plum-deep); }
 
+    /* Link-type pill: tells the user what tapping the row triggers. */
+    .link-type {
+      display: inline-block;
+      margin-top: 0.3rem;
+      padding: 0.12rem 0.5rem;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      font-family: 'Figtree', sans-serif;
+      font-size: 0.56rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      line-height: 1.3;
+      white-space: nowrap;
+    }
+    .link-type:empty { display: none; }
+    .link-type.kind-play   { color: var(--cream); }
+    .link-type.kind-video  { color: #ff6b6b; }   /* YouTube / Instagram */
+    .link-type.kind-search { color: #1db954; }   /* Spotify / unfound */
+    .row.playing .link-type { color: var(--plum-deep); }
+
     .row.link-only .track { color: var(--cream-dim); }
 
     /* Lightbox — holds every out-of-player content: YouTube videos, Apple/
@@ -896,9 +916,13 @@
       if (item.show.stage && item.show.location) parts.unshift(`<span>${escapeHtml(item.show.location)}</span>`);
       sub.innerHTML = parts.join('<span class="dot">·</span>');
 
+      const linkType = document.createElement('span');
+      linkType.className = 'link-type';
+
       meta.appendChild(artist);
       meta.appendChild(track);
       meta.appendChild(sub);
+      meta.appendChild(linkType);
 
       // MORE button — hidden by CSS until .row.playing. Opens the track page
       // (Deezer/Apple) in a new tab. Stops propagation so tap doesn't pause.
@@ -942,6 +966,7 @@
       item.rowEl = li;
       item._artEl = art;
       item._trackEl = track;
+      item._linkTypeEl = linkType;
       return li;
     }
 
@@ -959,15 +984,39 @@
       return Boolean(title && !GENERIC_TRACK_LABEL.test(title));
     }
 
+    function linkTypeFor(track) {
+      if (!track) return null;
+      if (track.mode === 'search') return { label: 'SEARCH',          key: 'search' };
+      if (track.mode === 'play' && track.preview) {
+        return { label: 'AUTOPLAY AUDIO', key: 'play' };
+      }
+      if (track.source === 'youtube' || track.source === 'instagram') {
+        return { label: 'VIDEO',          key: 'video' };
+      }
+      return null;
+    }
+
     function updateRow(item) {
-      const { rowEl, _artEl, _trackEl, status, track } = item;
+      const { rowEl, _artEl, _trackEl, _linkTypeEl, status, track } = item;
       if (!rowEl) return;
       rowEl.classList.remove('link-only', 'missing');
       rowEl.removeAttribute('aria-disabled');
+      if (_linkTypeEl) {
+        _linkTypeEl.textContent = '';
+        _linkTypeEl.className = 'link-type';
+      }
       if (status !== 'ready' || !track) return;
 
       if (track.cover) _artEl.style.backgroundImage = `url("${track.cover}")`;
       const listedSong = hasListedSong(track);
+
+      // Small pill under the sub-info line telling the user what kind of
+      // action clicking the row triggers (audio preview / video / search).
+      const lt = linkTypeFor(track);
+      if (_linkTypeEl && lt) {
+        _linkTypeEl.textContent = lt.label;
+        _linkTypeEl.classList.add('kind-' + lt.key);
+      }
 
       if (track.mode === 'play') {
         _trackEl.textContent = listedSong ? track.title : 'no track found';
