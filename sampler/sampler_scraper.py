@@ -228,40 +228,72 @@ FESTIVAL_STAGES = (
 # override query. Add entries here for any future mismatches you spot.
 # --------------------------------------------------------------------------
 ARTIST_OVERRIDES: dict[str, dict] = {
+    # Each override can carry either:
+    #   "query": str  — swap the string sent to Deezer/Apple/YouTube
+    #   "track": dict — replace the resolved track entirely (use for acts
+    #                   that aren't on any streaming service; the URL opens
+    #                   in the lightbox, so any embeddable host works —
+    #                   YouTube watch links, Apple/Deezer tracks,
+    #                   Instagram posts/reels, etc.)
+
     # NOLA group, not Beyoncé's single.
     "single ladies": {"query": "Single Ladies New Orleans brass band"},
     # Local New Orleans musician — otherwise matches unrelated acts.
     "tom legget": {"query": "Tom Legget New Orleans"},
+    # NOLA dance/movement company — only online presence is an IG reel.
+    "meatsuit maintenance company class": {
+        "track": {
+            "source": "instagram",
+            "mode": "open",
+            "title": "Meatsuit Maintenance",
+            "url": "https://www.instagram.com/p/C8c0JiQRyoz/",
+        },
+    },
 }
 
 
-def apply_artist_overrides(shows) -> int:
-    """Attach `query` overrides and drop stale tracks in place.
+def apply_artist_overrides(shows, phase: str = "pre") -> int:
+    """Apply manual overrides to matching rows.
 
-    Accepts either a list of Show dataclass instances (from scrape step) or
-    a list of dicts (post-merge). Returns the number of shows modified.
+    phase="pre"  (before resolver): set the override `query` and pop any
+                 stale track so the resolver picks a fresh one.
+    phase="post" (after resolver):  pin any override `track` verbatim,
+                 replacing whatever the resolver produced. Use for acts
+                 with no streaming presence — an IG post, a Bandcamp
+                 page, a specific YouTube link, etc.
+
+    Accepts Show dataclass instances or dicts. Returns shows modified.
     """
     modified = 0
     for s in shows:
-        if isinstance(s, dict):
-            artist = s.get("artist") or ""
-        else:
-            artist = s.artist or ""
+        is_dict = isinstance(s, dict)
+        artist = (s.get("artist") if is_dict else s.artist) or ""
         override = ARTIST_OVERRIDES.get(norm_artist(artist))
         if not override:
             continue
-        new_query = override.get("query")
-        if not new_query:
-            continue
-        if isinstance(s, dict):
-            if s.get("query") != new_query:
-                s["query"] = new_query
-                # Cached track came from the wrong search — force re-resolve.
-                s.pop("track", None)
-                modified += 1
-        else:
-            if s.query != new_query:
-                s.query = new_query
+
+        if phase == "pre":
+            new_query = override.get("query")
+            if not new_query:
+                continue
+            if is_dict:
+                if s.get("query") != new_query:
+                    s["query"] = new_query
+                    # Cached track came from the wrong search — force re-resolve.
+                    s.pop("track", None)
+                    modified += 1
+            else:
+                if s.query != new_query:
+                    s.query = new_query
+                    modified += 1
+        elif phase == "post":
+            pinned = override.get("track")
+            if not pinned or not is_dict:
+                continue
+            # Deep-copy to keep mutations local to this show.
+            new_track = dict(pinned)
+            if s.get("track") != new_track:
+                s["track"] = new_track
                 modified += 1
     return modified
 
@@ -1818,7 +1850,7 @@ def main() -> int:
     reclassified = reclassify_fair_grounds_stages(merged)
     if reclassified:
         print(f"  ✓ reclassified {reclassified} Fairgrounds stage row(s)")
-    overridden = apply_artist_overrides(merged)
+    overridden = apply_artist_overrides(merged, phase="pre")
     if overridden:
         print(f"  ✓ applied {overridden} artist override(s) — stale tracks cleared for re-resolve")
     data["shows"] = merged
@@ -1838,6 +1870,10 @@ def main() -> int:
         except AppleMusicUnreachable as e:
             print(f"\n  ✗ {e}", file=sys.stderr)
             return 2
+        # Pin any hardcoded-track overrides last so they survive the resolver.
+        pinned = apply_artist_overrides(merged, phase="post")
+        if pinned:
+            print(f"  ✓ pinned {pinned} manual track override(s)")
 
     merged.sort(key=lambda s: (
         s.get("date") or "9999",
@@ -1963,7 +1999,7 @@ def interactive_main() -> int:
     merged, dropped_bare = dedupe_bare_rows(merged)
     merged, dropped_dupes = consolidate_duplicate_rows(merged)
     reclassified = reclassify_fair_grounds_stages(merged)
-    overridden = apply_artist_overrides(merged)
+    overridden = apply_artist_overrides(merged, phase="pre")
     data["shows"] = merged
     extras = []
     if dropped_bare:
@@ -1984,6 +2020,8 @@ def interactive_main() -> int:
     except AppleMusicUnreachable as e:
         print(f"\n  ✗ {e}", file=sys.stderr)
         return 2
+    # Pin any hardcoded-track overrides last so they survive the resolver.
+    apply_artist_overrides(merged, phase="post")
 
     merged.sort(key=lambda s: (
         s.get("date") or "9999",
