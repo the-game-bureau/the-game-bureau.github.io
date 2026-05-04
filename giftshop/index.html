@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#eef1ea">
+  <title>GIFT SHOP | THE GAME BUREAU</title>
+  <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --paper: #eef1ea;
+      --ink: #171511;
+      --muted: #4f5a4e;
+      --line: #171511;
+      --accent: #b8332a;
+      /* --theme-color tracks the active game's primary; the all-shops
+         view falls back to --accent. Used for the heading, eyebrow,
+         price text, card hover ring, and back-button highlight. */
+      --theme-color: var(--accent);
+    }
+
+    body[data-theme="game"] {
+      --line: var(--theme-color);
+    }
+
+    body {
+      min-height: 100svh;
+      padding: 2rem 1.5rem 6rem;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Georgia, 'Times New Roman', serif;
+    }
+
+    a { color: inherit; }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 1rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      color: var(--ink);
+      text-decoration: none;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 0.82rem;
+    }
+
+    .back-btn:hover,
+    .back-btn:focus-visible {
+      background: var(--theme-color);
+      border-color: var(--theme-color);
+      color: var(--paper);
+      outline: none;
+    }
+
+    h1 {
+      color: var(--theme-color);
+      font-size: clamp(2rem, 8vw, 4rem);
+      line-height: 0.95;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      margin-bottom: 0.25rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .eyebrow {
+      color: var(--theme-color);
+      opacity: 0.85;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+    }
+
+    .lead {
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.5;
+      margin-bottom: 1.75rem;
+      /* Drop the cap so the tagline runs on one line whenever the
+         viewport is wide enough; it'll only wrap when it has to. */
+    }
+
+    .status {
+      min-height: 1.2em;
+      margin-bottom: 1rem;
+      color: var(--muted);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 0.78rem;
+      letter-spacing: 0.02em;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.55);
+      color: inherit;
+      text-decoration: none;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .card:hover,
+    .card:focus-visible {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 28px rgba(23, 21, 17, 0.12);
+      border-color: var(--theme-color);
+      outline: none;
+    }
+
+    /* In the all-shops view (no game selected) each card carries its own
+       theme color. The variable is set per-card via inline style. */
+    .card[data-game-color] { --theme-color: var(--card-game-color, var(--accent)); }
+
+    .card-media {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      overflow: hidden;
+      background: rgba(23, 21, 17, 0.08);
+    }
+
+    .card-image {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .card-monogram {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .card-media[data-has-image="true"] .card-monogram { display: none; }
+
+    .card-body {
+      display: grid;
+      gap: 4px;
+      padding: 10px 12px 12px;
+    }
+
+    .card-title {
+      color: var(--ink);
+      font-size: 1.05rem;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .card-price {
+      margin-top: 2px;
+      color: var(--theme-color);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    /* Per-card eyebrow showing which game this item belongs to (only
+       used in the all-shops view). */
+    .card-game-eyebrow {
+      color: var(--theme-color);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .card-caption {
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-cta {
+      margin-top: 6px;
+      color: var(--muted);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .empty {
+      grid-column: 1 / -1;
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      padding: 1.5rem;
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .footer-note {
+      margin-top: 2.5rem;
+      color: var(--muted);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      max-width: 36rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="top">
+      <a class="back-btn" id="backBtn" href="../library/">&larr; Library</a>
+    </div>
+    <p class="eyebrow" id="eyebrow">Gift Shop</p>
+    <h1 id="heading">Gift Shop</h1>
+    <p class="lead" id="lead">Souvenirs and curiosities pulled from the field.</p>
+    <p class="status" id="status" aria-live="polite"></p>
+    <div class="grid" id="grid"></div>
+    <p class="footer-note">As an Amazon Associate, The Game Bureau may earn from qualifying purchases.</p>
+  </main>
+
+  <script>
+    const SB_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+
+    const params = new URLSearchParams(location.search);
+    const gameId = String(params.get('id') || params.get('game') || '').trim();
+
+    const statusEl = document.getElementById('status');
+    const gridEl = document.getElementById('grid');
+    const headingEl = document.getElementById('heading');
+    const eyebrowEl = document.getElementById('eyebrow');
+    const leadEl = document.getElementById('lead');
+    const backBtn = document.getElementById('backBtn');
+
+    function setStatus(msg) { statusEl.textContent = msg || ''; }
+
+    function escapeText(value) {
+      return String(value == null ? '' : value);
+    }
+
+    function getMonogram(title) {
+      const t = String(title || 'Item').trim();
+      const words = t.match(/[A-Za-z0-9]+/g) || [];
+      if (words.length >= 2) return ((words[0][0] || '') + (words[1][0] || '')).toUpperCase();
+      return t.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || 'GS';
+    }
+
+    function renderEmpty(message) {
+      gridEl.innerHTML = '';
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = message;
+      gridEl.appendChild(empty);
+    }
+
+    function buildSupabaseUrl(table, query = {}) {
+      const url = new URL('rest/v1/' + table, SB_CONFIG.url.replace(/\/+$/, '') + '/');
+      url.searchParams.set('apikey', SB_CONFIG.key);
+      Object.entries(query).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+      });
+      return url.toString();
+    }
+
+    async function fetchJson(url) {
+      let res;
+      try {
+        res = await fetch(url);
+      } catch (e) {
+        throw new Error('Network request to Supabase failed.');
+      }
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error('Supabase ' + res.status + ': ' + text.slice(0, 200));
+      }
+      return res.json();
+    }
+
+    async function fetchGame(id) {
+      const rows = await fetchJson(buildSupabaseUrl('games', {
+        select: 'id,name,tagline,primary_color',
+        id: 'eq.' + id,
+        limit: '1'
+      }));
+      return Array.isArray(rows) && rows.length ? rows[0] : null;
+    }
+
+    async function fetchItemsForGame(id) {
+      // Anon-readable. Filtered to non-archived, ordered by position then title.
+      return fetchJson(buildSupabaseUrl('gift_shop_items', {
+        select: '*',
+        game_id: 'eq.' + id,
+        archived: 'eq.false',
+        order: 'position.asc.nullslast,title.asc'
+      }));
+    }
+
+    async function fetchAllItems() {
+      // Embedded resource pulls each item's parent game in one round-trip,
+      // so cards in the all-shops view can show the game name + colour.
+      // Requires the FK gift_shop_items.game_id → games.id (which is
+      // declared in the table SQL).
+      return fetchJson(buildSupabaseUrl('gift_shop_items', {
+        select: '*,games(id,name,primary_color)',
+        archived: 'eq.false',
+        order: 'created_at.desc'
+      }));
+    }
+
+    function createCard(item, opts = {}) {
+      const url = String(item.url || '').trim();
+      if (!url) return null;
+
+      const card = document.createElement('a');
+      card.className = 'card';
+      card.href = url;
+      card.target = '_blank';
+      card.rel = 'noopener nofollow sponsored';
+
+      // Per-card theme: in all-shops view, each card uses its own game's
+      // primary colour for accents. Pre-themed cards (single-game view)
+      // inherit --theme-color from the body and don't need this.
+      if (opts.gameColor) {
+        card.dataset.gameColor = '';
+        card.style.setProperty('--card-game-color', opts.gameColor);
+      }
+
+      const media = document.createElement('div');
+      media.className = 'card-media';
+
+      const monogram = document.createElement('div');
+      monogram.className = 'card-monogram';
+      monogram.textContent = getMonogram(item.title);
+      media.appendChild(monogram);
+
+      const imageUrl = String(item.image_url || '').trim();
+      media.dataset.hasImage = imageUrl ? 'true' : 'false';
+      if (imageUrl) {
+        const img = document.createElement('img');
+        img.className = 'card-image';
+        img.src = imageUrl;
+        img.alt = '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.referrerPolicy = 'no-referrer';
+        img.addEventListener('error', () => {
+          img.remove();
+          media.dataset.hasImage = 'false';
+        });
+        media.appendChild(img);
+      }
+
+      const body = document.createElement('div');
+      body.className = 'card-body';
+
+      // Game eyebrow only shown in the all-shops view (when opts.gameName set).
+      if (opts.gameName) {
+        const ge = document.createElement('p');
+        ge.className = 'card-game-eyebrow';
+        ge.textContent = opts.gameName;
+        body.appendChild(ge);
+      }
+
+      const title = document.createElement('h2');
+      title.className = 'card-title';
+      title.textContent = escapeText(item.title || 'Untitled item');
+      body.appendChild(title);
+
+      const price = String(item.price_display || '').trim();
+      if (price) {
+        const priceEl = document.createElement('div');
+        priceEl.className = 'card-price';
+        priceEl.textContent = price;
+        body.appendChild(priceEl);
+      }
+
+      const desc = String(item.description || '').trim();
+      if (desc) {
+        const captionEl = document.createElement('p');
+        captionEl.className = 'card-caption';
+        captionEl.textContent = desc;
+        body.appendChild(captionEl);
+      }
+
+      const cta = document.createElement('span');
+      cta.className = 'card-cta';
+      cta.textContent = 'Buy on Amazon →';
+      body.appendChild(cta);
+
+      card.append(media, body);
+      return card;
+    }
+
+    function applyGameTheme(game) {
+      const primary = String(game && game.primary_color || '').trim();
+      if (!primary) return;
+      document.documentElement.style.setProperty('--theme-color', primary);
+      document.body.dataset.theme = 'game';
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeMeta) themeMeta.setAttribute('content', primary);
+    }
+
+    async function loadSingleGame(id) {
+      setStatus('Loading…');
+      renderEmpty('Loading items…');
+      try {
+        const [game, items] = await Promise.all([
+          fetchGame(id).catch(() => null),
+          fetchItemsForGame(id)
+        ]);
+
+        if (game && game.name) {
+          headingEl.textContent = game.name;
+          eyebrowEl.textContent = 'Gift Shop';
+          document.title = game.name.toUpperCase() + ' GIFT SHOP | THE GAME BUREAU';
+        }
+        const tagline = String((game && game.tagline) || '').trim();
+        if (tagline) {
+          leadEl.textContent = tagline;
+          leadEl.hidden = false;
+        } else {
+          leadEl.textContent = '';
+          leadEl.hidden = true;
+        }
+        applyGameTheme(game);
+
+        // Make the back button return to the run page for this game.
+        backBtn.href = '../game/run/index.html?id=' + encodeURIComponent(id);
+        backBtn.textContent = '← Back to game';
+
+        const cards = (Array.isArray(items) ? items : [])
+          .map((item) => createCard(item))
+          .filter(Boolean);
+
+        gridEl.innerHTML = '';
+        if (!cards.length) {
+          renderEmpty('No items in the shop yet.');
+          setStatus('');
+          return;
+        }
+        cards.forEach((card) => gridEl.appendChild(card));
+        setStatus(cards.length + ' item' + (cards.length === 1 ? '' : 's') + '.');
+      } catch (error) {
+        console.error('[giftshop] load failed', error);
+        renderEmpty('Could not load gift shop.');
+        setStatus(error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    async function loadAllShops() {
+      headingEl.textContent = 'All Shops';
+      eyebrowEl.textContent = 'Gift Shop';
+      leadEl.textContent = 'Souvenirs and curiosities from every game in the bureau.';
+      backBtn.href = '../library/';
+      backBtn.textContent = '← Library';
+      document.title = 'GIFT SHOP | THE GAME BUREAU';
+
+      setStatus('Loading…');
+      renderEmpty('Loading items…');
+
+      try {
+        const items = await fetchAllItems();
+        if (!Array.isArray(items) || !items.length) {
+          renderEmpty('No items in the gift shop yet.');
+          setStatus('');
+          return;
+        }
+
+        const cards = items
+          .map((item) => {
+            const game = item.games || {};
+            return createCard(item, {
+              gameName: String(game.name || '').trim() || null,
+              gameColor: String(game.primary_color || '').trim() || null
+            });
+          })
+          .filter(Boolean);
+
+        gridEl.innerHTML = '';
+        if (!cards.length) {
+          renderEmpty('No items available.');
+          setStatus('');
+          return;
+        }
+        cards.forEach((card) => gridEl.appendChild(card));
+        setStatus(cards.length + ' item' + (cards.length === 1 ? '' : 's') + ' across ' +
+          new Set(items.map((i) => i.game_id).filter(Boolean)).size + ' game(s).');
+      } catch (error) {
+        console.error('[giftshop] all-shops load failed', error);
+        renderEmpty('Could not load gift shop.');
+        setStatus(error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    if (gameId) loadSingleGame(gameId);
+    else loadAllShops();
+  </script>
+</body>
+</html>

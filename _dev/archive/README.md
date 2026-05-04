@@ -10,11 +10,12 @@ Superseded version of the game builder (pre-Supabase era).
 - `index.js` / `index.css` are dead weight; kept in case a diff is ever useful.
 
 ## game/
-Old game runtime. Several files are **still load-bearing**:
-- `config/lemon-config.js` — loaded at runtime by `pay/index.html` and `play/index.html`
+Old game runtime. A few files are **still load-bearing**:
 - `play/help.html` — linked from `builder/index.html` as the in-builder help page
 - `config/supabase.js` — used by the old runtime; check before deleting
 - Everything else (`lib/`, `archive/`, `config/games_archive.json`) appears unused.
+
+(`config/lemon-config.js` was moved to `/game/play/config/lemon-config.js`.)
 
 ## oswaldoldsite/
 Static snapshot of the old oswaldsdiary.com site.

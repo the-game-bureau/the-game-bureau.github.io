@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>ADMIN | GIFT SHOP | THE GAME BUREAU</title>
+  <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);
+      --bic-red: #c23737;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255,255,255,0.92);
+      --accent: var(--bic-blue);
+      --danger: #a03f2d;
+      --success: #2f6b3d;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+      color: var(--ink);
+    }
+
+    button, input, select, textarea { font: inherit; }
+
+    .app {
+      width: min(1080px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 60px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .topbar-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    .section-head { display: grid; gap: 4px; margin: 0 0 14px; }
+
+    .kicker {
+      margin: 0;
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--bic-blue);
+      font-size: 3.6rem;
+      letter-spacing: 0;
+      line-height: 0.95;
+    }
+
+    h2 {
+      margin: 0;
+      color: var(--bic-blue);
+      font-size: 2.4rem;
+      letter-spacing: 0;
+      line-height: 1;
+    }
+
+    .copy { margin: 0; color: var(--muted); line-height: 1.5; max-width: 620px; }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 14px;
+      margin-bottom: 18px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 18px 36px var(--paper-shadow);
+    }
+
+    .toolbar select {
+      flex: 1;
+      min-width: min(100%, 260px);
+      height: 42px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.92);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.92);
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+    }
+
+    .btn:hover { background: rgba(255,255,255,1); border-color: var(--accent); }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .btn.primary:hover { background: var(--bic-blue); border-color: var(--bic-blue); }
+
+    .btn.danger {
+      color: var(--danger);
+      border-color: rgba(160, 63, 45, 0.45);
+      background: rgba(255,255,255,0.92);
+    }
+    .btn.danger:hover { background: rgba(160, 63, 45, 0.08); border-color: var(--danger); }
+
+    .auth {
+      width: min(430px, 100%);
+      margin: 12vh auto 0;
+      padding: 22px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 26px 60px rgba(var(--bic-blue-rgb), 0.18);
+    }
+    .auth h1 { margin-bottom: 10px; font-size: 2.4rem; }
+    .auth-form { display: grid; gap: 12px; margin-top: 18px; }
+    .auth-actions { display: flex; gap: 10px; }
+    .auth-actions .btn.primary { flex: 1; }
+    .auth label {
+      display: grid; gap: 6px;
+      color: var(--muted); font-size: 0.9rem; font-weight: 700;
+    }
+    .auth input {
+      height: 44px; padding: 0 12px;
+      border: 1px solid var(--line); border-radius: 8px;
+      color: var(--ink); background: rgba(255,255,255,0.86);
+    }
+    .auth input:focus,
+    .toolbar select:focus,
+    .item input:focus,
+    .item textarea:focus {
+      outline: 2px solid rgba(var(--bic-blue-rgb), 0.24);
+      outline-offset: 2px;
+    }
+
+    .home-icon-btn {
+      width: 44px;
+      min-width: 44px;
+      height: 42px;
+      padding: 0;
+      line-height: 0;
+    }
+    .home-icon-btn svg { display: block; width: 22px; height: 22px; }
+
+    .signout-btn {
+      width: 42px;
+      min-width: 42px;
+      height: 42px;
+      padding: 0;
+      line-height: 0;
+    }
+    .signout-btn svg { display: block; width: 31px; height: 31px; }
+
+    .status {
+      min-height: 22px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .status.error { color: var(--danger); font-weight: 700; }
+    .status.success { color: var(--success); font-weight: 700; }
+
+    .items {
+      display: grid;
+      gap: 14px;
+    }
+
+    .item {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 14px;
+      padding: 14px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 10px 24px var(--paper-shadow);
+    }
+
+    .item.is-archived { opacity: 0.65; }
+    .item.is-new { border-color: var(--accent); }
+
+    .item-thumb {
+      width: 88px;
+      height: 88px;
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.06);
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .item-thumb img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+
+    .item-fields {
+      display: grid;
+      grid-template-columns: 1fr 140px 130px;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .item-fields .field-wide { grid-column: 1 / -1; }
+    .item-fields label {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .item-fields input,
+    .item-fields textarea {
+      height: 36px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.92);
+    }
+    .item-fields textarea {
+      height: 64px;
+      padding: 8px 10px;
+      resize: vertical;
+      min-height: 64px;
+    }
+
+    .item-url-row {
+      display: flex;
+      gap: 6px;
+      width: 100%;
+    }
+    .item-url-row input {
+      flex: 1;
+      min-width: 0;
+    }
+    .item-url-row .btn {
+      min-height: 36px;
+      padding: 0 12px;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+    }
+
+    .item-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding-top: 4px;
+      border-top: 1px dashed var(--line);
+      margin-top: 4px;
+    }
+
+    .item-archive-toggle {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .item-archive-toggle input { width: auto; height: auto; }
+
+    .item-status {
+      flex: 1;
+      text-align: right;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    .item-status.error { color: var(--danger); font-weight: 700; }
+    .item-status.success { color: var(--success); font-weight: 700; }
+
+    .empty {
+      padding: 32px;
+      text-align: center;
+      color: var(--muted);
+      background: var(--paper);
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 720px) {
+      h1 { font-size: 2.4rem; }
+      .item { grid-template-columns: 64px 1fr; }
+      .item-thumb { width: 64px; height: 64px; }
+      .item-fields { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 540px) {
+      .item-fields { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="auth" id="authPanel">
+      <p class="kicker">The Game Bureau</p>
+      <h1>Admin</h1>
+      <p class="copy">Sign in with an admin account.</p>
+      <form class="auth-form" id="authForm">
+        <label>
+          Email
+          <input id="emailInput" type="email" autocomplete="username" required>
+        </label>
+        <label>
+          Password
+          <input id="passwordInput" type="password" autocomplete="current-password" required>
+        </label>
+        <div class="auth-actions">
+          <button class="btn primary" id="signInBtn" type="submit">Sign In</button>
+          <a class="btn home-icon-btn" href="../" aria-label="Home" title="Home">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 11.2 12 4l8 7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M6.5 10.5V20h11v-9.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M10 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+        </div>
+      </form>
+      <p class="status" id="authStatus" aria-live="polite"></p>
+    </section>
+
+    <section id="shopPanel" class="hidden">
+      <div class="topbar">
+        <div class="section-head">
+          <p class="kicker">Manage</p>
+          <h1>Gift Shop</h1>
+          <p class="copy">Pick a game, then add Amazon links you want to feature in its gift shop.</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn" href="./">← Admin</a>
+          <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="Sign out" title="Sign out">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <select id="gameSelect">
+          <option value="">— Pick a game —</option>
+        </select>
+        <button class="btn primary" id="addItemBtn" type="button" disabled>+ Add item</button>
+        <a class="btn" id="previewBtn" href="#" target="_blank" rel="noopener" aria-disabled="true" tabindex="-1">Preview shop</a>
+      </div>
+
+      <p class="status" id="shopStatus" aria-live="polite"></p>
+      <div class="items" id="itemsList"></div>
+    </section>
+  </main>
+
+  <template id="itemTemplate">
+    <article class="item" data-id="">
+      <div class="item-thumb">
+        <span data-thumb-placeholder>IMG</span>
+      </div>
+      <div class="item-fields">
+        <label class="field-wide">
+          Title
+          <input data-field="title" type="text" placeholder="Field Notebook">
+        </label>
+        <label>
+          Price (display)
+          <input data-field="price_display" type="text" placeholder="$12.99">
+        </label>
+        <label>
+          Position
+          <input data-field="position" type="number" inputmode="numeric" min="0" step="1" placeholder="0">
+        </label>
+        <label class="field-wide">
+          Amazon URL
+          <div class="item-url-row">
+            <input data-field="url" type="url" placeholder="https://www.amazon.com/dp/…">
+            <button class="btn" data-action="fetch" type="button" title="Auto-fill title, image and description from this URL">Fetch</button>
+          </div>
+        </label>
+        <label class="field-wide">
+          Image URL (optional)
+          <input data-field="image_url" type="url" placeholder="https://m.media-amazon.com/images/…">
+        </label>
+        <label class="field-wide">
+          Description (optional)
+          <textarea data-field="description" placeholder="Short blurb shown under the title."></textarea>
+        </label>
+        <div class="item-actions">
+          <label class="item-archive-toggle">
+            <input data-field="archived" type="checkbox">
+            Archived
+          </label>
+          <button class="btn primary" data-action="save" type="button">Save</button>
+          <button class="btn danger" data-action="delete" type="button">Delete</button>
+          <span class="item-status" data-status></span>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+
+    const AUTH_STORAGE_KEY = 'tgb-photo-review-auth-session'; // shared with library.html
+
+    const authPanel    = document.getElementById('authPanel');
+    const shopPanel    = document.getElementById('shopPanel');
+    const authForm     = document.getElementById('authForm');
+    const emailInput   = document.getElementById('emailInput');
+    const passwordInput = document.getElementById('passwordInput');
+    const signInBtn    = document.getElementById('signInBtn');
+    const signOutBtn   = document.getElementById('signOutBtn');
+    const authStatus   = document.getElementById('authStatus');
+    const shopStatus   = document.getElementById('shopStatus');
+    const gameSelect   = document.getElementById('gameSelect');
+    const addItemBtn   = document.getElementById('addItemBtn');
+    const previewBtn   = document.getElementById('previewBtn');
+    const itemsList    = document.getElementById('itemsList');
+    const itemTemplate = document.getElementById('itemTemplate');
+
+    let currentSession = null;
+    let currentGameId  = '';
+
+    function authUrl(path) {
+      return new URL('/auth/v1/' + String(path || '').replace(/^\/+/, ''), SUPABASE_CONFIG.url + '/').toString();
+    }
+
+    function restUrl(table, params = {}) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+      });
+      return url.toString();
+    }
+
+    function setStatus(el, message, state = '') {
+      if (!el) return;
+      el.textContent = message || '';
+      el.classList.toggle('error', state === 'error');
+      el.classList.toggle('success', state === 'success');
+    }
+
+    async function readError(response, fallback) {
+      try {
+        const text = await response.text();
+        if (!text) return fallback;
+        try {
+          const payload = JSON.parse(text);
+          return payload.message || payload.msg || payload.error_description || payload.error || text;
+        } catch (_) { return text; }
+      } catch (_) { return fallback; }
+    }
+
+    function readStoredSession() {
+      try { return JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || 'null'); }
+      catch (_) { return null; }
+    }
+    function storeSession(session) {
+      try {
+        if (session) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+        else localStorage.removeItem(AUTH_STORAGE_KEY);
+      } catch (_) {}
+    }
+
+    async function signIn(email, password) {
+      const response = await fetch(authUrl('token?grant_type=password'), {
+        method: 'POST',
+        headers: { apikey: SUPABASE_CONFIG.publishableKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Sign in failed.'));
+      return response.json();
+    }
+
+    async function refreshSession(session) {
+      if (!session || !session.refresh_token) return null;
+      const response = await fetch(authUrl('token?grant_type=refresh_token'), {
+        method: 'POST',
+        headers: { apikey: SUPABASE_CONFIG.publishableKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: session.refresh_token })
+      });
+      if (!response.ok) return null;
+      return response.json();
+    }
+
+    async function getUsableSession() {
+      const stored = readStoredSession();
+      if (!stored || !stored.access_token) return null;
+      const expiresAt = Number(stored.expires_at || 0) * 1000;
+      if (expiresAt && expiresAt > Date.now() + 60000) return stored;
+      const refreshed = await refreshSession(stored);
+      if (refreshed && refreshed.access_token) { storeSession(refreshed); return refreshed; }
+      storeSession(null);
+      return null;
+    }
+
+    function authHeaders(extra = {}) {
+      return {
+        apikey: SUPABASE_CONFIG.publishableKey,
+        Authorization: 'Bearer ' + currentSession.access_token,
+        ...extra
+      };
+    }
+
+    async function verifyAdmin() {
+      const email = currentSession && currentSession.user ? currentSession.user.email : '';
+      const response = await fetch(restUrl('admin_users', { select: 'email', email: 'eq.' + email, limit: '1' }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not verify admin access.'));
+      const rows = await response.json();
+      return Array.isArray(rows) && rows.length > 0;
+    }
+
+    // ── Games dropdown ───────────────────────────────────────────────
+    async function fetchGames() {
+      const response = await fetch(restUrl('games', { select: 'id,name,archived,erased', order: 'name.asc' }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not load games.'));
+      return response.json();
+    }
+
+    function isLive(game) {
+      const dead = (v) => typeof v === 'boolean' ? v : (typeof v === 'string' && v.trim() && v.trim().toLowerCase() !== 'false' && v.trim() !== '0');
+      return !dead(game.archived) && !dead(game.erased);
+    }
+
+    async function populateGames() {
+      const games = await fetchGames();
+      const live = games.filter(isLive);
+      gameSelect.innerHTML = '<option value="">— Pick a game —</option>';
+      live.forEach((g) => {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = g.name || g.id;
+        gameSelect.appendChild(opt);
+      });
+    }
+
+    // ── Items ────────────────────────────────────────────────────────
+    async function fetchItems(gameId) {
+      const response = await fetch(restUrl('gift_shop_items', {
+        select: '*',
+        game_id: 'eq.' + gameId,
+        order: 'position.asc.nullslast,title.asc'
+      }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not load gift shop items.'));
+      return response.json();
+    }
+
+    async function insertItem(payload) {
+      const response = await fetch(restUrl('gift_shop_items'), {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Insert failed.'));
+      const rows = await response.json();
+      return Array.isArray(rows) && rows.length ? rows[0] : null;
+    }
+
+    async function updateItem(id, payload) {
+      const response = await fetch(restUrl('gift_shop_items', { id: 'eq.' + id }), {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Update failed.'));
+      const rows = await response.json();
+      return Array.isArray(rows) && rows.length ? rows[0] : null;
+    }
+
+    async function deleteItem(id) {
+      const response = await fetch(restUrl('gift_shop_items', { id: 'eq.' + id }), {
+        method: 'DELETE',
+        headers: authHeaders({})
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Delete failed.'));
+    }
+
+    // ── Amazon scrape via Supabase Edge Function ──────────────────────
+    // POSTs the URL to /functions/v1/scrape-amazon, which fetches the
+    // page server-side (no CORS, desktop UA) and returns the parsed
+    // {title, description, image_url, price_display}. See
+    // supabase/functions/scrape-amazon/index.ts for the source and
+    // supabase/functions/scrape-amazon/README.md for deploy steps.
+    async function fetchAmazonMetadata(url) {
+      const endpoint = SUPABASE_CONFIG.url.replace(/\/+$/, '') + '/functions/v1/scrape-amazon';
+      // Use the signed-in admin's JWT when available so the function
+      // sees an authenticated caller; fall back to the publishable key
+      // (anon role) so this still works pre-sign-in if we ever invoke
+      // it that way.
+      const bearer = (currentSession && currentSession.access_token)
+        || SUPABASE_CONFIG.publishableKey;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_CONFIG.publishableKey,
+          Authorization: 'Bearer ' + bearer
+        },
+        body: JSON.stringify({ url })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = json && json.error
+          ? String(json.error)
+          : 'scrape-amazon ' + res.status;
+        throw new Error(message);
+      }
+      return {
+        title: String(json.title || '').trim(),
+        description: String(json.description || '').trim(),
+        image_url: String(json.image_url || '').trim(),
+        price_display: String(json.price_display || '').trim()
+      };
+    }
+
+    function renderEmpty() {
+      itemsList.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'empty';
+      div.textContent = 'No items yet. Click + Add item to start.';
+      itemsList.appendChild(div);
+    }
+
+    function buildPayload(article) {
+      const get = (name) => {
+        const el = article.querySelector('[data-field="' + name + '"]');
+        return el ? el.value : '';
+      };
+      const archived = !!article.querySelector('[data-field="archived"]').checked;
+      const positionRaw = get('position').trim();
+      const position = positionRaw === '' ? 0 : Math.max(0, Math.floor(Number(positionRaw) || 0));
+      return {
+        game_id: currentGameId,
+        kind: 'amazon_link',
+        title: get('title').trim() || null,
+        url: get('url').trim(),
+        image_url: get('image_url').trim() || null,
+        price_display: get('price_display').trim() || null,
+        description: get('description').trim() || null,
+        position,
+        archived
+      };
+    }
+
+    function bindItem(article, item) {
+      article.dataset.id = item.id || '';
+      article.classList.toggle('is-new', !item.id);
+      article.classList.toggle('is-archived', !!item.archived);
+
+      const set = (name, value) => {
+        const el = article.querySelector('[data-field="' + name + '"]');
+        if (!el) return;
+        if (el.type === 'checkbox') el.checked = !!value;
+        else el.value = value == null ? '' : String(value);
+      };
+
+      set('title', item.title);
+      set('url', item.url);
+      set('image_url', item.image_url);
+      set('price_display', item.price_display);
+      set('description', item.description);
+      set('position', item.position == null ? 0 : item.position);
+      set('archived', item.archived);
+
+      const thumbContainer = article.querySelector('.item-thumb');
+      const refreshThumb = () => {
+        const url = article.querySelector('[data-field="image_url"]').value.trim();
+        thumbContainer.innerHTML = '';
+        if (url) {
+          const img = document.createElement('img');
+          img.src = url;
+          img.alt = '';
+          img.referrerPolicy = 'no-referrer';
+          img.addEventListener('error', () => {
+            thumbContainer.innerHTML = '';
+            const ph = document.createElement('span');
+            ph.textContent = 'IMG';
+            thumbContainer.appendChild(ph);
+          });
+          thumbContainer.appendChild(img);
+        } else {
+          const ph = document.createElement('span');
+          ph.textContent = 'IMG';
+          thumbContainer.appendChild(ph);
+        }
+      };
+      refreshThumb();
+      article.querySelector('[data-field="image_url"]').addEventListener('input', refreshThumb);
+
+      article.querySelector('[data-field="archived"]').addEventListener('change', (e) => {
+        article.classList.toggle('is-archived', e.target.checked);
+      });
+
+      const statusEl = article.querySelector('[data-status]');
+      const setItemStatus = (msg, kind = '') => setStatus(statusEl, msg, kind);
+
+      const fetchBtn = article.querySelector('[data-action="fetch"]');
+      if (fetchBtn) {
+        fetchBtn.addEventListener('click', async () => {
+          const urlInput = article.querySelector('[data-field="url"]');
+          const url = String(urlInput && urlInput.value || '').trim();
+          if (!url) {
+            setItemStatus('Paste an Amazon URL first.', 'error');
+            return;
+          }
+          fetchBtn.disabled = true;
+          const previousLabel = fetchBtn.textContent;
+          fetchBtn.textContent = 'Fetching…';
+          setItemStatus('Fetching details from Amazon…');
+          try {
+            const meta = await fetchAmazonMetadata(url);
+            // Apply to fields whose Amazon scrape returned something. Empty
+            // returns leave the existing value alone (so a manual edit
+            // doesn't get clobbered by a partial response).
+            const apply = (name, value) => {
+              if (!value) return;
+              const el = article.querySelector('[data-field="' + name + '"]');
+              if (!el) return;
+              el.value = value;
+              // Mirror an `input` event so dependent UI (the thumbnail
+              // preview hooked off image_url) refreshes.
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+            };
+            apply('title', meta.title);
+            apply('description', meta.description);
+            apply('image_url', meta.image_url);
+            apply('price_display', meta.price_display);
+
+            const filled = ['title', 'description', 'image_url', 'price_display']
+              .filter((name) => meta[name]);
+            if (!filled.length) {
+              setItemStatus('No metadata returned for that URL.', 'error');
+            } else {
+              setItemStatus('Filled: ' + filled.join(', ') + '.', 'success');
+              setTimeout(() => setItemStatus(''), 2600);
+            }
+          } catch (error) {
+            console.error('[giftshop] fetch failed', error);
+            setItemStatus(error instanceof Error ? error.message : String(error), 'error');
+          } finally {
+            fetchBtn.disabled = false;
+            fetchBtn.textContent = previousLabel;
+          }
+        });
+      }
+
+      article.querySelector('[data-action="save"]').addEventListener('click', async () => {
+        const payload = buildPayload(article);
+        if (!payload.url) {
+          setItemStatus('Amazon URL is required.', 'error');
+          return;
+        }
+        setItemStatus('Saving…');
+        try {
+          let saved;
+          if (article.dataset.id) {
+            saved = await updateItem(article.dataset.id, payload);
+          } else {
+            saved = await insertItem(payload);
+          }
+          if (saved && saved.id) {
+            article.dataset.id = saved.id;
+            article.classList.remove('is-new');
+          }
+          setItemStatus('Saved.', 'success');
+          setTimeout(() => setItemStatus(''), 2200);
+        } catch (error) {
+          console.error(error);
+          setItemStatus(error instanceof Error ? error.message : String(error), 'error');
+        }
+      });
+
+      article.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+        const id = article.dataset.id;
+        if (!id) {
+          // Brand-new row never saved — just remove from DOM.
+          article.remove();
+          if (!itemsList.children.length) renderEmpty();
+          return;
+        }
+        if (!window.confirm('Delete this item?')) return;
+        setItemStatus('Deleting…');
+        try {
+          await deleteItem(id);
+          article.remove();
+          if (!itemsList.children.length) renderEmpty();
+        } catch (error) {
+          console.error(error);
+          setItemStatus(error instanceof Error ? error.message : String(error), 'error');
+        }
+      });
+    }
+
+    function appendItemRow(item = {}) {
+      // Replace the empty-state placeholder if it's currently shown.
+      const empty = itemsList.querySelector('.empty');
+      if (empty) empty.remove();
+      const fragment = itemTemplate.content.cloneNode(true);
+      const article = fragment.querySelector('.item');
+      itemsList.appendChild(article);
+      bindItem(article, item);
+      return article;
+    }
+
+    async function renderItemsForGame(gameId) {
+      itemsList.innerHTML = '';
+      if (!gameId) {
+        renderEmpty();
+        return;
+      }
+      setStatus(shopStatus, 'Loading items…');
+      try {
+        const items = await fetchItems(gameId);
+        if (!items.length) {
+          renderEmpty();
+          setStatus(shopStatus, '');
+          return;
+        }
+        items.forEach((item) => appendItemRow(item));
+        setStatus(shopStatus, items.length + ' item' + (items.length === 1 ? '' : 's') + '.');
+      } catch (error) {
+        console.error(error);
+        renderEmpty();
+        setStatus(shopStatus, error instanceof Error ? error.message : String(error), 'error');
+      }
+    }
+
+    function updatePreviewLink(gameId) {
+      if (!gameId) {
+        previewBtn.href = '#';
+        previewBtn.setAttribute('aria-disabled', 'true');
+        previewBtn.tabIndex = -1;
+      } else {
+        previewBtn.href = '../giftshop/?game=' + encodeURIComponent(gameId);
+        previewBtn.removeAttribute('aria-disabled');
+        previewBtn.tabIndex = 0;
+      }
+    }
+
+    gameSelect.addEventListener('change', () => {
+      currentGameId = gameSelect.value || '';
+      addItemBtn.disabled = !currentGameId;
+      updatePreviewLink(currentGameId);
+      renderItemsForGame(currentGameId);
+    });
+
+    addItemBtn.addEventListener('click', () => {
+      if (!currentGameId) return;
+      const article = appendItemRow({
+        position: itemsList.querySelectorAll('.item').length
+      });
+      const titleInput = article.querySelector('[data-field="title"]');
+      if (titleInput) titleInput.focus();
+    });
+
+    function showAuth() {
+      authPanel.classList.remove('hidden');
+      shopPanel.classList.add('hidden');
+      setStatus(authStatus, 'Sign in with an admin account.');
+    }
+
+    async function showShop(session) {
+      currentSession = session;
+      authPanel.classList.add('hidden');
+      shopPanel.classList.remove('hidden');
+      try {
+        await populateGames();
+      } catch (error) {
+        console.error(error);
+        setStatus(shopStatus, error instanceof Error ? error.message : String(error), 'error');
+      }
+    }
+
+    authForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = String(emailInput.value || '').trim();
+      const password = String(passwordInput.value || '');
+      if (!email || !password) return;
+      signInBtn.disabled = true;
+      setStatus(authStatus, 'Signing in…');
+      try {
+        const session = await signIn(email, password);
+        currentSession = session;
+        storeSession(session);
+        const isAdmin = await verifyAdmin();
+        if (!isAdmin) {
+          storeSession(null);
+          currentSession = null;
+          throw new Error('This account is signed in, but it is not on the admin list.');
+        }
+        passwordInput.value = '';
+        setStatus(authStatus, '');
+        await showShop(session);
+      } catch (error) {
+        setStatus(authStatus, error instanceof Error ? error.message : String(error), 'error');
+      } finally {
+        signInBtn.disabled = false;
+      }
+    });
+
+    signOutBtn.addEventListener('click', () => {
+      currentSession = null;
+      storeSession(null);
+      itemsList.innerHTML = '';
+      gameSelect.innerHTML = '<option value="">— Pick a game —</option>';
+      currentGameId = '';
+      addItemBtn.disabled = true;
+      updatePreviewLink('');
+      showAuth();
+    });
+
+    (async function init() {
+      const session = await getUsableSession();
+      if (!session) { showAuth(); return; }
+      currentSession = session;
+      try {
+        const isAdmin = await verifyAdmin();
+        if (!isAdmin) {
+          storeSession(null);
+          currentSession = null;
+          showAuth();
+          setStatus(authStatus, 'This account is signed in, but it is not on the admin list.', 'error');
+          return;
+        }
+        await showShop(session);
+      } catch (error) {
+        console.error(error);
+        storeSession(null);
+        currentSession = null;
+        showAuth();
+        setStatus(authStatus, error instanceof Error ? error.message : String(error), 'error');
+      }
+    })();
+  </script>
+</body>
+</html>

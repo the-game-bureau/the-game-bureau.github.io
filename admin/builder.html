@@ -2715,7 +2715,7 @@ code{font-family:"IBM Plex Mono",monospace;}
   text-transform:uppercase;
 }
 
-.field input,.field textarea{
+.field input,.field textarea,.field select{
   min-width:0;
   width:100%;
   border:1px solid rgba(119,255,165,.24);
@@ -2998,7 +2998,7 @@ code{font-family:"IBM Plex Mono",monospace;}
   background:rgba(33,120,60,.28);
 }
 
-.field input:focus,.field textarea:focus{
+.field input:focus,.field textarea:focus,.field select:focus{
   border-color:rgba(149,255,182,.54);
   box-shadow:
     inset 0 0 18px rgba(29,97,48,.18),
@@ -3607,7 +3607,7 @@ code{font-family:"IBM Plex Mono",monospace;}
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
-  color:var(--game-primary, #1c1c1e);
+  color:#1c1c1e;
   font-size:.7rem;
   font-weight:600;
   letter-spacing:-.01em;
@@ -3659,7 +3659,7 @@ code{font-family:"IBM Plex Mono",monospace;}
   font-size:10px;
   font-weight:700;
   letter-spacing:0.03em;
-  color:var(--game-primary, #0a84ff);
+  color:#0a84ff;
   text-decoration:none;
   line-height:1;
 }
@@ -5075,6 +5075,7 @@ code{font-family:"IBM Plex Mono",monospace;}
 
 .field input,
 .field textarea,
+.field select,
 .color-picker-input,
 .mode-toggle-btn,
 .var-correct-label,
@@ -5090,11 +5091,31 @@ code{font-family:"IBM Plex Mono",monospace;}
 }
 
 .field input,
-.field textarea{
+.field textarea,
+.field select{
   border:1px solid rgba(var(--bic-blue-rgb), .16);
   background:rgba(255,255,255,.92);
   color:var(--ink);
   box-shadow:inset 0 1px 2px rgba(var(--bic-blue-rgb), .08);
+}
+
+.field select{
+  appearance:none;
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  /* Custom chevron in the corner since native select chrome differs across OSes */
+  background-image:linear-gradient(45deg, transparent 50%, var(--ink) 50%), linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+  background-position:calc(100% - 16px) 52%, calc(100% - 11px) 52%;
+  background-size:5px 5px, 5px 5px;
+  background-repeat:no-repeat;
+  background-color:rgba(255,255,255,.92);
+  padding-right:32px;
+  cursor:pointer;
+}
+
+.field select:disabled{
+  cursor:default;
+  opacity:.62;
 }
 
 .field input::placeholder,
@@ -5103,7 +5124,8 @@ code{font-family:"IBM Plex Mono",monospace;}
 }
 
 .field input:focus,
-.field textarea:focus{
+.field textarea:focus,
+.field select:focus{
   border-color:rgba(var(--bic-blue-rgb), .36);
   box-shadow:0 0 0 3px rgba(var(--bic-blue-rgb), .12), inset 0 1px 2px rgba(var(--bic-blue-rgb), .08);
 }
@@ -5980,6 +6002,16 @@ body.builder-page--editor{
   --page-pad:24px;
   --action-btn-height:80px;
   --sheet-details-w:var(--phone-device-w);
+  /* Default game color scheme — overridden per-game by JS that calls
+     setProperty on #phone / #phoneStage / #addPanel / #inspector etc.
+     Only `--game-primary` and `--game-secondary` get body-level
+     defaults; `--game-tertiary` and `--game-quaternary` are used as
+     text on either a primary or secondary background depending on the
+     rule, so each rule's per-place fallback (e.g. `var(--game-tertiary,
+     #fff)` for text on primary, `var(--game-quaternary, var(--bic-blue))`
+     for text on secondary) is left to do the right thing. */
+  --game-primary:var(--bic-blue);
+  --game-secondary:#d4d9e1;
   overflow-x:auto;
   overflow-y:auto;
   color:var(--ink);
@@ -6580,6 +6612,7 @@ body.builder-page--editor .ifthen-port-tag,
 body.builder-page--editor .accept-any-row,
 body.builder-page--editor .field input,
 body.builder-page--editor .field textarea,
+body.builder-page--editor .field select,
 body.builder-page--editor .mode-toggle-btn,
 body.builder-page--editor .field-autocomplete-item,
 body.builder-page--editor .field-info,
@@ -6968,10 +7001,16 @@ body.builder-page--editor .mini-note{
 }
 
 body.builder-page--editor .field input,
-body.builder-page--editor .field textarea{
+body.builder-page--editor .field textarea,
+body.builder-page--editor .field select{
   padding:7px 8px;
   font-size:.88rem;
   line-height:1.24;
+}
+
+body.builder-page--editor .field select{
+  padding-right:30px;
+  height:34px;
 }
 
 body.builder-page--editor .field textarea{
@@ -7308,13 +7347,15 @@ body.builder-page--editor #inspector #nodeTagNewInput{
 }
 
 body.builder-page--editor #inspector .field input,
-body.builder-page--editor #inspector .field textarea{
+body.builder-page--editor #inspector .field textarea,
+body.builder-page--editor #inspector .field select{
   border-color:var(--game-primary, #5468a7);
   color:var(--game-primary, #5468a7);
 }
 
 body.builder-page--editor #inspector .field input:focus,
-body.builder-page--editor #inspector .field textarea:focus{
+body.builder-page--editor #inspector .field textarea:focus,
+body.builder-page--editor #inspector .field select:focus{
   border-color:var(--game-primary, #5468a7);
 }
 
@@ -9004,6 +9045,7 @@ body.builder-auth-ready .builder-auth-signout{
                     </div>
 
                   </div>
+                  <button class="insp-btn" id="shuffleColorsBtn" type="button" title="Reassign the four colors to different roles (does not save until you click Save)" style="margin-top:10px;" disabled>Shuffle</button>
                 </section>
 
                 <section class="details-section" id="detailsGameDetailsSection">
@@ -9017,6 +9059,17 @@ body.builder-auth-ready .builder-auth-signout{
                     <div class="field" id="priceField">
                       <label class="field-label" for="nodePriceInput">Price</label>
                       <input id="nodePriceInput" type="text" autocomplete="off" disabled>
+                    </div>
+
+                    <div class="field" id="engineField">
+                      <label class="field-label field-label--with-meta" for="nodeEngineInput">
+                        <span class="field-label-text">Engine</span>
+                        <span class="field-info" tabindex="0" role="note" aria-label="Which player engine this game uses. Saved per game; players land in this engine via the run page Start button. The default is Text Message.">i<span class="field-tooltip" role="tooltip">Which player engine this game uses. Saved per game; players land in this engine via the run page Start button. The default is Text Message.</span></span>
+                      </label>
+                      <select id="nodeEngineInput" autocomplete="off" disabled>
+                        <option value="text">Text Message</option>
+                        <option value="map">Map</option>
+                      </select>
                     </div>
 
                     <div class="field" id="descriptionField">
@@ -9989,7 +10042,8 @@ const FEATURED_GAME_VALUE = 'YES';
 const SUPABASE_GAMES_SCHEMA = {
   tagline: true,
   featured: true,
-  city: true
+  city: true,
+  engine: true
 };
 const supabaseConfig = readSupabaseConfig();
 
@@ -10717,7 +10771,7 @@ function getMissingGamesColumnName(errorMessage = '') {
 }
 
 function markMissingGamesColumn(columnName = '') {
-  if (columnName === 'tagline' || columnName === 'featured' || columnName === 'city') {
+  if (columnName === 'tagline' || columnName === 'featured' || columnName === 'city' || columnName === 'engine') {
     SUPABASE_GAMES_SCHEMA[columnName] = false;
   }
 }
@@ -10727,6 +10781,7 @@ function buildGamesSelectColumns(columns = []) {
     if (column === 'tagline') return SUPABASE_GAMES_SCHEMA.tagline;
     if (column === 'featured') return SUPABASE_GAMES_SCHEMA.featured;
     if (column === 'city') return SUPABASE_GAMES_SCHEMA.city;
+    if (column === 'engine') return SUPABASE_GAMES_SCHEMA.engine;
     return true;
   }).join(',');
 }
@@ -10761,6 +10816,7 @@ function serializeGameRow(game, index = 0) {
   };
 
   Object.entries(GAME_COLUMN_TO_NODE_FIELD).forEach(([column, field]) => {
+    if (column === 'engine' && !SUPABASE_GAMES_SCHEMA.engine) return;
     const topLevel = normalizedGame[column];
     emitColumn(column, topLevel !== undefined && topLevel !== null ? topLevel : gameNode[field]);
   });
@@ -10810,6 +10866,7 @@ function normalizeGameRow(row, index = 0) {
     location_based:        row && row.location_based,
     teams:                 row && row.teams,
     kind:                  row && row.kind,
+    engine:                row && row.engine,
     tags:                  row && row.tags,
     waypoint_group:        row && row.waypoint_group,
     var_name:              row && row.var_name,
@@ -10874,7 +10931,8 @@ async function fetchGameRowsFromSupabase(select = null) {
     'team05',
     'team06',
     'team07',
-    'team08'
+    'team08',
+    'engine'
   ]);
   const response = await fetch(buildSupabaseUrl({
     select: resolvedSelect,
@@ -10981,7 +11039,8 @@ async function fetchGameRowFromSupabase(gameId, select = null) {
     'team05',
     'team06',
     'team07',
-    'team08'
+    'team08',
+    'engine'
   ]);
 
   const response = await fetch(buildSupabaseUrl({
@@ -11515,6 +11574,7 @@ const objectBubbleImageThumbBtn = document.getElementById('objectBubbleImageThum
 const objectBubbleImageThumbImage = document.getElementById('objectBubbleImageThumbImage');
 const objectBubbleImageThumbPlaceholder = document.getElementById('objectBubbleImageThumbPlaceholder');
 const nodePriceInput = document.getElementById('nodePriceInput');
+const nodeEngineInput = document.getElementById('nodeEngineInput');
 const nodeCityInput = document.getElementById('nodeCityInput');
 const nodeCoordinatesInput = document.getElementById('nodeCoordinatesInput');
 const coordinatesField = document.getElementById('coordinatesField');
@@ -13112,10 +13172,14 @@ function updatePhoneChrome() {
       phoneThreadAvatar.dataset.hasImage = 'false';
     }
     if (phoneThreadStatus) phoneThreadStatus.textContent = '';
-    if (phoneStartBtn) phoneStartBtn.style.background = '';
+    if (phoneStartBtn) {
+      phoneStartBtn.style.background = '';
+      phoneStartBtn.style.color = '';
+    }
     if (phone) {
       phone.style.removeProperty('--game-primary');
       phone.style.removeProperty('--game-secondary');
+      phone.style.removeProperty('--game-tertiary');
       phone.style.removeProperty('--game-quaternary');
     }
     if (phoneStage) {
@@ -13159,14 +13223,22 @@ function updatePhoneChrome() {
   }
   if (phoneThreadStatus) phoneThreadStatus.textContent = gameNode?.guideName || '';
   const { primaryColor, secondaryColor, tertiaryColor: rawTertiary, quaternaryColor: rawQuaternary } = getCurrentGameColors();
-  if (phoneStartBtn) {
-    phoneStartBtn.style.background = primaryColor || '';
-  }
   const tertiaryColor = rawTertiary || getEffectiveTertiary(primaryColor, secondaryColor);
   const quaternaryColor = normalizeQuaternaryColorValue(rawQuaternary, getQuaternaryColorFallback(primaryColor, secondaryColor));
+  if (phoneStartBtn) {
+    phoneStartBtn.style.background = primaryColor || '';
+    // Match text color to the auto-derived tertiary so a light primary
+    // doesn't render white-on-white and a dark primary doesn't render
+    // black-on-black. Blank when no primary is set, so the static green
+    // CSS background + white text combo applies.
+    phoneStartBtn.style.color = primaryColor
+      ? (String(tertiaryColor || '').toUpperCase() === 'BLACK' ? '#000000' : '#ffffff')
+      : '';
+  }
   if (phone) {
     phone.style.setProperty('--game-primary', primaryColor || '');
     phone.style.setProperty('--game-secondary', secondaryColor || '');
+    phone.style.setProperty('--game-tertiary', tertiaryColor || '');
     phone.style.setProperty('--game-quaternary', quaternaryColor || '');
   }
   if (phoneStage) {
@@ -14787,6 +14859,7 @@ function getDocSnapshot(doc = state.doc) {
       guideBio: meta.guideBio || '',
       guideImageUrl: meta.guideImageUrl || '',
       price: meta.price || '',
+      engine: meta.engine || '',
       tertiaryColor: meta.tertiaryColor || '',
       quaternaryColor: meta.quaternaryColor || '',
       teams: Array.isArray(meta.teams) ? meta.teams : []
@@ -15147,6 +15220,7 @@ function initGameMeta(game) {
     guideBio:             g.guide_bio       ?? gn.guideBio        ?? '',
     guideImageUrl:        g.guide_image_url ?? gn.guideImageUrl   ?? gn.guideImage   ?? '',
     price:                g.price           ?? gn.price           ?? '',
+    engine:               g.engine          ?? gn.engine          ?? '',
     tertiaryColor:        g.tertiary_color  ?? gn.tertiaryColor   ?? '',
     quaternaryColor:      g.quaternary_color ?? gn.quaternaryColor ?? '',
     teams:                Array.isArray(g.teams) ? g.teams : (Array.isArray(gn.teams) ? gn.teams : []),
@@ -15771,12 +15845,19 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   starting_location_lon: 'startingLocationLon',
   location_based: 'locationBased',
   kind: 'kind',
+  engine: 'engine',
   var_name: 'varName',
   waypoint_group: 'waypointGroup',
   accept_any: 'acceptAny',
   anytime: 'anytime',
   anytime_pair_id: 'anytimePairId'
 };
+
+const GAME_ENGINES = [
+  { value: 'text', label: 'Text Message' },
+  { value: 'map',  label: 'Map' }
+];
+const DEFAULT_GAME_ENGINE = 'text';
 
 function overlayColumnsOntoGameNode(doc, raw) {
   if (!doc || !Array.isArray(doc.nodes) || !raw) return doc;
@@ -15842,6 +15923,7 @@ function normalizeSavedGame(raw, index) {
     starting_location_lon: raw && raw.starting_location_lon,
     location_based:        raw && raw.location_based,
     teams:                 raw && raw.teams,
+    engine:                raw && raw.engine,
   };
 }
 
@@ -18051,6 +18133,8 @@ function updateSelectionUi(options = {}) {
   guideBioField.hidden = !showGameDetails;
   guideImageField.hidden = !showGameDetails;
   priceField.hidden = !showGameDetails;
+  const _engineField = document.getElementById('engineField');
+  if (_engineField) _engineField.hidden = !showGameDetails;
   primaryColorField.hidden = !showGameDetails;
   secondaryColorField.hidden = !showGameDetails;
   if (tertiaryColorField) tertiaryColorField.hidden = !showGameDetails;
@@ -18081,6 +18165,7 @@ function updateSelectionUi(options = {}) {
   if (guideImageOnlinePickBtn) guideImageOnlinePickBtn.disabled = !isGameNode;
   if (!isGameNode) setGuideImageOnlineMenuOpen(false);
   nodePriceInput.disabled = !isGameNode;
+  if (nodeEngineInput) nodeEngineInput.disabled = !isGameNode;
   primaryColorInput.disabled = !isGameNode;
   primaryColorPickerInput.disabled = !isGameNode;
   secondaryColorInput.disabled = !isGameNode;
@@ -18089,6 +18174,8 @@ function updateSelectionUi(options = {}) {
   if (tertiaryColorPickerInput) tertiaryColorPickerInput.disabled = !isGameNode;
   if (quaternaryColorInput) quaternaryColorInput.disabled = !isGameNode;
   if (quaternaryColorPickerInput) quaternaryColorPickerInput.disabled = !isGameNode;
+  const _shuffleBtn = document.getElementById('shuffleColorsBtn');
+  if (_shuffleBtn) _shuffleBtn.disabled = !isGameNode;
   nodeTagNewInput.disabled = !isGameNode;
   nodeTagAddBtn.disabled = !isGameNode;
   teamInputs.forEach(inp => { if (inp) inp.disabled = !isGameNode; });
@@ -18233,6 +18320,13 @@ function updateSelectionUi(options = {}) {
     populateGuideImageOnlineMenu(gameLogoOnlineAssetsCache);
   }
   nodePriceInput.value = isGameNode ? (meta.price || '') : '';
+  if (nodeEngineInput) {
+    // Treat blank engine as the default ("text") so the select reflects
+    // what /game/run/ would actually launch into.
+    nodeEngineInput.value = isGameNode
+      ? (String(meta.engine || '').trim() || DEFAULT_GAME_ENGINE)
+      : '';
+  }
   updateGameLogoPreview();
   updateGuideImagePreview();
   const currentColors = getCurrentGameColors();
@@ -19675,6 +19769,7 @@ function stageCurrentGameIntoStore() {
     erased:                existingGame && existingGame.erased ? existingGame.erased : '',
     body:                  _meta.body || null,
     kind:                  _gn.kind || null,
+    engine:                _meta.engine || null,
     price:                 _meta.price || null,
     tags:                  Array.isArray(_gn.tags) ? _gn.tags : null,
     how_to_play:           _meta.howToPlay || null,
@@ -20631,6 +20726,16 @@ nodePriceInput.addEventListener('input', () => {
   updateSelectionUi();
 });
 
+if (nodeEngineInput) {
+  nodeEngineInput.addEventListener('change', () => {
+    if (!getGameNode() || !state.currentGameMeta) return;
+    state.currentGameMeta.engine = nodeEngineInput.value || '';
+    updateSelectionUi();
+    scheduleRecoverySync();
+    updateActionUi();
+  });
+}
+
 teamInputs.forEach((inp, i) => {
   if (!inp) return;
   inp.addEventListener('input', () => {
@@ -20699,6 +20804,77 @@ function commitCurrentGameColor(key, rawValue) {
   return true;
 }
 
+function permuteCurrentGameColors() {
+  // Re-assign the four existing colors to different roles. Returns null
+  // if the palette has fewer than two distinct values (nothing to shuffle).
+  const colors = getCurrentGameColors();
+  const slots = ['primaryColor', 'secondaryColor', 'tertiaryColor', 'quaternaryColor'];
+  const values = slots.map((key) => colors[key] || '');
+  if (new Set(values.filter(Boolean).map((value) => String(value).toLowerCase())).size < 2) {
+    return null;
+  }
+  // Fisher–Yates, retry until the order actually changes.
+  const next = values.slice();
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    for (let i = next.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = next[i];
+      next[i] = next[j];
+      next[j] = tmp;
+    }
+    if (next.some((value, index) => value !== values[index])) break;
+  }
+  return {
+    primaryColor: next[0],
+    secondaryColor: next[1],
+    tertiaryColor: next[2],
+    quaternaryColor: next[3]
+  };
+}
+
+function shuffleCurrentGameColors() {
+  // Preview-only: re-orders the existing four palette colors among the
+  // four slots, updates in-memory state, and re-renders.
+  //
+  // Why this is more than just a state mutation: the render pipeline
+  // (renderGameshelf, etc.) calls scheduleRecoverySync, which writes a
+  // localStorage recovery draft. The recovery-restore flow on next page
+  // load re-hydrates that draft, which is why the shuffle looked saved
+  // after a refresh.
+  //
+  // We snapshot localStorage BEFORE the shuffle, run the render with
+  // recovery sync suspended, then restore the snapshot — so a reload
+  // reverts the shuffle without losing any other unsaved edits that
+  // were already in the draft. The database is never touched (only
+  // saveDoc() does that, and it's only called from the Save button).
+  if (!state.currentGameId) return false;
+
+  let preShuffleDraft = null;
+  try { preShuffleDraft = localStorage.getItem(LOCAL_RECOVERY_KEY); } catch (e) { /* ignore */ }
+
+  const next = permuteCurrentGameColors();
+  if (!next) return false;
+  setCurrentGameColors(next);
+  runWithoutRecoverySync(() => {
+    syncGameColorInputs();
+    renderGameshelf();
+    updateActionUi();
+    updatePhoneChrome();
+    renderAll();
+  });
+
+  if (recoverySaveTimer) {
+    window.clearTimeout(recoverySaveTimer);
+    recoverySaveTimer = 0;
+  }
+  try {
+    if (preShuffleDraft !== null) localStorage.setItem(LOCAL_RECOVERY_KEY, preShuffleDraft);
+    else localStorage.removeItem(LOCAL_RECOVERY_KEY);
+  } catch (e) { /* ignore */ }
+  state.lastRecoverySnapshot = '';
+  return true;
+}
+
 function bindGameColorInputs(textInput, pickerInput, key) {
   if (!textInput || !pickerInput) return;
 
@@ -20747,7 +20923,14 @@ function normalizeQuaternaryColorValue(rawValue, fallback = '') {
 }
 
 function getQuaternaryColorFallback(primaryColor = '', secondaryColor = '') {
-  return normalizeQuaternaryColorValue(secondaryColor, primaryColor || '#243256') || '#243256';
+  // Quaternary plays the role of "readable text on the secondary
+  // background" (per the brand-color guidance). The previous fallback
+  // returned secondary itself, which is the same colour as the surface
+  // it sits on — text vanished. Derive BLACK/WHITE from secondary's
+  // lightness instead, the same way tertiary contrasts against primary.
+  const base = secondaryColor || primaryColor || '#243256';
+  const contrastName = getTertiaryGameColor(base, '#243256');
+  return normalizeQuaternaryColorValue(contrastName, base) || '#243256';
 }
 
 function colorsMatch(a, b) {
@@ -21010,6 +21193,13 @@ if (gameNotesBtn) gameNotesBtn.addEventListener('click', () => {
 });
 if (gameNotesCloseBtn) gameNotesCloseBtn.addEventListener('click', closeGameNotesPopup);
 if (gameNotesBackdrop) gameNotesBackdrop.addEventListener('click', closeGameNotesPopup);
+
+const shuffleColorsBtn = document.getElementById('shuffleColorsBtn');
+if (shuffleColorsBtn) {
+  shuffleColorsBtn.addEventListener('click', () => {
+    shuffleCurrentGameColors();
+  });
+}
 if (featureGameBtn) {
   featureGameBtn.addEventListener('click', async () => {
     await toggleCurrentGameFeaturedState();

@@ -951,7 +951,7 @@
         <img src="../../assets/home/404.webp" alt="404" style="width:min(480px,90vw);max-height:40vh;object-fit:contain;display:block;">
         <div style="color:#fff;font-size:clamp(4rem,20vw,12rem);font-weight:900;line-height:1;letter-spacing:-0.02em;">404</div>
         <div style="display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:center;">
-          <button onclick="location.href='../../game/library/'" style="background:none;border:1px solid rgba(255,255,255,0.3);color:#fff;padding:0.75rem 1.5rem;border-radius:999px;font-size:1rem;cursor:pointer;white-space:nowrap;">Go Back</button>
+          <button onclick="location.href='../../library/'" style="background:none;border:1px solid rgba(255,255,255,0.3);color:#fff;padding:0.75rem 1.5rem;border-radius:999px;font-size:1rem;cursor:pointer;white-space:nowrap;">Go Back</button>
           <a href="help.html" style="background:none;border:1px solid rgba(255,255,255,0.3);color:#fff;padding:0.75rem 1.5rem;border-radius:999px;font-size:1rem;cursor:pointer;text-decoration:none;white-space:nowrap;">Contact Mission Control</a>
         </div>
       `;
@@ -1555,7 +1555,11 @@
         const city = (gameNode.city || game.city || '').trim();
         document.getElementById('startBlurb').innerHTML = `You must go to <strong>${city}</strong> to play this game. Tap to reveal the starting point.`;
 
-        const qrUrl = `https://thegamebureau.com/game/run/index.html?id=${encodeURIComponent(gameId)}`;
+        // Preserve the engine selector in shared/QR links so scanning a
+        // code generated on /game/run/?id=…&e=map also lands on the map
+        // engine.
+        const _qrEngineParam = String(urlParams.get('e') || '').trim();
+        const qrUrl = `https://thegamebureau.com/game/run/index.html?id=${encodeURIComponent(gameId)}${_qrEngineParam ? `&e=${encodeURIComponent(_qrEngineParam)}` : ''}`;
         const ogImage = images.logoUrl;
         const setMeta = (sel, val) => { const el = document.querySelector(sel); if (el) el.setAttribute('content', val || ''); };
         setMeta('meta[property="og:title"]', gameName);
@@ -1786,7 +1790,21 @@
         if (bodyText) document.getElementById('descSection').style.display = 'block';
         document.getElementById('gamePrice').textContent = (gameNode.price || 'FREE').toUpperCase();
 
-        document.getElementById('startBtn').href = `../../game/play/index.html?id=${encodeURIComponent(gameId)}`;
+        // Engine selection precedence:
+        //   1. ?e=<engine> in the run URL (manual override / sharing).
+        //   2. The game's saved `engine` column on the games row (the
+        //      designer's choice in the builder).
+        //   3. Fall through to the player router's default ("text"),
+        //      matching the router's behavior in /game/play/index.html.
+        {
+          const playUrl = new URL('../../game/play/index.html', window.location.href);
+          playUrl.searchParams.set('id', gameId);
+          const urlEngine = String(urlParams.get('e') || '').trim();
+          const dbEngine = String(game.engine || '').trim();
+          const engineParam = urlEngine || dbEngine;
+          if (engineParam) playUrl.searchParams.set('e', engineParam);
+          document.getElementById('startBtn').href = playUrl.toString();
+        }
         document.getElementById('landing').style.display = 'block';
         const ctaBar = document.getElementById('ctaBar');
         ctaBar.style.background = primaryColor;
