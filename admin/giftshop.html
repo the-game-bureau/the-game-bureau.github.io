@@ -274,22 +274,6 @@
       min-height: 64px;
     }
 
-    .item-url-row {
-      display: flex;
-      gap: 6px;
-      width: 100%;
-    }
-    .item-url-row input {
-      flex: 1;
-      min-width: 0;
-    }
-    .item-url-row .btn {
-      min-height: 36px;
-      padding: 0 12px;
-      font-size: 0.78rem;
-      letter-spacing: 0.04em;
-    }
-
     .item-actions {
       grid-column: 1 / -1;
       display: flex;
@@ -421,10 +405,7 @@
         </label>
         <label class="field-wide">
           Amazon URL
-          <div class="item-url-row">
-            <input data-field="url" type="url" placeholder="https://www.amazon.com/dp/…">
-            <button class="btn" data-action="fetch" type="button" title="Auto-fill title, image and description from this URL">Fetch</button>
-          </div>
+          <input data-field="url" type="url" placeholder="https://www.amazon.com/dp/…">
         </label>
         <label class="field-wide">
           Image URL (optional)
@@ -636,44 +617,6 @@
       if (!response.ok) throw new Error(await readError(response, 'Delete failed.'));
     }
 
-    // ── Amazon scrape via Supabase Edge Function ──────────────────────
-    // POSTs the URL to /functions/v1/scrape-amazon, which fetches the
-    // page server-side (no CORS, desktop UA) and returns the parsed
-    // {title, description, image_url, price_display}. See
-    // supabase/functions/scrape-amazon/index.ts for the source and
-    // supabase/functions/scrape-amazon/README.md for deploy steps.
-    async function fetchAmazonMetadata(url) {
-      const endpoint = SUPABASE_CONFIG.url.replace(/\/+$/, '') + '/functions/v1/scrape-amazon';
-      // Use the signed-in admin's JWT when available so the function
-      // sees an authenticated caller; fall back to the publishable key
-      // (anon role) so this still works pre-sign-in if we ever invoke
-      // it that way.
-      const bearer = (currentSession && currentSession.access_token)
-        || SUPABASE_CONFIG.publishableKey;
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: SUPABASE_CONFIG.publishableKey,
-          Authorization: 'Bearer ' + bearer
-        },
-        body: JSON.stringify({ url })
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const message = json && json.error
-          ? String(json.error)
-          : 'scrape-amazon ' + res.status;
-        throw new Error(message);
-      }
-      return {
-        title: String(json.title || '').trim(),
-        description: String(json.description || '').trim(),
-        image_url: String(json.image_url || '').trim(),
-        price_display: String(json.price_display || '').trim()
-      };
-    }
-
     function renderEmpty() {
       itemsList.innerHTML = '';
       const div = document.createElement('div');
@@ -754,56 +697,6 @@
 
       const statusEl = article.querySelector('[data-status]');
       const setItemStatus = (msg, kind = '') => setStatus(statusEl, msg, kind);
-
-      const fetchBtn = article.querySelector('[data-action="fetch"]');
-      if (fetchBtn) {
-        fetchBtn.addEventListener('click', async () => {
-          const urlInput = article.querySelector('[data-field="url"]');
-          const url = String(urlInput && urlInput.value || '').trim();
-          if (!url) {
-            setItemStatus('Paste an Amazon URL first.', 'error');
-            return;
-          }
-          fetchBtn.disabled = true;
-          const previousLabel = fetchBtn.textContent;
-          fetchBtn.textContent = 'Fetching…';
-          setItemStatus('Fetching details from Amazon…');
-          try {
-            const meta = await fetchAmazonMetadata(url);
-            // Apply to fields whose Amazon scrape returned something. Empty
-            // returns leave the existing value alone (so a manual edit
-            // doesn't get clobbered by a partial response).
-            const apply = (name, value) => {
-              if (!value) return;
-              const el = article.querySelector('[data-field="' + name + '"]');
-              if (!el) return;
-              el.value = value;
-              // Mirror an `input` event so dependent UI (the thumbnail
-              // preview hooked off image_url) refreshes.
-              el.dispatchEvent(new Event('input', { bubbles: true }));
-            };
-            apply('title', meta.title);
-            apply('description', meta.description);
-            apply('image_url', meta.image_url);
-            apply('price_display', meta.price_display);
-
-            const filled = ['title', 'description', 'image_url', 'price_display']
-              .filter((name) => meta[name]);
-            if (!filled.length) {
-              setItemStatus('No metadata returned for that URL.', 'error');
-            } else {
-              setItemStatus('Filled: ' + filled.join(', ') + '.', 'success');
-              setTimeout(() => setItemStatus(''), 2600);
-            }
-          } catch (error) {
-            console.error('[giftshop] fetch failed', error);
-            setItemStatus(error instanceof Error ? error.message : String(error), 'error');
-          } finally {
-            fetchBtn.disabled = false;
-            fetchBtn.textContent = previousLabel;
-          }
-        });
-      }
 
       article.querySelector('[data-action="save"]').addEventListener('click', async () => {
         const payload = buildPayload(article);
