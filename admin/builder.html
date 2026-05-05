@@ -6662,6 +6662,134 @@ body.builder-page--editor #inspector{
 }
 
 /* ── Game Notes Popup ── */
+.scheme-prompt-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(var(--bic-blue-rgb),.28);
+  backdrop-filter:blur(3px);
+  -webkit-backdrop-filter:blur(3px);
+  z-index:199;
+}
+.scheme-prompt-backdrop[hidden]{ display:none; }
+.scheme-prompt-popup{
+  position:fixed;
+  inset:0;
+  margin:auto;
+  width:min(680px, 92vw);
+  height:min(560px, 85vh);
+  display:flex;
+  flex-direction:column;
+  background:#fafaf2;
+  border:1px solid rgba(var(--bic-blue-rgb),.16);
+  border-radius:16px;
+  box-shadow:
+    0 24px 60px rgba(var(--bic-blue-rgb),.2),
+    0 2px 0 rgba(255,255,255,.9) inset;
+  z-index:200;
+  overflow:hidden;
+}
+.scheme-prompt-popup[hidden]{ display:none; }
+.scheme-prompt-bar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 14px;
+  background:var(--bic-blue);
+  flex-shrink:0;
+  border-radius:15px 15px 0 0;
+}
+.scheme-prompt-title{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:.72rem;
+  font-weight:600;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:#fff;
+}
+.scheme-prompt-status{
+  font-size:.62rem;
+  letter-spacing:.06em;
+  color:rgba(255,255,255,.65);
+  font-family:"IBM Plex Mono",monospace;
+  margin-left:auto;
+  min-width:0;
+}
+.scheme-prompt-copy-btn{
+  background:rgba(255,255,255,.18);
+  border:1px solid rgba(255,255,255,.3);
+  color:#fff;
+  font-family:"IBM Plex Mono",monospace;
+  font-size:.62rem;
+  font-weight:600;
+  letter-spacing:.08em;
+  cursor:pointer;
+  padding:3px 10px;
+  border-radius:4px;
+  flex-shrink:0;
+}
+.scheme-prompt-copy-btn:hover{ background:rgba(255,255,255,.28); }
+.scheme-prompt-close-btn{
+  background:none;
+  border:none;
+  color:rgba(255,255,255,.7);
+  font-size:1.2rem;
+  line-height:1;
+  cursor:pointer;
+  padding:2px 6px;
+  border-radius:4px;
+  flex-shrink:0;
+}
+.scheme-prompt-close-btn:hover{ color:#fff; background:rgba(255,255,255,.15); }
+.scheme-prompt-body{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  padding:14px;
+  flex:1;
+  min-height:0;
+}
+.scheme-prompt-help{
+  margin:0;
+  font-family:"IBM Plex Mono",monospace;
+  font-size:.66rem;
+  letter-spacing:.04em;
+  color:rgba(var(--bic-blue-rgb),.72);
+}
+.scheme-prompt-textarea{
+  flex:1;
+  width:100%;
+  resize:none;
+  font-family:"IBM Plex Mono",monospace;
+  font-size:.78rem;
+  line-height:1.45;
+  color:#1a2440;
+  background:rgba(255,255,255,.7);
+  border:1px solid rgba(var(--bic-blue-rgb),.18);
+  border-radius:8px;
+  padding:10px 12px;
+  outline:none;
+  box-sizing:border-box;
+  white-space:pre;
+  overflow:auto;
+}
+.scheme-prompt-textarea:focus{
+  border-color:rgba(var(--bic-blue-rgb),.45);
+  background:#fff;
+}
+@media (max-width:600px){
+  .scheme-prompt-popup{
+    inset:auto 0 0 0;
+    margin:0;
+    width:100%;
+    height:80svh;
+    border-radius:20px 20px 0 0;
+    border-bottom:none;
+  }
+  .scheme-prompt-bar{
+    border-radius:19px 19px 0 0;
+  }
+}
+
 .game-notes-backdrop{
   position:fixed;
   inset:0;
@@ -9046,6 +9174,7 @@ body.builder-auth-ready .builder-auth-signout{
 
                   </div>
                   <button class="insp-btn" id="shuffleColorsBtn" type="button" title="Reassign the four colors to different roles (does not save until you click Save)" style="margin-top:10px;" disabled>Shuffle</button>
+                  <button class="insp-btn" id="newSchemeBtn" type="button" title="Open an AI prompt with this game's info — paste it into your AI of choice, then enter the four hex codes by hand" style="margin-top:6px;" disabled>New scheme</button>
                 </section>
 
                 <section class="details-section" id="detailsGameDetailsSection">
@@ -9835,6 +9964,20 @@ body.builder-auth-ready .builder-auth-signout{
   </div>
 
   <!-- Game Notes popup -->
+  <div class="scheme-prompt-backdrop" id="newSchemePromptBackdrop" hidden></div>
+  <div class="scheme-prompt-popup" id="newSchemePromptPopup" hidden role="dialog" aria-modal="true" aria-labelledby="newSchemePromptTitle">
+    <div class="scheme-prompt-bar">
+      <span class="scheme-prompt-title" id="newSchemePromptTitle">NEW COLOR SCHEME — AI PROMPT</span>
+      <span class="scheme-prompt-status" id="newSchemePromptStatus" aria-live="polite"></span>
+      <button class="scheme-prompt-copy-btn" id="newSchemePromptCopyBtn" type="button">COPY</button>
+      <button class="scheme-prompt-close-btn" id="newSchemePromptCloseBtn" type="button" aria-label="Close prompt">&#x2715;</button>
+    </div>
+    <div class="scheme-prompt-body">
+      <p class="scheme-prompt-help">Copy this prompt, paste it into your AI of choice, then type the four hex codes back into the color inputs.</p>
+      <textarea id="newSchemePromptText" class="scheme-prompt-textarea" readonly spellcheck="false"></textarea>
+    </div>
+  </div>
+
   <div class="game-notes-backdrop" id="gameNotesBackdrop" hidden></div>
   <div class="game-notes-popup" id="gameNotesPopup" hidden role="dialog" aria-modal="true" aria-label="Game Notes">
     <div class="game-notes-popup-bar">
@@ -18176,6 +18319,8 @@ function updateSelectionUi(options = {}) {
   if (quaternaryColorPickerInput) quaternaryColorPickerInput.disabled = !isGameNode;
   const _shuffleBtn = document.getElementById('shuffleColorsBtn');
   if (_shuffleBtn) _shuffleBtn.disabled = !isGameNode;
+  const _newSchemeBtn = document.getElementById('newSchemeBtn');
+  if (_newSchemeBtn) _newSchemeBtn.disabled = !isGameNode;
   nodeTagNewInput.disabled = !isGameNode;
   nodeTagAddBtn.disabled = !isGameNode;
   teamInputs.forEach(inp => { if (inp) inp.disabled = !isGameNode; });
@@ -20832,6 +20977,77 @@ function permuteCurrentGameColors() {
   };
 }
 
+// Build a copy-pasteable AI prompt that includes everything we know
+// about the current game (name, tagline, description, tags, setting,
+// current colors) plus a strict output format so the four hex codes
+// are easy to read back into the inputs by hand.
+function buildNewSchemePrompt() {
+  const gameNode = getGameNode();
+  const tags = (gameNode && Array.isArray(gameNode.tags)) ? gameNode.tags.filter(Boolean) : [];
+  const body = String((gameNode && gameNode.body) || '').trim();
+  const meta = state.currentGameMeta || {};
+  const colors = getCurrentGameColors();
+  const name = getDocName();
+  const tagline = String(meta.tagline || '').trim();
+  const city = String(meta.city || '').trim();
+
+  const lines = [];
+  lines.push("Pick a 4-color palette for this game and return it in the exact format I specify at the end.");
+  lines.push('');
+  lines.push("# Game");
+  if (name)    lines.push("- Name: " + name);
+  if (tagline) lines.push("- Tagline: " + tagline);
+  if (body)    lines.push("- Description: " + body);
+  if (tags.length) lines.push("- Tags: " + tags.join(", "));
+  if (city)    lines.push("- Setting: " + city);
+  lines.push('');
+  lines.push("# Current colors (reference — feel free to keep, evolve, or replace)");
+  lines.push("- Primary: "    + (colors.primaryColor    || "(none)"));
+  lines.push("- Secondary: "  + (colors.secondaryColor  || "(none)"));
+  lines.push("- Tertiary: "   + (colors.tertiaryColor   || "(none)"));
+  lines.push("- Quaternary: " + (colors.quaternaryColor || "(none)"));
+  lines.push('');
+  lines.push("# Roles in the app");
+  lines.push("- Primary: bold brand / main accent.");
+  lines.push("- Secondary: softer support color, often a related or lighter hue.");
+  lines.push("- Tertiary: high-contrast color used for text and borders (usually quite dark or quite light).");
+  lines.push("- Quaternary: bright accent for buttons / call-to-action.");
+  lines.push('');
+  lines.push("# Goal");
+  lines.push("Suggest four hex colors that read as a cohesive palette and match this game's tone. Use color theory (complementary, triadic, tetradic, split-complementary, or analogous + accent) so the four colors harmonize. Avoid muddy or washed-out colors unless the tone calls for it.");
+  lines.push('');
+  lines.push("# Output");
+  lines.push("Reply with EXACTLY this format and nothing else:");
+  lines.push("Primary: #XXXXXX");
+  lines.push("Secondary: #XXXXXX");
+  lines.push("Tertiary: #XXXXXX");
+  lines.push("Quaternary: #XXXXXX");
+  return lines.join('\n');
+}
+
+function openNewSchemePromptPopup() {
+  if (!state.currentGameId) return false;
+  const popup = document.getElementById('newSchemePromptPopup');
+  const backdrop = document.getElementById('newSchemePromptBackdrop');
+  const textarea = document.getElementById('newSchemePromptText');
+  const status = document.getElementById('newSchemePromptStatus');
+  if (!popup || !textarea) return false;
+  textarea.value = buildNewSchemePrompt();
+  if (status) status.textContent = '';
+  popup.hidden = false;
+  if (backdrop) backdrop.hidden = false;
+  textarea.focus();
+  textarea.select();
+  return true;
+}
+
+function closeNewSchemePromptPopup() {
+  const popup = document.getElementById('newSchemePromptPopup');
+  const backdrop = document.getElementById('newSchemePromptBackdrop');
+  if (popup) popup.hidden = true;
+  if (backdrop) backdrop.hidden = true;
+}
+
 function shuffleCurrentGameColors() {
   // Preview-only: re-orders the existing four palette colors among the
   // four slots, updates in-memory state, and re-renders.
@@ -21200,6 +21416,50 @@ if (shuffleColorsBtn) {
     shuffleCurrentGameColors();
   });
 }
+const newSchemeBtn = document.getElementById('newSchemeBtn');
+if (newSchemeBtn) {
+  newSchemeBtn.addEventListener('click', () => {
+    openNewSchemePromptPopup();
+  });
+}
+const newSchemePromptBackdrop = document.getElementById('newSchemePromptBackdrop');
+if (newSchemePromptBackdrop) {
+  newSchemePromptBackdrop.addEventListener('click', closeNewSchemePromptPopup);
+}
+const newSchemePromptCloseBtn = document.getElementById('newSchemePromptCloseBtn');
+if (newSchemePromptCloseBtn) {
+  newSchemePromptCloseBtn.addEventListener('click', closeNewSchemePromptPopup);
+}
+const newSchemePromptCopyBtn = document.getElementById('newSchemePromptCopyBtn');
+if (newSchemePromptCopyBtn) {
+  newSchemePromptCopyBtn.addEventListener('click', async () => {
+    const textarea = document.getElementById('newSchemePromptText');
+    const status = document.getElementById('newSchemePromptStatus');
+    if (!textarea) return;
+    const value = textarea.value;
+    let copied = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(value);
+        copied = true;
+      }
+    } catch (e) { /* fall through to manual select */ }
+    if (!copied) {
+      textarea.focus();
+      textarea.select();
+      try { copied = document.execCommand('copy'); } catch (e) { /* ignore */ }
+    }
+    if (status) {
+      status.textContent = copied ? 'Copied to clipboard.' : 'Select all and copy manually.';
+      window.setTimeout(() => { if (status) status.textContent = ''; }, 2200);
+    }
+  });
+}
+window.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  const popup = document.getElementById('newSchemePromptPopup');
+  if (popup && !popup.hidden) closeNewSchemePromptPopup();
+});
 if (featureGameBtn) {
   featureGameBtn.addEventListener('click', async () => {
     await toggleCurrentGameFeaturedState();

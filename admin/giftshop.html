@@ -210,7 +210,7 @@
 
     .item {
       display: grid;
-      grid-template-columns: 88px 1fr;
+      grid-template-columns: auto 1fr;
       gap: 14px;
       padding: 14px;
       background: var(--paper);
@@ -222,23 +222,59 @@
     .item.is-archived { opacity: 0.65; }
     .item.is-new { border-color: var(--accent); }
 
-    .item-thumb {
-      width: 88px;
-      height: 88px;
+    .item-focus-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-start;
+      width: 220px;
+      flex-shrink: 0;
+    }
+    .item-focus-caption {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      line-height: 1.4;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      text-align: left;
+    }
+    .item-focus {
+      position: relative;
+      width: 220px;
+      height: 220px;
       border-radius: 8px;
       background: rgba(var(--bic-blue-rgb), 0.06);
       border: 1px solid var(--line);
-      display: grid;
-      place-items: center;
       overflow: hidden;
       color: var(--muted);
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.7rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
+      user-select: none;
+      touch-action: none;
     }
-    .item-thumb img {
-      width: 100%; height: 100%; object-fit: cover; display: block;
+    .item-focus [data-focus-placeholder] {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+    }
+    .item-focus img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      max-width: none;
+      max-height: none;
+      pointer-events: none;
+      user-select: none;
+      will-change: transform;
+    }
+    .item-focus[data-has-image="true"] {
+      cursor: grab;
+    }
+    .item-focus[data-dragging="true"] {
+      cursor: grabbing;
     }
 
     .item-fields {
@@ -259,7 +295,8 @@
       text-transform: uppercase;
     }
     .item-fields input,
-    .item-fields textarea {
+    .item-fields textarea,
+    .item-fields select {
       height: 36px;
       padding: 0 10px;
       border: 1px solid var(--line);
@@ -272,6 +309,79 @@
       padding: 8px 10px;
       resize: vertical;
       min-height: 64px;
+    }
+
+    .item-listings {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.03);
+    }
+    .item-listings-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .item-listings-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .listing-row {
+      display: grid;
+      grid-template-columns: 1fr 90px auto auto;
+      gap: 6px;
+      align-items: center;
+    }
+    .listing-row select,
+    .listing-row input[type="number"] {
+      height: 34px;
+      padding: 0 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.96);
+      font-size: 0.85rem;
+    }
+    .listing-row .listing-archive {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.7rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .listing-row .listing-archive input { width: auto; height: auto; }
+    .listing-row .listing-remove {
+      width: 30px; height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.96);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+    }
+    .listing-row .listing-remove:hover {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .listing-row.is-removed { display: none; }
+    .item-listings-empty {
+      padding: 8px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-style: italic;
     }
 
     .item-actions {
@@ -315,8 +425,8 @@
 
     @media (max-width: 720px) {
       h1 { font-size: 2.4rem; }
-      .item { grid-template-columns: 64px 1fr; }
-      .item-thumb { width: 64px; height: 64px; }
+      .item { grid-template-columns: auto 1fr; }
+      .item-focus-col { max-width: 100%; }
       .item-fields { grid-template-columns: 1fr 1fr; }
     }
 
@@ -359,7 +469,7 @@
         <div class="section-head">
           <p class="kicker">Manage</p>
           <h1>Gift Shop</h1>
-          <p class="copy">Pick a game, then add Amazon links you want to feature in its gift shop.</p>
+          <p class="copy">Every gift shop item across all games. Each row picks its own game.</p>
         </div>
         <div class="topbar-actions">
           <a class="btn" href="./">← Admin</a>
@@ -373,11 +483,11 @@
       </div>
 
       <div class="toolbar">
-        <select id="gameSelect">
-          <option value="">— Pick a game —</option>
-        </select>
         <button class="btn primary" id="addItemBtn" type="button" disabled>+ Add item</button>
-        <a class="btn" id="previewBtn" href="#" target="_blank" rel="noopener" aria-disabled="true" tabindex="-1">Preview shop</a>
+        <select id="previewShopSelect" aria-label="Pick a shop to preview">
+          <option value="">All shops</option>
+        </select>
+        <a class="btn" id="previewBtn" href="../giftshop/" target="_blank" rel="noopener">Preview</a>
       </div>
 
       <p class="status" id="shopStatus" aria-live="polite"></p>
@@ -387,21 +497,20 @@
 
   <template id="itemTemplate">
     <article class="item" data-id="">
-      <div class="item-thumb">
-        <span data-thumb-placeholder>IMG</span>
+      <div class="item-focus-col">
+        <div class="item-focus" data-has-image="false">
+          <span data-focus-placeholder>IMG</span>
+        </div>
+        <p class="item-focus-caption">This is the actual size and crop the gift shop will show. Drag the image to choose what's visible.</p>
       </div>
       <div class="item-fields">
         <label class="field-wide">
           Title
           <input data-field="title" type="text" placeholder="Field Notebook">
         </label>
-        <label>
+        <label class="field-wide">
           Price (display)
           <input data-field="price_display" type="text" placeholder="$12.99">
-        </label>
-        <label>
-          Position
-          <input data-field="position" type="number" inputmode="numeric" min="0" step="1" placeholder="0">
         </label>
         <label class="field-wide">
           Amazon URL
@@ -415,17 +524,34 @@
           Description (optional)
           <textarea data-field="description" placeholder="Short blurb shown under the title."></textarea>
         </label>
+        <div class="item-listings" data-listings>
+          <div class="item-listings-head">
+            <span>Listed in shops</span>
+            <button class="btn" data-action="add-listing" type="button">+ Add to a shop</button>
+          </div>
+          <div class="item-listings-list" data-listings-list></div>
+        </div>
         <div class="item-actions">
-          <label class="item-archive-toggle">
-            <input data-field="archived" type="checkbox">
-            Archived
-          </label>
           <button class="btn primary" data-action="save" type="button">Save</button>
           <button class="btn danger" data-action="delete" type="button">Delete</button>
           <span class="item-status" data-status></span>
         </div>
       </div>
     </article>
+  </template>
+
+  <template id="listingRowTemplate">
+    <div class="listing-row" data-listing data-listing-id="">
+      <select data-listing-field="game_id" required>
+        <option value="">— Pick a shop —</option>
+      </select>
+      <input data-listing-field="position" type="number" inputmode="numeric" min="0" step="1" placeholder="Pos">
+      <label class="listing-archive">
+        <input data-listing-field="archived" type="checkbox">
+        Archived
+      </label>
+      <button class="listing-remove" data-action="remove-listing" type="button" title="Remove from this shop" aria-label="Remove">×</button>
+    </div>
   </template>
 
   <script>
@@ -445,14 +571,19 @@
     const signOutBtn   = document.getElementById('signOutBtn');
     const authStatus   = document.getElementById('authStatus');
     const shopStatus   = document.getElementById('shopStatus');
-    const gameSelect   = document.getElementById('gameSelect');
     const addItemBtn   = document.getElementById('addItemBtn');
     const previewBtn   = document.getElementById('previewBtn');
+    const previewShopSelect = document.getElementById('previewShopSelect');
     const itemsList    = document.getElementById('itemsList');
     const itemTemplate = document.getElementById('itemTemplate');
+    const listingRowTemplate = document.getElementById('listingRowTemplate');
 
     let currentSession = null;
-    let currentGameId  = '';
+    // Every game we know about (live + archived), keyed by id, so we
+    // can populate per-item dropdowns AND label rows whose game has
+    // been archived since the item was created.
+    let gamesById = new Map();
+    let gameOptionsHtml = '<option value="">— Pick a game —</option>';
 
     function authUrl(path) {
       return new URL('/auth/v1/' + String(path || '').replace(/^\/+/, ''), SUPABASE_CONFIG.url + '/').toString();
@@ -546,7 +677,7 @@
       return Array.isArray(rows) && rows.length > 0;
     }
 
-    // ── Games dropdown ───────────────────────────────────────────────
+    // ── Games ────────────────────────────────────────────────────────
     async function fetchGames() {
       const response = await fetch(restUrl('games', { select: 'id,name,archived,erased', order: 'name.asc' }), {
         headers: authHeaders({ Accept: 'application/json' }),
@@ -561,24 +692,51 @@
       return !dead(game.archived) && !dead(game.erased);
     }
 
-    async function populateGames() {
-      const games = await fetchGames();
-      const live = games.filter(isLive);
-      gameSelect.innerHTML = '<option value="">— Pick a game —</option>';
-      live.forEach((g) => {
-        const opt = document.createElement('option');
-        opt.value = g.id;
-        opt.textContent = g.name || g.id;
-        gameSelect.appendChild(opt);
-      });
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
+    async function loadGames() {
+      const games = await fetchGames();
+      gamesById = new Map(games.map((g) => [g.id, g]));
+      // Live games first, archived/erased grouped after.
+      const live = games.filter(isLive);
+      const dead = games.filter((g) => !isLive(g));
+      const renderOpt = (g, suffix) =>
+        '<option value="' + escapeHtml(g.id) + '">' +
+        escapeHtml((g.name || g.id) + (suffix ? ' ' + suffix : '')) +
+        '</option>';
+      gameOptionsHtml =
+        '<option value="">— Pick a game —</option>' +
+        live.map((g) => renderOpt(g, '')).join('') +
+        dead.map((g) => renderOpt(g, '(archived)')).join('');
+
+      // Top-level preview picker — only live shops.
+      previewShopSelect.innerHTML =
+        '<option value="">All shops</option>' +
+        live.map((g) => renderOpt(g, '')).join('');
+      updatePreviewHref();
+    }
+
+    function updatePreviewHref() {
+      const id = previewShopSelect.value;
+      previewBtn.href = id
+        ? '../giftshop/?game=' + encodeURIComponent(id)
+        : '../giftshop/';
+    }
+
+    previewShopSelect.addEventListener('change', updatePreviewHref);
+
     // ── Items ────────────────────────────────────────────────────────
-    async function fetchItems(gameId) {
+    async function fetchAllItems() {
+      // Embed each item's listings so we can render the full edit UI in
+      // one round-trip. Order is title-asc; per-listing position is
+      // surfaced inside each card, not at the catalog level.
       const response = await fetch(restUrl('gift_shop_items', {
-        select: '*',
-        game_id: 'eq.' + gameId,
-        order: 'position.asc.nullslast,title.asc'
+        select: '*,gift_shop_listings(*)',
+        order: 'title.asc.nullslast'
       }), {
         headers: authHeaders({ Accept: 'application/json' }),
         cache: 'no-store'
@@ -617,6 +775,37 @@
       if (!response.ok) throw new Error(await readError(response, 'Delete failed.'));
     }
 
+    // ── Listings ─────────────────────────────────────────────────────
+    async function insertListing(payload) {
+      const response = await fetch(restUrl('gift_shop_listings'), {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not add listing.'));
+      const rows = await response.json();
+      return Array.isArray(rows) && rows.length ? rows[0] : null;
+    }
+
+    async function updateListing(id, payload) {
+      const response = await fetch(restUrl('gift_shop_listings', { id: 'eq.' + id }), {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not update listing.'));
+      const rows = await response.json();
+      return Array.isArray(rows) && rows.length ? rows[0] : null;
+    }
+
+    async function deleteListing(id) {
+      const response = await fetch(restUrl('gift_shop_listings', { id: 'eq.' + id }), {
+        method: 'DELETE',
+        headers: authHeaders({})
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not remove listing.'));
+    }
+
     function renderEmpty() {
       itemsList.innerHTML = '';
       const div = document.createElement('div');
@@ -625,31 +814,117 @@
       itemsList.appendChild(div);
     }
 
-    function buildPayload(article) {
+    function buildItemPayload(article) {
       const get = (name) => {
         const el = article.querySelector('[data-field="' + name + '"]');
         return el ? el.value : '';
       };
-      const archived = !!article.querySelector('[data-field="archived"]').checked;
-      const positionRaw = get('position').trim();
-      const position = positionRaw === '' ? 0 : Math.max(0, Math.floor(Number(positionRaw) || 0));
+      const focus = String(article.dataset.imageFocus || '50% 50%');
       return {
-        game_id: currentGameId,
         kind: 'amazon_link',
         title: get('title').trim() || null,
         url: get('url').trim(),
         image_url: get('image_url').trim() || null,
+        image_focus: focus,
         price_display: get('price_display').trim() || null,
-        description: get('description').trim() || null,
-        position,
-        archived
+        description: get('description').trim() || null
       };
+    }
+
+    function readListingRow(row) {
+      const game_id = String(row.querySelector('[data-listing-field="game_id"]').value || '').trim();
+      const positionRaw = String(row.querySelector('[data-listing-field="position"]').value || '').trim();
+      const position = positionRaw === '' ? 0 : Math.max(0, Math.floor(Number(positionRaw) || 0));
+      const archived = !!row.querySelector('[data-listing-field="archived"]').checked;
+      return { id: row.dataset.listingId || '', game_id, position, archived };
+    }
+
+    function appendListingRow(listingsList, listing = {}) {
+      const fragment = listingRowTemplate.content.cloneNode(true);
+      const row = fragment.querySelector('.listing-row');
+      const sel = row.querySelector('[data-listing-field="game_id"]');
+      sel.innerHTML = gameOptionsHtml;
+      const targetId = listing.game_id || '';
+      if (targetId) {
+        const exists = sel.querySelector('option[value="' + CSS.escape(targetId) + '"]');
+        if (!exists) {
+          const opt = document.createElement('option');
+          opt.value = targetId;
+          opt.textContent = (gamesById.get(targetId)?.name || targetId) + ' (missing)';
+          sel.appendChild(opt);
+        }
+        sel.value = targetId;
+      }
+      row.querySelector('[data-listing-field="position"]').value =
+        listing.position == null ? '' : String(listing.position);
+      row.querySelector('[data-listing-field="archived"]').checked = !!listing.archived;
+      row.dataset.listingId = listing.id || '';
+      row.querySelector('[data-action="remove-listing"]').addEventListener('click', () => {
+        // For unsaved rows just drop them; for persisted rows mark for
+        // deletion and hide so syncListings can DELETE on save.
+        if (row.dataset.listingId) {
+          row.classList.add('is-removed');
+          row.dataset.removed = 'true';
+        } else {
+          row.remove();
+        }
+        refreshListingsEmpty(listingsList);
+      });
+      listingsList.appendChild(row);
+      refreshListingsEmpty(listingsList);
+      return row;
+    }
+
+    function refreshListingsEmpty(listingsList) {
+      const live = listingsList.querySelectorAll('.listing-row:not(.is-removed)');
+      let empty = listingsList.querySelector('.item-listings-empty');
+      if (!live.length) {
+        if (!empty) {
+          empty = document.createElement('div');
+          empty.className = 'item-listings-empty';
+          empty.textContent = 'Not in any shop yet.';
+          listingsList.appendChild(empty);
+        }
+      } else if (empty) {
+        empty.remove();
+      }
+    }
+
+    async function syncListings(article, itemId) {
+      const rows = Array.from(article.querySelectorAll('.listing-row'));
+      // 1) Removed rows that already had an id → DELETE
+      const toDelete = rows.filter((r) => r.dataset.removed === 'true' && r.dataset.listingId);
+      for (const row of toDelete) {
+        await deleteListing(row.dataset.listingId);
+        row.remove();
+      }
+      // 2) Live rows: insert if no id, otherwise update.
+      const liveRows = rows.filter((r) => r.dataset.removed !== 'true');
+      for (const row of liveRows) {
+        const data = readListingRow(row);
+        if (!data.game_id) continue; // skip blanks rather than erroring
+        if (data.id) {
+          const updated = await updateListing(data.id, {
+            game_id: data.game_id,
+            position: data.position,
+            archived: data.archived
+          });
+          if (updated && updated.id) row.dataset.listingId = updated.id;
+        } else {
+          const created = await insertListing({
+            item_id: itemId,
+            game_id: data.game_id,
+            position: data.position,
+            archived: data.archived
+          });
+          if (created && created.id) row.dataset.listingId = created.id;
+        }
+      }
     }
 
     function bindItem(article, item) {
       article.dataset.id = item.id || '';
       article.classList.toggle('is-new', !item.id);
-      article.classList.toggle('is-archived', !!item.archived);
 
       const set = (name, value) => {
         const el = article.querySelector('[data-field="' + name + '"]');
@@ -663,46 +938,191 @@
       set('image_url', item.image_url);
       set('price_display', item.price_display);
       set('description', item.description);
-      set('position', item.position == null ? 0 : item.position);
-      set('archived', item.archived);
 
-      const thumbContainer = article.querySelector('.item-thumb');
-      const refreshThumb = () => {
+      // Render existing listings (from the embedded select) and wire
+      // up the "+ Add to a shop" button. New blank items get one empty
+      // row so the user has somewhere to pick a shop without an extra
+      // click.
+      const listingsList = article.querySelector('[data-listings-list]');
+      listingsList.innerHTML = '';
+      const listings = Array.isArray(item.gift_shop_listings) ? item.gift_shop_listings : [];
+      const sortedListings = listings.slice().sort((a, b) => {
+        const ka = (gamesById.get(a.game_id)?.name || '').toLowerCase();
+        const kb = (gamesById.get(b.game_id)?.name || '').toLowerCase();
+        if (ka < kb) return -1;
+        if (ka > kb) return 1;
+        return 0;
+      });
+      sortedListings.forEach((l) => appendListingRow(listingsList, l));
+      if (!sortedListings.length && !item.id) {
+        appendListingRow(listingsList, {});
+      }
+      refreshListingsEmpty(listingsList);
+
+      article.querySelector('[data-action="add-listing"]').addEventListener('click', () => {
+        const row = appendListingRow(listingsList, {});
+        const sel = row.querySelector('[data-listing-field="game_id"]');
+        if (sel) sel.focus();
+      });
+
+      // Focus picker: a fixed 220×220 frame matching the public site's
+      // minimum card-image size. The image lives behind the frame at
+      // "cover" scale (smaller dim = frame size, longer dim overflows).
+      // Drag the image to slide it under the window; the resulting
+      // top-left as a fraction of overflow is the object-position
+      // we save back to the row.
+      const FRAME_SIDE = 220;
+      const focusBox = article.querySelector('.item-focus');
+      const placeholder = focusBox.querySelector('[data-focus-placeholder]');
+
+      const parseFocus = (raw) => {
+        const m = String(raw || '').match(/(-?\d+(?:\.\d+)?)\s*%\s+(-?\d+(?:\.\d+)?)\s*%/);
+        if (!m) return { x: 50, y: 50 };
+        return {
+          x: Math.min(100, Math.max(0, parseFloat(m[1]))),
+          y: Math.min(100, Math.max(0, parseFloat(m[2])))
+        };
+      };
+
+      let currentFocus = parseFocus(item.image_focus);
+      let lastLayout = null;
+
+      const writeFocus = () => {
+        article.dataset.imageFocus =
+          currentFocus.x.toFixed(1) + '% ' + currentFocus.y.toFixed(1) + '%';
+      };
+      writeFocus();
+
+      const applyTransform = () => {
+        const img = focusBox.querySelector('img');
+        if (!img || !lastLayout) return;
+        const tx = -(currentFocus.x / 100) * lastLayout.overflowX;
+        const ty = -(currentFocus.y / 100) * lastLayout.overflowY;
+        img.style.transform = 'translate3d(' + tx + 'px, ' + ty + 'px, 0)';
+      };
+
+      const sizeImage = () => {
+        const img = focusBox.querySelector('img');
+        if (!img || !img.naturalWidth || !img.naturalHeight) {
+          lastLayout = null;
+          return;
+        }
+        const W = img.naturalWidth;
+        const H = img.naturalHeight;
+        const scale = Math.max(FRAME_SIDE / W, FRAME_SIDE / H);
+        const dispW = W * scale;
+        const dispH = H * scale;
+        lastLayout = {
+          dispW, dispH,
+          overflowX: Math.max(0, dispW - FRAME_SIDE),
+          overflowY: Math.max(0, dispH - FRAME_SIDE)
+        };
+        img.style.width = dispW + 'px';
+        img.style.height = dispH + 'px';
+        applyTransform();
+      };
+
+      const refreshFocusImage = () => {
         const url = article.querySelector('[data-field="image_url"]').value.trim();
-        thumbContainer.innerHTML = '';
+        const existingImg = focusBox.querySelector('img');
+        if (existingImg) existingImg.remove();
+        lastLayout = null;
         if (url) {
           const img = document.createElement('img');
-          img.src = url;
           img.alt = '';
           img.referrerPolicy = 'no-referrer';
-          img.addEventListener('error', () => {
-            thumbContainer.innerHTML = '';
-            const ph = document.createElement('span');
-            ph.textContent = 'IMG';
-            thumbContainer.appendChild(ph);
-          });
-          thumbContainer.appendChild(img);
+          img.draggable = false;
+          const onLoad = () => {
+            focusBox.dataset.hasImage = 'true';
+            placeholder.style.display = 'none';
+            sizeImage();
+          };
+          const onError = () => {
+            img.remove();
+            focusBox.dataset.hasImage = 'false';
+            placeholder.style.display = '';
+            lastLayout = null;
+          };
+          img.addEventListener('load', onLoad);
+          img.addEventListener('error', onError);
+          focusBox.insertBefore(img, placeholder);
+          img.src = url;
+          // Cached images may already be complete before our listener
+          // attaches — fire onLoad synchronously in that case.
+          if (img.complete && img.naturalWidth > 0) onLoad();
         } else {
-          const ph = document.createElement('span');
-          ph.textContent = 'IMG';
-          thumbContainer.appendChild(ph);
+          focusBox.dataset.hasImage = 'false';
+          placeholder.style.display = '';
         }
       };
-      refreshThumb();
-      article.querySelector('[data-field="image_url"]').addEventListener('input', refreshThumb);
+      refreshFocusImage();
+      article.querySelector('[data-field="image_url"]').addEventListener('input', refreshFocusImage);
 
-      article.querySelector('[data-field="archived"]').addEventListener('change', (e) => {
-        article.classList.toggle('is-archived', e.target.checked);
+      // Drag the image behind the frame. Pointer delta translates 1:1
+      // into transform offset (since frame and image share screen px).
+      // Translate is clamped so the frame stays filled (no white edges).
+      let dragging = false;
+      let dragStart = null;
+      focusBox.addEventListener('pointerdown', (e) => {
+        if (focusBox.dataset.hasImage !== 'true' || !lastLayout) return;
+        dragging = true;
+        focusBox.dataset.dragging = 'true';
+        try { focusBox.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+        dragStart = {
+          tx: -(currentFocus.x / 100) * lastLayout.overflowX,
+          ty: -(currentFocus.y / 100) * lastLayout.overflowY,
+          px: e.clientX,
+          py: e.clientY
+        };
+        e.preventDefault();
       });
+      focusBox.addEventListener('pointermove', (e) => {
+        if (!dragging || !lastLayout || !dragStart) return;
+        const dx = e.clientX - dragStart.px;
+        const dy = e.clientY - dragStart.py;
+        const tx = Math.max(-lastLayout.overflowX, Math.min(0, dragStart.tx + dx));
+        const ty = Math.max(-lastLayout.overflowY, Math.min(0, dragStart.ty + dy));
+        currentFocus.x = lastLayout.overflowX > 0 ? (-tx / lastLayout.overflowX) * 100 : 50;
+        currentFocus.y = lastLayout.overflowY > 0 ? (-ty / lastLayout.overflowY) * 100 : 50;
+        writeFocus();
+        applyTransform();
+      });
+      const endDrag = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        dragStart = null;
+        delete focusBox.dataset.dragging;
+        try { focusBox.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+      };
+      focusBox.addEventListener('pointerup', endDrag);
+      focusBox.addEventListener('pointercancel', endDrag);
 
       const statusEl = article.querySelector('[data-status]');
       const setItemStatus = (msg, kind = '') => setStatus(statusEl, msg, kind);
 
       article.querySelector('[data-action="save"]').addEventListener('click', async () => {
-        const payload = buildPayload(article);
+        const payload = buildItemPayload(article);
         if (!payload.url) {
           setItemStatus('Amazon URL is required.', 'error');
           return;
+        }
+        // Validate listings before doing any writes. Collect live shop
+        // ids and reject if there are duplicates or none.
+        const liveRows = Array.from(
+          article.querySelectorAll('.listing-row:not(.is-removed)')
+        );
+        const liveData = liveRows.map(readListingRow).filter((d) => d.game_id);
+        if (!liveData.length) {
+          setItemStatus('Add this item to at least one shop first.', 'error');
+          return;
+        }
+        const seen = new Set();
+        for (const d of liveData) {
+          if (seen.has(d.game_id)) {
+            setItemStatus('This item is listed in the same shop twice.', 'error');
+            return;
+          }
+          seen.add(d.game_id);
         }
         setItemStatus('Saving…');
         try {
@@ -716,6 +1136,7 @@
             article.dataset.id = saved.id;
             article.classList.remove('is-new');
           }
+          await syncListings(article, article.dataset.id);
           setItemStatus('Saved.', 'success');
           setTimeout(() => setItemStatus(''), 2200);
         } catch (error) {
@@ -756,15 +1177,11 @@
       return article;
     }
 
-    async function renderItemsForGame(gameId) {
+    async function renderAllItems() {
       itemsList.innerHTML = '';
-      if (!gameId) {
-        renderEmpty();
-        return;
-      }
       setStatus(shopStatus, 'Loading items…');
       try {
-        const items = await fetchItems(gameId);
+        const items = await fetchAllItems();
         if (!items.length) {
           renderEmpty();
           setStatus(shopStatus, '');
@@ -779,30 +1196,8 @@
       }
     }
 
-    function updatePreviewLink(gameId) {
-      if (!gameId) {
-        previewBtn.href = '#';
-        previewBtn.setAttribute('aria-disabled', 'true');
-        previewBtn.tabIndex = -1;
-      } else {
-        previewBtn.href = '../giftshop/?game=' + encodeURIComponent(gameId);
-        previewBtn.removeAttribute('aria-disabled');
-        previewBtn.tabIndex = 0;
-      }
-    }
-
-    gameSelect.addEventListener('change', () => {
-      currentGameId = gameSelect.value || '';
-      addItemBtn.disabled = !currentGameId;
-      updatePreviewLink(currentGameId);
-      renderItemsForGame(currentGameId);
-    });
-
     addItemBtn.addEventListener('click', () => {
-      if (!currentGameId) return;
-      const article = appendItemRow({
-        position: itemsList.querySelectorAll('.item').length
-      });
+      const article = appendItemRow({});
       const titleInput = article.querySelector('[data-field="title"]');
       if (titleInput) titleInput.focus();
     });
@@ -817,8 +1212,11 @@
       currentSession = session;
       authPanel.classList.add('hidden');
       shopPanel.classList.remove('hidden');
+      addItemBtn.disabled = true;
       try {
-        await populateGames();
+        await loadGames();
+        addItemBtn.disabled = false;
+        await renderAllItems();
       } catch (error) {
         console.error(error);
         setStatus(shopStatus, error instanceof Error ? error.message : String(error), 'error');
@@ -856,10 +1254,11 @@
       currentSession = null;
       storeSession(null);
       itemsList.innerHTML = '';
-      gameSelect.innerHTML = '<option value="">— Pick a game —</option>';
-      currentGameId = '';
+      gamesById = new Map();
+      gameOptionsHtml = '<option value="">— Pick a game —</option>';
+      previewShopSelect.innerHTML = '<option value="">All shops</option>';
+      previewBtn.href = '../giftshop/';
       addItemBtn.disabled = true;
-      updatePreviewLink('');
       showAuth();
     });
 

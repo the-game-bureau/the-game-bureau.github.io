@@ -324,23 +324,25 @@
       return Array.isArray(rows) && rows.length ? rows[0] : null;
     }
 
-    async function fetchItemsForGame(id) {
-      // Anon-readable. Filtered to non-archived, ordered by position then title.
-      return fetchJson(buildSupabaseUrl('gift_shop_items', {
-        select: '*',
+    async function fetchListingsForGame(id) {
+      // Each listing carries the per-shop position + archived flag and
+      // embeds the underlying product so we can render cards in one
+      // round-trip. Items are stored independently so the same product
+      // can appear in multiple shops.
+      return fetchJson(buildSupabaseUrl('gift_shop_listings', {
+        select: '*,gift_shop_items(*)',
         game_id: 'eq.' + id,
         archived: 'eq.false',
-        order: 'position.asc.nullslast,title.asc'
+        order: 'position.asc.nullslast'
       }));
     }
 
-    async function fetchAllItems() {
-      // Embedded resource pulls each item's parent game in one round-trip,
-      // so cards in the all-shops view can show the game name + colour.
-      // Requires the FK gift_shop_items.game_id → games.id (which is
-      // declared in the table SQL).
-      return fetchJson(buildSupabaseUrl('gift_shop_items', {
-        select: '*,games(id,name,primary_color)',
+    async function fetchAllListings() {
+      // All-shops view also needs the parent game (for per-card theming
+      // and the eyebrow). Two embeds: gift_shop_items for product data,
+      // games for shop metadata.
+      return fetchJson(buildSupabaseUrl('gift_shop_listings', {
+        select: '*,gift_shop_items(*),games(id,name,primary_color)',
         archived: 'eq.false',
         order: 'created_at.desc'
       }));
@@ -382,6 +384,8 @@
         img.loading = 'lazy';
         img.decoding = 'async';
         img.referrerPolicy = 'no-referrer';
+        const focus = String(item.image_focus || '').trim();
+        if (focus) img.style.objectPosition = focus;
         img.addEventListener('error', () => {
           img.remove();
           media.dataset.hasImage = 'false';
@@ -443,9 +447,9 @@
       setStatus('Loading…');
       renderEmpty('Loading items…');
       try {
-        const [game, items] = await Promise.all([
+        const [game, listings] = await Promise.all([
           fetchGame(id).catch(() => null),
-          fetchItemsForGame(id)
+          fetchListingsForGame(id)
         ]);
 
         if (game && game.name) {
@@ -467,8 +471,8 @@
         backBtn.href = '../game/run/index.html?id=' + encodeURIComponent(id);
         backBtn.textContent = '← Back to game';
 
-        const cards = (Array.isArray(items) ? items : [])
-          .map((item) => createCard(item))
+        const cards = (Array.isArray(listings) ? listings : [])
+          .map((listing) => listing.gift_shop_items ? createCard(listing.gift_shop_items) : null)
           .filter(Boolean);
 
         gridEl.innerHTML = '';
@@ -498,16 +502,18 @@
       renderEmpty('Loading items…');
 
       try {
-        const items = await fetchAllItems();
-        if (!Array.isArray(items) || !items.length) {
+        const listings = await fetchAllListings();
+        if (!Array.isArray(listings) || !listings.length) {
           renderEmpty('No items in the gift shop yet.');
           setStatus('');
           return;
         }
 
-        const cards = items
-          .map((item) => {
-            const game = item.games || {};
+        const cards = listings
+          .map((listing) => {
+            const item = listing.gift_shop_items;
+            if (!item) return null;
+            const game = listing.games || {};
             return createCard(item, {
               gameName: String(game.name || '').trim() || null,
               gameColor: String(game.primary_color || '').trim() || null
@@ -523,7 +529,7 @@
         }
         cards.forEach((card) => gridEl.appendChild(card));
         setStatus(cards.length + ' item' + (cards.length === 1 ? '' : 's') + ' across ' +
-          new Set(items.map((i) => i.game_id).filter(Boolean)).size + ' game(s).');
+          new Set(listings.map((l) => l.game_id).filter(Boolean)).size + ' game(s).');
       } catch (error) {
         console.error('[giftshop] all-shops load failed', error);
         renderEmpty('Could not load gift shop.');
