@@ -9183,6 +9183,7 @@ body.builder-auth-ready .builder-auth-signout{
                 <option value="__new-game__">NEW GAME</option>
               </select>
             </div>
+            <button class="games-page-link games-page-link--action game-picker-btn" id="gamePickerSaveBtn" type="button" data-state="idle" aria-busy="false">Save</button>
             <button class="games-page-link games-page-link--action game-picker-btn" id="gamePickerPlayBtn" type="button" aria-disabled="true">Preview</button>
             <a class="games-page-link games-page-link--action game-picker-btn builder-back-btn" href="./">← Admin</a>
             <button class="games-page-link games-page-link--action game-picker-btn builder-auth-signout" id="builderSignOutBtn" type="button" aria-label="Sign out" title="Sign out"><svg class="builder-auth-signout-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
@@ -9199,15 +9200,15 @@ body.builder-auth-ready .builder-auth-signout{
 
       <section class="builder-tab-shell" aria-label="Builder editor views">
         <div class="builder-tablist" id="builderTabList" role="tablist" aria-label="Builder editor views">
-          <button class="builder-tab" id="builderTabDetails" type="button" role="tab" aria-selected="false" aria-controls="builderPanelDetails" tabindex="-1" data-builder-tab="details">
+          <button class="builder-tab is-active" id="builderTabDetails" type="button" role="tab" aria-selected="true" aria-controls="builderPanelDetails" tabindex="0" data-builder-tab="details">
             <span class="builder-tab-label">GAME DETAILS</span>
           </button>
-          <button class="builder-tab is-active" id="builderTabBuilder" type="button" role="tab" aria-selected="true" aria-controls="builderPanelBuilder" tabindex="0" data-builder-tab="builder">
+          <button class="builder-tab" id="builderTabBuilder" type="button" role="tab" aria-selected="false" aria-controls="builderPanelBuilder" tabindex="-1" data-builder-tab="builder">
             <span class="builder-tab-label">BUILDER</span>
           </button>
         </div>
 
-        <section class="builder-tab-panel builder-tab-panel--details" id="builderPanelDetails" role="tabpanel" aria-labelledby="builderTabDetails" hidden>
+        <section class="builder-tab-panel builder-tab-panel--details" id="builderPanelDetails" role="tabpanel" aria-labelledby="builderTabDetails">
       <!-- Game details inspector: edits the selected game-level data. -->
       <aside class="inspector pane pane--details" id="inspector" aria-label="Game details">
         <div class="inspector-windowbar" id="inspectorWindowBar">
@@ -9220,7 +9221,6 @@ body.builder-auth-ready .builder-auth-signout{
               <div class="inspector-windowtools">
                 <div class="inspector-actions inspector-actions--header">
                   <button class="insp-btn insp-btn--notes" id="gameNotesBtn" type="button" aria-pressed="false">Notes</button>
-                  <button class="insp-btn" id="gamePickerSaveBtn" type="button" data-state="idle" aria-busy="false">Save</button>
                   <button class="insp-btn insp-btn--duplicate" id="duplicateGameBtn" type="button">Duplicate</button>
                   <button class="insp-btn insp-btn--archive" id="archiveGameBtn" type="button">Archive</button>
                   <button class="insp-btn insp-btn--danger inspector-eraser-btn" id="gameEraseBtn" type="button" hidden title="Erase or archive game" aria-label="Erase or archive game">Erase</button>
@@ -10351,6 +10351,7 @@ const EDITOR_LAUNCH_INTENT_KEY = 'tgb-builder-launch-intent';
 const STORE_COMMENT = 'Supabase-backed game builder store.';
 const RECOVERY_VERSION = 1;
 const RECOVERY_SAVE_DELAY_MS = 900;
+const INTRO_RECOVERY_SAVE_DELAY_MS = 1800;
 const GAMES_PAGE_ROUTE = '../_dev/archive/index_old.html';
 const HEADER_GAME_PLACEHOLDER_VALUE = '__pick-game__';
 const HEADER_GAME_NEW_VALUE = '__new-game__';
@@ -12124,7 +12125,7 @@ const state = {
   builderTutorialStarted: false,
   builderTutorialIndex: -1,
   builderTutorialTarget: null,
-  builderActiveTab: 'builder'
+  builderActiveTab: 'details'
 };
 
 function cloneObj(value) {
@@ -12176,7 +12177,7 @@ function setBuilderActiveTab(nextTab, options = {}) {
 function initBuilderTabs() {
   if (!builderTabList || !builderTabButtons.length) return;
   if (builderTabList.dataset.initialized === 'true') {
-    setBuilderActiveTab(state.builderActiveTab || 'builder');
+    setBuilderActiveTab(state.builderActiveTab || 'details');
     return;
   }
 
@@ -12206,7 +12207,7 @@ function initBuilderTabs() {
     setBuilderActiveTab(nextButton.dataset.builderTab || 'builder', { focus: true });
   });
 
-  setBuilderActiveTab(state.builderActiveTab || 'builder');
+  setBuilderActiveTab(state.builderActiveTab || 'details');
 }
 
 function getSnapSize() {
@@ -13995,7 +13996,7 @@ function getBuilderTutorialSteps() {
       anchor: inspector,
       placement: 'right',
       title: 'Game Details',
-      copy: 'This panel is the game-level setup. Use it to shape the game name, logo, guide, description, teams, colors, tags, and logic before you get deep into the conversation flow.'
+      copy: 'This panel is the game-level setup. Use it to shape the game name, logo, guide, intro, teams, colors, tags, and logic before you get deep into the conversation flow.'
     },
     {
       id: 'bubbles',
@@ -18827,7 +18828,9 @@ function updateSelectionUi(options = {}) {
   teamInputs.forEach((inp, i) => {
     if (inp) inp.value = isGameNode ? (getNormalizedTeamValues(meta)[i] || '') : '';
   });
-  nodeBodyInput.value = isGameNode ? (meta.body || '') : '';
+  if (document.activeElement !== nodeBodyInput) {
+    nodeBodyInput.value = isGameNode ? (meta.body || '') : '';
+  }
   nodeBodyInput.placeholder = '';
   // selectionId wraps: "(ID: <span id=selectionIdInput contenteditable>id</span>)"
   const currentId = currentGameEntry && currentGameEntry.id ? String(currentGameEntry.id).trim() : '';
@@ -20002,6 +20005,7 @@ function buildRecoverySnapshot() {
   return JSON.stringify({
     currentGameId: state.currentGameId || '',
     currentGameColors: getCurrentGameColors(),
+    currentGameMeta: state.currentGameMeta || null,
     cleanSnapshot: state.cleanSnapshot || '',
     localOnlyChanges: !!state.localOnlyChanges,
     doc: serializeDocState(state.doc),
@@ -20010,6 +20014,10 @@ function buildRecoverySnapshot() {
 }
 
 function clearRecoveryDraft() {
+  if (introRecoverySaveTimer) {
+    window.clearTimeout(introRecoverySaveTimer);
+    introRecoverySaveTimer = 0;
+  }
   if (recoverySaveTimer) {
     window.clearTimeout(recoverySaveTimer);
     recoverySaveTimer = 0;
@@ -20023,6 +20031,10 @@ function clearRecoveryDraft() {
 
 function syncRecoveryDraftNow(options = {}) {
   if (state.suspendRecoverySync) return false;
+  if (introRecoverySaveTimer) {
+    window.clearTimeout(introRecoverySaveTimer);
+    introRecoverySaveTimer = 0;
+  }
   if (recoverySaveTimer) {
     window.clearTimeout(recoverySaveTimer);
     recoverySaveTimer = 0;
@@ -20088,6 +20100,9 @@ function readRecoveryDraft() {
       currentGameColors: raw.currentGameColors && typeof raw.currentGameColors === 'object'
         ? raw.currentGameColors
         : null,
+      currentGameMeta: raw.currentGameMeta && typeof raw.currentGameMeta === 'object'
+        ? initGameMeta(raw.currentGameMeta)
+        : null,
       cleanSnapshot: typeof raw.cleanSnapshot === 'string' ? raw.cleanSnapshot : '',
       localOnlyChanges: !!raw.localOnlyChanges,
       doc,
@@ -20144,6 +20159,7 @@ function restoreRecoveryWorkspace(recovery) {
     state.headerGames = buildHeaderGameList(recovery.store && recovery.store.games ? recovery.store.games : []);
     state.doc = recovery.doc;
     state.currentGameId = recovery.currentGameId;
+    state.currentGameMeta = recovery.currentGameMeta || initGameMeta(recovery.doc);
     state.localOnlyChanges = !!recovery.localOnlyChanges;
     clearSelection();
     syncAllTagsFromStore();
@@ -21374,7 +21390,7 @@ function permuteCurrentGameColors() {
 }
 
 // Build a copy-pasteable AI prompt that includes everything we know
-// about the current game (name, tagline, description, tags, setting,
+// about the current game (name, tagline, intro, tags, setting,
 // current colors) plus a strict output format so the four hex codes
 // are easy to read back into the inputs by hand.
 function buildNewSchemePrompt() {
@@ -21393,7 +21409,7 @@ function buildNewSchemePrompt() {
   lines.push("# Game");
   if (name)    lines.push("- Name: " + name);
   if (tagline) lines.push("- Tagline: " + tagline);
-  if (body)    lines.push("- Description: " + body);
+  if (body)    lines.push("- Intro: " + body);
   if (tags.length) lines.push("- Tags: " + tags.join(", "));
   if (city)    lines.push("- Setting: " + city);
   lines.push('');
@@ -21583,10 +21599,33 @@ nodeTagNewInput.addEventListener('keydown', (event) => {
   addNewTag();
 });
 
+let introRecoverySaveTimer = 0;
+
+function scheduleIntroRecoverySync() {
+  if (introRecoverySaveTimer) {
+    window.clearTimeout(introRecoverySaveTimer);
+    introRecoverySaveTimer = 0;
+  }
+  introRecoverySaveTimer = window.setTimeout(() => {
+    introRecoverySaveTimer = 0;
+    scheduleRecoverySync({ immediate: true, markDirty: false, updateStatus: false });
+  }, INTRO_RECOVERY_SAVE_DELAY_MS);
+}
+
 nodeBodyInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.body = nodeBodyInput.value;
-  renderAll();
+  updateActionUi();
+  scheduleIntroRecoverySync();
+});
+
+nodeBodyInput.addEventListener('blur', () => {
+  if (!getGameNode() || !state.currentGameMeta) return;
+  if (introRecoverySaveTimer) {
+    window.clearTimeout(introRecoverySaveTimer);
+    introRecoverySaveTimer = 0;
+  }
+  scheduleRecoverySync({ immediate: true, markDirty: false, updateStatus: false });
 });
 
 objectBodyInput.addEventListener('input', () => {
@@ -21654,7 +21693,7 @@ if (generateDescriptionBtn) {
     const nextDescription = buildLocalGameDescription(node);
     node.body = nextDescription;
     nodeBodyInput.value = nextDescription;
-    setGenerateDescriptionStatus('Generate a description locally');
+    setGenerateDescriptionStatus('Generate intro locally');
     renderAll();
   });
 }
