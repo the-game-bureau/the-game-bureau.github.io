@@ -716,8 +716,7 @@
     <section id="shopPanel" class="hidden">
       <div class="topbar">
         <div class="topbar-actions">
-          <a class="btn" href="./">← Admin</a>
-          <div class="mb-menu" data-admin-menu>
+<div class="mb-menu" data-admin-menu>
             <button class="mb-trigger" type="button" aria-haspopup="true" aria-expanded="false">Admin</button>
             <div class="mb-panel" hidden>
               <div class="mb-section">Navigate</div>
@@ -806,9 +805,9 @@
       <div class="toolbar">
         <button class="btn primary" id="addItemBtn" type="button" disabled>+ Add item</button>
         <select id="previewShopSelect" aria-label="Pick a shop to preview">
-          <option value="">All shops</option>
+          <option value="">All Games</option>
         </select>
-        <a class="btn" id="previewBtn" href="../giftshop/" target="_blank" rel="noopener">Preview</a>
+        <a class="btn" id="previewBtn" href="../gift/" target="_blank" rel="noopener">Preview</a>
       </div>
 
       <p class="status" id="shopStatus" aria-live="polite"></p>
@@ -1036,7 +1035,7 @@
 
       // Top-level preview picker — all shops (live first, archived after).
       previewShopSelect.innerHTML =
-        '<option value="">All shops</option>' +
+        '<option value="">All Games</option>' +
         live.map((g) => renderOpt(g, '')).join('') +
         dead.map((g) => renderOpt(g, '(archived)')).join('');
       updatePreviewHref();
@@ -1045,22 +1044,31 @@
     function updatePreviewHref() {
       const id = previewShopSelect.value;
       previewBtn.href = id
-        ? '../giftshop/?game=' + encodeURIComponent(id)
-        : '../giftshop/';
+        ? '../gift/?game=' + encodeURIComponent(id)
+        : '../gift/';
     }
 
     function filterItemsByShop() {
       const gameId = previewShopSelect.value;
       const items = itemsList.querySelectorAll('.item');
+      let visible = 0;
       items.forEach((item) => {
         if (!gameId) {
           item.classList.remove('hidden');
+          visible++;
           return;
         }
         const listingSelects = item.querySelectorAll('.listing-row:not(.is-removed) [data-listing-field="game_id"]');
         const match = Array.from(listingSelects).some((sel) => sel.value === gameId);
         item.classList.toggle('hidden', !match);
+        if (match) visible++;
       });
+      const total = items.length;
+      if (total > 0) {
+        const label = visible + ' item' + (visible === 1 ? '' : 's') +
+          (gameId && visible < total ? ' of ' + total : '') + '.';
+        setStatus(shopStatus, label, 'success');
+      }
     }
 
     previewShopSelect.addEventListener('change', () => {
@@ -1528,7 +1536,6 @@
         }
         items.forEach((item) => appendItemRow(item));
         filterItemsByShop();
-        setStatus(shopStatus, items.length + ' item' + (items.length === 1 ? '' : 's') + '.');
       } catch (error) {
         console.error(error);
         renderEmpty();
@@ -1596,8 +1603,8 @@
       itemsList.innerHTML = '';
       gamesById = new Map();
       gameOptionsHtml = '<option value="">— Pick a game —</option>';
-      previewShopSelect.innerHTML = '<option value="">All shops</option>';
-      previewBtn.href = '../giftshop/';
+      previewShopSelect.innerHTML = '<option value="">All Games</option>';
+      previewBtn.href = '../gift/';
       addItemBtn.disabled = true;
       showAuth();
     });

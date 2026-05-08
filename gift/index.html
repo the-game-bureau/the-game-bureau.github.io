@@ -38,7 +38,7 @@
     .top {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
       gap: 1rem;
       margin-bottom: 1.5rem;
     }
@@ -242,18 +242,18 @@
     }
 
     .admin-btn {
-      display: inline-block;
-      margin-top: 2rem;
-      padding: 0.25rem 0.55rem;
+      display: none;
+      padding: 0.5rem 1rem;
       border: 1px solid var(--line);
-      border-radius: 6px;
+      border-radius: 8px;
       background: var(--paper);
       color: var(--muted);
       text-decoration: none;
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: 0.68rem;
-      letter-spacing: 0.02em;
-      opacity: 0.55;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      opacity: 0.7;
     }
     .admin-btn:hover,
     .admin-btn:focus-visible {
@@ -266,16 +266,13 @@
 </head>
 <body>
   <main>
-    <div class="top">
-      <a class="back-btn" id="backBtn" href="../library/">&larr; Library</a>
-    </div>
+    <a class="admin-btn" href="../admin/giftshop.html">Mission Control</a>
     <p class="eyebrow" id="eyebrow">Gift Shop</p>
     <h1 id="heading">Gift Shop</h1>
     <p class="lead" id="lead">Souvenirs and curiosities pulled from the field.</p>
     <p class="status" id="status" aria-live="polite"></p>
     <div class="grid" id="grid"></div>
     <p class="footer-note">As an Amazon Associate, The Game Bureau may earn from qualifying purchases.</p>
-    <a class="admin-btn" href="../admin/giftshop.html">Mission Control</a>
   </main>
 
   <script>
@@ -292,7 +289,7 @@
     const headingEl = document.getElementById('heading');
     const eyebrowEl = document.getElementById('eyebrow');
     const leadEl = document.getElementById('lead');
-    const backBtn = document.getElementById('backBtn');
+
 
     function setStatus(msg) { statusEl.textContent = msg || ''; }
 
@@ -490,9 +487,6 @@
         }
         applyGameTheme(game);
 
-        // Make the back button return to the run page for this game.
-        backBtn.href = '../game/run/index.html?id=' + encodeURIComponent(id);
-        backBtn.textContent = '← Back to game';
 
         const cards = (Array.isArray(listings) ? listings : [])
           .map((listing) => listing.gift_shop_items ? createCard(listing.gift_shop_items) : null)
@@ -517,8 +511,7 @@
       headingEl.textContent = 'All Shops';
       eyebrowEl.textContent = 'Gift Shop';
       leadEl.textContent = 'Souvenirs and curiosities from every game in the bureau.';
-      backBtn.href = '../library/';
-      backBtn.textContent = '← Library';
+
       document.title = 'GIFT SHOP | THE GAME BUREAU';
 
       setStatus('Loading…');
@@ -562,6 +555,18 @@
 
     if (gameId) loadSingleGame(gameId);
     else loadAllShops();
+  </script>
+  <script>
+    (function () {
+      try {
+        const session = JSON.parse(localStorage.getItem('tgb-photo-review-auth-session') || 'null');
+        const expiresAt = Number(session && session.expires_at || 0) * 1000;
+        if (session && session.access_token && (!expiresAt || expiresAt > Date.now())) {
+          const btn = document.querySelector('.admin-btn');
+          if (btn) btn.style.display = 'inline-block';
+        }
+      } catch (_) {}
+    }());
   </script>
 </body>
 </html>

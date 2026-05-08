@@ -512,7 +512,22 @@
       border: 1px solid var(--line);
       border-radius: 8px;
       box-shadow: 0 10px 22px var(--paper-shadow);
+      cursor: pointer;
+      transition: outline 0.1s;
     }
+
+    .admin-game-card.is-selected {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .toolbar .btn:disabled,
+    .toolbar a.btn[aria-disabled="true"] {
+      opacity: 0.38;
+      pointer-events: none;
+    }
+
+    .toolbar-gap { margin-left: auto; }
 
     .admin-game-media {
       position: relative;
@@ -868,7 +883,14 @@
           <p class="copy">Edit games below.</p>
         </div>
         <div class="toolbar">
-          <a class="btn primary" href="builder.html?new=1">New Game</a>
+          <a class="btn primary" id="libNewBtn" href="builder.html?new=1">New</a>
+          <a class="btn" id="libEditBtn" aria-disabled="true" tabindex="-1">Edit</a>
+          <button class="btn" id="libDupBtn" type="button" disabled>Duplicate</button>
+          <button class="btn" id="libArchBtn" type="button" disabled>Archive</button>
+          <button class="btn" id="libEraseBtn" type="button" disabled>Erase</button>
+          <span class="toolbar-gap"></span>
+          <a class="btn" id="libPreviewBtn" aria-disabled="true" tabindex="-1">Game</a>
+          <a class="btn" id="libPublicBtn" aria-disabled="true" tabindex="-1">Library</a>
         </div>
         <p class="status" id="libraryStatus" aria-live="polite"></p>
         <div class="admin-library-grid" id="gameGrid"></div>
@@ -898,8 +920,17 @@
     const authStatus = document.getElementById('authStatus');
     const libraryStatus = document.getElementById('libraryStatus');
     const gameGrid = document.getElementById('gameGrid');
+    const libNewBtn = document.getElementById('libNewBtn');
+    const libEditBtn = document.getElementById('libEditBtn');
+    const libDupBtn = document.getElementById('libDupBtn');
+    const libArchBtn = document.getElementById('libArchBtn');
+    const libEraseBtn = document.getElementById('libEraseBtn');
+    const libPreviewBtn = document.getElementById('libPreviewBtn');
+    const libPublicBtn = document.getElementById('libPublicBtn');
 
     let currentSession = null;
+    let selectedGame = null;
+    let allGamesData = [];
 
     function authUrl(path) {
       return new URL('/auth/v1/' + String(path || '').replace(/^\/+/, ''), SUPABASE_CONFIG.url + '/').toString();
@@ -1243,27 +1274,19 @@
       caption.className = 'admin-game-caption';
       caption.textContent = getGameCaption(game);
 
-      const actions = document.createElement('div');
-      actions.className = 'admin-game-actions';
-
-      const preview = document.createElement('a');
-      preview.className = 'admin-game-btn primary';
-      preview.href = '../../game/run/index.html?id=' + encodeURIComponent(gameId);
-      preview.textContent = 'Preview';
-
-      const edit = document.createElement('a');
-      edit.className = 'admin-game-btn';
-      edit.href = 'builder.html?id=' + encodeURIComponent(gameId);
-      edit.textContent = 'Edit';
-
-      actions.append(preview, edit);
-      body.append(eyebrow, title, caption, actions);
+      body.append(eyebrow, title, caption);
       card.append(media, body);
+      card.dataset.gameId = gameId;
+      card.dataset.gameState = state;
+      card.addEventListener('click', () => selectGame(game));
       return card;
     }
 
     function renderAdminLibrary(games) {
-      const allGames = sortGamesForAdminLibrary(Array.isArray(games) ? games : []);
+      allGamesData = Array.isArray(games) ? games : [];
+      const allGames = sortGamesForAdminLibrary(allGamesData);
+      selectedGame = null;
+      updateToolbar();
       gameGrid.innerHTML = '';
 
       if (!allGames.length) {
@@ -1301,6 +1324,138 @@
         setStatus(libraryStatus, error instanceof Error ? error.message : String(error), 'error');
       }
     }
+
+    function setLinkEnabled(el, href) {
+      if (href) {
+        el.href = href;
+        el.removeAttribute('aria-disabled');
+        el.removeAttribute('tabindex');
+      } else {
+        el.removeAttribute('href');
+        el.setAttribute('aria-disabled', 'true');
+        el.setAttribute('tabindex', '-1');
+      }
+    }
+
+    function updateToolbar() {
+      const has = !!selectedGame;
+      const isArchived = has && isFilledArchiveValue(selectedGame.archived);
+      libDupBtn.disabled = !has;
+      libArchBtn.disabled = !has;
+      libEraseBtn.disabled = !has;
+      libArchBtn.textContent = (has && isArchived) ? 'Unarchive' : 'Archive';
+      setLinkEnabled(libEditBtn, has ? 'builder.html?id=' + encodeURIComponent(selectedGame.id) : null);
+      setLinkEnabled(libPreviewBtn, has ? '../../game/run/index.html?id=' + encodeURIComponent(selectedGame.id) : null);
+      setLinkEnabled(libPublicBtn, '../library.html');
+    }
+
+    function selectGame(game) {
+      const prevId = selectedGame && selectedGame.id;
+      if (prevId === game.id) {
+        selectedGame = null;
+        gameGrid.querySelectorAll('.admin-game-card.is-selected').forEach((c) => c.classList.remove('is-selected'));
+      } else {
+        selectedGame = game;
+        gameGrid.querySelectorAll('.admin-game-card').forEach((c) => {
+          c.classList.toggle('is-selected', c.dataset.gameId === game.id);
+        });
+      }
+      updateToolbar();
+    }
+
+    async function patchGame(id, payload) {
+      const response = await fetch(restUrl('games', { id: 'eq.' + id }), {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Update failed.'));
+    }
+
+    function generateGameId() {
+      return String(Math.floor(100000 + Math.random() * 900000));
+    }
+
+    async function duplicateGame(game) {
+      const response = await fetch(restUrl('games', { id: 'eq.' + game.id }), {
+        headers: authHeaders({ Accept: 'application/json' })
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not fetch game.'));
+      const rows = await response.json();
+      const source = rows[0];
+      if (!source) throw new Error('Game not found.');
+      const copy = Object.assign({}, source);
+      copy.id = generateGameId();
+      delete copy.created_at;
+      delete copy.updated_at;
+      copy.name = (source.name || 'Game') + ' Copy';
+      copy.archived = 'YES';
+      copy.erased = null;
+      const ins = await fetch(restUrl('games'), {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+        body: JSON.stringify(copy)
+      });
+      if (!ins.ok) throw new Error(await readError(ins, 'Duplicate failed.'));
+    }
+
+    libDupBtn.addEventListener('click', async () => {
+      if (!selectedGame) return;
+      libDupBtn.disabled = true;
+      setStatus(libraryStatus, 'Duplicating…');
+      try {
+        await duplicateGame(selectedGame);
+        await loadAdminLibrary();
+      } catch (error) {
+        setStatus(libraryStatus, error instanceof Error ? error.message : String(error), 'error');
+        libDupBtn.disabled = false;
+      }
+    });
+
+    libArchBtn.addEventListener('click', async () => {
+      if (!selectedGame) return;
+      const isArchived = isFilledArchiveValue(selectedGame.archived);
+      libArchBtn.disabled = true;
+      setStatus(libraryStatus, isArchived ? 'Unarchiving…' : 'Archiving…');
+      try {
+        await patchGame(selectedGame.id, { archived: isArchived ? null : 'YES' });
+        await loadAdminLibrary();
+      } catch (error) {
+        setStatus(libraryStatus, error instanceof Error ? error.message : String(error), 'error');
+        libArchBtn.disabled = false;
+      }
+    });
+
+    async function deleteGame(id) {
+      const response = await fetch(restUrl('games', { id: 'eq.' + id }), {
+        method: 'DELETE',
+        headers: authHeaders({})
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Delete failed.'));
+    }
+
+    libEraseBtn.addEventListener('click', async () => {
+      if (!selectedGame) return;
+      const alreadyErased = isFilledArchiveValue(selectedGame.erased);
+      const label = selectedGame.name || selectedGame.id;
+      const msg = alreadyErased
+        ? 'Permanently delete "' + label + '" from the database? This cannot be undone.'
+        : 'Erase "' + label + '"? It will be hidden but can be deleted later.';
+      if (!window.confirm(msg)) return;
+      libEraseBtn.disabled = true;
+      setStatus(libraryStatus, alreadyErased ? 'Deleting…' : 'Erasing…');
+      try {
+        if (alreadyErased) {
+          await deleteGame(selectedGame.id);
+        } else {
+          await patchGame(selectedGame.id, { erased: 'YES' });
+        }
+        await loadAdminLibrary();
+      } catch (error) {
+        setStatus(libraryStatus, error instanceof Error ? error.message : String(error), 'error');
+        libEraseBtn.disabled = false;
+      }
+    });
 
     function showAuth() {
       authPanel.classList.remove('hidden');
