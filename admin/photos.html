@@ -3,12 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>ADMIN | THE GAME BUREAU</title>
+  <title>ADMIN | DARKROOM | THE GAME BUREAU</title>
   <link rel="icon" href="../../assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+    (function () {
+      try {
+        if (new URLSearchParams(window.location.search).get('embedded') === '1') {
+          document.documentElement.classList.add('admin-embedded');
+        }
+      } catch (error) {}
+    }());
+  </script>
   <style>
     * { box-sizing: border-box; }
 
@@ -406,6 +415,12 @@
       color: var(--accent);
     }
 
+    .mb-sep {
+      height: 1px;
+      margin: 4px 0;
+      background: rgba(var(--bic-blue-rgb), 0.1);
+    }
+
     .auth {
       width: min(430px, 100%);
       margin: 12vh auto 0;
@@ -632,6 +647,23 @@
       display: none !important;
     }
 
+    html.admin-embedded body {
+      min-height: 100%;
+      background: transparent;
+    }
+
+    html.admin-embedded .app {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    html.admin-embedded .topbar,
+    html.admin-embedded .section-head--gears,
+    html.admin-embedded .home-icon-btn {
+      display: none !important;
+    }
+
     @media (max-width: 700px) {
       .app {
         width: min(100vw - 22px, 1180px);
@@ -717,9 +749,8 @@
           <button class="btn primary" id="signInBtn" type="submit">Sign In</button>
           <a class="btn home-icon-btn" href="../" aria-label="Home" title="Home">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 11.2 12 4l8 7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M6.5 10.5V20h11v-9.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M10 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3 13 8 8.5 8 6h2.5v.5L12 5 21 13" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M5 13V20h5v-3a2 2 0 0 1 4 0v3H19V13" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </a>
         </div>
@@ -730,18 +761,12 @@
     <section id="reviewPanel" class="hidden">
       <div class="topbar">
         <div class="topbar-actions">
-          <a class="btn" href="./">← Admin</a>
-          <div class="mb-menu" data-admin-menu>
-            <button class="mb-trigger" type="button" aria-haspopup="true" aria-expanded="false">Admin</button>
-            <div class="mb-panel" hidden>
-              <div class="mb-section">Navigate</div>
-              <a class="mb-item" href="./">Admin Home</a>
-              <a class="mb-item" href="library.html">Library</a>
-              <a class="mb-item" href="builder.html">Builder</a>
-              <a class="mb-item is-active" href="photos.html" aria-current="page">Photos</a>
-              <a class="mb-item" href="giftshop.html">Gift Shop</a>
-            </div>
-          </div>
+          <nav class="admin-nav">
+            <a class="admin-nav-link" href="index.html">Library</a>
+            <a class="admin-nav-link" href="builder.html">Builder</a>
+            <a class="admin-nav-link admin-nav-link--active" href="photos.html" aria-current="page">Darkroom</a>
+            <a class="admin-nav-link" href="giftshop.html">Gift Shop</a>
+          </nav>
           <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="Sign out" title="Sign out">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -813,9 +838,9 @@
               <line class="header-gear-crosshair" x1="0" y1="-12" x2="0" y2="12"></line>
             </g>
           </svg>
-          <p class="kicker">Review</p>
-          <h2 id="photosHeading">Photos</h2>
-          <p class="copy">Player photo submissions from live games.</p>
+          <p class="kicker">THE GAME BUREAU STUDIO</p>
+          <h2 id="photosHeading">Darkroom</h2>
+
         </div>
 
         <div class="toolbar">
@@ -1412,6 +1437,12 @@
       storeSession(null);
       photoGrid.innerHTML = '';
       showAuth();
+    });
+
+    document.querySelectorAll('[data-admin-logoff]').forEach((button) => {
+      button.addEventListener('click', () => {
+        signOutBtn.click();
+      });
     });
 
     refreshBtn.addEventListener('click', loadPhotos);

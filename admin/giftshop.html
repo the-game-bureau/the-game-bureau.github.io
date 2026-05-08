@@ -8,6 +8,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <script>
+    (function () {
+      try {
+        if (new URLSearchParams(window.location.search).get('embedded') === '1') {
+          document.documentElement.classList.add('admin-embedded');
+        }
+      } catch (error) {}
+    }());
+  </script>
   <style>
     * { box-sizing: border-box; }
 
@@ -59,6 +68,20 @@
     }
 
     .topbar-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    .admin-nav { display: flex; gap: 4px; }
+    .admin-nav-link {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      transition: background 0.15s, color 0.15s;
+    }
+    .admin-nav-link:hover { background: var(--line); color: var(--ink); }
+    .admin-nav-link--active { background: var(--accent); color: #fff; }
 
     .topbar-actions > a.btn[href="./"] { display: none; }
 
@@ -398,6 +421,12 @@
       color: var(--accent);
     }
 
+    .mb-sep {
+      height: 1px;
+      margin: 4px 0;
+      background: rgba(var(--bic-blue-rgb), 0.1);
+    }
+
     .status {
       min-height: 22px;
       margin: 10px 0 0;
@@ -627,6 +656,23 @@
 
     .hidden { display: none !important; }
 
+    html.admin-embedded body {
+      min-height: 100%;
+      background: transparent;
+    }
+
+    html.admin-embedded .app {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    html.admin-embedded .topbar,
+    html.admin-embedded .section-head--gears,
+    html.admin-embedded .home-icon-btn {
+      display: none !important;
+    }
+
     @media (max-width: 720px) {
       .topbar {
         display: grid;
@@ -703,9 +749,8 @@
           <button class="btn primary" id="signInBtn" type="submit">Sign In</button>
           <a class="btn home-icon-btn" href="../" aria-label="Home" title="Home">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 11.2 12 4l8 7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M6.5 10.5V20h11v-9.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M10 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3 13 8 8.5 8 6h2.5v.5L12 5 21 13" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M5 13V20h5v-3a2 2 0 0 1 4 0v3H19V13" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </a>
         </div>
@@ -716,17 +761,12 @@
     <section id="shopPanel" class="hidden">
       <div class="topbar">
         <div class="topbar-actions">
-<div class="mb-menu" data-admin-menu>
-            <button class="mb-trigger" type="button" aria-haspopup="true" aria-expanded="false">Admin</button>
-            <div class="mb-panel" hidden>
-              <div class="mb-section">Navigate</div>
-              <a class="mb-item" href="./">Admin Home</a>
-              <a class="mb-item" href="library.html">Library</a>
-              <a class="mb-item" href="builder.html">Builder</a>
-              <a class="mb-item" href="photos.html">Photos</a>
-              <a class="mb-item is-active" href="giftshop.html" aria-current="page">Gift Shop</a>
-            </div>
-          </div>
+          <nav class="admin-nav">
+            <a class="admin-nav-link" href="index.html">Library</a>
+            <a class="admin-nav-link" href="builder.html">Builder</a>
+            <a class="admin-nav-link" href="photos.html">Darkroom</a>
+            <a class="admin-nav-link admin-nav-link--active" href="giftshop.html" aria-current="page">Gift Shop</a>
+          </nav>
           <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="Sign out" title="Sign out">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -797,9 +837,9 @@
             <line class="header-gear-crosshair" x1="0" y1="-12" x2="0" y2="12"></line>
           </g>
         </svg>
-        <p class="kicker">Manage</p>
+        <p class="kicker">THE GAME BUREAU STUDIO</p>
         <h1>Gift Shop</h1>
-        <p class="copy">Every gift shop item across all games. Each row picks its own game.</p>
+
       </div>
 
       <div class="toolbar">
@@ -1607,6 +1647,12 @@
       previewBtn.href = '../gift/';
       addItemBtn.disabled = true;
       showAuth();
+    });
+
+    document.querySelectorAll('[data-admin-logoff]').forEach((button) => {
+      button.addEventListener('click', () => {
+        signOutBtn.click();
+      });
     });
 
     (async function init() {
