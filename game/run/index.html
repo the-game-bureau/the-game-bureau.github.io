@@ -666,18 +666,19 @@
 
     .gift-shop-carousel {
       display: flex;
-      gap: 0.9rem;
+      gap: 0;
       overflow-x: auto;
       overscroll-behavior-x: contain;
       scroll-snap-type: x mandatory;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
       padding: 0 var(--pad);
+      scroll-behavior: smooth;
     }
     .gift-shop-carousel::-webkit-scrollbar { display: none; }
 
     .gift-shop-item {
-      flex: 0 0 min(78%, 280px);
+      flex: 0 0 calc(100% - (var(--pad) * 2));
       scroll-snap-align: start;
       display: grid;
       grid-template-rows: 150px auto;
@@ -688,6 +689,10 @@
       color: #111;
       text-decoration: none;
       box-shadow: 0 4px 18px rgba(0,0,0,0.12);
+    }
+
+    .gift-shop-carousel .gift-shop-item {
+      width: calc(100% - (var(--pad) * 2));
     }
 
     .gift-shop-media {
@@ -760,6 +765,37 @@
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--primary);
+    }
+
+    .gift-shop-nav {
+      position: absolute;
+      top: 50%;
+      z-index: 6;
+      width: 2.35rem;
+      height: 2.35rem;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      border: 2px solid var(--primary);
+      background: rgba(255,255,255,0.94);
+      color: var(--primary);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.16);
+      transform: translateY(-50%);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .gift-shop-nav svg {
+      width: 1.05rem;
+      height: 1.05rem;
+      display: block;
+    }
+    .gift-shop-nav--prev { left: 0.65rem; }
+    .gift-shop-nav--next { right: 0.65rem; }
+    #giftShopSection[data-has-multiple="true"] .gift-shop-nav { display: flex; }
+    .gift-shop-nav:disabled {
+      opacity: 0.35;
+      cursor: default;
     }
 
     /* ── WEATHER ── */
@@ -1534,7 +1570,17 @@
     <section id="giftShopSection">
       <div class="gift-shop-card-label">Gift Shop</div>
       <a class="gift-shop-link" id="giftShopLink" href="../../gift/" target="_blank" rel="noopener">View Shop</a>
+      <button class="gift-shop-nav gift-shop-nav--prev" id="giftShopPrevBtn" type="button" aria-label="Previous gift shop item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
       <div class="gift-shop-carousel" id="giftShopCarousel" aria-label="Gift shop items"></div>
+      <button class="gift-shop-nav gift-shop-nav--next" id="giftShopNextBtn" type="button" aria-label="Next gift shop item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
     </section>
 
 
@@ -2395,9 +2441,12 @@
       const section = document.getElementById('giftShopSection');
       const carousel = document.getElementById('giftShopCarousel');
       const shopLink = document.getElementById('giftShopLink');
+      const prevBtn = document.getElementById('giftShopPrevBtn');
+      const nextBtn = document.getElementById('giftShopNextBtn');
       if (!section || !carousel || !id) return;
 
       section.style.display = 'none';
+      section.removeAttribute('data-has-multiple');
       carousel.innerHTML = '';
       if (shopLink) shopLink.href = `../../gift/?game=${encodeURIComponent(id)}`;
 
@@ -2411,7 +2460,38 @@
 
         if (!cards.length) return;
         cards.forEach((card) => carousel.appendChild(card));
+        section.dataset.hasMultiple = cards.length > 1 ? 'true' : 'false';
+        const updateCarouselButtons = () => {
+          const maxLeft = Math.max(0, carousel.scrollWidth - carousel.clientWidth - 2);
+          if (prevBtn) prevBtn.disabled = carousel.scrollLeft <= 2;
+          if (nextBtn) nextBtn.disabled = carousel.scrollLeft >= maxLeft;
+        };
+        const scrollCarousel = (direction) => {
+          carousel.scrollBy({
+            left: direction * carousel.clientWidth,
+            behavior: 'smooth'
+          });
+        };
+        if (prevBtn && !prevBtn.dataset.bound) {
+          prevBtn.dataset.bound = 'true';
+          prevBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            scrollCarousel(-1);
+          });
+        }
+        if (nextBtn && !nextBtn.dataset.bound) {
+          nextBtn.dataset.bound = 'true';
+          nextBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            scrollCarousel(1);
+          });
+        }
+        carousel.addEventListener('scroll', updateCarouselButtons, { passive: true });
+        window.addEventListener('resize', updateCarouselButtons);
         section.style.display = 'block';
+        requestAnimationFrame(updateCarouselButtons);
       } catch (error) {
         console.warn('[gift-shop-widget] load failed', error);
       }
