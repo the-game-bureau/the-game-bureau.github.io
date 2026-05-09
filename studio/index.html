@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>STUDIO | THE STACKS | THE GAME BUREAU</title>
+  <title>LIBRARY | THE GAME BUREAU</title>
   <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -121,9 +121,19 @@
       box-shadow: 0 18px 36px var(--paper-shadow);
     }
 
-    .section-head--gears > :not(.section-gear-art) {
+    .section-head--gears > :not(.section-gear-art):not(.section-head-actions) {
       position: relative;
       z-index: 1;
+    }
+
+    .section-head-actions {
+      position: absolute;
+      top: 50%;
+      right: 14px;
+      z-index: 2;
+      display: flex;
+      gap: 8px;
+      transform: translateY(-50%);
     }
 
     .section-head--gears .copy {
@@ -572,7 +582,9 @@
     }
 
     .toolbar .btn:disabled,
-    .toolbar a.btn[aria-disabled="true"] {
+    .toolbar a.btn[aria-disabled="true"],
+    .section-head-actions .btn:disabled,
+    .section-head-actions a.btn[aria-disabled="true"] {
       opacity: 0.38;
       pointer-events: none;
     }
@@ -690,18 +702,6 @@
       font-weight: 800;
       letter-spacing: 0;
       line-height: 1.05;
-    }
-
-    .admin-game-caption {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.72rem;
-      line-height: 1.3;
-      display: -webkit-box;
-      line-clamp: 1;
-      -webkit-line-clamp: 1;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
     }
 
     .admin-game-actions {
@@ -903,10 +903,10 @@
       <div class="topbar">
         <div class="topbar-actions">
           <nav class="admin-nav">
-            <a class="admin-nav-link admin-nav-link--active" href="/studio/index.html" aria-current="page">Stacks</a>
             <a class="admin-nav-link" href="/studio/builder.html">Builder</a>
-            <a class="admin-nav-link" href="/studio/photos.html">Darkroom</a>
-            <a class="admin-nav-link" href="/studio/giftshop.html">Stockroom</a>
+            <a class="admin-nav-link admin-nav-link--active" href="/studio/index.html" aria-current="page">Library</a>
+            <a class="admin-nav-link" href="/studio/photos.html">Photos</a>
+            <a class="admin-nav-link" href="/studio/giftshop.html">Gift Shop</a>
           </nav>
           <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="Sign out" title="Sign out">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -980,8 +980,12 @@
             </g>
           </svg>
           <p class="kicker">THE GAME BUREAU STUDIO</p>
-          <h2 id="libraryHeading">The Stacks</h2>
+          <h2 id="libraryHeading">Library</h2>
           <p class="status" id="libraryStatus" aria-live="polite"></p>
+          <div class="section-head-actions">
+            <a class="btn" id="libPreviewBtn" aria-disabled="true" tabindex="-1" target="_blank" rel="noopener">View Game</a>
+            <a class="btn" id="libPublicBtn" aria-disabled="true" tabindex="-1" target="_blank" rel="noopener">View Library</a>
+          </div>
         </div>
         <div class="toolbar">
           <a class="btn primary" id="libNewBtn" href="builder.html?new=1">New</a>
@@ -989,10 +993,6 @@
           <button class="btn" id="libDupBtn" type="button" disabled>Duplicate</button>
           <button class="btn" id="libArchBtn" type="button" disabled>Archive</button>
           <button class="btn" id="libEraseBtn" type="button" disabled>Erase</button>
-          <span class="toolbar-gap"></span>
-          <span class="toolbar-label">Site</span>
-          <a class="btn" id="libPreviewBtn" aria-disabled="true" tabindex="-1">Game</a>
-          <a class="btn" id="libPublicBtn" aria-disabled="true" tabindex="-1">Library</a>
         </div>
         <div class="admin-library-grid" id="gameGrid"></div>
       </section>
@@ -1391,11 +1391,7 @@
       title.className = 'admin-game-title';
       title.textContent = String(game && game.name || '').trim() || 'Untitled Game';
 
-      const caption = document.createElement('p');
-      caption.className = 'admin-game-caption';
-      caption.textContent = getGameCaption(game);
-
-      body.append(eyebrow, title, caption);
+      body.append(eyebrow, title);
       card.append(media, body);
       card.dataset.gameId = gameId;
       card.dataset.gameState = state;
