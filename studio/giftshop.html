@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>ADMIN | GIFT SHOP | THE GAME BUREAU</title>
+  <title>STUDIO | STOCKROOM | THE GAME BUREAU</title>
   <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -82,6 +82,7 @@
     }
     .admin-nav-link:hover { background: var(--line); color: var(--ink); }
     .admin-nav-link--active { background: var(--accent); color: #fff; }
+    .toolbar-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); align-self: center; }
 
     .topbar-actions > a.btn[href="./"] { display: none; }
 
@@ -294,15 +295,51 @@
     }
     .btn.danger:hover { background: rgba(160, 63, 45, 0.08); border-color: var(--danger); }
 
+    .auth-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(var(--bic-blue-rgb), 0.52);
+      backdrop-filter: blur(6px);
+    }
+
+    .auth-modal.hidden {
+      display: none !important;
+    }
+
     .auth {
+      position: relative;
       width: min(430px, 100%);
-      margin: 12vh auto 0;
+      margin: 0;
       padding: 22px;
       background: var(--paper);
       border: 1px solid var(--line);
       border-radius: 8px;
       box-shadow: 0 26px 60px rgba(var(--bic-blue-rgb), 0.18);
     }
+
+    .auth-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .auth-close:hover { background: var(--line); color: var(--ink); }
+
     .auth h1 { margin-bottom: 10px; font-size: 2.4rem; }
     .auth-form { display: grid; gap: 12px; margin-top: 18px; }
     .auth-actions { display: flex; gap: 10px; }
@@ -731,10 +768,11 @@
   </style>
 </head>
 <body>
-  <main class="app">
+  <div class="auth-modal" id="authModal">
     <section class="auth" id="authPanel">
+      <button class="auth-close" id="authCloseBtn" type="button" aria-label="Close">&#x2715;</button>
       <p class="kicker">The Game Bureau</p>
-      <h1>Admin</h1>
+      <h1>Studio</h1>
       <p class="copy">Sign in with an admin account.</p>
       <form class="auth-form" id="authForm">
         <label>
@@ -757,15 +795,17 @@
       </form>
       <p class="status" id="authStatus" aria-live="polite"></p>
     </section>
+  </div>
 
-    <section id="shopPanel" class="hidden">
+  <main class="app">
+    <section id="shopPanel">
       <div class="topbar">
         <div class="topbar-actions">
           <nav class="admin-nav">
-            <a class="admin-nav-link" href="index.html">Library</a>
-            <a class="admin-nav-link" href="builder.html">Builder</a>
-            <a class="admin-nav-link" href="photos.html">Darkroom</a>
-            <a class="admin-nav-link admin-nav-link--active" href="giftshop.html" aria-current="page">Gift Shop</a>
+            <a class="admin-nav-link" href="/studio/index.html">Stacks</a>
+            <a class="admin-nav-link" href="/studio/builder.html">Builder</a>
+            <a class="admin-nav-link" href="/studio/photos.html">Darkroom</a>
+            <a class="admin-nav-link admin-nav-link--active" href="/studio/giftshop.html" aria-current="page">Stockroom</a>
           </nav>
           <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="Sign out" title="Sign out">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -838,8 +878,8 @@
           </g>
         </svg>
         <p class="kicker">THE GAME BUREAU STUDIO</p>
-        <h1>Gift Shop</h1>
-
+        <h1>The Stockroom</h1>
+        <p class="status" id="shopStatus" aria-live="polite"></p>
       </div>
 
       <div class="toolbar">
@@ -847,10 +887,9 @@
         <select id="previewShopSelect" aria-label="Pick a shop to preview">
           <option value="">All Games</option>
         </select>
-        <a class="btn" id="previewBtn" href="../gift/" target="_blank" rel="noopener">Preview</a>
+        <a class="btn" id="previewBtn" href="../gift/" target="_blank" rel="noopener">Gift Shop</a>
       </div>
 
-      <p class="status" id="shopStatus" aria-live="polite"></p>
       <div class="items" id="itemsList"></div>
     </section>
   </main>
@@ -922,6 +961,8 @@
 
     const AUTH_STORAGE_KEY = 'tgb-photo-review-auth-session'; // shared with library.html
 
+    const authModal    = document.getElementById('authModal');
+    const authCloseBtn = document.getElementById('authCloseBtn');
     const authPanel    = document.getElementById('authPanel');
     const shopPanel    = document.getElementById('shopPanel');
     const authForm     = document.getElementById('authForm');
@@ -1590,15 +1631,13 @@
     });
 
     function showAuth() {
-      authPanel.classList.remove('hidden');
-      shopPanel.classList.add('hidden');
+      authModal.classList.remove('hidden');
       setStatus(authStatus, 'Sign in with an admin account.');
     }
 
     async function showShop(session) {
       currentSession = session;
-      authPanel.classList.add('hidden');
-      shopPanel.classList.remove('hidden');
+      authModal.classList.add('hidden');
       addItemBtn.disabled = true;
       try {
         await loadGames();
@@ -1636,6 +1675,8 @@
         signInBtn.disabled = false;
       }
     });
+
+    authCloseBtn.addEventListener('click', () => { authModal.classList.add('hidden'); });
 
     signOutBtn.addEventListener('click', () => {
       currentSession = null;
