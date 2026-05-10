@@ -184,28 +184,11 @@
     }
 
     async function init() {
-      // Try per-game checkout URL from database first
       const dbCheckoutUrl = await fetchGameCheckoutUrl(gameId);
       if (dbCheckoutUrl) {
-        const url = new URL(dbCheckoutUrl);
-        url.searchParams.set('checkout[redirect_url]', buildReturnUrl());
-        if (gameId) {
-          url.searchParams.set('checkout[custom][game_id]', gameId);
-          url.searchParams.set('checkout[custom][checkout_key]', ['pay', gameId, variant || 'default'].join(':'));
-        }
-        const card = document.getElementById('card');
-        card.innerHTML = `
-          <div class="spinner"></div>
-          <p class="kicker">The Game Bureau</p>
-          <h1 class="heading">One More Step</h1>
-          <p class="subtext">You're heading to checkout.<br>We'll bring you right back when you're done.</p>
-          <a class="go-btn" href="${url.toString()}">CHECKOUT</a>
-          ${gameId ? `<a class="back-link" href="../../game/play/index.html?game=${encodeURIComponent(gameId)}">← Back to game</a>` : ''}
-        `;
-        setTimeout(() => { location.href = url.toString(); }, 1800);
+        launch({ enabled: true, checkoutUrl: dbCheckoutUrl });
         return;
       }
-      // Fall back to lemon-config.js
       if (window.TGB_LEMON_CONFIG && window.TGB_LEMON_CONFIG.enabled) {
         launch(window.TGB_LEMON_CONFIG);
       } else {
