@@ -1060,10 +1060,8 @@
     let activePhotoReplyContext = null;
     let vars               = {};
     let checkoutUnlocksCache = null;
-    let lemonScriptPromise = null;
     let lemonConfigPromise = null;
     let gameCheckoutUrl = '';
-    let lemonSetupComplete = false;
     let stopCheckoutContext = null;
     let activeCheckoutContext = null;
     let scrollBottomRaf = 0;
@@ -1443,69 +1441,6 @@
         document.getElementById('paymentOverlayFrame').src = '';
       }, { once: true });
     }
-    function loadLemonScript() {
-      if (window.LemonSqueezy) return Promise.resolve(window.LemonSqueezy);
-      if (lemonScriptPromise) return lemonScriptPromise;
-      lemonScriptPromise = new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://assets.lemonsqueezy.com/lemon.js';
-        script.async = true;
-        script.onload = () => {
-          try {
-            if (typeof window.createLemonSqueezy === 'function') window.createLemonSqueezy();
-          } catch (e) {}
-          if (window.LemonSqueezy) resolve(window.LemonSqueezy);
-          else {
-            lemonScriptPromise = null;
-            reject(new Error('Lemon.js did not initialize.'));
-          }
-        };
-        script.onerror = () => {
-          lemonScriptPromise = null;
-          reject(new Error('Could not load Lemon.js.'));
-        };
-        document.head.appendChild(script);
-      });
-      return lemonScriptPromise;
-    }
-    function getCheckoutOrderId(data) {
-      if (!data || typeof data !== 'object') return '';
-      const candidates = [
-        data.order_id,
-        data.orderId,
-        data.order_identifier,
-        data.orderIdentifier,
-        data.identifier,
-        data.id
-      ];
-      return candidates.map((value) => String(value || '').trim()).find(Boolean) || '';
-    }
-    function handleLemonCheckoutSuccess(data) {
-      const context = activeCheckoutContext || stopCheckoutContext || null;
-      completeCheckoutFlow({
-        unlockKey: context && context.unlockKey,
-        sourceUrl: context && context.sourceUrl,
-        orderId: getCheckoutOrderId(data),
-        guideText: CHECKOUT_SUCCESS_COPY
-      });
-    }
-    function setupLemonEvents(lemon) {
-      if (lemonSetupComplete || !lemon || typeof lemon.Setup !== 'function') return;
-      lemon.Setup({
-        eventHandler: (payload) => {
-          const eventName = String(payload && (payload.event || payload.name) || '').trim();
-          if (eventName === 'Checkout.Success') {
-            handleLemonCheckoutSuccess(payload && payload.data ? payload.data : null);
-          }
-        }
-      });
-      lemonSetupComplete = true;
-    }
-    async function ensureLemonReady() {
-      const lemon = await loadLemonScript();
-      setupLemonEvents(lemon);
-      return lemon;
-    }
     function extractCheckoutTargetFromHtml(html) {
       if (!html) return null;
       const template = document.createElement('template');
@@ -1739,7 +1674,7 @@
       backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
       document.addEventListener('keydown', onKey);
     }
-    async function openButtonLightbox(url) {
+    function openButtonLightbox(url) {
       const parsedUrl = parseUrl(url);
       if (!parsedUrl) return;
       if (!isCheckoutPauseUrl(parsedUrl)) {
@@ -1757,32 +1692,15 @@
         return;
       }
 
-      const resolvedCheckoutUrl = await resolveCheckoutUrl(parsedUrl);
-      if (!resolvedCheckoutUrl) {
-        openIframeLightbox(parsedUrl.toString());
-        return;
-      }
-
       activeCheckoutContext = {
         unlockKey,
         sourceUrl: parsedUrl.toString(),
-        resolvedUrl: resolvedCheckoutUrl,
         stopIndex: currentStopIndex,
         stopId: activeStop && activeStop.id ? activeStop.id : '',
         flowKind: activeFlowKind
       };
-
-      try {
-        const lemon = await ensureLemonReady();
-        if (lemon && lemon.Url && typeof lemon.Url.Open === 'function') {
-          lemon.Url.Open(resolvedCheckoutUrl);
-          return;
-        }
-      } catch (error) {
-        console.warn('Could not open Lemon overlay.', error);
-      }
-
-      window.location.href = resolvedCheckoutUrl;
+      disableInput();
+      openPaymentOverlay({ url: parsedUrl.toString(), unlockKey });
     }
 
     function renderImageUrls(html) {
