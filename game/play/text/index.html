@@ -1062,6 +1062,7 @@
     let checkoutUnlocksCache = null;
     let lemonScriptPromise = null;
     let lemonConfigPromise = null;
+    let gameCheckoutUrl = '';
     let lemonSetupComplete = false;
     let stopCheckoutContext = null;
     let activeCheckoutContext = null;
@@ -1389,6 +1390,11 @@
       if (!url) return '';
       const checkoutKey = getCheckoutUnlockKey(url);
       if (isLocalPayPageUrl(url)) {
+        // Per-game checkout URL from the database takes priority over lemon-config.js
+        if (gameCheckoutUrl) {
+          const resolved = parseUrl(gameCheckoutUrl);
+          if (resolved) return decorateCheckoutUrl(resolved, checkoutKey);
+        }
         const cfg = await loadLocalLemonConfig();
         if (!hasUsableLemonConfig(cfg)) return '';
         const variant = String(url.searchParams.get('variant') || cfg.variantId || '').trim();
@@ -2990,6 +2996,10 @@
         if (!gameData) {
           chatEl.textContent = 'Game not found in database.';
           return;
+        }
+
+        if (gameData.checkout_url) {
+          gameCheckoutUrl = String(gameData.checkout_url).trim();
         }
 
         const gameNode = {

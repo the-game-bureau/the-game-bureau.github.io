@@ -160,16 +160,64 @@
       setTimeout(() => { location.href = checkoutUrl; }, 1800);
     }
 
-    // Load config then launch
-    if (window.TGB_LEMON_CONFIG && window.TGB_LEMON_CONFIG.enabled) {
-      launch(window.TGB_LEMON_CONFIG);
-    } else {
-      const s = document.createElement('script');
-      s.src = new URL('../play/config/lemon-config.js', location.href).toString();
-      s.onload = () => launch(window.TGB_LEMON_CONFIG || {});
-      s.onerror = () => renderError('Could not load payment configuration.');
-      document.head.appendChild(s);
+    async function fetchGameCheckoutUrl(id) {
+      if (!id) return null;
+      try {
+        const s = document.createElement('script');
+        s.src = new URL('../play/config/supabase-config.js', location.href).toString();
+        await new Promise((res) => { s.onload = res; s.onerror = res; document.head.appendChild(s); });
+        const sb = window.TGB_SB_CONFIG || window.TGB_SUPABASE_CONFIG || null;
+        if (!sb || !sb.url || !sb.key) return null;
+        const url = new URL(`rest/v1/games`, sb.url.replace(/\/+$/, '') + '/');
+        url.searchParams.set('select', 'checkout_url');
+        url.searchParams.set('id', `eq.${id}`);
+        url.searchParams.set('limit', '1');
+        const res = await fetch(url.toString(), {
+          headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}` }
+        });
+        if (!res.ok) return null;
+        const rows = await res.json();
+        return (Array.isArray(rows) && rows[0] && rows[0].checkout_url) || null;
+      } catch (e) {
+        return null;
+      }
     }
+
+    async function init() {
+      // Try per-game checkout URL from database first
+      const dbCheckoutUrl = await fetchGameCheckoutUrl(gameId);
+      if (dbCheckoutUrl) {
+        const url = new URL(dbCheckoutUrl);
+        url.searchParams.set('checkout[redirect_url]', buildReturnUrl());
+        if (gameId) {
+          url.searchParams.set('checkout[custom][game_id]', gameId);
+          url.searchParams.set('checkout[custom][checkout_key]', ['pay', gameId, variant || 'default'].join(':'));
+        }
+        const card = document.getElementById('card');
+        card.innerHTML = `
+          <div class="spinner"></div>
+          <p class="kicker">The Game Bureau</p>
+          <h1 class="heading">One More Step</h1>
+          <p class="subtext">You're heading to checkout.<br>We'll bring you right back when you're done.</p>
+          <a class="go-btn" href="${url.toString()}">CHECKOUT</a>
+          ${gameId ? `<a class="back-link" href="../../game/play/index.html?game=${encodeURIComponent(gameId)}">← Back to game</a>` : ''}
+        `;
+        setTimeout(() => { location.href = url.toString(); }, 1800);
+        return;
+      }
+      // Fall back to lemon-config.js
+      if (window.TGB_LEMON_CONFIG && window.TGB_LEMON_CONFIG.enabled) {
+        launch(window.TGB_LEMON_CONFIG);
+      } else {
+        const s = document.createElement('script');
+        s.src = new URL('../play/config/lemon-config.js', location.href).toString();
+        s.onload = () => launch(window.TGB_LEMON_CONFIG || {});
+        s.onerror = () => renderError('Could not load payment configuration.');
+        document.head.appendChild(s);
+      }
+    }
+
+    init();
   </script>
 </body>
 </html>

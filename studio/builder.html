@@ -2726,6 +2726,25 @@ code{font-family:"IBM Plex Mono",monospace;}
   letter-spacing:.16em;
   text-transform:uppercase;
 }
+.cta-payment-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  margin-left:auto;
+  font-size:.6rem;
+  letter-spacing:.1em;
+  color:rgba(131,245,162,.55);
+  cursor:pointer;
+  text-transform:uppercase;
+  user-select:none;
+}
+.cta-payment-toggle input{
+  accent-color:#83f5a2;
+  width:12px;
+  height:12px;
+  cursor:pointer;
+}
+.cta-payment-toggle:has(input:checked){color:#83f5a2;}
 
 .field input,.field textarea,.field select{
   min-width:0;
@@ -7490,6 +7509,7 @@ body.builder-page--editor .details-section-title{
 
 body.builder-page--editor #detailsBrandSection .details-section-title,
 body.builder-page--editor #detailsGameDetailsSection .details-section-title,
+body.builder-page--editor #detailsPaymentSection .details-section-title,
 body.builder-page--editor #detailsRendezvousSection .details-section-title,
 body.builder-page--editor #detailsTagsSection .details-section-title,
 body.builder-page--editor #detailsTeamsSection .details-section-title,
@@ -7767,6 +7787,7 @@ body.builder-page--editor #stopNameInput,
 body.builder-page--editor #varNameInput,
 body.builder-page--editor #nodeGuideNameInput,
 body.builder-page--editor #nodePriceInput,
+body.builder-page--editor #nodeCheckoutUrlInput,
 body.builder-page--editor #nodeTagNewInput{
   max-width:100%;
 }
@@ -9901,11 +9922,6 @@ html.admin-embedded .builder-section-head{
                       <input id="nodeTaglineInput" type="text" autocomplete="off" disabled>
                     </div>
 
-                    <div class="field" id="priceField">
-                      <label class="field-label" for="nodePriceInput">Price</label>
-                      <input id="nodePriceInput" type="text" autocomplete="off" disabled>
-                    </div>
-
                     <div class="field" id="engineField">
                       <label class="field-label field-label--with-meta" for="nodeEngineInput">
                         <span class="field-label-text">Engine</span>
@@ -9969,6 +9985,24 @@ html.admin-embedded .builder-section-head{
                     <div class="field" id="howToPlayField">
                       <label class="field-label" for="nodeHowToPlayInput">How to Play</label>
                       <textarea id="nodeHowToPlayInput" disabled></textarea>
+                    </div>
+
+                  </div>
+                </section>
+
+                <section class="details-section" id="detailsPaymentSection">
+                  <div class="details-section-title">Payment</div>
+                  <div class="details-section-grid details-section-grid--game-details">
+
+                    <div class="field" id="priceField">
+                      <label class="field-label" for="nodePriceInput">Price</label>
+                      <input id="nodePriceInput" type="text" autocomplete="off" disabled>
+                    </div>
+
+                    <div class="field" id="checkoutUrlField">
+                      <label class="field-label" for="nodeCheckoutUrlInput">Checkout URL</label>
+                      <input id="nodeCheckoutUrlInput" type="url" placeholder="https://..." autocomplete="off" spellcheck="false" disabled>
+                      <p class="field-hint">LemonSqueezy or Stripe payment link for this game.</p>
                     </div>
 
                   </div>
@@ -10410,7 +10444,13 @@ html.admin-embedded .builder-section-head{
                 </div>
 
                 <div class="field" id="objectBubbleCtaUrlField" hidden>
-                  <label class="field-label" for="objectBubbleCtaUrlInput">BUTTON ADDRESS</label>
+                  <label class="field-label" for="objectBubbleCtaUrlInput">
+                    BUTTON ADDRESS
+                    <label class="cta-payment-toggle" for="objectBubbleCtaPaymentCheckbox" title="Fill with this game's Checkout URL">
+                      <input type="checkbox" id="objectBubbleCtaPaymentCheckbox">
+                      <span>Payment?</span>
+                    </label>
+                  </label>
                   <input id="objectBubbleCtaUrlInput" type="text" autocomplete="off" disabled>
                 </div>
 
@@ -10555,9 +10595,17 @@ html.admin-embedded .builder-section-head{
                   </div>
                 </div>
 
+                <div class="field-label" style="margin-top:0.5rem;opacity:0.5;font-size:0.7rem;letter-spacing:0.12em;">PAYMENT</div>
+
                 <div class="field" id="priceField">
                   <label class="field-label" for="nodePriceInput">Price</label>
                   <input id="nodePriceInput" type="text" autocomplete="off" disabled>
+                </div>
+
+                <div class="field" id="checkoutUrlField">
+                  <label class="field-label" for="nodeCheckoutUrlInput">Checkout URL</label>
+                  <input id="nodeCheckoutUrlInput" type="url" placeholder="https://..." autocomplete="off" spellcheck="false" disabled>
+                  <p class="field-hint">LemonSqueezy or Stripe payment link for this game.</p>
                 </div>
 
                 <div class="field-label" style="margin-top:0.5rem;opacity:0.5;font-size:0.7rem;letter-spacing:0.12em;">RENDEZVOUS</div>
@@ -11773,6 +11821,7 @@ function normalizeGameRow(row, index = 0) {
     game_date:             row && row.game_date,
     start_time:            row && row.start_time,
     end_time:              row && row.end_time,
+    checkout_url:          row && row.checkout_url,
   }, index);
 }
 
@@ -11827,7 +11876,8 @@ async function fetchGameRowsFromSupabase(select = null) {
     'engine',
     'game_date',
     'start_time',
-    'end_time'
+    'end_time',
+    'checkout_url'
   ]);
   const response = await fetch(buildSupabaseUrl({
     select: resolvedSelect,
@@ -12335,6 +12385,7 @@ const gameLogoField = document.getElementById('gameLogoField');
 const guideImageField = document.getElementById('guideImageField');
 const guideBioField = document.getElementById('guideBioField');
 const priceField = document.getElementById('priceField');
+const checkoutUrlField = document.getElementById('checkoutUrlField');
 const cityField = document.getElementById('cityField');
 const startingLocationField = document.getElementById('startingLocationField');
 const locationBasedField = document.getElementById('locationBasedField');
@@ -12483,6 +12534,7 @@ const objectBubbleImageThumbBtn = document.getElementById('objectBubbleImageThum
 const objectBubbleImageThumbImage = document.getElementById('objectBubbleImageThumbImage');
 const objectBubbleImageThumbPlaceholder = document.getElementById('objectBubbleImageThumbPlaceholder');
 const nodePriceInput = document.getElementById('nodePriceInput');
+const nodeCheckoutUrlInput = document.getElementById('nodeCheckoutUrlInput');
 const nodeEngineInput = document.getElementById('nodeEngineInput');
 const nodeCityInput = document.getElementById('nodeCityInput');
 const nodeCoordinatesInput = document.getElementById('nodeCoordinatesInput');
@@ -15747,6 +15799,7 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     guideImageUrl: raw && typeof raw.guideImageUrl === 'string' ? raw.guideImageUrl : '',
     logoUrl: raw && typeof raw.logoUrl === 'string' ? raw.logoUrl : '',
     price: raw && typeof raw.price === 'string' ? raw.price : '',
+    checkoutUrl: raw && typeof raw.checkoutUrl === 'string' ? raw.checkoutUrl : '',
     builderNotes: raw && typeof raw.builderNotes === 'string' ? raw.builderNotes : '',
     tags: Array.isArray(raw && raw.tags)
       ? raw.tags.map((tag) => String(tag).trim()).filter(Boolean)
@@ -16309,6 +16362,7 @@ function initGameMeta(game) {
     gameDate:             g.game_date       ?? gn.gameDate         ?? '',
     startTime:            g.start_time      ?? gn.startTime        ?? '',
     endTime:              g.end_time        ?? gn.endTime          ?? '',
+    checkoutUrl:          g.checkout_url    ?? gn.checkoutUrl      ?? '',
   };
 }
 
@@ -16938,7 +16992,8 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   anytime_pair_id: 'anytimePairId',
   game_date: 'gameDate',
   start_time: 'startTime',
-  end_time: 'endTime'
+  end_time: 'endTime',
+  checkout_url: 'checkoutUrl'
 };
 
 const GAME_ENGINES = [
@@ -19135,6 +19190,19 @@ function updateObjectInspectorUi(node, link, copyText) {
   syncInput(objectBubbleLinkUrlInput, isLinkBubble, node && (node.linkUrl || 'https://'));
   syncInput(objectBubbleCtaTextInput, isCtaBubble, node && node.body);
   syncInput(objectBubbleCtaUrlInput, isCtaBubble, node && (node.linkUrl || 'https://'));
+  if (objectBubbleCtaPaymentCheckbox) {
+    const linkUrl = String((node && node.linkUrl) || '');
+    const gameCheckoutUrl = (state.currentGameMeta && state.currentGameMeta.checkoutUrl) || '';
+    const isPaymentGate = isCtaBubble && !!(
+      linkUrl.includes('/game/pay/')
+      || (gameCheckoutUrl && linkUrl === gameCheckoutUrl)
+      || linkUrl.includes('lemonsqueezy.com/checkout/')
+      || linkUrl.includes('lemonsqueezy.com/buy/')
+      || linkUrl.includes('buy.stripe.com/')
+    );
+    objectBubbleCtaPaymentCheckbox.checked = !!isPaymentGate;
+    if (isCtaBubble && objectBubbleCtaUrlInput) objectBubbleCtaUrlInput.disabled = !!isPaymentGate;
+  }
   setBubbleImageAssetStatus('');
   updateBubbleImagePreview(isImageBubble ? node : null);
   refreshReplyBodyHint();
@@ -19213,6 +19281,9 @@ function updateSelectionUi(options = {}) {
   guideBioField.hidden = !showGameDetails;
   guideImageField.hidden = !showGameDetails;
   priceField.hidden = !showGameDetails;
+  if (checkoutUrlField) checkoutUrlField.hidden = !showGameDetails;
+  const _paymentSection = document.getElementById('detailsPaymentSection');
+  if (_paymentSection) _paymentSection.hidden = !showGameDetails;
   const _engineField = document.getElementById('engineField');
   if (_engineField) _engineField.hidden = !showGameDetails;
   const _gameDateField = document.getElementById('gameDateField');
@@ -19254,6 +19325,7 @@ function updateSelectionUi(options = {}) {
   if (guideImageOnlinePickBtn) guideImageOnlinePickBtn.disabled = !isGameNode;
   if (!isGameNode) setGuideImageOnlineMenuOpen(false);
   nodePriceInput.disabled = !isGameNode;
+  if (nodeCheckoutUrlInput) nodeCheckoutUrlInput.disabled = !isGameNode;
   if (nodeEngineInput) nodeEngineInput.disabled = !isGameNode;
   primaryColorInput.disabled = !isGameNode;
   primaryColorPickerInput.disabled = !isGameNode;
@@ -19414,6 +19486,7 @@ function updateSelectionUi(options = {}) {
     populateGuideImageOnlineMenu(gameLogoOnlineAssetsCache);
   }
   nodePriceInput.value = isGameNode ? (meta.price || '') : '';
+  if (nodeCheckoutUrlInput) nodeCheckoutUrlInput.value = isGameNode ? (meta.checkoutUrl || '') : '';
   if (nodeEngineInput) {
     // Treat blank engine as the default ("text") so the select reflects
     // what /game/run/ would actually launch into.
@@ -20526,6 +20599,7 @@ function serializeNodeState(node) {
     guideImageUrl: (meta ? meta.guideImageUrl : node.guideImageUrl) || '',
     logoUrl: (meta ? meta.logoUrl : node.logoUrl) || '',
     price: (meta ? meta.price : node.price) || '',
+    checkoutUrl: (meta ? meta.checkoutUrl : node.checkoutUrl) || '',
     builderNotes: node.builderNotes || '',
     tags: (node.tags || []).filter(Boolean),
     ...getTeamFieldState(meta || node),
@@ -21728,6 +21802,28 @@ if (objectBubbleCtaUrlInput) {
   objectBubbleCtaUrlInput.addEventListener('change', syncCtaUrl);
 }
 
+const objectBubbleCtaPaymentCheckbox = document.getElementById('objectBubbleCtaPaymentCheckbox');
+function syncCtaPaymentCheckbox() {
+  if (!objectBubbleCtaUrlInput || !objectBubbleCtaPaymentCheckbox) return;
+  const isPayment = objectBubbleCtaPaymentCheckbox.checked;
+  if (isPayment) {
+    const checkoutUrl = (state.currentGameMeta && state.currentGameMeta.checkoutUrl) || '/game/pay/index.html';
+    objectBubbleCtaUrlInput.value = checkoutUrl;
+    objectBubbleCtaUrlInput.disabled = true;
+    const node = getNode(state.selectedId);
+    if (node && node.kind === 'cta') {
+      node.linkUrl = checkoutUrl;
+      renderAll();
+      scheduleRecoverySync();
+    }
+  } else {
+    objectBubbleCtaUrlInput.disabled = !getNode(state.selectedId);
+  }
+}
+if (objectBubbleCtaPaymentCheckbox) {
+  objectBubbleCtaPaymentCheckbox.addEventListener('change', syncCtaPaymentCheckbox);
+}
+
 if (objectBubbleLinkUrlInput) {
   const syncLinkUrl = () => {
     const node = getNode(state.selectedId);
@@ -21902,6 +21998,14 @@ nodePriceInput.addEventListener('input', () => {
   state.currentGameMeta.price = nodePriceInput.value;
   updateSelectionUi();
 });
+
+if (nodeCheckoutUrlInput) {
+  nodeCheckoutUrlInput.addEventListener('input', () => {
+    if (!getGameNode() || !state.currentGameMeta) return;
+    state.currentGameMeta.checkoutUrl = nodeCheckoutUrlInput.value;
+    updateSelectionUi();
+  });
+}
 
 if (nodeEngineInput) {
   nodeEngineInput.addEventListener('change', () => {
