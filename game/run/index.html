@@ -157,6 +157,23 @@
       box-shadow: 0 8px 32px rgba(0,0,0,0.12);
     }
 
+    /* ── PAYMENT INFO ── */
+    #paymentInfoSection {
+      background: #fff;
+      border: 2px solid var(--primary);
+      border-radius: 20px;
+      margin: calc(var(--v) * 1.5) var(--pad) 0;
+      padding: var(--v) var(--pad);
+      color: #111;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+    #paymentInfoBody {
+      font-size: var(--body-size);
+      line-height: 1.7;
+      color: #333;
+      padding-top: 1.3rem;
+    }
+
     .htp-header {
       font-family: 'Outfit', sans-serif;
       font-weight: 700;
@@ -800,6 +817,66 @@
     .gift-shop-nav:disabled {
       opacity: 0.35;
       cursor: default;
+    }
+
+    /* ── DISCLAIMER ── */
+    #disclaimerSection {
+      display: block;
+      background: #fff;
+      border: 2px solid var(--primary);
+      border-radius: 20px;
+      margin: calc(var(--v) * 1.5) var(--pad) 0;
+      padding: var(--v) var(--pad);
+      color: #111;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+
+    .disclaimer-scroll {
+      max-height: 210px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      margin-top: 1.3rem;
+      padding: 0 0.35rem 0 0;
+      font-size: clamp(0.95rem, 3.5vw, 1.05rem);
+      line-height: 1.55;
+      color: #333;
+    }
+
+    .disclaimer-scroll p + p {
+      margin-top: 0.85rem;
+    }
+
+    .disclaimer-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-top: 1.1rem;
+      padding: 0.95rem;
+      border: 2px solid var(--primary);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.72);
+      color: #222;
+      font-size: 0.95rem;
+      font-weight: 700;
+      line-height: 1.35;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .disclaimer-check input {
+      flex: 0 0 auto;
+      width: 1.25rem;
+      height: 1.25rem;
+      margin-top: 0.05rem;
+      accent-color: var(--primary);
+    }
+
+    .play-btn.is-disabled,
+    .play-btn[aria-disabled="true"] {
+      opacity: 0.48;
+      pointer-events: none;
+      filter: grayscale(0.25);
     }
 
     /* ── WEATHER ── */
@@ -1587,6 +1664,35 @@
       </button>
     </section>
 
+    <!-- PAYMENT INFO CARD -->
+    <section id="paymentInfoSection" hidden>
+      <div class="htp-header">Heads Up</div>
+      <span class="htp-divider"></span>
+      <div id="paymentInfoBody">
+        After your first few stops, you'll be invited to support the game. A quick, secure checkout opens right here — no leaving the game. Pay once and you're good to go.
+        <br><br>
+        Already have an access code? You can enter it when prompted.
+      </div>
+    </section>
+
+    <!-- DISCLAIMER CARD -->
+    <section id="disclaimerSection">
+      <div class="htp-header">Disclaimer</div>
+      <span class="htp-divider"></span>
+      <div class="disclaimer-scroll">
+        <p>This game is a walking tour and scavenger-hunt style experience played in the real world. You are responsible for your own safety, awareness, choices, pace, route, transportation, and conduct at all times.</p>
+        <p>Stay alert. Watch where you are walking. Do not stare at your phone while crossing streets, entering intersections, using stairs, stepping off curbs, moving through crowds, or navigating unfamiliar areas. Stop in a safe place before reading clues, taking photos, texting, scanning codes, or making decisions.</p>
+        <p>Obey all laws, traffic signals, signs, venue rules, property rules, and instructions from public officials, security, staff, and law enforcement. Do not trespass, enter restricted areas, climb on structures, block sidewalks or entrances, disturb residents or businesses, or do anything unsafe to complete a challenge.</p>
+        <p>Outdoor conditions can change. Use common sense with weather, heat, darkness, crowds, construction, uneven pavement, traffic, noise, and neighborhood conditions. If a location feels unsafe, inaccessible, closed, too crowded, or inappropriate, skip it or choose a safer alternative.</p>
+        <p>The Game Bureau does not control public streets, businesses, landmarks, weather, traffic, other people, wireless service, mapping services, or third-party websites. Game content may reference real places, but participation is voluntary and at your own risk.</p>
+        <p>By continuing, you agree to play responsibly, keep your group safe, respect the city and the people around you, and accept that winning or finishing the game is never more important than safety.</p>
+      </div>
+      <label class="disclaimer-check" for="disclaimerAccept">
+        <input id="disclaimerAccept" type="checkbox">
+        <span>I understand and agree. I will stay aware of my surroundings and play safely.</span>
+      </label>
+    </section>
+
 
   </div>
 
@@ -1624,6 +1730,32 @@
     const gameId = urlParams.get('id');
     const FALLBACK_GUIDE_AVATAR =
       "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' rx='48' fill='%23111827'/%3E%3Ccircle cx='48' cy='36' r='18' fill='%23ffffff'/%3E%3Cpath d='M20 82c4-15 16-24 28-24s24 9 28 24' fill='%23ffffff'/%3E%3C/svg%3E";
+
+    const disclaimerAccept = document.getElementById('disclaimerAccept');
+    const startBtn = document.getElementById('startBtn');
+
+    function syncDisclaimerGate() {
+      if (!startBtn) return;
+      const accepted = !!(disclaimerAccept && disclaimerAccept.checked);
+      startBtn.classList.toggle('is-disabled', !accepted);
+      startBtn.setAttribute('aria-disabled', accepted ? 'false' : 'true');
+      startBtn.tabIndex = accepted ? 0 : -1;
+    }
+
+    if (disclaimerAccept) {
+      disclaimerAccept.addEventListener('change', syncDisclaimerGate);
+    }
+
+    if (startBtn) {
+      startBtn.addEventListener('click', (event) => {
+        if (startBtn.getAttribute('aria-disabled') === 'true') {
+          event.preventDefault();
+          event.stopPropagation();
+          disclaimerAccept?.focus();
+        }
+      });
+      syncDisclaimerGate();
+    }
 
     function renderNotFound() {
       document.body.innerHTML = '';
@@ -3223,6 +3355,9 @@
         document.getElementById('intro').textContent = bodyText;
         if (bodyText) document.getElementById('introSection').style.display = 'block';
         document.getElementById('gamePrice').textContent = (gameNode.price || 'FREE').toUpperCase();
+        if (gameNode.price && String(gameNode.price).trim().toUpperCase() !== 'FREE') {
+          document.getElementById('paymentInfoSection').hidden = false;
+        }
 
         // Engine selection precedence:
         //   1. ?e=<engine> in the run URL (manual override / sharing).

@@ -1,4 +1,5 @@
 window.TGB_LEMON_CONFIG = {
+  provider: 'test',   // 'test' | 'lemon' | 'stripe'
   enabled: true,
   storeSlug: 'tgb',
   variantId: '1467971',

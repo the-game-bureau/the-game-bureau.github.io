@@ -785,6 +785,140 @@
       background: #000;
     }
 
+    /* ── Payment overlay ─────────────────────────────────────────── */
+    .payment-overlay {
+      position: fixed;
+      inset: 0;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      z-index: 300;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+    }
+    .payment-overlay.payment-overlay--open {
+      transform: translateY(0);
+    }
+    .payment-overlay--hidden {
+      display: none;
+    }
+    .payment-overlay-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: max(env(safe-area-inset-top), 14px) 16px 12px;
+      background: #f9f9f9;
+      border-bottom: 0.5px solid rgba(0,0,0,.15);
+      flex-shrink: 0;
+    }
+    .payment-overlay-label {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #111;
+      letter-spacing: 0.01em;
+    }
+    .payment-overlay-close {
+      width: 30px;
+      height: 30px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(0,0,0,.1);
+      color: #333;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .payment-overlay-close:active { opacity: .7; }
+    .payment-overlay-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .payment-overlay-frame {
+      flex: 1;
+      width: 100%;
+      border: none;
+      min-height: 0;
+    }
+    .payment-test-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 40px 24px;
+      background: #f5f5f5;
+    }
+    .payment-test-panel p {
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #666;
+    }
+    .payment-test-btn {
+      padding: 14px 32px;
+      background: #1a73e8;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .payment-test-btn:active { opacity: .8; }
+    .payment-access-wrap {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px max(env(safe-area-inset-bottom), 10px);
+      background: #f9f9f9;
+      border-top: 0.5px solid rgba(0,0,0,.1);
+    }
+    .payment-access-label {
+      font-size: 0.78rem;
+      color: #888;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .payment-access-input {
+      flex: 1;
+      font-size: 0.9rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 7px 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fff;
+      min-width: 0;
+    }
+    .payment-access-submit {
+      padding: 7px 14px;
+      background: #111;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .payment-access-submit:active { opacity: .7; }
+    .payment-access-input--error {
+      border-color: #e53e3e;
+      animation: paymentAccessShake 0.4s ease;
+    }
+    @keyframes paymentAccessShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      75% { transform: translateX(4px); }
+    }
+
     .input-area {
       padding: 10px 12px max(env(safe-area-inset-bottom), 10px);
       background: #f9f9f9;
@@ -837,6 +971,25 @@
       <button id="gameSubmitBtn" class="submit-btn" aria-label="Send">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z" fill="white" stroke="white"/></svg>
       </button>
+    </div>
+  </div>
+
+  <div id="paymentOverlay" class="payment-overlay payment-overlay--hidden" role="dialog" aria-modal="true" aria-label="Checkout">
+    <div class="payment-overlay-bar">
+      <span class="payment-overlay-label">Secure Checkout</span>
+      <button class="payment-overlay-close" id="paymentOverlayClose" type="button" aria-label="Close">&#x2715;</button>
+    </div>
+    <div class="payment-overlay-body">
+      <iframe id="paymentOverlayFrame" class="payment-overlay-frame" src="" allow="payment" title="Checkout"></iframe>
+      <div id="paymentTestPanel" class="payment-test-panel" hidden>
+        <p>Test Mode &mdash; no real charge</p>
+        <button id="paymentTestConfirm" class="payment-test-btn" type="button">Simulate Payment &#x2713;</button>
+      </div>
+    </div>
+    <div class="payment-access-wrap">
+      <span class="payment-access-label">Have a code?</span>
+      <input id="paymentAccessInput" class="payment-access-input" type="text" maxlength="8" placeholder="XXXXXX" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button id="paymentAccessSubmit" class="payment-access-submit" type="button">Apply</button>
     </div>
   </div>
 
@@ -962,13 +1115,19 @@
     function isCheckoutUnlocked(key) {
       return !!(key && loadCheckoutUnlocks()[key]);
     }
+    function generateAccessCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      return Array.from({length: 6}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    }
     function markCheckoutUnlocked(key, meta = {}) {
       if (!key) return;
       const unlocks = loadCheckoutUnlocks();
+      const existing = unlocks[key];
       unlocks[key] = {
         unlockedAt: meta.unlockedAt || new Date().toISOString(),
         sourceUrl: meta.sourceUrl || '',
-        orderId: meta.orderId || ''
+        orderId: meta.orderId || '',
+        accessCode: (existing && existing.accessCode) || generateAccessCode()
       };
       saveCheckoutUnlocks(unlocks);
     }
@@ -1241,6 +1400,43 @@
         return decorateCheckoutUrl(url, checkoutKey);
       }
       return '';
+    }
+    let _paymentOverlayTarget = null;
+    async function openPaymentOverlay(checkoutTarget) {
+      _paymentOverlayTarget = checkoutTarget || null;
+      const cfg = await loadLocalLemonConfig();
+      const provider = (cfg && cfg.provider) || 'lemon';
+      const overlay = document.getElementById('paymentOverlay');
+      const frame = document.getElementById('paymentOverlayFrame');
+      const testPanel = document.getElementById('paymentTestPanel');
+      overlay.classList.remove('payment-overlay--hidden');
+      // trigger transition on next frame
+      requestAnimationFrame(() => overlay.classList.add('payment-overlay--open'));
+
+      if (provider === 'test') {
+        frame.src = '';
+        frame.hidden = true;
+        testPanel.hidden = false;
+      } else {
+        testPanel.hidden = true;
+        frame.hidden = false;
+        const url = checkoutTarget ? await resolveCheckoutUrl(checkoutTarget.url) : '';
+        if (url) {
+          frame.src = url;
+        } else {
+          closePaymentOverlay();
+          return;
+        }
+      }
+      document.getElementById('paymentOverlayClose').focus();
+    }
+    function closePaymentOverlay() {
+      const overlay = document.getElementById('paymentOverlay');
+      overlay.classList.remove('payment-overlay--open');
+      overlay.addEventListener('transitionend', () => {
+        overlay.classList.add('payment-overlay--hidden');
+        document.getElementById('paymentOverlayFrame').src = '';
+      }, { once: true });
     }
     function loadLemonScript() {
       if (window.LemonSqueezy) return Promise.resolve(window.LemonSqueezy);
@@ -1941,6 +2137,8 @@
     }
 
     function completeCheckoutFlow(context = {}) {
+      closePaymentOverlay();
+
       const unlockKey = context.unlockKey
         || (activeCheckoutContext && activeCheckoutContext.unlockKey)
         || (stopCheckoutContext && stopCheckoutContext.unlockKey)
@@ -1964,6 +2162,7 @@
 
       activeCheckoutContext = null;
       stopCheckoutContext = null;
+      _paymentOverlayTarget = null;
 
       if (!shouldResume) return;
 
@@ -1976,7 +2175,14 @@
         saveStep(currentStopIndex + 1);
         advanceStop();
       };
-      const guideText = String(context.guideText || CHECKOUT_SUCCESS_COPY).trim();
+      let guideText = String(context.guideText || CHECKOUT_SUCCESS_COPY).trim();
+      if (unlockKey && !context.skipAccessCode) {
+        const unlocks = loadCheckoutUnlocks();
+        const code = unlocks[unlockKey] && unlocks[unlockKey].accessCode;
+        if (code) {
+          guideText += `\n\nYour access code: <strong>${code}</strong> — save this to skip payment next time.`;
+        }
+      }
       if (!guideText) {
         finish();
         return;
@@ -2091,6 +2297,7 @@
             return;
           }
           disableInput();
+          openPaymentOverlay(stopCheckoutContext);
           return;
         }
         if (getTriggerBubble(allMessages, nextBubbleIndex)) {
@@ -2402,6 +2609,7 @@
             return;
           }
           disableInput();
+          openPaymentOverlay(stopCheckoutContext);
           return;
         }
         if (needsInput) {
@@ -2874,6 +3082,54 @@
         chatEl.textContent = 'Could not load game data.';
       });
     }
+
+    // ── Payment overlay wiring ────────────────────────────────────
+    (function() {
+      const overlay = document.getElementById('paymentOverlay');
+      const closeBtn = document.getElementById('paymentOverlayClose');
+      const testConfirm = document.getElementById('paymentTestConfirm');
+      const accessInput = document.getElementById('paymentAccessInput');
+      const accessSubmit = document.getElementById('paymentAccessSubmit');
+
+      closeBtn.addEventListener('click', closePaymentOverlay);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !overlay.classList.contains('payment-overlay--hidden')) {
+          closePaymentOverlay();
+        }
+      });
+
+      testConfirm.addEventListener('click', () => {
+        const target = _paymentOverlayTarget;
+        completeCheckoutFlow({
+          unlockKey: target && target.unlockKey,
+          sourceUrl: target && target.url,
+          guideText: CHECKOUT_SUCCESS_COPY
+        });
+      });
+
+      function tryAccessCode() {
+        const input = (accessInput.value || '').trim().toUpperCase();
+        if (!input) return;
+        const unlocks = loadCheckoutUnlocks();
+        const match = Object.entries(unlocks).find(([, u]) => u && u.accessCode === input);
+        if (!match) {
+          accessInput.classList.add('payment-access-input--error');
+          setTimeout(() => accessInput.classList.remove('payment-access-input--error'), 1200);
+          return;
+        }
+        const target = _paymentOverlayTarget;
+        completeCheckoutFlow({
+          unlockKey: target && target.unlockKey || match[0],
+          sourceUrl: target && target.url,
+          guideText: CHECKOUT_SUCCESS_COPY,
+          skipAccessCode: true
+        });
+      }
+
+      accessSubmit.addEventListener('click', tryAccessCode);
+      accessInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryAccessCode(); });
+    })();
   </script>
 </body>
 </html>
