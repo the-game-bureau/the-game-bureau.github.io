@@ -353,64 +353,86 @@
       visibility: visible;
       transition: opacity 0.22s ease, visibility 0s linear 0s;
     }
-    .start-flip-back {
-      display: none;
-    }
     .start-flip.is-message-hidden .start-flip-front {
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
       transition-delay: 0s, 0.22s;
     }
-    .start-map-buttons {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      padding: 0.75rem;
-      background: var(--start-card-bg);
-      backdrop-filter: var(--start-card-blur);
-      -webkit-backdrop-filter: var(--start-card-blur);
-      border-radius: 10px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-      cursor: pointer;
-    }
-    .start-map-label {
-      font-family: 'Outfit', sans-serif;
-      font-size: 0.95rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--secondary);
-      text-align: center;
-      padding: 0 0.25rem 0.5rem;
-    }
-    .start-close-btn {
-      align-self: flex-end;
-      background: none;
+    .start-bg-map-frame {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
       border: none;
-      font-size: 1rem;
-      color: var(--primary);
-      font-weight: 700;
-      cursor: pointer;
-      padding: 0 0.25rem;
-      line-height: 1;
+      border-radius: 18px;
+      z-index: 2;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.22s ease, visibility 0s linear 0.22s;
     }
-    .start-map-btn {
-      display: block;
-      text-align: center;
-      padding: 0.6rem 1rem;
-      border-radius: 8px;
-      font-family: 'Outfit', sans-serif;
-      font-weight: 700;
-      font-size: 0.9rem;
-      letter-spacing: 0.03em;
-      cursor: pointer;
-      background: #fff;
-      color: var(--primary);
+    #rendezvousSection.is-revealed .start-bg-map-frame {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition: opacity 0.22s ease, visibility 0s linear 0s;
+    }
+    #rendezvousSection.is-revealed .start-x-marker,
+    #rendezvousSection.is-revealed .start-bg-map {
+      visibility: hidden;
+    }
+    #rendezvousSection #startCityLabel {
+      z-index: 6;
+    }
+    .start-waypoint-btn {
+      font: inherit;
+    }
+    .start-mode-btn {
+      position: absolute;
+      bottom: 2.4rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      display: inline-flex;
+      gap: 0.15rem;
+      padding: 0.2rem;
+      border-radius: 999px;
       border: 2px solid var(--primary);
-      box-shadow: 0 1px 6px rgba(0,0,0,0.1);
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      font-family: 'Outfit', sans-serif;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.22s ease, visibility 0s linear 0.22s;
     }
-    .start-map-btn:active { opacity: 0.75; }
+    .start-mode-btn:active { transform: translateX(-50%) scale(0.96); }
+    .start-mode-opt {
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--primary);
+      transition: background 0.18s ease, color 0.18s ease;
+      pointer-events: none;
+    }
+    .start-mode-btn[data-mode="driving"] .start-mode-opt[data-mode="driving"],
+    .start-mode-btn[data-mode="walking"] .start-mode-opt[data-mode="walking"] {
+      background: var(--primary);
+      color: #fff;
+    }
+    #rendezvousSection.is-revealed .start-mode-btn {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition: opacity 0.22s ease, visibility 0s linear 0s;
+    }
     .bottom-center-label {
       position: absolute;
       bottom: 0.9rem;
@@ -636,8 +658,9 @@
       background: #fff;
       border: 2px solid var(--primary);
       border-radius: 20px;
+      aspect-ratio: 1 / 1;
       margin: calc(var(--v) * 1.5) var(--pad) 0;
-      padding: calc(var(--v) + 3rem) 0 calc(var(--v) + 1.2rem);
+      padding: calc(var(--v) + 4.5rem) 0 calc(var(--v) + 1.2rem);
       color: #111;
       box-shadow: 0 8px 32px rgba(0,0,0,0.12);
     }
@@ -660,25 +683,51 @@
 
     .gift-shop-link {
       position: absolute;
-      top: 0.95rem;
+      top: 0.9rem;
       right: 1rem;
       z-index: 5;
-      min-height: 2.4rem;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 0.9rem;
-      border-radius: 999px;
+      width: 2.4rem;
+      height: 2.4rem;
+      padding: 0;
+      border-radius: 50%;
       border: 2px solid var(--primary);
       background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      transition: transform 0.18s ease, opacity 0.18s ease;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      text-decoration: none;
+    }
+    .gift-shop-link:active { transform: scale(0.92); opacity: 0.85; }
+    .gift-shop-link svg {
+      width: 1.15rem;
+      height: 1.15rem;
+      display: block;
+    }
+    .gift-shop-link-label {
+      position: absolute;
+      top: 3.6rem;
+      right: calc(1rem + 1.2rem);
+      transform: translateX(50%);
+      z-index: 6;
+      min-width: 2.4rem;
       font-family: 'Outfit', sans-serif;
-      font-size: 0.72rem;
+      font-size: clamp(0.6rem, 2vw, 0.72rem);
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      text-decoration: none;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      color: var(--primary);
+      -webkit-text-stroke: 0.6px var(--secondary);
+      paint-order: stroke fill;
+      text-align: center;
+      line-height: 1.2;
+      pointer-events: none;
     }
 
     .gift-shop-carousel {
@@ -702,7 +751,7 @@
       flex: 0 0 100%;
       scroll-snap-align: start;
       display: grid;
-      grid-template-rows: 150px auto;
+      grid-template-rows: 110px auto;
       overflow: hidden;
       border: 2px solid var(--primary);
       border-radius: 16px;
@@ -747,8 +796,8 @@
 
     .gift-shop-body {
       display: grid;
-      gap: 0.45rem;
-      padding: 0.95rem;
+      gap: 0.3rem;
+      padding: 0.7rem 0.9rem;
     }
 
     .gift-shop-title {
@@ -773,8 +822,10 @@
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
-      font-size: 0.86rem;
-      line-height: 1.35;
+      max-height: calc(0.82rem * 1.3 * 2);
+      margin: 0;
+      font-size: 0.82rem;
+      line-height: 1.3;
       color: rgba(0,0,0,0.62);
     }
 
@@ -1164,7 +1215,6 @@
     }
     /* ── /WEATHER ── */
 
-    /* ── what3words lightbox ── */
     #takeoverTimeSection {
       display: none;
       position: relative;
@@ -1356,81 +1406,6 @@
       pointer-events: none;
     }
 
-    #w3wLightbox {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      background: rgba(0,0,0,0.88);
-      flex-direction: column;
-    }
-    #w3wLightbox.open { display: flex; }
-
-    #w3wLightboxBar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: max(env(safe-area-inset-top), 0.75rem) 1rem 0.75rem;
-      flex-shrink: 0;
-    }
-
-    #w3wLightboxLabel {
-      font-family: 'Outfit', sans-serif;
-      font-weight: 700;
-      font-size: var(--body-size);
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.5);
-    }
-
-    #w3wLightboxRight {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-shrink: 0;
-    }
-
-    #w3wLightboxHint {
-      font-family: 'Outfit', sans-serif;
-      font-size: var(--body-size);
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.6);
-      animation: w3w-blink 1.2s ease-in-out infinite;
-    }
-
-    @keyframes w3w-blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.2; }
-    }
-
-    #w3wLightboxClose {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.12);
-      border: none;
-      color: #fff;
-      font-size: 1.2rem;
-      line-height: 1;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: background 0.15s;
-    }
-    #w3wLightboxClose:active { background: rgba(255,255,255,0.25); }
-
-    #w3wLightboxFrame {
-      flex: 1;
-      width: 100%;
-      border: none;
-      display: block;
-    }
-    /* ── /what3words lightbox ── */
-
     /* ── APP TOAST ── */
     #appToast {
       position: fixed;
@@ -1576,6 +1551,7 @@
     <!-- RENDEZVOUS CARD -->
     <section id="rendezvousSection">
       <div id="startBgMap" class="start-bg-map"></div>
+      <iframe class="start-bg-map-frame" id="startBgMapFrame" title="Directions map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
       <svg class="start-x-marker" viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <filter id="pinShadow" x="-30%" y="-10%" width="160%" height="140%">
@@ -1590,30 +1566,24 @@
       </svg>
       <div class="start-flip" id="startFlip">
         <div class="start-flip-inner">
-          <!-- FLIP 1: blurb (front face) -->
           <div class="start-flip-face start-flip-front">
             <p id="startBlurb" class="start-blurb"></p>
-          </div>
-          <!-- FLIP 2: map options (back face) -->
-          <div class="start-flip-face start-flip-back">
-            <div class="start-map-buttons" id="startMapButtons">
-              <button class="start-close-btn" id="startCloseBtn">✕</button>
-              <div class="start-map-label">Reveal starting point with...</div>
-              <button class="start-map-btn" data-map="apple">Apple Maps</button>
-              <button class="start-map-btn" data-map="google">Google Maps</button>
-              <button class="start-map-btn" data-map="w3w">what3words</button>
-            </div>
           </div>
         </div>
       </div>
       <div class="start-card-label">Rendezvous</div>
-      <div class="start-waypoint-btn" aria-hidden="true">
+      <button class="start-mode-btn" id="startModeBtn" type="button" aria-label="Switch travel mode" data-mode="driving">
+        <span class="start-mode-opt" data-mode="driving">Drive</span>
+        <span class="start-mode-opt" data-mode="walking">Walk</span>
+      </button>
+      <button class="start-waypoint-btn" id="startWaypointBtn" type="button" aria-label="Share starting point">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-          <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/>
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+          <polyline points="16 6 12 2 8 6"/>
+          <line x1="12" y1="2" x2="12" y2="15"/>
         </svg>
-      </div>
-      <div class="start-btn-label">Reveal</div>
+      </button>
+      <div class="start-btn-label">Share</div>
       <div id="startCityLabel" class="bottom-center-label"></div>
 
     </section>
@@ -1650,7 +1620,15 @@
     <!-- GIFT SHOP CARD -->
     <section id="giftShopSection">
       <div class="gift-shop-card-label">Gift Shop</div>
-      <a class="gift-shop-link" id="giftShopLink" href="../../gift/" target="_blank" rel="noopener">View Shop</a>
+      <a class="gift-shop-link" id="giftShopLink" href="../../gift/" target="_blank" rel="noopener" aria-label="View shop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="8" width="18" height="4" rx="1"/>
+          <path d="M12 8v13"/>
+          <path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/>
+          <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/>
+        </svg>
+      </a>
+      <div class="gift-shop-link-label">View<br>Shop</div>
       <button class="gift-shop-nav gift-shop-nav--prev" id="giftShopPrevBtn" type="button" aria-label="Previous gift shop item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polyline points="15 18 9 12 15 6"></polyline>
@@ -1697,19 +1675,6 @@
   </div>
 
   <div id="appToast"></div>
-
-  <!-- what3words lightbox -->
-  <div id="w3wLightbox">
-    <div id="w3wLightboxBar">
-      <span id="w3wLightboxLabel"></span>
-      <div id="w3wLightboxRight">
-        <span id="w3wLightboxHint">tap to close →</span>
-        <button id="w3wLightboxClose" aria-label="Close">✕</button>
-      </div>
-    </div>
-    <iframe id="w3wLightboxFrame" src="" allow="geolocation" title="what3words map"></iframe>
-  </div>
-  <!-- /what3words lightbox -->
 
   <div id="ctaBar">
     <a href="#" class="play-btn" id="startBtn">Start Game</a>
@@ -2391,7 +2356,12 @@
       const startDisplay = formatWhenTimeValue(startTimeRaw);
       const endDisplay = formatWhenTimeValue(endTimeRaw);
 
-      if (!dateValue && !startDisplay && !endDisplay) {
+      if (!dateValue || !startDisplay || !startDate) {
+        section.style.display = 'none';
+        return;
+      }
+      const TAKEOVER_GRACE_MS = 5 * 60 * 60 * 1000;
+      if (Date.now() - startDate.getTime() > TAKEOVER_GRACE_MS) {
         section.style.display = 'none';
         return;
       }
@@ -2566,7 +2536,7 @@
 
       const cta = document.createElement('span');
       cta.className = 'gift-shop-cta';
-      cta.textContent = 'Buy on Amazon';
+      cta.textContent = 'More';
       body.appendChild(cta);
 
       link.append(media, body);
@@ -3170,83 +3140,159 @@
         const isLocationBased = !!gameNode.locationBased;
         if (isLocationBased) {
           const startingLocation = (gameNode.startingLocation || '').trim();
-          const startingLocationValid = startingLocation && startingLocation !== 'http://' && startingLocation !== 'https://';
-
           const urlMatch = startingLocation.match(/(?:what3words\.com|w3w\.co)\/([a-z]+\.[a-z]+\.[a-z]+)/i);
           const rawMatch = startingLocation.match(/\/{1,3}([a-z]+\.[a-z]+\.[a-z]+)/i);
           const words = urlMatch ? urlMatch[1].toLowerCase() : rawMatch ? rawMatch[1].toLowerCase() : null;
-          const webUrl = words ? `https://what3words.com/${words}` : startingLocationValid ? startingLocation : null;
 
           const mapLat = typeof gameNode.startingLocationLat === 'number' ? gameNode.startingLocationLat : null;
           const mapLon = typeof gameNode.startingLocationLon === 'number' ? gameNode.startingLocationLon : null;
-          const ll     = mapLat != null && mapLon != null ? `${mapLat},${mapLon}` : null;
-          const locQ   = encodeURIComponent(words || city || '');
-          const what3wordsCoordsUrl = (coords) => {
-            if (!coords) return null;
-            const [lat, lng] = String(coords).split(',').map(value => value.trim());
-            return lat && lng
-              ? `https://what3words.com/?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`
-              : null;
-          };
-          const what3wordsPinUrl = (coords) => words
-            ? `https://what3words.com/${words}`
-            : what3wordsCoordsUrl(coords) || webUrl || 'https://what3words.com';
-          const applePinLabel = encodeURIComponent(`${gameName} starting point`);
-          const appleMapsUrl = (coords) => coords
-            ? `https://maps.apple.com/?ll=${coords}&q=${applePinLabel}`
-            : `https://maps.apple.com/?q=${locQ}`;
-          const mapUrls = {
-            apple:  appleMapsUrl(ll),
-            google: `https://www.google.com/maps/search/?api=1&query=${ll || locQ}`,
-            w3w:    what3wordsPinUrl(ll),
-          };
-          // Iframe-friendly URLs for the map lightbox.
-          // Apple Maps blocks iframe embedding, so we substitute OpenStreetMap's
-          // embed (iframe-safe, no key) centered on the same coordinates.
-          const bboxPad = 0.003;
-          const osmEmbedUrlFor = (lat, lon) =>
-            `https://www.openstreetmap.org/export/embed.html?bbox=${lon - bboxPad},${lat - bboxPad},${lon + bboxPad},${lat + bboxPad}&marker=${lat},${lon}&layer=mapnik`;
-          const osmEmbedUrl = (mapLat != null && mapLon != null) ? osmEmbedUrlFor(mapLat, mapLon) : null;
-          const frameUrls = {
-            apple:  osmEmbedUrl,
-            google: `https://maps.google.com/maps?q=${ll || locQ}&output=embed`,
-            w3w:    mapUrls.w3w,
-          };
-
-          // Lightbox
-          const lightbox = document.getElementById('w3wLightbox');
-          const lbFrame  = document.getElementById('w3wLightboxFrame');
-          const lbLabel  = document.getElementById('w3wLightboxLabel');
-          const openLightbox = (url, label) => {
-            lbFrame.src = url;
-            lbLabel.textContent = label;
-            lightbox.classList.add('open');
-            document.body.style.overflow = 'hidden';
-          };
-          const closeLightbox = () => {
-            lightbox.classList.remove('open');
-            document.body.style.overflow = '';
-            lbFrame.src = '';
-          };
-          document.getElementById('w3wLightboxClose').onclick = closeLightbox;
 
           const startFlip = document.getElementById('startFlip');
-          const toggleRendezvousMessage = () => {
+          let resolvedLat = null, resolvedLon = null, baseZoom = 12;
+          const REVEAL_ZOOM_BUMP = 2;
+
+          const renderBgMapAt = async (zoom) => {
+            if (resolvedLat == null || resolvedLon == null) return;
+            const bgMap = document.getElementById('startBgMap');
+            if (!bgMap) return;
+            const lat = resolvedLat, lon = resolvedLon;
+            const W = bgMap.offsetWidth || 640, H = bgMap.offsetHeight || 400;
+            const canvas = document.createElement('canvas');
+            canvas.width = W; canvas.height = H;
+            const ctx = canvas.getContext('2d');
+            const ts = 256, n = Math.pow(2, zoom);
+            const tXf = (lon + 180) / 360 * n;
+            const tYf = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
+            const tXi = Math.floor(tXf), tYi = Math.floor(tYf);
+            const oX = (tXf - tXi) * ts, oY = (tYf - tYi) * ts;
+            const cx = W / 2, cy = H / 2;
+            const rX = Math.ceil(W / ts / 2) + 1, rY = Math.ceil(H / ts / 2) + 1;
+            await Promise.all(
+              Array.from({ length: (2*rY+1)*(2*rX+1) }, (_, i) => {
+                const dy = Math.floor(i / (2*rX+1)) - rY;
+                const dx = (i % (2*rX+1)) - rX;
+                return new Promise(r => {
+                  const img = new Image(); img.crossOrigin = 'anonymous';
+                  img.onload  = () => { ctx.drawImage(img, Math.round(cx - oX + dx*ts), Math.round(cy - oY + dy*ts), ts, ts); r(); };
+                  img.onerror = r;
+                  img.src = `https://tile.openstreetmap.org/${zoom}/${tXi+dx}/${tYi+dy}.png`;
+                });
+              })
+            );
+            try { bgMap.style.backgroundImage = `url(${canvas.toDataURL()})`; } catch(e) {}
+          };
+
+          const rendezvousSection = document.getElementById('rendezvousSection');
+          const startBgMapFrame = document.getElementById('startBgMapFrame');
+          const startModeBtn = document.getElementById('startModeBtn');
+          let bgMapFrameLoaded = false;
+          let travelMode = 'driving';
+          let travelModeChecked = false;
+          let manualOverride = false;
+          const WALKING_THRESHOLD_MILES = 1.5;
+
+          const milesBetween = (lat1, lon1, lat2, lon2) => {
+            const R = 3958.8;
+            const toRad = d => d * Math.PI / 180;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) ** 2 +
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                      Math.sin(dLon / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          };
+
+          const directionsEmbedUrl = (lat, lon) => {
+            const base = `https://www.google.com/maps?saddr=Current+Location&daddr=${lat},${lon}&output=embed`;
+            return travelMode === 'walking' ? `${base}&dirflg=w` : base;
+          };
+
+          const updateIframeSrc = () => {
+            if (resolvedLat == null || resolvedLon == null || !startBgMapFrame) return;
+            startBgMapFrame.src = directionsEmbedUrl(resolvedLat, resolvedLon);
+          };
+
+          const applyTravelMode = (mode) => {
+            travelMode = mode;
+            if (startModeBtn) startModeBtn.dataset.mode = mode;
+            if (bgMapFrameLoaded) updateIframeSrc();
+          };
+
+          if (startModeBtn) {
+            startModeBtn.dataset.mode = travelMode;
+            startModeBtn.onclick = (event) => {
+              event.stopPropagation();
+              manualOverride = true;
+              applyTravelMode(travelMode === 'walking' ? 'driving' : 'walking');
+            };
+          }
+
+          const determineTravelMode = () => {
+            if (travelModeChecked || manualOverride) return;
+            if (!navigator.geolocation || resolvedLat == null) return;
+            travelModeChecked = true;
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                if (manualOverride) return;
+                const dist = milesBetween(pos.coords.latitude, pos.coords.longitude, resolvedLat, resolvedLon);
+                const newMode = dist < WALKING_THRESHOLD_MILES ? 'walking' : 'driving';
+                if (newMode !== travelMode) applyTravelMode(newMode);
+              },
+              () => {},
+              { timeout: 8000, maximumAge: 60000 }
+            );
+          };
+
+          const applyRevealedSideEffects = (revealed) => {
+            if (revealed && resolvedLat != null && resolvedLon != null && startBgMapFrame && !bgMapFrameLoaded) {
+              updateIframeSrc();
+              bgMapFrameLoaded = true;
+            }
+          };
+
+          const revealRendezvous = () => {
             if (!startFlip) return;
-            startFlip.classList.toggle('is-message-hidden');
+            if (startFlip.classList.contains('is-message-hidden')) return;
+            startFlip.classList.add('is-message-hidden');
+            if (rendezvousSection) rendezvousSection.classList.add('is-revealed');
+            renderBgMapAt(baseZoom + REVEAL_ZOOM_BUMP);
+            applyRevealedSideEffects(true);
+            determineTravelMode();
+          };
+
+          const shareStartingLocation = () => {
+            if (resolvedLat == null || resolvedLon == null) return;
+            const modeSuffix = travelMode === 'walking' ? '&travelmode=walking' : '';
+            const shareUrl = `https://www.google.com/maps/dir/?api=1&destination=${resolvedLat},${resolvedLon}${modeSuffix}`;
+            const shareTitle = `${gameName} — starting point`;
+            const shareText = words
+              ? `Meet at ///${words} to start "${gameName}"`
+              : `Meet at the starting point for "${gameName}"`;
+            if (navigator.share) {
+              navigator.share({ title: shareTitle, text: shareText, url: shareUrl }).catch(() => {});
+            } else if (navigator.clipboard) {
+              navigator.clipboard.writeText(`${shareText}\n${shareUrl}`).catch(() => {});
+            }
           };
 
           document.getElementById('rendezvousSection').onclick = () => {
-            toggleRendezvousMessage();
+            revealRendezvous();
           };
+
+          const startWaypointBtn = document.getElementById('startWaypointBtn');
+          if (startWaypointBtn) {
+            startWaypointBtn.onclick = (event) => {
+              event.stopPropagation();
+              shareStartingLocation();
+            };
+          }
 
           // Populate
           document.getElementById('rendezvousSection').style.display = 'flex';
-          document.getElementById('startBlurb').innerHTML = `You must go to <strong>${city}</strong> to play this game. Tap to reveal the starting point.`;
+          document.getElementById('startBlurb').innerHTML = `You must go to <strong>${city}</strong> to play this game. Tap here to reveal directions to the starting point.`;
           document.getElementById('startCityLabel').textContent = (gameNode.city || city || '').trim();
 
           // OSM background map
-          const bgMap = document.getElementById('startBgMap');
           (async () => {
             try {
               let lat = null, lon = null;
@@ -3277,40 +3323,12 @@
               // Live weather for the rendezvous coordinates.
               renderWeather(lat, lon, (gameNode.city || city || '').trim());
 
-              // Backfill links that need resolved coordinates for a pinned destination.
-              const resolvedLL = `${lat},${lon}`;
-              mapUrls.apple    = appleMapsUrl(resolvedLL);
-              mapUrls.google   = `https://www.google.com/maps/search/?api=1&query=${resolvedLL}`;
-              frameUrls.apple  = osmEmbedUrlFor(lat, lon);
-              frameUrls.google = `https://maps.google.com/maps?q=${resolvedLL}&output=embed`;
-              mapUrls.w3w      = what3wordsPinUrl(resolvedLL);
-              frameUrls.w3w    = mapUrls.w3w;
-
-              const zoom = (words || mapLat != null) ? 15 : 12;
-              const W = bgMap.offsetWidth || 640, H = bgMap.offsetHeight || 400;
-              const canvas = document.createElement('canvas');
-              canvas.width = W; canvas.height = H;
-              const ctx = canvas.getContext('2d');
-              const ts = 256, n = Math.pow(2, zoom);
-              const tXf = (lon + 180) / 360 * n;
-              const tYf = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
-              const tXi = Math.floor(tXf), tYi = Math.floor(tYf);
-              const oX = (tXf - tXi) * ts, oY = (tYf - tYi) * ts;
-              const cx = W / 2, cy = H / 2;
-              const rX = Math.ceil(W / ts / 2) + 1, rY = Math.ceil(H / ts / 2) + 1;
-              await Promise.all(
-                Array.from({ length: (2*rY+1)*(2*rX+1) }, (_, i) => {
-                  const dy = Math.floor(i / (2*rX+1)) - rY;
-                  const dx = (i % (2*rX+1)) - rX;
-                  return new Promise(r => {
-                    const img = new Image(); img.crossOrigin = 'anonymous';
-                    img.onload  = () => { ctx.drawImage(img, Math.round(cx - oX + dx*ts), Math.round(cy - oY + dy*ts), ts, ts); r(); };
-                    img.onerror = r;
-                    img.src = `https://tile.openstreetmap.org/${zoom}/${tXi+dx}/${tYi+dy}.png`;
-                  });
-                })
-              );
-              try { bgMap.style.backgroundImage = `url(${canvas.toDataURL()})`; } catch(e) {}
+              resolvedLat = lat;
+              resolvedLon = lon;
+              baseZoom = (words || mapLat != null) ? 15 : 12;
+              const revealed = startFlip && startFlip.classList.contains('is-message-hidden');
+              await renderBgMapAt(revealed ? baseZoom + REVEAL_ZOOM_BUMP : baseZoom);
+              applyRevealedSideEffects(revealed);
             } catch(e) {}
           })();
         } else {
