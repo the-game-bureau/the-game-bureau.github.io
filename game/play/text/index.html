@@ -1503,20 +1503,42 @@
       const target = getPendingCheckoutTarget(getInitialStopMessages(getStopMessages(stop), currentBubbleIndex), 0);
       return !!(target && (!unlockKey || target.unlockKey === unlockKey));
     }
-    function consumePaidReturnParams() {
+    async function consumePaidReturnParams(sbConfig) {
       if (params.get('paid') !== '1') return;
       const checkoutKey = String(params.get('checkout_key') || '').trim();
-      if (checkoutKey) {
-        markCheckoutUnlocked(checkoutKey, { sourceUrl: window.location.href });
-      }
+
+      // Clean the URL immediately regardless of verification outcome
       try {
         const cleanUrl = new URL(window.location.href);
         cleanUrl.searchParams.delete('paid');
         cleanUrl.searchParams.delete('checkout_key');
         window.history.replaceState(null, '', cleanUrl.toString());
       } catch (e) {}
+
+      if (!checkoutKey) return;
+
+      // Verify the checkout_key exists in the purchases table.
+      // Retry up to 5× (1.5 s apart) to account for webhook arriving slightly after redirect.
+      const verifyUrl = new URL(`rest/v1/purchases`, `${sbConfig.url.replace(/\/+$/, '')}/`);
+      verifyUrl.searchParams.set('checkout_key', `eq.${checkoutKey}`);
+      verifyUrl.searchParams.set('select', 'id');
+      verifyUrl.searchParams.set('limit', '1');
+      let verified = false;
+      for (let i = 0; i < 5; i++) {
+        try {
+          const res = await fetch(verifyUrl.toString(), {
+            headers: { apikey: sbConfig.key, Authorization: `Bearer ${sbConfig.key}` }
+          });
+          const rows = await res.json();
+          if (Array.isArray(rows) && rows.length > 0) { verified = true; break; }
+        } catch (e) {}
+        if (i < 4) await new Promise(r => setTimeout(r, 1500));
+      }
+
+      if (verified) {
+        markCheckoutUnlocked(checkoutKey, { sourceUrl: window.location.href });
+      }
     }
-    consumePaidReturnParams();
     function interpolate(str) {
       return String(str || '').replace(/\{\{\s*([A-Za-z_]\w*)\s*\}\}|\{\s*([A-Za-z_]\w*)\s*\}|%\s*([A-Za-z_]\w*)\s*%/g, (match, k1, k2, k3) => {
         const key = k1 || k2 || k3;
@@ -2587,6 +2609,9 @@
       table: 'games'
     };
 
+    // Start server-side purchase verification immediately (runs in parallel with game data fetch)
+    const paidReturnReady = consumePaidReturnParams(SB_CONFIG);
+
     async function fetchAnytimeRepliesFromSupabase(gameId) {
       if (!gameId) return [];
       const requestUrl = new URL(`rest/v1/anytime_replies`, `${SB_CONFIG.url.replace(/\/+$/, '')}/`);
@@ -2908,6 +2933,9 @@
       renderMissingGameSelection();
     } else {
       fetchGameFromSupabase(gameId).then(async (gameData) => {
+        // Wait for purchase verification to complete before the game checks unlock state
+        await paidReturnReady;
+
         if (!gameData) {
           chatEl.textContent = 'Game not found in database.';
           return;
