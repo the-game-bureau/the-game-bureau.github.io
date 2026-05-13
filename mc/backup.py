@@ -1,7 +1,7 @@
 """Dump every exposed Supabase table to backups/supabase-<table>-YYYY-MM-DD.json.
 
 Run from anywhere:
-    python admin/backup.py
+    python mc/backup.py
 
 Prunes backup files older than RETENTION_DAYS. Does NOT commit — that's on you.
 

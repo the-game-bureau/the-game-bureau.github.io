@@ -17,3 +17,19 @@ alter table public.gift_shop_items
 
 create index if not exists gift_shop_items_game_id_idx
   on public.gift_shop_items (game_id);
+
+-- gift_shop_listings: per-shop publish flag. The stock_gift_shop.py dumper
+-- creates listings with live=false (default); the admin flips the keepers on
+-- in mc/giftshop.html, and gift/index.html only renders listings with
+-- live=true.
+alter table public.gift_shop_listings
+  add column if not exists live boolean not null default false;
+
+create index if not exists gift_shop_listings_live_idx
+  on public.gift_shop_listings (live);
+
+-- One-time backfill helper (NOT run automatically). New listings default to
+-- live=false. If you want every pre-existing listing visible immediately
+-- after running this migration, uncomment and run ONCE in the SQL editor:
+--
+--   update public.gift_shop_listings set live = true where live = false;
