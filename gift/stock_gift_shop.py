@@ -1,18 +1,20 @@
-"""Stock game gift shops with Amazon product ideas.
+"""Stock gift_shop_items + gift_shop_listings with Amazon candidates per game.
 
-This script looks at rows in public.games, derives Amazon searches from each
-game's title/tags/body/stops, scrapes Amazon search result pages for product
-cards, and inserts rows into public.gift_shop_items + public.gift_shop_listings.
+For each game, derive search queries from its title/city/tags/stops, hit Amazon
+search (cached on disk), parse product cards, and dump them into Supabase as
+gift_shop_items + gift_shop_listings rows. New listings are inserted with
+live=false so the admin curates them in mc/giftshop.html before they show
+up publicly.
 
-Default mode is a dry run. Add --write to insert records.
+Default mode is WRITE. Pass --dry-run to preview without touching Supabase.
 
 Examples:
     python gift/stock_gift_shop.py
-    python gift/stock_gift_shop.py --write --limit-games 5 --items-per-game 4
-    python gift/stock_gift_shop.py --write --game oswald --items-per-game 6
+    python gift/stock_gift_shop.py --game oswald
+    python gift/stock_gift_shop.py --limit-games 3 --items-per-game 12
+    python gift/stock_gift_shop.py --dry-run --limit-games 1
 
 Environment:
-    Uses the Supabase publishable/anon key, matching the browser tools.
     SUPABASE_PUBLISHABLE_KEY or SUPABASE_KEY may override the built-in key.
     The repo-root .env file is loaded automatically when present.
 """
@@ -20,6 +22,7 @@ Environment:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import os
@@ -31,109 +34,51 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
+
+# ── Config ───────────────────────────────────────────────────────────────────
 
 SUPABASE_URL = "https://qmaafbncpzrdmqapkkgr.supabase.co"
-SUPABASE_PUBLISHABLE_KEY = "sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3"
-AMAZON_TRACKING_ID = "thegamebureau-20"
-AMAZON_STORE_ID = "nolanatives-20"
+SUPABASE_KEY_DEFAULT = "sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3"
+AMAZON_TAG = "thegamebureau-20"
+AMAZON_STORE = "nolanatives-20"
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+CACHE_DIR = Path(__file__).resolve().parent / "_cache"
+
+FETCH_TIMEOUT = 12      # seconds per Amazon request
+SUPABASE_TIMEOUT = 30   # seconds per Supabase REST call
+
+BOT_PHRASES = (
+    "enter the characters you see below",
+    "type the characters you see in this image",
+    "to discuss automated access",
+    "/errors/validatecaptcha",
+    "robot check",
+    "bm-verify",
+    "/_imperva/",
+)
+RESULT_MARKER = 'data-component-type="s-search-result"'
 
 
-THEME_SEARCHES = [
-    (("jfk", "oswald", "assassin", "conspiracy", "diary"), [
-        "Lee Harvey Oswald New Orleans book",
-        "JFK assassination book New Orleans",
-        "Jim Garrison On the Trail of the Assassins",
-        "classified file folder set",
-    ]),
-    (("murder", "crime", "axeman", "horror", "ghost"), [
-        "New Orleans true crime book",
-        "Axeman of New Orleans book",
-        "detective field notebook",
-        "murder mystery evidence bag kit",
-    ]),
-    (("jazz", "music", "festival", "fest"), [
-        "New Orleans jazz history book",
-        "New Orleans Jazz Fest book",
-        "jazz music notebook",
-        "saxophone bookmark",
-    ]),
-    (("passport", "cbd", "food", "restaurant", "cocktail", "gumbo", "beignet"), [
-        "New Orleans cookbook",
-        "New Orleans cocktail book",
-        "Cafe Du Monde beignet mix",
-        "New Orleans hot sauce sampler",
-    ]),
-    (("football", "fans", "takeover", "saints", "packers", "carolina", "tampa", "green bay"), [
-        "NFL trivia book",
-        "football tailgate cookbook",
-        "football travel journal",
-        "stadium bucket list book",
-    ]),
-    (("walking", "tour", "scavenger", "adventure", "city"), [
-        "New Orleans walking tour book",
-        "New Orleans travel guide",
-        "travel journal passport notebook",
-        "compass keychain",
-    ]),
-]
-
-GENERIC_SEARCHES = [
-    "New Orleans history book",
-    "New Orleans travel guide",
-    "New Orleans souvenir book",
-    "travel field notebook",
-]
-
-STOP_KEYWORDS = {
-    "lafayette": "Lafayette Square New Orleans history",
-    "gallier": "Gallier Hall New Orleans book",
-    "federal reserve": "Federal Reserve money book",
-    "lincoln": "Lincoln Memorial book",
-    "hamilton": "Hamilton musical book",
-    "armstrong": "Louis Armstrong New Orleans book",
-    "superdome": "New Orleans Superdome book",
-    "bourbon": "Bourbon Street New Orleans book",
-    "french quarter": "French Quarter New Orleans history book",
-    "jazz": "New Orleans jazz history book",
-    "oswald": "Lee Harvey Oswald New Orleans book",
-    "kennedy": "JFK assassination book",
-    "axeman": "Axeman of New Orleans book",
-}
-
-
-@dataclass
-class Candidate:
-    title: str
-    url: str
-    image_url: str = ""
-    price_display: str = ""
-    description: str = ""
-    asin: str = ""
-    query: str = ""
-    score: int = 0
-
+# ── .env + auth ──────────────────────────────────────────────────────────────
 
 def load_dotenv(path: Path) -> None:
     if not path.exists():
         return
     for line in path.read_text(encoding="utf-8").splitlines():
-        match = re.match(r"^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)\s*$", line, re.I)
-        if not match:
+        m = re.match(r"^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)\s*$", line, re.I)
+        if not m:
             continue
-        key, value = match.group(1), match.group(2).strip()
-        if (value.startswith('"') and value.endswith('"')) or (
-            value.startswith("'") and value.endswith("'")
-        ):
-            value = value[1:-1]
-        os.environ.setdefault(key, value)
+        k, v = m.group(1), m.group(2).strip()
+        if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+            v = v[1:-1]
+        os.environ.setdefault(k, v)
 
 
 def supabase_key() -> str:
@@ -141,89 +86,132 @@ def supabase_key() -> str:
     return (
         os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
         or os.environ.get("SUPABASE_KEY", "").strip()
-        or SUPABASE_PUBLISHABLE_KEY
+        or SUPABASE_KEY_DEFAULT
     )
 
 
-def request_json(url: str, key: str, method: str = "GET", payload: Any = None) -> Any:
-    data = None
+# ── HTTP helpers ─────────────────────────────────────────────────────────────
+
+def _supabase_request(url: str, key: str, method: str, payload: Any) -> Any:
     headers = {
         "apikey": key,
         "Authorization": f"Bearer {key}",
         "Accept": "application/json",
     }
+    data = None
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
         headers["Prefer"] = "return=representation"
-
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=40) as resp:
+        with urllib.request.urlopen(req, timeout=SUPABASE_TIMEOUT) as resp:
             body = resp.read().decode("utf-8")
             return json.loads(body) if body else None
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"{method} {url} failed: HTTP {exc.code}: {detail}") from exc
+        raise RuntimeError(f"{method} {url} -> HTTP {exc.code}: {detail}") from exc
 
 
 def rest_url(table: str, params: dict[str, str] | None = None) -> str:
-    url = f"{SUPABASE_URL.rstrip('/')}/rest/v1/{table}"
-    if params:
-        url += "?" + urllib.parse.urlencode(params)
-    return url
+    base = f"{SUPABASE_URL.rstrip('/')}/rest/v1/{table}"
+    return base + (("?" + urllib.parse.urlencode(params)) if params else "")
 
+
+# ── Supabase reads/writes ────────────────────────────────────────────────────
 
 def fetch_games(key: str, game_id: str = "", limit: int = 0) -> list[dict[str, Any]]:
-    params = {
-        "select": "*",
-        "order": "updated_at.desc.nullslast",
-    }
+    params = {"select": "*", "order": "updated_at.desc.nullslast"}
     if game_id:
         params["id"] = f"eq.{game_id}"
     if limit:
         params["limit"] = str(limit)
-    rows = request_json(rest_url("games", params), key)
+    rows = _supabase_request(rest_url("games", params), key, "GET", None)
     return rows if isinstance(rows, list) else []
 
 
-def fetch_existing_item_urls(key: str) -> set[str]:
-    rows = request_json(rest_url("gift_shop_items", {"select": "url"}), key)
-    urls = set()
+def fetch_existing_urls(key: str) -> set[str]:
+    rows = _supabase_request(rest_url("gift_shop_items", {"select": "url"}), key, "GET", None)
+    urls: set[str] = set()
     for row in rows if isinstance(rows, list) else []:
-        normalized = normalize_amazon_url(str(row.get("url") or ""))
-        if normalized:
-            urls.add(normalized)
+        n = normalize_amazon_url(str(row.get("url") or ""))
+        if n:
+            urls.add(n)
     return urls
 
 
-def normalize_amazon_url(url: str) -> str:
-    match = re.search(r"/(?:dp|gp/product)/([A-Z0-9]{10})(?:[/?]|$)", url)
-    if not match:
-        return url.strip()
-    return affiliate_product_url(match.group(1))
-
-
-def affiliate_product_url(asin: str) -> str:
-    params = {
-        "tag": AMAZON_TRACKING_ID,
-        "ascsubtag": AMAZON_STORE_ID,
-        "store": AMAZON_STORE_ID,
+def insert_item(key: str, c: "Candidate") -> dict[str, Any] | None:
+    payload = {
+        "kind": "amazon_link",
+        "title": c.title,
+        "url": c.url,
+        "image_url": c.image_url or None,
+        "image_focus": "50% 50%",
+        "price_display": c.price_display or None,
+        "description": c.description or None,
+        "archived": False,
     }
-    return f"https://www.amazon.com/dp/{asin}?" + urllib.parse.urlencode(params)
+    rows = _supabase_request(rest_url("gift_shop_items"), key, "POST", payload)
+    return rows[0] if isinstance(rows, list) and rows else None
+
+
+def insert_listing(key: str, item_id: Any, game_id: str, position: int) -> dict[str, Any] | None:
+    payload = {
+        "item_id": item_id,
+        "game_id": game_id,
+        "position": position,
+        "live": False,        # admin opts in via mc/giftshop.html
+        "archived": False,
+    }
+    rows = _supabase_request(rest_url("gift_shop_listings"), key, "POST", payload)
+    return rows[0] if isinstance(rows, list) and rows else None
+
+
+# ── Amazon URLs ──────────────────────────────────────────────────────────────
+
+def affiliate_url(asin: str) -> str:
+    p = {"tag": AMAZON_TAG, "ascsubtag": AMAZON_STORE, "store": AMAZON_STORE}
+    return f"https://www.amazon.com/dp/{asin}?" + urllib.parse.urlencode(p)
+
+
+def normalize_amazon_url(url: str) -> str:
+    m = re.search(r"/(?:dp|gp/product)/([A-Z0-9]{10})(?:[/?]|$)", url)
+    return affiliate_url(m.group(1)) if m else url.strip()
 
 
 def amazon_search_url(query: str) -> str:
-    params = {
-        "k": query,
-        "tag": AMAZON_TRACKING_ID,
-        "ascsubtag": AMAZON_STORE_ID,
-        "store": AMAZON_STORE_ID,
-    }
-    return "https://www.amazon.com/s?" + urllib.parse.urlencode(params)
+    p = {"k": query, "tag": AMAZON_TAG, "ascsubtag": AMAZON_STORE, "store": AMAZON_STORE}
+    return "https://www.amazon.com/s?" + urllib.parse.urlencode(p)
 
 
-def fetch_amazon_search(query: str) -> str:
+# ── Amazon search (cache + retry + bot-check) ────────────────────────────────
+
+def cache_path(query: str) -> Path:
+    return CACHE_DIR / f"{hashlib.sha1(query.encode('utf-8')).hexdigest()}.html"
+
+
+def looks_unusable(page: str) -> bool:
+    """True if the page is bot-mitigation, captcha, or otherwise empty."""
+    head = page[:8000].lower()
+    if any(p in head for p in BOT_PHRASES):
+        return True
+    return RESULT_MARKER not in page
+
+
+def fetch_search(query: str, force_refetch: bool = False) -> tuple[str, str]:
+    """Return (html, source). source ∈ {'cache', 'live', 'bot-check', ''}.
+
+    'cache' / 'live' = usable; 'bot-check' = junk page (won't parse); '' = network fail.
+    """
+    cf = cache_path(query)
+    if not force_refetch and cf.exists():
+        try:
+            cached = cf.read_text(encoding="utf-8")
+        except OSError:
+            cached = ""
+        if cached:
+            return (cached, "bot-check") if looks_unusable(cached) else (cached, "cache")
+
     req = urllib.request.Request(
         amazon_search_url(query),
         headers={
@@ -232,90 +220,97 @@ def fetch_amazon_search(query: str) -> str:
             "Accept-Language": "en-US,en;q=0.9",
         },
     )
-    with urllib.request.urlopen(req, timeout=35) as resp:
-        return resp.read().decode("utf-8", errors="replace")
+    page = ""
+    for attempt in (1, 2):
+        try:
+            with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+                page = resp.read().decode("utf-8", errors="replace")
+            break
+        except (urllib.error.URLError, TimeoutError) as exc:
+            if attempt == 2:
+                print(f"  ! fetch {query!r}: {exc}", file=sys.stderr)
+                return "", ""
+            time.sleep(1.0)
+
+    if looks_unusable(page):
+        return page, "bot-check"
+
+    try:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cf.write_text(page, encoding="utf-8")
+    except OSError:
+        pass
+    return page, "live"
 
 
-def strip_tags(value: str) -> str:
-    value = re.sub(r"<script[\s\S]*?</script>", " ", value, flags=re.I)
-    value = re.sub(r"<style[\s\S]*?</style>", " ", value, flags=re.I)
-    value = re.sub(r"<[^>]+>", " ", value)
-    value = html.unescape(value)
-    return re.sub(r"\s+", " ", value).strip()
+# ── Search result parsing ────────────────────────────────────────────────────
+
+@dataclass
+class Candidate:
+    title: str
+    url: str
+    asin: str = ""
+    image_url: str = ""
+    price_display: str = ""
+    description: str = ""
+    query: str = ""
 
 
-def parse_attr(fragment: str, name: str) -> str:
-    match = re.search(rf'{re.escape(name)}=["\']([^"\']+)["\']', fragment, flags=re.I)
-    return html.unescape(match.group(1)) if match else ""
+def strip_tags(text: str) -> str:
+    text = re.sub(r"<script[\s\S]*?</script>", " ", text, flags=re.I)
+    text = re.sub(r"<style[\s\S]*?</style>", " ", text, flags=re.I)
+    text = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", html.unescape(text)).strip()
 
 
-def parse_amazon_results(page_html: str, query: str) -> list[Candidate]:
-    parts = re.split(
+def attr(fragment: str, name: str) -> str:
+    m = re.search(rf'{re.escape(name)}=["\']([^"\']+)["\']', fragment, re.I)
+    return html.unescape(m.group(1)) if m else ""
+
+
+def parse_results(page: str, query: str) -> list[Candidate]:
+    cards = re.split(
         r'(?=<div[^>]+data-component-type=["\']s-search-result["\'])',
-        page_html,
-        flags=re.I,
-    )
-    cards = [part for part in parts[1:] if "data-asin" in part[:1200]]
-    candidates: list[Candidate] = []
-    seen_asins: set[str] = set()
-
+        page, flags=re.I,
+    )[1:]
+    out: list[Candidate] = []
+    seen: set[str] = set()
     for card in cards:
-        card = card.split('data-component-type="s-search-result"', 2)[0] if card.count('data-component-type="s-search-result"') > 1 else card
-        asin = parse_attr(card, "data-asin")
-        if not asin or asin in seen_asins:
+        asin = attr(card[:1200], "data-asin")
+        if not asin or asin in seen:
             continue
-        seen_asins.add(asin)
+        seen.add(asin)
 
-        title = parse_attr_from_first(card, "h2", "aria-label")
+        # Title: prefer the h2 aria-label, fall back to h2 inner text.
+        h2 = re.search(r"<h2\b[^>]*>", card, flags=re.I)
+        title = attr(h2.group(0), "aria-label") if h2 else ""
         if not title:
-            title_match = re.search(
-                r'<h2[\s\S]*?</h2>|<span[^>]+class=["\'][^"\']*a-size-(?:medium|base)[^"\']*["\'][^>]*>[\s\S]*?</span>',
-                card,
-                flags=re.I,
-            )
-            title = strip_tags(title_match.group(0)) if title_match else ""
+            block = re.search(r"<h2[\s\S]*?</h2>", card, flags=re.I)
+            title = strip_tags(block.group(0)) if block else ""
         if not title or len(title) < 4:
             continue
 
-        image_match = re.search(r'<img[^>]+class=["\'][^"\']*s-image[^"\']*["\'][^>]*>', card, flags=re.I)
-        image_url = parse_attr(image_match.group(0), "src") if image_match else ""
+        img = re.search(r'<img[^>]+class=["\'][^"\']*s-image[^"\']*["\'][^>]*>', card, flags=re.I)
+        image_url = attr(img.group(0), "src") if img else ""
 
-        price_match = re.search(r'<span[^>]+class=["\']a-offscreen["\'][^>]*>[\s\S]*?</span>', card, flags=re.I)
-        price = strip_tags(price_match.group(0)) if price_match else ""
+        price_block = re.search(r'<span[^>]+class=["\']a-offscreen["\'][^>]*>[\s\S]*?</span>', card, flags=re.I)
+        price = strip_tags(price_block.group(0)) if price_block else ""
         if price in {"$0.00", "$0"}:
             price = ""
 
-        if is_sponsored_or_bad_result(card, title):
-            continue
-
-        candidates.append(
-            Candidate(
-                title=title,
-                url=affiliate_product_url(asin),
-                image_url=image_url,
-                price_display=price,
-                description=f"Picked for this game from the Amazon search: {query}.",
-                asin=asin,
-                query=query,
-            )
-        )
-    return candidates
+        out.append(Candidate(
+            title=title,
+            url=affiliate_url(asin),
+            asin=asin,
+            image_url=image_url,
+            price_display=price,
+            description=f"Surfaced from the Amazon search: {query}.",
+            query=query,
+        ))
+    return out
 
 
-def parse_attr_from_first(fragment: str, tag_name: str, attr_name: str) -> str:
-    match = re.search(rf"<{tag_name}\b[^>]*>", fragment, flags=re.I)
-    return parse_attr(match.group(0), attr_name) if match else ""
-
-
-def is_sponsored_or_bad_result(card: str, title: str) -> bool:
-    lowered = f"{card} {title}".lower()
-    if "s-sponsored-label" in lowered:
-        return True
-    if any(token in lowered for token in ("kindle edition", "audible audiobook")):
-        return False
-    bad_phrases = ("shop on amazon", "need help", "results for")
-    return any(phrase in lowered for phrase in bad_phrases)
-
+# ── Game-driven query generation ─────────────────────────────────────────────
 
 def safe_text(value: Any) -> str:
     if value is None:
@@ -325,179 +320,154 @@ def safe_text(value: Any) -> str:
     return str(value)
 
 
-def game_words(game: dict[str, Any]) -> str:
-    parts = [
-        safe_text(game.get("id")),
-        safe_text(game.get("name")),
-        safe_text(game.get("city")),
-        safe_text(game.get("tagline")),
-        safe_text(game.get("body")),
-        safe_text(game.get("tags")),
-        safe_text(game.get("guide_name")),
-        safe_text(game.get("builder_notes")),
-    ]
-    nodes = game.get("nodes")
-    if isinstance(nodes, list):
-        for node in nodes:
-            if not isinstance(node, dict):
-                continue
-            if node.get("type") == "stop":
-                parts.append(safe_text(node.get("title")))
-            parts.append(safe_text(node.get("body")))
-    return " ".join(parts).lower()
+def clean_piece(value: Any) -> str:
+    t = re.sub(r"[^A-Za-z0-9 &:'-]+", " ", safe_text(value))
+    return re.sub(r"\s+", " ", t).strip()
 
 
-def derive_searches(game: dict[str, Any], max_queries: int, user_keywords: list[str] | None = None) -> list[str]:
-    text = game_words(game)
-    searches: list[str] = []
-    user_keywords = user_keywords or []
-
-    for keyword in user_keywords:
-        keyword = clean_search_piece(keyword)
-        if keyword:
-            searches.append(keyword)
-            searches.append(f"{keyword} book")
-
-    for keywords, queries in THEME_SEARCHES:
-        if any(keyword in text for keyword in keywords):
-            searches.extend(queries)
-
-    for needle, query in STOP_KEYWORDS.items():
-        if needle in text:
-            searches.append(query)
-
-    city = clean_search_piece(game.get("city"))
-    name = clean_search_piece(game.get("name"))
-    tags = game.get("tags")
-    tag_values = tags if isinstance(tags, list) else []
-
-    if city:
-        searches.append(f"{city} travel guide")
-        searches.append(f"{city} souvenir book")
-    if name:
-        searches.append(f"{name} souvenir")
-    for tag in tag_values[:4]:
-        tag = clean_search_piece(tag)
-        if tag:
-            searches.append(f"{tag} book")
-
-    searches.extend(GENERIC_SEARCHES)
-    return unique(searches)[:max_queries]
-
-
-def clean_search_piece(value: Any) -> str:
-    text = re.sub(r"[^A-Za-z0-9 &:'-]+", " ", safe_text(value))
-    return re.sub(r"\s+", " ", text).strip()
-
-
-def unique(values: list[str]) -> list[str]:
+def unique(seq: Iterable[str]) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
-    for value in values:
-        key = value.lower().strip()
-        if not key or key in seen:
-            continue
-        seen.add(key)
-        out.append(value.strip())
+    for item in seq:
+        key = item.lower().strip()
+        if key and key not in seen:
+            seen.add(key)
+            out.append(item.strip())
     return out
 
 
-def score_candidate(candidate: Candidate, game: dict[str, Any]) -> int:
-    text = game_words(game)
-    title = candidate.title.lower()
-    query = candidate.query.lower()
-    score = 0
-    for word in re.findall(r"[a-z0-9]{4,}", title):
-        if word in text:
-            score += 3
-    for word in re.findall(r"[a-z0-9]{4,}", query):
-        if word in text:
-            score += 2
-    if candidate.price_display:
-        score += 1
-    if candidate.image_url:
-        score += 1
-    if any(word in title for word in ("book", "guide", "history", "cookbook", "notebook", "journal")):
-        score += 2
-    return score
+def derive_queries(game: dict[str, Any], user_keywords: list[str], cap: int) -> list[str]:
+    """Build a query list ordered by relevance: user keywords → game-specific →
+    stops → tags → generic. Capped at `cap`."""
+    queries: list[str] = []
 
+    # 1. User-supplied keywords always go first.
+    for kw in user_keywords:
+        c = clean_piece(kw)
+        if c:
+            queries.extend([c, f"{c} book"])
+
+    # 2. Game-level seeds.
+    name = clean_piece(game.get("name"))
+    city = clean_piece(game.get("city"))
+    if city:
+        queries.extend([
+            f"{city} travel guide",
+            f"{city} history book",
+            f"{city} souvenir book",
+        ])
+    if name and city and name.lower() != city.lower():
+        queries.append(f"{name} {city}")
+
+    # 3. Per-stop seeds.
+    nodes = game.get("nodes")
+    if isinstance(nodes, list):
+        for node in nodes:
+            if not isinstance(node, dict) or node.get("type") != "stop":
+                continue
+            stop_title = clean_piece(node.get("title"))
+            if stop_title and len(stop_title) > 2:
+                queries.append(f"{stop_title} book")
+                if city:
+                    queries.append(f"{stop_title} {city}")
+
+    # 4. Tag seeds.
+    raw_tags = game.get("tags")
+    tag_values: list[Any] = raw_tags if isinstance(raw_tags, list) else []
+    for tag in tag_values[:5]:
+        t = clean_piece(tag)
+        if t:
+            queries.append(f"{t} book")
+
+    # 5. Generic fallback so very thin games still surface something.
+    queries.extend(["travel field notebook", "compass keychain", "souvenir book"])
+
+    return unique(queries)[:cap]
+
+
+# ── Pipeline ─────────────────────────────────────────────────────────────────
 
 def find_candidates(
     game: dict[str, Any],
     max_queries: int,
     delay: float,
-    user_keywords: list[str] | None = None,
+    user_keywords: list[str],
+    force_refetch: bool,
 ) -> list[Candidate]:
-    candidates: list[Candidate] = []
+    queries = derive_queries(game, user_keywords, max_queries)
     seen_urls: set[str] = set()
-    searches = derive_searches(game, max_queries, user_keywords=user_keywords)
-
-    for query in searches:
+    out: list[Candidate] = []
+    for q in queries:
+        t0 = time.monotonic()
+        page, source = fetch_search(q, force_refetch=force_refetch)
+        if source == "bot-check":
+            print(f"  ~ skip (bot-check): {q}", file=sys.stderr)
+            continue
+        if not page:
+            continue
         try:
-            page = fetch_amazon_search(query)
-            found = parse_amazon_results(page, query)
+            hits = parse_results(page, q)
         except Exception as exc:
-            print(f"  ! Amazon search failed for {query!r}: {exc}", file=sys.stderr)
-            found = []
-
-        for candidate in found:
-            normalized = normalize_amazon_url(candidate.url)
-            if normalized in seen_urls:
+            print(f"  ! parse {q!r}: {exc}", file=sys.stderr)
+            continue
+        print(f"  · {source:<5} {len(hits):>2} hit(s) in {time.monotonic() - t0:4.1f}s  {q}")
+        for c in hits:
+            n = normalize_amazon_url(c.url)
+            if n in seen_urls:
                 continue
-            seen_urls.add(normalized)
-            candidate.score = score_candidate(candidate, game)
-            candidates.append(candidate)
-
-        time.sleep(delay)
-
-    candidates.sort(key=lambda c: (c.score, bool(c.image_url), bool(c.price_display)), reverse=True)
-    return candidates
+            seen_urls.add(n)
+            out.append(c)
+        if source == "live":
+            time.sleep(delay)
+    return out
 
 
-def insert_item(key: str, candidate: Candidate) -> dict[str, Any] | None:
-    payload = {
-        "kind": "amazon_link",
-        "title": candidate.title,
-        "url": candidate.url,
-        "image_url": candidate.image_url or None,
-        "image_focus": "50% 50%",
-        "price_display": candidate.price_display or None,
-        "description": candidate.description,
-        "archived": False,
-    }
-    rows = request_json(rest_url("gift_shop_items"), key, method="POST", payload=payload)
-    return rows[0] if isinstance(rows, list) and rows else None
+# ── CLI helpers ──────────────────────────────────────────────────────────────
+
+def split_keywords(value: str) -> list[str]:
+    return [p.strip() for p in re.split(r"[,;\n]+", value or "") if p.strip()]
 
 
-def insert_listing(key: str, item_id: Any, game_id: str, position: int) -> dict[str, Any] | None:
-    payload = {
-        "item_id": item_id,
-        "game_id": game_id,
-        "position": position,
-        "archived": False,
-    }
-    rows = request_json(rest_url("gift_shop_listings"), key, method="POST", payload=payload)
-    return rows[0] if isinstance(rows, list) and rows else None
+def prompt_keywords() -> list[str]:
+    if not sys.stdin.isatty():
+        return []
+    print("\nOptional Amazon keywords to prioritize (comma-separated, blank to skip):")
+    return split_keywords(input("> ").strip())
 
+
+def prompt_continue(n_inserted: int) -> str:
+    if not sys.stdin.isatty():
+        return "all"
+    print(f"\n--- paused after {n_inserted} item(s) inserted ---")
+    print("  [m] 3 more   [a] run to the end without pausing   [q] quit and keep what's in")
+    while True:
+        ch = input("> ").strip().lower()
+        if ch in ("m", "more", ""):
+            return "more"
+        if ch in ("a", "all"):
+            return "all"
+        if ch in ("q", "quit", "exit"):
+            return "quit"
+        print("  please type m, a, or q")
+
+
+# ── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--write", action="store_true", help="Insert rows into Supabase.")
-    parser.add_argument("--game", help="Only stock one game id.")
-    parser.add_argument(
-        "--keywords",
-        help="Comma-separated human keywords to use before auto-derived searches.",
-    )
-    parser.add_argument(
-        "--no-prompt",
-        action="store_true",
-        help="Skip the interactive keyword prompt.",
-    )
-    parser.add_argument("--limit-games", type=int, default=0, help="Limit games processed.")
-    parser.add_argument("--items-per-game", type=int, default=4, help="Items to add per game.")
-    parser.add_argument("--max-queries", type=int, default=7, help="Amazon searches per game.")
-    parser.add_argument("--delay", type=float, default=1.2, help="Seconds between Amazon requests.")
-    args = parser.parse_args()
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--game", help="Only stock one game id.")
+    ap.add_argument("--keywords", default="", help="Comma-separated keywords to prioritize.")
+    ap.add_argument("--no-prompt", action="store_true", help="Skip the interactive keyword prompt.")
+    ap.add_argument("--limit-games", type=int, default=0)
+    ap.add_argument("--items-per-game", type=int, default=12)
+    ap.add_argument("--max-queries", type=int, default=10)
+    ap.add_argument("--delay", type=float, default=0.6, help="Seconds between live Amazon requests.")
+    ap.add_argument("--pause-every", type=int, default=3,
+                    help="Pause after every N inserted items (write mode). 0 to disable.")
+    ap.add_argument("--no-pause", action="store_true", help="Never pause; insert everything.")
+    ap.add_argument("--force-refetch", action="store_true", help="Bypass the on-disk Amazon search cache.")
+    ap.add_argument("--dry-run", action="store_true", help="Preview without inserting into Supabase.")
+    args = ap.parse_args()
 
     key = supabase_key()
     games = fetch_games(key, game_id=args.game or "", limit=args.limit_games)
@@ -505,74 +475,86 @@ def main() -> int:
         print("No games found.")
         return 0
 
-    existing_urls = fetch_existing_item_urls(key)
-    mode = "WRITE" if args.write else "DRY RUN"
-    cli_keywords = split_keywords(args.keywords or "")
-    prompt_keywords = [] if args.no_prompt else prompt_for_keywords()
-    user_keywords = unique(cli_keywords + prompt_keywords)
+    existing_urls = fetch_existing_urls(key)
+    write_enabled = not args.dry_run
+    user_keywords = unique(
+        split_keywords(args.keywords) + ([] if args.no_prompt else prompt_keywords())
+    )
+    pause_every = 0 if args.no_pause or not write_enabled else max(0, args.pause_every)
 
+    mode = "WRITE" if write_enabled else "DRY RUN"
     print(f"{mode}: stocking {len(games)} game(s).")
-    print(f"Amazon tag={AMAZON_TRACKING_ID} store={AMAZON_STORE_ID}")
+    print(f"items/game={args.items_per_game}  queries/game={args.max_queries}  "
+          f"delay={args.delay}s  cache={CACHE_DIR}")
+    if pause_every:
+        print(f"pausing every {pause_every} inserted item(s) — m/a/q at the prompt")
     if user_keywords:
-        print("Human keywords: " + ", ".join(user_keywords))
+        print("Keywords: " + ", ".join(user_keywords))
 
-    inserted_items = 0
-    inserted_listings = 0
+    items_in = listings_in = 0
+    pause_off = pause_every == 0
+    quit_now = False
 
     for game in games:
-        game_id = str(game.get("id") or "").strip()
-        game_name = str(game.get("name") or game_id).strip()
-        if not game_id:
+        if quit_now:
+            break
+        gid = str(game.get("id") or "").strip()
+        gname = str(game.get("name") or gid).strip()
+        if not gid:
             continue
-        print(f"\n{game_name} [{game_id}]")
+        print(f"\n{gname} [{gid}]")
 
-        candidates = find_candidates(game, args.max_queries, args.delay, user_keywords=user_keywords)
+        candidates = find_candidates(
+            game, args.max_queries, args.delay, user_keywords, args.force_refetch,
+        )
+
         selected: list[Candidate] = []
-        for candidate in candidates:
-            normalized = normalize_amazon_url(candidate.url)
-            if normalized in existing_urls:
+        for c in candidates:
+            n = normalize_amazon_url(c.url)
+            if n in existing_urls:
                 continue
-            selected.append(candidate)
-            existing_urls.add(normalized)
+            selected.append(c)
+            existing_urls.add(n)
             if len(selected) >= args.items_per_game:
                 break
 
         if not selected:
-            print("  no new candidates found")
+            print("  no new candidates")
             continue
 
-        for offset, candidate in enumerate(selected):
-            print(f"  + {candidate.title} ({candidate.price_display or 'price n/a'})")
-            print(f"    {candidate.url}")
-            if not args.write:
+        for pos, c in enumerate(selected):
+            print(f"  + {c.title[:90]} ({c.price_display or 'price n/a'})")
+            print(f"    {c.url}")
+            if not write_enabled:
                 continue
-            item = insert_item(key, candidate)
+            item = insert_item(key, c)
             if not item or not item.get("id"):
                 print("    ! insert item returned no id", file=sys.stderr)
                 continue
-            inserted_items += 1
-            listing = insert_listing(key, item["id"], game_id, offset)
+            items_in += 1
+            listing = insert_listing(key, item["id"], gid, pos)
             if listing:
-                inserted_listings += 1
+                listings_in += 1
 
-    if args.write:
-        print(f"\nInserted {inserted_items} item(s) and {inserted_listings} listing(s).")
+            if not pause_off and pause_every and items_in % pause_every == 0:
+                choice = prompt_continue(items_in)
+                if choice == "all":
+                    pause_off = True
+                    print("  continuing without further pauses.")
+                elif choice == "quit":
+                    print("  quit requested — keeping items already inserted.")
+                    quit_now = True
+                    break
+
+        if quit_now:
+            break
+
+    if write_enabled:
+        print(f"\nInserted {items_in} item(s) and {listings_in} listing(s).")
+        print("Curate them in mc/giftshop.html and flip the 'Live' checkbox to publish.")
     else:
-        print("\nDry run only. Re-run with --write to insert these rows.")
+        print("\nDry run only. Re-run without --dry-run to insert these rows.")
     return 0
-
-
-def split_keywords(value: str) -> list[str]:
-    return [part.strip() for part in re.split(r"[,;\n]+", value or "") if part.strip()]
-
-
-def prompt_for_keywords() -> list[str]:
-    if not sys.stdin.isatty():
-        return []
-    print("\nEnter Amazon search keywords to prioritize before auto-derived searches.")
-    print("Examples: New Orleans cookbook, JFK assassination book, detective notebook")
-    value = input("Keywords (comma-separated, blank for auto only): ").strip()
-    return split_keywords(value)
 
 
 if __name__ == "__main__":

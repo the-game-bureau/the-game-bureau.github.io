@@ -66,6 +66,9 @@
     const libraryEl = document.getElementById('library');
     const statusEl = document.getElementById('libraryStatus');
     const gridEl = document.getElementById('grid');
+    const routeCountEl = document.getElementById('routeCount');
+    const featuredCountEl = document.getElementById('featuredCount');
+    const cityCountEl = document.getElementById('cityCount');
 
     const SB_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -234,7 +237,7 @@
       });
     }
 
-    function createCard(game) {
+    function createCard(game, index) {
       const id = String(game?.id || '').trim();
       const palette = getPalette(game);
 
@@ -246,6 +249,11 @@
 
       const media = document.createElement('div');
       media.className = 'card-media';
+
+      const cardIndex = document.createElement('div');
+      cardIndex.className = 'card-index';
+      cardIndex.textContent = 'Route ' + String(index + 1).padStart(2, '0');
+      media.appendChild(cardIndex);
 
       const monogram = document.createElement('div');
       monogram.className = 'card-monogram';
@@ -284,7 +292,7 @@
 
       const title = document.createElement('h2');
       title.className = 'card-title';
-      title.textContent = String(game?.name || '').trim() || 'Untitled Game';
+      title.textContent = String(game?.name || '').trim() || 'Untitled game';
 
       body.append(eyebrow, title);
 
@@ -322,22 +330,28 @@
     }
 
     async function loadLibrary() {
-      setStatus('Loading...');
-      renderEmpty('Loading games...');
+      setStatus('Loading');
+      renderEmpty('Loading routes...');
       try {
         const games = await fetchGames();
         const live = sortGames((Array.isArray(games) ? games : []).filter(isLiveGame));
         gridEl.innerHTML = '';
+        routeCountEl.textContent = String(live.length);
+        featuredCountEl.textContent = String(live.filter(isFeatured).length);
+        cityCountEl.textContent = String(new Set(live.map((game) => String(game?.city || '').trim()).filter(Boolean)).size);
         if (!live.length) {
-          renderEmpty('No games available.');
-          setStatus('No games available.');
+          renderEmpty('No routes available.');
+          setStatus('No routes available');
           return;
         }
-        live.forEach((game) => gridEl.appendChild(createCard(game)));
-        setStatus(live.length + ' game' + (live.length === 1 ? '' : 's') + '.');
+        live.forEach((game, index) => gridEl.appendChild(createCard(game, index)));
+        setStatus(live.length + ' route' + (live.length === 1 ? '' : 's'));
       } catch (error) {
         console.error(error);
-        renderEmpty('Could not load games.');
+        renderEmpty('Could not load routes.');
+        routeCountEl.textContent = '0';
+        featuredCountEl.textContent = '0';
+        cityCountEl.textContent = '0';
         setStatus(error instanceof Error ? error.message : String(error));
       }
     }
