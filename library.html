@@ -251,6 +251,14 @@
       list-style: none;
     }
 
+    .fan-filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      margin-top: 0.75rem;
+    }
+    .fan-filter-group[hidden] { display: none; }
+
     .city-chip {
       display: inline-flex;
       align-items: center;
@@ -683,6 +691,10 @@
               <p class="library-counts" id="libraryCounts" aria-live="polite">Loading.</p>
             </div>
             <ul class="city-filter" id="cityFilter" role="list" aria-label="Filter by city"></ul>
+            <div class="fan-filter-group" id="fanFilterGroup" hidden>
+              <p class="info-label">Your team</p>
+              <ul class="city-filter" id="fanFilter" role="list" aria-label="Filter by fan team"></ul>
+            </div>
           </div>
         </article>
 
@@ -713,8 +725,11 @@
     };
 
     const ALL_CITIES = '__all__';
+    const ALL_FANS = '__all_fans__';
     const countsEl = document.getElementById('libraryCounts');
     const cityFilterEl = document.getElementById('cityFilter');
+    const fanFilterEl = document.getElementById('fanFilter');
+    const fanFilterGroupEl = document.getElementById('fanFilterGroup');
     const gridEl = document.getElementById('grid');
     const searchInputEl = document.getElementById('searchInput');
     const heroPillsEl = document.getElementById('heroPills');
@@ -730,7 +745,14 @@
 
     let allGames = [];
     let activeCity = ALL_CITIES;
+    let activeFan = ALL_FANS;
     let searchTerm = '';
+
+    function getFanTeam(game) {
+      const name = String(game?.name || '').trim();
+      const match = name.match(/^(.+?)\s+Fans Takeover\s+/i);
+      return match ? match[1].trim() : '';
+    }
 
     function getSearchLabel() {
       return String(searchInputEl?.value || '').trim();
@@ -875,12 +897,13 @@
     function getVisibleGames() {
       return allGames.filter((game) => {
         if (activeCity !== ALL_CITIES && getCity(game) !== activeCity) return false;
+        if (activeFan !== ALL_FANS && getFanTeam(game) !== activeFan) return false;
         return matchesSearch(game);
       });
     }
 
     function buildCountSummary(visibleCount) {
-      if (activeCity === ALL_CITIES && !searchTerm) {
+      if (activeCity === ALL_CITIES && activeFan === ALL_FANS && !searchTerm) {
         const total = allGames.length;
         const cities = new Set(allGames.map(getCity).filter(Boolean)).size;
         const featured = allGames.filter(isFeatured).length;
@@ -894,12 +917,15 @@
 
       const segments = ['Showing ' + visibleCount + ' ' + pluralize(visibleCount, 'game', 'games')];
       const searchLabel = getSearchLabel();
+      if (activeFan !== ALL_FANS) segments.push('for ' + activeFan + ' fans');
       if (activeCity !== ALL_CITIES) segments.push('in ' + activeCity);
       if (searchLabel) segments.push('matching "' + searchLabel + '"');
       return segments.join(' ') + '.';
     }
 
     function getSliceTitle() {
+      if (activeFan !== ALL_FANS && activeCity !== ALL_CITIES) return activeFan + ' fans in ' + activeCity;
+      if (activeFan !== ALL_FANS) return activeFan + ' fans';
       if (activeCity !== ALL_CITIES) return activeCity;
       if (searchTerm) return 'Search results';
       return 'All cities';
@@ -1048,9 +1074,13 @@
       slicePillEl.textContent = visibleGames.length + ' visible';
 
       if (!visibleGames.length) {
-        sliceCopyEl.textContent = searchTerm || activeCity !== ALL_CITIES
-          ? 'No routes fit the current filter. Clear the search or return to all cities to widen the shelf again.'
+        sliceCopyEl.textContent = searchTerm || activeCity !== ALL_CITIES || activeFan !== ALL_FANS
+          ? 'No routes fit the current filter. Clear the search or widen the filters to bring more games back into view.'
           : 'No live routes are available right now.';
+      } else if (activeFan !== ALL_FANS && activeCity !== ALL_CITIES) {
+        sliceCopyEl.textContent = 'These are away games where ' + activeFan + ' fans roll into ' + activeCity + '.';
+      } else if (activeFan !== ALL_FANS) {
+        sliceCopyEl.textContent = 'Every visible route is built for ' + activeFan + ' fans on the road.';
       } else if (activeCity !== ALL_CITIES && searchTerm) {
         sliceCopyEl.textContent = 'This slice combines the ' + activeCity + ' shelf with your search term to keep the results tight.';
       } else if (activeCity !== ALL_CITIES) {
@@ -1058,7 +1088,7 @@
       } else if (searchTerm) {
         sliceCopyEl.textContent = 'These results are pulled across the full library and narrowed by your search.';
       } else {
-        sliceCopyEl.textContent = 'Start with a featured card, or use the city chips to cut the room down to a specific place.';
+        sliceCopyEl.textContent = 'Pick your team to see your away-game takeovers, or use the city chips to cut the room down to a specific place.';
       }
 
       sliceListEl.innerHTML = '';
@@ -1236,6 +1266,51 @@
       renderGrid();
     }
 
+    function renderFanFilter() {
+      const fanCounts = new Map();
+      allGames.forEach((g) => {
+        const fan = getFanTeam(g);
+        if (!fan) return;
+        fanCounts.set(fan, (fanCounts.get(fan) || 0) + 1);
+      });
+      const fans = [...fanCounts.keys()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+      if (!fans.length) {
+        fanFilterGroupEl.hidden = true;
+        return;
+      }
+      fanFilterGroupEl.hidden = false;
+
+      const totalFanGames = fans.reduce((sum, f) => sum + fanCounts.get(f), 0);
+      const entries = [
+        { key: ALL_FANS, label: 'All', count: totalFanGames },
+        ...fans.map((f) => ({ key: f, label: f, count: fanCounts.get(f) }))
+      ];
+
+      fanFilterEl.innerHTML = '';
+      entries.forEach((entry) => {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'city-chip';
+        btn.setAttribute('aria-pressed', String(entry.key === activeFan));
+        btn.textContent = entry.label;
+        const count = document.createElement('span');
+        count.className = 'city-chip-count';
+        count.textContent = entry.count;
+        btn.appendChild(count);
+        btn.addEventListener('click', () => setActiveFan(entry.key));
+        li.appendChild(btn);
+        fanFilterEl.appendChild(li);
+      });
+    }
+
+    function setActiveFan(fan) {
+      activeFan = fan;
+      renderFanFilter();
+      renderGrid();
+    }
+
     function renderGrid() {
       const visible = getVisibleGames();
 
@@ -1307,6 +1382,7 @@
         const games = await fetchGames();
         allGames = sortGames((Array.isArray(games) ? games : []).filter(isLiveGame));
         renderCityFilter();
+        renderFanFilter();
         renderGrid();
       } catch (error) {
         console.error(error);
