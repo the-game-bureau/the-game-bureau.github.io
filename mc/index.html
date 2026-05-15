@@ -1041,6 +1041,7 @@
     let currentSession = null;
     const selectedGames = new Map();
     let allGamesData = [];
+    let lastSelectedId = null;
 
     function authUrl(path) {
       return new URL('/auth/v1/' + String(path || '').replace(/^\/+/, ''), SUPABASE_CONFIG.url + '/').toString();
@@ -1395,14 +1396,23 @@
       card.append(media, body);
       card.dataset.gameId = gameId;
       card.dataset.gameState = state;
-      card.addEventListener('click', () => selectGame(game));
+      card.addEventListener('mousedown', (event) => {
+        if (event.shiftKey) event.preventDefault();
+      });
+      card.addEventListener('click', (event) => selectGame(game, event));
       return card;
     }
 
     function renderAdminLibrary(games) {
       allGamesData = Array.isArray(games) ? games : [];
       const allGames = sortGamesForAdminLibrary(allGamesData);
-      selectedGames.clear();
+
+      const gamesById = new Map(allGames.map((g) => [String(g.id), g]));
+      for (const id of [...selectedGames.keys()]) {
+        const fresh = gamesById.get(String(id));
+        if (fresh) selectedGames.set(id, fresh);
+        else selectedGames.delete(id);
+      }
       updateToolbar();
       gameGrid.innerHTML = '';
 
@@ -1418,7 +1428,9 @@
       }, {});
 
       allGames.forEach((game) => {
-        gameGrid.appendChild(createAdminGameCard(game));
+        const card = createAdminGameCard(game);
+        if (selectedGames.has(String(game.id))) card.classList.add('is-selected');
+        gameGrid.appendChild(card);
       });
 
       const parts = [];
@@ -1471,16 +1483,33 @@
 
     libNewBtn.href = buildBuilderRoute({ new: '1' });
 
-    function selectGame(game) {
-      if (selectedGames.has(game.id)) {
-        selectedGames.delete(game.id);
+    function selectGame(game, event) {
+      const id = String(game.id);
+      const shift = event && event.shiftKey;
+      const cards = [...gameGrid.querySelectorAll('.admin-game-card')];
+      const ids = cards.map((c) => c.dataset.gameId);
+
+      if (shift && lastSelectedId && lastSelectedId !== id && ids.includes(lastSelectedId) && ids.includes(id)) {
+        const a = ids.indexOf(lastSelectedId);
+        const b = ids.indexOf(id);
+        const [lo, hi] = a < b ? [a, b] : [b, a];
+        for (let i = lo; i <= hi; i++) {
+          const rangeId = ids[i];
+          const rangeGame = allGamesData.find((g) => String(g.id) === rangeId);
+          if (rangeGame) selectedGames.set(rangeId, rangeGame);
+        }
       } else {
-        selectedGames.set(game.id, game);
+        if (selectedGames.has(id)) selectedGames.delete(id);
+        else selectedGames.set(id, game);
+        lastSelectedId = id;
       }
-      gameGrid.querySelectorAll('.admin-game-card').forEach((c) => {
+
+      cards.forEach((c) => {
         c.classList.toggle('is-selected', selectedGames.has(c.dataset.gameId));
       });
       updateToolbar();
+
+      if (shift) window.getSelection && window.getSelection().removeAllRanges();
     }
 
     async function patchGame(id, payload) {

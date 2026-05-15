@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 const SEASON = 2026;
@@ -991,7 +989,7 @@ async function fetchNflReleaseMatchups() {
 
 async function fetchEspnMatchups() {
   const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${ESPN_DATE_RANGE}&limit=1000`;
-  const data = await fetchJson(url, { tolerateNotFound: true });
+  const data = await fetchJsonWithRetry(url);
   const events = Array.isArray(data && data.events) ? data.events : [];
   const rows = [];
 
@@ -1768,6 +1766,18 @@ async function fetchJson(url, options = {}) {
     throw new Error(`Request failed for ${url}: ${response.status} ${await response.text()}`);
   }
   return response.json();
+}
+
+async function fetchJsonWithRetry(url, { attempts = 4, minEvents = 100, delayMs = 800 } = {}) {
+  let last = null;
+  for (let i = 0; i < attempts; i++) {
+    last = await fetchJson(url);
+    const count = last && Array.isArray(last.events) ? last.events.length : 0;
+    if (count >= minEvents) return last;
+    console.log(`[retry] ESPN returned ${count} events on attempt ${i + 1}/${attempts}; retrying in ${delayMs}ms`);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  return last;
 }
 
 async function fetchText(url, options = {}) {
