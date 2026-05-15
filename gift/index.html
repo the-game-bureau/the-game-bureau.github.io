@@ -24,21 +24,8 @@
       gap: 1rem;
     }
 
-    .gift-hero-inner {
-      display: grid;
-      grid-template-columns: minmax(0, 1.12fr) minmax(260px, 0.88fr);
-      gap: 1rem;
-      align-items: end;
-    }
-
-    .gift-copy,
-    .gift-aside {
-      display: grid;
-      gap: 1rem;
-    }
-
-    .gift-note {
-      max-width: 24rem;
+    .public-gift .metric-grid {
+      grid-template-columns: 1fr;
     }
 
     .gift-grid-wrap {
@@ -190,78 +177,35 @@
       line-height: 1.62;
     }
 
-    @media (max-width: 960px) {
-      .gift-hero-inner {
-        grid-template-columns: 1fr;
-      }
-    }
   </style>
 </head>
-<body class="public-gift">
+<body class="public-library public-gift">
   <div class="page-shell">
     <header class="site-nav">
-      <div class="brand-lockup">
-        <span class="brand-mark">Gift Shop</span>
+      <div class="brand-lockup brand-lockup--page">
         <span class="brand-name">The Game Bureau</span>
-        <p class="brand-sub">A curated public catalog of books, field notes, and route-adjacent finds.</p>
+        <span class="page-headline" id="heading">Gift Shop</span>
+        <p class="page-count-line"><span id="itemCount">0</span> items<span id="eyebrowSuffix" hidden> · <span id="eyebrow"></span></span></p>
       </div>
       <nav class="nav-links" aria-label="Primary">
         <a class="nav-link" href="../index.html">Home</a>
         <a class="nav-link" href="../library.html">Library</a>
         <a class="nav-link nav-link--active" href="index.html">Gift Shop</a>
         <a class="utility-link admin-btn" href="../mc/giftshop.html">Mission Control</a>
+        <a class="nav-link nav-link--account" href="../account.html" data-account-link>Account</a>
       </nav>
     </header>
 
     <main class="gift-page">
-      <section class="section-shell gift-hero">
-        <div class="section-inner gift-hero-inner">
-          <div class="gift-copy">
-            <p class="eyebrow" id="eyebrow">All Routes</p>
-            <h1 class="section-title" id="heading">Gift Shop</h1>
-            <p class="lead" id="lead">Books, field notes, and local finds selected to extend the routes beyond the street.</p>
-          </div>
-          <div class="gift-aside">
-            <div class="status-pill" id="status" aria-live="polite">Awaiting inventory</div>
-            <p class="muted-note gift-note">More reading room than souvenir stand: objects and books selected to feel adjacent to the route, not bolted onto it.</p>
-            <div class="metric-grid">
-              <div class="metric-card">
-                <span class="metric-label">Items</span>
-                <span class="metric-value" id="itemCount">0</span>
-              </div>
-              <div class="metric-card">
-                <span class="metric-label">Routes</span>
-                <span class="metric-value" id="shopCount">0</span>
-              </div>
-              <div class="metric-card">
-                <span class="metric-label">Mode</span>
-                <span class="metric-value">Curated</span>
-              </div>
-            </div>
-          </div>
-        </div>
+      <section class="metric-grid" aria-label="Gift shop metrics">
+        <article class="metric-card">
+          <span class="metric-label">Visible Now</span>
+          <span class="metric-value" id="shopCount">0</span>
+          <p class="metric-copy" id="lead">Books, field notes, and local finds selected to extend the routes beyond the street.</p>
+        </article>
       </section>
 
-      <section class="editorial-band" aria-label="Gift shop framing">
-        <article class="section-shell">
-          <div class="section-inner">
-            <p class="eyebrow">Selection Rule</p>
-            <h2 class="info-title">The catalog should feel route-adjacent, not merch-driven.</h2>
-            <p class="info-copy">Gift Shop works when the inventory reads like the afterlife of a route: atlases, books, notebooks, and objects that deepen the place or the story without turning the page into a souvenir rack.</p>
-            <div class="pill-row" aria-label="Gift shop standards">
-              <span class="pill">Books</span>
-              <span class="pill">Field Notes</span>
-              <span class="pill">Curiosities</span>
-            </div>
-          </div>
-        </article>
-        <article class="section-shell section-shell--dark">
-          <div class="section-inner">
-            <p class="editorial-quote">The right Gift Shop feels like a reading room with transaction capability, not a checkout surface in costume.</p>
-            <p class="editorial-caption">Role Of The Page</p>
-          </div>
-        </article>
-      </section>
+      <div class="status-pill" id="status" aria-live="polite" hidden></div>
 
       <section class="gift-grid-wrap" aria-label="Gift shop items">
         <div class="grid" id="grid"></div>
@@ -284,11 +228,22 @@
     const gridEl = document.getElementById('grid');
     const headingEl = document.getElementById('heading');
     const eyebrowEl = document.getElementById('eyebrow');
+    const eyebrowSuffixEl = document.getElementById('eyebrowSuffix');
     const leadEl = document.getElementById('lead');
     const itemCountEl = document.getElementById('itemCount');
     const shopCountEl = document.getElementById('shopCount');
 
-    function setStatus(msg) { statusEl.textContent = msg || ''; }
+    function setStatus(msg) {
+      const text = msg || '';
+      statusEl.textContent = text;
+      statusEl.hidden = !text;
+    }
+
+    function setEyebrow(text) {
+      const trimmed = String(text || '').trim();
+      eyebrowEl.textContent = trimmed;
+      eyebrowSuffixEl.hidden = !trimmed;
+    }
 
     function escapeText(value) {
       return String(value == null ? '' : value);
@@ -465,7 +420,7 @@
 
         if (game && game.name) {
           headingEl.textContent = 'Gift Shop';
-          eyebrowEl.textContent = game.name;
+          setEyebrow(game.name);
           document.title = game.name.toUpperCase() + ' GIFT SHOP | THE GAME BUREAU';
         }
         const tagline = String((game && game.tagline) || '').trim();
@@ -512,7 +467,7 @@
 
     async function loadAllShops() {
       headingEl.textContent = 'Gift Shop';
-      eyebrowEl.textContent = 'All Routes';
+      setEyebrow('');
       leadEl.textContent = 'Books, field notes, and local finds gathered across every route in the bureau.';
       leadEl.hidden = false;
       document.title = 'GIFT SHOP | THE GAME BUREAU';

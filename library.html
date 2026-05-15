@@ -11,13 +11,27 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/public-theme.css">
   <script src="assets/public-account.js"></script>
+  <script src="assets/games/helmets/helmet.js"></script>
   <style>
     .public-library .admin-btn { display: none; }
+
+    .page-footer {
+      margin-top: 2.5rem;
+      padding: 1.5rem 0 1rem;
+      display: flex;
+      justify-content: center;
+      border-top: 1px solid var(--line);
+    }
 
     .public-library main {
       display: grid;
       gap: 1rem;
     }
+
+    .public-library .metric-grid {
+      grid-template-columns: 1fr;
+    }
+
 
     .library-hero {
       margin-bottom: 0;
@@ -196,9 +210,11 @@
       font-variant-numeric: tabular-nums;
     }
 
-    .library-dashboard {
+    .public-library .editorial-band.library-dashboard {
+      grid-template-columns: 1fr;
       align-items: stretch;
     }
+
 
     .library-browse-panel,
     .library-state-panel {
@@ -254,23 +270,84 @@
     .fan-filter-group {
       display: flex;
       flex-direction: column;
-      gap: 0.45rem;
-      margin-top: 0.75rem;
+      gap: 0.4rem;
+      min-width: 0;
     }
     .fan-filter-group[hidden] { display: none; }
+
+    .city-chip-helmet {
+      width: 18px;
+      height: 18px;
+      image-rendering: pixelated;
+      flex-shrink: 0;
+      margin-left: -0.2rem;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      min-width: 0;
+    }
+
+    .filter-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: stretch;
+      gap: 1.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .filter-divider {
+      position: relative;
+      align-self: stretch;
+      width: 1px;
+      background: var(--line);
+      display: flex;
+      justify-content: center;
+    }
+
+    .filter-row:has(.fan-filter-group[hidden]) .filter-divider { display: none; }
+
+    .filter-divider span {
+      position: absolute;
+      top: 0;
+      transform: translateY(-50%);
+      padding: 0 0.5rem;
+      background: var(--surface);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--muted-strong);
+    }
+
+    @media (max-width: 700px) {
+      .filter-row {
+        grid-template-columns: 1fr;
+      }
+      .filter-divider {
+        width: 100%;
+        height: 1px;
+      }
+      .filter-divider span {
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+    }
 
     .city-chip {
       display: inline-flex;
       align-items: center;
-      gap: 0.45rem;
-      min-height: 38px;
-      padding: 0 0.95rem;
+      gap: 0.35rem;
+      min-height: 28px;
+      padding: 0 0.7rem;
       border: 1px solid var(--line);
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.56);
       color: var(--muted-strong);
       font-family: inherit;
-      font-size: 0.82rem;
+      font-size: 0.72rem;
       letter-spacing: 0.02em;
       cursor: pointer;
       transition:
@@ -299,7 +376,7 @@
 
     .city-chip-count {
       opacity: 0.6;
-      font-size: 0.76rem;
+      font-size: 0.68rem;
       font-variant-numeric: tabular-nums;
     }
 
@@ -612,62 +689,39 @@
 <body class="public-library">
   <div class="page-shell">
     <header class="site-nav">
-      <div class="brand-lockup">
-        <span class="brand-mark">Library</span>
+      <div class="brand-lockup brand-lockup--page">
         <span class="brand-name">The Game Bureau</span>
-        <p class="brand-sub">An editorial-style index of live games, takeovers, and clue-led routes built for real places.</p>
+        <span class="page-headline">Library</span>
+        <p class="page-count-line"><span id="headerGameCount">0</span> live games in <span id="headerCityCount">0</span> cities</p>
       </div>
       <nav class="nav-links" aria-label="Primary">
         <a class="nav-link" href="index.html">Home</a>
         <a class="nav-link nav-link--active" href="library.html">Library</a>
-        <a class="nav-link" href="account.html" data-account-link>Account</a>
         <a class="nav-link" href="gift/index.html">Gift Shop</a>
-        <a class="utility-link admin-btn" href="mc/index.html">Mission Control</a>
+        <a class="nav-link nav-link--account" href="account.html" data-account-link>Account</a>
       </nav>
     </header>
 
     <main>
-      <section class="section-shell section-shell--dark library-hero" aria-label="Library introduction">
-        <div class="section-inner hero-grid">
-          <section class="library-hero-copy">
-            <div>
-              <p class="eyebrow">Library</p>
-              <h1 class="display-title library-title">An atlas of live Game Bureau routes.</h1>
-              <p class="lead">Browse the current catalog by city, search by title, and jump straight into the next field-ready game.</p>
+      <section class="editorial-band library-dashboard" aria-label="Library controls" id="libraryDirectory">
+        <article class="section-shell">
+          <div class="section-inner library-browse-panel">
+            <div class="filter-row">
+              <div class="filter-group">
+                <p class="info-label">Search by Game City</p>
+                <ul class="city-filter" id="cityFilter" role="list" aria-label="Search by game city"></ul>
+              </div>
+              <div class="filter-divider" aria-hidden="true"><span>OR</span></div>
+              <div class="fan-filter-group" id="fanFilterGroup" hidden>
+                <p class="info-label">Search by Your Team</p>
+                <ul class="city-filter" id="fanFilter" role="list" aria-label="Search by your team"></ul>
+              </div>
             </div>
-            <div class="pill-row" id="heroPills" aria-label="Library highlights"></div>
-            <div class="library-actions">
-              <a class="button" href="#libraryDirectory">Browse the Catalog</a>
-              <a class="ghost-button" href="gift/index.html">Visit Gift Shop</a>
-            </div>
-          </section>
-
-          <aside class="library-spotlight-shell" aria-labelledby="spotlightTitle">
-            <span class="library-spotlight-label">Spotlight</span>
-            <div class="library-spotlight-card" id="spotlightCard">
-              <h2 class="library-spotlight-empty-title" id="spotlightTitle">Loading library</h2>
-              <p class="library-spotlight-empty-copy">Pulling live routes and featured entries from the catalog.</p>
-            </div>
-          </aside>
-        </div>
+          </div>
+        </article>
       </section>
 
       <section class="metric-grid" aria-label="Library metrics">
-        <article class="metric-card">
-          <span class="metric-label">Live Routes</span>
-          <span class="metric-value" id="metricTotal">0</span>
-          <p class="metric-copy">Every non-archived game currently visible in the public library.</p>
-        </article>
-        <article class="metric-card">
-          <span class="metric-label">Cities</span>
-          <span class="metric-value" id="metricCities">0</span>
-          <p class="metric-copy">Real places represented in the current library.</p>
-        </article>
-        <article class="metric-card">
-          <span class="metric-label">Featured</span>
-          <span class="metric-value" id="metricFeatured">0</span>
-          <p class="metric-copy">Games tagged to sit slightly closer to the front shelf.</p>
-        </article>
         <article class="metric-card">
           <span class="metric-label">Visible Now</span>
           <span class="metric-value" id="metricVisible">0</span>
@@ -675,45 +729,13 @@
         </article>
       </section>
 
-      <section class="editorial-band library-dashboard" aria-label="Library controls">
-        <article class="section-shell">
-          <div class="section-inner library-browse-panel">
-            <div>
-              <p class="eyebrow">Browse</p>
-              <h2 class="section-title" id="libraryDirectory">Scan the catalog without losing the room around it.</h2>
-              <p class="lead">Filter by city, search by title, and keep the library broad enough to discover something you were not looking for.</p>
-            </div>
-            <div class="library-controls">
-              <label class="library-search-wrap" for="searchInput">
-                <span class="info-label">Search the Library</span>
-                <input class="library-search-input" id="searchInput" type="search" placeholder="Search by game, city, guide, or phrase" autocomplete="off">
-              </label>
-              <p class="library-counts" id="libraryCounts" aria-live="polite">Loading.</p>
-            </div>
-            <ul class="city-filter" id="cityFilter" role="list" aria-label="Filter by city"></ul>
-            <div class="fan-filter-group" id="fanFilterGroup" hidden>
-              <p class="info-label">Your team</p>
-              <ul class="city-filter" id="fanFilter" role="list" aria-label="Filter by fan team"></ul>
-            </div>
-          </div>
-        </article>
-
-        <article class="section-shell section-shell--dark">
-          <div class="section-inner library-state-panel">
-            <p class="eyebrow">Current Slice</p>
-            <div class="library-state-header">
-              <h2 class="library-state-title" id="sliceTitle">All cities</h2>
-              <span class="status-pill" id="slicePill">Loading</span>
-            </div>
-            <p class="library-state-copy" id="sliceCopy">Pulling live routes from the library.</p>
-            <div class="library-state-list" id="sliceList"></div>
-          </div>
-        </article>
-      </section>
-
       <section aria-label="Games">
         <div class="grid" id="grid" aria-live="polite"></div>
       </section>
+
+      <footer class="page-footer">
+        <a class="utility-link admin-btn" href="mc/index.html">Mission Control</a>
+      </footer>
     </main>
   </div>
 
@@ -726,22 +748,13 @@
 
     const ALL_CITIES = '__all__';
     const ALL_FANS = '__all_fans__';
-    const countsEl = document.getElementById('libraryCounts');
     const cityFilterEl = document.getElementById('cityFilter');
     const fanFilterEl = document.getElementById('fanFilter');
     const fanFilterGroupEl = document.getElementById('fanFilterGroup');
     const gridEl = document.getElementById('grid');
-    const searchInputEl = document.getElementById('searchInput');
-    const heroPillsEl = document.getElementById('heroPills');
-    const spotlightCardEl = document.getElementById('spotlightCard');
-    const totalMetricEl = document.getElementById('metricTotal');
-    const cityMetricEl = document.getElementById('metricCities');
-    const featuredMetricEl = document.getElementById('metricFeatured');
     const visibleMetricEl = document.getElementById('metricVisible');
-    const sliceTitleEl = document.getElementById('sliceTitle');
-    const slicePillEl = document.getElementById('slicePill');
-    const sliceCopyEl = document.getElementById('sliceCopy');
-    const sliceListEl = document.getElementById('sliceList');
+    const headerGameCountEl = document.getElementById('headerGameCount');
+    const headerCityCountEl = document.getElementById('headerCityCount');
 
     let allGames = [];
     let activeCity = ALL_CITIES;
@@ -755,7 +768,7 @@
     }
 
     function getSearchLabel() {
-      return String(searchInputEl?.value || '').trim();
+      return '';
     }
 
     function isTrueish(value) {
@@ -902,27 +915,6 @@
       });
     }
 
-    function buildCountSummary(visibleCount) {
-      if (activeCity === ALL_CITIES && activeFan === ALL_FANS && !searchTerm) {
-        const total = allGames.length;
-        const cities = new Set(allGames.map(getCity).filter(Boolean)).size;
-        const featured = allGames.filter(isFeatured).length;
-        const parts = [
-          total + ' ' + pluralize(total, 'game', 'games'),
-          cities + ' ' + pluralize(cities, 'city', 'cities')
-        ];
-        if (featured) parts.push(featured + ' featured');
-        return parts.join(' · ');
-      }
-
-      const segments = ['Showing ' + visibleCount + ' ' + pluralize(visibleCount, 'game', 'games')];
-      const searchLabel = getSearchLabel();
-      if (activeFan !== ALL_FANS) segments.push('for ' + activeFan + ' fans');
-      if (activeCity !== ALL_CITIES) segments.push('in ' + activeCity);
-      if (searchLabel) segments.push('matching "' + searchLabel + '"');
-      return segments.join(' ') + '.';
-    }
-
     function getSliceTitle() {
       if (activeFan !== ALL_FANS && activeCity !== ALL_CITIES) return activeFan + ' fans in ' + activeCity;
       if (activeFan !== ALL_FANS) return activeFan + ' fans';
@@ -1037,195 +1029,11 @@
       return card;
     }
 
-    function renderHeroPills() {
-      heroPillsEl.innerHTML = '';
-      const total = allGames.length;
-      const cities = new Set(allGames.map(getCity).filter(Boolean)).size;
-      const featured = allGames.filter(isFeatured).length;
-      const pillLabels = [
-        total + ' live ' + pluralize(total, 'route', 'routes'),
-        cities + ' ' + pluralize(cities, 'city', 'cities'),
-        featured ? featured + ' featured picks' : 'Open city games'
-      ];
-      pillLabels.forEach((label) => {
-        const pill = document.createElement('span');
-        pill.className = 'pill';
-        pill.textContent = label;
-        heroPillsEl.appendChild(pill);
-      });
-    }
-
     function renderMetrics(visibleGames) {
-      const total = allGames.length;
       const cities = new Set(allGames.map(getCity).filter(Boolean)).size;
-      const featured = allGames.filter(isFeatured).length;
-      totalMetricEl.textContent = String(total);
-      cityMetricEl.textContent = String(cities);
-      featuredMetricEl.textContent = String(featured);
       visibleMetricEl.textContent = String(visibleGames.length);
-    }
-
-    function renderCounts(visibleCount) {
-      countsEl.textContent = buildCountSummary(visibleCount);
-    }
-
-    function renderStatePanel(visibleGames) {
-      sliceTitleEl.textContent = getSliceTitle();
-      slicePillEl.textContent = visibleGames.length + ' visible';
-
-      if (!visibleGames.length) {
-        sliceCopyEl.textContent = searchTerm || activeCity !== ALL_CITIES || activeFan !== ALL_FANS
-          ? 'No routes fit the current filter. Clear the search or widen the filters to bring more games back into view.'
-          : 'No live routes are available right now.';
-      } else if (activeFan !== ALL_FANS && activeCity !== ALL_CITIES) {
-        sliceCopyEl.textContent = 'These are away games where ' + activeFan + ' fans roll into ' + activeCity + '.';
-      } else if (activeFan !== ALL_FANS) {
-        sliceCopyEl.textContent = 'Every visible route is built for ' + activeFan + ' fans on the road.';
-      } else if (activeCity !== ALL_CITIES && searchTerm) {
-        sliceCopyEl.textContent = 'This slice combines the ' + activeCity + ' shelf with your search term to keep the results tight.';
-      } else if (activeCity !== ALL_CITIES) {
-        sliceCopyEl.textContent = 'Every visible route in the grid is currently filed under ' + activeCity + '.';
-      } else if (searchTerm) {
-        sliceCopyEl.textContent = 'These results are pulled across the full library and narrowed by your search.';
-      } else {
-        sliceCopyEl.textContent = 'Pick your team to see your away-game takeovers, or use the city chips to cut the room down to a specific place.';
-      }
-
-      sliceListEl.innerHTML = '';
-      if (!visibleGames.length) {
-        const empty = document.createElement('div');
-        empty.className = 'library-state-empty';
-        empty.textContent = 'Nothing to preview in this slice yet.';
-        sliceListEl.appendChild(empty);
-        return;
-      }
-
-      visibleGames.slice(0, 3).forEach((game) => {
-        const item = document.createElement('div');
-        item.className = 'library-state-item';
-
-        const cityEl = document.createElement('span');
-        cityEl.className = 'library-state-item-city';
-        cityEl.textContent = getCity(game) || 'Library';
-
-        const nameEl = document.createElement('span');
-        nameEl.className = 'library-state-item-name';
-        nameEl.textContent = String(game?.name || '').trim() || 'Untitled';
-
-        item.append(cityEl, nameEl);
-        sliceListEl.appendChild(item);
-      });
-    }
-
-    function renderSpotlight(visibleGames) {
-      spotlightCardEl.innerHTML = '';
-
-      if (!visibleGames.length) {
-        spotlightCardEl.dataset.empty = 'true';
-        const title = document.createElement('h2');
-        title.className = 'library-spotlight-empty-title';
-        title.id = 'spotlightTitle';
-        title.textContent = 'No routes in view';
-
-        const copy = document.createElement('p');
-        copy.className = 'library-spotlight-empty-copy';
-        copy.textContent = searchTerm || activeCity !== ALL_CITIES
-          ? 'Nothing matches the current city and search combination. Adjust the controls to reopen the shelf.'
-          : 'No live routes are available in the public library right now.';
-
-        spotlightCardEl.append(title, copy);
-        return;
-      }
-
-      delete spotlightCardEl.dataset.empty;
-      const game = visibleGames.find(isFeatured) || visibleGames[0];
-      const palette = getPalette(game);
-      const name = String(game?.name || '').trim() || 'Untitled';
-      const city = getCity(game);
-      const imageUrl = getImageUrl(game);
-      const location = getLocationLabel(game);
-      const guideName = getGuideName(game);
-      const summary = getSummaryCopy(game);
-
-      spotlightCardEl.style.setProperty('--spotlight-primary', palette.primary);
-      spotlightCardEl.style.setProperty('--spotlight-secondary', palette.secondary);
-      spotlightCardEl.style.setProperty('--spotlight-ink', pickContrastInk(palette.primary));
-
-      const visual = document.createElement('div');
-      visual.className = 'library-spotlight-visual';
-      if (imageUrl) {
-        const img = document.createElement('img');
-        img.className = 'library-spotlight-image';
-        img.src = imageUrl;
-        img.alt = '';
-        img.loading = 'lazy';
-        img.decoding = 'async';
-        img.addEventListener('error', () => img.remove());
-        visual.appendChild(img);
-      } else {
-        const monogram = document.createElement('div');
-        monogram.className = 'library-spotlight-monogram';
-        monogram.textContent = getMonogram(name);
-        visual.appendChild(monogram);
-      }
-
-      const body = document.createElement('div');
-      body.className = 'library-spotlight-body';
-
-      const topline = document.createElement('div');
-      topline.className = 'library-spotlight-topline';
-      const typeBadge = document.createElement('span');
-      typeBadge.className = 'library-spotlight-badge';
-      typeBadge.textContent = isFeatured(game) ? 'Featured route' : 'Library pick';
-      topline.appendChild(typeBadge);
-      if (city) {
-        const cityBadge = document.createElement('span');
-        cityBadge.className = 'library-spotlight-badge';
-        cityBadge.textContent = city;
-        topline.appendChild(cityBadge);
-      }
-
-      const title = document.createElement('h2');
-      title.className = 'library-spotlight-name';
-      title.id = 'spotlightTitle';
-      title.textContent = name;
-
-      const copy = document.createElement('p');
-      copy.className = 'library-spotlight-copy';
-      copy.textContent = summary;
-
-      const notes = document.createElement('div');
-      notes.className = 'library-spotlight-notes';
-
-      const noteEntries = [
-        { label: 'City', value: city || 'Library' },
-        { label: 'Starts', value: location || 'Open anywhere from the route entry' },
-        { label: 'Guide', value: guideName || 'Game Bureau field notes' }
-      ];
-
-      noteEntries.forEach((entry) => {
-        const note = document.createElement('div');
-        note.className = 'library-spotlight-note';
-
-        const label = document.createElement('span');
-        label.className = 'legend-label';
-        label.textContent = entry.label;
-
-        const value = document.createElement('span');
-        value.className = 'legend-value';
-        value.textContent = entry.value;
-
-        note.append(label, value);
-        notes.appendChild(note);
-      });
-
-      const action = document.createElement('a');
-      action.className = 'button';
-      action.href = 'game/run/index.html?id=' + encodeURIComponent(String(game?.id || '').trim());
-      action.textContent = 'Open ' + name;
-
-      body.append(topline, title, copy, notes, action);
-      spotlightCardEl.append(visual, body);
+      if (headerGameCountEl) headerGameCountEl.textContent = String(allGames.length);
+      if (headerCityCountEl) headerCityCountEl.textContent = String(cities);
     }
 
     function renderCityFilter() {
@@ -1262,16 +1070,20 @@
 
     function setActiveCity(city) {
       activeCity = city;
+      if (city !== ALL_CITIES) activeFan = ALL_FANS;
       renderCityFilter();
+      renderFanFilter();
       renderGrid();
     }
 
     function renderFanFilter() {
       const fanCounts = new Map();
+      const fanGameSample = new Map();
       allGames.forEach((g) => {
         const fan = getFanTeam(g);
         if (!fan) return;
         fanCounts.set(fan, (fanCounts.get(fan) || 0) + 1);
+        if (!fanGameSample.has(fan)) fanGameSample.set(fan, g);
       });
       const fans = [...fanCounts.keys()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
@@ -1283,8 +1095,8 @@
 
       const totalFanGames = fans.reduce((sum, f) => sum + fanCounts.get(f), 0);
       const entries = [
-        { key: ALL_FANS, label: 'All', count: totalFanGames },
-        ...fans.map((f) => ({ key: f, label: f, count: fanCounts.get(f) }))
+        { key: ALL_FANS, label: 'All', count: totalFanGames, helmet: null },
+        ...fans.map((f) => ({ key: f, label: f, count: fanCounts.get(f), helmet: fanGameSample.get(f) }))
       ];
 
       fanFilterEl.innerHTML = '';
@@ -1294,7 +1106,23 @@
         btn.type = 'button';
         btn.className = 'city-chip';
         btn.setAttribute('aria-pressed', String(entry.key === activeFan));
-        btn.textContent = entry.label;
+
+        if (entry.helmet && typeof window.helmetSVG === 'function') {
+          const img = document.createElement('img');
+          img.className = 'city-chip-helmet';
+          img.alt = '';
+          img.src = window.helmetSVG(
+            entry.helmet.primary_color,
+            entry.helmet.secondary_color,
+            entry.helmet.tertiary_color
+          );
+          btn.appendChild(img);
+        }
+
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = entry.label;
+        btn.appendChild(labelSpan);
+
         const count = document.createElement('span');
         count.className = 'city-chip-count';
         count.textContent = entry.count;
@@ -1307,6 +1135,8 @@
 
     function setActiveFan(fan) {
       activeFan = fan;
+      if (fan !== ALL_FANS) activeCity = ALL_CITIES;
+      renderCityFilter();
       renderFanFilter();
       renderGrid();
     }
@@ -1323,48 +1153,17 @@
         const copy = document.createElement('span');
         copy.textContent = searchTerm || activeCity !== ALL_CITIES
           ? 'Try a different city or clear the search to widen the catalog.'
-          : 'No live routes have been published yet.';
+          : 'No live games have been published yet.';
         empty.append(title, copy);
         gridEl.appendChild(empty);
       } else {
         visible.forEach((game, index) => gridEl.appendChild(createCard(game, index)));
       }
-      renderHeroPills();
-      renderCounts(visible.length);
       renderMetrics(visible);
-      renderSpotlight(visible);
-      renderStatePanel(visible);
     }
 
-    searchInputEl.addEventListener('input', () => {
-      searchTerm = String(searchInputEl.value || '').trim().toLowerCase();
-      renderGrid();
-    });
-
     function renderErrorState(message) {
-      countsEl.textContent = 'Could not load games.';
-      renderHeroPills();
       renderMetrics([]);
-
-      spotlightCardEl.innerHTML = '';
-      spotlightCardEl.dataset.empty = 'true';
-      const spotlightTitle = document.createElement('h2');
-      spotlightTitle.className = 'library-spotlight-empty-title';
-      spotlightTitle.id = 'spotlightTitle';
-      spotlightTitle.textContent = 'Library feed unavailable';
-      const spotlightCopy = document.createElement('p');
-      spotlightCopy.className = 'library-spotlight-empty-copy';
-      spotlightCopy.textContent = 'The live catalog could not be loaded from Supabase, so the spotlight is temporarily offline too.';
-      spotlightCardEl.append(spotlightTitle, spotlightCopy);
-
-      sliceTitleEl.textContent = 'Connection error';
-      slicePillEl.textContent = 'Unavailable';
-      sliceCopyEl.textContent = 'The library feed could not be loaded. Retry the page or check the data source.';
-      sliceListEl.innerHTML = '';
-      const stateEmpty = document.createElement('div');
-      stateEmpty.className = 'library-state-empty';
-      stateEmpty.textContent = 'No preview rows are available while the feed is offline.';
-      sliceListEl.appendChild(stateEmpty);
 
       gridEl.innerHTML = '';
       const empty = document.createElement('div');
