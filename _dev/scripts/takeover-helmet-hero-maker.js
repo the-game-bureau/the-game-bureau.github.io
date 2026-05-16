@@ -23,31 +23,37 @@ const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 const USER_AGENT = 'TGB Takeover Hero Maker/1.0';
 
 const ASSET_DIR = path.resolve(__dirname, '..', '..', 'assets', 'games', 'takeover-hero');
-const ASSET_URL_BASE = 'https://thegamebureau.com/assets/games/takeover-hero';
+// Domain-relative URL: resolves to localhost during local dev and to
+// thegamebureau.com in production -- one stored value, works in both contexts.
+const ASSET_URL_BASE = '/assets/games/takeover-hero';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const ONLY_ARG = process.argv.find((arg) => arg.startsWith('--only='));
 const ONLY_ID = ONLY_ARG ? ONLY_ARG.slice('--only='.length) : null;
 
-// Hero PNG is consumed by .hero in game/run/index.html with object-fit:cover
-// against a roughly 1.4:1 container. 1200x800 (1.5:1) keeps cropping minimal,
-// and a "VS" composition keeps both helmets near the horizontal center so they
-// survive cropping on tall portrait heroes. Facemasks meet near the image center.
+// Hero PNG is consumed by .hero in game/run/index.html and library cards via
+// object-fit:cover. 1200x800 (1.5:1) keeps cropping minimal. Helmets are
+// centered as a pair with a clear visible gap between facemasks.
+//
+// Background is a medium gray rather than near-black so both helmet halves
+// stay visible -- many teams have black stripes/shells (Raiders, Saints, etc.)
+// which disappeared on dark; many have white facemasks which disappeared on
+// light. Medium gray contrasts both.
 const HERO_W = 1200;
 const HERO_H = 800;
-const BG_RGB = [0x05, 0x05, 0x05];
+const BG_RGB = [0x55, 0x55, 0x58];
 
 // Large helmet (away/fan): 16 * 38 = 608, faces right
 const LARGE_SCALE = 38;
-const LARGE_OX = 60;
-const LARGE_OY = 100;
+const LARGE_OX = 75;
+const LARGE_OY = 96;
 
-// Small helmet (home): 16 * 24 = 384, mirrored to face left, overlapping the
-// away helmet so the two facemasks collide at image center. SMALL_OY chosen so
-// row-12 (facemask) centers align vertically with the large helmet's facemask.
+// Small helmet (home): 16 * 24 = 384, mirrored to face left. Positioned so
+// there is a ~120px visible gap between the helmets' facemask fronts at the
+// image's horizontal center. Vertically aligned by bounding-box center.
 const SMALL_SCALE = 24;
-const SMALL_OX = 560;
-const SMALL_OY = 275;
+const SMALL_OX = 741;
+const SMALL_OY = 208;
 
 const TEAM_METADATA = {
   ARI: { shortLabel: 'Arizona',       primary: '#97233F', secondary: '#FFB612', tertiary: '#002868' },
@@ -134,9 +140,10 @@ async function main() {
 }
 
 async function fetchTakeoverNflLogoGames() {
-  // Match games still pointing at ESPN NFL logos AND games already pointing at
-  // our generated hero PNGs, so a re-run can refresh the design in place.
-  const filter = `or=(logo_url.like.https://a.espncdn.com/i/teamlogos/nfl/*,logo_url.like.${ASSET_URL_BASE}/*)`;
+  // Match games pointing at ESPN NFL logos, prior absolute thegamebureau.com
+  // hero URLs, and current domain-relative hero URLs -- so a re-run refreshes
+  // both the design and the URL scheme in place.
+  const filter = `or=(logo_url.like.https://a.espncdn.com/i/teamlogos/nfl/*,logo_url.like.https://thegamebureau.com/assets/games/takeover-hero/*,logo_url.like.${ASSET_URL_BASE}/*)`;
   const url = `${SUPABASE_URL}/rest/v1/games?name=ilike.*Takeover*&${filter}&select=id,name,logo_url,primary_color,secondary_color,tertiary_color&order=name.asc`;
   const response = await fetch(url, {
     headers: {
