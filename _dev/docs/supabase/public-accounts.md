@@ -4,9 +4,9 @@ The public account flow uses Supabase Auth directly from the static site.
 
 Files:
 
-- `account.html` contains the public sign in, sign up, profile, and sign out UI.
-- `assets/public-account.js` wraps Supabase Auth REST calls and stores the public session in `localStorage`.
-- `assets/account-page.js` handles the account page forms.
+- `public/account.html` contains the public sign in, sign up, profile, and sign out UI.
+- `public/assets/public-account.js` wraps Supabase Auth REST calls and stores the public session in `localStorage`.
+- `public/assets/account-page.js` handles the account page forms.
 
 No SQL table is required for the current version. The editable display name is stored in `auth.users.raw_user_meta_data` as `display_name`.
 

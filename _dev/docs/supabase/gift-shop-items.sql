@@ -20,7 +20,7 @@ create index if not exists gift_shop_items_game_id_idx
 
 -- gift_shop_listings: per-shop publish flag. The stock_gift_shop.py dumper
 -- creates listings with live=false (default); the admin flips the keepers on
--- in mc/giftshop.html, and gift/index.html only renders listings with
+-- in public/mc/giftshop.html, and public/gift.html only renders listings with
 -- live=true.
 alter table public.gift_shop_listings
   add column if not exists live boolean not null default false;

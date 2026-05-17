@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Generates a helmet hero PNG (large away helmet + small home helmet) for every
-// Takeover game whose logo_url currently points to an ESPN NFL team logo and
-// whose name explicitly mentions the home team. Skips neutral-site games whose
-// name uses a city (London, Mexico City, etc.) instead of a team short label.
+// NFL Takeover game whose name explicitly mentions the home team. Skips
+// neutral-site games whose name uses a city (London, Mexico City, etc.) instead
+// of a team short label, except for custom one-off neutral visuals below.
 //
-// Files are written to assets/games/takeover-hero/{game-id}.png and each game's
+// Files are written to public/assets/games/takeover-hero/{game-id}.png and each game's
 // logo_url is patched in Supabase to the new URL.
 //
 // Usage:
@@ -16,16 +16,23 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-const { helmetSVGString } = require('../../assets/games/helmets/helmet.js');
+const { helmetSVGString } = require('../../public/assets/games/helmets/helmet.js');
 
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 const USER_AGENT = 'TGB Takeover Hero Maker/1.0';
 
-const ASSET_DIR = path.resolve(__dirname, '..', '..', 'assets', 'games', 'takeover-hero');
+const ASSET_DIR = path.resolve(__dirname, '..', '..', 'public', 'assets', 'games', 'takeover-hero');
 // Domain-relative URL: resolves to localhost during local dev and to
 // thegamebureau.com in production -- one stored value, works in both contexts.
 const ASSET_URL_BASE = '/assets/games/takeover-hero';
+
+const SPECIAL_HEROES = {
+  'nfl2026-20261025-pit-no-no-saint-denis': {
+    fanCode: 'NO',
+    composer: 'helmet-eiffel',
+  },
+};
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const ONLY_ARG = process.argv.find((arg) => arg.startsWith('--only='));
@@ -97,8 +104,8 @@ async function main() {
 
   fs.mkdirSync(ASSET_DIR, { recursive: true });
 
-  const games = await fetchTakeoverNflLogoGames();
-  console.log(`Found ${games.length} Takeover game(s) with ESPN NFL logos`);
+  const games = await fetchTakeoverGames();
+  console.log(`Found ${games.length} Takeover game(s)`);
 
   let processed = 0;
   let skipped = 0;
@@ -107,17 +114,14 @@ async function main() {
   for (const game of games) {
     if (ONLY_ID && game.id !== ONLY_ID) continue;
     try {
-      const parsed = parseGame(game);
+      const parsed = SPECIAL_HEROES[game.id] || parseGame(game);
       if (!parsed) {
         console.log(`  skip: ${game.name} (no home team in name)`);
         skipped++;
         continue;
       }
-      const { awayCode, homeCode } = parsed;
-      const awayColors = resolveColors(game, awayCode);
-      const homeColors = resolveColors(null, homeCode);
+      const png = composeGameHero(game, parsed);
 
-      const png = composeHero(awayColors, homeColors);
       const filename = `${game.id}.png`;
       const filepath = path.join(ASSET_DIR, filename);
       const newUrl = `${ASSET_URL_BASE}/${filename}`;
@@ -139,12 +143,11 @@ async function main() {
   console.log(`Processed: ${processed}  Skipped: ${skipped}  Errors: ${errors}`);
 }
 
-async function fetchTakeoverNflLogoGames() {
-  // Match games pointing at ESPN NFL logos, prior absolute thegamebureau.com
-  // hero URLs, and current domain-relative hero URLs -- so a re-run refreshes
-  // both the design and the URL scheme in place.
-  const filter = `or=(logo_url.like.https://a.espncdn.com/i/teamlogos/nfl/*,logo_url.like.https://thegamebureau.com/assets/games/takeover-hero/*,logo_url.like.${ASSET_URL_BASE}/*)`;
-  const url = `${SUPABASE_URL}/rest/v1/games?name=ilike.*Takeover*&${filter}&select=id,name,logo_url,primary_color,secondary_color,tertiary_color&order=name.asc`;
+async function fetchTakeoverGames() {
+  // Fetch all takeover games so older flag/photo/mascot art can be normalized
+  // to the current helmet hero treatment too. parseGame still limits normal
+  // generation to NFL-team-vs-NFL-team titles.
+  const url = `${SUPABASE_URL}/rest/v1/games?name=ilike.*Takeover*&select=id,name,logo_url,primary_color,secondary_color,tertiary_color&order=name.asc`;
   const response = await fetch(url, {
     headers: {
       apikey: SUPABASE_KEY,
@@ -157,6 +160,17 @@ async function fetchTakeoverNflLogoGames() {
     throw new Error(`Supabase fetch failed: ${response.status} ${await response.text()}`);
   }
   return response.json();
+}
+
+function composeGameHero(game, parsed) {
+  if (parsed.composer === 'helmet-eiffel') {
+    return composeHelmetEiffelHero(resolveColors(game, parsed.fanCode));
+  }
+
+  const { awayCode, homeCode } = parsed;
+  const awayColors = resolveColors(game, awayCode);
+  const homeColors = resolveColors(null, homeCode);
+  return composeHero(awayColors, homeColors);
 }
 
 async function patchGameLogo(gameId, logoUrl) {
@@ -254,6 +268,96 @@ function composeHero(awayColors, homeColors) {
   drawHelmet(buf, HERO_W, HERO_H, homeColors, SMALL_OX, SMALL_OY, SMALL_SCALE, true);
   drawHelmet(buf, HERO_W, HERO_H, awayColors, LARGE_OX, LARGE_OY, LARGE_SCALE, false);
   return encodePNG(HERO_W, HERO_H, buf);
+}
+
+function composeHelmetEiffelHero(fanColors) {
+  const bg = [0x52, 0x51, 0x4c];
+  const buf = Buffer.alloc(HERO_W * HERO_H * 3);
+  for (let i = 0; i < HERO_W * HERO_H; i++) {
+    const x = i % HERO_W;
+    const y = Math.floor(i / HERO_W);
+    const glow = Math.max(0, 1 - Math.hypot((x - 840) / 640, (y - 350) / 520));
+    buf[i * 3] = clampByte(bg[0] + glow * 22);
+    buf[i * 3 + 1] = clampByte(bg[1] + glow * 18);
+    buf[i * 3 + 2] = clampByte(bg[2] + glow * 8);
+  }
+
+  drawPixelGrid(buf, HERO_W, HERO_H, [
+    '00000000200000000',
+    '00000002220000000',
+    '00000000200000000',
+    '00000001110000000',
+    '00000001110000000',
+    '00000001110000000',
+    '00000001110000000',
+    '00000001110000000',
+    '00000001110000000',
+    '00000001110000000',
+    '00022222222220000',
+    '00000001110000000',
+    '00000001110000000',
+    '00000011111000000',
+    '00000111011100000',
+    '00001110001110000',
+    '00011100000111000',
+    '00022222222222000',
+    '00011100000111000',
+    '00111000000011100',
+    '00110000000001100',
+    '01110000000001110',
+    '01100000000000110',
+    '11100000000000111',
+    '11000000000000011',
+  ], 750, 92, 18, {
+    '1': '#90918a',
+    '2': '#2c2c25',
+  });
+
+  drawHelmet(buf, HERO_W, HERO_H, fanColors, 88, 126, 35, false);
+  return encodePNG(HERO_W, HERO_H, buf);
+}
+
+function drawPixelGrid(buf, stride, height, rows, ox, oy, scale, palette) {
+  for (let row = 0; row < rows.length; row++) {
+    const line = rows[row];
+    for (let col = 0; col < line.length; col++) {
+      const color = palette[line[col]];
+      if (!color) continue;
+      drawPixelRect(buf, stride, height, ox + col * scale, oy + row * scale, scale, scale, color);
+    }
+  }
+}
+
+function drawPixelRect(buf, stride, height, x, y, w, h, color) {
+  const rgb = hexToRgb(color);
+  const x0 = Math.max(0, Math.floor(x));
+  const y0 = Math.max(0, Math.floor(y));
+  const x1 = Math.min(stride, Math.ceil(x + w));
+  const y1 = Math.min(height, Math.ceil(y + h));
+  for (let py = y0; py < y1; py++) {
+    for (let px = x0; px < x1; px++) {
+      const off = (py * stride + px) * 3;
+      buf[off] = rgb[0];
+      buf[off + 1] = rgb[1];
+      buf[off + 2] = rgb[2];
+    }
+  }
+}
+
+function drawBlockLine(buf, stride, height, x0, y0, x1, y1, thickness, color) {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / Math.max(4, thickness * 0.55)));
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const x = x0 + dx * t;
+    const y = y0 + dy * t;
+    drawPixelRect(buf, stride, height, x - thickness / 2, y - thickness / 2, thickness, thickness, color);
+  }
+}
+
+function clampByte(value) {
+  return Math.max(0, Math.min(255, Math.round(value)));
 }
 
 function drawHelmet(buf, stride, height, colors, ox, oy, scale, mirror) {
