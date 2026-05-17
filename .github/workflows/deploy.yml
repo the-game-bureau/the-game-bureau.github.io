@@ -46,18 +46,21 @@ jobs:
       - name: Build public site
         run: |
           mkdir -p _site
-          cp index.html _site/index.html
-          # Apex / hosting metadata belongs at site root
-          [ -f public/CNAME ]     && cp public/CNAME     _site/CNAME     || true
-          [ -f public/.nojekyll ] && cp public/.nojekyll _site/.nojekyll || true
+          # Mirror public/ to BOTH the site root and /public/ on the live
+          # site. The root copy gives clean URLs like /library.html and
+          # /assets/foo.png. The /public/ copy keeps legacy references
+          # (DB asset URLs that include /public/, internal links like
+          # ../public/index.html) working too. CNAME and .nojekyll live
+          # in public/ and end up at _site/ root automatically.
           rsync -av \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='README.md' \
-            --exclude='CNAME' \
-            --exclude='.nojekyll' \
             --filter='dir-merge,- .gitignore' \
             --exclude='private/' \
+            public/ _site/
+          rsync -av \
+            --filter='dir-merge,- .gitignore' \
             public/ _site/public/
           rsync -av \
             --filter='dir-merge,- .gitignore' \
