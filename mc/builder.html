@@ -9197,10 +9197,34 @@ body.builder-auth-ready .builder-auth-signout{
 
 .builder-admin-topbar{
   display:flex;
-  justify-content:flex-end;
+  justify-content:space-between;
+  align-items:center;
   width:100%;
   max-width:1180px;
   margin:0 auto 18px;
+}
+.builder-admin-topbar .home-icon-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:44px;
+  min-width:44px;
+  height:42px;
+  padding:0;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:rgba(255,255,255,0.92);
+  color:var(--bic-blue);
+  text-decoration:none;
+  transition:background 0.15s, color 0.15s;
+}
+.builder-admin-topbar .home-icon-btn:hover{
+  background:#fff;
+}
+.builder-admin-topbar .home-icon-btn svg{
+  display:block;
+  width:22px;
+  height:22px;
 }
 .builder-admin-topbar-inner{
   display:flex;
@@ -9684,8 +9708,14 @@ html.admin-embedded .builder-section-head{
   </div>
   <div class="app-shell">
     <main class="games-page builder-editor-page">
-      <!-- Admin topbar: right-aligned Admin dropdown and sign-out icon. -->
+      <!-- Admin topbar: home button on the left, admin nav + sign-out on the right. -->
       <div class="builder-admin-topbar">
+        <a class="home-icon-btn" href="../index.html" aria-label="Home" title="Home">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 13 8 8.5 8 6h2.5v.5L12 5 21 13" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M5 13V20h5v-3a2 2 0 0 1 4 0v3H19V13" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
         <div class="builder-admin-topbar-inner">
           <nav class="admin-nav">
             <a class="admin-nav-link admin-nav-link--active" href="builder.html" aria-current="page">Builder</a>
@@ -16066,6 +16096,10 @@ function canPlayCurrentGame() {
 }
 
 function updateActionUi() {
+  if (pendingActionUiFrame) {
+    window.cancelAnimationFrame(pendingActionUiFrame);
+    pendingActionUiFrame = 0;
+  }
   const isSaveBusy = state.saveUiState === 'saving' || state.saveUiState === 'loading';
   const canSave = canSaveCurrentGame();
   const canPlay = canPlayCurrentGame();
@@ -19005,7 +19039,42 @@ function syncRenderedMessageNodeHeights() {
 
 let isSyncingRenderedMessageHeights = false;
 
+let pendingRenderFrame = 0;
+function scheduleRender() {
+  if (pendingRenderFrame) return;
+  pendingRenderFrame = window.requestAnimationFrame(() => {
+    pendingRenderFrame = 0;
+    renderAll();
+  });
+}
+
+let pendingSelectionUiFrame = 0;
+let pendingSelectionUiOptions = null;
+function scheduleUpdateSelectionUi(options) {
+  if (options) pendingSelectionUiOptions = options;
+  if (pendingSelectionUiFrame) return;
+  pendingSelectionUiFrame = window.requestAnimationFrame(() => {
+    pendingSelectionUiFrame = 0;
+    const opts = pendingSelectionUiOptions || undefined;
+    pendingSelectionUiOptions = null;
+    updateSelectionUi(opts);
+  });
+}
+
+let pendingActionUiFrame = 0;
+function scheduleUpdateActionUi() {
+  if (pendingActionUiFrame) return;
+  pendingActionUiFrame = window.requestAnimationFrame(() => {
+    pendingActionUiFrame = 0;
+    updateActionUi();
+  });
+}
+
 function renderAll() {
+  if (pendingRenderFrame) {
+    window.cancelAnimationFrame(pendingRenderFrame);
+    pendingRenderFrame = 0;
+  }
   applyPhoneThreadLayout();
   updatePhoneChrome();
   applyZoom();
@@ -19232,6 +19301,11 @@ function updateObjectInspectorUi(node, link, copyText) {
 }
 
 function updateSelectionUi(options = {}) {
+  if (pendingSelectionUiFrame) {
+    window.cancelAnimationFrame(pendingSelectionUiFrame);
+    pendingSelectionUiFrame = 0;
+    pendingSelectionUiOptions = null;
+  }
   syncGameIdToUrl();
   const skipRecoverySync = !!options.skipRecoverySync;
   const selectedNode = getNode(state.selectedId);
@@ -20649,7 +20723,9 @@ function serializeDoc() {
 }
 
 function setSaveStatus(kind, text) {
-  state.saveUiState = kind || 'idle';
+  const next = kind || 'idle';
+  if (state.saveUiState === next) return;
+  state.saveUiState = next;
   updateActionUi();
   updateSelectionUi({ skipRecoverySync: true });
 }
@@ -20760,13 +20836,18 @@ function syncRecoveryDraftNow(options = {}) {
 function scheduleRecoverySync(options = {}) {
   if (state.suspendRecoverySync) return;
 
-  if (!shouldKeepRecoveryDraft()) {
-    clearRecoveryDraft();
-    return;
-  }
-
-  if (options.markDirty !== false && hasPendingSaveChanges()) {
-    setSaveStatus('unsaved');
+  // Hot path: once we're already showing "unsaved", skip the
+  // JSON-stringify-based dirty checks. The save-on-debounce timer below
+  // still re-arms each call so localStorage gets the latest snapshot.
+  const alreadyDirty = state.saveUiState === 'unsaved';
+  if (!alreadyDirty) {
+    if (!shouldKeepRecoveryDraft()) {
+      clearRecoveryDraft();
+      return;
+    }
+    if (options.markDirty !== false && hasPendingSaveChanges()) {
+      setSaveStatus('unsaved');
+    }
   }
 
   if (options.immediate) {
@@ -21273,7 +21354,7 @@ nodeTitleInput.addEventListener('input', () => {
   if (!node || node.type !== 'game') return;
   node.title = nodeTitleInput.value || TYPE_CONFIG[node.type].title;
   renderGamePickerSelect();
-  renderAll();
+  scheduleRender();
 });
 
 objectStopNameInput.addEventListener('input', () => {
@@ -21281,7 +21362,7 @@ objectStopNameInput.addEventListener('input', () => {
   if (!node || node.type !== 'stop') return;
   objectStopNameInput.value = normalizeWaypointTitle(objectStopNameInput.value, TYPE_CONFIG.stop.title);
   node.title = objectStopNameInput.value || TYPE_CONFIG.stop.title;
-  renderAll();
+  scheduleRender();
 });
 
 stopNameInput.addEventListener('input', () => {
@@ -21289,7 +21370,7 @@ stopNameInput.addEventListener('input', () => {
   if (!node || node.type !== 'stop') return;
   stopNameInput.value = normalizeWaypointTitle(stopNameInput.value, TYPE_CONFIG.stop.title);
   node.title = stopNameInput.value || TYPE_CONFIG.stop.title;
-  renderAll();
+  scheduleRender();
 });
 
 
@@ -21298,7 +21379,7 @@ objectVarNameInput.addEventListener('input', () => {
   if (!node || node.type !== 'reply') return;
   node.varName = normalizeVariableName(objectVarNameInput.value);
   refreshVarNameHint();
-  renderAll();
+  scheduleRender();
 });
 
 objectWaypointGroupButtons.forEach((button) => {
@@ -21327,7 +21408,7 @@ if (objectButtonNameInput) {
     const node = getNode(state.selectedId);
     if (!node || node.type !== 'button') return;
     node.title = objectButtonNameInput.value || TYPE_CONFIG[node.type].title;
-    renderAll();
+    scheduleRender();
   });
 }
 
@@ -21336,7 +21417,7 @@ varNameInput.addEventListener('input', () => {
   if (!node || node.type !== 'reply') return;
   node.varName = normalizeVariableName(varNameInput.value);
   refreshVarNameHint();
-  renderAll();
+  scheduleRender();
 });
 
 const savedAnswerBodies = new Map();
@@ -21481,7 +21562,7 @@ varValueInputs.forEach((input, i) => {
     if (!node || node.type !== 'ask') return;
     node.varValues = normalizeVarValues(node.varValues);
     node.varValues[i] = input.value;
-    renderAll();
+    scheduleRender();
   });
 });
 
@@ -21503,20 +21584,17 @@ varCorrectRadios.forEach((radio, i) => {
 nodeTaglineInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.tagline = nodeTaglineInput.value;
-  updateSelectionUi();
 });
 
 nodeDefaultEmojiInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.defaultEmoji = nodeDefaultEmojiInput.value;
-  updateSelectionUi();
 });
 
 if (nodeGameDateInput) {
   nodeGameDateInput.addEventListener('input', () => {
     if (!getGameNode() || !state.currentGameMeta) return;
     state.currentGameMeta.gameDate = nodeGameDateInput.value;
-    updateSelectionUi();
   });
 }
 
@@ -21524,7 +21602,6 @@ if (nodeGameStartTimeInput) {
   nodeGameStartTimeInput.addEventListener('input', () => {
     if (!getGameNode() || !state.currentGameMeta) return;
     state.currentGameMeta.startTime = nodeGameStartTimeInput.value;
-    updateSelectionUi();
   });
 }
 
@@ -21532,7 +21609,6 @@ if (nodeGameEndTimeInput) {
   nodeGameEndTimeInput.addEventListener('input', () => {
     if (!getGameNode() || !state.currentGameMeta) return;
     state.currentGameMeta.endTime = nodeGameEndTimeInput.value;
-    updateSelectionUi();
   });
 }
 
@@ -21541,7 +21617,6 @@ if (nodeCityInput) {
   nodeCityInput.addEventListener('input', () => {
     if (!getGameNode() || !state.currentGameMeta) return;
     state.currentGameMeta.city = nodeCityInput.value;
-    updateSelectionUi();
     // Auto-fill coordinates from city if blank
     if (nodeCoordinatesInput && !nodeCoordinatesInput.value.trim() && state.currentGameMeta.city.trim()) {
       clearTimeout(nodeCityInput._geoTimer);
@@ -21656,7 +21731,6 @@ function onStartLocationInput() {
   } else {
     setStartLocationStatus('', '');
   }
-  updateSelectionUi();
 }
 
 if (nodeStartLocationInput) nodeStartLocationInput.addEventListener('input', onStartLocationInput);
@@ -21665,20 +21739,17 @@ if (nodeStartLocationInput) nodeStartLocationInput.addEventListener('input', onS
 nodeHowToPlayInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.howToPlay = nodeHowToPlayInput.value;
-  updateSelectionUi();
 });
 
 nodeGuideNameInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.guideName = nodeGuideNameInput.value;
-  updateSelectionUi();
   updatePhoneChrome();
 });
 
 nodeGuideBioInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.guideBio = nodeGuideBioInput.value;
-  updateSelectionUi();
 });
 
 nodeGameLogoInput.addEventListener('input', () => {
@@ -21686,7 +21757,6 @@ nodeGameLogoInput.addEventListener('input', () => {
   syncSelectedGameLogoFromInput();
   const node = getGameNode();
   if (!node || node.type !== 'game') return;
-  updateSelectionUi();
 });
 
 nodeGameLogoInput.addEventListener('change', () => {
@@ -21731,7 +21801,7 @@ if (objectBubbleImageInput) {
     syncSelectedBubbleImageFromInput();
     const node = getNode(state.selectedId);
     updateBubbleImagePreview(node);
-    renderAll();
+    scheduleRender();
   });
   objectBubbleImageInput.addEventListener('change', () => {
     setBubbleImageAssetStatus('');
@@ -21894,7 +21964,6 @@ nodeGuideImageInput.addEventListener('input', () => {
   syncSelectedGameGuideImageFromInput();
   const node = getGameNode();
   if (!node || node.type !== 'game') return;
-  updateSelectionUi();
   updatePhoneChrome();
 });
 
@@ -21996,14 +22065,12 @@ if (guideImageLightboxCloseBtn) {
 nodePriceInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.price = nodePriceInput.value;
-  updateSelectionUi();
 });
 
 if (nodeCheckoutUrlInput) {
   nodeCheckoutUrlInput.addEventListener('input', () => {
     if (!getGameNode() || !state.currentGameMeta) return;
     state.currentGameMeta.checkoutUrl = nodeCheckoutUrlInput.value;
-    updateSelectionUi();
   });
 }
 
@@ -22023,7 +22090,7 @@ teamInputs.forEach((inp, i) => {
     if (!getGameNode() || !state.currentGameMeta) return;
     setTeamFieldValue(state.currentGameMeta, i, inp.value);
     scheduleRecoverySync();
-    updateActionUi();
+    scheduleUpdateActionUi();
   });
 });
 
@@ -22339,7 +22406,7 @@ function scheduleIntroRecoverySync() {
 nodeBodyInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.body = nodeBodyInput.value;
-  updateActionUi();
+  scheduleUpdateActionUi();
   scheduleIntroRecoverySync();
 });
 
@@ -22359,7 +22426,7 @@ objectBodyInput.addEventListener('input', () => {
   node.body = objectBodyInput.value;
   refreshReplyBodyHint();
   rememberGuideInsertSelection();
-  renderAll();
+  scheduleRender();
   updateVariableAutocomplete();
 });
 
@@ -22533,7 +22600,7 @@ if (gameNotesInput) {
     const statusEl = document.getElementById('gameNotesSaveStatus');
     if (statusEl) statusEl.textContent = 'UNSAVED';
     _notesDirty = true;
-    updateActionUi();
+    scheduleUpdateActionUi();
   });
 }
 
@@ -23314,7 +23381,7 @@ window.addEventListener('beforeunload', (event) => {
 if (inspector) {
   inspector.addEventListener('input', (e) => {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
-      updateActionUi();
+      scheduleUpdateActionUi();
     }
   });
 }

@@ -25,7 +25,7 @@ const USER_AGENT = 'TGB Takeover Hero Maker/1.0';
 const ASSET_DIR = path.resolve(__dirname, '..', '..', 'public', 'assets', 'games', 'takeover-hero');
 // Domain-relative URL: resolves to localhost during local dev and to
 // thegamebureau.com in production -- one stored value, works in both contexts.
-const ASSET_URL_BASE = '/assets/games/takeover-hero';
+const ASSET_URL_BASE = '/public/assets/games/takeover-hero';
 
 const SPECIAL_HEROES = {
   'nfl2026-20261025-pit-no-no-saint-denis': {
