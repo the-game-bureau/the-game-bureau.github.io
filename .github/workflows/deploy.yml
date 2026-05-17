@@ -45,13 +45,23 @@ jobs:
 
       - name: Build public site
         run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+          # Apex / hosting metadata belongs at site root
+          [ -f public/CNAME ]     && cp public/CNAME     _site/CNAME     || true
+          [ -f public/.nojekyll ] && cp public/.nojekyll _site/.nojekyll || true
           rsync -av \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='README.md' \
+            --exclude='CNAME' \
+            --exclude='.nojekyll' \
             --filter='dir-merge,- .gitignore' \
             --exclude='private/' \
-            public/ _site/
+            public/ _site/public/
+          rsync -av \
+            --filter='dir-merge,- .gitignore' \
+            game/ _site/game/
 
       - uses: actions/upload-pages-artifact@v3
         with:
