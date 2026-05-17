@@ -1,0 +1,1062 @@
+
+
+
+
+<!DOCTYPE html>
+<html lang="en" class="m-0 p-0">
+<head>
+    <meta charset="utf-8" />
+    <title>Scan for clues | The Game Bureau</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="#0d1117" />
+    <meta name="theme-color" content="#0d1117" />
+    <link rel="icon" href="../../site/assets/brand/tgb.ico" type="image/x-icon">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.9.0/css/all.min.css" integrity="sha256-UzFD2WYH2U1dQpKDjjZK72VtPeWP50NoJjd26rnAdUI=" crossorigin="anonymous" />
+
+
+
+    <style>
+
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --accent-blue: #00d4ff;
+            --accent-purple: #7c3aed;
+            --accent-pink: #ec4899;
+            --accent-green: #10b981;
+            --accent-orange: #f59e0b;
+            --accent-red: #ef4444;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --glass-bg: rgba(33, 38, 45, 0.8);
+        }
+
+        body {
+            background: var(--bg-primary) !important;
+            font-family: 'Inter Tight', sans-serif;
+            color: var(--text-primary);
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* Animated holographic background */
+        .holo-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.05) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(124, 58, 237, 0.05) 0%, transparent 50%), radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.03) 0%, transparent 50%);
+            z-index: -2;
+        }
+
+        /* Glass morphism cards */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+            .glass-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 1px;
+                background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+                animation: shimmer 4s infinite;
+            }
+
+        @keyframes shimmer {
+            0% {
+                left: -100%;
+            }
+
+            100% {
+                left: 100%;
+            }
+        }
+
+        /* Neural scanner interface */
+        .scanner-main {
+            width: 300px;
+            height: 300px;
+            position: relative;
+            margin: 0 auto;
+        }
+
+        .scanner-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            border: 2px solid transparent;
+        }
+
+        .scanner-ring-1 {
+            width: 325px;
+            height: 325px;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 30px var(--accent-blue);
+            animation: rotate 8s linear infinite;
+        }
+
+        .scanner-ring-2 {
+            width: 225px;
+            height: 225px;
+            border-color: var(--accent-purple);
+            border-style: dashed;
+            animation: rotate 6s linear infinite reverse;
+        }
+
+        .scanner-ring-3 {
+            width: 125px;
+            height: 125px;
+            border-color: var(--accent-pink);
+            animation: rotate 4s linear infinite;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: translate(-50%, -50%) rotate(0deg);
+            }
+
+            to {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+
+        /* Neural network pattern */
+        .neural-core {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle, var(--accent-blue) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: neuralPulse 2s ease-in-out infinite;
+        }
+
+        .neural-core.found {
+            background: radial-gradient(circle, var(--accent-red) 0%, transparent 70%);
+            animation: neuralPulse 0.35s ease-in-out infinite;
+        }
+
+        @keyframes neuralPulse {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.8;
+            }
+
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 0.4;
+            }
+        }
+
+        /* Clue dot on radar */
+        .clue-dot {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: var(--accent-red);
+            border: 2px solid rgba(239, 68, 68, 0.5);
+            border-radius: 50%;
+            box-shadow: 0 0 20px var(--accent-red);
+            display: none;
+            animation: cluePulse 1.5s ease-in-out infinite;
+            z-index: 10;
+        }
+
+        @keyframes cluePulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.3);
+                opacity: 0.7;
+            }
+        }
+
+        /* Scanning beam */
+        .scan-beam {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 3px;
+            height: 175px;
+            background: linear-gradient(to bottom, var(--accent-blue), transparent);
+            transform-origin: bottom center;
+            animation: beamSweep 3s linear infinite;
+            filter: blur(1px);
+        }
+
+        @keyframes beamSweep {
+            0% {
+                transform: translate(-50%, -100%) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(-50%, -100%) rotate(360deg);
+            }
+        }
+
+        /* Holographic display */
+        .holo-display {
+            position: relative;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 3rem;
+            font-weight: 600;
+            text-align: center;
+            color: var(--accent-blue);
+            text-shadow: 0 0 20px currentColor;
+            display: none;
+            white-space: nowrap;
+            word-spacing: -15px;
+            z-index: 20;
+        }
+
+        /* Status indicators */
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 8px;
+            animation: statusBlink 2s infinite;
+        }
+
+        .status-active {
+            background: var(--accent-green);
+        }
+
+        .status-warning {
+            background: var(--accent-orange);
+        }
+
+        .status-error {
+            background: var(--accent-red);
+        }
+
+        @keyframes statusBlink {
+            0%, 50% {
+                opacity: 1;
+            }
+
+            51%, 100% {
+                opacity: 0.3;
+            }
+        }
+
+        /* Compass enhancement */
+        .neural-compass {
+            width: 70px;
+            height: 70px;
+            border: 2px solid var(--accent-purple);
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(124, 58, 237, 0.1) 0%, transparent 70%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+        }
+
+            .neural-compass::before {
+                content: '';
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                border-radius: 50%;
+                border: 1px solid rgba(124, 58, 237, 0.3);
+                animation: compassPulse 3s infinite;
+            }
+
+        @keyframes compassPulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.3);
+                opacity: 0;
+            }
+        }
+
+        .compass-needle {
+            color: var(--accent-pink);
+            filter: drop-shadow(0 0 10px var(--accent-pink));
+        }
+
+            .compass-needle.found-spin {
+                animation: compassSpin .1s linear infinite;
+                color: var(--accent-red);
+                filter: drop-shadow(0 0 15px var(--accent-red));
+            }
+
+        @keyframes compassSpin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Modern typography */
+        .neural-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .data-label {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .data-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+
+        /* State transitions */
+        .state-scanning {
+            --primary-color: var(--accent-blue);
+        }
+
+        .state-scanning .scanner-ring-1 {
+            animation: scanPulse 1.5s ease-in-out infinite;
+        }
+
+        .state-found {
+            --primary-color: var(--accent-red);
+        }
+
+            .state-found .scanner-ring-1 {
+                border-color: var(--accent-red);
+                box-shadow: 0 0 40px var(--accent-red);
+                animation: foundPulse 0.3s ease-in-out infinite;
+            }
+
+        @keyframes scanPulse {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            50% {
+                transform: translate(-50%, -50%) scale(1.025);
+            }
+        }
+
+        @keyframes foundPulse {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            50% {
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+        }
+
+        /* Neural button */
+        .neural-btn {
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            font-family: 'Inter Tight', sans-serif;
+            font-weight: 500;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+            .neural-btn::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(236, 72, 153, 0.1), transparent);
+                transition: left 0.5s;
+            }
+
+            .neural-btn:hover {
+                color: var(--text-primary);
+            }
+
+        /* Progress indicators */
+        .progress-neural {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            border-radius: 2px;
+            animation: progressFlow 2s ease-in-out infinite;
+        }
+
+        @keyframes progressFlow {
+            0%, 100% {
+                width: 20%;
+            }
+
+            50% {
+                width: 80%;
+            }
+        }
+
+        /* Game-picker dropdown — themed to match the neural-btn look. */
+        .game-picker {
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            font-family: 'Inter Tight', sans-serif;
+            font-size: 0.9rem;
+            padding: 0.55rem 0.85rem;
+            border-radius: 8px;
+            width: 100%;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image:
+                linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%),
+                linear-gradient(45deg, transparent 50%, var(--accent-blue) 50%),
+                linear-gradient(135deg, var(--accent-blue) 50%, transparent 50%);
+            background-position: 0 0, calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+            background-size: 100% 100%, 5px 5px, 5px 5px;
+            background-repeat: no-repeat;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .game-picker:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15);
+        }
+        .game-picker:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .game-picker option {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        /* Pause all decorative animations when the tab is backgrounded. JS toggles
+           this class on visibilitychange. Saves battery while the user isn't looking. */
+        body.scanner-paused *,
+        body.scanner-paused *::before,
+        body.scanner-paused *::after {
+            animation-play-state: paused !important;
+        }
+
+
+    </style>
+
+
+
+</head>
+<body>
+
+    
+
+
+
+
+<div class="holo-bg"></div>
+
+<div class="container-fluid p-3 state-scanning" id="appContainer">
+
+    <!-- Neural compass -->
+    <div class="position-absolute top-0 start-0 p-3">
+        <div class="neural-compass" style="display: none">
+            <i id="Direction" class="fas fa-arrow-up fa-2x compass-needle"></i>
+        </div>
+    </div>
+
+    <!-- iOS compass permission gate. JS reveals this only when
+         DeviceOrientationEvent.requestPermission is available (iOS 13+). -->
+    <div class="position-absolute top-0 end-0 p-3">
+        <button id="EnableCompass" class="btn neural-btn btn-sm" type="button" style="display: none;">
+            <i class="fas fa-compass me-1"></i>
+            <span class="neural-text">Enable Compass</span>
+        </button>
+    </div>
+
+    <!-- Error banner — shown by JS on geolocation error, /next failure, or server reject. -->
+    <div id="ScannerError" class="position-fixed start-50 translate-middle-x glass-card p-3"
+         style="top: 16px; display: none; max-width: 420px; width: 90%; z-index: 100;">
+        <div id="ScannerErrorMessage" class="neural-text text-center mb-2"
+             style="color: var(--accent-red); font-size: 0.9rem;"></div>
+        <div class="d-grid">
+            <button id="ScannerRetry" class="btn neural-btn btn-sm" type="button" style="display: none;">
+                <span class="neural-text">Retry</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main scanner interface -->
+    <div class="d-flex justify-content-center align-items-center" style="min-height: 50vh; margin-top: 10px;">
+        <div class="scanner-main">
+            <div class="scanner-ring scanner-ring-1"></div>
+            <div class="scanner-ring scanner-ring-2"></div>
+            <div class="scanner-ring scanner-ring-3"></div>
+            <div class="neural-core"></div>
+            <div class="scan-beam"></div>
+            <div id="clueDot" class="clue-dot"></div>
+        </div>
+    </div>
+
+    <!-- Neural interface panel -->
+    <div class="position-fixed" style="bottom: 82px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 420px;">
+        <div id="Distance" class="holo-display"></div>
+        <div class="glass-card p-4">
+            <!-- Game picker — sets the scanner target to a TGB game's starting coordinates. -->
+            <div class="mb-3">
+                <div class="data-label">Target Game</div>
+                <select id="gameSelect" class="game-picker" disabled>
+                    <option value="">Loading games…</option>
+                </select>
+            </div>
+
+            <!-- Status display -->
+            <div class="text-center mb-3">
+                <div id="Scanning" class="neural-text lh-1 mb-3" style="font-size: 1.3rem; color: var(--accent-blue);">
+                    Area Scan Analysis
+                </div>
+            </div>
+
+            <!-- Coordinate display -->
+            <div class="row g-3 mb-3">
+                <div class="col-4">
+                    <div class="data-label">Latitude</div>
+                    <div class="data-value" id="lat">---.-----</div>
+                </div>
+                <div class="col-4">
+                    <div class="data-label">Longitude</div>
+                    <div class="data-value" id="lon">---.-----</div>
+                </div>
+                <div class="col-4 ps-4">
+                    <div class="data-label">Precision</div>
+                    <div class="data-value">
+                        <span id="acu">SYNC</span>
+                        <span class="status-indicator status-warning" id="accIndicator"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System status -->
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="data-label">Neural Array</span>
+                        <span class="neural-text" style="font-size: 0.7rem; color: var(--accent-green);">ONLINE</span>
+                    </div>
+                    <div class="progress-neural">
+                        <div class="progress-fill"></div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="data-label">Quantum Field</span>
+                        <span class="neural-text" style="font-size: 0.7rem; color: var(--accent-purple);">STABLE</span>
+                    </div>
+                    <div class="progress-neural">
+                        <div class="progress-fill" style="animation-delay: 0.7s;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Neural exit button -->
+    <div class="fixed-bottom d-grid">
+        <a class="btn neural-btn btn-lg rounded-0 py-3" href="../../site/library.html">
+            <i class="fas fa-power-off me-2"></i>
+            <span class="neural-text">Close Scanner</span>
+            <i class="fas fa-sign-out-alt ms-2"></i>
+        </a>
+    </div>
+
+    <!-- Audio disabled until the scanning/found sound files are added to site/assets/.
+         The original src pointed at /media/sounds/* (CrypticQuests). -->
+    <audio id="Audio" loop></audio>
+</div>
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js" integrity="sha384-1H217gwSVyLSIfaLxHbE7dRb3v4mYCKbpQvzx0cegeju1MVsGrX5xXxAvs/HgeFs" crossorigin="anonymous"></script>
+
+    
+
+    <script type="text/javascript">
+
+        // ----- State -------------------------------------------------------
+        let watchId = null;
+        let delayed = false;
+        let found = false;
+        let nextClueId = null;
+        let clueLatitude, clueLongitude;
+        let clueRadiusMeters;
+        let clueDistance;            // feet, clamped >= 0, for UI readout
+        let clueDirection;           // 0-360 deg, bearing from player to clue
+        let deviceDirection = 0;     // compass heading, used as the stationary fallback for the arrow
+        let gpsHeading = null;       // GPS-derived travel heading (degrees, 0 = N). Primary arrow source while moving.
+        let gpsHeadingFreshUntil = 0; // Date.now() cutoff — past this, gpsHeading is stale and we fall back to compass.
+        let fixBuffer = [];          // last ~5 GPS fixes: { lat, lon, ts }. Used to derive heading when crd.heading is null.
+        let currentState = null;     // 'scanning' | 'nearby' — cached to skip per-tick DOM writes
+        let wakeLock = null;
+
+        // ----- Cached DOM refs ---------------------------------------------
+        const appContainer = document.getElementById('appContainer');
+        const clueDot = document.getElementById('clueDot');
+        const scanningEl = document.getElementById('Scanning');
+        const distanceEl = document.getElementById('Distance');
+        const latEl = document.getElementById('lat');
+        const lonEl = document.getElementById('lon');
+        const accEl = document.getElementById('acu');
+        const accIndicator = document.getElementById('accIndicator');
+        const directionEl = document.getElementById('Direction');
+        const neuralCompass = document.querySelector('.neural-compass');
+        const neuralCore = document.querySelector('.neural-core');
+        const scanBeam = document.querySelector('.scan-beam');
+        const scannerRing2 = document.querySelector('.scanner-ring-2');
+        const scannerRing3 = document.querySelector('.scanner-ring-3');
+        const audioEl = document.getElementById('Audio');
+        const errorBanner = document.getElementById('ScannerError');
+        const errorMessage = document.getElementById('ScannerErrorMessage');
+        const retryBtn = document.getElementById('ScannerRetry');
+        const enableCompassBtn = document.getElementById('EnableCompass');
+        const gameSelect = document.getElementById('gameSelect');
+
+        // ----- Supabase config (matches site/library.html) -----------------
+        const SB_CONFIG = {
+            url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+            key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
+            table: 'games'
+        };
+
+        // Fallback radius for games whose row has no per-stop radius value.
+        // 25 m ≈ 82 ft — close enough to feel "you're here" without false positives.
+        const DEFAULT_CLUE_RADIUS_METERS = 25;
+
+        // ----- Error banner ------------------------------------------------
+        function showError(msg, retryable) {
+            errorMessage.textContent = msg;
+            retryBtn.style.display = retryable ? '' : 'none';
+            errorBanner.style.display = '';
+        }
+        function hideError() {
+            errorBanner.style.display = 'none';
+        }
+        retryBtn.addEventListener('click', function () {
+            hideError();
+            loadGames();
+        });
+
+        // ----- Load TGB games from Supabase into the dropdown ---------------
+        // Games with no starting coordinates are skipped — they can't be scanned to.
+        function loadGames() {
+            const url = new URL('rest/v1/' + SB_CONFIG.table, SB_CONFIG.url.replace(/\/+$/, '') + '/');
+            url.searchParams.set('apikey', SB_CONFIG.key);
+            url.searchParams.set('select', 'id,name,city,starting_location_lat,starting_location_lon,archived,erased');
+            url.searchParams.set('order', 'name.asc');
+
+            fetch(url.toString())
+                .then(function (r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(function (rows) {
+                    const games = (Array.isArray(rows) ? rows : []).filter(function (g) {
+                        if (!g) return false;
+                        if (g.archived || g.erased) return false;
+                        return typeof g.starting_location_lat === 'number'
+                            && typeof g.starting_location_lon === 'number';
+                    });
+                    if (!games.length) {
+                        showError('No games with starting coordinates found.', true);
+                        return;
+                    }
+                    populateGameSelect(games);
+                    hideError();
+                })
+                .catch(function () {
+                    showError('Unable to load games from Supabase. Check your connection and retry.', true);
+                });
+        }
+
+        function populateGameSelect(games) {
+            // Cache the lookup so the change handler doesn't need to refetch.
+            const byId = new Map();
+            games.forEach(function (g) { byId.set(g.id, g); });
+
+            gameSelect.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select a game…';
+            gameSelect.appendChild(placeholder);
+
+            games.forEach(function (g) {
+                const opt = document.createElement('option');
+                opt.value = g.id;
+                opt.textContent = g.city ? (g.name + ' — ' + g.city) : g.name;
+                gameSelect.appendChild(opt);
+            });
+
+            gameSelect.disabled = false;
+            gameSelect.addEventListener('change', function () {
+                const game = byId.get(gameSelect.value);
+                if (!game) {
+                    // Placeholder selected — clear the target so the scanner pauses.
+                    nextClueId = null;
+                    clueLatitude = clueLongitude = clueRadiusMeters = undefined;
+                    setState('scanning');
+                    return;
+                }
+                nextClueId = game.id;
+                clueLatitude = game.starting_location_lat;
+                clueLongitude = game.starting_location_lon;
+                clueRadiusMeters = DEFAULT_CLUE_RADIUS_METERS;
+                hideError();
+            });
+        }
+
+        loadGames();
+
+        // 2-second initial delay before allowing Found lock-in. Intentional UX:
+        // if the player opens the scanner already inside the radius, they get a
+        // couple of seconds of radar animation before the clue "locks" so the
+        // scanner feels alive rather than insta-solving. GPS ticks during this
+        // window still drive the radar/compass — only the found POST is gated.
+        setTimeout(function () { delayed = true; }, 2000);
+
+        const options = {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 10
+        };
+
+        // ----- Math helpers ------------------------------------------------
+        function toRad(d) { return d * Math.PI / 180; }
+        function toDeg(r) { return r * 180 / Math.PI; }
+
+        function haversineMeters(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return 2 * R * Math.asin(Math.sqrt(a));
+        }
+
+        function bearingDeg(lat1, lon1, lat2, lon2) {
+            const dLon = toRad(lon2 - lon1);
+            const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+            const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                      Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+            return (toDeg(Math.atan2(y, x)) + 360) % 360;
+        }
+
+        // ----- Heading source selection ------------------------------------
+        // GPS-derived travel heading is immune to compass miscalibration, but is only
+        // available while the player is actually moving. When fresh, it drives the arrow;
+        // otherwise fall back to the device compass so there's still *an* arrow visible.
+        // Taking a few steps in any direction causes GPS to take over and self-correct
+        // whatever the compass had wrong.
+        const GPS_HEADING_FRESH_MS = 4000;       // treat gpsHeading as fresh for ~4s after the last qualifying motion
+        const GPS_SPEED_THRESHOLD_MPS = 0.5;     // crd.speed below this = not really moving
+        const BUFFER_DISPLACEMENT_THRESHOLD_M = 3;  // buffer-derived heading requires this much total travel
+
+        function updateGpsHeading(crd) {
+            fixBuffer.push({ lat: crd.latitude, lon: crd.longitude, ts: Date.now() });
+            if (fixBuffer.length > 5) fixBuffer.shift();
+
+            // Preferred source: browser-provided heading when speed is above walking-in-place noise.
+            if (typeof crd.speed === 'number' && isFinite(crd.speed) && crd.speed >= GPS_SPEED_THRESHOLD_MPS &&
+                typeof crd.heading === 'number' && isFinite(crd.heading)) {
+                gpsHeading = crd.heading;
+                gpsHeadingFreshUntil = Date.now() + GPS_HEADING_FRESH_MS;
+                return;
+            }
+
+            // Fallback: bearing from the oldest to newest buffered fix, if the player has
+            // actually covered enough ground to trust the direction.
+            if (fixBuffer.length >= 2) {
+                const oldest = fixBuffer[0];
+                const newest = fixBuffer[fixBuffer.length - 1];
+                const displacement = haversineMeters(oldest.lat, oldest.lon, newest.lat, newest.lon);
+                if (displacement >= BUFFER_DISPLACEMENT_THRESHOLD_M) {
+                    gpsHeading = bearingDeg(oldest.lat, oldest.lon, newest.lat, newest.lon);
+                    gpsHeadingFreshUntil = Date.now() + GPS_HEADING_FRESH_MS;
+                }
+            }
+            // Otherwise: leave gpsHeading alone. Freshness window expires naturally and
+            // rotateCompass/updateClueDotPosition fall back to deviceDirection.
+        }
+
+        function getEffectiveHeading() {
+            if (gpsHeading != null && Date.now() < gpsHeadingFreshUntil) {
+                return gpsHeading;
+            }
+            return deviceDirection;
+        }
+
+        // ----- Geolocation -------------------------------------------------
+        function success(pos) {
+            const crd = pos.coords;
+            latEl.textContent = crd.latitude.toFixed(6);
+            lonEl.textContent = crd.longitude.toFixed(6);
+
+            const accuracy = (crd.accuracy * 3.28084).toFixed(0);
+            if (accuracy <= 16) {
+                accEl.textContent = 'HIGH';
+                accIndicator.className = 'status-indicator status-active';
+            } else if (accuracy <= 40) {
+                accEl.textContent = 'MED';
+                accIndicator.className = 'status-indicator status-warning';
+            } else {
+                accEl.textContent = 'LOW';
+                accIndicator.className = 'status-indicator status-error';
+            }
+
+            updateGpsHeading(crd);
+
+            if (found) return;
+            if (clueRadiusMeters == null || nextClueId == null) return;
+
+            const distanceMeters = haversineMeters(crd.latitude, crd.longitude, clueLatitude, clueLongitude);
+            clueDirection = bearingDeg(crd.latitude, crd.longitude, clueLatitude, clueLongitude).toFixed(0);
+
+            // Distance readout: feet minus radius-in-feet, clamped to 0 so we never
+            // render negative numbers inside the radius.
+            clueDistance = Math.max(0, (distanceMeters * 3.28084) - (clueRadiusMeters * 3.28084)).toFixed(0);
+
+            const isFound = distanceMeters < clueRadiusMeters;
+            const isNearby = distanceMeters < (clueRadiusMeters * 1.5);
+
+            if (isFound && delayed) {
+                // No server round-trip in the TGB version — entering the radius
+                // is the find. Lock it in directly.
+                found = true;
+                displayFound();
+            } else if (isNearby || isFound) {
+                // Pre-delay inside-radius also renders Nearby so radar/compass keep animating.
+                setState('nearby');
+            } else {
+                setState('scanning');
+            }
+
+            neuralCompass.style.display = '';
+            rotateCompass();  // update arrow on every GPS tick even if phone isn't rotating
+        }
+
+        function geolocationError(err) {
+            let msg;
+            switch (err.code) {
+                case err.PERMISSION_DENIED:
+                    msg = 'Location permission denied. Enable it in your browser or OS settings to use the scanner.';
+                    break;
+                case err.POSITION_UNAVAILABLE:
+                    msg = 'Location unavailable. Try moving somewhere with a clearer view of the sky.';
+                    break;
+                case err.TIMEOUT:
+                    msg = 'Location timed out. Make sure GPS is enabled and try again.';
+                    break;
+                default:
+                    msg = 'Unable to read your location.';
+            }
+            showError(msg, false);
+        }
+
+        watchId = navigator.geolocation.watchPosition(success, geolocationError, options);
+
+        // ----- Scan / Nearby state (only touch DOM on transition) ----------
+        function setState(newState) {
+            if (currentState !== newState) {
+                currentState = newState;
+                if (newState === 'scanning') {
+                    appContainer.className = 'container-fluid p-3 state-scanning';
+                    scanningEl.textContent = 'Area Scan Analysis';
+                    scanningEl.style.color = 'var(--accent-blue)';
+                    distanceEl.style.color = 'var(--accent-blue)';
+                } else if (newState === 'nearby') {
+                    scanningEl.textContent = 'Signature Detected';
+                    scanningEl.style.color = 'var(--accent-orange)';
+                    distanceEl.style.color = 'var(--accent-orange)';
+                    // Need an explicit value — the CSS default is display: none, so
+                    // unsetting the inline style would leave it hidden.
+                    distanceEl.style.display = 'block';
+                }
+            }
+            // Per-tick bits — distance text + radar dot position.
+            distanceEl.textContent = '~' + clueDistance + ' ft';
+            updateClueDotPosition();
+        }
+
+        // ----- Found -------------------------------------------------------
+        function displayFound() {
+            currentState = 'found';
+            appContainer.className = 'container-fluid p-3 state-found';
+            scanningEl.textContent = 'Clue Pattern Found';
+            scanningEl.style.color = 'var(--accent-red)';
+            scannerRing2.style.borderColor = 'var(--accent-red)';
+            scannerRing3.style.borderColor = 'var(--accent-red)';
+            neuralCore.classList.add('found');
+            distanceEl.style.display = 'none';
+            scanBeam.style.display = 'none';
+            directionEl.classList.add('found-spin');
+            neuralCompass.style.display = 'none';
+            clueDot.style.display = 'none';
+
+            if (watchId != null) navigator.geolocation.clearWatch(watchId);
+
+            // Audio disabled — wire up site/assets/audio/found.mp3 (and the
+            // scanning loop on the <audio> element above) once those files exist.
+
+            document.documentElement.style.filter = 'hue-rotate(60deg)';
+            setTimeout(function () { document.documentElement.style.filter = ''; }, 3000);
+        }
+
+        // ----- Radar dot + compass rotation --------------------------------
+        function updateClueDotPosition() {
+            const heading = getEffectiveHeading();
+            if (clueDistance != null && clueDirection != null && !isNaN(heading)) {
+                clueDot.style.display = 'block';
+
+                const maxRadarRadius = 100;
+                const distance = parseFloat(clueDistance);
+                const maxDisplayDistance = 150;
+                let scaledDistance = Math.min(distance / maxDisplayDistance, 1) * maxRadarRadius;
+                if (scaledDistance < 20) scaledDistance = 20;
+
+                let relativeDirection = parseFloat(clueDirection) - parseFloat(heading.toFixed(0));
+                while (relativeDirection > 180) relativeDirection -= 360;
+                while (relativeDirection < -180) relativeDirection += 360;
+
+                const directionRadians = relativeDirection * (Math.PI / 180);
+                const x = Math.sin(directionRadians) * scaledDistance;
+                const y = -Math.cos(directionRadians) * scaledDistance;
+
+                clueDot.style.left = 'calc(50% + ' + x + 'px)';
+                clueDot.style.top = 'calc(50% + ' + y + 'px)';
+                clueDot.style.transform = 'translate(-50%, -50%)';
+            } else {
+                clueDot.style.display = 'none';
+            }
+        }
+
+        function rotateCompass() {
+            const heading = getEffectiveHeading();
+            if (clueDirection == null || isNaN(heading)) return;
+            const rotation = parseFloat(clueDirection) - parseFloat(heading.toFixed(0));
+            directionEl.style.transform = 'rotate(' + rotation + 'deg)';
+        }
+
+        // ----- Orientation / compass ---------------------------------------
+        function orientationHandler(e) {
+            // webkitCompassHeading is the iOS magnetic heading (0 = north, clockwise).
+            // Elsewhere fall back to alpha — note that without the "absolute" event this
+            // is relative to the device's initial orientation, not true north, but it's
+            // the best we can do on browsers without compass support.
+            deviceDirection = (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading))
+                ? e.webkitCompassHeading
+                : (typeof e.alpha === 'number' ? Math.abs(e.alpha - 360) : 0);
+            rotateCompass();
+        }
+
+        function attachOrientationListener() {
+            // Prefer the absolute event where supported (Chrome on Android). Fall back to
+            // plain deviceorientation elsewhere (iOS, Firefox).
+            if ('ondeviceorientationabsolute' in window) {
+                window.addEventListener('deviceorientationabsolute', orientationHandler, true);
+            } else {
+                window.addEventListener('deviceorientation', orientationHandler, true);
+            }
+        }
+
+        // iOS 13+ requires an explicit user-gesture permission prompt before orientation
+        // events fire. Feature-detect and reveal the Enable Compass button in that case;
+        // everywhere else, attach immediately.
+        const needsOrientationPermission =
+            typeof DeviceOrientationEvent !== 'undefined' &&
+            typeof DeviceOrientationEvent.requestPermission === 'function';
+
+        if (needsOrientationPermission) {
+            enableCompassBtn.style.display = '';
+            enableCompassBtn.addEventListener('click', function () {
+                DeviceOrientationEvent.requestPermission().then(function (result) {
+                    if (result === 'granted') {
+                        attachOrientationListener();
+                        enableCompassBtn.style.display = 'none';
+                    }
+                }).catch(function () {
+                    // User dismissed — leave the button visible so they can retry.
+                });
+            });
+        } else {
+            attachOrientationListener();
+        }
+
+        // ----- Wake lock + visibility --------------------------------------
+        function requestWakeLock() {
+            if (!('wakeLock' in navigator)) return;
+            navigator.wakeLock.request('screen').then(function (lock) {
+                wakeLock = lock;
+            }).catch(function () {
+                // Denied (battery saver, etc.) — not fatal.
+            });
+        }
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) {
+                document.body.classList.add('scanner-paused');
+            } else {
+                document.body.classList.remove('scanner-paused');
+                // Browsers release wake locks when the page is hidden. Re-acquire on
+                // return so the phone doesn't sleep again when the user comes back.
+                requestWakeLock();
+            }
+        });
+
+        requestWakeLock();
+
+    </script>
+
+
+
+</body>
+</html>

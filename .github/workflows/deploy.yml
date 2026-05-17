@@ -28,7 +28,7 @@ jobs:
           import os, json
           exts = {'.jpg','.jpeg','.png','.gif','.svg','.webp','.avif','.ico','.bmp','.tiff','.tif'}
           exclude = {'404.webp','builder.ico','builder.png','share-thumbnail.png'}
-          assets_dir = 'public/assets'
+          assets_dir = 'site/assets'
           files = []
           for root, _, names in os.walk(assets_dir):
               for name in names:
@@ -43,28 +43,25 @@ jobs:
           print(f'Wrote {len(files)} entries to asset-manifest.json')
           EOF
 
-      - name: Build public site
+      - name: Build deploy site
         run: |
           mkdir -p _site
-          # Mirror public/ to BOTH the site root and /public/ on the live
-          # site. The root copy gives clean URLs like /library.html and
-          # /assets/foo.png. The /public/ copy keeps legacy references
-          # (DB asset URLs that include /public/, internal links like
-          # ../public/index.html) working too. CNAME and .nojekyll live
-          # in public/ and end up at _site/ root automatically.
+          # Repo root IS the site root. Three top-level sections deploy as-is:
+          # index.html (home), mc/ (admin), game/ (game runtime), site/ (the
+          # rest of the public site). _dev/, backups/, supabase/ are source-
+          # only and excluded.
           rsync -av \
             --exclude='.git' \
             --exclude='.github' \
+            --exclude='_dev' \
+            --exclude='backups' \
+            --exclude='supabase' \
+            --exclude='node_modules' \
             --exclude='README.md' \
+            --exclude='.tmp' \
             --filter='dir-merge,- .gitignore' \
             --exclude='private/' \
-            public/ _site/
-          rsync -av \
-            --filter='dir-merge,- .gitignore' \
-            public/ _site/public/
-          rsync -av \
-            --filter='dir-merge,- .gitignore' \
-            game/ _site/game/
+            ./ _site/
 
       - uses: actions/upload-pages-artifact@v3
         with:

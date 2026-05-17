@@ -7,9 +7,9 @@ PROJECT
 The Sampler is a single-page mobile web app at /sampler that plays a 30-second
 preview of the most popular song by every artist playing New Orleans that day
 (Apr 23 – May 3, 2026). Tagline: "thirty seconds of sound from everyone in town." The page
-is static HTML + JS; all data lives in public/sampler/sampler.json next to index.html.
+is static HTML + JS; all data lives in site/sampler/sampler.json next to index.html.
 
-    public/sampler/
+    site/sampler/
       index.html          # UI. Reads sampler.json on load.
       sampler.json        # this script writes it
       main.jpg            # hero image
@@ -128,7 +128,7 @@ except ImportError:
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1]
-PUBLIC_SAMPLER_DIR = REPO_ROOT / "public" / "sampler"
+PUBLIC_SAMPLER_DIR = REPO_ROOT / "site" / "sampler"
 JSON_PATH = PUBLIC_SAMPLER_DIR / "sampler.json"
 
 # Scrape order (priority descending). Higher-priority sources seed the JSON
