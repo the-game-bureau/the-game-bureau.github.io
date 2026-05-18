@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>PHOTOS | MISSION CONTROL | THE GAME BUREAU</title>
+  <title>PHOTO DARK ROOM | THE GAME BUREAU</title>
   <link rel="icon" href="../site/assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -86,7 +86,10 @@
 
     .admin-nav { display: flex; gap: 4px; }
     .admin-nav-link {
-      padding: 6px 14px;
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 14px;
       border-radius: 6px;
       font-size: 0.85rem;
       font-weight: 600;
@@ -489,19 +492,7 @@
     }
 
     .home-icon-btn {
-      width: 44px;
-      min-width: 44px;
-      height: 42px;
-      min-height: 42px;
-      padding: 0;
-      line-height: 0;
-    }
-
-    .home-icon-btn svg {
-      display: block;
-      width: 22px;
-      height: 22px;
-      flex: 0 0 auto;
+      letter-spacing: 0.06em;
     }
 
     .auth label {
@@ -536,6 +527,12 @@
     .status.success {
       color: var(--success);
       font-weight: 700;
+    }
+
+    #darkroomStatus,
+    #darkroomStatus.success {
+      color: var(--ink);
+      font-weight: 600;
     }
 
     .grid {
@@ -800,12 +797,7 @@
         </label>
         <div class="auth-actions">
           <button class="btn primary" id="signInBtn" type="submit">Sign In</button>
-          <a class="btn home-icon-btn" href="../" aria-label="Home" title="Home">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 13 8 8.5 8 6h2.5v.5L12 5 21 13" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M5 13V20h5v-3a2 2 0 0 1 4 0v3H19V13" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </a>
+          <a class="btn home-icon-btn" href="../" title="TGB HOME">TGB HOME</a>
         </div>
       </form>
       <p class="status" id="authStatus" aria-live="polite"></p>
@@ -815,20 +807,15 @@
   <main class="app">
     <section id="reviewPanel">
       <div class="topbar">
-        <a class="btn home-icon-btn" style="margin-right:auto;" href="../index.html" aria-label="Home" title="Home">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M3 13 8 8.5 8 6h2.5v.5L12 5 21 13" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M5 13V20h5v-3a2 2 0 0 1 4 0v3H19V13" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </a>
+        <a class="btn home-icon-btn" style="margin-right:auto;" href="../index.html" title="TGB HOME">TGB HOME</a>
         <div class="topbar-actions">
           <nav class="admin-nav">
-            <a class="admin-nav-link" href="builder.html">Builder</a>
-            <a class="admin-nav-link" href="index.html">Library</a>
-            <a class="admin-nav-link admin-nav-link--active" href="photos.html" aria-current="page">Photos</a>
-            <a class="admin-nav-link" href="giftshop.html">Gift Shop</a>
+            <a class="admin-nav-link" href="builder.html">BUILDER</a>
+            <a class="admin-nav-link" href="index.html">STACKS</a>
+            <a class="admin-nav-link admin-nav-link--active" href="photos.html" aria-current="page">DARK ROOM</a>
+            <a class="admin-nav-link" href="giftshop.html">STOCK ROOM</a>
           </nav>
-          <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="Sign out" title="Sign out">
+          <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
               <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -899,8 +886,8 @@
               <line class="header-gear-crosshair" x1="0" y1="-12" x2="0" y2="12"></line>
             </g>
           </svg>
-          <p class="kicker">MISSION CONTROL</p>
-          <h2 id="photosHeading">Photos</h2>
+          <p class="kicker">TGB MISSION CONTROL</p>
+          <h2 id="photosHeading">PHOTO DARK ROOM</h2>
           <p class="status" id="darkroomStatus" aria-live="polite"></p>
         </div>
 
@@ -1238,6 +1225,13 @@
       }
       if (selectAllBtn) selectAllBtn.disabled = !currentPhotos.length;
       if (deselectAllBtn) deselectAllBtn.disabled = count === 0;
+      renderDarkroomStatusLine();
+    }
+
+    function renderDarkroomStatusLine() {
+      const total = totalPhotoCount;
+      const selected = selectedPhotoIds.size;
+      setStatus(darkroomStatus, total + ' photos, ' + selected + ' selected.');
     }
 
     function togglePhotoSelection(id, force) {
@@ -1471,7 +1465,7 @@
         renderPhotos(visibleRows);
         if (total !== null) {
           totalPhotoCount = total;
-          setStatus(darkroomStatus, total + ' photo' + (total === 1 ? '' : 's'));
+          renderDarkroomStatusLine();
         }
         updatePagination();
         const skipped = withUrls.length - visibleRows.length;
@@ -1488,11 +1482,15 @@
     function showAuth() {
       authModal.classList.remove('hidden');
       setStatus(authStatus, 'Sign in with an admin account.');
+      signOutBtn.title = 'ADMIN LOGIN';
+      signOutBtn.setAttribute('aria-label', 'ADMIN LOGIN');
     }
 
     async function showReview(session) {
       currentSession = session;
       authModal.classList.add('hidden');
+      signOutBtn.title = 'Sign out';
+      signOutBtn.setAttribute('aria-label', 'Sign out');
       await loadPhotos();
     }
 

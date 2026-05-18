@@ -13,16 +13,6 @@
   <script src="assets/public-account.js"></script>
   <script src="assets/games/helmets/helmet.js"></script>
   <style>
-    .public-library .admin-btn { display: none; }
-
-    .page-footer {
-      margin-top: 2.5rem;
-      padding: 1.5rem 0 1rem;
-      display: flex;
-      justify-content: center;
-      border-top: 1px solid var(--line);
-    }
-
     .public-library main {
       display: grid;
       gap: 1rem;
@@ -582,6 +572,7 @@
       line-height: 1.62;
       display: -webkit-box;
       -webkit-line-clamp: 3;
+      line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
@@ -800,6 +791,7 @@
     .public-library .page-count-line {
       color: rgba(247, 251, 247, 0.72);
       font-size: 0.86rem;
+      text-transform: uppercase;
     }
 
     .public-library .page-count-line span {
@@ -1141,10 +1133,6 @@
       text-transform: uppercase;
     }
 
-    .page-footer {
-      border-top-color: rgba(85, 214, 207, 0.16);
-    }
-
     @media (max-width: 960px) {
       .public-library .site-nav {
         align-items: start;
@@ -1280,21 +1268,9 @@
         </article>
       </section>
 
-      <section class="metric-grid" aria-label="Library metrics">
-        <article class="metric-card">
-          <span class="metric-label">Visible Now</span>
-          <span class="metric-value" id="metricVisible">0</span>
-          <p class="metric-copy">The size of the slice created by your current filter and search.</p>
-        </article>
-      </section>
-
       <section aria-label="Games">
         <div class="grid" id="grid" aria-live="polite"></div>
       </section>
-
-      <footer class="page-footer">
-        <a class="utility-link admin-btn" href="../mc/index.html">Mission Control</a>
-      </footer>
     </main>
   </div>
 
@@ -1311,7 +1287,6 @@
     const fanFilterEl = document.getElementById('fanFilter');
     const fanFilterGroupEl = document.getElementById('fanFilterGroup');
     const gridEl = document.getElementById('grid');
-    const visibleMetricEl = document.getElementById('metricVisible');
     const headerGameCountEl = document.getElementById('headerGameCount');
     const headerCityCountEl = document.getElementById('headerCityCount');
 
@@ -1599,9 +1574,8 @@
       return card;
     }
 
-    function renderMetrics(visibleGames) {
+    function renderMetrics() {
       const cities = new Set(allGames.map(getCity).filter(Boolean)).size;
-      visibleMetricEl.textContent = String(visibleGames.length);
       if (headerGameCountEl) headerGameCountEl.textContent = String(allGames.length);
       if (headerCityCountEl) headerCityCountEl.textContent = String(cities);
     }
@@ -1719,27 +1693,27 @@
         const empty = document.createElement('div');
         empty.className = 'empty';
         const title = document.createElement('strong');
-        title.textContent = 'No games in this slice';
+        title.textContent = 'NO GAMES';
         const copy = document.createElement('span');
         copy.textContent = searchTerm || activeCity !== ALL_CITIES
-          ? 'Try a different city or clear the search to widen the catalog.'
-          : 'No live games have been published yet.';
+          ? 'No games matching your selection.'
+          : 'Coming soon.';
         empty.append(title, copy);
         gridEl.appendChild(empty);
       } else {
         visible.forEach((game, index) => gridEl.appendChild(createCard(game, index)));
       }
-      renderMetrics(visible);
+      renderMetrics();
     }
 
     function renderErrorState(message) {
-      renderMetrics([]);
+      renderMetrics();
 
       gridEl.innerHTML = '';
       const empty = document.createElement('div');
       empty.className = 'empty';
       const title = document.createElement('strong');
-      title.textContent = 'Library unavailable';
+      title.textContent = 'NO GAMES';
       const copy = document.createElement('span');
       copy.textContent = message;
       empty.append(title, copy);
@@ -1761,17 +1735,6 @@
 
     load();
   </script>
-  <script>
-    (function () {
-      try {
-        const session = JSON.parse(localStorage.getItem('tgb-photo-review-auth-session') || 'null');
-        const expiresAt = Number(session && session.expires_at || 0) * 1000;
-        if (session && session.access_token && (!expiresAt || expiresAt > Date.now())) {
-          const btn = document.querySelector('.admin-btn');
-          if (btn) btn.style.display = 'inline-flex';
-        }
-      } catch (_) {}
-    }());
-  </script>
+  <a class="mc-corner" href="../mc/index.html">MISSION CONTROL</a>
 </body>
 </html>

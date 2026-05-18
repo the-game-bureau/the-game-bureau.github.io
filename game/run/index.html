@@ -2632,7 +2632,7 @@ const WEATHER_CODE_MAP = {
       if (startDisplay) {
         timeBlocks.push(`
           <div class="when-time-block${!endDisplay ? ' when-time-block--solo' : ''}">
-            <div class="when-time-label">Start</div>
+            <div class="when-time-label">Suggested<br>Start</div>
             <div class="when-time-value">${escapeHtml(startDisplay)}</div>
           </div>
         `);
@@ -2640,7 +2640,7 @@ const WEATHER_CODE_MAP = {
       if (endDisplay) {
         timeBlocks.push(`
           <div class="when-time-block${!startDisplay ? ' when-time-block--solo' : ''}">
-            <div class="when-time-label">End</div>
+            <div class="when-time-label">Target<br>End</div>
             <div class="when-time-value">${escapeHtml(endDisplay)}</div>
           </div>
         `);
@@ -3760,15 +3760,18 @@ const WEATHER_CODE_MAP = {
         //   1. ?e=<engine> in the run URL (manual override / sharing).
         //   2. The game's saved `engine` column on the games row (the
         //      designer's choice in the builder).
-        //   3. Fall through to the player router's default ("text"),
-        //      matching the router's behavior in /game/play/index.html.
+        //   3. Default to "text".
+        // Legacy numeric values (e=1 → text, e=2 → map) are aliased so
+        // older shared links still work.
         {
-          const playUrl = new URL('../../game/play/index.html', window.location.href);
+          const ENGINES = { text: 'text', map: 'map', '1': 'text', '2': 'map' };
+          const DEFAULT_ENGINE = 'text';
+          const urlEngine = String(urlParams.get('e') || '').trim().toLowerCase();
+          const dbEngine = String(game.engine || '').trim().toLowerCase();
+          const engineKey = urlEngine || dbEngine;
+          const engineFolder = ENGINES[engineKey] || DEFAULT_ENGINE;
+          const playUrl = new URL('./' + engineFolder + '/', window.location.href);
           playUrl.searchParams.set('id', gameId);
-          const urlEngine = String(urlParams.get('e') || '').trim();
-          const dbEngine = String(game.engine || '').trim();
-          const engineParam = urlEngine || dbEngine;
-          if (engineParam) playUrl.searchParams.set('e', engineParam);
           document.getElementById('startBtn').href = playUrl.toString();
         }
         document.getElementById('landing').style.display = 'block';

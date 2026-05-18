@@ -71,7 +71,7 @@ const TEAM_METADATA = {
   CHI: { shortLabel: 'Chicago',       primary: '#0B162A', secondary: '#C83803', tertiary: '#FFFFFF' },
   CIN: { shortLabel: 'Cincinnati',    primary: '#FB4F14', secondary: '#000000', tertiary: '#FFFFFF' },
   CLE: { shortLabel: 'Cleveland',     primary: '#311D00', secondary: '#FF3C00', tertiary: '#FFFFFF' },
-  DAL: { shortLabel: 'Dallas',        primary: '#041E42', secondary: '#869397', tertiary: '#FFFFFF' },
+  DAL: { shortLabel: 'Dallas',        primary: '#869397', secondary: '#041E42', tertiary: '#FFFFFF' },
   DEN: { shortLabel: 'Denver',        primary: '#FB4F14', secondary: '#002244', tertiary: '#FFFFFF' },
   DET: { shortLabel: 'Detroit',       primary: '#0076B6', secondary: '#B0B7BC', tertiary: '#000000' },
   GB:  { shortLabel: 'Green Bay',     primary: '#203731', secondary: '#FFB612', tertiary: '#FFFFFF' },
