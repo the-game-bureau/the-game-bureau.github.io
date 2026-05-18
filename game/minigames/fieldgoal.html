@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#163d31" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Paper Field Goal | The Game Bureau</title>
+  <link rel="icon" href="../../site/assets/brand/tgb.ico" type="image/x-icon">
+  <style>
+    :root {
+      --ink: #17201d;
+      --paper: #ead69a;
+      --paper-dark: #ae7e39;
+      --cream: #fff7dd;
+      --field: #26704b;
+      --field-deep: #14553d;
+      --line: rgba(247, 250, 236, 0.72);
+      --goal: #ffd85d;
+      --goal-glow: rgba(255, 216, 93, 0.38);
+      --red: #f06f57;
+      --blue: #2d6984;
+      --panel: rgba(16, 32, 28, 0.78);
+      --panel-border: rgba(255, 247, 221, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #10201c;
+      color: var(--cream);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overscroll-behavior: none;
+      touch-action: none;
+      user-select: none;
+    }
+
+    body {
+      min-height: 100dvh;
+    }
+
+    .game-shell {
+      position: relative;
+      width: 100vw;
+      min-height: 100dvh;
+      overflow: hidden;
+      background: #10201c;
+    }
+
+    #field {
+      display: block;
+      width: 100vw;
+      height: 100dvh;
+      touch-action: none;
+    }
+
+    .hud {
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 10px);
+      left: 10px;
+      right: 10px;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .brand,
+    .scorebar,
+    .status {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+    }
+
+    .brand {
+      min-width: 0;
+      padding: 10px 12px;
+    }
+
+    .kicker {
+      display: block;
+      color: rgba(255, 247, 221, 0.72);
+      font-size: 0.64rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 1px 0 0;
+      overflow: hidden;
+      color: var(--cream);
+      font-size: clamp(1.05rem, 5vw, 1.38rem);
+      font-weight: 900;
+      line-height: 1.02;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+      letter-spacing: 0;
+    }
+
+    .scorebar {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      overflow: hidden;
+    }
+
+    .stat {
+      min-width: 0;
+      padding: 8px 10px;
+      border-left: 1px solid rgba(255, 247, 221, 0.14);
+    }
+
+    .stat:first-child {
+      border-left: 0;
+    }
+
+    .label {
+      display: block;
+      color: rgba(255, 247, 221, 0.64);
+      font-size: 0.61rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .value {
+      display: block;
+      overflow: hidden;
+      color: var(--cream);
+      font-size: clamp(1rem, 4.8vw, 1.24rem);
+      font-weight: 900;
+      line-height: 1.08;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .reset-stat {
+      color: #ffea98;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    .reset-stat:active {
+      background: rgba(255, 216, 93, 0.14);
+    }
+
+    .status {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+      z-index: 3;
+      min-height: 48px;
+      display: grid;
+      place-items: center;
+      padding: 10px 14px;
+      color: var(--cream);
+      font-size: clamp(0.92rem, 4vw, 1.08rem);
+      font-weight: 900;
+      line-height: 1.12;
+      text-align: center;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    .status.good {
+      color: #ffea98;
+      border-color: rgba(255, 216, 93, 0.5);
+    }
+
+    .status.miss {
+      color: #ffd4cb;
+      border-color: rgba(240, 111, 87, 0.5);
+    }
+
+    @media (min-width: 680px) {
+      .hud {
+        left: 50%;
+        right: auto;
+        width: min(560px, calc(100vw - 28px));
+        transform: translateX(-50%);
+      }
+
+      .status {
+        left: 50%;
+        right: auto;
+        width: min(520px, calc(100vw - 28px));
+        transform: translateX(-50%);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="game-shell" aria-label="Paper football field goal">
+    <canvas id="field"></canvas>
+    <section class="hud" aria-label="Game status">
+      <div class="brand">
+        <span class="kicker">The Game Bureau</span>
+        <h1>Paper Field Goal</h1>
+      </div>
+      <div class="scorebar">
+        <div class="stat">
+          <span class="label">Score</span>
+          <span class="value" id="score">0</span>
+        </div>
+        <div class="stat">
+          <span class="label">Kicks</span>
+          <span class="value" id="kicks">5</span>
+        </div>
+        <div class="stat">
+          <span class="label">Wind</span>
+          <span class="value" id="wind">Calm</span>
+        </div>
+        <div class="stat reset-stat" id="resetBtn" role="button" tabindex="0" aria-label="Reset game">
+          <span class="label">Game</span>
+          <span class="value">Reset</span>
+        </div>
+      </div>
+    </section>
+    <div class="status" id="status" aria-live="polite">Pull back to kick</div>
+  </main>
+
+  <script>
+    (function () {
+      const canvas = document.getElementById('field');
+      const ctx = canvas.getContext('2d');
+      const scoreEl = document.getElementById('score');
+      const kicksEl = document.getElementById('kicks');
+      const windEl = document.getElementById('wind');
+      const statusEl = document.getElementById('status');
+      const resetBtn = document.getElementById('resetBtn');
+      const params = new URLSearchParams(window.location.search);
+
+      const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const now = () => performance.now();
+
+      const layout = {
+        w: 0,
+        h: 0,
+        startX: 0,
+        startY: 0,
+        goalY: 0,
+        leftPost: 0,
+        rightPost: 0,
+        crossbarZ: 66,
+        crossbarScreenY: 0,
+        uprightTop: 0
+      };
+
+      const state = {
+        score: 0,
+        kicks: 5,
+        streak: 0,
+        phase: 'ready',
+        message: 'Pull back to kick',
+        messageType: '',
+        wind: 0,
+        crossedGoal: false,
+        pointerId: null,
+        dragPoints: [],
+        trail: [],
+        resultUntil: 0,
+        lastFrame: now(),
+        ball: null
+      };
+
+      function makeBall() {
+        return {
+          x: layout.startX,
+          y: layout.startY,
+          z: 0,
+          vx: 0,
+          vy: 0,
+          vz: 0,
+          rotation: 0,
+          wobble: 0
+        };
+      }
+
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        layout.w = window.innerWidth;
+        layout.h = window.innerHeight;
+        canvas.width = Math.floor(layout.w * dpr);
+        canvas.height = Math.floor(layout.h * dpr);
+        canvas.style.width = layout.w + 'px';
+        canvas.style.height = layout.h + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        layout.startX = layout.w * 0.5;
+        layout.startY = layout.h - Math.max(168, layout.h * 0.2);
+        layout.goalY = Math.max(190, layout.h * 0.32);
+        layout.crossbarZ = clamp(layout.h * 0.085, 54, 76);
+        layout.crossbarScreenY = layout.goalY - layout.crossbarZ * 0.58;
+        layout.uprightTop = Math.max(92, layout.crossbarScreenY - layout.h * 0.18);
+
+        const baseGap = clamp(layout.w * 0.34 - state.score * 0.5, 84, 150);
+        layout.leftPost = layout.w * 0.5 - baseGap * 0.5;
+        layout.rightPost = layout.w * 0.5 + baseGap * 0.5;
+
+        if (!state.ball || state.phase === 'ready' || state.phase === 'dragging' || state.phase === 'gameover') {
+          state.ball = makeBall();
+        }
+      }
+
+      function randomWind() {
+        const value = Math.round((Math.random() * 18 - 9) * 10) / 10;
+        state.wind = Math.abs(value) < 1.2 ? 0 : value;
+      }
+
+      function formatWind() {
+        if (state.wind === 0) return 'Calm';
+        return (state.wind < 0 ? 'L ' : 'R ') + Math.abs(state.wind).toFixed(1);
+      }
+
+      function setMessage(text, type) {
+        state.message = text;
+        state.messageType = type || '';
+        statusEl.textContent = text;
+        statusEl.className = 'status' + (type ? ' ' + type : '');
+      }
+
+      function syncHud() {
+        scoreEl.textContent = String(state.score);
+        kicksEl.textContent = String(state.kicks);
+        windEl.textContent = formatWind();
+      }
+
+      function resetGame() {
+        state.score = 0;
+        state.kicks = 5;
+        state.streak = 0;
+        state.phase = 'ready';
+        state.crossedGoal = false;
+        state.pointerId = null;
+        state.dragPoints = [];
+        state.trail = [];
+        state.resultUntil = 0;
+        randomWind();
+        resize();
+        setMessage('Pull back to kick', '');
+        syncHud();
+      }
+
+      function nextKick() {
+        state.phase = 'ready';
+        state.crossedGoal = false;
+        state.pointerId = null;
+        state.dragPoints = [];
+        state.trail = [];
+        state.ball = makeBall();
+        randomWind();
+        setMessage('Pull back to kick', '');
+        syncHud();
+      }
+
+      function finishKick(good, text) {
+        if (state.phase !== 'flying') return;
+        state.phase = 'result';
+        state.kicks -= 1;
+        if (good) {
+          state.score += 3;
+          state.streak += 1;
+          setMessage(state.streak > 1 ? 'Good again' : 'Good', 'good');
+        } else {
+          state.streak = 0;
+          setMessage(text || 'No good', 'miss');
+        }
+        syncHud();
+        state.resultUntil = now() + 1150;
+      }
+
+      function gameOver() {
+        state.phase = 'gameover';
+        state.pointerId = null;
+        state.dragPoints = [];
+        state.trail = [];
+        setMessage('Final score ' + state.score, state.score ? 'good' : 'miss');
+        window.setTimeout(notifyGameComplete, 900);
+      }
+
+      function notifyGameComplete() {
+        if (params.get('embedded') === '1' && window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'tgb:minigame:complete',
+            game: 'fieldgoal',
+            score: state.score
+          }, '*');
+        }
+      }
+
+      function getPoint(evt) {
+        return { x: evt.clientX, y: evt.clientY, t: now() };
+      }
+
+      function ballScreen() {
+        const ball = state.ball;
+        const screenY = ball.y - ball.z * 0.58;
+        const travel = clamp((ball.y - layout.goalY) / Math.max(1, layout.startY - layout.goalY), 0, 1);
+        const scale = clamp(0.52 + travel * 0.6 + ball.z * 0.0008, 0.46, 1.1);
+        return { x: ball.x, y: screenY, scale };
+      }
+
+      function getPullVector() {
+        const anchor = ballScreen();
+        const latest = state.dragPoints[state.dragPoints.length - 1] || anchor;
+        const rawX = latest.x - anchor.x;
+        const rawY = latest.y - anchor.y;
+        const maxPull = clamp(layout.h * 0.11, 72, 96);
+        const rawLength = Math.hypot(rawX, rawY);
+        const scale = rawLength > maxPull ? maxPull / rawLength : 1;
+        const x = rawX * scale;
+        const y = rawY * scale;
+        const length = Math.hypot(x, y);
+        return {
+          x,
+          y,
+          length,
+          maxPull,
+          power: clamp(length / maxPull, 0, 1),
+          vertical: clamp(y / maxPull, -1, 1)
+        };
+      }
+
+      function ballRenderScreen() {
+        const screen = ballScreen();
+        if (state.phase !== 'dragging' || !state.dragPoints.length) return screen;
+        const pull = getPullVector();
+        return {
+          x: screen.x + pull.x,
+          y: screen.y + pull.y,
+          scale: screen.scale
+        };
+      }
+
+      function startDrag(evt) {
+        if (state.phase === 'gameover') {
+          resetGame();
+          return;
+        }
+        if (state.phase !== 'ready') return;
+        const point = getPoint(evt);
+        const screen = ballScreen();
+        const touchDistance = Math.hypot(point.x - screen.x, point.y - screen.y);
+        if (touchDistance > Math.max(92, layout.w * 0.24)) return;
+        state.phase = 'dragging';
+        state.pointerId = evt.pointerId;
+        state.dragPoints = [point];
+        canvas.setPointerCapture(evt.pointerId);
+        setMessage('Pull back', '');
+      }
+
+      function moveDrag(evt) {
+        if (state.phase !== 'dragging' || evt.pointerId !== state.pointerId) return;
+        const points = state.dragPoints;
+        points.push(getPoint(evt));
+        while (points.length > 9) points.shift();
+      }
+
+      function endDrag(evt) {
+        if (state.phase !== 'dragging' || evt.pointerId !== state.pointerId) return;
+        state.dragPoints.push(getPoint(evt));
+        launchFromDrag();
+        state.pointerId = null;
+        try {
+          canvas.releasePointerCapture(evt.pointerId);
+        } catch (error) {}
+      }
+
+      function launchFromDrag() {
+        if (state.dragPoints.length < 2) {
+          nextKick();
+          return;
+        }
+
+        const pull = getPullVector();
+        const launchCharge = clamp((pull.power * 0.72) + (Math.max(0, pull.vertical) * 0.38), 0, 1);
+        if (pull.length < 34 || pull.vertical < 0.18) {
+          state.phase = 'ready';
+          state.dragPoints = [];
+          setMessage('Pull back farther', '');
+          return;
+        }
+
+        const ball = state.ball;
+        ball.x = layout.startX + pull.x * 0.3;
+        ball.y = layout.startY + pull.y * 0.3;
+        ball.vx = clamp(-pull.x * 5.4, -620, 620);
+        ball.vy = -lerp(650, 1450, launchCharge);
+        ball.vz = lerp(360, 850, launchCharge);
+        ball.rotation = clamp(-pull.x / 120, -0.8, 0.8);
+        ball.wobble = 0.65 + pull.power * 0.7;
+
+        state.phase = 'flying';
+        state.crossedGoal = false;
+        state.trail = [];
+        state.dragPoints = [];
+        setMessage('In flight', '');
+      }
+
+      function update(dt) {
+        if (state.phase === 'result') {
+          if (now() >= state.resultUntil) {
+            if (state.kicks <= 0) gameOver();
+            else nextKick();
+          }
+          return;
+        }
+
+        if (state.phase !== 'flying') return;
+
+        const ball = state.ball;
+        ball.vx += state.wind * 5.5 * dt;
+        ball.x += ball.vx * dt;
+        ball.y += ball.vy * dt;
+        ball.z += ball.vz * dt;
+        ball.vz -= 1350 * dt;
+        ball.vx *= 0.996;
+        ball.vy *= 0.998;
+        ball.rotation += (ball.vx * 0.004 + ball.vy * 0.002) * dt;
+        ball.wobble = Math.max(0, ball.wobble - dt * 0.9);
+
+        const screen = ballScreen();
+        state.trail.push({ x: screen.x, y: screen.y, z: ball.z, scale: screen.scale });
+        if (state.trail.length > 12) state.trail.shift();
+
+        if (!state.crossedGoal && ball.y <= layout.goalY) {
+          state.crossedGoal = true;
+          const inside = ball.x > layout.leftPost + 10 && ball.x < layout.rightPost - 10;
+          const highEnough = ball.z > layout.crossbarZ;
+          if (inside && highEnough) {
+            finishKick(true);
+          } else if (!inside) {
+            finishKick(false, ball.x < layout.leftPost ? 'Wide left' : 'Wide right');
+          } else if (!highEnough) {
+            finishKick(false, 'Short');
+          }
+        } else if (ball.z <= 0 && ball.y < layout.startY - 34) {
+          ball.z = 0;
+          finishKick(false, 'Short');
+        } else if (ball.x < -80 || ball.x > layout.w + 80 || ball.y < -160) {
+          finishKick(false, 'No good');
+        }
+      }
+
+      function draw() {
+        drawSky();
+        drawField();
+        drawGoal();
+        drawAimMarks();
+        drawTrail();
+        drawDragPath();
+        drawBall();
+        drawVignette();
+      }
+
+      function drawSky() {
+        const sky = ctx.createLinearGradient(0, 0, 0, layout.goalY + 110);
+        sky.addColorStop(0, '#1c4d67');
+        sky.addColorStop(0.52, '#e2a55a');
+        sky.addColorStop(1, '#f6dc9a');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, layout.w, layout.h);
+
+        ctx.fillStyle = 'rgba(255, 247, 221, 0.7)';
+        ctx.beginPath();
+        ctx.arc(layout.w * 0.83, layout.h * 0.14, Math.max(22, layout.w * 0.06), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function drawField() {
+        const topY = layout.goalY + 36;
+        const grad = ctx.createLinearGradient(0, topY, 0, layout.h);
+        grad.addColorStop(0, varColor('--field-deep'));
+        grad.addColorStop(1, varColor('--field'));
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(layout.w * 0.17, topY);
+        ctx.lineTo(layout.w * 0.83, topY);
+        ctx.lineTo(layout.w + 70, layout.h + 40);
+        ctx.lineTo(-70, layout.h + 40);
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.clip();
+
+        for (let i = 0; i < 15; i += 1) {
+          const t = i / 14;
+          const y = lerp(topY + 8, layout.h + 42, Math.pow(t, 1.32));
+          const side = lerp(layout.w * 0.31, -layout.w * 0.08, t);
+          ctx.strokeStyle = i % 5 === 0 ? 'rgba(255, 247, 221, 0.88)' : 'rgba(255, 247, 221, 0.34)';
+          ctx.lineWidth = i % 5 === 0 ? 2 : 1;
+          ctx.beginPath();
+          ctx.moveTo(side, y);
+          ctx.lineTo(layout.w - side, y);
+          ctx.stroke();
+
+          if (i % 2 === 0) {
+            const hashGap = lerp(30, 96, t);
+            const hashLength = lerp(9, 18, t);
+            ctx.strokeStyle = 'rgba(255, 247, 221, 0.48)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(layout.w * 0.5 - hashGap, y - 2);
+            ctx.lineTo(layout.w * 0.5 - hashGap - hashLength, y - 2);
+            ctx.moveTo(layout.w * 0.5 + hashGap, y - 2);
+            ctx.lineTo(layout.w * 0.5 + hashGap + hashLength, y - 2);
+            ctx.stroke();
+          }
+        }
+
+        for (let i = 0; i < 18; i += 1) {
+          const stripeX = (i * 89 + 23) % Math.max(layout.w, 320);
+          ctx.strokeStyle = 'rgba(10, 57, 38, 0.12)';
+          ctx.lineWidth = 28;
+          ctx.beginPath();
+          ctx.moveTo(stripeX - layout.w * 0.5, topY);
+          ctx.lineTo(stripeX + layout.w * 0.2, layout.h);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawGoal() {
+        const cx = layout.w * 0.5;
+        const y = layout.crossbarScreenY;
+        const top = layout.uprightTop;
+        const bottom = layout.goalY + 76;
+
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        ctx.shadowColor = varColor('--goal-glow');
+        ctx.shadowBlur = 18;
+        ctx.strokeStyle = varColor('--goal');
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(cx, bottom);
+        ctx.lineTo(cx, y);
+        ctx.moveTo(layout.leftPost, y);
+        ctx.lineTo(layout.rightPost, y);
+        ctx.moveTo(layout.leftPost, y);
+        ctx.lineTo(layout.leftPost, top);
+        ctx.moveTo(layout.rightPost, y);
+        ctx.lineTo(layout.rightPost, top);
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.56)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx + 2, bottom);
+        ctx.lineTo(cx + 2, y);
+        ctx.moveTo(layout.leftPost + 2, y - 2);
+        ctx.lineTo(layout.rightPost - 2, y - 2);
+        ctx.moveTo(layout.leftPost + 2, y);
+        ctx.lineTo(layout.leftPost + 2, top + 3);
+        ctx.moveTo(layout.rightPost + 2, y);
+        ctx.lineTo(layout.rightPost + 2, top + 3);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawAimMarks() {
+        if (state.phase !== 'ready') return;
+        const screen = ballScreen();
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 247, 221, 0.45)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 10]);
+        ctx.beginPath();
+        ctx.moveTo(screen.x, screen.y - 34);
+        ctx.lineTo(layout.w * 0.5, layout.crossbarScreenY + 8);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = 'rgba(255, 247, 221, 0.82)';
+        for (let i = 0; i < 4; i += 1) {
+          const t = (i + 1) / 5;
+          const x = lerp(screen.x, layout.w * 0.5, t);
+          const y = lerp(screen.y - 34, layout.crossbarScreenY + 8, t);
+          ctx.beginPath();
+          ctx.arc(x, y, 3 - i * 0.28, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      function drawTrail() {
+        if (!state.trail.length) return;
+        ctx.save();
+        state.trail.forEach((point, index) => {
+          const alpha = (index + 1) / state.trail.length;
+          ctx.fillStyle = 'rgba(255, 247, 221, ' + (alpha * 0.28).toFixed(3) + ')';
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 4 * point.scale * alpha, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
+      }
+
+      function drawBall() {
+        const ball = state.ball;
+        if (!ball) return;
+        const screen = ballRenderScreen();
+        const shadowScale = clamp(1 - ball.z / 520, 0.28, 1);
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, ' + (0.24 * shadowScale).toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.ellipse(screen.x, screen.y + 18, 26 * screen.scale * shadowScale, 8 * screen.scale * shadowScale, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.translate(screen.x, screen.y);
+        const spin = ball.rotation + Math.sin(now() / 85) * 0.08 * ball.wobble;
+        ctx.rotate(spin);
+        ctx.scale(screen.scale, screen.scale);
+
+        ctx.fillStyle = varColor('--paper');
+        ctx.strokeStyle = '#4c3624';
+        ctx.lineWidth = 2.2;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(0, -28);
+        ctx.lineTo(28, 20);
+        ctx.lineTo(-28, 20);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(76, 54, 36, 0.48)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(0, -25);
+        ctx.lineTo(-4, 18);
+        ctx.moveTo(0, -25);
+        ctx.lineTo(17, 18);
+        ctx.moveTo(-19, 18);
+        ctx.lineTo(13, 2);
+        ctx.stroke();
+
+        ctx.fillStyle = varColor('--paper-dark');
+        ctx.beginPath();
+        ctx.moveTo(-4, 16);
+        ctx.lineTo(21, 16);
+        ctx.lineTo(28, 20);
+        ctx.lineTo(-28, 20);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawDragPath() {
+        if (state.phase !== 'dragging' || state.dragPoints.length < 2) return;
+        const anchor = ballScreen();
+        const pull = getPullVector();
+        const pulled = {
+          x: anchor.x + pull.x,
+          y: anchor.y + pull.y
+        };
+        const launchEnd = {
+          x: anchor.x - pull.x * 2.4,
+          y: anchor.y - pull.y * 2.4
+        };
+        const cupLeft = { x: anchor.x - 28, y: anchor.y + 20 };
+        const cupRight = { x: anchor.x + 28, y: anchor.y + 20 };
+
+        ctx.save();
+        ctx.lineCap = 'round';
+
+        ctx.strokeStyle = 'rgba(76, 54, 36, 0.7)';
+        ctx.lineWidth = 7;
+        ctx.beginPath();
+        ctx.moveTo(cupLeft.x, cupLeft.y);
+        ctx.lineTo(pulled.x, pulled.y);
+        ctx.lineTo(cupRight.x, cupRight.y);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(255, 216, 93, 0.82)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cupLeft.x, cupLeft.y);
+        ctx.lineTo(pulled.x, pulled.y);
+        ctx.lineTo(cupRight.x, cupRight.y);
+        ctx.stroke();
+
+        ctx.setLineDash([10, 10]);
+        ctx.strokeStyle = 'rgba(255, 247, 221, 0.58)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(anchor.x, anchor.y);
+        ctx.lineTo(launchEnd.x, launchEnd.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = 'rgba(255, 216, 93, 0.9)';
+        ctx.beginPath();
+        ctx.arc(launchEnd.x, launchEnd.y, 5 + pull.power * 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawVignette() {
+        const grad = ctx.createRadialGradient(layout.w * 0.5, layout.h * 0.5, layout.w * 0.2, layout.w * 0.5, layout.h * 0.5, layout.h * 0.82);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.32)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, layout.w, layout.h);
+      }
+
+      function varColor(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      }
+
+      function frame(time) {
+        const dt = Math.min(0.034, Math.max(0.001, (time - state.lastFrame) / 1000));
+        state.lastFrame = time;
+        update(dt);
+        draw();
+        requestAnimationFrame(frame);
+      }
+
+      canvas.addEventListener('pointerdown', startDrag, { passive: false });
+      canvas.addEventListener('pointermove', moveDrag, { passive: false });
+      canvas.addEventListener('pointerup', endDrag, { passive: false });
+      canvas.addEventListener('pointercancel', endDrag, { passive: false });
+      resetBtn.addEventListener('click', resetGame);
+      resetBtn.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Enter' || evt.key === ' ') {
+          evt.preventDefault();
+          resetGame();
+        }
+      });
+      window.addEventListener('resize', resize);
+      window.addEventListener('orientationchange', resize);
+
+      resetGame();
+      requestAnimationFrame(frame);
+    }());
+  </script>
+</body>
+</html>

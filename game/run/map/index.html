@@ -380,7 +380,7 @@
 
     /* button bubble */
     .msg:has(.bubble-btn) { min-width: 45%; }
-    .bubble-btn { display: block; padding: 0.55em 1.1em; width: 100%; background: var(--game-primary, #5468a7); color: var(--game-quaternary, #fff); border-radius: 14px; text-decoration: none; text-align: center; font-size: 0.95em; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .12s; box-sizing: border-box; }
+    .bubble-btn { display: block; padding: 0.55em 1.1em; width: 100%; border: 0; background: var(--game-primary, #5468a7); color: var(--game-quaternary, #fff); border-radius: 14px; text-decoration: none; text-align: center; font-family: inherit; font-size: 0.95em; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .12s; box-sizing: border-box; }
     .bubble-btn:active { opacity: .75; }
 
     .lb {
@@ -734,7 +734,7 @@
     .btn-lightbox-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, .6);
+      background: var(--game-secondary, rgba(0, 0, 0, .6));
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1350,6 +1350,7 @@
     let headerLogoLoadToken = 0;
     let messageFlowToken = 0;
     let messageFlowTimeouts = [];
+    const pendingMinigameCallbacks = new Map();
 
     // ── Persistence ──────────────────────────────────────────────
     function saveStep(i) {
@@ -1423,6 +1424,27 @@
     }
     function escapeAttr(value) {
       return escapeHtml(value).replace(/`/g, '&#96;');
+    }
+    function sanitizeMinigameFile(value) {
+      const file = String(value || '').trim();
+      return /^[A-Za-z0-9_-]+\.html$/i.test(file) ? file : 'locker.html';
+    }
+    function buildMinigameUrl(node) {
+      const file = sanitizeMinigameFile(node && node.minigame);
+      const url = new URL('../../minigames/' + file, window.location.href);
+      const question = String((node && node.gameQuestion) || '').trim();
+      const answer = String((node && node.gameAnswer) || '').trim();
+      url.searchParams.set('riddle', question);
+      url.searchParams.set('question', question);
+      url.searchParams.set('answer', answer);
+      url.searchParams.set('embedded', '1');
+      url.searchParams.set('return', window.location.href);
+      const root = getComputedStyle(document.documentElement);
+      ['primary', 'secondary', 'tertiary', 'quaternary'].forEach((name) => {
+        const value = (root.getPropertyValue('--game-' + name) || root.getPropertyValue('--' + name) || '').trim();
+        if (value) url.searchParams.set(name, value);
+      });
+      return url.toString();
     }
     function norm(s) {
       return String(s || '').toLowerCase().replace(/[$,.\s]/g, '');
@@ -1965,6 +1987,51 @@
       backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
       document.addEventListener('keydown', onKey);
     }
+    function openMinigameLightbox(url, onComplete) {
+      const parsedUrl = parseUrl(url);
+      if (!parsedUrl) return;
+      const backdrop = document.createElement('div');
+      backdrop.className = 'btn-lightbox-backdrop';
+      const frame = document.createElement('div');
+      frame.className = 'btn-lightbox-frame';
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'btn-lightbox-close';
+      closeBtn.type = 'button';
+      closeBtn.textContent = '\u00d7';
+      closeBtn.setAttribute('aria-label', 'Close');
+      const iframe = document.createElement('iframe');
+      iframe.className = 'btn-lightbox-iframe';
+      iframe.src = parsedUrl.toString();
+      iframe.allow = 'payment; camera; microphone; geolocation; fullscreen';
+      iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+      frame.appendChild(closeBtn);
+      frame.appendChild(iframe);
+      backdrop.appendChild(frame);
+      document.body.appendChild(backdrop);
+      let completed = false;
+      function onKey(e) {
+        if (e.key === 'Escape') close(false);
+      }
+      function onMessage(event) {
+        if (event.source !== iframe.contentWindow) return;
+        const data = event.data || {};
+        if (!data || data.type !== 'tgb:minigame:complete') return;
+        close(true);
+      }
+      function close(didComplete) {
+        backdrop.remove();
+        document.removeEventListener('keydown', onKey);
+        window.removeEventListener('message', onMessage);
+        if (didComplete && !completed) {
+          completed = true;
+          if (typeof onComplete === 'function') onComplete();
+        }
+      }
+      closeBtn.addEventListener('click', () => close(false));
+      backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(false); });
+      document.addEventListener('keydown', onKey);
+      window.addEventListener('message', onMessage);
+    }
     async function openButtonLightbox(url) {
       const parsedUrl = parseUrl(url);
       if (!parsedUrl) return;
@@ -2109,6 +2176,15 @@
         });
       });
 
+      bubble.querySelectorAll('[data-minigame-src]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          const url = btn.getAttribute('data-minigame-src') || '';
+          if (!url) return;
+          e.preventDefault();
+          const key = btn.getAttribute('data-minigame-key') || url;
+          openMinigameLightbox(url, pendingMinigameCallbacks.get(key));
+        });
+      });
 
       wrap.appendChild(bubble);
       chatEl.appendChild(wrap);
@@ -2461,6 +2537,15 @@
           scheduleMessageFlow(() => {
             if (indicator && indicator.isConnected) indicator.remove();
             addBubble(msg, fromGame);
+            if (msg && msg.kind === 'game' && msg.minigameUrl) {
+              const minigameKey = String(msg.minigameKey || msg.bubbleId || msg.minigameUrl);
+              const resume = () => {
+                pendingMinigameCallbacks.delete(minigameKey);
+                scheduleMessageFlow(next, BUBBLE_PAUSE, flowToken);
+              };
+              pendingMinigameCallbacks.set(minigameKey, resume);
+              return;
+            }
             scheduleMessageFlow(next, BUBBLE_PAUSE, flowToken);
           }, TYPING_DELAY, flowToken);
         }
@@ -3110,6 +3195,8 @@
           }
           const bubbleKind = node.kind || 'text';
           let bubbleHtml = node.body || '';
+          let minigameUrl = '';
+          let minigameKey = '';
           if (bubbleKind === 'image') {
             const src = String(node.body || '').trim();
             bubbleHtml = src ? `<img src="${escapeAttr(src)}" alt="">` : '';
@@ -3147,12 +3234,19 @@
             bubbleHtml = url
               ? `<a class="bubble-btn" href="${escapeAttr(url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`
               : `<span class="bubble-btn">${escapeHtml(label)}</span>`;
+          } else if (bubbleKind === 'game') {
+            minigameUrl = buildMinigameUrl(node);
+            minigameKey = String(node.id || minigameUrl);
+            const label = String(node.body || '').trim() || 'Play Game';
+            bubbleHtml = `<button class="bubble-btn" type="button" data-minigame-src="${escapeAttr(minigameUrl)}" data-minigame-key="${escapeAttr(minigameKey)}">${escapeHtml(label)}</button>`;
           }
           currentStop.messages.push({
             bubbleId: node.id,
             kind: bubbleKind,
             text: node.body,
             html: bubbleHtml,
+            minigameUrl: minigameUrl,
+            minigameKey: minigameKey,
             callToAction: false
           });
         } else if (node.type === 'button') {
@@ -3238,6 +3332,7 @@
           guideImageUrl:       gameData.guide_image_url,
           logoUrl:             gameData.logo_url,
           primaryColor:        gameData.primary_color,
+          secondaryColor:      gameData.secondary_color,
           tertiaryColor:       gameData.tertiary_color,
           quaternaryColor:     gameData.quaternary_color,
         };
@@ -3254,6 +3349,10 @@
         const primaryColor = gameData.primary_color || gameNode.primaryColor;
         if (primaryColor) {
           document.documentElement.style.setProperty('--game-primary', primaryColor);
+        }
+        const secondaryColor = gameData.secondary_color || gameNode.secondaryColor;
+        if (secondaryColor) {
+          document.documentElement.style.setProperty('--game-secondary', secondaryColor);
         }
         if (gameNode.tertiaryColor) {
           document.documentElement.style.setProperty('--game-tertiary', gameNode.tertiaryColor);

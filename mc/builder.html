@@ -10266,6 +10266,10 @@ html.admin-embedded .builder-section-head{
                 <span class="add-btn-label">GUIDE BUTTON</span>
                 <span class="add-btn-key">B</span>
               </button>
+              <button class="add-btn add-btn--bubble" data-add-stencil="bubble" data-add-kind="game" type="button" disabled aria-label="Add guide mini-game">
+                <span class="add-btn-label">GUIDE GAME</span>
+                <span class="add-btn-key">G</span>
+              </button>
               <button class="add-btn add-btn--reply" data-add-stencil="reply" type="button" disabled aria-label="Add player message">
                 <span class="add-btn-label">PLAYER REPLY</span>
                 <span class="add-btn-key">P</span>
@@ -10473,6 +10477,28 @@ html.admin-embedded .builder-section-head{
                     </label>
                   </label>
                   <input id="objectBubbleCtaUrlInput" type="text" autocomplete="off" disabled>
+                </div>
+
+                <div class="field" id="objectBubbleGameButtonTextField" hidden>
+                  <label class="field-label" for="objectBubbleGameButtonTextInput">BUTTON TEXT</label>
+                  <input id="objectBubbleGameButtonTextInput" type="text" autocomplete="off" disabled>
+                </div>
+
+                <div class="field" id="objectBubbleGameSelectField" hidden>
+                  <label class="field-label" for="objectBubbleGameSelect">MINI-GAME</label>
+                  <select id="objectBubbleGameSelect" disabled></select>
+                  <div class="field-hint">Choose a mini-game from the game/minigames folder.</div>
+                </div>
+
+                <div class="field" id="objectBubbleGameQuestionField" hidden>
+                  <label class="field-label" for="objectBubbleGameQuestionInput">GAME QUESTION</label>
+                  <textarea id="objectBubbleGameQuestionInput" disabled></textarea>
+                </div>
+
+                <div class="field" id="objectBubbleGameAnswerField" hidden>
+                  <label class="field-label" for="objectBubbleGameAnswerInput">GAME ANSWER</label>
+                  <input id="objectBubbleGameAnswerInput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" disabled>
+                  <div class="field-hint">For Locker, enter the four-digit unlock code.</div>
                 </div>
 
                 <div class="field" id="objectDescriptionField" hidden>
@@ -10967,6 +10993,11 @@ const NODE_TYPE_BY_PREFIX = Object.fromEntries(
 
 const ALL_TAGS = ['Featured', 'Mystery', 'Puzzle', 'SMS', 'Walking Tour', 'Sports', 'History', 'Food', 'Adventure', 'Family', 'Conspiracy', 'Trivia', 'Horror', 'Romance', 'Comedy', 'Music', 'Culture', 'Night Life', 'City Tour', 'Scavenger Hunt', 'New Orleans'];
 const FEATURED_TAG = 'Featured';
+const MINIGAMES_MANIFEST_URL = '../game/minigames/manifest.json';
+const MINIGAME_FALLBACKS = [
+  { id: 'fieldgoal', label: 'Paper Field Goal', file: 'fieldgoal.html' },
+  { id: 'locker', label: 'Locker', file: 'locker.html' }
+];
 
 const LOCAL_OPEN_GAME_KEY = 'tgb-games-phoneanalogy-open';
 const LOCAL_RECOVERY_KEY = 'tgb-games-phoneanalogy-recovery';
@@ -12555,6 +12586,14 @@ const objectBubbleCtaTextField = document.getElementById('objectBubbleCtaTextFie
 const objectBubbleCtaTextInput = document.getElementById('objectBubbleCtaTextInput');
 const objectBubbleCtaUrlField = document.getElementById('objectBubbleCtaUrlField');
 const objectBubbleCtaUrlInput = document.getElementById('objectBubbleCtaUrlInput');
+const objectBubbleGameButtonTextField = document.getElementById('objectBubbleGameButtonTextField');
+const objectBubbleGameButtonTextInput = document.getElementById('objectBubbleGameButtonTextInput');
+const objectBubbleGameSelectField = document.getElementById('objectBubbleGameSelectField');
+const objectBubbleGameSelect = document.getElementById('objectBubbleGameSelect');
+const objectBubbleGameQuestionField = document.getElementById('objectBubbleGameQuestionField');
+const objectBubbleGameQuestionInput = document.getElementById('objectBubbleGameQuestionInput');
+const objectBubbleGameAnswerField = document.getElementById('objectBubbleGameAnswerField');
+const objectBubbleGameAnswerInput = document.getElementById('objectBubbleGameAnswerInput');
 const objectBubbleLinkUrlInput = document.getElementById('objectBubbleLinkUrlInput');
 const objectBubbleImageThumbBtn = document.getElementById('objectBubbleImageThumbBtn');
 const objectBubbleImageThumbImage = document.getElementById('objectBubbleImageThumbImage');
@@ -12682,6 +12721,7 @@ const nodeEls = new Map();
 
 // Load tags from Supabase asynchronously
 loadTagsFromSupabase().catch(err => console.warn('Failed to initialize tags:', err));
+loadMinigameManifest().catch(err => console.warn('Failed to initialize minigames:', err));
 
 let phoneClockTimer = null;
 let gameshelfAutoScrollFrame = 0;
@@ -12757,6 +12797,7 @@ const state = {
   waypointLibraryLoading: false,
   waypointLibraryStatusText: '',
   waypointLibraryRefreshToken: 0,
+  minigames: cloneObj(MINIGAME_FALLBACKS),
   guideImageLightboxPreviousFocus: null,
   guideInsertMenuPreviousFocus: null,
   guideInsertSelectionStart: null,
@@ -12770,6 +12811,56 @@ const state = {
 
 function cloneObj(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function normalizeMinigameEntry(entry) {
+  const raw = entry && typeof entry === 'object' ? entry : {};
+  const file = String(raw.file || raw.path || raw.href || '').trim();
+  if (!/^[A-Za-z0-9_-]+\.html$/i.test(file)) return null;
+  const id = String(raw.id || file.replace(/\.html$/i, '')).trim() || file;
+  const label = String(raw.label || raw.title || id).trim() || id;
+  return { id, label, file };
+}
+
+function normalizeGameAnswerValue(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 4);
+}
+
+function getSelectedMinigameEntry(value) {
+  const selected = String(value || '').trim();
+  return (state.minigames || []).find((entry) => entry.file === selected || entry.id === selected) || null;
+}
+
+function populateMinigameSelect(selectedValue = '') {
+  if (!objectBubbleGameSelect) return;
+  const current = String(selectedValue || objectBubbleGameSelect.value || '').trim();
+  const entries = Array.isArray(state.minigames) && state.minigames.length
+    ? state.minigames
+    : MINIGAME_FALLBACKS;
+  objectBubbleGameSelect.innerHTML = '';
+  entries.forEach((entry) => {
+    const option = document.createElement('option');
+    option.value = entry.file;
+    option.textContent = entry.label;
+    objectBubbleGameSelect.appendChild(option);
+  });
+  const fallback = entries[0] && entries[0].file ? entries[0].file : '';
+  objectBubbleGameSelect.value = entries.some((entry) => entry.file === current) ? current : fallback;
+}
+
+async function loadMinigameManifest() {
+  try {
+    const res = await fetch(MINIGAMES_MANIFEST_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = await res.json();
+    const entries = (Array.isArray(rows) ? rows : [])
+      .map(normalizeMinigameEntry)
+      .filter(Boolean);
+    if (entries.length) state.minigames = entries;
+  } catch (error) {
+    state.minigames = cloneObj(MINIGAME_FALLBACKS);
+  }
+  populateMinigameSelect();
 }
 
 function getBuilderTabForStep(step) {
@@ -13533,6 +13624,7 @@ function getNodeKicker(node) {
   if (!node) return '';
   if (node.type === 'bubble' && node.kind) {
     if (node.kind === 'cta') return 'GUIDE BUTTON';
+    if (node.kind === 'game') return 'GUIDE GAME';
     return 'GUIDE ' + node.kind.toUpperCase();
   }
   return TYPE_CONFIG[node.type]?.kicker || '';
@@ -13850,6 +13942,9 @@ function getPhonePrimaryText(node) {
   if (node.type === 'bubble' && (node.kind === 'link' || node.kind === 'cta')) {
     return summarizeMessageText(node.body, 160) || String(node.linkUrl || '').trim() || (node.kind === 'cta' ? 'Button' : 'Link');
   }
+  if (node.type === 'bubble' && node.kind === 'game') {
+    return summarizeMessageText(node.body, 160) || 'Play Game';
+  }
   return summarizeMessageText(node.body, 160);
 }
 
@@ -13862,6 +13957,9 @@ function getPhoneSecondaryText(node) {
     return '';
   }
   if (node.type === 'reply') {
+    return '';
+  }
+  if (node.type === 'bubble' && node.kind === 'game') {
     return '';
   }
   return node.anytime ? 'Paired anytime response' : '';
@@ -14189,7 +14287,7 @@ function estimatePhoneTextLines(text, width, horizontalPadding = 34) {
 
 function getPhoneBubbleSize(node, maxWidth = PHONE_BUBBLE_MAX_WIDTH) {
   // CTA bubbles: always full width
-  if (node.type === 'bubble' && node.kind === 'cta') {
+  if (node.type === 'bubble' && (node.kind === 'cta' || node.kind === 'game')) {
     return { width: Math.round(maxWidth || PHONE_BUBBLE_MAX_WIDTH), height: Math.max(38, node.height || 38) };
   }
   // Image/video bubbles: match iMessage's collapsed photo width. Fixed display
@@ -15121,6 +15219,7 @@ function getObjectInspectorHeading(node, link) {
     if (node.kind === 'audio') return 'GUIDE AUDIO DETAILS';
     if (node.kind === 'link') return 'GUIDE LINK DETAILS';
     if (node.kind === 'cta') return 'GUIDE BUTTON DETAILS';
+    if (node.kind === 'game') return 'GAME DETAILS';
     if (node.kind === 'text') return 'GUIDE TEXT DETAILS';
     return 'GUIDE MSG DETAILS';
   }
@@ -15858,6 +15957,13 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
       ? raw.answerResponses.map((v) => String(v || ''))
       : [],
     linkUrl: type === 'bubble' ? (raw && typeof raw.linkUrl === 'string' ? raw.linkUrl : '') : '',
+    minigame: type === 'bubble' && raw && typeof raw.minigame === 'string' ? raw.minigame : '',
+    gameQuestion: type === 'bubble' && raw && typeof raw.gameQuestion === 'string'
+      ? raw.gameQuestion
+      : (type === 'bubble' && raw && typeof raw.game_question === 'string' ? raw.game_question : ''),
+    gameAnswer: type === 'bubble' && raw && typeof raw.gameAnswer === 'string'
+      ? normalizeGameAnswerValue(raw.gameAnswer)
+      : (type === 'bubble' && raw && typeof raw.game_answer === 'string' ? normalizeGameAnswerValue(raw.game_answer) : ''),
     gameDate: raw && typeof raw.gameDate === 'string' ? raw.gameDate : '',
     startTime: raw && typeof raw.startTime === 'string' ? raw.startTime : '',
     endTime: raw && typeof raw.endTime === 'string' ? raw.endTime : ''
@@ -16021,6 +16127,9 @@ function getDocSnapshot(doc = state.doc) {
       body: node.body || '',
       kind: node.kind || '',
       linkUrl: node.linkUrl || '',
+      minigame: node.minigame || '',
+      gameQuestion: node.gameQuestion || '',
+      gameAnswer: normalizeGameAnswerValue(node.gameAnswer),
       buttonUrl: node.buttonUrl || '',
       tertiaryColor: node.tertiaryColor || '',
       quaternaryColor: node.quaternaryColor || '',
@@ -17153,6 +17262,9 @@ function createNode(type, x, y) {
     waypointGroup: '',
     body: config.body,
     buttonUrl: '',
+    minigame: '',
+    gameQuestion: '',
+    gameAnswer: '',
     tertiaryColor: '#000000',
     quaternaryColor: '#FFFFFF',
     varName: '',
@@ -18082,6 +18194,10 @@ function buildNodeTitleMarkup(node, displayTitle) {
   }
   if (node.type === 'bubble' && node.kind === 'cta') {
     const text = String(node.body || '').trim() || String(node.linkUrl || '').trim() || 'Button';
+    return `<div class="node-title"><span class="node-cta-preview">${escapeHtml(text)}</span></div>`;
+  }
+  if (node.type === 'bubble' && node.kind === 'game') {
+    const text = String(node.body || '').trim() || 'Play Game';
     return `<div class="node-title"><span class="node-cta-preview">${escapeHtml(text)}</span></div>`;
   }
   return `<div class="node-title"${getGameTitleStyle(node, displayTitle)}>${renderMessageHtml(node.body, '')}</div>`;
@@ -19146,6 +19262,10 @@ function updateObjectInspectorUi(node, link, copyText) {
     if (objectBubbleLinkUrlField) objectBubbleLinkUrlField.hidden = true;
     if (objectBubbleCtaTextField) objectBubbleCtaTextField.hidden = true;
     if (objectBubbleCtaUrlField) objectBubbleCtaUrlField.hidden = true;
+    if (objectBubbleGameSelectField) objectBubbleGameSelectField.hidden = true;
+    if (objectBubbleGameButtonTextField) objectBubbleGameButtonTextField.hidden = true;
+    if (objectBubbleGameQuestionField) objectBubbleGameQuestionField.hidden = true;
+    if (objectBubbleGameAnswerField) objectBubbleGameAnswerField.hidden = true;
     if (objectDescriptionField) objectDescriptionField.hidden = true;
     if (objectBodyRequiredHint) objectBodyRequiredHint.hidden = true;
     if (objectBodyInput) objectBodyInput.classList.remove('is-invalid');
@@ -19172,7 +19292,8 @@ function updateObjectInspectorUi(node, link, copyText) {
   const isAudioBubble = isGuideNode && node.kind === 'audio';
   const isLinkBubble = isGuideNode && node.kind === 'link';
   const isCtaBubble = isGuideNode && node.kind === 'cta';
-  const isMediaBubble = isImageBubble || isVideoBubble || isAudioBubble || isLinkBubble || isCtaBubble;
+  const isGameBubble = isGuideNode && node.kind === 'game';
+  const isMediaBubble = isImageBubble || isVideoBubble || isAudioBubble || isLinkBubble || isCtaBubble || isGameBubble;
   const BODY_LABELS = { stop: 'NOTES', bubble: 'GUIDE TEXT', reply: 'PLAYER MESSAGE' };
 
   if (objectInspectorCopy) objectInspectorCopy.textContent = copyText || '';
@@ -19188,7 +19309,11 @@ function updateObjectInspectorUi(node, link, copyText) {
   if (objectBubbleLinkUrlField) objectBubbleLinkUrlField.hidden = !isLinkBubble;
   if (objectBubbleCtaTextField) objectBubbleCtaTextField.hidden = !isCtaBubble;
   if (objectBubbleCtaUrlField) objectBubbleCtaUrlField.hidden = !isCtaBubble;
-  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node || isButtonNode || isImageBubble || isVideoBubble || isAudioBubble || isLinkBubble;
+  if (objectBubbleGameButtonTextField) objectBubbleGameButtonTextField.hidden = !isGameBubble;
+  if (objectBubbleGameSelectField) objectBubbleGameSelectField.hidden = !isGameBubble;
+  if (objectBubbleGameQuestionField) objectBubbleGameQuestionField.hidden = !isGameBubble;
+  if (objectBubbleGameAnswerField) objectBubbleGameAnswerField.hidden = !isGameBubble;
+  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node || isButtonNode || isImageBubble || isVideoBubble || isAudioBubble || isLinkBubble || isGameBubble;
   if (objectBodyLabel) {
     objectBodyLabel.textContent = node
       ? (isImageBubble ? 'IMAGE ADDRESS' : isVideoBubble ? 'VIDEO ADDRESS' : isAudioBubble ? 'AUDIO ADDRESS' : (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'NOTES')))
@@ -19255,6 +19380,17 @@ function updateObjectInspectorUi(node, link, copyText) {
   syncInput(objectBubbleLinkUrlInput, isLinkBubble, node && (node.linkUrl || 'https://'));
   syncInput(objectBubbleCtaTextInput, isCtaBubble, node && node.body);
   syncInput(objectBubbleCtaUrlInput, isCtaBubble, node && (node.linkUrl || 'https://'));
+  syncInput(objectBubbleGameButtonTextInput, isGameBubble, node && (node.body || 'Play Game'));
+  if (objectBubbleGameSelect) {
+    objectBubbleGameSelect.disabled = !isGameBubble;
+    if (isGameBubble && node && !node.minigame) {
+      const entry = (state.minigames || []).find((item) => item.id === 'locker' || item.file === 'locker.html') || (state.minigames || [])[0] || MINIGAME_FALLBACKS[1] || MINIGAME_FALLBACKS[0];
+      node.minigame = entry && entry.file ? entry.file : 'locker.html';
+    }
+    populateMinigameSelect(isGameBubble && node ? node.minigame : '');
+  }
+  syncInput(objectBubbleGameQuestionInput, isGameBubble, node && node.gameQuestion);
+  syncInput(objectBubbleGameAnswerInput, isGameBubble, node && node.gameAnswer);
   if (objectBubbleCtaPaymentCheckbox) {
     const linkUrl = String((node && node.linkUrl) || '');
     const gameCheckoutUrl = (state.currentGameMeta && state.currentGameMeta.checkoutUrl) || '';
@@ -19273,8 +19409,8 @@ function updateObjectInspectorUi(node, link, copyText) {
     closeVariableAutocomplete();
   }
   if (objectInsertBtn) {
-    objectInsertBtn.hidden = isLinkSelected || !isGuideNode || isImageBubble || isVideoBubble || isLinkBubble;
-    objectInsertBtn.disabled = isLinkSelected || !isGuideNode || isImageBubble || isVideoBubble || isLinkBubble;
+    objectInsertBtn.hidden = isLinkSelected || !isGuideNode || isImageBubble || isVideoBubble || isLinkBubble || isGameBubble;
+    objectInsertBtn.disabled = isLinkSelected || !isGuideNode || isImageBubble || isVideoBubble || isLinkBubble || isGameBubble;
     objectInsertBtn.textContent = (node && node.kind === 'text') ? 'Insert Stored Info' : 'Insert';
   }
   if (isLinkSelected || !isGuideNode) {
@@ -19908,6 +20044,9 @@ function duplicateNode(nodeId) {
     waypointGroup: source.type === 'stop' ? normalizeWaypointGroup(source.waypointGroup) : '',
     body: source.body || '',
     buttonUrl: source.buttonUrl || '',
+    minigame: source.minigame || '',
+    gameQuestion: source.gameQuestion || '',
+    gameAnswer: normalizeGameAnswerValue(source.gameAnswer),
     tertiaryColor: source.tertiaryColor || '',
     quaternaryColor: source.quaternaryColor || '',
     varName: source.varName || '',
@@ -19936,6 +20075,14 @@ function addNode(type, x, y, options = {}) {
   const sourceNode = getAutoLinkSourceNode();
   const node = createNode(type, x, y);
   if (options.kind) node.kind = options.kind;
+  if (type === 'bubble' && node.kind === 'game') {
+    const entries = (state.minigames && state.minigames.length ? state.minigames : MINIGAME_FALLBACKS);
+    const firstMinigame = entries.find((entry) => entry.id === 'locker' || entry.file === 'locker.html') || entries[0];
+    node.body = 'Play Game';
+    node.minigame = firstMinigame && firstMinigame.file ? firstMinigame.file : 'locker.html';
+    node.gameQuestion = '';
+    node.gameAnswer = '';
+  }
   if (type === 'game') {
     const slot = getGameHomeSlot();
     node.x = slot.x;
@@ -20186,9 +20333,9 @@ function syncReplyModeInputs(node) {
   // TIMING (Inline/Anytime) is disabled — anytime replies now live in the anytime_replies table.
   if (objectReplyTimingField) objectReplyTimingField.hidden = true;
   if (objectBodyAnswerNote) objectBodyAnswerNote.hidden = !(isReplyNode && mode === 'normal');
-  if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble') || (node && (node.kind === 'image' || node.kind === 'video' || node.kind === 'audio' || node.kind === 'link' || node.kind === 'cta'));
+  if (objectBodyHtmlNote) objectBodyHtmlNote.hidden = !(node && node.type === 'bubble') || (node && (node.kind === 'image' || node.kind === 'video' || node.kind === 'audio' || node.kind === 'link' || node.kind === 'cta' || node.kind === 'game'));
   const isButtonNode = !!node && node.type === 'button';
-  if (objectDescriptionField) objectDescriptionField.hidden = isButtonNode || (isReplyNode && (mode === 'anyanswer' || mode === 'photo')) || (node && node.type === 'bubble' && (node.kind === 'image' || node.kind === 'video' || node.kind === 'audio' || node.kind === 'link' || node.kind === 'cta'));
+  if (objectDescriptionField) objectDescriptionField.hidden = isButtonNode || (isReplyNode && (mode === 'anyanswer' || mode === 'photo')) || (node && node.type === 'bubble' && (node.kind === 'image' || node.kind === 'video' || node.kind === 'audio' || node.kind === 'link' || node.kind === 'cta' || node.kind === 'game'));
 
   renderAnswerResponseInputs(isReplyNode && mode === 'normal' ? node : null);
 
@@ -20675,6 +20822,9 @@ function serializeNodeState(node) {
     body: meta ? meta.body : node.body,
     kind: node.kind || '',
     linkUrl: node.linkUrl || '',
+    minigame: node.minigame || '',
+    gameQuestion: node.gameQuestion || '',
+    gameAnswer: normalizeGameAnswerValue(node.gameAnswer),
     buttonUrl: node.buttonUrl || '',
     tertiaryColor: (meta ? meta.tertiaryColor : node.tertiaryColor) || '',
     quaternaryColor: (meta ? meta.quaternaryColor : node.quaternaryColor) || '',
@@ -21900,6 +22050,54 @@ if (objectBubbleLinkUrlInput) {
   objectBubbleLinkUrlInput.addEventListener('change', syncLinkUrl);
 }
 
+if (objectBubbleGameSelect) {
+  const syncGameSelect = () => {
+    const node = getNode(state.selectedId);
+    if (!node || node.kind !== 'game') return;
+    node.minigame = String(objectBubbleGameSelect.value || '');
+    renderAll();
+    scheduleRecoverySync();
+  };
+  objectBubbleGameSelect.addEventListener('change', syncGameSelect);
+}
+
+if (objectBubbleGameButtonTextInput) {
+  const syncGameButtonText = () => {
+    const node = getNode(state.selectedId);
+    if (!node || node.kind !== 'game') return;
+    node.body = String(objectBubbleGameButtonTextInput.value || '');
+    renderAll();
+    scheduleRecoverySync();
+  };
+  objectBubbleGameButtonTextInput.addEventListener('input', syncGameButtonText);
+  objectBubbleGameButtonTextInput.addEventListener('change', syncGameButtonText);
+}
+
+if (objectBubbleGameQuestionInput) {
+  const syncGameQuestion = () => {
+    const node = getNode(state.selectedId);
+    if (!node || node.kind !== 'game') return;
+    node.gameQuestion = String(objectBubbleGameQuestionInput.value || '');
+    renderAll();
+    scheduleRecoverySync();
+  };
+  objectBubbleGameQuestionInput.addEventListener('input', syncGameQuestion);
+  objectBubbleGameQuestionInput.addEventListener('change', syncGameQuestion);
+}
+
+if (objectBubbleGameAnswerInput) {
+  const syncGameAnswer = () => {
+    const node = getNode(state.selectedId);
+    if (!node || node.kind !== 'game') return;
+    const clean = String(objectBubbleGameAnswerInput.value || '').replace(/\D/g, '').slice(0, 4);
+    if (objectBubbleGameAnswerInput.value !== clean) objectBubbleGameAnswerInput.value = clean;
+    node.gameAnswer = clean;
+    renderAll();
+    scheduleRecoverySync();
+  };
+  objectBubbleGameAnswerInput.addEventListener('input', syncGameAnswer);
+  objectBubbleGameAnswerInput.addEventListener('change', syncGameAnswer);
+}
 
 if (objectBubbleImageOnlinePickBtn && objectBubbleImageOnlineList) {
   objectBubbleImageOnlinePickBtn.addEventListener('click', async () => {
@@ -23218,6 +23416,12 @@ window.addEventListener('keydown', (event) => {
   if (!isTyping && isLetterShortcut(event, 'KeyL')) {
     event.preventDefault();
     addNodeToVisiblePhone('bubble', 'link');
+    return;
+  }
+
+  if (!isTyping && isLetterShortcut(event, 'KeyG')) {
+    event.preventDefault();
+    addNodeToVisiblePhone('bubble', 'game');
     return;
   }
 
