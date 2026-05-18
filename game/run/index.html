@@ -1295,7 +1295,8 @@
       gap: 0.3rem;
       width: 100%;
       max-width: 100%;
-      padding: 0.25rem 0 0.5rem;
+      box-sizing: border-box;
+      padding: 0.25rem 4px 0.5rem;
       margin-top: 0.5rem;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
@@ -1326,6 +1327,14 @@
       border-color: var(--primary);
       color: var(--secondary);
       box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+    }
+    .weather-day-pill.is-takeover {
+      border-color: var(--primary);
+      border-width: 2px;
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent);
+    }
+    .weather-day-pill.is-takeover.is-selected {
+      box-shadow: 0 2px 10px rgba(0,0,0,0.22), 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent);
     }
 
     .weather-day-label {
@@ -1921,8 +1930,6 @@
     };
 
 
-    const what3wordsApiKey = 'TUHUIBI3';
-
     const urlParams = new URLSearchParams(window.location.search);
     const gameId = urlParams.get('id');
     const FALLBACK_GUIDE_AVATAR =
@@ -2282,6 +2289,153 @@ const WEATHER_CODE_MAP = {
       }
     }
 
+    // Fetch a single day from Open-Meteo. When the target is within ~92 days
+    // past or 15 days future, the forecast endpoint covers it; older history
+    // comes from the archive endpoint. When the target is today, we also ask
+    // for `current=...` so the hero can show live temp/feels-like, not just
+    // the day's forecast high.
+    async function fetchOpenMeteoDay(lat, lon, isoDate, useArchive) {
+      const base = useArchive
+        ? 'https://archive-api.open-meteo.com/v1/archive'
+        : 'https://api.open-meteo.com/v1/forecast';
+      const todayISO = (() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      })();
+      const isTodayTarget = !useArchive && isoDate === todayISO;
+      const currentParam = isTodayTarget
+        ? '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m'
+        : '';
+      const url = `${base}?latitude=${lat}&longitude=${lon}` +
+        `&start_date=${isoDate}&end_date=${isoDate}` +
+        `&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,wind_speed_10m_max` +
+        currentParam +
+        `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`;
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const dly = data && data.daily ? data.daily : {};
+      const cur = data && data.current ? data.current : {};
+      const times = Array.isArray(dly.time) ? dly.time : [];
+      if (!times.length) return null;
+      const hi = Number((dly.temperature_2m_max || [])[0]);
+      const lo = Number((dly.temperature_2m_min || [])[0]);
+      const dailyWind = Number((dly.wind_speed_10m_max || [])[0]);
+      const code = Number((dly.weather_code || [])[0]);
+      const info = WEATHER_CODE_MAP[code] || { text: 'Conditions Unknown', icon: 'cloud' };
+      const [y, m, d] = String(times[0]).split('-').map(Number);
+      const date = new Date(y, (m || 1) - 1, d || 1);
+      const todayKey = new Date().toDateString();
+      const isToday = date.toDateString() === todayKey;
+
+      const bigTemp = isToday && Number.isFinite(cur.temperature_2m)
+        ? cur.temperature_2m
+        : (Number.isFinite(hi) ? hi : null);
+      const wind = isToday && Number.isFinite(cur.wind_speed_10m)
+        ? cur.wind_speed_10m
+        : (Number.isFinite(dailyWind) ? dailyWind : null);
+      const humidity = isToday && Number.isFinite(cur.relative_humidity_2m)
+        ? cur.relative_humidity_2m
+        : null;
+      const feels = isToday && Number.isFinite(cur.apparent_temperature)
+        ? cur.apparent_temperature
+        : null;
+
+      return {
+        date: date.toDateString(),
+        label: formatWeatherDayLabel(date, todayKey),
+        isToday,
+        bigTemp: Number.isFinite(bigTemp) ? Math.round(bigTemp) : null,
+        conditionText: info.text,
+        icon: info.icon,
+        hi: Number.isFinite(hi) ? Math.round(hi) : null,
+        lo: Number.isFinite(lo) ? Math.round(lo) : null,
+        wind: Number.isFinite(wind) ? Math.round(wind) : null,
+        humidity: Number.isFinite(humidity) ? Math.round(humidity) : null,
+        feels: Number.isFinite(feels) ? Math.round(feels) : null,
+        source: useArchive ? 'archive' : 'forecast'
+      };
+    }
+
+    // Climatology: average the past 5 years on the same MM-DD. Used when the
+    // takeover date is beyond Open-Meteo's 16-day forecast window.
+    async function fetchClimatologyForDate(lat, lon, targetDate) {
+      const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(targetDate.getDate()).padStart(2, '0');
+      const currentYear = new Date().getFullYear();
+      const promises = [];
+      for (let i = 1; i <= 5; i++) {
+        const yr = currentYear - i;
+        const iso = `${yr}-${mm}-${dd}`;
+        promises.push(
+          fetch(
+            `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
+            `&start_date=${iso}&end_date=${iso}` +
+            `&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max` +
+            `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto`,
+            { cache: 'no-store' }
+          ).then(r => r.ok ? r.json() : null).catch(() => null)
+        );
+      }
+      const results = (await Promise.all(promises)).filter(Boolean);
+      if (!results.length) return null;
+      let hiSum = 0, loSum = 0, windSum = 0;
+      let hiN = 0, loN = 0, windN = 0;
+      const codeCounts = new Map();
+      results.forEach((d) => {
+        const dly = d && d.daily ? d.daily : {};
+        const hi = Number((dly.temperature_2m_max || [])[0]);
+        const lo = Number((dly.temperature_2m_min || [])[0]);
+        const wind = Number((dly.wind_speed_10m_max || [])[0]);
+        const code = Number((dly.weather_code || [])[0]);
+        if (Number.isFinite(hi)) { hiSum += hi; hiN++; }
+        if (Number.isFinite(lo)) { loSum += lo; loN++; }
+        if (Number.isFinite(wind)) { windSum += wind; windN++; }
+        if (Number.isFinite(code)) codeCounts.set(code, (codeCounts.get(code) || 0) + 1);
+      });
+      if (!hiN) return null;
+      let modeCode = 0, modeN = 0;
+      codeCounts.forEach((n, code) => { if (n > modeN) { modeCode = code; modeN = n; } });
+      const info = WEATHER_CODE_MAP[modeCode] || { text: 'Mixed Conditions', icon: 'cloud' };
+      const hi = Math.round(hiSum / hiN);
+      const lo = loN ? Math.round(loSum / loN) : null;
+      const wind = windN ? Math.round(windSum / windN) : null;
+      const todayKey = new Date().toDateString();
+      return {
+        date: targetDate.toDateString(),
+        label: formatWeatherDayLabel(targetDate, todayKey),
+        isToday: false,
+        bigTemp: hi,
+        conditionText: info.text,
+        icon: info.icon,
+        hi, lo, wind,
+        humidity: null,
+        feels: null,
+        source: 'climatology',
+        yearsAveraged: results.length
+      };
+    }
+
+    async function fetchWeatherForDate(lat, lon, targetDate) {
+      const target = new Date(targetDate);
+      target.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const diffDays = Math.round((target - today) / 86400000);
+      const iso = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
+      // Forecast endpoint covers ~92 days past to 16 days future.
+      if (diffDays >= -92 && diffDays <= 15) {
+        const day = await fetchOpenMeteoDay(lat, lon, iso, false);
+        if (day) return day;
+      }
+      // Older history → archive endpoint single day.
+      if (diffDays < -92) {
+        return await fetchOpenMeteoDay(lat, lon, iso, true);
+      }
+      // Far future → climatology (avg past 5 years).
+      return await fetchClimatologyForDate(lat, lon, target);
+    }
+
     async function fetchOpenMeteoWeather(lat, lon) {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
                   `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m` +
@@ -2341,7 +2495,7 @@ const WEATHER_CODE_MAP = {
       return { source: 'Open-Meteo', days };
     }
 
-    async function renderWeather(lat, lon, cityLabel) {
+    async function renderWeather(lat, lon, cityLabel, takeoverDate) {
       const section = document.getElementById('weatherCardSection');
       const content = document.getElementById('weatherContent');
       const badge     = document.getElementById('weatherLiveBadge');
@@ -2367,6 +2521,37 @@ const WEATHER_CODE_MAP = {
         return;
       }
 
+      // Trim/extend the strip so the takeover date is the last pill:
+      //  • takeover inside the 7-day window → drop any days after it.
+      //  • takeover beyond the window       → fetch its weather and append.
+      //  • takeover already past            → leave the strip untouched.
+      if (takeoverDate instanceof Date) {
+        const targetMidnight = new Date(takeoverDate); targetMidnight.setHours(0, 0, 0, 0);
+        const targetTime = targetMidnight.getTime();
+        const targetKey = targetMidnight.toDateString();
+        const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+        const takeoverIsPast = targetTime < todayMidnight.getTime();
+        const alreadyInStrip = days.some((dd) => dd.date === targetKey);
+        if (!takeoverIsPast) {
+          if (alreadyInStrip) {
+            // Mark the existing pill and drop anything after it.
+            const idx = days.findIndex((dd) => dd.date === targetKey);
+            if (idx >= 0) {
+              days[idx].isTakeover = true;
+              days.length = idx + 1;
+            }
+          } else {
+            try {
+              const takeoverDay = await fetchWeatherForDate(lat, lon, takeoverDate);
+              if (takeoverDay && takeoverDay.bigTemp != null) {
+                takeoverDay.isTakeover = true;
+                days.push(takeoverDay);
+              }
+            } catch (e) {}
+          }
+        }
+      }
+
       const localLabel = await labelPromise;
 
       content.innerHTML = `
@@ -2382,7 +2567,7 @@ const WEATHER_CODE_MAP = {
       };
 
       strip.innerHTML = days.map((d, i) => `
-        <button type="button" class="weather-day-pill" data-idx="${i}" aria-pressed="false">
+        <button type="button" class="weather-day-pill${d.isTakeover ? ' is-takeover' : ''}" data-idx="${i}" aria-pressed="false">
           <span class="weather-day-label">${escapeHtml(d.label)}</span>
           ${pillIcon(d.icon)}
           <span class="weather-day-temps">${d.hi != null ? d.hi + '°' : '—'}<small>/${d.lo != null ? d.lo + '°' : '—'}</small></span>
@@ -2399,9 +2584,14 @@ const WEATHER_CODE_MAP = {
         if (d.wind     != null)           metaParts.push(`<span><strong>Wind</strong> ${d.wind} mph</span>`);
         if (d.humidity != null)           metaParts.push(`<span><strong>Humidity</strong> ${d.humidity}%</span>`);
 
-        const subtitle = d.isToday
-          ? (d.feels != null ? `<div class="weather-feels">Feels like ${d.feels}°</div>` : '')
-          : `<div class="weather-feels">Forecast High</div>`;
+        let subtitle;
+        if (d.isToday) {
+          subtitle = d.feels != null ? `<div class="weather-feels">Feels like ${d.feels}°</div>` : '';
+        } else if (d.source === 'climatology') {
+          subtitle = `<div class="weather-feels">Avg of past ${d.yearsAveraged} years</div>`;
+        } else {
+          subtitle = `<div class="weather-feels">Forecast High</div>`;
+        }
 
         heroBlock.innerHTML = `
           <div class="weather-hero">
@@ -2430,7 +2620,15 @@ const WEATHER_CODE_MAP = {
 
       paintHero(0);
 
-      if (cityEl) cityEl.textContent = localLabel || cityLabel || '';
+      if (cityEl) {
+        // Strip the state ("Charlotte, NC" → "Charlotte") so the label
+        // matches the rendezvous bottom-center format: "Neighborhood, City".
+        const cityOnly = String(cityLabel || '').split(',')[0].trim();
+        const neighborhood = (localLabel || '').trim();
+        cityEl.textContent = neighborhood && neighborhood !== cityOnly
+          ? `${neighborhood}, ${cityOnly}`
+          : (cityOnly || neighborhood);
+      }
       section.style.display = 'flex';
     }
 
@@ -3341,9 +3539,10 @@ const WEATHER_CODE_MAP = {
           price:               game.price,
           howToPlay:           game.how_to_play,
           locationBased:       game.location_based,
-          startingLocation:    game.starting_location,
-          startingLocationLat: game.starting_location_lat,
-          startingLocationLon: game.starting_location_lon,
+          startingLocationName:    game.starting_location_name,
+          startingLocationAddress: game.starting_location_address,
+          startingLocationLat:     game.starting_location_lat,
+          startingLocationLon:     game.starting_location_lon,
           logoUrl:             game.logo_url || game.logoUrl || game.logo,
         };
         const defaultEmoji = gameNode.defaultEmoji || '🧩';
@@ -3397,11 +3596,6 @@ const WEATHER_CODE_MAP = {
         // START
         const isLocationBased = !!gameNode.locationBased;
         if (isLocationBased) {
-          const startingLocation = (gameNode.startingLocation || '').trim();
-          const urlMatch = startingLocation.match(/(?:what3words\.com|w3w\.co)\/([a-z]+\.[a-z]+\.[a-z]+)/i);
-          const rawMatch = startingLocation.match(/\/{1,3}([a-z]+\.[a-z]+\.[a-z]+)/i);
-          const words = urlMatch ? urlMatch[1].toLowerCase() : rawMatch ? rawMatch[1].toLowerCase() : null;
-
           const mapLat = typeof gameNode.startingLocationLat === 'number' ? gameNode.startingLocationLat : null;
           const mapLon = typeof gameNode.startingLocationLon === 'number' ? gameNode.startingLocationLon : null;
 
@@ -3461,12 +3655,24 @@ const WEATHER_CODE_MAP = {
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           };
 
+          // Prefer the human-typed Start Address when present so Google Maps
+          // routes to that exact address instead of reverse-resolving lat/lon
+          // to whatever business sits there (e.g. "Shop Science").
+          const getDestinationParam = (lat, lon) => {
+            const addr = (gameNode.startingLocationAddress || '').trim();
+            if (addr) return encodeURIComponent(addr);
+            if (lat != null && lon != null) return `${lat},${lon}`;
+            return null;
+          };
+
           const directionsEmbedUrl = (lat, lon) => {
+            const dest = getDestinationParam(lat, lon);
+            if (!dest) return '';
             if (userLat != null && userLon != null) {
               const dirflg = travelMode === 'walking' ? '&dirflg=w' : '';
-              return `https://www.google.com/maps?saddr=${userLat},${userLon}&daddr=${lat},${lon}${dirflg}&output=embed`;
+              return `https://www.google.com/maps?saddr=${userLat},${userLon}&daddr=${dest}${dirflg}&output=embed`;
             }
-            return `https://www.google.com/maps?q=${lat},${lon}&output=embed`;
+            return `https://www.google.com/maps?q=${dest}&output=embed`;
           };
 
           const updateIframeSrc = () => {
@@ -3532,9 +3738,10 @@ const WEATHER_CODE_MAP = {
           };
 
           const shareStartingLocation = () => {
-            if (resolvedLat == null || resolvedLon == null) return;
+            const dest = getDestinationParam(resolvedLat, resolvedLon);
+            if (!dest) return;
             const modeSuffix = travelMode === 'walking' ? '&travelmode=walking' : '';
-            const shareUrl = `https://www.google.com/maps/dir/?api=1&destination=${resolvedLat},${resolvedLon}${modeSuffix}`;
+            const shareUrl = `https://www.google.com/maps/dir/?api=1&destination=${dest}${modeSuffix}`;
             const shareTitle = `${gameName} — starting location`;
             const shareText = `Meet at the starting location for "${gameName}"`;
             if (navigator.share) {
@@ -3560,18 +3767,20 @@ const WEATHER_CODE_MAP = {
           let directionsLightboxLastUrl = null;
 
           const buildDirectionsEmbedUrl = () => {
-            if (resolvedLat == null || resolvedLon == null) return null;
+            const dest = getDestinationParam(resolvedLat, resolvedLon);
+            if (!dest) return null;
             const dirflg = travelMode === 'walking' ? '&dirflg=w' : '';
             if (userLat != null && userLon != null) {
-              return `https://www.google.com/maps?saddr=${userLat},${userLon}&daddr=${resolvedLat},${resolvedLon}${dirflg}&output=embed`;
+              return `https://www.google.com/maps?saddr=${userLat},${userLon}&daddr=${dest}${dirflg}&output=embed`;
             }
-            return `https://www.google.com/maps?q=${resolvedLat},${resolvedLon}&output=embed`;
+            return `https://www.google.com/maps?q=${dest}&output=embed`;
           };
 
           const buildDirectionsTabUrl = () => {
-            if (resolvedLat == null || resolvedLon == null) return null;
+            const dest = getDestinationParam(resolvedLat, resolvedLon);
+            if (!dest) return null;
             const tabModeSuffix = travelMode === 'walking' ? '&travelmode=walking' : '';
-            return `https://www.google.com/maps/dir/?api=1&destination=${resolvedLat},${resolvedLon}${tabModeSuffix}`;
+            return `https://www.google.com/maps/dir/?api=1&destination=${dest}${tabModeSuffix}`;
           };
 
           const refreshDirectionsLightbox = () => {
@@ -3663,26 +3872,24 @@ const WEATHER_CODE_MAP = {
           // Populate
           document.getElementById('rendezvousSection').style.display = 'flex';
           document.getElementById('startBlurb').innerHTML = `You must go to <strong>${city}</strong> to play this game. Tap here to reveal directions to the starting location.`;
-          document.getElementById('startCityLabel').textContent = (gameNode.city || city || '').trim();
+          const cityState = (gameNode.city || city || '').trim();
+          // Drop the state (everything after the first comma) so we end up
+          // with just the city name for the bottom label.
+          const cityOnly = cityState.split(',')[0].trim();
+          const startCityLabel = document.getElementById('startCityLabel');
+          // Show the city immediately; the neighborhood is filled in below
+          // once we've reverse-geocoded the resolved coordinates.
+          startCityLabel.textContent = cityOnly;
 
           // OSM background map
           (async () => {
             try {
               let lat = null, lon = null;
 
-              // 1. w3w → most precise
-              if (words) {
-                try {
-                  const res  = await fetch(`https://api.what3words.com/v3/convert-to-coordinates?words=${encodeURIComponent(words)}&key=${what3wordsApiKey}`);
-                  const data = await res.json();
-                  if (data.coordinates) { lat = data.coordinates.lat; lon = data.coordinates.lng; }
-                } catch(e) {}
-              }
+              // 1. stored lat/lon
+              if (mapLat != null) { lat = mapLat; lon = mapLon; }
 
-              // 2. stored lat/lon
-              if (lat == null && mapLat != null) { lat = mapLat; lon = mapLon; }
-
-              // 3. Nominatim city geocode
+              // 2. Nominatim city geocode
               if (lat == null) {
                 const mapCity = (gameNode.city || '').trim();
                 if (!mapCity) return;
@@ -3693,12 +3900,28 @@ const WEATHER_CODE_MAP = {
                 lon = parseFloat(places[0].lon);
               }
 
-              // Live weather for the rendezvous coordinates.
-              renderWeather(lat, lon, (gameNode.city || city || '').trim());
+              // Weather for the takeover date at the rendezvous coordinates.
+              // Falls back to today if no date is set, uses the forecast API
+              // when within ~16 days, and a 5-year historical average when
+              // the takeover is farther out.
+              const takeoverDateRaw = String(game.game_date || gameNode.gameDate || '').trim();
+              const takeoverTimeRaw = String(game.start_time || gameNode.startTime || '').trim();
+              const takeoverDate = parseGameDateTime(takeoverDateRaw, takeoverTimeRaw)
+                || parseGameDateValue(takeoverDateRaw)
+                || new Date();
+              renderWeather(lat, lon, (gameNode.city || city || '').trim(), takeoverDate);
+
+              // Reverse-geocode the rendezvous to a neighborhood and prepend
+              // it to the bottom label as "Neighborhood, City".
+              fetchLocalLabel(lat, lon, '').then((neighborhood) => {
+                if (neighborhood && neighborhood !== cityOnly) {
+                  startCityLabel.textContent = `${neighborhood}, ${cityOnly}`;
+                }
+              });
 
               resolvedLat = lat;
               resolvedLon = lon;
-              baseZoom = (words || mapLat != null) ? 15 : 12;
+              baseZoom = (mapLat != null) ? 15 : 12;
               // Kick off geolocation in the background as soon as we know the
               // destination — non-blocking; reveal/Go don't have to wait on it.
               determineTravelMode();
