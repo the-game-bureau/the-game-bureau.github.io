@@ -1184,6 +1184,7 @@ body{
 }
 button,input,textarea,select{font:inherit;}
 button{cursor:pointer;border:0;background:none;}
+button,.btn,.admin-nav-link,[class*="-btn"]{text-transform:uppercase;}
 code{font-family:"IBM Plex Mono",monospace;}
 
 /* â”€â”€ App shell â”€â”€ */
@@ -13673,28 +13674,62 @@ function makeId(type = 'stop', counters = state.nextNodeNumbers, usedIds = null)
   return id;
 }
 
-function makeGameId() {
-  return String(Math.floor(10000 + Math.random() * 90000));
-}
+const GAME_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
-async function makeUniqueGameId() {
+async function promptForNewGameId({ purpose = 'create', suggestedFrom = '' } = {}) {
   const knownIds = new Set([
     ...state.store.games.map((g) => g && g.id),
     ...(state.headerGames || []).map((g) => g && g.id)
   ].filter(Boolean));
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const candidate = makeGameId();
-    if (knownIds.has(candidate)) continue;
+
+  const action = purpose === 'duplicate' ? 'duplicate' : 'create';
+  let suggestion = '';
+  if (suggestedFrom) {
+    const base = String(suggestedFrom).trim();
+    let candidate = base + '-copy';
+    let n = 2;
+    while (knownIds.has(candidate)) candidate = base + '-copy-' + (n++);
+    suggestion = candidate;
+  }
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const raw = window.prompt(
+      `Enter a unique game ID to ${action} this game.\n` +
+      'IDs are 1-64 characters: letters, numbers, underscores, or hyphens.',
+      suggestion
+    );
+    if (raw === null) return null;
+    const candidate = String(raw).replace(/\s+/g, '').trim();
+    if (!candidate) { window.alert('Game ID cannot be empty.'); continue; }
+    if (!GAME_ID_PATTERN.test(candidate)) {
+      window.alert('Game ID must be 1-64 characters of letters, numbers, underscores, or hyphens.');
+      suggestion = candidate;
+      continue;
+    }
+    if (knownIds.has(candidate)) {
+      window.alert(`A game with ID "${candidate}" already exists (loaded locally). Pick a different ID.`);
+      suggestion = candidate;
+      continue;
+    }
     if (hasSupabaseStore()) {
       try {
         const existing = await fetchGameRowFromSupabase(candidate, 'id');
-        if (existing) continue;
-      } catch (e) { /* treat as available */ }
+        if (existing) {
+          window.alert(`A game with ID "${candidate}" already exists in Supabase. Pick a different ID.`);
+          suggestion = candidate;
+          continue;
+        }
+      } catch (err) {
+        const proceed = window.confirm(
+          `Could not verify "${candidate}" against Supabase (${err && err.message || err}).\n` +
+          'Use this ID anyway? Cancel to try a different one.'
+        );
+        if (!proceed) { suggestion = candidate; continue; }
+      }
     }
     return candidate;
   }
-  // Fallback: shouldn't happen with 90000 possibilities
-  return makeGameId();
+  return null;
 }
 
 function makeAnytimePairId() {
@@ -16645,9 +16680,12 @@ async function duplicateSavedGame(gameId) {
   const snapshot = getGameshelfSourceGameSnapshot(gameId);
   if (!snapshot) return null;
 
+  const newId = await promptForNewGameId({ purpose: 'duplicate', suggestedFrom: gameId });
+  if (!newId) return null;
+
   const timestamp = new Date().toISOString();
   const duplicatedGame = {
-    id: await makeUniqueGameId(),
+    id: newId,
     name: buildDuplicateGameName(snapshot.name),
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -16916,9 +16954,12 @@ async function duplicateCurrentGameAndOpen() {
       return null;
     }
 
+    const newId = await promptForNewGameId({ purpose: 'duplicate', suggestedFrom: sourceId });
+    if (!newId) return null;
+
     const timestamp = new Date().toISOString();
     const duplicateDraft = normalizeSavedGame({
-      id: await makeUniqueGameId(),
+      id: newId,
       name: buildDuplicateGameName(snapshot.name),
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -17906,6 +17947,7 @@ function openSavedGame(gameId, options = {}) {
   runWithoutRecoverySync(() => {
     setHeaderOnlyMode(false);
     state.currentGameId = game.id;
+    state.currentGameCreatedAt = game.createdAt || '';
     state.doc = normalizeDoc(game);
     setCurrentGameColors(game);
     state.currentGameMeta = initGameMeta(game);
@@ -20774,6 +20816,7 @@ function seedPhone(options = {}) {
     setHeaderOnlyMode(false);
     state.doc = cloneObj(EMPTY_DOC);
     state.currentGameId = null;
+    state.currentGameCreatedAt = '';
     clearSelection();
     state.nextNodeNumbers = createNodeIdCounters();
     const firstSlot = getGameHomeSlot();
@@ -21164,7 +21207,10 @@ function stageCurrentGameIntoStore() {
   const docPayload = serializeDoc();
   const existingGame = state.store.games.find((game) => game.id === state.currentGameId);
   const existingIndex = state.store.games.findIndex((game) => game.id === state.currentGameId);
-  const savedGameId = state.currentGameId || makeGameId();
+  const savedGameId = state.currentGameId;
+  if (!savedGameId) {
+    throw new Error('stageCurrentGameIntoStore: state.currentGameId is required (prompt should have set it).');
+  }
   const savedGameName = getDocName(docPayload);
   const fallbackColors = getSavedGameColors(
     existingGame || { id: savedGameId, name: savedGameName },
@@ -21271,7 +21317,18 @@ async function saveDoc(options = {}) {
 
   setSaveStatus('saving');
   if (!state.currentGameId && hasGameNode()) {
-    state.currentGameId = await makeUniqueGameId();
+    const newId = await promptForNewGameId({ purpose: 'create' });
+    if (!newId) {
+      setSaveStatus('idle', 'Save cancelled');
+      return {
+        savedGame: null,
+        serverSaved: false,
+        localOnly: false,
+        skipped: true,
+        error: new Error('Game ID is required to save.')
+      };
+    }
+    state.currentGameId = newId;
   }
   const savedGame = stageCurrentGameIntoStore();
   if (!savedGame && !state.store.updatedAt) {
@@ -24017,8 +24074,6 @@ async function removeAnytimeReply(row) {
 if (anytimeReplyAddBtn) anytimeReplyAddBtn.addEventListener('click', addAnytimeReply);
 
 // ── Editable Game ID ────────────────────────────────────────────────────────
-const GAME_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-
 function normalizeGameIdInput(value) {
   return String(value || '').replace(/\s+/g, '').trim();
 }
@@ -24039,13 +24094,47 @@ async function renameCurrentGameId(nextId) {
 
   if (!hasSupabaseStore()) return { ok: false, error: 'Supabase is not configured.' };
 
+  // Remote uniqueness check — verify the target ID is free before PATCH.
   try {
-    const url = buildSupabaseUrl({ id: 'eq.' + oldId });
+    const existing = await fetchGameRowFromSupabase(trimmed, 'id');
+    if (existing) return { ok: false, error: `A game with ID "${trimmed}" already exists in Supabase.` };
+  } catch (err) {
+    return { ok: false, error: 'Could not verify ID uniqueness: ' + (err && err.message || err) };
+  }
+
+  // The current edit session was loaded from a specific row identified by
+  // (id, created_at). We require created_at on the loaded record so the PATCH
+  // can target exactly that row even if other rows accidentally share the id.
+  const createdAt = String(state.currentGameCreatedAt || '').trim();
+  if (!createdAt) {
+    return {
+      ok: false,
+      error: 'Cannot rename: this game has no created_at on record, so the PATCH cannot be scoped to a single row. Reload the game and try again.'
+    };
+  }
+
+  // Count how many rows currently match the old ID so we can warn if duplicates
+  // exist. We will still proceed because (id, created_at) targets only one row.
+  let sourceRowCount = 1;
+  try {
+    const dupUrl = buildSupabaseUrl({ id: 'eq.' + oldId, select: 'id' });
+    const dupRes = await fetch(dupUrl, {
+      headers: getAnytimeAuthHeaders({ Accept: 'application/json' }),
+      cache: 'no-store'
+    });
+    if (dupRes.ok) {
+      const dupRows = await dupRes.json();
+      if (Array.isArray(dupRows)) sourceRowCount = dupRows.length;
+    }
+  } catch (err) { /* not fatal — proceed with the precise PATCH */ }
+
+  try {
+    const url = buildSupabaseUrl({ id: 'eq.' + oldId, created_at: 'eq.' + createdAt });
     const res = await fetch(url, {
       method: 'PATCH',
       headers: getAnytimeAuthHeaders({
         'Content-Type': 'application/json',
-        Prefer: 'return=minimal'
+        Prefer: 'return=representation'
       }),
       body: JSON.stringify({ id: trimmed })
     });
@@ -24057,8 +24146,30 @@ async function renameCurrentGameId(nextId) {
       }
       return { ok: false, error: msg };
     }
+    // PostgREST with return=representation returns the patched rows. Must be exactly one.
+    let patchedRows = [];
+    try { patchedRows = await res.json(); } catch (e) { patchedRows = []; }
+    if (!Array.isArray(patchedRows) || patchedRows.length === 0) {
+      return {
+        ok: false,
+        error: `PATCH affected 0 rows. Could not find a row with id="${oldId}" and created_at="${createdAt}". Reload the game and try again.`
+      };
+    }
+    if (patchedRows.length > 1) {
+      return {
+        ok: false,
+        error: `PATCH affected ${patchedRows.length} rows — even (id, created_at) is not unique. Inspect the games table in the SQL editor before continuing.`
+      };
+    }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+
+  if (sourceRowCount > 1) {
+    window.alert(
+      `Heads up: ${sourceRowCount} rows in Supabase shared the ID "${oldId}". Only the row you were editing was renamed; ` +
+      `the remaining ${sourceRowCount - 1} row(s) still have the old ID. Add a UNIQUE constraint on games.id and clean them up in the SQL editor.`
+    );
   }
 
   // Update local state to match.

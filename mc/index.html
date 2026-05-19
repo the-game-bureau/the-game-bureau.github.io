@@ -301,10 +301,34 @@
       background: rgba(255,255,255,0.86);
     }
 
+    .toolbar select {
+      height: 42px;
+      padding: 0 28px 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.92);
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23244' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 10px 7px;
+    }
+
     .toolbar input:focus,
     .auth input:focus {
       outline: 2px solid rgba(var(--bic-blue-rgb), 0.24);
       outline-offset: 2px;
+    }
+
+    button, .btn, .admin-nav-link, [class*="-btn"] {
+      text-transform: uppercase;
     }
 
     .btn {
@@ -582,7 +606,8 @@
     .toolbar .btn:disabled,
     .toolbar a.btn[aria-disabled="true"],
     .section-head-actions .btn:disabled,
-    .section-head-actions a.btn[aria-disabled="true"] {
+    .section-head-actions a.btn[aria-disabled="true"],
+    .topbar a[aria-disabled="true"] {
       opacity: 0.38;
       pointer-events: none;
     }
@@ -901,8 +926,9 @@
   <main class="app">
     <section id="reviewPanel">
       <div class="topbar">
-        <a class="btn home-icon-btn" href="../index.html" title="TGB HOME">TGB HOME</a>
-        <a class="btn" id="libPublicBtn" style="margin-right:auto;" href="../site/library.html" target="_blank" rel="noopener">View Library</a>
+        <a class="admin-nav-link" href="../index.html" title="TGB HOME">TGB HOME</a>
+        <a class="admin-nav-link" id="libPublicBtn" href="../site/library.html" target="_blank" rel="noopener">View Library</a>
+        <a class="admin-nav-link" id="libViewGameBtn" style="margin-right:auto;" aria-disabled="true" tabindex="-1" target="_blank" rel="noopener">View Game</a>
         <div class="topbar-actions">
           <nav class="admin-nav">
             <a class="admin-nav-link" href="builder.html">BUILDER</a>
@@ -987,6 +1013,15 @@
         </div>
         <div class="toolbar">
           <input type="search" id="libSearchInput" placeholder="Search..." aria-label="Search games">
+          <select id="libSortSelect" aria-label="Sort games">
+            <option value="default">Sort</option>
+            <option value="date-asc">Date — Soonest</option>
+            <option value="date-desc">Date — Latest</option>
+            <option value="name-asc">Name — A → Z</option>
+            <option value="name-desc">Name — Z → A</option>
+            <option value="city-asc">City — A → Z</option>
+            <option value="city-desc">City — Z → A</option>
+          </select>
           <a class="btn primary" id="libNewBtn" href="builder.html?new=1">New</a>
           <button class="btn" id="libSelectAllBtn" type="button">Select All</button>
           <a class="btn" id="libEditBtn" aria-disabled="true" tabindex="-1">Edit</a>
@@ -1016,7 +1051,8 @@
     const GAMES_SCHEMA = {
       tagline: true,
       featured: true,
-      game_date: true
+      game_date: true,
+      start_time: true
     };
 
     const authModal = document.getElementById('authModal');
@@ -1034,16 +1070,19 @@
     const libNewBtn = document.getElementById('libNewBtn');
     const libSelectAllBtn = document.getElementById('libSelectAllBtn');
     const libEditBtn = document.getElementById('libEditBtn');
+    const libViewGameBtn = document.getElementById('libViewGameBtn');
     const libDupBtn = document.getElementById('libDupBtn');
     const libArchBtn = document.getElementById('libArchBtn');
     const libFeatureBtn = document.getElementById('libFeatureBtn');
     const libSearchInput = document.getElementById('libSearchInput');
+    const libSortSelect = document.getElementById('libSortSelect');
 
     let currentSession = null;
     const selectedGames = new Map();
     let allGamesData = [];
     let visibleGamesData = [];
     let searchTerm = '';
+    let currentSort = 'default';
     let lastSelectedId = null;
 
     function formatGameDate(game) {
@@ -1072,6 +1111,11 @@
 
     libSearchInput.addEventListener('input', () => {
       searchTerm = libSearchInput.value.toLowerCase().trim();
+      renderAdminLibrary(allGamesData);
+    });
+
+    libSortSelect.addEventListener('change', () => {
+      currentSort = libSortSelect.value || 'default';
       renderAdminLibrary(allGamesData);
     });
 
@@ -1239,6 +1283,7 @@
       if (GAMES_SCHEMA.featured) columns.splice(5, 0, 'featured');
       if (GAMES_SCHEMA.tagline) columns.splice(2, 0, 'tagline');
       if (GAMES_SCHEMA.game_date) columns.push('game_date');
+      if (GAMES_SCHEMA.start_time) columns.push('start_time');
       return columns.join(',');
     }
 
@@ -1264,6 +1309,10 @@
         }
         if (missingColumn === 'game_date' && GAMES_SCHEMA.game_date) {
           GAMES_SCHEMA.game_date = false;
+          return fetchGames(buildGameSelect());
+        }
+        if (missingColumn === 'start_time' && GAMES_SCHEMA.start_time) {
+          GAMES_SCHEMA.start_time = false;
           return fetchGames(buildGameSelect());
         }
         throw new Error(message);
@@ -1345,18 +1394,104 @@
       return tags.some((tag) => String(tag || '').trim().toLowerCase() === 'featured');
     }
 
+    function gameRawName(game) {
+      return String(game && game.name || '').trim();
+    }
+
+    function gameRawDate(game) {
+      const raw = String(game && game.game_date || '').trim();
+      if (!raw) return '';
+      const time = String(game && game.start_time || '').trim();
+      return time ? raw + 'T' + time : raw;
+    }
+
+    function gameRawCity(game) {
+      return String(game && game.city || '').trim();
+    }
+
+    function compareStrings(a, b) {
+      return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
+    }
+
+    function nullsFirst(a, b) {
+      const hasA = !!a;
+      const hasB = !!b;
+      if (!hasA && hasB) return -1;
+      if (hasA && !hasB) return 1;
+      if (!hasA && !hasB) return 0;
+      return null;
+    }
+
+    function nullsLast(a, b) {
+      const hasA = !!a;
+      const hasB = !!b;
+      if (hasA && !hasB) return -1;
+      if (!hasA && hasB) return 1;
+      if (!hasA && !hasB) return 0;
+      return null;
+    }
+
+    function compareNameTiebreaker(l, r) {
+      const nl = gameRawName(l);
+      const nr = gameRawName(r);
+      const missing = nullsLast(nl, nr);
+      if (missing !== null) return missing;
+      return compareStrings(nl, nr);
+    }
+
     function sortGamesForAdminLibrary(games) {
+      const list = [...games];
+      const mode = currentSort || 'default';
+
+      if (mode === 'name-asc' || mode === 'name-desc') {
+        const desc = mode === 'name-desc';
+        const missingFn = desc ? nullsLast : nullsFirst;
+        const dir = desc ? -1 : 1;
+        return list.sort((l, r) => {
+          const nl = gameRawName(l);
+          const nr = gameRawName(r);
+          const missing = missingFn(nl, nr);
+          if (missing !== null) return missing;
+          return dir * compareStrings(nl, nr);
+        });
+      }
+
+      if (mode === 'date-asc' || mode === 'date-desc') {
+        const desc = mode === 'date-desc';
+        const missingFn = desc ? nullsLast : nullsFirst;
+        const dir = desc ? -1 : 1;
+        return list.sort((l, r) => {
+          const dl = gameRawDate(l);
+          const dr = gameRawDate(r);
+          const missing = missingFn(dl, dr);
+          if (missing !== null) return missing;
+          if (dl === dr) return compareNameTiebreaker(l, r);
+          return dir * (dl < dr ? -1 : 1);
+        });
+      }
+
+      if (mode === 'city-asc' || mode === 'city-desc') {
+        const desc = mode === 'city-desc';
+        const missingFn = desc ? nullsLast : nullsFirst;
+        const dir = desc ? -1 : 1;
+        return list.sort((l, r) => {
+          const cl = gameRawCity(l);
+          const cr = gameRawCity(r);
+          const missing = missingFn(cl, cr);
+          if (missing !== null) return missing;
+          const cityDelta = dir * compareStrings(cl, cr);
+          if (cityDelta !== 0) return cityDelta;
+          return compareNameTiebreaker(l, r);
+        });
+      }
+
       const stateOrder = { live: 0, archived: 1 };
-      return [...games].sort((left, right) => {
+      return list.sort((left, right) => {
         const stateDelta = stateOrder[getGameState(left)] - stateOrder[getGameState(right)];
         if (stateDelta !== 0) return stateDelta;
         const featuredDelta = Number(isGameFeatured(right)) - Number(isGameFeatured(left));
         if (featuredDelta !== 0) return featuredDelta;
-        return String(left && left.name || 'Untitled Game').localeCompare(
-          String(right && right.name || 'Untitled Game'),
-          undefined,
-          { sensitivity: 'base' }
-        );
+        return compareNameTiebreaker(left, right);
       });
     }
 
@@ -1496,12 +1631,33 @@
       );
     }
 
+    function findDuplicateGameIds(games) {
+      const seen = new Map();
+      const dupes = new Set();
+      (games || []).forEach((g) => {
+        const id = String(g && g.id || '').trim();
+        if (!id) return;
+        if (seen.has(id)) dupes.add(id);
+        else seen.set(id, true);
+      });
+      return [...dupes];
+    }
+
     async function loadAdminLibrary() {
       setStatus(libraryStatus, 'Loading library...');
       renderLibraryEmpty('Loading games...');
 
       try {
         const games = await fetchGames();
+        const dupes = findDuplicateGameIds(games);
+        if (dupes.length) {
+          console.warn('Duplicate game IDs detected:', dupes);
+          window.alert(
+            'Duplicate game IDs detected:\n  ' + dupes.join(', ') +
+            '\n\nThis means the Supabase games table is missing a unique constraint on the id column, or rows were inserted bypassing it. ' +
+            'Fix the data before editing anything — saving a duplicate-ID game may overwrite the wrong row.'
+          );
+        }
         renderAdminLibrary(games);
       } catch (error) {
         console.error(error);
@@ -1539,6 +1695,7 @@
       libSelectAllBtn.disabled = visibleCount === 0;
       libSelectAllBtn.textContent = allVisibleSelected ? 'Deselect All' : 'Select All';
       setLinkEnabled(libEditBtn, single ? buildBuilderRoute({ id: oneGame.id }) : null);
+      setLinkEnabled(libViewGameBtn, single ? '../game/run/index.html?id=' + encodeURIComponent(oneGame.id) : null);
       renderLibraryStatusLine();
     }
 
@@ -1596,8 +1753,59 @@
       if (!response.ok) throw new Error(await readError(response, 'Update failed.'));
     }
 
-    function generateGameId() {
-      return String(Math.floor(100000 + Math.random() * 900000));
+    const DUP_GAME_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+    async function gameIdExistsInSupabase(id) {
+      const target = String(id || '').trim();
+      if (!target) return false;
+      const response = await fetch(restUrl('games', { id: 'eq.' + target, select: 'id' }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not check ID uniqueness.'));
+      const rows = await response.json();
+      return Array.isArray(rows) && rows.length > 0;
+    }
+
+    async function promptForDuplicateGameId(sourceId, knownIds) {
+      const base = String(sourceId || '').trim() || 'game';
+      let suggestion = base + '-copy';
+      let n = 2;
+      while (knownIds.has(suggestion)) suggestion = base + '-copy-' + (n++);
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const raw = window.prompt(
+          'Enter a unique game ID for the duplicate.\n' +
+          'IDs are 1-64 characters: letters, numbers, underscores, or hyphens.',
+          suggestion
+        );
+        if (raw === null) return null;
+        const candidate = String(raw).replace(/\s+/g, '').trim();
+        if (!candidate) { window.alert('Game ID cannot be empty.'); continue; }
+        if (!DUP_GAME_ID_PATTERN.test(candidate)) {
+          window.alert('Game ID must be 1-64 characters of letters, numbers, underscores, or hyphens.');
+          suggestion = candidate;
+          continue;
+        }
+        if (knownIds.has(candidate)) {
+          window.alert('A game with ID "' + candidate + '" already exists in this library. Pick a different ID.');
+          suggestion = candidate;
+          continue;
+        }
+        try {
+          const taken = await gameIdExistsInSupabase(candidate);
+          if (taken) {
+            window.alert('A game with ID "' + candidate + '" already exists in Supabase. Pick a different ID.');
+            suggestion = candidate;
+            continue;
+          }
+        } catch (err) {
+          window.alert('Could not verify uniqueness: ' + (err && err.message || err));
+          return null;
+        }
+        return candidate;
+      }
+      return null;
     }
 
     async function duplicateGame(game) {
@@ -1608,8 +1816,13 @@
       const rows = await response.json();
       const source = rows[0];
       if (!source) throw new Error('Game not found.');
+
+      const knownIds = new Set(allGamesData.map((g) => String(g && g.id || '')).filter(Boolean));
+      const newId = await promptForDuplicateGameId(game.id, knownIds);
+      if (!newId) throw new Error('Duplicate cancelled — no ID provided.');
+
       const copy = Object.assign({}, source);
-      copy.id = generateGameId();
+      copy.id = newId;
       delete copy.created_at;
       delete copy.updated_at;
       copy.name = (source.name || 'Game') + ' Copy';
