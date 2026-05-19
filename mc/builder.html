@@ -12082,17 +12082,59 @@ async function fetchGameRowFromSupabase(gameId, select = null) {
   return Array.isArray(rows) && rows.length ? rows[0] : null;
 }
 
-async function loadGameFromSupabase(gameId) {
+async function loadGameFromSupabase(gameId, options = {}) {
   if (!hasSupabaseStore()) return null;
 
   try {
-    const row = await fetchGameRowFromSupabase(gameId);
+    const createdAt = String(options && options.createdAt || '').trim();
+    const row = createdAt
+      ? await fetchGameRowByIdAndCreatedAt(gameId, createdAt)
+      : await fetchGameRowFromSupabase(gameId);
     if (!row) return null;
     const game = normalizeGameRow(row, 0);
     return normalizeErasedFlag(game && game.erased) === ERASED_GAME_VALUE ? null : game;
   } catch (error) {
     return null;
   }
+}
+
+function parseTimestampMs(value) {
+  const s = String(value || '').trim();
+  if (!s) return NaN;
+  const ms = Date.parse(s);
+  return isNaN(ms) ? NaN : ms;
+}
+
+async function fetchGameRowByIdAndCreatedAt(gameId, createdAt) {
+  const targetId = String(gameId || '').trim();
+  const ts = String(createdAt || '').trim();
+  if (!targetId || !ts || !hasSupabaseStore()) return null;
+  // Fetch every row that matches the id, then disambiguate client-side. This
+  // avoids PostgREST timestamp-format brittleness (microseconds, tz offset).
+  const response = await fetch(buildSupabaseUrl({
+    id: 'eq.' + targetId
+  }), {
+    cache: 'no-store',
+    headers: getSupabaseHeaders({ Accept: 'application/json' })
+  });
+  if (!response.ok) return null;
+  const rows = await response.json();
+  if (!Array.isArray(rows) || !rows.length) return null;
+  // 1) exact string match
+  const exact = rows.find((r) => String(r && r.created_at || '') === ts);
+  if (exact) return exact;
+  // 2) numeric millisecond match — handles microsecond/tz format differences
+  const targetMs = parseTimestampMs(ts);
+  if (!isNaN(targetMs)) {
+    const numeric = rows.find((r) => parseTimestampMs(r && r.created_at) === targetMs);
+    if (numeric) return numeric;
+  }
+  // 3) prefix match (last resort, covers truncation)
+  const prefix = rows.find((r) => {
+    const rowTs = String(r && r.created_at || '');
+    return rowTs && (rowTs.startsWith(ts) || ts.startsWith(rowTs));
+  });
+  return prefix || null;
 }
 
 async function setGameArchivedStateInSupabase(gameId, archivedValue) {
@@ -18079,9 +18121,11 @@ function getEditorLaunchIntent() {
     if (storedIntent && typeof storedIntent === 'object') {
       sessionStorage.removeItem(EDITOR_LAUNCH_INTENT_KEY);
       const gameId = String(storedIntent.gameId || '').trim();
+      const createdAt = String(storedIntent.createdAt || storedIntent.created_at || '').trim();
       const wantsNew = !!storedIntent.newGame;
       return {
         gameId,
+        createdAt,
         wantsNew,
         explicit: wantsNew || !!gameId
       };
@@ -18092,16 +18136,19 @@ function getEditorLaunchIntent() {
   try {
     const url = new URL(location.href);
     const gameId = String(url.searchParams.get('gameId') || url.searchParams.get('id') || '').trim();
+    const createdAt = String(url.searchParams.get('created_at') || url.searchParams.get('createdAt') || '').trim();
     const newValue = String(url.searchParams.get('new') || '').trim().toLowerCase();
     const wantsNew = newValue === '1' || newValue === 'true' || newValue === 'yes';
     return {
       gameId,
+      createdAt,
       wantsNew,
       explicit: wantsNew || !!gameId
     };
   } catch (error) {
     return {
       gameId: '',
+      createdAt: '',
       wantsNew: false,
       explicit: false
     };
@@ -21456,24 +21503,29 @@ async function loadDoc() {
   }
 
   if (launchIntent.gameId) {
-    const remoteGame = await loadGameFromSupabase(launchIntent.gameId);
+    const remoteGame = await loadGameFromSupabase(launchIntent.gameId, { createdAt: launchIntent.createdAt });
     if (remoteGame) {
       state.store = buildStoreFromGames([remoteGame]);
       openSavedGame(remoteGame.id, { updateUrl: false });
       return;
     }
+    // The URL explicitly requested a specific game. Do NOT fall back to a
+    // recovery draft (which would be the previously-edited game) — that's how
+    // a "wrong game opens" bug happens. Surface the failure instead.
+    clearEditorLaunchIntent();
+    console.warn('Builder: could not load requested game', {
+      gameId: launchIntent.gameId,
+      createdAt: launchIntent.createdAt
+    });
+    showGameshelfHome();
+    setHeaderOnlyMode(true);
+    return;
   }
 
   if (recovery) {
     if (restoreRecoveryWorkspace(recovery)) {
       return;
     }
-  }
-
-  if (launchIntent.gameId) {
-    clearEditorLaunchIntent();
-    showGameshelfHome();
-    return;
   }
 
   showGameshelfHome();

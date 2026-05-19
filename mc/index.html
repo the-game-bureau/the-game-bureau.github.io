@@ -1278,7 +1278,8 @@
         'tags',
         'body',
         'logo_url',
-        'guide_image_url'
+        'guide_image_url',
+        'created_at'
       ];
       if (GAMES_SCHEMA.featured) columns.splice(5, 0, 'featured');
       if (GAMES_SCHEMA.tagline) columns.splice(2, 0, 'tagline');
@@ -1551,6 +1552,14 @@
         media.appendChild(statusBadge);
       }
 
+      if (!gameId) {
+        const missingBadge = document.createElement('div');
+        missingBadge.className = 'admin-game-status missing-id';
+        missingBadge.textContent = 'No ID';
+        missingBadge.title = 'This row has no id. Set one in the Supabase SQL editor before editing.';
+        media.appendChild(missingBadge);
+      }
+
       const body = document.createElement('div');
       body.className = 'admin-game-body';
 
@@ -1643,6 +1652,123 @@
       return [...dupes];
     }
 
+    async function fetchAllGameIdsWithTimestamps() {
+      const response = await fetch(restUrl('games', { select: 'id,created_at' }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not fetch games.'));
+      return response.json();
+    }
+
+    async function patchGameIdPrecise(oldId, createdAt, newId) {
+      // First find the actual stored created_at for this row by fetching all
+      // rows with the old id and matching on a string-trimmed basis. This
+      // avoids PostgREST timestamp-format mismatches.
+      const lookup = await fetch(restUrl('games', { id: 'eq.' + oldId, select: 'id,created_at' }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+      if (!lookup.ok) throw new Error(await readError(lookup, 'Could not look up row.'));
+      const rows = await lookup.json();
+      if (!Array.isArray(rows) || !rows.length) {
+        throw new Error('No rows found with id "' + oldId + '".');
+      }
+      const ts = String(createdAt || '');
+      let target = rows.find((r) => String(r && r.created_at || '') === ts);
+      if (!target) {
+        target = rows.find((r) => {
+          const rowTs = String(r && r.created_at || '');
+          return rowTs && (rowTs.startsWith(ts) || ts.startsWith(rowTs));
+        });
+      }
+      if (!target) {
+        throw new Error('No row with id "' + oldId + '" and created_at "' + ts + '" was found.');
+      }
+
+      const response = await fetch(restUrl('games', { id: 'eq.' + oldId, created_at: 'eq.' + target.created_at }), {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+        body: JSON.stringify({ id: newId })
+      });
+      if (!response.ok) throw new Error(await readError(response, 'PATCH failed.'));
+      let patched = [];
+      try { patched = await response.json(); } catch (e) { patched = []; }
+      if (!Array.isArray(patched) || patched.length !== 1) {
+        throw new Error('PATCH affected ' + (patched && patched.length) + ' rows; expected exactly 1.');
+      }
+      return patched[0];
+    }
+
+    async function autoFixDuplicateGameIds() {
+      setStatus(libraryStatus, 'Scanning for duplicate IDs...');
+      let rows;
+      try {
+        rows = await fetchAllGameIdsWithTimestamps();
+      } catch (error) {
+        setStatus(libraryStatus, 'Auto-fix failed: ' + (error.message || error), 'error');
+        return;
+      }
+
+      const existingIds = new Set(rows.map((r) => String(r && r.id || '').trim()).filter(Boolean));
+      const groups = new Map();
+      rows.forEach((r) => {
+        const id = String(r && r.id || '').trim();
+        if (!id) return;
+        if (!groups.has(id)) groups.set(id, []);
+        groups.get(id).push(r);
+      });
+
+      const renames = [];
+      for (const [origId, list] of groups.entries()) {
+        if (list.length <= 1) continue;
+        list.sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+        for (let i = 1; i < list.length; i++) {
+          const row = list[i];
+          if (!row.created_at) {
+            renames.push({ row, newId: null, skipped: 'no created_at' });
+            continue;
+          }
+          let candidate = origId + '1';
+          while (existingIds.has(candidate)) candidate += '1';
+          existingIds.add(candidate);
+          renames.push({ row, newId: candidate });
+        }
+      }
+
+      const actionable = renames.filter((r) => r.newId);
+      if (!actionable.length) {
+        setStatus(libraryStatus, 'No duplicates to rename.', 'success');
+        await loadAdminLibrary();
+        return;
+      }
+
+      setStatus(libraryStatus, 'Renaming ' + actionable.length + ' duplicate row(s)...');
+      const failures = [];
+      let done = 0;
+      for (const item of actionable) {
+        try {
+          await patchGameIdPrecise(item.row.id, item.row.created_at, item.newId);
+          done++;
+        } catch (err) {
+          console.error('Auto-fix PATCH failed for', item.row, '→', item.newId, err);
+          failures.push(item.row.id + ' (' + item.row.created_at + ') → ' + item.newId + ': ' + (err.message || err));
+        }
+      }
+
+      const skippedCount = renames.length - actionable.length;
+      const parts = ['Renamed ' + done + ' of ' + actionable.length + ' duplicate row(s).'];
+      if (skippedCount) parts.push(skippedCount + ' skipped (no created_at).');
+      if (failures.length) parts.push(failures.length + ' failed.');
+      const summary = parts.join(' ');
+
+      if (failures.length) {
+        window.alert(summary + '\n\nFailures:\n' + failures.join('\n'));
+      }
+      setStatus(libraryStatus, summary, failures.length ? 'error' : 'success');
+      await loadAdminLibrary();
+    }
+
     async function loadAdminLibrary() {
       setStatus(libraryStatus, 'Loading library...');
       renderLibraryEmpty('Loading games...');
@@ -1650,12 +1776,17 @@
       try {
         const games = await fetchGames();
         const dupes = findDuplicateGameIds(games);
+        if (dupes.length && !window.__autoFixedDupesThisLoad) {
+          window.__autoFixedDupesThisLoad = true;
+          console.warn('Duplicate game IDs detected, auto-fixing:', dupes);
+          await autoFixDuplicateGameIds();
+          return;
+        }
         if (dupes.length) {
-          console.warn('Duplicate game IDs detected:', dupes);
+          console.warn('Duplicate game IDs still present after auto-fix:', dupes);
           window.alert(
-            'Duplicate game IDs detected:\n  ' + dupes.join(', ') +
-            '\n\nThis means the Supabase games table is missing a unique constraint on the id column, or rows were inserted bypassing it. ' +
-            'Fix the data before editing anything — saving a duplicate-ID game may overwrite the wrong row.'
+            'Auto-fix could not resolve every duplicate. Still duplicated:\n  ' + dupes.join(', ') +
+            '\n\nCheck the console for per-row failures.'
           );
         }
         renderAdminLibrary(games);
@@ -1694,8 +1825,18 @@
       const allVisibleSelected = visibleCount > 0 && visibleGamesData.every((g) => selectedGames.has(String(g.id)));
       libSelectAllBtn.disabled = visibleCount === 0;
       libSelectAllBtn.textContent = allVisibleSelected ? 'Deselect All' : 'Select All';
-      setLinkEnabled(libEditBtn, single ? buildBuilderRoute({ id: oneGame.id }) : null);
-      setLinkEnabled(libViewGameBtn, single ? '../game/run/index.html?id=' + encodeURIComponent(oneGame.id) : null);
+      const oneGameId = single ? String(oneGame && oneGame.id || '').trim() : '';
+      const editParams = (single && oneGameId) ? { id: oneGameId } : null;
+      if (editParams && oneGame.created_at) editParams.created_at = oneGame.created_at;
+      setLinkEnabled(libEditBtn, editParams ? buildBuilderRoute(editParams) : null);
+      libEditBtn.title = single && !oneGameId ? 'This row has no id — set one before editing.' : '';
+      let viewHref = null;
+      if (single && oneGameId) {
+        viewHref = '../game/run/index.html?id=' + encodeURIComponent(oneGameId);
+        if (oneGame.created_at) viewHref += '&created_at=' + encodeURIComponent(oneGame.created_at);
+      }
+      setLinkEnabled(libViewGameBtn, viewHref);
+      libViewGameBtn.title = single && !oneGameId ? 'This row has no id — set one before viewing.' : '';
       renderLibraryStatusLine();
     }
 
@@ -2003,7 +2144,9 @@
       closeLibContextMenu();
       if (selectedGames.size !== 1) return;
       const game = [...selectedGames.values()][0];
-      window.location.href = buildBuilderRoute({ id: game.id });
+      const params = { id: game.id };
+      if (game.created_at) params.created_at = game.created_at;
+      window.location.href = buildBuilderRoute(params);
     });
 
     ctxDupBtn.addEventListener('click', async () => {
