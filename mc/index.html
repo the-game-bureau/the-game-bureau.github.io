@@ -301,10 +301,34 @@
       background: rgba(255,255,255,0.86);
     }
 
+    .toolbar select {
+      height: 42px;
+      padding: 0 28px 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.92);
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23244' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 10px 7px;
+    }
+
     .toolbar input:focus,
     .auth input:focus {
       outline: 2px solid rgba(var(--bic-blue-rgb), 0.24);
       outline-offset: 2px;
+    }
+
+    button, .btn, .admin-nav-link, [class*="-btn"] {
+      text-transform: uppercase;
     }
 
     .btn {
@@ -602,7 +626,8 @@
     .toolbar .btn:disabled,
     .toolbar a.btn[aria-disabled="true"],
     .section-head-actions .btn:disabled,
-    .section-head-actions a.btn[aria-disabled="true"] {
+    .section-head-actions a.btn[aria-disabled="true"],
+    .topbar a[aria-disabled="true"] {
       opacity: 0.38;
       pointer-events: none;
     }
@@ -984,6 +1009,15 @@
         </div>
         <div class="toolbar">
           <input type="search" id="libSearchInput" placeholder="Search..." aria-label="Search games">
+          <select id="libSortSelect" aria-label="Sort games">
+            <option value="default">Sort</option>
+            <option value="date-asc">Date — Soonest</option>
+            <option value="date-desc">Date — Latest</option>
+            <option value="name-asc">Name — A → Z</option>
+            <option value="name-desc">Name — Z → A</option>
+            <option value="city-asc">City — A → Z</option>
+            <option value="city-desc">City — Z → A</option>
+          </select>
           <a class="btn primary" id="libNewBtn" href="builder.html?new=1">New</a>
           <button class="btn btn-width-lock" id="libSelectAllBtn" type="button" data-max-label="Deselect All"><span class="btn-label">Select All</span></button>
           <a class="btn" id="libEditBtn" aria-disabled="true" tabindex="-1">Edit</a>
@@ -1013,7 +1047,8 @@
     const GAMES_SCHEMA = {
       tagline: true,
       featured: true,
-      game_date: true
+      game_date: true,
+      start_time: true
     };
 
     const signOutBtn = document.getElementById('signOutBtn');
@@ -1030,6 +1065,7 @@
     const libFeatureBtn = document.getElementById('libFeatureBtn');
     const libFeatureBtnLabel = libFeatureBtn.querySelector('.btn-label');
     const libSearchInput = document.getElementById('libSearchInput');
+    const libSortSelect = document.getElementById('libSortSelect');
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
       signOutButton: signOutBtn,
@@ -1052,6 +1088,7 @@
     let allGamesData = [];
     let visibleGamesData = [];
     let searchTerm = '';
+    let currentSort = 'default';
     let lastSelectedId = null;
 
     function formatGameDate(game) {
@@ -1080,6 +1117,11 @@
 
     libSearchInput.addEventListener('input', () => {
       searchTerm = libSearchInput.value.toLowerCase().trim();
+      renderAdminLibrary(allGamesData);
+    });
+
+    libSortSelect.addEventListener('change', () => {
+      currentSort = libSortSelect.value || 'default';
       renderAdminLibrary(allGamesData);
     });
 
@@ -1164,11 +1206,13 @@
         'tags',
         'body',
         'logo_url',
-        'guide_image_url'
+        'guide_image_url',
+        'created_at'
       ];
       if (GAMES_SCHEMA.featured) columns.splice(5, 0, 'featured');
       if (GAMES_SCHEMA.tagline) columns.splice(2, 0, 'tagline');
       if (GAMES_SCHEMA.game_date) columns.push('game_date');
+      if (GAMES_SCHEMA.start_time) columns.push('start_time');
       return columns.join(',');
     }
 
@@ -1194,6 +1238,10 @@
         }
         if (missingColumn === 'game_date' && GAMES_SCHEMA.game_date) {
           GAMES_SCHEMA.game_date = false;
+          return fetchGames(buildGameSelect());
+        }
+        if (missingColumn === 'start_time' && GAMES_SCHEMA.start_time) {
+          GAMES_SCHEMA.start_time = false;
           return fetchGames(buildGameSelect());
         }
         throw new Error(message);
@@ -1275,18 +1323,104 @@
       return tags.some((tag) => String(tag || '').trim().toLowerCase() === 'featured');
     }
 
+    function gameRawName(game) {
+      return String(game && game.name || '').trim();
+    }
+
+    function gameRawDate(game) {
+      const raw = String(game && game.game_date || '').trim();
+      if (!raw) return '';
+      const time = String(game && game.start_time || '').trim();
+      return time ? raw + 'T' + time : raw;
+    }
+
+    function gameRawCity(game) {
+      return String(game && game.city || '').trim();
+    }
+
+    function compareStrings(a, b) {
+      return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
+    }
+
+    function nullsFirst(a, b) {
+      const hasA = !!a;
+      const hasB = !!b;
+      if (!hasA && hasB) return -1;
+      if (hasA && !hasB) return 1;
+      if (!hasA && !hasB) return 0;
+      return null;
+    }
+
+    function nullsLast(a, b) {
+      const hasA = !!a;
+      const hasB = !!b;
+      if (hasA && !hasB) return -1;
+      if (!hasA && hasB) return 1;
+      if (!hasA && !hasB) return 0;
+      return null;
+    }
+
+    function compareNameTiebreaker(l, r) {
+      const nl = gameRawName(l);
+      const nr = gameRawName(r);
+      const missing = nullsLast(nl, nr);
+      if (missing !== null) return missing;
+      return compareStrings(nl, nr);
+    }
+
     function sortGamesForAdminLibrary(games) {
+      const list = [...games];
+      const mode = currentSort || 'default';
+
+      if (mode === 'name-asc' || mode === 'name-desc') {
+        const desc = mode === 'name-desc';
+        const missingFn = desc ? nullsLast : nullsFirst;
+        const dir = desc ? -1 : 1;
+        return list.sort((l, r) => {
+          const nl = gameRawName(l);
+          const nr = gameRawName(r);
+          const missing = missingFn(nl, nr);
+          if (missing !== null) return missing;
+          return dir * compareStrings(nl, nr);
+        });
+      }
+
+      if (mode === 'date-asc' || mode === 'date-desc') {
+        const desc = mode === 'date-desc';
+        const missingFn = desc ? nullsLast : nullsFirst;
+        const dir = desc ? -1 : 1;
+        return list.sort((l, r) => {
+          const dl = gameRawDate(l);
+          const dr = gameRawDate(r);
+          const missing = missingFn(dl, dr);
+          if (missing !== null) return missing;
+          if (dl === dr) return compareNameTiebreaker(l, r);
+          return dir * (dl < dr ? -1 : 1);
+        });
+      }
+
+      if (mode === 'city-asc' || mode === 'city-desc') {
+        const desc = mode === 'city-desc';
+        const missingFn = desc ? nullsLast : nullsFirst;
+        const dir = desc ? -1 : 1;
+        return list.sort((l, r) => {
+          const cl = gameRawCity(l);
+          const cr = gameRawCity(r);
+          const missing = missingFn(cl, cr);
+          if (missing !== null) return missing;
+          const cityDelta = dir * compareStrings(cl, cr);
+          if (cityDelta !== 0) return cityDelta;
+          return compareNameTiebreaker(l, r);
+        });
+      }
+
       const stateOrder = { live: 0, archived: 1 };
-      return [...games].sort((left, right) => {
+      return list.sort((left, right) => {
         const stateDelta = stateOrder[getGameState(left)] - stateOrder[getGameState(right)];
         if (stateDelta !== 0) return stateDelta;
         const featuredDelta = Number(isGameFeatured(right)) - Number(isGameFeatured(left));
         if (featuredDelta !== 0) return featuredDelta;
-        return String(left && left.name || 'Untitled Game').localeCompare(
-          String(right && right.name || 'Untitled Game'),
-          undefined,
-          { sensitivity: 'base' }
-        );
+        return compareNameTiebreaker(left, right);
       });
     }
 
@@ -1344,6 +1478,14 @@
         statusBadge.className = 'admin-game-status ' + state;
         statusBadge.textContent = state;
         media.appendChild(statusBadge);
+      }
+
+      if (!gameId) {
+        const missingBadge = document.createElement('div');
+        missingBadge.className = 'admin-game-status missing-id';
+        missingBadge.textContent = 'No ID';
+        missingBadge.title = 'This row has no id. Set one in the Supabase SQL editor before editing.';
+        media.appendChild(missingBadge);
       }
 
       const body = document.createElement('div');
@@ -1426,12 +1568,155 @@
       );
     }
 
+    function findDuplicateGameIds(games) {
+      const seen = new Map();
+      const dupes = new Set();
+      (games || []).forEach((g) => {
+        const id = String(g && g.id || '').trim();
+        if (!id) return;
+        if (seen.has(id)) dupes.add(id);
+        else seen.set(id, true);
+      });
+      return [...dupes];
+    }
+
+    async function fetchAllGameIdsWithTimestamps() {
+      const response = await fetch(restUrl('games', { select: 'id,created_at' }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not fetch games.'));
+      return response.json();
+    }
+
+    async function patchGameIdPrecise(oldId, createdAt, newId) {
+      // First find the actual stored created_at for this row by fetching all
+      // rows with the old id and matching on a string-trimmed basis. This
+      // avoids PostgREST timestamp-format mismatches.
+      const lookup = await fetch(restUrl('games', { id: 'eq.' + oldId, select: 'id,created_at' }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+      if (!lookup.ok) throw new Error(await readError(lookup, 'Could not look up row.'));
+      const rows = await lookup.json();
+      if (!Array.isArray(rows) || !rows.length) {
+        throw new Error('No rows found with id "' + oldId + '".');
+      }
+      const ts = String(createdAt || '');
+      let target = rows.find((r) => String(r && r.created_at || '') === ts);
+      if (!target) {
+        target = rows.find((r) => {
+          const rowTs = String(r && r.created_at || '');
+          return rowTs && (rowTs.startsWith(ts) || ts.startsWith(rowTs));
+        });
+      }
+      if (!target) {
+        throw new Error('No row with id "' + oldId + '" and created_at "' + ts + '" was found.');
+      }
+
+      const response = await fetch(restUrl('games', { id: 'eq.' + oldId, created_at: 'eq.' + target.created_at }), {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+        body: JSON.stringify({ id: newId })
+      });
+      if (!response.ok) throw new Error(await readError(response, 'PATCH failed.'));
+      let patched = [];
+      try { patched = await response.json(); } catch (e) { patched = []; }
+      if (!Array.isArray(patched) || patched.length !== 1) {
+        throw new Error('PATCH affected ' + (patched && patched.length) + ' rows; expected exactly 1.');
+      }
+      return patched[0];
+    }
+
+    async function autoFixDuplicateGameIds() {
+      setStatus(libraryStatus, 'Scanning for duplicate IDs...');
+      let rows;
+      try {
+        rows = await fetchAllGameIdsWithTimestamps();
+      } catch (error) {
+        setStatus(libraryStatus, 'Auto-fix failed: ' + (error.message || error), 'error');
+        return;
+      }
+
+      const existingIds = new Set(rows.map((r) => String(r && r.id || '').trim()).filter(Boolean));
+      const groups = new Map();
+      rows.forEach((r) => {
+        const id = String(r && r.id || '').trim();
+        if (!id) return;
+        if (!groups.has(id)) groups.set(id, []);
+        groups.get(id).push(r);
+      });
+
+      const renames = [];
+      for (const [origId, list] of groups.entries()) {
+        if (list.length <= 1) continue;
+        list.sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+        for (let i = 1; i < list.length; i++) {
+          const row = list[i];
+          if (!row.created_at) {
+            renames.push({ row, newId: null, skipped: 'no created_at' });
+            continue;
+          }
+          let candidate = origId + '1';
+          while (existingIds.has(candidate)) candidate += '1';
+          existingIds.add(candidate);
+          renames.push({ row, newId: candidate });
+        }
+      }
+
+      const actionable = renames.filter((r) => r.newId);
+      if (!actionable.length) {
+        setStatus(libraryStatus, 'No duplicates to rename.', 'success');
+        await loadAdminLibrary();
+        return;
+      }
+
+      setStatus(libraryStatus, 'Renaming ' + actionable.length + ' duplicate row(s)...');
+      const failures = [];
+      let done = 0;
+      for (const item of actionable) {
+        try {
+          await patchGameIdPrecise(item.row.id, item.row.created_at, item.newId);
+          done++;
+        } catch (err) {
+          console.error('Auto-fix PATCH failed for', item.row, '→', item.newId, err);
+          failures.push(item.row.id + ' (' + item.row.created_at + ') → ' + item.newId + ': ' + (err.message || err));
+        }
+      }
+
+      const skippedCount = renames.length - actionable.length;
+      const parts = ['Renamed ' + done + ' of ' + actionable.length + ' duplicate row(s).'];
+      if (skippedCount) parts.push(skippedCount + ' skipped (no created_at).');
+      if (failures.length) parts.push(failures.length + ' failed.');
+      const summary = parts.join(' ');
+
+      if (failures.length) {
+        window.alert(summary + '\n\nFailures:\n' + failures.join('\n'));
+      }
+      setStatus(libraryStatus, summary, failures.length ? 'error' : 'success');
+      await loadAdminLibrary();
+    }
+
     async function loadAdminLibrary() {
       setStatus(libraryStatus, 'Loading library...');
       renderLibraryEmpty('Loading games...');
 
       try {
         const games = await fetchGames();
+        const dupes = findDuplicateGameIds(games);
+        if (dupes.length && !window.__autoFixedDupesThisLoad) {
+          window.__autoFixedDupesThisLoad = true;
+          console.warn('Duplicate game IDs detected, auto-fixing:', dupes);
+          await autoFixDuplicateGameIds();
+          return;
+        }
+        if (dupes.length) {
+          console.warn('Duplicate game IDs still present after auto-fix:', dupes);
+          window.alert(
+            'Auto-fix could not resolve every duplicate. Still duplicated:\n  ' + dupes.join(', ') +
+            '\n\nCheck the console for per-row failures.'
+          );
+        }
         renderAdminLibrary(games);
       } catch (error) {
         console.error(error);
@@ -1473,8 +1758,13 @@
       const allVisibleSelected = visibleCount > 0 && visibleGamesData.every((g) => selectedGames.has(String(g.id)));
       libSelectAllBtn.disabled = visibleCount === 0;
       setButtonLabel(libSelectAllBtnLabel, libSelectAllBtn, allVisibleSelected ? 'Deselect All' : 'Select All');
-      setLinkEnabled(libViewBtn, single ? buildRunRoute({ id: oneGame.id }) : null);
-      setLinkEnabled(libEditBtn, single ? buildBuilderRoute({ id: oneGame.id }) : null);
+      const oneGameId = single ? String(oneGame && oneGame.id || '').trim() : '';
+      const routeParams = oneGameId ? { id: oneGameId } : null;
+      if (routeParams && oneGame.created_at) routeParams.created_at = oneGame.created_at;
+      setLinkEnabled(libViewBtn, routeParams ? buildRunRoute(routeParams) : null);
+      libViewBtn.title = single && !oneGameId ? 'This row has no id — set one before viewing.' : '';
+      setLinkEnabled(libEditBtn, routeParams ? buildBuilderRoute(routeParams) : null);
+      libEditBtn.title = single && !oneGameId ? 'This row has no id — set one before editing.' : '';
       renderLibraryStatusLine();
     }
 
@@ -1532,8 +1822,59 @@
       if (!response.ok) throw new Error(await readError(response, 'Update failed.'));
     }
 
-    function generateGameId() {
-      return String(Math.floor(100000 + Math.random() * 900000));
+    const DUP_GAME_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+    async function gameIdExistsInSupabase(id) {
+      const target = String(id || '').trim();
+      if (!target) return false;
+      const response = await fetch(restUrl('games', { id: 'eq.' + target, select: 'id' }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not check ID uniqueness.'));
+      const rows = await response.json();
+      return Array.isArray(rows) && rows.length > 0;
+    }
+
+    async function promptForDuplicateGameId(sourceId, knownIds) {
+      const base = String(sourceId || '').trim() || 'game';
+      let suggestion = base + '-copy';
+      let n = 2;
+      while (knownIds.has(suggestion)) suggestion = base + '-copy-' + (n++);
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const raw = window.prompt(
+          'Enter a unique game ID for the duplicate.\n' +
+          'IDs are 1-64 characters: letters, numbers, underscores, or hyphens.',
+          suggestion
+        );
+        if (raw === null) return null;
+        const candidate = String(raw).replace(/\s+/g, '').trim();
+        if (!candidate) { window.alert('Game ID cannot be empty.'); continue; }
+        if (!DUP_GAME_ID_PATTERN.test(candidate)) {
+          window.alert('Game ID must be 1-64 characters of letters, numbers, underscores, or hyphens.');
+          suggestion = candidate;
+          continue;
+        }
+        if (knownIds.has(candidate)) {
+          window.alert('A game with ID "' + candidate + '" already exists in this library. Pick a different ID.');
+          suggestion = candidate;
+          continue;
+        }
+        try {
+          const taken = await gameIdExistsInSupabase(candidate);
+          if (taken) {
+            window.alert('A game with ID "' + candidate + '" already exists in Supabase. Pick a different ID.');
+            suggestion = candidate;
+            continue;
+          }
+        } catch (err) {
+          window.alert('Could not verify uniqueness: ' + (err && err.message || err));
+          return null;
+        }
+        return candidate;
+      }
+      return null;
     }
 
     async function duplicateGame(game) {
@@ -1544,8 +1885,13 @@
       const rows = await response.json();
       const source = rows[0];
       if (!source) throw new Error('Game not found.');
+
+      const knownIds = new Set(allGamesData.map((g) => String(g && g.id || '')).filter(Boolean));
+      const newId = await promptForDuplicateGameId(game.id, knownIds);
+      if (!newId) throw new Error('Duplicate cancelled — no ID provided.');
+
       const copy = Object.assign({}, source);
-      copy.id = generateGameId();
+      copy.id = newId;
       delete copy.created_at;
       delete copy.updated_at;
       copy.name = (source.name || 'Game') + ' Copy';
@@ -1658,7 +2004,9 @@
       closeLibContextMenu();
       if (selectedGames.size !== 1) return;
       const game = [...selectedGames.values()][0];
-      window.location.href = buildBuilderRoute({ id: game.id });
+      const params = { id: game.id };
+      if (game.created_at) params.created_at = game.created_at;
+      window.location.href = buildBuilderRoute(params);
     });
 
     ctxDupBtn.addEventListener('click', async () => {
