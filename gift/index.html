@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#cf5137">
   <title>GIFT SHOP | THE GAME BUREAU</title>
-  <link rel="icon" href="assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="icon" href="../site/assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Fraunces:opsz,wght@9..144,600;700;900&family=Montserrat:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/public-theme.css">
-  <script src="assets/public-account.js"></script>
+  <link rel="stylesheet" href="../site/assets/public-theme.css">
+  <script src="../site/assets/public-account.js"></script>
   <style>
     .public-gift {
       --theme-color: var(--brass);
@@ -598,8 +598,169 @@
       }
     }
 
+
+    /* ── Cart + checkout ─────────────────────────────────────────── */
+    .card-buy {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 9px 14px;
+      border-radius: 999px;
+      border: 1px solid currentColor;
+      background: var(--theme-color, #cf5137);
+      color: #fff;
+      font: inherit;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+    }
+    .card-buy:hover { filter: brightness(0.92); }
+    .card-buy[disabled] { opacity: 0.6; cursor: progress; }
+
+    .cart-fab {
+      position: fixed;
+      right: 18px; bottom: 18px;
+      z-index: 1200;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,0.15);
+      background: #111;
+      color: #fff;
+      font-family: inherit;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.22);
+    }
+    .cart-fab[hidden] { display: none; }
+    .cart-fab-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: var(--theme-color, #cf5137);
+      color: #fff;
+      font-size: 0.78rem;
+    }
+
+    .cart-modal {
+      position: fixed; inset: 0; z-index: 1400;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .cart-modal[hidden] { display: none; }
+    .cart-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+    }
+    .cart-panel {
+      position: relative;
+      width: min(720px, 100%);
+      max-height: 90vh;
+      display: flex; flex-direction: column;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+    .cart-panel-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    .cart-panel-head h2 { margin: 0; font-size: 1.05rem; }
+    .cart-close {
+      background: transparent; border: 0;
+      font-size: 1.3rem; cursor: pointer;
+      color: #555;
+      padding: 4px 8px; border-radius: 6px;
+    }
+    .cart-close:hover { background: rgba(0,0,0,0.05); }
+    .cart-body {
+      flex: 1; overflow: auto;
+      padding: 16px 18px;
+    }
+    .cart-line {
+      display: grid;
+      grid-template-columns: 60px 1fr auto auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px dashed rgba(0,0,0,0.08);
+    }
+    .cart-line:last-child { border-bottom: 0; }
+    .cart-line img { width: 60px; height: 60px; object-fit: contain; border-radius: 6px; background: #f6f6f6; }
+    .cart-line-title { font-weight: 700; font-size: 0.95rem; }
+    .cart-line-sub { font-size: 0.8rem; color: #666; }
+    .cart-line-qty {
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .cart-line-qty button {
+      width: 26px; height: 26px;
+      border: 1px solid rgba(0,0,0,0.15);
+      background: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+      font: inherit; font-weight: 800;
+    }
+    .cart-line-price { font-weight: 800; min-width: 80px; text-align: right; }
+    .cart-line-remove {
+      background: transparent; border: 0;
+      color: #999; cursor: pointer;
+      font-size: 1.1rem;
+    }
+    .cart-empty {
+      padding: 24px;
+      text-align: center;
+      color: #777;
+      font-style: italic;
+    }
+    .cart-foot {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 18px;
+      border-top: 1px solid rgba(0,0,0,0.1);
+      flex-wrap: wrap;
+    }
+    .cart-total {
+      flex: 1;
+      font-weight: 800;
+      font-size: 1.1rem;
+    }
+    .cart-checkout {
+      padding: 12px 22px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--theme-color, #cf5137);
+      color: #fff;
+      font: inherit;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+    }
+    .cart-checkout[disabled] { opacity: 0.55; cursor: not-allowed; }
+    .cart-status {
+      width: 100%;
+      margin: 0;
+      font-size: 0.85rem;
+      color: #555;
+      min-height: 1.2em;
+    }
+    .cart-status.error { color: #a03f2d; font-weight: 700; }
+    .cart-status.success { color: #2f6b3d; font-weight: 700; }
+
+    .checkout-pane[hidden] { display: none; }
+    #stripeCheckoutMount { min-height: 320px; }
+
+    .checkout-success {
+      padding: 28px 22px;
+      text-align: center;
+    }
+    .checkout-success h3 { margin: 0 0 8px; font-size: 1.4rem; }
+    .checkout-success p { margin: 0 0 14px; color: #555; }
   </style>
-  <link rel="stylesheet" href="assets/public-radical-theme.css">
+  <link rel="stylesheet" href="../site/assets/public-radical-theme.css">
 </head>
 <body class="public-library public-gift">
   <div class="page-shell">
@@ -611,9 +772,9 @@
       </div>
       <nav class="nav-links" aria-label="Primary">
         <a class="nav-link" href="../index.html">Home</a>
-        <a class="nav-link" href="library.html">Library</a>
-        <a class="nav-link nav-link--active" href="gift.html">Gift Shop</a>
-        <a class="nav-link nav-link--account" href="account.html" data-account-link>Account</a>
+        <a class="nav-link" href="../site/library.html">Library</a>
+        <a class="nav-link nav-link--active" href="./">Gift Shop</a>
+        <a class="nav-link nav-link--account" href="../site/account.html" data-account-link>Account</a>
       </nav>
     </header>
 
@@ -958,6 +1119,401 @@
     if (gameId) loadSingleGame(gameId);
     else loadAllShops();
   </script>
+
+  <button class="cart-fab" id="cartFab" type="button" hidden aria-label="Open cart">
+    Cart <span class="cart-fab-count" id="cartFabCount">0</span>
+  </button>
+
+  <div class="cart-modal" id="cartModal" hidden role="dialog" aria-modal="true" aria-labelledby="cartTitle">
+    <div class="cart-backdrop" id="cartBackdrop"></div>
+    <section class="cart-panel">
+      <header class="cart-panel-head">
+        <h2 id="cartTitle">Your cart</h2>
+        <button class="cart-close" type="button" id="cartCloseBtn" aria-label="Close">&times;</button>
+      </header>
+      <div class="cart-body" id="cartBody"></div>
+      <div class="checkout-pane" id="checkoutPane" hidden>
+        <div id="stripeCheckoutMount"></div>
+      </div>
+      <div class="checkout-pane" id="checkoutSuccess" hidden>
+        <div class="checkout-success">
+          <h3>Order received</h3>
+          <p>Thanks. We emailed a receipt and your Printful order is on its way.</p>
+          <button class="cart-checkout" type="button" id="checkoutSuccessClose">Keep browsing</button>
+        </div>
+      </div>
+      <div class="cart-foot" id="cartFoot">
+        <p class="cart-status" id="cartStatus" aria-live="polite"></p>
+        <span class="cart-total" id="cartTotal">$0.00</span>
+        <button class="cart-checkout" type="button" id="cartCheckoutBtn" disabled>Checkout</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://js.stripe.com/v3"></script>
+  <script>
+    // ── Storefront cart + Stripe Embedded Checkout ───────────────────
+    //
+    // STRIPE_PUBLISHABLE_KEY must be the matching pk_test_… / pk_live_… for
+    // the STRIPE_SECRET_KEY set on the create-stripe-session Edge Function.
+    // Leave it empty to disable the cart entirely (affiliate-only mode).
+    const STRIPE_PUBLISHABLE_KEY = 'pk_test_51MF10bBFJf3v75ByzCOFJB7TL7MxnJ8I2ATlm3zszzjek7ki62BrhJ5TI0ZzTLBMk8ixoNUdsoG9pOjM8S1zR8wv00zYSpHYvw';
+    const EDGE_BASE = SB_CONFIG.url.replace('.supabase.co', '.functions.supabase.co');
+    const CREATE_SESSION_URL = EDGE_BASE + '/create-stripe-session';
+
+    const CART_STORAGE_KEY = 'tgb-gift-cart-v1';
+    const cartFab          = document.getElementById('cartFab');
+    const cartFabCount     = document.getElementById('cartFabCount');
+    const cartModal        = document.getElementById('cartModal');
+    const cartBackdrop     = document.getElementById('cartBackdrop');
+    const cartCloseBtn     = document.getElementById('cartCloseBtn');
+    const cartBody         = document.getElementById('cartBody');
+    const cartFoot         = document.getElementById('cartFoot');
+    const cartTotalEl      = document.getElementById('cartTotal');
+    const cartCheckoutBtn  = document.getElementById('cartCheckoutBtn');
+    const cartStatus       = document.getElementById('cartStatus');
+    const checkoutPane     = document.getElementById('checkoutPane');
+    const checkoutSuccess  = document.getElementById('checkoutSuccess');
+    const stripeMount      = document.getElementById('stripeCheckoutMount');
+
+    let cart            = readCart();
+    let itemsCache      = new Map();   // item_id → {title, image_url, price_cents, currency, printful_variant_id}
+    let stripe          = null;
+    let checkoutHandle  = null;        // Stripe Embedded Checkout handle (mount/unmount)
+    let checkoutLoading = false;
+
+    function readCart() {
+      try {
+        const raw = localStorage.getItem(CART_STORAGE_KEY);
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr.filter((l) => l && l.item_id && Number(l.qty) > 0) : [];
+      } catch { return []; }
+    }
+    function writeCart() {
+      try { localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart)); }
+      catch { /* private mode */ }
+    }
+    function clearCart() {
+      cart = [];
+      writeCart();
+      renderCart();
+    }
+    function cartIsEmpty() {
+      return !cart.length;
+    }
+
+    function rememberItem(item) {
+      if (!item || !item.id) return;
+      itemsCache.set(item.id, {
+        title: item.title || 'Untitled item',
+        image_url: item.image_url || '',
+        price_cents: Number(item.price_cents) || 0,
+        currency: (item.currency || 'usd').toLowerCase(),
+        printful_variant_id: item.printful_variant_id || ''
+      });
+    }
+
+    function isBuyable(item) {
+      return !!(STRIPE_PUBLISHABLE_KEY && Number(item?.price_cents) > 0 && item?.printful_variant_id);
+    }
+
+    function formatPriceCents(cents, currency) {
+      if (!Number.isFinite(cents)) return '';
+      const c = (currency || 'usd').toUpperCase();
+      try {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: c }).format(cents / 100);
+      } catch {
+        return '$' + (cents / 100).toFixed(2);
+      }
+    }
+
+    function addToCart(itemId) {
+      const existing = cart.find((l) => l.item_id === itemId);
+      if (existing) existing.qty = Math.min(20, existing.qty + 1);
+      else cart.push({ item_id: itemId, qty: 1 });
+      writeCart();
+      renderCart();
+      openCart();
+    }
+    function setLineQty(itemId, qty) {
+      const next = Math.max(0, Math.min(20, Math.floor(qty)));
+      cart = cart.map((l) => l.item_id === itemId ? { ...l, qty: next } : l).filter((l) => l.qty > 0);
+      writeCart();
+      renderCart();
+    }
+    function removeLine(itemId) {
+      cart = cart.filter((l) => l.item_id !== itemId);
+      writeCart();
+      renderCart();
+    }
+
+    function cartTotalCents() {
+      let total = 0;
+      for (const line of cart) {
+        const it = itemsCache.get(line.item_id);
+        if (it) total += (it.price_cents || 0) * line.qty;
+      }
+      return total;
+    }
+    function cartCurrency() {
+      for (const line of cart) {
+        const it = itemsCache.get(line.item_id);
+        if (it && it.currency) return it.currency;
+      }
+      return 'usd';
+    }
+
+    function renderCart() {
+      // FAB visibility + count
+      const count = cart.reduce((acc, l) => acc + (Number(l.qty) || 0), 0);
+      cartFabCount.textContent = String(count);
+      cartFab.hidden = !STRIPE_PUBLISHABLE_KEY || count === 0;
+
+      cartBody.innerHTML = '';
+      if (!cart.length) {
+        const empty = document.createElement('p');
+        empty.className = 'cart-empty';
+        empty.textContent = 'Your cart is empty.';
+        cartBody.appendChild(empty);
+        cartTotalEl.textContent = formatPriceCents(0, 'usd');
+        cartCheckoutBtn.disabled = true;
+        return;
+      }
+      for (const line of cart) {
+        const it = itemsCache.get(line.item_id);
+        if (!it) continue;
+        const row = document.createElement('div');
+        row.className = 'cart-line';
+
+        const img = document.createElement('img');
+        img.alt = '';
+        img.referrerPolicy = 'no-referrer';
+        if (it.image_url) img.src = it.image_url;
+        row.appendChild(img);
+
+        const meta = document.createElement('div');
+        const title = document.createElement('div');
+        title.className = 'cart-line-title';
+        title.textContent = it.title;
+        const sub = document.createElement('div');
+        sub.className = 'cart-line-sub';
+        sub.textContent = formatPriceCents(it.price_cents, it.currency) + ' each';
+        meta.appendChild(title);
+        meta.appendChild(sub);
+        row.appendChild(meta);
+
+        const qty = document.createElement('div');
+        qty.className = 'cart-line-qty';
+        const minus = document.createElement('button');
+        minus.type = 'button'; minus.textContent = '−';
+        minus.addEventListener('click', () => setLineQty(line.item_id, line.qty - 1));
+        const num = document.createElement('span');
+        num.textContent = String(line.qty);
+        const plus = document.createElement('button');
+        plus.type = 'button'; plus.textContent = '+';
+        plus.addEventListener('click', () => setLineQty(line.item_id, line.qty + 1));
+        qty.append(minus, num, plus);
+        row.appendChild(qty);
+
+        const price = document.createElement('div');
+        price.className = 'cart-line-price';
+        price.textContent = formatPriceCents(it.price_cents * line.qty, it.currency);
+        row.appendChild(price);
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'cart-line-remove';
+        remove.setAttribute('aria-label', 'Remove');
+        remove.textContent = '×';
+        remove.addEventListener('click', () => removeLine(line.item_id));
+        row.appendChild(remove);
+
+        cartBody.appendChild(row);
+      }
+      cartTotalEl.textContent = formatPriceCents(cartTotalCents(), cartCurrency());
+      cartCheckoutBtn.disabled = checkoutLoading || cart.length === 0;
+    }
+
+    function openCart() {
+      if (!STRIPE_PUBLISHABLE_KEY) return; // cart disabled
+      hideCheckoutPanes();
+      cartBody.hidden = false;
+      cartFoot.hidden = false;
+      cartModal.hidden = false;
+      setCartStatus('');
+    }
+    function closeCart() {
+      // If a Stripe Checkout session is mounted, tear it down so a future
+      // open() can mount a fresh one with the latest cart contents.
+      if (checkoutHandle) {
+        try { checkoutHandle.destroy(); } catch { /* noop */ }
+        checkoutHandle = null;
+      }
+      cartModal.hidden = true;
+    }
+    function hideCheckoutPanes() {
+      checkoutPane.hidden = true;
+      checkoutSuccess.hidden = true;
+    }
+    function setCartStatus(message, state) {
+      cartStatus.textContent = message || '';
+      cartStatus.classList.toggle('error', state === 'error');
+      cartStatus.classList.toggle('success', state === 'success');
+    }
+
+    cartFab.addEventListener('click', openCart);
+    cartCloseBtn.addEventListener('click', closeCart);
+    cartBackdrop.addEventListener('click', () => { if (!checkoutLoading) closeCart(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !cartModal.hidden && !checkoutLoading) closeCart();
+    });
+
+    cartCheckoutBtn.addEventListener('click', async () => {
+      if (!cart.length || checkoutLoading) return;
+      checkoutLoading = true;
+      cartCheckoutBtn.disabled = true;
+      setCartStatus('Starting secure checkout…');
+      try {
+        if (!stripe) {
+          if (!window.Stripe) throw new Error('Stripe.js failed to load.');
+          stripe = window.Stripe(STRIPE_PUBLISHABLE_KEY);
+        }
+        const resp = await fetch(CREATE_SESSION_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: cart.map((l) => ({ item_id: l.item_id, qty: l.qty })) })
+        });
+        const raw = await resp.text();
+        let payload = {};
+        try { payload = raw ? JSON.parse(raw) : {}; } catch { /* ignore */ }
+        if (!resp.ok) throw new Error(payload.error || ('HTTP ' + resp.status));
+
+        cartBody.hidden = true;
+        cartFoot.hidden = true;
+        checkoutPane.hidden = false;
+
+        checkoutHandle = await stripe.initEmbeddedCheckout({
+          clientSecret: payload.client_secret,
+        });
+        checkoutHandle.mount(stripeMount);
+        setCartStatus('');
+      } catch (error) {
+        console.error('[gift] checkout failed', error);
+        setCartStatus(error instanceof Error ? error.message : String(error), 'error');
+        cartBody.hidden = false;
+        cartFoot.hidden = false;
+        checkoutPane.hidden = true;
+      } finally {
+        checkoutLoading = false;
+        cartCheckoutBtn.disabled = cart.length === 0;
+      }
+    });
+
+    document.getElementById('checkoutSuccessClose').addEventListener('click', () => {
+      closeCart();
+      history.replaceState({}, '', location.pathname);
+    });
+
+    // If Stripe redirected us back with ?checkout=complete, render the
+    // success pane right away and clear local cart state.
+    (function handleCheckoutReturn() {
+      const completed = params.get('checkout') === 'complete';
+      if (!completed) return;
+      clearCart();
+      hideCheckoutPanes();
+      cartBody.hidden = true;
+      cartFoot.hidden = true;
+      checkoutSuccess.hidden = false;
+      cartModal.hidden = false;
+    })();
+
+    // Patch the existing createCard() so POD items render a Buy button.
+    // We keep the affiliate code path unchanged for items without
+    // price_cents / printful_variant_id.
+    const __origCreateCard = createCard;
+    createCard = function (item, opts = {}) {
+      rememberItem(item);
+      if (!isBuyable(item)) return __origCreateCard(item, opts);
+
+      // Buyable card: render as a <div> (not an <a>) so the Buy button is
+      // the only navigation target.
+      const card = document.createElement('div');
+      card.className = 'card';
+      if (opts.gameColor) {
+        card.dataset.gameColor = '';
+        card.style.setProperty('--card-game-color', opts.gameColor);
+      }
+
+      const media = document.createElement('div');
+      media.className = 'card-media';
+      const monogram = document.createElement('div');
+      monogram.className = 'card-monogram';
+      monogram.textContent = getMonogram(item.title);
+      media.appendChild(monogram);
+
+      const imageUrl = String(item.image_url || '').trim();
+      media.dataset.hasImage = imageUrl ? 'true' : 'false';
+      if (imageUrl) {
+        const img = document.createElement('img');
+        img.className = 'card-image';
+        img.src = imageUrl;
+        img.alt = '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.referrerPolicy = 'no-referrer';
+        const focus = String(item.image_focus || '').trim();
+        if (focus) img.style.objectPosition = focus;
+        img.addEventListener('error', () => { img.remove(); media.dataset.hasImage = 'false'; });
+        media.appendChild(img);
+      }
+
+      const body = document.createElement('div');
+      body.className = 'card-body';
+
+      const gameNames = Array.isArray(opts.gameNames)
+        ? opts.gameNames
+        : (opts.gameName ? [opts.gameName] : []);
+      if (gameNames.length) {
+        const ge = document.createElement('p');
+        ge.className = 'card-game-eyebrow';
+        ge.textContent = gameNames.join(' / ');
+        body.appendChild(ge);
+      }
+
+      const title = document.createElement('h2');
+      title.className = 'card-title';
+      title.textContent = item.title || 'Untitled item';
+      body.appendChild(title);
+
+      const priceEl = document.createElement('div');
+      priceEl.className = 'card-price';
+      priceEl.textContent = formatPriceCents(item.price_cents, item.currency);
+      body.appendChild(priceEl);
+
+      const desc = String(item.description || '').trim();
+      if (desc) {
+        const captionEl = document.createElement('p');
+        captionEl.className = 'card-caption';
+        captionEl.textContent = desc;
+        body.appendChild(captionEl);
+      }
+
+      const buy = document.createElement('button');
+      buy.type = 'button';
+      buy.className = 'card-buy';
+      buy.textContent = 'Buy — ' + formatPriceCents(item.price_cents, item.currency);
+      buy.addEventListener('click', () => addToCart(item.id));
+      body.appendChild(buy);
+
+      card.append(media, body);
+      return card;
+    };
+
+    // Initial paint so the FAB count matches any pre-existing cart from a
+    // previous visit. Item titles/prices populate as cards render.
+    renderCart();
+  </script>
+
   <a class="mc-corner" href="../mc/giftshop.html">MISSION CONTROL</a>
 </body>
 </html>

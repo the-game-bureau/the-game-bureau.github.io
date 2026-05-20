@@ -780,30 +780,6 @@
   </style>
 </head>
 <body>
-  <div class="auth-modal" id="authModal">
-    <section class="auth" id="authPanel">
-      <button class="auth-close" id="authCloseBtn" type="button" aria-label="Close">&#x2715;</button>
-      <p class="kicker">The Game Bureau</p>
-      <h1>Mission Control</h1>
-      <p class="copy">Sign in to Mission Control with an admin account.</p>
-      <form class="auth-form" id="authForm">
-        <label>
-          Email
-          <input id="emailInput" type="email" autocomplete="username" required>
-        </label>
-        <label>
-          Password
-          <input id="passwordInput" type="password" autocomplete="current-password" required>
-        </label>
-        <div class="auth-actions">
-          <button class="btn primary" id="signInBtn" type="submit">Sign In</button>
-          <a class="btn home-icon-btn" href="../" title="TGB HOME">TGB HOME</a>
-        </div>
-      </form>
-      <p class="status" id="authStatus" aria-live="polite"></p>
-    </section>
-  </div>
-
   <main class="app">
     <section id="reviewPanel">
       <div class="topbar">
@@ -917,25 +893,17 @@
     <img id="lightboxImage" src="" alt="">
   </div>
 
+  <script src="admin-auth.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
       publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
     };
 
-    const AUTH_STORAGE_KEY = 'tgb-photo-review-auth-session';
     const PHOTO_BUCKET = 'game-photo-submissions';
     const PAGE_LIMIT = 10;
     const SIGNED_URL_SECONDS = 60 * 60;
 
-    const authModal = document.getElementById('authModal');
-    const authCloseBtn = document.getElementById('authCloseBtn');
-    const authPanel = document.getElementById('authPanel');
-    const reviewPanel = document.getElementById('reviewPanel');
-    const authForm = document.getElementById('authForm');
-    const emailInput = document.getElementById('emailInput');
-    const passwordInput = document.getElementById('passwordInput');
-    const signInBtn = document.getElementById('signInBtn');
     const signOutBtn = document.getElementById('signOutBtn');
     const refreshBtn = document.getElementById('refreshBtn');
     const clearFilterBtn = document.getElementById('clearFilterBtn');
@@ -944,7 +912,6 @@
     const downloadZipBtn = document.getElementById('downloadZipBtn');
     const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
     const gameFilterInput = document.getElementById('gameFilterInput');
-    const authStatus = document.getElementById('authStatus');
     const reviewStatus = document.getElementById('reviewStatus');
     const darkroomStatus = document.getElementById('darkroomStatus');
     const photoGrid = document.getElementById('photoGrid');
@@ -955,12 +922,26 @@
     const lightbox = document.getElementById('lightbox');
     const lightboxImage = document.getElementById('lightboxImage');
     const lightboxClose = document.getElementById('lightboxClose');
-
-    let currentSession = null;
-
-    function authUrl(path) {
-      return new URL('/auth/v1/' + String(path || '').replace(/^\/+/, ''), SUPABASE_CONFIG.url + '/').toString();
-    }
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      signOutButton: signOutBtn,
+      onAuthorized: async () => {
+        await loadPhotos();
+      },
+      onSignedOut: () => {
+        selectedPhotoIds.clear();
+        currentPhotos = [];
+        currentPage = 0;
+        totalPhotoCount = 0;
+        photoGrid.innerHTML = '';
+        closeLightbox();
+        renderEmpty('Sign in with an admin account.');
+        setStatus(reviewStatus, '');
+        setStatus(darkroomStatus, '');
+        updateSelectionUi();
+        updatePagination();
+      }
+    });
 
     function restUrl(table, params = {}) {
       const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
@@ -1021,93 +1002,8 @@
       }
     }
 
-    function readStoredSession() {
-      try {
-        return JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || 'null');
-      } catch (error) {
-        return null;
-      }
-    }
-
-    function storeSession(session) {
-      try {
-        if (session) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-        else localStorage.removeItem(AUTH_STORAGE_KEY);
-      } catch (error) {
-      }
-    }
-
-    async function signIn(email, password) {
-      const response = await fetch(authUrl('token?grant_type=password'), {
-        method: 'POST',
-        headers: {
-          apikey: SUPABASE_CONFIG.publishableKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      });
-
-      if (!response.ok) {
-        throw new Error(await readError(response, 'Sign in failed.'));
-      }
-
-      return response.json();
-    }
-
-    async function refreshSession(session) {
-      if (!session || !session.refresh_token) return null;
-      const response = await fetch(authUrl('token?grant_type=refresh_token'), {
-        method: 'POST',
-        headers: {
-          apikey: SUPABASE_CONFIG.publishableKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ refresh_token: session.refresh_token })
-      });
-
-      if (!response.ok) return null;
-      return response.json();
-    }
-
-    async function getUsableSession() {
-      const stored = readStoredSession();
-      if (!stored || !stored.access_token) return null;
-      const expiresAt = Number(stored.expires_at || 0) * 1000;
-      if (expiresAt && expiresAt > Date.now() + 60000) return stored;
-      const refreshed = await refreshSession(stored);
-      if (refreshed && refreshed.access_token) {
-        storeSession(refreshed);
-        return refreshed;
-      }
-      storeSession(null);
-      return null;
-    }
-
     function authHeaders(extra = {}) {
-      return {
-        apikey: SUPABASE_CONFIG.publishableKey,
-        Authorization: 'Bearer ' + currentSession.access_token,
-        ...extra
-      };
-    }
-
-    async function verifyAdmin() {
-      const email = currentSession && currentSession.user ? currentSession.user.email : '';
-      const response = await fetch(restUrl('admin_users', {
-        select: 'email',
-        email: 'eq.' + email,
-        limit: '1'
-      }), {
-        headers: authHeaders({ Accept: 'application/json' }),
-        cache: 'no-store'
-      });
-
-      if (!response.ok) {
-        throw new Error(await readError(response, 'Could not verify admin access.'));
-      }
-
-      const rows = await response.json();
-      return Array.isArray(rows) && rows.length > 0;
+      return adminAuth.authHeaders(extra);
     }
 
     async function fetchSubmissions(offset = 0) {
@@ -1479,61 +1375,9 @@
       }
     }
 
-    function showAuth() {
-      authModal.classList.remove('hidden');
-      setStatus(authStatus, 'Sign in with an admin account.');
-      signOutBtn.title = 'ADMIN LOGIN';
-      signOutBtn.setAttribute('aria-label', 'ADMIN LOGIN');
-    }
-
-    async function showReview(session) {
-      currentSession = session;
-      authModal.classList.add('hidden');
-      signOutBtn.title = 'Sign out';
-      signOutBtn.setAttribute('aria-label', 'Sign out');
-      await loadPhotos();
-    }
-
-    authForm.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const email = String(emailInput.value || '').trim();
-      const password = String(passwordInput.value || '');
-      if (!email || !password) return;
-
-      signInBtn.disabled = true;
-      setStatus(authStatus, 'Signing in...');
-      try {
-        const session = await signIn(email, password);
-        currentSession = session;
-        storeSession(session);
-        const isAdmin = await verifyAdmin();
-        if (!isAdmin) {
-          storeSession(null);
-          currentSession = null;
-          throw new Error('This account is signed in, but it is not on the photo admin list.');
-        }
-        passwordInput.value = '';
-        setStatus(authStatus, '');
-        await showReview(session);
-      } catch (error) {
-        setStatus(authStatus, error instanceof Error ? error.message : String(error), 'error');
-      } finally {
-        signInBtn.disabled = false;
-      }
-    });
-
-    authCloseBtn.addEventListener('click', () => { authModal.classList.add('hidden'); });
-
-    signOutBtn.addEventListener('click', () => {
-      currentSession = null;
-      storeSession(null);
-      photoGrid.innerHTML = '';
-      showAuth();
-    });
-
     document.querySelectorAll('[data-admin-logoff]').forEach((button) => {
       button.addEventListener('click', () => {
-        signOutBtn.click();
+        adminAuth.signOut();
       });
     });
 
@@ -1588,29 +1432,11 @@
       const initialParams = new URLSearchParams(window.location.search);
       gameFilterInput.value = initialParams.get('game') || initialParams.get('id') || '';
 
-      const session = await getUsableSession();
-      if (!session) {
-        showAuth();
-        return;
-      }
-
-      currentSession = session;
       try {
-        const isAdmin = await verifyAdmin();
-        if (!isAdmin) {
-          storeSession(null);
-          currentSession = null;
-          showAuth();
-          setStatus(authStatus, 'This account is signed in, but it is not on the photo admin list.', 'error');
-          return;
-        }
-        await showReview(session);
+        await adminAuth.init();
       } catch (error) {
         console.error(error);
-        storeSession(null);
-        currentSession = null;
-        showAuth();
-        setStatus(authStatus, error instanceof Error ? error.message : String(error), 'error');
+        adminAuth.showAuth(error instanceof Error ? error.message : String(error), 'error');
       }
     })();
   </script>

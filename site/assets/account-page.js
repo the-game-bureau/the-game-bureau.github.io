@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const account = window.TGBAccount;
   if (!account) return;
+  const embedded = new URLSearchParams(window.location.search).get('embedded') === '1' || window.self !== window.top;
 
   const signedOutPanel = document.getElementById('signedOutPanel');
   const signedInPanel = document.getElementById('signedInPanel');
@@ -16,6 +17,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const accountEmail = document.getElementById('accountEmail');
   const accountName = document.getElementById('accountName');
   const displayNameInput = document.getElementById('displayNameInput');
+  const openLibraryLink = document.getElementById('openLibraryLink');
+
+  function notifyParent(type, payload) {
+    if (!embedded) return;
+    try {
+      window.parent.postMessage({
+        source: 'tgb-account-page',
+        type,
+        ...(payload || {})
+      }, window.location.origin);
+    } catch (error) {
+    }
+  }
 
   function setStatus(el, message, state) {
     if (!el) return;
@@ -58,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const session = await account.getSession();
     if (session) renderSignedIn(session);
     else renderSignedOut();
+    notifyParent('auth-changed');
   }
 
   modeBtns.forEach((button) => {
@@ -75,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       setStatus(signInStatus, 'Signed in.', 'success');
       renderSignedIn(session);
+      notifyParent('auth-changed');
     } catch (error) {
       setStatus(signInStatus, error instanceof Error ? error.message : String(error), 'error');
     }
@@ -95,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (session) {
         setStatus(signUpStatus, 'Account created.', 'success');
         renderSignedIn(session);
+        notifyParent('auth-changed');
       } else {
         setMode('signin');
         setStatus(signInStatus, 'Check your email to confirm the account, then sign in.', 'success');
@@ -130,6 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const session = await account.getSession();
       renderSignedIn({ ...session, user });
       setStatus(profileStatus, 'Saved.', 'success');
+      notifyParent('auth-changed');
     } catch (error) {
       setStatus(profileStatus, error instanceof Error ? error.message : String(error), 'error');
     }
@@ -138,7 +156,18 @@ document.addEventListener('DOMContentLoaded', () => {
   signOutBtn.addEventListener('click', async () => {
     await account.signOut();
     renderSignedOut();
+    notifyParent('auth-changed');
   });
+
+  if (embedded && openLibraryLink) {
+    openLibraryLink.textContent = 'RETURN TO GAME LIBRARY';
+    openLibraryLink.addEventListener('click', (event) => {
+      event.preventDefault();
+      notifyParent('navigate', {
+        href: new URL(openLibraryLink.getAttribute('href') || 'library.html', window.location.href).toString()
+      });
+    });
+  }
 
   setMode('signin');
   refresh().catch(() => renderSignedOut());

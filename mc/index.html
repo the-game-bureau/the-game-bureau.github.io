@@ -323,6 +323,24 @@
       cursor: pointer;
     }
 
+    .btn.btn-width-lock {
+      display: inline-grid;
+      grid-template-columns: 1fr;
+      place-items: center;
+    }
+
+    .btn.btn-width-lock::after,
+    .btn.btn-width-lock .btn-label {
+      grid-area: 1 / 1;
+      white-space: nowrap;
+    }
+
+    .btn.btn-width-lock::after {
+      content: attr(data-max-label);
+      visibility: hidden;
+      pointer-events: none;
+    }
+
     .btn.primary {
       background: var(--accent);
       border-color: var(--accent);
@@ -579,6 +597,8 @@
       outline-offset: 2px;
     }
 
+    .topbar .btn:disabled,
+    .topbar a.btn[aria-disabled="true"],
     .toolbar .btn:disabled,
     .toolbar a.btn[aria-disabled="true"],
     .section-head-actions .btn:disabled,
@@ -874,35 +894,12 @@
   </style>
 </head>
 <body>
-  <div class="auth-modal" id="authModal">
-    <section class="auth" id="authPanel">
-      <button class="auth-close" id="authCloseBtn" type="button" aria-label="Close">&#x2715;</button>
-      <p class="kicker">The Game Bureau</p>
-      <h1>Mission Control</h1>
-      <p class="copy">Sign in to Mission Control with an admin account.</p>
-      <form class="auth-form" id="authForm">
-        <label>
-          Email
-          <input id="emailInput" type="email" autocomplete="username" required>
-        </label>
-        <label>
-          Password
-          <input id="passwordInput" type="password" autocomplete="current-password" required>
-        </label>
-        <div class="auth-actions">
-          <button class="btn primary" id="signInBtn" type="submit">Sign In</button>
-          <a class="btn home-icon-btn" href="../" title="TGB HOME">TGB HOME</a>
-        </div>
-      </form>
-      <p class="status" id="authStatus" aria-live="polite"></p>
-    </section>
-  </div>
-
   <main class="app">
     <section id="reviewPanel">
       <div class="topbar">
         <a class="btn home-icon-btn" href="../index.html" title="TGB HOME">TGB HOME</a>
-        <a class="btn" id="libPublicBtn" style="margin-right:auto;" href="../site/library.html" target="_blank" rel="noopener">View Library</a>
+        <a class="btn" id="libPublicBtn" href="../site/library.html" target="_blank" rel="noopener">VIEW LIBRARY</a>
+        <a class="btn" id="libViewBtn" aria-disabled="true" tabindex="-1" target="_blank" rel="noopener" style="margin-right:auto;">VIEW GAME</a>
         <div class="topbar-actions">
           <nav class="admin-nav">
             <a class="admin-nav-link" href="builder.html">BUILDER</a>
@@ -988,11 +985,11 @@
         <div class="toolbar">
           <input type="search" id="libSearchInput" placeholder="Search..." aria-label="Search games">
           <a class="btn primary" id="libNewBtn" href="builder.html?new=1">New</a>
-          <button class="btn" id="libSelectAllBtn" type="button">Select All</button>
+          <button class="btn btn-width-lock" id="libSelectAllBtn" type="button" data-max-label="Deselect All"><span class="btn-label">Select All</span></button>
           <a class="btn" id="libEditBtn" aria-disabled="true" tabindex="-1">Edit</a>
           <button class="btn" id="libDupBtn" type="button" disabled>Duplicate</button>
-          <button class="btn" id="libArchBtn" type="button" disabled>Archive</button>
-          <button class="btn" id="libFeatureBtn" type="button" disabled>Feature</button>
+          <button class="btn btn-width-lock" id="libArchBtn" type="button" disabled data-max-label="Unarchive"><span class="btn-label">Archive</span></button>
+          <button class="btn btn-width-lock" id="libFeatureBtn" type="button" disabled data-max-label="Unfeature"><span class="btn-label">Feature</span></button>
         </div>
         <div class="admin-library-grid" id="gameGrid"></div>
       </section>
@@ -1006,40 +1003,51 @@
     <button class="lib-context-menu-item" id="ctxFeatureBtn" type="button">Feature</button>
   </div>
 
+  <script src="admin-auth.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
       publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
     };
 
-    const AUTH_STORAGE_KEY = 'tgb-photo-review-auth-session';
     const GAMES_SCHEMA = {
       tagline: true,
       featured: true,
       game_date: true
     };
 
-    const authModal = document.getElementById('authModal');
-    const authCloseBtn = document.getElementById('authCloseBtn');
-    const authPanel = document.getElementById('authPanel');
-    const reviewPanel = document.getElementById('reviewPanel');
-    const authForm = document.getElementById('authForm');
-    const emailInput = document.getElementById('emailInput');
-    const passwordInput = document.getElementById('passwordInput');
-    const signInBtn = document.getElementById('signInBtn');
     const signOutBtn = document.getElementById('signOutBtn');
-    const authStatus = document.getElementById('authStatus');
     const libraryStatus = document.getElementById('libraryStatus');
     const gameGrid = document.getElementById('gameGrid');
     const libNewBtn = document.getElementById('libNewBtn');
     const libSelectAllBtn = document.getElementById('libSelectAllBtn');
+    const libSelectAllBtnLabel = libSelectAllBtn.querySelector('.btn-label');
+    const libViewBtn = document.getElementById('libViewBtn');
     const libEditBtn = document.getElementById('libEditBtn');
     const libDupBtn = document.getElementById('libDupBtn');
     const libArchBtn = document.getElementById('libArchBtn');
+    const libArchBtnLabel = libArchBtn.querySelector('.btn-label');
     const libFeatureBtn = document.getElementById('libFeatureBtn');
+    const libFeatureBtnLabel = libFeatureBtn.querySelector('.btn-label');
     const libSearchInput = document.getElementById('libSearchInput');
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      signOutButton: signOutBtn,
+      onAuthorized: async () => {
+        await loadAdminLibrary();
+      },
+      onSignedOut: () => {
+        selectedGames.clear();
+        allGamesData = [];
+        visibleGamesData = [];
+        lastSelectedId = null;
+        gameGrid.innerHTML = '';
+        updateToolbar();
+        renderLibraryEmpty('Sign in with an admin account.');
+        setStatus(libraryStatus, '');
+      }
+    });
 
-    let currentSession = null;
     const selectedGames = new Map();
     let allGamesData = [];
     let visibleGamesData = [];
@@ -1075,10 +1083,6 @@
       renderAdminLibrary(allGamesData);
     });
 
-    function authUrl(path) {
-      return new URL('/auth/v1/' + String(path || '').replace(/^\/+/, ''), SUPABASE_CONFIG.url + '/').toString();
-    }
-
     function restUrl(table, params = {}) {
       const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
       Object.entries(params).forEach(([key, value]) => {
@@ -1098,6 +1102,17 @@
       });
       const search = builderParams.toString();
       return 'builder.html' + (search ? '?' + search : '');
+    }
+
+    function buildRunRoute(params = {}) {
+      const runParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          runParams.set(key, String(value));
+        }
+      });
+      const search = runParams.toString();
+      return '../game/run/index.html' + (search ? '?' + search : '');
     }
 
     function setStatus(el, message, state = '') {
@@ -1126,93 +1141,8 @@
       }
     }
 
-    function readStoredSession() {
-      try {
-        return JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || 'null');
-      } catch (error) {
-        return null;
-      }
-    }
-
-    function storeSession(session) {
-      try {
-        if (session) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-        else localStorage.removeItem(AUTH_STORAGE_KEY);
-      } catch (error) {
-      }
-    }
-
-    async function signIn(email, password) {
-      const response = await fetch(authUrl('token?grant_type=password'), {
-        method: 'POST',
-        headers: {
-          apikey: SUPABASE_CONFIG.publishableKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      });
-
-      if (!response.ok) {
-        throw new Error(await readError(response, 'Sign in failed.'));
-      }
-
-      return response.json();
-    }
-
-    async function refreshSession(session) {
-      if (!session || !session.refresh_token) return null;
-      const response = await fetch(authUrl('token?grant_type=refresh_token'), {
-        method: 'POST',
-        headers: {
-          apikey: SUPABASE_CONFIG.publishableKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ refresh_token: session.refresh_token })
-      });
-
-      if (!response.ok) return null;
-      return response.json();
-    }
-
-    async function getUsableSession() {
-      const stored = readStoredSession();
-      if (!stored || !stored.access_token) return null;
-      const expiresAt = Number(stored.expires_at || 0) * 1000;
-      if (expiresAt && expiresAt > Date.now() + 60000) return stored;
-      const refreshed = await refreshSession(stored);
-      if (refreshed && refreshed.access_token) {
-        storeSession(refreshed);
-        return refreshed;
-      }
-      storeSession(null);
-      return null;
-    }
-
     function authHeaders(extra = {}) {
-      return {
-        apikey: SUPABASE_CONFIG.publishableKey,
-        Authorization: 'Bearer ' + currentSession.access_token,
-        ...extra
-      };
-    }
-
-    async function verifyAdmin() {
-      const email = currentSession && currentSession.user ? currentSession.user.email : '';
-      const response = await fetch(restUrl('admin_users', {
-        select: 'email',
-        email: 'eq.' + email,
-        limit: '1'
-      }), {
-        headers: authHeaders({ Accept: 'application/json' }),
-        cache: 'no-store'
-      });
-
-      if (!response.ok) {
-        throw new Error(await readError(response, 'Could not verify admin access.'));
-      }
-
-      const rows = await response.json();
-      return Array.isArray(rows) && rows.length > 0;
+      return adminAuth.authHeaders(extra);
     }
 
     function getMissingGamesColumnName(errorMessage = '') {
@@ -1522,6 +1452,11 @@
       }
     }
 
+    function setButtonLabel(labelEl, fallbackEl, value) {
+      if (labelEl) labelEl.textContent = value;
+      else fallbackEl.textContent = value;
+    }
+
     function updateToolbar() {
       const count = selectedGames.size;
       const has = count > 0;
@@ -1530,14 +1465,15 @@
       const allArchived = has && [...selectedGames.values()].every((g) => isFilledArchiveValue(g.archived));
       libDupBtn.disabled = !single;
       libArchBtn.disabled = !has;
-      libArchBtn.textContent = allArchived ? 'Unarchive' : 'Archive';
+      setButtonLabel(libArchBtnLabel, libArchBtn, allArchived ? 'Unarchive' : 'Archive');
       const anyFeatured = has && [...selectedGames.values()].some((g) => isGameFeatured(g));
       libFeatureBtn.disabled = !has || !GAMES_SCHEMA.featured;
-      libFeatureBtn.textContent = anyFeatured ? 'Unfeature' : 'Feature';
+      setButtonLabel(libFeatureBtnLabel, libFeatureBtn, anyFeatured ? 'Unfeature' : 'Feature');
       const visibleCount = visibleGamesData.length;
       const allVisibleSelected = visibleCount > 0 && visibleGamesData.every((g) => selectedGames.has(String(g.id)));
       libSelectAllBtn.disabled = visibleCount === 0;
-      libSelectAllBtn.textContent = allVisibleSelected ? 'Deselect All' : 'Select All';
+      setButtonLabel(libSelectAllBtnLabel, libSelectAllBtn, allVisibleSelected ? 'Deselect All' : 'Select All');
+      setLinkEnabled(libViewBtn, single ? buildRunRoute({ id: oneGame.id }) : null);
       setLinkEnabled(libEditBtn, single ? buildBuilderRoute({ id: oneGame.id }) : null);
       renderLibraryStatusLine();
     }
@@ -1666,89 +1602,21 @@
       }
     });
 
-    function showAuth() {
-      authModal.classList.remove('hidden');
-      setStatus(authStatus, 'Sign in with an admin account.');
-      signOutBtn.title = 'ADMIN LOGIN';
-      signOutBtn.setAttribute('aria-label', 'ADMIN LOGIN');
-    }
-
-    async function showReview(session) {
-      currentSession = session;
-      authModal.classList.add('hidden');
-      signOutBtn.title = 'Sign out';
-      signOutBtn.setAttribute('aria-label', 'Sign out');
-      await loadAdminLibrary();
-    }
-
-    authForm.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const email = String(emailInput.value || '').trim();
-      const password = String(passwordInput.value || '');
-      if (!email || !password) return;
-
-      signInBtn.disabled = true;
-      setStatus(authStatus, 'Signing in...');
-      try {
-        const session = await signIn(email, password);
-        currentSession = session;
-        storeSession(session);
-        const isAdmin = await verifyAdmin();
-        if (!isAdmin) {
-          storeSession(null);
-          currentSession = null;
-          throw new Error('This account is signed in, but it is not on the admin list.');
-        }
-        passwordInput.value = '';
-        setStatus(authStatus, '');
-        await showReview(session);
-      } catch (error) {
-        setStatus(authStatus, error instanceof Error ? error.message : String(error), 'error');
-      } finally {
-        signInBtn.disabled = false;
-      }
-    });
-
-    authCloseBtn.addEventListener('click', () => { authModal.classList.add('hidden'); });
-
-    signOutBtn.addEventListener('click', () => {
-      currentSession = null;
-      storeSession(null);
-      gameGrid.innerHTML = '';
-      showAuth();
-    });
-
     document.querySelectorAll('[data-admin-logoff]').forEach((button) => {
       button.addEventListener('click', () => {
-        signOutBtn.click();
+        adminAuth.signOut();
       });
     });
 
     (async function init() {
-      const session = await getUsableSession();
-      if (!session) {
-        showAuth();
-        return;
-      }
-
-      currentSession = session;
       try {
-        const isAdmin = await verifyAdmin();
-        if (!isAdmin) {
-          storeSession(null);
-          currentSession = null;
-          showAuth();
-          setStatus(authStatus, 'This account is signed in, but it is not on the admin list.', 'error');
-          return;
-        }
-        await showReview(session);
+        await adminAuth.init();
       } catch (error) {
         console.error(error);
-        storeSession(null);
-        currentSession = null;
-        showAuth();
-        setStatus(authStatus, error instanceof Error ? error.message : String(error), 'error');
+        adminAuth.showAuth(error instanceof Error ? error.message : String(error), 'error');
       }
+    }());
+
     const libContextMenu = document.getElementById('libContextMenu');
     const ctxEditBtn = document.getElementById('ctxEditBtn');
     const ctxDupBtn = document.getElementById('ctxDupBtn');
@@ -1841,8 +1709,6 @@
       if (event.key === 'Escape') closeLibContextMenu();
     });
     document.addEventListener('scroll', closeLibContextMenu, true);
-
-    })();
   </script>
   <script>
     (function () {

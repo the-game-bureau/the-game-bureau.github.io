@@ -6,34 +6,45 @@ gift_shop_items + gift_shop_listings rows. New listings are inserted with
 live=false so the admin curates them in mc/giftshop.html before they show
 up publicly.
 
-Default mode is WRITE. Pass --dry-run to preview without touching Supabase.
+Run with no switches for an interactive menu. Flags still work when you want
+to launch a specific mode directly.
 
 Examples:
-    python gift/stock_gift_shop.py
-    python gift/stock_gift_shop.py --game oswald
-    python gift/stock_gift_shop.py --limit-games 3 --items-per-game 12
-    python gift/stock_gift_shop.py --dry-run --limit-games 1
+    python mc/scripts/stock_gift_shop.py
+    python mc/scripts/stock_gift_shop.py --game oswald
+    python mc/scripts/stock_gift_shop.py --limit-games 3 --items-per-game 12
+    python mc/scripts/stock_gift_shop.py --dry-run --limit-games 1
+    python mc/scripts/stock_gift_shop.py --menu
+    python mc/scripts/stock_gift_shop.py --serve
 
 Environment:
-    SUPABASE_PUBLISHABLE_KEY or SUPABASE_KEY may override the built-in key.
+    Write mode requires SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY)
+    because gift shop tables are protected by Supabase RLS.
+    SUPABASE_PUBLISHABLE_KEY or SUPABASE_KEY may override the built-in
+    publishable key used for read-only access.
     The repo-root .env file is loaded automatically when present.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import html
+import io
 import json
 import os
 import re
 import sys
 import time
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Lock
 from typing import Any, Iterable
 
 
@@ -53,6 +64,9 @@ CACHE_DIR = Path(__file__).resolve().parent / "_cache"
 
 FETCH_TIMEOUT = 12      # seconds per Amazon request
 SUPABASE_TIMEOUT = 30   # seconds per Supabase REST call
+LOCAL_SERVER_HOST = "127.0.0.1"
+LOCAL_SERVER_PORT = 8765
+RUN_LOCK = Lock()
 
 BOT_PHRASES = (
     "enter the characters you see below",
@@ -81,13 +95,34 @@ def load_dotenv(path: Path) -> None:
         os.environ.setdefault(k, v)
 
 
-def supabase_key() -> str:
+def publishable_supabase_key() -> str:
     load_dotenv(REPO_ROOT / ".env")
     return (
         os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
         or os.environ.get("SUPABASE_KEY", "").strip()
         or SUPABASE_KEY_DEFAULT
     )
+
+
+def service_supabase_key() -> str:
+    load_dotenv(REPO_ROOT / ".env")
+    return (
+        os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
+        or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    )
+
+
+def supabase_key(*, write: bool) -> str:
+    service_key = service_supabase_key()
+    if write:
+        if service_key:
+            return service_key
+        raise RuntimeError(
+            "Write mode requires SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY) "
+            "in the repo-root .env or environment because gift shop tables are "
+            "protected by Supabase row-level security."
+        )
+    return service_key or publishable_supabase_key()
 
 
 # ── HTTP helpers ─────────────────────────────────────────────────────────────
@@ -110,7 +145,13 @@ def _supabase_request(url: str, key: str, method: str, payload: Any) -> Any:
             return json.loads(body) if body else None
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"{method} {url} -> HTTP {exc.code}: {detail}") from exc
+        hint = ""
+        if exc.code in {401, 403} and method != "GET" and "row-level security" in detail.lower():
+            hint = (
+                " Write mode must use SUPABASE_SERVICE_KEY or "
+                "SUPABASE_SERVICE_ROLE_KEY."
+            )
+        raise RuntimeError(f"{method} {url} -> HTTP {exc.code}: {detail}{hint}") from exc
 
 
 def rest_url(table: str, params: dict[str, str] | None = None) -> str:
@@ -397,7 +438,9 @@ def find_candidates(
     queries = derive_queries(game, user_keywords, max_queries)
     seen_urls: set[str] = set()
     out: list[Candidate] = []
-    for q in queries:
+    total_queries = len(queries)
+    for index, q in enumerate(queries, start=1):
+        print(f"  > query {index}/{total_queries}: {q}", flush=True)
         t0 = time.monotonic()
         page, source = fetch_search(q, force_refetch=force_refetch)
         if source == "bot-check":
@@ -451,10 +494,11 @@ def prompt_continue(n_inserted: int) -> str:
         print("  please type m, a, or q")
 
 
-# ── Main ─────────────────────────────────────────────────────────────────────
+# ── Main + local server ──────────────────────────────────────────────────────
 
-def main() -> int:
+def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--menu", action="store_true", help="Show an interactive menu instead of running immediately.")
     ap.add_argument("--game", help="Only stock one game id.")
     ap.add_argument("--keywords", default="", help="Comma-separated keywords to prioritize.")
     ap.add_argument("--no-prompt", action="store_true", help="Skip the interactive keyword prompt.")
@@ -467,16 +511,189 @@ def main() -> int:
     ap.add_argument("--no-pause", action="store_true", help="Never pause; insert everything.")
     ap.add_argument("--force-refetch", action="store_true", help="Bypass the on-disk Amazon search cache.")
     ap.add_argument("--dry-run", action="store_true", help="Preview without inserting into Supabase.")
-    args = ap.parse_args()
+    ap.add_argument("--serve", action="store_true",
+                    help="Run a local HTTP endpoint for the Mission Control suggest-items button.")
+    ap.add_argument("--host", default=LOCAL_SERVER_HOST,
+                    help="Host for --serve mode. Default: 127.0.0.1")
+    ap.add_argument("--port", type=int, default=LOCAL_SERVER_PORT,
+                    help="Port for --serve mode. Default: 8765")
+    return ap
 
-    key = supabase_key()
+
+def build_default_args() -> argparse.Namespace:
+    return build_arg_parser().parse_args([])
+
+
+def prompt_line(label: str, default: str = "") -> str:
+    prompt = f"{label}"
+    if default != "":
+        prompt += f" [{default}]"
+    prompt += ": "
+    try:
+        value = input(prompt)
+    except (EOFError, KeyboardInterrupt):
+        raise SystemExit("\nCancelled.")
+    value = value.strip()
+    return value if value else str(default)
+
+
+def prompt_choice(label: str, choices: set[str], default: str = "") -> str:
+    normalized_default = str(default or "").strip().lower()
+    while True:
+        value = prompt_line(label, normalized_default).lower()
+        if value in choices:
+            return value
+        print("Please choose one of: " + ", ".join(sorted(choices)))
+
+
+def prompt_int_value(label: str, default: int, minimum: int = 0) -> int:
+    while True:
+        raw = prompt_line(label, str(default))
+        try:
+            value = int(raw)
+        except ValueError:
+            print("Please enter a whole number.")
+            continue
+        if value < minimum:
+            print(f"Please enter a value >= {minimum}.")
+            continue
+        return value
+
+
+def prompt_float_value(label: str, default: float, minimum: float = 0.0) -> float:
+    while True:
+        raw = prompt_line(label, str(default))
+        try:
+            value = float(raw)
+        except ValueError:
+            print("Please enter a number.")
+            continue
+        if value < minimum:
+            print(f"Please enter a value >= {minimum}.")
+            continue
+        return value
+
+
+def prompt_yes_no(label: str, default: bool = False) -> bool:
+    default_token = "y" if default else "n"
+    while True:
+        value = prompt_line(f"{label} (y/n)", default_token).lower()
+        if value in {"y", "yes"}:
+            return True
+        if value in {"n", "no"}:
+            return False
+        print("Please answer y or n.")
+
+
+def prompt_required_text(label: str) -> str:
+    while True:
+        value = prompt_line(label, "")
+        if value:
+            return value
+        print("This field is required.")
+
+
+def build_interactive_args() -> argparse.Namespace | None:
+    defaults = build_default_args()
+
+    print("\nGift Shop Suggester")
+    print("0. Stop")
+    print("1. Stock all games")
+    print("2. Stock one game")
+    print("3. Dry run all games")
+    print("4. Dry run one game")
+    print("5. Start local suggest-items server")
+    print("Q. Quit")
+    print("Press Ctrl+C anytime during a run to stop immediately.")
+
+    choice = prompt_choice("Choose an option", {"0", "1", "2", "3", "4", "5", "q"}, "1")
+    if choice in {"0", "q"}:
+        return None
+
+    if choice == "5":
+        return argparse.Namespace(
+            menu=False,
+            game=defaults.game,
+            keywords=defaults.keywords,
+            no_prompt=True,
+            limit_games=defaults.limit_games,
+            items_per_game=defaults.items_per_game,
+            max_queries=defaults.max_queries,
+            delay=defaults.delay,
+            pause_every=defaults.pause_every,
+            no_pause=True,
+            force_refetch=defaults.force_refetch,
+            dry_run=False,
+            serve=True,
+            host=defaults.host,
+            port=defaults.port,
+        )
+
+    dry_run = choice in {"3", "4"}
+    single_game = choice in {"2", "4"}
+
+    game_id = prompt_required_text("Game id") if single_game else ""
+    limit_games = 0 if single_game else prompt_int_value(
+        "Limit number of games (0 = all)",
+        defaults.limit_games,
+        0,
+    )
+    keywords = prompt_line("Keywords to prioritize (comma-separated, blank to skip)", defaults.keywords)
+    items_per_game = prompt_int_value("Items per game", defaults.items_per_game, 1)
+    max_queries = prompt_int_value("Queries per game", defaults.max_queries, 1)
+    delay = prompt_float_value("Seconds between live Amazon requests", defaults.delay, 0.0)
+    force_refetch = prompt_yes_no("Bypass cached Amazon search pages", defaults.force_refetch)
+
+    pause_every = 0
+    no_pause = True
+    if not dry_run:
+        pause_every = prompt_int_value(
+            "Pause every N inserted items (0 = never pause)",
+            defaults.pause_every,
+            0,
+        )
+        no_pause = pause_every == 0
+
+    return argparse.Namespace(
+        menu=False,
+        game=game_id,
+        keywords=keywords,
+        no_prompt=True,
+        limit_games=limit_games,
+        items_per_game=items_per_game,
+        max_queries=max_queries,
+        delay=delay,
+        pause_every=pause_every,
+        no_pause=no_pause,
+        force_refetch=force_refetch,
+        dry_run=dry_run,
+        serve=False,
+        host=defaults.host,
+        port=defaults.port,
+    )
+
+
+def run_stocking(args: argparse.Namespace) -> int:
+    args.game = str(args.game or "").strip()
+    args.keywords = str(args.keywords or "")
+    args.limit_games = max(0, int(args.limit_games or 0))
+    args.items_per_game = max(1, int(args.items_per_game or 1))
+    args.max_queries = max(1, int(args.max_queries or 1))
+    args.delay = max(0.0, float(args.delay or 0.0))
+    args.pause_every = max(0, int(args.pause_every or 0))
+    args.no_prompt = bool(args.no_prompt)
+    args.no_pause = bool(args.no_pause)
+    args.force_refetch = bool(args.force_refetch)
+    args.dry_run = bool(args.dry_run)
+
+    write_enabled = not args.dry_run
+    key = supabase_key(write=write_enabled)
     games = fetch_games(key, game_id=args.game or "", limit=args.limit_games)
     if not games:
         print("No games found.")
         return 0
 
     existing_urls = fetch_existing_urls(key)
-    write_enabled = not args.dry_run
     user_keywords = unique(
         split_keywords(args.keywords) + ([] if args.no_prompt else prompt_keywords())
     )
@@ -486,6 +703,7 @@ def main() -> int:
     print(f"{mode}: stocking {len(games)} game(s).")
     print(f"items/game={args.items_per_game}  queries/game={args.max_queries}  "
           f"delay={args.delay}s  cache={CACHE_DIR}")
+    print("Press Ctrl+C to stop the current run.")
     if pause_every:
         print(f"pausing every {pause_every} inserted item(s) — m/a/q at the prompt")
     if user_keywords:
@@ -495,14 +713,15 @@ def main() -> int:
     pause_off = pause_every == 0
     quit_now = False
 
-    for game in games:
+    total_games = len(games)
+    for game_index, game in enumerate(games, start=1):
         if quit_now:
             break
         gid = str(game.get("id") or "").strip()
         gname = str(game.get("name") or gid).strip()
         if not gid:
             continue
-        print(f"\n{gname} [{gid}]")
+        print(f"\nGame {game_index}/{total_games}: {gname} [{gid}]", flush=True)
 
         candidates = find_candidates(
             game, args.max_queries, args.delay, user_keywords, args.force_refetch,
@@ -555,6 +774,270 @@ def main() -> int:
     else:
         print("\nDry run only. Re-run without --dry-run to insert these rows.")
     return 0
+
+
+def coerce_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "y", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "n", "off", ""}:
+            return False
+    return default
+
+
+def coerce_int(value: Any, default: int, minimum: int = 0) -> int:
+    try:
+        result = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, result)
+
+
+def coerce_float(value: Any, default: float, minimum: float = 0.0) -> float:
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, result)
+
+
+def build_request_args(payload: dict[str, Any] | None = None) -> argparse.Namespace:
+    payload = payload if isinstance(payload, dict) else {}
+    defaults = build_default_args()
+    requested_game = str(payload.get("game") or "").strip()
+    return argparse.Namespace(
+        menu=False,
+        game=requested_game or defaults.game,
+        keywords=str(payload.get("keywords") or defaults.keywords),
+        no_prompt=True,
+        limit_games=coerce_int(payload.get("limit_games"), defaults.limit_games, 0),
+        items_per_game=coerce_int(payload.get("items_per_game"), defaults.items_per_game, 1),
+        max_queries=coerce_int(payload.get("max_queries"), defaults.max_queries, 1),
+        delay=coerce_float(payload.get("delay"), defaults.delay, 0.0),
+        pause_every=0,
+        no_pause=True,
+        force_refetch=coerce_bool(payload.get("force_refetch"), defaults.force_refetch),
+        dry_run=coerce_bool(payload.get("dry_run"), defaults.dry_run),
+        serve=False,
+        host=defaults.host,
+        port=defaults.port,
+    )
+
+
+def run_stocking_capture(args: argparse.Namespace) -> tuple[int, str]:
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
+        exit_code = run_stocking(args)
+    stdout_text = stdout_buffer.getvalue()
+    stderr_text = stderr_buffer.getvalue()
+    if stdout_text and stderr_text and not stdout_text.endswith("\n"):
+        stdout_text += "\n"
+    return exit_code, stdout_text + stderr_text
+
+
+def run_search_only(payload: dict[str, Any]) -> dict[str, Any]:
+    """Search Amazon for candidates and return them as JSON. No Supabase writes.
+
+    Powers the giftshop.html SUGGEST lightbox: the admin reviews candidates
+    and ticks the ones to insert, then the front-end inserts them directly
+    via the standard gift_shop_items REST endpoint (no listings — the admin
+    attaches shops afterward).
+    """
+    payload = payload if isinstance(payload, dict) else {}
+    defaults = build_default_args()
+
+    game_id = str(payload.get("game") or "").strip()
+    keywords_raw = str(payload.get("keywords") or "")
+    max_queries = coerce_int(payload.get("max_queries"), defaults.max_queries, 1)
+    items_cap = coerce_int(payload.get("items_per_game"), 20, 1)
+    delay = coerce_float(payload.get("delay"), defaults.delay, 0.0)
+    force_refetch = coerce_bool(payload.get("force_refetch"), defaults.force_refetch)
+
+    user_keywords = unique(split_keywords(keywords_raw))
+
+    read_key = supabase_key(write=False)
+    existing_urls = fetch_existing_urls(read_key)
+
+    if game_id:
+        games_to_search: list[dict[str, Any]] = fetch_games(read_key, game_id=game_id, limit=1)
+        if not games_to_search:
+            return {
+                "ok": False,
+                "error": f"No game found with id {game_id!r}.",
+                "candidates": [],
+            }
+    else:
+        games_to_search = [{}]
+
+    all_candidates: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+
+    for game in games_to_search:
+        if len(all_candidates) >= items_cap:
+            break
+        candidates = find_candidates(
+            game, max_queries, delay, user_keywords, force_refetch,
+        )
+        for c in candidates:
+            n = normalize_amazon_url(c.url)
+            if n in seen_urls:
+                continue
+            seen_urls.add(n)
+            all_candidates.append({
+                "title": c.title,
+                "url": c.url,
+                "asin": c.asin,
+                "image_url": c.image_url,
+                "price_display": c.price_display,
+                "description": c.description,
+                "query": c.query,
+                "already_in_db": n in existing_urls,
+            })
+            if len(all_candidates) >= items_cap:
+                break
+
+    return {
+        "ok": True,
+        "game": game_id,
+        "keywords": user_keywords,
+        "candidates": all_candidates,
+        "summary": f"Found {len(all_candidates)} candidate(s).",
+    }
+
+
+class StockGiftShopHandler(BaseHTTPRequestHandler):
+    server_version = "TGBStockGiftShop/1.0"
+
+    def log_message(self, format: str, *args: Any) -> None:
+        return
+
+    def _send_json(self, status_code: int, payload: dict[str, Any]) -> None:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_OPTIONS(self) -> None:
+        self._send_json(204, {})
+
+    def do_GET(self) -> None:
+        if self.path.rstrip("/") == "/health":
+            self._send_json(200, {
+                "ok": True,
+                "command": "python mc/scripts/stock_gift_shop.py --serve",
+                "endpoints": ["/run-stock-gift-shop", "/search-candidates"],
+            })
+            return
+        self._send_json(404, {"ok": False, "error": "Not found."})
+
+    def _read_json_body(self) -> dict[str, Any]:
+        content_length = int(self.headers.get("Content-Length") or "0")
+        raw_body = self.rfile.read(content_length) if content_length > 0 else b""
+        if not raw_body:
+            return {}
+        return json.loads(raw_body.decode("utf-8"))
+
+    def do_POST(self) -> None:
+        path = self.path.rstrip("/")
+        if path == "/run-stock-gift-shop":
+            self._handle_run_stocking()
+            return
+        if path == "/search-candidates":
+            self._handle_search_candidates()
+            return
+        self._send_json(404, {"ok": False, "error": "Not found."})
+
+    def _handle_run_stocking(self) -> None:
+        if not RUN_LOCK.acquire(blocking=False):
+            self._send_json(409, {"ok": False, "error": "A stock_gift_shop run is already in progress."})
+            return
+        try:
+            payload = self._read_json_body()
+            args = build_request_args(payload)
+            exit_code, logs = run_stocking_capture(args)
+            target = args.game or "all games"
+            self._send_json(200, {
+                "ok": exit_code == 0,
+                "exit_code": exit_code,
+                "game": args.game or "",
+                "summary": f"Suggest items finished for {target}.",
+                "logs": logs
+            })
+        except Exception as error:
+            self._send_json(500, {
+                "ok": False,
+                "error": str(error),
+                "logs": traceback.format_exc()
+            })
+        finally:
+            RUN_LOCK.release()
+
+    def _handle_search_candidates(self) -> None:
+        if not RUN_LOCK.acquire(blocking=False):
+            self._send_json(409, {"ok": False, "error": "A search is already in progress."})
+            return
+        try:
+            payload = self._read_json_body()
+            result = run_search_only(payload)
+            status = 200 if result.get("ok") else 400
+            self._send_json(status, result)
+        except Exception as error:
+            self._send_json(500, {
+                "ok": False,
+                "error": str(error),
+                "logs": traceback.format_exc()
+            })
+        finally:
+            RUN_LOCK.release()
+
+
+def serve(args: argparse.Namespace) -> int:
+    host = str(args.host or LOCAL_SERVER_HOST).strip() or LOCAL_SERVER_HOST
+    port = coerce_int(args.port, LOCAL_SERVER_PORT, 1)
+    server = ThreadingHTTPServer((host, port), StockGiftShopHandler)
+    print(f"Serving stock_gift_shop on http://{host}:{port}")
+    print("Mission Control endpoints:")
+    print("  POST /search-candidates   (preview-only, powers the SUGGEST lightbox)")
+    print("  POST /run-stock-gift-shop (auto-stock; used by CLI/menu callers)")
+    print("Press Ctrl+C to stop.")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopping local suggester server.")
+    finally:
+        server.server_close()
+    return 0
+
+
+def main() -> int:
+    parser = build_arg_parser()
+    args = parser.parse_args()
+    if args.menu or (len(sys.argv) == 1 and sys.stdin.isatty()):
+        interactive_args = build_interactive_args()
+        if interactive_args is None:
+            print("Cancelled.")
+            return 0
+        args = interactive_args
+    if args.serve:
+        return serve(args)
+    try:
+        return run_stocking(args)
+    except KeyboardInterrupt:
+        print("\nStopped.")
+        return 130
 
 
 if __name__ == "__main__":

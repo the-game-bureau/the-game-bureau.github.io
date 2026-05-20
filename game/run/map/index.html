@@ -1352,6 +1352,19 @@
     let messageFlowTimeouts = [];
     const pendingMinigameCallbacks = new Map();
 
+    function isTrueish(value) {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'string') {
+        const trimmed = value.trim().toLowerCase();
+        return !!trimmed && trimmed !== 'false' && trimmed !== '0' && trimmed !== 'no';
+      }
+      return !!value;
+    }
+
+    function isPublicGameRecord(game) {
+      return !!game && !isTrueish(game.archived);
+    }
+
     // ── Persistence ──────────────────────────────────────────────
     function saveStep(i) {
       try { localStorage.setItem(STORE_KEY + '_step', String(i)); } catch(e) {}
@@ -3057,7 +3070,8 @@
 
       if (!response.ok) throw new Error('Network error');
       const rows = await response.json();
-      return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+      const game = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+      return isPublicGameRecord(game) ? game : null;
     }
 
     function resolveAssetUrl(value) {

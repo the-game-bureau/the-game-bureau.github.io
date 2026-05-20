@@ -646,6 +646,29 @@
       background: rgba(255,255,255,0.96);
       font-size: 0.85rem;
     }
+    .listing-row select[multiple] {
+      height: auto;
+      min-height: 132px;
+      padding: 4px 6px;
+      overflow-y: auto;
+    }
+    .listing-row select[multiple] option { padding: 2px 6px; }
+    .listing-row select[multiple] option:checked {
+      background: linear-gradient(0deg, rgba(var(--bic-blue-rgb), 0.18), rgba(var(--bic-blue-rgb), 0.18));
+      color: var(--ink);
+    }
+    .listing-row.is-multi { align-items: start; }
+    .listing-row.is-multi .listing-live,
+    .listing-row.is-multi .listing-remove,
+    .listing-row.is-multi input[type="number"] { margin-top: 2px; }
+    .listing-multi-hint {
+      grid-column: 1 / -1;
+      margin: -2px 0 4px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.66rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
     .listing-row .listing-live {
       display: inline-flex; align-items: center; gap: 4px;
       font-size: 0.7rem;
@@ -685,6 +708,152 @@
       padding-top: 4px;
       border-top: 1px dashed var(--line);
       margin-top: 4px;
+    }
+
+    /* ── Suggest lightbox ─────────────────────────────────────── */
+    .suggest-modal {
+      position: fixed; inset: 0; z-index: 1500;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .suggest-modal[hidden] { display: none; }
+    .suggest-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(4px);
+    }
+    .suggest-panel {
+      position: relative;
+      width: min(720px, 100%);
+      max-height: 90vh;
+      display: flex; flex-direction: column;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
+      overflow: hidden;
+    }
+    .suggest-panel-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .suggest-panel-head h2 { margin: 0; font-size: 1rem; }
+    .suggest-close {
+      background: transparent; border: 0;
+      font-size: 1.3rem; line-height: 1;
+      color: var(--muted); cursor: pointer;
+      padding: 4px 8px; border-radius: 6px;
+    }
+    .suggest-close:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
+    .suggest-form, .suggest-results {
+      padding: 16px 18px;
+      overflow: auto;
+      flex: 1;
+    }
+    .suggest-form { display: grid; gap: 12px; }
+    .suggest-form label {
+      display: grid; gap: 4px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .suggest-form input[type="text"],
+    .suggest-form input[type="number"],
+    .suggest-form select {
+      height: 36px; padding: 0 10px;
+      border: 1px solid var(--line); border-radius: 6px;
+      font-family: inherit; font-size: 0.9rem;
+      color: var(--ink); background: #fff;
+    }
+    .suggest-form .suggest-check {
+      flex-direction: row; align-items: center; gap: 8px;
+      font-family: inherit;
+      text-transform: none; letter-spacing: 0;
+      font-size: 0.85rem; font-weight: 500; color: var(--ink);
+    }
+    .suggest-form .suggest-check input { width: auto; height: auto; }
+    .suggest-actions {
+      display: flex; gap: 8px; justify-content: flex-end;
+      margin-top: 4px;
+    }
+    .suggest-status {
+      min-height: 1.4em; margin: 0;
+      font-size: 0.85rem; color: var(--muted);
+    }
+    .suggest-status.error { color: var(--danger); font-weight: 700; }
+    .suggest-status.success { color: var(--ok, #2f6b3d); font-weight: 700; }
+    .suggest-results-head {
+      display: flex; align-items: center; gap: 10px;
+      padding-bottom: 12px; margin-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+    .suggest-results-head label {
+      display: inline-flex; gap: 6px; align-items: center;
+      font-size: 0.85rem;
+    }
+    .suggest-results-count {
+      flex: 1;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .suggest-results-list {
+      list-style: none; padding: 0; margin: 0;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .suggest-result {
+      display: grid;
+      grid-template-columns: 56px 1fr auto;
+      gap: 10px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      align-items: center;
+      background: rgba(255,255,255,0.96);
+    }
+    .suggest-result img {
+      width: 56px; height: 56px;
+      object-fit: contain;
+      border-radius: 6px;
+      background: #f5f5f5;
+    }
+    .suggest-result-meta {
+      display: flex; flex-direction: column; gap: 2px;
+      min-width: 0;
+    }
+    .suggest-result-title {
+      font-size: 0.88rem; font-weight: 700;
+      color: var(--ink);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .suggest-result-sub {
+      font-size: 0.7rem; color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .suggest-result-actions {
+      display: flex; flex-direction: column; gap: 4px;
+      align-items: flex-end;
+    }
+    .suggest-result-badge {
+      font-size: 0.62rem;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(var(--bic-blue-rgb), 0.12);
+      color: var(--ink);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .suggest-result.is-existing { opacity: 0.55; }
+    .suggest-result-check { width: 18px; height: 18px; cursor: pointer; }
+    .suggest-result a.suggest-result-link {
+      color: inherit; text-decoration: none;
+    }
+    .suggest-result a.suggest-result-link:hover .suggest-result-title {
+      text-decoration: underline;
     }
 
     .item-archive-toggle {
@@ -790,35 +959,11 @@
   </style>
 </head>
 <body>
-  <div class="auth-modal" id="authModal">
-    <section class="auth" id="authPanel">
-      <button class="auth-close" id="authCloseBtn" type="button" aria-label="Close">&#x2715;</button>
-      <p class="kicker">The Game Bureau</p>
-      <h1>Mission Control</h1>
-      <p class="copy">Sign in to Mission Control with an admin account.</p>
-      <form class="auth-form" id="authForm">
-        <label>
-          Email
-          <input id="emailInput" type="email" autocomplete="username" required>
-        </label>
-        <label>
-          Password
-          <input id="passwordInput" type="password" autocomplete="current-password" required>
-        </label>
-        <div class="auth-actions">
-          <button class="btn primary" id="signInBtn" type="submit">Sign In</button>
-          <a class="btn home-icon-btn" href="../" title="TGB HOME">TGB HOME</a>
-        </div>
-      </form>
-      <p class="status" id="authStatus" aria-live="polite"></p>
-    </section>
-  </div>
-
   <main class="app">
     <section id="shopPanel">
       <div class="topbar">
         <a class="btn home-icon-btn" href="../index.html" title="TGB HOME">TGB HOME</a>
-        <a class="btn" id="previewBtn" style="margin-right:auto;" href="../site/gift.html" target="_blank" rel="noopener">View Shop</a>
+        <a class="btn" id="previewBtn" style="margin-right:auto;" href="../gift/" target="_blank" rel="noopener">VIEW SHOP</a>
         <div class="topbar-actions">
           <nav class="admin-nav">
             <a class="admin-nav-link" href="builder.html">BUILDER</a>
@@ -902,7 +1047,8 @@
       </div>
 
       <div class="toolbar">
-        <button class="btn primary" id="addItemBtn" type="button" disabled>+ Add item</button>
+        <button class="btn primary" id="addItemBtn" type="button" disabled>ADD</button>
+        <button class="btn" id="suggestItemsBtn" type="button" disabled>SUGGEST</button>
         <select id="previewShopSelect" aria-label="Pick a shop to preview">
           <option value="">All Games</option>
         </select>
@@ -941,10 +1087,18 @@
           Description (optional)
           <textarea data-field="description" placeholder="Short blurb shown under the title."></textarea>
         </label>
+        <label class="field-wide">
+          Sell price (USD, leave blank for affiliate-only)
+          <input data-field="price_dollars" type="number" min="0" step="0.01" inputmode="decimal" placeholder="29.00">
+        </label>
+        <label class="field-wide">
+          Printful sync_variant_id (required to enable Buy button)
+          <input data-field="printful_variant_id" type="text" placeholder="4554879123">
+        </label>
         <div class="item-listings" data-listings>
           <div class="item-listings-head">
             <span>Listed in shops</span>
-            <button class="btn" data-action="add-listing" type="button">+ Add to a shop</button>
+            <button class="btn" data-action="add-listing" type="button" title="Click to add a multi-select row. Ctrl/Cmd+click toggles a shop, Shift+click selects a range.">+ Add to shops</button>
           </div>
           <div class="item-listings-list" data-listings-list></div>
         </div>
@@ -970,43 +1124,97 @@
       <button class="listing-remove" data-action="remove-listing" type="button" title="Remove from this shop" aria-label="Remove">×</button>
     </div>
   </template>
+  <div class="suggest-modal" id="suggestModal" hidden>
+    <div class="suggest-backdrop"></div>
+    <section class="suggest-panel" role="dialog" aria-modal="true" aria-labelledby="suggestTitle">
+      <header class="suggest-panel-head">
+        <h2 id="suggestTitle">Suggest gift shop stock</h2>
+        <button class="suggest-close" type="button" data-suggest-dismiss aria-label="Close">&times;</button>
+      </header>
+      <div class="suggest-form" id="suggestForm">
+        <label>Game (optional, blank = keyword search only)
+          <select id="suggestGame"><option value="">— Any game / keywords only —</option></select>
+        </label>
+        <label>Keywords (comma-separated)
+          <input id="suggestKeywords" type="text" placeholder="voodoo, gumbo, mardi gras" autocomplete="off">
+        </label>
+        <label>Max queries to run
+          <input id="suggestMaxQueries" type="number" min="1" step="1" value="6">
+        </label>
+        <label>Max candidates to surface
+          <input id="suggestItemsCap" type="number" min="1" step="1" value="20">
+        </label>
+        <label>Delay between live requests (seconds)
+          <input id="suggestDelay" type="number" min="0" step="0.1" value="1.0">
+        </label>
+        <label class="suggest-check">
+          <input id="suggestForceRefetch" type="checkbox">
+          Bypass cached Amazon search pages
+        </label>
+        <p class="suggest-status" id="suggestStatus" aria-live="polite"></p>
+        <div class="suggest-actions">
+          <button class="btn" type="button" data-suggest-dismiss>Cancel</button>
+          <button class="btn primary" id="suggestSearchBtn" type="button">Search</button>
+        </div>
+      </div>
+      <div class="suggest-results" id="suggestResults" hidden>
+        <div class="suggest-results-head">
+          <label><input type="checkbox" id="suggestSelectAll"> Select all</label>
+          <span class="suggest-results-count" id="suggestResultsCount">0 candidates</span>
+          <button class="btn" id="suggestBackBtn" type="button">Back</button>
+          <button class="btn primary" id="suggestAddSelectedBtn" type="button" disabled>Add selected</button>
+        </div>
+        <p class="suggest-status" id="suggestResultsStatus" aria-live="polite"></p>
+        <ul class="suggest-results-list" id="suggestResultsList"></ul>
+      </div>
+    </section>
+  </div>
 
+  <script src="admin-auth.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
       publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
     };
 
-    const AUTH_STORAGE_KEY = 'tgb-photo-review-auth-session'; // shared with library.html
-
-    const authModal    = document.getElementById('authModal');
-    const authCloseBtn = document.getElementById('authCloseBtn');
-    const authPanel    = document.getElementById('authPanel');
-    const shopPanel    = document.getElementById('shopPanel');
-    const authForm     = document.getElementById('authForm');
-    const emailInput   = document.getElementById('emailInput');
-    const passwordInput = document.getElementById('passwordInput');
-    const signInBtn    = document.getElementById('signInBtn');
     const signOutBtn   = document.getElementById('signOutBtn');
-    const authStatus   = document.getElementById('authStatus');
     const shopStatus   = document.getElementById('shopStatus');
     const addItemBtn   = document.getElementById('addItemBtn');
+    const suggestItemsBtn = document.getElementById('suggestItemsBtn');
     const previewBtn   = document.getElementById('previewBtn');
     const previewShopSelect = document.getElementById('previewShopSelect');
     const itemsList    = document.getElementById('itemsList');
     const itemTemplate = document.getElementById('itemTemplate');
     const listingRowTemplate = document.getElementById('listingRowTemplate');
+    const LOCAL_SUGGEST_ITEMS_COMMAND = 'python mc/scripts/stock_gift_shop.py --serve';
+    const CAN_RUN_LOCAL_SUGGEST_ITEMS = /^(127\.0\.0\.1|localhost)$/i.test(window.location.hostname);
+    const LOCAL_SUGGEST_ITEMS_HOST = window.location.hostname === 'localhost' ? 'localhost' : '127.0.0.1';
+    const LOCAL_SUGGEST_ITEMS_RUN_URL = 'http://' + LOCAL_SUGGEST_ITEMS_HOST + ':8765/run-stock-gift-shop';
+    const LOCAL_SUGGEST_SEARCH_URL = 'http://' + LOCAL_SUGGEST_ITEMS_HOST + ':8765/search-candidates';
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      signOutButton: signOutBtn,
+      onAuthorized: async () => {
+        await showShop();
+      },
+      onSignedOut: () => {
+        itemsList.innerHTML = '';
+        gamesById = new Map();
+        gameOptionsHtml = '<option value="">— Pick a game —</option>';
+        previewShopSelect.innerHTML = '<option value="">All Games</option>';
+        previewBtn.href = '../gift/';
+        addItemBtn.disabled = true;
+        setSuggestItemsButtonEnabled(false);
+        setStatus(shopStatus, '');
+        renderEmpty();
+      }
+    });
 
-    let currentSession = null;
     // Every game we know about (live + archived), keyed by id, so we
     // can populate per-item dropdowns AND label rows whose game has
     // been archived since the item was created.
     let gamesById = new Map();
     let gameOptionsHtml = '<option value="">— Pick a game —</option>';
-
-    function authUrl(path) {
-      return new URL('/auth/v1/' + String(path || '').replace(/^\/+/, ''), SUPABASE_CONFIG.url + '/').toString();
-    }
 
     function restUrl(table, params = {}) {
       const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
@@ -1023,6 +1231,23 @@
       el.classList.toggle('success', state === 'success');
     }
 
+    function setSuggestItemsButtonEnabled(enabled) {
+      if (!suggestItemsBtn) return;
+      const session = adminAuth.getSession ? adminAuth.getSession() : null;
+      const signedIn = !!(session && session.access_token);
+      const canUse = !!enabled && signedIn && CAN_RUN_LOCAL_SUGGEST_ITEMS;
+      suggestItemsBtn.disabled = !canUse;
+      if (!CAN_RUN_LOCAL_SUGGEST_ITEMS) {
+        suggestItemsBtn.title = 'Local only. Open Mission Control on localhost or 127.0.0.1 and run "' + LOCAL_SUGGEST_ITEMS_COMMAND + '".';
+        return;
+      }
+      if (!signedIn) {
+        suggestItemsBtn.title = 'Sign in to Mission Control to suggest items.';
+        return;
+      }
+      suggestItemsBtn.title = 'Run local gift shop suggestions. Start "' + LOCAL_SUGGEST_ITEMS_COMMAND + '" first.';
+    }
+
     async function readError(response, fallback) {
       try {
         const text = await response.text();
@@ -1034,71 +1259,13 @@
       } catch (_) { return fallback; }
     }
 
-    function readStoredSession() {
-      try { return JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || 'null'); }
-      catch (_) { return null; }
-    }
-    function storeSession(session) {
-      try {
-        if (session) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-        else localStorage.removeItem(AUTH_STORAGE_KEY);
-      } catch (_) {}
-    }
-
-    async function signIn(email, password) {
-      const response = await fetch(authUrl('token?grant_type=password'), {
-        method: 'POST',
-        headers: { apikey: SUPABASE_CONFIG.publishableKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      if (!response.ok) throw new Error(await readError(response, 'Sign in failed.'));
-      return response.json();
-    }
-
-    async function refreshSession(session) {
-      if (!session || !session.refresh_token) return null;
-      const response = await fetch(authUrl('token?grant_type=refresh_token'), {
-        method: 'POST',
-        headers: { apikey: SUPABASE_CONFIG.publishableKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: session.refresh_token })
-      });
-      if (!response.ok) return null;
-      return response.json();
-    }
-
-    async function getUsableSession() {
-      const stored = readStoredSession();
-      if (!stored || !stored.access_token) return null;
-      const expiresAt = Number(stored.expires_at || 0) * 1000;
-      if (expiresAt && expiresAt > Date.now() + 60000) return stored;
-      const refreshed = await refreshSession(stored);
-      if (refreshed && refreshed.access_token) { storeSession(refreshed); return refreshed; }
-      storeSession(null);
-      return null;
-    }
-
     function authHeaders(extra = {}) {
-      return {
-        apikey: SUPABASE_CONFIG.publishableKey,
-        Authorization: 'Bearer ' + currentSession.access_token,
-        ...extra
-      };
-    }
-
-    async function verifyAdmin() {
-      const email = currentSession && currentSession.user ? currentSession.user.email : '';
-      const response = await fetch(restUrl('admin_users', { select: 'email', email: 'eq.' + email, limit: '1' }), {
-        headers: authHeaders({ Accept: 'application/json' }),
-        cache: 'no-store'
-      });
-      if (!response.ok) throw new Error(await readError(response, 'Could not verify admin access.'));
-      const rows = await response.json();
-      return Array.isArray(rows) && rows.length > 0;
+      return adminAuth.authHeaders(extra);
     }
 
     // ── Games ────────────────────────────────────────────────────────
     async function fetchGames() {
-      const response = await fetch(restUrl('games', { select: 'id,name,archived,erased', order: 'name.asc' }), {
+      const response = await fetch(restUrl('games', { select: 'id,name,archived', order: 'name.asc' }), {
         headers: authHeaders({ Accept: 'application/json' }),
         cache: 'no-store'
       });
@@ -1108,7 +1275,7 @@
 
     function isLive(game) {
       const dead = (v) => typeof v === 'boolean' ? v : (typeof v === 'string' && v.trim() && v.trim().toLowerCase() !== 'false' && v.trim() !== '0');
-      return !dead(game.archived) && !dead(game.erased);
+      return !dead(game.archived);
     }
 
     function escapeHtml(value) {
@@ -1120,7 +1287,7 @@
     async function loadGames() {
       const games = await fetchGames();
       gamesById = new Map(games.map((g) => [g.id, g]));
-      // Live games first, archived/erased grouped after.
+      // Live games first, archived games grouped after.
       const live = games.filter(isLive);
       const dead = games.filter((g) => !isLive(g));
       const renderOpt = (g, suffix) =>
@@ -1143,8 +1310,8 @@
     function updatePreviewHref() {
       const id = previewShopSelect.value;
       previewBtn.href = id
-        ? '../site/gift.html?game=' + encodeURIComponent(id)
-        : '../site/gift.html';
+        ? '../gift/?game=' + encodeURIComponent(id)
+        : '../gift/';
     }
 
     function filterItemsByShop() {
@@ -1158,7 +1325,9 @@
           return;
         }
         const listingSelects = item.querySelectorAll('.listing-row:not(.is-removed) [data-listing-field="game_id"]');
-        const match = Array.from(listingSelects).some((sel) => sel.value === gameId);
+        const match = Array.from(listingSelects).some((sel) =>
+          Array.from(sel.selectedOptions).some((o) => o.value === gameId)
+        );
         item.classList.toggle('hidden', !match);
         if (match) visible++;
       });
@@ -1253,7 +1422,7 @@
       itemsList.innerHTML = '';
       const div = document.createElement('div');
       div.className = 'empty';
-      div.textContent = 'No items yet. Click + Add item to start.';
+      div.textContent = 'No items yet. Click ADD to start.';
       itemsList.appendChild(div);
     }
 
@@ -1263,6 +1432,8 @@
         return el ? el.value : '';
       };
       const focus = String(article.dataset.imageFocus || '50% 50%');
+      const priceRaw = get('price_dollars').trim();
+      const priceCents = priceRaw === '' ? null : Math.max(0, Math.round(Number(priceRaw) * 100));
       return {
         kind: 'amazon_link',
         title: get('title').trim() || null,
@@ -1270,33 +1441,57 @@
         image_url: get('image_url').trim() || null,
         image_focus: focus,
         price_display: get('price_display').trim() || null,
-        description: get('description').trim() || null
+        description: get('description').trim() || null,
+        price_cents: Number.isFinite(priceCents) ? priceCents : null,
+        printful_variant_id: get('printful_variant_id').trim() || null
       };
     }
 
     function readListingRow(row) {
-      const game_id = String(row.querySelector('[data-listing-field="game_id"]').value || '').trim();
+      const select = row.querySelector('[data-listing-field="game_id"]');
+      const game_ids = select.multiple
+        ? Array.from(select.selectedOptions)
+            .map((o) => String(o.value || '').trim())
+            .filter(Boolean)
+        : (select.value ? [String(select.value).trim()] : []);
       const positionRaw = String(row.querySelector('[data-listing-field="position"]').value || '').trim();
       const position = positionRaw === '' ? 0 : Math.max(0, Math.floor(Number(positionRaw) || 0));
       const live = !!row.querySelector('[data-listing-field="live"]').checked;
-      return { id: row.dataset.listingId || '', game_id, position, live };
+      return { id: row.dataset.listingId || '', game_ids, position, live };
     }
 
     function appendListingRow(listingsList, listing = {}) {
       const fragment = listingRowTemplate.content.cloneNode(true);
       const row = fragment.querySelector('.listing-row');
       const sel = row.querySelector('[data-listing-field="game_id"]');
-      sel.innerHTML = gameOptionsHtml;
-      const targetId = listing.game_id || '';
-      if (targetId) {
-        const exists = sel.querySelector('option[value="' + CSS.escape(targetId) + '"]');
-        if (!exists) {
-          const opt = document.createElement('option');
-          opt.value = targetId;
-          opt.textContent = (gamesById.get(targetId)?.name || targetId) + ' (missing)';
-          sel.appendChild(opt);
+      const isNew = !listing.id;
+
+      if (isNew) {
+        // Strip the "— Pick a game —" placeholder (multi-select can't show one);
+        // the listbox itself communicates "pick one or more".
+        sel.innerHTML = gameOptionsHtml.replace(/<option value=""[^>]*>[^<]*<\/option>/, '');
+        sel.multiple = true;
+        sel.size = 6;
+        sel.title = 'Click to pick. Ctrl/Cmd+click to toggle. Shift+click for a range.';
+        row.classList.add('is-multi');
+
+        const hint = document.createElement('div');
+        hint.className = 'listing-multi-hint';
+        hint.textContent = 'Ctrl/Cmd+click to toggle · Shift+click for a range';
+        row.insertBefore(hint, sel);
+      } else {
+        sel.innerHTML = gameOptionsHtml;
+        const targetId = listing.game_id || '';
+        if (targetId) {
+          const exists = sel.querySelector('option[value="' + CSS.escape(targetId) + '"]');
+          if (!exists) {
+            const opt = document.createElement('option');
+            opt.value = targetId;
+            opt.textContent = (gamesById.get(targetId)?.name || targetId) + ' (missing)';
+            sel.appendChild(opt);
+          }
+          sel.value = targetId;
         }
-        sel.value = targetId;
       }
       row.querySelector('[data-listing-field="position"]').value =
         listing.position == null ? '' : String(listing.position);
@@ -1341,28 +1536,37 @@
         await deleteListing(row.dataset.listingId);
         row.remove();
       }
-      // 2) Live rows: insert if no id, otherwise update.
+      // 2) Live rows: insert if no id, otherwise update. New multi-select
+      //    rows fan out into one listing per selected shop.
       const liveRows = rows.filter((r) => r.dataset.removed !== 'true');
+      let fannedOut = false;
       for (const row of liveRows) {
         const data = readListingRow(row);
-        if (!data.game_id) continue; // skip blanks rather than erroring
+        if (!data.game_ids.length) continue; // skip blanks rather than erroring
         if (data.id) {
+          // Existing rows are single-select; only the first id matters here.
           const updated = await updateListing(data.id, {
-            game_id: data.game_id,
+            game_id: data.game_ids[0],
             position: data.position,
             live: data.live
           });
           if (updated && updated.id) row.dataset.listingId = updated.id;
         } else {
-          const created = await insertListing({
-            item_id: itemId,
-            game_id: data.game_id,
-            position: data.position,
-            live: data.live
-          });
-          if (created && created.id) row.dataset.listingId = created.id;
+          for (const gid of data.game_ids) {
+            const created = await insertListing({
+              item_id: itemId,
+              game_id: gid,
+              position: data.position,
+              live: data.live
+            });
+            if (created && created.id && !row.dataset.listingId) {
+              row.dataset.listingId = created.id;
+            }
+          }
+          if (data.game_ids.length > 1) fannedOut = true;
         }
       }
+      return fannedOut;
     }
 
     function bindItem(article, item) {
@@ -1381,6 +1585,8 @@
       set('image_url', item.image_url);
       set('price_display', item.price_display);
       set('description', item.description);
+      set('price_dollars', Number.isFinite(item.price_cents) ? (item.price_cents / 100).toFixed(2) : '');
+      set('printful_variant_id', item.printful_variant_id);
 
       // Render existing listings (from the embedded select) and wire
       // up the "+ Add to a shop" button. New blank items get one empty
@@ -1550,22 +1756,24 @@
           return;
         }
         // Validate listings before doing any writes. Collect live shop
-        // ids and reject if there are duplicates or none.
+        // ids (flattening multi-select rows) and reject if there are
+        // duplicates or none.
         const liveRows = Array.from(
           article.querySelectorAll('.listing-row:not(.is-removed)')
         );
-        const liveData = liveRows.map(readListingRow).filter((d) => d.game_id);
-        if (!liveData.length) {
+        const liveData = liveRows.map(readListingRow).filter((d) => d.game_ids.length);
+        const allGameIds = liveData.flatMap((d) => d.game_ids);
+        if (!allGameIds.length) {
           setItemStatus('Add this item to at least one shop first.', 'error');
           return;
         }
         const seen = new Set();
-        for (const d of liveData) {
-          if (seen.has(d.game_id)) {
+        for (const gid of allGameIds) {
+          if (seen.has(gid)) {
             setItemStatus('This item is listed in the same shop twice.', 'error');
             return;
           }
-          seen.add(d.game_id);
+          seen.add(gid);
         }
         setItemStatus('Saving…');
         try {
@@ -1579,9 +1787,12 @@
             article.dataset.id = saved.id;
             article.classList.remove('is-new');
           }
-          await syncListings(article, article.dataset.id);
+          const fannedOut = await syncListings(article, article.dataset.id);
           setItemStatus('Saved.', 'success');
           setTimeout(() => setItemStatus(''), 2200);
+          if (fannedOut) {
+            await showShop(previewShopSelect.value);
+          }
         } catch (error) {
           console.error(error);
           setItemStatus(error instanceof Error ? error.message : String(error), 'error');
@@ -1645,96 +1856,302 @@
       if (titleInput) titleInput.focus();
     });
 
-    function showAuth() {
-      authModal.classList.remove('hidden');
-      setStatus(authStatus, 'Sign in with an admin account.');
-      signOutBtn.title = 'ADMIN LOGIN';
-      signOutBtn.setAttribute('aria-label', 'ADMIN LOGIN');
+    // ── Suggest lightbox ─────────────────────────────────────────
+    const suggestModal = document.getElementById('suggestModal');
+    const suggestForm = document.getElementById('suggestForm');
+    const suggestGameSel = document.getElementById('suggestGame');
+    const suggestKeywords = document.getElementById('suggestKeywords');
+    const suggestMaxQueries = document.getElementById('suggestMaxQueries');
+    const suggestItemsCap = document.getElementById('suggestItemsCap');
+    const suggestDelay = document.getElementById('suggestDelay');
+    const suggestForceRefetch = document.getElementById('suggestForceRefetch');
+    const suggestStatus = document.getElementById('suggestStatus');
+    const suggestSearchBtn = document.getElementById('suggestSearchBtn');
+    const suggestResultsPane = document.getElementById('suggestResults');
+    const suggestResultsList = document.getElementById('suggestResultsList');
+    const suggestResultsCount = document.getElementById('suggestResultsCount');
+    const suggestResultsStatus = document.getElementById('suggestResultsStatus');
+    const suggestSelectAll = document.getElementById('suggestSelectAll');
+    const suggestBackBtn = document.getElementById('suggestBackBtn');
+    const suggestAddSelectedBtn = document.getElementById('suggestAddSelectedBtn');
+
+    let suggestCandidates = [];
+
+    function openSuggestModal() {
+      console.info('[suggest] open (build: 2026-05-19-divform)');
+      if (!CAN_RUN_LOCAL_SUGGEST_ITEMS) {
+        setStatus(
+          shopStatus,
+          'Suggest only works from a local Mission Control page. Run "' + LOCAL_SUGGEST_ITEMS_COMMAND + '" first.',
+          'error'
+        );
+        return;
+      }
+      // Reuse the preloaded gameOptionsHtml; drop its "— Pick a game —" placeholder.
+      suggestGameSel.innerHTML =
+        '<option value="">— Any game / keywords only —</option>' +
+        gameOptionsHtml.replace(/<option value=""[^>]*>[^<]*<\/option>/, '');
+      suggestGameSel.value = previewShopSelect.value || '';
+      suggestForm.hidden = false;
+      suggestResultsPane.hidden = true;
+      suggestResultsList.innerHTML = '';
+      suggestCandidates = [];
+      setStatus(suggestStatus, '');
+      setStatus(suggestResultsStatus, '');
+      suggestSelectAll.checked = false;
+      suggestAddSelectedBtn.disabled = true;
+      suggestAddSelectedBtn.textContent = 'Add selected';
+      suggestModal.hidden = false;
+      setTimeout(() => suggestKeywords.focus(), 0);
     }
 
-    async function showShop(session) {
-      currentSession = session;
-      authModal.classList.add('hidden');
-      signOutBtn.title = 'Sign out';
-      signOutBtn.setAttribute('aria-label', 'Sign out');
+    let suggestBusy = false;
+
+    function closeSuggestModal(reason) {
+      if (suggestBusy) {
+        console.info('[suggest] close blocked while busy (' + (reason || 'unknown') + ')');
+        return;
+      }
+      console.info('[suggest] close (' + (reason || 'unknown') + ')');
+      suggestModal.hidden = true;
+    }
+
+    document.querySelectorAll('[data-suggest-dismiss]').forEach((el) => {
+      el.addEventListener('click', () => closeSuggestModal(el.tagName + (el.id ? '#' + el.id : '') + (el.className ? '.' + el.className.replace(/\s+/g, '.') : '')));
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !suggestModal.hidden) closeSuggestModal('Escape key');
+    });
+
+    async function runSuggestSearch() {
+      suggestBusy = true;
+      suggestSearchBtn.disabled = true;
+      setStatus(suggestStatus, 'Searching Amazon… this can take a minute on a cold cache.');
+      try {
+        const response = await fetch(LOCAL_SUGGEST_SEARCH_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({
+            game: String(suggestGameSel.value || '').trim(),
+            keywords: String(suggestKeywords.value || ''),
+            max_queries: Math.max(1, Number(suggestMaxQueries.value || 6)),
+            items_per_game: Math.max(1, Number(suggestItemsCap.value || 20)),
+            delay: Math.max(0, Number(suggestDelay.value || 1.0)),
+            force_refetch: !!suggestForceRefetch.checked
+          })
+        });
+        const raw = await response.text();
+        let payload = {};
+        if (raw) {
+          try { payload = JSON.parse(raw); }
+          catch (_) { throw new Error('Local suggester returned invalid JSON.'); }
+        }
+        if (!response.ok || payload.ok === false) {
+          const detail = payload.error || ('Request failed with HTTP ' + response.status + '.');
+          throw new Error(String(detail));
+        }
+        suggestCandidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+        renderSuggestResults();
+      } catch (error) {
+        console.error('[suggest] search failed', error);
+        const rawMessage = error instanceof Error ? error.message : String(error);
+        const message = /failed to fetch/i.test(rawMessage)
+          ? 'Could not reach the local suggester. Start "' + LOCAL_SUGGEST_ITEMS_COMMAND + '" and try again.'
+          : rawMessage;
+        setStatus(suggestStatus, message, 'error');
+      } finally {
+        suggestBusy = false;
+        suggestSearchBtn.disabled = false;
+      }
+    }
+
+    suggestSearchBtn.addEventListener('click', runSuggestSearch);
+    // Hitting Enter inside the keyword field used to submit a <form>; now bind
+    // it explicitly so the same shortcut still works without a form element.
+    suggestKeywords.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); runSuggestSearch(); }
+    });
+
+    function renderSuggestResults() {
+      suggestForm.hidden = true;
+      suggestResultsPane.hidden = false;
+      suggestResultsList.innerHTML = '';
+      suggestResultsCount.textContent =
+        suggestCandidates.length + ' candidate' + (suggestCandidates.length === 1 ? '' : 's');
+      suggestCandidates.forEach((c, idx) => {
+        const li = document.createElement('li');
+        li.className = 'suggest-result' + (c.already_in_db ? ' is-existing' : '');
+        li.dataset.idx = String(idx);
+
+        const img = document.createElement('img');
+        img.alt = '';
+        img.referrerPolicy = 'no-referrer';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        if (c.image_url) img.src = c.image_url;
+        li.appendChild(img);
+
+        const meta = document.createElement('div');
+        meta.className = 'suggest-result-meta';
+        const link = document.createElement('a');
+        link.className = 'suggest-result-link';
+        link.href = c.url || '#';
+        link.target = '_blank';
+        link.rel = 'noopener nofollow sponsored';
+        const titleEl = document.createElement('div');
+        titleEl.className = 'suggest-result-title';
+        titleEl.textContent = c.title || 'Untitled';
+        link.appendChild(titleEl);
+        meta.appendChild(link);
+
+        const sub = document.createElement('div');
+        sub.className = 'suggest-result-sub';
+        const subParts = [];
+        if (c.price_display) subParts.push(c.price_display);
+        else subParts.push('price n/a');
+        if (c.query) subParts.push('query: ' + c.query);
+        sub.textContent = subParts.join(' · ');
+        meta.appendChild(sub);
+        li.appendChild(meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'suggest-result-actions';
+        if (c.already_in_db) {
+          const badge = document.createElement('span');
+          badge.className = 'suggest-result-badge';
+          badge.textContent = 'Already added';
+          actions.appendChild(badge);
+        } else {
+          const check = document.createElement('input');
+          check.type = 'checkbox';
+          check.className = 'suggest-result-check';
+          check.dataset.idx = String(idx);
+          actions.appendChild(check);
+        }
+        li.appendChild(actions);
+
+        suggestResultsList.appendChild(li);
+      });
+      suggestSelectAll.checked = false;
+      updateAddSelectedState();
+      if (!suggestCandidates.length) {
+        setStatus(suggestResultsStatus, 'No candidates. Try different keywords or bypass the cache.', 'error');
+      } else {
+        setStatus(suggestResultsStatus, '');
+      }
+    }
+
+    function updateAddSelectedState() {
+      const checks = suggestResultsList.querySelectorAll('.suggest-result-check:checked');
+      suggestAddSelectedBtn.disabled = !checks.length;
+      suggestAddSelectedBtn.textContent = checks.length
+        ? 'Add ' + checks.length + ' item' + (checks.length === 1 ? '' : 's')
+        : 'Add selected';
+    }
+
+    suggestResultsList.addEventListener('change', (e) => {
+      if (e.target.classList.contains('suggest-result-check')) updateAddSelectedState();
+    });
+
+    suggestSelectAll.addEventListener('change', () => {
+      suggestResultsList.querySelectorAll('.suggest-result-check').forEach((c) => {
+        c.checked = suggestSelectAll.checked;
+      });
+      updateAddSelectedState();
+    });
+
+    suggestBackBtn.addEventListener('click', () => {
+      suggestResultsPane.hidden = true;
+      suggestForm.hidden = false;
+      setStatus(suggestStatus, '');
+    });
+
+    suggestAddSelectedBtn.addEventListener('click', async () => {
+      const checks = Array.from(suggestResultsList.querySelectorAll('.suggest-result-check:checked'));
+      if (!checks.length) return;
+      suggestBusy = true;
+      suggestAddSelectedBtn.disabled = true;
+      suggestSelectAll.disabled = true;
+      let added = 0;
+      const fails = [];
+      setStatus(suggestResultsStatus, 'Adding ' + checks.length + ' item(s)…');
+      try {
+        for (const check of checks) {
+          const idx = Number(check.dataset.idx);
+          const c = suggestCandidates[idx];
+          if (!c) continue;
+          try {
+            await insertItem({
+              kind: 'amazon_link',
+              title: c.title || null,
+              url: c.url,
+              image_url: c.image_url || null,
+              image_focus: '50% 50%',
+              price_display: c.price_display || null,
+              description: c.description || null
+            });
+            added++;
+            const li = check.closest('.suggest-result');
+            if (li) li.classList.add('is-existing');
+            const badge = document.createElement('span');
+            badge.className = 'suggest-result-badge';
+            badge.textContent = 'Added';
+            check.replaceWith(badge);
+          } catch (error) {
+            console.error('[suggest] insert failed', error);
+            fails.push(c.title || c.url);
+          }
+        }
+      } finally {
+        suggestBusy = false;
+        suggestSelectAll.disabled = false;
+        suggestSelectAll.checked = false;
+        updateAddSelectedState();
+      }
+      if (added) {
+        await showShop(previewShopSelect.value);
+      }
+      const msg =
+        'Added ' + added + (fails.length ? ' (' + fails.length + ' failed)' : '') +
+        '. New items have no shop yet — open them in the list and use "+ Add to shops".';
+      setStatus(suggestResultsStatus, msg, fails.length ? 'error' : 'success');
+    });
+
+    suggestItemsBtn.addEventListener('click', openSuggestModal);
+
+    async function showShop(preservedGameId = '') {
       addItemBtn.disabled = true;
+      setSuggestItemsButtonEnabled(false);
       try {
         await loadGames();
+        if (preservedGameId && previewShopSelect.querySelector('option[value="' + CSS.escape(preservedGameId) + '"]')) {
+          previewShopSelect.value = preservedGameId;
+          updatePreviewHref();
+        }
         addItemBtn.disabled = false;
+        setSuggestItemsButtonEnabled(true);
         await renderAllItems();
       } catch (error) {
         console.error(error);
+        addItemBtn.disabled = false;
+        setSuggestItemsButtonEnabled(true);
         setStatus(shopStatus, error instanceof Error ? error.message : String(error), 'error');
       }
     }
 
-    authForm.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const email = String(emailInput.value || '').trim();
-      const password = String(passwordInput.value || '');
-      if (!email || !password) return;
-      signInBtn.disabled = true;
-      setStatus(authStatus, 'Signing in…');
-      try {
-        const session = await signIn(email, password);
-        currentSession = session;
-        storeSession(session);
-        const isAdmin = await verifyAdmin();
-        if (!isAdmin) {
-          storeSession(null);
-          currentSession = null;
-          throw new Error('This account is signed in, but it is not on the admin list.');
-        }
-        passwordInput.value = '';
-        setStatus(authStatus, '');
-        await showShop(session);
-      } catch (error) {
-        setStatus(authStatus, error instanceof Error ? error.message : String(error), 'error');
-      } finally {
-        signInBtn.disabled = false;
-      }
-    });
-
-    authCloseBtn.addEventListener('click', () => { authModal.classList.add('hidden'); });
-
-    signOutBtn.addEventListener('click', () => {
-      currentSession = null;
-      storeSession(null);
-      itemsList.innerHTML = '';
-      gamesById = new Map();
-      gameOptionsHtml = '<option value="">— Pick a game —</option>';
-      previewShopSelect.innerHTML = '<option value="">All Games</option>';
-      previewBtn.href = '../site/gift.html';
-      addItemBtn.disabled = true;
-      showAuth();
-    });
-
     document.querySelectorAll('[data-admin-logoff]').forEach((button) => {
       button.addEventListener('click', () => {
-        signOutBtn.click();
+        adminAuth.signOut();
       });
     });
 
     (async function init() {
-      const session = await getUsableSession();
-      if (!session) { showAuth(); return; }
-      currentSession = session;
       try {
-        const isAdmin = await verifyAdmin();
-        if (!isAdmin) {
-          storeSession(null);
-          currentSession = null;
-          showAuth();
-          setStatus(authStatus, 'This account is signed in, but it is not on the admin list.', 'error');
-          return;
-        }
-        await showShop(session);
+        await adminAuth.init();
       } catch (error) {
         console.error(error);
-        storeSession(null);
-        currentSession = null;
-        showAuth();
-        setStatus(authStatus, error instanceof Error ? error.message : String(error), 'error');
+        adminAuth.showAuth(error instanceof Error ? error.message : String(error), 'error');
       }
     })();
   </script>
