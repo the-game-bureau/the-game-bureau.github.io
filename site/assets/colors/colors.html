@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>COLORS | THE GAME BUREAU</title>
+  <link rel="icon" href="../brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Shadows+Into+Light&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --bic-red: #c23737;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255,255,255,0.92);
+      --mist: var(--paper-base);
+      --accent: var(--bic-blue);
+      --danger: #a03f2d;
+      --success: #2f6b3d;
+      --hand: 'Shadows Into Light', cursive;
+      --body: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --mono: 'IBM Plex Mono', monospace;
+    }
+
+    html, body { margin: 0; min-height: 100vh; }
+    body {
+      font-family: var(--body);
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+      color: var(--ink);
+      padding: 24px 28px 96px;
+    }
+    button, input { font: inherit; }
+
+    header.page {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    header.page .title {
+      font-family: var(--hand);
+      font-size: clamp(2.5rem, 4vw, 4.2rem);
+      color: var(--bic-blue);
+      line-height: 0.9;
+      margin: 0;
+    }
+    header.page .kicker {
+      font-family: var(--hand);
+      font-size: 1.2rem;
+      color: var(--bic-blue);
+      opacity: 0.85;
+      margin: 0 0 -4px;
+    }
+    header.page .status {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      color: var(--muted);
+      min-height: 1.2em;
+      margin: 6px 0 0;
+    }
+
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    button.btn {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 8px 14px;
+      background: var(--paper);
+      border: 1px solid var(--ink);
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--ink);
+      transition: background 0.15s, color 0.15s;
+    }
+    button.btn:hover { background: var(--ink); color: #fff; }
+    button.btn.primary { background: var(--bic-blue); border-color: var(--bic-blue); color: #fff; }
+    button.btn.primary:hover { background: #1c3a6a; }
+    button.btn.danger { color: var(--danger); border-color: var(--danger); }
+    button.btn.danger:hover { background: var(--danger); color: #fff; }
+    button.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .league {
+      margin: 28px 0 36px;
+      padding-top: 8px;
+    }
+    .league-head {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      margin-bottom: 14px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--ink);
+    }
+    .league-name {
+      font-family: var(--hand);
+      font-size: 2.2rem;
+      color: var(--bic-blue);
+      margin: 0;
+      cursor: text;
+      outline: none;
+      padding: 0 2px;
+      border-radius: 3px;
+    }
+    .league-name:focus { background: rgba(255, 250, 205, 0.7); }
+    .league-count {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+    .league-actions { margin-left: auto; display: flex; gap: 6px; }
+
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 14px;
+    }
+    .team-card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 1px 0 var(--paper-shadow);
+    }
+    .team-palette {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      height: 64px;
+    }
+    .team-palette > div { position: relative; }
+    .team-palette span {
+      position: absolute;
+      left: 6px;
+      bottom: 4px;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.92);
+      mix-blend-mode: difference;
+      pointer-events: none;
+    }
+    .team-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .team-headline {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .team-code-input {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      width: 6ch;
+      border: 1px dashed var(--line);
+      background: rgba(255,255,255,0.65);
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: var(--bic-blue);
+    }
+    .team-name-input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      background: transparent;
+      font-family: var(--body);
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 2px 0;
+      border-bottom: 1px solid transparent;
+      color: var(--ink);
+    }
+    .team-name-input:focus, .team-code-input:focus {
+      outline: none;
+      border-bottom-color: var(--bic-blue);
+      background: rgba(255, 250, 205, 0.7);
+    }
+    .team-sub-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .team-sub-input {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.8);
+      font-family: var(--body);
+      font-size: 0.85rem;
+      padding: 4px 6px;
+      border-radius: 3px;
+      width: 100%;
+      color: var(--ink);
+    }
+    .team-sub-input:focus { outline: none; border-color: var(--bic-blue); }
+    .field-mini-label {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+    .color-row {
+      display: grid;
+      grid-template-columns: 28px 90px 1fr;
+      align-items: center;
+      gap: 6px;
+    }
+    .color-row input[type="color"] {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+    }
+    .color-row input[type="text"] {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      padding: 4px 6px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      text-transform: uppercase;
+      background: rgba(255,255,255,0.8);
+      color: var(--ink);
+    }
+    .color-row input[type="text"]:focus { outline: none; border-color: var(--bic-blue); }
+    .color-row .role {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .team-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .btn-mini {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 4px 8px;
+      background: transparent;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      cursor: pointer;
+      color: var(--muted);
+    }
+    .btn-mini:hover { color: var(--ink); border-color: var(--ink); }
+    .btn-mini.danger:hover { color: #fff; background: var(--danger); border-color: var(--danger); }
+
+    .empty-state {
+      padding: 36px;
+      text-align: center;
+      font-family: var(--mono);
+      color: var(--muted);
+      border: 2px dashed var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.6);
+    }
+    .sticky-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      padding: 12px 28px;
+      background: rgba(254, 254, 249, 0.94);
+      backdrop-filter: blur(6px);
+      border-top: 1px solid var(--line);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      z-index: 50;
+    }
+    .sticky-bar .status { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); flex: 1; }
+
+    /* Lookup modal */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(45, 72, 128, 0.28);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 24px;
+    }
+    .modal-backdrop.is-open { display: flex; }
+    .modal {
+      background: var(--paper-base);
+      border: 1px solid var(--ink);
+      border-radius: 8px;
+      width: min(560px, 100%);
+      max-height: 92vh;
+      overflow: auto;
+      box-shadow: 0 18px 40px rgba(45,72,128,0.22);
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 16px 20px 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    .modal-title {
+      font-family: var(--hand);
+      font-size: 1.8rem;
+      color: var(--bic-blue);
+      margin: 0;
+    }
+    .modal-close {
+      font-family: var(--mono);
+      background: transparent;
+      border: none;
+      font-size: 1.2rem;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .modal-close:hover { color: var(--danger); }
+    .modal-body { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .modal-field { display: flex; flex-direction: column; gap: 4px; }
+    .modal-field label {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .modal-field input, .modal-field select {
+      font-family: var(--body);
+      font-size: 0.95rem;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 4px;
+      color: var(--ink);
+    }
+    .modal-field input:focus, .modal-field select:focus { outline: none; border-color: var(--bic-blue); }
+    .modal-row { display: flex; gap: 8px; align-items: flex-end; }
+    .modal-row .modal-field { flex: 1; }
+    .modal-step-label {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 6px 0 -2px;
+    }
+    .modal-option {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px 12px;
+      background: rgba(255,255,255,0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .modal-option-title {
+      font-family: var(--body);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .modal-or {
+      align-self: center;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: -4px 0;
+    }
+    .modal-status {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--muted);
+      min-height: 1.1em;
+    }
+    .modal-footnote {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      text-align: right;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--line);
+    }
+    .modal-footnote a {
+      color: var(--bic-blue);
+      text-decoration: underline dotted;
+    }
+    .modal-footnote a:hover { color: var(--danger); }
+    .modal-results { display: flex; flex-direction: column; gap: 8px; }
+    .result-card {
+      display: grid;
+      grid-template-columns: 4fr 1fr;
+      gap: 12px;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+    .result-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .result-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .result-meta {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+    .result-swatches {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px;
+      height: 32px;
+      width: 60px;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .result-add {
+      grid-column: 1 / -1;
+      justify-self: end;
+    }
+  </style>
+</head>
+<body>
+
+<header class="page">
+  <div>
+    <p class="kicker">Mission Control</p>
+    <h1 class="title">Team Colors</h1>
+    <p class="status" id="topStatus">Loading…</p>
+  </div>
+  <div class="toolbar">
+    <button class="btn primary" id="lookupBtn">Add Colors</button>
+    <button class="btn" id="reloadBtn">Reload</button>
+    <button class="btn primary" id="saveBtn">Save</button>
+  </div>
+</header>
+
+<main id="leaguesRoot"></main>
+
+<div class="sticky-bar">
+  <span class="status" id="bottomStatus"></span>
+</div>
+
+<!-- Lookup modal -->
+<div class="modal-backdrop" id="lookupModal" role="dialog" aria-modal="true" aria-labelledby="lookupTitle">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 class="modal-title" id="lookupTitle">Add Colors</h2>
+      <button class="modal-close" id="lookupCloseBtn" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Step 1: pick a league -->
+      <div class="modal-field">
+        <label for="lookupLeague">1. Choose a league</label>
+        <select id="lookupLeague"></select>
+      </div>
+
+      <!-- Step 2: pick a path -->
+      <div class="modal-step-label">2. Then either…</div>
+
+      <div class="modal-option">
+        <div class="modal-option-title">Add one team</div>
+        <div class="modal-row">
+          <input id="lookupQuery" type="text" placeholder="Team name, mascot, city, or code" autocomplete="off" style="flex:1;">
+          <button class="btn primary" id="lookupSearchBtn">Search</button>
+        </div>
+      </div>
+
+      <div class="modal-or">— or —</div>
+
+      <div class="modal-option">
+        <div class="modal-option-title">Add every team in the league</div>
+        <button class="btn" id="lookupPullBtn">⇣ Pull every <span id="lookupPullLeagueLabel">NFL</span> team</button>
+      </div>
+
+      <div class="modal-status" id="lookupStatus"></div>
+      <div class="modal-results" id="lookupResults"></div>
+      <div class="modal-footnote">Data: ESPN public API (via free CORS proxy)</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const JSON_PATH = './colors.json';
+const COLOR_ROLES = [
+  { key: 'primary',    label: 'Primary' },
+  { key: 'secondary',  label: 'Secondary' },
+  { key: 'tertiary',   label: 'Tertiary' },
+  { key: 'quaternary', label: 'Quaternary' }
+];
+const HEX_RE = /^#?([0-9a-f]{6})$/i;
+
+// League code → ESPN URL path. ESPN's site API returns the full team
+// roster + brand colors (color, alternateColor) for each major league.
+const LEAGUE_PATHS = {
+  NFL:                'football/nfl',
+  NCAAF:              'football/college-football',
+  CFB:                'football/college-football',
+  NBA:                'basketball/nba',
+  WNBA:               'basketball/wnba',
+  NCAAM:              'basketball/mens-college-basketball',
+  NCAAW:              'basketball/womens-college-basketball',
+  MLB:                'baseball/mlb',
+  NHL:                'hockey/nhl',
+  MLS:                'soccer/usa.1',
+  EPL:                'soccer/eng.1',
+  'PREMIER LEAGUE':   'soccer/eng.1',
+  BUNDESLIGA:         'soccer/ger.1',
+  'LA LIGA':          'soccer/esp.1',
+  'SERIE A':          'soccer/ita.1',
+  'LIGUE 1':          'soccer/fra.1'
+};
+const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports';
+// Multiple free CORS proxies — try each until one works. corsproxy.io
+// rate-limits per-host sometimes (e.g. MLB → 403), so we fall back.
+const CORS_PROXIES = [
+  (target) => `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
+  (target) => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+  (target) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(target)}`,
+];
+const teamCache = new Map(); // leaguePath → teams array
+
+const state = { doc: null, fileHandle: null, dirty: false };
+
+const els = {
+  root: document.getElementById('leaguesRoot'),
+  topStatus: document.getElementById('topStatus'),
+  bottomStatus: document.getElementById('bottomStatus'),
+  reloadBtn: document.getElementById('reloadBtn'),
+  lookupBtn: document.getElementById('lookupBtn'),
+  saveBtn: document.getElementById('saveBtn'),
+
+  lookupModal: document.getElementById('lookupModal'),
+  lookupCloseBtn: document.getElementById('lookupCloseBtn'),
+  lookupLeague: document.getElementById('lookupLeague'),
+  lookupQuery: document.getElementById('lookupQuery'),
+  lookupSearchBtn: document.getElementById('lookupSearchBtn'),
+  lookupPullBtn: document.getElementById('lookupPullBtn'),
+  lookupStatus: document.getElementById('lookupStatus'),
+  lookupResults: document.getElementById('lookupResults'),
+};
+
+function setStatus(msg, { error = false } = {}) {
+  const text = error ? `⚠ ${msg}` : msg;
+  els.topStatus.textContent = text;
+  els.bottomStatus.textContent = text + (state.dirty ? '  • unsaved changes' : '');
+}
+
+function markDirty() {
+  state.dirty = true;
+  els.bottomStatus.textContent = (els.topStatus.textContent || '') + '  • unsaved changes';
+}
+
+function normalizeHex(value, fallback = '#000000') {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const candidate = raw.startsWith('#') ? raw : '#' + raw;
+  const m = HEX_RE.exec(candidate);
+  return m ? '#' + m[1].toUpperCase() : fallback;
+}
+
+function normalizeDoc(doc) {
+  if (!doc || typeof doc !== 'object') {
+    return { _comment: 'Team color palettes by sport/league.', leagues: {} };
+  }
+  if (doc.leagues && typeof doc.leagues === 'object') return doc;
+  if (doc.league && doc.teams) {
+    return {
+      _comment: doc._comment || 'Team color palettes by sport/league.',
+      leagues: { [doc.league]: doc.teams }
+    };
+  }
+  return { _comment: 'Team color palettes by sport/league.', leagues: {} };
+}
+
+// ── File I/O ─────────────────────────────────────────────────────────────
+
+function totalsSummary() {
+  const leagues = Object.keys(state.doc?.leagues || {});
+  const total = leagues.reduce((sum, k) => sum + Object.keys(state.doc.leagues[k]).length, 0);
+  return `${total} team${total === 1 ? '' : 's'} across ${leagues.length} league${leagues.length === 1 ? '' : 's'}`;
+}
+
+async function loadFromFetch() {
+  try {
+    const resp = await fetch(JSON_PATH, { cache: 'no-store' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    state.doc = normalizeDoc(await resp.json());
+    state.dirty = false;
+    render();
+    setStatus(totalsSummary());
+  } catch (err) {
+    setStatus(`Could not fetch ./colors.json (${err.message}).`, { error: true });
+    state.doc = normalizeDoc(null);
+    render();
+  }
+}
+
+const serialize = () => JSON.stringify(state.doc, null, 2) + '\n';
+
+async function save() {
+  if (!state.doc) return;
+  const text = serialize();
+  if (state.fileHandle) {
+    try {
+      const writable = await state.fileHandle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      state.dirty = false;
+      setStatus(`Saved to ${state.fileHandle.name}`);
+      return;
+    } catch (err) {
+      setStatus(`Save to handle failed: ${err.message}`, { error: true });
+    }
+  }
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: 'colors.json',
+        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+      });
+      state.fileHandle = handle;
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      state.dirty = false;
+      setStatus(`Saved to ${handle.name} — live save now enabled`);
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      setStatus(`showSaveFilePicker failed: ${err.message}`, { error: true });
+    }
+  }
+  download();
+}
+
+function download() {
+  const blob = new Blob([serialize()], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'colors.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setStatus('Downloaded colors.json — replace site/assets/colors/colors.json by hand.');
+}
+
+// ── Mutations ────────────────────────────────────────────────────────────
+
+function renameLeague(oldName, newNameRaw) {
+  const newName = (newNameRaw || '').trim().toUpperCase();
+  if (!newName || newName === oldName) return;
+  if (state.doc.leagues[newName]) { setStatus(`League "${newName}" already exists.`, { error: true }); render(); return; }
+  const rebuilt = {};
+  for (const k of Object.keys(state.doc.leagues)) {
+    rebuilt[k === oldName ? newName : k] = state.doc.leagues[k];
+  }
+  state.doc.leagues = rebuilt;
+  markDirty();
+  render();
+}
+
+function removeTeam(leagueName, code) {
+  delete state.doc.leagues[leagueName][code];
+  markDirty();
+  render();
+}
+
+function renameTeam(leagueName, oldCode, newCodeRaw) {
+  const newCode = (newCodeRaw || '').trim().toUpperCase();
+  if (!newCode || newCode === oldCode) return;
+  const teams = state.doc.leagues[leagueName];
+  if (teams[newCode]) { setStatus(`Code "${newCode}" already used in ${leagueName}.`, { error: true }); render(); return; }
+  const rebuilt = {};
+  for (const k of Object.keys(teams)) {
+    rebuilt[k === oldCode ? newCode : k] = teams[k];
+  }
+  state.doc.leagues[leagueName] = rebuilt;
+  markDirty();
+  render();
+}
+
+function updateTeamField(leagueName, code, field, value) {
+  const team = state.doc.leagues[leagueName] && state.doc.leagues[leagueName][code];
+  if (!team) return;
+  team[field] = value;
+  markDirty();
+  setStatus(`Edited ${leagueName} / ${code}`);
+}
+
+function updateColor(leagueName, code, role, rawValue) {
+  const normalized = normalizeHex(rawValue, null);
+  if (!normalized) { setStatus(`Invalid hex "${rawValue}" for ${code}/${role}`, { error: true }); return false; }
+  updateTeamField(leagueName, code, role, normalized);
+  const card = document.querySelector(`[data-team-card="${leagueName}::${code}"]`);
+  if (card) {
+    const swatchEl = card.querySelector(`[data-swatch-role="${role}"]`);
+    if (swatchEl) swatchEl.style.background = normalized;
+    const picker = card.querySelector(`[data-color-picker="${role}"]`);
+    if (picker) picker.value = normalized;
+    const textInput = card.querySelector(`[data-color-text="${role}"]`);
+    if (textInput) textInput.value = normalized;
+  }
+  return true;
+}
+
+// ── Render ───────────────────────────────────────────────────────────────
+
+function render() {
+  els.root.innerHTML = '';
+  const leagueNames = Object.keys(state.doc.leagues).sort();
+  if (!leagueNames.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'No leagues yet. Click "Add Colors" to pull one in.';
+    els.root.appendChild(empty);
+    return;
+  }
+  for (const leagueName of leagueNames) {
+    els.root.appendChild(renderLeague(leagueName, state.doc.leagues[leagueName]));
+  }
+}
+
+function renderLeague(leagueName, teams) {
+  const section = document.createElement('section');
+  section.className = 'league';
+
+  const head = document.createElement('div');
+  head.className = 'league-head';
+
+  const name = document.createElement('h2');
+  name.className = 'league-name';
+  name.textContent = leagueName;
+  name.contentEditable = 'true';
+  name.spellcheck = false;
+  name.addEventListener('blur', () => renameLeague(leagueName, name.textContent));
+  name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); name.blur(); } });
+  head.appendChild(name);
+
+  const count = document.createElement('span');
+  count.className = 'league-count';
+  count.textContent = `${Object.keys(teams).length} TEAMS`;
+  head.appendChild(count);
+
+  section.appendChild(head);
+
+  const grid = document.createElement('div');
+  grid.className = 'team-grid';
+  const codes = Object.keys(teams).sort();
+  for (const code of codes) grid.appendChild(renderTeam(leagueName, code, teams[code]));
+  section.appendChild(grid);
+  return section;
+}
+
+function renderTeam(leagueName, code, team) {
+  const card = document.createElement('article');
+  card.className = 'team-card';
+  card.dataset.teamCard = `${leagueName}::${code}`;
+
+  const palette = document.createElement('div');
+  palette.className = 'team-palette';
+  for (const { key, label } of COLOR_ROLES) {
+    const cell = document.createElement('div');
+    cell.dataset.swatchRole = key;
+    cell.style.background = team[key] || '#000';
+    const lbl = document.createElement('span');
+    lbl.textContent = label[0];
+    cell.appendChild(lbl);
+    palette.appendChild(cell);
+  }
+  card.appendChild(palette);
+
+  const body = document.createElement('div');
+  body.className = 'team-body';
+
+  const headline = document.createElement('div');
+  headline.className = 'team-headline';
+  const codeInput = document.createElement('input');
+  codeInput.className = 'team-code-input';
+  codeInput.value = code;
+  codeInput.spellcheck = false;
+  codeInput.addEventListener('change', () => renameTeam(leagueName, code, codeInput.value));
+  headline.appendChild(codeInput);
+
+  const nameInput = document.createElement('input');
+  nameInput.className = 'team-name-input';
+  nameInput.value = team.fullName || '';
+  nameInput.placeholder = 'Full team name';
+  nameInput.addEventListener('input', () => updateTeamField(leagueName, code, 'fullName', nameInput.value));
+  headline.appendChild(nameInput);
+  body.appendChild(headline);
+
+  const subRow = document.createElement('div');
+  subRow.className = 'team-sub-row';
+  subRow.appendChild(buildLabeledInput('Short label', team.shortLabel || '', (v) => updateTeamField(leagueName, code, 'shortLabel', v)));
+  subRow.appendChild(buildLabeledInput('Mascot', team.mascot || '', (v) => updateTeamField(leagueName, code, 'mascot', v)));
+  body.appendChild(subRow);
+
+  for (const { key, label } of COLOR_ROLES) {
+    body.appendChild(buildColorRow(leagueName, code, key, label, team[key] || '#000000'));
+  }
+
+  const footer = document.createElement('div');
+  footer.className = 'team-footer';
+  const delTeam = document.createElement('button');
+  delTeam.className = 'btn-mini danger';
+  delTeam.textContent = 'Delete team';
+  delTeam.onclick = () => { if (confirm(`Delete ${leagueName} / ${code}?`)) removeTeam(leagueName, code); };
+  footer.appendChild(delTeam);
+  body.appendChild(footer);
+
+  card.appendChild(body);
+  return card;
+}
+
+function buildLabeledInput(label, value, onChange) {
+  const wrap = document.createElement('label');
+  const lbl = document.createElement('div');
+  lbl.className = 'field-mini-label';
+  lbl.textContent = label;
+  const input = document.createElement('input');
+  input.className = 'team-sub-input';
+  input.type = 'text';
+  input.value = value;
+  input.placeholder = label;
+  input.addEventListener('input', () => onChange(input.value));
+  wrap.appendChild(lbl);
+  wrap.appendChild(input);
+  return wrap;
+}
+
+function buildColorRow(leagueName, code, role, label, value) {
+  const row = document.createElement('div');
+  row.className = 'color-row';
+
+  const picker = document.createElement('input');
+  picker.type = 'color';
+  picker.value = normalizeHex(value);
+  picker.dataset.colorPicker = role;
+  picker.addEventListener('input', () => updateColor(leagueName, code, role, picker.value));
+
+  const text = document.createElement('input');
+  text.type = 'text';
+  text.value = normalizeHex(value);
+  text.dataset.colorText = role;
+  text.addEventListener('change', () => updateColor(leagueName, code, role, text.value));
+  text.addEventListener('blur', () => { text.value = normalizeHex(text.value, text.value); });
+
+  const roleLabel = document.createElement('span');
+  roleLabel.className = 'role';
+  roleLabel.textContent = label;
+
+  row.appendChild(picker);
+  row.appendChild(text);
+  row.appendChild(roleLabel);
+  return row;
+}
+
+// ── ESPN Lookup ──────────────────────────────────────────────────────────
+
+function populateLookupLeagueSelect() {
+  const select = els.lookupLeague;
+  select.innerHTML = '';
+  const seen = new Set();
+  // Show existing leagues first, then known catalog (deduped)
+  const inDoc = Object.keys(state.doc?.leagues || {}).filter(k => LEAGUE_PATHS[k]);
+  const allKeys = Object.keys(LEAGUE_PATHS);
+  const ordered = [...inDoc.sort(), ...allKeys.filter(k => !inDoc.includes(k))];
+  for (const code of ordered) {
+    if (seen.has(code)) continue;
+    seen.add(code);
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = code;
+    select.appendChild(opt);
+  }
+}
+
+function syncLookupLeagueLabel() {
+  const label = document.getElementById('lookupPullLeagueLabel');
+  if (label) label.textContent = els.lookupLeague.value || '';
+}
+
+function openLookupModal(preferredLeague) {
+  populateLookupLeagueSelect();
+  if (preferredLeague && LEAGUE_PATHS[preferredLeague]) {
+    els.lookupLeague.value = preferredLeague;
+  }
+  syncLookupLeagueLabel();
+  els.lookupQuery.value = '';
+  els.lookupResults.innerHTML = '';
+  els.lookupStatus.textContent = '';
+  els.lookupModal.classList.add('is-open');
+  setTimeout(() => els.lookupQuery.focus(), 50);
+}
+
+function closeLookupModal() {
+  els.lookupModal.classList.remove('is-open');
+}
+
+async function fetchViaProxies(target) {
+  const errors = [];
+  for (const build of CORS_PROXIES) {
+    const url = build(target);
+    try {
+      const resp = await fetch(url, { cache: 'no-store' });
+      if (!resp.ok) { errors.push(`${new URL(url).host} → HTTP ${resp.status}`); continue; }
+      return await resp.json();
+    } catch (err) {
+      errors.push(`${new URL(url).host} → ${err.message}`);
+    }
+  }
+  throw new Error(errors.join(' · '));
+}
+
+async function fetchTeams(leaguePath) {
+  if (teamCache.has(leaguePath)) return teamCache.get(leaguePath);
+  const target = `${ESPN_BASE}/${leaguePath}/teams?limit=500`;
+  const data = await fetchViaProxies(target);
+  const teams = [];
+  for (const sport of data.sports || []) {
+    for (const league of sport.leagues || []) {
+      for (const entry of league.teams || []) {
+        const team = entry.team || entry;
+        if (team) teams.push(team);
+      }
+    }
+  }
+  teamCache.set(leaguePath, teams);
+  return teams;
+}
+
+function matchTeams(teams, query) {
+  const q = query.toLowerCase().trim();
+  if (!q) return [];
+  const fields = ['displayName', 'name', 'shortDisplayName', 'abbreviation', 'nickname', 'location'];
+  const exact = teams.filter(t => fields.some(f => (t[f] || '').toLowerCase() === q));
+  if (exact.length) return exact;
+  return teams.filter(t => fields.some(f => (t[f] || '').toLowerCase().includes(q)));
+}
+
+function generateFallbackCode(fullName) {
+  const name = (fullName || '').trim();
+  if (!name) return '';
+  const words = name.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0][0] + words[words.length - 1].slice(0, 3)).toUpperCase();
+  return name.slice(0, 4).toUpperCase();
+}
+
+function teamCode(team) {
+  const code = (team.abbreviation || '').toUpperCase().trim();
+  if (code) return code;
+  return generateFallbackCode(team.displayName || team.name || '');
+}
+
+function buildTeamRecord(team) {
+  const fullName = team.displayName || team.name || '';
+  const location = team.location || fullName.split(' ').slice(0, -1).join(' ') || fullName;
+  const mascot = team.name || team.nickname || fullName.split(' ').slice(-1)[0] || fullName;
+  return {
+    fullName,
+    shortLabel: location,
+    mascot,
+    primary: normalizeHex(team.color, '#000000'),
+    secondary: normalizeHex(team.alternateColor, '#FFFFFF'),
+    tertiary: '#FFFFFF',
+    quaternary: '#FFFFFF'
+  };
+}
+
+async function runLookup() {
+  const leagueCode = els.lookupLeague.value;
+  const path = LEAGUE_PATHS[leagueCode];
+  const query = (els.lookupQuery.value || '').trim();
+  if (!path) { els.lookupStatus.textContent = 'Pick a league.'; return; }
+  if (!query) { els.lookupStatus.textContent = 'Type a team name.'; return; }
+  els.lookupStatus.textContent = `Searching ${leagueCode} on ESPN…`;
+  els.lookupResults.innerHTML = '';
+  els.lookupSearchBtn.disabled = true;
+  try {
+    const teams = await fetchTeams(path);
+    const matches = matchTeams(teams, query);
+    if (!matches.length) {
+      els.lookupStatus.textContent = `No matches for "${query}" in ${leagueCode}.`;
+      return;
+    }
+    els.lookupStatus.textContent = `${matches.length} match${matches.length === 1 ? '' : 'es'} — pick one to add.`;
+    for (const team of matches.slice(0, 12)) renderLookupResult(leagueCode, team);
+    if (matches.length > 12) {
+      const more = document.createElement('div');
+      more.className = 'modal-status';
+      more.textContent = `+${matches.length - 12} more — refine your search.`;
+      els.lookupResults.appendChild(more);
+    }
+  } catch (err) {
+    els.lookupStatus.textContent = `Lookup failed: ${err.message}`;
+  } finally {
+    els.lookupSearchBtn.disabled = false;
+  }
+}
+
+function renderLookupResult(leagueCode, team) {
+  const card = document.createElement('div');
+  card.className = 'result-card';
+
+  const info = document.createElement('div');
+  info.className = 'result-info';
+  const name = document.createElement('div');
+  name.className = 'result-name';
+  name.textContent = team.displayName || team.name || '(unnamed)';
+  info.appendChild(name);
+  const primary = normalizeHex(team.color, '#000000');
+  const secondary = normalizeHex(team.alternateColor, '#FFFFFF');
+  const code = teamCode(team);
+  const meta = document.createElement('div');
+  meta.className = 'result-meta';
+  meta.textContent = `${code || '??'} · ${primary} / ${secondary}`;
+  info.appendChild(meta);
+
+  const swatches = document.createElement('div');
+  swatches.className = 'result-swatches';
+  swatches.style.gridTemplateColumns = '1fr 1fr';
+  for (const c of [primary, secondary]) {
+    const s = document.createElement('div');
+    s.style.background = c;
+    swatches.appendChild(s);
+  }
+
+  const add = document.createElement('button');
+  add.className = 'btn primary';
+  add.textContent = '+ Add';
+  add.style.padding = '5px 10px';
+  add.style.fontSize = '0.7rem';
+  add.onclick = () => addTeamFromLookup(leagueCode, team);
+
+  card.appendChild(info);
+  card.appendChild(swatches);
+  card.appendChild(add);
+  els.lookupResults.appendChild(card);
+}
+
+function addTeamFromLookup(leagueCode, team) {
+  if (!state.doc.leagues[leagueCode]) state.doc.leagues[leagueCode] = {};
+  const teams = state.doc.leagues[leagueCode];
+  let code = teamCode(team);
+  if (!code) {
+    code = (prompt('No code from ESPN. Team code?') || '').trim().toUpperCase();
+    if (!code) return;
+  }
+  if (teams[code] && !confirm(`${leagueCode} / ${code} already exists. Overwrite?`)) return;
+  teams[code] = buildTeamRecord(team);
+  markDirty();
+  render();
+  setStatus(`Added ${leagueCode} / ${code}.`);
+  closeLookupModal();
+}
+
+const PULL_BATCH_SIZE = 50;
+
+async function pullWholeLeague(leagueCode) {
+  const path = LEAGUE_PATHS[leagueCode];
+  if (!path) return;
+  els.lookupStatus.textContent = `Fetching all ${leagueCode} teams from ESPN…`;
+  els.lookupResults.innerHTML = '';
+  els.lookupSearchBtn.disabled = true;
+  els.lookupPullBtn.disabled = true;
+  try {
+    const teams = await fetchTeams(path);
+    if (!teams.length) { els.lookupStatus.textContent = `No teams returned for ${leagueCode}.`; return; }
+    if (!state.doc.leagues[leagueCode]) state.doc.leagues[leagueCode] = {};
+    const bucket = state.doc.leagues[leagueCode];
+    const existingCount = Object.keys(bucket).length;
+    if (existingCount && !confirm(`${leagueCode} already has ${existingCount} team(s). Merge ${teams.length} from ESPN?`)) {
+      els.lookupStatus.textContent = 'Cancelled.';
+      return;
+    }
+    closeLookupModal();
+
+    const usedCodes = new Set();
+    let added = 0, suffixed = 0;
+
+    for (let batchStart = 0; batchStart < teams.length; batchStart += PULL_BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + PULL_BATCH_SIZE, teams.length);
+      for (let i = batchStart; i < batchEnd; i++) {
+        const team = teams[i];
+        const base = teamCode(team);
+        if (!base) continue;
+        let code = base;
+        let n = 2;
+        while (usedCodes.has(code)) code = `${base}${n++}`;
+        if (code !== base) suffixed++;
+        usedCodes.add(code);
+        bucket[code] = buildTeamRecord(team);
+        added++;
+      }
+      markDirty();
+      render();
+
+      if (batchEnd < teams.length) {
+        const remaining = teams.length - batchEnd;
+        const next = Math.min(PULL_BATCH_SIZE, remaining);
+        setStatus(`${added} of ${teams.length} ${leagueCode} teams added — waiting on you to continue…`);
+        // Let the browser paint the new cards before the blocking confirm() pops.
+        await new Promise(requestAnimationFrame);
+        const keepGoing = confirm(`Added ${added} of ${teams.length} ${leagueCode} teams.\n\nPull the next ${next}?`);
+        if (!keepGoing) {
+          const parts = [`Stopped at ${added} of ${teams.length} ${leagueCode} teams`];
+          if (suffixed) parts.push(`${suffixed} renamed to dodge collisions`);
+          setStatus(parts.join(' · '));
+          return;
+        }
+      }
+    }
+
+    const parts = [`ESPN returned ${teams.length} team${teams.length === 1 ? '' : 's'}`];
+    parts.push(`${added} added to ${leagueCode}`);
+    if (suffixed) parts.push(`${suffixed} renamed to dodge collisions`);
+    setStatus(parts.join(' · '));
+  } catch (err) {
+    els.lookupStatus.textContent = `Pull failed: ${err.message}`;
+  } finally {
+    els.lookupSearchBtn.disabled = false;
+    els.lookupPullBtn.disabled = false;
+  }
+}
+
+// ── Wire-up ──────────────────────────────────────────────────────────────
+
+els.reloadBtn.addEventListener('click', () => {
+  if (state.dirty && !confirm('Discard unsaved changes?')) return;
+  state.fileHandle = null;
+  loadFromFetch();
+});
+els.lookupBtn.addEventListener('click', () => openLookupModal());
+els.lookupCloseBtn.addEventListener('click', closeLookupModal);
+els.lookupModal.addEventListener('click', (e) => { if (e.target === els.lookupModal) closeLookupModal(); });
+els.lookupSearchBtn.addEventListener('click', runLookup);
+els.lookupPullBtn.addEventListener('click', () => pullWholeLeague(els.lookupLeague.value));
+els.lookupLeague.addEventListener('change', syncLookupLeagueLabel);
+els.lookupQuery.addEventListener('keydown', (e) => { if (e.key === 'Enter') runLookup(); });
+els.saveBtn.addEventListener('click', save);
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && els.lookupModal.classList.contains('is-open')) closeLookupModal(); });
+window.addEventListener('beforeunload', (e) => { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+loadFromFetch();
+</script>
+
+</body>
+</html>
