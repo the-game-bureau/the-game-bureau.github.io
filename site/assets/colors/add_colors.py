@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-add_colors.py — look up a team's colors and append to colors.json.
+add_colors.py — look up a team's colors and append to helmetcolors.json.
 
 Run:
     python add_colors.py
 
 Prompts for sport/league and a team name (any of full name, mascot,
 location, or abbreviation), looks the team up via ESPN's public team
-API, and writes the resulting palette into colors.json under that
+API, and writes the resulting palette into helmetcolors.json under that
 league's section.
 
 ESPN exposes two colors per team (primary + alternate). Tertiary and
-quaternary default to #FFFFFF; edit colors.json by hand if you need
+quaternary default to #FFFFFF; edit helmetcolors.json by hand if you need
 custom values.
 """
 import json
@@ -23,7 +23,7 @@ from difflib import get_close_matches
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-JSON_PATH = SCRIPT_DIR / 'colors.json'
+JSON_PATH = SCRIPT_DIR / 'helmetcolors.json'
 HEX_RE = re.compile(r'^#?([0-9A-Fa-f]{6})$')
 ESPN_URL = 'https://site.api.espn.com/apis/site/v2/sports/{path}/teams?limit=500'
 
@@ -178,15 +178,15 @@ def main():
     short_label = team.get('location') or display_name.rsplit(' ', 1)[0]
     mascot = team.get('name') or team.get('nickname') or display_name.rsplit(' ', 1)[-1]
 
-    primary = normalize_hex(team.get('color'), default='#000000')
-    secondary = normalize_hex(team.get('alternateColor'), default='#FFFFFF')
-    tertiary = '#FFFFFF'
+    shell = normalize_hex(team.get('color'), default='#000000')
+    stripe = normalize_hex(team.get('alternateColor'), default='#FFFFFF')
+    mask = '#FFFFFF'
     quaternary = '#FFFFFF'
 
     print(f'\nMatched: {display_name} ({abbreviation})')
-    print(f'  primary:    {primary}')
-    print(f'  secondary:  {secondary}')
-    print(f'  tertiary:   {tertiary}   (ESPN gives only 2 colors; edit by hand if needed)')
+    print(f'  shell:      {shell}')
+    print(f'  stripe:     {stripe}')
+    print(f'  mask:       {mask}    (ESPN gives only 2 colors; edit by hand if needed)')
     print(f'  quaternary: {quaternary}')
 
     doc = load_doc()
@@ -201,9 +201,9 @@ def main():
         'fullName': display_name,
         'shortLabel': short_label,
         'mascot': mascot,
-        'primary': primary,
-        'secondary': secondary,
-        'tertiary': tertiary,
+        'shell': shell,
+        'stripe': stripe,
+        'mask': mask,
         'quaternary': quaternary
     }
     save_doc(doc)

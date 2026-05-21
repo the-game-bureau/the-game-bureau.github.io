@@ -1589,32 +1589,8 @@
       return response.json();
     }
 
-    async function patchGameIdPrecise(oldId, createdAt, newId) {
-      // First find the actual stored created_at for this row by fetching all
-      // rows with the old id and matching on a string-trimmed basis. This
-      // avoids PostgREST timestamp-format mismatches.
-      const lookup = await fetch(restUrl('games', { id: 'eq.' + oldId, select: 'id,created_at' }), {
-        headers: authHeaders({ Accept: 'application/json' }),
-        cache: 'no-store'
-      });
-      if (!lookup.ok) throw new Error(await readError(lookup, 'Could not look up row.'));
-      const rows = await lookup.json();
-      if (!Array.isArray(rows) || !rows.length) {
-        throw new Error('No rows found with id "' + oldId + '".');
-      }
-      const ts = String(createdAt || '');
-      let target = rows.find((r) => String(r && r.created_at || '') === ts);
-      if (!target) {
-        target = rows.find((r) => {
-          const rowTs = String(r && r.created_at || '');
-          return rowTs && (rowTs.startsWith(ts) || ts.startsWith(rowTs));
-        });
-      }
-      if (!target) {
-        throw new Error('No row with id "' + oldId + '" and created_at "' + ts + '" was found.');
-      }
-
-      const response = await fetch(restUrl('games', { id: 'eq.' + oldId, created_at: 'eq.' + target.created_at }), {
+    async function patchGameIdPrecise(oldId, newId) {
+      const response = await fetch(restUrl('games', { id: 'eq.' + oldId }), {
         method: 'PATCH',
         headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
         body: JSON.stringify({ id: newId })
@@ -1676,7 +1652,7 @@
       let done = 0;
       for (const item of actionable) {
         try {
-          await patchGameIdPrecise(item.row.id, item.row.created_at, item.newId);
+          await patchGameIdPrecise(item.row.id, item.newId);
           done++;
         } catch (err) {
           console.error('Auto-fix PATCH failed for', item.row, '→', item.newId, err);
@@ -1760,7 +1736,6 @@
       setButtonLabel(libSelectAllBtnLabel, libSelectAllBtn, allVisibleSelected ? 'Deselect All' : 'Select All');
       const oneGameId = single ? String(oneGame && oneGame.id || '').trim() : '';
       const routeParams = oneGameId ? { id: oneGameId } : null;
-      if (routeParams && oneGame.created_at) routeParams.created_at = oneGame.created_at;
       setLinkEnabled(libViewBtn, routeParams ? buildRunRoute(routeParams) : null);
       libViewBtn.title = single && !oneGameId ? 'This row has no id — set one before viewing.' : '';
       setLinkEnabled(libEditBtn, routeParams ? buildBuilderRoute(routeParams) : null);
@@ -2004,9 +1979,7 @@
       closeLibContextMenu();
       if (selectedGames.size !== 1) return;
       const game = [...selectedGames.values()][0];
-      const params = { id: game.id };
-      if (game.created_at) params.created_at = game.created_at;
-      window.location.href = buildBuilderRoute(params);
+      window.location.href = buildBuilderRoute({ id: game.id });
     });
 
     ctxDupBtn.addEventListener('click', async () => {

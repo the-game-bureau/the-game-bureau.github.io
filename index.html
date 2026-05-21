@@ -1,115 +1,856 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#cf5137" />
-  <meta name="description" content="The Game Bureau builds browser-native walking games and city-scale activations for real places." />
-  <title>The Game Bureau | The Cure for the Common Walking Tour</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f3eee6">
+  <meta name="description" content="The Game Bureau builds browser-native walking games and city-scale activations for real places.">
+  <title>The Game Bureau | View Games by City or Fandom</title>
   <link rel="icon" href="site/assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Fraunces:opsz,wght@9..144,600;700;900&family=Montserrat:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="site/assets/public-theme.css">
-  <link rel="stylesheet" href="site/assets/public-radical-theme.css">
-  <script src="site/assets/public-account.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <script src="site/assets/games/helmets/helmet.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper: #f3eee6;
+      --paper-strong: #fbf7f0;
+      --ink: #111111;
+      --muted: #69655e;
+      --line: #cdc5b8;
+      --line-strong: #111111;
+      --accent: #d43b2f;
+      --accent-soft: #f4ddd8;
+      --surface: #ffffff;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100svh;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .page-shell {
+      width: 100%;
+      min-width: 0;
+      padding: 22px 0 40px;
+    }
+
+    .site-nav,
+    .hero,
+    .browse-shell,
+    .about-shell,
+    .site-footer {
+      width: calc(100% - 48px);
+      margin: 0 auto;
+    }
+
+    .site-nav {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: start;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--line-strong);
+    }
+
+    .brand-lockup {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .brand-name {
+      color: var(--accent);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+    }
+
+    .brand-tagline {
+      margin: 0;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      align-self: start;
+    }
+
+    .nav-link,
+    .hero-button,
+    .browse-link,
+    .mc-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--line-strong);
+      background: transparent;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease;
+    }
+
+    .nav-link:hover,
+    .nav-link:focus-visible,
+    .hero-button:hover,
+    .hero-button:focus-visible,
+    .browse-link:hover,
+    .browse-link:focus-visible,
+    .mc-link:hover,
+    .mc-link:focus-visible,
+    .directory-item:hover,
+    .directory-item:focus-visible {
+      border-color: var(--accent);
+      background: var(--paper-strong);
+      outline: none;
+      transform: translateY(-1px);
+    }
+
+    .mc-link,
+    .hero-button[aria-pressed="true"] {
+      background: var(--ink);
+      color: #ffffff;
+    }
+
+    .mc-link:hover,
+    .mc-link:focus-visible,
+    .hero-button[aria-pressed="true"]:hover,
+    .hero-button[aria-pressed="true"]:focus-visible {
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    main {
+      display: grid;
+      gap: 22px;
+      padding-top: 18px;
+    }
+
+    .hero,
+    .browse-shell,
+    .about-shell {
+      position: relative;
+      overflow: hidden;
+      border: 1.5px solid var(--line-strong);
+      background: var(--paper-strong);
+    }
+
+    .hero::before,
+    .browse-shell::before,
+    .about-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 6px;
+      background: var(--accent);
+    }
+
+    .hero {
+      padding: 28px 30px 30px 36px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.8fr);
+      gap: 24px;
+      align-items: end;
+    }
+
+    .hero-kicker {
+      margin: 0 0 14px;
+      color: var(--accent);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+
+    .hero-headline {
+      margin: 0;
+      font-size: clamp(3.4rem, 10vw, 7.6rem);
+      font-weight: 800;
+      letter-spacing: -0.09em;
+      line-height: 0.84;
+      text-transform: uppercase;
+      text-wrap: balance;
+    }
+
+    .hero-copy {
+      max-width: 760px;
+      margin: 20px 0 0;
+      color: var(--muted);
+      font-size: 1.02rem;
+      line-height: 1.55;
+    }
+
+    .hero-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 28px;
+      width: 100%;
+    }
+
+    .hero-button {
+      width: 100%;
+      min-height: 62px;
+      padding: 0 18px;
+      cursor: pointer;
+    }
+
+    .hero-meta {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      align-self: stretch;
+    }
+
+    .hero-meta-row {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-meta-row:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+
+    .hero-meta-label {
+      margin: 0;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.64rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .hero-meta-value {
+      margin: 0;
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.07em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .browse-shell {
+      padding: 22px 24px 24px 30px;
+    }
+
+    .browse-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: end;
+      padding-bottom: 18px;
+      border-bottom: 2px solid var(--line-strong);
+    }
+
+    .section-kicker {
+      margin: 0 0 8px;
+      color: var(--accent);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 800;
+      letter-spacing: -0.07em;
+      line-height: 0.9;
+      text-transform: uppercase;
+      text-wrap: balance;
+    }
+
+    .browse-state {
+      margin: 0;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      text-align: right;
+    }
+
+    .browse-copy {
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+      line-height: 1.5;
+    }
+
+    .directory-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+      margin-top: 22px;
+      width: 100%;
+    }
+
+    .directory-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      min-height: 76px;
+      padding: 14px 14px 14px 16px;
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+
+    .directory-item-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .directory-item-text {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .directory-item-helmet {
+      width: 38px;
+      height: 38px;
+      image-rendering: pixelated;
+      flex: 0 0 auto;
+    }
+
+    .directory-item-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .directory-item-sub {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.3;
+    }
+
+    .directory-item-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 54px;
+      min-height: 48px;
+      padding: 0 10px;
+      border: 1px solid currentColor;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.92rem;
+      font-weight: 600;
+      letter-spacing: 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .directory-empty {
+      margin-top: 22px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--muted);
+    }
+
+    .browse-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+
+    .browse-footer-copy {
+      margin: 0;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .browse-link {
+      min-height: 48px;
+      padding: 0 18px;
+      background: var(--surface);
+    }
+
+    .about-shell {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
+      padding: 0;
+    }
+
+    .about-cell {
+      padding: 24px 22px 26px 28px;
+      border-right: 1px solid var(--line);
+    }
+
+    .about-cell:last-child {
+      border-right: 0;
+    }
+
+    .about-label {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .about-copy {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    .site-footer {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 20px;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 980px) {
+      .site-nav,
+      .hero,
+      .browse-shell,
+      .about-shell,
+      .site-footer {
+        width: calc(100% - 24px);
+      }
+
+      .site-nav {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .nav-links {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+      }
+
+      .hero-grid,
+      .browse-header,
+      .about-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .browse-state {
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .hero {
+        padding: 22px 18px 20px 24px;
+      }
+
+      .browse-shell {
+        padding: 18px 18px 20px 24px;
+      }
+
+      .hero-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .directory-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .about-cell {
+        padding: 20px 18px 20px 24px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .about-cell:last-child {
+        border-bottom: 0;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .nav-link,
+      .hero-button,
+      .browse-link,
+      .mc-link,
+      .directory-item {
+        transition: none;
+      }
+    }
+
+    .home-page .mc-auth-modal {
+      background: rgba(17, 17, 17, 0.62);
+      backdrop-filter: blur(4px);
+    }
+
+    .home-page .mc-auth-panel {
+      width: min(100%, 460px);
+      gap: 14px;
+      padding: 28px 26px 24px;
+      border: 1.5px solid var(--line-strong);
+      border-radius: 0;
+      background: var(--paper);
+      box-shadow: none;
+      color: var(--ink);
+      font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .home-page .mc-auth-close {
+      width: 34px;
+      height: 34px;
+      top: 12px;
+      right: 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 0;
+      background: transparent;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-weight: 600;
+    }
+
+    .home-page .mc-auth-close:hover {
+      background: var(--ink);
+      color: #ffffff;
+    }
+
+    .home-page .mc-auth-kicker {
+      color: var(--accent);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.22em;
+    }
+
+    .home-page .mc-auth-title {
+      color: var(--ink);
+      font-size: clamp(2rem, 4vw, 2.6rem);
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      line-height: 0.92;
+      text-transform: uppercase;
+    }
+
+    .home-page .mc-auth-copy {
+      color: var(--muted);
+      font-size: 0.96rem;
+      line-height: 1.5;
+    }
+
+    .home-page .mc-auth-form { gap: 12px; }
+
+    .home-page .mc-auth-field {
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .home-page .mc-auth-field input {
+      height: 48px;
+      padding: 0 12px;
+      border: 1.5px solid var(--line-strong);
+      border-radius: 0;
+      background: #ffffff;
+      color: var(--ink);
+      font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+      font-size: 0.98rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .home-page .mc-auth-field input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+
+    .home-page .mc-auth-btn {
+      min-height: 46px;
+      padding: 0 16px;
+      border: 1px solid var(--line-strong);
+      border-radius: 0;
+      background: transparent;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .home-page .mc-auth-btn:hover {
+      background: var(--paper-strong);
+      border-color: var(--accent);
+    }
+
+    .home-page .mc-auth-btn--primary {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: #ffffff;
+    }
+
+    .home-page .mc-auth-btn--primary:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    .home-page #mcAuthHomeBtn { display: none; }
+
+    .home-page .mc-auth-status {
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .home-page .mc-auth-status.is-error { color: var(--accent); }
+    .home-page .mc-auth-status.is-success { color: var(--ink); }
+  </style>
 </head>
-<body class="public-shell home-page">
-  <main class="home-main">
-    <section class="home-hero" aria-label="The Game Bureau introduction">
-      <div class="hero-scene" aria-hidden="true">
-        <span class="scene-depth"></span>
-        <div class="tron-map">
-          <span class="map-grid"></span>
-          <span class="map-water water-one"></span>
-          <span class="map-park park-one"></span>
-          <span class="map-park park-two"></span>
-          <span class="map-block block-one"></span>
-          <span class="map-block block-two"></span>
-          <span class="map-block block-three"></span>
-          <span class="map-block block-four"></span>
-          <span class="map-block block-five"></span>
-          <span class="map-block block-six"></span>
-          <span class="map-parcel parcel-one"></span>
-          <span class="map-parcel parcel-two"></span>
-          <span class="map-parcel parcel-three"></span>
-          <span class="map-parcel parcel-four"></span>
-          <span class="map-parcel parcel-five"></span>
-          <span class="map-parcel parcel-six"></span>
-          <span class="map-parcel parcel-seven"></span>
-          <span class="map-parcel parcel-eight"></span>
-          <span class="map-parcel parcel-nine"></span>
-          <span class="map-parcel parcel-ten"></span>
-          <span class="map-road road-one"></span>
-          <span class="map-road road-two"></span>
-          <span class="map-road road-three"></span>
-          <span class="map-road road-four"></span>
-          <span class="map-road road-five"></span>
-          <span class="map-road road-six"></span>
-          <span class="map-road road-seven"></span>
-          <span class="map-road road-eight"></span>
-          <span class="map-street street-one"></span>
-          <span class="map-street street-two"></span>
-          <span class="map-street street-three"></span>
-          <span class="map-street street-four"></span>
-          <span class="map-street street-five"></span>
-          <span class="map-street street-six"></span>
-          <span class="map-plaza plaza-one"></span>
-          <span class="map-plaza plaza-two"></span>
-          <span class="map-intersection intersection-one"></span>
-          <span class="map-intersection intersection-two"></span>
-          <span class="map-intersection intersection-three"></span>
-          <span class="map-intersection intersection-four"></span>
-          <span class="map-intersection intersection-five"></span>
-          <span class="map-intersection intersection-six"></span>
-          <span class="map-corridor corridor-one"></span>
-          <span class="map-corridor corridor-two"></span>
-          <span class="map-corridor corridor-three"></span>
-          <span class="map-corridor corridor-four"></span>
-          <span class="map-path path-one"></span>
-          <span class="map-path path-two"></span>
-          <span class="map-path path-three"></span>
-          <span class="map-path path-four"></span>
-          <span class="waypoint waypoint-one"></span>
-          <span class="waypoint waypoint-two"></span>
-          <span class="waypoint waypoint-three"></span>
-          <span class="waypoint waypoint-four"></span>
-          <span class="waypoint waypoint-five"></span>
-        </div>
+<body class="home-page">
+  <div class="page-shell">
+    <header class="site-nav">
+      <div class="brand-lockup">
+        <span class="brand-name">The Game Bureau</span>
+        <p class="brand-tagline">The cure for the common walking tour</p>
       </div>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="nav-link" id="navViewCityLink" href="#browseDirectory">View Games by City</a>
+        <a class="nav-link" id="navViewFanLink" href="#browseDirectory">View Games by Fandom</a>
+        <button class="nav-link" id="navLoginBtn" type="button">Login</button>
+      </nav>
+    </header>
 
-      <div class="hero-content">
-        <p class="hero-proof">NO DOWNLOAD NECESSARY</p>
-        <p class="eyebrow">The cure for the common walking tour.</p>
-        <h1>THE GAME BUREAU</h1>
-        <p class="hero-lede">Each game is one part scavenger hunt, one part outdoor escape room. Gather your team and hit the streets for adventure. All games are written by humans.</p>
-        <div class="hero-actions">
-          <a class="cta cta-primary" href="site/library.html">BROWSE GAME LIBRARY</a>
+    <main>
+      <section class="hero" aria-label="The Game Bureau overview">
+        <div class="hero-grid">
+          <div>
+            <p class="hero-kicker"><span id="heroKickerGameCount">0</span> GAMES IN <span id="heroKickerCityCount">0</span> CITIES</p>
+            <h1 class="hero-headline">Their City. Your Game.</h1>
+            <p class="hero-copy">Each game is one part scavenger hunt, one part outdoor escape room. Start with the city you are in or the fandom you travel with. The directory below flips between both views.</p>
+            <div class="hero-actions" role="group" aria-label="Browse games">
+              <button class="hero-button" id="heroCityButton" type="button" aria-pressed="true">View Games By City</button>
+              <button class="hero-button" id="heroFanButton" type="button" aria-pressed="false">View Games By Fandom</button>
+            </div>
+          </div>
+
+          <aside class="hero-meta" aria-label="Library totals">
+            <div class="hero-meta-row">
+              <div>
+                <p class="hero-meta-label">Live games</p>
+                <p class="hero-meta-value" id="heroGameCount">0</p>
+              </div>
+            </div>
+            <div class="hero-meta-row">
+              <div>
+                <p class="hero-meta-label">Host cities</p>
+                <p class="hero-meta-value" id="heroCityCount">0</p>
+              </div>
+            </div>
+            <div class="hero-meta-row">
+              <div>
+                <p class="hero-meta-label">Fandoms</p>
+                <p class="hero-meta-value" id="heroFanCount">0</p>
+              </div>
+            </div>
+          </aside>
         </div>
-        <dl class="hero-counts" aria-label="Game library totals">
-          <div class="hero-count-card">
-            <dt>Live games</dt>
-            <dd><span id="heroGameCount">288</span>+</dd>
-          </div>
-          <div class="hero-count-card">
-            <dt>Cities</dt>
-            <dd><span id="heroCityCount">39</span>+</dd>
-          </div>
-        </dl>
-      </div>
-    </section>
+      </section>
 
-  </main>
-  <a class="mc-corner" href="mc/index.html" style="color: rgba(244, 240, 230, 0.85); opacity: 1;">MISSION CONTROL</a>
+      <section class="browse-shell" id="browseDirectory" aria-label="Browse games">
+        <div class="browse-header">
+          <div>
+            <p class="section-kicker">Find your game</p>
+            <h2 class="section-title" id="directoryTitle">Games by City</h2>
+          </div>
+          <p class="browse-state" id="directoryState">Loading live game directory</p>
+        </div>
+
+        <p class="browse-copy" id="directoryCopy">Choose a city to see where games are live right now.</p>
+        <div class="directory-grid" id="directoryGrid" aria-live="polite"></div>
+        <div class="directory-empty" id="directoryEmpty" hidden>Loading live directory.</div>
+
+        <div class="browse-footer">
+          <p class="browse-footer-copy" id="directoryFooterCopy">Pulling live counts from the library.</p>
+          <a class="browse-link" id="directoryBrowseLink" href="site/library.html">Open Full Library</a>
+        </div>
+      </section>
+
+      <section class="about-shell" aria-label="Why it works">
+        <article class="about-cell">
+          <p class="about-label">No app required</p>
+          <p class="about-copy">Every route opens in the browser. One phone can run the whole game, so the handoff from planning to playing stays clean.</p>
+        </article>
+        <article class="about-cell">
+          <p class="about-label">Built for place</p>
+          <p class="about-copy">These are not generic quiz layers on top of a map. The clue path is written against real blocks, landmarks, storefronts, and weird city details.</p>
+        </article>
+        <article class="about-cell">
+          <p class="about-label">Real places</p>
+          <p class="about-copy">Thoughtfully crafted games with challenges built across city landscapes.</p>
+        </article>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>&copy; The Game Bureau</span>
+      <span>All games written by humans</span>
+    </footer>
+  </div>
+
+  <script src="mc/admin-auth.js"></script>
   <script>
     (function () {
-      const gameCountEl = document.getElementById('heroGameCount');
-      const cityCountEl = document.getElementById('heroCityCount');
-      if (!gameCountEl || !cityCountEl || !window.fetch) return;
+      const SB_CONFIG = {
+        url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+        key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
+        table: 'games'
+      };
 
-      const endpoint = new URL('https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/games');
-      endpoint.searchParams.set('apikey', 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3');
-      endpoint.searchParams.set('select', 'city,archived');
+      const navLoginBtnEl = document.getElementById('navLoginBtn');
+      const adminAuth = (navLoginBtnEl && window.TgbMcAdminAuth) ? window.TgbMcAdminAuth.create({
+        supabaseConfig: { url: SB_CONFIG.url, publishableKey: SB_CONFIG.key },
+        signOutButton: navLoginBtnEl,
+        modalCopy: 'Sign in to your Game Bureau account.',
+        initialMessage: '',
+        homeHref: 'index.html',
+        onAuthorized: function () { navLoginBtnEl.textContent = 'Sign Out'; },
+        onSignedOut: function () { navLoginBtnEl.textContent = 'Login'; }
+      }) : null;
+      if (adminAuth) {
+        adminAuth.init().then(function (signedIn) { if (!signedIn) adminAuth.close(); });
+      }
+
+      const MODE_CITY = 'city';
+      const MODE_FAN = 'fan';
+      const heroCityButtonEl = document.getElementById('heroCityButton');
+      const heroFanButtonEl = document.getElementById('heroFanButton');
+      const heroGameCountEl = document.getElementById('heroGameCount');
+      const heroCityCountEl = document.getElementById('heroCityCount');
+      const heroFanCountEl = document.getElementById('heroFanCount');
+      const directoryTitleEl = document.getElementById('directoryTitle');
+      const directoryStateEl = document.getElementById('directoryState');
+      const directoryCopyEl = document.getElementById('directoryCopy');
+      const directoryGridEl = document.getElementById('directoryGrid');
+      const directoryEmptyEl = document.getElementById('directoryEmpty');
+      const directoryFooterCopyEl = document.getElementById('directoryFooterCopy');
+      const directoryBrowseLinkEl = document.getElementById('directoryBrowseLink');
+      const browseDirectoryEl = document.getElementById('browseDirectory');
+
+      const COLORS_JSON_URL = 'site/assets/colors/helmetcolors.json';
+      const NO_HELMET_PALETTE = {
+        primary_color: '#c8c4ba',
+        secondary_color: '#8a8680',
+        tertiary_color: '#4a4642'
+      };
+      let activeMode = MODE_CITY;
+      let liveGames = [];
+      let colorsByCityMascot = new Map();
+
+      function teamKey(value) {
+        return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      }
+
+      async function fetchTeamColors() {
+        try {
+          const response = await fetch(COLORS_JSON_URL, { cache: 'no-store' });
+          if (!response.ok) return new Map();
+          const lookup = new Map();
+          const doc = await response.json();
+          const leagues = (doc && doc.leagues) || {};
+          Object.keys(leagues).forEach((leagueName) => {
+            const teams = leagues[leagueName] || {};
+            Object.keys(teams).forEach((code) => {
+              const team = teams[code] || {};
+              const palette = {
+                primary_color: team.shell || '',
+                secondary_color: team.stripe || '',
+                tertiary_color: team.mask || ''
+              };
+              const cityKey = teamKey(team.shortLabel);
+              const mascotKey = teamKey(team.mascot);
+              if (cityKey && mascotKey) {
+                lookup.set(cityKey + '|' + mascotKey, palette);
+              }
+            });
+          });
+          return lookup;
+        } catch (error) {
+          return new Map();
+        }
+      }
+
+      function getHelmetByAwayTeam(game) {
+        if (!game) return null;
+        const cityKey = teamKey(game.away_team_city);
+        const mascotKey = teamKey(game.away_team_mascot);
+        if (!cityKey || !mascotKey) return null;
+        return colorsByCityMascot.get(cityKey + '|' + mascotKey) || null;
+      }
 
       function isTrueish(value) {
         if (typeof value === 'boolean') return value;
@@ -120,17 +861,260 @@
         return !!value;
       }
 
-      fetch(endpoint.toString())
-        .then((response) => response.ok ? response.json() : Promise.reject(response))
-        .then((games) => {
-          const liveGames = (Array.isArray(games) ? games : []).filter((game) => {
-            return !isTrueish(game && game.archived);
+      function plainText(value) {
+        return String(value || '')
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      function getCity(game) {
+        return plainText(game && game.city);
+      }
+
+      function getFanTeam(game) {
+        const structuredCandidates = [
+          game && game.away_team,
+          game && game.awayTeam,
+          game && game.visitor_team,
+          game && game.visitorTeam,
+          game && game.fan_team,
+          game && game.fanTeam,
+          game && game.opponent_team,
+          game && game.opponentTeam
+        ];
+        for (const candidate of structuredCandidates) {
+          const team = plainText(candidate);
+          if (team) return team;
+        }
+        const name = plainText(game && game.name);
+        const match = name.match(/^(.+?)\s+Fans Takeover\s+/i);
+        return match ? plainText(match[1]) : '';
+      }
+
+      function getGameCountLabel(count) {
+        return count === 1 ? '1 game' : count + ' games';
+      }
+
+      async function fetchGames() {
+        const url = new URL('rest/v1/' + SB_CONFIG.table, SB_CONFIG.url.replace(/\/+$/, '') + '/');
+        url.searchParams.set('apikey', SB_CONFIG.key);
+        url.searchParams.set('select', '*');
+        url.searchParams.set('order', 'name.asc');
+        const response = await fetch(url.toString(), {
+          headers: {
+            apikey: SB_CONFIG.key,
+            Authorization: 'Bearer ' + SB_CONFIG.key,
+            Accept: 'application/json'
+          },
+          cache: 'no-store'
+        });
+        if (!response.ok) {
+          const text = await response.text().catch(() => '');
+          throw new Error('Supabase ' + response.status + ': ' + text.slice(0, 200));
+        }
+        return response.json();
+      }
+
+      function updateHeroButtons() {
+        if (heroCityButtonEl) heroCityButtonEl.setAttribute('aria-pressed', String(activeMode === MODE_CITY));
+        if (heroFanButtonEl) heroFanButtonEl.setAttribute('aria-pressed', String(activeMode === MODE_FAN));
+      }
+
+      function buildCityEntries() {
+        const counts = new Map();
+        liveGames.forEach((game) => {
+          const city = getCity(game);
+          if (!city) return;
+          counts.set(city, (counts.get(city) || 0) + 1);
+        });
+        return [...counts.entries()]
+          .sort((left, right) => left[0].localeCompare(right[0], undefined, { sensitivity: 'base' }))
+          .map(([label, count]) => ({
+            label,
+            count,
+            sub: getGameCountLabel(count),
+            href: 'site/library.html'
+          }));
+      }
+
+      function buildFanEntries() {
+        const counts = new Map();
+        const samples = new Map();
+        liveGames.forEach((game) => {
+          const fan = getFanTeam(game);
+          if (!fan) return;
+          counts.set(fan, (counts.get(fan) || 0) + 1);
+          if (!samples.has(fan)) samples.set(fan, game);
+        });
+        return [...counts.entries()]
+          .sort((left, right) => left[0].localeCompare(right[0], undefined, { sensitivity: 'base' }))
+          .map(([label, count]) => {
+            const helmet = getHelmetByAwayTeam(samples.get(label));
+            return {
+              label,
+              count,
+              sub: helmet ? getGameCountLabel(count) : 'No helmet found',
+              href: 'site/library.html',
+              helmet,
+              expectsHelmet: true
+            };
           });
-          const cities = new Set(liveGames.map((game) => String(game && game.city || '').trim()).filter(Boolean));
-          gameCountEl.textContent = String(liveGames.length);
-          cityCountEl.textContent = String(cities.size);
-        })
-        .catch(() => {});
+      }
+
+      function renderDirectoryEntries(entries) {
+        if (!directoryGridEl || !directoryEmptyEl) return;
+        directoryGridEl.innerHTML = '';
+        if (!entries.length) {
+          directoryGridEl.hidden = true;
+          directoryEmptyEl.hidden = false;
+          directoryEmptyEl.textContent = activeMode === MODE_CITY
+            ? 'No live city listings are available right now.'
+            : 'No live fandom listings are available right now.';
+          return;
+        }
+
+        directoryGridEl.hidden = false;
+        directoryEmptyEl.hidden = true;
+
+        entries.forEach((entry) => {
+          const link = document.createElement('a');
+          link.className = 'directory-item';
+          link.href = entry.href;
+
+          const main = document.createElement('span');
+          main.className = 'directory-item-main';
+
+          if (entry.helmet && typeof window.helmetSVG === 'function') {
+            const img = document.createElement('img');
+            img.className = 'directory-item-helmet';
+            img.alt = '';
+            img.src = window.helmetSVG(
+              entry.helmet.primary_color,
+              entry.helmet.secondary_color,
+              entry.helmet.tertiary_color
+            );
+            main.appendChild(img);
+          } else if (entry.expectsHelmet && typeof window.helmetSVG === 'function') {
+            const img = document.createElement('img');
+            img.className = 'directory-item-helmet directory-item-helmet--none';
+            img.alt = 'No helmet found';
+            img.title = 'No helmet found';
+            img.src = window.helmetSVG(
+              NO_HELMET_PALETTE.primary_color,
+              NO_HELMET_PALETTE.secondary_color,
+              NO_HELMET_PALETTE.tertiary_color
+            );
+            main.appendChild(img);
+          }
+
+          const text = document.createElement('span');
+          text.className = 'directory-item-text';
+
+          const label = document.createElement('span');
+          label.className = 'directory-item-label';
+          label.textContent = entry.label;
+
+          const sub = document.createElement('span');
+          sub.className = 'directory-item-sub';
+          sub.textContent = entry.sub;
+
+          const count = document.createElement('span');
+          count.className = 'directory-item-count';
+          count.textContent = String(entry.count);
+
+          text.append(label, sub);
+          main.appendChild(text);
+          link.append(main, count);
+          directoryGridEl.appendChild(link);
+        });
+      }
+
+      function renderDirectory() {
+        updateHeroButtons();
+
+        const cityCount = new Set(liveGames.map(getCity).filter(Boolean)).size;
+        const fanCount = new Set(liveGames.map(getFanTeam).filter(Boolean)).size;
+
+        if (heroGameCountEl) heroGameCountEl.textContent = String(liveGames.length);
+        if (heroCityCountEl) heroCityCountEl.textContent = String(cityCount);
+        if (heroFanCountEl) heroFanCountEl.textContent = String(fanCount);
+        const heroKickerGameCountEl = document.getElementById('heroKickerGameCount');
+        const heroKickerCityCountEl = document.getElementById('heroKickerCityCount');
+        if (heroKickerGameCountEl) heroKickerGameCountEl.textContent = String(liveGames.length);
+        if (heroKickerCityCountEl) heroKickerCityCountEl.textContent = String(cityCount);
+
+        if (activeMode === MODE_FAN) {
+          if (directoryTitleEl) directoryTitleEl.textContent = 'Games by Fandom';
+          if (directoryStateEl) directoryStateEl.textContent = liveGames.length + ' games in ' + cityCount + ' cities';
+          if (directoryCopyEl) directoryCopyEl.textContent = 'Scan the away-team side of the catalog. Every entry below groups live games by fandom.';
+          if (directoryFooterCopyEl) directoryFooterCopyEl.textContent = 'Open the full library for searchable game cards and route details.';
+          if (directoryBrowseLinkEl) directoryBrowseLinkEl.textContent = 'Open Full Library';
+          renderDirectoryEntries(buildFanEntries());
+        } else {
+          if (directoryTitleEl) directoryTitleEl.textContent = 'Games by City';
+          if (directoryStateEl) directoryStateEl.textContent = liveGames.length + ' games in ' + cityCount + ' cities';
+          if (directoryCopyEl) directoryCopyEl.textContent = "Choose the city you'd like to play in.";
+          if (directoryFooterCopyEl) directoryFooterCopyEl.textContent = 'Open the full library for searchable game cards and route details.';
+          if (directoryBrowseLinkEl) directoryBrowseLinkEl.textContent = 'Open Full Library';
+          renderDirectoryEntries(buildCityEntries());
+        }
+      }
+
+      function setMode(mode) {
+        activeMode = mode === MODE_FAN ? MODE_FAN : MODE_CITY;
+        renderDirectory();
+        if (browseDirectoryEl) {
+          browseDirectoryEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+
+      function renderError(message) {
+        updateHeroButtons();
+        if (directoryTitleEl) directoryTitleEl.textContent = 'Live Directory Unavailable';
+        if (directoryStateEl) directoryStateEl.textContent = 'Could not load live game data';
+        if (directoryCopyEl) directoryCopyEl.textContent = 'The browse directory could not be populated from Supabase right now.';
+        if (directoryGridEl) {
+          directoryGridEl.innerHTML = '';
+          directoryGridEl.hidden = true;
+        }
+        if (directoryEmptyEl) {
+          directoryEmptyEl.hidden = false;
+          directoryEmptyEl.textContent = message;
+        }
+      }
+
+      async function load() {
+        try {
+          const [games, colorsLookup] = await Promise.all([fetchGames(), fetchTeamColors()]);
+          colorsByCityMascot = colorsLookup;
+          liveGames = (Array.isArray(games) ? games : []).filter((game) => !isTrueish(game && game.archived));
+          renderDirectory();
+        } catch (error) {
+          console.error(error);
+          renderError(error instanceof Error ? error.message : String(error));
+        }
+      }
+
+      if (heroCityButtonEl) {
+        heroCityButtonEl.addEventListener('click', () => setMode(MODE_CITY));
+      }
+
+      const navViewCityLinkEl = document.getElementById('navViewCityLink');
+      if (navViewCityLinkEl) {
+        navViewCityLinkEl.addEventListener('click', () => setMode(MODE_CITY));
+      }
+
+      const navViewFanLinkEl = document.getElementById('navViewFanLink');
+      if (navViewFanLinkEl) {
+        navViewFanLinkEl.addEventListener('click', () => setMode(MODE_FAN));
+      }
+
+      if (heroFanButtonEl) {
+        heroFanButtonEl.addEventListener('click', () => setMode(MODE_FAN));
+      }
+
+      load();
     }());
   </script>
 </body>
