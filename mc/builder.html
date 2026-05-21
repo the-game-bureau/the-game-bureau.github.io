@@ -10089,18 +10089,22 @@ html.admin-embedded .builder-section-head{
                   <div class="details-section-grid details-section-grid--teams">
                     <div class="field-label">REAL SPORTS TEAMS</div>
                     <div class="field" id="awayTeamCityField">
-                      <label class="field-label" for="nodeAwayTeamCityInput">Away Team City (Fan's Team)</label>
-                      <input id="nodeAwayTeamCityInput" type="text" autocomplete="off" disabled>
+                      <label class="field-label" for="nodeAwayTeamCityInput">Away Team (Fan's Team)</label>
+                      <select id="nodeAwayTeamCityInput" autocomplete="off" disabled>
+                        <option value="">— pick a team —</option>
+                      </select>
                     </div>
-                    <div class="field" id="awayTeamMascotField">
+                    <div class="field" id="awayTeamMascotField" hidden>
                       <label class="field-label" for="nodeAwayTeamMascotInput">Away Team Mascot (Fan's Team)</label>
                       <input id="nodeAwayTeamMascotInput" type="text" autocomplete="off" disabled>
                     </div>
                     <div class="field" id="homeTeamCityField">
-                      <label class="field-label" for="nodeHomeTeamCityInput">Home Team City</label>
-                      <input id="nodeHomeTeamCityInput" type="text" autocomplete="off" disabled>
+                      <label class="field-label" for="nodeHomeTeamCityInput">Home Team</label>
+                      <select id="nodeHomeTeamCityInput" autocomplete="off" disabled>
+                        <option value="">— pick a team —</option>
+                      </select>
                     </div>
-                    <div class="field" id="homeTeamMascotField">
+                    <div class="field" id="homeTeamMascotField" hidden>
                       <label class="field-label" for="nodeHomeTeamMascotInput">Home Team Mascot</label>
                       <input id="nodeHomeTeamMascotInput" type="text" autocomplete="off" disabled>
                     </div>
@@ -11992,6 +11996,92 @@ const nodeHomeTeamCityInput = document.getElementById('nodeHomeTeamCityInput');
 const nodeHomeTeamMascotInput = document.getElementById('nodeHomeTeamMascotInput');
 const nodeAwayTeamCityInput = document.getElementById('nodeAwayTeamCityInput');
 const nodeAwayTeamMascotInput = document.getElementById('nodeAwayTeamMascotInput');
+
+// Teams dropdown — populated from site/assets/teams/teams.json. The away/home
+// "city" inputs are <select> elements; picking one writes both the fanbase
+// (stored in *TeamCity) and the mascot to state.currentGameMeta.
+let builderTeamsList = [];
+async function loadBuilderTeams() {
+  try {
+    const response = await fetch('../site/assets/teams/teams.json', { cache: 'no-store' });
+    if (!response.ok) return;
+    const doc = await response.json();
+    const teams = [];
+    const walk = (node) => {
+      if (!node || typeof node !== 'object') return;
+      Object.keys(node).forEach((k) => {
+        const v = node[k];
+        if (!v || typeof v !== 'object') return;
+        if ('fullName' in v || 'shell' in v) {
+          teams.push({
+            firstName: v.firstName || '',
+            fanbase: v.fanbase || v.firstName || '',
+            mascot: v.mascot || '',
+            sport: v.sport || ''
+          });
+        } else {
+          walk(v);
+        }
+      });
+    };
+    walk(doc.leagues || {});
+    builderTeamsList = teams
+      .filter((t) => t.fanbase && t.mascot)
+      .sort((a, b) => {
+        const al = ((a.firstName || a.fanbase) + ' ' + a.mascot).toLowerCase();
+        const bl = ((b.firstName || b.fanbase) + ' ' + b.mascot).toLowerCase();
+        return al.localeCompare(bl);
+      });
+    populateTeamSelects();
+  } catch (err) {
+    console.warn('Failed to load teams.json for builder:', err);
+  }
+}
+
+function populateTeamSelects() {
+  [
+    { select: nodeAwayTeamCityInput, cityKey: 'awayTeamCity', mascotKey: 'awayTeamMascot' },
+    { select: nodeHomeTeamCityInput, cityKey: 'homeTeamCity', mascotKey: 'homeTeamMascot' }
+  ].forEach(({ select, cityKey, mascotKey }) => {
+    if (!select || select.tagName !== 'SELECT') return;
+    while (select.options.length > 1) select.remove(1);
+    builderTeamsList.forEach((team) => {
+      const opt = document.createElement('option');
+      opt.value = team.fanbase + '|' + team.mascot;
+      opt.textContent = (team.firstName || team.fanbase) + ' ' + team.mascot;
+      select.appendChild(opt);
+    });
+    // Re-apply the current game's pick so a late teams.json fetch doesn't
+    // silently blank a selection that was rendered earlier.
+    if (state && state.currentGameMeta) {
+      setTeamSelectValue(select, state.currentGameMeta[cityKey] || '', state.currentGameMeta[mascotKey] || '');
+    } else {
+      select.value = '';
+    }
+  });
+}
+
+// Select the option matching (city, mascot). If no canonical match exists
+// (legacy game with hand-typed values), inject a one-off "(custom)" option so
+// the value is preserved instead of silently blanking on the next save.
+function setTeamSelectValue(select, city, mascot) {
+  if (!select || select.tagName !== 'SELECT') return;
+  if (!city && !mascot) { select.value = ''; return; }
+  const wantValue = (city || '') + '|' + (mascot || '');
+  for (let i = 0; i < select.options.length; i++) {
+    if (select.options[i].value === wantValue) { select.value = wantValue; return; }
+  }
+  // Strip any previously injected legacy option to avoid leaking across games.
+  for (let i = select.options.length - 1; i >= 0; i--) {
+    if (select.options[i].dataset && select.options[i].dataset.legacy === '1') select.remove(i);
+  }
+  const opt = document.createElement('option');
+  opt.value = wantValue;
+  opt.textContent = ((city || '') + ' ' + (mascot || '')).trim() + ' (custom)';
+  opt.dataset.legacy = '1';
+  select.appendChild(opt);
+  select.value = wantValue;
+}
 const nodeDefaultEmojiInput = document.getElementById('nodeDefaultEmojiInput');
 const nodeGameDateInput = document.getElementById('nodeGameDateInput');
 const nodeGameStartTimeInput = document.getElementById('nodeGameStartTimeInput');
@@ -19161,10 +19251,22 @@ function updateSelectionUi(options = {}) {
     radio.disabled = true;
   });
   nodeTaglineInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.tagline || '') : '';
-  if (nodeHomeTeamCityInput) nodeHomeTeamCityInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.homeTeamCity || '') : '';
   if (nodeHomeTeamMascotInput) nodeHomeTeamMascotInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.homeTeamMascot || '') : '';
-  if (nodeAwayTeamCityInput) nodeAwayTeamCityInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.awayTeamCity || '') : '';
   if (nodeAwayTeamMascotInput) nodeAwayTeamMascotInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.awayTeamMascot || '') : '';
+  if (nodeHomeTeamCityInput) {
+    if (isGameNode) {
+      setTeamSelectValue(nodeHomeTeamCityInput, state.currentGameMeta && state.currentGameMeta.homeTeamCity || '', state.currentGameMeta && state.currentGameMeta.homeTeamMascot || '');
+    } else {
+      nodeHomeTeamCityInput.value = '';
+    }
+  }
+  if (nodeAwayTeamCityInput) {
+    if (isGameNode) {
+      setTeamSelectValue(nodeAwayTeamCityInput, state.currentGameMeta && state.currentGameMeta.awayTeamCity || '', state.currentGameMeta && state.currentGameMeta.awayTeamMascot || '');
+    } else {
+      nodeAwayTeamCityInput.value = '';
+    }
+  }
   nodeDefaultEmojiInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.defaultEmoji || '') : '';
   if (nodeGameDateInput) nodeGameDateInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.gameDate || '') : '';
   if (nodeGameStartTimeInput) nodeGameStartTimeInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.startTime || '') : '';
@@ -21256,33 +21358,23 @@ nodeTaglineInput.addEventListener('input', () => {
   state.currentGameMeta.tagline = nodeTaglineInput.value;
 });
 
-if (nodeHomeTeamCityInput) {
-  nodeHomeTeamCityInput.addEventListener('input', () => {
+// Team selects fire `change`, not `input`. Each pick encodes "fanbase|mascot"
+// and writes both halves to state. The (now hidden) mascot text inputs are
+// kept in sync so any downstream code that still reads them sees the right
+// value.
+function bindTeamSelect(select, mascotInput, cityField, mascotField) {
+  if (!select) return;
+  select.addEventListener('change', () => {
     if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.homeTeamCity = nodeHomeTeamCityInput.value;
+    const raw = select.value || '';
+    const [city, mascot] = raw.split('|');
+    state.currentGameMeta[cityField] = city || '';
+    state.currentGameMeta[mascotField] = mascot || '';
+    if (mascotInput) mascotInput.value = mascot || '';
   });
 }
-
-if (nodeHomeTeamMascotInput) {
-  nodeHomeTeamMascotInput.addEventListener('input', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.homeTeamMascot = nodeHomeTeamMascotInput.value;
-  });
-}
-
-if (nodeAwayTeamCityInput) {
-  nodeAwayTeamCityInput.addEventListener('input', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.awayTeamCity = nodeAwayTeamCityInput.value;
-  });
-}
-
-if (nodeAwayTeamMascotInput) {
-  nodeAwayTeamMascotInput.addEventListener('input', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.awayTeamMascot = nodeAwayTeamMascotInput.value;
-  });
-}
+bindTeamSelect(nodeAwayTeamCityInput, nodeAwayTeamMascotInput, 'awayTeamCity', 'awayTeamMascot');
+bindTeamSelect(nodeHomeTeamCityInput, nodeHomeTeamMascotInput, 'homeTeamCity', 'homeTeamMascot');
 
 nodeDefaultEmojiInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
@@ -23133,6 +23225,7 @@ async function initializeBuilder() {
   startPhoneClock();
   applyZoom();
   setGameDetailsCollapsed(false);
+  loadBuilderTeams().catch((err) => console.warn('loadBuilderTeams failed:', err));
   await loadDoc();
   builderInitialized = true;
   syncGameIdToUrl();

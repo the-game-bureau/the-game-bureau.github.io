@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>COLORS | THE GAME BUREAU</title>
+  <title>TEAMS | THE GAME BUREAU</title>
   <link rel="icon" href="../brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -496,6 +496,8 @@
     }
   </style>
   <script src="../games/helmets/helmet.js"></script>
+  <script src="../games/helmets/basketball.js"></script>
+  <script src="../games/helmets/baseball.js"></script>
 </head>
 <body>
 
@@ -527,14 +529,23 @@
     </div>
     <div class="modal-body">
 
-      <!-- Step 1: pick a league -->
-      <div class="modal-field">
-        <label for="lookupLeague">1. Choose a league</label>
-        <select id="lookupLeague"></select>
+      <!-- Step 1: pick a league (with inline "pull all" button) -->
+      <div class="modal-row">
+        <div class="modal-field">
+          <label for="lookupLeague">League</label>
+          <select id="lookupLeague"></select>
+        </div>
+        <button class="btn" id="lookupPullLeagueBtn" title="Pull every team in this league from ESPN">⇣ Pull</button>
       </div>
 
-      <!-- Step 2: pick a path -->
-      <div class="modal-step-label">2. Then either…</div>
+      <!-- Step 1b: pick a conference (only when the league has nested groups, e.g. NCAAF) -->
+      <div class="modal-row" id="lookupGroupField" hidden>
+        <div class="modal-field">
+          <label for="lookupGroup">Conference</label>
+          <select id="lookupGroup"></select>
+        </div>
+        <button class="btn" id="lookupPullGroupBtn" title="Pull every team in this conference from ESPN">⇣ Pull</button>
+      </div>
 
       <div class="modal-option">
         <div class="modal-option-title">Add one team</div>
@@ -542,13 +553,6 @@
           <input id="lookupQuery" type="text" placeholder="Team name, mascot, city, or code" autocomplete="off" style="flex:1;">
           <button class="btn primary" id="lookupSearchBtn">Search</button>
         </div>
-      </div>
-
-      <div class="modal-or">— or —</div>
-
-      <div class="modal-option">
-        <div class="modal-option-title">Add every team in the league</div>
-        <button class="btn" id="lookupPullBtn">⇣ Pull every <span id="lookupPullLeagueLabel">NFL</span> team</button>
       </div>
 
       <div class="modal-status" id="lookupStatus"></div>
@@ -559,7 +563,7 @@
 </div>
 
 <script>
-const JSON_PATH = './helmetcolors.json';
+const JSON_PATH = './teams.json';
 const COLOR_ROLES = [
   { key: 'shell',  label: 'Shell' },
   { key: 'stripe', label: 'Stripe' },
@@ -610,9 +614,12 @@ const els = {
   lookupModal: document.getElementById('lookupModal'),
   lookupCloseBtn: document.getElementById('lookupCloseBtn'),
   lookupLeague: document.getElementById('lookupLeague'),
+  lookupPullLeagueBtn: document.getElementById('lookupPullLeagueBtn'),
+  lookupGroupField: document.getElementById('lookupGroupField'),
+  lookupGroup: document.getElementById('lookupGroup'),
+  lookupPullGroupBtn: document.getElementById('lookupPullGroupBtn'),
   lookupQuery: document.getElementById('lookupQuery'),
   lookupSearchBtn: document.getElementById('lookupSearchBtn'),
-  lookupPullBtn: document.getElementById('lookupPullBtn'),
   lookupStatus: document.getElementById('lookupStatus'),
   lookupResults: document.getElementById('lookupResults'),
 };
@@ -652,10 +659,35 @@ function normalizeDoc(doc) {
 
 // ── File I/O ─────────────────────────────────────────────────────────────
 
+// A "team" object has a fullName/shell field; a "group" (e.g. conference) is an
+// object whose values are teams. Used to disambiguate nested sub-leagues inside
+// a league like NCAAF.
+function isTeamObj(value) {
+  return !!value && typeof value === 'object' && ('fullName' in value || 'shell' in value);
+}
+
+// Resolve the dict that directly holds the team. groupName is '' for flat teams.
+function getTeamBucket(leagueName, groupName) {
+  const league = state.doc?.leagues?.[leagueName];
+  if (!league) return null;
+  if (groupName) return league[groupName] || null;
+  return league;
+}
+
+function countTeamsIn(leagueObj) {
+  if (!leagueObj || typeof leagueObj !== 'object') return 0;
+  let total = 0;
+  for (const value of Object.values(leagueObj)) {
+    if (isTeamObj(value)) total++;
+    else if (value && typeof value === 'object') total += Object.keys(value).filter(k => isTeamObj(value[k])).length;
+  }
+  return total;
+}
+
 function totalsSummary() {
-  const leagues = Object.keys(state.doc?.leagues || {});
-  const total = leagues.reduce((sum, k) => sum + Object.keys(state.doc.leagues[k]).length, 0);
-  return `${total} team${total === 1 ? '' : 's'} across ${leagues.length} league${leagues.length === 1 ? '' : 's'}`;
+  const leagueNames = Object.keys(state.doc?.leagues || {});
+  const total = leagueNames.reduce((sum, k) => sum + countTeamsIn(state.doc.leagues[k]), 0);
+  return `${total} team${total === 1 ? '' : 's'} across ${leagueNames.length} league${leagueNames.length === 1 ? '' : 's'}`;
 }
 
 async function loadFromFetch() {
@@ -667,7 +699,7 @@ async function loadFromFetch() {
     render();
     setStatus(totalsSummary());
   } catch (err) {
-    setStatus(`Could not fetch ./helmetcolors.json (${err.message}).`, { error: true });
+    setStatus(`Could not fetch ./teams.json (${err.message}).`, { error: true });
     state.doc = normalizeDoc(null);
     render();
   }
@@ -693,7 +725,7 @@ async function save() {
   if (window.showSaveFilePicker) {
     try {
       const handle = await window.showSaveFilePicker({
-        suggestedName: 'helmetcolors.json',
+        suggestedName: 'teams.json',
         types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
       });
       state.fileHandle = handle;
@@ -715,10 +747,10 @@ function download() {
   const blob = new Blob([serialize()], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'helmetcolors.json';
+  a.href = url; a.download = 'teams.json';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  setStatus('Downloaded helmetcolors.json — replace site/assets/colors/helmetcolors.json by hand.');
+  setStatus('Downloaded teams.json — replace site/assets/teams/teams.json by hand.');
 }
 
 // ── Mutations ────────────────────────────────────────────────────────────
@@ -736,58 +768,103 @@ function renameLeague(oldName, newNameRaw) {
   render();
 }
 
-function removeTeam(leagueName, code) {
-  delete state.doc.leagues[leagueName][code];
+function removeTeam(leagueName, groupName, code) {
+  const bucket = getTeamBucket(leagueName, groupName);
+  if (!bucket) return;
+  delete bucket[code];
   markDirty();
   render();
 }
 
-function renameTeam(leagueName, oldCode, newCodeRaw) {
+function renameTeam(leagueName, groupName, oldCode, newCodeRaw) {
   const newCode = (newCodeRaw || '').trim().toUpperCase();
   if (!newCode || newCode === oldCode) return;
-  const teams = state.doc.leagues[leagueName];
-  if (teams[newCode]) { setStatus(`Code "${newCode}" already used in ${leagueName}.`, { error: true }); render(); return; }
+  const bucket = getTeamBucket(leagueName, groupName);
+  if (!bucket) return;
+  if (bucket[newCode]) {
+    const where = groupName ? `${leagueName} / ${groupName}` : leagueName;
+    setStatus(`Code "${newCode}" already used in ${where}.`, { error: true });
+    render();
+    return;
+  }
   const rebuilt = {};
-  for (const k of Object.keys(teams)) {
-    rebuilt[k === oldCode ? newCode : k] = teams[k];
+  for (const k of Object.keys(bucket)) {
+    rebuilt[k === oldCode ? newCode : k] = bucket[k];
+  }
+  if (groupName) state.doc.leagues[leagueName][groupName] = rebuilt;
+  else state.doc.leagues[leagueName] = rebuilt;
+  markDirty();
+  render();
+}
+
+function renameGroup(leagueName, oldGroup, newGroupRaw) {
+  const newGroup = (newGroupRaw || '').trim();
+  if (!newGroup || newGroup === oldGroup) return;
+  const league = state.doc.leagues[leagueName];
+  if (!league) return;
+  if (league[newGroup]) { setStatus(`Group "${newGroup}" already exists in ${leagueName}.`, { error: true }); render(); return; }
+  const rebuilt = {};
+  for (const k of Object.keys(league)) {
+    rebuilt[k === oldGroup ? newGroup : k] = league[k];
   }
   state.doc.leagues[leagueName] = rebuilt;
   markDirty();
   render();
 }
 
-function updateTeamField(leagueName, code, field, value) {
-  const team = state.doc.leagues[leagueName] && state.doc.leagues[leagueName][code];
+function cardSelector(leagueName, groupName, code) {
+  return `[data-team-card="${leagueName}::${groupName}::${code}"]`;
+}
+
+function updateTeamField(leagueName, groupName, code, field, value) {
+  const bucket = getTeamBucket(leagueName, groupName);
+  const team = bucket && bucket[code];
   if (!team) return;
   team[field] = value;
   markDirty();
-  setStatus(`Edited ${leagueName} / ${code}`);
+  const where = groupName ? `${leagueName} / ${groupName} / ${code}` : `${leagueName} / ${code}`;
+  setStatus(`Edited ${where}`);
 }
 
-function updateColor(leagueName, code, role, rawValue) {
+function updateColor(leagueName, groupName, code, role, rawValue) {
   const normalized = normalizeHex(rawValue, null);
   if (!normalized) { setStatus(`Invalid hex "${rawValue}" for ${code}/${role}`, { error: true }); return false; }
-  updateTeamField(leagueName, code, role, normalized);
-  const card = document.querySelector(`[data-team-card="${leagueName}::${code}"]`);
-  if (card) {
+  updateTeamField(leagueName, groupName, code, role, normalized);
+  const card = document.querySelector(cardSelector(leagueName, groupName, code));
+  const bucket = getTeamBucket(leagueName, groupName);
+  if (card && bucket) {
     const swatchEl = card.querySelector(`[data-swatch-role="${role}"]`);
     if (swatchEl) swatchEl.style.background = normalized;
     const picker = card.querySelector(`[data-color-picker="${role}"]`);
     if (picker) picker.value = normalized;
     const textInput = card.querySelector(`[data-color-text="${role}"]`);
     if (textInput) textInput.value = normalized;
-    refreshHelmet(card, state.doc.leagues[leagueName][code]);
+    refreshHelmet(card, bucket[code]);
   }
   return true;
 }
 
+// Dispatch to the right SVG generator based on a team's sport.
+function teamMarkSVG(sport, primary, secondary, tertiary) {
+  switch ((sport || 'football').toLowerCase()) {
+    case 'basketball':
+      if (typeof window.basketballSVG === 'function') return window.basketballSVG(primary, secondary, tertiary);
+      break;
+    case 'baseball':
+      if (typeof window.baseballSVG === 'function') return window.baseballSVG(primary, secondary, tertiary);
+      break;
+  }
+  return typeof window.helmetSVG === 'function' ? window.helmetSVG(primary, secondary, tertiary) : null;
+}
+
 function refreshHelmet(card, team) {
   const img = card && card.querySelector('[data-helmet]');
-  if (!img || typeof window.helmetSVG !== 'function') return;
+  if (!img) return;
   const shell = team.shell || '#000000';
   const stripe = team.stripe || '#FFFFFF';
   const mask = team.mask || '#AAAAAA';
-  img.src = window.helmetSVG(shell, stripe, mask);
+  const src = teamMarkSVG(team.sport, shell, stripe, mask);
+  if (src) img.src = src;
 }
 
 function syncRoleUI(card, team, role) {
@@ -800,25 +877,27 @@ function syncRoleUI(card, team, role) {
   if (textInput) textInput.value = value;
 }
 
-function swapColorRoles(leagueName, code, roleA, roleB) {
-  const team = state.doc.leagues[leagueName] && state.doc.leagues[leagueName][code];
+function swapColorRoles(leagueName, groupName, code, roleA, roleB) {
+  const bucket = getTeamBucket(leagueName, groupName);
+  const team = bucket && bucket[code];
   if (!team) return;
   const tmp = team[roleA];
   team[roleA] = team[roleB];
   team[roleB] = tmp;
   markDirty();
 
-  const card = document.querySelector(`[data-team-card="${leagueName}::${code}"]`);
+  const card = document.querySelector(cardSelector(leagueName, groupName, code));
   if (card) {
     syncRoleUI(card, team, roleA);
     syncRoleUI(card, team, roleB);
     refreshHelmet(card, team);
   }
-  setStatus(`Swapped ${roleA.toUpperCase()} ↔ ${roleB.toUpperCase()} on ${leagueName} / ${code} — save to persist`);
+  const where = groupName ? `${leagueName} / ${groupName} / ${code}` : `${leagueName} / ${code}`;
+  setStatus(`Swapped ${roleA.toUpperCase()} ↔ ${roleB.toUpperCase()} on ${where} — save to persist`);
 }
 
-function flipShellStripe(leagueName, code) {
-  swapColorRoles(leagueName, code, 'shell', 'stripe');
+function flipShellStripe(leagueName, groupName, code) {
+  swapColorRoles(leagueName, groupName, code, 'shell', 'stripe');
 }
 
 // ── Render ───────────────────────────────────────────────────────────────
@@ -842,7 +921,20 @@ function render() {
   }
 }
 
-function renderLeague(leagueName, teams) {
+// Split a league's entries into nested groups (e.g. conferences) and flat
+// teams, preserving the JSON order so manually arranged orderings survive.
+function partitionLeagueEntries(leagueObj) {
+  const groups = [];   // [{ name, teams }]
+  const flatTeams = []; // [{ code, team }]
+  for (const key of Object.keys(leagueObj || {})) {
+    const value = leagueObj[key];
+    if (isTeamObj(value)) flatTeams.push({ code: key, team: value });
+    else if (value && typeof value === 'object') groups.push({ name: key, teams: value });
+  }
+  return { groups, flatTeams };
+}
+
+function renderLeague(leagueName, leagueObj) {
   const section = document.createElement('section');
   section.className = 'league';
 
@@ -860,23 +952,86 @@ function renderLeague(leagueName, teams) {
 
   const count = document.createElement('span');
   count.className = 'league-count';
-  count.textContent = `${Object.keys(teams).length} TEAMS`;
+  count.textContent = `${countTeamsIn(leagueObj)} TEAMS`;
   head.appendChild(count);
 
   section.appendChild(head);
 
-  const grid = document.createElement('div');
-  grid.className = 'team-grid';
-  const codes = Object.keys(teams).sort();
-  for (const code of codes) grid.appendChild(renderTeam(leagueName, code, teams[code]));
-  section.appendChild(grid);
+  const { groups, flatTeams } = partitionLeagueEntries(leagueObj);
+
+  // Render each nested group (conference) as its own labeled sub-section.
+  for (const { name: groupName, teams } of groups) {
+    section.appendChild(renderGroup(leagueName, groupName, teams));
+  }
+
+  // Render any flat teams (e.g. non-FBS teams in NCAAF) in a plain grid.
+  if (flatTeams.length) {
+    if (groups.length) {
+      const flatHead = document.createElement('div');
+      flatHead.className = 'league-head';
+      flatHead.style.marginTop = '18px';
+      const flatTitle = document.createElement('h3');
+      flatTitle.className = 'league-name';
+      flatTitle.style.fontSize = '1.4rem';
+      flatTitle.textContent = 'Unsorted';
+      flatHead.appendChild(flatTitle);
+      const flatCount = document.createElement('span');
+      flatCount.className = 'league-count';
+      flatCount.textContent = `${flatTeams.length} TEAMS`;
+      flatHead.appendChild(flatCount);
+      section.appendChild(flatHead);
+    }
+    const grid = document.createElement('div');
+    grid.className = 'team-grid';
+    const sorted = [...flatTeams].sort((a, b) => a.code.localeCompare(b.code));
+    for (const { code, team } of sorted) {
+      grid.appendChild(renderTeam(leagueName, '', code, team));
+    }
+    section.appendChild(grid);
+  }
+
   return section;
 }
 
-function renderTeam(leagueName, code, team) {
+function renderGroup(leagueName, groupName, teams) {
+  const wrap = document.createElement('div');
+  wrap.className = 'league-group';
+  wrap.style.marginTop = '18px';
+
+  const head = document.createElement('div');
+  head.className = 'league-head';
+
+  const name = document.createElement('h3');
+  name.className = 'league-name';
+  name.style.fontSize = '1.4rem';
+  name.textContent = groupName;
+  name.contentEditable = 'true';
+  name.spellcheck = false;
+  name.addEventListener('blur', () => renameGroup(leagueName, groupName, name.textContent));
+  name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); name.blur(); } });
+  head.appendChild(name);
+
+  const count = document.createElement('span');
+  count.className = 'league-count';
+  count.textContent = `${Object.keys(teams).length} TEAMS`;
+  head.appendChild(count);
+
+  wrap.appendChild(head);
+
+  const grid = document.createElement('div');
+  grid.className = 'team-grid';
+  const codes = Object.keys(teams).sort();
+  for (const code of codes) grid.appendChild(renderTeam(leagueName, groupName, code, teams[code]));
+  wrap.appendChild(grid);
+
+  return wrap;
+}
+
+function renderTeam(leagueName, groupName, code, team) {
   const card = document.createElement('article');
   card.className = 'team-card';
-  card.dataset.teamCard = `${leagueName}::${code}`;
+  card.dataset.teamCard = `${leagueName}::${groupName}::${code}`;
+  const where = groupName ? `${leagueName} / ${groupName}` : leagueName;
 
   const palette = document.createElement('div');
   palette.className = 'team-palette';
@@ -885,7 +1040,7 @@ function renderTeam(leagueName, code, team) {
     cell.dataset.swatchRole = key;
     cell.style.background = team[key] || '#000';
     const lbl = document.createElement('span');
-    lbl.textContent = label[0];
+    lbl.textContent = label;
     cell.appendChild(lbl);
     palette.appendChild(cell);
   }
@@ -910,25 +1065,26 @@ function renderTeam(leagueName, code, team) {
   codeInput.className = 'team-code-input';
   codeInput.value = code;
   codeInput.spellcheck = false;
-  codeInput.addEventListener('change', () => renameTeam(leagueName, code, codeInput.value));
+  codeInput.addEventListener('change', () => renameTeam(leagueName, groupName, code, codeInput.value));
   headline.appendChild(codeInput);
 
   const nameInput = document.createElement('input');
   nameInput.className = 'team-name-input';
   nameInput.value = team.fullName || '';
   nameInput.placeholder = 'Full team name';
-  nameInput.addEventListener('input', () => updateTeamField(leagueName, code, 'fullName', nameInput.value));
+  nameInput.addEventListener('input', () => updateTeamField(leagueName, groupName, code, 'fullName', nameInput.value));
   headline.appendChild(nameInput);
   body.appendChild(headline);
 
   const subRow = document.createElement('div');
   subRow.className = 'team-sub-row';
-  subRow.appendChild(buildLabeledInput('Short label', team.shortLabel || '', (v) => updateTeamField(leagueName, code, 'shortLabel', v)));
-  subRow.appendChild(buildLabeledInput('Mascot', team.mascot || '', (v) => updateTeamField(leagueName, code, 'mascot', v)));
+  subRow.appendChild(buildLabeledInput('First name', team.firstName || '', (v) => updateTeamField(leagueName, groupName, code, 'firstName', v)));
+  subRow.appendChild(buildLabeledInput('Fanbase', team.fanbase || '', (v) => updateTeamField(leagueName, groupName, code, 'fanbase', v)));
+  subRow.appendChild(buildLabeledInput('Mascot', team.mascot || '', (v) => updateTeamField(leagueName, groupName, code, 'mascot', v)));
   body.appendChild(subRow);
 
   for (const { key, label } of COLOR_ROLES) {
-    body.appendChild(buildColorRow(leagueName, code, key, label, team[key] || '#000000'));
+    body.appendChild(buildColorRow(leagueName, groupName, code, key, label, team[key] || '#000000'));
   }
 
   const footer = document.createElement('div');
@@ -937,12 +1093,12 @@ function renderTeam(leagueName, code, team) {
   flipBtn.className = 'btn-mini';
   flipBtn.textContent = '⇄ Flip';
   flipBtn.title = 'Swap shell and stripe colors';
-  flipBtn.onclick = () => flipShellStripe(leagueName, code);
+  flipBtn.onclick = () => flipShellStripe(leagueName, groupName, code);
   footer.appendChild(flipBtn);
   const delTeam = document.createElement('button');
   delTeam.className = 'btn-mini danger';
   delTeam.textContent = 'Delete team';
-  delTeam.onclick = () => { if (confirm(`Delete ${leagueName} / ${code}?`)) removeTeam(leagueName, code); };
+  delTeam.onclick = () => { if (confirm(`Delete ${where} / ${code}?`)) removeTeam(leagueName, groupName, code); };
   footer.appendChild(delTeam);
   body.appendChild(footer);
 
@@ -966,11 +1122,11 @@ function buildLabeledInput(label, value, onChange) {
   return wrap;
 }
 
-function buildColorRow(leagueName, code, role, label, value) {
+function buildColorRow(leagueName, groupName, code, role, label, value) {
   const row = document.createElement('div');
   row.className = 'color-row';
   row.dataset.colorRow = role;
-  const teamKey = `${leagueName}::${code}`;
+  const teamKey = `${leagueName}::${groupName}::${code}`;
 
   const handle = document.createElement('span');
   handle.className = 'color-drag-handle';
@@ -998,20 +1154,20 @@ function buildColorRow(leagueName, code, role, label, value) {
     const sourceTeam = e.dataTransfer.getData('text/team');
     if (sourceTeam !== teamKey) return;
     if (!sourceRole || sourceRole === role) return;
-    swapColorRoles(leagueName, code, sourceRole, role);
+    swapColorRoles(leagueName, groupName, code, sourceRole, role);
   });
 
   const picker = document.createElement('input');
   picker.type = 'color';
   picker.value = normalizeHex(value);
   picker.dataset.colorPicker = role;
-  picker.addEventListener('input', () => updateColor(leagueName, code, role, picker.value));
+  picker.addEventListener('input', () => updateColor(leagueName, groupName, code, role, picker.value));
 
   const text = document.createElement('input');
   text.type = 'text';
   text.value = normalizeHex(value);
   text.dataset.colorText = role;
-  text.addEventListener('change', () => updateColor(leagueName, code, role, text.value));
+  text.addEventListener('change', () => updateColor(leagueName, groupName, code, role, text.value));
   text.addEventListener('blur', () => { text.value = normalizeHex(text.value, text.value); });
 
   const roleLabel = document.createElement('span');
@@ -1045,9 +1201,40 @@ function populateLookupLeagueSelect() {
   }
 }
 
+// Returns the conference/group names currently nested under a league, in their
+// existing JSON order. Empty when the league is flat (e.g. NFL, MLB).
+function getLeagueGroups(leagueName) {
+  const league = state.doc?.leagues?.[leagueName];
+  if (!league) return [];
+  return Object.keys(league).filter((key) => !isTeamObj(league[key]));
+}
+
+function populateLookupGroupSelect() {
+  const select = els.lookupGroup;
+  const field = els.lookupGroupField;
+  if (!select || !field) return;
+  const leagueName = els.lookupLeague.value;
+  const groups = getLeagueGroups(leagueName);
+  select.innerHTML = '';
+  if (!groups.length) {
+    field.hidden = true;
+    return;
+  }
+  field.hidden = false;
+  const unsorted = document.createElement('option');
+  unsorted.value = '';
+  unsorted.textContent = 'Unsorted (top level)';
+  select.appendChild(unsorted);
+  for (const g of groups) {
+    const opt = document.createElement('option');
+    opt.value = g;
+    opt.textContent = g;
+    select.appendChild(opt);
+  }
+}
+
 function syncLookupLeagueLabel() {
-  const label = document.getElementById('lookupPullLeagueLabel');
-  if (label) label.textContent = els.lookupLeague.value || '';
+  populateLookupGroupSelect();
 }
 
 function openLookupModal(preferredLeague) {
@@ -1084,7 +1271,7 @@ async function fetchViaProxies(target) {
 
 async function fetchTeams(leaguePath) {
   if (teamCache.has(leaguePath)) return teamCache.get(leaguePath);
-  const target = `${ESPN_BASE}/${leaguePath}/teams?limit=500`;
+  const target = `${ESPN_BASE}/${leaguePath}/teams?limit=900`;
   const data = await fetchViaProxies(target);
   const teams = [];
   for (const sport of data.sports || []) {
@@ -1122,18 +1309,32 @@ function teamCode(team) {
   return generateFallbackCode(team.displayName || team.name || '');
 }
 
-function buildTeamRecord(team) {
+// Maps a league code to the sport whose SVG mark we render for its teams.
+const LEAGUE_SPORTS = {
+  NFL: 'football', NCAAF: 'football', CFB: 'football',
+  NBA: 'basketball', WNBA: 'basketball', NCAAM: 'basketball', NCAAW: 'basketball',
+  MLB: 'baseball',
+  NHL: 'hockey',
+  MLS: 'soccer', EPL: 'soccer', 'PREMIER LEAGUE': 'soccer',
+  BUNDESLIGA: 'soccer', 'LA LIGA': 'soccer', 'SERIE A': 'soccer', 'LIGUE 1': 'soccer',
+};
+
+function buildTeamRecord(team, leagueCode) {
   const fullName = team.displayName || team.name || '';
   const location = team.location || fullName.split(' ').slice(0, -1).join(' ') || fullName;
   const mascot = team.name || team.nickname || fullName.split(' ').slice(-1)[0] || fullName;
-  return {
+  const record = {
     fullName,
-    shortLabel: location,
+    firstName: location,
+    fanbase: location,
     mascot,
     shell: normalizeHex(team.color, '#000000'),
     stripe: normalizeHex(team.alternateColor, '#FFFFFF'),
     mask: '#FFFFFF'
   };
+  const sport = LEAGUE_SPORTS[leagueCode];
+  if (sport) record.sport = sport;
+  return record;
 }
 
 async function runLookup() {
@@ -1199,7 +1400,8 @@ function renderLookupResult(leagueCode, team) {
   add.textContent = '+ Add';
   add.style.padding = '5px 10px';
   add.style.fontSize = '0.7rem';
-  add.onclick = () => addTeamFromLookup(leagueCode, team);
+  // Read the selected group at click time so a late conference change still wins.
+  add.onclick = () => addTeamFromLookup(leagueCode, els.lookupGroup ? els.lookupGroup.value : '', team);
 
   card.appendChild(info);
   card.appendChild(swatches);
@@ -1207,38 +1409,49 @@ function renderLookupResult(leagueCode, team) {
   els.lookupResults.appendChild(card);
 }
 
-function addTeamFromLookup(leagueCode, team) {
+function addTeamFromLookup(leagueCode, groupName, team) {
   if (!state.doc.leagues[leagueCode]) state.doc.leagues[leagueCode] = {};
-  const teams = state.doc.leagues[leagueCode];
+  const league = state.doc.leagues[leagueCode];
+  if (groupName) {
+    if (!league[groupName] || isTeamObj(league[groupName])) league[groupName] = {};
+  }
+  const bucket = groupName ? league[groupName] : league;
   let code = teamCode(team);
   if (!code) {
     code = (prompt('No code from ESPN. Team code?') || '').trim().toUpperCase();
     if (!code) return;
   }
-  if (teams[code] && !confirm(`${leagueCode} / ${code} already exists. Overwrite?`)) return;
-  teams[code] = buildTeamRecord(team);
+  const where = groupName ? `${leagueCode} / ${groupName}` : leagueCode;
+  if (bucket[code] && !confirm(`${where} / ${code} already exists. Overwrite?`)) return;
+  bucket[code] = buildTeamRecord(team, leagueCode);
   markDirty();
   render();
-  setStatus(`Added ${leagueCode} / ${code}.`);
+  setStatus(`Added ${where} / ${code}.`);
   closeLookupModal();
 }
 
 const PULL_BATCH_SIZE = 50;
 
-async function pullWholeLeague(leagueCode) {
+async function pullWholeLeague(leagueCode, groupName) {
   const path = LEAGUE_PATHS[leagueCode];
   if (!path) return;
-  els.lookupStatus.textContent = `Fetching all ${leagueCode} teams from ESPN…`;
+  const where = groupName ? `${leagueCode} / ${groupName}` : leagueCode;
+  els.lookupStatus.textContent = `Fetching all ${where} teams from ESPN…`;
   els.lookupResults.innerHTML = '';
   els.lookupSearchBtn.disabled = true;
-  els.lookupPullBtn.disabled = true;
+  els.lookupPullLeagueBtn.disabled = true;
+  els.lookupPullGroupBtn.disabled = true;
   try {
     const teams = await fetchTeams(path);
     if (!teams.length) { els.lookupStatus.textContent = `No teams returned for ${leagueCode}.`; return; }
     if (!state.doc.leagues[leagueCode]) state.doc.leagues[leagueCode] = {};
-    const bucket = state.doc.leagues[leagueCode];
-    const existingCount = Object.keys(bucket).length;
-    if (existingCount && !confirm(`${leagueCode} already has ${existingCount} team(s). Merge ${teams.length} from ESPN?`)) {
+    const league = state.doc.leagues[leagueCode];
+    if (groupName) {
+      if (!league[groupName] || isTeamObj(league[groupName])) league[groupName] = {};
+    }
+    const bucket = groupName ? league[groupName] : league;
+    const existingCount = countTeamsIn(bucket);
+    if (existingCount && !confirm(`${where} already has ${existingCount} team(s). Merge ${teams.length} from ESPN?`)) {
       els.lookupStatus.textContent = 'Cancelled.';
       return;
     }
@@ -1258,7 +1471,7 @@ async function pullWholeLeague(leagueCode) {
         while (usedCodes.has(code)) code = `${base}${n++}`;
         if (code !== base) suffixed++;
         usedCodes.add(code);
-        bucket[code] = buildTeamRecord(team);
+        bucket[code] = buildTeamRecord(team, leagueCode);
         added++;
       }
       markDirty();
@@ -1267,12 +1480,12 @@ async function pullWholeLeague(leagueCode) {
       if (batchEnd < teams.length) {
         const remaining = teams.length - batchEnd;
         const next = Math.min(PULL_BATCH_SIZE, remaining);
-        setStatus(`${added} of ${teams.length} ${leagueCode} teams added — waiting on you to continue…`);
+        setStatus(`${added} of ${teams.length} ${where} teams added — waiting on you to continue…`);
         // Let the browser paint the new cards before the blocking confirm() pops.
         await new Promise(requestAnimationFrame);
-        const keepGoing = confirm(`Added ${added} of ${teams.length} ${leagueCode} teams.\n\nPull the next ${next}?`);
+        const keepGoing = confirm(`Added ${added} of ${teams.length} ${where} teams.\n\nPull the next ${next}?`);
         if (!keepGoing) {
-          const parts = [`Stopped at ${added} of ${teams.length} ${leagueCode} teams`];
+          const parts = [`Stopped at ${added} of ${teams.length} ${where} teams`];
           if (suffixed) parts.push(`${suffixed} renamed to dodge collisions`);
           setStatus(parts.join(' · '));
           return;
@@ -1281,14 +1494,15 @@ async function pullWholeLeague(leagueCode) {
     }
 
     const parts = [`ESPN returned ${teams.length} team${teams.length === 1 ? '' : 's'}`];
-    parts.push(`${added} added to ${leagueCode}`);
+    parts.push(`${added} added to ${where}`);
     if (suffixed) parts.push(`${suffixed} renamed to dodge collisions`);
     setStatus(parts.join(' · '));
   } catch (err) {
     els.lookupStatus.textContent = `Pull failed: ${err.message}`;
   } finally {
     els.lookupSearchBtn.disabled = false;
-    els.lookupPullBtn.disabled = false;
+    els.lookupPullLeagueBtn.disabled = false;
+    els.lookupPullGroupBtn.disabled = false;
   }
 }
 
@@ -1303,7 +1517,8 @@ els.lookupBtn.addEventListener('click', () => openLookupModal());
 els.lookupCloseBtn.addEventListener('click', closeLookupModal);
 els.lookupModal.addEventListener('click', (e) => { if (e.target === els.lookupModal) closeLookupModal(); });
 els.lookupSearchBtn.addEventListener('click', runLookup);
-els.lookupPullBtn.addEventListener('click', () => pullWholeLeague(els.lookupLeague.value));
+els.lookupPullLeagueBtn.addEventListener('click', () => pullWholeLeague(els.lookupLeague.value, ''));
+els.lookupPullGroupBtn.addEventListener('click', () => pullWholeLeague(els.lookupLeague.value, els.lookupGroup.value));
 els.lookupLeague.addEventListener('change', syncLookupLeagueLabel);
 els.lookupQuery.addEventListener('keydown', (e) => { if (e.key === 'Enter') runLookup(); });
 els.saveBtn.addEventListener('click', save);

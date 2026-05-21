@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-add_colors.py — look up a team's colors and append to helmetcolors.json.
+teams.py — look up a team's colors and append to teams.json.
 
 Run:
-    python add_colors.py
+    python teams.py
 
 Prompts for sport/league and a team name (any of full name, mascot,
 location, or abbreviation), looks the team up via ESPN's public team
-API, and writes the resulting palette into helmetcolors.json under that
+API, and writes the resulting palette into teams.json under that
 league's section.
 
 ESPN exposes two colors per team (primary + alternate). Tertiary and
-quaternary default to #FFFFFF; edit helmetcolors.json by hand if you need
+quaternary default to #FFFFFF; edit teams.json by hand if you need
 custom values.
 """
 import json
@@ -23,9 +23,9 @@ from difflib import get_close_matches
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-JSON_PATH = SCRIPT_DIR / 'helmetcolors.json'
+JSON_PATH = SCRIPT_DIR / 'teams.json'
 HEX_RE = re.compile(r'^#?([0-9A-Fa-f]{6})$')
-ESPN_URL = 'https://site.api.espn.com/apis/site/v2/sports/{path}/teams?limit=500'
+ESPN_URL = 'https://site.api.espn.com/apis/site/v2/sports/{path}/teams?limit=900'
 
 LEAGUE_PATHS = {
     'NFL': 'football/nfl',
@@ -175,7 +175,8 @@ def main():
         abbreviation = ask('Team code (ESPN had none)').upper()
 
     display_name = team.get('displayName') or team.get('name') or team_query
-    short_label = team.get('location') or display_name.rsplit(' ', 1)[0]
+    first_name = team.get('location') or display_name.rsplit(' ', 1)[0]
+    fanbase = first_name
     mascot = team.get('name') or team.get('nickname') or display_name.rsplit(' ', 1)[-1]
 
     shell = normalize_hex(team.get('color'), default='#000000')
@@ -197,7 +198,8 @@ def main():
 
     league_teams[abbreviation] = {
         'fullName': display_name,
-        'shortLabel': short_label,
+        'firstName': first_name,
+        'fanbase': fanbase,
         'mascot': mascot,
         'shell': shell,
         'stripe': stripe,

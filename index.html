@@ -11,6 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="site/assets/games/helmets/helmet.js"></script>
+  <script src="site/assets/games/helmets/basketball.js"></script>
+  <script src="site/assets/games/helmets/baseball.js"></script>
   <style>
     * { box-sizing: border-box; }
 
@@ -226,8 +228,8 @@
     }
 
     .hero-meta {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
       gap: 10px;
       padding: 16px;
       border: 1px solid var(--line-strong);
@@ -309,10 +311,14 @@
       gap: 8px;
       flex: 1 1 0;
       min-height: 0;
+      height: clamp(200px, 34svh, 340px);
+      block-size: clamp(200px, 34svh, 340px);
     }
     .hero-meta-list {
       position: relative;
       flex: 1 1 0;
+      height: 100%;
+      block-size: 100%;
       min-height: 0;
       overflow-y: auto;
       overscroll-behavior: contain;
@@ -332,6 +338,11 @@
       pointer-events: none;
     }
     .hero-meta-list-track {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .hero-meta-list-chunk {
       display: flex;
       flex-direction: column;
       gap: 3px;
@@ -998,8 +1009,8 @@
         <div class="hero-grid">
           <div>
             <p class="hero-kicker"><span id="heroKickerGameCount">0</span> GAMES IN <span id="heroKickerCityCount">0</span> CITIES</p>
-            <h1 class="hero-headline">Their City. Your Game.</h1>
-            <p class="hero-copy">Each game is one part scavenger hunt, one part outdoor escape room. Start with the city you are in or the fandom you travel with.</p>
+            <h1 class="hero-headline">Behind Enemy Lines</h1>
+            <p class="hero-copy">Play scavenger hunt/escape room style games on city streets. Great for when you'r visiting a city as an away team fan.</p>
           </div>
 
           <aside class="hero-meta" aria-label="Fandoms">
@@ -1081,7 +1092,7 @@
       const selectedGamesCloseBtn = document.getElementById('selectedGamesClose');
       const heroMetaListEl = document.getElementById('heroMetaList');
 
-      const COLORS_JSON_URL = 'site/assets/colors/helmetcolors.json';
+      const COLORS_JSON_URL = 'site/assets/teams/teams.json';
       const NO_HELMET_PALETTE = {
         primary_color: '#c8c4ba',
         secondary_color: '#8a8680',
@@ -1136,6 +1147,7 @@
       let selectedEntryKey  = '';
       let liveGames = [];
       let colorsByCityMascot = new Map();
+      let allTeams = [];
 
       function teamKey(value) {
         return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -1144,29 +1156,53 @@
       async function fetchTeamColors() {
         try {
           const response = await fetch(COLORS_JSON_URL, { cache: 'no-store' });
-          if (!response.ok) return new Map();
+          if (!response.ok) return { lookup: new Map(), teams: [] };
           const lookup = new Map();
+          const teams = [];
           const doc = await response.json();
           const leagues = (doc && doc.leagues) || {};
-          Object.keys(leagues).forEach((leagueName) => {
-            const teams = leagues[leagueName] || {};
-            Object.keys(teams).forEach((code) => {
-              const team = teams[code] || {};
-              const palette = {
-                primary_color: team.shell || '',
-                secondary_color: team.stripe || '',
-                tertiary_color: team.mask || ''
-              };
-              const cityKey = teamKey(team.shortLabel);
-              const mascotKey = teamKey(team.mascot);
-              if (cityKey && mascotKey) {
-                lookup.set(cityKey + '|' + mascotKey, palette);
+          // Some leagues (e.g. NCAAF) nest teams under a conference key, so walk
+          // recursively: a node with `fullName`/`shell` is a team, anything else
+          // is a sub-group whose values we recurse into.
+          const walk = (node) => {
+            if (!node || typeof node !== 'object') return;
+            Object.keys(node).forEach((key) => {
+              const value = node[key];
+              if (!value || typeof value !== 'object') return;
+              if ('fullName' in value || 'shell' in value) {
+                const palette = {
+                  primary_color: value.shell || '',
+                  secondary_color: value.stripe || '',
+                  tertiary_color: value.mask || '',
+                  sport: value.sport || '',
+                  fanbase: value.fanbase || value.firstName || ''
+                };
+                // Index by fanbase (matches schedule's away_team_city); also
+                // index by firstName when it differs so legacy schedule data
+                // using the brand short name still resolves.
+                const fanbaseKey = teamKey(value.fanbase || value.firstName);
+                const firstNameKey = teamKey(value.firstName);
+                const mascotKey = teamKey(value.mascot);
+                if (mascotKey) {
+                  if (fanbaseKey) lookup.set(fanbaseKey + '|' + mascotKey, palette);
+                  if (firstNameKey && firstNameKey !== fanbaseKey) lookup.set(firstNameKey + '|' + mascotKey, palette);
+                }
+                teams.push({
+                  firstName: value.firstName || '',
+                  fanbase: value.fanbase || value.firstName || '',
+                  mascot: value.mascot || '',
+                  sport: value.sport || '',
+                  palette
+                });
+              } else {
+                walk(value);
               }
             });
-          });
-          return lookup;
+          };
+          walk(leagues);
+          return { lookup, teams };
         } catch (error) {
-          return new Map();
+          return { lookup: new Map(), teams: [] };
         }
       }
 
@@ -1176,6 +1212,20 @@
         const mascotKey = teamKey(game.away_team_mascot);
         if (!cityKey || !mascotKey) return null;
         return colorsByCityMascot.get(cityKey + '|' + mascotKey) || null;
+      }
+
+      // Dispatch to the right sport-mark SVG generator. Falls back to the
+      // football helmet so legacy entries with no sport tag still render.
+      function teamMarkSVG(sport, primary, secondary, tertiary) {
+        switch ((sport || 'football').toLowerCase()) {
+          case 'basketball':
+            if (typeof window.basketballSVG === 'function') return window.basketballSVG(primary, secondary, tertiary);
+            break;
+          case 'baseball':
+            if (typeof window.baseballSVG === 'function') return window.baseballSVG(primary, secondary, tertiary);
+            break;
+        }
+        return typeof window.helmetSVG === 'function' ? window.helmetSVG(primary, secondary, tertiary) : null;
       }
 
       function isTrueish(value) {
@@ -1198,18 +1248,20 @@
         return plainText(game && game.city);
       }
 
-      // Cities that host two NFL teams — show "City Mascot" so each fanbase
-      // is its own row in the Fandom directory.
-      const SPLIT_BY_MASCOT = new Set(['los angeles', 'new york']);
-
+      // Always bucket fan-mode games by fanbase+mascot internally so two
+      // teams with the same fanbase (LA Rams/Chargers, NY Yankees/Mets,
+      // UTSA Roadrunners + San Antonio Spurs, etc.) each get their own
+      // directory row. The row displays only the fanbase; the helmet icon
+      // tells them apart visually. We normalize via the team's `fanbase`
+      // from teams.json so schedule inconsistencies (UTSA vs San Antonio)
+      // don't fracture a single team into multiple rows.
       function getFanTeam(game) {
-        const city = plainText(game && game.away_team_city);
+        const cityRaw = plainText(game && game.away_team_city);
         const mascot = plainText(game && game.away_team_mascot);
+        const helmet = getHelmetByAwayTeam(game);
+        const city = (helmet && helmet.fanbase) || cityRaw;
         if (city) {
-          if (mascot && SPLIT_BY_MASCOT.has(city.toLowerCase())) {
-            return city + ' ' + mascot;
-          }
-          return city;
+          return mascot ? city + ' ' + mascot : city;
         }
         const structuredCandidates = [
           game && game.away_team,
@@ -1281,32 +1333,40 @@
           }));
       }
 
+      // Fan-mode directory is driven by teams.json (canonical team list), not
+      // by whatever free-form text happens to be in the Supabase game rows.
+      // We pre-bucket games by their normalized fanKey so each team can claim
+      // its own entries; teams with no matching games are dropped so the list
+      // stays focused on currently-playable fandoms.
       function buildFanEntries() {
-        const counts = new Map();
-        const samples = new Map();
+        const gamesByFanKey = new Map();
         liveGames.forEach((game) => {
           const fan = getFanTeam(game);
           if (!fan) return;
-          counts.set(fan, (counts.get(fan) || 0) + 1);
-          if (!samples.has(fan)) samples.set(fan, game);
+          if (!gamesByFanKey.has(fan)) gamesByFanKey.set(fan, []);
+          gamesByFanKey.get(fan).push(game);
         });
-        return [...counts.entries()]
-          .sort((left, right) => left[0].localeCompare(right[0], undefined, { sensitivity: 'base' }))
-          .map(([fanKey, count]) => {
-            const sample = samples.get(fanKey);
-            const helmet = getHelmetByAwayTeam(sample);
-            const displayLabel = plainText(sample && sample.away_team_city) || fanKey;
+        return allTeams
+          .map((team) => {
+            const fanbase = team.fanbase || team.firstName || '';
+            const mascot = team.mascot || '';
+            if (!fanbase || !mascot) return null;
+            const fanKey = fanbase + ' ' + mascot;
+            const games = gamesByFanKey.get(fanKey) || [];
+            const count = games.length;
             return {
-              label: displayLabel,
+              label: fanbase,
               count,
-              sub: helmet ? getGameCountLabel(count) : 'No helmet found',
+              sub: count > 0 ? getGameCountLabel(count) : 'No games yet',
               href: '#',
-              helmet,
+              helmet: team.palette,
               expectsHelmet: true,
               entryKind: 'fan',
               entryKey: fanKey
             };
-          });
+          })
+          .filter((entry) => entry && entry.count > 0)
+          .sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }));
       }
 
       function renderDirectory() {
@@ -1360,18 +1420,22 @@
           item.classList.add('is-active');
         }
 
-        if (entry.expectsHelmet && typeof window.helmetSVG === 'function') {
-          const img = document.createElement('img');
-          img.className = 'hero-meta-list-helmet';
-          img.alt = '';
+        if (entry.expectsHelmet) {
           const palette = entry.helmet || NO_HELMET_PALETTE;
-          img.src = window.helmetSVG(
+          const src = teamMarkSVG(
+            palette.sport,
             palette.primary_color,
             palette.secondary_color,
             palette.tertiary_color
           );
-          if (!entry.helmet) img.classList.add('hero-meta-list-helmet--none');
-          item.appendChild(img);
+          if (src) {
+            const img = document.createElement('img');
+            img.className = 'hero-meta-list-helmet';
+            img.alt = '';
+            img.src = src;
+            if (!entry.helmet) img.classList.add('hero-meta-list-helmet--none');
+            item.appendChild(img);
+          }
         } else if (entry.entryKind === 'city') {
           const badge = cityGeoBadge(entry.label);
           const geo = document.createElement('span');
@@ -1409,15 +1473,23 @@
 
         const track = document.createElement('div');
         track.className = 'hero-meta-list-track';
+        const primaryChunk = document.createElement('div');
+        primaryChunk.className = 'hero-meta-list-chunk';
+        const duplicateChunk = document.createElement('div');
+        duplicateChunk.className = 'hero-meta-list-chunk';
+        duplicateChunk.setAttribute('aria-hidden', 'true');
         // Stash each entry by its lookup key for the delegated click handler.
         entries.forEach((entry) => {
           heroMetaEntries.set(entry.entryKind + '|' + entry.entryKey, entry);
-          track.appendChild(createHeroMetaItem(entry));
+          primaryChunk.appendChild(createHeroMetaItem(entry));
         });
-        // Duplicate so wrapping the scroll position by half the height loops seamlessly.
-        entries.forEach((entry) => track.appendChild(createHeroMetaItem(entry)));
+        // Duplicate in a separate chunk so the measured loop height matches
+        // the original list exactly.
+        entries.forEach((entry) => duplicateChunk.appendChild(createHeroMetaItem(entry)));
+        track.append(primaryChunk, duplicateChunk);
         heroMetaListEl.appendChild(track);
         // Reset to top on re-render so the loop starts clean.
+        metaScrollPosition = 0;
         heroMetaListEl.scrollTop = 0;
         startMetaScroll();
       }
@@ -1425,48 +1497,68 @@
       // ── Perpetual scroll + drag-to-scroll for the hero meta list ─────────
       const META_SCROLL_PX_PER_SEC = 22;
       let metaScrollRaf = null;
-      let metaScrollPaused = false;
       let metaScrollLastTs = 0;
+      let metaScrollPosition = 0;
+      let metaDragActive = false;
+      let metaUserPauseUntil = 0;
       const metaReducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+      function getMetaScrollLoopHeight() {
+        if (!heroMetaListEl) return 0;
+        const firstChunk = heroMetaListEl.querySelector('.hero-meta-list-chunk');
+        if (!firstChunk) return 0;
+        return Math.max(0, Math.round(firstChunk.getBoundingClientRect().height));
+      }
+
+      function shouldPauseMetaScroll(ts) {
+        if (!heroMetaListEl) return true;
+        if (metaDragActive) return true;
+        if (heroMetaListEl.contains(document.activeElement)) return true;
+        return ts < metaUserPauseUntil;
+      }
+
+      function setMetaScrollPosition(next, loopHeight) {
+        if (!heroMetaListEl) return;
+        let value = Number.isFinite(next) ? next : 0;
+        if (loopHeight > 0) {
+          while (value >= loopHeight) value -= loopHeight;
+          while (value < 0) value += loopHeight;
+        }
+        metaScrollPosition = value;
+        heroMetaListEl.scrollTop = value;
+      }
 
       function startMetaScroll() {
         if (metaScrollRaf || metaReducedMotion || !heroMetaListEl) return;
         metaScrollLastTs = 0;
         const tick = (ts) => {
           if (!metaScrollLastTs) metaScrollLastTs = ts;
-          const dt = ts - metaScrollLastTs;
+          const dt = Math.min(40, ts - metaScrollLastTs);
           metaScrollLastTs = ts;
-          if (!metaScrollPaused && heroMetaListEl && heroMetaListEl.scrollHeight > heroMetaListEl.clientHeight) {
-            const half = heroMetaListEl.scrollHeight / 2;
-            let next = heroMetaListEl.scrollTop + META_SCROLL_PX_PER_SEC * (dt / 1000);
-            if (next >= half) next -= half;
-            heroMetaListEl.scrollTop = next;
+          const loopHeight = getMetaScrollLoopHeight();
+          if (!shouldPauseMetaScroll(ts) && heroMetaListEl && loopHeight > heroMetaListEl.clientHeight) {
+            setMetaScrollPosition(metaScrollPosition + META_SCROLL_PX_PER_SEC * (dt / 1000), loopHeight);
           }
           metaScrollRaf = requestAnimationFrame(tick);
         };
         metaScrollRaf = requestAnimationFrame(tick);
       }
 
-      // Wrap scrollTop into the first half of the duplicated track so user
+      // Wrap scrollTop into the height of the original chunk so user
       // scrolling / wheel / drag still looks seamless.
       function wrapMetaScroll() {
         if (!heroMetaListEl) return;
-        const half = heroMetaListEl.scrollHeight / 2;
-        if (half <= 0) return;
-        if (heroMetaListEl.scrollTop >= half) heroMetaListEl.scrollTop -= half;
-        else if (heroMetaListEl.scrollTop < 0)  heroMetaListEl.scrollTop += half;
+        const loopHeight = getMetaScrollLoopHeight();
+        if (loopHeight <= 0) {
+          metaScrollPosition = heroMetaListEl.scrollTop;
+          return;
+        }
+        setMetaScrollPosition(heroMetaListEl.scrollTop, loopHeight);
       }
 
       function initMetaScrollInteractions() {
         if (!heroMetaListEl) return;
-        // Hover / focus pauses auto-scroll.
-        heroMetaListEl.addEventListener('pointerenter', () => { metaScrollPaused = true; });
-        heroMetaListEl.addEventListener('pointerleave', () => { if (!dragActive) metaScrollPaused = false; });
-        heroMetaListEl.addEventListener('focusin',  () => { metaScrollPaused = true; });
-        heroMetaListEl.addEventListener('focusout', () => { if (!dragActive) metaScrollPaused = false; });
-
         // Drag-to-scroll.
-        let dragActive = false;
         let dragStartY = 0;
         let dragStartScroll = 0;
         let dragSuppressClick = false;
@@ -1474,21 +1566,22 @@
 
         heroMetaListEl.addEventListener('pointerdown', (e) => {
           if (e.pointerType === 'mouse' && e.button !== 0) return;
-          dragActive = false;
+          metaDragActive = false;
           dragStartY = e.clientY;
+          metaScrollPosition = heroMetaListEl.scrollTop;
           dragStartScroll = heroMetaListEl.scrollTop;
+          metaUserPauseUntil = performance.now() + 600;
           try { heroMetaListEl.setPointerCapture(e.pointerId); } catch (_) {}
         });
 
         heroMetaListEl.addEventListener('pointermove', (e) => {
           if (!heroMetaListEl.hasPointerCapture(e.pointerId)) return;
           const dy = e.clientY - dragStartY;
-          if (!dragActive && Math.abs(dy) > DRAG_THRESHOLD) {
-            dragActive = true;
-            metaScrollPaused = true;
+          if (!metaDragActive && Math.abs(dy) > DRAG_THRESHOLD) {
+            metaDragActive = true;
             heroMetaListEl.classList.add('is-dragging');
           }
-          if (dragActive) {
+          if (metaDragActive) {
             heroMetaListEl.scrollTop = dragStartScroll - dy;
             wrapMetaScroll();
             // Re-baseline so wrap doesn't make subsequent moves jump.
@@ -1504,15 +1597,14 @@
           if (heroMetaListEl.hasPointerCapture(e.pointerId)) {
             try { heroMetaListEl.releasePointerCapture(e.pointerId); } catch (_) {}
           }
-          if (dragActive) {
+          if (metaDragActive) {
             dragSuppressClick = true;
             // Allow one event loop turn for the click to fire and be swallowed.
             setTimeout(() => { dragSuppressClick = false; }, 0);
           }
-          dragActive = false;
+          metaDragActive = false;
           heroMetaListEl.classList.remove('is-dragging');
-          // Resume auto-scroll if the pointer has left the list, otherwise
-          // wait for pointerleave.
+          metaUserPauseUntil = performance.now() + 350;
         };
         heroMetaListEl.addEventListener('pointerup', endDrag);
         heroMetaListEl.addEventListener('pointercancel', endDrag);
@@ -1525,15 +1617,9 @@
           }
         }, true);
 
-        // Native scroll (wheel, touch on mobile) — pause briefly so we don't fight the user.
-        let wheelPauseTimer = null;
+        // Native scroll (wheel) — pause briefly so we don't fight the user.
         heroMetaListEl.addEventListener('wheel', () => {
-          metaScrollPaused = true;
-          if (wheelPauseTimer) clearTimeout(wheelPauseTimer);
-          wheelPauseTimer = setTimeout(() => {
-            // Only resume if the cursor has left the list.
-            if (!heroMetaListEl.matches(':hover')) metaScrollPaused = false;
-          }, 800);
+          metaUserPauseUntil = performance.now() + 800;
         }, { passive: true });
 
         heroMetaListEl.addEventListener('scroll', wrapMetaScroll, { passive: true });
@@ -1573,21 +1659,23 @@
 
         if (entry.entryKind === 'fan') {
           const sample = games[0] || null;
-          const city = plainText(sample && sample.away_team_city);
-          const mascot = plainText(sample && sample.away_team_mascot);
-          const teamName = [city, mascot].filter(Boolean).join(' ') || entry.label;
-          titleText = `${teamName} · ${countLabel}`;
-          if (typeof window.helmetSVG === 'function') {
+          const fanbase = (entry.helmet && entry.helmet.fanbase) || plainText(sample && sample.away_team_city);
+          titleText = `${fanbase || entry.label} · ${countLabel}`;
+          {
             const palette = entry.helmet || NO_HELMET_PALETTE;
-            const img = document.createElement('img');
-            img.className = 'games-lightbox-icon games-lightbox-icon--helmet';
-            img.alt = '';
-            img.src = window.helmetSVG(
+            const src = teamMarkSVG(
+              palette.sport,
               palette.primary_color,
               palette.secondary_color,
               palette.tertiary_color
             );
-            iconNode = img;
+            if (src) {
+              const img = document.createElement('img');
+              img.className = 'games-lightbox-icon games-lightbox-icon--helmet';
+              img.alt = '';
+              img.src = src;
+              iconNode = img;
+            }
           }
         } else if (entry.entryKind === 'city') {
           const cityName = cityDisplayName(entry.label) || entry.label;
@@ -1677,8 +1765,9 @@
 
       async function load() {
         try {
-          const [games, colorsLookup] = await Promise.all([fetchGames(), fetchTeamColors()]);
-          colorsByCityMascot = colorsLookup;
+          const [games, teamColorsResult] = await Promise.all([fetchGames(), fetchTeamColors()]);
+          colorsByCityMascot = teamColorsResult.lookup;
+          allTeams = teamColorsResult.teams;
           liveGames = (Array.isArray(games) ? games : []).filter((game) => !isTrueish(game && game.archived));
           renderDirectory();
         } catch (error) {
