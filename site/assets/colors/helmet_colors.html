@@ -147,8 +147,8 @@
     }
     .team-palette {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      height: 64px;
+      grid-template-columns: repeat(3, 1fr);
+      height: 48px;
     }
     .team-palette > div { position: relative; }
     .team-palette span {
@@ -222,10 +222,32 @@
     }
     .color-row {
       display: grid;
-      grid-template-columns: 28px 90px 1fr;
+      grid-template-columns: 16px 28px 90px 1fr;
       align-items: center;
       gap: 6px;
+      border: 1px dashed transparent;
+      border-radius: 4px;
+      padding: 2px 2px;
+      transition: background 0.12s, border-color 0.12s;
     }
+    .color-row.is-dragging { opacity: 0.4; }
+    .color-row.is-drop-target {
+      background: rgba(var(--bic-blue-rgb), 0.08);
+      border-color: var(--bic-blue);
+    }
+    .color-drag-handle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 24px;
+      cursor: grab;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1;
+      user-select: none;
+    }
+    .color-drag-handle:active { cursor: grabbing; color: var(--ink); }
     .color-row input[type="color"] {
       width: 28px;
       height: 28px;
@@ -456,7 +478,24 @@
       grid-column: 1 / -1;
       justify-self: end;
     }
+    .team-helmet {
+      display: grid;
+      place-items: center;
+      padding: 10px 8px 4px;
+      background:
+        linear-gradient(90deg, rgba(var(--bic-blue-rgb), 0.06) 1px, transparent 1px) 0 0 / 14px 14px,
+        linear-gradient(rgba(var(--bic-blue-rgb), 0.06) 1px, transparent 1px) 0 0 / 14px 14px,
+        rgba(255, 255, 255, 0.9);
+    }
+    .team-helmet-img {
+      width: 96px;
+      height: 96px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      filter: drop-shadow(0 4px 8px rgba(var(--bic-blue-rgb), 0.18));
+    }
   </style>
+  <script src="../games/helmets/helmet.js"></script>
 </head>
 <body>
 
@@ -522,10 +561,9 @@
 <script>
 const JSON_PATH = './helmetcolors.json';
 const COLOR_ROLES = [
-  { key: 'shell',      label: 'Shell' },
-  { key: 'stripe',     label: 'Stripe' },
-  { key: 'mask',       label: 'Mask' },
-  { key: 'quaternary', label: 'Quaternary' }
+  { key: 'shell',  label: 'Shell' },
+  { key: 'stripe', label: 'Stripe' },
+  { key: 'mask',   label: 'Mask' }
 ];
 const HEX_RE = /^#?([0-9a-f]{6})$/i;
 
@@ -738,15 +776,60 @@ function updateColor(leagueName, code, role, rawValue) {
     if (picker) picker.value = normalized;
     const textInput = card.querySelector(`[data-color-text="${role}"]`);
     if (textInput) textInput.value = normalized;
+    refreshHelmet(card, state.doc.leagues[leagueName][code]);
   }
   return true;
+}
+
+function refreshHelmet(card, team) {
+  const img = card && card.querySelector('[data-helmet]');
+  if (!img || typeof window.helmetSVG !== 'function') return;
+  const shell = team.shell || '#000000';
+  const stripe = team.stripe || '#FFFFFF';
+  const mask = team.mask || '#AAAAAA';
+  img.src = window.helmetSVG(shell, stripe, mask);
+}
+
+function syncRoleUI(card, team, role) {
+  const value = team[role] || '';
+  const swatchEl = card.querySelector(`[data-swatch-role="${role}"]`);
+  if (swatchEl) swatchEl.style.background = value;
+  const picker = card.querySelector(`[data-color-picker="${role}"]`);
+  if (picker && value) picker.value = value;
+  const textInput = card.querySelector(`[data-color-text="${role}"]`);
+  if (textInput) textInput.value = value;
+}
+
+function swapColorRoles(leagueName, code, roleA, roleB) {
+  const team = state.doc.leagues[leagueName] && state.doc.leagues[leagueName][code];
+  if (!team) return;
+  const tmp = team[roleA];
+  team[roleA] = team[roleB];
+  team[roleB] = tmp;
+  markDirty();
+
+  const card = document.querySelector(`[data-team-card="${leagueName}::${code}"]`);
+  if (card) {
+    syncRoleUI(card, team, roleA);
+    syncRoleUI(card, team, roleB);
+    refreshHelmet(card, team);
+  }
+  setStatus(`Swapped ${roleA.toUpperCase()} ↔ ${roleB.toUpperCase()} on ${leagueName} / ${code} — save to persist`);
+}
+
+function flipShellStripe(leagueName, code) {
+  swapColorRoles(leagueName, code, 'shell', 'stripe');
 }
 
 // ── Render ───────────────────────────────────────────────────────────────
 
 function render() {
   els.root.innerHTML = '';
-  const leagueNames = Object.keys(state.doc.leagues).sort();
+  const leagueNames = Object.keys(state.doc.leagues).sort((a, b) => {
+    if (a === 'NFL') return -1;
+    if (b === 'NFL') return 1;
+    return a.localeCompare(b);
+  });
   if (!leagueNames.length) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
@@ -808,6 +891,16 @@ function renderTeam(leagueName, code, team) {
   }
   card.appendChild(palette);
 
+  const helmetWrap = document.createElement('div');
+  helmetWrap.className = 'team-helmet';
+  const helmetImg = document.createElement('img');
+  helmetImg.className = 'team-helmet-img';
+  helmetImg.dataset.helmet = 'true';
+  helmetImg.alt = `${team.fullName || code} helmet`;
+  helmetWrap.appendChild(helmetImg);
+  card.appendChild(helmetWrap);
+  refreshHelmet(card, team);
+
   const body = document.createElement('div');
   body.className = 'team-body';
 
@@ -840,6 +933,12 @@ function renderTeam(leagueName, code, team) {
 
   const footer = document.createElement('div');
   footer.className = 'team-footer';
+  const flipBtn = document.createElement('button');
+  flipBtn.className = 'btn-mini';
+  flipBtn.textContent = '⇄ Flip';
+  flipBtn.title = 'Swap shell and stripe colors';
+  flipBtn.onclick = () => flipShellStripe(leagueName, code);
+  footer.appendChild(flipBtn);
   const delTeam = document.createElement('button');
   delTeam.className = 'btn-mini danger';
   delTeam.textContent = 'Delete team';
@@ -870,6 +969,37 @@ function buildLabeledInput(label, value, onChange) {
 function buildColorRow(leagueName, code, role, label, value) {
   const row = document.createElement('div');
   row.className = 'color-row';
+  row.dataset.colorRow = role;
+  const teamKey = `${leagueName}::${code}`;
+
+  const handle = document.createElement('span');
+  handle.className = 'color-drag-handle';
+  handle.draggable = true;
+  handle.title = 'Drag onto another color row to swap';
+  handle.textContent = '⋮⋮';
+  handle.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('text/role', role);
+    e.dataTransfer.setData('text/team', teamKey);
+    e.dataTransfer.effectAllowed = 'move';
+    row.classList.add('is-dragging');
+  });
+  handle.addEventListener('dragend', () => row.classList.remove('is-dragging'));
+
+  row.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    row.classList.add('is-drop-target');
+  });
+  row.addEventListener('dragleave', () => row.classList.remove('is-drop-target'));
+  row.addEventListener('drop', (e) => {
+    e.preventDefault();
+    row.classList.remove('is-drop-target');
+    const sourceRole = e.dataTransfer.getData('text/role');
+    const sourceTeam = e.dataTransfer.getData('text/team');
+    if (sourceTeam !== teamKey) return;
+    if (!sourceRole || sourceRole === role) return;
+    swapColorRoles(leagueName, code, sourceRole, role);
+  });
 
   const picker = document.createElement('input');
   picker.type = 'color';
@@ -888,6 +1018,7 @@ function buildColorRow(leagueName, code, role, label, value) {
   roleLabel.className = 'role';
   roleLabel.textContent = label;
 
+  row.appendChild(handle);
   row.appendChild(picker);
   row.appendChild(text);
   row.appendChild(roleLabel);
@@ -1001,8 +1132,7 @@ function buildTeamRecord(team) {
     mascot,
     shell: normalizeHex(team.color, '#000000'),
     stripe: normalizeHex(team.alternateColor, '#FFFFFF'),
-    mask: '#FFFFFF',
-    quaternary: '#FFFFFF'
+    mask: '#FFFFFF'
   };
 }
 

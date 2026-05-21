@@ -181,13 +181,11 @@ def main():
     shell = normalize_hex(team.get('color'), default='#000000')
     stripe = normalize_hex(team.get('alternateColor'), default='#FFFFFF')
     mask = '#FFFFFF'
-    quaternary = '#FFFFFF'
 
     print(f'\nMatched: {display_name} ({abbreviation})')
-    print(f'  shell:      {shell}')
-    print(f'  stripe:     {stripe}')
-    print(f'  mask:       {mask}    (ESPN gives only 2 colors; edit by hand if needed)')
-    print(f'  quaternary: {quaternary}')
+    print(f'  shell:  {shell}')
+    print(f'  stripe: {stripe}')
+    print(f'  mask:   {mask}    (ESPN gives only 2 colors; edit by hand if needed)')
 
     doc = load_doc()
     league_teams = doc['leagues'].setdefault(league_input, {})
@@ -203,8 +201,7 @@ def main():
         'mascot': mascot,
         'shell': shell,
         'stripe': stripe,
-        'mask': mask,
-        'quaternary': quaternary
+        'mask': mask
     }
     save_doc(doc)
     print(f'\nSaved {league_input} / {abbreviation} ({display_name}).')
