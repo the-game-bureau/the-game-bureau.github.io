@@ -498,6 +498,7 @@
   <script src="../games/helmets/helmet.js"></script>
   <script src="../games/helmets/basketball.js"></script>
   <script src="../games/helmets/baseball.js"></script>
+  <script src="../../../mc/admin-auth.js"></script>
 </head>
 <body>
 
@@ -510,7 +511,8 @@
   <div class="toolbar">
     <button class="btn primary" id="lookupBtn">Add Colors</button>
     <button class="btn" id="reloadBtn">Reload</button>
-    <button class="btn primary" id="saveBtn">Save</button>
+    <button class="btn" id="exportBtn" title="Write current data to teams.json (offline fallback)">Export JSON</button>
+    <button class="btn primary" id="loginBtn">Login</button>
   </div>
 </header>
 
@@ -564,6 +566,14 @@
 
 <script>
 const JSON_PATH = './teams.json';
+const SB_CONFIG = {
+  url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+  key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
+  table: 'teams'
+};
+const SB_BASE = SB_CONFIG.url + '/rest/v1/' + SB_CONFIG.table;
+// NFL pinned first; everything else alphabetical (matches index.html ordering).
+const LEAGUE_RANK = (name) => (name === 'NFL' ? 0 : 100);
 const COLOR_ROLES = [
   { key: 'shell',  label: 'Shell' },
   { key: 'stripe', label: 'Stripe' },
@@ -601,7 +611,11 @@ const CORS_PROXIES = [
 ];
 const teamCache = new Map(); // leaguePath → teams array
 
-const state = { doc: null, fileHandle: null, dirty: false };
+// state.doc is the in-memory display model (nested by league/conference) used by
+// render(); it is rebuilt from Supabase rows on load. state.leagueSort tracks
+// the league_sort column per league name (preserves user ordering). Mutations
+// update state.doc immediately and fire-and-forget a Supabase write.
+const state = { doc: null, leagueSort: new Map(), session: null };
 
 const els = {
   root: document.getElementById('leaguesRoot'),
@@ -609,7 +623,8 @@ const els = {
   bottomStatus: document.getElementById('bottomStatus'),
   reloadBtn: document.getElementById('reloadBtn'),
   lookupBtn: document.getElementById('lookupBtn'),
-  saveBtn: document.getElementById('saveBtn'),
+  exportBtn: document.getElementById('exportBtn'),
+  loginBtn: document.getElementById('loginBtn'),
 
   lookupModal: document.getElementById('lookupModal'),
   lookupCloseBtn: document.getElementById('lookupCloseBtn'),
@@ -627,13 +642,13 @@ const els = {
 function setStatus(msg, { error = false } = {}) {
   const text = error ? `⚠ ${msg}` : msg;
   els.topStatus.textContent = text;
-  els.bottomStatus.textContent = text + (state.dirty ? '  • unsaved changes' : '');
+  els.bottomStatus.textContent = text;
 }
 
-function markDirty() {
-  state.dirty = true;
-  els.bottomStatus.textContent = (els.topStatus.textContent || '') + '  • unsaved changes';
-}
+// Legacy no-op — every change is persisted to Supabase synchronously now, so
+// there is no "unsaved changes" concept any more. Kept so existing call sites
+// (renameLeague, updateTeamField, etc.) continue to compile.
+function markDirty() {}
 
 function normalizeHex(value, fallback = '#000000') {
   if (!value) return fallback;
@@ -657,7 +672,7 @@ function normalizeDoc(doc) {
   return { _comment: 'Team color palettes by sport/league.', leagues: {} };
 }
 
-// ── File I/O ─────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────
 
 // A "team" object has a fullName/shell field; a "group" (e.g. conference) is an
 // object whose values are teams. Used to disambiguate nested sub-leagues inside
@@ -690,61 +705,217 @@ function totalsSummary() {
   return `${total} team${total === 1 ? '' : 's'} across ${leagueNames.length} league${leagueNames.length === 1 ? '' : 's'}`;
 }
 
-async function loadFromFetch() {
+// ── Supabase persistence ────────────────────────────────────────────────
+
+function isSignedIn() {
+  return !!(state.session && state.session.access_token);
+}
+
+function supaHeaders(extra = {}) {
+  const token = isSignedIn() ? state.session.access_token : SB_CONFIG.key;
+  return {
+    apikey: SB_CONFIG.key,
+    Authorization: 'Bearer ' + token,
+    'Content-Type': 'application/json',
+    ...extra
+  };
+}
+
+function supaUrl(query = '') {
+  return SB_BASE + (query ? '?' + query : '');
+}
+
+function rowsToDoc(rows) {
+  // Build the nested { leagues: { L: { teams… or conferences{ teams… } } } }
+  // shape the existing render code expects. Preserve league ordering using the
+  // league_sort column (min over rows in a league wins).
+  const doc = { _comment: 'Team color palettes by sport/league.', leagues: {} };
+  const leagueSort = new Map();
+  rows.forEach((r) => {
+    if (!r || !r.league || !r.code) return;
+    if (!doc.leagues[r.league]) doc.leagues[r.league] = {};
+    const league = doc.leagues[r.league];
+    const team = {
+      fullName:  r.full_name  || '',
+      firstName: r.first_name || '',
+      fanbase:   r.fanbase    || '',
+      mascot:    r.mascot     || '',
+      shell:     r.shell      || '',
+      stripe:    r.stripe     || '',
+      mask:      r.mask       || ''
+    };
+    if (r.sport) team.sport = r.sport;
+    if (r.conference) {
+      if (!league[r.conference] || isTeamObj(league[r.conference])) league[r.conference] = {};
+      league[r.conference][r.code] = team;
+    } else {
+      league[r.code] = team;
+    }
+    const prev = leagueSort.has(r.league) ? leagueSort.get(r.league) : Number.POSITIVE_INFINITY;
+    const candidate = typeof r.league_sort === 'number' ? r.league_sort : LEAGUE_RANK(r.league);
+    if (candidate < prev) leagueSort.set(r.league, candidate);
+  });
+  return { doc, leagueSort };
+}
+
+function teamToRow(leagueName, groupName, code, team, leagueSort, teamSort) {
+  return {
+    league: leagueName,
+    conference: groupName || '',
+    code,
+    full_name:  team.fullName  || '',
+    first_name: team.firstName || '',
+    fanbase:    team.fanbase   || '',
+    mascot:     team.mascot    || '',
+    sport:      team.sport     || '',
+    shell:      team.shell     || '',
+    stripe:     team.stripe    || '',
+    mask:       team.mask      || '',
+    league_sort: typeof leagueSort === 'number' ? leagueSort : LEAGUE_RANK(leagueName),
+    team_sort:   typeof teamSort   === 'number' ? teamSort   : 0
+  };
+}
+
+async function readErrorText(resp) {
+  try {
+    const text = await resp.text();
+    return text || `HTTP ${resp.status}`;
+  } catch (err) {
+    return `HTTP ${resp.status}`;
+  }
+}
+
+async function supaFetchAll() {
+  const url = supaUrl('select=*&order=league_sort.asc&order=team_sort.asc');
+  const resp = await fetch(url, { headers: supaHeaders(), cache: 'no-store' });
+  if (!resp.ok) throw new Error(await readErrorText(resp));
+  return await resp.json();
+}
+
+function requireAuth(action) {
+  if (isSignedIn()) return true;
+  setStatus(`Sign in to ${action}.`, { error: true });
+  return false;
+}
+
+// Upserts one team row (insert or update on PK conflict).
+async function supaUpsertRow(row) {
+  if (!requireAuth('save changes')) return false;
+  const resp = await fetch(supaUrl(), {
+    method: 'POST',
+    headers: supaHeaders({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify([row])
+  });
+  if (!resp.ok) {
+    setStatus(`Save failed: ${await readErrorText(resp)}`, { error: true });
+    return false;
+  }
+  return true;
+}
+
+async function supaUpsertRows(rows) {
+  if (!requireAuth('save changes')) return false;
+  if (!rows.length) return true;
+  const resp = await fetch(supaUrl(), {
+    method: 'POST',
+    headers: supaHeaders({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify(rows)
+  });
+  if (!resp.ok) {
+    setStatus(`Bulk save failed: ${await readErrorText(resp)}`, { error: true });
+    return false;
+  }
+  return true;
+}
+
+async function supaDeleteRow(leagueName, groupName, code) {
+  if (!requireAuth('delete teams')) return false;
+  const q = `league=eq.${encodeURIComponent(leagueName)}`
+          + `&conference=eq.${encodeURIComponent(groupName || '')}`
+          + `&code=eq.${encodeURIComponent(code)}`;
+  const resp = await fetch(supaUrl(q), { method: 'DELETE', headers: supaHeaders() });
+  if (!resp.ok) {
+    setStatus(`Delete failed: ${await readErrorText(resp)}`, { error: true });
+    return false;
+  }
+  return true;
+}
+
+// Bulk rename a column value across a set of rows. Used for renaming a league
+// or conference (which are part of the PK, so we can't just PATCH them — we
+// re-insert the rows with the new key and delete the old ones).
+async function supaRenameRows(filter, patch) {
+  if (!requireAuth('rename')) return false;
+  const q = Object.entries(filter).map(([k, v]) => `${k}=eq.${encodeURIComponent(v)}`).join('&');
+  const resp = await fetch(supaUrl(q), {
+    method: 'PATCH',
+    headers: supaHeaders({ Prefer: 'return=minimal' }),
+    body: JSON.stringify(patch)
+  });
+  if (!resp.ok) {
+    setStatus(`Rename failed: ${await readErrorText(resp)}`, { error: true });
+    return false;
+  }
+  return true;
+}
+
+async function loadFromSupabase() {
+  setStatus('Loading…');
+  try {
+    const rows = await supaFetchAll();
+    const { doc, leagueSort } = rowsToDoc(rows);
+    state.doc = doc;
+    state.leagueSort = leagueSort;
+    render();
+    setStatus(totalsSummary() + ' · Supabase');
+    return true;
+  } catch (err) {
+    setStatus(`Supabase load failed (${err.message}). Falling back to teams.json.`, { error: true });
+    await loadFromJsonFallback();
+    return false;
+  }
+}
+
+async function loadFromJsonFallback() {
   try {
     const resp = await fetch(JSON_PATH, { cache: 'no-store' });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     state.doc = normalizeDoc(await resp.json());
-    state.dirty = false;
+    state.leagueSort = new Map(Object.keys(state.doc.leagues).map((k, i) => [k, LEAGUE_RANK(k) + i]));
     render();
-    setStatus(totalsSummary());
+    setStatus(totalsSummary() + ' · teams.json (offline)');
   } catch (err) {
     setStatus(`Could not fetch ./teams.json (${err.message}).`, { error: true });
     state.doc = normalizeDoc(null);
+    state.leagueSort = new Map();
     render();
   }
 }
 
+// ── Export JSON (refresh the offline fallback file) ─────────────────────
+
 const serialize = () => JSON.stringify(state.doc, null, 2) + '\n';
 
-async function save() {
+async function exportJson() {
   if (!state.doc) return;
   const text = serialize();
-  if (state.fileHandle) {
-    try {
-      const writable = await state.fileHandle.createWritable();
-      await writable.write(text);
-      await writable.close();
-      state.dirty = false;
-      setStatus(`Saved to ${state.fileHandle.name}`);
-      return;
-    } catch (err) {
-      setStatus(`Save to handle failed: ${err.message}`, { error: true });
-    }
-  }
   if (window.showSaveFilePicker) {
     try {
       const handle = await window.showSaveFilePicker({
         suggestedName: 'teams.json',
         types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
       });
-      state.fileHandle = handle;
       const writable = await handle.createWritable();
       await writable.write(text);
       await writable.close();
-      state.dirty = false;
-      setStatus(`Saved to ${handle.name} — live save now enabled`);
+      setStatus(`Exported to ${handle.name}`);
       return;
     } catch (err) {
       if (err.name === 'AbortError') return;
-      setStatus(`showSaveFilePicker failed: ${err.message}`, { error: true });
+      setStatus(`Export failed: ${err.message}`, { error: true });
     }
   }
-  download();
-}
-
-function download() {
-  const blob = new Blob([serialize()], { type: 'application/json' });
+  const blob = new Blob([text], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = 'teams.json';
@@ -755,28 +926,38 @@ function download() {
 
 // ── Mutations ────────────────────────────────────────────────────────────
 
-function renameLeague(oldName, newNameRaw) {
+async function renameLeague(oldName, newNameRaw) {
   const newName = (newNameRaw || '').trim().toUpperCase();
   if (!newName || newName === oldName) return;
   if (state.doc.leagues[newName]) { setStatus(`League "${newName}" already exists.`, { error: true }); render(); return; }
+  if (!requireAuth('rename a league')) { render(); return; }
+  const ok = await supaRenameRows({ league: oldName }, { league: newName });
+  if (!ok) { render(); return; }
   const rebuilt = {};
   for (const k of Object.keys(state.doc.leagues)) {
     rebuilt[k === oldName ? newName : k] = state.doc.leagues[k];
   }
   state.doc.leagues = rebuilt;
-  markDirty();
+  if (state.leagueSort.has(oldName)) {
+    state.leagueSort.set(newName, state.leagueSort.get(oldName));
+    state.leagueSort.delete(oldName);
+  }
+  setStatus(`Renamed league ${oldName} → ${newName}`);
   render();
 }
 
-function removeTeam(leagueName, groupName, code) {
+async function removeTeam(leagueName, groupName, code) {
   const bucket = getTeamBucket(leagueName, groupName);
   if (!bucket) return;
+  if (!requireAuth('delete teams')) return;
+  const ok = await supaDeleteRow(leagueName, groupName, code);
+  if (!ok) return;
   delete bucket[code];
-  markDirty();
+  setStatus(`Deleted ${code}`);
   render();
 }
 
-function renameTeam(leagueName, groupName, oldCode, newCodeRaw) {
+async function renameTeam(leagueName, groupName, oldCode, newCodeRaw) {
   const newCode = (newCodeRaw || '').trim().toUpperCase();
   if (!newCode || newCode === oldCode) return;
   const bucket = getTeamBucket(leagueName, groupName);
@@ -787,28 +968,40 @@ function renameTeam(leagueName, groupName, oldCode, newCodeRaw) {
     render();
     return;
   }
+  if (!requireAuth('rename a team')) { render(); return; }
+  const ok = await supaRenameRows(
+    { league: leagueName, conference: groupName || '', code: oldCode },
+    { code: newCode }
+  );
+  if (!ok) { render(); return; }
   const rebuilt = {};
   for (const k of Object.keys(bucket)) {
     rebuilt[k === oldCode ? newCode : k] = bucket[k];
   }
   if (groupName) state.doc.leagues[leagueName][groupName] = rebuilt;
   else state.doc.leagues[leagueName] = rebuilt;
-  markDirty();
+  setStatus(`Renamed ${oldCode} → ${newCode}`);
   render();
 }
 
-function renameGroup(leagueName, oldGroup, newGroupRaw) {
+async function renameGroup(leagueName, oldGroup, newGroupRaw) {
   const newGroup = (newGroupRaw || '').trim();
   if (!newGroup || newGroup === oldGroup) return;
   const league = state.doc.leagues[leagueName];
   if (!league) return;
   if (league[newGroup]) { setStatus(`Group "${newGroup}" already exists in ${leagueName}.`, { error: true }); render(); return; }
+  if (!requireAuth('rename a conference')) { render(); return; }
+  const ok = await supaRenameRows(
+    { league: leagueName, conference: oldGroup },
+    { conference: newGroup }
+  );
+  if (!ok) { render(); return; }
   const rebuilt = {};
   for (const k of Object.keys(league)) {
     rebuilt[k === oldGroup ? newGroup : k] = league[k];
   }
   state.doc.leagues[leagueName] = rebuilt;
-  markDirty();
+  setStatus(`Renamed conference ${oldGroup} → ${newGroup}`);
   render();
 }
 
@@ -816,14 +1009,48 @@ function cardSelector(leagueName, groupName, code) {
   return `[data-team-card="${leagueName}::${groupName}::${code}"]`;
 }
 
+// Patch a single column on one row. Maps the in-memory camelCase key (fullName,
+// firstName, etc.) to the snake_case column name when needed.
+const FIELD_TO_COLUMN = {
+  fullName: 'full_name',
+  firstName: 'first_name',
+  fanbase: 'fanbase',
+  mascot: 'mascot',
+  sport: 'sport',
+  shell: 'shell',
+  stripe: 'stripe',
+  mask: 'mask'
+};
+
+async function persistTeamField(leagueName, groupName, code, field, value) {
+  const column = FIELD_TO_COLUMN[field];
+  if (!column) return false;
+  if (!requireAuth('save changes')) return false;
+  const q = `league=eq.${encodeURIComponent(leagueName)}`
+          + `&conference=eq.${encodeURIComponent(groupName || '')}`
+          + `&code=eq.${encodeURIComponent(code)}`;
+  const resp = await fetch(supaUrl(q), {
+    method: 'PATCH',
+    headers: supaHeaders({ Prefer: 'return=minimal' }),
+    body: JSON.stringify({ [column]: value || '' })
+  });
+  if (!resp.ok) {
+    setStatus(`Save failed: ${await readErrorText(resp)}`, { error: true });
+    return false;
+  }
+  return true;
+}
+
 function updateTeamField(leagueName, groupName, code, field, value) {
   const bucket = getTeamBucket(leagueName, groupName);
   const team = bucket && bucket[code];
   if (!team) return;
   team[field] = value;
-  markDirty();
   const where = groupName ? `${leagueName} / ${groupName} / ${code}` : `${leagueName} / ${code}`;
   setStatus(`Edited ${where}`);
+  // Fire-and-forget — the call site has already updated the DOM. If the write
+  // fails, persistTeamField surfaces the error via setStatus.
+  persistTeamField(leagueName, groupName, code, field, value);
 }
 
 function updateColor(leagueName, groupName, code, role, rawValue) {
@@ -877,14 +1104,14 @@ function syncRoleUI(card, team, role) {
   if (textInput) textInput.value = value;
 }
 
-function swapColorRoles(leagueName, groupName, code, roleA, roleB) {
+async function swapColorRoles(leagueName, groupName, code, roleA, roleB) {
   const bucket = getTeamBucket(leagueName, groupName);
   const team = bucket && bucket[code];
   if (!team) return;
+  if (!requireAuth('swap colors')) return;
   const tmp = team[roleA];
   team[roleA] = team[roleB];
   team[roleB] = tmp;
-  markDirty();
 
   const card = document.querySelector(cardSelector(leagueName, groupName, code));
   if (card) {
@@ -893,7 +1120,23 @@ function swapColorRoles(leagueName, groupName, code, roleA, roleB) {
     refreshHelmet(card, team);
   }
   const where = groupName ? `${leagueName} / ${groupName} / ${code}` : `${leagueName} / ${code}`;
-  setStatus(`Swapped ${roleA.toUpperCase()} ↔ ${roleB.toUpperCase()} on ${where} — save to persist`);
+
+  const q = `league=eq.${encodeURIComponent(leagueName)}`
+          + `&conference=eq.${encodeURIComponent(groupName || '')}`
+          + `&code=eq.${encodeURIComponent(code)}`;
+  const patch = {};
+  patch[FIELD_TO_COLUMN[roleA] || roleA] = team[roleA] || '';
+  patch[FIELD_TO_COLUMN[roleB] || roleB] = team[roleB] || '';
+  const resp = await fetch(supaUrl(q), {
+    method: 'PATCH',
+    headers: supaHeaders({ Prefer: 'return=minimal' }),
+    body: JSON.stringify(patch)
+  });
+  if (!resp.ok) {
+    setStatus(`Swap save failed for ${where}: ${await readErrorText(resp)}`, { error: true });
+    return;
+  }
+  setStatus(`Swapped ${roleA.toUpperCase()} ↔ ${roleB.toUpperCase()} on ${where}`);
 }
 
 function flipShellStripe(leagueName, groupName, code) {
@@ -1409,7 +1652,8 @@ function renderLookupResult(leagueCode, team) {
   els.lookupResults.appendChild(card);
 }
 
-function addTeamFromLookup(leagueCode, groupName, team) {
+async function addTeamFromLookup(leagueCode, groupName, team) {
+  if (!requireAuth('add teams')) return;
   if (!state.doc.leagues[leagueCode]) state.doc.leagues[leagueCode] = {};
   const league = state.doc.leagues[leagueCode];
   if (groupName) {
@@ -1423,8 +1667,12 @@ function addTeamFromLookup(leagueCode, groupName, team) {
   }
   const where = groupName ? `${leagueCode} / ${groupName}` : leagueCode;
   if (bucket[code] && !confirm(`${where} / ${code} already exists. Overwrite?`)) return;
-  bucket[code] = buildTeamRecord(team, leagueCode);
-  markDirty();
+  const record = buildTeamRecord(team, leagueCode);
+  const leagueSort = state.leagueSort.get(leagueCode);
+  const teamSort = countTeamsIn(state.doc.leagues[leagueCode]);
+  const ok = await supaUpsertRow(teamToRow(leagueCode, groupName, code, record, leagueSort, teamSort));
+  if (!ok) return;
+  bucket[code] = record;
   render();
   setStatus(`Added ${where} / ${code}.`);
   closeLookupModal();
@@ -1435,6 +1683,7 @@ const PULL_BATCH_SIZE = 50;
 async function pullWholeLeague(leagueCode, groupName) {
   const path = LEAGUE_PATHS[leagueCode];
   if (!path) return;
+  if (!requireAuth('pull a league')) return;
   const where = groupName ? `${leagueCode} / ${groupName}` : leagueCode;
   els.lookupStatus.textContent = `Fetching all ${where} teams from ESPN…`;
   els.lookupResults.innerHTML = '';
@@ -1457,11 +1706,18 @@ async function pullWholeLeague(leagueCode, groupName) {
     }
     closeLookupModal();
 
+    const leagueSort = state.leagueSort.has(leagueCode)
+      ? state.leagueSort.get(leagueCode)
+      : LEAGUE_RANK(leagueCode);
+    if (!state.leagueSort.has(leagueCode)) state.leagueSort.set(leagueCode, leagueSort);
+
     const usedCodes = new Set();
     let added = 0, suffixed = 0;
+    let teamSortStart = countTeamsIn(state.doc.leagues[leagueCode]);
 
     for (let batchStart = 0; batchStart < teams.length; batchStart += PULL_BATCH_SIZE) {
       const batchEnd = Math.min(batchStart + PULL_BATCH_SIZE, teams.length);
+      const batchRows = [];
       for (let i = batchStart; i < batchEnd; i++) {
         const team = teams[i];
         const base = teamCode(team);
@@ -1471,11 +1727,14 @@ async function pullWholeLeague(leagueCode, groupName) {
         while (usedCodes.has(code)) code = `${base}${n++}`;
         if (code !== base) suffixed++;
         usedCodes.add(code);
-        bucket[code] = buildTeamRecord(team, leagueCode);
+        const record = buildTeamRecord(team, leagueCode);
+        bucket[code] = record;
+        batchRows.push(teamToRow(leagueCode, groupName, code, record, leagueSort, teamSortStart + added));
         added++;
       }
-      markDirty();
       render();
+      const ok = await supaUpsertRows(batchRows);
+      if (!ok) return;
 
       if (batchEnd < teams.length) {
         const remaining = teams.length - batchEnd;
@@ -1508,10 +1767,42 @@ async function pullWholeLeague(leagueCode, groupName) {
 
 // ── Wire-up ──────────────────────────────────────────────────────────────
 
+const adminAuth = window.TgbMcAdminAuth ? window.TgbMcAdminAuth.create({
+  supabaseConfig: { url: SB_CONFIG.url, publishableKey: SB_CONFIG.key },
+  signOutButton: els.loginBtn,
+  modalCopy: 'Sign in to edit team colors.',
+  initialMessage: '',
+  homeHref: '../../../index.html',
+  onAuthorized: function () {
+    els.loginBtn.textContent = 'Sign Out';
+    state.session = adminAuth.getSession();
+    loadFromSupabase();
+  },
+  onSignedOut: function () {
+    els.loginBtn.textContent = 'Login';
+    state.session = null;
+    setStatus('Signed out — readonly mode.');
+  }
+}) : null;
+
+if (adminAuth) {
+  adminAuth.init().then((signedIn) => {
+    if (signedIn) {
+      state.session = adminAuth.getSession();
+      loadFromSupabase();
+    } else {
+      adminAuth.close();
+      // Still show the catalog in read-only mode using anon read access.
+      loadFromSupabase();
+    }
+  });
+} else {
+  loadFromJsonFallback();
+}
+
 els.reloadBtn.addEventListener('click', () => {
-  if (state.dirty && !confirm('Discard unsaved changes?')) return;
-  state.fileHandle = null;
-  loadFromFetch();
+  if (isSignedIn()) loadFromSupabase();
+  else loadFromJsonFallback();
 });
 els.lookupBtn.addEventListener('click', () => openLookupModal());
 els.lookupCloseBtn.addEventListener('click', closeLookupModal);
@@ -1521,11 +1812,8 @@ els.lookupPullLeagueBtn.addEventListener('click', () => pullWholeLeague(els.look
 els.lookupPullGroupBtn.addEventListener('click', () => pullWholeLeague(els.lookupLeague.value, els.lookupGroup.value));
 els.lookupLeague.addEventListener('change', syncLookupLeagueLabel);
 els.lookupQuery.addEventListener('keydown', (e) => { if (e.key === 'Enter') runLookup(); });
-els.saveBtn.addEventListener('click', save);
+els.exportBtn.addEventListener('click', exportJson);
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && els.lookupModal.classList.contains('is-open')) closeLookupModal(); });
-window.addEventListener('beforeunload', (e) => { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });
-
-loadFromFetch();
 </script>
 
 </body>

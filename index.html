@@ -23,8 +23,8 @@
       --muted: #69655e;
       --line: #cdc5b8;
       --line-strong: #111111;
-      --accent: #d43b2f;
-      --accent-soft: #f4ddd8;
+      --accent: #2d4880;
+      --accent-soft: #e5ebf5;
       --surface: #ffffff;
     }
 
@@ -51,6 +51,7 @@
     .hero,
     .browse-shell,
     .about-shell,
+    .selected-games,
     .site-footer {
       width: calc(100% - 48px);
       margin: 0 auto;
@@ -349,7 +350,7 @@
     }
     .hero-meta-list-item {
       display: grid;
-      grid-template-columns: 32px minmax(0, 1fr) auto;
+      grid-template-columns: 40px minmax(0, 1fr) auto;
       align-items: center;
       gap: 10px;
       padding: 5px 8px;
@@ -408,6 +409,41 @@
       letter-spacing: 0.02em;
       line-height: 1;
       text-transform: uppercase;
+    }
+    /* SVG-based state badge — geographic outline with the 2-letter abbr
+       laid over it. Overrides the .hero-meta-list-geo bg/border so the SVG
+       shape (not the bounding box) is what's visually filled and stroked. */
+    .hero-meta-list-geo--shape {
+      box-sizing: border-box;
+      width: 36px;
+      height: 22px;
+      background: transparent;
+      border: none;
+      padding: 0;
+      box-shadow: none;
+      overflow: visible;
+      display: inline-block;
+      vertical-align: middle;
+      justify-self: center;
+    }
+    .hero-meta-list-geo--shape path {
+      fill: #ffffff;
+      stroke: #000000;
+      stroke-width: 1;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      vector-effect: non-scaling-stroke;
+    }
+    .hero-meta-list-geo--shape text {
+      fill: #000000;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      paint-order: stroke fill;
+      stroke: #ffffff;
+      stroke-width: 1.6;
+      stroke-linejoin: round;
     }
     .hero-meta-list-name {
       min-width: 0;
@@ -565,51 +601,26 @@
       background: rgba(var(--bic-blue-rgb, 45,72,128), 0.06);
     }
 
-    /* Games lightbox — fixed overlay shown when a fandom/city is clicked. */
-    .games-lightbox {
-      position: fixed;
-      inset: 0;
-      z-index: 1000;
-      display: grid;
-      place-items: center;
-      padding: clamp(12px, 4vw, 32px);
+    /* Selected-games panel — rendered inline below the hero when a fandom or
+       city is chosen. Replaced the previous fixed-overlay lightbox. Width and
+       horizontal centering come from the shared rule on .hero/.about-shell. */
+    .selected-games {
+      animation: selectedGamesIn 140ms ease-out;
     }
-    .games-lightbox[hidden] { display: none; }
-    .games-lightbox-backdrop {
-      position: absolute;
-      inset: 0;
-      background: rgba(17, 17, 17, 0.55);
-      backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
+    .selected-games[hidden] { display: none; }
+    @keyframes selectedGamesIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
-    .games-lightbox-panel {
-      position: relative;
-      z-index: 1;
-      width: min(820px, 100%);
-      max-height: min(86vh, 720px);
-      display: flex;
-      flex-direction: column;
-      background: var(--surface);
-      border: 1px solid var(--line-strong);
-      border-radius: 4px;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-      overflow: hidden;
-      animation: gamesLightboxIn 140ms ease-out;
-    }
-    @keyframes gamesLightboxIn {
-      from { opacity: 0; transform: translateY(8px) scale(0.985); }
-      to   { opacity: 1; transform: translateY(0) scale(1); }
-    }
-    .games-lightbox-head {
+    .selected-games-head {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px 18px;
+      gap: 10px;
+      padding: 0 4px 12px;
+      margin-bottom: 14px;
       border-bottom: 1px solid var(--line);
-      flex: 0 0 auto;
     }
-    .games-lightbox-title {
+    .selected-games-title {
       margin: 0;
       display: flex;
       align-items: center;
@@ -622,45 +633,20 @@
       color: var(--ink);
       min-width: 0;
     }
-    .games-lightbox-title-text {
+    .selected-games-title-text {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .games-lightbox-icon {
+    .selected-games-icon {
       flex: 0 0 auto;
     }
-    .games-lightbox-icon--helmet {
+    .selected-games-icon--helmet {
       width: 30px;
       height: 30px;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
-    }
-    .games-lightbox-close {
-      appearance: none;
-      background: transparent;
-      border: none;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      font-size: 1.4rem;
-      line-height: 1;
-      cursor: pointer;
-      color: var(--ink);
-      flex: 0 0 auto;
-      transition: background 140ms ease, color 140ms ease;
-    }
-    .games-lightbox-close:hover,
-    .games-lightbox-close:focus-visible {
-      background: var(--accent-soft);
-      color: var(--accent);
-      outline: none;
-    }
-    .games-lightbox-body {
-      padding: 16px 18px 20px;
-      overflow-y: auto;
-      flex: 1 1 auto;
     }
 
     .selected-games-grid {
@@ -670,7 +656,7 @@
     }
     .game-card {
       display: grid;
-      grid-template-rows: auto auto auto 1fr;
+      grid-template-rows: auto auto auto auto 1fr;
       gap: 6px;
       padding: 14px 16px;
       border: 1px solid var(--line);
@@ -680,8 +666,46 @@
       transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
     }
     .game-card:hover {
-      border-color: var(--accent);
+      border-color: var(--card-accent, var(--accent));
       transform: translateY(-1px);
+    }
+    .game-card-icons {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 32px;
+    }
+    .game-card-helmet {
+      width: 32px;
+      height: 32px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      flex: 0 0 auto;
+    }
+    /* Bigger state silhouettes and country ovals inside game cards so they
+       sit visually next to the 32px helmet without disappearing. */
+    .game-card-icons .hero-meta-list-geo--shape {
+      width: 50px;
+      height: 30px;
+    }
+    .game-card-icons .hero-meta-list-geo--shape text {
+      font-size: 10.5px;
+      stroke-width: 1.4;
+    }
+    .game-card-icons .hero-meta-list-geo--country {
+      width: 40px;
+      height: 24px;
+      font-size: 0.78rem;
+    }
+    .game-card-emoji {
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      line-height: 1;
+      flex: 0 0 auto;
     }
     .game-card-title {
       font-family: "IBM Plex Mono", monospace;
@@ -797,6 +821,7 @@
       .hero,
       .browse-shell,
       .about-shell,
+      .selected-games,
       .site-footer {
         width: calc(100% - 24px);
       }
@@ -1025,18 +1050,12 @@
         </div>
       </section>
 
-      <div class="games-lightbox" id="gamesLightbox" hidden role="dialog" aria-modal="true" aria-labelledby="selectedGamesTitle">
-        <div class="games-lightbox-backdrop" id="gamesLightboxBackdrop" aria-hidden="true"></div>
-        <div class="games-lightbox-panel" role="document">
-          <div class="games-lightbox-head">
-            <h3 class="games-lightbox-title" id="selectedGamesTitle"></h3>
-            <button class="games-lightbox-close" id="selectedGamesClose" type="button" aria-label="Close">×</button>
-          </div>
-          <div class="games-lightbox-body">
-            <div class="selected-games-grid" id="selectedGamesGrid"></div>
-          </div>
-        </div>
-      </div>
+      <section class="selected-games" id="selectedGames" hidden aria-labelledby="selectedGamesTitle">
+        <header class="selected-games-head">
+          <h3 class="selected-games-title" id="selectedGamesTitle"></h3>
+        </header>
+        <div class="selected-games-grid" id="selectedGamesGrid"></div>
+      </section>
 
       <section class="about-shell" aria-label="Why it works">
         <article class="about-cell">
@@ -1061,6 +1080,7 @@
   </div>
 
   <script src="mc/admin-auth.js"></script>
+  <script src="site/assets/teams/us-state-shapes.js"></script>
   <script>
     (function () {
       const SB_CONFIG = {
@@ -1085,14 +1105,17 @@
 
       const MODE_CITY = 'city';
       const MODE_FAN = 'fan';
-      const gamesLightboxEl = document.getElementById('gamesLightbox');
-      const gamesLightboxBackdropEl = document.getElementById('gamesLightboxBackdrop');
+      const selectedGamesEl = document.getElementById('selectedGames');
       const selectedGamesTitleEl = document.getElementById('selectedGamesTitle');
       const selectedGamesGridEl = document.getElementById('selectedGamesGrid');
-      const selectedGamesCloseBtn = document.getElementById('selectedGamesClose');
       const heroMetaListEl = document.getElementById('heroMetaList');
 
       const COLORS_JSON_URL = 'site/assets/teams/teams.json';
+      // Supabase is the source of truth for team data; the JSON above is a
+      // cached fallback for offline / first-paint scenarios.
+      const TEAMS_REST_URL = SB_CONFIG.url + '/rest/v1/teams'
+        + '?select=league,conference,code,full_name,first_name,fanbase,mascot,sport,shell,stripe,mask'
+        + '&order=league_sort.asc&order=team_sort.asc';
       const NO_HELMET_PALETTE = {
         primary_color: '#c8c4ba',
         secondary_color: '#8a8680',
@@ -1142,6 +1165,43 @@
         const parts = String(label || '').split(',').map((s) => s.trim()).filter(Boolean);
         return parts[0] || label || '';
       }
+
+      // Builds the visual element for a geo badge. For US states we have
+      // baked-in SVG outlines (us-state-shapes.js) — render the silhouette
+      // with the 2-letter abbreviation overlaid. Countries (and any state we
+      // somehow don't have a shape for) fall back to the existing span.
+      function buildGeoBadge(badge, extraClass) {
+        const cls = (s) => 'hero-meta-list-geo' + (s ? ' ' + s : '') + (extraClass ? ' ' + extraClass : '');
+        const shapes = window.US_STATE_SHAPES || null;
+        if (badge && badge.kind === 'state' && shapes && shapes[badge.value]) {
+          const NS = 'http://www.w3.org/2000/svg';
+          const svg = document.createElementNS(NS, 'svg');
+          svg.setAttribute('viewBox', shapes._viewBox || '0 0 40 24');
+          svg.setAttribute('class', cls('hero-meta-list-geo--state hero-meta-list-geo--shape'));
+          svg.setAttribute('aria-hidden', 'true');
+          svg.setAttribute('focusable', 'false');
+          const path = document.createElementNS(NS, 'path');
+          path.setAttribute('d', shapes[badge.value]);
+          svg.appendChild(path);
+          const text = document.createElementNS(NS, 'text');
+          text.setAttribute('x', String((shapes._w || 40) / 2));
+          text.setAttribute('y', String((shapes._h || 24) / 2));
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('dominant-baseline', 'central');
+          text.textContent = badge.value;
+          svg.appendChild(text);
+          return svg;
+        }
+        const span = document.createElement('span');
+        if (badge) {
+          span.className = cls('hero-meta-list-geo--' + badge.kind);
+          span.textContent = badge.value;
+          span.setAttribute('aria-hidden', 'true');
+        } else {
+          span.className = cls('');
+        }
+        return span;
+      }
       let activeMode = MODE_FAN;
       let selectedEntryKind = '';
       let selectedEntryKey  = '';
@@ -1153,54 +1213,81 @@
         return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
       }
 
+      // Build the same { lookup, teams } shape from a flat list of team records.
+      // Accepts either Supabase rows ({ first_name, full_name, ... }) or the
+      // legacy JSON shape ({ firstName, fullName, ... }) — picks whichever keys
+      // are present per record.
+      function buildTeamIndex(records) {
+        const lookup = new Map();
+        const teams = [];
+        for (const value of records || []) {
+          if (!value || typeof value !== 'object') continue;
+          const firstName = value.firstName || value.first_name || '';
+          const fanbase   = value.fanbase   || firstName        || '';
+          const mascot    = value.mascot    || '';
+          const sport     = value.sport     || '';
+          const shell     = value.shell     || '';
+          const stripe    = value.stripe    || '';
+          const mask      = value.mask      || '';
+          const palette = {
+            primary_color: shell,
+            secondary_color: stripe,
+            tertiary_color: mask,
+            sport,
+            fanbase
+          };
+          // Index by fanbase (matches schedule's away_team_city); also index by
+          // firstName when it differs so legacy schedule data using the brand
+          // short name still resolves.
+          const fanbaseKey = teamKey(fanbase);
+          const firstNameKey = teamKey(firstName);
+          const mascotKey = teamKey(mascot);
+          if (mascotKey) {
+            if (fanbaseKey) lookup.set(fanbaseKey + '|' + mascotKey, palette);
+            if (firstNameKey && firstNameKey !== fanbaseKey) lookup.set(firstNameKey + '|' + mascotKey, palette);
+          }
+          teams.push({ firstName, fanbase, mascot, sport, palette });
+        }
+        return { lookup, teams };
+      }
+
+      async function fetchTeamColorsFromSupabase() {
+        const response = await fetch(TEAMS_REST_URL, {
+          headers: { apikey: SB_CONFIG.key, Authorization: 'Bearer ' + SB_CONFIG.key },
+          cache: 'no-store'
+        });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return await response.json();
+      }
+
+      async function fetchTeamColorsFromJson() {
+        const response = await fetch(COLORS_JSON_URL, { cache: 'no-store' });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const doc = await response.json();
+        const flat = [];
+        const walk = (node) => {
+          if (!node || typeof node !== 'object') return;
+          for (const value of Object.values(node)) {
+            if (!value || typeof value !== 'object') continue;
+            if ('fullName' in value || 'shell' in value) flat.push(value);
+            else walk(value);
+          }
+        };
+        walk((doc && doc.leagues) || {});
+        return flat;
+      }
+
       async function fetchTeamColors() {
         try {
-          const response = await fetch(COLORS_JSON_URL, { cache: 'no-store' });
-          if (!response.ok) return { lookup: new Map(), teams: [] };
-          const lookup = new Map();
-          const teams = [];
-          const doc = await response.json();
-          const leagues = (doc && doc.leagues) || {};
-          // Some leagues (e.g. NCAAF) nest teams under a conference key, so walk
-          // recursively: a node with `fullName`/`shell` is a team, anything else
-          // is a sub-group whose values we recurse into.
-          const walk = (node) => {
-            if (!node || typeof node !== 'object') return;
-            Object.keys(node).forEach((key) => {
-              const value = node[key];
-              if (!value || typeof value !== 'object') return;
-              if ('fullName' in value || 'shell' in value) {
-                const palette = {
-                  primary_color: value.shell || '',
-                  secondary_color: value.stripe || '',
-                  tertiary_color: value.mask || '',
-                  sport: value.sport || '',
-                  fanbase: value.fanbase || value.firstName || ''
-                };
-                // Index by fanbase (matches schedule's away_team_city); also
-                // index by firstName when it differs so legacy schedule data
-                // using the brand short name still resolves.
-                const fanbaseKey = teamKey(value.fanbase || value.firstName);
-                const firstNameKey = teamKey(value.firstName);
-                const mascotKey = teamKey(value.mascot);
-                if (mascotKey) {
-                  if (fanbaseKey) lookup.set(fanbaseKey + '|' + mascotKey, palette);
-                  if (firstNameKey && firstNameKey !== fanbaseKey) lookup.set(firstNameKey + '|' + mascotKey, palette);
-                }
-                teams.push({
-                  firstName: value.firstName || '',
-                  fanbase: value.fanbase || value.firstName || '',
-                  mascot: value.mascot || '',
-                  sport: value.sport || '',
-                  palette
-                });
-              } else {
-                walk(value);
-              }
-            });
-          };
-          walk(leagues);
-          return { lookup, teams };
+          const rows = await fetchTeamColorsFromSupabase();
+          if (Array.isArray(rows) && rows.length) return buildTeamIndex(rows);
+          // Empty array → table not seeded yet; fall through to JSON.
+        } catch (error) {
+          // Network/RLS/etc — fall back to bundled JSON.
+        }
+        try {
+          const flat = await fetchTeamColorsFromJson();
+          return buildTeamIndex(flat);
         } catch (error) {
           return { lookup: new Map(), teams: [] };
         }
@@ -1406,8 +1493,7 @@
         refreshSelectionStyles();
         if (selectedGamesGridEl) selectedGamesGridEl.innerHTML = '';
         if (selectedGamesTitleEl) selectedGamesTitleEl.textContent = '';
-        if (gamesLightboxEl) gamesLightboxEl.hidden = true;
-        document.body.style.overflow = '';
+        if (selectedGamesEl) selectedGamesEl.hidden = true;
       }
 
       function createHeroMetaItem(entry) {
@@ -1438,14 +1524,7 @@
           }
         } else if (entry.entryKind === 'city') {
           const badge = cityGeoBadge(entry.label);
-          const geo = document.createElement('span');
-          geo.className = 'hero-meta-list-geo';
-          if (badge) {
-            geo.classList.add('hero-meta-list-geo--' + badge.kind);
-            geo.textContent = badge.value;
-            geo.setAttribute('aria-hidden', 'true');
-          }
-          item.appendChild(geo);
+          item.appendChild(buildGeoBadge(badge));
         } else {
           const spacer = document.createElement('span');
           spacer.className = 'hero-meta-list-helmet hero-meta-list-helmet--spacer';
@@ -1564,22 +1643,27 @@
         let dragSuppressClick = false;
         const DRAG_THRESHOLD = 4;
 
+        let pointerDownId = null;
         heroMetaListEl.addEventListener('pointerdown', (e) => {
           if (e.pointerType === 'mouse' && e.button !== 0) return;
           metaDragActive = false;
+          pointerDownId = e.pointerId;
           dragStartY = e.clientY;
           metaScrollPosition = heroMetaListEl.scrollTop;
           dragStartScroll = heroMetaListEl.scrollTop;
           metaUserPauseUntil = performance.now() + 600;
-          try { heroMetaListEl.setPointerCapture(e.pointerId); } catch (_) {}
+          // Do NOT setPointerCapture here — it would retarget the subsequent
+          // `click` event to heroMetaListEl, breaking chip click detection.
+          // Capture is set only once a real drag is detected (in pointermove).
         });
 
         heroMetaListEl.addEventListener('pointermove', (e) => {
-          if (!heroMetaListEl.hasPointerCapture(e.pointerId)) return;
+          if (e.pointerId !== pointerDownId) return;
           const dy = e.clientY - dragStartY;
           if (!metaDragActive && Math.abs(dy) > DRAG_THRESHOLD) {
             metaDragActive = true;
             heroMetaListEl.classList.add('is-dragging');
+            try { heroMetaListEl.setPointerCapture(e.pointerId); } catch (_) {}
           }
           if (metaDragActive) {
             heroMetaListEl.scrollTop = dragStartScroll - dy;
@@ -1594,6 +1678,7 @@
         });
 
         const endDrag = (e) => {
+          if (e.pointerId === pointerDownId) pointerDownId = null;
           if (heroMetaListEl.hasPointerCapture(e.pointerId)) {
             try { heroMetaListEl.releasePointerCapture(e.pointerId); } catch (_) {}
           }
@@ -1645,7 +1730,7 @@
       }
 
       function renderSelectedGames(entry) {
-        if (!gamesLightboxEl || !selectedGamesGridEl || !selectedGamesTitleEl) return;
+        if (!selectedGamesEl || !selectedGamesGridEl || !selectedGamesTitleEl) return;
         const games = gamesForEntry(entry).slice().sort((a, b) => {
           const da = (a.game_date || '') + (a.start_time || '');
           const db = (b.game_date || '') + (b.start_time || '');
@@ -1671,7 +1756,7 @@
             );
             if (src) {
               const img = document.createElement('img');
-              img.className = 'games-lightbox-icon games-lightbox-icon--helmet';
+              img.className = 'selected-games-icon selected-games-icon--helmet';
               img.alt = '';
               img.src = src;
               iconNode = img;
@@ -1681,19 +1766,14 @@
           const cityName = cityDisplayName(entry.label) || entry.label;
           titleText = `${cityName} · ${countLabel}`;
           const badge = cityGeoBadge(entry.label);
-          if (badge) {
-            const geo = document.createElement('span');
-            geo.className = 'hero-meta-list-geo hero-meta-list-geo--' + badge.kind + ' games-lightbox-icon';
-            geo.textContent = badge.value;
-            iconNode = geo;
-          }
+          if (badge) iconNode = buildGeoBadge(badge, 'selected-games-icon');
         } else {
           titleText = `${entry.label} · ${countLabel}`;
         }
 
         if (iconNode) selectedGamesTitleEl.appendChild(iconNode);
         const textSpan = document.createElement('span');
-        textSpan.className = 'games-lightbox-title-text';
+        textSpan.className = 'selected-games-title-text';
         textSpan.textContent = titleText;
         selectedGamesTitleEl.appendChild(textSpan);
 
@@ -1708,6 +1788,42 @@
             const card = document.createElement('a');
             card.className = 'game-card';
             card.href = 'game/run/index.html?id=' + encodeURIComponent(game.id || '');
+
+            // Icons row: away-team helmet (or fallback emoji when no away team
+            // is listed) + state/country badge for the host city.
+            const icons = document.createElement('div');
+            icons.className = 'game-card-icons';
+            const teamPalette = getHelmetByAwayTeam(game);
+            const hasAwayTeam = !!(plainText(game.away_team_city) && plainText(game.away_team_mascot));
+            card.style.setProperty(
+              '--card-accent',
+              (teamPalette && teamPalette.primary_color) || '#000000'
+            );
+            if (hasAwayTeam) {
+              const palette = teamPalette || NO_HELMET_PALETTE;
+              const helmetSrc = teamMarkSVG(
+                palette.sport,
+                palette.primary_color,
+                palette.secondary_color,
+                palette.tertiary_color
+              );
+              if (helmetSrc) {
+                const helmetImg = document.createElement('img');
+                helmetImg.className = 'game-card-helmet';
+                helmetImg.alt = '';
+                helmetImg.src = helmetSrc;
+                icons.appendChild(helmetImg);
+              }
+            } else if (game.default_emoji) {
+              const emoji = document.createElement('span');
+              emoji.className = 'game-card-emoji';
+              emoji.textContent = String(game.default_emoji);
+              emoji.setAttribute('aria-hidden', 'true');
+              icons.appendChild(emoji);
+            }
+            const venueBadge = cityGeoBadge(game.city);
+            if (venueBadge) icons.appendChild(buildGeoBadge(venueBadge));
+            if (icons.childNodes.length) card.appendChild(icons);
 
             const title = document.createElement('div');
             title.className = 'game-card-title';
@@ -1741,9 +1857,8 @@
             selectedGamesGridEl.appendChild(card);
           });
         }
-        gamesLightboxEl.hidden = false;
-        document.body.style.overflow = 'hidden';
-        if (selectedGamesCloseBtn) selectedGamesCloseBtn.focus({ preventScroll: true });
+        selectedGamesEl.hidden = false;
+        selectedGamesEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
 
       function setMode(mode) {
@@ -1782,18 +1897,6 @@
         });
       });
 
-      if (selectedGamesCloseBtn) {
-        selectedGamesCloseBtn.addEventListener('click', clearSelectedEntry);
-      }
-      if (gamesLightboxBackdropEl) {
-        gamesLightboxBackdropEl.addEventListener('click', clearSelectedEntry);
-      }
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && gamesLightboxEl && !gamesLightboxEl.hidden) {
-          e.preventDefault();
-          clearSelectedEntry();
-        }
-      });
 
       if (heroMetaListEl) {
         heroMetaListEl.addEventListener('click', (e) => {

@@ -1235,6 +1235,17 @@ code{font-family:"IBM Plex Mono",monospace;}
 
 /* Nav */
 .admin-nav{display:flex;gap:4px;}
+.admin-nav-group{position:relative;display:inline-flex;}
+.admin-nav-submenu{position:absolute;top:calc(100% + 4px);left:0;min-width:100%;display:none;flex-direction:column;padding:6px;gap:2px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 18px 36px var(--paper-shadow);z-index:30;}
+.admin-nav-group:hover > .admin-nav-submenu,.admin-nav-group:focus-within > .admin-nav-submenu{display:flex;}
+.admin-nav-submenu .admin-nav-link{white-space:nowrap;font-size:0.78rem;min-height:34px;padding:0 12px;}
+.admin-nav-split{display:inline-flex;border:2px solid var(--line);border-radius:6px;overflow:hidden;}
+.admin-nav-split .admin-nav-link{border-radius:0;background:#fff;color:var(--ink);}
+.admin-nav-split .admin-nav-link:hover{background:rgba(var(--bic-blue-rgb),0.08);color:var(--ink);}
+.admin-nav-split .admin-nav-link--split-edit{padding:0 12px;font-size:0.72rem;letter-spacing:0.08em;background:#d1d5db;color:var(--ink);}
+.admin-nav-split .admin-nav-link--split-edit:hover{background:#c5c9d1;color:var(--ink);}
+.admin-nav-split .admin-nav-link--split-edit.admin-nav-link--active{background:var(--accent);color:#fff;}
+.admin-nav-split .admin-nav-link--split-edit.admin-nav-link--active:hover{background:rgba(var(--bic-blue-rgb),0.85);color:#fff;}
 .admin-nav-link{display:inline-flex;align-items:center;min-height:42px;padding:0 14px;border-radius:6px;font-size:0.85rem;font-weight:600;text-decoration:none;color:var(--muted);letter-spacing:0.04em;transition:background 0.15s,color 0.15s;}
 .admin-nav-link:hover{background:var(--line);color:var(--ink);}
 .admin-nav-link--active{background:var(--bic-blue);color:#fff;}
@@ -9203,7 +9214,7 @@ body.builder-auth-ready .builder-auth-signout{
 
 .builder-admin-topbar{
   display:flex;
-  justify-content:space-between;
+  justify-content:flex-end;
   align-items:center;
   width:100%;
   max-width:1180px;
@@ -9683,19 +9694,22 @@ html.admin-embedded .builder-section-head{
 <body class="builder-page builder-page--editor is-header-only builder-auth-locked">
   <div class="app-shell">
     <main class="games-page builder-editor-page">
-      <!-- Admin topbar: home button on the left, admin nav + sign-out on the right. -->
+      <!-- Admin topbar: admin nav + sign-out on the right. -->
       <div class="builder-admin-topbar">
-        <div class="builder-admin-topbar-left">
-          <a class="home-icon-btn" href="../index.html" title="TGB HOME">TGB HOME</a>
-          <a class="builder-preview-btn" id="builderLibraryBtn" href="../site/library.html" target="_blank" rel="noopener" title="Open the public library">VIEW LIBRARY</a>
-          <button class="builder-preview-btn" id="gamePickerPlayBtn" type="button" disabled aria-disabled="true" title="Choose a game to preview">VIEW GAME</button>
-        </div>
         <div class="builder-admin-topbar-inner">
           <nav class="admin-nav">
-            <a class="admin-nav-link admin-nav-link--active" href="builder.html" aria-current="page">BUILDER</a>
-            <a class="admin-nav-link" href="index.html">STACKS</a>
-            <a class="admin-nav-link" href="photos.html">DARK ROOM</a>
-            <a class="admin-nav-link" href="giftshop.html">STOCK ROOM</a>
+            <span class="admin-nav-split">
+              <a class="admin-nav-link" href="../index.html" title="Open the public home">GAMES</a>
+              <a class="admin-nav-link admin-nav-link--split-edit" href="index.html" title="Edit games">EDIT</a>
+            </span>
+            <span class="admin-nav-split">
+              <a class="admin-nav-link" href="../site/winnerswall.html" target="_blank" rel="noopener" title="Open the public Winner's Wall">WINNER'S WALL</a>
+              <a class="admin-nav-link admin-nav-link--split-edit" href="photos.html" title="Edit Winner's Wall">EDIT</a>
+            </span>
+            <span class="admin-nav-split">
+              <a class="admin-nav-link" href="../gift/" target="_blank" rel="noopener" title="Open the public gift shop">GIFT SHOP</a>
+              <a class="admin-nav-link admin-nav-link--split-edit" href="giftshop.html" title="Edit gift shop">EDIT</a>
+            </span>
           </nav>
           <button class="builder-admin-signout" id="builderSignOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -11858,7 +11872,6 @@ const stencilBar = document.getElementById('stencilBar');
 const addPanel = document.getElementById('addPanel');
 const phoneShell = document.querySelector('.phone-shell');
 const gamesPageHero = document.querySelector('.games-page-hero');
-const gamePickerPlayBtn = document.getElementById('gamePickerPlayBtn');
 const builderSignOutBtn = document.getElementById('builderSignOutBtn');
 const gamePickerSelect = document.getElementById('gamePickerSelect');
 const builderTutorialPopover = document.getElementById('builderTutorialPopover');
@@ -11997,45 +12010,73 @@ const nodeHomeTeamMascotInput = document.getElementById('nodeHomeTeamMascotInput
 const nodeAwayTeamCityInput = document.getElementById('nodeAwayTeamCityInput');
 const nodeAwayTeamMascotInput = document.getElementById('nodeAwayTeamMascotInput');
 
-// Teams dropdown — populated from site/assets/teams/teams.json. The away/home
-// "city" inputs are <select> elements; picking one writes both the fanbase
-// (stored in *TeamCity) and the mascot to state.currentGameMeta.
+// Teams dropdown — primary source is public.teams in Supabase; falls back to
+// site/assets/teams/teams.json (offline cache) on REST/network failure. The
+// away/home "city" inputs are <select> elements; picking one writes both the
+// fanbase (stored in *TeamCity) and the mascot to state.currentGameMeta.
 let builderTeamsList = [];
+
+async function loadBuilderTeamsFromSupabase() {
+  if (!hasSupabaseStore()) return null;
+  const url = buildSupabaseUrl(
+    { select: 'first_name,fanbase,mascot,sport', order: 'league_sort.asc,team_sort.asc' },
+    'teams'
+  );
+  if (!url) return null;
+  const response = await fetch(url, { headers: getSupabaseHeaders(), cache: 'no-store' });
+  if (!response.ok) throw new Error('HTTP ' + response.status);
+  const rows = await response.json();
+  if (!Array.isArray(rows) || !rows.length) return null;
+  return rows.map((r) => ({
+    firstName: r.first_name || '',
+    fanbase: r.fanbase || r.first_name || '',
+    mascot: r.mascot || '',
+    sport: r.sport || ''
+  }));
+}
+
+async function loadBuilderTeamsFromJson() {
+  const response = await fetch('../site/assets/teams/teams.json', { cache: 'no-store' });
+  if (!response.ok) throw new Error('HTTP ' + response.status);
+  const doc = await response.json();
+  const teams = [];
+  const walk = (node) => {
+    if (!node || typeof node !== 'object') return;
+    Object.keys(node).forEach((k) => {
+      const v = node[k];
+      if (!v || typeof v !== 'object') return;
+      if ('fullName' in v || 'shell' in v) {
+        teams.push({
+          firstName: v.firstName || '',
+          fanbase: v.fanbase || v.firstName || '',
+          mascot: v.mascot || '',
+          sport: v.sport || ''
+        });
+      } else {
+        walk(v);
+      }
+    });
+  };
+  walk(doc.leagues || {});
+  return teams;
+}
+
 async function loadBuilderTeams() {
-  try {
-    const response = await fetch('../site/assets/teams/teams.json', { cache: 'no-store' });
-    if (!response.ok) return;
-    const doc = await response.json();
-    const teams = [];
-    const walk = (node) => {
-      if (!node || typeof node !== 'object') return;
-      Object.keys(node).forEach((k) => {
-        const v = node[k];
-        if (!v || typeof v !== 'object') return;
-        if ('fullName' in v || 'shell' in v) {
-          teams.push({
-            firstName: v.firstName || '',
-            fanbase: v.fanbase || v.firstName || '',
-            mascot: v.mascot || '',
-            sport: v.sport || ''
-          });
-        } else {
-          walk(v);
-        }
-      });
-    };
-    walk(doc.leagues || {});
-    builderTeamsList = teams
-      .filter((t) => t.fanbase && t.mascot)
-      .sort((a, b) => {
-        const al = ((a.firstName || a.fanbase) + ' ' + a.mascot).toLowerCase();
-        const bl = ((b.firstName || b.fanbase) + ' ' + b.mascot).toLowerCase();
-        return al.localeCompare(bl);
-      });
-    populateTeamSelects();
-  } catch (err) {
-    console.warn('Failed to load teams.json for builder:', err);
+  let teams = null;
+  try { teams = await loadBuilderTeamsFromSupabase(); }
+  catch (err) { console.warn('Supabase teams fetch failed, falling back to JSON:', err); }
+  if (!teams || !teams.length) {
+    try { teams = await loadBuilderTeamsFromJson(); }
+    catch (err) { console.warn('Failed to load teams.json for builder:', err); return; }
   }
+  builderTeamsList = (teams || [])
+    .filter((t) => t.fanbase && t.mascot)
+    .sort((a, b) => {
+      const al = ((a.firstName || a.fanbase) + ' ' + a.mascot).toLowerCase();
+      const bl = ((b.firstName || b.fanbase) + ' ' + b.mascot).toLowerCase();
+      return al.localeCompare(bl);
+    });
+  populateTeamSelects();
 }
 
 function populateTeamSelects() {
@@ -15792,12 +15833,6 @@ function updateActionUi() {
     gamePickerSaveBtn.title = 'Save (Ctrl/Cmd+S)';
     gamePickerSaveBtn.setAttribute('aria-label', 'Save (Ctrl/Cmd+S)');
     gamePickerSaveBtn.setAttribute('aria-busy', isSaveBusy ? 'true' : 'false');
-  }
-  if (gamePickerPlayBtn) {
-    gamePickerPlayBtn.disabled = !canPlay;
-    gamePickerPlayBtn.setAttribute('aria-disabled', canPlay ? 'false' : 'true');
-    gamePickerPlayBtn.title = canPlay ? 'Preview (Ctrl/Cmd+Enter)' : 'Choose a game to preview';
-    gamePickerPlayBtn.setAttribute('aria-label', gamePickerPlayBtn.title);
   }
   if (gamePickerSelect) gamePickerSelect.disabled = isSaveBusy;
 }
@@ -22547,7 +22582,6 @@ document.addEventListener('keydown', (event) => {
     saveCurrentGameFromMenu();
   }
 });
-if (gamePickerPlayBtn) gamePickerPlayBtn.addEventListener('click', playCurrentGame);
 document.querySelectorAll('[data-admin-logoff]').forEach((button) => {
   button.addEventListener('click', () => {
     handleBuilderSignOut();

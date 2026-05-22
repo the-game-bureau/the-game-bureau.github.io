@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>GIFT SHOP STOCK ROOM | THE GAME BUREAU</title>
+  <title>GIFT SHOP | THE GAME BUREAU</title>
   <link rel="icon" href="../site/assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -70,6 +70,64 @@
     .topbar-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
     .admin-nav { display: flex; gap: 4px; }
+    .admin-nav-group { position: relative; display: inline-flex; }
+    .admin-nav-submenu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      min-width: 100%;
+      display: none;
+      flex-direction: column;
+      padding: 6px;
+      gap: 2px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 18px 36px var(--paper-shadow);
+      z-index: 30;
+    }
+    .admin-nav-group:hover > .admin-nav-submenu,
+    .admin-nav-group:focus-within > .admin-nav-submenu { display: flex; }
+    .admin-nav-submenu .admin-nav-link {
+      white-space: nowrap;
+      font-size: 0.78rem;
+      min-height: 34px;
+      padding: 0 12px;
+    }
+    .admin-nav-split {
+      display: inline-flex;
+      border: 2px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .admin-nav-split .admin-nav-link {
+      border-radius: 0;
+      background: #fff;
+      color: var(--ink);
+    }
+    .admin-nav-split .admin-nav-link:hover {
+      background: rgba(var(--bic-blue-rgb), 0.08);
+      color: var(--ink);
+    }
+    .admin-nav-split .admin-nav-link--split-edit {
+      padding: 0 12px;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      background: #d1d5db;
+      color: var(--ink);
+    }
+    .admin-nav-split .admin-nav-link--split-edit:hover {
+      background: #c5c9d1;
+      color: var(--ink);
+    }
+    .admin-nav-split .admin-nav-link--split-edit.admin-nav-link--active {
+      background: var(--accent);
+      color: #fff;
+    }
+    .admin-nav-split .admin-nav-link--split-edit.admin-nav-link--active:hover {
+      background: rgba(var(--bic-blue-rgb), 0.85);
+      color: #fff;
+    }
     .admin-nav-link {
       display: inline-flex;
       align-items: center;
@@ -966,14 +1024,20 @@
   <main class="app">
     <section id="shopPanel">
       <div class="topbar">
-        <a class="btn home-icon-btn" href="../index.html" title="TGB HOME">TGB HOME</a>
-        <a class="btn" id="previewBtn" style="margin-right:auto;" href="../gift/" target="_blank" rel="noopener">VIEW SHOP</a>
-        <div class="topbar-actions">
+        <div class="topbar-actions" style="margin-left:auto;">
           <nav class="admin-nav">
-            <a class="admin-nav-link" href="builder.html">BUILDER</a>
-            <a class="admin-nav-link" href="index.html">STACKS</a>
-            <a class="admin-nav-link" href="photos.html">DARK ROOM</a>
-            <a class="admin-nav-link admin-nav-link--active" href="giftshop.html" aria-current="page">STOCK ROOM</a>
+            <span class="admin-nav-split">
+              <a class="admin-nav-link" href="../index.html" title="Open the public home">GAMES</a>
+              <a class="admin-nav-link admin-nav-link--split-edit" href="index.html" title="Edit games">EDIT</a>
+            </span>
+            <span class="admin-nav-split">
+              <a class="admin-nav-link" href="../site/winnerswall.html" target="_blank" rel="noopener" title="Open the public Winner's Wall">WINNER'S WALL</a>
+              <a class="admin-nav-link admin-nav-link--split-edit" href="photos.html" title="Edit Winner's Wall">EDIT</a>
+            </span>
+            <span class="admin-nav-split">
+              <a class="admin-nav-link" href="../gift/" target="_blank" rel="noopener" title="Open the public gift shop">GIFT SHOP</a>
+              <a class="admin-nav-link admin-nav-link--split-edit admin-nav-link--active" href="giftshop.html" aria-current="page" title="Edit gift shop">EDIT</a>
+            </span>
           </nav>
           <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1046,7 +1110,7 @@
           </g>
         </svg>
         <p class="kicker">TGB MISSION CONTROL</p>
-        <h1>GIFT SHOP STOCK ROOM</h1>
+        <h1>GIFT SHOP</h1>
         <p class="status" id="shopStatus" aria-live="polite"></p>
       </div>
 
@@ -1185,7 +1249,6 @@
     const shopStatus   = document.getElementById('shopStatus');
     const addItemBtn   = document.getElementById('addItemBtn');
     const suggestItemsBtn = document.getElementById('suggestItemsBtn');
-    const previewBtn   = document.getElementById('previewBtn');
     const previewShopSelect = document.getElementById('previewShopSelect');
     const itemsList    = document.getElementById('itemsList');
     const itemTemplate = document.getElementById('itemTemplate');
@@ -1206,7 +1269,6 @@
         gamesById = new Map();
         gameOptionsHtml = '<option value="">— Pick a game —</option>';
         previewShopSelect.innerHTML = '<option value="">All Games</option>';
-        previewBtn.href = '../gift/';
         addItemBtn.disabled = true;
         setSuggestItemsButtonEnabled(false);
         setStatus(shopStatus, '');
@@ -1308,14 +1370,6 @@
         '<option value="">All Games</option>' +
         live.map((g) => renderOpt(g, '')).join('') +
         dead.map((g) => renderOpt(g, '(archived)')).join('');
-      updatePreviewHref();
-    }
-
-    function updatePreviewHref() {
-      const id = previewShopSelect.value;
-      previewBtn.href = id
-        ? '../gift/?game=' + encodeURIComponent(id)
-        : '../gift/';
     }
 
     function filterItemsByShop() {
@@ -1341,7 +1395,6 @@
     }
 
     previewShopSelect.addEventListener('change', () => {
-      updatePreviewHref();
       filterItemsByShop();
     });
 
@@ -2131,7 +2184,6 @@
         await loadGames();
         if (preservedGameId && previewShopSelect.querySelector('option[value="' + CSS.escape(preservedGameId) + '"]')) {
           previewShopSelect.value = preservedGameId;
-          updatePreviewHref();
         }
         addItemBtn.disabled = false;
         setSuggestItemsButtonEnabled(true);
