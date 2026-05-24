@@ -101,6 +101,11 @@
       align-self: start;
     }
 
+    .nav-admin-menu {
+      position: relative;
+      display: inline-flex;
+    }
+
     .nav-link,
     .hero-button,
     .browse-link,
@@ -119,6 +124,54 @@
       letter-spacing: 0.14em;
       text-transform: uppercase;
       transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease;
+    }
+
+    .nav-admin-menu-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 40;
+      display: grid;
+      min-width: 220px;
+      padding: 6px;
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      box-shadow: 0 12px 28px rgba(17, 17, 17, 0.12);
+    }
+
+    .nav-admin-menu-panel[hidden] {
+      display: none;
+    }
+
+    .nav-admin-menu-item {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-align: left;
+      text-decoration: none;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .nav-admin-menu-item:hover,
+    .nav-admin-menu-item:focus-visible {
+      background: var(--paper-strong);
+      color: var(--accent);
+      outline: none;
+    }
+
+    .nav-admin-menu-divider {
+      height: 1px;
+      margin: 5px 0;
+      background: var(--line);
     }
 
     .nav-link:hover,
@@ -667,18 +720,25 @@
     }
     .game-card {
       display: grid;
-      grid-template-rows: auto auto auto auto 1fr;
+      grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
       gap: 6px;
       padding: 14px 16px;
       border: 1px solid var(--line);
       background: var(--surface);
-      text-decoration: none;
       color: inherit;
       transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+    }
+    .game-card.is-selectable {
+      cursor: pointer;
     }
     .game-card:hover {
       border-color: var(--card-accent, var(--accent));
       transform: translateY(-1px);
+    }
+    .game-card.is-selected {
+      border-color: var(--card-accent, var(--accent));
+      background: color-mix(in srgb, var(--card-accent, var(--accent)) 8%, var(--surface));
+      box-shadow: inset 0 0 0 1px var(--card-accent, var(--accent));
     }
     .game-card-icons {
       display: flex;
@@ -742,6 +802,66 @@
       font-size: 0.78rem;
       color: var(--muted);
       font-style: italic;
+    }
+    .game-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .game-card-play {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      justify-self: start;
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid var(--card-accent, var(--accent));
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      line-height: 1;
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+    }
+    .game-card-play {
+      background: var(--ink);
+      color: var(--surface);
+    }
+    .game-card-select {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      line-height: 1;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+    }
+    .game-card-select:hover,
+    .game-card-select:focus-visible,
+    .game-card-select[aria-pressed="true"] {
+      background: var(--card-accent, var(--accent));
+      border-color: var(--card-accent, var(--accent));
+      color: var(--surface);
+      outline: none;
+    }
+    .game-card-play:hover,
+    .game-card-play:focus-visible {
+      background: var(--surface);
+      border-color: var(--card-accent, var(--accent));
+      color: var(--ink);
     }
     .selected-games-empty {
       grid-column: 1 / -1;
@@ -1091,7 +1211,7 @@
     .home-page .mc-auth-status.is-success { color: var(--ink); }
   </style>
 </head>
-<body class="home-page">
+<body class="home-page" data-admin-page="mission-control">
   <div class="page-shell">
     <header class="site-nav">
       <div class="brand-lockup">
@@ -1099,7 +1219,17 @@
         <p class="brand-tagline">The cure for the common walking tour</p>
       </div>
       <nav class="nav-links" aria-label="Primary">
-        <button class="nav-link" id="navLoginBtn" type="button">Login</button>
+        <div class="nav-admin-menu" id="navAdminMenu">
+          <button class="nav-link" id="navLoginBtn" type="button" aria-haspopup="menu" aria-expanded="false">Login</button>
+          <div class="nav-admin-menu-panel" id="navAdminMenuPanel" role="menu" hidden>
+            <a class="nav-admin-menu-item" role="menuitem" href="mc/index.html">Games</a>
+            <a class="nav-admin-menu-item" role="menuitem" href="mc/builder.html" id="navBuilderLink">Builder</a>
+            <a class="nav-admin-menu-item" role="menuitem" href="mc/photos.html">Winner's Wall</a>
+            <a class="nav-admin-menu-item" role="menuitem" href="mc/giftshop.html">Gift Shop</a>
+            <span class="nav-admin-menu-divider" aria-hidden="true"></span>
+            <button class="nav-admin-menu-item" id="navAdminSignOutBtn" type="button" role="menuitem">Sign Out</button>
+          </div>
+        </div>
       </nav>
     </header>
 
@@ -1196,6 +1326,7 @@
   </div>
 
   <script src="mc/admin-auth.js"></script>
+  <script src="site/assets/admin-bridge.js"></script>
   <script src="site/assets/teams/us-state-shapes.js"></script>
   <script>
     (function () {
@@ -1205,27 +1336,116 @@
         table: 'games'
       };
 
+      const navAdminMenuEl = document.getElementById('navAdminMenu');
       const navLoginBtnEl = document.getElementById('navLoginBtn');
+      const navAdminMenuPanelEl = document.getElementById('navAdminMenuPanel');
+      const navBuilderLinkEl = document.getElementById('navBuilderLink');
+      const navAdminSignOutBtnEl = document.getElementById('navAdminSignOutBtn');
+      const selectedGamesEl = document.getElementById('selectedGames');
+      const selectedGamesTitleEl = document.getElementById('selectedGamesTitle');
+      const selectedGamesGridEl = document.getElementById('selectedGamesGrid');
+      let navAdminAuthorized = false;
+      let selectedAdminGameId = '';
+
+      function builderHrefForGame(gameId) {
+        const id = String(gameId || '').trim();
+        return 'mc/builder.html' + (id ? '?id=' + encodeURIComponent(id) : '');
+      }
+
+      function updateBuilderLink() {
+        if (!navBuilderLinkEl) return;
+        navBuilderLinkEl.href = builderHrefForGame(selectedAdminGameId);
+        navBuilderLinkEl.textContent = selectedAdminGameId ? 'Builder: Selected Game' : 'Builder';
+        navBuilderLinkEl.title = selectedAdminGameId
+          ? 'Open the selected game in Builder'
+          : 'Open Builder';
+      }
+
+      function refreshSelectedGameStyles() {
+        if (!selectedGamesGridEl) return;
+        selectedGamesGridEl.querySelectorAll('.game-card[data-game-id]').forEach(function (card) {
+          const isSelected = !!selectedAdminGameId && card.dataset.gameId === selectedAdminGameId;
+          card.classList.toggle('is-selected', isSelected);
+          const button = card.querySelector('.game-card-select');
+          if (button) {
+            button.textContent = isSelected ? 'SELECTED' : 'SELECT';
+            button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+          }
+        });
+      }
+
+      function setSelectedAdminGameId(gameId) {
+        selectedAdminGameId = String(gameId || '').trim();
+        updateBuilderLink();
+        refreshSelectedGameStyles();
+      }
+
+      function setAdminMenuOpen(isOpen) {
+        if (!navLoginBtnEl || !navAdminMenuPanelEl) return;
+        const shouldOpen = Boolean(isOpen && navAdminAuthorized);
+        navAdminMenuPanelEl.hidden = !shouldOpen;
+        navLoginBtnEl.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+      }
+
+      function toggleAdminMenu() {
+        setAdminMenuOpen(Boolean(navAdminMenuPanelEl && navAdminMenuPanelEl.hidden));
+      }
+
       const adminAuth = (navLoginBtnEl && window.TgbMcAdminAuth) ? window.TgbMcAdminAuth.create({
         supabaseConfig: { url: SB_CONFIG.url, publishableKey: SB_CONFIG.key },
-        signOutButton: navLoginBtnEl,
         modalCopy: 'Sign in to your Game Bureau account.',
         initialMessage: '',
         homeHref: 'index.html',
-        onAuthorized: function () { navLoginBtnEl.textContent = 'Sign Out'; },
-        onSignedOut: function () { navLoginBtnEl.textContent = 'Login'; }
+        onAuthorized: function () {
+          navAdminAuthorized = true;
+          navLoginBtnEl.textContent = 'Mission Control';
+          setAdminMenuOpen(false);
+          rerenderSelectedGames({ scroll: false });
+        },
+        onSignedOut: function () {
+          navAdminAuthorized = false;
+          setSelectedAdminGameId('');
+          setAdminMenuOpen(false);
+          navLoginBtnEl.textContent = 'Login';
+          rerenderSelectedGames({ scroll: false });
+        }
       }) : null;
+
+      if (navLoginBtnEl) {
+        navLoginBtnEl.addEventListener('click', function () {
+          if (navAdminAuthorized) {
+            toggleAdminMenu();
+            return;
+          }
+          if (adminAuth) adminAuth.showAuth();
+        });
+      }
+
+      if (navAdminSignOutBtnEl && adminAuth) {
+        navAdminSignOutBtnEl.addEventListener('click', function () {
+          setAdminMenuOpen(false);
+          adminAuth.signOut({ silent: true });
+        });
+      }
+
+      document.addEventListener('click', function (event) {
+        if (!navAdminMenuEl || navAdminMenuEl.contains(event.target)) return;
+        setAdminMenuOpen(false);
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') setAdminMenuOpen(false);
+      });
+
       if (adminAuth) {
         adminAuth.init().then(function (signedIn) { if (!signedIn) adminAuth.close(); });
       }
+      updateBuilderLink();
 
       const MODE_CITY = 'city';
       const MODE_FAN = 'fan';
       const PROMPT_FAN = 'Who do you root for?';
       const PROMPT_CITY = 'Where are you headed?';
-      const selectedGamesEl = document.getElementById('selectedGames');
-      const selectedGamesTitleEl = document.getElementById('selectedGamesTitle');
-      const selectedGamesGridEl = document.getElementById('selectedGamesGrid');
       const heroMetaListEl = document.getElementById('heroMetaList');
       const heroMetaPromptEl = document.getElementById('heroMetaPrompt');
 
@@ -1612,10 +1832,17 @@
       function clearSelectedEntry() {
         selectedEntryKind = '';
         selectedEntryKey  = '';
+        setSelectedAdminGameId('');
         refreshSelectionStyles();
         if (selectedGamesGridEl) selectedGamesGridEl.innerHTML = '';
         if (selectedGamesTitleEl) selectedGamesTitleEl.textContent = '';
         if (selectedGamesEl) selectedGamesEl.hidden = true;
+      }
+
+      function rerenderSelectedGames(options) {
+        if (!selectedEntryKind || !selectedEntryKey) return;
+        const entry = heroMetaEntries.get(selectedEntryKind + '|' + selectedEntryKey);
+        if (entry) renderSelectedGames(entry, options || { scroll: false });
       }
 
       function createHeroMetaItem(entry) {
@@ -1851,13 +2078,17 @@
         return parts.join(' · ');
       }
 
-      function renderSelectedGames(entry) {
+      function renderSelectedGames(entry, options) {
         if (!selectedGamesEl || !selectedGamesGridEl || !selectedGamesTitleEl) return;
+        const shouldScroll = !options || options.scroll !== false;
         const games = gamesForEntry(entry).slice().sort((a, b) => {
           const da = (a.game_date || '') + (a.start_time || '');
           const db = (b.game_date || '') + (b.start_time || '');
           return da.localeCompare(db);
         });
+        if (selectedAdminGameId && !games.some((game) => String(game.id || '').trim() === selectedAdminGameId)) {
+          setSelectedAdminGameId('');
+        }
 
         selectedGamesTitleEl.innerHTML = '';
         const countLabel = getGameCountLabel(games.length);
@@ -1907,9 +2138,19 @@
           selectedGamesGridEl.appendChild(empty);
         } else {
           games.forEach((game) => {
-            const card = document.createElement('a');
+            const gameId = game.id || '';
+            const gameHref = 'game/run/index.html?id=' + encodeURIComponent(gameId);
+            const card = document.createElement('article');
             card.className = 'game-card';
-            card.href = 'game/run/index.html?id=' + encodeURIComponent(game.id || '');
+            card.dataset.gameId = gameId;
+            if (gameId && gameId === selectedAdminGameId) card.classList.add('is-selected');
+            if (gameId) {
+              card.classList.add('is-selectable');
+              card.addEventListener('click', (event) => {
+                if (event.target.closest('a, button, input, select, textarea')) return;
+                setSelectedAdminGameId(selectedAdminGameId === gameId ? '' : gameId);
+              });
+            }
 
             // Icons row: away-team helmet (or fallback emoji when no away team
             // is listed) + state/country badge for the host city.
@@ -1976,11 +2217,35 @@
               card.appendChild(tagline);
             }
 
+            const actions = document.createElement('div');
+            actions.className = 'game-card-actions';
+
+            const playLink = document.createElement('a');
+            playLink.className = 'game-card-play';
+            playLink.href = gameHref;
+            playLink.textContent = 'PLAY GAME';
+            actions.appendChild(playLink);
+
+            if (gameId) {
+              const selectButton = document.createElement('button');
+              const isSelected = selectedAdminGameId === gameId;
+              selectButton.className = 'game-card-select';
+              selectButton.type = 'button';
+              selectButton.textContent = isSelected ? 'SELECTED' : 'SELECT';
+              selectButton.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+              selectButton.addEventListener('click', () => {
+                setSelectedAdminGameId(selectedAdminGameId === gameId ? '' : gameId);
+              });
+              actions.appendChild(selectButton);
+            }
+
+            card.appendChild(actions);
+
             selectedGamesGridEl.appendChild(card);
           });
         }
         selectedGamesEl.hidden = false;
-        selectedGamesEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (shouldScroll) selectedGamesEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
 
       function setMode(mode) {

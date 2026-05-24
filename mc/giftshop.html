@@ -575,6 +575,10 @@
 
     .item.is-archived { opacity: 0.65; }
     .item.is-new { border-color: var(--accent); }
+    .item.is-targeted {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(215, 58, 49, 0.16), 0 10px 24px var(--paper-shadow);
+    }
 
     .item-focus-col {
       display: flex;
@@ -1019,26 +1023,14 @@
       .item-fields { grid-template-columns: 1fr; }
     }
   </style>
+  <link rel="stylesheet" href="admin-shell.css">
 </head>
 <body>
   <main class="app">
     <section id="shopPanel">
       <div class="topbar">
         <div class="topbar-actions" style="margin-left:auto;">
-          <nav class="admin-nav">
-            <span class="admin-nav-split">
-              <a class="admin-nav-link" href="../index.html" title="Open the public home">GAMES</a>
-              <a class="admin-nav-link admin-nav-link--split-edit" href="index.html" title="Edit games">EDIT</a>
-            </span>
-            <span class="admin-nav-split">
-              <a class="admin-nav-link" href="../site/winnerswall.html" target="_blank" rel="noopener" title="Open the public Winner's Wall">WINNER'S WALL</a>
-              <a class="admin-nav-link admin-nav-link--split-edit" href="photos.html" title="Edit Winner's Wall">EDIT</a>
-            </span>
-            <span class="admin-nav-split">
-              <a class="admin-nav-link" href="../gift/" target="_blank" rel="noopener" title="Open the public gift shop">GIFT SHOP</a>
-              <a class="admin-nav-link admin-nav-link--split-edit admin-nav-link--active" href="giftshop.html" aria-current="page" title="Edit gift shop">EDIT</a>
-            </span>
-          </nav>
+          <button class="btn mc-back-btn" type="button" data-mc-back data-mc-back-fallback="../index.html">Back</button>
           <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -1239,6 +1231,7 @@
   </div>
 
   <script src="admin-auth.js"></script>
+  <script src="admin-shell.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -1253,6 +1246,9 @@
     const itemsList    = document.getElementById('itemsList');
     const itemTemplate = document.getElementById('itemTemplate');
     const listingRowTemplate = document.getElementById('listingRowTemplate');
+    const initialParams = new URLSearchParams(window.location.search);
+    const initialItemId = String(initialParams.get('item') || '').trim();
+    let initialItemFocusPending = !!initialItemId;
     const LOCAL_SUGGEST_ITEMS_COMMAND = 'python mc/scripts/stock_gift_shop.py --serve';
     const CAN_RUN_LOCAL_SUGGEST_ITEMS = /^(127\.0\.0\.1|localhost)$/i.test(window.location.hostname);
     const LOCAL_SUGGEST_ITEMS_HOST = window.location.hostname === 'localhost' ? 'localhost' : '127.0.0.1';
@@ -1900,11 +1896,24 @@
         }
         items.forEach((item) => appendItemRow(item));
         filterItemsByShop();
+        focusInitialItem();
       } catch (error) {
         console.error(error);
         renderEmpty();
         setStatus(shopStatus, error instanceof Error ? error.message : String(error), 'error');
       }
+    }
+
+    function focusInitialItem() {
+      if (!initialItemFocusPending || !initialItemId) return;
+      const article = itemsList.querySelector('.item[data-id="' + CSS.escape(initialItemId) + '"]');
+      if (!article) return;
+      initialItemFocusPending = false;
+      article.classList.add('is-targeted');
+      article.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const titleInput = article.querySelector('[data-field="title"]');
+      if (titleInput) titleInput.focus({ preventScroll: true });
+      setTimeout(() => article.classList.remove('is-targeted'), 3000);
     }
 
     addItemBtn.addEventListener('click', () => {

@@ -9578,6 +9578,9 @@ body.builder-auth-ready .builder-admin-signout{
 .builder-section-head .builder-view-group .builder-nav-btn.is-active{background:var(--bic-blue);border-color:var(--bic-blue);color:#fff;}
 .builder-nav-btn.is-active{background:var(--bic-blue);border-color:var(--bic-blue);color:#fff;}
 .builder-nav-row .builder-nav-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
   min-height:42px;
   padding:0 14px;
   border:1px solid var(--line);
@@ -9589,14 +9592,16 @@ body.builder-auth-ready .builder-admin-signout{
   font-weight:800;
   letter-spacing:.04em;
   cursor:pointer;
+  text-decoration:none;
 }
 .builder-nav-row .builder-nav-btn:hover{background:#fff;}
-.builder-nav-row .builder-nav-btn:disabled{opacity:.5;cursor:default;}
+.builder-nav-row .builder-nav-btn:disabled,
+.builder-nav-row .builder-nav-btn[aria-disabled="true"]{opacity:.5;cursor:default;pointer-events:none;}
 .builder-nav-row .builder-nav-btn--danger{color:#a03f2d;border-color:rgba(160,63,45,.3);}
-#mbNav[data-view="notes"] > :not(#gamePickerSaveBtn){display:none!important;}
-#mbNav[data-view="notes"] #gamePickerSaveBtn{width:100%;}
-#mbNav[data-view="builder"] > :not(#gamePickerSaveBtn){display:none!important;}
-#mbNav[data-view="builder"] #gamePickerSaveBtn{width:100%;}
+#mbNav[data-view="notes"] > :not(#gamePickerSaveBtn):not(#builderViewGameBtn){display:none!important;}
+#mbNav[data-view="notes"] #gamePickerSaveBtn{flex:1;}
+#mbNav[data-view="builder"] > :not(#gamePickerSaveBtn):not(#builderViewGameBtn){display:none!important;}
+#mbNav[data-view="builder"] #gamePickerSaveBtn{flex:1;}
 #mbNav[data-view="details"] #gamePickerSaveBtn{flex:1;}
 .builder-nav-row .builder-nav-btn--danger:hover{background:rgba(160,63,45,.06);}
 
@@ -9659,7 +9664,8 @@ html.admin-embedded .builder-section-head{
     padding:0 18px 18px;
   }
 }
-</style>
+  </style>
+  <link rel="stylesheet" href="admin-shell.css">
 </head>
 <!--
   Builder DOM map for humans and AI:
@@ -9697,20 +9703,7 @@ html.admin-embedded .builder-section-head{
       <!-- Admin topbar: admin nav + sign-out on the right. -->
       <div class="builder-admin-topbar">
         <div class="builder-admin-topbar-inner">
-          <nav class="admin-nav">
-            <span class="admin-nav-split">
-              <a class="admin-nav-link" href="../index.html" title="Open the public home">GAMES</a>
-              <a class="admin-nav-link admin-nav-link--split-edit" href="index.html" title="Edit games">EDIT</a>
-            </span>
-            <span class="admin-nav-split">
-              <a class="admin-nav-link" href="../site/winnerswall.html" target="_blank" rel="noopener" title="Open the public Winner's Wall">WINNER'S WALL</a>
-              <a class="admin-nav-link admin-nav-link--split-edit" href="photos.html" title="Edit Winner's Wall">EDIT</a>
-            </span>
-            <span class="admin-nav-split">
-              <a class="admin-nav-link" href="../gift/" target="_blank" rel="noopener" title="Open the public gift shop">GIFT SHOP</a>
-              <a class="admin-nav-link admin-nav-link--split-edit" href="giftshop.html" title="Edit gift shop">EDIT</a>
-            </span>
-          </nav>
+          <button class="mc-back-btn" type="button" data-mc-back data-mc-back-fallback="../index.html">Back</button>
           <button class="builder-admin-signout" id="builderSignOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -9802,6 +9795,7 @@ html.admin-embedded .builder-section-head{
         </div>
         <button class="builder-nav-btn" id="duplicateGameBtn" type="button" title="Duplicate (Ctrl/Cmd+Shift+D)">Duplicate</button>
         <button class="builder-nav-btn" id="archiveGameBtn" type="button" title="Archive (Ctrl/Cmd+Shift+A)">Archive</button>
+        <a class="builder-nav-btn" id="builderViewGameBtn" href="../game/run/index.html" target="_blank" rel="noopener" aria-disabled="true" title="View public game">View Game</a>
         <button class="builder-nav-btn" id="gamePickerSaveBtn" type="button" data-state="idle" aria-busy="false" title="Save (Ctrl/Cmd+S)">Save</button>
       </div>
 
@@ -10698,6 +10692,7 @@ window.TGB_SUPABASE_CONFIG = {
 
   </script>
   <script src="admin-auth.js"></script>
+  <script src="admin-shell.js"></script>
   <script>
 // TGB Builder writes Supabase-backed game data that is read later by the game engine.
 const TYPE_CONFIG = {
@@ -12242,6 +12237,7 @@ const selectionId = document.getElementById('selectionId');
 const selectionIdInput = document.getElementById('selectionIdInput');
 const objectSelectionId = document.getElementById('objectSelectionId');
 const builderNewGameBtn = document.getElementById('builderNewGameBtn');
+const builderViewGameBtn = document.getElementById('builderViewGameBtn');
 const duplicateGameBtn = document.getElementById('duplicateGameBtn');
 const featureGameBtn = document.getElementById('featureGameBtn');
 const archiveGameBtn = document.getElementById('archiveGameBtn');
@@ -15817,6 +15813,11 @@ function canPlayCurrentGame() {
   return hasGameNode();
 }
 
+function getPublicGameUrl(gameId = state.currentGameId) {
+  const id = String(gameId || '').trim();
+  return '../game/run/index.html' + (id ? '?id=' + encodeURIComponent(id) : '');
+}
+
 function updateActionUi() {
   if (pendingActionUiFrame) {
     window.cancelAnimationFrame(pendingActionUiFrame);
@@ -15833,6 +15834,13 @@ function updateActionUi() {
     gamePickerSaveBtn.title = 'Save (Ctrl/Cmd+S)';
     gamePickerSaveBtn.setAttribute('aria-label', 'Save (Ctrl/Cmd+S)');
     gamePickerSaveBtn.setAttribute('aria-busy', isSaveBusy ? 'true' : 'false');
+  }
+  if (builderViewGameBtn) {
+    const gameId = String(state.currentGameId || '').trim();
+    const canView = !!gameId && !isSaveBusy;
+    builderViewGameBtn.href = getPublicGameUrl(gameId);
+    builderViewGameBtn.setAttribute('aria-disabled', canView ? 'false' : 'true');
+    builderViewGameBtn.title = canView ? 'View public game' : 'Save or open a game first';
   }
   if (gamePickerSelect) gamePickerSelect.disabled = isSaveBusy;
 }
@@ -20980,7 +20988,7 @@ async function playCurrentGame() {
       || state.store.games.find((game) => game && game.id === selectedGamePickerId)
       || null;
     rememberPlayPreview(previewGame);
-    const target = '../game/run/index.html?id=' + encodeURIComponent(selectedGamePickerId);
+    const target = getPublicGameUrl(selectedGamePickerId);
     window.open(target, '_blank');
     return;
   }
@@ -20993,7 +21001,7 @@ async function playCurrentGame() {
   const gameId = savedGame && savedGame.id ? savedGame.id : state.currentGameId;
   if (!gameId) return;
   rememberPlayPreview(savedGame);
-  const target = '../game/run/index.html?id=' + encodeURIComponent(gameId);
+  const target = getPublicGameUrl(gameId);
   window.open(target, '_blank');
 }
 

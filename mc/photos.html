@@ -622,6 +622,11 @@
       box-shadow: 0 0 0 2px var(--accent), 0 18px 36px var(--paper-shadow);
     }
 
+    .photo-card.is-targeted {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(var(--bic-blue-rgb), 0.2), 0 18px 36px var(--paper-shadow);
+    }
+
     .photo-select {
       position: absolute;
       top: 8px;
@@ -897,26 +902,14 @@
 
     }
   </style>
+  <link rel="stylesheet" href="admin-shell.css">
 </head>
 <body>
   <main class="app">
     <section id="reviewPanel">
       <div class="topbar">
         <div class="topbar-actions" style="margin-left:auto;">
-          <nav class="admin-nav">
-            <span class="admin-nav-split">
-              <a class="admin-nav-link" href="../index.html" title="Open the public home">GAMES</a>
-              <a class="admin-nav-link admin-nav-link--split-edit" href="index.html" title="Edit games">EDIT</a>
-            </span>
-            <span class="admin-nav-split">
-              <a class="admin-nav-link" href="../site/winnerswall.html" target="_blank" rel="noopener" title="Open the public Winner's Wall">WINNER'S WALL</a>
-              <a class="admin-nav-link admin-nav-link--split-edit admin-nav-link--active" href="photos.html" aria-current="page" title="Edit Winner's Wall">EDIT</a>
-            </span>
-            <span class="admin-nav-split">
-              <a class="admin-nav-link" href="../gift/" target="_blank" rel="noopener" title="Open the public gift shop">GIFT SHOP</a>
-              <a class="admin-nav-link admin-nav-link--split-edit" href="giftshop.html" title="Edit gift shop">EDIT</a>
-            </span>
-          </nav>
+          <button class="btn mc-back-btn" type="button" data-mc-back data-mc-back-fallback="../index.html">Back</button>
           <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -1020,6 +1013,7 @@
   </div>
 
   <script src="admin-auth.js"></script>
+  <script src="admin-shell.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -1048,6 +1042,10 @@
     const lightbox = document.getElementById('lightbox');
     const lightboxImage = document.getElementById('lightboxImage');
     const lightboxClose = document.getElementById('lightboxClose');
+    const initialParams = new URLSearchParams(window.location.search);
+    const initialPhotoId = String(initialParams.get('photo') || '').trim();
+    let photoFilterId = initialPhotoId;
+    let initialPhotoFocusPending = !!initialPhotoId;
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
       signOutButton: signOutBtn,
@@ -1140,7 +1138,8 @@
         limit: String(PAGE_LIMIT),
         offset: String(offset)
       };
-      if (gameFilter) params.game_id = 'eq.' + gameFilter;
+      if (photoFilterId) params.id = 'eq.' + photoFilterId;
+      else if (gameFilter) params.game_id = 'eq.' + gameFilter;
 
       const response = await fetch(restUrl('photo_submissions', params), {
         headers: authHeaders({ Accept: 'application/json' }),
@@ -1155,7 +1154,13 @@
     }
 
     async function fetchTotalPhotoCount() {
-      const response = await fetch(restUrl('photo_submissions', { select: 'id', limit: '1' }), {
+      const params = { select: 'id', limit: '1' };
+      if (photoFilterId) params.id = 'eq.' + photoFilterId;
+      else {
+        const gameFilter = String(gameFilterInput.value || '').trim();
+        if (gameFilter) params.game_id = 'eq.' + gameFilter;
+      }
+      const response = await fetch(restUrl('photo_submissions', params), {
         headers: authHeaders({ Accept: 'application/json', Prefer: 'count=exact' }),
         cache: 'no-store'
       });
@@ -1334,6 +1339,24 @@
       });
 
       updateSelectionUi();
+      focusInitialPhoto();
+    }
+
+    function focusInitialPhoto() {
+      if (!initialPhotoFocusPending || !initialPhotoId) return;
+      const card = photoGrid.querySelector('[data-card-id="' + CSS.escape(initialPhotoId) + '"]');
+      if (!card) return;
+      initialPhotoFocusPending = false;
+      selectedPhotoIds.add(initialPhotoId);
+      card.classList.add('is-selected', 'is-targeted');
+      const btn = card.querySelector('.photo-select');
+      if (btn) {
+        btn.setAttribute('aria-pressed', 'true');
+        btn.textContent = '\u2713';
+      }
+      updateSelectionUi();
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => card.classList.remove('is-targeted'), 3000);
     }
 
     async function setPhotoStatus(id, status, button) {
@@ -1562,6 +1585,7 @@
 
     refreshBtn.addEventListener('click', loadPhotos);
     clearFilterBtn.addEventListener('click', () => {
+      photoFilterId = '';
       gameFilterInput.value = '';
       currentPage = 0;
       loadPhotos();
@@ -1595,8 +1619,12 @@
     gameFilterInput.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter') return;
       event.preventDefault();
+      photoFilterId = '';
       currentPage = 0;
       loadPhotos();
+    });
+    gameFilterInput.addEventListener('input', () => {
+      if (photoFilterId) photoFilterId = '';
     });
 
     lightbox.addEventListener('click', (event) => {
@@ -1608,7 +1636,6 @@
     });
 
     (async function init() {
-      const initialParams = new URLSearchParams(window.location.search);
       gameFilterInput.value = initialParams.get('game') || initialParams.get('id') || '';
 
       try {

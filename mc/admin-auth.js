@@ -146,6 +146,18 @@
       }
     }
 
+    function notifyAuthChange(signedIn, session) {
+      try {
+        global.dispatchEvent(new CustomEvent('tgb-admin-auth-change', {
+          detail: {
+            signedIn: !!signedIn,
+            session: session || null
+          }
+        }));
+      } catch (error) {
+      }
+    }
+
     function openModal(message, state) {
       modal.hidden = false;
       modal.classList.add('is-open');
@@ -377,6 +389,7 @@
       if (passwordInput) passwordInput.value = '';
       setSignOutState(true);
       closeModal();
+      notifyAuthChange(true, session);
       if (typeof settings.onAuthorized === 'function') {
         await settings.onAuthorized(session);
       }
@@ -419,6 +432,7 @@
       currentSession = null;
       storeSession(null);
       setSignOutState(false);
+      notifyAuthChange(false, previousSession);
       if (typeof settings.onSignedOut === 'function') {
         await settings.onSignedOut(previousSession);
       }
