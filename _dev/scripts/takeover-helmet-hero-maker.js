@@ -4,7 +4,7 @@
 // neutral-site games whose name uses a city (London, Mexico City, etc.) instead
 // of a team short label, except for custom one-off neutral visuals below.
 //
-// Files are written to site/assets/games/takeover-hero/{game-id}.png and each game's
+// Files are written to assets/games/takeover-hero/{game-id}.png and each game's
 // logo_url is patched in Supabase to the new URL.
 //
 // Usage:
@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-const { helmetSVGString } = require('../../site/assets/games/helmets/helmet.js');
+const { helmetSVGString } = require('../../assets/games/helmets/helmet.js');
 
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
@@ -25,7 +25,7 @@ const USER_AGENT = 'TGB Takeover Hero Maker/1.0';
 const ASSET_DIR = path.resolve(__dirname, '..', '..', 'site', 'assets', 'games', 'takeover-hero');
 // Domain-relative URL: resolves to localhost during local dev and to
 // thegamebureau.com in production -- one stored value, works in both contexts.
-const ASSET_URL_BASE = '/site/assets/games/takeover-hero';
+const ASSET_URL_BASE = '/assets/games/takeover-hero';
 
 const SPECIAL_HEROES = {
   'nfl2026-20261025-pit-no-no-saint-denis': {

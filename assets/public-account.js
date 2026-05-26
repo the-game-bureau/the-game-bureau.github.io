@@ -186,11 +186,11 @@
   }
 
   function isAccountPage() {
-    return /(^|\/)account\.html$/i.test(window.location.pathname);
+    return /(^|\/)account(?:\/index\.html|\/)?$/i.test(window.location.pathname);
   }
 
   function buildEmbeddedAccountUrl(href) {
-    const url = new URL(href || 'account.html', window.location.href);
+    const url = new URL(href || '/account/', window.location.href);
     url.searchParams.set('embedded', '1');
     return url.toString();
   }
@@ -332,7 +332,7 @@
         if (!shouldInterceptAccountClick(event, link)) return;
         event.preventDefault();
         openAccountLightbox(
-          link.href || 'account.html',
+          link.href || '/account/',
           link.getAttribute('aria-label') || link.getAttribute('title') || 'ACCOUNT'
         );
       });

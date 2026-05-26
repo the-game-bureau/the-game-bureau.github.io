@@ -1,6 +1,6 @@
 -- gift-shop-checkout — Stripe + Printful integration for the public gift shop.
 --
--- Adds the columns gift/index.html needs to show a Buy button on POD items
+-- Adds the columns gifts/index.html needs to show a Buy button on POD items
 -- (affiliate items stay as-is — they have no price_cents or printful_variant_id).
 -- Also creates gift_orders, the table the stripe-webhook Edge Function writes
 -- to on checkout.session.completed.

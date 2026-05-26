@@ -11,6 +11,24 @@ Durable project knowledge for Claude Code (and any teammate working in this repo
 
 ---
 
+### Site pages
+
+Use **"site pages"** to mean the public-site pages that share the same navigation and public chrome:
+
+- [index.html](index.html)
+- every file matched by `account/**/*.html`
+- every file matched by `birthdayball/**/*.html`
+- every file matched by `how/**/*.html`
+- every file matched by `ww/**/*.html`
+- every file matched by `gifts/**/*.html`
+- every file matched by `sampler/**/*.html`
+- every file matched by `survey/**/*.html`
+- every file matched by `assets/**/*.html`
+
+This grouping is the public website surface for shared chrome work such as navigation, Mission Control login links, shared public CSS, metadata, and broad visual consistency. If a future task says "update the site pages nav," apply it to [index.html](index.html), `/account/**/*.html`, `/birthdayball/**/*.html`, `/how/**/*.html`, `/ww/**/*.html`, `/gifts/**/*.html`, `/sampler/**/*.html`, `/survey/**/*.html`, and `/assets/**/*.html` pages together. The site pages nav centers the primary `GAMES` and `GIFTS` links while retaining How It Works, Winner's Wall, and Login as utility links. The shared site pages CSS lives at [assets/site-pages.css](assets/site-pages.css), and the shared nav login behavior lives at [assets/site-nav-login.js](assets/site-nav-login.js).
+
+---
+
 ## Game player URLs & engines
 
 Canonical public URL for a game:

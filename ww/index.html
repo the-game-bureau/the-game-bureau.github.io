@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f3eee6" />
+  <meta name="description" content="Photos sent in from the field - The Game Bureau Winners Wall." />
+  <title>Winners Wall | The Game Bureau</title>
+  <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/home.css">
+  <script src="../assets/public-account.js"></script>
+  <link rel="stylesheet" href="../assets/site-pages.css">
+  <script src="../mc/admin-auth.js"></script>
+  <script src="../assets/site-nav-login.js" defer></script>
+</head>
+<body class="home-page winners-wall-page" data-admin-page="winners-wall">
+  <div class="page-shell">
+  <header class="site-nav">
+    <div class="brand-lockup">
+      <span class="brand-name">The Game Bureau</span>
+      <p class="brand-tagline">The cure for the common walking tour</p>
+    </div>
+    <nav class="nav-links" aria-label="Primary">
+      <div class="nav-primary-links" aria-label="Featured">
+        <a class="nav-link nav-link--major nav-link--games" href="/games/">GAMES</a>
+        <a class="nav-link nav-link--major nav-link--gifts" href="/gifts/">GIFTS</a>
+      </div>
+      <div class="nav-utility-links">
+        <a class="nav-link nav-link--minor" href="/how/">How It Works</a>
+        <a class="nav-link nav-link--minor" href="/ww/">Winner's Wall</a>
+        <div class="nav-admin-menu" id="navAdminMenu">
+          <button class="nav-link nav-link--minor" id="navLoginBtn" type="button" aria-haspopup="menu" aria-expanded="false">Login</button>
+          <div class="nav-admin-menu-panel" id="navAdminMenuPanel" role="menu" hidden>
+            <a class="nav-admin-menu-item" role="menuitem" href="/mc/index.html">Edit Games</a>
+            <a class="nav-admin-menu-item" role="menuitem" href="/mc/builder.html" id="navBuilderLink">Build Games</a>
+            <a class="nav-admin-menu-item" role="menuitem" href="/mc/photos.html">Edit Wall</a>
+            <a class="nav-admin-menu-item" role="menuitem" href="/mc/giftshop.html">Edit Gifts</a>
+            <span class="nav-admin-menu-divider" aria-hidden="true"></span>
+            <button class="nav-admin-menu-item" id="navAdminSignOutBtn" type="button" role="menuitem">Sign Out</button>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+    <main>
+      <section class="hero winners-hero" aria-label="Winners Wall">
+        <div class="hero-grid winners-hero-grid">
+          <div>
+            <p class="hero-kicker"><span id="winnersCount">0</span> Photos From the Field</p>
+            <h1 class="hero-headline">Winners Wall</h1>
+            <p class="hero-copy">Snapshots players sent in from real stops on real streets - proof a game was played, a clue was found, a city was walked.</p>
+          </div>
+
+          <aside class="hero-meta winners-hero-card" aria-label="Photo dispatch">
+            <p class="hero-meta-label">Photo Dispatch</p>
+            <p class="winners-hero-card-title">Real stops, real streets.</p>
+            <p class="winners-hero-card-copy">Approved field photos land here after players finish a game and send in a moment from the route.</p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="browse-shell winners-shell" aria-label="Photos">
+        <header class="browse-header">
+          <div>
+            <p class="section-kicker">Winners Wall</p>
+            <h2 class="section-title">Photos From the Field</h2>
+            <p class="browse-copy">The latest approved snapshots from players who made it through the route.</p>
+          </div>
+          <p id="winnersStatus" class="browse-state winners-status" aria-live="polite">Loading photos...</p>
+        </header>
+        <div id="winnersGrid" class="winners-grid" hidden></div>
+        <div id="winnersEmpty" class="directory-empty winners-empty" hidden>No photos yet. Check back after the next game.</div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>&copy; The Game Bureau</span>
+      <span><a href="https://instagram.com/thegamebureau" target="_blank" rel="noopener">Instagram</a>&nbsp;&nbsp;&nbsp;<a href="https://x.com/thegamebureau" target="_blank" rel="noopener">X</a>&nbsp;&nbsp;&nbsp;<a href="https://youtube.com/@thegamebureau" target="_blank" rel="noopener">YouTube</a></span>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const SB_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
+      const SB_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
+      const TABLE = 'photo_submissions';
+      const DEFAULT_BUCKET = 'game-photo-submissions';
+      // How many photos to show at once. 200 keeps the page responsive even
+      // on slower connections; lift later if/when we add pagination.
+      const LIMIT = 200;
+
+      const grid    = document.getElementById('winnersGrid');
+      const statusEl = document.getElementById('winnersStatus');
+      const emptyEl  = document.getElementById('winnersEmpty');
+      const countEl  = document.getElementById('winnersCount');
+
+      function setStatus(msg, isError) {
+        if (!statusEl) return;
+        statusEl.textContent = msg || '';
+        statusEl.hidden = !msg;
+        statusEl.classList.toggle('is-error', !!isError);
+      }
+
+      // Build the public storage URL. Requires the bucket to be marked public
+      // (see supabase/migrations/20260522_winnerswall_public.sql).
+      function publicPhotoUrl(row) {
+        const bucket = row.storage_bucket || DEFAULT_BUCKET;
+        const path   = String(row.storage_path || '').split('/').map(encodeURIComponent).join('/');
+        return SB_URL + '/storage/v1/object/public/' + encodeURIComponent(bucket) + '/' + path;
+      }
+
+      function formatDate(value) {
+        if (!value) return '';
+        try {
+          return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value));
+        } catch (e) {
+          return '';
+        }
+      }
+
+      function renderTile(row) {
+        const tile = document.createElement('a');
+        tile.className = 'winners-tile';
+        const photoUrl = publicPhotoUrl(row);
+        tile.href = photoUrl;
+        tile.target = '_blank';
+        tile.rel = 'noopener';
+        tile.dataset.adminEdit = 'photo';
+        tile.dataset.adminId = row.id || '';
+        tile.dataset.adminGameId = row.game_id || '';
+
+        const img = document.createElement('img');
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.src = photoUrl;
+        img.alt = row.stop_title ? ('Photo from ' + row.stop_title) : 'Game photo';
+        tile.appendChild(img);
+
+        const caption = document.createElement('div');
+        caption.className = 'winners-tile-caption';
+        const stopLine = document.createElement('div');
+        stopLine.className = 'winners-tile-stop';
+        stopLine.textContent = row.stop_title || 'Field photo';
+        caption.appendChild(stopLine);
+
+        const metaBits = [];
+        if (row.game_id) metaBits.push(String(row.game_id));
+        const dateStr = formatDate(row.created_at);
+        if (dateStr) metaBits.push(dateStr);
+        if (metaBits.length) {
+          const metaLine = document.createElement('div');
+          metaLine.className = 'winners-tile-meta';
+          metaLine.textContent = metaBits.join(' · ');
+          caption.appendChild(metaLine);
+        }
+        tile.appendChild(caption);
+        return tile;
+      }
+
+      async function load() {
+        const select = 'id,created_at,game_id,storage_bucket,storage_path,stop_title';
+        const url = SB_URL + '/rest/v1/' + TABLE
+          + '?status=eq.approved'
+          + '&order=created_at.desc'
+          + '&limit=' + LIMIT
+          + '&select=' + encodeURIComponent(select);
+
+        try {
+          const resp = await fetch(url, {
+            headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, Accept: 'application/json' },
+            cache: 'no-store'
+          });
+          if (!resp.ok) {
+            const text = await resp.text();
+            throw new Error('HTTP ' + resp.status + (text ? ' — ' + text : ''));
+          }
+          const rows = await resp.json();
+          if (!Array.isArray(rows) || rows.length === 0) {
+            setStatus('');
+            grid.hidden = true;
+            emptyEl.hidden = false;
+            if (countEl) countEl.textContent = '0';
+            return;
+          }
+          grid.innerHTML = '';
+          rows.forEach((row) => { grid.appendChild(renderTile(row)); });
+          grid.hidden = false;
+          emptyEl.hidden = true;
+          setStatus('');
+          if (countEl) countEl.textContent = String(rows.length);
+        } catch (err) {
+          setStatus('Could not load photos: ' + (err && err.message ? err.message : err), true);
+          grid.hidden = true;
+          emptyEl.hidden = true;
+        }
+      }
+
+      load();
+    }());
+  </script>
+  <script src="../assets/admin-bridge.js"></script>
+</body>
+</html>

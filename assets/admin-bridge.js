@@ -16,7 +16,7 @@
 
   function scriptRootUrl() {
     var script = document.currentScript;
-    var src = script && script.src ? script.src : 'site/assets/admin-bridge.js';
+    var src = script && script.src ? script.src : 'assets/admin-bridge.js';
     return new URL('../../', src);
   }
 

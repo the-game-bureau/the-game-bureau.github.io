@@ -1,27 +1,23 @@
-// One-time migration: rewrite stored asset URLs to use the new /site/assets/
-// prefix. Repo structure: index.html + mc/ + game/ at root; everything else
-// (account, library, gift, howitworks, assets/, microsites) lives under site/.
+// Historical one-time migration helper. The current public site uses root-level
+// folders plus /assets/, so this script is retained only as audit context.
 //
 // Run with: node _dev/scripts/migrate-assets-to-site-prefix.js
 //   --dry-run    Print proposed changes without writing.
 //
 // Pattern rewritten (idempotent — re-running is a no-op):
-//   /assets/...                              -> /site/assets/...
-//   https://thegamebureau.com/assets/...     -> https://thegamebureau.com/site/assets/...
+//   /assets/...                              -> /assets/...
+//   https://thegamebureau.com/assets/...     -> https://thegamebureau.com/assets/...
 //
-// The negative lookbehind `(?<!site\/)` skips any "/assets/" already preceded
-// by "/site/", so re-running is safe.
-
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
-const ASSETS_RE = /(?<!site\/)\/assets\//g;
+const ASSETS_RE = /\/assets\//g;
 
 function rewriteValue(value) {
   if (typeof value !== 'string' || !value) return value;
-  return value.replace(ASSETS_RE, '/site/assets/');
+  return value.replace(ASSETS_RE, '/assets/');
 }
 
 function rewriteGame(game) {

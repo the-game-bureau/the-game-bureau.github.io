@@ -498,9 +498,41 @@
   <script src="../games/helmets/helmet.js"></script>
   <script src="../games/helmets/basketball.js"></script>
   <script src="../games/helmets/baseball.js"></script>
-  <script src="../../../mc/admin-auth.js"></script>
+  <script src="../../mc/admin-auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../site-pages.css">
+  <script src="../public-account.js"></script>
 </head>
 <body>
+  <header class="site-nav">
+    <div class="brand-lockup">
+      <span class="brand-name">The Game Bureau</span>
+      <p class="brand-tagline">The cure for the common walking tour</p>
+    </div>
+    <nav class="nav-links" aria-label="Primary">
+      <div class="nav-primary-links" aria-label="Featured">
+        <a class="nav-link nav-link--major nav-link--games" href="/games/">GAMES</a>
+        <a class="nav-link nav-link--major nav-link--gifts" href="/gifts/">GIFTS</a>
+      </div>
+      <div class="nav-utility-links">
+        <a class="nav-link nav-link--minor" href="/how/">How It Works</a>
+        <a class="nav-link nav-link--minor" href="/ww/">Winner's Wall</a>
+        <div class="nav-admin-menu" id="navAdminMenu">
+          <button class="nav-link nav-link--minor" id="navLoginBtn" type="button" aria-haspopup="menu" aria-expanded="false">Login</button>
+          <div class="nav-admin-menu-panel" id="navAdminMenuPanel" role="menu" hidden>
+            <a class="nav-admin-menu-item" role="menuitem" href="/mc/index.html">Edit Games</a>
+            <a class="nav-admin-menu-item" role="menuitem" href="/mc/builder.html" id="navBuilderLink">Build Games</a>
+            <a class="nav-admin-menu-item" role="menuitem" href="/mc/photos.html">Edit Wall</a>
+            <a class="nav-admin-menu-item" role="menuitem" href="/mc/giftshop.html">Edit Gifts</a>
+            <span class="nav-admin-menu-divider" aria-hidden="true"></span>
+            <button class="nav-admin-menu-item" id="navAdminSignOutBtn" type="button" role="menuitem">Sign Out</button>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </header>
 
 <header class="page">
   <div>
@@ -921,7 +953,7 @@ async function exportJson() {
   a.href = url; a.download = 'teams.json';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  setStatus('Downloaded teams.json — replace site/assets/teams/teams.json by hand.');
+  setStatus('Downloaded teams.json — replace assets/teams/teams.json by hand.');
 }
 
 // ── Mutations ────────────────────────────────────────────────────────────
@@ -1767,6 +1799,25 @@ async function pullWholeLeague(leagueCode, groupName) {
 
 // ── Wire-up ──────────────────────────────────────────────────────────────
 
+const navAdminMenu = document.getElementById('navAdminMenu');
+const navLoginBtn = document.getElementById('navLoginBtn');
+const navAdminMenuPanel = document.getElementById('navAdminMenuPanel');
+const navAdminSignOutBtn = document.getElementById('navAdminSignOutBtn');
+let navAdminAuthorized = false;
+
+function setNavAdminMenuOpen(isOpen) {
+  if (!navLoginBtn || !navAdminMenuPanel) return;
+  const shouldOpen = Boolean(isOpen && navAdminAuthorized);
+  navAdminMenuPanel.hidden = !shouldOpen;
+  navLoginBtn.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+}
+
+function setNavAdminAuthorized(isAuthorized) {
+  navAdminAuthorized = Boolean(isAuthorized);
+  if (navLoginBtn) navLoginBtn.textContent = navAdminAuthorized ? 'Mission Control' : 'Login';
+  setNavAdminMenuOpen(false);
+}
+
 const adminAuth = window.TgbMcAdminAuth ? window.TgbMcAdminAuth.create({
   supabaseConfig: { url: SB_CONFIG.url, publishableKey: SB_CONFIG.key },
   signOutButton: els.loginBtn,
@@ -1775,23 +1826,49 @@ const adminAuth = window.TgbMcAdminAuth ? window.TgbMcAdminAuth.create({
   homeHref: '../../../index.html',
   onAuthorized: function () {
     els.loginBtn.textContent = 'Sign Out';
+    setNavAdminAuthorized(true);
     state.session = adminAuth.getSession();
     loadFromSupabase();
   },
   onSignedOut: function () {
     els.loginBtn.textContent = 'Login';
+    setNavAdminAuthorized(false);
     state.session = null;
     setStatus('Signed out — readonly mode.');
   }
 }) : null;
 
 if (adminAuth) {
+  if (navLoginBtn) {
+    navLoginBtn.addEventListener('click', () => {
+      if (navAdminAuthorized) {
+        setNavAdminMenuOpen(navAdminMenuPanel && navAdminMenuPanel.hidden);
+      } else {
+        adminAuth.showAuth();
+      }
+    });
+  }
+  if (navAdminSignOutBtn) {
+    navAdminSignOutBtn.addEventListener('click', () => {
+      setNavAdminMenuOpen(false);
+      adminAuth.signOut({ silent: true });
+    });
+  }
+  document.addEventListener('click', (event) => {
+    if (!navAdminMenu || navAdminMenu.contains(event.target)) return;
+    setNavAdminMenuOpen(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setNavAdminMenuOpen(false);
+  });
   adminAuth.init().then((signedIn) => {
     if (signedIn) {
+      setNavAdminAuthorized(true);
       state.session = adminAuth.getSession();
       loadFromSupabase();
     } else {
       adminAuth.close();
+      setNavAdminAuthorized(false);
       // Still show the catalog in read-only mode using anon read access.
       loadFromSupabase();
     }

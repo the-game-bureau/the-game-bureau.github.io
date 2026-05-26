@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generates supabase/migrations/seed_teams.sql from site/assets/teams/teams.json.
+// Generates supabase/migrations/seed_teams.sql from assets/teams/teams.json.
 // Run: node supabase/migrations/seed_teams_from_json.mjs
 // Then paste the produced SQL into the Supabase SQL editor.
 
@@ -77,7 +77,7 @@ async function main() {
   });
 
   const sql = [
-    '-- Generated from site/assets/teams/teams.json by seed_teams_from_json.mjs',
+    '-- Generated from assets/teams/teams.json by seed_teams_from_json.mjs',
     `-- ${rows.length} rows · ${leagueNames.length} leagues`,
     '-- Safe to re-run: uses ON CONFLICT DO UPDATE.',
     '',

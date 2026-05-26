@@ -1,6 +1,6 @@
 # Public Admin Bridge
 
-Public pages should not hard-code Mission Control toolbars or permanent admin links. Use the shared bridge at `site/assets/admin-bridge.js`.
+Public pages should not hard-code Mission Control toolbars or permanent admin links. Use the shared bridge at `assets/admin-bridge.js`.
 
 The bridge reads the existing Mission Control admin session from localStorage, verifies the user against Supabase `admin_users`, and shows edit controls only for verified admins. Signed-out public visitors see nothing.
 
@@ -11,7 +11,7 @@ Add a page role to the body and load the bridge near the end of the page:
 ```html
 <body data-admin-page="mission-control">
   ...
-  <script src="PATH_TO/site/assets/admin-bridge.js"></script>
+  <script src="PATH_TO/assets/admin-bridge.js"></script>
 </body>
 ```
 
