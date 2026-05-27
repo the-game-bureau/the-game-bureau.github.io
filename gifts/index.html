@@ -807,6 +807,8 @@
             <a class="nav-admin-menu-item" role="menuitem" href="/mc/builder.html" id="navBuilderLink">Build Games</a>
             <a class="nav-admin-menu-item" role="menuitem" href="/mc/photos.html">Edit Wall</a>
             <a class="nav-admin-menu-item" role="menuitem" href="/mc/giftshop.html">Edit Gifts</a>
+            <a class="nav-admin-menu-item" role="menuitem" href="/mc/giftcards.html">Gift Codes</a>
+            <a class="nav-admin-menu-item" role="menuitem" href="/mc/notes.html">Notes</a>
             <span class="nav-admin-menu-divider" aria-hidden="true"></span>
             <button class="nav-admin-menu-item" id="navAdminSignOutBtn" type="button" role="menuitem">Sign Out</button>
           </div>
@@ -846,7 +848,7 @@
         <div class="grid" id="grid"></div>
       </section>
 
-      <p class="footer-note">As an Amazon Associate, The Game Bureau may earn from qualifying purchases.</p>
+      <p class="footer-note">As an Amazon Associate and a Bookshop.org affiliate, The Game Bureau may earn from qualifying purchases.</p>
     </main>
   </div>
 
@@ -925,7 +927,7 @@
 
     async function fetchGame(id) {
       const rows = await fetchJson(buildSupabaseUrl('games', {
-        select: 'id,name,tagline,primary_color',
+        select: 'id,name,tagline,price,archived,primary_color',
         id: 'eq.' + id,
         limit: '1'
       }));
@@ -951,7 +953,105 @@
       }));
     }
 
+    // Pull every game so we can synthesize a gift card per paid game
+    // without needing pre-seeded gift_shop_items rows. The server-side
+    // create-gift-checkout looks up the price authoritatively from
+    // games.price — the only thing the client passes is game_id, so
+    // there's no tampering surface.
+    async function fetchAllGames() {
+      return fetchJson(buildSupabaseUrl('games', {
+        select: 'id,name,tagline,price,archived,primary_color'
+      }));
+    }
+
+    function isGamePaid(game) {
+      if (!game) return false;
+      const price = String(game.price == null ? '' : game.price).trim();
+      if (!price || price.toUpperCase() === 'FREE') return false;
+      const archived = String(game.archived == null ? '' : game.archived).trim().toUpperCase();
+      if (archived === 'YES') return false;
+      // Sanity-check that price parses to something positive — guards
+      // against rows like "TBA" or "$" that would fail at checkout.
+      const numeric = price.replace(/[^0-9.]/g, '');
+      const dollars = parseFloat(numeric);
+      return Number.isFinite(dollars) && dollars > 0;
+    }
+
+    function gameToGiftCardItem(game) {
+      const tagline = String(game && game.tagline || '').trim();
+      return {
+        id:                'auto-gift:' + game.id,    // synthetic; never persisted
+        title:             (game.name || 'Untitled') + ' — Gift Card',
+        price_display:     game.price,
+        description:       tagline || 'Send "' + (game.name || 'this game') + '" as a gift. Your recipient gets a code that unlocks the game on any device.',
+        gift_card_game_id: game.id
+      };
+    }
+
+    // Build the "pick any game" card. Click → opens TgbGift modal at
+    // the chooser step, where the buyer picks a game from the list
+    // of paid games and continues into the same Stripe flow.
+    function createChooseAnyGameCard(paidGames) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'card card--gift-card card--gift-card-choose';
+      card.style.font = 'inherit';
+      card.style.textAlign = 'left';
+      card.style.cursor = 'pointer';
+      card.dataset.giftCardChoose = 'true';
+
+      const media = document.createElement('div');
+      media.className = 'card-media';
+      const monogram = document.createElement('div');
+      monogram.className = 'card-monogram';
+      monogram.textContent = '★';
+      media.appendChild(monogram);
+      media.dataset.hasImage = 'false';
+
+      const body = document.createElement('div');
+      body.className = 'card-body';
+
+      const eyebrow = document.createElement('p');
+      eyebrow.className = 'card-game-eyebrow';
+      eyebrow.textContent = 'Gift Shop · Featured';
+      body.appendChild(eyebrow);
+
+      const title = document.createElement('h2');
+      title.className = 'card-title';
+      title.textContent = 'Gift Card — Your Pick';
+      body.appendChild(title);
+
+      const count = (paidGames && paidGames.length) || 0;
+      const desc = document.createElement('p');
+      desc.className = 'card-caption';
+      desc.textContent = count
+        ? 'Pick any of our ' + count + ' games at checkout. Recipient gets a code that unlocks it on any device.'
+        : 'Pick any game at checkout. Recipient gets a code that unlocks it on any device.';
+      body.appendChild(desc);
+
+      const cta = document.createElement('span');
+      cta.className = 'card-cta';
+      cta.textContent = 'Choose a game';
+      body.appendChild(cta);
+
+      card.append(media, body);
+
+      card.addEventListener('click', () => {
+        if (!window.TgbGift) return;
+        window.TgbGift.openForChoice({ games: paidGames || [] });
+      });
+
+      return card;
+    }
+
     function createCard(item, opts = {}) {
+      // Gift-card items are TGB's own products (not affiliate). They have
+      // no external url; clicking the card opens the shared gift-buy
+      // modal via /assets/gift-buy-modal.js.
+      if (item && item.gift_card_game_id) {
+        return createGiftCardCard(item, opts);
+      }
+
       const url = String(item.url || '').trim();
       if (!url) return null;
 
@@ -1032,10 +1132,123 @@
 
       const cta = document.createElement('span');
       cta.className = 'card-cta';
-      cta.textContent = 'Open listing';
+      cta.textContent = affiliateCtaLabel(url);
       body.appendChild(cta);
 
       card.append(media, body);
+      return card;
+    }
+
+    function affiliateCtaLabel(url) {
+      const host = (() => {
+        try { return new URL(url).hostname.toLowerCase(); } catch (_) { return ''; }
+      })();
+      if (/(^|\.)amazon\./.test(host))     return 'Buy on Amazon';
+      if (/(^|\.)bookshop\.org$/.test(host)) return 'Buy on Bookshop';
+      return 'Open listing';
+    }
+
+    // Build a gift-card card. Clicking it opens the shared gift-buy
+    // modal (assets/gift-buy-modal.js). No external link — TGB is the
+    // seller for these items.
+    function createGiftCardCard(item, opts = {}) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'card card--gift-card';
+      card.dataset.adminEdit = 'gift-item';
+      card.dataset.adminId = item.id || '';
+      // Strip native button styles so the card layout (which inherits
+      // anchor-like styling) renders consistently.
+      card.style.font = 'inherit';
+      card.style.textAlign = 'left';
+      card.style.cursor = 'pointer';
+
+      if (opts.gameColor) {
+        card.dataset.gameColor = '';
+        card.style.setProperty('--card-game-color', opts.gameColor);
+      }
+
+      const media = document.createElement('div');
+      media.className = 'card-media';
+
+      const monogram = document.createElement('div');
+      monogram.className = 'card-monogram';
+      monogram.textContent = getMonogram(item.title);
+      media.appendChild(monogram);
+
+      const imageUrl = String(item.image_url || '').trim();
+      media.dataset.hasImage = imageUrl ? 'true' : 'false';
+      if (imageUrl) {
+        const img = document.createElement('img');
+        img.className = 'card-image';
+        img.src = imageUrl;
+        img.alt = '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.referrerPolicy = 'no-referrer';
+        const focus = String(item.image_focus || '').trim();
+        if (focus) img.style.objectPosition = focus;
+        img.addEventListener('error', () => {
+          img.remove();
+          media.dataset.hasImage = 'false';
+        });
+        media.appendChild(img);
+      }
+
+      const body = document.createElement('div');
+      body.className = 'card-body';
+
+      const gameNames = Array.isArray(opts.gameNames)
+        ? opts.gameNames
+        : (opts.gameName ? [opts.gameName] : []);
+      if (gameNames.length) {
+        const ge = document.createElement('p');
+        ge.className = 'card-game-eyebrow';
+        ge.textContent = gameNames.join(' / ');
+        body.appendChild(ge);
+      }
+
+      const title = document.createElement('h2');
+      title.className = 'card-title';
+      title.textContent = escapeText(item.title || 'Gift card');
+      body.appendChild(title);
+
+      const price = String(item.price_display || '').trim();
+      if (price) {
+        const priceEl = document.createElement('div');
+        priceEl.className = 'card-price';
+        priceEl.textContent = price;
+        body.appendChild(priceEl);
+      }
+
+      const desc = String(item.description || '').trim();
+      if (desc) {
+        const captionEl = document.createElement('p');
+        captionEl.className = 'card-caption';
+        captionEl.textContent = desc;
+        body.appendChild(captionEl);
+      }
+
+      const cta = document.createElement('span');
+      cta.className = 'card-cta';
+      cta.textContent = 'Buy this game';
+      body.appendChild(cta);
+
+      card.append(media, body);
+
+      card.addEventListener('click', (event) => {
+        // Don't fire if the user clicked the admin-edit affordance
+        // (admin-bridge.js owns that click path).
+        if (event.target.closest('[data-admin-action]')) return;
+        if (!window.TgbGift) return;
+        window.TgbGift.openForGame({
+          id:    item.gift_card_game_id,
+          name:  String(item.title || '').replace(/\s*—\s*Gift Card\s*$/i, '').trim()
+                  || (opts.gameName || 'this game'),
+          price: item.price_display || ''
+        });
+      });
+
       return card;
     }
 
@@ -1072,16 +1285,21 @@
         }
         applyGameTheme(game);
 
+        const safeListings = Array.isArray(listings) ? listings : [];
         const seenItemIds = new Set();
-        const cards = (Array.isArray(listings) ? listings : [])
-          .reduce((acc, listing) => {
-            const item = listing && listing.gift_shop_items;
-            if (!item || item.id == null || seenItemIds.has(item.id)) return acc;
-            seenItemIds.add(item.id);
-            const card = createCard(item);
-            if (card) acc.push(card);
-            return acc;
-          }, []);
+
+        // Per-game gift cards removed from the shop entirely — the
+        // chooser tile on /gifts/ owns that surface now. Single-game
+        // shops show affiliate items only.
+        const cards = [];
+        for (const listing of safeListings) {
+          const item = listing && listing.gift_shop_items;
+          if (!item || item.id == null || seenItemIds.has(item.id)) continue;
+          if (item.gift_card_game_id) continue; // skip gift-card rows
+          seenItemIds.add(item.id);
+          const card = createCard(item);
+          if (card) cards.push(card);
+        }
 
         gridEl.innerHTML = '';
         if (!cards.length) {
@@ -1115,20 +1333,48 @@
       renderEmpty('Loading inventory...');
 
       try {
-        const listings = await fetchAllListings();
-        if (!Array.isArray(listings) || !listings.length) {
-          renderEmpty('No items in the gift shop yet.');
-          itemCountEl.textContent = '0';
-          shopCountEl.textContent = '0';
-          setStatus('');
-          return;
+        const [listings, allGames] = await Promise.all([
+          fetchAllListings().catch(() => []),
+          fetchAllGames().catch(() => [])
+        ]);
+        const safeListings = Array.isArray(listings) ? listings : [];
+        const safeGames    = Array.isArray(allGames) ? allGames : [];
+
+        // Curated gift_shop_items rows take precedence; record their
+        // gift_card_game_id so we don't double-render the same game.
+        const curatedGiftCardGameIds = new Set();
+        for (const listing of safeListings) {
+          const item = listing && listing.gift_shop_items;
+          if (item && item.gift_card_game_id) {
+            curatedGiftCardGameIds.add(item.gift_card_game_id);
+          }
         }
 
+        // Index games by id so we can pick up name + primary_color when
+        // synthesizing dynamic gift cards.
+        const gameById = new Map(safeGames.map((g) => [g.id, g]));
+
+        // List of currently-giftable games for the "Your Pick" chooser.
+        const paidGames = safeGames
+          .filter(isGamePaid)
+          .map((g) => ({ id: g.id, name: g.name, price: g.price }))
+          .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+
+        // ── Choose-any-game card (the only gift-card tile in the shop).
+        // Replaced the previous per-game cards — the chooser supersedes
+        // them. Only shows if there's at least one giftable game.
+        const chooseCard = paidGames.length ? createChooseAnyGameCard(paidGames) : null;
+
+        // ── Affiliate-only curated cards (Amazon, Bookshop, etc.).
+        // We deliberately skip listings whose item is a gift card
+        // (gift_card_game_id is set) so the shop no longer shows
+        // individual-game gift cards.
         const grouped = new Map();
-        for (const listing of listings) {
+        for (const listing of safeListings) {
           const item = listing && listing.gift_shop_items;
           if (!item || item.id == null) continue;
-          const game = listing.games || {};
+          if (item.gift_card_game_id) continue; // hidden — chooser owns this
+          const game = listing.games || gameById.get(listing.game_id) || {};
           const gameName = String(game.name || '').trim();
           const gameColor = String(game.primary_color || '').trim();
           let entry = grouped.get(item.id);
@@ -1142,16 +1388,21 @@
           if (!entry.firstColor && gameColor) entry.firstColor = gameColor;
         }
 
-        const cards = Array.from(grouped.values())
+        const curatedCards = Array.from(grouped.values())
           .map(({ item, names, firstColor }) => createCard(item, {
             gameNames: names,
             gameColor: firstColor || null
           }))
           .filter(Boolean);
 
+        // Chooser first, then affiliate items.
+        const cards = []
+          .concat(chooseCard ? [chooseCard] : [])
+          .concat(curatedCards);
+
         gridEl.innerHTML = '';
         if (!cards.length) {
-          renderEmpty('No items available.');
+          renderEmpty('No items in the gift shop yet.');
           itemCountEl.textContent = '0';
           shopCountEl.textContent = '0';
           setStatus('');
@@ -1159,9 +1410,12 @@
         }
         cards.forEach((card) => gridEl.appendChild(card));
         itemCountEl.textContent = String(cards.length);
-        shopCountEl.textContent = String(new Set(listings.map((l) => l.game_id).filter(Boolean)).size);
+        // Affiliate items are tied to games via listings; the chooser
+        // itself represents the full paid-games catalog independently.
+        const allGameIds = new Set(safeListings.map((l) => l.game_id).filter(Boolean));
+        shopCountEl.textContent = String(allGameIds.size);
         setStatus(cards.length + ' item' + (cards.length === 1 ? '' : 's') + ' across ' +
-          new Set(listings.map((l) => l.game_id).filter(Boolean)).size + ' game(s)');
+          allGameIds.size + ' game(s)');
       } catch (error) {
         console.error('[giftshop] all-shops load failed', error);
         renderEmpty('Could not load gift shop.');
@@ -1212,7 +1466,13 @@
     // STRIPE_PUBLISHABLE_KEY must be the matching pk_test_… / pk_live_… for
     // the STRIPE_SECRET_KEY set on the create-stripe-session Edge Function.
     // Leave it empty to disable the cart entirely (affiliate-only mode).
-    const STRIPE_PUBLISHABLE_KEY = 'pk_test_51MF10bBFJf3v75ByzCOFJB7TL7MxnJ8I2ATlm3zszzjek7ki62BrhJ5TI0ZzTLBMk8ixoNUdsoG9pOjM8S1zR8wv00zYSpHYvw';
+    //
+    // PAUSED 2026-05-26: POD / Printful integration is parked. All gift_shop
+    // items render as affiliate links regardless of price_cents /
+    // printful_variant_id. Restore by pasting the publishable key back in.
+    // The pk_test_… key previously here:
+    //   pk_test_51MF10bBFJf3v75ByzCOFJB7TL7MxnJ8I2ATlm3zszzjek7ki62BrhJ5TI0ZzTLBMk8ixoNUdsoG9pOjM8S1zR8wv00zYSpHYvw
+    const STRIPE_PUBLISHABLE_KEY = '';
     const EDGE_BASE = SB_CONFIG.url.replace('.supabase.co', '.functions.supabase.co');
     const CREATE_SESSION_URL = EDGE_BASE + '/create-stripe-session';
 
@@ -1571,6 +1831,7 @@
     renderCart();
   </script>
 
+  <script src="../assets/gift-buy-modal.js"></script>
   <script src="../assets/admin-bridge.js"></script>
 </body>
 </html>

@@ -1002,7 +1002,7 @@
       </div>
       <div class="payment-access-wrap">
         <span class="payment-access-label">Have a code?</span>
-        <input id="paymentAccessInput" class="payment-access-input" type="text" maxlength="8" placeholder="XXXXXX" autocomplete="off" autocorrect="off" spellcheck="false">
+        <input id="paymentAccessInput" class="payment-access-input" type="text" maxlength="14" placeholder="XXXXXX or TGB-XXXX-XXXX" autocomplete="off" autocorrect="off" spellcheck="false">
         <button id="paymentAccessSubmit" class="payment-access-submit" type="button">Apply</button>
       </div>
     </div>
@@ -1077,6 +1077,7 @@
     let checkoutUnlocksCache = null;
     let lemonConfigPromise = null;
     let gameCheckoutUrl = '';
+    let gameMeta = { id: '', name: '', price: '' };
     let stopCheckoutContext = null;
     let activeCheckoutContext = null;
     let scrollBottomRaf = 0;
@@ -1457,40 +1458,66 @@
     let _paymentOverlayTarget = null;
     async function openPaymentOverlay(checkoutTarget) {
       _paymentOverlayTarget = checkoutTarget || null;
-      const cfg = await loadLocalLemonConfig();
-      const provider = (cfg && cfg.provider) || 'lemon';
+      // Hide the legacy Lemon iframe overlay if it's somehow still
+      // showing — the shared TgbGift modal is the payment UI now.
       const overlay = document.getElementById('paymentOverlay');
-      const frame = document.getElementById('paymentOverlayFrame');
-      const testPanel = document.getElementById('paymentTestPanel');
-      overlay.classList.remove('payment-overlay--hidden');
-      // trigger transition on next frame
-      requestAnimationFrame(() => overlay.classList.add('payment-overlay--open'));
-
-      if (provider === 'test') {
-        frame.src = '';
-        frame.hidden = true;
-        testPanel.hidden = false;
-      } else {
-        testPanel.hidden = true;
-        frame.hidden = false;
-        const url = checkoutTarget ? await resolveCheckoutUrl(checkoutTarget.url) : '';
-        if (url) {
-          frame.src = url;
-        } else {
-          closePaymentOverlay();
-          return;
-        }
+      if (overlay) {
+        overlay.classList.remove('payment-overlay--open');
+        overlay.classList.add('payment-overlay--hidden');
+        const frame = document.getElementById('paymentOverlayFrame');
+        if (frame) frame.src = '';
       }
-      document.getElementById('paymentOverlayClose').focus();
+      if (!window.TgbGift) {
+        console.warn('[checkout] TgbGift not loaded; cannot open payment modal.');
+        return;
+      }
+      window.TgbGift.openForGame({
+        id:    gameMeta.id || gameId || '',
+        name:  gameMeta.name || '',
+        price: gameMeta.price || ''
+      });
     }
     function closePaymentOverlay() {
+      // The TgbGift modal owns its own lifecycle now; this is kept as a
+      // no-op safety net in case legacy code paths still call it.
       const overlay = document.getElementById('paymentOverlay');
+      if (!overlay) return;
       overlay.classList.remove('payment-overlay--open');
       overlay.addEventListener('transitionend', () => {
         overlay.classList.add('payment-overlay--hidden');
-        document.getElementById('paymentOverlayFrame').src = '';
+        const frame = document.getElementById('paymentOverlayFrame');
+        if (frame) frame.src = '';
       }, { once: true });
     }
+
+    // ── Bridge from TgbGift modal back into the game flow ─────────────
+    // Fired by the shared modal when the player redeems a code (either
+    // by clicking "Play now" after a fresh Stripe purchase, or by
+    // entering an existing TGB-XXXX-XXXX code in the intro step's
+    // "Have a code?" section). We treat it the same as the legacy
+    // post-Lemon return flow.
+    window.addEventListener('tgb-gift-redeemed', (event) => {
+      const detail = (event && event.detail) || {};
+      if (detail.game_id && gameMeta.id && detail.game_id !== gameMeta.id) return;
+      const target = _paymentOverlayTarget;
+      completeCheckoutFlow({
+        unlockKey: target && target.unlockKey,
+        sourceUrl: target && target.url,
+        guideText: CHECKOUT_SUCCESS_COPY,
+        skipAccessCode: true,
+        orderId: detail.code || ''
+      });
+    });
+
+    // If the player closes the modal without redeeming or paying, give
+    // their input back so they can retry (or try a code, or skip).
+    // disableInput() is misleadingly named — it actually resets the
+    // input back to the idle, usable state.
+    window.addEventListener('tgb-gift-closed', (event) => {
+      const detail = (event && event.detail) || {};
+      if (detail.redeemed) return; // handled by tgb-gift-redeemed above
+      try { disableInput(); } catch (_) {}
+    });
     function extractCheckoutTargetFromHtml(html) {
       if (!html) return null;
       const template = document.createElement('template');
@@ -3053,6 +3080,14 @@
           gameCheckoutUrl = String(gameData.checkout_url).trim();
         }
 
+        // Stash meta so openPaymentOverlay can pass the game's name + price
+        // into the shared TgbGift modal (Stripe path).
+        gameMeta = {
+          id:    gameId,
+          name:  String(gameData.name || '').trim(),
+          price: String(gameData.price || '').trim()
+        };
+
         const gameNode = {
           title:               gameData.name,
           guideName:           gameData.guide_name,
@@ -3174,29 +3209,68 @@
         });
       });
 
-      function tryAccessCode() {
+      const GIFT_CODE_REGEX = /^TGB-?[A-Z0-9]{4}-?[A-Z0-9]{4}$/;
+      const REDEEM_GIFT_URL = 'https://qmaafbncpzrdmqapkkgr.functions.supabase.co/redeem-gift-code';
+
+      function flashAccessError() {
+        accessInput.classList.add('payment-access-input--error');
+        setTimeout(() => accessInput.classList.remove('payment-access-input--error'), 1200);
+      }
+
+      async function tryRedeemGiftCode(code) {
+        try {
+          const response = await fetch(REDEEM_GIFT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: code, game_id: gameId })
+          });
+          const data = await response.json().catch(() => ({}));
+          return !!(response.ok && data && data.ok);
+        } catch (_) {
+          return false;
+        }
+      }
+
+      async function tryAccessCode() {
         const input = (accessInput.value || '').trim().toUpperCase();
         if (!input) return;
         const unlocks = loadCheckoutUnlocks();
         const match = Object.entries(unlocks).find(([, u]) => u && u.accessCode === input);
-        if (!match) {
-          accessInput.classList.add('payment-access-input--error');
-          setTimeout(() => accessInput.classList.remove('payment-access-input--error'), 1200);
+        if (match) {
+          const target = _paymentOverlayTarget;
+          completeCheckoutFlow({
+            unlockKey: target && target.unlockKey || match[0],
+            sourceUrl: target && target.url,
+            guideText: CHECKOUT_SUCCESS_COPY,
+            skipAccessCode: true
+          });
           return;
         }
-        const target = _paymentOverlayTarget;
-        completeCheckoutFlow({
-          unlockKey: target && target.unlockKey || match[0],
-          sourceUrl: target && target.url,
-          guideText: CHECKOUT_SUCCESS_COPY,
-          skipAccessCode: true
-        });
+        if (GIFT_CODE_REGEX.test(input)) {
+          accessInput.disabled = true;
+          accessSubmit.disabled = true;
+          const ok = await tryRedeemGiftCode(input);
+          accessInput.disabled = false;
+          accessSubmit.disabled = false;
+          if (ok) {
+            const target = _paymentOverlayTarget;
+            completeCheckoutFlow({
+              unlockKey: target && target.unlockKey,
+              sourceUrl: target && target.url,
+              guideText: CHECKOUT_SUCCESS_COPY,
+              skipAccessCode: true
+            });
+            return;
+          }
+        }
+        flashAccessError();
       }
 
       accessSubmit.addEventListener('click', tryAccessCode);
       accessInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryAccessCode(); });
     })();
   </script>
+  <script src="../../../assets/gift-buy-modal.js"></script>
   <script src="../../../assets/admin-bridge.js"></script>
 </body>
 </html>

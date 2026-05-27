@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>GIFT CODES | THE GAME BUREAU</title>
+  <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);
+      --bic-red: #c23737;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255,255,255,0.92);
+      --accent: var(--bic-blue);
+      --danger: #a03f2d;
+      --success: #2f6b3d;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+      color: var(--ink);
+    }
+    button, input { font: inherit; }
+
+    .section-head {
+      display: grid;
+      gap: 6px;
+      margin: 0 0 18px;
+      padding: 20px 22px 22px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.14);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.74) 0%, rgba(var(--bic-blue-rgb), 0.08) 100%);
+      box-shadow: 0 18px 36px var(--paper-shadow);
+    }
+    .kicker {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .section-head h2 {
+      margin: 0;
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .status { margin: 0; min-height: 1.4em; color: var(--muted); font-size: 0.92rem; }
+    .status.error { color: var(--danger); font-weight: 700; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: rgba(var(--bic-blue-rgb), 0.08); }
+
+    .signout-btn {
+      width: 42px; height: 42px; padding: 0; border-radius: 50%;
+      background: #fff; border: 1px solid var(--line); cursor: pointer;
+    }
+    .signout-btn svg { width: 22px; height: 22px; color: var(--ink); }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .toolbar input[type="search"] {
+      flex: 1 1 220px;
+      min-width: 0;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+    }
+    .toolbar select {
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.86rem;
+    }
+    .toolbar .toolbar-count {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .table-wrap {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 12px 28px var(--paper-shadow);
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th, td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.08); }
+    th {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: rgba(var(--bic-blue-rgb), 0.04);
+      border-bottom: 1px solid var(--line);
+    }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: rgba(var(--bic-blue-rgb), 0.025); }
+
+    .code-cell {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .code-copy {
+      padding: 3px 8px;
+      font-size: 0.68rem;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .code-copy:hover { background: rgba(var(--bic-blue-rgb), 0.08); color: var(--ink); }
+    .code-pending { color: var(--muted); font-style: italic; font-family: inherit; font-size: 0.85rem; }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border: 1px solid;
+    }
+    .pill--pending  { color: #8a6b18; background: #fff6d6; border-color: #e3cf76; }
+    .pill--paid     { color: var(--success); background: #e3f2e6; border-color: #a8d2b1; }
+    .pill--redeemed { color: var(--bic-blue); background: #e2eaff; border-color: #a1b3df; }
+    .pill--failed   { color: var(--danger); background: #fde5db; border-color: #d8a190; }
+    .pill--refunded { color: #555; background: #ececec; border-color: #c5c5c5; }
+
+    .email-pill {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 5px;
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .email-pill--sent    { color: var(--success); background: #e3f2e6; }
+    .email-pill--failed  { color: var(--danger); background: #fde5db; }
+    .email-pill--skipped { color: #777; background: #f0f0f0; }
+    .email-pill--none    { color: var(--muted); background: transparent; border: 1px dashed rgba(var(--bic-blue-rgb), 0.18); }
+
+    .uses-cell { font-variant-numeric: tabular-nums; }
+    .uses-cell--heavy { color: var(--danger); font-weight: 700; }
+    .uses-cell--heavy::before { content: '⚠ '; }
+    .swaps-cell { font-variant-numeric: tabular-nums; }
+    .swaps-cell--heavy { color: var(--danger); font-weight: 700; }
+    .swaps-cell--heavy::before { content: '⚠ '; }
+
+    .meta-line { color: var(--muted); font-size: 0.78rem; }
+    .meta-line strong { color: var(--ink); }
+
+    .empty {
+      padding: 36px 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+  </style>
+  <link rel="stylesheet" href="admin-shell.css">
+</head>
+<body>
+  <main class="app">
+    <div class="topbar">
+      <div class="topbar-actions" style="margin-left:auto;">
+        <button class="btn mc-back-btn" type="button" data-mc-back data-mc-back-fallback="../index.html">Back</button>
+        <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <section class="section-head">
+      <p class="kicker">TGB MISSION CONTROL</p>
+      <h2>GIFT CODES</h2>
+      <p class="status" id="pageStatus" aria-live="polite">Sign in with an admin account.</p>
+    </section>
+
+    <div class="toolbar">
+      <input type="search" id="searchInput" placeholder="Search code, recipient email, or game...">
+      <select id="statusFilter">
+        <option value="">All statuses</option>
+        <option value="pending">Pending</option>
+        <option value="paid">Paid (unredeemed)</option>
+        <option value="redeemed">Redeemed</option>
+        <option value="failed">Failed</option>
+        <option value="refunded">Refunded</option>
+      </select>
+      <button class="btn" id="refreshBtn" type="button">Refresh</button>
+      <span class="toolbar-count" id="resultCount"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table id="codesTable" hidden>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Status</th>
+            <th>Game</th>
+            <th>Recipient</th>
+            <th>Price</th>
+            <th>Uses</th>
+            <th>Swaps</th>
+            <th>Email</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody id="codesTbody"></tbody>
+      </table>
+      <div class="empty" id="emptyState">Sign in to view issued gift codes.</div>
+    </div>
+  </main>
+
+  <script src="admin-auth.js"></script>
+  <script src="admin-shell.js"></script>
+  <script src="admin-nav-menu.js"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+
+    const pageStatus  = document.getElementById('pageStatus');
+    const signOutBtn  = document.getElementById('signOutBtn');
+    const tableEl     = document.getElementById('codesTable');
+    const tbodyEl     = document.getElementById('codesTbody');
+    const emptyEl     = document.getElementById('emptyState');
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter= document.getElementById('statusFilter');
+    const refreshBtn  = document.getElementById('refreshBtn');
+    const resultCount = document.getElementById('resultCount');
+
+    const state = { rows: [], authed: false };
+
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      onAuthorized: async () => {
+        state.authed = true;
+        setStatus('Loading...');
+        await refresh();
+      },
+      onSignedOut: () => {
+        state.authed = false;
+        state.rows = [];
+        render();
+        setStatus('Sign in with an admin account.');
+      }
+    });
+
+    window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
+
+    function setStatus(text, kind) {
+      pageStatus.textContent = text || '';
+      pageStatus.classList.toggle('error', kind === 'error');
+    }
+
+    function authHeaders() {
+      const session = adminAuth.getSession();
+      const token = (session && session.access_token) || SUPABASE_CONFIG.publishableKey;
+      return {
+        apikey:        SUPABASE_CONFIG.publishableKey,
+        Authorization: 'Bearer ' + token,
+        Accept:        'application/json'
+      };
+    }
+
+    async function fetchCodes() {
+      const url = new URL('/rest/v1/gift_codes', SUPABASE_CONFIG.url + '/');
+      url.searchParams.set('select', '*');
+      url.searchParams.set('order', 'created_at.desc');
+      url.searchParams.set('limit', '500');
+      const response = await fetch(url, { headers: authHeaders(), cache: 'no-store' });
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error('gift_codes ' + response.status + (errText ? ': ' + errText.slice(0, 200) : ''));
+      }
+      return response.json();
+    }
+
+    async function refresh() {
+      try {
+        const rows = await fetchCodes();
+        state.rows = Array.isArray(rows) ? rows : [];
+        render();
+        setStatus('');
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Load failed', 'error');
+      }
+    }
+
+    function formatPrice(cents, currency) {
+      if (cents == null) return '—';
+      const value = Number(cents) / 100;
+      const code = String(currency || 'usd').toUpperCase();
+      try {
+        return new Intl.NumberFormat(undefined, { style: 'currency', currency: code }).format(value);
+      } catch (_) {
+        return '$' + value.toFixed(2);
+      }
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '—';
+      try {
+        return new Date(iso).toLocaleString(undefined, {
+          year: 'numeric', month: 'short', day: 'numeric',
+          hour: 'numeric', minute: '2-digit'
+        });
+      } catch (_) {
+        return String(iso);
+      }
+    }
+
+    function escapeText(value) {
+      return String(value == null ? '' : value);
+    }
+
+    function emailPill(status) {
+      const cls = {
+        sent: 'sent', failed: 'failed', skipped: 'skipped'
+      }[String(status || '').toLowerCase()] || 'none';
+      const label = status ? String(status).toUpperCase() : '—';
+      return `<span class="email-pill email-pill--${cls}">${label}</span>`;
+    }
+
+    function statusPill(status) {
+      const cls = {
+        pending: 'pending', paid: 'paid', redeemed: 'redeemed',
+        failed: 'failed', refunded: 'refunded'
+      }[String(status || '').toLowerCase()] || 'pending';
+      return `<span class="pill pill--${cls}">${escapeText(status || 'pending')}</span>`;
+    }
+
+    function renderRow(row) {
+      const tr = document.createElement('tr');
+
+      const codeTd = document.createElement('td');
+      if (row.code) {
+        codeTd.innerHTML = `<span class="code-cell"><span>${escapeText(row.code)}</span><button class="code-copy" type="button" data-copy="${escapeText(row.code)}">Copy</button></span>`;
+      } else {
+        codeTd.innerHTML = '<span class="code-pending">— pending —</span>';
+      }
+      tr.appendChild(codeTd);
+
+      const statusTd = document.createElement('td');
+      statusTd.innerHTML = statusPill(row.status);
+      if (row.redeemed_at) {
+        statusTd.innerHTML += `<div class="meta-line">${formatDate(row.redeemed_at)}</div>`;
+      }
+      tr.appendChild(statusTd);
+
+      const gameTd = document.createElement('td');
+      gameTd.innerHTML = `<strong>${escapeText(row.game_name || '—')}</strong>` +
+        (row.game_id ? `<div class="meta-line">${escapeText(row.game_id)}</div>` : '');
+      tr.appendChild(gameTd);
+
+      const recipTd = document.createElement('td');
+      recipTd.innerHTML = `<strong>${escapeText(row.recipient_email || '—')}</strong>` +
+        (row.recipient_name ? `<div class="meta-line">${escapeText(row.recipient_name)}</div>` : '') +
+        (row.buyer_email ? `<div class="meta-line">from ${escapeText(row.buyer_email)}</div>` : '');
+      tr.appendChild(recipTd);
+
+      const priceTd = document.createElement('td');
+      priceTd.textContent = formatPrice(row.price_cents, row.currency);
+      tr.appendChild(priceTd);
+
+      const usesTd = document.createElement('td');
+      const usesCount = Number(row.redemption_count) || 0;
+      const usesCls = usesCount > 1 ? 'uses-cell uses-cell--heavy' : 'uses-cell';
+      usesTd.className = usesCls;
+      usesTd.textContent = usesCount === 0 ? '—' : String(usesCount);
+      if (row.last_redeemed_at && usesCount > 0) {
+        usesTd.innerHTML = `<span>${usesCount}</span><div class="meta-line">${formatDate(row.last_redeemed_at)}</div>`;
+      }
+      tr.appendChild(usesTd);
+
+      const swapsTd = document.createElement('td');
+      const swapCount = Number(row.swap_count) || 0;
+      const swapCls = swapCount > 1 ? 'swaps-cell swaps-cell--heavy' : 'swaps-cell';
+      swapsTd.className = swapCls;
+      swapsTd.textContent = swapCount === 0 ? '—' : String(swapCount);
+      if (row.last_swapped_at && swapCount > 0) {
+        swapsTd.innerHTML = `<span>${swapCount}</span><div class="meta-line">${formatDate(row.last_swapped_at)}</div>`;
+      }
+      tr.appendChild(swapsTd);
+
+      const emailTd = document.createElement('td');
+      emailTd.innerHTML = emailPill(row.email_status);
+      if (row.email_sent_at) {
+        emailTd.innerHTML += `<div class="meta-line">${formatDate(row.email_sent_at)}</div>`;
+      } else if (row.email_error) {
+        emailTd.innerHTML += `<div class="meta-line" title="${escapeText(row.email_error)}">${escapeText(String(row.email_error).slice(0, 60))}</div>`;
+      }
+      tr.appendChild(emailTd);
+
+      const createdTd = document.createElement('td');
+      let createdHtml = formatDate(row.created_at);
+      if (row.stripe_charge_id) {
+        const url = row.stripe_receipt_url ? escapeText(row.stripe_receipt_url) : '';
+        const cid = escapeText(String(row.stripe_charge_id).slice(-8));
+        createdHtml += url
+          ? `<div class="meta-line"><a href="${url}" target="_blank" rel="noopener">receipt · …${cid}</a></div>`
+          : `<div class="meta-line">…${cid}</div>`;
+      } else if (row.stripe_session_id) {
+        createdHtml += `<div class="meta-line">${escapeText(String(row.stripe_session_id).slice(-8))}</div>`;
+      }
+      createdTd.innerHTML = createdHtml;
+      tr.appendChild(createdTd);
+
+      return tr;
+    }
+
+    function matchesFilter(row) {
+      const wantStatus = statusFilter.value;
+      if (wantStatus && String(row.status || '').toLowerCase() !== wantStatus) return false;
+      const q = String(searchInput.value || '').trim().toLowerCase();
+      if (!q) return true;
+      const haystack = [
+        row.code, row.game_id, row.game_name,
+        row.recipient_email, row.recipient_name,
+        row.buyer_email, row.buyer_name,
+        row.stripe_session_id
+      ].map((v) => String(v == null ? '' : v).toLowerCase()).join(' ');
+      return haystack.indexOf(q) !== -1;
+    }
+
+    function render() {
+      const visible = state.rows.filter(matchesFilter);
+      tbodyEl.innerHTML = '';
+      if (!state.authed) {
+        tableEl.hidden = true;
+        emptyEl.hidden = false;
+        emptyEl.textContent = 'Sign in to view issued gift codes.';
+        resultCount.textContent = '';
+        return;
+      }
+      if (!state.rows.length) {
+        tableEl.hidden = true;
+        emptyEl.hidden = false;
+        emptyEl.textContent = 'No gift codes yet — they appear here as soon as someone buys one.';
+        resultCount.textContent = '0 codes';
+        return;
+      }
+      if (!visible.length) {
+        tableEl.hidden = true;
+        emptyEl.hidden = false;
+        emptyEl.textContent = 'No codes match your filter.';
+        resultCount.textContent = '0 of ' + state.rows.length;
+        return;
+      }
+      emptyEl.hidden = true;
+      tableEl.hidden = false;
+      visible.forEach((row) => tbodyEl.appendChild(renderRow(row)));
+      resultCount.textContent = visible.length === state.rows.length
+        ? visible.length + ' codes'
+        : visible.length + ' of ' + state.rows.length;
+    }
+
+    tbodyEl.addEventListener('click', async (event) => {
+      const btn = event.target.closest('.code-copy');
+      if (!btn) return;
+      const code = btn.getAttribute('data-copy');
+      if (!code) return;
+      try {
+        await navigator.clipboard.writeText(code);
+        const original = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(() => { btn.textContent = original; }, 1500);
+      } catch (_) {}
+    });
+
+    searchInput.addEventListener('input', render);
+    statusFilter.addEventListener('change', render);
+    refreshBtn.addEventListener('click', refresh);
+
+    render();
+    adminAuth.init();
+  </script>
+</body>
+</html>

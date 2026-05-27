@@ -1215,6 +1215,160 @@
     }
 
     .lb { background: rgba(28, 22, 12, 0.92); }
+
+    /* ── Map payment choice overlay (Pay or redeem gift code) ─────── */
+    .map-pay-choice {
+      position: fixed;
+      inset: 0;
+      z-index: 600;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 36px 18px 18px;
+      background: rgba(20, 12, 4, 0.78);
+      backdrop-filter: blur(6px);
+      overflow-y: auto;
+    }
+    .map-pay-choice-panel {
+      position: relative;
+      width: min(100%, 420px);
+      margin-top: 4vh;
+      padding: 22px 22px 18px;
+      background: #fbf6ec;
+      border: 1px solid rgba(28, 22, 12, 0.18);
+      border-radius: 16px;
+      box-shadow: 0 30px 64px rgba(0, 0, 0, 0.5);
+      color: #2a1f10;
+      font-family: inherit;
+    }
+    .map-pay-choice-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 32px;
+      height: 32px;
+      border: 1px solid rgba(28, 22, 12, 0.18);
+      border-radius: 50%;
+      background: transparent;
+      color: inherit;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    .map-pay-choice-close:hover { background: rgba(28, 22, 12, 0.08); }
+    .map-pay-choice-kicker {
+      margin: 0 0 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(28, 22, 12, 0.62);
+    }
+    .map-pay-choice-title {
+      margin: 0 0 6px;
+      font-family: inherit;
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+    .map-pay-choice-help {
+      margin: 0 0 14px;
+      color: rgba(28, 22, 12, 0.7);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+    .map-pay-choice-pay {
+      width: 100%;
+      padding: 12px 14px;
+      border: 0;
+      border-radius: 999px;
+      background: #2a1f10;
+      color: #fbf6ec;
+      font: inherit;
+      font-size: 0.98rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .map-pay-choice-pay:hover { background: #3d2e18; }
+    .map-pay-choice-or {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 14px 0 8px;
+      color: rgba(28, 22, 12, 0.5);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .map-pay-choice-or::before,
+    .map-pay-choice-or::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(28, 22, 12, 0.18);
+    }
+    .map-pay-choice-label {
+      display: block;
+      margin: 0 0 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(28, 22, 12, 0.7);
+    }
+    .map-pay-choice-row {
+      display: flex;
+      gap: 8px;
+    }
+    .map-pay-choice-input {
+      flex: 1 1 auto;
+      min-width: 0;
+      padding: 10px 12px;
+      border: 1px solid rgba(28, 22, 12, 0.25);
+      border-radius: 8px;
+      background: #fff;
+      color: inherit;
+      font: inherit;
+      font-size: 0.95rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .map-pay-choice-input:focus { outline: 2px solid rgba(28, 22, 12, 0.35); outline-offset: 1px; }
+    .map-pay-choice-input--error {
+      border-color: #c23737;
+      animation: mapPayShake 0.4s ease;
+    }
+    @keyframes mapPayShake {
+      0%, 100% { transform: translateX(0); }
+      25%      { transform: translateX(-5px); }
+      75%      { transform: translateX(5px); }
+    }
+    .map-pay-choice-apply {
+      flex: 0 0 auto;
+      padding: 0 16px;
+      border: 1px solid #2a1f10;
+      border-radius: 8px;
+      background: transparent;
+      color: #2a1f10;
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .map-pay-choice-apply:hover:not(:disabled) { background: #2a1f10; color: #fbf6ec; }
+    .map-pay-choice-apply:disabled,
+    .map-pay-choice-input:disabled { opacity: 0.5; cursor: progress; }
+    .map-pay-choice-error {
+      margin: 8px 0 0;
+      min-height: 1.1em;
+      color: #c23737;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body class="game-active map-mode" data-admin-page="game-run">
@@ -1344,6 +1498,7 @@
     let lemonSetupComplete = false;
     let stopCheckoutContext = null;
     let activeCheckoutContext = null;
+    let gameMeta = { id: '', name: '', price: '' };
     let scrollBottomRaf = 0;
     let scrollBottomTimeouts = [];
     let chatResizeObserver = null;
@@ -2082,17 +2237,137 @@
         flowKind: activeFlowKind
       };
 
-      try {
-        const lemon = await ensureLemonReady();
-        if (lemon && lemon.Url && typeof lemon.Url.Open === 'function') {
-          lemon.Url.Open(resolvedCheckoutUrl);
-          return;
-        }
-      } catch (error) {
-        console.warn('Could not open Lemon overlay.', error);
+      // Open the shared TgbGift modal — the player can buy via Stripe
+      // or redeem an existing TGB-XXXX-XXXX code in the same modal.
+      // Engine listeners on tgb-gift-redeemed / tgb-gift-closed handle
+      // continuing the game or restoring input.
+      if (!window.TgbGift) {
+        console.warn('[checkout] TgbGift not loaded; cannot open payment modal.');
+        return;
       }
+      window.TgbGift.openForGame({
+        id:    gameMeta.id || gameId || '',
+        name:  gameMeta.name || '',
+        price: gameMeta.price || ''
+      });
+    }
 
-      window.location.href = resolvedCheckoutUrl;
+    // ── Bridge from TgbGift modal back into the game flow ─────────────
+    // Mirrors the text engine: when the shared modal redeems a code
+    // (Stripe "Play now" or "Have a code?" entry), we fire the same
+    // completeCheckoutFlow we used to call when Lemon returned. On
+    // bare close we just re-enable input so the player can retry.
+    window.addEventListener('tgb-gift-redeemed', (event) => {
+      const detail = (event && event.detail) || {};
+      if (detail.game_id && gameMeta.id && detail.game_id !== gameMeta.id) return;
+      const ctx = activeCheckoutContext || stopCheckoutContext || {};
+      completeCheckoutFlow({
+        unlockKey: ctx.unlockKey,
+        sourceUrl: ctx.sourceUrl || (ctx.url || ''),
+        guideText: 'Payment confirmed. Let’s keep going.',
+        skipAccessCode: true,
+        orderId: detail.code || ''
+      });
+    });
+
+    window.addEventListener('tgb-gift-closed', (event) => {
+      const detail = (event && event.detail) || {};
+      if (detail.redeemed) return;
+      try { disableInput(); } catch (_) {}
+    });
+
+    // Legacy: the old showMapPaymentChoice interstitial and the
+    // MAP_REDEEM_GIFT_URL constants below are no longer called from the
+    // checkout flow (TgbGift owns the UI now). Left in place so any
+    // stale references don't break; safe to delete on the next pass.
+    const MAP_REDEEM_GIFT_URL = 'https://qmaafbncpzrdmqapkkgr.functions.supabase.co/redeem-gift-code';
+    const MAP_GIFT_CODE_REGEX = /^TGB-?[A-Z0-9]{4}-?[A-Z0-9]{4}$/;
+
+    function showMapPaymentChoice(context) {
+      return new Promise((resolve) => {
+        const ctx = context || {};
+        const backdrop = document.createElement('div');
+        backdrop.className = 'map-pay-choice';
+        backdrop.innerHTML = [
+          '<div class="map-pay-choice-panel" role="dialog" aria-modal="true">',
+          '  <button type="button" class="map-pay-choice-close" aria-label="Close">&#x2715;</button>',
+          '  <p class="map-pay-choice-kicker">Continue your tour</p>',
+          '  <h2 class="map-pay-choice-title">Unlock the next stop</h2>',
+          '  <p class="map-pay-choice-help">Pay securely to keep playing, or enter a gift code if you have one.</p>',
+          '  <button type="button" class="map-pay-choice-pay">Continue to payment</button>',
+          '  <div class="map-pay-choice-or"><span>or</span></div>',
+          '  <label class="map-pay-choice-label" for="mapPayCodeInput">Have a code?</label>',
+          '  <div class="map-pay-choice-row">',
+          '    <input id="mapPayCodeInput" class="map-pay-choice-input" type="text" maxlength="14" placeholder="TGB-XXXX-XXXX" autocomplete="off" autocorrect="off" spellcheck="false">',
+          '    <button type="button" class="map-pay-choice-apply">Apply</button>',
+          '  </div>',
+          '  <p class="map-pay-choice-error" aria-live="polite"></p>',
+          '</div>'
+        ].join('');
+        document.body.appendChild(backdrop);
+
+        const close = (redeemed) => {
+          backdrop.remove();
+          document.removeEventListener('keydown', onKey);
+          resolve(!!redeemed);
+        };
+        const onKey = (event) => { if (event.key === 'Escape') close(false); };
+
+        const input  = backdrop.querySelector('.map-pay-choice-input');
+        const apply  = backdrop.querySelector('.map-pay-choice-apply');
+        const errorEl = backdrop.querySelector('.map-pay-choice-error');
+
+        backdrop.querySelector('.map-pay-choice-close').addEventListener('click', () => close(false));
+        backdrop.querySelector('.map-pay-choice-pay').addEventListener('click', () => close(false));
+        backdrop.addEventListener('click', (event) => { if (event.target === backdrop) close(false); });
+        document.addEventListener('keydown', onKey);
+
+        const tryCode = async () => {
+          const code = String(input.value || '').trim().toUpperCase();
+          errorEl.textContent = '';
+          if (!code) return;
+          if (!MAP_GIFT_CODE_REGEX.test(code)) {
+            errorEl.textContent = 'Codes look like TGB-XXXX-XXXX.';
+            input.classList.add('map-pay-choice-input--error');
+            setTimeout(() => input.classList.remove('map-pay-choice-input--error'), 700);
+            return;
+          }
+          apply.disabled = true;
+          input.disabled = true;
+          try {
+            const response = await fetch(MAP_REDEEM_GIFT_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code, game_id: gameId })
+            });
+            const data = await response.json().catch(() => ({}));
+            if (response.ok && data && data.ok) {
+              completeCheckoutFlow({
+                unlockKey: ctx.unlockKey,
+                sourceUrl: ctx.sourceUrl || '',
+                guideText: 'Payment confirmed. Let’s keep going.'
+              });
+              close(true);
+              return;
+            }
+            const reason = String(data && data.reason || '').replace(/_/g, ' ');
+            errorEl.textContent = reason ? 'Could not redeem (' + reason + ').' : 'Code did not redeem.';
+            input.classList.add('map-pay-choice-input--error');
+            setTimeout(() => input.classList.remove('map-pay-choice-input--error'), 700);
+          } catch (_) {
+            errorEl.textContent = 'Network error — try again.';
+          } finally {
+            apply.disabled = false;
+            input.disabled = false;
+            input.focus();
+          }
+        };
+
+        apply.addEventListener('click', tryCode);
+        input.addEventListener('keydown', (event) => { if (event.key === 'Enter') tryCode(); });
+
+        setTimeout(() => input.focus(), 50);
+      });
     }
 
     function renderImageUrls(html) {
@@ -3344,6 +3619,14 @@
           return;
         }
 
+        // Stash meta so the payment-choice helper can hand name + price
+        // into the shared TgbGift modal.
+        gameMeta = {
+          id:    gameId,
+          name:  String(gameData.name || '').trim(),
+          price: String(gameData.price || '').trim()
+        };
+
         const gameNode = {
           title:               gameData.name,
           guideName:           gameData.guide_name,
@@ -3468,6 +3751,7 @@
       });
     }
   </script>
+  <script src="../../../assets/gift-buy-modal.js"></script>
   <script src="../../../assets/admin-bridge.js"></script>
 </body>
 </html>
