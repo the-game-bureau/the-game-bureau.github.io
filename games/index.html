@@ -60,9 +60,9 @@
           </div>
 
           <aside class="hero-meta" aria-label="Fandoms">
-            <div class="hero-meta-toggle" role="tablist" aria-label="Group games by">
-              <button class="hero-meta-toggle-btn" type="button" data-mode="fan" role="tab" aria-selected="true">Fandom</button>
-              <button class="hero-meta-toggle-btn" type="button" data-mode="city" role="tab" aria-selected="false">City</button>
+            <div class="hero-meta-toggle" role="tablist" aria-label="Find games by">
+              <button class="hero-meta-toggle-btn" type="button" data-mode="fan" role="tab" aria-selected="true" aria-controls="heroMetaList">By Fandom</button>
+              <button class="hero-meta-toggle-btn" type="button" data-mode="city" role="tab" aria-selected="false" aria-controls="heroMetaList">By City</button>
             </div>
             <p class="hero-meta-prompt" id="heroMetaPrompt" aria-live="polite"></p>
             <div class="hero-meta-list-wrap">
@@ -72,61 +72,13 @@
         </div>
       </section>
 
-      <section class="selected-games" id="selectedGames" hidden aria-labelledby="selectedGamesTitle">
+      <section class="selected-games" id="selectedGames" hidden aria-labelledby="selectedGamesTitle" aria-live="polite" tabindex="-1">
         <header class="selected-games-head">
           <h3 class="selected-games-title" id="selectedGamesTitle"></h3>
         </header>
         <div class="selected-games-grid" id="selectedGamesGrid"></div>
       </section>
 
-      <section class="about-shell" aria-label="Why it works">
-        <article class="about-cell">
-          <p class="about-label">Five-second setup</p>
-          <p class="about-copy">Open the link, you're in. No app, no account, no Bluetooth pairing, no "please update before continuing." The shortest path from idea to playing.</p>
-        </article>
-        <article class="about-cell">
-          <p class="about-label">Block by block</p>
-          <p class="about-copy">Every clue ties to something specific on the route — the old painted ad, the wrong house number, the bench nobody sits on. The route is the research, and the clues reward looking up.</p>
-        </article>
-        <article class="about-cell">
-          <p class="about-label">Written by humans</p>
-          <p class="about-copy">No procedural generation, no AI-stitched trivia. Each route is plotted, written, and rewritten by a person who walked it — which is why new games take weeks, not minutes.</p>
-        </article>
-      </section>
-
-      <section class="faq-shell" aria-labelledby="faqTitle">
-        <h2 class="faq-title" id="faqTitle">Common questions</h2>
-        <dl class="faq-list">
-          <div class="faq-item">
-            <dt class="faq-q">Do I need event tickets to play?</dt>
-            <dd class="faq-a">No. Many of our games are designed around an event — an away game, a convention, a fan weekend — but the game is its own thing. Tickets to whatever's happening that weekend aren't required.</dd>
-          </div>
-          <div class="faq-item">
-            <dt class="faq-q">Can I play any time, or only during the event?</dt>
-            <dd class="faq-a">Both. The event is the hook, but the clues reference the city — not the calendar. You can play the same game any day of the year.</dd>
-          </div>
-          <div class="faq-item">
-            <dt class="faq-q">How long does a game take?</dt>
-            <dd class="faq-a">About 90 minutes for most groups. Longer if you stop for food, photos, or get genuinely stuck on a clue.</dd>
-          </div>
-          <div class="faq-item">
-            <dt class="faq-q">How many people can play?</dt>
-            <dd class="faq-a">Two to eight is the sweet spot. One phone runs the whole group — no logging in, no syncing, no installing.</dd>
-          </div>
-          <div class="faq-item">
-            <dt class="faq-q">Do I need to download an app?</dt>
-            <dd class="faq-a">No. The game opens in your browser when you tap the link. No app store, no account, no install.</dd>
-          </div>
-          <div class="faq-item">
-            <dt class="faq-q">What if I get stuck on a clue?</dt>
-            <dd class="faq-a">Every clue has a hint built in. If you're still stuck, you can skip ahead — the game keeps going.</dd>
-          </div>
-          <div class="faq-item">
-            <dt class="faq-q">Are these written by AI?</dt>
-            <dd class="faq-a">No. Every route is plotted, walked, written, and rewritten by a person. That's why new games take weeks — and why the clues reference things only a human who walked the block would notice.</dd>
-          </div>
-        </dl>
-      </section>
     </main>
 
     <footer class="site-footer">
@@ -463,6 +415,7 @@
           const isFan = btn.dataset.mode === 'fan';
           const selected = (isFan && activeMode === MODE_FAN) || (!isFan && activeMode === MODE_CITY);
           btn.setAttribute('aria-selected', String(selected));
+          btn.setAttribute('tabindex', selected ? '0' : '-1');
         });
         if (heroMetaPromptEl) {
           heroMetaPromptEl.textContent = activeMode === MODE_FAN ? PROMPT_FAN : PROMPT_CITY;
@@ -562,13 +515,16 @@
         refreshSelectionStyles();
         if (selectedGamesGridEl) selectedGamesGridEl.innerHTML = '';
         if (selectedGamesTitleEl) selectedGamesTitleEl.textContent = '';
-        if (selectedGamesEl) selectedGamesEl.hidden = true;
+        if (selectedGamesEl) {
+          selectedGamesEl.hidden = true;
+          selectedGamesEl.classList.remove('is-fresh');
+        }
       }
 
       function rerenderSelectedGames(options) {
         if (!selectedEntryKind || !selectedEntryKey) return;
         const entry = heroMetaEntries.get(selectedEntryKind + '|' + selectedEntryKey);
-        if (entry) renderSelectedGames(entry, options || { scroll: false });
+        if (entry) renderSelectedGames(entry, options || { scroll: false, animate: false });
       }
 
       function createHeroMetaItem(entry) {
@@ -804,9 +760,73 @@
         return parts.join(' · ');
       }
 
+      function escapeRegExp(value) {
+        return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+
+      function stripMascotNames(value, game) {
+        let text = plainText(value);
+        if (!text) return '';
+        [
+          [game && game.away_team_mascot, game && game.away_team_city],
+          [game && game.home_team_mascot, game && game.home_team_city]
+        ].forEach(([mascot, city]) => {
+          const mascotText = plainText(mascot);
+          const cityText = plainText(city);
+          if (!mascotText || !cityText) return;
+          text = text.replace(new RegExp('\\b' + escapeRegExp(mascotText) + '\\b', 'gi'), cityText);
+        });
+        return text.replace(/\s{2,}/g, ' ').trim();
+      }
+
+      function hexToRgb(hex) {
+        const value = String(hex || '').replace('#', '').trim();
+        const normalized = value.length === 3
+          ? value.split('').map((ch) => ch + ch).join('')
+          : value;
+        if (!/^[0-9a-f]{6}$/i.test(normalized)) return null;
+        return {
+          r: parseInt(normalized.slice(0, 2), 16),
+          g: parseInt(normalized.slice(2, 4), 16),
+          b: parseInt(normalized.slice(4, 6), 16)
+        };
+      }
+
+      function accentTextColor(hex) {
+        const rgb = hexToRgb(hex);
+        if (!rgb) return '#ffffff';
+        const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+        return luminance > 0.58 ? '#111111' : '#ffffff';
+      }
+
+      function fitTextToBox(el) {
+        if (!el) return;
+        const minSize = Number(el.dataset.fitMin || 10);
+        const fallbackMax = parseFloat(window.getComputedStyle(el).fontSize) || 16;
+        const maxSize = Number(el.dataset.fitMax || fallbackMax);
+        let size = maxSize;
+        el.style.fontSize = size + 'px';
+        if (!el.clientWidth || !el.clientHeight) return;
+        while (size > minSize && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)) {
+          size -= 0.5;
+          el.style.fontSize = size + 'px';
+        }
+      }
+
+      let selectedCardFitRaf = null;
+      function scheduleSelectedCardTextFit() {
+        if (selectedCardFitRaf) cancelAnimationFrame(selectedCardFitRaf);
+        selectedCardFitRaf = requestAnimationFrame(() => {
+          selectedCardFitRaf = null;
+          if (!selectedGamesEl || selectedGamesEl.hidden) return;
+          selectedGamesEl.querySelectorAll('[data-fit-text]').forEach(fitTextToBox);
+        });
+      }
+
       function renderSelectedGames(entry, options) {
         if (!selectedGamesEl || !selectedGamesGridEl || !selectedGamesTitleEl) return;
         const shouldScroll = !options || options.scroll !== false;
+        const shouldAnimate = !options || options.animate !== false;
         const games = gamesForEntry(entry).slice().sort((a, b) => {
           const da = (a.game_date || '') + (a.start_time || '');
           const db = (b.game_date || '') + (b.start_time || '');
@@ -824,7 +844,7 @@
         if (entry.entryKind === 'fan') {
           const sample = games[0] || null;
           const fanbase = (entry.helmet && entry.helmet.fanbase) || plainText(sample && sample.away_team_city);
-          titleText = `${fanbase || entry.label} · ${countLabel}`;
+          titleText = `Games for ${fanbase || entry.label} fans / ${countLabel}`;
           {
             const palette = entry.helmet || NO_HELMET_PALETTE;
             const src = teamMarkSVG(
@@ -843,7 +863,7 @@
           }
         } else if (entry.entryKind === 'city') {
           const cityName = cityDisplayName(entry.label) || entry.label;
-          titleText = `${cityName} · ${countLabel}`;
+          titleText = `Games in ${cityName} / ${countLabel}`;
           const badge = cityGeoBadge(entry.label);
           if (badge) iconNode = buildGeoBadge(badge, 'selected-games-icon');
         } else {
@@ -877,16 +897,18 @@
               });
             }
 
-            // Icons row: away-team helmet (or fallback emoji when no away team
-            // is listed) + state/country badge for the host city.
+            // Deed stamps: away-team helmet (or fallback emoji when no away
+            // team is listed) + state/country badge for the host city.
             const icons = document.createElement('div');
             icons.className = 'game-card-icons';
             const teamPalette = getHelmetByAwayTeam(game);
             const hasAwayTeam = !!(plainText(game.away_team_city) && plainText(game.away_team_mascot));
+            const cardAccent = (teamPalette && teamPalette.primary_color) || '#2d4880';
             card.style.setProperty(
               '--card-accent',
-              (teamPalette && teamPalette.primary_color) || '#000000'
+              cardAccent
             );
+            card.style.setProperty('--card-accent-ink', accentTextColor(cardAccent));
             if (hasAwayTeam) {
               const palette = teamPalette || NO_HELMET_PALETTE;
               const helmetSrc = teamMarkSVG(
@@ -911,36 +933,55 @@
             }
             const venueBadge = cityGeoBadge(game.city);
             if (venueBadge) icons.appendChild(buildGeoBadge(venueBadge));
-            if (icons.childNodes.length) card.appendChild(icons);
+
+            const deed = document.createElement('div');
+            deed.className = 'game-card-deed';
+            const deedHead = document.createElement('div');
+            deedHead.className = 'game-card-deed-head';
+            const deedLabel = document.createElement('span');
+            deedLabel.className = 'game-card-deed-label';
+            deedLabel.textContent = 'TITLE DEED';
+            deedHead.appendChild(deedLabel);
+            if (icons.childNodes.length) deedHead.appendChild(icons);
 
             const title = document.createElement('div');
             title.className = 'game-card-title';
-            title.textContent = plainText(game.name) || '(untitled game)';
-            card.appendChild(title);
+            title.textContent = stripMascotNames(game.name, game) || '(untitled game)';
+            title.dataset.fitText = 'true';
+            title.dataset.fitMax = '20';
+            title.dataset.fitMin = '10';
+            deed.append(deedHead, title);
+            card.appendChild(deed);
 
-            const meta = document.createElement('div');
-            meta.className = 'game-card-meta';
-            const matchup = [
-              [game.away_team_city, game.away_team_mascot].filter(Boolean).join(' '),
-              [game.home_team_city, game.home_team_mascot].filter(Boolean).join(' ')
-            ].filter(Boolean).join(' @ ');
+            const deedLines = document.createElement('dl');
+            deedLines.className = 'game-card-deed-lines';
+            const addDeedLine = (labelText, valueText) => {
+              const value = plainText(valueText);
+              if (!value) return;
+              const row = document.createElement('div');
+              row.className = 'game-card-deed-line';
+              const label = document.createElement('dt');
+              label.textContent = labelText;
+              const valueEl = document.createElement('dd');
+              valueEl.textContent = value;
+              valueEl.dataset.fitText = 'true';
+              valueEl.dataset.fitMax = '14';
+              valueEl.dataset.fitMin = '9';
+              row.append(label, valueEl);
+              deedLines.appendChild(row);
+            };
             const dateStr = formatGameDate(game);
-            meta.textContent = [dateStr, matchup].filter(Boolean).join(' · ') || '—';
-            card.appendChild(meta);
+            addDeedLine('When', dateStr || 'Anytime');
+            addDeedLine('Start City', game.city);
+            if (deedLines.childNodes.length) card.appendChild(deedLines);
 
-            if (game.city) {
-              const venue = document.createElement('div');
-              venue.className = 'game-card-venue';
-              venue.textContent = plainText(game.city);
-              card.appendChild(venue);
-            }
-
-            if (game.tagline) {
-              const tagline = document.createElement('div');
-              tagline.className = 'game-card-tagline';
-              tagline.textContent = plainText(game.tagline);
-              card.appendChild(tagline);
-            }
+            const tagline = document.createElement('div');
+            tagline.className = 'game-card-tagline';
+            tagline.textContent = stripMascotNames(game.tagline, game) || 'Open the link. Start on site.';
+            tagline.dataset.fitText = 'true';
+            tagline.dataset.fitMax = '14.5';
+            tagline.dataset.fitMin = '10';
+            card.appendChild(tagline);
 
             const actions = document.createElement('div');
             actions.className = 'game-card-actions';
@@ -957,7 +998,16 @@
           });
         }
         selectedGamesEl.hidden = false;
-        if (shouldScroll) selectedGamesEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        scheduleSelectedCardTextFit();
+        selectedGamesEl.classList.remove('is-fresh');
+        if (shouldAnimate) {
+          void selectedGamesEl.offsetWidth;
+          selectedGamesEl.classList.add('is-fresh');
+        }
+        if (shouldScroll) {
+          selectedGamesEl.scrollIntoView({ behavior: metaReducedMotion ? 'auto' : 'smooth', block: 'start' });
+          selectedGamesEl.focus({ preventScroll: true });
+        }
       }
 
       function setMode(mode) {
@@ -994,6 +1044,20 @@
         btn.addEventListener('click', () => {
           setMode(btn.dataset.mode === 'fan' ? MODE_FAN : MODE_CITY);
         });
+        btn.addEventListener('keydown', (event) => {
+          const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+          if (!keys.includes(event.key)) return;
+          event.preventDefault();
+          let nextMode = activeMode;
+          if (event.key === 'Home') nextMode = MODE_FAN;
+          if (event.key === 'End') nextMode = MODE_CITY;
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            nextMode = activeMode === MODE_FAN ? MODE_CITY : MODE_FAN;
+          }
+          setMode(nextMode);
+          const nextBtn = document.querySelector(`.hero-meta-toggle-btn[data-mode="${nextMode}"]`);
+          if (nextBtn) nextBtn.focus();
+        });
       });
 
 
@@ -1006,6 +1070,8 @@
           if (entry) toggleSelectedEntry(entry);
         });
       }
+
+      window.addEventListener('resize', scheduleSelectedCardTextFit);
 
       load();
     }());
