@@ -26,11 +26,12 @@
   <meta name="twitter:image" content="https://thegamebureau.com/assets/brand/share-thumbnail.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="/assets/games/helmets/helmet.js"></script>
   <script src="/assets/games/helmets/basketball.js"></script>
   <script src="/assets/games/helmets/baseball.js"></script>
-  <link rel="stylesheet" href="/assets/home.css">
+  <script src="/assets/teams/team-cities.js"></script>
+  <link rel="stylesheet" href="/assets/site-shell.css">
   <script src="/assets/public-account.js"></script>
   <link rel="stylesheet" href="/assets/site-pages.css">
 </head>
@@ -56,17 +57,21 @@
     <main>
       <section class="hero" aria-label="The Game Bureau overview">
         <div class="hero-grid">
-          <div>
+          <div class="hero-story">
             <p class="hero-kicker"><span id="heroKickerGameCount">0</span> GAMES IN <span id="heroKickerCityCount">0</span> CITIES</p>
             <h1 class="hero-headline">Games Made from City Streets</h1>
             <p class="hero-copy">Scavenger-hunt and escape-room style games written for the city you're visiting. One phone, no app, no install.</p>
           </div>
 
-          <aside class="hero-meta" aria-label="Fandoms">
+          <aside class="hero-meta" aria-label="Find games">
+            <div class="hero-meta-header">
+              <p class="hero-meta-eyebrow">Live directory</p>
+              <h2 class="hero-meta-heading">Find a game for your trip</h2>
+            </div>
             <div class="hero-meta-toggle" role="tablist" aria-label="Find games by">
               <button class="hero-meta-toggle-btn" type="button" data-mode="fan" role="tab" aria-selected="true" aria-controls="heroMetaList">
                 <span class="hero-meta-tab-kicker">Find by</span>
-                <span class="hero-meta-tab-title">Fandom</span>
+                <span class="hero-meta-tab-title">Team</span>
               </button>
               <button class="hero-meta-toggle-btn" type="button" data-mode="city" role="tab" aria-selected="false" aria-controls="heroMetaList">
                 <span class="hero-meta-tab-kicker">Find by</span>
@@ -131,8 +136,8 @@
 
       const MODE_CITY = 'city';
       const MODE_FAN = 'fan';
-      const PROMPT_FAN = 'Who do you root for?';
-      const PROMPT_CITY = 'Where are you headed?';
+      const PROMPT_FAN = 'Pick your team to see games for visiting fans.';
+      const PROMPT_CITY = 'Pick a city to see games you can play there.';
       const heroMetaListEl = document.getElementById('heroMetaList');
       const heroMetaPromptEl = document.getElementById('heroMetaPrompt');
 
@@ -657,24 +662,37 @@
 
         const track = document.createElement('div');
         track.className = 'hero-meta-list-track';
+        // Three identical stacked chunks: [pre | primary | post]. We start the
+        // scrollTop inside the primary chunk so the user has a full chunk's
+        // worth of content available both above (pre) and below (post). When
+        // the auto-scroll or a manual drag/wheel moves scrollTop outside the
+        // primary chunk's range, setMetaScrollPosition silently jumps by
+        // exactly one chunk-height — invisible because the chunks are clones.
+        const preChunk = document.createElement('div');
+        preChunk.className = 'hero-meta-list-chunk';
+        preChunk.setAttribute('aria-hidden', 'true');
         const primaryChunk = document.createElement('div');
         primaryChunk.className = 'hero-meta-list-chunk';
-        const duplicateChunk = document.createElement('div');
-        duplicateChunk.className = 'hero-meta-list-chunk';
-        duplicateChunk.setAttribute('aria-hidden', 'true');
+        const postChunk = document.createElement('div');
+        postChunk.className = 'hero-meta-list-chunk';
+        postChunk.setAttribute('aria-hidden', 'true');
         // Stash each entry by its lookup key for the delegated click handler.
         entries.forEach((entry) => {
           heroMetaEntries.set(entry.entryKind + '|' + entry.entryKey, entry);
           primaryChunk.appendChild(createHeroMetaItem(entry));
         });
-        // Duplicate in a separate chunk so the measured loop height matches
-        // the original list exactly.
-        entries.forEach((entry) => duplicateChunk.appendChild(createHeroMetaItem(entry)));
-        track.append(primaryChunk, duplicateChunk);
+        // Clone into pre/post chunks so the measured loop height matches
+        // the primary list exactly.
+        entries.forEach((entry) => preChunk.appendChild(createHeroMetaItem(entry)));
+        entries.forEach((entry) => postChunk.appendChild(createHeroMetaItem(entry)));
+        track.append(preChunk, primaryChunk, postChunk);
         heroMetaListEl.appendChild(track);
-        // Reset to top on re-render so the loop starts clean.
-        metaScrollPosition = 0;
-        heroMetaListEl.scrollTop = 0;
+        // Park scrollTop at the top of the primary chunk so there's a full
+        // chunk visible above AND below right from frame 0 — that's what
+        // makes "scroll up" feel infinite instead of clamping at the top.
+        const initialLoopHeight = getMetaScrollLoopHeight();
+        metaScrollPosition = initialLoopHeight;
+        heroMetaListEl.scrollTop = initialLoopHeight;
         startMetaScroll();
       }
 
@@ -704,9 +722,20 @@
       function setMetaScrollPosition(next, loopHeight) {
         if (!heroMetaListEl) return;
         let value = Number.isFinite(next) ? next : 0;
-        if (loopHeight > 0) {
-          while (value >= loopHeight) value -= loopHeight;
-          while (value < 0) value += loopHeight;
+        if (loopHeight > 0 && loopHeight > heroMetaListEl.clientHeight) {
+          // Keep scrollTop inside the *primary* chunk's range — i.e.
+          // [loopHeight, 2 * loopHeight). Jumps by exactly one loopHeight are
+          // invisible because the three stacked chunks are identical, which
+          // is what makes scrolling feel infinite in BOTH directions.
+          while (value >= 2 * loopHeight) value -= loopHeight;
+          while (value < loopHeight) value += loopHeight;
+        } else {
+          // Content fits in the viewport — there's nothing to wrap. Clamp
+          // to the natural scroll range so metaScrollPosition can't drift
+          // beyond the browser's actual scrollTop.
+          const max = Math.max(0, heroMetaListEl.scrollHeight - heroMetaListEl.clientHeight);
+          if (value < 0) value = 0;
+          if (value > max) value = max;
         }
         metaScrollPosition = value;
         heroMetaListEl.scrollTop = value;
@@ -1099,8 +1128,11 @@
               label.textContent = 'Start City';
               const valueEl = document.createElement('dd');
               valueEl.dataset.fitText = 'true';
-              valueEl.dataset.fitMax = '14';
-              valueEl.dataset.fitMin = '9';
+              // Lower max than other deed lines because two stacked lines
+              // need to share the ~28px row content area without bleeding
+              // upward into the "When" row above.
+              valueEl.dataset.fitMax = '11';
+              valueEl.dataset.fitMin = '8';
               const line1 = document.createElement('span');
               line1.className = 'game-card-deed-city-line';
               line1.textContent = cityLine1;
@@ -1165,6 +1197,96 @@
         }
       }
 
+      // ── Geolocation auto-select ──────────────────────────────────────
+      // On page load, ask the browser for the visitor's coordinates and
+      // auto-select the team whose fanbase city is geographically
+      // closest. If geolocation is denied / unavailable / errors out, OR
+      // if no fanbase city has known coordinates, fall back to the City
+      // tab with "New Orleans" pre-selected so the page always shows
+      // something meaningful below the hero.
+      // Never overrides a selection the user made via URL (?fan=, ?city=)
+      // or by clicking a row before geolocation resolved.
+      const FALLBACK_CITY_NAME = 'New Orleans';
+
+      function haversineKm(lat1, lng1, lat2, lng2) {
+        const R = 6371;
+        const toRad = (deg) => deg * Math.PI / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a = Math.sin(dLat / 2) ** 2
+                + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2))
+                * Math.sin(dLng / 2) ** 2;
+        return 2 * R * Math.asin(Math.sqrt(a));
+      }
+
+      function findNearestFanEntry(userLat, userLng) {
+        const coords = window.TGB_TEAM_CITY_COORDS || {};
+        const entries = buildFanEntries();
+        let best = null;
+        let bestDist = Infinity;
+        for (const entry of entries) {
+          const fanbase = (entry.helmet && entry.helmet.fanbase) || entry.label || '';
+          const cityCoords = coords[teamKey(fanbase)];
+          if (!cityCoords) continue;
+          const dist = haversineKm(userLat, userLng, cityCoords[0], cityCoords[1]);
+          if (dist < bestDist) {
+            bestDist = dist;
+            best = entry;
+          }
+        }
+        return best;
+      }
+
+      function selectFallbackCity() {
+        if (selectedEntryKey) return;
+        if (activeMode !== MODE_CITY) {
+          setMode(MODE_CITY);
+        }
+        let target = null;
+        for (const entry of heroMetaEntries.values()) {
+          if (entry.entryKind !== 'city') continue;
+          if (cityDisplayName(entry.label).toLowerCase() === FALLBACK_CITY_NAME.toLowerCase()) {
+            target = entry;
+            break;
+          }
+        }
+        if (target) toggleSelectedEntry(target);
+      }
+
+      function tryGeolocateAndSelectNearestFan() {
+        if (selectedEntryKey) return;
+        if (activeMode !== MODE_FAN) return;
+        if (!navigator.geolocation) {
+          selectFallbackCity();
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            // Re-check guards: user may have switched tabs or clicked a
+            // row between the prompt and the resolve.
+            if (selectedEntryKey) return;
+            if (activeMode !== MODE_FAN) {
+              selectFallbackCity();
+              return;
+            }
+            const nearest = findNearestFanEntry(
+              position.coords.latitude,
+              position.coords.longitude
+            );
+            if (nearest) {
+              toggleSelectedEntry(nearest);
+            } else {
+              selectFallbackCity();
+            }
+          },
+          () => {
+            if (selectedEntryKey) return;
+            selectFallbackCity();
+          },
+          { timeout: 8000, maximumAge: 600000 }
+        );
+      }
+
       async function load() {
         try {
           const [games, teamColorsResult] = await Promise.all([fetchGames(), fetchTeamColors()]);
@@ -1179,6 +1301,7 @@
           renderDirectory();
           suppressUrlWrite = true;
           try { applyUrlSelection(); } finally { suppressUrlWrite = false; }
+          tryGeolocateAndSelectNearestFan();
         } catch (error) {
           console.error(error);
           renderError(error instanceof Error ? error.message : String(error));
@@ -1204,7 +1327,6 @@
           if (nextBtn) nextBtn.focus();
         });
       });
-
 
       if (heroMetaListEl) {
         heroMetaListEl.addEventListener('click', (e) => {
