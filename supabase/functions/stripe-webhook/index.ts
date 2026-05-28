@@ -1,7 +1,7 @@
 // stripe-webhook — handles checkout.session.completed and routes to
 // either:
-//   metadata.tgb_kind === 'gift_card' → gift_codes (generate user-facing
-//     redemption code, mark paid, see create-gift-checkout).
+//   metadata.tgb_kind === 'gift_card' → gift_codes (mark the user-facing
+//     access code paid, see create-gift-checkout).
 //   otherwise (legacy gift-shop POD path) → gift_orders (Printful order).
 //
 // Setup:
@@ -174,13 +174,13 @@ Deno.serve(async (req) => {
   return new Response('OK', { status: 200 });
 });
 
-// ── Gift-card handler ────────────────────────────────────────────────────
-// The user-facing code is generated up-front by create-gift-checkout and
+// ── Access-code handler ──────────────────────────────────────────────────
+// The user-facing access code is generated up-front by create-gift-checkout and
 // stored on the row at insert time. The webhook's job is to:
 //   1. Transition status pending → paid
 //   2. Capture Stripe receipt info (charge id, receipt URL, buyer email)
 //   3. Email the recipient (if recipient_email was provided up-front)
-//   4. Email the buyer their copy of the code
+//   4. Email the buyer their copy of the access code
 // Idempotent: replay on an already-paid/redeemed session is a no-op.
 async function handleGiftCard(session: Stripe.Checkout.Session): Promise<Response> {
   const { data: existing, error: lookupError } = await supa
@@ -201,7 +201,7 @@ async function handleGiftCard(session: Stripe.Checkout.Session): Promise<Respons
     // Defensive: shouldn't happen with the new create-gift-checkout, but
     // mirrors the legacy generate-here behavior so an older row still
     // resolves.
-    return new Response('Row is missing a code — please contact support.', { status: 500 });
+    return new Response('Row is missing an access code — please contact support.', { status: 500 });
   }
 
   // Pull Stripe receipt info so admins can cross-reference in the
@@ -248,7 +248,7 @@ async function handleGiftCard(session: Stripe.Checkout.Session): Promise<Respons
     await sendGiftEmail({ ...existing, code: existing.code });
   }
 
-  // Email the buyer their own copy of the code. Prefer the email the
+  // Email the buyer their own copy of the access code. Prefer the email the
   // buyer typed into the modal; fall back to the address Stripe
   // collected for the receipt.
   const buyerAddress = existing.buyer_email || stripeCustomerEmail || null;
@@ -337,8 +337,18 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function gameUrl(gameId: string): string {
-  return SITE_ORIGIN.replace(/\/$/, '') + '/game/run/?id=' + encodeURIComponent(gameId);
+function siteOrigin(): string {
+  return (SITE_ORIGIN || 'https://thegamebureau.com').replace(/\/$/, '');
+}
+
+function gameUrl(gameId: string, code = ''): string {
+  const url = new URL(siteOrigin() + '/game/run/');
+  url.searchParams.set('id', gameId);
+  if (code) {
+    url.searchParams.set('access_code', code);
+    url.searchParams.set('auto_redeem', '1');
+  }
+  return url.toString();
 }
 
 function renderGiftEmailHtml(row: GiftEmailRow): string {
@@ -349,7 +359,7 @@ function renderGiftEmailHtml(row: GiftEmailRow): string {
   const message    = row.message
     ? `<blockquote style="margin:18px 0;padding:14px 18px;border-left:3px solid #c23737;background:#fafafa;color:#444;font-style:italic;">${escapeHtml(row.message)}</blockquote>`
     : '';
-  const playLink   = gameUrl(row.game_id);
+  const playLink   = gameUrl(row.game_id, row.code);
 
   return `<!doctype html>
 <html><body style="margin:0;padding:24px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1f2937;background:#f3eee6;">
@@ -362,9 +372,9 @@ function renderGiftEmailHtml(row: GiftEmailRow): string {
       <p style="margin:0 0 12px;">${greeting}</p>
       <p style="margin:0 0 12px;">You’ve received <strong>${gameName}</strong> ${fromLine} — a browser-based scavenger hunt written against real city streets.</p>
       ${message}
-      <p style="margin:18px 0 8px;">Your one-time code:</p>
+      <p style="margin:18px 0 8px;">Your access code:</p>
       <div style="display:inline-block;padding:14px 22px;background:#111827;color:#fff;border-radius:10px;font-family:'IBM Plex Mono',Menlo,Consolas,monospace;font-size:1.4rem;letter-spacing:.04em;font-weight:600;">${code}</div>
-      <p style="margin:18px 0 12px;font-size:.95rem;color:#555;">Open the game in your browser, tap <em>Start</em>, and when the in-game payment screen appears, enter this code in the “Have a code?” field. The game unlocks immediately.</p>
+      <p style="margin:18px 0 12px;font-size:.95rem;color:#555;">Open the game in your browser, tap <em>Start</em>, and when the in-game payment screen appears, enter this access code. The game unlocks immediately.</p>
       <p style="margin:24px 0 0;">
         <a href="${escapeHtml(playLink)}" style="display:inline-block;padding:12px 18px;background:#2d4880;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;letter-spacing:.04em;">Open the game →</a>
       </p>
@@ -390,11 +400,11 @@ function renderGiftEmailText(row: GiftEmailRow): string {
   }
   lines.push(
     '',
-    `Your one-time code: ${row.code}`,
+    `Your access code: ${row.code}`,
     '',
-    'Open the game, tap Start, and enter this code on the "Have a code?" field.',
+    'Open the game, tap Start, and enter this access code when prompted.',
     '',
-    `Play: ${gameUrl(row.game_id)}`,
+    `Play: ${gameUrl(row.game_id, row.code)}`,
     '',
     '— The Game Bureau',
   );
@@ -402,30 +412,30 @@ function renderGiftEmailText(row: GiftEmailRow): string {
 }
 
 // ── Buyer-receipt email (separate from the gift-to-recipient email) ────
-// Sent after payment so the buyer has their code on file. They can use
+// Sent after payment so the buyer has their access code on file. They can use
 // it themselves OR share it with someone via the "Send to someone"
 // step in the modal (which also fires send-gift-code → recipient
 // email). This makes the system survivable if the buyer loses the
-// modal before grabbing the code.
+// modal before grabbing the access code.
 async function sendBuyerEmail(row: GiftEmailRow, buyerAddress: string): Promise<void> {
   if (!RESEND_API_KEY) return;
   const gameName = row.game_name || 'a Game Bureau game';
   const code     = row.code || '';
   if (!code) return;
-  const playLink = gameUrl(row.game_id);
-  const swapLink = SITE_ORIGIN.replace(/\/$/, '') + '/gifts/?swap=' + encodeURIComponent(code);
-  const subject  = 'Your code for ' + gameName;
+  const playLink = gameUrl(row.game_id, code);
+  const swapLink = siteOrigin() + '/gifts/?swap=' + encodeURIComponent(code);
+  const subject  = 'Your access code for ' + gameName;
   const html = `<!doctype html>
 <html><body style="margin:0;padding:24px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1f2937;background:#f3eee6;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e5e1d8;border-radius:14px;overflow:hidden;">
     <tr><td style="padding:24px 28px 4px;">
       <p style="margin:0;color:#2d4880;font-size:.78rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;">The Game Bureau</p>
-      <h1 style="margin:8px 0 0;color:#2d4880;font-size:1.6rem;line-height:1.2;">Thanks — your code is ready</h1>
+      <h1 style="margin:8px 0 0;color:#2d4880;font-size:1.6rem;line-height:1.2;">Thanks — your access code is ready</h1>
     </td></tr>
     <tr><td style="padding:18px 28px;color:#374151;font-size:1rem;line-height:1.55;">
-      <p style="margin:0 0 12px;">Thanks for buying <strong>${escapeHtml(gameName)}</strong>. Here's your one-time code:</p>
+      <p style="margin:0 0 12px;">Thanks for buying <strong>${escapeHtml(gameName)}</strong>. Here's your access code:</p>
       <div style="display:inline-block;padding:14px 22px;background:#111827;color:#fff;border-radius:10px;font-family:'IBM Plex Mono',Menlo,Consolas,monospace;font-size:1.4rem;letter-spacing:.04em;font-weight:600;">${escapeHtml(code)}</div>
-      <p style="margin:18px 0 12px;font-size:.95rem;color:#555;">When you're ready to play, open the game in your browser, tap <em>Start</em>, and enter this code in the “Have a code?” field. Or send it to someone as a gift.</p>
+      <p style="margin:18px 0 12px;font-size:.95rem;color:#555;">When you're ready to play, open the game in your browser, tap <em>Start</em>, and enter this access code when prompted. Or send it to someone as a gift.</p>
       <p style="margin:24px 0 0;">
         <a href="${escapeHtml(playLink)}" style="display:inline-block;padding:12px 18px;background:#2d4880;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;letter-spacing:.04em;">Open the game →</a>
       </p>
@@ -434,7 +444,7 @@ async function sendBuyerEmail(row: GiftEmailRow, buyerAddress: string): Promise<
       </p>
     </td></tr>
     <tr><td style="padding:14px 28px 24px;color:#6b7280;font-size:.82rem;line-height:1.5;border-top:1px solid #f1ece2;">
-      Keep this email — it's your receipt and your replacement copy if you ever lose the code.<br>
+      Keep this email — it's your receipt and your replacement copy if you ever lose the access code.<br>
       Questions? Reply to this email.
     </td></tr>
   </table>
@@ -442,9 +452,9 @@ async function sendBuyerEmail(row: GiftEmailRow, buyerAddress: string): Promise<
   const text = [
     'Thanks for buying ' + gameName + '.',
     '',
-    'Your one-time code: ' + code,
+    'Your access code: ' + code,
     '',
-    'Open the game, tap Start, and enter this code on the "Have a code?" field.',
+    'Open the game, tap Start, and enter this access code when prompted.',
     '',
     'Play: ' + playLink,
     '',
@@ -474,18 +484,5 @@ async function sendBuyerEmail(row: GiftEmailRow, buyerAddress: string): Promise<
     // We don't update email_status here — that column is for the
     // recipient gift email, not the buyer receipt. A delivery failure
     // would only show in Resend's dashboard.
-  } catch (_) { /* swallow — buyer can still see the code in the modal */ }
-}
-
-function generateGiftCode(): string {
-  // Avoid visually ambiguous characters (no 0/O, 1/I/L).
-  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  const buf = new Uint8Array(8);
-  crypto.getRandomValues(buf);
-  let body = '';
-  for (let i = 0; i < buf.length; i++) {
-    body += alphabet[buf[i] % alphabet.length];
-    if (i === 3) body += '-';
-  }
-  return 'TGB-' + body;
+  } catch (_) { /* swallow — buyer can still see the access code in the modal */ }
 }

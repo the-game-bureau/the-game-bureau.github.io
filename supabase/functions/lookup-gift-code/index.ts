@@ -1,12 +1,9 @@
 // lookup-gift-code — POST { session_id }
 //
-// Called by the buyer's browser after Stripe Embedded Checkout redirects
-// to /game/run/?id=X&gift_session=SESSION_ID. Returns the issued code +
-// recipient details so the page can display the success modal.
-//
-// There's a brief window after redirect where the stripe-webhook may not
-// have fired yet — in that case status is still 'pending' and code is
-// null. The page polls a few times.
+// Called by the buyer's browser when the modal has a Stripe session id
+// but still needs the issued access code + recipient details. New
+// checkouts pre-issue the access code at session creation, but this
+// remains useful for older redirect/session flows and defensive polling.
 //
 // We don't authenticate the caller (the session_id is in the URL the
 // buyer holds). The session_id itself is the secret here — guessable

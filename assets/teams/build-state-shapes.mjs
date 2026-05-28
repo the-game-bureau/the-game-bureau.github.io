@@ -33,6 +33,19 @@ const FIPS_TO_ABBR = {
 // i.e. degrees of longitude/latitude). 0.06° ≈ 4 mi, plenty fine for a 40px badge.
 const SIMPLIFY_EPS = 0.06;
 
+// Hand-drawn shape overrides — applied AFTER the auto-generation pass, before
+// writing the output file. Use this for territories whose real geometry
+// simplifies poorly into a recognizable silhouette at 40x24.
+//
+// DC: the real district is an L-shape (post-1846 Virginia retrocession). At
+// 40x24 it collapses into an unrecognizable quadrilateral. We use the iconic
+// 100-square-mile diamond (original 1791 federal boundary) instead because it
+// reads instantly as DC. If you ever need to revert to the real shape, delete
+// the DC entry below and rerun the build.
+const HAND_DRAWN_SHAPES = {
+  DC: 'M20 2L32 12L20 22L8 12L20 2Z'
+};
+
 // ── Geometry helpers ────────────────────────────────────────────────────────
 
 function ringBBox(ring) {
@@ -161,7 +174,12 @@ async function main() {
     kept++;
   }
 
-  console.log(`Wrote ${kept} state shapes.`);
+  // Apply hand-drawn overrides (see HAND_DRAWN_SHAPES above for reasoning).
+  for (const [abbr, path] of Object.entries(HAND_DRAWN_SHAPES)) {
+    shapes[abbr] = path;
+  }
+
+  console.log(`Wrote ${kept} state shapes (with ${Object.keys(HAND_DRAWN_SHAPES).length} hand-drawn overrides).`);
 
   // Emit a compact JS module that defines window.US_STATE_SHAPES.
   const sortedKeys = Object.keys(shapes).sort();

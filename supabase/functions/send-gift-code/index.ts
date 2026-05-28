@@ -4,7 +4,7 @@
 // Post-purchase action. The buyer paid with no recipient up-front (the
 // unified "buy this game" flow), then clicked "Send to someone" on the
 // success modal. This endpoint updates the gift_codes row with the
-// recipient details and emails the code via Resend.
+// recipient details and emails the access code via Resend.
 //
 // Authorization: holding the Stripe session_id is treated as proof the
 // caller is the buyer (the id is delivered to their browser via the
@@ -51,8 +51,18 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function gameUrl(gameId: string): string {
-  return SITE_ORIGIN.replace(/\/$/, '') + '/game/run/?id=' + encodeURIComponent(gameId);
+function siteOrigin(): string {
+  return (SITE_ORIGIN || 'https://thegamebureau.com').replace(/\/$/, '');
+}
+
+function gameUrl(gameId: string, code = ''): string {
+  const url = new URL(siteOrigin() + '/game/run/');
+  url.searchParams.set('id', gameId);
+  if (code) {
+    url.searchParams.set('access_code', code);
+    url.searchParams.set('auto_redeem', '1');
+  }
+  return url.toString();
 }
 
 interface GiftRow {
@@ -67,6 +77,24 @@ interface GiftRow {
   buyer_name: string | null;
 }
 
+async function waitForPaidGiftRow(sessionId: string): Promise<{ row: GiftRow | null; error: string | null }> {
+  let lastRow: GiftRow | null = null;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const { data: row, error } = await supa
+      .from('gift_codes')
+      .select('id,code,game_id,game_name,status,email_status,recipient_email,buyer_email,buyer_name')
+      .eq('stripe_session_id', sessionId)
+      .maybeSingle<GiftRow>();
+    if (error) return { row: null, error: 'Lookup failed: ' + error.message };
+    if (!row) return { row: null, error: 'No purchase found for that session.' };
+    lastRow = row;
+    if (row.code && row.status === 'paid') return { row, error: null };
+    if (row.status !== 'pending') break;
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  return { row: lastRow, error: null };
+}
+
 function renderHtml(row: GiftRow, message: string, recipientName: string): string {
   const greeting = recipientName ? `Hi ${escapeHtml(recipientName)},` : 'Hi there,';
   const fromLine = row.buyer_name ? `from <strong>${escapeHtml(row.buyer_name)}</strong>` : 'for you';
@@ -75,7 +103,7 @@ function renderHtml(row: GiftRow, message: string, recipientName: string): strin
   const msgBlock = message
     ? `<blockquote style="margin:18px 0;padding:14px 18px;border-left:3px solid #c23737;background:#fafafa;color:#444;font-style:italic;">${escapeHtml(message)}</blockquote>`
     : '';
-  const playLink = gameUrl(row.game_id);
+  const playLink = gameUrl(row.game_id, row.code || '');
   return `<!doctype html>
 <html><body style="margin:0;padding:24px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1f2937;background:#f3eee6;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e5e1d8;border-radius:14px;overflow:hidden;">
@@ -87,9 +115,9 @@ function renderHtml(row: GiftRow, message: string, recipientName: string): strin
       <p style="margin:0 0 12px;">${greeting}</p>
       <p style="margin:0 0 12px;">You’ve received <strong>${gameName}</strong> ${fromLine} — a browser-based scavenger hunt written against real city streets.</p>
       ${msgBlock}
-      <p style="margin:18px 0 8px;">Your one-time code:</p>
+      <p style="margin:18px 0 8px;">Your access code:</p>
       <div style="display:inline-block;padding:14px 22px;background:#111827;color:#fff;border-radius:10px;font-family:'IBM Plex Mono',Menlo,Consolas,monospace;font-size:1.4rem;letter-spacing:.04em;font-weight:600;">${code}</div>
-      <p style="margin:18px 0 12px;font-size:.95rem;color:#555;">Open the game in your browser, tap <em>Start</em>, and when the in-game payment screen appears, enter this code in the “Have a code?” field. The game unlocks immediately.</p>
+      <p style="margin:18px 0 12px;font-size:.95rem;color:#555;">Open the game in your browser, tap <em>Start</em>, and when the in-game payment screen appears, enter this access code. The game unlocks immediately.</p>
       <p style="margin:24px 0 0;">
         <a href="${escapeHtml(playLink)}" style="display:inline-block;padding:12px 18px;background:#2d4880;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;letter-spacing:.04em;">Open the game →</a>
       </p>
@@ -113,11 +141,11 @@ function renderText(row: GiftRow, message: string, recipientName: string): strin
   if (message) lines.push('', '  ' + message);
   lines.push(
     '',
-    `Your one-time code: ${row.code || ''}`,
+    `Your access code: ${row.code || ''}`,
     '',
-    'Open the game, tap Start, and enter this code on the "Have a code?" field.',
+    'Open the game, tap Start, and enter this access code when prompted.',
     '',
-    `Play: ${gameUrl(row.game_id)}`,
+    `Play: ${gameUrl(row.game_id, row.code || '')}`,
     '',
     '— The Game Bureau',
   );
@@ -142,15 +170,12 @@ Deno.serve(async (req) => {
     return json(400, { ok: false, error: 'A valid recipient_email is required.' });
   }
 
-  const { data: row, error: lookupError } = await supa
-    .from('gift_codes')
-    .select('id,code,game_id,game_name,status,email_status,recipient_email,buyer_email,buyer_name')
-    .eq('stripe_session_id', sessionId)
-    .maybeSingle<GiftRow>();
-  if (lookupError) return json(500, { ok: false, error: 'Lookup failed: ' + lookupError.message });
+  const ready = await waitForPaidGiftRow(sessionId);
+  if (ready.error) return json(ready.error.startsWith('No purchase') ? 404 : 500, { ok: false, error: ready.error });
+  const row = ready.row;
   if (!row)        return json(404, { ok: false, error: 'No purchase found for that session.' });
   if (!row.code || row.status !== 'paid') {
-    return json(409, { ok: false, error: 'Code is not yet ready or already redeemed.' });
+    return json(409, { ok: false, error: 'Access code is not ready yet or has already been redeemed.' });
   }
   if (row.email_status === 'sent') {
     return json(409, { ok: false, error: 'A gift email was already sent for this purchase.' });

@@ -1,8 +1,8 @@
 // redeem-gift-code — POST { code, game_id }
 //
-// Validates that the code exists and matches the game the player is
+// Validates that the access code exists and matches the game the player is
 // trying to unlock. The first successful redemption transitions the row
-// paid → redeemed. Subsequent redemptions of the same code are also
+// paid → redeemed. Subsequent redemptions of the same access code are also
 // accepted (bearer-token policy) — the code unlocks the game on any
 // device that presents it. Every redemption bumps redemption_count and
 // updates last_redeemed_at so admins can spot heavy reuse passively
@@ -10,7 +10,7 @@
 //
 // This trades strict one-shot semantics for fewer support calls: a
 // player who clears localStorage or moves to a second device just
-// re-enters their code and continues.
+// re-enters their access code and continues.
 //
 // Setup:
 //   supabase functions deploy redeem-gift-code --no-verify-jwt

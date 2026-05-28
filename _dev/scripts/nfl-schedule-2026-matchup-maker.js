@@ -1230,6 +1230,7 @@ function buildPayloadForFanSide(matchup, venueInfo, fanSide, templatesByTeam) {
     starting_location_lat: venueInfo.lat,
     starting_location_lon: venueInfo.lon,
     location_based: true,
+    fandom_game: true,
     engine: 'text',
     game_date: tgbWindow.gameDate,
     start_time: tgbWindow.startTime,

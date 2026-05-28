@@ -1,17 +1,19 @@
-// gift-buy-modal — shared "Buy this game" / "Send code" modal.
+// gift-buy-modal — shared "Buy this game" / "Send access code" modal.
 //
 // Flow (unified for /game/run/ landing card and /gifts/ shop):
 //   1. intro   — confirms the game + price, "Continue to payment" CTA
 //   2. checkout— Stripe Embedded Checkout
-//   3. success — shows the issued TGB-XXXX-XXXX code with two actions:
+//   3. success — shows the issued TGB-XXXX-XXXX access code with two actions:
 //                  [ Play now ]      → calls redeem-gift-code, marks
-//                                       this device as unlocked, closes
+//                                       this device as unlocked, closes;
+//                                       outside an engine, routes to the
+//                                       game with the code ready to apply
 //                  [ Send to someone ] → reveals recipient form,
 //                                         posts to send-gift-code,
-//                                         emails the code via Resend.
+//                                         emails the access code via Resend.
 //
 // Public API:
-//   window.TgbGift.openForGame({ id, name, price })
+//   window.TgbGift.openForGame({ id, name, price, engine?, accessCode?, autoRedeem? })
 //   window.TgbGift.setGameContext({ id, name, price })   (back-compat)
 //   window.TgbGift.open()  /  window.TgbGift.close()
 //
@@ -104,14 +106,14 @@
     // ── Step 0: chooser (only used when opened via openForChoice) ────
     '  <div class="tgb-gift-step" id="tgbGiftStepChoose">',
     '    <h3 class="tgb-gift-headline">Choose a game</h3>',
-    '    <p class="tgb-gift-sub">Pick which game you’d like to gift. After payment you can play it yourself or send the code to someone.</p>',
+    '    <p class="tgb-gift-sub">Pick which game you’d like to buy. After payment you can play it yourself or send the access code to someone.</p>',
     '    <div class="tgb-gift-choose-list" id="tgbGiftChooseList"></div>',
     '  </div>',
 
     // ── Step S: swap (entered via /?swap=CODE or the success link) ───
     '  <div class="tgb-gift-step" id="tgbGiftStepSwap">',
     '    <h3 class="tgb-gift-headline">Swap to a different game</h3>',
-    '    <p class="tgb-gift-sub">Pick the game you want instead. Your code stays the same and now unlocks the new game.</p>',
+    '    <p class="tgb-gift-sub">Pick the game you want instead. Your access code stays the same and now unlocks the new game.</p>',
     '    <p class="tgb-gift-swap-code" id="tgbGiftSwapCodeLabel"></p>',
     '    <p class="tgb-gift-error" id="tgbGiftSwapError" aria-live="polite"></p>',
     '    <div class="tgb-gift-choose-list" id="tgbGiftSwapList"></div>',
@@ -121,7 +123,7 @@
     '  <div class="tgb-gift-step is-active" id="tgbGiftStepIntro">',
     '    <h3 class="tgb-gift-headline" id="tgbGiftIntroHeadline">Buy this game</h3>',
     '    <p class="tgb-gift-price" id="tgbGiftIntroPrice" hidden>&mdash;</p>',
-    '    <p class="tgb-gift-sub" id="tgbGiftIntroSub">After payment you’ll get a one-time code. Play it yourself, or send it to someone as a gift.</p>',
+    '    <p class="tgb-gift-sub" id="tgbGiftIntroSub">After payment you’ll get an access code. Play it yourself, or send it to someone as a gift.</p>',
     '    <form class="tgb-gift-form" id="tgbGiftIntroForm" autocomplete="on">',
     '      <div class="tgb-gift-field">',
     '        <label for="tgbGiftBuyerEmail">Your email (for the receipt)</label>',
@@ -131,7 +133,7 @@
     '    <p class="tgb-gift-error" id="tgbGiftIntroError" aria-live="polite"></p>',
     '    <button type="button" class="tgb-gift-cta" id="tgbGiftContinueBtn">Continue to payment</button>',
     '    <div class="tgb-gift-have-code">',
-    '      <button type="button" class="tgb-gift-have-code-toggle" id="tgbGiftHaveCodeToggle" aria-expanded="false">Have a code?</button>',
+    '      <button type="button" class="tgb-gift-have-code-toggle" id="tgbGiftHaveCodeToggle" aria-expanded="false">Have an access code?</button>',
     '      <div class="tgb-gift-have-code-form" id="tgbGiftHaveCodeForm">',
     '        <div class="tgb-gift-have-code-row">',
     '          <input id="tgbGiftHaveCodeInput" class="tgb-gift-have-code-input" type="text" maxlength="14" placeholder="TGB-XXXX-XXXX" autocomplete="off" autocorrect="off" spellcheck="false">',
@@ -144,14 +146,14 @@
 
     // ── Step 2: Stripe Embedded Checkout ─────────────────────────────
     '  <div class="tgb-gift-step" id="tgbGiftStepCheckout">',
-    '    <p class="tgb-gift-sub">Pay securely via Stripe to issue the code.</p>',
+    '    <p class="tgb-gift-sub">Pay securely via Stripe to issue the access code.</p>',
     '    <div class="tgb-gift-checkout" id="tgbGiftCheckoutMount"></div>',
     '  </div>',
 
     // ── Step 3: success + actions ────────────────────────────────────
     '  <div class="tgb-gift-step" id="tgbGiftStepSuccess">',
     '    <h3 class="tgb-gift-headline" id="tgbGiftSuccessHeadline">Payment confirmed</h3>',
-    '    <p class="tgb-gift-sub" id="tgbGiftSuccessSub">Here’s your one-time code.</p>',
+    '    <p class="tgb-gift-sub" id="tgbGiftSuccessSub">Here’s your access code.</p>',
     '    <div class="tgb-gift-code-row">',
     '      <span id="tgbGiftSuccessCode">&mdash;</span>',
     '      <button type="button" class="tgb-gift-copy" id="tgbGiftCopyBtn">Copy</button>',
@@ -166,7 +168,7 @@
 
     // Send-form (collapsed by default, expanded when [Send to someone] is clicked)
     '    <div class="tgb-gift-send-form" id="tgbGiftSendForm">',
-    '      <p class="tgb-gift-send-form-title">Send the code by email</p>',
+    '      <p class="tgb-gift-send-form-title">Send the access code by email</p>',
     '      <form id="tgbGiftSendFormEl" autocomplete="on">',
     '        <div class="tgb-gift-field">',
     '          <label for="tgbGiftRecipientEmail">Recipient email</label>',
@@ -181,7 +183,7 @@
     '          <textarea id="tgbGiftMessage" name="message" maxlength="500" placeholder="Have fun out there."></textarea>',
     '        </div>',
     '        <p class="tgb-gift-error" id="tgbGiftSendError" aria-live="polite"></p>',
-    '        <button type="submit" class="tgb-gift-cta" id="tgbGiftSendSubmitBtn">Send code</button>',
+    '        <button type="submit" class="tgb-gift-cta" id="tgbGiftSendSubmitBtn">Send access code</button>',
     '      </form>',
     '      <p class="tgb-gift-sent" id="tgbGiftSentNotice" hidden></p>',
     '    </div>',
@@ -197,7 +199,7 @@
     root: null,
     injected: false,
     sessionId: '',     // set when create-gift-checkout returns, or pulled from ?gift_session=
-    code: '',          // set when lookup or webhook produces a code
+    code: '',          // set when checkout or lookup produces an access code
     redeemed: false    // local-only flag: this browser already used Play Now
   };
 
@@ -299,20 +301,86 @@
       }
     }
     if (sub) {
-      sub.textContent = 'After payment you’ll get a one-time code. Play it yourself, or send it to someone as a gift.';
+      sub.textContent = 'After payment you’ll get an access code. Play it yourself, or send it to someone as a gift.';
+    }
+  }
+
+  function normalizeEngine(value) {
+    var s = String(value || '').trim().toLowerCase();
+    if (s === '2') return 'map';
+    if (s === 'map') return 'map';
+    return 'text';
+  }
+
+  function isEnginePage() {
+    return /\/game\/run\/(?:text|map)\//.test(global.location.pathname);
+  }
+
+  function normalizeAccessCode(value) {
+    var raw = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!raw.startsWith('TGB')) return '';
+    var rest = raw.slice(3);
+    if (rest.length !== 8) return '';
+    return 'TGB-' + rest.slice(0, 4) + '-' + rest.slice(4, 8);
+  }
+
+  function buildPlayUrl(game, code) {
+    var selected = game || {};
+    var params = new URLSearchParams(global.location.search || '');
+    var engine = normalizeEngine(params.get('e') || selected.engine);
+    var url = new URL('/game/run/' + engine + '/', global.location.origin);
+    url.searchParams.set('id', selected.id || '');
+    var normalized = normalizeAccessCode(code);
+    if (normalized) {
+      url.searchParams.set('access_code', normalized);
+      url.searchParams.set('auto_redeem', '1');
+    }
+    return url.toString();
+  }
+
+  function saveLocalAccessUnlock(gameId, code) {
+    if (!gameId || !code) return;
+    try {
+      var key = 'tgb_' + gameId + '_checkout_unlocks';
+      var existing = {};
+      try { existing = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (_) {}
+      existing['access:' + code] = {
+        unlockedAt: new Date().toISOString(),
+        accessCode: code,
+        sourceUrl: '',
+        orderId: code
+      };
+      localStorage.setItem(key, JSON.stringify(existing));
+    } catch (_) {}
+  }
+
+  function primeAccessCode(code, autoRedeem) {
+    var normalized = normalizeAccessCode(code);
+    if (!normalized) return;
+    var toggle = $('tgbGiftHaveCodeToggle');
+    var form = $('tgbGiftHaveCodeForm');
+    var input = $('tgbGiftHaveCodeInput');
+    if (form) form.classList.add('is-open');
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    if (input) input.value = normalized;
+    if (autoRedeem) {
+      setTimeout(function () { handleHaveCodeApply(); }, 120);
     }
   }
 
   function openForGame(game) {
+    var accessCode = game && (game.accessCode || game.code);
+    var autoRedeem = !!(game && game.autoRedeem);
     applyGameContext(game);
     state.sessionId = '';
     state.code = '';
     state.redeemed = false;
     open('tgbGiftStepIntro');
+    if (accessCode) primeAccessCode(accessCode, autoRedeem);
   }
 
   // Open the modal at the chooser step, where the buyer picks a game
-  // from a list. Used by the "Gift Card — Any Game" tile in /gifts/.
+  // from a list. Used by the "Game Access — Your Pick" tile in /gifts/.
   // Once a game is picked, we route through the same intro → Stripe →
   // success flow as openForGame.
   function openForChoice(opts) {
@@ -355,7 +423,8 @@
         applyGameContext({
           id:    game.id,
           name:  game.name || '',
-          price: game.price || ''
+          price: game.price || '',
+          engine: game.engine || ''
         });
         showStep('tgbGiftStepIntro');
       });
@@ -375,7 +444,7 @@
     state.sessionId = '';
     state.redeemed = false;
     var label = $('tgbGiftSwapCodeLabel');
-    if (label) label.textContent = code ? 'Code: ' + code : '';
+    if (label) label.textContent = code ? 'Access code: ' + code : '';
     setError('tgbGiftSwapError', '');
     open('tgbGiftStepSwap');
     var games = (opts && Array.isArray(opts.games)) ? opts.games : null;
@@ -385,7 +454,7 @@
 
   async function fetchPaidGamesFallback() {
     try {
-      var url = SUPABASE_URL + '/rest/v1/games?select=id,name,price,archived&apikey=sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
+      var url = SUPABASE_URL + '/rest/v1/games?select=id,name,price,engine,archived&apikey=sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
       var response = await fetch(url, {
         headers: {
           apikey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
@@ -441,7 +510,7 @@
   async function performSwap(game) {
     setError('tgbGiftSwapError', '');
     if (!state.code) {
-      setError('tgbGiftSwapError', 'Missing code.');
+      setError('tgbGiftSwapError', 'Missing access code.');
       return;
     }
     var items = state.root.querySelectorAll('#tgbGiftSwapList .tgb-gift-choose-item');
@@ -463,12 +532,13 @@
       applyGameContext({
         id:    data.game_id || game.id,
         name:  data.game_name || game.name || '',
-        price: data.price || game.price || ''
+        price: data.price || game.price || '',
+        engine: data.engine || game.engine || ''
       });
       var codeEl = $('tgbGiftSuccessCode');
       if (codeEl) codeEl.textContent = state.code;
       var subEl = $('tgbGiftSuccessSub');
-      if (subEl) subEl.textContent = 'Swapped to "' + (data.game_name || game.name) + '". Your code now unlocks this game.';
+      if (subEl) subEl.textContent = 'Swapped to "' + (data.game_name || game.name) + '". Your access code now unlocks this game.';
       showStep('tgbGiftStepSuccess');
     } catch (error) {
       console.error(error);
@@ -538,7 +608,7 @@
       if (!response.ok) throw new Error(data.error || 'Could not start checkout.');
       if (!data.client_secret) throw new Error('Missing client_secret from server.');
       state.sessionId = data.session_id || '';
-      // Code is issued at session-create time now (not at webhook time),
+      // Access code is issued at session-create time now (not at webhook time),
       // so we already have it before Stripe even loads. Stash it.
       if (data.code) state.code = String(data.code);
       await mountStripeCheckout(data.client_secret);
@@ -560,7 +630,7 @@
     state.checkout = await state.stripe.initEmbeddedCheckout({
       clientSecret: clientSecret,
       // Fired when Stripe confirms payment. We stay in-modal and
-      // transition to the success step. The code was already issued by
+      // transition to the success step. The access code was already issued by
       // create-gift-checkout (state.code), so we show it instantly —
       // no polling required. The webhook in parallel transitions the
       // row to paid; Play now / Send-to-someone briefly retry if they
@@ -590,7 +660,7 @@
   async function pollForCode(sessionId) {
     var codeEl = $('tgbGiftSuccessCode');
     var subEl  = $('tgbGiftSuccessSub');
-    if (codeEl) codeEl.textContent = 'Generating code...';
+    if (codeEl) codeEl.textContent = 'Generating access code...';
     if (subEl)  subEl.textContent  = 'Confirming your payment...';
     for (var attempt = 0; attempt < 12; attempt++) {
       try {
@@ -598,14 +668,14 @@
         if (row && row.code) {
           state.code = row.code;
           if (codeEl) codeEl.textContent = row.code;
-          if (subEl)  subEl.textContent  = 'Here’s your one-time code.';
+          if (subEl)  subEl.textContent  = 'Here’s your access code.';
           return;
         }
       } catch (_) { /* keep polling */ }
       await new Promise(function (resolve) { setTimeout(resolve, 2000); });
     }
     if (codeEl) codeEl.textContent = '—';
-    if (subEl)  subEl.textContent  = 'Payment confirmed but the code is still being generated. Refresh in a moment.';
+    if (subEl)  subEl.textContent  = 'Payment confirmed but the access code is still being generated. Refresh in a moment.';
   }
 
   function maybeOpenSuccessFromUrl() {
@@ -652,7 +722,7 @@
   async function handlePlayNow() {
     setError('tgbGiftSuccessError', '');
     if (!state.code) {
-      setError('tgbGiftSuccessError', 'Code not ready yet — try again in a moment.');
+      setError('tgbGiftSuccessError', 'Access code not ready yet — try again in a moment.');
       return;
     }
     if (!state.game || !state.game.id) {
@@ -667,6 +737,12 @@
       setError('tgbGiftSuccessError', 'Could not determine which game to unlock.');
       return;
     }
+
+    if (!isEnginePage()) {
+      global.location.href = buildPlayUrl(state.game, state.code);
+      return;
+    }
+
     var btn = $('tgbGiftPlayNowBtn');
     btn.disabled = true;
     var original = btn.textContent;
@@ -678,24 +754,9 @@
         throw new Error('Could not unlock (' + reason + ').');
       }
       state.redeemed = true;
-      try {
-        var key = 'tgb_' + state.game.id + '_checkout_unlocks';
-        var existing = {};
-        try { existing = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (_) {}
-        existing['gift:' + state.code] = {
-          unlockedAt: new Date().toISOString(),
-          accessCode: state.code,
-          sourceUrl: '',
-          orderId: ''
-        };
-        localStorage.setItem(key, JSON.stringify(existing));
-      } catch (_) {}
+      saveLocalAccessUnlock(state.game.id, state.code);
       emit('tgb-gift-redeemed', { game_id: state.game.id, code: state.code, source: 'play_now' });
       close();
-      var onGamePage = /\/game\/run\//.test(global.location.pathname);
-      if (!onGamePage) {
-        global.location.href = '/game/run/?id=' + encodeURIComponent(state.game.id);
-      }
     } catch (error) {
       console.error(error);
       setError('tgbGiftSuccessError', error.message || 'Could not unlock.');
@@ -705,10 +766,10 @@
     }
   }
 
-  // ── Action: Play later (just close; buyer keeps the code) ───────────
+  // ── Action: Play later (just close; buyer keeps the access code) ────
   function handlePlayLater() {
     setError('tgbGiftSuccessError', '');
-    // Don't auto-redeem — the buyer wants to use the code later
+    // Don't auto-redeem — the buyer wants to use the access code later
     // (probably on another device, or when they're ready to play).
     // The buyer-receipt email from the webhook gives them a copy.
     close();
@@ -763,7 +824,7 @@
       if (formEl) formEl.style.display = 'none';
       var sent = $('tgbGiftSentNotice');
       if (sent) {
-        sent.textContent = 'Email sent to ' + recipient + '.';
+        sent.textContent = 'Access code emailed to ' + recipient + '.';
         sent.hidden = false;
       }
     } catch (error) {
@@ -775,7 +836,7 @@
     }
   }
 
-  // ── Action: Have a code? (skip Stripe, redeem directly) ────────────
+  // ── Action: Have an access code? (skip Stripe, redeem directly) ─────
   function toggleHaveCodeForm() {
     var form = $('tgbGiftHaveCodeForm');
     var toggle = $('tgbGiftHaveCodeToggle');
@@ -800,7 +861,7 @@
     var raw = String((input && input.value) || '').trim().toUpperCase();
     if (!raw) return;
     if (!GIFT_CODE_REGEX.test(raw)) {
-      setError('tgbGiftHaveCodeError', 'Codes look like TGB-XXXX-XXXX.');
+      setError('tgbGiftHaveCodeError', 'Access codes look like TGB-XXXX-XXXX.');
       if (input) {
         input.classList.add('tgb-gift-have-code-input--error');
         setTimeout(function () { input.classList.remove('tgb-gift-have-code-input--error'); }, 700);
@@ -811,40 +872,25 @@
       setError('tgbGiftHaveCodeError', 'No game selected.');
       return;
     }
+    var normalized = normalizeAccessCode(raw) || raw;
     applyBtn.disabled = true;
     input.disabled = true;
     var originalLabel = applyBtn.textContent;
     applyBtn.textContent = 'Checking...';
     try {
-      var response = await fetch(REDEEM_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: raw, game_id: state.game.id })
-      });
-      var data = await response.json().catch(function () { return {}; });
-      if (!response.ok || !data || !data.ok) {
-        var reason = (data && data.reason) ? String(data.reason).replace(/_/g, ' ') : 'not valid';
-        setError('tgbGiftHaveCodeError', 'Code could not be redeemed (' + reason + ').');
+      var result = await attemptRedeem(normalized, state.game.id);
+      if (!result.ok) {
+        var reason = String(result.reason || 'not valid').replace(/_/g, ' ');
+        setError('tgbGiftHaveCodeError', 'Access code could not be redeemed (' + reason + ').');
         input.classList.add('tgb-gift-have-code-input--error');
         setTimeout(function () { input.classList.remove('tgb-gift-have-code-input--error'); }, 700);
         return;
       }
       // Save the unlock to localStorage so the engine doesn't re-prompt.
-      try {
-        var key = 'tgb_' + state.game.id + '_checkout_unlocks';
-        var existing = {};
-        try { existing = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (_) {}
-        existing['gift:' + raw] = {
-          unlockedAt: new Date().toISOString(),
-          accessCode: raw,
-          sourceUrl: '',
-          orderId: ''
-        };
-        localStorage.setItem(key, JSON.stringify(existing));
-      } catch (_) {}
-      state.code = raw;
+      saveLocalAccessUnlock(state.game.id, normalized);
+      state.code = normalized;
       state.redeemed = true;
-      emit('tgb-gift-redeemed', { game_id: state.game.id, code: raw, source: 'have_code' });
+      emit('tgb-gift-redeemed', { game_id: state.game.id, code: normalized, source: 'have_code' });
       close();
     } catch (error) {
       console.error(error);

@@ -1859,7 +1859,7 @@
           <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7Z"/>
         </svg>
       </div>
-      <p class="gift-this-game-copy">Pay now and play, or send the code to someone else as a gift.</p>
+      <p class="gift-this-game-copy">Pay now and play, or send the access code to someone else as a gift.</p>
       <span class="gift-this-game-cta">Buy this game</span>
     </button>
 
@@ -3954,7 +3954,8 @@ const WEATHER_CODE_MAP = {
           window.TgbGift && window.TgbGift.setGameContext({
             id:    gameId,
             name:  gameName || '',
-            price: priceText
+            price: priceText,
+            engine: String(urlParams.get('e') || game.engine || '').trim()
           });
         }
 
@@ -3974,6 +3975,11 @@ const WEATHER_CODE_MAP = {
           const engineFolder = ENGINES[engineKey] || DEFAULT_ENGINE;
           const playUrl = new URL('./' + engineFolder + '/', window.location.href);
           playUrl.searchParams.set('id', gameId);
+          const accessCode = String(urlParams.get('access_code') || urlParams.get('code') || '').trim();
+          if (accessCode) {
+            playUrl.searchParams.set('access_code', accessCode);
+            if (urlParams.get('auto_redeem')) playUrl.searchParams.set('auto_redeem', '1');
+          }
           document.getElementById('startBtn').href = playUrl.toString();
         }
         document.getElementById('landing').style.display = 'block';
@@ -4010,7 +4016,7 @@ const WEATHER_CODE_MAP = {
 
   <script src="../../assets/gift-buy-modal.js"></script>
   <script>
-    // Open the shared gift modal when the Gift card is clicked. Game
+    // Open the shared access-code modal when the purchase card is clicked. Game
     // context (id/name/price) was seeded in the isPaid block above via
     // TgbGift.setGameContext({...}), which also primes the form's
     // sub-text — so a plain open() picks up the correct state.

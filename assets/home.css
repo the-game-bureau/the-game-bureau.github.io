@@ -228,7 +228,7 @@ main {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.8fr);
   gap: 24px;
-  align-items: end;
+  align-items: center;
 }
 
 .hero-kicker {
@@ -276,14 +276,14 @@ main {
 
 .hero-meta {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(240px, 1fr);
   gap: 10px;
   padding: 16px;
   border: 1px solid var(--line-strong);
   background: var(--surface);
   align-self: stretch;
   height: 100%;
-  min-height: 0;
+  min-height: 380px;
   overflow: hidden;
 }
 
@@ -459,21 +459,32 @@ main {
   line-height: 1;
   justify-self: center;
 }
-/* International vehicle-registration oval — clean white car decal.
-   True ellipse, 1.65:1 aspect, centered black capitals. */
+/* ───────────────────────────────────────────────────────────────────────────
+   CANONICAL COUNTRY BADGE — international vehicle-registration oval.
+   This is the white "GBR / FRA / USA" car decal style. It is NOT negotiable:
+   - True ellipse via border-radius: 50% on a non-square box (1.65:1 aspect).
+   - White fill, black 1.5px border, black Times-serif capitals.
+   - !important on the oval-defining properties because a body.home-page
+     ancestor rule below (and any future page-level skin) will otherwise
+     win on specificity and silently turn the oval into a rounded square.
+   DO NOT CHANGE the border-radius, border, background, color, width, or
+   height ratio here. If a future skin needs different sizing, scale the
+   width/height together to preserve the 1.65:1 ratio — never round the
+   corners or fill it with a non-white color.
+   ─────────────────────────────────────────────────────────────────────────── */
 .hero-meta-list-geo--country {
   box-sizing: border-box;
-  width: 30px;
-  height: 18px;
-  font-family: "Times New Roman", "Times", serif;
+  width: 30px !important;
+  height: 18px !important;
+  font-family: "Times New Roman", "Times", serif !important;
   font-size: 0.66rem;
   font-weight: 700;
-  color: #000;
-  background: #fff;
-  border: 1.5px solid #000;
-  border-radius: 50%;
+  color: #000 !important;
+  background: #fff !important;
+  border: 1.5px solid #000 !important;
+  border-radius: 50% !important;
   padding: 0;
-  box-shadow: none;
+  box-shadow: none !important;
   letter-spacing: 0.02em;
   line-height: 1;
   text-transform: uppercase;
@@ -741,6 +752,33 @@ main {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
+.selected-games-share {
+  flex: 0 0 auto;
+  border: 1.5px solid var(--line-strong);
+  background: var(--paper-strong);
+  padding: 8px 14px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.selected-games-share:hover,
+.selected-games-share:focus-visible {
+  background: var(--ink);
+  color: var(--surface);
+  outline: none;
+}
+.selected-games-share.is-filed,
+.selected-games-share.is-filed:hover,
+.selected-games-share.is-filed:focus-visible {
+  background: var(--accent);
+  color: var(--surface);
+  border-color: var(--accent);
+}
 
 .selected-games-grid {
   display: grid;
@@ -841,9 +879,12 @@ main {
   font-size: 10.5px;
   stroke-width: 1.4;
 }
+/* Larger variant of the canonical country oval for game cards. Keeps the
+   1.67:1 ellipse ratio; !important needed because the base rule's
+   !important on width/height would otherwise force the 30×18 size here. */
 .game-card-icons .hero-meta-list-geo--country {
-  width: 40px;
-  height: 24px;
+  width: 40px !important;
+  height: 24px !important;
   font-size: 0.78rem;
 }
 .game-card-emoji {
@@ -858,7 +899,7 @@ main {
 }
 .game-card-title {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   min-width: 0;
   min-height: 0;
@@ -916,6 +957,17 @@ main {
   font-weight: 700;
   line-height: 1.28;
   text-align: right;
+}
+.game-card-deed-line--city dd {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  line-height: 1.15;
+}
+.game-card-deed-city-line {
+  display: block;
+  min-height: 1em;
 }
 .game-card-tagline {
   display: flex;
@@ -1421,5 +1473,924 @@ main {
   .home-page .nav-links {
     grid-column: 1 / -1;
     justify-content: flex-start;
+  }
+}
+
+/* Corporate control-room redesign for the public games page. */
+body.home-page {
+  --paper: #071113;
+  --paper-strong: #0e1b1f;
+  --ink: #f7fbf7;
+  --muted: #a9bab7;
+  --line: rgba(233, 247, 244, 0.12);
+  --line-strong: rgba(233, 247, 244, 0.22);
+  --accent: #6be1d3;
+  --accent-deep: #0f6f64;
+  --accent-soft: rgba(107, 225, 211, 0.14);
+  --surface: #101d21;
+  --control: #071113;
+  --control-2: #14262b;
+  --signal: #ff8a4c;
+  --gold: #e0b65a;
+  --card-paper: #f7f2e8;
+  --card-ink: #11191b;
+  --card-muted: #516064;
+  --shadow-soft: 0 18px 48px rgba(0, 0, 0, 0.28);
+  --shadow-panel: 0 32px 84px rgba(0, 0, 0, 0.34);
+  min-height: 100svh;
+  background:
+    radial-gradient(circle at 14% 8%, rgba(107, 225, 211, 0.18), transparent 28%),
+    radial-gradient(circle at 84% 10%, rgba(224, 182, 90, 0.14), transparent 28%),
+    radial-gradient(circle at 70% 88%, rgba(255, 138, 76, 0.09), transparent 30%),
+    linear-gradient(180deg, #071113 0%, #0c181b 48%, #14110f 100%);
+  color: var(--ink);
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+}
+
+body.home-page .page-shell {
+  width: min(1240px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 16px 0 54px;
+}
+
+body.home-page main {
+  display: grid;
+  gap: 18px;
+  padding-top: 0;
+}
+
+body.home-page .site-nav.site-nav {
+  --tgb-nav-paper: rgba(10, 22, 25, 0.82);
+  --tgb-nav-paper-strong: rgba(17, 34, 38, 0.96);
+  --tgb-nav-ink: var(--ink);
+  --tgb-nav-muted: var(--muted);
+  --tgb-nav-accent: var(--accent);
+  position: sticky;
+  top: 12px;
+  z-index: 70;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: center;
+  width: 100%;
+  max-width: none;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid rgba(233, 247, 244, 0.12);
+  border-radius: 8px;
+  background: rgba(10, 22, 25, 0.82);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px);
+}
+
+body.home-page .site-nav.site-nav .brand-lockup {
+  grid-column: auto;
+  grid-row: auto;
+  gap: 3px;
+}
+
+body.home-page .site-nav.site-nav .brand-name {
+  color: #ffffff;
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.home-page .site-nav.site-nav .brand-tagline {
+  color: rgba(233, 247, 244, 0.66);
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.home-page .site-nav.site-nav .nav-links {
+  grid-column: auto;
+  grid-row: auto;
+  display: flex;
+  grid-template-columns: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+body.home-page .site-nav.site-nav .nav-primary-links,
+body.home-page .site-nav.site-nav .nav-utility-links {
+  grid-column: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  justify-self: auto;
+}
+
+body.home-page .site-nav.site-nav .nav-link,
+body.home-page .site-nav.site-nav [data-account-link].nav-link {
+  min-height: 40px;
+  padding: 0 14px !important;
+  border: 1px solid rgba(233, 247, 244, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(247, 251, 247, 0.88);
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.84rem !important;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: none;
+  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+body.home-page .site-nav.site-nav .nav-link--major {
+  min-height: 42px;
+  padding: 0 16px !important;
+  border-color: rgba(233, 247, 244, 0.18);
+  background: rgba(255, 255, 255, 0.075);
+  font-size: 0.9rem !important;
+  letter-spacing: 0;
+}
+
+body.home-page .site-nav.site-nav .nav-link--major::before {
+  width: 17px;
+  height: 17px;
+  flex-basis: 17px;
+}
+
+body.home-page .site-nav.site-nav .nav-link--major::after {
+  display: none;
+}
+
+body.home-page .site-nav.site-nav .nav-link--minor {
+  min-height: 38px;
+  color: rgba(233, 247, 244, 0.68);
+  font-size: 0.8rem !important;
+}
+
+body.home-page .site-nav.site-nav .nav-link:hover,
+body.home-page .site-nav.site-nav .nav-link:focus-visible {
+  border-color: rgba(107, 225, 211, 0.46);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+body.home-page .site-nav.site-nav .nav-link[aria-current="page"],
+body.home-page .site-nav.site-nav .nav-link--active {
+  border-color: rgba(107, 225, 211, 0.52);
+  background: var(--accent-deep);
+  color: #ffffff;
+}
+
+body.home-page .hero,
+body.home-page .selected-games,
+body.home-page .site-footer {
+  width: 100%;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+body.home-page .hero {
+  position: relative;
+  min-height: 650px;
+  padding: 44px;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid rgba(16, 20, 23, 0.12);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(6, 17, 19, 0.94) 0%, rgba(6, 17, 19, 0.86) 42%, rgba(6, 17, 19, 0.42) 68%, rgba(6, 17, 19, 0.08) 100%),
+    linear-gradient(180deg, rgba(6, 17, 19, 0.12), rgba(6, 17, 19, 0.32)),
+    url("/assets/home/football-night-hero.png") center / cover no-repeat;
+  box-shadow: var(--shadow-panel);
+}
+
+body.home-page .hero::before {
+  display: none;
+}
+
+body.home-page .hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 44%;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(6, 17, 19, 0.42));
+}
+
+body.home-page .hero-grid {
+  position: relative;
+  z-index: 1;
+  grid-template-columns: minmax(0, 0.96fr) minmax(360px, 0.74fr);
+  gap: 34px;
+  align-items: stretch;
+  min-height: 560px;
+}
+
+body.home-page .hero-grid > div:first-child {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 650px;
+}
+
+body.home-page .hero-kicker {
+  width: fit-content;
+  margin: 0 0 18px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 12px;
+  border: 1px solid rgba(128, 239, 230, 0.3);
+  border-radius: 999px;
+  background: rgba(4, 20, 23, 0.58);
+  color: #9ef0e7;
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.home-page .hero-kicker span {
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+body.home-page .hero-headline {
+  max-width: 9.8ch;
+  margin: 0;
+  color: #ffffff;
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 5.6rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 0.9;
+  text-transform: none;
+  text-wrap: balance;
+}
+
+body.home-page .hero-copy {
+  max-width: 36rem;
+  margin: 24px 0 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 1.08rem;
+  font-weight: 500;
+  line-height: 1.65;
+}
+
+body.home-page .hero-meta {
+  align-self: stretch;
+  height: auto;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
+    linear-gradient(135deg, var(--control) 0%, var(--control-2) 100%);
+  color: #f7fbf8;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 28px 58px rgba(4, 13, 15, 0.26);
+}
+
+body.home-page .hero-meta::before {
+  content: "";
+  height: 1px;
+  border-radius: 0;
+  background: rgba(233, 247, 244, 0.18);
+}
+
+body.home-page .hero-meta-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(233, 247, 244, 0.12);
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+body.home-page .hero-meta-toggle-btn {
+  min-height: 54px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 8px 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: rgba(247, 251, 248, 0.66);
+  background: transparent;
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-align: left;
+  text-transform: none;
+}
+
+body.home-page .hero-meta-tab-kicker {
+  display: block;
+  color: rgba(233, 247, 244, 0.5);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+body.home-page .hero-meta-tab-title {
+  display: block;
+  color: inherit;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+body.home-page .hero-meta-toggle-btn + .hero-meta-toggle-btn {
+  border-left: 0;
+}
+
+body.home-page .hero-meta-toggle-btn:hover:not([aria-selected="true"]),
+body.home-page .hero-meta-toggle-btn:focus-visible:not([aria-selected="true"]) {
+  color: #ffffff;
+  border-bottom-color: rgba(233, 247, 244, 0.28);
+  background: transparent;
+  outline: none;
+}
+
+body.home-page .hero-meta-toggle-btn[aria-selected="true"] {
+  color: #ffffff;
+  border-bottom-color: var(--accent);
+  background: transparent;
+  box-shadow: none;
+}
+
+body.home-page .hero-meta-toggle-btn[aria-selected="true"] .hero-meta-tab-kicker {
+  color: var(--accent);
+}
+
+body.home-page .hero-meta-prompt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(233, 247, 244, 0.12);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #ffffff;
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(1.14rem, 1.8vw, 1.38rem);
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1.08;
+  text-wrap: balance;
+  text-transform: none;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+body.home-page .hero-meta-prompt::before {
+  display: none;
+}
+
+body.home-page .hero-meta-list-wrap {
+  min-height: 0;
+}
+
+body.home-page .hero-meta-list {
+  padding-right: 2px;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+          mask-image: linear-gradient(180deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+}
+
+body.home-page .hero-meta-list-track,
+body.home-page .hero-meta-list-chunk {
+  gap: 6px;
+}
+
+body.home-page .hero-meta-list-item {
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  min-height: 66px;
+  padding: 11px 12px;
+  border: 1px solid rgba(233, 247, 244, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(247, 251, 248, 0.9);
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: none;
+}
+
+body.home-page .hero-meta-list-item:hover {
+  border-color: rgba(233, 247, 244, 0.2);
+  background: rgba(255, 255, 255, 0.075);
+}
+
+body.home-page .hero-meta-list-item.is-active {
+  border-color: rgba(107, 225, 211, 0.38);
+  background: rgba(15, 111, 100, 0.36);
+  color: #ffffff;
+  transform: translateX(2px);
+}
+
+body.home-page .hero-meta-list-helmet {
+  width: 30px;
+  height: 30px;
+}
+
+body.home-page .hero-meta-list-geo {
+  border-color: rgba(255, 255, 255, 0.18);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+}
+
+body.home-page .hero-meta-list-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+body.home-page .hero-meta-list-eyebrow {
+  overflow: hidden;
+  color: rgba(233, 247, 244, 0.5);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+body.home-page .hero-meta-list-name {
+  color: #ffffff;
+  font-size: 0.96rem;
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+body.home-page .hero-meta-list-count {
+  align-self: center;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border: 1px solid rgba(233, 247, 244, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(247, 251, 248, 0.68);
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+body.home-page .hero-meta-list-item.is-active .hero-meta-list-count {
+  border-color: rgba(107, 225, 211, 0.34);
+  background: rgba(7, 17, 19, 0.28);
+  color: #ffffff;
+}
+
+body.home-page .selected-games {
+  padding: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(233, 247, 244, 0.12);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
+    rgba(10, 22, 25, 0.88);
+  box-shadow: var(--shadow-soft);
+}
+
+body.home-page .selected-games::before {
+  display: none;
+}
+
+body.home-page .selected-games-head {
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid rgba(233, 247, 244, 0.12);
+}
+
+body.home-page .selected-games-title {
+  color: #ffffff;
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.1;
+  text-transform: none;
+}
+
+body.home-page .selected-games-icon--helmet {
+  width: 34px;
+  height: 34px;
+}
+
+body.home-page .selected-games-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+body.home-page .game-card {
+  grid-template-rows: 154px 92px 82px 52px;
+  gap: 0;
+  height: 380px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(233, 247, 244, 0.12);
+  border-radius: 8px;
+  background: var(--card-paper);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.2);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+body.home-page .game-card:hover {
+  border-color: rgba(107, 225, 211, 0.38);
+  box-shadow: 0 24px 52px rgba(0, 0, 0, 0.28);
+  transform: translateY(-3px);
+}
+
+body.home-page .game-card.is-selected {
+  border-color: var(--card-accent, var(--accent));
+  background: var(--card-paper);
+  box-shadow:
+    inset 0 0 0 2px var(--card-accent, var(--accent)),
+    0 22px 46px rgba(11, 24, 26, 0.16);
+}
+
+body.home-page .game-card-deed {
+  grid-template-rows: 36px minmax(0, 1fr);
+  gap: 12px;
+  height: auto;
+  min-height: 0;
+  padding: 16px;
+  border: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(135deg, rgba(16, 20, 23, 0.18), rgba(16, 20, 23, 0.68)),
+    linear-gradient(135deg, var(--card-accent, var(--accent)) 0%, var(--accent-deep) 100%);
+  color: #ffffff;
+}
+
+@supports (color: color-mix(in srgb, #000 50%, #fff)) {
+  body.home-page .game-card-deed {
+    background:
+      linear-gradient(135deg, rgba(16, 20, 23, 0.16), rgba(16, 20, 23, 0.68)),
+      linear-gradient(135deg, color-mix(in srgb, var(--card-accent, var(--accent)) 80%, white) 0%, color-mix(in srgb, var(--card-accent, var(--accent)) 70%, black) 100%);
+  }
+}
+
+body.home-page .game-card-deed-head {
+  height: 36px;
+  align-items: center;
+}
+
+body.home-page .game-card-deed-label {
+  min-width: 0;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.86);
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+body.home-page .game-card-icons {
+  gap: 8px;
+  height: 36px;
+}
+
+body.home-page .game-card-helmet,
+body.home-page .game-card-emoji {
+  width: 34px;
+  height: 34px;
+}
+
+body.home-page .game-card-title {
+  justify-content: flex-start;
+  color: #ffffff;
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.04;
+  text-align: left;
+  text-transform: none;
+}
+
+body.home-page .game-card-deed-lines {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  height: auto;
+  margin: 0;
+  padding: 12px 14px 10px;
+  border: 0;
+  background: var(--card-paper);
+}
+
+body.home-page .game-card-deed-line {
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(17, 25, 27, 0.11);
+}
+
+body.home-page .game-card-deed-line dt {
+  color: var(--card-muted);
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: none;
+}
+
+body.home-page .game-card-deed-line dd {
+  color: var(--card-ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.22;
+}
+
+body.home-page .game-card-tagline {
+  height: auto;
+  min-height: 0;
+  margin: 0 14px 12px;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid rgba(17, 25, 27, 0.11);
+  color: var(--card-muted);
+  font-size: 0.92rem;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 1.42;
+  text-align: left;
+}
+
+body.home-page .game-card-actions {
+  height: 52px;
+  padding: 0 14px 14px;
+  align-items: stretch;
+}
+
+body.home-page .game-card-play {
+  height: 38px;
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: #071113;
+  color: #ffffff;
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.home-page .game-card-play:hover,
+body.home-page .game-card-play:focus-visible {
+  background: var(--card-accent, var(--accent));
+  color: var(--card-accent-ink, #ffffff);
+  outline: none;
+}
+
+body.home-page .selected-games-empty {
+  border: 1px solid rgba(233, 247, 244, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.92rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.home-page .site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 22px 2px 0;
+  color: rgba(233, 247, 244, 0.56);
+  font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.home-page .site-footer a {
+  color: var(--accent);
+}
+
+@media (max-width: 980px) {
+  body.home-page .page-shell {
+    width: min(100% - 24px, 1240px);
+    padding-top: 12px;
+  }
+
+  body.home-page .site-nav.site-nav {
+    grid-template-columns: minmax(0, 1fr);
+    top: 8px;
+  }
+
+  body.home-page .site-nav.site-nav .nav-links {
+    justify-content: flex-start;
+  }
+
+  body.home-page .hero {
+    min-height: 0;
+    padding: 34px;
+    background:
+      linear-gradient(180deg, rgba(6, 17, 19, 0.9) 0%, rgba(6, 17, 19, 0.76) 58%, rgba(6, 17, 19, 0.9) 100%),
+      url("/assets/home/football-night-hero.png") center / cover no-repeat;
+  }
+
+  body.home-page .hero-grid {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  body.home-page .hero-grid > div:first-child {
+    max-width: 720px;
+  }
+
+  body.home-page .hero-headline {
+    max-width: 10.5ch;
+    font-size: 4.45rem;
+  }
+
+  body.home-page .hero-meta {
+    min-height: 440px;
+  }
+}
+
+@media (max-width: 720px) {
+  body.home-page .page-shell {
+    width: min(100% - 18px, 1240px);
+  }
+
+  body.home-page .site-nav.site-nav {
+    padding: 12px;
+  }
+
+  body.home-page .site-nav.site-nav .nav-links,
+  body.home-page .site-nav.site-nav .nav-primary-links,
+  body.home-page .site-nav.site-nav .nav-utility-links {
+    width: 100%;
+  }
+
+  body.home-page .site-nav.site-nav .nav-links {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  body.home-page .site-nav.site-nav .nav-primary-links,
+  body.home-page .site-nav.site-nav .nav-utility-links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  body.home-page .site-nav.site-nav .nav-link,
+  body.home-page .site-nav.site-nav [data-account-link].nav-link {
+    width: 100%;
+    min-height: 42px;
+    padding: 0 10px !important;
+    font-size: 0.8rem !important;
+  }
+
+  body.home-page .hero {
+    padding: 24px 18px 18px;
+    background:
+      linear-gradient(180deg, rgba(6, 17, 19, 0.93) 0%, rgba(6, 17, 19, 0.78) 50%, rgba(6, 17, 19, 0.94) 100%),
+      url("/assets/home/football-night-hero.png") 62% center / cover no-repeat;
+  }
+
+  body.home-page .hero::before {
+    display: none;
+  }
+
+  body.home-page .hero-headline {
+    font-size: 3.35rem;
+  }
+
+  body.home-page .hero-copy {
+    font-size: 1rem;
+  }
+
+  body.home-page .hero-meta {
+    min-height: 390px;
+    padding: 12px;
+  }
+
+  body.home-page .hero-meta-prompt {
+    min-height: 58px;
+    padding: 12px 14px;
+    font-size: 1.1rem;
+  }
+
+  body.home-page .selected-games {
+    padding: 18px;
+  }
+
+  body.home-page .selected-games-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body.home-page .game-card {
+    height: 376px;
+  }
+}
+
+@media (max-width: 480px) {
+  body.home-page .hero-headline {
+    font-size: 2.65rem;
+  }
+
+  body.home-page .hero-kicker {
+    min-height: 32px;
+    font-size: 0.7rem;
+  }
+
+  body.home-page .hero-meta-list-item {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    min-height: 62px;
+    font-size: 0.8rem;
+  }
+
+  body.home-page .hero-meta-list-helmet {
+    width: 24px;
+    height: 24px;
+  }
+
+  body.home-page .hero-meta-list-eyebrow {
+    font-size: 0.58rem;
+  }
+
+  body.home-page .hero-meta-list-name {
+    font-size: 0.9rem;
+  }
+
+  body.home-page .hero-meta-list-count {
+    min-height: 26px;
+    padding: 0 8px;
+    font-size: 0.68rem;
+  }
+
+  body.home-page .game-card {
+    grid-template-rows: 148px 92px 82px 52px;
+    height: 374px;
+  }
+
+  body.home-page .site-footer {
+    display: grid;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.home-page .site-nav.site-nav .nav-link,
+  body.home-page .hero-meta-toggle-btn,
+  body.home-page .hero-meta-list-item,
+  body.home-page .game-card,
+  body.home-page .game-card-play {
+    transition: none;
   }
 }

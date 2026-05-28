@@ -1,25 +1,23 @@
 (function () {
-  function goBack(button) {
-    var fallback = button.getAttribute('data-mc-back-fallback') || '../index.html';
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-    window.location.href = fallback;
+  function goHome(button) {
+    var target = button.getAttribute('data-mc-back-fallback')
+              || button.getAttribute('data-mc-home')
+              || '/';
+    window.location.href = target;
   }
 
-  function bindBackButtons() {
-    var buttons = document.querySelectorAll('[data-mc-back]');
+  function bindHomeButtons() {
+    var buttons = document.querySelectorAll('[data-mc-back], [data-mc-home]');
     buttons.forEach(function (button) {
       button.addEventListener('click', function () {
-        goBack(button);
+        goHome(button);
       });
     });
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindBackButtons);
+    document.addEventListener('DOMContentLoaded', bindHomeButtons);
   } else {
-    bindBackButtons();
+    bindHomeButtons();
   }
 })();

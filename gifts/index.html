@@ -800,19 +800,6 @@
       <div class="nav-utility-links">
         <a class="nav-link nav-link--minor" href="/how/">How It Works</a>
         <a class="nav-link nav-link--minor" href="/ww/">Winner's Wall</a>
-        <div class="nav-admin-menu" id="navAdminMenu">
-          <button class="nav-link nav-link--minor" id="navLoginBtn" type="button" aria-haspopup="menu" aria-expanded="false">Login</button>
-          <div class="nav-admin-menu-panel" id="navAdminMenuPanel" role="menu" hidden>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/index.html">Edit Games</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/builder.html" id="navBuilderLink">Build Games</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/photos.html">Edit Wall</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/giftshop.html">Edit Gifts</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/giftcards.html">Gift Codes</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/notes.html">Notes</a>
-            <span class="nav-admin-menu-divider" aria-hidden="true"></span>
-            <button class="nav-admin-menu-item" id="navAdminSignOutBtn" type="button" role="menuitem">Sign Out</button>
-          </div>
-        </div>
       </div>
     </nav>
   </header>
@@ -953,14 +940,14 @@
       }));
     }
 
-    // Pull every game so we can synthesize a gift card per paid game
+    // Pull every game so we can synthesize access-code purchase options
     // without needing pre-seeded gift_shop_items rows. The server-side
     // create-gift-checkout looks up the price authoritatively from
     // games.price — the only thing the client passes is game_id, so
     // there's no tampering surface.
     async function fetchAllGames() {
       return fetchJson(buildSupabaseUrl('games', {
-        select: 'id,name,tagline,price,archived,primary_color'
+        select: 'id,name,tagline,price,engine,archived,primary_color'
       }));
     }
 
@@ -981,10 +968,11 @@
       const tagline = String(game && game.tagline || '').trim();
       return {
         id:                'auto-gift:' + game.id,    // synthetic; never persisted
-        title:             (game.name || 'Untitled') + ' — Gift Card',
+        title:             (game.name || 'Untitled') + ' — Game Access',
         price_display:     game.price,
-        description:       tagline || 'Send "' + (game.name || 'this game') + '" as a gift. Your recipient gets a code that unlocks the game on any device.',
-        gift_card_game_id: game.id
+        description:       tagline || 'Send "' + (game.name || 'this game') + '" as a gift. Your recipient gets an access code that unlocks the game on any device.',
+        gift_card_game_id: game.id,
+        engine:            game.engine || ''
       };
     }
 
@@ -1018,15 +1006,15 @@
 
       const title = document.createElement('h2');
       title.className = 'card-title';
-      title.textContent = 'Gift Card — Your Pick';
+      title.textContent = 'Game Access — Your Pick';
       body.appendChild(title);
 
       const count = (paidGames && paidGames.length) || 0;
       const desc = document.createElement('p');
       desc.className = 'card-caption';
       desc.textContent = count
-        ? 'Pick any of our ' + count + ' games at checkout. Recipient gets a code that unlocks it on any device.'
-        : 'Pick any game at checkout. Recipient gets a code that unlocks it on any device.';
+        ? 'Pick any of our ' + count + ' games at checkout. Recipient gets an access code that unlocks it on any device.'
+        : 'Pick any game at checkout. Recipient gets an access code that unlocks it on any device.';
       body.appendChild(desc);
 
       const cta = document.createElement('span');
@@ -1045,7 +1033,7 @@
     }
 
     function createCard(item, opts = {}) {
-      // Gift-card items are TGB's own products (not affiliate). They have
+      // Access-code items are TGB's own products (not affiliate). They have
       // no external url; clicking the card opens the shared gift-buy
       // modal via /assets/gift-buy-modal.js.
       if (item && item.gift_card_game_id) {
@@ -1148,7 +1136,7 @@
       return 'Open listing';
     }
 
-    // Build a gift-card card. Clicking it opens the shared gift-buy
+    // Build an access-code card. Clicking it opens the shared gift-buy
     // modal (assets/gift-buy-modal.js). No external link — TGB is the
     // seller for these items.
     function createGiftCardCard(item, opts = {}) {
@@ -1210,7 +1198,7 @@
 
       const title = document.createElement('h2');
       title.className = 'card-title';
-      title.textContent = escapeText(item.title || 'Gift card');
+      title.textContent = escapeText(item.title || 'Game access');
       body.appendChild(title);
 
       const price = String(item.price_display || '').trim();
@@ -1243,9 +1231,10 @@
         if (!window.TgbGift) return;
         window.TgbGift.openForGame({
           id:    item.gift_card_game_id,
-          name:  String(item.title || '').replace(/\s*—\s*Gift Card\s*$/i, '').trim()
+          name:  String(item.title || '').replace(/\s*—\s*(?:Gift Card|Game Access)\s*$/i, '').trim()
                   || (opts.gameName || 'this game'),
-          price: item.price_display || ''
+          price: item.price_display || '',
+          engine: item.engine || opts.engine || ''
         });
       });
 
@@ -1288,14 +1277,14 @@
         const safeListings = Array.isArray(listings) ? listings : [];
         const seenItemIds = new Set();
 
-        // Per-game gift cards removed from the shop entirely — the
+        // Per-game access-code cards removed from the shop entirely — the
         // chooser tile on /gifts/ owns that surface now. Single-game
         // shops show affiliate items only.
         const cards = [];
         for (const listing of safeListings) {
           const item = listing && listing.gift_shop_items;
           if (!item || item.id == null || seenItemIds.has(item.id)) continue;
-          if (item.gift_card_game_id) continue; // skip gift-card rows
+          if (item.gift_card_game_id) continue; // skip legacy access-code rows
           seenItemIds.add(item.id);
           const card = createCard(item);
           if (card) cards.push(card);
@@ -1351,24 +1340,24 @@
         }
 
         // Index games by id so we can pick up name + primary_color when
-        // synthesizing dynamic gift cards.
+        // synthesizing dynamic access-code purchase options.
         const gameById = new Map(safeGames.map((g) => [g.id, g]));
 
         // List of currently-giftable games for the "Your Pick" chooser.
         const paidGames = safeGames
           .filter(isGamePaid)
-          .map((g) => ({ id: g.id, name: g.name, price: g.price }))
+          .map((g) => ({ id: g.id, name: g.name, price: g.price, engine: g.engine || '' }))
           .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
 
-        // ── Choose-any-game card (the only gift-card tile in the shop).
+        // ── Choose-any-game card (the only access-code tile in the shop).
         // Replaced the previous per-game cards — the chooser supersedes
         // them. Only shows if there's at least one giftable game.
         const chooseCard = paidGames.length ? createChooseAnyGameCard(paidGames) : null;
 
         // ── Affiliate-only curated cards (Amazon, Bookshop, etc.).
-        // We deliberately skip listings whose item is a gift card
+        // We deliberately skip listings whose item is an access-code product
         // (gift_card_game_id is set) so the shop no longer shows
-        // individual-game gift cards.
+        // individual-game access-code cards.
         const grouped = new Map();
         for (const listing of safeListings) {
           const item = listing && listing.gift_shop_items;

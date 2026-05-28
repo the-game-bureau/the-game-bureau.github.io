@@ -37,6 +37,7 @@ create table if not exists public.photo_submissions (
   player_id text not null,
   storage_bucket text not null default 'game-photo-submissions',
   storage_path text not null unique,
+  thumb_storage_path text,
   file_name text,
   mime_type text,
   file_size bigint,
@@ -53,6 +54,10 @@ create table if not exists public.photo_submissions (
   reviewed_at timestamptz,
   created_at timestamptz not null default timezone('utc', now())
 );
+
+-- Idempotent so re-running this doc against an existing DB picks up new columns.
+alter table public.photo_submissions
+  add column if not exists thumb_storage_path text;
 
 create index if not exists photo_submissions_game_created_idx
 on public.photo_submissions (game_id, created_at desc);

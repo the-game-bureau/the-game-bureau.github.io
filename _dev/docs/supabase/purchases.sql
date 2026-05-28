@@ -1,7 +1,8 @@
--- purchases — records a confirmed LemonSqueezy payment
+-- purchases — legacy LemonSqueezy payment records
 --
 -- Written by the lemon-webhook Edge Function (service role only).
--- Read by the game client (anon key) to verify a checkout_key before unlocking.
+-- The live game engines no longer read this table; current purchases use
+-- Stripe access codes in public.gift_codes.
 --
 -- Run in Supabase SQL editor, then deploy the lemon-webhook function and set:
 --   LEMON_WEBHOOK_SECRET = <your LemonSqueezy webhook signing secret>
@@ -20,7 +21,7 @@ CREATE TABLE IF NOT EXISTS purchases (
 
 ALTER TABLE purchases ENABLE ROW LEVEL SECURITY;
 
--- Game client (anon key) can read to verify a checkout_key
+-- Legacy clients used the anon key to verify a checkout_key.
 CREATE POLICY "Public can read purchases"
   ON purchases FOR SELECT
   USING (true);

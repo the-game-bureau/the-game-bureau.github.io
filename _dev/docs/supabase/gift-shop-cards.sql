@@ -1,10 +1,10 @@
--- gift-shop-cards — sells per-game gift cards from /gifts/.
+-- gift-shop-cards — sells per-game access-code purchases from /gifts/.
 --
--- A "gift card" gift_shop_items row has gift_card_game_id set to the
--- game's id. The /gifts/ renderer detects this and shows a "Gift this
--- game" button that opens the shared gift-buy modal (Stripe Embedded
--- Checkout). Stripe charges the game's current price; the gift_codes
--- row is issued by the existing create-gift-checkout Edge Function.
+-- A legacy access-code gift_shop_items row has gift_card_game_id set to the
+-- game's id. The /gifts/ renderer now hides individual game rows and
+-- uses the "Your Pick" chooser, which opens the shared buy/access-code
+-- modal (Stripe Embedded Checkout). Stripe charges the game's current
+-- price_cents; the gift_codes row is issued by create-gift-checkout.
 --
 -- Safe to re-run. Requires gift-codes.sql + gift-shop-checkout.sql to
 -- have run previously (gift_shop_items + gift_codes must exist).
@@ -13,14 +13,14 @@ ALTER TABLE public.gift_shop_items
   ADD COLUMN IF NOT EXISTS gift_card_game_id text;
 
 COMMENT ON COLUMN public.gift_shop_items.gift_card_game_id IS
-  'When set, this gift_shop_items row is a gift card for the referenced game. The public /gifts/ renderer shows a "Gift this game" button instead of an affiliate link; Stripe charges the game''s current price via create-gift-checkout.';
+  'Legacy per-game access-code marker. The current /gifts/ renderer uses the single Your Pick chooser instead of rendering per-game tiles; Stripe charges the game''s current price via create-gift-checkout.';
 
 CREATE INDEX IF NOT EXISTS gift_shop_items_gift_card_game_idx
   ON public.gift_shop_items (gift_card_game_id)
   WHERE gift_card_game_id IS NOT NULL;
 
 -- Allow gift_shop_items.url to be null. Affiliate items (Amazon,
--- Bookshop) still set url; gift-card items don't have an external link.
+-- Bookshop) still set url; access-code items don't have an external link.
 -- The public renderer already gates the affiliate path on a non-empty
 -- url, so this is safe.
 ALTER TABLE public.gift_shop_items
@@ -28,8 +28,8 @@ ALTER TABLE public.gift_shop_items
 
 -- ── Seed: Oswald's Diary price (only run once) ──────────────────────
 -- Ensures games.price reflects $17.99 so the in-game payment overlay
--- and the gift-card Stripe charge agree. Other games' prices are left
--- alone — they must be set via the builder for the gift card to work.
+-- and the access-code Stripe charge agree. Other games' prices are left
+-- alone — they must be set via the builder for access-code purchases to work.
 UPDATE public.games
    SET price = '$17.99'
  WHERE name ILIKE '%oswald%'
@@ -41,15 +41,13 @@ UPDATE public.games
 -- price doesn't parse to a positive number are skipped.
 --
 -- Re-run this file any time you add a new paid game to seed it as a
--- gift card automatically.
+-- access-code purchase option automatically.
 WITH paid_games AS (
   SELECT
     id,
     name,
     price,
-    -- Strip everything except digits and decimal, parse to cents.
-    -- NULLIF guards against empty strings post-strip.
-    (NULLIF(regexp_replace(price, '[^0-9.]', '', 'g'), '')::numeric * 100)::int AS price_cents
+    COALESCE(price_cents, public.tgb_parse_price_cents(price)) AS price_cents
   FROM public.games
   WHERE price IS NOT NULL
     AND price <> ''
@@ -72,8 +70,8 @@ new_items AS (
   )
   SELECT
     'gift_card',
-    name || ' — Gift Card',
-    'Send "' || name || '" as a gift. Your recipient gets a code that unlocks the game on any device.',
+    name || ' — Game Access',
+    'Send "' || name || '" as a gift. Your recipient gets an access code that unlocks the game on any device.',
     price,
     price_cents,
     'usd',

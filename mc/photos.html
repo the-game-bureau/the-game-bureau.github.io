@@ -909,7 +909,7 @@
     <section id="reviewPanel">
       <div class="topbar">
         <div class="topbar-actions" style="margin-left:auto;">
-          <button class="btn mc-back-btn" type="button" data-mc-back data-mc-back-fallback="../index.html">Back</button>
+          <button class="btn mc-back-btn" type="button" data-mc-back data-mc-back-fallback="/">Home</button>
           <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -1134,7 +1134,7 @@
     async function fetchSubmissions(offset = 0) {
       const gameFilter = String(gameFilterInput.value || '').trim();
       const params = {
-        select: 'id,created_at,game_id,player_id,storage_bucket,storage_path,file_name,mime_type,file_size,stop_id,stop_title,stop_index,flow_kind,status',
+        select: 'id,created_at,game_id,player_id,storage_bucket,storage_path,thumb_storage_path,file_name,mime_type,file_size,stop_id,stop_title,stop_index,flow_kind,status',
         order: 'created_at.desc',
         limit: String(PAGE_LIMIT),
         offset: String(offset)
@@ -1171,9 +1171,8 @@
       return match ? parseInt(match[1], 10) : null;
     }
 
-    async function createSignedUrl(row) {
-      const bucket = row.storage_bucket || PHOTO_BUCKET;
-      const response = await fetch(storageSignUrl(bucket, row.storage_path), {
+    async function signStoragePath(bucket, path) {
+      const response = await fetch(storageSignUrl(bucket, path), {
         method: 'POST',
         headers: authHeaders({
           'Content-Type': 'application/json',
@@ -1189,6 +1188,24 @@
       const payload = await response.json();
       const signed = payload.signedURL || payload.signedUrl || payload.signed_url || '';
       return resolveSignedStorageUrl(signed);
+    }
+
+    async function createSignedUrl(row) {
+      const bucket = row.storage_bucket || PHOTO_BUCKET;
+      return signStoragePath(bucket, row.storage_path);
+    }
+
+    // Sign the thumbnail when one exists, otherwise return '' so the caller
+    // can fall back to the full-res signed URL.
+    async function createThumbSignedUrl(row) {
+      if (!row || !row.thumb_storage_path) return '';
+      const bucket = row.storage_bucket || PHOTO_BUCKET;
+      try {
+        return await signStoragePath(bucket, row.thumb_storage_path);
+      } catch (err) {
+        console.warn('Could not sign thumb URL, falling back to original.', row && row.id, err);
+        return '';
+      }
     }
 
     function formatDate(value) {
@@ -1297,7 +1314,7 @@
           <article class="photo-card${isSelected ? ' is-selected' : ''}" data-card-id="${escapeAttr(id)}">
             <button class="photo-select" type="button" data-select-id="${escapeAttr(id)}" aria-pressed="${isSelected}" aria-label="Select photo">${isSelected ? '\u2713' : ''}</button>
             <button class="photo-link" type="button" data-index="${index}" aria-label="Open photo">
-              <img src="${escapeHtml(item.signedUrl)}" alt="${escapeHtml(item.file_name || 'Submitted photo')}" loading="lazy">
+              <img src="${escapeHtml(item.thumbSignedUrl || item.signedUrl)}" alt="${escapeHtml(item.file_name || 'Submitted photo')}" loading="lazy">
             </button>
             <div class="meta">
               <strong>${escapeHtml(item.stop_title || item.game_id || 'Photo')}</strong>
@@ -1491,18 +1508,30 @@
 
       let deletedCount = 0;
       const failures = [];
+      async function deleteStorageObject(bucket, path, label) {
+        const storageUrl = new URL(
+          '/storage/v1/object/' + encodeURIComponent(bucket) + '/' + encodeStoragePath(path),
+          SUPABASE_CONFIG.url + '/'
+        ).toString();
+        const storageRes = await fetch(storageUrl, { method: 'DELETE', headers: authHeaders() });
+        if (!storageRes.ok && storageRes.status !== 404) {
+          throw new Error(await readError(storageRes, label + ' DELETE failed'));
+        }
+      }
+
       for (const item of selected) {
         try {
-          // Remove storage object first so we don't end up with orphaned files if the row delete fails.
+          // Remove storage objects first so we don't end up with orphans if the row delete fails.
+          const bucket = item.storage_bucket || PHOTO_BUCKET;
           if (item.storage_path) {
-            const bucket = item.storage_bucket || PHOTO_BUCKET;
-            const storageUrl = new URL(
-              '/storage/v1/object/' + encodeURIComponent(bucket) + '/' + encodeStoragePath(item.storage_path),
-              SUPABASE_CONFIG.url + '/'
-            ).toString();
-            const storageRes = await fetch(storageUrl, { method: 'DELETE', headers: authHeaders() });
-            if (!storageRes.ok && storageRes.status !== 404) {
-              throw new Error(await readError(storageRes, 'storage DELETE failed'));
+            await deleteStorageObject(bucket, item.storage_path, 'storage');
+          }
+          if (item.thumb_storage_path) {
+            try {
+              await deleteStorageObject(bucket, item.thumb_storage_path, 'thumb');
+            } catch (thumbErr) {
+              // Orphaned thumbs are harmless — log and continue with the row delete.
+              console.warn('Thumb delete failed, continuing.', item.id, thumbErr);
             }
           }
 
@@ -1554,10 +1583,14 @@
         const [rows, total] = await Promise.all([fetchSubmissions(offset), fetchTotalPhotoCount()]);
         const withUrls = await Promise.all(rows.map(async (row) => {
           try {
-            return { ...row, signedUrl: await createSignedUrl(row) };
+            const [signedUrl, thumbSignedUrl] = await Promise.all([
+              createSignedUrl(row),
+              createThumbSignedUrl(row)
+            ]);
+            return { ...row, signedUrl, thumbSignedUrl };
           } catch (error) {
             console.warn('Could not sign photo URL.', row && row.storage_path, error);
-            return { ...row, signedUrl: '' };
+            return { ...row, signedUrl: '', thumbSignedUrl: '' };
           }
         }));
         const visibleRows = withUrls.filter((row) => row.signedUrl);

@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
 
   const { data: game, error: gameError } = await supa
     .from('games')
-    .select('id,name,price,archived')
+    .select('id,name,price,engine,archived')
     .eq('id', newGameId)
     .maybeSingle();
   if (gameError) return json(500, { ok: false, reason: 'game_lookup_failed', message: gameError.message });
@@ -114,6 +114,7 @@ Deno.serve(async (req) => {
     game_id:    newGameId,
     game_name:  game.name,
     price:      game.price,
+    engine:     game.engine,
     swap_count: nextSwapCount,
   });
 });

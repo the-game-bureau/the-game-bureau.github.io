@@ -1,27 +1,86 @@
--- gift-codes — Stripe-backed gift cards that unlock a specific game.
+-- gift-codes — Stripe-backed access codes that unlock a specific game.
 --
 -- Buyer flow:
 --   1. Buyer clicks "Gift this game" on /game/run/?id=X
 --   2. create-gift-checkout Edge Function creates Stripe Embedded Checkout
---      + inserts a 'pending' row keyed on stripe_session_id (no code yet).
+--      + inserts a 'pending' row keyed on stripe_session_id with a
+--      pre-issued access code.
 --   3. Buyer pays. stripe-webhook fires checkout.session.completed.
---   4. Webhook generates the user-facing code (TGB-XXXX-XXXX), updates the
---      row to status='paid', returns the code in the success page payload.
+--   4. Webhook confirms payment, updates the row to status='paid', and
+--      leaves the pre-issued access code ready for the buyer.
 --
 -- Redemption flow:
---   1. Player enters code in the existing payment-overlay "Have a code?"
---      field on the text/map game engines.
---   2. redeem-gift-code Edge Function verifies code + game_id match and the
+--   1. Player enters an access code in the payment modal on the text/map
+--      game engines.
+--   2. redeem-gift-code Edge Function verifies access code + game_id match and the
 --      row is still status='paid'. On success it sets status='redeemed' and
 --      returns ok=true. Engine writes to localStorage so a refresh skips re-redemption.
 --
 -- Service role is the only writer. The webhook + Edge Functions use the
 -- service role; the public anon role gets nothing. Redemption goes through
--- the Edge Function specifically so anon can't scan codes by guessing.
+-- the Edge Function specifically so anon can't scan access codes by guessing.
+
+-- ── games pricing source of truth ─────────────────────────────────────
+-- The old games.price column is display text ("$17.99"). Keep it for UI,
+-- but derive a numeric price_cents value for checkout so Stripe charges
+-- from a stable integer.
+ALTER TABLE public.games ADD COLUMN IF NOT EXISTS price_cents integer;
+ALTER TABLE public.games ADD COLUMN IF NOT EXISTS currency text DEFAULT 'usd';
+
+CREATE OR REPLACE FUNCTION public.tgb_parse_price_cents(display_price text)
+RETURNS integer
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  WITH parsed AS (
+    SELECT (regexp_match(display_price, '([0-9]+(?:\.[0-9]+)?)'))[1] AS amount
+  )
+  SELECT CASE
+    WHEN display_price IS NULL OR btrim(display_price) = '' OR upper(btrim(display_price)) = 'FREE' THEN NULL
+    WHEN parsed.amount IS NULL THEN NULL
+    ELSE round(parsed.amount::numeric * 100)::integer
+  END
+  FROM parsed
+$$;
+
+UPDATE public.games
+   SET price_cents = public.tgb_parse_price_cents(price)
+ WHERE price_cents IS NULL;
+
+UPDATE public.games
+   SET currency = 'usd'
+ WHERE currency IS NULL OR btrim(currency) = '';
+
+CREATE OR REPLACE FUNCTION public.tgb_sync_game_price_cents()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.price_cents IS NULL THEN
+      NEW.price_cents := public.tgb_parse_price_cents(NEW.price);
+    END IF;
+  ELSIF NEW.price IS DISTINCT FROM OLD.price THEN
+    NEW.price_cents := public.tgb_parse_price_cents(NEW.price);
+  END IF;
+  IF NEW.currency IS NULL OR btrim(NEW.currency) = '' THEN
+    NEW.currency := 'usd';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+DROP TRIGGER IF EXISTS tgb_sync_game_price_cents_trigger ON public.games;
+CREATE TRIGGER tgb_sync_game_price_cents_trigger
+BEFORE INSERT OR UPDATE OF price, currency ON public.games
+FOR EACH ROW EXECUTE FUNCTION public.tgb_sync_game_price_cents();
+
+COMMENT ON COLUMN public.games.price_cents IS
+  'Checkout price in cents. Maintained from games.price by tgb_sync_game_price_cents; create-gift-checkout prefers this integer and only falls back to parsing price for older installs.';
 
 CREATE TABLE IF NOT EXISTS public.gift_codes (
   id                      uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
-  code                    text        UNIQUE,                    -- nullable until the webhook fills it in on payment
+  code                    text        UNIQUE,                    -- pre-issued at checkout-create time; usable only after status='paid'
   game_id                 text        NOT NULL,
   game_name               text,                                  -- denormalized for /mc/ admin display
   price_cents             integer     NOT NULL,
@@ -58,9 +117,9 @@ ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS stripe_charge_id    text;
 ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS stripe_receipt_url  text;
 ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS stripe_customer_email text;
 
--- Re-redemption tracking. We treat the code as a bearer token (any
+-- Re-redemption tracking. We treat the access code as a bearer token (any
 -- device that has it can unlock), but log every redemption attempt so
--- we can spot codes being heavily reused (sharing, fraud, etc.). The
+-- we can spot access codes being heavily reused (sharing, fraud, etc.). The
 -- product UI behaves AS IF it's one-per-device — the loosened policy
 -- is purely server-side so cleared localStorage / new devices don't
 -- generate support calls.
@@ -69,7 +128,7 @@ ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS last_redeemed_at timestam
 
 -- Self-service game-swap tracking. swap-gift-game increments swap_count
 -- and updates last_swapped_at on every successful game change. Lets
--- the admin spot codes that have bounced between games a lot.
+-- the admin spot access codes that have bounced between games a lot.
 ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS swap_count       integer NOT NULL DEFAULT 0;
 ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS last_swapped_at  timestamptz;
 

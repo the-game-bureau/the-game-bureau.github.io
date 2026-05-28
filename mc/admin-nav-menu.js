@@ -18,7 +18,7 @@
     { href: '/mc/builder.html',   label: 'Build Games', id: 'mcNavBuilderLink' },
     { href: '/mc/photos.html',    label: 'Edit Wall' },
     { href: '/mc/giftshop.html',  label: 'Edit Gifts' },
-    { href: '/mc/giftcards.html', label: 'Gift Codes' },
+    { href: '/mc/giftcards.html', label: 'Access Codes' },
     { href: '/mc/notes.html',     label: 'Notes' }
   ];
 

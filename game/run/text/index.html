@@ -1001,7 +1001,7 @@
         </div>
       </div>
       <div class="payment-access-wrap">
-        <span class="payment-access-label">Have a code?</span>
+        <span class="payment-access-label">Have an access code?</span>
         <input id="paymentAccessInput" class="payment-access-input" type="text" maxlength="14" placeholder="XXXXXX or TGB-XXXX-XXXX" autocomplete="off" autocorrect="off" spellcheck="false">
         <button id="paymentAccessSubmit" class="payment-access-submit" type="button">Apply</button>
       </div>
@@ -1016,6 +1016,7 @@
     const gameId  = params.get('id') || params.get('game');
     const STORE_KEY = 'tgb_' + (gameId || 'default');
     const CHECKOUT_UNLOCKS_KEY = STORE_KEY + '_checkout_unlocks';
+    const PENDING_ACCESS_CODE_KEY = STORE_KEY + '_pending_access_code';
     const PLAYER_SESSION_KEY = STORE_KEY + '_player_id';
     const CHECKOUT_SUCCESS_COPY = 'Payment confirmed. Let\u2019s keep going.';
     const PHOTO_STORAGE_BUCKET = 'game-photo-submissions';
@@ -1075,8 +1076,6 @@
     let activePhotoReplyContext = null;
     let vars               = {};
     let checkoutUnlocksCache = null;
-    let lemonConfigPromise = null;
-    let gameCheckoutUrl = '';
     let gameMeta = { id: '', name: '', price: '' };
     let stopCheckoutContext = null;
     let activeCheckoutContext = null;
@@ -1160,6 +1159,34 @@
       };
       saveCheckoutUnlocks(unlocks);
     }
+    function normalizeAccessCode(value) {
+      const raw = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (!raw.startsWith('TGB')) return '';
+      const rest = raw.slice(3);
+      if (rest.length !== 8) return '';
+      return 'TGB-' + rest.slice(0, 4) + '-' + rest.slice(4, 8);
+    }
+    function stashIncomingAccessCode() {
+      const code = normalizeAccessCode(params.get('access_code') || params.get('code') || '');
+      if (!code) return;
+      try { sessionStorage.setItem(PENDING_ACCESS_CODE_KEY, code); } catch (e) {}
+      try {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('access_code');
+        cleanUrl.searchParams.delete('code');
+        cleanUrl.searchParams.delete('auto_redeem');
+        window.history.replaceState(null, '', cleanUrl.toString());
+      } catch (e) {}
+    }
+    function consumePendingAccessCode() {
+      let code = '';
+      try {
+        code = sessionStorage.getItem(PENDING_ACCESS_CODE_KEY) || '';
+        if (code) sessionStorage.removeItem(PENDING_ACCESS_CODE_KEY);
+      } catch (e) {}
+      return normalizeAccessCode(code);
+    }
+    stashIncomingAccessCode();
     function getPlayerSessionId() {
       try {
         let id = localStorage.getItem(PLAYER_SESSION_KEY);
@@ -1385,80 +1412,10 @@
       }
       return ['lemon', String(gameId || '').trim(), String(url.hostname || '').toLowerCase(), String(url.pathname || '').toLowerCase()].join(':');
     }
-    function buildCheckoutReturnUrl(checkoutKey) {
-      const returnUrl = new URL(window.location.href);
-      returnUrl.searchParams.delete('paid');
-      returnUrl.searchParams.delete('checkout_key');
-      returnUrl.searchParams.set('paid', '1');
-      if (checkoutKey) returnUrl.searchParams.set('checkout_key', checkoutKey);
-      return returnUrl.toString();
-    }
-    function decorateCheckoutUrl(value, checkoutKey) {
-      const checkoutUrl = value instanceof URL ? new URL(value.toString()) : parseUrl(value);
-      if (!checkoutUrl) return '';
-      checkoutUrl.searchParams.set('checkout[redirect_url]', buildCheckoutReturnUrl(checkoutKey));
-      if (gameId && !checkoutUrl.searchParams.has('checkout[custom][game_id]')) {
-        checkoutUrl.searchParams.set('checkout[custom][game_id]', gameId);
-      }
-      const playerId = getPlayerSessionId();
-      if (playerId && !checkoutUrl.searchParams.has('checkout[custom][player_id]')) {
-        checkoutUrl.searchParams.set('checkout[custom][player_id]', playerId);
-      }
-      if (checkoutKey && !checkoutUrl.searchParams.has('checkout[custom][checkout_key]')) {
-        checkoutUrl.searchParams.set('checkout[custom][checkout_key]', checkoutKey);
-      }
-      return checkoutUrl.toString();
-    }
-    function hasUsableLemonConfig(cfg) {
-      return !!(
-        cfg
-        && cfg.enabled
-        && typeof cfg.storeSlug === 'string'
-        && cfg.storeSlug.trim()
-        && cfg.storeSlug !== 'your_store_slug_here'
-      );
-    }
-    function loadLocalLemonConfig() {
-      if (hasUsableLemonConfig(window.TGB_LEMON_CONFIG)) {
-        return Promise.resolve(window.TGB_LEMON_CONFIG);
-      }
-      if (lemonConfigPromise) return lemonConfigPromise;
-      lemonConfigPromise = new Promise((resolve) => {
-        const script = document.createElement('script');
-        script.src = new URL('../config/lemon-config.js', window.location.href).toString();
-        script.async = true;
-        script.onload = () => resolve(hasUsableLemonConfig(window.TGB_LEMON_CONFIG) ? window.TGB_LEMON_CONFIG : null);
-        script.onerror = () => resolve(null);
-        document.head.appendChild(script);
-      });
-      return lemonConfigPromise;
-    }
-    async function resolveCheckoutUrl(value) {
-      const url = value instanceof URL ? value : parseUrl(value);
-      if (!url) return '';
-      const checkoutKey = getCheckoutUnlockKey(url);
-      if (isLocalPayPageUrl(url)) {
-        // Per-game checkout URL from the database takes priority over lemon-config.js
-        if (gameCheckoutUrl) {
-          const resolved = parseUrl(gameCheckoutUrl);
-          if (resolved) return decorateCheckoutUrl(resolved, checkoutKey);
-        }
-        const cfg = await loadLocalLemonConfig();
-        if (!hasUsableLemonConfig(cfg)) return '';
-        const variant = String(url.searchParams.get('variant') || cfg.variantId || '').trim();
-        if (!variant || variant === 'your_variant_id_here') return '';
-        const checkoutUrl = new URL(`https://${cfg.storeSlug}.lemonsqueezy.com/buy/${encodeURIComponent(variant)}`);
-        return decorateCheckoutUrl(checkoutUrl, checkoutKey);
-      }
-      if (isLemonCheckoutUrl(url)) {
-        return decorateCheckoutUrl(url, checkoutKey);
-      }
-      return '';
-    }
     let _paymentOverlayTarget = null;
     async function openPaymentOverlay(checkoutTarget) {
       _paymentOverlayTarget = checkoutTarget || null;
-      // Hide the legacy Lemon iframe overlay if it's somehow still
+      // Hide the legacy checkout iframe overlay if it's somehow still
       // showing — the shared TgbGift modal is the payment UI now.
       const overlay = document.getElementById('paymentOverlay');
       if (overlay) {
@@ -1471,10 +1428,14 @@
         console.warn('[checkout] TgbGift not loaded; cannot open payment modal.');
         return;
       }
+      const pendingAccessCode = consumePendingAccessCode();
       window.TgbGift.openForGame({
         id:    gameMeta.id || gameId || '',
         name:  gameMeta.name || '',
-        price: gameMeta.price || ''
+        price: gameMeta.price || '',
+        engine: 'text',
+        accessCode: pendingAccessCode,
+        autoRedeem: !!pendingAccessCode
       });
     }
     function closePaymentOverlay() {
@@ -1491,11 +1452,11 @@
     }
 
     // ── Bridge from TgbGift modal back into the game flow ─────────────
-    // Fired by the shared modal when the player redeems a code (either
+    // Fired by the shared modal when the player redeems an access code (either
     // by clicking "Play now" after a fresh Stripe purchase, or by
-    // entering an existing TGB-XXXX-XXXX code in the intro step's
-    // "Have a code?" section). We treat it the same as the legacy
-    // post-Lemon return flow.
+    // entering an existing TGB-XXXX-XXXX access code in the intro step's
+    // "Have an access code?" section). We treat it the same as the legacy
+    // legacy checkout return flow.
     window.addEventListener('tgb-gift-redeemed', (event) => {
       const detail = (event && event.detail) || {};
       if (detail.game_id && gameMeta.id && detail.game_id !== gameMeta.id) return;
@@ -1569,7 +1530,9 @@
       if (params.get('paid') !== '1') return;
       const checkoutKey = String(params.get('checkout_key') || '').trim();
 
-      // Clean the URL immediately regardless of verification outcome
+      // Legacy LemonSqueezy return links used paid=1&checkout_key=...
+      // The active purchase path is Stripe access codes, so this path no
+      // longer grants access. Clean the URL to avoid replay/confusion.
       try {
         const cleanUrl = new URL(window.location.href);
         cleanUrl.searchParams.delete('paid');
@@ -1577,29 +1540,7 @@
         window.history.replaceState(null, '', cleanUrl.toString());
       } catch (e) {}
 
-      if (!checkoutKey) return;
-
-      // Verify the checkout_key exists in the purchases table.
-      // Retry up to 5× (1.5 s apart) to account for webhook arriving slightly after redirect.
-      const verifyUrl = new URL(`rest/v1/purchases`, `${sbConfig.url.replace(/\/+$/, '')}/`);
-      verifyUrl.searchParams.set('checkout_key', `eq.${checkoutKey}`);
-      verifyUrl.searchParams.set('select', 'id');
-      verifyUrl.searchParams.set('limit', '1');
-      let verified = false;
-      for (let i = 0; i < 5; i++) {
-        try {
-          const res = await fetch(verifyUrl.toString(), {
-            headers: { apikey: sbConfig.key, Authorization: `Bearer ${sbConfig.key}` }
-          });
-          const rows = await res.json();
-          if (Array.isArray(rows) && rows.length > 0) { verified = true; break; }
-        } catch (e) {}
-        if (i < 4) await new Promise(r => setTimeout(r, 1500));
-      }
-
-      if (verified) {
-        markCheckoutUnlocked(checkoutKey, { sourceUrl: window.location.href });
-      }
+      if (checkoutKey) console.warn('[checkout] Ignored legacy checkout_key return; use access codes.');
     }
     function interpolate(str) {
       return String(str || '').replace(/\{\{\s*([A-Za-z_]\w*)\s*\}\}|\{\s*([A-Za-z_]\w*)\s*\}|%\s*([A-Za-z_]\w*)\s*%/g, (match, k1, k2, k3) => {
@@ -2048,7 +1989,7 @@
       }
     }
 
-    async function insertPhotoSubmission(file, storagePath) {
+    async function insertPhotoSubmission(file, storagePath, thumbPath) {
       const context = getActivePhotoContext();
       const requestUrl = new URL(`rest/v1/${PHOTO_SUBMISSIONS_TABLE}`, `${SB_CONFIG.url.replace(/\/+$/, '')}/`);
       const rawTeamColor = vars && typeof vars === 'object' ? String(vars['team_color'] || '').trim() : '';
@@ -2065,6 +2006,7 @@
         player_id: getPlayerSessionId(),
         storage_bucket: PHOTO_STORAGE_BUCKET,
         storage_path: storagePath,
+        thumb_storage_path: thumbPath || null,
         file_name: decoratedFileName,
         mime_type: getPhotoUploadMimeType(file, getPhotoExtension(file)),
         file_size: file && Number.isFinite(file.size) ? file.size : null,
@@ -2093,6 +2035,79 @@
       }
     }
 
+    function loadImageFromFile(file) {
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+        img.src = url;
+      });
+    }
+
+    async function createPhotoThumbnail(file, maxWidth, quality) {
+      const targetMax = maxWidth || 600;
+      const jpegQuality = quality || 0.75;
+      try {
+        let source = null;
+        if (typeof createImageBitmap === 'function') {
+          try {
+            source = await createImageBitmap(file, { imageOrientation: 'from-image' });
+          } catch (err) { source = null; }
+        }
+        if (!source) source = await loadImageFromFile(file);
+        if (!source) return null;
+
+        const srcW = source.width || source.naturalWidth || 0;
+        const srcH = source.height || source.naturalHeight || 0;
+        if (!srcW || !srcH) return null;
+
+        const scale = Math.min(1, targetMax / srcW);
+        const w = Math.max(1, Math.round(srcW * scale));
+        const h = Math.max(1, Math.round(srcH * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        ctx.drawImage(source, 0, 0, w, h);
+        if (typeof source.close === 'function') source.close();
+
+        return await new Promise((resolve) => {
+          canvas.toBlob((blob) => resolve(blob || null), 'image/jpeg', jpegQuality);
+        });
+      } catch (err) {
+        return null;
+      }
+    }
+
+    function buildThumbStoragePath(originalPath) {
+      // Replace the trailing extension with -thumb.jpg. The result still
+      // matches the bucket's INSERT regex: -thumb fits [a-z0-9_-]* and .jpg
+      // matches the allowed extension list.
+      return String(originalPath || '').replace(/\.[^./]+$/, '-thumb.jpg');
+    }
+
+    async function uploadPhotoThumbnail(file, originalStoragePath) {
+      const thumbBlob = await createPhotoThumbnail(file);
+      if (!thumbBlob || thumbBlob.size === 0) return null;
+      if (file && Number.isFinite(file.size) && thumbBlob.size >= file.size) return null;
+
+      const thumbPath = buildThumbStoragePath(originalStoragePath);
+      const response = await fetch(buildStorageObjectUrl(PHOTO_STORAGE_BUCKET, thumbPath), {
+        method: 'POST',
+        headers: {
+          apikey: SB_CONFIG.key,
+          Authorization: `Bearer ${SB_CONFIG.key}`,
+          'Content-Type': 'image/jpeg',
+          'x-upsert': 'false'
+        },
+        body: thumbBlob
+      });
+      if (!response.ok) return null;
+      return thumbPath;
+    }
+
     async function uploadPhotoToSupabase(file) {
       if (!gameId) throw new Error('No game is loaded.');
       if (!file) throw new Error('Choose a photo first.');
@@ -2116,7 +2131,14 @@
         throw new Error(await readSupabaseError(response, 'Could not upload photo.'));
       }
 
-      await insertPhotoSubmission(file, storagePath);
+      let thumbPath = null;
+      try {
+        thumbPath = await uploadPhotoThumbnail(file, storagePath);
+      } catch (err) {
+        thumbPath = null;
+      }
+
+      await insertPhotoSubmission(file, storagePath, thumbPath);
       return storagePath;
     }
 
@@ -3074,10 +3096,6 @@
         if (!gameData) {
           chatEl.textContent = 'Game not found in database.';
           return;
-        }
-
-        if (gameData.checkout_url) {
-          gameCheckoutUrl = String(gameData.checkout_url).trim();
         }
 
         // Stash meta so openPaymentOverlay can pass the game's name + price

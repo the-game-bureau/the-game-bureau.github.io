@@ -978,7 +978,7 @@
     <section id="reviewPanel">
       <div class="topbar">
         <div class="topbar-actions" style="margin-left:auto;">
-          <button class="btn mc-back-btn" type="button" data-mc-back data-mc-back-fallback="../index.html">Back</button>
+          <button class="btn mc-back-btn" type="button" data-mc-back data-mc-back-fallback="/">Home</button>
           <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -1158,7 +1158,12 @@
     function applySearchFilter(games) {
       if (!searchTerm) return games;
       return games.filter((g) => {
-        const haystack = (String(g && g.name || '') + ' ' + formatGameDate(g) + ' ' + String(g && g.game_date || '')).toLowerCase();
+        const haystack = (
+          String(g && g.name || '') + ' ' +
+          formatGameDate(g) + ' ' +
+          String(g && g.game_date || '') + ' ' +
+          String(g && g.city || '')
+        ).toLowerCase();
         return haystack.includes(searchTerm);
       });
     }
@@ -1563,6 +1568,10 @@
         if (event.shiftKey) event.preventDefault();
       });
       card.addEventListener('click', (event) => selectGame(game, event));
+      card.addEventListener('dblclick', (event) => {
+        event.preventDefault();
+        window.location.href = buildBuilderRoute({ id: game.id });
+      });
       return card;
     }
 
@@ -1786,6 +1795,23 @@
       const routeParams = oneGameId ? { id: oneGameId } : null;
       setLinkEnabled(libEditBtn, routeParams ? buildBuilderRoute(routeParams) : null);
       libEditBtn.title = single && !oneGameId ? 'This row has no id — set one before editing.' : '';
+
+      // Sync the admin nav menu's "Build Games" link with the current
+      // selection: a single selected game becomes "Build Game" and deep-links
+      // straight into the builder for that id.
+      const navBuilderLink = document.getElementById('mcNavBuilderLink');
+      if (navBuilderLink) {
+        if (oneGameId) {
+          navBuilderLink.textContent = 'Build Game';
+          navBuilderLink.href = '/mc/builder.html?id=' + encodeURIComponent(oneGameId);
+          navBuilderLink.title = 'Open the selected game in Builder';
+        } else {
+          navBuilderLink.textContent = 'Build Games';
+          navBuilderLink.href = '/mc/builder.html';
+          navBuilderLink.title = '';
+        }
+      }
+
       renderLibraryStatusLine();
     }
 

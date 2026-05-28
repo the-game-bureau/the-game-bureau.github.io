@@ -4,13 +4,12 @@
 // Looks up the game in public.games (service role, so the price is
 // authoritative server-side), creates a Stripe Embedded Checkout session
 // priced at the game's price, and inserts a 'pending' gift_codes row.
-// The matching webhook (stripe-webhook, with metadata.tgb_kind='gift_card')
-// generates the user-facing code on payment.
+// The matching webhook marks the access code paid after Stripe confirms.
 //
 // recipient_email is OPTIONAL — the unified flow lets the buyer purchase
 // first and decide post-payment whether to play it themselves or send to
 // someone (handled by send-gift-code Edge Function). If recipient_email
-// IS supplied here, the webhook emails the code immediately on payment.
+// IS supplied here, the webhook emails the access code immediately on payment.
 //
 // Setup:
 //   supabase secrets set STRIPE_SECRET_KEY=sk_test_xxx
@@ -43,8 +42,8 @@ function json(status: number, body: unknown) {
 }
 
 // Parse the display price (e.g. "$15", "$15.50", "15") into cents.
-// Returns 0 for FREE / blank / unparseable — caller treats 0 as "can't gift".
-function priceToCents(displayPrice: unknown): number {
+// Fallback only: explicit games.price_cents is preferred when present.
+function displayPriceToCents(displayPrice: unknown): number {
   if (displayPrice == null) return 0;
   const trimmed = String(displayPrice).trim();
   if (!trimmed || /^free$/i.test(trimmed)) return 0;
@@ -54,6 +53,12 @@ function priceToCents(displayPrice: unknown): number {
   const dollars = parseFloat(numeric);
   if (!Number.isFinite(dollars) || dollars <= 0) return 0;
   return Math.round(dollars * 100);
+}
+
+function gamePriceCents(game: Record<string, unknown>): number {
+  const explicit = Number(game.price_cents);
+  if (Number.isInteger(explicit) && explicit > 0) return explicit;
+  return displayPriceToCents(game.price);
 }
 
 function clean(value: unknown, max = 500): string {
@@ -83,17 +88,29 @@ Deno.serve(async (req) => {
     return json(400, { error: 'recipient_email is not a valid email.' });
   }
 
-  const { data: game, error } = await supa
+  let { data: game, error } = await supa
     .from('games')
-    .select('id,name,price,archived')
+    .select('id,name,price,price_cents,currency,archived')
     .eq('id', gameId)
     .maybeSingle();
+  if (error && /price_cents|currency|schema cache|column/i.test(error.message || '')) {
+    const fallback = await supa
+      .from('games')
+      .select('id,name,price,archived')
+      .eq('id', gameId)
+      .maybeSingle();
+    game = fallback.data;
+    error = fallback.error;
+  }
   if (error)            return json(500, { error: 'Game lookup failed: ' + error.message });
   if (!game)            return json(404, { error: 'Game not found.' });
-  if (game.archived)    return json(400, { error: 'This game is archived and cannot be gifted.' });
+  if (String(game.archived ?? '').trim().toUpperCase() === 'YES') {
+    return json(400, { error: 'This game is archived and cannot be purchased.' });
+  }
 
-  const priceCents = priceToCents(game.price);
+  const priceCents = gamePriceCents(game);
   if (!priceCents)      return json(400, { error: 'This game is free or has no purchasable price.' });
+  const currency = clean(game.currency || 'usd', 10).toLowerCase() || 'usd';
 
   let session: Stripe.Checkout.Session;
   try {
@@ -110,19 +127,20 @@ Deno.serve(async (req) => {
       line_items: [{
         quantity: 1,
         price_data: {
-          currency: 'usd',
+          currency,
           unit_amount: priceCents,
           product_data: {
-            name: 'Gift: ' + (game.name || 'The Game Bureau game'),
+            name: 'Game access: ' + (game.name || 'The Game Bureau game'),
             description: recipientName
               ? `For ${recipientName} (${recipientEmail})`
-              : `For ${recipientEmail}`,
+              : (recipientEmail ? `For ${recipientEmail}` : 'Access code delivered after payment'),
           },
         },
       }],
       metadata: {
-        // Routes the webhook to the gift-card branch (vs POD branch).
+        // Routes the webhook to the access-code branch (vs POD branch).
         tgb_kind:        'gift_card',
+        purchase_kind:   'game_access',
         game_id:         gameId,
         game_name:       clean(game.name, 200),
         recipient_email: recipientEmail,
@@ -138,14 +156,14 @@ Deno.serve(async (req) => {
     return json(500, { error: 'Stripe error: ' + msg });
   }
 
-  // Generate the user-facing code up-front and insert the pending row
+  // Generate the user-facing access code up-front and insert the pending row
   // already populated with it. This lets the modal show the code as
   // soon as Stripe's onComplete fires — no polling for the webhook to
   // catch up. The webhook still transitions pending → paid and adds
-  // charge metadata, but the code itself never changes.
+  // charge metadata, but the access code itself never changes.
   //
   // redeem-gift-code refuses to unlock anything with status='pending',
-  // so a buyer who has the code but never paid can't use it.
+  // so a buyer who has the access code but never paid can't use it.
   let issuedCode = '';
   let insertError: { message: string } | null = null;
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -155,7 +173,7 @@ Deno.serve(async (req) => {
       game_id:           gameId,
       game_name:         game.name,
       price_cents:       priceCents,
-      currency:          'usd',
+      currency,
       buyer_email:       buyerEmail || null,
       buyer_name:        buyerName  || null,
       recipient_email:   recipientEmail || null,
@@ -186,6 +204,7 @@ Deno.serve(async (req) => {
     session_id:    session.id,
     code:          issuedCode,
     amount_cents:  priceCents,
+    currency,
     game_name:     game.name || null,
   });
 });

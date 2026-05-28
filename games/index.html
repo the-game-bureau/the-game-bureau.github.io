@@ -8,6 +8,22 @@
   <title>The Game Bureau — Games Made from City Streets</title>
   <base target="_top">
   <link rel="icon" href="/assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="canonical" href="https://thegamebureau.com/games/">
+
+  <!-- Share card: OG + Twitter -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Game Bureau">
+  <meta property="og:url" content="https://thegamebureau.com/games/">
+  <meta property="og:title" content="The Game Bureau — Games Made from City Streets">
+  <meta property="og:description" content="Browser-based scavenger hunts written against real city streets. Each clue points to a real corner, storefront, or oddity. No app, no install, no account.">
+  <meta property="og:image" content="https://thegamebureau.com/assets/brand/share-thumbnail.png">
+  <meta property="og:image:alt" content="The Game Bureau — Games Made from City Streets">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@thegamebureau">
+  <meta name="twitter:creator" content="@thegamebureau">
+  <meta name="twitter:title" content="The Game Bureau — Games Made from City Streets">
+  <meta name="twitter:description" content="Browser-based scavenger hunts written against real city streets. Each clue points to a real corner, storefront, or oddity. No app, no install, no account.">
+  <meta name="twitter:image" content="https://thegamebureau.com/assets/brand/share-thumbnail.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -33,19 +49,6 @@
       <div class="nav-utility-links">
         <a class="nav-link nav-link--minor" href="/how/">How It Works</a>
         <a class="nav-link nav-link--minor" href="/ww/">Winner's Wall</a>
-        <div class="nav-admin-menu" id="navAdminMenu">
-          <button class="nav-link nav-link--minor" id="navLoginBtn" type="button" aria-haspopup="menu" aria-expanded="false">Login</button>
-          <div class="nav-admin-menu-panel" id="navAdminMenuPanel" role="menu" hidden>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/index.html">Edit Games</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/builder.html" id="navBuilderLink">Build Games</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/photos.html">Edit Wall</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/giftshop.html">Edit Gifts</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/giftcards.html">Gift Codes</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/notes.html">Notes</a>
-            <span class="nav-admin-menu-divider" aria-hidden="true"></span>
-            <button class="nav-admin-menu-item" id="navAdminSignOutBtn" type="button" role="menuitem">Sign Out</button>
-          </div>
-        </div>
       </div>
     </nav>
   </header>
@@ -56,13 +59,19 @@
           <div>
             <p class="hero-kicker"><span id="heroKickerGameCount">0</span> GAMES IN <span id="heroKickerCityCount">0</span> CITIES</p>
             <h1 class="hero-headline">Games Made from City Streets</h1>
-            <p class="hero-copy">Scavenger-hunt and escape-room style games written against the city you're standing in. One phone, no app, no install.</p>
+            <p class="hero-copy">Scavenger-hunt and escape-room style games written for the city you're visiting. One phone, no app, no install.</p>
           </div>
 
           <aside class="hero-meta" aria-label="Fandoms">
             <div class="hero-meta-toggle" role="tablist" aria-label="Find games by">
-              <button class="hero-meta-toggle-btn" type="button" data-mode="fan" role="tab" aria-selected="true" aria-controls="heroMetaList">By Fandom</button>
-              <button class="hero-meta-toggle-btn" type="button" data-mode="city" role="tab" aria-selected="false" aria-controls="heroMetaList">By City</button>
+              <button class="hero-meta-toggle-btn" type="button" data-mode="fan" role="tab" aria-selected="true" aria-controls="heroMetaList">
+                <span class="hero-meta-tab-kicker">Find by</span>
+                <span class="hero-meta-tab-title">Fandom</span>
+              </button>
+              <button class="hero-meta-toggle-btn" type="button" data-mode="city" role="tab" aria-selected="false" aria-controls="heroMetaList">
+                <span class="hero-meta-tab-kicker">Find by</span>
+                <span class="hero-meta-tab-title">City</span>
+              </button>
             </div>
             <p class="hero-meta-prompt" id="heroMetaPrompt" aria-live="polite"></p>
             <div class="hero-meta-list-wrap">
@@ -150,7 +159,7 @@
         'oklahoma':'OK','oregon':'OR','pennsylvania':'PA','rhode island':'RI','south carolina':'SC',
         'south dakota':'SD','tennessee':'TN','texas':'TX','utah':'UT','vermont':'VT',
         'virginia':'VA','washington':'WA','west virginia':'WV','wisconsin':'WI','wyoming':'WY',
-        'district of columbia':'DC'
+        'district of columbia':'DC', 'dc':'DC', 'd.c.':'DC', 'd. c.':'DC'
       };
       // Country oval decals — ISO 3166-1 alpha-3 codes (Olympic/FIFA style).
       const COUNTRY_CODES = {
@@ -168,7 +177,15 @@
       };
 
       function cityGeoBadge(label) {
-        const parts = String(label || '').split(',').map((s) => s.trim()).filter(Boolean);
+        const labelStr = String(label || '').trim();
+        // Special case: "Washington D.C." (and variants like "Washington DC",
+        // "Washington, D.C.") often arrives WITHOUT a real comma separator, so
+        // the parts-after-comma loop below would miss it. A trailing "D.C." /
+        // "DC" suffix is unambiguous enough to short-circuit here.
+        if (/\bd\.?\s*c\.?$/i.test(labelStr)) {
+          return { kind: 'state', value: 'DC' };
+        }
+        const parts = labelStr.split(',').map((s) => s.trim()).filter(Boolean);
         // Walk from the end inward so "London, England, United Kingdom" still matches UK.
         for (let i = parts.length - 1; i >= 1; i--) {
           const key = parts[i].toLowerCase();
@@ -390,6 +407,19 @@
         return count === 1 ? '1 game' : count + ' games';
       }
 
+      function getGameCountHeadline(count) {
+        return count === 1 ? '1 Game' : count + ' Games';
+      }
+
+      function isFandomGame(game) {
+        if (!game || typeof game !== 'object') return false;
+        if (Object.prototype.hasOwnProperty.call(game, 'fandom_game')) {
+          return isTrueish(game.fandom_game);
+        }
+        // Backward-compatible until the database migration is applied.
+        return !!(plainText(game.away_team_city) && plainText(game.away_team_mascot));
+      }
+
       async function fetchGames() {
         const url = new URL('rest/v1/' + SB_CONFIG.table, SB_CONFIG.url.replace(/\/+$/, '') + '/');
         url.searchParams.set('apikey', SB_CONFIG.key);
@@ -448,7 +478,7 @@
       // stays focused on currently-playable fandoms.
       function buildFanEntries() {
         const gamesByFanKey = new Map();
-        liveGames.forEach((game) => {
+        liveGames.filter(isFandomGame).forEach((game) => {
           const fan = getFanTeam(game);
           if (!fan) return;
           if (!gamesByFanKey.has(fan)) gamesByFanKey.set(fan, []);
@@ -506,6 +536,7 @@
         selectedEntryKey  = entry.entryKey;
         refreshSelectionStyles();
         renderSelectedGames(entry);
+        writeUrlState();
       }
 
       function clearSelectedEntry() {
@@ -518,6 +549,43 @@
         if (selectedGamesEl) {
           selectedGamesEl.hidden = true;
           selectedGamesEl.classList.remove('is-fresh');
+        }
+        writeUrlState();
+      }
+
+      // URL state: ?city= / ?fan= mirror the current selection so views are
+      // bookmarkable, shareable, and survive back/forward navigation.
+      let suppressUrlWrite = false;
+      function writeUrlState() {
+        if (suppressUrlWrite) return;
+        const next = new URL(window.location.href);
+        next.search = '';
+        if (selectedEntryKind === 'city' && selectedEntryKey) {
+          next.searchParams.set('city', selectedEntryKey);
+        } else if (selectedEntryKind === 'fan' && selectedEntryKey) {
+          next.searchParams.set('fan', selectedEntryKey);
+        }
+        if (next.href === window.location.href) return;
+        history.pushState({ kind: selectedEntryKind, key: selectedEntryKey }, '', next);
+      }
+
+      function applyUrlSelection() {
+        const params = new URLSearchParams(window.location.search);
+        const city = params.get('city');
+        const fan = params.get('fan');
+        const key = city ? 'city|' + city : fan ? 'fan|' + fan : '';
+        if (!key) {
+          if (selectedEntryKind) clearSelectedEntry();
+          return;
+        }
+        const entry = heroMetaEntries.get(key);
+        if (entry) {
+          selectedEntryKind = entry.entryKind;
+          selectedEntryKey  = entry.entryKey;
+          refreshSelectionStyles();
+          renderSelectedGames(entry, { scroll: false, animate: false });
+        } else if (selectedEntryKind) {
+          clearSelectedEntry();
         }
       }
 
@@ -562,13 +630,19 @@
           item.appendChild(spacer);
         }
 
+        const labelWrap = document.createElement('span');
+        labelWrap.className = 'hero-meta-list-copy';
+        const eyebrow = document.createElement('span');
+        eyebrow.className = 'hero-meta-list-eyebrow';
+        eyebrow.textContent = entry.entryKind === 'city' ? 'Destination' : 'Traveling fans';
         const label = document.createElement('span');
         label.className = 'hero-meta-list-name';
         label.textContent = entry.entryKind === 'city' ? cityDisplayName(entry.label) : entry.label;
+        labelWrap.append(eyebrow, label);
         const count = document.createElement('span');
         count.className = 'hero-meta-list-count';
         count.textContent = getGameCountLabel(entry.count);
-        item.append(label, count);
+        item.append(labelWrap, count);
         return item;
       }
 
@@ -754,9 +828,41 @@
       }
 
       function formatGameDate(game) {
+        const dateStr = String((game && game.game_date) || '').trim();
+        const timeStr = String((game && game.start_time) || '').trim();
         const parts = [];
-        if (game.game_date) parts.push(game.game_date);
-        if (game.start_time) parts.push(String(game.start_time).slice(0, 5));
+
+        if (dateStr) {
+          // Parse YYYY-MM-DD as a *local* date so the weekday isn't shifted
+          // by the viewer's timezone (new Date('2026-10-12') would be UTC).
+          const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (match) {
+            const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+            const sameYear = d.getFullYear() === new Date().getFullYear();
+            parts.push(d.toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              year: sameYear ? undefined : 'numeric'
+            }));
+          } else {
+            parts.push(dateStr);
+          }
+        }
+
+        if (timeStr) {
+          const timeMatch = timeStr.match(/^(\d{1,2}):(\d{2})/);
+          if (timeMatch) {
+            const h24 = Number(timeMatch[1]);
+            const minutes = timeMatch[2];
+            const period = h24 >= 12 ? 'PM' : 'AM';
+            const h12 = ((h24 + 11) % 12) + 1;
+            parts.push(h12 + (minutes === '00' ? '' : ':' + minutes) + ' ' + period);
+          } else {
+            parts.push(timeStr.slice(0, 5));
+          }
+        }
+
         return parts.join(' · ');
       }
 
@@ -844,7 +950,7 @@
         if (entry.entryKind === 'fan') {
           const sample = games[0] || null;
           const fanbase = (entry.helmet && entry.helmet.fanbase) || plainText(sample && sample.away_team_city);
-          titleText = `Games for ${fanbase || entry.label} fans / ${countLabel}`;
+          titleText = `${getGameCountHeadline(games.length)} for traveling ${fanbase || entry.label} fans`;
           {
             const palette = entry.helmet || NO_HELMET_PALETTE;
             const src = teamMarkSVG(
@@ -862,8 +968,7 @@
             }
           }
         } else if (entry.entryKind === 'city') {
-          const cityName = cityDisplayName(entry.label) || entry.label;
-          titleText = `Games in ${cityName} / ${countLabel}`;
+          titleText = `${getGameCountHeadline(games.length)} in ${entry.label}`;
           const badge = cityGeoBadge(entry.label);
           if (badge) iconNode = buildGeoBadge(badge, 'selected-games-icon');
         } else {
@@ -892,8 +997,16 @@
             if (gameId && gameId === selectedAdminGameId) card.classList.add('is-selected');
             if (gameId) {
               card.classList.add('is-selectable');
-              card.addEventListener('click', () => {
-                setSelectedAdminGameId(selectedAdminGameId === gameId ? '' : gameId);
+              card.addEventListener('click', (event) => {
+                // Don't intercept clicks that originated on the PLAY GAME link
+                // (or any other anchor inside the card) — let those navigate
+                // normally instead of toggling selection.
+                if (event.target.closest('a')) return;
+                if (selectedAdminGameId === gameId) {
+                  window.location.href = gameHref;
+                  return;
+                }
+                setSelectedAdminGameId(gameId);
               });
             }
 
@@ -903,11 +1016,12 @@
             icons.className = 'game-card-icons';
             const teamPalette = getHelmetByAwayTeam(game);
             const hasAwayTeam = !!(plainText(game.away_team_city) && plainText(game.away_team_mascot));
-            const cardAccent = (teamPalette && teamPalette.primary_color) || '#2d4880';
-            card.style.setProperty(
-              '--card-accent',
-              cardAccent
-            );
+            // The game's own primary_color (set in the builder) wins over the
+            // team helmet color, so non-fan games can have their own identity.
+            const cardAccent = plainText(game.primary_color)
+                            || (teamPalette && teamPalette.primary_color)
+                            || '#2d4880';
+            card.style.setProperty('--card-accent', cardAccent);
             card.style.setProperty('--card-accent-ink', accentTextColor(cardAccent));
             if (hasAwayTeam) {
               const palette = teamPalette || NO_HELMET_PALETTE;
@@ -940,7 +1054,8 @@
             deedHead.className = 'game-card-deed-head';
             const deedLabel = document.createElement('span');
             deedLabel.className = 'game-card-deed-label';
-            deedLabel.textContent = 'TITLE DEED';
+            const primaryTagText = plainText(game.primary_tag);
+            deedLabel.textContent = primaryTagText ? primaryTagText.toUpperCase() : '';
             deedHead.appendChild(deedLabel);
             if (icons.childNodes.length) deedHead.appendChild(icons);
 
@@ -972,7 +1087,30 @@
             };
             const dateStr = formatGameDate(game);
             addDeedLine('When', dateStr || 'Anytime');
-            addDeedLine('Start City', game.city);
+
+            const cityText = plainText(game.city);
+            if (cityText) {
+              const commaIdx = cityText.indexOf(',');
+              const cityLine1 = commaIdx >= 0 ? cityText.slice(0, commaIdx).trim() : cityText;
+              const cityLine2 = commaIdx >= 0 ? cityText.slice(commaIdx + 1).trim() : '';
+              const row = document.createElement('div');
+              row.className = 'game-card-deed-line game-card-deed-line--city';
+              const label = document.createElement('dt');
+              label.textContent = 'Start City';
+              const valueEl = document.createElement('dd');
+              valueEl.dataset.fitText = 'true';
+              valueEl.dataset.fitMax = '14';
+              valueEl.dataset.fitMin = '9';
+              const line1 = document.createElement('span');
+              line1.className = 'game-card-deed-city-line';
+              line1.textContent = cityLine1;
+              const line2 = document.createElement('span');
+              line2.className = 'game-card-deed-city-line';
+              line2.textContent = cityLine2;
+              valueEl.append(line1, line2);
+              row.append(label, valueEl);
+              deedLines.appendChild(row);
+            }
             if (deedLines.childNodes.length) card.appendChild(deedLines);
 
             const tagline = document.createElement('div');
@@ -1033,7 +1171,14 @@
           colorsByCityMascot = teamColorsResult.lookup;
           allTeams = teamColorsResult.teams;
           liveGames = (Array.isArray(games) ? games : []).filter((game) => !isTrueish(game && game.archived));
+          // Pick the right mode tab BEFORE the first directory render so the
+          // URL's entry exists in heroMetaEntries when we go to apply it.
+          const initParams = new URLSearchParams(window.location.search);
+          if (initParams.get('city')) activeMode = MODE_CITY;
+          else if (initParams.get('fan')) activeMode = MODE_FAN;
           renderDirectory();
+          suppressUrlWrite = true;
+          try { applyUrlSelection(); } finally { suppressUrlWrite = false; }
         } catch (error) {
           console.error(error);
           renderError(error instanceof Error ? error.message : String(error));
@@ -1072,6 +1217,24 @@
       }
 
       window.addEventListener('resize', scheduleSelectedCardTextFit);
+
+      // Back/forward: re-apply the URL's mode + selection without pushing.
+      window.addEventListener('popstate', () => {
+        const params = new URLSearchParams(window.location.search);
+        const wantMode = params.get('city') ? MODE_CITY
+                       : params.get('fan')  ? MODE_FAN
+                       : activeMode;
+        suppressUrlWrite = true;
+        try {
+          if (wantMode !== activeMode) {
+            activeMode = wantMode;
+            renderDirectory();
+          }
+          applyUrlSelection();
+        } finally {
+          suppressUrlWrite = false;
+        }
+      });
 
       load();
     }());

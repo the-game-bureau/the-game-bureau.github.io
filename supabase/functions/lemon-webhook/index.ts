@@ -1,3 +1,6 @@
+// Legacy LemonSqueezy webhook. Live game purchases now use
+// create-gift-checkout + stripe-webhook + redeem-gift-code.
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const WEBHOOK_SECRET = Deno.env.get('LEMON_WEBHOOK_SECRET') ?? '';

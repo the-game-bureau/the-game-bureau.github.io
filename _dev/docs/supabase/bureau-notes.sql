@@ -106,7 +106,7 @@ CREATE POLICY "Admins delete bureau_notes"
 
 -- ── seed: first to-do (idempotent) ───────────────────────────────────────────
 INSERT INTO public.bureau_todos (body)
-SELECT 'Add Gift Cards to Gift Shop'
+SELECT 'Add Game Access to Gift Shop'
 WHERE NOT EXISTS (
-  SELECT 1 FROM public.bureau_todos WHERE body = 'Add Gift Cards to Gift Shop'
+  SELECT 1 FROM public.bureau_todos WHERE body = 'Add Game Access to Gift Shop'
 );

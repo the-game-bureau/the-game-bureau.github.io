@@ -31,19 +31,6 @@
       <div class="nav-utility-links">
         <a class="nav-link nav-link--minor" href="/how/">How It Works</a>
         <a class="nav-link nav-link--minor" href="/ww/">Winner's Wall</a>
-        <div class="nav-admin-menu" id="navAdminMenu">
-          <button class="nav-link nav-link--minor" id="navLoginBtn" type="button" aria-haspopup="menu" aria-expanded="false">Login</button>
-          <div class="nav-admin-menu-panel" id="navAdminMenuPanel" role="menu" hidden>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/index.html">Edit Games</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/builder.html" id="navBuilderLink">Build Games</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/photos.html">Edit Wall</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/giftshop.html">Edit Gifts</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/giftcards.html">Gift Codes</a>
-            <a class="nav-admin-menu-item" role="menuitem" href="/mc/notes.html">Notes</a>
-            <span class="nav-admin-menu-divider" aria-hidden="true"></span>
-            <button class="nav-admin-menu-item" id="navAdminSignOutBtn" type="button" role="menuitem">Sign Out</button>
-          </div>
-        </div>
       </div>
     </nav>
   </header>
@@ -93,9 +80,10 @@
       const SB_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
       const TABLE = 'photo_submissions';
       const DEFAULT_BUCKET = 'game-photo-submissions';
-      // How many photos to show at once. 200 keeps the page responsive even
-      // on slower connections; lift later if/when we add pagination.
-      const LIMIT = 200;
+      // Tiles use the small JPEG thumb stored alongside the original
+      // (see uploadPhotoThumbnail in the engines). Full-res only loads when a
+      // visitor clicks a tile, so this LIMIT is safe to keep generous.
+      const LIMIT = 120;
 
       const grid    = document.getElementById('winnersGrid');
       const statusEl = document.getElementById('winnersStatus');
@@ -111,10 +99,21 @@
 
       // Build the public storage URL. Requires the bucket to be marked public
       // (see supabase/migrations/20260522_winnerswall_public.sql).
-      function publicPhotoUrl(row) {
+      function publicStorageUrl(bucket, path) {
+        const encodedPath = String(path || '').split('/').map(encodeURIComponent).join('/');
+        return SB_URL + '/storage/v1/object/public/' + encodeURIComponent(bucket) + '/' + encodedPath;
+      }
+
+      function fullPhotoUrl(row) {
+        return publicStorageUrl(row.storage_bucket || DEFAULT_BUCKET, row.storage_path);
+      }
+
+      // Tile thumbnail. Falls back to the full image for rows uploaded before
+      // thumb_storage_path was populated (migration 20260528_photo_thumbnails).
+      function thumbPhotoUrl(row) {
         const bucket = row.storage_bucket || DEFAULT_BUCKET;
-        const path   = String(row.storage_path || '').split('/').map(encodeURIComponent).join('/');
-        return SB_URL + '/storage/v1/object/public/' + encodeURIComponent(bucket) + '/' + path;
+        const path = row.thumb_storage_path || row.storage_path;
+        return publicStorageUrl(bucket, path);
       }
 
       function formatDate(value) {
@@ -129,8 +128,7 @@
       function renderTile(row) {
         const tile = document.createElement('a');
         tile.className = 'winners-tile';
-        const photoUrl = publicPhotoUrl(row);
-        tile.href = photoUrl;
+        tile.href = fullPhotoUrl(row);
         tile.target = '_blank';
         tile.rel = 'noopener';
         tile.dataset.adminEdit = 'photo';
@@ -140,7 +138,7 @@
         const img = document.createElement('img');
         img.loading = 'lazy';
         img.decoding = 'async';
-        img.src = photoUrl;
+        img.src = thumbPhotoUrl(row);
         img.alt = row.stop_title ? ('Photo from ' + row.stop_title) : 'Game photo';
         tile.appendChild(img);
 
@@ -166,7 +164,7 @@
       }
 
       async function load() {
-        const select = 'id,created_at,game_id,storage_bucket,storage_path,stop_title';
+        const select = 'id,created_at,game_id,storage_bucket,storage_path,thumb_storage_path,stop_title';
         const url = SB_URL + '/rest/v1/' + TABLE
           + '?status=eq.approved'
           + '&order=created_at.desc'
@@ -175,8 +173,7 @@
 
         try {
           const resp = await fetch(url, {
-            headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, Accept: 'application/json' },
-            cache: 'no-store'
+            headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, Accept: 'application/json' }
           });
           if (!resp.ok) {
             const text = await resp.text();
