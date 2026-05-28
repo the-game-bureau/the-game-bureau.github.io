@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f3eee6">
   <meta name="description" content="Browser-based scavenger hunts written against real city streets. Each clue points to a real corner, storefront, or oddity. No app, no install, no account.">
-  <title>The Game Bureau — Games Made from City Streets</title>
+  <title>The Game Bureau — Turn Your Next Trip Into a Game</title>
   <base target="_top">
   <link rel="icon" href="/assets/brand/tgb.ico" type="image/x-icon">
   <link rel="canonical" href="https://thegamebureau.com/games/">
@@ -14,14 +14,14 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="The Game Bureau">
   <meta property="og:url" content="https://thegamebureau.com/games/">
-  <meta property="og:title" content="The Game Bureau — Games Made from City Streets">
+  <meta property="og:title" content="The Game Bureau — Turn Your Next Trip Into a Game">
   <meta property="og:description" content="Browser-based scavenger hunts written against real city streets. Each clue points to a real corner, storefront, or oddity. No app, no install, no account.">
   <meta property="og:image" content="https://thegamebureau.com/assets/brand/share-thumbnail.png">
-  <meta property="og:image:alt" content="The Game Bureau — Games Made from City Streets">
+  <meta property="og:image:alt" content="The Game Bureau — Turn Your Next Trip Into a Game">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@thegamebureau">
   <meta name="twitter:creator" content="@thegamebureau">
-  <meta name="twitter:title" content="The Game Bureau — Games Made from City Streets">
+  <meta name="twitter:title" content="The Game Bureau — Turn Your Next Trip Into a Game">
   <meta name="twitter:description" content="Browser-based scavenger hunts written against real city streets. Each clue points to a real corner, storefront, or oddity. No app, no install, no account.">
   <meta name="twitter:image" content="https://thegamebureau.com/assets/brand/share-thumbnail.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -44,12 +44,14 @@
     </div>
     <nav class="nav-links" aria-label="Primary">
       <div class="nav-primary-links" aria-label="Featured">
-        <a class="nav-link nav-link--major nav-link--games" href="/games/" aria-current="page">GAMES</a>
+        <div class="nav-dropdown" id="navGamesDropdown">
+          <button class="nav-link nav-link--major nav-link--games" id="navGamesBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="navGamesMenu">GAMES</button>
+          <div class="nav-dropdown-menu" id="navGamesMenu" role="menu" aria-labelledby="navGamesBtn" hidden>
+            <a class="nav-dropdown-item" href="/games/?mode=fan" role="menuitem" data-mode="fan">Who Do You Cheer For?</a>
+            <a class="nav-dropdown-item" href="/games/?mode=city" role="menuitem" data-mode="city">Where Are You Headed?</a>
+          </div>
+        </div>
         <a class="nav-link nav-link--major nav-link--gifts" href="/gifts/">GIFTS</a>
-      </div>
-      <div class="nav-utility-links">
-        <a class="nav-link nav-link--minor" href="/how/">How It Works</a>
-        <a class="nav-link nav-link--minor" href="/ww/">Winner's Wall</a>
       </div>
     </nav>
   </header>
@@ -58,27 +60,18 @@
       <section class="hero" aria-label="The Game Bureau overview">
         <div class="hero-grid">
           <div class="hero-story">
-            <p class="hero-kicker"><span id="heroKickerGameCount">0</span> GAMES IN <span id="heroKickerCityCount">0</span> CITIES</p>
-            <h1 class="hero-headline">Games Made from City Streets</h1>
-            <p class="hero-copy">Scavenger-hunt and escape-room style games written for the city you're visiting. One phone, no app, no install.</p>
+            <div class="hero-kicker" aria-label="Game count and city view">
+              <p class="hero-kicker-count"><span id="heroKickerGameCount">0</span> GAMES IN <span id="heroKickerCityCount">0</span> CITIES</p>
+              <a class="hero-kicker-link" id="heroKickerModeLink" href="/games/?mode=city">VIEW GAMES BY CITY</a>
+            </div>
+            <h1 class="hero-headline">Turn Your Next Trip Into a Game</h1>
+            <p class="hero-copy">Part scavenger hunt, part escape room. The city you're visiting is now a game. Written by locals... human locals.</p>
           </div>
 
           <aside class="hero-meta" aria-label="Find games">
             <div class="hero-meta-header">
-              <p class="hero-meta-eyebrow">Live directory</p>
-              <h2 class="hero-meta-heading">Find a game for your trip</h2>
+              <h2 class="hero-meta-heading" id="heroMetaPrompt" aria-live="polite">WHO DO YOU CHEER FOR?</h2>
             </div>
-            <div class="hero-meta-toggle" role="tablist" aria-label="Find games by">
-              <button class="hero-meta-toggle-btn" type="button" data-mode="fan" role="tab" aria-selected="true" aria-controls="heroMetaList">
-                <span class="hero-meta-tab-kicker">Find by</span>
-                <span class="hero-meta-tab-title">Team</span>
-              </button>
-              <button class="hero-meta-toggle-btn" type="button" data-mode="city" role="tab" aria-selected="false" aria-controls="heroMetaList">
-                <span class="hero-meta-tab-kicker">Find by</span>
-                <span class="hero-meta-tab-title">City</span>
-              </button>
-            </div>
-            <p class="hero-meta-prompt" id="heroMetaPrompt" aria-live="polite"></p>
             <div class="hero-meta-list-wrap">
               <div class="hero-meta-list" id="heroMetaList" aria-live="polite"></div>
             </div>
@@ -136,10 +129,11 @@
 
       const MODE_CITY = 'city';
       const MODE_FAN = 'fan';
-      const PROMPT_FAN = 'Pick your team to see games for visiting fans.';
-      const PROMPT_CITY = 'Pick a city to see games you can play there.';
+      const PROMPT_FAN = 'WHO DO YOU CHEER FOR?';
+      const PROMPT_CITY = 'WHERE ARE YOU HEADED?';
       const heroMetaListEl = document.getElementById('heroMetaList');
       const heroMetaPromptEl = document.getElementById('heroMetaPrompt');
+      const heroKickerModeLinkEl = document.getElementById('heroKickerModeLink');
 
       const COLORS_JSON_URL = '/assets/teams/teams.json';
       // Supabase is the source of truth for team data; the JSON above is a
@@ -205,6 +199,28 @@
         return parts[0] || label || '';
       }
 
+      function svgPathCenter(pathData, fallbackX, fallbackY) {
+        const numbers = String(pathData || '').match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi);
+        if (!numbers || numbers.length < 2) return { x: fallbackX, y: fallbackY };
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        for (let i = 0; i < numbers.length - 1; i += 2) {
+          const x = Number(numbers[i]);
+          const y = Number(numbers[i + 1]);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+        if (![minX, minY, maxX, maxY].every(Number.isFinite)) {
+          return { x: fallbackX, y: fallbackY };
+        }
+        return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+      }
+
       // Builds the visual element for a geo badge. For US states we have
       // baked-in SVG outlines (us-state-shapes.js) — render the silhouette
       // with the 2-letter abbreviation overlaid. Countries (and any state we
@@ -222,11 +238,16 @@
           const path = document.createElementNS(NS, 'path');
           path.setAttribute('d', shapes[badge.value]);
           svg.appendChild(path);
+          const fallbackX = (shapes._w || 40) / 2;
+          const fallbackY = (shapes._h || 24) / 2;
+          const labelPoint = svgPathCenter(shapes[badge.value], fallbackX, fallbackY);
           const text = document.createElementNS(NS, 'text');
-          text.setAttribute('x', String((shapes._w || 40) / 2));
-          text.setAttribute('y', String((shapes._h || 24) / 2));
+          text.setAttribute('x', String(labelPoint.x));
+          text.setAttribute('y', String(labelPoint.y));
           text.setAttribute('text-anchor', 'middle');
-          text.setAttribute('dominant-baseline', 'central');
+          text.setAttribute('dominant-baseline', 'middle');
+          text.setAttribute('alignment-baseline', 'middle');
+          text.setAttribute('dy', '0.04em');
           text.textContent = badge.value;
           svg.appendChild(text);
           return svg;
@@ -234,7 +255,14 @@
         const span = document.createElement('span');
         if (badge) {
           span.className = cls('hero-meta-list-geo--' + badge.kind);
-          span.textContent = badge.value;
+          if (badge.kind === 'country') {
+            const label = document.createElement('span');
+            label.className = 'hero-meta-list-geo-label';
+            label.textContent = badge.value;
+            span.appendChild(label);
+          } else {
+            span.textContent = badge.value;
+          }
           span.setAttribute('aria-hidden', 'true');
         } else {
           span.className = cls('');
@@ -455,6 +483,14 @@
         if (heroMetaPromptEl) {
           heroMetaPromptEl.textContent = activeMode === MODE_FAN ? PROMPT_FAN : PROMPT_CITY;
         }
+        if (heroKickerModeLinkEl) {
+          const nextMode = activeMode === MODE_FAN ? MODE_CITY : MODE_FAN;
+          const nextText = activeMode === MODE_FAN ? 'VIEW GAMES BY CITY' : 'VIEW GAMES BY FANDOM';
+          heroKickerModeLinkEl.textContent = nextText;
+          heroKickerModeLinkEl.href = modeHref(nextMode);
+          heroKickerModeLinkEl.dataset.mode = nextMode;
+          heroKickerModeLinkEl.setAttribute('aria-label', nextText);
+        }
       }
 
       function buildCityEntries() {
@@ -561,6 +597,31 @@
       // URL state: ?city= / ?fan= mirror the current selection so views are
       // bookmarkable, shareable, and survive back/forward navigation.
       let suppressUrlWrite = false;
+
+      function modeHref(mode) {
+        return '/games/?mode=' + (mode === MODE_FAN ? MODE_FAN : MODE_CITY);
+      }
+
+      function pushModeState(mode) {
+        const nextMode = mode === MODE_FAN ? MODE_FAN : MODE_CITY;
+        const next = new URL(window.location.href);
+        next.search = '';
+        next.searchParams.set('mode', nextMode);
+        if (next.href === window.location.href) return;
+        history.pushState({ mode: nextMode }, '', next.pathname + next.search);
+      }
+
+      function setModeFromControl(mode) {
+        const nextMode = mode === MODE_FAN ? MODE_FAN : MODE_CITY;
+        suppressUrlWrite = true;
+        try {
+          setMode(nextMode);
+        } finally {
+          suppressUrlWrite = false;
+        }
+        pushModeState(nextMode);
+      }
+
       function writeUrlState() {
         if (suppressUrlWrite) return;
         const next = new URL(window.location.href);
@@ -612,6 +673,15 @@
 
         if (entry.expectsHelmet) {
           const palette = entry.helmet || NO_HELMET_PALETTE;
+          // Tint the row using the team's primary (and secondary) so each
+          // team has its own visual identity in the scrolling directory.
+          if (entry.helmet && entry.helmet.primary_color) {
+            item.dataset.teamTint = '';
+            item.style.setProperty('--team-primary', entry.helmet.primary_color);
+            if (entry.helmet.secondary_color) {
+              item.style.setProperty('--team-secondary', entry.helmet.secondary_color);
+            }
+          }
           const src = teamMarkSVG(
             palette.sport,
             palette.primary_color,
@@ -637,13 +707,10 @@
 
         const labelWrap = document.createElement('span');
         labelWrap.className = 'hero-meta-list-copy';
-        const eyebrow = document.createElement('span');
-        eyebrow.className = 'hero-meta-list-eyebrow';
-        eyebrow.textContent = entry.entryKind === 'city' ? 'Destination' : 'Traveling fans';
         const label = document.createElement('span');
         label.className = 'hero-meta-list-name';
         label.textContent = entry.entryKind === 'city' ? cityDisplayName(entry.label) : entry.label;
-        labelWrap.append(eyebrow, label);
+        labelWrap.append(label);
         const count = document.createElement('span');
         count.className = 'hero-meta-list-count';
         count.textContent = getGameCountLabel(entry.count);
@@ -1219,11 +1286,31 @@
         return 2 * R * Math.asin(Math.sqrt(a));
       }
 
+      // Earliest upcoming game timestamp for a fan entry (Infinity if none).
+      // Used to tie-break the nearest-team pick when multiple teams share a
+      // fanbase city (e.g. Saints + Pelicans both in New Orleans → both at
+      // identical distance from a New Orleans visitor).
+      function soonestUpcomingGameTs(entry) {
+        const games = gamesForEntry(entry);
+        const cutoff = Date.now() - 86400000;
+        let soonest = Infinity;
+        for (const game of games) {
+          const dateStr = String((game && game.game_date) || '').trim();
+          const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (!match) continue;
+          const ts = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+          if (ts < cutoff) continue;
+          if (ts < soonest) soonest = ts;
+        }
+        return soonest;
+      }
+
       function findNearestFanEntry(userLat, userLng) {
         const coords = window.TGB_TEAM_CITY_COORDS || {};
         const entries = buildFanEntries();
         let best = null;
         let bestDist = Infinity;
+        let bestSoonest = Infinity;
         for (const entry of entries) {
           const fanbase = (entry.helmet && entry.helmet.fanbase) || entry.label || '';
           const cityCoords = coords[teamKey(fanbase)];
@@ -1231,7 +1318,14 @@
           const dist = haversineKm(userLat, userLng, cityCoords[0], cityCoords[1]);
           if (dist < bestDist) {
             bestDist = dist;
+            bestSoonest = soonestUpcomingGameTs(entry);
             best = entry;
+          } else if (dist === bestDist) {
+            const soonest = soonestUpcomingGameTs(entry);
+            if (soonest < bestSoonest) {
+              bestSoonest = soonest;
+              best = entry;
+            }
           }
         }
         return best;
@@ -1296,21 +1390,101 @@
           // Pick the right mode tab BEFORE the first directory render so the
           // URL's entry exists in heroMetaEntries when we go to apply it.
           const initParams = new URLSearchParams(window.location.search);
+          const hasExplicitDirectoryMode = initParams.has('city')
+            || initParams.has('fan')
+            || initParams.get('mode') === MODE_CITY
+            || initParams.get('mode') === MODE_FAN;
           if (initParams.get('city')) activeMode = MODE_CITY;
           else if (initParams.get('fan')) activeMode = MODE_FAN;
+          else if (initParams.get('mode') === 'city') activeMode = MODE_CITY;
+          else if (initParams.get('mode') === 'fan') activeMode = MODE_FAN;
           renderDirectory();
           suppressUrlWrite = true;
           try { applyUrlSelection(); } finally { suppressUrlWrite = false; }
-          tryGeolocateAndSelectNearestFan();
+          if (!hasExplicitDirectoryMode) tryGeolocateAndSelectNearestFan();
         } catch (error) {
           console.error(error);
           renderError(error instanceof Error ? error.message : String(error));
         }
       }
 
+      // ── GAMES dropdown ─────────────────────────────────────────────────
+      // Hover (or click, for touch) opens the menu. Mouseleave schedules a
+      // brief close so the cursor can traverse the 8px gap between button
+      // and menu without it slamming shut. Click outside or Escape closes.
+      // Clicking an item on the current page intercepts and switches mode
+      // in-place (with pushState) instead of doing a full reload.
+      (function () {
+        const dropdown = document.getElementById('navGamesDropdown');
+        const btn = document.getElementById('navGamesBtn');
+        const menu = document.getElementById('navGamesMenu');
+        if (!dropdown || !btn || !menu) return;
+
+        let closeTimer = null;
+        const setOpen = (open) => {
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+          menu.hidden = !open;
+        };
+        const openMenu = () => {
+          if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+          setOpen(true);
+        };
+        const scheduleClose = () => {
+          if (closeTimer) clearTimeout(closeTimer);
+          closeTimer = setTimeout(() => { closeTimer = null; setOpen(false); }, 220);
+        };
+        const closeNow = () => {
+          if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+          setOpen(false);
+        };
+
+        dropdown.addEventListener('mouseenter', openMenu);
+        dropdown.addEventListener('mouseleave', scheduleClose);
+        menu.addEventListener('mouseenter', openMenu);
+        menu.addEventListener('mouseleave', scheduleClose);
+
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (btn.getAttribute('aria-expanded') === 'true') closeNow();
+          else openMenu();
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!dropdown.contains(e.target)) closeNow();
+        });
+
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && btn.getAttribute('aria-expanded') === 'true') {
+            closeNow();
+            btn.focus();
+          }
+        });
+
+        menu.querySelectorAll('.nav-dropdown-item').forEach((item) => {
+          item.addEventListener('click', (e) => {
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            const target = new URL(item.href, window.location.href);
+            if (target.pathname !== window.location.pathname) return;
+            const wantMode = item.dataset.mode === 'fan' ? MODE_FAN : MODE_CITY;
+            e.preventDefault();
+            closeNow();
+            setModeFromControl(wantMode);
+          });
+        });
+      }());
+
+      if (heroKickerModeLinkEl) {
+        heroKickerModeLinkEl.addEventListener('click', (event) => {
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          const nextMode = heroKickerModeLinkEl.dataset.mode === MODE_FAN ? MODE_FAN : MODE_CITY;
+          setModeFromControl(nextMode);
+        });
+      }
+
       document.querySelectorAll('.hero-meta-toggle-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
-          setMode(btn.dataset.mode === 'fan' ? MODE_FAN : MODE_CITY);
+          setModeFromControl(btn.dataset.mode === 'fan' ? MODE_FAN : MODE_CITY);
         });
         btn.addEventListener('keydown', (event) => {
           const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
@@ -1322,7 +1496,7 @@
           if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
             nextMode = activeMode === MODE_FAN ? MODE_CITY : MODE_FAN;
           }
-          setMode(nextMode);
+          setModeFromControl(nextMode);
           const nextBtn = document.querySelector(`.hero-meta-toggle-btn[data-mode="${nextMode}"]`);
           if (nextBtn) nextBtn.focus();
         });
@@ -1343,8 +1517,11 @@
       // Back/forward: re-apply the URL's mode + selection without pushing.
       window.addEventListener('popstate', () => {
         const params = new URLSearchParams(window.location.search);
+        const modeParam = params.get('mode');
         const wantMode = params.get('city') ? MODE_CITY
                        : params.get('fan')  ? MODE_FAN
+                       : modeParam === MODE_CITY ? MODE_CITY
+                       : modeParam === MODE_FAN ? MODE_FAN
                        : activeMode;
         suppressUrlWrite = true;
         try {
