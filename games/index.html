@@ -54,18 +54,39 @@
         <a class="nav-link nav-link--major nav-link--gifts" href="/gifts/">GIFTS</a>
       </div>
     </nav>
+    <div class="nav-stats" aria-label="Game count">
+      <div class="nav-stats-stat">
+        <span class="nav-stats-num" id="heroKickerGameCount">0</span>
+        <span class="nav-stats-label">games</span>
+      </div>
+      <div class="nav-stats-stat">
+        <span class="nav-stats-num" id="heroKickerCityCount">0</span>
+        <span class="nav-stats-label">cities</span>
+      </div>
+    </div>
   </header>
 
     <main>
       <section class="hero" aria-label="The Game Bureau overview">
         <div class="hero-grid">
           <div class="hero-story">
-            <div class="hero-kicker" aria-label="Game count and city view">
-              <p class="hero-kicker-count"><span id="heroKickerGameCount">0</span> GAMES IN <span id="heroKickerCityCount">0</span> CITIES</p>
-              <a class="hero-kicker-link" id="heroKickerModeLink" href="/games/?mode=city">VIEW GAMES BY CITY</a>
+            <div class="hero-mode-switch" id="heroModeSwitch" data-mode="fan" role="tablist" aria-label="Browse games by">
+              <span class="hero-mode-label" aria-hidden="true">
+                <span class="hero-mode-label-dash"></span>
+                VIEW GAMES
+              </span>
+              <div class="hero-mode-track">
+                <span class="hero-mode-marker" aria-hidden="true"></span>
+                <button class="hero-mode-tab" type="button" role="tab" data-mode="fan" aria-selected="true" tabindex="0">
+                  <span class="hero-mode-tab-text">BY FANDOM</span>
+                </button>
+                <button class="hero-mode-tab" type="button" role="tab" data-mode="city" aria-selected="false" tabindex="-1">
+                  <span class="hero-mode-tab-text">BY CITY</span>
+                </button>
+              </div>
             </div>
             <h1 class="hero-headline">Turn Your Next Trip Into a Game</h1>
-            <p class="hero-copy">Part scavenger hunt, part escape room. The city you're visiting is now a game. Written by locals... human locals.</p>
+            <p class="hero-copy">Part scavenger hunt, part escape room. The city you're visiting is now the gameboard. Written by locals... human locals.</p>
           </div>
 
           <aside class="hero-meta" aria-label="Find games">
@@ -133,7 +154,6 @@
       const PROMPT_CITY = 'WHERE ARE YOU HEADED?';
       const heroMetaListEl = document.getElementById('heroMetaList');
       const heroMetaPromptEl = document.getElementById('heroMetaPrompt');
-      const heroKickerModeLinkEl = document.getElementById('heroKickerModeLink');
 
       const COLORS_JSON_URL = '/assets/teams/teams.json';
       // Supabase is the source of truth for team data; the JSON above is a
@@ -474,22 +494,16 @@
       }
 
       function updateHeroButtons() {
-        document.querySelectorAll('.hero-meta-toggle-btn').forEach((btn) => {
+        document.querySelectorAll('.hero-mode-tab').forEach((btn) => {
           const isFan = btn.dataset.mode === 'fan';
           const selected = (isFan && activeMode === MODE_FAN) || (!isFan && activeMode === MODE_CITY);
           btn.setAttribute('aria-selected', String(selected));
           btn.setAttribute('tabindex', selected ? '0' : '-1');
         });
+        const switchEl = document.getElementById('heroModeSwitch');
+        if (switchEl) switchEl.dataset.mode = activeMode === MODE_FAN ? 'fan' : 'city';
         if (heroMetaPromptEl) {
           heroMetaPromptEl.textContent = activeMode === MODE_FAN ? PROMPT_FAN : PROMPT_CITY;
-        }
-        if (heroKickerModeLinkEl) {
-          const nextMode = activeMode === MODE_FAN ? MODE_CITY : MODE_FAN;
-          const nextText = activeMode === MODE_FAN ? 'VIEW GAMES BY CITY' : 'VIEW GAMES BY FANDOM';
-          heroKickerModeLinkEl.textContent = nextText;
-          heroKickerModeLinkEl.href = modeHref(nextMode);
-          heroKickerModeLinkEl.dataset.mode = nextMode;
-          heroKickerModeLinkEl.setAttribute('aria-label', nextText);
         }
       }
 
@@ -548,16 +562,90 @@
           .sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }));
       }
 
+      // Nav-stats ticker — starts at 0 and counts up open-ended on page
+      // load, then eases into the real totals once games/teams have loaded.
+      // If the open-ended count happens to exceed the actual total (rare —
+      // e.g. only a handful of cities and a slow connection), it clamps to
+      // the target rather than counting backwards.
+      const statsTicker = (function () {
+        const gameEl = document.getElementById('heroKickerGameCount');
+        const cityEl = document.getElementById('heroKickerCityCount');
+        const GAME_TICK_MS = 50;
+        const CITY_TICK_MS = 150;
+        const EASE_DURATION = 1400;
+        let gameDisplayed = 0;
+        let cityDisplayed = 0;
+        let gameTarget = null;
+        let cityTarget = null;
+        let lastGameTick = 0;
+        let lastCityTick = 0;
+        let easing = false;
+        let easeStart = 0;
+        let easeGameFrom = 0;
+        let easeCityFrom = 0;
+        let raf = null;
+
+        function render() {
+          if (gameEl) gameEl.textContent = String(gameDisplayed);
+          if (cityEl) cityEl.textContent = String(cityDisplayed);
+        }
+
+        function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+        function tick(ts) {
+          if (easing) {
+            const t = Math.min(1, (ts - easeStart) / EASE_DURATION);
+            const e = easeOutCubic(t);
+            gameDisplayed = Math.round(easeGameFrom + (gameTarget - easeGameFrom) * e);
+            cityDisplayed = Math.round(easeCityFrom + (cityTarget - easeCityFrom) * e);
+            render();
+            if (t >= 1) {
+              easing = false;
+              raf = null;
+              return;
+            }
+          } else {
+            if (!lastGameTick) lastGameTick = ts;
+            if (!lastCityTick) lastCityTick = ts;
+            if (ts - lastGameTick >= GAME_TICK_MS) {
+              gameDisplayed += 1;
+              lastGameTick = ts;
+            }
+            if (ts - lastCityTick >= CITY_TICK_MS) {
+              cityDisplayed += 1;
+              lastCityTick = ts;
+            }
+            render();
+          }
+          raf = requestAnimationFrame(tick);
+        }
+
+        function start() {
+          if (raf || easing) return;
+          raf = requestAnimationFrame(tick);
+        }
+
+        function setTarget(games, cities) {
+          if (gameTarget === games && cityTarget === cities) return;
+          gameTarget = games;
+          cityTarget = cities;
+          if (gameDisplayed > games) gameDisplayed = games;
+          if (cityDisplayed > cities) cityDisplayed = cities;
+          easeGameFrom = gameDisplayed;
+          easeCityFrom = cityDisplayed;
+          easeStart = performance.now();
+          easing = true;
+          if (!raf) raf = requestAnimationFrame(tick);
+        }
+
+        return { start, setTarget };
+      }());
+      statsTicker.start();
+
       function renderDirectory() {
         updateHeroButtons();
-
         const cityCount = new Set(liveGames.map(getCity).filter(Boolean)).size;
-
-        const heroKickerGameCountEl = document.getElementById('heroKickerGameCount');
-        const heroKickerCityCountEl = document.getElementById('heroKickerCityCount');
-        if (heroKickerGameCountEl) heroKickerGameCountEl.textContent = String(liveGames.length);
-        if (heroKickerCityCountEl) heroKickerCityCountEl.textContent = String(cityCount);
-
+        statsTicker.setTarget(liveGames.length, cityCount);
         renderHeroMetaList();
       }
 
@@ -1473,16 +1561,7 @@
         });
       }());
 
-      if (heroKickerModeLinkEl) {
-        heroKickerModeLinkEl.addEventListener('click', (event) => {
-          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-          event.preventDefault();
-          const nextMode = heroKickerModeLinkEl.dataset.mode === MODE_FAN ? MODE_FAN : MODE_CITY;
-          setModeFromControl(nextMode);
-        });
-      }
-
-      document.querySelectorAll('.hero-meta-toggle-btn').forEach((btn) => {
+      document.querySelectorAll('.hero-mode-tab').forEach((btn) => {
         btn.addEventListener('click', () => {
           setModeFromControl(btn.dataset.mode === 'fan' ? MODE_FAN : MODE_CITY);
         });
@@ -1497,10 +1576,51 @@
             nextMode = activeMode === MODE_FAN ? MODE_CITY : MODE_FAN;
           }
           setModeFromControl(nextMode);
-          const nextBtn = document.querySelector(`.hero-meta-toggle-btn[data-mode="${nextMode}"]`);
+          const nextBtn = document.querySelector(`.hero-mode-tab[data-mode="${nextMode}"]`);
           if (nextBtn) nextBtn.focus();
         });
       });
+
+      (function () {
+        const trackEl = document.querySelector('.hero-mode-track');
+        if (!trackEl || typeof window.PointerEvent === 'undefined') return;
+        const SWIPE_THRESHOLD = 28;
+        let startX = 0;
+        let startY = 0;
+        let pointerId = null;
+        let tracking = false;
+        let horizontal = false;
+        trackEl.addEventListener('pointerdown', (event) => {
+          if (event.pointerType === 'mouse') return;
+          pointerId = event.pointerId;
+          startX = event.clientX;
+          startY = event.clientY;
+          tracking = true;
+          horizontal = false;
+        });
+        trackEl.addEventListener('pointermove', (event) => {
+          if (!tracking || event.pointerId !== pointerId) return;
+          const dx = event.clientX - startX;
+          const dy = event.clientY - startY;
+          if (!horizontal && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+            horizontal = true;
+            try { trackEl.setPointerCapture(pointerId); } catch (e) {}
+          }
+          if (horizontal) event.preventDefault();
+        }, { passive: false });
+        const finish = (event) => {
+          if (!tracking || (event && event.pointerId !== pointerId)) return;
+          const dx = event ? event.clientX - startX : 0;
+          tracking = false;
+          if (horizontal && Math.abs(dx) >= SWIPE_THRESHOLD) {
+            setModeFromControl(dx < 0 ? MODE_CITY : MODE_FAN);
+          }
+          horizontal = false;
+          pointerId = null;
+        };
+        trackEl.addEventListener('pointerup', finish);
+        trackEl.addEventListener('pointercancel', finish);
+      }());
 
       if (heroMetaListEl) {
         heroMetaListEl.addEventListener('click', (e) => {
