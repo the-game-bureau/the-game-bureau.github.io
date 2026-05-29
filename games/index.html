@@ -26,7 +26,7 @@
   <meta name="twitter:image" content="https://thegamebureau.com/assets/brand/share-thumbnail.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400..900&family=IBM+Plex+Mono:wght@500;600&family=JetBrains+Mono:wght@400..800&display=swap" rel="stylesheet">
   <!-- Runtime assets: sport marks, team lookup data, and shared shell styles. -->
   <script src="/assets/games/helmets/helmet.js"></script>
   <script src="/assets/games/helmets/basketball.js"></script>
@@ -38,24 +38,8 @@
 </head>
 <body class="home-page" data-admin-page="mission-control">
   <div class="page-shell">
-    <!-- Site navigation -->
-    <header class="site-nav">
-      <div class="brand-lockup">
-        <span class="brand-name">The Game Bureau</span>
-        <p class="brand-tagline">The cure for the common walking tour</p>
-      </div>
-      <nav class="nav-links" aria-label="Primary">
-        <div class="nav-primary-links" aria-label="Featured">
-          <div class="nav-dropdown" id="navGamesDropdown">
-            <button class="nav-link nav-link--major nav-link--games" id="navGamesBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="navGamesMenu">GAMES</button>
-            <div class="nav-dropdown-menu" id="navGamesMenu" role="menu" aria-labelledby="navGamesBtn" hidden>
-              <a class="nav-dropdown-item" href="/games/?mode=fan" role="menuitem" data-mode="fan">Who Do You Cheer For?</a>
-              <a class="nav-dropdown-item" href="/games/?mode=city" role="menuitem" data-mode="city">Where Are You Headed?</a>
-            </div>
-          </div>
-          <a class="nav-link nav-link--major nav-link--gifts" href="/gifts/">GIFTS</a>
-        </div>
-      </nav>
+    <!-- Site navigation (shared via /assets/site-nav.js) -->
+    <header class="site-nav" data-site-nav>
       <div class="nav-stats" aria-label="Game count">
         <div class="nav-stats-stat">
           <span class="nav-stats-num" id="heroKickerGameCount">0</span>
@@ -67,6 +51,7 @@
         </div>
       </div>
     </header>
+    <script src="/assets/site-nav.js"></script>
 
     <main>
       <!-- Hero and game finder -->
@@ -1562,69 +1547,19 @@
       // Event wiring
       // ---------------------------------------------------------------------------
       // GAMES dropdown.
-      // Hover (or click, for touch) opens the menu. Mouseleave schedules a
-      // brief close so the cursor can traverse the 8px gap between button
-      // and menu without it slamming shut. Click outside or Escape closes.
-      // Clicking an item on the current page intercepts and switches mode
-      // in-place (with pushState) instead of doing a full reload.
-      (function () {
-        const dropdown = document.getElementById('navGamesDropdown');
-        const btn = document.getElementById('navGamesBtn');
-        const menu = document.getElementById('navGamesMenu');
-        if (!dropdown || !btn || !menu) return;
-
-        let closeTimer = null;
-        const setOpen = (open) => {
-          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-          menu.hidden = !open;
-        };
-        const openMenu = () => {
-          if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
-          setOpen(true);
-        };
-        const scheduleClose = () => {
-          if (closeTimer) clearTimeout(closeTimer);
-          closeTimer = setTimeout(() => { closeTimer = null; setOpen(false); }, 220);
-        };
-        const closeNow = () => {
-          if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
-          setOpen(false);
-        };
-
-        dropdown.addEventListener('mouseenter', openMenu);
-        dropdown.addEventListener('mouseleave', scheduleClose);
-        menu.addEventListener('mouseenter', openMenu);
-        menu.addEventListener('mouseleave', scheduleClose);
-
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (btn.getAttribute('aria-expanded') === 'true') closeNow();
-          else openMenu();
+      // Dropdown open/close/escape lives in /assets/site-nav.js. Here we
+      // only register the games-page-specific handler that intercepts
+      // clicks on a same-page dropdown link and swaps mode in-place
+      // (returning false tells site-nav.js to preventDefault + close).
+      if (window.TgbNav && typeof window.TgbNav.onDropdownItemClick === 'function') {
+        window.TgbNav.onDropdownItemClick(function (item) {
+          var target = new URL(item.href, window.location.href);
+          if (target.pathname !== window.location.pathname) return;
+          var wantMode = item.dataset.mode === 'fan' ? MODE_FAN : MODE_CITY;
+          setModeFromControl(wantMode);
+          return false;
         });
-
-        document.addEventListener('click', (e) => {
-          if (!dropdown.contains(e.target)) closeNow();
-        });
-
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape' && btn.getAttribute('aria-expanded') === 'true') {
-            closeNow();
-            btn.focus();
-          }
-        });
-
-        menu.querySelectorAll('.nav-dropdown-item').forEach((item) => {
-          item.addEventListener('click', (e) => {
-            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-            const target = new URL(item.href, window.location.href);
-            if (target.pathname !== window.location.pathname) return;
-            const wantMode = item.dataset.mode === 'fan' ? MODE_FAN : MODE_CITY;
-            e.preventDefault();
-            closeNow();
-            setModeFromControl(wantMode);
-          });
-        });
-      }());
+      }
 
       document.querySelectorAll('.hero-mode-tab').forEach((btn) => {
         btn.addEventListener('click', () => {
