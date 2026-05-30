@@ -1,15 +1,15 @@
-// gift-buy-modal — shared "Buy this game" / "Send access code" modal.
+// gs-buy-modal — shared "Buy this game" / "Send access code" modal.
 //
 // Flow (unified for /game/run/ landing card and /gifts/ shop):
 //   1. intro   — confirms the game + price, "Continue to payment" CTA
 //   2. checkout— Stripe Embedded Checkout
 //   3. success — shows the issued TGB-XXXX-XXXX access code with two actions:
-//                  [ Play now ]      → calls redeem-gift-code, marks
+//                  [ Play now ]      → calls gs-redeem-code, marks
 //                                       this device as unlocked, closes;
 //                                       outside an engine, routes to the
 //                                       game with the code ready to apply
 //                  [ Send to someone ] → reveals recipient form,
-//                                         posts to send-gift-code,
+//                                         posts to gs-send-code,
 //                                         emails the access code via Resend.
 //
 // Public API:
@@ -18,7 +18,7 @@
 //   window.TgbGift.open()  /  window.TgbGift.close()
 //
 // On page load, if URL has ?gift_session=cs_..., we auto-open the
-// success step and poll lookup-gift-code until the webhook fires
+// success step and poll gs-lookup-code until the webhook fires
 // (handles the post-Stripe-redirect return URL).
 (function (global) {
   'use strict';
@@ -28,11 +28,11 @@
   var STRIPE_PUBLISHABLE_KEY = 'pk_test_51MF10bBFJf3v75ByzCOFJB7TL7MxnJ8I2ATlm3zszzjek7ki62BrhJ5TI0ZzTLBMk8ixoNUdsoG9pOjM8S1zR8wv00zYSpHYvw';
   var SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
   var EDGE_BASE = SUPABASE_URL.replace('.supabase.co', '.functions.supabase.co');
-  var CREATE_URL = EDGE_BASE + '/create-gift-checkout';
-  var LOOKUP_URL = EDGE_BASE + '/lookup-gift-code';
-  var REDEEM_URL = EDGE_BASE + '/redeem-gift-code';
-  var SEND_URL   = EDGE_BASE + '/send-gift-code';
-  var SWAP_URL   = EDGE_BASE + '/swap-gift-game';
+  var CREATE_URL = EDGE_BASE + '/gs-create-checkout';
+  var LOOKUP_URL = EDGE_BASE + '/gs-lookup-code';
+  var REDEEM_URL = EDGE_BASE + '/gs-redeem-code';
+  var SEND_URL   = EDGE_BASE + '/gs-send-code';
+  var SWAP_URL   = EDGE_BASE + '/gs-swap-game';
 
   // Matches the ticket-lightbox / directions-lightbox aesthetic: black
   // backdrop, primary-colored top bar, white body. CSS vars fall back
@@ -198,7 +198,7 @@
     loadingStripe: null,
     root: null,
     injected: false,
-    sessionId: '',     // set when create-gift-checkout returns, or pulled from ?gift_session=
+    sessionId: '',     // set when gs-create-checkout returns, or pulled from ?gift_session=
     code: '',          // set when checkout or lookup produces an access code
     redeemed: false    // local-only flag: this browser already used Play Now
   };
@@ -631,7 +631,7 @@
       clientSecret: clientSecret,
       // Fired when Stripe confirms payment. We stay in-modal and
       // transition to the success step. The access code was already issued by
-      // create-gift-checkout (state.code), so we show it instantly —
+      // gs-create-checkout (state.code), so we show it instantly —
       // no polling required. The webhook in parallel transitions the
       // row to paid; Play now / Send-to-someone briefly retry if they
       // race ahead of the webhook.
@@ -775,7 +775,7 @@
     close();
   }
 
-  // ── Action: Send to someone (reveal form, post send-gift-code) ──────
+  // ── Action: Send to someone (reveal form, post gs-send-code) ──────
   function openSendForm() {
     var form = $('tgbGiftSendForm');
     if (form) form.classList.add('is-open');

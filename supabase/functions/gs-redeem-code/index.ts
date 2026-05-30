@@ -1,4 +1,4 @@
-// redeem-gift-code — POST { code, game_id }
+// gs-redeem-code — POST { code, game_id }
 //
 // Validates that the access code exists and matches the game the player is
 // trying to unlock. The first successful redemption transitions the row
@@ -13,7 +13,7 @@
 // re-enters their access code and continues.
 //
 // Setup:
-//   supabase functions deploy redeem-gift-code --no-verify-jwt
+//   supabase functions deploy gs-redeem-code --no-verify-jwt
 //   (no-verify-jwt: this is called from an anonymous game-player browser)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';

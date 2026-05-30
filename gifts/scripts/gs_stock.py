@@ -3,19 +3,19 @@
 For each game, derive search queries from its title/city/tags/stops, hit Amazon
 search (cached on disk), parse product cards, and dump them into Supabase as
 gift_shop_items + gift_shop_listings rows. New listings are inserted with
-live=false so the admin curates them in mc/giftshop.html before they show
+live=false so the admin curates them in gifts/admin/gs-shop.html before they show
 up publicly.
 
 Run with no switches for an interactive menu. Flags still work when you want
 to launch a specific mode directly.
 
 Examples:
-    python mc/scripts/stock_gift_shop.py
-    python mc/scripts/stock_gift_shop.py --game oswald
-    python mc/scripts/stock_gift_shop.py --limit-games 3 --items-per-game 12
-    python mc/scripts/stock_gift_shop.py --dry-run --limit-games 1
-    python mc/scripts/stock_gift_shop.py --menu
-    python mc/scripts/stock_gift_shop.py --serve
+    python gifts/scripts/gs_stock.py
+    python gifts/scripts/gs_stock.py --game oswald
+    python gifts/scripts/gs_stock.py --limit-games 3 --items-per-game 12
+    python gifts/scripts/gs_stock.py --dry-run --limit-games 1
+    python gifts/scripts/gs_stock.py --menu
+    python gifts/scripts/gs_stock.py --serve
 
 Environment:
     Write mode requires SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY)
@@ -201,7 +201,7 @@ def insert_listing(key: str, item_id: Any, game_id: str, position: int) -> dict[
         "item_id": item_id,
         "game_id": game_id,
         "position": position,
-        "live": False,        # admin opts in via mc/giftshop.html
+        "live": False,        # admin opts in via gifts/admin/gs-shop.html
         "archived": False,
     }
     rows = _supabase_request(rest_url("gift_shop_listings"), key, "POST", payload)
@@ -770,7 +770,7 @@ def run_stocking(args: argparse.Namespace) -> int:
 
     if write_enabled:
         print(f"\nInserted {items_in} item(s) and {listings_in} listing(s).")
-        print("Curate them in mc/giftshop.html and flip the 'Live' checkbox to publish.")
+        print("Curate them in gifts/admin/gs-shop.html and flip the 'Live' checkbox to publish.")
     else:
         print("\nDry run only. Re-run without --dry-run to insert these rows.")
     return 0
@@ -846,7 +846,7 @@ def run_stocking_capture(args: argparse.Namespace) -> tuple[int, str]:
 def run_search_only(payload: dict[str, Any]) -> dict[str, Any]:
     """Search Amazon for candidates and return them as JSON. No Supabase writes.
 
-    Powers the giftshop.html SUGGEST lightbox: the admin reviews candidates
+    Powers the gs-shop.html SUGGEST lightbox: the admin reviews candidates
     and ticks the ones to insert, then the front-end inserts them directly
     via the standard gift_shop_items REST endpoint (no listings — the admin
     attaches shops afterward).
@@ -937,7 +937,7 @@ class StockGiftShopHandler(BaseHTTPRequestHandler):
         if self.path.rstrip("/") == "/health":
             self._send_json(200, {
                 "ok": True,
-                "command": "python mc/scripts/stock_gift_shop.py --serve",
+                "command": "python gifts/scripts/gs_stock.py --serve",
                 "endpoints": ["/run-stock-gift-shop", "/search-candidates"],
             })
             return
@@ -962,7 +962,7 @@ class StockGiftShopHandler(BaseHTTPRequestHandler):
 
     def _handle_run_stocking(self) -> None:
         if not RUN_LOCK.acquire(blocking=False):
-            self._send_json(409, {"ok": False, "error": "A stock_gift_shop run is already in progress."})
+            self._send_json(409, {"ok": False, "error": "A gs_stock run is already in progress."})
             return
         try:
             payload = self._read_json_body()
@@ -1008,7 +1008,7 @@ def serve(args: argparse.Namespace) -> int:
     host = str(args.host or LOCAL_SERVER_HOST).strip() or LOCAL_SERVER_HOST
     port = coerce_int(args.port, LOCAL_SERVER_PORT, 1)
     server = ThreadingHTTPServer((host, port), StockGiftShopHandler)
-    print(f"Serving stock_gift_shop on http://{host}:{port}")
+    print(f"Serving gs_stock on http://{host}:{port}")
     print("Mission Control endpoints:")
     print("  POST /search-candidates   (preview-only, powers the SUGGEST lightbox)")
     print("  POST /run-stock-gift-shop (auto-stock; used by CLI/menu callers)")

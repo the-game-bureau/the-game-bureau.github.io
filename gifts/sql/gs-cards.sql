@@ -4,16 +4,16 @@
 -- game's id. The /gifts/ renderer now hides individual game rows and
 -- uses the "Your Pick" chooser, which opens the shared buy/access-code
 -- modal (Stripe Embedded Checkout). Stripe charges the game's current
--- price_cents; the gift_codes row is issued by create-gift-checkout.
+-- price_cents; the gift_codes row is issued by gs-create-checkout.
 --
--- Safe to re-run. Requires gift-codes.sql + gift-shop-checkout.sql to
+-- Safe to re-run. Requires gs-codes.sql + gs-checkout.sql to
 -- have run previously (gift_shop_items + gift_codes must exist).
 
 ALTER TABLE public.gift_shop_items
   ADD COLUMN IF NOT EXISTS gift_card_game_id text;
 
 COMMENT ON COLUMN public.gift_shop_items.gift_card_game_id IS
-  'Legacy per-game access-code marker. The current /gifts/ renderer uses the single Your Pick chooser instead of rendering per-game tiles; Stripe charges the game''s current price via create-gift-checkout.';
+  'Legacy per-game access-code marker. The current /gifts/ renderer uses the single Your Pick chooser instead of rendering per-game tiles; Stripe charges the game''s current price via gs-create-checkout.';
 
 CREATE INDEX IF NOT EXISTS gift_shop_items_gift_card_game_idx
   ON public.gift_shop_items (gift_card_game_id)

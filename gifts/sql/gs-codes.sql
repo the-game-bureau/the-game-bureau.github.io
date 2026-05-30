@@ -2,7 +2,7 @@
 --
 -- Buyer flow:
 --   1. Buyer clicks "Gift this game" on /game/run/?id=X
---   2. create-gift-checkout Edge Function creates Stripe Embedded Checkout
+--   2. gs-create-checkout Edge Function creates Stripe Embedded Checkout
 --      + inserts a 'pending' row keyed on stripe_session_id with a
 --      pre-issued access code.
 --   3. Buyer pays. stripe-webhook fires checkout.session.completed.
@@ -12,7 +12,7 @@
 -- Redemption flow:
 --   1. Player enters an access code in the payment modal on the text/map
 --      game engines.
---   2. redeem-gift-code Edge Function verifies access code + game_id match and the
+--   2. gs-redeem-code Edge Function verifies access code + game_id match and the
 --      row is still status='paid'. On success it sets status='redeemed' and
 --      returns ok=true. Engine writes to localStorage so a refresh skips re-redemption.
 --
@@ -76,7 +76,7 @@ BEFORE INSERT OR UPDATE OF price, currency ON public.games
 FOR EACH ROW EXECUTE FUNCTION public.tgb_sync_game_price_cents();
 
 COMMENT ON COLUMN public.games.price_cents IS
-  'Checkout price in cents. Maintained from games.price by tgb_sync_game_price_cents; create-gift-checkout prefers this integer and only falls back to parsing price for older installs.';
+  'Checkout price in cents. Maintained from games.price by tgb_sync_game_price_cents; gs-create-checkout prefers this integer and only falls back to parsing price for older installs.';
 
 CREATE TABLE IF NOT EXISTS public.gift_codes (
   id                      uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -126,7 +126,7 @@ ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS stripe_customer_email tex
 ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS redemption_count integer NOT NULL DEFAULT 0;
 ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS last_redeemed_at timestamptz;
 
--- Self-service game-swap tracking. swap-gift-game increments swap_count
+-- Self-service game-swap tracking. gs-swap-game increments swap_count
 -- and updates last_swapped_at on every successful game change. Lets
 -- the admin spot access codes that have bounced between games a lot.
 ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS swap_count       integer NOT NULL DEFAULT 0;

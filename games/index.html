@@ -26,6 +26,9 @@
   <meta name="twitter:image" content="https://thegamebureau.com/assets/brand/share-thumbnail.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://qmaafbncpzrdmqapkkgr.supabase.co" crossorigin>
+  <link rel="dns-prefetch" href="https://qmaafbncpzrdmqapkkgr.supabase.co">
+  <script src="/assets/games-prefetch.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400..900&family=IBM+Plex+Mono:wght@500;600&family=JetBrains+Mono:wght@400..800&display=swap" rel="stylesheet">
   <!-- Runtime assets: sport marks, team lookup data, and shared shell styles. -->
   <script src="/assets/games/helmets/helmet.js"></script>
@@ -333,10 +336,17 @@
       }
 
       async function fetchTeamColorsFromSupabase() {
-        const response = await fetch(TEAMS_REST_URL, {
-          headers: { apikey: SB_CONFIG.key, Authorization: 'Bearer ' + SB_CONFIG.key },
-          cache: 'no-store'
-        });
+        let response = null;
+        if (window.__tgbPrefetch && window.__tgbPrefetch.teams) {
+          try { response = await window.__tgbPrefetch.teams; } catch (_) { response = null; }
+          window.__tgbPrefetch.teams = null; // single-use
+        }
+        if (!response) {
+          response = await fetch(TEAMS_REST_URL, {
+            headers: { apikey: SB_CONFIG.key, Authorization: 'Bearer ' + SB_CONFIG.key },
+            cache: 'no-store'
+          });
+        }
         if (!response.ok) throw new Error('HTTP ' + response.status);
         return await response.json();
       }
@@ -518,18 +528,25 @@
       }
 
       async function fetchGames() {
-        const url = new URL('rest/v1/' + SB_CONFIG.table, SB_CONFIG.url.replace(/\/+$/, '') + '/');
-        url.searchParams.set('apikey', SB_CONFIG.key);
-        url.searchParams.set('select', '*');
-        url.searchParams.set('order', 'name.asc');
-        const response = await fetch(url.toString(), {
-          headers: {
-            apikey: SB_CONFIG.key,
-            Authorization: 'Bearer ' + SB_CONFIG.key,
-            Accept: 'application/json'
-          },
-          cache: 'no-store'
-        });
+        let response = null;
+        if (window.__tgbPrefetch && window.__tgbPrefetch.games) {
+          try { response = await window.__tgbPrefetch.games; } catch (_) { response = null; }
+          window.__tgbPrefetch.games = null; // single-use
+        }
+        if (!response) {
+          const url = new URL('rest/v1/' + SB_CONFIG.table, SB_CONFIG.url.replace(/\/+$/, '') + '/');
+          url.searchParams.set('apikey', SB_CONFIG.key);
+          url.searchParams.set('select', '*');
+          url.searchParams.set('order', 'name.asc');
+          response = await fetch(url.toString(), {
+            headers: {
+              apikey: SB_CONFIG.key,
+              Authorization: 'Bearer ' + SB_CONFIG.key,
+              Accept: 'application/json'
+            },
+            cache: 'no-store'
+          });
+        }
         if (!response.ok) {
           const text = await response.text().catch(() => '');
           throw new Error('Supabase ' + response.status + ': ' + text.slice(0, 200));
@@ -1289,8 +1306,8 @@
             title.className = 'game-card-title';
             title.textContent = stripMascotNames(game.name, game) || '(untitled game)';
             title.dataset.fitText = 'true';
-            title.dataset.fitMax = '20';
-            title.dataset.fitMin = '10';
+            title.dataset.fitMax = '32';
+            title.dataset.fitMin = '14';
             deed.append(deedHead, title);
             card.appendChild(deed);
 
@@ -1516,30 +1533,70 @@
       // ---------------------------------------------------------------------------
       // Data load
       // ---------------------------------------------------------------------------
+      // localStorage cache so returning visitors see the scrolling
+      // directory paint instantly on first frame instead of waiting for
+      // two Supabase round-trips. The fresh network response replaces
+      // the cached render once it arrives.
+      const CACHE_KEY_GAMES = 'tgb-games-cache-v1';
+      const CACHE_KEY_TEAMS = 'tgb-teams-cache-v1';
+
+      function readCache(key) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : null;
+        } catch (_) { return null; }
+      }
+      function writeCache(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); }
+        catch (_) { /* quota / private mode — ignore */ }
+      }
+
+      function applyDirectoryData(games, teamColorsResult) {
+        colorsByCityMascot = teamColorsResult.lookup;
+        allTeams = teamColorsResult.teams;
+        liveGames = (Array.isArray(games) ? games : []).filter((game) => !isTrueish(game && game.archived));
+        renderDirectory();
+        // applyUrlSelection is idempotent — reapplying after fresh data
+        // recovers any URL-bookmarked selection that wasn't yet in the
+        // cached snapshot.
+        suppressUrlWrite = true;
+        try { applyUrlSelection(); } finally { suppressUrlWrite = false; }
+      }
+
       async function load() {
+        const initParams = new URLSearchParams(window.location.search);
+        const hasExplicitDirectoryMode = initParams.has('city')
+          || initParams.has('fan')
+          || initParams.get('mode') === MODE_CITY
+          || initParams.get('mode') === MODE_FAN;
+        if (initParams.get('city')) activeMode = MODE_CITY;
+        else if (initParams.get('fan')) activeMode = MODE_FAN;
+        else if (initParams.get('mode') === 'city') activeMode = MODE_CITY;
+        else if (initParams.get('mode') === 'fan') activeMode = MODE_FAN;
+
+        // ── 1. Paint immediately from cache if we have it ────────────
+        const cachedGames = readCache(CACHE_KEY_GAMES);
+        const cachedTeams = readCache(CACHE_KEY_TEAMS);
+        let painted = false;
+        if (cachedGames && cachedTeams) {
+          try {
+            applyDirectoryData(cachedGames, buildTeamIndex(cachedTeams));
+            painted = true;
+          } catch (_) { /* cache shape mismatch — let fresh fetch repaint */ }
+        }
+
+        // ── 2. Fetch fresh and repaint ───────────────────────────────
         try {
           const [games, teamColorsResult] = await Promise.all([fetchGames(), fetchTeamColors()]);
-          colorsByCityMascot = teamColorsResult.lookup;
-          allTeams = teamColorsResult.teams;
-          liveGames = (Array.isArray(games) ? games : []).filter((game) => !isTrueish(game && game.archived));
-          // Pick the right mode tab BEFORE the first directory render so the
-          // URL's entry exists in heroMetaEntries when we go to apply it.
-          const initParams = new URLSearchParams(window.location.search);
-          const hasExplicitDirectoryMode = initParams.has('city')
-            || initParams.has('fan')
-            || initParams.get('mode') === MODE_CITY
-            || initParams.get('mode') === MODE_FAN;
-          if (initParams.get('city')) activeMode = MODE_CITY;
-          else if (initParams.get('fan')) activeMode = MODE_FAN;
-          else if (initParams.get('mode') === 'city') activeMode = MODE_CITY;
-          else if (initParams.get('mode') === 'fan') activeMode = MODE_FAN;
-          renderDirectory();
-          suppressUrlWrite = true;
-          try { applyUrlSelection(); } finally { suppressUrlWrite = false; }
-          if (!hasExplicitDirectoryMode) tryGeolocateAndSelectNearestFan();
+          writeCache(CACHE_KEY_GAMES, games);
+          writeCache(CACHE_KEY_TEAMS, teamColorsResult.teams);
+          applyDirectoryData(games, teamColorsResult);
+          if (!painted && !hasExplicitDirectoryMode) tryGeolocateAndSelectNearestFan();
         } catch (error) {
           console.error(error);
-          renderError(error instanceof Error ? error.message : String(error));
+          if (!painted) renderError(error instanceof Error ? error.message : String(error));
         }
       }
 

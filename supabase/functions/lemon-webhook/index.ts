@@ -1,5 +1,5 @@
 // Legacy LemonSqueezy webhook. Live game purchases now use
-// create-gift-checkout + stripe-webhook + redeem-gift-code.
+// gs-create-checkout + stripe-webhook + gs-redeem-code.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 

@@ -1,4 +1,4 @@
-// swap-gift-game — POST { code, new_game_id }
+// gs-swap-game — POST { code, new_game_id }
 //
 // Self-service game swap. The buyer purchased Game A and decided they
 // want Game B instead. As long as the code hasn't been redeemed yet,
@@ -15,7 +15,7 @@
 // buyer got it in the post-purchase modal and the receipt email.
 //
 // Setup:
-//   supabase functions deploy swap-gift-game --no-verify-jwt
+//   supabase functions deploy gs-swap-game --no-verify-jwt
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 

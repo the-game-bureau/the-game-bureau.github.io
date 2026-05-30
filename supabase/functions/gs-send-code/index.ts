@@ -1,4 +1,4 @@
-// send-gift-code — POST { session_id, recipient_email,
+// gs-send-code — POST { session_id, recipient_email,
 //                          recipient_name?, message? }
 //
 // Post-purchase action. The buyer paid with no recipient up-front (the
@@ -11,7 +11,7 @@
 // return URL and is hard to guess). No login required.
 //
 // Setup:
-//   supabase functions deploy send-gift-code --no-verify-jwt
+//   supabase functions deploy gs-send-code --no-verify-jwt
 //   (RESEND_API_KEY + RESEND_FROM + SITE_ORIGIN must be set — same
 //    secrets the webhook uses.)
 

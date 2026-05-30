@@ -1,4 +1,4 @@
-// lookup-gift-code — POST { session_id }
+// gs-lookup-code — POST { session_id }
 //
 // Called by the buyer's browser when the modal has a Stripe session id
 // but still needs the issued access code + recipient details. New
@@ -10,7 +10,7 @@
 // session ids are 1-in-quadrillion-ish so a scan attack isn't viable.
 //
 // Setup:
-//   supabase functions deploy lookup-gift-code --no-verify-jwt
+//   supabase functions deploy gs-lookup-code --no-verify-jwt
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 

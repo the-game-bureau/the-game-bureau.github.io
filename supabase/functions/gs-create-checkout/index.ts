@@ -1,4 +1,4 @@
-// create-gift-checkout — POST { game_id, recipient_email?, recipient_name?,
+// gs-create-checkout — POST { game_id, recipient_email?, recipient_name?,
 //                                buyer_email?, buyer_name?, message? }
 //
 // Looks up the game in public.games (service role, so the price is
@@ -8,13 +8,13 @@
 //
 // recipient_email is OPTIONAL — the unified flow lets the buyer purchase
 // first and decide post-payment whether to play it themselves or send to
-// someone (handled by send-gift-code Edge Function). If recipient_email
+// someone (handled by gs-send-code Edge Function). If recipient_email
 // IS supplied here, the webhook emails the access code immediately on payment.
 //
 // Setup:
 //   supabase secrets set STRIPE_SECRET_KEY=sk_test_xxx
 //   supabase secrets set SITE_ORIGIN=https://thegamebureau.com
-//   supabase functions deploy create-gift-checkout --no-verify-jwt
+//   supabase functions deploy gs-create-checkout --no-verify-jwt
 //   (no-verify-jwt because anon shoppers shouldn't need a Supabase session)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
   // catch up. The webhook still transitions pending → paid and adds
   // charge metadata, but the access code itself never changes.
   //
-  // redeem-gift-code refuses to unlock anything with status='pending',
+  // gs-redeem-code refuses to unlock anything with status='pending',
   // so a buyer who has the access code but never paid can't use it.
   let issuedCode = '';
   let insertError: { message: string } | null = null;

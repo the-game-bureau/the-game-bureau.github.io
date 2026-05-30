@@ -1,7 +1,7 @@
 // stripe-webhook — handles checkout.session.completed and routes to
 // either:
 //   metadata.tgb_kind === 'gift_card' → gift_codes (mark the user-facing
-//     access code paid, see create-gift-checkout).
+//     access code paid, see gs-create-checkout).
 //   otherwise (legacy gift-shop POD path) → gift_orders (Printful order).
 //
 // Setup:
@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
 });
 
 // ── Access-code handler ──────────────────────────────────────────────────
-// The user-facing access code is generated up-front by create-gift-checkout and
+// The user-facing access code is generated up-front by gs-create-checkout and
 // stored on the row at insert time. The webhook's job is to:
 //   1. Transition status pending → paid
 //   2. Capture Stripe receipt info (charge id, receipt URL, buyer email)
@@ -198,7 +198,7 @@ async function handleGiftCard(session: Stripe.Checkout.Session): Promise<Respons
     return new Response('Already processed', { status: 200 });
   }
   if (!existing.code) {
-    // Defensive: shouldn't happen with the new create-gift-checkout, but
+    // Defensive: shouldn't happen with the new gs-create-checkout, but
     // mirrors the legacy generate-here behavior so an older row still
     // resolves.
     return new Response('Row is missing an access code — please contact support.', { status: 500 });
@@ -243,7 +243,7 @@ async function handleGiftCard(session: Stripe.Checkout.Session): Promise<Respons
 
   // Email the recipient (only if they were provided at create-time —
   // the unified flow now collects recipient post-purchase via
-  // send-gift-code, so most webhook firings skip this).
+  // gs-send-code, so most webhook firings skip this).
   if (existing.recipient_email) {
     await sendGiftEmail({ ...existing, code: existing.code });
   }
@@ -414,7 +414,7 @@ function renderGiftEmailText(row: GiftEmailRow): string {
 // ── Buyer-receipt email (separate from the gift-to-recipient email) ────
 // Sent after payment so the buyer has their access code on file. They can use
 // it themselves OR share it with someone via the "Send to someone"
-// step in the modal (which also fires send-gift-code → recipient
+// step in the modal (which also fires gs-send-code → recipient
 // email). This makes the system survivable if the buyer loses the
 // modal before grabbing the access code.
 async function sendBuyerEmail(row: GiftEmailRow, buyerAddress: string): Promise<void> {
