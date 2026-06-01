@@ -45,7 +45,7 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Lock
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional
 
 
 # ── Config ───────────────────────────────────────────────────────────────────
@@ -284,6 +284,76 @@ def fetch_search(query: str, force_refetch: bool = False) -> tuple[str, str]:
     return page, "live"
 
 
+# ── AI-generated funny descriptions (optional, opt-in via env) ───────────────
+# When ANTHROPIC_API_KEY is set and the `anthropic` package is installed,
+# every scraped product title gets a 1–2 sentence punchy blurb written by
+# Claude Haiku. Cached on disk so re-scrapes don't re-bill. Without the key
+# the function returns None and the description field stays empty for an
+# admin to fill in via gs-shop.html.
+_AI_DESC_CACHE_DIR = Path(__file__).resolve().parent / ".cache" / "ai_descriptions"
+_AI_CLIENT = None
+_AI_DISABLED = False
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")[:120]
+
+def ai_describe(title: str) -> Optional[str]:
+    """Generate a funny 1–2 sentence product blurb. Returns None if disabled."""
+    global _AI_CLIENT, _AI_DISABLED
+    title = (title or "").strip()
+    if not title or _AI_DISABLED:
+        return None
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        _AI_DISABLED = True
+        return None
+
+    # Disk cache keyed on title slug — same title = same blurb across runs.
+    cache_key = _slug(title)
+    if cache_key:
+        try:
+            _AI_DESC_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            cached = (_AI_DESC_CACHE_DIR / f"{cache_key}.txt")
+            if cached.exists():
+                return cached.read_text(encoding="utf-8").strip() or None
+        except OSError:
+            pass
+
+    if _AI_CLIENT is None:
+        try:
+            from anthropic import Anthropic
+            _AI_CLIENT = Anthropic()
+        except Exception:
+            _AI_DISABLED = True
+            return None
+
+    prompt = (
+        "Write a single punchy product blurb (1–2 sentences, max 28 words) for "
+        f"this item: \"{title}\". Voice: confident, slightly snarky, like a "
+        "Conde Nast Traveler editor with a sense of humor. No emojis, no "
+        "exclamation points, no bullet points, no marketing fluff like "
+        "\"perfect for\" or \"essential\". Lead with the joke, not the product. "
+        "Output only the blurb itself — no quotes, no prefix."
+    )
+    try:
+        msg = _AI_CLIENT.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=120,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = (msg.content[0].text or "").strip().strip('"').strip()
+    except Exception:
+        return None
+
+    if not text:
+        return None
+    if cache_key:
+        try:
+            (_AI_DESC_CACHE_DIR / f"{cache_key}.txt").write_text(text, encoding="utf-8")
+        except OSError:
+            pass
+    return text
+
+
 # ── Search result parsing ────────────────────────────────────────────────────
 
 @dataclass
@@ -345,7 +415,11 @@ def parse_results(page: str, query: str) -> list[Candidate]:
             asin=asin,
             image_url=image_url,
             price_display=price,
-            description=f"Surfaced from the Amazon search: {query}.",
+            # Don't expose the internal search query to public visitors.
+            # Description is filled in by ai_describe() below when an
+            # ANTHROPIC_API_KEY is available; otherwise stays empty and
+            # an admin writes one manually in gs-shop.html.
+            description=ai_describe(title) or "",
             query=query,
         ))
     return out

@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#101820" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>THE JERSEY GAME | The Game Bureau</title>
+  <link rel="icon" href="/assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://qmaafbncpzrdmqapkkgr.supabase.co" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=JetBrains+Mono:wght@500;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #101820;
+      --panel: rgba(13, 18, 27, 0.88);
+      --panel-strong: rgba(22, 29, 42, 0.96);
+      --ink: #fff7dd;
+      --muted: rgba(255, 247, 221, 0.68);
+      --line: rgba(255, 247, 221, 0.18);
+      --line-strong: rgba(255, 247, 221, 0.32);
+      --accent: #d3bc8d;
+      --good: #75d989;
+      --bad: #ff785f;
+      --shadow: 0 20px 48px rgba(0, 0, 0, 0.36);
+      --pixel: 4px;
+      --font-pixel: "Press Start 2P", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      background:
+        radial-gradient(circle at 50% -10%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 38%),
+        linear-gradient(180deg, color-mix(in srgb, var(--bg) 82%, black) 0%, #070a0f 100%);
+      color: var(--ink);
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overscroll-behavior: none;
+    }
+
+    body {
+      min-height: 100dvh;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      touch-action: manipulation;
+    }
+
+    .game-shell {
+      position: relative;
+      width: 100%;
+      min-height: 100dvh;
+      display: grid;
+      place-items: start center;
+      padding: calc(env(safe-area-inset-top, 0px) + 14px) 12px calc(env(safe-area-inset-bottom, 0px) + 14px);
+      overflow-x: hidden;
+      isolation: isolate;
+    }
+
+    .game-shell::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px);
+      background-size: 20px 20px;
+      mask-image: linear-gradient(180deg, #000 0%, transparent 82%);
+    }
+
+    .game-card {
+      width: min(100%, 460px);
+      min-width: 0;
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+        var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .topbar {
+      min-width: 0;
+      display: grid;
+      gap: 6px;
+      text-align: center;
+    }
+
+    .kicker {
+      color: var(--accent);
+      font-family: var(--font-pixel);
+      font-size: 0.52rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--ink);
+      font-family: var(--font-pixel);
+      font-size: clamp(1.05rem, 5vw, 1.58rem);
+      font-weight: 900;
+      line-height: 1.38;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+      text-wrap: balance;
+      text-shadow: 0 4px 0 rgba(0, 0, 0, 0.46);
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-family: var(--font-pixel);
+      font-size: 0.52rem;
+      font-weight: 700;
+      line-height: 1.75;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+
+    .screen {
+      display: grid;
+      min-height: 240px;
+      place-items: center;
+      padding: 22px 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.2);
+      color: var(--muted);
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .screen[hidden] {
+      display: none;
+    }
+
+    .screen-title {
+      margin: 0 0 8px;
+      color: var(--ink);
+      font-family: var(--font-pixel);
+      font-size: 0.9rem;
+      font-weight: 900;
+      line-height: 1.5;
+    }
+
+    .screen-copy {
+      margin: 0;
+      max-width: 28rem;
+      font-family: var(--font-pixel);
+      font-size: 0.52rem;
+      font-weight: 700;
+      line-height: 1.75;
+    }
+
+    .play-area {
+      display: grid;
+      gap: 12px;
+    }
+
+    .play-area[hidden] {
+      display: none;
+    }
+
+    .match-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      min-height: 24px;
+    }
+
+    .match-meta,
+    .jersey-label,
+    .jersey-sport,
+    .auto-note {
+      display: none;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+      padding: 5px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .equation {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      width: 100%;
+      min-width: 0;
+      margin-inline: 0;
+      padding: 6px 0 2px;
+    }
+
+    .operator,
+    .equals {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      min-height: 26px;
+      color: var(--ink);
+      font-family: var(--font-pixel);
+      font-size: clamp(1.2rem, 7vw, 1.8rem);
+      font-weight: 900;
+      line-height: 1;
+      text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 34%, transparent);
+    }
+
+    .jersey-card {
+      width: 100%;
+      max-width: 210px;
+      min-width: 0;
+      display: grid;
+      gap: 6px;
+      justify-items: center;
+    }
+
+    .jersey-caption {
+      display: grid;
+      gap: 2px;
+      justify-items: center;
+      width: 100%;
+      text-align: center;
+      line-height: 1.25;
+    }
+
+    .jersey-city {
+      max-width: 100%;
+      color: var(--ink);
+      font-family: var(--font-pixel);
+      font-size: clamp(0.48rem, 2.6vw, 0.62rem);
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .jersey-sport-line {
+      color: var(--muted);
+      font-family: var(--font-pixel);
+      font-size: clamp(0.4rem, 2.1vw, 0.5rem);
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .jersey-label {
+      min-height: 12px;
+      color: var(--muted);
+      font-size: 0.56rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .jersey {
+      --jersey-primary: #d3bc8d;
+      --jersey-secondary: #101820;
+      --jersey-trim: #ffffff;
+      --jersey-number: #101820;
+      --jersey-number-shadow: rgba(255, 247, 221, 0.7);
+      --number-font-size: clamp(1.9rem, 34cqw, 3.4rem);
+      --number-outline: var(--pixel);
+      --number-scale: 1;
+      container-type: inline-size;
+      position: relative;
+      width: 100%;
+      max-width: 210px;
+      aspect-ratio: 1.18;
+      display: grid;
+      grid-template-rows: 28% 1fr 8%;
+      align-items: center;
+      justify-items: center;
+      padding: 11% 8% 7%;
+      clip-path: polygon(17% 0, 83% 0, 88% 5%, 94% 8%, 100% 22%, 100% 34%, 88% 39%, 82% 31%, 82% 100%, 18% 100%, 18% 31%, 12% 39%, 0 34%, 0 22%, 6% 8%, 12% 5%);
+      background:
+        linear-gradient(180deg, transparent 0 25%, var(--jersey-trim) 25% 30%, var(--jersey-secondary) 30% 35%, transparent 35% 100%),
+        linear-gradient(90deg, transparent 0 8%, color-mix(in srgb, var(--jersey-trim) 88%, transparent) 8% 12%, var(--jersey-secondary) 12% 18%, transparent 18% 82%, var(--jersey-secondary) 82% 88%, color-mix(in srgb, var(--jersey-trim) 88%, transparent) 88% 92%, transparent 92% 100%),
+        linear-gradient(180deg, color-mix(in srgb, white 18%, transparent) 0%, transparent 36%, rgba(0, 0, 0, 0.2) 100%),
+        var(--jersey-primary);
+      image-rendering: pixelated;
+      filter: drop-shadow(0 7px 0 color-mix(in srgb, black 46%, transparent)) drop-shadow(0 16px 18px rgba(0, 0, 0, 0.26));
+      box-shadow:
+        inset 0 0 0 var(--pixel) var(--jersey-secondary),
+        inset calc(var(--pixel) * -1) 0 0 color-mix(in srgb, black 24%, var(--jersey-secondary)),
+        inset 0 0 0 calc(var(--pixel) * 2) color-mix(in srgb, var(--jersey-trim) 70%, transparent);
+    }
+
+    .jersey::before {
+      content: "";
+      position: absolute;
+      z-index: 0;
+      inset: 10% 20% 7%;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, color-mix(in srgb, black 18%, transparent) 0 var(--pixel), transparent var(--pixel) calc(100% - var(--pixel)), color-mix(in srgb, black 28%, transparent) calc(100% - var(--pixel)) 100%),
+        linear-gradient(180deg, color-mix(in srgb, white 20%, transparent) 0%, transparent 42%, rgba(0, 0, 0, 0.16) 100%),
+        color-mix(in srgb, var(--jersey-primary) 88%, white);
+      border-left: var(--pixel) solid color-mix(in srgb, var(--jersey-trim) 86%, transparent);
+      border-right: var(--pixel) solid color-mix(in srgb, var(--jersey-trim) 86%, transparent);
+      border-bottom: var(--pixel) solid color-mix(in srgb, var(--jersey-trim) 78%, transparent);
+      box-shadow:
+        inset 0 var(--pixel) 0 color-mix(in srgb, var(--jersey-trim) 58%, transparent),
+        inset calc(var(--pixel) * -2) 0 0 color-mix(in srgb, black 16%, transparent);
+    }
+
+    .jersey::after {
+      content: "";
+      position: absolute;
+      z-index: 0;
+      right: 23%;
+      bottom: 20%;
+      width: 10%;
+      height: 18%;
+      pointer-events: none;
+      background:
+        linear-gradient(180deg, transparent 0 50%, color-mix(in srgb, var(--jersey-trim) 38%, transparent) 50% 64%, transparent 64% 100%),
+        color-mix(in srgb, black 16%, transparent);
+      opacity: 0.72;
+    }
+
+    .jersey.sport-football {
+      background:
+        linear-gradient(180deg, transparent 0 24%, var(--jersey-trim) 24% 29%, var(--jersey-secondary) 29% 35%, transparent 35% 100%),
+        linear-gradient(90deg, transparent 0 8%, color-mix(in srgb, var(--jersey-trim) 90%, transparent) 8% 12%, var(--jersey-secondary) 12% 20%, var(--jersey-trim) 20% 24%, transparent 24% 76%, var(--jersey-trim) 76% 80%, var(--jersey-secondary) 80% 88%, color-mix(in srgb, var(--jersey-trim) 90%, transparent) 88% 92%, transparent 92% 100%),
+        linear-gradient(180deg, color-mix(in srgb, white 20%, transparent) 0%, transparent 33%, rgba(0, 0, 0, 0.2) 100%),
+        var(--jersey-primary);
+    }
+
+    .jersey.sport-hockey {
+      background:
+        linear-gradient(180deg, transparent 0 19%, var(--jersey-trim) 19% 24%, var(--jersey-secondary) 24% 30%, transparent 30% 68%, var(--jersey-secondary) 68% 73%, var(--jersey-trim) 73% 78%, transparent 78% 100%),
+        linear-gradient(90deg, transparent 0 7%, var(--jersey-secondary) 7% 13%, var(--jersey-trim) 13% 17%, transparent 17% 83%, var(--jersey-trim) 83% 87%, var(--jersey-secondary) 87% 93%, transparent 93% 100%),
+        linear-gradient(180deg, color-mix(in srgb, white 18%, transparent) 0%, transparent 34%, rgba(0, 0, 0, 0.2) 100%),
+        var(--jersey-primary);
+    }
+
+    .jersey.sport-basketball {
+      clip-path: polygon(17% 0, 83% 0, 88% 5%, 94% 8%, 100% 22%, 100% 34%, 88% 39%, 82% 31%, 82% 100%, 18% 100%, 18% 31%, 12% 39%, 0 34%, 0 22%, 6% 8%, 12% 5%);
+      background:
+        linear-gradient(180deg, transparent 0 25%, var(--jersey-trim) 25% 30%, var(--jersey-secondary) 30% 35%, transparent 35% 100%),
+        linear-gradient(90deg, transparent 0 8%, var(--jersey-secondary) 8% 13%, var(--jersey-trim) 13% 17%, transparent 17% 83%, var(--jersey-trim) 83% 87%, var(--jersey-secondary) 87% 92%, transparent 92% 100%),
+        linear-gradient(180deg, color-mix(in srgb, white 20%, transparent) 0%, transparent 34%, rgba(0, 0, 0, 0.18) 100%),
+        var(--jersey-primary);
+    }
+
+    .jersey.sport-baseball {
+      background:
+        repeating-linear-gradient(90deg, transparent 0 9px, color-mix(in srgb, var(--jersey-secondary) 42%, transparent) 9px 11px),
+        linear-gradient(180deg, color-mix(in srgb, white 22%, transparent) 0%, transparent 32%, rgba(0, 0, 0, 0.1) 100%),
+        var(--jersey-primary);
+    }
+
+    .jersey-name {
+      position: relative;
+      z-index: 1;
+      grid-column: 1;
+      grid-row: 1;
+      align-self: end;
+      width: 94%;
+      min-height: 18px;
+      display: grid;
+      place-items: center;
+      padding: 2px 2px 1px;
+      overflow: hidden;
+      border: 0;
+      background: transparent;
+      color: var(--jersey-number);
+      font-family: var(--font-pixel);
+      font-size: clamp(0.4rem, 6.4cqw, 0.6rem);
+      font-weight: 900;
+      line-height: 1.35;
+      text-align: center;
+      text-transform: none;
+      text-overflow: ellipsis;
+      text-shadow:
+        2px 0 0 var(--jersey-number-shadow),
+        -2px 0 0 var(--jersey-number-shadow),
+        0 2px 0 var(--jersey-number-shadow),
+        0 -2px 0 var(--jersey-number-shadow);
+      white-space: nowrap;
+    }
+
+    .jersey-input,
+    .jersey-number,
+    .jersey-placeholder {
+      position: relative;
+      z-index: 1;
+      grid-column: 1;
+      grid-row: 2;
+      width: 92%;
+      min-width: 0;
+      height: 58px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 0;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: transparent;
+      color: var(--jersey-number);
+      font-family: var(--font-pixel);
+      font-size: calc(var(--number-font-size) * var(--number-scale));
+      font-weight: 900;
+      line-height: 1;
+      text-align: center;
+      text-shadow:
+        var(--number-outline) 0 0 var(--jersey-number-shadow),
+        calc(var(--number-outline) * -1) 0 0 var(--jersey-number-shadow),
+        0 var(--number-outline) 0 var(--jersey-number-shadow),
+        0 calc(var(--number-outline) * -1) 0 var(--jersey-number-shadow);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .jersey-input {
+      appearance: textfield;
+      -webkit-appearance: none;
+      caret-color: var(--jersey-number);
+      outline: 0;
+      text-indent: 0;
+    }
+
+    .jersey-input::placeholder {
+      color: transparent;
+      opacity: 1;
+      text-shadow: none;
+    }
+
+    .jersey-input:placeholder-shown {
+      text-shadow: none;
+    }
+
+    .jersey-placeholder {
+      pointer-events: none;
+    }
+
+    .jersey-input:not(:placeholder-shown) + .jersey-placeholder {
+      visibility: hidden;
+    }
+
+    .jersey-input:focus {
+      background: color-mix(in srgb, var(--jersey-trim) 14%, transparent);
+      box-shadow: 0 0 0 var(--pixel) color-mix(in srgb, var(--jersey-trim) 72%, transparent);
+    }
+
+    .jersey-input.number-flash {
+      animation: flashJerseyNumber 560ms steps(2, end);
+    }
+
+    @keyframes flashJerseyNumber {
+      0%, 100% {
+        filter: none;
+        transform: scale(1);
+      }
+      20%, 60% {
+        filter: brightness(1.8);
+        transform: scale(1.08);
+      }
+      40%, 80% {
+        filter: brightness(0.75);
+        transform: scale(0.96);
+      }
+    }
+
+    .jersey-input:disabled {
+      opacity: 1;
+      -webkit-text-fill-color: var(--jersey-number);
+    }
+
+    .jersey-sport {
+      position: relative;
+      z-index: 1;
+      grid-column: 1;
+      grid-row: 3;
+      align-self: end;
+      color: color-mix(in srgb, var(--jersey-trim) 72%, var(--jersey-secondary));
+      font-size: 0.54rem;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .auto-note {
+      margin-top: -2px;
+      color: var(--accent);
+      font-size: 0.52rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .status {
+      min-height: 46px;
+      display: grid;
+      place-items: center;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.22);
+      color: var(--muted);
+      font-family: var(--font-pixel);
+      font-size: 0.52rem;
+      font-weight: 800;
+      line-height: 1.65;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .status.error {
+      color: #ffd7cf;
+      border-color: color-mix(in srgb, var(--bad) 68%, transparent);
+      background: color-mix(in srgb, var(--bad) 18%, rgba(0, 0, 0, 0.28));
+    }
+
+    .status.good {
+      color: #defee4;
+      border-color: color-mix(in srgb, var(--good) 68%, transparent);
+      background: color-mix(in srgb, var(--good) 18%, rgba(0, 0, 0, 0.28));
+    }
+
+    .status.flash {
+      animation: flashStatus 380ms ease;
+    }
+
+    @keyframes flashStatus {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-5px); }
+      40% { transform: translateX(5px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+
+    .action-row {
+      display: grid;
+      grid-template-columns: minmax(96px, 0.42fr) minmax(0, 1fr);
+      gap: 8px;
+    }
+
+    .check-btn,
+    .hint-btn {
+      width: 100%;
+      min-height: 54px;
+      border: 2px solid color-mix(in srgb, var(--accent) 74%, white);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, color-mix(in srgb, white 26%, transparent) 0%, transparent 46%),
+        var(--accent);
+      color: #071016;
+      font-family: var(--font-pixel);
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.3),
+        0 10px 24px color-mix(in srgb, var(--accent) 28%, transparent);
+      cursor: pointer;
+    }
+
+    .hint-btn {
+      border-color: color-mix(in srgb, var(--ink) 42%, var(--accent));
+      background:
+        linear-gradient(180deg, color-mix(in srgb, white 12%, transparent) 0%, transparent 52%),
+        color-mix(in srgb, var(--panel-strong) 78%, var(--accent));
+      color: var(--ink);
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.14),
+        0 8px 18px rgba(0, 0, 0, 0.2);
+    }
+
+    .check-btn:active,
+    .hint-btn:active {
+      transform: translateY(1px);
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.24);
+    }
+
+    .check-btn:disabled,
+    .hint-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .confetti {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      left: var(--x);
+      top: -18px;
+      width: 10px;
+      height: 14px;
+      background: var(--c);
+      transform: rotate(var(--r));
+      animation: confettiDrop var(--d) cubic-bezier(.16,.78,.33,.99) forwards;
+    }
+
+    @keyframes confettiDrop {
+      100% {
+        transform: translate3d(var(--dx), 112dvh, 0) rotate(calc(var(--r) + 540deg));
+        opacity: 0.95;
+      }
+    }
+
+    /* Shorter phones: trim chrome and tighten the stack so all three
+       jerseys plus the action row stay reachable without much scrolling. */
+    @media (max-height: 720px) {
+      .jersey-card {
+        max-width: 168px;
+      }
+
+      .operator,
+      .equals {
+        min-height: 20px;
+        font-size: clamp(1rem, 6vw, 1.4rem);
+      }
+
+      .jersey-input,
+      .jersey-number,
+      .jersey-placeholder {
+        height: 46px;
+      }
+    }
+
+    @media (max-width: 374px) {
+      .game-shell {
+        padding-left: 8px;
+        padding-right: 8px;
+      }
+
+      .game-card {
+        padding: 10px 8px;
+      }
+    }
+
+    @media (max-width: 430px) {
+      h1 {
+        font-size: clamp(0.95rem, 4.8vw, 1.25rem);
+      }
+
+      .subtitle {
+        font-size: 0.46rem;
+      }
+    }
+
+    /* Tablet / desktop: enough width to lay the equation out as a true
+       horizontal row again. */
+    @media (min-width: 600px) {
+      .game-card {
+        padding: 16px;
+      }
+
+      .equation {
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .jersey-card {
+        max-width: 124px;
+      }
+
+      .operator,
+      .equals {
+        width: auto;
+        min-height: 0;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+  </style>
+</head>
+<body data-admin-page="mission-control">
+  <main class="game-shell" aria-label="THE JERSEY GAME">
+    <section class="game-card">
+      <header class="topbar">
+        <span class="kicker">The Game Bureau</span>
+        <h1>THE JERSEY GAME</h1>
+        <p class="subtitle">Fill in the jersey numbers. Type any two. The remaining jersey calculates itself.</p>
+      </header>
+
+      <section class="screen" id="loadingScreen" aria-live="polite">
+        <div>
+          <p class="screen-title">Loading THE JERSEY GAME</p>
+          <p class="screen-copy">Pulling a random puzzle from the database.</p>
+        </div>
+      </section>
+
+      <section class="screen" id="errorScreen" hidden aria-live="polite">
+        <div>
+          <p class="screen-title">ERROR</p>
+          <p class="screen-copy" id="errorCopy"></p>
+        </div>
+      </section>
+
+      <section class="play-area" id="playArea" hidden>
+        <div class="match-meta" aria-label="Puzzle details">
+          <span class="pill" id="cityPill"></span>
+          <span class="pill" id="teamPill"></span>
+        </div>
+
+        <section class="equation" aria-label="Jersey equation">
+          <article class="jersey-card" id="jerseyCard1">
+            <span class="jersey-label">Type</span>
+            <div class="jersey" id="jersey1">
+              <div class="jersey-name" id="player1Name"></div>
+              <label class="sr-only" for="player1Input" id="player1Label">First jersey number</label>
+              <input class="jersey-input" id="player1Input" type="text" inputmode="decimal" pattern="-?[0-9]*[.]?[0-9]*" autocomplete="off" placeholder="?" />
+              <span class="jersey-placeholder" aria-hidden="true">?</span>
+              <div class="jersey-sport" id="player1Sport"></div>
+            </div>
+            <div class="jersey-caption">
+              <span class="jersey-city" id="player1City"></span>
+              <span class="jersey-sport-line" id="player1SportLine"></span>
+            </div>
+          </article>
+
+          <div class="operator" id="operatorText" aria-hidden="true">+</div>
+
+          <article class="jersey-card" id="jerseyCard2">
+            <span class="jersey-label">Type</span>
+            <div class="jersey" id="jersey2">
+              <div class="jersey-name" id="player2Name"></div>
+              <label class="sr-only" for="player2Input" id="player2Label">Second jersey number</label>
+              <input class="jersey-input" id="player2Input" type="text" inputmode="decimal" pattern="-?[0-9]*[.]?[0-9]*" autocomplete="off" placeholder="?" />
+              <span class="jersey-placeholder" aria-hidden="true">?</span>
+              <div class="jersey-sport" id="player2Sport"></div>
+            </div>
+            <div class="jersey-caption">
+              <span class="jersey-city" id="player2City"></span>
+              <span class="jersey-sport-line" id="player2SportLine"></span>
+            </div>
+          </article>
+
+          <div class="equals" aria-hidden="true">=</div>
+
+          <article class="jersey-card" id="jerseyCard3">
+            <span class="jersey-label">Type</span>
+            <div class="jersey" id="jersey3">
+              <div class="jersey-name" id="player3Name"></div>
+              <label class="sr-only" for="player3Input" id="player3Label">Third jersey number</label>
+              <input class="jersey-input" id="player3Input" type="text" inputmode="decimal" pattern="-?[0-9]*[.]?[0-9]*" autocomplete="off" placeholder="?" aria-live="polite" />
+              <span class="jersey-placeholder" aria-hidden="true">?</span>
+              <div class="jersey-sport" id="player3Sport"></div>
+            </div>
+            <div class="jersey-caption">
+              <span class="jersey-city" id="player3City"></span>
+              <span class="jersey-sport-line" id="player3SportLine"></span>
+            </div>
+            <span class="auto-note">Calculated</span>
+          </article>
+        </section>
+
+        <p class="status" id="statusText" aria-live="polite">Enter any two jersey numbers.</p>
+        <div class="action-row">
+          <button class="hint-btn" id="hintBtn" type="button" aria-label="Fill jersey 3 number">HINT</button>
+          <button class="check-btn" id="checkBtn" type="button">CHECK YOUR ANSWERS</button>
+        </div>
+      </section>
+    </section>
+    <div class="confetti" id="confetti" aria-hidden="true"></div>
+  </main>
+
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const SB_CONFIG = {
+        // Existing public pages keep this publishable key inline; no shared
+        // browser REST client/config is exported for standalone minigames.
+        url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+        key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
+        table: 'jersey_game'
+      };
+      const JERSEY_SELECT = [
+        'city',
+        'player1name', 'player1num', 'player1sport', 'player1team',
+        'player2name', 'player2num', 'player2sport', 'player2team',
+        'player3name', 'player3num', 'player3sport', 'player3team',
+        'operator'
+      ].join(',');
+      const TEAM_SELECT = 'league,code,full_name,first_name,fanbase,mascot,sport,shell,stripe,mask';
+      const DEFAULT_PALETTE = {
+        fullName: 'The Game Bureau',
+        sport: 'football',
+        shell: '#d3bc8d',
+        stripe: '#101820',
+        mask: '#ffffff'
+      };
+      const EXTRA_TEAM_PALETTES = new Map([
+        ['nashville predators', {
+          fullName: 'Nashville Predators',
+          sport: 'hockey',
+          shell: '#ffb81c',
+          stripe: '#041e42',
+          mask: '#ffffff'
+        }]
+      ]);
+      const PLAYER_NAME_INITIALS = new Map([
+        ['New Orleans Saints', 'HEBERT', 3, 'B. Hebert'],
+        ['New Orleans Saints', 'ANDERSEN', 7, 'M. Andersen'],
+        ['New Orleans Saints', 'DANIEL', 10, 'C. Daniel'],
+        ['New Orleans Saints', 'MILLS', 51, 'S. Mills'],
+        ['New Orleans Saints', 'GAJAN', 46, 'H. Gajan'],
+        ['New Orleans Saints', 'HARTLEY', 5, 'G. Hartley'],
+        ['New Orleans Saints', 'BREES', 9, 'D. Brees'],
+        ['New Orleans Saints', 'COLSTON', 12, 'M. Colston'],
+        ['New Orleans Saints', 'HILLIARD', 21, 'D. Hilliard'],
+        ['New Orleans Saints', 'JORDAN', 94, 'C. Jordan'],
+        ['New Orleans Saints', 'HORN', 87, 'J. Horn'],
+        ['New Orleans Saints', 'THOMAS', 13, 'M. Thomas'],
+        ['New Orleans Saints', 'INGRAM', 22, 'M. Ingram'],
+        ['New Orleans Saints', 'GRAHAM', 80, 'J. Graham'],
+        ['New Orleans Saints', 'KAMARA', 41, 'A. Kamara'],
+        ['New Orleans Saints', 'BUSH', 25, 'R. Bush'],
+        ['New Orleans Saints', 'MOORE', 16, 'L. Moore'],
+        ['New Orleans Saints', 'ROAF', 77, 'W. Roaf'],
+        ['New Orleans Saints', 'TURLEY', 68, 'K. Turley'],
+        ['Atlanta Falcons', 'BARTKOWSKI', 10, 'S. Bartkowski'],
+        ['Atlanta Falcons', 'JONES', 11, 'J. Jones'],
+        ['Atlanta Falcons', 'SANDERS', 21, 'D. Sanders'],
+        ['Atlanta Falcons', 'ANDERSEN', 5, 'M. Andersen'],
+        ['Atlanta Falcons', 'VICK', 7, 'M. Vick'],
+        ['Atlanta Falcons', 'CHANDLER', 12, 'C. Chandler'],
+        ['Atlanta Falcons', 'DUNN', 28, 'W. Dunn'],
+        ['Atlanta Falcons', 'TURNER', 33, 'M. Turner'],
+        ['Atlanta Falcons', 'NOBIS', 60, 'T. Nobis'],
+        ['Atlanta Falcons', 'RYAN', 2, 'M. Ryan'],
+        ['Atlanta Falcons', 'TUGGLE', 58, 'J. Tuggle'],
+        ['Atlanta Falcons', 'GONZALEZ', 88, 'T. Gonzalez'],
+        ['Atlanta Falcons', 'CRUMPLER', 83, 'A. Crumpler'],
+        ['Atlanta Falcons', 'RIGGS', 42, 'G. Riggs'],
+        ['Atlanta Falcons', 'ANDERSON', 32, 'J. Anderson'],
+        ['Carolina Panthers', 'KUECHLY', 59, 'L. Kuechly'],
+        ['Carolina Panthers', 'NEWTON', 1, 'C. Newton'],
+        ['Carolina Panthers', 'DAVIS', 58, 'T. Davis'],
+        ['Carolina Panthers', 'PEPPERS', 90, 'J. Peppers'],
+        ['Carolina Panthers', 'SMITH', 89, 'S. Smith'],
+        ['Carolina Panthers', 'OLSEN', 88, 'G. Olsen'],
+        ['Carolina Panthers', 'MUHAMMAD', 87, 'M. Muhammad'],
+        ['Carolina Panthers', 'GROSS', 69, 'J. Gross'],
+        ['Carolina Panthers', 'DELHOMME', 17, 'J. Delhomme'],
+        ['Carolina Panthers', 'BEASON', 52, 'J. Beason'],
+        ['Carolina Panthers', 'WILLIAMS', 34, 'D. Williams'],
+        ['Carolina Panthers', 'MILLS', 51, 'S. Mills'],
+        ['Carolina Panthers', 'MCCAFFREY', 22, 'C. McCaffrey'],
+        ['Carolina Panthers', 'MOORE', 12, 'D. Moore'],
+        ['Tampa Bay Buccaneers', 'DUNN', 28, 'W. Dunn'],
+        ['Tampa Bay Buccaneers', 'BRADY', 12, 'T. Brady'],
+        ['Tampa Bay Buccaneers', 'ALSTOTT', 40, 'M. Alstott'],
+        ['Tampa Bay Buccaneers', 'GRAMATICA', 7, 'M. Gramatica'],
+        ['Tampa Bay Buccaneers', 'JOHNSON', 19, 'K. Johnson'],
+        ['Tampa Bay Buccaneers', 'LYNCH', 47, 'J. Lynch'],
+        ['Tampa Bay Buccaneers', 'DAVID', 54, 'L. David'],
+        ['Tampa Bay Buccaneers', 'SELMON', 63, 'L. Selmon'],
+        ['Tampa Bay Buccaneers', 'NICKERSON', 56, 'H. Nickerson'],
+        ['Tampa Bay Buccaneers', 'RICE', 97, 'S. Rice'],
+        ['Tampa Bay Buccaneers', 'GODWIN', 14, 'C. Godwin'],
+        ['Tampa Bay Buccaneers', 'JACKSON', 83, 'V. Jackson'],
+        ['Tampa Bay Buccaneers', 'MAYFIELD', 6, 'B. Mayfield'],
+        ['Tampa Bay Buccaneers', 'EVANS', 13, 'M. Evans'],
+        ['Tampa Bay Buccaneers', 'BARBER', 20, 'R. Barber'],
+        ['Tampa Bay Buccaneers', 'SAPP', 99, 'W. Sapp'],
+        ['Tampa Bay Buccaneers', 'GRONKOWSKI', 87, 'R. Gronkowski']
+      ].map((row) => [playerNameKey(row[0], row[1], row[2]), row[3]]));
+      const SAMPLE_RECORDS = [
+        {
+          city: 'New Orleans',
+          player1name: 'B. Hebert',
+          player1num: 3,
+          player1sport: 'football',
+          player1team: 'New Orleans Saints',
+          player2name: 'M. Andersen',
+          player2num: 7,
+          player2sport: 'football',
+          player2team: 'New Orleans Saints',
+          player3name: 'C. Daniel',
+          player3num: 10,
+          player3sport: 'football',
+          player3team: 'New Orleans Saints',
+          operator: '+'
+        },
+        {
+          city: 'New Orleans',
+          player1name: 'S. Mills',
+          player1num: 51,
+          player1sport: 'football',
+          player1team: 'New Orleans Saints',
+          player2name: 'H. Gajan',
+          player2num: 46,
+          player2sport: 'football',
+          player2team: 'New Orleans Saints',
+          player3name: 'G. Hartley',
+          player3num: 5,
+          player3sport: 'football',
+          player3team: 'New Orleans Saints',
+          operator: '-'
+        }
+      ];
+
+      const els = {
+        loading: document.getElementById('loadingScreen'),
+        error: document.getElementById('errorScreen'),
+        errorCopy: document.getElementById('errorCopy'),
+        play: document.getElementById('playArea'),
+        cityPill: document.getElementById('cityPill'),
+        teamPill: document.getElementById('teamPill'),
+        operator: document.getElementById('operatorText'),
+        status: document.getElementById('statusText'),
+        check: document.getElementById('checkBtn'),
+        hint: document.getElementById('hintBtn'),
+        confetti: document.getElementById('confetti'),
+        inputs: [
+          document.getElementById('player1Input'),
+          document.getElementById('player2Input'),
+          document.getElementById('player3Input')
+        ]
+      };
+
+      const state = {
+        record: null,
+        teams: new Map(),
+        calculated: null,
+        calculatedSlot: null,
+        manualSlots: [],
+        solved: false,
+        unsupportedOperator: false
+      };
+      const returnTarget = getParam(['return', 'returnUrl', 'back']);
+
+      els.inputs.forEach((input, index) => {
+        input.addEventListener('focus', () => {
+          if (state.calculatedSlot === index && !state.solved) {
+            input.value = '';
+            input.classList.remove('is-calculated');
+            state.calculatedSlot = null;
+            setNumberScale(input, '');
+          }
+        });
+        input.addEventListener('blur', () => {
+          if (!input.value && state.manualSlots.length === 2) recalculate();
+        });
+        input.addEventListener('input', () => {
+          input.value = sanitizeNumberInput(input.value);
+          markManualSlot(index);
+          setNumberScale(input, input.value);
+          recalculate();
+        });
+      });
+      els.check.addEventListener('click', () => {
+        if (state.solved) {
+          closeGame();
+          return;
+        }
+        checkAnswers();
+      });
+      els.hint.addEventListener('click', useHint);
+
+      loadGame();
+
+      async function loadGame() {
+        try {
+          const rows = await Promise.allSettled([
+            fetchRandomJerseyRecord(),
+            loadTeamCatalog()
+          ]);
+          if (rows[1].status === 'fulfilled') state.teams = rows[1].value;
+          if (rows[0].status !== 'fulfilled') throw rows[0].reason;
+          const record = normalizeRecord(rows[0].value);
+          if (!record) throw new Error('No jersey puzzle was returned.');
+        state.record = record;
+        resetInputs();
+        renderRecord(record);
+        showPlay();
+      } catch (error) {
+          showError(readableError(error));
+        }
+      }
+
+      async function fetchRandomJerseyRecord() {
+        if (getParam(['demo', 'sample']) === '1') {
+          return SAMPLE_RECORDS[Math.floor(Math.random() * SAMPLE_RECORDS.length)];
+        }
+
+        // If the URL names a city, pull a random record from that city first.
+        // Fall back to a fully random record when no city is given or the city
+        // has no matching puzzles.
+        const city = getParam(['city', 'market']);
+        if (city) {
+          const cityRecord = await fetchRandomRecord({ city: 'ilike.' + city });
+          if (cityRecord) return cityRecord;
+        }
+
+        const record = await fetchRandomRecord(null);
+        if (record) return record;
+        throw new Error('No jersey puzzles found.');
+      }
+
+      // Best effort random row with PostgREST count+offset. If count is not
+      // available, fall back to a small batch and pick locally. Returns null
+      // when no rows match the (optional) filters.
+      async function fetchRandomRecord(filters) {
+        const baseParams = { select: JERSEY_SELECT, limit: '1', ...(filters || {}) };
+        const firstUrl = restUrl(SB_CONFIG.table, baseParams);
+        const firstResponse = await fetch(firstUrl, {
+          cache: 'no-store',
+          headers: supabaseHeaders({ Prefer: 'count=exact' })
+        });
+        if (!firstResponse.ok) {
+          throw new Error(await readSupabaseError(firstResponse, 'Could not load jersey puzzles.'));
+        }
+        const firstRows = await firstResponse.json();
+        const count = parseContentRangeCount(firstResponse.headers.get('content-range'));
+        if (count > 1) {
+          const offset = Math.floor(Math.random() * count);
+          const rowUrl = restUrl(SB_CONFIG.table, { ...baseParams, offset: String(offset) });
+          const rowResponse = await fetch(rowUrl, { cache: 'no-store', headers: supabaseHeaders() });
+          if (!rowResponse.ok) {
+            throw new Error(await readSupabaseError(rowResponse, 'Could not load a random jersey puzzle.'));
+          }
+          const rows = await rowResponse.json();
+          if (Array.isArray(rows) && rows.length) return rows[0];
+        }
+        if (Array.isArray(firstRows) && firstRows.length) return firstRows[0];
+
+        const fallbackUrl = restUrl(SB_CONFIG.table, { select: JERSEY_SELECT, limit: '100', ...(filters || {}) });
+        const fallbackResponse = await fetch(fallbackUrl, { cache: 'no-store', headers: supabaseHeaders() });
+        if (!fallbackResponse.ok) {
+          throw new Error(await readSupabaseError(fallbackResponse, 'Could not load jersey puzzles.'));
+        }
+        const fallbackRows = await fallbackResponse.json();
+        if (!Array.isArray(fallbackRows) || !fallbackRows.length) return null;
+        return fallbackRows[Math.floor(Math.random() * fallbackRows.length)];
+      }
+
+      async function loadTeamCatalog() {
+        try {
+          const teamUrl = restUrl('teams', { select: TEAM_SELECT, order: 'league_sort.asc,team_sort.asc' });
+          const response = await fetch(teamUrl, { cache: 'no-store', headers: supabaseHeaders() });
+          if (!response.ok) throw new Error('Teams REST load failed.');
+          const rows = await response.json();
+          return buildTeamCatalog(rows);
+        } catch (error) {
+          const response = await fetch('/assets/teams/teams.json', { cache: 'no-store' });
+          if (!response.ok) return new Map();
+          const doc = await response.json();
+          return buildTeamCatalog(flattenTeamsJson(doc));
+        }
+      }
+
+      function buildTeamCatalog(rows) {
+        const map = new Map();
+        (Array.isArray(rows) ? rows : []).forEach((row) => {
+          if (!row || typeof row !== 'object') return;
+          const team = {
+            league: row.league || '',
+            code: row.code || '',
+            fullName: row.fullName || row.full_name || '',
+            firstName: row.firstName || row.first_name || '',
+            fanbase: row.fanbase || row.firstName || row.first_name || '',
+            mascot: row.mascot || '',
+            sport: row.sport || '',
+            shell: row.shell || '',
+            stripe: row.stripe || '',
+            mask: row.mask || ''
+          };
+          const keys = [
+            team.fullName,
+            team.code,
+            team.fanbase,
+            team.mascot,
+            team.fanbase && team.mascot ? team.fanbase + ' ' + team.mascot : ''
+          ];
+          keys.forEach((key) => {
+            const normalized = normalizeKey(key);
+            if (normalized && !map.has(normalized)) map.set(normalized, team);
+          });
+        });
+        return map;
+      }
+
+      function flattenTeamsJson(doc) {
+        const rows = [];
+        const leagues = doc && doc.leagues && typeof doc.leagues === 'object' ? doc.leagues : {};
+        Object.keys(leagues).forEach((league) => {
+          const node = leagues[league];
+          Object.keys(node || {}).forEach((key) => {
+            const value = node[key];
+            if (!value || typeof value !== 'object') return;
+            if ('fullName' in value || 'fanbase' in value || 'mascot' in value) {
+              rows.push({ ...value, league, code: key });
+              return;
+            }
+            Object.keys(value).forEach((code) => {
+              const team = value[code];
+              if (team && typeof team === 'object') rows.push({ ...team, league, code });
+            });
+          });
+        });
+        return rows;
+      }
+
+      function normalizeRecord(raw) {
+        if (!raw || typeof raw !== 'object') return null;
+        const record = {
+          city: cleanText(raw.city),
+          operator: cleanText(raw.operator),
+          players: [
+            playerFromRecord(raw, 1),
+            playerFromRecord(raw, 2),
+            playerFromRecord(raw, 3)
+          ]
+        };
+        if (!record.players.every((player) => player.name && Number.isFinite(player.num))) return null;
+        return record;
+      }
+
+      function playerFromRecord(raw, index) {
+        return {
+          name: cleanText(raw['player' + index + 'name']),
+          num: Number(raw['player' + index + 'num']),
+          sport: cleanText(raw['player' + index + 'sport']),
+          team: cleanText(raw['player' + index + 'team'])
+        };
+      }
+
+      function renderRecord(record) {
+        els.cityPill.textContent = record.city || 'Mystery City';
+        els.teamPill.textContent = sharedTeamLabel(record) || 'Mixed Teams';
+        els.operator.textContent = record.operator || '?';
+        state.unsupportedOperator = !isSupportedOperator(record.operator);
+
+        record.players.forEach((player, index) => {
+          const number = index + 1;
+          const palette = resolveTeamPalette(player);
+          const displayName = formatPlayerName(player);
+          const jersey = document.getElementById('jersey' + number);
+          const nameEl = document.getElementById('player' + number + 'Name');
+          const sportEl = document.getElementById('player' + number + 'Sport');
+          const cityEl = document.getElementById('player' + number + 'City');
+          const sportLineEl = document.getElementById('player' + number + 'SportLine');
+          const labelEl = document.getElementById('player' + number + 'Label');
+          applyJerseyPalette(jersey, palette, player.sport);
+          nameEl.textContent = displayName;
+          sportEl.textContent = player.sport || palette.sport || 'sport';
+          if (cityEl) cityEl.textContent = record.city || '';
+          if (sportLineEl) sportLineEl.textContent = player.sport || palette.sport || '';
+          if (labelEl) labelEl.textContent = displayName + ' jersey number';
+        });
+        els.inputs.forEach((input) => {
+          input.disabled = false;
+          setNumberScale(input, input.value);
+        });
+
+        if (state.unsupportedOperator) {
+          setStatus('ERROR', 'error');
+          els.check.disabled = true;
+          els.hint.disabled = true;
+        } else {
+          setStatus('Enter any two jersey numbers.', '');
+          els.check.disabled = false;
+          els.hint.disabled = false;
+        }
+        recalculate();
+      }
+
+      function resolveTeamPalette(player) {
+        const direct = state.teams.get(normalizeKey(player.team));
+        if (direct) return direct;
+        const extra = EXTRA_TEAM_PALETTES.get(normalizeKey(player.team));
+        if (extra) return extra;
+        const cityTeam = state.teams.get(normalizeKey((state.record && state.record.city || '') + ' ' + player.team));
+        if (cityTeam) return cityTeam;
+        return {
+          ...DEFAULT_PALETTE,
+          fullName: player.team || DEFAULT_PALETTE.fullName,
+          sport: player.sport || DEFAULT_PALETTE.sport
+        };
+      }
+
+      function applyJerseyPalette(jersey, palette, sport) {
+        if (!jersey) return;
+        const primary = safeColor(palette.shell) || DEFAULT_PALETTE.shell;
+        const secondary = safeColor(palette.stripe) || readableTextColor(primary);
+        const trim = safeColor(palette.mask) || '#ffffff';
+        const number = contrastEnough(secondary, primary) ? secondary : readableTextColor(primary);
+        const shadow = readableTextColor(number);
+        jersey.style.setProperty('--jersey-primary', primary);
+        jersey.style.setProperty('--jersey-secondary', secondary);
+        jersey.style.setProperty('--jersey-trim', trim);
+        jersey.style.setProperty('--jersey-number', number);
+        jersey.style.setProperty('--jersey-number-shadow', shadow);
+        jersey.classList.remove('sport-football', 'sport-hockey', 'sport-basketball', 'sport-baseball');
+        jersey.classList.add('sport-' + normalizeSport(sport || palette.sport));
+      }
+
+      function resetInputs() {
+        state.calculated = null;
+        state.calculatedSlot = null;
+        state.manualSlots = [];
+        state.solved = false;
+        els.inputs.forEach((input) => {
+          input.value = '';
+          input.disabled = false;
+          input.classList.remove('is-calculated', 'number-flash');
+          setNumberScale(input, '');
+        });
+        els.check.textContent = 'CHECK YOUR ANSWERS';
+        els.hint.disabled = false;
+      }
+
+      function markManualSlot(slot) {
+        state.manualSlots = state.manualSlots.filter((manualSlot) => manualSlot !== slot);
+        if (Number.isFinite(parseInputNumber(els.inputs[slot].value))) {
+          state.manualSlots.push(slot);
+        }
+        while (state.manualSlots.length > 2) {
+          state.manualSlots.shift();
+        }
+      }
+
+      function clearSlot(slot) {
+        const input = els.inputs[slot];
+        if (!input) return;
+        input.value = '';
+        input.classList.remove('is-calculated', 'number-flash');
+        setNumberScale(input, '');
+      }
+
+      function setCalculatedSlot(slot, value, options) {
+        const input = els.inputs[slot];
+        if (!input) return;
+        const shouldFlash = Boolean(options && options.flash) || input.value !== value;
+        input.value = value;
+        input.classList.add('is-calculated');
+        setNumberScale(input, value);
+        if (shouldFlash) flashNumber(input);
+      }
+
+      function recalculate() {
+        if (!state.record || state.unsupportedOperator) return;
+        state.manualSlots = state.manualSlots.filter((slot) => Number.isFinite(parseInputNumber(els.inputs[slot].value)));
+        els.inputs.forEach((input, index) => {
+          if (index !== state.calculatedSlot) input.classList.remove('is-calculated');
+        });
+
+        if (state.manualSlots.length < 2) {
+          if (state.calculatedSlot !== null) clearSlot(state.calculatedSlot);
+          state.calculated = null;
+          state.calculatedSlot = null;
+          if (!state.solved) setStatus('Enter any two jersey numbers.', '');
+          return;
+        }
+
+        const missingSlot = [0, 1, 2].find((slot) => !state.manualSlots.includes(slot));
+        const values = els.inputs.map((input) => parseInputNumber(input.value));
+        state.calculated = calculateMissingValue(missingSlot, values, state.record.operator);
+        state.calculatedSlot = missingSlot;
+        const calculatedText = formatNumber(state.calculated);
+        setCalculatedSlot(missingSlot, calculatedText);
+        if (!state.solved) setStatus('Now check the jerseys.', '');
+      }
+
+      function useHint() {
+        if (!state.record || state.unsupportedOperator || state.solved) return;
+        const slot = 2;
+        const input = els.inputs[slot];
+        const hintValue = formatNumber(state.record.players[slot].num);
+
+        state.calculated = null;
+        if (state.calculatedSlot === slot) state.calculatedSlot = null;
+        input.value = hintValue;
+        input.disabled = false;
+        input.classList.remove('is-calculated');
+        setNumberScale(input, hintValue);
+        markManualSlot(slot);
+        flashNumber(input);
+        recalculate();
+
+        if (!state.solved) {
+          const message = state.manualSlots.length >= 2
+            ? 'Hint added. Now check the jerseys.'
+            : 'Hint added.';
+          setStatus(message, '');
+        }
+      }
+
+      function checkAnswers() {
+        if (!state.record || state.unsupportedOperator) return;
+        recalculate();
+        const values = els.inputs.map((input) => parseInputNumber(input.value));
+        const expected = state.record.players;
+        const correct = values.every(Number.isFinite)
+          && values[0] === expected[0].num
+          && values[1] === expected[1].num
+          && values[2] === expected[2].num;
+
+        if (!correct) {
+          flashTryAgain();
+          return;
+        }
+
+        state.solved = true;
+        els.inputs.forEach((input) => { input.disabled = true; });
+        els.hint.disabled = true;
+        setStatus('TOUCHDOWN!', 'good');
+        els.check.textContent = 'CLOSE';
+        fireConfetti();
+      }
+
+      function flashNumber(input) {
+        if (!input) return;
+        input.classList.remove('number-flash');
+        void input.offsetWidth;
+        input.classList.add('number-flash');
+      }
+
+      function flashTryAgain() {
+        setStatus('TRY AGAIN', 'error');
+        els.status.classList.remove('flash');
+        void els.status.offsetWidth;
+        els.status.classList.add('flash');
+      }
+
+      function fireConfetti() {
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const colors = ['#d3bc8d', '#ffffff', '#101820', '#75d989', '#ff785f'];
+        els.confetti.innerHTML = '';
+        for (let i = 0; i < 52; i += 1) {
+          const piece = document.createElement('span');
+          piece.className = 'confetti-piece';
+          piece.style.setProperty('--x', Math.floor(Math.random() * 100) + '%');
+          piece.style.setProperty('--dx', (Math.random() * 180 - 90).toFixed(0) + 'px');
+          piece.style.setProperty('--r', Math.floor(Math.random() * 360) + 'deg');
+          piece.style.setProperty('--d', (900 + Math.random() * 1100).toFixed(0) + 'ms');
+          piece.style.setProperty('--c', colors[i % colors.length]);
+          els.confetti.appendChild(piece);
+        }
+        window.setTimeout(() => { els.confetti.innerHTML = ''; }, 2300);
+      }
+
+      function closeGame() {
+        if (getParam(['embedded']) === '1' && window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'tgb:minigame:complete', game: 'jersey' }, '*');
+          return;
+        }
+
+        const safeTarget = getSafeReturnUrl(returnTarget);
+        if (safeTarget) {
+          window.location.href = safeTarget;
+          return;
+        }
+        if (document.referrer) {
+          window.location.href = document.referrer;
+          return;
+        }
+        if (window.history.length > 1) {
+          window.history.back();
+        }
+      }
+
+      function showPlay() {
+        els.loading.hidden = true;
+        els.error.hidden = true;
+        els.play.hidden = false;
+      }
+
+      function showError(message) {
+        els.loading.hidden = true;
+        els.play.hidden = true;
+        els.error.hidden = false;
+        els.errorCopy.textContent = message;
+      }
+
+      function setStatus(text, type) {
+        els.status.textContent = text;
+        els.status.className = 'status' + (type ? ' ' + type : '');
+      }
+
+      function calculate(first, operator, second) {
+        if (operator === '+') return first + second;
+        if (operator === '-') return first - second;
+        return null;
+      }
+
+      function calculateMissingValue(slot, values, operator) {
+        const first = values[0];
+        const second = values[1];
+        const third = values[2];
+        if (slot === 0 && operator === '+') return third - second;
+        if (slot === 0 && operator === '-') return third + second;
+        if (slot === 1 && operator === '+') return third - first;
+        if (slot === 1 && operator === '-') return first - third;
+        if (slot === 2) return calculate(first, operator, second);
+        return null;
+      }
+
+      function isSupportedOperator(operator) {
+        return operator === '+' || operator === '-';
+      }
+
+      function sharedTeamLabel(record) {
+        const teams = Array.from(new Set(record.players.map((player) => player.team).filter(Boolean)));
+        return teams.length === 1 ? teams[0] : '';
+      }
+
+      function parseInputNumber(value) {
+        const text = sanitizeNumberInput(value);
+        if (!text) return NaN;
+        if (text === '-' || text === '.' || text === '-.') return NaN;
+        return Number(text);
+      }
+
+      function sanitizeNumberInput(value) {
+        const raw = String(value || '');
+        let result = '';
+        let hasDecimal = false;
+        for (const char of raw) {
+          if (char >= '0' && char <= '9') {
+            result += char;
+          } else if (char === '-' && result === '') {
+            result = '-';
+          } else if (char === '.' && !hasDecimal) {
+            result += '.';
+            hasDecimal = true;
+          }
+        }
+        return result;
+      }
+
+      function formatNumber(value) {
+        if (!Number.isFinite(value)) return '?';
+        const normalized = Object.is(value, -0) ? 0 : value;
+        if (Number.isInteger(normalized)) return String(normalized);
+        return String(Number(normalized.toFixed(10)));
+      }
+
+      function setNumberScale(element, value) {
+        if (!element) return;
+        const length = String(value || '').trim().length;
+        const scale = length > 7 ? 0.34
+          : length > 5 ? 0.5
+          : length > 3 ? 0.72
+          : 1;
+        element.style.setProperty('--number-scale', String(scale));
+        element.style.setProperty('--number-outline', Math.max(1, Math.round(4 * scale)) + 'px');
+      }
+
+      function restUrl(table, paramsObj) {
+        const url = new URL('/rest/v1/' + encodeURIComponent(table), SB_CONFIG.url + '/');
+        Object.keys(paramsObj || {}).forEach((key) => {
+          url.searchParams.set(key, paramsObj[key]);
+        });
+        return url.toString();
+      }
+
+      function supabaseHeaders(extra) {
+        return {
+          apikey: SB_CONFIG.key,
+          Authorization: 'Bearer ' + SB_CONFIG.key,
+          Accept: 'application/json',
+          ...(extra || {})
+        };
+      }
+
+      async function readSupabaseError(response, fallback) {
+        try {
+          const text = await response.text();
+          if (!text) return fallback;
+          try {
+            const data = JSON.parse(text);
+            return data.message || data.msg || data.error || fallback;
+          } catch (error) {
+            return text.slice(0, 220) || fallback;
+          }
+        } catch (error) {
+          return fallback;
+        }
+      }
+
+      function parseContentRangeCount(value) {
+        const match = String(value || '').match(/\/(\d+)$/);
+        return match ? Number(match[1]) : 0;
+      }
+
+      function readableError() {
+        return '';
+      }
+
+      function getParam(names) {
+        for (const name of names) {
+          const value = params.get(name);
+          if (value != null && String(value).trim()) return String(value).trim();
+        }
+        return '';
+      }
+
+      function getSafeReturnUrl(value) {
+        if (!value) return '';
+        try {
+          const url = new URL(value, window.location.href);
+          if (url.origin === window.location.origin) return url.href;
+        } catch (error) {}
+        return '';
+      }
+
+      function cleanText(value) {
+        return String(value == null ? '' : value).trim();
+      }
+
+      function formatPlayerName(player) {
+        const source = cleanText(player && player.name);
+        if (!source) return '';
+        if (/\b[A-Za-z]\./.test(source)) return titleCasePlayerName(source);
+        const mapped = PLAYER_NAME_INITIALS.get(playerNameKey(player.team, source, player.num));
+        if (mapped) return mapped;
+        return titleCasePlayerName(source);
+      }
+
+      function titleCasePlayerName(value) {
+        return cleanText(value)
+          .toLowerCase()
+          .split(/(\s+|-)/)
+          .map((part) => {
+            if (!part || /^\s+$/.test(part) || part === '-') return part;
+            if (/^[a-z]\.$/.test(part)) return part.toUpperCase();
+            return part.charAt(0).toUpperCase() + part.slice(1);
+          })
+          .join('');
+      }
+
+      function playerNameKey(team, name, num) {
+        return [normalizeKey(team), normalizeKey(name), String(Number(num))].join('|');
+      }
+
+      function normalizeKey(value) {
+        return String(value || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, ' ').trim();
+      }
+
+      function normalizeSport(value) {
+        const sport = normalizeKey(value);
+        if (sport === 'hockey') return 'hockey';
+        if (sport === 'basketball') return 'basketball';
+        if (sport === 'baseball') return 'baseball';
+        return 'football';
+      }
+
+      function safeColor(value) {
+        const text = cleanText(value);
+        return /^(#[0-9a-f]{3}|#[0-9a-f]{6}|#[0-9a-f]{8})$/i.test(text) ? text : '';
+      }
+
+      function readableTextColor(bg) {
+        const rgb = hexToRgb(bg);
+        if (!rgb) return '#ffffff';
+        const lum = relativeLuminance(rgb);
+        return lum > 0.48 ? '#101820' : '#fff7dd';
+      }
+
+      function contrastEnough(fg, bg) {
+        const a = hexToRgb(fg);
+        const b = hexToRgb(bg);
+        if (!a || !b) return true;
+        const la = relativeLuminance(a) + 0.05;
+        const lb = relativeLuminance(b) + 0.05;
+        return Math.max(la, lb) / Math.min(la, lb) >= 2.4;
+      }
+
+      function hexToRgb(value) {
+        let hex = safeColor(value).replace('#', '');
+        if (!hex) return null;
+        if (hex.length === 3) hex = hex.split('').map((char) => char + char).join('');
+        if (hex.length === 8) hex = hex.slice(0, 6);
+        const num = Number.parseInt(hex, 16);
+        if (!Number.isFinite(num)) return null;
+        return {
+          r: (num >> 16) & 255,
+          g: (num >> 8) & 255,
+          b: num & 255
+        };
+      }
+
+      function relativeLuminance(rgb) {
+        const channels = [rgb.r, rgb.g, rgb.b].map((value) => {
+          const channel = value / 255;
+          return channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+        });
+        return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+      }
+    }());
+  </script>
+  <script src="../../../assets/admin-bridge.js"></script>
+</body>
+</html>

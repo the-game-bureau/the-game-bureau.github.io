@@ -10032,11 +10032,6 @@ html.admin-embedded .builder-section-head{
                       <div class="mini-note" id="nodeBodyHtmlNote" hidden>HTML OK.</div>
                     </div>
 
-                    <div class="field" id="howToPlayField">
-                      <label class="field-label" for="nodeHowToPlayInput">How to Play</label>
-                      <textarea id="nodeHowToPlayInput" disabled></textarea>
-                    </div>
-
                   </div>
                 </section>
 
@@ -11376,7 +11371,6 @@ function normalizeGameRow(row, index = 0) {
     links:                 Array.isArray(row && row.links) ? row.links : [],
     body:                  row && row.body,
     price:                 row && row.price,
-    how_to_play:           row && row.how_to_play,
     builder_notes:         row && row.builder_notes,
     default_emoji:         row && row.default_emoji,
     category_icon:         row && row.category_icon,
@@ -11439,7 +11433,6 @@ async function fetchGameRowsFromSupabase(select = null) {
     'updated_at',
     'body',
     'price',
-    'how_to_play',
     'builder_notes',
     'default_emoji',
     'category_icon',
@@ -11557,7 +11550,6 @@ async function fetchGameRowFromSupabase(gameId, select = null) {
     'updated_at',
     'body',
     'price',
-    'how_to_play',
     'builder_notes',
     'default_emoji',
     'category_icon',
@@ -12043,8 +12035,6 @@ const GAME_LOGO_FALLBACK_ASSET_NAMES = [
 const TEAM_FIELD_KEYS = Array.from({ length: 8 }, (_, index) => `team${String(index + 1).padStart(2, '0')}`);
 const teamInputs = TEAM_FIELD_KEYS.map((key) => document.getElementById(key + 'Input'));
 const descriptionField = document.getElementById('descriptionField');
-const howToPlayField = document.getElementById('howToPlayField');
-const nodeHowToPlayInput = document.getElementById('nodeHowToPlayInput');
 const objectDescriptionField = document.getElementById('objectDescriptionField');
 const ifThenField = document.getElementById('ifThenField');
 const nodeTitleLabelText = document.getElementById('nodeTitleLabelText');
@@ -12486,8 +12476,8 @@ function cloneObj(value) {
 function normalizeMinigameEntry(entry) {
   const raw = entry && typeof entry === 'object' ? entry : {};
   const file = String(raw.file || raw.path || raw.href || '').trim();
-  if (!/^[A-Za-z0-9_-]+\.html$/i.test(file)) return null;
-  const id = String(raw.id || file.replace(/\.html$/i, '')).trim() || file;
+  if (!/^(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.(?:html|htm)$/i.test(file)) return null;
+  const id = String(raw.id || file.replace(/\.(?:html|htm)$/i, '')).trim() || file;
   const label = String(raw.label || raw.title || id).trim() || id;
   return { id, label, file };
 }
@@ -15623,7 +15613,6 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     startingLocationAddress: raw && typeof raw.startingLocationAddress === 'string' ? raw.startingLocationAddress : '',
     startingLocationLat: raw && typeof raw.startingLocationLat === 'number' ? raw.startingLocationLat : null,
     startingLocationLon: raw && typeof raw.startingLocationLon === 'number' ? raw.startingLocationLon : null,
-    howToPlay: raw && typeof raw.howToPlay === 'string' ? raw.howToPlay : '',
 
     guideName: raw && typeof raw.guideName === 'string' ? raw.guideName : '',
     guideBio: raw && typeof raw.guideBio === 'string' ? raw.guideBio : '',
@@ -15802,7 +15791,6 @@ function getDocSnapshot(doc = state.doc) {
       startingLocationLat: meta.startingLocationLat ?? null,
       startingLocationLon: meta.startingLocationLon ?? null,
       locationBased: !!meta.locationBased,
-      howToPlay: meta.howToPlay || '',
       guideName: meta.guideName || '',
       guideBio: meta.guideBio || '',
       guideImageUrl: meta.guideImageUrl || '',
@@ -15833,7 +15821,6 @@ function getDocSnapshot(doc = state.doc) {
       startingLocationAddress: node.startingLocationAddress || '',
       startingLocationLat: node.startingLocationLat ?? null,
       startingLocationLon: node.startingLocationLon ?? null,
-      howToPlay: node.howToPlay || '',
       guideName: node.guideName || '',
       guideBio: node.guideBio || '',
       guideImageUrl: node.guideImageUrl || '',
@@ -16216,7 +16203,6 @@ function initGameMeta(game) {
     startingLocationLon:  g.starting_location_lon != null ? Number(g.starting_location_lon) : (typeof g.startingLocationLon === 'number' ? g.startingLocationLon : (gn.startingLocationLon ?? null)),
     locationBased:        g.location_based  != null ? !!g.location_based  : (gn.locationBased === 'YES' || gn.locationBased === true),
     fandomGame:           normalizeBooleanFlag(g.fandom_game ?? g.fandomGame ?? gn.fandomGame ?? gn.fandom_game),
-    howToPlay:            g.how_to_play     ?? gn.howToPlay       ?? '',
     guideName:            g.guide_name      ?? gn.guideName       ?? '',
     guideBio:             g.guide_bio       ?? gn.guideBio        ?? '',
     guideImageUrl:        g.guide_image_url ?? gn.guideImageUrl   ?? gn.guideImage   ?? '',
@@ -16842,7 +16828,6 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   city: 'city',
   body: 'body',
   price: 'price',
-  how_to_play: 'howToPlay',
   builder_notes: 'builderNotes',
   default_emoji: 'defaultEmoji',
   category_icon: 'categoryIcon',
@@ -16933,7 +16918,6 @@ function normalizeSavedGame(raw, index) {
     links:                 doc.links,
     body:                  raw && raw.body,
     price:                 raw && raw.price,
-    how_to_play:           raw && raw.how_to_play,
     builder_notes:         raw && raw.builder_notes,
     default_emoji:         raw && raw.default_emoji,
     category_icon:         normalizeCategoryIconValue(raw && (raw.category_icon ?? raw.categoryIcon)),
@@ -17002,7 +16986,6 @@ function createNode(type, x, y) {
     startingLocationAddress: '',
     startingLocationLat: null,
     startingLocationLon: null,
-    howToPlay: '',
     guideName: type === 'game' ? 'Mission Control' : '',
     guideBio: '',
     guideImageUrl: '',
@@ -18100,7 +18083,6 @@ function getStencilPreviewNode(type) {
     height: TYPE_CONFIG[type]?.height || 0,
     title: type === 'stop' ? 'Waypoint' : '',
     tagline: '',
-    howToPlay: '',
     guideName: '',
     guideBio: '',
     guideImageUrl: '',
@@ -19273,7 +19255,6 @@ function updateSelectionUi(options = {}) {
   if (locationBasedField) locationBasedField.hidden = !showGameDetails;
   if (fandomGameField) fandomGameField.hidden = !showGameDetails;
   if (categoryIconField) categoryIconField.hidden = !showGameDetails;
-  if (howToPlayField) howToPlayField.hidden = !showGameDetails;
   guideNameField.hidden = !showGameDetails;
   guideBioField.hidden = !showGameDetails;
   guideImageField.hidden = !showGameDetails;
@@ -19323,7 +19304,6 @@ function updateSelectionUi(options = {}) {
   if (nodeStartAddressInput) nodeStartAddressInput.disabled = !isGameNode;
   if (nodeCoordinatesInput) nodeCoordinatesInput.disabled = !isGameNode;
   if (coordinatesGenerateBtn) coordinatesGenerateBtn.disabled = !isGameNode;
-  nodeHowToPlayInput.disabled = !isGameNode;
   nodeGuideNameInput.disabled = !isGameNode;
   nodeGuideBioInput.disabled = !isGameNode;
   nodeGuideImageInput.disabled = !isGameNode;
@@ -19499,7 +19479,6 @@ function updateSelectionUi(options = {}) {
   }
   if (fandomGameLabelNo)  fandomGameLabelNo.classList.toggle('is-active', !isFandomGame);
   if (fandomGameLabelYes) fandomGameLabelYes.classList.toggle('is-active',  isFandomGame);
-  nodeHowToPlayInput.value = isGameNode ? (meta.howToPlay || '') : '';
   nodeGuideNameInput.value = isGameNode ? (meta.guideName || '') : '';
   nodeGuideBioInput.value = isGameNode ? (meta.guideBio || '') : '';
   nodeGuideImageInput.value = isGameNode ? (meta.guideImageUrl || '') : '';
@@ -19852,7 +19831,6 @@ function duplicateNode(nodeId) {
     startingLocationAddress: source.startingLocationAddress || '',
     startingLocationLat: source.startingLocationLat ?? null,
     startingLocationLon: source.startingLocationLon ?? null,
-    howToPlay: source.howToPlay || '',
     guideName: source.guideName || '',
     guideBio: source.guideBio || '',
     guideImageUrl: source.guideImageUrl || '',
@@ -20630,7 +20608,6 @@ function serializeNodeState(node) {
     startingLocationAddress: (meta ? meta.startingLocationAddress : node.startingLocationAddress) || '',
     startingLocationLat: (meta ? meta.startingLocationLat : node.startingLocationLat) ?? null,
     startingLocationLon: (meta ? meta.startingLocationLon : node.startingLocationLon) ?? null,
-    howToPlay: (meta ? meta.howToPlay : node.howToPlay) || '',
     guideName: (meta ? meta.guideName : node.guideName) || '',
     guideBio: (meta ? meta.guideBio : node.guideBio) || '',
     guideImageUrl: (meta ? meta.guideImageUrl : node.guideImageUrl) || '',
@@ -21011,7 +20988,6 @@ function stageCurrentGameIntoStore() {
     price:                 _meta.price || null,
     tags:                  Array.isArray(_gn.tags) ? _gn.tags : null,
     primary_tag:           _gn.primaryTag || null,
-    how_to_play:           _meta.howToPlay || null,
     builder_notes:         _gn.builderNotes || null,
     default_emoji:         _meta.defaultEmoji || null,
     category_icon:         normalizeCategoryIconValue(_meta.categoryIcon) || null,
@@ -21767,11 +21743,6 @@ if (fandomGameToggle) {
   });
 }
 
-
-nodeHowToPlayInput.addEventListener('input', () => {
-  if (!getGameNode() || !state.currentGameMeta) return;
-  state.currentGameMeta.howToPlay = nodeHowToPlayInput.value;
-});
 
 nodeGuideNameInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;

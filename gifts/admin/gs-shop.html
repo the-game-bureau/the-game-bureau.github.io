@@ -596,10 +596,15 @@
       color: var(--muted);
       text-align: left;
     }
+    /* Aspect-ratio + height match the public gift card's .card-media
+       (154px tall × ≥280px wide). Scaled up 1.43x for an easier drag
+       target while preserving WYSIWYG crop. max-width keeps it from
+       overflowing narrow viewports — aspect-ratio handles the height. */
     .item-focus {
       position: relative;
-      width: 220px;
-      height: 220px;
+      width: 400px;
+      max-width: 100%;
+      aspect-ratio: 400 / 220;
       border-radius: 8px;
       background: rgba(var(--bic-blue-rgb), 0.06);
       border: 1px solid var(--line);
@@ -1668,13 +1673,15 @@
         if (sel) sel.focus();
       });
 
-      // Focus picker: a fixed 220×220 frame matching the public site's
-      // minimum card-image size. The image lives behind the frame at
-      // "cover" scale (smaller dim = frame size, longer dim overflows).
-      // Drag the image to slide it under the window; the resulting
-      // top-left as a fraction of overflow is the object-position
-      // we save back to the row.
-      const FRAME_SIDE = 220;
+      // Focus picker: 400×220 frame matching the public card-media
+      // aspect ratio (154px tall × ≥280px wide, scaled up for usability).
+      // Image lives behind the frame at "cover" scale (smaller dim
+      // matches the frame's same dim, longer dim overflows). Drag the
+      // image to slide it under the window; the resulting top-left as
+      // a fraction of overflow becomes the object-position saved back
+      // to the row.
+      const FRAME_W = 400;
+      const FRAME_H = 220;
       const focusBox = article.querySelector('.item-focus');
       const placeholder = focusBox.querySelector('[data-focus-placeholder]');
 
@@ -1710,15 +1717,19 @@
           lastLayout = null;
           return;
         }
+        // Measure the frame at runtime so responsive shrinkage (mobile
+        // max-width: 100%) doesn't desync the cover math from reality.
+        const frameW = focusBox.clientWidth || FRAME_W;
+        const frameH = focusBox.clientHeight || FRAME_H;
         const W = img.naturalWidth;
         const H = img.naturalHeight;
-        const scale = Math.max(FRAME_SIDE / W, FRAME_SIDE / H);
+        const scale = Math.max(frameW / W, frameH / H);
         const dispW = W * scale;
         const dispH = H * scale;
         lastLayout = {
           dispW, dispH,
-          overflowX: Math.max(0, dispW - FRAME_SIDE),
-          overflowY: Math.max(0, dispH - FRAME_SIDE)
+          overflowX: Math.max(0, dispW - frameW),
+          overflowY: Math.max(0, dispH - frameH)
         };
         img.style.width = dispW + 'px';
         img.style.height = dispH + 'px';

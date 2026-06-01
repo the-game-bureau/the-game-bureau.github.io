@@ -16,6 +16,7 @@
   var MENU_ITEMS = [
     { href: '/mc/index.html',     label: 'Edit Games' },
     { href: '/mc/builder.html',   label: 'Build Games', id: 'mcNavBuilderLink' },
+    { href: '/mc/taglines.html',  label: 'Taglines' },
     { href: '/mc/photos.html',    label: 'Edit Wall' },
     { href: '/gifts/admin/gs-shop.html',  label: 'Edit Gifts' },
     { href: '/gifts/admin/gs-codes.html', label: 'Access Codes' },

@@ -34,66 +34,78 @@
   var SEND_URL   = EDGE_BASE + '/gs-send-code';
   var SWAP_URL   = EDGE_BASE + '/gs-swap-game';
 
-  // Matches the ticket-lightbox / directions-lightbox aesthetic: black
-  // backdrop, primary-colored top bar, white body. CSS vars fall back
-  // to TGB blue when opened on pages without --primary defined.
+  // Themed to match /gifts/ (Big Shoulders Display headlines, JetBrains
+  // Mono body, dark glass background, accent-colored CTAs, 10/6px radii).
+  // Engines that load this modal can override --gs-accent on the modal
+  // root to retint primary actions without rewriting the CSS.
+  var GS_FONT_DISPLAY = '"Big Shoulders Display","Impact","Arial Narrow",sans-serif';
+  var GS_FONT_BODY = '"JetBrains Mono","Menlo","Consolas",monospace';
+  var GS_FONT_MONO = '"IBM Plex Mono",Menlo,Consolas,monospace';
   var STYLE = [
-    '.tgb-gift-modal{display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,0.88);flex-direction:column;font-family:"Outfit","DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;--tgb-gift-primary:var(--primary,#2d4880);--tgb-gift-secondary:var(--secondary,#ffffff);}',
+    // Modal root: dark glass with the gift-shop palette baked in.
+    '.tgb-gift-modal{display:none;position:fixed;inset:0;z-index:1200;background:rgba(2,4,8,0.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:' + GS_FONT_BODY + ';--gs-accent:var(--accent,#d4a574);--gs-accent-ink:#0b0f17;--gs-ink:#f3eedc;--gs-muted:rgba(243,238,220,0.62);--gs-line:rgba(243,238,220,0.14);--gs-surface:rgba(16,21,30,0.96);--gs-input-bg:rgba(255,255,255,0.04);}',
     '.tgb-gift-modal.is-open{display:flex;}',
-    '.tgb-gift-bar{display:flex;align-items:center;justify-content:space-between;padding:max(env(safe-area-inset-top),0.75rem) 1rem 0.75rem;flex-shrink:0;background:var(--tgb-gift-primary);}',
-    '.tgb-gift-title{font-family:"Outfit",sans-serif;font-weight:700;font-size:1rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--tgb-gift-secondary);margin:0;}',
-    '.tgb-gift-close{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.18);border:2px solid var(--tgb-gift-secondary);color:var(--tgb-gift-secondary);font-size:1.2rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.15s,transform 0.15s;font:inherit;}',
-    '.tgb-gift-close:active{background:rgba(255,255,255,0.32);transform:scale(0.94);}',
-    '.tgb-gift-body{flex:1;overflow-y:auto;padding:1.5rem 1.5rem max(env(safe-area-inset-bottom),2rem);background:#fff;font-family:"DM Sans",sans-serif;font-size:1rem;line-height:1.6;color:#333;}',
-    '.tgb-gift-step{display:none;max-width:520px;margin:0 auto;}',
+    // Panel: rounded dark card centered on the backdrop.
+    '.tgb-gift-bar{display:flex;align-items:center;justify-content:space-between;width:min(560px,100%);padding:14px 18px;background:var(--gs-surface);border:1px solid var(--gs-line);border-bottom:0;border-radius:10px 10px 0 0;font-family:' + GS_FONT_DISPLAY + ';}',
+    '.tgb-gift-title{margin:0;font-family:' + GS_FONT_DISPLAY + ';font-weight:800;font-size:1.25rem;letter-spacing:0;text-transform:uppercase;color:var(--gs-ink);}',
+    '.tgb-gift-close{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid var(--gs-line);border-radius:6px;background:transparent;color:var(--gs-muted);font-size:1.1rem;line-height:1;cursor:pointer;transition:background 0.15s,color 0.15s,border-color 0.15s;font:inherit;}',
+    '.tgb-gift-close:hover{background:rgba(255,255,255,0.06);color:var(--gs-ink);border-color:var(--gs-ink);}',
+    '.tgb-gift-body{flex:0 1 auto;width:min(560px,100%);max-height:80vh;overflow-y:auto;padding:20px 22px max(env(safe-area-inset-bottom),22px);background:var(--gs-surface);border:1px solid var(--gs-line);border-top:0;border-radius:0 0 10px 10px;color:var(--gs-ink);font-family:' + GS_FONT_BODY + ';font-size:0.92rem;line-height:1.55;box-shadow:0 28px 64px rgba(0,0,0,0.6);}',
+    '.tgb-gift-step{display:none;}',
     '.tgb-gift-step.is-active{display:block;}',
-    '.tgb-gift-headline{margin:0 0 0.4rem;font-family:"Outfit",sans-serif;font-size:1.5rem;font-weight:700;color:var(--tgb-gift-primary);letter-spacing:0.01em;line-height:1.15;}',
-    '.tgb-gift-sub{margin:0 0 1.25rem;color:#555;font-size:0.98rem;line-height:1.55;}',
-    '.tgb-gift-price{font-family:"Outfit",sans-serif;font-size:2.4rem;font-weight:700;color:var(--tgb-gift-primary);-webkit-text-stroke:0.6px var(--tgb-gift-secondary);paint-order:stroke fill;letter-spacing:0.01em;margin:0.25rem 0 1rem;}',
-    '.tgb-gift-cta{display:inline-flex;align-items:center;justify-content:center;width:100%;padding:0.95rem 1.25rem;border:0;border-radius:999px;background:var(--tgb-gift-primary);color:var(--tgb-gift-secondary);font-family:"Outfit",sans-serif;font-size:1rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;transition:transform 0.1s,opacity 0.15s;font:inherit;font-size:0.95rem;}',
-    '.tgb-gift-cta:active{transform:scale(0.985);}',
+    // Headline + body copy.
+    '.tgb-gift-headline{margin:0 0 0.5rem;font-family:' + GS_FONT_DISPLAY + ';font-size:2rem;font-weight:800;line-height:1.02;letter-spacing:0;text-transform:uppercase;color:var(--gs-ink);}',
+    '.tgb-gift-sub{margin:0 0 1.2rem;color:var(--gs-muted);font-size:0.86rem;line-height:1.55;}',
+    '.tgb-gift-price{margin:0.25rem 0 1rem;font-family:' + GS_FONT_DISPLAY + ';font-size:2.4rem;font-weight:800;line-height:1;letter-spacing:0;color:var(--gs-accent);}',
+    // CTAs: primary uses accent fill (matches .game-card-play), secondary is outlined.
+    '.tgb-gift-cta{display:inline-flex;align-items:center;justify-content:center;width:100%;min-height:44px;padding:12px 18px;border:1px solid var(--gs-accent);border-radius:6px;background:var(--gs-accent);color:var(--gs-accent-ink);font-family:' + GS_FONT_BODY + ';font-size:0.82rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,0.32) inset;transition:box-shadow 200ms ease,transform 200ms ease;font:inherit;font-size:0.82rem;font-weight:800;}',
+    '.tgb-gift-cta:hover:not(:disabled),.tgb-gift-cta:focus-visible:not(:disabled){box-shadow:0 1px 0 rgba(255,255,255,0.32) inset,0 10px 24px rgba(0,0,0,0.45),0 0 22px color-mix(in srgb,var(--gs-accent) 55%,transparent);transform:translateY(-1px);outline:none;}',
     '.tgb-gift-cta:disabled{opacity:0.55;cursor:progress;}',
-    '.tgb-gift-cta--secondary{background:transparent;color:var(--tgb-gift-primary);border:2px solid var(--tgb-gift-primary);}',
-    '.tgb-gift-cta--secondary:hover{background:var(--tgb-gift-primary);color:var(--tgb-gift-secondary);}',
-    '.tgb-gift-actions{display:grid;gap:0.6rem;margin-top:1rem;}',
-    '.tgb-gift-error{margin:0;color:#c23737;font-size:0.92rem;min-height:1.2em;font-weight:600;}',
-    '.tgb-gift-checkout{min-height:380px;}',
-    '.tgb-gift-code-row{display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin:0.5rem 0 1.5rem;padding:1rem 1.1rem;border:2px dashed var(--tgb-gift-primary);border-radius:14px;background:rgba(0,0,0,0.02);font-family:"IBM Plex Mono",Menlo,Consolas,monospace;font-size:1.35rem;font-weight:700;letter-spacing:0.04em;color:var(--tgb-gift-primary);}',
-    '.tgb-gift-copy{padding:0.45rem 0.9rem;border:1.5px solid var(--tgb-gift-primary);border-radius:8px;background:transparent;color:var(--tgb-gift-primary);font:inherit;font-family:"Outfit",sans-serif;font-size:0.74rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;transition:background 0.15s,color 0.15s;}',
-    '.tgb-gift-copy:hover{background:var(--tgb-gift-primary);color:var(--tgb-gift-secondary);}',
-    '.tgb-gift-help{margin:0.5rem 0 0;color:#555;font-size:0.92rem;line-height:1.55;}',
-    '.tgb-gift-send-form{display:none;margin-top:1.25rem;padding:1.1rem;border:1.5px solid rgba(0,0,0,0.12);border-radius:14px;background:rgba(0,0,0,0.025);}',
+    '.tgb-gift-cta--secondary{background:transparent;color:var(--gs-ink);border:1px solid var(--gs-line);box-shadow:none;}',
+    '.tgb-gift-cta--secondary:hover:not(:disabled){background:rgba(255,255,255,0.06);border-color:var(--gs-accent);color:var(--gs-accent);box-shadow:none;transform:translateY(-1px);}',
+    '.tgb-gift-actions{display:grid;gap:0.55rem;margin-top:1rem;}',
+    '.tgb-gift-error{margin:0;color:#ff7560;font-size:0.84rem;font-weight:700;min-height:1.2em;}',
+    '.tgb-gift-checkout{min-height:380px;border:1px solid var(--gs-line);border-radius:6px;background:#fff;overflow:hidden;}',
+    // Access-code reveal row: dashed accent border, mono digits.
+    '.tgb-gift-code-row{display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin:0.5rem 0 1.25rem;padding:14px 16px;border:2px dashed var(--gs-accent);border-radius:6px;background:rgba(212,165,116,0.06);font-family:' + GS_FONT_MONO + ';font-size:1.25rem;font-weight:700;letter-spacing:0.06em;color:var(--gs-ink);}',
+    '.tgb-gift-copy{padding:8px 12px;border:1px solid var(--gs-line);border-radius:6px;background:transparent;color:var(--gs-muted);font:inherit;font-family:' + GS_FONT_BODY + ';font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:background 0.15s,color 0.15s,border-color 0.15s;}',
+    '.tgb-gift-copy:hover{background:var(--gs-accent);color:var(--gs-accent-ink);border-color:var(--gs-accent);}',
+    '.tgb-gift-help{margin:0.5rem 0 0;color:var(--gs-muted);font-size:0.82rem;line-height:1.55;}',
+    // Send-to-someone form.
+    '.tgb-gift-send-form{display:none;margin-top:1.25rem;padding:14px;border:1px solid var(--gs-line);border-radius:6px;background:var(--gs-input-bg);}',
     '.tgb-gift-send-form.is-open{display:block;}',
-    '.tgb-gift-send-form-title{margin:0 0 0.9rem;font-family:"Outfit",sans-serif;font-size:1.05rem;font-weight:700;color:var(--tgb-gift-primary);letter-spacing:0.04em;text-transform:uppercase;}',
-    '.tgb-gift-field{display:grid;gap:0.35rem;margin-bottom:0.7rem;}',
-    '.tgb-gift-field label{font-family:"Outfit",sans-serif;font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--tgb-gift-primary);}',
-    '.tgb-gift-field input,.tgb-gift-field textarea{width:100%;padding:0.65rem 0.8rem;border:1.5px solid rgba(0,0,0,0.18);border-radius:10px;background:#fff;color:#222;font:inherit;font-size:0.98rem;font-family:"DM Sans",sans-serif;}',
+    '.tgb-gift-send-form-title{margin:0 0 0.85rem;font-family:' + GS_FONT_DISPLAY + ';font-size:1.05rem;font-weight:800;color:var(--gs-ink);letter-spacing:0;text-transform:uppercase;}',
+    '.tgb-gift-field{display:grid;gap:0.3rem;margin-bottom:0.7rem;}',
+    '.tgb-gift-field label{font-family:' + GS_FONT_BODY + ';font-size:0.66rem;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--gs-muted);}',
+    '.tgb-gift-field input,.tgb-gift-field textarea{width:100%;padding:10px 12px;border:1px solid var(--gs-line);border-radius:6px;background:var(--gs-input-bg);color:var(--gs-ink);font:inherit;font-family:' + GS_FONT_BODY + ';font-size:0.92rem;}',
     '.tgb-gift-field textarea{min-height:64px;resize:vertical;}',
-    '.tgb-gift-field input:focus,.tgb-gift-field textarea:focus{outline:none;border-color:var(--tgb-gift-primary);box-shadow:0 0 0 3px rgba(0,0,0,0.06);}',
-    '.tgb-gift-sent{margin:0;padding:0.85rem 1rem;border-radius:10px;background:#e8f4ec;border:1px solid #aed4bb;color:#2f6b3d;font-weight:600;}',
-    '.tgb-gift-have-code{margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid rgba(0,0,0,0.12);}',
-    '.tgb-gift-have-code-toggle{background:transparent;border:0;padding:0;color:var(--tgb-gift-primary);font-family:"Outfit",sans-serif;font-size:0.85rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;text-decoration:underline;}',
-    '.tgb-gift-have-code-toggle:hover{opacity:0.8;}',
+    '.tgb-gift-field input:focus,.tgb-gift-field textarea:focus{outline:none;border-color:var(--gs-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--gs-accent) 30%,transparent);}',
+    '.tgb-gift-sent{margin:0;padding:12px 14px;border-radius:6px;background:rgba(102,208,136,0.12);border:1px solid rgba(102,208,136,0.4);color:#a8e8b8;font-weight:600;}',
+    // "Have an access code?" toggle.
+    '.tgb-gift-have-code{margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--gs-line);}',
+    '.tgb-gift-have-code-toggle{background:transparent;border:0;padding:0;color:var(--gs-accent);font-family:' + GS_FONT_BODY + ';font-size:0.76rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;text-decoration:underline;}',
+    '.tgb-gift-have-code-toggle:hover{color:var(--gs-ink);}',
     '.tgb-gift-have-code-form{display:none;margin-top:0.8rem;}',
     '.tgb-gift-have-code-form.is-open{display:block;}',
     '.tgb-gift-have-code-row{display:flex;gap:0.5rem;}',
-    '.tgb-gift-have-code-input{flex:1 1 auto;min-width:0;padding:0.65rem 0.8rem;border:1.5px solid rgba(0,0,0,0.18);border-radius:10px;background:#fff;color:#222;font:inherit;font-family:"IBM Plex Mono",Menlo,Consolas,monospace;font-size:1rem;letter-spacing:0.04em;text-transform:uppercase;}',
-    '.tgb-gift-have-code-input:focus{outline:none;border-color:var(--tgb-gift-primary);box-shadow:0 0 0 3px rgba(0,0,0,0.06);}',
-    '.tgb-gift-have-code-input--error{border-color:#c23737;animation:tgbGiftShake 0.4s ease;}',
+    '.tgb-gift-have-code-input{flex:1 1 auto;min-width:0;padding:10px 12px;border:1px solid var(--gs-line);border-radius:6px;background:var(--gs-input-bg);color:var(--gs-ink);font:inherit;font-family:' + GS_FONT_MONO + ';font-size:1rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;}',
+    '.tgb-gift-have-code-input:focus{outline:none;border-color:var(--gs-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--gs-accent) 30%,transparent);}',
+    '.tgb-gift-have-code-input--error{border-color:#ff7560;animation:tgbGiftShake 0.4s ease;}',
     '@keyframes tgbGiftShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-5px);}75%{transform:translateX(5px);}}',
-    '.tgb-gift-have-code-apply{flex:0 0 auto;padding:0 1rem;border:1.5px solid var(--tgb-gift-primary);border-radius:10px;background:transparent;color:var(--tgb-gift-primary);font:inherit;font-family:"Outfit",sans-serif;font-size:0.78rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;}',
-    '.tgb-gift-have-code-apply:hover:not(:disabled){background:var(--tgb-gift-primary);color:var(--tgb-gift-secondary);}',
+    '.tgb-gift-have-code-apply{flex:0 0 auto;padding:0 14px;border:1px solid var(--gs-accent);border-radius:6px;background:transparent;color:var(--gs-accent);font:inherit;font-family:' + GS_FONT_BODY + ';font-size:0.74rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;transition:background 0.15s,color 0.15s;}',
+    '.tgb-gift-have-code-apply:hover:not(:disabled){background:var(--gs-accent);color:var(--gs-accent-ink);}',
     '.tgb-gift-have-code-apply:disabled,.tgb-gift-have-code-input:disabled{opacity:0.5;cursor:progress;}',
-    '.tgb-gift-choose-list{display:grid;gap:0.55rem;margin-top:0.5rem;}',
-    '.tgb-gift-choose-item{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0.9rem 1rem;border:1.5px solid rgba(0,0,0,0.15);border-radius:12px;background:#fff;cursor:pointer;font:inherit;text-align:left;transition:border-color 0.15s,transform 0.1s,background 0.15s;}',
-    '.tgb-gift-choose-item:hover{border-color:var(--tgb-gift-primary);background:rgba(0,0,0,0.02);}',
-    '.tgb-gift-choose-item:active{transform:scale(0.99);}',
-    '.tgb-gift-choose-name{font-family:"Outfit",sans-serif;font-weight:700;font-size:1rem;color:var(--tgb-gift-primary);letter-spacing:0.01em;}',
-    '.tgb-gift-choose-price{font-family:"IBM Plex Mono",Menlo,Consolas,monospace;font-size:0.92rem;font-weight:600;color:#555;flex-shrink:0;}',
-    '.tgb-gift-choose-empty{padding:1.5rem;text-align:center;color:#666;font-size:0.95rem;border:1.5px dashed rgba(0,0,0,0.15);border-radius:12px;}',
-    '.tgb-gift-swap-link{display:block;margin:1.25rem auto 0;padding:0;border:0;background:transparent;color:var(--tgb-gift-primary);font:inherit;font-family:"Outfit",sans-serif;font-size:0.82rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;text-decoration:underline;cursor:pointer;text-align:center;}',
-    '.tgb-gift-swap-link:hover{opacity:0.8;}',
-    '.tgb-gift-swap-code{margin:0 0 0.75rem;font-family:"IBM Plex Mono",Menlo,Consolas,monospace;font-size:1.05rem;font-weight:700;color:var(--tgb-gift-primary);letter-spacing:0.04em;}'
+    // Choose-a-game list.
+    '.tgb-gift-choose-list{display:grid;gap:0.5rem;margin-top:0.5rem;}',
+    '.tgb-gift-choose-item{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:12px 14px;border:1px solid var(--gs-line);border-radius:6px;background:var(--gs-input-bg);cursor:pointer;font:inherit;text-align:left;transition:border-color 0.15s,transform 0.15s,background 0.15s,box-shadow 0.15s;}',
+    '.tgb-gift-choose-item:hover{border-color:var(--gs-accent);background:rgba(255,255,255,0.06);transform:translateY(-1px);box-shadow:0 10px 24px rgba(0,0,0,0.35);}',
+    '.tgb-gift-choose-item:active{transform:translateY(0);}',
+    '.tgb-gift-choose-name{font-family:' + GS_FONT_DISPLAY + ';font-weight:800;font-size:1.1rem;color:var(--gs-ink);letter-spacing:0;text-transform:uppercase;line-height:1.05;}',
+    '.tgb-gift-choose-price{font-family:' + GS_FONT_MONO + ';font-size:0.86rem;font-weight:700;color:var(--gs-muted);flex-shrink:0;}',
+    '.tgb-gift-choose-empty{padding:1.5rem;text-align:center;color:var(--gs-muted);font-size:0.86rem;border:1px dashed var(--gs-line);border-radius:6px;}',
+    '.tgb-gift-swap-link{display:block;margin:1.25rem auto 0;padding:0;border:0;background:transparent;color:var(--gs-accent);font:inherit;font-family:' + GS_FONT_BODY + ';font-size:0.76rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;text-decoration:underline;cursor:pointer;text-align:center;}',
+    '.tgb-gift-swap-link:hover{color:var(--gs-ink);}',
+    '.tgb-gift-swap-code{margin:0 0 0.75rem;font-family:' + GS_FONT_MONO + ';font-size:1.05rem;font-weight:700;color:var(--gs-ink);letter-spacing:0.06em;}'
   ].join('');
 
   var HTML = [
