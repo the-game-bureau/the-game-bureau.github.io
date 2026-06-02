@@ -7843,7 +7843,8 @@ body.builder-page--editor #nodeTagNewInput{
 
 body.builder-page--editor #nodeGuideImageInput,
 body.builder-page--editor #nodeGameLogoInput,
-body.builder-page--editor #nodeGuideBioInput{
+body.builder-page--editor #nodeGuideBioInput,
+body.builder-page--editor #nodeGuideBackgroundInput{
   width:100%;
   min-width:0;
   box-sizing:border-box;
@@ -10123,6 +10124,11 @@ html.admin-embedded .builder-section-head{
                       <label class="field-label" for="nodeGuideBioInput">Guide Bio</label>
                       <textarea id="nodeGuideBioInput" disabled></textarea>
                     </div>
+
+                    <div class="field" id="guideBackgroundField">
+                      <label class="field-label field-label--with-meta" for="nodeGuideBackgroundInput">Guide Background<span class="field-info" tabindex="0" role="note" aria-label="Used for game development.">i<span class="field-tooltip" role="tooltip">Used for game development.</span></span></label>
+                      <textarea id="nodeGuideBackgroundInput" disabled></textarea>
+                    </div>
                   </div>
                 </section>
 
@@ -10826,6 +10832,7 @@ const SUPABASE_GAMES_SCHEMA = {
   city: true,
   engine: true,
   category_icon: true,
+  guide_background: true,
   fandom_game: true,
   game_date: true,
   start_time: true,
@@ -11376,6 +11383,7 @@ function normalizeGameRow(row, index = 0) {
     category_icon:         row && row.category_icon,
     guide_name:            row && row.guide_name,
     guide_bio:             row && row.guide_bio,
+    guide_background:      row && row.guide_background,
     guide_image_url:       normalizeGuideImageAssetUrl(row && (row.guide_image_url ?? row.guideImageUrl)),
     logo_url:              row && row.logo_url,
     link_url:              row && row.link_url,
@@ -11438,6 +11446,7 @@ async function fetchGameRowsFromSupabase(select = null) {
     'category_icon',
     'guide_name',
     'guide_bio',
+    'guide_background',
     'guide_image_url',
     'logo_url',
     'link_url',
@@ -11555,6 +11564,7 @@ async function fetchGameRowFromSupabase(gameId, select = null) {
     'category_icon',
     'guide_name',
     'guide_bio',
+    'guide_background',
     'guide_image_url',
     'logo_url',
     'link_url',
@@ -11976,6 +11986,7 @@ const guideNameField = document.getElementById('guideNameField');
 const gameLogoField = document.getElementById('gameLogoField');
 const guideImageField = document.getElementById('guideImageField');
 const guideBioField = document.getElementById('guideBioField');
+const guideBackgroundField = document.getElementById('guideBackgroundField');
 const priceField = document.getElementById('priceField');
 const checkoutUrlField = document.getElementById('checkoutUrlField');
 const cityField = document.getElementById('cityField');
@@ -12255,6 +12266,7 @@ const nodeGameEndTimeInput = document.getElementById('nodeGameEndTimeInput');
 
 const nodeGuideNameInput = document.getElementById('nodeGuideNameInput');
 const nodeGuideBioInput = document.getElementById('nodeGuideBioInput');
+const nodeGuideBackgroundInput = document.getElementById('nodeGuideBackgroundInput');
 const nodeGameLogoInput = document.getElementById('nodeGameLogoInput');
 const gameLogoOnlinePickBtn = document.getElementById('gameLogoOnlinePickBtn');
 const gameLogoOnlineMenu = document.getElementById('gameLogoOnlineMenu');
@@ -15782,6 +15794,7 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
 
     guideName: raw && typeof raw.guideName === 'string' ? raw.guideName : '',
     guideBio: raw && typeof raw.guideBio === 'string' ? raw.guideBio : '',
+    guideBackground: raw && typeof raw.guideBackground === 'string' ? raw.guideBackground : '',
     guideImageUrl: normalizeGuideImageAssetUrl(raw && raw.guideImageUrl),
     logoUrl: raw && typeof raw.logoUrl === 'string' ? raw.logoUrl : '',
     price: raw && typeof raw.price === 'string' ? raw.price : '',
@@ -15959,6 +15972,7 @@ function getDocSnapshot(doc = state.doc) {
       locationBased: !!meta.locationBased,
       guideName: meta.guideName || '',
       guideBio: meta.guideBio || '',
+      guideBackground: meta.guideBackground || '',
       guideImageUrl: normalizeGuideImageAssetUrl(meta.guideImageUrl) || '',
       price: meta.price || '',
       engine: meta.engine || '',
@@ -15989,6 +16003,7 @@ function getDocSnapshot(doc = state.doc) {
       startingLocationLon: node.startingLocationLon ?? null,
       guideName: node.guideName || '',
       guideBio: node.guideBio || '',
+      guideBackground: node.guideBackground || '',
       guideImageUrl: normalizeGuideImageAssetUrl(node.guideImageUrl) || '',
       logoUrl: node.logoUrl || '',
       price: node.price || '',
@@ -16371,6 +16386,7 @@ function initGameMeta(game) {
     fandomGame:           normalizeBooleanFlag(g.fandom_game ?? g.fandomGame ?? gn.fandomGame ?? gn.fandom_game),
     guideName:            g.guide_name      ?? gn.guideName       ?? '',
     guideBio:             g.guide_bio       ?? gn.guideBio        ?? '',
+    guideBackground:      g.guide_background ?? g.guideBackground ?? gn.guideBackground ?? '',
     guideImageUrl:        normalizeGuideImageAssetUrl(g.guide_image_url ?? g.guideImageUrl ?? gn.guideImageUrl ?? gn.guideImage ?? ''),
     price:                g.price           ?? gn.price           ?? '',
     engine:               g.engine          ?? gn.engine          ?? '',
@@ -16999,6 +17015,7 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   category_icon: 'categoryIcon',
   guide_name: 'guideName',
   guide_bio: 'guideBio',
+  guide_background: 'guideBackground',
   guide_image_url: 'guideImageUrl',
   logo_url: 'logoUrl',
   link_url: 'linkUrl',
@@ -17090,6 +17107,7 @@ function normalizeSavedGame(raw, index) {
     category_icon:         normalizeCategoryIconValue(raw && (raw.category_icon ?? raw.categoryIcon)),
     guide_name:            raw && raw.guide_name,
     guide_bio:             raw && raw.guide_bio,
+    guide_background:      raw && (raw.guide_background ?? raw.guideBackground),
     guide_image_url:       normalizeGuideImageAssetUrl(raw && (raw.guide_image_url ?? raw.guideImageUrl)),
     logo_url:              raw && raw.logo_url,
     link_url:              raw && raw.link_url,
@@ -17155,6 +17173,7 @@ function createNode(type, x, y) {
     startingLocationLon: null,
     guideName: type === 'game' ? 'Mission Control' : '',
     guideBio: '',
+    guideBackground: '',
     guideImageUrl: '',
     logoUrl: '',
     price: type === 'game' ? 'Free To Start / In App Purchases' : '',
@@ -18252,6 +18271,7 @@ function getStencilPreviewNode(type) {
     tagline: '',
     guideName: '',
     guideBio: '',
+    guideBackground: '',
     guideImageUrl: '',
     price: '',
     builderNotes: '',
@@ -19424,6 +19444,7 @@ function updateSelectionUi(options = {}) {
   if (categoryIconField) categoryIconField.hidden = !showGameDetails;
   guideNameField.hidden = !showGameDetails;
   guideBioField.hidden = !showGameDetails;
+  if (guideBackgroundField) guideBackgroundField.hidden = !showGameDetails;
   guideImageField.hidden = !showGameDetails;
   priceField.hidden = !showGameDetails;
   if (checkoutUrlField) checkoutUrlField.hidden = !showGameDetails;
@@ -19473,6 +19494,7 @@ function updateSelectionUi(options = {}) {
   if (coordinatesGenerateBtn) coordinatesGenerateBtn.disabled = !isGameNode;
   nodeGuideNameInput.disabled = !isGameNode;
   nodeGuideBioInput.disabled = !isGameNode;
+  if (nodeGuideBackgroundInput) nodeGuideBackgroundInput.disabled = !isGameNode;
   nodeGuideImageInput.disabled = !isGameNode;
   if (guideImageUploadBtn) guideImageUploadBtn.disabled = !isGameNode;
   if (guideImageUploadInput) guideImageUploadInput.disabled = !isGameNode;
@@ -19648,6 +19670,7 @@ function updateSelectionUi(options = {}) {
   if (fandomGameLabelYes) fandomGameLabelYes.classList.toggle('is-active',  isFandomGame);
   nodeGuideNameInput.value = isGameNode ? (meta.guideName || '') : '';
   nodeGuideBioInput.value = isGameNode ? (meta.guideBio || '') : '';
+  if (nodeGuideBackgroundInput) nodeGuideBackgroundInput.value = isGameNode ? (meta.guideBackground || '') : '';
   nodeGuideImageInput.value = isGameNode ? (meta.guideImageUrl || '') : '';
   if (guideImageUploadPreviewAssetUrl && guideImageUploadPreviewAssetUrl !== String(nodeGuideImageInput.value || '').trim()) {
     clearGuideImageUploadPreview();
@@ -20000,6 +20023,7 @@ function duplicateNode(nodeId) {
     startingLocationLon: source.startingLocationLon ?? null,
     guideName: source.guideName || '',
     guideBio: source.guideBio || '',
+    guideBackground: source.guideBackground || '',
     guideImageUrl: source.guideImageUrl || '',
     price: source.price || '',
     builderNotes: source.builderNotes || '',
@@ -20777,6 +20801,7 @@ function serializeNodeState(node) {
     startingLocationLon: (meta ? meta.startingLocationLon : node.startingLocationLon) ?? null,
     guideName: (meta ? meta.guideName : node.guideName) || '',
     guideBio: (meta ? meta.guideBio : node.guideBio) || '',
+    guideBackground: (meta ? meta.guideBackground : node.guideBackground) || '',
     guideImageUrl: normalizeGuideImageAssetUrl(meta ? meta.guideImageUrl : node.guideImageUrl) || '',
     logoUrl: (meta ? meta.logoUrl : node.logoUrl) || '',
     price: (meta ? meta.price : node.price) || '',
@@ -21162,6 +21187,7 @@ function stageCurrentGameIntoStore() {
     category_icon:         normalizeCategoryIconValue(_meta.categoryIcon) || null,
     guide_name:            _meta.guideName || null,
     guide_bio:             _meta.guideBio || null,
+    guide_background:      _meta.guideBackground || null,
     guide_image_url:       guideImageUrl || null,
     logo_url:              _meta.logoUrl || null,
     link_url:              _gn.linkUrl || null,
@@ -21923,6 +21949,13 @@ nodeGuideBioInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.guideBio = nodeGuideBioInput.value;
 });
+
+if (nodeGuideBackgroundInput) {
+  nodeGuideBackgroundInput.addEventListener('input', () => {
+    if (!getGameNode() || !state.currentGameMeta) return;
+    state.currentGameMeta.guideBackground = nodeGuideBackgroundInput.value;
+  });
+}
 
 nodeGameLogoInput.addEventListener('input', () => {
   setGameLogoAssetStatus('');

@@ -111,6 +111,7 @@
     var homeBtn = root.querySelector('#mcAuthHomeBtn');
     var currentSession = null;
     var listenersBound = false;
+    var refreshTimer = null;
 
     copyEl.textContent = settings.modalCopy;
     homeBtn.href = settings.homeHref;
@@ -383,9 +384,60 @@
       }
     }
 
+    function clearRefreshTimer() {
+      if (refreshTimer) {
+        global.clearTimeout(refreshTimer);
+        refreshTimer = null;
+      }
+    }
+
+    function scheduleRefresh(session) {
+      clearRefreshTimer();
+      if (!session || !session.refresh_token || !session.expires_at) return;
+      var msUntilExpiry = (Number(session.expires_at) * 1000) - Date.now();
+      // Renew ~60s before expiry, but never sooner than 5s from now.
+      var delay = Math.max(msUntilExpiry - 60000, 5000);
+      refreshTimer = global.setTimeout(function () { renewSession(); }, delay);
+    }
+
+    // Refresh the access token using the refresh token. On failure (refresh
+    // token also dead) the session is cleared and the login modal is shown.
+    async function renewSession() {
+      clearRefreshTimer();
+      if (!currentSession) return null;
+      var refreshed = await refreshSession(currentSession);
+      if (refreshed && refreshed.access_token) {
+        currentSession = refreshed;
+        storeSession(refreshed);
+        scheduleRefresh(refreshed);
+        notifyAuthChange(true, refreshed);
+        return refreshed;
+      }
+      currentSession = null;
+      storeSession(null);
+      setSignOutState(false);
+      notifyAuthChange(false, null);
+      if (typeof settings.onSignedOut === 'function') {
+        try { await settings.onSignedOut(null); } catch (error) {}
+      }
+      showAuth(settings.signedOutMessage || settings.initialMessage, 'error');
+      return null;
+    }
+
+    // Callers can await this before an authenticated request to guarantee the
+    // access token is still valid (refreshing it if it is about to expire).
+    async function ensureFreshSession() {
+      if (currentSession && currentSession.expires_at) {
+        var msUntilExpiry = (Number(currentSession.expires_at) * 1000) - Date.now();
+        if (msUntilExpiry > 60000) return currentSession;
+      }
+      return renewSession();
+    }
+
     async function activateSession(session) {
       currentSession = session;
       storeSession(session);
+      scheduleRefresh(session);
       if (passwordInput) passwordInput.value = '';
       setSignOutState(true);
       closeModal();
@@ -429,6 +481,7 @@
 
     async function signOut(options) {
       var previousSession = currentSession || readStoredSession();
+      clearRefreshTimer();
       currentSession = null;
       storeSession(null);
       setSignOutState(false);
@@ -454,6 +507,15 @@
 
       form.addEventListener('submit', handleSubmit);
       closeBtn.addEventListener('click', closeModal);
+
+      // Laptop sleep / long-backgrounded tabs can pause the refresh timer past
+      // expiry — re-check and renew the moment the tab becomes visible again.
+      global.document.addEventListener('visibilitychange', function () {
+        if (global.document.visibilityState !== 'visible') return;
+        if (!currentSession || !currentSession.expires_at) return;
+        var msUntilExpiry = (Number(currentSession.expires_at) * 1000) - Date.now();
+        if (msUntilExpiry < 120000) renewSession();
+      });
 
       if (settings.signOutButton) {
         settings.signOutButton.addEventListener('click', function () {
@@ -507,6 +569,7 @@
       signOut: signOut,
       close: closeModal,
       getSession: function () { return currentSession; },
+      ensureFreshSession: ensureFreshSession,
       authHeaders: authHeaders,
       headersForSession: headersForSession,
       restUrl: restUrl,
