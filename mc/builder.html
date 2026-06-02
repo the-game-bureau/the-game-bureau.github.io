@@ -10106,17 +10106,15 @@ html.admin-embedded .builder-section-head{
                     </div>
 
                     <div class="field" id="guideImageField">
-                      <label class="field-label field-label--with-meta" for="nodeGuideImageInput">Guide Logo<span class="field-info" tabindex="0" role="note" aria-label="Provide image web address or choose from existing library.">i<span class="field-tooltip" role="tooltip">Provide image web address or choose from existing library.</span></span></label>
+                      <label class="field-label field-label--with-meta" for="nodeGuideImageInput">Guide Logo<span class="field-info" tabindex="0" role="note" aria-label="Upload an image file to assets/guides.">i<span class="field-tooltip" role="tooltip">Upload an image file to assets/guides.</span></span></label>
                       <div class="guide-image-input-row guide-image-input-row--with-asset">
                         <button class="guide-image-thumb" id="guideImageThumbBtn" type="button" disabled aria-label="No guide logo selected">
                           <img class="guide-image-thumb-image" id="guideImageThumbImage" alt="Guide logo thumbnail" hidden>
                           <span class="guide-image-thumb-placeholder" id="guideImageThumbPlaceholder">No image</span>
                         </button>
                         <input id="nodeGuideImageInput" type="text" placeholder="http://" autocomplete="off" disabled>
-                        <button class="guide-image-asset-btn" id="guideImageOnlinePickBtn" type="button" disabled aria-label="Choose guide logo asset" title="Choose guide logo asset" aria-expanded="false" aria-controls="guideImageOnlineMenu">Choose</button>
-                      </div>
-                      <div class="guide-image-asset-menu" id="guideImageOnlineMenu" hidden>
-                        <div class="guide-image-asset-list" id="guideImageOnlineList" role="listbox" aria-label="Uploaded guide logo assets"></div>
+                        <button class="guide-image-asset-btn" id="guideImageUploadBtn" type="button" disabled aria-label="Upload guide logo" title="Upload guide logo">Upload</button>
+                        <input class="guide-image-file-input" id="guideImageUploadInput" type="file" accept="image/avif,image/gif,image/jpeg,image/png,image/svg+xml,image/webp,image/x-icon,.avif,.gif,.ico,.jpg,.jpeg,.png,.svg,.webp" hidden disabled>
                       </div>
                       <div class="field-hint" id="guideImageAssetStatus" aria-live="polite"></div>
                     </div>
@@ -11335,7 +11333,9 @@ function serializeGameRow(game, index = 0) {
   Object.entries(GAME_COLUMN_TO_NODE_FIELD).forEach(([column, field]) => {
     if (SUPABASE_GAMES_SCHEMA[column] === false) return;
     const topLevel = normalizedGame[column];
-    emitColumn(column, topLevel !== undefined && topLevel !== null ? topLevel : gameNode[field]);
+    let value = topLevel !== undefined && topLevel !== null ? topLevel : gameNode[field];
+    if (column === 'guide_image_url') value = normalizeGuideImageAssetUrl(value);
+    emitColumn(column, value);
   });
   if (SUPABASE_GAMES_SCHEMA.category_icon !== false) {
     payload.category_icon = normalizeCategoryIconValue(normalizedGame.category_icon ?? gameNode.categoryIcon) || null;
@@ -11376,7 +11376,7 @@ function normalizeGameRow(row, index = 0) {
     category_icon:         row && row.category_icon,
     guide_name:            row && row.guide_name,
     guide_bio:             row && row.guide_bio,
-    guide_image_url:       row && row.guide_image_url,
+    guide_image_url:       normalizeGuideImageAssetUrl(row && (row.guide_image_url ?? row.guideImageUrl)),
     logo_url:              row && row.logo_url,
     link_url:              row && row.link_url,
     button_url:            row && row.button_url,
@@ -11995,9 +11995,23 @@ const GAME_LOGO_ASSET_MANIFEST_URL = `${GAME_LOGO_ASSET_BASE_URL}asset-manifest.
 const GAME_LOGO_ASSET_DEFAULT_MESSAGE = '';
 const GAME_LOGO_ASSET_NOT_FOUND_MESSAGE = 'SAVE IMAGE TO ASSETS FOLDER (ONLINE) FIRST.';
 const GAME_LOGO_ONLINE_ASSET_ERROR_MESSAGE = 'COULD NOT LOAD ONLINE ASSETS.';
-const GUIDE_IMAGE_ASSET_DEFAULT_MESSAGE = 'CUT AND PASTE AN IMAGE URL OR CHOOSE AN UPLOADED ONE.';
+const GUIDE_IMAGE_ASSET_DEFAULT_MESSAGE = 'UPLOAD A GUIDE LOGO TO assets/guides/.';
 const GUIDE_IMAGE_ASSET_NOT_FOUND_MESSAGE = GAME_LOGO_ASSET_NOT_FOUND_MESSAGE;
 const GUIDE_IMAGE_ONLINE_ASSET_ERROR_MESSAGE = GAME_LOGO_ONLINE_ASSET_ERROR_MESSAGE;
+// Guide logos are scoped to a dedicated assets subfolder and are uploaded
+// separately from the broader game-logo picker.
+const GUIDE_IMAGE_ASSET_FOLDER = 'guides/';
+const GUIDE_IMAGE_UPLOAD_FOLDER_LABEL = 'assets/guides/';
+const GUIDE_IMAGE_UPLOAD_UNSUPPORTED_MESSAGE = 'THIS BROWSER CANNOT WRITE FILES. USE CHROME/EDGE ON LOCALHOST AND SELECT assets/guides/.';
+const GUIDE_IMAGE_UPLOAD_WRONG_FOLDER_MESSAGE = 'SELECT THE assets/guides FOLDER TO UPLOAD GUIDE LOGOS.';
+const GUIDE_IMAGE_UPLOAD_FAILED_MESSAGE = 'COULD NOT UPLOAD GUIDE LOGO.';
+const GUIDE_IMAGE_UPLOAD_INVALID_MESSAGE = 'CHOOSE AN IMAGE FILE.';
+const GUIDE_IMAGE_UPLOAD_SELECT_FOLDER_MESSAGE = 'SELECT assets/guides TO ENABLE GUIDE LOGO UPLOADS.';
+const GUIDE_IMAGE_UPLOAD_READY_MESSAGE = 'assets/guides READY. CLICK UPLOAD AGAIN TO CHOOSE A LOGO.';
+const GUIDE_IMAGE_UPLOAD_SUCCESS_PREFIX = 'UPLOADED TO ';
+let guideImageAssetsDirectoryHandle = null;
+let guideImageUploadPreviewUrl = '';
+let guideImageUploadPreviewAssetUrl = '';
 const BUILDER_PAGE_MODE = getBuilderPageMode();
 const BUILDER_TUTORIAL_MODE = 'tutorial';
 const GAME_LOGO_FALLBACK_ASSET_NAMES = [
@@ -12250,9 +12264,8 @@ const gameLogoThumbBtn = document.getElementById('gameLogoThumbBtn');
 const gameLogoThumbImage = document.getElementById('gameLogoThumbImage');
 const gameLogoThumbPlaceholder = document.getElementById('gameLogoThumbPlaceholder');
 const nodeGuideImageInput = document.getElementById('nodeGuideImageInput');
-const guideImageOnlinePickBtn = document.getElementById('guideImageOnlinePickBtn');
-const guideImageOnlineMenu = document.getElementById('guideImageOnlineMenu');
-const guideImageOnlineList = document.getElementById('guideImageOnlineList');
+const guideImageUploadBtn = document.getElementById('guideImageUploadBtn');
+const guideImageUploadInput = document.getElementById('guideImageUploadInput');
 const guideImageAssetStatus = document.getElementById('guideImageAssetStatus');
 const guideImageThumbBtn = document.getElementById('guideImageThumbBtn');
 const guideImageThumbImage = document.getElementById('guideImageThumbImage');
@@ -14147,7 +14160,7 @@ function updatePhoneChrome() {
   phoneThreadName.textContent = getDocName();
   if (phoneThreadAvatar) {
     const guideImageUrl = gameNode && gameNode.type === 'game'
-      ? String(gameNode.guideImageUrl || '').trim()
+      ? getCurrentGuideImagePreviewUrl()
       : '';
     const cssImage = guideImageUrl
       ? `url("${guideImageUrl.replace(/["\\]/g, '\\$&')}")`
@@ -15003,6 +15016,41 @@ function buildPublishedGameLogoAssetUrl(fileName) {
     : '';
 }
 
+function decodeAssetPath(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch (error) {
+    return value;
+  }
+}
+
+function getGuideImageAssetFileName(value) {
+  const raw = String(value || '').trim().replace(/\\/g, '/');
+  if (!raw || /^(data:|blob:)/i.test(raw)) return '';
+
+  let path = raw.split(/[?#]/)[0];
+  try {
+    path = new URL(raw, window.location.href).pathname || path;
+  } catch (error) {
+  }
+  path = decodeAssetPath(path).replace(/\\/g, '/').replace(/^\/+/, '');
+
+  const guideMatch = path.match(/(?:^|\/)?assets\/guides\/(.+)$/i)
+    || path.match(/^guides\/(.+)$/i);
+  const fileName = (guideMatch ? guideMatch[1] : path.split('/').pop() || '')
+    .split('/')
+    .pop()
+    .replace(/[\0\r\n]+/g, ' ')
+    .trim();
+  if (!isPublishedGameLogoAssetFileName(fileName)) return '';
+  return fileName;
+}
+
+function normalizeGuideImageAssetUrl(value) {
+  const fileName = getGuideImageAssetFileName(value);
+  return fileName ? buildPublishedGameLogoAssetUrl(GUIDE_IMAGE_ASSET_FOLDER + fileName) : '';
+}
+
 function isPublishedGameLogoAssetFileName(fileName) {
   return /\.(?:avif|gif|ico|jpe?g|png|svg|webp)$/i.test(String(fileName || '').trim());
 }
@@ -15071,17 +15119,186 @@ function setGameLogoAssetStatus(message = '') {
   }
 }
 
-function setGuideImageAssetStatus(message = '') {
+function setGuideImageAssetStatus(message = '', options = {}) {
   const nextMessage = String(message || '').trim();
-  const hasError = !!nextMessage;
+  const hasError = !!nextMessage && options.kind !== 'info';
   if (guideImageAssetStatus) {
-    const msg = hasError ? nextMessage : '';
+    const msg = nextMessage || '';
     guideImageAssetStatus.textContent = msg;
     guideImageAssetStatus.hidden = !msg;
     guideImageAssetStatus.classList.toggle('is-error', hasError);
   }
   if (nodeGuideImageInput) {
     nodeGuideImageInput.classList.toggle('is-invalid', hasError);
+  }
+}
+
+function isGuideImageUploadFile(file) {
+  if (!file) return false;
+  const name = String(file.name || '').trim();
+  const type = String(file.type || '').toLowerCase();
+  return /^image\//.test(type) || /\.(?:avif|gif|ico|jpe?g|png|svg|webp)$/i.test(name);
+}
+
+function sanitizeGuideImageUploadFileName(file) {
+  const original = String((file && file.name) || '').trim();
+  const extMatch = original.match(/(\.(?:avif|gif|ico|jpe?g|png|svg|webp))$/i);
+  const ext = extMatch ? extMatch[1].toLowerCase().replace('.jpeg', '.jpg') : '.png';
+  const sourceBase = extMatch ? original.slice(0, -extMatch[1].length) : original;
+  const meta = state && state.currentGameMeta ? state.currentGameMeta : {};
+  const fallbackBase = meta.guideName || meta.name || meta.title || state.currentGameId || 'guide-logo';
+  const base = String(sourceBase || fallbackBase || 'guide-logo')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9 _.-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^\.+|\.+$/g, '')
+    .trim() || 'guide-logo';
+  return base + ext;
+}
+
+function buildGuideImageAssetName(fileName) {
+  const safeName = sanitizeGuideImageUploadFileName({ name: fileName });
+  return GUIDE_IMAGE_ASSET_FOLDER + safeName;
+}
+
+function setGuideImageUploadPreview(assetUrl, previewUrl) {
+  if (guideImageUploadPreviewUrl && guideImageUploadPreviewUrl !== previewUrl) {
+    try { URL.revokeObjectURL(guideImageUploadPreviewUrl); } catch (error) {}
+  }
+  guideImageUploadPreviewAssetUrl = String(assetUrl || '').trim();
+  guideImageUploadPreviewUrl = String(previewUrl || '').trim();
+}
+
+function clearGuideImageUploadPreview() {
+  setGuideImageUploadPreview('', '');
+}
+
+function getCurrentGuideImagePreviewUrl() {
+  const imageUrl = getCurrentGuideImageUrl();
+  if (imageUrl && guideImageUploadPreviewUrl && guideImageUploadPreviewAssetUrl === imageUrl) {
+    return guideImageUploadPreviewUrl;
+  }
+  return imageUrl;
+}
+
+function registerUploadedGuideImageAsset(assetName) {
+  const normalizedName = normalizeAssetFileName(assetName);
+  if (!normalizedName) return;
+  const uploadedAsset = {
+    name: normalizedName,
+    url: buildPublishedGameLogoAssetUrl(normalizedName)
+  };
+  if (Array.isArray(gameLogoOnlineAssetsCache)) {
+    const existingIndex = gameLogoOnlineAssetsCache.findIndex((asset) =>
+      normalizeAssetFileName(asset && asset.name) === normalizedName);
+    if (existingIndex >= 0) {
+      gameLogoOnlineAssetsCache[existingIndex] = uploadedAsset;
+    } else {
+      gameLogoOnlineAssetsCache = [...gameLogoOnlineAssetsCache, uploadedAsset]
+        .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+    }
+  }
+}
+
+async function requestFileWritePermission(handle) {
+  if (!handle || typeof handle.queryPermission !== 'function' || typeof handle.requestPermission !== 'function') {
+    return true;
+  }
+  const options = { mode: 'readwrite' };
+  if ((await handle.queryPermission(options)) === 'granted') return true;
+  return (await handle.requestPermission(options)) === 'granted';
+}
+
+async function hasGuideImageAssetsDirectoryHandle() {
+  return !!(guideImageAssetsDirectoryHandle && await requestFileWritePermission(guideImageAssetsDirectoryHandle));
+}
+
+async function chooseGuideImageAssetsDirectoryHandle() {
+  if (!window.showDirectoryPicker) {
+    throw new Error(GUIDE_IMAGE_UPLOAD_UNSUPPORTED_MESSAGE);
+  }
+  const handle = await window.showDirectoryPicker({
+    id: 'the-game-bureau-guide-logos',
+    mode: 'readwrite'
+  });
+  if (String(handle && handle.name || '').toLowerCase() !== 'guides') {
+    throw new Error(GUIDE_IMAGE_UPLOAD_WRONG_FOLDER_MESSAGE);
+  }
+  if (!await requestFileWritePermission(handle)) {
+    throw new Error(GUIDE_IMAGE_UPLOAD_FAILED_MESSAGE);
+  }
+  guideImageAssetsDirectoryHandle = handle;
+  return handle;
+}
+
+async function ensureGuideImageAssetsDirectoryHandle() {
+  if (await hasGuideImageAssetsDirectoryHandle()) return true;
+  setGuideImageAssetStatus(GUIDE_IMAGE_UPLOAD_SELECT_FOLDER_MESSAGE, { kind: 'info' });
+  await chooseGuideImageAssetsDirectoryHandle();
+  setGuideImageAssetStatus(GUIDE_IMAGE_UPLOAD_READY_MESSAGE, { kind: 'info' });
+  return false;
+}
+
+async function getGuideImageAssetsDirectoryHandle() {
+  if (await hasGuideImageAssetsDirectoryHandle()) return guideImageAssetsDirectoryHandle;
+  throw new Error(GUIDE_IMAGE_UPLOAD_WRONG_FOLDER_MESSAGE);
+}
+
+async function writeGuideImageUploadFile(file, fileName) {
+  const directoryHandle = await getGuideImageAssetsDirectoryHandle();
+  const fileHandle = await directoryHandle.getFileHandle(fileName, { create: true });
+  const writable = await fileHandle.createWritable();
+  try {
+    await writable.write(file);
+  } finally {
+    await writable.close();
+  }
+}
+
+async function uploadGuideImageFile(file) {
+  const node = getGameNode();
+  if (!node || node.type !== 'game' || !nodeGuideImageInput || nodeGuideImageInput.disabled) return false;
+  if (!isGuideImageUploadFile(file)) {
+    setGuideImageAssetStatus(GUIDE_IMAGE_UPLOAD_INVALID_MESSAGE);
+    return false;
+  }
+
+  const fileName = sanitizeGuideImageUploadFileName(file);
+  const assetName = buildGuideImageAssetName(fileName);
+  const assetUrl = buildPublishedGameLogoAssetUrl(assetName);
+  const previewUrl = URL.createObjectURL(file);
+
+  try {
+    setGuideImageAssetStatus('Uploading...', { kind: 'info' });
+    if (guideImageUploadBtn) {
+      guideImageUploadBtn.disabled = true;
+      guideImageUploadBtn.textContent = 'Uploading';
+    }
+    await writeGuideImageUploadFile(file, fileName);
+    registerUploadedGuideImageAsset(assetName);
+    setGuideImageUploadPreview(assetUrl, previewUrl);
+    nodeGuideImageInput.value = assetUrl;
+    syncSelectedGameGuideImageFromInput({ canonicalize: true });
+    updateSelectionUi();
+    updatePhoneChrome();
+    setGuideImageAssetStatus(GUIDE_IMAGE_UPLOAD_SUCCESS_PREFIX + GUIDE_IMAGE_UPLOAD_FOLDER_LABEL + fileName, { kind: 'info' });
+    return true;
+  } catch (error) {
+    URL.revokeObjectURL(previewUrl);
+    const message = String((error && error.message) || '').trim();
+    if (error && error.name === 'AbortError') {
+      setGuideImageAssetStatus('');
+    } else {
+      setGuideImageAssetStatus(message || GUIDE_IMAGE_UPLOAD_FAILED_MESSAGE);
+    }
+    return false;
+  } finally {
+    if (guideImageUploadBtn) {
+      guideImageUploadBtn.disabled = !nodeGuideImageInput || !!nodeGuideImageInput.disabled;
+      guideImageUploadBtn.textContent = 'Upload';
+    }
+    if (guideImageUploadInput) guideImageUploadInput.value = '';
   }
 }
 
@@ -15125,12 +15342,6 @@ function setGameLogoOnlineMenuOpen(isOpen) {
   if (gameLogoOnlinePickBtn) gameLogoOnlinePickBtn.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
 }
 
-function setGuideImageOnlineMenuOpen(isOpen) {
-  const shouldOpen = !!isOpen;
-  if (guideImageOnlineMenu) guideImageOnlineMenu.hidden = !shouldOpen;
-  if (guideImageOnlinePickBtn) guideImageOnlinePickBtn.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
-}
-
 function populateGameLogoOnlineMenu(assets) {
   if (!gameLogoOnlineList) return;
 
@@ -15167,42 +15378,6 @@ function populateGameLogoOnlineMenu(assets) {
   setGameLogoOnlineMenuOpen(!!assets.length);
 }
 
-function populateGuideImageOnlineMenu(assets) {
-  if (!guideImageOnlineList) return;
-
-  const currentFileName = normalizeAssetFileName(getCurrentGuideImageUrl());
-  guideImageOnlineList.innerHTML = '';
-
-  assets.forEach((asset) => {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'guide-image-asset-item';
-    if (asset.name === currentFileName) item.classList.add('is-selected');
-    item.setAttribute('role', 'option');
-    item.setAttribute('aria-selected', asset.name === currentFileName ? 'true' : 'false');
-    item.dataset.assetUrl = asset.url;
-
-    const thumbWrap = document.createElement('span');
-    thumbWrap.className = 'guide-image-asset-item-thumb-wrap';
-    const thumb = document.createElement('img');
-    thumb.className = 'guide-image-asset-item-thumb';
-    thumb.alt = '';
-    thumb.loading = 'lazy';
-    thumb.src = asset.url;
-    thumbWrap.appendChild(thumb);
-
-    const name = document.createElement('span');
-    name.className = 'guide-image-asset-item-name';
-    name.textContent = asset.name;
-
-    item.appendChild(thumbWrap);
-    item.appendChild(name);
-    guideImageOnlineList.appendChild(item);
-  });
-
-  setGuideImageOnlineMenuOpen(!!assets.length);
-}
-
 async function applyPublishedGameLogoUrl(url) {
   const node = getGameNode();
   if (!node || node.type !== 'game' || !nodeGameLogoInput) return false;
@@ -15217,24 +15392,6 @@ async function applyPublishedGameLogoUrl(url) {
   setGameLogoAssetStatus('');
   syncSelectedGameLogoFromInput();
   updateSelectionUi();
-  return true;
-}
-
-async function applyPublishedGuideImageUrl(url) {
-  const node = getGameNode();
-  if (!node || node.type !== 'game' || !nodeGuideImageInput) return false;
-  const nextUrl = String(url || '').trim();
-  if (!nextUrl) return false;
-  const existsOnline = await probeImageUrl(nextUrl);
-  if (!existsOnline) {
-    setGuideImageAssetStatus(GUIDE_IMAGE_ASSET_NOT_FOUND_MESSAGE);
-    return false;
-  }
-  nodeGuideImageInput.value = nextUrl;
-  setGuideImageAssetStatus('');
-  syncSelectedGameGuideImageFromInput();
-  updateSelectionUi();
-  updatePhoneChrome();
   return true;
 }
 
@@ -15266,34 +15423,6 @@ async function openGameLogoOnlinePicker(forceRefresh = false) {
   }
 }
 
-async function openGuideImageOnlinePicker(forceRefresh = false) {
-  if (!guideImageOnlinePickBtn || !guideImageOnlineMenu || !guideImageOnlineList || !nodeGuideImageInput || nodeGuideImageInput.disabled) return false;
-
-  if (!forceRefresh && !guideImageOnlineMenu.hidden) {
-    setGuideImageOnlineMenuOpen(false);
-    return true;
-  }
-
-  setGuideImageAssetStatus('');
-  guideImageOnlinePickBtn.disabled = true;
-  guideImageOnlinePickBtn.textContent = 'Loading';
-
-  try {
-    const assets = await fetchPublishedGameLogoAssets(forceRefresh);
-    populateGuideImageOnlineMenu(assets);
-    const firstItem = guideImageOnlineList.querySelector('.guide-image-asset-item');
-    if (firstItem && typeof firstItem.focus === 'function') firstItem.focus();
-    return true;
-  } catch (error) {
-    setGuideImageOnlineMenuOpen(false);
-    setGuideImageAssetStatus(GUIDE_IMAGE_ONLINE_ASSET_ERROR_MESSAGE);
-    return false;
-  } finally {
-    guideImageOnlinePickBtn.disabled = !nodeGuideImageInput || !!nodeGuideImageInput.disabled;
-    guideImageOnlinePickBtn.textContent = 'Choose';
-  }
-}
-
 function getCurrentGuideImageUrl() {
   return String((state.currentGameMeta && state.currentGameMeta.guideImageUrl) || '').trim();
 }
@@ -15317,7 +15446,7 @@ function closeGuideImageLightbox() {
 }
 
 function openGuideImageLightbox() {
-  const imageUrl = getCurrentGuideImageUrl();
+  const imageUrl = getCurrentGuideImagePreviewUrl();
   if (!imageUrl || !guideImageLightboxBackdrop || !guideImageLightboxImage) return false;
   state.guideImageLightboxPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   guideImageLightboxImage.src = imageUrl;
@@ -15384,7 +15513,7 @@ function syncSelectedGameLogoFromInput() {
 }
 
 function updateGuideImagePreview() {
-  const imageUrl = getCurrentGuideImageUrl();
+  const imageUrl = getCurrentGuideImagePreviewUrl();
   const hasImage = !!imageUrl;
 
   if (guideImageThumbBtn) {
@@ -15421,9 +15550,13 @@ function updateGuideImagePreview() {
   }
 }
 
-function syncSelectedGameGuideImageFromInput() {
+function syncSelectedGameGuideImageFromInput(options = {}) {
   if (!getGameNode() || !state.currentGameMeta || !nodeGuideImageInput) return false;
-  const nextValue = String(nodeGuideImageInput.value || '');
+  const rawValue = String(nodeGuideImageInput.value || '').trim();
+  const nextValue = options.canonicalize ? normalizeGuideImageAssetUrl(rawValue) : rawValue;
+  if (options.canonicalize && nodeGuideImageInput.value !== nextValue) {
+    nodeGuideImageInput.value = nextValue;
+  }
   if ((state.currentGameMeta.guideImageUrl || '') === nextValue) return false;
   state.currentGameMeta.guideImageUrl = nextValue;
   return true;
@@ -15649,7 +15782,7 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
 
     guideName: raw && typeof raw.guideName === 'string' ? raw.guideName : '',
     guideBio: raw && typeof raw.guideBio === 'string' ? raw.guideBio : '',
-    guideImageUrl: raw && typeof raw.guideImageUrl === 'string' ? raw.guideImageUrl : '',
+    guideImageUrl: normalizeGuideImageAssetUrl(raw && raw.guideImageUrl),
     logoUrl: raw && typeof raw.logoUrl === 'string' ? raw.logoUrl : '',
     price: raw && typeof raw.price === 'string' ? raw.price : '',
     checkoutUrl: raw && typeof raw.checkoutUrl === 'string' ? raw.checkoutUrl : '',
@@ -15826,7 +15959,7 @@ function getDocSnapshot(doc = state.doc) {
       locationBased: !!meta.locationBased,
       guideName: meta.guideName || '',
       guideBio: meta.guideBio || '',
-      guideImageUrl: meta.guideImageUrl || '',
+      guideImageUrl: normalizeGuideImageAssetUrl(meta.guideImageUrl) || '',
       price: meta.price || '',
       engine: meta.engine || '',
       tertiaryColor: meta.tertiaryColor || '',
@@ -15856,7 +15989,7 @@ function getDocSnapshot(doc = state.doc) {
       startingLocationLon: node.startingLocationLon ?? null,
       guideName: node.guideName || '',
       guideBio: node.guideBio || '',
-      guideImageUrl: node.guideImageUrl || '',
+      guideImageUrl: normalizeGuideImageAssetUrl(node.guideImageUrl) || '',
       logoUrl: node.logoUrl || '',
       price: node.price || '',
       builderNotes: node.builderNotes || '',
@@ -16238,7 +16371,7 @@ function initGameMeta(game) {
     fandomGame:           normalizeBooleanFlag(g.fandom_game ?? g.fandomGame ?? gn.fandomGame ?? gn.fandom_game),
     guideName:            g.guide_name      ?? gn.guideName       ?? '',
     guideBio:             g.guide_bio       ?? gn.guideBio        ?? '',
-    guideImageUrl:        g.guide_image_url ?? gn.guideImageUrl   ?? gn.guideImage   ?? '',
+    guideImageUrl:        normalizeGuideImageAssetUrl(g.guide_image_url ?? g.guideImageUrl ?? gn.guideImageUrl ?? gn.guideImage ?? ''),
     price:                g.price           ?? gn.price           ?? '',
     engine:               g.engine          ?? gn.engine          ?? '',
     tertiaryColor:        g.tertiary_color  ?? gn.tertiaryColor   ?? '',
@@ -16911,9 +17044,10 @@ function overlayColumnsOntoGameNode(doc, raw) {
 
   Object.entries(GAME_COLUMN_TO_NODE_FIELD).forEach(([column, field]) => {
     if (!(column in raw)) return;
-    const value = raw[column];
-    if (value === undefined) return;
-    gameNode[field] = value == null ? '' : value;
+      let value = raw[column];
+      if (value === undefined) return;
+      if (column === 'guide_image_url') value = normalizeGuideImageAssetUrl(value);
+      gameNode[field] = value == null ? '' : value;
   });
 
   if (Array.isArray(raw.tags)) gameNode.tags = raw.tags.filter(Boolean);
@@ -16956,7 +17090,7 @@ function normalizeSavedGame(raw, index) {
     category_icon:         normalizeCategoryIconValue(raw && (raw.category_icon ?? raw.categoryIcon)),
     guide_name:            raw && raw.guide_name,
     guide_bio:             raw && raw.guide_bio,
-    guide_image_url:       raw && raw.guide_image_url,
+    guide_image_url:       normalizeGuideImageAssetUrl(raw && (raw.guide_image_url ?? raw.guideImageUrl)),
     logo_url:              raw && raw.logo_url,
     link_url:              raw && raw.link_url,
     button_url:            raw && raw.button_url,
@@ -19340,8 +19474,8 @@ function updateSelectionUi(options = {}) {
   nodeGuideNameInput.disabled = !isGameNode;
   nodeGuideBioInput.disabled = !isGameNode;
   nodeGuideImageInput.disabled = !isGameNode;
-  if (guideImageOnlinePickBtn) guideImageOnlinePickBtn.disabled = !isGameNode;
-  if (!isGameNode) setGuideImageOnlineMenuOpen(false);
+  if (guideImageUploadBtn) guideImageUploadBtn.disabled = !isGameNode;
+  if (guideImageUploadInput) guideImageUploadInput.disabled = !isGameNode;
   nodePriceInput.disabled = !isGameNode;
   if (nodeCheckoutUrlInput) nodeCheckoutUrlInput.disabled = !isGameNode;
   if (nodeEngineInput) nodeEngineInput.disabled = !isGameNode;
@@ -19515,10 +19649,10 @@ function updateSelectionUi(options = {}) {
   nodeGuideNameInput.value = isGameNode ? (meta.guideName || '') : '';
   nodeGuideBioInput.value = isGameNode ? (meta.guideBio || '') : '';
   nodeGuideImageInput.value = isGameNode ? (meta.guideImageUrl || '') : '';
-  setGuideImageAssetStatus('');
-  if (guideImageOnlineMenu && isGameNode && !guideImageOnlineMenu.hidden && Array.isArray(gameLogoOnlineAssetsCache)) {
-    populateGuideImageOnlineMenu(gameLogoOnlineAssetsCache);
+  if (guideImageUploadPreviewAssetUrl && guideImageUploadPreviewAssetUrl !== String(nodeGuideImageInput.value || '').trim()) {
+    clearGuideImageUploadPreview();
   }
+  setGuideImageAssetStatus('');
   nodePriceInput.value = isGameNode ? (meta.price || '') : '';
   if (nodeCheckoutUrlInput) nodeCheckoutUrlInput.value = isGameNode ? (meta.checkoutUrl || '') : '';
   if (nodeEngineInput) {
@@ -20643,7 +20777,7 @@ function serializeNodeState(node) {
     startingLocationLon: (meta ? meta.startingLocationLon : node.startingLocationLon) ?? null,
     guideName: (meta ? meta.guideName : node.guideName) || '',
     guideBio: (meta ? meta.guideBio : node.guideBio) || '',
-    guideImageUrl: (meta ? meta.guideImageUrl : node.guideImageUrl) || '',
+    guideImageUrl: normalizeGuideImageAssetUrl(meta ? meta.guideImageUrl : node.guideImageUrl) || '',
     logoUrl: (meta ? meta.logoUrl : node.logoUrl) || '',
     price: (meta ? meta.price : node.price) || '',
     checkoutUrl: (meta ? meta.checkoutUrl : node.checkoutUrl) || '',
@@ -20987,7 +21121,7 @@ function stageCurrentGameIntoStore() {
   if (!shouldStageCurrentGameForSave()) return null;
   if (!state.currentGameId) return null;
 
-  syncSelectedGameGuideImageFromInput();
+  syncSelectedGameGuideImageFromInput({ canonicalize: true });
 
   const docPayload = serializeDoc();
   const existingGame = state.store.games.find((game) => game.id === state.currentGameId);
@@ -21005,6 +21139,8 @@ function stageCurrentGameIntoStore() {
   };
   const _gn = docPayload.nodes.find((node) => node && node.type === 'game') || {};
   const _meta = state.currentGameMeta || {};
+  const guideImageUrl = normalizeGuideImageAssetUrl(_meta.guideImageUrl);
+  if (_meta.guideImageUrl !== guideImageUrl) _meta.guideImageUrl = guideImageUrl;
   const savedGame = {
     id: state.currentGameId,
     name: savedGameName,
@@ -21026,7 +21162,7 @@ function stageCurrentGameIntoStore() {
     category_icon:         normalizeCategoryIconValue(_meta.categoryIcon) || null,
     guide_name:            _meta.guideName || null,
     guide_bio:             _meta.guideBio || null,
-    guide_image_url:       _meta.guideImageUrl || null,
+    guide_image_url:       guideImageUrl || null,
     logo_url:              _meta.logoUrl || null,
     link_url:              _gn.linkUrl || null,
     button_url:            _gn.buttonUrl || null,
@@ -21823,9 +21959,6 @@ document.addEventListener('click', (event) => {
   if (gameLogoOnlineMenu && !gameLogoOnlineMenu.hidden && gameLogoField && !gameLogoField.contains(target)) {
     setGameLogoOnlineMenuOpen(false);
   }
-  if (guideImageOnlineMenu && !guideImageOnlineMenu.hidden && guideImageField && !guideImageField.contains(target)) {
-    setGuideImageOnlineMenuOpen(false);
-  }
   if (objectBubbleImageOnlineMenu && !objectBubbleImageOnlineMenu.hidden && objectBubbleImageField && !objectBubbleImageField.contains(target)) {
     setBubbleImageOnlineMenuOpen(false);
   }
@@ -22049,7 +22182,10 @@ if (objectBubbleImageThumbBtn) {
 
 nodeGuideImageInput.addEventListener('input', () => {
   setGuideImageAssetStatus('');
-  syncSelectedGameGuideImageFromInput();
+  if (guideImageUploadPreviewAssetUrl !== String(nodeGuideImageInput.value || '').trim()) {
+    clearGuideImageUploadPreview();
+  }
+  syncSelectedGameGuideImageFromInput({ canonicalize: false });
   const node = getGameNode();
   if (!node || node.type !== 'game') return;
   updatePhoneChrome();
@@ -22057,25 +22193,35 @@ nodeGuideImageInput.addEventListener('input', () => {
 
 nodeGuideImageInput.addEventListener('change', () => {
   setGuideImageAssetStatus('');
-  syncSelectedGameGuideImageFromInput();
+  if (guideImageUploadPreviewAssetUrl !== String(nodeGuideImageInput.value || '').trim()) {
+    clearGuideImageUploadPreview();
+  }
+  syncSelectedGameGuideImageFromInput({ canonicalize: true });
   updateSelectionUi();
   updatePhoneChrome();
 });
 
-if (guideImageOnlinePickBtn && guideImageOnlineList) {
-  guideImageOnlinePickBtn.addEventListener('click', async () => {
-    if (guideImageOnlinePickBtn.disabled) return;
-    await openGuideImageOnlinePicker(false);
+if (guideImageUploadBtn && guideImageUploadInput) {
+  guideImageUploadBtn.addEventListener('click', async () => {
+    if (guideImageUploadBtn.disabled) return;
+    try {
+      const ready = await ensureGuideImageAssetsDirectoryHandle();
+      if (!ready) return;
+    } catch (error) {
+      const message = error && error.name === 'AbortError'
+        ? ''
+        : String((error && error.message) || GUIDE_IMAGE_UPLOAD_FAILED_MESSAGE).trim();
+      setGuideImageAssetStatus(message);
+      return;
+    }
+    guideImageUploadInput.value = '';
+    guideImageUploadInput.click();
   });
 
-  guideImageOnlineList.addEventListener('click', async (event) => {
-    const assetItem = event.target instanceof Element
-      ? event.target.closest('.guide-image-asset-item')
-      : null;
-    const nextUrl = assetItem ? String(assetItem.getAttribute('data-asset-url') || '').trim() : '';
-    if (!nextUrl) return;
-    const applied = await applyPublishedGuideImageUrl(nextUrl);
-    if (applied) setGuideImageOnlineMenuOpen(false);
+  guideImageUploadInput.addEventListener('change', async () => {
+    const file = guideImageUploadInput.files && guideImageUploadInput.files[0];
+    if (!file) return;
+    await uploadGuideImageFile(file);
   });
 }
 
