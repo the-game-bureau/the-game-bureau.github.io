@@ -2616,7 +2616,10 @@ const WEATHER_CODE_MAP = {
       const logoEl = document.getElementById('landingLogo');
       const guideAvatarEl = document.getElementById('guideAvatar');
       const logoUrl = sanitizeAssetUrl((gameNode && (gameNode.logo || gameNode.logoUrl)) || '');
-      const guideUrl = sanitizeAssetUrl((gameNode && (gameNode.guideImage || gameNode.guideImageUrl)) || '');
+      // Guide avatar is always the game-id image under /assets/guides.
+      const guideUrl = gameNode && gameNode.id
+        ? 'https://thegamebureau.com/assets/guides/' + encodeURIComponent(gameNode.id) + '.png'
+        : '';
 
       if (logoEl) {
         logoEl.style.display = 'none';
@@ -2633,12 +2636,11 @@ const WEATHER_CODE_MAP = {
       }
 
       if (guideAvatarEl) {
-        const fallbackGuideUrl = logoUrl || FALLBACK_GUIDE_AVATAR;
         guideAvatarEl.onerror = () => {
           guideAvatarEl.onerror = null;
-          guideAvatarEl.src = fallbackGuideUrl;
+          guideAvatarEl.src = FALLBACK_GUIDE_AVATAR;
         };
-        guideAvatarEl.src = guideUrl || fallbackGuideUrl;
+        guideAvatarEl.src = guideUrl || FALLBACK_GUIDE_AVATAR;
       }
 
       return { logoUrl, guideUrl };
@@ -3508,6 +3510,7 @@ const WEATHER_CODE_MAP = {
         document.body.style.background = primaryColor;
 
         const gameNode = {
+          id:                  game.id,
           defaultEmoji:        game.default_emoji,
           tertiaryColor:       game.tertiary_color,
           quaternaryColor:     game.quaternary_color,
@@ -3519,7 +3522,6 @@ const WEATHER_CODE_MAP = {
           city:                game.city,
           guideName:           game.guide_name,
           guideBio:            game.guide_bio,
-          guideImageUrl:       game.guide_image_url,
           price:               game.price,
           locationBased:       game.location_based,
           startingLocationName:    game.starting_location_name,
@@ -3567,8 +3569,7 @@ const WEATHER_CODE_MAP = {
           document.getElementById('missionGuideSection').style.display = 'block';
           document.getElementById('guideNameDisplay').textContent = gameNode.guideName.toUpperCase();
           document.getElementById('guideDescription').textContent = gameNode.guideBio || 'Your mission lead.';
-          const gImg = images.guideUrl || images.logoUrl || FALLBACK_GUIDE_AVATAR;
-          document.getElementById('guideAvatar').src = gImg;
+          // Guide avatar already set by applyGameImages (id-based, with fallback).
         }
 
         // START

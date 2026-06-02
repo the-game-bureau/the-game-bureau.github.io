@@ -10107,17 +10107,9 @@ html.admin-embedded .builder-section-head{
                     </div>
 
                     <div class="field" id="guideImageField">
-                      <label class="field-label field-label--with-meta" for="nodeGuideImageInput">Guide Logo<span class="field-info" tabindex="0" role="note" aria-label="Upload an image file to assets/guides.">i<span class="field-tooltip" role="tooltip">Upload an image file to assets/guides.</span></span></label>
-                      <div class="guide-image-input-row guide-image-input-row--with-asset">
-                        <button class="guide-image-thumb" id="guideImageThumbBtn" type="button" disabled aria-label="No guide logo selected">
-                          <img class="guide-image-thumb-image" id="guideImageThumbImage" alt="Guide logo thumbnail" hidden>
-                          <span class="guide-image-thumb-placeholder" id="guideImageThumbPlaceholder">No image</span>
-                        </button>
-                        <input id="nodeGuideImageInput" type="text" placeholder="http://" autocomplete="off" disabled>
-                        <button class="guide-image-asset-btn" id="guideImageUploadBtn" type="button" disabled aria-label="Upload guide logo" title="Upload guide logo">Upload</button>
-                        <input class="guide-image-file-input" id="guideImageUploadInput" type="file" accept="image/avif,image/gif,image/jpeg,image/png,image/svg+xml,image/webp,image/x-icon,.avif,.gif,.ico,.jpg,.jpeg,.png,.svg,.webp" hidden disabled>
-                      </div>
-                      <div class="field-hint" id="guideImageAssetStatus" aria-live="polite"></div>
+                      <label class="field-label">Guide Image</label>
+                      <p class="field-hint" id="guideImageNote">Upload a guide image for this game to the assets\guides folder and name the image {GAMEID}.png</p>
+                      <input id="nodeGuideImageInput" type="hidden">
                     </div>
 
                     <div class="field" id="guideBioField">
@@ -15524,6 +15516,16 @@ function syncSelectedGameLogoFromInput() {
   return true;
 }
 
+// The guide avatar is served from /assets/guides/{gameId}.png at play time,
+// so the builder just tells the user the exact filename to drop in that folder.
+function updateGuideImageNote(isGameNode) {
+  const note = document.getElementById('guideImageNote');
+  if (!note) return;
+  const gameId = isGameNode ? String(state.currentGameId || '').trim() : '';
+  const fileName = (gameId || '{GAMEID}') + '.png';
+  note.textContent = 'Upload a guide image for this game to the assets\\guides folder and name the image ' + fileName;
+}
+
 function updateGuideImagePreview() {
   const imageUrl = getCurrentGuideImagePreviewUrl();
   const hasImage = !!imageUrl;
@@ -19687,6 +19689,7 @@ function updateSelectionUi(options = {}) {
   }
   updateGameLogoPreview();
   updateGuideImagePreview();
+  updateGuideImageNote(isGameNode);
   const currentColors = getCurrentGameColors();
   primaryColorInput.value = showGameDetails ? currentColors.primaryColor : '';
   primaryColorInput.classList.remove('is-invalid');
