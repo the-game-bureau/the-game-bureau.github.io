@@ -185,6 +185,13 @@
       color: var(--muted);
     }
     .game-matchup { color: rgba(var(--bic-blue-rgb), 0.5); font-weight: 500; text-transform: none; letter-spacing: 0; }
+    .game-date {
+      color: var(--bic-red);
+      font-weight: 700;
+      text-transform: none;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
     .tagline-body {
       margin: 0;
       font-size: 0.98rem;
@@ -367,13 +374,13 @@
     async function refresh() {
       try {
         const url = restUrl('games', {
-          select: 'id,name,tagline,away_team_city,away_team_mascot,home_team_city,home_team_mascot,fandom_game',
+          select: 'id,name,tagline,game_date,start_time,away_team_city,away_team_mascot,home_team_city,home_team_mascot,fandom_game',
           order: 'name.asc'
         });
         const response = await fetch(url, { headers: authHeaders(), cache: 'no-store' });
         if (!response.ok) throw new Error(await readError(response, 'Could not load games'));
         const rows = await response.json();
-        state.games = Array.isArray(rows) ? rows : [];
+        state.games = normalizeGames(rows);
         render();
         setStatus('');
       } catch (error) {
@@ -383,7 +390,7 @@
     }
 
     async function saveTagline(game, value) {
-      const next = value.trim();
+      const next = formatTaglineCase(value);
       try {
         const response = await fetch(restUrl('games', { id: 'eq.' + game.id }), {
           method: 'PATCH',
@@ -393,7 +400,9 @@
         if (!response.ok) throw new Error(await readError(response, 'Could not save'));
         const updated = await response.json();
         const fresh = (Array.isArray(updated) && updated[0]) || null;
-        state.games = state.games.map((g) => (g.id === game.id ? (fresh || Object.assign({}, g, { tagline: next || null })) : g));
+        state.games = state.games.map((g) => normalizeGame(
+          g.id === game.id ? (fresh || Object.assign({}, g, { tagline: next || null })) : g
+        ));
         state.editingId = null;
         render();
         setStatus('Saved.', 'success');
@@ -403,10 +412,59 @@
       }
     }
 
+    function normalizeGames(rows) {
+      return (Array.isArray(rows) ? rows : []).map(normalizeGame);
+    }
+
+    function normalizeGame(game) {
+      if (!game || typeof game !== 'object') return game;
+      const tagline = formatTaglineCase(game.tagline);
+      return Object.assign({}, game, { tagline: tagline || null });
+    }
+
+    function formatTaglineCase(value) {
+      const text = String(value || '').trim();
+      if (!text) return '';
+      return text.replace(/[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*/g, (word) => (
+        formatTaglineWord(word)
+      ));
+    }
+
+    function formatTaglineWord(word) {
+      const source = String(word || '');
+      const apostropheIndex = source.search(/['’]/);
+      const base = apostropheIndex >= 0 ? source.slice(0, apostropheIndex) : source;
+      const suffix = apostropheIndex >= 0 ? source.slice(apostropheIndex) : '';
+      const baseLetters = base.replace(/[^A-Za-z]/g, '');
+      if (baseLetters && baseLetters === baseLetters.toUpperCase()) return base + suffix;
+      return source.charAt(0).toUpperCase() + source.slice(1).toLowerCase();
+    }
+
     function matchesFilter(game) {
       if (!state.filter) return true;
-      const hay = (String(game.name || '') + ' ' + String(game.tagline || '')).toLowerCase();
+      const hay = (
+        String(game.name || '') + ' ' +
+        String(game.tagline || '') + ' ' +
+        String(game.game_date || '') + ' ' +
+        formatGameDate(game)
+      ).toLowerCase();
       return hay.includes(state.filter);
+    }
+
+    function formatGameDate(game) {
+      const raw = String(game && game.game_date || '').trim();
+      if (!raw) return '';
+      const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (!match) return raw;
+      const [, year, month, day] = match;
+      const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+      if (Number.isNaN(date.getTime())) return raw;
+      return date.toLocaleDateString('en-US', {
+        timeZone: 'UTC',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
     }
 
     function buildGroups(games) {
@@ -515,9 +573,16 @@
         mu.textContent = '  ' + matchup;
         name.appendChild(mu);
       }
+      const dateLabel = formatGameDate(game);
+      if (dateLabel) {
+        const date = document.createElement('span');
+        date.className = 'game-date';
+        date.textContent = '  ' + dateLabel;
+        name.appendChild(date);
+      }
       const body = document.createElement('p');
       body.className = 'tagline-body' + (game.tagline ? '' : ' is-empty');
-      body.textContent = game.tagline || 'No tagline. Click to add one.';
+      body.textContent = formatTaglineCase(game.tagline) || 'No tagline. Click to add one.';
       body.title = 'Click to edit';
       body.addEventListener('click', () => { state.editingId = game.id; render(); });
       main.append(name, body);
@@ -540,7 +605,7 @@
       form.className = 'edit-form';
 
       const ta = document.createElement('textarea');
-      ta.value = game.tagline || '';
+      ta.value = formatTaglineCase(game.tagline);
       ta.placeholder = 'Tagline...';
       form.appendChild(ta);
 

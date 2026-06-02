@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """
-teams.py — look up a team's colors and append to teams.json.
+teams.py — look up a team's colors and update db/teams.json.
 
 Run:
     python teams.py
 
 Prompts for sport/league and a team name (any of full name, mascot,
 location, or abbreviation), looks the team up via ESPN's public team
-API, and writes the resulting palette into teams.json under that
-league's section.
+API, and writes the resulting palette into db/teams.json.
 
-ESPN exposes two colors per team (primary + alternate). Tertiary and
-quaternary default to #FFFFFF; edit teams.json by hand if you need
-custom values.
+ESPN exposes two colors per team (primary + alternate). Tertiary defaults
+to #FFFFFF; edit db/teams.json by hand if you need custom values.
 """
 import json
 import re
@@ -23,7 +21,8 @@ from difflib import get_close_matches
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-JSON_PATH = SCRIPT_DIR / 'teams.json'
+REPO_ROOT = SCRIPT_DIR.parent.parent
+JSON_PATH = REPO_ROOT / 'db' / 'teams.json'
 HEX_RE = re.compile(r'^#?([0-9A-Fa-f]{6})$')
 ESPN_URL = 'https://site.api.espn.com/apis/site/v2/sports/{path}/teams?limit=900'
 
@@ -120,6 +119,8 @@ def load_doc():
         }
     with JSON_PATH.open('r', encoding='utf-8') as f:
         doc = json.load(f)
+    if isinstance(doc.get('teams'), list):
+        return doc
     if 'leagues' not in doc:
         legacy_league = doc.get('league')
         legacy_teams = doc.get('teams', {}) or {}
@@ -137,6 +138,43 @@ def save_doc(doc):
     with JSON_PATH.open('w', encoding='utf-8') as f:
         json.dump(doc, f, indent=2, ensure_ascii=False)
         f.write('\n')
+
+
+def update_db_team(doc, league, abbreviation, display_name, first_name, mascot, primary, secondary, tertiary, espn_id):
+    rows = doc.get('teams')
+    if not isinstance(rows, list):
+        return False
+    league = league.upper()
+    espn_id = str(espn_id or '').strip()
+    mascot_key = mascot.lower().strip()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get('League', '')).upper() != league:
+            continue
+        row_espn_id = str(row.get('EspnId', '')).strip()
+        row_mascot = str(row.get('MascotName') or row.get('mascot') or '').lower().strip()
+        if (espn_id and row_espn_id == espn_id) or (mascot_key and row_mascot == mascot_key):
+            row['code'] = abbreviation
+            row['fullName'] = display_name
+            row['firstName'] = first_name
+            row['fanbase'] = row.get('fanbase') or first_name
+            row['mascot'] = mascot
+            row['sport'] = row.get('sport') or {
+                'NFL': 'football',
+                'NBA': 'basketball',
+                'NHL': 'hockey',
+                'MLB': 'baseball'
+            }.get(league, '')
+            row['primary'] = primary
+            row['secondary'] = secondary
+            row['tertiary'] = tertiary
+            row.pop('shell', None)
+            row.pop('stripe', None)
+            row.pop('mask', None)
+            row['paletteSource'] = 'espn'
+            return True
+    return False
 
 
 def main():
@@ -179,16 +217,36 @@ def main():
     fanbase = first_name
     mascot = team.get('name') or team.get('nickname') or display_name.rsplit(' ', 1)[-1]
 
-    shell = normalize_hex(team.get('color'), default='#000000')
-    stripe = normalize_hex(team.get('alternateColor'), default='#FFFFFF')
-    mask = '#FFFFFF'
+    primary = normalize_hex(team.get('color'), default='#000000')
+    secondary = normalize_hex(team.get('alternateColor'), default='#FFFFFF')
+    tertiary = '#FFFFFF'
 
     print(f'\nMatched: {display_name} ({abbreviation})')
-    print(f'  shell:  {shell}')
-    print(f'  stripe: {stripe}')
-    print(f'  mask:   {mask}    (ESPN gives only 2 colors; edit by hand if needed)')
+    print(f'  primary:   {primary}')
+    print(f'  secondary: {secondary}')
+    print(f'  tertiary:  {tertiary}    (ESPN gives only 2 colors; edit by hand if needed)')
 
     doc = load_doc()
+    if isinstance(doc.get('teams'), list):
+        if not update_db_team(
+            doc,
+            league_input,
+            abbreviation,
+            display_name,
+            first_name,
+            mascot,
+            primary,
+            secondary,
+            tertiary,
+            team.get('id')
+        ):
+            print('\nNo matching canonical db/teams.json row found.')
+            print('Add the franchise identity fields there first, then rerun this palette update.')
+            return 1
+        save_doc(doc)
+        print(f'\nUpdated db/teams.json / {league_input} / {abbreviation} ({display_name}).')
+        return 0
+
     league_teams = doc['leagues'].setdefault(league_input, {})
     if abbreviation in league_teams:
         confirm = input(f'\n{league_input} / {abbreviation} already exists. Overwrite? [y/N] ').strip().lower()
@@ -201,9 +259,9 @@ def main():
         'firstName': first_name,
         'fanbase': fanbase,
         'mascot': mascot,
-        'shell': shell,
-        'stripe': stripe,
-        'mask': mask
+        'primary': primary,
+        'secondary': secondary,
+        'tertiary': tertiary
     }
     save_doc(doc)
     print(f'\nSaved {league_input} / {abbreviation} ({display_name}).')

@@ -138,9 +138,12 @@
       const heroMetaListEl = document.getElementById('heroMetaList');
       const heroMetaPromptEl = document.getElementById('heroMetaPrompt');
 
-      const COLORS_JSON_URL = '/assets/teams/teams.json';
-      // Supabase is the source of truth for team data; the JSON above is a
-      // cached fallback for offline / first-paint scenarios.
+      const COLORS_JSON_URL = '/db/teams.json';
+      // db/teams.json is the canonical bundled team database. Supabase can
+      // override palette fields at runtime and add non-db teams, but db owns
+      // franchise identity labels like GeoName/MascotName/TGBGameCity.
+      // Supabase still stores the palette columns under their original names;
+      // adapters below map them onto db/teams.json's primary/secondary/tertiary.
       const TEAMS_REST_URL = SB_CONFIG.url + '/rest/v1/teams'
         + '?select=league,conference,code,full_name,first_name,fanbase,mascot,sport,shell,stripe,mask'
         + '&order=league_sort.asc&order=team_sort.asc';
@@ -298,25 +301,24 @@
       }
 
       // Build the same { lookup, teams } shape from a flat list of team records.
-      // Accepts either Supabase rows ({ first_name, full_name, ... }) or the
-      // legacy JSON shape ({ firstName, fullName, ... }) — picks whichever keys
-      // are present per record.
+      // Accepts Supabase rows, the old nested palette rows, or the merged
+      // db/teams.json shape with TGBID/GeoName/MascotName fields.
       function buildTeamIndex(records) {
         const lookup = new Map();
         const teams = [];
         for (const value of records || []) {
           if (!value || typeof value !== 'object') continue;
-          const firstName = value.firstName || value.first_name || '';
+          const firstName = value.firstName || value.first_name || value.GeoName || '';
           const fanbase   = value.fanbase   || firstName        || '';
-          const mascot    = value.mascot    || '';
-          const sport     = value.sport     || '';
-          const shell     = value.shell     || '';
-          const stripe    = value.stripe    || '';
-          const mask      = value.mask      || '';
+          const mascot    = value.mascot    || value.MascotName || '';
+          const sport     = value.sport     || sportFromLeague(value.League || value.league);
+          const primary   = value.primary   || value.primary_color   || value.shell  || '';
+          const secondary = value.secondary || value.secondary_color || value.stripe || '';
+          const tertiary  = value.tertiary  || value.tertiary_color  || value.mask   || '';
           const palette = {
-            primary_color: shell,
-            secondary_color: stripe,
-            tertiary_color: mask,
+            primary_color: primary,
+            secondary_color: secondary,
+            tertiary_color: tertiary,
             sport,
             fanbase
           };
@@ -333,6 +335,22 @@
           teams.push({ firstName, fanbase, mascot, sport, palette });
         }
         return { lookup, teams };
+      }
+
+      function sportFromLeague(league) {
+        switch (String(league || '').toUpperCase()) {
+          case 'NBA':
+          case 'WNBA':
+          case 'NCAAM':
+          case 'NCAAW':
+            return 'basketball';
+          case 'MLB':
+            return 'baseball';
+          case 'NHL':
+            return 'hockey';
+          default:
+            return 'football';
+        }
       }
 
       async function fetchTeamColorsFromSupabase() {
@@ -355,12 +373,13 @@
         const response = await fetch(COLORS_JSON_URL, { cache: 'no-store' });
         if (!response.ok) throw new Error('HTTP ' + response.status);
         const doc = await response.json();
+        if (doc && Array.isArray(doc.teams)) return doc.teams;
         const flat = [];
         const walk = (node) => {
           if (!node || typeof node !== 'object') return;
           for (const value of Object.values(node)) {
             if (!value || typeof value !== 'object') continue;
-            if ('fullName' in value || 'shell' in value) flat.push(value);
+            if ('fullName' in value || 'primary' in value || 'shell' in value) flat.push(value);
             else walk(value);
           }
         };
@@ -368,20 +387,86 @@
         return flat;
       }
 
+      function canonicalTeamColorRow(row) {
+        const next = { ...row };
+        next.primary = row.primary || row.primary_color || row.shell || '';
+        next.secondary = row.secondary || row.secondary_color || row.stripe || '';
+        next.tertiary = row.tertiary || row.tertiary_color || row.mask || '';
+        delete next.shell;
+        delete next.stripe;
+        delete next.mask;
+        return next;
+      }
+
+      function teamIdentityKeys(record) {
+        const league = String(record && (record.League || record.league) || '').toUpperCase();
+        const code = teamKey(record && (record.code || record.Code));
+        const firstName = record && (record.firstName || record.first_name || record.GeoName || record.fanbase) || '';
+        const fanbase = record && (record.fanbase || firstName) || '';
+        const mascot = record && (record.mascot || record.MascotName) || '';
+        const fullName = record && (record.fullName || record.full_name || [record.GeoName, record.MascotName].filter(Boolean).join(' ')) || '';
+        return [
+          code && league + '|code|' + code,
+          fullName && league + '|name|' + teamKey(fullName),
+          mascot && league + '|mascot|' + teamKey(mascot),
+          mascot && fanbase && league + '|fan|' + teamKey(fanbase) + '|' + teamKey(mascot),
+          mascot && firstName && league + '|fan|' + teamKey(firstName) + '|' + teamKey(mascot)
+        ].filter(Boolean);
+      }
+
+      function mergeTeamColorRows(baseRows, overrideRows) {
+        const rows = (Array.isArray(baseRows) ? baseRows : []).map(canonicalTeamColorRow);
+        const lookup = new Map();
+        rows.forEach((row, index) => {
+          teamIdentityKeys(row).forEach((key) => {
+            if (!lookup.has(key)) lookup.set(key, index);
+          });
+        });
+
+        (Array.isArray(overrideRows) ? overrideRows : []).forEach((override) => {
+          if (!override || typeof override !== 'object') return;
+          const matchIndex = teamIdentityKeys(override).map((key) => lookup.get(key)).find((index) => index !== undefined);
+          if (matchIndex === undefined) {
+            rows.push(canonicalTeamColorRow(override));
+            const index = rows.length - 1;
+            teamIdentityKeys(override).forEach((key) => {
+              if (!lookup.has(key)) lookup.set(key, index);
+            });
+            return;
+          }
+
+          const target = rows[matchIndex];
+          ['code', 'conference', 'sport'].forEach((key) => {
+            if (override[key]) target[key] = override[key];
+          });
+          const paletteOverride = canonicalTeamColorRow(override);
+          ['primary', 'secondary', 'tertiary'].forEach((key) => {
+            if (paletteOverride[key]) target[key] = paletteOverride[key];
+          });
+          if (override.league && !target.league) target.league = override.league;
+          target.paletteSource = 'supabase';
+        });
+        return rows;
+      }
+
       async function fetchTeamColors() {
+        let baseRows = [];
         try {
-          const rows = await fetchTeamColorsFromSupabase();
-          if (Array.isArray(rows) && rows.length) return buildTeamIndex(rows);
-          // Empty array → table not seeded yet; fall through to JSON.
+          baseRows = await fetchTeamColorsFromJson();
         } catch (error) {
-          // Network/RLS/etc — fall back to bundled JSON.
+          baseRows = [];
         }
+
         try {
-          const flat = await fetchTeamColorsFromJson();
-          return buildTeamIndex(flat);
+          const overrideRows = await fetchTeamColorsFromSupabase();
+          if (Array.isArray(overrideRows) && overrideRows.length) {
+            return buildTeamIndex(mergeTeamColorRows(baseRows, overrideRows));
+          }
         } catch (error) {
-          return { lookup: new Map(), teams: [] };
+          // Network/RLS/etc — use bundled db/teams.json by itself.
         }
+
+        return buildTeamIndex(baseRows);
       }
 
       function getHelmetByAwayTeam(game) {

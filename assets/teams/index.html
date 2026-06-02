@@ -532,7 +532,9 @@
   <div class="toolbar">
     <button class="btn primary" id="lookupBtn">Add Colors</button>
     <button class="btn" id="reloadBtn">Reload</button>
-    <button class="btn" id="exportBtn" title="Write current data to teams.json (offline fallback)">Export JSON</button>
+    <button class="btn" id="openFileBtn" title="Open db/teams.json and edit colors directly in the file (Chrome/Edge)">Open File</button>
+    <button class="btn primary" id="saveFileBtn" title="Save color edits back to the opened teams.json (Ctrl+S)" disabled>Save File</button>
+    <button class="btn" id="exportBtn" title="Export current data for db/teams.json (offline fallback)">Export JSON</button>
     <button class="btn primary" id="loginBtn">Login</button>
   </div>
 </header>
@@ -586,7 +588,7 @@
 </div>
 
 <script>
-const JSON_PATH = './teams.json';
+const JSON_PATH = '../../db/teams.json';
 const SB_CONFIG = {
   url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
   key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
@@ -596,9 +598,9 @@ const SB_BASE = SB_CONFIG.url + '/rest/v1/' + SB_CONFIG.table;
 // NFL pinned first; everything else alphabetical (matches index.html ordering).
 const LEAGUE_RANK = (name) => (name === 'NFL' ? 0 : 100);
 const COLOR_ROLES = [
-  { key: 'shell',  label: 'Shell' },
-  { key: 'stripe', label: 'Stripe' },
-  { key: 'mask',   label: 'Mask' }
+  { key: 'primary',   label: 'Primary' },
+  { key: 'secondary', label: 'Secondary' },
+  { key: 'tertiary',  label: 'Tertiary' }
 ];
 const HEX_RE = /^#?([0-9a-f]{6})$/i;
 
@@ -636,7 +638,12 @@ const teamCache = new Map(); // leaguePath → teams array
 // render(); it is rebuilt from Supabase rows on load. state.leagueSort tracks
 // the league_sort column per league name (preserves user ordering). Mutations
 // update state.doc immediately and fire-and-forget a Supabase write.
-const state = { doc: null, leagueSort: new Map(), session: null };
+// fileHandle/rawDoc track the "file mode" introduced for editing db/teams.json
+// directly via the File System Access API. When fileHandle is set, color/name
+// edits skip the Supabase write and are flushed to the file on Save instead.
+// rawDoc holds the original flat { _ai_update_prompt, teams:[…] } structure so
+// every non-color field (TGBID, EspnId, GeoName, VenueCity…) is preserved.
+const state = { doc: null, leagueSort: new Map(), session: null, fileHandle: null, rawDoc: null };
 
 const els = {
   root: document.getElementById('leaguesRoot'),
@@ -645,6 +652,8 @@ const els = {
   reloadBtn: document.getElementById('reloadBtn'),
   lookupBtn: document.getElementById('lookupBtn'),
   exportBtn: document.getElementById('exportBtn'),
+  openFileBtn: document.getElementById('openFileBtn'),
+  saveFileBtn: document.getElementById('saveFileBtn'),
   loginBtn: document.getElementById('loginBtn'),
 
   lookupModal: document.getElementById('lookupModal'),
@@ -679,15 +688,80 @@ function normalizeHex(value, fallback = '#000000') {
   return m ? '#' + m[1].toUpperCase() : fallback;
 }
 
+function readPaletteValue(source, canonicalKey, legacyKey, colorKey) {
+  if (!source || typeof source !== 'object') return '';
+  return source[canonicalKey] || source[colorKey] || source[legacyKey] || '';
+}
+
+function hasTeamFields(value) {
+  return !!value && typeof value === 'object' && (
+    'fullName' in value || 'primary' in value || 'shell' in value
+  );
+}
+
+function normalizeTeamPalette(team) {
+  const normalized = { ...(team || {}) };
+  normalized.primary = readPaletteValue(team, 'primary', 'shell', 'primary_color');
+  normalized.secondary = readPaletteValue(team, 'secondary', 'stripe', 'secondary_color');
+  normalized.tertiary = readPaletteValue(team, 'tertiary', 'mask', 'tertiary_color');
+  delete normalized.shell;
+  delete normalized.stripe;
+  delete normalized.mask;
+  return normalized;
+}
+
+function normalizeLeagueNode(node) {
+  const out = {};
+  Object.entries(node || {}).forEach(([key, value]) => {
+    if (hasTeamFields(value)) out[key] = normalizeTeamPalette(value);
+    else if (value && typeof value === 'object') out[key] = normalizeLeagueNode(value);
+    else out[key] = value;
+  });
+  return out;
+}
+
 function normalizeDoc(doc) {
   if (!doc || typeof doc !== 'object') {
     return { _comment: 'Team color palettes by sport/league.', leagues: {} };
   }
-  if (doc.leagues && typeof doc.leagues === 'object') return doc;
+  if (doc.leagues && typeof doc.leagues === 'object') {
+    return { ...doc, leagues: normalizeLeagueNode(doc.leagues) };
+  }
+  if (Array.isArray(doc.teams)) {
+    const normalized = {
+      _comment: doc._comment || 'Team color palettes by sport/league.',
+      leagues: {}
+    };
+    doc.teams.forEach((row) => {
+      if (!row || typeof row !== 'object') return;
+      const leagueName = row.league || row.League || '';
+      const code = row.code || row.Code || row.EspnId || '';
+      if (!leagueName || !code) return;
+      if (!normalized.leagues[leagueName]) normalized.leagues[leagueName] = {};
+      const team = {
+        fullName: row.fullName || row.full_name || [row.GeoName, row.MascotName].filter(Boolean).join(' ') || '',
+        firstName: row.firstName || row.first_name || row.GeoName || '',
+        fanbase: row.fanbase || row.firstName || row.first_name || row.GeoName || '',
+        mascot: row.mascot || row.MascotName || '',
+        primary: readPaletteValue(row, 'primary', 'shell', 'primary_color'),
+        secondary: readPaletteValue(row, 'secondary', 'stripe', 'secondary_color'),
+        tertiary: readPaletteValue(row, 'tertiary', 'mask', 'tertiary_color')
+      };
+      if (row.sport) team.sport = row.sport;
+      const conference = row.conference || row.Conference || '';
+      if (conference) {
+        if (!normalized.leagues[leagueName][conference]) normalized.leagues[leagueName][conference] = {};
+        normalized.leagues[leagueName][conference][code] = team;
+      } else {
+        normalized.leagues[leagueName][code] = team;
+      }
+    });
+    return normalized;
+  }
   if (doc.league && doc.teams) {
     return {
       _comment: doc._comment || 'Team color palettes by sport/league.',
-      leagues: { [doc.league]: doc.teams }
+      leagues: normalizeLeagueNode({ [doc.league]: doc.teams })
     };
   }
   return { _comment: 'Team color palettes by sport/league.', leagues: {} };
@@ -695,11 +769,11 @@ function normalizeDoc(doc) {
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-// A "team" object has a fullName/shell field; a "group" (e.g. conference) is an
+// A "team" object has a fullName/primary field; a "group" (e.g. conference) is an
 // object whose values are teams. Used to disambiguate nested sub-leagues inside
 // a league like NCAAF.
 function isTeamObj(value) {
-  return !!value && typeof value === 'object' && ('fullName' in value || 'shell' in value);
+  return hasTeamFields(value);
 }
 
 // Resolve the dict that directly holds the team. groupName is '' for flat teams.
@@ -761,9 +835,9 @@ function rowsToDoc(rows) {
       firstName: r.first_name || '',
       fanbase:   r.fanbase    || '',
       mascot:    r.mascot     || '',
-      shell:     r.shell      || '',
-      stripe:    r.stripe     || '',
-      mask:      r.mask       || ''
+      primary:   readPaletteValue(r, 'primary', 'shell', 'primary_color'),
+      secondary: readPaletteValue(r, 'secondary', 'stripe', 'secondary_color'),
+      tertiary:  readPaletteValue(r, 'tertiary', 'mask', 'tertiary_color')
     };
     if (r.sport) team.sport = r.sport;
     if (r.conference) {
@@ -789,9 +863,9 @@ function teamToRow(leagueName, groupName, code, team, leagueSort, teamSort) {
     fanbase:    team.fanbase   || '',
     mascot:     team.mascot    || '',
     sport:      team.sport     || '',
-    shell:      team.shell     || '',
-    stripe:     team.stripe    || '',
-    mask:       team.mask      || '',
+    shell:      readPaletteValue(team, 'primary', 'shell', 'primary_color'),
+    stripe:     readPaletteValue(team, 'secondary', 'stripe', 'secondary_color'),
+    mask:       readPaletteValue(team, 'tertiary', 'mask', 'tertiary_color'),
     league_sort: typeof leagueSort === 'number' ? leagueSort : LEAGUE_RANK(leagueName),
     team_sort:   typeof teamSort   === 'number' ? teamSort   : 0
   };
@@ -891,7 +965,7 @@ async function loadFromSupabase() {
     setStatus(totalsSummary() + ' · Supabase');
     return true;
   } catch (err) {
-    setStatus(`Supabase load failed (${err.message}). Falling back to teams.json.`, { error: true });
+    setStatus(`Supabase load failed (${err.message}). Falling back to db/teams.json.`, { error: true });
     await loadFromJsonFallback();
     return false;
   }
@@ -904,9 +978,9 @@ async function loadFromJsonFallback() {
     state.doc = normalizeDoc(await resp.json());
     state.leagueSort = new Map(Object.keys(state.doc.leagues).map((k, i) => [k, LEAGUE_RANK(k) + i]));
     render();
-    setStatus(totalsSummary() + ' · teams.json (offline)');
+    setStatus(totalsSummary() + ' · db/teams.json (offline)');
   } catch (err) {
-    setStatus(`Could not fetch ./teams.json (${err.message}).`, { error: true });
+    setStatus(`Could not fetch ${JSON_PATH} (${err.message}).`, { error: true });
     state.doc = normalizeDoc(null);
     state.leagueSort = new Map();
     render();
@@ -942,7 +1016,109 @@ async function exportJson() {
   a.href = url; a.download = 'teams.json';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  setStatus('Downloaded teams.json — replace assets/teams/teams.json by hand.');
+  setStatus('Downloaded teams.json — use it to refresh db/teams.json.');
+}
+
+// ── File mode: edit db/teams.json in place (File System Access API) ───────
+// When a file is open we edit the actual db/teams.json. Color/name edits live
+// in state.doc and are merged back into state.rawDoc.teams (the canonical flat
+// array) on Save, so every other field on each row is preserved verbatim.
+
+function isFileMode() {
+  return !!state.fileHandle;
+}
+
+async function ensureRWPermission(handle) {
+  const opts = { mode: 'readwrite' };
+  if ((await handle.queryPermission(opts)) === 'granted') return true;
+  if ((await handle.requestPermission(opts)) === 'granted') return true;
+  return false;
+}
+
+async function openTeamsFile() {
+  if (!window.showOpenFilePicker) {
+    setStatus('File editing needs the File System Access API — use Chrome or Edge on desktop.', { error: true });
+    return;
+  }
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+      multiple: false,
+      excludeAcceptAllOption: false
+    });
+    const file = await handle.getFile();
+    const parsed = JSON.parse(await file.text());
+    if (!Array.isArray(parsed.teams)) {
+      setStatus(`${handle.name} has no "teams" array — pick the flat db/teams.json file.`, { error: true });
+      return;
+    }
+    state.fileHandle = handle;
+    state.rawDoc = parsed;
+    state.doc = normalizeDoc(parsed);
+    state.leagueSort = new Map(Object.keys(state.doc.leagues).map((k, i) => [k, LEAGUE_RANK(k) + i]));
+    els.saveFileBtn.disabled = false;
+    render();
+    setStatus(`Editing ${handle.name} · ${totalsSummary()} · file mode (edits save back to the file)`);
+  } catch (err) {
+    if (err && err.name === 'AbortError') return;
+    setStatus(`Open failed: ${err.message}`, { error: true });
+  }
+}
+
+// Merge the in-memory edits back onto the original flat array, matching rows by
+// League + code. Only the editable color/name fields are overwritten; the row
+// is spread first so untouched keys (TGBID, EspnId, GeoName, VenueCity, sport,
+// paletteSource, …) and their order survive. Rows with no matching card are
+// left exactly as they were.
+function buildArrayDocFromEdits() {
+  if (!state.rawDoc || !Array.isArray(state.rawDoc.teams)) return null;
+  const nested = new Map();
+  for (const [leagueName, leagueObj] of Object.entries(state.doc.leagues || {})) {
+    const { groups, flatTeams } = partitionLeagueEntries(leagueObj);
+    const key = (code) => leagueName.toUpperCase() + '::' + String(code).toUpperCase();
+    for (const { code, team } of flatTeams) nested.set(key(code), team);
+    for (const { teams } of groups) {
+      for (const code of Object.keys(teams)) nested.set(key(code), teams[code]);
+    }
+  }
+  const out = { ...state.rawDoc };
+  out.teams = state.rawDoc.teams.map((row) => {
+    if (!row || typeof row !== 'object') return row;
+    const leagueName = String(row.League || row.league || '').toUpperCase();
+    const code = String(row.code || '').toUpperCase();
+    const team = nested.get(leagueName + '::' + code);
+    if (!team) return row;
+    return {
+      ...row,
+      fullName:  team.fullName  != null ? team.fullName  : row.fullName,
+      firstName: team.firstName != null ? team.firstName : row.firstName,
+      fanbase:   team.fanbase   != null ? team.fanbase   : row.fanbase,
+      mascot:    team.mascot    != null ? team.mascot    : row.mascot,
+      primary:   normalizeHex(team.primary,   row.primary),
+      secondary: normalizeHex(team.secondary, row.secondary),
+      tertiary:  normalizeHex(team.tertiary,  row.tertiary)
+    };
+  });
+  return out;
+}
+
+async function saveTeamsFile() {
+  if (!state.fileHandle) { setStatus('Open db/teams.json first (Open File).', { error: true }); return; }
+  const doc = buildArrayDocFromEdits();
+  if (!doc) { setStatus('Nothing to save — the open file had no teams array.', { error: true }); return; }
+  if (!(await ensureRWPermission(state.fileHandle))) {
+    setStatus('Write permission denied for the file.', { error: true });
+    return;
+  }
+  try {
+    const writable = await state.fileHandle.createWritable();
+    await writable.write(JSON.stringify(doc, null, 2) + '\n');
+    await writable.close();
+    state.rawDoc = doc;
+    setStatus(`Saved ${doc.teams.length} teams → ${state.fileHandle.name}`);
+  } catch (err) {
+    setStatus(`Save failed: ${err.message}`, { error: true });
+  }
 }
 
 // ── Mutations ────────────────────────────────────────────────────────────
@@ -1038,6 +1214,9 @@ const FIELD_TO_COLUMN = {
   fanbase: 'fanbase',
   mascot: 'mascot',
   sport: 'sport',
+  primary: 'shell',
+  secondary: 'stripe',
+  tertiary: 'mask',
   shell: 'shell',
   stripe: 'stripe',
   mask: 'mask'
@@ -1046,6 +1225,9 @@ const FIELD_TO_COLUMN = {
 async function persistTeamField(leagueName, groupName, code, field, value) {
   const column = FIELD_TO_COLUMN[field];
   if (!column) return false;
+  // File mode: state.doc already holds the edit; it is flushed to the file on
+  // Save, so skip the Supabase write entirely (and don't require sign-in).
+  if (isFileMode()) return true;
   if (!requireAuth('save changes')) return false;
   const q = `league=eq.${encodeURIComponent(leagueName)}`
           + `&conference=eq.${encodeURIComponent(groupName || '')}`
@@ -1108,10 +1290,10 @@ function teamMarkSVG(sport, primary, secondary, tertiary) {
 function refreshHelmet(card, team) {
   const img = card && card.querySelector('[data-helmet]');
   if (!img) return;
-  const shell = team.shell || '#000000';
-  const stripe = team.stripe || '#FFFFFF';
-  const mask = team.mask || '#AAAAAA';
-  const src = teamMarkSVG(team.sport, shell, stripe, mask);
+  const primary = readPaletteValue(team, 'primary', 'shell', 'primary_color') || '#000000';
+  const secondary = readPaletteValue(team, 'secondary', 'stripe', 'secondary_color') || '#FFFFFF';
+  const tertiary = readPaletteValue(team, 'tertiary', 'mask', 'tertiary_color') || '#AAAAAA';
+  const src = teamMarkSVG(team.sport, primary, secondary, tertiary);
   if (src) img.src = src;
 }
 
@@ -1129,7 +1311,7 @@ async function swapColorRoles(leagueName, groupName, code, roleA, roleB) {
   const bucket = getTeamBucket(leagueName, groupName);
   const team = bucket && bucket[code];
   if (!team) return;
-  if (!requireAuth('swap colors')) return;
+  if (!isFileMode() && !requireAuth('swap colors')) return;
   const tmp = team[roleA];
   team[roleA] = team[roleB];
   team[roleB] = tmp;
@@ -1141,6 +1323,9 @@ async function swapColorRoles(leagueName, groupName, code, roleA, roleB) {
     refreshHelmet(card, team);
   }
   const where = groupName ? `${leagueName} / ${groupName} / ${code}` : `${leagueName} / ${code}`;
+
+  // File mode: the swap lives in state.doc; flushed to the file on Save.
+  if (isFileMode()) { setStatus(`Swapped ${roleA.toUpperCase()} ↔ ${roleB.toUpperCase()} on ${where} · Save to file`); return; }
 
   const q = `league=eq.${encodeURIComponent(leagueName)}`
           + `&conference=eq.${encodeURIComponent(groupName || '')}`
@@ -1160,8 +1345,8 @@ async function swapColorRoles(leagueName, groupName, code, roleA, roleB) {
   setStatus(`Swapped ${roleA.toUpperCase()} ↔ ${roleB.toUpperCase()} on ${where}`);
 }
 
-function flipShellStripe(leagueName, groupName, code) {
-  swapColorRoles(leagueName, groupName, code, 'shell', 'stripe');
+function flipPrimarySecondary(leagueName, groupName, code) {
+  swapColorRoles(leagueName, groupName, code, 'primary', 'secondary');
 }
 
 // ── Render ───────────────────────────────────────────────────────────────
@@ -1356,8 +1541,8 @@ function renderTeam(leagueName, groupName, code, team) {
   const flipBtn = document.createElement('button');
   flipBtn.className = 'btn-mini';
   flipBtn.textContent = '⇄ Flip';
-  flipBtn.title = 'Swap shell and stripe colors';
-  flipBtn.onclick = () => flipShellStripe(leagueName, groupName, code);
+  flipBtn.title = 'Swap primary and secondary colors';
+  flipBtn.onclick = () => flipPrimarySecondary(leagueName, groupName, code);
   footer.appendChild(flipBtn);
   const delTeam = document.createElement('button');
   delTeam.className = 'btn-mini danger';
@@ -1592,9 +1777,9 @@ function buildTeamRecord(team, leagueCode) {
     firstName: location,
     fanbase: location,
     mascot,
-    shell: normalizeHex(team.color, '#000000'),
-    stripe: normalizeHex(team.alternateColor, '#FFFFFF'),
-    mask: '#FFFFFF'
+    primary: normalizeHex(team.color, '#000000'),
+    secondary: normalizeHex(team.alternateColor, '#FFFFFF'),
+    tertiary: '#FFFFFF'
   };
   const sport = LEAGUE_SPORTS[leagueCode];
   if (sport) record.sport = sport;
@@ -1879,7 +2064,15 @@ els.lookupPullGroupBtn.addEventListener('click', () => pullWholeLeague(els.looku
 els.lookupLeague.addEventListener('change', syncLookupLeagueLabel);
 els.lookupQuery.addEventListener('keydown', (e) => { if (e.key === 'Enter') runLookup(); });
 els.exportBtn.addEventListener('click', exportJson);
+els.openFileBtn.addEventListener('click', openTeamsFile);
+els.saveFileBtn.addEventListener('click', saveTeamsFile);
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && els.lookupModal.classList.contains('is-open')) closeLookupModal(); });
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S') && isFileMode()) {
+    e.preventDefault();
+    saveTeamsFile();
+  }
+});
 </script>
 
 </body>

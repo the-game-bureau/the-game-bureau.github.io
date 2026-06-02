@@ -10551,7 +10551,7 @@ html.admin-embedded .builder-section-head{
                 <div class="field" id="objectBubbleGameSelectField" hidden>
                   <label class="field-label" for="objectBubbleGameSelect">MINI-GAME</label>
                   <select id="objectBubbleGameSelect" disabled></select>
-                  <div class="field-hint">Choose a mini-game from the game/minigames folder.</div>
+                  <div class="field-hint">Choose a mini-game from the minigames folder.</div>
                 </div>
 
                 <div class="field" id="objectBubbleGameQuestionField" hidden>
@@ -10799,7 +10799,7 @@ const NODE_TYPE_BY_PREFIX = Object.fromEntries(
 
 const ALL_TAGS = ['Featured', 'Mystery', 'Puzzle', 'SMS', 'Walking Tour', 'Sports', 'History', 'Food', 'Adventure', 'Family', 'Conspiracy', 'Trivia', 'Horror', 'Romance', 'Comedy', 'Music', 'Culture', 'Night Life', 'City Tour', 'Scavenger Hunt', 'New Orleans'];
 const FEATURED_TAG = 'Featured';
-const MINIGAMES_MANIFEST_URL = '../game/minigames/manifest.json';
+const MINIGAMES_MANIFEST_URL = '../minigames/manifest.json';
 const MINIGAME_FALLBACKS = [
   { id: 'fieldgoal', label: 'Paper Field Goal', file: 'fieldgoal.html' },
   { id: 'locker', label: 'Locker', file: 'locker.html' }
@@ -12088,7 +12088,7 @@ const nodeAwayTeamCityInput = document.getElementById('nodeAwayTeamCityInput');
 const nodeAwayTeamMascotInput = document.getElementById('nodeAwayTeamMascotInput');
 
 // Teams dropdown — primary source is public.teams in Supabase; falls back to
-// assets/teams/teams.json (offline cache) on REST/network failure. The
+// db/teams.json (offline cache) on REST/network failure. The
 // away/home "city" inputs are <select> elements; picking one writes both the
 // fanbase (stored in *TeamCity) and the mascot to state.currentGameMeta.
 let builderTeamsList = [];
@@ -12096,7 +12096,7 @@ let builderTeamsList = [];
 async function loadBuilderTeamsFromSupabase() {
   if (!hasSupabaseStore()) return null;
   const url = buildSupabaseUrl(
-    { select: 'first_name,fanbase,mascot,sport', order: 'league_sort.asc,team_sort.asc' },
+    { select: 'league,first_name,fanbase,mascot,sport', order: 'league_sort.asc,team_sort.asc' },
     'teams'
   );
   if (!url) return null;
@@ -12105,6 +12105,7 @@ async function loadBuilderTeamsFromSupabase() {
   const rows = await response.json();
   if (!Array.isArray(rows) || !rows.length) return null;
   return rows.map((r) => ({
+    league: r.league || '',
     firstName: r.first_name || '',
     fanbase: r.fanbase || r.first_name || '',
     mascot: r.mascot || '',
@@ -12113,17 +12114,27 @@ async function loadBuilderTeamsFromSupabase() {
 }
 
 async function loadBuilderTeamsFromJson() {
-  const response = await fetch('../assets/teams/teams.json', { cache: 'no-store' });
+  const response = await fetch('../db/teams.json', { cache: 'no-store' });
   if (!response.ok) throw new Error('HTTP ' + response.status);
   const doc = await response.json();
+  if (doc && Array.isArray(doc.teams)) {
+    return doc.teams.map((t) => ({
+      league: t.League || t.league || '',
+      firstName: t.firstName || t.first_name || t.GeoName || '',
+      fanbase: t.fanbase || t.firstName || t.first_name || t.GeoName || '',
+      mascot: t.mascot || t.MascotName || '',
+      sport: t.sport || ''
+    }));
+  }
   const teams = [];
   const walk = (node) => {
     if (!node || typeof node !== 'object') return;
     Object.keys(node).forEach((k) => {
       const v = node[k];
       if (!v || typeof v !== 'object') return;
-      if ('fullName' in v || 'shell' in v) {
+      if ('fullName' in v || 'primary' in v || 'shell' in v) {
         teams.push({
+          league: v.League || v.league || '',
           firstName: v.firstName || '',
           fanbase: v.fanbase || v.firstName || '',
           mascot: v.mascot || '',
@@ -12138,14 +12149,36 @@ async function loadBuilderTeamsFromJson() {
   return teams;
 }
 
+function builderTeamKey(team) {
+  const league = String(team && team.league || '').toUpperCase();
+  const mascot = String(team && team.mascot || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  if (!league || !mascot) return '';
+  return league + '|' + mascot;
+}
+
+function mergeBuilderTeams(baseTeams, overrideTeams) {
+  const rows = (Array.isArray(baseTeams) ? baseTeams : []).map((team) => ({ ...team }));
+  const seen = new Set(rows.map(builderTeamKey).filter(Boolean));
+  (Array.isArray(overrideTeams) ? overrideTeams : []).forEach((team) => {
+    const key = builderTeamKey(team);
+    if (key && seen.has(key)) return;
+    rows.push({ ...team });
+    if (key) seen.add(key);
+  });
+  return rows;
+}
+
 async function loadBuilderTeams() {
-  let teams = null;
-  try { teams = await loadBuilderTeamsFromSupabase(); }
-  catch (err) { console.warn('Supabase teams fetch failed, falling back to JSON:', err); }
-  if (!teams || !teams.length) {
-    try { teams = await loadBuilderTeamsFromJson(); }
-    catch (err) { console.warn('Failed to load teams.json for builder:', err); return; }
+  let teams = [];
+  try { teams = await loadBuilderTeamsFromJson(); }
+  catch (err) { console.warn('Failed to load db/teams.json for builder:', err); }
+  try {
+    const supabaseTeams = await loadBuilderTeamsFromSupabase();
+    if (supabaseTeams && supabaseTeams.length) teams = mergeBuilderTeams(teams, supabaseTeams);
+  } catch (err) {
+    console.warn('Supabase teams fetch failed for builder:', err);
   }
+  if (!teams || !teams.length) return;
   builderTeamsList = (teams || [])
     .filter((t) => t.fanbase && t.mascot)
     .sort((a, b) => {

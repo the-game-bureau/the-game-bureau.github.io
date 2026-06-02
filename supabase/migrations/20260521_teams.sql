@@ -1,5 +1,5 @@
 -- Team color / identity catalog.
--- Replaces site/assets/teams/teams.json as the source of truth.
+-- Creates the public team palette table used by the site.
 -- index.html and mc/builder.html read public.teams via the REST API.
 -- site/assets/teams/index.html (the editor) writes to it directly.
 
