@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research</title>
+  <link rel="stylesheet" href="research.css">
+</head>
+<body>
+  <main class="research">
+
+    <header class="research-head">
+      <span class="research-kicker">Research Paradigm</span>
+      <h1>Research</h1>
+      <p class="research-sub">Every research page in this folder, discovered automatically.
+        Build a prompt, run it in AI, drop the JSON next door.</p>
+    </header>
+
+    <div class="index-toolbar">
+      <span class="index-count" id="count">Loading…</span>
+      <input class="index-search" id="search" type="search" placeholder="Filter pages…" autocomplete="off">
+    </div>
+
+    <div class="index-grid" id="grid"></div>
+    <div class="index-state" id="state"></div>
+
+  </main>
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* The published site lives on a custom domain, so we can't read the repo
+       slug from location. List the folder via the GitHub Contents API — this
+       is what makes the index dynamic: any new *.html shows up on its own. */
+    const OWNER = 'the-game-bureau';
+    const REPO  = 'the-game-bureau.github.io';
+    const DIR   = 'research';
+    const API   = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${DIR}`;
+
+    const grid = document.getElementById('grid');
+    const stateEl = document.getElementById('state');
+    const countEl = document.getElementById('count');
+    const searchEl = document.getElementById('search');
+    let cards = [];
+
+    const prettify = (base) =>
+      base.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    async function load() {
+      stateEl.textContent = '';
+      countEl.textContent = 'Loading…';
+      grid.innerHTML = '';
+      try {
+        const res = await fetch(API, { headers: { Accept: 'application/vnd.github+json' } });
+        if (!res.ok) throw new Error('GitHub API ' + res.status);
+        const items = await res.json();
+
+        const names = new Set(items.filter((i) => i.type === 'file').map((i) => i.name));
+        const pages = [...names]
+          .filter((n) => /\.html?$/i.test(n))
+          .filter((n) => n !== 'index.html' && !n.startsWith('_'))
+          .sort();
+
+        if (!pages.length) {
+          countEl.textContent = '0 pages';
+          stateEl.innerHTML = 'No research pages yet. Copy <code>_template.html</code> to <code>yourtopic.html</code> to make one.';
+          return;
+        }
+
+        // Enrich each page with its real <h1>/<title> (same-origin, cheap) and
+        // whether its cousin .json exists (already known from the listing).
+        cards = await Promise.all(pages.map(async (file) => {
+          const base = file.replace(/\.html?$/i, '');
+          const hasJson = names.has(base + '.json');
+          let title = prettify(base);
+          let sub = '';
+          try {
+            const html = await (await fetch(file, { cache: 'no-store' })).text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            title = (doc.querySelector('h1')?.textContent || doc.title || title).trim();
+            sub = (doc.querySelector('.research-sub')?.textContent || '').trim();
+          } catch (_) { /* fall back to prettified filename */ }
+          return { file, base, hasJson, title, sub };
+        }));
+
+        render(cards);
+      } catch (err) {
+        countEl.textContent = '';
+        const msg = String(err.message);
+        let hint;
+        if (/\b404\b/.test(msg)) {
+          hint = 'The <code>' + DIR + '/</code> folder isn’t on GitHub’s default branch yet. ' +
+                 'Commit &amp; push it — the index lists the <em>published</em> repo.';
+        } else if (/\b403\b/.test(msg)) {
+          hint = 'GitHub API rate limit hit (~60 requests/hour unauthenticated) — try again shortly.';
+        } else {
+          hint = 'Could not reach the GitHub API. Check the connection and that the page is served over http(s).';
+        }
+        stateEl.innerHTML =
+          'Could not list the folder (<code>' + esc(msg) + '</code>).<br>' + hint +
+          '<br><button class="btn" id="retry" type="button">Retry</button>';
+        document.getElementById('retry')?.addEventListener('click', load);
+      }
+    }
+
+    function render(list) {
+      countEl.textContent = list.length + (list.length === 1 ? ' page' : ' pages');
+      grid.innerHTML = list.map((c) => `
+        <a class="card" href="${esc(c.file)}">
+          <div class="card-title">${esc(c.title)}</div>
+          <div class="card-sub">${esc(c.sub || 'Prompt → AI → JSON.')}</div>
+          <div class="card-meta">
+            <span class="card-file">${esc(c.base)}.json</span>
+            <span class="badge ${c.hasJson ? 'badge--ready' : 'badge--empty'}">
+              ${c.hasJson ? '● result ready' : '○ awaiting JSON'}
+            </span>
+          </div>
+        </a>`).join('');
+    }
+
+    searchEl.addEventListener('input', () => {
+      const q = searchEl.value.trim().toLowerCase();
+      render(cards.filter((c) =>
+        (c.title + ' ' + c.base + ' ' + c.sub).toLowerCase().includes(q)));
+    });
+
+    load();
+  })();
+  </script>
+</body>
+</html>
