@@ -2,7 +2,7 @@
 <!--
   TGB Builder project note for humans and AI:
   This builder writes Supabase-backed game data (nodes, links, brand,
-  guide, teams, tags, payment, rendezvous, etc.) that is read later by
+  guide, teams, tags, payment, starting locations, etc.) that is read later by
   the game engine. mc/index.html is the LIBRARY STACKS page, not storage.
 -->
 <html lang="en">
@@ -10054,9 +10054,9 @@ html.admin-embedded .builder-section-head{
                   </div>
                 </section>
 
-                <!-- Rendezvous card -->
+                <!-- Starting locations card -->
                 <section class="details-section rendezvous-card" id="detailsRendezvousSection">
-                  <div class="details-section-title">Rendezvous</div>
+                  <div class="details-section-title">Starting Locations</div>
                   <div class="details-section-grid details-section-grid--game-details">
 
                     <div class="field" id="locationBasedField">
@@ -10088,10 +10088,10 @@ html.admin-embedded .builder-section-head{
                     </div>
 
                     <div class="field" id="coordinatesField">
-                      <label class="field-label field-label--with-meta" for="nodeCoordinatesInput">Start Coordinates<span class="field-info" tabindex="0" role="note" aria-label="Latitude, longitude of the meeting spot. Click Generate to derive from the Start Address.">i<span class="field-tooltip" role="tooltip">Latitude, longitude of the meeting spot. Click Generate to derive from the Start Address.</span></span></label>
+                      <label class="field-label field-label--with-meta" for="nodeCoordinatesInput">Start Plus Code<span class="field-info" tabindex="0" role="note" aria-label="Google Plus Code (Open Location Code) for the meeting spot. Click Generate to derive it from the Start Name, Address, and City.">i<span class="field-tooltip" role="tooltip">Google Plus Code (Open Location Code) for the meeting spot. Click Generate to derive it from the Start Name, Address, and City.</span></span></label>
                       <div class="coords-input-row" style="display:flex;gap:6px;align-items:stretch;">
-                        <input id="nodeCoordinatesInput" type="text" autocomplete="off" spellcheck="false" style="flex:1 1 auto;min-width:0;" disabled>
-                        <button id="coordinatesGenerateBtn" class="guide-image-asset-btn" type="button" disabled aria-label="Generate coordinates from Start Address" title="Generate coordinates from Start Address">Generate</button>
+                        <input id="nodeCoordinatesInput" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. 76VW+59" style="flex:1 1 auto;min-width:0;" disabled>
+                        <button id="coordinatesGenerateBtn" class="guide-image-asset-btn" type="button" disabled aria-label="Generate Plus Code from Start Name and Address" title="Generate Plus Code from Start Name and Address">Generate</button>
                       </div>
                     </div>
 
@@ -10100,6 +10100,7 @@ html.admin-embedded .builder-section-head{
 
                 <section class="details-section" id="detailsGuideSection">
                   <div class="details-section-title">Guide</div>
+                  <button class="insp-btn" id="guidePromptBtn" type="button" title="Open an AI prompt built from this game's teams and current guide draft — paste it into your AI of choice, then drop GUIDE NAME / BIO / BACKGROUND back into the fields" style="margin-bottom:10px;" disabled>Generate Prompt</button>
                   <div class="details-section-grid details-section-grid--guide">
                     <div class="field" id="guideNameField">
                       <label class="field-label field-label--with-meta" for="nodeGuideNameInput">Guide Name<span class="field-info" tabindex="0" role="note" aria-label="The narrator of the game.">i<span class="field-tooltip" role="tooltip">The narrator of the game.</span></span></label>
@@ -10619,6 +10620,20 @@ html.admin-embedded .builder-section-head{
     </div>
   </div>
 
+  <div class="scheme-prompt-backdrop" id="guidePromptBackdrop" hidden></div>
+  <div class="scheme-prompt-popup" id="guidePromptPopup" hidden role="dialog" aria-modal="true" aria-labelledby="guidePromptTitle">
+    <div class="scheme-prompt-bar">
+      <span class="scheme-prompt-title" id="guidePromptTitle">GUIDE — AI PROMPT</span>
+      <span class="scheme-prompt-status" id="guidePromptStatus" aria-live="polite"></span>
+      <button class="scheme-prompt-copy-btn" id="guidePromptCopyBtn" type="button">COPY</button>
+      <button class="scheme-prompt-close-btn" id="guidePromptCloseBtn" type="button" aria-label="Close prompt">&#x2715;</button>
+    </div>
+    <div class="scheme-prompt-body">
+      <p class="scheme-prompt-help">Copy this prompt, paste it into your AI of choice, then drop GUIDE NAME / BIO / BACKGROUND back into the guide fields.</p>
+      <textarea id="guidePromptText" class="scheme-prompt-textarea" readonly spellcheck="false"></textarea>
+    </div>
+  </div>
+
   <div class="context-menu" id="nodeContextMenu" hidden>
     <button class="context-menu-item" id="duplicateNodeBtn" type="button">Duplicate</button>
   </div>
@@ -10826,6 +10841,7 @@ const SUPABASE_GAMES_SCHEMA = {
   category_icon: true,
   guide_background: true,
   fandom_game: true,
+  starting_location_plus_code: true,
   game_date: true,
   start_time: true,
   end_time: true,
@@ -11384,6 +11400,7 @@ function normalizeGameRow(row, index = 0) {
     quaternary_color:      row && row.quaternary_color,
     starting_location_name:    row && row.starting_location_name,
     starting_location_address: row && row.starting_location_address,
+    starting_location_plus_code: row && row.starting_location_plus_code,
     starting_location_lat:     row && row.starting_location_lat,
     starting_location_lon:     row && row.starting_location_lon,
     location_based:        row && row.location_based,
@@ -11447,6 +11464,7 @@ async function fetchGameRowsFromSupabase(select = null) {
     'quaternary_color',
     'starting_location_name',
     'starting_location_address',
+    'starting_location_plus_code',
     'starting_location_lat',
     'starting_location_lon',
     'location_based',
@@ -11565,6 +11583,7 @@ async function fetchGameRowFromSupabase(gameId, select = null) {
     'quaternary_color',
     'starting_location_name',
     'starting_location_address',
+    'starting_location_plus_code',
     'starting_location_lat',
     'starting_location_lon',
     'location_based',
@@ -14520,7 +14539,7 @@ function getBuilderTutorialSteps() {
       anchor: inspector,
       placement: 'right',
       title: 'Game Setup',
-      copy: 'This panel is the game-level setup. Use it to shape the brand and colors, basics like tagline/engine/dates, payment, the rendezvous location, the guide, teams, tags, and answer logic — before you build the conversation flow.'
+      copy: 'This panel is the game-level setup. Use it to shape the brand and colors, basics like tagline/engine/dates, payment, the starting location, the guide, teams, tags, and answer logic — before you build the conversation flow.'
     },
     {
       id: 'bubbles',
@@ -15791,6 +15810,7 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     fandomGame: normalizeBooleanFlag(raw && (raw.fandomGame ?? raw.fandom_game)),
     startingLocationName: raw && typeof raw.startingLocationName === 'string' ? raw.startingLocationName : '',
     startingLocationAddress: raw && typeof raw.startingLocationAddress === 'string' ? raw.startingLocationAddress : '',
+    startingLocationPlusCode: raw && typeof raw.startingLocationPlusCode === 'string' ? normalizeLongPlusCode(raw.startingLocationPlusCode) : '',
     startingLocationLat: raw && typeof raw.startingLocationLat === 'number' ? raw.startingLocationLat : null,
     startingLocationLon: raw && typeof raw.startingLocationLon === 'number' ? raw.startingLocationLon : null,
 
@@ -15969,6 +15989,7 @@ function getDocSnapshot(doc = state.doc) {
       city: meta.city || '',
       startingLocationName: meta.startingLocationName || '',
       startingLocationAddress: meta.startingLocationAddress || '',
+      startingLocationPlusCode: normalizeLongPlusCode(meta.startingLocationPlusCode) || '',
       startingLocationLat: meta.startingLocationLat ?? null,
       startingLocationLon: meta.startingLocationLon ?? null,
       locationBased: !!meta.locationBased,
@@ -16001,6 +16022,7 @@ function getDocSnapshot(doc = state.doc) {
       locationBased: node.locationBased === 'YES' ? 'YES' : 'NO',
       startingLocationName: node.startingLocationName || '',
       startingLocationAddress: node.startingLocationAddress || '',
+      startingLocationPlusCode: normalizeLongPlusCode(node.startingLocationPlusCode) || '',
       startingLocationLat: node.startingLocationLat ?? null,
       startingLocationLon: node.startingLocationLon ?? null,
       guideName: node.guideName || '',
@@ -16373,6 +16395,16 @@ function initGameMeta(game) {
   // Fall back to the game node in nodes[] for localStorage/legacy data that predates flat columns
   const nodes = Array.isArray(g.nodes) ? g.nodes : [];
   const gn = nodes.find(n => n && n.type === 'game') || {};
+  const startingLocationPlusCode = normalizeLongPlusCode(
+    g.starting_location_plus_code ?? g.startingLocationPlusCode ?? gn.startingLocationPlusCode ?? gn.starting_location_plus_code ?? ''
+  );
+  const startingLocationCoords = decodePlusCode(startingLocationPlusCode);
+  const fallbackStartingLocationLat = g.starting_location_lat != null
+    ? Number(g.starting_location_lat)
+    : (typeof g.startingLocationLat === 'number' ? g.startingLocationLat : (gn.startingLocationLat ?? null));
+  const fallbackStartingLocationLon = g.starting_location_lon != null
+    ? Number(g.starting_location_lon)
+    : (typeof g.startingLocationLon === 'number' ? g.startingLocationLon : (gn.startingLocationLon ?? null));
   return {
     body:                 g.body            ?? gn.body            ?? '',
     tagline:              g.tagline         ?? gn.tagline         ?? '',
@@ -16382,8 +16414,9 @@ function initGameMeta(game) {
     city:                 g.city            ?? gn.city            ?? '',
     startingLocationName:    g.starting_location_name    ?? g.startingLocationName    ?? gn.startingLocationName    ?? '',
     startingLocationAddress: g.starting_location_address ?? g.startingLocationAddress ?? gn.startingLocationAddress ?? '',
-    startingLocationLat:  g.starting_location_lat != null ? Number(g.starting_location_lat) : (typeof g.startingLocationLat === 'number' ? g.startingLocationLat : (gn.startingLocationLat ?? null)),
-    startingLocationLon:  g.starting_location_lon != null ? Number(g.starting_location_lon) : (typeof g.startingLocationLon === 'number' ? g.startingLocationLon : (gn.startingLocationLon ?? null)),
+    startingLocationPlusCode,
+    startingLocationLat:  startingLocationCoords ? startingLocationCoords.lat : fallbackStartingLocationLat,
+    startingLocationLon:  startingLocationCoords ? startingLocationCoords.lon : fallbackStartingLocationLon,
     locationBased:        g.location_based  != null ? !!g.location_based  : (gn.locationBased === 'YES' || gn.locationBased === true),
     fandomGame:           normalizeBooleanFlag(g.fandom_game ?? g.fandomGame ?? gn.fandomGame ?? gn.fandom_game),
     guideName:            g.guide_name      ?? gn.guideName       ?? '',
@@ -17026,6 +17059,7 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   quaternary_color: 'quaternaryColor',
   starting_location_name: 'startingLocationName',
   starting_location_address: 'startingLocationAddress',
+  starting_location_plus_code: 'startingLocationPlusCode',
   starting_location_lat: 'startingLocationLat',
   starting_location_lon: 'startingLocationLon',
   location_based: 'locationBased',
@@ -17068,6 +17102,13 @@ function overlayColumnsOntoGameNode(doc, raw) {
       if (column === 'guide_image_url') value = normalizeGuideImageAssetUrl(value);
       gameNode[field] = value == null ? '' : value;
   });
+  const overlaidPlusCode = normalizeLongPlusCode(gameNode.startingLocationPlusCode);
+  const overlaidCoords = decodePlusCode(overlaidPlusCode);
+  if (overlaidPlusCode && overlaidCoords) {
+    gameNode.startingLocationPlusCode = overlaidPlusCode;
+    gameNode.startingLocationLat = overlaidCoords.lat;
+    gameNode.startingLocationLon = overlaidCoords.lon;
+  }
 
   if (Array.isArray(raw.tags)) gameNode.tags = raw.tags.filter(Boolean);
   if (typeof raw.primary_tag === 'string') gameNode.primaryTag = raw.primary_tag;
@@ -17118,6 +17159,7 @@ function normalizeSavedGame(raw, index) {
     quaternary_color:      raw && raw.quaternary_color,
     starting_location_name:    raw && raw.starting_location_name,
     starting_location_address: raw && raw.starting_location_address,
+    starting_location_plus_code: raw && normalizeLongPlusCode(raw.starting_location_plus_code),
     starting_location_lat:     raw && raw.starting_location_lat,
     starting_location_lon:     raw && raw.starting_location_lon,
     location_based:        raw && raw.location_based,
@@ -17171,6 +17213,7 @@ function createNode(type, x, y) {
     city: '',
     startingLocationName: '',
     startingLocationAddress: '',
+    startingLocationPlusCode: '',
     startingLocationLat: null,
     startingLocationLon: null,
     guideName: type === 'game' ? 'Mission Control' : '',
@@ -19516,6 +19559,8 @@ function updateSelectionUi(options = {}) {
   if (_shuffleBtn) _shuffleBtn.disabled = !isGameNode;
   const _newSchemeBtn = document.getElementById('newSchemeBtn');
   if (_newSchemeBtn) _newSchemeBtn.disabled = !isGameNode;
+  const _guidePromptBtn = document.getElementById('guidePromptBtn');
+  if (_guidePromptBtn) _guidePromptBtn.disabled = !isGameNode;
   nodeTagNewInput.disabled = !isGameNode;
   nodeTagAddBtn.disabled = !isGameNode;
   teamInputs.forEach(inp => { if (inp) inp.disabled = !isGameNode; });
@@ -19654,7 +19699,17 @@ function updateSelectionUi(options = {}) {
   if (nodeCoordinatesInput) {
     const lat = isGameNode ? meta.startingLocationLat : null;
     const lon = isGameNode ? meta.startingLocationLon : null;
-    nodeCoordinatesInput.value = (lat != null && lon != null) ? `${lat}, ${lon}` : '';
+    let plusCode = isGameNode ? normalizeLongPlusCode(meta.startingLocationPlusCode) : '';
+    if (!plusCode && lat != null && lon != null) plusCode = encodePlusCode(lat, lon);
+    if (isGameNode && plusCode) {
+      const decoded = decodePlusCode(plusCode);
+      meta.startingLocationPlusCode = plusCode;
+      if (decoded) {
+        meta.startingLocationLat = decoded.lat;
+        meta.startingLocationLon = decoded.lon;
+      }
+    }
+    nodeCoordinatesInput.value = plusCode;
   }
   const isLocationBased = isGameNode && !!meta.locationBased;
   if (locationBasedToggle) {
@@ -20022,6 +20077,7 @@ function duplicateNode(nodeId) {
     tagline: source.tagline || '',
     startingLocationName: source.startingLocationName || '',
     startingLocationAddress: source.startingLocationAddress || '',
+    startingLocationPlusCode: normalizeLongPlusCode(source.startingLocationPlusCode) || '',
     startingLocationLat: source.startingLocationLat ?? null,
     startingLocationLon: source.startingLocationLon ?? null,
     guideName: source.guideName || '',
@@ -20800,6 +20856,7 @@ function serializeNodeState(node) {
     fandomGame: !!(meta ? meta.fandomGame : node.fandomGame),
     startingLocationName: (meta ? meta.startingLocationName : node.startingLocationName) || '',
     startingLocationAddress: (meta ? meta.startingLocationAddress : node.startingLocationAddress) || '',
+    startingLocationPlusCode: normalizeLongPlusCode(meta ? meta.startingLocationPlusCode : node.startingLocationPlusCode) || '',
     startingLocationLat: (meta ? meta.startingLocationLat : node.startingLocationLat) ?? null,
     startingLocationLon: (meta ? meta.startingLocationLon : node.startingLocationLon) ?? null,
     guideName: (meta ? meta.guideName : node.guideName) || '',
@@ -21201,6 +21258,7 @@ function stageCurrentGameIntoStore() {
     waypoint_group:        _gn.waypointGroup || null,
     starting_location_name:    _meta.startingLocationName || null,
     starting_location_address: _meta.startingLocationAddress || null,
+    starting_location_plus_code: normalizeLongPlusCode(_meta.startingLocationPlusCode) || null,
     starting_location_lat: typeof _meta.startingLocationLat === 'number' ? _meta.startingLocationLat : null,
     starting_location_lon: typeof _meta.startingLocationLon === 'number' ? _meta.startingLocationLon : null,
     location_based:        !!_meta.locationBased,
@@ -21818,11 +21876,14 @@ if (nodeStartAddressInput) {
 if (coordinatesGenerateBtn) {
   coordinatesGenerateBtn.addEventListener('click', async () => {
     if (!getGameNode() || !state.currentGameMeta) return;
-    const addr = (state.currentGameMeta.startingLocationAddress || '').trim();
-    if (!addr) return;
-    const query = state.currentGameMeta.city && state.currentGameMeta.city.trim()
-      ? `${addr}, ${state.currentGameMeta.city.trim()}`
-      : addr;
+    const meta = state.currentGameMeta;
+    // Geocode from the Start Name first (a named venue like "Caesars Superdome"
+    // resolves precisely), then the Start Address, then the City for context.
+    const name = (meta.startingLocationName || '').trim();
+    const addr = (meta.startingLocationAddress || '').trim();
+    const cityStr = (meta.city || '').trim();
+    const query = [name, addr, cityStr].filter(Boolean).join(', ');
+    if (!query) return;
     coordinatesGenerateBtn.disabled = true;
     try {
       const res = await fetch(
@@ -21833,9 +21894,12 @@ if (coordinatesGenerateBtn) {
       if (!places.length) return;
       const lat = parseFloat(parseFloat(places[0].lat).toFixed(6));
       const lon = parseFloat(parseFloat(places[0].lon).toFixed(6));
-      if (nodeCoordinatesInput) nodeCoordinatesInput.value = `${lat}, ${lon}`;
-      state.currentGameMeta.startingLocationLat = lat;
-      state.currentGameMeta.startingLocationLon = lon;
+      const plusCode = encodePlusCode(lat, lon);
+      if (nodeCoordinatesInput) nodeCoordinatesInput.value = plusCode;
+      state.currentGameMeta.startingLocationPlusCode = plusCode;
+      const decoded = decodePlusCode(plusCode);
+      state.currentGameMeta.startingLocationLat = decoded ? decoded.lat : lat;
+      state.currentGameMeta.startingLocationLon = decoded ? decoded.lon : lon;
     } catch (e) {
     } finally {
       coordinatesGenerateBtn.disabled = !getGameNode();
@@ -21861,19 +21925,159 @@ if (nodeCityInput) {
           const lat = parseFloat(parseFloat(places[0].lat).toFixed(6));
           const lon = parseFloat(parseFloat(places[0].lon).toFixed(6));
           if (nodeCoordinatesInput.value.trim()) return;
-          nodeCoordinatesInput.value = `${lat}, ${lon}`;
-          state.currentGameMeta.startingLocationLat = lat;
-          state.currentGameMeta.startingLocationLon = lon;
+          const plusCode = encodePlusCode(lat, lon);
+          nodeCoordinatesInput.value = plusCode;
+          state.currentGameMeta.startingLocationPlusCode = plusCode;
+          const decoded = decodePlusCode(plusCode);
+          state.currentGameMeta.startingLocationLat = decoded ? decoded.lat : lat;
+          state.currentGameMeta.startingLocationLon = decoded ? decoded.lon : lon;
         } catch(e) {}
       }, 900);
     }
   });
 }
 
+// --- Google Plus Codes (Open Location Code) ---------------------------------
+// Compact encode/decode of the Open Location Code spec (https://plus.codes).
+// The builder UI stores a long/global Plus Code as the source of truth.
+// Lat/lon stays populated as decoded compatibility data for older surfaces.
+const OLC_ALPHABET_ = '23456789CFGHJMPQRVWX';
+const OLC_BASE_ = 20;
+const OLC_SEP_ = '+';
+const OLC_SEP_POS_ = 8;
+const OLC_PAD_ = '0';
+const OLC_PAIR_LEN_ = 10;
+const OLC_MAX_LEN_ = 15;
+const OLC_GRID_COLS_ = 4;
+const OLC_GRID_ROWS_ = 5;
+const OLC_PAIR_PREC_ = OLC_BASE_ ** 3; // 8000
+const OLC_GRID_CODE_LEN_ = OLC_MAX_LEN_ - OLC_PAIR_LEN_; // 5
+const OLC_FINAL_LAT_PREC_ = OLC_PAIR_PREC_ * OLC_GRID_ROWS_ ** OLC_GRID_CODE_LEN_;
+const OLC_FINAL_LNG_PREC_ = OLC_PAIR_PREC_ * OLC_GRID_COLS_ ** OLC_GRID_CODE_LEN_;
+
+function olcClipLat_(lat) { return Math.min(90, Math.max(-90, lat)); }
+function olcNormalizeLon_(lon) {
+  while (lon < -180) lon += 360;
+  while (lon >= 180) lon -= 360;
+  return lon;
+}
+
+// Encode a lat/lon to a full (global) Plus Code. Default length 11 ≈ 3.5×2.8m.
+function encodePlusCode(latitude, longitude, codeLength) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return '';
+  codeLength = Math.min(OLC_MAX_LEN_, codeLength || OLC_PAIR_LEN_ + 1);
+  let lat = olcClipLat_(latitude);
+  let lon = olcNormalizeLon_(longitude);
+  if (lat === 90) lat -= 1 / OLC_FINAL_LAT_PREC_;
+  let latVal = Math.floor(Math.round((lat + 90) * OLC_FINAL_LAT_PREC_ * 1e6) / 1e6);
+  let lngVal = Math.floor(Math.round((lon + 180) * OLC_FINAL_LNG_PREC_ * 1e6) / 1e6);
+  let code = '';
+  for (let i = 0; i < OLC_GRID_CODE_LEN_; i++) {
+    const ndx = (latVal % OLC_GRID_ROWS_) * OLC_GRID_COLS_ + (lngVal % OLC_GRID_COLS_);
+    code = OLC_ALPHABET_.charAt(ndx) + code;
+    latVal = Math.floor(latVal / OLC_GRID_ROWS_);
+    lngVal = Math.floor(lngVal / OLC_GRID_COLS_);
+  }
+  for (let i = 0; i < OLC_PAIR_LEN_ / 2; i++) {
+    code = OLC_ALPHABET_.charAt(lngVal % OLC_BASE_) + code;
+    code = OLC_ALPHABET_.charAt(latVal % OLC_BASE_) + code;
+    latVal = Math.floor(latVal / OLC_BASE_);
+    lngVal = Math.floor(lngVal / OLC_BASE_);
+  }
+  code = code.substring(0, OLC_SEP_POS_) + OLC_SEP_ + code.substring(OLC_SEP_POS_);
+  return code.substring(0, codeLength + 1);
+}
+
+// Decode a full Plus Code to its center { lat, lon }. Returns null if invalid.
+function decodePlusCode(rawCode) {
+  if (!rawCode) return null;
+  let code = String(rawCode).toUpperCase().replace(/\s+/g, '');
+  const sepCount = (code.match(/\+/g) || []).length;
+  if (sepCount !== 1) return null;
+  if (code.indexOf(OLC_SEP_) > OLC_SEP_POS_) return null;
+  // Reject padded (area-only) codes — we need a precise point.
+  if (code.indexOf(OLC_PAD_) > -1) return null;
+  const digits = code.replace(OLC_SEP_, '');
+  if (digits.length < 8) return null; // require a full (global) code
+  for (const ch of digits) { if (OLC_ALPHABET_.indexOf(ch) === -1) return null; }
+
+  // Work in degrees, accumulating from the south-west corner, then shift origin.
+  let southLat = 0;
+  let westLng = 0;
+  let latRes = OLC_BASE_ * OLC_BASE_; // 400
+  let lngRes = OLC_BASE_ * OLC_BASE_;
+  let i = 0;
+  while (i < digits.length) {
+    if (i < OLC_PAIR_LEN_) {
+      latRes /= OLC_BASE_;
+      lngRes /= OLC_BASE_;
+      southLat += OLC_ALPHABET_.indexOf(digits.charAt(i)) * latRes;
+      if (i + 1 < digits.length) westLng += OLC_ALPHABET_.indexOf(digits.charAt(i + 1)) * lngRes;
+      i += 2;
+    } else {
+      const d = OLC_ALPHABET_.indexOf(digits.charAt(i));
+      latRes /= OLC_GRID_ROWS_;
+      lngRes /= OLC_GRID_COLS_;
+      southLat += Math.floor(d / OLC_GRID_COLS_) * latRes;
+      westLng += (d % OLC_GRID_COLS_) * lngRes;
+      i += 1;
+    }
+  }
+  const lat = (southLat - 90) + latRes / 2;
+  const lon = (westLng - 180) + lngRes / 2;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) ||
+      lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return {
+    lat: parseFloat(lat.toFixed(6)),
+    lon: parseFloat(lon.toFixed(6)),
+  };
+}
+
+function normalizeLongPlusCode(rawCode) {
+  const cleaned = String(rawCode || '').toUpperCase().replace(/\s+/g, '');
+  if (!cleaned) return '';
+  const decoded = decodePlusCode(cleaned);
+  return decoded ? encodePlusCode(decoded.lat, decoded.lon) : '';
+}
+
+// Recover a full point from a SHORT Plus Code (e.g. "76VW+59", the form Google
+// Maps shows) using a nearby reference point. Returns { lat, lon } or null.
+function recoverNearestPlusCode(shortCode, refLat, refLon) {
+  if (!Number.isFinite(refLat) || !Number.isFinite(refLon)) return null;
+  const code = String(shortCode || '').toUpperCase().replace(/\s+/g, '');
+  const sepIdx = code.indexOf(OLC_SEP_);
+  if (sepIdx < 0 || sepIdx >= OLC_SEP_POS_) return null; // full codes have the separator at position 8
+  if (code.indexOf(OLC_PAD_) > -1) return null;
+  refLat = olcClipLat_(refLat);
+  refLon = olcNormalizeLon_(refLon);
+  const paddingLength = OLC_SEP_POS_ - sepIdx;
+  const resolution = Math.pow(OLC_BASE_, 2 - (paddingLength / 2));
+  const halfRes = resolution / 2;
+  const reconstructed = encodePlusCode(refLat, refLon, OLC_PAIR_LEN_).substring(0, paddingLength) + code;
+  const area = decodePlusCode(reconstructed);
+  if (!area) return null;
+  let lat = area.lat;
+  let lon = area.lon;
+  if (refLat + halfRes < lat && lat - resolution >= -90) lat -= resolution;
+  else if (refLat - halfRes > lat && lat + resolution <= 90) lat += resolution;
+  if (refLon + halfRes < lon) lon -= resolution;
+  else if (refLon - halfRes > lon) lon += resolution;
+  return { lat: parseFloat(lat.toFixed(6)), lon: parseFloat(lon.toFixed(6)) };
+}
+
+// Parse the Plus Code field. Accepts a Plus Code first, then falls back to raw
+// lat/lon pairs (decimal or directional) so legacy/typed values still resolve.
 function parseCoordinatePair(raw) {
   if (!raw) return null;
   const cleaned = String(raw).trim();
   if (!cleaned) return null;
+
+  // Google Plus Code: "76VW+59" / "8633VW76VW+59" (with optional locality suffix).
+  if (cleaned.indexOf('+') > -1) {
+    const codeToken = cleaned.split(/\s+/)[0];
+    const plus = decodePlusCode(codeToken);
+    if (plus) return { lat: plus.lat, lon: plus.lon, plusCode: encodePlusCode(plus.lat, plus.lon) };
+  }
 
   // Plain decimal pair: "29.9580, -90.0637" or "29.9580 -90.0637"
   const plain = cleaned.match(/^(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)$/);
@@ -21882,7 +22086,7 @@ function parseCoordinatePair(raw) {
     const lon = parseFloat(plain[2]);
     if (Number.isFinite(lat) && Number.isFinite(lon) &&
         lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
-      return { lat, lon };
+      return { lat, lon, plusCode: encodePlusCode(lat, lon) };
     }
   }
 
@@ -21904,7 +22108,7 @@ function parseCoordinatePair(raw) {
     }
     if (lat != null && lon != null &&
         lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
-      return { lat, lon };
+      return { lat, lon, plusCode: encodePlusCode(lat, lon) };
     }
   }
 
@@ -21914,14 +22118,62 @@ function parseCoordinatePair(raw) {
 if (nodeCoordinatesInput) {
   nodeCoordinatesInput.addEventListener('input', () => {
     if (!getGameNode() || !state.currentGameMeta) return;
-    const parsed = parseCoordinatePair(nodeCoordinatesInput.value);
+    const meta = state.currentGameMeta;
+    const raw = nodeCoordinatesInput.value;
+
+    // Full Plus Code or raw lat/lon resolve immediately.
+    const parsed = parseCoordinatePair(raw);
     if (parsed) {
-      state.currentGameMeta.startingLocationLat = parsed.lat;
-      state.currentGameMeta.startingLocationLon = parsed.lon;
-    } else {
-      state.currentGameMeta.startingLocationLat = null;
-      state.currentGameMeta.startingLocationLon = null;
+      meta.startingLocationPlusCode = parsed.plusCode || encodePlusCode(parsed.lat, parsed.lon);
+      meta.startingLocationLat = parsed.lat;
+      meta.startingLocationLon = parsed.lon;
+      if (meta.startingLocationPlusCode) nodeCoordinatesInput.value = meta.startingLocationPlusCode;
+      return;
     }
+
+    // Short Plus Code (e.g. "76VW+59") needs a nearby reference. Prefer the
+    // game's existing coords; otherwise geocode the city, then recover.
+    const token = String(raw).trim().split(/\s+/)[0];
+    const looksShort = token.indexOf('+') > 0 && token.indexOf('+') < OLC_SEP_POS_;
+    if (looksShort) {
+      const refLat = typeof meta.startingLocationLat === 'number' ? meta.startingLocationLat : null;
+      const refLon = typeof meta.startingLocationLon === 'number' ? meta.startingLocationLon : null;
+      if (refLat != null && refLon != null) {
+        const rec = recoverNearestPlusCode(token, refLat, refLon);
+        if (rec) {
+          meta.startingLocationPlusCode = encodePlusCode(rec.lat, rec.lon);
+          meta.startingLocationLat = rec.lat;
+          meta.startingLocationLon = rec.lon;
+          nodeCoordinatesInput.value = meta.startingLocationPlusCode;
+          return;
+        }
+      } else if ((meta.city || '').trim()) {
+        clearTimeout(nodeCoordinatesInput._geoTimer);
+        nodeCoordinatesInput._geoTimer = setTimeout(async () => {
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(meta.city)}&format=json&limit=1`,
+              { headers: { 'Accept-Language': 'en' } }
+            );
+            const places = await res.json();
+            if (!places.length) return;
+            const rec = recoverNearestPlusCode(token, parseFloat(places[0].lat), parseFloat(places[0].lon));
+            // Only apply if the field still holds the same code the user typed.
+            if (rec && String(nodeCoordinatesInput.value).trim().split(/\s+/)[0] === token) {
+              meta.startingLocationPlusCode = encodePlusCode(rec.lat, rec.lon);
+              meta.startingLocationLat = rec.lat;
+              meta.startingLocationLon = rec.lon;
+              nodeCoordinatesInput.value = meta.startingLocationPlusCode;
+            }
+          } catch (e) {}
+        }, 700);
+        return; // keep the prior value while the lookup is in flight
+      }
+    }
+
+    meta.startingLocationPlusCode = '';
+    meta.startingLocationLat = null;
+    meta.startingLocationLon = null;
   });
 }
 
@@ -22518,6 +22770,157 @@ function closeNewSchemePromptPopup() {
   if (backdrop) backdrop.hidden = true;
 }
 
+// Hidden base prompt. Combined per-game with team/city info by the GENERATE
+// PROMPT button in the Guide section, then pasted into an AI to author the
+// guide's NAME, BIO, and BACKGROUND. (Ported from the standalone guides.html.)
+const GUIDE_PROMPT_BASE = `You are a creative collaborator for THE GAME BUREAU (TGB), a company that makes
+location-based, live-action games. Before the task, absorb how TGB works:
+
+ABOUT TGB
+- Tagline: "The cure for the common tour." TGB games are one part walking tour,
+  one part scavenger hunt, one part escape room — played in the real world.
+- Games are location-specific: players must physically be at real streets,
+  statues, and landmarks in a specific city to play. Real geography is the board.
+- Every game blends HISTORY and FICTION and squishes them together. Characters
+  are often based on real figures but the story around them is invented.
+- At the center of each game is "the device" (a diary, a dossier, a band
+  manager's binder, a movie script) plus a phone. The device + a guide voice
+  walk the player through the route, feeding clues and riddles.
+- THE DUAL REALITY is the magic: the player is physically standing on real
+  pavement, but a guide character is leading them remotely — in their ear, on
+  their screen — turning the actual city into a field of play. The player is
+  here; the guide runs the show.
+- TGB runs a "Fans Takeover" series: a visiting sports fanbase "invades" a rival
+  city for a game. The guide is a team-specific character built for that takeover
+  (e.g., Seattle Takes Over San Francisco).
+
+CLUE/RIDDLE ETHOS (for flavor — you're not writing clues here, just match the wit)
+- Layered, double-meaning, anchored to something real the player can see on-site.
+- Misdirection that secretly points to the answer. Geography itself can rule out
+  wrong answers. The landmark should BE the metaphor.
+
+TASK
+Create a GUIDE CHARACTER for a TGB "Takeover" game. The guide is a die-hard of
+the AWAY team, operating inside HOME team territory — so the player is cast as
+the invading away-team fan, and the guide is their loyal, cheeky field general
+who turns the rival city into the battleground. The guide leads the player
+REMOTELY (creating the dual reality above), not necessarily by text — keep it
+format-agnostic. The guide may be human OR non-human (an object, animal, mascot,
+ghost, piece of equipment, the team's mascot itself, etc.) — pick whatever is
+most fun and on-brand. Make it original and fictional; do not use a real, named
+public figure.
+
+INPUTS
+- HOME team / city: [FILL IN]
+- AWAY team / fanbase + any nicknames, chants, lore: [FILL IN]
+
+DELIVER
+1. Name
+2. What it is (human or non-human — and if non-human, what)
+3. One-line hook
+4. Short bio (2–3 sentences, written for the game player as the audience — what they read about their guide
+   before starting the TGB street game, NOT the actual sporting event)
+5. Short description (2–4 sentences, the in-game intro feel)
+6. FULL CHARACTER BREAKDOWN:
+   - Appearance / how the player pictures it
+   - Personality (core traits, quirks, what makes it tick)
+   - Motivation (why it cares, what it wants from this takeover)
+   - Strengths & flaws (give it a real weakness)
+   - Backstory: why it's loyal to the away team and how it ended up in enemy turf
+   - How it views the HOME team / city (the rivalry attitude)
+   - Relationship to the player + how it frames the dual reality
+7. Voice & tone (how it talks — give a feel)
+8. Signature phrases / a sign-off line
+9. One sample line it delivers at the first stop
+
+Keep it punchy and confident and fun but not mean. Lean into the away-team-in-hostile-territory
+tension. Surprise me with the non-human option if it fits.
+
+CONTENT RULES
+- Do not mention team nicknames (no fan nicknames, chant-names, or slang names for the teams).
+- You MAY reference other real pro sports teams from the same city (the city's other franchises) for flavor.
+- Do not invent new team mascots or rename existing ones — keep every mascot real and accurate.
+- The "game" is the TGB street game (a real-world walk through the city solving clues), not the stadium matchup.
+  Do not frame or end the bio around the sporting event: no "before kickoff", "before the game", "on game day",
+  "first pitch", "tip-off", "the big game", final scores, or stadium references. End on the guide's voice or
+  attitude toward leading the player through the city instead.
+
+NO COMMON AI STUFF
+- No preamble, sign-off, or chit-chat ("Sure!", "Here's", "I hope this helps", "Let me know").
+- Do not ask clarifying questions or restate the task — just deliver.
+- No markdown headers, bold/asterisks, bullet decoration, tables, or emoji in the output.
+- Avoid AI cliches and filler: "tapestry", "testament", "delve", "vibrant", "boasts", "nestled",
+  "in a world where", "whether you're... or...", "more than just", "isn't just... it's...".
+- No em-dashes; write in plain, human, on-brand prose.
+- Return ONLY the three labeled blocks below — nothing before or after them.
+
+OUTPUT FORMAT (return exactly these three labeled blocks for the builder to paste back in)
+GUIDE NAME: <the guide's name on one line>
+GUIDE BIO: <2–3 sentences, audience is the game player — what the player reads about their guide>
+GUIDE BACKGROUND: <the full character breakdown — appearance, personality, motivation, strengths & flaws, backstory, rivalry attitude, relationship to the player, voice & tone, signature phrases, and the sample first-stop line>`;
+
+function buildGuidePrompt() {
+  const meta = state.currentGameMeta || {};
+  const homeCity = String(meta.homeTeamCity || '').trim();
+  const homeMascot = String(meta.homeTeamMascot || '').trim();
+  const awayCity = String(meta.awayTeamCity || '').trim();
+  const awayMascot = String(meta.awayTeamMascot || '').trim();
+  const city = String(meta.city || '').trim();
+
+  const homeParts = [homeCity, homeMascot].filter(Boolean).join(' ');
+  const awayParts = [awayCity, awayMascot].filter(Boolean).join(' ');
+  const homeLine = [homeParts, city && city !== homeCity ? '(game city: ' + city + ')' : '']
+    .filter(Boolean).join(' ');
+  const awayLine = awayParts;
+
+  let prompt = GUIDE_PROMPT_BASE
+    .replace('HOME team / city: [FILL IN]', 'HOME team / city: ' + (homeLine || '[unknown]'))
+    .replace(
+      'AWAY team / fanbase + any nicknames, chants, lore: [FILL IN]',
+      'AWAY team / fanbase + any nicknames, chants, lore: ' + (awayLine || '[unknown]')
+    );
+
+  const currentName = String(meta.guideName || '').trim();
+  const currentBio = String(meta.guideBio || '').trim();
+  const currentBackground = String(meta.guideBackground || '').trim();
+  if (currentName || currentBio || currentBackground) {
+    const lines = ['CURRENT GUIDE (existing draft for this game — refine or replace it, keep whatever works)'];
+    if (currentName) lines.push('- Current guide name: ' + currentName);
+    if (currentBio) lines.push('- Current guide bio: ' + currentBio);
+    if (currentBackground) lines.push('- Current guide background: ' + currentBackground);
+    prompt = prompt.replace('DELIVER\n', lines.join('\n') + '\n\nDELIVER\n');
+  }
+  return prompt;
+}
+
+function openGuidePromptPopup() {
+  if (!state.currentGameId) return false;
+  const popup = document.getElementById('guidePromptPopup');
+  const backdrop = document.getElementById('guidePromptBackdrop');
+  const textarea = document.getElementById('guidePromptText');
+  const status = document.getElementById('guidePromptStatus');
+  const title = document.getElementById('guidePromptTitle');
+  if (!popup || !textarea) return false;
+  textarea.value = buildGuidePrompt();
+  if (status) status.textContent = '';
+  if (title) {
+    const name = (typeof getDocName === 'function' ? getDocName() : '') || '';
+    title.textContent = name ? ('GUIDE — ' + name.toUpperCase()) : 'GUIDE — AI PROMPT';
+  }
+  popup.hidden = false;
+  if (backdrop) backdrop.hidden = false;
+  textarea.focus();
+  textarea.select();
+  return true;
+}
+
+function closeGuidePromptPopup() {
+  const popup = document.getElementById('guidePromptPopup');
+  const backdrop = document.getElementById('guidePromptBackdrop');
+  if (popup) popup.hidden = true;
+  if (backdrop) backdrop.hidden = true;
+}
+
 function shuffleCurrentGameColors() {
   // Preview-only: re-orders the existing four palette colors among the
   // four slots, updates in-memory state, and re-renders.
@@ -22922,6 +23325,51 @@ window.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
   const popup = document.getElementById('newSchemePromptPopup');
   if (popup && !popup.hidden) closeNewSchemePromptPopup();
+});
+
+const guidePromptBtn = document.getElementById('guidePromptBtn');
+if (guidePromptBtn) {
+  guidePromptBtn.addEventListener('click', () => {
+    openGuidePromptPopup();
+  });
+}
+const guidePromptBackdrop = document.getElementById('guidePromptBackdrop');
+if (guidePromptBackdrop) {
+  guidePromptBackdrop.addEventListener('click', closeGuidePromptPopup);
+}
+const guidePromptCloseBtn = document.getElementById('guidePromptCloseBtn');
+if (guidePromptCloseBtn) {
+  guidePromptCloseBtn.addEventListener('click', closeGuidePromptPopup);
+}
+const guidePromptCopyBtn = document.getElementById('guidePromptCopyBtn');
+if (guidePromptCopyBtn) {
+  guidePromptCopyBtn.addEventListener('click', async () => {
+    const textarea = document.getElementById('guidePromptText');
+    const status = document.getElementById('guidePromptStatus');
+    if (!textarea) return;
+    const value = textarea.value;
+    let copied = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(value);
+        copied = true;
+      }
+    } catch (e) { /* fall through to manual select */ }
+    if (!copied) {
+      textarea.focus();
+      textarea.select();
+      try { copied = document.execCommand('copy'); } catch (e) { /* ignore */ }
+    }
+    if (status) {
+      status.textContent = copied ? 'Copied to clipboard.' : 'Select all and copy manually.';
+      window.setTimeout(() => { if (status) status.textContent = ''; }, 2200);
+    }
+  });
+}
+window.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  const popup = document.getElementById('guidePromptPopup');
+  if (popup && !popup.hidden) closeGuidePromptPopup();
 });
 if (featureGameBtn) {
   featureGameBtn.addEventListener('click', async () => {

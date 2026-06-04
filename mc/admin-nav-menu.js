@@ -18,6 +18,7 @@
     { href: '/mc/builder.html',   label: 'Build Games', id: 'mcNavBuilderLink' },
     { href: '/mc/taglines.html',  label: 'Taglines' },
     { href: '/mc/guides.html',    label: 'Guides' },
+    { href: '/mc/starting-locations.html', label: 'Starting Locations' },
     { href: '/mc/photos.html',    label: 'Edit Wall' },
     { href: '/gifts/admin/gs-shop.html',  label: 'Edit Gifts' },
     { href: '/gifts/admin/gs-codes.html', label: 'Access Codes' },

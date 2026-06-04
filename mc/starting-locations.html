@@ -1,0 +1,2331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>STARTING LOCATIONS | THE GAME BUREAU</title>
+  <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --cream: #f5f0e6;
+      --paper: #fffdf5;
+      --paper-alt: #fff3c4;
+      --grid-line: #ded3bf;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --ink: #000;
+      --muted: #272727;
+      --line: #000;
+      --blue: #245bff;
+      --purple: #9d4edd;
+      --green: #22c55e;
+      --amber: #ffb703;
+      --orange: #fb5607;
+      --red: #ff3b30;
+      --shadow-sm: 4px 4px 0 #000;
+      --shadow: 6px 6px 0 #000;
+      --shadow-lg: 8px 8px 0 #000;
+      --radius: 4px;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--cream);
+      background-image:
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+      background-size: 24px 24px;
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    a:focus-visible {
+      outline: 4px solid var(--purple);
+      outline-offset: 3px;
+    }
+
+    .app {
+      width: min(1280px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 44px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .admin-nav { display: flex; gap: 8px; }
+    .admin-nav-group { position: relative; display: inline-flex; }
+    .admin-nav-submenu {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      min-width: 100%;
+      display: none;
+      flex-direction: column;
+      padding: 10px;
+      gap: 8px;
+      background: var(--paper);
+      border: 4px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      z-index: 30;
+    }
+    .admin-nav-group:hover > .admin-nav-submenu,
+    .admin-nav-group:focus-within > .admin-nav-submenu { display: flex; }
+    .admin-nav-submenu .admin-nav-link {
+      white-space: nowrap;
+      font-size: 0.78rem;
+      min-height: 34px;
+      padding: 0 12px;
+    }
+    .admin-nav-split {
+      display: inline-flex;
+      gap: 6px;
+    }
+    .admin-nav-split .admin-nav-link {
+      background: var(--paper);
+      color: var(--ink);
+    }
+    .admin-nav-split .admin-nav-link:hover {
+      background: var(--amber);
+      color: var(--ink);
+    }
+    .admin-nav-split .admin-nav-link--split-edit {
+      padding: 0 12px;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      background: var(--paper-alt);
+      color: var(--ink);
+    }
+    .admin-nav-split .admin-nav-link--split-edit:hover {
+      background: var(--green);
+      color: var(--ink);
+    }
+    .admin-nav-split .admin-nav-link--split-edit.admin-nav-link--active {
+      background: var(--blue);
+      color: #fff;
+    }
+    .admin-nav-split .admin-nav-link--split-edit.admin-nav-link--active:hover {
+      background: var(--purple);
+      color: #fff;
+    }
+    .admin-nav-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 3px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      background: var(--paper);
+      font-size: 0.85rem;
+      font-weight: 900;
+      text-decoration: none;
+      color: var(--ink);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+    }
+    .admin-nav-link:hover {
+      background: var(--amber);
+      box-shadow: 2px 2px 0 #000;
+      transform: translate(2px, 2px);
+    }
+    .admin-nav-link--active {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .mc-admin-nav {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .mc-admin-nav-menu {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      z-index: 50;
+      display: grid;
+      min-width: 220px;
+      gap: 8px;
+      padding: 12px;
+      background: var(--paper);
+      border: 4px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .mc-admin-nav-menu[hidden] { display: none; }
+
+    .mc-admin-nav-menu-item {
+      display: flex;
+      align-items: center;
+      min-height: 38px;
+      width: 100%;
+      padding: 8px 10px;
+      border: 3px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 0.78rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-align: left;
+      text-decoration: none;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+    }
+
+    .mc-admin-nav-menu-item:hover,
+    .mc-admin-nav-menu-item.is-current {
+      background: var(--blue);
+      color: #fff;
+      box-shadow: 2px 2px 0 #000;
+      transform: translate(2px, 2px);
+    }
+
+    .mc-admin-nav-menu-divider {
+      display: block;
+      height: 4px;
+      margin: 4px 0;
+      background: var(--line);
+    }
+
+    .section-head {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      gap: 6px;
+      margin: 0 0 20px;
+      padding: 20px 22px 22px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .section-head--gears {
+      padding-right: clamp(136px, 30vw, 220px);
+    }
+
+    .section-head--gears > :not(.section-gear-art) {
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-head--gears .legend {
+      max-width: 760px;
+    }
+
+    .section-gear-art {
+      position: absolute;
+      top: -4px;
+      right: -2px;
+      z-index: 0;
+      width: 320px;
+      height: 188px;
+      pointer-events: none;
+      opacity: 0.96;
+      overflow: visible;
+    }
+
+    .section-head--gears .header-gear {
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .section-head--gears .header-gear-atmosphere {
+      opacity: 0.9;
+    }
+
+    .section-head--gears .header-gear--large {
+      stroke: rgba(var(--bic-blue-rgb), 0.28);
+    }
+
+    .section-head--gears .header-gear--small {
+      stroke: rgba(var(--bic-blue-rgb), 0.22);
+    }
+
+    .section-head--gears .header-gear-body {
+      fill: rgba(var(--bic-blue-rgb), 0.045);
+      stroke-width: 3.4;
+    }
+
+    .section-head--gears .header-gear-ring {
+      fill: rgba(var(--bic-blue-rgb), 0.018);
+      stroke-width: 3;
+    }
+
+    .section-head--gears .header-gear-inner {
+      fill: none;
+      stroke-width: 2.4;
+      opacity: 0.92;
+    }
+
+    .section-head--gears .header-gear-spoke {
+      fill: rgba(var(--bic-blue-rgb), 0.1);
+      stroke: none;
+    }
+
+    .section-head--gears .header-gear-core {
+      fill: rgba(var(--bic-blue-rgb), 0.08);
+      stroke-width: 2.2;
+    }
+
+    .section-head--gears .header-gear-halo {
+      fill: none;
+      stroke: rgba(var(--bic-blue-rgb), 0.14);
+      stroke-width: 2;
+      stroke-dasharray: 4 8;
+    }
+
+    .section-head--gears .header-gear-bore {
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .section-head--gears .header-gear-wire {
+      fill: none;
+      stroke: rgba(var(--bic-blue-rgb), 0.12);
+      stroke-width: 1.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .section-head--gears .header-gear-wire--bold {
+      stroke: rgba(var(--bic-blue-rgb), 0.17);
+      stroke-width: 1.8;
+    }
+
+    .section-head--gears .header-gear-guide {
+      fill: none;
+      stroke: rgba(var(--bic-blue-rgb), 0.1);
+      stroke-width: 1.2;
+      stroke-dasharray: 2 7;
+    }
+
+    .section-head--gears .header-gear-node {
+      fill: rgba(var(--bic-blue-rgb), 0.17);
+    }
+
+    .section-head--gears .header-gear-speck {
+      fill: rgba(var(--bic-blue-rgb), 0.11);
+    }
+
+    .section-head--gears .header-gear-crosshair {
+      stroke: rgba(var(--bic-blue-rgb), 0.15);
+      stroke-width: 1.4;
+    }
+
+    .kicker {
+      margin: 0;
+      color: var(--ink);
+      font-size: 0.74rem;
+      font-weight: 900;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .status {
+      width: fit-content;
+      margin: 4px 0 0;
+      min-height: 1.4em;
+      padding: 8px 10px;
+      border: 3px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 0.92rem;
+      font-weight: 800;
+    }
+    .status.error { background: var(--red); color: #fff; }
+    .status.success { background: var(--green); color: var(--ink); }
+    .status.warn { background: var(--orange); color: var(--ink); }
+
+    .legend {
+      margin: 8px 0 0;
+      padding: 12px;
+      border: 3px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 0.82rem;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 3px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 0.85rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-decoration: none;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+      white-space: nowrap;
+    }
+    .btn:hover {
+      background: var(--amber);
+      box-shadow: 2px 2px 0 #000;
+      transform: translate(2px, 2px);
+    }
+    .btn:active {
+      box-shadow: none;
+      transform: translate(4px, 4px);
+    }
+    .btn.primary {
+      background: var(--blue);
+      color: #fff;
+    }
+    .btn.primary:hover { background: var(--purple); }
+    .btn.warn {
+      background: var(--orange);
+      color: var(--ink);
+    }
+    .btn.warn:hover { background: var(--red); color: #fff; }
+    .btn.small { min-height: 34px; padding: 0 10px; font-size: 0.76rem; }
+    .btn:disabled {
+      background: #b9b9b9;
+      color: #333;
+      cursor: default;
+      box-shadow: 2px 2px 0 #000;
+      transform: none;
+    }
+
+    .signout-btn {
+      width: 46px;
+      height: 46px;
+      padding: 0;
+      border: 3px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      background: var(--green);
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+    }
+    .signout-btn:hover {
+      background: var(--amber);
+      box-shadow: 2px 2px 0 #000;
+      transform: translate(2px, 2px);
+    }
+    .signout-btn:active {
+      box-shadow: none;
+      transform: translate(4px, 4px);
+    }
+    .signout-btn svg { width: 22px; height: 22px; color: var(--ink); }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) 180px 210px auto auto auto auto auto auto;
+      gap: 12px;
+      align-items: center;
+      margin: 0 0 20px;
+      padding: 16px;
+      border: 4px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      background: var(--purple);
+    }
+
+    .toolbar input,
+    .toolbar select,
+    .row-mode,
+    .candidate-select,
+    .field-input {
+      min-height: 42px;
+      width: 100%;
+      padding: 10px 12px;
+      border: 3px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      background: var(--paper);
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .panel {
+      display: grid;
+      gap: 16px;
+      padding: 20px;
+      background: var(--paper);
+      border: 4px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      color: var(--ink);
+      font-size: 0.85rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .summary span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 10px;
+      border: 3px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      background: var(--amber);
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .summary strong {
+      margin-right: 6px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 1rem;
+    }
+
+    .game-list {
+      display: grid;
+      gap: 18px;
+    }
+
+    .game-card {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+      border: 4px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+    }
+    .game-card.is-selected {
+      background: #dbe6ff;
+      box-shadow: var(--shadow-lg);
+      outline: 4px solid var(--blue);
+      outline-offset: 4px;
+    }
+    .game-card.is-saving,
+    .game-card.is-resolving {
+      background: #e0e0e0;
+    }
+
+    .game-head {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .game-check {
+      margin-top: 3px;
+      width: 18px;
+      height: 18px;
+      accent-color: var(--green);
+    }
+
+    .game-title-wrap { min-width: 0; }
+    .game-title {
+      margin: 0 0 3px;
+      font-size: 1rem;
+      line-height: 1.2;
+      font-weight: 900;
+      word-break: break-word;
+    }
+    .game-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      color: var(--ink);
+      font-size: 0.78rem;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border: 3px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: 3px 3px 0 #000;
+      background: var(--paper-alt);
+      color: var(--ink);
+      font-size: 0.74rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .pill.good { background: var(--green); color: var(--ink); }
+    .pill.warn { background: var(--orange); color: var(--ink); }
+    .pill.bad { background: var(--red); color: #fff; }
+    .pill.blue { background: var(--blue); color: #fff; }
+
+    .row-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .choice-grid {
+      display: grid;
+      grid-template-columns: minmax(180px, 1.3fr) 180px;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .field-label {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+      color: var(--ink);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: minmax(150px, 0.9fr) minmax(180px, 1.1fr) minmax(220px, 1.5fr) minmax(110px, 0.7fr) minmax(110px, 0.7fr) minmax(160px, 0.9fr);
+      gap: 12px;
+    }
+
+    .field-input {
+      font-size: 0.9rem;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .field-input[readonly] {
+      background: #efe4d1;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+    }
+    textarea.field-input {
+      min-height: 42px;
+      resize: vertical;
+      line-height: 1.35;
+    }
+
+    .current-grid,
+    .write-preview {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 3px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      background: var(--paper-alt);
+      color: var(--ink);
+      font-size: 0.82rem;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+    .current-grid strong,
+    .write-preview strong { color: var(--ink); }
+
+    .target-cities {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .empty {
+      padding: 28px 16px;
+      text-align: center;
+      color: var(--ink);
+      border: 4px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      background: var(--paper-alt);
+      font-size: 0.95rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 1120px) {
+      .toolbar { grid-template-columns: 1fr 1fr; }
+      .toolbar .btn { min-width: 0; }
+      .field-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 720px) {
+      .app { width: min(100% - 20px, 1280px); padding-top: 16px; }
+      .toolbar,
+      .choice-grid,
+      .field-grid { grid-template-columns: 1fr; }
+      .game-head { grid-template-columns: auto minmax(0, 1fr); }
+      .row-actions { grid-column: 1 / -1; justify-content: flex-start; }
+      .btn { width: 100%; white-space: normal; text-align: center; }
+      .topbar-actions { width: 100%; justify-content: flex-end; }
+      .signout-btn { width: 46px; }
+      .section-head--gears {
+        padding: 18px 18px 112px;
+      }
+      .section-gear-art {
+        top: auto;
+        right: -22px;
+        bottom: -26px;
+        width: 250px;
+        height: 147px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="topbar">
+      <div class="topbar-actions">
+        <a class="btn" href="./">Games</a>
+        <a class="btn" href="builder.html">Builder</a>
+        <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5Zm-3 7V7a3 3 0 1 1 6 0v2H9Zm3 4a1.5 1.5 0 0 1 .75 2.8V18h-1.5v-2.2A1.5 1.5 0 0 1 12 13Z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <section class="section-head section-head--gears">
+      <svg class="section-gear-art" viewBox="0 0 320 188" aria-hidden="true">
+        <g class="header-gear-atmosphere">
+          <path class="header-gear-guide" d="M142 26c28 18 58 20 91 9 31-11 59-10 87 7"></path>
+          <path class="header-gear-guide" d="M118 170c37-29 72-41 106-37 30 4 62 18 96 43"></path>
+          <polyline class="header-gear-wire" points="106,150 136,128 170,134 199,106 228,113"></polyline>
+          <polyline class="header-gear-wire" points="118,114 147,96 176,100 209,77 244,82"></polyline>
+          <polyline class="header-gear-wire header-gear-wire--bold" points="128,166 164,140 196,146 226,122 253,127"></polyline>
+          <circle class="header-gear-node" cx="136" cy="128" r="3"></circle>
+          <circle class="header-gear-node" cx="170" cy="134" r="2.6"></circle>
+          <circle class="header-gear-node" cx="199" cy="106" r="2.8"></circle>
+          <circle class="header-gear-node" cx="147" cy="96" r="2.4"></circle>
+          <circle class="header-gear-node" cx="209" cy="77" r="2.4"></circle>
+          <circle class="header-gear-node" cx="164" cy="140" r="2.5"></circle>
+          <circle class="header-gear-node" cx="226" cy="122" r="2.5"></circle>
+          <circle class="header-gear-guide" cx="222" cy="88" r="102"></circle>
+          <circle class="header-gear-guide" cx="286" cy="132" r="68"></circle>
+          <circle class="header-gear-speck" cx="178" cy="38" r="1.4"></circle>
+          <circle class="header-gear-speck" cx="188" cy="46" r="1.8"></circle>
+          <circle class="header-gear-speck" cx="196" cy="34" r="1.2"></circle>
+          <circle class="header-gear-speck" cx="214" cy="28" r="1.6"></circle>
+          <circle class="header-gear-speck" cx="230" cy="46" r="1.2"></circle>
+          <circle class="header-gear-speck" cx="248" cy="36" r="1.5"></circle>
+          <circle class="header-gear-speck" cx="262" cy="50" r="1.3"></circle>
+          <circle class="header-gear-speck" cx="274" cy="44" r="1.8"></circle>
+          <circle class="header-gear-speck" cx="294" cy="60" r="1.4"></circle>
+          <circle class="header-gear-speck" cx="308" cy="78" r="1.3"></circle>
+          <circle class="header-gear-speck" cx="206" cy="150" r="1.6"></circle>
+          <circle class="header-gear-speck" cx="222" cy="162" r="1.2"></circle>
+          <circle class="header-gear-speck" cx="238" cy="154" r="1.7"></circle>
+          <circle class="header-gear-speck" cx="256" cy="166" r="1.4"></circle>
+          <circle class="header-gear-speck" cx="272" cy="156" r="1.1"></circle>
+          <circle class="header-gear-speck" cx="292" cy="170" r="1.5"></circle>
+        </g>
+        <g class="header-gear header-gear--large" transform="translate(212 72) rotate(-14)">
+          <circle class="header-gear-halo" r="86"></circle>
+          <polygon class="header-gear-body" points="-11.3,-65.0 -13.8,-78.8 -7.5,-79.6 7.5,-79.6 13.8,-78.8 11.3,-65.0 22.7,-62.0 27.5,-75.1 33.3,-72.7 46.3,-65.2 51.3,-61.4 42.3,-50.6 50.6,-42.3 61.4,-51.3 65.2,-46.3 72.7,-33.3 75.1,-27.5 62.0,-22.7 65.0,-11.3 78.8,-13.8 79.6,-7.5 79.6,7.5 78.8,13.8 65.0,11.3 62.0,22.7 75.1,27.5 72.7,33.3 65.2,46.3 61.4,51.3 50.6,42.3 42.3,50.6 51.3,61.4 46.3,65.2 33.3,72.7 27.5,75.1 22.7,62.0 11.3,65.0 13.8,78.8 7.5,79.6 -7.5,79.6 -13.8,78.8 -11.3,65.0 -22.7,62.0 -27.5,75.1 -33.3,72.7 -46.3,65.2 -51.3,61.4 -42.3,50.6 -50.6,42.3 -61.4,51.3 -65.2,46.3 -72.7,33.3 -75.1,27.5 -62.0,22.7 -65.0,11.3 -78.8,13.8 -79.6,7.5 -79.6,-7.5 -78.8,-13.8 -65.0,-11.3 -62.0,-22.7 -75.1,-27.5 -72.7,-33.3 -65.2,-46.3 -61.4,-51.3 -50.6,-42.3 -42.3,-50.6 -51.3,-61.4 -46.3,-65.2 -33.3,-72.7 -27.5,-75.1 -22.7,-62.0"></polygon>
+          <circle class="header-gear-ring" r="54"></circle>
+          <circle class="header-gear-inner" r="34"></circle>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5"></rect>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(60)"></rect>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(120)"></rect>
+          <circle class="header-gear-core" r="11"></circle>
+          <circle class="header-gear-bore" r="5.5"></circle>
+          <line class="header-gear-crosshair" x1="-18" y1="0" x2="18" y2="0"></line>
+          <line class="header-gear-crosshair" x1="0" y1="-18" x2="0" y2="18"></line>
+        </g>
+        <g class="header-gear header-gear--small" transform="translate(286 132) rotate(19)">
+          <circle class="header-gear-halo" r="60"></circle>
+          <polygon class="header-gear-body" points="-9.8,-45.0 -12.3,-56.7 -6.5,-57.6 6.5,-57.6 12.3,-56.7 9.8,-45.0 18.5,-42.1 23.4,-53.1 28.6,-50.5 39.2,-42.8 43.3,-38.6 34.3,-30.6 39.7,-23.2 50.1,-29.2 52.8,-24.0 56.8,-11.6 57.7,-5.8 45.8,-4.6 45.8,4.6 57.7,5.8 56.8,11.6 52.8,24.0 50.1,29.2 39.7,23.2 34.3,30.6 43.3,38.6 39.2,42.8 28.6,50.5 23.4,53.1 18.5,42.1 9.8,45.0 12.3,56.7 6.5,57.6 -6.5,57.6 -12.3,56.7 -9.8,45.0 -18.5,42.1 -23.4,53.1 -28.6,50.5 -39.2,42.8 -43.3,38.6 -34.3,30.6 -39.7,23.2 -50.1,29.2 -52.8,24.0 -56.8,11.6 -57.7,5.8 -45.8,4.6 -45.8,-4.6 -57.7,-5.8 -56.8,-11.6 -52.8,-24.0 -50.1,-29.2 -39.7,-23.2 -34.3,-30.6 -43.3,-38.6 -39.2,-42.8 -28.6,-50.5 -23.4,-53.1 -18.5,-42.1"></polygon>
+          <circle class="header-gear-ring" r="38"></circle>
+          <circle class="header-gear-inner" r="24"></circle>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5"></rect>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(60)"></rect>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(120)"></rect>
+          <circle class="header-gear-core" r="7.5"></circle>
+          <circle class="header-gear-bore" r="3.8"></circle>
+          <line class="header-gear-crosshair" x1="-12" y1="0" x2="12" y2="0"></line>
+          <line class="header-gear-crosshair" x1="0" y1="-12" x2="0" y2="12"></line>
+        </g>
+      </svg>
+      <p class="kicker">Mission Control</p>
+      <h2>Starting Locations</h2>
+      <p class="status" id="pageStatus">Sign in with an admin account.</p>
+      <p class="legend">Pulls current game starting-location fields from Supabase, reads TGBGameCity from db/teams.json, and stages walking-start candidates before any database write. Long Google Plus Codes are the canonical starting-location coordinate; lat/lon are decoded compatibility values.</p>
+    </section>
+
+    <section class="toolbar" aria-label="Starting Locations tools">
+      <input id="searchInput" type="search" placeholder="Search games, cities, teams..." autocomplete="off">
+      <select id="filterSelect" aria-label="Filter games">
+        <option value="needs">Needs Data</option>
+        <option value="ready">Ready To Save</option>
+        <option value="complete">Complete</option>
+        <option value="selected">Selected</option>
+        <option value="archived">Archived</option>
+        <option value="all">All</option>
+      </select>
+      <select id="bulkModeSelect" aria-label="Bulk overwrite mode">
+        <option value="fill">Fill Blanks Only</option>
+        <option value="names">Replace Name/Address</option>
+        <option value="coords">Replace Coordinates</option>
+        <option value="all">Replace All Fields</option>
+      </select>
+      <button class="btn" id="refreshBtn" type="button">Refresh</button>
+      <button class="btn" id="applyModeBtn" type="button">Apply Mode</button>
+      <button class="btn" id="selectNeedsBtn" type="button">Select Needs</button>
+      <button class="btn" id="findSelectedBtn" type="button">Find Starts</button>
+      <button class="btn" id="reverseSelectedBtn" type="button">Reverse Coords</button>
+      <button class="btn primary" id="saveSelectedBtn" type="button">Save Selected</button>
+    </section>
+
+    <section class="panel">
+      <div class="summary" id="summaryLine"></div>
+      <div class="game-list" id="gameList"></div>
+    </section>
+  </main>
+
+  <script src="admin-auth.js"></script>
+  <script src="admin-shell.js"></script>
+  <script src="admin-nav-menu.js"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+
+    const TEAM_JSON_URL = '../db/teams.json';
+    const TEAM_FIELD_KEYS = Array.from({ length: 8 }, (_, index) => 'team' + String(index + 1).padStart(2, '0'));
+    const STARTING_LOCATION_FIELDS = [
+      'city',
+      'starting_location_name',
+      'starting_location_address',
+      'starting_location_plus_code',
+      'starting_location_lat',
+      'starting_location_lon'
+    ];
+    const GAME_SELECT_COLUMNS = [
+      'id',
+      'name',
+      'city',
+      'archived',
+      'game_date',
+      'start_time',
+      'updated_at',
+      'location_based',
+      'starting_location_name',
+      'starting_location_address',
+      'starting_location_plus_code',
+      'starting_location_lat',
+      'starting_location_lon',
+      'home_team_city',
+      'home_team_mascot',
+      'away_team_city',
+      'away_team_mascot',
+      'teams',
+      ...TEAM_FIELD_KEYS
+    ];
+    const GAMES_SCHEMA = Object.fromEntries(GAME_SELECT_COLUMNS.map((column) => [column, true]));
+    const US_STATES = {
+      alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA',
+      colorado: 'CO', connecticut: 'CT', delaware: 'DE', florida: 'FL', georgia: 'GA',
+      hawaii: 'HI', idaho: 'ID', illinois: 'IL', indiana: 'IN', iowa: 'IA',
+      kansas: 'KS', kentucky: 'KY', louisiana: 'LA', maine: 'ME', maryland: 'MD',
+      massachusetts: 'MA', michigan: 'MI', minnesota: 'MN', mississippi: 'MS', missouri: 'MO',
+      montana: 'MT', nebraska: 'NE', nevada: 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
+      'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', ohio: 'OH',
+      oklahoma: 'OK', oregon: 'OR', pennsylvania: 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+      'south dakota': 'SD', tennessee: 'TN', texas: 'TX', utah: 'UT', vermont: 'VT',
+      virginia: 'VA', washington: 'WA', 'west virginia': 'WV', wisconsin: 'WI', wyoming: 'WY',
+      'district of columbia': 'DC', dc: 'DC'
+    };
+    const CANADA_PROVINCES = {
+      alberta: 'AB', 'british columbia': 'BC', manitoba: 'MB', 'new brunswick': 'NB',
+      'newfoundland and labrador': 'NL', 'nova scotia': 'NS', ontario: 'ON',
+      'prince edward island': 'PE', quebec: 'QC', saskatchewan: 'SK'
+    };
+
+    const pageStatus = document.getElementById('pageStatus');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const searchInput = document.getElementById('searchInput');
+    const filterSelect = document.getElementById('filterSelect');
+    const bulkModeSelect = document.getElementById('bulkModeSelect');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const applyModeBtn = document.getElementById('applyModeBtn');
+    const selectNeedsBtn = document.getElementById('selectNeedsBtn');
+    const findSelectedBtn = document.getElementById('findSelectedBtn');
+    const reverseSelectedBtn = document.getElementById('reverseSelectedBtn');
+    const saveSelectedBtn = document.getElementById('saveSelectedBtn');
+    const summaryLine = document.getElementById('summaryLine');
+    const gameList = document.getElementById('gameList');
+
+    const state = {
+      authed: false,
+      busy: false,
+      games: [],
+      teamIndex: null,
+      memoryByCity: new Map(),
+      search: '',
+      filter: 'needs',
+      selectedIds: new Set(),
+      lastNominatimAt: 0
+    };
+
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      onAuthorized: async () => {
+        state.authed = true;
+        setStatus('Loading starting-location records...');
+        await refresh();
+      },
+      onSignedOut: () => {
+        state.authed = false;
+        state.games = [];
+        state.selectedIds.clear();
+        state.memoryByCity = new Map();
+        render();
+        setStatus('Sign in with an admin account.');
+      }
+    });
+
+    function setStatus(text, kind) {
+      pageStatus.textContent = text || '';
+      pageStatus.classList.toggle('error', kind === 'error');
+      pageStatus.classList.toggle('success', kind === 'success');
+      pageStatus.classList.toggle('warn', kind === 'warn');
+    }
+
+    function restUrl(table, params) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+      });
+      return url.toString();
+    }
+
+    function authHeaders(extra) {
+      if (adminAuth && typeof adminAuth.authHeaders === 'function') {
+        return adminAuth.authHeaders(extra || {});
+      }
+      const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      const token = (session && session.access_token) || SUPABASE_CONFIG.publishableKey;
+      return Object.assign({
+        apikey: SUPABASE_CONFIG.publishableKey,
+        Authorization: 'Bearer ' + token,
+        Accept: 'application/json'
+      }, extra || {});
+    }
+
+    async function ensureFreshSession() {
+      if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') {
+        try { await adminAuth.ensureFreshSession(); }
+        catch (error) {}
+      }
+    }
+
+    async function readError(response, fallback) {
+      try {
+        const text = await response.text();
+        if (!text) return fallback;
+        try {
+          const payload = JSON.parse(text);
+          return payload.message || payload.msg || payload.error_description || payload.error || text;
+        } catch (error) {
+          return text;
+        }
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    async function refresh() {
+      try {
+        setBusy(true);
+        await ensureFreshSession();
+        const [gamesResponse, teams] = await Promise.all([
+          fetch(restUrl('games', {
+            select: buildGameSelect(),
+            order: 'name.asc'
+          }), {
+            headers: authHeaders({ Accept: 'application/json' }),
+            cache: 'no-store'
+          }),
+          loadTeamsJson()
+        ]);
+
+        if (!gamesResponse.ok) {
+          const message = await readError(gamesResponse, 'Could not load games.');
+          const missingColumn = getMissingGamesColumnName(message);
+          if (missingColumn && GAMES_SCHEMA[missingColumn] !== false) {
+            GAMES_SCHEMA[missingColumn] = false;
+            setBusy(false);
+            return refresh();
+          }
+          throw new Error(message);
+        }
+
+        const rows = await gamesResponse.json();
+        state.teamIndex = buildTeamIndex(teams);
+        state.games = normalizeGames(rows);
+        state.memoryByCity = buildStartingLocationMemory(state.games);
+        state.selectedIds.clear();
+        state.games.forEach(initializeGameUi);
+        render();
+        setStatus('Loaded ' + state.games.length + ' games and ' + teams.length + ' team-city records.', 'success');
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Load failed.', 'error');
+        render();
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function buildGameSelect() {
+      return GAME_SELECT_COLUMNS.filter((column) => GAMES_SCHEMA[column] !== false).join(',');
+    }
+
+    function getMissingGamesColumnName(errorMessage) {
+      const message = String(errorMessage || '');
+      const match = message.match(/column\s+games\.([a-z_]+)\s+does\s+not\s+exist/i);
+      if (match) return String(match[1] || '').trim().toLowerCase();
+      const schemaMatch = message.match(/could not find the ['"]?([a-z_]+)['"]? column of ['"]?games/i);
+      return schemaMatch ? String(schemaMatch[1] || '').trim().toLowerCase() : '';
+    }
+
+    async function loadTeamsJson() {
+      const response = await fetch(TEAM_JSON_URL, { cache: 'no-store' });
+      if (!response.ok) throw new Error('Could not load db/teams.json.');
+      const doc = await response.json();
+      return Array.isArray(doc && doc.teams) ? doc.teams.map(normalizeTeam).filter(Boolean) : [];
+    }
+
+    function normalizeTeam(row) {
+      if (!row || typeof row !== 'object') return null;
+      const geoName = cleanText(row.GeoName || row.geoName || row.firstName || row.first_name);
+      const mascotName = cleanText(row.MascotName || row.mascotName || row.mascot);
+      const fullName = cleanText(row.fullName || [geoName, mascotName].filter(Boolean).join(' '));
+      return {
+        tgbid: cleanText(row.TGBID || row.tgbid || row.tgb_id),
+        league: cleanText(row.League || row.league).toUpperCase(),
+        geoName,
+        mascotName,
+        fullName,
+        firstName: cleanText(row.firstName || row.first_name || geoName),
+        fanbase: cleanText(row.fanbase || geoName),
+        gameCity: cleanText(row.TGBGameCity || row.tgbGameCity || row.tgb_game_city),
+        venueCity: cleanText(row.VenueCity || row.venueCity || row.venue_city),
+        code: cleanText(row.code)
+      };
+    }
+
+    function buildTeamIndex(teams) {
+      const byId = new Map();
+      const byKey = new Map();
+      const addKey = (key, team) => {
+        const normalized = teamKey(key);
+        if (normalized && !byKey.has(normalized)) byKey.set(normalized, team);
+      };
+
+      teams.forEach((team) => {
+        if (team.tgbid) byId.set(team.tgbid, team);
+        [
+          team.fullName,
+          [team.geoName, team.mascotName].filter(Boolean).join(' '),
+          [team.fanbase, team.mascotName].filter(Boolean).join(' '),
+          [team.firstName, team.mascotName].filter(Boolean).join(' '),
+          team.code
+        ].forEach((key) => addKey(key, team));
+      });
+
+      return { teams, byId, byKey };
+    }
+
+    function normalizeGames(rows) {
+      return (Array.isArray(rows) ? rows : []).map(normalizeGame);
+    }
+
+    function normalizeGame(row) {
+      const game = row && typeof row === 'object' ? row : {};
+      const plusCode = normalizeLongPlusCode(game.starting_location_plus_code);
+      const plusCoords = decodePlusCode(plusCode);
+      const normalized = {
+        id: cleanText(game.id),
+        name: cleanText(game.name),
+        city: cleanText(game.city),
+        archived: game.archived,
+        game_date: cleanText(game.game_date),
+        start_time: cleanText(game.start_time),
+        updated_at: cleanText(game.updated_at),
+        location_based: !!game.location_based,
+        starting_location_name: cleanText(game.starting_location_name),
+        starting_location_address: cleanText(game.starting_location_address),
+        starting_location_plus_code: plusCode,
+        starting_location_lat: plusCoords ? plusCoords.lat : toNumberOrNull(game.starting_location_lat),
+        starting_location_lon: plusCoords ? plusCoords.lon : toNumberOrNull(game.starting_location_lon),
+        home_team_city: cleanText(game.home_team_city),
+        home_team_mascot: cleanText(game.home_team_mascot),
+        away_team_city: cleanText(game.away_team_city),
+        away_team_mascot: cleanText(game.away_team_mascot),
+        teams: Array.isArray(game.teams) ? game.teams.map(cleanText).filter(Boolean) : []
+      };
+      TEAM_FIELD_KEYS.forEach((key) => {
+        normalized[key] = cleanText(game[key]);
+      });
+      normalized.ui = {
+        mode: 'fill',
+        choiceId: '',
+        draft: emptyDraft(),
+        generated: [],
+        saving: false,
+        resolving: false
+      };
+      return normalized;
+    }
+
+    function initializeGameUi(game) {
+      const choices = buildCandidateChoices(game);
+      const currentComplete = choices.find((candidate) => candidate.kind === 'current' && candidateIsComplete(candidate));
+      const memory = choices.find((candidate) => candidate.kind === 'memory' && candidateIsUseful(candidate));
+      const currentAny = choices.find((candidate) => candidate.kind === 'current' && candidateIsUseful(candidate));
+      const chosen = currentComplete || memory || currentAny || null;
+      game.ui.choiceId = chosen ? chosen.id : '';
+      game.ui.draft = chosen ? draftFromCandidate(chosen) : emptyDraft();
+      game.ui.mode = 'fill';
+    }
+
+    function buildStartingLocationMemory(games) {
+      const byCity = new Map();
+      (Array.isArray(games) ? games : []).forEach((game) => {
+        const candidate = currentCandidate(game);
+        if (!candidate.name || !candidate.plusCode) return;
+        candidate.source = 'DB: ' + displayName(game);
+        candidate.kind = 'memory';
+        candidate.sourceGameId = game.id;
+
+        const cities = candidateCitiesForGame(game);
+        cities.forEach((city) => {
+          cityKeys(city.value).forEach((key) => {
+            if (!key) return;
+            if (!byCity.has(key)) byCity.set(key, []);
+            const list = byCity.get(key);
+            if (!list.some((item) => sameCandidate(item, candidate))) {
+              list.push(Object.assign({}, candidate, {
+                id: 'memory:' + game.id + ':' + list.length,
+                citySource: city.source,
+                cityValue: city.value
+              }));
+            }
+          });
+        });
+      });
+      byCity.forEach((list) => list.sort((a, b) => candidateScore(b) - candidateScore(a)));
+      return byCity;
+    }
+
+    function candidateCitiesForGame(game) {
+      const cities = [];
+      const seen = new Set();
+      const add = (value, source) => {
+        const cleaned = cleanText(value);
+        if (!cleaned) return;
+        const key = cityKeys(cleaned)[0] || normalizeKey(cleaned);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        cities.push({ value: cleaned, source });
+      };
+
+      const homeTeam = resolveTeamPick(game.home_team_city, game.home_team_mascot);
+      if (homeTeam && homeTeam.gameCity) add(homeTeam.gameCity, 'Home TGBGameCity');
+      add(game.city, 'Game city');
+      if (homeTeam && homeTeam.venueCity) add(homeTeam.venueCity, 'Home venue city');
+      resolveTeamRefs(game).forEach((team) => {
+        if (team && team.gameCity) add(team.gameCity, 'Team TGBGameCity');
+      });
+      return cities;
+    }
+
+    function resolveTeamPick(city, mascot) {
+      if (!state.teamIndex) return null;
+      const key = teamKey([city, mascot].filter(Boolean).join(' '));
+      return key ? state.teamIndex.byKey.get(key) || null : null;
+    }
+
+    function resolveTeamRefs(game) {
+      if (!state.teamIndex) return [];
+      const refs = [...(game.teams || [])];
+      TEAM_FIELD_KEYS.forEach((key) => {
+        if (game[key]) refs.push(game[key]);
+      });
+      const teams = [];
+      const seen = new Set();
+      refs.forEach((value) => {
+        const raw = cleanText(value);
+        if (!raw) return;
+        const byId = state.teamIndex.byId.get(raw);
+        const byKey = state.teamIndex.byKey.get(teamKey(raw));
+        const team = byId || byKey || null;
+        if (team && !seen.has(team.tgbid || team.fullName)) {
+          seen.add(team.tgbid || team.fullName);
+          teams.push(team);
+        }
+      });
+      return teams;
+    }
+
+    function buildCandidateChoices(game) {
+      const choices = [];
+      const current = currentCandidate(game);
+      if (candidateIsUseful(current)) choices.push(current);
+
+      const seen = new Set(choices.map((candidate) => candidateFingerprint(candidate)));
+      candidateCitiesForGame(game).forEach((city) => {
+        cityKeys(city.value).forEach((key) => {
+          const list = state.memoryByCity.get(key) || [];
+          list.forEach((candidate) => {
+            if (candidate.sourceGameId === game.id) return;
+            const fingerprint = candidateFingerprint(candidate);
+            if (seen.has(fingerprint)) return;
+            seen.add(fingerprint);
+            choices.push(Object.assign({}, candidate, {
+              label: candidateLabel(candidate),
+              source: candidate.source + ' via ' + city.source
+            }));
+          });
+        });
+      });
+
+      (game.ui && Array.isArray(game.ui.generated) ? game.ui.generated : []).forEach((candidate) => {
+        const fingerprint = candidateFingerprint(candidate);
+        if (seen.has(fingerprint)) return;
+        seen.add(fingerprint);
+        choices.push(candidate);
+      });
+
+      return choices;
+    }
+
+    function currentCandidate(game) {
+      return {
+        id: 'current:' + game.id,
+        kind: 'current',
+        label: 'Current DB values',
+        source: 'Current DB values',
+        city: cleanText(game.city),
+        name: cleanText(game.starting_location_name),
+        address: cleanText(game.starting_location_address),
+        plusCode: normalizeLongPlusCode(game.starting_location_plus_code) || plusCodeFromCoords(game.starting_location_lat, game.starting_location_lon),
+        lat: toNumberOrNull(game.starting_location_lat),
+        lon: toNumberOrNull(game.starting_location_lon)
+      };
+    }
+
+    async function findWalkingStarts(gameId) {
+      const game = findGame(gameId);
+      if (!game || game.ui.resolving) return [];
+      game.ui.resolving = true;
+      render();
+      try {
+        const cities = candidateCitiesForGame(game);
+        if (!cities.length) throw new Error('No city target for ' + displayName(game) + '.');
+        const candidates = [];
+        for (const city of cities.slice(0, 4)) {
+          const places = await searchPlacesForCity(city.value);
+          places.forEach((candidate) => {
+            if (!candidates.some((existing) => sameCandidate(existing, candidate))) {
+              candidates.push(Object.assign({}, candidate, {
+                id: 'geo:' + game.id + ':' + candidates.length,
+                kind: 'generated',
+                city: city.value,
+                source: candidate.source + ' via ' + city.source
+              }));
+            }
+          });
+          if (candidates.length >= 4) break;
+        }
+        candidates.sort((a, b) => candidateScore(b) - candidateScore(a));
+        game.ui.generated = candidates.slice(0, 5);
+        const chosen = game.ui.generated[0] || null;
+        if (chosen) {
+          game.ui.choiceId = chosen.id;
+          game.ui.draft = draftFromCandidate(chosen);
+          setStatus('Found ' + game.ui.generated.length + ' walking-start candidate' + (game.ui.generated.length === 1 ? '' : 's') + ' for ' + displayName(game) + '.', 'success');
+        } else {
+          setStatus('No walking-start candidates found for ' + displayName(game) + '.', 'warn');
+        }
+        return game.ui.generated;
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Lookup failed.', 'error');
+        return [];
+      } finally {
+        game.ui.resolving = false;
+        render();
+      }
+    }
+
+    async function reverseCurrentCoords(gameId) {
+      const game = findGame(gameId);
+      if (!game || game.ui.resolving) return null;
+      if (!Number.isFinite(game.starting_location_lat) || !Number.isFinite(game.starting_location_lon)) {
+        setStatus(displayName(game) + ' has no coordinates to reverse.', 'warn');
+        return null;
+      }
+      game.ui.resolving = true;
+      render();
+      try {
+        const place = await reversePlace(game.starting_location_lat, game.starting_location_lon);
+        if (!place) throw new Error('No reverse-geocode result for ' + displayName(game) + '.');
+        const candidate = placeToCandidate(place, 'Reverse current coords');
+        candidate.id = 'reverse:' + game.id;
+        candidate.kind = 'generated';
+        candidate.city = game.city;
+        candidate.lat = game.starting_location_lat;
+        candidate.lon = game.starting_location_lon;
+        game.ui.generated = [
+          candidate,
+          ...game.ui.generated.filter((item) => item.id !== candidate.id && !sameCandidate(item, candidate))
+        ].slice(0, 5);
+        game.ui.choiceId = candidate.id;
+        game.ui.draft = draftFromCandidate(candidate);
+        setStatus('Reverse lookup staged for ' + displayName(game) + '.', 'success');
+        return candidate;
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Reverse lookup failed.', 'error');
+        return null;
+      } finally {
+        game.ui.resolving = false;
+        render();
+      }
+    }
+
+    async function searchPlacesForCity(city) {
+      const queries = buildStartQueries(city);
+      const found = [];
+      for (let queryIndex = 0; queryIndex < queries.length; queryIndex += 1) {
+        const url = new URL('https://nominatim.openstreetmap.org/search');
+        url.searchParams.set('q', queries[queryIndex]);
+        url.searchParams.set('format', 'jsonv2');
+        url.searchParams.set('addressdetails', '1');
+        url.searchParams.set('namedetails', '1');
+        url.searchParams.set('limit', '4');
+        const response = await throttledNominatimFetch(url.toString());
+        if (!response.ok) continue;
+        const places = await response.json();
+        (Array.isArray(places) ? places : []).forEach((place) => {
+          const candidate = placeToCandidate(place, 'Nominatim: ' + queries[queryIndex], queryIndex);
+          if (candidate && !found.some((existing) => sameCandidate(existing, candidate))) found.push(candidate);
+        });
+        if (found.length >= 3) break;
+      }
+      return found.sort((a, b) => candidateScore(b) - candidateScore(a)).slice(0, 4);
+    }
+
+    function buildStartQueries(city) {
+      const target = cleanText(city);
+      if (!target) return [];
+      return [
+        target + ' visitor center',
+        target + ' city hall',
+        target + ' public square',
+        target + ' historic district',
+        target + ' downtown',
+        target + ' central library'
+      ];
+    }
+
+    async function reversePlace(lat, lon) {
+      const url = new URL('https://nominatim.openstreetmap.org/reverse');
+      url.searchParams.set('lat', String(lat));
+      url.searchParams.set('lon', String(lon));
+      url.searchParams.set('format', 'jsonv2');
+      url.searchParams.set('addressdetails', '1');
+      url.searchParams.set('namedetails', '1');
+      url.searchParams.set('zoom', '18');
+      const response = await throttledNominatimFetch(url.toString());
+      if (!response.ok) return null;
+      return response.json();
+    }
+
+    async function throttledNominatimFetch(url) {
+      const elapsed = Date.now() - state.lastNominatimAt;
+      const waitMs = Math.max(0, 1100 - elapsed);
+      if (waitMs) await delay(waitMs);
+      state.lastNominatimAt = Date.now();
+      return fetch(url, {
+        headers: { Accept: 'application/json', 'Accept-Language': 'en' },
+        cache: 'no-store'
+      });
+    }
+
+    function placeToCandidate(place, source, queryIndex) {
+      if (!place || typeof place !== 'object') return null;
+      const lat = toNumberOrNull(place.lat);
+      const lon = toNumberOrNull(place.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+      const name = placeName(place);
+      const address = placeAddress(place);
+      const candidate = {
+        id: '',
+        kind: 'generated',
+        label: name || address || source,
+        source,
+        name,
+        address,
+        plusCode: plusCodeFromCoords(lat, lon),
+        lat: roundCoord(lat),
+        lon: roundCoord(lon),
+        placeClass: cleanText(place.class),
+        placeType: cleanText(place.type),
+        importance: toNumberOrNull(place.importance),
+        queryIndex: Number.isFinite(queryIndex) ? queryIndex : 0
+      };
+      candidate.score = scorePlace(candidate, place);
+      return candidate;
+    }
+
+    function placeName(place) {
+      const details = place.namedetails || {};
+      const name = cleanText(details['name:en'] || details.name || place.name);
+      if (name) return name;
+      return cleanText(place.display_name).split(',')[0].trim();
+    }
+
+    function placeAddress(place) {
+      const address = place.address || {};
+      const street = [address.house_number, address.road || address.pedestrian || address.footway].filter(Boolean).join(' ');
+      const locality = address.city || address.town || address.village || address.suburb || address.county;
+      const region = address.state || address.province || address.region;
+      const postal = address.postcode;
+      const parts = [
+        street,
+        [locality, region].filter(Boolean).join(', '),
+        postal
+      ].filter(Boolean);
+      return cleanText(parts.join(' ') || place.display_name);
+    }
+
+    function scorePlace(candidate, place) {
+      const hay = [
+        candidate.name,
+        candidate.address,
+        candidate.placeClass,
+        candidate.placeType,
+        cleanText(place && place.display_name)
+      ].join(' ').toLowerCase();
+      let score = 100 - (candidate.queryIndex || 0) * 8;
+      if (/visitor|information|welcome center/.test(hay)) score += 30;
+      if (/city hall|town hall|civic center/.test(hay)) score += 24;
+      if (/public square|plaza|market square|main square/.test(hay)) score += 22;
+      if (/historic|monument|memorial|museum|library|park/.test(hay)) score += 12;
+      if (/stadium|arena|sports complex|parking|airport|terminal/.test(hay)) score -= 45;
+      if (/administrative|boundary/.test(hay)) score -= 25;
+      if (Number.isFinite(candidate.importance)) score += candidate.importance * 10;
+      if (candidate.name && candidate.address) score += 8;
+      return score;
+    }
+
+    function candidateScore(candidate) {
+      if (!candidate) return 0;
+      let score = Number.isFinite(candidate.score) ? candidate.score : 0;
+      if (candidate.name) score += 10;
+      if (candidate.address) score += 10;
+      if (candidate.plusCode) score += 20;
+      if (Number.isFinite(candidate.lat) && Number.isFinite(candidate.lon)) score += 20;
+      if (candidate.kind === 'memory') score += 30;
+      return score;
+    }
+
+    function candidateIsUseful(candidate) {
+      if (!candidate) return false;
+      return !!(candidate.name || candidate.address || candidate.plusCode || (Number.isFinite(candidate.lat) && Number.isFinite(candidate.lon)));
+    }
+
+    function candidateIsComplete(candidate) {
+      return !!(candidate && candidate.city && candidate.name && candidate.address && candidate.plusCode);
+    }
+
+    function sameCandidate(a, b) {
+      if (!a || !b) return false;
+      const coordA = Number.isFinite(a.lat) && Number.isFinite(a.lon) ? roundCoord(a.lat).toFixed(5) + ',' + roundCoord(a.lon).toFixed(5) : '';
+      const coordB = Number.isFinite(b.lat) && Number.isFinite(b.lon) ? roundCoord(b.lat).toFixed(5) + ',' + roundCoord(b.lon).toFixed(5) : '';
+      if (coordA && coordA === coordB) return true;
+      return candidateFingerprint(a) === candidateFingerprint(b);
+    }
+
+    function candidateFingerprint(candidate) {
+      return normalizeKey([candidate.name, candidate.address].filter(Boolean).join(' '));
+    }
+
+    function candidateLabel(candidate) {
+      const name = cleanText(candidate && candidate.name);
+      const address = cleanText(candidate && candidate.address);
+      if (name && address) return name + ' - ' + address;
+      return name || address || cleanText(candidate && candidate.source) || 'Candidate';
+    }
+
+    function draftFromCandidate(candidate) {
+      const plusCode = normalizeLongPlusCode(candidate && candidate.plusCode) || plusCodeFromCoords(candidate && candidate.lat, candidate && candidate.lon);
+      const decoded = decodePlusCode(plusCode);
+      return {
+        city: cleanText(candidate && candidate.city),
+        name: cleanText(candidate && candidate.name),
+        address: cleanText(candidate && candidate.address),
+        plusCode,
+        lat: decoded ? String(decoded.lat) : (Number.isFinite(candidate && candidate.lat) ? String(roundCoord(candidate.lat)) : ''),
+        lon: decoded ? String(decoded.lon) : (Number.isFinite(candidate && candidate.lon) ? String(roundCoord(candidate.lon)) : '')
+      };
+    }
+
+    function emptyDraft() {
+      return { city: '', name: '', address: '', plusCode: '', lat: '', lon: '' };
+    }
+
+    function draftCandidate(game) {
+      const draft = game && game.ui ? game.ui.draft : emptyDraft();
+      const plusCode = normalizeLongPlusCode(draft.plusCode);
+      const decoded = decodePlusCode(plusCode);
+      return {
+        city: cleanText(draft.city),
+        name: cleanText(draft.name),
+        address: cleanText(draft.address),
+        plusCode,
+        lat: decoded ? decoded.lat : null,
+        lon: decoded ? decoded.lon : null
+      };
+    }
+
+    function finalFieldsForGame(game) {
+      const current = currentFields(game);
+      const draft = draftCandidate(game);
+      const mode = game && game.ui ? game.ui.mode : 'fill';
+      const next = Object.assign({}, current);
+      const trySet = (field, draftField) => {
+        const value = draft[draftField];
+        if (!fieldHasValue(draftField, value)) return;
+        if (mode === 'all' ||
+            (mode === 'names' && (draftField === 'name' || draftField === 'address')) ||
+            (mode === 'coords' && (draftField === 'plusCode' || draftField === 'lat' || draftField === 'lon')) ||
+            (mode === 'fill' && !fieldHasValue(draftField, current[draftField])) ||
+            (mode === 'names' && (draftField === 'plusCode' || draftField === 'lat' || draftField === 'lon') && !fieldHasValue(draftField, current[draftField])) ||
+            (mode === 'coords' && (draftField === 'name' || draftField === 'address') && !fieldHasValue(draftField, current[draftField]))) {
+          next[draftField] = value;
+        }
+      };
+      trySet('city', 'city');
+      trySet('starting_location_name', 'name');
+      trySet('starting_location_address', 'address');
+      trySet('starting_location_plus_code', 'plusCode');
+      trySet('starting_location_lat', 'lat');
+      trySet('starting_location_lon', 'lon');
+      const decoded = decodePlusCode(next.plusCode);
+      if (decoded) {
+        next.lat = decoded.lat;
+        next.lon = decoded.lon;
+      }
+      return next;
+    }
+
+    function currentFields(game) {
+      const plusCode = normalizeLongPlusCode(game && game.starting_location_plus_code);
+      const plusCoords = decodePlusCode(plusCode);
+      return {
+        city: cleanText(game && game.city),
+        name: cleanText(game && game.starting_location_name),
+        address: cleanText(game && game.starting_location_address),
+        plusCode,
+        lat: plusCoords ? plusCoords.lat : toNumberOrNull(game && game.starting_location_lat),
+        lon: plusCoords ? plusCoords.lon : toNumberOrNull(game && game.starting_location_lon)
+      };
+    }
+
+    function fieldHasValue(field, value) {
+      if (field === 'lat' || field === 'lon') return Number.isFinite(toNumberOrNull(value));
+      if (field === 'plusCode') return !!normalizeLongPlusCode(value);
+      return !!cleanText(value);
+    }
+
+    function gameHasCompleteStartingLocation(game) {
+      const fields = currentFields(game);
+      return !!(fields.city && fields.name && fields.address && fields.plusCode);
+    }
+
+    function gameHasAnyStartingLocation(game) {
+      const fields = currentFields(game);
+      return !!(fields.name || fields.address || fields.plusCode || Number.isFinite(fields.lat) || Number.isFinite(fields.lon));
+    }
+
+    function gameReadyToSave(game) {
+      const payload = payloadForGame(game);
+      return !!payload;
+    }
+
+    function payloadForGame(game) {
+      if (!game || !game.ui) return null;
+      const current = currentFields(game);
+      const next = finalFieldsForGame(game);
+      const payload = {};
+      const setIfChanged = (column, draftField) => {
+        const nextValue = next[draftField];
+        const currentValue = current[draftField];
+        if (!fieldHasValue(draftField, nextValue)) return;
+        if (valuesEqual(draftField, nextValue, currentValue)) return;
+        if (draftField === 'lat' || draftField === 'lon') payload[column] = roundCoord(nextValue);
+        else payload[column] = cleanText(nextValue) || null;
+      };
+      if (GAMES_SCHEMA.city !== false) setIfChanged('city', 'city');
+      setIfChanged('starting_location_name', 'name');
+      setIfChanged('starting_location_address', 'address');
+      if (GAMES_SCHEMA.starting_location_plus_code !== false) setIfChanged('starting_location_plus_code', 'plusCode');
+      setIfChanged('starting_location_lat', 'lat');
+      setIfChanged('starting_location_lon', 'lon');
+
+      const hasCoords = !!next.plusCode && Number.isFinite(next.lat) && Number.isFinite(next.lon);
+      if (hasCoords && GAMES_SCHEMA.location_based !== false && !game.location_based) {
+        payload.location_based = true;
+      }
+
+      if (!Object.keys(payload).length) return null;
+      payload.updated_at = new Date().toISOString();
+      return payload;
+    }
+
+    // Google Plus Codes (Open Location Code). The stored long/global code is
+    // canonical; lat/lon is decoded from it for compatibility.
+    const OLC_ALPHABET_ = '23456789CFGHJMPQRVWX';
+    const OLC_BASE_ = 20;
+    const OLC_SEP_ = '+';
+    const OLC_PAD_ = '0';
+    const OLC_SEP_POS_ = 8;
+    const OLC_PAIR_LEN_ = 10;
+    const OLC_MAX_LEN_ = 15;
+    const OLC_GRID_COLS_ = 4;
+    const OLC_GRID_ROWS_ = 5;
+    const OLC_PAIR_PREC_ = OLC_BASE_ ** 3;
+    const OLC_GRID_CODE_LEN_ = OLC_MAX_LEN_ - OLC_PAIR_LEN_;
+    const OLC_FINAL_LAT_PREC_ = OLC_PAIR_PREC_ * OLC_GRID_ROWS_ ** OLC_GRID_CODE_LEN_;
+    const OLC_FINAL_LNG_PREC_ = OLC_PAIR_PREC_ * OLC_GRID_COLS_ ** OLC_GRID_CODE_LEN_;
+
+    function olcClipLat_(lat) {
+      return Math.min(90, Math.max(-90, lat));
+    }
+
+    function olcNormalizeLon_(lon) {
+      while (lon < -180) lon += 360;
+      while (lon >= 180) lon -= 360;
+      return lon;
+    }
+
+    function encodePlusCode(latitude, longitude, codeLength) {
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return '';
+      codeLength = Math.min(OLC_MAX_LEN_, codeLength || OLC_PAIR_LEN_ + 1);
+      let lat = olcClipLat_(latitude);
+      let lon = olcNormalizeLon_(longitude);
+      if (lat === 90) lat -= 1 / OLC_FINAL_LAT_PREC_;
+      let latVal = Math.floor(Math.round((lat + 90) * OLC_FINAL_LAT_PREC_ * 1e6) / 1e6);
+      let lngVal = Math.floor(Math.round((lon + 180) * OLC_FINAL_LNG_PREC_ * 1e6) / 1e6);
+      let code = '';
+      for (let i = 0; i < OLC_GRID_CODE_LEN_; i += 1) {
+        const ndx = (latVal % OLC_GRID_ROWS_) * OLC_GRID_COLS_ + (lngVal % OLC_GRID_COLS_);
+        code = OLC_ALPHABET_.charAt(ndx) + code;
+        latVal = Math.floor(latVal / OLC_GRID_ROWS_);
+        lngVal = Math.floor(lngVal / OLC_GRID_COLS_);
+      }
+      for (let i = 0; i < OLC_PAIR_LEN_ / 2; i += 1) {
+        code = OLC_ALPHABET_.charAt(lngVal % OLC_BASE_) + code;
+        code = OLC_ALPHABET_.charAt(latVal % OLC_BASE_) + code;
+        latVal = Math.floor(latVal / OLC_BASE_);
+        lngVal = Math.floor(lngVal / OLC_BASE_);
+      }
+      code = code.substring(0, OLC_SEP_POS_) + '+' + code.substring(OLC_SEP_POS_);
+      return code.substring(0, codeLength + 1);
+    }
+
+    function decodePlusCode(rawCode) {
+      if (!rawCode) return null;
+      const code = String(rawCode).toUpperCase().replace(/\s+/g, '');
+      const sepCount = (code.match(/\+/g) || []).length;
+      if (sepCount !== 1) return null;
+      if (code.indexOf(OLC_SEP_) > OLC_SEP_POS_) return null;
+      if (code.indexOf(OLC_PAD_) > -1) return null;
+      const digits = code.replace(OLC_SEP_, '');
+      if (digits.length < 8) return null;
+      for (const ch of digits) {
+        if (OLC_ALPHABET_.indexOf(ch) === -1) return null;
+      }
+
+      let southLat = 0;
+      let westLng = 0;
+      let latRes = OLC_BASE_ * OLC_BASE_;
+      let lngRes = OLC_BASE_ * OLC_BASE_;
+      let i = 0;
+      while (i < digits.length) {
+        if (i < OLC_PAIR_LEN_) {
+          latRes /= OLC_BASE_;
+          lngRes /= OLC_BASE_;
+          southLat += OLC_ALPHABET_.indexOf(digits.charAt(i)) * latRes;
+          if (i + 1 < digits.length) westLng += OLC_ALPHABET_.indexOf(digits.charAt(i + 1)) * lngRes;
+          i += 2;
+        } else {
+          const d = OLC_ALPHABET_.indexOf(digits.charAt(i));
+          latRes /= OLC_GRID_ROWS_;
+          lngRes /= OLC_GRID_COLS_;
+          southLat += Math.floor(d / OLC_GRID_COLS_) * latRes;
+          westLng += (d % OLC_GRID_COLS_) * lngRes;
+          i += 1;
+        }
+      }
+      const lat = (southLat - 90) + latRes / 2;
+      const lon = (westLng - 180) + lngRes / 2;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) ||
+          lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+      return {
+        lat: parseFloat(lat.toFixed(6)),
+        lon: parseFloat(lon.toFixed(6))
+      };
+    }
+
+    function normalizeLongPlusCode(value) {
+      const raw = cleanText(value).toUpperCase().replace(/\s+/g, '');
+      if (!raw) return '';
+      const decoded = decodePlusCode(raw);
+      return decoded ? encodePlusCode(decoded.lat, decoded.lon) : '';
+    }
+
+    function plusCodeFromCoords(latValue, lonValue) {
+      const lat = toNumberOrNull(latValue);
+      const lon = toNumberOrNull(lonValue);
+      return Number.isFinite(lat) && Number.isFinite(lon) ? encodePlusCode(lat, lon) : '';
+    }
+
+    function valuesEqual(field, a, b) {
+      if (field === 'plusCode') return normalizeLongPlusCode(a) === normalizeLongPlusCode(b);
+      if (field === 'lat' || field === 'lon') {
+        const na = toNumberOrNull(a);
+        const nb = toNumberOrNull(b);
+        return Number.isFinite(na) && Number.isFinite(nb) && Math.abs(na - nb) < 0.000001;
+      }
+      return cleanText(a) === cleanText(b);
+    }
+
+    async function saveGame(gameId) {
+      const game = findGame(gameId);
+      if (!game || game.ui.saving) return false;
+      const payload = payloadForGame(game);
+      if (!payload) {
+        setStatus('No changes staged for ' + displayName(game) + '.', 'warn');
+        return false;
+      }
+      game.ui.saving = true;
+      render();
+      try {
+        await ensureFreshSession();
+        const response = await fetch(restUrl('games', { id: 'eq.' + game.id }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await readError(response, 'Could not save starting location.'));
+        const rows = await response.json();
+        const fresh = Array.isArray(rows) && rows[0] ? normalizeGame(rows[0]) : normalizeGame(Object.assign({}, game, payload));
+        replaceGame(fresh);
+        state.memoryByCity = buildStartingLocationMemory(state.games);
+        initializeGameUi(fresh);
+        state.selectedIds.delete(game.id);
+        setStatus('Saved starting location for ' + displayName(fresh) + '.', 'success');
+        render();
+        return true;
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Save failed.', 'error');
+        return false;
+      } finally {
+        const current = findGame(gameId);
+        if (current && current.ui) current.ui.saving = false;
+        render();
+      }
+    }
+
+    async function findSelectedStarts() {
+      const selected = selectedGames();
+      if (!selected.length) {
+        setStatus('Select at least one game first.', 'warn');
+        return;
+      }
+      setBusy(true);
+      try {
+        let resolved = 0;
+        for (const game of selected) {
+          const candidates = await findWalkingStarts(game.id);
+          if (candidates && candidates.length) resolved += 1;
+        }
+        setStatus('Found candidates for ' + resolved + ' of ' + selected.length + ' selected games.', resolved ? 'success' : 'warn');
+      } finally {
+        setBusy(false);
+        render();
+      }
+    }
+
+    async function reverseSelectedCoords() {
+      const selected = selectedGames();
+      if (!selected.length) {
+        setStatus('Select at least one game first.', 'warn');
+        return;
+      }
+      setBusy(true);
+      try {
+        let resolved = 0;
+        for (const game of selected) {
+          const candidate = await reverseCurrentCoords(game.id);
+          if (candidate) resolved += 1;
+        }
+        setStatus('Reverse lookup staged for ' + resolved + ' of ' + selected.length + ' selected games.', resolved ? 'success' : 'warn');
+      } finally {
+        setBusy(false);
+        render();
+      }
+    }
+
+    async function saveSelectedGames() {
+      const selected = selectedGames();
+      if (!selected.length) {
+        setStatus('Select at least one game first.', 'warn');
+        return;
+      }
+      setBusy(true);
+      try {
+        let saved = 0;
+        for (const game of selected) {
+          if (await saveGame(game.id)) saved += 1;
+        }
+        setStatus('Saved ' + saved + ' of ' + selected.length + ' selected games.', saved ? 'success' : 'warn');
+      } finally {
+        setBusy(false);
+        render();
+      }
+    }
+
+    function render() {
+      renderSummary();
+      gameList.innerHTML = '';
+      if (!state.authed) {
+        renderEmpty('Sign in to load starting-location records.');
+        return;
+      }
+      const visible = visibleGames();
+      if (!visible.length) {
+        renderEmpty(state.search ? 'No games match your filter.' : 'No games in this view.');
+        return;
+      }
+      const fragment = document.createDocumentFragment();
+      visible.forEach((game) => fragment.appendChild(renderGameCard(game)));
+      gameList.appendChild(fragment);
+      updateToolbarState();
+    }
+
+    function renderSummary() {
+      if (!summaryLine) return;
+      const total = state.games.length;
+      const complete = state.games.filter(gameHasCompleteStartingLocation).length;
+      const withAny = state.games.filter(gameHasAnyStartingLocation).length;
+      const ready = state.games.filter(gameReadyToSave).length;
+      const selected = state.selectedIds.size;
+      const teamCount = state.teamIndex && state.teamIndex.teams ? state.teamIndex.teams.length : 0;
+      summaryLine.innerHTML = [
+        '<span><strong>' + total + '</strong> games</span>',
+        '<span><strong>' + complete + '</strong> complete</span>',
+        '<span><strong>' + withAny + '</strong> with any starting-location data</span>',
+        '<span><strong>' + ready + '</strong> staged</span>',
+        '<span><strong>' + selected + '</strong> selected</span>',
+        '<span><strong>' + teamCount + '</strong> team-city records</span>'
+      ].join('');
+    }
+
+    function renderEmpty(message) {
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = message || 'Nothing here.';
+      gameList.appendChild(empty);
+      updateToolbarState();
+    }
+
+    function renderGameCard(game) {
+      const card = document.createElement('article');
+      card.className = 'game-card';
+      card.dataset.id = game.id;
+      if (state.selectedIds.has(game.id)) card.classList.add('is-selected');
+      if (game.ui.saving) card.classList.add('is-saving');
+      if (game.ui.resolving) card.classList.add('is-resolving');
+
+      const head = document.createElement('div');
+      head.className = 'game-head';
+
+      const checkbox = document.createElement('input');
+      checkbox.className = 'game-check';
+      checkbox.type = 'checkbox';
+      checkbox.checked = state.selectedIds.has(game.id);
+      checkbox.setAttribute('aria-label', 'Select ' + displayName(game));
+      checkbox.dataset.action = 'select-row';
+      head.appendChild(checkbox);
+
+      const titleWrap = document.createElement('div');
+      titleWrap.className = 'game-title-wrap';
+      const title = document.createElement('h3');
+      title.className = 'game-title';
+      title.textContent = displayName(game);
+      const meta = document.createElement('div');
+      meta.className = 'game-meta';
+      meta.appendChild(statusPill(game));
+      if (game.archived) meta.appendChild(pill('Archived', 'warn'));
+      if (game.location_based) meta.appendChild(pill('Location Based', 'good'));
+      const matchup = matchupLabel(game);
+      if (matchup) meta.appendChild(pill(matchup, 'blue'));
+      if (game.city) meta.appendChild(pill(game.city, ''));
+      titleWrap.append(title, meta);
+      head.appendChild(titleWrap);
+
+      const actions = document.createElement('div');
+      actions.className = 'row-actions';
+      actions.appendChild(button('Find', 'find', 'btn small'));
+      actions.appendChild(button('Reverse', 'reverse', 'btn small'));
+      actions.appendChild(button('Save', 'save', 'btn primary small'));
+      head.appendChild(actions);
+      card.appendChild(head);
+
+      const targetCities = document.createElement('div');
+      targetCities.className = 'target-cities';
+      candidateCitiesForGame(game).forEach((city) => {
+        targetCities.appendChild(pill(city.source + ': ' + city.value, ''));
+      });
+      if (!targetCities.children.length) targetCities.appendChild(pill('No city target', 'bad'));
+      card.appendChild(targetCities);
+
+      const current = document.createElement('div');
+      current.className = 'current-grid';
+      current.innerHTML = '<strong>Current</strong> ' + escapeHtml(currentSummary(game));
+      card.appendChild(current);
+
+      const choiceGrid = document.createElement('div');
+      choiceGrid.className = 'choice-grid';
+
+      const choiceLabel = document.createElement('label');
+      choiceLabel.className = 'field-label';
+      choiceLabel.textContent = 'Candidate';
+      const select = document.createElement('select');
+      select.className = 'candidate-select';
+      select.dataset.action = 'choice';
+      select.appendChild(new Option('Choose a candidate...', ''));
+      buildCandidateChoices(game).forEach((candidate) => {
+        const option = new Option(candidateLabel(candidate), candidate.id);
+        option.title = candidate.source || '';
+        select.appendChild(option);
+      });
+      select.value = game.ui.choiceId || '';
+      choiceLabel.appendChild(select);
+      choiceGrid.appendChild(choiceLabel);
+
+      const modeLabel = document.createElement('label');
+      modeLabel.className = 'field-label';
+      modeLabel.textContent = 'Overwrite';
+      const mode = document.createElement('select');
+      mode.className = 'row-mode';
+      mode.dataset.action = 'mode';
+      [
+        ['fill', 'Fill Blanks Only'],
+        ['names', 'Replace Name/Address'],
+        ['coords', 'Replace Coordinates'],
+        ['all', 'Replace All Fields']
+      ].forEach(([value, label]) => mode.appendChild(new Option(label, value)));
+      mode.value = game.ui.mode || 'fill';
+      modeLabel.appendChild(mode);
+      choiceGrid.appendChild(modeLabel);
+      card.appendChild(choiceGrid);
+
+      card.appendChild(renderFieldGrid(game));
+
+      const preview = document.createElement('div');
+      preview.className = 'write-preview';
+      const payload = payloadForGame(game);
+      preview.innerHTML = payload
+        ? '<strong>Will write</strong> ' + escapeHtml(payloadSummary(payload, game))
+        : '<strong>Will write</strong> Nothing staged.';
+      card.appendChild(preview);
+
+      return card;
+    }
+
+    function renderFieldGrid(game) {
+      const grid = document.createElement('div');
+      grid.className = 'field-grid';
+      const draft = draftCandidate(game);
+      [
+        ['city', 'Tour City', 'text'],
+        ['name', 'Start Name', 'text'],
+        ['address', 'Start Address', 'textarea'],
+        ['plusCode', 'Long Plus Code', 'text'],
+        ['lat', 'Latitude', 'text'],
+        ['lon', 'Longitude', 'text']
+      ].forEach(([field, label, tag]) => {
+        const wrapper = document.createElement('label');
+        wrapper.className = 'field-label';
+        wrapper.textContent = label;
+        const input = document.createElement(tag === 'textarea' ? 'textarea' : 'input');
+        input.className = 'field-input';
+        if (tag !== 'textarea') input.type = 'text';
+        if (field === 'lat' || field === 'lon') {
+          input.value = draft[field] || '';
+          input.readOnly = true;
+          input.dataset.coordOutput = field;
+          input.spellcheck = false;
+        } else {
+          input.value = game.ui.draft[field] || '';
+          input.dataset.action = 'draft';
+          input.dataset.field = field;
+          input.spellcheck = field === 'lat' || field === 'lon' ? false : true;
+        }
+        wrapper.appendChild(input);
+        grid.appendChild(wrapper);
+      });
+      return grid;
+    }
+
+    function statusPill(game) {
+      if (gameHasCompleteStartingLocation(game)) return pill('Complete', 'good');
+      if (gameHasAnyStartingLocation(game)) return pill('Partial', 'warn');
+      return pill('Missing', 'bad');
+    }
+
+    function pill(text, kind) {
+      const el = document.createElement('span');
+      el.className = 'pill' + (kind ? ' ' + kind : '');
+      el.textContent = text;
+      return el;
+    }
+
+    function button(text, action, className) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = className || 'btn';
+      btn.dataset.action = action;
+      btn.textContent = text;
+      return btn;
+    }
+
+    function currentSummary(game) {
+      const fields = currentFields(game);
+      const coords = Number.isFinite(fields.lat) && Number.isFinite(fields.lon)
+        ? roundCoord(fields.lat) + ', ' + roundCoord(fields.lon)
+        : 'no coords';
+      const plusCode = fields.plusCode || 'no plus code';
+      return [
+        fields.city || 'no city',
+        fields.name || 'no name',
+        fields.address || 'no address',
+        coords,
+        plusCode
+      ].join(' | ');
+    }
+
+    function payloadSummary(payload, game) {
+      if (!payload) return 'Nothing staged.';
+      const fields = game ? finalFieldsForGame(game) : null;
+      const plusCode = fields && fields.plusCode;
+      const parts = Object.entries(payload)
+        .filter(([key]) => key !== 'updated_at')
+        .map(([key, value]) => key + '=' + (value === null ? 'null' : value))
+      if (plusCode) parts.push('long_plus_code_derived=' + plusCode);
+      return parts.join(' | ');
+    }
+
+    function matchupLabel(game) {
+      const away = [game.away_team_city, game.away_team_mascot].filter(Boolean).join(' ');
+      const home = [game.home_team_city, game.home_team_mascot].filter(Boolean).join(' ');
+      if (away && home) return away + ' @ ' + home;
+      return away || home || '';
+    }
+
+    function visibleGames() {
+      return state.games.filter((game) => matchesSearch(game) && matchesFilter(game));
+    }
+
+    function matchesSearch(game) {
+      if (!state.search) return true;
+      const hay = [
+        game.id,
+        game.name,
+        game.city,
+        game.home_team_city,
+        game.home_team_mascot,
+        game.away_team_city,
+        game.away_team_mascot,
+        game.starting_location_name,
+        game.starting_location_address,
+        game.starting_location_plus_code,
+        ...(game.teams || []),
+        ...TEAM_FIELD_KEYS.map((key) => game[key])
+      ].join(' ').toLowerCase();
+      return hay.includes(state.search);
+    }
+
+    function matchesFilter(game) {
+      if (state.filter === 'all') return true;
+      if (state.filter === 'needs') return !gameHasCompleteStartingLocation(game);
+      if (state.filter === 'complete') return gameHasCompleteStartingLocation(game);
+      if (state.filter === 'selected') return state.selectedIds.has(game.id);
+      if (state.filter === 'ready') return gameReadyToSave(game);
+      if (state.filter === 'archived') return isArchived(game.archived);
+      return true;
+    }
+
+    function isArchived(value) {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'string') {
+        const trimmed = value.trim().toLowerCase();
+        return !!trimmed && trimmed !== 'false' && trimmed !== '0' && trimmed !== 'no';
+      }
+      return !!value;
+    }
+
+    function selectNeeds() {
+      visibleGames().forEach((game) => {
+        if (!gameHasCompleteStartingLocation(game)) state.selectedIds.add(game.id);
+      });
+      render();
+      setStatus('Selected visible games that need starting-location data.', 'success');
+    }
+
+    function applyBulkMode() {
+      const selected = selectedGames();
+      if (!selected.length) {
+        setStatus('Select at least one game first.', 'warn');
+        return;
+      }
+      selected.forEach((game) => { game.ui.mode = bulkModeSelect.value || 'fill'; });
+      render();
+      setStatus('Applied overwrite mode to ' + selected.length + ' selected games.', 'success');
+    }
+
+    function selectedGames() {
+      return state.games.filter((game) => state.selectedIds.has(game.id));
+    }
+
+    function findGame(id) {
+      return state.games.find((game) => game.id === id) || null;
+    }
+
+    function replaceGame(nextGame) {
+      const index = state.games.findIndex((game) => game.id === nextGame.id);
+      if (index === -1) state.games.push(nextGame);
+      else state.games[index] = nextGame;
+    }
+
+    function setBusy(isBusy) {
+      state.busy = !!isBusy;
+      updateToolbarState();
+    }
+
+    function updateToolbarState() {
+      const busy = !!state.busy;
+      [refreshBtn, applyModeBtn, selectNeedsBtn, findSelectedBtn, reverseSelectedBtn, saveSelectedBtn, bulkModeSelect, filterSelect, searchInput]
+        .forEach((el) => { if (el) el.disabled = busy; });
+      document.querySelectorAll('.game-card button, .game-card input, .game-card select, .game-card textarea')
+        .forEach((el) => { el.disabled = busy; });
+    }
+
+    function cleanText(value) {
+      return String(value == null ? '' : value).trim();
+    }
+
+    function toNumberOrNull(value) {
+      if (value === null || value === undefined || value === '') return null;
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    }
+
+    function roundCoord(value) {
+      const number = Number(value);
+      return Number.isFinite(number) ? Number(number.toFixed(6)) : null;
+    }
+
+    function displayName(game) {
+      return cleanText(game && game.name) || cleanText(game && game.id) || 'Untitled Game';
+    }
+
+    function normalizeKey(value) {
+      return cleanText(value)
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/&/g, ' and ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
+    }
+
+    function teamKey(value) {
+      return normalizeKey(value);
+    }
+
+    function cityKeys(value) {
+      const cleaned = cleanText(value);
+      if (!cleaned) return [];
+      const parts = cleaned.split(',').map((part) => cleanText(part)).filter(Boolean);
+      const city = normalizeKey(parts[0] || cleaned);
+      const region = normalizeRegion(parts[1] || '');
+      const keys = new Set();
+      if (city && region) keys.add(city + ' ' + normalizeKey(region));
+      if (city) keys.add(city);
+      keys.add(normalizeKey(cleaned));
+      return [...keys].filter(Boolean);
+    }
+
+    function normalizeRegion(value) {
+      const key = normalizeKey(value);
+      if (!key) return '';
+      if (US_STATES[key]) return US_STATES[key];
+      if (CANADA_PROVINCES[key]) return CANADA_PROVINCES[key];
+      if (/^[a-z]{2}$/i.test(value)) return value.toUpperCase();
+      return value;
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function delay(ms) {
+      return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
+
+    gameList.addEventListener('change', (event) => {
+      const card = event.target.closest('.game-card');
+      if (!card) return;
+      const game = findGame(card.dataset.id);
+      if (!game) return;
+      const action = event.target.dataset.action;
+      if (action === 'select-row') {
+        if (event.target.checked) state.selectedIds.add(game.id);
+        else state.selectedIds.delete(game.id);
+        render();
+      } else if (action === 'choice') {
+        game.ui.choiceId = event.target.value || '';
+        const choice = buildCandidateChoices(game).find((candidate) => candidate.id === game.ui.choiceId);
+        game.ui.draft = choice ? draftFromCandidate(choice) : emptyDraft();
+        render();
+      } else if (action === 'mode') {
+        game.ui.mode = event.target.value || 'fill';
+        render();
+      }
+    });
+
+    gameList.addEventListener('input', (event) => {
+      const card = event.target.closest('.game-card');
+      if (!card) return;
+      const game = findGame(card.dataset.id);
+      if (!game || event.target.dataset.action !== 'draft') return;
+      const field = event.target.dataset.field;
+      if (!Object.prototype.hasOwnProperty.call(game.ui.draft, field)) return;
+      game.ui.draft[field] = event.target.value;
+      const decodedDraft = draftCandidate(game);
+      game.ui.draft.lat = Number.isFinite(decodedDraft.lat) ? String(decodedDraft.lat) : '';
+      game.ui.draft.lon = Number.isFinite(decodedDraft.lon) ? String(decodedDraft.lon) : '';
+      card.querySelectorAll('[data-coord-output]').forEach((output) => {
+        const coordField = output.dataset.coordOutput;
+        output.value = game.ui.draft[coordField] || '';
+      });
+      const preview = card.querySelector('.write-preview');
+      if (preview) {
+        const payload = payloadForGame(game);
+        preview.innerHTML = payload
+          ? '<strong>Will write</strong> ' + escapeHtml(payloadSummary(payload, game))
+          : '<strong>Will write</strong> Nothing staged.';
+      }
+      renderSummary();
+    });
+
+    gameList.addEventListener('click', (event) => {
+      const buttonEl = event.target.closest('button[data-action]');
+      if (!buttonEl) return;
+      const card = buttonEl.closest('.game-card');
+      const game = card ? findGame(card.dataset.id) : null;
+      if (!game) return;
+      const action = buttonEl.dataset.action;
+      if (action === 'find') findWalkingStarts(game.id);
+      if (action === 'reverse') reverseCurrentCoords(game.id);
+      if (action === 'save') saveGame(game.id);
+    });
+
+    searchInput.addEventListener('input', () => {
+      state.search = searchInput.value.trim().toLowerCase();
+      render();
+    });
+
+    filterSelect.addEventListener('change', () => {
+      state.filter = filterSelect.value || 'needs';
+      render();
+    });
+
+    selectNeedsBtn.addEventListener('click', selectNeeds);
+    refreshBtn.addEventListener('click', refresh);
+    applyModeBtn.addEventListener('click', applyBulkMode);
+    findSelectedBtn.addEventListener('click', findSelectedStarts);
+    reverseSelectedBtn.addEventListener('click', reverseSelectedCoords);
+    saveSelectedBtn.addEventListener('click', saveSelectedGames);
+
+    window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
+    render();
+    adminAuth.init();
+  </script>
+</body>
+</html>

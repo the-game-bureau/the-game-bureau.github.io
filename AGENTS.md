@@ -57,6 +57,17 @@ Standalone mini-games live at the root-level [minigames/](minigames/) folder and
 
 ---
 
+## Start locations & rendezvous maps - long Google Plus Codes
+
+Start locations are **stored as long/global Google Plus Codes** in the `games` table (`starting_location_plus_code`). That column is the source of truth for the rendezvous point. `starting_location_lat` / `starting_location_lon` stay populated only as decoded compatibility fields for local maps, weather, reverse-geocoding, and older surfaces.
+
+- **Builder** ([mc/builder.html](mc/builder.html)): the "Start Plus Code" field shows/accepts a Plus Code and writes `starting_location_plus_code`. It also decodes the code into `starting_location_lat` / `starting_location_lon` for compatibility. Typed input accepts a full code, a short code (`76VW+59` recovered against the game's existing coords, else its City via Nominatim), or raw lat/lon; all are normalized to the long/global code on save.
+- **Landing page** ([game/run/index.html](game/run/index.html)): every rendezvous map / directions surface uses the stored `starting_location_plus_code` first, decodes it for local map/weather UI, and falls back to lat/lon only for legacy rows missing the code.
+
+Always use the LONG / global code (e.g. `8FVC9G8F+6XQ`), not a short code (`9G8F+6X`). The long form resolves anywhere with no locality. The Plus Code's `+` must be URL-encoded (`%2B`) before going into a query string.
+
+---
+
 ## Team color → waypoint rotation offset
 
 The game rotates waypoints within a `waypointGroup` (A–E) using a Latin-square offset keyed off `vars['team_color']`. The mapping lives in `TEAM_COLOR_ORDER`, defined **separately in each engine**:
