@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Walking-tour STOPS — points of interest that already appear on established
+       walking tours of a city. A city has several stops. The canonical location
+       is the LONG/global Google Plus Code — no lat/lon. Cousin: stops.jsonl.
+       Related: mc/starting-locations.html (the single gather point is separate). -->
+  <title>TGB Research Assistant · Game Stops</title>
+  <link rel="stylesheet" href="research.css">
+</head>
+<body>
+  <main class="research">
+
+    <header class="research-head">
+      <span class="research-kicker">TGB Research Assistant</span>
+      <h1>GAME STOPS</h1>
+      <p class="research-sub">Use this Research Assistant to get ideas for Game Stops.</p>
+    </header>
+
+    <!-- ════════ SECTION 1 · PROMPT BUILDER ════════ -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-tag">Prompt Additions</span>
+      </div>
+      <div class="panel-body">
+
+        <!-- Stops = waypoints that established walking tours actually visit:
+             landmarks, monuments, public art, historic buildings, plazas, parks.
+             Many per city. LONG/global Plus Code is the canonical location (no lat/lon). -->
+        <details class="field field-collapse">
+          <summary><span id="basePromptLabel">Base prompt</span></summary>
+          <pre id="basePrompt" class="prompt-text">You are a local-history researcher cataloguing WALKING-TOUR STOPS — points of interest that ALREADY appear on established walking tours of a city. These are the waypoints a self-guided or guided tour actually visits.
+
+SCOPE: {{keywords}}
+EXTRA DIRECTION: {{notes}}
+
+For EACH city in the focus (one place, an explicit list, or a group resolved into its cities), return the stops that real, published walking tours of that city visit — recognizable, publicly accessible, pedestrian-reachable points of interest. Report verified, real places only; if a detail is uncertain, say so rather than guessing. A city has SEVERAL stops — return as many genuine tour stops as you can find (aim for 6–12 per city), ordered as a sensible walking route when possible.
+
+GOOD stops: historic landmarks and buildings, monuments, memorials, statues and public art, museums, notable churches, plazas and squares, parks, markets, theaters, bridges, and similar visitable sights that appear on existing tours.
+AVOID: private property, inaccessible interiors, vague areas, and anything not actually on a walkable public route.
+
+Location: provide the LONG / global Google Plus Code (Open Location Code) only, e.g. "8FVC9G8F+6XQ" — 11 characters, never a short code. Do NOT include latitude/longitude.
+
+Return ONLY JSON Lines (JSONL): one stop object per line, each on a SINGLE line, with NO array brackets, NO commas between lines, NO prose, and NO markdown (write every URL as a plain string, never a markdown link). Each line exactly this shape:
+{"name": string, "city": "City, ST", "address": string, "plus_code": string, "category": string, "description": string, "on_tours": string, "source": {"title": string, "url": string}}
+
+Rules:
+- plus_code is the canonical location: the LONG/global Open Location Code (11 chars, ~3.5 m precision). Never a short code; no lat/lon fields.
+- category is one of: landmark | historic-building | monument | memorial | statue | public-art | museum | church | plaza | park | market | theater | bridge | other.
+- description is one line on what the place is and why it's notable.
+- on_tours names a real walking tour (self-guided or guided) the stop appears on, when known.
+- One line per stop; a city has several — appending more later just adds lines.</pre>
+        </details>
+
+        <div class="field">
+          <label for="keywords">Add keywords</label>
+          <input id="keywords" type="text" placeholder="e.g. Savannah; Charleston  —  or  “downtown historic district”">
+        </div>
+
+        <div class="field">
+          <label for="openText">Add notes / open text</label>
+          <textarea id="openText" placeholder="Anything extra — a theme (murals, Revolutionary War…), a neighborhood, accessibility needs…"></textarea>
+        </div>
+
+        <details class="field field-collapse">
+          <summary>Generated prompt</summary>
+          <pre id="output" class="output-text" data-placeholder="The assembled prompt appears here as you type."></pre>
+        </details>
+
+        <div class="panel-actions panel-actions--end">
+          <button class="btn btn--primary" id="copyBtn" type="button">Copy prompt</button>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ════════ SECTION 2 · RESULT (cousin .jsonl) ════════ -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-tag">Results</span>
+        <span class="panel-file" id="jsonName"></span>
+      </div>
+      <div class="result" id="result"></div>
+    </section>
+
+  </main>
+
+  <script src="research.js"></script>
+</body>
+</html>

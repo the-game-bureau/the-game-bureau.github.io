@@ -22,6 +22,7 @@
     { href: '/mc/photos.html',    label: 'Edit Wall' },
     { href: '/gifts/admin/gs-shop.html',  label: 'Edit Gifts' },
     { href: '/gifts/admin/gs-codes.html', label: 'Access Codes' },
+    { href: '/research/',         label: 'Research' },
     { href: '/mc/notes.html',     label: 'Notes' }
   ];
 

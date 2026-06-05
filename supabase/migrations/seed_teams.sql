@@ -1,4 +1,4 @@
--- Generated from db/teams.json by seed_teams_from_json.mjs
+-- Generated from research/teams.json by seed_teams_from_json.mjs
 -- 124 rows · 4 leagues
 -- Safe to re-run: uses ON CONFLICT DO UPDATE.
 

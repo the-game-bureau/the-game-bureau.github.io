@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Games dataset — scheduled matchups across the major leagues, keyed to the
+       team TGBIDs in research/teams.json. Cousin file: games.jsonl.
+       Update existing games + append new ones; extensible to leagues like MLS. -->
+  <title>Research · Games</title>
+  <link rel="stylesheet" href="research.css">
+</head>
+<body>
+  <main class="research">
+
+    <header class="research-head">
+      <span class="research-kicker">Research Assistant</span>
+      <h1>Games</h1>
+      <p class="research-sub">Scope a league/date range below, then <strong>Copy</strong> the prompt and run it in your AI.
+        Paste the reply into <strong>Add results</strong> — <strong>Append</strong> new games or <strong>Overwrite</strong>
+        for a full refresh of <code style="font-family:var(--mono)">games.jsonl</code>.</p>
+    </header>
+
+    <!-- ════════ SECTION 1 · PROMPT BUILDER ════════ -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-tag">Prompt Additions</span>
+      </div>
+      <div class="panel-body">
+
+        <!-- Durable instructions modeled on teams.json's _ai_update_prompt:
+             covers all 4 major leagues, links every team by TGBID from
+             research/teams.json, updates + appends, and leaves room to add
+             leagues like MLS later. {{keywords}} / {{notes}} scope a run. -->
+        <details class="field field-collapse">
+          <summary><span id="basePromptLabel">Base prompt</span></summary>
+          <pre id="basePrompt" class="prompt-text">You are maintaining The Game Bureau's GAMES dataset — scheduled matchups across the major North American pro sports leagues. The four core leagues are NFL, NBA, NHL, and MLB; more leagues (e.g. MLS) can be added later using the same shape. Report verified, current facts only; if a date or score is uncertain or unannounced, say so rather than guessing.
+
+SCOPE: {{keywords}}
+EXTRA DIRECTION: {{notes}}
+
+Cover the four core leagues (NFL, NBA, NHL, MLB) unless SCOPE narrows them. Identify EVERY team by its TGBID from research/teams.json (the canonical team database) — never invent a TGBID. If a team is not in research/teams.json, skip that game. To add a future league such as MLS, use that league's code in "sport" with the SAME fields, once its teams exist in research/teams.json with real TGBIDs.
+
+UPDATE + APPEND: update games already known when details change (final scores, reschedules, venue changes) and append newly scheduled games. Each game is keyed by "game_id" so an update REPLACES the same game rather than duplicating it. Keep every other game's line unchanged.
+
+Return ONLY JSON Lines (JSONL): one game object per line, each on a SINGLE line, with NO array brackets, NO commas between lines, NO prose, and NO markdown (write every URL as a plain string, never a markdown link). Each line exactly this shape:
+{"game_id": string, "sport": "NFL" | "NBA" | "NHL" | "MLB", "season": number, "date": "YYYY-MM-DD", "home_tgbid": number, "away_tgbid": number, "home": string, "away": string, "venue": string, "city": "City, ST", "status": "scheduled" | "final" | "postponed", "home_score": number | null, "away_score": number | null, "source": {"title": string, "url": string}}
+
+Rules:
+- game_id format: "SPORT-YYYY-MM-DD-<home_tgbid>-<away_tgbid>" (e.g. "NFL-2025-09-07-5-1").
+- "home"/"away" are the full team names matching those TGBIDs in research/teams.json.
+- "city" is the host city of the venue, formatted "City, ST".
+- Scores are null until the game is final; use status "scheduled" beforehand, "final" after, "postponed" if applicable.
+- Source: ESPN's public schedule/scoreboard API — https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard — is a good authoritative feed (football/nfl, basketball/nba, hockey/nhl, baseball/mlb).
+- One line per game. Output the games covered by SCOPE; appending more later just adds more lines.</pre>
+        </details>
+
+        <div class="field">
+          <label for="keywords">Add keywords</label>
+          <input id="keywords" type="text" placeholder="e.g. NFL 2025 week 1;  NBA opening night  —  or  “all 4 leagues, this week”">
+        </div>
+
+        <div class="field">
+          <label for="openText">Add notes / open text</label>
+          <textarea id="openText" placeholder="Anything extra — a date range, specific teams, only finals, preferred sources…"></textarea>
+        </div>
+
+        <details class="field field-collapse">
+          <summary>Generated prompt</summary>
+          <pre id="output" class="output-text" data-placeholder="The assembled prompt appears here as you type."></pre>
+        </details>
+
+        <div class="panel-actions panel-actions--end">
+          <button class="btn btn--primary" id="copyBtn" type="button">Copy prompt</button>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ════════ SECTION 2 · RESULT (cousin .jsonl) ════════ -->
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-tag">Results</span>
+        <span class="panel-file" id="jsonName"></span>
+      </div>
+      <div class="result" id="result"></div>
+    </section>
+
+  </main>
+
+  <script src="research.js"></script>
+</body>
+</html>

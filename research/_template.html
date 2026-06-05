@@ -3,9 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- 1) Rename this file to <topic>.html  (e.g. oldestbar.html)
-       2) Its cousin <topic>.json is loaded automatically into Section 2.
-       3) Edit the <title>, <h1>, and the #basePrompt template below. -->
+  <!-- HOW TO MAKE A RESEARCH PAGE
+       1) Copy this file → <topic>.html   (e.g. oldestbar.html)
+       2) Its cousin <topic>.jsonl loads into Section 2 automatically
+          (oldestbar.html → oldestbar.jsonl) — no wiring, just matching names.
+       3) Edit: <title>, the <h1> (names the prompt label + index card),
+          the <p class="research-sub"> blurb, and the #basePrompt below.
+       Shared research.css + research.js do everything else. -->
   <title>Research · New Topic</title>
   <link rel="stylesheet" href="research.css">
 </head>
@@ -13,58 +17,66 @@
   <main class="research">
 
     <header class="research-head">
-      <span class="research-kicker">Research Paradigm</span>
+      <span class="research-kicker">Research Assistant</span>
       <h1>New Topic</h1>
-      <p class="research-sub">Build the prompt → run it in your AI → save the JSON reply as this page's cousin file.</p>
+      <p class="research-sub">Add keywords below, then <strong>Copy</strong> the prompt and run it in your AI.
+        Paste the reply into <strong>Add results</strong> at the bottom — it merges into this page's
+        <code style="font-family:var(--mono)">.jsonl</code> without overwriting.</p>
     </header>
 
     <!-- ════════ SECTION 1 · PROMPT BUILDER ════════ -->
     <section class="panel">
       <div class="panel-head">
-        <span class="panel-tag">1 · Prompt</span>
-        <div class="panel-actions">
-          <button class="btn btn--ghost" id="editBtn" type="button">Edit</button>
-          <button class="btn btn--primary" id="generateBtn" type="button">Generate</button>
-          <button class="btn" id="copyBtn" type="button">Copy</button>
-        </div>
+        <span class="panel-tag">Prompt Additions</span>
       </div>
       <div class="panel-body">
 
-        <!-- Write your prompt here. Drop {{keywords}} and {{notes}} wherever
-             the inputs belong. Ask the AI to return ONLY valid JSON so it
-             slots cleanly into the cousin .json file. -->
-        <div class="field">
-          <label for="basePrompt">Base prompt (template)</label>
-          <textarea id="basePrompt" readonly>Describe your research task here.
+        <!-- Your prompt template. Put {{keywords}} and {{notes}} where the inputs
+             belong; anything not referenced is appended automatically.
+             Keep the closing rules: ONE JSON object per line (JSONL) so results
+             append cleanly, and RAW strings only (no markdown) so URLs don't get
+             turned into links that corrupt the file. Rename the schema fields to
+             whatever your topic needs. -->
+        <details class="field field-collapse">
+          <summary><span id="basePromptLabel">Base prompt</span></summary>
+          <pre id="basePrompt" class="prompt-text">You are a meticulous researcher. (Replace this with the role the AI should play.)
+
+TASK: For EACH item described in the focus below, find (describe exactly what you're looking for) and report verified facts only. The focus may name one item or several — an explicit list, or a group/category to resolve into its members. Return ONE result per item. If a fact is uncertain or disputed, say so rather than guessing.
 
 FOCUS KEYWORDS: {{keywords}}
 EXTRA DIRECTION: {{notes}}
 
-Return ONLY valid JSON (no prose, no markdown fences) with the fields you need.</textarea>
+Return ONLY JSON Lines (JSONL): one JSON object per line, each on a SINGLE line, with NO array brackets, NO commas between lines, NO prose, and NO markdown (no code fences; write every URL as a plain string, never a markdown link). Output one line per item, each exactly this shape:
+{"name": string, "category": string, "year": number, "summary": string, "sources": [{"title": string, "url": string}], "confidence": "high" | "medium" | "low"}
+Even if only one item is described, output a single line. JSON Lines lets new items be appended later by adding more lines.</pre>
+        </details>
+
+        <div class="field">
+          <label for="keywords">Add keywords</label>
+          <input id="keywords" type="text" placeholder="e.g. item one; item two; item three  —  or a group to resolve">
         </div>
 
         <div class="field">
-          <label for="keywords">Keywords</label>
-          <input id="keywords" type="text" placeholder="comma, separated, keywords">
+          <label for="openText">Add notes / open text</label>
+          <textarea id="openText" placeholder="Anything extra — constraints, what to ignore, preferred sources…"></textarea>
         </div>
 
-        <div class="field">
-          <label for="openText">Notes / open text</label>
-          <textarea id="openText" placeholder="Anything extra…"></textarea>
-        </div>
+        <details class="field field-collapse">
+          <summary>Generated prompt</summary>
+          <pre id="output" class="output-text" data-placeholder="The assembled prompt appears here as you type."></pre>
+        </details>
 
-        <div class="field">
-          <label for="output">Generated prompt</label>
-          <textarea id="output" readonly placeholder="Press Generate to assemble the prompt, then Copy."></textarea>
+        <div class="panel-actions panel-actions--end">
+          <button class="btn btn--primary" id="copyBtn" type="button">Copy prompt</button>
         </div>
 
       </div>
     </section>
 
-    <!-- ════════ SECTION 2 · RESULT (cousin JSON) ════════ -->
+    <!-- ════════ SECTION 2 · RESULT (cousin .jsonl) ════════ -->
     <section class="panel">
       <div class="panel-head">
-        <span class="panel-tag">2 · Result</span>
+        <span class="panel-tag">Results</span>
         <span class="panel-file" id="jsonName"></span>
       </div>
       <div class="result" id="result"></div>

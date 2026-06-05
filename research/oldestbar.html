@@ -10,62 +10,54 @@
   <main class="research">
 
     <header class="research-head">
-      <span class="research-kicker">Research Paradigm</span>
+      <span class="research-kicker">Research Assistant</span>
       <h1>Oldest Bar</h1>
-      <p class="research-sub">Build the prompt → run it in your AI → drop the JSON reply next door as
-        <code style="font-family:var(--mono)">oldestbar.json</code>.</p>
+      <p class="research-sub">Add keywords below, then <strong>Copy</strong> the prompt and run it in your AI.
+        Paste the reply into <strong>Add results</strong> at the bottom — it merges into
+        <code style="font-family:var(--mono)">oldestbar.jsonl</code> without overwriting.</p>
     </header>
 
     <!-- ════════ SECTION 1 · PROMPT BUILDER ════════ -->
     <section class="panel">
       <div class="panel-head">
-        <span class="panel-tag">1 · Prompt</span>
-        <div class="panel-actions">
-          <button class="btn btn--ghost" id="editBtn" type="button">Edit</button>
-          <button class="btn btn--primary" id="generateBtn" type="button">Generate</button>
-          <button class="btn" id="copyBtn" type="button">Copy</button>
-        </div>
+        <span class="panel-tag">Prompt Additions</span>
       </div>
       <div class="panel-body">
 
         <!-- The prompt template is specified here, at page-creation time.
              Use {{keywords}} and {{notes}} where the inputs should land;
              anything not referenced is appended automatically on Generate. -->
-        <div class="field">
-          <label for="basePrompt">Base prompt (template)</label>
-          <textarea id="basePrompt" readonly>You are a meticulous local-history researcher.
+        <details class="field field-collapse">
+          <summary><span id="basePromptLabel">Base prompt</span></summary>
+          <pre id="basePrompt" class="prompt-text">You are a meticulous local-history researcher.
 
-TASK: Identify the single oldest continuously-operating bar/tavern that matches the focus below, and report verified facts only. If a fact is uncertain or disputed, say so rather than guessing.
+TASK: For EACH location described in the focus below, identify the single oldest continuously-operating bar/tavern in that location, and report verified facts only. The focus may name one place or several — an explicit list, or a group/region of cities. Resolve a group into its individual cities and return ONE result per city. If a fact is uncertain or disputed, say so rather than guessing.
 
 FOCUS KEYWORDS: {{keywords}}
 EXTRA DIRECTION: {{notes}}
 
-Return ONLY valid minified-or-pretty JSON (no prose, no markdown fences) with exactly this shape:
-{
-  "name": string,
-  "city": string,
-  "established": number,
-  "address": string,
-  "still_open": boolean,
-  "claim_to_fame": string,
-  "sources": [ { "title": string, "url": string } ],
-  "confidence": "high" | "medium" | "low"
-}</textarea>
+Return ONLY JSON Lines (JSONL): one JSON object per line, each on a SINGLE line, with NO array brackets and NO commas between lines (no prose, no markdown fences). Output one line per location, each exactly this shape:
+{"name": string, "city": string, "established": number, "address": string, "still_open": boolean, "claim_to_fame": string, "sources": [{"title": string, "url": string}], "confidence": "high" | "medium" | "low"}
+Even if only one location is described, output a single line. JSON Lines lets new cities be appended later by adding more lines.</pre>
+        </details>
+
+        <div class="field">
+          <label for="keywords">Add keywords</label>
+          <input id="keywords" type="text" placeholder="e.g. Boston; Philadelphia; Charleston  —  or  “the original 13 colonies’ capitals”">
         </div>
 
         <div class="field">
-          <label for="keywords">Keywords</label>
-          <input id="keywords" type="text" placeholder="e.g. Boston, Massachusetts, colonial-era">
-        </div>
-
-        <div class="field">
-          <label for="openText">Notes / open text</label>
+          <label for="openText">Add notes / open text</label>
           <textarea id="openText" placeholder="Anything extra — constraints, what to ignore, preferred sources…"></textarea>
         </div>
 
-        <div class="field">
-          <label for="output">Generated prompt</label>
-          <textarea id="output" readonly placeholder="Press Generate to assemble the prompt, then Copy."></textarea>
+        <details class="field field-collapse">
+          <summary>Generated prompt</summary>
+          <pre id="output" class="output-text" data-placeholder="The assembled prompt appears here as you type."></pre>
+        </details>
+
+        <div class="panel-actions panel-actions--end">
+          <button class="btn btn--primary" id="copyBtn" type="button">Copy prompt</button>
         </div>
 
       </div>
@@ -74,7 +66,7 @@ Return ONLY valid minified-or-pretty JSON (no prose, no markdown fences) with ex
     <!-- ════════ SECTION 2 · RESULT (cousin JSON) ════════ -->
     <section class="panel">
       <div class="panel-head">
-        <span class="panel-tag">2 · Result</span>
+        <span class="panel-tag">Results</span>
         <span class="panel-file" id="jsonName"></span>
       </div>
       <div class="result" id="result"></div>

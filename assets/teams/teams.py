@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-teams.py — look up a team's colors and update db/teams.json.
+teams.py — look up a team's colors and update research/teams.json.
 
 Run:
     python teams.py
 
 Prompts for sport/league and a team name (any of full name, mascot,
 location, or abbreviation), looks the team up via ESPN's public team
-API, and writes the resulting palette into db/teams.json.
+API, and writes the resulting palette into research/teams.json.
 
 ESPN exposes two colors per team (primary + alternate). Tertiary defaults
-to #FFFFFF; edit db/teams.json by hand if you need custom values.
+to #FFFFFF; edit research/teams.json by hand if you need custom values.
 """
 import json
 import re
@@ -22,7 +22,7 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent
-JSON_PATH = REPO_ROOT / 'db' / 'teams.json'
+JSON_PATH = REPO_ROOT / 'research' / 'teams.json'
 HEX_RE = re.compile(r'^#?([0-9A-Fa-f]{6})$')
 ESPN_URL = 'https://site.api.espn.com/apis/site/v2/sports/{path}/teams?limit=900'
 
@@ -240,11 +240,11 @@ def main():
             tertiary,
             team.get('id')
         ):
-            print('\nNo matching canonical db/teams.json row found.')
+            print('\nNo matching canonical research/teams.json row found.')
             print('Add the franchise identity fields there first, then rerun this palette update.')
             return 1
         save_doc(doc)
-        print(f'\nUpdated db/teams.json / {league_input} / {abbreviation} ({display_name}).')
+        print(f'\nUpdated research/teams.json / {league_input} / {abbreviation} ({display_name}).')
         return 0
 
     league_teams = doc['leagues'].setdefault(league_input, {})

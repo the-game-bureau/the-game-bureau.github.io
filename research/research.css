@@ -86,11 +86,13 @@ body {
   color: var(--accent);
 }
 .panel-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.panel-actions--end { justify-content: flex-end; }
 .panel-body { padding: 0.9rem; display: flex; flex-direction: column; gap: 0.85rem; }
 
 /* ── Fields ── */
 .field { display: flex; flex-direction: column; gap: 0.35rem; }
-.field > label {
+.field > label,
+.field > .field-label {
   font-size: 0.74rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -115,9 +117,132 @@ body {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
-#basePrompt { min-height: 120px; }
-#openText   { min-height: 70px; }
-#output     { min-height: 130px; background: #0c0f15; }
+#openText { min-height: 70px; }
+
+/* Base prompt + generated prompt — plain-text readouts in a bordered frame */
+.prompt-text,
+.output-text {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #10131a;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.7rem 0.8rem;
+}
+.prompt-text  { min-height: 120px; }
+
+/* Base Prompt / Generated Prompt sections — short scrolling box, ~4 lines high */
+.prompt-box {
+  height: calc(6.2em + 1.5rem);   /* ~4 lines (line-height 1.55) + padding */
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Standalone full-width Copy button under Generated Prompt */
+.copy-prompt-btn {
+  width: 100%;
+  padding: 0.8rem;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Generated prompt → button + modal "shadow box" */
+.prompt-modal-btn { align-self: flex-start; }
+
+.prompt-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.6);
+}
+.prompt-modal[hidden] { display: none; }
+.prompt-modal-box {
+  width: 100%;
+  max-width: 680px;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+.prompt-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.9rem;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.prompt-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.2rem 0.4rem;
+  cursor: pointer;
+}
+.prompt-modal-close:hover { color: var(--text); }
+.prompt-modal .prompt-text,
+.prompt-modal .output-text {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  flex: 1;          /* fill the box and bound the height so it scrolls */
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Rolled-up base/generated prompt — collapsed by default, click to expand */
+.field-collapse { display: flex; flex-direction: column; gap: 0.4rem; }
+.field-collapse > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  user-select: none;
+}
+.field-collapse > summary::-webkit-details-marker { display: none; }
+.field-collapse > summary::after {
+  content: 'Expand';
+  margin-left: auto;
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: 6px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.7rem;
+}
+.field-collapse[open] > summary::after { content: 'Collapse'; }
+.field-collapse > summary:hover { color: var(--text); }
+.field-collapse > summary:hover::after { color: var(--text); border-color: var(--accent); }
+.output-text  { background: #0c0f15; }
+.output-text:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+}
 
 textarea[readonly], input[readonly] { opacity: 0.92; }
 #basePrompt.is-editing {
@@ -145,6 +270,12 @@ textarea[readonly], input[readonly] { opacity: 0.92; }
 .btn--primary:hover { background: color-mix(in srgb, var(--accent) 88%, #fff); }
 .btn--ghost { background: transparent; }
 .btn.is-on { background: var(--warn); border-color: var(--warn); color: #2a1f06; }
+.btn--danger {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
+  color: var(--warn);
+}
+.btn--danger:hover { background: color-mix(in srgb, var(--warn) 14%, transparent); }
 
 .mini {
   font-family: var(--mono);
@@ -160,8 +291,76 @@ textarea[readonly], input[readonly] { opacity: 0.92; }
 
 /* ── Result (section 2) ── */
 .result { padding: 0.9rem; }
-.result-bar { display: flex; gap: 0.4rem; margin-bottom: 0.8rem; flex-wrap: wrap; }
+.result-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+  flex-wrap: wrap;
+}
+.result-nav { display: flex; align-items: center; gap: 0.45rem; }
+.result-tools { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.nav-arrow { font-size: 1.05rem; line-height: 1; padding: 0.2rem 0.65rem; }
+.nav-arrow:hover { color: var(--text); border-color: var(--accent); }
+.result-counter {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+  min-width: 3.5ch;
+  text-align: center;
+}
 .result-view { font-size: 0.9rem; }
+
+/* Add local files to the prompt */
+.file-add { display: flex; flex-direction: column; gap: 0.5rem; }
+.file-add-btn { align-self: flex-start; cursor: pointer; }
+.file-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.file-list:empty { display: none; }
+.file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #10131a;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--text);
+}
+.file-chip-x {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0;
+}
+.file-chip-x:hover { color: var(--text); }
+
+/* Add Results — its own panel block */
+.merge-input {
+  width: 100%;
+  min-height: 90px;
+  background: #10131a;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  padding: 0.6rem 0.7rem;
+  resize: vertical;
+}
+.merge-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.merge-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.merge-hint { font-size: 0.75rem; color: var(--muted); }
 
 .result-empty {
   color: var(--muted);
@@ -238,6 +437,12 @@ textarea[readonly], input[readonly] { opacity: 0.92; }
   font-family: var(--mono);
   font-size: 0.78rem;
   color: var(--muted);
+}
+.index-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 .index-search {
   flex: 1 1 200px;
