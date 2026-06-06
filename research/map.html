@@ -3,47 +3,227 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Plots every stop in stops.jsonl on Google Maps (hybrid) with the what3words
-       3 m grid. Pins are placed by each stop's w3w (else its address). Drag a pin
-       to fix it → it rewrites that stop's w3w and auto-saves stops.jsonl.
+  <!-- ROUTES — a Mission Control tool. Plots every stop in stops.jsonl on Google
+       Maps (hybrid) with the what3words 3 m grid. Click a square to add a stop;
+       Build route links stops into an ordered path saved to routes.jsonl.
+       Wears the shared /mc/ chrome (admin-shell.css + admin nav/sign-in).
        NEEDS: a Google Maps JS API key (script tag at the bottom) and a
        what3words API key (W3W_KEY constant). -->
-  <title>Research · Stops Map</title>
-  <link rel="stylesheet" href="research.css">
+  <title>ROUTES | THE GAME BUREAU</title>
+  <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
-    .map-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
-    .map-select {
-      background: #10131a; border: 1px solid var(--line); border-radius: 8px;
-      color: var(--text); font-family: var(--mono); font-size: 0.85rem; padding: 0.5rem 0.7rem; max-width: 280px;
+    * { box-sizing: border-box; }
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);
+      --bic-red: #c23737;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255,255,255,0.92);
+      --accent: var(--bic-blue);
+      --danger: #a03f2d;
+      --success: #2f6b3d;
+      /* aliases so the map controls (built for the dark research theme) read on paper */
+      --text: var(--ink);
+      --panel: #fff;
+      --panel-2: rgba(var(--bic-blue-rgb), 0.06);
+      --accent-2: var(--bic-blue);
+      --warn: #ffb703;
+      --radius: 12px;
+      --bg: var(--paper-base);
+      --mono: "IBM Plex Mono", ui-monospace, monospace;
+      --sans: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    .map-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+    body {
+      margin: 0; min-height: 100vh; color: var(--ink);
+      font-family: var(--sans);
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+    }
+    button, input, textarea, select { font: inherit; }
+
+    .section-head {
+      display: grid; gap: 6px; margin: 0 0 18px; padding: 20px 22px 22px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.14); border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.74) 0%, rgba(var(--bic-blue-rgb), 0.08) 100%);
+      box-shadow: 0 18px 36px var(--paper-shadow);
+    }
+    .kicker { margin: 0; color: var(--muted); font-size: 0.74rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+    .section-head h2 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.8rem); line-height: 1; letter-spacing: -0.02em; }
+    .status { margin: 0; min-height: 1.4em; color: var(--muted); font-size: 0.92rem; }
+    .status.error { color: var(--danger); font-weight: 700; }
+    .status.success { color: var(--success); font-weight: 700; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 14px;
+      border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
+      font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn:hover { background: rgba(var(--bic-blue-rgb), 0.08); }
+    .btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn--primary:hover { background: rgba(var(--bic-blue-rgb), 0.85); }
+    .btn--danger { color: var(--danger); border-color: var(--danger); background: #fff; }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .btn.is-on { background: var(--warn); border-color: var(--warn); color: #2a1f06; }
+
+    .signout-btn { width: 42px; height: 42px; padding: 0; border-radius: 50%; background: #fff; border: 1px solid var(--line); cursor: pointer; }
+    .signout-btn svg { width: 22px; height: 22px; color: var(--ink); }
+
+    .map-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 14px; }
+    .map-select {
+      background: #fff; border: 1px solid var(--line); border-radius: 8px;
+      color: var(--ink); font-family: var(--mono); font-size: 0.85rem; padding: 0.5rem 0.7rem; max-width: 280px;
+    }
+    .map-select:focus { outline: none; border-color: var(--accent); }
     #map {
       height: 70vh; min-height: 380px;
-      border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel);
+      border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff;
+      box-shadow: 0 12px 28px var(--paper-shadow);
     }
+    .index-count { color: var(--muted); font-size: 0.85rem; font-family: var(--mono); }
+    .index-state { color: var(--muted); font-size: 0.9rem; margin-top: 10px; min-height: 1.2em; }
+    .route-panel { border: 1px solid var(--line); border-radius: 12px; background: var(--paper); padding: 0.85rem; margin-top: 14px; box-shadow: 0 12px 28px var(--paper-shadow); }
+    .route-head { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+    .route-head input {
+      flex: 1; min-width: 180px; background: #fff; border: 1px solid var(--line); border-radius: 8px;
+      color: var(--ink); font-family: var(--mono); font-size: 0.85rem; padding: 0.5rem 0.7rem;
+    }
+    .route-list { margin: 0.7rem 0 0; padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.88rem; }
+    .route-list:empty { display: none; }
+    .route-x { background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 0.8rem; }
+    .route-x:hover { color: var(--ink); }
+    .route-hint { color: var(--muted); font-size: 0.78rem; margin-top: 0.5rem; }
+    .route-hint code { font-family: var(--mono); color: var(--accent); }
+    .add-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1.5rem; background: rgba(0,0,0,0.45); }
+    .add-modal[hidden] { display: none; }
+    .add-box { width: 100%; max-width: 460px; max-height: 88vh; overflow: auto; background: var(--paper-base); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 64px var(--paper-shadow); }
+    .add-head { display: flex; align-items: center; justify-content: space-between; padding: 0.8rem 1rem; background: rgba(var(--bic-blue-rgb),0.06); border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .add-x { background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; line-height: 1; }
+    .add-x:hover { color: var(--ink); }
+    .add-body { padding: 1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+    .add-body label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .add-body input, .add-body select, .add-body textarea { background: #fff; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font-family: var(--sans); font-size: 0.9rem; padding: 0.5rem 0.65rem; resize: vertical; }
+    .add-body input:focus, .add-body select:focus, .add-body textarea:focus { outline: none; border-color: var(--accent); }
+    .add-body input[readonly] { color: var(--accent); font-family: var(--mono); }
+    .add-actions { display: flex; gap: 0.5rem; padding: 0.9rem 1rem; border-top: 1px solid var(--line); }
   </style>
+  <link rel="stylesheet" href="../mc/admin-shell.css">
 </head>
 <body>
-  <main class="research">
+  <main class="app">
+    <div class="topbar">
+      <div class="topbar-actions" style="margin-left:auto;">
+        <button class="btn mc-back-btn" type="button" data-mc-back data-mc-back-fallback="/">Home</button>
+        <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
 
-    <header class="research-head">
-      <span class="research-kicker">Research Assistant</span>
-      <h1>Stops Map</h1>
-      <p class="research-sub">Every stop in <code style="font-family:var(--mono)">stops.jsonl</code> on the what3words map. Drag a pin to fix it — it saves the new <code style="font-family:var(--mono)">w3w</code>.</p>
-    </header>
+    <section class="section-head">
+      <p class="kicker">TGB MISSION CONTROL</p>
+      <h2>ROUTES</h2>
+      <p class="status" id="pageStatus" aria-live="polite">Add stops and build routes.</p>
+    </section>
 
     <div class="map-toolbar">
       <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
         <select class="map-select" id="cityFilter" aria-label="Filter by city"></select>
-        <button class="btn" id="addBtn" type="button" title="Add a new stop at the map center">+ Add stop</button>
+        <button class="btn" id="addBtn" type="button" title="Add a new stop at the map center">Add stop</button>
+        <button class="btn" id="routeBtn" type="button" title="Link stops into an ordered route">Build route</button>
       </div>
       <span class="index-count" id="mapCount">Loading…</span>
     </div>
 
     <div id="map"></div>
+
+    <div id="routePanel" class="route-panel" hidden>
+      <div class="route-head">
+        <input id="routeName" type="text" placeholder="Route name (e.g. French Quarter Loop)">
+        <button class="btn btn--primary" id="routeSave" type="button">Save route</button>
+        <button class="btn" id="routeClear" type="button">Clear</button>
+      </div>
+      <ol id="routeList" class="route-list"></ol>
+      <div class="route-hint">Click stops on the map in order to build the path. Saves to <code>routes.jsonl</code> (separate from stops).</div>
+    </div>
+
     <div class="index-state" id="mapState"></div>
 
   </main>
+
+  <div id="addModal" class="add-modal" hidden>
+    <div class="add-box">
+      <div class="add-head"><span>Add stop</span><button id="addClose" class="add-x" type="button" aria-label="Close">✕</button></div>
+      <div class="add-body">
+        <label>Name<input id="f_name" type="text" placeholder="e.g. Jackson Square"></label>
+        <label>City<input id="f_city" type="text" placeholder="City, ST"></label>
+        <label>Address<input id="f_address" type="text"></label>
+        <label>Category<select id="f_category">
+          <option>landmark</option><option>historic-building</option><option>monument</option><option>memorial</option>
+          <option>statue</option><option>public-art</option><option>museum</option><option>church</option>
+          <option>plaza</option><option>park</option><option>market</option><option>theater</option><option>bridge</option>
+          <option selected>other</option>
+        </select></label>
+        <label>Description<textarea id="f_description" rows="2"></textarea></label>
+        <label>On tours<input id="f_on_tours" type="text"></label>
+        <label>Source title<input id="f_src_title" type="text"></label>
+        <label>Source URL<input id="f_src_url" type="text"></label>
+        <label>what3words (from the selected square)<input id="f_w3w" type="text" readonly></label>
+      </div>
+      <div class="add-actions">
+        <button class="btn btn--primary" id="addSave" type="button">Add stop</button>
+        <button class="btn" id="addCancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../mc/admin-auth.js"></script>
+  <script src="../mc/admin-shell.js"></script>
+  <script src="../mc/admin-nav-menu.js"></script>
+  <script>
+    // Mission Control chrome: sign-in dropdown + sign-out, shared across /mc/ pages.
+    (function () {
+      'use strict';
+      const SUPABASE_CONFIG = {
+        url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+        publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+      };
+      const signOutBtn = document.getElementById('signOutBtn');
+      const pageStatus = document.getElementById('pageStatus');
+      function setStatus(text, kind) {
+        if (!pageStatus) return;
+        pageStatus.textContent = text || '';
+        pageStatus.classList.toggle('error', kind === 'error');
+        pageStatus.classList.toggle('success', kind === 'success');
+      }
+      const adminAuth = window.TgbMcAdminAuth.create({
+        supabaseConfig: SUPABASE_CONFIG,
+        onAuthorized: () => setStatus('Add stops and build routes.', 'success'),
+        onSignedOut: () => setStatus('Add stops and build routes.')
+      });
+      if (window.TgbMcAdminNav) {
+        window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
+      }
+      adminAuth.init();
+    }());
+  </script>
 
   <script>
   (function () {
@@ -72,24 +252,22 @@
       } catch (_) { return null; }
     }
 
-    // ── Nominatim geocoding (fallback when a stop has no w3w yet) ──
-    let lastGeocode = 0;
-    async function geocode(query) {
-      const wait = Math.max(0, 1100 - (Date.now() - lastGeocode));
-      if (wait) await new Promise((r) => setTimeout(r, wait));
-      lastGeocode = Date.now();
-      const res = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=' +
-        encodeURIComponent(query), { headers: { Accept: 'application/json' } });
-      if (!res.ok) return null;
-      const a = await res.json();
-      return a[0] ? { lat: parseFloat(a[0].lat), lng: parseFloat(a[0].lon) } : null;
+    // ── Geocoding via Google Maps (browser, uses your Maps key — fast, no rate-limit blocks) ──
+    let geocoder = null;
+    function googleGeocode(query) {
+      return new Promise((resolve) => {
+        if (!geocoder) return resolve(null);
+        geocoder.geocode({ address: query }, (res, status) => {
+          if (status === 'OK' && res && res[0]) { const l = res[0].geometry.location; resolve({ lat: l.lat(), lng: l.lng() }); }
+          else resolve(null);
+        });
+      });
     }
     async function geocodeStop(s) {
       const q = [];
       if (s.name && s.city) q.push(s.name + ', ' + s.city);
       if (s.address) q.push(s.address);
-      if (s.name && s.city) q.push(s.name + ' ' + String(s.city).split(',')[0]);
-      for (const x of q) { const ll = await geocode(x); if (ll) return ll; }
+      for (const x of q) { const ll = await googleGeocode(x); if (ll) return ll; }
       return null;
     }
     const median = (arr) => { const a = [...arr].sort((x, y) => x - y), m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
@@ -100,16 +278,13 @@
     const countEl = document.getElementById('mapCount');
     const stateEl = document.getElementById('mapState');
 
-    let map = null, info = null, stops = [], markers = [], fileHandle = null;
+    let map = null, info = null, stops = [], markers = [], fileHandle = null, didInitialZoom = false;
 
     function pinIcon(bad) {
       return { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: bad ? '#e0564a' : '#4cc2a8', fillOpacity: 0.95, strokeColor: '#0a0f14', strokeWeight: 2 };
     }
 
     function popupHtml(s, bad) {
-      const dest = s._ll ? s._ll.lat + ',' + s._ll.lng : '';
-      const origin = s.address || (s.name && s.city ? s.name + ', ' + s.city : '');
-      const cmp = (origin && dest) ? 'https://www.google.com/maps/dir/?api=1&origin=' + encodeURIComponent(origin) + '&destination=' + dest : '';
       return '<div style="font-family:system-ui,sans-serif;font-size:13px;line-height:1.5;color:#111;max-width:250px">' +
         '<div style="font-weight:700">' + esc(s.name) + '</div>' +
         (s.category ? '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#0a7a5f">' + esc(s.category) + '</div>' : '') +
@@ -117,9 +292,6 @@
         (s.on_tours ? '<div style="color:#666">' + esc(s.on_tours) + '</div>' : '') +
         (s.w3w ? '<div style="color:#666">///<a href="https://what3words.com/' + esc(s.w3w) + '" target="_blank" rel="noopener">' + esc(s.w3w) + '</a></div>' : '<div style="color:#c0392b">no w3w yet</div>') +
         (bad ? '<div style="color:#c0392b;font-weight:600">⚠ far from the other ' + esc(s.city) + ' stops</div>' : '') +
-        (cmp ? '<div style="margin-top:3px"><a href="' + cmp + '" target="_blank" rel="noopener">Compare address vs pin ↗</a></div>' : '') +
-        (s.source && s.source.url ? '<div><a href="' + esc(s.source.url) + '" target="_blank" rel="noopener">source</a></div>' : '') +
-        '<div style="color:#999;margin-top:4px">drag the pin to fix it — saves the new w3w</div>' +
         '</div>';
     }
 
@@ -134,30 +306,21 @@
       } catch (e) { if (e.name !== 'AbortError') stateEl.textContent = 'Save failed: ' + e.message; return false; }
     }
 
-    async function onPinDragged(s, marker) {
-      const p = marker.getPosition();
-      const lat = p.lat(), lng = p.lng();
-      s._ll = { lat, lng };
-      stateEl.textContent = 'Looking up what3words for ' + s.name + '…';
-      const w = await coordsToW3W(lat, lng);
-      if (w) s.w3w = w;
-      marker.setIcon(pinIcon(false));
-      info.setContent(popupHtml(s, false)); info.open(map, marker);
-      const saved = await autosave();
-      stateEl.textContent = 'Moved ' + s.name + (w ? ' → ///' + w : ' (w3w lookup failed — check the key)') + (saved ? ' · saved.' : '');
-    }
-
-    // Place a stop's pin: w3w first, then address. Cached on s._ll.
+    // Place a stop's pin: stored lat/lng (instant) → w3w → address. The W3W API
+    // can't be the render source (convert-to-coordinates is a paid endpoint), so
+    // we cache any resolved coords back onto the stop as lat/lng.
     async function resolveStop(s) {
       if (s._ll) return;
-      if (s.w3w) { const c = await w3wToCoords(s.w3w); if (c) { s._ll = c; return; } }
-      if (s.address || (s.name && s.city)) { const c = await geocodeStop(s); if (c) s._ll = c; }
+      if (typeof s.lat === 'number' && typeof s.lng === 'number') { s._ll = { lat: s.lat, lng: s.lng }; return; }
+      const c = await geocodeStop(s);   // Google geocode (w3w→coords is a paid endpoint, not used)
+      if (c) { s._ll = c; s.lat = c.lat; s.lng = c.lng; }
     }
 
     async function render(city) {
       const need = stops.filter((s) => (!city || s.city === city) && !s._ll);
-      let done = 0;
-      for (const s of need) { countEl.textContent = 'Placing pins… ' + (++done) + '/' + need.length; await resolveStop(s); }
+      let done = 0, got = 0;
+      for (const s of need) { countEl.textContent = 'Placing pins… ' + (++done) + '/' + need.length; await resolveStop(s); if (s._ll) got++; }
+      if (got && fileHandle) autosave();   // persist newly geocoded coords once a file is linked
       draw(city);
     }
 
@@ -176,13 +339,22 @@
         const m0 = med[s.city];
         const bad = !!m0 && (Math.abs(s._ll.lat - m0.lat) > 0.3 || Math.abs(s._ll.lng - m0.lng) > 0.3);
         if (bad) outliers++;
-        const marker = new google.maps.Marker({ position: { lat: s._ll.lat, lng: s._ll.lng }, map, draggable: true, icon: pinIcon(bad), title: s.name });
-        marker.addListener('click', () => { info.setContent(popupHtml(s, bad)); info.open(map, marker); });
-        marker.addListener('dragend', () => onPinDragged(s, marker));
+        const marker = new google.maps.Marker({ position: { lat: s._ll.lat, lng: s._ll.lng }, map, icon: pinIcon(bad), title: s.name });
+        marker.addListener('click', () => {
+          if (routeMode) { addToRoute(s); return; }
+          info.setContent(popupHtml(s, bad)); info.open(map, marker);
+        });
         markers.push(marker);
         bounds.extend(marker.getPosition());
       });
-      if (markers.length) map.fitBounds(bounds, 60);
+      if (markers.length) {
+        map.fitBounds(bounds, 60);
+        // On first load, zoom in to the what3words grid level so the grid shows.
+        if (!didInitialZoom) {
+          didInitialZoom = true;
+          google.maps.event.addListenerOnce(map, 'idle', () => { if (map.getZoom() < 18) map.setZoom(18); });
+        }
+      }
 
       const unplaced = stops.filter((s) => !s._ll && (!city || s.city === city)).length;
       countEl.textContent = shown.length + ' stop' + (shown.length === 1 ? '' : 's') +
@@ -218,23 +390,107 @@
       } catch (_) { clear(); }
     }
 
-    // Create a stop at (lat,lng): ask for the name, save the w3w of that point.
-    // City comes from the current filter (asked only if on "All cities").
-    async function addStopAt(lat, lng) {
-      const name = (prompt('Stop name:') || '').trim();
-      if (!name) return;
-      const city = cityEl.value || (prompt('City (e.g. New Orleans, LA):') || '').trim();
-      if (!city) return;
-      stateEl.textContent = 'Adding “' + name + '”…';
+    // ── Add stop: select a square (its w3w), then fill a form in a lightbox ──
+    let selectedSquare = null, selectedMarker = null;
+
+    async function selectSquare(lat, lng) {
+      stateEl.textContent = 'Reading what3words…';
       const w = await coordsToW3W(lat, lng);
-      stops.push({ name, city, address: '', category: 'other', description: '', on_tours: '', source: { title: '', url: '' }, w3w: w || '', _ll: { lat, lng } });
-      if (![...cityEl.options].some((o) => o.value === city)) {
+      selectedSquare = { lat, lng, w3w: w || '' };
+      if (!selectedMarker) selectedMarker = new google.maps.Marker({ map, zIndex: 9999,
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 6, fillColor: '#ffd24a', fillOpacity: 1, strokeColor: '#0a0f14', strokeWeight: 2 } });
+      selectedMarker.setPosition({ lat, lng }); selectedMarker.setMap(map);
+      stateEl.textContent = w ? 'Selected ///' + w + ' — click Add stop.' : 'Selected square (w3w lookup failed — check the key).';
+      return selectedSquare;
+    }
+
+    async function openAddForm() {
+      if (!selectedSquare) { const c = map.getCenter(); await selectSquare(c.lat(), c.lng()); }
+      const set = (id, val) => { document.getElementById(id).value = val; };
+      set('f_name', ''); set('f_address', ''); set('f_description', ''); set('f_on_tours', '');
+      set('f_src_title', ''); set('f_src_url', '');
+      document.getElementById('f_category').value = 'other';
+      set('f_city', cityEl.value || '');
+      set('f_w3w', selectedSquare.w3w ? '///' + selectedSquare.w3w : '(none)');
+      document.getElementById('addModal').hidden = false;
+      document.getElementById('f_name').focus();
+    }
+    function closeAddForm() { document.getElementById('addModal').hidden = true; }
+
+    async function saveFromForm() {
+      const v = (id) => document.getElementById(id).value.trim();
+      const name = v('f_name');
+      if (!name) { document.getElementById('f_name').focus(); return; }
+      const sq = selectedSquare || { lat: map.getCenter().lat(), lng: map.getCenter().lng(), w3w: '' };
+      const city = v('f_city');
+      const stop = {
+        name, city, address: v('f_address'), category: document.getElementById('f_category').value,
+        description: v('f_description'), on_tours: v('f_on_tours'),
+        source: { title: v('f_src_title'), url: v('f_src_url') },
+        w3w: sq.w3w, lat: sq.lat, lng: sq.lng, _ll: { lat: sq.lat, lng: sq.lng },
+      };
+      stops.push(stop);
+      if (city && ![...cityEl.options].some((o) => o.value === city)) {
         const opt = document.createElement('option'); opt.value = city; opt.textContent = city; cityEl.appendChild(opt);
       }
-      cityEl.value = city;
-      draw(city);
+      if (city) cityEl.value = city;
+      closeAddForm();
+      if (selectedMarker) selectedMarker.setMap(null);
+      selectedSquare = null;
+      draw(cityEl.value);
       const saved = await autosave();
-      stateEl.textContent = 'Added “' + name + '”' + (w ? ' → ///' + w : '') + (saved ? ' · saved.' : '');
+      stateEl.textContent = 'Added “' + name + '”' + (stop.w3w ? ' → ///' + stop.w3w : '') + (saved ? ' · saved.' : '');
+    }
+
+    // ── Route builder: link stops into an ordered path, saved to routes.jsonl ──
+    let routeMode = false, routeLine = null, routeHandle = null, routes = [];
+    const route = { stops: [] };   // working route — array of stop objects
+    const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+    function toggleRouteMode() {
+      routeMode = !routeMode;
+      const btn = document.getElementById('routeBtn');
+      btn.classList.toggle('is-on', routeMode);
+      btn.textContent = routeMode ? 'Building route…' : 'Build route';
+      document.getElementById('routePanel').hidden = !routeMode;
+      stateEl.textContent = routeMode ? 'Route mode: click stops on the map in order.' : '';
+      drawRouteLine();
+    }
+    function addToRoute(s) {
+      if (!s._ll || route.stops[route.stops.length - 1] === s) return;
+      route.stops.push(s);
+      renderRouteList(); drawRouteLine();
+      stateEl.textContent = 'Route: ' + route.stops.length + ' stop(s). Name it and Save.';
+    }
+    function renderRouteList() {
+      const ol = document.getElementById('routeList');
+      ol.innerHTML = route.stops.map((s, i) => '<li>' + esc(s.name) + ' <button class="route-x" data-i="' + i + '" type="button" aria-label="Remove">✕</button></li>').join('');
+      ol.querySelectorAll('.route-x').forEach((b) => b.addEventListener('click', () => { route.stops.splice(+b.dataset.i, 1); renderRouteList(); drawRouteLine(); }));
+    }
+    function drawRouteLine() {
+      if (!routeLine) routeLine = new google.maps.Polyline({ map, geodesic: true, strokeColor: '#ffd24a', strokeOpacity: 0.95, strokeWeight: 3 });
+      routeLine.setPath(routeMode ? route.stops.filter((s) => s._ll).map((s) => ({ lat: s._ll.lat, lng: s._ll.lng })) : []);
+    }
+    function clearRoute() { route.stops = []; renderRouteList(); drawRouteLine(); document.getElementById('routeName').value = ''; }
+
+    async function saveRoute() {
+      if (!route.stops.length) { stateEl.textContent = 'Add stops to the route first.'; return; }
+      const name = (document.getElementById('routeName').value || '').trim() || (prompt('Route name:') || '').trim();
+      if (!name) return;
+      const city = route.stops[0].city || cityEl.value || '';
+      const r = { route_id: (slug(city) + '-' + slug(name)).slice(0, 64), name, city, stops: route.stops.map((s) => ({ name: s.name, w3w: s.w3w || '' })), notes: '' };
+      routes = routes.filter((x) => x.route_id !== r.route_id);   // replace if re-saving same route
+      routes.push(r);
+      const text = routes.map((x) => JSON.stringify(x)).join('\n') + '\n';
+      try {
+        if (!window.showSaveFilePicker) { stateEl.textContent = 'Built (in memory) — open in Chrome/Edge to write routes.jsonl.'; return; }
+        if (!routeHandle) routeHandle = await window.showSaveFilePicker({ suggestedName: 'routes.jsonl', types: [{ description: 'JSON Lines', accept: { 'application/json': ['.jsonl'] } }] });
+        const w = await routeHandle.createWritable(); await w.write(text); await w.close();
+        stateEl.textContent = 'Saved route “' + name + '” (' + r.stops.length + ' stops) to routes.jsonl.';
+      } catch (e) { if (e.name !== 'AbortError') stateEl.textContent = 'Save failed: ' + e.message; }
+    }
+    async function loadRoutes() {
+      try { const res = await fetch('routes.jsonl', { cache: 'no-store' }); if (res.ok) routes = (await res.text()).split(/\r?\n/).filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch (_) {}
     }
 
     async function init() {
@@ -244,14 +500,32 @@
         streetViewControl: false, fullscreenControl: true,
       });
       info = new google.maps.InfoWindow();
-      // Right-click anywhere → add a stop at that exact point.
-      map.addListener('rightclick', (e) => addStopAt(e.latLng.lat(), e.latLng.lng()));
-      // The button adds one at the current map center.
-      document.getElementById('addBtn').addEventListener('click', () => { const c = map.getCenter(); addStopAt(c.lat(), c.lng()); });
+      geocoder = new google.maps.Geocoder();
+      // Right-click → select that square and open the Add stop form.
+      map.addListener('rightclick', async (e) => { await selectSquare(e.latLng.lat(), e.latLng.lng()); openAddForm(); });
+      // Add stop button → form built from the currently selected square (or center).
+      document.getElementById('addBtn').addEventListener('click', openAddForm);
+      document.getElementById('addSave').addEventListener('click', saveFromForm);
+      document.getElementById('addCancel').addEventListener('click', closeAddForm);
+      document.getElementById('addClose').addEventListener('click', closeAddForm);
+      document.getElementById('addModal').addEventListener('click', (e) => { if (e.target.id === 'addModal') closeAddForm(); });
+      // Route builder.
+      document.getElementById('routeBtn').addEventListener('click', toggleRouteMode);
+      document.getElementById('routeSave').addEventListener('click', saveRoute);
+      document.getElementById('routeClear').addEventListener('click', clearRoute);
+      loadRoutes();
       map.addListener('idle', updateGrid);
+      // Click an empty square → select it and show its ///words with an Add link.
       map.addListener('click', async (e) => {
-        const w = await coordsToW3W(e.latLng.lat(), e.latLng.lng());
-        if (w) { info.setContent('<a href="https://what3words.com/' + w + '" target="_blank" rel="noopener">///' + w + '</a>'); info.setPosition(e.latLng); info.open(map); }
+        const sq = await selectSquare(e.latLng.lat(), e.latLng.lng());
+        info.setContent('<div style="font-family:system-ui,sans-serif;font-size:13px;color:#111">///' +
+          (sq.w3w ? '<a href="https://what3words.com/' + sq.w3w + '" target="_blank" rel="noopener">' + esc(sq.w3w) + '</a>' : '?') +
+          ' · <a href="#" id="popAdd">Add stop here</a></div>');
+        info.setPosition(e.latLng); info.open(map);
+        google.maps.event.addListenerOnce(info, 'domready', () => {
+          const a = document.getElementById('popAdd');
+          if (a) a.onclick = (ev) => { ev.preventDefault(); info.close(); openAddForm(); };
+        });
       });
 
       try {

@@ -60,15 +60,17 @@ let set = 0, n = 0;
 for (const r of recs) {
   if (!r) continue;
   if (n >= LIMIT) break;
-  if (!ALL && r.w3w) continue;
+  if (!ALL && typeof r.lat === 'number' && typeof r.lng === 'number') continue;  // already placed
   n++;
   const ll = await geocodeStop(r);
   if (!ll) { process.stderr.write(`[${n}] ${r.name} (${r.city}) -> could not geocode\n`); continue; }
+  r.lat = ll.lat; r.lng = ll.lng;                    // coords for fast map rendering
   if (ll.address) r.address = ll.address;
   const w = await toW3W(ll.lat, ll.lng);
-  if (w) { r.w3w = w; set++; process.stderr.write(`[${n}] ${r.name} (${r.city}) -> ///${w}\n`); }
-  else process.stderr.write(`[${n}] ${r.name} (${r.city}) -> w3w lookup failed\n`);
+  if (w) r.w3w = w;                                  // refresh w3w from the same point
+  set++;
+  process.stderr.write(`[${n}] ${r.name} (${r.city}) -> ${ll.lat.toFixed(5)},${ll.lng.toFixed(5)}${w ? ' ///' + w : ''}\n`);
   if (n % 20 === 0) flush();
 }
 flush();
-console.log(`\nDone: set w3w on ${set} of ${n} processed.`);
+console.log(`\nDone: placed ${set} of ${n} stops.`);

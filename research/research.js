@@ -18,7 +18,7 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const state = { data: null, view: 'pretty', files: [] };
+  const state = { data: null, view: 'pretty' };
 
   const els = {
     basePrompt: $('basePrompt'),
@@ -92,24 +92,27 @@
     return out.trim();
   }
 
-  function filesBlock() {
-    if (!state.files || !state.files.length) return '';
-    return state.files.map((f) =>
-      '\n\n--- FILE: ' + f.name + ' ---\n' + f.text).join('');
-  }
-
   function generate() {
     let out = assemblePrompt();
-    out += filesBlock();   // append any local files the researcher attached
-    // Pages with data-include-cousin append the CURRENT records to the prompt, so
-    // the AI updates them in place (preserving ids/curated fields) instead of
-    // rebuilding from scratch. Section 2 has already loaded them.
+    // Pages with data-include-cousin auto-append the CURRENT cousin records to the
+    // prompt (e.g. stops.html appends stops.jsonl). The framing comes from
+    // data-cousin-note; default is teams.html's "update in place".
     if (document.body.getAttribute('data-include-cousin') === 'true' &&
         Array.isArray(state.records) && state.records.length) {
-      const label = (els.jsonName && els.jsonName.textContent) || 'current data';
-      out += '\n\n--- CURRENT ' + label + ' (update these IN PLACE — preserve every' +
-             ' existing id and hand-curated field; return the full updated set) ---\n' +
-             JSON.stringify(state.records, null, 2);
+      // City-based cousins (stops) → only the scope city named in keywords.
+      // Cousins without a per-record city (teams) → include everything.
+      let recs = state.records;
+      if (state.records.some((r) => r && r.city)) {
+        const kw = ((els.keywords && els.keywords.value) || '').toLowerCase();
+        recs = state.records.filter((r) => r && r.city &&
+          kw.includes(String(r.city).split(',')[0].trim().toLowerCase()));
+      }
+      if (recs.length) {
+        const label = (els.jsonName && els.jsonName.textContent) || 'current data';
+        const note = document.body.getAttribute('data-cousin-note') ||
+          'update these IN PLACE — preserve every existing id and hand-curated field; return the full updated set';
+        out += '\n\n--- CURRENT ' + label + ' (' + note + ') ---\n' + JSON.stringify(recs, null, 2);
+      }
     }
     els.output.textContent = out;
     return out;
@@ -496,10 +499,12 @@
         val.map((item) => '<li>' + renderNode(item) + '</li>').join('') + '</ul>';
     }
     if (typeof val === 'object') {
-      const rows = Object.entries(val).map(([k, v]) =>
-        '<div class="kv"><div class="k">' + esc(k) + '</div>' +
-        '<div class="v-wrap">' + renderNode(v) + '</div></div>'
-      ).join('');
+      const rows = Object.entries(val).map(([k, v]) => {
+        const vHtml = (k === 'w3w' && typeof v === 'string' && v)
+          ? '<a class="v v-link" href="https://what3words.com/' + esc(v) + '" target="_blank" rel="noopener">///' + esc(v) + '</a>'
+          : renderNode(v);
+        return '<div class="kv"><div class="k">' + esc(k) + '</div><div class="v-wrap">' + vHtml + '</div></div>';
+      }).join('');
       return '<div class="node-obj">' + rows + '</div>';
     }
     if (typeof val === 'number')  return '<span class="v v-num">' + esc(val) + '</span>';
@@ -532,49 +537,26 @@
     toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
   }
 
-  /* ── Add local files to the prompt ───────────────────────── */
+  // Two-column layout: header full-width, prompt panels left, Results + Add
+  // Results right. The sections are injected dynamically, so we regroup them here.
+  function layoutTwoColumns() {
+    const main = document.querySelector('main.research');
+    if (!main || main.querySelector('.research-cols')) return;
+    const header = main.querySelector('.research-head');
+    const resultsSection = els.result && els.result.closest('section.panel');
+    const mergePanel = $('mergePanel');
 
-  // Inject an "Add local files" field into Prompt Additions (after Notes).
-  function setupFileAdder() {
-    if ($('promptFiles') || !els.openText) return;
-    const notesField = els.openText.closest('.field');
-    if (!notesField) return;
-    const field = document.createElement('div');
-    field.className = 'field';
-    field.innerHTML =
-      '<span class="field-label">Add local files</span>' +
-      '<div class="file-add">' +
-        '<label class="btn btn--ghost file-add-btn">Choose files' +
-          '<input type="file" id="promptFiles" multiple hidden></label>' +
-        '<div class="file-list" id="promptFileList"></div>' +
-      '</div>';
-    notesField.after(field);
-    $('promptFiles').addEventListener('change', onFilesChosen);
-  }
+    const cols = document.createElement('div');
+    cols.className = 'research-cols';
+    const left = document.createElement('div'); left.className = 'research-col';
+    const right = document.createElement('div'); right.className = 'research-col';
+    cols.append(left, right);
 
-  async function onFilesChosen(e) {
-    for (const file of [...e.target.files]) {
-      try { state.files.push({ name: file.name, text: await file.text() }); }
-      catch (_) { toast('Could not read ' + file.name); }
-    }
-    e.target.value = '';   // allow re-adding the same file
-    renderFileList();
-    generate();
-  }
-
-  function renderFileList() {
-    const list = $('promptFileList');
-    if (!list) return;
-    list.innerHTML = state.files.map((f, i) =>
-      '<span class="file-chip">' + esc(f.name) +
-      '<button type="button" class="file-chip-x" data-i="' + i + '" aria-label="Remove ' +
-      esc(f.name) + '">✕</button></span>').join('');
-    list.querySelectorAll('.file-chip-x').forEach((b) =>
-      b.addEventListener('click', () => {
-        state.files.splice(Number(b.dataset.i), 1);
-        renderFileList();
-        generate();
-      }));
+    [...main.children].forEach((ch) => {
+      if (ch === header || ch === cols) return;
+      ((ch === resultsSection || ch === mergePanel) ? right : left).appendChild(ch);
+    });
+    main.appendChild(cols);
   }
 
   /* ── wire up ─────────────────────────────────────────────── */
@@ -585,13 +567,13 @@
     // Live-assemble: the generated prompt stays in sync as you type (no button).
     if (els.keywords) els.keywords.addEventListener('input', generate);
     if (els.openText) els.openText.addEventListener('input', generate);
-    setupFileAdder();   // "Add local files" → contents appended to the prompt
     makePromptSection(els.basePrompt, 'Base Prompt', 'basePromptSection', 'before');
     makePromptSection(els.output, 'Generated Prompt', 'generatedPromptSection', 'after');
     relocateCopyButton();   // standalone full-width Copy under Generated Prompt
     generate();    // seed #output from the template on load
     loadResult();  // pull in the cousin JSON
     mountMerge();  // the "Add results" merge/append box
+    layoutTwoColumns();   // prompt panels left, Results + Add Results right
 
     // ←/→ page through results, but never while typing in a field.
     document.addEventListener('keydown', (e) => {
