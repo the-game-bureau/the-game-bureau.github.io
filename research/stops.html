@@ -4,11 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Walking-tour STOPS — points of interest that already appear on established
-       walking tours of a city. A city has several stops. The canonical location
-       is the LONG/global Google Plus Code — no lat/lon. Cousin: stops.jsonl.
-       Related: mc/starting-locations.html (the single gather point is separate). -->
+       walking tours of a city. A city has several stops. The AI returns a precise
+       ADDRESS; the canonical what3words address is derived from it by add-w3w.mjs
+       (AIs are unreliable at coordinates but good at addresses). No lat/lon.
+       Cousin: stops.jsonl. Related: mc/starting-locations.html (gather point). -->
   <title>TGB Research Assistant · Game Stops</title>
   <link rel="stylesheet" href="research.css">
+  <style>
+    .w3w-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .w3w-row input { flex: 1; min-width: 200px; }
+    .w3w-result { font-family: var(--mono); font-size: 0.85rem; color: var(--text); min-height: 1.2em; }
+    .w3w-result a { color: var(--accent); text-decoration: none; }
+    .w3w-result a:hover { text-decoration: underline; }
+  </style>
 </head>
 <body>
   <main class="research">
@@ -19,6 +27,21 @@
       <p class="research-sub">Use this Research Assistant to get ideas for Game Stops.</p>
     </header>
 
+    <!-- ════════ what3words LOOKUP ════════ -->
+    <section class="panel" id="w3wLookupPanel">
+      <div class="panel-head"><span class="panel-tag">what3words Lookup</span></div>
+      <div class="panel-body">
+        <div class="field">
+          <span class="field-label">Address → what3words</span>
+          <div class="w3w-row">
+            <input id="w3wAddr" type="text" placeholder="e.g. PNC Park, Pittsburgh, PA">
+            <button class="btn btn--primary" id="w3wBtn" type="button">Look up</button>
+          </div>
+          <div id="w3wResult" class="w3w-result"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ════════ SECTION 1 · PROMPT BUILDER ════════ -->
     <section class="panel">
       <div class="panel-head">
@@ -28,7 +51,7 @@
 
         <!-- Stops = waypoints that established walking tours actually visit:
              landmarks, monuments, public art, historic buildings, plazas, parks.
-             Many per city. LONG/global Plus Code is the canonical location (no lat/lon). -->
+             Many per city. The canonical location is the what3words address (no lat/lon). -->
         <details class="field field-collapse">
           <summary><span id="basePromptLabel">Base prompt</span></summary>
           <pre id="basePrompt" class="prompt-text">You are a local-history researcher cataloguing WALKING-TOUR STOPS — points of interest that ALREADY appear on established walking tours of a city. These are the waypoints a self-guided or guided tour actually visits.
@@ -38,16 +61,20 @@ EXTRA DIRECTION: {{notes}}
 
 For EACH city in the focus (one place, an explicit list, or a group resolved into its cities), return the stops that real, published walking tours of that city visit — recognizable, publicly accessible, pedestrian-reachable points of interest. Report verified, real places only; if a detail is uncertain, say so rather than guessing. A city has SEVERAL stops — return as many genuine tour stops as you can find (aim for 6–12 per city), ordered as a sensible walking route when possible.
 
+NEARBY ANCHORS: If any files are attached below (each under a "--- FILE: … ---" header), they list ANCHOR SPOTS — locations given as what3words addresses and/or street addresses (e.g. a rendezvous point or existing stops). When anchors are present, treat them as the center of the search: return only stops WITHIN EASY WALKING DISTANCE of an anchor (roughly a 10–15 minute walk, ~1 km), cluster the results around the anchors, and order them as a route that flows from one anchor to the next. Use each anchor's location to judge proximity. Do not output the anchor spots themselves as stops unless they are also genuine tour stops in their own right.
+
 GOOD stops: historic landmarks and buildings, monuments, memorials, statues and public art, museums, notable churches, plazas and squares, parks, markets, theaters, bridges, and similar visitable sights that appear on existing tours.
 AVOID: private property, inaccessible interiors, vague areas, and anything not actually on a walkable public route.
 
-Location: provide the LONG / global Google Plus Code (Open Location Code) only, e.g. "8FVC9G8F+6XQ" — 11 characters, never a short code. Do NOT include latitude/longitude.
+Location: each place is resolved later by a Places lookup, so what matters most is the EXACT common NAME of the place plus its "City, ST". Include a street address when you know it (it helps the lookup and is shown to humans), but NEVER output a what3words address or coordinates — those are derived afterward.
 
-Return ONLY JSON Lines (JSONL): one stop object per line, each on a SINGLE line, with NO array brackets, NO commas between lines, NO prose, and NO markdown (write every URL as a plain string, never a markdown link). Each line exactly this shape:
-{"name": string, "city": "City, ST", "address": string, "plus_code": string, "category": string, "description": string, "on_tours": string, "source": {"title": string, "url": string}}
+SOURCES: prefer authoritative, verifiable sources — official tour operators, city/visitor bureaus, historical societies and conservancies, museum or landmark official pages, and Wikipedia. BLOCKED sources (do NOT use — they have produced inaccurate addresses): nolapartybarges.com. If a place's address can only be found on a low-quality blog or a blocked source, leave it out rather than guess.
+
+Return ONLY JSON Lines (JSONL): one stop object per line, each on a SINGLE line, with NO array brackets, NO commas between lines, NO prose, and NO markdown (write every URL as a plain string, never a markdown link). Escape any double-quote that appears inside a string value as \" (e.g. a nickname like Bridget \"Biddy\" Mason) so each line stays valid JSON. Each line exactly this shape:
+{"name": string, "city": "City, ST", "address": string, "category": string, "description": string, "on_tours": string, "source": {"title": string, "url": string}}
 
 Rules:
-- plus_code is the canonical location: the LONG/global Open Location Code (11 chars, ~3.5 m precision). Never a short code; no lat/lon fields.
+- address must be precise enough to geocode to the exact spot (street number + street + city/state). do not output a w3w or coordinates — those are derived.
 - category is one of: landmark | historic-building | monument | memorial | statue | public-art | museum | church | plaza | park | market | theater | bridge | other.
 - description is one line on what the place is and why it's notable.
 - on_tours names a real walking tour (self-guided or guided) the stop appears on, when known.
@@ -88,5 +115,48 @@ Rules:
   </main>
 
   <script src="research.js"></script>
+  <script>
+  /* what3words lookup: address → coords (Nominatim) → ///words (what3words v3).
+     Replace CSNL2XHT with your real what3words API key. */
+  (function () {
+    const W3W_KEY = 'CSNL2XHT';
+    const addr = document.getElementById('w3wAddr');
+    const btn = document.getElementById('w3wBtn');
+    const out = document.getElementById('w3wResult');
+    if (!btn) return;
+
+    async function geocode(q) {
+      const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=' +
+        encodeURIComponent(q), { headers: { Accept: 'application/json' } });
+      if (!r.ok) return null;
+      const a = await r.json();
+      return a[0] ? { lat: +a[0].lat, lng: +a[0].lon } : null;
+    }
+    async function toW3W(lat, lng) {
+      const r = await fetch('https://api.what3words.com/v3/convert-to-3wa?coordinates=' +
+        lat + ',' + lng + '&key=' + W3W_KEY);
+      if (!r.ok) return null;
+      return (await r.json()).words || null;
+    }
+
+    async function run() {
+      const q = (addr.value || '').trim();
+      if (!q) { out.textContent = 'Enter an address.'; return; }
+      out.textContent = 'Looking up…'; btn.disabled = true;
+      try {
+        const ll = await geocode(q);
+        if (!ll) { out.textContent = 'Address not found.'; return; }
+        const w = await toW3W(ll.lat, ll.lng);
+        if (!w) { out.textContent = 'what3words lookup failed (check the API key).'; return; }
+        out.innerHTML = '<a href="https://what3words.com/' + w + '" target="_blank" rel="noopener">///' + w +
+          '</a> <button class="mini" id="w3wCopy" type="button">copy</button>';
+        document.getElementById('w3wCopy').addEventListener('click', () => navigator.clipboard.writeText(w));
+      } catch (e) { out.textContent = 'Error: ' + e.message; }
+      finally { btn.disabled = false; }
+    }
+    btn.addEventListener('click', run);
+    addr.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
+  })();
+  </script>
 </body>
 </html>

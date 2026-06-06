@@ -127,7 +127,9 @@ That's it — `research.css` and `research.js` are shared, so new pages are tiny
 | `_template.html` | Starter page to copy. |
 | `oldestbar.html` / `oldestbar.jsonl` | Worked example + its cousin records. |
 | `games.html` / `games.jsonl` | Sports matchups across the 4 major leagues (TGBID-keyed; MLS-extensible). |
-| `stops.html` / `stops.jsonl` | Walking-tour stops a city already has — landmarks, monuments, public art (several per city; long Plus Code). |
+| `stops.html` / `stops.jsonl` | Walking-tour stops a city already has — landmarks, monuments, public art (several per city). Location is a **what3words** address (`w3w`). |
+| `map.html` | Google Maps (satellite) + the what3words 3 m grid. Pins are placed by each stop's `w3w` (else its address); **drag a pin** to fix it → rewrites the `w3w` and auto-saves `stops.jsonl`. Click any spot for its `///words`. |
+| `add-w3w.mjs` | CLI: geocode each stop (**Google Places** when `GOOGLE_PLACES_API_KEY` is set, else Nominatim) and write its **what3words** address (`w3w`). `node research/add-w3w.mjs [file] [limit] [--all]` (default fills only stops missing a w3w). Keys: `GOOGLE_PLACES_API_KEY` (optional), `W3W_API_KEY`. |
 | `teams.html` / `teams.json` | The team database (4 major leagues, MLS-extensible). Wraps teams.json's built-in update prompt; pages one team at a time, and **Overwrite** writes teams.json back as a pretty object (`_ai_update_prompt` preserved). The `/assets/teams/` editor is the alternative. |
 | `research.css` | Shared dark "dev-tool" styling. |
 | `research.js` | Shared engine: prompt assembly + cousin loader/renderer + format-aware merge (.jsonl/.json). |

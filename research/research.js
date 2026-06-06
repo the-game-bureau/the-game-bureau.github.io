@@ -161,22 +161,35 @@
     return url.split('/').pop() || url;
   }
 
+  // Undo markdown auto-linking that breaks JSON: turn [text](url) back into text.
+  // AI/chat renderers often linkify the trailing part of a JSON URL value, e.g.
+  //   "url":"https://x/"}}  →  "url":"[https://x/"}}](https://x/%22}})
+  // which spills ](…) outside the braces and makes the line unparseable.
+  function stripMarkdownLinks(s) {
+    let prev;
+    do { prev = s; s = s.replace(/\[([^\]\n]*)\]\([^)\n]*\)/g, '$1'); } while (s !== prev);
+    return s;
+  }
+
+  let lastSkipped = 0;   // unparseable lines from the most recent parseRecords()
+
   /* Parse a result file flexibly:
        • a normal JSON value (object or array)         → used as-is
        • JSON Lines (.jsonl): one JSON object per line → array of records
-     The JSONL path is what lets you APPEND new records as extra lines. */
+     Markdown-link artifacts are cleaned first so corrupted pastes self-heal. */
   function parseRecords(text) {
+    lastSkipped = 0;
     const trimmed = text.trim();
     if (!trimmed) return [];
     try {
-      return JSON.parse(trimmed);                  // whole-file JSON (array/object)
+      return JSON.parse(stripMarkdownLinks(trimmed));   // whole-file JSON (array/object)
     } catch (_) { /* not a single JSON value — try JSON Lines */ }
 
     const records = [];
     trimmed.split(/\r?\n/).forEach((raw) => {
-      const line = raw.trim().replace(/,\s*$/, ''); // tolerate trailing commas
+      const line = stripMarkdownLinks(raw.trim()).replace(/,\s*$/, ''); // clean + tolerate trailing commas
       if (!line || line === '[' || line === ']') return;
-      try { records.push(JSON.parse(line)); } catch (_) { /* skip unparseable line */ }
+      try { records.push(JSON.parse(line)); } catch (_) { lastSkipped++; }
     });
     if (!records.length) throw new Error('No valid JSON records found');
     return records;
@@ -356,10 +369,13 @@
     let parsed;
     try { parsed = parseRecords(raw); }
     catch (e) { toast('Could not parse: ' + e.message); return null; }
+    const skipped = lastSkipped;   // capture before any later parseRecords() call
     const records = detectShape(parsed).records;
     if (!records.length) { toast('No records found in that paste'); return null; }
-    return { parsed, records };
+    return { parsed, records, skipped };
   }
+
+  const skipNote = (n) => (n ? ' · ' + n + ' line(s) skipped' : '');
 
   async function ensureHandle() {
     if (!state.fileHandle) {
@@ -413,7 +429,7 @@
       const before = existing.length;
       const merged = dedupe(existing.concat(input.records));
       await commitRecords(merged, before, shape);
-      toast('Added ' + (merged.length - before) + ' · total ' + merged.length);
+      toast('Added ' + (merged.length - before) + ' · total ' + merged.length + skipNote(input.skipped));
     } catch (e) {
       if (e.name !== 'AbortError') toast('Write failed: ' + e.message);
     }
@@ -430,7 +446,7 @@
       const pasted = detectShape(input.parsed);
       const shape = pasted.kind === 'object' ? pasted : (state.shape || { kind: 'jsonl' });
       await commitRecords(input.records, 0, shape);
-      toast('Overwrote · ' + input.records.length + ' record(s)');
+      toast('Overwrote · ' + input.records.length + ' record(s)' + skipNote(input.skipped));
     } catch (e) {
       if (e.name !== 'AbortError') toast('Write failed: ' + e.message);
     }

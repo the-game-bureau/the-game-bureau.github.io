@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Plots every stop in stops.jsonl on Google Maps (hybrid) with the what3words
+       3 m grid. Pins are placed by each stop's w3w (else its address). Drag a pin
+       to fix it → it rewrites that stop's w3w and auto-saves stops.jsonl.
+       NEEDS: a Google Maps JS API key (script tag at the bottom) and a
+       what3words API key (W3W_KEY constant). -->
+  <title>Research · Stops Map</title>
+  <link rel="stylesheet" href="research.css">
+  <style>
+    .map-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+    .map-select {
+      background: #10131a; border: 1px solid var(--line); border-radius: 8px;
+      color: var(--text); font-family: var(--mono); font-size: 0.85rem; padding: 0.5rem 0.7rem; max-width: 280px;
+    }
+    .map-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+    #map {
+      height: 70vh; min-height: 380px;
+      border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel);
+    }
+  </style>
+</head>
+<body>
+  <main class="research">
+
+    <header class="research-head">
+      <span class="research-kicker">Research Assistant</span>
+      <h1>Stops Map</h1>
+      <p class="research-sub">Every stop in <code style="font-family:var(--mono)">stops.jsonl</code> on the what3words map. Drag a pin to fix it — it saves the new <code style="font-family:var(--mono)">w3w</code>.</p>
+    </header>
+
+    <div class="map-toolbar">
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <select class="map-select" id="cityFilter" aria-label="Filter by city"></select>
+        <button class="btn" id="addBtn" type="button" title="Add a new stop at the map center">+ Add stop</button>
+      </div>
+      <span class="index-count" id="mapCount">Loading…</span>
+    </div>
+
+    <div id="map"></div>
+    <div class="index-state" id="mapState"></div>
+
+  </main>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // Silence the harmless google.maps.Marker deprecation notice.
+    const _warn = console.warn.bind(console);
+    console.warn = (...a) => { if (typeof a[0] === 'string' && a[0].includes('google.maps.Marker is deprecated')) return; _warn(...a); };
+
+    // ── what3words v3 API. Replace CSNL2XHT with your real key. ──
+    const W3W_KEY = 'CSNL2XHT';
+    async function coordsToW3W(lat, lng) {
+      try {
+        const r = await fetch('https://api.what3words.com/v3/convert-to-3wa?coordinates=' + lat + ',' + lng + '&key=' + W3W_KEY);
+        if (!r.ok) return null;
+        return (await r.json()).words || null;
+      } catch (_) { return null; }
+    }
+    async function w3wToCoords(words) {
+      try {
+        const r = await fetch('https://api.what3words.com/v3/convert-to-coordinates?words=' +
+          encodeURIComponent(String(words).replace(/^\/+/, '')) + '&key=' + W3W_KEY);
+        if (!r.ok) return null;
+        const c = (await r.json()).coordinates;
+        return c ? { lat: c.lat, lng: c.lng } : null;
+      } catch (_) { return null; }
+    }
+
+    // ── Nominatim geocoding (fallback when a stop has no w3w yet) ──
+    let lastGeocode = 0;
+    async function geocode(query) {
+      const wait = Math.max(0, 1100 - (Date.now() - lastGeocode));
+      if (wait) await new Promise((r) => setTimeout(r, wait));
+      lastGeocode = Date.now();
+      const res = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=' +
+        encodeURIComponent(query), { headers: { Accept: 'application/json' } });
+      if (!res.ok) return null;
+      const a = await res.json();
+      return a[0] ? { lat: parseFloat(a[0].lat), lng: parseFloat(a[0].lon) } : null;
+    }
+    async function geocodeStop(s) {
+      const q = [];
+      if (s.name && s.city) q.push(s.name + ', ' + s.city);
+      if (s.address) q.push(s.address);
+      if (s.name && s.city) q.push(s.name + ' ' + String(s.city).split(',')[0]);
+      for (const x of q) { const ll = await geocode(x); if (ll) return ll; }
+      return null;
+    }
+    const median = (arr) => { const a = [...arr].sort((x, y) => x - y), m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+    function stripMarkdownLinks(s) { let p; do { p = s; s = s.replace(/\[([^\]\n]*)\]\([^)\n]*\)/g, '$1'); } while (s !== p); return s; }
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    const cityEl = document.getElementById('cityFilter');
+    const countEl = document.getElementById('mapCount');
+    const stateEl = document.getElementById('mapState');
+
+    let map = null, info = null, stops = [], markers = [], fileHandle = null;
+
+    function pinIcon(bad) {
+      return { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: bad ? '#e0564a' : '#4cc2a8', fillOpacity: 0.95, strokeColor: '#0a0f14', strokeWeight: 2 };
+    }
+
+    function popupHtml(s, bad) {
+      const dest = s._ll ? s._ll.lat + ',' + s._ll.lng : '';
+      const origin = s.address || (s.name && s.city ? s.name + ', ' + s.city : '');
+      const cmp = (origin && dest) ? 'https://www.google.com/maps/dir/?api=1&origin=' + encodeURIComponent(origin) + '&destination=' + dest : '';
+      return '<div style="font-family:system-ui,sans-serif;font-size:13px;line-height:1.5;color:#111;max-width:250px">' +
+        '<div style="font-weight:700">' + esc(s.name) + '</div>' +
+        (s.category ? '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#0a7a5f">' + esc(s.category) + '</div>' : '') +
+        (s.address ? '<div>' + esc(s.address) + '</div>' : '') +
+        (s.on_tours ? '<div style="color:#666">' + esc(s.on_tours) + '</div>' : '') +
+        (s.w3w ? '<div style="color:#666">///<a href="https://what3words.com/' + esc(s.w3w) + '" target="_blank" rel="noopener">' + esc(s.w3w) + '</a></div>' : '<div style="color:#c0392b">no w3w yet</div>') +
+        (bad ? '<div style="color:#c0392b;font-weight:600">⚠ far from the other ' + esc(s.city) + ' stops</div>' : '') +
+        (cmp ? '<div style="margin-top:3px"><a href="' + cmp + '" target="_blank" rel="noopener">Compare address vs pin ↗</a></div>' : '') +
+        (s.source && s.source.url ? '<div><a href="' + esc(s.source.url) + '" target="_blank" rel="noopener">source</a></div>' : '') +
+        '<div style="color:#999;margin-top:4px">drag the pin to fix it — saves the new w3w</div>' +
+        '</div>';
+    }
+
+    // Write stops.jsonl to disk (File System Access). Picks the file once, then reuses it.
+    async function autosave() {
+      const text = stops.map((s) => { const o = Object.assign({}, s); delete o._ll; return JSON.stringify(o); }).join('\n') + '\n';
+      try {
+        if (!window.showSaveFilePicker) { stateEl.textContent = 'Moved (in memory) — this browser can’t auto-save; open in Chrome/Edge to persist.'; return false; }
+        if (!fileHandle) fileHandle = await window.showSaveFilePicker({ suggestedName: 'stops.jsonl', types: [{ description: 'JSON Lines', accept: { 'application/json': ['.jsonl'] } }] });
+        const w = await fileHandle.createWritable(); await w.write(text); await w.close();
+        return true;
+      } catch (e) { if (e.name !== 'AbortError') stateEl.textContent = 'Save failed: ' + e.message; return false; }
+    }
+
+    async function onPinDragged(s, marker) {
+      const p = marker.getPosition();
+      const lat = p.lat(), lng = p.lng();
+      s._ll = { lat, lng };
+      stateEl.textContent = 'Looking up what3words for ' + s.name + '…';
+      const w = await coordsToW3W(lat, lng);
+      if (w) s.w3w = w;
+      marker.setIcon(pinIcon(false));
+      info.setContent(popupHtml(s, false)); info.open(map, marker);
+      const saved = await autosave();
+      stateEl.textContent = 'Moved ' + s.name + (w ? ' → ///' + w : ' (w3w lookup failed — check the key)') + (saved ? ' · saved.' : '');
+    }
+
+    // Place a stop's pin: w3w first, then address. Cached on s._ll.
+    async function resolveStop(s) {
+      if (s._ll) return;
+      if (s.w3w) { const c = await w3wToCoords(s.w3w); if (c) { s._ll = c; return; } }
+      if (s.address || (s.name && s.city)) { const c = await geocodeStop(s); if (c) s._ll = c; }
+    }
+
+    async function render(city) {
+      const need = stops.filter((s) => (!city || s.city === city) && !s._ll);
+      let done = 0;
+      for (const s of need) { countEl.textContent = 'Placing pins… ' + (++done) + '/' + need.length; await resolveStop(s); }
+      draw(city);
+    }
+
+    function draw(city) {
+      markers.forEach((m) => m.setMap(null));
+      markers = [];
+      const shown = stops.filter((s) => s._ll && (!city || s.city === city));
+      const groups = {};
+      shown.forEach((s) => { (groups[s.city] = groups[s.city] || []).push(s); });
+      const med = {};
+      for (const c in groups) med[c] = { lat: median(groups[c].map((s) => s._ll.lat)), lng: median(groups[c].map((s) => s._ll.lng)) };
+
+      let outliers = 0;
+      const bounds = new google.maps.LatLngBounds();
+      shown.forEach((s) => {
+        const m0 = med[s.city];
+        const bad = !!m0 && (Math.abs(s._ll.lat - m0.lat) > 0.3 || Math.abs(s._ll.lng - m0.lng) > 0.3);
+        if (bad) outliers++;
+        const marker = new google.maps.Marker({ position: { lat: s._ll.lat, lng: s._ll.lng }, map, draggable: true, icon: pinIcon(bad), title: s.name });
+        marker.addListener('click', () => { info.setContent(popupHtml(s, bad)); info.open(map, marker); });
+        marker.addListener('dragend', () => onPinDragged(s, marker));
+        markers.push(marker);
+        bounds.extend(marker.getPosition());
+      });
+      if (markers.length) map.fitBounds(bounds, 60);
+
+      const unplaced = stops.filter((s) => !s._ll && (!city || s.city === city)).length;
+      countEl.textContent = shown.length + ' stop' + (shown.length === 1 ? '' : 's') +
+        (outliers ? ' · ⚠ ' + outliers + ' off-cluster' : '') +
+        (unplaced ? ' · ' + unplaced + ' unplaced' : '');
+    }
+
+    function buildCityFilter() {
+      const cities = [...new Set(stops.map((s) => s.city).filter(Boolean))].sort();
+      cityEl.innerHTML = '<option value="">All cities</option>' + cities.map((c) => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+      const DEFAULT_CITY = 'New Orleans, LA';
+      const start = cities.includes(DEFAULT_CITY) ? DEFAULT_CITY : (cities.length > 1 ? cities[0] : '');
+      cityEl.value = start;
+      cityEl.addEventListener('change', () => render(cityEl.value));
+      render(start);
+    }
+
+    // ── what3words 3 m grid overlay (Grid Section API), z18+ ──
+    async function updateGrid() {
+      if (!map) return;
+      const clear = () => map.data.forEach((f) => map.data.remove(f));
+      if (map.getZoom() < 18) { clear(); return; }
+      const b = map.getBounds(); if (!b) return;
+      const ne = b.getNorthEast(), sw = b.getSouthWest();
+      try {
+        const r = await fetch('https://api.what3words.com/v3/grid-section?bounding-box=' +
+          sw.lat() + ',' + sw.lng() + ',' + ne.lat() + ',' + ne.lng() + '&format=geojson&key=' + W3W_KEY);
+        if (!r.ok) { clear(); return; }
+        const geo = await r.json();
+        clear();
+        map.data.addGeoJson(geo);
+        map.data.setStyle({ strokeColor: '#ffffff', strokeWeight: 0.6, strokeOpacity: 0.55, clickable: false });
+      } catch (_) { clear(); }
+    }
+
+    // Create a stop at (lat,lng): ask for the name, save the w3w of that point.
+    // City comes from the current filter (asked only if on "All cities").
+    async function addStopAt(lat, lng) {
+      const name = (prompt('Stop name:') || '').trim();
+      if (!name) return;
+      const city = cityEl.value || (prompt('City (e.g. New Orleans, LA):') || '').trim();
+      if (!city) return;
+      stateEl.textContent = 'Adding “' + name + '”…';
+      const w = await coordsToW3W(lat, lng);
+      stops.push({ name, city, address: '', category: 'other', description: '', on_tours: '', source: { title: '', url: '' }, w3w: w || '', _ll: { lat, lng } });
+      if (![...cityEl.options].some((o) => o.value === city)) {
+        const opt = document.createElement('option'); opt.value = city; opt.textContent = city; cityEl.appendChild(opt);
+      }
+      cityEl.value = city;
+      draw(city);
+      const saved = await autosave();
+      stateEl.textContent = 'Added “' + name + '”' + (w ? ' → ///' + w : '') + (saved ? ' · saved.' : '');
+    }
+
+    async function init() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 39.5, lng: -98.35 }, zoom: 4, mapTypeId: 'hybrid', tilt: 0,
+        zoomControl: true, gestureHandling: 'greedy', mapTypeControl: true,
+        streetViewControl: false, fullscreenControl: true,
+      });
+      info = new google.maps.InfoWindow();
+      // Right-click anywhere → add a stop at that exact point.
+      map.addListener('rightclick', (e) => addStopAt(e.latLng.lat(), e.latLng.lng()));
+      // The button adds one at the current map center.
+      document.getElementById('addBtn').addEventListener('click', () => { const c = map.getCenter(); addStopAt(c.lat(), c.lng()); });
+      map.addListener('idle', updateGrid);
+      map.addListener('click', async (e) => {
+        const w = await coordsToW3W(e.latLng.lat(), e.latLng.lng());
+        if (w) { info.setContent('<a href="https://what3words.com/' + w + '" target="_blank" rel="noopener">///' + w + '</a>'); info.setPosition(e.latLng); info.open(map); }
+      });
+
+      try {
+        const res = await fetch('stops.jsonl', { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        stops = (await res.text()).split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+          .map((l) => { try { return JSON.parse(stripMarkdownLinks(l)); } catch (_) { return null; } }).filter(Boolean);
+        if (!stops.length) { countEl.textContent = '0 stops'; stateEl.textContent = 'stops.jsonl is empty.'; return; }
+        buildCityFilter();
+      } catch (err) {
+        countEl.textContent = '';
+        stateEl.innerHTML = 'Could not load <code>stops.jsonl</code> (' + esc(err.message) + '). Serve over http(s).';
+      }
+    }
+
+    window.__initStopsMap = init;
+  })();
+  </script>
+  <!-- Google Maps JS API key (temporary, referrer-restricted to thegamebureau.com + 127.0.0.1). -->
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB93DZq4cYKLms-Q6quJuENf0O2fz-LF1I&loading=async&callback=__initStopsMap"></script>
+</body>
+</html>
