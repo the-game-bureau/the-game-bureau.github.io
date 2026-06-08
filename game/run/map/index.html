@@ -1576,7 +1576,7 @@
       const m = s.match(/^\{\{\s*([A-Za-z_]\w*)\s*\}\}$/) || s.match(/^\{\s*([A-Za-z_]\w*)\s*\}$/) || s.match(/^%\s*([A-Za-z_]\w*)\s*%$/);
       return m ? m[1] : s;
     }
-    function normalizeWaypointGroup(value) {
+    function normalizeStopGroup(value) {
       const group = String(value || '').trim().toUpperCase();
       const mapped = ({ '1': 'A', '2': 'B', '3': 'C', '4': 'D', '5': 'E' })[group] || group;
       return /^[A-E]$/.test(mapped) ? mapped : '';
@@ -1597,23 +1597,23 @@
       const idx = TEAM_COLOR_ORDER.indexOf(raw);
       return idx >= 0 ? idx : -1;
     }
-    function getWaypointRotationOffset(currentVars) {
+    function getStopRotationOffset(currentVars) {
       const colorIdx = getTeamColorRotationIndex(currentVars);
       if (colorIdx >= 0) return colorIdx;
       return getActiveTeamNumber(currentVars) - 1;
     }
-    function rotateGroupedWaypointStops(stops, currentVars) {
+    function rotateGroupedStops(stops, currentVars) {
       const safeStops = Array.isArray(stops) ? stops.slice() : [];
       const groupedIndices = new Map();
 
       safeStops.forEach((stop, index) => {
-        const group = normalizeWaypointGroup(stop && stop.waypointGroup);
+        const group = normalizeStopGroup(stop && (stop.stopGroup ?? stop.waypointGroup));
         if (!group) return;
         if (!groupedIndices.has(group)) groupedIndices.set(group, []);
         groupedIndices.get(group).push(index);
       });
 
-      const rotationBase = getWaypointRotationOffset(currentVars);
+      const rotationBase = getStopRotationOffset(currentVars);
       groupedIndices.forEach((indices) => {
         if (!Array.isArray(indices) || indices.length < 2) return;
         const offset = ((rotationBase % indices.length) + indices.length) % indices.length;
@@ -1627,7 +1627,7 @@
       return safeStops;
     }
     function refreshGroupedGameStops() {
-      gameStops = rotateGroupedWaypointStops(baseGameStops, vars);
+      gameStops = rotateGroupedStops(baseGameStops, vars);
     }
     function parseUrl(value) {
       try {
@@ -2879,7 +2879,7 @@
       const typedValue = String(gameInput.value || '').trim();
       if (!typedValue) return;
       // Paired SPECIFIC-ANYTIME fires first (global, interrupts anything),
-      // then the legacy inline-anytime-in-waypoint path.
+      // then the legacy inline-anytime-in-stop path.
       if (tryStartPairedAnytimeInterrupt(typedValue)) return;
       if (tryStartAnytimeInterrupt(typedValue)) return;
       if (_submitHandler) _submitHandler(typedValue);
@@ -3154,8 +3154,8 @@
     function buildLegacyPayload(gameData) {
       const nodes = Array.isArray(gameData.nodes) ? gameData.nodes : [];
       const isLegacyAnytimeNodeData = (node) => !!(node && node.anytime && String(node.anytimePairId || '').trim());
-      // LEGACY ANYTIME-WAYPOINT: orphan anytime replies (no pair) are no longer treated
-      // as inline-in-waypoint triggers. They fall through to the regular reply path.
+      // LEGACY ANYTIME-STOP: orphan anytime replies (no pair) are no longer treated
+      // as inline-in-stop triggers. They fall through to the regular reply path.
       const isInlineAnytimeReplyData = (_node) => false;
       const sortedNodes = [...nodes].sort((a, b) => {
         const rankA = a.type === 'game' ? 0 : (isLegacyAnytimeNodeData(a) ? 2 : 1);
@@ -3204,7 +3204,7 @@
           currentStop = {
             id: node.id,
             title: node.title,
-            waypointGroup: normalizeWaypointGroup(node.waypointGroup),
+            stopGroup: normalizeStopGroup(node.stopGroup ?? node.waypointGroup),
             messages: [],
             playerReply: null
           };

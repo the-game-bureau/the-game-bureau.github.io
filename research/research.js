@@ -95,11 +95,11 @@
   function generate() {
     let out = assemblePrompt();
     // Pages with data-include-cousin auto-append the CURRENT cousin records to the
-    // prompt (e.g. stops.html appends stops.jsonl). The framing comes from
+    // prompt (e.g. places.html appends places.jsonl). The framing comes from
     // data-cousin-note; default is teams.html's "update in place".
     if (document.body.getAttribute('data-include-cousin') === 'true' &&
         Array.isArray(state.records) && state.records.length) {
-      // City-based cousins (stops) → only the scope city named in keywords.
+      // City-based cousins (places) → only the scope city named in keywords.
       // Cousins without a per-record city (teams) → include everything.
       let recs = state.records;
       if (state.records.some((r) => r && r.city)) {

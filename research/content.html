@@ -3,13 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- ROUTES — a Mission Control tool. Plots every stop in stops.jsonl on Google
-       Maps (hybrid) with the what3words 3 m grid. Click a square to add a stop;
-       Build route links stops into an ordered path saved to routes.jsonl.
+  <!-- ROUTES — a Mission Control tool for places + routes, all in ONE file:
+       atlas.jsonl, one record per line tagged by type ("place" | "route").
+         • EDIT a place — click its pin → Edit (or look up its ///words).
+         • ADD a place — click the map (or Add place) → fill the form.
+         • BUILD a route — click places in order; click empty map for a TURN
+           (a coordinate-only shaping point). A route stores ordered stops.
+         • SAVE — writes every place + route back to atlas.jsonl (one handle).
+       First load falls back to places.jsonl or legacy stops.jsonl + routes.jsonl, so the next
+       Save migrates them into atlas.jsonl.
        Wears the shared /mc/ chrome (admin-shell.css + admin nav/sign-in).
        NEEDS: a Google Maps JS API key (script tag at the bottom) and a
        what3words API key (W3W_KEY constant). -->
-  <title>ROUTES | THE GAME BUREAU</title>
+  <title>CONTENT | THE GAME BUREAU</title>
   <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -89,6 +95,11 @@
       color: var(--ink); font-family: var(--mono); font-size: 0.85rem; padding: 0.5rem 0.7rem; max-width: 280px;
     }
     .map-select:focus { outline: none; border-color: var(--accent); }
+    .map-search {
+      min-width: min(360px, 80vw); background: #fff; border: 1px solid var(--line); border-radius: 8px;
+      color: var(--ink); font-family: var(--sans); font-size: 0.9rem; padding: 0.55rem 0.7rem;
+    }
+    .map-search:focus { outline: none; border-color: var(--accent); }
     #map {
       height: 70vh; min-height: 380px;
       border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff;
@@ -96,12 +107,25 @@
     }
     .index-count { color: var(--muted); font-size: 0.85rem; font-family: var(--mono); }
     .index-state { color: var(--muted); font-size: 0.9rem; margin-top: 10px; min-height: 1.2em; }
+    .search-results { display: grid; gap: 0.65rem; margin-bottom: 14px; padding: 0.85rem; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); box-shadow: 0 12px 28px var(--paper-shadow); }
+    .search-results[hidden] { display: none; }
+    .search-results-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; color: var(--muted); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .search-results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 0.65rem; }
+    .search-group { display: grid; align-content: start; gap: 0.35rem; }
+    .search-group-title { margin: 0; color: var(--muted); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; }
+    .search-result { width: 100%; padding: 0.55rem 0.65rem; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); text-align: left; cursor: pointer; }
+    .search-result:hover, .search-result:focus-visible { border-color: var(--accent); background: rgba(var(--bic-blue-rgb), 0.06); outline: none; }
+    .search-result strong { display: block; font-size: 0.88rem; }
+    .search-result span { display: block; margin-top: 0.1rem; color: var(--muted); font-size: 0.74rem; }
+    .search-empty { color: var(--muted); font-size: 0.85rem; }
     .route-panel { border: 1px solid var(--line); border-radius: 12px; background: var(--paper); padding: 0.85rem; margin-top: 14px; box-shadow: 0 12px 28px var(--paper-shadow); }
-    .route-head { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
-    .route-head input {
-      flex: 1; min-width: 180px; background: #fff; border: 1px solid var(--line); border-radius: 8px;
-      color: var(--ink); font-family: var(--mono); font-size: 0.85rem; padding: 0.5rem 0.7rem;
+    .route-head { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: end; }
+    .route-field { display: flex; flex: 1; min-width: 210px; flex-direction: column; gap: 0.25rem; color: var(--muted); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .route-field input {
+      width: 100%; background: #fff; border: 1px solid var(--line); border-radius: 8px;
+      color: var(--ink); font-family: var(--sans); font-size: 0.9rem; font-weight: 400; letter-spacing: 0; padding: 0.5rem 0.65rem; text-transform: none;
     }
+    .route-field input[readonly] { color: var(--muted); }
     .route-list { margin: 0.7rem 0 0; padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.88rem; }
     .route-list:empty { display: none; }
     .route-x { background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 0.8rem; }
@@ -119,6 +143,8 @@
     .add-body input, .add-body select, .add-body textarea { background: #fff; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font-family: var(--sans); font-size: 0.9rem; padding: 0.5rem 0.65rem; resize: vertical; }
     .add-body input:focus, .add-body select:focus, .add-body textarea:focus { outline: none; border-color: var(--accent); }
     .add-body input[readonly] { color: var(--accent); font-family: var(--mono); }
+    .add-check { flex-direction: row !important; align-items: center; gap: 0.55rem; text-transform: none; letter-spacing: 0; font-size: 0.85rem; color: var(--ink); }
+    .add-check input { width: auto; accent-color: var(--accent); }
     .add-actions { display: flex; gap: 0.5rem; padding: 0.9rem 1rem; border-top: 1px solid var(--line); }
   </style>
   <link rel="stylesheet" href="../mc/admin-shell.css">
@@ -139,29 +165,42 @@
 
     <section class="section-head">
       <p class="kicker">TGB MISSION CONTROL</p>
-      <h2>ROUTES</h2>
-      <p class="status" id="pageStatus" aria-live="polite">Add stops and build routes.</p>
+      <h2>CONTENT</h2>
+      <p class="status" id="pageStatus" aria-live="polite">Edit places, add new ones, build routes with turns — then save back to the files.</p>
     </section>
 
     <div class="map-toolbar">
       <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <input class="map-search" id="mapSearch" type="search" placeholder="Search routes and places…" autocomplete="off" aria-label="Search routes and places">
         <select class="map-select" id="cityFilter" aria-label="Filter by city"></select>
-        <button class="btn" id="addBtn" type="button" title="Add a new stop at the map center">Add stop</button>
-        <button class="btn" id="routeBtn" type="button" title="Link stops into an ordered route">Build route</button>
+        <button class="btn" id="addBtn" type="button" title="Add a new place — click the map for an exact spot, or add at the map center">Add place</button>
+        <button class="btn" id="saveBtn" type="button" title="Write all places and routes back to atlas.jsonl">Save</button>
+        <button class="btn" id="routeBtn" type="button" title="Link places into an ordered route with turns">Build route</button>
       </div>
       <span class="index-count" id="mapCount">Loading…</span>
     </div>
+
+    <section class="search-results" id="searchResults" hidden aria-live="polite">
+      <div class="search-results-head"><span>Search results</span><span id="searchSummary"></span></div>
+      <div class="search-results-grid" id="searchResultsGrid"></div>
+    </section>
 
     <div id="map"></div>
 
     <div id="routePanel" class="route-panel" hidden>
       <div class="route-head">
-        <input id="routeName" type="text" placeholder="Route name (e.g. French Quarter Loop)">
+        <label class="route-field">Route name
+          <input id="routeName" type="text" placeholder="e.g. French Quarter Loop" required>
+        </label>
+        <label class="route-field">City from stops
+          <input id="routeCity" type="text" placeholder="Add a stop to set the city" readonly>
+        </label>
+        <button class="btn" id="routeTurn" type="button" title="Drop a turn (a coordinate-only shaping point) at the map center">+ Turn</button>
         <button class="btn btn--primary" id="routeSave" type="button">Save route</button>
         <button class="btn" id="routeClear" type="button">Clear</button>
       </div>
       <ol id="routeList" class="route-list"></ol>
-      <div class="route-hint">Click stops on the map in order to build the path. Saves to <code>routes.jsonl</code> (separate from stops).</div>
+      <div class="route-hint">Name the route, then click <strong>Places</strong> on the map in order to add the Route's <strong>Stops</strong>. The route city is derived from those stops. Click <strong>empty map</strong> (or <code>+ Turn</code>) to drop a <strong>turn</strong> — a coordinate-only shaping point with no Place. Click a turn dot to remove it. Saved into <code>atlas.jsonl</code> as a <code>route</code> record alongside the Places.</div>
     </div>
 
     <div class="index-state" id="mapState"></div>
@@ -170,7 +209,7 @@
 
   <div id="addModal" class="add-modal" hidden>
     <div class="add-box">
-      <div class="add-head"><span>Add stop</span><button id="addClose" class="add-x" type="button" aria-label="Close">✕</button></div>
+      <div class="add-head"><span id="addTitle">Add place</span><button id="addClose" class="add-x" type="button" aria-label="Close">✕</button></div>
       <div class="add-body">
         <label>Name<input id="f_name" type="text" placeholder="e.g. Jackson Square"></label>
         <label>City<input id="f_city" type="text" placeholder="City, ST"></label>
@@ -186,9 +225,11 @@
         <label>Source title<input id="f_src_title" type="text"></label>
         <label>Source URL<input id="f_src_url" type="text"></label>
         <label>what3words (from the selected square)<input id="f_w3w" type="text" readonly></label>
+        <label class="add-check"><input id="f_start_candidate" type="checkbox"> Start candidate</label>
+        <label class="add-check"><input id="f_end_candidate" type="checkbox"> End candidate</label>
       </div>
       <div class="add-actions">
-        <button class="btn btn--primary" id="addSave" type="button">Add stop</button>
+        <button class="btn btn--primary" id="addSave" type="button">Add place</button>
         <button class="btn" id="addCancel" type="button">Cancel</button>
       </div>
     </div>
@@ -215,8 +256,8 @@
       }
       const adminAuth = window.TgbMcAdminAuth.create({
         supabaseConfig: SUPABASE_CONFIG,
-        onAuthorized: () => setStatus('Add stops and build routes.', 'success'),
-        onSignedOut: () => setStatus('Add stops and build routes.')
+        onAuthorized: () => setStatus('Edit places, add new ones, build routes with turns — then save back to the files.', 'success'),
+        onSignedOut: () => setStatus('Edit places, add new ones, build routes with turns — then save back to the files.')
       });
       if (window.TgbMcAdminNav) {
         window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
@@ -242,15 +283,6 @@
         return (await r.json()).words || null;
       } catch (_) { return null; }
     }
-    async function w3wToCoords(words) {
-      try {
-        const r = await fetch('https://api.what3words.com/v3/convert-to-coordinates?words=' +
-          encodeURIComponent(String(words).replace(/^\/+/, '')) + '&key=' + W3W_KEY);
-        if (!r.ok) return null;
-        const c = (await r.json()).coordinates;
-        return c ? { lat: c.lat, lng: c.lng } : null;
-      } catch (_) { return null; }
-    }
 
     // ── Geocoding via Google Maps (browser, uses your Maps key — fast, no rate-limit blocks) ──
     let geocoder = null;
@@ -263,7 +295,7 @@
         });
       });
     }
-    async function geocodeStop(s) {
+    async function geocodePlace(s) {
       const q = [];
       if (s.name && s.city) q.push(s.name + ', ' + s.city);
       if (s.address) q.push(s.address);
@@ -277,8 +309,60 @@
     const cityEl = document.getElementById('cityFilter');
     const countEl = document.getElementById('mapCount');
     const stateEl = document.getElementById('mapState');
+    const searchEl = document.getElementById('mapSearch');
+    const searchResultsEl = document.getElementById('searchResults');
+    const searchResultsGridEl = document.getElementById('searchResultsGrid');
+    const searchSummaryEl = document.getElementById('searchSummary');
 
-    let map = null, info = null, stops = [], markers = [], fileHandle = null, didInitialZoom = false;
+    let map = null, info = null, places = [], markers = [], atlasHandle = null, didInitialZoom = false, searchQuery = '';
+    const markerByPlace = new Map();
+
+    function normalizeSearchText(value) {
+      return String(value == null ? '' : value)
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+    }
+
+    function routeStops(savedRoute) {
+      if (Array.isArray(savedRoute && savedRoute.stops)) return savedRoute.stops;
+      if (Array.isArray(savedRoute && savedRoute.waypoints)) return savedRoute.waypoints;
+      if (Array.isArray(savedRoute && savedRoute.places)) return savedRoute.places;
+      return [];
+    }
+
+    function placeSearchText(place) {
+      return normalizeSearchText([
+        place.name, place.city, place.address, place.category, place.description, place.on_tours,
+        place.w3w, place.start_candidate, place.end_candidate,
+        place.source && place.source.title, place.source && place.source.url
+      ].filter(Boolean).join(' '));
+    }
+
+    function routeSearchText(savedRoute) {
+      return normalizeSearchText([
+        savedRoute.name, savedRoute.city, savedRoute.route_id,
+        ...routeStops(savedRoute).flatMap((point) => [point.name, point.w3w])
+      ].filter(Boolean).join(' '));
+    }
+
+    function routeMatchesSearch(savedRoute) {
+      return !!searchQuery && routeSearchText(savedRoute).includes(searchQuery);
+    }
+
+    function placeBelongsToMatchingRoute(place) {
+      if (!searchQuery) return false;
+      const name = normalizeSearchText(place.name);
+      const w3w = normalizeSearchText(place.w3w);
+      return routes.some((savedRoute) => routeMatchesSearch(savedRoute) && routeStops(savedRoute).some((point) => (
+        (!point.turn && name && normalizeSearchText(point.name) === name)
+        || (w3w && normalizeSearchText(point.w3w) === w3w)
+      )));
+    }
+
+    function placeMatchesSearch(place) {
+      return !searchQuery || placeSearchText(place).includes(searchQuery) || placeBelongsToMatchingRoute(place);
+    }
 
     function pinIcon(bad) {
       return { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: bad ? '#e0564a' : '#4cc2a8', fillOpacity: 0.95, strokeColor: '#0a0f14', strokeWeight: 2 };
@@ -290,44 +374,94 @@
         (s.category ? '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#0a7a5f">' + esc(s.category) + '</div>' : '') +
         (s.address ? '<div>' + esc(s.address) + '</div>' : '') +
         (s.on_tours ? '<div style="color:#666">' + esc(s.on_tours) + '</div>' : '') +
-        (s.w3w ? '<div style="color:#666">///<a href="https://what3words.com/' + esc(s.w3w) + '" target="_blank" rel="noopener">' + esc(s.w3w) + '</a></div>' : '<div style="color:#c0392b">no w3w yet</div>') +
-        (bad ? '<div style="color:#c0392b;font-weight:600">⚠ far from the other ' + esc(s.city) + ' stops</div>' : '') +
+        ((s.start_candidate === 'yes' || s.end_candidate === 'yes') ?
+          '<div style="margin-top:3px">' +
+          (s.start_candidate === 'yes' ? '<span style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#1d6b3a;background:#e3f3e8;border-radius:4px;padding:1px 5px;margin-right:4px">Start</span>' : '') +
+          (s.end_candidate === 'yes' ? '<span style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#8a3b1c;background:#f6e6dc;border-radius:4px;padding:1px 5px">End</span>' : '') +
+          '</div>' : '') +
+        (s.w3w ? '<div style="color:#666">///<a href="https://what3words.com/' + esc(s.w3w) + '" target="_blank" rel="noopener">' + esc(s.w3w) + '</a></div>'
+               : '<div style="color:#c0392b">no w3w yet</div><div style="margin-top:4px"><button id="popupAddW3w" type="button" style="font:inherit;font-size:12px;font-weight:700;color:#0a7a5f;background:#fff;border:1px solid rgba(10,122,95,.4);border-radius:6px;padding:3px 9px;cursor:pointer">Look up ///words</button></div>') +
+        (bad ? '<div style="color:#c0392b;font-weight:600">⚠ far from the other ' + esc(s.city) + ' places</div>' : '') +
+        '<div style="margin-top:6px"><button id="popupEdit" type="button" style="font:inherit;font-size:12px;font-weight:700;color:#2d4880;background:#fff;border:1px solid rgba(45,72,128,.35);border-radius:6px;padding:3px 9px;cursor:pointer">Edit place</button></div>' +
         '</div>';
     }
 
-    // Write stops.jsonl to disk (File System Access). Picks the file once, then reuses it.
-    async function autosave() {
-      const text = stops.map((s) => { const o = Object.assign({}, s); delete o._ll; return JSON.stringify(o); }).join('\n') + '\n';
+    // Render a place's popup and (re)wire its buttons. Re-wiring is needed because
+    // setContent throws away the old DOM, so each render needs fresh listeners.
+    function openPopup(s, bad, marker) {
+      info.setContent(popupHtml(s, bad));
+      if (marker) info.open(map, marker);
+      google.maps.event.addListenerOnce(info, 'domready', () => {
+        const editBtn = document.getElementById('popupEdit');
+        if (editBtn) editBtn.addEventListener('click', () => { info.close(); openEditForm(s); });
+
+        const w3wBtn = document.getElementById('popupAddW3w');
+        if (w3wBtn) w3wBtn.addEventListener('click', async () => {
+          const ll = s._ll || (typeof s.lat === 'number' ? { lat: s.lat, lng: s.lng } : null);
+          if (!ll) { w3wBtn.textContent = 'No coordinates for this place'; return; }
+          w3wBtn.disabled = true; w3wBtn.textContent = 'Looking up…';
+          const w = await coordsToW3W(ll.lat, ll.lng);
+          if (w) {
+            s.w3w = w;
+            openPopup(s, bad);                 // re-render with the new w3w (keeps the bubble open)
+            const saved = await saveAtlas();
+            stateEl.textContent = 'Added ///' + w + ' to “' + s.name + '” · ' + (saved ? 'saved.' : 'not saved (no file linked).');
+          } else {
+            w3wBtn.disabled = false; w3wBtn.textContent = 'Retry ///words lookup';
+          }
+        });
+      });
+    }
+
+    // One file, one save. atlas.jsonl holds every record on its own line, tagged
+    // by type: {"type":"place",…} for places and {"type":"route",…} for paths
+    // (whose ordered stops reference places, with optional turns). Edits, new places, and saved
+    // routes all write the whole atlas; the handle is picked once then reused so
+    // later saves are silent.
+    function atlasText() {
+      const placeLines = places.map((s) => { const o = Object.assign({ type: 'place' }, s); delete o._ll; delete o._turn; return JSON.stringify(o); });
+      const routeLines = routes.map((r) => JSON.stringify(Object.assign({ type: 'route' }, r)));
+      return [...placeLines, ...routeLines].join('\n') + '\n';
+    }
+    async function saveAtlas() {
       try {
-        if (!window.showSaveFilePicker) { stateEl.textContent = 'Moved (in memory) — this browser can’t auto-save; open in Chrome/Edge to persist.'; return false; }
-        if (!fileHandle) fileHandle = await window.showSaveFilePicker({ suggestedName: 'stops.jsonl', types: [{ description: 'JSON Lines', accept: { 'application/json': ['.jsonl'] } }] });
-        const w = await fileHandle.createWritable(); await w.write(text); await w.close();
+        if (!window.showSaveFilePicker) { stateEl.textContent = 'This browser can’t write files — open in Chrome/Edge to save atlas.jsonl.'; return false; }
+        if (!atlasHandle) atlasHandle = await window.showSaveFilePicker({ suggestedName: 'atlas.jsonl', types: [{ description: 'JSON Lines', accept: { 'application/json': ['.jsonl'] } }] });
+        const w = await atlasHandle.createWritable(); await w.write(atlasText()); await w.close();
         return true;
       } catch (e) { if (e.name !== 'AbortError') stateEl.textContent = 'Save failed: ' + e.message; return false; }
     }
+    async function saveAll(msg) {
+      const ok = await saveAtlas();
+      if (ok) stateEl.textContent = msg || ('Saved ' + places.length + ' place' + (places.length === 1 ? '' : 's') +
+        ' + ' + routes.length + ' route' + (routes.length === 1 ? '' : 's') + ' to atlas.jsonl.');
+      return ok;
+    }
 
-    // Place a stop's pin: stored lat/lng (instant) → w3w → address. The W3W API
+    // Place a place's pin: stored lat/lng (instant) → w3w → address. The W3W API
     // can't be the render source (convert-to-coordinates is a paid endpoint), so
-    // we cache any resolved coords back onto the stop as lat/lng.
-    async function resolveStop(s) {
+    // we cache any resolved coords back onto the place as lat/lng.
+    async function resolvePlace(s) {
       if (s._ll) return;
       if (typeof s.lat === 'number' && typeof s.lng === 'number') { s._ll = { lat: s.lat, lng: s.lng }; return; }
-      const c = await geocodeStop(s);   // Google geocode (w3w→coords is a paid endpoint, not used)
+      const c = await geocodePlace(s);   // Google geocode (w3w→coords is a paid endpoint, not used)
       if (c) { s._ll = c; s.lat = c.lat; s.lng = c.lng; }
     }
 
     async function render(city) {
-      const need = stops.filter((s) => (!city || s.city === city) && !s._ll);
+      const need = places.filter((s) => (!city || s.city === city) && placeMatchesSearch(s) && !s._ll);
       let done = 0, got = 0;
-      for (const s of need) { countEl.textContent = 'Placing pins… ' + (++done) + '/' + need.length; await resolveStop(s); if (s._ll) got++; }
-      if (got && fileHandle) autosave();   // persist newly geocoded coords once a file is linked
+      for (const s of need) { countEl.textContent = 'Placing pins… ' + (++done) + '/' + need.length; await resolvePlace(s); if (s._ll) got++; }
+      if (got && atlasHandle) saveAtlas();   // persist newly geocoded coords once a file is linked
       draw(city);
+      renderSearchResults();
     }
 
     function draw(city) {
       markers.forEach((m) => m.setMap(null));
       markers = [];
-      const shown = stops.filter((s) => s._ll && (!city || s.city === city));
+      markerByPlace.clear();
+      const shown = places.filter((s) => s._ll && (!city || s.city === city) && placeMatchesSearch(s));
       const groups = {};
       shown.forEach((s) => { (groups[s.city] = groups[s.city] || []).push(s); });
       const med = {};
@@ -342,9 +476,10 @@
         const marker = new google.maps.Marker({ position: { lat: s._ll.lat, lng: s._ll.lng }, map, icon: pinIcon(bad), title: s.name });
         marker.addListener('click', () => {
           if (routeMode) { addToRoute(s); return; }
-          info.setContent(popupHtml(s, bad)); info.open(map, marker);
+          openPopup(s, bad, marker);
         });
         markers.push(marker);
+        markerByPlace.set(s, { marker, bad });
         bounds.extend(marker.getPosition());
       });
       if (markers.length) {
@@ -356,14 +491,81 @@
         }
       }
 
-      const unplaced = stops.filter((s) => !s._ll && (!city || s.city === city)).length;
-      countEl.textContent = shown.length + ' stop' + (shown.length === 1 ? '' : 's') +
+      const unplaced = places.filter((s) => !s._ll && (!city || s.city === city) && placeMatchesSearch(s)).length;
+      const routeMatches = searchQuery ? routes.filter(routeMatchesSearch).length : routes.length;
+      countEl.textContent = shown.length + ' place' + (shown.length === 1 ? '' : 's') +
+        (searchQuery ? ' · ' + routeMatches + ' matching route' + (routeMatches === 1 ? '' : 's') : '') +
         (outliers ? ' · ⚠ ' + outliers + ' off-cluster' : '') +
         (unplaced ? ' · ' + unplaced + ' unplaced' : '');
     }
 
+    function searchResultButton(kind, index, title, meta) {
+      return '<button class="search-result" type="button" data-kind="' + kind + '" data-index="' + index + '">' +
+        '<strong>' + esc(title || (kind === 'route' ? 'Untitled route' : 'Untitled place')) + '</strong>' +
+        (meta ? '<span>' + esc(meta) + '</span>' : '') +
+        '</button>';
+    }
+
+    function renderSearchResults() {
+      if (!searchQuery) {
+        searchResultsEl.hidden = true;
+        searchResultsGridEl.innerHTML = '';
+        searchSummaryEl.textContent = '';
+        return;
+      }
+      const matchingPlaces = places.filter((place) => placeSearchText(place).includes(searchQuery));
+      const matchingRoutes = routes.filter(routeMatchesSearch);
+      searchSummaryEl.textContent = matchingPlaces.length + ' place' + (matchingPlaces.length === 1 ? '' : 's') +
+        ' · ' + matchingRoutes.length + ' route' + (matchingRoutes.length === 1 ? '' : 's');
+
+      const placeResults = matchingPlaces.slice(0, 60).map((place) => (
+        searchResultButton('place', places.indexOf(place), place.name, [place.city, place.address].filter(Boolean).join(' · '))
+      )).join('');
+      const routeResults = matchingRoutes.slice(0, 30).map((savedRoute) => (
+        searchResultButton('route', routes.indexOf(savedRoute), savedRoute.name, [
+          savedRoute.city,
+          routeStops(savedRoute).filter((point) => !point.turn).length + ' stops'
+        ].filter(Boolean).join(' · '))
+      )).join('');
+
+      searchResultsGridEl.innerHTML =
+        '<div class="search-group"><h3 class="search-group-title">Routes</h3>' +
+          (routeResults || '<div class="search-empty">No matching routes.</div>') + '</div>' +
+        '<div class="search-group"><h3 class="search-group-title">Places</h3>' +
+          (placeResults || '<div class="search-empty">No matching places.</div>') + '</div>';
+      searchResultsEl.hidden = false;
+      searchResultsGridEl.querySelectorAll('.search-result').forEach((button) => {
+        button.addEventListener('click', () => {
+          const index = Number(button.dataset.index);
+          if (button.dataset.kind === 'route') focusRoute(routes[index]);
+          else focusPlace(places[index]);
+        });
+      });
+    }
+
+    async function focusPlace(place) {
+      if (!place) return;
+      if (place.city && [...cityEl.options].some((option) => option.value === place.city)) cityEl.value = place.city;
+      await render(cityEl.value);
+      if (!place._ll) { stateEl.textContent = 'Could not place “' + place.name + '” on the map.'; return; }
+      map.setCenter({ lat: place._ll.lat, lng: place._ll.lng });
+      if (map.getZoom() < 17) map.setZoom(17);
+      const entry = markerByPlace.get(place);
+      if (entry) openPopup(place, entry.bad, entry.marker);
+      stateEl.textContent = 'Showing place “' + place.name + '”.';
+    }
+
+    async function focusRoute(savedRoute) {
+      if (!savedRoute) return;
+      if (savedRoute.city && [...cityEl.options].some((option) => option.value === savedRoute.city)) cityEl.value = savedRoute.city;
+      await render(cityEl.value);
+      const stopCount = routeStops(savedRoute).filter((point) => !point.turn).length;
+      stateEl.textContent = 'Showing route “' + (savedRoute.name || savedRoute.route_id || 'Untitled route') + '” · ' +
+        stopCount + ' stop' + (stopCount === 1 ? '' : 's') + (savedRoute.city ? ' · ' + savedRoute.city : '') + '.';
+    }
+
     function buildCityFilter() {
-      const cities = [...new Set(stops.map((s) => s.city).filter(Boolean))].sort();
+      const cities = [...new Set(places.map((s) => s.city).filter(Boolean))].sort();
       cityEl.innerHTML = '<option value="">All cities</option>' + cities.map((c) => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
       const DEFAULT_CITY = 'New Orleans, LA';
       const start = cities.includes(DEFAULT_CITY) ? DEFAULT_CITY : (cities.length > 1 ? cities[0] : '');
@@ -390,7 +592,7 @@
       } catch (_) { clear(); }
     }
 
-    // ── Add stop: select a square (its w3w), then fill a form in a lightbox ──
+    // ── Add place: select a square (its w3w), then fill a form in a lightbox ──
     let selectedSquare = null, selectedMarker = null;
 
     async function selectSquare(lat, lng) {
@@ -400,36 +602,67 @@
       if (!selectedMarker) selectedMarker = new google.maps.Marker({ map, zIndex: 9999,
         icon: { path: google.maps.SymbolPath.CIRCLE, scale: 6, fillColor: '#ffd24a', fillOpacity: 1, strokeColor: '#0a0f14', strokeWeight: 2 } });
       selectedMarker.setPosition({ lat, lng }); selectedMarker.setMap(map);
-      stateEl.textContent = w ? 'Selected ///' + w + ' — click Add stop.' : 'Selected square (w3w lookup failed — check the key).';
+      stateEl.textContent = w ? 'Selected ///' + w + ' — click Add place.' : 'Selected square (w3w lookup failed — check the key).';
       return selectedSquare;
     }
 
+    let editingPlace = null;   // the place being edited (null = adding a new one)
+
+    function fillForm(s) {
+      const set = (id, val) => { document.getElementById(id).value = val || ''; };
+      set('f_name', s.name); set('f_address', s.address); set('f_description', s.description); set('f_on_tours', s.on_tours);
+      set('f_src_title', s.source && s.source.title); set('f_src_url', s.source && s.source.url);
+      document.getElementById('f_category').value = s.category || 'other';
+      document.getElementById('f_start_candidate').checked = s.start_candidate === 'yes';
+      document.getElementById('f_end_candidate').checked = s.end_candidate === 'yes';
+      set('f_city', s.city);
+      set('f_w3w', s.w3w ? '///' + s.w3w : '(none)');
+    }
+
     async function openAddForm() {
+      editingPlace = null;
       if (!selectedSquare) { const c = map.getCenter(); await selectSquare(c.lat(), c.lng()); }
-      const set = (id, val) => { document.getElementById(id).value = val; };
-      set('f_name', ''); set('f_address', ''); set('f_description', ''); set('f_on_tours', '');
-      set('f_src_title', ''); set('f_src_url', '');
-      document.getElementById('f_category').value = 'other';
-      set('f_city', cityEl.value || '');
-      set('f_w3w', selectedSquare.w3w ? '///' + selectedSquare.w3w : '(none)');
+      fillForm({ city: cityEl.value || '', category: 'other', w3w: selectedSquare.w3w });
+      document.getElementById('addTitle').textContent = 'Add place';
+      document.getElementById('addSave').textContent = 'Add place';
       document.getElementById('addModal').hidden = false;
       document.getElementById('f_name').focus();
     }
-    function closeAddForm() { document.getElementById('addModal').hidden = true; }
+
+    function openEditForm(s) {
+      editingPlace = s;
+      if (selectedMarker) selectedMarker.setMap(null);
+      selectedSquare = null;
+      fillForm(s);
+      document.getElementById('addTitle').textContent = 'Edit place';
+      document.getElementById('addSave').textContent = 'Save changes';
+      document.getElementById('addModal').hidden = false;
+      document.getElementById('f_name').focus();
+    }
+
+    function closeAddForm() { document.getElementById('addModal').hidden = true; editingPlace = null; }
 
     async function saveFromForm() {
       const v = (id) => document.getElementById(id).value.trim();
+      const yn = (id) => (document.getElementById(id).checked ? 'yes' : 'no');
       const name = v('f_name');
       if (!name) { document.getElementById('f_name').focus(); return; }
-      const sq = selectedSquare || { lat: map.getCenter().lat(), lng: map.getCenter().lng(), w3w: '' };
       const city = v('f_city');
-      const stop = {
+      const fields = {
         name, city, address: v('f_address'), category: document.getElementById('f_category').value,
         description: v('f_description'), on_tours: v('f_on_tours'),
+        start_candidate: yn('f_start_candidate'), end_candidate: yn('f_end_candidate'),
         source: { title: v('f_src_title'), url: v('f_src_url') },
-        w3w: sq.w3w, lat: sq.lat, lng: sq.lng, _ll: { lat: sq.lat, lng: sq.lng },
       };
-      stops.push(stop);
+      let place, verb;
+      if (editingPlace) {
+        Object.assign(editingPlace, fields);   // keep its existing w3w / lat / lng / _ll
+        place = editingPlace; verb = 'Updated';
+      } else {
+        const sq = selectedSquare || { lat: map.getCenter().lat(), lng: map.getCenter().lng(), w3w: '' };
+        place = Object.assign({}, fields, { w3w: sq.w3w, lat: sq.lat, lng: sq.lng, _ll: { lat: sq.lat, lng: sq.lng } });
+        places.push(place); verb = 'Added';
+      }
       if (city && ![...cityEl.options].some((o) => o.value === city)) {
         const opt = document.createElement('option'); opt.value = city; opt.textContent = city; cityEl.appendChild(opt);
       }
@@ -438,14 +671,48 @@
       if (selectedMarker) selectedMarker.setMap(null);
       selectedSquare = null;
       draw(cityEl.value);
-      const saved = await autosave();
-      stateEl.textContent = 'Added “' + name + '”' + (stop.w3w ? ' → ///' + stop.w3w : '') + (saved ? ' · saved.' : '');
+      renderSearchResults();
+      const saved = await saveAtlas();
+      stateEl.textContent = verb + ' “' + name + '”' + (place.w3w ? ' → ///' + place.w3w : '') + (saved ? ' · saved.' : '');
     }
 
-    // ── Route builder: link stops into an ordered path, saved to routes.jsonl ──
-    let routeMode = false, routeLine = null, routeHandle = null, routes = [];
-    const route = { stops: [] };   // working route — array of stop objects
+    // ── Route builder: link places into an ordered path, saved into atlas.jsonl ──
+    // A Route is an ordered list of Stops. Each Stop references a Place from the
+    // places array. A "turn" is a coordinate-only shaping point with no Place, used
+    // to make the path bend around corners. Turns carry { _turn:true } and an _ll.
+    let routeMode = false, routeLine = null, routes = [], routeMarkers = [];
+    const route = { path: [] };   // working map path; only real Places become saved Stops
     const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+    function routeCityFromStops() {
+      const cities = route.path
+        .filter((s) => !s._turn)
+        .map((s) => String(s.city || '').trim())
+        .filter(Boolean);
+      if (!cities.length) return '';
+      const counts = new Map();
+      cities.forEach((city, index) => {
+        const current = counts.get(city) || { city, count: 0, firstIndex: index };
+        current.count += 1;
+        counts.set(city, current);
+      });
+      return [...counts.values()]
+        .sort((a, b) => b.count - a.count || a.firstIndex - b.firstIndex)[0].city;
+    }
+
+    function updateRouteMeta() {
+      const cityInput = document.getElementById('routeCity');
+      if (!cityInput) return;
+      const cityCounts = new Map();
+      route.path.filter((s) => !s._turn && s.city).forEach((s) => {
+        const city = String(s.city).trim();
+        if (city) cityCounts.set(city, (cityCounts.get(city) || 0) + 1);
+      });
+      cityInput.value = routeCityFromStops();
+      cityInput.title = cityCounts.size
+        ? 'Derived from route stops: ' + [...cityCounts].map(([city, count]) => city + ' (' + count + ')').join(', ')
+        : 'Add a stop with a city to set the route city.';
+    }
 
     function toggleRouteMode() {
       routeMode = !routeMode;
@@ -453,44 +720,104 @@
       btn.classList.toggle('is-on', routeMode);
       btn.textContent = routeMode ? 'Building route…' : 'Build route';
       document.getElementById('routePanel').hidden = !routeMode;
-      stateEl.textContent = routeMode ? 'Route mode: click stops on the map in order.' : '';
+      stateEl.textContent = routeMode ? 'Route mode: click Places in order to add Stops; click empty map to drop a turn.' : '';
+      if (routeMode) setTimeout(() => document.getElementById('routeName').focus(), 0);
       drawRouteLine();
     }
     function addToRoute(s) {
-      if (!s._ll || route.stops[route.stops.length - 1] === s) return;
-      route.stops.push(s);
+      if (!s._ll || route.path[route.path.length - 1] === s) return;
+      route.path.push(s);
       renderRouteList(); drawRouteLine();
-      stateEl.textContent = 'Route: ' + route.stops.length + ' stop(s). Name it and Save.';
+      stateEl.textContent = 'Route: ' + route.path.length + ' point(s). Name it and Save.';
+    }
+    async function addTurn(lat, lng) {
+      const t = { _turn: true, name: 'turn', w3w: '', lat, lng, _ll: { lat, lng } };
+      route.path.push(t);
+      renderRouteList(); drawRouteLine();
+      stateEl.textContent = 'Route: ' + route.path.length + ' point(s). Dropped a turn.';
+      const w = await coordsToW3W(lat, lng);   // fill its ///words in the background
+      if (w) { t.w3w = w; renderRouteList(); }
     }
     function renderRouteList() {
       const ol = document.getElementById('routeList');
-      ol.innerHTML = route.stops.map((s, i) => '<li>' + esc(s.name) + ' <button class="route-x" data-i="' + i + '" type="button" aria-label="Remove">✕</button></li>').join('');
-      ol.querySelectorAll('.route-x').forEach((b) => b.addEventListener('click', () => { route.stops.splice(+b.dataset.i, 1); renderRouteList(); drawRouteLine(); }));
+      ol.innerHTML = route.path.map((s, i) => '<li>' +
+        (s._turn ? '<span style="color:var(--muted)">↳ turn' + (s.w3w ? ' <span style="font-family:var(--mono);font-size:.85em">///' + esc(s.w3w) + '</span>' : '') + '</span>' : esc(s.name)) +
+        ' <button class="route-x" data-i="' + i + '" type="button" aria-label="Remove">✕</button></li>').join('');
+      ol.querySelectorAll('.route-x').forEach((b) => b.addEventListener('click', () => { route.path.splice(+b.dataset.i, 1); renderRouteList(); drawRouteLine(); }));
+      updateRouteMeta();
     }
     function drawRouteLine() {
       if (!routeLine) routeLine = new google.maps.Polyline({ map, geodesic: true, strokeColor: '#ffd24a', strokeOpacity: 0.95, strokeWeight: 3 });
-      routeLine.setPath(routeMode ? route.stops.filter((s) => s._ll).map((s) => ({ lat: s._ll.lat, lng: s._ll.lng })) : []);
+      const pts = routeMode ? route.path.filter((s) => s._ll) : [];
+      routeLine.setPath(pts.map((s) => ({ lat: s._ll.lat, lng: s._ll.lng })));
+      // Small markers for the turns, so they're visible and removable on the map.
+      routeMarkers.forEach((m) => m.setMap(null)); routeMarkers = [];
+      if (!routeMode) return;
+      route.path.forEach((s) => {
+        if (!s._turn || !s._ll) return;
+        const m = new google.maps.Marker({ position: { lat: s._ll.lat, lng: s._ll.lng }, map, zIndex: 9998,
+          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: '#ffd24a', fillOpacity: 1, strokeColor: '#0a0f14', strokeWeight: 1.5 },
+          title: 'Turn (click to remove)' });
+        m.addListener('click', () => { const i = route.path.indexOf(s); if (i >= 0) { route.path.splice(i, 1); renderRouteList(); drawRouteLine(); } });
+        routeMarkers.push(m);
+      });
     }
-    function clearRoute() { route.stops = []; renderRouteList(); drawRouteLine(); document.getElementById('routeName').value = ''; }
+    function clearRoute() { route.path = []; renderRouteList(); drawRouteLine(); document.getElementById('routeName').value = ''; }
 
     async function saveRoute() {
-      if (!route.stops.length) { stateEl.textContent = 'Add stops to the route first.'; return; }
-      const name = (document.getElementById('routeName').value || '').trim() || (prompt('Route name:') || '').trim();
-      if (!name) return;
-      const city = route.stops[0].city || cityEl.value || '';
-      const r = { route_id: (slug(city) + '-' + slug(name)).slice(0, 64), name, city, stops: route.stops.map((s) => ({ name: s.name, w3w: s.w3w || '' })), notes: '' };
+      if (!route.path.length) { stateEl.textContent = 'Add Stops to the route first.'; return; }
+      const realPlaces = route.path.filter((s) => !s._turn);
+      if (!realPlaces.length) { stateEl.textContent = 'Add at least one real place to set the route city.'; return; }
+      const nameInput = document.getElementById('routeName');
+      const name = (nameInput.value || '').trim();
+      if (!name) { stateEl.textContent = 'Name the route before saving.'; nameInput.focus(); return; }
+      const city = routeCityFromStops();
+      if (!city) { stateEl.textContent = 'The selected places need a city before this route can be saved.'; return; }
+      const turns = route.path.map((point, position) => point._turn ? { position, w3w: point.w3w || '', lat: point.lat, lng: point.lng } : null).filter(Boolean);
+      const r = { route_id: (slug(city) + '-' + slug(name)).slice(0, 64), name, city,
+        stops: route.path.filter((point) => !point._turn).map((place) => ({ name: place.name, w3w: place.w3w || '' })) };
+      if (turns.length) r.turns = turns;
       routes = routes.filter((x) => x.route_id !== r.route_id);   // replace if re-saving same route
       routes.push(r);
-      const text = routes.map((x) => JSON.stringify(x)).join('\n') + '\n';
-      try {
-        if (!window.showSaveFilePicker) { stateEl.textContent = 'Built (in memory) — open in Chrome/Edge to write routes.jsonl.'; return; }
-        if (!routeHandle) routeHandle = await window.showSaveFilePicker({ suggestedName: 'routes.jsonl', types: [{ description: 'JSON Lines', accept: { 'application/json': ['.jsonl'] } }] });
-        const w = await routeHandle.createWritable(); await w.write(text); await w.close();
-        stateEl.textContent = 'Saved route “' + name + '” (' + r.stops.length + ' stops) to routes.jsonl.';
-      } catch (e) { if (e.name !== 'AbortError') stateEl.textContent = 'Save failed: ' + e.message; }
+      renderSearchResults();
+      await saveAll('Saved route “' + name + '” for ' + city + ' (' + r.stops.length + ' points) into atlas.jsonl.');
     }
-    async function loadRoutes() {
-      try { const res = await fetch('routes.jsonl', { cache: 'no-store' }); if (res.ok) routes = (await res.text()).split(/\r?\n/).filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch (_) {}
+
+    // Load the whole atlas (places + routes) from one file. Falls back to the legacy
+    // split files (places.jsonl or legacy stops.jsonl + routes.jsonl) the first time, so the next Save
+    // migrates everything into atlas.jsonl.
+    function parseJsonl(text) {
+      return text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+        .map((l) => { try { return JSON.parse(stripMarkdownLinks(l)); } catch (_) { return null; } }).filter(Boolean);
+    }
+    async function fetchJsonl(url) {
+      try { const res = await fetch(url, { cache: 'no-store' }); return res.ok ? parseJsonl(await res.text()) : null; } catch (_) { return null; }
+    }
+    async function loadAtlas() {
+      let recs = await fetchJsonl('atlas.jsonl'), migrated = false;
+      if (!recs) {
+        const p = await fetchJsonl('places.jsonl') || await fetchJsonl('stops.jsonl');
+        const r = await fetchJsonl('routes.jsonl');
+        if (p || r) { recs = [...(p || []), ...(r || []).map((x) => Object.assign({ type: 'route' }, x))]; migrated = true; }
+      }
+      if (!recs) { countEl.textContent = ''; stateEl.innerHTML = 'Could not load <code>atlas.jsonl</code> (or legacy places/routes). Serve over http(s).'; return; }
+      places = recs.filter((x) => x.type !== 'route').map((x) => Object.assign(x, { type: 'place' }));
+      routes = recs.filter((x) => x.type === 'route').map((x) => {
+        const legacyStops = routeStops(x);
+        const normalized = Object.assign({}, x, {
+          stops: legacyStops.filter((point) => !point.turn),
+          turns: Array.isArray(x.turns)
+            ? x.turns
+            : legacyStops.map((point, position) => point.turn ? { position, w3w: point.w3w || '' } : null).filter(Boolean)
+        });
+        delete normalized.waypoints;
+        delete normalized.places;
+        delete normalized.notes;
+        return normalized;
+      });
+      if (!places.length && !routes.length) { countEl.textContent = '0 places'; stateEl.textContent = 'atlas.jsonl is empty.'; return; }
+      buildCityFilter();
+      if (migrated) stateEl.textContent = 'Loaded legacy places/routes — hit Save to write the combined atlas.jsonl.';
     }
 
     async function init() {
@@ -501,50 +828,49 @@
       });
       info = new google.maps.InfoWindow();
       geocoder = new google.maps.Geocoder();
-      // Right-click → select that square and open the Add stop form.
-      map.addListener('rightclick', async (e) => { await selectSquare(e.latLng.lat(), e.latLng.lng()); openAddForm(); });
-      // Add stop button → form built from the currently selected square (or center).
+      // Add place button → form built from the currently selected square (or center).
       document.getElementById('addBtn').addEventListener('click', openAddForm);
+      document.getElementById('saveBtn').addEventListener('click', () => saveAll());
       document.getElementById('addSave').addEventListener('click', saveFromForm);
       document.getElementById('addCancel').addEventListener('click', closeAddForm);
       document.getElementById('addClose').addEventListener('click', closeAddForm);
       document.getElementById('addModal').addEventListener('click', (e) => { if (e.target.id === 'addModal') closeAddForm(); });
       // Route builder.
       document.getElementById('routeBtn').addEventListener('click', toggleRouteMode);
+      document.getElementById('routeTurn').addEventListener('click', () => { const c = map.getCenter(); addTurn(c.lat(), c.lng()); });
       document.getElementById('routeSave').addEventListener('click', saveRoute);
       document.getElementById('routeClear').addEventListener('click', clearRoute);
-      loadRoutes();
+      document.getElementById('routeName').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); saveRoute(); }
+      });
+      searchEl.addEventListener('input', () => {
+        searchQuery = normalizeSearchText(searchEl.value.trim());
+        render(cityEl.value);
+      });
       map.addListener('idle', updateGrid);
-      // Click an empty square → select it and show its ///words with an Add link.
+      // Click an empty spot: in route mode → drop a turn; otherwise → select the
+      // square and offer "Add place here". (Clicking a pin instead fires that
+      // marker's own handler — add-to-route in route mode, else its popup.)
       map.addListener('click', async (e) => {
+        if (routeMode) { addTurn(e.latLng.lat(), e.latLng.lng()); return; }
         const sq = await selectSquare(e.latLng.lat(), e.latLng.lng());
-        info.setContent('<div style="font-family:system-ui,sans-serif;font-size:13px;color:#111">///' +
-          (sq.w3w ? '<a href="https://what3words.com/' + sq.w3w + '" target="_blank" rel="noopener">' + esc(sq.w3w) + '</a>' : '?') +
-          ' · <a href="#" id="popAdd">Add stop here</a></div>');
+        info.setContent('<div style="font-family:system-ui,sans-serif;font-size:13px;color:#111">' +
+          '<div style="color:#666">///' + (sq.w3w ? '<a href="https://what3words.com/' + esc(sq.w3w) + '" target="_blank" rel="noopener">' + esc(sq.w3w) + '</a>' : '?') + '</div>' +
+          '<div style="margin-top:6px"><button id="popAdd" type="button" style="font:inherit;font-size:12px;font-weight:700;color:#2d4880;background:#fff;border:1px solid rgba(45,72,128,.35);border-radius:6px;padding:3px 9px;cursor:pointer">Add place here</button></div></div>');
         info.setPosition(e.latLng); info.open(map);
         google.maps.event.addListenerOnce(info, 'domready', () => {
           const a = document.getElementById('popAdd');
-          if (a) a.onclick = (ev) => { ev.preventDefault(); info.close(); openAddForm(); };
+          if (a) a.addEventListener('click', () => { info.close(); openAddForm(); });
         });
       });
 
-      try {
-        const res = await fetch('stops.jsonl', { cache: 'no-store' });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        stops = (await res.text()).split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-          .map((l) => { try { return JSON.parse(stripMarkdownLinks(l)); } catch (_) { return null; } }).filter(Boolean);
-        if (!stops.length) { countEl.textContent = '0 stops'; stateEl.textContent = 'stops.jsonl is empty.'; return; }
-        buildCityFilter();
-      } catch (err) {
-        countEl.textContent = '';
-        stateEl.innerHTML = 'Could not load <code>stops.jsonl</code> (' + esc(err.message) + '). Serve over http(s).';
-      }
+      await loadAtlas();
     }
 
-    window.__initStopsMap = init;
+    window.__initPlacesMap = init;
   })();
   </script>
   <!-- Google Maps JS API key (temporary, referrer-restricted to thegamebureau.com + 127.0.0.1). -->
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB93DZq4cYKLms-Q6quJuENf0O2fz-LF1I&loading=async&callback=__initStopsMap"></script>
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB93DZq4cYKLms-Q6quJuENf0O2fz-LF1I&loading=async&callback=__initPlacesMap"></script>
 </body>
 </html>

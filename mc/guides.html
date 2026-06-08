@@ -161,9 +161,49 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .guide-pager {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .guide-pager-status {
+      margin-right: 4px;
+    }
+
     .guide-list {
       display: grid;
       gap: 12px;
+    }
+
+    .guide-group-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.14);
+      border-radius: 10px;
+      background: rgba(var(--bic-blue-rgb), 0.055);
+      color: var(--bic-blue);
+    }
+
+    .guide-group-title {
+      margin: 0;
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .guide-group-meta {
+      color: var(--muted);
+      font-size: 0.76rem;
+      white-space: nowrap;
     }
 
     .guide-card {
@@ -476,6 +516,7 @@
         <span>0 games</span>
         <span>0 selected</span>
       </div>
+      <div class="guide-pager" id="guidePager" hidden></div>
       <div class="guide-list" id="guideList"></div>
     </section>
   </main>
@@ -716,6 +757,7 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
     const saveDirtyBtn = document.getElementById('saveDirtyBtn');
     const refreshBtn = document.getElementById('refreshBtn');
     const summaryLine = document.getElementById('summaryLine');
+    const guidePager = document.getElementById('guidePager');
     const guideList = document.getElementById('guideList');
     const guidePromptBackdrop = document.getElementById('guidePromptBackdrop');
     const guidePromptDialog = document.getElementById('guidePromptDialog');
@@ -728,9 +770,12 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       games: [],
       authed: false,
       filter: '',
+      pageIndex: 0,
       dirtyIds: new Set(),
       savingIds: new Set()
     };
+
+    const GUIDE_PAGE_SIZE = 10;
 
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
@@ -821,6 +866,7 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
         }
         const rows = await response.json();
         state.games = normalizeGames(rows);
+        state.pageIndex = 0;
         state.dirtyIds.clear();
         state.savingIds.clear();
         render();
@@ -1043,6 +1089,60 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       });
     }
 
+    function orderedVisibleGames() {
+      return visibleGames().slice().sort(compareGuideGames);
+    }
+
+    function compareGuideGames(a, b) {
+      return compareText(awayTeamLabel(a), awayTeamLabel(b))
+        || compareDateValue(a, b)
+        || compareText(String(a && a.start_time || ''), String(b && b.start_time || ''))
+        || compareText(String(a && a.home_team_city || ''), String(b && b.home_team_city || ''))
+        || compareText(String(a && a.home_team_mascot || ''), String(b && b.home_team_mascot || ''))
+        || compareText(displayName(a), displayName(b))
+        || compareText(String(a && a.id || ''), String(b && b.id || ''));
+    }
+
+    function compareText(a, b) {
+      return String(a || '').localeCompare(String(b || ''), undefined, { sensitivity: 'base', numeric: true });
+    }
+
+    function compareDateValue(a, b) {
+      return sortableDateValue(a) - sortableDateValue(b);
+    }
+
+    function sortableDateValue(game) {
+      const raw = String(game && game.game_date || '').trim();
+      if (!raw) return Number.MAX_SAFE_INTEGER;
+      const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (!match) return Number.MAX_SAFE_INTEGER - 1;
+      return Number(match[1] + match[2] + match[3]);
+    }
+
+    function awayTeamLabel(game) {
+      return [game && game.away_team_city, game && game.away_team_mascot].filter(Boolean).join(' ') || 'Away Team Missing';
+    }
+
+    function awayTeamKey(game) {
+      return awayTeamLabel(game).trim().toLowerCase();
+    }
+
+    function pageCountFor(total) {
+      return Math.max(1, Math.ceil(total / GUIDE_PAGE_SIZE));
+    }
+
+    function clampPage(total) {
+      const pages = pageCountFor(total);
+      if (state.pageIndex >= pages) state.pageIndex = pages - 1;
+      if (state.pageIndex < 0) state.pageIndex = 0;
+      return pages;
+    }
+
+    function pageSlice(games) {
+      const start = state.pageIndex * GUIDE_PAGE_SIZE;
+      return games.slice(start, start + GUIDE_PAGE_SIZE);
+    }
+
     function searchHaystack(game) {
       return [
         game.id,
@@ -1097,13 +1197,38 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       }
       const visible = visibleGames();
       if (!visible.length) {
+        if (guidePager) guidePager.hidden = true;
         guideList.appendChild(emptyNode(state.filter ? 'No guide records match your filter.' : 'No games found.'));
         updateSummary();
         return;
       }
-      visible.forEach((game) => guideList.appendChild(renderCard(game)));
+      const ordered = orderedVisibleGames();
+      clampPage(ordered.length);
+      let lastGroup = '';
+      pageSlice(ordered).forEach((game) => {
+        const group = awayTeamKey(game);
+        if (group !== lastGroup) {
+          guideList.appendChild(renderGroupHeader(game, ordered));
+          lastGroup = group;
+        }
+        guideList.appendChild(renderCard(game));
+      });
       updateToolbarButtons();
       updateSummary();
+    }
+
+    function renderGroupHeader(game, orderedGames) {
+      const header = document.createElement('div');
+      header.className = 'guide-group-head';
+      const title = document.createElement('h3');
+      title.className = 'guide-group-title';
+      title.textContent = awayTeamLabel(game);
+      const total = orderedGames.filter((entry) => awayTeamKey(entry) === awayTeamKey(game)).length;
+      const meta = document.createElement('span');
+      meta.className = 'guide-group-meta';
+      meta.textContent = total + ' game' + (total === 1 ? '' : 's') + ' in sequence';
+      header.append(title, meta);
+      return header;
     }
 
     function renderCard(game) {
@@ -1222,19 +1347,6 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
         );
       }
 
-      if (canShowAny(['starting_location_name', 'starting_location_address', 'starting_location_plus_code', 'starting_location_lat', 'starting_location_lon'])) {
-        wrap.append(
-          contextTitle('Starting Locations'),
-          contextGrid([
-            readonlyField(game, 'starting_location_name', 'Start Name'),
-            readonlyField(game, 'starting_location_address', 'Start Address'),
-            readonlyField(game, 'starting_location_plus_code', 'Start Plus Code'),
-            readonlyField(game, 'starting_location_lat', 'Start Latitude'),
-            readonlyField(game, 'starting_location_lon', 'Start Longitude')
-          ])
-        );
-      }
-
       return wrap;
     }
 
@@ -1310,14 +1422,50 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
     }
 
     function updateSummary() {
-      const visible = visibleGames();
+      const visible = orderedVisibleGames();
+      const pages = clampPage(visible.length);
+      const start = visible.length ? state.pageIndex * GUIDE_PAGE_SIZE + 1 : 0;
+      const end = visible.length ? Math.min(visible.length, start + GUIDE_PAGE_SIZE - 1) : 0;
       const dirty = state.dirtyIds.size;
       summaryLine.innerHTML = '';
       summaryLine.append(
-        metaSpan(visible.length + ' visible / ' + state.games.length + ' total'),
+        metaSpan('Showing ' + start + '-' + end + ' of ' + visible.length + ' visible / ' + state.games.length + ' total'),
         metaSpan(dirty + ' dirty')
       );
+      renderPager(visible.length, pages);
       updateToolbarButtons();
+    }
+
+    function renderPager(total, pages) {
+      if (!guidePager) return;
+      guidePager.innerHTML = '';
+      if (!state.authed || total <= GUIDE_PAGE_SIZE) {
+        guidePager.hidden = true;
+        return;
+      }
+      guidePager.hidden = false;
+      const status = document.createElement('span');
+      status.className = 'guide-pager-status';
+      status.textContent = 'Page ' + (state.pageIndex + 1) + ' of ' + pages;
+      const prev = document.createElement('button');
+      prev.type = 'button';
+      prev.className = 'btn small';
+      prev.textContent = 'Previous';
+      prev.disabled = state.pageIndex <= 0;
+      prev.addEventListener('click', () => {
+        state.pageIndex = Math.max(0, state.pageIndex - 1);
+        render();
+      });
+      const next = document.createElement('button');
+      next.type = 'button';
+      next.className = 'btn small';
+      next.textContent = 'Next';
+      next.disabled = state.pageIndex >= pages - 1;
+      next.addEventListener('click', () => {
+        state.pageIndex = Math.min(pages - 1, state.pageIndex + 1);
+        render();
+      });
+      guidePager.append(status, prev, next);
     }
 
     function updateToolbarButtons() {
@@ -1327,6 +1475,7 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
 
     searchInput.addEventListener('input', () => {
       state.filter = searchInput.value.trim().toLowerCase();
+      state.pageIndex = 0;
       render();
     });
 

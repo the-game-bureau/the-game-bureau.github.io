@@ -201,6 +201,19 @@
       cursor: text;
     }
     .tagline-body.is-empty { color: var(--muted); font-style: italic; }
+    .tagline-suggestion {
+      margin: 5px 0 0;
+      color: var(--ink);
+      font-size: 0.88rem;
+      line-height: 1.4;
+    }
+    .tagline-suggestion-label {
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
 
     .item-actions { display: flex; gap: 6px; }
 
@@ -247,7 +260,7 @@
       <h2>TAGLINES</h2>
       <p class="status" id="pageStatus" aria-live="polite">Sign in with an admin account.</p>
       <p class="legend">Grouped by the visiting team's league, conference, and division.
-        <span class="star">*</span> marks a divisional-rival matchup. Click any tagline to edit it.</p>
+        <span class="star">*</span> marks a divisional-rival matchup. Click any tagline to edit it, or use Suggest for a game-aware alternative.</p>
     </section>
 
     <div class="toolbar">
@@ -319,7 +332,13 @@
     const groupsEl   = document.getElementById('groups');
     const searchInput = document.getElementById('searchInput');
 
-    const state = { games: [], authed: false, editingId: null, filter: '' };
+    const state = {
+      games: [],
+      authed: false,
+      editingId: null,
+      filter: '',
+      suggestions: new Map()
+    };
 
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
@@ -331,6 +350,7 @@
       onSignedOut: () => {
         state.authed = false;
         state.games = [];
+        state.suggestions.clear();
         render();
         setStatus('Sign in with an admin account.');
       }
@@ -374,7 +394,7 @@
     async function refresh() {
       try {
         const url = restUrl('games', {
-          select: 'id,name,tagline,game_date,start_time,away_team_city,away_team_mascot,home_team_city,home_team_mascot,fandom_game',
+          select: 'id,name,tagline,city,tags,game_date,start_time,away_team_city,away_team_mascot,home_team_city,home_team_mascot,fandom_game',
           order: 'name.asc'
         });
         const response = await fetch(url, { headers: authHeaders(), cache: 'no-store' });
@@ -438,6 +458,189 @@
       const baseLetters = base.replace(/[^A-Za-z]/g, '');
       if (baseLetters && baseLetters === baseLetters.toUpperCase()) return base + suffix;
       return source.charAt(0).toUpperCase() + source.slice(1).toLowerCase();
+    }
+
+    function shortCity(game) {
+      return String(game.city || game.home_team_city || '')
+        .split(',')[0]
+        .trim();
+    }
+
+    function gameTags(game) {
+      const values = Array.isArray(game.tags) ? game.tags : [game.tags];
+      return values.map((tag) => String(tag || '').trim().toLowerCase()).filter(Boolean);
+    }
+
+    function buildTaglineSuggestions(game) {
+      const city = shortCity(game);
+      const away = String(game.away_team_city || '').trim();
+      const awayMascot = String(game.away_team_mascot || '').trim();
+      const home = String(game.home_team_city || '').trim();
+      const homeMascot = String(game.home_team_mascot || '').trim();
+      const awayTeam = [away, awayMascot].filter(Boolean).join(' ');
+      const homeTeam = [home, homeMascot].filter(Boolean).join(' ');
+      const tags = gameTags(game);
+      const hasTag = (value) => tags.some((tag) => tag.includes(value));
+      const suggestions = [];
+      const add = (...values) => suggestions.push(...values.filter(Boolean));
+
+      if (game.fandom_game || (away && game.home_team_city)) {
+        if (away && city) {
+          add(
+            away + ' Has Entered ' + city + ' Territory.',
+            away + ' Came To See What ' + city + ' Is Made Of.',
+            away + ' Meets ' + city + ', One Clue At A Time.',
+            away + ' Is Loose In ' + city + '.',
+            away + ' Takes The Long Way Through ' + city + '.',
+            away + ' Came To Leave A Mark On ' + city + '.',
+            away + ' Fans Are Reading Between ' + city + "'s Lines.",
+            away + ' Fans Have A Score To Settle With ' + city + '.',
+            away + ' Colors Look Good On ' + city + '.',
+            'A Little ' + away + ' Trouble In ' + city + '.',
+            city + ', Meet The ' + away + ' Faithful.',
+            city + ' Is Hosting. ' + away + ' Is Investigating.',
+            city + ' Is About To Learn How ' + away + ' Travels.',
+            city + ' Through ' + away + ' Eyes.',
+            'Find The Side Of ' + city + ' The Rivals Miss.'
+          );
+        }
+        if (awayMascot && city) {
+          add(
+            awayMascot + ' Fans, Your ' + city + ' Takeover Starts Here.',
+            awayMascot + ' Fans Are On The Loose In ' + city + '.',
+            awayMascot + ' Pride Has Arrived In ' + city + '.',
+            awayMascot + ' Fans See A Different Side Of ' + city + '.',
+            'Paint ' + city + ' In ' + awayMascot + ' Colors.'
+          );
+        }
+        if (awayMascot && homeMascot) {
+          add(
+            awayMascot + ' In ' + homeMascot + ' Territory.',
+            awayMascot + ' Fans, Welcome To ' + homeMascot + ' Country.',
+            awayMascot + ' Pride Meets ' + homeMascot + ' Territory.',
+            awayMascot + ' Fans Are Crossing Enemy Lines.',
+            awayMascot + ' Fans Came To Outsmart The ' + homeMascot + '.',
+            homeMascot + ' Territory Has Some Uninvited Guests.',
+            'The ' + awayMascot + ' Have Entered The ' + homeMascot + "' Den.",
+            awayMascot + ' Colors. ' + homeMascot + ' Streets.',
+            awayMascot + ' Curiosity Meets ' + homeMascot + ' Territory.'
+          );
+        }
+        if (awayTeam && homeTeam) {
+          add(
+            awayTeam + ' Vs. ' + homeTeam + '. The City Decides.',
+            awayTeam + ' Fans Have Entered Rival Territory.',
+            awayTeam + ' Fans Came To Challenge ' + homeTeam + '.',
+            homeTeam + ' Has Home Turf. ' + awayTeam + ' Has A Mission.'
+          );
+        }
+        if (city) {
+          add(
+            'Two Fanbases. One City. No Neutral Ground.',
+            'Rival Colors Take To The Streets Of ' + city + '.',
+            'The Rivalry Has Taken To The Streets.',
+            'Enemy Territory Has Never Looked This Good.',
+            'Know The City. Outsmart The Rival.',
+            'Claim The Streets. Earn The Bragging Rights.',
+            'A Citywide Challenge With Rivalry In Its Veins.',
+            'Every Street Has A Side.',
+            'The City Is Neutral. The Fans Are Not.',
+            'Explore ' + city + '. Defend Your Colors.',
+            'Cross The City. Cross Enemy Lines.',
+            'Rivalry Looks Different From Street Level.',
+            'The Real Contest Is Hidden Around ' + city + '.',
+            'City Clues. Rival Crews.',
+            city + ' Has Become Rival Territory.',
+            city + ' Is Big Enough For Both Sides. Barely.',
+            city + ' Is The Board. Rival Pride Is The Prize.'
+          );
+        }
+        if (isDivisional(game)) {
+          add(
+            'Old Rivals. New Streets.',
+            'Settle The Rivalry One Clue At A Time.',
+            'Familiar Rivals. Unfamiliar Territory.',
+            'The Rivalry Runs Deeper Than The Map.',
+            'Same Division. Different Side Of The City.',
+            'No Neutral Corners In This Rivalry.',
+            'Rivalry Rules Apply On Every Block.',
+            'Bragging Rights Are Hidden In Plain Sight.',
+            'The Division Rivalry Has Left The Field.'
+          );
+        }
+        if (hasTag('halloween') && city) add('Rival Colors Take Over ' + city + ' After Dark.');
+      }
+
+      if (hasTag('trivia') && city) {
+        add(
+          'Know ' + city + '? Prove It.',
+          city + ' Knows The Answers. Do You?',
+          'Put Your ' + city + ' Knowledge On The Line.'
+        );
+      }
+      if ((hasTag('puzzle') || hasTag('scavenger')) && city) {
+        add(
+          'Crack The Clues. Claim ' + city + '.',
+          city + ' Is Hiding Something.',
+          'Read The Streets. Solve ' + city + '.',
+          'Every Block Holds A Clue.',
+          'The Rivalry Is Written All Over ' + city + '.'
+        );
+      }
+      if (hasTag('city tour') && city) {
+        add(
+          'See ' + city + ' Like You Have A Mission.',
+          'Meet The ' + city + ' Hiding In Plain Sight.',
+          'Take The Curious Route Through ' + city + '.'
+        );
+      }
+      if (hasTag('birthday')) add('Make The Birthday A Mission.');
+
+      if (city) {
+        add(
+          'Turn ' + city + ' Into Your Game Board.',
+          'See ' + city + ' Differently, One Clue At A Time.',
+          'The Streets Of ' + city + ' Are In Play.',
+          city + ' Has More To Reveal.',
+          'Take The Side Streets Through ' + city + '.',
+          'Find What ' + city + ' Hides In Plain Sight.',
+          'A Better Way To Get Lost In ' + city + '.',
+          'Follow The Clues Through ' + city + '.',
+          'The Curious Side Of ' + city + ' Starts Here.',
+          city + ' Is Full Of Unfinished Business.',
+          city + ' Rewards The Ones Who Look Closer.',
+          'Choose A Side. Explore The City.',
+          'One City. Countless Ways To Claim It.',
+          'Leave No Corner Of ' + city + ' Unchallenged.',
+          'See The City. Spot The Rivalry.',
+          'Every City Has Secrets. Every Rival Wants Them.'
+        );
+      } else {
+        add(
+          'Follow The Clues. Find What Others Miss.',
+          'Your Next Mission Starts Here.',
+          'A Game Built For Curious Teams.',
+          'Old Rivals. New Territory.',
+          'Choose A Side. Follow The Clues.',
+          'Rival Pride Meets Street Smarts.'
+        );
+      }
+
+      return [...new Set(suggestions.map(formatTaglineCase).filter(Boolean))];
+    }
+
+    function suggestTagline(game) {
+      if (!game) return;
+      const suggestions = buildTaglineSuggestions(game);
+      const current = formatTaglineCase(game.tagline);
+      const previous = state.suggestions.get(game.id);
+      const preferred = suggestions.filter((suggestion) => suggestion !== current && suggestion !== previous);
+      const pool = preferred.length ? preferred : suggestions.filter((suggestion) => suggestion !== current);
+      const next = pool[Math.floor(Math.random() * pool.length)] || suggestions[0] || '';
+      if (!next) return;
+      state.suggestions.set(game.id, next);
+      render();
+      setStatus('Suggested a tagline for ' + (game.name || 'this game') + '.', 'success');
     }
 
     function matchesFilter(game) {
@@ -586,16 +789,31 @@
       body.title = 'Click to edit';
       body.addEventListener('click', () => { state.editingId = game.id; render(); });
       main.append(name, body);
+      const suggestion = state.suggestions.get(game.id);
+      if (suggestion) {
+        const suggested = document.createElement('p');
+        suggested.className = 'tagline-suggestion';
+        const label = document.createElement('span');
+        label.className = 'tagline-suggestion-label';
+        label.textContent = 'Suggested: ';
+        suggested.append(label, document.createTextNode(suggestion));
+        main.appendChild(suggested);
+      }
       item.appendChild(main);
 
       const actions = document.createElement('div');
       actions.className = 'item-actions';
+      const suggestBtn = document.createElement('button');
+      suggestBtn.type = 'button';
+      suggestBtn.className = 'btn icon';
+      suggestBtn.textContent = 'Suggest';
+      suggestBtn.addEventListener('click', () => suggestTagline(game));
       const editBtn = document.createElement('button');
       editBtn.type = 'button';
       editBtn.className = 'btn icon';
       editBtn.textContent = 'Edit';
       editBtn.addEventListener('click', () => { state.editingId = game.id; render(); });
-      actions.appendChild(editBtn);
+      actions.append(suggestBtn, editBtn);
       item.appendChild(actions);
       return item;
     }

@@ -14,17 +14,24 @@
   if (global.TgbMcAdminNav) return;
 
   var MENU_ITEMS = [
-    { href: '/mc/index.html',     label: 'Edit Games' },
-    { href: '/mc/builder.html',   label: 'Build Games', id: 'mcNavBuilderLink' },
-    { href: '/mc/taglines.html',  label: 'Taglines' },
-    { href: '/mc/guides.html',    label: 'Guides' },
-    { href: '/mc/starting-locations.html', label: 'Starting Locations' },
-    { href: '/research/map.html', label: 'Routes' },
-    { href: '/mc/photos.html',    label: 'Edit Wall' },
-    { href: '/gifts/admin/gs-shop.html',  label: 'Edit Gifts' },
-    { href: '/gifts/admin/gs-codes.html', label: 'Access Codes' },
-    { href: '/research/',         label: 'Research' },
-    { href: '/mc/notes.html',     label: 'Notes' }
+    { header: 'Game' },
+    { href: '/mc/index.html',     label: 'Game Details' },
+    { href: '/research/content.html', label: 'Content' },
+    { header: 'Batch Edit' },
+    { href: '/mc/guides.html',    label: 'Guides', subitem: true },
+    { href: '/mc/taglines.html',  label: 'Taglines', subitem: true },
+    { header: 'Website' },
+    { href: '/mc/photos.html',    label: 'Edit Wall', subitem: true },
+    { href: '/gifts/admin/gs-shop.html',  label: 'Edit Gifts', subitem: true },
+    { href: '/gifts/admin/gs-codes.html', label: 'Access Codes', subitem: true },
+    { header: 'Reference' },
+    { href: '/research/',         label: 'Research', subitem: true },
+    {
+      href: 'https://www.icloud.com/notes/note/UHJpdmF0ZTo6Tm90ZXM6OmN1cnJlbnRVc2VyOjo4YTBhZTliYy1lNGQ5LTQxNTMtYTA0Zi03NjM2NWRhN2IwNjQ=',
+      label: 'Apple Notes',
+      external: true,
+      subitem: true
+    }
   ];
 
   function init(options) {
@@ -119,11 +126,30 @@
     var normalized = String(currentPath || '').toLowerCase();
 
     MENU_ITEMS.forEach(function (item) {
+      if (item.divider) {
+        menu.appendChild(buildDivider());
+        return;
+      }
+
+      if (item.header) {
+        var header = global.document.createElement('span');
+        header.className = 'mc-admin-nav-menu-header';
+        header.setAttribute('role', 'presentation');
+        header.textContent = item.header;
+        menu.appendChild(header);
+        return;
+      }
+
       var link = global.document.createElement('a');
       link.className = 'mc-admin-nav-menu-item';
+      if (item.subitem) link.classList.add('mc-admin-nav-menu-item--subitem');
       link.setAttribute('role', 'menuitem');
       link.href = item.href;
       link.textContent = item.label;
+      if (item.external) {
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+      }
       if (item.id) link.id = item.id;
       if (normalized === item.href.toLowerCase()) {
         link.classList.add('is-current');
@@ -132,10 +158,7 @@
       menu.appendChild(link);
     });
 
-    var divider = global.document.createElement('span');
-    divider.className = 'mc-admin-nav-menu-divider';
-    divider.setAttribute('aria-hidden', 'true');
-    menu.appendChild(divider);
+    menu.appendChild(buildDivider());
 
     var signOut = global.document.createElement('button');
     signOut.type = 'button';
@@ -146,6 +169,13 @@
     menu.appendChild(signOut);
 
     return menu;
+  }
+
+  function buildDivider() {
+    var divider = global.document.createElement('span');
+    divider.className = 'mc-admin-nav-menu-divider';
+    divider.setAttribute('aria-hidden', 'true');
+    return divider;
   }
 
   function currentPathname() {

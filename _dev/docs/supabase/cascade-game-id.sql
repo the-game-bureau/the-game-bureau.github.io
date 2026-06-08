@@ -16,22 +16,3 @@ alter table public.anytime_replies
   add constraint anytime_replies_game_id_fkey
   foreign key (game_id) references public.games(id)
   on delete cascade on update cascade;
-
--- game_notes.game_id (if present)
-do $$
-begin
-  if exists (
-    select 1 from information_schema.table_constraints
-    where table_schema = 'public'
-      and table_name = 'game_notes'
-      and constraint_type = 'FOREIGN KEY'
-  ) then
-    alter table public.game_notes
-      drop constraint if exists game_notes_game_id_fkey;
-    alter table public.game_notes
-      add constraint game_notes_game_id_fkey
-      foreign key (game_id) references public.games(id)
-      on delete cascade on update cascade;
-  end if;
-end
-$$;

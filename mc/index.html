@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>GAMES | THE GAME BUREAU</title>
+  <title>GAME DETAILS | THE GAME BUREAU</title>
   <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -839,6 +839,12 @@
       color: #fff;
     }
 
+    .admin-game-btn[aria-disabled="true"] {
+      opacity: 0.45;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
     .empty {
       display: grid;
       place-items: center;
@@ -1051,7 +1057,7 @@
             </g>
           </svg>
           <p class="kicker">TGB MISSION CONTROL</p>
-          <h2 id="libraryHeading">GAMES</h2>
+          <h2 id="libraryHeading">GAME DETAILS</h2>
           <p class="status" id="libraryStatus" aria-live="polite"></p>
         </div>
         <div class="toolbar">
@@ -1561,6 +1567,35 @@
         dateEl.textContent = dateLabel;
         body.appendChild(dateEl);
       }
+
+      const actions = document.createElement('div');
+      actions.className = 'admin-game-actions';
+      const contentRoute = gameId ? buildBuilderRoute({ id: gameId }) : null;
+      const detailsRoute = contentRoute ? contentRoute.replace('builder.html', 'setup.html') : null;
+
+      const detailsBtn = document.createElement('a');
+      detailsBtn.className = 'admin-game-btn';
+      detailsBtn.textContent = 'Details';
+      const contentBtn = document.createElement('a');
+      contentBtn.className = 'admin-game-btn primary';
+      contentBtn.textContent = 'Content';
+
+      [[detailsBtn, detailsRoute], [contentBtn, contentRoute]].forEach(([btn, route]) => {
+        if (route) {
+          btn.href = route;
+        } else {
+          btn.setAttribute('aria-disabled', 'true');
+          btn.title = 'This row has no id. Set one in the Supabase SQL editor before editing.';
+        }
+        // Don't let a button click bubble up to the card's select/dblclick handlers.
+        btn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          if (!route) event.preventDefault();
+        });
+        actions.appendChild(btn);
+      });
+
+      body.appendChild(actions);
       card.append(media, body);
       card.dataset.gameId = gameId;
       card.dataset.gameState = state;
@@ -1570,7 +1605,7 @@
       card.addEventListener('click', (event) => selectGame(game, event));
       card.addEventListener('dblclick', (event) => {
         event.preventDefault();
-        window.location.href = buildBuilderRoute({ id: game.id });
+        window.location.href = buildBuilderRoute({ id: game.id }).replace('builder.html', 'setup.html');
       });
       return card;
     }

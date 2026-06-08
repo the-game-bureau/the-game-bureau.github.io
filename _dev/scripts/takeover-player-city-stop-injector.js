@@ -224,8 +224,8 @@ function buildStopNode(id, title, x, y, orderIndex) {
     anytime: false, endTime: '', linkUrl: '', logoUrl: '', tagline: '', varName: '',
     featured: '', gameDate: '', guideBio: '', rotation: 0, acceptAny: false,
     buttonUrl: '', guideName: '', howToPlay: '', startTime: '', orderIndex,
-    builderNotes: '', defaultEmoji: '', anytimePairId: '', guideImageUrl: '',
-    locationBased: 'NO', tertiaryColor: '#000000', waypointGroup: '',
+    defaultEmoji: '', anytimePairId: '', guideImageUrl: '',
+    locationBased: 'NO', tertiaryColor: '#000000', stopGroup: '',
     answerResponses: [], quaternaryColor: '#FFFFFF',
     startingLocation: '', startingLocationLat: null, startingLocationLon: null,
   };
@@ -239,8 +239,8 @@ function buildBubble(id, body, x, y, orderIndex) {
     anytime: false, endTime: '', linkUrl: '', logoUrl: '', tagline: '', varName: '',
     featured: '', gameDate: '', guideBio: '', rotation: 0, acceptAny: false,
     buttonUrl: '', guideName: '', howToPlay: '', startTime: '', orderIndex,
-    builderNotes: '', defaultEmoji: '', anytimePairId: '', guideImageUrl: '',
-    locationBased: 'NO', tertiaryColor: '#000000', waypointGroup: '',
+    defaultEmoji: '', anytimePairId: '', guideImageUrl: '',
+    locationBased: 'NO', tertiaryColor: '#000000', stopGroup: '',
     answerResponses: [], quaternaryColor: '#FFFFFF',
     startingLocation: '', startingLocationLat: null, startingLocationLon: null,
   };
@@ -254,8 +254,8 @@ function buildReply(id, answers, answerResponses, varName, x, y, orderIndex) {
     anytime: false, endTime: '', linkUrl: '', logoUrl: '', tagline: '', varName,
     featured: '', gameDate: '', guideBio: '', rotation: 0, acceptAny: false,
     buttonUrl: '', guideName: '', howToPlay: '', startTime: '', orderIndex,
-    builderNotes: '', defaultEmoji: '', anytimePairId: '', guideImageUrl: '',
-    locationBased: 'NO', tertiaryColor: '#000000', waypointGroup: '',
+    defaultEmoji: '', anytimePairId: '', guideImageUrl: '',
+    locationBased: 'NO', tertiaryColor: '#000000', stopGroup: '',
     answerResponses, quaternaryColor: '#FFFFFF',
     startingLocation: '', startingLocationLat: null, startingLocationLon: null,
   };

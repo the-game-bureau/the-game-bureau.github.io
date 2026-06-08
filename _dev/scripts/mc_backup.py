@@ -26,7 +26,6 @@ PUBLISHABLE_KEY = "sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3"
 TABLES = [
     "admin_users",
     "builder_documents",
-    "game_notes",
     "games",
     "games_bu",
     "photo_submissions",

@@ -29,6 +29,20 @@ This grouping is the public website surface for shared chrome work such as navig
 
 ---
 
+## Canonical game hierarchy
+
+Use this product vocabulary everywhere new UI, code, data, and documentation are created:
+
+- A **Game** contains one or more **Routes**.
+- A **Route** contains an ordered list of **Stops**.
+- A **Stop** combines one **Place** with one **Challenge**.
+- A **Place** is a reusable real-world point with geographic metadata such as city, address, coordinates, Plus Code, or what3words.
+- A **Challenge** is the playable content at a Stop: prompts, clues, media, mini-games, and player replies.
+
+Use `location` only for technical geographic fields and browser APIs. `waypoint`, `waypointGroup`, `waypoint_group`, and route `waypoints` are legacy compatibility vocabulary only; do not create new writes or UI with those names.
+
+---
+
 ## Game player URLs & engines
 
 Canonical public URL for a game:
@@ -59,7 +73,7 @@ Shared, non-engine-specific assets (e.g. `config/lemon-config.js`) live at [game
 
 Start locations are **stored as long/global Google Plus Codes** in the `games` table (`starting_location_plus_code`). That column is the source of truth for the rendezvous point. `starting_location_lat` / `starting_location_lon` stay populated only as decoded compatibility fields for local maps, weather, reverse-geocoding, and older surfaces.
 
-- **Builder** ([mc/builder.html](mc/builder.html)): the "Start Plus Code" field shows/accepts a Plus Code and writes `starting_location_plus_code`. It also decodes the code into `starting_location_lat` / `starting_location_lon` for compatibility. It has a self-contained Open Location Code codec (`encodePlusCode` / `decodePlusCode` / `recoverNearestPlusCode`) near `parseCoordinatePair`. Typed input accepts a full code, a short code (`76VW+59` recovered against the game's existing coords, else its City via Nominatim), or raw lat/lon; all are normalized to the long/global code on save. **Generate** geocodes the Start Name + Start Address + City via Nominatim, then stores the encoded code.
+- **Builder** ([mc/builder.html](mc/builder.html)): the "Start Plus Code" field shows/accepts a Plus Code and writes `starting_location_plus_code`. It also decodes the code into `starting_location_lat` / `starting_location_lon` for compatibility. It has a self-contained Open Location Code codec (`encodePlusCode` / `decodePlusCode` / `recoverNearestPlusCode`) near `parseCoordinatePair`. Typed input accepts a full code, a short code (`76VW+59` recovered against the game's existing coords, else its City via Nominatim), or raw lat/lon; all are normalized to the long/global code on save. **Generate** geocodes the Start Name + Start Address + City via Nominatim, then stores the encoded code. There is no standalone Mission Control starting-locations page; edit these values in Builder.
 - **Landing page** ([game/run/index.html](game/run/index.html)): every rendezvous map / directions surface (background map, directions lightbox, "open in Maps" link, share link) uses the stored `starting_location_plus_code` first, decodes it for local map/weather UI, and falls back to lat/lon only for legacy rows missing the code.
 
 **Always use the LONG / global code** (e.g. `8FVC9G8F+6XQ`), not a short code (`9G8F+6X`). The long form resolves anywhere with no locality; the maps get only the code, so a short code would fail to resolve. The default code length is 11 chars (≈3.5 m) and **must match between the two files** so the builder's displayed code equals what the map uses.
@@ -70,14 +84,14 @@ Start locations are **stored as long/global Google Plus Codes** in the `games` t
 
 ---
 
-## Team color → waypoint rotation offset
+## Team color → stop rotation offset
 
-The game rotates waypoints within a `waypointGroup` (A–E) using a Latin-square offset keyed off `vars['team_color']`. The mapping lives in `TEAM_COLOR_ORDER`, defined **separately in each engine**:
+The game rotates stops within a `stopGroup` (A–E) using a Latin-square offset keyed off `vars['team_color']`. The mapping lives in `TEAM_COLOR_ORDER`, defined **separately in each engine**:
 
 - [game/run/text/index.html](game/run/text/index.html) (~line 1305)
 - [game/run/map/index.html](game/run/map/index.html) (~line 1560)
 
-Both files also define `getTeamColorRotationIndex` and `getWaypointRotationOffset` directly below the array.
+Both files also define `getTeamColorRotationIndex` and `getStopRotationOffset` directly below the array.
 
 | team_color (case-insensitive) | offset |
 |---|---|
@@ -89,7 +103,7 @@ Both files also define `getTeamColorRotationIndex` and `getWaypointRotationOffse
 
 Fallback: if `team_color` is missing or not one of the five, the older `team1..team8` number logic supplies the offset (`teamN - 1`). The offset is applied modulo the group's length, so shorter groups still rotate cleanly.
 
-**How to apply:** If team colors change, update `TEAM_COLOR_ORDER` **in both engine files** — the array is not shared. The array order *is* the offset, so don't reshuffle casually — existing waypoint content may be ordered assuming BLUE = the canonical "position 0" view. If this ever gets extracted to a shared module under `/game/run/config/`, update this section to point at the new location.
+**How to apply:** If team colors change, update `TEAM_COLOR_ORDER` **in both engine files** — the array is not shared. The array order *is* the offset, so don't reshuffle casually — existing stop content may be ordered assuming BLUE = the canonical "position 0" view. If this ever gets extracted to a shared module under `/game/run/config/`, update this section to point at the new location.
 
 ---
 

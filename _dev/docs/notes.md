@@ -114,7 +114,7 @@ Go ahead and get your phones out — I’ll have you scan a QR code so I can sen
 
 ## AI & Automation
 
-- [ ] **AI Button:** suggest text and waypoints
+- [ ] **AI Button:** suggest text and stops
 - [ ] **Reporting:** Create a script to test all DB URLs daily and email a broken link report.
 
 ## Content, Story, and Final Polish
@@ -161,7 +161,6 @@ For example, with Oswald, link to all my research.
 - [ ] Set a date and time to start and get sponsorship from a bar to end at their bar with away team fans.
 - [ ] Streetcar puzzle of some sort
 - [ ] add a sense of urgency by slotting people into different start times. that way away team games can end with a pep rally.
-- [ ] each game has a notes section on builder so builders can make notes on the fly without having to track them down later.
 - [ ] pay builders based on purchase reports
 - [ ] look at other coop tour websites
 - [ ] FULL BRANCHING, RIGHT NOW WE CAN'T EVEN GIVE A SPECIALTY REPLY TO A WRONG ANSWER

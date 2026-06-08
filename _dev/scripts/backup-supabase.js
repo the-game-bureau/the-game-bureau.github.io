@@ -37,7 +37,6 @@ const SUPABASE_KEY = SERVICE_KEY || PUBLISHABLE_KEY;
 const TABLES = [
   'admin_users',
   'builder_documents',
-  'game_notes',
   'games',
   'games_bu',
   'photo_submissions',

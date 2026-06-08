@@ -1,16 +1,17 @@
-// Resolve each stop's location and write a what3words address (the w3w field).
+// Resolve each place's location and write a what3words address (the w3w field).
 // AIs hallucinate coordinates, so the AI only NAMES the place; this geocodes it
 // (Google Places when GOOGLE_PLACES_API_KEY is set — best coverage — else
 // Nominatim) and converts the point to a 3-word address via the what3words API.
-//   node research/add-w3w.mjs [file=research/stops.jsonl] [limit] [--all]
-// By default only fills stops MISSING a w3w; --all re-does every stop.
+//   node research/add-w3w.mjs [file=research/atlas.jsonl] [limit] [--all]
+// By default only fills places MISSING a w3w; --all re-does every place.
+// Operates on atlas.jsonl: "route" records are skipped, only "place" records geocode.
 // Keys: GOOGLE_PLACES_API_KEY (optional), W3W_API_KEY (or the CSNL2XHT constant).
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const ARGS = process.argv.slice(2);
 const ALL = ARGS.includes('--all');
 const POS = ARGS.filter((a) => !a.startsWith('--'));
-const FILE = POS[0] || 'research/stops.jsonl';
+const FILE = POS[0] || 'research/atlas.jsonl';
 const LIMIT = POS[1] ? Number(POS[1]) : Infinity;
 
 const W3W_KEY = process.env.W3W_API_KEY || 'CSNL2XHT';   // replace or set W3W_API_KEY
@@ -30,14 +31,14 @@ async function geocodeGoogle(q) {
 }
 async function geocodeNominatim(q) {
   const res = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=' + encodeURIComponent(q),
-    { headers: { 'User-Agent': 'TheGameBureau-stops/1.0 (research tool)' } });
+    { headers: { 'User-Agent': 'TheGameBureau-places/1.0 (research tool)' } });
   if (!res.ok) return null;
   const a = await res.json();
   return a[0] ? { lat: +a[0].lat, lng: +a[0].lon } : null;
 }
 const geocode = (q) => (GOOGLE_KEY ? geocodeGoogle(q) : geocodeNominatim(q));
 
-async function geocodeStop(s) {
+async function geocodePlace(s) {
   const queries = [];
   if (s.name && s.city) queries.push(s.name + ', ' + s.city);
   if (s.address) queries.push(s.address);
@@ -59,10 +60,11 @@ process.stderr.write('Resolver: ' + (GOOGLE_KEY ? 'Google Places' : 'Nominatim')
 let set = 0, n = 0;
 for (const r of recs) {
   if (!r) continue;
+  if (r.type === 'route') continue;                                              // routes carry no geocodable place
   if (n >= LIMIT) break;
   if (!ALL && typeof r.lat === 'number' && typeof r.lng === 'number') continue;  // already placed
   n++;
-  const ll = await geocodeStop(r);
+  const ll = await geocodePlace(r);
   if (!ll) { process.stderr.write(`[${n}] ${r.name} (${r.city}) -> could not geocode\n`); continue; }
   r.lat = ll.lat; r.lng = ll.lng;                    // coords for fast map rendering
   if (ll.address) r.address = ll.address;
@@ -73,4 +75,4 @@ for (const r of recs) {
   if (n % 20 === 0) flush();
 }
 flush();
-console.log(`\nDone: placed ${set} of ${n} stops.`);
+console.log(`\nDone: placed ${set} of ${n} places.`);
