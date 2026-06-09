@@ -1,0 +1,2183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>EDIT GAMES | THE GAME BUREAU</title>
+  <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <script>
+    (function () {
+      try {
+        if (new URLSearchParams(window.location.search).get('embedded') === '1') {
+          document.documentElement.classList.add('admin-embedded');
+        }
+      } catch (error) {}
+    }());
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);
+      --bic-red: #c23737;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255,255,255,0.92);
+      --mist: var(--paper-base);
+      --accent: var(--bic-blue);
+      --danger: #a03f2d;
+      --success: #2f6b3d;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+      color: var(--ink);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .app {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 40px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .admin-nav { display: flex; gap: 4px; }
+    .admin-nav-group { position: relative; display: inline-flex; }
+    .admin-nav-submenu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      min-width: 100%;
+      display: none;
+      flex-direction: column;
+      padding: 6px;
+      gap: 2px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 18px 36px var(--paper-shadow);
+      z-index: 30;
+    }
+    .admin-nav-group:hover > .admin-nav-submenu,
+    .admin-nav-group:focus-within > .admin-nav-submenu { display: flex; }
+    .admin-nav-submenu .admin-nav-link {
+      white-space: nowrap;
+      font-size: 0.78rem;
+      min-height: 34px;
+      padding: 0 12px;
+    }
+    .admin-nav-split {
+      display: inline-flex;
+      border: 2px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .admin-nav-split .admin-nav-link {
+      border-radius: 0;
+      background: #fff;
+      color: var(--ink);
+    }
+    .admin-nav-split .admin-nav-link:hover {
+      background: rgba(var(--bic-blue-rgb), 0.08);
+      color: var(--ink);
+    }
+    .admin-nav-split .admin-nav-link--split-edit {
+      padding: 0 12px;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      background: #d1d5db;
+      color: var(--ink);
+    }
+    .admin-nav-split .admin-nav-link--split-edit:hover {
+      background: #c5c9d1;
+      color: var(--ink);
+    }
+    .admin-nav-split .admin-nav-link--split-edit.admin-nav-link--active {
+      background: var(--accent);
+      color: #fff;
+    }
+    .admin-nav-split .admin-nav-link--split-edit.admin-nav-link--active:hover {
+      background: rgba(var(--bic-blue-rgb), 0.85);
+      color: #fff;
+    }
+    .admin-nav-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      transition: background 0.15s, color 0.15s;
+    }
+    .admin-nav-link:hover { background: var(--line); color: var(--ink); }
+    .admin-nav-link--active { background: var(--accent); color: #fff; }
+
+    .brand {
+      display: grid;
+      gap: 4px;
+    }
+
+    .section-head {
+      display: grid;
+      gap: 4px;
+      margin: 0 0 14px;
+    }
+
+    .section-head--gears {
+      position: relative;
+      overflow: hidden;
+      gap: 6px;
+      margin-bottom: 18px;
+      padding: 20px 22px 22px;
+      padding-right: clamp(136px, 30vw, 220px);
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.14);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.74) 0%, rgba(var(--bic-blue-rgb), 0.08) 100%);
+      box-shadow: 0 18px 36px var(--paper-shadow);
+    }
+
+    .section-head--gears > :not(.section-gear-art):not(.section-head-actions) {
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-head-actions {
+      position: absolute;
+      top: 50%;
+      right: 14px;
+      z-index: 2;
+      display: flex;
+      gap: 8px;
+      transform: translateY(-50%);
+    }
+
+    .section-head--gears .copy {
+      max-width: 440px;
+    }
+
+    .section-gear-art {
+      position: absolute;
+      top: -4px;
+      right: -2px;
+      z-index: 0;
+      width: 320px;
+      height: 188px;
+      pointer-events: none;
+      opacity: 0.96;
+      overflow: visible;
+    }
+
+    .section-head--gears .header-gear {
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .section-head--gears .header-gear-atmosphere {
+      opacity: 0.9;
+    }
+
+    .section-head--gears .header-gear--large {
+      stroke: rgba(var(--bic-blue-rgb), 0.28);
+    }
+
+    .section-head--gears .header-gear--small {
+      stroke: rgba(var(--bic-blue-rgb), 0.22);
+    }
+
+    .section-head--gears .header-gear-body {
+      fill: rgba(var(--bic-blue-rgb), 0.045);
+      stroke-width: 3.4;
+    }
+
+    .section-head--gears .header-gear-ring {
+      fill: rgba(var(--bic-blue-rgb), 0.018);
+      stroke-width: 3;
+    }
+
+    .section-head--gears .header-gear-inner {
+      fill: none;
+      stroke-width: 2.4;
+      opacity: 0.92;
+    }
+
+    .section-head--gears .header-gear-spoke {
+      fill: rgba(var(--bic-blue-rgb), 0.1);
+      stroke: none;
+    }
+
+    .section-head--gears .header-gear-core {
+      fill: rgba(var(--bic-blue-rgb), 0.08);
+      stroke-width: 2.2;
+    }
+
+    .section-head--gears .header-gear-halo {
+      fill: none;
+      stroke: rgba(var(--bic-blue-rgb), 0.14);
+      stroke-width: 2;
+      stroke-dasharray: 4 8;
+    }
+
+    .section-head--gears .header-gear-bore {
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .section-head--gears .header-gear-wire {
+      fill: none;
+      stroke: rgba(var(--bic-blue-rgb), 0.12);
+      stroke-width: 1.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .section-head--gears .header-gear-wire--bold {
+      stroke: rgba(var(--bic-blue-rgb), 0.17);
+      stroke-width: 1.8;
+    }
+
+    .section-head--gears .header-gear-guide {
+      fill: none;
+      stroke: rgba(var(--bic-blue-rgb), 0.1);
+      stroke-width: 1.2;
+      stroke-dasharray: 2 7;
+    }
+
+    .section-head--gears .header-gear-node {
+      fill: rgba(var(--bic-blue-rgb), 0.17);
+    }
+
+    .section-head--gears .header-gear-speck {
+      fill: rgba(var(--bic-blue-rgb), 0.11);
+    }
+
+    .section-head--gears .header-gear-crosshair {
+      stroke: rgba(var(--bic-blue-rgb), 0.15);
+      stroke-width: 1.4;
+    }
+
+    .kicker {
+      margin: 0;
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--bic-blue);
+      font-size: 4.5rem;
+      letter-spacing: 0;
+      line-height: 0.92;
+      text-shadow: 0 6px 14px rgba(var(--bic-blue-rgb), 0.08);
+    }
+
+    h2 {
+      margin: 0;
+      color: var(--bic-blue);
+      font-size: 3rem;
+      letter-spacing: 0;
+      line-height: 1;
+    }
+
+    .copy {
+      margin: 0;
+      max-width: 620px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 14px;
+      margin-bottom: 18px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 18px 36px var(--paper-shadow);
+    }
+
+    .toolbar input {
+      min-width: min(100%, 260px);
+      flex: 1;
+      height: 42px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.86);
+    }
+
+    .toolbar select {
+      height: 42px;
+      padding: 0 28px 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.92);
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23244' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 10px 7px;
+    }
+
+    .toolbar input:focus,
+    .auth input:focus {
+      outline: 2px solid rgba(var(--bic-blue-rgb), 0.24);
+      outline-offset: 2px;
+    }
+
+    button, .btn, .admin-nav-link, [class*="-btn"] {
+      text-transform: uppercase;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.92);
+      font-size: 0.85rem;
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .btn.btn-width-lock {
+      display: inline-grid;
+      grid-template-columns: 1fr;
+      place-items: center;
+    }
+
+    .btn.btn-width-lock::after,
+    .btn.btn-width-lock .btn-label {
+      grid-area: 1 / 1;
+      white-space: nowrap;
+    }
+
+    .btn.btn-width-lock::after {
+      content: attr(data-max-label);
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    .signout-btn {
+      width: 42px;
+      min-width: 42px;
+      height: 42px;
+      min-height: 42px;
+      padding: 0;
+      line-height: 0;
+    }
+
+    .signout-btn svg {
+      width: 31px;
+      height: 31px;
+      display: block;
+      flex: 0 0 auto;
+    }
+
+    .mb-menu {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .mb-trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.92);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .mb-trigger:hover,
+    .mb-trigger:focus-visible,
+    .mb-menu.open .mb-trigger {
+      background: rgba(255,255,255,1);
+      border-color: var(--accent);
+      outline: none;
+    }
+
+    .mb-panel {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 220px;
+      padding: 6px 0;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 18px 36px var(--paper-shadow);
+      z-index: 30;
+    }
+
+    .mb-section {
+      padding: 6px 14px 4px;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .mb-item {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      background: none;
+      color: var(--ink);
+      text-decoration: none;
+      text-align: left;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .mb-item:hover {
+      background: rgba(var(--bic-blue-rgb), 0.08);
+    }
+
+    .mb-item.is-active {
+      background: rgba(var(--bic-blue-rgb), 0.12);
+      color: var(--accent);
+    }
+
+    .mb-sep {
+      height: 1px;
+      margin: 4px 0;
+      background: rgba(var(--bic-blue-rgb), 0.1);
+    }
+
+    .auth-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(var(--bic-blue-rgb), 0.52);
+      backdrop-filter: blur(6px);
+    }
+
+    .auth-modal.hidden {
+      display: none !important;
+    }
+
+    .auth {
+      position: relative;
+      width: min(430px, 100%);
+      margin: 0;
+      padding: 22px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 26px 60px rgba(var(--bic-blue-rgb), 0.18);
+    }
+
+    .auth-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .auth-close:hover { background: var(--line); color: var(--ink); }
+
+    .auth h1 {
+      margin-bottom: 10px;
+      font-size: 2.4rem;
+    }
+
+    .auth-form {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .auth-actions {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+    }
+
+    .auth-actions .btn.primary {
+      flex: 1 1 auto;
+    }
+
+    .home-icon-btn {
+      letter-spacing: 0.06em;
+    }
+
+    .auth label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .auth input {
+      height: 44px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.86);
+    }
+
+    .status {
+      min-height: 22px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .status.error {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .status.success {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    #libraryStatus,
+    #libraryStatus.success {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 14px;
+    }
+
+    .admin-section {
+      margin-top: 34px;
+    }
+
+    .admin-library-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .admin-game-card {
+      --game-primary: var(--bic-blue);
+      --game-secondary: rgba(var(--bic-blue-rgb), 0.72);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 10px 22px var(--paper-shadow);
+      cursor: pointer;
+      transition: outline 0.1s;
+    }
+
+    .admin-game-card.is-selected {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .topbar .btn:disabled,
+    .topbar a.btn[aria-disabled="true"],
+    .toolbar .btn:disabled,
+    .toolbar a.btn[aria-disabled="true"],
+    .section-head-actions .btn:disabled,
+    .section-head-actions a.btn[aria-disabled="true"],
+    .topbar a[aria-disabled="true"] {
+      opacity: 0.38;
+      pointer-events: none;
+    }
+
+    .toolbar-gap { margin-left: auto; }
+    .toolbar-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      align-self: center;
+    }
+
+    .admin-game-media {
+      position: relative;
+      aspect-ratio: 2 / 1;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, var(--game-secondary), var(--game-primary)),
+        rgba(var(--bic-blue-rgb), 0.08);
+    }
+
+    .admin-game-media::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(0,0,0,0.16));
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .admin-game-image {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .admin-game-monogram {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      display: grid;
+      place-items: center;
+      color: rgba(255,255,255,0.86);
+      font-size: 1.9rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .admin-game-media[data-has-image="true"] .admin-game-monogram {
+      opacity: 0.2;
+    }
+
+    .admin-game-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 3;
+      padding: 4px 6px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.92);
+      color: var(--game-primary);
+      font-size: 0.58rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .admin-game-status {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 3;
+      padding: 4px 6px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.92);
+      font-size: 0.58rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .admin-game-status.archived { color: #8a6d1e; border: 1px solid rgba(138, 109, 30, 0.45); }
+
+    .admin-game-card.is-archived { opacity: 0.78; }
+
+    .admin-game-body {
+      display: grid;
+      gap: 5px;
+      padding: 8px;
+    }
+
+    .admin-game-eyebrow {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      line-height: 1.25;
+      text-transform: uppercase;
+      word-break: break-word;
+    }
+
+    .admin-game-title {
+      margin: 0;
+      color: var(--game-primary);
+      font-size: 0.95rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      line-height: 1.05;
+    }
+
+    .admin-game-date {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      line-height: 1.2;
+    }
+
+    .admin-game-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .admin-game-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 7px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.92);
+      font-size: 0.64rem;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-align: center;
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+
+    .admin-game-btn.primary {
+      border-color: var(--game-primary);
+      background: var(--game-primary);
+      color: #fff;
+    }
+
+    .admin-game-btn[aria-disabled="true"] {
+      opacity: 0.45;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .empty {
+      display: grid;
+      place-items: center;
+      grid-column: 1 / -1;
+      min-height: 260px;
+      padding: 24px;
+      color: var(--muted);
+      background: var(--paper);
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    html.admin-embedded body {
+      min-height: 100%;
+      background: transparent;
+    }
+
+    html.admin-embedded .app {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    html.admin-embedded .topbar,
+    html.admin-embedded .section-head--gears,
+    html.admin-embedded .home-icon-btn {
+      display: none !important;
+    }
+
+    @media (max-width: 700px) {
+      .app {
+        width: min(100vw - 22px, 1180px);
+        padding-top: 16px;
+      }
+
+      .topbar {
+        display: grid;
+      }
+
+      .topbar-actions {
+        justify-content: stretch;
+      }
+
+      .topbar-actions .btn {
+        flex: 1;
+      }
+
+      .topbar-actions .mb-menu {
+        flex: 1;
+      }
+
+      .topbar-actions .mb-trigger {
+        width: 100%;
+      }
+
+      .topbar-actions .signout-btn {
+        flex: 0 0 42px;
+      }
+
+      h1 {
+        font-size: 3rem;
+      }
+
+      h2 {
+        font-size: 2rem;
+      }
+
+      .section-head--gears {
+        padding: 18px 18px 112px;
+      }
+
+      .section-head--gears .copy {
+        max-width: none;
+      }
+
+      .section-gear-art {
+        top: auto;
+        right: -22px;
+        bottom: -26px;
+        width: 250px;
+        height: 147px;
+      }
+
+      .toolbar {
+        display: grid;
+      }
+
+      .toolbar input,
+      .toolbar .btn {
+        width: 100%;
+      }
+
+      .admin-library-grid {
+        grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+      }
+    }
+
+    .lib-context-menu {
+      position: fixed;
+      z-index: 200;
+      min-width: 160px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 12px 28px var(--paper-shadow);
+    }
+    .lib-context-menu[hidden] { display: none; }
+    .lib-context-menu-item {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      letter-spacing: 0.03em;
+    }
+    .lib-context-menu-item:hover { background: rgba(var(--bic-blue-rgb), 0.07); }
+    .lib-context-menu-item--danger { color: var(--danger); }
+    .lib-context-menu-item--danger:hover { background: rgba(160, 63, 45, 0.08); }
+  </style>
+  <link rel="stylesheet" href="admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <section id="reviewPanel">
+      <div class="topbar">
+        <div class="topbar-actions" style="margin-left:auto;">
+          <button class="btn mc-back-btn" type="button" data-mc-back data-mc-back-fallback="/" data-mc-new-tab>TGB HOME</button>
+          <button class="btn mc-back-btn" type="button" data-mc-home="/mc/">MISSION CONTROL</button>
+          <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <section class="admin-section" aria-labelledby="libraryHeading">
+        <div class="section-head section-head--gears">
+          <svg class="section-gear-art" viewBox="0 0 320 188" aria-hidden="true">
+            <g class="header-gear-atmosphere">
+              <path class="header-gear-guide" d="M142 26c28 18 58 20 91 9 31-11 59-10 87 7"></path>
+              <path class="header-gear-guide" d="M118 170c37-29 72-41 106-37 30 4 62 18 96 43"></path>
+              <polyline class="header-gear-wire" points="106,150 136,128 170,134 199,106 228,113"></polyline>
+              <polyline class="header-gear-wire" points="118,114 147,96 176,100 209,77 244,82"></polyline>
+              <polyline class="header-gear-wire header-gear-wire--bold" points="128,166 164,140 196,146 226,122 253,127"></polyline>
+              <circle class="header-gear-node" cx="136" cy="128" r="3"></circle>
+              <circle class="header-gear-node" cx="170" cy="134" r="2.6"></circle>
+              <circle class="header-gear-node" cx="199" cy="106" r="2.8"></circle>
+              <circle class="header-gear-node" cx="147" cy="96" r="2.4"></circle>
+              <circle class="header-gear-node" cx="209" cy="77" r="2.4"></circle>
+              <circle class="header-gear-node" cx="164" cy="140" r="2.5"></circle>
+              <circle class="header-gear-node" cx="226" cy="122" r="2.5"></circle>
+              <circle class="header-gear-guide" cx="222" cy="88" r="102"></circle>
+              <circle class="header-gear-guide" cx="286" cy="132" r="68"></circle>
+              <circle class="header-gear-speck" cx="178" cy="38" r="1.4"></circle>
+              <circle class="header-gear-speck" cx="188" cy="46" r="1.8"></circle>
+              <circle class="header-gear-speck" cx="196" cy="34" r="1.2"></circle>
+              <circle class="header-gear-speck" cx="214" cy="28" r="1.6"></circle>
+              <circle class="header-gear-speck" cx="230" cy="46" r="1.2"></circle>
+              <circle class="header-gear-speck" cx="248" cy="36" r="1.5"></circle>
+              <circle class="header-gear-speck" cx="262" cy="50" r="1.3"></circle>
+              <circle class="header-gear-speck" cx="274" cy="44" r="1.8"></circle>
+              <circle class="header-gear-speck" cx="294" cy="60" r="1.4"></circle>
+              <circle class="header-gear-speck" cx="308" cy="78" r="1.3"></circle>
+              <circle class="header-gear-speck" cx="206" cy="150" r="1.6"></circle>
+              <circle class="header-gear-speck" cx="222" cy="162" r="1.2"></circle>
+              <circle class="header-gear-speck" cx="238" cy="154" r="1.7"></circle>
+              <circle class="header-gear-speck" cx="256" cy="166" r="1.4"></circle>
+              <circle class="header-gear-speck" cx="272" cy="156" r="1.1"></circle>
+              <circle class="header-gear-speck" cx="292" cy="170" r="1.5"></circle>
+            </g>
+            <g class="header-gear header-gear--large" transform="translate(212 72) rotate(-14)">
+              <circle class="header-gear-halo" r="86"></circle>
+              <polygon class="header-gear-body" points="-11.3,-65.0 -13.8,-78.8 -7.5,-79.6 7.5,-79.6 13.8,-78.8 11.3,-65.0 22.7,-62.0 27.5,-75.1 33.3,-72.7 46.3,-65.2 51.3,-61.4 42.3,-50.6 50.6,-42.3 61.4,-51.3 65.2,-46.3 72.7,-33.3 75.1,-27.5 62.0,-22.7 65.0,-11.3 78.8,-13.8 79.6,-7.5 79.6,7.5 78.8,13.8 65.0,11.3 62.0,22.7 75.1,27.5 72.7,33.3 65.2,46.3 61.4,51.3 50.6,42.3 42.3,50.6 51.3,61.4 46.3,65.2 33.3,72.7 27.5,75.1 22.7,62.0 11.3,65.0 13.8,78.8 7.5,79.6 -7.5,79.6 -13.8,78.8 -11.3,65.0 -22.7,62.0 -27.5,75.1 -33.3,72.7 -46.3,65.2 -51.3,61.4 -42.3,50.6 -50.6,42.3 -61.4,51.3 -65.2,46.3 -72.7,33.3 -75.1,27.5 -62.0,22.7 -65.0,11.3 -78.8,13.8 -79.6,7.5 -79.6,-7.5 -78.8,-13.8 -65.0,-11.3 -62.0,-22.7 -75.1,-27.5 -72.7,-33.3 -65.2,-46.3 -61.4,-51.3 -50.6,-42.3 -42.3,-50.6 -51.3,-61.4 -46.3,-65.2 -33.3,-72.7 -27.5,-75.1 -22.7,-62.0"></polygon>
+              <circle class="header-gear-ring" r="54"></circle>
+              <circle class="header-gear-inner" r="34"></circle>
+              <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5"></rect>
+              <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(60)"></rect>
+              <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(120)"></rect>
+              <circle class="header-gear-core" r="11"></circle>
+              <circle class="header-gear-bore" r="5.5"></circle>
+              <line class="header-gear-crosshair" x1="-18" y1="0" x2="18" y2="0"></line>
+              <line class="header-gear-crosshair" x1="0" y1="-18" x2="0" y2="18"></line>
+            </g>
+            <g class="header-gear header-gear--small" transform="translate(286 132) rotate(19)">
+              <circle class="header-gear-halo" r="60"></circle>
+              <polygon class="header-gear-body" points="-9.8,-45.0 -12.3,-56.7 -6.5,-57.6 6.5,-57.6 12.3,-56.7 9.8,-45.0 18.5,-42.1 23.4,-53.1 28.6,-50.5 39.2,-42.8 43.3,-38.6 34.3,-30.6 39.7,-23.2 50.1,-29.2 52.8,-24.0 56.8,-11.6 57.7,-5.8 45.8,-4.6 45.8,4.6 57.7,5.8 56.8,11.6 52.8,24.0 50.1,29.2 39.7,23.2 34.3,30.6 43.3,38.6 39.2,42.8 28.6,50.5 23.4,53.1 18.5,42.1 9.8,45.0 12.3,56.7 6.5,57.6 -6.5,57.6 -12.3,56.7 -9.8,45.0 -18.5,42.1 -23.4,53.1 -28.6,50.5 -39.2,42.8 -43.3,38.6 -34.3,30.6 -39.7,23.2 -50.1,29.2 -52.8,24.0 -56.8,11.6 -57.7,5.8 -45.8,4.6 -45.8,-4.6 -57.7,-5.8 -56.8,-11.6 -52.8,-24.0 -50.1,-29.2 -39.7,-23.2 -34.3,-30.6 -43.3,-38.6 -39.2,-42.8 -28.6,-50.5 -23.4,-53.1 -18.5,-42.1"></polygon>
+              <circle class="header-gear-ring" r="38"></circle>
+              <circle class="header-gear-inner" r="24"></circle>
+              <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5"></rect>
+              <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(60)"></rect>
+              <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(120)"></rect>
+              <circle class="header-gear-core" r="7.5"></circle>
+              <circle class="header-gear-bore" r="3.8"></circle>
+              <line class="header-gear-crosshair" x1="-12" y1="0" x2="12" y2="0"></line>
+              <line class="header-gear-crosshair" x1="0" y1="-12" x2="0" y2="12"></line>
+            </g>
+          </svg>
+          <p class="kicker">TGB MISSION CONTROL</p>
+          <h2 id="libraryHeading">EDIT GAMES</h2>
+          <p class="status" id="libraryStatus" aria-live="polite"></p>
+        </div>
+        <div class="toolbar">
+          <a class="btn primary" id="libNewBtn" href="builder.html?new=1">New</a>
+          <input type="search" id="libSearchInput" placeholder="Search..." aria-label="Search games">
+          <select id="libSortSelect" aria-label="Sort games">
+            <option value="default">Sort</option>
+            <option value="date-asc">Date — Soonest</option>
+            <option value="date-desc">Date — Latest</option>
+            <option value="name-asc">Name — A → Z</option>
+            <option value="name-desc">Name — Z → A</option>
+            <option value="city-asc">City — A → Z</option>
+            <option value="city-desc">City — Z → A</option>
+          </select>
+          <button class="btn btn-width-lock" id="libSelectAllBtn" type="button" data-max-label="Deselect All"><span class="btn-label">Select All</span></button>
+          <a class="btn" id="libEditBtn" aria-disabled="true" tabindex="-1">Edit</a>
+          <button class="btn" id="libDupBtn" type="button" disabled>Duplicate</button>
+          <button class="btn btn-width-lock" id="libArchBtn" type="button" disabled data-max-label="Unarchive"><span class="btn-label">Archive</span></button>
+          <button class="btn btn-width-lock" id="libFeatureBtn" type="button" disabled data-max-label="Unfeature"><span class="btn-label">Feature</span></button>
+        </div>
+        <div class="admin-library-grid" id="gameGrid"></div>
+      </section>
+    </section>
+  </main>
+
+  <div class="lib-context-menu" id="libContextMenu" hidden>
+    <button class="lib-context-menu-item" id="ctxEditBtn" type="button">Edit</button>
+    <button class="lib-context-menu-item" id="ctxDupBtn" type="button">Duplicate</button>
+    <button class="lib-context-menu-item" id="ctxArchBtn" type="button">Archive</button>
+    <button class="lib-context-menu-item" id="ctxFeatureBtn" type="button">Feature</button>
+  </div>
+
+  <script src="admin-auth.js"></script>
+  <script src="admin-shell.js"></script>
+  <script src="admin-nav-menu.js"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+
+    const GAMES_SCHEMA = {
+      tagline: true,
+      featured: true,
+      game_date: true,
+      start_time: true
+    };
+
+    const signOutBtn = document.getElementById('signOutBtn');
+    const libraryStatus = document.getElementById('libraryStatus');
+    const gameGrid = document.getElementById('gameGrid');
+    const libNewBtn = document.getElementById('libNewBtn');
+    const libSelectAllBtn = document.getElementById('libSelectAllBtn');
+    const libSelectAllBtnLabel = libSelectAllBtn.querySelector('.btn-label');
+    const libEditBtn = document.getElementById('libEditBtn');
+    const libDupBtn = document.getElementById('libDupBtn');
+    const libArchBtn = document.getElementById('libArchBtn');
+    const libArchBtnLabel = libArchBtn.querySelector('.btn-label');
+    const libFeatureBtn = document.getElementById('libFeatureBtn');
+    const libFeatureBtnLabel = libFeatureBtn.querySelector('.btn-label');
+    const libSearchInput = document.getElementById('libSearchInput');
+    const libSortSelect = document.getElementById('libSortSelect');
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      onAuthorized: async () => {
+        await loadAdminLibrary();
+      },
+      onSignedOut: () => {
+        selectedGames.clear();
+        allGamesData = [];
+        visibleGamesData = [];
+        lastSelectedId = null;
+        gameGrid.innerHTML = '';
+        updateToolbar();
+        renderLibraryEmpty('Sign in with an admin account.');
+        setStatus(libraryStatus, '');
+      }
+    });
+    window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
+
+    const selectedGames = new Map();
+    let allGamesData = [];
+    let visibleGamesData = [];
+    let searchTerm = '';
+    let currentSort = 'default';
+    let lastSelectedId = null;
+
+    function formatGameDate(game) {
+      const raw = String(game && game.game_date || '').trim();
+      if (!raw) return '';
+      const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (!match) return raw;
+      const [, year, month, day] = match;
+      const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+      if (Number.isNaN(date.getTime())) return raw;
+      return date.toLocaleDateString('en-US', {
+        timeZone: 'UTC',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+
+    function applySearchFilter(games) {
+      if (!searchTerm) return games;
+      return games.filter((g) => {
+        const haystack = (
+          String(g && g.name || '') + ' ' +
+          formatGameDate(g) + ' ' +
+          String(g && g.game_date || '') + ' ' +
+          String(g && g.city || '')
+        ).toLowerCase();
+        return haystack.includes(searchTerm);
+      });
+    }
+
+    libSearchInput.addEventListener('input', () => {
+      searchTerm = libSearchInput.value.toLowerCase().trim();
+      renderAdminLibrary(allGamesData);
+    });
+
+    libSortSelect.addEventListener('change', () => {
+      currentSort = libSortSelect.value || 'default';
+      renderAdminLibrary(allGamesData);
+    });
+
+    function restUrl(table, params = {}) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          url.searchParams.set(key, String(value));
+        }
+      });
+      return url.toString();
+    }
+
+    function buildBuilderRoute(params = {}) {
+      const builderParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          builderParams.set(key, String(value));
+        }
+      });
+      const search = builderParams.toString();
+      return 'builder.html' + (search ? '?' + search : '');
+    }
+
+    function buildRunRoute(params = {}) {
+      const runParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          runParams.set(key, String(value));
+        }
+      });
+      const search = runParams.toString();
+      return '../game/run/index.html' + (search ? '?' + search : '');
+    }
+
+    function setStatus(el, message, state = '') {
+      if (!el) return;
+      el.textContent = message || '';
+      el.classList.toggle('error', state === 'error');
+      el.classList.toggle('success', state === 'success');
+    }
+
+    async function readError(response, fallback) {
+      try {
+        const text = await response.text();
+        if (!text) return fallback;
+        try {
+          const payload = JSON.parse(text);
+          const message = payload.message || payload.msg || payload.error_description || payload.error || text;
+          if (/public\.admin_users|admin_users/i.test(message) && /schema cache|could not find/i.test(message)) {
+            return 'Admin access is not set up yet. Run docs/supabase/photo-submissions.sql in Supabase, then add your email to public.admin_users.';
+          }
+          return message;
+        } catch (error) {
+          return text;
+        }
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    function authHeaders(extra = {}) {
+      return adminAuth.authHeaders(extra);
+    }
+
+    function getMissingGamesColumnName(errorMessage = '') {
+      const message = String(errorMessage || '');
+      const match = message.match(/column\s+games\.([a-z_]+)\s+does\s+not\s+exist/i);
+      if (match) return String(match[1] || '').trim().toLowerCase();
+      const schemaMatch = message.match(/could not find the ['"]?([a-z_]+)['"]? column of ['"]?games/i);
+      return schemaMatch ? String(schemaMatch[1] || '').trim().toLowerCase() : '';
+    }
+
+    function buildGameSelect() {
+      const columns = [
+        'id',
+        'name',
+        'primary_color',
+        'secondary_color',
+        'city',
+        'archived',
+        'tags',
+        'body',
+        'logo_url',
+        'guide_image_url',
+        'created_at'
+      ];
+      if (GAMES_SCHEMA.featured) columns.splice(5, 0, 'featured');
+      if (GAMES_SCHEMA.tagline) columns.splice(2, 0, 'tagline');
+      if (GAMES_SCHEMA.game_date) columns.push('game_date');
+      if (GAMES_SCHEMA.start_time) columns.push('start_time');
+      return columns.join(',');
+    }
+
+    async function fetchGames(selectOverride = '') {
+      const response = await fetch(restUrl('games', {
+        select: selectOverride || buildGameSelect(),
+        order: 'name.asc'
+      }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        const message = await readError(response, 'Could not load games.');
+        const missingColumn = getMissingGamesColumnName(message);
+        if (missingColumn === 'tagline' && GAMES_SCHEMA.tagline) {
+          GAMES_SCHEMA.tagline = false;
+          return fetchGames(buildGameSelect());
+        }
+        if (missingColumn === 'featured' && GAMES_SCHEMA.featured) {
+          GAMES_SCHEMA.featured = false;
+          return fetchGames(buildGameSelect());
+        }
+        if (missingColumn === 'game_date' && GAMES_SCHEMA.game_date) {
+          GAMES_SCHEMA.game_date = false;
+          return fetchGames(buildGameSelect());
+        }
+        if (missingColumn === 'start_time' && GAMES_SCHEMA.start_time) {
+          GAMES_SCHEMA.start_time = false;
+          return fetchGames(buildGameSelect());
+        }
+        throw new Error(message);
+      }
+
+      return response.json();
+    }
+
+    function isFilledArchiveValue(value) {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'string') {
+        const trimmed = value.trim().toLowerCase();
+        return !!trimmed && trimmed !== 'false' && trimmed !== '0' && trimmed !== 'no';
+      }
+      return !!value;
+    }
+
+    function isLiveGame(game) {
+      return !isFilledArchiveValue(game && game.archived);
+    }
+
+    function getGameState(game) {
+      if (isFilledArchiveValue(game && game.archived)) return 'archived';
+      return 'live';
+    }
+
+    function getGamePalette(game) {
+      return {
+        primary: String(game && (game.primary_color || game.primaryColor) || '').trim() || '#2d4880',
+        secondary: String(game && (game.secondary_color || game.secondaryColor) || '').trim() || 'rgba(45,72,128,0.72)'
+      };
+    }
+
+    function resolveAdminAssetUrl(value) {
+      const raw = String(value || '').trim().replace(/\\/g, '/')
+        .replace('https://the-game-bureau.github.io/the-game-bureau/', 'https://thegamebureau.com/')
+        .replace('https://the-game-bureau.github.io/', 'https://thegamebureau.com/');
+      if (!raw) return '';
+      if (raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
+      try {
+        const base = /^assets\//i.test(raw) ? new URL('../', window.location.href).toString() : window.location.href;
+        const resolved = new URL(raw, base);
+        const protocol = String(resolved.protocol || '').toLowerCase();
+        return protocol === 'http:' || protocol === 'https:' || protocol === 'file:' ? resolved.toString() : '';
+      } catch (error) {
+        return '';
+      }
+    }
+
+    function getGameImageUrl(game) {
+      return resolveAdminAssetUrl(game && (
+        game.logo_url ||
+        game.logoUrl ||
+        game.logo ||
+        game.guide_image_url ||
+        game.guideImageUrl
+      ) || '');
+    }
+
+    function getGameMonogram(game) {
+      const title = String(game && game.name || 'Game').trim();
+      const words = title.match(/[A-Za-z0-9]+/g) || [];
+      if (words.length >= 2) return ((words[0][0] || '') + (words[1][0] || '')).toUpperCase();
+      return title.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || 'TG';
+    }
+
+    function getGameCaption(game) {
+      const tagline = String(game && game.tagline || '').replace(/\s+/g, ' ').trim();
+      const body = String(game && game.body || '').replace(/\s+/g, ' ').trim();
+      const caption = tagline || body || 'A live local experience by The Game Bureau.';
+      return caption.length > 100 ? caption.slice(0, 97).trimEnd() + '...' : caption;
+    }
+
+    function isGameFeatured(game) {
+      const featuredField = game && game.featured;
+      if (typeof featuredField === 'boolean') return featuredField;
+      if (typeof featuredField === 'string' && featuredField.trim()) return true;
+      const tags = Array.isArray(game && game.tags) ? game.tags : [];
+      return tags.some((tag) => String(tag || '').trim().toLowerCase() === 'featured');
+    }
+
+    function gameRawName(game) {
+      return String(game && game.name || '').trim();
+    }
+
+    function gameRawDate(game) {
+      const raw = String(game && game.game_date || '').trim();
+      if (!raw) return '';
+      const time = String(game && game.start_time || '').trim();
+      return time ? raw + 'T' + time : raw;
+    }
+
+    function gameRawCity(game) {
+      return String(game && game.city || '').trim();
+    }
+
+    function compareStrings(a, b) {
+      return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
+    }
+
+    function nullsFirst(a, b) {
+      const hasA = !!a;
+      const hasB = !!b;
+      if (!hasA && hasB) return -1;
+      if (hasA && !hasB) return 1;
+      if (!hasA && !hasB) return 0;
+      return null;
+    }
+
+    function nullsLast(a, b) {
+      const hasA = !!a;
+      const hasB = !!b;
+      if (hasA && !hasB) return -1;
+      if (!hasA && hasB) return 1;
+      if (!hasA && !hasB) return 0;
+      return null;
+    }
+
+    function compareNameTiebreaker(l, r) {
+      const nl = gameRawName(l);
+      const nr = gameRawName(r);
+      const missing = nullsLast(nl, nr);
+      if (missing !== null) return missing;
+      return compareStrings(nl, nr);
+    }
+
+    function sortGamesForAdminLibrary(games) {
+      const list = [...games];
+      const mode = currentSort || 'default';
+
+      if (mode === 'name-asc' || mode === 'name-desc') {
+        const desc = mode === 'name-desc';
+        const missingFn = desc ? nullsLast : nullsFirst;
+        const dir = desc ? -1 : 1;
+        return list.sort((l, r) => {
+          const nl = gameRawName(l);
+          const nr = gameRawName(r);
+          const missing = missingFn(nl, nr);
+          if (missing !== null) return missing;
+          return dir * compareStrings(nl, nr);
+        });
+      }
+
+      if (mode === 'date-asc' || mode === 'date-desc') {
+        const desc = mode === 'date-desc';
+        const missingFn = desc ? nullsLast : nullsFirst;
+        const dir = desc ? -1 : 1;
+        return list.sort((l, r) => {
+          const dl = gameRawDate(l);
+          const dr = gameRawDate(r);
+          const missing = missingFn(dl, dr);
+          if (missing !== null) return missing;
+          if (dl === dr) return compareNameTiebreaker(l, r);
+          return dir * (dl < dr ? -1 : 1);
+        });
+      }
+
+      if (mode === 'city-asc' || mode === 'city-desc') {
+        const desc = mode === 'city-desc';
+        const missingFn = desc ? nullsLast : nullsFirst;
+        const dir = desc ? -1 : 1;
+        return list.sort((l, r) => {
+          const cl = gameRawCity(l);
+          const cr = gameRawCity(r);
+          const missing = missingFn(cl, cr);
+          if (missing !== null) return missing;
+          const cityDelta = dir * compareStrings(cl, cr);
+          if (cityDelta !== 0) return cityDelta;
+          return compareNameTiebreaker(l, r);
+        });
+      }
+
+      const stateOrder = { live: 0, archived: 1 };
+      return list.sort((left, right) => {
+        const stateDelta = stateOrder[getGameState(left)] - stateOrder[getGameState(right)];
+        if (stateDelta !== 0) return stateDelta;
+        const featuredDelta = Number(isGameFeatured(right)) - Number(isGameFeatured(left));
+        if (featuredDelta !== 0) return featuredDelta;
+        return compareNameTiebreaker(left, right);
+      });
+    }
+
+    function renderLibraryEmpty(message) {
+      gameGrid.innerHTML = '';
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = message;
+      gameGrid.appendChild(empty);
+    }
+
+    function createAdminGameCard(game) {
+      const gameId = String(game && game.id || '').trim();
+      const palette = getGamePalette(game);
+      const state = getGameState(game);
+      const card = document.createElement('article');
+      card.className = 'admin-game-card';
+      if (state !== 'live') card.classList.add('is-' + state);
+      card.style.setProperty('--game-primary', palette.primary);
+      card.style.setProperty('--game-secondary', palette.secondary);
+
+      const media = document.createElement('div');
+      media.className = 'admin-game-media';
+
+      const monogram = document.createElement('div');
+      monogram.className = 'admin-game-monogram';
+      monogram.textContent = getGameMonogram(game);
+      media.appendChild(monogram);
+
+      const imageUrl = getGameImageUrl(game);
+      media.dataset.hasImage = imageUrl ? 'true' : 'false';
+      if (imageUrl) {
+        const image = document.createElement('img');
+        image.className = 'admin-game-image';
+        image.src = imageUrl;
+        image.alt = '';
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.addEventListener('error', () => {
+          image.remove();
+          media.dataset.hasImage = 'false';
+        });
+        media.appendChild(image);
+      }
+
+      if (isGameFeatured(game)) {
+        const badge = document.createElement('div');
+        badge.className = 'admin-game-badge';
+        badge.textContent = 'Featured';
+        media.appendChild(badge);
+      }
+
+      if (state !== 'live') {
+        const statusBadge = document.createElement('div');
+        statusBadge.className = 'admin-game-status ' + state;
+        statusBadge.textContent = state;
+        media.appendChild(statusBadge);
+      }
+
+      if (!gameId) {
+        const missingBadge = document.createElement('div');
+        missingBadge.className = 'admin-game-status missing-id';
+        missingBadge.textContent = 'No ID';
+        missingBadge.title = 'This row has no id. Set one in the Supabase SQL editor before editing.';
+        media.appendChild(missingBadge);
+      }
+
+      const body = document.createElement('div');
+      body.className = 'admin-game-body';
+
+      const eyebrow = document.createElement('p');
+      eyebrow.className = 'admin-game-eyebrow';
+      eyebrow.textContent = String(game && game.city || '').trim() || gameId || 'Game';
+
+      const title = document.createElement('h3');
+      title.className = 'admin-game-title';
+      title.textContent = String(game && game.name || '').trim() || 'Untitled Game';
+
+      body.append(eyebrow, title);
+
+      const dateLabel = formatGameDate(game);
+      if (dateLabel) {
+        const dateEl = document.createElement('p');
+        dateEl.className = 'admin-game-date';
+        dateEl.textContent = dateLabel;
+        body.appendChild(dateEl);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'admin-game-actions';
+      const contentRoute = gameId ? buildBuilderRoute({ id: gameId }) : null;
+      const detailsRoute = contentRoute ? contentRoute.replace('builder.html', 'setup.html') : null;
+
+      const detailsBtn = document.createElement('a');
+      detailsBtn.className = 'admin-game-btn';
+      detailsBtn.textContent = 'Details';
+      const contentBtn = document.createElement('a');
+      contentBtn.className = 'admin-game-btn primary';
+      contentBtn.textContent = 'Content';
+
+      [[detailsBtn, detailsRoute], [contentBtn, contentRoute]].forEach(([btn, route]) => {
+        if (route) {
+          btn.href = route;
+        } else {
+          btn.setAttribute('aria-disabled', 'true');
+          btn.title = 'This row has no id. Set one in the Supabase SQL editor before editing.';
+        }
+        // Don't let a button click bubble up to the card's select/dblclick handlers.
+        btn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          if (!route) event.preventDefault();
+        });
+        actions.appendChild(btn);
+      });
+
+      body.appendChild(actions);
+      card.append(media, body);
+      card.dataset.gameId = gameId;
+      card.dataset.gameState = state;
+      card.addEventListener('mousedown', (event) => {
+        if (event.shiftKey) event.preventDefault();
+      });
+      card.addEventListener('click', (event) => selectGame(game, event));
+      card.addEventListener('dblclick', (event) => {
+        event.preventDefault();
+        window.location.href = buildBuilderRoute({ id: game.id }).replace('builder.html', 'setup.html');
+      });
+      return card;
+    }
+
+    function renderAdminLibrary(games) {
+      allGamesData = Array.isArray(games) ? games : [];
+      const sortedAll = sortGamesForAdminLibrary(allGamesData);
+      visibleGamesData = applySearchFilter(sortedAll);
+
+      const gamesById = new Map(allGamesData.map((g) => [String(g.id), g]));
+      for (const id of [...selectedGames.keys()]) {
+        const fresh = gamesById.get(String(id));
+        if (fresh) selectedGames.set(id, fresh);
+        else selectedGames.delete(id);
+      }
+      updateToolbar();
+      gameGrid.innerHTML = '';
+
+      if (!allGamesData.length) {
+        renderLibraryEmpty('No games found.');
+        setStatus(libraryStatus, 'No games found.');
+        return;
+      }
+
+      if (!visibleGamesData.length) {
+        renderLibraryEmpty('No games match “' + searchTerm + '”.');
+        renderLibraryStatusLine();
+        return;
+      }
+
+      visibleGamesData.forEach((game) => {
+        const card = createAdminGameCard(game);
+        if (selectedGames.has(String(game.id))) card.classList.add('is-selected');
+        gameGrid.appendChild(card);
+      });
+
+      renderLibraryStatusLine();
+    }
+
+    function renderLibraryStatusLine() {
+      if (!allGamesData.length) return;
+      const total = allGamesData.length;
+      const archived = allGamesData.filter((g) => getGameState(g) === 'archived').length;
+      const live = total - archived;
+      const featured = allGamesData.filter((g) => isGameFeatured(g)).length;
+      const selected = selectedGames.size;
+      const matchingPart = searchTerm ? visibleGamesData.length + ' matching, ' : '';
+      setStatus(
+        libraryStatus,
+        total + ' games, ' + live + ' live, ' + archived + ' archived, ' + featured + ' featured, ' + matchingPart + selected + ' selected.',
+        'success'
+      );
+    }
+
+    function findDuplicateGameIds(games) {
+      const seen = new Map();
+      const dupes = new Set();
+      (games || []).forEach((g) => {
+        const id = String(g && g.id || '').trim();
+        if (!id) return;
+        if (seen.has(id)) dupes.add(id);
+        else seen.set(id, true);
+      });
+      return [...dupes];
+    }
+
+    async function fetchAllGameIdsWithTimestamps() {
+      const response = await fetch(restUrl('games', { select: 'id,created_at' }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not fetch games.'));
+      return response.json();
+    }
+
+    async function patchGameIdPrecise(oldId, newId) {
+      const response = await fetch(restUrl('games', { id: 'eq.' + oldId }), {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+        body: JSON.stringify({ id: newId })
+      });
+      if (!response.ok) throw new Error(await readError(response, 'PATCH failed.'));
+      let patched = [];
+      try { patched = await response.json(); } catch (e) { patched = []; }
+      if (!Array.isArray(patched) || patched.length !== 1) {
+        throw new Error('PATCH affected ' + (patched && patched.length) + ' rows; expected exactly 1.');
+      }
+      return patched[0];
+    }
+
+    async function autoFixDuplicateGameIds() {
+      setStatus(libraryStatus, 'Scanning for duplicate IDs...');
+      let rows;
+      try {
+        rows = await fetchAllGameIdsWithTimestamps();
+      } catch (error) {
+        setStatus(libraryStatus, 'Auto-fix failed: ' + (error.message || error), 'error');
+        return;
+      }
+
+      const existingIds = new Set(rows.map((r) => String(r && r.id || '').trim()).filter(Boolean));
+      const groups = new Map();
+      rows.forEach((r) => {
+        const id = String(r && r.id || '').trim();
+        if (!id) return;
+        if (!groups.has(id)) groups.set(id, []);
+        groups.get(id).push(r);
+      });
+
+      const renames = [];
+      for (const [origId, list] of groups.entries()) {
+        if (list.length <= 1) continue;
+        list.sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+        for (let i = 1; i < list.length; i++) {
+          const row = list[i];
+          if (!row.created_at) {
+            renames.push({ row, newId: null, skipped: 'no created_at' });
+            continue;
+          }
+          let candidate = origId + '1';
+          while (existingIds.has(candidate)) candidate += '1';
+          existingIds.add(candidate);
+          renames.push({ row, newId: candidate });
+        }
+      }
+
+      const actionable = renames.filter((r) => r.newId);
+      if (!actionable.length) {
+        setStatus(libraryStatus, 'No duplicates to rename.', 'success');
+        await loadAdminLibrary();
+        return;
+      }
+
+      setStatus(libraryStatus, 'Renaming ' + actionable.length + ' duplicate row(s)...');
+      const failures = [];
+      let done = 0;
+      for (const item of actionable) {
+        try {
+          await patchGameIdPrecise(item.row.id, item.newId);
+          done++;
+        } catch (err) {
+          console.error('Auto-fix PATCH failed for', item.row, '→', item.newId, err);
+          failures.push(item.row.id + ' (' + item.row.created_at + ') → ' + item.newId + ': ' + (err.message || err));
+        }
+      }
+
+      const skippedCount = renames.length - actionable.length;
+      const parts = ['Renamed ' + done + ' of ' + actionable.length + ' duplicate row(s).'];
+      if (skippedCount) parts.push(skippedCount + ' skipped (no created_at).');
+      if (failures.length) parts.push(failures.length + ' failed.');
+      const summary = parts.join(' ');
+
+      if (failures.length) {
+        window.alert(summary + '\n\nFailures:\n' + failures.join('\n'));
+      }
+      setStatus(libraryStatus, summary, failures.length ? 'error' : 'success');
+      await loadAdminLibrary();
+    }
+
+    async function loadAdminLibrary() {
+      setStatus(libraryStatus, 'Loading library...');
+      renderLibraryEmpty('Loading games...');
+
+      try {
+        const games = await fetchGames();
+        const dupes = findDuplicateGameIds(games);
+        if (dupes.length && !window.__autoFixedDupesThisLoad) {
+          window.__autoFixedDupesThisLoad = true;
+          console.warn('Duplicate game IDs detected, auto-fixing:', dupes);
+          await autoFixDuplicateGameIds();
+          return;
+        }
+        if (dupes.length) {
+          console.warn('Duplicate game IDs still present after auto-fix:', dupes);
+          window.alert(
+            'Auto-fix could not resolve every duplicate. Still duplicated:\n  ' + dupes.join(', ') +
+            '\n\nCheck the console for per-row failures.'
+          );
+        }
+        renderAdminLibrary(games);
+      } catch (error) {
+        console.error(error);
+        renderLibraryEmpty('Could not load games.');
+        setStatus(libraryStatus, error instanceof Error ? error.message : String(error), 'error');
+      }
+    }
+
+    function setLinkEnabled(el, href) {
+      if (href) {
+        el.href = href;
+        el.removeAttribute('aria-disabled');
+        el.removeAttribute('tabindex');
+      } else {
+        el.removeAttribute('href');
+        el.setAttribute('aria-disabled', 'true');
+        el.setAttribute('tabindex', '-1');
+      }
+    }
+
+    function setButtonLabel(labelEl, fallbackEl, value) {
+      if (labelEl) labelEl.textContent = value;
+      else fallbackEl.textContent = value;
+    }
+
+    function updateToolbar() {
+      const count = selectedGames.size;
+      const has = count > 0;
+      const single = count === 1;
+      const oneGame = single ? [...selectedGames.values()][0] : null;
+      const allArchived = has && [...selectedGames.values()].every((g) => isFilledArchiveValue(g.archived));
+      libDupBtn.disabled = !single;
+      libArchBtn.disabled = !has;
+      setButtonLabel(libArchBtnLabel, libArchBtn, allArchived ? 'Unarchive' : 'Archive');
+      const anyFeatured = has && [...selectedGames.values()].some((g) => isGameFeatured(g));
+      libFeatureBtn.disabled = !has || !GAMES_SCHEMA.featured;
+      setButtonLabel(libFeatureBtnLabel, libFeatureBtn, anyFeatured ? 'Unfeature' : 'Feature');
+      const visibleCount = visibleGamesData.length;
+      const allVisibleSelected = visibleCount > 0 && visibleGamesData.every((g) => selectedGames.has(String(g.id)));
+      libSelectAllBtn.disabled = visibleCount === 0;
+      setButtonLabel(libSelectAllBtnLabel, libSelectAllBtn, allVisibleSelected ? 'Deselect All' : 'Select All');
+      const oneGameId = single ? String(oneGame && oneGame.id || '').trim() : '';
+      const routeParams = oneGameId ? { id: oneGameId } : null;
+      setLinkEnabled(libEditBtn, routeParams ? buildBuilderRoute(routeParams) : null);
+      libEditBtn.title = single && !oneGameId ? 'This row has no id — set one before editing.' : '';
+
+      // Keep the Challenge Builder nav link synced with the current selection,
+      // deep-linking straight into the builder when one game is selected.
+      const navBuilderLink = document.getElementById('mcNavBuilderLink');
+      if (navBuilderLink) {
+        if (oneGameId) {
+          navBuilderLink.textContent = 'Challenge Builder';
+          navBuilderLink.href = '/mc/builder.html?id=' + encodeURIComponent(oneGameId);
+          navBuilderLink.title = 'Open the selected game in Builder';
+        } else {
+          navBuilderLink.textContent = 'Challenge Builder';
+          navBuilderLink.href = '/mc/builder.html';
+          navBuilderLink.title = '';
+        }
+      }
+
+      renderLibraryStatusLine();
+    }
+
+    libSelectAllBtn.addEventListener('click', () => {
+      const cards = [...gameGrid.querySelectorAll('.admin-game-card')];
+      const visibleIds = visibleGamesData.map((g) => String(g.id));
+      const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedGames.has(id));
+      if (allVisibleSelected) {
+        visibleIds.forEach((id) => selectedGames.delete(id));
+        lastSelectedId = null;
+      } else {
+        visibleGamesData.forEach((game) => selectedGames.set(String(game.id), game));
+      }
+      cards.forEach((c) => c.classList.toggle('is-selected', selectedGames.has(c.dataset.gameId)));
+      updateToolbar();
+    });
+
+    libNewBtn.href = buildBuilderRoute({ new: '1' });
+
+    function selectGame(game, event) {
+      const id = String(game.id);
+      const shift = event && event.shiftKey;
+      const cards = [...gameGrid.querySelectorAll('.admin-game-card')];
+      const ids = cards.map((c) => c.dataset.gameId);
+
+      if (shift && lastSelectedId && lastSelectedId !== id && ids.includes(lastSelectedId) && ids.includes(id)) {
+        const a = ids.indexOf(lastSelectedId);
+        const b = ids.indexOf(id);
+        const [lo, hi] = a < b ? [a, b] : [b, a];
+        for (let i = lo; i <= hi; i++) {
+          const rangeId = ids[i];
+          const rangeGame = allGamesData.find((g) => String(g.id) === rangeId);
+          if (rangeGame) selectedGames.set(rangeId, rangeGame);
+        }
+      } else {
+        if (selectedGames.has(id)) selectedGames.delete(id);
+        else selectedGames.set(id, game);
+        lastSelectedId = id;
+      }
+
+      cards.forEach((c) => {
+        c.classList.toggle('is-selected', selectedGames.has(c.dataset.gameId));
+      });
+      updateToolbar();
+
+      if (shift) window.getSelection && window.getSelection().removeAllRanges();
+    }
+
+    async function patchGame(id, payload) {
+      const response = await fetch(restUrl('games', { id: 'eq.' + id }), {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Update failed.'));
+    }
+
+    const DUP_GAME_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+    async function gameIdExistsInSupabase(id) {
+      const target = String(id || '').trim();
+      if (!target) return false;
+      const response = await fetch(restUrl('games', { id: 'eq.' + target, select: 'id' }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not check ID uniqueness.'));
+      const rows = await response.json();
+      return Array.isArray(rows) && rows.length > 0;
+    }
+
+    async function promptForDuplicateGameId(sourceId, knownIds) {
+      const base = String(sourceId || '').trim() || 'game';
+      let suggestion = base + '-copy';
+      let n = 2;
+      while (knownIds.has(suggestion)) suggestion = base + '-copy-' + (n++);
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const raw = window.prompt(
+          'Enter a unique game ID for the duplicate.\n' +
+          'IDs are 1-64 characters: letters, numbers, underscores, or hyphens.',
+          suggestion
+        );
+        if (raw === null) return null;
+        const candidate = String(raw).replace(/\s+/g, '').trim();
+        if (!candidate) { window.alert('Game ID cannot be empty.'); continue; }
+        if (!DUP_GAME_ID_PATTERN.test(candidate)) {
+          window.alert('Game ID must be 1-64 characters of letters, numbers, underscores, or hyphens.');
+          suggestion = candidate;
+          continue;
+        }
+        if (knownIds.has(candidate)) {
+          window.alert('A game with ID "' + candidate + '" already exists in this library. Pick a different ID.');
+          suggestion = candidate;
+          continue;
+        }
+        try {
+          const taken = await gameIdExistsInSupabase(candidate);
+          if (taken) {
+            window.alert('A game with ID "' + candidate + '" already exists in Supabase. Pick a different ID.');
+            suggestion = candidate;
+            continue;
+          }
+        } catch (err) {
+          window.alert('Could not verify uniqueness: ' + (err && err.message || err));
+          return null;
+        }
+        return candidate;
+      }
+      return null;
+    }
+
+    async function duplicateGame(game) {
+      const response = await fetch(restUrl('games', { id: 'eq.' + game.id }), {
+        headers: authHeaders({ Accept: 'application/json' })
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not fetch game.'));
+      const rows = await response.json();
+      const source = rows[0];
+      if (!source) throw new Error('Game not found.');
+
+      const knownIds = new Set(allGamesData.map((g) => String(g && g.id || '')).filter(Boolean));
+      const newId = await promptForDuplicateGameId(game.id, knownIds);
+      if (!newId) throw new Error('Duplicate cancelled — no ID provided.');
+
+      const copy = Object.assign({}, source);
+      copy.id = newId;
+      delete copy.created_at;
+      delete copy.updated_at;
+      copy.name = (source.name || 'Game') + ' Copy';
+      copy.archived = 'YES';
+      const ins = await fetch(restUrl('games'), {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+        body: JSON.stringify(copy)
+      });
+      if (!ins.ok) throw new Error(await readError(ins, 'Duplicate failed.'));
+    }
+
+    libDupBtn.addEventListener('click', async () => {
+      if (selectedGames.size !== 1) return;
+      const games = [...selectedGames.values()];
+      libDupBtn.disabled = true;
+      setStatus(libraryStatus, 'Duplicating…');
+      try {
+        for (const game of games) await duplicateGame(game);
+        await loadAdminLibrary();
+      } catch (error) {
+        setStatus(libraryStatus, error instanceof Error ? error.message : String(error), 'error');
+        libDupBtn.disabled = false;
+      }
+    });
+
+    libArchBtn.addEventListener('click', async () => {
+      if (!selectedGames.size) return;
+      const games = [...selectedGames.values()];
+      const allArchived = games.every((g) => isFilledArchiveValue(g.archived));
+      libArchBtn.disabled = true;
+      setStatus(libraryStatus, allArchived ? 'Unarchiving…' : 'Archiving…');
+      try {
+        for (const game of games) await patchGame(game.id, { archived: allArchived ? null : 'YES' });
+        await loadAdminLibrary();
+      } catch (error) {
+        setStatus(libraryStatus, error instanceof Error ? error.message : String(error), 'error');
+        libArchBtn.disabled = false;
+      }
+    });
+
+    libFeatureBtn.addEventListener('click', async () => {
+      if (!selectedGames.size || !GAMES_SCHEMA.featured) return;
+      const games = [...selectedGames.values()];
+      const anyFeatured = games.some((g) => isGameFeatured(g));
+      libFeatureBtn.disabled = true;
+      setStatus(libraryStatus, anyFeatured ? 'Unfeaturing…' : 'Featuring…');
+      try {
+        for (const game of games) await patchGame(game.id, { featured: anyFeatured ? null : 'YES' });
+        await loadAdminLibrary();
+      } catch (error) {
+        setStatus(libraryStatus, error instanceof Error ? error.message : String(error), 'error');
+        libFeatureBtn.disabled = false;
+      }
+    });
+
+    document.querySelectorAll('[data-admin-logoff]').forEach((button) => {
+      button.addEventListener('click', () => {
+        adminAuth.signOut();
+      });
+    });
+
+    (async function init() {
+      try {
+        await adminAuth.init();
+      } catch (error) {
+        console.error(error);
+        adminAuth.showAuth(error instanceof Error ? error.message : String(error), 'error');
+      }
+    }());
+
+    const libContextMenu = document.getElementById('libContextMenu');
+    const ctxEditBtn = document.getElementById('ctxEditBtn');
+    const ctxDupBtn = document.getElementById('ctxDupBtn');
+    const ctxArchBtn = document.getElementById('ctxArchBtn');
+    const ctxFeatureBtn = document.getElementById('ctxFeatureBtn');
+
+    function openLibContextMenu(x, y) {
+      const games = [...selectedGames.values()];
+      const single = games.length === 1;
+      const allArchived = games.every((g) => isFilledArchiveValue(g.archived));
+      const anyFeatured = games.length > 0 && games.some((g) => isGameFeatured(g));
+      ctxEditBtn.disabled = !single;
+      ctxDupBtn.disabled = !single;
+      ctxArchBtn.textContent = allArchived ? 'Unarchive' : 'Archive';
+      ctxFeatureBtn.disabled = !GAMES_SCHEMA.featured;
+      ctxFeatureBtn.textContent = anyFeatured ? 'Unfeature' : 'Feature';
+      libContextMenu.removeAttribute('hidden');
+      const menuW = libContextMenu.offsetWidth;
+      const menuH = libContextMenu.offsetHeight;
+      libContextMenu.style.left = Math.min(x, window.innerWidth - menuW - 8) + 'px';
+      libContextMenu.style.top = Math.min(y, window.innerHeight - menuH - 8) + 'px';
+    }
+
+    function closeLibContextMenu() {
+      libContextMenu.setAttribute('hidden', '');
+    }
+
+    gameGrid.addEventListener('contextmenu', (event) => {
+      const card = event.target.closest('.admin-game-card');
+      if (!card) return;
+      event.preventDefault();
+      const game = allGamesData.find((g) => String(g.id) === card.dataset.gameId);
+      if (!game) return;
+      if (!selectedGames.has(game.id)) selectGame(game);
+      openLibContextMenu(event.clientX, event.clientY);
+    });
+
+    ctxEditBtn.addEventListener('click', () => {
+      closeLibContextMenu();
+      if (selectedGames.size !== 1) return;
+      const game = [...selectedGames.values()][0];
+      window.location.href = buildBuilderRoute({ id: game.id });
+    });
+
+    ctxDupBtn.addEventListener('click', async () => {
+      const games = [...selectedGames.values()];
+      closeLibContextMenu();
+      if (games.length !== 1) return;
+      setStatus(libraryStatus, 'Duplicating…');
+      try {
+        for (const game of games) await duplicateGame(game);
+        await loadAdminLibrary();
+      } catch (error) {
+        setStatus(libraryStatus, error instanceof Error ? error.message : String(error), 'error');
+      }
+    });
+
+    ctxArchBtn.addEventListener('click', async () => {
+      const games = [...selectedGames.values()];
+      closeLibContextMenu();
+      if (!games.length) return;
+      const allArchived = games.every((g) => isFilledArchiveValue(g.archived));
+      setStatus(libraryStatus, allArchived ? 'Unarchiving…' : 'Archiving…');
+      try {
+        for (const game of games) await patchGame(game.id, { archived: allArchived ? null : 'YES' });
+        await loadAdminLibrary();
+      } catch (error) {
+        setStatus(libraryStatus, error instanceof Error ? error.message : String(error), 'error');
+      }
+    });
+
+    ctxFeatureBtn.addEventListener('click', async () => {
+      const games = [...selectedGames.values()];
+      closeLibContextMenu();
+      if (!games.length || !GAMES_SCHEMA.featured) return;
+      const anyFeatured = games.some((g) => isGameFeatured(g));
+      setStatus(libraryStatus, anyFeatured ? 'Unfeaturing…' : 'Featuring…');
+      try {
+        for (const game of games) await patchGame(game.id, { featured: anyFeatured ? null : 'YES' });
+        await loadAdminLibrary();
+      } catch (error) {
+        setStatus(libraryStatus, error instanceof Error ? error.message : String(error), 'error');
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!libContextMenu.hidden && !libContextMenu.contains(event.target)) closeLibContextMenu();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeLibContextMenu();
+    });
+    document.addEventListener('scroll', closeLibContextMenu, true);
+  </script>
+  <script>
+    (function () {
+      document.querySelectorAll('[data-admin-menu]').forEach((menu) => {
+        const trigger = menu.querySelector('.mb-trigger');
+        const panel = menu.querySelector('.mb-panel');
+        if (!trigger || !panel) return;
+
+        function closeMenu() {
+          menu.classList.remove('open');
+          panel.hidden = true;
+          trigger.setAttribute('aria-expanded', 'false');
+        }
+
+        trigger.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const isOpen = !panel.hidden;
+          document.querySelectorAll('[data-admin-menu]').forEach((otherMenu) => {
+            otherMenu.classList.remove('open');
+            const otherTrigger = otherMenu.querySelector('.mb-trigger');
+            const otherPanel = otherMenu.querySelector('.mb-panel');
+            if (otherTrigger) otherTrigger.setAttribute('aria-expanded', 'false');
+            if (otherPanel) otherPanel.hidden = true;
+          });
+          if (isOpen) return;
+          menu.classList.add('open');
+          panel.hidden = false;
+          trigger.setAttribute('aria-expanded', 'true');
+        });
+
+        panel.addEventListener('click', (event) => {
+          event.stopPropagation();
+          if (event.target.closest('.mb-item')) closeMenu();
+        });
+
+        document.addEventListener('click', closeMenu);
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') closeMenu();
+        });
+      });
+    }());
+  </script>
+</body>
+</html>

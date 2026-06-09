@@ -27,7 +27,7 @@
     var link = qs('navBuilderLink');
     if (!link) return;
     link.href = builderHrefForGame(state.selectedGameId);
-    link.textContent = state.selectedGameId ? 'Build Selected Game' : 'Build Games';
+    link.textContent = 'Challenge Builder';
     link.title = state.selectedGameId
       ? 'Open the selected game in Builder'
       : 'Build games in Mission Control';

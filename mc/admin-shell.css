@@ -18,6 +18,18 @@ body {
   overflow-x: clip;
 }
 
+body.mc-auth-protected:not(.mc-auth-authorized) {
+  overflow: hidden;
+}
+
+body.mc-auth-protected:not(.mc-auth-authorized) > :not(#mcAdminAuthRoot) {
+  display: none !important;
+}
+
+body.mc-auth-protected:not(.mc-auth-authorized) .mc-auth-close {
+  display: none;
+}
+
 body:not(.builder-page--editor) .app {
   width: min(var(--mc-shell-width), calc(100vw - var(--mc-page-gutter)));
   margin: 0 auto;
@@ -160,6 +172,14 @@ body.builder-page--editor.is-header-only .games-page {
 
 .topbar-actions .mc-back-btn,
 .builder-admin-topbar-inner .mc-back-btn {
+  margin-right: 0;
+}
+
+/* The last of the two nav buttons absorbs the free space to its right, keeping
+   both buttons together on the left and pushing the admin dropdown nav +
+   sign-out over to the right edge. */
+.topbar-actions .mc-back-btn + .mc-back-btn,
+.builder-admin-topbar-inner .mc-back-btn + .mc-back-btn {
   margin-right: auto;
 }
 
@@ -181,15 +201,86 @@ body.builder-page--editor.is-header-only .games-page {
   outline: none;
 }
 
-.mc-admin-nav {
+.mc-admin-navbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--mc-control-height);
+  padding: 4px;
+  border: 1px solid rgba(var(--bic-blue-rgb), 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.mc-admin-navbar[hidden] {
+  display: none;
+}
+
+.mc-admin-nav-group,
+.mc-admin-account {
   position: relative;
   display: inline-flex;
 }
 
-.mc-admin-nav-menu {
+.mc-admin-nav-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: calc(var(--mc-control-height) - 8px);
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.mc-admin-nav-trigger::after {
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  content: "";
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 0.12s;
+}
+
+/* Link-style trigger: a plain navigation button with no dropdown caret. */
+.mc-admin-nav-trigger--link {
+  text-decoration: none;
+}
+
+.mc-admin-nav-trigger--link::after {
+  display: none;
+}
+
+.mc-admin-nav-trigger:hover,
+.mc-admin-nav-trigger:focus-visible,
+.mc-admin-nav-group.is-open .mc-admin-nav-trigger {
+  background: rgba(var(--bic-blue-rgb), 0.08);
+  color: var(--ink, var(--bic-blue));
+  outline: none;
+}
+
+.mc-admin-nav-trigger.is-current {
+  color: var(--accent, var(--bic-blue));
+}
+
+.mc-admin-nav-group.is-open .mc-admin-nav-trigger::after {
+  transform: rotate(225deg) translate(-1px, -1px);
+}
+
+.mc-admin-nav-panel,
+.mc-admin-account-menu {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
   z-index: 80;
   display: grid;
   min-width: 220px;
@@ -200,25 +291,23 @@ body.builder-page--editor.is-header-only .games-page {
   box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
 }
 
-.mc-admin-nav-menu[hidden] {
+.mc-admin-nav-panel {
+  left: 0;
+}
+
+.mc-admin-nav-group:last-child .mc-admin-nav-panel,
+.mc-admin-account-menu {
+  right: 0;
+  left: auto;
+}
+
+.mc-admin-nav-panel[hidden],
+.mc-admin-account-menu[hidden] {
   display: none;
 }
 
-.mc-admin-nav-menu-header {
-  display: block;
-  margin: 7px 8px 2px;
-  padding-top: 7px;
-  border-top: 1px solid rgba(var(--bic-blue-rgb), 0.16);
-  color: rgba(var(--bic-blue-rgb), 0.5);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.mc-admin-nav-menu-item {
+.mc-admin-nav-item,
+.mc-admin-account-item {
   display: block;
   width: 100%;
   padding: 9px 12px;
@@ -237,36 +326,26 @@ body.builder-page--editor.is-header-only .games-page {
   transition: background 0.12s, color 0.12s;
 }
 
-.mc-admin-nav-menu-item--subitem {
-  padding-left: 22px;
-  font-size: 0.82rem;
-}
-
-.mc-admin-nav-menu-item:hover,
-.mc-admin-nav-menu-item:focus-visible {
+.mc-admin-nav-item:hover,
+.mc-admin-nav-item:focus-visible,
+.mc-admin-account-item:hover,
+.mc-admin-account-item:focus-visible {
   background: rgba(var(--bic-blue-rgb), 0.08);
   outline: none;
 }
 
-.mc-admin-nav-menu-item.is-current {
+.mc-admin-nav-item.is-current {
   background: transparent;
   color: rgba(var(--bic-blue-rgb), 0.42);
   cursor: not-allowed;
   pointer-events: none;
 }
 
-.mc-admin-nav-menu-item.is-current:hover,
-.mc-admin-nav-menu-item.is-current:focus-visible {
+.mc-admin-nav-item.is-current:hover,
+.mc-admin-nav-item.is-current:focus-visible {
   background: transparent;
   color: rgba(var(--bic-blue-rgb), 0.42);
   outline: none;
-}
-
-.mc-admin-nav-menu-divider {
-  display: block;
-  height: 1px;
-  margin: 4px 6px;
-  background: rgba(var(--bic-blue-rgb), 0.16);
 }
 
 .signout-btn svg,
@@ -456,8 +535,35 @@ body.builder-page--editor .builder-nav-row {
     flex: 0 0 var(--mc-control-height);
   }
 
+  .mc-admin-account {
+    margin-left: auto;
+  }
+
+  .mc-admin-navbar {
+    order: 3;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .mc-admin-nav-group,
+  .mc-admin-nav-trigger {
+    width: 100%;
+  }
+
+  .mc-admin-nav-group:nth-child(even) .mc-admin-nav-panel {
+    right: 0;
+    left: auto;
+  }
+
+  .mc-admin-nav-panel {
+    width: min(280px, calc(100vw - var(--mc-mobile-gutter) * 2));
+  }
+
   .topbar-actions .mc-back-btn,
-  .builder-admin-topbar-inner .mc-back-btn {
+  .builder-admin-topbar-inner .mc-back-btn,
+  .topbar-actions .mc-back-btn + .mc-back-btn,
+  .builder-admin-topbar-inner .mc-back-btn + .mc-back-btn {
     flex: 1 1 auto;
     margin-right: 0;
   }

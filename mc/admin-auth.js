@@ -11,6 +11,15 @@
     return !!(config && config.url && config.publishableKey);
   }
 
+  function isMissionControlPath() {
+    try {
+      var path = String(global.location.pathname || '').toLowerCase();
+      return path === '/mc' || path.indexOf('/mc/') === 0;
+    } catch (error) {
+      return false;
+    }
+  }
+
   function ensureStyle(document) {
     if (document.getElementById(STYLE_ID)) return;
     var style = document.createElement('style');
@@ -66,7 +75,7 @@
       '      </label>',
       '      <div class="mc-auth-actions">',
       '        <button class="mc-auth-btn mc-auth-btn--primary" id="mcAuthSubmitBtn" type="submit">Sign In</button>',
-      '        <a class="mc-auth-btn" id="mcAuthHomeBtn" href="' + escapeAttr(options.homeHref) + '" title="TGB HOME">TGB HOME</a>',
+      '        <a class="mc-auth-btn" id="mcAuthHomeBtn" href="' + escapeAttr(options.homeHref) + '" target="_blank" rel="noopener noreferrer" title="TGB HOME">TGB HOME</a>',
       '      </div>',
       '    </form>',
       '    <p class="mc-auth-status" id="mcAuthStatus" aria-live="polite"></p>',
@@ -98,6 +107,9 @@
     }, options || {});
 
     var document = global.document;
+    var pageProtected = isMissionControlPath()
+      || !!(document.body && document.body.classList.contains('mc-auth-protected'));
+    if (pageProtected && document.body) document.body.classList.add('mc-auth-protected');
     ensureStyle(document);
     var root = ensureRoot(document, settings);
     var modal = root.querySelector('#mcAuthModal');
@@ -115,6 +127,11 @@
 
     copyEl.textContent = settings.modalCopy;
     homeBtn.href = settings.homeHref;
+
+    function setPageAuthorized(signedIn) {
+      if (!pageProtected || !document.body) return;
+      document.body.classList.toggle('mc-auth-authorized', !!signedIn);
+    }
 
     function setStatus(message, state) {
       statusEl.textContent = message || '';
@@ -170,6 +187,7 @@
     }
 
     function closeModal() {
+      if (pageProtected && !(currentSession && currentSession.access_token)) return;
       modal.classList.remove('is-open');
       modal.hidden = true;
       notifyModalHide();
@@ -410,12 +428,14 @@
         currentSession = refreshed;
         storeSession(refreshed);
         scheduleRefresh(refreshed);
+        setPageAuthorized(true);
         notifyAuthChange(true, refreshed);
         return refreshed;
       }
       currentSession = null;
       storeSession(null);
       setSignOutState(false);
+      setPageAuthorized(false);
       notifyAuthChange(false, null);
       if (typeof settings.onSignedOut === 'function') {
         try { await settings.onSignedOut(null); } catch (error) {}
@@ -440,6 +460,7 @@
       scheduleRefresh(session);
       if (passwordInput) passwordInput.value = '';
       setSignOutState(true);
+      setPageAuthorized(true);
       closeModal();
       notifyAuthChange(true, session);
       if (typeof settings.onAuthorized === 'function') {
@@ -472,6 +493,7 @@
         currentSession = null;
         storeSession(null);
         setSignOutState(false);
+        setPageAuthorized(false);
         setStatus(error instanceof Error ? error.message : String(error), 'error');
         openModal(statusEl.textContent, 'error');
       } finally {
@@ -485,12 +507,13 @@
       currentSession = null;
       storeSession(null);
       setSignOutState(false);
+      setPageAuthorized(false);
       notifyAuthChange(false, previousSession);
       if (typeof settings.onSignedOut === 'function') {
         await settings.onSignedOut(previousSession);
       }
       await logoutSession(previousSession);
-      if (!(options && options.silent)) {
+      if (pageProtected || !(options && options.silent)) {
         openModal((options && options.message) || settings.signedOutMessage, (options && options.state) || '');
       }
       return true;
@@ -527,6 +550,7 @@
 
     async function init() {
       bindListeners();
+      setPageAuthorized(false);
 
       if (!hasConfig(settings.supabaseConfig)) {
         setSignOutState(false);
@@ -545,6 +569,7 @@
       if (!session) {
         currentSession = null;
         setSignOutState(false);
+        setPageAuthorized(false);
         showAuth(settings.initialMessage);
         return false;
       }
@@ -558,6 +583,7 @@
         currentSession = null;
         storeSession(null);
         setSignOutState(false);
+        setPageAuthorized(false);
         showAuth(error instanceof Error ? error.message : String(error), 'error');
         return false;
       }

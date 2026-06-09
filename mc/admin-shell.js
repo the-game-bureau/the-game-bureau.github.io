@@ -3,6 +3,10 @@
     var target = button.getAttribute('data-mc-back-fallback')
               || button.getAttribute('data-mc-home')
               || '/';
+    if (button.hasAttribute('data-mc-new-tab')) {
+      window.open(target, '_blank', 'noopener,noreferrer');
+      return;
+    }
     window.location.href = target;
   }
 
