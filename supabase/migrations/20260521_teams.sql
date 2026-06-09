@@ -34,7 +34,7 @@ create policy "teams readable by anyone"
   on public.teams for select
   using (true);
 
--- WRITE: any signed-in user. The editor sits behind mc/admin-auth.js sign-in.
+-- WRITE: any signed-in user. The editor sits behind mc/js/admin-auth.js sign-in.
 drop policy if exists "teams insert by authenticated" on public.teams;
 create policy "teams insert by authenticated"
   on public.teams for insert

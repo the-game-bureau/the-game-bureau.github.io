@@ -12,7 +12,7 @@
          • SAVE — writes every place + route back to atlas.jsonl (one handle).
        First load falls back to places.jsonl or legacy stops.jsonl + routes.jsonl, so the next
        Save migrates them into atlas.jsonl.
-       Wears the shared /mc/ chrome (admin-shell.css + admin nav/sign-in).
+       Wears the shared /mc/ chrome (js/admin-shell.css + admin nav/sign-in).
        NEEDS: a Google Maps JS API key (script tag at the bottom) and a
        what3words API key (W3W_KEY constant). -->
   <title>CONTENT | THE GAME BUREAU</title>
@@ -147,7 +147,7 @@
     .add-check input { width: auto; accent-color: var(--accent); }
     .add-actions { display: flex; gap: 0.5rem; padding: 0.9rem 1rem; border-top: 1px solid var(--line); }
   </style>
-  <link rel="stylesheet" href="../mc/admin-shell.css">
+  <link rel="stylesheet" href="js/admin-shell.css">
 </head>
 <body>
   <main class="app">
@@ -236,9 +236,9 @@
     </div>
   </div>
 
-  <script src="../mc/admin-auth.js"></script>
-  <script src="../mc/admin-shell.js"></script>
-  <script src="../mc/admin-nav-menu.js"></script>
+  <script src="js/admin-auth.js"></script>
+  <script src="js/admin-shell.js"></script>
+  <script src="js/admin-nav-menu.js"></script>
   <script>
     // Mission Control chrome: sign-in dropdown + sign-out, shared across /mc/ pages.
     (function () {
@@ -795,10 +795,10 @@
       try { const res = await fetch(url, { cache: 'no-store' }); return res.ok ? parseJsonl(await res.text()) : null; } catch (_) { return null; }
     }
     async function loadAtlas() {
-      let recs = await fetchJsonl('atlas.jsonl'), migrated = false;
+      let recs = await fetchJsonl('data/atlas.jsonl'), migrated = false;
       if (!recs) {
-        const p = await fetchJsonl('places.jsonl') || await fetchJsonl('stops.jsonl');
-        const r = await fetchJsonl('routes.jsonl');
+        const p = await fetchJsonl('data/places.jsonl') || await fetchJsonl('data/stops.jsonl');
+        const r = await fetchJsonl('data/routes.jsonl');
         if (p || r) { recs = [...(p || []), ...(r || []).map((x) => Object.assign({ type: 'route' }, x))]; migrated = true; }
       }
       if (!recs) { countEl.textContent = ''; stateEl.innerHTML = 'Could not load <code>atlas.jsonl</code> (or legacy places/routes). Serve over http(s).'; return; }

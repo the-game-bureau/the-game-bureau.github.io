@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generates supabase/migrations/seed_teams.sql from research/teams.json.
+// Generates supabase/migrations/seed_teams.sql from mc/data/teams.json.
 // Run: node supabase/migrations/seed_teams_from_json.mjs
 // Then paste the produced SQL into the Supabase SQL editor.
 
@@ -8,7 +8,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const JSON_PATH = resolve(ROOT, 'research', 'teams.json');
+const JSON_PATH = resolve(ROOT, 'mc', 'data', 'teams.json');
 const OUT_PATH  = resolve(ROOT, 'supabase', 'migrations', 'seed_teams.sql');
 
 // NFL pinned first; other leagues alphabetical. Matches the editor / index ordering.
@@ -82,7 +82,7 @@ async function main() {
     });
 
     const sql = [
-      '-- Generated from research/teams.json by seed_teams_from_json.mjs',
+      '-- Generated from mc/data/teams.json by seed_teams_from_json.mjs',
       `-- ${rows.length} rows · ${leagueOrder.size} leagues`,
       '-- Safe to re-run: uses ON CONFLICT DO UPDATE.',
       '',
@@ -142,7 +142,7 @@ async function main() {
   });
 
   const sql = [
-    '-- Generated from research/teams.json by seed_teams_from_json.mjs',
+    '-- Generated from mc/data/teams.json by seed_teams_from_json.mjs',
     `-- ${rows.length} rows · ${leagueNames.length} leagues`,
     '-- Safe to re-run: uses ON CONFLICT DO UPDATE.',
     '',

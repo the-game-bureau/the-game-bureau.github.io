@@ -498,7 +498,7 @@
   <script src="../games/helmets/helmet.js"></script>
   <script src="../games/helmets/basketball.js"></script>
   <script src="../games/helmets/baseball.js"></script>
-  <script src="../../mc/admin-auth.js"></script>
+  <script src="../../mc/js/admin-auth.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -532,9 +532,9 @@
   <div class="toolbar">
     <button class="btn primary" id="lookupBtn">Add Colors</button>
     <button class="btn" id="reloadBtn">Reload</button>
-    <button class="btn" id="openFileBtn" title="Open research/teams.json and edit colors directly in the file (Chrome/Edge)">Open File</button>
+    <button class="btn" id="openFileBtn" title="Open mc/data/teams.json and edit colors directly in the file (Chrome/Edge)">Open File</button>
     <button class="btn primary" id="saveFileBtn" title="Save color edits back to the opened teams.json (Ctrl+S)" disabled>Save File</button>
-    <button class="btn" id="exportBtn" title="Export current data for research/teams.json (offline fallback)">Export JSON</button>
+    <button class="btn" id="exportBtn" title="Export current data for mc/data/teams.json (offline fallback)">Export JSON</button>
     <button class="btn primary" id="loginBtn">Login</button>
   </div>
 </header>
@@ -588,7 +588,7 @@
 </div>
 
 <script>
-const JSON_PATH = '../../research/teams.json';
+const JSON_PATH = '../../mc/data/teams.json';
 const SB_CONFIG = {
   url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
   key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
@@ -638,7 +638,7 @@ const teamCache = new Map(); // leaguePath → teams array
 // render(); it is rebuilt from Supabase rows on load. state.leagueSort tracks
 // the league_sort column per league name (preserves user ordering). Mutations
 // update state.doc immediately and fire-and-forget a Supabase write.
-// fileHandle/rawDoc track the "file mode" introduced for editing research/teams.json
+// fileHandle/rawDoc track the "file mode" introduced for editing mc/data/teams.json
 // directly via the File System Access API. When fileHandle is set, color/name
 // edits skip the Supabase write and are flushed to the file on Save instead.
 // rawDoc holds the original flat { _ai_update_prompt, teams:[…] } structure so
@@ -965,7 +965,7 @@ async function loadFromSupabase() {
     setStatus(totalsSummary() + ' · Supabase');
     return true;
   } catch (err) {
-    setStatus(`Supabase load failed (${err.message}). Falling back to research/teams.json.`, { error: true });
+    setStatus(`Supabase load failed (${err.message}). Falling back to mc/data/teams.json.`, { error: true });
     await loadFromJsonFallback();
     return false;
   }
@@ -978,7 +978,7 @@ async function loadFromJsonFallback() {
     state.doc = normalizeDoc(await resp.json());
     state.leagueSort = new Map(Object.keys(state.doc.leagues).map((k, i) => [k, LEAGUE_RANK(k) + i]));
     render();
-    setStatus(totalsSummary() + ' · research/teams.json (offline)');
+    setStatus(totalsSummary() + ' · mc/data/teams.json (offline)');
   } catch (err) {
     setStatus(`Could not fetch ${JSON_PATH} (${err.message}).`, { error: true });
     state.doc = normalizeDoc(null);
@@ -1016,11 +1016,11 @@ async function exportJson() {
   a.href = url; a.download = 'teams.json';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  setStatus('Downloaded teams.json — use it to refresh research/teams.json.');
+  setStatus('Downloaded teams.json — use it to refresh mc/data/teams.json.');
 }
 
-// ── File mode: edit research/teams.json in place (File System Access API) ───────
-// When a file is open we edit the actual research/teams.json. Color/name edits live
+// ── File mode: edit mc/data/teams.json in place (File System Access API) ───────
+// When a file is open we edit the actual mc/data/teams.json. Color/name edits live
 // in state.doc and are merged back into state.rawDoc.teams (the canonical flat
 // array) on Save, so every other field on each row is preserved verbatim.
 
@@ -1049,7 +1049,7 @@ async function openTeamsFile() {
     const file = await handle.getFile();
     const parsed = JSON.parse(await file.text());
     if (!Array.isArray(parsed.teams)) {
-      setStatus(`${handle.name} has no "teams" array — pick the flat research/teams.json file.`, { error: true });
+      setStatus(`${handle.name} has no "teams" array — pick the flat mc/data/teams.json file.`, { error: true });
       return;
     }
     state.fileHandle = handle;
@@ -1103,7 +1103,7 @@ function buildArrayDocFromEdits() {
 }
 
 async function saveTeamsFile() {
-  if (!state.fileHandle) { setStatus('Open research/teams.json first (Open File).', { error: true }); return; }
+  if (!state.fileHandle) { setStatus('Open mc/data/teams.json first (Open File).', { error: true }); return; }
   const doc = buildArrayDocFromEdits();
   if (!doc) { setStatus('Nothing to save — the open file had no teams array.', { error: true }); return; }
   if (!(await ensureRWPermission(state.fileHandle))) {

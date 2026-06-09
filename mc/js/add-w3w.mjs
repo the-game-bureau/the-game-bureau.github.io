@@ -2,7 +2,7 @@
 // AIs hallucinate coordinates, so the AI only NAMES the place; this geocodes it
 // (Google Places when GOOGLE_PLACES_API_KEY is set — best coverage — else
 // Nominatim) and converts the point to a 3-word address via the what3words API.
-//   node research/add-w3w.mjs [file=research/atlas.jsonl] [limit] [--all]
+//   node mc/js/add-w3w.mjs [file=mc/data/atlas.jsonl] [limit] [--all]
 // By default only fills places MISSING a w3w; --all re-does every place.
 // Operates on atlas.jsonl: "route" records are skipped, only "place" records geocode.
 // Keys: GOOGLE_PLACES_API_KEY (optional), W3W_API_KEY (or the CSNL2XHT constant).
@@ -11,7 +11,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const ARGS = process.argv.slice(2);
 const ALL = ARGS.includes('--all');
 const POS = ARGS.filter((a) => !a.startsWith('--'));
-const FILE = POS[0] || 'research/atlas.jsonl';
+const FILE = POS[0] || 'mc/data/atlas.jsonl';
 const LIMIT = POS[1] ? Number(POS[1]) : Infinity;
 
 const W3W_KEY = process.env.W3W_API_KEY || 'CSNL2XHT';   // replace or set W3W_API_KEY

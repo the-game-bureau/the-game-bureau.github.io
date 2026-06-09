@@ -1,4 +1,4 @@
-# research/ — the two-panel research paradigm
+# mc/ — the two-panel research paradigm
 
 A lightweight workflow for **quasi-coders**. Every page is split in two: build a
 prompt up top, run it in any AI by hand, and drop the reply next door — the
@@ -130,7 +130,7 @@ That's it — `research.css` and `research.js` are shared, so new pages are tiny
 | `places.html` / `places.jsonl` | The AI-generation **inbox** for reusable real-world Places — landmarks, monuments, public art, and other points a city already has. Each Place carries a what3words address (`w3w`) plus `start_candidate` / `end_candidate` (`"yes"`/`"no"`). `content.html` migrates these into `atlas.jsonl` on first load (then `atlas.jsonl` is canonical). |
 | `content.html` | **Routes + Places** — a Mission Control tool (wears the shared `/mc/` chrome: admin-shell + sign-in nav; listed in the MC nav menu). Google Maps (satellite) + the what3words 3 m grid. Search covers Routes and Places. Click a square then **Add Place**, or click a Place pin to edit it. **Build Route** turns selected Places into an ordered list of Stops; route city is derived from those Stops. A **turn** is a coordinate-only shaping point, not a Stop. **Save** writes every Place + Route back to `atlas.jsonl`. |
 | `atlas.jsonl` | The map's canonical store. A Place record uses `{"type":"place",…}` and carries `name`, `city`, address and map metadata. A Route record uses `{"type":"route",…}` and carries `route_id`, `name`, `city`, and ordered `stops:[…]`. Each Stop references a Place by `{name,w3w}`. Optional map-shaping turns are stored separately in `turns:[…]`, so they never masquerade as Stops. The loader accepts legacy `type:"stop"`, `waypoints`, and `stops.jsonl`, then normalizes them on Save. |
-| `add-w3w.mjs` | CLI: geocode each Place (**Google Places** when `GOOGLE_PLACES_API_KEY` is set, else Nominatim) and write its **what3words** address (`w3w`). `node research/add-w3w.mjs [file=research/atlas.jsonl] [limit] [--all]` (default fills only Places missing a w3w; Route records are skipped). Keys: `GOOGLE_PLACES_API_KEY` (optional), `W3W_API_KEY`. |
+| `add-w3w.mjs` | CLI: geocode each Place (**Google Places** when `GOOGLE_PLACES_API_KEY` is set, else Nominatim) and write its **what3words** address (`w3w`). `node mc/js/add-w3w.mjs [file=mc/data/atlas.jsonl] [limit] [--all]` (default fills only Places missing a w3w; Route records are skipped). Keys: `GOOGLE_PLACES_API_KEY` (optional), `W3W_API_KEY`. |
 | `teams.html` / `teams.json` | The team database (4 major leagues, MLS-extensible). Wraps teams.json's built-in update prompt; pages one team at a time, and **Overwrite** writes teams.json back as a pretty object (`_ai_update_prompt` preserved). The `/assets/teams/` editor is the alternative. |
 | `research.css` | Shared dark "dev-tool" styling. |
 | `research.js` | Shared engine: prompt assembly + cousin loader/renderer + format-aware merge (.jsonl/.json). |

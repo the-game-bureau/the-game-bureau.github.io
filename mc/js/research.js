@@ -200,7 +200,10 @@
 
   async function loadResult() {
     const base = cousinBase();
-    const candidates = [base + '.jsonl', base + '.json']; // prefer append-friendly .jsonl
+    // Cousin data files live in the sibling data/ folder (e.g. /mc/games.html →
+    // /mc/data/games.jsonl; teams.html → /mc/data/teams.json).
+    const dataBase = base.replace(/\/([^/]*)$/, '/data/$1');
+    const candidates = [dataBase + '.jsonl', dataBase + '.json']; // prefer append-friendly .jsonl
     let lastErr;
     for (const url of candidates) {
       try {

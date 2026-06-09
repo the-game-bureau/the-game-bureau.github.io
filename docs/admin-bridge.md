@@ -45,4 +45,4 @@ Optional attributes:
 
 ## Auth Events
 
-Mission Control auth changes are broadcast from `mc/admin-auth.js` via the `tgb-admin-auth-change` browser event. Keep that event in sync if another page creates or clears the admin session, so already-open public pages update without reload.
+Mission Control auth changes are broadcast from `mc/js/admin-auth.js` via the `tgb-admin-auth-change` browser event. Keep that event in sync if another page creates or clears the admin session, so already-open public pages update without reload.

@@ -54,7 +54,7 @@
       label: 'Reference',
       items: [
         {
-          href: '/research/',
+          href: '/mc/research.html',
           label: 'Research',
           description: 'Open research assistants and their supporting datasets.'
         },
