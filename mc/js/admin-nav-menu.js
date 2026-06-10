@@ -16,6 +16,10 @@
       href: '/mc/editgames.html'
     },
     {
+      label: 'OPERATIONS',
+      href: '/mc/gs-codes.html'
+    },
+    {
       label: 'Batch Edit',
       items: [
         {
@@ -39,14 +43,9 @@
           description: "Review and curate player photos for the public Winner's Wall."
         },
         {
-          href: '/gifts/admin/gs-shop.html',
+          href: '/mc/gs-shop.html',
           label: 'Gift Shop',
           description: 'Manage gift-shop items, game gifts, pricing, and storefront content.'
-        },
-        {
-          href: '/gifts/admin/gs-codes.html',
-          label: 'Access Codes',
-          description: 'Review issued game-access codes, usage, and gift swaps.'
         }
       ]
     },

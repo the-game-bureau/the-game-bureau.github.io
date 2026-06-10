@@ -3,19 +3,19 @@
 For each game, derive search queries from its title/city/tags/stops, hit Amazon
 search (cached on disk), parse product cards, and dump them into Supabase as
 gift_shop_items + gift_shop_listings rows. New listings are inserted with
-live=false so the admin curates them in gifts/admin/gs-shop.html before they show
+live=false so the admin curates them in mc/gs-shop.html before they show
 up publicly.
 
 Run with no switches for an interactive menu. Flags still work when you want
 to launch a specific mode directly.
 
 Examples:
-    python gifts/scripts/gs_stock.py
-    python gifts/scripts/gs_stock.py --game oswald
-    python gifts/scripts/gs_stock.py --limit-games 3 --items-per-game 12
-    python gifts/scripts/gs_stock.py --dry-run --limit-games 1
-    python gifts/scripts/gs_stock.py --menu
-    python gifts/scripts/gs_stock.py --serve
+    python mc/scripts/gs_stock.py
+    python mc/scripts/gs_stock.py --game oswald
+    python mc/scripts/gs_stock.py --limit-games 3 --items-per-game 12
+    python mc/scripts/gs_stock.py --dry-run --limit-games 1
+    python mc/scripts/gs_stock.py --menu
+    python mc/scripts/gs_stock.py --serve
 
 Environment:
     Write mode requires SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY)
@@ -201,7 +201,6 @@ def insert_listing(key: str, item_id: Any, game_id: str, position: int) -> dict[
         "item_id": item_id,
         "game_id": game_id,
         "position": position,
-        "live": False,        # admin opts in via gifts/admin/gs-shop.html
         "archived": False,
     }
     rows = _supabase_request(rest_url("gift_shop_listings"), key, "POST", payload)
@@ -844,7 +843,7 @@ def run_stocking(args: argparse.Namespace) -> int:
 
     if write_enabled:
         print(f"\nInserted {items_in} item(s) and {listings_in} listing(s).")
-        print("Curate them in gifts/admin/gs-shop.html and flip the 'Live' checkbox to publish.")
+        print("Curate them in mc/gs-shop.html and flip the 'Live' checkbox to publish.")
     else:
         print("\nDry run only. Re-run without --dry-run to insert these rows.")
     return 0
@@ -987,6 +986,279 @@ def run_search_only(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# ── Bookshop.org book lookup ─────────────────────────────────────────────────
+# The browser can't query Bookshop (CORS) and Bookshop blocks naive bots, but a
+# request with real browser headers gets the (server-rendered) product page,
+# which carries an og:title, og:image, JSON-LD price, and a <meta book:isbn>.
+# Open Library is used only to turn a topic into candidate ISBNs — Bookshop is
+# the source of truth: we try each candidate against bookshop.org/a/<aff>/<isbn>
+# and keep the first that resolves to a real product (so wrong-edition ISBNs are
+# skipped automatically), reading title/author/cover/price from THAT page.
+
+BOOKSHOP_AFFILIATE_ID = "87073"
+BOOKSHOP_HEADERS = {
+    "User-Agent": USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+def bookshop_affiliate_url(isbn: str) -> str:
+    return f"https://bookshop.org/a/{BOOKSHOP_AFFILIATE_ID}/{isbn}"
+
+
+def _meta_content(page: str, key: str) -> str:
+    """Pull a <meta property|name="key" content="..."> value (either attr order)."""
+    for pat in (
+        r'<meta[^>]+(?:property|name)=["\']' + re.escape(key) + r'["\'][^>]+content=["\']([^"\']*)["\']',
+        r'<meta[^>]+content=["\']([^"\']*)["\'][^>]+(?:property|name)=["\']' + re.escape(key) + r'["\']',
+    ):
+        m = re.search(pat, page, re.I)
+        if m:
+            return html.unescape(m.group(1)).strip()
+    return ""
+
+
+def _jsonld_nodes(page: str) -> list[Any]:
+    out: list[Any] = []
+    for block in re.findall(
+        r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', page, re.S | re.I
+    ):
+        try:
+            out.append(json.loads(block.strip()))
+        except Exception:
+            continue
+    return out
+
+
+def _find_book_node(nodes: Iterable[Any]) -> Optional[dict[str, Any]]:
+    def walk(node: Any) -> Optional[dict[str, Any]]:
+        if isinstance(node, dict):
+            types = node.get("@type")
+            types = types if isinstance(types, list) else [types]
+            if any(str(t).lower() in ("book", "product") for t in types):
+                return node
+            for value in node.values():
+                hit = walk(value)
+                if hit:
+                    return hit
+        elif isinstance(node, list):
+            for value in node:
+                hit = walk(value)
+                if hit:
+                    return hit
+        return None
+    for n in nodes:
+        hit = walk(n)
+        if hit:
+            return hit
+    return None
+
+
+def _author_names(author: Any) -> list[str]:
+    names: list[str] = []
+    items = author if isinstance(author, list) else [author]
+    for a in items:
+        if isinstance(a, dict) and a.get("name"):
+            names.append(str(a["name"]).strip())
+        elif isinstance(a, str) and a.strip():
+            names.append(a.strip())
+    return names
+
+
+def _offer_price(offers: Any) -> Optional[float]:
+    items = offers if isinstance(offers, list) else [offers]
+    for o in items:
+        if not isinstance(o, dict):
+            continue
+        for field in ("price", "lowPrice", "highPrice"):
+            raw = o.get(field)
+            if raw not in (None, ""):
+                try:
+                    return float(str(raw).replace("$", "").replace(",", ""))
+                except ValueError:
+                    continue
+    return None
+
+
+def parse_bookshop_product(page: str, requested_isbn: str) -> Optional[dict[str, Any]]:
+    """Return {title, author, isbn, url, image_url, price_display} or None if the
+    page isn't a real product (a soft-404 SPA shell lacks the book:isbn meta)."""
+    page_isbn = _meta_content(page, "book:isbn")
+    title = _meta_content(page, "og:title")
+    image = _meta_content(page, "og:image")
+    price: Optional[float] = None
+    authors: list[str] = []
+
+    node = _find_book_node(_jsonld_nodes(page))
+    if node:
+        title = title or str(node.get("name") or "")
+        authors = _author_names(node.get("author"))
+        price = _offer_price(node.get("offers"))
+        if not image:
+            img = node.get("image")
+            image = (img[0] if isinstance(img, list) and img else img) if img else ""
+        if not page_isbn:
+            page_isbn = re.sub(r"[^0-9Xx]", "", str(node.get("isbn") or ""))
+
+    # A real product page echoes its own ISBN; a not-found shell does not.
+    if not page_isbn or not title:
+        return None
+
+    final_isbn = page_isbn or requested_isbn
+    return {
+        "title": title.strip(),
+        "author": ", ".join(authors[:2]),
+        "isbn": final_isbn,
+        "url": bookshop_affiliate_url(final_isbn),
+        "image_url": image or f"https://images-us.bookshop.org/ingram/{final_isbn}.jpg",
+        "price_display": (f"${price:.2f}" if price is not None else None),
+    }
+
+
+def bookshop_product(isbn: str) -> Optional[dict[str, Any]]:
+    """Fetch + parse one Bookshop product by ISBN. Cached on disk (hit + miss)."""
+    isbn = re.sub(r"[^0-9Xx]", "", str(isbn))
+    if len(isbn) not in (10, 13):
+        return None
+    hit = CACHE_DIR / f"bookshop-{isbn}.json"
+    miss = CACHE_DIR / f"bookshop-{isbn}.miss"
+    if hit.exists():
+        try:
+            return json.loads(hit.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    if miss.exists():
+        return None
+
+    req = urllib.request.Request(bookshop_affiliate_url(isbn), headers=BOOKSHOP_HEADERS)
+    try:
+        with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+            page = resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        if exc.code in (404, 410):
+            _write_quietly(miss, "")
+        return None
+    except (urllib.error.URLError, TimeoutError):
+        return None
+
+    product = parse_bookshop_product(page, isbn)
+    if not product:
+        _write_quietly(miss, "")
+        return None
+    _write_quietly(hit, json.dumps(product, ensure_ascii=False))
+    return product
+
+
+def _write_quietly(path: Path, text: str) -> None:
+    try:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    except OSError:
+        pass
+
+
+def openlibrary_candidates(query: str, limit: int) -> list[dict[str, Any]]:
+    url = "https://openlibrary.org/search.json?" + urllib.parse.urlencode({
+        "q": query,
+        "limit": str(limit),
+        "fields": "title,author_name,isbn,first_publish_year",
+    })
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+        data = json.loads(resp.read().decode("utf-8", errors="replace"))
+    return data.get("docs", []) or []
+
+
+def search_bookshop_books(query: str, limit: int = 12, isbn_tries: int = 4,
+                          delay: float = 0.25) -> list[dict[str, Any]]:
+    """Topic -> Open Library candidate ISBNs -> first ISBN that is a real Bookshop
+    product. Returns Bookshop-authoritative items (with price)."""
+    docs = openlibrary_candidates(query, max(limit * 2, limit + 6))
+    results: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for doc in docs:
+        if len(results) >= limit:
+            break
+        isbns = [re.sub(r"[^0-9Xx]", "", str(x)) for x in (doc.get("isbn") or [])]
+        isbns = [x for x in isbns if len(x) in (10, 13)]
+        isbns.sort(key=lambda x: 0 if len(x) == 13 else 1)  # prefer ISBN-13
+        found = None
+        for isbn in isbns[:isbn_tries]:
+            if isbn in seen:
+                continue
+            product = bookshop_product(isbn)
+            if product:
+                found = product
+                break
+            time.sleep(delay)
+        if found and found["isbn"] not in seen:
+            seen.add(found["isbn"])
+            # Backfill author from Open Library if Bookshop's JSON-LD lacked it.
+            if not found.get("author") and doc.get("author_name"):
+                found["author"] = ", ".join(list(doc["author_name"])[:2])
+            results.append(found)
+    return results
+
+
+def run_books_search(payload: dict[str, Any]) -> dict[str, Any]:
+    query = str(payload.get("query") or payload.get("keywords") or "").strip()
+    if not query:
+        return {"ok": False, "error": "Enter a topic or keywords."}
+    limit = coerce_int(payload.get("limit"), 12, 1)
+    try:
+        candidates = search_bookshop_books(query, limit=limit)
+    except Exception as error:  # noqa: BLE001
+        return {"ok": False, "error": str(error), "logs": traceback.format_exc()}
+    return {"ok": True, "query": query, "candidates": candidates, "count": len(candidates)}
+
+
+def run_combined_search(payload: dict[str, Any]) -> dict[str, Any]:
+    """One search across BOTH sources. Bookshop books are preferred, so they are
+    listed first; Amazon gear follows. Every candidate carries a 'source' tag
+    ('bookshop' | 'amazon') so the UI can label and group them. Powers the merged
+    Find-Products lightbox in gs-shop.html."""
+    payload = payload if isinstance(payload, dict) else {}
+    query = str(payload.get("keywords") or payload.get("query") or "").strip()
+
+    warnings: list[str] = []
+
+    # 1) Bookshop (preferred) — only when there's a query to search by topic.
+    books: list[dict[str, Any]] = []
+    if query:
+        book_limit = coerce_int(payload.get("book_limit"), 8, 1)
+        try:
+            for b in search_bookshop_books(query, limit=book_limit):
+                item = dict(b)
+                item["source"] = "bookshop"
+                if not item.get("description"):
+                    item["description"] = item.get("author") or ""
+                books.append(item)
+        except Exception as error:  # noqa: BLE001
+            warnings.append(f"Bookshop search failed: {error}")
+
+    # 2) Amazon gear (reuses the existing suggester pipeline).
+    amazon: list[dict[str, Any]] = []
+    amazon_res = run_search_only(payload)
+    if amazon_res.get("ok"):
+        for a in amazon_res.get("candidates", []):
+            item = dict(a)
+            item["source"] = "amazon"
+            amazon.append(item)
+    elif amazon_res.get("error"):
+        warnings.append(f"Amazon search: {amazon_res['error']}")
+
+    candidates = books + amazon  # Bookshop first = preferred
+    return {
+        "ok": True,
+        "query": query,
+        "candidates": candidates,
+        "counts": {"bookshop": len(books), "amazon": len(amazon)},
+        "warnings": warnings,
+        "summary": f"{len(books)} book(s) from Bookshop · {len(amazon)} from Amazon.",
+    }
+
+
 class StockGiftShopHandler(BaseHTTPRequestHandler):
     server_version = "TGBStockGiftShop/1.0"
 
@@ -1011,8 +1283,8 @@ class StockGiftShopHandler(BaseHTTPRequestHandler):
         if self.path.rstrip("/") == "/health":
             self._send_json(200, {
                 "ok": True,
-                "command": "python gifts/scripts/gs_stock.py --serve",
-                "endpoints": ["/run-stock-gift-shop", "/search-candidates"],
+                "command": "python mc/scripts/gs_stock.py --serve",
+                "endpoints": ["/run-stock-gift-shop", "/search-candidates", "/search-books", "/search-all"],
             })
             return
         self._send_json(404, {"ok": False, "error": "Not found."})
@@ -1031,6 +1303,12 @@ class StockGiftShopHandler(BaseHTTPRequestHandler):
             return
         if path == "/search-candidates":
             self._handle_search_candidates()
+            return
+        if path == "/search-books":
+            self._handle_search_books()
+            return
+        if path == "/search-all":
+            self._handle_search_all()
             return
         self._send_json(404, {"ok": False, "error": "Not found."})
 
@@ -1066,6 +1344,42 @@ class StockGiftShopHandler(BaseHTTPRequestHandler):
         try:
             payload = self._read_json_body()
             result = run_search_only(payload)
+            status = 200 if result.get("ok") else 400
+            self._send_json(status, result)
+        except Exception as error:
+            self._send_json(500, {
+                "ok": False,
+                "error": str(error),
+                "logs": traceback.format_exc()
+            })
+        finally:
+            RUN_LOCK.release()
+
+    def _handle_search_books(self) -> None:
+        if not RUN_LOCK.acquire(blocking=False):
+            self._send_json(409, {"ok": False, "error": "A search is already in progress."})
+            return
+        try:
+            payload = self._read_json_body()
+            result = run_books_search(payload)
+            status = 200 if result.get("ok") else 400
+            self._send_json(status, result)
+        except Exception as error:
+            self._send_json(500, {
+                "ok": False,
+                "error": str(error),
+                "logs": traceback.format_exc()
+            })
+        finally:
+            RUN_LOCK.release()
+
+    def _handle_search_all(self) -> None:
+        if not RUN_LOCK.acquire(blocking=False):
+            self._send_json(409, {"ok": False, "error": "A search is already in progress."})
+            return
+        try:
+            payload = self._read_json_body()
+            result = run_combined_search(payload)
             status = 200 if result.get("ok") else 400
             self._send_json(status, result)
         except Exception as error:

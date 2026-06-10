@@ -138,14 +138,13 @@
       const heroMetaListEl = document.getElementById('heroMetaList');
       const heroMetaPromptEl = document.getElementById('heroMetaPrompt');
 
-      const COLORS_JSON_URL = '/mc/data/teams.json';
-      // mc/data/teams.json is the canonical bundled team database. Supabase can
-      // override palette fields at runtime and add non-db teams, but db owns
-      // franchise identity labels like GeoName/MascotName/TGBGameCity.
-      // Supabase still stores the palette columns under their original names;
-      // adapters below map them onto mc/data/teams.json's primary/secondary/tertiary.
+      // The Supabase `teams` table is the single source of truth for team data
+      // (seeded from mc/data/teams.json via the seed/enrich migrations). It
+      // stores palette columns as shell/stripe/mask and the geographic
+      // game/venue city as game_city/venue_city; buildTeamIndex maps those onto
+      // the primary/secondary/tertiary + gameCity shape the directory expects.
       const TEAMS_REST_URL = SB_CONFIG.url + '/rest/v1/teams'
-        + '?select=league,conference,code,full_name,first_name,fanbase,mascot,sport,shell,stripe,mask'
+        + '?select=league,conference,code,full_name,first_name,fanbase,mascot,sport,shell,stripe,mask,game_city,venue_city'
         + '&order=league_sort.asc&order=team_sort.asc';
       const NO_HELMET_PALETTE = {
         primary_color: '#c8c4ba',
@@ -300,6 +299,39 @@
         return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
       }
 
+      const TEAM_REGION_NAMES = {
+        AB: 'Alberta', AL: 'Alabama', AZ: 'Arizona', BC: 'British Columbia',
+        CA: 'California', CO: 'Colorado', DC: 'District of Columbia', FL: 'Florida',
+        GA: 'Georgia', IL: 'Illinois', IN: 'Indiana', LA: 'Louisiana',
+        MA: 'Massachusetts', MB: 'Manitoba', MD: 'Maryland', MI: 'Michigan',
+        MN: 'Minnesota', MO: 'Missouri', NC: 'North Carolina', NV: 'Nevada',
+        NY: 'New York', OH: 'Ohio', OK: 'Oklahoma', ON: 'Ontario',
+        OR: 'Oregon', PA: 'Pennsylvania', QC: 'Quebec', TN: 'Tennessee',
+        TX: 'Texas', UT: 'Utah', WA: 'Washington', WI: 'Wisconsin'
+      };
+      const TEAM_GAME_CITY_OVERRIDES = {
+        'alabama|crimson tide': 'Tuscaloosa, Alabama',
+        'louisiana|tigers': 'Baton Rouge, Louisiana',
+        'san antonio|roadrunners': 'San Antonio, Texas',
+        'tulane|green wave': 'New Orleans, Louisiana'
+      };
+
+      function formatTeamCityName(value) {
+        const city = String(value || '').trim();
+        const match = city.match(/^(.+?),\s*([A-Za-z]{2})$/);
+        if (!match) return city;
+        const region = TEAM_REGION_NAMES[match[2].toUpperCase()];
+        return region ? match[1].trim() + ', ' + region : city;
+      }
+
+      function getTeamGameCity(value) {
+        const explicitCity = value.TGBGameCity || value.gameCity || value.game_city || '';
+        if (explicitCity) return formatTeamCityName(explicitCity);
+        const fanbase = value.fanbase || value.firstName || value.first_name || value.GeoName || '';
+        const mascot = value.mascot || value.MascotName || '';
+        return TEAM_GAME_CITY_OVERRIDES[teamKey(fanbase) + '|' + teamKey(mascot)] || '';
+      }
+
       // Build the same { lookup, teams } shape from a flat list of team records.
       // Accepts Supabase rows, the old nested palette rows, or the merged
       // mc/data/teams.json shape with TGBID/GeoName/MascotName fields.
@@ -310,6 +342,7 @@
           if (!value || typeof value !== 'object') continue;
           const firstName = value.firstName || value.first_name || value.GeoName || '';
           const fanbase   = value.fanbase   || firstName        || '';
+          const gameCity  = getTeamGameCity(value);
           const mascot    = value.mascot    || value.MascotName || '';
           const sport     = value.sport     || sportFromLeague(value.League || value.league);
           const primary   = value.primary   || value.primary_color   || value.shell  || '';
@@ -322,17 +355,20 @@
             sport,
             fanbase
           };
-          // Index by fanbase (matches schedule's away_team_city); also index by
-          // firstName when it differs so legacy schedule data using the brand
-          // short name still resolves.
+          // Index identity labels plus the canonical geographic game city so
+          // both legacy schedules and normalized game records resolve.
           const fanbaseKey = teamKey(fanbase);
           const firstNameKey = teamKey(firstName);
+          const gameCityKey = teamKey(gameCity);
           const mascotKey = teamKey(mascot);
           if (mascotKey) {
             if (fanbaseKey) lookup.set(fanbaseKey + '|' + mascotKey, palette);
             if (firstNameKey && firstNameKey !== fanbaseKey) lookup.set(firstNameKey + '|' + mascotKey, palette);
+            if (gameCityKey && gameCityKey !== fanbaseKey && gameCityKey !== firstNameKey) {
+              lookup.set(gameCityKey + '|' + mascotKey, palette);
+            }
           }
-          teams.push({ firstName, fanbase, mascot, sport, palette });
+          teams.push({ firstName, fanbase, gameCity, mascot, sport, palette });
         }
         return { lookup, teams };
       }
@@ -408,7 +444,6 @@
         return [
           code && league + '|code|' + code,
           fullName && league + '|name|' + teamKey(fullName),
-          mascot && league + '|mascot|' + teamKey(mascot),
           mascot && fanbase && league + '|fan|' + teamKey(fanbase) + '|' + teamKey(mascot),
           mascot && firstName && league + '|fan|' + teamKey(firstName) + '|' + teamKey(mascot)
         ].filter(Boolean);
@@ -449,32 +484,37 @@
         return rows;
       }
 
+      // All team data — identity labels, palette, sport, and game/venue city —
+      // lives in the Supabase `teams` table (seeded from mc/data/teams.json via
+      // the seed/enrich migrations). Pull it straight from Supabase; if that
+      // fails we render with the no-helmet fallback rather than a stale bundle.
       async function fetchTeamColors() {
-        let baseRows = [];
         try {
-          baseRows = await fetchTeamColorsFromJson();
+          const rows = await fetchTeamColorsFromSupabase();
+          if (Array.isArray(rows) && rows.length) return buildTeamIndex(rows);
         } catch (error) {
-          baseRows = [];
+          // Network/RLS/etc — fall through to an empty index.
         }
-
-        try {
-          const overrideRows = await fetchTeamColorsFromSupabase();
-          if (Array.isArray(overrideRows) && overrideRows.length) {
-            return buildTeamIndex(mergeTeamColorRows(baseRows, overrideRows));
-          }
-        } catch (error) {
-          // Network/RLS/etc — use bundled mc/data/teams.json by itself.
-        }
-
-        return buildTeamIndex(baseRows);
+        return buildTeamIndex([]);
       }
 
       function getHelmetByAwayTeam(game) {
         if (!game) return null;
-        const cityKey = teamKey(game.away_team_city);
         const mascotKey = teamKey(game.away_team_mascot);
-        if (!cityKey || !mascotKey) return null;
-        return colorsByCityMascot.get(cityKey + '|' + mascotKey) || null;
+        if (!mascotKey) return null;
+        // away_team_city may be stored as the full "City, State" form (the
+        // full-team-city-names migration), but the team index is keyed on the
+        // short city/fanbase. Try the full value first, then the city-only
+        // segment before the comma, so both shapes resolve.
+        const cityRaw = String(game.away_team_city || '');
+        const cityCandidates = cityRaw.indexOf(',') >= 0 ? [cityRaw, cityRaw.split(',')[0]] : [cityRaw];
+        for (const candidate of cityCandidates) {
+          const cityKey = teamKey(candidate);
+          if (!cityKey) continue;
+          const hit = colorsByCityMascot.get(cityKey + '|' + mascotKey);
+          if (hit) return hit;
+        }
+        return null;
       }
 
       function normalizeCategoryIcon(value) {

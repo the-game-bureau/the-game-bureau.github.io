@@ -514,7 +514,7 @@
           <div>
             <p class="hero-kicker"><span id="itemCount">0</span> ITEMS<span id="eyebrowSuffix" hidden> / <span id="eyebrow"></span></span></p>
             <h1 class="hero-headline" id="heading">Gift Shop</h1>
-            <p class="hero-copy" id="lead">Souvenirs for survivors.</p>
+            <p class="hero-copy" id="lead">Take the game home.</p>
           </div>
         </div>
       </section>
@@ -534,7 +534,11 @@
     };
 
     const params = new URLSearchParams(location.search);
-    const gameId = String(params.get('id') || params.get('game') || '').trim();
+    const requestedCity = String(params.get('city') || '').trim();
+    // Optional game filter. Canonical is ?id=<game-id> (matches the engine
+    // URLs); ?game= is also accepted and may be an id or a game name. The raw
+    // value is resolved to a real game once the games list loads (loadAllShops).
+    const requestedGameParam = String(params.get('id') || params.get('game') || '').trim();
 
     const statusEl = document.getElementById('status') || { textContent: '', hidden: true };
     const gridEl = document.getElementById('grid');
@@ -571,6 +575,63 @@
       if (!t) return '';
       if (/^Surfaced from the Amazon search:/i.test(t)) return '';
       return t;
+    }
+
+    function isFandomGame(game) {
+      const value = game && game.fandom_game;
+      if (value === true) return true;
+      const normalized = String(value == null ? '' : value).trim().toLowerCase();
+      return normalized === 'yes' || normalized === 'true' || normalized === '1';
+    }
+
+    // Match Mission Control's city derivation: fandom gifts belong to the
+    // visiting fanbase's city; every other gift belongs to the game's city.
+    function gameCity(game) {
+      if (!game) return '';
+      return String((isFandomGame(game) ? game.away_team_city : game.city) || '').trim();
+    }
+
+    function cityMatchesGame(game) {
+      // A game filter (?id=/?game=) overrides the city filter entirely.
+      if (requestedGameId) return true;
+      if (!requestedCity) return true;
+      return gameCity(game).localeCompare(requestedCity, undefined, { sensitivity: 'base' }) === 0;
+    }
+
+    // Resolved id of the ?id=/?game= filter (empty = show every game's gifts).
+    // Set in loadAllShops once the games list is available.
+    let requestedGameId = '';
+    function listingMatchesGameFilter(listing) {
+      if (!requestedGameId) return true;
+      return String((listing && listing.game_id) || '') === requestedGameId;
+    }
+    function gameMatchesGameFilter(game) {
+      if (!requestedGameId) return true;
+      return !!game && String(game.id) === requestedGameId;
+    }
+
+    // Sports-first grid ordering. The authoritative signal is the
+    // gift_shop_items.category column ('sports' | 'other'), set by admins in
+    // /mc/gs-shop.html. Untagged rows (category NULL) fall back to a
+    // title/description keyword heuristic so they still group sensibly until
+    // someone tags them. Matching items sort ahead of everything else; both
+    // groups stay alphabetical. No category labels are rendered — the order
+    // alone does the grouping.
+    const SPORTS_RE = /\b(sports?|football|basketball|baseball|soccer|hockey|golf|tennis|lacrosse|rugby|cricket|volleyball|softball|pickleball|jersey|helmet|cleats?|puck|rack(?:et|quet)|mitt|stadium|athletics?|varsity|pennant|tailgate|nfl|nba|mlb|nhl|mls|ncaa|fifa|olympics?)\b/i;
+    function isSportsItem(item) {
+      if (!item) return false;
+      const category = String(item.category || '').trim().toLowerCase();
+      if (category === 'sports') return true;
+      if (category === 'other') return false;
+      return SPORTS_RE.test(String(item.title || '') + ' ' + String(item.description || ''));
+    }
+
+    function compareGiftEntries(a, b) {
+      const sportsA = isSportsItem(a.item) ? 0 : 1;
+      const sportsB = isSportsItem(b.item) ? 0 : 1;
+      if (sportsA !== sportsB) return sportsA - sportsB;
+      return String(a.item.title || '').localeCompare(
+        String(b.item.title || ''), undefined, { sensitivity: 'base' });
     }
 
     function getMonogram(title) {
@@ -611,30 +672,19 @@
       return res.json();
     }
 
-    async function fetchGame(id) {
-      const rows = await fetchJson(buildSupabaseUrl('games', {
-        select: 'id,name,tagline,price,archived,primary_color',
-        id: 'eq.' + id,
-        limit: '1'
-      }));
-      return Array.isArray(rows) && rows.length ? rows[0] : null;
-    }
-
-    async function fetchListingsForGame(id) {
-      return fetchJson(buildSupabaseUrl('gift_shop_listings', {
-        select: '*,gift_shop_items(*)',
-        game_id: 'eq.' + id,
-        live: 'eq.true',
-        archived: 'eq.false',
-        order: 'position.asc.nullslast'
-      }));
-    }
-
     async function fetchAllListings() {
       return fetchJson(buildSupabaseUrl('gift_shop_listings', {
-        select: '*,gift_shop_items(*),games(id,name,primary_color)',
-        live: 'eq.true',
+        select: '*,gift_shop_items(*),games(id,name,primary_color,city,away_team_city,fandom_game)',
         archived: 'eq.false',
+        order: 'created_at.desc'
+      }));
+    }
+
+    // Every gift_shop_items row, so the shop can show items even when they have
+    // no game listing. Archived / access-code rows are filtered out by the caller.
+    async function fetchAllShopItems() {
+      return fetchJson(buildSupabaseUrl('gift_shop_items', {
+        select: '*',
         order: 'created_at.desc'
       }));
     }
@@ -646,7 +696,7 @@
     // there's no tampering surface.
     async function fetchAllGames() {
       return fetchJson(buildSupabaseUrl('games', {
-        select: 'id,name,tagline,price,engine,archived,primary_color'
+        select: 'id,name,tagline,price,engine,archived,primary_color,city,away_team_city,fandom_game'
       }));
     }
 
@@ -745,7 +795,7 @@
     function createCard(item, opts = {}) {
       // Access-code items are TGB's own products (not affiliate). They have
       // no external url; clicking the card opens the shared gift-buy
-      // modal via /gifts/gs-buy-modal.js.
+      // modal via /mc/js/gs-buy-modal.js.
       if (item && item.gift_card_game_id) {
         return createGiftCardCard(item, opts);
       }
@@ -830,24 +880,30 @@
 
       const cta = document.createElement('span');
       cta.className = 'card-cta';
-      cta.textContent = 'Buy';
+      cta.textContent = affiliateCtaLabel(url, item.price_display);
       body.appendChild(cta);
 
       card.append(media, body);
       return card;
     }
 
-    function affiliateCtaLabel(url) {
+    // Button label is driven by the URL host — except when the price isn't a
+    // clean single dollar amount (e.g. blank, a range, or "see price"), in which
+    // case the link is really a search, so the button says "Search sellers".
+    function affiliateCtaLabel(url, priceDisplay) {
+      const price = String(priceDisplay || '').trim();
+      const isCleanPrice = /^\$\d{1,3}(,\d{3})*(\.\d{1,2})?$/.test(price);
+      if (!isCleanPrice) return 'Search sellers';
       const host = (() => {
         try { return new URL(url).hostname.toLowerCase(); } catch (_) { return ''; }
       })();
-      if (/(^|\.)amazon\./.test(host))     return 'Buy on Amazon';
-      if (/(^|\.)bookshop\.org$/.test(host)) return 'Buy on Bookshop';
+      if (/(^|\.)amazon\./.test(host))       return 'Buy on Amazon';
+      if (/(^|\.)bookshop\.org$/.test(host))  return 'Buy on Bookshop.org';
       return 'Open listing';
     }
 
     // Build an access-code card. Clicking it opens the shared gift-buy
-    // modal (gifts/gs-buy-modal.js). No external link — TGB is the
+    // modal (mc/js/gs-buy-modal.js). No external link — TGB is the
     // seller for these items.
     function createGiftCardCard(item, opts = {}) {
       const card = document.createElement('button');
@@ -951,82 +1007,12 @@
       return card;
     }
 
-    function applyGameTheme(game) {
-      const primary = String(game && game.primary_color || '').trim();
-      if (!primary) return;
-      document.documentElement.style.setProperty('--theme-color', primary);
-      document.body.dataset.theme = 'game';
-      const themeMeta = document.querySelector('meta[name="theme-color"]');
-      if (themeMeta) themeMeta.setAttribute('content', primary);
-    }
-
-    async function loadSingleGame(id) {
-      setStatus('Loading');
-      renderEmpty('Loading inventory...');
-      try {
-        const [game, listings] = await Promise.all([
-          fetchGame(id).catch(() => null),
-          fetchListingsForGame(id)
-        ]);
-
-        if (game && game.name) {
-          headingEl.textContent = 'Gift Shop';
-          setEyebrow(game.name);
-          document.title = game.name.toUpperCase() + ' GIFT SHOP | THE GAME BUREAU';
-        }
-        const tagline = String((game && game.tagline) || '').trim();
-        if (tagline) {
-          leadEl.textContent = tagline;
-          leadEl.hidden = false;
-        } else {
-          leadEl.textContent = 'Field notes, provisions, and local finds chosen for this route.';
-          leadEl.hidden = false;
-        }
-        applyGameTheme(game);
-
-        const safeListings = Array.isArray(listings) ? listings : [];
-        const seenItemIds = new Set();
-
-        // Per-game access-code cards removed from the shop entirely — the
-        // chooser tile on /gifts/ owns that surface now. Single-game
-        // shops show affiliate items only.
-        const cards = [];
-        for (const listing of safeListings) {
-          const item = listing && listing.gift_shop_items;
-          if (!item || item.id == null || seenItemIds.has(item.id)) continue;
-          if (item.gift_card_game_id) continue; // skip legacy access-code rows
-          seenItemIds.add(item.id);
-          const card = createCard(item);
-          if (card) cards.push(card);
-        }
-
-        gridEl.innerHTML = '';
-        if (!cards.length) {
-          renderEmpty('No items in the gift shop yet.');
-          itemCountEl.textContent = '0';
-          shopCountEl.textContent = '1';
-          setStatus('');
-          return;
-        }
-        cards.forEach((card) => gridEl.appendChild(card));
-        itemCountEl.textContent = String(cards.length);
-        shopCountEl.textContent = '1';
-        setStatus(cards.length + ' item' + (cards.length === 1 ? '' : 's'));
-      } catch (error) {
-        console.error('[giftshop] load failed', error);
-        renderEmpty('Could not load gift shop.');
-        itemCountEl.textContent = '0';
-        shopCountEl.textContent = '0';
-        setStatus(error instanceof Error ? error.message : String(error));
-      }
-    }
-
     async function loadAllShops() {
       headingEl.textContent = 'Gift Shop';
       setEyebrow('');
-      leadEl.textContent = 'Souvenirs for survivors.';
+      leadEl.textContent = requestedCity ? 'Gifts from ' + requestedCity + '.' : 'Take the game home.';
       leadEl.hidden = false;
-      document.title = 'GIFT SHOP | THE GAME BUREAU';
+      document.title = (requestedCity ? requestedCity.toUpperCase() + ' ' : '') + 'GIFT SHOP | THE GAME BUREAU';
 
       setStatus('Loading');
       renderEmpty('Loading inventory...');
@@ -1038,11 +1024,31 @@
         ]);
         const safeListings = Array.isArray(listings) ? listings : [];
         const safeGames    = Array.isArray(allGames) ? allGames : [];
+        const gameById = new Map(safeGames.map((g) => [g.id, g]));
+
+        // Resolve the optional ?id=/?game= filter to a real game — match by id
+        // first, then by name (case-insensitive) — and scope the shop to it.
+        const requestedGame = requestedGameParam
+          ? (safeGames.find((g) => String(g.id) === requestedGameParam)
+             || safeGames.find((g) => String(g.name || '').trim().toLowerCase() === requestedGameParam.toLowerCase())
+             || null)
+          : null;
+        requestedGameId = requestedGame ? String(requestedGame.id) : '';
+        if (requestedGame) {
+          setEyebrow(requestedGame.name || '');
+          leadEl.textContent = 'Gifts for ' + (requestedGame.name || 'this game') + '.';
+          document.title = String(requestedGame.name || '').toUpperCase() + ' GIFTS | THE GAME BUREAU';
+        }
+
+        const matchingListings = safeListings.filter((listing) => {
+          const game = listing.games || gameById.get(listing.game_id);
+          return cityMatchesGame(game) && listingMatchesGameFilter(listing);
+        });
 
         // Curated gift_shop_items rows take precedence; record their
         // gift_card_game_id so we don't double-render the same game.
         const curatedGiftCardGameIds = new Set();
-        for (const listing of safeListings) {
+        for (const listing of matchingListings) {
           const item = listing && listing.gift_shop_items;
           if (item && item.gift_card_game_id) {
             curatedGiftCardGameIds.add(item.gift_card_game_id);
@@ -1051,11 +1057,11 @@
 
         // Index games by id so we can pick up name + primary_color when
         // synthesizing dynamic access-code purchase options.
-        const gameById = new Map(safeGames.map((g) => [g.id, g]));
-
         // List of currently-giftable games for the "Your Pick" chooser.
         const paidGames = safeGames
           .filter(isGamePaid)
+          .filter(cityMatchesGame)
+          .filter(gameMatchesGameFilter)
           .map((g) => ({ id: g.id, name: g.name, price: g.price, engine: g.engine || '' }))
           .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
 
@@ -1069,7 +1075,7 @@
         // (gift_card_game_id is set) so the shop no longer shows
         // individual-game access-code cards.
         const grouped = new Map();
-        for (const listing of safeListings) {
+        for (const listing of matchingListings) {
           const item = listing && listing.gift_shop_items;
           if (!item || item.id == null) continue;
           if (item.gift_card_game_id) continue; // hidden — chooser owns this
@@ -1087,21 +1093,40 @@
           if (!entry.firstColor && gameColor) entry.firstColor = gameColor;
         }
 
-        const curatedCards = Array.from(grouped.values())
-          .map(({ item, names, firstColor }) => createCard(item, {
-            gameNames: names,
-            gameColor: firstColor || null
-          }))
+        // Collect every gift item (curated listings + standalone) as
+        // {item, opts} so we can sort across both groups before rendering.
+        const giftEntries = [];
+        for (const { item, names, firstColor } of grouped.values()) {
+          giftEntries.push({ item, opts: { gameNames: names, gameColor: firstColor || null } });
+        }
+
+        // Every other item that isn't already shown via a listing — so the shop
+        // shows everything, with or without a game attached.
+        const allItems = await fetchAllShopItems().catch(() => []);
+        ((requestedCity || requestedGameId) ? [] : (Array.isArray(allItems) ? allItems : []))
+          .filter((item) => item && item.id != null)
+          .filter((item) => !grouped.has(item.id))   // not already shown via a listing
+          .filter((item) => !item.gift_card_game_id)  // access-code products are owned by the chooser
+          .filter((item) => item.archived !== true && String(item.archived).toUpperCase() !== 'YES')
+          .forEach((item) => giftEntries.push({ item, opts: {} }));
+
+        // Sports-related items first (alphabetical by title), then everything
+        // else (also alphabetical). Categories are ordered, never labeled.
+        giftEntries.sort(compareGiftEntries);
+        const itemCards = giftEntries
+          .map(({ item, opts }) => createCard(item, opts))
           .filter(Boolean);
 
-        // Chooser first, then affiliate items.
+        // Chooser first, then the sorted gift items.
         const cards = []
           .concat(chooseCard ? [chooseCard] : [])
-          .concat(curatedCards);
+          .concat(itemCards);
 
         gridEl.innerHTML = '';
         if (!cards.length) {
-          renderEmpty('No items in the gift shop yet.');
+          renderEmpty(requestedGame
+            ? 'No gifts for ' + (requestedGame.name || 'this game') + ' yet.'
+            : (requestedCity ? 'No gifts match ' + requestedCity + '.' : 'No items in the gift shop yet.'));
           itemCountEl.textContent = '0';
           shopCountEl.textContent = '0';
           setStatus('');
@@ -1111,7 +1136,7 @@
         itemCountEl.textContent = String(cards.length);
         // Affiliate items are tied to games via listings; the chooser
         // itself represents the full paid-games catalog independently.
-        const allGameIds = new Set(safeListings.map((l) => l.game_id).filter(Boolean));
+        const allGameIds = new Set(matchingListings.map((l) => l.game_id).filter(Boolean));
         shopCountEl.textContent = String(allGameIds.size);
         setStatus(cards.length + ' item' + (cards.length === 1 ? '' : 's') + ' across ' +
           allGameIds.size + ' game(s)');
@@ -1124,8 +1149,7 @@
       }
     }
 
-    if (gameId) loadSingleGame(gameId);
-    else loadAllShops();
+    loadAllShops();
   </script>
 
   <button class="cart-fab" id="cartFab" type="button" hidden aria-label="Open cart">
@@ -1530,6 +1554,6 @@
     renderCart();
   </script>
 
-  <script src="./gs-buy-modal.js"></script>
+  <script src="../mc/js/gs-buy-modal.js"></script>
 </body>
 </html>
