@@ -283,6 +283,102 @@ def fetch_search(query: str, force_refetch: bool = False) -> tuple[str, str]:
     return page, "live"
 
 
+def fetch_detail(asin: str, force_refetch: bool = False) -> str:
+    """Fetch one Amazon product *detail* page (cached). '' on failure/bot-check.
+
+    The search-results card has no real blurb, so to fill the description we pull
+    the detail page for the handful of candidates we actually show.
+    """
+    asin = (asin or "").strip().upper()
+    if not re.fullmatch(r"[A-Z0-9]{10}", asin):
+        return ""
+    cf = CACHE_DIR / f"detail-{asin}.html"
+    if not force_refetch and cf.exists():
+        try:
+            cached = cf.read_text(encoding="utf-8")
+        except OSError:
+            cached = ""
+        if cached:
+            head = cached[:8000].lower()
+            return "" if any(p in head for p in BOT_PHRASES) else cached
+
+    req = urllib.request.Request(
+        f"https://www.amazon.com/dp/{asin}",
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+    )
+    page = ""
+    for attempt in (1, 2):
+        try:
+            with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+                page = resp.read().decode("utf-8", errors="replace")
+            break
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == 2:
+                return ""
+            time.sleep(1.0)
+
+    if any(p in page[:8000].lower() for p in BOT_PHRASES):
+        return ""
+    try:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cf.write_text(page, encoding="utf-8")
+    except OSError:
+        pass
+    return page
+
+
+def trim_description(text: str, limit: int = 600) -> str:
+    """Strip tags, collapse whitespace, and cap to a clean ~limit-char blurb."""
+    t = re.sub(r"\s+", " ", strip_tags(text or "")).strip()
+    if len(t) > limit:
+        t = t[:limit].rsplit(" ", 1)[0].rstrip(" ,;:.") + "…"
+    return t
+
+
+def extract_amazon_description(page: str) -> str:
+    """Best-effort real product description from an Amazon detail page, tried in
+    order of quality: book synopsis → "About this item" bullets → legacy product
+    description → meta description. Returns '' if none look usable."""
+    if not page:
+        return ""
+    # 1. Book synopsis.
+    m = re.search(r'id=["\']bookDescription_feature_div["\']([\s\S]{0,12000})', page, re.I)
+    if m:
+        ns = re.search(r"<noscript>([\s\S]*?)</noscript>", m.group(1), re.I)
+        d = re.sub(r"\s*Read more\s*$", "", trim_description(ns.group(1) if ns else m.group(1))).strip()
+        if len(d) >= 40:
+            return d
+    # 2. "About this item" feature bullets.
+    m = re.search(r'id=["\']feature-bullets["\']([\s\S]{0,8000}?)</ul>', page, re.I)
+    if m:
+        bullets = re.findall(
+            r'<span[^>]*class=["\'][^"\']*a-list-item[^"\']*["\'][^>]*>([\s\S]*?)</span>',
+            m.group(1), re.I,
+        )
+        parts = [strip_tags(b) for b in bullets]
+        parts = [p for p in parts if p and len(p) > 2 and "see more" not in p.lower()]
+        d = trim_description(" · ".join(parts))
+        if len(d) >= 40:
+            return d
+    # 3. Legacy product description block.
+    m = re.search(r'id=["\']productDescription["\']([\s\S]{0,12000}?)</div>', page, re.I)
+    if m:
+        d = trim_description(m.group(1))
+        if len(d) >= 40:
+            return d
+    # 4. Meta description (drop Amazon's boilerplate prefix).
+    m = re.search(r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']+)["\']', page, re.I)
+    if m:
+        d = re.sub(r"^Amazon\.com\s*:?\s*", "", trim_description(m.group(1))).strip()
+        if len(d) >= 40:
+            return d
+    return ""
+
+
 # ── AI-generated funny descriptions (optional, opt-in via env) ───────────────
 # When ANTHROPIC_API_KEY is set and the `anthropic` package is installed,
 # every scraped product title gets a 1–2 sentence punchy blurb written by
@@ -977,6 +1073,19 @@ def run_search_only(payload: dict[str, Any]) -> dict[str, Any]:
             if len(all_candidates) >= items_cap:
                 break
 
+    # The search card has no real blurb, so fetch the detail page for the final
+    # (shown) candidates and pull a real description. Bounded by items_cap and
+    # cached on disk; only overrides when we find something usable.
+    for c in all_candidates:
+        asin = str(c.get("asin") or "")
+        if not asin:
+            continue
+        better = extract_amazon_description(fetch_detail(asin, force_refetch))
+        if better:
+            c["description"] = better
+        if delay:
+            time.sleep(delay)
+
     return {
         "ok": True,
         "game": game_id,
@@ -1105,6 +1214,14 @@ def parse_bookshop_product(page: str, requested_isbn: str) -> Optional[dict[str,
     if not page_isbn or not title:
         return None
 
+    # Real synopsis: JSON-LD description, else the og:description meta.
+    description = ""
+    if node and node.get("description"):
+        description = str(node.get("description"))
+    if not description:
+        description = _meta_content(page, "og:description")
+    description = trim_description(description)
+
     final_isbn = page_isbn or requested_isbn
     return {
         "title": title.strip(),
@@ -1113,6 +1230,7 @@ def parse_bookshop_product(page: str, requested_isbn: str) -> Optional[dict[str,
         "url": bookshop_affiliate_url(final_isbn),
         "image_url": image or f"https://images-us.bookshop.org/ingram/{final_isbn}.jpg",
         "price_display": (f"${price:.2f}" if price is not None else None),
+        "description": description,
     }
 
 

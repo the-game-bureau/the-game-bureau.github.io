@@ -193,8 +193,10 @@
         // "Washington, D.C.") often arrives WITHOUT a real comma separator, so
         // the parts-after-comma loop below would miss it. A trailing "D.C." /
         // "DC" suffix is unambiguous enough to short-circuit here.
+        // "Washington, D.C." keeps "D.C." in the display name itself (see
+        // cityDisplayName), so don't render a separate, redundant DC badge.
         if (/\bd\.?\s*c\.?$/i.test(labelStr)) {
-          return { kind: 'state', value: 'DC' };
+          return null;
         }
         const parts = labelStr.split(',').map((s) => s.trim()).filter(Boolean);
         // Walk from the end inward so "London, England, United Kingdom" still matches UK.
@@ -207,8 +209,11 @@
       }
 
       function cityDisplayName(label) {
-        const parts = String(label || '').split(',').map((s) => s.trim()).filter(Boolean);
-        return parts[0] || label || '';
+        const s = String(label || '').trim();
+        // "Washington, D.C." — the "D.C." is part of the city name, keep it whole.
+        if (/\bd\.?\s*c\.?$/i.test(s)) return s;
+        const parts = s.split(',').map((p) => p.trim()).filter(Boolean);
+        return parts[0] || s || '';
       }
 
       function svgPathCenter(pathData, fallbackX, fallbackY) {

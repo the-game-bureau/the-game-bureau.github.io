@@ -869,6 +869,10 @@ async function main() {
   const pending = [];
   const skipped = [];
 
+  // NOTE: dedupe by ID and name. Caveat — the Giants and Jets share the short
+  // label "New York", so a Giants takeover whose name matches an existing Jets
+  // game (or vice versa) gets skipped here even though its ID is unique. When
+  // that happens, add by ID with a targeted filter instead of a broad run.
   for (const matchup of mergedMatchups) {
     const payloads = buildPayloadsForMatchup(matchup, templatesByTeam);
     for (const payload of payloads) {
@@ -922,7 +926,7 @@ async function fetchExistingTakeoverRows() {
 
 async function fetchTakeoverTemplateRows() {
   return fetchSupabaseRows(
-    "games?name=ilike.*Takeover*&select=id,name,tagline,city,primary_color,secondary_color,tertiary_color,quaternary_color,logo_url,guide_name,guide_bio,guide_image_url,body,price,how_to_play,starting_location,starting_location_lat,starting_location_lon,location_based,engine,game_date,start_time,end_time,archived,tags,teams,team01,team02&order=name.asc"
+    "games?name=ilike.*Takeover*&select=id,name,tagline,city,primary_color,secondary_color,tertiary_color,quaternary_color,logo_url,guide_name,guide_bio,guide_image_url,body,price,starting_location,starting_location_lat,starting_location_lon,location_based,engine,game_date,start_time,end_time,archived,tags,teams,team01,team02&order=name.asc"
   );
 }
 
@@ -1219,7 +1223,6 @@ function buildPayloadForFanSide(matchup, venueInfo, fanSide, templatesByTeam) {
     guide_image_url: guide.imageUrl,
     body,
     price: normalizeNonEmpty(template && template.price) || 'Free To Start / In App Purchases',
-    how_to_play: howToPlay,
     default_emoji: '🏈',
     starting_location: startingLocation,
     starting_location_lat: venueInfo.lat,

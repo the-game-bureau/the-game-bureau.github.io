@@ -561,6 +561,36 @@
       display: grid;
       gap: 14px;
     }
+    .items-more { display: flex; justify-content: center; margin-top: 14px; }
+    .item.paged-out { display: none; }
+    .item-certify {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+      padding: 8px 10px;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.04);
+    }
+    .item-certify-date {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+    }
+    .item-certify-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+      user-select: none;
+    }
+    .item-certify-check input { cursor: pointer; }
 
     .item {
       display: grid;
@@ -739,6 +769,101 @@
       letter-spacing: 0.04em;
       color: var(--muted);
     }
+    /* Search-to-add combobox (new listing rows) */
+    .listing-search-wrap { position: relative; }
+    .listing-search {
+      width: 100%;
+      height: 34px;
+      padding: 0 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.96);
+      font-size: 0.85rem;
+    }
+    .item-listings-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .item-listings-picker {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 6px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.04);
+    }
+    .listing-picker-select {
+      width: 100%;
+      min-height: 168px;
+      padding: 4px 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.96);
+      color: var(--ink);
+      font-size: 0.85rem;
+    }
+    .listing-picker-select option { padding: 3px 6px; }
+    .listing-picker-select option:checked {
+      background: linear-gradient(0deg, rgba(var(--bic-blue-rgb), 0.2), rgba(var(--bic-blue-rgb), 0.2));
+      color: var(--ink);
+    }
+    .listing-picker-actions { display: flex; gap: 6px; }
+    .listing-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .listing-chips.has-chips { margin-bottom: 4px; }
+    .listing-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 4px 2px 8px;
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      background: rgba(var(--bic-blue-rgb), 0.10);
+      font-size: 0.78rem;
+      color: var(--ink);
+    }
+    .listing-chip-label { color: inherit; text-decoration: none; cursor: pointer; }
+    .listing-chip-label:hover { text-decoration: underline; }
+    .listing-chip .muted { color: var(--muted); font-size: 0.7rem; }
+    .listing-chip-remove {
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      line-height: 1;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    .listing-chip-remove:hover { color: var(--danger); }
+    .listing-search-results {
+      position: absolute;
+      top: calc(100% + 2px);
+      left: 0;
+      right: 0;
+      z-index: 40;
+      max-height: 220px;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      box-shadow: 0 8px 24px var(--paper-shadow);
+    }
+    .listing-search-result {
+      padding: 7px 10px;
+      font-size: 0.82rem;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .listing-search-result:hover,
+    .listing-search-result.is-active { background: rgba(var(--bic-blue-rgb), 0.12); }
+    .listing-search-result .muted { color: var(--muted); font-size: 0.74rem; }
+    .listing-search-empty {
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
     .listing-row .listing-remove {
       width: 30px; height: 30px;
       border: 1px solid var(--line);
@@ -895,6 +1020,18 @@
     .suggest-result-sub {
       font-size: 0.7rem; color: var(--muted);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .suggest-result-desc {
+      margin: 2px 0 0;
+      font-size: 0.76rem;
+      line-height: 1.45;
+      color: var(--ink);
+      opacity: 0.82;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
     .suggest-hint {
       margin: 0 0 6px; font-size: 0.82rem; color: var(--muted); line-height: 1.4;
@@ -1124,21 +1261,13 @@
       <div class="toolbar">
         <button class="btn primary" id="addItemBtn" type="button" disabled>MANUALLY ADD NEW</button>
         <button class="btn" id="suggestItemsBtn" type="button" disabled>SEARCH FOR NEW</button>
-        <select id="cityFilter" aria-label="Filter by city">
-          <option value="">All cities</option>
-        </select>
-        <select id="itemSort" aria-label="Sort gift shop items">
-          <option value="title-asc">Title A-Z</option>
-          <option value="title-desc">Title Z-A</option>
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="price-asc">Price low-high</option>
-          <option value="price-desc">Price high-low</option>
-        </select>
         <a class="btn" id="viewGiftShopBtn" href="/gifts/" target="_blank" rel="noopener">VIEW GIFT SHOP</a>
       </div>
 
       <div class="items" id="itemsList"></div>
+      <div class="items-more">
+        <button class="btn" id="showMoreItemsBtn" type="button" hidden>Show more</button>
+      </div>
     </section>
   </main>
 
@@ -1160,13 +1289,6 @@
           <input data-field="price_display" type="text" placeholder="$12.99">
         </label>
         <label class="field-wide">
-          Category
-          <select data-field="category">
-            <option value="other">Other</option>
-            <option value="sports">Sports</option>
-          </select>
-        </label>
-        <label class="field-wide">
           Address
           <input data-field="url" type="url" placeholder="https://www.amazon.com/dp/…">
         </label>
@@ -1175,15 +1297,28 @@
           <input data-field="image_url" type="url" required placeholder="https://m.media-amazon.com/images/…">
         </label>
         <label class="field-wide">
-          Description (optional)
+          Description
           <textarea data-field="description" placeholder="Short blurb shown under the title."></textarea>
         </label>
         <div class="item-listings" data-listings>
           <div class="item-listings-head">
             <span>Listed in shops</span>
-            <button class="btn" data-action="add-listing" type="button" title="Click to add a multi-select row. Ctrl/Cmd+click toggles a shop, Shift+click selects a range.">+ Add to shops</button>
           </div>
-          <div class="item-listings-list" data-listings-list></div>
+          <div class="item-listings-chips" data-listings-chips></div>
+          <div class="item-listings-picker" data-listings-picker>
+            <input class="listing-search" data-listings-search type="text" placeholder="Search games to add…" autocomplete="off">
+            <select class="listing-picker-select" data-listings-select multiple size="8" title="Click to pick. Ctrl/Cmd+click toggles, Shift+click selects a range."></select>
+            <div class="listing-picker-actions">
+              <button class="btn primary" data-action="add-selected" type="button">Add selected</button>
+            </div>
+          </div>
+        </div>
+        <div class="item-certify">
+          <span class="item-certify-date" data-certify-date>Last certified: —</span>
+          <label class="item-certify-check">
+            <input type="checkbox" data-certify-today>
+            <span>Certify Today</span>
+          </label>
         </div>
         <div class="item-actions">
           <button class="btn primary" data-action="save" type="button">Save</button>
@@ -1194,15 +1329,6 @@
     </article>
   </template>
 
-  <template id="listingRowTemplate">
-    <div class="listing-row" data-listing data-listing-id="">
-      <select data-listing-field="game_id" required>
-        <option value="">— Pick a shop —</option>
-      </select>
-      <input data-listing-field="position" type="number" inputmode="numeric" min="0" step="1" placeholder="Pos">
-      <button class="listing-remove" data-action="remove-listing" type="button" title="Remove from this shop" aria-label="Remove">×</button>
-    </div>
-  </template>
   <div class="suggest-modal" id="suggestModal" hidden>
     <div class="suggest-backdrop"></div>
     <section class="suggest-panel" role="dialog" aria-modal="true" aria-labelledby="suggestTitle">
@@ -1268,11 +1394,35 @@
     const addItemBtn   = document.getElementById('addItemBtn');
     const suggestItemsBtn = document.getElementById('suggestItemsBtn');
     const itemsList    = document.getElementById('itemsList');
+    const showMoreItemsBtn = document.getElementById('showMoreItemsBtn');
     const cityFilter   = document.getElementById('cityFilter');
-    const itemSort     = document.getElementById('itemSort');
+
+    // Items list pagination: show 5 at a time (city-filtered + sorted),
+    // reveal more in 5s. Unsaved (.is-new) items always show.
+    const ITEMS_PAGE_SIZE = 50;
+    let itemsPageLimit = ITEMS_PAGE_SIZE;
+    function applyItemsPagination() {
+      let shown = 0;
+      let pagedOut = 0;
+      itemsList.querySelectorAll('.item').forEach((item) => {
+        if (item.classList.contains('hidden')) { item.classList.remove('paged-out'); return; }
+        if (item.classList.contains('is-new')) { item.classList.remove('paged-out'); return; }
+        if (shown < itemsPageLimit) { item.classList.remove('paged-out'); shown++; }
+        else { item.classList.add('paged-out'); pagedOut++; }
+      });
+      if (showMoreItemsBtn) {
+        showMoreItemsBtn.hidden = pagedOut === 0;
+        showMoreItemsBtn.textContent = 'Show more (' + pagedOut + ' more)';
+      }
+    }
+    if (showMoreItemsBtn) {
+      showMoreItemsBtn.addEventListener('click', () => {
+        itemsPageLimit += ITEMS_PAGE_SIZE;
+        applyItemsPagination();
+      });
+    }
     const viewGiftShopBtn = document.getElementById('viewGiftShopBtn');
     const itemTemplate = document.getElementById('itemTemplate');
-    const listingRowTemplate = document.getElementById('listingRowTemplate');
     const initialParams = new URLSearchParams(window.location.search);
     const initialItemId = String(initialParams.get('item') || '').trim();
     let initialItemFocusPending = !!initialItemId;
@@ -1306,6 +1456,8 @@
     // been archived since the item was created.
     let gamesById = new Map();
     let gameOptionsHtml = '<option value="">— Pick a game —</option>';
+    // Flat list backing the search-to-add combobox: live games first, archived after.
+    let gameSearchList = [];
 
     function restUrl(table, params = {}) {
       const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
@@ -1348,7 +1500,7 @@
 
     // ── Games ────────────────────────────────────────────────────────
     async function fetchGames() {
-      const response = await fetch(restUrl('games', { select: 'id,name,city,away_team_city,fandom_game,archived', order: 'name.asc' }), {
+      const response = await fetch(restUrl('games', { select: 'id,name,city,away_team_city,away_team_mascot,home_team_mascot,fandom_game,archived', order: 'name.asc' }), {
         headers: authHeaders({ Accept: 'application/json' }),
         cache: 'no-store'
       });
@@ -1359,6 +1511,13 @@
     function isLive(game) {
       const dead = (v) => typeof v === 'boolean' ? v : (typeof v === 'string' && v.trim() && v.trim().toLowerCase() !== 'false' && v.trim() !== '0');
       return !dead(game.archived);
+    }
+
+    // "away @ home" mascot matchup, e.g. " (Bengals @ Commanders)" (display only).
+    function gameMatchupText(g) {
+      const away = String(g && g.away_team_mascot || '').trim();
+      const home = String(g && g.home_team_mascot || '').trim();
+      return (away || home) ? ' (' + away + ' @ ' + home + ')' : '';
     }
 
     function escapeHtml(value) {
@@ -1381,6 +1540,9 @@
         '<option value="">— Pick a game —</option>' +
         live.map((g) => renderOpt(g, '')).join('') +
         dead.map((g) => renderOpt(g, '(archived)')).join('');
+
+      gameSearchList = live.map((g) => ({ id: g.id, name: g.name || g.id, matchup: gameMatchupText(g), archived: false }))
+        .concat(dead.map((g) => ({ id: g.id, name: g.name || g.id, matchup: gameMatchupText(g), archived: true })));
 
       // City filter — one list. A game's city is the away team's city for a
       // fandom game, otherwise its start city.
@@ -1410,12 +1572,11 @@
       return String((isFandom(g) ? g.away_team_city : g.city) || '').trim();
     }
 
-    // The games an item is listed in (from its shop rows).
+    // The games an item is listed in (from its current chip selection).
     function itemGames(item) {
-      const sels = item.querySelectorAll('.listing-row:not(.is-removed) [data-listing-field="game_id"]');
-      const ids = new Set();
-      sels.forEach((sel) => Array.from(sel.selectedOptions).forEach((o) => { if (o.value) ids.add(o.value); }));
-      return Array.from(ids).map((id) => gamesById.get(id)).filter(Boolean);
+      const state = item._listings;
+      if (!state) return [];
+      return Array.from(state.entries.keys()).map((id) => gamesById.get(id)).filter(Boolean);
     }
 
     function applyCityFilter() {
@@ -1427,9 +1588,21 @@
         item.classList.toggle('hidden', !show);
         if (show) visible++;
       });
+      updateItemsStatus();
+      // Changing the filter resets pagination back to the first page.
+      itemsPageLimit = ITEMS_PAGE_SIZE;
+      applyItemsPagination();
+    }
+
+    // Status line: "N items · C certified". Recounts from the DOM, so it can be
+    // called after a live "Certify Today" toggle to keep the count fresh.
+    function updateItemsStatus() {
+      const items = itemsList.querySelectorAll('.item');
       const total = items.length;
+      let certified = 0;
+      items.forEach((item) => { if (item.dataset.certifiedAt) certified++; });
       setStatus(shopStatus,
-        total + ' item' + (total === 1 ? '' : 's') + (city ? ' · ' + visible + ' shown' : ''),
+        total + ' item' + (total === 1 ? '' : 's') + ' · ' + certified + ' certified',
         'success');
     }
 
@@ -1441,65 +1614,34 @@
       viewGiftShopBtn.href = url.pathname + url.search;
     }
 
-    function itemSortValue(item, field) {
-      if (field === 'title') {
-        return String(item.querySelector('[data-field="title"]')?.value || '').trim();
-      }
-      if (field === 'price') {
-        const raw = String(item.querySelector('[data-field="price_display"]')?.value || '');
-        const numeric = raw.replace(/[^0-9.-]+/g, '');
-        if (!numeric) return Number.POSITIVE_INFINITY;
-        const value = Number(numeric);
-        return Number.isFinite(value) ? value : Number.POSITIVE_INFINITY;
-      }
-      if (field === 'created') {
-        const value = Date.parse(item.dataset.createdAt || '');
-        return Number.isFinite(value) ? value : 0;
-      }
-      return '';
-    }
-
+    // Order to surface what needs attention: never-certified items first,
+    // ordered oldest-added → newest-added; then the rest (certified),
+    // oldest-certified → newest. Title breaks ties.
     function sortItems() {
-      if (!itemSort) return;
-      const items = Array.from(itemsList.querySelectorAll('.item'));
-      const mode = itemSort.value || 'title-asc';
-      const titleCompare = (a, b) => String(a).localeCompare(String(b), undefined, {
-        sensitivity: 'base',
-        numeric: true
-      });
-      const compare = (left, right) => {
-        let result = 0;
-        if (mode === 'title-desc') {
-          result = titleCompare(itemSortValue(right, 'title'), itemSortValue(left, 'title'));
-        } else if (mode === 'newest') {
-          result = itemSortValue(right, 'created') - itemSortValue(left, 'created');
-        } else if (mode === 'oldest') {
-          result = itemSortValue(left, 'created') - itemSortValue(right, 'created');
-        } else if (mode === 'price-asc' || mode === 'price-desc') {
-          const leftPrice = itemSortValue(left, 'price');
-          const rightPrice = itemSortValue(right, 'price');
-          if (Number.isFinite(leftPrice) && Number.isFinite(rightPrice)) {
-            result = mode === 'price-asc' ? leftPrice - rightPrice : rightPrice - leftPrice;
-          } else if (Number.isFinite(leftPrice)) {
-            result = -1;
-          } else if (Number.isFinite(rightPrice)) {
-            result = 1;
-          }
-        } else {
-          result = titleCompare(itemSortValue(left, 'title'), itemSortValue(right, 'title'));
-        }
-        return result || titleCompare(itemSortValue(left, 'title'), itemSortValue(right, 'title'));
+      const titleOf = (el) => String(el.querySelector('[data-field="title"]')?.value || '').trim();
+      const byTitle = (a, b) => titleOf(a).localeCompare(titleOf(b), undefined, { sensitivity: 'base', numeric: true });
+      const addedTime = (el) => {
+        const t = Date.parse(el.dataset.createdAt || '');
+        return Number.isNaN(t) ? Infinity : t;   // unsaved/new → newest
       };
-      items.sort(compare).forEach((item) => itemsList.appendChild(item));
+      const certTime = (el) => {
+        const v = el.dataset.certifiedAt || '';
+        if (!v) return null;                       // never certified
+        const t = Date.parse(v);
+        return Number.isNaN(t) ? null : t;
+      };
+      Array.from(itemsList.querySelectorAll('.item'))
+        .sort((a, b) => {
+          const ta = certTime(a);
+          const tb = certTime(b);
+          if (ta === null && tb === null) return (addedTime(a) - addedTime(b)) || byTitle(a, b);
+          if (ta === null) return -1;              // never-certified group first
+          if (tb === null) return 1;
+          return (ta - tb) || byTitle(a, b);       // certified: oldest → newest
+        })
+        .forEach((item) => itemsList.appendChild(item));
+      applyItemsPagination();
     }
-
-    if (cityFilter) {
-      cityFilter.addEventListener('change', () => {
-        applyCityFilter();
-        updateViewGiftShopLink();
-      });
-    }
-    if (itemSort) itemSort.addEventListener('change', sortItems);
 
     // ── Items ────────────────────────────────────────────────────────
     async function fetchAllItems() {
@@ -1599,132 +1741,147 @@
         image_url: get('image_url').trim() || null,
         image_focus: focus,
         price_display: get('price_display').trim() || null,
-        description: get('description').trim() || null,
-        category: get('category') === 'sports' ? 'sports' : 'other'
+        description: get('description').trim() || null
       };
     }
 
-    function readListingRow(row) {
-      const select = row.querySelector('[data-listing-field="game_id"]');
-      const game_ids = select.multiple
-        ? Array.from(select.selectedOptions)
-            .map((o) => String(o.value || '').trim())
-            .filter(Boolean)
-        : (select.value ? [String(select.value).trim()] : []);
-      const positionRaw = String(row.querySelector('[data-listing-field="position"]').value || '').trim();
-      const position = positionRaw === '' ? 0 : Math.max(0, Math.floor(Number(positionRaw) || 0));
-      return { id: row.dataset.listingId || '', game_ids, position };
-    }
+    // Listings UI: current games render as deletable chips. "+ Add to shops"
+    // opens a searchable native multi-select listbox (Ctrl/Cmd+click toggles,
+    // Shift+click selects a range), then "Add selected" turns the picks into
+    // chips. Selection lives on article._listings; syncListings persists it.
+    function bindListings(article, item) {
+      const chipsEl  = article.querySelector('[data-listings-chips]');
+      const picker   = article.querySelector('[data-listings-picker]');
+      const searchEl = picker.querySelector('[data-listings-search]');
+      const selectEl = picker.querySelector('[data-listings-select]');
+      const addSelectedBtn = picker.querySelector('[data-action="add-selected"]');
 
-    function appendListingRow(listingsList, listing = {}) {
-      const fragment = listingRowTemplate.content.cloneNode(true);
-      const row = fragment.querySelector('.listing-row');
-      const sel = row.querySelector('[data-listing-field="game_id"]');
-      const isNew = !listing.id;
-
-      if (isNew) {
-        // Strip the "— Pick a game —" placeholder (multi-select can't show one);
-        // the listbox itself communicates "pick one or more".
-        sel.innerHTML = gameOptionsHtml.replace(/<option value=""[^>]*>[^<]*<\/option>/, '');
-        sel.multiple = true;
-        sel.size = 6;
-        sel.title = 'Click to pick. Ctrl/Cmd+click to toggle. Shift+click for a range.';
-        row.classList.add('is-multi');
-
-        const hint = document.createElement('div');
-        hint.className = 'listing-multi-hint';
-        hint.textContent = 'Ctrl/Cmd+click to toggle · Shift+click for a range';
-        row.insertBefore(hint, sel);
-      } else {
-        sel.innerHTML = gameOptionsHtml;
-        const targetId = listing.game_id || '';
-        if (targetId) {
-          const exists = sel.querySelector('option[value="' + CSS.escape(targetId) + '"]');
-          if (!exists) {
-            const opt = document.createElement('option');
-            opt.value = targetId;
-            opt.textContent = (gamesById.get(targetId)?.name || targetId) + ' (missing)';
-            sel.appendChild(opt);
-          }
-          sel.value = targetId;
-        }
-      }
-      row.querySelector('[data-listing-field="position"]').value =
-        listing.position == null ? '' : String(listing.position);
-      row.dataset.listingId = listing.id || '';
-      row.querySelector('[data-action="remove-listing"]').addEventListener('click', () => {
-        // For unsaved rows just drop them; for persisted rows mark for
-        // deletion and hide so syncListings can DELETE on save.
-        if (row.dataset.listingId) {
-          row.classList.add('is-removed');
-          row.dataset.removed = 'true';
-        } else {
-          row.remove();
-        }
-        refreshListingsEmpty(listingsList);
+      const entries = new Map();  // gameId -> { listingId|null, position }
+      const removed = [];         // listing ids to DELETE on save
+      (Array.isArray(item.gift_shop_listings) ? item.gift_shop_listings : []).forEach((l) => {
+        if (!l || !l.game_id) return;
+        entries.set(l.game_id, { listingId: l.id || null, position: l.position == null ? 0 : l.position });
       });
-      listingsList.appendChild(row);
-      refreshListingsEmpty(listingsList);
-      return row;
-    }
+      article._listings = { entries, removed };
 
-    function refreshListingsEmpty(listingsList) {
-      const live = listingsList.querySelectorAll('.listing-row:not(.is-removed)');
-      let empty = listingsList.querySelector('.item-listings-empty');
-      if (!live.length) {
-        if (!empty) {
-          empty = document.createElement('div');
+      function renderChips() {
+        chipsEl.innerHTML = '';
+        const ids = Array.from(entries.keys()).sort((a, b) =>
+          String(gamesById.get(a)?.name || a).localeCompare(String(gamesById.get(b)?.name || b), undefined, { sensitivity: 'base' }));
+        if (!ids.length) {
+          const empty = document.createElement('div');
           empty.className = 'item-listings-empty';
           empty.textContent = 'Not in any shop yet.';
-          listingsList.appendChild(empty);
+          chipsEl.appendChild(empty);
+          return;
         }
-      } else if (empty) {
-        empty.remove();
+        ids.forEach((id) => {
+          const g = gamesById.get(id);
+          const chip = document.createElement('span');
+          chip.className = 'listing-chip';
+          let label = escapeHtml(g ? (g.name || id) : id);
+          // Show the matchup "away @ home" mascots in parens (display only — not persisted).
+          const awayMascot = g && String(g.away_team_mascot || '').trim();
+          const homeMascot = g && String(g.home_team_mascot || '').trim();
+          if (awayMascot || homeMascot) {
+            label += ' <span class="muted">(' + escapeHtml(awayMascot) + ' @ ' + escapeHtml(homeMascot) + ')</span>';
+          }
+          if (g && !isLive(g)) label += ' <span class="muted">(arch)</span>';
+          if (!g) label += ' <span class="muted">(missing)</span>';
+          // Clicking the label (not the ×) opens this game's gift shop in a new tab.
+          const link = document.createElement('a');
+          link.className = 'listing-chip-label';
+          link.href = '/gifts/?id=' + encodeURIComponent(id);
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.title = "Open this game's gift shop";
+          link.innerHTML = label;
+          chip.appendChild(link);
+          const x = document.createElement('button');
+          x.type = 'button';
+          x.className = 'listing-chip-remove';
+          x.setAttribute('aria-label', 'Remove');
+          x.textContent = '×';
+          x.addEventListener('click', () => {
+            const e = entries.get(id);
+            if (e && e.listingId) removed.push(e.listingId);
+            entries.delete(id);
+            renderChips();
+          });
+          chip.appendChild(x);
+          chipsEl.appendChild(chip);
+        });
       }
+
+      function renderOptions(query) {
+        const q = String(query || '').trim().toLowerCase();
+        selectEl.innerHTML = '';
+        gameSearchList
+          .filter((g) => !entries.has(g.id))
+          .filter((g) => !q || (g.name + ' ' + (g.matchup || '')).toLowerCase().includes(q))
+          .forEach((g) => {
+            const opt = document.createElement('option');
+            opt.value = g.id;
+            opt.textContent = g.name + (g.matchup || '') + (g.archived ? ' (archived)' : '');
+            selectEl.appendChild(opt);
+          });
+      }
+
+      function commitSelected() {
+        Array.from(selectEl.selectedOptions).forEach((o) => {
+          if (o.value && !entries.has(o.value)) entries.set(o.value, { listingId: null, position: 0 });
+        });
+        renderChips();
+        // Refresh the list so just-added games drop out; keep the picker ready.
+        searchEl.value = '';
+        renderOptions('');
+      }
+
+      addSelectedBtn.addEventListener('click', commitSelected);
+      searchEl.addEventListener('input', () => renderOptions(searchEl.value));
+      searchEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); commitSelected(); }
+        else if (e.key === 'Escape') { e.preventDefault(); searchEl.value = ''; renderOptions(''); }
+      });
+      selectEl.addEventListener('dblclick', commitSelected);
+
+      renderChips();
+      renderOptions('');
     }
 
+    // Persist chip selection: DELETE removed listings, INSERT newly-added games
+    // (existing listings are left untouched). Returns true if >1 listing was
+    // added so the caller can refresh the shop view.
     async function syncListings(article, itemId) {
-      const rows = Array.from(article.querySelectorAll('.listing-row'));
-      // 1) Removed rows that already had an id → DELETE
-      const toDelete = rows.filter((r) => r.dataset.removed === 'true' && r.dataset.listingId);
-      for (const row of toDelete) {
-        await deleteListing(row.dataset.listingId);
-        row.remove();
+      const state = article._listings;
+      if (!state) return false;
+      for (const id of state.removed.splice(0)) {
+        await deleteListing(id);
       }
-      // 2) Live rows: insert if no id, otherwise update. New multi-select
-      //    rows fan out into one listing per selected shop.
-      const liveRows = rows.filter((r) => r.dataset.removed !== 'true');
-      let fannedOut = false;
-      for (const row of liveRows) {
-        const data = readListingRow(row);
-        if (!data.game_ids.length) continue; // skip blanks rather than erroring
-        if (data.id) {
-          // Existing rows are single-select; only the first id matters here.
-          const updated = await updateListing(data.id, {
-            game_id: data.game_ids[0],
-            position: data.position
-          });
-          if (updated && updated.id) row.dataset.listingId = updated.id;
-        } else {
-          for (const gid of data.game_ids) {
-            const created = await insertListing({
-              item_id: itemId,
-              game_id: gid,
-              position: data.position
-            });
-            if (created && created.id && !row.dataset.listingId) {
-              row.dataset.listingId = created.id;
-            }
-          }
-          if (data.game_ids.length > 1) fannedOut = true;
-        }
+      let added = 0;
+      for (const [gameId, e] of state.entries) {
+        if (e.listingId) continue;
+        const created = await insertListing({ item_id: itemId, game_id: gameId, position: e.position || 0 });
+        if (created && created.id) { e.listingId = created.id; added++; }
       }
-      return fannedOut;
+      return added > 1;
+    }
+
+    // Format an ISO timestamp as a local "Mon D, YYYY, h:mm AM/PM".
+    function formatCertDate(value) {
+      if (!value) return '';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return '';
+      return d.toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: 'numeric', minute: '2-digit'
+      });
     }
 
     function bindItem(article, item) {
       article.dataset.id = item.id || '';
       article.dataset.createdAt = item.created_at || '';
+      article.dataset.certifiedAt = item.certified_at || '';
       article.classList.toggle('is-new', !item.id);
 
       const set = (name, value) => {
@@ -1739,35 +1896,50 @@
       set('image_url', item.image_url);
       set('price_display', item.price_display);
       set('description', item.description);
-      // Untagged rows (category NULL) default the dropdown to "Other"; the
-      // public grid still keyword-infers those until the admin saves.
-      set('category', item.category === 'sports' ? 'sports' : 'other');
 
-      // Render existing listings (from the embedded select) and wire
-      // up the "+ Add to a shop" button. New blank items get one empty
-      // row so the user has somewhere to pick a shop without an extra
-      // click.
-      const listingsList = article.querySelector('[data-listings-list]');
-      listingsList.innerHTML = '';
-      const listings = Array.isArray(item.gift_shop_listings) ? item.gift_shop_listings : [];
-      const sortedListings = listings.slice().sort((a, b) => {
-        const ka = (gamesById.get(a.game_id)?.name || '').toLowerCase();
-        const kb = (gamesById.get(b.game_id)?.name || '').toLowerCase();
-        if (ka < kb) return -1;
-        if (ka > kb) return 1;
-        return 0;
-      });
-      sortedListings.forEach((l) => appendListingRow(listingsList, l));
-      if (!sortedListings.length && !item.id) {
-        appendListingRow(listingsList, {});
+      // Current shops render as deletable chips; "+ Add to shops" opens a
+      // searchable multi-select picker. State + persistence live in bindListings.
+      bindListings(article, item);
+
+      // ── Certify Today ──────────────────────────────────────────────
+      // Show the last certified date; the checkbox is always unchecked on
+      // load. Checking it writes certified_at = today to Supabase right away
+      // (no Save needed) and updates the label.
+      const certifyDateEl = article.querySelector('[data-certify-date]');
+      const certifyCheck  = article.querySelector('[data-certify-today]');
+      const setCertifyLabel = (value) => {
+        const formatted = formatCertDate(value);
+        certifyDateEl.textContent = 'Last certified: ' + (formatted || 'never');
+      };
+      setCertifyLabel(item.certified_at);
+      if (certifyCheck) {
+        certifyCheck.checked = false;
+        certifyCheck.addEventListener('change', async () => {
+          if (!certifyCheck.checked) return;
+          const id = article.dataset.id;
+          if (!id) {
+            certifyCheck.checked = false;
+            setItemStatus('Save the item before certifying.', 'error');
+            return;
+          }
+          const iso = new Date().toISOString();
+          certifyCheck.disabled = true;
+          try {
+            await updateItem(id, { certified_at: iso });
+            article.dataset.certifiedAt = iso;
+            updateItemsStatus();
+            setCertifyLabel(iso);
+            setItemStatus('Certified ' + formatCertDate(iso) + '.', 'success');
+            setTimeout(() => setItemStatus(''), 2200);
+          } catch (error) {
+            console.error(error);
+            certifyCheck.checked = false;
+            setItemStatus(error instanceof Error ? error.message : String(error), 'error');
+          } finally {
+            certifyCheck.disabled = false;
+          }
+        });
       }
-      refreshListingsEmpty(listingsList);
-
-      article.querySelector('[data-action="add-listing"]').addEventListener('click', () => {
-        const row = appendListingRow(listingsList, {});
-        const sel = row.querySelector('[data-listing-field="game_id"]');
-        if (sel) sel.focus();
-      });
 
       // Focus picker: 400×220 frame matching the public card-media
       // aspect ratio (154px tall × ≥280px wide, scaled up for usability).
@@ -1912,6 +2084,11 @@
 
       article.querySelector('[data-action="save"]').addEventListener('click', async () => {
         const payload = buildItemPayload(article);
+        // All fields are mandatory.
+        if (!payload.title) {
+          setItemStatus('Title is required.', 'error');
+          return;
+        }
         if (!payload.url) {
           setItemStatus('Address is required.', 'error');
           return;
@@ -1920,25 +2097,17 @@
           setItemStatus('Image is required.', 'error');
           return;
         }
-        // Validate listings before doing any writes. Collect live shop
-        // ids (flattening multi-select rows) and reject if there are
-        // duplicates or none.
-        const liveRows = Array.from(
-          article.querySelectorAll('.listing-row:not(.is-removed)')
-        );
-        const liveData = liveRows.map(readListingRow).filter((d) => d.game_ids.length);
-        const allGameIds = liveData.flatMap((d) => d.game_ids);
+        if (!payload.description) {
+          setItemStatus('Description is required.', 'error');
+          return;
+        }
+        // Validate listings before doing any writes: require at least one shop.
+        // (Selection is keyed by game id, so duplicates are impossible.)
+        const listingsState = article._listings;
+        const allGameIds = listingsState ? Array.from(listingsState.entries.keys()) : [];
         if (!allGameIds.length) {
           setItemStatus('Add this item to at least one shop first.', 'error');
           return;
-        }
-        const seen = new Set();
-        for (const gid of allGameIds) {
-          if (seen.has(gid)) {
-            setItemStatus('This item is listed in the same shop twice.', 'error');
-            return;
-          }
-          seen.add(gid);
         }
         setItemStatus('Saving…');
         try {
@@ -1970,6 +2139,7 @@
           // Brand-new row never saved — just remove from DOM.
           article.remove();
           if (!itemsList.children.length) renderEmpty();
+          applyItemsPagination();
           return;
         }
         if (!window.confirm('Delete this item?')) return;
@@ -1978,6 +2148,7 @@
           await deleteItem(id);
           article.remove();
           if (!itemsList.children.length) renderEmpty();
+          applyItemsPagination();
         } catch (error) {
           console.error(error);
           setItemStatus(error instanceof Error ? error.message : String(error), 'error');
@@ -2023,6 +2194,12 @@
       const article = itemsList.querySelector('.item[data-id="' + CSS.escape(initialItemId) + '"]');
       if (!article) return;
       initialItemFocusPending = false;
+      // Make sure the deep-linked item isn't hidden behind pagination.
+      if (article.classList.contains('paged-out')) {
+        const all = Array.from(itemsList.querySelectorAll('.item'));
+        itemsPageLimit = Math.max(itemsPageLimit, all.indexOf(article) + 1);
+        applyItemsPagination();
+      }
       article.classList.add('is-targeted');
       article.scrollIntoView({ behavior: 'smooth', block: 'center' });
       const titleInput = article.querySelector('[data-field="title"]');
@@ -2225,6 +2402,14 @@
         if (c.query) subParts.push('query: ' + c.query);
         sub.textContent = subParts.join(' · ');
         meta.appendChild(sub);
+
+        const descText = String(c.description || '').trim();
+        if (descText) {
+          const desc = document.createElement('p');
+          desc.className = 'suggest-result-desc';
+          desc.textContent = descText;
+          meta.appendChild(desc);
+        }
         li.appendChild(meta);
 
         const actions = document.createElement('div');

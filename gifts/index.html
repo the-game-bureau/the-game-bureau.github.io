@@ -79,8 +79,9 @@
       position: relative;
       display: grid;
       grid-template-rows: 154px minmax(0, 1fr);
+      /* taller body so a 3-line description + "More" + CTA all fit */
       min-width: 0;
-      height: 380px;
+      height: 416px;
       overflow: hidden;
       border: 1px solid var(--line-strong);
       border-radius: 10px;
@@ -161,6 +162,45 @@
 
     body.home-page .card-game-eyebrow { display: none; }
     body.home-page .card-price { color: var(--ink); }
+    /* Prices are not shown anywhere in the public gift shop. */
+    body.home-page .card-price,
+    .gift-detail-price { display: none !important; }
+
+    /* Admin-only logout pill (upper-right). Mirrors admin-bridge's EDIT ITEM
+       button; hidden unless admin-bridge has verified a logged-in admin
+       (it adds html.tgb-admin-authorized). */
+    .gift-admin-logout {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      z-index: 1300;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid #111;
+      background: #111;
+      color: #fff;
+      font-family: "IBM Plex Mono", "JetBrains Mono", Consolas, monospace;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      line-height: 1;
+      text-transform: uppercase;
+      white-space: nowrap;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+      transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
+    }
+    html.tgb-admin-authorized .gift-admin-logout { display: inline-flex; }
+    .gift-admin-logout:hover,
+    .gift-admin-logout:focus-visible {
+      background: #fff;
+      color: #111;
+      outline: none;
+      transform: translateY(-1px);
+    }
 
     body.home-page .card-title {
       margin: 0;
@@ -181,11 +221,159 @@
       font-weight: 400;
       line-height: 1.4;
       display: -webkit-box;
-      -webkit-line-clamp: 2;
-      line-clamp: 2;
+      -webkit-line-clamp: 3;
+      line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
+
+    /* "More" link on cards whose description is truncated — opens the detail
+       lightbox. Sits between the caption and the CTA. */
+    body.home-page .card-more {
+      align-self: flex-start;
+      margin-top: 2px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--accent);
+      font-family: "JetBrains Mono", "Menlo", "Consolas", monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    body.home-page .card-more:hover,
+    body.home-page .card-more:focus-visible { color: #fff; outline: none; }
+
+    /* ── Gift detail lightbox ─────────────────────────────────────────── */
+    .gift-detail {
+      position: fixed;
+      inset: 0;
+      z-index: 1500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .gift-detail[hidden] { display: none; }
+    .gift-detail-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(2, 4, 8, 0.78);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .gift-detail-panel {
+      position: relative;
+      width: min(560px, 100%);
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      background: rgba(16, 21, 30, 0.97);
+      color: var(--ink);
+      box-shadow: 0 28px 64px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    .gift-detail-close {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      z-index: 2;
+      width: 34px;
+      height: 34px;
+      border: 0;
+      border-radius: 8px;
+      background: rgba(8, 12, 18, 0.6);
+      color: var(--ink);
+      font-size: 1.4rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .gift-detail-close:hover { background: rgba(8, 12, 18, 0.85); color: var(--accent); }
+    .gift-detail-media {
+      position: relative;
+      height: 220px;
+      flex-shrink: 0;
+      overflow: hidden;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(135deg, rgba(8, 11, 17, 0.45), rgba(8, 11, 17, 0.85)),
+        var(--card-game-color, var(--accent));
+    }
+    .gift-detail-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .gift-detail-monogram {
+      position: absolute;
+      left: 16px;
+      bottom: 12px;
+      color: rgba(243, 238, 220, 0.85);
+      font-family: "Big Shoulders Display", "Impact", "Arial Narrow", sans-serif;
+      font-size: 2.6rem;
+      font-weight: 800;
+      line-height: 1;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    }
+    .gift-detail-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 18px 22px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .gift-detail-title {
+      margin: 0;
+      font-family: "Big Shoulders Display", "Impact", "Arial Narrow", sans-serif;
+      font-size: 1.7rem;
+      font-weight: 800;
+      line-height: 1.05;
+      text-transform: uppercase;
+    }
+    .gift-detail-price {
+      color: var(--ink);
+      font-family: "JetBrains Mono", "Menlo", "Consolas", monospace;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+    }
+    .gift-detail-desc {
+      margin: 0;
+      color: rgba(243, 238, 220, 0.82);
+      font-family: "JetBrains Mono", "Menlo", "Consolas", monospace;
+      font-size: 0.86rem;
+      font-weight: 400;
+      line-height: 1.55;
+      white-space: pre-line;
+    }
+    .gift-detail-cta-wrap { margin-top: 6px; }
+    .gift-detail-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      min-height: 46px;
+      padding: 0 16px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent);
+      color: #080c12;
+      font-family: "JetBrains Mono", "Menlo", "Consolas", monospace;
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.32) inset;
+    }
+    .gift-detail-cta:hover { transform: translateY(-1px); }
 
     /* CTA styled as a full-width button matching .game-card-play —
        accent fill, 6px radius, inset highlight, hover lift + colored
@@ -514,7 +702,7 @@
           <div>
             <p class="hero-kicker"><span id="itemCount">0</span> ITEMS<span id="eyebrowSuffix" hidden> / <span id="eyebrow"></span></span></p>
             <h1 class="hero-headline" id="heading">Gift Shop</h1>
-            <p class="hero-copy" id="lead">Take the game home.</p>
+            <p class="hero-copy" id="lead">Game Souvenirs</p>
           </div>
         </div>
       </section>
@@ -610,28 +798,16 @@
       return !!game && String(game.id) === requestedGameId;
     }
 
-    // Sports-first grid ordering. The authoritative signal is the
-    // gift_shop_items.category column ('sports' | 'other'), set by admins in
-    // /mc/gs-shop.html. Untagged rows (category NULL) fall back to a
-    // title/description keyword heuristic so they still group sensibly until
-    // someone tags them. Matching items sort ahead of everything else; both
-    // groups stay alphabetical. No category labels are rendered — the order
-    // alone does the grouping.
-    const SPORTS_RE = /\b(sports?|football|basketball|baseball|soccer|hockey|golf|tennis|lacrosse|rugby|cricket|volleyball|softball|pickleball|jersey|helmet|cleats?|puck|rack(?:et|quet)|mitt|stadium|athletics?|varsity|pennant|tailgate|nfl|nba|mlb|nhl|mls|ncaa|fifa|olympics?)\b/i;
-    function isSportsItem(item) {
-      if (!item) return false;
-      const category = String(item.category || '').trim().toLowerCase();
-      if (category === 'sports') return true;
-      if (category === 'other') return false;
-      return SPORTS_RE.test(String(item.title || '') + ' ' + String(item.description || ''));
+    // Only certified gifts are shown publicly. An item is certified once an
+    // admin stamps certified_at (Certify Today in /mc/gs-shop.html).
+    function isCertified(item) {
+      return !!String(item && item.certified_at || '').trim();
     }
 
+    // Grid ordering: plain alphabetical by item title.
     function compareGiftEntries(a, b) {
-      const sportsA = isSportsItem(a.item) ? 0 : 1;
-      const sportsB = isSportsItem(b.item) ? 0 : 1;
-      if (sportsA !== sportsB) return sportsA - sportsB;
       return String(a.item.title || '').localeCompare(
-        String(b.item.title || ''), undefined, { sensitivity: 'base' });
+        String(b.item.title || ''), undefined, { sensitivity: 'base', numeric: true });
     }
 
     function getMonogram(title) {
@@ -779,7 +955,7 @@
 
       const cta = document.createElement('span');
       cta.className = 'card-cta';
-      cta.textContent = 'Buy';
+      cta.textContent = 'Buy now';
       body.appendChild(cta);
 
       card.append(media, body);
@@ -791,6 +967,112 @@
 
       return card;
     }
+
+    // Show a "More" affordance once the description is long enough to clamp.
+    function shouldShowMore(desc) {
+      return String(desc || '').length > 120;
+    }
+
+    // A "More" link that opens the detail lightbox. Built as a role=button span
+    // so it can live inside the card's <a>/<button> without nesting a control;
+    // preventDefault + stopPropagation keep the card's own click from firing.
+    function buildMoreLink(item, opts) {
+      const more = document.createElement('span');
+      more.className = 'card-more';
+      more.textContent = 'More';
+      more.setAttribute('role', 'button');
+      more.tabIndex = 0;
+      const open = (e) => { e.preventDefault(); e.stopPropagation(); openGiftDetail(item, opts); };
+      more.addEventListener('click', open);
+      more.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open(e); });
+      return more;
+    }
+
+    function closeGiftDetail() {
+      const el = document.getElementById('giftDetail');
+      if (el) el.hidden = true;
+    }
+
+    // Populate + open the full-gift lightbox (scrolls if the description is long).
+    function openGiftDetail(item, opts = {}) {
+      const el = document.getElementById('giftDetail');
+      if (!el || !item) return;
+      const media   = document.getElementById('giftDetailMedia');
+      const titleEl = document.getElementById('giftDetailTitle');
+      const priceEl = document.getElementById('giftDetailPrice');
+      const descEl  = document.getElementById('giftDetailDesc');
+      const ctaWrap = document.getElementById('giftDetailCtaWrap');
+
+      media.innerHTML = '';
+      media.style.removeProperty('--card-game-color');
+      if (opts.gameColor) media.style.setProperty('--card-game-color', opts.gameColor);
+      const imageUrl = String(item.image_url || '').trim();
+      if (imageUrl) {
+        const img = document.createElement('img');
+        img.src = imageUrl;
+        img.alt = '';
+        img.referrerPolicy = 'no-referrer';
+        const focus = String(item.image_focus || '').trim();
+        if (focus) img.style.objectPosition = focus;
+        media.appendChild(img);
+      } else {
+        const mono = document.createElement('div');
+        mono.className = 'gift-detail-monogram';
+        mono.textContent = getMonogram(item.title);
+        media.appendChild(mono);
+      }
+
+      titleEl.textContent = escapeText(item.title || 'Untitled item');
+      const price = String(item.price_display || '').trim();
+      priceEl.textContent = price;
+      priceEl.hidden = !price;
+      descEl.textContent = cleanDescription(item.description) || 'No description available.';
+
+      ctaWrap.innerHTML = '';
+      if (item.gift_card_game_id) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'gift-detail-cta';
+        btn.textContent = 'Buy now';
+        btn.addEventListener('click', () => {
+          closeGiftDetail();
+          if (!window.TgbGift) return;
+          window.TgbGift.openForGame({
+            id:     item.gift_card_game_id,
+            name:   String(item.title || '').replace(/\s*—\s*(?:Gift Card|Game Access)\s*$/i, '').trim()
+                      || (opts.gameName || 'this game'),
+            price:  item.price_display || '',
+            engine: item.engine || opts.engine || ''
+          });
+        });
+        ctaWrap.appendChild(btn);
+      } else {
+        const url = String(item.url || '').trim();
+        if (url) {
+          const a = document.createElement('a');
+          a.className = 'gift-detail-cta';
+          a.href = url;
+          a.target = '_blank';
+          a.rel = 'noopener nofollow sponsored';
+          a.textContent = affiliateCtaLabel(url, item.price_display);
+          ctaWrap.appendChild(a);
+        }
+      }
+
+      el.hidden = false;
+      const body = el.querySelector('.gift-detail-body');
+      if (body) body.scrollTop = 0;
+    }
+
+    // Close on backdrop / × / Escape (delegated so it works no matter when the
+    // lightbox node is parsed relative to this script).
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('[data-gift-detail-close]')) closeGiftDetail();
+    });
+    document.addEventListener('keydown', (e) => {
+      const el = document.getElementById('giftDetail');
+      if (e.key === 'Escape' && el && !el.hidden) closeGiftDetail();
+    });
 
     function createCard(item, opts = {}) {
       // Access-code items are TGB's own products (not affiliate). They have
@@ -876,6 +1158,7 @@
         captionEl.className = 'card-caption';
         captionEl.textContent = desc;
         body.appendChild(captionEl);
+        if (shouldShowMore(desc)) body.appendChild(buildMoreLink(item, opts));
       }
 
       const cta = document.createElement('span');
@@ -887,19 +1170,9 @@
       return card;
     }
 
-    // Button label is driven by the URL host — except when the price isn't a
-    // clean single dollar amount (e.g. blank, a range, or "see price"), in which
-    // case the link is really a search, so the button says "Search sellers".
-    function affiliateCtaLabel(url, priceDisplay) {
-      const price = String(priceDisplay || '').trim();
-      const isCleanPrice = /^\$\d{1,3}(,\d{3})*(\.\d{1,2})?$/.test(price);
-      if (!isCleanPrice) return 'Search sellers';
-      const host = (() => {
-        try { return new URL(url).hostname.toLowerCase(); } catch (_) { return ''; }
-      })();
-      if (/(^|\.)amazon\./.test(host))       return 'Buy on Amazon';
-      if (/(^|\.)bookshop\.org$/.test(host))  return 'Buy on Bookshop.org';
-      return 'Open listing';
+    // Every gift button reads "Buy now" (CSS uppercases it to BUY NOW).
+    function affiliateCtaLabel() {
+      return 'Buy now';
     }
 
     // Build an access-code card. Clicking it opens the shared gift-buy
@@ -981,11 +1254,12 @@
         captionEl.className = 'card-caption';
         captionEl.textContent = desc;
         body.appendChild(captionEl);
+        if (shouldShowMore(desc)) body.appendChild(buildMoreLink(item, opts));
       }
 
       const cta = document.createElement('span');
       cta.className = 'card-cta';
-      cta.textContent = 'Buy';
+      cta.textContent = 'Buy now';
       body.appendChild(cta);
 
       card.append(media, body);
@@ -1010,7 +1284,7 @@
     async function loadAllShops() {
       headingEl.textContent = 'Gift Shop';
       setEyebrow('');
-      leadEl.textContent = requestedCity ? 'Gifts from ' + requestedCity + '.' : 'Take the game home.';
+      leadEl.textContent = requestedCity ? 'Gifts from ' + requestedCity + '.' : 'Game Souvenirs';
       leadEl.hidden = false;
       document.title = (requestedCity ? requestedCity.toUpperCase() + ' ' : '') + 'GIFT SHOP | THE GAME BUREAU';
 
@@ -1036,7 +1310,13 @@
         requestedGameId = requestedGame ? String(requestedGame.id) : '';
         if (requestedGame) {
           setEyebrow(requestedGame.name || '');
-          leadEl.textContent = 'Gifts for ' + (requestedGame.name || 'this game') + '.';
+          leadEl.textContent = 'Gifts inspired by ';
+          const leadGameEm = document.createElement('em');
+          const leadGameStrong = document.createElement('strong');
+          leadGameStrong.textContent = requestedGame.name || 'this game';
+          leadGameEm.appendChild(leadGameStrong);
+          leadEl.appendChild(leadGameEm);
+          leadEl.appendChild(document.createTextNode('.'));
           document.title = String(requestedGame.name || '').toUpperCase() + ' GIFTS | THE GAME BUREAU';
         }
 
@@ -1065,10 +1345,11 @@
           .map((g) => ({ id: g.id, name: g.name, price: g.price, engine: g.engine || '' }))
           .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
 
-        // ── Choose-any-game card (the only access-code tile in the shop).
-        // Replaced the previous per-game cards — the chooser supersedes
-        // them. Only shows if there's at least one giftable game.
-        const chooseCard = paidGames.length ? createChooseAnyGameCard(paidGames) : null;
+        // ── Choose-any-game card ("Game Access — Your Pick").
+        // Hidden for now — we'll revisit the access-code chooser later. The
+        // createChooseAnyGameCard builder + paidGames stay in place so it can
+        // be re-enabled by restoring this to use createChooseAnyGameCard.
+        const chooseCard = null;
 
         // ── Affiliate-only curated cards (Amazon, Bookshop, etc.).
         // We deliberately skip listings whose item is an access-code product
@@ -1079,6 +1360,7 @@
           const item = listing && listing.gift_shop_items;
           if (!item || item.id == null) continue;
           if (item.gift_card_game_id) continue; // hidden — chooser owns this
+          if (!isCertified(item)) continue;     // only show certified gifts
           const game = listing.games || gameById.get(listing.game_id) || {};
           const gameName = String(game.name || '').trim();
           const gameColor = String(game.primary_color || '').trim();
@@ -1108,10 +1390,10 @@
           .filter((item) => !grouped.has(item.id))   // not already shown via a listing
           .filter((item) => !item.gift_card_game_id)  // access-code products are owned by the chooser
           .filter((item) => item.archived !== true && String(item.archived).toUpperCase() !== 'YES')
+          .filter(isCertified)                        // only show certified gifts
           .forEach((item) => giftEntries.push({ item, opts: {} }));
 
-        // Sports-related items first (alphabetical by title), then everything
-        // else (also alphabetical). Categories are ordered, never labeled.
+        // Alphabetical by item title.
         giftEntries.sort(compareGiftEntries);
         const itemCards = giftEntries
           .map(({ item, opts }) => createCard(item, opts))
@@ -1150,7 +1432,52 @@
     }
 
     loadAllShops();
+
+    // Admin-only logout (the #giftAdminLogout pill is shown by CSS only when
+    // admin-bridge has verified a logged-in admin). Clears the shared session,
+    // best-effort revokes it server-side, and tells admin-bridge to tear down
+    // its EDIT controls — which also hides this button again.
+    async function giftShopAdminLogout() {
+      const KEY = 'tgb-photo-review-auth-session';
+      let token = '';
+      try {
+        const session = JSON.parse(localStorage.getItem(KEY) || 'null');
+        token = (session && session.access_token) || '';
+      } catch (_) {}
+      if (token) {
+        try {
+          await fetch(SB_CONFIG.url.replace(/\/+$/, '') + '/auth/v1/logout', {
+            method: 'POST',
+            headers: { apikey: SB_CONFIG.key, Authorization: 'Bearer ' + token }
+          });
+        } catch (_) {}
+      }
+      try { localStorage.removeItem(KEY); } catch (_) {}
+      window.dispatchEvent(new CustomEvent('tgb-admin-auth-change', { detail: { signedIn: false } }));
+      if (window.TgbPublicAdminBridge) window.TgbPublicAdminBridge.setAuthorized(false);
+    }
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('#giftAdminLogout')) { e.preventDefault(); giftShopAdminLogout(); }
+    });
   </script>
+
+  <!-- Gift detail lightbox (populated by openGiftDetail) -->
+  <div class="gift-detail" id="giftDetail" hidden role="dialog" aria-modal="true" aria-labelledby="giftDetailTitle">
+    <div class="gift-detail-backdrop" data-gift-detail-close></div>
+    <div class="gift-detail-panel">
+      <button class="gift-detail-close" type="button" data-gift-detail-close aria-label="Close">&times;</button>
+      <div class="gift-detail-media" id="giftDetailMedia"></div>
+      <div class="gift-detail-body">
+        <h2 class="gift-detail-title" id="giftDetailTitle"></h2>
+        <div class="gift-detail-price" id="giftDetailPrice" hidden></div>
+        <p class="gift-detail-desc" id="giftDetailDesc"></p>
+        <div class="gift-detail-cta-wrap" id="giftDetailCtaWrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin-only: shown only when admin-bridge verifies a logged-in admin. -->
+  <button class="gift-admin-logout" id="giftAdminLogout" type="button">Log out</button>
 
   <button class="cart-fab" id="cartFab" type="button" hidden aria-label="Open cart">
     Cart <span class="cart-fab-count" id="cartFabCount">0</span>
@@ -1541,7 +1868,7 @@
       const buy = document.createElement('button');
       buy.type = 'button';
       buy.className = 'card-buy';
-      buy.textContent = 'Buy';
+      buy.textContent = 'Buy now';
       buy.addEventListener('click', () => addToCart(item.id));
       body.appendChild(buy);
 
@@ -1555,5 +1882,10 @@
   </script>
 
   <script src="../mc/js/gs-buy-modal.js"></script>
+
+  <!-- Admin-only: paints a hidden "EDIT ITEM" button on each gift card for
+       logged-in admins (verified against admin_users), linking to that gift in
+       mc/gs-shop.html?item=<id>. Invisible to the public. -->
+  <script src="../assets/admin-bridge.js"></script>
 </body>
 </html>
