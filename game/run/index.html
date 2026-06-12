@@ -425,7 +425,6 @@
     #playFormatSection {
       display: none;
       position: relative;
-      aspect-ratio: 1 / 1;       /* chooser is square; invite view sizes to content */
       overflow: hidden;
       background: #fff;
       border: 2px solid var(--primary);
@@ -435,7 +434,6 @@
       box-shadow: 0 8px 32px rgba(0,0,0,0.12);
     }
     #playFormatSection:has(#playInvite:not([hidden])) {
-      aspect-ratio: auto;
       min-height: clamp(400px, calc(100vw - 3.5rem), 424px);
     }
     #playFormatSection .htp-divider { margin-top: 0.8rem; }
@@ -474,8 +472,8 @@
       box-shadow: 2px 2px 0 #000;
     }
     .format-opt-title { font-weight: 700; font-size: 1.05rem; letter-spacing: 0.02em; }
-    .format-opt-sub { font-weight: 500; font-size: 0.8rem; opacity: 0.7; }
-    .format-opt.is-selected .format-opt-sub { opacity: 0.9; }
+    .format-opt-sub { font-weight: 500; font-size: 0.86rem; color: #444; opacity: 0.9; }
+    .format-opt.is-selected .format-opt-sub { color: inherit; opacity: 0.9; }
 
     .join-note[hidden] { display: none; }
     .join-note {
@@ -1752,6 +1750,13 @@
       left: 50%;
       transform: translateX(-50%);
       z-index: 1;
+      display: -webkit-box;
+      width: calc(100% - 2rem);
+      max-height: 2.3em;
+      overflow: hidden;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
       font-family: 'Outfit', sans-serif;
       font-size: clamp(0.85rem, 3.5vw, 1.1rem);
       font-weight: 700;
@@ -1759,6 +1764,7 @@
       line-height: 1.15;
       text-transform: uppercase;
       text-align: center;
+      text-overflow: ellipsis;
       white-space: pre-line;
       color: var(--primary);
       -webkit-text-stroke: 0.6px var(--secondary);
@@ -2381,19 +2387,19 @@
 
       <!-- View A: choose how you're playing -->
       <div id="playChooser">
-        <p class="format-blurb" id="formatBlurb">How are you playing?</p>
+        <p class="format-blurb" id="formatBlurb">Choose how you want to play</p>
         <div class="format-options" id="formatOptions" role="radiogroup" aria-label="Play format">
           <button type="button" class="format-opt" data-format="solo" role="radio" aria-checked="false">
             <span class="format-opt-title">Solo</span>
-            <span class="format-opt-sub">Just me</span>
+            <span class="format-opt-sub">Play on your own</span>
           </button>
           <button type="button" class="format-opt" data-format="coop" role="radio" aria-checked="false">
-            <span class="format-opt-title">One Team</span>
-            <span class="format-opt-sub">Play with friends as one team</span>
+            <span class="format-opt-title">Team</span>
+            <span class="format-opt-sub">Invite teammates</span>
           </button>
           <button type="button" class="format-opt" data-format="versus" role="radio" aria-checked="false">
-            <span class="format-opt-title">Opposing Teams</span>
-            <span class="format-opt-sub">Go head-to-head</span>
+            <span class="format-opt-title">Challenge</span>
+            <span class="format-opt-sub">Invite an opposing team captain</span>
           </button>
         </div>
       </div>
@@ -2942,13 +2948,13 @@
     // invite link carrying a shared session id.
     const INVITE_MODE_DETAILS = {
       coop: {
-        title: 'One Team Mode',
+        title: 'Team Mode',
         inviteText: (gameName) => `Join my team for ${gameName}.`,
-        recipientCopy: (gameName) => `You’ve been invited to play ${gameName} together on one team.`
+        recipientCopy: (gameName) => `You’ve been invited to join ${gameName} as a teammate.`
       },
       versus: {
-        title: 'Opposing Teams Mode',
-        inviteText: (gameName) => `Captain the opposing team for ${gameName}.`,
+        title: 'Challenge Mode',
+        inviteText: (gameName) => `You’ve been challenged to ${gameName}.`,
         recipientCopy: (gameName) => `You’ve been invited to captain an opposing team in ${gameName}.`
       }
     };
@@ -3040,7 +3046,7 @@
       const scanLabel  = document.getElementById('shareCityLabel');
       if (!section || !optionsEl || !inviteEl || !chooserEl) return;
 
-      const MODE_TITLES = { solo: 'Solo Mode', coop: 'One Team Mode', versus: 'Opposing Teams Mode' };
+      const MODE_TITLES = { solo: 'Solo Mode', coop: 'Team Mode', versus: 'Challenge Mode' };
       const inviteGameName = String(game && game.name || 'this game').trim() || 'this game';
 
       function buildJoinUrl() {
@@ -3059,18 +3065,18 @@
         const details = getInviteModeDetails(mp.format);
         window.__tgbInviteText = details ? details.inviteText(inviteGameName) : '';
         setInviteQr(link);
-        if (scanLabel) scanLabel.textContent = label || 'Hold up your phone for teammates to scan';
+        if (scanLabel) scanLabel.textContent = label == null ? 'Hold up your phone for teammates to scan' : label;
       }
 
       // View A — the mode chooser.
-      function showChooser() {
+      function showChooser(options = {}) {
         inviteEl.hidden = true;
         chooserEl.hidden = false;
         if (headerEl) headerEl.textContent = 'Play Mode';
         mp.format = 'solo';
         window.__tgbInviteUrl = '';
         window.__tgbInviteText = '';
-        startExtras.session = '';
+        startExtras.session = options.keepSession ? mp.sessionId : '';
         rebuildStartUrl();
         optionsEl.querySelectorAll('.format-opt').forEach((btn) => {
           btn.classList.remove('is-selected');
@@ -3098,7 +3104,7 @@
           startExtras.session = mp.sessionId;
           if (joinerNote) joinerNote.hidden = true;
           if (qrWrap) qrWrap.hidden = false;
-          armTeamInvite(fmt === 'versus' ? 'Hold up your phone for opposing captain to scan' : '');
+          armTeamInvite(fmt === 'versus' ? 'Hold up your phone for opposing team captain to scan' : undefined);
         }
         rebuildStartUrl();
       }
@@ -3109,22 +3115,9 @@
       if (backBtn) backBtn.addEventListener('click', showChooser);
 
       if (mp.isJoiner) {
-        // Scanned a join link: enter the existing session. Skip the chooser
-        // entirely, show the invite view, and let them Start or invite others.
-        chooserEl.hidden = true;
-        inviteEl.hidden = false;
-        if (backBtn) backBtn.hidden = true;
-        if (headerEl) headerEl.textContent = getInviteModeDetails(mp.inviteMode)?.title || "You're In";
-        if (qrWrap) qrWrap.hidden = false;
-        if (joinerNote) {
-          joinerNote.hidden = false;
-          joinerNote.classList.remove('join-note--plain');
-          joinerNote.textContent = "You're in. Tap Start to join — or share the code to invite more players.";
-        }
-        mp.format = mp.inviteMode || 'coop';
-        startExtras.session = mp.sessionId;
-        rebuildStartUrl();
-        armTeamInvite();
+        // A shared invite opens the normal game page and keeps the shared
+        // session on Start. The popup is the only invite-specific UI.
+        showChooser({ keepSession: true });
         section.style.display = 'block';
         showInviteModeLightbox(mp.inviteMode, inviteGameName);
         return;
