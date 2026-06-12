@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MLB Game Generator</title>
+  <link rel="stylesheet" href="research.css">
+  <link rel="stylesheet" href="js/admin-shell.css">
+  <style>
+    .mlb-steps { display: grid; gap: 18px; margin-top: 8px; }
+    .mlb-step {
+      border: 1px solid var(--line, rgba(0,0,0,0.14));
+      border-radius: 12px;
+      padding: 16px 18px;
+      background: var(--card-bg, #fff);
+    }
+    .mlb-step h2 { margin: 0 0 8px; font-size: 1.05rem; }
+    .mlb-step p { margin: 0 0 8px; color: var(--muted, #555); font-size: 0.9rem; line-height: 1.5; }
+    .mlb-code {
+      display: block; padding: 10px 12px; border-radius: 8px;
+      background: #0d1117; color: #d6e2ff;
+      font-family: var(--mono, "IBM Plex Mono", Consolas, monospace);
+      font-size: 0.82rem; white-space: pre-wrap; overflow-x: auto; margin: 6px 0;
+    }
+    .mlb-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .mlb-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 9px 16px; border-radius: 8px; border: 1px solid #111; background: #111; color: #fff;
+      font-family: var(--mono, monospace); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: uppercase; cursor: pointer;
+    }
+    .mlb-btn:hover { background: #fff; color: #111; }
+    .mlb-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .mlb-btn--ghost { background: transparent; color: #111; }
+    .mlb-btn--ghost:hover { background: #111; color: #fff; }
+    .mlb-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 10px 0; }
+    .mlb-filter { flex: 1; min-width: 180px; padding: 8px 10px; border: 1px solid var(--line, #ccc); border-radius: 8px; font: inherit; }
+    .mlb-count { font-family: var(--mono, monospace); font-size: 0.82rem; color: var(--muted, #555); }
+    .mlb-list { max-height: 56vh; overflow: auto; border: 1px solid var(--line, #ddd); border-radius: 10px; }
+    .mlb-item { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 9px 12px; border-bottom: 1px dashed var(--line, #eee); }
+    .mlb-item:last-child { border-bottom: 0; }
+    .mlb-item:hover { background: rgba(0,0,0,0.03); }
+    .mlb-item input { width: 16px; height: 16px; cursor: pointer; }
+    .mlb-item-name { font-weight: 700; font-size: 0.9rem; }
+    .mlb-item-sub { font-size: 0.74rem; color: var(--muted, #666); font-family: var(--mono, monospace); margin-top: 2px; }
+    .mlb-item-date { font-size: 0.76rem; color: var(--muted, #666); font-family: var(--mono, monospace); white-space: nowrap; }
+    .mlb-opt { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; }
+    .mlb-status { margin-top: 10px; font-family: var(--mono, monospace); font-size: 0.82rem; min-height: 1.3em; white-space: pre-wrap; line-height: 1.45; }
+    .mlb-status.error { color: #c0341f; }
+    .mlb-status.success { color: #2f6b3d; }
+    .mlb-progress { height: 6px; border-radius: 4px; background: rgba(0,0,0,0.1); overflow: hidden; margin-top: 8px; }
+    .mlb-progress > span { display: block; height: 100%; width: 0; background: #111; transition: width 0.2s ease; }
+    .mlb-hidden { display: none; }
+  </style>
+</head>
+<body>
+  <main class="research">
+
+    <header class="research-head">
+      <span class="research-kicker">Research Assistants</span>
+      <h1>MLB Game Generator</h1>
+      <p class="research-sub">Generate MLB "Fans Takeover" games from the live schedule, preview them, pick the ones you want, and push only those to Supabase.</p>
+    </header>
+
+    <div class="mlb-steps">
+
+      <!-- 1 · Generate -->
+      <section class="mlb-step">
+        <h2>1 · Generate the file</h2>
+        <p>Run the Node generator to pull the MLB schedule from ESPN and write <code>mc/data/mlb.jsonl</code>. It never touches the database — that happens here, after you choose. Scope is required (a full season is ~2,400 games).</p>
+        <code class="mlb-code">node _dev/scripts/mlb_matchup_maker.js --team NYM
+node _dev/scripts/mlb_matchup_maker.js --start 2026-07-01 --end 2026-07-07
+node _dev/scripts/mlb_matchup_maker.js --start 2026-03-25 --end 2026-11-15   # full season</code>
+        <p><a class="mlb-btn mlb-btn--ghost" href="../_dev/scripts/mlb_matchup_maker.js">View mlb_matchup_maker.js →</a></p>
+      </section>
+
+      <!-- 2 · Load -->
+      <section class="mlb-step">
+        <h2>2 · Load mlb.jsonl</h2>
+        <p>Pick the <code>mlb.jsonl</code> file the generator wrote (it lives in <code>mc/data/</code>).</p>
+        <div class="mlb-row">
+          <input type="file" id="fileInput" accept=".jsonl,.json,.txt">
+          <span class="mlb-count" id="loadInfo"></span>
+        </div>
+      </section>
+
+      <!-- 3 · Preview + import -->
+      <section class="mlb-step mlb-hidden" id="previewStep">
+        <h2>3 · Preview &amp; select</h2>
+        <div class="mlb-controls">
+          <input type="search" class="mlb-filter" id="filterInput" placeholder="Filter by name / mascot / city / date…">
+          <button class="mlb-btn mlb-btn--ghost" id="selectAllBtn" type="button">Select all</button>
+          <button class="mlb-btn mlb-btn--ghost" id="selectNoneBtn" type="button">None</button>
+          <span class="mlb-count" id="selCount">0 selected</span>
+        </div>
+        <div class="mlb-list" id="list"></div>
+        <div class="mlb-controls">
+          <label class="mlb-opt"><input type="checkbox" id="liveToggle"> Import as live (clear "archived")</label>
+          <button class="mlb-btn" id="importBtn" type="button" disabled>Import selected to Supabase</button>
+        </div>
+        <div class="mlb-progress mlb-hidden" id="progressWrap"><span id="progressBar"></span></div>
+        <p class="mlb-status" id="status" aria-live="polite"></p>
+      </section>
+
+    </div>
+  </main>
+
+  <script src="js/admin-auth.js"></script>
+  <script src="js/admin-nav-menu.js"></script>
+  <script src="js/research-nav.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    var SB_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
+    var SB_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
+    var AUTH_KEY = 'tgb-photo-review-auth-session';
+    var BATCH = 50;
+
+    var games = [];           // parsed payloads
+    var checked = new Set();   // selected ids
+
+    var $ = function (id) { return document.getElementById(id); };
+    var fileInput = $('fileInput'), loadInfo = $('loadInfo'), previewStep = $('previewStep');
+    var listEl = $('list'), filterInput = $('filterInput'), selCount = $('selCount');
+    var importBtn = $('importBtn'), liveToggle = $('liveToggle'), statusEl = $('status');
+    var progressWrap = $('progressWrap'), progressBar = $('progressBar');
+
+    function sessionToken() {
+      try { var s = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); return s && s.access_token || ''; }
+      catch (e) { return ''; }
+    }
+    function setStatus(msg, kind) {
+      statusEl.textContent = msg || '';
+      statusEl.className = 'mlb-status' + (kind ? ' ' + kind : '');
+    }
+    function esc(s) { return String(s == null ? '' : s); }
+
+    function parseJsonl(text) {
+      var out = [], bad = 0;
+      String(text || '').split(/\r?\n/).forEach(function (line) {
+        var t = line.trim();
+        if (!t) return;
+        try {
+          var o = JSON.parse(t);
+          if (o && o.id && o.name) out.push(o); else bad++;
+        } catch (e) { bad++; }
+      });
+      return { games: out, bad: bad };
+    }
+
+    function matchup(g) {
+      var a = g.away_team_mascot || '?', h = g.home_team_mascot || '?';
+      return a + ' @ ' + h;
+    }
+
+    function render() {
+      var q = filterInput.value.trim().toLowerCase();
+      listEl.innerHTML = '';
+      var shown = 0;
+      games.forEach(function (g, idx) {
+        var hay = (g.name + ' ' + matchup(g) + ' ' + (g.city || '') + ' ' + (g.game_date || '')).toLowerCase();
+        if (q && hay.indexOf(q) === -1) return;
+        shown++;
+        var row = document.createElement('label');
+        row.className = 'mlb-item';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = checked.has(g.id);
+        cb.addEventListener('change', function () {
+          if (cb.checked) checked.add(g.id); else checked.delete(g.id);
+          updateSel();
+        });
+        var meta = document.createElement('div');
+        meta.innerHTML = '<div class="mlb-item-name">' + esc(g.name) + '</div>' +
+          '<div class="mlb-item-sub">' + esc(matchup(g)) + ' · ' + esc(g.city || '—') + '</div>';
+        var date = document.createElement('div');
+        date.className = 'mlb-item-date';
+        date.textContent = esc(g.game_date || '');
+        row.append(cb, meta, date);
+        listEl.appendChild(row);
+      });
+      if (!shown) listEl.innerHTML = '<div class="mlb-item"><span></span><div class="mlb-item-sub">No games match the filter.</div><span></span></div>';
+      updateSel();
+    }
+
+    function updateSel() {
+      selCount.textContent = checked.size + ' selected';
+      importBtn.disabled = checked.size === 0;
+    }
+
+    fileInput.addEventListener('change', function () {
+      var f = fileInput.files && fileInput.files[0];
+      if (!f) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var res = parseJsonl(reader.result);
+        games = res.games;
+        checked = new Set();
+        loadInfo.textContent = games.length + ' games loaded' + (res.bad ? ' · ' + res.bad + ' skipped (unparseable)' : '');
+        previewStep.classList.toggle('mlb-hidden', games.length === 0);
+        setStatus('');
+        render();
+      };
+      reader.readAsText(f);
+    });
+
+    filterInput.addEventListener('input', render);
+    $('selectAllBtn').addEventListener('click', function () {
+      // Select all currently-visible (filtered) rows.
+      var q = filterInput.value.trim().toLowerCase();
+      games.forEach(function (g) {
+        var hay = (g.name + ' ' + matchup(g) + ' ' + (g.city || '') + ' ' + (g.game_date || '')).toLowerCase();
+        if (!q || hay.indexOf(q) !== -1) checked.add(g.id);
+      });
+      render();
+    });
+    $('selectNoneBtn').addEventListener('click', function () { checked = new Set(); render(); });
+
+    importBtn.addEventListener('click', async function () {
+      var token = sessionToken();
+      if (!token) {
+        setStatus('Sign in as an admin first (open any /mc/ page and log in), then retry.', 'error');
+        return;
+      }
+      var selected = games.filter(function (g) { return checked.has(g.id); });
+      if (!selected.length) return;
+      var live = liveToggle.checked;
+      var rows = selected.map(function (g) {
+        return live ? Object.assign({}, g, { archived: null }) : g;
+      });
+
+      importBtn.disabled = true;
+      progressWrap.classList.remove('mlb-hidden');
+      progressBar.style.width = '0%';
+      setStatus('Importing ' + rows.length + ' game(s)…');
+
+      async function postRows(arr) {
+        try {
+          var res = await fetch(SB_URL + '/rest/v1/games', {
+            method: 'POST',
+            headers: {
+              apikey: SB_KEY,
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+              Prefer: 'resolution=ignore-duplicates,return=representation'
+            },
+            body: JSON.stringify(arr)
+          });
+          return { ok: res.ok, text: await res.text() };
+        } catch (e) {
+          return { ok: false, text: String(e && e.message || e) };
+        }
+      }
+      function friendly(text) {
+        try { var o = JSON.parse(text); return (o.message || o.error || text); }
+        catch (e) { return String(text).slice(0, 160); }
+      }
+      function countInserted(text) { try { return JSON.parse(text).length; } catch (e) { return 0; } }
+
+      var inserted = 0, skipped = 0, failed = 0, rowErrors = [], doneIds = [];
+      for (var i = 0; i < rows.length; i += BATCH) {
+        var batch = rows.slice(i, i + BATCH);
+        var r = await postRows(batch);
+        if (r.ok) {
+          var got = countInserted(r.text);
+          inserted += got;
+          skipped += batch.length - got;
+          batch.forEach(function (g) { doneIds.push(g.id); });
+        } else {
+          // One bad row fails the whole batch — retry row-by-row to salvage the
+          // rest and pinpoint exactly which games (and why) were rejected.
+          for (var k = 0; k < batch.length; k++) {
+            var one = batch[k];
+            var rr = await postRows([one]);
+            if (rr.ok) {
+              var g1 = countInserted(rr.text);
+              inserted += g1; skipped += 1 - g1; doneIds.push(one.id);
+            } else {
+              failed++;
+              rowErrors.push(one.id + ' — ' + friendly(rr.text));
+            }
+          }
+        }
+        progressBar.style.width = Math.round(Math.min(i + BATCH, rows.length) / rows.length * 100) + '%';
+      }
+
+      importBtn.disabled = false;
+      var parts = [inserted + ' inserted'];
+      if (skipped) parts.push(skipped + ' skipped (already in DB)');
+      if (failed) parts.push(failed + ' failed');
+      var detail = rowErrors.length
+        ? '\n' + rowErrors.slice(0, 25).join('\n') + (rowErrors.length > 25 ? '\n…and ' + (rowErrors.length - 25) + ' more' : '')
+        : '';
+      setStatus('Done — ' + parts.join(', ') + '.' + detail, failed ? 'error' : 'success');
+      // Un-check everything that succeeded; leave only failures selected to retry/fix.
+      doneIds.forEach(function (id) { checked.delete(id); });
+      render();
+    });
+  }());
+  </script>
+</body>
+</html>

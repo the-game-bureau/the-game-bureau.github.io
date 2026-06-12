@@ -5,9 +5,9 @@
  *   baseballSVG(primary, secondary, tertiary)        -> "data:image/svg+xml;..." (use as <img src>)
  *   baseballSVGString(primary, secondary, tertiary)  -> "<svg ...>...</svg>"     (inline, store, etc.)
  *
- *   primary   = ball color    (falls back to #FFFFFF)
- *   secondary = stitch color  (falls back to #C8102E — classic baseball red)
- *   tertiary  = outline color (falls back to #2F3740; if shell is also dark, swapped lighter so it stays visible)
+ *   primary   = left stitch color  (falls back to classic baseball red)
+ *   secondary = right stitch color (falls back to primary)
+ *   tertiary  = outline color      (falls back to #2F3740; light colors use the dark fallback)
  *
  * Works as:
  *   - Browser global: window.baseballSVG / window.baseballSVGString
@@ -23,40 +23,18 @@
     }
 }(typeof self !== 'undefined' ? self : this, function () {
 
-    // Strictly symmetrical 17×17 sprite centered inside a 400×400 viewBox.
-    //   . empty
-    //   O dark outline
-    //   S shell
-    //   K stitch
-    var HALF_ROWS = [
-        ['.......O', 'O'],
-        ['.....OOS', 'S'],
-        ['....OSSS', 'S'],
-        ['...OOSSS', 'S'],
-        ['..OKSSSS', 'S'],
-        ['.OSKSSSS', 'S'],
-        ['.OSSKSSS', 'S'],
-        ['.OSSKSSS', 'S'],
-        ['OOSSKSSS', 'S']
-    ];
-
-    function mirrorRow(left, center) {
-        return left + center + left.split('').reverse().join('');
-    }
-
-    var GRID = (function () {
-        var rows = [];
-        for (var i = 0; i < HALF_ROWS.length; i++) {
-            rows.push(mirrorRow(HALF_ROWS[i][0], HALF_ROWS[i][1]));
-        }
-        for (var j = HALF_ROWS.length - 2; j >= 0; j--) {
-            rows.push(rows[j]);
-        }
-        return rows;
-    }());
-
-    var CELL = 20;
-    var OFFSET = 30;
+    // A 21×21 grid keeps the ball visibly pixelated while reading round at the
+    // public site's primary 36px icon size.
+    var GRID_SIZE = 21;
+    var CENTER = 10;
+    var OUTER_RADIUS = 9.8;
+    var INNER_RADIUS = 8.55;
+    var SEAM_MAX_Y = 7;
+    var SEAM_BASE_OFFSET = 4.15;
+    var SEAM_CURVE = 0.24;
+    var SEAM_HALF_WIDTH = 1.45;
+    var CELL = 16;
+    var OFFSET = 32;
 
     function normalizeHex(hex, fallback) {
         var value = String(hex || fallback || '').trim();
@@ -107,24 +85,42 @@
         return rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114;
     }
 
+    function darkenForWhite(hex, fallback) {
+        var color = normalizeHex(hex, fallback);
+        if (colorBrightness(color) < 190) return color;
+        return mixColors(color, '#2f3740', 0.58);
+    }
+
+    function outlineForWhite(hex) {
+        var color = normalizeHex(hex, '#2F3740');
+        return colorBrightness(color) < 150 ? color : '#2f3740';
+    }
+
     function buildSVGString(primary, secondary, tertiary) {
-        var S = normalizeHex(primary, '#FFFFFF');
-        var K = normalizeHex(secondary, '#C8102E');
-        var O = normalizeHex(tertiary, '#2F3740');
+        var S = '#ffffff';
+        var K = darkenForWhite(primary, '#C8102E');
+        var A = darkenForWhite(secondary, K);
+        var O = outlineForWhite(tertiary);
 
-        if (O === S) O = (colorBrightness(S) < 128) ? '#d6dbe0' : '#2f3740';
-        if (K === S) K = mixColors('#C8102E', O, 0.08);
-
-        var palette = { O: O, S: S, K: K };
+        var palette = { O: O, S: S, K: K, A: A };
         var rects = '';
 
-        for (var row = 0; row < GRID.length; row++) {
-            var line = GRID[row];
-            for (var col = 0; col < line.length; col++) {
-                var ch = line.charAt(col);
-                if (!palette[ch]) continue;
+        for (var row = 0; row < GRID_SIZE; row++) {
+            for (var col = 0; col < GRID_SIZE; col++) {
+                var dx = col - CENTER;
+                var dy = row - CENTER;
+                var distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance > OUTER_RADIUS) continue;
+
+                var fill = distance > INNER_RADIUS ? O : S;
+                if (fill === S && Math.abs(dy) <= SEAM_MAX_Y) {
+                    var seamOffset = SEAM_BASE_OFFSET + SEAM_CURVE * Math.abs(dy);
+                    if (Math.abs(col - (CENTER - seamOffset)) <= SEAM_HALF_WIDTH) fill = K;
+                    if (Math.abs(col - (CENTER + seamOffset)) <= SEAM_HALF_WIDTH) fill = A;
+                }
+
                 rects += '<rect x="' + (OFFSET + col * CELL) + '" y="' + (OFFSET + row * CELL) +
-                         '" width="' + CELL + '" height="' + CELL + '" fill="' + palette[ch] + '"/>';
+                         '" width="' + CELL + '" height="' + CELL + '" fill="' + fill + '"/>';
             }
         }
 

@@ -25,6 +25,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Outfit:wght@500;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Team mark generators (helmet / basketball / baseball) for the FANDOM scroll. -->
+  <script src="/assets/games/helmets/helmet.js"></script>
+  <script src="/assets/games/helmets/basketball.js"></script>
+  <script src="/assets/games/helmets/baseball.js"></script>
 
   <style>
 
@@ -189,7 +193,8 @@
     .htp-subtitle:empty { display: none; }
 
     #missionGuideSection .htp-header,
-    #disclaimerSection .htp-header {
+    #disclaimerSection .htp-header,
+    #playFormatSection .htp-header {
       -webkit-text-stroke: 0.75px var(--secondary);
       paint-order: stroke fill;
     }
@@ -200,6 +205,490 @@
       background: var(--secondary);
       margin-top: 1.4rem;
       display: block;
+    }
+
+    /* ── FANDOM ── */
+    #fandomSection {
+      display: none;
+      background: #fff;
+      border: 2px solid var(--primary);
+      border-radius: 20px;
+      padding: var(--v) var(--pad);
+      color: #111;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+    .fandom-blurb {
+      font-size: var(--body-size);
+      line-height: 1.6;
+      color: #333;
+      padding-top: 1.3rem;
+    }
+    .fandom-scroll {
+      margin-top: 1.4rem;
+      max-height: 340px;
+      overflow-y: auto;
+      border: 3px solid #000;
+      border-radius: 4px;
+      box-shadow: 4px 4px 0 #000;
+      -webkit-overflow-scrolling: touch;
+    }
+    .fandom-row {
+      position: relative;
+      display: grid;
+      grid-template-columns: auto 40px minmax(0, 1fr);
+      align-items: center;
+      gap: 0.9rem;
+      padding: 0.65rem 0.95rem;
+      border-bottom: 1px solid rgba(0,0,0,0.12);
+      cursor: pointer;
+      user-select: none;
+    }
+    .fandom-row:last-child { border-bottom: 0; }
+    .fandom-row.is-checked { background: color-mix(in srgb, var(--primary) 14%, #fff); }
+    /* Shared brutalist toggle (.tgb-check is the hidden native checkbox kept for
+       state + accessibility; .tgb-toggle is the visible press-in control). Used
+       by the FANDOM rows and the disclaimer agree box. */
+    .tgb-check {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .tgb-toggle {
+      flex: 0 0 auto;
+      width: 30px;
+      height: 30px;
+      border: 3px solid #000;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 2px 2px 0 #000;
+      display: grid;
+      place-items: center;
+      transition: transform .12s ease, background-color .12s ease, box-shadow .12s ease;
+    }
+    .tgb-toggle::after {
+      content: "";
+      width: 7px;
+      height: 13px;
+      margin-top: -3px;
+      border: solid #fff;
+      border-width: 0 3px 3px 0;
+      transform: rotate(45deg) scale(0);
+      transition: transform .12s ease;
+    }
+    .tgb-check:checked + .tgb-toggle {
+      background: var(--secondary);
+      transform: translate(2px, 2px);
+      box-shadow: 0 0 0 #000;
+    }
+    .tgb-check:checked + .tgb-toggle::after { transform: rotate(45deg) scale(1); }
+    .tgb-check:focus-visible + .tgb-toggle {
+      outline: 3px solid var(--primary);
+      outline-offset: 2px;
+    }
+    .fandom-mark {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      display: block;
+    }
+    .fandom-name {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      line-height: 1.2;
+      color: #111;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .fandom-add-btn {
+      margin-top: 1.4rem;
+      width: 100%;
+      padding: 0.95rem 1rem;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #fff;
+      background: var(--secondary);
+      border: 3px solid #000;
+      border-radius: 4px;
+      box-shadow: 4px 4px 0 #000;
+      cursor: pointer;
+    }
+    .fandom-add-btn:active { box-shadow: 1px 1px 0 #000; transform: translate(3px, 3px); }
+    .fandom-add-btn.is-added { background: var(--primary); color: var(--secondary); }
+
+    /* ── EVENT ── */
+    #eventSection {
+      display: none;
+      position: relative;
+      overflow: hidden;
+      background: #fff;
+      border: 2px solid var(--primary);
+      border-radius: 20px;
+      aspect-ratio: 1 / 1;
+      padding: var(--v) var(--pad);
+      color: #111;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+    .event-card-label {
+      position: absolute;
+      top: 0.9rem;
+      left: 1rem;
+      z-index: 1;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.9rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+      color: var(--primary);
+      -webkit-text-stroke: 0.75px var(--secondary);
+      paint-order: stroke fill;
+      pointer-events: none;
+    }
+    .event-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .event-helmets {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 0.2rem;
+    }
+    .event-icon {
+      width: clamp(44px, 14vw, 64px);
+      height: clamp(44px, 14vw, 64px);
+      object-fit: contain;
+    }
+    .event-icon:not([src]) { display: none; }
+    /* Helmets face each other: away (left) faces right by default; home (right)
+       is flipped to face left. */
+    .event-icon--home { transform: scaleX(-1); }
+    .event-matchup {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.1rem;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.6rem, 7vw, 2.3rem);
+      line-height: 1.05;
+      color: var(--secondary);
+      text-transform: uppercase;
+    }
+    .event-vs {
+      font-size: 0.62em;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--primary);
+      opacity: 0.85;
+    }
+    .event-date {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: clamp(1rem, 4vw, 1.25rem);
+      letter-spacing: 0.02em;
+      color: #222;
+    }
+    .event-time {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: clamp(0.92rem, 3.6vw, 1.12rem);
+      letter-spacing: 0.02em;
+      color: var(--secondary);
+    }
+    .event-time:empty { display: none; }
+    .event-venue {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #666;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* ── PLAYERS / PLAY FORMAT ── */
+    #playFormatSection {
+      display: none;
+      position: relative;
+      aspect-ratio: 1 / 1;       /* chooser is square; invite view sizes to content */
+      overflow: hidden;
+      background: #fff;
+      border: 2px solid var(--primary);
+      border-radius: 20px;
+      padding: 1.4rem var(--pad);
+      color: #111;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+    #playFormatSection:has(#playInvite:not([hidden])) {
+      aspect-ratio: auto;
+      min-height: clamp(400px, calc(100vw - 3.5rem), 424px);
+    }
+    #playFormatSection .htp-divider { margin-top: 0.8rem; }
+    .format-blurb {
+      font-size: 1.15rem;
+      line-height: 1.5;
+      color: #333;
+      padding-top: 0.9rem;
+    }
+    .format-options {
+      margin-top: 1rem;
+      display: grid;
+      gap: 0.6rem;
+    }
+    .format-opt {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.1rem;
+      text-align: left;
+      padding: 0.65rem 0.9rem;
+      background: #fff;
+      color: #111;
+      border: 3px solid #000;
+      border-radius: 4px;
+      box-shadow: 4px 4px 0 #000;
+      cursor: pointer;
+      font-family: 'Outfit', sans-serif;
+      transition: transform .12s ease, background-color .12s ease, box-shadow .12s ease, color .12s ease;
+    }
+    .format-opt:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
+    .format-opt.is-selected {
+      background: var(--secondary);
+      color: #fff;
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0 #000;
+    }
+    .format-opt-title { font-weight: 700; font-size: 1.05rem; letter-spacing: 0.02em; }
+    .format-opt-sub { font-weight: 500; font-size: 0.8rem; opacity: 0.7; }
+    .format-opt.is-selected .format-opt-sub { opacity: 0.9; }
+
+    .join-note[hidden] { display: none; }
+    .join-note {
+      margin-top: 1.3rem;
+      padding: 0.95rem 1rem;
+      border: 3px solid #000;
+      border-radius: 4px;
+      box-shadow: 4px 4px 0 #000;
+      background: var(--primary);
+      color: var(--secondary);
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.05rem;
+      line-height: 1.4;
+    }
+
+    /* "START GAME" echoes the CTA button a little — primary fill, secondary
+       border — without being a full button. */
+    .start-game-chip {
+      display: inline-block;
+      padding: 0.02em 0.35em;
+      background: var(--primary);
+      color: #fff;
+      border: 1px solid var(--secondary);
+      border-radius: 5px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 0.82em;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    /* Solo confirmation reads as plain copy, not a boxed card. */
+    .join-note.join-note--plain {
+      border: 0;
+      box-shadow: none;
+      background: transparent;
+      padding: 0;
+      color: #333;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: var(--body-size);
+      line-height: 1.6;
+    }
+
+    /* Invite view (revealed after a mode is picked) */
+    #playInvite[hidden], #inviteQrWrap[hidden] { display: none; }
+    #playInvite {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .invite-back {
+      position: absolute;
+      top: 0.9rem;
+      right: 1rem;
+      z-index: 5;
+      width: 2.4rem;
+      height: 2.4rem;
+      padding: 0;
+      border-radius: 50%;
+      border: 2px solid var(--primary);
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      transition: transform 0.18s ease, opacity 0.18s ease;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .invite-back:active { transform: scale(0.92); opacity: 0.85; }
+    .invite-back[hidden] { display: none; }
+    .invite-back svg { width: 1.15rem; height: 1.15rem; display: block; }
+    .invite-qr-wrap {
+      width: 100%;
+      margin-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .invite-qr {
+      width: clamp(180px, 52vw, 220px);
+      height: clamp(180px, 52vw, 220px);
+      padding: 11px;
+      background: #fff;
+      border: 4px solid #000;
+      border-radius: 4px;
+      box-shadow: 5px 5px 0 #000;
+      line-height: 0;
+    }
+    .invite-qr canvas, .invite-qr img {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+    }
+    .invite-scan-label {
+      max-width: 18rem;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--secondary);
+      text-align: center;
+      line-height: 1.2;
+    }
+    .invite-share-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+      min-width: min(100%, 15rem);
+      padding: 0.7rem 1rem;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #fff;
+      background: var(--secondary);
+      border: 3px solid #000;
+      border-radius: 4px;
+      box-shadow: 3px 3px 0 #000;
+      cursor: pointer;
+    }
+    .invite-share-btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 #000; }
+    .invite-share-btn svg { width: 1.2rem; height: 1.2rem; }
+
+    .invite-mode-lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .invite-mode-lightbox.is-open { display: flex; }
+    .invite-mode-dialog {
+      position: relative;
+      width: min(100%, 390px);
+      padding: 2.4rem 1.5rem 1.5rem;
+      border: 4px solid #000;
+      border-radius: 4px;
+      background: #fff;
+      color: #111;
+      box-shadow: 10px 10px 0 var(--secondary), 16px 16px 0 #000;
+      text-align: center;
+    }
+    .invite-mode-close {
+      position: absolute;
+      top: 0.65rem;
+      right: 0.65rem;
+      width: 2.3rem;
+      height: 2.3rem;
+      border: 3px solid #000;
+      border-radius: 50%;
+      background: #fff;
+      color: #111;
+      font: 700 1rem/1 'Outfit', sans-serif;
+      cursor: pointer;
+    }
+    .invite-mode-kicker {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--secondary);
+    }
+    .invite-mode-title {
+      margin-top: 0.45rem;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(2.4rem, 11vw, 3.4rem);
+      line-height: 0.95;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--primary);
+    }
+    .invite-mode-copy {
+      margin: 1rem auto 0;
+      max-width: 19rem;
+      font-size: 1rem;
+      line-height: 1.5;
+      color: #333;
+    }
+    .invite-mode-continue {
+      margin-top: 1.25rem;
+      width: 100%;
+      padding: 0.8rem 1rem;
+      border: 3px solid #000;
+      border-radius: 4px;
+      background: var(--secondary);
+      color: #fff;
+      box-shadow: 4px 4px 0 #000;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .invite-mode-continue:active {
+      transform: translate(4px, 4px);
+      box-shadow: none;
     }
 
     /* ── MISSION GUIDE ── */
@@ -398,9 +887,6 @@
     #rendezvousSection #startCityLabel {
       z-index: 6;
     }
-    .start-place-btn {
-      font: inherit;
-    }
     .start-go-btn {
       position: absolute;
       top: 5rem;
@@ -467,49 +953,68 @@
     }
     .start-mode-btn {
       position: absolute;
-      bottom: 2.4rem;
-      left: 50%;
-      transform: translateX(-50%);
+      top: 0.9rem;
+      right: 1rem;
       z-index: 5;
-      display: inline-flex;
-      gap: 0.15rem;
-      padding: 0.2rem;
-      border-radius: 999px;
+      width: 2.4rem;
+      height: 2.4rem;
+      padding: 0;
+      border-radius: 50%;
       border: 2px solid var(--primary);
       background: rgba(255,255,255,0.92);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
-      cursor: pointer;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-      font-family: 'Outfit', sans-serif;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
       transition: opacity 0.22s ease, visibility 0s linear 0.22s;
     }
-    .start-mode-btn:active { transform: translateX(-50%) scale(0.96); }
-    .start-mode-opt {
-      padding: 0.3rem 0.7rem;
-      border-radius: 999px;
-      font-size: 0.7rem;
+    .start-mode-btn:active { transform: scale(0.92); opacity: 0.85; }
+    .start-mode-icon {
+      width: 1.2rem;
+      height: 1.2rem;
+      display: none;
+    }
+    .start-mode-btn[data-mode="driving"] .start-mode-icon--walk,
+    .start-mode-btn[data-mode="walking"] .start-mode-icon--drive {
+      display: block;
+    }
+    .start-mode-label {
+      position: absolute;
+      top: 3.6rem;
+      right: calc(1rem + 1.2rem);
+      transform: translateX(50%);
+      z-index: 6;
+      min-width: 2.4rem;
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(0.6rem, 2vw, 0.72rem);
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--primary);
-      transition: background 0.18s ease, color 0.18s ease;
+      -webkit-text-stroke: 0.6px var(--secondary);
+      paint-order: stroke fill;
+      text-align: center;
+      line-height: 1.2;
       pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.22s ease, visibility 0s linear 0.22s;
     }
-    .start-mode-btn[data-mode="driving"] .start-mode-opt[data-mode="driving"],
-    .start-mode-btn[data-mode="walking"] .start-mode-opt[data-mode="walking"] {
-      background: var(--primary);
-      color: #fff;
-    }
-    #rendezvousSection.is-revealed .start-mode-btn {
+    #rendezvousSection.is-revealed .start-mode-btn,
+    #rendezvousSection.is-revealed .start-mode-label {
       opacity: 1;
       visibility: visible;
-      pointer-events: auto;
       transition: opacity 0.22s ease, visibility 0s linear 0s;
     }
+    #rendezvousSection.is-revealed .start-mode-btn { pointer-events: auto; }
     .bottom-center-label {
       position: absolute;
       bottom: 0.9rem;
@@ -542,52 +1047,6 @@
       color: var(--primary);
       -webkit-text-stroke: 0.75px var(--secondary);
       paint-order: stroke fill;
-      pointer-events: none;
-    }
-    .start-place-btn {
-      position: absolute;
-      top: 0.9rem;
-      right: 1rem;
-      z-index: 5;
-      width: 2.4rem;
-      height: 2.4rem;
-      padding: 0;
-      border-radius: 50%;
-      border: 2px solid var(--primary);
-      background: rgba(255,255,255,0.92);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      color: var(--primary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-      transition: transform 0.18s ease, opacity 0.18s ease;
-      cursor: pointer;
-    }
-    .start-place-btn:active { transform: scale(0.92); opacity: 0.85; }
-    .start-place-btn svg {
-      width: 1.15rem;
-      height: 1.15rem;
-      display: block;
-    }
-    .start-btn-label {
-      position: absolute;
-      top: 3.6rem;
-      right: calc(1rem + 1.2rem);
-      transform: translateX(50%);
-      z-index: 6;
-      min-width: 2.4rem;
-      font-family: 'Outfit', sans-serif;
-      font-size: clamp(0.6rem, 2vw, 0.72rem);
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--primary);
-      -webkit-text-stroke: 0.6px var(--secondary);
-      paint-order: stroke fill;
-      text-align: center;
-      line-height: 1.2;
       pointer-events: none;
     }
 
@@ -974,6 +1433,7 @@
     }
 
     .disclaimer-check {
+      position: relative;
       display: flex;
       align-items: flex-start;
       gap: 0.75rem;
@@ -989,13 +1449,14 @@
       cursor: pointer;
       user-select: none;
     }
-
-    .disclaimer-check input {
-      flex: 0 0 auto;
-      width: 1.25rem;
-      height: 1.25rem;
-      margin-top: 0.05rem;
-      accent-color: var(--primary);
+    /* Native checkbox stays hidden (see .tgb-check); the .tgb-toggle is shown.
+       Specificity of `.disclaimer-check input` would otherwise re-show it. */
+    .disclaimer-check input.tgb-check {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
     }
 
     .play-btn.is-disabled,
@@ -1718,6 +2179,9 @@
     .hero,
     #gameTagline,
     #introSection,
+    #fandomSection,
+    #eventSection,
+    #playFormatSection,
     #missionGuideSection,
     #rendezvousSection,
     #invitePlayersSection,
@@ -1788,6 +2252,80 @@
       <p id="intro"></p>
     </section>
 
+    <!-- BLOCK: rendezvous -->
+    <section id="rendezvousSection" data-block="rendezvous">
+      <div id="startBgMap" class="start-bg-map"></div>
+      <iframe class="start-bg-map-frame" id="startBgMapFrame" title="Directions map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+      <svg class="start-x-marker" viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="pinShadow" x="-30%" y="-10%" width="160%" height="140%">
+            <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="rgba(0,0,0,0.35)"/>
+          </filter>
+        </defs>
+        <!-- pin body -->
+        <path d="M30 4 C14 4 4 16 4 28 C4 44 30 74 30 74 C30 74 56 44 56 28 C56 16 46 4 30 4 Z"
+              class="start-place-pin" filter="url(#pinShadow)"/>
+        <!-- inner dot -->
+        <circle cx="30" cy="28" r="10" fill="white" opacity="0.9"/>
+      </svg>
+      <div class="start-flip" id="startFlip">
+        <div class="start-flip-inner">
+          <div class="start-flip-face start-flip-front">
+            <p id="startBlurb" class="start-blurb"></p>
+          </div>
+        </div>
+      </div>
+      <div class="start-card-label">Rendezvous</div>
+      <button class="start-mode-btn" id="startModeBtn" type="button" aria-label="Switch travel mode" data-mode="driving">
+        <svg class="start-mode-icon start-mode-icon--drive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/>
+          <circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>
+        </svg>
+        <svg class="start-mode-icon start-mode-icon--walk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/>
+          <path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/>
+          <path d="M16 17h4"/><path d="M4 13h4"/>
+        </svg>
+      </button>
+      <div class="start-mode-label" id="startModeLabel">Walk</div>
+      <button class="start-go-btn" id="startGoBtn" type="button" aria-label="Open directions">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+        </svg>
+      </button>
+      <div class="start-go-label">Go</div>
+      <div id="startCityLabel" class="bottom-center-label"></div>
+
+    </section>
+
+    <!-- BLOCK: fandom (only rendered for fandom_game rows) -->
+    <section id="fandomSection" data-block="fandom">
+      <div class="htp-header">Fandom</div>
+      <span class="htp-divider"></span>
+      <p class="fandom-blurb">What other teams do you cheer for?</p>
+      <div class="fandom-scroll" id="fandomScroll"></div>
+      <button type="button" class="fandom-add-btn" id="fandomAddBtn">Add</button>
+    </section>
+
+    <!-- BLOCK: event (the real-world event the game is built around) -->
+    <section id="eventSection" data-block="event">
+      <div class="event-card-label">The Main Event</div>
+      <div class="event-content">
+        <div class="event-helmets">
+          <img id="eventAwayIcon" class="event-icon event-icon--away" alt="">
+          <img id="eventHomeIcon" class="event-icon event-icon--home" alt="">
+        </div>
+        <div class="event-matchup">
+          <span id="eventAway"></span>
+          <span class="event-vs">at</span>
+          <span id="eventHome"></span>
+        </div>
+        <div class="event-date" id="eventDate"></div>
+        <div class="event-time" id="eventTime"></div>
+        <div class="event-venue" id="eventVenue"></div>
+      </div>
+    </section>
+
     <!-- BLOCK: guide -->
     <section id="missionGuideSection" data-block="guide">
       <div class="htp-header">Your Guide</div>
@@ -1825,52 +2363,6 @@
       <div class="when-bottom-label" id="whenBottomLabel">Play Anytime</div>
     </section>
 
-    <!-- BLOCK: rendezvous -->
-    <section id="rendezvousSection" data-block="rendezvous">
-      <div id="startBgMap" class="start-bg-map"></div>
-      <iframe class="start-bg-map-frame" id="startBgMapFrame" title="Directions map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
-      <svg class="start-x-marker" viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <filter id="pinShadow" x="-30%" y="-10%" width="160%" height="140%">
-            <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="rgba(0,0,0,0.35)"/>
-          </filter>
-        </defs>
-        <!-- pin body -->
-        <path d="M30 4 C14 4 4 16 4 28 C4 44 30 74 30 74 C30 74 56 44 56 28 C56 16 46 4 30 4 Z"
-              class="start-place-pin" filter="url(#pinShadow)"/>
-        <!-- inner dot -->
-        <circle cx="30" cy="28" r="10" fill="white" opacity="0.9"/>
-      </svg>
-      <div class="start-flip" id="startFlip">
-        <div class="start-flip-inner">
-          <div class="start-flip-face start-flip-front">
-            <p id="startBlurb" class="start-blurb"></p>
-          </div>
-        </div>
-      </div>
-      <div class="start-card-label">Rendezvous</div>
-      <button class="start-mode-btn" id="startModeBtn" type="button" aria-label="Switch travel mode" data-mode="driving">
-        <span class="start-mode-opt" data-mode="driving">Drive</span>
-        <span class="start-mode-opt" data-mode="walking">Walk</span>
-      </button>
-      <button class="start-place-btn" id="startPlaceBtn" type="button" aria-label="Share starting location">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-          <polyline points="16 6 12 2 8 6"/>
-          <line x1="12" y1="2" x2="12" y2="15"/>
-        </svg>
-      </button>
-      <div class="start-btn-label">Share</div>
-      <button class="start-go-btn" id="startGoBtn" type="button" aria-label="Open directions">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="3 11 22 2 13 21 11 13 3 11"/>
-        </svg>
-      </button>
-      <div class="start-go-label">Go</div>
-      <div id="startCityLabel" class="bottom-center-label"></div>
-
-    </section>
-
     <!-- BLOCK: weather -->
     <section id="weatherCardSection" data-block="weather">
       <div class="weather-card-label">Weather</div>
@@ -1882,28 +2374,60 @@
       <div id="weatherCityLabel" class="weather-bottom-center-label"></div>
     </section>
 
-    <!-- BLOCK: invite-players -->
-    <section id="invitePlayersSection" data-block="invite-players">
-      <div id="shareBgMap" class="share-bg-map"></div>
-      <div class="share-qr-wrap">
-        <div id="shareQrContainer" class="share-qr-container"></div>
+    <!-- BLOCK: play mode (mode chooser + invite, combined) -->
+    <section id="playFormatSection" data-block="players">
+      <div class="htp-header" id="playModeHeader">Play Mode</div>
+      <span class="htp-divider"></span>
+
+      <!-- View A: choose how you're playing -->
+      <div id="playChooser">
+        <p class="format-blurb" id="formatBlurb">How are you playing?</p>
+        <div class="format-options" id="formatOptions" role="radiogroup" aria-label="Play format">
+          <button type="button" class="format-opt" data-format="solo" role="radio" aria-checked="false">
+            <span class="format-opt-title">Solo</span>
+            <span class="format-opt-sub">Just me</span>
+          </button>
+          <button type="button" class="format-opt" data-format="coop" role="radio" aria-checked="false">
+            <span class="format-opt-title">One Team</span>
+            <span class="format-opt-sub">Play with friends as one team</span>
+          </button>
+          <button type="button" class="format-opt" data-format="versus" role="radio" aria-checked="false">
+            <span class="format-opt-title">Opposing Teams</span>
+            <span class="format-opt-sub">Go head-to-head</span>
+          </button>
+        </div>
       </div>
-      <div class="share-card-label">Invite Players</div>
-      <div class="share-btn-label">More<br>Invite<br>Options</div>
-      <button class="share-options-btn" id="shareBtn" aria-label="Share">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-          <polyline points="16 6 12 2 8 6"/>
-          <line x1="12" y1="2" x2="12" y2="15"/>
-        </svg>
-      </button>
-      <div id="shareCityLabel" class="share-bottom-center-label">Hold up your phone for players to scan</div>
+
+      <!-- View B: invite (revealed once a mode is chosen) -->
+      <div id="playInvite" hidden>
+        <button type="button" class="invite-back" id="inviteBack" aria-label="Change mode" title="Change mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+        </button>
+
+        <div class="invite-qr-wrap" id="inviteQrWrap" hidden>
+          <div id="shareQrContainer" class="invite-qr"></div>
+          <div id="shareCityLabel" class="invite-scan-label">Scan to join</div>
+          <button type="button" class="invite-share-btn" id="shareBtn" aria-label="Or invite by text">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a4 4 0 0 1-4 4H8l-5 3v-7a4 4 0 0 1-1-2.6V7a4 4 0 0 1 4-4h11a4 4 0 0 1 4 4z"/>
+              <circle cx="8" cy="11" r="0.6" fill="currentColor" stroke="none"/>
+              <circle cx="12" cy="11" r="0.6" fill="currentColor" stroke="none"/>
+              <circle cx="16" cy="11" r="0.6" fill="currentColor" stroke="none"/>
+            </svg>
+            <span>Or invite by text</span>
+          </button>
+        </div>
+
+        <div class="join-note" id="joinerNote" hidden></div>
+      </div>
     </section>
 
     <!-- BLOCK: gift-shop -->
     <section id="giftShopSection" data-block="gift-shop">
       <div class="gift-shop-card-label">Gift Shop</div>
-      <a class="gift-shop-link" id="giftShopLink" href="../../gifts/" target="_blank" rel="noopener" aria-label="View shop">
+      <a class="gift-shop-link" id="giftShopLink" href="../../gifts/" target="_blank" rel="noopener" aria-label="View full gift shop">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="8" width="18" height="4" rx="1"/>
           <path d="M12 8v13"/>
@@ -1911,7 +2435,7 @@
           <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/>
         </svg>
       </a>
-      <div class="gift-shop-link-label">View<br>Shop</div>
+      <div class="gift-shop-link-label">Full<br>Shop</div>
       <button class="gift-shop-nav gift-shop-nav--prev" id="giftShopPrevBtn" type="button" aria-label="Previous gift shop item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polyline points="15 18 9 12 15 6"></polyline>
@@ -1967,7 +2491,8 @@
         <p>By continuing, you agree to play responsibly, keep your group safe, respect the city and the people around you, and accept that winning or finishing the game is never more important than safety.</p>
       </div>
       <label class="disclaimer-check" for="disclaimerAccept">
-        <input id="disclaimerAccept" type="checkbox">
+        <input id="disclaimerAccept" type="checkbox" class="tgb-check">
+        <span class="tgb-toggle" aria-hidden="true"></span>
         <span>I understand and agree. I will stay aware of my surroundings and play safely.</span>
       </label>
     </section>
@@ -1983,6 +2508,16 @@
       <button id="directionsLightboxClose" class="directions-lightbox-close" type="button" aria-label="Close directions">✕</button>
     </div>
     <iframe id="directionsLightboxFrame" class="directions-lightbox-frame" title="Directions" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+  </div>
+
+  <div id="inviteModeLightbox" class="invite-mode-lightbox" role="dialog" aria-modal="true" aria-labelledby="inviteModeTitle" aria-describedby="inviteModeCopy" aria-hidden="true">
+    <div class="invite-mode-dialog">
+      <button id="inviteModeClose" class="invite-mode-close" type="button" aria-label="Close invite message">✕</button>
+      <div class="invite-mode-kicker">You're Invited</div>
+      <h2 id="inviteModeTitle" class="invite-mode-title"></h2>
+      <p id="inviteModeCopy" class="invite-mode-copy"></p>
+      <button id="inviteModeContinue" class="invite-mode-continue" type="button">Continue to Game</button>
+    </div>
   </div>
 
   <div id="ctaBar">
@@ -2044,6 +2579,24 @@
       syncDisclaimerGate();
     }
 
+    // ── Start URL builder ─────────────────────────────────────────────────
+    // The engine Start URL has several optional contributors: the FANDOM
+    // `teams=` list and the multiplayer `session=` param. Each writes
+    // into startExtras then calls rebuildStartUrl() so they never clobber one
+    // another's params.
+    let startBaseUrl = '';
+    const startExtras = { teams: '', session: '' };
+    function rebuildStartUrl() {
+      if (!startBaseUrl || !startBtn) return;
+      let u;
+      try { u = new URL(startBaseUrl, window.location.href); } catch (_) { return; }
+      ['teams', 'session'].forEach((k) => {
+        if (startExtras[k]) u.searchParams.set(k, startExtras[k]);
+        else u.searchParams.delete(k);
+      });
+      startBtn.href = u.toString();
+    }
+
     function renderNotFound() {
       document.body.innerHTML = '';
       document.body.style.cssText = 'background:#000;margin:0;padding:1.5rem;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:1.5rem;';
@@ -2076,6 +2629,510 @@
 
     function isPublicGameRecord(game) {
       return !!game && !isTrueish(game.archived);
+    }
+
+    // A game opts into the FANDOM block via the boolean `fandom_game` column.
+    // Falls back to the legacy away-team shape for rows predating the migration,
+    // mirroring isFandomGame() on the public games directory.
+    function isFandomGame(game) {
+      if (!game || typeof game !== 'object') return false;
+      if (Object.prototype.hasOwnProperty.call(game, 'fandom_game')) {
+        return isTrueish(game.fandom_game);
+      }
+      const city = String(game.away_team_city || '').trim();
+      const mascot = String(game.away_team_mascot || '').trim();
+      return !!(city && mascot);
+    }
+
+    // ── FANDOM team scroll ──────────────────────────────────────────────────
+    // The Supabase `teams` table is the canonical team list (seeded from
+    // mc/data/teams.json). Palette is stored as shell/stripe/mask and maps onto
+    // the primary/secondary/tertiary args the mark generators expect.
+    const FANDOM_TEAMS_REST_URL = SB_CONFIG.url + '/rest/v1/teams'
+      + '?select=league,code,fanbase,mascot,sport,shell,stripe,mask'
+      + '&order=league_sort.asc&order=team_sort.asc';
+
+    // Pixel music-note mark (clubs/festivals with no helmet), ported from the
+    // public games directory so non-sport fandoms still get an icon.
+    function fandomMusicSVG() {
+      const ink = '#181818';
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">'
+        + '<rect width="64" height="64" fill="none"/>'
+        + '<g fill="' + ink + '">'
+        + '<g transform="rotate(-7 15 28)">'
+        + '<rect x="11" y="10" width="4" height="25"/><rect x="14" y="13" width="13" height="4"/>'
+        + '<rect x="24" y="17" width="4" height="8"/><rect x="28" y="22" width="5" height="4"/>'
+        + '<rect x="3" y="33" width="16" height="9"/><rect x="7" y="30" width="12" height="15"/>'
+        + '<rect x="10" y="44" width="10" height="4"/>'
+        + '</g>'
+        + '<g transform="rotate(-6 43 48)">'
+        + '<rect x="29" y="33" width="28" height="5"/><rect x="31" y="41" width="25" height="5"/>'
+        + '<rect x="33" y="45" width="5" height="11"/><rect x="53" y="44" width="5" height="11"/>'
+        + '<rect x="24" y="53" width="16" height="9"/><rect x="28" y="50" width="12" height="14"/>'
+        + '<rect x="46" y="52" width="16" height="9"/><rect x="50" y="49" width="12" height="14"/>'
+        + '</g>'
+        + '</g>'
+        + '</svg>';
+      return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+    }
+
+    // Dispatch to the right mark generator for a team's sport. Falls back to the
+    // football helmet so anything untagged still renders.
+    function fandomMarkSVG(sport, primary, secondary, tertiary) {
+      switch (String(sport || '').trim().toLowerCase()) {
+        case 'music':
+          return fandomMusicSVG();
+        case 'basketball':
+          if (typeof window.basketballSVG === 'function') return window.basketballSVG(primary, secondary, tertiary);
+          break;
+        case 'baseball':
+          if (typeof window.baseballSVG === 'function') return window.baseballSVG(primary, secondary, tertiary);
+          break;
+      }
+      return typeof window.helmetSVG === 'function' ? window.helmetSVG(primary, secondary, tertiary) : null;
+    }
+
+    async function fetchFandomTeams() {
+      const res = await fetch(FANDOM_TEAMS_REST_URL, {
+        headers: {
+          apikey: SB_CONFIG.key,
+          Authorization: 'Bearer ' + SB_CONFIG.key,
+          Accept: 'application/json'
+        },
+        cache: 'no-store'
+      });
+      if (!res.ok) throw new Error('teams ' + res.status);
+      return res.json();
+    }
+
+    // Renders the FANDOM scroll for a fandom_game row. Checking teams and
+    // pressing Add writes the chosen codes into startExtras.teams (folded into
+    // the Start href as `teams=CODE,CODE` by rebuildStartUrl).
+    async function renderFandomBlock(game) {
+      if (!isFandomGame(game)) return;
+      const section = document.getElementById('fandomSection');
+      const scroll  = document.getElementById('fandomScroll');
+      const addBtn  = document.getElementById('fandomAddBtn');
+      if (!section || !scroll || !addBtn) return;
+
+      let teams = [];
+      try {
+        teams = await fetchFandomTeams();
+      } catch (err) {
+        console.warn('FANDOM teams fetch failed:', err);
+        return; // No teams → nothing to offer, so leave the block hidden.
+      }
+      teams = (teams || []).filter((t) => t && t.code && (t.fanbase || t.mascot));
+      if (!teams.length) return;
+
+      const frag = document.createDocumentFragment();
+      teams.forEach((team) => {
+        const code = String(team.code).trim();
+        const fanbase = String(team.fanbase || '').trim();
+        const mascot = String(team.mascot || '').trim();
+        const markSrc = fandomMarkSVG(team.sport, team.shell || '#c8c4ba', team.stripe || '#8a8680', team.mask || '#ffffff');
+
+        const row = document.createElement('label');
+        row.className = 'fandom-row';
+
+        const check = document.createElement('input');
+        check.type = 'checkbox';
+        check.className = 'fandom-check tgb-check';
+        check.value = code;
+        check.dataset.code = code;
+        // Mascot is kept in the a11y label (teams that share a city — NY
+        // Yankees/Mets — are otherwise indistinguishable without it), but it is
+        // never shown visually.
+        check.setAttribute('aria-label', (fanbase + ' ' + mascot).trim() || code);
+
+        const toggle = document.createElement('span');
+        toggle.className = 'tgb-toggle';
+        toggle.setAttribute('aria-hidden', 'true');
+
+        const mark = document.createElement('img');
+        mark.className = 'fandom-mark';
+        mark.alt = '';
+        mark.loading = 'lazy';
+        if (markSrc) mark.src = markSrc;
+
+        const name = document.createElement('div');
+        name.className = 'fandom-name';
+        name.textContent = fanbase || code;
+
+        check.addEventListener('change', () => {
+          row.classList.toggle('is-checked', check.checked);
+          // Editing the selection invalidates a prior "Added ✓" confirmation.
+          addBtn.classList.remove('is-added');
+          addBtn.textContent = 'Add';
+        });
+
+        row.appendChild(check);
+        row.appendChild(toggle);
+        row.appendChild(mark);
+        row.appendChild(name);
+        frag.appendChild(row);
+      });
+      scroll.innerHTML = '';
+      scroll.appendChild(frag);
+
+      addBtn.addEventListener('click', () => {
+        const codes = Array.from(scroll.querySelectorAll('.fandom-check:checked'))
+          .map((c) => c.dataset.code)
+          .filter(Boolean);
+        startExtras.teams = codes.join(',');
+        rebuildStartUrl();
+        addBtn.classList.add('is-added');
+        addBtn.textContent = codes.length
+          ? (codes.length === 1 ? 'Added 1 team ✓' : 'Added ' + codes.length + ' teams ✓')
+          : 'Cleared';
+      });
+
+      section.style.display = 'block';
+    }
+
+    // Looks up a team's palette/sport/timezone in the teams table by mascot +
+    // city. Returns null on miss. Used for the EVENT card's helmet + start time.
+    // select=* so a (possibly not-yet-migrated) `timezone` column never errors.
+    async function fetchTeamPalette(mascot, city) {
+      const m = String(mascot || '').trim();
+      if (!m) return null;
+      try {
+        const u = new URL(SB_CONFIG.url.replace(/\/+$/, '') + '/rest/v1/teams');
+        u.searchParams.set('select', '*');
+        u.searchParams.set('mascot', 'ilike.' + m);
+        const res = await fetch(u.toString(), {
+          headers: { apikey: SB_CONFIG.key, Authorization: 'Bearer ' + SB_CONFIG.key, Accept: 'application/json' },
+          cache: 'no-store'
+        });
+        if (!res.ok) return null;
+        const rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) return null;
+        if (rows.length === 1) return rows[0];
+        // Disambiguate teams sharing a mascot by matching the city.
+        const cityKey = String(city || '').split(',')[0].trim().toLowerCase();
+        const hit = rows.find((r) => {
+          const fields = [r.fanbase, r.game_city, r.venue_city].map((v) => String(v || '').toLowerCase());
+          return cityKey && fields.some((f) => f.includes(cityKey));
+        });
+        return hit || rows[0];
+      } catch (_) { return null; }
+    }
+
+    // All game start_times are stored in CENTRAL time (America/Chicago) — the
+    // matchup-maker scripts normalize every kickoff to Central before writing.
+    // The card interprets start_time in Central and renders it in the player's
+    // own device clock. A per-game `timezone` column can override the source.
+    const EVENT_SOURCE_TZ = 'America/Chicago';
+
+    // Offset (ms) of a tz at a given instant: localTime(tz) − utc.
+    function tzOffsetMs(date, tz) {
+      const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz, hour12: false,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+      const p = dtf.formatToParts(date).reduce((a, x) => { a[x.type] = x.value; return a; }, {});
+      const hh = p.hour === '24' ? 0 : Number(p.hour);
+      const asUTC = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), hh, Number(p.minute), Number(p.second));
+      return asUTC - date.getTime();
+    }
+
+    // A wall-clock time in `tz` → the absolute Date (UTC instant).
+    function zonedTimeToDate(y, mo, d, h, mi, tz) {
+      const guess = Date.UTC(y, mo - 1, d, h, mi, 0);
+      const off = tzOffsetMs(new Date(guess), tz);
+      return new Date(guess - off);
+    }
+
+    // The Central-time start time rendered in the player's own device clock,
+    // e.g. "1:00 PM CST". Returns '' if the date/time can't be parsed.
+    function eventLocalTime(game) {
+      const dm = String(game.game_date || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+      const tm = String(game.start_time || '').trim().match(/^(\d{1,2}):(\d{2})/);
+      if (!dm || !tm) return '';
+      const tz = String(game.timezone || '').trim() || EVENT_SOURCE_TZ;
+      const instant = zonedTimeToDate(Number(dm[1]), Number(dm[2]), Number(dm[3]), Number(tm[1]), Number(tm[2]), tz);
+      if (isNaN(instant.getTime())) return '';
+      // Default timeZone (omitted) = the player's device zone.
+      return new Intl.DateTimeFormat(undefined, {
+        hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
+      }).format(instant);
+    }
+
+    // Renders the EVENT square — the real-world event the game is built around.
+    // Shows the matchup by CITY (never mascots), the date, the venue city, and
+    // the HOME team's helmet/ball (facing left, via CSS). Hidden unless the row
+    // carries both away + home cities.
+    async function renderEventBlock(game, primaryColor, secondaryColor) {
+      const section = document.getElementById('eventSection');
+      if (!section || !game) return;
+      const cityShort = (raw) => String(raw || '').split(',')[0].trim();
+      const away = cityShort(game.away_team_city);
+      const home = cityShort(game.home_team_city);
+      if (!away || !home) return;   // no matchup → leave hidden
+
+      const awayEl     = document.getElementById('eventAway');
+      const homeEl     = document.getElementById('eventHome');
+      const dateEl     = document.getElementById('eventDate');
+      const timeEl     = document.getElementById('eventTime');
+      const venueEl    = document.getElementById('eventVenue');
+      const awayIconEl = document.getElementById('eventAwayIcon');
+      const homeIconEl = document.getElementById('eventHomeIcon');
+      if (awayEl) awayEl.textContent = away;
+      if (homeEl) homeEl.textContent = home;
+
+      // Date — parse YYYY-MM-DD as a local date to avoid TZ drift.
+      if (dateEl) {
+        const m = String(game.game_date || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+        let label = '';
+        if (m) {
+          const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+          if (!isNaN(d.getTime())) {
+            label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+          }
+        }
+        dateEl.textContent = label;
+        dateEl.style.display = label ? '' : 'none';
+      }
+
+      // Time — venue-local start time converted to the player's device clock.
+      // start_time is Central; render it in the player's device clock.
+      if (timeEl) {
+        const localTime = eventLocalTime(game);
+        timeEl.textContent = localTime;
+        timeEl.style.display = localTime ? '' : 'none';
+      }
+
+      // Venue — full home city ("Minneapolis, Minnesota").
+      if (venueEl) {
+        const venue = String(game.home_team_city || '').trim();
+        venueEl.textContent = venue;
+        venueEl.style.display = venue ? '' : 'none';
+      }
+
+      section.style.display = 'flex';
+
+      // Away + home helmets/balls in each team's colors (falls back to the
+      // game's colors + a helmet). Rendered after the card is shown so the
+      // async palette lookups never block the matchup/date.
+      const paintHelmet = (el, palette) => {
+        if (!el) return;
+        const shell  = (palette && palette.shell)  || primaryColor   || '#33e6e6';
+        const stripe = (palette && palette.stripe) || secondaryColor || '#243256';
+        const mask   = (palette && palette.mask)   || '#ffffff';
+        const sport  = (palette && palette.sport)  || game.category_icon;
+        const mark = fandomMarkSVG(sport, shell, stripe, mask);
+        if (mark) {
+          el.onerror = () => { el.removeAttribute('src'); };
+          el.src = mark;
+        } else {
+          el.removeAttribute('src');
+        }
+      };
+      const [awayPal, homePal] = await Promise.all([
+        fetchTeamPalette(game.away_team_mascot, game.away_team_city),
+        fetchTeamPalette(game.home_team_mascot, game.home_team_city)
+      ]);
+      paintHelmet(awayIconEl, awayPal);
+      paintHelmet(homeIconEl, homePal);
+    }
+
+    // ── Players / format (link-based multiplayer — phase 1) ──────────────────
+    // Host picks a format (solo / co-op / versus). Co-op + versus arm an
+    // invite link carrying a shared session id.
+    const INVITE_MODE_DETAILS = {
+      coop: {
+        title: 'One Team Mode',
+        inviteText: (gameName) => `Join my team for ${gameName}.`,
+        recipientCopy: (gameName) => `You’ve been invited to play ${gameName} together on one team.`
+      },
+      versus: {
+        title: 'Opposing Teams Mode',
+        inviteText: (gameName) => `Captain the opposing team for ${gameName}.`,
+        recipientCopy: (gameName) => `You’ve been invited to captain an opposing team in ${gameName}.`
+      }
+    };
+    function getInviteModeDetails(mode) {
+      return INVITE_MODE_DETAILS[String(mode || '').trim().toLowerCase()] || null;
+    }
+    function showInviteModeLightbox(mode, gameName) {
+      const details = getInviteModeDetails(mode);
+      const root = document.getElementById('inviteModeLightbox');
+      const title = document.getElementById('inviteModeTitle');
+      const copy = document.getElementById('inviteModeCopy');
+      const closeBtn = document.getElementById('inviteModeClose');
+      const continueBtn = document.getElementById('inviteModeContinue');
+      if (!details || !root || !title || !copy) return;
+
+      const close = () => {
+        root.classList.remove('is-open');
+        root.setAttribute('aria-hidden', 'true');
+      };
+      title.textContent = details.title;
+      copy.textContent = details.recipientCopy(gameName || 'this game');
+      root.classList.add('is-open');
+      root.setAttribute('aria-hidden', 'false');
+
+      if (!root.dataset.bound) {
+        root.dataset.bound = 'true';
+        root.addEventListener('click', (event) => {
+          if (event.target === root) close();
+        });
+        closeBtn?.addEventListener('click', close);
+        continueBtn?.addEventListener('click', close);
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && root.classList.contains('is-open')) close();
+        });
+      }
+      requestAnimationFrame(() => continueBtn?.focus());
+    }
+    function mpShortId() {
+      try {
+        if (window.crypto && typeof crypto.randomUUID === 'function') {
+          return crypto.randomUUID().replace(/-/g, '').slice(0, 10);
+        }
+      } catch (_) {}
+      return Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 6);
+    }
+    const mp = (function () {
+      const session = String(urlParams.get('session') || '').trim();
+      const inviteMode = getInviteModeDetails(urlParams.get('mode'))
+        ? String(urlParams.get('mode')).trim().toLowerCase()
+        : '';
+      const isJoiner = !!session;
+      return {
+        isJoiner,
+        sessionId: session || mpShortId(),
+        inviteMode,
+        format: inviteMode || 'solo'
+      };
+    })();
+
+    // Clears and (re)draws the invite QR for an arbitrary link.
+    function setInviteQr(text) {
+      const c = document.getElementById('shareQrContainer');
+      if (!c) return;
+      c.style.display = '';
+      c.innerHTML = '';
+      try {
+        new QRCode(c, {
+          text: text, width: 320, height: 320,
+          colorDark: '#000000', colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } catch (e) { c.style.display = 'none'; }
+    }
+
+    // Renders the combined Players block: a mode chooser (view A) that, once a
+    // mode is picked, reveals the matching invite view (view B) with the right
+    // QR + a Back button. `landingUrl` is the shareable landing link for this
+    // game (id + engine); join links extend it with a session so scanners
+    // land here, then Start.
+    function initPlayersBlock(game, landingUrl) {
+      const section    = document.getElementById('playFormatSection');
+      const chooserEl  = document.getElementById('playChooser');
+      const inviteEl   = document.getElementById('playInvite');
+      const optionsEl  = document.getElementById('formatOptions');
+      const backBtn    = document.getElementById('inviteBack');
+      const headerEl   = document.getElementById('playModeHeader');
+      const qrWrap     = document.getElementById('inviteQrWrap');
+      const joinerNote = document.getElementById('joinerNote');
+      const scanLabel  = document.getElementById('shareCityLabel');
+      if (!section || !optionsEl || !inviteEl || !chooserEl) return;
+
+      const MODE_TITLES = { solo: 'Solo Mode', coop: 'One Team Mode', versus: 'Opposing Teams Mode' };
+      const inviteGameName = String(game && game.name || 'this game').trim() || 'this game';
+
+      function buildJoinUrl() {
+        let u;
+        try { u = new URL(landingUrl, window.location.href); } catch (_) { return landingUrl; }
+        if (mp.sessionId) u.searchParams.set('session', mp.sessionId);
+        if (getInviteModeDetails(mp.format)) u.searchParams.set('mode', mp.format);
+        return u.toString();
+      }
+
+      // Draw the QR + scan label for a team-join link. The share button reads
+      // window.__tgbInviteUrl.
+      function armTeamInvite(label) {
+        const link = buildJoinUrl();
+        window.__tgbInviteUrl = link;
+        const details = getInviteModeDetails(mp.format);
+        window.__tgbInviteText = details ? details.inviteText(inviteGameName) : '';
+        setInviteQr(link);
+        if (scanLabel) scanLabel.textContent = label || 'Hold up your phone for teammates to scan';
+      }
+
+      // View A — the mode chooser.
+      function showChooser() {
+        inviteEl.hidden = true;
+        chooserEl.hidden = false;
+        if (headerEl) headerEl.textContent = 'Play Mode';
+        mp.format = 'solo';
+        window.__tgbInviteUrl = '';
+        window.__tgbInviteText = '';
+        startExtras.session = '';
+        rebuildStartUrl();
+        optionsEl.querySelectorAll('.format-opt').forEach((btn) => {
+          btn.classList.remove('is-selected');
+          btn.setAttribute('aria-checked', 'false');
+        });
+      }
+
+      // View B — invite, configured per chosen mode.
+      function showInvite(fmt) {
+        mp.format = fmt;
+        chooserEl.hidden = true;
+        inviteEl.hidden = false;
+        if (backBtn) backBtn.hidden = false;
+        if (headerEl) headerEl.textContent = MODE_TITLES[fmt] || 'Play Mode';
+
+        if (fmt === 'solo') {
+          startExtras.session = '';
+          if (qrWrap) qrWrap.hidden = true;
+          if (joinerNote) {
+            joinerNote.hidden = false;
+            joinerNote.classList.add('join-note--plain');   // plain text, no box for solo
+            joinerNote.innerHTML = 'Just you? Cool. Tap <span class="start-game-chip">START GAME</span> below when you’re ready.';
+          }
+        } else {
+          startExtras.session = mp.sessionId;
+          if (joinerNote) joinerNote.hidden = true;
+          if (qrWrap) qrWrap.hidden = false;
+          armTeamInvite(fmt === 'versus' ? 'Hold up your phone for opposing captain to scan' : '');
+        }
+        rebuildStartUrl();
+      }
+
+      optionsEl.querySelectorAll('.format-opt').forEach((btn) => {
+        btn.addEventListener('click', () => showInvite(btn.dataset.format));
+      });
+      if (backBtn) backBtn.addEventListener('click', showChooser);
+
+      if (mp.isJoiner) {
+        // Scanned a join link: enter the existing session. Skip the chooser
+        // entirely, show the invite view, and let them Start or invite others.
+        chooserEl.hidden = true;
+        inviteEl.hidden = false;
+        if (backBtn) backBtn.hidden = true;
+        if (headerEl) headerEl.textContent = getInviteModeDetails(mp.inviteMode)?.title || "You're In";
+        if (qrWrap) qrWrap.hidden = false;
+        if (joinerNote) {
+          joinerNote.hidden = false;
+          joinerNote.classList.remove('join-note--plain');
+          joinerNote.textContent = "You're in. Tap Start to join — or share the code to invite more players.";
+        }
+        mp.format = mp.inviteMode || 'coop';
+        startExtras.session = mp.sessionId;
+        rebuildStartUrl();
+        armTeamInvite();
+        section.style.display = 'block';
+        showInviteModeLightbox(mp.inviteMode, inviteGameName);
+        return;
+      }
+
+      // Host: start on the chooser.
+      showChooser();
+      section.style.display = 'block';
     }
 
     // --- Google Plus Codes (Open Location Code) -----------------------------
@@ -3183,29 +4240,34 @@ const WEATHER_CODE_MAP = {
       const section = document.getElementById('giftShopSection');
       const carousel = document.getElementById('giftShopCarousel');
       const shopLink = document.getElementById('giftShopLink');
+      const fallbackLink = document.getElementById('giftShopSquareSection');
       const prevBtn = document.getElementById('giftShopPrevBtn');
       const nextBtn = document.getElementById('giftShopNextBtn');
       if (!section || !carousel || !id) return;
 
-      // Gift shop hidden while Stripe + Printful integration is being finalized.
-      // Remove this block to bring the in-game gift shop widget back.
+      const shopUrl = '../../gifts/?id=' + encodeURIComponent(id);
+      if (shopLink) shopLink.href = shopUrl;
+      if (fallbackLink) fallbackLink.href = shopUrl;
+
       section.style.display = 'none';
       section.removeAttribute('data-has-multiple');
       carousel.innerHTML = '';
-      return;
-
-      if (shopLink) shopLink.href = '../../gifts/';
 
       try {
         const listings = await fetchGiftShopListingsForGame(id);
         const cards = listings
           .map((listing) => listing && listing.gift_shop_items)
-          .filter((item) => item && !item.archived)
+          .filter((item) => {
+            if (!item || !String(item.certified_at || '').trim()) return false;
+            const archived = String(item.archived == null ? '' : item.archived).trim().toUpperCase();
+            return item.archived !== true && archived !== 'YES' && archived !== 'TRUE';
+          })
           .map(createGiftShopCarouselItem)
           .filter(Boolean);
 
         if (!cards.length) return;
         cards.forEach((card) => carousel.appendChild(card));
+        if (fallbackLink) fallbackLink.style.display = 'none';
         section.dataset.hasMultiple = cards.length > 1 ? 'true' : 'false';
         const updateCarouselButtons = () => {
           const maxLeft = Math.max(0, carousel.scrollWidth - carousel.clientWidth - 2);
@@ -3242,6 +4304,32 @@ const WEATHER_CODE_MAP = {
         window.addEventListener('resize', updateCarouselButtons);
         section.style.display = 'block';
         requestAnimationFrame(updateCarouselButtons);
+
+        if (cards.length > 1 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          let autoScrollTimer = null;
+          const stopAutoScroll = () => {
+            window.clearInterval(autoScrollTimer);
+            autoScrollTimer = null;
+          };
+          const startAutoScroll = () => {
+            stopAutoScroll();
+            autoScrollTimer = window.setInterval(() => {
+              const maxLeft = Math.max(0, carousel.scrollWidth - carousel.clientWidth - 2);
+              const atEnd = carousel.scrollLeft >= maxLeft;
+              carousel.scrollTo({
+                left: atEnd ? 0 : carousel.scrollLeft + getGiftShopSlideWidth(),
+                behavior: 'smooth'
+              });
+            }, 4500);
+          };
+          carousel.addEventListener('pointerenter', stopAutoScroll);
+          carousel.addEventListener('pointerleave', startAutoScroll);
+          carousel.addEventListener('focusin', stopAutoScroll);
+          carousel.addEventListener('focusout', startAutoScroll);
+          carousel.addEventListener('touchstart', stopAutoScroll, { passive: true });
+          carousel.addEventListener('touchend', startAutoScroll, { passive: true });
+          startAutoScroll();
+        }
       } catch (error) {
         console.warn('[gift-shop-widget] load failed', error);
       }
@@ -3748,7 +4836,7 @@ const WEATHER_CODE_MAP = {
         // code generated on /game/run/?id=…&e=map also lands on the map
         // engine.
         const _qrEngineParam = String(urlParams.get('e') || '').trim();
-        const qrUrl = `https://thegamebureau.com/game/run/index.html?id=${encodeURIComponent(gameId)}${_qrEngineParam ? `&e=${encodeURIComponent(_qrEngineParam)}` : ''}`;
+        const qrUrl = `https://thegamebureau.com/game/run/?id=${encodeURIComponent(gameId)}${_qrEngineParam ? `&e=${encodeURIComponent(_qrEngineParam)}` : ''}`;
         const ogImage = images.logoUrl;
         const setMeta = (sel, val) => { const el = document.querySelector(sel); if (el) el.setAttribute('content', val || ''); };
         setMeta('meta[property="og:title"]', gameName);
@@ -3817,6 +4905,7 @@ const WEATHER_CODE_MAP = {
           const rendezvousSection = document.getElementById('rendezvousSection');
           const startBgMapFrame = document.getElementById('startBgMapFrame');
           const startModeBtn = document.getElementById('startModeBtn');
+          const startModeLabel = document.getElementById('startModeLabel');
           let bgMapFrameLoaded = false;
           let travelMode = 'driving';
           let travelModeChecked = false;
@@ -3869,12 +4958,14 @@ const WEATHER_CODE_MAP = {
           const applyTravelMode = (mode) => {
             travelMode = mode;
             if (startModeBtn) startModeBtn.dataset.mode = mode;
+            if (startModeLabel) startModeLabel.textContent = mode === 'walking' ? 'Drive' : 'Walk';
             if (bgMapFrameLoaded) updateIframeSrc();
             refreshDirectionsLightbox();
           };
 
           if (startModeBtn) {
             startModeBtn.dataset.mode = travelMode;
+            if (startModeLabel) startModeLabel.textContent = travelMode === 'walking' ? 'Drive' : 'Walk';
             startModeBtn.onclick = (event) => {
               event.stopPropagation();
               manualOverride = true;
@@ -3923,31 +5014,9 @@ const WEATHER_CODE_MAP = {
             determineTravelMode();
           };
 
-          const shareStartingLocation = () => {
-            const dest = getDestinationParam(resolvedLat, resolvedLon);
-            if (!dest) return;
-            const modeSuffix = travelMode === 'walking' ? '&travelmode=walking' : '';
-            const shareUrl = `https://www.google.com/maps/dir/?api=1&destination=${dest}${modeSuffix}`;
-            const shareTitle = `${gameName} — starting location`;
-            const shareText = `Meet at the starting location for "${gameName}"`;
-            if (navigator.share) {
-              navigator.share({ title: shareTitle, text: shareText, url: shareUrl }).catch(() => {});
-            } else if (navigator.clipboard) {
-              navigator.clipboard.writeText(`${shareText}\n${shareUrl}`).catch(() => {});
-            }
-          };
-
           document.getElementById('rendezvousSection').onclick = () => {
             revealRendezvous();
           };
-
-          const startPlaceBtn = document.getElementById('startPlaceBtn');
-          if (startPlaceBtn) {
-            startPlaceBtn.onclick = (event) => {
-              event.stopPropagation();
-              shareStartingLocation();
-            };
-          }
 
           let directionsLightboxOpen = false;
           let directionsLightboxLastUrl = null;
@@ -4104,31 +5173,22 @@ const WEATHER_CODE_MAP = {
 
         // ── SHARE ──
         {
-          document.getElementById('invitePlayersSection').style.display = 'flex';
           const shareText = gameTagline || gameName;
-          const clipboardShareText = [
-            gameName,
-            gameTagline,
-            qrUrl
-          ].filter(Boolean).join('\n');
 
+          // The shared link tracks the active invite target (a team-join link
+          // once a co-op/versus mode is chosen). The QR itself is drawn by
+          // initPlayersBlock() → setInviteQr().
           document.getElementById('shareBtn').addEventListener('click', (e) => {
             e.stopPropagation();
+            const inviteUrl = window.__tgbInviteUrl || qrUrl;
+            const inviteText = window.__tgbInviteText || shareText;
+            const clipboardShareText = [inviteText, inviteUrl].filter(Boolean).join('\n');
             if (navigator.share) {
-              navigator.share({ title: gameName, text: shareText, url: qrUrl }).catch(() => {});
+              navigator.share({ title: gameName, text: inviteText, url: inviteUrl }).catch(() => {});
             } else {
               navigator.clipboard?.writeText(clipboardShareText).catch(() => {});
             }
           });
-
-          try {
-            new QRCode(document.getElementById('shareQrContainer'), {
-              text: qrUrl, width: 200, height: 200,
-              colorDark: '#000000', colorLight: '#ffffff',
-              correctLevel: QRCode.CorrectLevel.M
-            });
-          } catch (e) { document.getElementById('shareQrContainer').style.display = 'none'; }
-
         }
         // /SHARE
 
@@ -4139,6 +5199,7 @@ const WEATHER_CODE_MAP = {
           giftShopSquare.href = '../../gifts/?id=' + encodeURIComponent(gameId);
         }
         renderWhenCard(game, gameNode, gameName, gameTagline);
+        renderEventBlock(game, primaryColor, secondaryColor);
 
         const bodyText = gameNode.body || '';
         document.getElementById('intro').textContent = bodyText;
@@ -4177,7 +5238,17 @@ const WEATHER_CODE_MAP = {
             playUrl.searchParams.set('access_code', accessCode);
             if (urlParams.get('auto_redeem')) playUrl.searchParams.set('auto_redeem', '1');
           }
-          document.getElementById('startBtn').href = playUrl.toString();
+          // The engine URL without optional params; fandom (teams=) and
+          // multiplayer (session=) layers on via rebuildStartUrl().
+          startBaseUrl = playUrl.toString();
+          rebuildStartUrl();
+          // FANDOM scroll: only for fandom_game rows. Checked teams get folded
+          // into the Start href as `teams=CODE,CODE` when "Add" is pressed.
+          renderFandomBlock(game);
+          // Players / format chooser + invite-card retargeting (uses qrUrl as the
+          // shareable landing link). Draws the invite QR and, for co-op/versus or
+          // a scanned join link, layers session= onto the Start URL.
+          initPlayersBlock(game, qrUrl);
         }
         document.getElementById('landing').style.display = 'block';
         const ctaBar = document.getElementById('ctaBar');

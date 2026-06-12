@@ -5,6 +5,9 @@ const ESPN_DATE_RANGE = '20260901-20270115';
 const ARCHIVED_VALUE = 'YES';
 const USER_AGENT = 'TGB NFL Schedule 2026 Matchup Maker/1.0';
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+// All game start_times are normalized to Central time. The landing page reads
+// start_time as Central and converts it to each player's device clock.
+const START_TIME_TZ = 'America/Chicago';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -1160,7 +1163,8 @@ function buildPayloadForFanSide(matchup, venueInfo, fanSide, templatesByTeam) {
   const template = templatesByTeam.get(fanCode) && templatesByTeam.get(fanCode).row;
   const titleTarget = venueInfo.neutral ? venueInfo.city : TEAM_METADATA[matchup.homeCode].shortLabel;
   const name = `${fanTeam.shortLabel} Fans Takeover ${titleTarget}`;
-  const kickoffLocal = getZonedParts(matchup.kickoffUtc, venueInfo.timezone);
+  // Window times are written in Central (START_TIME_TZ), not venue-local.
+  const kickoffLocal = getZonedParts(matchup.kickoffUtc, START_TIME_TZ);
   const tgbWindow = buildTgbWindow(kickoffLocal);
   const tags = buildTags(template, venueInfo, fanTeam);
   const suggestions = buildTeamSuggestions(template, fanTeam, venueInfo);

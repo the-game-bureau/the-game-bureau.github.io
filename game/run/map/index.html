@@ -3403,6 +3403,17 @@
           const val = String(gameData[key] || '').trim();
           if (val) vars[key] = val;
         });
+        // Link-based multiplayer: a `team=` param (from a scanned join link)
+        // seeds team_color so this player rotates through the route as their
+        // assigned team. Only seeds when not already set, so it never clobbers
+        // a color the player picked in-game on a replay.
+        {
+          const urlTeam = String(params.get('team') || '').trim().toLowerCase();
+          if (urlTeam && TEAM_COLOR_ORDER.indexOf(urlTeam) !== -1 && !String(vars['team_color'] || '').trim()) {
+            vars['team_color'] = urlTeam;
+            saveVars();
+          }
+        }
         refreshGroupedGameStops();
 
         if (!gameStops.length) { chatEl.textContent = 'No stops configured for this game.'; return; }

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f3eee6">
   <meta name="description" content="Browser-based scavenger hunts written against real city streets. Each clue points to a real corner, storefront, or oddity. No app, no install, no account.">
-  <title>The Game Bureau — Turn Your Next Trip Into a Game</title>
+  <title>The Game Bureau — The Cure for the Common Walking Tour</title>
   <base target="_top">
   <link rel="icon" href="/assets/brand/tgb.ico" type="image/x-icon">
   <link rel="canonical" href="https://thegamebureau.com/games/">
@@ -190,13 +190,11 @@
       function cityGeoBadge(label) {
         const labelStr = String(label || '').trim();
         // Special case: "Washington D.C." (and variants like "Washington DC",
-        // "Washington, D.C.") often arrives WITHOUT a real comma separator, so
-        // the parts-after-comma loop below would miss it. A trailing "D.C." /
-        // "DC" suffix is unambiguous enough to short-circuit here.
-        // "Washington, D.C." keeps "D.C." in the display name itself (see
-        // cityDisplayName), so don't render a separate, redundant DC badge.
+        // "Washington, D.C.") may arrive WITHOUT a real comma separator, so the
+        // parts-after-comma loop below would miss it. Short-circuit to the DC
+        // badge here.
         if (/\bd\.?\s*c\.?$/i.test(labelStr)) {
-          return null;
+          return { kind: 'state', value: 'DC' };
         }
         const parts = labelStr.split(',').map((s) => s.trim()).filter(Boolean);
         // Walk from the end inward so "London, England, United Kingdom" still matches UK.
@@ -962,6 +960,7 @@
 
         if (entry.expectsHelmet) {
           const palette = entry.helmet || NO_HELMET_PALETTE;
+          const categoryIcon = entry.categoryIcon || palette.sport;
           // Tint the row using the team's primary (and secondary) so each
           // team has its own visual identity in the scrolling directory.
           if (entry.helmet && entry.helmet.primary_color) {
@@ -972,7 +971,7 @@
             }
           }
           const src = teamMarkSVG(
-            entry.categoryIcon || palette.sport,
+            categoryIcon,
             palette.primary_color,
             palette.secondary_color,
             palette.tertiary_color
@@ -982,6 +981,7 @@
             img.className = 'hero-meta-list-helmet';
             img.alt = '';
             img.src = src;
+            if (normalizeCategoryIcon(categoryIcon) === 'baseball') img.classList.add('team-mark--baseball');
             if (!entry.helmet) img.classList.add('hero-meta-list-helmet--none');
             item.appendChild(img);
           }
@@ -1339,8 +1339,9 @@
           titleText = `${getGameCountHeadline(games.length)} for traveling ${fanbase || entry.label} fans`;
           {
             const palette = entry.helmet || NO_HELMET_PALETTE;
+            const categoryIcon = entry.categoryIcon || getGameCategoryIcon(sample, palette) || palette.sport;
             const src = teamMarkSVG(
-              entry.categoryIcon || getGameCategoryIcon(sample, palette) || palette.sport,
+              categoryIcon,
               palette.primary_color,
               palette.secondary_color,
               palette.tertiary_color
@@ -1350,6 +1351,7 @@
               img.className = 'selected-games-icon selected-games-icon--helmet';
               img.alt = '';
               img.src = src;
+              if (normalizeCategoryIcon(categoryIcon) === 'baseball') img.classList.add('team-mark--baseball');
               iconNode = img;
             }
           }
@@ -1413,6 +1415,7 @@
                 helmetImg.className = 'game-card-helmet';
                 helmetImg.alt = '';
                 helmetImg.src = helmetSrc;
+                if (normalizeCategoryIcon(categoryIcon) === 'baseball') helmetImg.classList.add('team-mark--baseball');
                 icons.appendChild(helmetImg);
               }
             }
@@ -1686,7 +1689,19 @@
       function applyDirectoryData(games, teamColorsResult) {
         colorsByCityMascot = teamColorsResult.lookup;
         allTeams = teamColorsResult.teams;
-        liveGames = (Array.isArray(games) ? games : []).filter((game) => !isTrueish(game && game.archived));
+        // Today (local) as YYYY-MM-DD, recomputed each load so it's always current.
+        const todayStr = (() => {
+          const d = new Date();
+          return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        })();
+        liveGames = (Array.isArray(games) ? games : [])
+          .filter((game) => !isTrueish(game && game.archived))
+          // Drop games that already took place. Keep today + future, and keep
+          // undated/"anytime" games (no game_date) which are always playable.
+          .filter((game) => {
+            const gd = String((game && game.game_date) || '').trim();
+            return !gd || gd >= todayStr;
+          });
         renderDirectory();
         // applyUrlSelection is idempotent — reapplying after fresh data
         // recovers any URL-bookmarked selection that wasn't yet in the
