@@ -423,8 +423,10 @@
 
     /* ── PLAYERS / PLAY FORMAT ── */
     #playFormatSection {
+      --play-mode-card-height: clamp(424px, calc(100vw - 2rem), 448px);
       display: none;
       position: relative;
+      height: var(--play-mode-card-height);
       overflow: hidden;
       background: #fff;
       border: 2px solid var(--primary);
@@ -432,9 +434,6 @@
       padding: 1.4rem var(--pad);
       color: #111;
       box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-    }
-    #playFormatSection:has(#playInvite:not([hidden])) {
-      min-height: clamp(400px, calc(100vw - 3.5rem), 424px);
     }
     #playFormatSection .htp-divider { margin-top: 0.8rem; }
     .format-blurb {
@@ -488,22 +487,6 @@
       font-weight: 700;
       font-size: 1.05rem;
       line-height: 1.4;
-    }
-
-    /* "START GAME" echoes the CTA button a little — primary fill, secondary
-       border — without being a full button. */
-    .start-game-chip {
-      display: inline-block;
-      padding: 0.02em 0.35em;
-      background: var(--primary);
-      color: #fff;
-      border: 1px solid var(--secondary);
-      border-radius: 5px;
-      font-family: 'Outfit', sans-serif;
-      font-weight: 600;
-      font-size: 0.82em;
-      letter-spacing: 0.03em;
-      white-space: nowrap;
     }
 
     /* Solo confirmation reads as plain copy, not a boxed card. */
@@ -2422,7 +2405,7 @@
               <circle cx="12" cy="11" r="0.6" fill="currentColor" stroke="none"/>
               <circle cx="16" cy="11" r="0.6" fill="currentColor" stroke="none"/>
             </svg>
-            <span>Or invite by text</span>
+            <span id="inviteShareLabel">Or invite by text</span>
           </button>
         </div>
 
@@ -2519,7 +2502,7 @@
   <div id="inviteModeLightbox" class="invite-mode-lightbox" role="dialog" aria-modal="true" aria-labelledby="inviteModeTitle" aria-describedby="inviteModeCopy" aria-hidden="true">
     <div class="invite-mode-dialog">
       <button id="inviteModeClose" class="invite-mode-close" type="button" aria-label="Close invite message">✕</button>
-      <div class="invite-mode-kicker">You're Invited</div>
+      <div id="inviteModeKicker" class="invite-mode-kicker">You're Invited</div>
       <h2 id="inviteModeTitle" class="invite-mode-title"></h2>
       <p id="inviteModeCopy" class="invite-mode-copy"></p>
       <button id="inviteModeContinue" class="invite-mode-continue" type="button">Continue to Game</button>
@@ -2948,14 +2931,20 @@
     // invite link carrying a shared session id.
     const INVITE_MODE_DETAILS = {
       coop: {
-        title: 'Team Mode',
+        kicker: 'You’re Invited',
+        title: 'Join the Team',
         inviteText: (gameName) => `Join my team for ${gameName}.`,
-        recipientCopy: (gameName) => `You’ve been invited to join ${gameName} as a teammate.`
+        recipientCopy: (gameName) => `You’ve been invited to join a team to play ${gameName}.`,
+        emphasizeGameName: true,
+        buttonLabel: 'Game Details'
       },
       versus: {
-        title: 'Challenge Mode',
-        inviteText: (gameName) => `You’ve been challenged to ${gameName}.`,
-        recipientCopy: (gameName) => `You’ve been invited to captain an opposing team in ${gameName}.`
+        kicker: 'You’ve Been Challenged',
+        title: 'Form Your Team',
+        inviteText: (gameName) => `You’ve been challenged to CAPTAIN A TEAM FOR THE ${gameName} game.`,
+        recipientCopy: (gameName) => `You’ve been invited to captain an opposing team in ${gameName}.`,
+        emphasizeGameName: true,
+        buttonLabel: 'Game Details'
       }
     };
     function getInviteModeDetails(mode) {
@@ -2964,6 +2953,7 @@
     function showInviteModeLightbox(mode, gameName) {
       const details = getInviteModeDetails(mode);
       const root = document.getElementById('inviteModeLightbox');
+      const kicker = document.getElementById('inviteModeKicker');
       const title = document.getElementById('inviteModeTitle');
       const copy = document.getElementById('inviteModeCopy');
       const closeBtn = document.getElementById('inviteModeClose');
@@ -2974,8 +2964,28 @@
         root.classList.remove('is-open');
         root.setAttribute('aria-hidden', 'true');
       };
+      if (kicker) kicker.textContent = details.kicker || 'You’re Invited';
       title.textContent = details.title;
-      copy.textContent = details.recipientCopy(gameName || 'this game');
+      const resolvedGameName = gameName || 'this game';
+      const recipientCopy = details.recipientCopy(resolvedGameName);
+      copy.textContent = '';
+      if (details.emphasizeGameName) {
+        const gameNameIndex = recipientCopy.indexOf(resolvedGameName);
+        if (gameNameIndex >= 0) {
+          copy.appendChild(document.createTextNode(recipientCopy.slice(0, gameNameIndex)));
+          const gameNameStrong = document.createElement('strong');
+          const gameNameEm = document.createElement('em');
+          gameNameEm.textContent = resolvedGameName;
+          gameNameStrong.appendChild(gameNameEm);
+          copy.appendChild(gameNameStrong);
+          copy.appendChild(document.createTextNode(recipientCopy.slice(gameNameIndex + resolvedGameName.length)));
+        } else {
+          copy.textContent = recipientCopy;
+        }
+      } else {
+        copy.textContent = recipientCopy;
+      }
+      if (continueBtn) continueBtn.textContent = details.buttonLabel || 'Continue to Game';
       root.classList.add('is-open');
       root.setAttribute('aria-hidden', 'false');
 
@@ -3044,6 +3054,8 @@
       const qrWrap     = document.getElementById('inviteQrWrap');
       const joinerNote = document.getElementById('joinerNote');
       const scanLabel  = document.getElementById('shareCityLabel');
+      const shareBtn   = document.getElementById('shareBtn');
+      const shareLabel = document.getElementById('inviteShareLabel');
       if (!section || !optionsEl || !inviteEl || !chooserEl) return;
 
       const MODE_TITLES = { solo: 'Solo Mode', coop: 'Team Mode', versus: 'Challenge Mode' };
@@ -3069,14 +3081,14 @@
       }
 
       // View A — the mode chooser.
-      function showChooser(options = {}) {
+      function showChooser() {
         inviteEl.hidden = true;
         chooserEl.hidden = false;
         if (headerEl) headerEl.textContent = 'Play Mode';
         mp.format = 'solo';
         window.__tgbInviteUrl = '';
         window.__tgbInviteText = '';
-        startExtras.session = options.keepSession ? mp.sessionId : '';
+        startExtras.session = '';
         rebuildStartUrl();
         optionsEl.querySelectorAll('.format-opt').forEach((btn) => {
           btn.classList.remove('is-selected');
@@ -3091,6 +3103,9 @@
         inviteEl.hidden = false;
         if (backBtn) backBtn.hidden = false;
         if (headerEl) headerEl.textContent = MODE_TITLES[fmt] || 'Play Mode';
+        const shareButtonText = fmt === 'versus' ? 'OR CHALLENGE BY TEXT' : 'Or invite by text';
+        if (shareLabel) shareLabel.textContent = shareButtonText;
+        if (shareBtn) shareBtn.setAttribute('aria-label', shareButtonText);
 
         if (fmt === 'solo') {
           startExtras.session = '';
@@ -3098,13 +3113,13 @@
           if (joinerNote) {
             joinerNote.hidden = false;
             joinerNote.classList.add('join-note--plain');   // plain text, no box for solo
-            joinerNote.innerHTML = 'Just you? Cool. Tap <span class="start-game-chip">START GAME</span> below when you’re ready.';
+            joinerNote.textContent = 'Just you? Cool. Tap START GAME below when you’re ready.';
           }
         } else {
           startExtras.session = mp.sessionId;
           if (joinerNote) joinerNote.hidden = true;
           if (qrWrap) qrWrap.hidden = false;
-          armTeamInvite(fmt === 'versus' ? 'Hold up your phone for opposing team captain to scan' : undefined);
+          armTeamInvite(fmt === 'versus' ? 'Hold up your phone for the opposing team captain to scan' : undefined);
         }
         rebuildStartUrl();
       }
@@ -3114,18 +3129,16 @@
       });
       if (backBtn) backBtn.addEventListener('click', showChooser);
 
-      if (mp.isJoiner) {
-        // A shared invite opens the normal game page and keeps the shared
-        // session on Start. The popup is the only invite-specific UI.
-        showChooser({ keepSession: true });
-        section.style.display = 'block';
-        showInviteModeLightbox(mp.inviteMode, inviteGameName);
-        return;
-      }
-
-      // Host: start on the chooser.
+      // The Play Mode card always initializes exactly the same way. Shared
+      // invite context affects only the popup and the eventual Start URL.
       showChooser();
       section.style.display = 'block';
+
+      if (mp.isJoiner) {
+        startExtras.session = mp.sessionId;
+        rebuildStartUrl();
+        showInviteModeLightbox(mp.inviteMode, inviteGameName);
+      }
     }
 
     // --- Google Plus Codes (Open Location Code) -----------------------------
