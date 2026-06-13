@@ -1,0 +1,2122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#087b82" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Gridiron Puzzle Match | The Game Bureau</title>
+  <link rel="icon" href="/assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --teal: #07888c;
+      --teal-dark: #044e58;
+      --teal-light: #20c2bd;
+      --orange: #f47a22;
+      --orange-dark: #b94113;
+      --yellow: #ffd53c;
+      --cream: #fff3c7;
+      --ink: #173036;
+      --green: #2d9b58;
+      --green-dark: #125c3c;
+      --red: #ff382f;
+      --stage: #087074;
+      --shadow: 0 18px 46px rgba(0, 35, 40, 0.34);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      background: var(--stage);
+      color: var(--ink);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      overscroll-behavior: none;
+    }
+
+    body {
+      min-height: 100dvh;
+    }
+
+    button {
+      font: inherit;
+      touch-action: manipulation;
+    }
+
+    .game-shell {
+      position: relative;
+      min-height: 100dvh;
+      display: grid;
+      place-items: start center;
+      padding: calc(env(safe-area-inset-top, 0px) + 10px) 10px calc(env(safe-area-inset-bottom, 0px) + 14px);
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .game-shell::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      background:
+        radial-gradient(circle at 12% 18%, rgba(255, 213, 60, 0.46), transparent 15%),
+        radial-gradient(circle at 88% 12%, rgba(244, 122, 34, 0.38), transparent 19%),
+        repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0 8px, transparent 8px 34px),
+        linear-gradient(145deg, #0aa1a0 0%, #076c78 52%, #043e4b 100%);
+    }
+
+    .game-shell::after {
+      content: "";
+      position: fixed;
+      inset: auto 0 0;
+      z-index: -1;
+      height: 18dvh;
+      background:
+        linear-gradient(90deg, transparent 49.8%, rgba(255, 243, 199, 0.26) 49.8% 50.2%, transparent 50.2%),
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 2px, transparent 2px 90px),
+        #05525a;
+      border-top: 4px solid rgba(255, 243, 199, 0.28);
+    }
+
+    .game-card {
+      width: min(100%, 1180px);
+      min-width: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .topbar {
+      display: grid;
+      justify-items: center;
+      gap: 3px;
+      text-align: center;
+      color: var(--cream);
+      text-shadow: 0 3px 0 rgba(0, 0, 0, 0.24);
+    }
+
+    .kicker {
+      color: var(--yellow);
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: "Archivo Black", Impact, sans-serif;
+      font-size: clamp(1.55rem, 5vw, 3rem);
+      letter-spacing: -0.05em;
+      line-height: 0.96;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      margin: 0;
+      max-width: 52rem;
+      color: rgba(255, 243, 199, 0.8);
+      font-size: clamp(0.62rem, 2vw, 0.74rem);
+      line-height: 1.4;
+      text-wrap: balance;
+    }
+
+    .stage {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 230px minmax(0, 1fr);
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .race-tower {
+      position: relative;
+      min-height: 620px;
+      display: grid;
+      grid-template-rows: 100px 64px 1fr auto auto;
+      gap: 9px;
+      align-content: stretch;
+      padding: 18px 27px 18px;
+      overflow: visible;
+      border: 6px solid #2c628f;
+      border-radius: 106px 106px 20px 20px;
+      background: #a9f2ed;
+      box-shadow:
+        inset 0 0 0 5px #4e9c6c,
+        inset 0 0 0 9px #d8fff5,
+        0 20px 0 #0f6680,
+        var(--shadow);
+      text-align: center;
+    }
+
+    .race-tower::before,
+    .race-tower::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      top: 116px;
+      bottom: 18px;
+      width: 32px;
+      border: 5px solid #2c628f;
+      background:
+        linear-gradient(90deg, #2e9b4d 0 34%, #aee541 34% 68%, #348f4d 68%);
+      box-shadow: inset 0 0 0 4px rgba(214, 255, 170, 0.26);
+    }
+
+    .race-tower::before {
+      left: -29px;
+      border-radius: 12px 0 0 12px;
+    }
+
+    .race-tower::after {
+      right: -29px;
+      border-radius: 0 12px 12px 0;
+    }
+
+    .tower-lever {
+      display: grid;
+      justify-items: center;
+      gap: 4px;
+      padding: 7px 5px;
+      border: 4px solid #4e9c6c;
+      border-radius: 0;
+      background: #bff7ee;
+      box-shadow: inset 0 0 0 3px #eafff8;
+    }
+
+    .tower-lever-copy {
+      margin: 0;
+      color: #173b34;
+      font-size: 0.48rem;
+      font-weight: 700;
+      line-height: 1.25;
+      text-transform: uppercase;
+    }
+
+    .game-board {
+      min-width: 0;
+      display: grid;
+      gap: 9px;
+      padding: 10px;
+      border: 5px solid var(--yellow);
+      border-radius: 18px;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.1), transparent 12% 88%, rgba(0, 0, 0, 0.09)),
+        var(--orange);
+      box-shadow:
+        inset 0 0 0 5px rgba(255, 243, 199, 0.66),
+        inset 0 0 0 9px var(--teal),
+        var(--shadow);
+    }
+
+    .status-panel {
+      min-height: 42px;
+      display: grid;
+      place-items: center;
+      padding: 7px 10px;
+      border: 3px solid var(--yellow);
+      border-radius: 8px;
+      background: var(--teal-dark);
+      color: var(--cream);
+      font-size: 0.68rem;
+      font-weight: 700;
+      line-height: 1.35;
+      text-align: center;
+    }
+
+    .status-panel.good {
+      background: var(--green-dark);
+    }
+
+    .status-panel.bad {
+      background: #8b2d22;
+    }
+
+    .clue-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .clue-card {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto minmax(55px, auto);
+      overflow: hidden;
+      border: 4px solid var(--teal-dark);
+      border-radius: 9px;
+      background: var(--yellow);
+      box-shadow: 0 5px 0 var(--orange-dark);
+    }
+
+    .clue-name {
+      min-height: 37px;
+      display: grid;
+      place-items: center;
+      padding: 6px 8px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 54%),
+        var(--cream);
+      color: var(--ink);
+      font-size: clamp(0.62rem, 1.7vw, 0.75rem);
+      font-weight: 700;
+      line-height: 1.22;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .clue-slot {
+      position: relative;
+      min-height: 58px;
+      display: grid;
+      place-items: center;
+      padding: 7px 10px;
+      border-top: 4px solid var(--teal-dark);
+      background:
+        radial-gradient(circle at center, rgba(255, 243, 199, 0.18), transparent 56%),
+        var(--teal);
+      cursor: pointer;
+      transition: background 140ms ease, box-shadow 140ms ease;
+    }
+
+    .clue-slot::before {
+      content: "DROP TEAM TAG";
+      color: rgba(255, 243, 199, 0.56);
+      font-size: 0.55rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+    }
+
+    .clue-slot.has-tag::before {
+      display: none;
+    }
+
+    .clue-slot.is-target {
+      background: var(--green);
+      box-shadow: inset 0 0 0 4px var(--yellow);
+    }
+
+    .tag-rack {
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+      border: 4px solid var(--teal-dark);
+      border-radius: 9px;
+      background:
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0 2px, transparent 2px 48px),
+        var(--yellow);
+      box-shadow: inset 0 -6px 0 rgba(180, 65, 17, 0.22);
+    }
+
+    .rack-title {
+      color: var(--teal-dark);
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .rack-tags {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 7px;
+      min-height: 48px;
+    }
+
+    .team-tag {
+      position: relative;
+      min-width: min(100%, 142px);
+      min-height: 38px;
+      display: grid;
+      place-items: center;
+      padding: 7px 12px 7px 22px;
+      border: 3px solid var(--cream);
+      border-radius: 6px 10px 10px 6px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.23), transparent 48%),
+        var(--green);
+      color: #fff9dd;
+      cursor: grab;
+      font-size: 0.62rem;
+      font-weight: 700;
+      line-height: 1.18;
+      text-align: center;
+      text-transform: uppercase;
+      box-shadow: 0 4px 0 var(--green-dark), 0 7px 11px rgba(0, 45, 47, 0.2);
+      touch-action: none;
+      user-select: none;
+    }
+
+    .team-tag::before {
+      content: "";
+      position: absolute;
+      left: 7px;
+      width: 7px;
+      height: 7px;
+      border: 2px solid var(--cream);
+      border-radius: 50%;
+      background: var(--teal-dark);
+    }
+
+    .team-tag:active {
+      cursor: grabbing;
+    }
+
+    .team-tag.is-armed {
+      border-color: var(--yellow);
+      box-shadow: 0 0 0 4px rgba(255, 213, 60, 0.34), 0 4px 0 var(--green-dark);
+    }
+
+    .team-tag.drag-source {
+      opacity: 0.28;
+    }
+
+    .clue-slot .team-tag {
+      width: min(100%, 230px);
+      min-width: 0;
+      box-shadow: 0 3px 0 var(--green-dark);
+    }
+
+    .drag-ghost {
+      position: fixed;
+      z-index: 40;
+      width: 190px;
+      pointer-events: none;
+      transform: translate(-50%, -50%) rotate(-2deg) scale(1.04);
+      opacity: 0.94;
+    }
+
+    .lever {
+      position: relative;
+      width: 62px;
+      height: 76px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .lever::before {
+      content: "";
+      position: absolute;
+      left: 26px;
+      bottom: 15px;
+      width: 10px;
+      height: 49px;
+      border: 2px solid #99855a;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #7b6a48, #efe0a8 45%, #71603f);
+      transform: rotate(-19deg);
+      transform-origin: 50% 100%;
+      transition: transform 220ms cubic-bezier(.2,.8,.2,1);
+    }
+
+    .lever::after {
+      content: "";
+      position: absolute;
+      top: 1px;
+      left: 11px;
+      width: 29px;
+      height: 29px;
+      border: 2px solid #ffad82;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #ffb08c, #d84d2f 64%, #7f1f16);
+      box-shadow: 0 3px 0 #5f1a12, 0 0 12px rgba(255, 112, 74, 0.28);
+      transition: transform 220ms cubic-bezier(.2,.8,.2,1);
+    }
+
+    .lever-base {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 58px;
+      height: 22px;
+      border: 2px solid #99855a;
+      border-radius: 7px;
+      background: linear-gradient(180deg, #d0b77b, #6f6042);
+      box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25), 0 4px 8px rgba(0, 0, 0, 0.32);
+    }
+
+    .lever:active::before,
+    .lever.pulled::before {
+      transform: rotate(20deg);
+    }
+
+    .lever:active::after,
+    .lever.pulled::after {
+      transform: translate(16px, 36px);
+    }
+
+    .lever:disabled {
+      cursor: not-allowed;
+      filter: grayscale(0.8);
+      opacity: 0.42;
+    }
+
+    .finish-btn {
+      min-height: 34px;
+      padding: 7px 18px;
+      border: 3px solid var(--cream);
+      border-radius: 999px;
+      background: var(--green);
+      color: var(--cream);
+      cursor: pointer;
+      font-size: 0.64rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      box-shadow: 0 4px 0 var(--green-dark);
+    }
+
+    .finish-btn[hidden] {
+      display: none;
+    }
+
+    .score-flash {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background:
+        radial-gradient(circle at center, rgba(255, 213, 60, 0.24), transparent 46%),
+        rgba(3, 45, 51, 0.96);
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(1.04);
+    }
+
+    .score-flash.show {
+      animation: scoreFlash 1500ms cubic-bezier(.18,.85,.24,1) both;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    .score-flash-inner {
+      display: grid;
+      justify-items: center;
+      gap: 10px;
+      color: var(--cream);
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .score-flash-number {
+      color: var(--red);
+      font-family: "Archivo Black", Impact, sans-serif;
+      font-size: clamp(11rem, 62vw, 38rem);
+      letter-spacing: -0.1em;
+      line-height: 0.72;
+      padding-right: 0.1em;
+      text-shadow: 0 0 25px rgba(255, 56, 47, 0.68), 0 14px 0 rgba(0, 0, 0, 0.3);
+    }
+
+    .score-flash-label {
+      font-family: "Archivo Black", Impact, sans-serif;
+      font-size: clamp(1.3rem, 6vw, 4rem);
+      letter-spacing: 0.12em;
+      line-height: 1;
+      text-shadow: 0 5px 0 rgba(0, 0, 0, 0.3);
+    }
+
+    .confetti {
+      position: fixed;
+      inset: 0;
+      z-index: 45;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      top: -20px;
+      left: var(--x);
+      width: 9px;
+      height: 18px;
+      border-radius: 2px;
+      background: var(--c);
+      animation: fall var(--d) ease-in forwards;
+    }
+
+    @keyframes scoreFlash {
+      0% { opacity: 0; transform: scale(1.08); }
+      12%, 78% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.96); }
+    }
+
+    @keyframes fall {
+      to { transform: translateX(var(--dx)) translateY(110dvh) rotate(var(--r)); }
+    }
+
+    @media (max-width: 760px) {
+      .game-shell {
+        padding-inline: 6px;
+      }
+
+      .stage {
+        grid-template-columns: 1fr;
+      }
+
+      .race-tower {
+        min-height: 250px;
+        grid-template-columns: minmax(0, 1fr) 92px 74px;
+        grid-template-rows: 64px 1fr auto;
+        gap: 7px;
+        border-radius: 70px 70px 16px 16px;
+        padding: 14px 17px 12px;
+      }
+
+      .race-tower::before,
+      .race-tower::after {
+        top: 84px;
+        bottom: 16px;
+        width: 22px;
+      }
+
+      .race-tower::before {
+        left: -21px;
+      }
+
+      .race-tower::after {
+        right: -21px;
+      }
+
+      .tower-lever {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+        align-self: stretch;
+      }
+
+      .clue-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .team-tag {
+        min-width: 132px;
+        max-width: calc(50% - 4px);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      .score-flash.show {
+        animation-duration: 900ms !important;
+      }
+    }
+
+    /* Unified Race Game cabinet */
+    .game-shell {
+      padding: calc(env(safe-area-inset-top, 0px) + 8px) 8px calc(env(safe-area-inset-bottom, 0px) + 10px);
+      background:
+        radial-gradient(circle at 50% -12%, rgba(75, 223, 211, 0.26), transparent 38%),
+        linear-gradient(160deg, #0c6571, #063d4a 58%, #022c38);
+    }
+
+    .game-shell::before,
+    .game-shell::after {
+      display: none;
+    }
+
+    .game-card {
+      width: min(100%, 1080px);
+      gap: 5px;
+    }
+
+    .topbar {
+      padding: 2px 0 4px;
+    }
+
+    .topbar h1 {
+      font-size: clamp(1.42rem, 4vw, 2.35rem);
+      letter-spacing: -0.045em;
+      text-shadow: 0 3px 0 rgba(0, 0, 0, 0.24);
+    }
+
+    .stage {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0;
+      padding: 8px;
+      overflow: hidden;
+      border: 3px solid #102f3d;
+      border-radius: 24px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 12%),
+        #9edfd8;
+      box-shadow:
+        inset 0 0 0 4px #e8fff8,
+        inset 0 0 0 8px #3c976f,
+        0 14px 0 #053342,
+        0 22px 45px rgba(0, 20, 28, 0.38);
+    }
+
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 7px;
+      background: linear-gradient(90deg, #48aa70, #dbf080, #48aa70);
+    }
+
+    .race-tower {
+      z-index: 2;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 92px minmax(130px, 1fr) 150px;
+      grid-template-rows: 1fr;
+      gap: 10px;
+      align-items: stretch;
+      padding: 11px;
+      overflow: hidden;
+      border: 0;
+      border-radius: 16px 16px 8px 8px;
+      background:
+        radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.2), transparent 30%),
+        linear-gradient(145deg, #17626a, #083e4b);
+      box-shadow: inset 0 0 0 2px rgba(219, 255, 246, 0.25);
+      text-align: left;
+    }
+
+    .race-tower::before,
+    .race-tower::after {
+      display: none;
+    }
+
+    .tower-lever {
+      grid-column: 3;
+      grid-row: 1;
+      display: grid;
+      align-content: center;
+      justify-items: stretch;
+      gap: 4px;
+      padding: 6px;
+      border: 1px solid rgba(213, 255, 244, 0.26);
+      border-radius: 9px;
+      background: rgba(2, 31, 38, 0.44);
+      box-shadow: none;
+    }
+
+    .tower-lever-copy {
+      color: #d9fff4;
+      font-size: 0.43rem;
+      letter-spacing: 0.09em;
+      text-align: center;
+    }
+
+    .lever {
+      position: relative;
+      width: 100%;
+      height: 48px;
+      overflow: hidden;
+      border: 2px solid #071e27;
+      border-radius: 999px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 46%),
+        #061c24;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.72), 0 1px 0 rgba(255, 255, 255, 0.16);
+    }
+
+    .lever::before {
+      content: "";
+      position: absolute;
+      inset: 17px 10px;
+      width: auto;
+      height: auto;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #194d55, #6ed3b6);
+      transform: none;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+    .lever::after {
+      content: "";
+      position: absolute;
+      top: 7px;
+      left: 8px;
+      width: 30px;
+      height: 30px;
+      border: 2px solid #ffb590;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #ffcfad, #ef5b3f 60%, #8d251f);
+      box-shadow: 0 2px 0 #671d18, 0 0 12px rgba(255, 94, 65, 0.38);
+      transition: transform 220ms cubic-bezier(.2,.8,.2,1);
+    }
+
+    .lever-base {
+      display: none;
+    }
+
+    .lever:active::before,
+    .lever.pulled::before {
+      transform: none;
+    }
+
+    .lever:active::after,
+    .lever.pulled::after {
+      transform: translateX(var(--lever-travel, 60px));
+    }
+
+    .finish-btn {
+      min-height: 24px;
+      padding: 3px 7px;
+      border: 1px solid #bff7e9;
+      border-radius: 999px;
+      background: #3ca76c;
+      font-size: 0.5rem;
+      box-shadow: none;
+    }
+
+    .game-board {
+      display: grid;
+      gap: 8px;
+      padding: 8px 4px 3px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .status-panel {
+      min-height: 32px;
+      padding: 5px 8px;
+      border: 0;
+      border-radius: 8px;
+      background: #0b4a55;
+      color: #dcfff5;
+      font-size: 0.58rem;
+      box-shadow: inset 0 0 0 1px rgba(219, 255, 246, 0.2);
+    }
+
+    .tag-rack {
+      position: relative;
+      z-index: 3;
+      gap: 5px;
+      padding: 7px;
+      border: 1px solid #76b9ad;
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 48%),
+        #d5eee4;
+      box-shadow: inset 0 -3px 0 rgba(38, 105, 91, 0.18);
+    }
+
+    .rack-title {
+      color: #23584e;
+      font-size: 0.48rem;
+    }
+
+    .rack-tags {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 5px;
+    }
+
+    .team-tag {
+      min-width: 0;
+      width: 100%;
+      min-height: 34px;
+      padding: 5px 7px 5px 18px;
+      border: 1px solid #d7fff0;
+      border-radius: 6px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 50%),
+        #2d925b;
+      font-size: clamp(0.48rem, 1.25vw, 0.58rem);
+      box-shadow: 0 2px 0 #155d3e, 0 3px 7px rgba(0, 45, 47, 0.16);
+    }
+
+    .team-tag::before {
+      left: 6px;
+      width: 5px;
+      height: 5px;
+      border-width: 1px;
+    }
+
+    .clue-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .clue-card {
+      grid-template-rows: auto 44px;
+      border: 1px solid #438579;
+      border-radius: 9px;
+      background: #f3fbeb;
+      box-shadow: 0 2px 0 #347064;
+    }
+
+    .clue-name {
+      min-height: 30px;
+      padding: 4px 6px;
+      background: #f4f3d4;
+      font-size: clamp(0.5rem, 1.4vw, 0.63rem);
+    }
+
+    .clue-slot {
+      min-height: 44px;
+      padding: 4px 6px;
+      border-top: 1px solid #438579;
+      background: #1b8285;
+    }
+
+    .clue-slot::before {
+      font-size: 0.43rem;
+      opacity: 0.72;
+    }
+
+    .clue-slot .team-tag {
+      width: min(100%, 250px);
+      min-height: 30px;
+    }
+
+    @media (max-width: 700px) {
+      .game-shell {
+        padding: calc(env(safe-area-inset-top, 0px) + 5px) 4px calc(env(safe-area-inset-bottom, 0px) + 7px);
+      }
+
+      .game-card {
+        gap: 3px;
+      }
+
+      .stage {
+        padding: 5px;
+        border-width: 2px;
+        border-radius: 18px;
+        box-shadow:
+          inset 0 0 0 3px #e8fff8,
+          inset 0 0 0 6px #3c976f,
+          0 8px 0 #053342;
+      }
+
+      .race-tower {
+        min-height: 0;
+        grid-template-columns: 66px minmax(98px, 1fr) 78px;
+        grid-template-rows: auto;
+        gap: 5px;
+        padding: 7px;
+        border-radius: 12px 12px 7px 7px;
+      }
+
+      .tower-lever {
+        grid-column: 3;
+        grid-row: 1;
+        padding: 4px;
+      }
+
+      .tower-lever-copy {
+        font-size: 0.38rem;
+      }
+
+      .lever {
+        --lever-travel: 30px;
+        height: 44px;
+      }
+
+      .lever::before {
+        inset: 16px 7px;
+      }
+
+      .lever::after {
+        top: 6px;
+        left: 6px;
+        width: 28px;
+        height: 28px;
+      }
+
+      .game-board {
+        gap: 5px;
+        padding: 5px 0 0;
+      }
+
+      .status-panel {
+        min-height: 27px;
+        font-size: 0.48rem;
+      }
+
+      .tag-rack {
+        position: sticky;
+        top: 3px;
+        padding: 5px;
+      }
+
+      .rack-title {
+        display: none;
+      }
+
+      .rack-tags {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 3px;
+      }
+
+      .team-tag {
+        max-width: none;
+        min-height: 31px;
+        padding: 4px 3px 4px 12px;
+        font-size: 0.42rem;
+        line-height: 1.08;
+      }
+
+      .team-tag::before {
+        left: 4px;
+      }
+
+      .clue-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+      }
+
+      .clue-card {
+        grid-template-rows: auto 40px;
+        border-radius: 7px;
+      }
+
+      .clue-name {
+        min-height: 27px;
+        padding: 3px 4px;
+        font-size: 0.43rem;
+        line-height: 1.12;
+      }
+
+      .clue-slot {
+        min-height: 40px;
+        padding: 3px;
+      }
+
+      .clue-slot .team-tag {
+        min-height: 29px;
+        font-size: 0.41rem;
+      }
+    }
+
+    /* Jigsaw matching surface */
+    .game-board {
+      --piece-width: clamp(180px, 21vw, 250px);
+      --piece-height: 48px;
+      grid-template-columns: calc(var(--piece-width) + var(--piece-width)) calc(var(--piece-width) + 16px);
+      align-items: start;
+      justify-content: center;
+    }
+
+    .status-panel {
+      grid-column: 1 / -1;
+    }
+
+    .clue-grid {
+      grid-column: 1;
+      grid-row: 2;
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+
+    .tag-rack {
+      grid-column: 2;
+      grid-row: 2;
+      position: sticky;
+      top: 5px;
+      width: calc(var(--piece-width) + 16px);
+      align-self: start;
+    }
+
+    .rack-tags {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+
+    .clue-card {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(2, var(--piece-width));
+      grid-template-rows: var(--piece-height);
+      gap: 0;
+      overflow: visible;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .clue-name {
+      position: relative;
+      z-index: 2;
+      width: var(--piece-width);
+      min-height: 0;
+      height: var(--piece-height);
+      padding: 7px 20px 7px 9px;
+      border: 2px solid #347064;
+      border-radius: 8px 0 0 8px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.46), transparent 54%),
+        #f4f3d4;
+      font-size: clamp(0.52rem, 1.3vw, 0.64rem);
+      box-shadow: 0 2px 0 #24584f;
+    }
+
+    .clue-name::after {
+      content: "";
+      position: absolute;
+      z-index: 4;
+      top: 50%;
+      right: -13px;
+      width: 24px;
+      height: 24px;
+      border: 2px solid #347064;
+      border-left: 0;
+      border-radius: 0 50% 50% 0;
+      background: #f4f3d4;
+      transform: translateY(-50%);
+      box-shadow: 1px 1px 0 #24584f;
+    }
+
+    .clue-slot {
+      z-index: 1;
+      width: var(--piece-width);
+      min-height: 0;
+      height: var(--piece-height);
+      display: grid;
+      place-items: center;
+      padding: 3px 4px 3px 13px;
+      border: 2px dashed rgba(168, 228, 213, 0.52);
+      border-left: 0;
+      border-radius: 0 8px 8px 0;
+      background: rgba(12, 91, 94, 0.42);
+    }
+
+    .clue-slot::before {
+      content: "SNAP TEAM";
+      font-size: 0.42rem;
+    }
+
+    .clue-slot.is-target {
+      border-color: #dfffa3;
+      background: rgba(67, 167, 106, 0.52);
+      box-shadow: inset 0 0 0 2px rgba(223, 255, 163, 0.4);
+    }
+
+    .team-tag,
+    .clue-slot .team-tag {
+      min-width: 0;
+      width: var(--piece-width);
+      min-height: 0;
+      height: var(--piece-height);
+      padding: 6px 7px 6px 19px;
+      border: 2px solid #d7fff0;
+      border-left: 0;
+      border-radius: 0 8px 8px 0;
+      font-size: clamp(0.48rem, 1.15vw, 0.58rem);
+      -webkit-mask: radial-gradient(circle 12px at 0 50%, transparent 11px, #000 12px);
+      mask: radial-gradient(circle 12px at 0 50%, transparent 11px, #000 12px);
+    }
+
+    .team-tag::before {
+      display: none;
+    }
+
+    .clue-slot .team-tag {
+      width: var(--piece-width);
+      min-height: 0;
+      height: var(--piece-height);
+      transform: translateX(-9px);
+      box-shadow: 0 2px 0 #155d3e;
+    }
+
+    .drag-ghost {
+      width: 220px;
+    }
+
+    @media (max-width: 700px) {
+      .game-board {
+        --piece-height: 43px;
+        grid-template-columns: 1fr;
+      }
+
+      .status-panel {
+        grid-column: 1;
+      }
+
+      .tag-rack {
+        grid-column: 1;
+        grid-row: 2;
+        position: sticky;
+        top: 3px;
+        width: 100%;
+        padding-right: 0;
+        padding-left: 0;
+        border-right: 0;
+        border-left: 0;
+      }
+
+      .rack-tags {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+      }
+
+      .clue-grid {
+        grid-column: 1;
+        grid-row: 3;
+        gap: 4px;
+      }
+
+      .clue-card {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: var(--piece-height);
+      }
+
+      .clue-name,
+      .clue-slot,
+      .team-tag,
+      .clue-slot .team-tag {
+        width: 100%;
+      }
+
+      .clue-name {
+        min-height: 0;
+        height: var(--piece-height);
+        padding: 5px 15px 5px 5px;
+        font-size: 0.44rem;
+      }
+
+      .clue-name::after {
+        right: -11px;
+        width: 20px;
+        height: 20px;
+      }
+
+      .clue-slot {
+        min-height: 0;
+        height: var(--piece-height);
+        padding: 2px 2px 2px 11px;
+      }
+
+      .team-tag,
+      .clue-slot .team-tag {
+        min-height: 0;
+        height: var(--piece-height);
+        padding: 4px 3px 4px 15px;
+        font-size: 0.39rem;
+        -webkit-mask: radial-gradient(circle 10px at 0 50%, transparent 9px, #000 10px);
+        mask: radial-gradient(circle 10px at 0 50%, transparent 9px, #000 10px);
+      }
+
+      .clue-slot .team-tag {
+        transform: translateX(-7px);
+      }
+    }
+
+    /* Brutalist cabinet */
+    :root {
+      --brutal-black: #171816;
+      --brutal-paper: #f1eadc;
+      --brutal-yellow: #e8b94f;
+      --brutal-blue: #315f9f;
+      --brutal-red: #d86545;
+      --brutal-green: #7cba86;
+      --brutal-gray: #a8aaa4;
+      --brutal-mist: #d5d3ca;
+    }
+
+    html,
+    body,
+    .game-shell {
+      background-color: var(--brutal-gray);
+      background-image:
+        radial-gradient(circle, rgba(23, 24, 22, 0.28) 1.5px, transparent 1.5px),
+        linear-gradient(145deg, rgba(255, 255, 255, 0.2), transparent 48%);
+      background-size: 24px 24px, auto;
+    }
+
+    .game-shell {
+      padding: calc(env(safe-area-inset-top, 0px) + 18px) 18px calc(env(safe-area-inset-bottom, 0px) + 24px);
+    }
+
+    .game-card {
+      width: min(100%, 1100px);
+    }
+
+    .stage {
+      padding: 16px;
+      overflow: hidden;
+      border: 4px solid var(--brutal-black);
+      border-radius: 0;
+      background: var(--brutal-paper);
+      box-shadow: 11px 11px 0 rgba(23, 24, 22, 0.95);
+    }
+
+    .stage::before {
+      display: none;
+    }
+
+    .race-tower {
+      min-width: 0;
+      grid-template-columns: minmax(40px, 1fr) 150px;
+      gap: 14px;
+      padding: 13px;
+      overflow: visible;
+      border: 3px solid var(--brutal-black);
+      border-radius: 0;
+      background: var(--brutal-yellow);
+      box-shadow: 6px 6px 0 var(--brutal-black);
+    }
+
+    .tower-lever {
+      min-width: 0;
+      grid-column: 2;
+      padding: 8px;
+      border: 3px solid var(--brutal-black);
+      border-radius: 0;
+      background: var(--brutal-red);
+      box-shadow: 4px 4px 0 var(--brutal-black);
+    }
+
+    .tower-lever-copy {
+      color: var(--brutal-black);
+      font-size: 0.46rem;
+      font-weight: 900;
+    }
+
+    .lever {
+      height: 46px;
+      overflow: hidden;
+      border: 3px solid var(--brutal-black);
+      border-radius: 0;
+      background: var(--brutal-paper);
+      box-shadow: 3px 3px 0 var(--brutal-black);
+    }
+
+    .lever::before {
+      inset: 18px 8px;
+      border-radius: 0;
+      background: var(--brutal-black);
+      box-shadow: none;
+    }
+
+    .lever::after {
+      top: 6px;
+      left: 6px;
+      width: 28px;
+      height: 28px;
+      border: 3px solid var(--brutal-black);
+      border-radius: 0;
+      background: var(--brutal-yellow);
+      box-shadow: none;
+    }
+
+    .finish-btn {
+      border: 3px solid var(--brutal-black);
+      border-radius: 0;
+      background: var(--brutal-green);
+      color: var(--brutal-black);
+      font-weight: 900;
+      box-shadow: 3px 3px 0 var(--brutal-black);
+    }
+
+    .game-board {
+      gap: 14px;
+      padding: 19px 5px 6px;
+    }
+
+    .status-panel {
+      min-height: 34px;
+      padding: 8px 11px;
+      border: 2px solid var(--brutal-black);
+      border-radius: 0;
+      background: var(--brutal-black);
+      color: #fff;
+      font-size: 0.61rem;
+      font-weight: 900;
+      box-shadow: 4px 4px 0 var(--brutal-gray);
+    }
+
+    .status-panel.good {
+      background: var(--brutal-green);
+      color: var(--brutal-black);
+    }
+
+    .status-panel.bad {
+      background: var(--brutal-red);
+      color: var(--brutal-black);
+    }
+
+    .tag-rack {
+      padding: 10px;
+      border: 3px solid var(--brutal-black);
+      border-radius: 0;
+      background: var(--brutal-mist);
+      box-shadow: 6px 6px 0 var(--brutal-black);
+    }
+
+    .rack-title {
+      color: var(--brutal-black);
+      font-size: 0.58rem;
+      font-weight: 900;
+      letter-spacing: 0.16em;
+    }
+
+    .rack-tags {
+      gap: 9px;
+    }
+
+    .clue-grid {
+      gap: 10px;
+    }
+
+    .clue-name {
+      border: 2px solid var(--brutal-black);
+      border-radius: 0;
+      background: var(--brutal-paper);
+      color: var(--brutal-black);
+      font-size: clamp(0.54rem, 1.3vw, 0.66rem);
+      font-weight: 900;
+      box-shadow: 4px 4px 0 var(--brutal-black);
+    }
+
+    .clue-name::after {
+      right: -13px;
+      border: 2px solid var(--brutal-black);
+      border-left: 0;
+      background: var(--brutal-paper);
+      box-shadow: 2px 1px 0 var(--brutal-black);
+    }
+
+    .clue-slot {
+      border: 2px dashed rgba(23, 24, 22, 0.72);
+      border-left: 0;
+      border-radius: 0;
+      background:
+        repeating-linear-gradient(
+          -45deg,
+          #d6d5ce 0 8px,
+          #e6e3da 8px 16px
+        );
+      color: var(--brutal-black);
+    }
+
+    .clue-slot::before {
+      color: var(--brutal-black);
+      font-weight: 900;
+      opacity: 0.42;
+    }
+
+    .clue-slot.is-target {
+      border-color: var(--brutal-black);
+      background: var(--brutal-yellow);
+      box-shadow: inset 0 0 0 4px var(--brutal-black);
+    }
+
+    .team-tag,
+    .clue-slot .team-tag {
+      border: 2px solid var(--brutal-black);
+      border-left: 0;
+      border-radius: 0;
+      background: var(--brutal-blue);
+      color: #fff;
+      font-size: clamp(0.5rem, 1.15vw, 0.61rem);
+      font-weight: 900;
+      box-shadow: 4px 4px 0 var(--brutal-black);
+    }
+
+    .team-tag.is-armed {
+      background: var(--brutal-yellow);
+      color: var(--brutal-black);
+      filter: none;
+      box-shadow: 6px 6px 0 var(--brutal-black);
+      transform: translate(-2px, -2px);
+    }
+
+    .team-tag:active {
+      box-shadow: 1px 1px 0 var(--brutal-black);
+      transform: translate(4px, 4px);
+    }
+
+    .clue-slot .team-tag {
+      box-shadow: 4px 4px 0 var(--brutal-black);
+    }
+
+    .score-flash {
+      background: var(--brutal-paper);
+    }
+
+    .score-flash-inner {
+      gap: 16px;
+      color: var(--brutal-black);
+    }
+
+    .score-flash-number {
+      color: var(--brutal-red);
+      -webkit-text-stroke: 5px var(--brutal-black);
+      text-shadow: 13px 13px 0 var(--brutal-yellow);
+    }
+
+    .score-flash-label {
+      padding: 8px 18px;
+      border: 5px solid var(--brutal-black);
+      background: var(--brutal-yellow);
+      color: var(--brutal-black);
+      text-shadow: none;
+      box-shadow: 8px 8px 0 var(--brutal-black);
+    }
+
+    .confetti-piece {
+      border: 2px solid var(--brutal-black);
+      border-radius: 0;
+    }
+
+    @media (max-width: 700px) {
+      .game-shell {
+        padding: calc(env(safe-area-inset-top, 0px) + 7px) 7px calc(env(safe-area-inset-bottom, 0px) + 14px);
+      }
+
+      .game-card {
+        width: 100%;
+        max-width: 100%;
+      }
+
+      .stage {
+        width: 100%;
+        min-width: 0;
+        padding: 8px;
+        border-width: 3px;
+        box-shadow: 6px 6px 0 var(--brutal-black);
+      }
+
+      .race-tower {
+        width: 100%;
+        grid-template-columns: minmax(0, 1fr) 82px;
+        gap: 6px;
+        padding: 7px;
+        border-width: 3px;
+        box-shadow: 4px 4px 0 var(--brutal-black);
+      }
+
+      .tower-lever {
+        grid-column: 2;
+      }
+
+      .tower-lever {
+        border-width: 2px;
+        box-shadow: 3px 3px 0 var(--brutal-black);
+      }
+
+      .game-board {
+        gap: 9px;
+        padding-top: 11px;
+      }
+
+      .tag-rack {
+        padding: 6px 0;
+        border-top-width: 2px;
+        border-bottom-width: 2px;
+        box-shadow: 4px 4px 0 var(--brutal-black);
+      }
+
+      .rack-tags {
+        gap: 7px 5px;
+      }
+
+      .clue-grid {
+        gap: 8px;
+      }
+
+      .clue-name,
+      .team-tag,
+      .clue-slot .team-tag {
+        box-shadow: 3px 3px 0 var(--brutal-black);
+      }
+
+      .clue-name::after {
+        right: -12px;
+        box-shadow: 1px 1px 0 var(--brutal-black);
+      }
+
+      .score-flash-number {
+        -webkit-text-stroke-width: 4px;
+        text-shadow: 9px 9px 0 var(--brutal-black);
+      }
+    }
+
+    /* Vertical pull handle */
+    .stage {
+      padding-right: 112px;
+    }
+
+    .race-tower {
+      position: absolute;
+      z-index: 6;
+      top: 16px;
+      right: 16px;
+      bottom: 16px;
+      width: 82px;
+      min-width: 0;
+      display: block;
+      padding: 7px;
+      border: 3px solid var(--brutal-black);
+      background: var(--brutal-yellow);
+      box-shadow: 6px 6px 0 var(--brutal-black);
+    }
+
+    .tower-lever {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      align-items: start;
+      justify-items: center;
+      gap: 8px;
+      padding: 7px;
+      border: 3px solid var(--brutal-black);
+      background: var(--brutal-red);
+      box-shadow: 3px 3px 0 var(--brutal-black);
+    }
+
+    .tower-lever-copy {
+      margin: 0;
+      color: var(--brutal-black);
+      font-size: 0.5rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      line-height: 1;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .lever {
+      --lever-travel-y: 150px;
+      position: relative;
+      width: 48px;
+      height: 100%;
+      min-height: 260px;
+      align-self: stretch;
+      overflow: hidden;
+      border: 3px solid var(--brutal-black);
+      background: var(--brutal-paper);
+      box-shadow: 3px 3px 0 var(--brutal-black);
+    }
+
+    .lever::before {
+      inset: 13px 19px;
+      width: auto;
+      height: auto;
+      background: var(--brutal-black);
+    }
+
+    .lever::after {
+      top: 7px;
+      left: 7px;
+      width: 28px;
+      height: 38px;
+      border: 3px solid var(--brutal-black);
+      background: var(--brutal-yellow);
+      transition: transform 220ms cubic-bezier(.2,.8,.2,1);
+    }
+
+    .lever:active::after,
+    .lever.pulled::after {
+      transform: translateY(var(--lever-travel-y));
+    }
+
+    .finish-btn {
+      width: 100%;
+      padding-inline: 2px;
+      font-size: 0.45rem;
+    }
+
+    .game-board {
+      padding-top: 5px;
+    }
+
+    @media (max-width: 700px) {
+      .stage {
+        padding-right: 67px;
+      }
+
+      .race-tower {
+        top: 8px;
+        right: 8px;
+        bottom: 8px;
+        width: 52px;
+        padding: 4px;
+        border-width: 2px;
+        box-shadow: 4px 4px 0 var(--brutal-black);
+      }
+
+      .tower-lever {
+        gap: 5px;
+        padding: 4px;
+        border-width: 2px;
+        box-shadow: 2px 2px 0 var(--brutal-black);
+      }
+
+      .tower-lever-copy {
+        font-size: 0.39rem;
+        letter-spacing: 0.06em;
+      }
+
+      .lever {
+        --lever-travel-y: 120px;
+        width: 34px;
+        height: 100%;
+        min-height: 220px;
+        border-width: 2px;
+        box-shadow: 2px 2px 0 var(--brutal-black);
+      }
+
+      .lever::before {
+        inset: 10px 14px;
+      }
+
+      .lever::after {
+        top: 5px;
+        left: 5px;
+        width: 20px;
+        height: 28px;
+        border-width: 2px;
+      }
+
+      .finish-btn {
+        font-size: 0.35rem;
+      }
+    }
+  </style>
+</head>
+<body data-admin-page="mission-control">
+  <main class="game-shell" aria-label="Gridiron Puzzle Match">
+    <section class="game-card">
+      <section class="stage">
+        <aside class="race-tower" aria-label="Score controls">
+          <div class="tower-lever">
+            <p class="tower-lever-copy" id="leverCopy">Pull</p>
+            <button class="lever" id="leverBtn" type="button" aria-label="Pull the scoring lever">
+              <span class="lever-base" aria-hidden="true"></span>
+            </button>
+            <button class="finish-btn" id="finishBtn" type="button" hidden>Finish</button>
+          </div>
+        </aside>
+
+        <section class="game-board">
+          <div class="status-panel" id="statusPanel" aria-live="polite">
+            Place tags. Pull the lever anytime.
+          </div>
+
+          <section class="tag-rack" aria-label="Available team tags">
+            <div class="rack-title">Team Pieces</div>
+            <div class="rack-tags" id="tagRack"></div>
+          </section>
+
+          <div class="clue-grid" id="clueGrid" aria-label="Riddle placement board"></div>
+
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <div class="drag-ghost" id="dragGhost" hidden aria-hidden="true"></div>
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+  <div class="score-flash" id="scoreFlash" role="status" aria-live="assertive" aria-atomic="true">
+    <div class="score-flash-inner">
+      <strong class="score-flash-number" id="scoreFlashNumber">0</strong>
+      <span class="score-flash-label">Correct</span>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const QUESTIONS = [
+        { clue: 'Seven squared', team: 'San Francisco 49ers' },
+        { clue: 'Marine mammals', team: 'Miami Dolphins' },
+        { clue: 'Proud Americans', team: 'New England Patriots' },
+        { clue: '747s', team: 'New York Jets' },
+        { clue: 'Black birds', team: 'Baltimore Ravens' },
+        { clue: 'Dollar for corn', team: 'Tampa Bay Buccaneers' },
+        { clue: 'Naval officers in charge', team: 'Washington Commanders' },
+        { clue: 'UPS trucks', team: 'Cleveland Browns' },
+        { clue: 'Lone Star State residents', team: 'Houston Texans' },
+        { clue: 'Young male horses', team: 'Indianapolis Colts' },
+        { clue: 'Expensive British cars', team: 'Jacksonville Jaguars' },
+        { clue: 'Greek mythological giants', team: 'Tennessee Titans' },
+        { clue: 'Rodeo horses', team: 'Denver Broncos' },
+        { clue: 'Native American leaders', team: 'Kansas City Chiefs' },
+        { clue: 'Hostile attackers', team: 'Las Vegas Raiders' },
+        { clue: 'Credit-card users', team: 'Los Angeles Chargers' },
+        { clue: 'American Gauchos', team: 'Dallas Cowboys' },
+        { clue: 'Military insects', team: 'New York Giants' },
+        { clue: 'Thieves', team: 'Pittsburgh Steelers' },
+        { clue: 'Grizzlies', team: 'Chicago Bears' },
+        { clue: 'Kings of the jungle', team: 'Detroit Lions' },
+        { clue: 'Suitcase stuffers', team: 'Green Bay Packers' },
+        { clue: 'Six Roman rulers', team: 'Minnesota Vikings' },
+        { clue: 'Peregrine birds of prey', team: 'Atlanta Falcons' },
+        { clue: 'Pink cartoon detectives', team: 'Carolina Panthers' },
+        { clue: 'Patrick and Valentine', team: 'New Orleans Saints' },
+        { clue: 'Used to be girls', team: 'Cincinnati Bengals' },
+        { clue: 'Red birds', team: 'Arizona Cardinals' },
+        { clue: 'Dodge trucks', team: 'Los Angeles Rams' },
+        { clue: 'I.O.U.s', team: 'Buffalo Bills' },
+        { clue: 'Ocean birds', team: 'Seattle Seahawks' },
+        { clue: 'Bald bird', team: 'Philadelphia Eagles' }
+      ];
+
+      const params = new URLSearchParams(window.location.search);
+      const returnTarget = getParam(['return', 'returnUrl', 'back']);
+      const els = {
+        status: document.getElementById('statusPanel'),
+        clues: document.getElementById('clueGrid'),
+        rack: document.getElementById('tagRack'),
+        lever: document.getElementById('leverBtn'),
+        leverCopy: document.getElementById('leverCopy'),
+        finish: document.getElementById('finishBtn'),
+        ghost: document.getElementById('dragGhost'),
+        confetti: document.getElementById('confetti'),
+        scoreFlash: document.getElementById('scoreFlash'),
+        scoreFlashNumber: document.getElementById('scoreFlashNumber')
+      };
+
+      const state = {
+        questions: [],
+        tagOrder: [],
+        assignments: new Map(),
+        score: null,
+        armedTeam: '',
+        draggingTeam: '',
+        dragOrigin: '',
+        dragMoved: false,
+        suppressClick: false,
+        flashing: false,
+        completed: false
+      };
+
+      function startGame() {
+        state.questions = shuffle(QUESTIONS.slice()).slice(0, 8);
+        state.tagOrder = scrambledTagOrder(state.questions.map((question) => question.team));
+        state.assignments.clear();
+        state.score = null;
+        state.armedTeam = '';
+        state.draggingTeam = '';
+        state.dragOrigin = '';
+        state.dragMoved = false;
+        state.suppressClick = false;
+        state.flashing = false;
+        state.completed = false;
+        els.finish.hidden = true;
+        els.scoreFlash.classList.remove('show');
+        render();
+        setStatus('Place tags. Pull the lever anytime.', '');
+      }
+
+      function render() {
+        els.clues.replaceChildren();
+        state.questions.forEach((question) => {
+          const card = document.createElement('article');
+          card.className = 'clue-card';
+          card.dataset.answer = question.team;
+          card.addEventListener('click', chooseSlot);
+
+          const clue = document.createElement('div');
+          clue.className = 'clue-name';
+          clue.textContent = question.clue;
+
+          const slot = document.createElement('div');
+          slot.className = 'clue-slot';
+          slot.dataset.answer = question.team;
+
+          const assigned = state.assignments.get(question.team);
+          if (assigned) {
+            slot.classList.add('has-tag');
+            slot.appendChild(makeTag(assigned, question.team));
+          }
+
+          card.append(clue, slot);
+          els.clues.appendChild(card);
+        });
+
+        els.rack.replaceChildren();
+        state.tagOrder
+          .filter((team) => !assignedSlotForTeam(team))
+          .forEach((team) => els.rack.appendChild(makeTag(team, 'rack')));
+
+        syncHud();
+      }
+
+      function makeTag(team, origin) {
+        const tag = document.createElement('button');
+        tag.className = 'team-tag';
+        if (team === state.armedTeam) tag.classList.add('is-armed');
+        tag.type = 'button';
+        tag.dataset.team = team;
+        tag.dataset.origin = origin;
+        tag.textContent = team;
+        tag.addEventListener('pointerdown', startDrag);
+        tag.addEventListener('click', armTag);
+        return tag;
+      }
+
+      function startDrag(event) {
+        if (state.flashing) return;
+        event.preventDefault();
+        state.draggingTeam = event.currentTarget.dataset.team;
+        state.dragOrigin = event.currentTarget.dataset.origin;
+        state.armedTeam = state.draggingTeam;
+        state.dragMoved = false;
+        state.suppressClick = true;
+        event.currentTarget.classList.add('drag-source');
+        els.ghost.hidden = false;
+        els.ghost.replaceChildren(makeGhostTag(state.draggingTeam));
+        moveGhost(event.clientX, event.clientY);
+        renderArmed();
+      }
+
+      function moveDrag(event) {
+        if (!state.draggingTeam) return;
+        event.preventDefault();
+        state.dragMoved = true;
+        moveGhost(event.clientX, event.clientY);
+        highlightTarget(event.clientX, event.clientY);
+      }
+
+      function endDrag(event) {
+        if (!state.draggingTeam) return;
+        const team = state.draggingTeam;
+        const origin = state.dragOrigin;
+        state.draggingTeam = '';
+        state.dragOrigin = '';
+        state.suppressClick = !state.dragMoved;
+        state.dragMoved = false;
+        els.ghost.hidden = true;
+        clearTargets();
+        const target = document.elementFromPoint(event.clientX, event.clientY);
+        const card = target && target.closest ? target.closest('.clue-card') : null;
+        if (card) placeTag(team, card.dataset.answer, origin);
+        else render();
+      }
+
+      function armTag(event) {
+        event.stopPropagation();
+        if (state.suppressClick) {
+          state.suppressClick = false;
+          return;
+        }
+        const team = event.currentTarget.dataset.team;
+        state.armedTeam = state.armedTeam === team ? '' : team;
+        renderArmed();
+        setStatus(state.armedTeam ? 'Team tag selected. Tap a riddle slot.' : 'Tag selection canceled.', '');
+      }
+
+      function chooseSlot(event) {
+        if (!state.armedTeam || state.flashing) return;
+        const card = event.currentTarget.closest('.clue-card');
+        if (!card) return;
+        const origin = assignedSlotForTeam(state.armedTeam) || 'rack';
+        placeTag(state.armedTeam, card.dataset.answer, origin);
+      }
+
+      function placeTag(team, answer, origin) {
+        const displaced = state.assignments.get(answer) || '';
+        const oldAnswer = assignedSlotForTeam(team);
+
+        if (oldAnswer === answer) {
+          state.armedTeam = '';
+          render();
+          return;
+        }
+
+        if (oldAnswer) state.assignments.delete(oldAnswer);
+        state.assignments.set(answer, team);
+        if (displaced && displaced !== team && origin !== 'rack') {
+          state.assignments.set(origin, displaced);
+        }
+
+        state.armedTeam = '';
+        state.score = null;
+        state.completed = false;
+        els.finish.hidden = true;
+        render();
+        if (state.assignments.size === 8) {
+          setStatus('All eight tags placed. Pull the lever to see how many are correct.', 'good');
+        } else {
+          setStatus('Tag placed. ' + (8 - state.assignments.size) + ' left on the rack.', '');
+        }
+      }
+
+      function assignedSlotForTeam(team) {
+        for (const [answer, assigned] of state.assignments.entries()) {
+          if (assigned === team) return answer;
+        }
+        return '';
+      }
+
+      function renderArmed() {
+        document.querySelectorAll('.team-tag').forEach((tag) => {
+          tag.classList.toggle('is-armed', tag.dataset.team === state.armedTeam);
+        });
+      }
+
+      function makeGhostTag(team) {
+        const tag = document.createElement('div');
+        tag.className = 'team-tag';
+        tag.textContent = team;
+        return tag;
+      }
+
+      function moveGhost(x, y) {
+        els.ghost.style.left = x + 'px';
+        els.ghost.style.top = y + 'px';
+      }
+
+      function highlightTarget(x, y) {
+        clearTargets();
+        const target = document.elementFromPoint(x, y);
+        const card = target && target.closest ? target.closest('.clue-card') : null;
+        if (card) card.querySelector('.clue-slot').classList.add('is-target');
+      }
+
+      function clearTargets() {
+        document.querySelectorAll('.clue-slot.is-target').forEach((slot) => slot.classList.remove('is-target'));
+      }
+
+      function syncHud() {
+        els.lever.disabled = state.flashing;
+        els.leverCopy.textContent = 'Pull';
+      }
+
+      function pullLever() {
+        if (state.flashing) return;
+        state.score = Array.from(state.assignments.entries()).filter(([answer, assigned]) => answer === assigned).length;
+        state.flashing = true;
+        els.lever.classList.remove('pulled');
+        void els.lever.offsetWidth;
+        els.lever.classList.add('pulled');
+        window.setTimeout(() => els.lever.classList.remove('pulled'), 360);
+        if (state.score === 8) {
+          state.completed = true;
+          els.finish.hidden = false;
+          setStatus('Eight correct! You won Puzzle Match.', 'good');
+        } else {
+          setStatus(state.score + ' correct. Move tags and pull the lever again.', state.score ? 'good' : 'bad');
+        }
+        syncHud();
+        flashScore(state.score, state.completed);
+      }
+
+      function flashScore(score, celebrate) {
+        els.scoreFlashNumber.textContent = String(score);
+        els.scoreFlash.classList.remove('show');
+        void els.scoreFlash.offsetWidth;
+        els.scoreFlash.classList.add('show');
+        window.setTimeout(() => {
+          els.scoreFlash.classList.remove('show');
+          state.flashing = false;
+          syncHud();
+          if (celebrate) fireConfetti();
+        }, 1500);
+      }
+
+      function setStatus(text, type) {
+        els.status.textContent = text;
+        els.status.className = 'status-panel' + (type ? ' ' + type : '');
+      }
+
+      function fireConfetti() {
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const colors = ['#ffd53c', '#fff3c7', '#2d9b58', '#f47a22', '#ff382f', '#20c2bd'];
+        els.confetti.replaceChildren();
+        for (let index = 0; index < 60; index += 1) {
+          const piece = document.createElement('span');
+          piece.className = 'confetti-piece';
+          piece.style.setProperty('--x', Math.floor(Math.random() * 100) + '%');
+          piece.style.setProperty('--dx', Math.floor(Math.random() * 190 - 95) + 'px');
+          piece.style.setProperty('--r', Math.floor(Math.random() * 720 - 360) + 'deg');
+          piece.style.setProperty('--d', Math.floor(1100 + Math.random() * 1300) + 'ms');
+          piece.style.setProperty('--c', colors[index % colors.length]);
+          els.confetti.appendChild(piece);
+        }
+        window.setTimeout(() => els.confetti.replaceChildren(), 2600);
+      }
+
+      function finishGame() {
+        if (getParam(['embedded']) === '1' && window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'tgb:minigame:complete',
+            game: 'nfl-brain-strainers',
+            correct: state.score
+          }, '*');
+          return;
+        }
+        const safeTarget = getSafeReturnUrl(returnTarget);
+        if (safeTarget) {
+          window.location.href = safeTarget;
+          return;
+        }
+        if (document.referrer) {
+          window.location.href = document.referrer;
+          return;
+        }
+        if (window.history.length > 1) window.history.back();
+      }
+
+      function shuffle(values) {
+        for (let index = values.length - 1; index > 0; index -= 1) {
+          const swapIndex = Math.floor(Math.random() * (index + 1));
+          [values[index], values[swapIndex]] = [values[swapIndex], values[index]];
+        }
+        return values;
+      }
+
+      function scrambledTagOrder(teams) {
+        const original = teams.join('|');
+        let scrambled = teams.slice();
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+          scrambled = shuffle(teams.slice());
+          if (scrambled.join('|') !== original) return scrambled;
+        }
+        return teams.slice(1).concat(teams[0]);
+      }
+
+      function getParam(names) {
+        for (const name of names) {
+          const value = params.get(name);
+          if (value != null && String(value).trim()) return String(value).trim();
+        }
+        return '';
+      }
+
+      function getSafeReturnUrl(value) {
+        if (!value) return '';
+        try {
+          const url = new URL(value, window.location.href);
+          if (url.origin === window.location.origin) return url.href;
+        } catch (error) {}
+        return '';
+      }
+
+      window.addEventListener('pointermove', moveDrag, { passive: false });
+      window.addEventListener('pointerup', endDrag);
+      window.addEventListener('pointercancel', endDrag);
+      els.lever.addEventListener('click', pullLever);
+      els.finish.addEventListener('click', finishGame);
+      startGame();
+    })();
+  </script>
+  <script src="/assets/admin-bridge.js"></script>
+</body>
+</html>
