@@ -7386,6 +7386,7 @@ body.builder-page--editor #detailsPaymentSection .details-section-title,
 body.builder-page--editor #detailsRendezvousSection .details-section-title,
 body.builder-page--editor #detailsTagsSection .details-section-title,
 body.builder-page--editor #detailsTeamsSection .details-section-title,
+body.builder-page--editor #detailsTeamNamesSection .details-section-title,
 body.builder-page--editor #detailsGuideSection .details-section-title{
   display:block;
   font-size:.62rem;
@@ -9965,11 +9966,10 @@ html.admin-embedded .builder-section-head{
                 </section>
 
                 <section class="details-section" id="detailsTeamsSection">
-                  <div class="details-section-title">Teams</div>
+                  <div class="details-section-title">Anchor Event</div>
                   <div class="details-section-grid details-section-grid--teams">
-                    <div class="field-label">REAL SPORTS TEAMS</div>
                     <div class="field" id="fandomGameField">
-                      <div class="field-label">FAN TAKEOVER<span class="field-info" tabindex="0" role="note" aria-label="Choose YES when this TGB experience is built around a real sports matchup for traveling away-team fans.">i<span class="field-tooltip" role="tooltip">Choose YES when this TGB experience is built around a real sports matchup for traveling away-team fans.</span></span></div>
+                      <div class="field-label">INCLUDE ANCHOR<span class="field-info" tabindex="0" role="note" aria-label="Turn on to include an anchor event for this game.">i<span class="field-tooltip" role="tooltip">Turn on to include an anchor event for this game.</span></span></div>
                       <div class="loc-toggle-wrap">
                         <span class="loc-toggle-side-label" id="fandomGameLabelNo">NO</span>
                         <label class="loc-toggle" for="fandomGameToggle">
@@ -10004,6 +10004,20 @@ html.admin-embedded .builder-section-head{
                       <label class="field-label" for="nodeHomeTeamMascotInput">Home Team Mascot</label>
                       <input id="nodeHomeTeamMascotInput" type="text" autocomplete="off" disabled>
                     </div>
+                    <div class="field" id="venueNameField">
+                      <label class="field-label field-label--with-meta" for="nodeVenueNameInput">Venue / Stadium<span class="field-info" tabindex="0" role="note" aria-label="Stadium the pro game is played in — e.g. 'Caesars Superdome'.">i<span class="field-tooltip" role="tooltip">Stadium the pro game is played in &mdash; e.g. &lsquo;Caesars Superdome&rsquo;.</span></span></label>
+                      <input id="nodeVenueNameInput" type="text" autocomplete="off" disabled>
+                    </div>
+                    <div class="field" id="venueCityField">
+                      <label class="field-label field-label--with-meta" for="nodeVenueCityInput">Venue City<span class="field-info" tabindex="0" role="note" aria-label="City the stadium is actually in — e.g. 'Landover', not the team's metro.">i<span class="field-tooltip" role="tooltip">City the stadium is actually in &mdash; e.g. &lsquo;Landover&rsquo;, not the team&rsquo;s metro.</span></span></label>
+                      <input id="nodeVenueCityInput" type="text" autocomplete="off" disabled>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="details-section" id="detailsTeamNamesSection">
+                  <div class="details-section-title">Team Names</div>
+                  <div class="details-section-grid">
                     <div class="field" id="teamsField">
                       <div class="field-label field-label--with-meta">TGB TEAM NAMES<span class="field-info" tabindex="0" role="note" aria-label="Order team names from most desirable to least.">i<span class="field-tooltip" role="tooltip">Order team names from most desirable to least.</span></span></div>
                       <div class="team-names-grid">
@@ -10682,7 +10696,9 @@ const SUPABASE_GAMES_SCHEMA = {
   home_team_city: true,
   home_team_mascot: true,
   away_team_city: true,
-  away_team_mascot: true
+  away_team_mascot: true,
+  venue_name: true,
+  venue_city: true
 };
 const CATEGORY_ICON_VALUES = new Set(['football', 'basketball', 'baseball', 'music']);
 const DEFAULT_CATEGORY_ICON = '';
@@ -11213,6 +11229,8 @@ function normalizeGameRow(row, index = 0) {
     home_team_mascot:      row && row.home_team_mascot,
     away_team_city:        row && row.away_team_city,
     away_team_mascot:      row && row.away_team_mascot,
+    venue_name:            row && row.venue_name,
+    venue_city:            row && row.venue_city,
   }, index);
 }
 
@@ -11275,7 +11293,9 @@ async function fetchGameRowsFromSupabase(select = null) {
     'home_team_city',
     'home_team_mascot',
     'away_team_city',
-    'away_team_mascot'
+    'away_team_mascot',
+    'venue_name',
+    'venue_city'
   ]);
   const response = await fetch(buildSupabaseUrl({
     select: resolvedSelect,
@@ -11393,7 +11413,9 @@ async function fetchGameRowFromSupabase(gameId, select = null) {
     'home_team_city',
     'home_team_mascot',
     'away_team_city',
-    'away_team_mascot'
+    'away_team_mascot',
+    'venue_name',
+    'venue_city'
   ]);
 
   const response = await fetch(buildSupabaseUrl({
@@ -12159,6 +12181,8 @@ const nodeEngineInput = document.getElementById('nodeEngineInput');
 const nodeCityInput = document.getElementById('nodeCityInput');
 const nodeStartNameInput = document.getElementById('nodeStartNameInput');
 const nodeStartAddressInput = document.getElementById('nodeStartAddressInput');
+const nodeVenueNameInput = document.getElementById('nodeVenueNameInput');
+const nodeVenueCityInput = document.getElementById('nodeVenueCityInput');
 const nodeCoordinatesInput = document.getElementById('nodeCoordinatesInput');
 const coordinatesField = document.getElementById('coordinatesField');
 const coordinatesGenerateBtn = document.getElementById('coordinatesGenerateBtn');
@@ -15635,6 +15659,8 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     locationBased: raw && raw.locationBased === 'YES' ? 'YES' : 'NO',
     fandomGame: normalizeBooleanFlag(raw && (raw.fandomGame ?? raw.fandom_game)),
     startingLocationName: raw && typeof raw.startingLocationName === 'string' ? raw.startingLocationName : '',
+    venueName: raw && typeof raw.venueName === 'string' ? raw.venueName : '',
+    venueCity: raw && typeof raw.venueCity === 'string' ? raw.venueCity : '',
     startingLocationAddress: raw && typeof raw.startingLocationAddress === 'string' ? raw.startingLocationAddress : '',
     startingLocationPlusCode: raw && typeof raw.startingLocationPlusCode === 'string' ? normalizeLongPlusCode(raw.startingLocationPlusCode) : '',
     startingLocationLat: raw && typeof raw.startingLocationLat === 'number' ? raw.startingLocationLat : null,
@@ -15834,7 +15860,9 @@ function getDocSnapshot(doc = state.doc) {
       homeTeamCity: meta.homeTeamCity || '',
       homeTeamMascot: meta.homeTeamMascot || '',
       awayTeamCity: meta.awayTeamCity || '',
-      awayTeamMascot: meta.awayTeamMascot || ''
+      awayTeamMascot: meta.awayTeamMascot || '',
+      venueName: meta.venueName || '',
+      venueCity: meta.venueCity || ''
     },
     nodes: doc.nodes.map((node) => ({
       id: node.id,
@@ -15846,6 +15874,8 @@ function getDocSnapshot(doc = state.doc) {
       featured: node.featured || '',
       city: node.city || '',
       locationBased: node.locationBased === 'YES' ? 'YES' : 'NO',
+      venueName: node.venueName || '',
+      venueCity: node.venueCity || '',
       startingLocationName: node.startingLocationName || '',
       startingLocationAddress: node.startingLocationAddress || '',
       startingLocationPlusCode: normalizeLongPlusCode(node.startingLocationPlusCode) || '',
@@ -16256,6 +16286,8 @@ function initGameMeta(game) {
     homeTeamMascot:       g.home_team_mascot  ?? g.homeTeamMascot  ?? gn.homeTeamMascot  ?? '',
     awayTeamCity:         g.away_team_city    ?? g.awayTeamCity    ?? gn.awayTeamCity    ?? '',
     awayTeamMascot:       g.away_team_mascot  ?? g.awayTeamMascot  ?? gn.awayTeamMascot  ?? '',
+    venueName:            g.venue_name        ?? g.venueName        ?? gn.venueName        ?? '',
+    venueCity:            g.venue_city        ?? g.venueCity        ?? gn.venueCity        ?? '',
   };
 }
 
@@ -16898,7 +16930,9 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   home_team_city: 'homeTeamCity',
   home_team_mascot: 'homeTeamMascot',
   away_team_city: 'awayTeamCity',
-  away_team_mascot: 'awayTeamMascot'
+  away_team_mascot: 'awayTeamMascot',
+  venue_name: 'venueName',
+  venue_city: 'venueCity'
 };
 
 const GAME_ENGINES = [
@@ -16992,6 +17026,8 @@ function normalizeSavedGame(raw, index) {
     home_team_mascot:      raw && raw.home_team_mascot,
     away_team_city:        raw && raw.away_team_city,
     away_team_mascot:      raw && raw.away_team_mascot,
+    venue_name:            raw && raw.venue_name,
+    venue_city:            raw && raw.venue_city,
   };
 }
 
@@ -17030,6 +17066,8 @@ function createNode(type, x, y) {
     tagline: type === 'game' ? 'Shall We Play A Game?' : '',
     featured: '',
     city: '',
+    venueName: '',
+    venueCity: '',
     startingLocationName: '',
     startingLocationAddress: '',
     startingLocationPlusCode: '',
@@ -19350,6 +19388,8 @@ function updateSelectionUi(options = {}) {
   if (nodeCityInput) nodeCityInput.disabled = !isGameNode;
   if (nodeStartNameInput) nodeStartNameInput.disabled = !isGameNode;
   if (nodeStartAddressInput) nodeStartAddressInput.disabled = !isGameNode;
+  if (nodeVenueNameInput) nodeVenueNameInput.disabled = !isGameNode;
+  if (nodeVenueCityInput) nodeVenueCityInput.disabled = !isGameNode;
   if (nodeCoordinatesInput) nodeCoordinatesInput.disabled = !isGameNode;
   if (coordinatesGenerateBtn) coordinatesGenerateBtn.disabled = !isGameNode;
   nodeGuideNameInput.disabled = !isGameNode;
@@ -19512,6 +19552,8 @@ function updateSelectionUi(options = {}) {
   if (nodeCityInput) nodeCityInput.value = isGameNode ? (meta.city || '') : '';
   if (nodeStartNameInput) nodeStartNameInput.value = isGameNode ? (meta.startingLocationName || '') : '';
   if (nodeStartAddressInput) nodeStartAddressInput.value = isGameNode ? (meta.startingLocationAddress || '') : '';
+  if (nodeVenueNameInput) nodeVenueNameInput.value = isGameNode ? (meta.venueName || '') : '';
+  if (nodeVenueCityInput) nodeVenueCityInput.value = isGameNode ? (meta.venueCity || '') : '';
   if (nodeCoordinatesInput) {
     const lat = isGameNode ? meta.startingLocationLat : null;
     const lon = isGameNode ? meta.startingLocationLon : null;
@@ -19891,6 +19933,8 @@ function duplicateNode(nodeId) {
     height: TYPE_CONFIG[source.type].height,
     title: usesNodeTitle(source.type) ? source.title : '',
     tagline: source.tagline || '',
+    venueName: source.venueName || '',
+    venueCity: source.venueCity || '',
     startingLocationName: source.startingLocationName || '',
     startingLocationAddress: source.startingLocationAddress || '',
     startingLocationPlusCode: normalizeLongPlusCode(source.startingLocationPlusCode) || '',
@@ -20709,7 +20753,9 @@ function serializeNodeState(node) {
     homeTeamCity: (meta ? meta.homeTeamCity : node.homeTeamCity) || '',
     homeTeamMascot: (meta ? meta.homeTeamMascot : node.homeTeamMascot) || '',
     awayTeamCity: (meta ? meta.awayTeamCity : node.awayTeamCity) || '',
-    awayTeamMascot: (meta ? meta.awayTeamMascot : node.awayTeamMascot) || ''
+    awayTeamMascot: (meta ? meta.awayTeamMascot : node.awayTeamMascot) || '',
+    venueName: (meta ? meta.venueName : node.venueName) || '',
+    venueCity: (meta ? meta.venueCity : node.venueCity) || ''
   };
 }
 
@@ -21101,6 +21147,8 @@ function stageCurrentGameIntoStore() {
     home_team_mascot:      _meta.homeTeamMascot || null,
     away_team_city:        awayTeamCity || null,
     away_team_mascot:      _meta.awayTeamMascot || null,
+    venue_name:            _meta.venueName || null,
+    venue_city:            _meta.venueCity || null,
     nodes:                 docPayload.nodes,
     links:                 docPayload.links
   };
@@ -21704,6 +21752,20 @@ if (nodeStartNameInput) {
   nodeStartNameInput.addEventListener('input', () => {
     if (!getGameNode() || !state.currentGameMeta) return;
     state.currentGameMeta.startingLocationName = nodeStartNameInput.value;
+  });
+}
+
+if (nodeVenueNameInput) {
+  nodeVenueNameInput.addEventListener('input', () => {
+    if (!getGameNode() || !state.currentGameMeta) return;
+    state.currentGameMeta.venueName = nodeVenueNameInput.value;
+  });
+}
+
+if (nodeVenueCityInput) {
+  nodeVenueCityInput.addEventListener('input', () => {
+    if (!getGameNode() || !state.currentGameMeta) return;
+    state.currentGameMeta.venueCity = nodeVenueCityInput.value;
   });
 }
 

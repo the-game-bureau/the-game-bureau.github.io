@@ -192,6 +192,8 @@
     }
     .htp-subtitle:empty { display: none; }
 
+    #introSection .htp-header,
+    #yourEventsSection .htp-header,
     #guideSection .htp-header,
     #disclaimerSection .htp-header,
     #playModeSection .htp-header {
@@ -328,7 +330,9 @@
       display: none;
       position: relative;
       overflow: hidden;
-      background: #fff;
+      background:
+        radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 48%),
+        #fff;
       border: 2px solid var(--primary);
       border-radius: 20px;
       aspect-ratio: 1 / 1;
@@ -345,15 +349,18 @@
       position: absolute;
       top: 0.9rem;
       left: 1rem;
+      right: 1rem;
       z-index: 1;
       font-family: 'Outfit', sans-serif;
-      font-size: 1.9rem;
-      font-weight: 700;
-      letter-spacing: 0.01em;
+      font-size: clamp(1.2rem, 5.2vw, 1.72rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 0.95;
       text-transform: uppercase;
       color: var(--primary);
       -webkit-text-stroke: 0.75px var(--secondary);
       paint-order: stroke fill;
+      white-space: nowrap;
       pointer-events: none;
     }
     .event-card-blurb {
@@ -362,10 +369,56 @@
       left: 1rem;
       z-index: 1;
       margin: 0;
-      font-size: clamp(0.85rem, 3.2vw, 1rem);
-      font-weight: 500;
+      padding: 0.2rem 0.48rem;
+      border: 1px solid color-mix(in srgb, var(--secondary) 35%, transparent);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--secondary) 8%, #fff);
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(0.65rem, 2.5vw, 0.78rem);
+      font-weight: 800;
+      letter-spacing: 0.11em;
       line-height: 1.25;
-      color: #555;
+      color: var(--secondary);
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    .event-calendar-btn {
+      position: absolute;
+      top: 0.9rem;
+      right: 1rem;
+      z-index: 5;
+      width: 2.4rem;
+      height: 2.4rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 3px solid #000;
+      border-radius: 0;
+      background: #fff;
+      color: #000;
+      box-shadow: 3px 3px 0 #000;
+      cursor: pointer;
+    }
+    .event-calendar-btn svg {
+      width: 1.15rem;
+      height: 1.15rem;
+    }
+    .event-calendar-label {
+      position: absolute;
+      top: 3.65rem;
+      right: calc(1rem + 1.2rem);
+      z-index: 6;
+      transform: translateX(50%);
+      color: var(--primary);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.58rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      line-height: 1;
+      text-transform: uppercase;
+      -webkit-text-stroke: 0.45px var(--secondary);
+      paint-order: stroke fill;
       pointer-events: none;
     }
     .event-content {
@@ -375,10 +428,10 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 0.5rem;
+      gap: 0.65rem;
       width: 100%;
       height: 100%;
-      padding: 5rem 1.25rem 1.25rem;
+      padding: 5.4rem 1rem 1rem;
       box-sizing: border-box;
       text-align: center;
     }
@@ -386,44 +439,120 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.5rem;
-      margin-bottom: 0.2rem;
+      gap: clamp(0.3rem, 2vw, 0.75rem);
+      margin: -0.35rem 0 -0.25rem;
     }
     .event-icon {
-      width: clamp(44px, 14vw, 64px);
-      height: clamp(44px, 14vw, 64px);
+      width: clamp(96px, 28vw, 132px);
+      height: clamp(96px, 28vw, 132px);
       object-fit: contain;
+      filter: drop-shadow(0 7px 0 color-mix(in srgb, var(--secondary) 16%, transparent));
     }
     .event-icon:not([src]) { display: none; }
     /* Helmets face each other: away (left) faces right by default; home (right)
        is flipped to face left. */
     .event-icon--home { transform: scaleX(-1); }
-    .event-matchup {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.1rem;
+    .event-helmet-vs {
+      display: grid;
+      place-items: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      flex: 0 0 auto;
+      border: 2px solid var(--primary);
+      border-radius: 50%;
+      background: #fff;
+      color: var(--secondary);
       font-family: 'Outfit', sans-serif;
-      font-weight: 700;
-      font-size: clamp(1.6rem, 7vw, 2.3rem);
-      line-height: 1.05;
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .event-matchup {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: center;
+      gap: 0.45rem;
+      width: 100%;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.05rem, 4.6vw, 1.35rem);
+      letter-spacing: -0.035em;
+      line-height: 1;
       color: var(--secondary);
       text-transform: uppercase;
     }
+    .event-matchup > span:not(.event-vs) {
+      min-width: 0;
+      text-align: center;
+    }
     .event-vs {
-      font-size: 0.62em;
-      font-weight: 700;
-      letter-spacing: 0.12em;
+      font-size: 0.54em;
+      font-weight: 900;
+      letter-spacing: 0.14em;
       color: var(--primary);
       opacity: 0.85;
     }
-    .event-venue {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 0.9rem;
-      font-weight: 500;
-      color: #666;
-      letter-spacing: 0.05em;
+    .event-kickoff {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 0;
+      width: min(100%, 21rem);
+      margin-top: 0.15rem;
+      border: 3px solid #000;
+      border-radius: 0;
+      background: color-mix(in srgb, var(--secondary) 14%, #fff);
+      color: #000;
+      text-align: left;
+      box-shadow: 6px 6px 0 #000;
+    }
+    .event-kickoff-label {
+      align-self: stretch;
+      display: grid;
+      place-items: center;
+      padding: 0.58rem 0.64rem;
+      border-right: 3px solid #000;
+      background: #000;
+      color: #fff;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.62rem;
+      font-weight: 900;
+      letter-spacing: 0.13em;
+      line-height: 1;
       text-transform: uppercase;
+    }
+    .event-kickoff-value {
+      min-width: 0;
+      padding: 0.58rem 0.68rem;
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(0.92rem, 3.8vw, 1.12rem);
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      line-height: 1.05;
+      text-transform: uppercase;
+    }
+    .event-venue {
+      position: absolute;
+      right: 1rem;
+      bottom: 1rem;
+      left: 1rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #666;
+      letter-spacing: 0.09em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 380px) {
+      .event-content { padding-top: 5rem; gap: 0.45rem; }
+      .event-icon { width: 88px; height: 88px; }
+      .event-helmet-vs { width: 1.9rem; height: 1.9rem; font-size: 0.62rem; }
+      .event-matchup { font-size: 1.08rem; }
+      .event-kickoff-label { padding: 0.5rem 0.48rem; }
+      .event-kickoff-value { padding: 0.5rem 0.55rem; }
     }
 
     /* ── PLAY MODE ── */
@@ -1036,6 +1165,192 @@
       pointer-events: none;
     }
 
+    /* ── YOUR EVENTS ── */
+    /* Card chrome mirrors the intro / guide / fandom cards; the row list and the
+       date chip borrow the brutalist treatment from the FANDOM scroll. */
+    #yourEventsSection {
+      background: #fff;
+      border: 2px solid var(--primary);
+      border-radius: 20px;
+      padding: var(--v) var(--pad);
+      color: #111;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+    .your-events-list {
+      margin-top: 1.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    /* Each event sits in its own brutalist frame: name header bar + body row. */
+    .your-event-row {
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border: 3px solid #000;
+      border-radius: 4px;
+      box-shadow: 4px 4px 0 #000;
+      overflow: hidden;
+    }
+    .your-event-body {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.9rem 1rem;
+    }
+    /* Brutalist square calendar button — same treatment as the Events /
+       TGB Game "Add" buttons, inlined at the end of each row. */
+    .your-event-calendar-btn,
+    .your-event-tickets-btn {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.4rem;
+      height: 2.4rem;
+      padding: 0;
+      border: 3px solid #000;
+      border-radius: 0;
+      background: #fff;
+      color: #000;
+      box-shadow: 3px 3px 0 #000;
+      cursor: pointer;
+      text-decoration: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .your-event-calendar-btn:active,
+    .your-event-tickets-btn:active {
+      transform: translate(3px, 3px);
+      box-shadow: 0 0 0 #000;
+    }
+    .your-event-calendar-btn svg,
+    .your-event-tickets-btn svg {
+      width: 1.15rem;
+      height: 1.15rem;
+    }
+    /* Action stack (calendar button + buy-tickets) on the pro-matchup row. */
+    .your-event-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    /* Event 1 stacks the time directly under its date tile. */
+    .your-event-datecol {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .your-event-chip-time {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #555;
+      white-space: nowrap;
+    }
+    .your-event-chip-time svg {
+      width: 0.85rem;
+      height: 0.85rem;
+      flex: 0 0 auto;
+    }
+    /* Calendar tile: colored month header band over a white day/weekday body. */
+    .your-event-date {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      width: 3.4rem;
+      border: 3px solid #000;
+      border-radius: 4px;
+      box-shadow: 2px 2px 0 #000;
+      overflow: hidden;
+      background: #fff;
+      color: #111;
+      font-family: 'Outfit', sans-serif;
+      line-height: 1;
+      text-align: center;
+    }
+    .your-event-date-month {
+      background: var(--secondary);
+      color: #fff;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.22rem 0;
+    }
+    .your-event-date-day {
+      font-size: 1.55rem;
+      font-weight: 800;
+      color: var(--primary);
+      padding-top: 0.3rem;
+    }
+    .your-event-date-dow {
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #666;
+      padding: 0.14rem 0 0.32rem;
+    }
+    .your-event-info { min-width: 0; }
+    /* Event-name header bar across the top of the frame — always one line
+       (JS shrinks the font to fit via fitYourEventTitle). */
+    .your-event-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1.05rem;
+      line-height: 1.1;
+      color: #fff;
+      -webkit-text-stroke: 0.75px var(--primary);
+      paint-order: stroke fill;
+      background: var(--secondary);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      padding: 0.5rem 0.7rem;
+      border-bottom: 3px solid #000;
+    }
+    .your-event-meta {
+      margin-top: 0.2rem;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #555;
+    }
+    .your-event-venue {
+      margin-top: 0.15rem;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--primary);
+      line-height: 1.2;
+    }
+    .your-event-venue[hidden] { display: none; }
+    /* Waypoint pin in front of every Game Weekend location line. */
+    .your-event-venue::before {
+      content: "";
+      display: inline-block;
+      width: 0.85em;
+      height: 0.85em;
+      margin-right: 0.28em;
+      vertical-align: -0.13em;
+      background-color: currentColor;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2.4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M20%2010c0%206-8%2012-8%2012s-8-6-8-12a8%208%200%200%201%2016%200Z'/%3E%3Ccircle%20cx='12'%20cy='10'%20r='3'/%3E%3C/svg%3E") no-repeat center / contain;
+      mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2.4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M20%2010c0%206-8%2012-8%2012s-8-6-8-12a8%208%200%200%201%2016%200Z'/%3E%3Ccircle%20cx='12'%20cy='10'%20r='3'/%3E%3C/svg%3E") no-repeat center / contain;
+    }
+
     /* ── GIFT SHOP ── */
     #giftShopSection {
       display: none;
@@ -1309,6 +1624,23 @@
       opacity: 0;
       pointer-events: none;
     }
+
+    .sports-affiliation-note {
+      margin: calc(var(--block-gap) * 0.6) var(--pad) 0;
+      padding: 0.85rem 0.95rem;
+      border-top: 3px solid #000;
+      border-bottom: 3px solid #000;
+      background: rgba(255,255,255,0.7);
+      color: #222;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      line-height: 1.4;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    .sports-affiliation-note[hidden] { display: none; }
 
     .play-btn.is-disabled,
     .play-btn[aria-disabled="true"] {
@@ -1934,81 +2266,6 @@
 
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* ── Buy game block (modal lives in /mc/js/gs-buy-modal.js) ── */
-    #buyGameSection {
-      display: none;
-      position: relative;
-      overflow: hidden;
-      background: #fff;
-      border: 2px solid var(--primary);
-      border-radius: 20px;
-      aspect-ratio: 1 / 1;
-      padding: var(--v) var(--pad);
-      color: #111;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-      transition: transform 0.18s ease, box-shadow 0.18s ease;
-      font: inherit;
-      width: calc(100% - var(--pad) * 2);
-      text-align: left;
-    }
-    #buyGameSection.is-visible { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-    #buyGameSection:hover { box-shadow: 0 12px 36px rgba(0,0,0,0.18); }
-    #buyGameSection:active { transform: scale(0.985); }
-    .buy-game-label {
-      position: absolute;
-      top: 0.9rem;
-      left: 1rem;
-      z-index: 1;
-      font-family: 'Outfit', sans-serif;
-      font-size: 1.9rem;
-      font-weight: 700;
-      letter-spacing: 0.01em;
-      text-transform: uppercase;
-      color: var(--primary);
-      -webkit-text-stroke: 0.75px var(--secondary);
-      paint-order: stroke fill;
-      pointer-events: none;
-      line-height: 1;
-    }
-    .buy-game-icon {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: clamp(80px, 28%, 140px);
-      height: clamp(80px, 28%, 140px);
-      border-radius: 50%;
-      border: 2px solid var(--primary);
-      background: rgba(255,255,255,0.85);
-      color: var(--primary);
-      margin-bottom: 1rem;
-    }
-    .buy-game-icon svg { width: 55%; height: 55%; }
-    .buy-game-copy {
-      max-width: 80%;
-      margin: 0;
-      font-family: 'Outfit', sans-serif;
-      font-size: clamp(0.95rem, 3.5vw, 1.1rem);
-      font-weight: 500;
-      color: #1a1a1a;
-      text-align: center;
-      line-height: 1.35;
-    }
-    .buy-game-cta {
-      margin-top: 0.9rem;
-      padding: 0.6rem 1.2rem;
-      border-radius: 999px;
-      background: var(--primary);
-      color: #fff;
-      font-family: 'Outfit', sans-serif;
-      font-size: 0.85rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      pointer-events: none;
-    }
-
     /* Squared brutalist block treatment */
     .hero,
     #gameTagline,
@@ -2018,11 +2275,11 @@
     #playModeSection,
     #guideSection,
     #rendezvousSection,
+    #yourEventsSection,
     #giftShopSection,
     #disclaimerSection,
     #weatherSection,
-    #takeoverTimeSection,
-    #buyGameSection {
+    #takeoverTimeSection {
       border: 4px solid #000;
       border-radius: 4px;
       box-shadow: 8px 8px 0 #000;
@@ -2032,9 +2289,7 @@
     .start-blurb,
     .gift-shop-item,
     .disclaimer-check,
-    .when-card-content,
-    .buy-game-icon,
-    .buy-game-cta {
+    .when-card-content {
       border: 3px solid #000;
       border-radius: 4px;
       box-shadow: 4px 4px 0 #000;
@@ -2046,14 +2301,304 @@
       border-radius: 0;
     }
 
-    #buyGameSection:hover {
-      box-shadow: 4px 4px 0 #000;
-      transform: translate(4px, 4px);
+    /* Reversible experiment: list the TGB takeover and sports matchup inside
+       one shared event card. Remove this block, the wrapper/header, and
+       syncTakeoverEventCard to restore the standalone cards. */
+    #takeoverEventSection {
+      display: contents;
     }
 
-    #buyGameSection:active {
+    .takeover-event-header {
+      display: none;
+    }
+
+    #takeoverEventSection.is-combined {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto repeat(2, minmax(0, 1fr));
+      overflow: hidden;
+      aspect-ratio: 1 / 1.18;
+      padding: 0;
+      border: 4px solid #000;
+      border-radius: 4px;
+      background: color-mix(in srgb, var(--primary) 9%, #fff);
+      box-shadow: 8px 8px 0 #000;
+      isolation: isolate;
+    }
+
+    #takeoverEventSection.is-combined .takeover-event-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.68rem 0.82rem;
+      border-bottom: 4px solid #000;
+      background: #000;
+      color: #fff;
+      font-family: 'Outfit', sans-serif;
+      text-transform: uppercase;
+    }
+
+    .takeover-event-header-title {
+      font-size: clamp(1.25rem, 5.2vw, 1.65rem);
+      font-weight: 900;
+      letter-spacing: -0.025em;
+      line-height: 1;
+    }
+
+    #landing #takeoverEventSection.is-combined > #takeoverTimeSection,
+    #landing #takeoverEventSection.is-combined > #eventSection {
+      position: relative;
+      inset: auto;
+      width: 100%;
+      height: auto;
+      min-height: 0;
+      margin: 0;
+      padding: 0.72rem 0.82rem 0.62rem;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
       box-shadow: none;
-      transform: translate(8px, 8px);
+      aspect-ratio: auto;
+      overflow: hidden;
+    }
+
+    #takeoverEventSection.is-combined > #takeoverTimeSection {
+      border-bottom: 4px solid #000 !important;
+    }
+
+    #takeoverEventSection.is-combined > #eventSection {
+      display: block !important;
+    }
+
+    #takeoverEventSection.is-combined .when-card-label,
+    #takeoverEventSection.is-combined .event-card-label {
+      position: absolute;
+      top: 0.72rem;
+      left: 0.82rem;
+      right: 7rem;
+      font-size: clamp(1.02rem, 4.2vw, 1.3rem);
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    #takeoverEventSection.is-combined .when-calendar-btn,
+    #takeoverEventSection.is-combined .event-calendar-btn {
+      position: absolute;
+      top: 0.52rem;
+      right: 4rem;
+      width: 2rem;
+      height: 2rem;
+      border: 2px solid #000;
+      border-radius: 0;
+      box-shadow: 2px 2px 0 #000;
+    }
+
+    #takeoverEventSection.is-combined .when-btn-label,
+    #takeoverEventSection.is-combined .event-calendar-label {
+      position: absolute;
+      top: 2.72rem;
+      right: 5rem;
+      transform: translateX(50%);
+      font-size: 0.5rem;
+    }
+
+    #takeoverEventSection.is-combined .event-calendar-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      background: #fff;
+      color: #000;
+      cursor: pointer;
+    }
+
+    #takeoverEventSection.is-combined .event-calendar-btn svg {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    #takeoverEventSection.is-combined .event-calendar-label {
+      color: var(--primary);
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      line-height: 1;
+      text-transform: uppercase;
+      -webkit-text-stroke: 0.45px var(--secondary);
+      paint-order: stroke fill;
+    }
+
+    #takeoverEventSection.is-combined .event-card-blurb {
+      display: none;
+    }
+
+    #takeoverEventSection.is-combined .when-card-content,
+    #takeoverEventSection.is-combined .event-content {
+      position: absolute;
+      top: 3.15rem;
+      bottom: 1.45rem;
+      left: 50%;
+      width: calc(100% - 1.64rem);
+      height: auto;
+      transform: translateX(-50%);
+      padding: 0.52rem 0.68rem;
+      gap: 0.24rem;
+      border: 2px solid #000;
+      border-radius: 0;
+      background: #fff;
+      box-shadow: 3px 3px 0 #000;
+    }
+
+    #takeoverEventSection.is-combined .when-card-content {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      grid-template-rows: auto auto auto;
+      align-content: center;
+      column-gap: 0.45rem;
+      text-align: left;
+    }
+
+    #takeoverEventSection.is-combined .when-date-line {
+      grid-column: 1;
+      font-size: 0.52rem;
+      text-align: center;
+    }
+
+    #takeoverEventSection.is-combined .when-date-value {
+      grid-column: 1;
+      font-size: clamp(1.55rem, 6.4vw, 2rem);
+      line-height: 0.85;
+      text-align: center;
+    }
+
+    #takeoverEventSection.is-combined .when-date-year {
+      grid-column: 1;
+      font-size: 0.56rem;
+      text-align: center;
+    }
+
+    #takeoverEventSection.is-combined .when-time-grid {
+      grid-column: 2;
+      grid-row: 1 / 4;
+      align-self: stretch;
+      gap: 0;
+      border-left: 2px solid #000;
+    }
+
+    #takeoverEventSection.is-combined .when-time-block {
+      justify-content: center;
+      padding: 0.3rem 0.4rem;
+    }
+
+    #takeoverEventSection.is-combined .when-time-block + .when-time-block {
+      border-left: 1px solid #bbb;
+    }
+
+    #takeoverEventSection.is-combined .when-time-label {
+      font-size: 0.47rem;
+    }
+
+    #takeoverEventSection.is-combined .when-time-value {
+      font-size: 0.78rem;
+    }
+
+    #takeoverEventSection.is-combined .when-bottom-label,
+    #takeoverEventSection.is-combined .event-venue {
+      position: absolute;
+      top: auto;
+      bottom: 0.42rem;
+      left: 50%;
+      max-width: calc(100% - 2rem);
+      transform: translateX(-50%);
+      z-index: 3;
+      display: block !important;
+      overflow: hidden;
+      color: var(--primary);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.48rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      line-height: 1.15;
+      text-align: center;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+      -webkit-text-stroke: 0.45px var(--secondary);
+      paint-order: stroke fill;
+    }
+
+    #takeoverEventSection.is-combined .event-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.22rem;
+      text-align: center;
+    }
+
+    #takeoverEventSection.is-combined .event-helmets {
+      flex: 0 0 auto;
+      gap: 0.08rem;
+      margin: 0;
+    }
+
+    #takeoverEventSection.is-combined .event-icon {
+      width: clamp(42px, 11vw, 52px);
+      height: clamp(42px, 11vw, 52px);
+      filter: none;
+    }
+
+    #takeoverEventSection.is-combined .event-helmet-vs {
+      width: 1.25rem;
+      height: 1.25rem;
+      border-width: 1px;
+      font-size: 0.4rem;
+    }
+
+    #takeoverEventSection.is-combined .event-matchup {
+      gap: 0.2rem;
+      width: 100%;
+      font-size: clamp(0.7rem, 3vw, 0.86rem);
+      line-height: 1;
+    }
+
+    #takeoverEventSection.is-combined .event-kickoff {
+      width: min(100%, 17rem);
+      margin-top: 0;
+      border-width: 2px;
+      box-shadow: 2px 2px 0 #000;
+    }
+
+    #takeoverEventSection.is-combined .event-kickoff-label {
+      padding: 0.32rem 0.35rem;
+      border-right-width: 2px;
+      font-size: 0.4rem;
+    }
+
+    #takeoverEventSection.is-combined .event-kickoff-value {
+      padding: 0.32rem 0.38rem;
+      font-size: clamp(0.55rem, 2.25vw, 0.68rem);
+    }
+
+    @media (max-width: 420px) {
+      #takeoverEventSection.is-combined .when-card-label,
+      #takeoverEventSection.is-combined .event-card-label {
+        right: 7rem;
+        font-size: 0.92rem;
+      }
+
+      #takeoverEventSection.is-combined .event-icon {
+        width: 40px;
+        height: 40px;
+      }
+
+      #takeoverEventSection.is-combined .event-matchup {
+        font-size: 0.68rem;
+      }
+
+      #takeoverEventSection.is-combined .event-kickoff-value {
+        font-size: 0.58rem;
+      }
     }
 
   </style>
@@ -2080,43 +2625,114 @@
       <p id="intro"></p>
     </section>
 
-    <!-- BLOCK: takeover-time -->
-    <section id="takeoverTimeSection" data-block="takeover-time">
-      <div class="when-card-label">TAKEOVER TIME *</div>
-      <button class="when-calendar-btn" id="whenCalendarBtn" type="button" aria-label="Add game to calendar" title="Add game to calendar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect>
-          <line x1="8" y1="3.5" x2="8" y2="7"></line>
-          <line x1="16" y1="3.5" x2="16" y2="7"></line>
-          <line x1="3.5" y1="9" x2="20.5" y2="9"></line>
-          <rect x="7.25" y="12" width="3.5" height="3.5" rx="0.8" fill="currentColor" stroke="none"></rect>
-        </svg>
-      </button>
-      <div class="when-btn-label">Add</div>
-      <div class="when-card-content" id="whenCardContent">
-        <div class="when-date-line" id="whenDateLine"></div>
-        <div class="when-date-value" id="whenDateValue"></div>
-        <div class="when-date-year" id="whenDateYear"></div>
-        <div class="when-time-grid" id="whenTimeGrid"></div>
-      </div>
-      <div class="when-bottom-label" id="whenBottomLabel">Play Anytime</div>
-    </section>
-
-    <!-- BLOCK: event (the real-world event the game is built around) -->
-    <section id="eventSection" data-block="event">
-      <div class="event-card-label">The Event</div>
-      <p class="event-card-blurb">The game after the game</p>
-      <div class="event-content">
-        <div class="event-helmets">
-          <img id="eventAwayIcon" class="event-icon event-icon--away" alt="">
-          <img id="eventHomeIcon" class="event-icon event-icon--home" alt="">
+    <!-- BLOCK: your-events (the player's own upcoming events under the game's Events) -->
+    <section id="yourEventsSection" data-block="your-events">
+      <div class="htp-header">Game Weekend</div>
+      <span class="htp-divider"></span>
+      <div class="your-events-list" id="yourEventsList">
+        <div class="your-event-row" data-event-title="Family Game Night" data-event-start="2026-06-21T19:00:00">
+          <div class="your-event-title">Family Game Night</div>
+          <div class="your-event-body">
+            <div class="your-event-datecol">
+              <div class="your-event-date">
+                <span class="your-event-date-month">JUN</span>
+                <span class="your-event-date-day">21</span>
+                <span class="your-event-date-dow">Sat</span>
+              </div>
+              <div class="your-event-chip-time">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <path d="M12 7v5l3 2"></path>
+                </svg>
+                <span class="your-event-chip-time-val">7:00 PM</span>
+              </div>
+            </div>
+            <div class="your-event-info">
+              <div class="your-event-venue" hidden></div>
+            </div>
+            <button class="your-event-calendar-btn" type="button" aria-label="Add Family Game Night to calendar" title="Add to calendar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect>
+                <line x1="8" y1="3.5" x2="8" y2="7"></line>
+                <line x1="16" y1="3.5" x2="16" y2="7"></line>
+                <line x1="3.5" y1="9" x2="20.5" y2="9"></line>
+                <rect x="7.25" y="12" width="3.5" height="3.5" rx="0.8" fill="currentColor" stroke="none"></rect>
+              </svg>
+            </button>
+          </div>
         </div>
-        <div class="event-matchup">
-          <span id="eventAway"></span>
-          <span class="event-vs">at</span>
-          <span id="eventHome"></span>
+        <div class="your-event-row" data-event-title="Pep Rally" data-event-start="2026-06-21T21:00:00" data-event-location="Location Revealed During Game">
+          <div class="your-event-title">Pep Rally</div>
+          <div class="your-event-body">
+            <div class="your-event-datecol">
+              <div class="your-event-date">
+                <span class="your-event-date-month">JUN</span>
+                <span class="your-event-date-day">21</span>
+                <span class="your-event-date-dow">Sat</span>
+              </div>
+              <div class="your-event-chip-time">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <path d="M12 7v5l3 2"></path>
+                </svg>
+                <span class="your-event-chip-time-val">9:00 PM</span>
+              </div>
+            </div>
+            <div class="your-event-info">
+              <div class="your-event-venue">Location Revealed During Game</div>
+            </div>
+            <button class="your-event-calendar-btn" type="button" aria-label="Add Pep Rally to calendar" title="Add to calendar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect>
+                <line x1="8" y1="3.5" x2="8" y2="7"></line>
+                <line x1="16" y1="3.5" x2="16" y2="7"></line>
+                <line x1="3.5" y1="9" x2="20.5" y2="9"></line>
+                <rect x="7.25" y="12" width="3.5" height="3.5" rx="0.8" fill="currentColor" stroke="none"></rect>
+              </svg>
+            </button>
+          </div>
         </div>
-        <div class="event-venue" id="eventVenue"></div>
+        <div class="your-event-row" data-event-title="Block Party Scavenger Hunt" data-event-start="2026-07-04T14:00:00">
+          <div class="your-event-title">Block Party Scavenger Hunt</div>
+          <div class="your-event-body">
+            <div class="your-event-datecol">
+              <div class="your-event-date">
+                <span class="your-event-date-month">JUL</span>
+                <span class="your-event-date-day">04</span>
+                <span class="your-event-date-dow">Fri</span>
+              </div>
+              <div class="your-event-chip-time">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <path d="M12 7v5l3 2"></path>
+                </svg>
+                <span class="your-event-chip-time-val">2:00 PM</span>
+              </div>
+            </div>
+            <div class="your-event-info">
+              <div class="your-event-venue" hidden></div>
+            </div>
+            <div class="your-event-actions">
+              <button class="your-event-calendar-btn" type="button" aria-label="Add Block Party Scavenger Hunt to calendar" title="Add to calendar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect>
+                  <line x1="8" y1="3.5" x2="8" y2="7"></line>
+                  <line x1="16" y1="3.5" x2="16" y2="7"></line>
+                  <line x1="3.5" y1="9" x2="20.5" y2="9"></line>
+                  <rect x="7.25" y="12" width="3.5" height="3.5" rx="0.8" fill="currentColor" stroke="none"></rect>
+                </svg>
+              </button>
+              <a class="your-event-tickets-btn" href="https://seatgeek.com" target="_blank" rel="noopener" aria-label="Buy tickets on SeatGeek" title="Buy tickets">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+                  <path d="M13 5v2"></path>
+                  <path d="M13 11v2"></path>
+                  <path d="M13 17v2"></path>
+                </svg>
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -2251,22 +2867,6 @@
       </div>
     </section>
 
-    <!-- BLOCK: buy-game -->
-    <button type="button" id="buyGameSection" data-block="buy-game" aria-label="Buy this game">
-      <div class="buy-game-label">Buy This Game</div>
-      <div class="buy-game-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 12v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8"/>
-          <path d="M2 7h20v5H2z"/>
-          <path d="M12 22V7"/>
-          <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7Z"/>
-          <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7Z"/>
-        </svg>
-      </div>
-      <p class="buy-game-copy">Pay now and play, or send the access code to someone else as a gift.</p>
-      <span class="buy-game-cta">Buy this game</span>
-    </button>
-
     <!-- BLOCK: gift-shop -->
     <section id="giftShopSection" data-block="gift-shop">
       <div class="gift-shop-card-label">Gift Shop</div>
@@ -2310,6 +2910,9 @@
       </label>
     </section>
 
+    <footer class="sports-affiliation-note" id="sportsAffiliationNote" hidden>
+      Independent fan-made experience. Not affiliated with, endorsed by, or sponsored by any league, team, conference, governing body, venue, or broadcaster.
+    </footer>
 
   </div>
 
@@ -2336,9 +2939,6 @@
   <div id="ctaBar">
     <a href="#" class="play-btn" id="startBtn">Start Game</a>
   </div>
-
-  <!-- Gift-buy modal is injected by /mc/js/gs-buy-modal.js -->
-
 
   <script>
     const SB_CONFIG = {
@@ -2638,9 +3238,161 @@
       } catch (_) { return null; }
     }
 
-    // Renders the EVENT square — the real-world event the game is built around.
-    // Shows the matchup by CITY (never mascots), the venue city, and the teams'
-    // marks. TGB scheduling belongs exclusively to the TAKEOVER TIME square.
+    // Renders the sports matchup the TGB experience is built around. The
+    // sports-event date comes from the fandom game id; game_date remains the
+    // separate TGB takeover date shown in the TAKEOVER TIME square.
+    function eventDateFromGameId(game) {
+      const id = String(game && game.id || '').trim();
+      const match = id.match(/-(\d{4})(\d{2})(\d{2})-/);
+      if (!match) return null;
+      return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    }
+
+    function eventSportsContext(game, awayPal, homePal) {
+      const gameId = String(game && game.id || '').trim().toUpperCase();
+      const idLeague = (gameId.match(/^(NCAAF|NCAAM|NCAAW|WNBA|NWSL|NFL|MLB|NBA|NHL|MLS|CFB)/) || [])[1] || '';
+      const league = String(
+        (awayPal && (awayPal.league || awayPal.League)) ||
+        (homePal && (homePal.league || homePal.League)) ||
+        idLeague
+      ).trim().toUpperCase();
+      const leagueKey = `${league} ${gameId}`;
+      const isCollege = /\b(NCAA|NCAAF|NCAAM|NCAAW|CFB|COLLEGE)\b/.test(leagueKey);
+      const isPro = /\b(NFL|MLB|NBA|WNBA|NHL|MLS|NWSL)\b/.test(leagueKey);
+
+      const teamSport = String(
+        (awayPal && awayPal.sport) ||
+        (homePal && homePal.sport) ||
+        ''
+      ).trim().toLowerCase();
+      let sport = teamSport || String(game && game.category_icon || '').trim().toLowerCase();
+      if (!sport) {
+        if (/\b(NFL|NCAAF|CFB)\b/.test(leagueKey)) sport = 'football';
+        else if (/\b(MLB)\b/.test(leagueKey)) sport = 'baseball';
+        else if (/\b(NBA|WNBA|NCAAM|NCAAW)\b/.test(leagueKey)) sport = 'basketball';
+        else if (/\b(NHL)\b/.test(leagueKey)) sport = 'hockey';
+        else if (/\b(MLS|NWSL)\b/.test(leagueKey)) sport = 'soccer';
+      }
+
+      const sportNames = {
+        baseball: 'Baseball',
+        basketball: 'Basketball',
+        football: 'Football',
+        hockey: 'Hockey',
+        lacrosse: 'Lacrosse',
+        rugby: 'Rugby',
+        soccer: 'Soccer',
+        softball: 'Softball',
+        tennis: 'Tennis',
+        volleyball: 'Volleyball'
+      };
+      const sportName = sportNames[sport] || (
+        teamSport && teamSport !== 'music'
+          ? teamSport.replace(/[-_]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+          : ''
+      );
+      const level = isCollege ? 'College' : (isPro ? 'Pro' : '');
+      return {
+        sport,
+        isSports: !!sportName || isCollege || isPro,
+        matchupLabel: sportName
+          ? [level, sportName, 'Matchup'].filter(Boolean).join(' ')
+          : 'Sports Matchup'
+      };
+    }
+
+    function eventStartLabel(sport) {
+      const labels = {
+        baseball: 'First Pitch',
+        basketball: 'Tipoff',
+        football: 'Kickoff',
+        hockey: 'Puck Drop'
+      };
+      return labels[String(sport || '').trim().toLowerCase()] || 'Start Time';
+    }
+
+    function readableTeamColor(palette, fallback) {
+      const relativeLuminance = (value) => {
+        const hex = String(value || '').trim().match(/^#([0-9a-f]{6})$/i);
+        if (!hex) return null;
+        const channels = [0, 2, 4].map((offset) => {
+          const raw = parseInt(hex[1].slice(offset, offset + 2), 16) / 255;
+          return raw <= 0.04045 ? raw / 12.92 : Math.pow((raw + 0.055) / 1.055, 2.4);
+        });
+        return (0.2126 * channels[0]) + (0.7152 * channels[1]) + (0.0722 * channels[2]);
+      };
+      const candidates = [
+        palette && palette.shell,
+        palette && palette.stripe,
+        palette && palette.mask,
+        fallback,
+        '#243256'
+      ];
+      return candidates.find((color) => {
+        const luminance = relativeLuminance(color);
+        return luminance !== null && 1.05 / (luminance + 0.05) >= 3;
+      }) || '#243256';
+    }
+
+    function eventTimezoneLabel(timezone) {
+      const labels = {
+        'America/New_York': 'ET',
+        'America/Chicago': 'CT',
+        'America/Denver': 'MT',
+        'America/Phoenix': 'MT',
+        'America/Los_Angeles': 'PT'
+      };
+      return labels[String(timezone || '').trim()] || 'Local';
+    }
+
+    function formatEventKickoff(game, timezone) {
+      const date = eventDateFromGameId(game) || parseGameDateValue(game && game.game_date);
+      const dateLabel = date
+        ? new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(date)
+        : '';
+      const timeLabel = formatWhenTimeValue(game && game.start_time);
+      return [dateLabel, timeLabel ? `${timeLabel} ${eventTimezoneLabel(timezone)}` : '']
+        .filter(Boolean)
+        .join(' · ');
+    }
+
+    function eventCalendarStart(game) {
+      const eventDate = eventDateFromGameId(game) || parseGameDateValue(game && game.game_date);
+      if (!(eventDate instanceof Date) || Number.isNaN(eventDate.getTime())) return null;
+      const timeMatch = String(game && game.start_time || '').trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      const result = new Date(eventDate);
+      if (timeMatch) {
+        result.setHours(Number(timeMatch[1]), Number(timeMatch[2]), Number(timeMatch[3] || 0), 0);
+      }
+      return result;
+    }
+
+    function eventVenueText(game, homePal) {
+      const venueName = String(
+        (homePal && (homePal.venue_name || homePal.venue)) ||
+        (game && (game.venue_name || game.venue)) ||
+        ''
+      ).trim();
+      const venueCity = String(
+        (homePal && homePal.venue_city) ||
+        (game && game.home_team_city) ||
+        ''
+      ).trim();
+      return [venueName, venueCity].filter((value, index, values) => (
+        value && values.findIndex((candidate) => candidate.toLowerCase() === value.toLowerCase()) === index
+      )).join(' · ');
+    }
+
+    function syncTakeoverEventCard() {
+      const wrapper = document.getElementById('takeoverEventSection');
+      const takeover = document.getElementById('takeoverTimeSection');
+      const event = document.getElementById('eventSection');
+      if (!wrapper || !takeover || !event) return;
+      const bothVisible = getComputedStyle(takeover).display !== 'none'
+        && getComputedStyle(event).display !== 'none';
+      wrapper.classList.toggle('is-combined', bothVisible);
+    }
+
     async function renderEventBlock(game, primaryColor, secondaryColor) {
       const section = document.getElementById('eventSection');
       if (!section || !game) return;
@@ -2652,6 +3404,12 @@
       const awayEl     = document.getElementById('eventAway');
       const homeEl     = document.getElementById('eventHome');
       const venueEl    = document.getElementById('eventVenue');
+      const labelEl    = document.getElementById('eventCardLabel');
+      const kickoffEl  = document.getElementById('eventKickoff');
+      const kickoffLabelEl = kickoffEl && kickoffEl.querySelector('.event-kickoff-label');
+      const kickoffValueEl = document.getElementById('eventKickoffValue');
+      const eventCalendarBtn = document.getElementById('eventCalendarBtn');
+      const sportsNoteEl = document.getElementById('sportsAffiliationNote');
       const awayIconEl = document.getElementById('eventAwayIcon');
       const homeIconEl = document.getElementById('eventHomeIcon');
       if (awayEl) awayEl.textContent = away;
@@ -2660,11 +3418,12 @@
       // Venue — full home city ("Minneapolis, Minnesota").
       if (venueEl) {
         const venue = String(game.home_team_city || '').trim();
-        venueEl.textContent = venue;
+        venueEl.textContent = venue ? `Venue · ${venue}` : '';
         venueEl.style.display = venue ? '' : 'none';
       }
 
       section.style.display = 'flex';
+      syncTakeoverEventCard();
 
       // Away + home helmets/balls in each team's colors (falls back to the
       // game's colors + a helmet). Rendered after the card is shown so the
@@ -2687,6 +3446,38 @@
         fetchTeamPalette(game.away_team_mascot, game.away_team_city),
         fetchTeamPalette(game.home_team_mascot, game.home_team_city)
       ]);
+      const sports = eventSportsContext(game, awayPal, homePal);
+      if (labelEl) labelEl.textContent = sports.matchupLabel;
+      if (kickoffLabelEl) kickoffLabelEl.textContent = eventStartLabel(sports.sport);
+      if (sportsNoteEl) sportsNoteEl.hidden = !sports.isSports;
+      const kickoff = formatEventKickoff(game, homePal && homePal.timezone);
+      if (kickoffValueEl) kickoffValueEl.textContent = kickoff;
+      if (kickoffEl) kickoffEl.style.display = kickoff ? '' : 'none';
+      if (homeEl) homeEl.style.color = readableTeamColor(homePal, secondaryColor);
+      const venue = eventVenueText(game, homePal);
+      if (venueEl) {
+        venueEl.textContent = venue ? `Venue · ${venue}` : '';
+        venueEl.style.display = venue ? '' : 'none';
+      }
+      if (eventCalendarBtn) {
+        const eventStart = eventCalendarStart(game);
+        eventCalendarBtn.style.display = eventStart ? '' : 'none';
+        eventCalendarBtn.onclick = (event) => {
+          event.stopPropagation();
+          if (!eventStart) return;
+          const publicGameUrl = gameId
+            ? `http://thegamebureau.com/game/run/index.html?id=${encodeURIComponent(gameId)}`
+            : '';
+          downloadCalendarEvent({
+            title: `${away} at ${home} - ${sports.matchupLabel}`,
+            start: eventStart,
+            end: new Date(eventStart.getTime() + 3 * 60 * 60 * 1000),
+            location: venue,
+            description: `Sports event connected to ${document.getElementById('gameTitle')?.textContent || 'The Game Bureau experience'}.`,
+            url: publicGameUrl
+          });
+        };
+      }
       paintHelmet(awayIconEl, awayPal);
       paintHelmet(homeIconEl, homePal);
     }
@@ -3801,6 +4592,201 @@ const WEATHER_CODE_MAP = {
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
+    // YOUR EVENTS — wire each row's "Add to calendar" button to the same
+    // downloadCalendarEvent(...) helper the Events / TGB Game cards use. Date +
+    // title ride on the row's data-event-* attributes, read fresh at click time
+    // so a date set later (e.g. the takeover date) is picked up.
+    function refreshYourEventBtn(row) {
+      const btn = row.querySelector('.your-event-calendar-btn');
+      if (!btn) return;
+      const start = new Date(row.getAttribute('data-event-start') || '');
+      btn.style.display = Number.isNaN(start.getTime()) ? 'none' : '';
+    }
+
+    function initYourEventsCalendar() {
+      const rows = document.querySelectorAll('#yourEventsList .your-event-row');
+      rows.forEach((row) => {
+        const btn = row.querySelector('.your-event-calendar-btn');
+        if (!btn) return;
+        refreshYourEventBtn(row);
+        btn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const start = new Date(row.getAttribute('data-event-start') || '');
+          if (Number.isNaN(start.getTime())) return;
+          const title = row.getAttribute('data-event-title') || 'Your Event';
+          downloadCalendarEvent({
+            title,
+            start,
+            end: new Date(start.getTime() + 2 * 60 * 60 * 1000),
+            location: row.getAttribute('data-event-location') || '',
+            description: `Your event from ${document.getElementById('gameTitle')?.textContent || 'The Game Bureau'}.`
+          });
+        });
+      });
+    }
+
+    // Stamp a Your Event row's date chip, meta line, and the data-event-start the
+    // button reads — from a real Date + the raw HH:MM time. An optional label
+    // prefix (e.g. "Kickoff") leads the meta line: "Kickoff · Sun · 1:00 PM".
+    // An optional timeSuffix (e.g. "Local") trails the time: "… · 1:00 PM Local".
+    function applyYourEventDate(row, startDate, startTimeRaw, labelPrefix, timeSuffix) {
+      if (!row || !(startDate instanceof Date) || Number.isNaN(startDate.getTime())) return;
+      const pad = (n) => String(n).padStart(2, '0');
+      row.setAttribute(
+        'data-event-start',
+        `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}T${pad(startDate.getHours())}:${pad(startDate.getMinutes())}:00`
+      );
+      const monthEl = row.querySelector('.your-event-date-month');
+      const dayEl = row.querySelector('.your-event-date-day');
+      const dowEl = row.querySelector('.your-event-date-dow');
+      const metaEl = row.querySelector('.your-event-meta');
+      if (monthEl) monthEl.textContent = new Intl.DateTimeFormat(undefined, { month: 'short' }).format(startDate).toUpperCase();
+      if (dayEl) dayEl.textContent = String(startDate.getDate());
+      if (dowEl) dowEl.textContent = new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(startDate);
+      if (metaEl) {
+        const rawTime = formatWhenTimeValue(startTimeRaw);
+        const suffix = String(timeSuffix || '').trim();
+        const timeStr = rawTime && suffix ? `${rawTime} ${suffix}` : rawTime;
+        const parts = [labelPrefix, timeStr]
+          .map((part) => String(part || '').trim())
+          .filter(Boolean);
+        // A label ending in ":" reads as a prefix ("Latest Start Time: 7:00 PM");
+        // otherwise segments are dot-separated ("Kickoff · 1:00 PM").
+        metaEl.textContent = (parts.length === 2 && parts[0].endsWith(':'))
+          ? parts.join(' ')
+          : parts.join(' · ');
+      }
+      refreshYourEventBtn(row);
+    }
+
+    // Shrink an event-name header so it always fits on one line in its frame.
+    // (Pure CSS can't size text to content width; this measures and reduces.)
+    function fitYourEventTitle(el) {
+      if (!el || !el.clientWidth) return;
+      el.style.fontSize = '';
+      let size = parseFloat(getComputedStyle(el).fontSize) || 17;
+      let guard = 80;
+      while (el.scrollWidth > el.clientWidth && size > 9 && guard-- > 0) {
+        size -= 0.5;
+        el.style.fontSize = size + 'px';
+      }
+    }
+    function fitAllYourEventTitles() {
+      document.querySelectorAll('#yourEventsList .your-event-title').forEach(fitYourEventTitle);
+    }
+
+    // Game Weekend rows, in order:
+    //   1. TGB takeover game   (game.game_date / game.start_time)
+    //   2. {Away} Pep Rally    (2 hours after the TGB game start)
+    //   3. Pro matchup         (eventCalendarStart() — the Events-card source)
+    function setYourEventDates(game, gameNode, gameName) {
+      const rows = document.querySelectorAll('#yourEventsList .your-event-row');
+      const startTimeRaw = String(game.start_time || gameNode.startTime || '').trim();
+      const cityShort = (raw) => String(raw || '').split(',')[0].trim();
+
+      const takeoverDate = parseGameDateTime(String(game.game_date || gameNode.gameDate || '').trim(), startTimeRaw)
+        || parseGameDateValue(String(game.game_date || gameNode.gameDate || '').trim());
+
+      // No game date → no Game Weekend block at all (don't show placeholder dates).
+      const section = document.getElementById('yourEventsSection');
+      if (!takeoverDate || Number.isNaN(takeoverDate.getTime())) {
+        if (section) section.style.display = 'none';
+        return;
+      }
+      if (section) section.style.display = '';
+
+      // Events 2 (Pep Rally) and 3 (Pro Matchup) only appear on fan-takeover games.
+      const fandom = isFandomGame(game);
+      if (rows[1]) rows[1].style.display = fandom ? '' : 'none';
+      if (rows[2]) rows[2].style.display = fandom ? '' : 'none';
+
+      if (rows[0]) {
+        applyYourEventDate(rows[0], takeoverDate, startTimeRaw);
+        // Event 1 shows just the time, stacked under the date tile (no label/Local).
+        const chipTime = rows[0].querySelector('.your-event-chip-time-val');
+        if (chipTime) chipTime.textContent = formatWhenTimeValue(startTimeRaw) || '';
+        // First Your Event is named after the TGB game itself: "The {name} Game".
+        const baseName = String(gameName || '').trim();
+        if (baseName) {
+          const title = `The ${baseName} Game`;
+          rows[0].setAttribute('data-event-title', title);
+          const titleEl = rows[0].querySelector('.your-event-title');
+          if (titleEl) titleEl.textContent = title;
+          const btn = rows[0].querySelector('.your-event-calendar-btn');
+          if (btn) {
+            btn.setAttribute('aria-label', `Add ${title} to calendar`);
+          }
+        }
+        // Start location · start city on one line (like event 3's stadium · city).
+        const startLoc = String(game.starting_location_name || gameNode.startingLocationName || '').trim();
+        const startCity = cityShort(game.city || gameNode.city);
+        const locDisplay = [startLoc, startCity].filter(Boolean).join(' · ');
+        const venueEl = rows[0].querySelector('.your-event-venue');
+        if (venueEl) {
+          venueEl.textContent = locDisplay;
+          venueEl.hidden = !locDisplay;
+        }
+        const calLoc = [startLoc, startCity].filter(Boolean).join(', ');
+        if (calLoc) rows[0].setAttribute('data-event-location', calLoc);
+      }
+
+      // Pep Rally — starts at the game's target end time (game.end_time).
+      const endTimeRaw = String(game.end_time || gameNode.endTime || '').trim();
+      const pepStart = parseGameDateTime(String(game.game_date || gameNode.gameDate || '').trim(), endTimeRaw);
+      if (fandom && rows[1] && endTimeRaw && pepStart && !Number.isNaN(pepStart.getTime())) {
+        applyYourEventDate(rows[1], pepStart, endTimeRaw);
+        // Time under the date tile (like event 1) — just the time, no label/Local.
+        const pepChipTime = rows[1].querySelector('.your-event-chip-time-val');
+        if (pepChipTime) pepChipTime.textContent = formatWhenTimeValue(endTimeRaw) || '';
+        const awayTeam = cityShort(game.away_team_city);
+        const title = awayTeam ? `${awayTeam} Fans Pep Rally` : 'Pep Rally';
+        rows[1].setAttribute('data-event-title', title);
+        const titleEl = rows[1].querySelector('.your-event-title');
+        if (titleEl) titleEl.textContent = title;
+        const btn = rows[1].querySelector('.your-event-calendar-btn');
+        if (btn) btn.setAttribute('aria-label', `Add ${title} to calendar`);
+      } else if (rows[1]) {
+        // No target end time → no Pep Rally row.
+        rows[1].style.display = 'none';
+      }
+
+      const proGameDate = eventCalendarStart(game);
+      if (fandom && rows[2]) {
+        // Pro matchup: "{AWAY} at {HOME} Pro Game".
+        const away = cityShort(game.away_team_city);
+        const home = cityShort(game.home_team_city);
+        applyYourEventDate(rows[2], proGameDate, startTimeRaw);
+        // Time under the date tile (like events 1 & 2) — just the time, no label.
+        const proChipTime = rows[2].querySelector('.your-event-chip-time-val');
+        if (proChipTime) proChipTime.textContent = formatWhenTimeValue(startTimeRaw) || '';
+
+        // Stadium line under the kickoff line — venue name then the stadium's
+        // actual city, both from Supabase (game.venue_city, e.g. "Landover"),
+        // falling back to game.city. Calendar location uses a comma for maps.
+        const stadiumName = String(game.venue_name || game.venue || '').trim();
+        const stadiumCity = String(game.venue_city || gameNode.venueCity || '').trim()
+          || cityShort(game.city || gameNode.city);
+        const venueDisplay = [stadiumName, stadiumCity].filter(Boolean).join(' · ');
+        const venueEl = rows[2].querySelector('.your-event-venue');
+        if (venueEl) {
+          venueEl.textContent = venueDisplay;
+          venueEl.hidden = !venueDisplay;
+        }
+        const venueLocation = [stadiumName, stadiumCity].filter(Boolean).join(', ');
+        if (venueLocation) rows[2].setAttribute('data-event-location', venueLocation);
+
+        if (away && home) {
+          const matchup = `${away} at ${home}`;
+          rows[2].setAttribute('data-event-title', matchup);
+          const titleEl = rows[2].querySelector('.your-event-title');
+          // "Pro Game" trails the matchup in the header.
+          if (titleEl) titleEl.textContent = `${matchup} Pro Game`;
+          const btn = rows[2].querySelector('.your-event-calendar-btn');
+          if (btn) btn.setAttribute('aria-label', `Add ${matchup} to calendar`);
+        }
+      }
+    }
+
     function renderWhenCard(game, gameNode, gameName, gameTagline) {
       const section = document.getElementById('takeoverTimeSection');
       const dateLineEl = document.getElementById('whenDateLine');
@@ -3822,11 +4808,13 @@ const WEATHER_CODE_MAP = {
 
       if (!dateValue || !startDisplay || !startDate) {
         section.style.display = 'none';
+        syncTakeoverEventCard();
         return;
       }
       const TAKEOVER_GRACE_MS = 5 * 60 * 60 * 1000;
       if (Date.now() - startDate.getTime() > TAKEOVER_GRACE_MS) {
         section.style.display = 'none';
+        syncTakeoverEventCard();
         return;
       }
 
@@ -3860,10 +4848,9 @@ const WEATHER_CODE_MAP = {
         `);
       }
       timeGridEl.innerHTML = timeBlocks.join('');
+      const startCity = String(gameNode.city || game.city || '').trim();
       if (bottomLabelEl) {
-        bottomLabelEl.textContent = endDisplay
-          ? `* Play Anytime • Pep Rally at ${endDisplay}`
-          : '* Play Anytime';
+        bottomLabelEl.textContent = startCity ? `Start · ${startCity}` : 'TGB game start';
       }
 
       calendarBtn.onclick = (event) => {
@@ -3871,17 +4858,22 @@ const WEATHER_CODE_MAP = {
         const publicGameUrl = gameId
           ? `http://thegamebureau.com/game/run/index.html?id=${encodeURIComponent(gameId)}`
           : '';
+        const takeoverLocation = [
+          game.starting_location_name || gameNode.startingLocationName,
+          game.starting_location_address || gameNode.startingLocationAddress
+        ].map((value) => String(value || '').trim()).filter(Boolean).join(', ') || startCity;
         downloadCalendarEvent({
-          title: gameName,
+          title: `${gameName} - TGB Game`,
           start: startDate || dateValue,
           end: endDate || (startDate ? new Date(startDate.getTime() + 60 * 60 * 1000) : null),
-          location: String(gameNode.city || '').trim(),
+          location: takeoverLocation,
           description: [gameTagline, gameNode.body].filter(Boolean).join('\n\n'),
           url: publicGameUrl
         });
       };
 
       section.style.display = 'flex';
+      syncTakeoverEventCard();
     }
 
     async function fetchGameRecord(id) {
@@ -4961,24 +5953,11 @@ const WEATHER_CODE_MAP = {
         // /SHARE
 
         renderGiftShopWidget(gameId);
-        renderWhenCard(game, gameNode, gameName, gameTagline);
-        renderEventBlock(game, primaryColor, secondaryColor);
+        setYourEventDates(game, gameNode, gameName);
 
         const bodyText = gameNode.body || '';
         document.getElementById('intro').textContent = bodyText;
         if (bodyText) document.getElementById('introSection').style.display = 'block';
-        const priceText = (gameNode.price || 'FREE').toUpperCase();
-        const isPaid = gameNode.price && String(gameNode.price).trim().toUpperCase() !== 'FREE';
-        if (isPaid) {
-          const buyGameBlock = document.getElementById('buyGameSection');
-          if (buyGameBlock) buyGameBlock.classList.add('is-visible');
-          window.TgbGift && window.TgbGift.setGameContext({
-            id:    gameId,
-            name:  gameName || '',
-            price: priceText,
-            engine: String(urlParams.get('e') || game.engine || '').trim()
-          });
-        }
 
         // Engine selection precedence:
         //   1. ?e=<engine> in the run URL (manual override / sharing).
@@ -5017,6 +5996,10 @@ const WEATHER_CODE_MAP = {
         const ctaBar = document.getElementById('ctaBar');
         ctaBar.style.background = primaryColor;
         ctaBar.style.display = 'flex';
+        // Fit each Game Weekend event name to one line now that it has layout
+        // (and again once the web font finishes loading).
+        requestAnimationFrame(fitAllYourEventTitles);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitAllYourEventTitles);
       } catch (error) {
         console.error('Game fetch error:', error);
         renderFatalState('Error Loading Game');
@@ -5025,6 +6008,8 @@ const WEATHER_CODE_MAP = {
 
     document.addEventListener('DOMContentLoaded', function () {
       init();
+      initYourEventsCalendar();
+      window.addEventListener('resize', fitAllYourEventTitles);
 
       const lightbox = document.getElementById('guideLightbox');
       const lightboxImg = document.getElementById('guideLightboxImg');
@@ -5044,19 +6029,6 @@ const WEATHER_CODE_MAP = {
   <div class="guide-lightbox" id="guideLightbox">
     <img id="guideLightboxImg" src="" alt="Guide">
   </div>
-
-  <script src="../../mc/js/gs-buy-modal.js"></script>
-  <script>
-    // Open the shared access-code modal when the purchase card is clicked. Game
-    // context (id/name/price) was seeded in the isPaid block above via
-    // TgbGift.setGameContext({...}), which also primes the form's
-    // sub-text — so a plain open() picks up the correct state.
-    (function () {
-      var buyGameBlock = document.getElementById('buyGameSection');
-      if (!buyGameBlock || !window.TgbGift) return;
-      buyGameBlock.addEventListener('click', function () { window.TgbGift.open(); });
-    }());
-  </script>
 
   <script src="../../assets/admin-bridge.js"></script>
 </body>

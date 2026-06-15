@@ -301,6 +301,8 @@ function buildPayloadForFanSide(matchup, fanSide, archivedValue) {
     location_based: true, fandom_game: true, engine: 'text',
     game_date: win.gameDate, start_time: win.startTime, end_time: win.endTime,
     archived: archivedValue,
+    venue_name: venueInfo.name,
+    venue_city: venueInfo.city,
     away_team_city: fanSide === 'home' ? oppTeam.cityState : fanTeam.cityState,
     away_team_mascot: fanSide === 'home' ? oppTeam.mascot : fanTeam.mascot,
     home_team_city: fanSide === 'home' ? fanTeam.cityState : oppTeam.cityState,

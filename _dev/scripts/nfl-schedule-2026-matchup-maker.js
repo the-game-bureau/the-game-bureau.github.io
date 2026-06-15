@@ -1238,6 +1238,8 @@ function buildPayloadForFanSide(matchup, venueInfo, fanSide, templatesByTeam) {
     start_time: tgbWindow.startTime,
     end_time: tgbWindow.endTime,
     archived: ARCHIVED_VALUE,
+    venue_name: venueInfo.name,
+    venue_city: venueInfo.city,
     tags,
     teams: suggestions,
     team01: suggestions[0] || null,
