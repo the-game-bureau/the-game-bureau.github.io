@@ -2998,12 +2998,12 @@
     // into startExtras then calls rebuildStartUrl() so they never clobber one
     // another's params.
     let startBaseUrl = '';
-    const startExtras = { teams: '', session: '' };
+    const startExtras = { teams: '', session: '', mode: '' };
     function rebuildStartUrl() {
       if (!startBaseUrl || !startBtn) return;
       let u;
       try { u = new URL(startBaseUrl, window.location.href); } catch (_) { return; }
-      ['teams', 'session'].forEach((k) => {
+      ['teams', 'session', 'mode'].forEach((k) => {
         if (startExtras[k]) u.searchParams.set(k, startExtras[k]);
         else u.searchParams.delete(k);
       });
@@ -3644,7 +3644,9 @@
         mp.format = 'solo';
         window.__tgbInviteUrl = '';
         window.__tgbInviteText = '';
-        startExtras.session = '';
+        // Solo still gets a session + mode in the Start URL (for future use).
+        startExtras.session = mp.sessionId;
+        startExtras.mode = 'solo';
         rebuildStartUrl();
         optionsEl.querySelectorAll('.format-opt').forEach((btn) => {
           btn.classList.remove('is-selected');
@@ -3663,8 +3665,10 @@
         if (shareLabel) shareLabel.textContent = shareButtonText;
         if (shareBtn) shareBtn.setAttribute('aria-label', shareButtonText);
 
+        // Every mode now carries a session + mode in the Start URL (solo included).
+        startExtras.session = mp.sessionId;
+        startExtras.mode = fmt;
         if (fmt === 'solo') {
-          startExtras.session = '';
           if (qrWrap) qrWrap.hidden = true;
           if (joinerNote) {
             joinerNote.hidden = false;
@@ -3672,7 +3676,6 @@
             joinerNote.textContent = 'Just you? Cool. Tap START GAME below when you’re ready.';
           }
         } else {
-          startExtras.session = mp.sessionId;
           if (joinerNote) joinerNote.hidden = true;
           if (qrWrap) qrWrap.hidden = false;
           armTeamInvite(fmt === 'versus' ? 'Hold up your phone for the opposing team captain to scan' : undefined);
@@ -3692,6 +3695,7 @@
 
       if (mp.isJoiner) {
         startExtras.session = mp.sessionId;
+        startExtras.mode = mp.format;
         rebuildStartUrl();
         showInviteModeLightbox(mp.inviteMode, inviteGameName);
       }
