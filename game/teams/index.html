@@ -431,7 +431,7 @@ async function fetchConfiguredGameSetup(gameId) {
 
   try {
     const requestUrl = new URL(`rest/v1/${SB_CONFIG.table}`, `${SB_CONFIG.url.replace(/\/+$/, '')}/`);
-    requestUrl.searchParams.set('select', 'name,primary_color,secondary_color,nodes');
+    requestUrl.searchParams.set('select', 'name,primary_color,secondary_color,tertiary_color,quaternary_color,teams');
     requestUrl.searchParams.set('id', `eq.${targetId}`);
     requestUrl.searchParams.set('limit', '1');
 
@@ -447,20 +447,16 @@ async function fetchConfiguredGameSetup(gameId) {
 
     const rows = await response.json();
     const row = Array.isArray(rows) && rows.length ? rows[0] : null;
-    const nodes = Array.isArray(row && row.nodes) ? row.nodes : [];
-    const gameNode = nodes.find((node) => node && node.type === 'game') || null;
     return {
-      teamNames: normalizeTeamNames(gameNode && gameNode.teams),
-      brandName: gameNode && typeof gameNode.title === 'string' && gameNode.title.trim()
-        ? gameNode.title.trim()
-        : (row && typeof row.name === 'string' ? row.name.trim() : ''),
+      teamNames: normalizeTeamNames(row && row.teams),
+      brandName: row && typeof row.name === 'string' ? row.name.trim() : '',
       colors: {
         primary: row && typeof row.primary_color === 'string' ? row.primary_color.trim() : '',
-        accent: gameNode && typeof gameNode.quaternaryColor === 'string' && gameNode.quaternaryColor.trim()
-          ? gameNode.quaternaryColor.trim()
+        accent: row && typeof row.quaternary_color === 'string' && row.quaternary_color.trim()
+          ? row.quaternary_color.trim()
           : (row && typeof row.primary_color === 'string' ? row.primary_color.trim() : ''),
         secondary: row && typeof row.secondary_color === 'string' ? row.secondary_color.trim() : '',
-        onSecondary: gameNode && typeof gameNode.tertiaryColor === 'string' ? gameNode.tertiaryColor.trim() : ''
+        onSecondary: row && typeof row.tertiary_color === 'string' ? row.tertiary_color.trim() : ''
       }
     };
   } catch (error) {

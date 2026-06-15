@@ -12,7 +12,7 @@ const OLD_DOMAINS = [
 const NEW_DOMAIN = 'https://thegamebureau.com/';
 
 async function fixUrls() {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/games?select=id,nodes`, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/games_with_graph?select=id,nodes,links`, {
     headers: {
       'apikey': SUPABASE_KEY,
       'Authorization': `Bearer ${SUPABASE_KEY}`,
@@ -39,15 +39,19 @@ async function fixUrls() {
 
     if (nodesStr === original) continue;
 
-    const patch = await fetch(`${SUPABASE_URL}/rest/v1/games?id=eq.${game.id}`, {
-      method: 'PATCH',
+    const patch = await fetch(`${SUPABASE_URL}/rest/v1/rpc/replace_game_graph`, {
+      method: 'POST',
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal',
       },
-      body: JSON.stringify({ nodes: JSON.parse(nodesStr) })
+      body: JSON.stringify({
+        p_game_id: game.id,
+        p_nodes: JSON.parse(nodesStr),
+        p_links: Array.isArray(game.links) ? game.links : []
+      })
     });
 
     if (patch.ok) {

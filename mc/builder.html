@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <!--
   TGB Builder project note for humans and AI:
-  This builder writes Supabase-backed game data (nodes, links, brand,
-  guide, teams, tags, payment, starting locations, etc.) that is read later by
-  the game engine. mc/editgames.html is the LIBRARY STACKS page, not storage.
+  This builder writes flat game metadata plus normalized game_nodes and
+  game_node_links data that is read later by the game engine.
+  mc/editgames.html is the LIBRARY STACKS page, not storage.
 -->
 <html lang="en">
 <head>
@@ -10677,6 +10677,8 @@ const HEADER_GAME_PLACEHOLDER_VALUE = '__pick-game__';
 const HEADER_GAME_NEW_VALUE = '__new-game__';
 const SUPABASE_CONFIG_STORAGE_KEY = 'tgb-builder-supabase-config';
 const DEFAULT_SUPABASE_GAMES_TABLE = 'games';
+const SUPABASE_GAMES_GRAPH_VIEW = 'games_with_graph';
+const SUPABASE_REPLACE_GAME_GRAPH_RPC = 'replace_game_graph';
 const SUPABASE_STORAGE_KIND = 'supabase';
 const ARCHIVED_GAME_VALUE = 'YES';
 const ERASED_GAME_VALUE = 'YES';
@@ -10972,6 +10974,14 @@ function buildSupabaseUrl(params = null, tableName = supabaseConfig.gamesTable) 
   return url.toString();
 }
 
+function buildSupabaseRpcUrl(functionName) {
+  if (!hasSupabaseStore()) return '';
+  return new URL(
+    '/rest/v1/rpc/' + encodeURIComponent(String(functionName || '').trim()),
+    supabaseConfig.url + '/'
+  ).toString();
+}
+
 function getSupabaseHeaders(extraHeaders = {}) {
   if (!hasSupabaseStore()) return { ...extraHeaders };
   return {
@@ -11105,8 +11115,14 @@ function setGameFeaturedState(game, featuredValue = '') {
 
 function getMissingGamesColumnName(errorMessage = '') {
   const message = String(errorMessage || '');
-  const match = message.match(/column\s+games\.([a-z_]+)\s+does\s+not\s+exist/i);
+  const match = message.match(/column\s+(?:games|games_with_graph)\.([a-z_]+)\s+does\s+not\s+exist/i);
   return match ? String(match[1] || '').trim().toLowerCase() : '';
+}
+
+function isMissingNormalizedGameGraphError(errorMessage = '') {
+  const message = String(errorMessage || '');
+  return /(games_with_graph|replace_game_graph)/i.test(message)
+    && /(does not exist|could not find|schema cache|PGRST202|PGRST205)/i.test(message);
 }
 
 function markMissingGamesColumn(columnName = '') {
@@ -11129,8 +11145,6 @@ function serializeGameRow(game, index = 0) {
     primary_color: normalizedGame.primaryColor || null,
     secondary_color: normalizedGame.secondaryColor || null,
     archived: normalizedGame.archived || null,
-    nodes: applyFeaturedFlagToNodes(normalizedNodes, normalizedGame.featured),
-    links: Array.isArray(normalizedGame.links) ? normalizedGame.links : [],
     updated_at: timestamp
   };
 
@@ -11234,7 +11248,7 @@ function normalizeGameRow(row, index = 0) {
   }, index);
 }
 
-async function fetchGameRowsFromSupabase(select = null) {
+async function fetchGameRowsFromSupabase(select = null, tableName = SUPABASE_GAMES_GRAPH_VIEW) {
   const resolvedSelect = select || buildGamesSelectColumns([
     'id',
     'name',
@@ -11300,7 +11314,7 @@ async function fetchGameRowsFromSupabase(select = null) {
   const response = await fetch(buildSupabaseUrl({
     select: resolvedSelect,
     order: 'name.asc'
-  }), {
+  }, tableName), {
     cache: 'no-store',
     headers: getSupabaseHeaders({
       Accept: 'application/json'
@@ -11308,12 +11322,15 @@ async function fetchGameRowsFromSupabase(select = null) {
   });
   if (!response.ok) {
     const message = await response.text() || 'Supabase load failed';
+    if (tableName === SUPABASE_GAMES_GRAPH_VIEW && isMissingNormalizedGameGraphError(message)) {
+      return fetchGameRowsFromSupabase(resolvedSelect, supabaseConfig.gamesTable);
+    }
     const missingColumn = getMissingGamesColumnName(message);
     if (missingColumn) {
       markMissingGamesColumn(missingColumn);
       const nextSelect = buildGamesSelectColumns((resolvedSelect || '').split(',').map((value) => value.trim()).filter(Boolean));
       if (nextSelect && nextSelect !== resolvedSelect) {
-        return fetchGameRowsFromSupabase(nextSelect);
+        return fetchGameRowsFromSupabase(nextSelect, tableName);
       }
     }
     throw new Error(message);
@@ -11352,7 +11369,7 @@ async function loadHeaderGameStoreFromSupabase() {
   }
 }
 
-async function fetchGameRowFromSupabase(gameId, select = null) {
+async function fetchGameRowFromSupabase(gameId, select = null, tableName = SUPABASE_GAMES_GRAPH_VIEW) {
   const targetId = String(gameId || '').trim();
   if (!targetId || !hasSupabaseStore()) return null;
   const resolvedSelect = select || buildGamesSelectColumns([
@@ -11422,7 +11439,7 @@ async function fetchGameRowFromSupabase(gameId, select = null) {
     select: resolvedSelect,
     id: 'eq.' + targetId,
     limit: '1'
-  }), {
+  }, tableName), {
     cache: 'no-store',
     headers: getSupabaseHeaders({
       Accept: 'application/json'
@@ -11431,12 +11448,15 @@ async function fetchGameRowFromSupabase(gameId, select = null) {
 
   if (!response.ok) {
     const message = await response.text() || 'Supabase game load failed';
+    if (tableName === SUPABASE_GAMES_GRAPH_VIEW && isMissingNormalizedGameGraphError(message)) {
+      return fetchGameRowFromSupabase(targetId, resolvedSelect, supabaseConfig.gamesTable);
+    }
     const missingColumn = getMissingGamesColumnName(message);
     if (missingColumn) {
       markMissingGamesColumn(missingColumn);
       const nextSelect = buildGamesSelectColumns((resolvedSelect || '').split(',').map((value) => value.trim()).filter(Boolean));
       if (nextSelect && nextSelect !== resolvedSelect) {
-        return fetchGameRowFromSupabase(targetId, nextSelect);
+        return fetchGameRowFromSupabase(targetId, nextSelect, tableName);
       }
     }
     throw new Error(message);
@@ -11444,6 +11464,51 @@ async function fetchGameRowFromSupabase(gameId, select = null) {
 
   const rows = await response.json();
   return Array.isArray(rows) && rows.length ? rows[0] : null;
+}
+
+async function replaceGameGraphInSupabase(game) {
+  const targetId = String(game && game.id || '').trim();
+  if (!targetId || !hasSupabaseStore()) return;
+  const response = await fetch(buildSupabaseRpcUrl(SUPABASE_REPLACE_GAME_GRAPH_RPC), {
+    method: 'POST',
+    headers: getSupabaseHeaders({
+      'Content-Type': 'application/json'
+    }),
+    body: JSON.stringify({
+      p_game_id: targetId,
+      p_nodes: applyFeaturedFlagToNodes(Array.isArray(game.nodes) ? game.nodes : [], game.featured),
+      p_links: Array.isArray(game.links) ? game.links : []
+    })
+  });
+  if (!response.ok) {
+    const message = await response.text() || 'Supabase graph save failed.';
+    if (isMissingNormalizedGameGraphError(message)) {
+      const legacyResponse = await fetch(buildSupabaseUrl({ id: 'eq.' + targetId }), {
+        method: 'PATCH',
+        headers: getSupabaseHeaders({
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal'
+        }),
+        body: JSON.stringify({
+          nodes: applyFeaturedFlagToNodes(Array.isArray(game.nodes) ? game.nodes : [], game.featured),
+          links: Array.isArray(game.links) ? game.links : []
+        })
+      });
+      if (legacyResponse.ok) return;
+      throw new Error(await legacyResponse.text() || message);
+    }
+    throw new Error(message);
+  }
+}
+
+function mergeSavedGameRowWithGraph(row, sourceGame) {
+  const graphSource = sourceGame && typeof sourceGame === 'object' ? sourceGame : {};
+  return normalizeGameRow({
+    ...graphSource,
+    ...(row && typeof row === 'object' ? row : {}),
+    nodes: Array.isArray(graphSource.nodes) ? graphSource.nodes : [],
+    links: Array.isArray(graphSource.links) ? graphSource.links : []
+  }, 0);
 }
 
 async function loadGameFromSupabase(gameId) {
@@ -11487,10 +11552,11 @@ async function setGameArchivedStateInSupabase(gameId, archivedValue) {
     if (!Array.isArray(rows) || !rows.length) {
       throw new Error('Supabase archive update did not update any rows.');
     }
+    const savedGame = await loadGameFromSupabase(targetId) || normalizeGameRow(rows[0], 0);
     return {
       serverSaved: true,
       error: null,
-      savedGame: normalizeGameRow(rows[0], 0)
+      savedGame
     };
   } catch (error) {
     return { serverSaved: false, error, savedGame: null };
@@ -11527,10 +11593,11 @@ async function setGameErasedStateInSupabase(gameId, erasedValue) {
     if (!Array.isArray(rows) || !rows.length) {
       throw new Error('Supabase erase update did not update any rows.');
     }
+    const savedGame = await loadGameFromSupabase(targetId) || normalizeGameRow(rows[0], 0);
     return {
       serverSaved: true,
       error: null,
-      savedGame: normalizeGameRow(rows[0], 0)
+      savedGame
     };
   } catch (error) {
     return { serverSaved: false, error, savedGame: null };
@@ -11589,7 +11656,10 @@ async function setCurrentFeaturedGameInSupabase(gameId, featuredValue) {
     if (!Array.isArray(savedRows) || !savedRows.length) {
       throw new Error('Supabase featured update did not update any rows.');
     }
-    const savedGames = savedRows.map((row, index) => normalizeGameRow(row, index));
+    const savedGames = savedRows.map((row, index) => {
+      const sourceGame = updates.find((game) => game && game.id === row.id) || updates[index] || null;
+      return mergeSavedGameRowWithGraph(row, sourceGame);
+    });
     const savedGame = savedGames.find((game) => game && game.id === targetId)
       || updates.find((game) => game && game.id === targetId)
       || null;
@@ -11638,10 +11708,11 @@ async function createGameInSupabase(game) {
       throw new Error(await response.text() || 'Supabase duplicate save failed.');
     }
     const rows = await response.json();
+    await replaceGameGraphInSupabase(game);
     return {
       serverSaved: true,
       error: null,
-      savedGame: normalizeGameRow(Array.isArray(rows) && rows.length ? rows[0] : payload, 0)
+      savedGame: mergeSavedGameRowWithGraph(Array.isArray(rows) && rows.length ? rows[0] : payload, game)
     };
   } catch (error) {
     return { serverSaved: false, error, savedGame: null };
@@ -17822,9 +17893,10 @@ async function syncStoreToSupabase() {
     }
 
     const rows = await response.json();
-    const savedGame = normalizeGameRow(
+    await replaceGameGraphInSupabase(targetGame);
+    const savedGame = mergeSavedGameRowWithGraph(
       Array.isArray(rows) && rows.length ? rows[0] : payload,
-      0
+      targetGame
     );
     state.currentGameId = savedGame.id;
     setCurrentGameColors(savedGame);
@@ -21308,20 +21380,15 @@ async function loadDoc() {
     // Fall back to most recently updated game
     try {
       const recentSelect = buildGamesSelectColumns(['id', 'name', 'city', 'primary_color', 'secondary_color', 'featured', 'archived', 'nodes', 'links', 'created_at', 'updated_at']);
-      const recentResponse = await fetch(buildSupabaseUrl({ select: recentSelect, order: 'updated_at.desc', limit: '1' }), {
-        cache: 'no-store',
-        headers: getSupabaseHeaders({ Accept: 'application/json' })
-      });
-      if (recentResponse.ok) {
-        const recentRows = await recentResponse.json();
-        if (Array.isArray(recentRows) && recentRows.length > 0) {
-          const recentGame = normalizeGameRow(recentRows[0], 0);
-          if (recentGame) {
-            clearRecoveryDraft();
-            state.store = buildStoreFromGames([recentGame]);
-            openSavedGame(recentGame.id, { updateUrl: false });
-            return;
-          }
+      const recentRows = await fetchGameRowsFromSupabase(recentSelect);
+      recentRows.sort((a, b) => Date.parse(b && b.updated_at || 0) - Date.parse(a && a.updated_at || 0));
+      if (recentRows.length > 0) {
+        const recentGame = normalizeGameRow(recentRows[0], 0);
+        if (recentGame) {
+          clearRecoveryDraft();
+          state.store = buildStoreFromGames([recentGame]);
+          openSavedGame(recentGame.id, { updateUrl: false });
+          return;
         }
       }
     } catch (e) {}

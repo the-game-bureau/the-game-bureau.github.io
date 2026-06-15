@@ -127,6 +127,23 @@ Columns on the `games` table that read like booleans — `featured`, `archived` 
 
 ---
 
+## Normalized game graph storage
+
+The repeatable game graph is stored in relational child tables, not JSONB columns on `games`:
+
+- `game_nodes` contains one directly editable row per game, Stop, message bubble, reply, or button node.
+- `game_node_links` contains the directed connections between those nodes.
+- `games_with_graph` is a read-only compatibility view that reconstructs `nodes` and `links` for the builder and player engines.
+- `replace_game_graph(game_id, nodes, links)` atomically replaces the child rows when the builder saves.
+
+Game-level metadata remains authoritative on the flat `games` columns. The compatibility view overlays those columns onto the reconstructed game node, so editing `games.name`, `games.body`, `games.teams`, colors, guide fields, dates, or locations directly in Supabase is reflected in the website.
+
+**How to apply:** Never write `nodes` or `links` to `games`; those columns no longer exist. Read graph-bearing records from `games_with_graph`. Write the flat parent row to `games`, then call `replace_game_graph` for graph content. Direct node edits belong in `game_nodes`; direct connection edits belong in `game_node_links`.
+
+**Rollout order:** Deploy the website code first, then run `20260615_normalize_game_graph.sql`. The builder and player contain a temporary old-schema fallback so that order is safe; running the migration before deploying the compatible website code would break the currently deployed player.
+
+---
+
 ## Builder: `initGameMeta` camelCase fallback
 
 When adding any new Supabase `games` column that lives on `state.currentGameMeta`, the `initGameMeta(game)` function in [mc/builder.html](mc/builder.html) must accept **both** the snake_case column shape AND the camelCase shape:

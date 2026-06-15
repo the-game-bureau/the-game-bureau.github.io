@@ -21,7 +21,7 @@ if (teams.length > 8) {
 const paddedTeams = Array.from({ length: 8 }, (_, i) => teams[i] || '');
 
 async function run() {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/games?id=eq.${gameId}&select=id,nodes`, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/games?id=eq.${encodeURIComponent(gameId)}&select=id`, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
   });
   const [game] = await res.json();
@@ -30,11 +30,7 @@ async function run() {
   const teamKeys = {};
   paddedTeams.forEach((name, i) => { teamKeys[`team${String(i + 1).padStart(2, '0')}`] = name; });
 
-  const nodes = (game.nodes || []).map(n =>
-    n?.type === 'game' ? { ...n, teams: paddedTeams, ...teamKeys } : n
-  );
-
-  const patch = await fetch(`${SUPABASE_URL}/rest/v1/games?id=eq.${gameId}`, {
+  const patch = await fetch(`${SUPABASE_URL}/rest/v1/games?id=eq.${encodeURIComponent(gameId)}`, {
     method: 'PATCH',
     headers: {
       apikey: SUPABASE_KEY,
@@ -42,7 +38,7 @@ async function run() {
       'Content-Type': 'application/json',
       Prefer: 'return=minimal'
     },
-    body: JSON.stringify({ nodes })
+    body: JSON.stringify({ teams: paddedTeams, ...teamKeys })
   });
 
   if (!patch.ok) { console.error('Failed:', patch.status, await patch.text()); process.exit(1); }

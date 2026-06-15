@@ -38,6 +38,8 @@ const TABLES = [
   'admin_users',
   'builder_documents',
   'games',
+  'game_nodes',
+  'game_node_links',
   'games_bu',
   'photo_submissions',
   'tags',

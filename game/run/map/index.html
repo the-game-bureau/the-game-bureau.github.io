@@ -3008,7 +3008,7 @@
     const SB_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
       key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
-      table: 'games'
+      table: 'games_with_graph'
     };
 
     async function fetchAnytimeRepliesFromSupabase(gameId) {
@@ -3066,7 +3066,7 @@
       requestUrl.searchParams.set('id', `eq.${id}`);
       requestUrl.searchParams.set('limit', '1');
 
-      const response = await fetch(requestUrl.toString(), {
+      let response = await fetch(requestUrl.toString(), {
         headers: {
           apikey: SB_CONFIG.key,
           Authorization: `Bearer ${SB_CONFIG.key}`,
@@ -3074,6 +3074,19 @@
         },
         cache: 'no-store'
       });
+
+      if (!response.ok && SB_CONFIG.table !== 'games') {
+        const fallbackUrl = new URL(`rest/v1/games`, `${SB_CONFIG.url.replace(/\/+$/, '')}/`);
+        requestUrl.searchParams.forEach((value, key) => fallbackUrl.searchParams.set(key, value));
+        response = await fetch(fallbackUrl.toString(), {
+          headers: {
+            apikey: SB_CONFIG.key,
+            Authorization: `Bearer ${SB_CONFIG.key}`,
+            Accept: 'application/json'
+          },
+          cache: 'no-store'
+        });
+      }
 
       if (!response.ok) throw new Error('Network error');
       const rows = await response.json();

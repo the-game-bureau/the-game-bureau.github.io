@@ -81,7 +81,7 @@ async function main() {
       if (DRY_RUN) {
         console.log(`  dry: ${game.name} <- ${connection.player}`);
       } else {
-        await patchGame(game.id, { nodes: updated.nodes, links: updated.links });
+        await replaceGameGraph(game.id, updated.nodes, updated.links);
         console.log(`  ok:  ${game.name} <- ${connection.player}`);
       }
       processed++;
@@ -275,7 +275,7 @@ function stableShuffle(arr, seed) {
 }
 
 async function fetchTakeoverGames() {
-  const url = `${SUPABASE_URL}/rest/v1/games?name=ilike.*Takeover*&id=like.nfl*&select=id,name,nodes,links&order=name.asc`;
+  const url = `${SUPABASE_URL}/rest/v1/games_with_graph?name=ilike.*Takeover*&id=like.nfl*&select=id,name,nodes,links&order=name.asc`;
   const response = await fetch(url, {
     headers: {
       apikey: SUPABASE_KEY,
@@ -290,10 +290,10 @@ async function fetchTakeoverGames() {
   return response.json();
 }
 
-async function patchGame(gameId, patch) {
-  const url = `${SUPABASE_URL}/rest/v1/games?id=eq.${encodeURIComponent(gameId)}`;
+async function replaceGameGraph(gameId, nodes, links) {
+  const url = `${SUPABASE_URL}/rest/v1/rpc/replace_game_graph`;
   const response = await fetch(url, {
-    method: 'PATCH',
+    method: 'POST',
     headers: {
       apikey: SUPABASE_KEY,
       Authorization: `Bearer ${SUPABASE_KEY}`,
@@ -301,10 +301,14 @@ async function patchGame(gameId, patch) {
       Prefer: 'return=minimal',
       'User-Agent': USER_AGENT,
     },
-    body: JSON.stringify(patch),
+    body: JSON.stringify({
+      p_game_id: gameId,
+      p_nodes: nodes,
+      p_links: links,
+    }),
   });
   if (!response.ok) {
-    throw new Error(`Supabase patch failed: ${response.status} ${await response.text()}`);
+    throw new Error(`Supabase graph replacement failed: ${response.status} ${await response.text()}`);
   }
 }
 

@@ -1736,6 +1736,12 @@ function mergeObjectsPreservingDefined(primary, secondary) {
 }
 
 async function insertGames(rows) {
+  const graphRows = rows.map((row) => ({
+    gameId: row.id,
+    nodes: Array.isArray(row.nodes) ? row.nodes : [],
+    links: Array.isArray(row.links) ? row.links : [],
+  }));
+  const gameRows = rows.map(({ nodes, links, ...row }) => row);
   const response = await fetch(`${SUPABASE_URL}/rest/v1/games`, {
     method: 'POST',
     headers: {
@@ -1745,12 +1751,32 @@ async function insertGames(rows) {
       Prefer: 'return=representation',
       'User-Agent': USER_AGENT,
     },
-    body: JSON.stringify(rows),
+    body: JSON.stringify(gameRows),
   });
   if (!response.ok) {
     throw new Error(`Supabase insert failed: ${response.status} ${await response.text()}`);
   }
-  return response.json();
+  const savedRows = await response.json();
+  for (const graph of graphRows) {
+    const graphResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/replace_game_graph`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'User-Agent': USER_AGENT,
+      },
+      body: JSON.stringify({
+        p_game_id: graph.gameId,
+        p_nodes: graph.nodes,
+        p_links: graph.links,
+      }),
+    });
+    if (!graphResponse.ok) {
+      throw new Error(`Supabase graph insert failed for ${graph.gameId}: ${graphResponse.status} ${await graphResponse.text()}`);
+    }
+  }
+  return savedRows;
 }
 
 async function fetchJson(url, options = {}) {

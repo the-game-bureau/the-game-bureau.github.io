@@ -114,7 +114,6 @@ node _dev/scripts/mlb_matchup_maker.js --start 2026-03-25 --end 2026-11-15   # f
     var SB_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
     var SB_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
     var AUTH_KEY = 'tgb-photo-review-auth-session';
-    var BATCH = 50;
 
     var games = [];           // parsed payloads
     var checked = new Set();   // selected ids
@@ -234,8 +233,13 @@ node _dev/scripts/mlb_matchup_maker.js --start 2026-03-25 --end 2026-11-15   # f
       progressBar.style.width = '0%';
       setStatus('Importing ' + rows.length + ' game(s)…');
 
-      async function postRows(arr) {
+      async function postRow(bundle) {
         try {
+          var gameRow = Object.assign({}, bundle);
+          var nodes = Array.isArray(gameRow.nodes) ? gameRow.nodes : [];
+          var links = Array.isArray(gameRow.links) ? gameRow.links : [];
+          delete gameRow.nodes;
+          delete gameRow.links;
           var res = await fetch(SB_URL + '/rest/v1/games', {
             method: 'POST',
             headers: {
@@ -244,9 +248,60 @@ node _dev/scripts/mlb_matchup_maker.js --start 2026-03-25 --end 2026-11-15   # f
               'Content-Type': 'application/json',
               Prefer: 'resolution=ignore-duplicates,return=representation'
             },
-            body: JSON.stringify(arr)
+            body: JSON.stringify([gameRow])
           });
-          return { ok: res.ok, text: await res.text() };
+          var text = await res.text();
+          if (!res.ok) return { ok: false, text: text };
+          var inserted = countInserted(text);
+          if (!inserted) {
+            var graphCheck = await fetch(
+              SB_URL + '/rest/v1/game_nodes?select=node_id&game_id=eq.' + encodeURIComponent(bundle.id) + '&limit=1',
+              {
+                headers: {
+                  apikey: SB_KEY,
+                  Authorization: 'Bearer ' + token
+                }
+              }
+            );
+            if (!graphCheck.ok) return { ok: false, text: await graphCheck.text() };
+            var existingGraph = await graphCheck.json();
+            if (Array.isArray(existingGraph) && existingGraph.length) {
+              return { ok: true, inserted: 0, text: text };
+            }
+          }
+
+          var graphRes = await fetch(SB_URL + '/rest/v1/rpc/replace_game_graph', {
+            method: 'POST',
+            headers: {
+              apikey: SB_KEY,
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              p_game_id: bundle.id,
+              p_nodes: nodes,
+              p_links: links
+            })
+          });
+          if (!graphRes.ok) {
+            var graphError = await graphRes.text();
+            if (/(replace_game_graph|PGRST202)/i.test(graphError)) {
+              var legacyRes = await fetch(SB_URL + '/rest/v1/games?id=eq.' + encodeURIComponent(bundle.id), {
+                method: 'PATCH',
+                headers: {
+                  apikey: SB_KEY,
+                  Authorization: 'Bearer ' + token,
+                  'Content-Type': 'application/json',
+                  Prefer: 'return=minimal'
+                },
+                body: JSON.stringify({ nodes: nodes, links: links })
+              });
+              if (legacyRes.ok) return { ok: true, inserted: inserted, text: text };
+              return { ok: false, text: await legacyRes.text() };
+            }
+            return { ok: false, text: graphError };
+          }
+          return { ok: true, inserted: inserted, text: text };
         } catch (e) {
           return { ok: false, text: String(e && e.message || e) };
         }
@@ -258,30 +313,19 @@ node _dev/scripts/mlb_matchup_maker.js --start 2026-03-25 --end 2026-11-15   # f
       function countInserted(text) { try { return JSON.parse(text).length; } catch (e) { return 0; } }
 
       var inserted = 0, skipped = 0, failed = 0, rowErrors = [], doneIds = [];
-      for (var i = 0; i < rows.length; i += BATCH) {
-        var batch = rows.slice(i, i + BATCH);
-        var r = await postRows(batch);
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var r = await postRow(row);
         if (r.ok) {
-          var got = countInserted(r.text);
+          var got = r.inserted || 0;
           inserted += got;
-          skipped += batch.length - got;
-          batch.forEach(function (g) { doneIds.push(g.id); });
+          skipped += 1 - got;
+          doneIds.push(row.id);
         } else {
-          // One bad row fails the whole batch — retry row-by-row to salvage the
-          // rest and pinpoint exactly which games (and why) were rejected.
-          for (var k = 0; k < batch.length; k++) {
-            var one = batch[k];
-            var rr = await postRows([one]);
-            if (rr.ok) {
-              var g1 = countInserted(rr.text);
-              inserted += g1; skipped += 1 - g1; doneIds.push(one.id);
-            } else {
-              failed++;
-              rowErrors.push(one.id + ' — ' + friendly(rr.text));
-            }
-          }
+          failed++;
+          rowErrors.push(row.id + ' — ' + friendly(r.text));
         }
-        progressBar.style.width = Math.round(Math.min(i + BATCH, rows.length) / rows.length * 100) + '%';
+        progressBar.style.width = Math.round((i + 1) / rows.length * 100) + '%';
       }
 
       importBtn.disabled = false;
