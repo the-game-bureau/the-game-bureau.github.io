@@ -532,9 +532,6 @@
   <div class="toolbar">
     <button class="btn primary" id="lookupBtn">Add Colors</button>
     <button class="btn" id="reloadBtn">Reload</button>
-    <button class="btn" id="openFileBtn" title="Open mc/data/teams.json and edit colors directly in the file (Chrome/Edge)">Open File</button>
-    <button class="btn primary" id="saveFileBtn" title="Save color edits back to the opened teams.json (Ctrl+S)" disabled>Save File</button>
-    <button class="btn" id="exportBtn" title="Export current data for mc/data/teams.json (offline fallback)">Export JSON</button>
     <button class="btn primary" id="loginBtn">Login</button>
   </div>
 </header>
@@ -588,7 +585,6 @@
 </div>
 
 <script>
-const JSON_PATH = '../../mc/data/teams.json';
 const SB_CONFIG = {
   url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
   key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
@@ -638,13 +634,9 @@ const teamCache = new Map(); // leaguePath → teams array
 // state.doc is the in-memory display model (nested by league/conference) used by
 // render(); it is rebuilt from Supabase rows on load. state.leagueSort tracks
 // the league_sort column per league name (preserves user ordering). Mutations
-// update state.doc immediately and fire-and-forget a Supabase write.
-// fileHandle/rawDoc track the "file mode" introduced for editing mc/data/teams.json
-// directly via the File System Access API. When fileHandle is set, color/name
-// edits skip the Supabase write and are flushed to the file on Save instead.
-// rawDoc holds the original flat { _ai_update_prompt, teams:[…] } structure so
-// every non-color field (TGBID, EspnId, GeoName, VenueCity…) is preserved.
-const state = { doc: null, leagueSort: new Map(), session: null, fileHandle: null, rawDoc: null };
+// update state.doc immediately and fire-and-forget a Supabase write. The
+// Supabase public.teams table is the single source of truth.
+const state = { doc: null, leagueSort: new Map(), session: null };
 
 const els = {
   root: document.getElementById('leaguesRoot'),
@@ -652,9 +644,6 @@ const els = {
   bottomStatus: document.getElementById('bottomStatus'),
   reloadBtn: document.getElementById('reloadBtn'),
   lookupBtn: document.getElementById('lookupBtn'),
-  exportBtn: document.getElementById('exportBtn'),
-  openFileBtn: document.getElementById('openFileBtn'),
-  saveFileBtn: document.getElementById('saveFileBtn'),
   loginBtn: document.getElementById('loginBtn'),
 
   lookupModal: document.getElementById('lookupModal'),
@@ -970,161 +959,18 @@ async function loadFromSupabase() {
     setStatus(totalsSummary() + ' · Supabase');
     return true;
   } catch (err) {
-    setStatus(`Supabase load failed (${err.message}). Falling back to mc/data/teams.json.`, { error: true });
-    await loadFromJsonFallback();
+    setStatus(`Supabase load failed: ${err.message}`, { error: true });
+    state.doc = normalizeDoc(null);
+    state.leagueSort = new Map();
+    render();
     return false;
   }
 }
 
-async function loadFromJsonFallback() {
-  try {
-    const resp = await fetch(JSON_PATH, { cache: 'no-store' });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    state.doc = normalizeDoc(await resp.json());
-    state.leagueSort = new Map(Object.keys(state.doc.leagues).map((k, i) => [k, LEAGUE_RANK(k) + i]));
-    render();
-    setStatus(totalsSummary() + ' · mc/data/teams.json (offline)');
-  } catch (err) {
-    setStatus(`Could not fetch ${JSON_PATH} (${err.message}).`, { error: true });
-    state.doc = normalizeDoc(null);
-    state.leagueSort = new Map();
-    render();
-  }
-}
-
-// ── Export JSON (refresh the offline fallback file) ─────────────────────
-
-const serialize = () => JSON.stringify(state.doc, null, 2) + '\n';
-
-async function exportJson() {
-  if (!state.doc) return;
-  const text = serialize();
-  if (window.showSaveFilePicker) {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: 'teams.json',
-        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
-      });
-      const writable = await handle.createWritable();
-      await writable.write(text);
-      await writable.close();
-      setStatus(`Exported to ${handle.name}`);
-      return;
-    } catch (err) {
-      if (err.name === 'AbortError') return;
-      setStatus(`Export failed: ${err.message}`, { error: true });
-    }
-  }
-  const blob = new Blob([text], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'teams.json';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  setStatus('Downloaded teams.json — use it to refresh mc/data/teams.json.');
-}
-
-// ── File mode: edit mc/data/teams.json in place (File System Access API) ───────
-// When a file is open we edit the actual mc/data/teams.json. Color/name edits live
-// in state.doc and are merged back into state.rawDoc.teams (the canonical flat
-// array) on Save, so every other field on each row is preserved verbatim.
-
-function isFileMode() {
-  return !!state.fileHandle;
-}
-
-async function ensureRWPermission(handle) {
-  const opts = { mode: 'readwrite' };
-  if ((await handle.queryPermission(opts)) === 'granted') return true;
-  if ((await handle.requestPermission(opts)) === 'granted') return true;
-  return false;
-}
-
-async function openTeamsFile() {
-  if (!window.showOpenFilePicker) {
-    setStatus('File editing needs the File System Access API — use Chrome or Edge on desktop.', { error: true });
-    return;
-  }
-  try {
-    const [handle] = await window.showOpenFilePicker({
-      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
-      multiple: false,
-      excludeAcceptAllOption: false
-    });
-    const file = await handle.getFile();
-    const parsed = JSON.parse(await file.text());
-    if (!Array.isArray(parsed.teams)) {
-      setStatus(`${handle.name} has no "teams" array — pick the flat mc/data/teams.json file.`, { error: true });
-      return;
-    }
-    state.fileHandle = handle;
-    state.rawDoc = parsed;
-    state.doc = normalizeDoc(parsed);
-    state.leagueSort = new Map(Object.keys(state.doc.leagues).map((k, i) => [k, LEAGUE_RANK(k) + i]));
-    els.saveFileBtn.disabled = false;
-    render();
-    setStatus(`Editing ${handle.name} · ${totalsSummary()} · file mode (edits save back to the file)`);
-  } catch (err) {
-    if (err && err.name === 'AbortError') return;
-    setStatus(`Open failed: ${err.message}`, { error: true });
-  }
-}
-
-// Merge the in-memory edits back onto the original flat array, matching rows by
-// League + code. Only the editable color/name fields are overwritten; the row
-// is spread first so untouched keys (TGBID, EspnId, GeoName, VenueCity, sport,
-// paletteSource, …) and their order survive. Rows with no matching card are
-// left exactly as they were.
-function buildArrayDocFromEdits() {
-  if (!state.rawDoc || !Array.isArray(state.rawDoc.teams)) return null;
-  const nested = new Map();
-  for (const [leagueName, leagueObj] of Object.entries(state.doc.leagues || {})) {
-    const { groups, flatTeams } = partitionLeagueEntries(leagueObj);
-    const key = (code) => leagueName.toUpperCase() + '::' + String(code).toUpperCase();
-    for (const { code, team } of flatTeams) nested.set(key(code), team);
-    for (const { teams } of groups) {
-      for (const code of Object.keys(teams)) nested.set(key(code), teams[code]);
-    }
-  }
-  const out = { ...state.rawDoc };
-  out.teams = state.rawDoc.teams.map((row) => {
-    if (!row || typeof row !== 'object') return row;
-    const leagueName = String(row.League || row.league || '').toUpperCase();
-    const code = String(row.code || '').toUpperCase();
-    const team = nested.get(leagueName + '::' + code);
-    if (!team) return row;
-    return {
-      ...row,
-      fullName:  team.fullName  != null ? team.fullName  : row.fullName,
-      firstName: team.firstName != null ? team.firstName : row.firstName,
-      fanbase:   team.fanbase   != null ? team.fanbase   : row.fanbase,
-      mascot:    team.mascot    != null ? team.mascot    : row.mascot,
-      primary:   normalizeHex(team.primary,   row.primary),
-      secondary: normalizeHex(team.secondary, row.secondary),
-      tertiary:  normalizeHex(team.tertiary,  row.tertiary)
-    };
-  });
-  return out;
-}
-
-async function saveTeamsFile() {
-  if (!state.fileHandle) { setStatus('Open mc/data/teams.json first (Open File).', { error: true }); return; }
-  const doc = buildArrayDocFromEdits();
-  if (!doc) { setStatus('Nothing to save — the open file had no teams array.', { error: true }); return; }
-  if (!(await ensureRWPermission(state.fileHandle))) {
-    setStatus('Write permission denied for the file.', { error: true });
-    return;
-  }
-  try {
-    const writable = await state.fileHandle.createWritable();
-    await writable.write(JSON.stringify(doc, null, 2) + '\n');
-    await writable.close();
-    state.rawDoc = doc;
-    setStatus(`Saved ${doc.teams.length} teams → ${state.fileHandle.name}`);
-  } catch (err) {
-    setStatus(`Save failed: ${err.message}`, { error: true });
-  }
-}
+// File-mode editing of a local teams.json was removed — the Supabase
+// public.teams table is the single source of truth. isFileMode() stays as a
+// constant false so the save/swap guards below keep taking the Supabase path.
+function isFileMode() { return false; }
 
 // ── Mutations ────────────────────────────────────────────────────────────
 
@@ -2055,12 +1901,11 @@ if (adminAuth) {
     }
   });
 } else {
-  loadFromJsonFallback();
+  loadFromSupabase();
 }
 
 els.reloadBtn.addEventListener('click', () => {
-  if (isSignedIn()) loadFromSupabase();
-  else loadFromJsonFallback();
+  loadFromSupabase();
 });
 els.lookupBtn.addEventListener('click', () => openLookupModal());
 els.lookupCloseBtn.addEventListener('click', closeLookupModal);
@@ -2070,16 +1915,7 @@ els.lookupPullLeagueBtn.addEventListener('click', () => pullWholeLeague(els.look
 els.lookupPullGroupBtn.addEventListener('click', () => pullWholeLeague(els.lookupLeague.value, els.lookupGroup.value));
 els.lookupLeague.addEventListener('change', syncLookupLeagueLabel);
 els.lookupQuery.addEventListener('keydown', (e) => { if (e.key === 'Enter') runLookup(); });
-els.exportBtn.addEventListener('click', exportJson);
-els.openFileBtn.addEventListener('click', openTeamsFile);
-els.saveFileBtn.addEventListener('click', saveTeamsFile);
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && els.lookupModal.classList.contains('is-open')) closeLookupModal(); });
-window.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S') && isFileMode()) {
-    e.preventDefault();
-    saveTeamsFile();
-  }
-});
 </script>
 
 </body>

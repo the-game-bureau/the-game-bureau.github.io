@@ -18,7 +18,73 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const state = { data: null, view: 'pretty' };
+  const state = { data: null, view: 'pretty', query: '' };
+
+  /* Optional Supabase backend (opt-in via body data-attributes). When set, the
+     Results section loads rows from a table instead of a cousin file, and
+     Append / Overwrite / Edit-Save UPSERT rows back via PostgREST (writes need
+     an admin session token, same as the other MC tools). Pages without these
+     attributes keep the file-based cousin behavior untouched. */
+  const SB = {
+    table:    (document.body.getAttribute('data-supabase-table') || '').trim(),
+    url:      (document.body.getAttribute('data-supabase-url') || '').trim().replace(/\/+$/, ''),
+    key:      (document.body.getAttribute('data-supabase-key') || '').trim(),
+    conflict: (document.body.getAttribute('data-supabase-conflict') || '').trim(),
+    omit: (document.body.getAttribute('data-supabase-omit') || '')
+      .split(',').map((s) => s.trim()).filter(Boolean),
+  };
+  const usingSupabase = () => !!(SB.table && SB.url && SB.key);
+
+  /* Optional logical field order for the Results area (structured + edit views).
+     Set body data-field-order="a,b,c"; listed keys render first in that order,
+     any unlisted keys follow in their original order. Raw view stays verbatim. */
+  const FIELD_ORDER = (document.body.getAttribute('data-field-order') || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  function orderedEntries(obj) {
+    const keys = Object.keys(obj || {});
+    if (!FIELD_ORDER.length) return keys.map((k) => [k, obj[k]]);
+    const rank = (k) => {
+      const i = FIELD_ORDER.indexOf(k);
+      return i < 0 ? FIELD_ORDER.length + keys.indexOf(k) : i;   // unlisted keep original order, after listed
+    };
+    return keys.slice().sort((a, b) => rank(a) - rank(b)).map((k) => [k, obj[k]]);
+  }
+  function sessionToken() {
+    try {
+      const s = JSON.parse(localStorage.getItem('tgb-photo-review-auth-session') || 'null');
+      return (s && s.access_token) || '';
+    } catch (_) { return ''; }
+  }
+  async function loadRowsFromSupabase() {
+    const res = await fetch(SB.url + '/rest/v1/' + SB.table + '?select=*', {
+      headers: { apikey: SB.key, Authorization: 'Bearer ' + SB.key },
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+  async function upsertToSupabase(records) {
+    const token = sessionToken();
+    if (!token) throw new Error('Sign in as an admin first (no session token)');
+    const clean = records.map((r) => {
+      const out = {};
+      for (const k of Object.keys(r)) if (!SB.omit.includes(k)) out[k] = r[k];
+      return out;
+    });
+    const url = SB.url + '/rest/v1/' + SB.table +
+      (SB.conflict ? '?on_conflict=' + encodeURIComponent(SB.conflict) : '');
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        apikey: SB.key,
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(clean),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' · ' + (await res.text()).slice(0, 300));
+  }
 
   const els = {
     basePrompt: $('basePrompt'),
@@ -94,10 +160,11 @@
 
   function generate() {
     let out = assemblePrompt();
-    // Pages with data-include-cousin auto-append the CURRENT cousin records to the
-    // prompt (e.g. places.html appends places.jsonl). The framing comes from
-    // data-cousin-note; default is teams.html's "update in place".
-    if (document.body.getAttribute('data-include-cousin') === 'true' &&
+    // data-include-cousin: "true" appends the CURRENT records inline to the prompt
+    // (e.g. places.html); "separate" renders them as their own copyable artifact
+    // (get_teams) so the prompt stays short. Framing via data-cousin-note.
+    const mode = document.body.getAttribute('data-include-cousin');
+    if ((mode === 'true' || mode === 'separate') &&
         Array.isArray(state.records) && state.records.length) {
       // City-based cousins (places) → only the scope city named in keywords.
       // Cousins without a per-record city (teams) → include everything.
@@ -107,15 +174,60 @@
         recs = state.records.filter((r) => r && r.city &&
           kw.includes(String(r.city).split(',')[0].trim().toLowerCase()));
       }
-      if (recs.length) {
+      // For a Supabase-backed table, drop generated/auto columns (team_key,
+      // updated_at, …) so the embedded rows are clean, editable table content
+      // and the AI doesn't echo read-only columns back.
+      let dump = recs;
+      if (usingSupabase() && SB.omit.length) {
+        dump = recs.map((r) => {
+          const o = {};
+          for (const k of Object.keys(r)) if (!SB.omit.includes(k)) o[k] = r[k];
+          return o;
+        });
+      }
+      if (dump.length) {
         const label = (els.jsonName && els.jsonName.textContent) || 'current data';
         const note = document.body.getAttribute('data-cousin-note') ||
           'update these IN PLACE — preserve every existing id and hand-curated field; return the full updated set';
-        out += '\n\n--- CURRENT ' + label + ' (' + note + ') ---\n' + JSON.stringify(recs, null, 2);
+        // "separate" → render the data as its own copyable artifact (keeps the
+        // prompt short); "true" → append it inline to the prompt (legacy).
+        if (mode === 'separate') renderDataArtifact(dump, label);
+        else out += '\n\n--- CURRENT ' + label + ' (' + note + ') ---\n' + JSON.stringify(dump, null, 2);
       }
     }
     els.output.textContent = out;
     return out;
+  }
+
+  // Render the current data as its own panel with a Copy button (data-include-
+  // cousin="separate"), so the prompt and the data can be pasted independently.
+  function renderDataArtifact(dump, label) {
+    let pre = $('dataArtifact');
+    if (!pre) {
+      const section = document.createElement('section');
+      section.className = 'panel';
+      section.id = 'dataArtifactSection';
+      section.innerHTML =
+        '<div class="panel-head"><span class="panel-tag" id="dataArtifactLabel">Current Data</span>' +
+          '<button class="mini" id="copyDataBtn" type="button">Copy data</button></div>' +
+        '<div class="panel-body">' +
+          '<details class="field field-collapse"><summary>Show data</summary>' +
+          '<pre id="dataArtifact" class="prompt-text"></pre></details>' +
+        '</div>';
+      const after = $('generatedPromptSection') ||
+        (els.basePrompt && els.basePrompt.closest('section.panel'));
+      if (after && after.parentNode) after.parentNode.insertBefore(section, after.nextSibling);
+      else (document.querySelector('main.research') || document.body).appendChild(section);
+      pre = $('dataArtifact');
+      const copyBtn = $('copyDataBtn');
+      if (copyBtn) copyBtn.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText($('dataArtifact').textContent); toast('Data copied'); }
+        catch (_) { toast('Copy failed'); }
+      });
+    }
+    pre.textContent = JSON.stringify(dump, null, 2);
+    const lbl = $('dataArtifactLabel');
+    if (lbl) lbl.textContent = (label || 'Current Data') + ' · ' + dump.length + ' record(s)';
   }
 
   async function copyPrompt() {
@@ -156,6 +268,10 @@
 
   function cousinBase() {
     const path = location.pathname;
+    // data-cousin-file lets a renamed page point at a differently-named cousin
+    // (a renamed page → data/<original>.json). Value is the base name, no extension.
+    const override = document.body.getAttribute('data-cousin-file');
+    if (override) return path.replace(/[^/]*$/, '') + override.replace(/\.[^.]*$/, '');
     if (/\.html?$/i.test(path)) return path.replace(/\.html?$/i, '');
     return path.replace(/\/+$/, ''); // directory-style URL (…/foo/ or …/foo)
   }
@@ -199,9 +315,22 @@
   }
 
   async function loadResult() {
+    state.query = '';   // fresh data → clear any active results search
+    if (usingSupabase()) {
+      if (els.jsonName) els.jsonName.textContent = SB.table + ' · supabase';
+      try {
+        state.data = await loadRowsFromSupabase();   // array of table rows
+        renderResult();
+        generate();
+      } catch (err) {
+        renderEmpty(SB.table + ' (supabase)', err);
+      }
+      return;
+    }
     const base = cousinBase();
-    // Cousin data files live in the sibling data/ folder (e.g. /mc/games.html →
-    // /mc/data/games.jsonl; teams.html → /mc/data/teams.json).
+    // Cousin data files live in the sibling data/ folder (e.g. /mc/get_games.html →
+    // /mc/data/get_games.jsonl). Pages with data-supabase-table load from Supabase
+    // instead of a cousin file (see the SB backend at the top of this file).
     const dataBase = base.replace(/\/([^/]*)$/, '/data/$1');
     const candidates = [dataBase + '.jsonl', dataBase + '.json']; // prefer append-friendly .jsonl
     let lastErr;
@@ -267,10 +396,12 @@
           '<span class="result-counter" id="recCounter"></span>' +
           '<button class="mini nav-arrow" id="nextRec" type="button" aria-label="Next result">›</button>' +
         '</div>' +
+        '<input type="search" id="resultSearch" class="result-search" ' +
+          'placeholder="Search results…" autocomplete="off" spellcheck="false">' +
         '<div class="result-tools">' +
           '<button class="mini" data-view="pretty" aria-pressed="true">Structured</button>' +
           '<button class="mini" data-view="raw" aria-pressed="false">Raw</button>' +
-          '<button class="mini" id="copyJsonBtn" type="button">Copy</button>' +
+          '<button class="mini" data-view="edit" aria-pressed="false">Edit</button>' +
         '</div>' +
       '</div>' +
       '<div class="result-view" id="resultView"></div>';
@@ -280,17 +411,29 @@
     );
     $('prevRec').addEventListener('click', () => step(-1));
     $('nextRec').addEventListener('click', () => step(1));
-    $('copyJsonBtn').addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(JSON.stringify(state.records[state.index], null, 2));
-        toast('Record copied');
-      } catch (_) { toast('Copy failed'); }
-    });
+    const search = $('resultSearch');
+    if (search) {
+      search.value = state.query;   // preserved across saves; cleared on fresh load
+      search.addEventListener('input', () => {
+        state.query = search.value;
+        state.index = 0;
+        renderCurrent();
+      });
+    }
     setView(state.view);
   }
 
+  // Records currently shown — filtered by the search box (matches anywhere in the
+  // record's JSON, case-insensitive). Empty query → all records.
+  function visibleRecords() {
+    const all = Array.isArray(state.records) ? state.records : [];
+    const q = (state.query || '').trim().toLowerCase();
+    if (!q) return all;
+    return all.filter((r) => JSON.stringify(r).toLowerCase().includes(q));
+  }
+
   function step(delta) {
-    const n = state.records.length;
+    const n = visibleRecords().length;
     if (n < 2) return;
     state.index = (state.index + delta + n) % n; // wrap around
     renderCurrent();
@@ -305,17 +448,134 @@
   }
 
   function renderCurrent() {
-    const n = state.records.length;
+    const list = visibleRecords();
+    const n = list.length;
+    if (state.index >= n) state.index = 0;
     const nav = els.result.querySelector('.result-nav');
     if (nav) nav.style.display = n > 1 ? '' : 'none';
     const counter = $('recCounter');
-    if (counter) counter.textContent = (state.index + 1) + ' / ' + n;
+    if (counter) counter.textContent = n ? (state.index + 1) + ' / ' + n : '0 / 0';
 
-    const rec = state.records[state.index];
     const host = $('resultView');
-    host.innerHTML = state.view === 'raw'
-      ? '<pre class="result-raw">' + esc(JSON.stringify(rec, null, 2)) + '</pre>'
-      : renderNode(rec);
+    if (!host) return;
+    if (!n) {
+      host.innerHTML = '<div class="result-empty">No results match “' + esc(state.query) + '”.</div>';
+      return;
+    }
+    const rec = list[state.index];
+    if (state.view === 'raw') {
+      host.innerHTML = '<pre class="result-raw">' + esc(JSON.stringify(rec, null, 2)) + '</pre>';
+    } else if (state.view === 'edit') {
+      host.innerHTML = renderEditor(rec);
+      wireEditor();
+    } else {
+      host.innerHTML = renderNode(rec);
+    }
+  }
+
+  /* ── Inline editor: edit the current record's fields, then save the whole
+     file back in its detected shape (JSONL or wrapper object). Scalar fields
+     get an input/select; nested objects/arrays (and null) get a JSON textarea. */
+  function editorRow(key, val) {
+    const label = '<div class="field-label">' + esc(key) + '</div>';
+    if (val === null || typeof val === 'object') {
+      return '<div class="field">' + label +
+        '<textarea class="edit-input" data-key="' + esc(key) + '" data-type="json" rows="3">' +
+        esc(JSON.stringify(val, null, 2)) + '</textarea></div>';
+    }
+    if (typeof val === 'boolean') {
+      return '<div class="field">' + label +
+        '<select class="edit-input" data-key="' + esc(key) + '" data-type="boolean">' +
+          '<option value="true"' + (val ? ' selected' : '') + '>true</option>' +
+          '<option value="false"' + (!val ? ' selected' : '') + '>false</option>' +
+        '</select></div>';
+    }
+    const type = typeof val === 'number' ? 'number' : 'string';
+    return '<div class="field">' + label +
+      '<input class="edit-input" type="text" data-key="' + esc(key) + '" data-type="' + type +
+      '" value="' + esc(val) + '"></div>';
+  }
+
+  function renderEditor(rec) {
+    const actions =
+      '<div class="edit-actions">' +
+        '<button class="btn btn--primary" id="saveRecBtn" type="button">Save</button>' +
+        '<button class="mini" id="cancelEditBtn" type="button">Cancel</button>' +
+      '</div>';
+    // Plain object → per-field form; anything else → one JSON textarea.
+    if (rec && typeof rec === 'object' && !Array.isArray(rec)) {
+      return '<div class="result-edit">' +
+        orderedEntries(rec).map(([k, v]) => editorRow(k, v)).join('') + actions + '</div>';
+    }
+    return '<div class="result-edit">' +
+      '<div class="field"><textarea class="edit-input" data-key="__root__" data-type="json" rows="8">' +
+      esc(JSON.stringify(rec, null, 2)) + '</textarea></div>' + actions + '</div>';
+  }
+
+  // Read the editor inputs back into a record (throws on invalid JSON).
+  function collectEditor() {
+    const host = $('resultView');
+    const root = host.querySelector('[data-key="__root__"]');
+    if (root) return JSON.parse(root.value);
+    const rec = {};
+    host.querySelectorAll('[data-key]').forEach((el) => {
+      const key = el.getAttribute('data-key');
+      const type = el.getAttribute('data-type');
+      let v = el.value;
+      if (type === 'json') v = JSON.parse(v);
+      else if (type === 'number') v = v.trim() === '' ? null : Number(v);
+      else if (type === 'boolean') v = v === 'true';
+      rec[key] = v;
+    });
+    return rec;
+  }
+
+  async function saveEdit() {
+    let rec;
+    try { rec = collectEditor(); }
+    catch (e) { toast('Invalid JSON: ' + e.message); return false; }
+    // The editor edits the record currently shown (which may be a filtered view),
+    // so map it back to its real slot in state.records before saving.
+    const current = visibleRecords()[state.index];
+    const realIdx = Array.isArray(state.records) ? state.records.indexOf(current) : -1;
+    if (realIdx >= 0) state.records[realIdx] = rec;
+    else state.records.push(rec);
+    try {
+      await commitRecords(state.records, realIdx >= 0 ? realIdx : state.records.length - 1, state.shape);
+      toast('Saved ✓');
+      return true;
+    } catch (e) {
+      if (e.name !== 'AbortError') toast('Save failed: ' + e.message);
+      return false;
+    }
+  }
+
+  // Wrap an async save action with on-button feedback: disable + "Saving…" while
+  // it runs, "Saved ✓" briefly on success (truthy return), restore on failure.
+  async function buttonFeedback(btn, fn) {
+    if (!btn) return fn();
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    let ok = false;
+    try { ok = await fn(); }
+    finally {
+      btn.disabled = false;
+      if (ok) {
+        btn.textContent = 'Saved ✓';
+        setTimeout(() => { if (document.body.contains(btn)) btn.textContent = orig; }, 1600);
+      } else {
+        btn.textContent = orig;
+      }
+    }
+    return ok;
+  }
+
+  function wireEditor() {
+    const save = $('saveRecBtn');
+    if (save) save.addEventListener('click', () => buttonFeedback(save, saveEdit));
+    const cancel = $('cancelEditBtn');
+    if (cancel) cancel.addEventListener('click', () => setView('pretty'));
   }
 
   /* ── Merge / append new AI results into the cousin file ────────
@@ -396,30 +656,43 @@
   // Persist `records` in `shape`'s format, then re-render landing on `firstNew`.
   async function commitRecords(records, firstNew, shape) {
     shape = shape || state.shape || { kind: 'jsonl' };
-    const text = serializeRecords(records, shape);
-    if (window.showSaveFilePicker) await writeTextToHandle(await ensureHandle(), text);
-    else downloadText(els.jsonName.textContent || 'results.jsonl', text);
-
-    state.data = shape.kind === 'object'
-      ? Object.assign({}, shape.wrapper, { [shape.collectionKey]: records })
-      : records;
+    if (usingSupabase()) {
+      await upsertToSupabase(records);
+      // Re-read the table so Results show the TRUE post-write state (updated +
+      // added + the untouched rows that were never in the paste, all still there).
+      try { state.data = await loadRowsFromSupabase(); }
+      catch (_) { state.data = records; }
+    } else {
+      const text = serializeRecords(records, shape);
+      if (window.showSaveFilePicker) await writeTextToHandle(await ensureHandle(), text);
+      else downloadText(els.jsonName.textContent || 'results.jsonl', text);
+      state.data = shape.kind === 'object'
+        ? Object.assign({}, shape.wrapper, { [shape.collectionKey]: records })
+        : records;
+    }
     renderResult();   // recomputes state.shape + state.records from state.data
     state.index = Math.min(Math.max(firstNew, 0), state.records.length - 1);
     renderCurrent();
     generate();       // keep the prompt's embedded "current data" in sync (opt-in)
-    $('mergeInput').value = '';
+    const mergeBox = $('mergeInput');
+    if (mergeBox) mergeBox.value = '';   // may be absent on data-merge="off" pages
   }
 
   async function appendResults() {
     const input = readMergeInput();
-    if (!input) return;
+    if (!input) return false;
     try {
       // Read the file fresh (catches external edits), but NEVER lose what Section
       // 2 already loaded — union the two. If the file read comes back empty or
       // unreadable (a showSaveFilePicker quirk), the loaded records carry it, so
       // Append can't silently turn into Overwrite.
       let fileRecords = [], fileShape = state.shape || { kind: 'jsonl' };
-      if (window.showSaveFilePicker) {
+      if (usingSupabase()) {
+        try {
+          fileRecords = await loadRowsFromSupabase();   // re-read live rows
+          fileShape = detectShape(fileRecords);
+        } catch (_) { /* table unreadable → fall back to the loaded records */ }
+      } else if (window.showSaveFilePicker) {
         try {
           const r = await readExisting(await ensureHandle());
           fileRecords = r.records; fileShape = r.shape;
@@ -436,16 +709,21 @@
       const merged = dedupe(existing.concat(input.records));
       await commitRecords(merged, before, shape);
       toast('Added ' + (merged.length - before) + ' · total ' + merged.length + skipNote(input.skipped));
+      return true;
     } catch (e) {
       if (e.name !== 'AbortError') toast('Write failed: ' + e.message);
+      return false;
     }
   }
 
   async function overwriteResults() {
     const input = readMergeInput();
-    if (!input) return;
-    if (!window.confirm('Overwrite the file with these ' + input.records.length +
-        ' record(s)? This replaces ALL current results.')) return;
+    if (!input) return false;
+    const confirmMsg = usingSupabase()
+      ? 'Overwrite the ' + SB.table + ' table with these ' + input.records.length +
+        ' record(s)? Existing rows are updated and new ones added (nothing is deleted).'
+      : 'Overwrite with these ' + input.records.length + ' record(s)? This replaces ALL current results.';
+    if (!window.confirm(confirmMsg)) return false;
     try {
       // If the paste is itself a wrapper object, adopt it (keeps its top-level
       // fields, e.g. _ai_update_prompt); otherwise reuse the file's shape.
@@ -453,8 +731,119 @@
       const shape = pasted.kind === 'object' ? pasted : (state.shape || { kind: 'jsonl' });
       await commitRecords(input.records, 0, shape);
       toast('Overwrote · ' + input.records.length + ' record(s)' + skipNote(input.skipped));
+      return true;
     } catch (e) {
       if (e.name !== 'AbortError') toast('Write failed: ' + e.message);
+      return false;
+    }
+  }
+
+  /* ── Review-before-overwrite (Supabase, team_key identity) ──────────────
+     Diffs the pasted reply against the live rows so you see exactly what an
+     overwrite will do — and forces each existing team's identity (league, code,
+     tgbid) to its stored value so the AI can never corrupt an id. */
+  const IDENTITY_FIELDS = ['league', 'code', 'tgbid'];
+  function teamKeyOf(row) {
+    const lg = String((row && row.league) || '').trim().toUpperCase();
+    const cd = String((row && row.code) || '').trim().toUpperCase();
+    return (lg && cd) ? lg + ':' + cd : null;
+  }
+
+  function computeOverwritePlan(pasted) {
+    const current = Array.isArray(state.records) ? state.records : [];
+    const curByKey = new Map();
+    current.forEach((r) => { const k = r.team_key || teamKeyOf(r); if (k) curByKey.set(k, r); });
+    const usedTgbids = new Set(current.map((r) => Number(r.tgbid)).filter(Number.isFinite));
+    const seen = new Set();
+    const updates = [], adds = [], errors = [], safe = [];
+    const ignore = new Set(SB.omit.concat(['team_key']));
+    pasted.forEach((p, i) => {
+      const key = teamKeyOf(p);
+      if (!key) { errors.push('Row ' + (i + 1) + ' is missing league or code — skipped.'); return; }
+      if (seen.has(key)) { errors.push('Team ' + key + ' appears more than once in your paste.'); return; }
+      seen.add(key);
+      const cur = curByKey.get(key);
+      if (cur) {
+        const merged = Object.assign({}, p);
+        const idIgnored = [];
+        IDENTITY_FIELDS.forEach((f) => {
+          if (p[f] != null && String(p[f]) !== String(cur[f])) idIgnored.push(f);
+          merged[f] = cur[f];   // force stored identity — AI can't change it
+        });
+        const changed = [];
+        Object.keys(merged).forEach((f) => {
+          if (ignore.has(f) || IDENTITY_FIELDS.includes(f)) return;
+          const from = cur[f] == null ? '' : String(cur[f]);
+          const to = merged[f] == null ? '' : String(merged[f]);
+          if (from !== to) changed.push({ f, from, to });
+        });
+        updates.push({ key, changed, idIgnored });
+        safe.push(merged);
+      } else {
+        if (p.tgbid == null || p.tgbid === '')
+          errors.push('New team ' + key + ' has no tgbid (required).');
+        else if (usedTgbids.has(Number(p.tgbid)))
+          errors.push('New team ' + key + ' uses tgbid ' + p.tgbid + ', which already exists.');
+        else usedTgbids.add(Number(p.tgbid));
+        adds.push(key);
+        safe.push(p);
+      }
+    });
+    const untouched = current.filter((r) => !seen.has(r.team_key || teamKeyOf(r)));
+    return { updates, adds, untouched, errors, safe };
+  }
+
+  function showOverwritePreview() {
+    const host = $('mergePreview');
+    const input = readMergeInput();
+    if (!input || !host) return;
+    const plan = computeOverwritePlan(input.records);
+    const edited = plan.updates.filter((u) => u.changed.length);
+    const idIgnored = plan.updates.filter((u) => u.idIgnored.length);
+    let h = '<div class="preview-card"><div class="preview-title">Review before saving</div><ul class="preview-stats">';
+    h += '<li class="ok">✎ ' + plan.updates.length + ' existing team(s) in your paste — ' + edited.length + ' with field changes</li>';
+    h += '<li class="ok">＋ ' + plan.adds.length + ' new team(s) to add</li>';
+    h += '<li class="' + (plan.untouched.length ? 'warn' : '') + '">○ ' + plan.untouched.length +
+      ' existing team(s) NOT in your paste — kept unchanged (never deleted)</li>';
+    h += '</ul>';
+    if (edited.length) {
+      const swatch = (v) => /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(v)
+        ? '<span class="diff-swatch" style="background:' + esc(v) + '"></span>' : '';
+      const val = (v) => v === '' ? '<span class="diff-empty">∅</span>' : swatch(v) + esc(v);
+      h += '<details class="preview-details" open><summary>' + edited.length + ' changed team(s)</summary><ul class="preview-changes">' +
+        edited.slice(0, 60).map((u) =>
+          '<li><b>' + esc(u.key) + '</b><ul class="preview-diff">' +
+          u.changed.map((c) => '<li><span class="diff-field">' + esc(c.f) + '</span> ' +
+            '<span class="from">' + val(c.from) + '</span> → <span class="to">' + val(c.to) + '</span></li>').join('') +
+          '</ul></li>').join('') +
+        (edited.length > 60 ? '<li>…and ' + (edited.length - 60) + ' more</li>' : '') + '</ul></details>';
+    }
+    if (idIgnored.length)
+      h += '<div class="preview-note">Kept stored id (league/code/tgbid) on ' + idIgnored.length +
+        ' team(s) where the reply tried to change it.</div>';
+    if (plan.errors.length)
+      h += '<div class="preview-errors"><b>' + plan.errors.length + ' problem(s) — fix before applying:</b><ul>' +
+        plan.errors.slice(0, 40).map((e) => '<li>' + esc(e) + '</li>').join('') + '</ul></div>';
+    h += '<div class="preview-actions">';
+    if (!plan.errors.length)
+      h += '<button class="btn btn--primary" id="applyOverwriteBtn" type="button">Save changes</button>';
+    h += '<button class="mini" id="cancelPreviewBtn" type="button">Cancel</button></div></div>';
+    host.innerHTML = h;
+    const apply = $('applyOverwriteBtn');
+    if (apply) apply.addEventListener('click', () => buttonFeedback(apply, () => applyOverwrite(plan.safe)));
+    const cancel = $('cancelPreviewBtn');
+    if (cancel) cancel.addEventListener('click', () => { host.innerHTML = ''; });
+  }
+
+  async function applyOverwrite(records) {
+    try {
+      await commitRecords(records, 0, state.shape || { kind: 'jsonl' });
+      toast('Saved · ' + records.length + ' team(s) upserted');
+      const host = $('mergePreview'); if (host) host.innerHTML = '';
+      return true;
+    } catch (e) {
+      if (e.name !== 'AbortError') toast('Write failed: ' + e.message);
+      return false;
     }
   }
 
@@ -468,19 +857,37 @@
     const section = document.createElement('section');   // its own block
     section.className = 'panel';
     section.id = 'mergePanel';
-    section.innerHTML =
-      '<div class="panel-head"><span class="panel-tag">Add Results</span></div>' +
-      '<div class="panel-body">' +
-        '<textarea id="mergeInput" class="merge-input" ' +
-          'placeholder="Paste the AI reply — JSONL lines, a JSON array, or one object"></textarea>' +
-        '<div class="merge-actions">' +
-          '<button class="btn btn--primary" id="appendBtn" type="button">Append &amp; save</button>' +
-          '<button class="btn btn--danger" id="overwriteBtn" type="button">Overwrite</button>' +
-          '<span class="merge-hint">' + (window.showSaveFilePicker
+    const mergeTitle = document.body.getAttribute('data-merge-title') || 'Add Results';
+    // data-merge-mode="overwrite" → a single Overwrite button (the AI returns the
+    // COMPLETE set, so there's no separate append step). Default → Append + Overwrite.
+    const overwriteOnly = document.body.getAttribute('data-merge-mode') === 'overwrite';
+    const overwriteLabel = overwriteOnly && usingSupabase() ? 'Review changes' : 'Overwrite';
+    const buttons = overwriteOnly
+      ? '<button class="btn btn--primary" id="overwriteBtn" type="button">' + overwriteLabel + '</button>'
+      : '<button class="btn btn--primary" id="appendBtn" type="button">Append &amp; save</button>' +
+        '<button class="btn btn--danger" id="overwriteBtn" type="button">Overwrite</button>';
+    const hint = overwriteOnly
+      ? (usingSupabase()
+          ? 'Overwrite shows a review of exactly what will change first; Apply then upserts by ' +
+            (SB.conflict || 'key') + ' — edits existing, adds new, never deletes.'
+          : 'Overwrite replaces the whole file with your full result.')
+      : (usingSupabase()
+          ? 'Saves upsert into the ' + SB.table + ' table by ' + (SB.conflict || 'key') +
+            ' (insert new, update existing). No deletes.'
+          : (window.showSaveFilePicker
             ? 'Append merges new records in; Overwrite replaces the whole file.'
-            : 'No file-write here — you’ll get a download to save over the file.') +
-          '</span>' +
+            : 'No file-write here — you’ll get a download to save over the file.'));
+    section.innerHTML =
+      '<div class="panel-head"><span class="panel-tag">2 · ' + mergeTitle + '</span></div>' +
+      '<div class="panel-body">' +
+        '<textarea id="mergeInput" class="merge-input" placeholder="' +
+          esc(document.body.getAttribute('data-merge-placeholder') ||
+            'Paste the AI reply here — one record per line, or a JSON array.') + '"></textarea>' +
+        '<div class="merge-actions">' +
+          buttons +
+          '<span class="merge-hint">' + hint + '</span>' +
         '</div>' +
+        '<div id="mergePreview" class="merge-preview"></div>' +
       '</div>';
     // Place it directly under the Copy button (fall back to after Results).
     const anchor = (els.copyBtn && els.copyBtn.parentNode) ? els.copyBtn : resultsSection;
@@ -489,8 +896,12 @@
     } else {
       els.result.parentNode.appendChild(section);
     }
-    $('appendBtn').addEventListener('click', appendResults);
-    $('overwriteBtn').addEventListener('click', overwriteResults);
+    const appendBtn = $('appendBtn');
+    if (appendBtn) appendBtn.addEventListener('click', () => buttonFeedback(appendBtn, appendResults));
+    const overwriteBtn = $('overwriteBtn');
+    // Supabase → show the review/diff first (Apply commits). File pages → direct.
+    if (usingSupabase()) overwriteBtn.addEventListener('click', showOverwritePreview);
+    else overwriteBtn.addEventListener('click', () => buttonFeedback(overwriteBtn, overwriteResults));
   }
 
   /* recursive structured renderer for arbitrary JSON */
@@ -502,7 +913,7 @@
         val.map((item) => '<li>' + renderNode(item) + '</li>').join('') + '</ul>';
     }
     if (typeof val === 'object') {
-      const rows = Object.entries(val).map(([k, v]) => {
+      const rows = orderedEntries(val).map(([k, v]) => {
         const vHtml = (k === 'w3w' && typeof v === 'string' && v)
           ? '<a class="v v-link" href="https://what3words.com/' + esc(v) + '" target="_blank" rel="noopener">///' + esc(v) + '</a>'
           : renderNode(v);
@@ -512,6 +923,10 @@
     }
     if (typeof val === 'number')  return '<span class="v v-num">' + esc(val) + '</span>';
     if (typeof val === 'boolean') return '<span class="v v-bool">' + val + '</span>';
+    if (isHexColor(val)) {
+      return '<span class="v v-color"><span class="swatch" style="background:' + esc(val) +
+        '"></span>' + esc(val) + '</span>';
+    }
     if (isUrl(val)) {
       return '<a class="v v-link" href="' + esc(val) + '" target="_blank" rel="noopener">' + esc(val) + '</a>';
     }
@@ -525,6 +940,8 @@
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   }
   function isUrl(s) { return typeof s === 'string' && /^https?:\/\/\S+$/i.test(s); }
+  // #RGB, #RGBA, #RRGGBB, or #RRGGBBAA hex color string
+  function isHexColor(s) { return typeof s === 'string' && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(s.trim()); }
 
   let toastTimer;
   function toast(msg) {

@@ -130,6 +130,17 @@
       opacity: 0.55;
     }
     #gameTagline:empty { display: none; }
+    /* Anchor (fandom) games flank the tagline with the away team's mark instead
+       of plain rule lines. The marks face inward (left default, right mirrored),
+       matching the matchup-card helmet convention. */
+    #gameTagline.has-team-mark::before,
+    #gameTagline.has-team-mark::after {
+      width: clamp(2.1rem, 11vw, 3.4rem);
+      height: clamp(2.1rem, 11vw, 3.4rem);
+      background: var(--tagline-mark) no-repeat center / contain;
+      opacity: 1;
+    }
+    #gameTagline.has-team-mark::after { transform: scaleX(-1); }
 
     /* ── SECTION BLOCKS ── */
     .block {
@@ -5881,7 +5892,22 @@ const WEATHER_CODE_MAP = {
         gameTitleEl.textContent = gameName;
 
         gameTitleEl.style.color = secondaryColor;
-        document.getElementById('gameTagline').textContent = gameTagline;
+        const taglineEl = document.getElementById('gameTagline');
+        taglineEl.textContent = gameTagline;
+        // Anchor (fandom) games: flank the tagline with the away team's mark
+        // (helmet / ball) in its colors, replacing the plain rule lines.
+        if (gameTagline && isFandomGame(game)) {
+          fetchTeamPalette(game, 'away').then((pal) => {
+            const shell  = (pal && pal.shell)  || primaryColor   || '#33e6e6';
+            const stripe = (pal && pal.stripe) || secondaryColor || '#243256';
+            const mask   = (pal && pal.mask)   || '#ffffff';
+            const sport  = (pal && pal.sport)  || game.category_icon;
+            const mark = fandomMarkSVG(sport, shell, stripe, mask);
+            if (!mark) return;
+            taglineEl.style.setProperty('--tagline-mark', `url("${mark}")`);
+            taglineEl.classList.add('has-team-mark');
+          }).catch(() => {});
+        }
 
         if (gameNode.guideName) {
           document.getElementById('guideSection').style.display = 'block';

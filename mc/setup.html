@@ -7661,7 +7661,6 @@ body.builder-page--editor #stopNameInput,
 body.builder-page--editor #varNameInput,
 body.builder-page--editor #nodeGuideNameInput,
 body.builder-page--editor #nodePriceInput,
-body.builder-page--editor #nodeCheckoutUrlInput,
 body.builder-page--editor #nodeTagNewInput{
   max-width:100%;
 }
@@ -9864,12 +9863,6 @@ html.admin-embedded .builder-section-head{
                       <input id="nodePriceInput" type="text" autocomplete="off" disabled>
                     </div>
 
-                    <div class="field" id="checkoutUrlField">
-                      <label class="field-label" for="nodeCheckoutUrlInput">Legacy Checkout URL</label>
-                      <input id="nodeCheckoutUrlInput" type="url" placeholder="https://..." autocomplete="off" spellcheck="false" disabled>
-                      <p class="field-hint">Legacy payment-gate marker. Live purchases now use the Stripe access-code modal.</p>
-                    </div>
-
                   </div>
                 </section>
 
@@ -11612,7 +11605,6 @@ const guideImageField = document.getElementById('guideImageField');
 const guideBioField = document.getElementById('guideBioField');
 const guideBackgroundField = document.getElementById('guideBackgroundField');
 const priceField = document.getElementById('priceField');
-const checkoutUrlField = document.getElementById('checkoutUrlField');
 const cityField = document.getElementById('cityField');
 const startNameField = document.getElementById('startNameField');
 const startAddressField = document.getElementById('startAddressField');
@@ -11737,9 +11729,9 @@ const nodeAwayTeamInput = document.getElementById('nodeAwayTeamInput');
 const nodeAwayTeamCityInput = document.getElementById('nodeAwayTeamCityInput');
 const nodeAwayTeamMascotInput = document.getElementById('nodeAwayTeamMascotInput');
 
-// Teams dropdown — merge the canonical mc/data/teams.json cities with the
-// broader public.teams catalog. Selecting the away team also fills the
-// editable Away Team City with its TGB game city.
+// Teams dropdown — sourced from the public.teams Supabase catalog (the single
+// source of truth). Selecting the away team also fills the editable Away Team
+// City with its TGB game city.
 let builderTeamsList = [];
 const TEAM_REGION_NAMES = {
   AB: 'Alberta', AL: 'Alabama', AZ: 'Arizona', BC: 'British Columbia',
@@ -11801,54 +11793,6 @@ async function loadBuilderTeamsFromSupabase() {
   }));
 }
 
-async function loadBuilderTeamsFromJson() {
-  const response = await fetch('../mc/data/teams.json', { cache: 'no-store' });
-  if (!response.ok) throw new Error('HTTP ' + response.status);
-  const doc = await response.json();
-  if (doc && Array.isArray(doc.teams)) {
-    return doc.teams.map((t) => ({
-      league: t.League || t.league || '',
-      teamKey: t.team_key || t.teamKey || '',
-      firstName: t.firstName || t.first_name || t.GeoName || '',
-      fanbase: t.fanbase || t.firstName || t.first_name || t.GeoName || '',
-      gameCity: getBuilderTeamGameCity(t, t.fanbase || t.firstName || t.first_name || t.GeoName || ''),
-      mascot: t.mascot || t.MascotName || '',
-      sport: t.sport || '',
-      shell: t.shell || t.primary || '',
-      stripe: t.stripe || t.secondary || '',
-      mask: t.mask || t.tertiary || '',
-      textColor: t.text_color || t.textColor || t.quaternary || ''
-    }));
-  }
-  const teams = [];
-  const walk = (node) => {
-    if (!node || typeof node !== 'object') return;
-    Object.keys(node).forEach((k) => {
-      const v = node[k];
-      if (!v || typeof v !== 'object') return;
-      if ('fullName' in v || 'primary' in v || 'shell' in v) {
-        teams.push({
-          league: v.League || v.league || '',
-          teamKey: v.team_key || v.teamKey || '',
-          firstName: v.firstName || '',
-          fanbase: v.fanbase || v.firstName || '',
-          gameCity: getBuilderTeamGameCity(v, v.fanbase || v.firstName || ''),
-          mascot: v.mascot || '',
-          sport: v.sport || '',
-          shell: v.shell || v.primary || '',
-          stripe: v.stripe || v.secondary || '',
-          mask: v.mask || v.tertiary || '',
-          textColor: v.text_color || v.textColor || v.quaternary || ''
-        });
-      } else {
-        walk(v);
-      }
-    });
-  };
-  walk(doc.leagues || {});
-  return teams;
-}
-
 function builderTeamKey(team) {
   if (window.TgbTeamPalette) {
     const stableKey = window.TgbTeamPalette.teamKey(team);
@@ -11879,14 +11823,8 @@ function inferBuilderTeamKey(city, mascot, existingKey = '') {
 
 async function loadBuilderTeams() {
   let teams = [];
-  try { teams = await loadBuilderTeamsFromJson(); }
-  catch (err) { console.warn('Failed to load mc/data/teams.json for builder:', err); }
-  try {
-    const supabaseTeams = await loadBuilderTeamsFromSupabase();
-    if (supabaseTeams && supabaseTeams.length) teams = mergeBuilderTeams(teams, supabaseTeams);
-  } catch (err) {
-    console.warn('Supabase teams fetch failed for builder:', err);
-  }
+  try { teams = (await loadBuilderTeamsFromSupabase()) || []; }
+  catch (err) { console.warn('Supabase teams fetch failed for builder:', err); }
   if (!teams || !teams.length) return;
   builderTeamsList = (teams || [])
     .filter((t) => t.fanbase && t.mascot)
@@ -12033,7 +11971,6 @@ const objectBubbleImageThumbBtn = document.getElementById('objectBubbleImageThum
 const objectBubbleImageThumbImage = document.getElementById('objectBubbleImageThumbImage');
 const objectBubbleImageThumbPlaceholder = document.getElementById('objectBubbleImageThumbPlaceholder');
 const nodePriceInput = document.getElementById('nodePriceInput');
-const nodeCheckoutUrlInput = document.getElementById('nodeCheckoutUrlInput');
 const nodeEngineInput = document.getElementById('nodeEngineInput');
 const nodeCityInput = document.getElementById('nodeCityInput');
 const nodeStartNameInput = document.getElementById('nodeStartNameInput');
@@ -19111,12 +19048,9 @@ function updateObjectInspectorUi(node, link, copyText) {
   syncInput(objectBubbleGameAnswerInput, isGameBubble, node && node.gameAnswer);
   if (objectBubbleCtaPaymentCheckbox) {
     const linkUrl = String((node && node.linkUrl) || '');
-    const gameCheckoutUrl = (state.currentGameMeta && state.currentGameMeta.checkoutUrl) || '';
     const isPaymentGate = isCtaBubble && !!(
-      (gameCheckoutUrl && linkUrl === gameCheckoutUrl)
-      || linkUrl.includes('/pay.html')
+      linkUrl.includes('/pay.html')
       || linkUrl.includes('/pay/index.html')
-      || linkUrl.includes('lemonsqueezy.com')
       || linkUrl.includes('buy.stripe.com/')
     );
     objectBubbleCtaPaymentCheckbox.checked = !!isPaymentGate;
@@ -19208,7 +19142,6 @@ function updateSelectionUi(options = {}) {
   if (guideBackgroundField) guideBackgroundField.hidden = !showGameDetails;
   guideImageField.hidden = !showGameDetails;
   priceField.hidden = !showGameDetails;
-  if (checkoutUrlField) checkoutUrlField.hidden = !showGameDetails;
   const _paymentSection = document.getElementById('detailsPaymentSection');
   if (_paymentSection) _paymentSection.hidden = !showGameDetails;
   const _engineField = document.getElementById('engineField');
@@ -19263,7 +19196,6 @@ function updateSelectionUi(options = {}) {
   if (guideImageUploadBtn) guideImageUploadBtn.disabled = !isGameNode;
   if (guideImageUploadInput) guideImageUploadInput.disabled = !isGameNode;
   nodePriceInput.disabled = !isGameNode;
-  if (nodeCheckoutUrlInput) nodeCheckoutUrlInput.disabled = !isGameNode;
   if (nodeEngineInput) nodeEngineInput.disabled = !isGameNode;
   if (fandomGameToggle) fandomGameToggle.disabled = !isGameNode;
   primaryColorInput.disabled = !isGameNode;
@@ -19456,7 +19388,6 @@ function updateSelectionUi(options = {}) {
   }
   setGuideImageAssetStatus('');
   nodePriceInput.value = isGameNode ? (meta.price || '') : '';
-  if (nodeCheckoutUrlInput) nodeCheckoutUrlInput.value = isGameNode ? (meta.checkoutUrl || '') : '';
   if (nodeEngineInput) {
     // Treat blank engine as the default ("text") so the select reflects
     // what /game/run/ would actually launch into.
@@ -22191,12 +22122,12 @@ function syncCtaPaymentCheckbox() {
   if (!objectBubbleCtaUrlInput || !objectBubbleCtaPaymentCheckbox) return;
   const isPayment = objectBubbleCtaPaymentCheckbox.checked;
   if (isPayment) {
-    const checkoutUrl = (state.currentGameMeta && state.currentGameMeta.checkoutUrl) || getAccessCodePaymentMarkerUrl();
-    objectBubbleCtaUrlInput.value = checkoutUrl;
+    const paymentUrl = getAccessCodePaymentMarkerUrl();
+    objectBubbleCtaUrlInput.value = paymentUrl;
     objectBubbleCtaUrlInput.disabled = true;
     const node = getNode(state.selectedId);
     if (node && node.kind === 'cta') {
-      node.linkUrl = checkoutUrl;
+      node.linkUrl = paymentUrl;
       renderAll();
       scheduleRecoverySync();
     }
@@ -22441,13 +22372,6 @@ nodePriceInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.price = nodePriceInput.value;
 });
-
-if (nodeCheckoutUrlInput) {
-  nodeCheckoutUrlInput.addEventListener('input', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.checkoutUrl = nodeCheckoutUrlInput.value;
-  });
-}
 
 if (nodeEngineInput) {
   nodeEngineInput.addEventListener('change', () => {

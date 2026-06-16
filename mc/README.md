@@ -99,7 +99,10 @@ publish, commit & push it like any other change.
   re-emitted as a **pretty-printed object**, with every other top-level field
   (like `_ai_update_prompt`) preserved and the collection updated in place.
 
-So `teams.html` can Overwrite `teams.json` directly without corrupting it. A page
+`get_teams.html` is the exception: it has no cousin file — it reads/writes the Supabase
+`public.teams` table directly (single source of truth). **Append & save** upserts the new
+team[s], **Overwrite** upserts the whole array (neither deletes; writes need an admin
+session token). A page
 can still **opt out** of the merge box entirely with `<body data-merge="off">` if
 it should be view-only.
 
@@ -126,12 +129,12 @@ That's it — `research.css` and `research.js` are shared, so new pages are tiny
 | `index.html` | Auto-discovering home (GitHub Contents API). |
 | `_template.html` | Starter page to copy. |
 | `oldestbar.html` / `oldestbar.jsonl` | Worked example + its cousin records. |
-| `games.html` / `games.jsonl` | Sports matchups across the 4 major leagues (TGBID-keyed; MLS-extensible). |
+| `get_games.html` / `get_games.jsonl` | Sports matchups across the 4 major leagues (TGBID-keyed; MLS-extensible). |
 | `places.html` / `places.jsonl` | The AI-generation **inbox** for reusable real-world Places — landmarks, monuments, public art, and other points a city already has. Each Place carries a what3words address (`w3w`) plus `start_candidate` / `end_candidate` (`"yes"`/`"no"`). `content.html` migrates these into `atlas.jsonl` on first load (then `atlas.jsonl` is canonical). |
 | `content.html` | **Routes + Places** — a Mission Control tool (wears the shared `/mc/` chrome: admin-shell + sign-in nav; listed in the MC nav menu). Google Maps (satellite) + the what3words 3 m grid. Search covers Routes and Places. Click a square then **Add Place**, or click a Place pin to edit it. **Build Route** turns selected Places into an ordered list of Stops; route city is derived from those Stops. A **turn** is a coordinate-only shaping point, not a Stop. **Save** writes every Place + Route back to `atlas.jsonl`. |
 | `atlas.jsonl` | The map's canonical store. A Place record uses `{"type":"place",…}` and carries `name`, `city`, address and map metadata. A Route record uses `{"type":"route",…}` and carries `route_id`, `name`, `city`, and ordered `stops:[…]`. Each Stop references a Place by `{name,w3w}`. Optional map-shaping turns are stored separately in `turns:[…]`, so they never masquerade as Stops. The loader accepts legacy `type:"stop"`, `waypoints`, and `stops.jsonl`, then normalizes them on Save. |
 | `add-w3w.mjs` | CLI: geocode each Place (**Google Places** when `GOOGLE_PLACES_API_KEY` is set, else Nominatim) and write its **what3words** address (`w3w`). `node mc/js/add-w3w.mjs [file=mc/data/atlas.jsonl] [limit] [--all]` (default fills only Places missing a w3w; Route records are skipped). Keys: `GOOGLE_PLACES_API_KEY` (optional), `W3W_API_KEY`. |
-| `teams.html` / `teams.json` | The team database (4 major leagues, MLS-extensible). Wraps teams.json's built-in update prompt; pages one team at a time, and **Overwrite** writes teams.json back as a pretty object (`_ai_update_prompt` preserved). The `/assets/teams/` editor is the alternative. |
+| `get_teams.html` / Supabase `public.teams` | The team database (4 major leagues, MLS-extensible). No cousin file — Results load from the `teams` table and the AI prompt emits its column shape. **Append & save** upserts the new team[s], **Overwrite** upserts the whole array, per-row **Edit** upserts a team (by `team_key` = `LEAGUE:CODE`; never deletes — `games` FK `teams.team_key`). Upserting by `team_key` (not the `league,conference,code` PK) avoids `team_key`-uniqueness collisions when a team's conference changes. Writes need an admin session. |
 | `research.css` | Shared dark "dev-tool" styling. |
 | `research.js` | Shared engine: prompt assembly + cousin loader/renderer + format-aware merge (.jsonl/.json). |
 

@@ -34,7 +34,7 @@
   <script src="/assets/games/helmets/helmet.js"></script>
   <script src="/assets/games/helmets/basketball.js"></script>
   <script src="/assets/games/helmets/baseball.js"></script>
-  <script src="/assets/teams/team-cities.js"></script>
+  <script src="/assets/states/your_nearest_team.js"></script>
   <link rel="stylesheet" href="/assets/site-shell.css">
   <script src="/assets/public-account.js"></script>
   <link rel="stylesheet" href="/assets/site-pages.css">
@@ -112,7 +112,7 @@
   <script src="/mc/js/admin-auth.js"></script>
   <script src="/assets/site-nav-login.js"></script>
   <script src="/assets/admin-bridge.js"></script>
-  <script src="/assets/teams/us-state-shapes.js"></script>
+  <script src="/assets/states/us-state-shapes.js"></script>
 
   <!-- Page controller: data loading, hero finder, selected-game cards, and URL state. -->
   <script>
@@ -406,24 +406,6 @@
         }
         if (!response.ok) throw new Error('HTTP ' + response.status);
         return await response.json();
-      }
-
-      async function fetchTeamColorsFromJson() {
-        const response = await fetch(COLORS_JSON_URL, { cache: 'no-store' });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        const doc = await response.json();
-        if (doc && Array.isArray(doc.teams)) return doc.teams;
-        const flat = [];
-        const walk = (node) => {
-          if (!node || typeof node !== 'object') return;
-          for (const value of Object.values(node)) {
-            if (!value || typeof value !== 'object') continue;
-            if ('fullName' in value || 'primary' in value || 'shell' in value) flat.push(value);
-            else walk(value);
-          }
-        };
-        walk((doc && doc.leagues) || {});
-        return flat;
       }
 
       function canonicalTeamColorRow(row) {
@@ -1599,7 +1581,9 @@
         let bestSoonest = Infinity;
         for (const entry of entries) {
           const fanbase = (entry.helmet && entry.helmet.fanbase) || entry.label || '';
-          const cityCoords = coords[teamKey(fanbase)];
+          // fanbase may be "City, ST"; coords are keyed by the bare city, so key
+          // off the part before the comma.
+          const cityCoords = coords[teamKey(String(fanbase).split(',')[0])];
           if (!cityCoords) continue;
           const dist = haversineKm(userLat, userLng, cityCoords[0], cityCoords[1]);
           if (dist < bestDist) {

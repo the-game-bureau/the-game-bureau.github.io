@@ -948,7 +948,9 @@
     (function () {
       const params = new URLSearchParams(window.location.search);
       const JERSEY_DATA_URL = 'jerseys.json';
-      const TEAM_DATA_URL = '../../mc/data/teams.json';
+      // Teams come from the Supabase public.teams table (single source of truth).
+      const SB_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
+      const SB_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
       const DEFAULT_PALETTE = {
         fullName: 'The Game Bureau',
         sport: 'football',
@@ -1051,13 +1053,14 @@
       }
 
       async function loadTeamData() {
-        const response = await fetch(TEAM_DATA_URL, { cache: 'no-store' });
+        const response = await fetch(SB_URL + '/rest/v1/teams?select=*', {
+          headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY },
+          cache: 'no-store'
+        });
         if (!response.ok) throw new Error('Could not load team data.');
-        const data = await response.json();
-        if (!data || !Array.isArray(data.teams)) {
-          throw new Error('Team data is malformed.');
-        }
-        return data;
+        const rows = await response.json();
+        if (!Array.isArray(rows)) throw new Error('Team data is malformed.');
+        return { teams: rows };
       }
 
       function selectJerseyRecord(records) {
@@ -1109,7 +1112,7 @@
             fanbase: row.fanbase || row.firstName || row.first_name || row.GeoName || '',
             mascot: row.mascot || row.MascotName || '',
             sport: row.sport || '',
-            gameCity: row.TGBGameCity || row.tgbGameCity || row.tgb_game_city || '',
+            gameCity: row.TGBGameCity || row.tgbGameCity || row.tgb_game_city || row.game_city || '',
             primary: row.primary || row.primary_color || row.shell || '',
             secondary: row.secondary || row.secondary_color || row.stripe || '',
             tertiary: row.tertiary || row.tertiary_color || row.mask || ''

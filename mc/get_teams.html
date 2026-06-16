@@ -3,75 +3,96 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- The team database. Cousin file: teams.json — a wrapper object
-       { _ai_update_prompt, teams:[…] }, not plain JSONL. The engine is
-       format-aware: Section 2 pages one team at a time, and Add results →
-       Overwrite re-emits teams.json as a pretty-printed object with
-       _ai_update_prompt preserved. The dedicated editor at /assets/teams/
-       remains an option. Base prompt below is teams.json's own
-       _ai_update_prompt, extended to allow new leagues like MLS. -->
+  <!-- The team database. Backend: the Supabase public.teams table (the single
+       source of truth — the live site reads palettes/identity from it). Results
+       load rows straight from the table; Append & save and Overwrite UPSERT rows
+       back via PostgREST (by team_key = LEAGUE:CODE) using the admin session
+       token; per-row Edit/Save upserts the row too. Writes never delete (games
+       foreign-key teams.team_key). Upserting by team_key (not the league,
+       conference,code PK) means a conference change updates the team in place
+       instead of colliding on the team_key unique index. Base prompt below emits
+       the table's column
+       shape; new leagues like MLS use the same columns. -->
   <title>Research · Teams</title>
   <link rel="stylesheet" href="research.css">
   <link rel="stylesheet" href="js/admin-shell.css">
 </head>
-<body data-include-cousin="true">
+<body data-include-cousin="separate"
+      data-supabase-table="teams"
+      data-supabase-url="https://qmaafbncpzrdmqapkkgr.supabase.co"
+      data-supabase-key="sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3"
+      data-supabase-conflict="team_key"
+      data-supabase-omit="team_key,updated_at"
+      data-field-order="tgbid,league,conference,division,code,team_key,full_name,first_name,fanbase,mascot,sport,shell,stripe,mask,text_color,game_city,venue_city,timezone,espn_id,league_sort,team_sort,updated_at"
+      data-merge-mode="overwrite"
+      data-merge-title="Save Changes"
+      data-merge-placeholder="Paste your AI's complete reply here — every team, one per line. Nothing saves yet: you'll get a review of what changes first.">
   <main class="research">
 
     <header class="research-head">
       <span class="research-kicker">Research Assistant</span>
       <h1>Teams</h1>
-      <p class="research-sub"><strong>Copy</strong> the prompt — it includes the <strong>current teams</strong> so the AI updates them
-        in place (TGBIDs and curated cities preserved) instead of rebuilding. Run it, then paste the returned JSON into
-        <strong>Add results → Overwrite</strong> to write <code style="font-family:var(--mono)">teams.json</code>
-        (kept as a pretty object, <code style="font-family:var(--mono)">_ai_update_prompt</code> preserved), or use the
-        <a href="../assets/teams/" style="color:var(--accent-2)">teams editor</a>. Section 2 pages through the current teams.</p>
+      <p class="research-sub">This assistant helps find teams that may be involved with Anchor Event games.
+        Copy the <strong>Generated Prompt</strong>, run it in your AI, then paste the reply into <strong>Save Changes</strong>
+        and click <strong>Review changes</strong> to see what's updated or added before anything commits. Or edit a single
+        record right in the <strong>Results</strong> section. Saves write to the Supabase teams table (admin sign-in required).</p>
     </header>
 
     <!-- ════════ SECTION 1 · PROMPT BUILDER ════════ -->
     <section class="panel">
       <div class="panel-head">
-        <span class="panel-tag">Prompt Additions</span>
+        <span class="panel-tag">1 · Prompt Additions</span>
       </div>
       <div class="panel-body">
 
-        <!-- This is teams.json's own _ai_update_prompt (the file's first field),
-             plus SCOPE/EXTRA lines and an extensibility rule for new leagues.
-             To UPDATE in place rather than rebuild, paste the current "teams"
-             array after this prompt; with no array it bootstraps from scratch. -->
+        <!-- Prompt that produces rows in the public.teams COLUMN shape, plus
+             SCOPE/EXTRA lines. data-include-cousin appends the table's current
+             rows after this prompt so the AI updates in place; with no rows it
+             bootstraps from scratch. -->
         <details class="field field-collapse">
           <summary><span id="basePromptLabel">Base prompt</span></summary>
-          <pre id="basePrompt" class="prompt-text">You are updating this dataset of every team in the major North American pro sports leagues. The four CORE leagues are NFL, NBA, NHL, and MLB; additional leagues (e.g. MLS) may be added with the same fields. This JSON file holds your instructions (this field) plus a "teams" array. Bring the "teams" array fully up to date as of today and return the SAME JSON structure (this field unchanged, plus the updated array). Verify against authoritative, current sources before changing anything.
+          <pre id="basePrompt" class="prompt-text">You are maintaining the Game Bureau Supabase "teams" table — every team in the major North American pro sports leagues. CORE leagues: NFL, NBA, NHL, MLB. Others (e.g. MLS) may be added using the SAME columns. Return team rows using EXACTLY these column names (see OUTPUT below for the exact format). Verify against authoritative, current sources before changing anything.
 
 SCOPE: {{keywords}}
 EXTRA DIRECTION: {{notes}}
 
-Fields per team:
-- TGBID: a permanent unique integer id for the team ("The Game Bureau ID"). The New Orleans Saints are 1. Once assigned, a team's TGBID NEVER changes and is NEVER reused, even if the team is removed.
-- League: NFL | NBA | NHL | MLB (or another league code, e.g. MLS, when extending).
-- GeoName: the geographic descriptor in the official team name (e.g. "New England", "Golden State"). Use "" for the Athletics, who currently carry no city/region name.
-- MascotName: the team nickname (e.g. "Saints", "Warriors").
-- TGBGameCity: nearest big/anchor city the franchise is identified with, formatted "City, ST". EDITORIAL judgment, not a lookup. PRESERVE the existing value for any team already listed; only set it for a brand-new team.
-- VenueCity: the municipality where the home venue physically sits, formatted "City, ST" (e.g. "Foxborough, MA"). For an existing team, keep it unless the team has actually changed venues.
-- EspnId: ESPN's numeric team id (the "id" field in ESPN's team list). MUST be populated for every team, existing and new.
-- code, conference, fullName, firstName, fanbase, mascot, sport: site/runtime aliases derived from the team identity. Preserve existing values unless identity actually changes.
-- primary, secondary, tertiary: team palette colors as #RRGGBB hex strings. These are the canonical palette field names.
-- paletteSource: where the palette came from (e.g. supabase or espn). Preserve existing values unless refreshing palette data.
+Columns per team (the table's real column names):
+- league: NFL | NBA | NHL | MLB (or another league code, e.g. MLS).
+- conference: conference/group name, or "" if none. Part of the primary key.
+- division: the sub-group within the conference — just the division name, NOT prefixed with the conference (e.g. "North"/"South"/"East"/"West" for NFL & MLB; "Atlantic"/"Central"/"Southeast"/"Northwest"/"Pacific"/"Southwest" for NBA; "Atlantic"/"Metropolitan"/"Central"/"Pacific" for NHL), or "" if none. Editable metadata, not part of the key.
+- code: short team code, uppercase (e.g. "NO", "CHC", "ARI"). Part of the primary key; with league it forms the stable team_key = LEAGUE:CODE that games reference. NEVER change an existing team's code; keep it unique within the league.
+- full_name: full team name (e.g. "New Orleans Saints").
+- first_name: geographic descriptor in the official name (e.g. "New England", "Golden State"). "" for the Athletics.
+- fanbase: the nearest BIG city to the venue, as "City, ST" with a 2-letter state/province. MUST be a real city — never a region or state (use "Phoenix, AZ" not "Arizona, AZ"; "Charlotte, NC" not "Carolina, NC"). It may equal venue_city/game_city. When the team's name contains a real city, prefer it (49ers → "San Francisco, CA", Clippers → "Los Angeles, CA").
+- mascot: the nickname (e.g. "Saints").
+- sport: football | basketball | hockey | baseball (or the league's sport).
+- shell / stripe / mask: primary / secondary / tertiary palette colors as #RRGGBB hex.
+- text_color: the team's text/fourth color as #RRGGBB (default "#FFFFFF").
+- game_city: nearest big/anchor city, "City, ST". Editorial judgment. PRESERVE existing values; only set for a brand-new team.
+- venue_city: municipality the home venue physically sits in, "City, ST" (e.g. "Foxborough, MA", not "Boston, MA"). PRESERVE unless the team actually moved.
+- timezone: IANA timezone of the venue (e.g. "America/Chicago").
+- tgbid: permanent unique integer id. Once assigned it NEVER changes and is NEVER reused. New team = (max existing tgbid) + 1.
+- espn_id: ESPN's numeric team id (the "id" field in ESPN's team list).
+- league_sort / team_sort: integer ordering (NFL pinned first). Preserve existing values.
 
 Rules:
-1. ADD any team that now exists but is missing. Pull GeoName, MascotName, and EspnId from ESPN's team list. For VenueCity, do NOT just copy ESPN's metro label — determine the actual municipality the home venue physically sits in (e.g. the stadium is in "Paradise, NV", not "Las Vegas, NV"; "Foxborough, MA", not "Boston, MA") by checking the venue's real location, and note your source for it. Set TGBGameCity by your editorial judgment of the nearest big city. Format both as "City, ST". Assign TGBID = (the highest TGBID currently in the array) + 1.
-2. REMOVE any franchise that no longer exists.
-3. EDIT GeoName/MascotName/VenueCity when a team rebrands or relocates. A pure rename of the same franchise (e.g. Cleveland Indians to Guardians, Washington Football Team to Commanders) is an EDIT, not a remove+add; keep its existing EspnId since ESPN keeps the same id through a rename.
-4. Do NOT overwrite TGBGameCity or VenueCity for teams that have not moved — those are curated by hand.
-5. Keep the Athletics' GeoName as "".
-6. Populate/refresh EspnId for EVERY team from ESPN's team list (the "id" field). Do not leave it blank.
-7. Expected counts for the four core leagues: NFL 32, NBA 30, NHL 32, MLB 30 (124 total). Note it if your result differs. Teams from any added league (e.g. MLS) are extra, beyond this count.
-8. Source: ESPN's public team lists at https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/teams (football/nfl, basketball/nba, hockey/nhl, baseball/mlb; soccer/usa.1 for MLS) provide, per team, League, GeoName (location), MascotName (name), and EspnId (id).
-9. TGBID is a permanent key: never renumber existing teams, never reuse a removed team's number, and never change the Saints from 1. A new team always takes the next available number = max(TGBID) + 1.
-10. EXTENDING TO A NEW LEAGUE (e.g. MLS): only when SCOPE/EXTRA asks for it. Add that league's teams with the same fields and its own League code, assigning each the next free TGBID; do not touch the core four leagues' rosters in the process.
+1. ADD a missing team with all columns. Assign code (short, uppercase, unique in the league), tgbid = max existing + 1, espn_id from ESPN, editorial game_city, and the venue's real municipality for venue_city.
+2. NEVER change an existing team's league or code — team_key is foreign-keyed by games. A rebrand/rename (e.g. Indians→Guardians) EDITS full_name/first_name/mascot but keeps league, code, tgbid, and espn_id.
+3. Do NOT overwrite game_city/venue_city/timezone for teams that haven't moved — those are curated by hand.
+4. Keep the Athletics' first_name as "".
+5. Do NOT output team_key or updated_at: team_key is generated from league+code, updated_at is automatic.
+6. Expected core counts: NFL 32, NBA 30, NHL 32, MLB 30 (124 total). Note it if your result differs. Added leagues (e.g. MLS) are extra.
+7. Source: ESPN public team lists at https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/teams (football/nfl, basketball/nba, hockey/nhl, baseball/mlb; soccer/usa.1 for MLS) provide league, first_name (location), mascot (name), and espn_id (id).
 
-Bootstrap: if no "teams" array is present (you were given only this instruction text), GENERATE all 124 core teams from scratch — NFL 32, NBA 30, NHL 32, MLB 30 — populating every field per the definitions and rules above (TGBGameCity is your best editorial judgment of the nearest big city, formatted "City, ST"; assign TGBID with the New Orleans Saints as 1 and every other team numbered uniquely from 2 upward). Otherwise, update the existing array in place.
+OUTPUT — your reply OVERWRITES the Supabase teams table. The page upserts every row you return by team_key (LEAGUE:CODE): existing teams are updated in place, new teams are inserted, and nothing is deleted. Because nothing is deleted, your reply MUST be the COMPLETE table.
 
-Return ONLY the complete, valid JSON (this "_ai_update_prompt" field followed by the full "teams" array). No commentary outside the JSON.</pre>
+Hard rules (these make the overwrite safe — follow ALL of them):
+1. Return EVERY existing team. Every team in the Current Data provided alongside this prompt must appear in your output, even ones you did not change. Never drop a team.
+2. Identity is permanent: for an existing team you may NOT edit its league, code, or tgbid. Copy each existing team's league, code, and tgbid through UNCHANGED. (team_key = LEAGUE:CODE is derived and is foreign-keyed by games — do not output team_key.)
+3. You MAY edit any OTHER field of any team: full_name, first_name, fanbase, mascot, sport, conference, division, shell, stripe, mask, text_color, game_city, venue_city, timezone, league_sort, team_sort.
+4. You MAY add brand-new teams. A new team gets a code unique within its league and tgbid = (highest existing tgbid) + 1. Only brand-new teams get a new tgbid.
+
+Format: one team per line as an object literal with the exact column keys above — e.g. {"league":"NFL","conference":"","code":"NO","full_name":"New Orleans Saints", ...}. No surrounding brackets, no prose, no markdown, no commentary.</pre>
         </details>
 
         <div class="field">
@@ -96,10 +117,10 @@ Return ONLY the complete, valid JSON (this "_ai_update_prompt" field followed by
       </div>
     </section>
 
-    <!-- ════════ SECTION 2 · RESULT (cousin teams.json) ════════ -->
+    <!-- ════════ SECTION 3 · RESULT (Supabase teams table) ════════ -->
     <section class="panel">
       <div class="panel-head">
-        <span class="panel-tag">Results</span>
+        <span class="panel-tag">3 · Results</span>
         <span class="panel-file" id="jsonName"></span>
       </div>
       <div class="result" id="result"></div>

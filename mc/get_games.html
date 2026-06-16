@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Games dataset — scheduled matchups across the major leagues, keyed to the
-       team TGBIDs in mc/data/teams.json. Cousin file: games.jsonl.
+       team tgbids in the Supabase public.teams table. Cousin file: get_games.jsonl.
        Update existing games + append new ones; extensible to leagues like MLS. -->
   <title>Research · Games</title>
   <link rel="stylesheet" href="research.css">
@@ -18,20 +18,20 @@
       <h1>Games</h1>
       <p class="research-sub">Scope a league/date range below, then <strong>Copy</strong> the prompt and run it in your AI.
         Paste the reply into <strong>Add results</strong> — <strong>Append</strong> new games or <strong>Overwrite</strong>
-        for a full refresh of <code style="font-family:var(--mono)">games.jsonl</code>.</p>
+        for a full refresh of <code style="font-family:var(--mono)">get_games.jsonl</code>.</p>
     </header>
 
     <!-- ════════ SECTION 1 · PROMPT BUILDER ════════ -->
     <section class="panel">
       <div class="panel-head">
-        <span class="panel-tag">Prompt Additions</span>
+        <span class="panel-tag">1 · Prompt Additions</span>
       </div>
       <div class="panel-body">
 
-        <!-- Durable instructions modeled on teams.json's _ai_update_prompt:
-             covers all 4 major leagues, links every team by TGBID from
-             mc/data/teams.json, updates + appends, and leaves room to add
-             leagues like MLS later. {{keywords}} / {{notes}} scope a run. -->
+        <!-- Durable instructions: cover all 4 major leagues, link every team by
+             tgbid from the canonical Supabase public.teams table, update +
+             append, and leave room to add leagues like MLS later.
+             {{keywords}} / {{notes}} scope a run. -->
         <details class="field field-collapse">
           <summary><span id="basePromptLabel">Base prompt</span></summary>
           <pre id="basePrompt" class="prompt-text">You are maintaining The Game Bureau's GAMES dataset — scheduled matchups across the major North American pro sports leagues. The four core leagues are NFL, NBA, NHL, and MLB; more leagues (e.g. MLS) can be added later using the same shape. Report verified, current facts only; if a date or score is uncertain or unannounced, say so rather than guessing.
@@ -39,7 +39,7 @@
 SCOPE: {{keywords}}
 EXTRA DIRECTION: {{notes}}
 
-Cover the four core leagues (NFL, NBA, NHL, MLB) unless SCOPE narrows them. Identify EVERY team by its TGBID from mc/data/teams.json (the canonical team database) — never invent a TGBID. If a team is not in mc/data/teams.json, skip that game. To add a future league such as MLS, use that league's code in "sport" with the SAME fields, once its teams exist in mc/data/teams.json with real TGBIDs.
+Cover the four core leagues (NFL, NBA, NHL, MLB) unless SCOPE narrows them. Identify EVERY team by its tgbid from the canonical teams table (Supabase public.teams) — never invent a tgbid. If a team is not in that table, skip that game. To add a future league such as MLS, use that league's code in "sport" with the SAME fields, once its teams exist in the teams table with real tgbids.
 
 UPDATE + APPEND: update games already known when details change (final scores, reschedules, venue changes) and append newly scheduled games. Each game is keyed by "game_id" so an update REPLACES the same game rather than duplicating it. Keep every other game's line unchanged.
 
@@ -48,7 +48,7 @@ Return ONLY JSON Lines (JSONL): one game object per line, each on a SINGLE line,
 
 Rules:
 - game_id format: "SPORT-YYYY-MM-DD-<home_tgbid>-<away_tgbid>" (e.g. "NFL-2025-09-07-5-1").
-- "home"/"away" are the full team names matching those TGBIDs in mc/data/teams.json.
+- "home"/"away" are the full team names matching those tgbids in the teams table.
 - "city" is the host city of the venue, formatted "City, ST".
 - Scores are null until the game is final; use status "scheduled" beforehand, "final" after, "postponed" if applicable.
 - Source: ESPN's public schedule/scoreboard API — https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard — is a good authoritative feed (football/nfl, basketball/nba, hockey/nhl, baseball/mlb).
@@ -80,7 +80,7 @@ Rules:
     <!-- ════════ SECTION 2 · RESULT (cousin .jsonl) ════════ -->
     <section class="panel">
       <div class="panel-head">
-        <span class="panel-tag">Results</span>
+        <span class="panel-tag">3 · Results</span>
         <span class="panel-file" id="jsonName"></span>
       </div>
       <div class="result" id="result"></div>

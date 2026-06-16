@@ -11982,9 +11982,9 @@ const nodeAwayTeamInput = document.getElementById('nodeAwayTeamInput');
 const nodeAwayTeamCityInput = document.getElementById('nodeAwayTeamCityInput');
 const nodeAwayTeamMascotInput = document.getElementById('nodeAwayTeamMascotInput');
 
-// Teams dropdown — merge the canonical mc/data/teams.json cities with the
-// broader public.teams catalog. Selecting the away team also fills the
-// editable Away Team City with its TGB game city.
+// Teams dropdown — sourced from the public.teams Supabase catalog (the single
+// source of truth). Selecting the away team also fills the editable Away Team
+// City with its TGB game city.
 let builderTeamsList = [];
 const TEAM_REGION_NAMES = {
   AB: 'Alberta', AL: 'Alabama', AZ: 'Arizona', BC: 'British Columbia',
@@ -12046,54 +12046,6 @@ async function loadBuilderTeamsFromSupabase() {
   }));
 }
 
-async function loadBuilderTeamsFromJson() {
-  const response = await fetch('../mc/data/teams.json', { cache: 'no-store' });
-  if (!response.ok) throw new Error('HTTP ' + response.status);
-  const doc = await response.json();
-  if (doc && Array.isArray(doc.teams)) {
-    return doc.teams.map((t) => ({
-      league: t.League || t.league || '',
-      teamKey: t.team_key || t.teamKey || '',
-      firstName: t.firstName || t.first_name || t.GeoName || '',
-      fanbase: t.fanbase || t.firstName || t.first_name || t.GeoName || '',
-      gameCity: getBuilderTeamGameCity(t, t.fanbase || t.firstName || t.first_name || t.GeoName || ''),
-      mascot: t.mascot || t.MascotName || '',
-      sport: t.sport || '',
-      shell: t.shell || t.primary || '',
-      stripe: t.stripe || t.secondary || '',
-      mask: t.mask || t.tertiary || '',
-      textColor: t.text_color || t.textColor || t.quaternary || ''
-    }));
-  }
-  const teams = [];
-  const walk = (node) => {
-    if (!node || typeof node !== 'object') return;
-    Object.keys(node).forEach((k) => {
-      const v = node[k];
-      if (!v || typeof v !== 'object') return;
-      if ('fullName' in v || 'primary' in v || 'shell' in v) {
-        teams.push({
-          league: v.League || v.league || '',
-          teamKey: v.team_key || v.teamKey || '',
-          firstName: v.firstName || '',
-          fanbase: v.fanbase || v.firstName || '',
-          gameCity: getBuilderTeamGameCity(v, v.fanbase || v.firstName || ''),
-          mascot: v.mascot || '',
-          sport: v.sport || '',
-          shell: v.shell || v.primary || '',
-          stripe: v.stripe || v.secondary || '',
-          mask: v.mask || v.tertiary || '',
-          textColor: v.text_color || v.textColor || v.quaternary || ''
-        });
-      } else {
-        walk(v);
-      }
-    });
-  };
-  walk(doc.leagues || {});
-  return teams;
-}
-
 function builderTeamKey(team) {
   if (window.TgbTeamPalette) {
     const stableKey = window.TgbTeamPalette.teamKey(team);
@@ -12124,14 +12076,8 @@ function inferBuilderTeamKey(city, mascot, existingKey = '') {
 
 async function loadBuilderTeams() {
   let teams = [];
-  try { teams = await loadBuilderTeamsFromJson(); }
-  catch (err) { console.warn('Failed to load mc/data/teams.json for builder:', err); }
-  try {
-    const supabaseTeams = await loadBuilderTeamsFromSupabase();
-    if (supabaseTeams && supabaseTeams.length) teams = mergeBuilderTeams(teams, supabaseTeams);
-  } catch (err) {
-    console.warn('Supabase teams fetch failed for builder:', err);
-  }
+  try { teams = (await loadBuilderTeamsFromSupabase()) || []; }
+  catch (err) { console.warn('Supabase teams fetch failed for builder:', err); }
   if (!teams || !teams.length) return;
   builderTeamsList = (teams || [])
     .filter((t) => t.fanbase && t.mascot)

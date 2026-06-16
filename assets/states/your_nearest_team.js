@@ -83,4 +83,10 @@ window.TGB_TEAM_CITY_COORDS = {
   'nashville':     [36.1592,  -86.7785],
   'salt lake city':[40.7608, -111.8910],
   'st louis city': [38.6226,  -90.1928],
+
+  // Fanbase cities standardized to nearest-big-city (2026-06-16)
+  'minneapolis':   [44.9778,  -93.2650],
+  'newark':        [40.7357,  -74.1724], // Prudential Center, NJ Devils
+  'san diego':     [32.7073, -117.1566], // Petco Park
+  'san jose':      [37.3328, -121.9012], // SAP Center, Sharks
 };
