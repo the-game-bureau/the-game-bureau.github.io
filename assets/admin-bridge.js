@@ -32,7 +32,9 @@
       '.tgb-admin-edit-wrap{position:relative;display:grid;min-width:0;}',
       '.tgb-admin-edit-wrap>.tgb-admin-edit-link{position:absolute;right:8px;bottom:8px;z-index:3;min-height:30px;background:rgba(17,17,17,.92);}',
       '.tgb-admin-edit-wrap>.tgb-admin-edit-link:hover,.tgb-admin-edit-wrap>.tgb-admin-edit-link:focus-visible{background:#fff;}',
-      '[data-admin-target] .tgb-admin-edit-link{position:static;}'
+      '[data-admin-target] .tgb-admin-edit-link{position:static;}',
+      '.tgb-admin-logout{position:fixed;right:14px;bottom:14px;z-index:2147483000;display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 14px;border:1px solid #111;background:#111;color:#fff;font-family:"IBM Plex Mono",Consolas,monospace;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);-webkit-tap-highlight-color:transparent;}',
+      '.tgb-admin-logout:hover,.tgb-admin-logout:focus-visible{background:#fff;color:#111;outline:none;}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -169,8 +171,8 @@
     var gameId = data.gameId || currentGameId();
     var explicit = data.href || '';
     if (explicit) return rootHref(explicit);
-    if (kind === 'game') return rootHref('mc/builder.html' + (id ? '?id=' + encode(id) : ''));
-    if (kind === 'game-run') return rootHref('mc/builder.html' + (gameId ? '?id=' + encode(gameId) : ''));
+    if (kind === 'game') return rootHref('mc/setup.html' + (id ? '?id=' + encode(id) : ''));
+    if (kind === 'game-run') return rootHref('mc/setup.html' + (gameId ? '?id=' + encode(gameId) : ''));
     if (kind === 'gift-item') return rootHref('mc/gs-shop.html' + (id ? '?item=' + encode(id) : ''));
     if (kind === 'gift-shop') return rootHref('mc/gs-shop.html');
     if (kind === 'winners-wall') return rootHref('mc/photos.html');
@@ -202,6 +204,10 @@
     var link = document.createElement('a');
     link.className = 'tgb-admin-edit-link';
     link.href = routeFor(kind, data);
+    // Navigate the whole tab, not just this frame — public pages like the home
+    // page embed their content in an iframe, and a default <a> would open the
+    // builder inside the frame. "_top" is a no-op when the page isn't framed.
+    link.target = '_top';
     link.textContent = labelFor(kind, data);
     link.dataset.tgbAdminInjected = 'true';
     return link;
@@ -254,11 +260,46 @@
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
+  // Best-effort server-side sign-out; the local session is cleared regardless.
+  function logoutSession(session) {
+    if (!session || !session.access_token) return;
+    try {
+      fetch(authUrl('logout'), {
+        method: 'POST',
+        headers: headersForSession(session)
+      }).catch(function () {});
+    } catch (error) {}
+  }
+
+  // Floating "LOG OUT" control — only present while authorized (painted in
+  // setAuthorized, removed in cleanup). Mirrors the shadow EDIT overlay: the
+  // public never sees it; signed-in admins get it on every public page.
+  function ensureLogoutButton() {
+    if (!document.body || document.getElementById('tgb-admin-logout-btn')) return;
+    var btn = document.createElement('button');
+    btn.id = 'tgb-admin-logout-btn';
+    btn.className = 'tgb-admin-logout';
+    btn.type = 'button';
+    btn.textContent = 'LOG OUT';
+    btn.addEventListener('click', function () {
+      logoutSession(currentSession || readStoredSession());
+      storeSession(null);
+      setAuthorized(false);
+    });
+    document.body.appendChild(btn);
+  }
+
+  function removeLogoutButton() {
+    var btn = document.getElementById('tgb-admin-logout-btn');
+    if (btn) btn.remove();
+  }
+
   function cleanup() {
     if (observer) {
       observer.disconnect();
       observer = null;
     }
+    removeLogoutButton();
     document.documentElement.classList.remove('tgb-admin-authorized');
     document.querySelectorAll('.tgb-admin-edit-link[data-tgb-admin-injected="true"]').forEach(function (el) {
       el.remove();
@@ -286,6 +327,8 @@
       return;
     }
     document.documentElement.classList.add('tgb-admin-authorized');
+    ensureStyle();
+    ensureLogoutButton();
     scan();
     startObserver();
   }

@@ -27,6 +27,9 @@
     var link = qs('navBuilderLink');
     if (!link) return;
     link.href = builderHrefForGame(state.selectedGameId);
+    // Break out of an embedding iframe (e.g. the home page) so the builder
+    // opens in the whole tab; "_top" is a no-op on un-framed pages.
+    link.target = '_top';
     link.textContent = 'Challenge Builder';
     link.title = state.selectedGameId
       ? 'Open the selected game in Builder'
