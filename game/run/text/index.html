@@ -9,6 +9,7 @@
   <meta name="theme-color" content="#ffffff">
   <title>PLAY ERROR | THE GAME BUREAU</title>
   <link id="favicon" rel="icon" href="../../../assets/brand/tgb.ico" type="image/x-icon">
+  <script src="/assets/team-palette.js"></script>
   <style>
     /* ── Base chat UI (archive/index.css) ── */
     .icon-preload {
@@ -3119,15 +3120,25 @@
           price: String(gameData.price || '').trim()
         };
 
+        let resolvedPalette = null;
+        if (window.TgbTeamPalette) {
+          try {
+            const teams = await window.TgbTeamPalette.loadTeams(SB_CONFIG);
+            resolvedPalette = window.TgbTeamPalette.resolveGamePalette(teams, gameData, 'away').palette;
+          } catch (error) {
+            console.warn('Team palette fetch failed:', error);
+          }
+        }
+
         const gameNode = {
           title:               gameData.name,
           guideName:           gameData.guide_name,
           guideImageUrl:       gameData.guide_image_url,
           logoUrl:             gameData.logo_url,
-          primaryColor:        gameData.primary_color,
-          secondaryColor:      gameData.secondary_color,
-          tertiaryColor:       gameData.tertiary_color,
-          quaternaryColor:     gameData.quaternary_color,
+          primaryColor:        (resolvedPalette && resolvedPalette.primary) || gameData.primary_color,
+          secondaryColor:      (resolvedPalette && resolvedPalette.secondary) || gameData.secondary_color,
+          tertiaryColor:       (resolvedPalette && resolvedPalette.tertiary) || gameData.tertiary_color,
+          quaternaryColor:     (resolvedPalette && resolvedPalette.quaternary) || gameData.quaternary_color,
         };
 
         const gameTitle = gameNode.title || gameData.name || gameId;
@@ -3139,11 +3150,11 @@
 
         applyHeaderImages(gameNode);
 
-        const primaryColor = gameData.primary_color || gameNode.primaryColor;
+        const primaryColor = gameNode.primaryColor;
         if (primaryColor) {
           document.documentElement.style.setProperty('--game-primary', primaryColor);
         }
-        const secondaryColor = gameData.secondary_color || gameNode.secondaryColor;
+        const secondaryColor = gameNode.secondaryColor;
         if (secondaryColor) {
           document.documentElement.style.setProperty('--game-secondary', secondaryColor);
         }

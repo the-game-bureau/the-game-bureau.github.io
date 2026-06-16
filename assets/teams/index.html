@@ -598,9 +598,10 @@ const SB_BASE = SB_CONFIG.url + '/rest/v1/' + SB_CONFIG.table;
 // NFL pinned first; everything else alphabetical (matches index.html ordering).
 const LEAGUE_RANK = (name) => (name === 'NFL' ? 0 : 100);
 const COLOR_ROLES = [
-  { key: 'primary',   label: 'Primary' },
-  { key: 'secondary', label: 'Secondary' },
-  { key: 'tertiary',  label: 'Tertiary' }
+  { key: 'primary',   label: 'Primary / Shell' },
+  { key: 'secondary', label: 'Secondary / Stripe' },
+  { key: 'tertiary',  label: 'Tertiary / Mask' },
+  { key: 'textColor', label: 'Text' }
 ];
 const HEX_RE = /^#?([0-9a-f]{6})$/i;
 
@@ -704,6 +705,7 @@ function normalizeTeamPalette(team) {
   normalized.primary = readPaletteValue(team, 'primary', 'shell', 'primary_color');
   normalized.secondary = readPaletteValue(team, 'secondary', 'stripe', 'secondary_color');
   normalized.tertiary = readPaletteValue(team, 'tertiary', 'mask', 'tertiary_color');
+  normalized.textColor = readPaletteValue(team, 'textColor', 'text_color', 'quaternary_color') || '#FFFFFF';
   delete normalized.shell;
   delete normalized.stripe;
   delete normalized.mask;
@@ -745,7 +747,8 @@ function normalizeDoc(doc) {
         mascot: row.mascot || row.MascotName || '',
         primary: readPaletteValue(row, 'primary', 'shell', 'primary_color'),
         secondary: readPaletteValue(row, 'secondary', 'stripe', 'secondary_color'),
-        tertiary: readPaletteValue(row, 'tertiary', 'mask', 'tertiary_color')
+        tertiary: readPaletteValue(row, 'tertiary', 'mask', 'tertiary_color'),
+        textColor: readPaletteValue(row, 'textColor', 'text_color', 'quaternary_color') || '#FFFFFF'
       };
       if (row.sport) team.sport = row.sport;
       const conference = row.conference || row.Conference || '';
@@ -837,7 +840,8 @@ function rowsToDoc(rows) {
       mascot:    r.mascot     || '',
       primary:   readPaletteValue(r, 'primary', 'shell', 'primary_color'),
       secondary: readPaletteValue(r, 'secondary', 'stripe', 'secondary_color'),
-      tertiary:  readPaletteValue(r, 'tertiary', 'mask', 'tertiary_color')
+      tertiary:  readPaletteValue(r, 'tertiary', 'mask', 'tertiary_color'),
+      textColor: readPaletteValue(r, 'textColor', 'text_color', 'quaternary_color') || '#FFFFFF'
     };
     if (r.sport) team.sport = r.sport;
     if (r.conference) {
@@ -866,6 +870,7 @@ function teamToRow(leagueName, groupName, code, team, leagueSort, teamSort) {
     shell:      readPaletteValue(team, 'primary', 'shell', 'primary_color'),
     stripe:     readPaletteValue(team, 'secondary', 'stripe', 'secondary_color'),
     mask:       readPaletteValue(team, 'tertiary', 'mask', 'tertiary_color'),
+    text_color: readPaletteValue(team, 'textColor', 'text_color', 'quaternary_color') || '#FFFFFF',
     league_sort: typeof leagueSort === 'number' ? leagueSort : LEAGUE_RANK(leagueName),
     team_sort:   typeof teamSort   === 'number' ? teamSort   : 0
   };
@@ -1217,9 +1222,11 @@ const FIELD_TO_COLUMN = {
   primary: 'shell',
   secondary: 'stripe',
   tertiary: 'mask',
+  textColor: 'text_color',
   shell: 'shell',
   stripe: 'stripe',
-  mask: 'mask'
+  mask: 'mask',
+  text_color: 'text_color'
 };
 
 async function persistTeamField(leagueName, groupName, code, field, value) {

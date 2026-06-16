@@ -1094,6 +1094,7 @@
   <script src="js/admin-auth.js"></script>
   <script src="js/admin-shell.js"></script>
   <script src="js/admin-nav-menu.js"></script>
+  <script src="../assets/team-palette.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -1104,7 +1105,8 @@
       tagline: true,
       featured: true,
       game_date: true,
-      start_time: true
+      start_time: true,
+      away_team_key: true
     };
 
     const signOutBtn = document.getElementById('signOutBtn');
@@ -1142,6 +1144,7 @@
     const selectedGames = new Map();
     let allGamesData = [];
     let visibleGamesData = [];
+    let teamRows = [];
     let searchTerm = '';
     let currentSort = 'default';
     let lastSelectedId = null;
@@ -1264,6 +1267,10 @@
         'city',
         'archived',
         'tags',
+        'category_icon',
+        'fandom_game',
+        'away_team_city',
+        'away_team_mascot',
         'body',
         'logo_url',
         'guide_image_url',
@@ -1273,6 +1280,7 @@
       if (GAMES_SCHEMA.tagline) columns.splice(2, 0, 'tagline');
       if (GAMES_SCHEMA.game_date) columns.push('game_date');
       if (GAMES_SCHEMA.start_time) columns.push('start_time');
+      if (GAMES_SCHEMA.away_team_key) columns.push('away_team_key');
       return columns.join(',');
     }
 
@@ -1304,6 +1312,10 @@
           GAMES_SCHEMA.start_time = false;
           return fetchGames(buildGameSelect());
         }
+        if (missingColumn === 'away_team_key' && GAMES_SCHEMA.away_team_key) {
+          GAMES_SCHEMA.away_team_key = false;
+          return fetchGames(buildGameSelect());
+        }
         throw new Error(message);
       }
 
@@ -1329,6 +1341,15 @@
     }
 
     function getGamePalette(game) {
+      if (window.TgbTeamPalette) {
+        const resolved = window.TgbTeamPalette.resolveGamePalette(teamRows, game, 'away');
+        if (resolved.team) {
+          return {
+            primary: resolved.palette.primary,
+            secondary: resolved.palette.secondary
+          };
+        }
+      }
       return {
         primary: String(game && (game.primary_color || game.primaryColor) || '').trim() || '#2d4880',
         secondary: String(game && (game.secondary_color || game.secondaryColor) || '').trim() || 'rgba(45,72,128,0.72)'
@@ -1775,7 +1796,13 @@
       renderLibraryEmpty('Loading games...');
 
       try {
-        const games = await fetchGames();
+        const [games, teams] = await Promise.all([
+          fetchGames(),
+          window.TgbTeamPalette
+            ? window.TgbTeamPalette.loadTeams({ url: SUPABASE_CONFIG.url, key: SUPABASE_CONFIG.publishableKey })
+            : Promise.resolve([])
+        ]);
+        teamRows = teams;
         const dupes = findDuplicateGameIds(games);
         if (dupes.length && !window.__autoFixedDupesThisLoad) {
           window.__autoFixedDupesThisLoad = true;

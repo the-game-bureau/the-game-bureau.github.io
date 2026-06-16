@@ -39,45 +39,49 @@
 
 const fs = require('fs');
 const path = require('path');
+const TeamPalette = require('../../assets/team-palette.js');
 
 const USER_AGENT = 'TGB MLB Matchup Maker/1.0';
+const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 // All game start_times are normalized to Central time. The landing page reads
 // start_time as Central and converts it to each player's device clock.
 const START_TIME_TZ = 'America/Chicago';
+let TEAM_ROWS = [];
 
 // ── Teams ────────────────────────────────────────────────────────────────────
 const TEAM_METADATA = {
-  ARI: { code:'ARI', espnAbbr:'ari', slug:'arizona-diamondbacks', fullName:'Arizona Diamondbacks', shortLabel:'Phoenix', mascot:'Diamondbacks', primary:'#A71930', secondary:'#E3D4AD', homeVenue:'Chase Field', cityState:'Phoenix, Arizona' },
-  ATL: { code:'ATL', espnAbbr:'atl', slug:'atlanta-braves', fullName:'Atlanta Braves', shortLabel:'Atlanta', mascot:'Braves', primary:'#CE1141', secondary:'#13274F', homeVenue:'Truist Park', cityState:'Atlanta, Georgia' },
-  BAL: { code:'BAL', espnAbbr:'bal', slug:'baltimore-orioles', fullName:'Baltimore Orioles', shortLabel:'Baltimore', mascot:'Orioles', primary:'#DF4601', secondary:'#000000', homeVenue:'Oriole Park at Camden Yards', cityState:'Baltimore, Maryland' },
-  BOS: { code:'BOS', espnAbbr:'bos', slug:'boston-red-sox', fullName:'Boston Red Sox', shortLabel:'Boston', mascot:'Red Sox', primary:'#BD3039', secondary:'#0C2340', homeVenue:'Fenway Park', cityState:'Boston, Massachusetts' },
-  CHC: { code:'CHC', espnAbbr:'chc', slug:'chicago-cubs', fullName:'Chicago Cubs', shortLabel:'Chicago', mascot:'Cubs', primary:'#0E3386', secondary:'#CC3433', homeVenue:'Wrigley Field', cityState:'Chicago, Illinois' },
-  CWS: { code:'CWS', espnAbbr:'chw', slug:'chicago-white-sox', fullName:'Chicago White Sox', shortLabel:'Chicago', mascot:'White Sox', primary:'#27251F', secondary:'#C4CED4', homeVenue:'Rate Field', cityState:'Chicago, Illinois' },
-  CIN: { code:'CIN', espnAbbr:'cin', slug:'cincinnati-reds', fullName:'Cincinnati Reds', shortLabel:'Cincinnati', mascot:'Reds', primary:'#C6011F', secondary:'#000000', homeVenue:'Great American Ball Park', cityState:'Cincinnati, Ohio' },
-  CLE: { code:'CLE', espnAbbr:'cle', slug:'cleveland-guardians', fullName:'Cleveland Guardians', shortLabel:'Cleveland', mascot:'Guardians', primary:'#00385D', secondary:'#E50022', homeVenue:'Progressive Field', cityState:'Cleveland, Ohio' },
-  COL: { code:'COL', espnAbbr:'col', slug:'colorado-rockies', fullName:'Colorado Rockies', shortLabel:'Denver', mascot:'Rockies', primary:'#33006F', secondary:'#C4CED4', homeVenue:'Coors Field', cityState:'Denver, Colorado' },
-  DET: { code:'DET', espnAbbr:'det', slug:'detroit-tigers', fullName:'Detroit Tigers', shortLabel:'Detroit', mascot:'Tigers', primary:'#0C2340', secondary:'#FA4616', homeVenue:'Comerica Park', cityState:'Detroit, Michigan' },
-  HOU: { code:'HOU', espnAbbr:'hou', slug:'houston-astros', fullName:'Houston Astros', shortLabel:'Houston', mascot:'Astros', primary:'#002D62', secondary:'#EB6E1F', homeVenue:'Daikin Park', cityState:'Houston, Texas' },
-  KC:  { code:'KC',  espnAbbr:'kc',  slug:'kansas-city-royals', fullName:'Kansas City Royals', shortLabel:'Kansas City', mascot:'Royals', primary:'#004687', secondary:'#BD9B60', homeVenue:'Kauffman Stadium', cityState:'Kansas City, Missouri' },
-  LAA: { code:'LAA', espnAbbr:'laa', slug:'los-angeles-angels', fullName:'Los Angeles Angels', shortLabel:'Los Angeles', mascot:'Angels', primary:'#003263', secondary:'#BA0021', homeVenue:'Angel Stadium', cityState:'Los Angeles, California' },
-  LAD: { code:'LAD', espnAbbr:'lad', slug:'los-angeles-dodgers', fullName:'Los Angeles Dodgers', shortLabel:'Los Angeles', mascot:'Dodgers', primary:'#005A9C', secondary:'#EF3E42', homeVenue:'Dodger Stadium', cityState:'Los Angeles, California' },
-  MIA: { code:'MIA', espnAbbr:'mia', slug:'miami-marlins', fullName:'Miami Marlins', shortLabel:'Miami', mascot:'Marlins', primary:'#00A3E0', secondary:'#000000', homeVenue:'loanDepot park', cityState:'Miami, Florida' },
-  MIL: { code:'MIL', espnAbbr:'mil', slug:'milwaukee-brewers', fullName:'Milwaukee Brewers', shortLabel:'Milwaukee', mascot:'Brewers', primary:'#12284B', secondary:'#FFC52F', homeVenue:'American Family Field', cityState:'Milwaukee, Wisconsin' },
-  MIN: { code:'MIN', espnAbbr:'min', slug:'minnesota-twins', fullName:'Minnesota Twins', shortLabel:'Minneapolis', mascot:'Twins', primary:'#002B5C', secondary:'#D31145', homeVenue:'Target Field', cityState:'Minneapolis, Minnesota' },
-  NYM: { code:'NYM', espnAbbr:'nym', slug:'new-york-mets', fullName:'New York Mets', shortLabel:'New York', mascot:'Mets', primary:'#002D72', secondary:'#FF5910', homeVenue:'Citi Field', cityState:'New York, New York' },
-  NYY: { code:'NYY', espnAbbr:'nyy', slug:'new-york-yankees', fullName:'New York Yankees', shortLabel:'New York', mascot:'Yankees', primary:'#0C2340', secondary:'#C4CED4', homeVenue:'Yankee Stadium', cityState:'New York, New York' },
-  ATH: { code:'ATH', espnAbbr:'ath', slug:'athletics', fullName:'Athletics', shortLabel:'Sacramento', mascot:'Athletics', primary:'#003831', secondary:'#EFB21E', homeVenue:'Sutter Health Park', cityState:'Sacramento, California' },
-  PHI: { code:'PHI', espnAbbr:'phi', slug:'philadelphia-phillies', fullName:'Philadelphia Phillies', shortLabel:'Philadelphia', mascot:'Phillies', primary:'#E81828', secondary:'#002D72', homeVenue:'Citizens Bank Park', cityState:'Philadelphia, Pennsylvania' },
-  PIT: { code:'PIT', espnAbbr:'pit', slug:'pittsburgh-pirates', fullName:'Pittsburgh Pirates', shortLabel:'Pittsburgh', mascot:'Pirates', primary:'#27251F', secondary:'#FDB827', homeVenue:'PNC Park', cityState:'Pittsburgh, Pennsylvania' },
-  SD:  { code:'SD',  espnAbbr:'sd',  slug:'san-diego-padres', fullName:'San Diego Padres', shortLabel:'San Diego', mascot:'Padres', primary:'#2F241D', secondary:'#FFC425', homeVenue:'Petco Park', cityState:'San Diego, California' },
-  SEA: { code:'SEA', espnAbbr:'sea', slug:'seattle-mariners', fullName:'Seattle Mariners', shortLabel:'Seattle', mascot:'Mariners', primary:'#0C2C56', secondary:'#005C5C', homeVenue:'T-Mobile Park', cityState:'Seattle, Washington' },
-  SF:  { code:'SF',  espnAbbr:'sf',  slug:'san-francisco-giants', fullName:'San Francisco Giants', shortLabel:'San Francisco', mascot:'Giants', primary:'#FD5A1E', secondary:'#27251F', homeVenue:'Oracle Park', cityState:'San Francisco, California' },
-  STL: { code:'STL', espnAbbr:'stl', slug:'st-louis-cardinals', fullName:'St. Louis Cardinals', shortLabel:'St. Louis', mascot:'Cardinals', primary:'#C41E3A', secondary:'#0C2340', homeVenue:'Busch Stadium', cityState:'St. Louis, Missouri' },
-  TB:  { code:'TB',  espnAbbr:'tb',  slug:'tampa-bay-rays', fullName:'Tampa Bay Rays', shortLabel:'Tampa Bay', mascot:'Rays', primary:'#092C5C', secondary:'#8FBCE6', homeVenue:'Tropicana Field', cityState:'Tampa Bay, Florida' },
-  TEX: { code:'TEX', espnAbbr:'tex', slug:'texas-rangers', fullName:'Texas Rangers', shortLabel:'Dallas', mascot:'Rangers', primary:'#003278', secondary:'#C0111F', homeVenue:'Globe Life Field', cityState:'Dallas, Texas' },
-  TOR: { code:'TOR', espnAbbr:'tor', slug:'toronto-blue-jays', fullName:'Toronto Blue Jays', shortLabel:'Toronto', mascot:'Blue Jays', primary:'#134A8E', secondary:'#1D2D5C', homeVenue:'Rogers Centre', cityState:'Toronto, Ontario' },
-  WSH: { code:'WSH', espnAbbr:'wsh', slug:'washington-nationals', fullName:'Washington Nationals', shortLabel:'Washington', mascot:'Nationals', primary:'#AB0003', secondary:'#14225A', homeVenue:'Nationals Park', cityState:'Washington, D.C.' },
+  ARI: { code:'ARI', espnAbbr:'ari', slug:'arizona-diamondbacks', fullName:'Arizona Diamondbacks', shortLabel:'Phoenix', mascot:'Diamondbacks', homeVenue:'Chase Field', cityState:'Phoenix, Arizona' },
+  ATL: { code:'ATL', espnAbbr:'atl', slug:'atlanta-braves', fullName:'Atlanta Braves', shortLabel:'Atlanta', mascot:'Braves', homeVenue:'Truist Park', cityState:'Atlanta, Georgia' },
+  BAL: { code:'BAL', espnAbbr:'bal', slug:'baltimore-orioles', fullName:'Baltimore Orioles', shortLabel:'Baltimore', mascot:'Orioles', homeVenue:'Oriole Park at Camden Yards', cityState:'Baltimore, Maryland' },
+  BOS: { code:'BOS', espnAbbr:'bos', slug:'boston-red-sox', fullName:'Boston Red Sox', shortLabel:'Boston', mascot:'Red Sox', homeVenue:'Fenway Park', cityState:'Boston, Massachusetts' },
+  CHC: { code:'CHC', espnAbbr:'chc', slug:'chicago-cubs', fullName:'Chicago Cubs', shortLabel:'Chicago', mascot:'Cubs', homeVenue:'Wrigley Field', cityState:'Chicago, Illinois' },
+  CWS: { code:'CWS', espnAbbr:'chw', slug:'chicago-white-sox', fullName:'Chicago White Sox', shortLabel:'Chicago', mascot:'White Sox', homeVenue:'Rate Field', cityState:'Chicago, Illinois' },
+  CIN: { code:'CIN', espnAbbr:'cin', slug:'cincinnati-reds', fullName:'Cincinnati Reds', shortLabel:'Cincinnati', mascot:'Reds', homeVenue:'Great American Ball Park', cityState:'Cincinnati, Ohio' },
+  CLE: { code:'CLE', espnAbbr:'cle', slug:'cleveland-guardians', fullName:'Cleveland Guardians', shortLabel:'Cleveland', mascot:'Guardians', homeVenue:'Progressive Field', cityState:'Cleveland, Ohio' },
+  COL: { code:'COL', espnAbbr:'col', slug:'colorado-rockies', fullName:'Colorado Rockies', shortLabel:'Denver', mascot:'Rockies', homeVenue:'Coors Field', cityState:'Denver, Colorado' },
+  DET: { code:'DET', espnAbbr:'det', slug:'detroit-tigers', fullName:'Detroit Tigers', shortLabel:'Detroit', mascot:'Tigers', homeVenue:'Comerica Park', cityState:'Detroit, Michigan' },
+  HOU: { code:'HOU', espnAbbr:'hou', slug:'houston-astros', fullName:'Houston Astros', shortLabel:'Houston', mascot:'Astros', homeVenue:'Daikin Park', cityState:'Houston, Texas' },
+  KC:  { code:'KC',  espnAbbr:'kc',  slug:'kansas-city-royals', fullName:'Kansas City Royals', shortLabel:'Kansas City', mascot:'Royals', homeVenue:'Kauffman Stadium', cityState:'Kansas City, Missouri' },
+  LAA: { code:'LAA', espnAbbr:'laa', slug:'los-angeles-angels', fullName:'Los Angeles Angels', shortLabel:'Los Angeles', mascot:'Angels', homeVenue:'Angel Stadium', cityState:'Los Angeles, California' },
+  LAD: { code:'LAD', espnAbbr:'lad', slug:'los-angeles-dodgers', fullName:'Los Angeles Dodgers', shortLabel:'Los Angeles', mascot:'Dodgers', homeVenue:'Dodger Stadium', cityState:'Los Angeles, California' },
+  MIA: { code:'MIA', espnAbbr:'mia', slug:'miami-marlins', fullName:'Miami Marlins', shortLabel:'Miami', mascot:'Marlins', homeVenue:'loanDepot park', cityState:'Miami, Florida' },
+  MIL: { code:'MIL', espnAbbr:'mil', slug:'milwaukee-brewers', fullName:'Milwaukee Brewers', shortLabel:'Milwaukee', mascot:'Brewers', homeVenue:'American Family Field', cityState:'Milwaukee, Wisconsin' },
+  MIN: { code:'MIN', espnAbbr:'min', slug:'minnesota-twins', fullName:'Minnesota Twins', shortLabel:'Minneapolis', mascot:'Twins', homeVenue:'Target Field', cityState:'Minneapolis, Minnesota' },
+  NYM: { code:'NYM', espnAbbr:'nym', slug:'new-york-mets', fullName:'New York Mets', shortLabel:'New York', mascot:'Mets', homeVenue:'Citi Field', cityState:'New York, New York' },
+  NYY: { code:'NYY', espnAbbr:'nyy', slug:'new-york-yankees', fullName:'New York Yankees', shortLabel:'New York', mascot:'Yankees', homeVenue:'Yankee Stadium', cityState:'New York, New York' },
+  ATH: { code:'ATH', espnAbbr:'ath', slug:'athletics', fullName:'Athletics', shortLabel:'Sacramento', mascot:'Athletics', homeVenue:'Sutter Health Park', cityState:'Sacramento, California' },
+  PHI: { code:'PHI', espnAbbr:'phi', slug:'philadelphia-phillies', fullName:'Philadelphia Phillies', shortLabel:'Philadelphia', mascot:'Phillies', homeVenue:'Citizens Bank Park', cityState:'Philadelphia, Pennsylvania' },
+  PIT: { code:'PIT', espnAbbr:'pit', slug:'pittsburgh-pirates', fullName:'Pittsburgh Pirates', shortLabel:'Pittsburgh', mascot:'Pirates', homeVenue:'PNC Park', cityState:'Pittsburgh, Pennsylvania' },
+  SD:  { code:'SD',  espnAbbr:'sd',  slug:'san-diego-padres', fullName:'San Diego Padres', shortLabel:'San Diego', mascot:'Padres', homeVenue:'Petco Park', cityState:'San Diego, California' },
+  SEA: { code:'SEA', espnAbbr:'sea', slug:'seattle-mariners', fullName:'Seattle Mariners', shortLabel:'Seattle', mascot:'Mariners', homeVenue:'T-Mobile Park', cityState:'Seattle, Washington' },
+  SF:  { code:'SF',  espnAbbr:'sf',  slug:'san-francisco-giants', fullName:'San Francisco Giants', shortLabel:'San Francisco', mascot:'Giants', homeVenue:'Oracle Park', cityState:'San Francisco, California' },
+  STL: { code:'STL', espnAbbr:'stl', slug:'st-louis-cardinals', fullName:'St. Louis Cardinals', shortLabel:'St. Louis', mascot:'Cardinals', homeVenue:'Busch Stadium', cityState:'St. Louis, Missouri' },
+  TB:  { code:'TB',  espnAbbr:'tb',  slug:'tampa-bay-rays', fullName:'Tampa Bay Rays', shortLabel:'Tampa Bay', mascot:'Rays', homeVenue:'Tropicana Field', cityState:'Tampa Bay, Florida' },
+  TEX: { code:'TEX', espnAbbr:'tex', slug:'texas-rangers', fullName:'Texas Rangers', shortLabel:'Dallas', mascot:'Rangers', homeVenue:'Globe Life Field', cityState:'Dallas, Texas' },
+  TOR: { code:'TOR', espnAbbr:'tor', slug:'toronto-blue-jays', fullName:'Toronto Blue Jays', shortLabel:'Toronto', mascot:'Blue Jays', homeVenue:'Rogers Centre', cityState:'Toronto, Ontario' },
+  WSH: { code:'WSH', espnAbbr:'wsh', slug:'washington-nationals', fullName:'Washington Nationals', shortLabel:'Washington', mascot:'Nationals', homeVenue:'Nationals Park', cityState:'Washington, D.C.' },
 };
 
 // ── Ballparks ────────────────────────────────────────────────────────────────
@@ -145,6 +149,7 @@ function printHelp() {
 main().catch((err) => { console.error(err && err.stack ? err.stack : String(err)); process.exit(1); });
 
 async function main() {
+  TEAM_ROWS = await TeamPalette.loadTeams({ url: SUPABASE_URL, key: SUPABASE_KEY });
   const args = parseArgs(process.argv.slice(2));
   if (args.help) { printHelp(); return; }
 
@@ -252,10 +257,6 @@ function parseEvent(ev) {
     neutral: !!(comp.neutralSite || venueInfo.neutral),
     kickoffUtc: new Date(kickoffUtc).toISOString(),
     localGameDate: formatDateParts(getZonedParts(kickoffUtc, venueInfo.timezone)),
-    awayColor: espnColor(away.team.color, TEAM_METADATA[awayCode].primary),
-    awayAltColor: espnColor(away.team.alternateColor, TEAM_METADATA[awayCode].secondary),
-    homeColor: espnColor(home.team.color, TEAM_METADATA[homeCode].primary),
-    homeAltColor: espnColor(home.team.alternateColor, TEAM_METADATA[homeCode].secondary),
   };
 }
 
@@ -292,13 +293,13 @@ function buildPayloadForFanSide(matchup, fanSide, archivedValue) {
 
   return {
     id, name, tagline, city: cityLabel,
-    primary_color: colors.primary, secondary_color: colors.secondary,
-    tertiary_color: colors.tertiary, quaternary_color: colors.quaternary,
     logo_url: logoUrl, guide_name: 'Mission Control', guide_bio: guideBio,
     guide_image_url: logoUrl, body, price: 'Free To Start / In App Purchases',
     default_emoji: '⚾', starting_location: startingLocation,
     starting_location_lat: venueInfo.lat, starting_location_lon: venueInfo.lon,
     location_based: true, fandom_game: true, engine: 'text',
+    away_team_key: teamIdentity(matchup.awayCode).team_key || null,
+    home_team_key: teamIdentity(matchup.homeCode).team_key || null,
     game_date: win.gameDate, start_time: win.startTime, end_time: win.endTime,
     archived: archivedValue,
     venue_name: venueInfo.name,
@@ -316,13 +317,17 @@ function buildPayloadForFanSide(matchup, fanSide, archivedValue) {
 }
 
 function buildColors(matchup, fanTeam) {
-  const isAway = fanTeam.code === matchup.awayCode;
-  return {
-    primary: normalizeColor((isAway ? matchup.awayColor : matchup.homeColor) || fanTeam.primary),
-    secondary: normalizeColor((isAway ? matchup.awayAltColor : matchup.homeAltColor) || fanTeam.secondary),
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
-  };
+  const team = teamIdentity(fanTeam.code);
+  if (!team.team_key) throw new Error(`No teams-table palette for MLB:${fanTeam.code}`);
+  return TeamPalette.teamPalette(team);
+}
+
+function teamIdentity(code) {
+  return TeamPalette.inferTeam(TEAM_ROWS, {
+    league: 'MLB',
+    code,
+    mascot: TEAM_METADATA[code] && TEAM_METADATA[code].mascot
+  }) || {};
 }
 
 function buildTeamSuggestions(fanTeam, venueInfo) {
@@ -460,8 +465,6 @@ function normalizeCode(code) {
   if (u === 'WAS') return 'WSH';
   return u;
 }
-function espnColor(v, fb) { return v ? `#${String(v).replace(/^#/, '')}` : fb; }
-function normalizeColor(v) { if (!v) return '#FFFFFF'; const s = String(v).trim(); return s.startsWith('#') ? s : `#${s}`; }
 function normVenue(v) { return String(v || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
 function slugify(v) { return String(v || '').normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase(); }
 function hashString(v) { let h = 0; const t = String(v || ''); for (let i = 0; i < t.length; i++) { h = ((h << 5) - h) + t.charCodeAt(i); h |= 0; } return h; }

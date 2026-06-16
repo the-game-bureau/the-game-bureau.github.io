@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="../assets/site-shell.css">
   <link rel="stylesheet" href="../assets/site-pages.css">
   <script src="../assets/public-account.js"></script>
+  <script src="../assets/team-palette.js"></script>
   <style>
     /* ── Gift shop overrides on top of site-shell.css home-page chrome.
        Body class `home-page` brings the dark night theme, nav, footer,
@@ -850,7 +851,7 @@
 
     async function fetchAllListings() {
       return fetchJson(buildSupabaseUrl('gift_shop_listings', {
-        select: '*,gift_shop_items(*),games(id,name,primary_color,city,away_team_city,fandom_game)',
+        select: '*,gift_shop_items(*),games(id,name,primary_color,city,away_team_city,away_team_mascot,fandom_game,tags,category_icon)',
         archived: 'eq.false',
         order: 'created_at.desc'
       }));
@@ -872,8 +873,15 @@
     // there's no tampering surface.
     async function fetchAllGames() {
       return fetchJson(buildSupabaseUrl('games', {
-        select: 'id,name,tagline,price,engine,archived,primary_color,city,away_team_city,fandom_game'
+        select: 'id,name,tagline,price,engine,archived,primary_color,city,away_team_city,away_team_mascot,fandom_game,tags,category_icon'
       }));
+    }
+
+    function getGamePrimaryColor(game, teams) {
+      if (window.TgbTeamPalette) {
+        return window.TgbTeamPalette.resolveGamePalette(teams, game, 'away').palette.primary;
+      }
+      return String(game && game.primary_color || '').trim();
     }
 
     function isGamePaid(game) {
@@ -1292,9 +1300,12 @@
       renderEmpty('Loading inventory...');
 
       try {
-        const [listings, allGames] = await Promise.all([
+        const [listings, allGames, teams] = await Promise.all([
           fetchAllListings().catch(() => []),
-          fetchAllGames().catch(() => [])
+          fetchAllGames().catch(() => []),
+          window.TgbTeamPalette
+            ? window.TgbTeamPalette.loadTeams(SB_CONFIG).catch(() => [])
+            : Promise.resolve([])
         ]);
         const safeListings = Array.isArray(listings) ? listings : [];
         const safeGames    = Array.isArray(allGames) ? allGames : [];
@@ -1335,7 +1346,7 @@
           }
         }
 
-        // Index games by id so we can pick up name + primary_color when
+        // Index games by id so we can pick up names and canonical team colors when
         // synthesizing dynamic access-code purchase options.
         // List of currently-giftable games for the "Your Pick" chooser.
         const paidGames = safeGames
@@ -1363,7 +1374,7 @@
           if (!isCertified(item)) continue;     // only show certified gifts
           const game = listing.games || gameById.get(listing.game_id) || {};
           const gameName = String(game.name || '').trim();
-          const gameColor = String(game.primary_color || '').trim();
+          const gameColor = getGamePrimaryColor(game, teams);
           let entry = grouped.get(item.id);
           if (!entry) {
             entry = { item, names: [], firstColor: gameColor || null };

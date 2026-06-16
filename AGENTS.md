@@ -105,6 +105,23 @@ Fallback: if `team_color` is missing or not one of the five, the older `team1..t
 
 ---
 
+## Sports team identity & palettes
+
+The Supabase `teams` table is the canonical source for sports-team identity and colors. Stable team keys use uppercase `LEAGUE:CODE` form, such as `NFL:NO` or `MLB:CHC`, and are stored on fandom games as `away_team_key` / `home_team_key`.
+
+Palette names map as follows:
+
+- `teams.shell` = primary
+- `teams.stripe` = secondary
+- `teams.mask` = tertiary
+- `teams.text_color` = quaternary / text
+
+Fandom-game UI and generated sports SVG/PNG assets must resolve colors through [assets/team-palette.js](assets/team-palette.js). Do not add new fandom-game reads or writes that treat `games.primary_color`, `games.secondary_color`, `games.tertiary_color`, or `games.quaternary_color` as authoritative. Non-fandom games may continue using those game-level branding columns.
+
+When importing or editing a fandom game, write stable away/home team keys. The shared resolver can infer legacy rows from league, code, city, and mascot labels, but explicit keys are preferred because display labels may change.
+
+---
+
 ## Country badge — canonical international vehicle-registration oval
 
 The country badge that appears on the public games page (in the hero meta list and on game-card icons) **must always render as a true ellipse** — the white "GBR / FRA / USA" car decal style. It is not a styling choice; it's a brand invariant.

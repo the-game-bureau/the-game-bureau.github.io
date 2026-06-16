@@ -1,5 +1,6 @@
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
+const TeamPalette = require('../../assets/team-palette.js');
 const SEASON = 2026;
 const ESPN_DATE_RANGE = '20260901-20270115';
 const ARCHIVED_VALUE = 'YES';
@@ -10,6 +11,7 @@ const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 const START_TIME_TZ = 'America/Chicago';
 
 const DRY_RUN = process.argv.includes('--dry-run');
+let TEAM_ROWS = [];
 
 const TEAM_METADATA = {
   ARI: {
@@ -19,10 +21,6 @@ const TEAM_METADATA = {
     fullName: 'Arizona Cardinals',
     shortLabel: 'Arizona',
     mascot: 'Cardinals',
-    primary: '#97233F',
-    secondary: '#FFB612',
-    tertiary: '#002868',
-    quaternary: '#FFFFFF',
     homeVenue: 'State Farm Stadium',
   },
   ATL: {
@@ -32,10 +30,6 @@ const TEAM_METADATA = {
     fullName: 'Atlanta Falcons',
     shortLabel: 'Atlanta',
     mascot: 'Falcons',
-    primary: '#A71930',
-    secondary: '#000000',
-    tertiary: '#A5ACAF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Mercedes-Benz Stadium',
   },
   BAL: {
@@ -45,10 +39,6 @@ const TEAM_METADATA = {
     fullName: 'Baltimore Ravens',
     shortLabel: 'Baltimore',
     mascot: 'Ravens',
-    primary: '#241773',
-    secondary: '#000000',
-    tertiary: '#9E7C0C',
-    quaternary: '#FFFFFF',
     homeVenue: 'M&T Bank Stadium',
   },
   BUF: {
@@ -58,10 +48,6 @@ const TEAM_METADATA = {
     fullName: 'Buffalo Bills',
     shortLabel: 'Buffalo',
     mascot: 'Bills',
-    primary: '#00338D',
-    secondary: '#C60C30',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Highmark Stadium',
   },
   CAR: {
@@ -71,10 +57,6 @@ const TEAM_METADATA = {
     fullName: 'Carolina Panthers',
     shortLabel: 'Carolina',
     mascot: 'Panthers',
-    primary: '#0085CA',
-    secondary: '#101820',
-    tertiary: '#BFC0BF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Bank of America Stadium',
   },
   CHI: {
@@ -84,10 +66,6 @@ const TEAM_METADATA = {
     fullName: 'Chicago Bears',
     shortLabel: 'Chicago',
     mascot: 'Bears',
-    primary: '#0B162A',
-    secondary: '#C83803',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Soldier Field',
   },
   CIN: {
@@ -97,10 +75,6 @@ const TEAM_METADATA = {
     fullName: 'Cincinnati Bengals',
     shortLabel: 'Cincinnati',
     mascot: 'Bengals',
-    primary: '#FB4F14',
-    secondary: '#000000',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Paycor Stadium',
   },
   CLE: {
@@ -110,10 +84,6 @@ const TEAM_METADATA = {
     fullName: 'Cleveland Browns',
     shortLabel: 'Cleveland',
     mascot: 'Browns',
-    primary: '#311D00',
-    secondary: '#FF3C00',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Huntington Bank Field',
   },
   DAL: {
@@ -123,10 +93,6 @@ const TEAM_METADATA = {
     fullName: 'Dallas Cowboys',
     shortLabel: 'Dallas',
     mascot: 'Cowboys',
-    primary: '#041E42',
-    secondary: '#869397',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'AT&T Stadium',
   },
   DEN: {
@@ -136,10 +102,6 @@ const TEAM_METADATA = {
     fullName: 'Denver Broncos',
     shortLabel: 'Denver',
     mascot: 'Broncos',
-    primary: '#FB4F14',
-    secondary: '#002244',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Empower Field at Mile High',
   },
   DET: {
@@ -149,10 +111,6 @@ const TEAM_METADATA = {
     fullName: 'Detroit Lions',
     shortLabel: 'Detroit',
     mascot: 'Lions',
-    primary: '#0076B6',
-    secondary: '#B0B7BC',
-    tertiary: '#000000',
-    quaternary: '#FFFFFF',
     homeVenue: 'Ford Field',
   },
   GB: {
@@ -162,10 +120,6 @@ const TEAM_METADATA = {
     fullName: 'Green Bay Packers',
     shortLabel: 'Green Bay',
     mascot: 'Packers',
-    primary: '#203731',
-    secondary: '#FFB612',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Lambeau Field',
   },
   HOU: {
@@ -175,10 +129,6 @@ const TEAM_METADATA = {
     fullName: 'Houston Texans',
     shortLabel: 'Houston',
     mascot: 'Texans',
-    primary: '#03202F',
-    secondary: '#A71930',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'NRG Stadium',
   },
   IND: {
@@ -188,10 +138,6 @@ const TEAM_METADATA = {
     fullName: 'Indianapolis Colts',
     shortLabel: 'Indianapolis',
     mascot: 'Colts',
-    primary: '#002C5F',
-    secondary: '#A2AAAD',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Lucas Oil Stadium',
   },
   JAX: {
@@ -201,10 +147,6 @@ const TEAM_METADATA = {
     fullName: 'Jacksonville Jaguars',
     shortLabel: 'Jacksonville',
     mascot: 'Jaguars',
-    primary: '#006778',
-    secondary: '#9F792C',
-    tertiary: '#101820',
-    quaternary: '#FFFFFF',
     homeVenue: 'EverBank Stadium',
   },
   KC: {
@@ -214,10 +156,6 @@ const TEAM_METADATA = {
     fullName: 'Kansas City Chiefs',
     shortLabel: 'Kansas City',
     mascot: 'Chiefs',
-    primary: '#E31837',
-    secondary: '#FFB81C',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'GEHA Field at Arrowhead Stadium',
   },
   LV: {
@@ -227,10 +165,6 @@ const TEAM_METADATA = {
     fullName: 'Las Vegas Raiders',
     shortLabel: 'Las Vegas',
     mascot: 'Raiders',
-    primary: '#000000',
-    secondary: '#A5ACAF',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Allegiant Stadium',
   },
   LAC: {
@@ -240,10 +174,6 @@ const TEAM_METADATA = {
     fullName: 'Los Angeles Chargers',
     shortLabel: 'Los Angeles',
     mascot: 'Chargers',
-    primary: '#0080C6',
-    secondary: '#FFC20E',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'SoFi Stadium',
   },
   LAR: {
@@ -253,10 +183,6 @@ const TEAM_METADATA = {
     fullName: 'Los Angeles Rams',
     shortLabel: 'Los Angeles',
     mascot: 'Rams',
-    primary: '#003594',
-    secondary: '#FFD100',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'SoFi Stadium',
   },
   MIA: {
@@ -266,10 +192,6 @@ const TEAM_METADATA = {
     fullName: 'Miami Dolphins',
     shortLabel: 'Miami',
     mascot: 'Dolphins',
-    primary: '#008E97',
-    secondary: '#FC4C02',
-    tertiary: '#005778',
-    quaternary: '#FFFFFF',
     homeVenue: 'Hard Rock Stadium',
   },
   MIN: {
@@ -279,10 +201,6 @@ const TEAM_METADATA = {
     fullName: 'Minnesota Vikings',
     shortLabel: 'Minnesota',
     mascot: 'Vikings',
-    primary: '#4F2683',
-    secondary: '#FFC62F',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'U.S. Bank Stadium',
   },
   NE: {
@@ -292,10 +210,6 @@ const TEAM_METADATA = {
     fullName: 'New England Patriots',
     shortLabel: 'New England',
     mascot: 'Patriots',
-    primary: '#002244',
-    secondary: '#C60C30',
-    tertiary: '#B0B7BC',
-    quaternary: '#FFFFFF',
     homeVenue: 'Gillette Stadium',
   },
   NO: {
@@ -305,10 +219,6 @@ const TEAM_METADATA = {
     fullName: 'New Orleans Saints',
     shortLabel: 'New Orleans',
     mascot: 'Saints',
-    primary: '#D3BC8D',
-    secondary: '#101820',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Caesars Superdome',
   },
   NYG: {
@@ -318,10 +228,6 @@ const TEAM_METADATA = {
     fullName: 'New York Giants',
     shortLabel: 'New York',
     mascot: 'Giants',
-    primary: '#0B2265',
-    secondary: '#A71930',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'MetLife Stadium',
   },
   NYJ: {
@@ -331,10 +237,6 @@ const TEAM_METADATA = {
     fullName: 'New York Jets',
     shortLabel: 'New York',
     mascot: 'Jets',
-    primary: '#125740',
-    secondary: '#000000',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'MetLife Stadium',
   },
   PHI: {
@@ -344,10 +246,6 @@ const TEAM_METADATA = {
     fullName: 'Philadelphia Eagles',
     shortLabel: 'Philadelphia',
     mascot: 'Eagles',
-    primary: '#004C54',
-    secondary: '#A5ACAF',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Lincoln Financial Field',
   },
   PIT: {
@@ -357,10 +255,6 @@ const TEAM_METADATA = {
     fullName: 'Pittsburgh Steelers',
     shortLabel: 'Pittsburgh',
     mascot: 'Steelers',
-    primary: '#FFB612',
-    secondary: '#101820',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Acrisure Stadium',
   },
   SF: {
@@ -370,10 +264,6 @@ const TEAM_METADATA = {
     fullName: 'San Francisco 49ers',
     shortLabel: 'San Francisco',
     mascot: '49ers',
-    primary: '#AA0000',
-    secondary: '#B3995D',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: "Levi's Stadium",
   },
   SEA: {
@@ -383,10 +273,6 @@ const TEAM_METADATA = {
     fullName: 'Seattle Seahawks',
     shortLabel: 'Seattle',
     mascot: 'Seahawks',
-    primary: '#002244',
-    secondary: '#69BE28',
-    tertiary: '#A5ACAF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Lumen Field',
   },
   TB: {
@@ -396,10 +282,6 @@ const TEAM_METADATA = {
     fullName: 'Tampa Bay Buccaneers',
     shortLabel: 'Tampa Bay',
     mascot: 'Buccaneers',
-    primary: '#D50A0A',
-    secondary: '#FF7900',
-    tertiary: '#34302B',
-    quaternary: '#FFFFFF',
     homeVenue: 'Raymond James Stadium',
   },
   TEN: {
@@ -409,10 +291,6 @@ const TEAM_METADATA = {
     fullName: 'Tennessee Titans',
     shortLabel: 'Tennessee',
     mascot: 'Titans',
-    primary: '#0C2340',
-    secondary: '#4B92DB',
-    tertiary: '#C8102E',
-    quaternary: '#FFFFFF',
     homeVenue: 'Nissan Stadium',
   },
   WSH: {
@@ -422,10 +300,6 @@ const TEAM_METADATA = {
     fullName: 'Washington Commanders',
     shortLabel: 'Washington',
     mascot: 'Commanders',
-    primary: '#5A1414',
-    secondary: '#FFB612',
-    tertiary: '#FFFFFF',
-    quaternary: '#FFFFFF',
     homeVenue: 'Northwest Stadium',
   },
 };
@@ -848,13 +722,15 @@ main().catch((error) => {
 async function main() {
   console.log(`NFL ${SEASON} matchup maker${DRY_RUN ? ' [dry-run]' : ''}`);
 
-  const [existingRows, templateRows, nflRows, espnRows, ptsRows] = await Promise.all([
+  const [existingRows, templateRows, nflRows, espnRows, ptsRows, teamRows] = await Promise.all([
     fetchExistingTakeoverRows(),
     fetchTakeoverTemplateRows(),
     fetchNflReleaseMatchups(),
     fetchEspnMatchups(),
     fetchPlainTextSportsMatchups(),
+    TeamPalette.loadTeams({ url: SUPABASE_URL, key: SUPABASE_KEY }),
   ]);
+  TEAM_ROWS = teamRows;
 
   console.log(`Existing Takeover rows: ${existingRows.length}`);
   console.log(`Template Takeover rows: ${templateRows.length}`);
@@ -929,7 +805,7 @@ async function fetchExistingTakeoverRows() {
 
 async function fetchTakeoverTemplateRows() {
   return fetchSupabaseRows(
-    "games?name=ilike.*Takeover*&select=id,name,tagline,city,primary_color,secondary_color,tertiary_color,quaternary_color,logo_url,guide_name,guide_bio,guide_image_url,body,price,starting_location,starting_location_lat,starting_location_lon,location_based,engine,game_date,start_time,end_time,archived,tags,teams,team01,team02&order=name.asc"
+    "games?name=ilike.*Takeover*&select=id,name,tagline,city,logo_url,guide_name,guide_bio,guide_image_url,body,price,starting_location,starting_location_lat,starting_location_lon,location_based,engine,game_date,start_time,end_time,archived,tags,teams,team01,team02&order=name.asc"
   );
 }
 
@@ -1041,10 +917,6 @@ async function fetchEspnMatchups() {
       neutralSite: !!(competition.neutralSite || venueInfo.neutral),
       kickoffUtc: new Date(kickoffUtc).toISOString(),
       localGameDate: formatDateParts(localParts),
-      awayColor: normalizeColor(homeAwayColor(away.team.color, TEAM_METADATA[awayCode].primary)),
-      awayAltColor: normalizeColor(homeAwayColor(away.team.alternateColor, TEAM_METADATA[awayCode].secondary)),
-      homeColor: normalizeColor(homeAwayColor(home.team.color, TEAM_METADATA[homeCode].primary)),
-      homeAltColor: normalizeColor(homeAwayColor(home.team.alternateColor, TEAM_METADATA[homeCode].secondary)),
       awayLogo: homeAwayLogo(away.team.logo, TEAM_METADATA[awayCode].espnAbbr),
       homeLogo: homeAwayLogo(home.team.logo, TEAM_METADATA[homeCode].espnAbbr),
     });
@@ -1217,10 +1089,6 @@ function buildPayloadForFanSide(matchup, venueInfo, fanSide, templatesByTeam) {
     name,
     tagline,
     city: cityLabel,
-    primary_color: colors.primary,
-    secondary_color: colors.secondary,
-    tertiary_color: colors.tertiary,
-    quaternary_color: colors.quaternary,
     logo_url: guide.logoUrl,
     guide_name: guide.name,
     guide_bio: guide.bio,
@@ -1233,6 +1101,12 @@ function buildPayloadForFanSide(matchup, venueInfo, fanSide, templatesByTeam) {
     starting_location_lon: venueInfo.lon,
     location_based: true,
     fandom_game: true,
+    away_team_key: `NFL:${matchup.awayCode}`,
+    home_team_key: `NFL:${matchup.homeCode}`,
+    away_team_city: teamIdentity(matchup.awayCode).game_city || teamIdentity(matchup.awayCode).fanbase || null,
+    away_team_mascot: teamIdentity(matchup.awayCode).mascot || null,
+    home_team_city: teamIdentity(matchup.homeCode).game_city || teamIdentity(matchup.homeCode).fanbase || null,
+    home_team_mascot: teamIdentity(matchup.homeCode).mascot || null,
     engine: 'text',
     game_date: tgbWindow.gameDate,
     start_time: tgbWindow.startTime,
@@ -1292,14 +1166,13 @@ function buildTeamSuggestions(template, fanTeam, venueInfo) {
 }
 
 function buildColors(matchup, fanTeam, template) {
-  const fromEspnPrimary = fanTeam.code === matchup.awayCode ? matchup.awayColor : matchup.homeColor;
-  const fromEspnSecondary = fanTeam.code === matchup.awayCode ? matchup.awayAltColor : matchup.homeAltColor;
-  return {
-    primary: normalizeColor(fromEspnPrimary || (template && template.primary_color) || fanTeam.primary),
-    secondary: normalizeColor(fromEspnSecondary || (template && template.secondary_color) || fanTeam.secondary),
-    tertiary: normalizeColor((template && template.tertiary_color) || fanTeam.tertiary || '#000000'),
-    quaternary: normalizeColor((template && template.quaternary_color) || fanTeam.quaternary || '#FFFFFF'),
-  };
+  const team = teamIdentity(fanTeam.code);
+  if (!team.team_key) throw new Error(`No teams-table palette for NFL:${fanTeam.code}`);
+  return TeamPalette.teamPalette(team);
+}
+
+function teamIdentity(code) {
+  return TeamPalette.inferTeam(TEAM_ROWS, { key: `NFL:${code}` }) || {};
 }
 
 function buildGuide(template, fanTeam) {
@@ -1908,19 +1781,8 @@ function normalizeEspnTeamCode(code) {
   return upper === 'WSH' ? 'WSH' : upper;
 }
 
-function homeAwayColor(value, fallback) {
-  if (!value) return fallback;
-  return `#${String(value).replace(/^#/, '')}`;
-}
-
 function homeAwayLogo(value, espnAbbr) {
   return value || `https://a.espncdn.com/i/teamlogos/nfl/500/${espnAbbr}.png`;
-}
-
-function normalizeColor(value) {
-  if (!value) return '#FFFFFF';
-  const raw = String(value).trim();
-  return raw.startsWith('#') ? raw : `#${raw}`;
 }
 
 function normalizeVenueName(value) {

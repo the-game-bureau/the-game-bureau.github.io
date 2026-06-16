@@ -17,6 +17,7 @@ const path = require('path');
 const zlib = require('zlib');
 
 const { helmetSVGString } = require('../../assets/games/helmets/helmet.js');
+const TeamPalette = require('../../assets/team-palette.js');
 
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
@@ -63,38 +64,38 @@ const SMALL_OX = 741;
 const SMALL_OY = 208;
 
 const TEAM_METADATA = {
-  ARI: { shortLabel: 'Arizona',       primary: '#97233F', secondary: '#FFB612', tertiary: '#002868' },
-  ATL: { shortLabel: 'Atlanta',       primary: '#A71930', secondary: '#000000', tertiary: '#A5ACAF' },
-  BAL: { shortLabel: 'Baltimore',     primary: '#241773', secondary: '#000000', tertiary: '#9E7C0C' },
-  BUF: { shortLabel: 'Buffalo',       primary: '#00338D', secondary: '#C60C30', tertiary: '#FFFFFF' },
-  CAR: { shortLabel: 'Carolina',      primary: '#0085CA', secondary: '#101820', tertiary: '#BFC0BF' },
-  CHI: { shortLabel: 'Chicago',       primary: '#0B162A', secondary: '#C83803', tertiary: '#FFFFFF' },
-  CIN: { shortLabel: 'Cincinnati',    primary: '#FB4F14', secondary: '#000000', tertiary: '#FFFFFF' },
-  CLE: { shortLabel: 'Cleveland',     primary: '#311D00', secondary: '#FF3C00', tertiary: '#FFFFFF' },
-  DAL: { shortLabel: 'Dallas',        primary: '#869397', secondary: '#041E42', tertiary: '#FFFFFF' },
-  DEN: { shortLabel: 'Denver',        primary: '#FB4F14', secondary: '#002244', tertiary: '#FFFFFF' },
-  DET: { shortLabel: 'Detroit',       primary: '#0076B6', secondary: '#B0B7BC', tertiary: '#000000' },
-  GB:  { shortLabel: 'Green Bay',     primary: '#203731', secondary: '#FFB612', tertiary: '#FFFFFF' },
-  HOU: { shortLabel: 'Houston',       primary: '#03202F', secondary: '#A71930', tertiary: '#FFFFFF' },
-  IND: { shortLabel: 'Indianapolis',  primary: '#002C5F', secondary: '#A2AAAD', tertiary: '#FFFFFF' },
-  JAX: { shortLabel: 'Jacksonville',  primary: '#006778', secondary: '#9F792C', tertiary: '#101820' },
-  KC:  { shortLabel: 'Kansas City',   primary: '#E31837', secondary: '#FFB81C', tertiary: '#FFFFFF' },
-  LV:  { shortLabel: 'Las Vegas',     primary: '#000000', secondary: '#A5ACAF', tertiary: '#FFFFFF' },
-  LAC: { shortLabel: 'Los Angeles',   primary: '#0080C6', secondary: '#FFC20E', tertiary: '#FFFFFF' },
-  LAR: { shortLabel: 'Los Angeles',   primary: '#003594', secondary: '#FFD100', tertiary: '#FFFFFF' },
-  MIA: { shortLabel: 'Miami',         primary: '#008E97', secondary: '#FC4C02', tertiary: '#005778' },
-  MIN: { shortLabel: 'Minnesota',     primary: '#4F2683', secondary: '#FFC62F', tertiary: '#FFFFFF' },
-  NE:  { shortLabel: 'New England',   primary: '#002244', secondary: '#C60C30', tertiary: '#B0B7BC' },
-  NO:  { shortLabel: 'New Orleans',   primary: '#D3BC8D', secondary: '#101820', tertiary: '#FFFFFF' },
-  NYG: { shortLabel: 'New York',      primary: '#0B2265', secondary: '#A71930', tertiary: '#FFFFFF' },
-  NYJ: { shortLabel: 'New York',      primary: '#125740', secondary: '#000000', tertiary: '#FFFFFF' },
-  PHI: { shortLabel: 'Philadelphia',  primary: '#004C54', secondary: '#A5ACAF', tertiary: '#FFFFFF' },
-  PIT: { shortLabel: 'Pittsburgh',    primary: '#FFB612', secondary: '#101820', tertiary: '#FFFFFF' },
-  SF:  { shortLabel: 'San Francisco', primary: '#AA0000', secondary: '#B3995D', tertiary: '#FFFFFF' },
-  SEA: { shortLabel: 'Seattle',       primary: '#002244', secondary: '#69BE28', tertiary: '#A5ACAF' },
-  TB:  { shortLabel: 'Tampa Bay',     primary: '#D50A0A', secondary: '#FF7900', tertiary: '#34302B' },
-  TEN: { shortLabel: 'Tennessee',     primary: '#0C2340', secondary: '#4B92DB', tertiary: '#C8102E' },
-  WSH: { shortLabel: 'Washington',    primary: '#5A1414', secondary: '#FFB612', tertiary: '#FFFFFF' },
+  ARI: { shortLabel: 'Arizona' },
+  ATL: { shortLabel: 'Atlanta' },
+  BAL: { shortLabel: 'Baltimore' },
+  BUF: { shortLabel: 'Buffalo' },
+  CAR: { shortLabel: 'Carolina' },
+  CHI: { shortLabel: 'Chicago' },
+  CIN: { shortLabel: 'Cincinnati' },
+  CLE: { shortLabel: 'Cleveland' },
+  DAL: { shortLabel: 'Dallas' },
+  DEN: { shortLabel: 'Denver' },
+  DET: { shortLabel: 'Detroit' },
+  GB:  { shortLabel: 'Green Bay' },
+  HOU: { shortLabel: 'Houston' },
+  IND: { shortLabel: 'Indianapolis' },
+  JAX: { shortLabel: 'Jacksonville' },
+  KC:  { shortLabel: 'Kansas City' },
+  LV:  { shortLabel: 'Las Vegas' },
+  LAC: { shortLabel: 'Los Angeles' },
+  LAR: { shortLabel: 'Los Angeles' },
+  MIA: { shortLabel: 'Miami' },
+  MIN: { shortLabel: 'Minnesota' },
+  NE:  { shortLabel: 'New England' },
+  NO:  { shortLabel: 'New Orleans' },
+  NYG: { shortLabel: 'New York' },
+  NYJ: { shortLabel: 'New York' },
+  PHI: { shortLabel: 'Philadelphia' },
+  PIT: { shortLabel: 'Pittsburgh' },
+  SF:  { shortLabel: 'San Francisco' },
+  SEA: { shortLabel: 'Seattle' },
+  TB:  { shortLabel: 'Tampa Bay' },
+  TEN: { shortLabel: 'Tennessee' },
+  WSH: { shortLabel: 'Washington' },
 };
 
 const HELMET_GRID = parseHelmetGrid();
@@ -104,7 +105,10 @@ async function main() {
 
   fs.mkdirSync(ASSET_DIR, { recursive: true });
 
-  const games = await fetchTakeoverGames();
+  const [games, teams] = await Promise.all([
+    fetchTakeoverGames(),
+    TeamPalette.loadTeams({ url: SUPABASE_URL, key: SUPABASE_KEY }),
+  ]);
   console.log(`Found ${games.length} Takeover game(s)`);
 
   let processed = 0;
@@ -120,7 +124,7 @@ async function main() {
         skipped++;
         continue;
       }
-      const png = composeGameHero(game, parsed);
+      const png = composeGameHero(game, parsed, teams);
 
       const filename = `${game.id}.png`;
       const filepath = path.join(ASSET_DIR, filename);
@@ -147,7 +151,7 @@ async function fetchTakeoverGames() {
   // Fetch all takeover games so older flag/photo/mascot art can be normalized
   // to the current helmet hero treatment too. parseGame still limits normal
   // generation to NFL-team-vs-NFL-team titles.
-  const url = `${SUPABASE_URL}/rest/v1/games?name=ilike.*Takeover*&select=id,name,logo_url,primary_color,secondary_color,tertiary_color&order=name.asc`;
+  const url = `${SUPABASE_URL}/rest/v1/games?name=ilike.*Takeover*&select=*&order=name.asc`;
   const response = await fetch(url, {
     headers: {
       apikey: SUPABASE_KEY,
@@ -162,14 +166,14 @@ async function fetchTakeoverGames() {
   return response.json();
 }
 
-function composeGameHero(game, parsed) {
+function composeGameHero(game, parsed, teams) {
   if (parsed.composer === 'helmet-eiffel') {
-    return composeHelmetEiffelHero(resolveColors(game, parsed.fanCode));
+    return composeHelmetEiffelHero(resolveColors(teams, parsed.fanCode));
   }
 
   const { awayCode, homeCode } = parsed;
-  const awayColors = resolveColors(game, awayCode);
-  const homeColors = resolveColors(null, homeCode);
+  const awayColors = resolveColors(teams, awayCode);
+  const homeColors = resolveColors(teams, homeCode);
   return composeHero(awayColors, homeColors);
 }
 
@@ -230,22 +234,11 @@ function normalizeTeamCode(code) {
   return code;
 }
 
-function resolveColors(game, code) {
-  const meta = TEAM_METADATA[code] || {};
-  const primary = pickColor(game && game.primary_color, meta.primary, '#000000');
-  const secondary = pickColor(game && game.secondary_color, meta.secondary, '#ffffff');
-  let tertiary = pickColor(game && game.tertiary_color, meta.tertiary, '#aaaaaa');
-  if (expand(tertiary) === '#000000') tertiary = '#ffffff'; // helmet.js black-mask swap
-  return { primary, secondary, tertiary };
-}
-
-function pickColor(...candidates) {
-  for (const candidate of candidates) {
-    if (!candidate) continue;
-    const value = String(candidate).trim();
-    if (/^#[0-9a-f]{3,8}$/i.test(value)) return expand(value);
-  }
-  return '#000000';
+function resolveColors(teams, code) {
+  const team = TeamPalette.inferTeam(teams, { key: `NFL:${code}` });
+  if (!team) throw new Error(`No teams-table palette for NFL:${code}`);
+  const palette = TeamPalette.teamPalette(team);
+  return { primary: palette.primary, secondary: palette.secondary, tertiary: palette.tertiary };
 }
 
 function expand(hex) {

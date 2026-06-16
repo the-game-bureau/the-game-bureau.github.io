@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
   <title>Team Cipher</title>
   <link rel="icon" href="../../assets/brand/tgb.ico" type="image/x-icon">
+  <script src="/assets/team-palette.js"></script>
   <style>
     /* ── SWISS X DA VINCI DESIGN SYSTEM ── */
     :root {
@@ -431,7 +432,7 @@ async function fetchConfiguredGameSetup(gameId) {
 
   try {
     const requestUrl = new URL(`rest/v1/${SB_CONFIG.table}`, `${SB_CONFIG.url.replace(/\/+$/, '')}/`);
-    requestUrl.searchParams.set('select', 'name,primary_color,secondary_color,tertiary_color,quaternary_color,teams');
+    requestUrl.searchParams.set('select', '*');
     requestUrl.searchParams.set('id', `eq.${targetId}`);
     requestUrl.searchParams.set('limit', '1');
 
@@ -447,16 +448,23 @@ async function fetchConfiguredGameSetup(gameId) {
 
     const rows = await response.json();
     const row = Array.isArray(rows) && rows.length ? rows[0] : null;
+    let palette = window.TgbTeamPalette ? window.TgbTeamPalette.gamePalette(row) : {};
+    if (window.TgbTeamPalette && row) {
+      try {
+        const teams = await window.TgbTeamPalette.loadTeams(SB_CONFIG);
+        palette = window.TgbTeamPalette.resolveGamePalette(teams, row, 'away').palette;
+      } catch (error) {
+        console.warn('Team palette fetch failed:', error);
+      }
+    }
     return {
       teamNames: normalizeTeamNames(row && row.teams),
       brandName: row && typeof row.name === 'string' ? row.name.trim() : '',
       colors: {
-        primary: row && typeof row.primary_color === 'string' ? row.primary_color.trim() : '',
-        accent: row && typeof row.quaternary_color === 'string' && row.quaternary_color.trim()
-          ? row.quaternary_color.trim()
-          : (row && typeof row.primary_color === 'string' ? row.primary_color.trim() : ''),
-        secondary: row && typeof row.secondary_color === 'string' ? row.secondary_color.trim() : '',
-        onSecondary: row && typeof row.tertiary_color === 'string' ? row.tertiary_color.trim() : ''
+        primary: palette.primary || '',
+        accent: palette.quaternary || palette.primary || '',
+        secondary: palette.secondary || '',
+        onSecondary: palette.tertiary || ''
       }
     };
   } catch (error) {

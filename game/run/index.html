@@ -29,6 +29,7 @@
   <script src="/assets/games/helmets/helmet.js"></script>
   <script src="/assets/games/helmets/basketball.js"></script>
   <script src="/assets/games/helmets/baseball.js"></script>
+  <script src="/assets/team-palette.js"></script>
 
   <style>
 
@@ -1130,6 +1131,65 @@
       transition: opacity 0.22s ease, visibility 0s linear 0s;
     }
     #rendezvousSection.is-revealed .start-mode-btn { pointer-events: auto; }
+    /* Third stacked circle button: Back — returns to the un-revealed state. */
+    .start-back-btn {
+      position: absolute;
+      top: 9.1rem;
+      right: 1rem;
+      z-index: 5;
+      width: 2.4rem;
+      height: 2.4rem;
+      padding: 0;
+      border-radius: 50%;
+      border: 2px solid var(--primary);
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      transition: transform 0.18s ease, opacity 0.22s ease, visibility 0s linear 0.22s;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      font: inherit;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .start-back-btn:active { transform: scale(0.92); opacity: 0.85; }
+    .start-back-btn svg { width: 1.15rem; height: 1.15rem; display: block; }
+    .start-back-label {
+      position: absolute;
+      top: 11.8rem;
+      right: calc(1rem + 1.2rem);
+      transform: translateX(50%);
+      z-index: 6;
+      min-width: 2.4rem;
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(0.6rem, 2vw, 0.72rem);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--primary);
+      -webkit-text-stroke: 0.6px var(--secondary);
+      paint-order: stroke fill;
+      text-align: center;
+      line-height: 1.2;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.22s ease, visibility 0s linear 0.22s;
+    }
+    #rendezvousSection.is-revealed .start-back-btn,
+    #rendezvousSection.is-revealed .start-back-label {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition: opacity 0.22s ease, visibility 0s linear 0s;
+    }
+    #rendezvousSection.is-revealed .start-back-label { pointer-events: none; }
     .bottom-center-label {
       position: absolute;
       bottom: 0.9rem;
@@ -1143,7 +1203,9 @@
       line-height: 1.15;
       text-transform: uppercase;
       text-align: center;
-      white-space: pre-line;
+      /* pre (not pre-line): keep the location/city on their own single lines
+         without the location name wrapping onto multiple lines. */
+      white-space: pre;
       color: var(--primary);
       -webkit-text-stroke: 0.6px var(--secondary);
       paint-order: stroke fill;
@@ -1271,7 +1333,8 @@
       width: 3.4rem;
       border: 3px solid #000;
       border-radius: 4px;
-      box-shadow: 2px 2px 0 #000;
+      /* matches the interactive 3px shadow tier (frame stays 4px). */
+      box-shadow: 3px 3px 0 #000;
       overflow: hidden;
       background: #fff;
       color: #111;
@@ -1303,6 +1366,44 @@
       padding: 0.14rem 0 0.32rem;
     }
     .your-event-info { min-width: 0; }
+    /* Icon centres (the pep-rally crowd, the Pro Game matchup) sit in the middle
+       grid cell and centre their SVG(s) as one object — kept in normal flow so
+       they never overlap the date tile or the action buttons. */
+    .your-event-info--mark,
+    .your-event-info--matchup {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .your-event-team-mark {
+      width: auto;
+      max-width: 100%;
+      height: 3.8rem;
+      object-fit: contain;
+    }
+    .your-event-team-mark[hidden] { display: none; }
+    /* Pro Game centre: AWAY mark · at · HOME mark, the two facing each other. */
+    .your-event-info--matchup {
+      gap: 0.4rem;
+    }
+    .your-event-vs-mark {
+      flex: 0 0 auto;
+      width: clamp(2.1rem, 7vw, 2.7rem);
+      height: clamp(2.1rem, 7vw, 2.7rem);
+      object-fit: contain;
+    }
+    .your-event-vs-mark[hidden] { display: none; }
+    /* Mirror the home helmet so it faces the away helmet (football only). */
+    .your-event-vs-home.is-football { transform: scaleX(-1); }
+    .your-event-vs-at {
+      flex: 0 0 auto;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #666;
+    }
     /* Event-name header bar across the top of the frame — always one line
        (JS shrinks the font to fit via fitYourEventTitle). */
     .your-event-title {
@@ -1314,6 +1415,9 @@
       -webkit-text-stroke: 0.75px var(--primary);
       paint-order: stroke fill;
       background: var(--secondary);
+      /* keeps the title readable on light --secondary values where the white
+         fill + primary stroke alone can wash out. */
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
       text-align: center;
       white-space: nowrap;
       overflow: hidden;
@@ -1329,11 +1433,19 @@
       text-transform: uppercase;
       color: #555;
     }
+    /* Full-width footer bar across the bottom of the card, separated from the
+       body by the same 3px rule used under the title. Collapses entirely when
+       the event has no venue (the [hidden] rule below). */
     .your-event-venue {
-      margin-top: 0.15rem;
+      display: flex;
+      align-items: center;
+      padding: 0.5rem 1rem;
+      border-top: 3px solid #000;
+      background: #f4f4f4;
       font-family: 'Outfit', sans-serif;
       font-size: 0.8rem;
       font-weight: 600;
+      letter-spacing: 0.02em;
       color: var(--primary);
       line-height: 1.2;
     }
@@ -2647,9 +2759,7 @@
                 <span class="your-event-chip-time-val">7:00 PM</span>
               </div>
             </div>
-            <div class="your-event-info">
-              <div class="your-event-venue" hidden></div>
-            </div>
+            <div class="your-event-info"></div>
             <button class="your-event-calendar-btn" type="button" aria-label="Add Family Game Night to calendar" title="Add to calendar">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect>
@@ -2660,6 +2770,7 @@
               </svg>
             </button>
           </div>
+          <div class="your-event-venue" hidden></div>
         </div>
         <div class="your-event-row" data-event-title="Pep Rally" data-event-start="2026-06-21T21:00:00" data-event-location="Location Revealed During Game">
           <div class="your-event-title">Pep Rally</div>
@@ -2678,8 +2789,8 @@
                 <span class="your-event-chip-time-val">9:00 PM</span>
               </div>
             </div>
-            <div class="your-event-info">
-              <div class="your-event-venue">Location Revealed During Game</div>
+            <div class="your-event-info your-event-info--mark">
+              <img class="your-event-team-mark" alt="" hidden>
             </div>
             <button class="your-event-calendar-btn" type="button" aria-label="Add Pep Rally to calendar" title="Add to calendar">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -2691,6 +2802,7 @@
               </svg>
             </button>
           </div>
+          <div class="your-event-venue">Location Revealed During Game</div>
         </div>
         <div class="your-event-row" data-event-title="Block Party Scavenger Hunt" data-event-start="2026-07-04T14:00:00">
           <div class="your-event-title">Block Party Scavenger Hunt</div>
@@ -2709,8 +2821,10 @@
                 <span class="your-event-chip-time-val">2:00 PM</span>
               </div>
             </div>
-            <div class="your-event-info">
-              <div class="your-event-venue" hidden></div>
+            <div class="your-event-info your-event-info--matchup">
+              <img class="your-event-vs-mark your-event-vs-away" alt="" hidden>
+              <span class="your-event-vs-at">at</span>
+              <img class="your-event-vs-mark your-event-vs-home" alt="" hidden>
             </div>
             <div class="your-event-actions">
               <button class="your-event-calendar-btn" type="button" aria-label="Add Block Party Scavenger Hunt to calendar" title="Add to calendar">
@@ -2732,6 +2846,7 @@
               </a>
             </div>
           </div>
+          <div class="your-event-venue" hidden></div>
         </div>
       </div>
     </section>
@@ -2778,6 +2893,12 @@
         </svg>
       </button>
       <div class="start-go-label">Go</div>
+      <button class="start-back-btn" id="startBackBtn" type="button" aria-label="Back to start" title="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
+        </svg>
+      </button>
+      <div class="start-back-label">Back</div>
       <div id="startCityLabel" class="bottom-center-label"></div>
 
     </section>
@@ -3062,11 +3183,6 @@
     // mc/data/teams.json). Palette is stored as shell/stripe/mask and maps onto
     // the primary/secondary/tertiary args the mark generators expect.
     const FANDOM_LEAGUES = new Set(['NFL', 'MLB', 'NBA']);
-    const FANDOM_TEAMS_REST_URL = SB_CONFIG.url + '/rest/v1/teams'
-      + '?select=league,code,fanbase,mascot,sport,shell,stripe,mask'
-      + '&league=in.(NFL,MLB,NBA)'
-      + '&order=league_sort.asc&order=team_sort.asc';
-
     // Pixel music-note mark (clubs/festivals with no helmet), ported from the
     // public games directory so non-sport fandoms still get an icon.
     function fandomMusicSVG() {
@@ -3091,6 +3207,89 @@
       return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
     }
 
+    // 8-bit crowd of fans cheering in their team's colours — used for the
+    // pep-rally card instead of a single mark. Same crispEdges pixel style as
+    // the music note above. Each fan varies in size, standing height, outfit,
+    // hair and what they wave, so the row reads as a real (mixed) crowd.
+    // primary = jersey / dress, secondary = pennant / cap / shorts / pompom,
+    // tertiary = stripe / hem accent.
+    function fandomCheerSVG(primary, secondary, tertiary) {
+      const jersey  = primary   || '#33e6e6';
+      const pennant = secondary || '#243256';
+      const accent  = tertiary  || '#ffffff';
+      const ink = '#181818';
+      const skins = ['#f1c4a0', '#caa06e', '#8d5a3c', '#e8b48c'];
+      const hairs = ['#2b1d12', '#5a3a1e', '#161616', '#7a4a22'];
+      const px = (x, y, w, h, fill) => '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + fill + '"/>';
+
+      // One fan in a local ~16×38 box (feet at y≈36). The caller wraps each in a
+      // translate/scale so size and standing position differ per fan. Arms are a
+      // connected diagonal (hand → forearm → upper arm) so they read as a clean
+      // raised V rather than detached blocks.
+      function fan(o) {
+        const L = o.lift || 0;
+        const skin = skins[o.skin % skins.length];
+        const hairc = hairs[o.skin % hairs.length];
+        let s = '';
+
+        // raised arms — diagonal V
+        s += px(0, 5 - L, 3, 3, skin) + px(2, 8 - L, 2, 3, skin) + px(3, 11, 2, 2, skin);    // left
+        s += px(13, 5 - L, 3, 3, skin) + px(12, 8 - L, 2, 3, skin) + px(11, 11, 2, 2, skin); // right
+        // head
+        s += px(5, 5, 6, 6, skin);
+        // hair / hat
+        if (o.hair === 'ponytail')   s += px(5, 4, 6, 2, hairc) + px(11, 5, 2, 7, hairc);
+        else if (o.hair === 'bun')   s += px(5, 4, 6, 2, hairc) + px(6, 2, 4, 2, hairc);
+        else if (o.hair === 'cap')   s += px(4, 3, 8, 2, pennant) + px(4, 5, 2, 1, pennant);
+        else                          s += px(4, 4, 8, 2, hairc); // short
+
+        // outfit
+        if (o.outfit === 'dress') {
+          s += px(5, 12, 6, 6, jersey);                            // bodice
+          s += px(3, 18, 10, 7, jersey);                           // A-line skirt
+          s += px(3, 22, 10, 2, accent);                           // hem stripe
+          s += px(5, 25, 2, 12, skin) + px(9, 25, 2, 12, skin);    // bare legs
+        } else {
+          s += px(4, 12, 8, 11, jersey);                           // jersey
+          s += px(4, 15, 8, 2, accent);                            // chest stripe
+          s += px(4, 23, 3, 13, ink) + px(9, 23, 3, 13, ink);      // legs
+        }
+
+        // some fans wave a pennant on a dark pole (kept off the skin tones so it
+        // doesn't blur into the arms the way a same-colour prop would)
+        if (o.acc === 'flag') {
+          s += px(15, 0 - L, 2, 8, ink);                           // pole
+          s += px(9, 0 - L, 6, 3, pennant) + px(11, 3 - L, 4, 2, pennant);
+        }
+        return s;
+      }
+
+      // Two depth rows clumped shoulder-to-shoulder: the back row is small and
+      // high and drawn first; the front row is larger, lower and offset half a
+      // step so it slots into the gaps and overlaps the back row.
+      const fans = [
+        // back row
+        { ox: 4,  oy: 3,  s: 0.62, outfit: 'jersey', hair: 'short',    skin: 0, acc: 'flag', lift: 0 },
+        { ox: 24, oy: 6,  s: 0.66, outfit: 'jersey', hair: 'cap',      skin: 1, acc: 'none', lift: 1 },
+        { ox: 44, oy: 2,  s: 0.62, outfit: 'dress',  hair: 'ponytail', skin: 3, acc: 'none', lift: 0 },
+        { ox: 64, oy: 5,  s: 0.64, outfit: 'jersey', hair: 'bun',      skin: 2, acc: 'none', lift: 1 },
+        { ox: 84, oy: 3,  s: 0.66, outfit: 'jersey', hair: 'short',    skin: 1, acc: 'flag', lift: 0 },
+        // front row
+        { ox: 14, oy: 20, s: 1.05, outfit: 'jersey', hair: 'short',    skin: 2, acc: 'flag', lift: 0 },
+        { ox: 34, oy: 22, s: 1.10, outfit: 'dress',  hair: 'ponytail', skin: 0, acc: 'none', lift: 2 },
+        { ox: 54, oy: 19, s: 1.00, outfit: 'jersey', hair: 'cap',      skin: 3, acc: 'none', lift: 1 },
+        { ox: 74, oy: 21, s: 1.08, outfit: 'dress',  hair: 'bun',      skin: 1, acc: 'none', lift: 1 }
+      ];
+      let body = '';
+      fans.forEach((o) => {
+        body += '<g transform="translate(' + o.ox + ',' + o.oy + ') scale(' + o.s + ')">' + fan(o) + '</g>';
+      });
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 62" shape-rendering="crispEdges">'
+        + '<rect width="100" height="62" fill="none"/>'
+        + body + '</svg>';
+      return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+    }
+
     // Dispatch to the right mark generator for a team's sport. Falls back to the
     // football helmet so anything untagged still renders.
     function fandomMarkSVG(sport, primary, secondary, tertiary) {
@@ -3108,16 +3307,8 @@
     }
 
     async function fetchFandomTeams() {
-      const res = await fetch(FANDOM_TEAMS_REST_URL, {
-        headers: {
-          apikey: SB_CONFIG.key,
-          Authorization: 'Bearer ' + SB_CONFIG.key,
-          Accept: 'application/json'
-        },
-        cache: 'no-store'
-      });
-      if (!res.ok) throw new Error('teams ' + res.status);
-      return res.json();
+      if (!window.TgbTeamPalette) throw new Error('Team palette resolver unavailable');
+      return window.TgbTeamPalette.loadTeams(SB_CONFIG);
     }
 
     // Renders the FANDOM scroll for a fandom_game row. Checking teams and
@@ -3210,31 +3401,12 @@
       section.style.display = 'block';
     }
 
-    // Looks up a team's palette/sport/timezone in the teams table by mascot +
-    // city. Returns null on miss. Used for the EVENT card's helmet + start time.
-    // select=* so a (possibly not-yet-migrated) `timezone` column never errors.
-    async function fetchTeamPalette(mascot, city) {
-      const m = String(mascot || '').trim();
-      if (!m) return null;
+    // Stable team keys win; legacy city/mascot labels remain an inference
+    // fallback during rollout and for older/custom rows.
+    async function fetchTeamPalette(game, side) {
       try {
-        const u = new URL(SB_CONFIG.url.replace(/\/+$/, '') + '/rest/v1/teams');
-        u.searchParams.set('select', '*');
-        u.searchParams.set('mascot', 'ilike.' + m);
-        const res = await fetch(u.toString(), {
-          headers: { apikey: SB_CONFIG.key, Authorization: 'Bearer ' + SB_CONFIG.key, Accept: 'application/json' },
-          cache: 'no-store'
-        });
-        if (!res.ok) return null;
-        const rows = await res.json();
-        if (!Array.isArray(rows) || !rows.length) return null;
-        if (rows.length === 1) return rows[0];
-        // Disambiguate teams sharing a mascot by matching the city.
-        const cityKey = String(city || '').split(',')[0].trim().toLowerCase();
-        const hit = rows.find((r) => {
-          const fields = [r.fanbase, r.game_city, r.venue_city].map((v) => String(v || '').toLowerCase());
-          return cityKey && fields.some((f) => f.includes(cityKey));
-        });
-        return hit || rows[0];
+        const teams = await fetchFandomTeams();
+        return window.TgbTeamPalette.inferGameTeam(teams, game, side);
       } catch (_) { return null; }
     }
 
@@ -3443,8 +3615,8 @@
         }
       };
       const [awayPal, homePal] = await Promise.all([
-        fetchTeamPalette(game.away_team_mascot, game.away_team_city),
-        fetchTeamPalette(game.home_team_mascot, game.home_team_city)
+        fetchTeamPalette(game, 'away'),
+        fetchTeamPalette(game, 'home')
       ]);
       const sports = eventSportsContext(game, awayPal, homePal);
       if (labelEl) labelEl.textContent = sports.matchupLabel;
@@ -4679,6 +4851,32 @@ const WEATHER_CODE_MAP = {
       document.querySelectorAll('#yourEventsList .your-event-title').forEach(fitYourEventTitle);
     }
 
+    // Shrink the rendezvous blurb so its card always fits between the RENDEZVOUS
+    // title and the location/city footer — keeps the square square and stops a
+    // long game name from overlapping either edge. Font size is the only thing
+    // that flexes (padding/width are fixed). The blurb is vertically centered,
+    // so it must clear the larger of the two obstacles on both sides.
+    function fitStartBlurb() {
+      const section = document.getElementById('rendezvousSection');
+      const blurb = document.getElementById('startBlurb');
+      if (!section || !blurb || !section.clientHeight) return;
+      blurb.style.fontSize = '';
+      const title = section.querySelector('.start-card-label');
+      const footer = document.getElementById('startCityLabel');
+      const sH = section.clientHeight;
+      const gap = 14;
+      const titleZone = title ? (title.offsetTop + title.offsetHeight) : 0;
+      const footerZone = footer ? (sH - footer.offsetTop) : 0;
+      const maxH = sH - 2 * (Math.max(titleZone, footerZone) + gap);
+      if (maxH <= 0) return;
+      let size = parseFloat(getComputedStyle(blurb).fontSize) || 18;
+      let guard = 80;
+      while (blurb.offsetHeight > maxH && size > 10 && guard-- > 0) {
+        size -= 0.5;
+        blurb.style.fontSize = size + 'px';
+      }
+    }
+
     // Game Weekend rows, in order:
     //   1. TGB takeover game   (game.game_date / game.start_time)
     //   2. {Away} Pep Rally    (2 hours after the TGB game start)
@@ -4721,9 +4919,14 @@ const WEATHER_CODE_MAP = {
             btn.setAttribute('aria-label', `Add ${title} to calendar`);
           }
         }
-        // Start location · start city on one line (like event 3's stadium · city).
+        // Start location name · start location city, one line (like event 3's
+        // stadium · city). game.city is the start location's city (the builder
+        // geocodes Start Name + Address + City together); a dedicated
+        // starting_location_city wins if it's ever added.
         const startLoc = String(game.starting_location_name || gameNode.startingLocationName || '').trim();
-        const startCity = cityShort(game.city || gameNode.city);
+        const startCity = cityShort(
+          game.starting_location_city || gameNode.startingLocationCity || game.city || gameNode.city
+        );
         const locDisplay = [startLoc, startCity].filter(Boolean).join(' · ');
         const venueEl = rows[0].querySelector('.your-event-venue');
         if (venueEl) {
@@ -4749,6 +4952,27 @@ const WEATHER_CODE_MAP = {
         if (titleEl) titleEl.textContent = title;
         const btn = rows[1].querySelector('.your-event-calendar-btn');
         if (btn) btn.setAttribute('aria-label', `Add ${title} to calendar`);
+        // The pep rally is for the away fanbase, so its centre carries the away
+        // team's mark (helmet / ball / note). Painted async via the same palette
+        // pipeline as the matchup card so the lookup never blocks the row.
+        const markEl = rows[1].querySelector('.your-event-team-mark');
+        if (markEl) {
+          const rootStyle = getComputedStyle(document.documentElement);
+          const fbPrimary = rootStyle.getPropertyValue('--primary').trim() || '#33e6e6';
+          const fbSecondary = rootStyle.getPropertyValue('--secondary').trim() || '#243256';
+          markEl.hidden = true;
+          fetchTeamPalette(game, 'away').then((pal) => {
+            const shell  = (pal && pal.shell)  || fbPrimary;
+            const stripe = (pal && pal.stripe) || fbSecondary;
+            const mask   = (pal && pal.mask)   || '#ffffff';
+            const mark = fandomCheerSVG(shell, stripe, mask);
+            if (!mark) return;
+            markEl.alt = awayTeam ? `${awayTeam} fans cheering` : '';
+            markEl.onerror = () => { markEl.onerror = null; markEl.hidden = true; };
+            markEl.src = mark;
+            markEl.hidden = false;
+          }).catch(() => {});
+        }
       } else if (rows[1]) {
         // No target end time → no Pep Rally row.
         rows[1].style.display = 'none';
@@ -4787,6 +5011,40 @@ const WEATHER_CODE_MAP = {
           if (titleEl) titleEl.textContent = `${matchup} Pro Game`;
           const btn = rows[2].querySelector('.your-event-calendar-btn');
           if (btn) btn.setAttribute('aria-label', `Add ${matchup} to calendar`);
+        }
+
+        // Centre shows the matchup marks: AWAY (left, facing right) · at ·
+        // HOME (right). The home mark is mirrored to face the away mark — but
+        // only for football, where the helmet has a clear facing direction.
+        const awayMarkEl = rows[2].querySelector('.your-event-vs-away');
+        const homeMarkEl = rows[2].querySelector('.your-event-vs-home');
+        if (awayMarkEl || homeMarkEl) {
+          const rootStyle = getComputedStyle(document.documentElement);
+          const fbPrimary = rootStyle.getPropertyValue('--primary').trim() || '#33e6e6';
+          const fbSecondary = rootStyle.getPropertyValue('--secondary').trim() || '#243256';
+          // Helmet is the default mark — anything not music/basketball/baseball.
+          const isFootball = (sport) => !['music', 'basketball', 'baseball'].includes(String(sport || '').trim().toLowerCase());
+          const paintVs = (el, pal, label, mirror) => {
+            if (!el) return;
+            const shell  = (pal && pal.shell)  || fbPrimary;
+            const stripe = (pal && pal.stripe) || fbSecondary;
+            const mask   = (pal && pal.mask)   || '#ffffff';
+            const sport  = (pal && pal.sport)  || game.category_icon;
+            const mark = fandomMarkSVG(sport, shell, stripe, mask);
+            if (!mark) { el.hidden = true; return; }
+            // Flip only the home helmet so the two face each other.
+            el.classList.toggle('is-football', !!mirror && isFootball(sport));
+            el.alt = label ? `${label} team mark` : '';
+            el.onerror = () => { el.onerror = null; el.hidden = true; };
+            el.src = mark;
+            el.hidden = false;
+          };
+          Promise.all([fetchTeamPalette(game, 'away'), fetchTeamPalette(game, 'home')])
+            .then(([awayPal, homePal]) => {
+              paintVs(awayMarkEl, awayPal, away, false);
+              paintVs(homeMarkEl, homePal, home, true);
+            })
+            .catch(() => {});
         }
       }
     }
@@ -5553,8 +5811,17 @@ const WEATHER_CODE_MAP = {
           return;
         }
 
-        const primaryColor = game.primary_color || game.primaryColor || '#33e6e6';
-        const secondaryColor = game.secondary_color || game.secondaryColor || '#243256';
+        let resolvedPalette = null;
+        if (window.TgbTeamPalette) {
+          try {
+            const teams = await fetchFandomTeams();
+            resolvedPalette = window.TgbTeamPalette.resolveGamePalette(teams, game, 'away').palette;
+          } catch (error) {
+            console.warn('Team palette fetch failed:', error);
+          }
+        }
+        const primaryColor = (resolvedPalette && resolvedPalette.primary) || game.primary_color || game.primaryColor || '#33e6e6';
+        const secondaryColor = (resolvedPalette && resolvedPalette.secondary) || game.secondary_color || game.secondaryColor || '#243256';
         document.documentElement.style.setProperty('--primary', primaryColor);
         document.documentElement.style.setProperty('--secondary', secondaryColor);
         document.body.style.background = primaryColor;
@@ -5562,8 +5829,8 @@ const WEATHER_CODE_MAP = {
         const gameNode = {
           id:                  game.id,
           defaultEmoji:        game.default_emoji,
-          tertiaryColor:       game.tertiary_color,
-          quaternaryColor:     game.quaternary_color,
+          tertiaryColor:       (resolvedPalette && resolvedPalette.tertiary) || game.tertiary_color,
+          quaternaryColor:     (resolvedPalette && resolvedPalette.quaternary) || game.quaternary_color,
           body:                game.body,
           tagline:             game.tagline,
           gameDate:            game.game_date,
@@ -5594,7 +5861,7 @@ const WEATHER_CODE_MAP = {
         const gameTagline = String(game.tagline || gameNode.tagline || '').trim();
         document.title = `${gameName} | THE GAME BUREAU`;
         const city = (gameNode.city || game.city || '').trim();
-        document.getElementById('startBlurb').innerHTML = `You must go to <strong>${city}</strong> to play this game. Tap to reveal the starting location.`;
+        document.getElementById('startBlurb').innerHTML = `You must go to <strong>${city}</strong> to play The <strong>${gameName}</strong> game. Tap to reveal the starting location.`;
 
         // Preserve the engine selector in shared/QR links so scanning a
         // code generated on /game/run/?id=…&e=map also lands on the map
@@ -5688,19 +5955,45 @@ const WEATHER_CODE_MAP = {
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           };
 
-          // Prefer the stored long/global Plus Code: it is the canonical
-          // rendezvous coordinate and avoids Maps reverse-resolving to a nearby
-          // business. Derive from lat/lon only for legacy rows missing the column.
-          // The Plus Code's "+" is URL-encoded so it survives the query string.
+          // Use the Start Address directly as the rendezvous destination — it's
+          // the human-entered source of truth. Fall back to the stored Plus Code
+          // / coordinates only for legacy rows without an address.
           const getDestinationParam = (lat, lon) => {
+            const addr = (gameNode.startingLocationAddress || '').trim();
+            if (addr) return encodeURIComponent([addr, (gameNode.city || '').trim()].filter(Boolean).join(', '));
             if (mapPlusCode) return encodeURIComponent(mapPlusCode);
             if (lat != null && lon != null) {
               const plus = encodePlusCode(lat, lon);
               if (plus) return encodeURIComponent(plus);
               return `${lat},${lon}`;
             }
-            const addr = (gameNode.startingLocationAddress || '').trim();
-            if (addr) return encodeURIComponent(addr);
+            return null;
+          };
+
+          // Geocode the rendezvous (Start Address, then city) for the map pin.
+          // Photon first: it sends reliable CORS headers, so it doesn't spam the
+          // console with CORS errors the way a rate-limited Nominatim does.
+          // Nominatim is only a fallback if Photon is unavailable.
+          const geocodeRendezvous = async (query) => {
+            const q = String(query || '').trim();
+            if (!q) return null;
+            try {
+              const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=1&lang=en`);
+              if (res.ok) {
+                const data = await res.json();
+                const f = data && Array.isArray(data.features) ? data.features[0] : null;
+                if (f && f.geometry && Array.isArray(f.geometry.coordinates)) {
+                  return { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] };
+                }
+              }
+            } catch (e) {}
+            try {
+              const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`, { headers: { 'Accept-Language': 'en' } });
+              if (res.ok) {
+                const places = await res.json();
+                if (places.length) return { lat: parseFloat(places[0].lat), lon: parseFloat(places[0].lon) };
+              }
+            } catch (e) {}
             return null;
           };
 
@@ -5781,6 +6074,21 @@ const WEATHER_CODE_MAP = {
           document.getElementById('rendezvousSection').onclick = () => {
             revealRendezvous();
           };
+
+          // Back button — return to the initial (un-revealed) state: flip the
+          // message card back to the front and zoom the map back out.
+          const startBackBtn = document.getElementById('startBackBtn');
+          const resetRendezvous = () => {
+            if (startFlip) startFlip.classList.remove('is-message-hidden');
+            if (rendezvousSection) rendezvousSection.classList.remove('is-revealed');
+            renderBgMapAt(baseZoom);
+          };
+          if (startBackBtn) {
+            startBackBtn.onclick = (event) => {
+              event.stopPropagation();
+              resetRendezvous();
+            };
+          }
 
           let directionsLightboxOpen = false;
           let directionsLightboxLastUrl = null;
@@ -5870,33 +6178,42 @@ const WEATHER_CODE_MAP = {
 
           // Populate
           document.getElementById('rendezvousSection').style.display = 'flex';
-          document.getElementById('startBlurb').innerHTML = `You must go to <strong>${city}</strong> to play this game. Tap here to reveal directions to the starting location.`;
+          document.getElementById('startBlurb').innerHTML = `You must go to <strong>${city}</strong> to play The <strong>${gameName}</strong> game. Tap here to reveal directions to the starting location.`;
           const cityState = (gameNode.city || city || '').trim();
           // Drop the state (everything after the first comma) so we end up
           // with just the city name for the bottom label.
           const cityOnly = cityState.split(',')[0].trim();
           const startCityLabel = document.getElementById('startCityLabel');
-          // Show the city immediately; the neighborhood is filled in below
-          // once we've reverse-geocoded the resolved coordinates.
-          startCityLabel.textContent = cityOnly;
+          // Prefer the explicit start location name the builder set (e.g.
+          // "Boston Common Tablet") — the same value event 1 shows — stacked
+          // over the city. Only fall back to a reverse-geocoded neighborhood
+          // when the game has no start name.
+          const startName = String(gameNode.startingLocationName || game.starting_location_name || '').trim();
+          startCityLabel.textContent = startName ? `${startName}\n${cityOnly}` : cityOnly;
 
           // OSM background map
           (async () => {
             try {
-              let lat = null, lon = null;
+              let lat = null, lon = null, precise = false;
 
-              // 1. stored lat/lon
-              if (mapLat != null) { lat = mapLat; lon = mapLon; }
+              // 1. Geocode the Start Address (+ City) — the source of truth.
+              const startAddr = String(gameNode.startingLocationAddress || game.starting_location_address || '').trim();
+              if (startAddr) {
+                const hit = await geocodeRendezvous([startAddr, (gameNode.city || '').trim()].filter(Boolean).join(', '));
+                if (hit) { lat = hit.lat; lon = hit.lon; precise = true; }
+              }
 
-              // 2. Nominatim city geocode
+              // 2. Fall back to stored lat/lon (legacy rows, or an address miss).
+              if (lat == null && mapLat != null) { lat = mapLat; lon = mapLon; precise = true; }
+
+              // 3. Fall back to a city-level geocode.
               if (lat == null) {
                 const mapCity = (gameNode.city || '').trim();
                 if (!mapCity) return;
-                const res    = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapCity)}&format=json&limit=1`, { headers: { 'Accept-Language': 'en' } });
-                const places = await res.json();
-                if (!places.length) return;
-                lat = parseFloat(places[0].lat);
-                lon = parseFloat(places[0].lon);
+                const hit = await geocodeRendezvous(mapCity);
+                if (!hit) return;
+                lat = hit.lat;
+                lon = hit.lon;
               }
 
               // Weather for the takeover date at the rendezvous coordinates.
@@ -5913,15 +6230,17 @@ const WEATHER_CODE_MAP = {
               // Reverse-geocode the rendezvous to a neighborhood and stack it
               // above the city on the bottom label (neighborhood / city on
               // separate lines; `.bottom-center-label` uses white-space: pre-line).
-              fetchLocalLabel(lat, lon, '').then((neighborhood) => {
-                if (neighborhood && neighborhood !== cityOnly) {
-                  startCityLabel.textContent = `${neighborhood}\n${cityOnly}`;
-                }
-              });
+              if (!startName) {
+                fetchLocalLabel(lat, lon, '').then((neighborhood) => {
+                  if (neighborhood && neighborhood !== cityOnly) {
+                    startCityLabel.textContent = `${neighborhood}\n${cityOnly}`;
+                  }
+                });
+              }
 
               resolvedLat = lat;
               resolvedLon = lon;
-              baseZoom = (mapLat != null) ? 15 : 12;
+              baseZoom = precise ? 15 : 12;
               // Kick off geolocation in the background as soon as we know the
               // destination — non-blocking; reveal/Go don't have to wait on it.
               determineTravelMode();
@@ -6003,7 +6322,8 @@ const WEATHER_CODE_MAP = {
         // Fit each Game Weekend event name to one line now that it has layout
         // (and again once the web font finishes loading).
         requestAnimationFrame(fitAllYourEventTitles);
-        if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitAllYourEventTitles);
+        requestAnimationFrame(fitStartBlurb);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitAllYourEventTitles(); fitStartBlurb(); });
       } catch (error) {
         console.error('Game fetch error:', error);
         renderFatalState('Error Loading Game');
@@ -6014,6 +6334,7 @@ const WEATHER_CODE_MAP = {
       init();
       initYourEventsCalendar();
       window.addEventListener('resize', fitAllYourEventTitles);
+      window.addEventListener('resize', fitStartBlurb);
 
       const lightbox = document.getElementById('guideLightbox');
       const lightboxImg = document.getElementById('guideLightboxImg');
