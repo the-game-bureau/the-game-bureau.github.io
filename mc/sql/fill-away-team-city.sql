@@ -1,5 +1,5 @@
 -- Fill games.away_team_city with the away team's real city (City, ST).
--- NFL teams from mc/data/teams.json TGBGameCity (matched by away_team_mascot);
+-- NFL teams from the legacy team seed's TGBGameCity (matched by away_team_mascot);
 -- non-NFL away teams (Roadrunners, Crimson Tide, Pelicans) filled manually.
 -- Scope: fandom_game = true. Safe to re-run.
 

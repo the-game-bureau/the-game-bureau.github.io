@@ -84,7 +84,312 @@ const TEAM_METADATA = {
   WSH: { code:'WSH', espnAbbr:'wsh', slug:'washington-nationals', fullName:'Washington Nationals', shortLabel:'Washington', mascot:'Nationals', homeVenue:'Nationals Park', cityState:'Washington, D.C.' },
 };
 
-// ── Ballparks ────────────────────────────────────────────────────────────────
+// Away-fan team-name suggestions. Keep these grounded in market fandom,
+// colors, chants, ballparks, and travel rituals; do not use mascot names.
+const MLB_FANDOM_TEAM_SUGGESTIONS = {
+  ARI: [
+    'Sedona Red Road Crew',
+    'Phoenix Rally Club',
+    'Desert Road Nine',
+    'Chase Field Outpost',
+    'Valley Clue Crew',
+    'Copper State Away Day',
+    'Pool Suite Watch',
+    'Southwest Scorekeepers',
+  ],
+  ATL: [
+    'A-Town Road Nine',
+    'The Battery Away Club',
+    'Peachtree Rally Crew',
+    'Truist Outpost',
+    '404 Scorekeepers',
+    'Atlanta Chop House',
+    'Red And Navy Watch',
+    'Dirty South Dugout',
+  ],
+  BAL: [
+    'Charm City Road Nine',
+    'Camden Yards Away Club',
+    'Eutaw Street Crew',
+    'Orange And Black Watch',
+    'Inner Harbor Scorekeepers',
+    '410 Rally Club',
+    'Baltimore Dugout',
+    'Crab Cake Clue Crew',
+  ],
+  BOS: [
+    'Fenway Faithful Road Crew',
+    'Dirty Water Away Club',
+    'Yawkey Way Watch',
+    'Green Wall Crew',
+    'Boston Road Nine',
+    '617 Rally Club',
+    'Pesky Pole Seekers',
+    'New England Dugout',
+  ],
+  CHC: [
+    'North Side Road Crew',
+    'Wrigley Faithful',
+    'Bleacher Regulars',
+    'Clark And Addison Club',
+    'Chicago Blue Watch',
+    'Ivy Wall Seekers',
+    '312 Rally Nine',
+    'Lakeview Away Day',
+  ],
+  CWS: [
+    'South Side Road Crew',
+    'Black And Silver Nine',
+    'Rate Field Outpost',
+    'Chicago Southsiders',
+    '35th Street Watch',
+    '312 Rally Club',
+    'South Loop Dugout',
+    'Windy City Away Day',
+  ],
+  CIN: [
+    'Queen City Road Nine',
+    'Cincinnati Rally Club',
+    'Riverfront Scorekeepers',
+    'Great American Outpost',
+    '513 Dugout',
+    'Ohio River Watch',
+    'Cincy Away Day',
+    'Nati Clue Crew',
+  ],
+  CLE: [
+    '216 Road Nine',
+    'Cleveland Corner Crew',
+    'Progressive Field Faithful',
+    'Lake Erie Scorekeepers',
+    'Cleveland Rally Club',
+    'North Coast Dugout',
+    'Forest City Away Day',
+    'The Land Watch',
+  ],
+  COL: [
+    'Mile High Road Nine',
+    'Purple Row Crew',
+    'LoDo Away Club',
+    'Coors Field Outpost',
+    'Denver Rally Line',
+    '5280 Scorekeepers',
+    'Rocky Mountain Watch',
+    'Altitude Dugout',
+  ],
+  DET: [
+    'Motor City Road Nine',
+    'Old English D Crew',
+    '313 Rally Club',
+    'Comerica Outpost',
+    'Honolulu Blue Watch',
+    'Woodward Away Day',
+    'Detroit Scorekeepers',
+    'Michigan Dugout',
+  ],
+  HOU: [
+    'H-Town Road Nine',
+    'Space City Rally Crew',
+    'Orange Crush Away Club',
+    'Daikin Outpost',
+    '713 Scorekeepers',
+    'Bayou City Watch',
+    'Houston Dugout',
+    'Texas Moonshot Club',
+  ],
+  KC: [
+    'Fountain City Road Nine',
+    'Kansas City Blue Crew',
+    'Kauffman Outpost',
+    '816 Rally Club',
+    'BBQ Scorekeepers',
+    'Heartland Away Day',
+    'Missouri Dugout',
+    'Blue October Watch',
+  ],
+  LAA: [
+    'Big A Road Crew',
+    'Anaheim Rally Club',
+    'Orange County Nine',
+    'Big A Outpost',
+    'SoCal Away Day',
+    '714 Scorekeepers',
+    'Red Line Watch',
+    'Katella Clue Crew',
+  ],
+  LAD: [
+    'LA Blue Road Crew',
+    'Chavez Ravine Faithful',
+    'Los Angeles Rally Club',
+    'Top Deck Watch',
+    '213 Scorekeepers',
+    'Sunset Dugout',
+    'Blue Heaven Outpost',
+    'Los Angeles Away Day',
+  ],
+  MIA: [
+    '305 Road Nine',
+    'Little Havana Rally Crew',
+    'Miami Away Club',
+    'Biscayne Scorekeepers',
+    'loanDepot Outpost',
+    'Aqua And Black Watch',
+    'Magic City Dugout',
+    'Calle Ocho Clue Crew',
+  ],
+  MIL: [
+    'Cream City Road Crew',
+    'Milwaukee Rally Club',
+    'American Family Outpost',
+    '414 Scorekeepers',
+    'Wisconsin Away Day',
+    'Blue And Gold Watch',
+    'Lakefront Dugout',
+    'MKE Clue Crew',
+  ],
+  MIN: [
+    'Twin Cities Road Nine',
+    'Minneapolis Rally Club',
+    'Target Field Outpost',
+    '612 Scorekeepers',
+    'North Star Watch',
+    'Minnesota Away Day',
+    'Upper Midwest Dugout',
+    'Skyway Clue Crew',
+  ],
+  NYM: [
+    'Queens Road Crew',
+    'Flushing Faithful',
+    '7 Line Away Club',
+    'Citi Field Outpost',
+    'Orange And Blue Watch',
+    '718 Rally Nine',
+    'Shea Bridge Seekers',
+    'Queens Dugout',
+  ],
+  NYY: [
+    'Bronx Road Crew',
+    'Pinstripe Pilgrims',
+    'Roll Call Road Club',
+    '161st Street Watch',
+    'Bronx Scorekeepers',
+    '718 Rally Nine',
+    'Monument Park Outpost',
+    'New York Away Day',
+  ],
+  ATH: [
+    'Green And Gold Road Crew',
+    'Sacramento Rally Club',
+    'Sutter Health Outpost',
+    '916 Scorekeepers',
+    'California Away Day',
+    'East Bay Memory Club',
+    'Capitol Corridor Crew',
+    'River City Dugout',
+  ],
+  PHI: [
+    'South Philly Road Crew',
+    'Powder Blue Watch',
+    'Citizens Bank Outpost',
+    '215 Rally Nine',
+    'Broad Street Scorekeepers',
+    'Philly Away Day',
+    'Liberty Bell Dugout',
+    'Schuylkill Clue Crew',
+  ],
+  PIT: [
+    'Steel City Road Nine',
+    'Three Rivers Crew',
+    'PNC Outpost',
+    '412 Rally Club',
+    'Black And Gold Watch',
+    'Allegheny Scorekeepers',
+    'Pittsburgh Away Day',
+    'North Shore Dugout',
+  ],
+  SD: [
+    'Gaslamp Road Crew',
+    'San Diego Brown And Gold',
+    'Petco Outpost',
+    '619 Rally Nine',
+    'SoCal Scorekeepers',
+    'East Village Away Day',
+    'Pacific Coast Dugout',
+    'San Diego Clue Crew',
+  ],
+  SEA: [
+    'Emerald City Road Nine',
+    'Pacific Northwest Crew',
+    'T-Mobile Outpost',
+    '206 Rally Club',
+    'Navy And Teal Watch',
+    'Puget Sound Scorekeepers',
+    'Seattle Away Day',
+    'Rain City Dugout',
+  ],
+  SF: [
+    'Bay Area Road Nine',
+    'Orange Friday Crew',
+    'Oracle Outpost',
+    '415 Rally Club',
+    'McCovey Cove Watch',
+    'Fog City Scorekeepers',
+    'San Francisco Away Day',
+    'Embarcadero Dugout',
+  ],
+  STL: [
+    'Gateway City Road Nine',
+    'Busch Faithful',
+    'St. Louis Rally Club',
+    '314 Scorekeepers',
+    'Arch City Watch',
+    'Mississippi Away Day',
+    'Ballpark Village Crew',
+    'Midwest Dugout',
+  ],
+  TB: [
+    'Tampa Bay Road Nine',
+    'St. Pete Road Crew',
+    'Sunshine State Squad',
+    'Trop Outpost',
+    '813 Rally Club',
+    'Skyway Scorekeepers',
+    'Bay Area Away Day',
+    'Florida Dugout',
+  ],
+  TEX: [
+    'Lone Star Road Nine',
+    'Arlington Road Crew',
+    'Texas Rally Club',
+    'Globe Life Outpost',
+    '214 Scorekeepers',
+    'Blue And Red Watch',
+    'DFW Away Day',
+    'Metroplex Dugout',
+  ],
+  TOR: [
+    'True North Road Nine',
+    'Toronto Rally Club',
+    'Rogers Centre Outpost',
+    '416 Scorekeepers',
+    'North Of The Border Crew',
+    'Ontario Away Day',
+    'Royal Blue Watch',
+    'Dome Clue Crew',
+  ],
+  WSH: [
+    'DMV Road Nine',
+    'District Rally Club',
+    'Capitol Road Crew',
+    'Navy Yard Outpost',
+    '202 Scorekeepers',
+    'Burgundy Watch',
+    'Anacostia Away Day',
+    'Washington Dugout',
+  ],
+};
+
+// Ballparks
 const VENUE_OVERRIDES = {
   'Chase Field':                    { name:'Chase Field', city:'Phoenix', region:'Arizona', country:'USA', lat:33.4455, lon:-112.0667, timezone:'America/Phoenix' },
   'Truist Park':                    { name:'Truist Park', city:'Atlanta', region:'Georgia', country:'USA', lat:33.8907, lon:-84.4677, timezone:'America/New_York' },
@@ -281,6 +586,8 @@ function buildPayloadForFanSide(matchup, fanSide, archivedValue) {
   const startingLocation = `https://maps.google.com/?q=${venueInfo.lat},${venueInfo.lon}`;
   const cityLabel = `${venueInfo.city}, ${venueInfo.region}${venueInfo.country && venueInfo.country !== 'USA' ? `, ${venueInfo.country}` : ''}`;
   const id = `mlb${matchup.localGameDate.replace(/-/g, '')}-${matchup.awayCode.toLowerCase()}-${matchup.homeCode.toLowerCase()}-${fanCode.toLowerCase()}-${slugify(titleTarget)}`;
+  const awayIdentity = teamIdentity(matchup.awayCode);
+  const homeIdentity = teamIdentity(matchup.homeCode);
 
   const nodes = buildNodes({
     name, cityLabel, body, teams, logoUrl, tagline, guideBio,
@@ -298,8 +605,10 @@ function buildPayloadForFanSide(matchup, fanSide, archivedValue) {
     default_emoji: '⚾', starting_location: startingLocation,
     starting_location_lat: venueInfo.lat, starting_location_lon: venueInfo.lon,
     location_based: true, fandom_game: true, engine: 'text',
-    away_team_key: teamIdentity(matchup.awayCode).team_key || null,
-    home_team_key: teamIdentity(matchup.homeCode).team_key || null,
+    away_team_key: awayIdentity.team_key || null,
+    home_team_key: homeIdentity.team_key || null,
+    away_team_tgbid: TeamPalette.teamTgbid(awayIdentity) || null,
+    home_team_tgbid: TeamPalette.teamTgbid(homeIdentity) || null,
     game_date: win.gameDate, start_time: win.startTime, end_time: win.endTime,
     archived: archivedValue,
     venue_name: venueInfo.name,
@@ -331,7 +640,7 @@ function teamIdentity(code) {
 }
 
 function buildTeamSuggestions(fanTeam, venueInfo) {
-  return [
+  return completeTeamSuggestions(MLB_FANDOM_TEAM_SUGGESTIONS[fanTeam.code], fanTeam, [
     `${fanTeam.shortLabel} Road Crew`,
     `${fanTeam.shortLabel} Takeover Squad`,
     `${fanTeam.shortLabel} Bleacher Brigade`,
@@ -340,7 +649,39 @@ function buildTeamSuggestions(fanTeam, venueInfo) {
     `${fanTeam.shortLabel} Loudhouse`,
     `${venueInfo.city} Bound`,
     `${fanTeam.shortLabel} Clue Club`,
-  ];
+  ]);
+}
+
+function completeTeamSuggestions(primary, fanTeam, fallback) {
+  const mascot = normalizeNonEmpty(fanTeam && fanTeam.mascot);
+  const values = []
+    .concat(Array.isArray(primary) ? primary : [])
+    .concat(Array.isArray(fallback) ? fallback : [])
+    .filter(Boolean)
+    .filter((name) => !containsWord(name, mascot));
+  const unique = [];
+  values.forEach((value) => {
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+    const key = text.toLowerCase();
+    if (text && !unique.some((item) => item.toLowerCase() === key)) unique.push(text);
+  });
+  while (unique.length < 8) unique.push(`${fanTeam.shortLabel} Away Crew ${unique.length + 1}`);
+  return unique.slice(0, 8);
+}
+
+function containsWord(value, word) {
+  const needle = normalizeNonEmpty(word);
+  if (!needle) return false;
+  return new RegExp(`\\b${escapeRegExp(needle)}\\b`, 'i').test(String(value || ''));
+}
+
+function normalizeNonEmpty(value) {
+  const text = value == null ? '' : String(value).trim();
+  return text || '';
+}
+
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function buildTagline(matchup, fanTeam, venueInfo) {

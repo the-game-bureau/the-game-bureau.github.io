@@ -28,6 +28,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://qmaafbncpzrdmqapkkgr.supabase.co" crossorigin>
   <link rel="dns-prefetch" href="https://qmaafbncpzrdmqapkkgr.supabase.co">
+  <script src="/assets/supabase-fallback.js"></script>
   <script src="/assets/games-prefetch.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400..900&family=IBM+Plex+Mono:wght@500;600&family=JetBrains+Mono:wght@400..800&display=swap" rel="stylesheet">
   <!-- Runtime assets: sport marks, team lookup data, and shared shell styles. -->
@@ -123,7 +124,7 @@
       const SB_CONFIG = {
         url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
         key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
-        table: 'games'
+        table: 'games_with_teams'
       };
 
       const selectedGamesEl = document.getElementById('selectedGames');
@@ -138,13 +139,14 @@
       const heroMetaListEl = document.getElementById('heroMetaList');
       const heroMetaPromptEl = document.getElementById('heroMetaPrompt');
 
-      // The Supabase `teams` table is the single source of truth for team data
-      // (seeded from mc/data/teams.json via the seed/enrich migrations). It
+      // The Supabase `teams` table is the single source of truth for team data.
+      // If Supabase is unavailable, /assets/supabase-fallback.js can serve the
+      // latest public-safe backup snapshot from /backups/. The table
       // stores palette columns as shell/stripe/mask and the geographic
       // game/venue city as game_city/venue_city; buildTeamIndex maps those onto
       // the primary/secondary/tertiary + gameCity shape the directory expects.
       const TEAMS_REST_URL = SB_CONFIG.url + '/rest/v1/teams'
-        + '?select=league,conference,code,full_name,first_name,fanbase,mascot,sport,shell,stripe,mask,game_city,venue_city'
+        + '?select=tgbid,team_key,league,conference,division,code,full_name,first_name,fanbase,mascot,sport,shell,stripe,mask,text_color,game_city,venue_city,timezone'
         + '&order=league_sort.asc&order=team_sort.asc';
       const NO_HELMET_PALETTE = {
         primary_color: '#c8c4ba',
@@ -292,6 +294,10 @@
       let selectedEntryKind = '';
       let selectedEntryKey  = '';
       let liveGames = [];
+      // All rows as fetched (before the public archived/past-date filters). Kept so
+      // an admin can toggle "show all games" and we re-filter without a refetch.
+      let rawGames = [];
+      let adminShowAll = false;
       let colorsByCityMascot = new Map();
       let allTeams = [];
 
@@ -336,8 +342,7 @@
       }
 
       // Build the same { lookup, teams } shape from a flat list of team records.
-      // Accepts Supabase rows, the old nested palette rows, or the merged
-      // mc/data/teams.json shape with TGBID/GeoName/MascotName fields.
+      // Accepts Supabase rows, old nested palette rows, or imported legacy rows.
       function buildTeamIndex(records) {
         const lookup = new Map();
         const teams = [];
@@ -351,13 +356,21 @@
           const primary   = value.primary   || value.primary_color   || value.shell  || '';
           const secondary = value.secondary || value.secondary_color || value.stripe || '';
           const tertiary  = value.tertiary  || value.tertiary_color  || value.mask   || '';
+          const textColor = value.text_color || value.textColor || value.quaternary || value.quaternary_color || '';
+          const tgbid = value.tgbid || value.team_tgbid || value.teamTgbid || '';
+          const stableTeamKey = value.team_key || value.teamKey || '';
           const palette = {
+            tgbid,
+            team_key: stableTeamKey,
             primary_color: primary,
             secondary_color: secondary,
             tertiary_color: tertiary,
+            text_color: textColor,
             sport,
             fanbase
           };
+          if (tgbid) lookup.set('tgbid|' + String(tgbid), palette);
+          if (stableTeamKey) lookup.set('team_key|' + String(stableTeamKey).toUpperCase(), palette);
           // Index identity labels plus the canonical geographic game city so
           // both legacy schedules and normalized game records resolve.
           const fanbaseKey = teamKey(fanbase);
@@ -371,7 +384,23 @@
               lookup.set(gameCityKey + '|' + mascotKey, palette);
             }
           }
-          teams.push({ firstName, fanbase, gameCity, mascot, sport, palette });
+          teams.push({
+            ...value,
+            firstName,
+            first_name: value.first_name || firstName,
+            tgbid,
+            team_key: stableTeamKey,
+            fanbase,
+            gameCity,
+            game_city: value.game_city || gameCity,
+            mascot,
+            sport,
+            shell: value.shell || primary,
+            stripe: value.stripe || secondary,
+            mask: value.mask || tertiary,
+            text_color: textColor,
+            palette
+          });
         }
         return { lookup, teams };
       }
@@ -469,10 +498,10 @@
         return rows;
       }
 
-      // All team data — identity labels, palette, sport, and game/venue city —
-      // lives in the Supabase `teams` table (seeded from mc/data/teams.json via
-      // the seed/enrich migrations). Pull it straight from Supabase; if that
-      // fails we render with the no-helmet fallback rather than a stale bundle.
+      // All team data - identity labels, palette, sport, and game/venue city -
+      // lives in the Supabase `teams` table. The global fallback wrapper may
+      // satisfy this request from /backups/supabase-teams-latest.json if
+      // Supabase is down; otherwise we render with the no-helmet fallback.
       async function fetchTeamColors() {
         try {
           const rows = await fetchTeamColorsFromSupabase();
@@ -485,6 +514,22 @@
 
       function getHelmetByAwayTeam(game) {
         if (!game) return null;
+        const joinedAway = game.away_team || game.awayTeam;
+        if (joinedAway && typeof joinedAway === 'object') {
+          const indexed = buildTeamIndex([joinedAway]);
+          const joinedPalette = indexed.teams && indexed.teams[0] && indexed.teams[0].palette;
+          if (joinedPalette && joinedPalette.primary_color) return joinedPalette;
+        }
+        const tgbid = game.away_team_tgbid || game.awayTeamTgbid;
+        if (tgbid) {
+          const hit = colorsByCityMascot.get('tgbid|' + String(tgbid));
+          if (hit) return hit;
+        }
+        const stableTeamKey = game.away_team_key || game.awayTeamKey;
+        if (stableTeamKey) {
+          const hit = colorsByCityMascot.get('team_key|' + String(stableTeamKey).toUpperCase());
+          if (hit) return hit;
+        }
         const mascotKey = teamKey(game.away_team_mascot);
         if (!mascotKey) return null;
         // away_team_city may be stored as the full "City, State" form (the
@@ -591,7 +636,7 @@
       // UTSA Roadrunners + San Antonio Spurs, etc.) each get their own
       // directory row. The row displays only the fanbase; the helmet icon
       // tells them apart visually. We normalize via the team's `fanbase`
-      // from teams.json so schedule inconsistencies (UTSA vs San Antonio)
+      // from the teams table so schedule inconsistencies (UTSA vs San Antonio)
       // don't fracture a single team into multiple rows.
       function getFanTeam(game) {
         const cityRaw = plainText(game && game.away_team_city);
@@ -600,6 +645,12 @@
         const city = (helmet && helmet.fanbase) || cityRaw;
         if (city) {
           return mascot ? city + ' ' + mascot : city;
+        }
+        const joinedAway = game && (game.away_team || game.awayTeam);
+        if (joinedAway && typeof joinedAway === 'object') {
+          const joinedFanbase = plainText(joinedAway.fanbase || joinedAway.first_name || joinedAway.full_name);
+          const joinedMascot = plainText(joinedAway.mascot);
+          if (joinedFanbase) return joinedMascot ? joinedFanbase + ' ' + joinedMascot : joinedFanbase;
         }
         const structuredCandidates = [
           game && game.away_team,
@@ -700,7 +751,7 @@
           }));
       }
 
-      // Fan-mode directory is driven by teams.json (canonical team list), not
+      // Fan-mode directory is driven by the teams table, not
       // by whatever free-form text happens to be in the Supabase game rows.
       // We pre-bucket games by their normalized fanKey so each team can claim
       // its own entries; teams with no matching games are dropped so the list
@@ -1190,6 +1241,11 @@
       // Selected-games rendering
       // ---------------------------------------------------------------------------
       function gamesForEntry(entry) {
+        if (entry.entryKind === 'all') {
+          // Admin "show all" view — every game currently in liveGames, including
+          // ones that don't bucket into any city/fan entry.
+          return liveGames.slice();
+        }
         if (entry.entryKind === 'city') {
           return liveGames.filter((g) => getCity(g) === entry.entryKey);
         }
@@ -1674,28 +1730,55 @@
         catch (_) { /* quota / private mode — ignore */ }
       }
 
-      function applyDirectoryData(games, teamColorsResult) {
-        colorsByCityMascot = teamColorsResult.lookup;
-        allTeams = teamColorsResult.teams;
-        // Today (local) as YYYY-MM-DD, recomputed each load so it's always current.
+      // True only for a verified admin (painted by /assets/admin-bridge.js, which
+      // adds the body/root class and exposes the bridge API). Signed-out public
+      // visitors are never admins.
+      function isAdminAuthorized() {
+        return !!((window.TgbPublicAdminBridge
+            && typeof window.TgbPublicAdminBridge.isAuthorized === 'function'
+            && window.TgbPublicAdminBridge.isAuthorized())
+          || document.documentElement.classList.contains('tgb-admin-authorized'));
+      }
+
+      // Force /assets/admin-bridge.js to (re)paint EDIT GAME buttons onto every
+      // [data-admin-edit] card now, instead of waiting on its debounced observer.
+      function paintEditButtons() {
+        const bridge = window.TgbPublicAdminBridge;
+        if (!bridge || typeof bridge.scan !== 'function') return;
+        requestAnimationFrame(() => { try { bridge.scan(); } catch (_) {} });
+      }
+
+      // Rebuild liveGames from the raw rows. Public visitors (and admins who
+      // haven't toggled "show all") get the archived + past-date filters; an
+      // admin who opts in sees every game, archived and past included.
+      function recomputeLiveGames() {
+        const showAll = adminShowAll && isAdminAuthorized();
+        // Today (local) as YYYY-MM-DD, recomputed each pass so it's always current.
         const todayStr = (() => {
           const d = new Date();
           return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         })();
-        liveGames = (Array.isArray(games) ? games : [])
-          .filter((game) => !isTrueish(game && game.archived))
+        liveGames = (Array.isArray(rawGames) ? rawGames : []).filter((game) => {
+          if (showAll) return true;
+          if (isTrueish(game && game.archived)) return false;
           // Drop games that already took place. Keep today + future, and keep
           // undated/"anytime" games (no game_date) which are always playable.
-          .filter((game) => {
-            const gd = String((game && game.game_date) || '').trim();
-            return !gd || gd >= todayStr;
-          });
+          const gd = String((game && game.game_date) || '').trim();
+          return !gd || gd >= todayStr;
+        });
         renderDirectory();
         // applyUrlSelection is idempotent — reapplying after fresh data
         // recovers any URL-bookmarked selection that wasn't yet in the
         // cached snapshot.
         suppressUrlWrite = true;
         try { applyUrlSelection(); } finally { suppressUrlWrite = false; }
+      }
+
+      function applyDirectoryData(games, teamColorsResult) {
+        colorsByCityMascot = teamColorsResult.lookup;
+        allTeams = teamColorsResult.teams;
+        rawGames = Array.isArray(games) ? games : [];
+        recomputeLiveGames();
       }
 
       async function load() {
@@ -1909,9 +1992,71 @@
         }
       });
 
+      // Admin-only "show all games" toggle. Hidden for the public; revealed when
+      // /assets/admin-bridge.js verifies an admin. Flips adminShowAll and re-filters
+      // the already-fetched rows — no refetch, no public exposure of the data.
+      function setupAdminAllGamesToggle() {
+        const style = document.createElement('style');
+        style.textContent = [
+          '#tgbAdminShowAll{position:fixed;left:14px;bottom:14px;z-index:2147482000;display:none;align-items:center;gap:8px;min-height:34px;padding:0 14px;border:1px solid #111;border-radius:8px;background:#111;color:#fff;font-family:"IBM Plex Mono",Consolas,monospace;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);}',
+          '#tgbAdminShowAll.is-visible{display:inline-flex;}',
+          '#tgbAdminShowAll.is-on{background:#fff;color:#111;}'
+        ].join('');
+        document.head.appendChild(style);
+
+        const btn = document.createElement('button');
+        btn.id = 'tgbAdminShowAll';
+        btn.type = 'button';
+        const paint = () => {
+          btn.classList.toggle('is-on', adminShowAll);
+          btn.textContent = adminShowAll ? 'Showing all games' : 'Show all games';
+        };
+        paint();
+        btn.addEventListener('click', () => {
+          adminShowAll = !adminShowAll;
+          paint();
+          // recomputeLiveGames() re-filters and (via applyUrlSelection) resets any
+          // city/fan selection. When turning ON, immediately drive the generic
+          // selected-games grid with a synthetic "all" entry so the admin sees a
+          // flat list of EVERY game — not just bumped city/fan counts.
+          recomputeLiveGames();
+          if (adminShowAll) {
+            selectedEntryKind = 'all';
+            selectedEntryKey = '*';
+            refreshSelectionStyles();
+            renderSelectedGames({ entryKind: 'all', entryKey: '*', label: 'All games (admin)' });
+            // The cards carry data-admin-edit; nudge the bridge to paint every
+            // EDIT GAME button immediately rather than waiting on its debounced
+            // observer (which can miss a bulk re-render).
+            paintEditButtons();
+          }
+        });
+        document.body.appendChild(btn);
+
+        const sync = () => {
+          const admin = isAdminAuthorized();
+          btn.classList.toggle('is-visible', admin);
+          // If the admin signs out while "show all" is on, drop back to the
+          // public view so archived/past games don't linger for a public visitor.
+          if (!admin && adminShowAll) {
+            adminShowAll = false;
+            paint();
+            recomputeLiveGames();
+          }
+        };
+        sync();
+        // The bridge verifies asynchronously and toggles the root class when it
+        // resolves; watch for that so the control appears without a reload.
+        new MutationObserver(sync).observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['class']
+        });
+      }
+
       // ---------------------------------------------------------------------------
       // Bootstrap
       // ---------------------------------------------------------------------------
+      setupAdminAllGamesToggle();
       load();
     }());
   </script>

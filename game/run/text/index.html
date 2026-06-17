@@ -9,6 +9,7 @@
   <meta name="theme-color" content="#ffffff">
   <title>PLAY ERROR | THE GAME BUREAU</title>
   <link id="favicon" rel="icon" href="../../../assets/brand/tgb.ico" type="image/x-icon">
+  <script src="/assets/supabase-fallback.js"></script>
   <script src="/assets/team-palette.js"></script>
   <style>
     /* ── Base chat UI (archive/index.css) ── */
@@ -2754,7 +2755,7 @@
     const SB_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
       key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
-      table: 'games_with_graph'
+      table: 'games_with_graph_and_teams'
     };
 
     // Start server-side purchase verification immediately (runs in parallel with game data fetch)
@@ -2862,7 +2863,11 @@
       const avatarWrap = headerLogoEl && headerLogoEl.closest('.avatar');
       if (!thumbnailEl || !headerLogoEl || !avatarWrap) return;
 
-      const guideImageUrl = resolveAssetUrl((gameNode && (gameNode.guideImage || gameNode.guideImageUrl)) || '');
+      // Guide avatar is always assets/guides/{gameId}.png (host-relative so it
+      // resolves on localhost and prod); the stored guide_image_url is ignored.
+      const guideImageUrl = (gameNode && gameNode.id)
+        ? '/assets/guides/' + encodeURIComponent(gameNode.id) + '.png'
+        : resolveAssetUrl((gameNode && (gameNode.guideImage || gameNode.guideImageUrl)) || '');
       const logoUrl = resolveAssetUrl((gameNode && (gameNode.logo || gameNode.logoUrl)) || '');
       const logoAlt = (gameNode && (gameNode.title || gameNode.guideName)) || 'Game Logo';
       const loadToken = ++headerLogoLoadToken;
@@ -3131,6 +3136,7 @@
         }
 
         const gameNode = {
+          id:                  gameData.id,
           title:               gameData.name,
           guideName:           gameData.guide_name,
           guideImageUrl:       gameData.guide_image_url,

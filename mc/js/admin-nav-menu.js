@@ -10,14 +10,43 @@
 
   if (global.TgbMcAdminNav) return;
 
+  // The two left-aligned navigation buttons, shared across every Mission
+  // Control page. Injected by init() so they live in one place instead of
+  // being hand-duplicated in each page's topbar markup.
+  var BACK_BUTTONS = [
+    { label: 'TGB HOME', target: '/', newTab: true },
+    { label: 'MISSION CONTROL', target: '/mc/', newTab: false }
+  ];
+
+  // OPERATIONS lives in its own right-aligned dark group alongside the login /
+  // account button (see buildRightGroup) rather than in the main nav bar. It is
+  // still surfaced as a hub card via getGroups().
+  var OPERATIONS_LINK = {
+    label: 'OPERATIONS',
+    href: '/mc/gs-codes.html'
+  };
+
+  // localStorage key the game editor (overview.html) uses to remember the last
+  // opened game. EDIT GAMES links to that game so it reopens where you left off.
+  var OPEN_GAME_KEY = 'tgb-games-phoneanalogy-open';
+
+  function resolveNavHref(groupData) {
+    var href = groupData && groupData.href ? groupData.href : '';
+    if (groupData && groupData.appendOpenGameId && href) {
+      var id = '';
+      try {
+        id = String((global.localStorage && global.localStorage.getItem(OPEN_GAME_KEY)) || '').trim();
+      } catch (error) { /* localStorage unavailable */ }
+      if (id) href += (href.indexOf('?') >= 0 ? '&' : '?') + 'id=' + encodeURIComponent(id);
+    }
+    return href;
+  }
+
   var MENU_GROUPS = [
     {
       label: 'EDIT GAMES',
-      href: '/mc/editgames.html'
-    },
-    {
-      label: 'OPERATIONS',
-      href: '/mc/gs-codes.html'
+      href: '/mc/overview.html',
+      appendOpenGameId: true
     },
     {
       label: 'Batch Edit',
@@ -58,6 +87,12 @@
           description: 'Open research assistants and their supporting datasets.'
         },
         {
+          href: 'https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/editor/17583?schema=public&sort=name%3Adesc',
+          label: 'Database',
+          description: 'Open the Supabase table editor for the live games database.',
+          external: true
+        },
+        {
           href: 'https://www.icloud.com/notes/note/UHJpdmF0ZTo6Tm90ZXM6OmN1cnJlbnRVc2VyOjo4YTBhZTliYy1lNGQ5LTQxNTMtYTA0Zi03NjM2NWRhN2IwNjQ=',
           label: 'Apple Notes',
           description: 'Open the shared working notes used alongside Mission Control.',
@@ -76,12 +111,25 @@
     button.setAttribute('data-mc-nav-ready', 'true');
 
     var controls = button.parentNode;
+
+    // Inject the shared left buttons (TGB HOME / MISSION CONTROL) as the first
+    // item in the topbar, unless the page already has them.
+    if (!controls.querySelector('.mc-back-nav')) {
+      controls.insertBefore(buildBackNav(), controls.firstChild);
+    }
+
     var navbar = buildNavigation(currentPathname());
     controls.insertBefore(navbar, button);
 
     var account = wrapAccountButton(button);
     var accountMenu = buildAccountMenu();
     account.appendChild(accountMenu);
+
+    // Right-side dark group: OPERATIONS + login/account, pinned to the far right.
+    var rightGroup = buildRightGroup(currentPathname());
+    var opsLink = rightGroup.querySelector('.mc-admin-right-link');
+    controls.appendChild(rightGroup);
+    rightGroup.appendChild(account);
 
     var state = { authorized: false };
     var groups = Array.prototype.slice.call(navbar.querySelectorAll('.mc-admin-nav-group'));
@@ -118,6 +166,8 @@
     function setAuthorized(isAuthorized) {
       state.authorized = !!isAuthorized;
       navbar.hidden = !state.authorized;
+      if (opsLink) opsLink.hidden = !state.authorized;
+      rightGroup.classList.toggle('is-signed-out', !state.authorized);
       var title = state.authorized ? 'Mission Control account' : 'ADMIN LOGIN';
       button.setAttribute('aria-label', title);
       button.title = title;
@@ -198,6 +248,48 @@
     return wrapper;
   }
 
+  function buildBackNav() {
+    var nav = global.document.createElement('div');
+    nav.className = 'mc-back-nav';
+    nav.setAttribute('aria-label', 'Site navigation');
+
+    BACK_BUTTONS.forEach(function (data) {
+      var btn = global.document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'mc-back-btn';
+      btn.textContent = data.label;
+      // Bind navigation here (rather than relying on admin-shell.js's data-*
+      // hooks) since these buttons are injected after that script has run.
+      btn.addEventListener('click', function () {
+        if (data.newTab) {
+          global.open(data.target, '_blank', 'noopener,noreferrer');
+        } else {
+          global.location.href = data.target;
+        }
+      });
+      nav.appendChild(btn);
+    });
+
+    return nav;
+  }
+
+  function buildRightGroup(currentPath) {
+    var group = global.document.createElement('div');
+    group.className = 'mc-admin-right';
+
+    var link = global.document.createElement('a');
+    link.className = 'mc-back-btn mc-admin-right-link';
+    link.textContent = OPERATIONS_LINK.label;
+    link.href = OPERATIONS_LINK.href;
+    if (isCurrentPath(currentPath, OPERATIONS_LINK.href)) {
+      link.classList.add('is-current');
+      link.setAttribute('aria-current', 'page');
+    }
+    group.appendChild(link);
+
+    return group;
+  }
+
   function buildNavigation(currentPath) {
     var navbar = global.document.createElement('nav');
     navbar.className = 'mc-admin-navbar';
@@ -213,7 +305,7 @@
         var navLink = global.document.createElement('a');
         navLink.className = 'mc-admin-nav-trigger mc-admin-nav-trigger--link';
         navLink.textContent = groupData.label;
-        navLink.href = groupData.href;
+        navLink.href = resolveNavHref(groupData);
         if (groupData.external) {
           navLink.target = '_blank';
           navLink.rel = 'noopener noreferrer';
@@ -315,14 +407,18 @@
   }
 
   function getGroups() {
-    return MENU_GROUPS.map(function (group) {
+    // OPERATIONS is pulled out of the nav bar (it rides with login on the
+    // right) but still belongs on the hub, in its original second slot.
+    var groups = MENU_GROUPS.slice();
+    groups.splice(1, 0, OPERATIONS_LINK);
+    return groups.map(function (group) {
       // Link-only groups (no items) surface as a single card in the hub.
       var items = group.items
         ? group.items.map(function (item) {
             return Object.assign({}, item);
           })
         : [{
-            href: group.href,
+            href: resolveNavHref(group),
             label: group.label,
             description: group.description || '',
             external: group.external

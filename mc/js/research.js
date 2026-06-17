@@ -368,7 +368,7 @@
   //   • { teams:[…] } etc.  → a wrapper OBJECT; page its inner collection and,
   //                            on save, re-emit the pretty-printed object with
   //                            every other top-level field (e.g. _ai_update_prompt)
-  //                            preserved. This keeps teams.json valid.
+  //                            preserved. This keeps wrapper JSON valid.
   //   • anything else        → a single-item JSONL list
   function detectShape(data) {
     if (Array.isArray(data)) return { kind: 'jsonl', records: data };
@@ -580,7 +580,7 @@
 
   /* ── Merge / append new AI results into the cousin file ────────
      Format-aware: a JSONL/array cousin is written as JSON Lines; a wrapper
-     object (e.g. teams.json's { _ai_update_prompt, teams:[…] }) is re-emitted
+     object (e.g. { _ai_update_prompt, records:[...] }) is re-emitted
      as a pretty-printed object with its other top-level fields preserved.
      Chromium writes straight back to a file you pick; others get a download. */
 
@@ -599,7 +599,7 @@
   function serializeRecords(records, shape) {
     if (shape && shape.kind === 'object') {
       const obj = Object.assign({}, shape.wrapper, { [shape.collectionKey]: records });
-      return JSON.stringify(obj, null, 2) + '\n';   // pretty object (e.g. teams.json)
+      return JSON.stringify(obj, null, 2) + '\n';   // pretty wrapper object
     }
     return records.map((r) => JSON.stringify(r)).join('\n') + '\n';   // JSONL
   }
@@ -849,7 +849,7 @@
 
   function mountMerge() {
     if (!els.result || $('mergePanel')) return;
-    // Pages whose cousin file isn't plain JSONL (e.g. teams.json, which has a
+    // Pages whose cousin file isn't plain JSONL (e.g. a wrapper object with a
     // fixed { _ai_update_prompt, teams:[…] } shape) opt out so the JSONL writer
     // can't clobber them — those are edited by their own dedicated tool.
     if (document.body.getAttribute('data-merge') === 'off') return;

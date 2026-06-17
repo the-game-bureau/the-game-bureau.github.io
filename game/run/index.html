@@ -29,6 +29,7 @@
   <script src="/assets/games/helmets/helmet.js"></script>
   <script src="/assets/games/helmets/basketball.js"></script>
   <script src="/assets/games/helmets/baseball.js"></script>
+  <script src="/assets/supabase-fallback.js"></script>
   <script src="/assets/team-palette.js"></script>
 
   <style>
@@ -3076,7 +3077,7 @@
     const SB_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
       key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
-      table: 'games'
+      table: 'games_with_teams'
     };
 
 
@@ -3190,9 +3191,9 @@
     }
 
     // ── FANDOM team scroll ──────────────────────────────────────────────────
-    // The Supabase `teams` table is the canonical team list (seeded from
-    // mc/data/teams.json). Palette is stored as shell/stripe/mask and maps onto
-    // the primary/secondary/tertiary args the mark generators expect.
+    // The Supabase `teams` table is the canonical team list. Palette is stored
+    // as shell/stripe/mask and maps onto the primary/secondary/tertiary args
+    // the mark generators expect.
     const FANDOM_LEAGUES = new Set(['NFL', 'MLB', 'NBA']);
     // Pixel music-note mark (clubs/festivals with no helmet), ported from the
     // public games directory so non-sport fandoms still get an icon.
@@ -4620,9 +4621,11 @@ const WEATHER_CODE_MAP = {
       const logoEl = document.getElementById('landingLogo');
       const guideAvatarEl = document.getElementById('guideAvatar');
       const logoUrl = sanitizeAssetUrl((gameNode && (gameNode.logo || gameNode.logoUrl)) || '');
-      // Guide avatar is always the game-id image under /assets/guides.
+      // Guide avatar is always the game-id image under /assets/guides. Use a
+      // host-relative path so it resolves on localhost (local file) and prod
+      // alike, instead of forcing the production domain.
       const guideUrl = gameNode && gameNode.id
-        ? 'https://thegamebureau.com/assets/guides/' + encodeURIComponent(gameNode.id) + '.png'
+        ? '/assets/guides/' + encodeURIComponent(gameNode.id) + '.png'
         : '';
 
       if (logoEl) {
@@ -4713,10 +4716,14 @@ const WEATHER_CODE_MAP = {
       const match = raw.match(/^(\d{2}):(\d{2})/);
       if (!match) return '';
       const probe = new Date(2000, 0, 1, Number(match[1]), Number(match[2]), 0, 0);
-      return new Intl.DateTimeFormat(undefined, {
+      // start_time/end_time are stored as Eastern wall-clock (see the schedule
+      // makers); display the value as-is with an explicit ET tag rather than
+      // converting to the device clock.
+      const formatted = new Intl.DateTimeFormat(undefined, {
         hour: 'numeric',
         minute: '2-digit'
       }).format(probe);
+      return formatted ? `${formatted} ET` : '';
     }
 
     function formatCalendarStamp(date) {
@@ -6380,6 +6387,12 @@ const WEATHER_CODE_MAP = {
   <div class="guide-lightbox" id="guideLightbox">
     <img id="guideLightboxImg" src="" alt="Guide">
   </div>
+
+  <!-- Admin-only EDIT GAME control. admin-bridge.js paints an "EDIT GAME" link
+       into this hook for verified admins (routing to mc/overview.html?id={URL id});
+       the public never sees it. Without a [data-admin-edit] hook the bridge has
+       nothing to attach to, so no button appears. -->
+  <div data-admin-edit="game-run" style="position:fixed;left:14px;bottom:14px;z-index:2147483000;"></div>
 
   <script src="../../assets/admin-bridge.js"></script>
 </body>

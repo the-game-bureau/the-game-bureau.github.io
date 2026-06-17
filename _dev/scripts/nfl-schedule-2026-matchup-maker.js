@@ -304,6 +304,331 @@ const TEAM_METADATA = {
   },
 };
 
+// Away-fan team-name suggestions. Keep these grounded in market fandom,
+// colors, chants, stadium rituals, and road-trip culture; do not use mascot names.
+const NFL_FANDOM_TEAM_SUGGESTIONS = {
+  ARI: [
+    'Red Sea Road Crew',
+    'Big Red Away Day',
+    'Desert Red Clue Crew',
+    'Valley Road Watch',
+    'Copper State Claim Crew',
+    'Arizona Rally Line',
+    'Glendale To Go',
+    'Southwest Signal Crew',
+  ],
+  ATL: [
+    'Rise Up Road Crew',
+    'A-Town Away Day',
+    'Dirty South Signal Crew',
+    'Red And Black Rally Line',
+    'Peachtree Pregame Club',
+    'Atlanta Road Noise',
+    'The 404 Claim Crew',
+    'Sunday Flight Plan',
+  ],
+  BAL: [
+    'Charm City Road Crew',
+    'Purple Wall Away Day',
+    'Baltimore Beat Squad',
+    'Inner Harbor Signal Crew',
+    'Crab Cake Clue Club',
+    'The 410 Road Line',
+    'M&T Away Watch',
+    'Baltimore Night Shift',
+  ],
+  BUF: [
+    '716 Road Crew',
+    'Table Crew Away Day',
+    'Buffalo Shout Squad',
+    'Western New York Signal Crew',
+    'Blue And Red Travel Club',
+    'Lake Erie Road Watch',
+    'Orchard Park Outpost',
+    'Snow Belt Clue Crew',
+  ],
+  CAR: [
+    'Keep Pounding Road Crew',
+    'Carolinas Away Day',
+    'Mint Street Mission',
+    'Queen City Signal Crew',
+    'Blue Ridge Road Watch',
+    'Bank Of America Outpost',
+    'Uptown Clue Crew',
+    'Two-State Rally Line',
+  ],
+  CHI: [
+    'Midway Road Crew',
+    'Chicago Blue Line',
+    'Lakefront Away Day',
+    'Windy City Signal Crew',
+    'Soldier Field Outpost',
+    'Navy And Orange Watch',
+    'The 312 Rally Line',
+    'Cold Weather Clue Crew',
+  ],
+  CIN: [
+    'Who Dey Road Crew',
+    'Jungle Away Day',
+    'Queen City Signal Crew',
+    'Cincy Stripe Watch',
+    'Riverfront Rally Line',
+    'Paycor Outpost',
+    'Orange And Black Ops',
+    'The 513 Clue Crew',
+  ],
+  CLE: [
+    'Dawg Pound Road Crew',
+    'Lake Erie Signal Crew',
+    'Orange And Brown Watch',
+    'Cleveland Road Noise',
+    'The 216 Rally Line',
+    'North Coast Clue Crew',
+    'Muni Lot Mission',
+    'Huntington Outpost',
+  ],
+  DAL: [
+    'Lone Star Road Crew',
+    "America's Away Team",
+    'Blue Star Signal Crew',
+    'Dallas Prime Time',
+    'Silver And Navy Watch',
+    'The 214 Rally Line',
+    'Arlington Outpost',
+    'Texas Road Standard',
+  ],
+  DEN: [
+    'Mile High Road Crew',
+    'Orange Crush Away Day',
+    'Denver Altitude Club',
+    'Rocky Mountain Signal Crew',
+    'Blue And Orange Watch',
+    '5280 Clue Crew',
+    'Colfax Rally Line',
+    'Mile High Outpost',
+  ],
+  DET: [
+    '313 Road Crew',
+    'Honolulu Blue Watch',
+    'Motor City Signal Crew',
+    'Detroit Grit Club',
+    'Ford Field Outpost',
+    'Blue Collar Rally Line',
+    'Woodward Road Crew',
+    'One Pride Away Day',
+  ],
+  GB: [
+    'Cheesehead Road Crew',
+    'Frozen Tundra Away Day',
+    'Green And Gold Watch',
+    'Lambeau Signal Crew',
+    'Titletown Travel Club',
+    'Dairyland Clue Crew',
+    'Northwoods Rally Line',
+    'Wisconsin Road Standard',
+  ],
+  HOU: [
+    'H-Town Road Crew',
+    'Deep Steel Signal Crew',
+    'Liberty White Watch',
+    'Houston Battle Red',
+    'Space City Away Day',
+    'The 713 Rally Line',
+    'NRG Outpost',
+    'Bayou City Clue Crew',
+  ],
+  IND: [
+    'Circle City Road Crew',
+    'For The Shoe Away Day',
+    'Blue And White Watch',
+    'Indy Signal Crew',
+    'Lucas Oil Outpost',
+    'The 317 Rally Line',
+    'Hoosier Road Club',
+    'Downtown Clue Crew',
+  ],
+  JAX: [
+    'DUUUVAL Road Crew',
+    'Bold City Away Day',
+    'Teal Signal Crew',
+    'River City Watch',
+    '904 Rally Line',
+    'EverBank Outpost',
+    'First Coast Clue Crew',
+    'Jacksonville Road Noise',
+  ],
+  KC: [
+    'Kingdom Road Crew',
+    'Red Friday Away Day',
+    'BBQ Signal Crew',
+    'Tomahawk Chop Watch',
+    'Arrowhead Outpost',
+    '816 Rally Line',
+    'Fountain City Clue Crew',
+    'Kansas City Road Noise',
+  ],
+  LV: [
+    'Black Hole Road Crew',
+    'Silver And Black Watch',
+    'Vegas Road Show',
+    'Allegiant Outpost',
+    'Desert Shield Signal Crew',
+    '702 Rally Line',
+    'Sin City Clue Crew',
+    'Commitment Away Day',
+  ],
+  LAC: [
+    'Bolt Up Road Crew',
+    'Powder Blue Watch',
+    'Electric Away Day',
+    'SoFi Signal Crew',
+    'Los Angeles Charge Line',
+    'Lightning Lane Crew',
+    '213 Rally Line',
+    'West Coast Clue Crew',
+  ],
+  LAR: [
+    'Whose House Road Crew',
+    'Royal Blue Watch',
+    'SoFi Away Day',
+    'Los Angeles Rally Line',
+    'Gold Standard Signal Crew',
+    'Westside Clue Crew',
+    'Hollywood Road Show',
+    'Blue And Sol Club',
+  ],
+  MIA: [
+    '305 Road Crew',
+    'Aqua And Orange Watch',
+    'South Beach Signal Crew',
+    'Hard Rock Outpost',
+    'Miami Vice Away Day',
+    'Sunshine Road Club',
+    'Biscayne Clue Crew',
+    'The 305 Rally Line',
+  ],
+  MIN: [
+    'SKOL Road Crew',
+    'Purple North Watch',
+    'Twin Cities Signal Crew',
+    'U.S. Bank Outpost',
+    'North Star Away Day',
+    '612 Rally Line',
+    'Bold North Clue Crew',
+    'Minnesota Road Noise',
+  ],
+  NE: [
+    'Do Your Job Road Crew',
+    'Foxborough Away Day',
+    'New England Signal Crew',
+    'Navy And Silver Watch',
+    'Gillette Outpost',
+    'Route One Rally Line',
+    'Six-State Clue Crew',
+    'The 508 Road Club',
+  ],
+  NO: [
+    'Who Dat Road Crew',
+    'Black And Gold Krewe',
+    'Crescent City Signal Crew',
+    'Superdome Outpost',
+    'Second Line Away Day',
+    '504 Rally Line',
+    'French Quarter Clue Crew',
+    'New Orleans Road Noise',
+  ],
+  NYG: [
+    'Big Blue Road Crew',
+    'G-Men Away Day',
+    'East Rutherford Outpost',
+    'New York Signal Crew',
+    'Blue Crew Watch',
+    'MetLife Rally Line',
+    'Tri-State Clue Crew',
+    'Sunday Night Blue',
+  ],
+  NYJ: [
+    'Gang Green Road Crew',
+    'Flight Crew Away Day',
+    'Green And White Watch',
+    'New York Signal Crew',
+    'MetLife Outpost',
+    'Tri-State Rally Line',
+    'Queens Clue Crew',
+    'Broadway Road Club',
+  ],
+  PHI: [
+    'Philly Special Road Crew',
+    'Kelly Green Watch',
+    'South Philly Signal Crew',
+    'Broad Street Away Day',
+    'Linc Outpost',
+    '215 Rally Line',
+    'Midnight Green Clue Crew',
+    'No One Likes Us Club',
+  ],
+  PIT: [
+    'Terrible Towel Road Crew',
+    'Black And Gold Watch',
+    'Three Rivers Signal Crew',
+    'Steel City Away Day',
+    'Acrisure Outpost',
+    '412 Rally Line',
+    'Yinzer Clue Crew',
+    'Pittsburgh Road Noise',
+  ],
+  SF: [
+    'Faithful Road Crew',
+    'Red And Gold Watch',
+    'Bay Area Signal Crew',
+    'Levis Outpost',
+    'Gold Rush Away Day',
+    '415 Rally Line',
+    'West Coast Clue Crew',
+    'Fog City Road Club',
+  ],
+  SEA: [
+    '12s Road Crew',
+    'Pacific Northwest Watch',
+    'Lumen Signal Crew',
+    'Seattle Road Noise',
+    'Emerald City Away Day',
+    '206 Rally Line',
+    'Rain City Clue Crew',
+    'Action Green Travel Club',
+  ],
+  TB: [
+    'Krewe Road Crew',
+    'Pewter Watch',
+    'Bay Area Signal Crew',
+    'Cannon Fire Away Day',
+    'Raymond James Outpost',
+    '813 Rally Line',
+    'Tampa Bay Clue Crew',
+    'Sun Coast Road Club',
+  ],
+  TEN: [
+    '615 Road Crew',
+    'Two-Tone Blue Watch',
+    'Music City Signal Crew',
+    'Nissan Outpost',
+    'Tennessee Road Noise',
+    'Broadway Away Day',
+    'Smashville Clue Crew',
+    'Nashville Rally Line',
+  ],
+  WSH: [
+    'Burgundy And Gold Road Crew',
+    'DMV Signal Crew',
+    'District Away Day',
+    'Northwest Outpost',
+    'Raise Hail Rally Line',
+    '202 Clue Crew',
+    'Capital Road Watch',
+    'Washington Road Standard',
+  ],
+};
+
 const VENUE_OVERRIDES = {
   'State Farm Stadium': {
     name: 'State Farm Stadium',
@@ -1055,6 +1380,8 @@ function buildPayloadForFanSide(matchup, venueInfo, fanSide, templatesByTeam) {
     fanCode,
     venueInfo,
   });
+  const awayIdentity = teamIdentity(matchup.awayCode);
+  const homeIdentity = teamIdentity(matchup.homeCode);
 
   const nodes = buildNodes({
     name,
@@ -1101,12 +1428,14 @@ function buildPayloadForFanSide(matchup, venueInfo, fanSide, templatesByTeam) {
     starting_location_lon: venueInfo.lon,
     location_based: true,
     fandom_game: true,
-    away_team_key: `NFL:${matchup.awayCode}`,
-    home_team_key: `NFL:${matchup.homeCode}`,
-    away_team_city: teamIdentity(matchup.awayCode).game_city || teamIdentity(matchup.awayCode).fanbase || null,
-    away_team_mascot: teamIdentity(matchup.awayCode).mascot || null,
-    home_team_city: teamIdentity(matchup.homeCode).game_city || teamIdentity(matchup.homeCode).fanbase || null,
-    home_team_mascot: teamIdentity(matchup.homeCode).mascot || null,
+    away_team_key: awayIdentity.team_key || `NFL:${matchup.awayCode}`,
+    home_team_key: homeIdentity.team_key || `NFL:${matchup.homeCode}`,
+    away_team_tgbid: TeamPalette.teamTgbid(awayIdentity) || null,
+    home_team_tgbid: TeamPalette.teamTgbid(homeIdentity) || null,
+    away_team_city: awayIdentity.game_city || awayIdentity.fanbase || null,
+    away_team_mascot: awayIdentity.mascot || null,
+    home_team_city: homeIdentity.game_city || homeIdentity.fanbase || null,
+    home_team_mascot: homeIdentity.mascot || null,
     engine: 'text',
     game_date: tgbWindow.gameDate,
     start_time: tgbWindow.startTime,
@@ -1148,12 +1477,12 @@ function buildTeamSuggestions(template, fanTeam, venueInfo) {
   const fromTemplate = Array.isArray(template && template.teams)
     ? template.teams.filter(Boolean).slice(0, 8)
     : [];
-  if (fromTemplate.length >= 4) {
-    while (fromTemplate.length < 8) fromTemplate.push(`${fanTeam.shortLabel} Road Crew ${fromTemplate.length + 1}`);
+  if (fromTemplate.length >= 4 && !isGenericTeamSuggestionSet(fromTemplate, fanTeam, venueInfo)) {
+    while (fromTemplate.length < 8) fromTemplate.push(`${fanTeam.shortLabel} Away Crew ${fromTemplate.length + 1}`);
     return fromTemplate.slice(0, 8);
   }
 
-  return [
+  return completeTeamSuggestions(NFL_FANDOM_TEAM_SUGGESTIONS[fanTeam.code], fanTeam, venueInfo, [
     `${fanTeam.shortLabel} Road Crew`,
     `${fanTeam.shortLabel} Takeover Squad`,
     `${fanTeam.shortLabel} First String`,
@@ -1162,7 +1491,50 @@ function buildTeamSuggestions(template, fanTeam, venueInfo) {
     `${fanTeam.shortLabel} Loudhouse`,
     `${venueInfo.city} Bound`,
     `${fanTeam.shortLabel} Clue Club`,
+  ]);
+}
+
+function completeTeamSuggestions(primary, fanTeam, venueInfo, fallback) {
+  const mascot = normalizeNonEmpty(fanTeam && fanTeam.mascot);
+  const values = []
+    .concat(Array.isArray(primary) ? primary : [])
+    .concat(Array.isArray(fallback) ? fallback : [])
+    .filter(Boolean)
+    .filter((name) => !containsWord(name, mascot));
+  const unique = [];
+  values.forEach((value) => {
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+    const key = text.toLowerCase();
+    if (text && !unique.some((item) => item.toLowerCase() === key)) unique.push(text);
+  });
+  while (unique.length < 8) unique.push(`${fanTeam.shortLabel} Away Crew ${unique.length + 1}`);
+  return unique.slice(0, 8);
+}
+
+function isGenericTeamSuggestionSet(values, fanTeam, venueInfo) {
+  const genericWords = [
+    'road crew',
+    'takeover squad',
+    'first string',
+    'night shift',
+    'final drive',
+    'loudhouse',
+    'clue club',
+    'bound',
   ];
+  const venue = normalizeNonEmpty(venueInfo && venueInfo.city).toLowerCase();
+  const genericCount = values.filter((value) => {
+    const text = String(value || '').toLowerCase();
+    return genericWords.some((word) => text.includes(word))
+      || (venue && text === venue + ' bound');
+  }).length;
+  return genericCount >= Math.ceil(values.length / 2);
+}
+
+function containsWord(value, word) {
+  const needle = normalizeNonEmpty(word);
+  if (!needle) return false;
+  return new RegExp(`\\b${escapeRegExp(needle)}\\b`, 'i').test(String(value || ''));
 }
 
 function buildColors(matchup, fanTeam, template) {

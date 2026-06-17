@@ -3,7 +3,6 @@
   TGB Builder project note for humans and AI:
   This builder writes flat game metadata plus normalized game_nodes and
   game_node_links data that is read later by the game engine.
-  mc/editgames.html is the LIBRARY STACKS page, not storage.
 -->
 <html lang="en">
 <head>
@@ -9556,8 +9555,6 @@ html.admin-embedded .builder-section-head{
       <!-- Admin topbar: admin nav + sign-out on the right. -->
       <div class="builder-admin-topbar">
         <div class="builder-admin-topbar-inner">
-          <button class="mc-back-btn" type="button" data-mc-back data-mc-back-fallback="/" data-mc-new-tab>TGB HOME</button>
-          <button class="mc-back-btn" type="button" data-mc-home="/mc/">MISSION CONTROL</button>
           <button class="builder-admin-signout" id="builderSignOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -10671,7 +10668,9 @@ const SUPABASE_GAMES_SCHEMA = {
   away_team_city: true,
   away_team_mascot: true,
   away_team_key: true,
-  home_team_key: true
+  home_team_key: true,
+  away_team_tgbid: true,
+  home_team_tgbid: true
 };
 const CATEGORY_ICON_VALUES = new Set(['football', 'basketball', 'baseball', 'music']);
 const DEFAULT_CATEGORY_ICON = '';
@@ -11158,6 +11157,8 @@ function serializeGameRow(game, index = 0) {
   if (SUPABASE_GAMES_SCHEMA.featured !== false) emitColumn('featured', normalizedGame.featured);
   emitColumn('away_team_key', inferBuilderTeamKey(gameNode.awayTeamCity, gameNode.awayTeamMascot, normalizedGame.away_team_key));
   emitColumn('home_team_key', inferBuilderTeamKey(gameNode.homeTeamCity, gameNode.homeTeamMascot, normalizedGame.home_team_key));
+  emitColumn('away_team_tgbid', inferBuilderTeamTgbid(gameNode.awayTeamCity, gameNode.awayTeamMascot, normalizedGame.away_team_tgbid, normalizedGame.away_team_key) || null);
+  emitColumn('home_team_tgbid', inferBuilderTeamTgbid(gameNode.homeTeamCity, gameNode.homeTeamMascot, normalizedGame.home_team_tgbid, normalizedGame.home_team_key) || null);
 
   return payload;
 }
@@ -11225,6 +11226,8 @@ function normalizeGameRow(row, index = 0) {
     away_team_mascot:      row && row.away_team_mascot,
     away_team_key:         row && row.away_team_key,
     home_team_key:         row && row.home_team_key,
+    away_team_tgbid:       row && row.away_team_tgbid,
+    home_team_tgbid:       row && row.home_team_tgbid,
   }, index);
 }
 
@@ -12032,8 +12035,11 @@ async function loadBuilderTeamsFromSupabase() {
   const rows = await response.json();
   if (!Array.isArray(rows) || !rows.length) return null;
   return rows.map((r) => ({
+    tgbid: r.tgbid || null,
+    team_key: r.team_key || '',
     league: r.league || '',
     teamKey: r.team_key || '',
+    code: r.code || '',
     firstName: r.first_name || '',
     fanbase: r.fanbase || r.first_name || '',
     gameCity: getBuilderTeamGameCity(r, r.fanbase || r.first_name || ''),
@@ -12042,6 +12048,7 @@ async function loadBuilderTeamsFromSupabase() {
     shell: r.shell || '',
     stripe: r.stripe || '',
     mask: r.mask || '',
+    text_color: r.text_color || '',
     textColor: r.text_color || ''
   }));
 }
@@ -12050,6 +12057,8 @@ function builderTeamKey(team) {
   if (window.TgbTeamPalette) {
     const stableKey = window.TgbTeamPalette.teamKey(team);
     if (stableKey) return stableKey;
+    const stableTgbid = window.TgbTeamPalette.teamTgbid(team);
+    if (stableTgbid) return 'tgbid:' + stableTgbid;
   }
   const league = String(team && team.league || '').toUpperCase();
   const mascot = String(team && team.mascot || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -12074,6 +12083,12 @@ function inferBuilderTeamKey(city, mascot, existingKey = '') {
   return window.TgbTeamPalette.teamKey(team) || existingKey || '';
 }
 
+function inferBuilderTeamTgbid(city, mascot, existingTgbid = '', existingKey = '') {
+  if (!window.TgbTeamPalette) return existingTgbid || '';
+  const team = window.TgbTeamPalette.inferTeam(builderTeamsList, { tgbid: existingTgbid, key: existingKey, city, mascot });
+  return window.TgbTeamPalette.teamTgbid(team) || existingTgbid || '';
+}
+
 async function loadBuilderTeams() {
   let teams = [];
   try { teams = (await loadBuilderTeamsFromSupabase()) || []; }
@@ -12090,6 +12105,7 @@ async function loadBuilderTeams() {
     const resolved = window.TgbTeamPalette.resolveGamePalette(builderTeamsList, state.currentGameMeta, 'away');
     if (resolved.team) {
       state.currentGameMeta.awayTeamKey = resolved.key;
+      state.currentGameMeta.awayTeamTgbid = window.TgbTeamPalette.teamTgbid(resolved.team) || state.currentGameMeta.awayTeamTgbid || '';
       setCurrentGameColors({
         primaryColor: resolved.palette.primary,
         secondaryColor: resolved.palette.secondary,
@@ -12103,9 +12119,9 @@ async function loadBuilderTeams() {
 
 function populateTeamSelects() {
   [
-    { select: nodeAwayTeamInput, cityKey: 'awayTeamCity', mascotKey: 'awayTeamMascot', keyKey: 'awayTeamKey' },
-    { select: nodeHomeTeamCityInput, cityKey: 'homeTeamCity', mascotKey: 'homeTeamMascot', keyKey: 'homeTeamKey' }
-  ].forEach(({ select, cityKey, mascotKey, keyKey }) => {
+    { select: nodeAwayTeamInput, cityKey: 'awayTeamCity', mascotKey: 'awayTeamMascot', keyKey: 'awayTeamKey', tgbidKey: 'awayTeamTgbid' },
+    { select: nodeHomeTeamCityInput, cityKey: 'homeTeamCity', mascotKey: 'homeTeamMascot', keyKey: 'homeTeamKey', tgbidKey: 'homeTeamTgbid' }
+  ].forEach(({ select, cityKey, mascotKey, keyKey, tgbidKey }) => {
     if (!select || select.tagName !== 'SELECT') return;
     while (select.options.length > 1) select.remove(1);
     builderTeamsList.forEach((team) => {
@@ -12116,12 +12132,13 @@ function populateTeamSelects() {
       opt.dataset.gameCity = team.gameCity || team.fanbase || '';
       opt.dataset.mascot = team.mascot || '';
       opt.dataset.teamKey = window.TgbTeamPalette ? window.TgbTeamPalette.teamKey(team) : (team.teamKey || '');
+      opt.dataset.tgbid = window.TgbTeamPalette ? (window.TgbTeamPalette.teamTgbid(team) || '') : (team.tgbid || '');
       select.appendChild(opt);
     });
-    // Re-apply the current game's pick so a late teams.json fetch doesn't
+    // Re-apply the current game's pick so a late teams-table fetch doesn't
     // silently blank a selection that was rendered earlier.
     if (state && state.currentGameMeta) {
-      setTeamSelectValue(select, state.currentGameMeta[cityKey] || '', state.currentGameMeta[mascotKey] || '', state.currentGameMeta[keyKey] || '');
+      setTeamSelectValue(select, state.currentGameMeta[cityKey] || '', state.currentGameMeta[mascotKey] || '', state.currentGameMeta[keyKey] || '', state.currentGameMeta[tgbidKey] || '');
     } else {
       select.value = '';
     }
@@ -12131,10 +12148,18 @@ function populateTeamSelects() {
 // Select the option matching (city, mascot). If no canonical match exists
 // (legacy game with hand-typed values), inject a one-off "(custom)" option so
 // the value is preserved instead of silently blanking on the next save.
-function setTeamSelectValue(select, city, mascot, teamKey = '') {
+function setTeamSelectValue(select, city, mascot, teamKey = '', teamTgbid = '') {
   if (!select || select.tagName !== 'SELECT') return;
-  if (!city && !mascot) { select.value = ''; return; }
+  if (!city && !mascot && !teamKey && !teamTgbid) { select.value = ''; return; }
   const wantValue = (city || '') + '|' + (mascot || '');
+  if (teamTgbid) {
+    for (let i = 0; i < select.options.length; i++) {
+      if (String(select.options[i].dataset && select.options[i].dataset.tgbid || '') === String(teamTgbid)) {
+        select.value = select.options[i].value;
+        return;
+      }
+    }
+  }
   if (teamKey) {
     for (let i = 0; i < select.options.length; i++) {
       if (String(select.options[i].dataset && select.options[i].dataset.teamKey || '') === String(teamKey)) {
@@ -16325,9 +16350,11 @@ function initGameMeta(game) {
     homeTeamCity:         g.home_team_city    ?? g.homeTeamCity    ?? gn.homeTeamCity    ?? '',
     homeTeamMascot:       g.home_team_mascot  ?? g.homeTeamMascot  ?? gn.homeTeamMascot  ?? '',
     homeTeamKey:          g.home_team_key     ?? g.homeTeamKey     ?? gn.homeTeamKey     ?? '',
+    homeTeamTgbid:        g.home_team_tgbid   ?? g.homeTeamTgbid   ?? gn.homeTeamTgbid   ?? '',
     awayTeamCity:         g.away_team_city    ?? g.awayTeamCity    ?? gn.awayTeamCity    ?? '',
     awayTeamMascot:       g.away_team_mascot  ?? g.awayTeamMascot  ?? gn.awayTeamMascot  ?? '',
     awayTeamKey:          g.away_team_key     ?? g.awayTeamKey     ?? gn.awayTeamKey     ?? '',
+    awayTeamTgbid:        g.away_team_tgbid   ?? g.awayTeamTgbid   ?? gn.awayTeamTgbid   ?? '',
   };
 }
 
@@ -16970,9 +16997,11 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   home_team_city: 'homeTeamCity',
   home_team_mascot: 'homeTeamMascot',
   home_team_key: 'homeTeamKey',
+  home_team_tgbid: 'homeTeamTgbid',
   away_team_city: 'awayTeamCity',
   away_team_mascot: 'awayTeamMascot',
-  away_team_key: 'awayTeamKey'
+  away_team_key: 'awayTeamKey',
+  away_team_tgbid: 'awayTeamTgbid'
 };
 
 const GAME_ENGINES = [
@@ -17065,9 +17094,11 @@ function normalizeSavedGame(raw, index) {
     home_team_city:        raw && raw.home_team_city,
     home_team_mascot:      raw && raw.home_team_mascot,
     home_team_key:         raw && raw.home_team_key,
+    home_team_tgbid:       raw && raw.home_team_tgbid,
     away_team_city:        raw && raw.away_team_city,
     away_team_mascot:      raw && raw.away_team_mascot,
     away_team_key:         raw && raw.away_team_key,
+    away_team_tgbid:       raw && raw.away_team_tgbid,
   };
 }
 
@@ -19561,14 +19592,14 @@ function updateSelectionUi(options = {}) {
   if (nodeAwayTeamMascotInput) nodeAwayTeamMascotInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.awayTeamMascot || '') : '';
   if (nodeHomeTeamCityInput) {
     if (isGameNode) {
-      setTeamSelectValue(nodeHomeTeamCityInput, state.currentGameMeta && state.currentGameMeta.homeTeamCity || '', state.currentGameMeta && state.currentGameMeta.homeTeamMascot || '', state.currentGameMeta && state.currentGameMeta.homeTeamKey || '');
+      setTeamSelectValue(nodeHomeTeamCityInput, state.currentGameMeta && state.currentGameMeta.homeTeamCity || '', state.currentGameMeta && state.currentGameMeta.homeTeamMascot || '', state.currentGameMeta && state.currentGameMeta.homeTeamKey || '', state.currentGameMeta && state.currentGameMeta.homeTeamTgbid || '');
     } else {
       nodeHomeTeamCityInput.value = '';
     }
   }
   if (nodeAwayTeamInput) {
     if (isGameNode) {
-      setTeamSelectValue(nodeAwayTeamInput, state.currentGameMeta && state.currentGameMeta.awayTeamCity || '', state.currentGameMeta && state.currentGameMeta.awayTeamMascot || '', state.currentGameMeta && state.currentGameMeta.awayTeamKey || '');
+      setTeamSelectValue(nodeAwayTeamInput, state.currentGameMeta && state.currentGameMeta.awayTeamCity || '', state.currentGameMeta && state.currentGameMeta.awayTeamMascot || '', state.currentGameMeta && state.currentGameMeta.awayTeamKey || '', state.currentGameMeta && state.currentGameMeta.awayTeamTgbid || '');
     } else {
       nodeAwayTeamInput.value = '';
     }
@@ -21177,9 +21208,11 @@ function stageCurrentGameIntoStore() {
     home_team_city:        homeTeamCity || null,
     home_team_mascot:      _meta.homeTeamMascot || null,
     home_team_key:         inferBuilderTeamKey(homeTeamCity, _meta.homeTeamMascot, _meta.homeTeamKey) || null,
+    home_team_tgbid:       inferBuilderTeamTgbid(homeTeamCity, _meta.homeTeamMascot, _meta.homeTeamTgbid, _meta.homeTeamKey) || null,
     away_team_city:        awayTeamCity || null,
     away_team_mascot:      _meta.awayTeamMascot || null,
     away_team_key:         inferBuilderTeamKey(awayTeamCity, _meta.awayTeamMascot, _meta.awayTeamKey) || null,
+    away_team_tgbid:       inferBuilderTeamTgbid(awayTeamCity, _meta.awayTeamMascot, _meta.awayTeamTgbid, _meta.awayTeamKey) || null,
     nodes:                 docPayload.nodes,
     links:                 docPayload.links
   };
@@ -21714,9 +21747,11 @@ function bindTeamSelect(select, mascotInput, cityField, mascotField, options = {
     state.currentGameMeta[cityField] = selectedCity;
     state.currentGameMeta[mascotField] = mascot || '';
     const teamKey = String(selectedOption && selectedOption.dataset && selectedOption.dataset.teamKey || '');
+    const teamTgbid = String(selectedOption && selectedOption.dataset && selectedOption.dataset.tgbid || '');
     if (options.keyField) state.currentGameMeta[options.keyField] = teamKey;
+    if (options.tgbidField) state.currentGameMeta[options.tgbidField] = teamTgbid ? (Number(teamTgbid) || teamTgbid) : '';
     if (options.applyPalette && state.currentGameMeta.fandomGame && window.TgbTeamPalette) {
-      const team = window.TgbTeamPalette.inferTeam(builderTeamsList, { key: teamKey, city: selectedCity, mascot });
+      const team = window.TgbTeamPalette.inferTeam(builderTeamsList, { tgbid: teamTgbid, key: teamKey, city: selectedCity, mascot });
       if (team) {
         const palette = window.TgbTeamPalette.teamPalette(team);
         setCurrentGameColors({
@@ -21735,11 +21770,13 @@ bindTeamSelect(nodeAwayTeamInput, nodeAwayTeamMascotInput, 'awayTeamCity', 'away
   useGameCity: true,
   cityInput: nodeAwayTeamCityInput,
   keyField: 'awayTeamKey',
+  tgbidField: 'awayTeamTgbid',
   applyPalette: true
 });
 bindTeamSelect(nodeHomeTeamCityInput, nodeHomeTeamMascotInput, 'homeTeamCity', 'homeTeamMascot', {
   useGameCity: true,
-  keyField: 'homeTeamKey'
+  keyField: 'homeTeamKey',
+  tgbidField: 'homeTeamTgbid'
 });
 
 if (nodeAwayTeamCityInput) {

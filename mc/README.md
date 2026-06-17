@@ -95,7 +95,7 @@ publish, commit & push it like any other change.
 
 **Format-aware writes.** The merge writer matches the cousin file's shape:
 - a JSONL/array cousin → written as JSON Lines;
-- a **wrapper object** (e.g. `teams.json`'s `{ _ai_update_prompt, teams:[…] }`) →
+- a **wrapper object** (e.g. `{ _ai_update_prompt, records:[…] }`) →
   re-emitted as a **pretty-printed object**, with every other top-level field
   (like `_ai_update_prompt`) preserved and the collection updated in place.
 
@@ -134,7 +134,7 @@ That's it — `research.css` and `research.js` are shared, so new pages are tiny
 | `content.html` | **Routes + Places** — a Mission Control tool (wears the shared `/mc/` chrome: admin-shell + sign-in nav; listed in the MC nav menu). Google Maps (satellite) + the what3words 3 m grid. Search covers Routes and Places. Click a square then **Add Place**, or click a Place pin to edit it. **Build Route** turns selected Places into an ordered list of Stops; route city is derived from those Stops. A **turn** is a coordinate-only shaping point, not a Stop. **Save** writes every Place + Route back to `atlas.jsonl`. |
 | `atlas.jsonl` | The map's canonical store. A Place record uses `{"type":"place",…}` and carries `name`, `city`, address and map metadata. A Route record uses `{"type":"route",…}` and carries `route_id`, `name`, `city`, and ordered `stops:[…]`. Each Stop references a Place by `{name,w3w}`. Optional map-shaping turns are stored separately in `turns:[…]`, so they never masquerade as Stops. The loader accepts legacy `type:"stop"`, `waypoints`, and `stops.jsonl`, then normalizes them on Save. |
 | `add-w3w.mjs` | CLI: geocode each Place (**Google Places** when `GOOGLE_PLACES_API_KEY` is set, else Nominatim) and write its **what3words** address (`w3w`). `node mc/js/add-w3w.mjs [file=mc/data/atlas.jsonl] [limit] [--all]` (default fills only Places missing a w3w; Route records are skipped). Keys: `GOOGLE_PLACES_API_KEY` (optional), `W3W_API_KEY`. |
-| `get_teams.html` / Supabase `public.teams` | The team database (4 major leagues, MLS-extensible). No cousin file — Results load from the `teams` table and the AI prompt emits its column shape. **Append & save** upserts the new team[s], **Overwrite** upserts the whole array, per-row **Edit** upserts a team (by `team_key` = `LEAGUE:CODE`; never deletes — `games` FK `teams.team_key`). Upserting by `team_key` (not the `league,conference,code` PK) avoids `team_key`-uniqueness collisions when a team's conference changes. Writes need an admin session. |
+| `get_teams.html` / Supabase `public.teams` | The team database (4 major leagues, MLS-extensible). No cousin file — Results load from the `teams` table and the AI prompt emits its column shape. **Append & save** upserts the new team[s], **Overwrite** upserts the whole array, per-row **Edit** upserts a team. `teams.tgbid` is the permanent game FK (`games.away_team_tgbid` / `games.home_team_tgbid`); `team_key` = `LEAGUE:CODE` remains the readable compatibility key. Writes need an admin session. |
 | `research.css` | Shared dark "dev-tool" styling. |
 | `research.js` | Shared engine: prompt assembly + cousin loader/renderer + format-aware merge (.jsonl/.json). |
 

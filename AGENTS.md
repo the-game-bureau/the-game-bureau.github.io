@@ -107,7 +107,7 @@ Fallback: if `team_color` is missing or not one of the five, the older `team1..t
 
 ## Sports team identity & palettes
 
-The Supabase `teams` table is the canonical source for sports-team identity and colors. Stable team keys use uppercase `LEAGUE:CODE` form, such as `NFL:NO` or `MLB:CHC`, and are stored on fandom games as `away_team_key` / `home_team_key`.
+The Supabase `teams` table is the canonical source for sports-team identity and colors. The permanent team identifier is `teams.tgbid`, referenced on fandom games as `away_team_tgbid` / `home_team_tgbid`. Stable team keys in uppercase `LEAGUE:CODE` form, such as `NFL:NO` or `MLB:CHC`, remain as readable compatibility fields on `away_team_key` / `home_team_key`.
 
 Palette names map as follows:
 
@@ -118,7 +118,7 @@ Palette names map as follows:
 
 Fandom-game UI and generated sports SVG/PNG assets must resolve colors through [assets/team-palette.js](assets/team-palette.js). Do not add new fandom-game reads or writes that treat `games.primary_color`, `games.secondary_color`, `games.tertiary_color`, or `games.quaternary_color` as authoritative. Non-fandom games may continue using those game-level branding columns.
 
-When importing or editing a fandom game, write stable away/home team keys. The shared resolver can infer legacy rows from league, code, city, and mascot labels, but explicit keys are preferred because display labels may change.
+When importing or editing a fandom game, write explicit away/home `tgbid` values whenever possible, and include the readable team keys as compatibility fields. The shared resolver can infer legacy rows from league, code, city, and mascot labels, but explicit identifiers are preferred because display labels may change.
 
 ---
 
@@ -138,7 +138,7 @@ The country badge that appears on the public games page (in the hero meta list a
 
 Columns on the `games` table that read like booleans — `featured`, `archived` — are actually **TEXT columns**. The canonical "true" value is the string `'YES'`; the canonical "false" value is `null` (or empty string).
 
-**Why:** This is the existing storage convention. See `FEATURED_GAME_VALUE = 'YES'` in [mc/builder.html](mc/builder.html) and the `archived: allArchived ? null : 'YES'` pattern in [mc/editgames.html](mc/editgames.html). Writing a JS boolean (`true`/`false`) gets coerced by PostgREST to the literal string `'true'`/`'false'` — and `'false'` is a *non-empty string*, which the shared `isGameFeatured` / `isFilledArchiveValue` helpers read as **truthy**. The UI then never clears the flag (e.g. an "Unfeature" button that won't stop showing "Unfeature").
+**Why:** This is the existing storage convention. See `FEATURED_GAME_VALUE = 'YES'` and the `archived: normalizedGame.archived || null` write in `serializeGameRow`, both in [mc/builder.html](mc/builder.html). Writing a JS boolean (`true`/`false`) gets coerced by PostgREST to the literal string `'true'`/`'false'` — and `'false'` is a *non-empty string*, which the shared `isGameFeatured` / `isFilledArchiveValue` helpers read as **truthy**. The UI then never clears the flag (e.g. an "Unfeature" button that won't stop showing "Unfeature").
 
 **How to apply:** When patching these columns via PostgREST, always use `'YES'` / `null` — never `true` / `false`. Same convention extends to any future flag column on the games table unless explicitly typed as BOOLEAN. If in doubt, mirror how `archived` is written nearby — it's the load-bearing example. The reader-side helpers tolerate both shapes; **don't "fix" the readers — fix the writer.**
 

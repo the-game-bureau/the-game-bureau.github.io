@@ -365,6 +365,71 @@
       border-radius: 10px;
     }
 
+    .thumb-actions {
+      display: grid;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .thumb-filename {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.66rem;
+      word-break: break-all;
+      color: var(--muted);
+    }
+    .thumb-btn-row {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .thumb-btn-row .btn { padding: 3px 8px; font-size: 0.7rem; }
+
+    .copy-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .copy-controls input[type="search"] {
+      flex: 1;
+      min-width: 160px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+    }
+    .copy-inline {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .copy-list {
+      overflow: auto;
+      padding: 8px 12px;
+      display: grid;
+      gap: 3px;
+      align-content: start;
+    }
+    .copy-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .copy-row:hover { background: rgba(var(--bic-blue-rgb),0.05); }
+    .copy-row input { flex: none; }
+    .copy-row-main { display: flex; flex-direction: column; min-width: 0; }
+    .copy-row-name { font-weight: 700; font-size: 0.86rem; }
+    .copy-row-sub { font-size: 0.72rem; color: var(--muted); }
+
     .prompt-backdrop {
       position: fixed;
       inset: 0;
@@ -488,8 +553,6 @@
   <main class="app">
     <div class="topbar">
       <div class="topbar-actions" style="margin-left:auto;">
-        <button class="btn mc-back-btn" type="button" data-mc-back data-mc-back-fallback="/" data-mc-new-tab>TGB HOME</button>
-        <button class="btn mc-back-btn" type="button" data-mc-home="/mc/">MISSION CONTROL</button>
         <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -507,9 +570,9 @@
     </section>
 
     <div class="toolbar">
-      <input type="search" id="searchInput" placeholder="Filter by game, guide, URL, or ID..." autocomplete="off">
+      <input type="search" id="searchInput" placeholder="Filter by game name..." autocomplete="off">
       <button class="btn" id="refreshBtn" type="button">Refresh</button>
-      <button class="btn primary" id="saveDirtyBtn" type="button">Save Dirty</button>
+      <button class="btn primary" id="saveDirtyBtn" type="button" title="Save every game with unsaved edits on this page">Save All Changes</button>
     </div>
 
     <section class="panel">
@@ -530,8 +593,24 @@
       <button class="btn primary small" id="guidePromptCopyBtn" type="button">Copy</button>
       <button class="btn small" id="guidePromptCloseBtn" type="button">Close</button>
     </div>
-    <p class="prompt-help">Copy this prompt into your AI, then paste the returned GUIDE NAME / GUIDE BIO / GUIDE BACKGROUND into the fields on this page.</p>
+    <p class="prompt-help" id="guidePromptHelp">Copy this prompt into your AI, then paste the returned GUIDE NAME / GUIDE BIO / GUIDE BACKGROUND into the fields on this page.</p>
     <textarea class="prompt-textarea" id="guidePromptText" readonly spellcheck="false"></textarea>
+  </section>
+
+  <div class="prompt-backdrop" id="copyBackdrop" hidden></div>
+  <section class="prompt-dialog copy-dialog" id="copyDialog" hidden role="dialog" aria-modal="true" aria-labelledby="copyTitle">
+    <div class="prompt-bar">
+      <h3 class="prompt-title" id="copyTitle">Copy Guide</h3>
+      <span class="prompt-copy-status" id="copyStatus" aria-live="polite"></span>
+      <button class="btn primary small" id="copyApplyBtn" type="button" disabled>Copy to 0</button>
+      <button class="btn small" id="copyCloseBtn" type="button">Close</button>
+    </div>
+    <div class="copy-controls">
+      <input type="search" id="copySearch" placeholder="Filter target games..." autocomplete="off">
+      <label class="copy-inline"><input type="checkbox" id="copySelectAll"> Select all (filtered)</label>
+      <label class="copy-inline"><input type="checkbox" id="copyIncludeImage" checked> Include image URL</label>
+    </div>
+    <div class="copy-list" id="copyList"></div>
   </section>
 
   <script src="js/admin-auth.js"></script>
@@ -545,6 +624,17 @@
 
     const GUIDE_ASSET_BASE_URL = 'https://thegamebureau.com/assets/guides/';
     const GUIDE_IMAGE_FILE_RE = /\.(?:avif|gif|ico|jpe?g|png|svg|webp)$/i;
+
+    // "Open folder" can't reach Windows Explorer from a browser. On localhost we
+    // hand off to VS Code (vscode://file/) to reveal assets/guides; on prod that
+    // machine path is meaningless, so fall back to the served folder URL.
+    const GUIDE_FOLDER_LOCAL_PATH = 'C:/Code/the-game-bureau/assets/guides';
+    function guideFolderOpenHref() {
+      const host = location.hostname;
+      const isLocal = host === 'localhost' || host === '127.0.0.1' || host === ''
+        || /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(host);
+      return isLocal ? ('vscode://file/' + GUIDE_FOLDER_LOCAL_PATH) : '/assets/guides/';
+    }
     const GAMES_SCHEMA = {
       guide_background: true
     };
@@ -678,8 +768,13 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       const currentBio = String(game.guide_bio || '').trim();
       const currentBackground = String(game.guide_background || '').trim();
       if (currentName || currentBio || currentBackground) {
-        const lines = ['CURRENT GUIDE (existing draft for this game — refine or replace it, keep whatever works)'];
-        if (currentName) lines.push('- Current guide name: ' + currentName);
+        const lines = currentName
+          ? ['CURRENT GUIDE (a guide name already exists for this game — KEEP it)']
+          : ['CURRENT GUIDE (existing draft for this game — refine or replace it, keep whatever works)'];
+        if (currentName) {
+          lines.push('- Current guide name: ' + currentName);
+          lines.push('- IMPORTANT: This game already has a guide named "' + currentName + '". Return that EXACT name as GUIDE NAME — do not rename or invent a new one. Write the bio and background to fit this existing name.');
+        }
         if (currentBio) lines.push('- Current guide bio: ' + currentBio);
         if (currentBackground) lines.push('- Current guide background: ' + currentBackground);
         prompt = prompt.replace('DELIVER\n', lines.join('\n') + '\n\nDELIVER\n');
@@ -726,9 +821,53 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       }
     }
 
-    function openGuidePrompt(game, prompt) {
+    // Build a paste-ready AI IMAGE prompt for the guide portrait, from the
+    // current guide name / bio / background.
+    function buildGuideImagePrompt(game) {
+      const name = String(game.guide_name || '').trim();
+      const bio = String(game.guide_bio || '').trim();
+      const background = String(game.guide_background || '').trim();
+      const lines = [];
+      lines.push('Generate a single portrait image to use as the in-game avatar for the guide character of a real-world, location-based scavenger-hunt game.');
+      lines.push('');
+      lines.push('CHARACTER');
+      lines.push('- Name: ' + (name || '[unnamed guide]'));
+      if (bio) lines.push('- Bio: ' + bio);
+      if (background) lines.push('- Background: ' + background);
+      if (!bio && !background) lines.push('- (No bio/background filled in yet — invent a fitting look from the name and the tour-guide role.)');
+      lines.push('');
+      lines.push('IMAGE DIRECTION');
+      lines.push('- Head-and-shoulders character portrait, facing the viewer, warm and confident.');
+      lines.push('- Polished, stylized digital illustration — not a photograph of a real person.');
+      lines.push('- Clear, well-lit face; simple, uncluttered background that hints at the setting without distracting.');
+      lines.push('- Square 1:1 framing, subject centered, safe to crop to a circle for an avatar.');
+      lines.push('- No text, letters, logos, or watermarks anywhere in the image.');
+      lines.push('');
+      lines.push('Produce the image now.');
+      return lines.join('\n');
+    }
+
+    async function generateGuideImagePrompt(gameId) {
+      const game = findGame(gameId);
+      if (!game) return;
+      const prompt = buildGuideImagePrompt(game);
+      openGuidePrompt(game, prompt, {
+        title: 'Guide Image Prompt - ' + displayName(game),
+        help: 'Copy this into ChatGPT or another AI image generator, then save the result to assets/guides as ' + game.id + '.png.'
+      });
+      const copied = await copyTextToClipboard(prompt);
+      setGuidePromptCopyStatus(copied ? 'Copied' : 'Copy manually');
+      setStatus(copied
+        ? 'Image prompt for ' + displayName(game) + ' copied. Paste it into an AI image generator.'
+        : 'Image prompt opened for ' + displayName(game) + '. Copy it from the box.', 'success');
+    }
+
+    function openGuidePrompt(game, prompt, options) {
       if (!guidePromptDialog || !guidePromptText) return;
-      guidePromptTitle.textContent = 'Guide Prompt - ' + displayName(game);
+      const opts = options || {};
+      guidePromptTitle.textContent = opts.title || ('Guide Prompt - ' + displayName(game));
+      const helpEl = document.getElementById('guidePromptHelp');
+      if (helpEl) helpEl.textContent = opts.help || 'Copy this prompt into your AI, then paste the returned GUIDE NAME / GUIDE BIO / GUIDE BACKGROUND into the fields on this page.';
       guidePromptText.value = String(prompt || '');
       setGuidePromptCopyStatus('');
       guidePromptDialog.hidden = false;
@@ -750,6 +889,143 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
 
     function setGuidePromptCopyStatus(text) {
       if (guidePromptCopyStatus) guidePromptCopyStatus.textContent = text || '';
+    }
+
+    // ---- Copy guide to other game(s) ----------------------------------------
+    const copyState = { sourceId: null, selected: new Set() };
+
+    function copyTargetGames() {
+      return state.games.filter((g) => g.id !== copyState.sourceId).slice().sort(compareGuideGames);
+    }
+    function copyDialogFilterTerm() {
+      const search = document.getElementById('copySearch');
+      return search ? search.value.trim().toLowerCase() : '';
+    }
+    function copyFilteredGames() {
+      const term = copyDialogFilterTerm();
+      return copyTargetGames().filter((g) => !term || searchHaystack(g).includes(term));
+    }
+
+    function openCopyDialog(sourceId) {
+      const game = findGame(sourceId);
+      if (!game) return;
+      copyState.sourceId = sourceId;
+      copyState.selected = new Set();
+      const titleEl = document.getElementById('copyTitle');
+      if (titleEl) titleEl.textContent = 'Copy guide from ' + displayName(game);
+      const search = document.getElementById('copySearch');
+      if (search) search.value = '';
+      const selectAll = document.getElementById('copySelectAll');
+      if (selectAll) selectAll.checked = false;
+      const status = document.getElementById('copyStatus');
+      if (status) status.textContent = '';
+      const includeImage = document.getElementById('copyIncludeImage');
+      if (includeImage) includeImage.checked = true;
+      renderCopyTargets();
+      const dialog = document.getElementById('copyDialog');
+      const backdrop = document.getElementById('copyBackdrop');
+      if (dialog) dialog.hidden = false;
+      if (backdrop) backdrop.hidden = false;
+    }
+
+    function closeCopyDialog() {
+      const dialog = document.getElementById('copyDialog');
+      const backdrop = document.getElementById('copyBackdrop');
+      if (dialog) dialog.hidden = true;
+      if (backdrop) backdrop.hidden = true;
+    }
+
+    function renderCopyTargets() {
+      const list = document.getElementById('copyList');
+      if (!list) return;
+      list.innerHTML = '';
+      const games = copyFilteredGames();
+      if (!games.length) {
+        list.appendChild(emptyNode('No matching games.'));
+        updateCopyApplyButton();
+        return;
+      }
+      games.forEach((g) => {
+        const row = document.createElement('label');
+        row.className = 'copy-row';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = copyState.selected.has(g.id);
+        cb.addEventListener('change', () => {
+          if (cb.checked) copyState.selected.add(g.id);
+          else copyState.selected.delete(g.id);
+          updateCopyApplyButton();
+          syncSelectAllCheckbox();
+        });
+        const main = document.createElement('div');
+        main.className = 'copy-row-main';
+        const name = document.createElement('span');
+        name.className = 'copy-row-name';
+        name.textContent = displayName(g);
+        const sub = document.createElement('span');
+        sub.className = 'copy-row-sub';
+        const bits = [g.id];
+        const m = matchupLabel(g);
+        if (m) bits.push(m);
+        if (g.guide_name) bits.push('guide: ' + g.guide_name);
+        sub.textContent = bits.join(' · ');
+        main.append(name, sub);
+        row.append(cb, main);
+        list.appendChild(row);
+      });
+      updateCopyApplyButton();
+      syncSelectAllCheckbox();
+    }
+
+    function syncSelectAllCheckbox() {
+      const selectAll = document.getElementById('copySelectAll');
+      if (!selectAll) return;
+      const filtered = copyFilteredGames();
+      selectAll.checked = filtered.length > 0 && filtered.every((g) => copyState.selected.has(g.id));
+    }
+
+    function updateCopyApplyButton() {
+      const btn = document.getElementById('copyApplyBtn');
+      if (!btn) return;
+      const n = copyState.selected.size;
+      btn.textContent = 'Copy to ' + n;
+      btn.disabled = n === 0;
+    }
+
+    async function doCopyGuide() {
+      const source = findGame(copyState.sourceId);
+      if (!source) return;
+      const targets = Array.from(copyState.selected);
+      if (!targets.length) return;
+      const includeImage = (document.getElementById('copyIncludeImage') || {}).checked !== false;
+      const status = document.getElementById('copyStatus');
+      const applyBtn = document.getElementById('copyApplyBtn');
+      if (applyBtn) applyBtn.disabled = true;
+      let ok = 0, fail = 0;
+      for (const targetId of targets) {
+        const target = findGame(targetId);
+        if (!target) { fail++; continue; }
+        const guide = {
+          guide_name: source.guide_name || '',
+          guide_bio: source.guide_bio || '',
+          guide_background: source.guide_background || '',
+          guide_image_url: includeImage ? (source.guide_image_url || '') : (target.guide_image_url || '')
+        };
+        try {
+          const fresh = await patchGuide(targetId, guide);
+          replaceGame(fresh);
+          state.dirtyIds.delete(targetId);
+          ok++;
+          if (status) status.textContent = 'Copied ' + ok + '/' + targets.length + '…';
+        } catch (error) {
+          console.error(error);
+          fail++;
+        }
+      }
+      render();
+      setStatus('Copied guide from ' + displayName(source) + ' to ' + ok + ' game(s)'
+        + (fail ? ', ' + fail + ' failed' : '') + '.', fail ? 'error' : 'success');
+      closeCopyDialog();
     }
 
     const pageStatus = document.getElementById('pageStatus');
@@ -1016,7 +1292,7 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
     async function saveDirtyGuides() {
       const dirty = state.games.filter((game) => state.dirtyIds.has(game.id));
       if (!dirty.length) {
-        setStatus('No dirty guide records to save.');
+        setStatus('Nothing to save — no unsaved changes.');
         return;
       }
       setBusy(true);
@@ -1074,7 +1350,8 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       if (!card) return;
       const slot = card.querySelector('[data-thumb-slot]');
       if (!slot) return;
-      renderThumb(slot, normalizeGuideImageUrl(url));
+      const game = findGame(gameId);
+      if (game) renderThumb(slot, game);
     }
 
     function cssEscape(value) {
@@ -1086,7 +1363,7 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       const term = state.filter;
       return state.games.filter((game) => {
         if (!term) return true;
-        return searchHaystack(game).includes(term);
+        return displayName(game).toLowerCase().includes(term);
       });
     }
 
@@ -1266,13 +1543,23 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       generateBtn.className = 'btn small';
       generateBtn.textContent = 'Generate Prompt';
       generateBtn.addEventListener('click', () => generateGuidePrompt(game.id));
+      const imagePromptBtn = document.createElement('button');
+      imagePromptBtn.type = 'button';
+      imagePromptBtn.className = 'btn small';
+      imagePromptBtn.textContent = 'Image Prompt';
+      imagePromptBtn.addEventListener('click', () => generateGuideImagePrompt(game.id));
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'btn small';
+      copyBtn.textContent = 'Copy to…';
+      copyBtn.addEventListener('click', () => openCopyDialog(game.id));
       const saveBtn = document.createElement('button');
       saveBtn.type = 'button';
       saveBtn.className = 'btn primary small';
       saveBtn.dataset.action = 'save';
       saveBtn.textContent = 'Save';
       saveBtn.addEventListener('click', () => saveGameGuide(game.id));
-      actions.append(generateBtn, saveBtn);
+      actions.append(generateBtn, imagePromptBtn, copyBtn, saveBtn);
 
       head.append(titleWrap, actions);
 
@@ -1280,7 +1567,7 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       grid.className = 'guide-grid';
       const thumbSlot = document.createElement('div');
       thumbSlot.setAttribute('data-thumb-slot', '');
-      renderThumb(thumbSlot, game.guide_image_url);
+      renderThumb(thumbSlot, game);
       const fields = document.createElement('div');
       fields.className = 'field-grid';
       const fieldNodes = [
@@ -1307,29 +1594,73 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       return span;
     }
 
-    function renderThumb(slot, url) {
+    // Thumbnail + filename + Open-folder + Copy-name. The guide avatar is the
+    // canonical assets/guides/{gameId}.png (what the landing page actually uses),
+    // NOT the editable guide_image_url field — that field can hold a stale/shared
+    // name. Resolved host-relative so it works on localhost and prod; shows
+    // "NOT YET UPLOADED" if the file isn't there. Open targets the FOLDER.
+    function renderThumb(slot, game) {
       slot.innerHTML = '';
-      const imageUrl = normalizeGuideImageUrl(url);
-      if (!imageUrl) {
-        const empty = document.createElement('div');
-        empty.className = 'guide-thumb-placeholder';
-        empty.textContent = 'No image';
-        slot.appendChild(empty);
-        return;
+      const gameId = String((game && game.id) || '').trim();
+      const fileName = gameId ? gameId + '.png' : '';
+      const imageSrc = fileName ? '../assets/guides/' + encodeURIComponent(fileName) : '';
+      const folderUrl = guideFolderOpenHref();
+
+      if (imageSrc) {
+        const img = document.createElement('img');
+        img.className = 'guide-thumb';
+        img.alt = '';
+        img.loading = 'lazy';
+        img.src = imageSrc;
+        img.style.cursor = 'zoom-in';
+        img.title = 'Open image in a new tab';
+        img.addEventListener('click', () => window.open(imageSrc, '_blank', 'noopener'));
+        img.onerror = () => {
+          const ph = document.createElement('div');
+          ph.className = 'guide-thumb-placeholder';
+          ph.textContent = 'NOT YET UPLOADED';
+          if (img.parentNode) img.parentNode.replaceChild(ph, img);
+        };
+        slot.appendChild(img);
+      } else {
+        const ph = document.createElement('div');
+        ph.className = 'guide-thumb-placeholder';
+        ph.textContent = 'NOT YET UPLOADED';
+        slot.appendChild(ph);
       }
-      const img = document.createElement('img');
-      img.className = 'guide-thumb';
-      img.alt = '';
-      img.loading = 'lazy';
-      img.src = imageUrl;
-      img.onerror = () => {
-        slot.innerHTML = '';
-        const empty = document.createElement('div');
-        empty.className = 'guide-thumb-placeholder';
-        empty.textContent = 'Image not found';
-        slot.appendChild(empty);
-      };
-      slot.appendChild(img);
+
+      const actions = document.createElement('div');
+      actions.className = 'thumb-actions';
+      if (fileName) {
+        const code = document.createElement('div');
+        code.className = 'thumb-filename';
+        code.textContent = fileName;
+        actions.appendChild(code);
+      }
+      const row = document.createElement('div');
+      row.className = 'thumb-btn-row';
+      const open = document.createElement('a');
+      open.className = 'btn small';
+      open.textContent = 'Open folder';
+      open.href = folderUrl;
+      if (folderUrl.indexOf('vscode://') !== 0) { open.target = '_blank'; open.rel = 'noopener'; }
+      open.title = 'Open the assets/guides folder';
+      row.appendChild(open);
+      if (fileName) {
+        const copy = document.createElement('button');
+        copy.type = 'button';
+        copy.className = 'btn small';
+        copy.textContent = 'Copy name';
+        copy.addEventListener('click', async () => {
+          const ok = await copyTextToClipboard(fileName);
+          const prev = copy.textContent;
+          copy.textContent = ok ? 'Copied!' : fileName;
+          setTimeout(() => { copy.textContent = prev; }, 1500);
+        });
+        row.appendChild(copy);
+      }
+      actions.appendChild(row);
+      slot.appendChild(actions);
     }
 
     function renderGameContext(game) {
@@ -1431,7 +1762,7 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       summaryLine.innerHTML = '';
       summaryLine.append(
         metaSpan('Showing ' + start + '-' + end + ' of ' + visible.length + ' visible / ' + state.games.length + ' total'),
-        metaSpan(dirty + ' dirty')
+        metaSpan(dirty + ' unsaved')
       );
       renderPager(visible.length, pages);
       updateToolbarButtons();
@@ -1490,10 +1821,28 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
     }
     if (guidePromptCloseBtn) guidePromptCloseBtn.addEventListener('click', closeGuidePrompt);
     if (guidePromptBackdrop) guidePromptBackdrop.addEventListener('click', closeGuidePrompt);
+
+    const copyApplyBtn = document.getElementById('copyApplyBtn');
+    if (copyApplyBtn) copyApplyBtn.addEventListener('click', doCopyGuide);
+    const copyCloseBtn = document.getElementById('copyCloseBtn');
+    if (copyCloseBtn) copyCloseBtn.addEventListener('click', closeCopyDialog);
+    const copyBackdrop = document.getElementById('copyBackdrop');
+    if (copyBackdrop) copyBackdrop.addEventListener('click', closeCopyDialog);
+    const copySearchInput = document.getElementById('copySearch');
+    if (copySearchInput) copySearchInput.addEventListener('input', renderCopyTargets);
+    const copySelectAll = document.getElementById('copySelectAll');
+    if (copySelectAll) copySelectAll.addEventListener('change', () => {
+      const filtered = copyFilteredGames();
+      if (copySelectAll.checked) filtered.forEach((g) => copyState.selected.add(g.id));
+      else filtered.forEach((g) => copyState.selected.delete(g.id));
+      renderCopyTargets();
+    });
+
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && guidePromptDialog && !guidePromptDialog.hidden) {
-        closeGuidePrompt();
-      }
+      if (event.key !== 'Escape') return;
+      const copyDialog = document.getElementById('copyDialog');
+      if (copyDialog && !copyDialog.hidden) { closeCopyDialog(); return; }
+      if (guidePromptDialog && !guidePromptDialog.hidden) closeGuidePrompt();
     });
 
     window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });

@@ -3,24 +3,23 @@
   TGB Builder project note for humans and AI:
   This builder writes flat game metadata plus normalized game_nodes and
   game_node_links data that is read later by the game engine.
-  mc/editgames.html is the LIBRARY STACKS page, not storage.
 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CHALLENGE BUILDER | THE GAME BUREAU</title>
-  <meta name="description" content="Build and organize phone-style text adventures in The Game Bureau's Challenge Builder.">
+  <title>GAME BUILDER | THE GAME BUREAU</title>
+  <meta name="description" content="Build and organize phone-style text adventures in The Game Bureau's Game Builder.">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Challenge Builder">
-  <meta property="og:description" content="Build and organize phone-style text adventures in The Game Bureau's Challenge Builder.">
+  <meta property="og:title" content="Game Builder">
+  <meta property="og:description" content="Build and organize phone-style text adventures in The Game Bureau's Game Builder.">
   <meta property="og:image" content="../assets/brand/share-thumbnail.png?v=1775007000">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Challenge Builder - The Game Bureau">
-  <meta name="twitter:description" content="Build and organize phone-style text adventures in The Game Bureau's Challenge Builder.">
+  <meta name="twitter:title" content="Game Builder - The Game Bureau">
+  <meta name="twitter:description" content="Build and organize phone-style text adventures in The Game Bureau's Game Builder.">
   <meta name="twitter:image" content="../assets/brand/share-thumbnail.png?v=1775007000">
   <link rel="icon" type="image/x-icon" href="../assets/brand/builder.ico?v=1775435200">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9442,11 +9441,14 @@ body.builder-auth-ready .builder-admin-signout{
   font-weight:800;
   letter-spacing:0.06em;
   text-transform:uppercase;
+  text-decoration:none;
   cursor:pointer;
   transition:background 0.12s,border-color 0.12s,color 0.12s;
 }
 .builder-section-head .builder-view-group .builder-nav-btn:hover{background:#fff;border-color:rgba(var(--bic-blue-rgb),0.38);}
 .builder-section-head .builder-view-group .builder-nav-btn.is-active{background:var(--bic-blue);border-color:var(--bic-blue);color:#fff;}
+/* "You are here": the current page's button is grayed out and inert. */
+.builder-section-head .builder-view-group .builder-nav-btn.is-current{background:rgba(20,19,17,.05);border-color:rgba(20,19,17,.12);color:rgba(20,19,17,.42);cursor:default;pointer-events:none;}
 .builder-nav-btn.is-active{background:var(--bic-blue);border-color:var(--bic-blue);color:#fff;}
 .builder-nav-row .builder-nav-btn{
   display:inline-flex;
@@ -9469,9 +9471,12 @@ body.builder-auth-ready .builder-admin-signout{
 .builder-nav-row .builder-nav-btn:disabled,
 .builder-nav-row .builder-nav-btn[aria-disabled="true"]{opacity:.5;cursor:default;pointer-events:none;}
 .builder-nav-row .builder-nav-btn--danger{color:#a03f2d;border-color:rgba(160,63,45,.3);}
-#mbNav[data-view="builder"] > :not(#gamePickerSaveBtn):not(#builderViewGameBtn){display:none!important;}
-#mbNav[data-view="builder"] #gamePickerSaveBtn{flex:1;}
+#mbNav[data-view="builder"] > :not(#gamePickerSaveBtn):not(#builderViewGameBtn):not(.game-picker-select-wrap){display:none!important;}
+#mbNav[data-view="builder"] #gamePickerSaveBtn{flex:0 0 auto;}
 #mbNav[data-view="details"] #gamePickerSaveBtn{flex:1;}
+/* Builder view: surface the game selector and let it span the row (like the overview page). */
+#mbNav[data-view="builder"] .game-picker-select-wrap{flex:1 1 auto;max-width:none;}
+#mbNav[data-view="builder"] .game-picker-select{width:100%;}
 .builder-nav-row .builder-nav-btn--danger:hover{background:rgba(160,63,45,.06);}
 
 .builder-nav-row .builder-preview-btn{
@@ -9572,8 +9577,6 @@ html.admin-embedded .builder-section-head{
       <!-- Admin topbar: admin nav + sign-out on the right. -->
       <div class="builder-admin-topbar">
         <div class="builder-admin-topbar-inner">
-          <button class="mc-back-btn" type="button" data-mc-back data-mc-back-fallback="/" data-mc-new-tab>TGB HOME</button>
-          <button class="mc-back-btn" type="button" data-mc-home="/mc/">MISSION CONTROL</button>
           <button class="builder-admin-signout" id="builderSignOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -9649,8 +9652,8 @@ html.admin-embedded .builder-section-head{
         <h1 class="builder-admin-title">GAME BUILDER</h1>
         <div class="builder-section-head-actions">
           <div class="builder-view-group">
-            <button class="builder-nav-btn is-active" id="builderViewDetailsBtn" type="button" data-builder-view="details" title="Setup (Ctrl/Cmd+Shift+1)">Setup</button>
-            <button class="builder-nav-btn" id="builderViewBuilderBtn" type="button" data-builder-view="builder" title="Build (Ctrl/Cmd+Shift+2)">Build</button>
+            <a class="builder-nav-btn" id="builderOverviewBtn" href="overview.html" aria-disabled="true" title="Edit this game's overview">Overview</a>
+            <span class="builder-nav-btn is-current" aria-current="page" aria-disabled="true" title="You are on the builder page">Builder</span>
           </div>
         </div>
       </div>
@@ -9678,469 +9681,6 @@ html.admin-embedded .builder-section-head{
       </div>
 
       <section class="builder-tab-shell" aria-label="Builder workspaces">
-        <section class="builder-tab-panel builder-tab-panel--details" id="builderPanelDetails" aria-label="Setup">
-      <!-- Game details inspector: edits the selected game-level data. -->
-      <aside class="inspector pane pane--details" id="inspector" aria-label="Game details">
-        <div class="inspector-windowbar" id="inspectorWindowBar">
-          <div class="inspector-windowmeta">
-            <div class="inspector-windowheading">
-              <div class="inspector-windowtitle" id="inspectorWindowTitle">
-                <span id="inspectorWindowTitleText">GAME SETUP</span>
-                <span class="field-info inspector-windowinfo" tabindex="0" role="note" aria-label="Change this color combination if it doesn't look good. It will be used in the game.">i<span class="field-tooltip" role="tooltip">Change this color combination if it doesn't look good. It will be used in the game.</span></span>
-              </div>
-            </div>
-            <div class="pane-subtitle" id="inspectorWindowSubtitle" hidden>Select something to edit.</div>
-          </div>
-        </div>
-
-        <div class="inspector-stack" id="inspectorStack">
-          <section class="inspector-card" id="objectCard" hidden>
-            <div id="inspectorContent" hidden>
-              <p class="inspector-copy" id="inspectorCopy">
-                Select an object to edit it. Connections can fan out to more than one destination.
-              </p>
-
-              <section class="details-section" id="detailsBrandSection">
-                  <div class="details-section-title">Game Brand</div>
-                  <div id="brandColorGuidance" hidden aria-hidden="true">
-                    <span id="brandColorGuidancePrimary" data-color-role="primary">Use for the main background and dominant surfaces. This is the base color the rest of the palette supports. Examples: main screens, large panels, hero areas, cards, and broad brand fields.</span>
-                    <span id="brandColorGuidanceSecondary" data-color-role="secondary">Use for guidance and navigation. This supports the primary without competing with it. Examples: section headers, progress indicators, selected menu states, map/location labels, timestamps, clue labels.</span>
-                    <span id="brandColorGuidanceTertiary" data-color-role="tertiary">Use for feedback, flavor, and world-building accents. This is where the game feels alive. Examples: quotes, in-world messages, flavor text, NPC names, special callouts, puzzle category badges.</span>
-                    <span id="brandColorGuidanceQuaternary" data-color-role="quaternary">Use as the main font color and for contrast-heavy utility details. This is the core readable text color for the interface. Examples: body text, labels, metadata, borders, dividers, subtle hover states, disabled states, footnotes, secondary icons.</span>
-                  </div>
-                  <div class="details-section-grid details-section-grid--brand">
-                    <div class="field" id="titleField">
-                      <label class="field-label field-label--with-meta" id="nodeTitleLabel" for="nodeTitleInput">
-                        <span class="field-label-text" id="nodeTitleLabelText">Game Name</span>
-                        <span class="field-label-meta" id="selectionId" hidden>(ID: <span class="selection-id-editable" id="selectionIdInput" contenteditable="false" spellcheck="false" aria-label="Game ID (click to edit)"></span>)</span>
-                      </label>
-                      <input id="nodeTitleInput" type="text" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="stopNameField" hidden>
-                      <label class="field-label" for="stopNameInput">STOP NAME</label>
-                      <input id="stopNameInput" type="text" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="varNameField" hidden>
-                      <label class="field-label" for="varNameInput">Message Name (for storage and future use)</label>
-                      <input id="varNameInput" type="text" placeholder="e.g. name" autocomplete="off" disabled>
-                      <div class="field-hint" id="varNameHint" hidden></div>
-                    </div>
-
-                    <div class="field" id="gameLogoField">
-                      <label class="field-label field-label--with-meta" for="nodeGameLogoInput">Game Logo<span class="field-info" tabindex="0" role="note" aria-label="Provide image web address or choose from existing library.">i<span class="field-tooltip" role="tooltip">Provide image web address or choose from existing library.</span></span></label>
-                      <div class="guide-image-input-row guide-image-input-row--with-asset">
-                        <button class="guide-image-thumb" id="gameLogoThumbBtn" type="button" disabled aria-label="No game logo selected">
-                          <img class="guide-image-thumb-image" id="gameLogoThumbImage" alt="Game logo thumbnail" hidden>
-                          <span class="guide-image-thumb-placeholder" id="gameLogoThumbPlaceholder">No image</span>
-                        </button>
-                        <input id="nodeGameLogoInput" type="text" placeholder="http://" autocomplete="off" disabled>
-                        <button class="guide-image-asset-btn" id="gameLogoOnlinePickBtn" type="button" disabled aria-label="Choose logo asset" title="Choose logo asset" aria-expanded="false" aria-controls="gameLogoOnlineMenu">Choose</button>
-                      </div>
-                      <div class="guide-image-asset-menu" id="gameLogoOnlineMenu" hidden>
-                        <div class="guide-image-asset-list" id="gameLogoOnlineList" role="listbox" aria-label="Uploaded logo assets"></div>
-                      </div>
-                      <div class="field-hint" id="gameLogoAssetStatus" aria-live="polite"></div>
-                    </div>
-
-                    <div class="field" id="defaultEmojiField">
-                      <label class="field-label" for="nodeDefaultEmojiInput">Default Emoji</label>
-                      <input id="nodeDefaultEmojiInput" type="text" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="categoryIconField">
-                      <label class="field-label field-label--with-meta" for="nodeCategoryIconInput">CATEGORY_ICON<span class="field-info" tabindex="0" role="note" aria-label="Choose the public card icon for this game.">i<span class="field-tooltip" role="tooltip">Choose the public card icon for this game.</span></span></label>
-                      <select id="nodeCategoryIconInput" autocomplete="off" disabled>
-                        <option value="">None / Auto</option>
-                        <option value="football">Football Helmet</option>
-                        <option value="basketball">Basketball</option>
-                        <option value="baseball">Baseball</option>
-                        <option value="music">8 Bit Musical Notes</option>
-                      </select>
-                    </div>
-
-                    <div class="field" id="primaryColorField" data-color-role="primary" data-ai-guidance-id="brandColorGuidancePrimary">
-                      <label class="field-label field-label--with-meta" for="primaryColorInput">PRIMARY COLOR<span class="field-info" tabindex="0" role="note" aria-label="Use for the main background and dominant surfaces. This is the base color the rest of the palette supports. Examples: main screens, large panels, hero areas, cards, and broad brand fields.">i<span class="field-tooltip" role="tooltip">Use for the main background and dominant surfaces. This is the base color the rest of the palette supports. Examples: main screens, large panels, hero areas, cards, and broad brand fields.</span></span></label>
-                      <div class="color-field-controls">
-                        <span class="color-picker-swatch">
-                          <input class="color-picker-input" id="primaryColorPickerInput" type="color" value="#0000ff" disabled aria-label="Primary color picker">
-                        </span>
-                        <input id="primaryColorInput" type="text" autocomplete="off" spellcheck="false" disabled>
-                      </div>
-                    </div>
-
-                    <div class="field" id="secondaryColorField" data-color-role="secondary" data-ai-guidance-id="brandColorGuidanceSecondary">
-                      <label class="field-label field-label--with-meta" for="secondaryColorInput">Secondary Color<span class="field-info" tabindex="0" role="note" aria-label="Use for guidance and navigation. This supports the primary without competing with it. Examples: section headers, progress indicators, selected menu states, map/location labels, timestamps, clue labels.">i<span class="field-tooltip" role="tooltip">Use for guidance and navigation. This supports the primary without competing with it. Examples: section headers, progress indicators, selected menu states, map/location labels, timestamps, clue labels.</span></span></label>
-                      <div class="color-field-controls">
-                        <span class="color-picker-swatch">
-                          <input class="color-picker-input" id="secondaryColorPickerInput" type="color" value="#ff0000" disabled aria-label="Secondary color picker">
-                        </span>
-                        <input id="secondaryColorInput" type="text" autocomplete="off" spellcheck="false" disabled>
-                      </div>
-                    </div>
-
-                    <div class="field" id="tertiaryColorField" data-color-role="tertiary" data-ai-guidance-id="brandColorGuidanceTertiary">
-                      <label class="field-label field-label--with-meta" for="tertiaryColorInput">TERTIARY COLOR<span class="field-info" tabindex="0" role="note" aria-label="Use for feedback, flavor, and world-building accents. This is where the game feels alive. Examples: quotes, in-world messages, flavor text, NPC names, special callouts, puzzle category badges.">i<span class="field-tooltip" role="tooltip">Use for feedback, flavor, and world-building accents. This is where the game feels alive. Examples: quotes, in-world messages, flavor text, NPC names, special callouts, puzzle category badges.</span></span></label>
-                      <div class="color-field-controls">
-                        <span class="color-picker-swatch">
-                          <input class="color-picker-input" id="tertiaryColorPickerInput" type="color" value="#00ff00" disabled aria-label="Tertiary color picker">
-                        </span>
-                        <input id="tertiaryColorInput" type="text" autocomplete="off" spellcheck="false" disabled>
-                      </div>
-                    </div>
-
-                    <div class="field" id="quaternaryColorField" data-color-role="quaternary" data-ai-guidance-id="brandColorGuidanceQuaternary">
-                      <label class="field-label field-label--with-meta" for="quaternaryColorInput">Font Color<span class="field-info" tabindex="0" role="note" aria-label="The main font color for the interface. Use for body text, labels, metadata, borders, and other contrast-heavy utility details.">i<span class="field-tooltip" role="tooltip">The main font color for the interface. Use for body text, labels, metadata, borders, and other contrast-heavy utility details.</span></span></label>
-                      <div class="color-field-controls">
-                        <span class="color-picker-swatch">
-                          <input class="color-picker-input" id="quaternaryColorPickerInput" type="color" value="#ffffff" disabled aria-label="Font color picker">
-                        </span>
-                        <input id="quaternaryColorInput" type="text" autocomplete="off" spellcheck="false" disabled>
-                      </div>
-                    </div>
-
-                  </div>
-                  <button class="insp-btn" id="shuffleColorsBtn" type="button" title="Reassign the four colors to different roles (does not save until you click Save)" style="margin-top:10px;" disabled>Shuffle</button>
-                  <button class="insp-btn" id="newSchemeBtn" type="button" title="Open an AI prompt with this game's info — paste it into your AI of choice, then enter the four hex codes by hand" style="margin-top:6px;" disabled>New scheme</button>
-                </section>
-
-                <section class="details-section" id="detailsGameDetailsSection">
-                  <div class="details-section-title">Basics</div>
-                  <div class="details-section-grid details-section-grid--game-details">
-                    <div class="field" id="taglineField">
-                      <label class="field-label" for="nodeTaglineInput">Tagline</label>
-                      <input id="nodeTaglineInput" type="text" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="engineField">
-                      <label class="field-label field-label--with-meta" for="nodeEngineInput">
-                        <span class="field-label-text">Engine</span>
-                        <span class="field-info" tabindex="0" role="note" aria-label="Which player engine this game uses. Saved per game; players land in this engine via the run page Start button. The default is Text Message.">i<span class="field-tooltip" role="tooltip">Which player engine this game uses. Saved per game; players land in this engine via the run page Start button. The default is Text Message.</span></span>
-                      </label>
-                      <select id="nodeEngineInput" autocomplete="off" disabled>
-                        <option value="text">Text Message</option>
-                        <option value="map">Map</option>
-                      </select>
-                    </div>
-
-                    <div class="field" id="gameDateField">
-                      <label class="field-label field-label--with-meta" for="nodeGameDateInput">Takeover Date<span class="field-info" tabindex="0" role="note" aria-label="The TGB experience date shown in the player-facing Takeover Time square. This is not the sports matchup date.">i<span class="field-tooltip" role="tooltip">The TGB experience date shown in the player-facing Takeover Time square. This is not the sports matchup date.</span></span></label>
-                      <input id="nodeGameDateInput" type="date" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="gameStartTimeField">
-                      <label class="field-label field-label--with-meta" for="nodeGameStartTimeInput">Suggested Start<span class="field-info" tabindex="0" role="note" aria-label="Suggested start time for the TGB experience, shown in Takeover Time.">i<span class="field-tooltip" role="tooltip">Suggested start time for the TGB experience, shown in Takeover Time.</span></span></label>
-                      <input id="nodeGameStartTimeInput" type="time" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="gameEndTimeField">
-                      <label class="field-label field-label--with-meta" for="nodeGameEndTimeInput">Target End<span class="field-info" tabindex="0" role="note" aria-label="Target end time for the TGB experience, shown in Takeover Time.">i<span class="field-tooltip" role="tooltip">Target end time for the TGB experience, shown in Takeover Time.</span></span></label>
-                      <input id="nodeGameEndTimeInput" type="time" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="descriptionField">
-                      <label class="field-label field-label--with-meta" for="nodeBodyInput">
-                        <span id="nodeBodyLabel">Intro</span>
-                        <button class="field-generate-btn" type="button" data-generate-description-btn>(GENERATE)</button>
-                        <span class="field-info" id="nodeBodyInfo" tabindex="0" role="note" aria-label="Not seen by the player." hidden>
-                          i
-                          <span class="field-tooltip" role="tooltip">Not seen by the player.</span>
-                        </span>
-                      </label>
-
-                      <div class="field" id="replyModeField" hidden>
-                        <div class="field-label">Expected Player Msg Type</div>
-                        <div class="mode-toggle mode-toggle--triple" role="radiogroup" aria-label="Player message mode">
-                          <label class="mode-toggle-option" for="replyModeAnyAnswerInput">
-                            <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModeAnyAnswerInput" value="anyanswer" disabled>
-                            <span class="mode-toggle-btn">Any</span>
-                          </label>
-                          <label class="mode-toggle-option" for="replyModeNormalInput">
-                            <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModeNormalInput" value="normal" disabled>
-                            <span class="mode-toggle-btn">Specific</span>
-                          </label>
-                          <label class="mode-toggle-option" for="replyModePhotoInput">
-                            <input class="mode-toggle-input" type="radio" name="replyMode" id="replyModePhotoInput" value="photo" disabled>
-                            <span class="mode-toggle-btn">Photo</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      <textarea id="nodeBodyInput" disabled></textarea>
-                      <div class="field-autocomplete" id="nodeBodyAutocomplete" hidden role="listbox" aria-label="Current variables"></div>
-                      <div class="field-generate-status" data-generate-description-status hidden></div>
-                      <div class="mini-note" id="nodeBodyHtmlNote" hidden>HTML OK.</div>
-                    </div>
-
-                  </div>
-                </section>
-
-                <section class="details-section" id="detailsPaymentSection">
-                  <div class="details-section-title">Payment</div>
-                  <div class="details-section-grid details-section-grid--game-details">
-
-                    <div class="field" id="priceField">
-                      <label class="field-label" for="nodePriceInput">Price</label>
-                      <input id="nodePriceInput" type="text" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="checkoutUrlField">
-                      <label class="field-label" for="nodeCheckoutUrlInput">Legacy Checkout URL</label>
-                      <input id="nodeCheckoutUrlInput" type="url" placeholder="https://..." autocomplete="off" spellcheck="false" disabled>
-                      <p class="field-hint">Legacy payment-gate marker. Live purchases now use the Stripe access-code modal.</p>
-                    </div>
-
-                  </div>
-                </section>
-
-                <!-- Starting locations card -->
-                <section class="details-section rendezvous-card" id="detailsRendezvousSection">
-                  <div class="details-section-title">Starting Locations</div>
-                  <div class="details-section-grid details-section-grid--game-details">
-
-                    <div class="field" id="locationBasedField">
-                      <div class="field-label">LOCATION BASED<span class="field-info" tabindex="0" role="note" aria-label="Choose YES for a real-world game with GPS stops, or NO for a remote/online game.">i<span class="field-tooltip" role="tooltip">Choose YES for a real-world game with GPS stops, or NO for a remote/online game.</span></span></div>
-                      <div class="loc-toggle-wrap">
-                        <span class="loc-toggle-side-label" id="locationBasedLabelNo">NO</span>
-                        <label class="loc-toggle" for="locationBasedToggle">
-                          <input type="checkbox" id="locationBasedToggle">
-                          <span class="loc-toggle-track"></span>
-                          <span class="loc-toggle-thumb"></span>
-                        </label>
-                        <span class="loc-toggle-side-label" id="locationBasedLabelYes">YES</span>
-                      </div>
-                    </div>
-
-                    <div class="field" id="cityField">
-                      <label class="field-label field-label--with-meta" for="nodeCityInput">Start City, State<span class="field-info" tabindex="0" role="note" aria-label="The city the tour takes place in.">i<span class="field-tooltip" role="tooltip">The city the tour takes place in.</span></span></label>
-                      <input id="nodeCityInput" type="text" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="startNameField">
-                      <label class="field-label field-label--with-meta" for="nodeStartNameInput">Start Name<span class="field-info" tabindex="0" role="note" aria-label="Friendly name for the meeting spot — e.g. 'Jackson Square Statue'.">i<span class="field-tooltip" role="tooltip">Friendly name for the meeting spot &mdash; e.g. &lsquo;Jackson Square Statue&rsquo;.</span></span></label>
-                      <input id="nodeStartNameInput" type="text" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="startAddressField">
-                      <label class="field-label field-label--with-meta" for="nodeStartAddressInput">Start Address<span class="field-info" tabindex="0" role="note" aria-label="Street address of the meeting spot, for navigation apps.">i<span class="field-tooltip" role="tooltip">Street address of the meeting spot, for navigation apps.</span></span></label>
-                      <input id="nodeStartAddressInput" type="text" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="coordinatesField">
-                      <label class="field-label field-label--with-meta" for="nodeCoordinatesInput">Start Plus Code<span class="field-info" tabindex="0" role="note" aria-label="Google Plus Code (Open Location Code) for the meeting spot. Click Generate to derive it from the Start Name, Address, and City.">i<span class="field-tooltip" role="tooltip">Google Plus Code (Open Location Code) for the meeting spot. Click Generate to derive it from the Start Name, Address, and City.</span></span></label>
-                      <div class="coords-input-row" style="display:flex;gap:6px;align-items:stretch;">
-                        <input id="nodeCoordinatesInput" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. 76VW+59" style="flex:1 1 auto;min-width:0;" disabled>
-                        <button id="coordinatesGenerateBtn" class="guide-image-asset-btn" type="button" disabled aria-label="Generate Plus Code from Start Name and Address" title="Generate Plus Code from Start Name and Address">Generate</button>
-                      </div>
-                    </div>
-
-                  </div>
-                </section>
-
-                <section class="details-section" id="detailsGuideSection">
-                  <div class="details-section-title">Guide</div>
-                  <button class="insp-btn" id="guidePromptBtn" type="button" title="Open an AI prompt built from this game's teams and current guide draft — paste it into your AI of choice, then drop GUIDE NAME / BIO / BACKGROUND back into the fields" style="margin-bottom:10px;" disabled>Generate Prompt</button>
-                  <div class="details-section-grid details-section-grid--guide">
-                    <div class="field" id="guideNameField">
-                      <label class="field-label field-label--with-meta" for="nodeGuideNameInput">Guide Name<span class="field-info" tabindex="0" role="note" aria-label="The narrator of the game.">i<span class="field-tooltip" role="tooltip">The narrator of the game.</span></span></label>
-                      <input id="nodeGuideNameInput" type="text" autocomplete="off" disabled>
-                    </div>
-
-                    <div class="field" id="guideImageField">
-                      <label class="field-label">Guide Image</label>
-                      <p class="field-hint" id="guideImageNote">Upload a guide image for this game to the assets\guides folder and name the image {GAMEID}.png</p>
-                      <input id="nodeGuideImageInput" type="hidden">
-                    </div>
-
-                    <div class="field" id="guideBioField">
-                      <label class="field-label" for="nodeGuideBioInput">Guide Bio</label>
-                      <textarea id="nodeGuideBioInput" disabled></textarea>
-                    </div>
-
-                    <div class="field" id="guideBackgroundField">
-                      <label class="field-label field-label--with-meta" for="nodeGuideBackgroundInput">Guide Background<span class="field-info" tabindex="0" role="note" aria-label="Used for game development.">i<span class="field-tooltip" role="tooltip">Used for game development.</span></span></label>
-                      <textarea id="nodeGuideBackgroundInput" disabled></textarea>
-                    </div>
-                  </div>
-                </section>
-
-                <section class="details-section" id="detailsTeamsSection">
-                  <div class="details-section-title">Anchor Event</div>
-                  <div class="details-section-grid details-section-grid--teams">
-                    <div class="field" id="fandomGameField">
-                      <div class="field-label">INCLUDE ANCHOR<span class="field-info" tabindex="0" role="note" aria-label="Turn on to include an anchor event for this game.">i<span class="field-tooltip" role="tooltip">Turn on to include an anchor event for this game.</span></span></div>
-                      <div class="loc-toggle-wrap">
-                        <span class="loc-toggle-side-label" id="fandomGameLabelNo">NO</span>
-                        <label class="loc-toggle" for="fandomGameToggle">
-                          <input type="checkbox" id="fandomGameToggle">
-                          <span class="loc-toggle-track"></span>
-                          <span class="loc-toggle-thumb"></span>
-                        </label>
-                        <span class="loc-toggle-side-label" id="fandomGameLabelYes">YES</span>
-                      </div>
-                    </div>
-                    <div class="field" id="awayTeamField">
-                      <label class="field-label" for="nodeAwayTeamInput">Away Team (Fan's Team)</label>
-                      <select id="nodeAwayTeamInput" autocomplete="off" disabled>
-                        <option value="">— pick a team —</option>
-                      </select>
-                    </div>
-                    <div class="field" id="awayTeamCityField">
-                      <label class="field-label" for="nodeAwayTeamCityInput">Away Team City</label>
-                      <input id="nodeAwayTeamCityInput" type="text" placeholder="City, Full State/Province" autocomplete="off" disabled>
-                    </div>
-                    <div class="field" id="awayTeamMascotField" hidden>
-                      <label class="field-label" for="nodeAwayTeamMascotInput">Away Team Mascot (Fan's Team)</label>
-                      <input id="nodeAwayTeamMascotInput" type="text" autocomplete="off" disabled>
-                    </div>
-                    <div class="field" id="homeTeamCityField">
-                      <label class="field-label" for="nodeHomeTeamCityInput">Home Team</label>
-                      <select id="nodeHomeTeamCityInput" autocomplete="off" disabled>
-                        <option value="">— pick a team —</option>
-                      </select>
-                    </div>
-                    <div class="field" id="homeTeamMascotField" hidden>
-                      <label class="field-label" for="nodeHomeTeamMascotInput">Home Team Mascot</label>
-                      <input id="nodeHomeTeamMascotInput" type="text" autocomplete="off" disabled>
-                    </div>
-                    <div class="field" id="venueNameField">
-                      <label class="field-label field-label--with-meta" for="nodeVenueNameInput">Venue / Stadium<span class="field-info" tabindex="0" role="note" aria-label="Stadium the pro game is played in — e.g. 'Caesars Superdome'.">i<span class="field-tooltip" role="tooltip">Stadium the pro game is played in &mdash; e.g. &lsquo;Caesars Superdome&rsquo;.</span></span></label>
-                      <input id="nodeVenueNameInput" type="text" autocomplete="off" disabled>
-                    </div>
-                    <div class="field" id="venueCityField">
-                      <label class="field-label field-label--with-meta" for="nodeVenueCityInput">Venue City<span class="field-info" tabindex="0" role="note" aria-label="City the stadium is actually in — e.g. 'Landover', not the team's metro.">i<span class="field-tooltip" role="tooltip">City the stadium is actually in &mdash; e.g. &lsquo;Landover&rsquo;, not the team&rsquo;s metro.</span></span></label>
-                      <input id="nodeVenueCityInput" type="text" autocomplete="off" disabled>
-                    </div>
-                  </div>
-                </section>
-
-                <section class="details-section" id="detailsTeamNamesSection">
-                  <div class="details-section-title">Team Names</div>
-                  <div class="details-section-grid">
-                    <div class="field" id="teamsField">
-                      <div class="field-label field-label--with-meta">TGB TEAM NAMES<span class="field-info" tabindex="0" role="note" aria-label="Order team names from most desirable to least.">i<span class="field-tooltip" role="tooltip">Order team names from most desirable to least.</span></span></div>
-                      <div class="team-names-grid">
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team01</div>
-                          <input id="team01Input" type="text" placeholder="Team 1" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team02</div>
-                          <input id="team02Input" type="text" placeholder="Team 2" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team03</div>
-                          <input id="team03Input" type="text" placeholder="Team 3" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team04</div>
-                          <input id="team04Input" type="text" placeholder="Team 4" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team05</div>
-                          <input id="team05Input" type="text" placeholder="Team 5" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team06</div>
-                          <input id="team06Input" type="text" placeholder="Team 6" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team07</div>
-                          <input id="team07Input" type="text" placeholder="Team 7" autocomplete="off" disabled>
-                        </div>
-                        <div class="team-name-entry">
-                          <div class="team-name-code">team08</div>
-                          <input id="team08Input" type="text" placeholder="Team 8" autocomplete="off" disabled>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                <section class="details-section" id="detailsTagsSection">
-                  <div class="details-section-title">Tags</div>
-                  <div class="details-section-grid details-section-grid--tags">
-                    <div class="field" id="tagsField">
-                      <label class="field-label field-label--with-meta" for="nodeTagNewInput">Tags<span class="field-info" tabindex="0" role="note" aria-label="Radio dot marks the primary tag — shown on the game card. Deleting a tag here deletes it for all games.">i<span class="field-tooltip" role="tooltip">Radio dot marks the primary tag — shown on the game card. Deleting a tag here deletes it for all games.</span></span></label>
-                      <div class="tag-picker" id="nodeTagPicker">
-                        <input id="nodeTagNewInput" type="text" placeholder="New tag..." autocomplete="off" disabled>
-                        <button type="button" class="tag-add-btn" id="nodeTagAddBtn" disabled>+</button>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-
-
-              <section class="details-section" id="detailsLogicSection">
-                <div class="details-section-title">Logic</div>
-                <div class="details-section-grid details-section-grid--logic">
-                  <div class="field" id="varValuesField" hidden>
-                    <div class="field-label">Values <span class="field-label-hint">(tap checkmark to mark correct)</span></div>
-                    <div class="ifthen-grid">
-                      <div class="ifthen-row">
-                        <span class="ifthen-port-tag">Val 1</span>
-                        <input id="varValue1" type="text" autocomplete="off" disabled>
-                        <input class="var-correct-radio" type="radio" name="varCorrect" value="0" id="varCorrect0" disabled>
-                        <label class="var-correct-label" for="varCorrect0">&#10003;</label>
-                      </div>
-                      <div class="ifthen-row">
-                        <span class="ifthen-port-tag">Val 2</span>
-                        <input id="varValue2" type="text" autocomplete="off" disabled>
-                        <input class="var-correct-radio" type="radio" name="varCorrect" value="1" id="varCorrect1" disabled>
-                        <label class="var-correct-label" for="varCorrect1">&#10003;</label>
-                      </div>
-                      <div class="ifthen-row">
-                        <span class="ifthen-port-tag">Val 3</span>
-                        <input id="varValue3" type="text" autocomplete="off" disabled>
-                        <input class="var-correct-radio" type="radio" name="varCorrect" value="2" id="varCorrect2" disabled>
-                        <label class="var-correct-label" for="varCorrect2">&#10003;</label>
-                      </div>
-                      <div class="ifthen-row">
-                        <span class="ifthen-port-tag">Val 4</span>
-                        <input id="varValue4" type="text" autocomplete="off" disabled>
-                        <input class="var-correct-radio" type="radio" name="varCorrect" value="3" id="varCorrect3" disabled>
-                        <label class="var-correct-label" for="varCorrect3">&#10003;</label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="field" id="ifThenField" hidden>
-                    <div class="field-label">Player Input Paths</div>
-                    <div class="ifthen-grid">
-                      <label class="ifthen-row" for="ifThenBranch1">
-                        <span class="ifthen-port-tag">Out 1</span>
-                        <input id="ifThenBranch1" type="text" autocomplete="off" disabled>
-                      </label>
-                      <label class="ifthen-row" for="ifThenBranch2">
-                        <span class="ifthen-port-tag">Out 2</span>
-                        <input id="ifThenBranch2" type="text" autocomplete="off" disabled>
-                      </label>
-                      <label class="ifthen-row" for="ifThenBranch3">
-                        <span class="ifthen-port-tag">Out 3</span>
-                        <input id="ifThenBranch3" type="text" autocomplete="off" disabled>
-                      </label>
-                      <label class="ifthen-row" for="ifThenBranch4">
-                        <span class="ifthen-port-tag">Out 4</span>
-                        <input id="ifThenBranch4" type="text" autocomplete="off" disabled>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <div class="inspector-actions inspector-actions--footer">
-              </div>
-              <div class="mini-note duplicate-game-status" id="duplicateGameStatus" hidden aria-live="polite"></div>
-            </div>
-          </section>
-
-        </div>
-      </aside>
-
-        </section>
-
         <section class="builder-tab-panel builder-tab-panel--builder" id="builderPanelBuilder" aria-label="Build">
       <!-- Main editor grid: add panel, phone workspace, and object inspector. -->
       <div class="main-grid" id="mainGrid">
@@ -12378,13 +11918,14 @@ const objectVarNameField = document.getElementById('objectVarNameField');
 const objectVarNameInput = document.getElementById('objectVarNameInput');
 const objectVarNameHint = document.getElementById('objectVarNameHint');
 const varValuesField = document.getElementById('varValuesField');
-const varValueInputs = [1, 2, 3, 4].map((index) => document.getElementById('varValue' + index));
-const varCorrectRadios = [0, 1, 2, 3].map((index) => document.getElementById('varCorrect' + index));
+const varValueInputs = [1, 2, 3, 4].map((index) => document.getElementById('varValue' + index)).filter(Boolean);
+const varCorrectRadios = [0, 1, 2, 3].map((index) => document.getElementById('varCorrect' + index)).filter(Boolean);
 const selectionId = document.getElementById('selectionId');
 const selectionIdInput = document.getElementById('selectionIdInput');
 const objectSelectionId = document.getElementById('objectSelectionId');
 const builderNewGameBtn = document.getElementById('builderNewGameBtn');
 const builderViewGameBtn = document.getElementById('builderViewGameBtn');
+const builderOverviewBtn = document.getElementById('builderOverviewBtn');
 const duplicateGameBtn = document.getElementById('duplicateGameBtn');
 const featureGameBtn = document.getElementById('featureGameBtn');
 const archiveGameBtn = document.getElementById('archiveGameBtn');
@@ -12527,7 +12068,7 @@ const state = {
   builderTutorialStarted: false,
   builderTutorialIndex: -1,
   builderTutorialTarget: null,
-  builderActiveTab: 'details'
+  builderActiveTab: 'builder' // [STOPS-BUILDER] Setup view removed; always Build
 };
 
 function cloneObj(value) {
@@ -12597,7 +12138,7 @@ function getBuilderViewLabel(tab) {
 }
 
 function syncBuilderViewMenu(activeTab) {
-  const normalizedTab = ['details', 'builder'].includes(activeTab) ? activeTab : 'details';
+  const normalizedTab = 'builder'; // [STOPS-BUILDER] Setup view removed
   if (builderViewTrigger) builderViewTrigger.textContent = `View: ${getBuilderViewLabel(normalizedTab)}`;
   builderViewButtons.forEach((button) => {
     const isActive = button.dataset.builderView === normalizedTab;
@@ -12608,8 +12149,9 @@ function syncBuilderViewMenu(activeTab) {
 }
 
 function setBuilderActiveTab(nextTab, options = {}) {
-  const validTabs = ['details', 'builder'];
-  const normalizedTab = validTabs.includes(nextTab) ? nextTab : 'details';
+  // [STOPS-BUILDER] The Setup ("details") panel was removed; this is a pure
+  // stops builder, so always resolve to the Build view regardless of input.
+  const normalizedTab = 'builder';
   const shouldFocus = options.focus === true;
   const allPanels = { details: builderPanelDetails, builder: builderPanelBuilder };
 
@@ -12646,10 +12188,10 @@ function setBuilderActiveTab(nextTab, options = {}) {
 }
 
 function initBuilderTabs() {
-  setBuilderActiveTab(state.builderActiveTab || 'details');
+  setBuilderActiveTab('builder');
   if (!builderTabList || !builderTabButtons.length) return;
   if (builderTabList.dataset.initialized === 'true') {
-    setBuilderActiveTab(state.builderActiveTab || 'details');
+    setBuilderActiveTab('builder');
     return;
   }
 
@@ -12679,12 +12221,12 @@ function initBuilderTabs() {
     setBuilderActiveTab(nextButton.dataset.builderTab || 'builder', { focus: true });
   });
 
-  setBuilderActiveTab(state.builderActiveTab || 'details');
+  setBuilderActiveTab('builder');
 }
 
 function initBuilderViewMenu() {
   if (!builderViewButtons.length) {
-    syncBuilderViewMenu(state.builderActiveTab || 'details');
+    syncBuilderViewMenu('builder');
     return;
   }
 
@@ -12696,7 +12238,7 @@ function initBuilderViewMenu() {
     });
   });
 
-  syncBuilderViewMenu(state.builderActiveTab || 'details');
+  syncBuilderViewMenu('builder');
 }
 
 function getSnapSize() {
@@ -16131,6 +15673,13 @@ function updateActionUi() {
     builderViewGameBtn.setAttribute('aria-disabled', canView ? 'false' : 'true');
     builderViewGameBtn.title = canView ? 'View public game' : 'Save or open a game first';
   }
+  if (builderOverviewBtn) {
+    const gameId = String(state.currentGameId || '').trim();
+    const canEdit = !!gameId && !isSaveBusy;
+    builderOverviewBtn.href = gameId ? ('overview.html?id=' + encodeURIComponent(gameId)) : 'overview.html';
+    builderOverviewBtn.setAttribute('aria-disabled', canEdit ? 'false' : 'true');
+    builderOverviewBtn.title = canEdit ? "Edit this game's overview" : 'Save or open a game first';
+  }
   if (gamePickerSelect) gamePickerSelect.disabled = isSaveBusy;
 }
 
@@ -18058,6 +17607,7 @@ function countGamesWithTag(tagLower) {
 }
 
 function renderTagPicker(node) {
+  if (!nodeTagPicker) return; // [STOPS-BUILDER] tag picker lived in deleted Setup panel
   const existingWraps = [...nodeTagPicker.querySelectorAll('.tag-pill-wrap')];
   existingWraps.forEach((wrap) => wrap.remove());
 
@@ -18779,10 +18329,10 @@ function startInlineNodeTitleEdit(nodeId) {
 
   const syncInspectorTitle = () => {
     if (state.selectedId !== nodeId) return;
-    if (node.type === 'game') nodeTitleInput.value = input.value;
+    if (node.type === 'game' && nodeTitleInput) nodeTitleInput.value = input.value;
     if (node.type === 'stop') {
       input.value = normalizeStopTitle(input.value, TYPE_CONFIG.stop.title);
-      stopNameInput.value = input.value;
+      if (stopNameInput) stopNameInput.value = input.value;
     }
   };
 
@@ -19444,8 +18994,8 @@ function updateSelectionUi(options = {}) {
   const currentGameEntry = getCurrentHeaderGameEntry() || getCurrentGameArchiveEntry();
   const showGameDetails = !!(gameNode || currentGameEntry);
   if (inspector) inspector.hidden = !showGameDetails;
-  objectCard.hidden = !showGameDetails;
-  inspectorContent.hidden = !showGameDetails;
+  if (objectCard) objectCard.hidden = !showGameDetails;
+  if (inspectorContent) inspectorContent.hidden = !showGameDetails;
 
   const getInspCopy = key => document.querySelector(`#inspectorCopyStrings [data-copy="${key}"]`)?.textContent.trim() || '';
   const nodeCopy = selectedNode ? (document.querySelector(`#stencilBar [data-stencil="${selectedNode.type}"]`)?.dataset.copy || '') : '';
@@ -19468,102 +19018,7 @@ function updateSelectionUi(options = {}) {
   syncInspectorHosts(selectedNode, selectedLink);
   if (inspectorContent) inspectorContent.classList.add('is-game-details');
 
-  titleField.hidden = !showGameDetails;
-  stopNameField.hidden = true;
-  varNameField.hidden = true;
-  varValuesField.hidden = true;
-  descriptionField.hidden = !showGameDetails;
-  ifThenField.hidden = true;
-  taglineField.hidden = !showGameDetails;
-
-  if (cityField) cityField.hidden = !showGameDetails;
-  if (startNameField) startNameField.hidden = !showGameDetails;
-  if (startAddressField) startAddressField.hidden = !showGameDetails;
-  if (coordinatesField) coordinatesField.hidden = !showGameDetails;
-  if (locationBasedField) locationBasedField.hidden = !showGameDetails;
-  if (fandomGameField) fandomGameField.hidden = !showGameDetails;
-  if (categoryIconField) categoryIconField.hidden = !showGameDetails;
-  guideNameField.hidden = !showGameDetails;
-  guideBioField.hidden = !showGameDetails;
-  if (guideBackgroundField) guideBackgroundField.hidden = !showGameDetails;
-  guideImageField.hidden = !showGameDetails;
-  priceField.hidden = !showGameDetails;
-  if (checkoutUrlField) checkoutUrlField.hidden = !showGameDetails;
-  const _paymentSection = document.getElementById('detailsPaymentSection');
-  if (_paymentSection) _paymentSection.hidden = !showGameDetails;
-  const _engineField = document.getElementById('engineField');
-  if (_engineField) _engineField.hidden = !showGameDetails;
-  const _gameDateField = document.getElementById('gameDateField');
-  if (_gameDateField) _gameDateField.hidden = !showGameDetails;
-  const _gameStartTimeField = document.getElementById('gameStartTimeField');
-  if (_gameStartTimeField) _gameStartTimeField.hidden = !showGameDetails;
-  const _gameEndTimeField = document.getElementById('gameEndTimeField');
-  if (_gameEndTimeField) _gameEndTimeField.hidden = !showGameDetails;
-  primaryColorField.hidden = !showGameDetails;
-  secondaryColorField.hidden = !showGameDetails;
-  if (tertiaryColorField) tertiaryColorField.hidden = !showGameDetails;
-  if (quaternaryColorField) quaternaryColorField.hidden = !showGameDetails;
-  tagsField.hidden = !showGameDetails;
-  if (anytimeRepliesField) anytimeRepliesField.hidden = !showGameDetails;
-  if (teamsField) teamsField.hidden = !showGameDetails;
-  if (nodeTitleLabelText) nodeTitleLabelText.textContent = 'GAME NAME';
-  nodeBodyLabel.textContent = 'INTRO';
-  if (nodeBodyInfo) nodeBodyInfo.hidden = true;
-  if (nodeBodyHtmlNote) nodeBodyHtmlNote.hidden = true;
-
-  nodeTitleInput.disabled = !isGameNode;
-  stopNameInput.disabled = true;
-  varNameInput.disabled = true;
-  nodeTaglineInput.disabled = !isGameNode;
-  if (nodeHomeTeamCityInput) nodeHomeTeamCityInput.disabled = !isGameNode;
-  if (nodeHomeTeamMascotInput) nodeHomeTeamMascotInput.disabled = !isGameNode;
-  if (nodeAwayTeamInput) nodeAwayTeamInput.disabled = !isGameNode;
-  if (nodeAwayTeamCityInput) nodeAwayTeamCityInput.disabled = !isGameNode;
-  if (nodeAwayTeamMascotInput) nodeAwayTeamMascotInput.disabled = !isGameNode;
-  nodeDefaultEmojiInput.disabled = !isGameNode;
-  if (nodeCategoryIconInput) nodeCategoryIconInput.disabled = !isGameNode;
-  if (nodeGameDateInput) nodeGameDateInput.disabled = !isGameNode;
-  if (nodeGameStartTimeInput) nodeGameStartTimeInput.disabled = !isGameNode;
-  if (nodeGameEndTimeInput) nodeGameEndTimeInput.disabled = !isGameNode;
-  nodeGameLogoInput.disabled = !isGameNode;
-  if (gameLogoOnlinePickBtn) gameLogoOnlinePickBtn.disabled = !isGameNode;
-  if (!isGameNode) setGameLogoOnlineMenuOpen(false);
-
-  if (nodeCityInput) nodeCityInput.disabled = !isGameNode;
-  if (nodeStartNameInput) nodeStartNameInput.disabled = !isGameNode;
-  if (nodeStartAddressInput) nodeStartAddressInput.disabled = !isGameNode;
-  if (nodeVenueNameInput) nodeVenueNameInput.disabled = !isGameNode;
-  if (nodeVenueCityInput) nodeVenueCityInput.disabled = !isGameNode;
-  if (nodeCoordinatesInput) nodeCoordinatesInput.disabled = !isGameNode;
-  if (coordinatesGenerateBtn) coordinatesGenerateBtn.disabled = !isGameNode;
-  nodeGuideNameInput.disabled = !isGameNode;
-  nodeGuideBioInput.disabled = !isGameNode;
-  if (nodeGuideBackgroundInput) nodeGuideBackgroundInput.disabled = !isGameNode;
-  nodeGuideImageInput.disabled = !isGameNode;
-  if (guideImageUploadBtn) guideImageUploadBtn.disabled = !isGameNode;
-  if (guideImageUploadInput) guideImageUploadInput.disabled = !isGameNode;
-  nodePriceInput.disabled = !isGameNode;
-  if (nodeCheckoutUrlInput) nodeCheckoutUrlInput.disabled = !isGameNode;
-  if (nodeEngineInput) nodeEngineInput.disabled = !isGameNode;
-  if (fandomGameToggle) fandomGameToggle.disabled = !isGameNode;
-  primaryColorInput.disabled = !isGameNode;
-  primaryColorPickerInput.disabled = !isGameNode;
-  secondaryColorInput.disabled = !isGameNode;
-  secondaryColorPickerInput.disabled = !isGameNode;
-  if (tertiaryColorInput) tertiaryColorInput.disabled = !isGameNode;
-  if (tertiaryColorPickerInput) tertiaryColorPickerInput.disabled = !isGameNode;
-  if (quaternaryColorInput) quaternaryColorInput.disabled = !isGameNode;
-  if (quaternaryColorPickerInput) quaternaryColorPickerInput.disabled = !isGameNode;
-  const _shuffleBtn = document.getElementById('shuffleColorsBtn');
-  if (_shuffleBtn) _shuffleBtn.disabled = !isGameNode;
-  const _newSchemeBtn = document.getElementById('newSchemeBtn');
-  if (_newSchemeBtn) _newSchemeBtn.disabled = !isGameNode;
-  const _guidePromptBtn = document.getElementById('guidePromptBtn');
-  if (_guidePromptBtn) _guidePromptBtn.disabled = !isGameNode;
-  nodeTagNewInput.disabled = !isGameNode;
-  nodeTagAddBtn.disabled = !isGameNode;
-  teamInputs.forEach(inp => { if (inp) inp.disabled = !isGameNode; });
-  nodeBodyInput.disabled = !isGameNode;
+  // [STOPS-BUILDER] Game-details field visibility/disable removed: Setup panel deleted.
 
   const currentGameArchived = isCurrentGameArchived();
   const currentGameFeatured = isCurrentGameFeatured();
@@ -19654,143 +19109,7 @@ function updateSelectionUi(options = {}) {
     gameEraseBtn.setAttribute('aria-label', gameEraseBtn.title);
   }
 
-  nodeTitleInput.value = isGameNode && gameNode ? gameNode.title : (currentGameEntry ? (currentGameEntry.name || '') : '');
-  stopNameInput.value = '';
-  varNameInput.value = '';
-  varNameInput.placeholder = 'e.g. name';
-  varValueInputs.forEach((input) => { input.value = ''; input.disabled = true; });
-  varCorrectRadios.forEach((radio, i) => {
-    radio.checked = false;
-    radio.disabled = true;
-  });
-  nodeTaglineInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.tagline || '') : '';
-  if (nodeHomeTeamMascotInput) nodeHomeTeamMascotInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.homeTeamMascot || '') : '';
-  if (nodeAwayTeamMascotInput) nodeAwayTeamMascotInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.awayTeamMascot || '') : '';
-  if (nodeHomeTeamCityInput) {
-    if (isGameNode) {
-      setTeamSelectValue(nodeHomeTeamCityInput, state.currentGameMeta && state.currentGameMeta.homeTeamCity || '', state.currentGameMeta && state.currentGameMeta.homeTeamMascot || '', state.currentGameMeta && state.currentGameMeta.homeTeamKey || '');
-    } else {
-      nodeHomeTeamCityInput.value = '';
-    }
-  }
-  if (nodeAwayTeamInput) {
-    if (isGameNode) {
-      setTeamSelectValue(nodeAwayTeamInput, state.currentGameMeta && state.currentGameMeta.awayTeamCity || '', state.currentGameMeta && state.currentGameMeta.awayTeamMascot || '', state.currentGameMeta && state.currentGameMeta.awayTeamKey || '');
-    } else {
-      nodeAwayTeamInput.value = '';
-    }
-  }
-  if (nodeAwayTeamCityInput) nodeAwayTeamCityInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.awayTeamCity || '') : '';
-  nodeDefaultEmojiInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.defaultEmoji || '') : '';
-  if (nodeCategoryIconInput) nodeCategoryIconInput.value = isGameNode ? normalizeCategoryIconValue(state.currentGameMeta && state.currentGameMeta.categoryIcon) : '';
-  if (nodeGameDateInput) nodeGameDateInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.gameDate || '') : '';
-  if (nodeGameStartTimeInput) nodeGameStartTimeInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.startTime || '') : '';
-  if (nodeGameEndTimeInput) nodeGameEndTimeInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.endTime || '') : '';
-  nodeGameLogoInput.value = isGameNode ? (state.currentGameMeta && state.currentGameMeta.logoUrl || '') : '';
-  setGameLogoAssetStatus('');
-  if (gameLogoOnlineMenu && isGameNode && !gameLogoOnlineMenu.hidden && Array.isArray(gameLogoOnlineAssetsCache)) {
-    populateGameLogoOnlineMenu(gameLogoOnlineAssetsCache);
-  }
-
-  const meta = state.currentGameMeta || {};
-  if (nodeCityInput) nodeCityInput.value = isGameNode ? (meta.city || '') : '';
-  if (nodeStartNameInput) nodeStartNameInput.value = isGameNode ? (meta.startingLocationName || '') : '';
-  if (nodeStartAddressInput) nodeStartAddressInput.value = isGameNode ? (meta.startingLocationAddress || '') : '';
-  if (nodeVenueNameInput) nodeVenueNameInput.value = isGameNode ? (meta.venueName || '') : '';
-  if (nodeVenueCityInput) nodeVenueCityInput.value = isGameNode ? (meta.venueCity || '') : '';
-  if (nodeCoordinatesInput) {
-    const lat = isGameNode ? meta.startingLocationLat : null;
-    const lon = isGameNode ? meta.startingLocationLon : null;
-    let plusCode = isGameNode ? normalizeLongPlusCode(meta.startingLocationPlusCode) : '';
-    if (!plusCode && lat != null && lon != null) plusCode = encodePlusCode(lat, lon);
-    if (isGameNode && plusCode) {
-      const decoded = decodePlusCode(plusCode);
-      meta.startingLocationPlusCode = plusCode;
-      if (decoded) {
-        meta.startingLocationLat = decoded.lat;
-        meta.startingLocationLon = decoded.lon;
-      }
-    }
-    nodeCoordinatesInput.value = plusCode;
-  }
-  const isLocationBased = isGameNode && !!meta.locationBased;
-  if (locationBasedToggle) {
-    locationBasedToggle.checked  = isLocationBased;
-    locationBasedToggle.disabled = !isGameNode;
-  }
-  if (locationBasedLabelNo)  locationBasedLabelNo.classList.toggle('is-active', !isLocationBased);
-  if (locationBasedLabelYes) locationBasedLabelYes.classList.toggle('is-active',  isLocationBased);
-  const isFandomGame = isGameNode && !!meta.fandomGame;
-  if (fandomGameToggle) {
-    fandomGameToggle.checked = isFandomGame;
-    fandomGameToggle.disabled = !isGameNode;
-  }
-  if (fandomGameLabelNo)  fandomGameLabelNo.classList.toggle('is-active', !isFandomGame);
-  if (fandomGameLabelYes) fandomGameLabelYes.classList.toggle('is-active',  isFandomGame);
-  nodeGuideNameInput.value = isGameNode ? (meta.guideName || '') : '';
-  nodeGuideBioInput.value = isGameNode ? (meta.guideBio || '') : '';
-  if (nodeGuideBackgroundInput) nodeGuideBackgroundInput.value = isGameNode ? (meta.guideBackground || '') : '';
-  nodeGuideImageInput.value = isGameNode ? (meta.guideImageUrl || '') : '';
-  if (guideImageUploadPreviewAssetUrl && guideImageUploadPreviewAssetUrl !== String(nodeGuideImageInput.value || '').trim()) {
-    clearGuideImageUploadPreview();
-  }
-  setGuideImageAssetStatus('');
-  nodePriceInput.value = isGameNode ? (meta.price || '') : '';
-  if (nodeCheckoutUrlInput) nodeCheckoutUrlInput.value = isGameNode ? (meta.checkoutUrl || '') : '';
-  if (nodeEngineInput) {
-    // Treat blank engine as the default ("text") so the select reflects
-    // what /game/run/ would actually launch into.
-    nodeEngineInput.value = isGameNode
-      ? (String(meta.engine || '').trim() || DEFAULT_GAME_ENGINE)
-      : '';
-  }
-  updateGameLogoPreview();
-  updateGuideImagePreview();
-  updateGuideImageNote(isGameNode);
-  const currentColors = getCurrentGameColors();
-  primaryColorInput.value = showGameDetails ? currentColors.primaryColor : '';
-  primaryColorInput.classList.remove('is-invalid');
-  primaryColorPickerInput.value = colorValueToHex(currentColors.primaryColor, '#5468a7');
-  secondaryColorInput.value = showGameDetails ? currentColors.secondaryColor : '';
-  secondaryColorInput.classList.remove('is-invalid');
-  secondaryColorPickerInput.value = colorValueToHex(currentColors.secondaryColor, '#243256');
-  if (tertiaryColorInput) {
-    tertiaryColorInput.value = showGameDetails ? currentColors.tertiaryColor : '';
-    tertiaryColorInput.classList.remove('is-invalid');
-  }
-  if (tertiaryColorPickerInput) {
-    tertiaryColorPickerInput.value = colorValueToHex(currentColors.tertiaryColor, '#ffffff');
-  }
-  if (quaternaryColorInput) {
-    quaternaryColorInput.value = showGameDetails ? currentColors.quaternaryColor : '';
-    quaternaryColorInput.classList.remove('is-invalid');
-  }
-  if (quaternaryColorPickerInput) {
-    quaternaryColorPickerInput.value = colorValueToHex(currentColors.quaternaryColor, '#243256');
-  }
-  syncSwatchBorders();
-  nodeTagNewInput.value = '';
-  renderTagPicker(gameNode);
-  teamInputs.forEach((inp, i) => {
-    if (inp) inp.value = isGameNode ? (getNormalizedTeamValues(meta)[i] || '') : '';
-  });
-  if (document.activeElement !== nodeBodyInput) {
-    nodeBodyInput.value = isGameNode ? (meta.body || '') : '';
-  }
-  nodeBodyInput.placeholder = '';
-  // selectionId wraps: "(ID: <span id=selectionIdInput contenteditable>id</span>)"
-  const currentId = currentGameEntry && currentGameEntry.id ? String(currentGameEntry.id).trim() : '';
-  if (selectionIdInput) {
-    if (document.activeElement !== selectionIdInput) {
-      selectionIdInput.textContent = currentId || 'none';
-    }
-    selectionIdInput.contentEditable = !!(showGameDetails && currentId);
-    selectionIdInput.removeAttribute('data-invalid');
-    selectionIdInput.title = showGameDetails && currentId
-      ? 'Click to rename this game ID (must be unique)'
-      : '';
-  }
-  selectionId.hidden = !showGameDetails;
+  // [STOPS-BUILDER] Game-details field population removed: Setup panel deleted.
   syncDetailsSectionVisibility();
   if (document.activeElement !== objectBodyInput) closeVariableAutocomplete();
   updateObjectInspectorUi(selectedNode, selectedLink, objectCopyText);
@@ -21575,7 +20894,7 @@ if (stopLibraryList) {
   });
 }
 
-nodeTitleInput.addEventListener('input', () => {
+if (nodeTitleInput) nodeTitleInput.addEventListener('input', () => {
   const node = getGameNode();
   if (!node || node.type !== 'game') return;
   node.title = nodeTitleInput.value || TYPE_CONFIG[node.type].title;
@@ -21591,7 +20910,7 @@ objectStopNameInput.addEventListener('input', () => {
   scheduleRender();
 });
 
-stopNameInput.addEventListener('input', () => {
+if (stopNameInput) stopNameInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
   if (!node || node.type !== 'stop') return;
   stopNameInput.value = normalizeStopTitle(stopNameInput.value, TYPE_CONFIG.stop.title);
@@ -21638,7 +20957,7 @@ if (objectButtonNameInput) {
   });
 }
 
-varNameInput.addEventListener('input', () => {
+if (varNameInput) varNameInput.addEventListener('input', () => {
   const node = getNode(state.selectedId);
   if (!node || node.type !== 'reply') return;
   node.varName = normalizeVariableName(varNameInput.value);
@@ -21807,7 +21126,7 @@ varCorrectRadios.forEach((radio, i) => {
 });
 
 
-nodeTaglineInput.addEventListener('input', () => {
+if (nodeTaglineInput) nodeTaglineInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.tagline = nodeTaglineInput.value;
 });
@@ -21870,7 +21189,7 @@ if (nodeAwayTeamCityInput) {
   });
 }
 
-nodeDefaultEmojiInput.addEventListener('input', () => {
+if (nodeDefaultEmojiInput) nodeDefaultEmojiInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.defaultEmoji = nodeDefaultEmojiInput.value;
 });
@@ -22255,13 +21574,13 @@ if (fandomGameToggle) {
 }
 
 
-nodeGuideNameInput.addEventListener('input', () => {
+if (nodeGuideNameInput) nodeGuideNameInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.guideName = nodeGuideNameInput.value;
   updatePhoneChrome();
 });
 
-nodeGuideBioInput.addEventListener('input', () => {
+if (nodeGuideBioInput) nodeGuideBioInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.guideBio = nodeGuideBioInput.value;
 });
@@ -22273,14 +21592,14 @@ if (nodeGuideBackgroundInput) {
   });
 }
 
-nodeGameLogoInput.addEventListener('input', () => {
+if (nodeGameLogoInput) nodeGameLogoInput.addEventListener('input', () => {
   setGameLogoAssetStatus('');
   syncSelectedGameLogoFromInput();
   const node = getGameNode();
   if (!node || node.type !== 'game') return;
 });
 
-nodeGameLogoInput.addEventListener('change', () => {
+if (nodeGameLogoInput) nodeGameLogoInput.addEventListener('change', () => {
   setGameLogoAssetStatus('');
   syncSelectedGameLogoFromInput();
   updateSelectionUi();
@@ -22529,7 +21848,7 @@ if (objectBubbleImageThumbBtn) {
   });
 }
 
-nodeGuideImageInput.addEventListener('input', () => {
+if (nodeGuideImageInput) nodeGuideImageInput.addEventListener('input', () => {
   setGuideImageAssetStatus('');
   if (guideImageUploadPreviewAssetUrl !== String(nodeGuideImageInput.value || '').trim()) {
     clearGuideImageUploadPreview();
@@ -22540,7 +21859,7 @@ nodeGuideImageInput.addEventListener('input', () => {
   updatePhoneChrome();
 });
 
-nodeGuideImageInput.addEventListener('change', () => {
+if (nodeGuideImageInput) nodeGuideImageInput.addEventListener('change', () => {
   setGuideImageAssetStatus('');
   if (guideImageUploadPreviewAssetUrl !== String(nodeGuideImageInput.value || '').trim()) {
     clearGuideImageUploadPreview();
@@ -22645,7 +21964,7 @@ if (guideImageLightboxCloseBtn) {
   });
 }
 
-nodePriceInput.addEventListener('input', () => {
+if (nodePriceInput) nodePriceInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.price = nodePriceInput.value;
 });
@@ -23114,8 +22433,8 @@ function addNewTag() {
   scheduleRecoverySync();
 }
 
-nodeTagAddBtn.addEventListener('click', addNewTag);
-nodeTagNewInput.addEventListener('keydown', (event) => {
+if (nodeTagAddBtn) nodeTagAddBtn.addEventListener('click', addNewTag);
+if (nodeTagNewInput) nodeTagNewInput.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter') return;
   event.preventDefault();
   addNewTag();
@@ -23134,14 +22453,14 @@ function scheduleIntroRecoverySync() {
   }, INTRO_RECOVERY_SAVE_DELAY_MS);
 }
 
-nodeBodyInput.addEventListener('input', () => {
+if (nodeBodyInput) nodeBodyInput.addEventListener('input', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   state.currentGameMeta.body = nodeBodyInput.value;
   scheduleUpdateActionUi();
   scheduleIntroRecoverySync();
 });
 
-nodeBodyInput.addEventListener('blur', () => {
+if (nodeBodyInput) nodeBodyInput.addEventListener('blur', () => {
   if (!getGameNode() || !state.currentGameMeta) return;
   if (introRecoverySaveTimer) {
     window.clearTimeout(introRecoverySaveTimer);
@@ -23909,12 +23228,7 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (!isTyping && isPrimaryShiftShortcut(event, 'Digit1')) {
-    event.preventDefault();
-    setBuilderActiveTab('details');
-    return;
-  }
-
+  // [STOPS-BUILDER] Setup view removed; the Digit1 "Setup" shortcut is gone.
   if (!isTyping && isPrimaryShiftShortcut(event, 'Digit2')) {
     event.preventDefault();
     setBuilderActiveTab('builder');

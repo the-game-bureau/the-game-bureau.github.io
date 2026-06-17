@@ -7,8 +7,11 @@
 
   const TEAM_SELECT = [
     'team_key',
+    'tgbid',
+    'espn_id',
     'league',
     'conference',
+    'division',
     'code',
     'full_name',
     'first_name',
@@ -25,7 +28,7 @@
   ].join(',');
   const LEGACY_TEAM_SELECT = TEAM_SELECT
     .split(',')
-    .filter((column) => column !== 'team_key' && column !== 'text_color')
+    .filter((column) => !['team_key', 'tgbid', 'espn_id', 'division', 'text_color'].includes(column))
     .join(',');
   const loadCache = new Map();
 
@@ -46,14 +49,38 @@
     return match ? `${match[1].trim()}:${match[2].trim()}` : '';
   }
 
+  function normalizeTgbid(value) {
+    const n = Number(value);
+    return Number.isInteger(n) && n > 0 ? n : null;
+  }
+
+  function teamTgbid(team) {
+    return normalizeTgbid(team && (team.tgbid || team.team_tgbid || team.teamTgbid));
+  }
+
   function teamKey(team) {
-    return normalizeTeamKey(team && team.team_key)
+    return normalizeTeamKey(team && (team.team_key || team.teamKey))
       || normalizeTeamKey(`${clean(team && team.league)}:${clean(team && team.code)}`);
   }
 
   function normalizeHex(value, fallback = '') {
     const match = clean(value).match(/^#?([0-9a-f]{6})$/i);
     return match ? `#${match[1].toUpperCase()}` : fallback;
+  }
+
+  // Pick black or white for maximum readability against a background color.
+  // Used for the font (quaternary) color so text never vanishes on a team's
+  // helmet color, regardless of what the team's own text_color happens to be.
+  function readableTextColor(value, fallback = '#FFFFFF') {
+    const match = clean(value).match(/^#?([0-9a-f]{6})$/i);
+    if (!match) return fallback;
+    const hex = match[1];
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    // Perceived luminance (ITU-R BT.601). Light backgrounds get black text.
+    const luminance = (0.299 * r) + (0.587 * g) + (0.114 * b);
+    return luminance > 140 ? '#000000' : '#FFFFFF';
   }
 
   function isTrueish(value) {
@@ -94,6 +121,7 @@
     const prefix = side === 'home' ? 'home' : 'away';
     const matchupCodes = inferMatchupCodes(game);
     return {
+      tgbid: game && (game[`${prefix}_team_tgbid`] || game[`${prefix}TeamTgbid`]),
       key: game && (game[`${prefix}_team_key`] || game[`${prefix}TeamKey`]),
       league: inferLeague(game),
       code: matchupCodes[prefix],
@@ -103,6 +131,10 @@
   }
 
   function scoreTeam(team, reference) {
+    const requestedTgbid = normalizeTgbid(reference && reference.tgbid);
+    const candidateTgbid = teamTgbid(team);
+    if (requestedTgbid && candidateTgbid === requestedTgbid) return 20000;
+
     const requestedKey = normalizeTeamKey(reference && reference.key);
     const candidateKey = teamKey(team);
     if (requestedKey && candidateKey === requestedKey) return 10000;
@@ -135,6 +167,12 @@
 
   function inferTeam(teams, reference) {
     const rows = Array.isArray(teams) ? teams : [];
+    const requestedTgbid = normalizeTgbid(reference && reference.tgbid);
+    if (requestedTgbid) {
+      const keyedByTgbid = rows.find((team) => teamTgbid(team) === requestedTgbid);
+      if (keyedByTgbid) return keyedByTgbid;
+    }
+
     const requestedKey = normalizeTeamKey(reference && reference.key);
     if (requestedKey) {
       const keyed = rows.find((team) => teamKey(team) === requestedKey);
@@ -151,17 +189,32 @@
     return ranked[0].team;
   }
 
+  function joinedGameTeam(game, side) {
+    if (!game || typeof game !== 'object') return null;
+    const prefix = side === 'home' ? 'home' : 'away';
+    const joined = game[`${prefix}_team`] || game[`${prefix}Team`];
+    return joined && typeof joined === 'object' && (teamTgbid(joined) || teamKey(joined)) ? joined : null;
+  }
+
   function inferGameTeam(teams, game, side = 'away') {
+    const joined = joinedGameTeam(game, side);
+    if (joined) return joined;
     return inferTeam(teams, sideReference(game, side));
   }
 
   function teamPalette(team, fallback = {}) {
-    return {
-      primary: normalizeHex(team && (team.shell || team.primary || team.primary_color), normalizeHex(fallback.primary, '#33E6E6')),
-      secondary: normalizeHex(team && (team.stripe || team.secondary || team.secondary_color), normalizeHex(fallback.secondary, '#243256')),
-      tertiary: normalizeHex(team && (team.mask || team.tertiary || team.tertiary_color), normalizeHex(fallback.tertiary, '#FFFFFF')),
-      quaternary: normalizeHex(team && (team.text_color || team.textColor || team.quaternary || team.quaternary_color), normalizeHex(fallback.quaternary, '#FFFFFF'))
-    };
+    const primary = normalizeHex(team && (team.shell || team.primary || team.primary_color), normalizeHex(fallback.primary, '#33E6E6'));
+    const secondary = normalizeHex(team && (team.stripe || team.secondary || team.secondary_color), normalizeHex(fallback.secondary, '#243256'));
+    const tertiary = normalizeHex(team && (team.mask || team.tertiary || team.tertiary_color), normalizeHex(fallback.tertiary, '#FFFFFF'));
+    // Font color: when derived from a TEAM (helmet=primary, stripe=secondary,
+    // mask=tertiary), the team's own text_color is a brand color that can be
+    // unreadable against the helmet — so auto-pick black/white for contrast.
+    // When acting as the generic game-color resolver (team == null), preserve
+    // the game's authored quaternary instead.
+    const quaternary = team
+      ? readableTextColor(primary, normalizeHex(fallback.quaternary, '#FFFFFF'))
+      : normalizeHex(fallback.quaternary, '#FFFFFF');
+    return { primary, secondary, tertiary, quaternary };
   }
 
   function gamePalette(game) {
@@ -235,11 +288,14 @@
     LEGACY_TEAM_SELECT,
     normalizeIdentity,
     normalizeTeamKey,
+    normalizeTgbid,
+    teamTgbid,
     teamKey,
     isFandomGame,
     inferLeague,
     inferMatchupCodes,
     sideReference,
+    joinedGameTeam,
     inferTeam,
     inferGameTeam,
     teamPalette,

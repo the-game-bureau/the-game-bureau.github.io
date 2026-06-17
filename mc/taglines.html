@@ -164,7 +164,6 @@
       border-radius: 10px;
       background: #fff;
     }
-    .item.is-rival { border-color: rgba(194, 55, 55, 0.4); background: rgba(194, 55, 55, 0.035); }
 
     .item-bullet {
       width: 20px;
@@ -215,7 +214,51 @@
       text-transform: uppercase;
     }
 
-    .item-actions { display: flex; gap: 6px; }
+    .item-actions { display: flex; gap: 6px; align-items: center; }
+
+    .approve-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 10px;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .approve-toggle input { accent-color: var(--success); cursor: pointer; margin: 0; }
+    .approve-toggle.is-on { border-color: var(--success); background: rgba(47, 107, 61, 0.1); color: var(--success); }
+
+    .item.is-approved { border-left: 3px solid var(--success); }
+
+    .section { display: grid; gap: 14px; }
+    .section + .section { margin-top: 18px; }
+    .section-title-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 8px;
+      border-bottom: 3px solid rgba(var(--bic-blue-rgb), 0.28);
+    }
+    .section-title {
+      margin: 0;
+      font-size: 1.24rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .section-count { color: var(--muted); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+    .section-approved .section-title-row { border-bottom-color: var(--success); }
+    .section-approved .section-title { color: var(--success); }
+    .section-approved .section-title::before { content: '\2713  '; }
 
     .edit-form { grid-column: 1 / -1; display: grid; gap: 6px; }
     .edit-form textarea {
@@ -245,8 +288,6 @@
   <main class="app">
     <div class="topbar">
       <div class="topbar-actions" style="margin-left:auto;">
-        <button class="btn mc-back-btn" type="button" data-mc-back data-mc-back-fallback="/" data-mc-new-tab>TGB HOME</button>
-        <button class="btn mc-back-btn" type="button" data-mc-home="/mc/">MISSION CONTROL</button>
         <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -260,8 +301,8 @@
       <p class="kicker">TGB MISSION CONTROL</p>
       <h2>TAGLINES</h2>
       <p class="status" id="pageStatus" aria-live="polite">Sign in with an admin account.</p>
-      <p class="legend">Grouped by the visiting team's league, conference, and division.
-        <span class="star">*</span> marks a divisional-rival matchup. Click any tagline to edit it, or use Suggest for a game-aware alternative.</p>
+      <p class="legend">Taglines are the first thing a player sees under a game's title.<br>
+        <span class="star">*</span> divisional-rival matchup.</p>
     </section>
 
     <div class="toolbar">
@@ -299,6 +340,57 @@
       const [conf, div] = label.split(' ');
       teams.forEach((mascot) => { TEAM_META[mascot] = { league: 'NFL', conf, div }; });
     });
+
+    // Team lore, keyed by mascot. Taglines never name the mascot directly — they
+    // ALLUDE to it through fan culture and city identity. `crowd` = ways to name
+    // the traveling fanbase (no mascot word); `lines` = ready-made lore lines
+    // where {city} is the HOST city the visitors are invading. No day/time refs.
+    const TEAM_LORE = {
+      // AFC East
+      Bills:      { crowd: ["Buffalo's faithful", 'the table-breaking crowd'], lines: ['Buffalo Packs The Tailgate And Heads For {city}.', "{city} Isn't Built For Buffalo Cold."] },
+      Dolphins:   { crowd: ["South Beach's faithful", 'the aqua-and-orange crowd'], lines: ['Miami Brings The Heat To {city}.', 'South Beach Energy Floods {city} Streets.'] },
+      Patriots:   { crowd: ["New England's faithful", 'the minuteman crowd'], lines: ['New England Marches On {city}.', 'Six-Banner Swagger Rolls Into {city}.'] },
+      Jets:       { crowd: ['Gang Green', 'the flight crew'], lines: ['Gang Green Takes Off For {city}.', 'New York Noise Lands In {city}.'] },
+      // AFC North
+      Ravens:     { crowd: ["Baltimore's flock", 'the Charm City crowd'], lines: ['Baltimore Descends On {city}.', 'Charm City Brings Its Edge To {city}.'] },
+      Bengals:    { crowd: ['the Who Dey faithful', 'the Queen City crowd'], lines: ['The Jungle Empties Into {city}.', 'Cincinnati Stripes Cross Into {city}.'] },
+      Browns:     { crowd: ['the Dawg Pound', 'the Cleveland faithful'], lines: ['The Dawg Pound Travels To {city}.', 'Cleveland Grit Hits {city} Streets.'] },
+      Steelers:   { crowd: ['the Terrible Towel crowd', "Steel City's faithful"], lines: ['Steel City Waves Its Towels Over {city}.', 'Pittsburgh Black-And-Gold Floods {city}.'] },
+      // AFC South
+      Texans:     { crowd: ['the H-Town faithful', 'the Bull Pen crowd'], lines: ['Houston Rolls Deep Into {city}.', 'Space City Touches Down In {city}.'] },
+      Colts:      { crowd: ['the Horseshoe faithful', "Indy's crowd"], lines: ['Indianapolis Saddles Up For {city}.', 'The Horseshoe Hangs Over {city}.'] },
+      Jaguars:    { crowd: ["Duval's faithful", 'the Bold City crowd'], lines: ['Duval Pours Into {city}.', 'Jacksonville Brings The Bold To {city}.'] },
+      Titans:     { crowd: ['the Music City faithful', 'the Two-Tone crowd'], lines: ['Nashville Brings The Noise To {city}.', 'Music City Marches On {city}.'] },
+      // AFC West
+      Broncos:    { crowd: ['the Mile High faithful', 'the Orange Crush crowd'], lines: ['Mile High Air Follows Denver To {city}.', 'Denver Stampedes Into {city}.'] },
+      Chiefs:     { crowd: ['the Sea of Red', "Arrowhead's faithful"], lines: ['Kansas City Brings The Barbecue And The Noise To {city}.', 'The Sea Of Red Washes Over {city}.'] },
+      Raiders:    { crowd: ['the Black Hole', "Sin City's faithful"], lines: ['Las Vegas Rolls The Dice On {city}.', 'The Black Hole Opens Up In {city}.'] },
+      Chargers:   { crowd: ['the Powder Blue crowd', 'the Bolt faithful'], lines: ['Los Angeles Sends A Lightning Bolt Through {city}.', 'Powder Blue Lights Up {city}.'] },
+      // NFC East
+      Cowboys:    { crowd: ['the Lone Star faithful', "America's Team crowd"], lines: ['The Lone Star Rises Over {city}.', 'Dallas Plants Its Star In {city}.'] },
+      Giants:     { crowd: ['Big Blue', 'the Big Apple crowd'], lines: ['Big Blue Buses Into {city}.', 'New York Muscle Hits {city} Streets.'] },
+      Eagles:     { crowd: ['the Brotherly faithful', 'the Philly crowd'], lines: ['Philadelphia Brings Brotherly Trouble To {city}.', 'Philly Grit Spills Onto {city} Streets.'] },
+      Commanders: { crowd: ['the Burgundy-and-Gold crowd', "D.C.'s faithful"], lines: ['Washington Marches On {city}.', 'The Capital Storms {city}.'] },
+      // NFC North
+      Bears:      { crowd: ['the Monsters of the Midway', 'the Windy City crowd'], lines: ['Chicago Blows Into {city}.', 'The Monsters Of The Midway Roam {city}.'] },
+      Lions:      { crowd: ['the Motor City faithful', 'the Pride of Detroit'], lines: ['Detroit Drives Down To {city}.', 'Motor City Roars Into {city}.'] },
+      Packers:    { crowd: ['the Cheeseheads', "Titletown's faithful"], lines: ['Titletown Travels Well To {city}.', 'Frozen-Tundra Faithful Thaw Out In {city}.'] },
+      Vikings:    { crowd: ['the Skol crowd', 'the Purple faithful'], lines: ['The Skol Chant Echoes Through {city}.', 'The North Sails Into {city}.'] },
+      // NFC South
+      Falcons:    { crowd: ['the Rise Up faithful', 'the Dirty Bird crowd'], lines: ['Atlanta Rises Up In {city}.', 'The A Brings Dirty-Bird Energy To {city}.'] },
+      Panthers:   { crowd: ['the Keep Pounding faithful', 'the Queen City crowd'], lines: ['Carolina Keeps Pounding Through {city}.', 'The Carolinas Prowl Into {city}.'] },
+      Saints:     { crowd: ['the Who Dat Nation', 'the Big Easy faithful'], lines: ['New Orleans Brings The Second Line To {city}.', 'Who Dat Nation Marches On {city}.'] },
+      Buccaneers: { crowd: ['the Pewter faithful', 'the Cannon crew'], lines: ['Tampa Bay Fires Its Cannons Over {city}.', 'The Bay Raids {city}.'] },
+      // NFC West
+      Cardinals:  { crowd: ['the Red Sea', 'the Valley faithful'], lines: ['The Desert Sends Its Red Sea To {city}.', 'Arizona Swoops Into {city}.'] },
+      Rams:       { crowd: ['the L.A. faithful', 'the Horns crowd'], lines: ['Los Angeles Lowers Its Horns At {city}.', 'Hollywood Glamour Crashes {city}.'] },
+      '49ers':    { crowd: ['the Faithful', 'the Gold Rush crowd'], lines: ['San Francisco Strikes Gold In {city}.', 'The Bay Pans {city} For Clues.'] },
+      Seahawks:   { crowd: ['the 12s', 'the Emerald City faithful'], lines: ['The 12s Bring The Noise To {city}.', 'The Pacific Northwest Soars Into {city}.'] }
+    };
+
+    function loreFor(mascot) {
+      return (mascot && TEAM_LORE[String(mascot).trim()]) || null;
+    }
 
     const LEAGUE_ORDER = ['NFL', 'NBA', 'MLB', 'NHL'];
     const CONF_ORDER = ['AFC', 'NFC'];
@@ -395,7 +487,7 @@
     async function refresh() {
       try {
         const url = restUrl('games', {
-          select: 'id,name,tagline,city,tags,game_date,start_time,away_team_city,away_team_mascot,home_team_city,home_team_mascot,fandom_game',
+          select: 'id,name,tagline,tagline_approved,city,tags,game_date,start_time,away_team_city,away_team_mascot,home_team_city,home_team_mascot,fandom_game',
           order: 'name.asc'
         });
         const response = await fetch(url, { headers: authHeaders(), cache: 'no-store' });
@@ -433,6 +525,27 @@
       }
     }
 
+    async function saveApproved(game, approved) {
+      try {
+        const response = await fetch(restUrl('games', { id: 'eq.' + game.id }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify({ tagline_approved: approved, updated_at: new Date().toISOString() })
+        });
+        if (!response.ok) throw new Error(await readError(response, 'Could not save'));
+        const updated = await response.json();
+        const fresh = (Array.isArray(updated) && updated[0]) || null;
+        state.games = state.games.map((g) => normalizeGame(
+          g.id === game.id ? (fresh || Object.assign({}, g, { tagline_approved: approved })) : g
+        ));
+        render();
+        setStatus(approved ? 'Tagline approved.' : 'Approval cleared.', 'success');
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Save failed', 'error');
+      }
+    }
+
     function normalizeGames(rows) {
       return (Array.isArray(rows) ? rows : []).map(normalizeGame);
     }
@@ -461,10 +574,14 @@
       return source.charAt(0).toUpperCase() + source.slice(1).toLowerCase();
     }
 
-    function shortCity(game) {
-      return String(game.city || game.home_team_city || '')
+    function shortPlace(value) {
+      return String(value || '')
         .split(',')[0]
         .trim();
+    }
+
+    function shortCity(game) {
+      return shortPlace(game && (game.city || game.home_team_city));
     }
 
     function gameTags(game) {
@@ -472,73 +589,100 @@
       return values.map((tag) => String(tag || '').trim().toLowerCase()).filter(Boolean);
     }
 
+    function escapeRegExp(value) {
+      return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function stripMascotNames(value, game) {
+      let text = String(value || '');
+      [game && game.away_team_mascot, game && game.home_team_mascot].forEach((mascot) => {
+        const mascotText = String(mascot || '').trim();
+        if (!mascotText) return;
+        text = text.replace(new RegExp('\\b' + escapeRegExp(mascotText) + '\\b', 'gi'), '');
+      });
+      return text
+        .replace(/\s+([.,!?;:])/g, '$1')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    }
+
     function buildTaglineSuggestions(game) {
       const city = shortCity(game);
-      const away = String(game.away_team_city || '').trim();
-      const awayMascot = String(game.away_team_mascot || '').trim();
-      const home = String(game.home_team_city || '').trim();
-      const homeMascot = String(game.home_team_mascot || '').trim();
-      const awayTeam = [away, awayMascot].filter(Boolean).join(' ');
-      const homeTeam = [home, homeMascot].filter(Boolean).join(' ');
+      const away = shortPlace(game.away_team_city);
+      const home = shortPlace(game.home_team_city);
+      const targetCity = city || home;
+      const awayLore = loreFor(game.away_team_mascot);
       const tags = gameTags(game);
       const hasTag = (value) => tags.some((tag) => tag.includes(value));
       const suggestions = [];
       const add = (...values) => suggestions.push(...values.filter(Boolean));
 
-      if (game.fandom_game || (away && game.home_team_city)) {
-        if (away && city) {
+      if (game.fandom_game || (away && home)) {
+        // Team lore: allude to the visiting team through fan culture and city
+        // identity — never the mascot word itself. {city} = the host city.
+        if (awayLore && targetCity) {
+          awayLore.lines.forEach((line) => add(line.replace(/\{city\}/g, targetCity)));
+          awayLore.crowd.forEach((crowd) => add(
+            crowd + ' Have Rolled Into ' + targetCity + '.',
+            targetCity + ', Meet ' + crowd + '.',
+            crowd + ' Are Loose In ' + targetCity + '.'
+          ));
+          if (home && home !== away && awayLore.crowd[0]) {
+            add(
+              'The Home Crowd Holds The Map. ' + awayLore.crowd[0] + ' Came For It.',
+              awayLore.crowd[0] + ' Take On The Home Crowd, Block By Block.'
+            );
+          }
+        }
+        if (away && targetCity) {
           add(
-            away + ' Has Entered ' + city + ' Territory.',
-            away + ' Came To See What ' + city + ' Is Made Of.',
-            away + ' Meets ' + city + ', One Clue At A Time.',
-            away + ' Is Loose In ' + city + '.',
-            away + ' Takes The Long Way Through ' + city + '.',
-            away + ' Came To Leave A Mark On ' + city + '.',
-            away + ' Fans Are Reading Between ' + city + "'s Lines.",
-            away + ' Fans Have A Score To Settle With ' + city + '.',
-            away + ' Colors Look Good On ' + city + '.',
-            'A Little ' + away + ' Trouble In ' + city + '.',
-            city + ', Meet The ' + away + ' Faithful.',
-            city + ' Is Hosting. ' + away + ' Is Investigating.',
-            city + ' Is About To Learn How ' + away + ' Travels.',
-            city + ' Through ' + away + ' Eyes.',
-            'Find The Side Of ' + city + ' The Rivals Miss.'
+            away + ' Fans Get The First Read On ' + targetCity + '.',
+            away + ' Faithful, Your ' + targetCity + ' Takeover Starts Here.',
+            away + ' Travels Loud. ' + targetCity + ' Gets The Clues.',
+            away + ' Colors Are About To Stand Out Across ' + targetCity + '.',
+            away + ' Road Pride Meets ' + targetCity + ' Street Smarts.',
+            away + ' Fans Came Early To Claim The City.',
+            away + ' Knows How To Travel. ' + targetCity + ' Is About To Find Out.',
+            'The ' + away + ' Traveling Section Has A City To Decode.',
+            'Bring The ' + away + ' Chant Off The Concourse And Into ' + targetCity + '.',
+            'A Road-Day Ritual For The ' + away + ' Faithful.',
+            'A Little ' + away + ' Noise In ' + targetCity + '.',
+            targetCity + ', Meet The ' + away + ' Road Crew.',
+            targetCity + ' Is Hosting. ' + away + ' Is Investigating.',
+            targetCity + ' Through ' + away + ' Eyes.',
+            'Find The Side Of ' + targetCity + ' The Home Crowd Misses.'
           );
         }
-        if (awayMascot && city) {
+        if (away && targetCity && hasTag('football')) {
           add(
-            awayMascot + ' Fans, Your ' + city + ' Takeover Starts Here.',
-            awayMascot + ' Fans Are On The Loose In ' + city + '.',
-            awayMascot + ' Pride Has Arrived In ' + city + '.',
-            awayMascot + ' Fans See A Different Side Of ' + city + '.',
-            'Paint ' + city + ' In ' + awayMascot + ' Colors.'
+            away + ' Tailgate Energy Hits ' + targetCity + ' Early.',
+            away + ' Gets A Pregame Route Before The Home Crowd Wakes Up.',
+            'Before Kickoff, The ' + away + ' Faithful Get The First Move.',
+            'Road Colors. Loud Calls. ' + targetCity + ' Streets.',
+            away + ' Fans Brought The Away-Day Noise.'
           );
         }
-        if (awayMascot && homeMascot) {
+        if (away && targetCity && hasTag('baseball')) {
           add(
-            awayMascot + ' In ' + homeMascot + ' Territory.',
-            awayMascot + ' Fans, Welcome To ' + homeMascot + ' Country.',
-            awayMascot + ' Pride Meets ' + homeMascot + ' Territory.',
-            awayMascot + ' Fans Are Crossing Enemy Lines.',
-            awayMascot + ' Fans Came To Outsmart The ' + homeMascot + '.',
-            homeMascot + ' Territory Has Some Uninvited Guests.',
-            'The ' + awayMascot + ' Have Entered The ' + homeMascot + "' Den.",
-            awayMascot + ' Colors. ' + homeMascot + ' Streets.',
-            awayMascot + ' Curiosity Meets ' + homeMascot + ' Territory.'
+            away + ' Gets The Road Series Started In The Streets.',
+            away + ' Fans Take Batting Practice On ' + targetCity + ' Clues.',
+            'Before First Pitch, ' + away + ' Gets The City First.',
+            'Road Colors In The Bleachers. Clues In The Streets.',
+            away + ' Turns A Road Trip Into A Citywide Rally.'
           );
         }
-        if (awayTeam && homeTeam) {
+        if (home && away && home !== away) {
           add(
-            awayTeam + ' Vs. ' + homeTeam + '. The City Decides.',
-            awayTeam + ' Fans Have Entered Rival Territory.',
-            awayTeam + ' Fans Came To Challenge ' + homeTeam + '.',
-            homeTeam + ' Has Home Turf. ' + awayTeam + ' Has A Mission.'
+            home + ' Has The Home Crowd. ' + away + ' Has The Mission.',
+            away + ' Fans Have Entered ' + home + ' Territory.',
+            away + ' Came To Outsmart The Home Crowd.',
+            'The Home City Sets The Stage. ' + away + ' Brings The Nerve.'
           );
         }
-        if (city) {
+        if (targetCity) {
           add(
             'Two Fanbases. One City. No Neutral Ground.',
-            'Rival Colors Take To The Streets Of ' + city + '.',
+            'Rival Colors Take To The Streets Of ' + targetCity + '.',
             'The Rivalry Has Taken To The Streets.',
             'Enemy Territory Has Never Looked This Good.',
             'Know The City. Outsmart The Rival.',
@@ -549,11 +693,11 @@
             'Explore ' + city + '. Defend Your Colors.',
             'Cross The City. Cross Enemy Lines.',
             'Rivalry Looks Different From Street Level.',
-            'The Real Contest Is Hidden Around ' + city + '.',
+            'The Real Contest Is Hidden Around ' + targetCity + '.',
             'City Clues. Rival Crews.',
-            city + ' Has Become Rival Territory.',
-            city + ' Is Big Enough For Both Sides. Barely.',
-            city + ' Is The Board. Rival Pride Is The Prize.'
+            targetCity + ' Has Become Rival Territory.',
+            targetCity + ' Is Big Enough For Both Sides. Barely.',
+            targetCity + ' Is The Board. Rival Pride Is The Prize.'
           );
         }
         if (isDivisional(game)) {
@@ -569,7 +713,7 @@
             'The Division Rivalry Has Left The Field.'
           );
         }
-        if (hasTag('halloween') && city) add('Rival Colors Take Over ' + city + ' After Dark.');
+        if (hasTag('halloween') && targetCity) add('Rival Colors Take Over ' + targetCity + ' After Dark.');
       }
 
       if (hasTag('trivia') && city) {
@@ -627,7 +771,10 @@
         );
       }
 
-      return [...new Set(suggestions.map(formatTaglineCase).filter(Boolean))];
+      return [...new Set(suggestions
+        .map((suggestion) => stripMascotNames(suggestion, game))
+        .map(formatTaglineCase)
+        .filter(Boolean))];
     }
 
     function suggestTagline(game) {
@@ -671,7 +818,9 @@
       });
     }
 
-    function buildGroups(games) {
+    // Division-level grouping (by the visiting team's league/conf/div) for a
+    // single set of games, sorted the canonical way within each group.
+    function buildDivisionGroups(games) {
       const map = new Map();
       games.forEach((game) => {
         const key = groupKey(game);
@@ -693,6 +842,21 @@
         });
       });
       return groups;
+    }
+
+    // Two top-level sections — Approved then Unapproved — each containing the
+    // division groupings for its games.
+    function buildSections(games) {
+      const approvedGames = games.filter((game) => game.tagline_approved);
+      const rest = games.filter((game) => !game.tagline_approved);
+      const sections = [];
+      if (rest.length) {
+        sections.push({ label: 'Unapproved', approved: false, groups: buildDivisionGroups(rest) });
+      }
+      if (approvedGames.length) {
+        sections.push({ label: 'Approved', approved: true, groups: buildDivisionGroups(approvedGames) });
+      }
+      return sections;
     }
 
     function matchupLabel(game) {
@@ -719,54 +883,56 @@
         groupsEl.appendChild(empty);
         return;
       }
-      const groups = buildGroups(visible);
+      const sections = buildSections(visible);
       let rivalTotal = 0;
-      groups.forEach((group) => {
-        const section = document.createElement('div');
-        section.className = 'group';
+      sections.forEach((sectionData) => {
+        const sectionEl = document.createElement('div');
+        sectionEl.className = 'section' + (sectionData.approved ? ' section-approved' : '');
 
-        const head = document.createElement('div');
-        head.className = 'group-head';
-        const title = document.createElement('h3');
-        title.className = 'group-title';
-        title.textContent = group.meta.label;
-        const count = document.createElement('span');
-        count.className = 'group-count';
-        count.textContent = group.games.length + (group.games.length === 1 ? ' game' : ' games');
-        head.append(title, count);
-        section.appendChild(head);
+        const sectionCount = sectionData.groups.reduce((sum, group) => sum + group.games.length, 0);
+        const sectionHead = document.createElement('div');
+        sectionHead.className = 'section-title-row';
+        const sectionTitle = document.createElement('h3');
+        sectionTitle.className = 'section-title';
+        sectionTitle.textContent = sectionData.label;
+        const sectionMeta = document.createElement('span');
+        sectionMeta.className = 'section-count';
+        sectionMeta.textContent = sectionCount + (sectionCount === 1 ? ' game' : ' games');
+        sectionHead.append(sectionTitle, sectionMeta);
+        sectionEl.appendChild(sectionHead);
 
-        const list = document.createElement('div');
-        list.className = 'item-list';
-        group.games.forEach((game) => {
-          const rival = isDivisional(game);
-          if (rival) rivalTotal += 1;
-          list.appendChild(renderItem(game, rival));
+        sectionData.groups.forEach((group) => {
+          const groupEl = document.createElement('div');
+          groupEl.className = 'group';
+
+          const head = document.createElement('div');
+          head.className = 'group-head';
+          const title = document.createElement('h4');
+          title.className = 'group-title';
+          title.textContent = group.meta.label;
+          const count = document.createElement('span');
+          count.className = 'group-count';
+          count.textContent = group.games.length + (group.games.length === 1 ? ' game' : ' games');
+          head.append(title, count);
+          groupEl.appendChild(head);
+
+          const list = document.createElement('div');
+          list.className = 'item-list';
+          group.games.forEach((game) => {
+            const rival = isDivisional(game);
+            if (rival) rivalTotal += 1;
+            list.appendChild(renderItem(game, rival));
+          });
+          groupEl.appendChild(list);
+          sectionEl.appendChild(groupEl);
         });
-        section.appendChild(list);
-        groupsEl.appendChild(section);
+
+        groupsEl.appendChild(sectionEl);
       });
       setStatus(visible.length + ' games · ' + rivalTotal + ' divisional rival' + (rivalTotal === 1 ? '' : 's') + ' (*)');
     }
 
-    function renderItem(game, rival) {
-      const item = document.createElement('article');
-      item.className = 'item' + (rival ? ' is-rival' : '');
-      item.dataset.id = game.id;
-
-      if (state.editingId === game.id) {
-        item.appendChild(renderEditForm(game));
-        return item;
-      }
-
-      const bullet = document.createElement('div');
-      bullet.className = 'item-bullet';
-      bullet.textContent = rival ? '*' : '·';
-      bullet.title = rival ? 'Divisional rival' : '';
-      item.appendChild(bullet);
-
-      const main = document.createElement('div');
-      main.className = 'item-main';
+    function renderGameName(game) {
       const name = document.createElement('div');
       name.className = 'game-name';
       name.textContent = game.name || 'Untitled';
@@ -784,6 +950,32 @@
         date.textContent = '  ' + dateLabel;
         name.appendChild(date);
       }
+      return name;
+    }
+
+    function renderItem(game, rival) {
+      const item = document.createElement('article');
+      item.className = 'item' + (rival ? ' is-rival' : '') + (game.tagline_approved ? ' is-approved' : '');
+      item.dataset.id = game.id;
+
+      const bullet = document.createElement('div');
+      bullet.className = 'item-bullet';
+      bullet.textContent = rival ? '*' : '·';
+      bullet.title = rival ? 'Divisional rival' : '';
+      item.appendChild(bullet);
+
+      if (state.editingId === game.id) {
+        const main = document.createElement('div');
+        main.className = 'item-main';
+        main.appendChild(renderGameName(game));
+        main.appendChild(renderEditForm(game));
+        item.appendChild(main);
+        return item;
+      }
+
+      const main = document.createElement('div');
+      main.className = 'item-main';
+      const name = renderGameName(game);
       const body = document.createElement('p');
       body.className = 'tagline-body' + (game.tagline ? '' : ' is-empty');
       body.textContent = formatTaglineCase(game.tagline) || 'No tagline. Click to add one.';
@@ -804,6 +996,16 @@
 
       const actions = document.createElement('div');
       actions.className = 'item-actions';
+      const approve = document.createElement('label');
+      approve.className = 'approve-toggle' + (game.tagline_approved ? ' is-on' : '');
+      const approveBox = document.createElement('input');
+      approveBox.type = 'checkbox';
+      approveBox.checked = !!game.tagline_approved;
+      approveBox.addEventListener('change', () => saveApproved(game, approveBox.checked));
+      const approveText = document.createElement('span');
+      approveText.textContent = 'Approved';
+      approve.append(approveBox, approveText);
+      actions.appendChild(approve);
       const suggestBtn = document.createElement('button');
       suggestBtn.type = 'button';
       suggestBtn.className = 'btn icon';

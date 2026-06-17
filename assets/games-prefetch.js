@@ -19,12 +19,12 @@
     Authorization: 'Bearer ' + SB_KEY,
     Accept: 'application/json'
   };
-  var gamesUrl = SB_URL + '/rest/v1/games'
+  var gamesUrl = SB_URL + '/rest/v1/games_with_teams'
     + '?apikey=' + SB_KEY
     + '&select=*'
     + '&order=name.asc';
   var teamsUrl = SB_URL + '/rest/v1/teams'
-    + '?select=league,conference,code,full_name,first_name,fanbase,mascot,sport,shell,stripe,mask'
+    + '?select=tgbid,team_key,league,conference,division,code,full_name,first_name,fanbase,mascot,sport,shell,stripe,mask,text_color,game_city,venue_city,timezone'
     + '&order=league_sort.asc&order=team_sort.asc';
   window.__tgbPrefetch = {
     games: fetch(gamesUrl, { headers: headers, cache: 'no-store' })
