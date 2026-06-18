@@ -3,7 +3,7 @@
 -- Start/end semantics live elsewhere, not on this table. Safe to re-run.
 
 create table if not exists public.waypoints (
-  wpid        bigint generated always as identity primary key,  -- unique auto number
+  wpid        bigint primary key,  -- assigned by trigger to the lowest free id
   city        text,
   state       text,
   address     text,
@@ -15,9 +15,34 @@ create table if not exists public.waypoints (
 -- Added after initial create; safe to re-run.
 alter table public.waypoints add column if not exists w3w text;
 
+-- wpid is NOT an identity column — we want gap-filling, not monotonic ids. When
+-- a waypoint is deleted its id becomes free again. A BEFORE INSERT trigger
+-- assigns the lowest unused positive integer (then max+1 when there are no gaps).
+-- The transaction advisory lock serializes concurrent inserts so two clients
+-- can't claim the same gap (this is a web page — assume multi-user).
+alter table public.waypoints alter column wpid drop identity if exists;
+
+create or replace function public.waypoints_assign_wpid()
+returns trigger language plpgsql as $func$
+begin
+  if new.wpid is null then
+    perform pg_advisory_xact_lock(hashtext('public.waypoints.wpid'));
+    select min(s) into new.wpid
+    from generate_series(1, coalesce((select max(wpid) from public.waypoints), 0) + 1) as s
+    where s not in (select wpid from public.waypoints);
+  end if;
+  return new;
+end;
+$func$;
+
+drop trigger if exists trg_waypoints_assign_wpid on public.waypoints;
+create trigger trg_waypoints_assign_wpid
+  before insert on public.waypoints
+  for each row execute function public.waypoints_assign_wpid();
+
 comment on table public.waypoints is
-  'Skunkworks catalog of real-world points. wpid = unique auto number.';
-comment on column public.waypoints.wpid is 'Unique auto-incrementing id (identity).';
+  'Skunkworks catalog of real-world points. wpid = lowest free id (gap-filling).';
+comment on column public.waypoints.wpid is 'Unique id; trigger assigns the lowest free positive integer.';
 comment on column public.waypoints.w3w is
   'what3words address (///word.word.word), generated from the point by the Fill button.';
 

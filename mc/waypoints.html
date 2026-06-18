@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     * { box-sizing: border-box; }
 
@@ -83,7 +85,8 @@
     .legend {
       margin: 4px 0 0;
       color: var(--muted);
-      font-size: 0.82rem;
+      font-size: 0.98rem;
+      line-height: 1.4;
     }
 
     .btn {
@@ -131,6 +134,26 @@
       margin: 0 0 16px;
     }
 
+    /* New + Near packaged together like the TGB HOME / MISSION CONTROL pill. */
+    .btn-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid var(--ink);
+      border-radius: 8px;
+      background: var(--ink);
+    }
+    .btn-group .btn {
+      background: #fff;
+      border-color: #fff;
+      color: var(--ink);
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+    .btn-group .btn:hover { background: rgba(255,255,255,0.85); border-color: #fff; }
+    .btn-group .btn:disabled { opacity: 0.45; }
+
     .toolbar input {
       width: 100%;
       min-height: 42px;
@@ -139,6 +162,7 @@
       border-radius: 8px;
       background: #fff;
       color: var(--ink);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
     }
 
     .panel {
@@ -151,27 +175,20 @@
       box-shadow: 0 12px 28px var(--paper-shadow);
     }
 
-    .summary {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-      color: var(--muted);
-      font-size: 0.85rem;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .wp-pager {
+    /* Navigation group (lives in the card action row, left of Delete). */
+    .wp-nav {
       display: flex;
       align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
       color: var(--muted);
       font-size: 0.82rem;
       font-variant-numeric: tabular-nums;
     }
-    .wp-pager-status { margin-right: 4px; }
+    .wp-pager-status { margin: 0; text-align: center; min-width: 7em; }
+    /* Saved/Unsaved badge in the card's lower-right, under the description. */
+    .wp-card-foot { display: flex; justify-content: flex-end; margin-top: 2px; }
+    .wp-saved { font-weight: 700; letter-spacing: 0.02em; font-size: 0.85rem; }
 
     .wp-list { display: grid; gap: 12px; }
 
@@ -288,6 +305,9 @@
       line-height: 1.35;
     }
 
+    .w3w-row { display: flex; gap: 6px; align-items: center; }
+    .w3w-row input { flex: 1; min-width: 0; }
+
     .wp-card-body {
       display: grid;
       grid-template-columns: minmax(200px, 300px) minmax(0, 1fr);
@@ -295,16 +315,20 @@
       align-items: stretch;
     }
 
+    .wp-map-wrap { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .wp-map-wrap .wp-map-preview { flex: 1; }
+    .wp-map-cap { font-size: 0.72rem; color: var(--muted); text-align: center; }
     .wp-map-preview {
       width: 100%;
       height: 100%;
-      min-height: 220px;
+      min-height: 240px;
       border: 1px solid var(--line);
       border-radius: 10px;
       overflow: hidden;
       background: rgba(var(--bic-blue-rgb), 0.04);
+      cursor: crosshair;
     }
-    .wp-map-preview iframe { width: 100%; height: 100%; border: 0; display: block; }
+    .wp-map-preview .leaflet-container { width: 100%; height: 100%; }
     .wp-map-empty {
       display: grid;
       place-items: center;
@@ -425,21 +449,18 @@
     <section class="section-head">
       <p class="kicker">TGB MISSION CONTROL</p>
       <h2>WAYPOINTS</h2>
-      <p class="status" id="pageStatus" aria-live="polite">Sign in with an admin account.</p>
-      <p class="legend">Reusable catalog of real-world points in the <strong>waypoints</strong> table — Name, City, State, Address, Description. Add new waypoints, edit, and save. Each waypoint has a unique WPID.</p>
+      <p class="legend">Waypoints are the actual locations players will go to. These waypoints can be used in different games. <strong>Waypoint + Challenge = Game Stop.</strong></p>
     </section>
 
     <div class="toolbar">
       <input type="search" id="searchInput" placeholder="Filter by name, city, state, or address..." autocomplete="off">
-      <button class="btn primary" id="newBtn" type="button" title="Add a new waypoint">New Waypoint</button>
+      <div class="btn-group">
+        <button class="btn small" id="newBtn" type="button" title="Add a new waypoint">New</button>
+        <button class="btn small" id="nearBtn" type="button" title="Find nearby points of interest">Near</button>
+      </div>
     </div>
 
     <section class="panel">
-      <div class="summary" id="summaryLine">
-        <span>0 waypoints</span>
-        <span>0 unsaved</span>
-      </div>
-      <div class="wp-pager" id="wpPager" hidden></div>
       <div class="wp-list" id="wpList"></div>
     </section>
   </main>
@@ -475,8 +496,7 @@
     const signOutBtn = document.getElementById('signOutBtn');
     const searchInput = document.getElementById('searchInput');
     const newBtn = document.getElementById('newBtn');
-    const summaryLine = document.getElementById('summaryLine');
-    const wpPager = document.getElementById('wpPager');
+    const nearBtn = document.getElementById('nearBtn');
     const wpList = document.getElementById('wpList');
 
     const state = {
@@ -508,6 +528,9 @@
     });
 
     function setStatus(text, kind) {
+      // Status notifications were removed from the UI; keep this a no-op so the
+      // many setStatus(...) calls throughout still work. Errors go to console.
+      if (!pageStatus) return;
       pageStatus.textContent = text || '';
       pageStatus.classList.toggle('error', kind === 'error');
       pageStatus.classList.toggle('success', kind === 'success');
@@ -576,9 +599,9 @@
           state.randomId = keepId;
           render();
         } else {
-          pickRandom();
+          state.randomId = oldestId();
           render();
-          setStatus('Loaded ' + state.rows.length + ' waypoints. Showing 1 — use Back/Next or Random, or search.', 'success');
+          setStatus('Loaded ' + state.rows.length + ' waypoints (newest first). Showing the oldest — use Back/Next, Random, or search.', 'success');
         }
       } catch (error) {
         console.error(error);
@@ -708,7 +731,7 @@
     }
 
     function setBusy(isBusy) {
-      [newBtn].forEach((el) => { if (el) el.disabled = !!isBusy; });
+      [newBtn, nearBtn].forEach((el) => { if (el) el.disabled = !!isBusy; });
       document.querySelectorAll('.wp-card button, .wp-card input, .wp-card textarea')
         .forEach((el) => { el.disabled = !!isBusy; });
     }
@@ -732,53 +755,65 @@
       if (!row) return;
       row[field] = String(value || '');
       markDirty(wpid);
-      if (field === 'name' || field === 'city' || field === 'state' || field === 'address') {
-        scheduleMapPreview(wpid);
-      }
     }
 
-    // Reloading the embed on every keystroke would thrash the map, so debounce
-    // preview refreshes while typing. render() rebuilds previews on its own.
-    const previewTimers = new Map();
-    function scheduleMapPreview(wpid) {
-      clearTimeout(previewTimers.get(wpid));
-      previewTimers.set(wpid, setTimeout(() => updateMapPreview(wpid), 700));
-    }
+    // --- Interactive map (Leaflet / OpenStreetMap) ---------------------------
+    // The preview is a clickable map: click a spot and confirm to fill the
+    // waypoint's blank fields from that location. One map instance at a time.
+    let leafletMap = null;
 
-    function updateMapPreview(wpid) {
-      const row = findRow(wpid);
-      const card = wpList.querySelector('[data-wpid="' + cssEscape(wpid) + '"]');
-      const container = card && card.querySelector('[data-map-preview]');
-      if (row && container) renderMapPreview(container, row);
-    }
-
-    // Keyless Google Maps embed — renders the same map. Resolves what3words
-    // asynchronously when a key is configured; placeholder otherwise.
-    async function renderMapPreview(container, row) {
+    async function setupMap(row) {
+      if (typeof L === 'undefined') return;
+      const container = wpList.querySelector('[data-map-preview]');
+      if (!container) return;
+      if (leafletMap) { try { leafletMap.remove(); } catch (error) {} leafletMap = null; }
       container.innerHTML = '';
-      let q = mapQuery(row);
-      const isW3W = !q && !!parseW3W(cleanText(row.address));
-      if (isW3W) {
-        const pt = await resolveAddressPoint(cleanText(row.address));
-        if (!container.isConnected) return; // card was re-rendered while resolving
-        if (pt) q = pt.lat + ',' + pt.lon;
+
+      // Center on the waypoint's point (coords/Plus Code), else geocode it,
+      // else fall back to a wide New Orleans view so a blank waypoint is usable.
+      let center = addressToPoint(cleanText(row.address));
+      if (!center) {
+        const q = geocodeQuery(row);
+        if (q) { try { center = await geocodeCoords(q); } catch (error) {} }
+        if (wpList.querySelector('[data-map-preview]') !== container || !container.isConnected) return;
       }
-      if (!q) {
-        const ph = document.createElement('div');
-        ph.className = 'wp-map-empty';
-        ph.textContent = isW3W
-          ? 'Could not resolve this what3words address (API plan/quota).'
-          : 'Add a name or address to preview the map.';
-        container.appendChild(ph);
-        return;
-      }
-      const iframe = document.createElement('iframe');
-      iframe.src = 'https://maps.google.com/maps?q=' + encodeURIComponent(q) + '&z=15&output=embed';
-      iframe.loading = 'lazy';
-      iframe.referrerPolicy = 'no-referrer-when-downgrade';
-      iframe.title = 'Map preview for ' + displayName(row);
-      iframe.setAttribute('allowfullscreen', '');
-      container.appendChild(iframe);
+      const has = !!center;
+      const view = center || { lat: 29.9584, lon: -90.0644 };
+      const map = L.map(container, { scrollWheelZoom: false }).setView([view.lat, view.lon], has ? 16 : 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
+      let marker = has ? L.marker([view.lat, view.lon]).addTo(map) : null;
+      leafletMap = map;
+
+      map.on('click', (e) => {
+        onMapClick(row.wpid, e.latlng.lat, e.latlng.lng, (latlng) => {
+          if (marker) marker.setLatLng(latlng); else marker = L.marker(latlng).addTo(map);
+        });
+      });
+      setTimeout(() => { try { map.invalidateSize(); } catch (error) {} }, 0);
+    }
+
+    async function onMapClick(wpid, lat, lon, moveMarker) {
+      const row = findRow(wpid);
+      if (!row) return;
+      let place;
+      try {
+        const url = 'https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lon
+          + '&format=jsonv2&addressdetails=1&extratags=1&namedetails=1';
+        const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+        place = await res.json();
+      } catch (error) { return; }
+      if (!place || place.error) { setStatus('Nothing found at that spot.'); return; }
+      const addr = place.address || {};
+      const label = placeName(place, addr) || 'this location';
+      if (!window.confirm('Fill details from "' + label + '"?')) return;
+      moveMarker([lat, lon]);
+      const point = { lat: parseFloat(lat.toFixed(6)), lon: parseFloat(lon.toFixed(6)) };
+      // Map click clears every field and refills from the clicked location.
+      await fillFieldsFromPlace(row, place, point, true);
+      markDirty(wpid);
+      render();
     }
 
     // The Address field accepts: a street address, "lat, lon" coordinates, a
@@ -833,7 +868,7 @@
     // Extract "word.word.word" from a what3words URL, ///prefix, or bare triple.
     function parseW3W(text) {
       const t = cleanText(text);
-      const url = t.match(/^(?:\/\/\/|https?:\/\/(?:www\.)?(?:what3words\.com|w3w\.co)\/)([^\/?#\s]+)/i);
+      const url = t.match(/^(?:\/\/\/|https?:\/\/(?:www\.)?(?:what3words\.com|w3w\.co|w3w\.com)\/)([^\/?#\s]+)/i);
       const words = url ? url[1] : t;
       return /^[^.\s\/]+\.[^.\s\/]+\.[^.\s\/]+$/.test(words) ? words : null;
     }
@@ -859,8 +894,14 @@
         const res = await fetch(url);
         if (!res.ok) return '';
         const data = await res.json();
-        return data && data.words ? '///' + data.words : '';
+        return data && data.words ? 'https://w3w.co/' + data.words : '';
       } catch (error) { return ''; }
+    }
+
+    // Build a what3words URL from any w3w form (URL, ///, or bare words).
+    function w3wHref(value) {
+      const words = parseW3W(value);
+      return words ? 'https://w3w.co/' + words : '';
     }
 
     // Coordinates or Plus Code → a precise point, locally (no network).
@@ -868,14 +909,10 @@
       return parseLatLon(text) || decodePlusCode(text) || null;
     }
 
-    // Resolve the Address field to a point: coords/Plus Code locally, what3words
-    // via the API (if a key is configured). Returns null for a plain address.
-    async function resolveAddressPoint(text) {
-      const pt = addressToPoint(text);
-      if (pt) return pt;
-      const words = parseW3W(text);
-      if (words) return await w3wToPoint(words);
-      return null;
+    // Resolve the Address field to a point: coordinates or a Plus Code, locally.
+    // (what3words lives in its own field — it is not an address-field option.)
+    function resolveAddressPoint(text) {
+      return addressToPoint(text);
     }
 
     // Build a Google Maps query from a waypoint. A coordinate/Plus Code address
@@ -884,7 +921,6 @@
       const address = cleanText(row.address);
       const pt = addressToPoint(address);
       if (pt) return pt.lat + ',' + pt.lon;
-      if (parseW3W(address)) return ''; // resolved asynchronously by the preview
       const name = cleanText(row.name);
       if (address) return [name, address].filter(Boolean).join(', ');
       return [name, cleanText(row.city), cleanText(row.state)].filter(Boolean).join(', ');
@@ -900,6 +936,53 @@
       return [cleanText(row.name), cleanText(row.city), cleanText(row.state)].filter(Boolean).join(', ');
     }
 
+    // Ordered lookup queries built from EVERY filled field — richest first, then
+    // degrading. Nominatim often needs the venue name dropped to match a street
+    // address, so the all-fields query is tried first, then name-less variants.
+    function fillQueries(row) {
+      const name = cleanText(row.name);
+      const address = cleanText(row.address);
+      const city = cleanText(row.city);
+      const state = cleanText(row.state);
+      const queries = [];
+      const add = (...parts) => {
+        const q = parts.map(cleanText).filter(Boolean).join(', ');
+        if (q && !queries.includes(q)) queries.push(q);
+      };
+      if (address) {
+        add(name, address, city, state); // everything
+        add(address, city, state);       // drop the name (Nominatim-friendly)
+        add(address);                    // address alone
+      }
+      add(name, city, state);            // name + locality
+      add(city, state);                  // locality only
+      add(name);                         // last resort
+      return queries;
+    }
+
+    // Try each query in order, returning the first that geocodes to a result.
+    async function geocodeFirst(queries) {
+      for (let i = 0; i < queries.length; i += 1) {
+        if (i > 0) await new Promise((resolve) => setTimeout(resolve, 350)); // be polite to Nominatim
+        const url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(queries[i])
+          + '&format=jsonv2&addressdetails=1&extratags=1&namedetails=1&limit=1';
+        const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+        const arr = await res.json();
+        if (Array.isArray(arr) && arr.length) return { place: arr[0], query: queries[i] };
+      }
+      return null;
+    }
+
+    // A precise point from the most authoritative filled field: the Address
+    // (coords / Plus Code / what3words) or the dedicated what3words field.
+    async function bestPoint(row) {
+      let pt = await resolveAddressPoint(cleanText(row.address));
+      if (pt) return pt;
+      const words = parseW3W(cleanText(row.w3w));
+      if (words) { pt = await w3wToPoint(words); if (pt) return pt; }
+      return null;
+    }
+
     // Brief inline feedback on a card button (it sits below the fold, so the
     // top-of-page status line alone is easy to miss).
     function flashButton(button, text) {
@@ -909,9 +992,62 @@
       button._flashTimer = setTimeout(() => { button.textContent = 'Fill'; }, 1600);
     }
 
-    // Geocode from whatever the waypoint already has, then fill ONLY the blank
-    // geocodable fields (name, city, state, address, description). Existing
-    // values are kept.
+    // Fill `row` from a geocoded `place` (+ optional precise `point`). With
+    // overwrite=false (Fill button) only blank fields are set, keeping existing
+    // values. With overwrite=true (map click) every field is cleared and
+    // replaced with the location's details. Returns the fields it touched.
+    async function fillFieldsFromPlace(row, place, point, overwrite) {
+      const addr = place.address || {};
+      const lat = point ? point.lat : parseFloat(place.lat);
+      const lon = point ? point.lon : parseFloat(place.lon);
+      const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
+
+      const name = cleanText(placeName(place, addr));
+      const city = cleanText(addr.city || addr.town || addr.village || addr.hamlet || addr.suburb || addr.municipality || addr.county);
+      const state = cleanText(addr.state);
+      // A real street-level address when there is one; otherwise the coordinates
+      // — more useful than just "City, State".
+      const streetAddress = cleanText(addr.road) ? shortAddress(addr) : '';
+      const address = cleanText(streetAddress || (hasCoords ? lat + ', ' + lon : (shortAddress(addr) || place.display_name)));
+
+      if (overwrite) {
+        // Clear-then-fill: replace every field with the clicked location.
+        const description = cleanText(await resolveDescription(place, addr, { name: name }));
+        const w3w = cleanText(await pointToW3W(lat, lon));
+        row.name = name;
+        row.city = city;
+        row.state = state;
+        row.address = address;
+        row.description = description;
+        row.w3w = w3w;
+        return ['name', 'city', 'state', 'address', 'description', 'w3w'];
+      }
+
+      // Fill blanks only — keep anything already entered.
+      const filled = [];
+      const setIfBlank = (field, value) => {
+        const v = cleanText(value);
+        if (v && !cleanText(row[field])) { row[field] = v; filled.push(field); }
+      };
+      setIfBlank('name', name);
+      setIfBlank('city', city);
+      setIfBlank('state', state);
+      setIfBlank('address', address);
+      if (!cleanText(row.description)) {
+        const desc = await resolveDescription(place, addr, row);
+        if (desc) { row.description = desc; filled.push('description'); }
+      }
+      if (!cleanText(row.w3w)) {
+        const words = await pointToW3W(lat, lon);
+        if (words) { row.w3w = words; filled.push('w3w'); }
+      }
+      return filled;
+    }
+
+    // Use EVERY filled field to locate the place, then fill ONLY the blank
+    // fields (name, city, state, address, description, w3w). Existing values are
+    // kept. A precise point (coords / Plus Code / what3words) takes priority;
+    // otherwise the richest text query is tried first, degrading until one hits.
     async function fillWaypoint(wpid, button) {
       const row = findRow(wpid);
       if (!row) return;
@@ -922,19 +1058,18 @@
         setStatus(displayName(row) + ' is already complete — nothing blank to fill.');
         return;
       }
-      const point = await resolveAddressPoint(cleanText(row.address));
-      const query = geocodeQuery(row);
-      if (!point && !query) {
-        flashButton(button, 'Need name');
-        setStatus('Add a name or address first, then hit Fill.', 'error');
+      const point = await bestPoint(row);
+      const queries = fillQueries(row);
+      if (!point && !queries.length) {
+        flashButton(button, 'Need info');
+        setStatus('Fill in a name or address first, then hit Fill.', 'error');
         return;
       }
       if (button) { button.disabled = true; button.textContent = 'Filling…'; }
-      setStatus('Looking up ' + (cleanText(row.name) || query || 'location') + '...');
       try {
         let place;
         if (point) {
-          // Coordinates / Plus Code / what3words → reverse-geocode the point.
+          // A precise point (coordinates / Plus Code / what3words) wins — reverse-geocode it.
           const url = 'https://nominatim.openstreetmap.org/reverse?lat=' + point.lat + '&lon=' + point.lon
             + '&format=jsonv2&addressdetails=1&extratags=1&namedetails=1';
           const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
@@ -945,37 +1080,16 @@
             return;
           }
         } else {
-          const url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query)
-            + '&format=jsonv2&addressdetails=1&extratags=1&namedetails=1&limit=1';
-          const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
-          const places = await res.json();
-          if (!Array.isArray(places) || !places.length) {
+          // Use every filled field — richest query first, degrading until one hits.
+          const found = await geocodeFirst(queries);
+          if (!found) {
             flashButton(button, 'No match');
-            setStatus('No match found for "' + query + '".', 'error');
+            setStatus('No match found for this waypoint.', 'error');
             return;
           }
-          place = places[0];
+          place = found.place;
         }
-        const addr = place.address || {};
-        const filled = [];
-        const setIfBlank = (field, value) => {
-          const v = cleanText(value);
-          if (v && !cleanText(row[field])) { row[field] = v; filled.push(field); }
-        };
-        setIfBlank('name', place.name);
-        setIfBlank('city', addr.city || addr.town || addr.village || addr.hamlet || addr.suburb || addr.municipality || addr.county);
-        setIfBlank('state', addr.state);
-        setIfBlank('address', shortAddress(addr) || place.display_name);
-        if (!cleanText(row.description)) {
-          const desc = await resolveDescription(place, addr, row);
-          if (desc) { row.description = desc; filled.push('description'); }
-        }
-        if (!cleanText(row.w3w)) {
-          const lat = point ? point.lat : parseFloat(place.lat);
-          const lon = point ? point.lon : parseFloat(place.lon);
-          const words = await pointToW3W(lat, lon);
-          if (words) { row.w3w = words; filled.push('w3w'); }
-        }
+        const filled = await fillFieldsFromPlace(row, place, point);
         if (!filled.length) {
           flashButton(button, 'No new data');
           setStatus('Found a match, but nothing new to fill.');
@@ -1119,7 +1233,7 @@
       const row = findRow(wpid);
       if (!row) return;
       const query = geocodeQuery(row);
-      const hasPoint = !!addressToPoint(cleanText(row.address)) || !!parseW3W(cleanText(row.address));
+      const hasPoint = !!addressToPoint(cleanText(row.address));
       if (!query && !hasPoint) {
         setStatus('Add an address or name first, then hit Near.', 'error');
         return;
@@ -1281,12 +1395,15 @@
       const desc = poi.cat
         ? poi.name + ', a ' + poi.cat + (town ? ' in ' + town : '') + '.'
         : '';
+      // The POI has exact coordinates, so generate its what3words too.
+      const w3w = await pointToW3W(poi.lat, poi.lon);
       const payload = {
         name: poi.name || null,
         city: town || null,
         state: st || null,
         address: street || null,
-        description: desc || null
+        description: desc || null,
+        w3w: w3w || null
       };
       try {
         await ensureFreshSession();
@@ -1299,7 +1416,10 @@
         const rows = await res.json();
         const fresh = normalizeRow(Array.isArray(rows) && rows[0] ? rows[0] : {});
         closeNearDialog();
-        // Reload and jump to the newly added waypoint.
+        // Clear any active filter so the new waypoint isn't filtered out, then
+        // reload and jump to it.
+        state.filter = '';
+        if (searchInput) searchInput.value = '';
         await refresh(fresh.wpid);
         setStatus('Added ' + poi.name + ' as waypoint #' + fresh.wpid + '. Now editing it — hit Fill to round it out.', 'success');
       } catch (error) {
@@ -1307,6 +1427,23 @@
         if (button) { button.disabled = false; button.textContent = 'Add'; }
         setStatus(error.message || 'Add failed.', 'error');
       }
+    }
+
+    // A name for the waypoint even when the geocoded place has none: the POI
+    // name, else the street, else the neighbourhood, else the locality, else the
+    // leading part of the full address. Fill should never leave the name blank.
+    function placeName(place, addr) {
+      const nd = place && place.namedetails;
+      const direct = cleanText(place && place.name) || cleanText(nd && (nd.name || nd['name:en']));
+      if (direct) return direct;
+      const street = [cleanText(addr.house_number), cleanText(addr.road)].filter(Boolean).join(' ');
+      if (street) return street;
+      const hood = cleanText(addr.neighbourhood || addr.suburb || addr.quarter || addr.city_district);
+      if (hood) return hood;
+      const town = cleanText(addr.city || addr.town || addr.village || addr.hamlet || addr.municipality || addr.county);
+      if (town) return town;
+      const dn = cleanText(place && place.display_name);
+      return dn ? dn.split(',')[0].trim() : '';
     }
 
     // Tidy "house road, city, ST zip" from Nominatim address components.
@@ -1328,6 +1465,9 @@
       card.classList.toggle('is-saving', state.savingIds.has(wpid));
       const save = card.querySelector('[data-action="save"]');
       if (save) save.disabled = state.savingIds.has(wpid);
+      const badge = card.querySelector('[data-saved]');
+      const row = findRow(wpid);
+      if (badge && row) setSavedBadge(badge, row);
     }
 
     function focusRow(wpid) {
@@ -1370,6 +1510,12 @@
       return current ? [current] : [];
     }
 
+    // The oldest waypoint (lowest wpid) — featured on first load.
+    function oldestId() {
+      if (!state.rows.length) return null;
+      return state.rows.reduce((a, b) => (Number(a.wpid) <= Number(b.wpid) ? a : b)).wpid;
+    }
+
     // Random waypoint within the current (filtered) set, avoiding the current one.
     function pickRandom() {
       const list = navRows();
@@ -1400,7 +1546,8 @@
       if (!list.length) return;
       let idx = list.findIndex((row) => row.wpid === state.randomId);
       if (idx < 0) idx = 0;
-      const nextIdx = Math.min(list.length - 1, Math.max(0, idx + step));
+      // Wrap around: Next past the last goes to the first, and vice versa.
+      const nextIdx = (((idx + step) % list.length) + list.length) % list.length;
       if (nextIdx === idx) return;
       await maybeSaveBeforeLeaving();
       state.randomId = list[nextIdx].wpid;
@@ -1418,10 +1565,9 @@
       setStatus(row ? 'Showing ' + displayName(row) + '.' : 'No waypoints to show.');
     }
 
+    // Most recent (highest wpid) first, down to the oldest.
     function compareRows(a, b) {
-      return compareText(cityKey(a), cityKey(b))
-        || compareText(displayName(a), displayName(b))
-        || (Number(a.wpid) - Number(b.wpid));
+      return Number(b.wpid) - Number(a.wpid);
     }
 
     function compareText(a, b) {
@@ -1453,13 +1599,13 @@
       }
       const current = ensureCurrent();
       if (!current) {
-        if (wpPager) wpPager.hidden = true;
-        wpList.appendChild(emptyNode(state.filter ? 'No waypoints match your filter.' : 'No waypoints yet. Hit NEW WAYPOINT to add one.'));
+        wpList.appendChild(emptyNode(state.filter ? 'No waypoints match your filter.' : 'No waypoints yet. Hit NEW to add one.'));
         updateSummary();
         return;
       }
       // Always exactly one waypoint at a time.
       wpList.appendChild(renderCard(current));
+      setupMap(current);
       updateToolbarButtons();
       updateSummary();
     }
@@ -1482,7 +1628,7 @@
       meta.className = 'wp-meta';
       const id = document.createElement('span');
       id.className = 'wp-id';
-      id.textContent = 'WPID ' + row.wpid;
+      id.textContent = 'WPID' + row.wpid;
       meta.appendChild(id);
       titleWrap.append(title, meta);
 
@@ -1494,12 +1640,6 @@
       fillBtn.textContent = 'Fill';
       fillBtn.title = 'Geocode from what is set and fill in any blank fields';
       fillBtn.addEventListener('click', () => fillWaypoint(row.wpid, fillBtn));
-      const nearBtn = document.createElement('button');
-      nearBtn.type = 'button';
-      nearBtn.className = 'btn small';
-      nearBtn.textContent = 'Near';
-      nearBtn.title = 'Find nearby points of interest';
-      nearBtn.addEventListener('click', () => nearWaypoint(row.wpid, nearBtn));
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
       deleteBtn.className = 'btn warn small';
@@ -1512,33 +1652,84 @@
       saveBtn.textContent = 'Save';
       saveBtn.disabled = state.savingIds.has(row.wpid);
       saveBtn.addEventListener('click', () => saveRow(row.wpid));
-      actions.append(fillBtn, nearBtn, deleteBtn, saveBtn);
+      // Nav (Back · count · Next · Random) sits to the left of Delete.
+      actions.append(renderNav(), deleteBtn, fillBtn, saveBtn);
 
       head.append(titleWrap, actions);
 
       const fields = document.createElement('div');
       fields.className = 'field-grid';
-      fields.appendChild(renderTextField(row, 'name', 'Name', 'A named place, e.g. Krog Street Market.'));
+      fields.appendChild(renderTextField(row, 'name', 'Name', 'A named place, e.g. Cafe du Monde.'));
       const cityState = document.createElement('div');
       cityState.className = 'field-row';
       cityState.append(renderTextField(row, 'city', 'City'), renderTextField(row, 'state', 'State'));
       fields.appendChild(cityState);
-      fields.appendChild(renderTextField(row, 'address', 'Address', 'Street address, lat/lon, Plus Code, or a what3words URL.'));
-      fields.appendChild(renderTextField(row, 'w3w', 'what3words', '///word.word.word — auto-filled by Fill.'));
+      fields.appendChild(renderTextField(row, 'address', 'Address', 'Street address, lat/lon coordinates, or a Plus Code.'));
+      fields.appendChild(renderW3WField(row));
       fields.appendChild(renderTextField(row, 'description', 'Description', null, true));
 
       const preview = document.createElement('div');
       preview.className = 'wp-map-preview';
       preview.setAttribute('data-map-preview', '');
-      renderMapPreview(preview, row);
+      const mapCap = document.createElement('div');
+      mapCap.className = 'wp-map-cap';
+      mapCap.textContent = 'Click the map to fill details from a spot.';
+      const mapWrap = document.createElement('div');
+      mapWrap.className = 'wp-map-wrap';
+      mapWrap.append(preview, mapCap);
 
       // Map on the left, editable details on the right.
       const body = document.createElement('div');
       body.className = 'wp-card-body';
-      body.append(preview, fields);
+      body.append(mapWrap, fields);
 
-      card.append(head, body);
+      // Saved/Unsaved badge in the lower-right, under the description.
+      const foot = document.createElement('div');
+      foot.className = 'wp-card-foot';
+      const saved = document.createElement('span');
+      saved.className = 'wp-saved';
+      saved.dataset.saved = '';
+      setSavedBadge(saved, row);
+      foot.appendChild(saved);
+
+      card.append(head, body, foot);
       return card;
+    }
+
+    // what3words field with an "Open in browser" button beside the box.
+    function renderW3WField(row) {
+      const wrap = document.createElement('div');
+      wrap.className = 'field';
+      const id = 'wp-w3w-' + row.wpid;
+      const label = document.createElement('label');
+      label.setAttribute('for', id);
+      label.textContent = 'what3words';
+      const line = document.createElement('div');
+      line.className = 'w3w-row';
+      const input = document.createElement('input');
+      input.id = id;
+      input.type = 'text';
+      input.dataset.field = 'w3w';
+      input.value = row.w3w || '';
+      input.placeholder = 'https://w3w.co/word.word.word';
+      const openBtn = document.createElement('button');
+      openBtn.type = 'button';
+      openBtn.className = 'btn small';
+      openBtn.textContent = 'Open in browser';
+      openBtn.addEventListener('click', () => {
+        const href = w3wHref(input.value);
+        if (href) window.open(href, '_blank', 'noopener');
+      });
+      const sync = () => {
+        const href = w3wHref(input.value);
+        openBtn.disabled = !href;
+        openBtn.title = href ? ('Open ' + href) : 'Enter a what3words address first';
+      };
+      input.addEventListener('input', () => { updateField(row.wpid, 'w3w', input.value); sync(); });
+      sync();
+      line.append(input, openBtn);
+      wrap.append(label, line);
+      return wrap;
     }
 
     function renderTextField(row, field, labelText, hint, multiline) {
@@ -1572,59 +1763,54 @@
     }
 
     function updateSummary() {
-      const list = navRows();
-      const idx = list.findIndex((row) => row.wpid === state.randomId);
-      const dirty = state.dirtyIds.size;
-      summaryLine.innerHTML = '';
-      const posText = list.length
-        ? 'Waypoint ' + (Math.max(0, idx) + 1) + ' of ' + list.length + (state.filter ? ' (filtered · ' + state.rows.length + ' total)' : '')
-        : '0 waypoints';
-      summaryLine.append(metaSpan(posText), metaSpan(dirty + ' unsaved'));
-      renderPager();
       updateToolbarButtons();
     }
 
-    function metaSpan(text) {
-      const span = document.createElement('span');
-      span.textContent = text;
-      return span;
-    }
-
-    // Back / "Waypoint i of N" / Next / Random — steps through the navigable set.
-    function renderPager() {
-      if (!wpPager) return;
-      wpPager.innerHTML = '';
-      if (!state.authed) { wpPager.hidden = true; return; }
+    // Navigation group (Back · count · Next · Random). Lives in the card action
+    // row, to the left of Delete.
+    function renderNav() {
+      const nav = document.createElement('div');
+      nav.className = 'wp-nav';
       const list = navRows();
-      if (list.length <= 1) { wpPager.hidden = true; return; }
       let idx = list.findIndex((row) => row.wpid === state.randomId);
       if (idx < 0) idx = 0;
-      wpPager.hidden = false;
-      const back = document.createElement('button');
-      back.type = 'button';
-      back.className = 'btn small';
-      back.textContent = 'Back';
-      back.disabled = idx <= 0;
-      back.addEventListener('click', () => stepFeatured(-1));
-      const pos = document.createElement('span');
-      pos.className = 'wp-pager-status';
-      pos.textContent = 'Waypoint ' + (idx + 1) + ' of ' + list.length;
-      const fwd = document.createElement('button');
-      fwd.type = 'button';
-      fwd.className = 'btn small';
-      fwd.textContent = 'Next';
-      fwd.disabled = idx >= list.length - 1;
-      fwd.addEventListener('click', () => stepFeatured(1));
-      const rnd = document.createElement('button');
-      rnd.type = 'button';
-      rnd.className = 'btn small';
-      rnd.textContent = 'Random';
-      rnd.addEventListener('click', doRandom);
-      wpPager.append(back, pos, fwd, rnd);
+
+      const navBtn = (label, onClick) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn small';
+        b.textContent = label;
+        b.addEventListener('click', onClick);
+        return b;
+      };
+
+      const count = document.createElement('span');
+      count.className = 'wp-pager-status';
+      count.textContent = 'Waypoint ' + (idx + 1) + ' of ' + list.length;
+      // Keep the nav buttons visible whenever a filter is active (even if it
+      // narrows to one match), so the controls don't disappear under you.
+      if (list.length > 1 || state.filter) {
+        nav.append(
+          navBtn('Back', () => stepFeatured(-1)),
+          count,
+          navBtn('Next', () => stepFeatured(1)),
+          navBtn('Random', doRandom)
+        );
+      } else {
+        nav.append(count);
+      }
+      return nav;
+    }
+
+    function setSavedBadge(el, row) {
+      const isDirty = state.dirtyIds.has(row.wpid);
+      el.textContent = isDirty ? 'Unsaved' : 'Saved';
+      el.style.color = isDirty ? 'var(--danger)' : 'var(--success)';
     }
 
     function updateToolbarButtons() {
       if (newBtn) newBtn.disabled = !state.authed;
+      if (nearBtn) nearBtn.disabled = !state.authed || !findRow(state.randomId);
     }
 
     // --- Wiring --------------------------------------------------------------
@@ -1637,6 +1823,7 @@
     });
 
     if (newBtn) newBtn.addEventListener('click', createWaypoint);
+    if (nearBtn) nearBtn.addEventListener('click', () => nearWaypoint(state.randomId, nearBtn));
 
     const nearCloseBtn = document.getElementById('nearCloseBtn');
     if (nearCloseBtn) nearCloseBtn.addEventListener('click', closeNearDialog);
