@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>WAYPOINTS | THE GAME BUREAU</title>
+  <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);
+      --bic-red: #c23737;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255,255,255,0.92);
+      --accent: var(--bic-blue);
+      --danger: #a03f2d;
+      --success: #2f6b3d;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+      color: var(--ink);
+    }
+
+    button, input, textarea, select { font: inherit; }
+
+    .section-head {
+      display: grid;
+      gap: 6px;
+      margin: 0 0 18px;
+      padding: 20px 22px 22px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.14);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.74) 0%, rgba(var(--bic-blue-rgb), 0.08) 100%);
+      box-shadow: 0 18px 36px var(--paper-shadow);
+    }
+
+    .kicker {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+
+    .status {
+      margin: 0;
+      min-height: 1.4em;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .status.error { color: var(--danger); font-weight: 700; }
+    .status.success { color: var(--success); font-weight: 700; }
+
+    .legend {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:hover { background: rgba(var(--bic-blue-rgb), 0.08); border-color: var(--accent); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { background: rgba(var(--bic-blue-rgb), 0.85); }
+    .btn.warn { color: var(--danger); border-color: rgba(160,63,45,0.45); }
+    .btn.warn:hover { background: rgba(160,63,45,0.08); border-color: var(--danger); }
+    .btn.small { min-height: 34px; padding: 0 10px; font-size: 0.76rem; }
+    .btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+    .signout-btn {
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      border-radius: 50%;
+      background: #fff;
+      border: 1px solid var(--line);
+      cursor: pointer;
+    }
+    .signout-btn svg { width: 22px; height: 22px; color: var(--ink); }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      margin: 0 0 16px;
+    }
+
+    .toolbar input {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .panel {
+      display: grid;
+      gap: 12px;
+      padding: 18px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 12px 28px var(--paper-shadow);
+    }
+
+    .summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .wp-pager {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .wp-pager-status { margin-right: 4px; }
+
+    .wp-list { display: grid; gap: 12px; }
+
+    .wp-group-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.14);
+      border-radius: 10px;
+      background: rgba(var(--bic-blue-rgb), 0.055);
+      color: var(--bic-blue);
+    }
+    .wp-group-title {
+      margin: 0;
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .wp-group-meta {
+      color: var(--muted);
+      font-size: 0.76rem;
+      white-space: nowrap;
+    }
+
+    .wp-card {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .wp-card.is-dirty {
+      border-color: rgba(194,55,55,0.55);
+      box-shadow: 0 0 0 3px rgba(194,55,55,0.08);
+    }
+    .wp-card.is-saving { opacity: 0.68; }
+
+    .wp-card-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .wp-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 1rem;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+
+    .wp-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .wp-id {
+      font-family: "IBM Plex Mono", monospace;
+      word-break: break-all;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .field-grid { display: grid; gap: 10px; }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .field { display: grid; gap: 5px; }
+
+    .field label {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .field input,
+    .field textarea {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+    }
+    .field textarea {
+      min-height: 64px;
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    .field-hint {
+      color: var(--muted);
+      font-size: 0.74rem;
+      line-height: 1.35;
+    }
+
+    .wp-card-body {
+      display: grid;
+      grid-template-columns: minmax(200px, 300px) minmax(0, 1fr);
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .wp-map-preview {
+      width: 100%;
+      height: 100%;
+      min-height: 220px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: rgba(var(--bic-blue-rgb), 0.04);
+    }
+    .wp-map-preview iframe { width: 100%; height: 100%; border: 0; display: block; }
+    .wp-map-empty {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-align: center;
+      padding: 10px;
+    }
+
+    .empty {
+      padding: 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.88rem;
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      background: rgba(15,23,42,0.42);
+    }
+    .modal-backdrop[hidden] { display: none; }
+
+    .modal {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      z-index: 91;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      width: min(560px, calc(100vw - 32px));
+      max-height: min(72vh, calc(100vh - 32px));
+      transform: translate(-50%, -50%);
+      background: #fff;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.22);
+      border-radius: 14px;
+      box-shadow: 0 28px 80px rgba(15,23,42,0.28);
+      overflow: hidden;
+    }
+    .modal[hidden] { display: none; }
+
+    .modal-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(var(--bic-blue-rgb), 0.06);
+    }
+    .modal-title {
+      flex: 1;
+      min-width: 0;
+      margin: 0;
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .modal-status { color: var(--muted); font-size: 0.78rem; white-space: nowrap; }
+
+    .near-list {
+      overflow: auto;
+      padding: 10px 12px;
+      display: grid;
+      gap: 5px;
+      align-content: start;
+    }
+    .near-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+    }
+    .near-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    .near-name { font-weight: 700; font-size: 0.9rem; word-break: break-word; }
+    .near-sub { font-size: 0.74rem; color: var(--muted); }
+
+    @media (max-width: 900px) {
+      .toolbar { grid-template-columns: 1fr 1fr; }
+      .toolbar input { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 720px) {
+      .wp-card-body { grid-template-columns: 1fr; }
+      .wp-map-preview { min-height: 180px; }
+    }
+
+    @media (max-width: 640px) {
+      .toolbar { grid-template-columns: 1fr; }
+      .wp-card-head { grid-template-columns: minmax(0, 1fr); }
+      .card-actions { grid-column: 1 / -1; justify-content: stretch; }
+      .card-actions .btn { flex: 1 1 auto; }
+      .field-row { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <div class="topbar">
+      <div class="topbar-actions" style="margin-left:auto;">
+        <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <section class="section-head">
+      <p class="kicker">TGB MISSION CONTROL</p>
+      <h2>WAYPOINTS</h2>
+      <p class="status" id="pageStatus" aria-live="polite">Sign in with an admin account.</p>
+      <p class="legend">Reusable catalog of real-world points in the <strong>waypoints</strong> table — Name, City, State, Address, Description. Add new waypoints, edit, and save. Each waypoint has a unique WPID.</p>
+    </section>
+
+    <div class="toolbar">
+      <input type="search" id="searchInput" placeholder="Filter by name, city, state, or address..." autocomplete="off">
+      <button class="btn primary" id="newBtn" type="button" title="Add a new waypoint">New Waypoint</button>
+    </div>
+
+    <section class="panel">
+      <div class="summary" id="summaryLine">
+        <span>0 waypoints</span>
+        <span>0 unsaved</span>
+      </div>
+      <div class="wp-pager" id="wpPager" hidden></div>
+      <div class="wp-list" id="wpList"></div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="nearBackdrop" hidden></div>
+  <section class="modal" id="nearDialog" hidden role="dialog" aria-modal="true" aria-labelledby="nearTitle">
+    <div class="modal-bar">
+      <h3 class="modal-title" id="nearTitle">Nearby points of interest</h3>
+      <span class="modal-status" id="nearStatus" aria-live="polite"></span>
+      <button class="btn small" id="nearCloseBtn" type="button">Close</button>
+    </div>
+    <div class="near-list" id="nearList"></div>
+  </section>
+
+  <script src="js/admin-auth.js"></script>
+  <script src="js/admin-shell.js"></script>
+  <script src="js/admin-nav-menu.js"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+
+    const TABLE = 'waypoints';
+    const PK = 'wpid';
+    // Columns read from the table. wpid is the identity primary key.
+    const WAYPOINT_COLUMNS = ['wpid', 'city', 'state', 'address', 'name', 'description', 'w3w'];
+    // Editable text fields (everything except the auto-number PK).
+    const EDITABLE_FIELDS = ['name', 'city', 'state', 'address', 'description', 'w3w'];
+
+    // --- DOM refs ------------------------------------------------------------
+    const pageStatus = document.getElementById('pageStatus');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const searchInput = document.getElementById('searchInput');
+    const newBtn = document.getElementById('newBtn');
+    const summaryLine = document.getElementById('summaryLine');
+    const wpPager = document.getElementById('wpPager');
+    const wpList = document.getElementById('wpList');
+
+    const state = {
+      rows: [],
+      authed: false,
+      filter: '',
+      // The single waypoint currently shown. Exactly one is featured at a time;
+      // Back/Next/Random step through the (optionally filtered) set.
+      randomId: null,
+      dirtyIds: new Set(),
+      savingIds: new Set()
+    };
+
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      onAuthorized: async () => {
+        state.authed = true;
+        setStatus('Loading waypoints...');
+        await refresh();
+      },
+      onSignedOut: () => {
+        state.authed = false;
+        state.rows = [];
+        state.dirtyIds.clear();
+        state.savingIds.clear();
+        render();
+        setStatus('Sign in with an admin account.');
+      }
+    });
+
+    function setStatus(text, kind) {
+      pageStatus.textContent = text || '';
+      pageStatus.classList.toggle('error', kind === 'error');
+      pageStatus.classList.toggle('success', kind === 'success');
+    }
+
+    function restUrl(table, params) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+      });
+      return url.toString();
+    }
+
+    function authHeaders(extra) {
+      if (adminAuth && typeof adminAuth.authHeaders === 'function') {
+        return adminAuth.authHeaders(extra || {});
+      }
+      const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      const token = (session && session.access_token) || SUPABASE_CONFIG.publishableKey;
+      return Object.assign({
+        apikey: SUPABASE_CONFIG.publishableKey,
+        Authorization: 'Bearer ' + token,
+        Accept: 'application/json'
+      }, extra || {});
+    }
+
+    async function ensureFreshSession() {
+      if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') {
+        try { await adminAuth.ensureFreshSession(); } catch (error) {}
+      }
+    }
+
+    async function readError(response, fallback) {
+      try {
+        const text = await response.text();
+        if (!text) return fallback;
+        try {
+          const payload = JSON.parse(text);
+          return payload.message || payload.msg || payload.error_description || payload.error || text;
+        } catch (error) {
+          return text;
+        }
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    // Reload from the DB. Pass keepId to stay on (feature) a specific waypoint
+    // after a save; otherwise feature a fresh random one.
+    async function refresh(keepId) {
+      try {
+        await ensureFreshSession();
+        const response = await fetch(restUrl(TABLE, {
+          select: WAYPOINT_COLUMNS.join(','),
+          order: PK + '.asc'
+        }), {
+          headers: authHeaders({ Accept: 'application/json' }),
+          cache: 'no-store'
+        });
+        if (!response.ok) throw new Error(await readError(response, 'Could not load waypoints.'));
+        const rows = await response.json();
+        state.rows = normalizeRows(rows);
+        state.dirtyIds.clear();
+        state.savingIds.clear();
+        if (keepId != null && findRow(keepId)) {
+          state.randomId = keepId;
+          render();
+        } else {
+          pickRandom();
+          render();
+          setStatus('Loaded ' + state.rows.length + ' waypoints. Showing 1 — use Back/Next or Random, or search.', 'success');
+        }
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Load failed.', 'error');
+        render();
+      }
+    }
+
+    function normalizeRows(rows) {
+      return (Array.isArray(rows) ? rows : []).map(normalizeRow);
+    }
+
+    function normalizeRow(row) {
+      const r = row && typeof row === 'object' ? row : {};
+      return {
+        wpid: r.wpid == null ? '' : String(r.wpid),
+        city: String(r.city || ''),
+        state: String(r.state || ''),
+        address: String(r.address || ''),
+        name: String(r.name || ''),
+        description: String(r.description || ''),
+        w3w: String(r.w3w || '')
+      };
+    }
+
+    function cleanText(value) {
+      return String(value == null ? '' : value).trim();
+    }
+
+    // PATCH payload — only the editable columns (no PK, no updated_at column).
+    function payloadFromRow(row) {
+      const payload = {};
+      EDITABLE_FIELDS.forEach((field) => { payload[field] = cleanText(row[field]) || null; });
+      return payload;
+    }
+
+    async function patchRow(wpid, row) {
+      await ensureFreshSession();
+      const response = await fetch(restUrl(TABLE, { [PK]: 'eq.' + wpid }), {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+        body: JSON.stringify(payloadFromRow(row))
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not save waypoint.'));
+      const rows = await response.json();
+      const fresh = Array.isArray(rows) && rows[0] ? rows[0] : null;
+      return fresh ? normalizeRow(fresh) : normalizeRow(Object.assign({}, findRow(wpid), row));
+    }
+
+    async function saveRow(wpid) {
+      const row = findRow(wpid);
+      if (!row || state.savingIds.has(wpid)) return;
+      state.savingIds.add(wpid);
+      updateCardState(wpid);
+      setStatus('Saving ' + displayName(row) + '...');
+      try {
+        await patchRow(wpid, row);
+        state.dirtyIds.delete(wpid);
+        // Reload from the DB and stay on this waypoint.
+        await refresh(wpid);
+        const fresh = findRow(wpid);
+        setStatus('Saved ' + (fresh ? displayName(fresh) : ('#' + wpid)) + '.', 'success');
+      } catch (error) {
+        console.error(error);
+        state.savingIds.delete(wpid);
+        setStatus(error.message || 'Save failed.', 'error');
+        render();
+      }
+    }
+
+    async function createWaypoint() {
+      if (!state.authed) return;
+      await maybeSaveBeforeLeaving();
+      setBusy(true);
+      setStatus('Adding waypoint...');
+      try {
+        await ensureFreshSession();
+        const response = await fetch(restUrl(TABLE, {}), {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify({})
+        });
+        if (!response.ok) throw new Error(await readError(response, 'Could not add waypoint.'));
+        const rows = await response.json();
+        const fresh = normalizeRow(Array.isArray(rows) && rows[0] ? rows[0] : {});
+        state.rows.push(fresh);
+        // Feature the new (blank) waypoint — clear any filter so it's visible.
+        state.filter = '';
+        if (searchInput) searchInput.value = '';
+        state.randomId = fresh.wpid;
+        render();
+        focusRow(fresh.wpid);
+        setStatus('Added waypoint #' + fresh.wpid + '. Fill it in and Save.', 'success');
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Add failed.', 'error');
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function deleteWaypoint(wpid) {
+      const row = findRow(wpid);
+      if (!row) return;
+      if (!window.confirm('Delete waypoint #' + wpid + (row.name ? ' (' + row.name + ')' : '') + '? This cannot be undone.')) return;
+      state.savingIds.add(wpid);
+      updateCardState(wpid);
+      setStatus('Deleting ' + displayName(row) + '...');
+      try {
+        await ensureFreshSession();
+        const response = await fetch(restUrl(TABLE, { [PK]: 'eq.' + wpid }), {
+          method: 'DELETE',
+          headers: authHeaders({ Prefer: 'return=minimal' })
+        });
+        if (!response.ok) throw new Error(await readError(response, 'Could not delete waypoint.'));
+        state.rows = state.rows.filter((r) => r.wpid !== wpid);
+        state.dirtyIds.delete(wpid);
+        if (state.randomId === wpid) pickRandom();
+        render();
+        setStatus('Deleted waypoint #' + wpid + '.', 'success');
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Delete failed.', 'error');
+      } finally {
+        state.savingIds.delete(wpid);
+      }
+    }
+
+    function setBusy(isBusy) {
+      [newBtn].forEach((el) => { if (el) el.disabled = !!isBusy; });
+      document.querySelectorAll('.wp-card button, .wp-card input, .wp-card textarea')
+        .forEach((el) => { el.disabled = !!isBusy; });
+    }
+
+    function findRow(wpid) {
+      return state.rows.find((row) => row.wpid === wpid) || null;
+    }
+
+    function replaceRow(nextRow) {
+      state.rows = state.rows.map((row) => row.wpid === nextRow.wpid ? nextRow : row);
+    }
+
+    function markDirty(wpid) {
+      state.dirtyIds.add(wpid);
+      updateCardState(wpid);
+      updateSummary();
+    }
+
+    function updateField(wpid, field, value) {
+      const row = findRow(wpid);
+      if (!row) return;
+      row[field] = String(value || '');
+      markDirty(wpid);
+      if (field === 'name' || field === 'city' || field === 'state' || field === 'address') {
+        scheduleMapPreview(wpid);
+      }
+    }
+
+    // Reloading the embed on every keystroke would thrash the map, so debounce
+    // preview refreshes while typing. render() rebuilds previews on its own.
+    const previewTimers = new Map();
+    function scheduleMapPreview(wpid) {
+      clearTimeout(previewTimers.get(wpid));
+      previewTimers.set(wpid, setTimeout(() => updateMapPreview(wpid), 700));
+    }
+
+    function updateMapPreview(wpid) {
+      const row = findRow(wpid);
+      const card = wpList.querySelector('[data-wpid="' + cssEscape(wpid) + '"]');
+      const container = card && card.querySelector('[data-map-preview]');
+      if (row && container) renderMapPreview(container, row);
+    }
+
+    // Keyless Google Maps embed — renders the same map. Resolves what3words
+    // asynchronously when a key is configured; placeholder otherwise.
+    async function renderMapPreview(container, row) {
+      container.innerHTML = '';
+      let q = mapQuery(row);
+      const isW3W = !q && !!parseW3W(cleanText(row.address));
+      if (isW3W) {
+        const pt = await resolveAddressPoint(cleanText(row.address));
+        if (!container.isConnected) return; // card was re-rendered while resolving
+        if (pt) q = pt.lat + ',' + pt.lon;
+      }
+      if (!q) {
+        const ph = document.createElement('div');
+        ph.className = 'wp-map-empty';
+        ph.textContent = isW3W
+          ? 'Could not resolve this what3words address (API plan/quota).'
+          : 'Add a name or address to preview the map.';
+        container.appendChild(ph);
+        return;
+      }
+      const iframe = document.createElement('iframe');
+      iframe.src = 'https://maps.google.com/maps?q=' + encodeURIComponent(q) + '&z=15&output=embed';
+      iframe.loading = 'lazy';
+      iframe.referrerPolicy = 'no-referrer-when-downgrade';
+      iframe.title = 'Map preview for ' + displayName(row);
+      iframe.setAttribute('allowfullscreen', '');
+      container.appendChild(iframe);
+    }
+
+    // The Address field accepts: a street address, "lat, lon" coordinates, a
+    // full Google Plus Code, or a what3words reference (///words or a
+    // what3words.com URL). Coordinates and Plus Codes decode locally (keyless);
+    // what3words uses the API key (same one as mc/js/add-w3w.mjs).
+    // NOTE: this key's plan currently allows convert-to-3wa (coords->words) but
+    // NOT convert-to-coordinates (words->coords), so pasted ///words will fail
+    // with QuotaExceeded until the plan is upgraded — coords/Plus Code/address
+    // all still work.
+    const W3W_API_KEY = 'CSNL2XHT';
+
+    function parseLatLon(text) {
+      const m = cleanText(text).match(/^\s*(-?\d{1,3}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+      if (!m) return null;
+      const lat = parseFloat(m[1]);
+      const lon = parseFloat(m[2]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+      return { lat, lon };
+    }
+
+    // Open Location Code (Google Plus Code) decoder — full/global codes only.
+    const OLC_ALPHABET = '23456789CFGHJMPQRVWX';
+    function decodePlusCode(text) {
+      const match = cleanText(text).toUpperCase().replace(/\s+/g, '').match(/[23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]{2,3}/);
+      if (!match) return null;
+      const code = match[0];
+      if (code.indexOf('+') !== 8 || code.indexOf('0') > -1) return null; // require a full code, no padding
+      const digits = code.replace('+', '');
+      for (const ch of digits) { if (OLC_ALPHABET.indexOf(ch) === -1) return null; }
+      let southLat = 0, westLng = 0, latRes = 400, lngRes = 400, i = 0;
+      while (i < digits.length) {
+        if (i < 10) {
+          latRes /= 20; lngRes /= 20;
+          southLat += OLC_ALPHABET.indexOf(digits.charAt(i)) * latRes;
+          if (i + 1 < digits.length) westLng += OLC_ALPHABET.indexOf(digits.charAt(i + 1)) * lngRes;
+          i += 2;
+        } else {
+          const d = OLC_ALPHABET.indexOf(digits.charAt(i));
+          latRes /= 5; lngRes /= 4;
+          southLat += Math.floor(d / 4) * latRes;
+          westLng += (d % 4) * lngRes;
+          i += 1;
+        }
+      }
+      const lat = (southLat - 90) + latRes / 2;
+      const lon = (westLng - 180) + lngRes / 2;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+      return { lat: parseFloat(lat.toFixed(6)), lon: parseFloat(lon.toFixed(6)) };
+    }
+
+    // Extract "word.word.word" from a what3words URL, ///prefix, or bare triple.
+    function parseW3W(text) {
+      const t = cleanText(text);
+      const url = t.match(/^(?:\/\/\/|https?:\/\/(?:www\.)?(?:what3words\.com|w3w\.co)\/)([^\/?#\s]+)/i);
+      const words = url ? url[1] : t;
+      return /^[^.\s\/]+\.[^.\s\/]+\.[^.\s\/]+$/.test(words) ? words : null;
+    }
+
+    async function w3wToPoint(words) {
+      if (!W3W_API_KEY || !words) return null;
+      try {
+        const url = 'https://api.what3words.com/v3/convert-to-coordinates?words=' + encodeURIComponent(words) + '&key=' + encodeURIComponent(W3W_API_KEY);
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        const c = data && data.coordinates;
+        return c && Number.isFinite(c.lat) && Number.isFinite(c.lng) ? { lat: c.lat, lon: c.lng } : null;
+      } catch (error) { return null; }
+    }
+
+    // Point → what3words address (///word.word.word). This key's plan allows
+    // convert-to-3wa (coords -> words), so Fill can generate/store a w3w address.
+    async function pointToW3W(lat, lon) {
+      if (!W3W_API_KEY || !Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+      try {
+        const url = 'https://api.what3words.com/v3/convert-to-3wa?coordinates=' + lat + ',' + lon + '&key=' + encodeURIComponent(W3W_API_KEY);
+        const res = await fetch(url);
+        if (!res.ok) return '';
+        const data = await res.json();
+        return data && data.words ? '///' + data.words : '';
+      } catch (error) { return ''; }
+    }
+
+    // Coordinates or Plus Code → a precise point, locally (no network).
+    function addressToPoint(text) {
+      return parseLatLon(text) || decodePlusCode(text) || null;
+    }
+
+    // Resolve the Address field to a point: coords/Plus Code locally, what3words
+    // via the API (if a key is configured). Returns null for a plain address.
+    async function resolveAddressPoint(text) {
+      const pt = addressToPoint(text);
+      if (pt) return pt;
+      const words = parseW3W(text);
+      if (words) return await w3wToPoint(words);
+      return null;
+    }
+
+    // Build a Google Maps query from a waypoint. A coordinate/Plus Code address
+    // becomes a precise "lat,lon"; otherwise prefer the address, then name+city.
+    function mapQuery(row) {
+      const address = cleanText(row.address);
+      const pt = addressToPoint(address);
+      if (pt) return pt.lat + ',' + pt.lon;
+      if (parseW3W(address)) return ''; // resolved asynchronously by the preview
+      const name = cleanText(row.name);
+      if (address) return [name, address].filter(Boolean).join(', ');
+      return [name, cleanText(row.city), cleanText(row.state)].filter(Boolean).join(', ');
+    }
+
+    // Geocode-friendly query for Fill. Nominatim is a structured-address matcher,
+    // not a business directory — a venue name like "Duckworth's Grill & Taphouse"
+    // makes it miss, while the bare street address resolves cleanly. So prefer
+    // the address alone; only fall back to the name when there is no address.
+    function geocodeQuery(row) {
+      const address = cleanText(row.address);
+      if (address) return address;
+      return [cleanText(row.name), cleanText(row.city), cleanText(row.state)].filter(Boolean).join(', ');
+    }
+
+    // Brief inline feedback on a card button (it sits below the fold, so the
+    // top-of-page status line alone is easy to miss).
+    function flashButton(button, text) {
+      if (!button) return;
+      button.textContent = text;
+      clearTimeout(button._flashTimer);
+      button._flashTimer = setTimeout(() => { button.textContent = 'Fill'; }, 1600);
+    }
+
+    // Geocode from whatever the waypoint already has, then fill ONLY the blank
+    // geocodable fields (name, city, state, address, description). Existing
+    // values are kept.
+    async function fillWaypoint(wpid, button) {
+      const row = findRow(wpid);
+      if (!row) return;
+      const geoFields = ['name', 'city', 'state', 'address', 'description', 'w3w'];
+      const blanks = geoFields.filter((field) => !cleanText(row[field]));
+      if (!blanks.length) {
+        flashButton(button, 'All set');
+        setStatus(displayName(row) + ' is already complete — nothing blank to fill.');
+        return;
+      }
+      const point = await resolveAddressPoint(cleanText(row.address));
+      const query = geocodeQuery(row);
+      if (!point && !query) {
+        flashButton(button, 'Need name');
+        setStatus('Add a name or address first, then hit Fill.', 'error');
+        return;
+      }
+      if (button) { button.disabled = true; button.textContent = 'Filling…'; }
+      setStatus('Looking up ' + (cleanText(row.name) || query || 'location') + '...');
+      try {
+        let place;
+        if (point) {
+          // Coordinates / Plus Code / what3words → reverse-geocode the point.
+          const url = 'https://nominatim.openstreetmap.org/reverse?lat=' + point.lat + '&lon=' + point.lon
+            + '&format=jsonv2&addressdetails=1&extratags=1&namedetails=1';
+          const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+          place = await res.json();
+          if (!place || place.error) {
+            flashButton(button, 'No match');
+            setStatus('No place found at that point.', 'error');
+            return;
+          }
+        } else {
+          const url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query)
+            + '&format=jsonv2&addressdetails=1&extratags=1&namedetails=1&limit=1';
+          const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+          const places = await res.json();
+          if (!Array.isArray(places) || !places.length) {
+            flashButton(button, 'No match');
+            setStatus('No match found for "' + query + '".', 'error');
+            return;
+          }
+          place = places[0];
+        }
+        const addr = place.address || {};
+        const filled = [];
+        const setIfBlank = (field, value) => {
+          const v = cleanText(value);
+          if (v && !cleanText(row[field])) { row[field] = v; filled.push(field); }
+        };
+        setIfBlank('name', place.name);
+        setIfBlank('city', addr.city || addr.town || addr.village || addr.hamlet || addr.suburb || addr.municipality || addr.county);
+        setIfBlank('state', addr.state);
+        setIfBlank('address', shortAddress(addr) || place.display_name);
+        if (!cleanText(row.description)) {
+          const desc = await resolveDescription(place, addr, row);
+          if (desc) { row.description = desc; filled.push('description'); }
+        }
+        if (!cleanText(row.w3w)) {
+          const lat = point ? point.lat : parseFloat(place.lat);
+          const lon = point ? point.lon : parseFloat(place.lon);
+          const words = await pointToW3W(lat, lon);
+          if (words) { row.w3w = words; filled.push('w3w'); }
+        }
+        if (!filled.length) {
+          flashButton(button, 'No new data');
+          setStatus('Found a match, but nothing new to fill.');
+          return;
+        }
+        markDirty(wpid);
+        render();
+        setStatus('Filled ' + filled.join(', ') + ' for ' + displayName(row) + '. Review, then Save.', 'success');
+      } catch (error) {
+        console.error(error);
+        flashButton(button, 'Failed');
+        setStatus('Lookup failed.', 'error');
+      } finally {
+        if (button) {
+          button.disabled = false;
+          if (button.textContent === 'Filling…') button.textContent = 'Fill';
+        }
+      }
+    }
+
+    // Generic OSM types that say nothing useful about a place — drop them so we
+    // don't write "a house in Charlotte".
+    const GENERIC_PLACE_TYPES = new Set([
+      'house', 'yes', 'residential', 'administrative', 'postcode', 'address',
+      'road', 'construction', 'locality', 'neighbourhood', 'suburb', 'town',
+      'city', 'village', 'hamlet', 'county', 'state', 'country', 'unclassified'
+    ]);
+
+    // Best available description: a real Wikipedia summary ONLY when the article
+    // is actually about this waypoint (its name matches the geocoded place, or it
+    // has no name yet). Otherwise a geocoded address can drag in the Wikipedia
+    // entry for a containing building or a nearby landmark — the wrong place.
+    async function resolveDescription(place, addr, row) {
+      const extratags = (place && place.extratags) || {};
+      const rowName = cleanText(row && row.name);
+      const samePlace = !rowName || namesSimilar(rowName, cleanText(place && place.name));
+      if (samePlace) {
+        let title = wikipediaTitle(extratags);
+        if (!title && /^Q\d+$/.test(cleanText(extratags.wikidata))) {
+          title = await wikidataEnTitle(cleanText(extratags.wikidata));
+        }
+        if (title) {
+          const summary = await fetchWikiSummary(title);
+          if (summary) return summary;
+        }
+      }
+      return buildLocalDescription(place, addr, row);
+    }
+
+    function normalizeName(value) {
+      return cleanText(value)
+        .normalize('NFD').replace(/[̀-ͯ]/g, '') // fold accents: Café -> Cafe
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\b(the|a|an|of|and)\b/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function namesSimilar(a, b) {
+      const na = normalizeName(a);
+      const nb = normalizeName(b);
+      if (!na || !nb) return false;
+      return na === nb || na.includes(nb) || nb.includes(na);
+    }
+
+    // Pull an English Wikipedia article title from OSM's wikipedia tag
+    // ("en:Madison Square Garden"). Non-English tags are skipped.
+    function wikipediaTitle(extratags) {
+      const w = cleanText(extratags && extratags.wikipedia);
+      if (!w) return '';
+      const m = w.match(/^([a-z-]+):(.+)$/i);
+      if (m) return m[1].toLowerCase() === 'en' ? cleanText(m[2]) : '';
+      return w;
+    }
+
+    // Resolve a Wikidata id (Q…) to its English Wikipedia title (origin=* → CORS).
+    async function wikidataEnTitle(qid) {
+      try {
+        const url = 'https://www.wikidata.org/w/api.php?action=wbgetentities&ids=' + encodeURIComponent(qid)
+          + '&props=sitelinks&format=json&origin=*';
+        const res = await fetch(url);
+        if (!res.ok) return '';
+        const data = await res.json();
+        const entity = data && data.entities && data.entities[qid];
+        const link = entity && entity.sitelinks && entity.sitelinks.enwiki;
+        return link ? cleanText(link.title) : '';
+      } catch (error) { return ''; }
+    }
+
+    // Fetch a Wikipedia REST summary and trim it to a couple of sentences.
+    async function fetchWikiSummary(title) {
+      try {
+        const url = 'https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title);
+        const res = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!res.ok) return '';
+        const data = await res.json();
+        if (data && (data.type === 'disambiguation')) return '';
+        const extract = cleanText(data && data.extract);
+        return extract ? trimSentences(extract, 2, 320) : '';
+      } catch (error) { return ''; }
+    }
+
+    function trimSentences(text, maxSentences, maxChars) {
+      const parts = String(text).match(/[^.!?]+[.!?]+/g) || [text];
+      let out = parts.slice(0, maxSentences).join(' ').trim();
+      if (out.length > maxChars) out = out.slice(0, maxChars - 1).replace(/\s+\S*$/, '').trim() + '…';
+      return out;
+    }
+
+    // Composed fallback when there is no Wikipedia article: name + category +
+    // neighborhood + locality, e.g. "Duckworth's Grill & Taphouse in Uptown,
+    // Charlotte, North Carolina."
+    function buildLocalDescription(place, addr, row) {
+      const extratags = (place && place.extratags) || {};
+      const rawType = cleanText(place.type || place.addresstype || place.category).toLowerCase();
+      const type = GENERIC_PLACE_TYPES.has(rawType) ? '' : rawType.replace(/_/g, ' ');
+      const cuisine = cleanText(extratags.cuisine).replace(/_/g, ' ').replace(/;/g, ', ');
+      const descriptor = [cuisine, type].filter(Boolean).join(' ');
+      const name = cleanText(row && row.name) || cleanText(place.name);
+      const hood = cleanText(addr.neighbourhood || addr.suburb || addr.quarter || addr.city_district);
+      const town = cleanText(addr.city || addr.town || addr.village || addr.hamlet || addr.municipality || addr.county);
+      const where = [hood, town, cleanText(addr.state)].filter(Boolean).join(', ');
+      if (name && descriptor && where) return name + ', a ' + descriptor + ' in ' + where + '.';
+      if (name && where) return name + ' in ' + where + '.';
+      if (descriptor && where) return capitalize(descriptor) + ' in ' + where + '.';
+      if (where) return where + '.';
+      return cleanText(place.display_name);
+    }
+
+    function capitalize(text) {
+      const t = cleanText(text);
+      return t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+    }
+
+    // --- Near: nearby points of interest -------------------------------------
+    const nearState = { sourceId: null };
+    const NEAR_RADIUS_M = 100; // ~330 ft — walking-distance, not miles.
+
+    async function nearWaypoint(wpid, button) {
+      const row = findRow(wpid);
+      if (!row) return;
+      const query = geocodeQuery(row);
+      const hasPoint = !!addressToPoint(cleanText(row.address)) || !!parseW3W(cleanText(row.address));
+      if (!query && !hasPoint) {
+        setStatus('Add an address or name first, then hit Near.', 'error');
+        return;
+      }
+      if (button) { button.disabled = true; button.textContent = 'Finding…'; }
+      setStatus('Finding points of interest near ' + displayName(row) + '...');
+      try {
+        // Coordinates / Plus Code / what3words resolve to a point directly;
+        // otherwise geocode the address.
+        let coords = await resolveAddressPoint(cleanText(row.address));
+        if (!coords && query) coords = await geocodeCoords(query);
+        if (!coords) {
+          setStatus('Could not locate ' + displayName(row) + '.', 'error');
+          return;
+        }
+        const pois = await fetchNearbyPois(coords, NEAR_RADIUS_M);
+        openNearDialog(row, pois);
+        setStatus(pois.length + ' nearby point' + (pois.length === 1 ? '' : 's') + ' of interest near ' + displayName(row) + '.', 'success');
+      } catch (error) {
+        console.error(error);
+        setStatus('Nearby lookup failed.', 'error');
+      } finally {
+        if (button) { button.disabled = false; button.textContent = 'Near'; }
+      }
+    }
+
+    async function geocodeCoords(query) {
+      const url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query) + '&format=jsonv2&limit=1';
+      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+      const arr = await res.json();
+      if (!Array.isArray(arr) || !arr.length) return null;
+      const lat = parseFloat(arr[0].lat);
+      const lon = parseFloat(arr[0].lon);
+      return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+    }
+
+    // Overpass (OpenStreetMap) nearby named POIs within `radius` metres — keyless.
+    async function fetchNearbyPois(coords, radius) {
+      const kinds = ['amenity', 'tourism', 'shop', 'leisure', 'historic'];
+      const around = 'around:' + radius + ',' + coords.lat + ',' + coords.lon;
+      const q = '[out:json][timeout:25];('
+        + kinds.map((k) => 'node(' + around + ')["name"]["' + k + '"];way(' + around + ')["name"]["' + k + '"];').join('')
+        + ');out center tags 80;';
+      const res = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: 'data=' + encodeURIComponent(q)
+      });
+      if (!res.ok) throw new Error('Overpass ' + res.status);
+      const data = await res.json();
+      const seen = new Set();
+      const out = [];
+      (data.elements || []).forEach((el) => {
+        const tags = el.tags || {};
+        const name = cleanText(tags.name);
+        if (!name) return;
+        const plat = el.lat != null ? el.lat : (el.center && el.center.lat);
+        const plon = el.lon != null ? el.lon : (el.center && el.center.lon);
+        if (plat == null || plon == null) return;
+        const key = name.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        const cat = cleanText(tags.amenity || tags.tourism || tags.shop || tags.leisure || tags.historic).replace(/_/g, ' ');
+        out.push({ name, cat, lat: plat, lon: plon, tags, dist: haversineMeters(coords.lat, coords.lon, plat, plon) });
+      });
+      out.sort((a, b) => a.dist - b.dist);
+      return out;
+    }
+
+    function haversineMeters(lat1, lon1, lat2, lon2) {
+      const toRad = (d) => d * Math.PI / 180;
+      const R = 6371000;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+    }
+
+    // Nearness in walking steps (~2,000 steps per mile), or miles once it's far.
+    function formatDistance(m) {
+      const miles = m / 1609.34;
+      if (miles >= 0.25) return miles.toFixed(1) + ' mi';
+      const steps = Math.max(1, Math.round(miles * 2000));
+      return steps + (steps === 1 ? ' step' : ' steps');
+    }
+
+    function openNearDialog(row, pois) {
+      nearState.sourceId = row.wpid;
+      const title = document.getElementById('nearTitle');
+      if (title) title.textContent = 'Near ' + displayName(row);
+      const status = document.getElementById('nearStatus');
+      if (status) status.textContent = pois.length + ' found';
+      renderNearList(row, pois);
+      const dialog = document.getElementById('nearDialog');
+      const backdrop = document.getElementById('nearBackdrop');
+      if (dialog) dialog.hidden = false;
+      if (backdrop) backdrop.hidden = false;
+    }
+
+    function closeNearDialog() {
+      const dialog = document.getElementById('nearDialog');
+      const backdrop = document.getElementById('nearBackdrop');
+      if (dialog) dialog.hidden = true;
+      if (backdrop) backdrop.hidden = true;
+    }
+
+    function renderNearList(sourceRow, pois) {
+      const list = document.getElementById('nearList');
+      if (!list) return;
+      list.innerHTML = '';
+      if (!pois.length) {
+        list.appendChild(emptyNode('No named points of interest within ' + Math.round(NEAR_RADIUS_M * 3.28084) + ' ft.'));
+        return;
+      }
+      pois.forEach((poi) => {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'near-row';
+        const main = document.createElement('div');
+        main.className = 'near-main';
+        const name = document.createElement('span');
+        name.className = 'near-name';
+        name.textContent = poi.name;
+        const sub = document.createElement('span');
+        sub.className = 'near-sub';
+        sub.textContent = [poi.cat, formatDistance(poi.dist) + ' away'].filter(Boolean).join(' · ');
+        main.append(name, sub);
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'btn small';
+        addBtn.textContent = 'Add';
+        addBtn.title = 'Add this place as a new waypoint';
+        addBtn.addEventListener('click', () => addPoiAsWaypoint(poi, sourceRow, addBtn));
+        rowEl.append(main, addBtn);
+        list.appendChild(rowEl);
+      });
+    }
+
+    async function addPoiAsWaypoint(poi, sourceRow, button) {
+      // Offer to save the current waypoint's edits before navigating away to the
+      // newly added one (only when it actually has unsaved changes).
+      const current = findRow(sourceRow.wpid);
+      if (current && state.dirtyIds.has(current.wpid)) {
+        const save = window.confirm('Save changes to "' + displayName(current) + '" before adding ' + poi.name + '?');
+        if (save) {
+          try {
+            await patchRow(current.wpid, current);
+            state.dirtyIds.delete(current.wpid);
+          } catch (error) {
+            setStatus('Could not save ' + displayName(current) + ': ' + (error.message || 'error'), 'error');
+            return;
+          }
+        }
+      }
+      if (button) { button.disabled = true; button.textContent = 'Adding…'; }
+      const t = poi.tags || {};
+      const street = [cleanText(t['addr:housenumber']), cleanText(t['addr:street'])].filter(Boolean).join(' ');
+      const town = cleanText(t['addr:city']) || cleanText(sourceRow.city);
+      const st = cleanText(t['addr:state']) || cleanText(sourceRow.state);
+      const desc = poi.cat
+        ? poi.name + ', a ' + poi.cat + (town ? ' in ' + town : '') + '.'
+        : '';
+      const payload = {
+        name: poi.name || null,
+        city: town || null,
+        state: st || null,
+        address: street || null,
+        description: desc || null
+      };
+      try {
+        await ensureFreshSession();
+        const res = await fetch(restUrl(TABLE, {}), {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not add waypoint.'));
+        const rows = await res.json();
+        const fresh = normalizeRow(Array.isArray(rows) && rows[0] ? rows[0] : {});
+        closeNearDialog();
+        // Reload and jump to the newly added waypoint.
+        await refresh(fresh.wpid);
+        setStatus('Added ' + poi.name + ' as waypoint #' + fresh.wpid + '. Now editing it — hit Fill to round it out.', 'success');
+      } catch (error) {
+        console.error(error);
+        if (button) { button.disabled = false; button.textContent = 'Add'; }
+        setStatus(error.message || 'Add failed.', 'error');
+      }
+    }
+
+    // Tidy "house road, city, ST zip" from Nominatim address components.
+    function shortAddress(a) {
+      const line = [];
+      const street = [a.house_number, a.road].filter(Boolean).join(' ');
+      if (street) line.push(street);
+      const town = a.city || a.town || a.village || a.hamlet || a.suburb || a.municipality;
+      if (town) line.push(town);
+      const tail = [a.state, a.postcode].filter(Boolean).join(' ');
+      if (tail) line.push(tail);
+      return line.join(', ');
+    }
+
+    function updateCardState(wpid) {
+      const card = wpList.querySelector('[data-wpid="' + cssEscape(wpid) + '"]');
+      if (!card) return;
+      card.classList.toggle('is-dirty', state.dirtyIds.has(wpid));
+      card.classList.toggle('is-saving', state.savingIds.has(wpid));
+      const save = card.querySelector('[data-action="save"]');
+      if (save) save.disabled = state.savingIds.has(wpid);
+    }
+
+    function focusRow(wpid) {
+      const card = wpList.querySelector('[data-wpid="' + cssEscape(wpid) + '"]');
+      if (!card) return;
+      card.scrollIntoView({ block: 'center' });
+      const input = card.querySelector('[data-field="name"]');
+      if (input) setTimeout(() => input.focus(), 0);
+    }
+
+    function cssEscape(value) {
+      if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(String(value));
+      return String(value).replace(/["\\]/g, '\\$&');
+    }
+
+    // --- Filtering / ordering / grouping (by city) ---------------------------
+    function searchHaystack(row) {
+      return [row.wpid, row.name, row.city, row.state, row.address, row.description, row.w3w].join(' ').toLowerCase();
+    }
+
+    // The filtered + ordered set the user navigates through (one at a time).
+    function navRows() {
+      const term = state.filter;
+      return state.rows
+        .filter((row) => !term || searchHaystack(row).includes(term))
+        .sort(compareRows);
+    }
+
+    // Always feature exactly one waypoint. Keep the current one if it's still in
+    // the navigable set; otherwise fall back to the first.
+    function ensureCurrent() {
+      const list = navRows();
+      if (!list.length) { state.randomId = null; return null; }
+      if (!list.some((row) => row.wpid === state.randomId)) state.randomId = list[0].wpid;
+      return findRow(state.randomId);
+    }
+
+    function visibleRows() {
+      const current = ensureCurrent();
+      return current ? [current] : [];
+    }
+
+    // Random waypoint within the current (filtered) set, avoiding the current one.
+    function pickRandom() {
+      const list = navRows();
+      if (!list.length) { state.randomId = null; return; }
+      let choices = list;
+      if (list.length > 1 && state.randomId) choices = list.filter((row) => row.wpid !== state.randomId);
+      state.randomId = choices[Math.floor(Math.random() * choices.length)].wpid;
+    }
+
+    // Before leaving the current waypoint (Back/Next/Random/New), offer to save
+    // its edits if there are any.
+    async function maybeSaveBeforeLeaving() {
+      const cur = findRow(state.randomId);
+      if (!cur || !state.dirtyIds.has(cur.wpid)) return;
+      if (window.confirm('Save changes to "' + displayName(cur) + '" before leaving?')) {
+        try {
+          await patchRow(cur.wpid, cur);
+          state.dirtyIds.delete(cur.wpid);
+        } catch (error) {
+          setStatus('Could not save ' + displayName(cur) + ': ' + (error.message || 'error'), 'error');
+        }
+      }
+    }
+
+    // Feature the waypoint `step` positions away in the navigable set (Back/Next).
+    async function stepFeatured(step) {
+      const list = navRows();
+      if (!list.length) return;
+      let idx = list.findIndex((row) => row.wpid === state.randomId);
+      if (idx < 0) idx = 0;
+      const nextIdx = Math.min(list.length - 1, Math.max(0, idx + step));
+      if (nextIdx === idx) return;
+      await maybeSaveBeforeLeaving();
+      state.randomId = list[nextIdx].wpid;
+      render();
+      const row = findRow(state.randomId);
+      setStatus(row ? 'Waypoint ' + (nextIdx + 1) + ' of ' + list.length + ' — ' + displayName(row) + '.' : '');
+    }
+
+    // Feature a random waypoint (the Random button lives in the Back/Next bar).
+    async function doRandom() {
+      await maybeSaveBeforeLeaving();
+      pickRandom();
+      render();
+      const row = state.randomId ? findRow(state.randomId) : null;
+      setStatus(row ? 'Showing ' + displayName(row) + '.' : 'No waypoints to show.');
+    }
+
+    function compareRows(a, b) {
+      return compareText(cityKey(a), cityKey(b))
+        || compareText(displayName(a), displayName(b))
+        || (Number(a.wpid) - Number(b.wpid));
+    }
+
+    function compareText(a, b) {
+      return String(a || '').localeCompare(String(b || ''), undefined, { sensitivity: 'base', numeric: true });
+    }
+
+    function cityLabel(row) {
+      const city = cleanText(row && row.city);
+      const st = cleanText(row && row.state);
+      if (city && st) return city + ', ' + st;
+      return city || st || 'No City';
+    }
+
+    function cityKey(row) {
+      return cityLabel(row).toLowerCase();
+    }
+
+    function displayName(row) {
+      return (row && (cleanText(row.name) || ('Waypoint #' + row.wpid))) || 'Untitled';
+    }
+
+    // --- Rendering -----------------------------------------------------------
+    function render() {
+      wpList.innerHTML = '';
+      if (!state.authed) {
+        wpList.appendChild(emptyNode('Sign in to view and edit waypoints.'));
+        updateSummary();
+        return;
+      }
+      const current = ensureCurrent();
+      if (!current) {
+        if (wpPager) wpPager.hidden = true;
+        wpList.appendChild(emptyNode(state.filter ? 'No waypoints match your filter.' : 'No waypoints yet. Hit NEW WAYPOINT to add one.'));
+        updateSummary();
+        return;
+      }
+      // Always exactly one waypoint at a time.
+      wpList.appendChild(renderCard(current));
+      updateToolbarButtons();
+      updateSummary();
+    }
+
+    function renderCard(row) {
+      const card = document.createElement('article');
+      card.className = 'wp-card';
+      card.dataset.wpid = row.wpid;
+      card.classList.toggle('is-dirty', state.dirtyIds.has(row.wpid));
+      card.classList.toggle('is-saving', state.savingIds.has(row.wpid));
+
+      const head = document.createElement('div');
+      head.className = 'wp-card-head';
+
+      const titleWrap = document.createElement('div');
+      const title = document.createElement('h3');
+      title.className = 'wp-title';
+      title.textContent = displayName(row);
+      const meta = document.createElement('div');
+      meta.className = 'wp-meta';
+      const id = document.createElement('span');
+      id.className = 'wp-id';
+      id.textContent = 'WPID ' + row.wpid;
+      meta.appendChild(id);
+      titleWrap.append(title, meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'card-actions';
+      const fillBtn = document.createElement('button');
+      fillBtn.type = 'button';
+      fillBtn.className = 'btn small';
+      fillBtn.textContent = 'Fill';
+      fillBtn.title = 'Geocode from what is set and fill in any blank fields';
+      fillBtn.addEventListener('click', () => fillWaypoint(row.wpid, fillBtn));
+      const nearBtn = document.createElement('button');
+      nearBtn.type = 'button';
+      nearBtn.className = 'btn small';
+      nearBtn.textContent = 'Near';
+      nearBtn.title = 'Find nearby points of interest';
+      nearBtn.addEventListener('click', () => nearWaypoint(row.wpid, nearBtn));
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'btn warn small';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', () => deleteWaypoint(row.wpid));
+      const saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = 'btn primary small';
+      saveBtn.dataset.action = 'save';
+      saveBtn.textContent = 'Save';
+      saveBtn.disabled = state.savingIds.has(row.wpid);
+      saveBtn.addEventListener('click', () => saveRow(row.wpid));
+      actions.append(fillBtn, nearBtn, deleteBtn, saveBtn);
+
+      head.append(titleWrap, actions);
+
+      const fields = document.createElement('div');
+      fields.className = 'field-grid';
+      fields.appendChild(renderTextField(row, 'name', 'Name', 'A named place, e.g. Krog Street Market.'));
+      const cityState = document.createElement('div');
+      cityState.className = 'field-row';
+      cityState.append(renderTextField(row, 'city', 'City'), renderTextField(row, 'state', 'State'));
+      fields.appendChild(cityState);
+      fields.appendChild(renderTextField(row, 'address', 'Address', 'Street address, lat/lon, Plus Code, or a what3words URL.'));
+      fields.appendChild(renderTextField(row, 'w3w', 'what3words', '///word.word.word — auto-filled by Fill.'));
+      fields.appendChild(renderTextField(row, 'description', 'Description', null, true));
+
+      const preview = document.createElement('div');
+      preview.className = 'wp-map-preview';
+      preview.setAttribute('data-map-preview', '');
+      renderMapPreview(preview, row);
+
+      // Map on the left, editable details on the right.
+      const body = document.createElement('div');
+      body.className = 'wp-card-body';
+      body.append(preview, fields);
+
+      card.append(head, body);
+      return card;
+    }
+
+    function renderTextField(row, field, labelText, hint, multiline) {
+      const wrap = document.createElement('div');
+      wrap.className = 'field';
+      const id = 'wp-' + field + '-' + row.wpid;
+      const label = document.createElement('label');
+      label.setAttribute('for', id);
+      label.textContent = labelText;
+      const input = multiline ? document.createElement('textarea') : document.createElement('input');
+      input.id = id;
+      input.dataset.field = field;
+      if (!multiline) input.type = 'text';
+      input.value = row[field] || '';
+      input.addEventListener('input', () => updateField(row.wpid, field, input.value));
+      wrap.append(label, input);
+      if (hint) {
+        const help = document.createElement('div');
+        help.className = 'field-hint';
+        help.textContent = hint;
+        wrap.appendChild(help);
+      }
+      return wrap;
+    }
+
+    function emptyNode(text) {
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = text;
+      return empty;
+    }
+
+    function updateSummary() {
+      const list = navRows();
+      const idx = list.findIndex((row) => row.wpid === state.randomId);
+      const dirty = state.dirtyIds.size;
+      summaryLine.innerHTML = '';
+      const posText = list.length
+        ? 'Waypoint ' + (Math.max(0, idx) + 1) + ' of ' + list.length + (state.filter ? ' (filtered · ' + state.rows.length + ' total)' : '')
+        : '0 waypoints';
+      summaryLine.append(metaSpan(posText), metaSpan(dirty + ' unsaved'));
+      renderPager();
+      updateToolbarButtons();
+    }
+
+    function metaSpan(text) {
+      const span = document.createElement('span');
+      span.textContent = text;
+      return span;
+    }
+
+    // Back / "Waypoint i of N" / Next / Random — steps through the navigable set.
+    function renderPager() {
+      if (!wpPager) return;
+      wpPager.innerHTML = '';
+      if (!state.authed) { wpPager.hidden = true; return; }
+      const list = navRows();
+      if (list.length <= 1) { wpPager.hidden = true; return; }
+      let idx = list.findIndex((row) => row.wpid === state.randomId);
+      if (idx < 0) idx = 0;
+      wpPager.hidden = false;
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'btn small';
+      back.textContent = 'Back';
+      back.disabled = idx <= 0;
+      back.addEventListener('click', () => stepFeatured(-1));
+      const pos = document.createElement('span');
+      pos.className = 'wp-pager-status';
+      pos.textContent = 'Waypoint ' + (idx + 1) + ' of ' + list.length;
+      const fwd = document.createElement('button');
+      fwd.type = 'button';
+      fwd.className = 'btn small';
+      fwd.textContent = 'Next';
+      fwd.disabled = idx >= list.length - 1;
+      fwd.addEventListener('click', () => stepFeatured(1));
+      const rnd = document.createElement('button');
+      rnd.type = 'button';
+      rnd.className = 'btn small';
+      rnd.textContent = 'Random';
+      rnd.addEventListener('click', doRandom);
+      wpPager.append(back, pos, fwd, rnd);
+    }
+
+    function updateToolbarButtons() {
+      if (newBtn) newBtn.disabled = !state.authed;
+    }
+
+    // --- Wiring --------------------------------------------------------------
+    searchInput.addEventListener('input', () => {
+      state.filter = searchInput.value.trim().toLowerCase();
+      // Still one at a time — jump to the first match.
+      const list = navRows();
+      state.randomId = list.length ? list[0].wpid : null;
+      render();
+    });
+
+    if (newBtn) newBtn.addEventListener('click', createWaypoint);
+
+    const nearCloseBtn = document.getElementById('nearCloseBtn');
+    if (nearCloseBtn) nearCloseBtn.addEventListener('click', closeNearDialog);
+    const nearBackdrop = document.getElementById('nearBackdrop');
+    if (nearBackdrop) nearBackdrop.addEventListener('click', closeNearDialog);
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      const dialog = document.getElementById('nearDialog');
+      if (dialog && !dialog.hidden) closeNearDialog();
+    });
+
+    window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
+
+    render();
+    adminAuth.init();
+  </script>
+</body>
+</html>
