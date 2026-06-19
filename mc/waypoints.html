@@ -574,6 +574,27 @@
       .card-actions { grid-column: 1 / -1; justify-content: stretch; }
       .card-actions .btn { flex: 1 1 auto; }
       .field-row { grid-template-columns: 1fr; }
+
+      /* Toolbar wraps onto multiple rows; search takes a full row. */
+      .toolbar { flex-wrap: wrap; }
+      .toolbar input { flex: 1 1 100%; }
+      .toolbar .btn { flex: 1 1 auto; }
+
+      /* Dialogs (Find stops, Prompt, Import, Dedup, Near) fill the screen. */
+      .modal,
+      #dedupDialog, #importDialog, #finderDialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
+      .modal-bar { flex-wrap: wrap; padding: 10px; }
+      .modal-title { flex: 1 1 100%; }
+      .modal-bar .btn { flex: 1 1 auto; }
+
+      /* Find-stops / Prompt picker: stack state, city, and the action button. */
+      .prompt-search { flex-wrap: wrap; }
+      .prompt-search select,
+      .prompt-search input,
+      .prompt-search .btn { flex: 1 1 100%; max-width: none; }
+
+      /* Dedup merge grid: tighter label column so two values fit. */
+      .dedup-grid { grid-template-columns: 4.5em 1fr 1fr; }
     }
   </style>
   <link rel="stylesheet" href="js/admin-shell.css">
@@ -621,6 +642,7 @@
     <div class="modal-bar">
       <h3 class="modal-title" id="nearTitle">Nearby points of interest</h3>
       <span class="modal-status" id="nearStatus" aria-live="polite"></span>
+      <button class="btn small" id="nearBlankBtn" type="button" hidden>+ Blank</button>
       <button class="btn small" id="nearCloseBtn" type="button">Close</button>
     </div>
     <div class="near-list" id="nearList"></div>
@@ -1762,7 +1784,9 @@
 
     // Generic results dialog, shared by Near and the New world-search. Each item
     // is { name, sub, onAdd(button) }.
-    function showResults(title, items, emptyMsg) {
+    function showResults(title, items, emptyMsg, showBlank) {
+      const blankBtn = document.getElementById('nearBlankBtn');
+      if (blankBtn) blankBtn.hidden = !showBlank;
       const titleEl = document.getElementById('nearTitle');
       if (titleEl) titleEl.textContent = title;
       const statusEl = document.getElementById('nearStatus');
@@ -2794,6 +2818,12 @@
 
     // Insert a new waypoint, prompting to save the current one first, then jump
     // to the new one (clearing any filter so it's visible). Shared by all "Add".
+    // Explicit all-null payload for a blank waypoint. (An empty {} can come back
+    // with no representation, leaving us without the new row's wpid to jump to.)
+    function blankWaypoint() {
+      return { name: null, city: null, state: null, address: null, description: null, w3w: null };
+    }
+
     async function insertWaypointAndGo(payload, button) {
       // Warn before importing something that looks like an existing waypoint.
       const match = findSimilarExisting(payload);
@@ -2888,7 +2918,7 @@
       const query = cleanText(searchInput && searchInput.value);
       if (!query) {
         // Empty box → create a blank waypoint to fill in by hand.
-        await insertWaypointAndGo({}, null);
+        await insertWaypointAndGo(blankWaypoint(), null);
         return;
       }
       if (button) { button.disabled = true; button.textContent = 'Searching…'; }
@@ -2913,7 +2943,7 @@
           if (nm && nm.items.length) items = nm.items;
         }
         showResults('Add a waypoint — "' + query + '"', items,
-          'Nothing found. For a business, add a city — e.g. "Euclid Records New Orleans".');
+          'Nothing found. For a business, add a city — e.g. "Euclid Records New Orleans".', true);
       } catch (error) {
         console.error(error);
         setStatus('World search failed.', 'error');
@@ -3693,6 +3723,8 @@
 
     const nearCloseBtn = document.getElementById('nearCloseBtn');
     if (nearCloseBtn) nearCloseBtn.addEventListener('click', closeNearDialog);
+    const nearBlankBtn = document.getElementById('nearBlankBtn');
+    if (nearBlankBtn) nearBlankBtn.addEventListener('click', () => { closeNearDialog(); insertWaypointAndGo(blankWaypoint(), null); });
     const nearBackdrop = document.getElementById('nearBackdrop');
     if (nearBackdrop) nearBackdrop.addEventListener('click', closeNearDialog);
 
