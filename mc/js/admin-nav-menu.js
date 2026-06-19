@@ -65,6 +65,11 @@
           href: '/mc/waypoints.html',
           label: 'Waypoints',
           description: 'Manage the waypoints catalog — add, edit, and delete real-world points.'
+        },
+        {
+          href: '/mc/mapper.html',
+          label: 'Game Mapper',
+          description: 'Build a game’s route from ordered waypoints and save it to the map.'
         }
       ]
     },

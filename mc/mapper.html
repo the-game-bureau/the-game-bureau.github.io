@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>GAME MAPPER | THE GAME BUREAU</title>
+  <link rel="icon" href="../assets/brand/builder.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);
+      --bic-red: #c23737;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255,255,255,0.92);
+      --accent: var(--bic-blue);
+      --danger: #a03f2d;
+      --success: #2f6b3d;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+      color: var(--ink);
+    }
+
+    button, input, textarea, select { font: inherit; }
+
+    .section-head {
+      display: grid;
+      gap: 6px;
+      margin: 0 0 18px;
+      padding: 20px 22px 22px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.14);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.74) 0%, rgba(var(--bic-blue-rgb), 0.08) 100%);
+      box-shadow: 0 18px 36px var(--paper-shadow);
+    }
+    .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+    .head-title { display: grid; gap: 6px; }
+    .kicker { margin: 0; color: var(--muted); font-size: 0.74rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+    .section-head h2 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.8rem); line-height: 1; letter-spacing: -0.02em; }
+    .legend { margin: 4px 0 0; color: var(--muted); font-size: 0.98rem; line-height: 1.4; }
+    .howto { margin: 10px 0 0; padding-left: 1.2em; display: grid; gap: 3px; max-width: 80ch; font-size: 0.84rem; color: var(--muted); }
+    .howto li { line-height: 1.4; }
+    .howto em { font-style: normal; font-weight: 700; color: var(--ink); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 42px; padding: 0 14px;
+      border: 1px solid var(--line); border-radius: 8px;
+      background: #fff; color: var(--ink);
+      font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em;
+      text-decoration: none; cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:hover { background: rgba(var(--bic-blue-rgb), 0.08); border-color: var(--accent); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { background: rgba(var(--bic-blue-rgb), 0.85); }
+    .btn.warn { color: var(--danger); border-color: rgba(160,63,45,0.45); }
+    .btn.warn:hover { background: rgba(160,63,45,0.08); border-color: var(--danger); }
+    .btn.small { min-height: 34px; padding: 0 10px; font-size: 0.76rem; }
+    .btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+    .signout-btn { width: 42px; height: 42px; padding: 0; border-radius: 50%; background: #fff; border: 1px solid var(--line); cursor: pointer; }
+    .signout-btn svg { width: 22px; height: 22px; color: var(--ink); }
+
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 16px;
+    }
+    .toolbar select {
+      min-height: 42px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
+      background: #fff; color: var(--ink); flex: 1 1 240px; min-width: 0;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+    .toolbar .btn { flex: 0 0 auto; }
+    .status { font-size: 0.82rem; color: var(--muted); flex: 1 1 100%; min-height: 1.1em; }
+    .status.error { color: var(--danger); }
+    .status.success { color: var(--success); }
+
+    .mapper-grid { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 16px; align-items: start; }
+
+    .panel {
+      display: grid; gap: 12px; padding: 16px;
+      background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+      box-shadow: 0 12px 28px var(--paper-shadow);
+    }
+    .panel h3 { margin: 0; font-size: 0.82rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+    .pick-controls { display: grid; gap: 8px; }
+    .pick-controls select, .pick-controls input {
+      width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
+    }
+    .wp-pick-list { display: grid; gap: 3px; max-height: 62vh; overflow: auto; padding-right: 2px; }
+    .wp-pick {
+      display: flex; align-items: flex-start; gap: 9px; padding: 7px 9px;
+      border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer;
+    }
+    .wp-pick:hover { border-color: rgba(var(--bic-blue-rgb), 0.5); }
+    .wp-pick.checked { background: rgba(var(--bic-blue-rgb), 0.06); border-color: rgba(var(--bic-blue-rgb), 0.5); }
+    .wp-pick input { margin-top: 3px; width: 16px; height: 16px; flex: 0 0 auto; cursor: pointer; }
+    .wp-pick-main { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+    .wp-pick-name { font-weight: 700; font-size: 0.86rem; word-break: break-word; }
+    .wp-pick-sub { font-size: 0.74rem; color: var(--muted); }
+    .pick-empty { color: var(--muted); font-size: 0.84rem; padding: 8px; }
+    .nearby-status { font-size: 0.76rem; color: var(--muted); min-height: 1.1em; }
+    .nearby-status.loading { color: #e07b1a; font-weight: 700; animation: nb-blink 0.9s ease-in-out infinite; }
+    .nearby-status.done { color: #e07b1a; }
+    @keyframes nb-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+    .map-col { display: grid; gap: 14px; }
+    #map { height: 460px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: rgba(var(--bic-blue-rgb), 0.04); }
+    #map .leaflet-container { width: 100%; height: 100%; }
+
+    .route-pin span {
+      display: flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--bic-blue); color: #fff; font-weight: 800; font-size: 0.8rem;
+      border: 2px solid #fff; box-shadow: 0 1px 5px rgba(15,23,42,0.45);
+    }
+    .route-pin.start span { background: #2f8a3d; }
+    .route-pin.end span { background: var(--bic-red); }
+
+    .wp-pick.nearby { border-color: #e07b1a; box-shadow: inset 0 0 0 1px rgba(224,123,26,0.5); }
+    .wp-pick.nearby .wp-pick-sub::after { content: ' · nearby'; color: #e07b1a; font-weight: 700; }
+
+    .view-group { display: flex; flex-direction: column; align-items: stretch; gap: 6px; min-width: 118px; }
+    .view-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
+      font-size: 0.82rem; font-weight: 700; color: var(--ink); text-decoration: none; text-align: center; cursor: pointer;
+    }
+    .view-btn:hover { background: rgba(var(--bic-blue-rgb), 0.08); border-color: var(--accent); }
+    .view-btn.is-current { background: rgba(20,19,17,.05); border-color: rgba(20,19,17,.12); color: rgba(20,19,17,.42); cursor: default; pointer-events: none; }
+
+    .route-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .route-count { font-size: 0.82rem; color: var(--muted); }
+    .route-list { display: grid; gap: 5px; }
+    .route-row {
+      display: grid; grid-template-columns: 1.8em 1fr auto; align-items: center; gap: 10px;
+      padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; background: #fff;
+    }
+    .route-row.end { border-color: rgba(194,55,55,0.5); background: rgba(194,55,55,0.05); }
+    .route-num { font-weight: 800; color: var(--accent); }
+    .route-main { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+    .route-name { font-weight: 700; font-size: 0.86rem; word-break: break-word; }
+    .route-sub { font-size: 0.73rem; color: var(--muted); }
+    .route-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .route-end-lbl { display: inline-flex; align-items: center; gap: 4px; font-size: 0.74rem; color: var(--muted); cursor: pointer; }
+    .icon-btn {
+      width: 30px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 7px;
+      background: #fff; cursor: pointer; font-size: 0.9rem; line-height: 1; color: var(--ink);
+    }
+    .icon-btn:hover { background: rgba(var(--bic-blue-rgb), 0.08); }
+    .icon-btn:disabled { opacity: 0.4; cursor: default; }
+    .route-empty { color: var(--muted); font-size: 0.84rem; padding: 6px 2px; }
+
+    @media (max-width: 820px) {
+      .mapper-grid { grid-template-columns: 1fr; }
+      #map { height: 360px; }
+    }
+  </style>
+  <link rel="stylesheet" href="js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <div class="topbar">
+      <div class="topbar-actions" style="margin-left:auto;">
+        <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <section class="section-head">
+      <div class="head-row">
+        <div class="head-title">
+          <p class="kicker">TGB MISSION CONTROL</p>
+          <h2>GAME MAPPER</h2>
+        </div>
+        <div class="view-group">
+          <a class="view-btn" id="navOverviewBtn" href="overview.html" title="Game overview">Overview</a>
+          <a class="view-btn" id="navBuilderBtn" href="builder.html" title="Game builder">Builder</a>
+          <span class="view-btn is-current" aria-current="page" title="You are on the game mapper">Mapper</span>
+        </div>
+      </div>
+      <p class="legend">Build a game's route from waypoints. Pick the game, check the stops to include, order them, mark the end, and save.</p>
+      <ol class="howto">
+        <li><strong>Pick a game</strong> — choose it from the list; any saved route loads automatically.</li>
+        <li><strong>Add stops</strong> — <em>filter by city</em> and check waypoints; they appear on the map as you go.</li>
+        <li><strong>Order &amp; finish</strong> — reorder with ▲▼, mark one stop as <em>End</em>, then <em>Save map</em>.</li>
+      </ol>
+    </section>
+
+    <div class="toolbar">
+      <select id="gameSelect" aria-label="Game"><option value="">Loading games…</option></select>
+      <button class="btn primary" id="saveBtn" type="button" disabled>Save map</button>
+      <button class="btn warn small" id="clearBtn" type="button" disabled>Clear</button>
+      <div class="status" id="pageStatus" aria-live="polite"></div>
+    </div>
+
+    <div class="mapper-grid">
+      <section class="panel">
+        <div class="panel-head">
+          <h3>Waypoints</h3>
+          <a class="btn small" href="waypoints.html" target="_blank" rel="noopener" title="Add or edit waypoints (opens in a new tab)">Add</a>
+        </div>
+        <div class="pick-controls">
+          <select id="cityFilter" aria-label="Filter by city"><option value="">All cities</option></select>
+          <input type="search" id="wpSearch" placeholder="Search name, address, city" autocomplete="off">
+        </div>
+        <div class="nearby-status" id="nearbyStatus"></div>
+        <div class="wp-pick-list" id="wpPickList"></div>
+      </section>
+
+      <section class="map-col">
+        <div id="map"></div>
+        <section class="panel">
+          <div class="route-head">
+            <h3>Route order</h3>
+            <span class="route-count" id="routeCount">0 stops</span>
+          </div>
+          <div class="route-list" id="routeList"></div>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <script src="js/admin-auth.js"></script>
+  <script src="js/admin-shell.js"></script>
+  <script src="js/admin-nav-menu.js"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+    const GAMES_TABLE = 'games';
+    const WAYPOINTS_TABLE = 'waypoints';
+    const MAPS_TABLE = 'maps';
+
+    const state = {
+      authed: false,
+      games: [],
+      waypoints: [],
+      gameId: '',
+      cityFilter: '',
+      search: '',
+      selected: [],  // [{ wpid, end:bool, point:{lat,lon}|null }]
+      focusWpid: '', // last-selected waypoint, for nearest highlighting
+      nearest: []    // up to 3 wpids nearest to the focus
+    };
+    const wpPointCache = new Map(); // wpid -> {lat,lon}|null
+    let nearestToken = 0;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    // --- DOM ---
+    const pageStatus = document.getElementById('pageStatus');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const gameSelect = document.getElementById('gameSelect');
+    const saveBtn = document.getElementById('saveBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const cityFilter = document.getElementById('cityFilter');
+    const wpSearch = document.getElementById('wpSearch');
+    const wpPickList = document.getElementById('wpPickList');
+    const routeList = document.getElementById('routeList');
+    const routeCount = document.getElementById('routeCount');
+
+    function cleanText(v) { return String(v == null ? '' : v).trim(); }
+    function setStatus(text, kind) {
+      pageStatus.textContent = text || '';
+      pageStatus.className = 'status' + (kind ? ' ' + kind : '');
+    }
+
+    // --- Auth ---
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      onAuthorized: async () => {
+        state.authed = true;
+        setStatus('Loading…');
+        await Promise.all([loadGames(), loadWaypoints()]);
+        updateButtons();
+        // Preselect a game from ?id= / ?game= (e.g. when arriving from Overview/Builder).
+        const params = new URLSearchParams(location.search);
+        const pre = params.get('id') || params.get('game');
+        if (pre && state.games.some((g) => g.id === pre)) { gameSelect.value = pre; await onGameChange(); }
+        else setStatus('Pick a game to start.');
+      },
+      onSignedOut: () => {
+        state.authed = false;
+        state.games = [];
+        state.waypoints = [];
+        state.selected = [];
+        state.gameId = '';
+        renderAll();
+        setStatus('Sign in with an admin account.');
+      }
+    });
+
+    function restUrl(table, params) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params || {}).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v)); });
+      return url.toString();
+    }
+    function authHeaders(extra) {
+      if (adminAuth && typeof adminAuth.authHeaders === 'function') return adminAuth.authHeaders(extra || {});
+      const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      const token = (session && session.access_token) || SUPABASE_CONFIG.publishableKey;
+      return Object.assign({ apikey: SUPABASE_CONFIG.publishableKey, Authorization: 'Bearer ' + token, Accept: 'application/json' }, extra || {});
+    }
+    async function ensureFreshSession() {
+      if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') { try { await adminAuth.ensureFreshSession(); } catch (e) {} }
+    }
+    async function readError(res, fallback) {
+      try { const t = await res.text(); if (!t) return fallback; try { const p = JSON.parse(t); return p.message || p.error || t; } catch (e) { return t; } }
+      catch (e) { return fallback; }
+    }
+
+    // --- Geocoding (reused from the Waypoints page) ---
+    const geocodeCache = new Map();
+    function parseLatLon(text) {
+      const m = cleanText(text).match(/^\s*(-?\d{1,3}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+      if (!m) return null;
+      const lat = parseFloat(m[1]), lon = parseFloat(m[2]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+      return { lat, lon };
+    }
+    const OLC_ALPHABET = '23456789CFGHJMPQRVWX';
+    function decodePlusCode(text) {
+      const match = cleanText(text).toUpperCase().replace(/\s+/g, '').match(/[23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]{2,3}/);
+      if (!match) return null;
+      const code = match[0];
+      if (code.indexOf('+') !== 8 || code.indexOf('0') > -1) return null;
+      const digits = code.replace('+', '');
+      for (const ch of digits) { if (OLC_ALPHABET.indexOf(ch) === -1) return null; }
+      let southLat = 0, westLng = 0, latRes = 400, lngRes = 400, i = 0;
+      while (i < digits.length) {
+        if (i < 10) {
+          latRes /= 20; lngRes /= 20;
+          southLat += OLC_ALPHABET.indexOf(digits.charAt(i)) * latRes;
+          if (i + 1 < digits.length) westLng += OLC_ALPHABET.indexOf(digits.charAt(i + 1)) * lngRes;
+          i += 2;
+        } else {
+          const d = OLC_ALPHABET.indexOf(digits.charAt(i));
+          latRes /= 5; lngRes /= 4;
+          southLat += Math.floor(d / 4) * latRes;
+          westLng += (d % 4) * lngRes;
+          i += 1;
+        }
+      }
+      const lat = (southLat - 90) + latRes / 2, lon = (westLng - 180) + lngRes / 2;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+      return { lat: parseFloat(lat.toFixed(6)), lon: parseFloat(lon.toFixed(6)) };
+    }
+    function addressToPoint(text) { return parseLatLon(text) || decodePlusCode(text) || null; }
+    async function geocodeCoords(query) {
+      const key = cleanText(query).toLowerCase();
+      if (!key) return null;
+      if (geocodeCache.has(key)) return geocodeCache.get(key);
+      try {
+        const url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query) + '&format=jsonv2&limit=1';
+        const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+        if (!res.ok) return null;
+        const arr = await res.json();
+        if (!Array.isArray(arr) || !arr.length) { geocodeCache.set(key, null); return null; }
+        const lat = parseFloat(arr[0].lat), lon = parseFloat(arr[0].lon);
+        const result = Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+        geocodeCache.set(key, result);
+        return result;
+      } catch (e) { return null; }
+    }
+    // A waypoint -> coordinates: local decode first, then geocode address, then name/city.
+    async function geocodeWaypoint(wp) {
+      const addr = cleanText(wp.address);
+      let p = addressToPoint(addr);
+      if (p) return p;
+      if (addr) { p = await geocodeCoords(addr); if (p) return p; }
+      const nameQ = [cleanText(wp.name), cleanText(wp.city), cleanText(wp.state)].filter(Boolean).join(', ');
+      if (nameQ) { p = await geocodeCoords(nameQ); if (p) return p; }
+      const cityQ = [cleanText(wp.city), cleanText(wp.state)].filter(Boolean).join(', ');
+      if (cityQ) { p = await geocodeCoords(cityQ); if (p) return p; }
+      return null;
+    }
+    // Cached per-waypoint coordinates (so candidates aren't re-geocoded).
+    async function pointForWaypoint(wp) {
+      if (wpPointCache.has(wp.wpid)) return wpPointCache.get(wp.wpid);
+      const p = await geocodeWaypoint(wp);
+      wpPointCache.set(wp.wpid, p);
+      return p;
+    }
+    function distMeters(a, b) {
+      const R = 6371000, toRad = (d) => d * Math.PI / 180;
+      const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lon - a.lon);
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
+      return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+    }
+
+    // Highlight the 3 nearest not-yet-added waypoints to the focused one.
+    function computeNearest() {
+      state.nearest = [];
+      const fp = state.focusWpid ? wpPointCache.get(state.focusWpid) : null;
+      if (fp) {
+        const scored = [];
+        state.waypoints.forEach((w) => {
+          if (w.wpid === state.focusWpid || isSelected(w.wpid)) return;
+          const p = wpPointCache.get(w.wpid);
+          if (p) scored.push({ wpid: w.wpid, d: distMeters(fp, p) });
+        });
+        scored.sort((a, b) => a.d - b.d);
+        state.nearest = scored.slice(0, 3).map((x) => x.wpid);
+      }
+      renderPickList();
+      renderMap();
+    }
+    function setNearbyStatus(text, mode) {
+      const el = document.getElementById('nearbyStatus');
+      if (!el) return;
+      el.textContent = text || '';
+      el.className = 'nearby-status' + (mode ? ' ' + mode : '');
+    }
+    function finalizeNearbyStatus() {
+      if (!state.focusWpid) { setNearbyStatus('', ''); return; }
+      const n = state.nearest.length;
+      setNearbyStatus(n ? (n + ' nearby waypoint' + (n === 1 ? '' : 's') + ' highlighted') : 'No nearby waypoints found.', 'done');
+    }
+
+    // Geocode same-city candidates (throttled) so nearest can be found, then rank.
+    async function refreshNearest() {
+      const token = ++nearestToken;
+      computeNearest();
+      const focusWp = findWaypoint(state.focusWpid);
+      if (!focusWp) { setNearbyStatus('', ''); return; }
+      const candidates = state.waypoints
+        .filter((w) => w.wpid !== state.focusWpid && !isSelected(w.wpid) && w.city === focusWp.city && !wpPointCache.has(w.wpid))
+        .slice(0, 24);
+      if (candidates.length) setNearbyStatus('Finding nearby waypoints…', 'loading');
+      for (const w of candidates) {
+        if (token !== nearestToken) return;     // a newer selection superseded this
+        await pointForWaypoint(w);
+        if (token !== nearestToken) return;
+        computeNearest();
+        setNearbyStatus('Finding nearby waypoints…', 'loading');
+        await sleep(1100);                        // be polite to Nominatim
+      }
+      if (token !== nearestToken) return;
+      finalizeNearbyStatus();
+    }
+
+    // --- Loading ---
+    async function loadGames() {
+      try {
+        const res = await fetch(restUrl(GAMES_TABLE, { select: 'id,name,city', order: 'name.asc' }), { headers: authHeaders(), cache: 'no-store' });
+        if (!res.ok) throw new Error(await readError(res, 'Could not load games.'));
+        state.games = await res.json();
+        renderGameSelect();
+      } catch (e) { console.error(e); setStatus(e.message || 'Could not load games.', 'error'); }
+    }
+    async function loadWaypoints() {
+      try {
+        const res = await fetch(restUrl(WAYPOINTS_TABLE, { select: 'wpid,city,state,address,name,description,w3w', order: 'name.asc' }), { headers: authHeaders(), cache: 'no-store' });
+        if (!res.ok) throw new Error(await readError(res, 'Could not load waypoints.'));
+        state.waypoints = (await res.json()).map((w) => ({
+          wpid: String(w.wpid), city: cleanText(w.city), state: cleanText(w.state),
+          address: cleanText(w.address), name: cleanText(w.name), description: cleanText(w.description), w3w: cleanText(w.w3w)
+        }));
+        renderCityFilter();
+        renderPickList();
+      } catch (e) { console.error(e); setStatus(e.message || 'Could not load waypoints.', 'error'); }
+    }
+
+    function findWaypoint(wpid) { return state.waypoints.find((w) => w.wpid === String(wpid)) || null; }
+    function gameName(id) { const g = state.games.find((x) => x.id === id); return g ? g.name : id; }
+
+    // --- Rendering ---
+    function renderAll() { renderGameSelect(); renderCityFilter(); renderPickList(); renderRoute(); }
+
+    function renderGameSelect() {
+      gameSelect.innerHTML = '';
+      const ph = document.createElement('option');
+      ph.value = ''; ph.textContent = state.games.length ? 'Choose a game…' : 'No games';
+      gameSelect.append(ph);
+      state.games.forEach((g) => {
+        const o = document.createElement('option');
+        o.value = g.id;
+        o.textContent = g.name + (g.city ? ' — ' + g.city : '');
+        if (g.id === state.gameId) o.selected = true;
+        gameSelect.append(o);
+      });
+    }
+
+    function renderCityFilter() {
+      const cities = Array.from(new Set(state.waypoints.map((w) => w.city).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+      cityFilter.innerHTML = '';
+      const all = document.createElement('option');
+      all.value = ''; all.textContent = 'All cities (' + state.waypoints.length + ')';
+      cityFilter.append(all);
+      cities.forEach((c) => {
+        const n = state.waypoints.filter((w) => w.city === c).length;
+        const o = document.createElement('option');
+        o.value = c; o.textContent = c + ' (' + n + ')';
+        if (c === state.cityFilter) o.selected = true;
+        cityFilter.append(o);
+      });
+    }
+
+    function isSelected(wpid) { return state.selected.some((s) => s.wpid === String(wpid)); }
+
+    function renderPickList() {
+      let list;
+      if (state.focusWpid) {
+        // Focus mode: show only the latest pick + its nearest (overrides search/city).
+        const ids = [state.focusWpid].concat(state.nearest);
+        list = ids.map((id) => findWaypoint(id)).filter(Boolean);
+      } else {
+        const term = state.search.toLowerCase();
+        list = state.waypoints.filter((w) => {
+          if (state.cityFilter && w.city !== state.cityFilter) return false;
+          if (!term) return true;
+          return (w.name + ' ' + w.address + ' ' + w.city + ' ' + w.state).toLowerCase().indexOf(term) >= 0;
+        });
+      }
+      wpPickList.innerHTML = '';
+      if (!list.length) { const e = document.createElement('div'); e.className = 'pick-empty'; e.textContent = 'No waypoints match.'; wpPickList.append(e); return; }
+      list.forEach((w) => {
+        const row = document.createElement('label');
+        row.className = 'wp-pick' + (isSelected(w.wpid) ? ' checked' : '') + (state.nearest.indexOf(w.wpid) >= 0 ? ' nearby' : '');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = isSelected(w.wpid);
+        cb.addEventListener('change', () => toggleWaypoint(w.wpid, cb.checked));
+        const main = document.createElement('div');
+        main.className = 'wp-pick-main';
+        const nm = document.createElement('span'); nm.className = 'wp-pick-name'; nm.textContent = w.name || '(unnamed)';
+        const sub = document.createElement('span'); sub.className = 'wp-pick-sub';
+        sub.textContent = ['#' + w.wpid, [w.city, w.state].filter(Boolean).join(', '), w.address].filter(Boolean).join(' · ');
+        main.append(nm, sub);
+        row.append(cb, main);
+        wpPickList.append(row);
+      });
+    }
+
+    function renderRoute() {
+      routeCount.textContent = state.selected.length + (state.selected.length === 1 ? ' stop' : ' stops');
+      routeList.innerHTML = '';
+      if (!state.selected.length) {
+        const e = document.createElement('div'); e.className = 'route-empty'; e.textContent = 'Check waypoints on the left to build the route.';
+        routeList.append(e);
+        renderMap();
+        return;
+      }
+      state.selected.forEach((s, i) => {
+        const wp = findWaypoint(s.wpid);
+        const row = document.createElement('div');
+        row.className = 'route-row' + (s.end ? ' end' : '');
+        const num = document.createElement('span'); num.className = 'route-num'; num.textContent = String(i + 1);
+        const main = document.createElement('div'); main.className = 'route-main';
+        const nm = document.createElement('span'); nm.className = 'route-name'; nm.textContent = wp ? (wp.name || '(unnamed)') : ('#' + s.wpid + ' (missing)');
+        const sub = document.createElement('span'); sub.className = 'route-sub';
+        sub.textContent = wp ? ([[wp.city, wp.state].filter(Boolean).join(', '), s.point ? '' : 'locating…'].filter(Boolean).join(' · ')) : 'waypoint not found';
+        main.append(nm, sub);
+        const tools = document.createElement('div'); tools.className = 'route-tools';
+        const endLbl = document.createElement('label'); endLbl.className = 'route-end-lbl';
+        const endCb = document.createElement('input'); endCb.type = 'checkbox'; endCb.checked = !!s.end;
+        endCb.addEventListener('change', () => { s.end = endCb.checked; renderRoute(); updateButtons(); });
+        endLbl.append(endCb, document.createTextNode('End'));
+        const up = iconBtn('▲', i === 0, () => move(i, -1));
+        const down = iconBtn('▼', i === state.selected.length - 1, () => move(i, 1));
+        const rm = iconBtn('✕', false, () => toggleWaypoint(s.wpid, false));
+        tools.append(endLbl, up, down, rm);
+        row.append(num, main, tools);
+        routeList.append(row);
+      });
+      renderMap();
+    }
+
+    function iconBtn(label, disabled, fn) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'icon-btn'; b.textContent = label; b.disabled = !!disabled;
+      b.addEventListener('click', fn);
+      return b;
+    }
+
+    // --- Selection actions ---
+    async function toggleWaypoint(wpid, on) {
+      wpid = String(wpid);
+      if (on) {
+        if (isSelected(wpid)) return;
+        const entry = { wpid: wpid, end: false, point: wpPointCache.get(wpid) || null };
+        state.selected.push(entry);
+        state.focusWpid = wpid;
+        renderPickList(); renderRoute(); updateButtons();
+        const wp = findWaypoint(wpid);
+        if (wp) { entry.point = await pointForWaypoint(wp); renderRoute(); }
+        refreshNearest();
+      } else {
+        // Unchecking a stop stops the nearby search and clears the highlights.
+        state.selected = state.selected.filter((s) => s.wpid !== wpid);
+        state.focusWpid = '';
+        state.nearest = [];
+        nearestToken++;            // cancel any in-flight nearby geocoding
+        setNearbyStatus('', '');
+        renderPickList(); renderRoute(); updateButtons();
+      }
+    }
+    function move(index, dir) {
+      const j = index + dir;
+      if (j < 0 || j >= state.selected.length) return;
+      const tmp = state.selected[index];
+      state.selected[index] = state.selected[j];
+      state.selected[j] = tmp;
+      renderRoute();
+    }
+    function clearRoute() {
+      state.selected = [];
+      state.focusWpid = '';
+      state.nearest = [];
+      nearestToken++;
+      setNearbyStatus('', '');
+      renderPickList(); renderRoute(); updateButtons();
+    }
+
+    // --- Map ---
+    let map = null, markerLayer = null, lineLayer = null;
+    function ensureMap() {
+      if (map || typeof L === 'undefined') return;
+      // Default view: New Orleans, until stops are added (then we fit their bounds).
+      map = L.map('map', { scrollWheelZoom: false }).setView([29.9584, -90.0644], 12);
+      const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20, attribution: 'Tiles &copy; Esri' });
+      const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap' });
+      streets.addTo(map);
+      L.control.layers({ 'Streets': streets, 'Satellite': sat }, null, { position: 'topright' }).addTo(map);
+      markerLayer = L.layerGroup().addTo(map);
+      lineLayer = L.layerGroup().addTo(map);
+    }
+    function renderMap() {
+      ensureMap();
+      if (!map) return;
+      markerLayer.clearLayers();
+      lineLayer.clearLayers();
+      const pts = [];
+      state.selected.forEach((s, i) => {
+        if (!s.point) return;
+        const wp = findWaypoint(s.wpid);
+        const cls = 'route-pin' + (s.end ? ' end' : (i === 0 ? ' start' : ''));
+        const icon = L.divIcon({ className: cls, html: '<span>' + (i + 1) + '</span>', iconSize: [26, 26], iconAnchor: [13, 13] });
+        const marker = L.marker([s.point.lat, s.point.lon], { icon: icon });
+        marker.bindPopup('<strong>' + (i + 1) + '. ' + (wp ? (wp.name || '#' + s.wpid) : '#' + s.wpid) + '</strong>'
+          + (i === 0 ? '<br>Start' : '') + (s.end ? '<br>End stop' : ''));
+        marker.addTo(markerLayer);
+        pts.push([s.point.lat, s.point.lon]);
+      });
+      // The 3 nearest not-yet-added waypoints, as clickable orange circles.
+      state.nearest.forEach((wpid) => {
+        const p = wpPointCache.get(wpid);
+        if (!p) return;
+        const wp = findWaypoint(wpid);
+        const cm = L.circleMarker([p.lat, p.lon], { radius: 9, color: '#e07b1a', weight: 2, fillColor: '#f3a64f', fillOpacity: 0.85 });
+        cm.bindTooltip('Nearby: ' + (wp ? (wp.name || '#' + wpid) : '#' + wpid) + ' — click to add');
+        cm.on('click', () => toggleWaypoint(wpid, true));
+        cm.addTo(markerLayer);
+      });
+      if (pts.length > 1) L.polyline(pts, { color: '#2d4880', weight: 3, opacity: 0.85 }).addTo(lineLayer);
+      if (pts.length) { try { map.fitBounds(pts, { padding: [40, 40], maxZoom: 16 }); } catch (e) {} }
+      setTimeout(() => { try { map.invalidateSize(); } catch (e) {} }, 0);
+    }
+
+    // --- Load / save a game's map ---
+    async function onGameChange() {
+      state.gameId = gameSelect.value;
+      clearRoute();
+      updateButtons();
+      updateNavLinks();
+      if (!state.gameId) { setStatus('Pick a game to start.'); return; }
+      setStatus('Loading map for ' + gameName(state.gameId) + '…');
+      try {
+        const res = await fetch(restUrl(MAPS_TABLE, { game_id: 'eq.' + state.gameId, select: 'waypoint_id,ord,end', order: 'ord.asc' }), { headers: authHeaders(), cache: 'no-store' });
+        if (!res.ok) throw new Error(await readError(res, 'Could not load map.'));
+        const rows = await res.json();
+        state.selected = rows.map((r) => ({ wpid: String(r.waypoint_id), end: String(r.end).toUpperCase() === 'YES', point: null }));
+        renderPickList(); renderRoute(); updateButtons();
+        // Geocode each stop (sequentially to respect Nominatim).
+        for (const s of state.selected) { const wp = findWaypoint(s.wpid); if (wp) { s.point = await pointForWaypoint(wp); renderRoute(); } }
+        if (state.selected.length) { state.focusWpid = state.selected[state.selected.length - 1].wpid; refreshNearest(); }
+        setStatus(rows.length ? ('Loaded ' + rows.length + ' stop' + (rows.length === 1 ? '' : 's') + ' for ' + gameName(state.gameId) + '.') : ('No saved map yet for ' + gameName(state.gameId) + ' — build one.'), rows.length ? 'success' : '');
+      } catch (e) { console.error(e); setStatus(e.message || 'Could not load map.', 'error'); }
+    }
+
+    async function saveMap() {
+      if (!state.authed) { setStatus('Sign in first.', 'error'); return; }
+      if (!state.gameId) { setStatus('Choose a game first.', 'error'); return; }
+      if (!state.selected.length) { setStatus('Add at least one waypoint.', 'error'); return; }
+      saveBtn.disabled = true;
+      setStatus('Saving map…');
+      try {
+        await ensureFreshSession();
+        const del = await fetch(restUrl(MAPS_TABLE, { game_id: 'eq.' + state.gameId }), { method: 'DELETE', headers: authHeaders({ Prefer: 'return=minimal' }) });
+        if (!del.ok) throw new Error(await readError(del, 'Could not clear the old map.'));
+        const rows = state.selected.map((s, i) => ({ game_id: state.gameId, waypoint_id: Number(s.wpid), ord: i + 1, end: s.end ? 'YES' : 'NO' }));
+        const post = await fetch(restUrl(MAPS_TABLE, {}), { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }), body: JSON.stringify(rows) });
+        if (!post.ok) throw new Error(await readError(post, 'Could not save the map.'));
+        setStatus('Saved map for ' + gameName(state.gameId) + ' (' + rows.length + ' stop' + (rows.length === 1 ? '' : 's') + ').', 'success');
+      } catch (e) { console.error(e); setStatus(e.message || 'Save failed.', 'error'); }
+      finally { updateButtons(); }
+    }
+
+    function updateButtons() {
+      saveBtn.disabled = !(state.authed && state.gameId && state.selected.length);
+      clearBtn.disabled = !state.selected.length;
+    }
+    // Carry the selected game across the Overview/Builder buttons.
+    function updateNavLinks() {
+      const id = state.gameId;
+      const ov = document.getElementById('navOverviewBtn');
+      const bd = document.getElementById('navBuilderBtn');
+      if (ov) ov.href = id ? ('overview.html?id=' + encodeURIComponent(id)) : 'overview.html';
+      if (bd) bd.href = id ? ('builder.html?id=' + encodeURIComponent(id)) : 'builder.html';
+    }
+
+    // --- Wiring ---
+    // Leaving focus mode restores the full city/search-filtered list.
+    function exitFocus() {
+      if (!state.focusWpid && !state.nearest.length) return;
+      state.focusWpid = '';
+      state.nearest = [];
+      nearestToken++;
+      setNearbyStatus('', '');
+      renderMap();
+    }
+
+    gameSelect.addEventListener('change', onGameChange);
+    saveBtn.addEventListener('click', saveMap);
+    clearBtn.addEventListener('click', clearRoute);
+    cityFilter.addEventListener('change', () => { state.cityFilter = cityFilter.value; exitFocus(); renderPickList(); });
+    wpSearch.addEventListener('input', () => { state.search = cleanText(wpSearch.value); exitFocus(); renderPickList(); });
+
+    window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
+    updateNavLinks();
+    renderAll();
+    adminAuth.init();
+  </script>
+</body>
+</html>
