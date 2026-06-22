@@ -137,6 +137,16 @@
       color: var(--ink);
       box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
     }
+    .toolbar select {
+      flex: 0 0 auto;
+      min-height: 42px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
 
     .howto {
       margin: 10px 0 0;
@@ -256,6 +266,7 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
     }
+    .field-row--3 { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.7fr) minmax(0, 0.9fr); }
 
     .field { display: grid; gap: 5px; }
 
@@ -625,6 +636,15 @@
 
     <div class="toolbar">
       <input type="search" id="searchInput" placeholder="Search waypoints" autocomplete="off">
+      <select id="filterSelect" title="Filter waypoints by what's missing">
+        <option value="">All waypoints</option>
+        <option value="no_w3w">Missing what3words</option>
+        <option value="no_address">Missing address</option>
+        <option value="no_zip">Missing ZIP</option>
+        <option value="no_city">Missing city</option>
+        <option value="no_coords">Missing coordinates</option>
+        <option value="no_description">Missing description</option>
+      </select>
       <button class="btn small" id="newBtn" type="button" title="Search the world for the text in the box, or add a blank waypoint when empty">New</button>
       <button class="btn small" id="findStopsBtn" type="button" title="Pull real tour-worthy places from OpenStreetMap for a city">Find stops</button>
       <button class="btn small" id="promptBtn" type="button" title="Generate an AI prompt that returns walking-tour stops as CSV">Prompt</button>
@@ -693,6 +713,7 @@
   <script src="js/admin-auth.js"></script>
   <script src="js/admin-shell.js"></script>
   <script src="js/admin-nav-menu.js"></script>
+  <script src="js/supabase-rest.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -702,14 +723,19 @@
     const TABLE = 'waypoints';
     const PK = 'wpid';
     // Columns read from the table. wpid is the identity primary key.
-    const WAYPOINT_COLUMNS = ['wpid', 'city', 'state', 'address', 'name', 'description', 'w3w'];
-    // Editable text fields (everything except the auto-number PK).
-    const EDITABLE_FIELDS = ['name', 'city', 'state', 'address', 'description', 'w3w'];
+    const WAYPOINT_COLUMNS = ['wpid', 'city', 'state', 'zip', 'address', 'name', 'description', 'w3w', 'lat', 'lon'];
+    // Editable text fields (everything except the auto-number PK and lat/lon).
+    const EDITABLE_FIELDS = ['name', 'city', 'state', 'zip', 'address', 'description', 'w3w'];
+    // Fields actually persisted on save / used for change detection — the editable
+    // text fields plus the stored exact coordinates (lat/lon are not form fields).
+    const SAVED_FIELDS = EDITABLE_FIELDS.concat(['lat', 'lon']);
+    const round6 = (n) => Math.round(n * 1e6) / 1e6;
 
     // --- DOM refs ------------------------------------------------------------
     const pageStatus = document.getElementById('pageStatus');
     const signOutBtn = document.getElementById('signOutBtn');
     const searchInput = document.getElementById('searchInput');
+    const filterSelect = document.getElementById('filterSelect');
     const newBtn = document.getElementById('newBtn');
     const wpList = document.getElementById('wpList');
 
@@ -717,6 +743,7 @@
       rows: [],
       authed: false,
       filter: '',
+      fieldFilter: '',  // dropdown filter: '', 'no_w3w', 'no_address', 'no_zip', 'no_city', 'no_coords', 'no_description'
       // The single waypoint currently shown. Exactly one is featured at a time;
       // Back/Next/Random step through the (optionally filtered) set.
       randomId: null,
@@ -797,15 +824,9 @@
     async function refresh(keepId) {
       try {
         await ensureFreshSession();
-        const response = await fetch(restUrl(TABLE, {
-          select: WAYPOINT_COLUMNS.join(','),
-          order: PK + '.asc'
-        }), {
-          headers: authHeaders({ Accept: 'application/json' }),
-          cache: 'no-store'
-        });
-        if (!response.ok) throw new Error(await readError(response, 'Could not load waypoints.'));
-        const rows = await response.json();
+        // TgbRest.fetchAll paginates past PostgREST's 1000-row cap.
+        const url = restUrl(TABLE, { select: WAYPOINT_COLUMNS.join(','), order: PK + '.asc' });
+        const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
         state.rows = normalizeRows(rows);
         rebuildPristine();
         state.dirtyIds.clear();
@@ -835,10 +856,13 @@
         wpid: r.wpid == null ? '' : String(r.wpid),
         city: String(r.city || ''),
         state: String(r.state || ''),
+        zip: String(r.zip || ''),
         address: String(r.address || ''),
         name: String(r.name || ''),
         description: String(r.description || ''),
-        w3w: String(r.w3w || '')
+        w3w: String(r.w3w || ''),
+        lat: (r.lat == null || r.lat === '') ? null : Number(r.lat),
+        lon: (r.lon == null || r.lon === '') ? null : Number(r.lon)
       };
     }
 
@@ -846,10 +870,12 @@
       return String(value == null ? '' : value).trim();
     }
 
-    // PATCH payload — only the editable columns (no PK, no updated_at column).
+    // PATCH/POST payload — editable columns plus the stored exact coordinates.
     function payloadFromRow(row) {
       const payload = {};
       EDITABLE_FIELDS.forEach((field) => { payload[field] = cleanText(row[field]) || null; });
+      payload.lat = Number.isFinite(row.lat) ? row.lat : null;
+      payload.lon = Number.isFinite(row.lon) ? row.lon : null;
       return payload;
     }
 
@@ -936,7 +962,7 @@
     // Snapshot of a row's saved (pristine) field values, for change detection.
     const pristine = new Map();
     function snapshot(row) {
-      return EDITABLE_FIELDS.map((f) => cleanText(row[f])).join('~|~');
+      return SAVED_FIELDS.map((f) => cleanText(row[f])).join('~|~');
     }
     function rebuildPristine() {
       pristine.clear();
@@ -960,6 +986,9 @@
       const row = findRow(wpid);
       if (!row) return;
       row[field] = String(value || '');
+      // Editing the address invalidates the stored coordinates — drop them so the
+      // map re-geocodes the new address (Fill will set precise coords again).
+      if (field === 'address') { row.lat = null; row.lon = null; }
       markDirty(wpid);
     }
 
@@ -987,10 +1016,13 @@
       if (w3wHoverAbort) { try { w3wHoverAbort.abort(); } catch (error) {} w3wHoverAbort = null; }
       container.innerHTML = '';
 
-      // Center priority: what3words -> address -> city/state, else a wide New
-      // Orleans view so a blank waypoint is still usable.
+      // Center priority: stored coordinates -> what3words -> address -> city/state,
+      // else a wide New Orleans view so a blank waypoint is still usable.
       const stale = () => wpList.querySelector('[data-map-preview]') !== container || !container.isConnected;
       let center = null;
+
+      // 0) stored exact coordinates — most reliable, no geocoding.
+      if (Number.isFinite(row.lat) && Number.isFinite(row.lon)) center = { lat: row.lat, lon: row.lon };
 
       // 1) what3words (only when the key plan supports words -> coordinates).
       if (W3W_TO_COORDS) {
@@ -998,16 +1030,22 @@
         if (words) { try { center = await w3wToPoint(words); } catch (error) {} if (stale()) return; }
       }
 
-      // 2) address (decode coords/Plus Code locally, else geocode it).
+      // 2) address (decode coords/Plus Code locally, else geocode it WITH the
+      //    city/state/zip so a bare street like "1427 Washington Avenue" doesn't
+      //    resolve to the wrong city).
       if (!center) {
         const address = cleanText(row.address);
         center = addressToPoint(address);
-        if (!center && address) { try { center = await geocodeCoords(address); } catch (error) {} if (stale()) return; }
+        if (!center && address) {
+          const q = [address, cleanText(row.city), cleanText(row.state), cleanText(row.zip)].filter(Boolean).join(', ');
+          try { center = await geocodeCoords(q); } catch (error) {}
+          if (stale()) return;
+        }
       }
 
-      // 3) city, state.
+      // 3) city, state, zip.
       if (!center) {
-        const loc = [cleanText(row.city), cleanText(row.state)].filter(Boolean).join(', ');
+        const loc = [cleanText(row.city), cleanText(row.state), cleanText(row.zip)].filter(Boolean).join(', ');
         if (loc) { try { center = await geocodeCoords(loc); } catch (error) {} if (stale()) return; }
       }
 
@@ -1375,8 +1413,9 @@
     // the address alone; only fall back to the name when there is no address.
     function geocodeQuery(row) {
       const address = cleanText(row.address);
-      if (address) return address;
-      return [cleanText(row.name), cleanText(row.city), cleanText(row.state)].filter(Boolean).join(', ');
+      const zip = cleanText(row.zip);
+      if (address) return [address, zip].filter(Boolean).join(', ');
+      return [cleanText(row.name), cleanText(row.city), cleanText(row.state), zip].filter(Boolean).join(', ');
     }
 
     // Ordered lookup queries built from EVERY filled field — richest first, then
@@ -1387,17 +1426,22 @@
       const address = cleanText(row.address);
       const city = cleanText(row.city);
       const state = cleanText(row.state);
+      const zip = cleanText(row.zip);
       const queries = [];
       const add = (...parts) => {
         const q = parts.map(cleanText).filter(Boolean).join(', ');
         if (q && !queries.includes(q)) queries.push(q);
       };
       if (address) {
-        add(address);                    // street address — most reliable, tried first
+        add(address, city, state, zip);  // full address + locality + ZIP — most precise
+        add(address, zip);               // street address + ZIP
+        add(address);                    // street address alone
         add(name, address);              // name + address
       }
-      add(name, city, state);            // name + locality
+      add(name, city, state, zip);       // name + locality + ZIP
+      add(city, state, zip);             // locality + ZIP
       add(city, state);                  // locality only
+      add(zip);                          // ZIP alone (Nominatim resolves US ZIPs)
       add(name);                         // last resort
       return queries;
     }
@@ -1451,10 +1495,11 @@
       const name = cleanText(placeName(place, addr));
       const city = cleanText(addr.city || addr.town || addr.village || addr.hamlet || addr.suburb || addr.municipality || addr.county);
       const state = cleanText(addr.state);
-      // A real street-level address when there is one; otherwise the coordinates
-      // — more useful than just "City, State".
-      const streetAddress = cleanText(addr.road) ? shortAddress(addr) : '';
-      const address = cleanText(streetAddress || (hasCoords ? lat + ', ' + lon : (shortAddress(addr) || place.display_name)));
+      const zip = cleanText(addr.postcode);
+      // Address is the STREET ONLY (house number + road) — city/state/zip live in
+      // their own fields. No street? fall back to coordinates, else leave blank.
+      const streetAddress = [cleanText(addr.house_number), cleanText(addr.road)].filter(Boolean).join(' ');
+      const address = streetAddress || (hasCoords ? lat + ', ' + lon : '');
 
       if (overwrite) {
         // Clear-then-fill: replace every field with the clicked location.
@@ -1463,10 +1508,12 @@
         row.name = name;
         row.city = city;
         row.state = state;
+        row.zip = zip;
         row.address = address;
         row.description = description;
         row.w3w = w3w;
-        return ['name', 'city', 'state', 'address', 'description', 'w3w'];
+        if (hasCoords) { row.lat = round6(lat); row.lon = round6(lon); }
+        return ['name', 'city', 'state', 'zip', 'address', 'description', 'w3w'];
       }
 
       // Fill blanks only — keep anything already entered.
@@ -1478,6 +1525,7 @@
       setIfBlank('name', name);
       setIfBlank('city', city);
       setIfBlank('state', state);
+      setIfBlank('zip', zip);
       setIfBlank('address', address);
       if (!cleanText(row.description)) {
         const desc = await resolveDescription(place, addr, row);
@@ -1486,6 +1534,11 @@
       if (!cleanText(row.w3w)) {
         const words = await pointToW3W(lat, lon);
         if (words) { row.w3w = words; filled.push('w3w'); }
+      }
+      // Store the exact coordinates when we don't already have them.
+      if (hasCoords && !(Number.isFinite(row.lat) && Number.isFinite(row.lon))) {
+        row.lat = round6(lat);
+        row.lon = round6(lon);
       }
       return filled;
     }
@@ -1497,7 +1550,7 @@
     async function fillWaypoint(wpid, button) {
       const row = findRow(wpid);
       if (!row) return;
-      const geoFields = ['name', 'city', 'state', 'address', 'description', 'w3w'];
+      const geoFields = ['name', 'city', 'state', 'zip', 'address', 'description', 'w3w'];
       const blanks = geoFields.filter((field) => !cleanText(row[field]));
       if (!blanks.length) {
         flashButton(button, 'All set');
@@ -1844,13 +1897,13 @@
         '- Interesting and photogenic: historic sites and markers, landmarks, monuments and memorials, public art and murals, notable architecture, parks and plazas, museums, and iconic local businesses.',
         '- Publicly accessible and safe to stand in front of.',
         '',
-        'Aim for 12–25 real stops. For each, give the place name, the city, the region (the 2-letter state code for US places, otherwise the country), the most specific street address you can, and a one-sentence tour-guide description (an interesting fact, or what makes it a stop).',
+        'Aim for 12–25 real stops. For each, give the place name, the city, the region (the 2-letter state code for US places, otherwise the country), the postal/ZIP code, the most specific street address you can, and a one-sentence tour-guide description (an interesting fact, or what makes it a stop).',
         '',
         'Return the result as CSV ONLY, with exactly this header row and one stop per line:',
         '',
-        'name,city,state,address,description',
-        'Cafe du Monde,New Orleans,LA,"800 Decatur St, New Orleans, LA 70116",Historic open-air coffee stand serving beignets since 1862.',
-        'Museo del Prado,Madrid,Spain,"C. de Ruiz de Alarcón 23, 28014 Madrid",Spain’s national art museum, a flagship stop on most Madrid walking tours.',
+        'name,city,state,zip,address,description',
+        'Cafe du Monde,New Orleans,LA,70116,"800 Decatur St, New Orleans, LA",Historic open-air coffee stand serving beignets since 1862.',
+        'Museo del Prado,Madrid,Spain,28014,"C. de Ruiz de Alarcón 23, Madrid",Spain’s national art museum, a flagship stop on most Madrid walking tours.',
         '',
         'Rules:',
         '- Output ONLY the CSV — the header line plus the data lines. No commentary, no code fences, no numbering.',
@@ -2096,7 +2149,7 @@
     let dedupSkipped = new Set();  // pair keys the user marked "not a duplicate"
     const DEDUP_NAME_T = 0.86;     // name similarity threshold
     const DEDUP_ADDR_T = 0.88;     // address similarity threshold
-    const DEDUP_FIELD_LABELS = { name: 'Name', city: 'City', state: 'State', address: 'Address', description: 'Description', w3w: 'w3w' };
+    const DEDUP_FIELD_LABELS = { name: 'Name', city: 'City', state: 'State', zip: 'ZIP', address: 'Address', description: 'Description', w3w: 'w3w' };
     // Description is ignored throughout dedup — not matched on, not shown as a
     // merge choice, and the kept row's description is preserved untouched.
     const DEDUP_MERGE_FIELDS = EDITABLE_FIELDS.filter((f) => f !== 'description');
@@ -2341,7 +2394,7 @@
     let importRawText = '';
     let importStage = 'paste';
     let importBusy = false;
-    const IMPORT_COLS = ['name', 'city', 'state', 'address', 'description'];
+    const IMPORT_COLS = ['name', 'city', 'state', 'zip', 'address', 'description'];
 
     // Minimal CSV/TSV parser: handles quoted fields, "" escapes, commas/tabs, CRLF.
     function parseDelimited(text) {
@@ -2374,12 +2427,12 @@
       const first = rows[0].map((c) => cleanText(c).toLowerCase());
       const hasHeader = first.some((c) => IMPORT_COLS.indexOf(c) >= 0);
       const colFor = (name) => hasHeader ? first.indexOf(name) : IMPORT_COLS.indexOf(name);
-      const idx = { name: colFor('name'), city: colFor('city'), state: colFor('state'), address: colFor('address'), description: colFor('description') };
+      const idx = { name: colFor('name'), city: colFor('city'), state: colFor('state'), zip: colFor('zip'), address: colFor('address'), description: colFor('description') };
       const out = [];
       for (let i = hasHeader ? 1 : 0; i < rows.length; i++) {
         const r = rows[i];
         const get = (k) => (idx[k] >= 0 && idx[k] < r.length) ? cleanText(r[idx[k]]) : '';
-        const wp = { name: get('name'), city: get('city'), state: get('state'), address: get('address'), description: get('description') };
+        const wp = { name: get('name'), city: get('city'), state: get('state'), zip: get('zip'), address: get('address'), description: get('description') };
         // Normalize a full state name to its 2-letter code when we recognize it.
         if (wp.state) wp.state = stateAbbrOf(wp.state) || wp.state;
         if (wp.name || wp.address) out.push(wp);
@@ -2422,12 +2475,12 @@
       body.innerHTML = '';
       const hint = document.createElement('div');
       hint.className = 'zip-desc';
-      hint.innerHTML = 'Paste rows from a spreadsheet or the AI’s CSV. Columns: <strong>name, city, state, address, description</strong> (a header row is optional). Then press <strong>Preview</strong>.';
+      hint.innerHTML = 'Paste rows from a spreadsheet or the AI’s CSV. Columns: <strong>name, city, state, zip, address, description</strong> (a header row is optional). Then press <strong>Preview</strong>.';
       const ta = document.createElement('textarea');
       ta.className = 'import-text';
       ta.id = 'importText';
       ta.spellcheck = false;
-      ta.placeholder = 'name,city,state,address,description\nCafe du Monde,New Orleans,LA,"800 Decatur St, New Orleans, LA 70116",Beignets since 1862.';
+      ta.placeholder = 'name,city,state,zip,address,description\nCafe du Monde,New Orleans,LA,70116,"800 Decatur St, New Orleans, LA",Beignets since 1862.';
       ta.value = text || '';
       body.append(hint, ta);
       ta.focus();
@@ -2658,6 +2711,7 @@
             name: name,
             city: parsed.city,
             state: parsed.region,
+            zip: cleanText(tags['addr:postcode']),
             address: street,
             description: cleanText(tags.description) || (tourStopKind(tags).charAt(0).toUpperCase() + tourStopKind(tags).slice(1) + '.'),
             kind: tourStopKind(tags),
@@ -2821,7 +2875,7 @@
     // Explicit all-null payload for a blank waypoint. (An empty {} can come back
     // with no representation, leaving us without the new row's wpid to jump to.)
     function blankWaypoint() {
-      return { name: null, city: null, state: null, address: null, description: null, w3w: null };
+      return { name: null, city: null, state: null, zip: null, address: null, description: null, w3w: null };
     }
 
     async function insertWaypointAndGo(payload, button) {
@@ -3210,8 +3264,25 @@
       const term = state.filter;
       return state.rows
         .filter((row) => !term || searchHaystack(row).includes(term))
+        .filter(matchesFieldFilter)
         .sort(compareRows);
     }
+
+    // Dropdown "missing X" filter.
+    function matchesFieldFilter(row) {
+      switch (state.fieldFilter) {
+        case 'no_w3w': return !cleanText(row.w3w);
+        case 'no_address': return !cleanText(row.address);
+        case 'no_zip': return !cleanText(row.zip);
+        case 'no_city': return !cleanText(row.city);
+        case 'no_description': return !cleanText(row.description);
+        case 'no_coords': return !(Number.isFinite(row.lat) && Number.isFinite(row.lon));
+        default: return true;
+      }
+    }
+
+    // Any filter active (text search or the dropdown)?
+    function isFiltered() { return !!state.filter || !!state.fieldFilter; }
 
     // Always feature exactly one waypoint. Keep the current one if it's still in
     // the navigable set; otherwise fall back to the first.
@@ -3280,7 +3351,7 @@
       }
       const current = ensureCurrent();
       if (!current) {
-        wpList.appendChild(emptyNode(state.filter ? 'No waypoints match your filter.' : 'No waypoints yet. Hit NEW to add one.'));
+        wpList.appendChild(emptyNode(isFiltered() ? 'No waypoints match your filter.' : 'No waypoints yet. Hit NEW to add one.'));
         updateSummary();
         return;
       }
@@ -3352,8 +3423,8 @@
       fields.className = 'field-grid';
       fields.appendChild(renderNameField(row));
       const cityState = document.createElement('div');
-      cityState.className = 'field-row';
-      cityState.append(renderTextField(row, 'city', 'City'), renderTextField(row, 'state', 'State'));
+      cityState.className = 'field-row field-row--3';
+      cityState.append(renderTextField(row, 'city', 'City'), renderTextField(row, 'state', 'State'), renderTextField(row, 'zip', 'ZIP'));
       fields.appendChild(cityState);
       fields.appendChild(renderTextField(row, 'address', 'Address', 'Street address, lat/lon coordinates, or a Plus Code.'));
       fields.appendChild(renderW3WField(row));
@@ -3656,7 +3727,7 @@
       const count = renderCount(list, idx);
       // Keep the nav buttons visible whenever a filter is active (even if it
       // narrows to one match), so the controls don't disappear under you.
-      if (list.length > 1 || state.filter) {
+      if (list.length > 1 || isFiltered()) {
         // Count runs opposite to the index (idx 0 = highest = "N of N"), so Next
         // advances the count (wrapping N -> 1) and Back lowers it.
         nav.append(
@@ -3691,6 +3762,13 @@
     // Enter in the search box runs New (world search) on the typed text.
     searchInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') { event.preventDefault(); openWorldSearch(newBtn); }
+    });
+    // Dropdown "missing X" filter.
+    if (filterSelect) filterSelect.addEventListener('change', () => {
+      state.fieldFilter = filterSelect.value;
+      const list = navRows();
+      state.randomId = list.length ? list[0].wpid : null;
+      render();
     });
 
     if (newBtn) newBtn.addEventListener('click', () => openWorldSearch(newBtn));

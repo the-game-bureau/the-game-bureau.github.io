@@ -254,6 +254,7 @@
   <script src="js/admin-auth.js"></script>
   <script src="js/admin-shell.js"></script>
   <script src="js/admin-nav-menu.js"></script>
+  <script src="js/supabase-rest.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -395,13 +396,16 @@
     }
     // A waypoint -> coordinates: local decode first, then geocode address, then name/city.
     async function geocodeWaypoint(wp) {
+      // Stored exact coordinates win — no geocoding needed.
+      if (Number.isFinite(wp.lat) && Number.isFinite(wp.lon)) return { lat: wp.lat, lon: wp.lon };
       const addr = cleanText(wp.address);
+      const zip = cleanText(wp.zip);
       let p = addressToPoint(addr);
       if (p) return p;
-      if (addr) { p = await geocodeCoords(addr); if (p) return p; }
-      const nameQ = [cleanText(wp.name), cleanText(wp.city), cleanText(wp.state)].filter(Boolean).join(', ');
+      if (addr) { p = await geocodeCoords([addr, zip].filter(Boolean).join(', ')); if (p) return p; }
+      const nameQ = [cleanText(wp.name), cleanText(wp.city), cleanText(wp.state), zip].filter(Boolean).join(', ');
       if (nameQ) { p = await geocodeCoords(nameQ); if (p) return p; }
-      const cityQ = [cleanText(wp.city), cleanText(wp.state)].filter(Boolean).join(', ');
+      const cityQ = [cleanText(wp.city), cleanText(wp.state), zip].filter(Boolean).join(', ');
       if (cityQ) { p = await geocodeCoords(cityQ); if (p) return p; }
       return null;
     }
@@ -481,11 +485,13 @@
     }
     async function loadWaypoints() {
       try {
-        const res = await fetch(restUrl(WAYPOINTS_TABLE, { select: 'wpid,city,state,address,name,description,w3w', order: 'name.asc' }), { headers: authHeaders(), cache: 'no-store' });
-        if (!res.ok) throw new Error(await readError(res, 'Could not load waypoints.'));
-        state.waypoints = (await res.json()).map((w) => ({
-          wpid: String(w.wpid), city: cleanText(w.city), state: cleanText(w.state),
-          address: cleanText(w.address), name: cleanText(w.name), description: cleanText(w.description), w3w: cleanText(w.w3w)
+        // TgbRest.fetchAll paginates past PostgREST's 1000-row cap.
+        const url = restUrl(WAYPOINTS_TABLE, { select: 'wpid,city,state,zip,address,name,description,w3w,lat,lon', order: 'name.asc' });
+        const all = await TgbRest.fetchAll(url, authHeaders());
+        state.waypoints = all.map((w) => ({
+          wpid: String(w.wpid), city: cleanText(w.city), state: cleanText(w.state), zip: cleanText(w.zip),
+          address: cleanText(w.address), name: cleanText(w.name), description: cleanText(w.description), w3w: cleanText(w.w3w),
+          lat: (w.lat == null || w.lat === '') ? null : Number(w.lat), lon: (w.lon == null || w.lon === '') ? null : Number(w.lon)
         }));
         renderCityFilter();
         renderPickList();
