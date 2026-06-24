@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0f1217">
-  <title>WAYPOINT | THE GAME BUREAU</title>
+  <title>NAVIGATOR | THE GAME BUREAU</title>
   <link rel="icon" href="../../assets/brand/tgb.ico" type="image/x-icon">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,7 +16,7 @@
   <script src="/assets/supabase-fallback.js"></script>
   <script src="/assets/team-palette.js"></script>
 
-  <link rel="stylesheet" href="waypoint.css">
+  <link rel="stylesheet" href="navigator.css">
 </head>
 <body class="is-loading">
   <div id="mapBg" aria-hidden="true">
@@ -25,12 +25,8 @@
   <svg id="routeLayer" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"></svg>
   <div id="userDot" aria-hidden="true"></div>
   <div class="map-scrim" aria-hidden="true"></div>
+  <div id="mapHitLayer" aria-hidden="true"></div>
 
-  <button id="backBtn" class="icon-btn nav-top-left" type="button" aria-label="Go back">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  </button>
   <span class="attr nav-top-right">&copy; OpenStreetMap</span>
 
   <div class="map-controls">
@@ -68,15 +64,21 @@
     <h1 id="wpName" class="sheet-title">the rendezvous</h1>
     <p id="wpDescription" class="sheet-desc"></p>
     <p id="wpAddress" class="sheet-address"></p>
-    <a id="w3wChip" class="w3w-chip" target="_blank" rel="noopener" hidden></a>
+    <p id="sheetNotice" class="sheet-notice" role="status" aria-live="polite"></p>
     <div class="sheet-actions">
       <button id="startBtn" class="btn btn-primary" type="button">Start walking</button>
-      <a id="mapsBtn" class="btn btn-secondary" target="_blank" rel="noopener">
+      <a id="mapsBtn" class="btn btn-secondary" target="_blank" rel="noopener" aria-label="Can't find it? Open in Maps">
         <span class="btn-ico" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.4 2.6 3.3 9.9a.9.9 0 0 0 .1 1.7l7 2 2 7a.9.9 0 0 0 1.7.1l7.3-18.1a.9.9 0 0 0-1-1Z"/></svg>
         </span>
-        Open in Google Maps
+        Open in Maps
       </a>
+      <button id="backBtn" class="btn btn-secondary" type="button">
+        <span class="btn-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        Back
+      </button>
     </div>
   </main>
 
@@ -85,6 +87,7 @@
       <strong id="etaText">—</strong>
       <span id="etaSub"></span>
     </div>
+    <button id="navBackBtn" class="btn btn-secondary nav-back" type="button">Back</button>
     <a id="arriveBtn" class="btn btn-primary nav-arrive">We're here</a>
   </div>
 
@@ -101,7 +104,13 @@
     <span class="spinner"></span>
     <p id="statusText">Loading…</p>
   </div>
-  <div id="errorCard" role="alert"></div>
+  <div id="errorCard" role="alert">
+    <h2 class="error-title">We couldn't load this stop</h2>
+    <p id="errorText"></p>
+    <div class="error-actions">
+      <button id="errorBackBtn" class="btn btn-secondary" type="button">Back</button>
+    </div>
+  </div>
 
   <script>
     const SB_CONFIG = {
@@ -140,6 +149,7 @@
 
     const body = document.body;
     const mapBg = document.getElementById('mapBg');
+    const mapHitLayer = document.getElementById('mapHitLayer');
     const mapTileLayer = document.getElementById('mapTileLayer');
     const routeLayer = document.getElementById('routeLayer');
     const userDot = document.getElementById('userDot');
@@ -151,11 +161,14 @@
     const recenterBtn = document.getElementById('recenterBtn');
     const statusText = document.getElementById('statusText');
     const errorCard = document.getElementById('errorCard');
+    const errorText = document.getElementById('errorText');
+    const errorBackBtn = document.getElementById('errorBackBtn');
     const wpName = document.getElementById('wpName');
     const wpDescription = document.getElementById('wpDescription');
     const wpAddress = document.getElementById('wpAddress');
-    const w3wChip = document.getElementById('w3wChip');
+    const sheetNotice = document.getElementById('sheetNotice');
     const backBtn = document.getElementById('backBtn');
+    const navBackBtn = document.getElementById('navBackBtn');
     const startBtn = document.getElementById('startBtn');
     const mapsBtn = document.getElementById('mapsBtn');
     const navArrow = document.getElementById('navArrow');
@@ -209,7 +222,7 @@
       });
       if (row) return row;
       if (id === DEFAULT_WPID) return DEFAULT_WAYPOINT;
-      throw new Error('Waypoint #' + id + ' was not found.');
+      throw new Error("We couldn't find this stop.");
     }
 
     async function loadGame(id) {
@@ -422,7 +435,7 @@
         case 'roundabout': case 'rotary': text = 'At the roundabout, continue' + onto; break;
         case 'continue': text = 'Continue ' + (mod && mod !== 'straight' ? mod : '') + along; break;
         case 'new name': text = 'Continue' + along; break;
-        case 'arrive': text = 'Arrive at ' + destName; break;
+        case 'arrive': text = 'Arrive at ' + destinationName; break;
         default: text = road ? 'Continue on ' + road : 'Continue';
       }
       return text.replace(/\s+/g, ' ').trim();
@@ -469,6 +482,45 @@
     let lastRenderPos = null;
     let rerouting = false;
     let lastRerouteAt = 0;
+
+    function setNotice(message) {
+      if (!sheetNotice) return;
+      sheetNotice.textContent = cleanText(message);
+    }
+
+    function setPageMode(mode) {
+      body.classList.toggle('is-loading', mode === 'loading');
+      body.classList.toggle('is-error', mode === 'error');
+      body.classList.toggle('is-navigating', mode === 'navigating' || mode === 'arrived');
+      body.classList.toggle('is-arrived', mode === 'arrived');
+    }
+
+    function resetStartButton() {
+      startBtn.disabled = false;
+      startBtn.textContent = 'Start walking';
+    }
+
+    function enterPreview() {
+      navigating = false;
+      arrived = false;
+      stopWatch();
+      setPageMode('preview');
+      resetStartButton();
+      renderPreviewMap();
+    }
+
+    function enterNavigation(origin) {
+      userPos = origin;
+      stepIndex = 0;
+      navigating = true;
+      arrived = false;
+      lastRenderPos = null;
+      setNotice('');
+      setPageMode('navigating');
+      renderFollow();
+      updateNavHud(origin);
+      startWatch();
+    }
 
     function paintRoute() {
       if (!mapView) return;
@@ -558,6 +610,9 @@
     let dragStart = null;
     let pinchStart = null;
     let panRaf = 0;
+    let dragMoved = false;
+    let suppressNextMapClick = false;
+    const mapSurface = mapHitLayer || mapBg;
 
     function setPanned() {
       if (userPanned) return;
@@ -572,9 +627,10 @@
       setView(view.lat, view.lon, view.zoom + delta, view.anchorY);
     }
 
-    mapBg.addEventListener('pointerdown', (e) => {
+    mapSurface.addEventListener('pointerdown', (e) => {
       if (!view) return;
-      if (mapBg.setPointerCapture) mapBg.setPointerCapture(e.pointerId);
+      dragMoved = false;
+      if (mapSurface.setPointerCapture) mapSurface.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size === 1) {
         dragStart = {
@@ -591,7 +647,7 @@
       }
     });
 
-    mapBg.addEventListener('pointermove', (e) => {
+    mapSurface.addEventListener('pointermove', (e) => {
       if (!pointers.has(e.pointerId)) return;
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
@@ -609,6 +665,7 @@
         const dy = e.clientY - dragStart.y;
         if (!body.classList.contains('is-dragging') && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
           body.classList.add('is-dragging');
+          dragMoved = true;
           setPanned();
         }
         const lon = tileXToLon((dragStart.cx - dx) / 256, dragStart.zoom);
@@ -621,23 +678,35 @@
     function endPointer(e) {
       pointers.delete(e.pointerId);
       if (pointers.size < 2) pinchStart = null;
-      if (pointers.size === 0) { dragStart = null; body.classList.remove('is-dragging'); }
+      if (pointers.size === 0) {
+        if (dragMoved) suppressNextMapClick = true;
+        dragStart = null;
+        body.classList.remove('is-dragging');
+      }
     }
-    mapBg.addEventListener('pointerup', endPointer);
-    mapBg.addEventListener('pointercancel', endPointer);
+    mapSurface.addEventListener('pointerup', endPointer);
+    mapSurface.addEventListener('pointercancel', endPointer);
 
-    mapBg.addEventListener('wheel', (e) => {
+    mapSurface.addEventListener('wheel', (e) => {
       if (!view) return;
       e.preventDefault();
       zoomBy(e.deltaY < 0 ? 1 : -1);
     }, { passive: false });
+
+    mapSurface.addEventListener('click', () => {
+      if (suppressNextMapClick) {
+        suppressNextMapClick = false;
+        return;
+      }
+      if (userPanned) recenterMap();
+    });
 
     zoomInBtn.addEventListener('click', () => zoomBy(1));
     zoomOutBtn.addEventListener('click', () => zoomBy(-1));
     recenterBtn.addEventListener('click', recenterMap);
 
     /* ---------- Live navigation ---------- */
-    let destName = 'your destination';
+    let destinationName = 'your destination';
 
     function advanceStep(user) {
       const steps = route.steps;
@@ -658,7 +727,7 @@
       for (let i = stepIndex + 1; i < steps.length; i += 1) remaining += steps[i].distance;
       const minutes = Math.max(1, Math.round(remaining / 1.35 / 60));
       etaText.textContent = minutes + ' min';
-      etaSub.textContent = formatDistance(remaining) + ' · ' + destName;
+      etaSub.textContent = formatDistance(remaining) + ' · ' + destinationName;
     }
 
     function maybeReroute(user) {
@@ -719,8 +788,9 @@
     function enterArrived() {
       if (arrived) return;
       arrived = true;
-      body.classList.add('is-arrived');
-      arrivedName.textContent = destName;
+      navigating = false;
+      setPageMode('arrived');
+      arrivedName.textContent = destinationName;
       stopWatch();
     }
 
@@ -747,8 +817,8 @@
       try {
         origin = await getCurrentPosition();
       } catch (error) {
-        startBtn.disabled = false;
-        startBtn.textContent = 'Enable location to start';
+        resetStartButton();
+        setNotice('Location is off. You can still open this stop in Maps.');
         return;
       }
 
@@ -765,20 +835,13 @@
         route.distance = resolved.distance;
         route.duration = resolved.duration;
       } else {
-        // Couldn't route in-page -> straight-line guidance; "Open in Google Maps"
-        // remains available in the preview as the detailed fallback.
+        // When the route service is unavailable, keep a simple heading toward
+        // the stop instead of blocking the player.
         route.coords = [origin, route.dest];
         route.steps = straightSteps(origin, route.dest);
       }
 
-      userPos = origin;
-      stepIndex = 0;
-      navigating = true;
-      lastRenderPos = null;
-      body.classList.add('is-navigating');
-      renderFollow();
-      updateNavHud(origin);
-      startWatch();
+      enterNavigation(origin);
     }
 
     window.addEventListener('resize', () => {
@@ -845,7 +908,7 @@
 
       const previousWaypoint = cleanWpid(firstParam(['prev_wpid', 'previous_wpid', 'back_wpid', 'from_wpid']));
       if (previousWaypoint) {
-        const url = new URL('./waypoint.html', window.location.href);
+        const url = new URL('./navigator.html', window.location.href);
         appendSharedRunParams(url);
         url.searchParams.set('wpid', previousWaypoint);
         url.searchParams.set('waypoint', previousWaypoint);
@@ -899,20 +962,19 @@
     }
 
     /* ---------- Render ---------- */
-    function renderWaypoint(waypoint, game) {
-      const id = cleanText(waypoint.wpid || wpid);
-      const name = cleanText(waypoint.name) || 'Waypoint #' + id;
+    function renderDestination(waypoint, game) {
+      const name = cleanText(waypoint.name) || 'the next stop';
       const address = waypointAddressText(waypoint);
       const description = cleanText(waypoint.description);
       const lat = Number(waypoint.lat);
       const lon = Number(waypoint.lon);
       const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
 
-      destName = name;
+      destinationName = name;
       route.dest = hasCoords ? { lat, lon } : null;
 
       syncWaypointParam(waypoint);
-      document.title = name.toUpperCase() + ' | WAYPOINT | THE GAME BUREAU';
+      document.title = name.toUpperCase() + ' | NAVIGATOR | THE GAME BUREAU';
       wpName.textContent = name;
       wpDescription.textContent = description;
       wpAddress.textContent = address;
@@ -920,67 +982,67 @@
       destLabelName.textContent = name;
       destLabelSub.textContent = cleanText(waypoint.address) || cleanText(waypoint.city) || 'Destination';
 
-      const w3w = cleanText(waypoint.w3w);
-      if (w3w) {
-        w3wChip.textContent = w3w;
-        w3wChip.href = 'https://what3words.com/' + encodeURIComponent(w3w);
-        w3wChip.hidden = false;
-      } else {
-        w3wChip.hidden = true;
-      }
-
       mapsBtn.href = directionsUrl(waypoint);
       arriveBtn.href = arriveBtn2.href = arrivedUrl(game, waypoint);
       backBtn.dataset.href = rewindUrl(game, waypoint);
       backBtn.dataset.fallbackHref = fallbackRunUrl(game);
+      navBackBtn.dataset.href = backBtn.dataset.href;
+      navBackBtn.dataset.fallbackHref = backBtn.dataset.fallbackHref;
 
       if (!hasCoords) {
         startBtn.style.display = 'none';
+        setNotice('Open this stop in Maps for directions.');
+      } else {
+        startBtn.style.display = '';
+        setNotice('');
       }
 
       statusText.textContent = '';
-      body.classList.remove('is-loading', 'is-error');
-      renderPreviewMap();
+      enterPreview();
     }
 
-    function renderError(error) {
+    function enterError(error) {
       console.error(error);
       statusText.textContent = '';
-      errorCard.textContent = error && error.message ? error.message : 'Could not load this waypoint.';
-      body.classList.remove('is-loading');
-      body.classList.add('is-error');
+      errorText.textContent = error && error.message ? error.message : 'Try opening the game again.';
+      if (errorBackBtn) errorBackBtn.dataset.fallbackHref = fallbackRunUrl(null);
+      setPageMode('error');
     }
 
     startBtn.addEventListener('click', () => { startNavigation(); });
 
-    backBtn.addEventListener('click', () => {
+    function handleBackClick(event) {
+      const trigger = event && event.currentTarget ? event.currentTarget : backBtn;
       if (navigating && !arrived) {
-        // Step out of navigation back to the preview rather than leaving the page.
-        stopWatch();
-        navigating = false;
-        body.classList.remove('is-navigating');
-        renderPreviewMap();
+        // Back exits live navigation first; a second Back leaves the page.
+        enterPreview();
         return;
       }
-      const href = cleanText(backBtn.dataset.href);
+      const href = cleanText(trigger.dataset.href || backBtn.dataset.href);
       if (href) { window.location.href = href; return; }
       if (window.history.length > 1) window.history.back();
-      else if (cleanText(backBtn.dataset.fallbackHref)) window.location.href = backBtn.dataset.fallbackHref;
-    });
+      else if (cleanText(trigger.dataset.fallbackHref || backBtn.dataset.fallbackHref)) {
+        window.location.href = trigger.dataset.fallbackHref || backBtn.dataset.fallbackHref;
+      }
+    }
+
+    backBtn.addEventListener('click', handleBackClick);
+    navBackBtn.addEventListener('click', handleBackClick);
+    if (errorBackBtn) errorBackBtn.addEventListener('click', handleBackClick);
 
     (async function init() {
       try {
         const [game, waypoint] = await Promise.all([loadGame(gameId), loadWaypoint(wpid)]);
         await applyGameTheme(game);
-        renderWaypoint(waypoint, game);
+        renderDestination(waypoint, game);
       } catch (error) {
         if (!requestedWpid && wpid === DEFAULT_WPID) {
           const game = await loadGame(gameId);
           await applyGameTheme(game);
-          renderWaypoint(DEFAULT_WAYPOINT, game);
+          renderDestination(DEFAULT_WAYPOINT, game);
           return;
         }
-        renderError(error);
+        enterError(error);
       }
     }());
   </script>

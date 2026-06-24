@@ -380,6 +380,8 @@
     /* button bubble */
     .msg:has(.bubble-btn) { min-width: 45%; }
     .bubble-btn { display: block; padding: 0.55em 1.1em; width: 100%; border: 0; background: var(--game-primary, #5468a7); color: var(--game-quaternary, #fff); border-radius: 14px; text-decoration: none; text-align: center; font-family: inherit; font-size: 0.95em; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity .12s; box-sizing: border-box; }
+    .bubble-navigate { display: flex; align-items: center; justify-content: center; gap: 7px; }
+    .bubble-navigate-pin { flex: 0 0 auto; }
     .bubble-btn:active { opacity: .75; }
 
     .lb {
@@ -2706,6 +2708,12 @@
         }
         if (needsInput) {
           showTextInput(stop, currentBubbleIndex, { flowKind });
+        } else if (stop && stop.waypointId && flowKind === 'main') {
+          // Waypoint gate: the navigate card is shown; wait for the player to tap
+          // it (which opens navigator.html) rather than auto-advancing. The next
+          // waypoint only appears after they arrive and return (arrived_wpid on
+          // load), so waypoints surface one at a time instead of all at once.
+          disableInput();
         } else {
           const flowToken = clearPendingMessageFlow();
           scheduleMessageFlow(() => {
@@ -2783,6 +2791,78 @@
         console.warn('Could not load anytime replies', err);
         return [];
       }
+    }
+
+    // ── Waypoint route → navigator.html links ───────────────────────────────
+    // The game's route lives in the `maps` table (game_id -> waypoint_id, ord).
+    // We load it and drop a tappable "navigate" card per waypoint into the chat,
+    // each linking to navigator.html for that wpid.
+    async function fetchRouteWaypointsFromSupabase(forGameId) {
+      if (!forGameId) return [];
+      try {
+        const mapsUrl = new URL('rest/v1/maps', `${SB_CONFIG.url.replace(/\/+$/, '')}/`);
+        mapsUrl.searchParams.set('select', 'waypoint_id,ord');
+        mapsUrl.searchParams.set('game_id', `eq.${forGameId}`);
+        mapsUrl.searchParams.set('order', 'ord.asc');
+        const headers = { apikey: SB_CONFIG.key, Authorization: `Bearer ${SB_CONFIG.key}`, Accept: 'application/json' };
+        const mapsRes = await fetch(mapsUrl.toString(), { headers, cache: 'no-store' });
+        if (!mapsRes.ok) return [];
+        const mapRows = await mapsRes.json();
+        if (!Array.isArray(mapRows) || !mapRows.length) return [];
+
+        const orderedIds = mapRows
+          .map((r) => Number(r && r.waypoint_id))
+          .filter((n) => Number.isFinite(n));
+        const uniqueIds = [...new Set(orderedIds)];
+        if (!uniqueIds.length) return [];
+
+        const wpUrl = new URL('rest/v1/waypoints', `${SB_CONFIG.url.replace(/\/+$/, '')}/`);
+        wpUrl.searchParams.set('select', 'wpid,name');
+        wpUrl.searchParams.set('wpid', `in.(${uniqueIds.join(',')})`);
+        const wpRes = await fetch(wpUrl.toString(), { headers, cache: 'no-store' });
+        if (!wpRes.ok) return [];
+        const wpRows = await wpRes.json();
+        const nameById = new Map();
+        (Array.isArray(wpRows) ? wpRows : []).forEach((row) => {
+          if (row && row.wpid != null) nameById.set(String(row.wpid), String(row.name || '').trim());
+        });
+
+        return mapRows
+          .map((r) => {
+            const id = Number(r && r.waypoint_id);
+            if (!Number.isFinite(id)) return null;
+            return { wpid: String(id), name: nameById.get(String(id)) || '' };
+          })
+          .filter(Boolean);
+      } catch (err) {
+        console.warn('Could not load waypoint route', err);
+        return [];
+      }
+    }
+
+    function buildNavigatorUrl(wpid) {
+      const url = new URL('../navigator.html', window.location.href);
+      if (gameId) url.searchParams.set('id', gameId);
+      url.searchParams.set('wpid', String(wpid));
+      const sessionParam = String(params.get('session') || '').trim();
+      if (sessionParam) url.searchParams.set('session', sessionParam);
+      const modeParam = String(params.get('mode') || '').trim();
+      if (modeParam) url.searchParams.set('mode', modeParam);
+      return url.toString();
+    }
+
+    function makeNavigateCardMessage(wp) {
+      const name = String(wp && wp.name || '').trim() || 'the next stop';
+      const label = 'Navigate to ' + name;
+      const href = buildNavigatorUrl(wp.wpid);
+      const pin = '<svg class="bubble-navigate-pin" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"/></svg>';
+      return {
+        bubbleId: 'wp-card-' + wp.wpid,
+        kind: 'navigate',
+        text: label,
+        html: `<a class="bubble-btn bubble-navigate" href="${escapeAttr(href)}">${pin}<span>${escapeHtml(label)}</span></a>`,
+        callToAction: false
+      };
     }
 
     function buildAnytimeReplyStopsFromRows(rows) {
@@ -3179,6 +3259,20 @@
         legacyAnytimeStops = buildAnytimeReplyStopsFromRows(anytimeReplyRows);
         anytimeStops = allStops.filter((stop) => stop.inlineAnytime);
         baseGameStops = allStops.filter((stop) => !stop.playerReply?.anytime && !stop.inlineAnytime);
+
+        // Drive the chat from the game's waypoint route: each route waypoint (in
+        // `ord` order) gets a tappable navigator.html card. Aligns to existing
+        // conversation stops by index; extra waypoints append as card-only stops.
+        const routeWaypoints = await fetchRouteWaypointsFromSupabase(gameId);
+        routeWaypoints.forEach((wp, i) => {
+          if (!baseGameStops[i]) {
+            baseGameStops[i] = { id: 'wp-' + wp.wpid, messages: [], playerReply: null };
+          }
+          baseGameStops[i].waypointId = wp.wpid;
+          baseGameStops[i].waypointName = wp.name;
+          baseGameStops[i].messages = [makeNavigateCardMessage(wp), ...(baseGameStops[i].messages || [])];
+        });
+
         vars = loadVars();
         ['team01','team02','team03','team04','team05','team06','team07','team08'].forEach(key => {
           const val = String(gameData[key] || '').trim();
@@ -3198,6 +3292,14 @@
         refreshGroupedGameStops();
 
         if (!gameStops.length) { chatEl.textContent = 'No stops configured for this game.'; return; }
+
+        // Returning from navigator.html after arriving at a waypoint: advance past
+        // that waypoint so the player resumes at the next one (one at a time).
+        const arrivedWpid = String(params.get('arrived_wpid') || '').trim();
+        if (arrivedWpid) {
+          const arrivedIndex = gameStops.findIndex((s) => s && String(s.waypointId || '') === arrivedWpid);
+          if (arrivedIndex >= 0) saveStep(arrivedIndex + 1);
+        }
 
         const savedStep = Math.min(loadStep(), gameStops.length - 1);
         if (savedStep > 0) {

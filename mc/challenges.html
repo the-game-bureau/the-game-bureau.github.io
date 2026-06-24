@@ -4449,7 +4449,7 @@ code{font-family:"IBM Plex Mono",monospace;}
 }
 
 .node--stop .node-content::before{
-  content:"STOP";
+  content:"WAYPOINT";
   display:block;
   color:var(--stop-label);
   font-size:.56rem;
@@ -10122,10 +10122,6 @@ html.admin-embedded .builder-section-head{
           <div class="add-panel-body">
             <div class="add-panel-section">
               <div class="add-panel-section-label">NEW<span class="field-info" tabindex="0" role="note" aria-label="Add a Stop or a Challenge component to the game.">i<span class="field-tooltip" role="tooltip">A Stop combines a Place with Challenge components such as guide messages and player replies.</span></span></div>
-              <button class="add-btn add-btn--stop" data-add-stencil="stop" type="button" disabled aria-label="Add stop">
-                <span class="add-btn-label">STOP</span>
-                <span class="add-btn-key">W</span>
-              </button>
               <button class="add-btn add-btn--bubble" data-add-stencil="bubble" data-add-kind="text" type="button" disabled aria-label="Add guide text message">
                 <span class="add-btn-label">GUIDE TEXT</span>
                 <span class="add-btn-key">T</span>
@@ -10158,11 +10154,6 @@ html.admin-embedded .builder-section-head{
                 <span class="add-btn-label">PLAYER REPLY</span>
                 <span class="add-btn-key">P</span>
               </button>
-            </div>
-            <div class="add-panel-section">
-              <div class="add-panel-section-label">STOP LIBRARY</div>
-              <div class="stop-library-status" id="stopLibraryStatus">Loading saved stops...</div>
-              <div class="stop-library" id="stopLibraryList" aria-label="Stop library"></div>
             </div>
           </div>
         </aside>
@@ -10233,7 +10224,6 @@ html.admin-embedded .builder-section-head{
               <svg class="link-layer" id="linkLayer" aria-hidden="true"></svg>
               <div class="node-layer" id="nodeLayer"></div>
               <div class="phone-stencil-tray" id="stencilBar">
-                <button class="stencil" data-stencil="stop" type="button" aria-label="Add stop"></button>
                 <button class="stencil" data-stencil="bubble" type="button" aria-label="Add guide message"></button>
                 <button class="stencil" data-stencil="reply" type="button" aria-label="Add player message"></button>
                 <button class="stencil" data-stencil="button" type="button" aria-label="Add button"></button>
@@ -10582,7 +10572,7 @@ const TYPE_CONFIG = {
   stop: {
     width: 236,
     height: 90,
-    kicker: 'STOP',
+    kicker: 'WAYPOINT',
     title: 'STOP NAME',
     body: '',
     code: 'ST'
@@ -15755,6 +15745,8 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     ...teamFieldState,
     // Legacy saved nodes used waypointGroup; all new writes use stopGroup.
     stopGroup: type === 'stop' ? normalizeStopGroup(raw && (raw.stopGroup ?? raw.waypointGroup)) : '',
+    // Stable link from an auto-synthesized stop back to its waypoint (wpid).
+    waypointId: type === 'stop' ? String((raw && raw.waypointId) || '').trim() : '',
     body: (type === 'reply' && (!!(raw && raw.acceptAny) || (raw && raw.kind === 'photo')))
       ? ''
       : (type === 'reply' && !normalizeVariableName(raw && raw.varName) && isVariableOnlyBody(rawBody))
@@ -17151,6 +17143,7 @@ function createNode(type, x, y) {
     tags: [],
     teams: [],
     stopGroup: '',
+    waypointId: '',
     body: config.body,
     buttonUrl: '',
     minigame: '',
@@ -17730,6 +17723,9 @@ function renderStopLibrary() {
 }
 
 async function refreshStopLibrary(options = {}) {
+  // The STOP LIBRARY panel was removed — stops now come from waypoints. Keep the
+  // function (callers remain) but skip the now-pointless Supabase fetch + render.
+  return;
   const refreshToken = state.stopLibraryRefreshToken + 1;
   state.stopLibraryRefreshToken = refreshToken;
   state.stopLibraryLoading = true;
@@ -17813,6 +17809,7 @@ function openSavedGame(gameId, options = {}) {
   }
   void refreshStopLibrary({ message: 'Loading saved stops...' });
   void loadAnytimeRepliesForCurrentGame();
+  void loadWaypointStopsForCurrentGame();
 }
 
 async function openSavedGameById(gameId, options = {}) {
@@ -20013,6 +20010,8 @@ function duplicateNode(nodeId) {
     primaryTag: source.primaryTag || '',
     ...getTeamFieldState(source),
     stopGroup: source.type === 'stop' ? normalizeStopGroup(source.stopGroup ?? source.waypointGroup) : '',
+    // Never inherit a waypoint binding onto a duplicate — reconcile matches by waypointId.
+    waypointId: '',
     body: source.body || '',
     buttonUrl: source.buttonUrl || '',
     minigame: source.minigame || '',
@@ -20042,6 +20041,8 @@ function addNode(type, x, y, options = {}) {
   if (type === 'game' && hasGameNode()) {
     return null;
   }
+  // Stops are auto-derived from waypoints — no manual/duplicate/library creation.
+  if (type === 'stop') return null;
 
   const sourceNode = getAutoLinkSourceNode();
   const node = createNode(type, x, y);
@@ -20649,6 +20650,8 @@ function insertStopLibraryEntry(entryId) {
 }
 
 function addNodeToVisiblePhone(type, kind = '') {
+  // Stops are auto-derived from the game's waypoints; they can't be hand-created.
+  if (type === 'stop') return null;
   if (!hasGameNode()) return null;
   const sourceNode = getAutoLinkSourceNode();
   const placement = getAutoPlacementPosition(type, sourceNode);
@@ -20793,6 +20796,7 @@ function serializeNodeState(node) {
     primaryTag: node.primaryTag || '',
     ...getTeamFieldState(meta || node),
     stopGroup: node.type === 'stop' ? normalizeStopGroup(node.stopGroup ?? node.waypointGroup) : '',
+    waypointId: node.type === 'stop' ? String(node.waypointId || '') : '',
     body: meta ? meta.body : node.body,
     kind: node.kind || '',
     linkUrl: node.linkUrl || '',
@@ -24271,6 +24275,155 @@ if (objectBubbleAudioInput) {
 // ────────────────────────────────────────────────────────────────────────────
 
 // ── Anytime Replies: CRUD against the anytime_replies Supabase table ────────
+// ── Waypoint stops: auto-load the game's waypoints into the phone as stops ──
+// Stops are no longer hand-authored. On game open we read the game's route from
+// the `maps` table (game_id -> waypoint_id, ord) and the referenced `waypoints`
+// rows, then synthesize one stop node per waypoint (stamped with waypointId so
+// STOP GROUP + attached challenges survive save/reload). See plan + CLAUDE.md.
+const MAPS_TABLE = 'maps';
+const WAYPOINTS_TABLE = 'waypoints';
+
+async function loadWaypointStopsForCurrentGame() {
+  const capturedGameId = state.currentGameId;
+  if (!capturedGameId || !hasSupabaseStore()) return;
+
+  let mapRows = [];
+  try {
+    const mapsUrl = buildSupabaseUrl({
+      select: 'waypoint_id,ord,end',
+      game_id: 'eq.' + capturedGameId,
+      order: 'ord.asc'
+    }, MAPS_TABLE);
+    const mapsRes = await fetch(mapsUrl, {
+      cache: 'no-store',
+      headers: getSupabaseHeaders({ Accept: 'application/json' })
+    });
+    if (mapsRes.ok) {
+      const rows = await mapsRes.json();
+      if (Array.isArray(rows)) mapRows = rows;
+    }
+  } catch (e) {
+    console.warn('Builder: could not load waypoint route for game', capturedGameId, e);
+    return;
+  }
+  // Bail if the user switched games while the fetch was in flight.
+  if (state.currentGameId !== capturedGameId) return;
+
+  const orderedWpids = mapRows
+    .map((row) => Number(row && row.waypoint_id))
+    .filter((id) => Number.isFinite(id));
+  const uniqueWpids = [...new Set(orderedWpids)];
+
+  const wpById = new Map();
+  if (uniqueWpids.length) {
+    try {
+      const wpUrl = buildSupabaseUrl({
+        select: 'wpid,name,city,address,description,lat,lon',
+        wpid: 'in.(' + uniqueWpids.join(',') + ')'
+      }, WAYPOINTS_TABLE);
+      const wpRes = await fetch(wpUrl, {
+        cache: 'no-store',
+        headers: getSupabaseHeaders({ Accept: 'application/json' })
+      });
+      if (wpRes.ok) {
+        const rows = await wpRes.json();
+        if (Array.isArray(rows)) {
+          rows.forEach((row) => {
+            if (row && row.wpid != null) wpById.set(String(row.wpid), row);
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Builder: could not load waypoints for game', capturedGameId, e);
+      return;
+    }
+    if (state.currentGameId !== capturedGameId) return;
+  }
+
+  try {
+    reconcileWaypointStops(mapRows, wpById);
+  } catch (e) {
+    console.error('[waypoint-stops] reconcile failed', e);
+  }
+}
+
+// Replace the doc's stop nodes with ones derived from the game's waypoints,
+// preserving STOP GROUP / id / position / links for waypoints already present.
+function reconcileWaypointStops(mapRows, wpById) {
+  if (!hasGameNode()) return;
+  // Only treat as "dirty" if the user has real unsaved edits to THIS doc; a fresh
+  // open is clean even if a stale global localOnlyChanges flag is set.
+  const wasClean = !hasUnsavedChanges();
+
+  const existingStops = state.doc.nodes.filter((node) => node && node.type === 'stop');
+  const byWaypoint = new Map();
+  existingStops.forEach((node) => {
+    const key = String(node.waypointId || '').trim();
+    if (key && !byWaypoint.has(key)) byWaypoint.set(key, node);
+  });
+
+  const keepIds = new Set();
+  let prevStop = null;
+  let orderTick = 0;
+  let created = 0;
+
+  mapRows.forEach((row) => {
+    const wpid = String(row && row.waypoint_id != null ? row.waypoint_id : '').trim();
+    if (!wpid) return;
+    const wp = wpById.get(wpid);
+    if (!wp) return; // map references a missing/deleted waypoint row — skip it.
+
+    let node = byWaypoint.get(wpid);
+    if (node) {
+      // Refresh the label from the waypoint; keep stopGroup / id / links / position.
+      node.title = normalizeStopTitle(wp.name, node.title);
+    } else {
+      const placement = getAutoPlacementPosition('stop', prevStop);
+      node = createNode('stop', placement.x, placement.y);
+      node.waypointId = wpid;
+      node.title = normalizeStopTitle(wp.name, node.title);
+      state.doc.nodes.push(node);
+      created += 1;
+    }
+    orderTick += 1;
+    node.orderIndex = orderTick * 100; // provisional; re-ranked below.
+    keepIds.add(node.id);
+    prevStop = node;
+  });
+
+  // Prune legacy hand-authored stops and stops whose waypoint left the route.
+  // Stop-only removal: any attached challenge bubbles are kept (they reattach to
+  // the previous/virtual stop group, an already-supported state).
+  const removeIds = existingStops
+    .filter((node) => !keepIds.has(node.id))
+    .map((node) => node.id);
+  if (removeIds.length) removeNodeIds(removeIds);
+
+  console.info('[waypoint-stops]', {
+    game: state.currentGameId,
+    routeRows: mapRows.length,
+    matchedOrCreated: keepIds.size,
+    created,
+    pruned: removeIds.length
+  });
+
+  // Clean re-rank of the whole thread (stops + trailing bubbles/replies).
+  assignSequentialOrderIndices(state.doc.nodes);
+  syncNextNodeNumbers();
+
+  // Keep the inspector stable (removeNodeIds may have moved the selection).
+  const gameNode = getGameNode();
+  if (gameNode) selectNode(gameNode.id);
+
+  renderAll();
+
+  if (wasClean) {
+    rememberCleanSnapshot();
+  } else {
+    syncRecoveryDraftNow({ updateStatus: false });
+  }
+}
+
 const ANYTIME_REPLIES_TABLE = 'anytime_replies';
 const anytimeRepliesField = document.getElementById('anytimeRepliesField');
 const anytimeRepliesList = document.getElementById('anytimeRepliesList');

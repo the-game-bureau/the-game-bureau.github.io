@@ -1,4 +1,4 @@
-/* waypoint.html — full-screen, in-page walking navigator.
+/* navigator.html - full-screen, in-page walking navigator.
    Keyless: OpenStreetMap tiles + OSRM foot routing + browser geolocation
    (watchPosition) for live tracking and arrival detection. Team/brand color
    enters as accents (route, user dot, ETA); chrome stays high-contrast ink so it
@@ -43,12 +43,12 @@ button, a { font: inherit; color: inherit; }
 button { border: 0; background: none; cursor: pointer; }
 
 /* ---------- Map ---------- */
-#mapBg { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: var(--bg); touch-action: none; cursor: grab; }
-.is-dragging #mapBg { cursor: grabbing; }
+#mapBg { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: var(--bg); }
 #mapTileLayer { position: absolute; inset: 0; }
 #mapTileLayer img {
   position: absolute; width: 256px; height: 256px; max-width: none;
-  user-select: none; filter: saturate(0.9) contrast(1.02);
+  pointer-events: none; user-select: none; -webkit-user-drag: none;
+  filter: saturate(0.9) contrast(1.02);
 }
 
 #routeLayer { position: fixed; top: 0; left: 0; z-index: 1; pointer-events: none; }
@@ -79,10 +79,17 @@ button { border: 0; background: none; cursor: pointer; }
     linear-gradient(0deg, rgba(15, 18, 23, 0.30) 0%, rgba(15, 18, 23, 0) 26%);
 }
 
+#mapHitLayer {
+  position: fixed; inset: 0; z-index: 3;
+  cursor: grab; touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.is-loading #mapHitLayer, .is-error #mapHitLayer { display: none; }
+.is-dragging #mapHitLayer { cursor: grabbing; }
+
 /* ---------- Floating controls ---------- */
-.nav-top-left { position: fixed; top: calc(env(safe-area-inset-top) + 0.85rem); left: 1rem; z-index: 7; }
 .nav-top-right { position: fixed; top: calc(env(safe-area-inset-top) + 1rem); right: 1rem; z-index: 7; }
-.is-loading .nav-top-left, .is-loading .nav-top-right { display: none; }
+.is-loading .nav-top-right { display: none; }
 
 .icon-btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -192,16 +199,13 @@ body:not(.is-loading):not(.is-error) #destLabel { display: block; }
 .sheet-address { color: var(--ink-soft); font-size: 0.92rem; line-height: 1.4; white-space: pre-line; }
 .sheet-address:empty { display: none; }
 
-.w3w-chip {
-  display: inline-flex; align-self: flex-start; align-items: center;
-  margin-top: 0.45rem; padding: 0.35rem 0.7rem; border-radius: 9px;
+.sheet-notice {
+  color: var(--ink); font-size: 0.9rem; line-height: 1.35;
+  padding: 0.65rem 0.75rem; border-radius: 12px;
   background: color-mix(in srgb, var(--accent) 10%, #fff);
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
-  color: var(--ink); font-family: "Outfit", sans-serif; font-weight: 700; font-size: 0.85rem;
-  text-decoration: none;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
 }
-.w3w-chip::before { content: "///"; margin-right: 0.25rem; color: var(--accent); font-weight: 800; }
-.w3w-chip[hidden] { display: none; }
+.sheet-notice:empty { display: none; }
 
 /* ---------- Buttons ---------- */
 .sheet-actions { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.85rem; }
@@ -239,7 +243,8 @@ body:not(.is-loading):not(.is-error) #destLabel { display: block; }
 .nav-eta { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .nav-eta strong { font-family: "Outfit", sans-serif; font-size: 1.3rem; font-weight: 700; line-height: 1; color: var(--ink); }
 .nav-eta span { margin-top: 0.18rem; color: var(--ink-soft); font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nav-arrive { width: auto; flex: 0 0 auto; min-height: 48px; padding: 0.7rem 1.35rem; }
+.nav-back, .nav-arrive { width: auto; flex: 0 0 auto; min-height: 48px; padding: 0.7rem 1rem; }
+.nav-arrive { padding-inline: 1.2rem; }
 
 /* ---------- Arrived ---------- */
 #arrivedCard {
@@ -278,6 +283,12 @@ body:not(.is-loading) #statusText { display: none; }
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45); text-align: center; font-size: 1rem; line-height: 1.5;
 }
 .is-error #errorCard { display: block; }
+.error-title {
+  font-family: "Outfit", sans-serif; font-size: 1.35rem; line-height: 1.12;
+  margin-bottom: 0.5rem; color: var(--ink);
+}
+#errorText { color: var(--ink-soft); }
+.error-actions { margin-top: 1.1rem; }
 
 /* ---------- Motion ---------- */
 @keyframes spin { to { transform: rotate(360deg); } }
