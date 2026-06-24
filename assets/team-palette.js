@@ -83,6 +83,31 @@
     return luminance > 140 ? '#000000' : '#FFFFFF';
   }
 
+  function perceivedLuminance(value) {
+    const match = clean(value).match(/^#?([0-9a-f]{6})$/i);
+    if (!match) return null;
+    const hex = match[1];
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return (0.299 * r) + (0.587 * g) + (0.114 * b);
+  }
+
+  // A usable UI accent: the first brand color that isn't near-white, so it stays
+  // visible on light surfaces (outlines, links, route lines). A team's "primary"
+  // is the literal helmet color, which can be white (e.g. Cardinals shell) and
+  // therefore useless as a UI accent — so fall through primary -> secondary ->
+  // tertiary until one is dark enough to read on white. Keeps the literal helmet
+  // color intact for brand surfaces while giving the UI a guaranteed-visible color.
+  function accentColor(colors, fallback = '#243256') {
+    const list = (Array.isArray(colors) ? colors : []).map((c) => normalizeHex(c, '')).filter(Boolean);
+    const usable = list.find((c) => {
+      const lum = perceivedLuminance(c);
+      return lum != null && lum <= 200;
+    });
+    return usable || list[0] || normalizeHex(fallback, '#243256');
+  }
+
   function isTrueish(value) {
     if (typeof value === 'boolean') return value;
     if (typeof value === 'number') return value !== 0;
@@ -214,7 +239,8 @@
     const quaternary = team
       ? readableTextColor(primary, normalizeHex(fallback.quaternary, '#FFFFFF'))
       : normalizeHex(fallback.quaternary, '#FFFFFF');
-    return { primary, secondary, tertiary, quaternary };
+    const accent = accentColor([primary, secondary, tertiary], secondary);
+    return { primary, secondary, tertiary, quaternary, accent };
   }
 
   function gamePalette(game) {
@@ -301,6 +327,7 @@
     teamPalette,
     gamePalette,
     resolveGamePalette,
+    accentColor,
     loadTeams
   };
 }));
