@@ -488,7 +488,7 @@
     .prompt-text:focus { outline: none; }
 
     #dedupDialog { width: min(720px, calc(100vw - 32px)); }
-    #importDialog, #finderDialog { width: min(760px, calc(100vw - 32px)); }
+    #importDialog, #finderDialog, #bulkDialog { width: min(760px, calc(100vw - 32px)); }
     .import-text {
       width: 100%;
       min-height: 38vh;
@@ -593,7 +593,7 @@
 
       /* Dialogs (Find stops, Prompt, Import, Dedup, Near) fill the screen. */
       .modal,
-      #dedupDialog, #importDialog, #finderDialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
+      #dedupDialog, #importDialog, #finderDialog, #bulkDialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
       .modal-bar { flex-wrap: wrap; padding: 10px; }
       .modal-title { flex: 1 1 100%; }
       .modal-bar .btn { flex: 1 1 auto; }
@@ -645,6 +645,7 @@
         <option value="no_coords">Missing coordinates</option>
         <option value="no_description">Missing description</option>
       </select>
+      <button class="btn small" id="selectBtn" type="button" title="Bulk Fill or Delete the waypoints currently shown by the filter/search">Select</button>
       <button class="btn small" id="newBtn" type="button" title="Search the world for the text in the box, or add a blank waypoint when empty">New</button>
       <button class="btn small" id="findStopsBtn" type="button" title="Pull real tour-worthy places from OpenStreetMap for a city">Find stops</button>
       <button class="btn small" id="promptBtn" type="button" title="Generate an AI prompt that returns walking-tour stops as CSV">Prompt</button>
@@ -708,6 +709,17 @@
       <button class="btn small" id="finderCloseBtn" type="button">Close</button>
     </div>
     <div class="prompt-body" id="finderBody"></div>
+  </section>
+
+  <div class="modal-backdrop" id="bulkBackdrop" hidden></div>
+  <section class="modal" id="bulkDialog" hidden role="dialog" aria-modal="true" aria-labelledby="bulkTitle">
+    <div class="modal-bar">
+      <h3 class="modal-title" id="bulkTitle">Bulk edit</h3>
+      <button class="btn small" id="bulkFillBtn" type="button">Fill</button>
+      <button class="btn warn small" id="bulkDeleteBtn" type="button">Delete</button>
+      <button class="btn small" id="bulkCloseBtn" type="button">Close</button>
+    </div>
+    <div class="prompt-body" id="bulkBody"></div>
   </section>
 
   <script src="js/admin-auth.js"></script>
@@ -1466,6 +1478,8 @@
     // A precise point from the most authoritative filled field: the Address
     // (coords / Plus Code / what3words) or the dedicated what3words field.
     async function bestPoint(row) {
+      // Stored exact coordinates win — no geocoding needed.
+      if (Number.isFinite(row.lat) && Number.isFinite(row.lon)) return { lat: row.lat, lon: row.lon };
       let pt = await resolveAddressPoint(cleanText(row.address));
       if (pt) return pt;
       const words = parseW3W(cleanText(row.w3w));
@@ -2643,7 +2657,7 @@
       const body = document.getElementById('finderBody');
       if (!body) return;
       body.innerHTML = '';
-      const hint = zipNote('Pulls real tour-worthy places (historic sites, monuments, public art, museums, viewpoints) from OpenStreetMap for a city — anywhere in the world.');
+      const hint = zipNote('Pulls real tour-worthy places (historic sites, monuments, museums, notable landmarks) from OpenStreetMap and Wikipedia for a city — anywhere in the world.');
       const list = document.createElement('div');
       list.className = 'pick-list';
       const chooser = buildLocationChooser('Find stops', (loc) => runFinder(loc, list), seed || '');
@@ -2677,15 +2691,41 @@
       return 'point of interest';
     }
 
+    // Half the bounding-box diagonal in metres, clamped to Wikipedia geosearch
+    // limits (1–10 km) — used as the radius for the Wikipedia lookup.
+    function bboxRadiusM(b) {
+      const lat1 = parseFloat(b.s), lat2 = parseFloat(b.n), lon1 = parseFloat(b.w), lon2 = parseFloat(b.e);
+      const dLat = (lat2 - lat1) * 111000;
+      const dLon = (lon2 - lon1) * 111000 * Math.cos((lat1 + lat2) / 2 * Math.PI / 180);
+      return Math.max(1000, Math.min(10000, Math.round(Math.sqrt(dLat * dLat + dLon * dLon) / 2)));
+    }
+
+    // Notable nearby places from Wikipedia (CORS-enabled) — title, the Wikidata
+    // short description, and coordinates. Great for real, described tour stops.
+    async function fetchWikipediaStops(lat, lon, radiusM) {
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
+      const url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*'
+        + '&generator=geosearch&ggscoord=' + lat + '%7C' + lon + '&ggsradius=' + Math.round(radiusM)
+        + '&ggslimit=300&prop=coordinates%7Cdescription&colimit=max';
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const data = await res.json();
+      const pages = (data && data.query && data.query.pages) ? Object.keys(data.query.pages).map((k) => data.query.pages[k]) : [];
+      return pages.map((p) => {
+        const c = (p.coordinates && p.coordinates[0]) || null;
+        return { title: p.title, lat: c ? c.lat : null, lon: c ? c.lon : null, description: p.description || '' };
+      }).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+    }
+
     async function runFinder(loc, list) {
       loc = cleanText(loc);
       list.innerHTML = '';
       if (!loc) { list.append(zipNote('Pick or type a city first.')); return; }
       const parsed = parseLocation(loc);
       finderContext = { loc: loc, city: parsed.city, region: parsed.region };
-      list.append(zipNote('Searching OpenStreetMap…'));
+      list.append(zipNote('Searching OpenStreetMap and Wikipedia…'));
       try {
-        // City bounding box via Nominatim (full typed location, works worldwide).
+        // City bounding box + center via Nominatim (works worldwide).
         const url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(loc)
           + '&format=jsonv2&limit=1';
         const geo = await fetch(url, { headers: { 'Accept-Language': 'en' } });
@@ -2693,38 +2733,52 @@
         if (!hit || !hit.boundingbox) { list.innerHTML = ''; list.append(zipNote('Couldn’t locate “' + loc + '”. Try adding the country.')); return; }
         const bb = hit.boundingbox; // [south, north, west, east]
         const bbox = { s: bb[0], n: bb[1], w: bb[2], e: bb[3] };
-        const els = await fetchTourStops(bbox);
-        // De-duplicate by name; keep the richest tag set.
+        const center = { lat: parseFloat(hit.lat), lon: parseFloat(hit.lon) };
+
+        // Both sources in parallel; if one fails the other still shows.
+        const [els, wikis] = await Promise.all([
+          fetchTourStops(bbox).catch(() => []),
+          fetchWikipediaStops(center.lat, center.lon, bboxRadiusM(bbox)).catch(() => [])
+        ]);
+
+        // De-duplicate by name; OSM added first so its street address wins.
         const seen = new Set();
         const items = [];
+        const add = (it) => { const k = cleanText(it.name).toLowerCase(); if (!k || seen.has(k)) return; seen.add(k); items.push(it); };
+
         els.forEach((el) => {
           const tags = el.tags || {};
           const name = cleanText(tags.name);
           if (!name) return;
-          const key = name.toLowerCase();
-          if (seen.has(key)) return;
-          seen.add(key);
           const street = [cleanText(tags['addr:housenumber']), cleanText(tags['addr:street'])].filter(Boolean).join(' ');
           const lat = (el.lat != null) ? el.lat : (el.center && el.center.lat);
           const lon = (el.lon != null) ? el.lon : (el.center && el.center.lon);
-          items.push({
-            name: name,
-            city: parsed.city,
-            state: parsed.region,
-            zip: cleanText(tags['addr:postcode']),
-            address: street,
-            description: cleanText(tags.description) || (tourStopKind(tags).charAt(0).toUpperCase() + tourStopKind(tags).slice(1) + '.'),
-            kind: tourStopKind(tags),
-            lat: lat,
-            lon: lon
+          const k = tourStopKind(tags);
+          add({
+            name: name, city: parsed.city, state: parsed.region, zip: cleanText(tags['addr:postcode']), address: street,
+            description: cleanText(tags.description) || (k.charAt(0).toUpperCase() + k.slice(1) + '.'),
+            kind: k, lat: lat, lon: lon
           });
         });
+        // Wikipedia geo-articles include non-places (events, orgs, teams) — skip those.
+        const WIKI_SKIP = /\b(convention|festival|organi[sz]ation|company|corporation|election|fire|flood|riot|massacre|shooting|magazine|newspaper|album|song|film|band|team|league|club|diocese|archdiocese|jurisdiction|census|neighborhood|neighbourhood|community|list of)\b/i;
+        wikis.forEach((w) => {
+          const name = cleanText(w.title).replace(/\s*\([^)]*\)\s*$/, '').trim(); // drop "(City)" disambiguators
+          const desc = cleanText(w.description);
+          if (!name || (desc && WIKI_SKIP.test(desc))) return;
+          add({
+            name: name, city: parsed.city, state: parsed.region, zip: '', address: '',
+            description: desc, kind: desc || 'Wikipedia', lat: w.lat, lon: w.lon
+          });
+        });
+
+        if (!items.length) { list.innerHTML = ''; list.append(zipNote('No tour-worthy places found here. Try a larger nearby city.')); return; }
         items.sort((a, b) => a.name.localeCompare(b.name));
         renderFinderResults(items);
       } catch (error) {
         console.error(error);
         list.innerHTML = '';
-        list.append(zipNote('Search failed — OpenStreetMap may be busy. Try again in a moment.'));
+        list.append(zipNote('Search failed — the sources may be busy. Try again in a moment.'));
       }
     }
 
@@ -3751,6 +3805,112 @@
       if (newBtn) newBtn.disabled = !state.authed;
     }
 
+    // --- Bulk edit: act on the waypoints currently shown by the filter/search --
+    let bulkItems = [];   // [{ wpid, include }]
+    let bulkBusy = false;
+
+    function bulkSelectedIds() { return bulkItems.filter((it) => it.include).map((it) => it.wpid); }
+    function openBulkDialog() {
+      const rows = navRows();
+      if (!rows.length) { setStatus('No waypoints in the current view to select.', 'error'); return; }
+      bulkItems = rows.map((r) => ({ wpid: r.wpid, include: true }));
+      const d = document.getElementById('bulkDialog');
+      const b = document.getElementById('bulkBackdrop');
+      if (d) d.hidden = false;
+      if (b) b.hidden = false;
+      renderBulkList();
+    }
+    function closeBulkDialog() {
+      const d = document.getElementById('bulkDialog');
+      const b = document.getElementById('bulkBackdrop');
+      if (d) d.hidden = true;
+      if (b) b.hidden = true;
+    }
+    function renderBulkList() {
+      const title = document.getElementById('bulkTitle');
+      const body = document.getElementById('bulkBody');
+      if (!body) return;
+      body.innerHTML = '';
+      const tools = document.createElement('div');
+      tools.className = 'pick-tools';
+      const all = document.createElement('a'); all.textContent = 'Select all';
+      const none = document.createElement('a'); none.textContent = 'Select none';
+      const summary = document.createElement('span'); summary.className = 'zip-desc';
+      tools.append(all, none, summary);
+      const list = document.createElement('div'); list.className = 'pick-list';
+      const checks = [];
+      const refresh = () => {
+        const n = bulkSelectedIds().length;
+        summary.textContent = n + ' of ' + bulkItems.length + ' selected';
+        if (title) title.textContent = 'Bulk edit · ' + bulkItems.length + ' shown';
+        const fb = document.getElementById('bulkFillBtn'), db = document.getElementById('bulkDeleteBtn');
+        if (fb) { fb.textContent = 'Fill ' + n; fb.disabled = bulkBusy || !n; }
+        if (db) { db.textContent = 'Delete ' + n; db.disabled = bulkBusy || !n; }
+      };
+      bulkItems.forEach((it) => {
+        const wp = findRow(it.wpid);
+        const row = document.createElement('label'); row.className = 'pick-row';
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = it.include;
+        cb.addEventListener('change', () => { it.include = cb.checked; refresh(); });
+        checks.push(cb);
+        const main = document.createElement('div'); main.className = 'pick-main';
+        const nm = document.createElement('span'); nm.className = 'pick-name'; nm.textContent = wp ? displayName(wp) : ('#' + it.wpid);
+        const sub = document.createElement('span'); sub.className = 'pick-sub';
+        sub.textContent = wp ? ['#' + wp.wpid, [wp.city, wp.state].filter(Boolean).join(', '), wp.address].filter(Boolean).join(' · ') : '';
+        main.append(nm, sub);
+        row.append(cb, main);
+        list.append(row);
+      });
+      all.addEventListener('click', () => { bulkItems.forEach((it, i) => { it.include = true; checks[i].checked = true; }); refresh(); });
+      none.addEventListener('click', () => { bulkItems.forEach((it, i) => { it.include = false; checks[i].checked = false; }); refresh(); });
+      body.append(tools, list);
+      refresh();
+    }
+
+    async function bulkFill() {
+      if (bulkBusy) return;
+      const ids = bulkSelectedIds();
+      if (!ids.length) return;
+      bulkBusy = true; renderBulkList();
+      const body = document.getElementById('bulkBody');
+      let prog = null;
+      if (body) { body.innerHTML = ''; prog = document.createElement('div'); prog.className = 'zip-desc'; body.append(prog); }
+      let filled = 0, failed = 0;
+      for (let i = 0; i < ids.length; i++) {
+        const wpid = ids[i];
+        if (prog) prog.textContent = 'Filling ' + (i + 1) + ' of ' + ids.length + '… (' + displayName(findRow(wpid) || {}) + ')';
+        try {
+          await fillWaypoint(wpid, null);
+          if (state.dirtyIds.has(wpid)) { await patchRow(wpid, findRow(wpid)); state.dirtyIds.delete(wpid); filled++; }
+        } catch (error) { console.error(error); failed++; }
+        await new Promise((r) => setTimeout(r, 1100)); // be polite to the geocoder
+      }
+      await refresh();
+      bulkBusy = false;
+      closeBulkDialog();
+      setStatus('Filled ' + filled + ' waypoint' + (filled === 1 ? '' : 's') + (failed ? ' (' + failed + ' failed)' : '') + '.', failed ? 'error' : 'success');
+    }
+
+    async function bulkDelete() {
+      if (bulkBusy) return;
+      const ids = bulkSelectedIds();
+      if (!ids.length) return;
+      if (!window.confirm('Delete ' + ids.length + ' waypoint' + (ids.length === 1 ? '' : 's') + '? This cannot be undone.')) return;
+      bulkBusy = true; renderBulkList();
+      const body = document.getElementById('bulkBody');
+      let prog = null;
+      if (body) { body.innerHTML = ''; prog = document.createElement('div'); prog.className = 'zip-desc'; body.append(prog); }
+      let deleted = 0, failed = 0;
+      for (let i = 0; i < ids.length; i++) {
+        if (prog) prog.textContent = 'Deleting ' + (i + 1) + ' of ' + ids.length + '…';
+        try { await rawDelete(ids[i]); state.rows = state.rows.filter((r) => r.wpid !== ids[i]); deleted++; } catch (error) { console.error(error); failed++; }
+      }
+      await refresh();
+      bulkBusy = false;
+      closeBulkDialog();
+      setStatus('Deleted ' + deleted + ' waypoint' + (deleted === 1 ? '' : 's') + (failed ? ' (' + failed + ' failed)' : '') + '.', failed ? 'error' : 'success');
+    }
+
     // --- Wiring --------------------------------------------------------------
     // Instant filter across all waypoint fields as you type.
     searchInput.addEventListener('input', () => {
@@ -3780,6 +3940,17 @@
     if (importBtn) importBtn.addEventListener('click', openImportDialog);
     const dedupBtn = document.getElementById('dedupBtn');
     if (dedupBtn) dedupBtn.addEventListener('click', openDedupDialog);
+    const selectBtn = document.getElementById('selectBtn');
+    if (selectBtn) selectBtn.addEventListener('click', openBulkDialog);
+
+    const bulkCloseBtn = document.getElementById('bulkCloseBtn');
+    if (bulkCloseBtn) bulkCloseBtn.addEventListener('click', closeBulkDialog);
+    const bulkBackdrop = document.getElementById('bulkBackdrop');
+    if (bulkBackdrop) bulkBackdrop.addEventListener('click', closeBulkDialog);
+    const bulkFillBtn = document.getElementById('bulkFillBtn');
+    if (bulkFillBtn) bulkFillBtn.addEventListener('click', bulkFill);
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    if (bulkDeleteBtn) bulkDeleteBtn.addEventListener('click', bulkDelete);
 
     const importCloseBtn = document.getElementById('importCloseBtn');
     if (importCloseBtn) importCloseBtn.addEventListener('click', closeImportDialog);
@@ -3844,6 +4015,8 @@
       if (importDialog && !importDialog.hidden) closeImportDialog();
       const finderDialog = document.getElementById('finderDialog');
       if (finderDialog && !finderDialog.hidden) closeFinderDialog();
+      const bulkDialog = document.getElementById('bulkDialog');
+      if (bulkDialog && !bulkDialog.hidden && !bulkBusy) closeBulkDialog();
     });
 
     window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });

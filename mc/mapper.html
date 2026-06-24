@@ -108,6 +108,7 @@
     }
     .panel h3 { margin: 0; font-size: 0.82rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
     .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .head-actions { display: flex; gap: 8px; }
 
     .pick-controls { display: grid; gap: 8px; }
     .pick-controls select, .pick-controls input {
@@ -133,6 +134,12 @@
     .map-col { display: grid; gap: 14px; }
     #map { height: 460px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: rgba(var(--bic-blue-rgb), 0.04); }
     #map .leaflet-container { width: 100%; height: 100%; }
+    /* Hollow ring cursor (hotspot at center) so you can frame an orange dot and
+       see it through the transparent middle — beats the giant OS cursor. */
+    #map, #map * {
+      cursor: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%3E%3Ccircle%20cx='12'%20cy='12'%20r='9'%20fill='none'%20stroke='%23ffffff'%20stroke-width='4'/%3E%3Ccircle%20cx='12'%20cy='12'%20r='9'%20fill='none'%20stroke='%231a1a1a'%20stroke-width='2'/%3E%3C/svg%3E") 12 12, crosshair !important;
+    }
+    #map .leaflet-control, #map .leaflet-control * { cursor: pointer !important; }
 
     .route-pin span {
       display: flex; align-items: center; justify-content: center;
@@ -212,7 +219,7 @@
       <p class="legend">Build a game's route from waypoints. Pick the game, check the stops to include, order them, mark the end, and save.</p>
       <ol class="howto">
         <li><strong>Pick a game</strong> — choose it from the list; any saved route loads automatically.</li>
-        <li><strong>Add stops</strong> — <em>filter by city</em> and check waypoints; they appear on the map as you go.</li>
+        <li><strong>Add stops</strong> — every waypoint shows as an <em>orange dot</em> on the map; click a dot to add it (or filter by city and check them in the list).</li>
         <li><strong>Order &amp; finish</strong> — reorder with ▲▼, mark one stop as <em>End</em>, then <em>Save map</em>.</li>
       </ol>
     </section>
@@ -228,7 +235,11 @@
       <section class="panel">
         <div class="panel-head">
           <h3>Waypoints</h3>
-          <a class="btn small" href="waypoints.html" target="_blank" rel="noopener" title="Add or edit waypoints (opens in a new tab)">Add</a>
+          <div class="head-actions">
+            <a class="btn small" href="waypoints.html" target="_blank" rel="noopener" title="Add or edit waypoints (opens in a new tab)">Add</a>
+            <button class="btn small" id="nearbyBtn" type="button" title="Highlight the 3 waypoints nearest your last stop">Nearby</button>
+            <button class="btn small" id="selectAllBtn" type="button" title="Add every waypoint matching the current city/search to the route">Select all</button>
+          </div>
         </div>
         <div class="pick-controls">
           <select id="cityFilter" aria-label="Filter by city"><option value="">All cities</option></select>
@@ -423,16 +434,18 @@
       return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
     }
 
-    // Highlight the 3 nearest not-yet-added waypoints to the focused one.
+    // Highlight the 3 nearest not-yet-added waypoints to the focused one, using
+    // each waypoint's stored coordinates (instant — no geocoding).
     function computeNearest() {
       state.nearest = [];
-      const fp = state.focusWpid ? wpPointCache.get(state.focusWpid) : null;
+      const focus = findWaypoint(state.focusWpid);
+      const fp = focus && Number.isFinite(focus.lat) && Number.isFinite(focus.lon) ? { lat: focus.lat, lon: focus.lon } : null;
       if (fp) {
         const scored = [];
         state.waypoints.forEach((w) => {
           if (w.wpid === state.focusWpid || isSelected(w.wpid)) return;
-          const p = wpPointCache.get(w.wpid);
-          if (p) scored.push({ wpid: w.wpid, d: distMeters(fp, p) });
+          if (!Number.isFinite(w.lat) || !Number.isFinite(w.lon)) return;
+          scored.push({ wpid: w.wpid, d: distMeters(fp, { lat: w.lat, lon: w.lon }) });
         });
         scored.sort((a, b) => a.d - b.d);
         state.nearest = scored.slice(0, 3).map((x) => x.wpid);
@@ -446,40 +459,29 @@
       el.textContent = text || '';
       el.className = 'nearby-status' + (mode ? ' ' + mode : '');
     }
-    function finalizeNearbyStatus() {
-      if (!state.focusWpid) { setNearbyStatus('', ''); return; }
-      const n = state.nearest.length;
-      setNearbyStatus(n ? (n + ' nearby waypoint' + (n === 1 ? '' : 's') + ' highlighted') : 'No nearby waypoints found.', 'done');
-    }
 
-    // Geocode same-city candidates (throttled) so nearest can be found, then rank.
-    async function refreshNearest() {
-      const token = ++nearestToken;
+    // Nearby button: highlight the 3 waypoints nearest the last stop on demand.
+    function showNearby() {
+      if (!state.selected.length) { setNearbyStatus('Add a stop first, then tap Nearby.', ''); return; }
+      state.focusWpid = state.selected[state.selected.length - 1].wpid;
       computeNearest();
-      const focusWp = findWaypoint(state.focusWpid);
-      if (!focusWp) { setNearbyStatus('', ''); return; }
-      const candidates = state.waypoints
-        .filter((w) => w.wpid !== state.focusWpid && !isSelected(w.wpid) && w.city === focusWp.city && !wpPointCache.has(w.wpid))
-        .slice(0, 24);
-      if (candidates.length) setNearbyStatus('Finding nearby waypoints…', 'loading');
-      for (const w of candidates) {
-        if (token !== nearestToken) return;     // a newer selection superseded this
-        await pointForWaypoint(w);
-        if (token !== nearestToken) return;
-        computeNearest();
-        setNearbyStatus('Finding nearby waypoints…', 'loading');
-        await sleep(1100);                        // be polite to Nominatim
-      }
-      if (token !== nearestToken) return;
-      finalizeNearbyStatus();
+      const wp = findWaypoint(state.focusWpid);
+      const n = state.nearest.length;
+      setNearbyStatus(n ? (n + ' nearby highlighted near ' + (wp ? (wp.name || '#' + state.focusWpid) : state.focusWpid)) : 'No nearby waypoints found.', n ? 'done' : '');
     }
 
     // --- Loading ---
     async function loadGames() {
       try {
-        const res = await fetch(restUrl(GAMES_TABLE, { select: 'id,name,city', order: 'name.asc' }), { headers: authHeaders(), cache: 'no-store' });
+        const res = await fetch(restUrl(GAMES_TABLE, { select: 'id,name,city', order: 'city.asc.nullslast,name.asc' }), { headers: authHeaders(), cache: 'no-store' });
         if (!res.ok) throw new Error(await readError(res, 'Could not load games.'));
         state.games = await res.json();
+        // Sort by city/state (the city field holds "City, State"), then name.
+        state.games.sort((a, b) => {
+          const ca = cleanText(a.city).toLowerCase(), cb = cleanText(b.city).toLowerCase();
+          if (ca !== cb) { if (!ca) return 1; if (!cb) return -1; return ca < cb ? -1 : 1; }
+          return cleanText(a.name).toLowerCase().localeCompare(cleanText(b.name).toLowerCase());
+        });
         renderGameSelect();
       } catch (e) { console.error(e); setStatus(e.message || 'Could not load games.', 'error'); }
     }
@@ -495,6 +497,8 @@
         }));
         renderCityFilter();
         renderPickList();
+        renderAllDots();   // plot every waypoint as an orange dot
+        fitView();         // default view: show them all
       } catch (e) { console.error(e); setStatus(e.message || 'Could not load waypoints.', 'error'); }
     }
 
@@ -512,7 +516,7 @@
       state.games.forEach((g) => {
         const o = document.createElement('option');
         o.value = g.id;
-        o.textContent = g.name + (g.city ? ' — ' + g.city : '');
+        o.textContent = (g.city ? cleanText(g.city) + ' — ' : '') + g.name + ' · ' + g.id;
         if (g.id === state.gameId) o.selected = true;
         gameSelect.append(o);
       });
@@ -535,6 +539,16 @@
 
     function isSelected(wpid) { return state.selected.some((s) => s.wpid === String(wpid)); }
 
+    // Waypoints matching the city filter + search (ignores focus mode).
+    function filteredWaypoints() {
+      const term = state.search.toLowerCase();
+      return state.waypoints.filter((w) => {
+        if (state.cityFilter && w.city !== state.cityFilter) return false;
+        if (!term) return true;
+        return (w.name + ' ' + w.address + ' ' + w.city + ' ' + w.state).toLowerCase().indexOf(term) >= 0;
+      });
+    }
+
     function renderPickList() {
       let list;
       if (state.focusWpid) {
@@ -542,12 +556,7 @@
         const ids = [state.focusWpid].concat(state.nearest);
         list = ids.map((id) => findWaypoint(id)).filter(Boolean);
       } else {
-        const term = state.search.toLowerCase();
-        list = state.waypoints.filter((w) => {
-          if (state.cityFilter && w.city !== state.cityFilter) return false;
-          if (!term) return true;
-          return (w.name + ' ' + w.address + ' ' + w.city + ' ' + w.state).toLowerCase().indexOf(term) >= 0;
-        });
+        list = filteredWaypoints();
       }
       wpPickList.innerHTML = '';
       if (!list.length) { const e = document.createElement('div'); e.className = 'pick-empty'; e.textContent = 'No waypoints match.'; wpPickList.append(e); return; }
@@ -557,7 +566,7 @@
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.checked = isSelected(w.wpid);
-        cb.addEventListener('change', () => toggleWaypoint(w.wpid, cb.checked));
+        cb.addEventListener('change', () => toggleWaypoint(w.wpid, cb.checked, true));
         const main = document.createElement('div');
         main.className = 'wp-pick-main';
         const nm = document.createElement('span'); nm.className = 'wp-pick-name'; nm.textContent = w.name || '(unnamed)';
@@ -611,27 +620,96 @@
     }
 
     // --- Selection actions ---
-    async function toggleWaypoint(wpid, on) {
+    function centerOn(wp) {
+      ensureMap();
+      if (!map || !wp || !Number.isFinite(wp.lat) || !Number.isFinite(wp.lon)) return;
+      map.setView([wp.lat, wp.lon], Math.max(map.getZoom(), 15));
+    }
+
+    async function toggleWaypoint(wpid, on, center) {
       wpid = String(wpid);
       if (on) {
         if (isSelected(wpid)) return;
         const entry = { wpid: wpid, end: false, point: wpPointCache.get(wpid) || null };
         state.selected.push(entry);
-        state.focusWpid = wpid;
+        // Adding clears any "Nearby" highlight (nearby is on-demand only, not auto).
+        state.focusWpid = '';
+        state.nearest = [];
+        setNearbyStatus('', '');
         renderPickList(); renderRoute(); updateButtons();
         const wp = findWaypoint(wpid);
+        if (center) centerOn(wp);
         if (wp) { entry.point = await pointForWaypoint(wp); renderRoute(); }
-        refreshNearest();
       } else {
-        // Unchecking a stop stops the nearby search and clears the highlights.
         state.selected = state.selected.filter((s) => s.wpid !== wpid);
         state.focusWpid = '';
         state.nearest = [];
-        nearestToken++;            // cancel any in-flight nearby geocoding
         setNearbyStatus('', '');
         renderPickList(); renderRoute(); updateButtons();
       }
     }
+    // Clicking an unused orange dot asks WHERE in the route it goes, then inserts it
+    // at that stop number (instead of always appending to the end).
+    function promptInsert(wpid) {
+      wpid = String(wpid);
+      ensureMap();
+      const w = findWaypoint(wpid);
+      if (!w || !map) return;
+      if (!Number.isFinite(w.lat) || !Number.isFinite(w.lon)) { toggleWaypoint(wpid, true); return; }
+      if (isSelected(wpid)) {
+        const d = document.createElement('div');
+        const t = document.createElement('strong'); t.textContent = w.name || ('#' + wpid);
+        const m = document.createElement('div'); m.textContent = 'Already in the route.';
+        m.style.marginTop = '4px'; m.style.color = 'var(--muted)';
+        d.append(t, m);
+        L.popup().setLatLng([w.lat, w.lon]).setContent(d).openOn(map);
+        return;
+      }
+      const n = state.selected.length;
+      const wrap = document.createElement('div'); wrap.style.minWidth = '170px';
+      const title = document.createElement('div');
+      title.style.fontWeight = '700'; title.style.marginBottom = '6px';
+      title.textContent = w.name || ('#' + wpid);
+      const row = document.createElement('div');
+      row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '6px';
+      const label = document.createElement('span'); label.textContent = 'Stop #'; label.style.fontSize = '0.85rem';
+      const input = document.createElement('input');
+      input.type = 'number'; input.min = '1'; input.max = String(n + 1); input.value = String(n + 1);
+      input.style.width = '3.4em'; input.style.padding = '4px 6px';
+      input.style.border = '1px solid var(--line)'; input.style.borderRadius = '6px';
+      const add = document.createElement('button');
+      add.type = 'button'; add.className = 'btn primary small'; add.textContent = 'Add';
+      row.append(label, input, add);
+      const help = document.createElement('div');
+      help.style.fontSize = '0.72rem'; help.style.color = 'var(--muted)'; help.style.marginTop = '5px';
+      help.textContent = n ? ('1 = start … ' + (n + 1) + ' = end') : 'first stop';
+      wrap.append(title, row, help);
+      const popup = L.popup({ minWidth: 180 }).setLatLng([w.lat, w.lon]).setContent(wrap).openOn(map);
+      const doAdd = () => {
+        let pos = parseInt(input.value, 10);
+        if (!Number.isFinite(pos)) pos = n + 1;
+        pos = Math.max(1, Math.min(n + 1, pos));
+        map.closePopup(popup);
+        insertWaypointAt(wpid, pos - 1);
+      };
+      add.addEventListener('click', doAdd);
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } });
+      setTimeout(() => { try { input.focus(); input.select(); } catch (e) {} }, 0);
+    }
+
+    async function insertWaypointAt(wpid, index) {
+      wpid = String(wpid);
+      if (isSelected(wpid)) return;
+      index = Math.max(0, Math.min(state.selected.length, index));
+      const entry = { wpid: wpid, end: false, point: wpPointCache.get(wpid) || null };
+      state.selected.splice(index, 0, entry);
+      state.focusWpid = ''; state.nearest = []; setNearbyStatus('', '');
+      renderPickList(); renderRoute(); updateButtons();
+      const wp = findWaypoint(wpid);
+      setStatus('Added ' + (wp ? (wp.name || '#' + wpid) : '#' + wpid) + ' as stop ' + (index + 1) + '.', 'success');
+      if (wp) { entry.point = await pointForWaypoint(wp); renderRoute(); }
+    }
+
     function move(index, dir) {
       const j = index + dir;
       if (j < 0 || j >= state.selected.length) return;
@@ -648,19 +726,94 @@
       setNearbyStatus('', '');
       renderPickList(); renderRoute(); updateButtons();
     }
+    // The Clear button: also reset the view to show all dots.
+    function clearRouteAndFit() { clearRoute(); fitView(); }
+
+    // Add every filtered (currently shown) waypoint to the route at once.
+    function selectAllFiltered() {
+      const toAdd = filteredWaypoints().filter((w) => !isSelected(w.wpid));
+      if (!toAdd.length) { setStatus('Nothing new to add in the current filter.'); return; }
+      state.focusWpid = '';
+      state.nearest = [];
+      setNearbyStatus('', '');
+      toAdd.forEach((w) => {
+        const point = (Number.isFinite(w.lat) && Number.isFinite(w.lon)) ? { lat: w.lat, lon: w.lon } : null;
+        state.selected.push({ wpid: w.wpid, end: false, point: point });
+      });
+      renderPickList(); renderRoute(); updateButtons(); fitView();
+      setStatus('Added ' + toAdd.length + ' waypoint' + (toAdd.length === 1 ? '' : 's') + ' to the route.', 'success');
+    }
 
     // --- Map ---
-    let map = null, markerLayer = null, lineLayer = null;
+    let map = null, markerLayer = null, lineLayer = null, dotLayer = null, dotRenderer = null;
+    let walkTimer = null, walkToken = 0;
+    const walkCache = new Map();
+
+    // Replace the straight route line with actual walking directions (street paths)
+    // from the public OSRM foot router. Debounced; cached per ordered sequence.
+    function scheduleWalkingPath() {
+      if (walkTimer) clearTimeout(walkTimer);
+      walkTimer = setTimeout(refreshWalkingPath, 400);
+    }
+    async function refreshWalkingPath() {
+      const stops = state.selected.map((s) => s.point).filter(Boolean);
+      if (!map || !lineLayer || stops.length < 2 || stops.length > 30) return; // big routes keep straight lines
+      const key = stops.map((p) => p.lat.toFixed(5) + ',' + p.lon.toFixed(5)).join(';');
+      const token = ++walkToken;
+      let geom = walkCache.get(key);
+      if (!geom) {
+        try {
+          const coords = stops.map((p) => p.lon + ',' + p.lat).join(';');
+          const url = 'https://routing.openstreetmap.de/routed-foot/route/v1/foot/' + coords + '?overview=full&geometries=geojson';
+          const res = await fetch(url);
+          if (!res.ok) return;
+          const j = await res.json();
+          if (j.code !== 'Ok' || !j.routes || !j.routes[0]) return;
+          geom = j.routes[0].geometry.coordinates; // [[lon,lat], …]
+          walkCache.set(key, geom);
+        } catch (e) { return; }
+      }
+      if (token !== walkToken || !map || !lineLayer) return;
+      lineLayer.clearLayers();
+      L.polyline(geom.map((c) => [c[1], c[0]]), { color: '#2d4880', weight: 4, opacity: 0.85 }).addTo(lineLayer);
+    }
     function ensureMap() {
       if (map || typeof L === 'undefined') return;
-      // Default view: New Orleans, until stops are added (then we fit their bounds).
       map = L.map('map', { scrollWheelZoom: false }).setView([29.9584, -90.0644], 12);
       const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20, attribution: 'Tiles &copy; Esri' });
       const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '&copy; OpenStreetMap' });
       streets.addTo(map);
       L.control.layers({ 'Streets': streets, 'Satellite': sat }, null, { position: 'topright' }).addTo(map);
-      markerLayer = L.layerGroup().addTo(map);
+      // Render the ~1,200 dots on a single canvas — fast and immune to the SVG
+      // rendering glitches (oversized circles) you get with that many vectors.
+      dotRenderer = L.canvas({ padding: 0.5 });
+      dotLayer = L.layerGroup().addTo(map);    // every waypoint, under the route
       lineLayer = L.layerGroup().addTo(map);
+      markerLayer = L.layerGroup().addTo(map);
+    }
+
+    // Every waypoint as a small clickable orange dot. Click adds it to the route.
+    function renderAllDots() {
+      ensureMap();
+      if (!map || !dotLayer) return;
+      dotLayer.clearLayers();
+      state.waypoints.forEach((w) => {
+        if (!Number.isFinite(w.lat) || !Number.isFinite(w.lon)) return;
+        const dot = L.circleMarker([w.lat, w.lon], { renderer: dotRenderer, radius: 4, color: '#e07b1a', weight: 1, fillColor: '#f3a64f', fillOpacity: 0.9 });
+        dot.bindTooltip((w.name || '#' + w.wpid) + (w.city ? ' — ' + w.city : ''));
+        dot.on('click', () => promptInsert(w.wpid));
+        dot.addTo(dotLayer);
+      });
+    }
+
+    // Fit the view to the route if one exists, otherwise to all waypoints.
+    function fitView() {
+      ensureMap();
+      if (!map) return;
+      const route = state.selected.map((s) => s.point).filter(Boolean).map((p) => [p.lat, p.lon]);
+      if (route.length) { try { map.fitBounds(route, { padding: [40, 40], maxZoom: 16 }); } catch (e) {} return; }
+      const all = state.waypoints.filter((w) => Number.isFinite(w.lat) && Number.isFinite(w.lon)).map((w) => [w.lat, w.lon]);
+      if (all.length) { try { map.fitBounds(all, { padding: [20, 20] }); } catch (e) {} }
     }
     function renderMap() {
       ensureMap();
@@ -686,12 +839,23 @@
         const wp = findWaypoint(wpid);
         const cm = L.circleMarker([p.lat, p.lon], { radius: 9, color: '#e07b1a', weight: 2, fillColor: '#f3a64f', fillOpacity: 0.85 });
         cm.bindTooltip('Nearby: ' + (wp ? (wp.name || '#' + wpid) : '#' + wpid) + ' — click to add');
-        cm.on('click', () => toggleWaypoint(wpid, true));
+        cm.on('click', () => promptInsert(wpid));
         cm.addTo(markerLayer);
       });
-      if (pts.length > 1) L.polyline(pts, { color: '#2d4880', weight: 3, opacity: 0.85 }).addTo(lineLayer);
-      if (pts.length) { try { map.fitBounds(pts, { padding: [40, 40], maxZoom: 16 }); } catch (e) {} }
+      if (pts.length > 1) L.polyline(pts, { color: '#2d4880', weight: 3, opacity: 0.6, dashArray: '4 6' }).addTo(lineLayer);
+      scheduleWalkingPath(); // upgrade the straight line to street-following walking directions
+      // (View is fit explicitly via fitView() on load / game change, not on every
+      //  add — so clicking dots to build a route doesn't jolt the map.)
       setTimeout(() => { try { map.invalidateSize(); } catch (e) {} }, 0);
+    }
+
+    // Reflect the selected game in the URL (?id=) so it's shareable and survives reload.
+    function setUrlGame(id) {
+      try {
+        const u = new URL(window.location.href);
+        if (id) u.searchParams.set('id', id); else u.searchParams.delete('id');
+        history.replaceState(null, '', u);
+      } catch (e) {}
     }
 
     // --- Load / save a game's map ---
@@ -700,6 +864,7 @@
       clearRoute();
       updateButtons();
       updateNavLinks();
+      setUrlGame(state.gameId);
       if (!state.gameId) { setStatus('Pick a game to start.'); return; }
       setStatus('Loading map for ' + gameName(state.gameId) + '…');
       try {
@@ -710,7 +875,7 @@
         renderPickList(); renderRoute(); updateButtons();
         // Geocode each stop (sequentially to respect Nominatim).
         for (const s of state.selected) { const wp = findWaypoint(s.wpid); if (wp) { s.point = await pointForWaypoint(wp); renderRoute(); } }
-        if (state.selected.length) { state.focusWpid = state.selected[state.selected.length - 1].wpid; refreshNearest(); }
+        fitView(); // frame the loaded route
         setStatus(rows.length ? ('Loaded ' + rows.length + ' stop' + (rows.length === 1 ? '' : 's') + ' for ' + gameName(state.gameId) + '.') : ('No saved map yet for ' + gameName(state.gameId) + ' — build one.'), rows.length ? 'success' : '');
       } catch (e) { console.error(e); setStatus(e.message || 'Could not load map.', 'error'); }
     }
@@ -759,7 +924,11 @@
 
     gameSelect.addEventListener('change', onGameChange);
     saveBtn.addEventListener('click', saveMap);
-    clearBtn.addEventListener('click', clearRoute);
+    clearBtn.addEventListener('click', clearRouteAndFit);
+    const nearbyBtn = document.getElementById('nearbyBtn');
+    if (nearbyBtn) nearbyBtn.addEventListener('click', showNearby);
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    if (selectAllBtn) selectAllBtn.addEventListener('click', selectAllFiltered);
     cityFilter.addEventListener('change', () => { state.cityFilter = cityFilter.value; exitFocus(); renderPickList(); });
     wpSearch.addEventListener('input', () => { state.search = cleanText(wpSearch.value); exitFocus(); renderPickList(); });
 

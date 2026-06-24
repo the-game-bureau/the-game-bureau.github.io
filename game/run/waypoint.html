@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000000">
+  <title>WAYPOINT | THE GAME BUREAU</title>
+  <link rel="icon" href="../../assets/brand/tgb.ico" type="image/x-icon">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Outfit:wght@500;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="/assets/supabase-fallback.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #181818;
+      --secondary: #f3a729;
+      --tertiary: #fff7e8;
+      --quaternary: #ffffff;
+      --ink: #141414;
+      --muted: rgba(20, 20, 20, 0.68);
+      --pad: clamp(1.1rem, 5vw, 1.7rem);
+      --radius: 20px;
+      --safe-bottom: env(safe-area-inset-bottom);
+    }
+
+    html { min-height: 100%; background: var(--primary); }
+
+    body {
+      min-height: 100vh;
+      padding: 0 0 calc(112px + var(--safe-bottom));
+      font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--primary), #000 18%) 0%, var(--primary) 42%, color-mix(in srgb, var(--secondary), #000 22%) 100%);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    button, a { font: inherit; }
+
+    .page {
+      width: min(100%, 480px);
+      min-height: 100vh;
+      margin: 0 auto;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: calc(30px + env(safe-area-inset-top)) var(--pad) 26px;
+      color: #fff;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: -40% -20% auto;
+      height: 260px;
+      background:
+        radial-gradient(circle at 25% 50%, color-mix(in srgb, var(--secondary), #fff 12%) 0 12%, transparent 42%),
+        linear-gradient(120deg, rgba(255,255,255,0.2), transparent 60%);
+      opacity: 0.42;
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      position: relative;
+      display: grid;
+      gap: 14px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .logo-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border: 2px solid rgba(255,255,255,0.72);
+      border-radius: 50%;
+      color: #fff;
+      font-family: "Bebas Neue", sans-serif;
+      font-size: 1.5rem;
+      line-height: 1;
+      letter-spacing: 0.03em;
+    }
+
+    .wpid-pill {
+      min-width: 0;
+      padding: 7px 10px;
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 999px;
+      background: rgba(0,0,0,0.24);
+      color: rgba(255,255,255,0.86);
+      font-family: "Outfit", sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+    }
+
+    .kicker {
+      color: color-mix(in srgb, var(--secondary), #fff 16%);
+      font-family: "Outfit", sans-serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 8ch;
+      font-family: "Bebas Neue", sans-serif;
+      font-size: clamp(4rem, 20vw, 6.7rem);
+      line-height: 0.82;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      text-wrap: balance;
+      -webkit-text-stroke: 0.7px color-mix(in srgb, var(--secondary), #000 24%);
+      paint-order: stroke fill;
+    }
+
+    .intro {
+      max-width: 30ch;
+      color: rgba(255,255,255,0.84);
+      font-size: clamp(1.05rem, 4.6vw, 1.24rem);
+      line-height: 1.45;
+    }
+
+    .content {
+      display: grid;
+      align-content: start;
+      gap: 18px;
+      padding: 0 var(--pad) 24px;
+    }
+
+    .card {
+      display: grid;
+      gap: 18px;
+      padding: 18px;
+      border: 2px solid var(--primary);
+      border-radius: var(--radius);
+      background: #fff;
+      box-shadow: 0 18px 44px rgba(0,0,0,0.28);
+    }
+
+    .status {
+      min-height: 1.3em;
+      color: rgba(255,255,255,0.78);
+      font-size: 0.92rem;
+      line-height: 1.35;
+    }
+
+    .location-head {
+      display: grid;
+      gap: 8px;
+    }
+
+    .location-label {
+      color: var(--muted);
+      font-family: "Outfit", sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .location-name {
+      color: var(--primary);
+      font-family: "Outfit", sans-serif;
+      font-size: clamp(1.75rem, 9vw, 2.6rem);
+      font-weight: 700;
+      line-height: 0.98;
+      overflow-wrap: anywhere;
+    }
+
+    .address {
+      color: #292929;
+      font-size: clamp(1.02rem, 4.5vw, 1.2rem);
+      line-height: 1.48;
+    }
+
+    .description {
+      color: var(--muted);
+      font-size: 0.98rem;
+      line-height: 1.5;
+    }
+
+    .map-frame {
+      position: relative;
+      min-height: 260px;
+      overflow: hidden;
+      border: 2px solid color-mix(in srgb, var(--secondary), #000 18%);
+      border-radius: 16px;
+      background:
+        linear-gradient(135deg, rgba(0,0,0,0.08) 25%, transparent 25%) 0 0 / 18px 18px,
+        color-mix(in srgb, var(--tertiary), #fff 28%);
+    }
+
+    .map-frame iframe {
+      width: 100%;
+      height: 100%;
+      min-height: 260px;
+      display: block;
+      border: 0;
+    }
+
+    .map-frame.is-empty {
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 54px;
+      padding: 0 18px;
+      border: 2px solid var(--primary);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--primary);
+      font-weight: 800;
+      text-align: center;
+      text-decoration: none;
+      line-height: 1.1;
+      box-shadow: 0 6px 0 rgba(0,0,0,0.14);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .btn:active {
+      transform: translateY(3px);
+      box-shadow: 0 3px 0 rgba(0,0,0,0.16);
+    }
+
+    .btn.primary {
+      background: var(--secondary);
+      color: color-mix(in srgb, var(--primary), #000 12%);
+    }
+
+    .cta-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 5;
+      display: flex;
+      justify-content: center;
+      padding: 14px var(--pad) calc(14px + var(--safe-bottom));
+      background: color-mix(in srgb, var(--primary), #000 10%);
+      border-top: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 -12px 34px rgba(0,0,0,0.28);
+    }
+
+    .cta-bar .btn {
+      width: min(100%, 432px);
+      min-height: 62px;
+      font-size: clamp(1rem, 4vw, 1.12rem);
+    }
+
+    .cta-bar .btn[aria-disabled="true"] {
+      opacity: 0.58;
+      pointer-events: none;
+    }
+
+    .error-card {
+      display: none;
+      padding: 16px;
+      border: 2px solid rgba(255,255,255,0.24);
+      border-radius: 16px;
+      background: rgba(0,0,0,0.2);
+      color: #fff;
+      line-height: 1.45;
+    }
+
+    .is-loading .card,
+    .is-error .card { display: none; }
+    .is-error .error-card { display: block; }
+  </style>
+</head>
+<body class="is-loading">
+  <main class="page">
+    <section class="hero" aria-labelledby="pageTitle">
+      <div class="hero-inner">
+        <div class="brand">
+          <span class="logo-mark" aria-label="The Game Bureau">TGB</span>
+          <span class="wpid-pill" id="wpidPill">Waypoint</span>
+        </div>
+        <p class="kicker" id="gameKicker">Next stop</p>
+        <h1 id="pageTitle">Make your way there.</h1>
+        <p class="intro">Your next clue is waiting at the spot below. Take your time, mind the street crossings, and gather your team when you arrive.</p>
+      </div>
+    </section>
+
+    <section class="content" aria-live="polite">
+      <p class="status" id="statusText">Loading waypoint...</p>
+
+      <article class="card" aria-labelledby="locationName">
+        <div class="location-head">
+          <span class="location-label">Go to this location</span>
+          <h2 class="location-name" id="locationName"></h2>
+          <p class="address" id="locationAddress"></p>
+        </div>
+        <p class="description" id="locationDescription"></p>
+        <div class="map-frame" id="mapFrame"></div>
+        <div class="actions">
+          <a class="btn" id="directionsLink" href="#" target="_blank" rel="noopener">Open directions</a>
+        </div>
+      </article>
+
+      <div class="error-card" id="errorCard"></div>
+    </section>
+  </main>
+
+  <div class="cta-bar">
+    <a class="btn primary" id="arrivedLink" href="#" aria-disabled="true">I have arrived - reveal my next clue</a>
+  </div>
+
+  <script>
+    const SB_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+
+    const DEFAULT_WPID = '1543';
+    const DEFAULT_WAYPOINT = {
+      wpid: 1543,
+      name: 'Cafe du Monde',
+      address: '800 Decatur St',
+      city: 'New Orleans',
+      state: 'LA',
+      zip: '70116',
+      description: 'The classic French Quarter coffee stand, known for cafe au lait and beignets dusted in powdered sugar.',
+      lat: 29.957604,
+      lon: -90.061769
+    };
+
+    const params = new URLSearchParams(window.location.search);
+    const gameId = cleanText(params.get('id') || params.get('game') || '');
+    const requestedWpid = cleanWpid(params.get('wpid') || params.get('waypoint') || '');
+    const wpid = requestedWpid || DEFAULT_WPID;
+
+    const body = document.body;
+    const statusText = document.getElementById('statusText');
+    const wpidPill = document.getElementById('wpidPill');
+    const gameKicker = document.getElementById('gameKicker');
+    const locationName = document.getElementById('locationName');
+    const locationAddress = document.getElementById('locationAddress');
+    const locationDescription = document.getElementById('locationDescription');
+    const mapFrame = document.getElementById('mapFrame');
+    const directionsLink = document.getElementById('directionsLink');
+    const arrivedLink = document.getElementById('arrivedLink');
+    const errorCard = document.getElementById('errorCard');
+
+    function cleanText(value) {
+      return String(value == null ? '' : value).trim();
+    }
+
+    function cleanWpid(value) {
+      const match = cleanText(value).match(/^\d+$/);
+      return match ? match[0] : '';
+    }
+
+    function restUrl(table, params) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SB_CONFIG.url + '/');
+      Object.entries(params || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+      });
+      return url.toString();
+    }
+
+    function restHeaders() {
+      return {
+        apikey: SB_CONFIG.key,
+        Authorization: 'Bearer ' + SB_CONFIG.key,
+        Accept: 'application/json'
+      };
+    }
+
+    async function fetchOne(table, query) {
+      const response = await fetch(restUrl(table, Object.assign({}, query, { limit: 1 })), {
+        headers: restHeaders(),
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error('Request failed with status ' + response.status);
+      const rows = await response.json();
+      return Array.isArray(rows) && rows[0] ? rows[0] : null;
+    }
+
+    async function loadWaypoint(id) {
+      const row = await fetchOne('waypoints', {
+        select: 'wpid,name,address,city,state,zip,description,w3w,lat,lon',
+        wpid: 'eq.' + id
+      });
+      if (row) return row;
+      if (id === DEFAULT_WPID) return DEFAULT_WAYPOINT;
+      throw new Error('Waypoint #' + id + ' was not found.');
+    }
+
+    async function loadGame(id) {
+      if (!id) return null;
+      return fetchOne('games_with_teams', {
+        select: 'id,name,engine,primary_color,secondary_color,tertiary_color,quaternary_color',
+        id: 'eq.' + id
+      }).catch(() => null);
+    }
+
+    function applyGameTheme(game) {
+      if (!game || typeof game !== 'object') return;
+      const root = document.documentElement;
+      [
+        ['--primary', game.primary_color],
+        ['--secondary', game.secondary_color],
+        ['--tertiary', game.tertiary_color],
+        ['--quaternary', game.quaternary_color]
+      ].forEach(([prop, value]) => {
+        const color = cleanText(value);
+        if (color) root.style.setProperty(prop, color);
+      });
+      const name = cleanText(game.name);
+      if (name) {
+        document.title = 'WAYPOINT | ' + name.toUpperCase() + ' | THE GAME BUREAU';
+        gameKicker.textContent = name;
+      }
+    }
+
+    function waypointAddress(waypoint) {
+      const line1 = cleanText(waypoint.address);
+      const cityState = [cleanText(waypoint.city), cleanText(waypoint.state)].filter(Boolean).join(', ');
+      const line2 = [cityState, cleanText(waypoint.zip)].filter(Boolean).join(' ');
+      return [line1, line2].filter(Boolean).join('\n');
+    }
+
+    function destinationQuery(waypoint) {
+      const lat = Number(waypoint.lat);
+      const lon = Number(waypoint.lon);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) return lat + ',' + lon;
+      return [cleanText(waypoint.name), waypointAddress(waypoint)].filter(Boolean).join(', ');
+    }
+
+    function directionsUrl(waypoint) {
+      return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(destinationQuery(waypoint));
+    }
+
+    function mapEmbedUrl(waypoint) {
+      const query = destinationQuery(waypoint);
+      return query ? 'https://www.google.com/maps?q=' + encodeURIComponent(query) + '&output=embed' : '';
+    }
+
+    function arrivedUrl(game, waypoint) {
+      const nextRaw = cleanText(params.get('next'));
+      if (nextRaw) {
+        try {
+          const next = new URL(nextRaw, window.location.href);
+          if (next.origin === window.location.origin) return next.toString();
+        } catch (error) {}
+      }
+
+      const engineAliases = { map: 'map', text: 'text', '1': 'text', '2': 'map' };
+      const requestedEngine = cleanText(params.get('e')).toLowerCase();
+      const dbEngine = cleanText(game && game.engine).toLowerCase();
+      const engine = engineAliases[requestedEngine] || engineAliases[dbEngine] || 'text';
+      const url = new URL('./' + engine + '/', window.location.href);
+      if (gameId) url.searchParams.set('id', gameId);
+
+      ['access_code', 'code', 'auto_redeem', 'teams', 'session', 'mode'].forEach((key) => {
+        const value = cleanText(params.get(key));
+        if (value) url.searchParams.set(key, value);
+      });
+      url.searchParams.set('arrived_wpid', String(waypoint.wpid || wpid));
+      return url.toString();
+    }
+
+    function syncWaypointParam(waypoint) {
+      const id = cleanWpid(waypoint && waypoint.wpid);
+      if (!id || requestedWpid === id) return;
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('wpid', id);
+        window.history.replaceState(null, '', url);
+      } catch (error) {}
+    }
+
+    function renderWaypoint(waypoint, game) {
+      const id = cleanText(waypoint.wpid || wpid);
+      syncWaypointParam(waypoint);
+      wpidPill.textContent = id ? 'WPID ' + id : 'Waypoint';
+      locationName.textContent = cleanText(waypoint.name) || 'Waypoint #' + id;
+      locationAddress.textContent = waypointAddress(waypoint) || 'Location details are unavailable.';
+      locationDescription.textContent = cleanText(waypoint.description);
+      locationDescription.hidden = !cleanText(waypoint.description);
+
+      const mapUrl = mapEmbedUrl(waypoint);
+      mapFrame.innerHTML = '';
+      mapFrame.classList.toggle('is-empty', !mapUrl);
+      if (mapUrl) {
+        const iframe = document.createElement('iframe');
+        iframe.loading = 'lazy';
+        iframe.referrerPolicy = 'no-referrer-when-downgrade';
+        iframe.title = 'Map to ' + (cleanText(waypoint.name) || 'waypoint');
+        iframe.src = mapUrl;
+        mapFrame.append(iframe);
+      } else {
+        mapFrame.textContent = 'Open directions for the exact route.';
+      }
+
+      directionsLink.href = directionsUrl(waypoint);
+      arrivedLink.href = arrivedUrl(game, waypoint);
+      arrivedLink.setAttribute('aria-disabled', 'false');
+      statusText.textContent = '';
+      body.classList.remove('is-loading', 'is-error');
+    }
+
+    function renderError(error) {
+      console.error(error);
+      statusText.textContent = '';
+      errorCard.textContent = error && error.message ? error.message : 'Could not load this waypoint.';
+      body.classList.remove('is-loading');
+      body.classList.add('is-error');
+    }
+
+    arrivedLink.addEventListener('click', (event) => {
+      if (arrivedLink.getAttribute('aria-disabled') === 'true') event.preventDefault();
+    });
+
+    (async function init() {
+      try {
+        const [game, waypoint] = await Promise.all([loadGame(gameId), loadWaypoint(wpid)]);
+        applyGameTheme(game);
+        renderWaypoint(waypoint, game);
+      } catch (error) {
+        if (!requestedWpid && wpid === DEFAULT_WPID) {
+          const game = await loadGame(gameId);
+          applyGameTheme(game);
+          renderWaypoint(DEFAULT_WAYPOINT, game);
+          return;
+        }
+        renderError(error);
+      }
+    }());
+  </script>
+</body>
+</html>

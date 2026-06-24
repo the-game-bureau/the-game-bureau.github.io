@@ -1,0 +1,2 @@
+- [NFL walking-tour waypoint catalog](nfl-tour-waypoint-catalog.md) — all 32 team cities ingested; team→tour-city mapping + import recipe
+- [NFL game maps](nfl-game-maps.md) — 380/384 games have a 7-stop map; tightest-cluster + median-anchor recipe
