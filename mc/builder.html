@@ -3048,6 +3048,8 @@ code{font-family:"IBM Plex Mono",monospace;}
     0 0 0 3px rgba(51,181,87,.12);
 }
 .field-hint{font-size:.64rem;color:var(--bic-blue, #2f5cc2);letter-spacing:.04em;}
+.object-readonly{white-space:pre-wrap;word-break:break-word;font-size:.82rem;line-height:1.45;color:var(--ink, #2d4880);background:rgba(45,72,128,.05);border:1px solid var(--line, rgba(45,72,128,.18));border-radius:8px;padding:8px 10px;min-height:1.2em;}
+.object-readonly:empty::before{content:"—";opacity:.5;}
 .start-location-coords{display:flex;gap:.5rem;}
 .start-location-coords input{flex:1;min-width:0;}
 .start-location-status{font-size:.78rem;min-height:1.2em;margin-top:.25rem;letter-spacing:.02em;}
@@ -9825,8 +9827,18 @@ html.admin-embedded .builder-section-head{
                 </p>
 
                 <div class="field" id="objectStopNameField" hidden>
-                  <label class="field-label" for="objectStopNameInput">STOP NAME</label>
+                  <label class="field-label" for="objectStopNameInput">WAYPOINT NAME</label>
                   <input id="objectStopNameInput" type="text" autocomplete="off" disabled>
+                </div>
+
+                <div class="field" id="objectWaypointLocationField" hidden>
+                  <div class="field-label">WAYPOINT LOCATION</div>
+                  <div class="object-readonly" id="objectWaypointLocation"></div>
+                </div>
+
+                <div class="field" id="objectWaypointDescriptionField" hidden>
+                  <div class="field-label">WAYPOINT DESCRIPTION</div>
+                  <div class="object-readonly" id="objectWaypointDescription"></div>
                 </div>
 
                 <div class="field" id="objectStopGroupField" hidden>
@@ -11501,6 +11513,10 @@ const nodeTitleLabelText = document.getElementById('nodeTitleLabelText');
 const nodeTitleInput = document.getElementById('nodeTitleInput');
 const stopNameInput = document.getElementById('stopNameInput');
 const objectStopNameField = document.getElementById('objectStopNameField');
+const objectWaypointLocationField = document.getElementById('objectWaypointLocationField');
+const objectWaypointLocation = document.getElementById('objectWaypointLocation');
+const objectWaypointDescriptionField = document.getElementById('objectWaypointDescriptionField');
+const objectWaypointDescription = document.getElementById('objectWaypointDescription');
 
 function getNormalizedTeamValues(source) {
   if (!source || typeof source !== 'object') return TEAM_FIELD_KEYS.map(() => '');
@@ -14508,7 +14524,7 @@ function getObjectInspectorHeading(node, link) {
     return 'GUIDE MSG DETAILS';
   }
   if (node.type === 'reply') return 'PLAYER MSG DETAILS';
-  if (node.type === 'stop') return 'STOP DETAILS';
+  if (node.type === 'stop') return 'WAYPOINT DETAILS';
   if (node.type === 'button') return 'BUTTON DETAILS';
   return 'OBJECT DETAILS';
 }
@@ -18851,6 +18867,9 @@ function updateObjectInspectorUi(node, link, copyText) {
   if (objectInspectorCopy) objectInspectorCopy.textContent = copyText || '';
   if (objectStopNameField) objectStopNameField.hidden = isLinkSelected || !isStopNode;
   if (objectStopGroupField) objectStopGroupField.hidden = isLinkSelected || !isStopNode;
+  const isWaypointStop = isStopNode && !!node && !!String(node.waypointId || '').trim();
+  if (objectWaypointLocationField) objectWaypointLocationField.hidden = isLinkSelected || !isWaypointStop;
+  if (objectWaypointDescriptionField) objectWaypointDescriptionField.hidden = isLinkSelected || !isWaypointStop;
   if (objectVarNameField) objectVarNameField.hidden = isLinkSelected || !isReplyNode;
   if (objectButtonNameField) objectButtonNameField.hidden = isLinkSelected || !isButtonNode;
   if (objectButtonTargetField) objectButtonTargetField.hidden = isLinkSelected || !isButtonNode;
@@ -18865,7 +18884,7 @@ function updateObjectInspectorUi(node, link, copyText) {
   if (objectBubbleGameSelectField) objectBubbleGameSelectField.hidden = !isGameBubble;
   if (objectBubbleGameQuestionField) objectBubbleGameQuestionField.hidden = !isGameBubble;
   if (objectBubbleGameAnswerField) objectBubbleGameAnswerField.hidden = !isGameBubble;
-  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node || isButtonNode || isImageBubble || isVideoBubble || isAudioBubble || isLinkBubble || isGameBubble;
+  if (objectDescriptionField) objectDescriptionField.hidden = isLinkSelected || !node || isStopNode || isButtonNode || isImageBubble || isVideoBubble || isAudioBubble || isLinkBubble || isGameBubble;
   if (objectBodyLabel) {
     objectBodyLabel.textContent = node
       ? (isImageBubble ? 'IMAGE ADDRESS' : isVideoBubble ? 'VIDEO ADDRESS' : isAudioBubble ? 'AUDIO ADDRESS' : (isAnytimeGuideNode(node) ? 'ANYTIME RESPONSE' : (BODY_LABELS[node.type] || 'DETAILS')))
@@ -18884,6 +18903,18 @@ function updateObjectInspectorUi(node, link, copyText) {
   if (objectStopNameInput) {
     objectStopNameInput.disabled = !isStopNode;
     objectStopNameInput.value = isStopNode && node ? normalizeStopTitle(node.title, '') : '';
+  }
+  if (objectWaypointLocation) {
+    let locText = '';
+    if (isWaypointStop) {
+      const cityState = [node.waypointCity, node.waypointState].filter(Boolean).join(', ');
+      const cityZip = [cityState, node.waypointZip].filter(Boolean).join(' ');
+      locText = [node.waypointAddress, cityZip].filter(Boolean).join('\n');
+    }
+    objectWaypointLocation.textContent = locText;
+  }
+  if (objectWaypointDescription) {
+    objectWaypointDescription.textContent = isWaypointStop ? String(node.waypointDescription || '').trim() : '';
   }
   syncStopGroupButtons(isStopNode && node ? node.stopGroup : '', !isStopNode);
   if (objectVarNameInput) {
@@ -23734,7 +23765,7 @@ async function loadWaypointStopsForCurrentGame() {
   if (uniqueWpids.length) {
     try {
       const wpUrl = buildSupabaseUrl({
-        select: 'wpid,name,city,address,description,lat,lon',
+        select: 'wpid,name,city,state,zip,address,description,lat,lon',
         wpid: 'in.(' + uniqueWpids.join(',') + ')'
       }, WAYPOINTS_TABLE);
       const wpRes = await fetch(wpUrl, {
@@ -23801,6 +23832,14 @@ function reconcileWaypointStops(mapRows, wpById) {
       state.doc.nodes.push(node);
       created += 1;
     }
+    // Display-only waypoint detail (re-derived from the waypoints table each
+    // load; not persisted on the node — the waypoints table is the source).
+    node.waypointName = String(wp.name || '');
+    node.waypointAddress = String(wp.address || '');
+    node.waypointCity = String(wp.city || '');
+    node.waypointState = String(wp.state || '');
+    node.waypointZip = String(wp.zip || '');
+    node.waypointDescription = String(wp.description || '');
     orderTick += 1;
     node.orderIndex = orderTick * 100; // provisional; re-ranked below.
     keepIds.add(node.id);
