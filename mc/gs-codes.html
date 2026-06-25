@@ -289,6 +289,30 @@
     </section>
 
     <section class="ops-section">
+      <h3 class="ops-section-title">Game Play Stats</h3>
+      <div class="toolbar">
+        <button class="btn" id="statsRefreshBtn" type="button">Refresh</button>
+        <span class="toolbar-count" id="statsCount"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="statsTable" hidden>
+          <thead>
+            <tr>
+              <th>Game</th>
+              <th>Plays</th>
+              <th>Team leaders</th>
+              <th>Completed</th>
+              <th>Responses</th>
+              <th>Last played</th>
+            </tr>
+          </thead>
+          <tbody id="statsTbody"></tbody>
+        </table>
+        <div class="empty" id="statsEmpty">Sign in to view game play stats.</div>
+      </div>
+    </section>
+
+    <section class="ops-section">
       <h3 class="ops-section-title">Live Games</h3>
       <div class="empty">Live game controls are coming soon — this section will let you monitor and control running games.</div>
     </section>
@@ -313,7 +337,14 @@
     const refreshBtn  = document.getElementById('refreshBtn');
     const resultCount = document.getElementById('resultCount');
 
+    const statsTable     = document.getElementById('statsTable');
+    const statsTbody     = document.getElementById('statsTbody');
+    const statsEmpty     = document.getElementById('statsEmpty');
+    const statsCount     = document.getElementById('statsCount');
+    const statsRefreshBtn= document.getElementById('statsRefreshBtn');
+
     const state = { rows: [], authed: false };
+    let gameNameById = {};
 
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
@@ -321,11 +352,13 @@
         state.authed = true;
         setStatus('Loading...');
         await refresh();
+        await refreshStats();
       },
       onSignedOut: () => {
         state.authed = false;
         state.rows = [];
         render();
+        renderStats([]);
         setStatus('Sign in with an admin account.');
       }
     });
@@ -369,6 +402,74 @@
       } catch (error) {
         console.error(error);
         setStatus(error.message || 'Load failed', 'error');
+      }
+    }
+
+    async function fetchGameNames() {
+      try {
+        const url = new URL('/rest/v1/games', SUPABASE_CONFIG.url + '/');
+        url.searchParams.set('select', 'id,name');
+        const res = await fetch(url, { headers: authHeaders(), cache: 'no-store' });
+        if (!res.ok) return;
+        const rows = await res.json();
+        const map = {};
+        (Array.isArray(rows) ? rows : []).forEach((r) => { if (r && r.id) map[r.id] = r.name || ''; });
+        gameNameById = map;
+      } catch (_) { /* names are best-effort; fall back to game_id */ }
+    }
+
+    async function fetchStats() {
+      const url = new URL('/rest/v1/game_play_stats', SUPABASE_CONFIG.url + '/');
+      url.searchParams.set('select', '*');
+      url.searchParams.set('order', 'plays.desc');
+      const res = await fetch(url, { headers: authHeaders(), cache: 'no-store' });
+      if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        throw new Error('game_play_stats ' + res.status + (t ? ': ' + t.slice(0, 200) : ''));
+      }
+      return res.json();
+    }
+
+    function renderStats(rows) {
+      statsTbody.innerHTML = '';
+      if (!state.authed) {
+        statsTable.hidden = true; statsEmpty.hidden = false;
+        statsEmpty.textContent = 'Sign in to view game play stats.';
+        statsCount.textContent = '';
+        return;
+      }
+      if (!rows.length) {
+        statsTable.hidden = true; statsEmpty.hidden = false;
+        statsEmpty.textContent = 'No plays recorded yet — stats appear here as soon as people start playing.';
+        statsCount.textContent = '0 games';
+        return;
+      }
+      statsEmpty.hidden = true; statsTable.hidden = false;
+      rows.forEach((r) => {
+        const tr = document.createElement('tr');
+        const name = gameNameById[r.game_id] || '';
+        tr.innerHTML =
+          `<td><strong>${escapeText(name || r.game_id)}</strong>` +
+            (name ? `<div class="meta-line">${escapeText(r.game_id)}</div>` : '') + `</td>` +
+          `<td class="uses-cell">${Number(r.plays) || 0}</td>` +
+          `<td class="uses-cell">${Number(r.distinct_leaders) || 0}</td>` +
+          `<td class="uses-cell">${Number(r.completed_plays) || 0}</td>` +
+          `<td class="uses-cell">${Number(r.total_responses) || 0}</td>` +
+          `<td>${formatDate(r.last_played_at)}</td>`;
+        statsTbody.appendChild(tr);
+      });
+      statsCount.textContent = rows.length + (rows.length === 1 ? ' game' : ' games');
+    }
+
+    async function refreshStats() {
+      try {
+        await fetchGameNames();
+        const rows = await fetchStats();
+        renderStats(Array.isArray(rows) ? rows : []);
+      } catch (error) {
+        console.error(error);
+        statsTable.hidden = true; statsEmpty.hidden = false;
+        statsEmpty.textContent = error.message || 'Stats load failed.';
       }
     }
 
@@ -556,8 +657,10 @@
     searchInput.addEventListener('input', render);
     statusFilter.addEventListener('change', render);
     refreshBtn.addEventListener('click', refresh);
+    if (statsRefreshBtn) statsRefreshBtn.addEventListener('click', refreshStats);
 
     render();
+    renderStats([]);
     adminAuth.init();
   </script>
 </body>

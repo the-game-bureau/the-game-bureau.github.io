@@ -11,6 +11,7 @@
   <link id="favicon" rel="icon" href="../../../assets/brand/tgb.ico" type="image/x-icon">
   <script src="/assets/supabase-fallback.js"></script>
   <script src="/assets/team-palette.js"></script>
+  <script src="../config/instance-tracker.js"></script>
   <style>
     /* ── Base chat UI (archive/index.css) ── */
     .icon-preload {
@@ -2606,6 +2607,20 @@
         disableInput();
         addBubble(val, false);
 
+        try {
+          if (window.TgbInstance) TgbInstance.recordResponse({
+            stopId: stop && stop.id,
+            stopTitle: stop && stop.title,
+            stopIndex: currentStopIndex,
+            waypointId: stop && stop.waypointId,
+            varName: varKey,
+            value: val,
+            kind: 'text',
+            isCorrect: correct,
+            routeColor: vars['team_color']
+          });
+        } catch (e) {}
+
         if (!correct) {
           const after = () => {
             showTextInput(stop, startIndex, { flowKind });
@@ -2732,6 +2747,7 @@
       const next = currentStopIndex + 1;
       if (next >= gameStops.length) {
         mainFlowCompleted = true;
+        try { if (window.TgbInstance) TgbInstance.recordEvent('completed', {}); } catch (e) {}
         activeStop = null;
         activeFlowKind = 'main';
         disableInput();
@@ -3293,12 +3309,35 @@
 
         if (!gameStops.length) { chatEl.textContent = 'No stops configured for this game.'; return; }
 
+        // Record this playthrough (a "game instance") for stats. Append-only;
+        // the team leader's email is folded in server-side from gift_codes.
+        try {
+          if (window.TgbInstance) {
+            TgbInstance.start({
+              supabaseUrl: SB_CONFIG.url,
+              key: SB_CONFIG.key,
+              gameId: gameId,
+              accessCode: String(params.get('access_code') || params.get('code') || '').trim(),
+              engine: 'text',
+              mode: String(params.get('mode') || '').trim(),
+              session: String(params.get('session') || '').trim(),
+              playerDeviceId: getPlayerSessionId(),
+              routeColor: vars['team_color'] || '',
+              teamName: vars['player_name'] || '',
+              stopsTotal: gameStops.length
+            });
+          }
+        } catch (e) { console.warn('instance start failed', e); }
+
         // Returning from navigator.html after arriving at a waypoint: advance past
         // that waypoint so the player resumes at the next one (one at a time).
         const arrivedWpid = String(params.get('arrived_wpid') || '').trim();
         if (arrivedWpid) {
           const arrivedIndex = gameStops.findIndex((s) => s && String(s.waypointId || '') === arrivedWpid);
-          if (arrivedIndex >= 0) saveStep(arrivedIndex + 1);
+          if (arrivedIndex >= 0) {
+            saveStep(arrivedIndex + 1);
+            try { if (window.TgbInstance) TgbInstance.recordEvent('arrived', { waypointId: arrivedWpid, stopIndex: arrivedIndex }); } catch (e) {}
+          }
         }
 
         const savedStep = Math.min(loadStep(), gameStops.length - 1);

@@ -138,6 +138,14 @@
     '    <p class="tgb-gift-sub" id="tgbGiftIntroSub">After payment you’ll get an access code. Play it yourself, or send it to someone as a gift.</p>',
     '    <form class="tgb-gift-form" id="tgbGiftIntroForm" autocomplete="on">',
     '      <div class="tgb-gift-field">',
+    '        <label for="tgbGiftTeamName">Your team name</label>',
+    '        <input id="tgbGiftTeamName" name="team_name" type="text" maxlength="80" autocomplete="off" placeholder="Name your team">',
+    '      </div>',
+    '      <div class="tgb-gift-field">',
+    '        <label for="tgbGiftLeaderName">Team leader name (optional)</label>',
+    '        <input id="tgbGiftLeaderName" name="team_leader_name" type="text" maxlength="80" autocomplete="name">',
+    '      </div>',
+    '      <div class="tgb-gift-field">',
     '        <label for="tgbGiftBuyerEmail">Your email (for the receipt)</label>',
     '        <input id="tgbGiftBuyerEmail" name="buyer_email" type="email" required autocomplete="email">',
     '      </div>',
@@ -612,8 +620,11 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          game_id:     state.game.id,
-          buyer_email: buyerEmail
+          game_id:          state.game.id,
+          buyer_email:      buyerEmail,
+          // Game Bureau (player) team identity, captured before Stripe.
+          team_name:        ($('tgbGiftTeamName') ? $('tgbGiftTeamName').value.trim() : ''),
+          team_leader_name: ($('tgbGiftLeaderName') ? $('tgbGiftLeaderName').value.trim() : '')
         })
       });
       var data = await response.json().catch(function () { return {}; });

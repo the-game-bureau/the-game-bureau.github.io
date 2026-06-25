@@ -4,6 +4,19 @@ Durable project knowledge for Claude Code (and any teammate working in this repo
 
 ---
 
+## Game play tracking (instances / responses / events)
+
+**"Team" is two different things:** a **sports team** is a pro team a game is based on (`public.teams`; **team colors** = shell/stripe/mask belong here), reachable via `game_id → games`. A **Game Bureau team** is a group of our players, led by a **team leader** and identified by a chosen **team name**, never a color. The engine's blue/black/purple/silver/orange value is a **route-rotation slot** (`route_color`), not a sports-team color — don't label Game Bureau teams with it.
+
+Playthroughs are recorded for stats. A **team leader** (the buyer/leader — we used to say "player") plays a **game instance** (one playthrough by one Game Bureau team, a client-generated uuid). Tables: `game_instances`, `game_responses`, `game_events`, plus a `game_play_stats` view. Schema: [supabase/migrations/20260625_game_instances_responses.sql](supabase/migrations/20260625_game_instances_responses.sql); client: [game/run/config/instance-tracker.js](game/run/config/instance-tracker.js) (`window.TgbInstance`), wired into both engines. Full write-up: [_dev/docs/supabase/game-instances-responses.md](_dev/docs/supabase/game-instances-responses.md).
+
+- **Append-only for anon** (engines use the anon key): RLS allows `INSERT` only; admin reads gated by `is_photo_admin()`. Don't add anon update/delete — record progress as `game_events`, not by mutating rows.
+- **Team leader email is folded in server-side**, never sent by the client: the `tgb_link_game_instance_identity` SECURITY DEFINER trigger looks the play's `access_code` up in `gift_codes` and copies the Stripe email. The link is **Stripe → gift_codes → game_instances → game_responses**.
+- Team name + team leader name are collected *before* Stripe in the buy modal (`mc/js/gs-buy-modal.js`) and written to `gift_codes` (`team_name`, `team_leader_name`) by `gs-create-checkout`; the instance trigger folds them onto the play. They're also best-effort on the instance (chosen in-game), and the authoritative team name is recoverable from `game_responses` (the `player_name` var). `route_color` is the engine route slot, not a sports color.
+- Admin stats live in [mc/gs-codes.html](mc/gs-codes.html) ("Game Play Stats" panel, reads the `game_play_stats` view).
+
+---
+
 ## Site layout & deployment
 
 - Published as a GitHub Pages site with `.nojekyll`, so files are served as-is (no Jekyll processing).

@@ -132,6 +132,13 @@ ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS last_redeemed_at timestam
 ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS swap_count       integer NOT NULL DEFAULT 0;
 ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS last_swapped_at  timestamptz;
 
+-- Team identity collected in the buy modal BEFORE Stripe (the team leader names
+-- their Game Bureau team up front). gs-create-checkout stores them here; the
+-- game_instances trigger folds them onto the playthrough so stats can tie a
+-- play to its team name + leader. (Also added in the 20260625 migration.)
+ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS team_name        text;
+ALTER TABLE public.gift_codes ADD COLUMN IF NOT EXISTS team_leader_name text;
+
 CREATE INDEX IF NOT EXISTS gift_codes_code_idx        ON public.gift_codes (code) WHERE code IS NOT NULL;
 CREATE INDEX IF NOT EXISTS gift_codes_status_idx      ON public.gift_codes (status);
 CREATE INDEX IF NOT EXISTS gift_codes_game_idx        ON public.gift_codes (game_id);

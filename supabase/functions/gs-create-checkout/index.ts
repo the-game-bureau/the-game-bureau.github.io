@@ -80,6 +80,9 @@ Deno.serve(async (req) => {
   const buyerEmail     = clean(payload.buyer_email, 320);
   const buyerName      = clean(payload.buyer_name, 200);
   const message        = clean(payload.message, 1000);
+  // The Game Bureau (player) team the buyer is leading — collected before Stripe.
+  const teamName       = clean(payload.team_name, 120);
+  const teamLeaderName = clean(payload.team_leader_name, 120);
 
   if (!gameId) return json(400, { error: 'game_id is required.' });
   // recipient_email is optional in the unified flow. If provided, it
@@ -147,6 +150,8 @@ Deno.serve(async (req) => {
         recipient_name:  recipientName.slice(0, 200),
         buyer_email:     buyerEmail.slice(0, 200),
         buyer_name:      buyerName.slice(0, 200),
+        team_name:        teamName,
+        team_leader_name: teamLeaderName,
         // Stripe caps metadata values at 500 chars; trim message hard.
         message:         message.slice(0, 480),
       },
@@ -179,6 +184,8 @@ Deno.serve(async (req) => {
       recipient_email:   recipientEmail || null,
       recipient_name:    recipientName || null,
       message:           message || null,
+      team_name:         teamName || null,
+      team_leader_name:  teamLeaderName || null,
       stripe_session_id: session.id,
       status:            'pending',
     });
