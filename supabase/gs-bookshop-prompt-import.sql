@@ -13,22 +13,20 @@
 --       "image_url": "https://images-us.bookshop.org/ingram/9780000000000.jpg",
 --       "price_display": "$19.99",
 --       "description": "Short original gift-shop blurb.",
---       "game_ids": ["game-id"]
+--       "cities": ["City, State"]
 --     }
 --   ]
 --   $tgb$::jsonb);
 --
--- New rows are intentionally inserted with certified_at = NULL. That keeps
--- "Certify Today" unchecked in /mc/gs-shop.html and keeps the public /gifts/
--- page from showing the items until an admin reviews and certifies them.
+-- New rows are published by default: archived = false and certified_at = now().
 -- Duplicate checks scan every gift_shop_items row, including archived/hidden
--- and uncertified rows, so hidden inventory is not recreated by later prompts.
+-- and unpublished rows, so archived inventory is not recreated by later prompts.
 
 alter table public.gift_shop_items
   add column if not exists certified_at timestamptz;
 
 comment on column public.gift_shop_items.certified_at is
-  'Last time the item was certified by an admin (Certify Today in /mc/gs-shop.html). NULL = never.';
+  'Last time the item was published by an admin. NULL = unpublished.';
 
 create or replace function public.tgb_import_bookshop_prompt_items(items jsonb)
 returns table (
@@ -48,9 +46,8 @@ declare
   v_image_url text;
   v_price_display text;
   v_description text;
-  v_game_ids jsonb;
-  v_game_id_text text;
-  v_game_id public.games.id%type;
+  v_cities jsonb;
+  v_city text;
   v_item_id public.gift_shop_items.id%type;
   v_existing_item_id public.gift_shop_items.id%type;
   v_position integer;
@@ -85,17 +82,10 @@ begin
       continue;
     end if;
 
-    if jsonb_typeof(v_entry->'game_ids') = 'array' then
-      v_game_ids := v_entry->'game_ids';
-    elsif nullif(v_entry->>'game_id', '') is not null then
-      v_game_ids := jsonb_build_array(v_entry->>'game_id');
+    if jsonb_typeof(v_entry->'cities') = 'array' then
+      v_cities := v_entry->'cities';
     else
-      v_game_ids := '[]'::jsonb;
-    end if;
-
-    if jsonb_array_length(v_game_ids) = 0 then
-      return query select 'skipped'::text, v_title, null::text, 0, 'missing game_ids'::text;
-      continue;
+      v_cities := '[]'::jsonb;
     end if;
 
     v_url := 'https://bookshop.org/a/87073/' || v_isbn;
@@ -141,37 +131,26 @@ begin
       v_price_display,
       v_description,
       false,
-      null
+      now()
     )
     returning id into v_item_id;
 
     v_listings_added := 0;
     v_position := 0;
 
-    for v_game_id_text in select value from jsonb_array_elements_text(v_game_ids)
+    for v_city in select btrim(value) from jsonb_array_elements_text(v_cities)
     loop
-      begin
-        v_game_id := v_game_id_text;
-      exception when others then
-        continue;
-      end;
-
-      if not exists (
-        select 1
-          from public.games g
-         where g.id = v_game_id
-           and (g.archived is null or g.archived = '' or upper(g.archived) <> 'YES')
-      ) then
+      if v_city is null or v_city = '' then
         continue;
       end if;
 
-      insert into public.gift_shop_listings (item_id, game_id, position, archived)
-      select v_item_id, v_game_id, v_position, false
+      insert into public.gift_shop_listings (item_id, city, position, archived)
+      select v_item_id, v_city, v_position, false
       where not exists (
         select 1
           from public.gift_shop_listings l
          where l.item_id = v_item_id
-           and l.game_id = v_game_id
+           and l.city = v_city
       );
 
       get diagnostics v_rows = row_count;
@@ -179,12 +158,9 @@ begin
       v_position := v_position + 1;
     end loop;
 
-    if v_listings_added = 0 then
-      delete from public.gift_shop_items where id = v_item_id;
-      return query select 'skipped'::text, v_title, null::text, 0, 'no valid live game listings'::text;
-    else
-      return query select 'inserted'::text, v_title, v_item_id::text, v_listings_added, null::text;
-    end if;
+    -- City assignment is optional: items with no recognizable city are inserted
+    -- unassigned (they just won't show under a city until an admin assigns one).
+    return query select 'inserted'::text, v_title, v_item_id::text, v_listings_added, null::text;
   end loop;
 end;
 $$;

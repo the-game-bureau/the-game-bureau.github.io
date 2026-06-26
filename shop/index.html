@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#f3eee6">
+  <meta name="color-scheme" content="light dark">
   <title>GIFT SHOP | THE GAME BUREAU</title>
   <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -65,8 +65,8 @@
         linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.01)),
         rgba(11, 16, 24, 0.86);
       box-shadow: var(--shadow-panel);
-      backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
     }
 
     body.home-page .gift-city-panel {
@@ -78,8 +78,8 @@
       border-radius: 10px;
       background: rgba(16, 21, 30, 0.78);
       box-shadow: var(--shadow-chip);
-      backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
     }
     body.home-page .gift-city-head {
       display: flex;
@@ -116,7 +116,6 @@
       overscroll-behavior-inline: contain;
       /* Top room so the hover lift + ring isn't clipped; scrollbar hidden. */
       padding: 8px 0 14px;
-      scrollbar-width: none;
       -ms-overflow-style: none;
       cursor: grab;
     }
@@ -365,8 +364,8 @@
       position: absolute;
       inset: 0;
       background: rgba(2, 4, 8, 0.78);
-      backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
     }
     .gift-detail-panel {
       position: relative;
@@ -380,8 +379,8 @@
       background: rgba(16, 21, 30, 0.97);
       color: var(--ink);
       box-shadow: 0 28px 64px rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
     }
     .gift-detail-close {
       position: absolute;
@@ -593,8 +592,8 @@
       text-transform: uppercase;
       cursor: pointer;
       box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
-      backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
     }
     .cart-fab[hidden] { display: none; }
     .cart-fab:hover { border-color: var(--accent); color: var(--accent); }
@@ -627,8 +626,8 @@
       position: absolute;
       inset: 0;
       background: rgba(2, 4, 8, 0.75);
-      backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
     }
     .cart-panel {
       position: relative;
@@ -642,8 +641,8 @@
       border-radius: 10px;
       box-shadow: 0 28px 64px rgba(0, 0, 0, 0.6);
       overflow: hidden;
-      backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
     }
     .cart-panel-head {
       display: flex;
@@ -879,24 +878,18 @@
       return url.pathname + url.search;
     }
 
-    function buildGiftCityEntries(listings, gameById, allItems) {
-      const byCity = new Map();
-      const cityItemIds = new Set();
+    function buildGiftCityEntries(shopCities, listings, allItems) {
+      const itemIdsByCity = new Map();
       (Array.isArray(listings) ? listings : []).forEach((listing) => {
         const item = listing && listing.gift_shop_items;
         if (!item || item.id == null) return;
         if (item.gift_card_game_id) return;
         if (isHiddenGiftItem(item) || !isCertified(item)) return;
-        const game = listing.games || gameById.get(listing.game_id);
-        const city = gameCity(game);
+        // Gifts are assigned directly to a city now (gift_shop_listings.city).
+        const city = String(listing && listing.city || '').trim();
         if (!city) return;
-        let entry = byCity.get(city);
-        if (!entry) {
-          entry = { city, itemIds: new Set() };
-          byCity.set(city, entry);
-        }
-        entry.itemIds.add(item.id);
-        cityItemIds.add(item.id);
+        if (!itemIdsByCity.has(city)) itemIdsByCity.set(city, new Set());
+        itemIdsByCity.get(city).add(item.id);
       });
       const allVisibleItemIds = new Set();
       (Array.isArray(allItems) ? allItems : []).forEach((item) => {
@@ -905,16 +898,23 @@
         if (isHiddenGiftItem(item) || !isCertified(item)) return;
         allVisibleItemIds.add(item.id);
       });
-      const entries = Array.from(byCity.values())
-        .map((entry) => ({
-          city: entry.city,
-          label: cityDisplayName(entry.city),
-          count: entry.itemIds.size
-        }))
-        .filter((entry) => entry.count > 0)
+      const rows = Array.isArray(shopCities) ? shopCities : [];
+      const entries = rows
+        .map((row) => {
+          const city = String(row && row.city || '').trim();
+          if (!city) return null;
+          const label = String(row && row.label || '').trim() || cityDisplayName(city);
+          const itemIds = itemIdsByCity.get(city);
+          return {
+            city,
+            label,
+            count: itemIds ? itemIds.size : 0
+          };
+        })
+        .filter(Boolean)
         .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true }) ||
           a.city.localeCompare(b.city, undefined, { sensitivity: 'base', numeric: true }));
-      return { entries, total: allVisibleItemIds.size || cityItemIds.size };
+      return { entries, total: allVisibleItemIds.size };
     }
 
     // ── Geo badges — mirrors the Games-page BY CITY rows so the shop's city
@@ -1230,15 +1230,23 @@
     function shouldContainGiftImage(item) {
       const title = String(item && item.title || '');
       const url = String(item && item.url || '');
+      const imageUrl = String(item && item.image_url || '');
       return /B00O9KFZIE/i.test(url)
+        || /bookshop\.org/i.test(url)
+        || /images-us\.bookshop\.org\/ingram/i.test(imageUrl)
         || /\b(blu[-\s]?ray|blue[-\s]?ray|dvd)\b/i.test(title)
         || /\(bd\)/i.test(title)
         || /\bBD\b/.test(title);
     }
 
+    function imageLooksPortraitProduct(img) {
+      if (!img || !img.naturalWidth || !img.naturalHeight) return false;
+      return img.naturalHeight / img.naturalWidth >= 1.15;
+    }
+
     function applyGiftImageDisplay(img, item, media) {
       const focus = String(item && item.image_focus || '').trim();
-      if (shouldContainGiftImage(item)) {
+      const applyContain = () => {
         img.style.objectFit = 'contain';
         img.style.objectPosition = focus || '50% 50%';
         if (media) {
@@ -1246,9 +1254,17 @@
           media.dataset.imageFit = 'contain';
           if (imageUrl) media.style.setProperty('--gift-contain-image', 'url("' + imageUrl + '")');
         }
+      };
+      if (shouldContainGiftImage(item)) {
+        applyContain();
         return;
       }
       if (focus) img.style.objectPosition = focus;
+      const applyAutoContain = () => {
+        if (imageLooksPortraitProduct(img)) applyContain();
+      };
+      if (img.complete && img.naturalWidth > 0) applyAutoContain();
+      else img.addEventListener('load', applyAutoContain, { once: true });
     }
 
     function isFandomGame(game) {
@@ -1356,9 +1372,18 @@
 
     async function fetchAllListings() {
       return fetchJson(buildSupabaseUrl('gift_shop_listings', {
-        select: '*,gift_shop_items(*),games(id,name,primary_color,city,away_team_city,away_team_mascot,fandom_game,tags,category_icon)',
+        // Listings now carry the city directly; no game join needed.
+        select: '*,gift_shop_items(*)',
         archived: 'eq.false',
         order: 'created_at.desc'
+      }));
+    }
+
+    async function fetchGiftShopCities() {
+      return fetchJson(buildSupabaseUrl('gift_shop_cities', {
+        select: 'city,label,sort_order',
+        archived: 'eq.false',
+        order: 'sort_order.asc,city.asc'
       }));
     }
 
@@ -1802,10 +1827,11 @@
       renderEmpty('Loading inventory...');
 
       try {
-        const [listings, allGames, allItems, teams] = await Promise.all([
+        const [listings, allGames, allItems, shopCities, teams] = await Promise.all([
           fetchAllListings().catch(() => []),
           fetchAllGames().catch(() => []),
           fetchAllShopItems().catch(() => []),
+          fetchGiftShopCities().catch(() => []),
           window.TgbTeamPalette
             ? window.TgbTeamPalette.loadTeams(SB_CONFIG).catch(() => [])
             : Promise.resolve([])
@@ -1813,8 +1839,8 @@
         const safeListings = Array.isArray(listings) ? listings : [];
         const safeGames    = Array.isArray(allGames) ? allGames : [];
         const safeItems    = Array.isArray(allItems) ? allItems : [];
-        const gameById = new Map(safeGames.map((g) => [g.id, g]));
-        renderGiftCityRail(buildGiftCityEntries(safeListings, gameById, safeItems));
+        const safeShopCities = Array.isArray(shopCities) ? shopCities : [];
+        renderGiftCityRail(buildGiftCityEntries(safeShopCities, safeListings, safeItems));
 
         // Resolve the optional ?id=/?game= filter to a real game — match by id
         // first, then by name (case-insensitive) — and scope the shop to it.
@@ -1836,9 +1862,11 @@
           document.title = String(requestedGame.name || '').toUpperCase() + ' GIFTS | THE GAME BUREAU';
         }
 
+        // Effective city filter: an explicit ?city=, or the city of a ?id=/?game= game.
+        const filterCity = requestedCity || (requestedGame ? gameCity(requestedGame) : '');
         const matchingListings = safeListings.filter((listing) => {
-          const game = listing.games || gameById.get(listing.game_id);
-          return cityMatchesGame(game) && listingMatchesGameFilter(listing);
+          const city = String(listing && listing.city || '').trim();
+          return !filterCity || city.localeCompare(filterCity, undefined, { sensitivity: 'base' }) === 0;
         });
 
         // Curated gift_shop_items rows take precedence; record their
@@ -1878,25 +1906,13 @@
           if (item.gift_card_game_id) continue; // hidden — chooser owns this
           if (isHiddenGiftItem(item)) continue; // kept for dedupe, hidden from public shop
           if (!isCertified(item)) continue;     // only show certified gifts
-          const game = listing.games || gameById.get(listing.game_id) || {};
-          const gameName = String(game.name || '').trim();
-          const gameColor = getGamePrimaryColor(game, teams);
-          let entry = grouped.get(item.id);
-          if (!entry) {
-            entry = { item, names: [], firstColor: gameColor || null };
-            grouped.set(item.id, entry);
-          }
-          if (gameName && !entry.names.includes(gameName)) {
-            entry.names.push(gameName);
-          }
-          if (!entry.firstColor && gameColor) entry.firstColor = gameColor;
+          if (!grouped.has(item.id)) grouped.set(item.id, { item });
         }
 
-        // Collect every gift item (curated listings + standalone) as
-        // {item, opts} so we can sort across both groups before rendering.
+        // Gifts are city-based now (not game-based), so no per-game name/color tags.
         const giftEntries = [];
-        for (const { item, names, firstColor } of grouped.values()) {
-          giftEntries.push({ item, opts: { gameNames: names, gameColor: firstColor || null } });
+        for (const { item } of grouped.values()) {
+          giftEntries.push({ item, opts: {} });
         }
 
         // Every other item that isn't already shown via a listing — so the shop
@@ -1934,12 +1950,10 @@
         }
         cards.forEach((card) => gridEl.appendChild(card));
         itemCountEl.textContent = String(cards.length);
-        // Affiliate items are tied to games via listings; the chooser
-        // itself represents the full paid-games catalog independently.
-        const allGameIds = new Set(matchingListings.map((l) => l.game_id).filter(Boolean));
-        shopCountEl.textContent = String(allGameIds.size);
+        // Gifts are grouped by city now.
+        shopCountEl.textContent = String(safeShopCities.length);
         setStatus(cards.length + ' item' + (cards.length === 1 ? '' : 's') + ' across ' +
-          allGameIds.size + ' game(s)');
+          allCities.size + ' cit' + (allCities.size === 1 ? 'y' : 'ies'));
       } catch (error) {
         console.error('[giftshop] all-shops load failed', error);
         renderEmpty('Could not load gift shop.');
