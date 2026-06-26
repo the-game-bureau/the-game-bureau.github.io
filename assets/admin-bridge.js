@@ -173,8 +173,8 @@
     if (explicit) return rootHref(explicit);
     if (kind === 'game') return rootHref('mc/overview.html' + (id ? '?id=' + encode(id) : ''));
     if (kind === 'game-run') return rootHref('mc/overview.html' + (gameId ? '?id=' + encode(gameId) : ''));
-    if (kind === 'gift-item') return rootHref('mc/gs-shop.html' + (id ? '?item=' + encode(id) : ''));
-    if (kind === 'gift-shop') return rootHref('mc/gs-shop.html');
+    if (kind === 'gift-item') return rootHref('shop/admin/' + (id ? '?item=' + encode(id) : ''));
+    if (kind === 'gift-shop') return rootHref('shop/admin/');
     if (kind === 'winners-wall') return rootHref('mc/photos.html');
     if (kind === 'photo') return rootHref('mc/photos.html' + (id ? '?photo=' + encode(id) : (gameId ? '?game=' + encode(gameId) : '')));
     return rootHref('mc/index.html');

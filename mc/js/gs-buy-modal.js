@@ -1,6 +1,6 @@
 // gs-buy-modal — shared "Buy this game" / "Send access code" modal.
 //
-// Flow (unified for /game/run/ landing card and /gifts/ shop):
+// Flow (unified for /game/run/ landing card and /shop/ shop):
 //   1. intro   — confirms the game + price, "Continue to payment" CTA
 //   2. checkout— Stripe Embedded Checkout
 //   3. success — shows the issued TGB-XXXX-XXXX access code with two actions:
@@ -34,7 +34,7 @@
   var SEND_URL   = EDGE_BASE + '/gs-send-code';
   var SWAP_URL   = EDGE_BASE + '/gs-swap-game';
 
-  // Themed to match /gifts/ (Big Shoulders Display headlines, JetBrains
+  // Themed to match /shop/ (Big Shoulders Display headlines, JetBrains
   // Mono body, dark glass background, accent-colored CTAs, 10/6px radii).
   // Engines that load this modal can override --gs-accent on the modal
   // root to retint primary actions without rewriting the CSS.
@@ -400,7 +400,7 @@
   }
 
   // Open the modal at the chooser step, where the buyer picks a game
-  // from a list. Used by the "Game Access — Your Pick" tile in /gifts/.
+  // from a list. Used by the "Game Access — Your Pick" tile in /shop/.
   // Once a game is picked, we route through the same intro → Stripe →
   // success flow as openForGame.
   function openForChoice(opts) {
@@ -569,7 +569,7 @@
   }
 
   // Detect ?swap=CODE on page load (linked from the buyer-receipt
-  // email or the /gifts/ shop) and open the modal at the swap step.
+  // email or the /shop/ shop) and open the modal at the swap step.
   function maybeOpenSwapFromUrl() {
     var params = new URLSearchParams(global.location.search);
     var swapCode = params.get('swap');

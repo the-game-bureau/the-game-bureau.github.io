@@ -23,7 +23,7 @@
   // still surfaced as a hub card via getGroups().
   var OPERATIONS_LINK = {
     label: 'OPERATIONS',
-    href: '/mc/gs-codes.html'
+    href: '/shop/giftcards.html'
   };
 
   // localStorage key the game editor (overview.html) uses to remember the last
@@ -70,6 +70,11 @@
           href: '/mc/mapper.html',
           label: 'Game Mapper',
           description: 'Build a game’s route from ordered waypoints and save it to the map.'
+        },
+        {
+          href: '/shop/admin/',
+          label: 'Gift Shop',
+          description: 'Manage gift-shop items, game gifts, pricing, and storefront content.'
         }
       ]
     },
@@ -80,11 +85,6 @@
           href: '/mc/photos.html',
           label: "Winner's Wall",
           description: "Review and curate player photos for the public Winner's Wall."
-        },
-        {
-          href: '/mc/gs-shop.html',
-          label: 'Gift Shop',
-          description: 'Manage gift-shop items, game gifts, pricing, and storefront content.'
         }
       ]
     },

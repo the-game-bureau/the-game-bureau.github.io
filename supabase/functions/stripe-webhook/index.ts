@@ -423,7 +423,7 @@ async function sendBuyerEmail(row: GiftEmailRow, buyerAddress: string): Promise<
   const code     = row.code || '';
   if (!code) return;
   const playLink = gameUrl(row.game_id, code);
-  const swapLink = siteOrigin() + '/gifts/?swap=' + encodeURIComponent(code);
+  const swapLink = siteOrigin() + '/shop/?swap=' + encodeURIComponent(code);
   const subject  = 'Your access code for ' + gameName;
   const html = `<!doctype html>
 <html><body style="margin:0;padding:24px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1f2937;background:#f3eee6;">

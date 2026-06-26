@@ -36,7 +36,7 @@
             '<a class="nav-dropdown-item" href="/games/?mode=city" role="menuitem" data-mode="city">Where Are You Headed?</a>' +
           '</div>' +
         '</div>' +
-        '<a class="nav-link nav-link--major nav-link--gifts" href="/gifts/">GIFTS</a>' +
+        '<a class="nav-link nav-link--major nav-link--gifts" href="/shop/">GIFTS</a>' +
       '</div>' +
     '</nav>';
 

@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="../assets/site-pages.css">
   <script src="../assets/public-account.js"></script>
   <script src="../assets/team-palette.js"></script>
+  <script src="../assets/states/us-state-shapes.js"></script>
   <style>
     /* ── Gift shop overrides on top of site-shell.css home-page chrome.
        Body class `home-page` brings the dark night theme, nav, footer,
@@ -46,7 +47,7 @@
           rgba(8, 11, 17, 0.48) 56%,
           rgba(8, 11, 17, 0.20) 78%,
           rgba(8, 11, 17, 0.08) 100%),
-        url("/assets/gifts/walking-tour-hero-stops.png") center right / cover no-repeat;
+        url("/shop/shop_banner.png") center right / cover no-repeat;
     }
     body.home-page main.gift-page .hero-grid {
       min-height: 0;
@@ -66,6 +67,94 @@
       box-shadow: var(--shadow-panel);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
+    }
+
+    body.home-page .gift-city-panel {
+      display: grid;
+      gap: 12px;
+      padding: 18px;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background: rgba(16, 21, 30, 0.78);
+      box-shadow: var(--shadow-chip);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    body.home-page .gift-city-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 2px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    body.home-page .gift-city-title {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Big Shoulders Display", "Impact", "Arial Narrow", sans-serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 0;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    body.home-page .gift-city-count {
+      color: var(--muted);
+      font-family: "JetBrains Mono", "Menlo", "Consolas", monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    /* Horizontal auto-scrolling city rail (mirrors the Games-page hero list:
+       no scrollbar, infinite loop via 3 cloned chunks, click-drag to swipe). */
+    body.home-page .gift-city-list {
+      overflow-x: auto;
+      overflow-y: hidden;
+      overscroll-behavior-inline: contain;
+      /* Top room so the hover lift + ring isn't clipped; scrollbar hidden. */
+      padding: 8px 0 14px;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      cursor: grab;
+    }
+    body.home-page .gift-city-list::-webkit-scrollbar { width: 0; height: 0; display: none; }
+    body.home-page .gift-city-list.is-dragging { cursor: grabbing; }
+    body.home-page .gift-city-list.is-dragging .hero-meta-list-item { cursor: grabbing; }
+    body.home-page .gift-city-track {
+      display: flex;
+      flex-wrap: nowrap;
+      width: max-content;
+      gap: 8px;
+    }
+    body.home-page .gift-city-chunk {
+      display: flex;
+      flex-wrap: nowrap;
+      flex: 0 0 auto;
+      gap: 8px;
+    }
+    /* City rail chips reuse the shared hero-meta-list-item look from
+       site-shell.css (the same rows the Games page uses, incl. the
+       country/state geo badges). Sized to their content so the full city name
+       stays readable, with the hover shadow trimmed so it doesn't spill. */
+    body.home-page .gift-city-list .hero-meta-list-item {
+      flex: 0 0 auto;
+      width: auto;
+      /* Content-size the name column (vs the shared minmax(0,1fr)) so the full
+         city name is readable instead of ellipsized. */
+      grid-template-columns: 44px auto auto;
+    }
+    body.home-page .gift-city-list .hero-meta-list-name {
+      overflow: visible;
+      text-overflow: clip;
+    }
+    body.home-page .gift-city-list .hero-meta-list-item:hover {
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.06) inset,
+        0 0 0 2px var(--accent),
+        0 12px 26px rgba(0, 0, 0, 0.4);
     }
 
     body.home-page .grid {
@@ -139,6 +228,19 @@
     }
     body.home-page .card-media[data-has-image="true"] .card-monogram {
       display: none;
+    }
+    body.home-page .card-media[data-image-fit="contain"] {
+      background:
+        linear-gradient(180deg, rgba(8, 11, 17, 0.20), rgba(8, 11, 17, 0.72)),
+        var(--gift-contain-image) center / cover no-repeat,
+        var(--card-game-color, var(--accent));
+    }
+    body.home-page .card-media[data-image-fit="contain"] .card-image {
+      z-index: 1;
+      box-sizing: border-box;
+      padding: 8px;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.36));
     }
 
     body.home-page .card-body {
@@ -709,6 +811,14 @@
         </div>
       </section>
 
+      <section class="gift-city-panel" id="giftCityPanel" aria-labelledby="giftCityTitle" hidden>
+        <header class="gift-city-head">
+          <h2 class="gift-city-title" id="giftCityTitle">Shop By City</h2>
+          <span class="gift-city-count" id="giftCityCount">0 cities</span>
+        </header>
+        <div class="gift-city-list" id="giftCityList" aria-label="Filter gifts by city"></div>
+      </section>
+
       <section class="gift-grid-wrap" aria-label="Gift shop items">
         <div class="grid" id="grid"></div>
       </section>
@@ -738,6 +848,9 @@
     const leadEl = document.getElementById('lead');
     const itemCountEl = document.getElementById('itemCount');
     const shopCountEl = document.getElementById('shopCount') || { textContent: '' };
+    const giftCityPanelEl = document.getElementById('giftCityPanel');
+    const giftCityListEl = document.getElementById('giftCityList');
+    const giftCityCountEl = document.getElementById('giftCityCount');
 
     function setStatus(msg) {
       const text = msg || '';
@@ -750,6 +863,353 @@
       eyebrowEl.textContent = trimmed;
       eyebrowSuffixEl.hidden = !trimmed;
       if (trimmed) eyebrowSuffixEl.textContent = ' / ' + trimmed;
+    }
+
+    function cityDisplayName(label) {
+      const s = String(label || '').trim();
+      if (/\bd\.?\s*c\.?$/i.test(s)) return s;
+      const parts = s.split(',').map((p) => p.trim()).filter(Boolean);
+      return parts[0] || s || '';
+    }
+
+    function giftCityHref(city) {
+      const url = new URL('/shop/', window.location.origin);
+      const trimmed = String(city || '').trim();
+      if (trimmed) url.searchParams.set('city', trimmed);
+      return url.pathname + url.search;
+    }
+
+    function buildGiftCityEntries(listings, gameById, allItems) {
+      const byCity = new Map();
+      const cityItemIds = new Set();
+      (Array.isArray(listings) ? listings : []).forEach((listing) => {
+        const item = listing && listing.gift_shop_items;
+        if (!item || item.id == null) return;
+        if (item.gift_card_game_id) return;
+        if (isHiddenGiftItem(item) || !isCertified(item)) return;
+        const game = listing.games || gameById.get(listing.game_id);
+        const city = gameCity(game);
+        if (!city) return;
+        let entry = byCity.get(city);
+        if (!entry) {
+          entry = { city, itemIds: new Set() };
+          byCity.set(city, entry);
+        }
+        entry.itemIds.add(item.id);
+        cityItemIds.add(item.id);
+      });
+      const allVisibleItemIds = new Set();
+      (Array.isArray(allItems) ? allItems : []).forEach((item) => {
+        if (!item || item.id == null) return;
+        if (item.gift_card_game_id) return;
+        if (isHiddenGiftItem(item) || !isCertified(item)) return;
+        allVisibleItemIds.add(item.id);
+      });
+      const entries = Array.from(byCity.values())
+        .map((entry) => ({
+          city: entry.city,
+          label: cityDisplayName(entry.city),
+          count: entry.itemIds.size
+        }))
+        .filter((entry) => entry.count > 0)
+        .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true }) ||
+          a.city.localeCompare(b.city, undefined, { sensitivity: 'base', numeric: true }));
+      return { entries, total: allVisibleItemIds.size || cityItemIds.size };
+    }
+
+    // ── Geo badges — mirrors the Games-page BY CITY rows so the shop's city
+    // rail uses the same country-oval / state-silhouette badge. ─────────────
+    const US_STATES = {
+      'alabama':'AL','alaska':'AK','arizona':'AZ','arkansas':'AR','california':'CA',
+      'colorado':'CO','connecticut':'CT','delaware':'DE','florida':'FL','georgia':'GA',
+      'hawaii':'HI','idaho':'ID','illinois':'IL','indiana':'IN','iowa':'IA',
+      'kansas':'KS','kentucky':'KY','louisiana':'LA','maine':'ME','maryland':'MD',
+      'massachusetts':'MA','michigan':'MI','minnesota':'MN','mississippi':'MS','missouri':'MO',
+      'montana':'MT','nebraska':'NE','nevada':'NV','new hampshire':'NH','new jersey':'NJ',
+      'new mexico':'NM','new york':'NY','north carolina':'NC','north dakota':'ND','ohio':'OH',
+      'oklahoma':'OK','oregon':'OR','pennsylvania':'PA','rhode island':'RI','south carolina':'SC',
+      'south dakota':'SD','tennessee':'TN','texas':'TX','utah':'UT','vermont':'VT',
+      'virginia':'VA','washington':'WA','west virginia':'WV','wisconsin':'WI','wyoming':'WY',
+      'district of columbia':'DC', 'dc':'DC', 'd.c.':'DC', 'd. c.':'DC'
+    };
+    const COUNTRY_CODES = {
+      'united kingdom':'GBR','england':'GBR','scotland':'GBR','wales':'GBR','northern ireland':'GBR',
+      'france':'FRA','germany':'DEU','spain':'ESP','italy':'ITA','portugal':'PRT',
+      'netherlands':'NLD','belgium':'BEL','ireland':'IRL','sweden':'SWE','norway':'NOR',
+      'denmark':'DNK','finland':'FIN','austria':'AUT','switzerland':'CHE','poland':'POL',
+      'czech republic':'CZE','greece':'GRC','turkey':'TUR','russia':'RUS','ukraine':'UKR',
+      'mexico':'MEX','canada':'CAN','brazil':'BRA','argentina':'ARG','chile':'CHL',
+      'colombia':'COL','peru':'PER','uruguay':'URY',
+      'australia':'AUS','new zealand':'NZL','japan':'JPN','china':'CHN','south korea':'KOR',
+      'india':'IND','singapore':'SGP','thailand':'THA','indonesia':'IDN','philippines':'PHL',
+      'south africa':'ZAF','egypt':'EGY','israel':'ISR','united arab emirates':'ARE',
+      'united states':'USA','usa':'USA'
+    };
+
+    function cityGeoBadge(label) {
+      const labelStr = String(label || '').trim();
+      if (/\bd\.?\s*c\.?$/i.test(labelStr)) return { kind: 'state', value: 'DC' };
+      const parts = labelStr.split(',').map((s) => s.trim()).filter(Boolean);
+      for (let i = parts.length - 1; i >= 1; i--) {
+        const key = parts[i].toLowerCase();
+        if (US_STATES[key]) return { kind: 'state', value: US_STATES[key] };
+        if (COUNTRY_CODES[key]) return { kind: 'country', value: COUNTRY_CODES[key] };
+      }
+      return null;
+    }
+
+    function svgPathCenter(pathData, fallbackX, fallbackY) {
+      const numbers = String(pathData || '').match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi);
+      if (!numbers || numbers.length < 2) return { x: fallbackX, y: fallbackY };
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (let i = 0; i < numbers.length - 1; i += 2) {
+        const x = Number(numbers[i]);
+        const y = Number(numbers[i + 1]);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        minX = Math.min(minX, x); minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+      }
+      if (![minX, minY, maxX, maxY].every(Number.isFinite)) return { x: fallbackX, y: fallbackY };
+      return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+    }
+
+    function buildGeoBadge(badge) {
+      const cls = (s) => 'hero-meta-list-geo' + (s ? ' ' + s : '');
+      const shapes = window.US_STATE_SHAPES || null;
+      if (badge && badge.kind === 'state' && shapes && shapes[badge.value]) {
+        const NS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(NS, 'svg');
+        svg.setAttribute('viewBox', shapes._viewBox || '0 0 40 24');
+        svg.setAttribute('class', cls('hero-meta-list-geo--state hero-meta-list-geo--shape'));
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('focusable', 'false');
+        const path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', shapes[badge.value]);
+        svg.appendChild(path);
+        const labelPoint = svgPathCenter(shapes[badge.value], (shapes._w || 40) / 2, (shapes._h || 24) / 2);
+        const text = document.createElementNS(NS, 'text');
+        text.setAttribute('x', String(labelPoint.x));
+        text.setAttribute('y', String(labelPoint.y));
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('alignment-baseline', 'middle');
+        text.setAttribute('dy', '0.04em');
+        text.textContent = badge.value;
+        svg.appendChild(text);
+        return svg;
+      }
+      const span = document.createElement('span');
+      if (badge) {
+        span.className = cls('hero-meta-list-geo--' + badge.kind);
+        if (badge.kind === 'country') {
+          const label = document.createElement('span');
+          label.className = 'hero-meta-list-geo-label';
+          label.textContent = badge.value;
+          span.appendChild(label);
+        } else {
+          span.textContent = badge.value;
+        }
+        span.setAttribute('aria-hidden', 'true');
+      } else {
+        span.className = cls('');
+      }
+      return span;
+    }
+
+    function renderGiftCityRail(cityData) {
+      if (!giftCityPanelEl || !giftCityListEl) return;
+      const entries = cityData && Array.isArray(cityData.entries) ? cityData.entries : [];
+      if (!entries.length) {
+        giftCityPanelEl.hidden = true;
+        giftCityListEl.innerHTML = '';
+        if (giftCityCountEl) giftCityCountEl.textContent = '0 cities';
+        return;
+      }
+      giftCityPanelEl.hidden = false;
+      if (giftCityCountEl) {
+        giftCityCountEl.textContent = entries.length + ' cit' + (entries.length === 1 ? 'y' : 'ies');
+      }
+
+      giftCityListEl.innerHTML = '';
+      const chips = [{
+        city: '',
+        label: 'All Cities',
+        count: cityData.total || entries.reduce((sum, entry) => sum + entry.count, 0),
+        isAll: true
+      }].concat(entries);
+
+      // Three identical chunks [pre | primary | post] in a flex row. We park
+      // scrollLeft at the start of the primary chunk; when auto-scroll or a drag
+      // pushes it out of range, setGiftCityScroll jumps by exactly one chunk
+      // width — invisible because the chunks are clones, so the rail loops.
+      const track = document.createElement('div');
+      track.className = 'gift-city-track';
+      const makeChunk = (hidden) => {
+        const chunk = document.createElement('div');
+        chunk.className = 'gift-city-chunk';
+        if (hidden) chunk.setAttribute('aria-hidden', 'true');
+        chips.forEach((entry) => chunk.appendChild(createGiftCityChip(entry)));
+        return chunk;
+      };
+      track.append(makeChunk(true), makeChunk(false), makeChunk(true));
+      giftCityListEl.appendChild(track);
+
+      setupGiftCityScroll();
+    }
+
+    function createGiftCityChip(entry) {
+      const item = document.createElement('a');
+      item.className = 'hero-meta-list-item';
+      item.href = giftCityHref(entry.city);
+      item.dataset.city = entry.city;
+      const active = entry.isAll ? !requestedCity : entry.city === requestedCity;
+      if (active) {
+        item.classList.add('is-active');
+        item.setAttribute('aria-current', 'true');
+      }
+      // Badge slot: geo badge for a real city, empty spacer for "All Cities".
+      if (entry.isAll) {
+        const spacer = document.createElement('span');
+        spacer.className = 'hero-meta-list-helmet hero-meta-list-helmet--spacer';
+        item.appendChild(spacer);
+      } else {
+        item.appendChild(buildGeoBadge(cityGeoBadge(entry.city || entry.label)));
+      }
+      const copy = document.createElement('span');
+      copy.className = 'hero-meta-list-copy';
+      const name = document.createElement('span');
+      name.className = 'hero-meta-list-name';
+      name.textContent = entry.label;
+      copy.appendChild(name);
+      const count = document.createElement('span');
+      count.className = 'hero-meta-list-count';
+      count.textContent = entry.count + ' item' + (entry.count === 1 ? '' : 's');
+      item.append(copy, count);
+      return item;
+    }
+
+    // ── City rail: infinite horizontal scroll + click-drag (ports the Games
+    // page's hero-list behavior, but on the horizontal axis). ────────────────
+    const GIFT_CITY_PX_PER_SEC = 22;
+    let giftCityRaf = null, giftCityLastTs = 0, giftCityPos = 0;
+    let giftCityDragActive = false, giftCityPauseUntil = 0, giftCityInited = false;
+    const giftCityReducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+    function giftCityLoopWidth() {
+      if (!giftCityListEl) return 0;
+      const chunk = giftCityListEl.querySelector('.gift-city-chunk');
+      const track = giftCityListEl.querySelector('.gift-city-track');
+      if (!chunk || !track) return 0;
+      const gap = parseFloat(getComputedStyle(track).columnGap) || 0;
+      return Math.max(0, Math.round(chunk.getBoundingClientRect().width + gap));
+    }
+
+    function setGiftCityScroll(next, loopW) {
+      if (!giftCityListEl) return;
+      let v = Number.isFinite(next) ? next : 0;
+      if (loopW > 0 && loopW > giftCityListEl.clientWidth) {
+        // Keep scrollLeft inside the primary chunk's range [loopW, 2*loopW);
+        // jumps of exactly one loopW are invisible (the chunks are clones).
+        while (v >= 2 * loopW) v -= loopW;
+        while (v < loopW) v += loopW;
+      } else {
+        const max = Math.max(0, giftCityListEl.scrollWidth - giftCityListEl.clientWidth);
+        if (v < 0) v = 0;
+        if (v > max) v = max;
+      }
+      giftCityPos = v;
+      giftCityListEl.scrollLeft = v;
+    }
+
+    function shouldPauseGiftCity(ts) {
+      if (!giftCityListEl) return true;
+      if (giftCityDragActive) return true;
+      if (giftCityListEl.contains(document.activeElement)) return true;
+      return ts < giftCityPauseUntil;
+    }
+
+    function startGiftCityAutoScroll() {
+      if (giftCityRaf || giftCityReducedMotion || !giftCityListEl) return;
+      giftCityLastTs = 0;
+      const tick = (ts) => {
+        if (!giftCityLastTs) giftCityLastTs = ts;
+        const dt = Math.min(40, ts - giftCityLastTs);
+        giftCityLastTs = ts;
+        const loopW = giftCityLoopWidth();
+        if (!shouldPauseGiftCity(ts) && giftCityListEl && loopW > giftCityListEl.clientWidth) {
+          setGiftCityScroll(giftCityPos + GIFT_CITY_PX_PER_SEC * (dt / 1000), loopW);
+        }
+        giftCityRaf = requestAnimationFrame(tick);
+      };
+      giftCityRaf = requestAnimationFrame(tick);
+    }
+
+    function wrapGiftCityScroll() {
+      if (!giftCityListEl) return;
+      const loopW = giftCityLoopWidth();
+      if (loopW <= 0) { giftCityPos = giftCityListEl.scrollLeft; return; }
+      setGiftCityScroll(giftCityListEl.scrollLeft, loopW);
+    }
+
+    function initGiftCityInteractions() {
+      if (!giftCityListEl) return;
+      let dragStartX = 0, dragStartScroll = 0, dragSuppressClick = false, pointerDownId = null;
+      const DRAG_THRESHOLD = 4;
+      giftCityListEl.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        giftCityDragActive = false;
+        pointerDownId = e.pointerId;
+        dragStartX = e.clientX;
+        giftCityPos = giftCityListEl.scrollLeft;
+        dragStartScroll = giftCityListEl.scrollLeft;
+        giftCityPauseUntil = performance.now() + 600;
+      });
+      giftCityListEl.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== pointerDownId) return;
+        const dx = e.clientX - dragStartX;
+        if (!giftCityDragActive && Math.abs(dx) > DRAG_THRESHOLD) {
+          giftCityDragActive = true;
+          giftCityListEl.classList.add('is-dragging');
+          try { giftCityListEl.setPointerCapture(e.pointerId); } catch (_) {}
+        }
+        if (giftCityDragActive) {
+          giftCityListEl.scrollLeft = dragStartScroll - dx;
+          wrapGiftCityScroll();
+          const consumed = (dragStartScroll - dx) - giftCityListEl.scrollLeft;
+          if (consumed !== 0) dragStartScroll -= consumed;
+          e.preventDefault();
+        }
+      });
+      const endDrag = (e) => {
+        if (e.pointerId === pointerDownId) pointerDownId = null;
+        if (giftCityListEl.hasPointerCapture && giftCityListEl.hasPointerCapture(e.pointerId)) {
+          try { giftCityListEl.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+        if (giftCityDragActive) {
+          dragSuppressClick = true;
+          setTimeout(() => { dragSuppressClick = false; }, 0);
+        }
+        giftCityDragActive = false;
+        giftCityListEl.classList.remove('is-dragging');
+        giftCityPauseUntil = performance.now() + 350;
+      };
+      giftCityListEl.addEventListener('pointerup', endDrag);
+      giftCityListEl.addEventListener('pointercancel', endDrag);
+      // Swallow the click that follows a drag so a swipe doesn't navigate.
+      giftCityListEl.addEventListener('click', (e) => {
+        if (dragSuppressClick) { e.preventDefault(); e.stopPropagation(); }
+      }, true);
+      giftCityListEl.addEventListener('wheel', () => { giftCityPauseUntil = performance.now() + 800; }, { passive: true });
+      giftCityListEl.addEventListener('scroll', wrapGiftCityScroll, { passive: true });
+    }
+
+    function setupGiftCityScroll() {
+      if (!giftCityListEl) return;
+      const loopW = giftCityLoopWidth();
+      giftCityPos = loopW;
+      giftCityListEl.scrollLeft = loopW;
+      if (!giftCityInited) { initGiftCityInteractions(); giftCityInited = true; }
+      startGiftCityAutoScroll();
     }
 
     function escapeText(value) {
@@ -765,6 +1225,30 @@
       if (!t) return '';
       if (/^Surfaced from the Amazon search:/i.test(t)) return '';
       return t;
+    }
+
+    function shouldContainGiftImage(item) {
+      const title = String(item && item.title || '');
+      const url = String(item && item.url || '');
+      return /B00O9KFZIE/i.test(url)
+        || /\b(blu[-\s]?ray|blue[-\s]?ray|dvd)\b/i.test(title)
+        || /\(bd\)/i.test(title)
+        || /\bBD\b/.test(title);
+    }
+
+    function applyGiftImageDisplay(img, item, media) {
+      const focus = String(item && item.image_focus || '').trim();
+      if (shouldContainGiftImage(item)) {
+        img.style.objectFit = 'contain';
+        img.style.objectPosition = focus || '50% 50%';
+        if (media) {
+          const imageUrl = String(img.currentSrc || img.src || (item && item.image_url) || '').replace(/["\\]/g, '\\$&');
+          media.dataset.imageFit = 'contain';
+          if (imageUrl) media.style.setProperty('--gift-contain-image', 'url("' + imageUrl + '")');
+        }
+        return;
+      }
+      if (focus) img.style.objectPosition = focus;
     }
 
     function isFandomGame(game) {
@@ -800,16 +1284,36 @@
       return !!game && String(game.id) === requestedGameId;
     }
 
-    // Only certified gifts are shown publicly. An item is certified once an
-    // admin stamps certified_at (Certify Today in /mc/gs-shop.html).
+    function isYesish(value) {
+      if (value === true) return true;
+      const normalized = String(value == null ? '' : value).trim().toUpperCase();
+      return normalized === 'YES' || normalized === 'TRUE' || normalized === '1';
+    }
+
+    // Only certified gifts are shown publicly. Current rows use certified_at
+    // from Mission Control; tolerate an explicit certified/YES flag too.
     function isCertified(item) {
+      if (item && Object.prototype.hasOwnProperty.call(item, 'certified')) {
+        return isYesish(item.certified);
+      }
+      if (item && Object.prototype.hasOwnProperty.call(item, 'certified_yes')) {
+        return isYesish(item.certified_yes);
+      }
       return !!String(item && item.certified_at || '').trim();
+    }
+
+    function isHiddenGiftItem(item) {
+      return [item && item.hidden, item && item.archived].some((value) => {
+        return isYesish(value);
+      });
     }
 
     // Grid ordering: plain alphabetical by item title.
     function compareGiftEntries(a, b) {
-      return String(a.item.title || '').localeCompare(
-        String(b.item.title || ''), undefined, { sensitivity: 'base', numeric: true });
+      const at = String(a && a.item && a.item.title || '').trim();
+      const bt = String(b && b.item && b.item.title || '').trim();
+      return at.localeCompare(bt, undefined, { sensitivity: 'base', numeric: true }) ||
+        String(a && a.item && a.item.id || '').localeCompare(String(b && b.item && b.item.id || ''));
     }
 
     function getMonogram(title) {
@@ -930,7 +1434,7 @@
       media.appendChild(monogram);
       const heroImg = document.createElement('img');
       heroImg.className = 'card-image';
-      heroImg.src = '/assets/gifts/walking-tour-hero-stops.png';
+      heroImg.src = '/shop/shop_banner.png';
       heroImg.alt = '';
       heroImg.loading = 'lazy';
       heroImg.decoding = 'async';
@@ -1021,8 +1525,7 @@
         img.src = imageUrl;
         img.alt = '';
         img.referrerPolicy = 'no-referrer';
-        const focus = String(item.image_focus || '').trim();
-        if (focus) img.style.objectPosition = focus;
+        applyGiftImageDisplay(img, item, media);
         media.appendChild(img);
       } else {
         const mono = document.createElement('div');
@@ -1125,8 +1628,7 @@
         img.loading = 'lazy';
         img.decoding = 'async';
         img.referrerPolicy = 'no-referrer';
-        const focus = String(item.image_focus || '').trim();
-        if (focus) img.style.objectPosition = focus;
+        applyGiftImageDisplay(img, item, media);
         img.addEventListener('error', () => {
           img.remove();
           media.dataset.hasImage = 'false';
@@ -1222,8 +1724,7 @@
         img.loading = 'lazy';
         img.decoding = 'async';
         img.referrerPolicy = 'no-referrer';
-        const focus = String(item.image_focus || '').trim();
-        if (focus) img.style.objectPosition = focus;
+        applyGiftImageDisplay(img, item, media);
         img.addEventListener('error', () => {
           img.remove();
           media.dataset.hasImage = 'false';
@@ -1301,16 +1802,19 @@
       renderEmpty('Loading inventory...');
 
       try {
-        const [listings, allGames, teams] = await Promise.all([
+        const [listings, allGames, allItems, teams] = await Promise.all([
           fetchAllListings().catch(() => []),
           fetchAllGames().catch(() => []),
+          fetchAllShopItems().catch(() => []),
           window.TgbTeamPalette
             ? window.TgbTeamPalette.loadTeams(SB_CONFIG).catch(() => [])
             : Promise.resolve([])
         ]);
         const safeListings = Array.isArray(listings) ? listings : [];
         const safeGames    = Array.isArray(allGames) ? allGames : [];
+        const safeItems    = Array.isArray(allItems) ? allItems : [];
         const gameById = new Map(safeGames.map((g) => [g.id, g]));
+        renderGiftCityRail(buildGiftCityEntries(safeListings, gameById, safeItems));
 
         // Resolve the optional ?id=/?game= filter to a real game — match by id
         // first, then by name (case-insensitive) — and scope the shop to it.
@@ -1372,6 +1876,7 @@
           const item = listing && listing.gift_shop_items;
           if (!item || item.id == null) continue;
           if (item.gift_card_game_id) continue; // hidden — chooser owns this
+          if (isHiddenGiftItem(item)) continue; // kept for dedupe, hidden from public shop
           if (!isCertified(item)) continue;     // only show certified gifts
           const game = listing.games || gameById.get(listing.game_id) || {};
           const gameName = String(game.name || '').trim();
@@ -1396,18 +1901,19 @@
 
         // Every other item that isn't already shown via a listing — so the shop
         // shows everything, with or without a game attached.
-        const allItems = await fetchAllShopItems().catch(() => []);
-        ((requestedCity || requestedGameId) ? [] : (Array.isArray(allItems) ? allItems : []))
+        ((requestedCity || requestedGameId) ? [] : safeItems)
           .filter((item) => item && item.id != null)
           .filter((item) => !grouped.has(item.id))   // not already shown via a listing
           .filter((item) => !item.gift_card_game_id)  // access-code products are owned by the chooser
-          .filter((item) => item.archived !== true && String(item.archived).toUpperCase() !== 'YES')
+          .filter((item) => !isHiddenGiftItem(item))
           .filter(isCertified)                        // only show certified gifts
           .forEach((item) => giftEntries.push({ item, opts: {} }));
 
         // Alphabetical by item title.
         giftEntries.sort(compareGiftEntries);
         const itemCards = giftEntries
+          .filter(({ item }) => isCertified(item) && !isHiddenGiftItem(item))
+          .sort(compareGiftEntries)
           .map(({ item, opts }) => createCard(item, opts))
           .filter(Boolean);
 
@@ -1840,8 +2346,7 @@
         img.loading = 'lazy';
         img.decoding = 'async';
         img.referrerPolicy = 'no-referrer';
-        const focus = String(item.image_focus || '').trim();
-        if (focus) img.style.objectPosition = focus;
+        applyGiftImageDisplay(img, item, media);
         img.addEventListener('error', () => { img.remove(); media.dataset.hasImage = 'false'; });
         media.appendChild(img);
       }
@@ -1897,7 +2402,7 @@
 
   <!-- Admin-only: paints a hidden "EDIT ITEM" button on each gift card for
        logged-in admins (verified against admin_users), linking to that gift in
-       mc/gs-shop.html?item=<id>. Invisible to the public. -->
+       shop/admin/?item=<id>. Invisible to the public. -->
   <script src="../assets/admin-bridge.js"></script>
 </body>
 </html>

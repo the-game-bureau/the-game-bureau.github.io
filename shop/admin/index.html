@@ -327,6 +327,7 @@
       box-shadow: 0 18px 36px var(--paper-shadow);
     }
 
+    .toolbar input[type="search"],
     .toolbar select {
       appearance: none;
       -webkit-appearance: none;
@@ -338,6 +339,9 @@
       border-radius: 8px;
       color: var(--ink);
       background: rgba(255,255,255,0.92);
+    }
+    .toolbar input[type="search"] {
+      min-width: min(100%, 300px);
     }
     .toolbar select::-ms-expand { display: none; }
 
@@ -437,6 +441,7 @@
       color: var(--ink); background: rgba(255,255,255,0.86);
     }
     .auth input:focus,
+    .toolbar input[type="search"]:focus,
     .toolbar select:focus,
     .item input:focus,
     .item textarea:focus {
@@ -563,7 +568,7 @@
     }
     .items-more { display: flex; justify-content: center; margin-top: 14px; }
     .item.paged-out { display: none; }
-    .item-certify {
+    .item-review {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -575,12 +580,26 @@
       border-radius: 8px;
       background: rgba(var(--bic-blue-rgb), 0.04);
     }
+    .item-review-meta,
+    .item-review-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .item-review-title {
+      color: var(--ink);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
     .item-certify-date {
       font-size: 0.8rem;
       color: var(--muted);
       font-family: "IBM Plex Mono", monospace;
     }
-    .item-certify-check {
+    .item-review-check {
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -590,7 +609,7 @@
       cursor: pointer;
       user-select: none;
     }
-    .item-certify-check input { cursor: pointer; }
+    .item-review-check input { cursor: pointer; }
 
     .item {
       display: grid;
@@ -603,7 +622,7 @@
       box-shadow: 0 10px 24px var(--paper-shadow);
     }
 
-    .item.is-archived { opacity: 0.65; }
+    .item.is-hidden { opacity: 0.65; }
     .item.is-new { border-color: var(--accent); }
     .item.is-targeted {
       border-color: var(--accent);
@@ -650,21 +669,35 @@
     .item-focus [data-focus-placeholder] {
       position: absolute;
       inset: 0;
+      z-index: 2;
       display: grid;
       place-items: center;
+    }
+    .item-focus[data-image-fit="contain"] {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.80)),
+        var(--gift-contain-image) center / cover no-repeat,
+        rgba(var(--bic-blue-rgb), 0.06);
     }
     .item-focus img {
       position: absolute;
       top: 0;
       left: 0;
+      z-index: 1;
       max-width: none;
       max-height: none;
       pointer-events: none;
       user-select: none;
       will-change: transform;
     }
+    .item-focus[data-image-fit="contain"] img {
+      filter: drop-shadow(0 8px 16px rgba(var(--bic-blue-rgb), 0.24));
+    }
     .item-focus[data-has-image="true"] {
       cursor: grab;
+    }
+    .item-focus[data-image-fit="contain"][data-has-image="true"] {
+      cursor: default;
     }
     .item-focus[data-dragging="true"] {
       cursor: grabbing;
@@ -950,11 +983,23 @@
     }
     .suggest-form input[type="text"],
     .suggest-form input[type="number"],
-    .suggest-form select {
+    .suggest-form select,
+    .suggest-form textarea {
       height: 36px; padding: 0 10px;
       border: 1px solid var(--line); border-radius: 6px;
       font-family: inherit; font-size: 0.9rem;
       color: var(--ink); background: #fff;
+    }
+    .suggest-form textarea {
+      min-height: min(52vh, 520px);
+      padding: 10px;
+      resize: vertical;
+      line-height: 1.45;
+      font-family: "IBM Plex Mono", Consolas, monospace;
+      font-size: 0.76rem;
+      text-transform: none;
+      letter-spacing: 0;
+      white-space: pre;
     }
     .suggest-form .suggest-check {
       flex-direction: row; align-items: center; gap: 8px;
@@ -1072,14 +1117,6 @@
     .suggest-result a.suggest-result-link:hover .suggest-result-title {
       text-decoration: underline;
     }
-
-    .item-archive-toggle {
-      display: inline-flex; align-items: center; gap: 6px;
-      color: var(--muted);
-      font-size: 0.8rem;
-      font-weight: 600;
-    }
-    .item-archive-toggle input { width: auto; height: auto; }
 
     .item-status {
       flex: 1;
@@ -1257,9 +1294,11 @@
       </div>
 
       <div class="toolbar">
+        <input id="itemSearch" type="search" placeholder="Search gifts..." autocomplete="off" aria-label="Search gifts" disabled>
         <button class="btn primary" id="addItemBtn" type="button" disabled>MANUALLY ADD NEW</button>
-        <button class="btn" id="suggestItemsBtn" type="button" disabled>SEARCH FOR NEW</button>
-        <a class="btn" id="viewGiftShopBtn" href="/gifts/" target="_blank" rel="noopener">VIEW GIFT SHOP</a>
+        <button class="btn" id="suggestItemsBtn" type="button" disabled>BOOK SEARCH PROMPT</button>
+        <button class="btn" id="amazonPromptBtn" type="button" disabled>AMAZON SEARCH PROMPT</button>
+        <a class="btn" id="viewGiftShopBtn" href="/shop/" target="_blank" rel="noopener">VIEW GIFT SHOP</a>
       </div>
 
       <div class="items" id="itemsList"></div>
@@ -1311,12 +1350,21 @@
             </div>
           </div>
         </div>
-        <div class="item-certify">
-          <span class="item-certify-date" data-certify-date>Last certified: —</span>
-          <label class="item-certify-check">
-            <input type="checkbox" data-certify-today>
-            <span>Certify Today</span>
-          </label>
+        <div class="item-review">
+          <div class="item-review-meta">
+            <span class="item-review-title">Item status</span>
+            <span class="item-certify-date" data-certify-date>Last certified: —</span>
+          </div>
+          <div class="item-review-controls">
+            <label class="item-review-check">
+              <input type="checkbox" data-certify-today>
+              <span>Certify Today</span>
+            </label>
+            <label class="item-review-check">
+              <input type="checkbox" data-field="hidden">
+              <span>Hidden</span>
+            </label>
+          </div>
         </div>
         <div class="item-actions">
           <button class="btn primary" data-action="save" type="button">Save</button>
@@ -1331,49 +1379,19 @@
     <div class="suggest-backdrop"></div>
     <section class="suggest-panel" role="dialog" aria-modal="true" aria-labelledby="suggestTitle">
       <header class="suggest-panel-head">
-        <h2 id="suggestTitle">Find products to add</h2>
+        <h2 id="suggestTitle">Book search prompt</h2>
         <button class="suggest-close" type="button" data-suggest-dismiss aria-label="Close">&times;</button>
       </header>
       <div class="suggest-form" id="suggestForm">
-        <p class="suggest-hint">Search once — we look up books on <strong>Bookshop.org</strong> (shown first) and gear on <strong>Amazon</strong>, then you pick what to add.</p>
-        <label>What are you looking for?
-          <input id="suggestKeywords" type="text" placeholder="jazz history, new orleans, voodoo" autocomplete="off">
+        <p class="suggest-hint" id="suggestHint">Copy this fresh prompt into a web-capable assistant. It asks for 100 Bookshop.org items, excludes current inventory including hidden rows, and returns Supabase SQL using the import helper.</p>
+        <label>Prompt
+          <textarea id="suggestPromptText" readonly spellcheck="false"></textarea>
         </label>
-        <label>For a specific game? (optional)
-          <select id="suggestGame"><option value="">— Any game / keywords only —</option></select>
-        </label>
-        <details class="suggest-advanced">
-          <summary>Advanced (Amazon tuning)</summary>
-          <label>Max queries to run
-            <input id="suggestMaxQueries" type="number" min="1" step="1" value="6">
-          </label>
-          <label>Max Amazon candidates to surface
-            <input id="suggestItemsCap" type="number" min="1" step="1" value="20">
-          </label>
-          <label>Delay between requests (seconds)
-            <input id="suggestDelay" type="number" min="0" step="0.1" value="1.0">
-          </label>
-          <label class="suggest-check">
-            <input id="suggestForceRefetch" type="checkbox">
-            Bypass cached Amazon search pages
-          </label>
-        </details>
         <p class="suggest-status" id="suggestStatus" aria-live="polite"></p>
         <div class="suggest-actions">
-          <button class="btn" type="button" data-suggest-dismiss>Cancel</button>
-          <button class="btn" type="button" id="copyServerCmdBtn" title="Copies: python mc/scripts/gs_stock.py --serve — paste it into a terminal to start the local suggester">START SERVER</button>
-          <button class="btn primary" id="suggestSearchBtn" type="button">Search</button>
+          <button class="btn" type="button" data-suggest-dismiss>Close</button>
+          <button class="btn primary" id="copyPromptBtn" type="button">Copy Prompt</button>
         </div>
-      </div>
-      <div class="suggest-results" id="suggestResults" hidden>
-        <div class="suggest-results-head">
-          <label><input type="checkbox" id="suggestSelectAll"> Select all</label>
-          <span class="suggest-results-count" id="suggestResultsCount">0 candidates</span>
-          <button class="btn" id="suggestBackBtn" type="button">Back</button>
-          <button class="btn primary" id="suggestAddSelectedBtn" type="button" disabled>Add selected</button>
-        </div>
-        <p class="suggest-status" id="suggestResultsStatus" aria-live="polite"></p>
-        <ul class="suggest-results-list" id="suggestResultsList"></ul>
       </div>
     </section>
   </div>
@@ -1390,7 +1408,9 @@
     const signOutBtn   = document.getElementById('signOutBtn');
     const shopStatus   = document.getElementById('shopStatus');
     const addItemBtn   = document.getElementById('addItemBtn');
+    const itemSearch   = document.getElementById('itemSearch');
     const suggestItemsBtn = document.getElementById('suggestItemsBtn');
+    const amazonPromptBtn = document.getElementById('amazonPromptBtn');
     const itemsList    = document.getElementById('itemsList');
     const showMoreItemsBtn = document.getElementById('showMoreItemsBtn');
     const cityFilter   = document.getElementById('cityFilter');
@@ -1419,17 +1439,20 @@
         applyItemsPagination();
       });
     }
+    if (itemSearch) {
+      itemSearch.addEventListener('input', applyCityFilter);
+    }
     const viewGiftShopBtn = document.getElementById('viewGiftShopBtn');
     const itemTemplate = document.getElementById('itemTemplate');
     const initialParams = new URLSearchParams(window.location.search);
     const initialItemId = String(initialParams.get('item') || '').trim();
+    const initialShopCity = String(initialParams.get('city') || '').trim();
     let initialItemFocusPending = !!initialItemId;
-    const LOCAL_SUGGEST_ITEMS_COMMAND = 'python mc/scripts/gs_stock.py --serve';
-    const CAN_RUN_LOCAL_SUGGEST_ITEMS = /^(127\.0\.0\.1|localhost)$/i.test(window.location.hostname);
-    const LOCAL_SUGGEST_ITEMS_HOST = window.location.hostname === 'localhost' ? 'localhost' : '127.0.0.1';
-    const LOCAL_SUGGEST_ITEMS_RUN_URL = 'http://' + LOCAL_SUGGEST_ITEMS_HOST + ':8765/run-stock-gift-shop';
-    const LOCAL_SUGGEST_SEARCH_URL = 'http://' + LOCAL_SUGGEST_ITEMS_HOST + ':8765/search-candidates';
-    const LOCAL_SEARCH_ALL_URL = 'http://' + LOCAL_SUGGEST_ITEMS_HOST + ':8765/search-all';
+    const BOOKSHOP_AFFILIATE_ID = '87073';
+    const BOOKSHOP_IMPORT_HELPER_SQL = 'supabase/gs-bookshop-prompt-import.sql';
+    const AMAZON_TAG = 'thegamebureau-20';
+    const AMAZON_STORE = 'nolanatives-20';
+    const AMAZON_IMPORT_HELPER_SQL = 'supabase/gs-amazon-prompt-import.sql';
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
       onAuthorized: async () => {
@@ -1438,7 +1461,12 @@
       onSignedOut: () => {
         itemsList.innerHTML = '';
         gamesById = new Map();
+        allGiftItemsCache = [];
         gameOptionsHtml = '<option value="">— Pick a game —</option>';
+        if (itemSearch) {
+          itemSearch.value = '';
+          itemSearch.disabled = true;
+        }
         if (cityFilter) cityFilter.innerHTML = '<option value="">All cities</option>';
         updateViewGiftShopLink();
         addItemBtn.disabled = true;
@@ -1456,6 +1484,7 @@
     let gameOptionsHtml = '<option value="">— Pick a game —</option>';
     // Flat list backing the search-to-add combobox: live games first, archived after.
     let gameSearchList = [];
+    let allGiftItemsCache = [];
 
     function restUrl(table, params = {}) {
       const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
@@ -1473,12 +1502,14 @@
     }
 
     function setSuggestItemsButtonEnabled(enabled) {
-      if (!suggestItemsBtn) return;
       const session = adminAuth.getSession ? adminAuth.getSession() : null;
       const signedIn = !!(session && session.access_token);
-      const canUse = !!enabled && signedIn && CAN_RUN_LOCAL_SUGGEST_ITEMS;
-      suggestItemsBtn.disabled = !canUse;
-      suggestItemsBtn.removeAttribute('title');
+      const canUse = !!enabled && signedIn;
+      [suggestItemsBtn, amazonPromptBtn].forEach((button) => {
+        if (!button) return;
+        button.disabled = !canUse;
+        button.removeAttribute('title');
+      });
     }
 
     async function readError(response, fallback) {
@@ -1509,6 +1540,23 @@
     function isLive(game) {
       const dead = (v) => typeof v === 'boolean' ? v : (typeof v === 'string' && v.trim() && v.trim().toLowerCase() !== 'false' && v.trim() !== '0');
       return !dead(game.archived);
+    }
+
+    function isHiddenGiftItem(item) {
+      return [item && item.hidden, item && item.archived].some((value) => {
+        if (value === true) return true;
+        const normalized = String(value == null ? '' : value).trim().toUpperCase();
+        return normalized === 'YES' || normalized === 'TRUE' || normalized === '1';
+      });
+    }
+
+    function shouldContainGiftImage(item) {
+      const title = String(item && item.title || '');
+      const url = String(item && item.url || '');
+      return /B00O9KFZIE/i.test(url)
+        || /\b(blu[-\s]?ray|blue[-\s]?ray|dvd)\b/i.test(title)
+        || /\(bd\)/i.test(title)
+        || /\bBD\b/.test(title);
     }
 
     // "away @ home" mascot matchup, e.g. " (Bengals @ Commanders)" (display only).
@@ -1577,12 +1625,43 @@
       return Array.from(state.entries.keys()).map((id) => gamesById.get(id)).filter(Boolean);
     }
 
+    function itemSearchText(item) {
+      const field = (name) => String(item.querySelector('[data-field="' + name + '"]')?.value || '');
+      const gamesText = itemGames(item)
+        .map((g) => [
+          g && g.id,
+          g && g.name,
+          gameCity(g),
+          g && g.city,
+          g && g.away_team_city,
+          g && g.home_team_city,
+          gameMatchupText(g)
+        ].filter(Boolean).join(' '))
+        .join(' ');
+      return [
+        item.dataset.id,
+        field('title'),
+        field('url'),
+        field('image_url'),
+        field('price_display'),
+        field('description'),
+        item.classList.contains('is-hidden') ? 'hidden' : 'visible',
+        item.dataset.certifiedAt ? 'certified' : 'uncertified',
+        gamesText
+      ].filter(Boolean).join(' ').toLowerCase();
+    }
+
     function applyCityFilter() {
       const city = cityFilter ? cityFilter.value : '';
+      const query = itemSearch ? String(itemSearch.value || '').trim().toLowerCase() : '';
+      const terms = query ? query.split(/\s+/).filter(Boolean) : [];
       const items = itemsList.querySelectorAll('.item');
       let visible = 0;
       items.forEach((item) => {
-        const show = !city || itemGames(item).some((g) => gameCity(g) === city);
+        const cityMatch = !city || itemGames(item).some((g) => gameCity(g) === city);
+        const searchText = terms.length ? itemSearchText(item) : '';
+        const searchMatch = !terms.length || terms.every((term) => searchText.includes(term));
+        const show = cityMatch && searchMatch;
         item.classList.toggle('hidden', !show);
         if (show) visible++;
       });
@@ -1606,18 +1685,24 @@
 
     function updateViewGiftShopLink() {
       if (!viewGiftShopBtn) return;
-      const url = new URL('/gifts/', window.location.origin);
-      const city = cityFilter ? cityFilter.value : '';
+      const url = new URL('/shop/', window.location.origin);
+      const city = cityFilter ? cityFilter.value : initialShopCity;
       if (city) url.searchParams.set('city', city);
-      viewGiftShopBtn.href = url.pathname + url.search;
+      viewGiftShopBtn.href = url.href;
     }
 
-    // Order to surface what needs attention: never-certified items first,
-    // ordered oldest-added → newest-added; then the rest (certified),
-    // oldest-certified → newest. Title breaks ties.
+    if (viewGiftShopBtn) {
+      viewGiftShopBtn.addEventListener('click', updateViewGiftShopLink);
+      updateViewGiftShopLink();
+    }
+
+    // Order to surface what needs attention: visible never-certified items
+    // first, then visible certified items, then hidden items regardless of
+    // certification status. Dates/title break ties within each bucket.
     function sortItems() {
       const titleOf = (el) => String(el.querySelector('[data-field="title"]')?.value || '').trim();
       const byTitle = (a, b) => titleOf(a).localeCompare(titleOf(b), undefined, { sensitivity: 'base', numeric: true });
+      const hidden = (el) => el.classList.contains('is-hidden');
       const addedTime = (el) => {
         const t = Date.parse(el.dataset.createdAt || '');
         return Number.isNaN(t) ? Infinity : t;   // unsaved/new → newest
@@ -1632,6 +1717,10 @@
         .sort((a, b) => {
           const ta = certTime(a);
           const tb = certTime(b);
+          const ba = hidden(a) ? 2 : (ta === null ? 0 : 1);
+          const bb = hidden(b) ? 2 : (tb === null ? 0 : 1);
+          if (ba !== bb) return ba - bb;
+          if (ba === 2) return byTitle(a, b) || (addedTime(a) - addedTime(b));
           if (ta === null && tb === null) return (addedTime(a) - addedTime(b)) || byTitle(a, b);
           if (ta === null) return -1;              // never-certified group first
           if (tb === null) return 1;
@@ -1739,7 +1828,8 @@
         image_url: get('image_url').trim() || null,
         image_focus: focus,
         price_display: get('price_display').trim() || null,
-        description: get('description').trim() || null
+        description: get('description').trim() || null,
+        archived: !!article.querySelector('[data-field="hidden"]')?.checked
       };
     }
 
@@ -1789,7 +1879,7 @@
           // Clicking the label (not the ×) opens this game's gift shop in a new tab.
           const link = document.createElement('a');
           link.className = 'listing-chip-label';
-          link.href = '/gifts/?id=' + encodeURIComponent(id);
+          link.href = '/shop/?id=' + encodeURIComponent(id);
           link.target = '_blank';
           link.rel = 'noopener';
           link.title = "Open this game's gift shop";
@@ -1881,6 +1971,7 @@
       article.dataset.createdAt = item.created_at || '';
       article.dataset.certifiedAt = item.certified_at || '';
       article.classList.toggle('is-new', !item.id);
+      article.classList.toggle('is-hidden', isHiddenGiftItem(item));
 
       const set = (name, value) => {
         const el = article.querySelector('[data-field="' + name + '"]');
@@ -1894,6 +1985,7 @@
       set('image_url', item.image_url);
       set('price_display', item.price_display);
       set('description', item.description);
+      set('hidden', isHiddenGiftItem(item));
 
       // Current shops render as deletable chips; "+ Add to shops" opens a
       // searchable multi-select picker. State + persistence live in bindListings.
@@ -1925,7 +2017,8 @@
           try {
             await updateItem(id, { certified_at: iso });
             article.dataset.certifiedAt = iso;
-            updateItemsStatus();
+            sortItems();
+            applyCityFilter();
             setCertifyLabel(iso);
             setItemStatus('Certified ' + formatCertDate(iso) + '.', 'success');
             setTimeout(() => setItemStatus(''), 2200);
@@ -1950,6 +2043,10 @@
       const FRAME_H = 220;
       const focusBox = article.querySelector('.item-focus');
       const placeholder = focusBox.querySelector('[data-focus-placeholder]');
+      const currentImageFitItem = () => ({
+        title: article.querySelector('[data-field="title"]')?.value || '',
+        url: article.querySelector('[data-field="url"]')?.value || ''
+      });
 
       const parseFocus = (raw) => {
         const m = String(raw || '').match(/(-?\d+(?:\.\d+)?)\s*%\s+(-?\d+(?:\.\d+)?)\s*%/);
@@ -1972,6 +2069,14 @@
       const applyTransform = () => {
         const img = focusBox.querySelector('img');
         if (!img || !lastLayout) return;
+        if (lastLayout.contain) {
+          img.style.left = '50%';
+          img.style.top = '50%';
+          img.style.transform = 'translate3d(-50%, -50%, 0)';
+          return;
+        }
+        img.style.left = '0';
+        img.style.top = '0';
         const tx = -(currentFocus.x / 100) * lastLayout.overflowX;
         const ty = -(currentFocus.y / 100) * lastLayout.overflowY;
         img.style.transform = 'translate3d(' + tx + 'px, ' + ty + 'px, 0)';
@@ -1989,11 +2094,19 @@
         const frameH = focusBox.clientHeight || FRAME_H;
         const W = img.naturalWidth;
         const H = img.naturalHeight;
-        const scale = Math.max(frameW / W, frameH / H);
+        const contain = shouldContainGiftImage(currentImageFitItem());
+        const scale = contain ? Math.min(frameW / W, frameH / H) : Math.max(frameW / W, frameH / H);
         const dispW = W * scale;
         const dispH = H * scale;
+        focusBox.dataset.imageFit = contain ? 'contain' : 'cover';
+        const imageUrl = article.querySelector('[data-field="image_url"]').value.trim();
+        if (contain && imageUrl) {
+          focusBox.style.setProperty('--gift-contain-image', 'url("' + imageUrl.replace(/["\\]/g, '\\$&') + '")');
+        } else {
+          focusBox.style.removeProperty('--gift-contain-image');
+        }
         lastLayout = {
-          dispW, dispH,
+          dispW, dispH, frameW, frameH, contain,
           overflowX: Math.max(0, dispW - frameW),
           overflowY: Math.max(0, dispH - frameH)
         };
@@ -2020,6 +2133,8 @@
           const onError = () => {
             img.remove();
             focusBox.dataset.hasImage = 'false';
+            delete focusBox.dataset.imageFit;
+            focusBox.style.removeProperty('--gift-contain-image');
             placeholder.style.display = '';
             lastLayout = null;
           };
@@ -2032,11 +2147,15 @@
           if (img.complete && img.naturalWidth > 0) onLoad();
         } else {
           focusBox.dataset.hasImage = 'false';
+          delete focusBox.dataset.imageFit;
+          focusBox.style.removeProperty('--gift-contain-image');
           placeholder.style.display = '';
         }
       };
       refreshFocusImage();
       article.querySelector('[data-field="image_url"]').addEventListener('input', refreshFocusImage);
+      article.querySelector('[data-field="title"]').addEventListener('input', sizeImage);
+      article.querySelector('[data-field="url"]').addEventListener('input', sizeImage);
 
       // Drag the image behind the frame. Pointer delta translates 1:1
       // into transform offset (since frame and image share screen px).
@@ -2045,6 +2164,7 @@
       let dragStart = null;
       focusBox.addEventListener('pointerdown', (e) => {
         if (focusBox.dataset.hasImage !== 'true' || !lastLayout) return;
+        if (lastLayout.contain) return;
         dragging = true;
         focusBox.dataset.dragging = 'true';
         try { focusBox.setPointerCapture(e.pointerId); } catch { /* ignore */ }
@@ -2119,11 +2239,15 @@
             article.dataset.id = saved.id;
             article.classList.remove('is-new');
           }
+          article.classList.toggle('is-hidden', !!payload.archived);
           const fannedOut = await syncListings(article, article.dataset.id);
           setItemStatus('Saved.', 'success');
           setTimeout(() => setItemStatus(''), 2200);
           if (fannedOut) {
             await showShop();
+          } else {
+            sortItems();
+            applyCityFilter();
           }
         } catch (error) {
           console.error(error);
@@ -2170,6 +2294,7 @@
       setStatus(shopStatus, 'Loading items…');
       try {
         const items = await fetchAllItems();
+        allGiftItemsCache = Array.isArray(items) ? items : [];
         if (!items.length) {
           renderEmpty();
           setStatus(shopStatus, '');
@@ -2211,63 +2336,536 @@
       if (titleInput) titleInput.focus();
     });
 
-    // ── Suggest lightbox ─────────────────────────────────────────
+    // ── Search prompt lightbox ───────────────────────────────────
     const suggestModal = document.getElementById('suggestModal');
-    const suggestForm = document.getElementById('suggestForm');
-    const suggestGameSel = document.getElementById('suggestGame');
-    const suggestKeywords = document.getElementById('suggestKeywords');
-    const suggestMaxQueries = document.getElementById('suggestMaxQueries');
-    const suggestItemsCap = document.getElementById('suggestItemsCap');
-    const suggestDelay = document.getElementById('suggestDelay');
-    const suggestForceRefetch = document.getElementById('suggestForceRefetch');
+    const suggestTitle = document.getElementById('suggestTitle');
+    const suggestHint = document.getElementById('suggestHint');
+    const suggestPromptText = document.getElementById('suggestPromptText');
     const suggestStatus = document.getElementById('suggestStatus');
-    const suggestSearchBtn = document.getElementById('suggestSearchBtn');
-    const suggestResultsPane = document.getElementById('suggestResults');
-    const suggestResultsList = document.getElementById('suggestResultsList');
-    const suggestResultsCount = document.getElementById('suggestResultsCount');
-    const suggestResultsStatus = document.getElementById('suggestResultsStatus');
-    const suggestSelectAll = document.getElementById('suggestSelectAll');
-    const suggestBackBtn = document.getElementById('suggestBackBtn');
-    const suggestAddSelectedBtn = document.getElementById('suggestAddSelectedBtn');
+    const copyPromptBtn = document.getElementById('copyPromptBtn');
 
-    let suggestCandidates = [];
-
-    function openSuggestModal() {
-      console.info('[suggest] open (build: 2026-05-19-divform)');
-      if (!CAN_RUN_LOCAL_SUGGEST_ITEMS) {
-        setStatus(
-          shopStatus,
-          'Product search only works from a local Mission Control page. Run "' + LOCAL_SUGGEST_ITEMS_COMMAND + '" first.',
-          'error'
-        );
-        return;
-      }
-      // Reuse the preloaded gameOptionsHtml; drop its "— Pick a game —" placeholder.
-      suggestGameSel.innerHTML =
-        '<option value="">— Any game / keywords only —</option>' +
-        gameOptionsHtml.replace(/<option value=""[^>]*>[^<]*<\/option>/, '');
-      suggestGameSel.value = '';
-      suggestForm.hidden = false;
-      suggestResultsPane.hidden = true;
-      suggestResultsList.innerHTML = '';
-      suggestCandidates = [];
-      setStatus(suggestStatus, '');
-      setStatus(suggestResultsStatus, '');
-      suggestSelectAll.checked = false;
-      suggestAddSelectedBtn.disabled = true;
-      suggestAddSelectedBtn.textContent = 'Add selected';
-      suggestModal.hidden = false;
-      setTimeout(() => suggestKeywords.focus(), 0);
+    function promptClean(value, maxLength = 180) {
+      const text = String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+      if (!maxLength || text.length <= maxLength) return text;
+      return text.slice(0, maxLength - 1).trimEnd() + '…';
     }
 
-    let suggestBusy = false;
+    function buildPromptGameSnapshot() {
+      const allGames = Array.from(gamesById.values()).filter(Boolean);
+      const liveGames = allGames.filter(isLive);
+      const source = liveGames.length ? liveGames : allGames;
+      return source
+        .map((game) => {
+          const matchup = promptClean(gameMatchupText(game).replace(/[()]/g, ''), 120);
+          const row = {
+            id: String(game.id || '').trim(),
+            name: promptClean(game.name || game.id, 140),
+            city: promptClean(gameCity(game), 90)
+          };
+          if (matchup) row.context = matchup;
+          return row;
+        })
+        .filter((game) => game.id && game.name)
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
+    }
+
+    function buildPromptExistingItemsSnapshot() {
+      const seen = new Set();
+      return (Array.isArray(allGiftItemsCache) ? allGiftItemsCache : [])
+        .filter((item) => item && !item.gift_card_game_id)
+        .map((item) => ({
+          title: promptClean(item.title, 180),
+          url: promptClean(item.url, 260),
+          hidden: isHiddenGiftItem(item),
+          certified: !!String(item.certified_at || '').trim()
+        }))
+        .filter((item) => item.title || item.url)
+        .filter((item) => {
+          const key = (item.url || item.title).toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true }));
+    }
+
+    function buildBookshopImportHelperSql() {
+      return String.raw`
+alter table public.gift_shop_items
+  add column if not exists certified_at timestamptz;
+
+create or replace function public.tgb_import_bookshop_prompt_items(items jsonb)
+returns table (
+  action text,
+  title text,
+  item_id text,
+  listings_added integer,
+  note text
+)
+language plpgsql
+as $$
+declare
+  v_entry jsonb;
+  v_title text;
+  v_isbn text;
+  v_url text;
+  v_image_url text;
+  v_price_display text;
+  v_description text;
+  v_game_ids jsonb;
+  v_game_id_text text;
+  v_game_id public.games.id%type;
+  v_item_id public.gift_shop_items.id%type;
+  v_existing_item_id public.gift_shop_items.id%type;
+  v_position integer;
+  v_listings_added integer;
+  v_rows integer;
+begin
+  if items is null or jsonb_typeof(items) <> 'array' then
+    raise exception 'Expected a JSON array of Bookshop item objects.';
+  end if;
+
+  for v_entry in select value from jsonb_array_elements(items)
+  loop
+    v_title := nullif(btrim(v_entry->>'title'), '');
+    v_isbn := upper(regexp_replace(
+      coalesce(
+        nullif(v_entry->>'isbn', ''),
+        substring(coalesce(v_entry->>'url', '') from '/a/87073/([0-9Xx-]+)'),
+        ''
+      ),
+      '[^0-9Xx]',
+      '',
+      'g'
+    ));
+
+    if v_title is null then
+      return query select 'skipped'::text, null::text, null::text, 0, 'missing title'::text;
+      continue;
+    end if;
+
+    if length(v_isbn) not in (10, 13) then
+      return query select 'skipped'::text, v_title, null::text, 0, 'missing ISBN-10/ISBN-13'::text;
+      continue;
+    end if;
+
+    if jsonb_typeof(v_entry->'game_ids') = 'array' then
+      v_game_ids := v_entry->'game_ids';
+    elsif nullif(v_entry->>'game_id', '') is not null then
+      v_game_ids := jsonb_build_array(v_entry->>'game_id');
+    else
+      v_game_ids := '[]'::jsonb;
+    end if;
+
+    if jsonb_array_length(v_game_ids) = 0 then
+      return query select 'skipped'::text, v_title, null::text, 0, 'missing game_ids'::text;
+      continue;
+    end if;
+
+    v_url := 'https://bookshop.org/a/87073/' || v_isbn;
+    v_image_url := coalesce(
+      nullif(btrim(v_entry->>'image_url'), ''),
+      'https://images-us.bookshop.org/ingram/' || v_isbn || '.jpg'
+    );
+    v_price_display := nullif(btrim(v_entry->>'price_display'), '');
+    v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
+
+    v_existing_item_id := null;
+    -- Hidden/archived and uncertified rows still count as existing inventory.
+    select i.id
+      into v_existing_item_id
+      from public.gift_shop_items i
+     where lower(btrim(coalesce(i.url, ''))) = lower(v_url)
+        or lower(btrim(coalesce(i.title, ''))) = lower(v_title)
+     limit 1;
+
+    if v_existing_item_id is not null then
+      return query select 'skipped'::text, v_title, v_existing_item_id::text, 0, 'existing title or URL'::text;
+      continue;
+    end if;
+
+    insert into public.gift_shop_items (
+      kind, title, url, image_url, image_focus, price_display,
+      description, archived, certified_at
+    )
+    values (
+      'amazon_link',
+      v_title,
+      v_url,
+      v_image_url,
+      '50% 50%',
+      v_price_display,
+      v_description,
+      false,
+      null
+    )
+    returning id into v_item_id;
+
+    v_listings_added := 0;
+    v_position := 0;
+
+    for v_game_id_text in select value from jsonb_array_elements_text(v_game_ids)
+    loop
+      begin
+        v_game_id := v_game_id_text;
+      exception when others then
+        continue;
+      end;
+
+      if not exists (
+        select 1
+          from public.games g
+         where g.id = v_game_id
+           and (g.archived is null or g.archived = '' or upper(g.archived) <> 'YES')
+      ) then
+        continue;
+      end if;
+
+      insert into public.gift_shop_listings (item_id, game_id, position, archived)
+      select v_item_id, v_game_id, v_position, false
+      where not exists (
+        select 1
+          from public.gift_shop_listings l
+         where l.item_id = v_item_id
+           and l.game_id = v_game_id
+      );
+
+      get diagnostics v_rows = row_count;
+      v_listings_added := v_listings_added + v_rows;
+      v_position := v_position + 1;
+    end loop;
+
+    if v_listings_added = 0 then
+      delete from public.gift_shop_items where id = v_item_id;
+      return query select 'skipped'::text, v_title, null::text, 0, 'no valid live game listings'::text;
+    else
+      return query select 'inserted'::text, v_title, v_item_id::text, v_listings_added, null::text;
+    end if;
+  end loop;
+end;
+$$;`.trim();
+    }
+
+    function amazonAffiliateUrl(asin) {
+      return 'https://www.amazon.com/dp/' + asin +
+        '?tag=' + encodeURIComponent(AMAZON_TAG) +
+        '&ascsubtag=' + encodeURIComponent(AMAZON_STORE) +
+        '&store=' + encodeURIComponent(AMAZON_STORE);
+    }
+
+    function buildAmazonImportHelperSql() {
+      return String.raw`
+alter table public.gift_shop_items
+  add column if not exists certified_at timestamptz;
+
+create or replace function public.tgb_import_amazon_prompt_items(items jsonb)
+returns table (
+  action text,
+  title text,
+  item_id text,
+  listings_added integer,
+  note text
+)
+language plpgsql
+as $$
+declare
+  v_entry jsonb;
+  v_title text;
+  v_asin text;
+  v_url text;
+  v_image_url text;
+  v_price_display text;
+  v_description text;
+  v_game_ids jsonb;
+  v_game_id_text text;
+  v_game_id public.games.id%type;
+  v_item_id public.gift_shop_items.id%type;
+  v_existing_item_id public.gift_shop_items.id%type;
+  v_position integer;
+  v_listings_added integer;
+  v_rows integer;
+begin
+  if items is null or jsonb_typeof(items) <> 'array' then
+    raise exception 'Expected a JSON array of Amazon item objects.';
+  end if;
+
+  for v_entry in select value from jsonb_array_elements(items)
+  loop
+    v_title := nullif(btrim(v_entry->>'title'), '');
+    v_asin := upper(regexp_replace(
+      coalesce(
+        nullif(v_entry->>'asin', ''),
+        substring(coalesce(v_entry->>'url', '') from '/dp/([A-Za-z0-9]{10})'),
+        substring(coalesce(v_entry->>'url', '') from '/gp/product/([A-Za-z0-9]{10})'),
+        ''
+      ),
+      '[^A-Z0-9]',
+      '',
+      'g'
+    ));
+
+    if v_title is null then
+      return query select 'skipped'::text, null::text, null::text, 0, 'missing title'::text;
+      continue;
+    end if;
+
+    if v_asin !~ '^[A-Z0-9]{10}$' then
+      return query select 'skipped'::text, v_title, null::text, 0, 'missing 10-character ASIN'::text;
+      continue;
+    end if;
+
+    if jsonb_typeof(v_entry->'game_ids') = 'array' then
+      v_game_ids := v_entry->'game_ids';
+    elsif nullif(v_entry->>'game_id', '') is not null then
+      v_game_ids := jsonb_build_array(v_entry->>'game_id');
+    else
+      v_game_ids := '[]'::jsonb;
+    end if;
+
+    if jsonb_array_length(v_game_ids) = 0 then
+      return query select 'skipped'::text, v_title, null::text, 0, 'missing game_ids'::text;
+      continue;
+    end if;
+
+    v_url := 'https://www.amazon.com/dp/' || v_asin || '?tag=thegamebureau-20&ascsubtag=nolanatives-20&store=nolanatives-20';
+    v_image_url := nullif(btrim(v_entry->>'image_url'), '');
+    v_price_display := nullif(btrim(v_entry->>'price_display'), '');
+    v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
+
+    if v_image_url is null then
+      return query select 'skipped'::text, v_title, null::text, 0, 'missing image_url'::text;
+      continue;
+    end if;
+
+    v_existing_item_id := null;
+    -- Hidden/archived and uncertified rows still count as existing inventory.
+    select i.id
+      into v_existing_item_id
+      from public.gift_shop_items i
+     where lower(btrim(coalesce(i.url, ''))) = lower(v_url)
+        or coalesce(i.url, '') ilike '%/dp/' || v_asin || '%'
+        or coalesce(i.url, '') ilike '%/gp/product/' || v_asin || '%'
+        or lower(btrim(coalesce(i.title, ''))) = lower(v_title)
+     limit 1;
+
+    if v_existing_item_id is not null then
+      return query select 'skipped'::text, v_title, v_existing_item_id::text, 0, 'existing title or ASIN'::text;
+      continue;
+    end if;
+
+    insert into public.gift_shop_items (
+      kind, title, url, image_url, image_focus, price_display,
+      description, archived, certified_at
+    )
+    values (
+      'amazon_link',
+      v_title,
+      v_url,
+      v_image_url,
+      '50% 50%',
+      v_price_display,
+      v_description,
+      false,
+      null
+    )
+    returning id into v_item_id;
+
+    v_listings_added := 0;
+    v_position := 0;
+
+    for v_game_id_text in select value from jsonb_array_elements_text(v_game_ids)
+    loop
+      begin
+        v_game_id := v_game_id_text;
+      exception when others then
+        continue;
+      end;
+
+      if not exists (
+        select 1
+          from public.games g
+         where g.id = v_game_id
+           and (g.archived is null or g.archived = '' or upper(g.archived) <> 'YES')
+      ) then
+        continue;
+      end if;
+
+      insert into public.gift_shop_listings (item_id, game_id, position, archived)
+      select v_item_id, v_game_id, v_position, false
+      where not exists (
+        select 1
+          from public.gift_shop_listings l
+         where l.item_id = v_item_id
+           and l.game_id = v_game_id
+      );
+
+      get diagnostics v_rows = row_count;
+      v_listings_added := v_listings_added + v_rows;
+      v_position := v_position + 1;
+    end loop;
+
+    if v_listings_added = 0 then
+      delete from public.gift_shop_items where id = v_item_id;
+      return query select 'skipped'::text, v_title, null::text, 0, 'no valid live game listings'::text;
+    else
+      return query select 'inserted'::text, v_title, v_item_id::text, v_listings_added, null::text;
+    end if;
+  end loop;
+end;
+$$;`.trim();
+    }
+
+    function buildBookshopSearchPrompt() {
+      const generatedAt = new Date();
+      const games = buildPromptGameSnapshot();
+      const existingItems = buildPromptExistingItemsSnapshot();
+      const referralBase = 'https://bookshop.org/a/' + BOOKSHOP_AFFILIATE_ID + '/';
+      const helperSql = buildBookshopImportHelperSql();
+      const sqlExample = [
+        helperSql,
+        '',
+        'select *',
+        'from public.tgb_import_bookshop_prompt_items($tgb$',
+        '[',
+        '  {',
+        '    "title": "Example Book Title",',
+        '    "isbn": "9780000000000",',
+        '    "url": "' + referralBase + '9780000000000",',
+        '    "image_url": "https://images-us.bookshop.org/ingram/9780000000000.jpg",',
+        '    "price_display": "$19.99",',
+        '    "description": "One original shopper-facing sentence explaining why this book fits the game.",',
+        '    "game_ids": ["game-id-from-list"]',
+        '  }',
+        ']',
+        '$tgb$::jsonb);'
+      ].join('\n');
+
+      return [
+        'You are helping The Game Bureau build gift-shop inventory.',
+        '',
+        'Task: search Bookshop.org and return a Supabase SQL import for exactly 100 NEW book items related to the current, non-archived games below.',
+        '',
+        'Hard requirements:',
+        '- Use Bookshop.org product pages only. Do not use Amazon or non-book retailers.',
+        '- Every item must be a real book currently findable on Bookshop.org.',
+        '- Every item must use this referral URL pattern exactly: ' + referralBase + '<ISBN_WITHOUT_HYPHENS>.',
+        '- Prefer ISBN-13. Strip hyphens/spaces from ISBNs.',
+        '- Do not include any current gift-shop inventory item listed below. Hidden, archived, or uncertified rows still count as already-owned inventory. Avoid duplicate titles, duplicate ISBNs, and duplicate URLs.',
+        '- The JSON array must contain exactly 100 objects.',
+        '- Each JSON object needs: title, isbn, url, image_url, price_display, description, game_ids.',
+        '- url and image_url must be raw URL strings only, never Markdown links like [url](url).',
+        '- game_ids must use only ids from the current games JSON below. Pick one to three genuinely relevant games per item unless the item is city-themed.',
+        '- For a city-themed item, add it to every current game whose title/name contains that city in "{CITY} Fans" format, or contains that city elsewhere in the title/name in a non-takeover format. Use the game title/name for this decision, not the game city field. Do not count a city mention when it appears as "Takeover {CITY}"; for example, Baltimore gifts can go on "Baltimore Fans Takeover Atlanta" but not "Chicago Fans Takeover Baltimore." This city-wide rule overrides the one-to-three game limit.',
+        '- Description must be original, concise, and shopper-facing. Do not paste long publisher jacket copy.',
+        '- image_url should be a Bookshop cover image when available. If needed, use https://images-us.bookshop.org/ingram/<ISBN>.jpg.',
+        '- Do not set certified_at. New imports must remain uncertified/unchecked; the import helper sets certified_at to null.',
+        '- Do not put the literal sequence $tgb$ inside any JSON string value.',
+        '- Return SQL only: no markdown fence, no explanation, no bullets outside SQL.',
+        '',
+        'Return one self-contained Supabase SQL script. It must begin with the helper setup below, then call the helper with the 100-item JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
+        sqlExample,
+        '',
+        'Reusable helper source also lives in this repo at ' + BOOKSHOP_IMPORT_HELPER_SQL + ', but the SQL you return must include the helper setup inline.',
+        '',
+        'Current games JSON:',
+        JSON.stringify(games, null, 2),
+        '',
+        'Current gift-shop inventory to exclude JSON (includes hidden/archived/uncertified rows; do not recreate any of them):',
+        JSON.stringify(existingItems, null, 2),
+        '',
+        'Generated at: ' + generatedAt.toISOString()
+      ].join('\n');
+    }
+
+    function buildAmazonSearchPrompt() {
+      const generatedAt = new Date();
+      const games = buildPromptGameSnapshot();
+      const existingItems = buildPromptExistingItemsSnapshot();
+      const exampleAsin = 'B000000000';
+      const helperSql = buildAmazonImportHelperSql();
+      const sqlExample = [
+        helperSql,
+        '',
+        'select *',
+        'from public.tgb_import_amazon_prompt_items($tgb$',
+        '[',
+        '  {',
+        '    "title": "Example Gift Item",',
+        '    "asin": "' + exampleAsin + '",',
+        '    "url": "' + amazonAffiliateUrl(exampleAsin) + '",',
+        '    "image_url": "https://m.media-amazon.com/images/I/example.jpg",',
+        '    "price_display": "$24.99",',
+        '    "description": "One original shopper-facing sentence explaining why this item fits the game.",',
+        '    "game_ids": ["game-id-from-list"]',
+        '  }',
+        ']',
+        '$tgb$::jsonb);'
+      ].join('\n');
+
+      return [
+        'You are helping The Game Bureau build gift-shop inventory.',
+        '',
+        'Task: search Amazon.com and return a Supabase SQL import for exactly 100 NEW physical gift items related to the current, non-archived games below.',
+        '',
+        'Hard requirements:',
+        '- Use Amazon.com product pages only.',
+        '- Expand beyond books. Prioritize physical giftable items such as puzzles, maps, field notebooks, pens, cards, local-history objects, sports fan gear, tailgate gear, travel accessories, guide tools, playful desk items, apparel, ornaments, posters, and other game-relevant souvenirs.',
+        '- Avoid Kindle ebooks, Audible products, subscriptions, gift cards, groceries, perishable items, weapons, restricted items, and anything that looks counterfeit or unsafe.',
+        '- Books are allowed only when an item is unusually perfect and not already covered by the Bookshop prompt; most results should be non-book products.',
+        '- Every item must have a real Amazon ASIN and a raw Amazon product image URL.',
+        '- Every item must use this referral URL pattern exactly: https://www.amazon.com/dp/<ASIN>?tag=' + AMAZON_TAG + '&ascsubtag=' + AMAZON_STORE + '&store=' + AMAZON_STORE + '.',
+        '- Prefer stable /dp/<ASIN> URLs. Strip tracking junk and do not use shortened links.',
+        '- Do not include any current gift-shop inventory item listed below. Hidden, archived, or uncertified rows still count as already-owned inventory. Avoid duplicate titles, duplicate ASINs, and duplicate URLs.',
+        '- The JSON array must contain exactly 100 objects.',
+        '- Each JSON object needs: title, asin, url, image_url, price_display, description, game_ids.',
+        '- url and image_url must be raw URL strings only, never Markdown links like [url](url).',
+        '- game_ids must use only ids from the current games JSON below. Pick one to three genuinely relevant games per item unless the item is city-themed.',
+        '- For a city-themed item, add it to every current game whose title/name contains that city in "{CITY} Fans" format, or contains that city elsewhere in the title/name in a non-takeover format. Use the game title/name for this decision, not the game city field. Do not count a city mention when it appears as "Takeover {CITY}"; for example, Baltimore gifts can go on "Baltimore Fans Takeover Atlanta" but not "Chicago Fans Takeover Baltimore." This city-wide rule overrides the one-to-three game limit.',
+        '- Description must be original, concise, and shopper-facing. Do not paste long manufacturer copy.',
+        '- Do not set certified_at. New imports must remain uncertified/unchecked; the import helper sets certified_at to null.',
+        '- Do not put the literal sequence $tgb$ inside any JSON string value.',
+        '- Return SQL only: no markdown fence, no explanation, no bullets outside SQL.',
+        '',
+        'Return one self-contained Supabase SQL script. It must begin with the helper setup below, then call the helper with the 100-item JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
+        sqlExample,
+        '',
+        'Reusable helper source should be saved in this repo at ' + AMAZON_IMPORT_HELPER_SQL + ' if needed later, but the SQL you return must include the helper setup inline.',
+        '',
+        'Current games JSON:',
+        JSON.stringify(games, null, 2),
+        '',
+        'Current gift-shop inventory to exclude JSON (includes hidden/archived/uncertified rows; do not recreate any of them):',
+        JSON.stringify(existingItems, null, 2),
+        '',
+        'Generated at: ' + generatedAt.toISOString()
+      ].join('\n');
+    }
+
+    function openSuggestModal(mode = 'book') {
+      const isAmazon = mode === 'amazon';
+      const prompt = isAmazon ? buildAmazonSearchPrompt() : buildBookshopSearchPrompt();
+      if (suggestTitle) suggestTitle.textContent = isAmazon ? 'Amazon search prompt' : 'Book search prompt';
+      if (suggestHint) {
+        suggestHint.textContent = isAmazon
+          ? 'Copy this fresh prompt into a web-capable assistant. It asks for 100 broader Amazon gift items, excludes current inventory including hidden rows, and includes your Amazon referral tags.'
+          : 'Copy this fresh prompt into a web-capable assistant. It asks for 100 Bookshop.org book items, excludes current inventory including hidden rows, and returns Supabase SQL using the import helper.';
+      }
+      suggestPromptText.value = prompt;
+      setStatus(
+        suggestStatus,
+        (isAmazon ? 'Amazon' : 'Book') + ' prompt refreshed with ' + buildPromptGameSnapshot().length + ' game(s) and ' +
+          buildPromptExistingItemsSnapshot().length + ' existing item(s).',
+        'success'
+      );
+      suggestModal.hidden = false;
+      setTimeout(() => {
+        suggestPromptText.focus();
+        suggestPromptText.setSelectionRange(0, 0);
+      }, 0);
+    }
 
     function closeSuggestModal(reason) {
-      if (suggestBusy) {
-        console.info('[suggest] close blocked while busy (' + (reason || 'unknown') + ')');
-        return;
-      }
-      console.info('[suggest] close (' + (reason || 'unknown') + ')');
+      console.info('[search-prompt] close (' + (reason || 'unknown') + ')');
       suggestModal.hidden = true;
     }
 
@@ -2278,254 +2876,40 @@
       if (e.key === 'Escape' && !suggestModal.hidden) closeSuggestModal('Escape key');
     });
 
-    async function runSuggestSearch() {
-      suggestBusy = true;
-      suggestSearchBtn.disabled = true;
-      setStatus(suggestStatus, 'Searching Bookshop.org + Amazon… this can take a bit on a cold cache.');
-      try {
-        const response = await fetch(LOCAL_SEARCH_ALL_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          cache: 'no-store',
-          body: JSON.stringify({
-            game: String(suggestGameSel.value || '').trim(),
-            keywords: String(suggestKeywords.value || ''),
-            book_limit: 8,
-            max_queries: Math.max(1, Number(suggestMaxQueries.value || 6)),
-            items_per_game: Math.max(1, Number(suggestItemsCap.value || 20)),
-            delay: Math.max(0, Number(suggestDelay.value || 1.0)),
-            force_refetch: !!suggestForceRefetch.checked
-          })
-        });
-        const raw = await response.text();
-        let payload = {};
-        if (raw) {
-          try { payload = JSON.parse(raw); }
-          catch (_) { throw new Error('Local suggester returned invalid JSON.'); }
-        }
-        if (!response.ok || payload.ok === false) {
-          const detail = payload.error || ('Request failed with HTTP ' + response.status + '.');
-          throw new Error(String(detail));
-        }
-        suggestCandidates = Array.isArray(payload.candidates) ? payload.candidates : [];
-        renderSuggestResults();
-      } catch (error) {
-        console.error('[suggest] search failed', error);
-        const rawMessage = error instanceof Error ? error.message : String(error);
-        const message = /failed to fetch/i.test(rawMessage)
-          ? 'Could not reach the local suggester. Use "START SERVER" below, run the copied command in a terminal, then try again.'
-          : rawMessage;
-        setStatus(suggestStatus, message, 'error');
-      } finally {
-        suggestBusy = false;
-        suggestSearchBtn.disabled = false;
-      }
-    }
-
-    suggestSearchBtn.addEventListener('click', runSuggestSearch);
-
-    // The browser can't launch the local suggester itself, so this copies the
-    // command to the clipboard — paste it into a terminal at the repo root.
-    const copyServerCmdBtn = document.getElementById('copyServerCmdBtn');
-    if (copyServerCmdBtn) {
-      copyServerCmdBtn.addEventListener('click', async () => {
-        const original = copyServerCmdBtn.textContent;
+    if (copyPromptBtn) {
+      copyPromptBtn.addEventListener('click', async () => {
+        const original = copyPromptBtn.textContent;
         try {
-          await navigator.clipboard.writeText(LOCAL_SUGGEST_ITEMS_COMMAND);
-          copyServerCmdBtn.textContent = 'Copied — paste in a terminal';
+          await navigator.clipboard.writeText(suggestPromptText.value);
+          copyPromptBtn.textContent = 'Copied';
+          setStatus(suggestStatus, 'Prompt copied.', 'success');
         } catch (_) {
-          // Clipboard blocked (e.g. non-secure context): show the command to copy by hand.
-          setStatus(suggestStatus, 'Run this in a terminal: ' + LOCAL_SUGGEST_ITEMS_COMMAND, 'error');
-          copyServerCmdBtn.textContent = 'Copy failed — see command above';
+          suggestPromptText.focus();
+          suggestPromptText.select();
+          setStatus(suggestStatus, 'Select-all is ready if clipboard access is blocked.', 'error');
+          copyPromptBtn.textContent = 'Select Prompt';
         }
-        setTimeout(() => { copyServerCmdBtn.textContent = original; }, 2200);
+        setTimeout(() => { copyPromptBtn.textContent = original; }, 2200);
       });
     }
 
-    // Hitting Enter inside the keyword field used to submit a <form>; now bind
-    // it explicitly so the same shortcut still works without a form element.
-    suggestKeywords.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); runSuggestSearch(); }
-    });
-
-    function renderSuggestResults() {
-      suggestForm.hidden = true;
-      suggestResultsPane.hidden = false;
-      suggestResultsList.innerHTML = '';
-      const nBooks = suggestCandidates.filter((c) => c.source === 'bookshop').length;
-      const nGear = suggestCandidates.length - nBooks;
-      suggestResultsCount.textContent =
-        suggestCandidates.length + ' result' + (suggestCandidates.length === 1 ? '' : 's') +
-        ' · ' + nBooks + ' Bookshop · ' + nGear + ' Amazon';
-      suggestCandidates.forEach((c, idx) => {
-        const li = document.createElement('li');
-        li.className = 'suggest-result' + (c.already_in_db ? ' is-existing' : '');
-        li.dataset.idx = String(idx);
-
-        const img = document.createElement('img');
-        img.alt = '';
-        img.referrerPolicy = 'no-referrer';
-        img.loading = 'lazy';
-        img.decoding = 'async';
-        if (c.image_url) img.src = c.image_url;
-        li.appendChild(img);
-
-        const meta = document.createElement('div');
-        meta.className = 'suggest-result-meta';
-        const link = document.createElement('a');
-        link.className = 'suggest-result-link';
-        link.href = c.url || '#';
-        link.target = '_blank';
-        link.rel = 'noopener nofollow sponsored';
-        const titleEl = document.createElement('div');
-        titleEl.className = 'suggest-result-title';
-        const source = c.source === 'bookshop' ? 'bookshop' : (c.source === 'amazon' ? 'amazon' : '');
-        if (source) {
-          const srcBadge = document.createElement('span');
-          srcBadge.className = 'suggest-source suggest-source--' + source;
-          srcBadge.textContent = source === 'bookshop' ? 'Bookshop' : 'Amazon';
-          titleEl.appendChild(srcBadge);
-        }
-        titleEl.appendChild(document.createTextNode(c.title || 'Untitled'));
-        link.appendChild(titleEl);
-        meta.appendChild(link);
-
-        const sub = document.createElement('div');
-        sub.className = 'suggest-result-sub';
-        const subParts = [];
-        if (c.source === 'bookshop' && c.author) subParts.push(c.author);
-        if (c.price_display) subParts.push(c.price_display);
-        else subParts.push('price n/a');
-        if (c.source === 'bookshop' && c.isbn) subParts.push('ISBN ' + c.isbn);
-        if (c.query) subParts.push('query: ' + c.query);
-        sub.textContent = subParts.join(' · ');
-        meta.appendChild(sub);
-
-        const descText = String(c.description || '').trim();
-        if (descText) {
-          const desc = document.createElement('p');
-          desc.className = 'suggest-result-desc';
-          desc.textContent = descText;
-          meta.appendChild(desc);
-        }
-        li.appendChild(meta);
-
-        const actions = document.createElement('div');
-        actions.className = 'suggest-result-actions';
-        if (c.already_in_db) {
-          const badge = document.createElement('span');
-          badge.className = 'suggest-result-badge';
-          badge.textContent = 'Already added';
-          actions.appendChild(badge);
-        } else {
-          const check = document.createElement('input');
-          check.type = 'checkbox';
-          check.className = 'suggest-result-check';
-          check.dataset.idx = String(idx);
-          actions.appendChild(check);
-        }
-        li.appendChild(actions);
-
-        suggestResultsList.appendChild(li);
-      });
-      suggestSelectAll.checked = false;
-      updateAddSelectedState();
-      if (!suggestCandidates.length) {
-        setStatus(suggestResultsStatus, 'No matches on Bookshop or Amazon. Try different keywords.', 'error');
-      } else {
-        setStatus(suggestResultsStatus, '');
-      }
-    }
-
-    function updateAddSelectedState() {
-      const checks = suggestResultsList.querySelectorAll('.suggest-result-check:checked');
-      suggestAddSelectedBtn.disabled = !checks.length;
-      suggestAddSelectedBtn.textContent = checks.length
-        ? 'Add ' + checks.length + ' item' + (checks.length === 1 ? '' : 's')
-        : 'Add selected';
-    }
-
-    suggestResultsList.addEventListener('change', (e) => {
-      if (e.target.classList.contains('suggest-result-check')) updateAddSelectedState();
-    });
-
-    suggestSelectAll.addEventListener('change', () => {
-      suggestResultsList.querySelectorAll('.suggest-result-check').forEach((c) => {
-        c.checked = suggestSelectAll.checked;
-      });
-      updateAddSelectedState();
-    });
-
-    suggestBackBtn.addEventListener('click', () => {
-      suggestResultsPane.hidden = true;
-      suggestForm.hidden = false;
-      setStatus(suggestStatus, '');
-    });
-
-    suggestAddSelectedBtn.addEventListener('click', async () => {
-      const checks = Array.from(suggestResultsList.querySelectorAll('.suggest-result-check:checked'));
-      if (!checks.length) return;
-      suggestBusy = true;
-      suggestAddSelectedBtn.disabled = true;
-      suggestSelectAll.disabled = true;
-      let added = 0;
-      const fails = [];
-      setStatus(suggestResultsStatus, 'Adding ' + checks.length + ' item(s)…');
-      try {
-        for (const check of checks) {
-          const idx = Number(check.dataset.idx);
-          const c = suggestCandidates[idx];
-          if (!c) continue;
-          try {
-            await insertItem({
-              kind: 'amazon_link',
-              title: c.title || null,
-              url: c.url,
-              image_url: c.image_url || null,
-              image_focus: '50% 50%',
-              price_display: c.price_display || null,
-              description: c.description || null
-            });
-            added++;
-            const li = check.closest('.suggest-result');
-            if (li) li.classList.add('is-existing');
-            const badge = document.createElement('span');
-            badge.className = 'suggest-result-badge';
-            badge.textContent = 'Added';
-            check.replaceWith(badge);
-          } catch (error) {
-            console.error('[suggest] insert failed', error);
-            fails.push(c.title || c.url);
-          }
-        }
-      } finally {
-        suggestBusy = false;
-        suggestSelectAll.disabled = false;
-        suggestSelectAll.checked = false;
-        updateAddSelectedState();
-      }
-      if (added) {
-        await showShop();
-      }
-      const msg =
-        'Added ' + added + (fails.length ? ' (' + fails.length + ' failed)' : '') +
-        '. New items have no shop yet — open them in the list and use "+ Add to shops".';
-      setStatus(suggestResultsStatus, msg, fails.length ? 'error' : 'success');
-    });
-
-    suggestItemsBtn.addEventListener('click', openSuggestModal);
+    suggestItemsBtn.addEventListener('click', () => openSuggestModal('book'));
+    if (amazonPromptBtn) amazonPromptBtn.addEventListener('click', () => openSuggestModal('amazon'));
 
     async function showShop() {
       addItemBtn.disabled = true;
+      if (itemSearch) itemSearch.disabled = true;
       setSuggestItemsButtonEnabled(false);
       try {
         await loadGames();
-        addItemBtn.disabled = false;
-        setSuggestItemsButtonEnabled(true);
         await renderAllItems();
+        addItemBtn.disabled = false;
+        if (itemSearch) itemSearch.disabled = false;
+        setSuggestItemsButtonEnabled(true);
       } catch (error) {
         console.error(error);
         addItemBtn.disabled = false;
+        if (itemSearch) itemSearch.disabled = false;
         setSuggestItemsButtonEnabled(true);
         setStatus(shopStatus, error instanceof Error ? error.message : String(error), 'error');
       }

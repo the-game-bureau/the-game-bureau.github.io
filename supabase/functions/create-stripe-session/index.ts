@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
   }
 
   const returnUrl = (SITE_ORIGIN || new URL(req.url).origin).replace(/\/$/, '') +
-    '/gifts/?checkout=complete&session_id={CHECKOUT_SESSION_ID}';
+    '/shop/?checkout=complete&session_id={CHECKOUT_SESSION_ID}';
 
   try {
     const session = await stripe.checkout.sessions.create({
