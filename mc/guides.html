@@ -697,21 +697,25 @@ the AWAY team, operating inside HOME team territory — so the player is cast as
 the invading away-team fan, and the guide is their loyal, cheeky field general
 who turns the rival city into the battleground. The guide leads the player
 REMOTELY (creating the dual reality above), not necessarily by text — keep it
-format-agnostic. The guide may be human OR non-human (an object, animal, mascot,
-ghost, piece of equipment, the team's mascot itself, etc.) — pick whatever is
-most fun and on-brand. Make it original and fictional; do not use a real, named
+format-agnostic. The guide MUST be a fictional living character: either a human
+or an animal connected to the away team's mascot, away city, the TAKEOVER city,
+or relevant local/team history. Do not make the guide an inanimate object, piece
+of equipment, landmark, symbol, ghost, spirit, official mascot, or clone/rename
+of the team's mascot. Make it original and fictional; do not use a real, named
 public figure.
 
 INPUTS
 - HOME team / city: [FILL IN]
+- TAKEOVER city (where the street game happens): [FILL IN]
 - AWAY team / fanbase + any nicknames, chants, lore: [FILL IN]
 
 DELIVER
 1. Name
-2. What it is (human or non-human — and if non-human, what)
+2. What it is (human or animal — and what inspired that choice)
 3. One-line hook
 4. Short bio (2–3 sentences, written for the game player as the audience — what they read about their guide
    before starting the TGB street game, NOT the actual sporting event)
+   Do not include the guide's name in the bio; the UI displays GUIDE NAME separately.
 5. Short description (2–4 sentences, the in-game intro feel)
 6. FULL CHARACTER BREAKDOWN:
    - Appearance / how the player pictures it
@@ -726,12 +730,20 @@ DELIVER
 9. One sample line it delivers at the first stop
 
 Keep it punchy and confident and fun but not mean. Lean into the away-team-in-hostile-territory
-tension. Surprise me with the non-human option if it fits.
+tension. If the guide is not human, make it an animal with a clear mascot, city,
+or history connection. Mention the TAKEOVER city by name or through a specific
+local reference that clearly ties the guide to the city being taken over.
 
 CONTENT RULES
 - Do not mention team nicknames (no fan nicknames, chant-names, or slang names for the teams).
 - You MAY reference other real pro sports teams from the same city (the city's other franchises) for flavor.
 - Do not invent new team mascots or rename existing ones — keep every mascot real and accurate.
+- Use team mascots only as inspiration. Do not make the guide the official mascot,
+  a copied version of the mascot, or a new mascot replacement.
+- No inanimate objects as guides: no equipment, trophies, statues, landmarks,
+  vehicles, clothing, food, buildings, documents, devices, logos, or abstract symbols.
+- GUIDE BIO must not repeat the guide's name. Do not start the bio with the name or include the name anywhere
+  in the bio; the UI shows GUIDE NAME separately.
 - The "game" is the TGB street game (a real-world walk through the city solving clues), not the stadium matchup.
   Do not frame or end the bio around the sporting event: no "before kickoff", "before the game", "on game day",
   "first pitch", "tip-off", "the big game", final scores, or stadium references. End on the guide's voice or
@@ -748,32 +760,38 @@ NO COMMON AI STUFF
 
 OUTPUT FORMAT (return exactly these three labeled blocks for the builder to paste back in)
 GUIDE NAME: <the guide's name on one line>
-GUIDE BIO: <2–3 sentences, audience is the game player — what the player reads about their guide>
+GUIDE BIO: <2–3 sentences, do not include the guide's name, audience is the game player — what the player reads about their guide>
 GUIDE BACKGROUND: <the full character breakdown — appearance, personality, motivation, strengths & flaws, backstory, rivalry attitude, relationship to the player, voice & tone, signature phrases, and the sample first-stop line>`;
 
     function buildGuidePrompt(game) {
       const homeParts = [game.home_team_city, game.home_team_mascot].filter(Boolean).join(' ');
       const awayParts = [game.away_team_city, game.away_team_mascot].filter(Boolean).join(' ');
-      const homeLine = [homeParts, game.city && game.city !== game.home_team_city ? '(game city: ' + game.city + ')' : '']
-        .filter(Boolean).join(' ');
+      const takeoverLine = game.city || game.home_team_city || '';
+      const homeLine = homeParts;
       const awayLine = awayParts;
       let prompt = GUIDE_PROMPT_BASE
         .replace('HOME team / city: [FILL IN]', 'HOME team / city: ' + (homeLine || '[unknown]'))
+        .replace(
+          'TAKEOVER city (where the street game happens): [FILL IN]',
+          'TAKEOVER city (where the street game happens): ' + (takeoverLine || '[unknown]')
+        )
         .replace(
           'AWAY team / fanbase + any nicknames, chants, lore: [FILL IN]',
           'AWAY team / fanbase + any nicknames, chants, lore: ' + (awayLine || '[unknown]')
         );
 
       const currentName = String(game.guide_name || '').trim();
+      const currentNameIsPlaceholder = currentName.replace(/\s+/g, ' ').toLowerCase() === 'mission control';
+      const currentNameToKeep = currentNameIsPlaceholder ? '' : currentName;
       const currentBio = String(game.guide_bio || '').trim();
       const currentBackground = String(game.guide_background || '').trim();
-      if (currentName || currentBio || currentBackground) {
-        const lines = currentName
+      if (currentNameToKeep || currentBio || currentBackground) {
+        const lines = currentNameToKeep
           ? ['CURRENT GUIDE (a guide name already exists for this game — KEEP it)']
           : ['CURRENT GUIDE (existing draft for this game — refine or replace it, keep whatever works)'];
-        if (currentName) {
-          lines.push('- Current guide name: ' + currentName);
-          lines.push('- IMPORTANT: This game already has a guide named "' + currentName + '". Return that EXACT name as GUIDE NAME — do not rename or invent a new one. Write the bio and background to fit this existing name.');
+        if (currentNameToKeep) {
+          lines.push('- Current guide name: ' + currentNameToKeep);
+          lines.push('- IMPORTANT: This game already has a guide named "' + currentNameToKeep + '". Return that EXACT name as GUIDE NAME — do not rename or invent a new one. Write the bio and background to fit this existing name, but do not include the name in GUIDE BIO.');
         }
         if (currentBio) lines.push('- Current guide bio: ' + currentBio);
         if (currentBackground) lines.push('- Current guide background: ' + currentBackground);
