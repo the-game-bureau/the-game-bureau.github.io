@@ -5,6 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
   <title>GIFT SHOP | THE GAME BUREAU</title>
+  <meta name="description" content="Game souvenirs and other curated memorabilia — books, gear, and local finds tied to the cities our games are played in.">
+  <link rel="canonical" href="https://thegamebureau.com/shop/">
+
+  <!-- Social share / link-preview meta. og:image is the shop banner so shared
+       links thumbnail with it. Absolute URLs (custom domain) so crawlers resolve
+       them regardless of where the page is embedded. -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Game Bureau">
+  <meta property="og:url" content="https://thegamebureau.com/shop/">
+  <meta property="og:title" content="The Game Bureau — Gift Shop">
+  <meta property="og:description" content="Game souvenirs and other curated memorabilia — books, gear, and local finds tied to the cities our games are played in.">
+  <meta property="og:image" content="https://thegamebureau.com/shop/shop_banner.png">
+  <meta property="og:image:width" content="1672">
+  <meta property="og:image:height" content="941">
+  <meta property="og:image:alt" content="The Game Bureau Gift Shop">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@thegamebureau">
+  <meta name="twitter:creator" content="@thegamebureau">
+  <meta name="twitter:title" content="The Game Bureau — Gift Shop">
+  <meta name="twitter:description" content="Game souvenirs and other curated memorabilia — books, gear, and local finds tied to the cities our games are played in.">
+  <meta name="twitter:image" content="https://thegamebureau.com/shop/shop_banner.png">
+  <meta name="twitter:image:alt" content="The Game Bureau Gift Shop">
+
   <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -409,6 +432,12 @@
         var(--card-game-color, var(--accent));
     }
     .gift-detail-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .gift-detail-media.is-clickable { cursor: pointer; }
+    .gift-detail-media.is-clickable:hover img { opacity: 0.92; }
+    .gift-detail-media.is-clickable:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
     .gift-detail-monogram {
       position: absolute;
       left: 16px;
@@ -1636,7 +1665,12 @@
       const descEl  = document.getElementById('giftDetailDesc');
       const ctaWrap = document.getElementById('giftDetailCtaWrap');
 
+      // The CTA element is built further down; capturing it here lets the
+      // thumbnail trigger the same action (open the affiliate URL / buy flow).
+      let ctaEl = null;
+
       media.innerHTML = '';
+      media.classList.remove('is-clickable');
       media.style.removeProperty('--card-game-color');
       if (opts.gameColor) media.style.setProperty('--card-game-color', opts.gameColor);
       const imageUrl = String(item.image_url || '').trim();
@@ -1647,6 +1681,15 @@
         img.referrerPolicy = 'no-referrer';
         applyGiftImageDisplay(img, item, media);
         media.appendChild(img);
+        // Clicking the thumbnail does whatever the CTA does.
+        media.classList.add('is-clickable');
+        media.setAttribute('role', 'link');
+        media.tabIndex = 0;
+        const activate = () => { if (ctaEl) ctaEl.click(); };
+        media.addEventListener('click', activate);
+        media.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
+        });
       } else {
         const mono = document.createElement('div');
         mono.className = 'gift-detail-monogram';
@@ -1677,6 +1720,7 @@
             engine: item.engine || opts.engine || ''
           });
         });
+        ctaEl = btn;
         ctaWrap.appendChild(btn);
       } else {
         const url = String(item.url || '').trim();
@@ -1687,8 +1731,15 @@
           a.target = '_blank';
           a.rel = 'noopener nofollow sponsored';
           a.textContent = affiliateCtaLabel(url, item.price_display);
+          ctaEl = a;
           ctaWrap.appendChild(a);
         }
+      }
+      // If there's no CTA (e.g. an item with no url), the thumbnail isn't a link.
+      if (!ctaEl) {
+        media.classList.remove('is-clickable');
+        media.removeAttribute('role');
+        media.removeAttribute('tabindex');
       }
 
       el.hidden = false;
@@ -1914,12 +1965,12 @@
     async function loadAllShops() {
       headingEl.textContent = 'Gift Shop';
       setEyebrow('');
-      leadEl.textContent = requestedCity ? 'Gifts from ' + requestedCity + '.' : 'Game Souvenirs and Other Curated Memorabilia';
+      leadEl.textContent = requestedCity ? 'Gifts curated from ' + requestedCity : 'Game Souvenirs and Other Curated Memorabilia';
       leadEl.hidden = false;
       document.title = (requestedCity ? requestedCity.toUpperCase() + ' ' : '') + 'GIFT SHOP | THE GAME BUREAU';
 
       setStatus('Loading');
-      renderEmpty('Loading inventory...');
+      renderEmpty('Stocking the shelves...');
 
       try {
         const [listings, allGames, allItems, shopCities, teams] = await Promise.all([

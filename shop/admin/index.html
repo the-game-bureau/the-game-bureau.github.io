@@ -346,6 +346,69 @@
       flex: 0 1 190px;
       min-width: 165px;
     }
+    /* Multi-select city filter — a button + checkbox popover that reads like a
+       single dropdown when collapsed, so the toolbar layout is unchanged. */
+    .toolbar .multiselect { position: relative; }
+    .toolbar .multiselect-btn {
+      -webkit-appearance: none;
+      appearance: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      height: 42px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.92);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .toolbar .multiselect-btn .ms-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .toolbar .multiselect-btn .ms-caret { flex: 0 0 auto; opacity: 0.6; }
+    .toolbar .multiselect-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .toolbar .multiselect-panel {
+      position: absolute;
+      z-index: 40;
+      top: calc(100% + 4px);
+      left: 0;
+      min-width: 220px;
+      max-height: 300px;
+      overflow: auto;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+    }
+    .toolbar .multiselect-panel[hidden] { display: none; }
+    .toolbar .multiselect-opt {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 6px 8px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.85rem;
+      text-align: left;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .toolbar .multiselect-opt:hover { background: rgba(0,0,0,0.05); }
+    .toolbar .multiselect-opt input { width: auto; height: auto; margin: 0; }
+    .toolbar .multiselect-all { font-weight: 700; }
+    .toolbar .multiselect-sep { height: 1px; margin: 4px 2px; background: var(--line); }
     .toolbar #itemSearchInput {
       flex: 1 1 220px;
       min-width: 160px;
@@ -1039,6 +1102,15 @@
       letter-spacing: 0;
       white-space: pre;
     }
+    .suggest-fields {
+      display: grid;
+      grid-template-columns: 1fr 130px;
+      gap: 12px;
+      align-items: end;
+    }
+    @media (max-width: 520px) {
+      .suggest-fields { grid-template-columns: 1fr; }
+    }
     .suggest-form .suggest-check {
       flex-direction: row; align-items: center; gap: 8px;
       font-family: inherit;
@@ -1355,9 +1427,13 @@
 
       <div class="toolbar">
         <input id="itemSearchInput" type="search" placeholder="Search title or description…" autocomplete="off" aria-label="Search gifts by title or description" disabled>
-        <select id="cityFilter" aria-label="Filter gifts by city" disabled>
-          <option value="">All cities</option>
-        </select>
+        <div class="multiselect" id="cityFilter">
+          <button type="button" class="multiselect-btn" id="cityFilterBtn" aria-haspopup="true" aria-expanded="false" aria-label="Filter gifts by city" disabled>
+            <span class="ms-label" id="cityFilterLabel">All cities</span>
+            <span class="ms-caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="multiselect-panel" id="cityFilterPanel" role="group" aria-label="Filter gifts by city" hidden></div>
+        </div>
         <select id="itemStatusFilter" aria-label="Filter gifts by status" disabled>
           <option value="">All statuses</option>
           <option value="published">Published</option>
@@ -1457,6 +1533,14 @@
           <button class="btn suggest-source-btn is-active" type="button" data-suggest-source="book">Bookshop.org</button>
           <button class="btn suggest-source-btn" type="button" data-suggest-source="amazon">Amazon.com</button>
         </div>
+        <div class="suggest-fields">
+          <label>Keywords (optional)
+            <input id="suggestKeywords" type="text" placeholder="e.g. jazz, French Quarter, cookbooks" autocomplete="off">
+          </label>
+          <label>Records
+            <input id="suggestCount" type="number" min="1" max="500" step="1" value="100">
+          </label>
+        </div>
         <p class="suggest-hint" id="suggestHint">Copy this fresh prompt into a web-capable assistant. It asks for 100 Bookshop.org items, excludes current inventory including archived rows, and returns Supabase SQL using the import helper.</p>
         <label>Prompt
           <textarea id="suggestPromptText" readonly spellcheck="false"></textarea>
@@ -1489,6 +1573,11 @@
     const itemsList    = document.getElementById('itemsList');
     const showMoreItemsBtn = document.getElementById('showMoreItemsBtn');
     const cityFilter   = document.getElementById('cityFilter');
+    const cityFilterBtn = document.getElementById('cityFilterBtn');
+    const cityFilterPanel = document.getElementById('cityFilterPanel');
+    const cityFilterLabel = document.getElementById('cityFilterLabel');
+    // Selected cities for the filter. Empty Set = no filter ("All cities").
+    let cityFilterSelected = new Set();
     const newGiftCityInput = document.getElementById('newGiftCityInput');
     const addGiftCityBtn = document.getElementById('addGiftCityBtn');
     const giftCityStatus = document.getElementById('giftCityStatus');
@@ -1526,12 +1615,19 @@
     if (itemSearchInput) {
       itemSearchInput.addEventListener('input', applyCityFilter);
     }
-    if (cityFilter) {
-      cityFilter.addEventListener('change', () => {
-        updateViewGiftShopLink();
-        applyCityFilter();
+    if (cityFilterBtn) {
+      cityFilterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleCityFilterPanel();
       });
     }
+    // Close the city popover on an outside click or Escape.
+    document.addEventListener('click', (e) => {
+      if (cityFilter && !cityFilter.contains(e.target)) closeCityFilterPanel();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeCityFilterPanel();
+    });
     if (addGiftCityBtn) {
       addGiftCityBtn.addEventListener('click', handleAddGiftCity);
     }
@@ -1575,8 +1671,10 @@
           recentFilter.value = '';
           recentFilter.disabled = true;
         }
-        if (cityFilter) cityFilter.innerHTML = '<option value="">All cities</option>';
-        if (cityFilter) cityFilter.disabled = true;
+        cityFilterSelected.clear();
+        if (cityFilterPanel) cityFilterPanel.innerHTML = '';
+        updateCityFilterLabel();
+        setCityFilterEnabled(false);
         if (newGiftCityInput) {
           newGiftCityInput.value = '';
           newGiftCityInput.disabled = true;
@@ -1828,15 +1926,82 @@
       return Array.from(new Set(parts.filter(Boolean))).join(' ');
     }
 
-    function renderCityFilterOptions(keep) {
-      if (!cityFilter) return;
-      const selected = keep == null ? cityFilter.value : keep;
-      const citySet = new Set(cityList);
-      cityFilter.innerHTML =
-        '<option value="">All cities</option>' +
-        cityList.map((c) => '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>').join('');
-      if (selected && citySet.has(selected)) cityFilter.value = selected;
-      else cityFilter.value = '';
+    function setCityFilterEnabled(enabled) {
+      if (cityFilterBtn) cityFilterBtn.disabled = !enabled;
+      if (!enabled) closeCityFilterPanel();
+    }
+
+    // Button label: "All cities" / a single short city name / "N cities".
+    function updateCityFilterLabel() {
+      const sel = Array.from(cityFilterSelected);
+      let text;
+      if (!sel.length) text = 'All cities';
+      else if (sel.length === 1) text = cityShort(sel[0]);
+      else text = sel.length + ' cities';
+      if (cityFilterLabel) cityFilterLabel.textContent = text;
+      if (cityFilterBtn) cityFilterBtn.title = sel.length ? sel.join(', ') : 'All cities';
+    }
+
+    function openCityFilterPanel() {
+      if (!cityFilterPanel || !cityFilterBtn || cityFilterBtn.disabled) return;
+      cityFilterPanel.hidden = false;
+      cityFilterBtn.setAttribute('aria-expanded', 'true');
+    }
+    function closeCityFilterPanel() {
+      if (!cityFilterPanel || !cityFilterBtn) return;
+      cityFilterPanel.hidden = true;
+      cityFilterBtn.setAttribute('aria-expanded', 'false');
+    }
+    function toggleCityFilterPanel() {
+      if (cityFilterPanel && cityFilterPanel.hidden) openCityFilterPanel();
+      else closeCityFilterPanel();
+    }
+
+    // Rebuild the checkbox list from cityList, preserving the current selection
+    // (dropping any city that no longer exists).
+    function renderCityFilterOptions() {
+      if (!cityFilterPanel) return;
+      const valid = new Set(cityList);
+      cityFilterSelected = new Set(Array.from(cityFilterSelected).filter((c) => valid.has(c)));
+
+      cityFilterPanel.innerHTML = '';
+
+      const allRow = document.createElement('button');
+      allRow.type = 'button';
+      allRow.className = 'multiselect-opt multiselect-all';
+      allRow.textContent = 'All cities';
+      allRow.addEventListener('click', () => {
+        cityFilterSelected.clear();
+        cityFilterPanel.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
+        updateCityFilterLabel();
+        applyCityFilter();
+      });
+      cityFilterPanel.appendChild(allRow);
+
+      const sep = document.createElement('div');
+      sep.className = 'multiselect-sep';
+      cityFilterPanel.appendChild(sep);
+
+      cityList.forEach((c) => {
+        const opt = document.createElement('label');
+        opt.className = 'multiselect-opt';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = c;
+        cb.checked = cityFilterSelected.has(c);
+        cb.addEventListener('change', () => {
+          if (cb.checked) cityFilterSelected.add(c);
+          else cityFilterSelected.delete(c);
+          updateCityFilterLabel();
+          applyCityFilter();
+        });
+        const span = document.createElement('span');
+        span.textContent = c;
+        opt.append(cb, span);
+        cityFilterPanel.appendChild(opt);
+      });
+
+      updateCityFilterLabel();
       updateViewGiftShopLink();
     }
 
@@ -1870,7 +2035,7 @@
         const row = await upsertGiftShopCity(city);
         if (!cityList.includes(row.city)) cityList.push(row.city);
         cityList.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
-        renderCityFilterOptions(city);
+        renderCityFilterOptions();
         refreshCityPickers();
         newGiftCityInput.value = '';
         setStatus(giftCityStatus, 'Added ' + city + '.', 'success');
@@ -1912,7 +2077,7 @@
     }
 
     function applyCityFilter() {
-      const city = cityFilter ? cityFilter.value : '';
+      const cities = cityFilterSelected; // empty Set = no city filter
       const status = itemStatusFilter ? itemStatusFilter.value : '';
       const query = itemSearchInput ? itemSearchInput.value.trim().toLowerCase() : '';
       const recentDays = recentFilter ? Number(recentFilter.value) : 0;
@@ -1920,7 +2085,7 @@
       const items = itemsList.querySelectorAll('.item');
       let visible = 0;
       items.forEach((item) => {
-        const cityMatch = !city || itemCities(item).some((c) => c === city);
+        const cityMatch = cities.size === 0 || itemCities(item).some((c) => cities.has(c));
         const archived = item.classList.contains('is-hidden');
         const published = !!item.dataset.certifiedAt && !archived;
         const statusMatch = !status
@@ -2586,6 +2751,31 @@
     const suggestHint = document.getElementById('suggestHint');
     const suggestPromptText = document.getElementById('suggestPromptText');
     const suggestStatus = document.getElementById('suggestStatus');
+    const suggestKeywordsInput = document.getElementById('suggestKeywords');
+    const suggestCountInput = document.getElementById('suggestCount');
+
+    // How many records the prompt should request. Defaults to 100, clamped to 1–500.
+    function getPromptCount() {
+      const n = parseInt(suggestCountInput && suggestCountInput.value, 10);
+      if (!Number.isFinite(n) || n < 1) return 100;
+      return Math.min(n, 500);
+    }
+    // Optional keyword/theme focus typed by the admin.
+    function getPromptKeywords() {
+      return String((suggestKeywordsInput && suggestKeywordsInput.value) || '').trim();
+    }
+    // A focus line injected into the task when keywords are present.
+    function promptKeywordLine() {
+      const kw = getPromptKeywords();
+      return kw
+        ? '\nFocus keywords/themes (prioritize items that match these, while still respecting the city/team rules above): ' + kw
+        : '';
+    }
+    // Which source toggle is currently active (book | amazon).
+    function currentSuggestMode() {
+      const active = document.querySelector('[data-suggest-source].is-active');
+      return active ? active.getAttribute('data-suggest-source') : 'book';
+    }
     const copyPromptBtn = document.getElementById('copyPromptBtn');
 
     function promptClean(value, maxLength = 180) {
@@ -2990,6 +3180,7 @@ $$;`.trim();
 
     function buildBookshopSearchPrompt() {
       const generatedAt = new Date();
+      const count = getPromptCount();
       const cities = buildPromptCitySnapshot();
       const sportsTeams = buildPromptSportsTeamSnapshot();
       const existingItems = buildPromptExistingItemsSnapshot();
@@ -3017,7 +3208,7 @@ $$;`.trim();
       return [
         'You are helping The Game Bureau build gift-shop inventory.',
         '',
-        'Task: search Bookshop.org and return a Supabase SQL import for exactly 100 NEW book items tied to the cities listed below (by the city or state named in each description).',
+        'Task: search Bookshop.org and return a Supabase SQL import for exactly ' + count + ' NEW book items tied to the cities listed below (by the city or state named in each description).' + promptKeywordLine(),
         '',
         'Hard requirements:',
         '- Use Bookshop.org product pages only. Do not use Amazon or non-book retailers.',
@@ -3025,7 +3216,7 @@ $$;`.trim();
         '- Every item must use this referral URL pattern exactly: ' + referralBase + '<ISBN_WITHOUT_HYPHENS>.',
         '- Prefer ISBN-13. Strip hyphens/spaces from ISBNs.',
         '- Do not include any current gift-shop inventory item listed below. Hidden, archived, or unpublished rows still count as already-owned inventory. Avoid duplicate titles, duplicate ISBNs, and duplicate URLs.',
-        '- The JSON array must contain exactly 100 objects.',
+        '- The JSON array must contain exactly ' + count + ' objects.',
         '- Each JSON object needs: title, isbn, url, image_url, price_display, description, cities.',
         '- url and image_url must be raw URL strings only, never Markdown links like [url](url).',
         '- cities must use only values from the current cities JSON below, copied verbatim ("City, State"). Assign each item to the city or cities its description names.',
@@ -3037,7 +3228,7 @@ $$;`.trim();
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
         '- Return SQL only: no markdown fence, no explanation, no bullets outside SQL.',
         '',
-        'Return one self-contained Supabase SQL script. It must begin with the helper setup below, then call the helper with the 100-item JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
+        'Return one self-contained Supabase SQL script. It must begin with the helper setup below, then call the helper with the ' + count + '-item JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
         sqlExample,
         '',
         'Reusable helper source also lives in this repo at ' + BOOKSHOP_IMPORT_HELPER_SQL + ', but the SQL you return must include the helper setup inline.',
@@ -3057,6 +3248,7 @@ $$;`.trim();
 
     function buildAmazonSearchPrompt() {
       const generatedAt = new Date();
+      const count = getPromptCount();
       const cities = buildPromptCitySnapshot();
       const sportsTeams = buildPromptSportsTeamSnapshot();
       const existingItems = buildPromptExistingItemsSnapshot();
@@ -3084,17 +3276,17 @@ $$;`.trim();
       return [
         'You are helping The Game Bureau build gift-shop inventory.',
         '',
-        'Task: search Amazon.com and return a Supabase SQL import for up to 100 NEW physical gift items tied to the cities listed below (by the city or state named in each description).',
+        'Task: search Amazon.com and return a Supabase SQL import for up to ' + count + ' NEW physical gift items tied to the cities listed below (by the city or state named in each description).' + promptKeywordLine(),
         '',
         'Research instructions:',
         '- Do the Amazon product research yourself using your web browsing/search tools. Do not ask me for a product export, scrape list, CSV, or outside dataset; the deliverable from this prompt is the finished SQL.',
-        '- Goal: 100 verified items. If Amazon search pages or product pages are blocked, return the largest verified batch you can in one SQL script instead of refusing. A verified partial import is acceptable; fabricated padding is not.',
+        '- Goal: ' + count + ' verified items. If Amazon search pages or product pages are blocked, return the largest verified batch you can in one SQL script instead of refusing. A verified partial import is acceptable; fabricated padding is not.',
         '- If a candidate is blocked, unsafe, already in inventory, or not clearly tied to a city/team, discard it and find another candidate.',
         '- Use Amazon product detail pages as the canonical source. General web search results may be used only to discover Amazon product URLs/ASINs that point to Amazon.com product detail pages.',
         '- Include only products where you can confidently verify the title and 10-character ASIN from an Amazon product detail page or a search result that links to an Amazon product detail page. Do not invent ASINs or titles.',
         '- If the current price is not confidently visible, set price_display to null instead of guessing.',
         '- If a raw Amazon media image URL is confidently visible from the product page or product metadata, include it. If not, set image_url to null instead of guessing. Do not use placeholders, affiliate image wrappers, or Markdown image links.',
-        '- Do not respond that you cannot safely produce the SQL because Amazon search is blocked or because you have fewer than 100 items. Return SQL only with the verified items you found.',
+        '- Do not respond that you cannot safely produce the SQL because Amazon search is blocked or because you have fewer than ' + count + ' items. Return SQL only with the verified items you found.',
         '',
         'Hard requirements:',
         '- Use Amazon.com product detail pages only for item URLs.',
@@ -3105,7 +3297,7 @@ $$;`.trim();
         '- Every item must use this referral URL pattern exactly: https://www.amazon.com/dp/<ASIN>?tag=' + AMAZON_TAG + '&ascsubtag=' + AMAZON_STORE + '&store=' + AMAZON_STORE + '.',
         '- Prefer stable /dp/<ASIN> URLs. Strip tracking junk and do not use shortened links.',
         '- Do not include any current gift-shop inventory item listed below. Hidden, archived, or unpublished rows still count as already-owned inventory. Avoid duplicate titles, duplicate ASINs, and duplicate URLs.',
-        '- The JSON array may contain 1 to 100 objects. Do not pad to 100 with unverifiable items.',
+        '- The JSON array may contain 1 to ' + count + ' objects. Do not pad to ' + count + ' with unverifiable items.',
         '- Each JSON object needs: title, asin, url, image_url, price_display, description, cities. Use null for image_url or price_display when unknown.',
         '- url must be a raw URL string only, never a Markdown link like [url](url). image_url must be either null or a raw URL string.',
         '- cities must use only values from the current cities JSON below, copied verbatim ("City, State"). Assign each item to the city or cities its description names.',
@@ -3143,9 +3335,10 @@ $$;`.trim();
       const prompt = isAmazon ? buildAmazonSearchPrompt() : buildBookshopSearchPrompt();
       if (suggestTitle) suggestTitle.textContent = isAmazon ? 'Amazon search prompt' : 'Book search prompt';
       if (suggestHint) {
+        const count = getPromptCount();
         suggestHint.textContent = isAmazon
-          ? 'Copy this fresh prompt into a web-capable assistant. It asks for up to 100 broader Amazon gift items, allows verified partial batches, includes pro teams, excludes archived inventory, and includes your Amazon referral tags.'
-          : 'Copy this fresh prompt into a web-capable assistant. It asks for 100 Bookshop.org book items, includes pro team names and mascots, excludes current inventory including archived rows, and returns Supabase SQL using the import helper.';
+          ? 'Copy this fresh prompt into a web-capable assistant. It asks for up to ' + count + ' broader Amazon gift items, allows verified partial batches, includes pro teams, excludes archived inventory, and includes your Amazon referral tags.'
+          : 'Copy this fresh prompt into a web-capable assistant. It asks for ' + count + ' Bookshop.org book items, includes pro team names and mascots, excludes current inventory including archived rows, and returns Supabase SQL using the import helper.';
       }
       suggestPromptText.value = prompt;
       setStatus(
@@ -3161,8 +3354,8 @@ $$;`.trim();
       applySuggestSource(mode);
       suggestModal.hidden = false;
       setTimeout(() => {
-        suggestPromptText.focus();
-        suggestPromptText.setSelectionRange(0, 0);
+        if (suggestKeywordsInput) suggestKeywordsInput.focus();
+        else { suggestPromptText.focus(); suggestPromptText.setSelectionRange(0, 0); }
       }, 0);
     }
 
@@ -3199,13 +3392,17 @@ $$;`.trim();
     document.querySelectorAll('[data-suggest-source]').forEach((b) => {
       b.addEventListener('click', () => applySuggestSource(b.getAttribute('data-suggest-source')));
     });
+    // Re-render the prompt live as the admin edits keywords or the record count.
+    [suggestKeywordsInput, suggestCountInput].forEach((el) => {
+      if (el) el.addEventListener('input', () => applySuggestSource(currentSuggestMode()));
+    });
 
     async function showShop() {
       addItemBtn.disabled = true;
       if (itemStatusFilter) itemStatusFilter.disabled = true;
       if (recentFilter) recentFilter.disabled = true;
       if (itemSearchInput) itemSearchInput.disabled = true;
-      if (cityFilter) cityFilter.disabled = true;
+      setCityFilterEnabled(false);
       if (newGiftCityInput) newGiftCityInput.disabled = true;
       if (addGiftCityBtn) addGiftCityBtn.disabled = true;
       setSuggestItemsButtonEnabled(false);
@@ -3216,7 +3413,7 @@ $$;`.trim();
         if (itemStatusFilter) itemStatusFilter.disabled = false;
         if (recentFilter) recentFilter.disabled = false;
         if (itemSearchInput) itemSearchInput.disabled = false;
-        if (cityFilter) cityFilter.disabled = false;
+        setCityFilterEnabled(true);
         if (newGiftCityInput) newGiftCityInput.disabled = false;
         if (addGiftCityBtn) addGiftCityBtn.disabled = false;
         setSuggestItemsButtonEnabled(true);
@@ -3226,7 +3423,7 @@ $$;`.trim();
         if (itemStatusFilter) itemStatusFilter.disabled = false;
         if (recentFilter) recentFilter.disabled = false;
         if (itemSearchInput) itemSearchInput.disabled = false;
-        if (cityFilter) cityFilter.disabled = false;
+        setCityFilterEnabled(true);
         if (newGiftCityInput) newGiftCityInput.disabled = false;
         if (addGiftCityBtn) addGiftCityBtn.disabled = false;
         setSuggestItemsButtonEnabled(true);
