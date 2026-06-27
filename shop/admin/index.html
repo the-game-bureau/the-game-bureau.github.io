@@ -751,6 +751,13 @@
       resize: vertical;
       min-height: 44px;
     }
+    .item-fields .address-row {
+      display: flex;
+      gap: 6px;
+      align-items: stretch;
+    }
+    .item-fields .address-row input { flex: 1 1 auto; min-width: 0; }
+    .item-fields .address-row .btn { flex: 0 0 auto; }
 
     .item-listings {
       grid-column: 1 / -1;
@@ -1401,7 +1408,10 @@
         </label>
         <label>
           Address
-          <input data-field="url" type="url" placeholder="https://www.amazon.com/dp/…">
+          <span class="address-row">
+            <input data-field="url" type="url" placeholder="https://www.amazon.com/dp/…">
+            <button class="btn" data-action="view-url" type="button">View</button>
+          </span>
         </label>
         <label>
           Image
@@ -2475,6 +2485,17 @@
           } finally {
             saveArchiveButton.disabled = false;
           }
+        });
+      }
+
+      const viewUrlButton = article.querySelector('[data-action="view-url"]');
+      if (viewUrlButton) {
+        viewUrlButton.addEventListener('click', () => {
+          const urlInput = article.querySelector('[data-field="url"]');
+          const url = (urlInput && urlInput.value || '').trim();
+          if (!url) { setItemStatus('Address is required.', 'error'); return; }
+          const win = window.open(url, '_blank', 'noopener');
+          if (win) win.focus();
         });
       }
 

@@ -268,7 +268,7 @@
     body.home-page .card-price,
     .gift-detail-price { display: none !important; }
 
-    /* Admin-only logout pill (upper-right). Mirrors admin-bridge's EDIT ITEM
+    /* Admin-only logout pill (upper-right). Mirrors admin-bridge's EDIT GIFT
        button; hidden unless admin-bridge has verified a logged-in admin
        (it adds html.tgb-admin-authorized). */
     .gift-admin-logout {
@@ -788,6 +788,99 @@
       text-transform: uppercase;
     }
     .checkout-success p { margin: 0 0 18px; color: rgba(243, 238, 220, 0.72); }
+
+    /* ── Mobile (≤640px) ───────────────────────────────────────────────
+       The gift-specific surfaces have no responsive rules of their own (the
+       shared nav/footer/hero chrome from site-shell.css does). These tighten
+       paddings, collapse the grid to a single comfortable column, turn the
+       gift-detail + cart overlays into full-bleed sheets, and grow tap
+       targets for thumbs. ──────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      body.home-page .gift-page { gap: 18px; }
+
+      /* Hero — less side padding, steeper left-to-right scrim so the headline
+         stays legible over the banner on a narrow screen. */
+      body.home-page main.gift-page .hero { padding: 22px 18px; }
+      body.home-page main.gift-page .hero {
+        background:
+          linear-gradient(95deg,
+            rgba(8, 11, 17, 0.95) 0%,
+            rgba(8, 11, 17, 0.88) 45%,
+            rgba(8, 11, 17, 0.6) 78%,
+            rgba(8, 11, 17, 0.32) 100%),
+          url("/shop/shop_banner.png") center right / cover no-repeat;
+      }
+
+      /* Panels — trim padding so cards/chips get more of the viewport width. */
+      body.home-page .gift-grid-wrap { padding: 14px; border-radius: 8px; }
+      body.home-page .gift-city-panel { padding: 14px; border-radius: 8px; }
+      body.home-page .gift-city-head { padding-bottom: 10px; }
+      body.home-page .gift-city-title { font-size: 1.15rem; }
+
+      /* Grid → single column; let cards size to content with a taller image. */
+      body.home-page .grid { grid-template-columns: 1fr; gap: 14px; }
+      body.home-page .card,
+      body.home-page .empty {
+        height: auto;
+        grid-template-rows: 210px auto;
+      }
+      body.home-page .empty { min-height: 140px; grid-template-rows: auto; }
+      body.home-page .card-media { height: 210px; min-height: 210px; }
+      body.home-page .card-body { padding: 14px 16px 18px; }
+      body.home-page .card-title { font-size: 1.3rem; }
+      /* A tall single column has room for a longer blurb. */
+      body.home-page .card-caption { -webkit-line-clamp: 4; line-clamp: 4; }
+      /* Roomier tap targets. */
+      body.home-page .card-cta,
+      body.home-page .card-buy { min-height: 48px; }
+
+      body.home-page .footer-note { font-size: 0.72rem; margin-top: 16px; }
+
+      /* Gift-detail lightbox → full-screen sheet. */
+      .gift-detail { padding: 0; }
+      .gift-detail-panel {
+        width: 100%;
+        max-width: 100%;
+        height: 100%;
+        max-height: 100%;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+      }
+      .gift-detail-media { height: 200px; }
+      .gift-detail-body { padding: 16px 18px calc(20px + env(safe-area-inset-bottom)); }
+      .gift-detail-cta { min-height: 50px; }
+
+      /* Cart FAB clears the iOS home indicator. */
+      .cart-fab {
+        right: 16px;
+        bottom: calc(16px + env(safe-area-inset-bottom));
+        padding: 12px 16px;
+      }
+
+      /* Cart modal → full-bleed sheet; line items shrink so they never spill. */
+      .cart-modal { padding: 0; }
+      .cart-panel {
+        width: 100%;
+        height: 100%;
+        max-height: 100%;
+        border-radius: 0;
+      }
+      .cart-line { grid-template-columns: 48px minmax(0, 1fr) auto auto; gap: 8px; }
+      .cart-line img { width: 48px; height: 48px; }
+      .cart-line-price { min-width: 56px; }
+      .cart-foot { padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); }
+      .cart-total { font-size: 1.3rem; }
+    }
+
+    /* ── Small phones (≤380px) — squeeze the last bit of horizontal room. */
+    @media (max-width: 380px) {
+      body.home-page .gift-grid-wrap { padding: 12px; }
+      body.home-page .card-title { font-size: 1.2rem; }
+      body.home-page .card-media { height: 180px; min-height: 180px; }
+      body.home-page .card,
+      body.home-page .empty { grid-template-rows: 180px auto; }
+    }
   </style>
   <script src="../mc/js/admin-auth.js"></script>
   <script src="/assets/supabase-fallback.js"></script>
@@ -805,7 +898,7 @@
           <div>
             <p class="hero-kicker"><span id="itemCount">0</span> ITEMS<span id="eyebrowSuffix" hidden> / <span id="eyebrow"></span></span></p>
             <h1 class="hero-headline" id="heading">Gift Shop</h1>
-            <p class="hero-copy" id="lead">Game Souvenirs</p>
+            <p class="hero-copy" id="lead">Game Souvenirs and Other Curated Memorabilia</p>
           </div>
         </div>
       </section>
@@ -912,6 +1005,8 @@
           };
         })
         .filter(Boolean)
+        // Only surface a city that actually has at least one gift in its shop.
+        .filter((entry) => entry.count > 0)
         .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true }) ||
           a.city.localeCompare(b.city, undefined, { sensitivity: 'base', numeric: true }));
       return { entries, total: allVisibleItemIds.size };
@@ -1819,7 +1914,7 @@
     async function loadAllShops() {
       headingEl.textContent = 'Gift Shop';
       setEyebrow('');
-      leadEl.textContent = requestedCity ? 'Gifts from ' + requestedCity + '.' : 'Game Souvenirs';
+      leadEl.textContent = requestedCity ? 'Gifts from ' + requestedCity + '.' : 'Game Souvenirs and Other Curated Memorabilia';
       leadEl.hidden = false;
       document.title = (requestedCity ? requestedCity.toUpperCase() + ' ' : '') + 'GIFT SHOP | THE GAME BUREAU';
 
@@ -1840,7 +1935,9 @@
         const safeGames    = Array.isArray(allGames) ? allGames : [];
         const safeItems    = Array.isArray(allItems) ? allItems : [];
         const safeShopCities = Array.isArray(shopCities) ? shopCities : [];
-        renderGiftCityRail(buildGiftCityEntries(safeShopCities, safeListings, safeItems));
+        const cityData = buildGiftCityEntries(safeShopCities, safeListings, safeItems);
+        renderGiftCityRail(cityData);
+        const giftCityCount = cityData.entries.length;
 
         // Resolve the optional ?id=/?game= filter to a real game — match by id
         // first, then by name (case-insensitive) — and scope the shop to it.
@@ -1953,7 +2050,7 @@
         // Gifts are grouped by city now.
         shopCountEl.textContent = String(safeShopCities.length);
         setStatus(cards.length + ' item' + (cards.length === 1 ? '' : 's') + ' across ' +
-          allCities.size + ' cit' + (allCities.size === 1 ? 'y' : 'ies'));
+          giftCityCount + ' cit' + (giftCityCount === 1 ? 'y' : 'ies'));
       } catch (error) {
         console.error('[giftshop] all-shops load failed', error);
         renderEmpty('Could not load gift shop.');
@@ -2414,9 +2511,9 @@
 
   <script src="../mc/js/gs-buy-modal.js"></script>
 
-  <!-- Admin-only: paints a hidden "EDIT ITEM" button on each gift card for
+  <!-- Admin-only: paints a hidden "EDIT GIFT" button on each gift card for
        logged-in admins (verified against admin_users), linking to that gift in
-       shop/admin/?item=<id>. Invisible to the public. -->
+       shop/admin/?item=<id> in a new tab. Invisible to the public. -->
   <script src="../assets/admin-bridge.js"></script>
 </body>
 </html>

@@ -183,7 +183,7 @@
   function labelFor(kind, data) {
     if (data.label) return data.label;
     if (kind === 'game' || kind === 'game-run') return 'EDIT GAME';
-    if (kind === 'gift-item') return 'EDIT ITEM';
+    if (kind === 'gift-item') return 'EDIT GIFT';
     if (kind === 'gift-shop') return 'EDIT GIFT SHOP';
     if (kind === 'winners-wall') return 'EDIT WINNERS WALL';
     if (kind === 'photo') return 'REVIEW PHOTO';
@@ -204,10 +204,17 @@
     var link = document.createElement('a');
     link.className = 'tgb-admin-edit-link';
     link.href = routeFor(kind, data);
-    // Navigate the whole tab, not just this frame — public pages like the home
-    // page embed their content in an iframe, and a default <a> would open the
-    // builder inside the frame. "_top" is a no-op when the page isn't framed.
-    link.target = '_top';
+    // Gift edits open in a separate tab so the admin keeps the shop in place;
+    // everything else navigates the whole tab, not just this frame — public
+    // pages like the home page embed their content in an iframe, and a default
+    // <a> would open the builder inside the frame. "_top" is a no-op when the
+    // page isn't framed.
+    if (kind === 'gift-item') {
+      link.target = '_blank';
+      link.rel = 'noopener';
+    } else {
+      link.target = '_top';
+    }
     link.textContent = labelFor(kind, data);
     link.dataset.tgbAdminInjected = 'true';
     return link;
