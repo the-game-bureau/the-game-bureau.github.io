@@ -316,8 +316,7 @@
 
     .toolbar {
       display: flex;
-      align-items: center;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 10px;
       padding: 14px;
       margin-bottom: 10px;
@@ -325,6 +324,26 @@
       border: 1px solid var(--line);
       border-radius: 8px;
       box-shadow: 0 18px 36px var(--paper-shadow);
+    }
+    /* Two logical rows: filters (find gifts) on top, actions (add/manage) below. */
+    .toolbar-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    /* Separator line between the two rows. */
+    .toolbar-actions {
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+    /* Pushes the city-add group to the right edge of the actions row. */
+    .toolbar-spacer { flex: 1 1 auto; }
+    /* Keep the "add city" input + button together as one unit when wrapping. */
+    .city-add {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
     .toolbar select {
@@ -338,7 +357,7 @@
       background: rgba(255,255,255,0.92);
     }
     .toolbar #cityFilter,
-    .toolbar #itemStatusFilter {
+    .toolbar #itemSortSelect {
       flex: 0 1 170px;
       min-width: 145px;
     }
@@ -373,6 +392,10 @@
       white-space: nowrap;
     }
     .toolbar .multiselect-btn .ms-caret { flex: 0 0 auto; opacity: 0.6; }
+    /* Match the sibling <select> filters: normal case, not the global button
+       uppercase (city names like "Houston, Texas" read as written). */
+    .toolbar .multiselect-btn,
+    .toolbar .multiselect-opt { text-transform: none; }
     .toolbar .multiselect-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .toolbar .multiselect-panel {
       position: absolute;
@@ -428,7 +451,6 @@
     .toolbar #newGiftCityInput {
       flex: 0 1 180px;
       min-width: 130px;
-      margin-left: auto;
       height: 42px;
       padding: 0 12px;
       border: 1px solid var(--line);
@@ -783,7 +805,9 @@
 
     .item-fields {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      /* Single column: Title is short but Address/Image are long URLs that read
+         better full-width (price field removed, so no 2-up pairing left). */
+      grid-template-columns: 1fr;
       gap: 8px 12px;
       align-items: end;
     }
@@ -1102,15 +1126,17 @@
       letter-spacing: 0;
       white-space: pre;
     }
-    .suggest-fields {
-      display: grid;
-      grid-template-columns: 1fr 130px;
+    /* Top row: source toggle on the left, the small Records field on the right. */
+    .suggest-toprow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
       gap: 12px;
-      align-items: end;
     }
-    @media (max-width: 520px) {
-      .suggest-fields { grid-template-columns: 1fr; }
-    }
+    .suggest-records { width: 130px; flex: 0 0 auto; }
+    /* Keywords gets its own full-width row below. */
+    .suggest-keywords { width: 100%; }
     .suggest-form .suggest-check {
       flex-direction: row; align-items: center; gap: 8px;
       font-family: inherit;
@@ -1197,7 +1223,6 @@
       border: 1px solid var(--line);
       border-radius: 8px;
       overflow: hidden;
-      align-self: flex-start;
     }
     .suggest-source-btn {
       min-height: 38px;
@@ -1336,11 +1361,6 @@
 
       .item { grid-template-columns: auto 1fr; }
       .item-focus-col { max-width: 100%; }
-      .item-fields { grid-template-columns: 1fr 1fr; }
-    }
-
-    @media (max-width: 540px) {
-      .item-fields { grid-template-columns: 1fr; }
     }
   </style>
   <link rel="stylesheet" href="/mc/js/admin-shell.css">
@@ -1426,29 +1446,38 @@
       </div>
 
       <div class="toolbar">
-        <input id="itemSearchInput" type="search" placeholder="Search title or description…" autocomplete="off" aria-label="Search gifts by title or description" disabled>
-        <div class="multiselect" id="cityFilter">
-          <button type="button" class="multiselect-btn" id="cityFilterBtn" aria-haspopup="true" aria-expanded="false" aria-label="Filter gifts by city" disabled>
-            <span class="ms-label" id="cityFilterLabel">All cities</span>
-            <span class="ms-caret" aria-hidden="true">▾</span>
-          </button>
-          <div class="multiselect-panel" id="cityFilterPanel" role="group" aria-label="Filter gifts by city" hidden></div>
+        <!-- Row 1 — find existing gifts -->
+        <div class="toolbar-row toolbar-filters">
+          <input id="itemSearchInput" type="search" placeholder="Search title or description…" autocomplete="off" aria-label="Search gifts by title or description" disabled>
+          <div class="multiselect" id="cityFilter">
+            <button type="button" class="multiselect-btn" id="cityFilterBtn" aria-haspopup="true" aria-expanded="false" aria-label="Filter gifts by city" disabled>
+              <span class="ms-label" id="cityFilterLabel">All Cities</span>
+              <span class="ms-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="multiselect-panel" id="cityFilterPanel" role="group" aria-label="Filter gifts by city" hidden></div>
+          </div>
+          <select id="itemSortSelect" aria-label="Sort gifts" disabled>
+            <option value="title">Sort: A → Z</option>
+            <option value="city">Sort: By city</option>
+            <option value="status">Sort: By status</option>
+          </select>
+          <select id="recentFilter" aria-label="Filter gifts by when added" disabled>
+            <option value="">Any time</option>
+            <option value="1">Added: last 24 hours</option>
+            <option value="7">Added: last 7 days</option>
+            <option value="30">Added: last 30 days</option>
+          </select>
         </div>
-        <select id="itemStatusFilter" aria-label="Filter gifts by status" disabled>
-          <option value="">All statuses</option>
-          <option value="published">Published</option>
-          <option value="archived">Archived</option>
-        </select>
-        <select id="recentFilter" aria-label="Filter gifts by when added" disabled>
-          <option value="">Any time</option>
-          <option value="1">Added: last 24 hours</option>
-          <option value="7">Added: last 7 days</option>
-          <option value="30">Added: last 30 days</option>
-        </select>
-        <button class="btn primary" id="addItemBtn" type="button" disabled>ADD NEW GIFT</button>
-        <button class="btn" id="searchPromptBtn" type="button" disabled>SEARCH PROMPT</button>
-        <input id="newGiftCityInput" type="text" placeholder="Add city, state" autocomplete="off" aria-label="Add gift shop city" disabled>
-        <button class="btn" id="addGiftCityBtn" type="button" disabled>ADD CITY</button>
+        <!-- Row 2 — add & manage inventory -->
+        <div class="toolbar-row toolbar-actions">
+          <button class="btn primary" id="addItemBtn" type="button" disabled>ADD NEW GIFT</button>
+          <button class="btn" id="searchPromptBtn" type="button" disabled>SEARCH PROMPT</button>
+          <span class="toolbar-spacer"></span>
+          <div class="city-add">
+            <input id="newGiftCityInput" type="text" placeholder="Add city, state" autocomplete="off" aria-label="Add gift shop city" disabled>
+            <button class="btn" id="addGiftCityBtn" type="button" disabled>ADD CITY</button>
+          </div>
+        </div>
       </div>
       <p class="city-tools-status" id="giftCityStatus" aria-live="polite"></p>
 
@@ -1477,10 +1506,6 @@
         <label>
           Title
           <input data-field="title" type="text" placeholder="Field Notebook">
-        </label>
-        <label>
-          Price (display)
-          <input data-field="price_display" type="text" placeholder="$12.99">
         </label>
         <label>
           Address
@@ -1529,18 +1554,18 @@
         <button class="suggest-close" type="button" data-suggest-dismiss aria-label="Close">&times;</button>
       </header>
       <div class="suggest-form" id="suggestForm">
-        <div class="suggest-source-toggle" role="group" aria-label="Choose source">
-          <button class="btn suggest-source-btn is-active" type="button" data-suggest-source="book">Bookshop.org</button>
-          <button class="btn suggest-source-btn" type="button" data-suggest-source="amazon">Amazon.com</button>
-        </div>
-        <div class="suggest-fields">
-          <label>Keywords (optional)
-            <input id="suggestKeywords" type="text" placeholder="e.g. jazz, French Quarter, cookbooks" autocomplete="off">
-          </label>
-          <label>Records
+        <div class="suggest-toprow">
+          <div class="suggest-source-toggle" role="group" aria-label="Choose source">
+            <button class="btn suggest-source-btn is-active" type="button" data-suggest-source="book">Bookshop.org</button>
+            <button class="btn suggest-source-btn" type="button" data-suggest-source="amazon">Amazon.com</button>
+          </div>
+          <label class="suggest-records">Records
             <input id="suggestCount" type="number" min="1" max="500" step="1" value="100">
           </label>
         </div>
+        <label class="suggest-keywords">Keywords (optional)
+          <input id="suggestKeywords" type="text" placeholder="e.g. jazz, French Quarter, cookbooks" autocomplete="off">
+        </label>
         <p class="suggest-hint" id="suggestHint">Copy this fresh prompt into a web-capable assistant. It asks for 100 Bookshop.org items, excludes current inventory including archived rows, and returns Supabase SQL using the import helper.</p>
         <label>Prompt
           <textarea id="suggestPromptText" readonly spellcheck="false"></textarea>
@@ -1566,7 +1591,7 @@
     const signOutBtn   = document.getElementById('signOutBtn');
     const shopStatus   = document.getElementById('shopStatus');
     const addItemBtn   = document.getElementById('addItemBtn');
-    const itemStatusFilter = document.getElementById('itemStatusFilter');
+    const itemSortSelect = document.getElementById('itemSortSelect');
     const recentFilter = document.getElementById('recentFilter');
     const itemSearchInput = document.getElementById('itemSearchInput');
     const searchPromptBtn = document.getElementById('searchPromptBtn');
@@ -1606,8 +1631,8 @@
         applyItemsPagination();
       });
     }
-    if (itemStatusFilter) {
-      itemStatusFilter.addEventListener('change', applyCityFilter);
+    if (itemSortSelect) {
+      itemSortSelect.addEventListener('change', sortItems);
     }
     if (recentFilter) {
       recentFilter.addEventListener('change', applyCityFilter);
@@ -1659,9 +1684,9 @@
         gamesById = new Map();
         allGiftItemsCache = [];
         gameOptionsHtml = '<option value="">— Pick a game —</option>';
-        if (itemStatusFilter) {
-          itemStatusFilter.value = '';
-          itemStatusFilter.disabled = true;
+        if (itemSortSelect) {
+          itemSortSelect.value = 'title';
+          itemSortSelect.disabled = true;
         }
         if (itemSearchInput) {
           itemSearchInput.value = '';
@@ -1935,7 +1960,7 @@
     function updateCityFilterLabel() {
       const sel = Array.from(cityFilterSelected);
       let text;
-      if (!sel.length) text = 'All cities';
+      if (!sel.length) text = 'All Cities';
       else if (sel.length === 1) text = cityShort(sel[0]);
       else text = sel.length + ' cities';
       if (cityFilterLabel) cityFilterLabel.textContent = text;
@@ -1969,7 +1994,7 @@
       const allRow = document.createElement('button');
       allRow.type = 'button';
       allRow.className = 'multiselect-opt multiselect-all';
-      allRow.textContent = 'All cities';
+      allRow.textContent = 'All Cities';
       allRow.addEventListener('click', () => {
         cityFilterSelected.clear();
         cityFilterPanel.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
@@ -2058,27 +2083,8 @@
       return Array.from(state.entries.keys());
     }
 
-    // Tidy a typed display price: prepend "$" if missing and ensure a decimal
-    // point with two cents digits ("12" -> "$12.00", "12.5" -> "$12.50").
-    // Leaves blank input blank and non-numeric input untouched.
-    function normalizePriceDisplay(raw) {
-      const s = String(raw == null ? '' : raw).trim();
-      if (!s) return '';
-      const m = s.replace(/,/g, '').match(/\d+(?:\.\d+)?/);
-      if (!m) return s;
-      let num = m[0];
-      if (num.indexOf('.') === -1) {
-        num = num + '.00';
-      } else {
-        const parts = num.split('.');
-        num = parts[0] + '.' + (parts[1] + '00').slice(0, 2);
-      }
-      return '$' + num;
-    }
-
     function applyCityFilter() {
       const cities = cityFilterSelected; // empty Set = no city filter
-      const status = itemStatusFilter ? itemStatusFilter.value : '';
       const query = itemSearchInput ? itemSearchInput.value.trim().toLowerCase() : '';
       const recentDays = recentFilter ? Number(recentFilter.value) : 0;
       const recentCutoff = recentDays > 0 ? Date.now() - (recentDays * 86400000) : 0;
@@ -2086,11 +2092,6 @@
       let visible = 0;
       items.forEach((item) => {
         const cityMatch = cities.size === 0 || itemCities(item).some((c) => cities.has(c));
-        const archived = item.classList.contains('is-hidden');
-        const published = !!item.dataset.certifiedAt && !archived;
-        const statusMatch = !status
-          || (status === 'published' && published)
-          || (status === 'archived' && archived);
         let queryMatch = true;
         if (query) {
           const title = String(item.querySelector('[data-field="title"]')?.value || '').toLowerCase();
@@ -2107,7 +2108,7 @@
             recentMatch = !isNaN(created) && created >= recentCutoff;
           }
         }
-        const show = cityMatch && statusMatch && queryMatch && recentMatch;
+        const show = cityMatch && queryMatch && recentMatch;
         item.classList.toggle('hidden', !show);
         if (show) visible++;
       });
@@ -2133,13 +2134,39 @@
     // call sites (city-filter changes, refreshes, etc.) stay harmless.
     function updateViewGiftShopLink() {}
 
-    // Always keep the admin list alphabetical by gift title.
+    // Reorder the admin list per the selected sort mode (toolbar dropdown):
+    //   title  — alphabetical by gift title (default)
+    //   city   — by the item's first assigned city, then title (no city sorts last)
+    //   status — archived first, then published; alphabetical within each
     function sortItems() {
+      const mode = itemSortSelect ? itemSortSelect.value : 'title';
+      const collate = { sensitivity: 'base', numeric: true };
       const titleOf = (el) => String(el.querySelector('[data-field="title"]')?.value || '').trim();
-      const byTitle = (a, b) => titleOf(a).localeCompare(titleOf(b), undefined, { sensitivity: 'base', numeric: true });
+      const idOf = (el) => String(el.dataset.id || '');
+      // First assigned city, alphabetically; '~' sentinel pushes no-city items last.
+      const cityOf = (el) => {
+        const cities = itemCities(el).slice().sort((a, b) => a.localeCompare(b, undefined, collate));
+        return cities[0] || '~~~';
+      };
+      // Status rank: archived (0) → everything else / published (1).
+      const statusRank = (el) => (el.classList.contains('is-hidden') ? 0 : 1);
+
+      const byTitle = (a, b) =>
+        titleOf(a).localeCompare(titleOf(b), undefined, collate) ||
+        idOf(a).localeCompare(idOf(b), undefined, collate);
+
+      let comparator;
+      if (mode === 'city') {
+        comparator = (a, b) =>
+          cityOf(a).localeCompare(cityOf(b), undefined, collate) || byTitle(a, b);
+      } else if (mode === 'status') {
+        comparator = (a, b) => (statusRank(a) - statusRank(b)) || byTitle(a, b);
+      } else {
+        comparator = byTitle;
+      }
+
       Array.from(itemsList.querySelectorAll('.item'))
-        .sort((a, b) => byTitle(a, b) ||
-          String(a.dataset.id || '').localeCompare(String(b.dataset.id || ''), undefined, { sensitivity: 'base', numeric: true }))
+        .sort(comparator)
         .forEach((item) => itemsList.appendChild(item));
       applyItemsPagination();
     }
@@ -2241,7 +2268,6 @@
         url: get('url').trim(),
         image_url: get('image_url').trim() || null,
         image_focus: focus,
-        price_display: normalizePriceDisplay(get('price_display')) || null,
         description: get('description').trim() || null,
         archived: article.classList.contains('is-hidden')
       };
@@ -2398,7 +2424,6 @@
       set('title', item.title);
       set('url', item.url);
       set('image_url', item.image_url);
-      set('price_display', item.price_display);
       set('description', item.description);
 
       // Current shops render as deletable chips; "+ Add to shops" opens a
@@ -2579,13 +2604,6 @@
       article.querySelector('[data-field="image_url"]').addEventListener('input', refreshFocusImage);
       article.querySelector('[data-field="title"]').addEventListener('input', sizeImage);
       article.querySelector('[data-field="url"]').addEventListener('input', sizeImage);
-      const priceInput = article.querySelector('[data-field="price_display"]');
-      if (priceInput) {
-        priceInput.addEventListener('blur', () => {
-          const tidy = normalizePriceDisplay(priceInput.value);
-          if (tidy !== priceInput.value) priceInput.value = tidy;
-        });
-      }
 
       // Drag the image behind the frame. Pointer delta translates 1:1
       // into transform offset (since frame and image share screen px).
@@ -2740,7 +2758,8 @@
     }
 
     addItemBtn.addEventListener('click', () => {
-      const article = appendItemRow({});
+      // New gifts start archived — there's no "draft" state; you publish when ready.
+      const article = appendItemRow({ archived: true });
       const titleInput = article.querySelector('[data-field="title"]');
       if (titleInput) titleInput.focus();
     });
@@ -2922,7 +2941,6 @@ declare
   v_isbn text;
   v_url text;
   v_image_url text;
-  v_price_display text;
   v_description text;
   v_cities jsonb;
   v_city text;
@@ -2971,7 +2989,6 @@ begin
       nullif(btrim(v_entry->>'image_url'), ''),
       'https://images-us.bookshop.org/ingram/' || v_isbn || '.jpg'
     );
-    v_price_display := nullif(btrim(v_entry->>'price_display'), '');
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
 
     v_existing_item_id := null;
@@ -2989,7 +3006,7 @@ begin
     end if;
 
     insert into public.gift_shop_items (
-      kind, title, url, image_url, image_focus, price_display,
+      kind, title, url, image_url, image_focus,
       description, archived, certified_at
     )
     values (
@@ -2998,10 +3015,9 @@ begin
       v_url,
       v_image_url,
       '50% 50%',
-      v_price_display,
       v_description,
-      false,
-      now()
+      true,
+      null
     )
     returning id into v_item_id;
 
@@ -3064,7 +3080,6 @@ declare
   v_asin text;
   v_url text;
   v_image_url text;
-  v_price_display text;
   v_description text;
   v_cities jsonb;
   v_city text;
@@ -3111,7 +3126,6 @@ begin
 
     v_url := 'https://www.amazon.com/dp/' || v_asin || '?tag=thegamebureau-20&ascsubtag=nolanatives-20&store=nolanatives-20';
     v_image_url := nullif(btrim(v_entry->>'image_url'), '');
-    v_price_display := nullif(btrim(v_entry->>'price_display'), '');
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
 
     v_existing_item_id := null;
@@ -3131,7 +3145,7 @@ begin
     end if;
 
     insert into public.gift_shop_items (
-      kind, title, url, image_url, image_focus, price_display,
+      kind, title, url, image_url, image_focus,
       description, archived, certified_at
     )
     values (
@@ -3140,10 +3154,9 @@ begin
       v_url,
       v_image_url,
       '50% 50%',
-      v_price_display,
       v_description,
-      false,
-      now()
+      true,
+      null
     )
     returning id into v_item_id;
 
@@ -3197,7 +3210,6 @@ $$;`.trim();
         '    "isbn": "9780000000000",',
         '    "url": "' + referralBase + '9780000000000",',
         '    "image_url": "https://images-us.bookshop.org/ingram/9780000000000.jpg",',
-        '    "price_display": "$19.99",',
         '    "description": "One original shopper-facing sentence explaining why this book fits the game.",',
         '    "cities": ["City, State from the list"]',
         '  }',
@@ -3217,18 +3229,20 @@ $$;`.trim();
         '- Prefer ISBN-13. Strip hyphens/spaces from ISBNs.',
         '- Do not include any current gift-shop inventory item listed below. Hidden, archived, or unpublished rows still count as already-owned inventory. Avoid duplicate titles, duplicate ISBNs, and duplicate URLs.',
         '- The JSON array must contain exactly ' + count + ' objects.',
-        '- Each JSON object needs: title, isbn, url, image_url, price_display, description, cities.',
+        '- Each JSON object needs: title, isbn, url, image_url, description, cities.',
         '- url and image_url must be raw URL strings only, never Markdown links like [url](url).',
         '- cities must use only values from the current cities JSON below, copied verbatim ("City, State"). Assign each item to the city or cities its description names.',
         '- A specific city named in the description maps to that city only; a U.S. STATE named in the description maps to every listed city in that state (e.g. "Texas" => Houston, Dallas, San Antonio). Leave "cities" empty (omit it) if the description names no TGB city or state.',
         '- Use the current professional sports teams JSON below when choosing sports/team books. It includes full team names, cities, and mascots. A team-specific item must mention the professional team name and/or mascot in the description and use only that team object\'s shop_cities for "cities". If shop_cities is empty, do not assign a city for that team-specific item.',
         '- Description must be original, concise, and shopper-facing. Do not paste long publisher jacket copy.',
         '- image_url should be a Bookshop cover image when available. If needed, use https://images-us.bookshop.org/ingram/<ISBN>.jpg.',
-        '- Do not set certified_at in the JSON. New imports are published by default; the import helper sets certified_at to now() and archived to false.',
+        '- Do not set certified_at or archived in the JSON. Imported items start ARCHIVED and unpublished; the import helper sets archived to true and certified_at to null. An admin reviews and publishes them in the gift-shop tool.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
-        '- Return SQL only: no markdown fence, no explanation, no bullets outside SQL.',
+        '- Output the COMPLETE script as ONE copy-pasteable block I can copy in a single action and paste into the Supabase SQL editor: a single fenced ```sql code block, or a code artifact / canvas with a copy button — whichever your tool supports. Do NOT split it across multiple blocks.',
+        '- CRITICAL for copy-paste: use ONLY plain ASCII characters. Use the straight apostrophe for SQL string quotes and the straight double-quote character where needed; never smart/curly quotes, never en/em dashes, never non-breaking spaces, never any other Unicode punctuation. Do not hard-wrap or reflow long lines. Those silently corrupt the SQL (especially the $tgb$ dollar-quoted JSON and the string literals) when pasted into the editor.',
+        '- The block must contain ONLY SQL — no prose, headings, or commentary before, after, or inside it.',
         '',
-        'Return one self-contained Supabase SQL script. It must begin with the helper setup below, then call the helper with the ' + count + '-item JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
+        'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper with the ' + count + '-item JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
         sqlExample,
         '',
         'Reusable helper source also lives in this repo at ' + BOOKSHOP_IMPORT_HELPER_SQL + ', but the SQL you return must include the helper setup inline.',
@@ -3265,7 +3279,6 @@ $$;`.trim();
         '    "asin": "' + exampleAsin + '",',
         '    "url": "' + amazonAffiliateUrl(exampleAsin) + '",',
         '    "image_url": null,',
-        '    "price_display": null,',
         '    "description": "One original shopper-facing sentence explaining why this item fits the game.",',
         '    "cities": ["City, State from the list"]',
         '  }',
@@ -3284,7 +3297,6 @@ $$;`.trim();
         '- If a candidate is blocked, unsafe, already in inventory, or not clearly tied to a city/team, discard it and find another candidate.',
         '- Use Amazon product detail pages as the canonical source. General web search results may be used only to discover Amazon product URLs/ASINs that point to Amazon.com product detail pages.',
         '- Include only products where you can confidently verify the title and 10-character ASIN from an Amazon product detail page or a search result that links to an Amazon product detail page. Do not invent ASINs or titles.',
-        '- If the current price is not confidently visible, set price_display to null instead of guessing.',
         '- If a raw Amazon media image URL is confidently visible from the product page or product metadata, include it. If not, set image_url to null instead of guessing. Do not use placeholders, affiliate image wrappers, or Markdown image links.',
         '- Do not respond that you cannot safely produce the SQL because Amazon search is blocked or because you have fewer than ' + count + ' items. Return SQL only with the verified items you found.',
         '',
@@ -3298,17 +3310,19 @@ $$;`.trim();
         '- Prefer stable /dp/<ASIN> URLs. Strip tracking junk and do not use shortened links.',
         '- Do not include any current gift-shop inventory item listed below. Hidden, archived, or unpublished rows still count as already-owned inventory. Avoid duplicate titles, duplicate ASINs, and duplicate URLs.',
         '- The JSON array may contain 1 to ' + count + ' objects. Do not pad to ' + count + ' with unverifiable items.',
-        '- Each JSON object needs: title, asin, url, image_url, price_display, description, cities. Use null for image_url or price_display when unknown.',
+        '- Each JSON object needs: title, asin, url, image_url, description, cities. Use null for image_url when unknown.',
         '- url must be a raw URL string only, never a Markdown link like [url](url). image_url must be either null or a raw URL string.',
         '- cities must use only values from the current cities JSON below, copied verbatim ("City, State"). Assign each item to the city or cities its description names.',
         '- A specific city named in the description maps to that city only; a U.S. STATE named in the description maps to every listed city in that state (e.g. "Texas" => Houston, Dallas, San Antonio). Leave "cities" empty (omit it) if the description names no TGB city or state.',
         '- Use the current professional sports teams JSON below when choosing sports/team gifts. It includes full team names, cities, and mascots. A team-specific item must mention the professional team name and/or mascot in the description and use only that team object\'s shop_cities for "cities". If shop_cities is empty, do not assign a city for that team-specific item.',
         '- Description must be original, concise, and shopper-facing. Do not paste long manufacturer copy.',
-        '- Do not set certified_at in the JSON. New imports are published by default; the import helper sets certified_at to now() and archived to false.',
+        '- Do not set certified_at or archived in the JSON. Imported items start ARCHIVED and unpublished; the import helper sets archived to true and certified_at to null. An admin reviews and publishes them in the gift-shop tool.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
-        '- Return SQL only: no markdown fence, no explanation, no bullets outside SQL.',
+        '- Output the COMPLETE script as ONE copy-pasteable block I can copy in a single action and paste into the Supabase SQL editor: a single fenced ```sql code block, or a code artifact / canvas with a copy button — whichever your tool supports. Do NOT split it across multiple blocks.',
+        '- CRITICAL for copy-paste: use ONLY plain ASCII characters. Use the straight apostrophe for SQL string quotes and the straight double-quote character where needed; never smart/curly quotes, never en/em dashes, never non-breaking spaces, never any other Unicode punctuation. Do not hard-wrap or reflow long lines. Those silently corrupt the SQL (especially the $tgb$ dollar-quoted JSON and the string literals) when pasted into the editor.',
+        '- The block must contain ONLY SQL — no prose, headings, or commentary before, after, or inside it.',
         '',
-        'Return one self-contained Supabase SQL script. It must begin with the helper setup below, then call the helper with the verified-item JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
+        'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper with the verified-item JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
         sqlExample,
         '',
         'Reusable helper source should be saved in this repo at ' + AMAZON_IMPORT_HELPER_SQL + ' if needed later, but the SQL you return must include the helper setup inline.',
@@ -3337,8 +3351,8 @@ $$;`.trim();
       if (suggestHint) {
         const count = getPromptCount();
         suggestHint.textContent = isAmazon
-          ? 'Copy this fresh prompt into a web-capable assistant. It asks for up to ' + count + ' broader Amazon gift items, allows verified partial batches, includes pro teams, excludes archived inventory, and includes your Amazon referral tags.'
-          : 'Copy this fresh prompt into a web-capable assistant. It asks for ' + count + ' Bookshop.org book items, includes pro team names and mascots, excludes current inventory including archived rows, and returns Supabase SQL using the import helper.';
+          ? 'Copy this fresh prompt into a web-capable assistant. It asks for up to ' + count + ' broader Amazon gift items, allows verified partial batches, includes pro teams, excludes archived inventory, includes your Amazon referral tags, and returns the SQL as one copy-paste-ready code block (plain ASCII, no smart quotes).'
+          : 'Copy this fresh prompt into a web-capable assistant. It asks for ' + count + ' Bookshop.org book items, includes pro team names and mascots, excludes current inventory including archived rows, and returns the SQL as one copy-paste-ready code block (plain ASCII, no smart quotes).';
       }
       suggestPromptText.value = prompt;
       setStatus(
@@ -3399,7 +3413,7 @@ $$;`.trim();
 
     async function showShop() {
       addItemBtn.disabled = true;
-      if (itemStatusFilter) itemStatusFilter.disabled = true;
+      if (itemSortSelect) itemSortSelect.disabled = true;
       if (recentFilter) recentFilter.disabled = true;
       if (itemSearchInput) itemSearchInput.disabled = true;
       setCityFilterEnabled(false);
@@ -3410,7 +3424,7 @@ $$;`.trim();
         await loadGames();
         await renderAllItems();
         addItemBtn.disabled = false;
-        if (itemStatusFilter) itemStatusFilter.disabled = false;
+        if (itemSortSelect) itemSortSelect.disabled = false;
         if (recentFilter) recentFilter.disabled = false;
         if (itemSearchInput) itemSearchInput.disabled = false;
         setCityFilterEnabled(true);
@@ -3420,7 +3434,7 @@ $$;`.trim();
       } catch (error) {
         console.error(error);
         addItemBtn.disabled = false;
-        if (itemStatusFilter) itemStatusFilter.disabled = false;
+        if (itemSortSelect) itemSortSelect.disabled = false;
         if (recentFilter) recentFilter.disabled = false;
         if (itemSearchInput) itemSearchInput.disabled = false;
         setCityFilterEnabled(true);

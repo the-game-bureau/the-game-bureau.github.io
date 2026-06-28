@@ -11,14 +11,14 @@
 --       "isbn": "9780000000000",
 --       "url": "https://bookshop.org/a/87073/9780000000000",
 --       "image_url": "https://images-us.bookshop.org/ingram/9780000000000.jpg",
---       "price_display": "$19.99",
 --       "description": "Short original gift-shop blurb.",
 --       "cities": ["City, State"]
 --     }
 --   ]
 --   $tgb$::jsonb);
 --
--- New rows are published by default: archived = false and certified_at = now().
+-- New rows start ARCHIVED and unpublished: archived = true and certified_at = null.
+-- An admin reviews and publishes them in the gift-shop tool.
 -- Duplicate checks scan every gift_shop_items row, including archived/hidden
 -- and unpublished rows, so archived inventory is not recreated by later prompts.
 
@@ -44,7 +44,6 @@ declare
   v_isbn text;
   v_url text;
   v_image_url text;
-  v_price_display text;
   v_description text;
   v_cities jsonb;
   v_city text;
@@ -93,7 +92,6 @@ begin
       nullif(btrim(v_entry->>'image_url'), ''),
       'https://images-us.bookshop.org/ingram/' || v_isbn || '.jpg'
     );
-    v_price_display := nullif(btrim(v_entry->>'price_display'), '');
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
 
     v_existing_item_id := null;
@@ -117,7 +115,6 @@ begin
       url,
       image_url,
       image_focus,
-      price_display,
       description,
       archived,
       certified_at
@@ -128,10 +125,9 @@ begin
       v_url,
       v_image_url,
       '50% 50%',
-      v_price_display,
       v_description,
-      false,
-      now()
+      true,
+      null
     )
     returning id into v_item_id;
 
