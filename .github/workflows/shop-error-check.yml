@@ -1,0 +1,80 @@
+name: Gift Shop URL error check
+
+# Nightly at 03:00 America/Chicago. GitHub cron is UTC with no DST, so we trigger
+# at BOTH 08:00 and 09:00 UTC and let the guard proceed only when it is 03:00
+# Central — exactly one fires year-round (08:00 UTC = 03:00 CDT in summer,
+# 09:00 UTC = 03:00 CST in winter).
+#
+# Each run checks ONE SEVENTH of gift_shop_items, keyed to the Central weekday
+# (Monday = 1st seventh, Tuesday = 2nd, … Sunday = 7th), tests every item's
+# product URL and image URL, and commits the refreshed report
+# (shop/shoperrors.log + shop/shoperrors.htm). The commit triggers the deploy
+# workflow, publishing the report.
+
+on:
+  schedule:
+    - cron: "0 8 * * *"   # 03:00 CDT (summer)
+    - cron: "0 9 * * *"   # 03:00 CST (winter)
+  workflow_dispatch: {}    # manual run (checks whatever seventh matches today)
+
+permissions:
+  contents: write          # needed to push the auto-commit
+
+concurrency:
+  group: shop-error-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Proceed only at 03:00 Central (or on manual dispatch)
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          hour=$(TZ='America/Chicago' date +%H)
+          echo "Central hour: $hour"
+          if [ "$hour" = "03" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "Not 3am Central — skipping this trigger (the other cron handles it)."
+          fi
+
+      - name: Checkout
+        if: steps.gate.outputs.go == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Node
+        if: steps.gate.outputs.go == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run URL error check (today's seventh)
+        if: steps.gate.outputs.go == 'true'
+        env:
+          SUPABASE_URL: https://qmaafbncpzrdmqapkkgr.supabase.co
+          # Optional: bypasses RLS so ARCHIVED items are checked too. Without it,
+          # only published (non-archived) items are covered.
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node _dev/scripts/shop-error-check.mjs
+
+      - name: Commit & push if the report changed
+        if: steps.gate.outputs.go == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add shop/shoperrors.log shop/shoperrors.htm
+          if git diff --cached --quiet; then
+            echo "No report changes — nothing to commit."
+            exit 0
+          fi
+          stamp=$(TZ='America/Chicago' date +'%Y-%m-%d %H:%M %Z')
+          git commit -m "auto: gift shop URL error check ($stamp)"
+          git push
