@@ -772,9 +772,12 @@
       display: grid;
       place-items: center;
     }
+    /* Match shop/index.html's .card-media[data-image-fit="contain"] exactly:
+       a dark scrim over a blurred "cover" of the same image, so the preview
+       is WYSIWYG with how the public card renders books / DVDs / portrait shots. */
     .item-focus[data-image-fit="contain"] {
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.80)),
+        linear-gradient(180deg, rgba(8, 11, 17, 0.20), rgba(8, 11, 17, 0.72)),
         var(--gift-contain-image) center / cover no-repeat,
         rgba(var(--bic-blue-rgb), 0.06);
     }
@@ -791,7 +794,7 @@
       will-change: transform;
     }
     .item-focus[data-image-fit="contain"] img {
-      filter: drop-shadow(0 8px 16px rgba(var(--bic-blue-rgb), 0.24));
+      filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.36));
     }
     .item-focus[data-has-image="true"] {
       cursor: grab;
@@ -1116,7 +1119,7 @@
       color: var(--ink); background: #fff;
     }
     .suggest-form textarea {
-      min-height: min(52vh, 520px);
+      min-height: min(22vh, 220px);
       padding: 10px;
       resize: vertical;
       line-height: 1.45;
@@ -1516,7 +1519,10 @@
         </label>
         <label>
           Image
-          <input data-field="image_url" type="url" required placeholder="https://m.media-amazon.com/images/…">
+          <span class="address-row">
+            <input data-field="image_url" type="url" required placeholder="https://m.media-amazon.com/images/…">
+            <button class="btn" data-action="grab-image" type="button" title="Fetch the real product image (and any empty title/description) from the Address URL via the scrape-amazon function">Grab</button>
+          </span>
         </label>
         <label class="field-wide">
           Description
@@ -1529,7 +1535,7 @@
           </div>
           <div class="item-listings-chips" data-listings-chips></div>
           <div class="item-listings-picker" data-listings-picker>
-            <input class="listing-search" data-listings-search type="text" placeholder="Search games to add…" autocomplete="off">
+            <input class="listing-search" data-listings-search type="text" placeholder="Search cities to add..." autocomplete="off">
             <select class="listing-picker-select" data-listings-select multiple size="4" title="Click to pick. Ctrl/Cmd+click toggles, Shift+click selects a range."></select>
             <div class="listing-picker-actions">
               <button class="btn primary" data-action="add-selected" type="button">Add selected</button>
@@ -1539,6 +1545,7 @@
         <div class="item-actions">
           <button class="btn primary" data-action="save-publish" type="button">Save &amp; Publish</button>
           <button class="btn" data-action="save-archive" type="button">Save &amp; Archive</button>
+          <button class="btn" data-action="view-in-shop" type="button">View in gift shop</button>
           <button class="btn danger" data-action="delete" type="button">Delete</button>
           <span class="item-status" data-status></span>
         </div>
@@ -1632,13 +1639,13 @@
       });
     }
     if (itemSortSelect) {
-      itemSortSelect.addEventListener('change', sortItems);
+      itemSortSelect.addEventListener('change', refreshItemsView);
     }
     if (recentFilter) {
-      recentFilter.addEventListener('change', applyCityFilter);
+      recentFilter.addEventListener('change', refreshItemsView);
     }
     if (itemSearchInput) {
-      itemSearchInput.addEventListener('input', applyCityFilter);
+      itemSearchInput.addEventListener('input', refreshItemsView);
     }
     if (cityFilterBtn) {
       cityFilterBtn.addEventListener('click', (e) => {
@@ -1932,7 +1939,7 @@
       return city;
     }
 
-    function citySearchText(value) {
+    function citySearchTerms(value) {
       const city = canonicalShopCity(value);
       const normalized = String(city || '')
         .toLowerCase()
@@ -1948,7 +1955,11 @@
         const stateCode = US_STATE_CODES_BY_NAME[commaParts.slice(1).join(', ').toLowerCase()];
         if (cityName && stateCode) parts.push(cityName + ' ' + stateCode, cityName.replace(/\s+/g, '') + stateCode, stateCode);
       }
-      return Array.from(new Set(parts.filter(Boolean))).join(' ');
+      return Array.from(new Set(parts.filter(Boolean)));
+    }
+
+    function citySearchText(value) {
+      return citySearchTerms(value).join(' ');
     }
 
     function setCityFilterEnabled(enabled) {
@@ -1999,7 +2010,7 @@
         cityFilterSelected.clear();
         cityFilterPanel.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
         updateCityFilterLabel();
-        applyCityFilter();
+        refreshItemsView();
       });
       cityFilterPanel.appendChild(allRow);
 
@@ -2018,7 +2029,7 @@
           if (cb.checked) cityFilterSelected.add(c);
           else cityFilterSelected.delete(c);
           updateCityFilterLabel();
-          applyCityFilter();
+          refreshItemsView();
         });
         const span = document.createElement('span');
         span.textContent = c;
@@ -2148,8 +2159,9 @@
         const cities = itemCities(el).slice().sort((a, b) => a.localeCompare(b, undefined, collate));
         return cities[0] || '~~~';
       };
-      // Status rank: archived (0) → everything else / published (1).
-      const statusRank = (el) => (el.classList.contains('is-hidden') ? 0 : 1);
+      const isArchivedItem = (el) => el.dataset.archived === 'true' || el.classList.contains('is-hidden');
+      // Status rank: archived (0) before everything else / published (1).
+      const statusRank = (el) => (isArchivedItem(el) ? 0 : 1);
 
       const byTitle = (a, b) =>
         titleOf(a).localeCompare(titleOf(b), undefined, collate) ||
@@ -2169,6 +2181,16 @@
         .sort(comparator)
         .forEach((item) => itemsList.appendChild(item));
       applyItemsPagination();
+    }
+
+    // Single source of truth for the list view. Every toolbar control (sort,
+    // city, search, recency) routes through here so the four compose instead
+    // of acting alone: sort reorders the FULL list, then the active filters
+    // hide non-matches, then pagination runs. Result: you can filter and still
+    // sort within that filter, in any order.
+    function refreshItemsView() {
+      sortItems();       // reorder the whole list by the current sort mode
+      applyCityFilter(); // city + search + recency over the sorted list, then paginate
     }
 
     // ── Items ────────────────────────────────────────────────────────
@@ -2269,11 +2291,11 @@
         image_url: get('image_url').trim() || null,
         image_focus: focus,
         description: get('description').trim() || null,
-        archived: article.classList.contains('is-hidden')
+        archived: article.dataset.archived === 'true' || article.classList.contains('is-hidden')
       };
     }
 
-    // Listings UI: current games render as deletable chips. "+ Add to shops"
+    // Listings UI: current cities render as deletable chips. "+ Add city"
     // opens a searchable native multi-select listbox (Ctrl/Cmd+click toggles,
     // Shift+click selects a range), then "Add selected" turns the picks into
     // chips. Selection lives on article._listings; syncListings persists it.
@@ -2343,11 +2365,11 @@
       }
 
       function renderOptions(query) {
-        const q = citySearchText(query);
+        const needles = citySearchTerms(query);
         selectEl.innerHTML = '';
         cityList
           .filter((c) => !entries.has(c))
-          .filter((c) => !q || citySearchText(c).includes(q))
+          .filter((c) => !needles.length || needles.some((needle) => citySearchText(c).includes(needle)))
           .forEach((c) => {
             const opt = document.createElement('option');
             opt.value = c;
@@ -2412,7 +2434,6 @@
       article.dataset.createdAt = item.created_at || '';
       article.dataset.certifiedAt = item.certified_at || '';
       article.classList.toggle('is-new', !item.id);
-      article.classList.toggle('is-hidden', isHiddenGiftItem(item));
 
       const set = (name, value) => {
         const el = article.querySelector('[data-field="' + name + '"]');
@@ -2438,11 +2459,14 @@
         const formatted = formatCertDate(value);
         publishDateEl.textContent = 'Last published: ' + (formatted || 'never');
       };
-      const setArchiveLabel = (value) => {
-        archiveStatusEl.textContent = 'Archived: ' + (value ? 'yes' : 'no');
+      const setArchiveState = (value) => {
+        const archived = !!value;
+        article.dataset.archived = archived ? 'true' : 'false';
+        article.classList.toggle('is-hidden', archived);
+        archiveStatusEl.textContent = 'Archived: ' + (archived ? 'yes' : 'no');
       };
       setPublishLabel(item.certified_at);
-      setArchiveLabel(isHiddenGiftItem(item));
+      setArchiveState(isHiddenGiftItem(item));
 
       // Shared save routine. Publish/archive buttons apply their flag before saving.
       async function doSave(opts = {}) {
@@ -2459,8 +2483,7 @@
             ? await updateItem(article.dataset.id, payload)
             : await insertItem(payload);
           if (saved && saved.id) { article.dataset.id = saved.id; article.classList.remove('is-new'); }
-          article.classList.toggle('is-hidden', !!payload.archived);
-          setArchiveLabel(!!payload.archived);
+          setArchiveState(!!payload.archived);
           if (Object.prototype.hasOwnProperty.call(opts, 'certifiedAt')) {
             article.dataset.certifiedAt = opts.certifiedAt || '';
             setPublishLabel(opts.certifiedAt);
@@ -2470,7 +2493,7 @@
             ? 'Saved & published ' + formatCertDate(opts.certifiedAt) + '.'
             : (opts.archived ? 'Saved & archived.' : 'Saved.'), 'success');
           setTimeout(() => setItemStatus(''), 2200);
-          if (fannedOut) { await showShop(); } else { sortItems(); applyCityFilter(); }
+          if (fannedOut) { await showShop(); } else { refreshItemsView(); }
           return true;
         } catch (error) {
           console.error(error);
@@ -2682,6 +2705,64 @@
         });
       }
 
+      // Open the public gift shop filtered to just this gift (?item=<id>), so
+      // an admin can preview exactly how the card renders to shoppers.
+      const viewInShopButton = article.querySelector('[data-action="view-in-shop"]');
+      if (viewInShopButton) {
+        viewInShopButton.addEventListener('click', () => {
+          const id = article.dataset.id;
+          if (!id) { setItemStatus('Save the gift first, then view it in the shop.', 'error'); return; }
+          const win = window.open('/shop/?item=' + encodeURIComponent(id), '_blank', 'noopener');
+          if (win) win.focus();
+        });
+      }
+
+      // Pull the real product image (Amazon's opaque media URL can't be guessed
+      // from the ASIN the way a Bookshop ISBN can) via the scrape-amazon edge
+      // function, which reads og:image / JSON-LD / #landingImage server-side.
+      // Also backfills title/description only when those are still empty.
+      const grabImageButton = article.querySelector('[data-action="grab-image"]');
+      if (grabImageButton) {
+        grabImageButton.addEventListener('click', async () => {
+          const urlInput = article.querySelector('[data-field="url"]');
+          const url = (urlInput && urlInput.value || '').trim();
+          if (!url) { setItemStatus('Add the Address (product URL) first.', 'error'); return; }
+          const original = grabImageButton.textContent;
+          grabImageButton.disabled = true;
+          grabImageButton.textContent = '…';
+          setItemStatus('Fetching product image…');
+          try {
+            const res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/scrape-amazon', {
+              method: 'POST',
+              headers: authHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({ url })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+            const img = String(data.image_url || '').trim();
+            if (!img) { setItemStatus('No image found on that page.', 'error'); return; }
+            const imageInput = article.querySelector('[data-field="image_url"]');
+            imageInput.value = img;
+            // Refresh the WYSIWYG crop preview (it listens on image_url input).
+            imageInput.dispatchEvent(new Event('input', { bubbles: true }));
+            const titleInput = article.querySelector('[data-field="title"]');
+            if (titleInput && !titleInput.value.trim() && data.title) {
+              titleInput.value = String(data.title).trim();
+            }
+            const descInput = article.querySelector('[data-field="description"]');
+            if (descInput && !descInput.value.trim() && data.description) {
+              descInput.value = String(data.description).trim();
+            }
+            setItemStatus('Image fetched — review, then Save.', 'success');
+          } catch (err) {
+            setItemStatus(err instanceof Error ? err.message : String(err), 'error');
+          } finally {
+            grabImageButton.disabled = false;
+            grabImageButton.textContent = original;
+          }
+        });
+      }
+
       article.querySelector('[data-action="delete"]').addEventListener('click', async () => {
         const id = article.dataset.id;
         if (!id) {
@@ -2728,8 +2809,7 @@
           return;
         }
         items.forEach((item) => appendItemRow(item));
-        sortItems();
-        applyCityFilter();
+        refreshItemsView();
         updateViewGiftShopLink();
         focusInitialItem();
       } catch (error) {
@@ -3297,7 +3377,7 @@ $$;`.trim();
         '- If a candidate is blocked, unsafe, already in inventory, or not clearly tied to a city/team, discard it and find another candidate.',
         '- Use Amazon product detail pages as the canonical source. General web search results may be used only to discover Amazon product URLs/ASINs that point to Amazon.com product detail pages.',
         '- Include only products where you can confidently verify the title and 10-character ASIN from an Amazon product detail page or a search result that links to an Amazon product detail page. Do not invent ASINs or titles.',
-        '- If a raw Amazon media image URL is confidently visible from the product page or product metadata, include it. If not, set image_url to null instead of guessing. Do not use placeholders, affiliate image wrappers, or Markdown image links.',
+        '- ALWAYS set image_url to null. Do not include, guess, or look up product image URLs at all. We fetch the real product image ourselves after import (a "Grab" button in our admin scrapes it from the product page). Amazon image URLs you produce are almost always wrong, so do not spend effort on them.',
         '- Do not respond that you cannot safely produce the SQL because Amazon search is blocked or because you have fewer than ' + count + ' items. Return SQL only with the verified items you found.',
         '',
         'Hard requirements:',
@@ -3305,13 +3385,13 @@ $$;`.trim();
         '- Expand beyond books. Prioritize physical giftable items such as puzzles, maps, field notebooks, pens, cards, local-history objects, sports fan gear, tailgate gear, travel accessories, guide tools, playful desk items, apparel, ornaments, posters, and other game-relevant souvenirs.',
         '- Avoid Kindle ebooks, Audible products, subscriptions, gift cards, groceries, perishable items, weapons, restricted items, and anything that looks counterfeit or unsafe.',
         '- Books are allowed only when an item is unusually perfect and not already covered by the Bookshop prompt; most results should be non-book products.',
-        '- Every item must have a real Amazon ASIN. image_url is optional and may be null when a raw image URL cannot be confidently verified.',
+        '- Every item must have a real Amazon ASIN. image_url must always be null (we add the image after import).',
         '- Every item must use this referral URL pattern exactly: https://www.amazon.com/dp/<ASIN>?tag=' + AMAZON_TAG + '&ascsubtag=' + AMAZON_STORE + '&store=' + AMAZON_STORE + '.',
         '- Prefer stable /dp/<ASIN> URLs. Strip tracking junk and do not use shortened links.',
         '- Do not include any current gift-shop inventory item listed below. Hidden, archived, or unpublished rows still count as already-owned inventory. Avoid duplicate titles, duplicate ASINs, and duplicate URLs.',
         '- The JSON array may contain 1 to ' + count + ' objects. Do not pad to ' + count + ' with unverifiable items.',
-        '- Each JSON object needs: title, asin, url, image_url, description, cities. Use null for image_url when unknown.',
-        '- url must be a raw URL string only, never a Markdown link like [url](url). image_url must be either null or a raw URL string.',
+        '- Each JSON object needs: title, asin, url, image_url, description, cities. image_url must always be null.',
+        '- url must be a raw URL string only, never a Markdown link like [url](url). image_url must always be null (do not output any image URL).',
         '- cities must use only values from the current cities JSON below, copied verbatim ("City, State"). Assign each item to the city or cities its description names.',
         '- A specific city named in the description maps to that city only; a U.S. STATE named in the description maps to every listed city in that state (e.g. "Texas" => Houston, Dallas, San Antonio). Leave "cities" empty (omit it) if the description names no TGB city or state.',
         '- Use the current professional sports teams JSON below when choosing sports/team gifts. It includes full team names, cities, and mascots. A team-specific item must mention the professional team name and/or mascot in the description and use only that team object\'s shop_cities for "cities". If shop_cities is empty, do not assign a city for that team-specific item.',
@@ -3348,10 +3428,13 @@ $$;`.trim();
       });
       const prompt = isAmazon ? buildAmazonSearchPrompt() : buildBookshopSearchPrompt();
       if (suggestTitle) suggestTitle.textContent = isAmazon ? 'Amazon search prompt' : 'Book search prompt';
+      // Name the source on the copy button so the active prompt can't be copied
+      // by mistake (the modal opens on Bookshop by default).
+      if (copyPromptBtn) copyPromptBtn.textContent = isAmazon ? 'Copy Amazon Prompt' : 'Copy Bookshop Prompt';
       if (suggestHint) {
         const count = getPromptCount();
         suggestHint.textContent = isAmazon
-          ? 'Copy this fresh prompt into a web-capable assistant. It asks for up to ' + count + ' broader Amazon gift items, allows verified partial batches, includes pro teams, excludes archived inventory, includes your Amazon referral tags, and returns the SQL as one copy-paste-ready code block (plain ASCII, no smart quotes).'
+          ? 'Copy this fresh prompt into a web-capable assistant. It asks for up to ' + count + ' broader Amazon gift items, allows verified partial batches, includes pro teams, excludes archived inventory, includes your Amazon referral tags, and returns the SQL as one copy-paste-ready code block (plain ASCII, no smart quotes). Images are left blank on purpose — add each one after import with the Grab button on the item.'
           : 'Copy this fresh prompt into a web-capable assistant. It asks for ' + count + ' Bookshop.org book items, includes pro team names and mascots, excludes current inventory including archived rows, and returns the SQL as one copy-paste-ready code block (plain ASCII, no smart quotes).';
       }
       suggestPromptText.value = prompt;
