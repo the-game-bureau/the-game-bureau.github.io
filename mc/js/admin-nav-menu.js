@@ -85,6 +85,11 @@
           href: '/mc/photos.html',
           label: "Winner's Wall",
           description: "Review and curate player photos for the public Winner's Wall."
+        },
+        {
+          href: '/highlights/',
+          label: 'HIGHLIGHTS',
+          description: 'Open the public highlights backed by the game_results table.'
         }
       ]
     },

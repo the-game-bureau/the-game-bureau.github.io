@@ -42,6 +42,7 @@ const FALLBACK_RELATIONS = [
   'anytime_replies',
   'builder_documents',
   'games',
+  'game_results',
   'game_nodes',
   'game_node_links',
   'games_bu',
@@ -60,6 +61,7 @@ const FALLBACK_RELATIONS = [
 ];
 const PUBLIC_BROWSER_FALLBACK_RELATIONS = new Set([
   'games',
+  'game_results',
   'games_with_teams',
   'games_with_graph',
   'games_with_graph_and_teams',
