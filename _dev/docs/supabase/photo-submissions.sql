@@ -59,6 +59,14 @@ create table if not exists public.photo_submissions (
 alter table public.photo_submissions
   add column if not exists thumb_storage_path text;
 
+-- Ties a photo to a specific playthrough (game_instances.id). Kept as text so
+-- admin/manual uploads can record an instance id without a hard FK.
+alter table public.photo_submissions
+  add column if not exists instance_id text;
+
+create index if not exists photo_submissions_instance_idx
+on public.photo_submissions (instance_id);
+
 create index if not exists photo_submissions_game_created_idx
 on public.photo_submissions (game_id, created_at desc);
 

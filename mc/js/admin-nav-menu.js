@@ -82,14 +82,14 @@
       label: 'Website',
       items: [
         {
-          href: '/mc/photos.html',
-          label: "Winner's Wall",
-          description: "Review and curate player photos for the public Winner's Wall."
+          href: '/highlights/admin/',
+          label: 'Highlights Admin',
+          description: 'Review and curate photos and highlight assets for the public Highlights page.'
         },
         {
           href: '/highlights/',
           label: 'HIGHLIGHTS',
-          description: 'Open the public highlights backed by the game_results table.'
+          description: 'Open the public highlights backed by the highlights table.'
         }
       ]
     },
@@ -428,8 +428,7 @@
     groups.splice(1, 0, OPERATIONS_LINK);
     return groups.map(function (group) {
       // Link-only groups (no items) surface as a single card in the hub.
-      var items = group.items
-        ? group.items.map(function (item) {
+      var items = group.items ? group.items.map(function (item) {
             return Object.assign({}, item);
           })
         : [{
