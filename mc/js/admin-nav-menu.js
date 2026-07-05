@@ -112,6 +112,18 @@
           label: 'Apple Notes',
           description: 'Open the shared working notes used alongside Mission Control.',
           external: true
+        },
+        {
+          href: 'https://affiliate-program.amazon.com/',
+          label: 'Amazon Associates',
+          description: 'Amazon affiliate program — build gift links that carry your referral tag.',
+          external: true
+        },
+        {
+          href: 'https://bookshop.org/affiliates',
+          label: 'Bookshop.org Affiliates',
+          description: 'Bookshop.org affiliate program — build book links that carry your referral tag.',
+          external: true
         }
       ]
     }

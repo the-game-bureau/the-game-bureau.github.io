@@ -1,7 +1,10 @@
 // scrape-amazon — Supabase Edge Function
 //
-// Fetches an Amazon product page and returns:
+// Fetches an Amazon or Bookshop.org product page and returns:
 //   { title, description, image_url, price_display }
+//
+// (Name kept as scrape-amazon so the deployed endpoint / config stays stable;
+// it now also accepts bookshop.org, extracted via the generic OG/JSON-LD path.)
 //
 // Why server-side: Amazon blocks browser CORS, varies content by
 // User-Agent, and 429s anonymous traffic aggressively. Running this
@@ -39,6 +42,7 @@ const DESKTOP_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
 const AMAZON_HOST_RE = /(?:^|\.)amazon\.[a-z.]+$|(?:^|\.)amzn\.[a-z]+$|^a\.co$/;
+const BOOKSHOP_HOST_RE = /(?:^|\.)bookshop\.org$/;
 
 interface ScrapeResult {
   title: string;
@@ -66,8 +70,10 @@ Deno.serve(async (req: Request) => {
         return "";
       }
     })();
-    if (!hostname || !AMAZON_HOST_RE.test(hostname)) {
-      return json({ error: "Only Amazon URLs are supported." }, 400);
+    const isAmazon = AMAZON_HOST_RE.test(hostname);
+    const isBookshop = BOOKSHOP_HOST_RE.test(hostname);
+    if (!hostname || (!isAmazon && !isBookshop)) {
+      return json({ error: "Only Amazon or Bookshop.org URLs are supported." }, 400);
     }
 
     const upstream = await fetch(targetUrl, {
@@ -82,7 +88,7 @@ Deno.serve(async (req: Request) => {
 
     if (!upstream.ok) {
       return json(
-        { error: `Amazon fetch failed (${upstream.status} ${upstream.statusText})` },
+        { error: `Product page fetch failed (${upstream.status} ${upstream.statusText})` },
         502,
       );
     }
@@ -192,7 +198,8 @@ function readJsonLd(doc: NonNullable<ReturnType<typeof parse>>): Fields {
       return null;
     }
     const types = ([] as string[]).concat(obj["@type"] || []);
-    if (types.includes("Product")) return obj;
+    // "Book" covers Bookshop.org listings; "Product" covers Amazon + most others.
+    if (types.includes("Product") || types.includes("Book")) return obj;
     if (obj["@graph"]) return findProduct(obj["@graph"]);
     return null;
   };

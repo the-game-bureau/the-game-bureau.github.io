@@ -48,34 +48,50 @@
       gap: 28px;
     }
 
-    body.home-page .hero-kicker {
-      margin: 0 0 18px;
-      color: var(--accent);
-      font-family: "JetBrains Mono", "Menlo", "Consolas", monospace;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-    }
-
-    /* Shorter hero for the gift shop — no scrolling meta panel here, so
-       the games-page tall hero is overkill. */
+    /* Hero — formatting mirrors the Highlights hero so the two read as
+       siblings (same scrim, padding, type scale + spacing). Only the banner
+       image and the single-column grid differ (the shop has no TV panel).
+       The kicker intentionally has NO override here so it inherits the shared
+       base .hero-kicker, exactly like the Highlights hero. */
     body.home-page main.gift-page .hero {
       min-height: 0;
-      padding: clamp(28px, 4vw, 48px);
+      padding: 26px 32px;
       background:
         linear-gradient(95deg,
           rgba(8, 11, 17, 0.94) 0%,
-          rgba(8, 11, 17, 0.82) 32%,
-          rgba(8, 11, 17, 0.48) 56%,
-          rgba(8, 11, 17, 0.20) 78%,
-          rgba(8, 11, 17, 0.08) 100%),
+          rgba(8, 11, 17, 0.82) 34%,
+          rgba(8, 11, 17, 0.52) 58%,
+          rgba(8, 11, 17, 0.24) 80%,
+          rgba(8, 11, 17, 0.10) 100%),
         url("/shop/shop_banner.png") center right / cover no-repeat;
     }
     body.home-page main.gift-page .hero-grid {
       min-height: 0;
+      gap: 18px;
       grid-template-columns: minmax(0, 1fr);
       align-items: start;
+    }
+
+    body.home-page main.gift-page .hero-headline {
+      font-size: 3.35rem;
+      letter-spacing: 0;
+      line-height: 0.96;
+    }
+
+    body.home-page main.gift-page .hero-copy {
+      max-width: 690px;
+      margin-top: 10px;
+      font-size: 0.96rem;
+    }
+
+    /* Tablet/mobile steps mirror the Highlights hero breakpoints. */
+    @media (max-width: 980px) {
+      body.home-page main.gift-page .hero {
+        padding: 24px 28px;
+      }
+      body.home-page main.gift-page .hero-headline {
+        font-size: 3rem;
+      }
     }
 
     /* Container — mirrors body.home-page .selected-games panel. */
@@ -382,6 +398,32 @@
     body.home-page .card-more:hover,
     body.home-page .card-more:focus-visible { color: #fff; outline: none; }
 
+    /* ── Full-size image zoom (click any product image) ───────────────── */
+    .image-zoom {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(4, 6, 10, 0.9);
+      cursor: zoom-out;
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+    }
+    .image-zoom[hidden] { display: none; }
+    .image-zoom img {
+      max-width: min(92vw, 1100px);
+      max-height: 92vh;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 8px;
+      background: #0b0d12;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+    }
+
     /* ── Gift detail lightbox ─────────────────────────────────────────── */
     .gift-detail {
       position: fixed;
@@ -626,9 +668,10 @@
     @media (max-width: 640px) {
       body.home-page .gift-page { gap: 18px; }
 
-      /* Hero — less side padding, steeper left-to-right scrim so the headline
-         stays legible over the banner on a narrow screen. */
-      body.home-page main.gift-page .hero { padding: 22px 18px; }
+      /* Hero — matches the Highlights hero's small-screen step (padding, headline
+         size, copy width), with a steeper scrim so the headline stays legible
+         over the banner on a narrow screen. */
+      body.home-page main.gift-page .hero { padding: 20px; }
       body.home-page main.gift-page .hero {
         background:
           linear-gradient(95deg,
@@ -637,6 +680,14 @@
             rgba(8, 11, 17, 0.6) 78%,
             rgba(8, 11, 17, 0.32) 100%),
           url("/shop/shop_banner.png") center right / cover no-repeat;
+      }
+      body.home-page main.gift-page .hero-headline {
+        font-size: 2.52rem;
+      }
+      body.home-page main.gift-page .hero-copy {
+        max-width: min(18.5rem, calc(100vw - 56px));
+        overflow-wrap: normal;
+        word-break: normal;
       }
 
       /* Panels — trim padding so cards/chips get more of the viewport width. */
@@ -702,7 +753,7 @@
       <section class="hero" aria-label="Gift shop overview">
         <div class="hero-grid">
           <div>
-            <p class="hero-kicker"><span id="itemCount">—</span> ITEMS<span id="eyebrowSuffix" hidden> / <span id="eyebrow"></span></span></p>
+            <p class="hero-kicker"><span id="itemCount">LOADING...</span> <span id="itemLabel"></span><span id="eyebrowSuffix" hidden> / <span id="eyebrow"></span></span></p>
             <h1 class="hero-headline" id="heading">Gift Shop</h1>
             <p class="hero-copy" id="lead">Game Souvenirs and Other Curated Memorabilia</p>
           </div>
@@ -723,6 +774,10 @@
 
       <p class="footer-note">As an Amazon Associate and a Bookshop.org affiliate, The Game Bureau may earn from qualifying purchases.</p>
     </main>
+
+    <!-- Site footer (shared via /assets/site-footer.js) -->
+    <footer class="site-footer" data-site-footer></footer>
+    <script src="../assets/site-footer.js"></script>
   </div>
 
   <script>
@@ -748,7 +803,15 @@
     const eyebrowSuffixEl = document.getElementById('eyebrowSuffix');
     const leadEl = document.getElementById('lead');
     const itemCountEl = document.getElementById('itemCount');
+    const itemLabelEl = document.getElementById('itemLabel');
     const giftCityPanelEl = document.getElementById('giftCityPanel');
+
+    // Set the count and its singular/plural label together ("1 ITEM" vs "3 ITEMS").
+    function setItemCount(n) {
+      const count = Number(n) || 0;
+      itemCountEl.textContent = String(count);
+      if (itemLabelEl) itemLabelEl.textContent = count === 1 ? 'ITEM' : 'ITEMS';
+    }
     const giftCityListEl = document.getElementById('giftCityList');
     const giftCityCountEl = document.getElementById('giftCityCount');
 
@@ -1802,17 +1865,17 @@
             && isCertified(item);
           setEyebrow(itemName);
           leadEl.textContent = publiclyVisible
-            ? 'Viewing a single gift.'
+            ? 'Game Souvenirs and Other Curated Memorabilia'
             : 'Preview — this gift is not currently published in the shop.';
           if (itemName) document.title = itemName.toUpperCase() + ' | GIFT SHOP | THE GAME BUREAU';
           const card = item ? createCard(item, {}) : null;
           gridEl.innerHTML = '';
           if (card) {
             gridEl.appendChild(card);
-            itemCountEl.textContent = '1';
+            setItemCount(1);
           } else {
             renderEmpty(item ? 'This gift has no link to preview.' : 'Gift not found.');
-            itemCountEl.textContent = '0';
+            setItemCount(0);
           }
           return;
         }
@@ -1917,15 +1980,15 @@
           renderEmpty(requestedGame
             ? 'No gifts for ' + (requestedGame.name || 'this game') + ' yet.'
             : (requestedCity ? 'No gifts match ' + requestedCity + '.' : 'No items in the gift shop yet.'));
-          itemCountEl.textContent = '0';
+          setItemCount(0);
           return;
         }
         cards.forEach((card) => gridEl.appendChild(card));
-        itemCountEl.textContent = String(cards.length);
+        setItemCount(cards.length);
       } catch (error) {
         console.error('[giftshop] all-shops load failed', error);
         renderEmpty('Could not load gift shop.');
-        itemCountEl.textContent = '0';
+        setItemCount(0);
       }
     }
 
@@ -1983,5 +2046,47 @@
        logged-in admins (verified against admin_users), linking to that gift in
        shop/admin/?item=<id> in a new tab. Invisible to the public. -->
   <script src="../assets/admin-bridge.js"></script>
+
+  <!-- Full-size image zoom: clicking a product image opens it here, centered. -->
+  <div class="image-zoom" id="imageZoom" role="dialog" aria-modal="true" aria-label="Full-size product image" hidden>
+    <img id="imageZoomImg" src="" alt="" referrerpolicy="no-referrer">
+  </div>
+  <script>
+    (function () {
+      const zoom = document.getElementById('imageZoom');
+      const zoomImg = document.getElementById('imageZoomImg');
+      if (!zoom || !zoomImg) return;
+
+      function openZoom(src, alt) {
+        zoomImg.src = src;
+        zoomImg.alt = alt || '';
+        zoom.hidden = false;
+        document.body.style.overflow = 'hidden';
+      }
+      function closeZoom() {
+        zoom.hidden = true;
+        zoomImg.removeAttribute('src');
+        document.body.style.overflow = '';
+      }
+
+      // Capture-phase so an image click zooms instead of following its card link.
+      document.addEventListener('click', function (event) {
+        const img = event.target && event.target.closest
+          ? event.target.closest('img.card-image')
+          : null;
+        if (!img) return;
+        const src = img.currentSrc || img.getAttribute('src') || '';
+        if (!src || /shop_banner\.png(?:$|\?)/.test(src)) return; // skip the placeholder banner
+        event.preventDefault();
+        event.stopPropagation();
+        openZoom(src, img.alt);
+      }, true);
+
+      zoom.addEventListener('click', closeZoom);
+      document.addEventListener('keydown', function (event) {
+        if (!zoom.hidden && event.key === 'Escape') closeZoom();
+      });
+    }());
+  </script>
 </body>
 </html>

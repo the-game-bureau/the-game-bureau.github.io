@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>GIFT SHOP | THE GAME BUREAU</title>
+  <title>GS STOCK ROOM</title>
   <link rel="icon" href="/assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -153,7 +153,7 @@
       position: relative;
       overflow: hidden;
       gap: 6px;
-      margin-bottom: 18px;
+      margin-bottom: 6px;
       padding: 20px 22px 22px;
       padding-right: clamp(136px, 30vw, 220px);
       border: 1px solid rgba(var(--bic-blue-rgb), 0.14);
@@ -173,6 +173,8 @@
       right: 14px;
       z-index: 2;
       display: flex;
+      flex-direction: column;
+      align-items: stretch;
       gap: 8px;
       transform: translateY(-50%);
     }
@@ -319,7 +321,7 @@
       flex-direction: column;
       gap: 10px;
       padding: 14px;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
       background: var(--paper);
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -459,12 +461,13 @@
       background: rgba(255,255,255,0.92);
     }
     .city-tools-status {
-      min-height: 1em;
-      margin: 0 0 18px;
+      margin: 0 0 8px;
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.72rem;
       color: var(--muted);
     }
+    /* No reserved space when there's no message (keeps the gifts tight to the bar). */
+    .city-tools-status:empty { display: none; }
     .city-tools-status.error { color: var(--danger); }
     .city-tools-status.success { color: var(--accent); }
 
@@ -694,28 +697,45 @@
     .item-review {
       width: 100%;
       margin: 0;
-      padding: 10px 12px;
-      border: 1px dashed var(--line);
+      padding: 9px 12px 10px;
+      border: 1px solid var(--line);
       border-radius: 8px;
-      background: rgba(var(--bic-blue-rgb), 0.04);
+      background: rgba(var(--bic-blue-rgb), 0.045);
     }
     .item-review-meta {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
     }
     .item-review-title {
       color: var(--ink);
-      font-size: 0.72rem;
+      font-size: 0.62rem;
       font-weight: 800;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--line);
     }
     .item-publish-date,
     .item-archive-status {
-      font-size: 0.8rem;
+      font-size: 0.76rem;
       color: var(--muted);
       font-family: "IBM Plex Mono", monospace;
+    }
+
+    /* "View" actions: full-width, stacked, directly below the status box. */
+    .item-view-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+    }
+    .item-view-web,
+    .item-view-shop {
+      width: 100%;
+      min-height: 32px;
+      padding: 0 12px;
+      font-size: 0.72rem;
     }
     .item {
       display: grid;
@@ -806,6 +826,54 @@
       cursor: grabbing;
     }
 
+    /* Corner button to view the full image — separate from the drag-to-crop
+       interaction so it doesn't interfere. Only shown once an image loads. */
+    .item-focus-zoom {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      z-index: 3;
+      display: none;
+      width: 26px;
+      height: 26px;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      font-size: 15px;
+      line-height: 1;
+      cursor: zoom-in;
+    }
+    .item-focus[data-has-image="true"] .item-focus-zoom { display: inline-flex; }
+    .item-focus-zoom:hover { background: rgba(0, 0, 0, 0.78); }
+
+    /* Full-size image lightbox (shared with the public shop's markup). */
+    .image-zoom {
+      position: fixed;
+      inset: 0;
+      z-index: 3000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(4, 6, 10, 0.9);
+      cursor: zoom-out;
+    }
+    .image-zoom[hidden] { display: none; }
+    .image-zoom img {
+      max-width: min(92vw, 1100px);
+      max-height: 92vh;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 8px;
+      background: #0b0d12;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+    }
+
     .item-fields {
       display: grid;
       /* Single column: Title is short but Address/Image are long URLs that read
@@ -824,6 +892,75 @@
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
+    }
+
+    /* Field label with an inline info button + hover/focus tooltip. */
+    .field-label-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      justify-self: start;
+      width: fit-content;
+    }
+    .field-info {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px;
+      height: 15px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: rgba(var(--bic-blue-rgb), 0.06);
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.6rem;
+      font-weight: 800;
+      font-style: italic;
+      line-height: 1;
+      letter-spacing: 0;
+      text-transform: none;
+      cursor: help;
+    }
+    .field-info:hover,
+    .field-info:focus-visible {
+      border-color: var(--accent);
+      color: var(--accent);
+      outline: none;
+    }
+    .field-info::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      width: max-content;
+      max-width: 250px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: #111;
+      color: #fff;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.66rem;
+      font-weight: 500;
+      font-style: normal;
+      letter-spacing: 0;
+      line-height: 1.4;
+      text-transform: none;
+      white-space: normal;
+      text-align: left;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.12s ease;
+      pointer-events: none;
+    }
+    .field-info:hover::after,
+    .field-info:focus-visible::after {
+      opacity: 1;
+      visibility: visible;
     }
     .item-fields input,
     .item-fields textarea,
@@ -1053,10 +1190,96 @@
       gap: 10px;
       flex-wrap: wrap;
       align-items: center;
+      justify-content: flex-end;
       padding-top: 8px;
       border-top: 1px dashed var(--line);
       margin-top: 4px;
     }
+
+    /* Keep the transient save status on the left; push the buttons to the right. */
+    .item-actions .item-status {
+      margin-right: auto;
+      order: -1;
+    }
+
+    /* ── Confirm dialog ───────────────────────────────────────── */
+    .confirm-modal {
+      position: fixed; inset: 0; z-index: 1600;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .confirm-modal[hidden] { display: none; }
+    .confirm-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+    }
+    .confirm-panel {
+      position: relative;
+      width: min(420px, 100%);
+      padding: 22px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
+    }
+    .confirm-title {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .confirm-message {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* ── Add-new-gift pop-up (hosts a live item form) ─────────── */
+    .add-gift-modal {
+      position: fixed; inset: 0; z-index: 1500;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 24px;
+      overflow: auto;
+    }
+    .add-gift-modal[hidden] { display: none; }
+    .add-gift-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+    }
+    .add-gift-panel {
+      position: relative;
+      z-index: 1;
+      width: min(860px, 100%);
+      margin: auto 0;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
+    }
+    .add-gift-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .add-gift-head h2 { margin: 0; font-size: 1rem; }
+    .add-gift-close {
+      background: transparent; border: 0;
+      font-size: 1.3rem; line-height: 1; color: var(--muted);
+      cursor: pointer; padding: 4px 8px; border-radius: 6px;
+    }
+    .add-gift-close:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
+    .add-gift-body { padding: 16px 18px; }
+    .add-gift-body .item { margin: 0; }
 
     /* ── Suggest lightbox ─────────────────────────────────────── */
     .suggest-modal {
@@ -1345,6 +1568,15 @@
         max-width: none;
       }
 
+      /* On narrow screens let the header actions flow below the title instead
+         of overlapping it (they're absolutely centered on the right otherwise). */
+      .section-head-actions {
+        position: static;
+        transform: none;
+        margin-top: 12px;
+        flex-wrap: wrap;
+      }
+
       .section-gear-art {
         top: auto;
         right: -22px;
@@ -1444,8 +1676,12 @@
           </g>
         </svg>
         <p class="kicker">TGB MISSION CONTROL</p>
-        <h1>GIFT SHOP</h1>
+        <h1>GIFT SHOP STOCK ROOM</h1>
         <p class="status" id="shopStatus" aria-live="polite"></p>
+        <div class="section-head-actions">
+          <button class="btn primary" id="addItemBtn" type="button" disabled>ADD NEW GIFT</button>
+          <button class="btn primary" id="searchPromptBtn" type="button" disabled>ADD WITH AI</button>
+        </div>
       </div>
 
       <div class="toolbar">
@@ -1471,16 +1707,6 @@
             <option value="30">Added: last 30 days</option>
           </select>
         </div>
-        <!-- Row 2 — add & manage inventory -->
-        <div class="toolbar-row toolbar-actions">
-          <button class="btn primary" id="addItemBtn" type="button" disabled>ADD NEW GIFT</button>
-          <button class="btn" id="searchPromptBtn" type="button" disabled>SEARCH PROMPT</button>
-          <span class="toolbar-spacer"></span>
-          <div class="city-add">
-            <input id="newGiftCityInput" type="text" placeholder="Add city, state" autocomplete="off" aria-label="Add gift shop city" disabled>
-            <button class="btn" id="addGiftCityBtn" type="button" disabled>ADD CITY</button>
-          </div>
-        </div>
       </div>
       <p class="city-tools-status" id="giftCityStatus" aria-live="polite"></p>
 
@@ -1494,34 +1720,38 @@
   <template id="itemTemplate">
     <article class="item" data-id="">
       <div class="item-focus-col">
+        <div class="item-focus" data-has-image="false">
+          <span data-focus-placeholder>IMG</span>
+          <button class="item-focus-zoom" data-action="zoom-image" type="button" title="View full image" aria-label="View full image">⤢</button>
+        </div>
         <div class="item-review">
           <div class="item-review-meta">
-            <span class="item-review-title">Item status</span>
+            <span class="item-review-title">Status</span>
             <span class="item-publish-date" data-publish-date>Last published: —</span>
             <span class="item-archive-status" data-archive-status>Archived: no</span>
           </div>
         </div>
-        <div class="item-focus" data-has-image="false">
-          <span data-focus-placeholder>IMG</span>
+        <div class="item-view-actions">
+          <button class="btn item-view-web" data-action="view-url" type="button">View on web</button>
+          <button class="btn item-view-shop" data-action="view-in-shop" type="button">View in gift shop</button>
         </div>
       </div>
       <div class="item-fields">
+        <label>
+          <span class="field-label-row">Link<button class="field-info" type="button" aria-label="About the Link field" data-tip="Provide a link/url to an item to sell in the Gift Shop. Use a link that includes affiliate information.">i</button></span>
+          <span class="address-row">
+            <input data-field="url" type="url" placeholder="https://www.amazon.com/dp/…">
+            <button class="btn" data-action="grab-image" type="button" title="Fetch the real product image (and any empty title/description) from the Link URL via the scrape-amazon function">Auto Fill</button>
+          </span>
+        </label>
         <label>
           Title
           <input data-field="title" type="text" placeholder="Field Notebook">
         </label>
         <label>
-          Address
-          <span class="address-row">
-            <input data-field="url" type="url" placeholder="https://www.amazon.com/dp/…">
-            <button class="btn" data-action="view-url" type="button">View</button>
-          </span>
-        </label>
-        <label>
           Image
           <span class="address-row">
             <input data-field="image_url" type="url" required placeholder="https://m.media-amazon.com/images/…">
-            <button class="btn" data-action="grab-image" type="button" title="Fetch the real product image (and any empty title/description) from the Address URL via the scrape-amazon function">Grab</button>
           </span>
         </label>
         <label class="field-wide">
@@ -1543,9 +1773,8 @@
           </div>
         </div>
         <div class="item-actions">
-          <button class="btn primary" data-action="save-publish" type="button">Save &amp; Publish</button>
           <button class="btn" data-action="save-archive" type="button">Save &amp; Archive</button>
-          <button class="btn" data-action="view-in-shop" type="button">View in gift shop</button>
+          <button class="btn primary" data-action="save-publish" type="button">Save &amp; Publish</button>
           <button class="btn danger" data-action="delete" type="button">Delete</button>
           <span class="item-status" data-status></span>
         </div>
@@ -1581,6 +1810,7 @@
         <div class="suggest-actions">
           <button class="btn" type="button" data-suggest-dismiss>Close</button>
           <button class="btn primary" id="copyPromptBtn" type="button">Copy Prompt</button>
+          <a class="btn" href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/" target="_blank" rel="noopener">Go to Database</a>
         </div>
       </div>
     </section>
@@ -1614,10 +1844,14 @@
     const addGiftCityBtn = document.getElementById('addGiftCityBtn');
     const giftCityStatus = document.getElementById('giftCityStatus');
 
-    // Items list pagination: show 5 at a time (city-filtered + sorted),
-    // reveal more in 5s. Unsaved (.is-new) items always show.
+    // Items list pagination: the first page load shows just ONE item (fast
+    // initial paint), then "Show more" reveals the rest 50 at a time. Later
+    // filter/sort changes reset to a normal 50-item page. Unsaved (.is-new)
+    // items always show.
     const ITEMS_PAGE_SIZE = 50;
-    let itemsPageLimit = ITEMS_PAGE_SIZE;
+    const ITEMS_INITIAL_LIMIT = 1;
+    let itemsPageLimit = ITEMS_INITIAL_LIMIT;
+    let itemsFirstRender = true;
     function applyItemsPagination() {
       let shown = 0;
       let pagedOut = 0;
@@ -2124,8 +2358,10 @@
         if (show) visible++;
       });
       updateItemsStatus();
-      // Changing the filter resets pagination back to the first page.
-      itemsPageLimit = ITEMS_PAGE_SIZE;
+      // The very first render shows a single item; afterwards a filter change
+      // resets pagination back to a full page.
+      itemsPageLimit = itemsFirstRender ? ITEMS_INITIAL_LIMIT : ITEMS_PAGE_SIZE;
+      itemsFirstRender = false;
       applyItemsPagination();
     }
 
@@ -2134,10 +2370,14 @@
     function updateItemsStatus() {
       const items = itemsList.querySelectorAll('.item');
       const total = items.length;
-      let published = 0;
-      items.forEach((item) => { if (item.dataset.certifiedAt && !item.classList.contains('is-hidden')) published++; });
+      let archived = 0;
+      items.forEach((item) => {
+        if (item.dataset.archived === 'true' || item.classList.contains('is-hidden')) archived++;
+      });
+      const published = total - archived;
       setStatus(shopStatus,
-        total + ' item' + (total === 1 ? '' : 's') + ' · ' + published + ' published',
+        total + ' item' + (total === 1 ? '' : 's') +
+        ' · ' + published + ' published · ' + archived + ' archived',
         'success');
     }
 
@@ -2475,6 +2715,13 @@
         if (!payload.url) { setItemStatus('Address is required.', 'error'); return false; }
         if (!payload.image_url) { setItemStatus('Image is required.', 'error'); return false; }
         if (!payload.description) { setItemStatus('Description is required.', 'error'); return false; }
+        // Archiving is fine with no cities; publishing needs at least one so the
+        // gift actually appears in a shop.
+        const isPublishing = opts.archived === false;
+        if (isPublishing && itemCities(article).length === 0) {
+          setItemStatus('Add at least one city before publishing (or use Save & Archive).', 'error');
+          return false;
+        }
         if (Object.prototype.hasOwnProperty.call(opts, 'certifiedAt')) payload.certified_at = opts.certifiedAt;
         if (Object.prototype.hasOwnProperty.call(opts, 'archived')) payload.archived = !!opts.archived;
         setItemStatus('Saving…');
@@ -2513,6 +2760,17 @@
       const FRAME_H = 220;
       const focusBox = article.querySelector('.item-focus');
       const placeholder = focusBox.querySelector('[data-focus-placeholder]');
+
+      // "View full image" button — opens the current image in the lightbox,
+      // independent of the drag-to-crop interaction on the focus box.
+      const zoomBtn = article.querySelector('[data-action="zoom-image"]');
+      if (zoomBtn) {
+        zoomBtn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const src = (article.querySelector('[data-field="image_url"]')?.value || '').trim();
+          if (src && window.TgbImageZoom) window.TgbImageZoom.open(src);
+        });
+      }
       const currentImageFitItem = () => ({
         title: article.querySelector('[data-field="title"]')?.value || '',
         url: article.querySelector('[data-field="url"]')?.value || '',
@@ -2730,7 +2988,7 @@
           const original = grabImageButton.textContent;
           grabImageButton.disabled = true;
           grabImageButton.textContent = '…';
-          setItemStatus('Fetching product image…');
+          setItemStatus('Auto-filling blank fields…');
           try {
             const res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/scrape-amazon', {
               method: 'POST',
@@ -2739,21 +2997,31 @@
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+            // Only fill blank fields — never overwrite what's already there.
+            let filled = 0;
             const img = String(data.image_url || '').trim();
-            if (!img) { setItemStatus('No image found on that page.', 'error'); return; }
             const imageInput = article.querySelector('[data-field="image_url"]');
-            imageInput.value = img;
-            // Refresh the WYSIWYG crop preview (it listens on image_url input).
-            imageInput.dispatchEvent(new Event('input', { bubbles: true }));
+            if (imageInput && !imageInput.value.trim() && img) {
+              imageInput.value = img;
+              // Refresh the WYSIWYG crop preview (it listens on image_url input).
+              imageInput.dispatchEvent(new Event('input', { bubbles: true }));
+              filled++;
+            }
             const titleInput = article.querySelector('[data-field="title"]');
             if (titleInput && !titleInput.value.trim() && data.title) {
               titleInput.value = String(data.title).trim();
+              filled++;
             }
             const descInput = article.querySelector('[data-field="description"]');
             if (descInput && !descInput.value.trim() && data.description) {
               descInput.value = String(data.description).trim();
+              filled++;
             }
-            setItemStatus('Image fetched — review, then Save.', 'success');
+            setItemStatus(
+              filled ? 'Filled blank fields — review, then Save.'
+                     : 'Nothing to fill — those fields already have values.',
+              filled ? 'success' : 'error'
+            );
           } catch (err) {
             setItemStatus(err instanceof Error ? err.message : String(err), 'error');
           } finally {
@@ -2765,6 +3033,15 @@
 
       article.querySelector('[data-action="delete"]').addEventListener('click', async () => {
         const id = article.dataset.id;
+        // Always confirm — including brand-new unsaved rows, so a stray click
+        // can't wipe out what you just typed.
+        const title = (article.querySelector('[data-field="title"]')?.value || '').trim();
+        const label = title ? '“' + title + '”' : 'this item';
+        const confirmFn = window.TgbConfirm || ((m) => Promise.resolve(window.confirm(m)));
+        const ok = await confirmFn('Delete ' + label + '? This cannot be undone.', {
+          title: 'Delete gift', okLabel: 'Delete', danger: true
+        });
+        if (!ok) return;
         if (!id) {
           // Brand-new row never saved — just remove from DOM.
           article.remove();
@@ -2772,7 +3049,6 @@
           applyItemsPagination();
           return;
         }
-        if (!window.confirm('Delete this item?')) return;
         setItemStatus('Deleting…');
         try {
           await deleteItem(id);
@@ -2840,9 +3116,78 @@
     addItemBtn.addEventListener('click', () => {
       // New gifts start archived — there's no "draft" state; you publish when ready.
       const article = appendItemRow({ archived: true });
-      const titleInput = article.querySelector('[data-field="title"]');
-      if (titleInput) titleInput.focus();
+      openAddGiftModal(article);
     });
+
+    // ── Add-new-gift pop-up ───────────────────────────────────────────
+    // Reuses the normal item form (crop, Auto Fill, listings, save) by moving
+    // the freshly-created card into the modal, then into the list once saved
+    // (or discarding it on cancel). The modal markup lives at the end of <body>
+    // (after this script), so look it up lazily at open time — not up front.
+    function openAddGiftModal(article) {
+      const modal = document.getElementById('addGiftModal');
+      const body = document.getElementById('addGiftBody');
+      if (!modal || !body) {
+        // No modal available — fall back to inline editing.
+        const linkInput = article.querySelector('[data-field="url"]');
+        if (linkInput) linkInput.focus();
+        return;
+      }
+      body.appendChild(article); // move the new card into the pop-up
+      modal.hidden = false;
+      document.body.style.overflow = 'hidden';
+      modal._article = article;
+
+      // Auto-finish when the card saves (bindItem drops .is-new after insert).
+      const observer = new MutationObserver(() => {
+        if (article.isConnected && !article.classList.contains('is-new')) closeAddGiftModal(true);
+      });
+      observer.observe(article, { attributes: true, attributeFilter: ['class'] });
+      modal._observer = observer;
+
+      // Close handlers, attached per-open and removed on close.
+      const onClick = (event) => { if (event.target.closest('[data-add-gift-close]')) closeAddGiftModal(false); };
+      const onKey = (event) => { if (event.key === 'Escape') closeAddGiftModal(false); };
+      modal._onClick = onClick;
+      modal._onKey = onKey;
+      modal.addEventListener('click', onClick);
+      document.addEventListener('keydown', onKey);
+
+      const linkInput = article.querySelector('[data-field="url"]');
+      if (linkInput) linkInput.focus();
+    }
+
+    function closeAddGiftModal(saved) {
+      const modal = document.getElementById('addGiftModal');
+      const body = document.getElementById('addGiftBody');
+      if (!modal || modal.hidden) return;
+      if (modal._observer) { modal._observer.disconnect(); modal._observer = null; }
+      if (modal._onClick) { modal.removeEventListener('click', modal._onClick); modal._onClick = null; }
+      if (modal._onKey) { document.removeEventListener('keydown', modal._onKey); modal._onKey = null; }
+      const article = modal._article;
+      modal._article = null;
+      modal.hidden = true;
+      document.body.style.overflow = '';
+      if (!article) return;
+      // Already removed (e.g. deleted from inside the modal) — nothing to place.
+      if (!article.isConnected && body && !body.contains(article)) return;
+      if (!saved && article.classList.contains('is-new')) {
+        // Cancelled a brand-new, never-saved gift — discard it.
+        article.remove();
+        if (!itemsList.children.length) renderEmpty();
+        applyItemsPagination();
+        return;
+      }
+      // Move the (saved) card into the list, reveal it, and scroll to it.
+      itemsList.appendChild(article);
+      refreshItemsView();
+      if (article.classList.contains('paged-out')) {
+        const all = Array.from(itemsList.querySelectorAll('.item'));
+        itemsPageLimit = Math.max(itemsPageLimit, all.indexOf(article) + 1);
+        applyItemsPagination();
+      }
+      article.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 
     // ── Search prompt lightbox ───────────────────────────────────
     const suggestModal = document.getElementById('suggestModal');
@@ -3582,6 +3927,102 @@ $$;`.trim();
           if (event.key === 'Escape') closeMenu();
         });
       });
+    }());
+  </script>
+
+  <!-- Full-size image lightbox — opened by the per-item "view full image" button. -->
+  <div class="image-zoom" id="imageZoom" role="dialog" aria-modal="true" aria-label="Full-size product image" hidden>
+    <img id="imageZoomImg" src="" alt="" referrerpolicy="no-referrer">
+  </div>
+  <script>
+    (function () {
+      const zoom = document.getElementById('imageZoom');
+      const zoomImg = document.getElementById('imageZoomImg');
+      if (!zoom || !zoomImg) return;
+      window.TgbImageZoom = {
+        open(src) {
+          if (!src) return;
+          zoomImg.src = src;
+          zoom.hidden = false;
+          document.body.style.overflow = 'hidden';
+        },
+        close() {
+          zoom.hidden = true;
+          zoomImg.removeAttribute('src');
+          document.body.style.overflow = '';
+        }
+      };
+      zoom.addEventListener('click', () => window.TgbImageZoom.close());
+      document.addEventListener('keydown', (event) => {
+        if (!zoom.hidden && event.key === 'Escape') window.TgbImageZoom.close();
+      });
+    }());
+  </script>
+
+  <!-- Add-new-gift pop-up: hosts a live item form, moved into the list on save. -->
+  <div class="add-gift-modal" id="addGiftModal" role="dialog" aria-modal="true" aria-labelledby="addGiftModalTitle" hidden>
+    <div class="add-gift-backdrop" data-add-gift-close></div>
+    <div class="add-gift-panel">
+      <div class="add-gift-head">
+        <h2 id="addGiftModalTitle">Add new gift</h2>
+        <button class="add-gift-close" type="button" data-add-gift-close aria-label="Close">×</button>
+      </div>
+      <div class="add-gift-body" id="addGiftBody"></div>
+    </div>
+  </div>
+
+  <!-- Styled confirmation dialog (replaces the browser's native confirm). -->
+  <div class="confirm-modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage" hidden>
+    <div class="confirm-backdrop" data-confirm-cancel></div>
+    <div class="confirm-panel">
+      <h2 class="confirm-title" id="confirmTitle">Delete gift</h2>
+      <p class="confirm-message" id="confirmMessage"></p>
+      <div class="confirm-actions">
+        <button class="btn" type="button" data-confirm-cancel>Cancel</button>
+        <button class="btn danger" type="button" data-confirm-ok>Delete</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const modal = document.getElementById('confirmModal');
+      const titleEl = document.getElementById('confirmTitle');
+      const messageEl = document.getElementById('confirmMessage');
+      const okBtn = modal ? modal.querySelector('[data-confirm-ok]') : null;
+      const cancelBtn = modal ? modal.querySelector('.confirm-actions [data-confirm-cancel]') : null;
+      if (!modal || !messageEl || !okBtn || !cancelBtn) return;
+
+      // Promise-based confirm: resolves true (OK) / false (cancel, backdrop, Esc).
+      // Focus defaults to Cancel so a stray Enter/Space can't confirm a delete.
+      window.TgbConfirm = function (message, opts) {
+        opts = opts || {};
+        return new Promise((resolve) => {
+          messageEl.textContent = message || 'Are you sure?';
+          titleEl.textContent = opts.title || 'Please confirm';
+          okBtn.textContent = opts.okLabel || 'OK';
+          okBtn.classList.toggle('danger', opts.danger !== false);
+          modal.hidden = false;
+          document.body.style.overflow = 'hidden';
+
+          function done(result) {
+            modal.hidden = true;
+            document.body.style.overflow = '';
+            modal.removeEventListener('click', onClick);
+            document.removeEventListener('keydown', onKey);
+            resolve(result);
+          }
+          function onClick(event) {
+            if (event.target.closest('[data-confirm-ok]')) done(true);
+            else if (event.target.closest('[data-confirm-cancel]')) done(false);
+          }
+          function onKey(event) {
+            if (event.key === 'Escape') done(false);
+          }
+          modal.addEventListener('click', onClick);
+          document.addEventListener('keydown', onKey);
+          cancelBtn.focus();
+        });
+      };
     }());
   </script>
 </body>
