@@ -1760,7 +1760,7 @@
         </label>
         <div class="item-listings is-collapsed" data-listings>
           <div class="item-listings-head">
-            <span>Listed in shops</span>
+            <span>Shops</span>
             <button class="listing-toggle" data-action="toggle-picker" type="button">+ Add city</button>
           </div>
           <div class="item-listings-chips" data-listings-chips></div>
@@ -1999,6 +1999,13 @@
         if (!text) return fallback;
         try {
           const payload = JSON.parse(text);
+          // Duplicate product link — the partial unique index on
+          // gift_shop_items.url. Craft a plain-English message instead of the
+          // raw Postgres constraint error.
+          const blob = String(payload.message || '') + ' ' + String(payload.details || '');
+          if (payload.code === '23505' && /gift_shop_items_url_unique|\(url\)/i.test(blob)) {
+            return 'That link is already in the shop — a gift with this link already exists. Nothing was saved.';
+          }
           return payload.message || payload.msg || payload.error_description || payload.error || text;
         } catch (_) { return text; }
       } catch (_) { return fallback; }
@@ -2636,6 +2643,18 @@
       });
       selectEl.addEventListener('dblclick', commitSelected);
 
+      // Let other handlers (e.g. Auto Fill) stage a city on this item. Only
+      // valid shop cities that aren't already listed are added; returns true if
+      // it actually added one. Not persisted until Save.
+      article._addListingCity = (city) => {
+        const c = canonicalShopCity(city);
+        if (!c || !cityList.includes(c) || entries.has(c)) return false;
+        entries.set(c, { listingId: null, position: 0 });
+        renderChips();
+        renderOptions(searchEl.value);
+        return true;
+      };
+
       renderChips();
       renderOptions('');
     }
@@ -2712,12 +2731,18 @@
       async function doSave(opts = {}) {
         const payload = buildItemPayload(article);
         if (!payload.title) { setItemStatus('Title is required.', 'error'); return false; }
-        if (!payload.url) { setItemStatus('Address is required.', 'error'); return false; }
-        if (!payload.image_url) { setItemStatus('Image is required.', 'error'); return false; }
         if (!payload.description) { setItemStatus('Description is required.', 'error'); return false; }
-        // Archiving is fine with no cities; publishing needs at least one so the
-        // gift actually appears in a shop.
+        // Archiving is fine with no link, image, or cities (draft-friendly);
+        // publishing needs all three so the gift actually renders in a shop.
         const isPublishing = opts.archived === false;
+        if (isPublishing && !payload.url) {
+          setItemStatus('Add a link before publishing (or use Save & Archive).', 'error');
+          return false;
+        }
+        if (isPublishing && !payload.image_url) {
+          setItemStatus('Add an image before publishing (or use Save & Archive).', 'error');
+          return false;
+        }
         if (isPublishing && itemCities(article).length === 0) {
           setItemStatus('Add at least one city before publishing (or use Save & Archive).', 'error');
           return false;
@@ -2982,18 +3007,22 @@
       const grabImageButton = article.querySelector('[data-action="grab-image"]');
       if (grabImageButton) {
         grabImageButton.addEventListener('click', async () => {
-          const urlInput = article.querySelector('[data-field="url"]');
-          const url = (urlInput && urlInput.value || '').trim();
-          if (!url) { setItemStatus('Add the Address (product URL) first.', 'error'); return; }
+          const linkVal = (article.querySelector('[data-field="url"]')?.value || '').trim();
+          const titleVal = (article.querySelector('[data-field="title"]')?.value || '').trim();
+          // No link required — fall back to the Title (a book name or ISBN).
+          const query = linkVal || titleVal;
+          if (!query) { setItemStatus('Type a link, ISBN, or title first.', 'error'); return; }
+          // When the Title itself was the search term, replace it with the result.
+          const usedTitleAsQuery = !linkVal && !!titleVal;
           const original = grabImageButton.textContent;
           grabImageButton.disabled = true;
           grabImageButton.textContent = '…';
-          setItemStatus('Auto-filling blank fields…');
+          setItemStatus('Auto-filling…');
           try {
             const res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/scrape-amazon', {
               method: 'POST',
               headers: authHeaders({ 'Content-Type': 'application/json' }),
-              body: JSON.stringify({ url })
+              body: JSON.stringify({ url: query })
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
@@ -3008,20 +3037,70 @@
               filled++;
             }
             const titleInput = article.querySelector('[data-field="title"]');
-            if (titleInput && !titleInput.value.trim() && data.title) {
+            if (titleInput && data.title && (!titleInput.value.trim() || usedTitleAsQuery)) {
               titleInput.value = String(data.title).trim();
               filled++;
+            } else if (titleInput && titleInput.value.trim() && data.author) {
+              // Book name already typed — append the author only if it's not
+              // already named (full string or surname), so "Death by Meeting"
+              // still gets its author while a title that already has it doesn't
+              // get it twice.
+              const cur = titleInput.value.trim();
+              const author = String(data.author).trim();
+              const firstAuthor = author.split(',')[0].trim();
+              const nameParts = firstAuthor.split(/\s+/).filter(Boolean);
+              const surname = nameParts.length ? nameParts[nameParts.length - 1] : firstAuthor;
+              const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const alreadyNamed = cur.toLowerCase().includes(author.toLowerCase()) ||
+                (surname.length >= 3 && new RegExp('\\b' + escapeRe(surname) + '\\b', 'i').test(cur));
+              if (!alreadyNamed) {
+                titleInput.value = cur + ' by ' + author;
+                filled++;
+              }
             }
             const descInput = article.querySelector('[data-field="description"]');
             if (descInput && !descInput.value.trim() && data.description) {
               descInput.value = String(data.description).trim();
               filled++;
             }
-            setItemStatus(
-              filled ? 'Filled blank fields — review, then Save.'
-                     : 'Nothing to fill — those fields already have values.',
-              filled ? 'success' : 'error'
-            );
+            // Fill the Link too if it's missing (e.g. a Bookshop affiliate link
+            // built from the book's ISBN when you searched by title/ISBN).
+            const urlFieldInput = article.querySelector('[data-field="url"]');
+            if (urlFieldInput && !urlFieldInput.value.trim() && data.url) {
+              urlFieldInput.value = String(data.url).trim();
+              urlFieldInput.dispatchEvent(new Event('input', { bubbles: true }));
+              filled++;
+            }
+            // Auto-add any shop cities named in the book's title/description
+            // (e.g. "AIA Guide to Chicago" → Chicago). Staged, not saved.
+            let citiesAdded = 0;
+            if (typeof article._addListingCity === 'function') {
+              const hay = ' ' + ((data.title || '') + ' ' + (data.description || '')).toLowerCase() + ' ';
+              cityList.forEach((full) => {
+                const name = cityShort(full).toLowerCase().trim();
+                if (!name) return;
+                const re = new RegExp('(^|[^a-z])' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z]|$)');
+                if (re.test(hay) && article._addListingCity(full)) citiesAdded++;
+              });
+            }
+
+            const parts = [];
+            if (filled) parts.push('filled blank fields');
+            if (citiesAdded) parts.push('added ' + citiesAdded + ' cit' + (citiesAdded === 1 ? 'y' : 'ies'));
+            const imageStillBlank = imageInput && !imageInput.value.trim();
+            let msg, msgState;
+            if (parts.length) {
+              msg = 'Auto Fill: ' + parts.join(' + ') + ' — review, then Save.';
+              msgState = 'success';
+            } else if (imageStillBlank) {
+              // Image is empty and the lookup returned no usable image.
+              msg = 'No image found — paste an image URL or try a different link, then Save.';
+              msgState = 'error';
+            } else {
+              msg = 'Nothing to fill — those fields already have values.';
+              msgState = 'error';
+            }
+            setItemStatus(msg, msgState);
           } catch (err) {
             setItemStatus(err instanceof Error ? err.message : String(err), 'error');
           } finally {
@@ -3409,11 +3488,10 @@ begin
       v_cities := '[]'::jsonb;
     end if;
 
+    -- Link and cover are BOTH derived from the ISBN (same as Auto Fill), never
+    -- trusted from the model — that's what kept them accurate.
     v_url := 'https://bookshop.org/a/87073/' || v_isbn;
-    v_image_url := coalesce(
-      nullif(btrim(v_entry->>'image_url'), ''),
-      'https://images-us.bookshop.org/ingram/' || v_isbn || '.jpg'
-    );
+    v_image_url := 'https://images-us.bookshop.org/ingram/' || v_isbn || '.jpg';
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
 
     v_existing_item_id := null;
@@ -3622,7 +3700,6 @@ $$;`.trim();
       const cities = buildPromptCitySnapshot();
       const sportsTeams = buildPromptSportsTeamSnapshot();
       const existingItems = buildPromptExistingItemsSnapshot();
-      const referralBase = 'https://bookshop.org/a/' + BOOKSHOP_AFFILIATE_ID + '/';
       const helperSql = buildBookshopImportHelperSql();
       const sqlExample = [
         helperSql,
@@ -3631,10 +3708,8 @@ $$;`.trim();
         'from public.tgb_import_bookshop_prompt_items($tgb$',
         '[',
         '  {',
-        '    "title": "Example Book Title",',
+        '    "title": "The Great Gatsby by F. Scott Fitzgerald",',
         '    "isbn": "9780000000000",',
-        '    "url": "' + referralBase + '9780000000000",',
-        '    "image_url": "https://images-us.bookshop.org/ingram/9780000000000.jpg",',
         '    "description": "One original shopper-facing sentence explaining why this book fits the game.",',
         '    "cities": ["City, State from the list"]',
         '  }',
@@ -3650,17 +3725,15 @@ $$;`.trim();
         'Hard requirements:',
         '- Use Bookshop.org product pages only. Do not use Amazon or non-book retailers.',
         '- Every item must be a real book currently findable on Bookshop.org.',
-        '- Every item must use this referral URL pattern exactly: ' + referralBase + '<ISBN_WITHOUT_HYPHENS>.',
-        '- Prefer ISBN-13. Strip hyphens/spaces from ISBNs.',
+        '- title is the SINGLE MOST IMPORTANT field: use the book\'s exact full title followed by " by " and the author name(s) — e.g. "The Great Gatsby by F. Scott Fitzgerald". Match the title and author exactly as shown on the Bookshop.org product page; do not abbreviate, reorder, drop a subtitle, or omit the author.',
+        '- Provide the exact ISBN-13 from the Bookshop.org product page (strip hyphens/spaces). We build the Bookshop affiliate link AND the cover image from this ISBN ourselves, so a wrong ISBN breaks BOTH — verify it against the product page.',
         '- Do not include any current gift-shop inventory item listed below. Hidden, archived, or unpublished rows still count as already-owned inventory. Avoid duplicate titles, duplicate ISBNs, and duplicate URLs.',
         '- The JSON array must contain exactly ' + count + ' objects.',
-        '- Each JSON object needs: title, isbn, url, image_url, description, cities.',
-        '- url and image_url must be raw URL strings only, never Markdown links like [url](url).',
+        '- Each JSON object needs exactly these four fields: title, isbn, description, cities. Do NOT include url or image_url — both are derived from the ISBN on our end (the same way our Auto Fill does), so any you provide are ignored.',
         '- cities must use only values from the current cities JSON below, copied verbatim ("City, State"). Assign each item to the city or cities its description names.',
         '- A specific city named in the description maps to that city only; a U.S. STATE named in the description maps to every listed city in that state (e.g. "Texas" => Houston, Dallas, San Antonio). Leave "cities" empty (omit it) if the description names no TGB city or state.',
         '- Use the current professional sports teams JSON below when choosing sports/team books. It includes full team names, cities, and mascots. A team-specific item must mention the professional team name and/or mascot in the description and use only that team object\'s shop_cities for "cities". If shop_cities is empty, do not assign a city for that team-specific item.',
         '- Description must be original, concise, and shopper-facing. Do not paste long publisher jacket copy.',
-        '- image_url should be a Bookshop cover image when available. If needed, use https://images-us.bookshop.org/ingram/<ISBN>.jpg.',
         '- Do not set certified_at or archived in the JSON. Imported items start ARCHIVED and unpublished; the import helper sets archived to true and certified_at to null. An admin reviews and publishes them in the gift-shop tool.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
         '- Output the COMPLETE script as ONE copy-pasteable block I can copy in a single action and paste into the Supabase SQL editor: a single fenced ```sql code block, or a code artifact / canvas with a copy button — whichever your tool supports. Do NOT split it across multiple blocks.',
@@ -3780,7 +3853,7 @@ $$;`.trim();
         const count = getPromptCount();
         suggestHint.textContent = isAmazon
           ? 'Copy this fresh prompt into a web-capable assistant. It asks for up to ' + count + ' broader Amazon gift items, allows verified partial batches, includes pro teams, excludes archived inventory, includes your Amazon referral tags, and returns the SQL as one copy-paste-ready code block (plain ASCII, no smart quotes). Images are left blank on purpose — add each one after import with the Grab button on the item.'
-          : 'Copy this fresh prompt into a web-capable assistant. It asks for ' + count + ' Bookshop.org book items, includes pro team names and mascots, excludes current inventory including archived rows, and returns the SQL as one copy-paste-ready code block (plain ASCII, no smart quotes).';
+          : 'Copy this fresh prompt into a web-capable assistant. It asks for ' + count + ' Bookshop.org books with an exact "Title by Author" and ISBN — we build the affiliate link and cover from the ISBN ourselves (same as Auto Fill), so the model no longer guesses those. Includes pro teams, excludes current inventory including archived rows, and returns the SQL as one copy-paste-ready code block (plain ASCII, no smart quotes).';
       }
       suggestPromptText.value = prompt;
       setStatus(

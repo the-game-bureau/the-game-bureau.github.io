@@ -44,11 +44,23 @@ const DESKTOP_UA =
 const AMAZON_HOST_RE = /(?:^|\.)amazon\.[a-z.]+$|(?:^|\.)amzn\.[a-z]+$|^a\.co$/;
 const BOOKSHOP_HOST_RE = /(?:^|\.)bookshop\.org$/;
 
+// Optional Google Books API key. The keyless quota is shared globally and is
+// frequently exhausted (429), so set one for reliable Bookshop lookups:
+//   supabase secrets set GOOGLE_BOOKS_API_KEY=<key>
+const GOOGLE_BOOKS_KEY = Deno.env.get("GOOGLE_BOOKS_API_KEY") ?? "";
+
+// Bookshop.org affiliate id — used to build a "link if missing" for book
+// lookups (from an ISBN/title). Override with: supabase secrets set
+// BOOKSHOP_AFFILIATE_ID=<id>
+const BOOKSHOP_AFFILIATE_ID = Deno.env.get("BOOKSHOP_AFFILIATE_ID") ?? "87073";
+
 interface ScrapeResult {
   title: string;
   description: string;
   image_url: string;
   price_display: string;
+  url?: string; // suggested link (e.g. a Bookshop affiliate link for a book)
+  author?: string; // book author(s), so the client can append "by …" if needed
 }
 
 Deno.serve(async (req: Request) => {
@@ -57,12 +69,23 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const targetUrl = await readUrl(req);
-    if (!targetUrl) return json({ error: "url is required" }, 400);
-    if (!/^https?:\/\//i.test(targetUrl)) {
-      return json({ error: "url must be http(s)" }, 400);
+    const input = await readUrl(req);
+    if (!input) return json({ error: "Provide a link, ISBN, or title." }, 400);
+
+    // No link needed: a bare ISBN or free-text title searches Google Books.
+    if (!/^https?:\/\//i.test(input)) {
+      const result = looksLikeIsbn(input)
+        ? await fromIsbn(extractIsbn(input))
+        : await fromQuery(input);
+      if (result) return json(result, 200);
+      return json({
+        error: GOOGLE_BOOKS_KEY
+          ? "No match — fill the fields manually."
+          : "Set a GOOGLE_BOOKS_API_KEY secret for reliable lookups, or fill the fields manually.",
+      }, 502);
     }
 
+    const targetUrl = input;
     const hostname = (() => {
       try {
         return new URL(targetUrl).hostname.toLowerCase();
@@ -74,6 +97,25 @@ Deno.serve(async (req: Request) => {
     const isBookshop = BOOKSHOP_HOST_RE.test(hostname);
     if (!hostname || (!isAmazon && !isBookshop)) {
       return json({ error: "Only Amazon or Bookshop.org URLs are supported." }, 400);
+    }
+
+    // Bookshop.org sits behind Cloudflare and 403s server-side scrapes from
+    // datacenter IPs. Its URLs carry the book's ISBN, so pull metadata from the
+    // Google Books + Open Library APIs by ISBN instead of fetching the page.
+    if (isBookshop) {
+      const isbn = extractIsbn(targetUrl);
+      if (isbn) {
+        const fromApi = await fromIsbn(isbn);
+        if (fromApi) return json(fromApi, 200);
+      }
+      return json(
+        {
+          error: GOOGLE_BOOKS_KEY
+            ? "No book match for that Bookshop link — fill the fields manually."
+            : "Bookshop blocks automated scraping. Set a GOOGLE_BOOKS_API_KEY secret for reliable lookups, or fill the fields manually.",
+        },
+        502,
+      );
     }
 
     const upstream = await fetch(targetUrl, {
@@ -125,6 +167,117 @@ function json(obj: unknown, status: number): Response {
     status,
     headers: { ...CORS_HEADERS, "content-type": "application/json; charset=utf-8" },
   });
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Bookshop.org via ISBN → Google Books (title/description) + Open Library
+// (cover image). Avoids scraping the Cloudflare-protected page entirely.
+// ──────────────────────────────────────────────────────────────────────
+
+function extractIsbn(text: string): string {
+  // ISBN-13 (978/979 + 10 digits) first, then ISBN-10 (9 digits + digit/X).
+  const m = text.match(/(97[89]\d{10}|\d{9}[\dxX])/);
+  return m ? m[1].toUpperCase() : "";
+}
+
+// True when the whole input is just an ISBN (ignoring spaces/hyphens).
+function looksLikeIsbn(text: string): boolean {
+  const cleaned = text.replace(/[\s-]/g, "");
+  return /^(97[89]\d{10}|\d{9}[\dxX])$/.test(cleaned);
+}
+
+// One Google Books volume for an arbitrary query ("isbn:…" or free text).
+// deno-lint-ignore no-explicit-any
+async function googleVolume(query: string): Promise<any | null> {
+  try {
+    const keyParam = GOOGLE_BOOKS_KEY ? `&key=${encodeURIComponent(GOOGLE_BOOKS_KEY)}` : "";
+    const res = await fetch(
+      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=1${keyParam}`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.items?.[0]?.volumeInfo ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function fromIsbn(isbn: string): Promise<ScrapeResult | null> {
+  return await resultFromVolume(await googleVolume(`isbn:${isbn}`), isbn);
+}
+
+async function fromQuery(query: string): Promise<ScrapeResult | null> {
+  return await resultFromVolume(await googleVolume(query), "");
+}
+
+// Build a fill result from a Google Books volume (title "…by Author", cleaned
+// description, best cover). Falls back to an Open-Library-cover-only result when
+// there's no volume but we do have an ISBN.
+// deno-lint-ignore no-explicit-any
+async function resultFromVolume(info: any, isbn: string): Promise<ScrapeResult | null> {
+  if (!info) {
+    if (!isbn) return null;
+    const image = await coverForIsbn(isbn, "");
+    return image
+      ? { title: "", description: "", image_url: image, price_display: "", url: bookshopLink(isbn) }
+      : null;
+  }
+  let title = String(info.title || "").trim();
+  const sub = String(info.subtitle || "").trim();
+  if (sub) title = title ? `${title}: ${sub}` : sub;
+  const authors = (Array.isArray(info.authors) ? info.authors : [])
+    .map((a: unknown) => String(a).trim())
+    .filter(Boolean);
+  const authorStr = authors.join(", ");
+  if (title && authorStr) title = `${title} by ${authorStr}`;
+  const description = String(info.description || "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const links = info.imageLinks || {};
+  const googleThumb = String(
+    links.extraLarge || links.large || links.medium ||
+      links.thumbnail || links.smallThumbnail || "",
+  ).trim().replace(/^http:/, "https:").replace(/&edge=curl/g, "");
+  const idIsbn = isbn || isbnFromVolume(info);
+  const image = idIsbn ? await coverForIsbn(idIsbn, googleThumb) : googleThumb;
+  if (!title && !description && !image) return null;
+  return {
+    title,
+    description,
+    image_url: image,
+    price_display: "",
+    url: idIsbn ? bookshopLink(idIsbn) : "",
+    author: authorStr,
+  };
+}
+
+function bookshopLink(isbn: string): string {
+  return `https://bookshop.org/a/${BOOKSHOP_AFFILIATE_ID}/${encodeURIComponent(isbn)}`;
+}
+
+// deno-lint-ignore no-explicit-any
+function isbnFromVolume(info: any): string {
+  const ids = Array.isArray(info?.industryIdentifiers) ? info.industryIdentifiers : [];
+  // deno-lint-ignore no-explicit-any
+  const pick = (t: string) => ids.find((x: any) => x?.type === t)?.identifier;
+  return String(pick("ISBN_13") || pick("ISBN_10") || "").replace(/[^\dxX]/g, "").toUpperCase();
+}
+
+async function coverForIsbn(isbn: string, fallback: string): Promise<string> {
+  // Prefer a large Open Library cover; only use it if one actually exists.
+  const base = `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbn)}-L.jpg`;
+  try {
+    const res = await fetch(`${base}?default=false`, { method: "HEAD" });
+    if (res.ok) return base;
+  } catch {
+    // ignore
+  }
+  // Bookshop's Ingram cover CDN (keyed by ISBN) is a reliable, good-size book
+  // cover — the browser loads it fine even though a datacenter HEAD gets 403,
+  // so return it blind. (The small Google thumbnail is only a last resort.)
+  return `https://images-us.bookshop.org/ingram/${encodeURIComponent(isbn)}.jpg` || fallback;
 }
 
 // ──────────────────────────────────────────────────────────────────────

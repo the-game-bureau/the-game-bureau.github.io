@@ -124,6 +124,18 @@
           label: 'Bookshop.org Affiliates',
           description: 'Bookshop.org affiliate program — build book links that carry your referral tag.',
           external: true
+        },
+        {
+          href: 'https://console.cloud.google.com/',
+          label: 'Google Cloud Console',
+          description: 'Manage API keys and services (e.g. the Books API key for gift Auto Fill).',
+          external: true
+        },
+        {
+          href: 'https://dash.cloudflare.com/',
+          label: 'Cloudflare',
+          description: 'DNS, caching, and security dashboard for the site’s domains.',
+          external: true
         }
       ]
     }

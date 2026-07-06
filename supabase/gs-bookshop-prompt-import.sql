@@ -87,11 +87,10 @@ begin
       v_cities := '[]'::jsonb;
     end if;
 
+    -- Link and cover are BOTH derived from the ISBN (same as Auto Fill), never
+    -- trusted from the model — that's what kept them accurate.
     v_url := 'https://bookshop.org/a/87073/' || v_isbn;
-    v_image_url := coalesce(
-      nullif(btrim(v_entry->>'image_url'), ''),
-      'https://images-us.bookshop.org/ingram/' || v_isbn || '.jpg'
-    );
+    v_image_url := 'https://images-us.bookshop.org/ingram/' || v_isbn || '.jpg';
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
 
     v_existing_item_id := null;
