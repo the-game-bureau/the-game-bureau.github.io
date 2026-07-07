@@ -3336,6 +3336,50 @@
       return cityList.slice();
     }
 
+    // How many gift items are assigned to each TGB city across the WHOLE catalog
+    // (archived + published all count as inventory, same as the exclude list).
+    // Every city in cityList is represented, including those sitting at zero.
+    function buildPromptCityGiftCounts() {
+      const counts = new Map();
+      cityList.forEach((c) => counts.set(c, 0));
+      (Array.isArray(allGiftItemsCache) ? allGiftItemsCache : []).forEach((item) => {
+        const listings = Array.isArray(item && item.gift_shop_listings) ? item.gift_shop_listings : [];
+        const seen = new Set();
+        listings.forEach((l) => {
+          const city = canonicalShopCity(l && l.city);
+          if (!city || seen.has(city)) return;  // one item counts once per city
+          seen.add(city);
+          counts.set(city, (counts.get(city) || 0) + 1);
+        });
+      });
+      return counts;
+    }
+
+    // A single prompt line naming the city (or cities, if tied) with the fewest
+    // gifts, so the AI favors under-served cities. Returns '' when no inventory
+    // is loaded yet (every city would falsely tie at zero).
+    function buildPromptLeastStockedCityLine() {
+      if (!Array.isArray(allGiftItemsCache) || !allGiftItemsCache.length) return '';
+      const counts = buildPromptCityGiftCounts();
+      if (!counts.size) return '';
+      let min = Infinity;
+      counts.forEach((n) => { if (n < min) min = n; });
+      const leanest = Array.from(counts.entries())
+        .filter((entry) => entry[1] === min)
+        .map((entry) => entry[0])
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
+      if (!leanest.length) return '';
+      const shown = leanest.slice(0, 6);
+      const list = shown.map((c) => '"' + c + '"').join(', ')
+        + (leanest.length > shown.length ? ', and ' + (leanest.length - shown.length) + ' more' : '');
+      if (leanest.length === 1) {
+        return 'Coverage priority: ' + list + ' currently has the FEWEST gifts (' + min
+          + '). Favor items that fit this city where a natural, honest tie exists — never force an unrelated item onto it.';
+      }
+      return 'Coverage priority: these cities are tied for the FEWEST gifts (' + min + ' each): ' + list
+        + '. Favor items that fit one of them where a natural, honest tie exists — never force an unrelated item onto a city.';
+    }
+
     function buildTeamDisplayName(city, mascot) {
       const c = cityShort(city);
       const m = promptClean(mascot, 80);
@@ -3722,6 +3766,7 @@ $$;`.trim();
       const cities = buildPromptCitySnapshot();
       const sportsTeams = buildPromptSportsTeamSnapshot();
       const existingItems = buildPromptExistingItemsSnapshot();
+      const leanestCityLine = buildPromptLeastStockedCityLine();
       const helperSql = buildBookshopImportHelperSql();
       const sqlExample = [
         helperSql,
@@ -3754,6 +3799,7 @@ $$;`.trim();
         '- Each JSON object needs exactly these four fields: title, isbn, description, cities. Do NOT include url or image_url — both are derived from the ISBN on our end (the same way our Auto Fill does), so any you provide are ignored.',
         '- cities must use only values from the current cities JSON below, copied verbatim ("City, State"). Assign each item to the city or cities its description names.',
         '- A specific city named in the description maps to that city only; a U.S. STATE named in the description maps to every listed city in that state (e.g. "Texas" => Houston, Dallas, San Antonio). Leave "cities" empty (omit it) if the description names no TGB city or state.',
+        (leanestCityLine ? '- ' + leanestCityLine : ''),
         '- Use the current professional sports teams JSON below when choosing sports/team books. It includes full team names, cities, and mascots. A team-specific item must mention the professional team name and/or mascot in the description and use only that team object\'s shop_cities for "cities". If shop_cities is empty, do not assign a city for that team-specific item.',
         '- Description must be original, concise, and shopper-facing. Do not paste long publisher jacket copy.',
         '- Do not set certified_at or archived in the JSON. Imported items start ARCHIVED and unpublished; the import helper sets archived to true and certified_at to null. An admin reviews and publishes them in the gift-shop tool.',
@@ -3786,6 +3832,7 @@ $$;`.trim();
       const cities = buildPromptCitySnapshot();
       const sportsTeams = buildPromptSportsTeamSnapshot();
       const existingItems = buildPromptExistingItemsSnapshot();
+      const leanestCityLine = buildPromptLeastStockedCityLine();
       const exampleAsin = 'B000000000';
       const helperSql = buildAmazonImportHelperSql();
       const sqlExample = [
@@ -3834,6 +3881,7 @@ $$;`.trim();
         '- url must be a raw URL string only, never a Markdown link like [url](url). image_url must always be null (do not output any image URL).',
         '- cities must use only values from the current cities JSON below, copied verbatim ("City, State"). Assign each item to the city or cities its description names.',
         '- A specific city named in the description maps to that city only; a U.S. STATE named in the description maps to every listed city in that state (e.g. "Texas" => Houston, Dallas, San Antonio). Leave "cities" empty (omit it) if the description names no TGB city or state.',
+        (leanestCityLine ? '- ' + leanestCityLine : ''),
         '- Use the current professional sports teams JSON below when choosing sports/team gifts. It includes full team names, cities, and mascots. A team-specific item must mention the professional team name and/or mascot in the description and use only that team object\'s shop_cities for "cities". If shop_cities is empty, do not assign a city for that team-specific item.',
         '- Description must be original, concise, and shopper-facing. Do not paste long manufacturer copy.',
         '- Do not set certified_at or archived in the JSON. Imported items start ARCHIVED and unpublished; the import helper sets archived to true and certified_at to null. An admin reviews and publishes them in the gift-shop tool.',
