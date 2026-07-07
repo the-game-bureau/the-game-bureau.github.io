@@ -73,33 +73,12 @@
       ]
     },
     {
-      label: 'Gift Shop',
-      combined: true,
-      items: [
-        {
-          href: '/shop/admin/',
-          label: 'Gift Shop Stock Room',
-          description: 'Manage gift-shop items — links, images, cities, and publish/archive state.'
-        },
-        {
-          href: 'https://console.cloud.google.com/',
-          label: 'Google Cloud Console',
-          description: 'Manage the Google Books API key used for gift Auto Fill.',
-          external: true
-        },
-        {
-          href: 'https://affiliate-program.amazon.com/',
-          label: 'Amazon Associates',
-          description: 'Amazon affiliate program — build gift links that carry your referral tag.',
-          external: true
-        },
-        {
-          href: 'https://bookshop.org/affiliates/dashboard',
-          label: 'Bookshop.org Affiliates',
-          description: 'Bookshop.org affiliate program — build book links that carry your referral tag.',
-          external: true
-        }
-      ]
+      // Single button to the Stock Room. The affiliate/API reference links
+      // (Google Cloud, Amazon Associates, Bookshop.org) now live on the Stock
+      // Room page itself, so the hub just needs the one door in.
+      label: 'Gift Shop Stock Room',
+      href: '/shop/admin/',
+      description: 'Manage gift-shop items — links, images, cities, and publish/archive state.'
     },
     {
       label: 'Website',
