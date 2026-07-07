@@ -18,12 +18,11 @@
     { label: 'MISSION CONTROL', target: '/mc/', newTab: false }
   ];
 
-  // OPERATIONS lives in its own right-aligned dark group alongside the login /
-  // account button (see buildRightGroup) rather than in the main nav bar. It is
-  // still surfaced as a hub card via getGroups().
+  // OPERATIONS is surfaced only as a hub card (via getGroups) — like every other
+  // destination, it is no longer a top-bar button on any page.
   var OPERATIONS_LINK = {
     label: 'OPERATIONS',
-    href: '/shop/giftcards.html'
+    href: '/shop/operations.html'
   };
 
   // localStorage key the game editor (overview.html) uses to remember the last
@@ -70,11 +69,35 @@
           href: '/mc/mapper.html',
           label: 'Game Mapper',
           description: 'Build a game’s route from ordered waypoints and save it to the map.'
-        },
+        }
+      ]
+    },
+    {
+      label: 'Gift Shop',
+      combined: true,
+      items: [
         {
           href: '/shop/admin/',
-          label: 'Gift Shop',
-          description: 'Manage gift-shop items, game gifts, pricing, and storefront content.'
+          label: 'Gift Shop Stock Room',
+          description: 'Manage gift-shop items — links, images, cities, and publish/archive state.'
+        },
+        {
+          href: 'https://console.cloud.google.com/',
+          label: 'Google Cloud Console',
+          description: 'Manage the Google Books API key used for gift Auto Fill.',
+          external: true
+        },
+        {
+          href: 'https://affiliate-program.amazon.com/',
+          label: 'Amazon Associates',
+          description: 'Amazon affiliate program — build gift links that carry your referral tag.',
+          external: true
+        },
+        {
+          href: 'https://bookshop.org/affiliates/dashboard',
+          label: 'Bookshop.org Affiliates',
+          description: 'Bookshop.org affiliate program — build book links that carry your referral tag.',
+          external: true
         }
       ]
     },
@@ -114,24 +137,6 @@
           external: true
         },
         {
-          href: 'https://affiliate-program.amazon.com/',
-          label: 'Amazon Associates',
-          description: 'Amazon affiliate program — build gift links that carry your referral tag.',
-          external: true
-        },
-        {
-          href: 'https://bookshop.org/affiliates',
-          label: 'Bookshop.org Affiliates',
-          description: 'Bookshop.org affiliate program — build book links that carry your referral tag.',
-          external: true
-        },
-        {
-          href: 'https://console.cloud.google.com/',
-          label: 'Google Cloud Console',
-          description: 'Manage API keys and services (e.g. the Books API key for gift Auto Fill).',
-          external: true
-        },
-        {
           href: 'https://dash.cloudflare.com/',
           label: 'Cloudflare',
           description: 'DNS, caching, and security dashboard for the site’s domains.',
@@ -151,44 +156,31 @@
 
     var controls = button.parentNode;
 
-    // Inject the shared left buttons (TGB HOME / MISSION CONTROL) as the first
-    // item in the topbar, unless the page already has them.
+    // The two left back-buttons (TGB HOME / MISSION CONTROL) go on every MC page.
     if (!controls.querySelector('.mc-back-nav')) {
       controls.insertBefore(buildBackNav(), controls.firstChild);
     }
 
-    var navbar = buildNavigation(currentPathname());
-    controls.insertBefore(navbar, button);
+    // The dropdown menus + OPERATIONS now live ONLY as cards on the Mission
+    // Control hub (mc/index.html via getGroups). Every other MC page carries
+    // nothing at the top but the two back-buttons — so REMOVE the account /
+    // sign-out button there. (Hiding via `hidden` doesn't work: admin-shell.css
+    // sets `display: inline-flex` on the button, which beats the UA [hidden]
+    // rule.) Login still auto-opens via admin-auth on any protected page, and
+    // sign-out is done from the hub.
+    if (!isHubPage(currentPathname())) {
+      button.remove();
+      return { setAuthorized: function () {}, close: function () {} };
+    }
 
+    // ── Hub only: the account / login button (with Sign Out). No dropdown nav
+    // here either — the directory cards below cover every destination. ──
     var account = wrapAccountButton(button);
     var accountMenu = buildAccountMenu();
     account.appendChild(accountMenu);
-
-    // Right-side dark group: OPERATIONS + login/account, pinned to the far right.
-    var rightGroup = buildRightGroup(currentPathname());
-    var opsLink = rightGroup.querySelector('.mc-admin-right-link');
-    controls.appendChild(rightGroup);
-    rightGroup.appendChild(account);
+    controls.appendChild(account);
 
     var state = { authorized: false };
-    var groups = Array.prototype.slice.call(navbar.querySelectorAll('.mc-admin-nav-group'));
-
-    function closeGroups(except) {
-      groups.forEach(function (group) {
-        if (group === except) return;
-        setGroupOpen(group, false);
-      });
-    }
-
-    function setGroupOpen(group, open) {
-      if (!group) return;
-      var trigger = group.querySelector('.mc-admin-nav-trigger');
-      var panel = group.querySelector('.mc-admin-nav-panel');
-      var shouldOpen = !!open && state.authorized;
-      group.classList.toggle('is-open', shouldOpen);
-      if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
-      if (panel) panel.hidden = !shouldOpen;
-    }
 
     function setAccountOpen(open) {
       var shouldOpen = !!open && state.authorized;
@@ -198,15 +190,11 @@
     }
 
     function closeAll() {
-      closeGroups();
       setAccountOpen(false);
     }
 
     function setAuthorized(isAuthorized) {
       state.authorized = !!isAuthorized;
-      navbar.hidden = !state.authorized;
-      if (opsLink) opsLink.hidden = !state.authorized;
-      rightGroup.classList.toggle('is-signed-out', !state.authorized);
       var title = state.authorized ? 'Mission Control account' : 'ADMIN LOGIN';
       button.setAttribute('aria-label', title);
       button.title = title;
@@ -214,29 +202,10 @@
       if (!state.authorized) closeAll();
     }
 
-    groups.forEach(function (group) {
-      var trigger = group.querySelector('.mc-admin-nav-trigger');
-      var panel = group.querySelector('.mc-admin-nav-panel');
-      if (!trigger || !panel) return;
-      trigger.addEventListener('click', function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        var shouldOpen = !group.classList.contains('is-open');
-        closeGroups(group);
-        setAccountOpen(false);
-        setGroupOpen(group, shouldOpen);
-      });
-    });
-
-    navbar.querySelectorAll('.mc-admin-nav-item').forEach(function (link) {
-      link.addEventListener('click', closeAll);
-    });
-
     button.setAttribute('aria-expanded', 'false');
     button.addEventListener('click', function (event) {
       event.stopPropagation();
       if (state.authorized) {
-        closeGroups();
         setAccountOpen(accountMenu.hidden);
       } else if (typeof auth.showAuth === 'function') {
         auth.showAuth();
@@ -258,7 +227,7 @@
     });
 
     global.document.addEventListener('click', function (event) {
-      if (navbar.contains(event.target) || account.contains(event.target)) return;
+      if (account.contains(event.target)) return;
       closeAll();
     });
 
@@ -273,6 +242,11 @@
       setAuthorized: setAuthorized,
       close: closeAll
     };
+  }
+
+  function isHubPage(path) {
+    var normalized = normalizePath(path);
+    return normalized === '/mc/' || normalized === '/mc';
   }
 
   function wrapAccountButton(button) {
@@ -312,101 +286,6 @@
     return nav;
   }
 
-  function buildRightGroup(currentPath) {
-    var group = global.document.createElement('div');
-    group.className = 'mc-admin-right';
-
-    var link = global.document.createElement('a');
-    link.className = 'mc-back-btn mc-admin-right-link';
-    link.textContent = OPERATIONS_LINK.label;
-    link.href = OPERATIONS_LINK.href;
-    if (isCurrentPath(currentPath, OPERATIONS_LINK.href)) {
-      link.classList.add('is-current');
-      link.setAttribute('aria-current', 'page');
-    }
-    group.appendChild(link);
-
-    return group;
-  }
-
-  function buildNavigation(currentPath) {
-    var navbar = global.document.createElement('nav');
-    navbar.className = 'mc-admin-navbar';
-    navbar.setAttribute('aria-label', 'Mission Control');
-    navbar.hidden = true;
-
-    MENU_GROUPS.forEach(function (groupData, groupIndex) {
-      var group = global.document.createElement('div');
-      group.className = 'mc-admin-nav-group';
-
-      // A group with an href renders as a single link button (no dropdown).
-      if (groupData.href) {
-        var navLink = global.document.createElement('a');
-        navLink.className = 'mc-admin-nav-trigger mc-admin-nav-trigger--link';
-        navLink.textContent = groupData.label;
-        navLink.href = resolveNavHref(groupData);
-        if (groupData.external) {
-          navLink.target = '_blank';
-          navLink.rel = 'noopener noreferrer';
-        }
-        if (isCurrentPath(currentPath, groupData.href)) {
-          navLink.classList.add('is-current');
-          navLink.setAttribute('aria-current', 'page');
-        }
-        group.appendChild(navLink);
-        navbar.appendChild(group);
-        return;
-      }
-
-      var trigger = global.document.createElement('button');
-      var panelId = 'mcAdminNavPanel' + groupIndex;
-      trigger.type = 'button';
-      trigger.className = 'mc-admin-nav-trigger';
-      trigger.textContent = groupData.label;
-      trigger.setAttribute('aria-expanded', 'false');
-      trigger.setAttribute('aria-controls', panelId);
-      trigger.setAttribute('aria-haspopup', 'menu');
-
-      var panel = global.document.createElement('div');
-      panel.id = panelId;
-      panel.className = 'mc-admin-nav-panel';
-      panel.setAttribute('role', 'menu');
-      panel.hidden = true;
-
-      var groupIsCurrent = false;
-      groupData.items.forEach(function (item) {
-        var link = buildLink(item, currentPath);
-        if (link.classList.contains('is-current')) groupIsCurrent = true;
-        panel.appendChild(link);
-      });
-
-      if (groupIsCurrent) trigger.classList.add('is-current');
-      group.appendChild(trigger);
-      group.appendChild(panel);
-      navbar.appendChild(group);
-    });
-
-    return navbar;
-  }
-
-  function buildLink(item, currentPath) {
-    var link = global.document.createElement('a');
-    link.className = 'mc-admin-nav-item';
-    link.setAttribute('role', 'menuitem');
-    link.href = item.href;
-    link.textContent = item.label;
-    if (item.external) {
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-    }
-    if (item.id) link.id = item.id;
-    if (isCurrentPath(currentPath, item.href)) {
-      link.classList.add('is-current');
-      link.setAttribute('aria-current', 'page');
-    }
-    return link;
-  }
-
   function buildAccountMenu() {
     var menu = global.document.createElement('div');
     menu.className = 'mc-admin-account-menu';
@@ -421,13 +300,6 @@
     signOut.textContent = 'Sign Out';
     menu.appendChild(signOut);
     return menu;
-  }
-
-  function isCurrentPath(currentPath, href) {
-    if (!href || /^https?:\/\//i.test(href)) return false;
-    var current = normalizePath(currentPath);
-    var target = normalizePath(href);
-    return current === target;
   }
 
   function normalizePath(path) {
@@ -463,6 +335,7 @@
           }];
       return {
         label: group.label,
+        combined: !!group.combined,
         items: items
       };
     });
