@@ -167,12 +167,11 @@
       z-index: 1;
     }
 
-    /* Unified actions bar under the hero: five equal-width buttons across the
-       full width — two primary "create" actions + three external reference
-       links (open in a new tab). */
+    /* Unified actions bar under the hero: create actions, the public shop link,
+       and external reference links. */
     .admin-actions-bar {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
       gap: 8px;
       width: 100%;
       margin-bottom: 6px;
@@ -467,6 +466,9 @@
       flex: 0 0 auto;
       white-space: nowrap;
     }
+    .toolbar .toolbar-clear {
+      margin-left: auto;
+    }
     .toolbar select::-ms-expand { display: none; }
 
     .toolbar #newGiftCityInput {
@@ -700,6 +702,36 @@
     }
     .status.error { color: var(--danger); font-weight: 700; }
     .status.success { color: var(--success); font-weight: 700; }
+    .status.warning { color: var(--accent); font-weight: 700; }
+
+    .save-needed {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: min(100%, 620px);
+      margin-top: 8px;
+      padding: 10px 12px;
+      border: 1px solid rgba(215, 58, 49, 0.32);
+      border-radius: 8px;
+      background: rgba(215, 58, 49, 0.08);
+      color: var(--ink);
+      box-shadow: 0 10px 22px rgba(215, 58, 49, 0.1);
+    }
+    .save-needed[hidden] { display: none; }
+    .save-needed-text {
+      color: var(--accent);
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .save-needed .btn {
+      flex: 0 0 auto;
+      min-height: 36px;
+    }
 
     #shopStatus,
     #shopStatus.success {
@@ -772,6 +804,10 @@
     .item.is-targeted {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(215, 58, 49, 0.16), 0 10px 24px var(--paper-shadow);
+    }
+    .item.is-dirty {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(215, 58, 49, 0.12), 0 10px 24px var(--paper-shadow);
     }
 
     .item-focus-col {
@@ -1279,14 +1315,20 @@
       position: relative;
       z-index: 1;
       width: min(860px, 100%);
+      max-height: calc(100svh - 48px);
+      min-height: 0;
       margin: auto 0;
+      display: flex;
+      flex-direction: column;
       background: #fff;
       border: 1px solid var(--line);
       border-radius: 14px;
+      overflow: hidden;
       box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
     }
     .add-gift-head {
       display: flex; align-items: center; justify-content: space-between;
+      flex: 0 0 auto;
       gap: 8px; padding: 14px 18px;
       border-bottom: 1px solid var(--line);
     }
@@ -1297,7 +1339,14 @@
       cursor: pointer; padding: 4px 8px; border-radius: 6px;
     }
     .add-gift-close:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
-    .add-gift-body { padding: 16px 18px; }
+    .add-gift-body {
+      flex: 1;
+      min-height: 0;
+      padding: 16px 18px;
+      overflow: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
     .add-gift-body .item { margin: 0; }
 
     /* ── Suggest lightbox ─────────────────────────────────────── */
@@ -1527,6 +1576,7 @@
     }
     .item-status.error { color: var(--danger); font-weight: 700; }
     .item-status.success { color: var(--success); font-weight: 700; }
+    .item-status.warning { color: var(--accent); font-weight: 700; }
 
     .empty {
       padding: 32px;
@@ -1557,8 +1607,14 @@
     }
 
     @media (max-width: 720px) {
+      .app {
+        width: min(100%, calc(100vw - 20px));
+        padding: 12px 0 36px;
+      }
+
       .topbar {
         display: grid;
+        gap: 10px;
       }
 
       .topbar-actions {
@@ -1587,7 +1643,18 @@
         max-width: none;
       }
 
-      /* Five columns get too narrow on phones — stack the actions full-width. */
+      .save-needed {
+        align-items: stretch;
+        flex-direction: column;
+        width: 100%;
+      }
+
+      .save-needed .btn {
+        width: 100%;
+        min-height: 44px;
+      }
+
+      /* The action bar gets too narrow on phones - stack the actions full-width. */
       .admin-actions-bar {
         grid-template-columns: 1fr;
       }
@@ -1608,9 +1675,214 @@
         width: 100%;
       }
 
+      .toolbar-row {
+        align-items: stretch;
+      }
 
-      .item { grid-template-columns: auto 1fr; }
-      .item-focus-col { max-width: 100%; }
+      .toolbar-row > * {
+        width: 100%;
+        min-width: 0;
+      }
+
+      .toolbar #itemSearchInput,
+      .toolbar #cityFilter,
+      .toolbar #itemSortSelect,
+      .toolbar #recentFilter,
+      .toolbar .toolbar-clear {
+        flex: 1 1 100%;
+      }
+
+      .toolbar .toolbar-clear {
+        margin-left: 0;
+      }
+
+      .toolbar .multiselect-panel {
+        left: 0;
+        right: 0;
+        min-width: 0;
+        max-height: 60svh;
+        overflow-y: auto;
+      }
+
+      .item {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+        padding: 12px;
+      }
+
+      .item-focus-col {
+        width: 100%;
+        max-width: 100%;
+      }
+
+      .item-focus {
+        width: 100%;
+      }
+
+      .item-review,
+      .item-view-actions {
+        width: 100%;
+      }
+
+      .item-fields {
+        min-width: 0;
+      }
+
+      .item-fields input,
+      .item-fields textarea,
+      .item-fields select,
+      .listing-search,
+      .listing-picker-select {
+        font-size: 16px;
+      }
+
+      .item-fields input,
+      .item-fields select {
+        min-height: 42px;
+      }
+
+      .item-fields textarea {
+        min-height: 86px;
+      }
+
+      .item-fields .address-row {
+        flex-direction: column;
+      }
+
+      .item-fields .address-row .btn,
+      .listing-picker-actions .btn {
+        width: 100%;
+      }
+
+      .item-listings-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .listing-toggle {
+        width: 100%;
+        min-height: 38px;
+      }
+
+      .listing-picker-select {
+        min-height: 144px;
+      }
+
+      .item-actions {
+        align-items: stretch;
+        justify-content: stretch;
+      }
+
+      .item-actions .item-status {
+        flex: 1 1 100%;
+        margin-right: 0;
+        text-align: left;
+      }
+
+      .item-actions .btn {
+        flex: 1 1 100%;
+        min-height: 44px;
+      }
+
+      .add-gift-modal {
+        align-items: stretch;
+        justify-content: stretch;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      .add-gift-backdrop {
+        display: none;
+      }
+
+      .add-gift-panel {
+        width: 100%;
+        height: 100svh;
+        height: 100dvh;
+        min-height: 100svh;
+        max-height: none;
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+      }
+
+      .add-gift-head {
+        flex: 0 0 auto;
+        padding: 12px 14px;
+      }
+
+      .add-gift-close {
+        min-width: 44px;
+        min-height: 44px;
+      }
+
+      .add-gift-body {
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+        padding: 12px 10px calc(18px + env(safe-area-inset-bottom));
+      }
+
+      .add-gift-body .item {
+        border-radius: 8px;
+        box-shadow: none;
+      }
+
+      .add-gift-body .item-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 4;
+        margin: 8px -12px -12px;
+        padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), #fff);
+        box-shadow: 0 -10px 24px rgba(var(--bic-blue-rgb), 0.1);
+      }
+    }
+
+    @media (max-width: 420px) {
+      .app {
+        width: min(100%, calc(100vw - 12px));
+        padding-top: 8px;
+      }
+
+      h1 { font-size: 2.05rem; }
+
+      .section-head--gears {
+        padding: 16px 14px 92px;
+      }
+
+      .section-gear-art {
+        right: -38px;
+        bottom: -34px;
+        width: 220px;
+        height: 130px;
+        opacity: 0.7;
+      }
+
+      .toolbar {
+        padding: 10px;
+      }
+
+      .item {
+        padding: 10px;
+      }
+
+      .add-gift-head {
+        padding-inline: 12px;
+      }
+
+      .add-gift-head h2 {
+        font-size: 0.92rem;
+      }
+
+      .add-gift-body {
+        padding-inline: 8px;
+      }
+
+      .add-gift-body .item-actions {
+        margin-inline: -10px;
+        padding-inline: 10px;
+      }
     }
   </style>
   <link rel="stylesheet" href="/mc/js/admin-shell.css">
@@ -1693,13 +1965,18 @@
         <p class="kicker">TGB MISSION CONTROL</p>
         <h1>GIFT SHOP STOCK ROOM</h1>
         <p class="status" id="shopStatus" aria-live="polite"></p>
+        <div class="save-needed" id="saveNeededBanner" aria-live="polite" hidden>
+          <span class="save-needed-text" id="saveNeededText">Unsaved changes</span>
+          <button class="btn primary" id="saveAllChangesBtn" type="button">SAVE ALL CHANGES</button>
+        </div>
       </div>
 
-      <!-- Unified actions bar: five equal-width buttons across the full width —
-           two primary "create" actions + three external reference tools. -->
+      <!-- Unified actions bar: create actions, public shop, and reference tools. -->
       <div class="admin-actions-bar">
         <button class="btn primary" id="addItemBtn" type="button" disabled>ADD NEW GIFT</button>
         <button class="btn primary" id="searchPromptBtn" type="button" disabled>ADD WITH AI</button>
+        <a class="btn" href="/shop/" target="_blank" rel="noopener noreferrer">GIFT SHOP</a>
+        <a class="btn" href="/shop/admin/giftshop-errors.htm" target="_blank" rel="noopener noreferrer">URL Error Report</a>
         <a class="btn admin-actions-ext" href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a>
         <a class="btn admin-actions-ext" href="https://affiliate-program.amazon.com/" target="_blank" rel="noopener noreferrer">Amazon Associates</a>
         <a class="btn admin-actions-ext" href="https://bookshop.org/affiliates/dashboard" target="_blank" rel="noopener noreferrer">Bookshop.org Affiliates</a>
@@ -1727,6 +2004,7 @@
             <option value="7">Added: last 7 days</option>
             <option value="30">Added: last 30 days</option>
           </select>
+          <button class="btn toolbar-clear" id="clearFiltersBtn" type="button" disabled>CLEAR</button>
         </div>
       </div>
 
@@ -1849,10 +2127,14 @@
 
     const signOutBtn   = document.getElementById('signOutBtn');
     const shopStatus   = document.getElementById('shopStatus');
+    const saveNeededBanner = document.getElementById('saveNeededBanner');
+    const saveNeededText = document.getElementById('saveNeededText');
+    const saveAllChangesBtn = document.getElementById('saveAllChangesBtn');
     const addItemBtn   = document.getElementById('addItemBtn');
     const itemSortSelect = document.getElementById('itemSortSelect');
     const recentFilter = document.getElementById('recentFilter');
     const itemSearchInput = document.getElementById('itemSearchInput');
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
     const searchPromptBtn = document.getElementById('searchPromptBtn');
     const itemsList    = document.getElementById('itemsList');
     const showMoreItemsBtn = document.getElementById('showMoreItemsBtn');
@@ -1868,8 +2150,8 @@
 
     // Items list pagination: the first page load shows just ONE item (fast
     // initial paint), then "Show more" reveals the rest 50 at a time. Later
-    // filter/sort changes reset to a normal 50-item page. Unsaved (.is-new)
-    // items always show.
+    // filter/sort changes reset to a normal 50-item page. Unsaved/new and
+    // dirty items always show.
     const ITEMS_PAGE_SIZE = 50;
     const ITEMS_INITIAL_LIMIT = 1;
     let itemsPageLimit = ITEMS_INITIAL_LIMIT;
@@ -1877,12 +2159,13 @@
     function applyItemsPagination() {
       let shown = 0;
       let pagedOut = 0;
-      itemsList.querySelectorAll('.item').forEach((item) => {
-        if (item.classList.contains('hidden')) { item.classList.remove('paged-out'); return; }
-        if (item.classList.contains('is-new')) { item.classList.remove('paged-out'); return; }
-        if (shown < itemsPageLimit) { item.classList.remove('paged-out'); shown++; }
-        else { item.classList.add('paged-out'); pagedOut++; }
-      });
+        itemsList.querySelectorAll('.item').forEach((item) => {
+          if (item.classList.contains('hidden')) { item.classList.remove('paged-out'); return; }
+          if (item.classList.contains('is-new')) { item.classList.remove('paged-out'); return; }
+          if (item.classList.contains('is-dirty')) { item.classList.remove('paged-out'); return; }
+          if (shown < itemsPageLimit) { item.classList.remove('paged-out'); shown++; }
+          else { item.classList.add('paged-out'); pagedOut++; }
+        });
       if (showMoreItemsBtn) {
         showMoreItemsBtn.hidden = pagedOut === 0;
         showMoreItemsBtn.textContent = 'Show more (' + pagedOut + ' more)';
@@ -1903,6 +2186,18 @@
     if (itemSearchInput) {
       itemSearchInput.addEventListener('input', refreshItemsView);
     }
+    if (clearFiltersBtn) {
+      clearFiltersBtn.addEventListener('click', clearStockRoomFilters);
+    }
+    if (saveAllChangesBtn) {
+      saveAllChangesBtn.addEventListener('click', saveAllDirtyItems);
+    }
+    window.addEventListener('beforeunload', (event) => {
+      if (!hasUnsavedChanges()) return;
+      event.preventDefault();
+      event.returnValue = 'You have unsaved gift changes. Save all changes before leaving.';
+      return event.returnValue;
+    });
     if (cityFilterBtn) {
       cityFilterBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1930,6 +2225,7 @@
     const itemTemplate = document.getElementById('itemTemplate');
     const initialParams = new URLSearchParams(window.location.search);
     const initialItemId = String(initialParams.get('item') || '').trim();
+    const isInitialItemMode = !!initialItemId;
     const initialShopCity = String(initialParams.get('city') || '').trim();
     let initialItemFocusPending = !!initialItemId;
     const BOOKSHOP_AFFILIATE_ID = '87073';
@@ -1944,6 +2240,7 @@
       },
       onSignedOut: () => {
         itemsList.innerHTML = '';
+        updateUnsavedChangesUi();
         gamesById = new Map();
         allGiftItemsCache = [];
         gameOptionsHtml = '<option value="">— Pick a game —</option>';
@@ -1959,6 +2256,7 @@
           recentFilter.value = '';
           recentFilter.disabled = true;
         }
+        if (clearFiltersBtn) clearFiltersBtn.disabled = true;
         cityFilterSelected.clear();
         if (cityFilterPanel) cityFilterPanel.innerHTML = '';
         updateCityFilterLabel();
@@ -2002,6 +2300,7 @@
       el.textContent = message || '';
       el.classList.toggle('error', state === 'error');
       el.classList.toggle('success', state === 'success');
+      el.classList.toggle('warning', state === 'warning');
     }
 
     function setSuggestItemsButtonEnabled(enabled) {
@@ -2382,7 +2681,7 @@
             recentMatch = !isNaN(created) && created >= recentCutoff;
           }
         }
-        const show = cityMatch && queryMatch && recentMatch;
+        const show = item.classList.contains('is-dirty') || (cityMatch && queryMatch && recentMatch);
         item.classList.toggle('hidden', !show);
         if (show) visible++;
       });
@@ -2396,6 +2695,104 @@
 
     // Status line: "N items · P published". Recounts from the DOM, so it can be
     // called after Save & Publish updates an item.
+    function clearStockRoomFilters() {
+      const cleanUrl = window.location.origin + window.location.pathname;
+      if (window.location.href === cleanUrl) {
+        window.location.reload();
+        return;
+      }
+      window.location.assign(cleanUrl);
+    }
+
+    function openSingleGiftInStockRoom(itemId) {
+      const id = String(itemId || '').trim();
+      if (!id) return;
+      const url = new URL(window.location.pathname, window.location.origin);
+      url.searchParams.set('item', id);
+      window.location.assign(url.pathname + url.search);
+    }
+
+    function getDirtyItems() {
+      return Array.from(itemsList.querySelectorAll('.item.is-dirty'))
+        .filter((article) => article.isConnected);
+    }
+
+    function hasUnsavedChanges() {
+      return getDirtyItems().length > 0;
+    }
+
+    function updateUnsavedChangesUi() {
+      const dirtyItems = getDirtyItems();
+      const count = dirtyItems.length;
+      document.body.classList.toggle('has-unsaved-gifts', count > 0);
+      if (saveNeededBanner) saveNeededBanner.hidden = count === 0;
+      if (saveNeededText) {
+        saveNeededText.textContent = count === 1
+          ? '1 gift has unsaved changes'
+          : count + ' gifts have unsaved changes';
+      }
+      if (saveAllChangesBtn) {
+        saveAllChangesBtn.disabled = count === 0 || saveAllChangesBtn.dataset.saving === 'true';
+      }
+    }
+
+    function markItemDirty(article, message = 'Unsaved changes.') {
+      if (!article || !article.classList || article.dataset.saving === 'true') return;
+      article.classList.add('is-dirty');
+      article.dataset.dirty = 'true';
+      const statusEl = article.querySelector('[data-status]');
+      if (statusEl) setStatus(statusEl, message, 'warning');
+      updateUnsavedChangesUi();
+    }
+
+    function clearItemDirty(article) {
+      if (!article || !article.classList) return;
+      article.classList.remove('is-dirty');
+      delete article.dataset.dirty;
+      updateUnsavedChangesUi();
+    }
+
+    function setSaveAllBusy(isBusy) {
+      if (!saveAllChangesBtn) return;
+      if (isBusy) saveAllChangesBtn.dataset.saving = 'true';
+      else delete saveAllChangesBtn.dataset.saving;
+      saveAllChangesBtn.disabled = isBusy || !hasUnsavedChanges();
+      saveAllChangesBtn.textContent = isBusy ? 'SAVING...' : 'SAVE ALL CHANGES';
+    }
+
+    async function saveAllDirtyItems() {
+      const dirtyItems = getDirtyItems();
+      if (!dirtyItems.length) return;
+      setSaveAllBusy(true);
+      setStatus(shopStatus, 'Saving ' + dirtyItems.length + ' changed gift' + (dirtyItems.length === 1 ? '' : 's') + '...');
+      let saved = 0;
+      let failed = 0;
+      for (const article of dirtyItems) {
+        if (!article.isConnected || !article.classList.contains('is-dirty')) continue;
+        if (typeof article._saveItemChanges !== 'function') {
+          failed++;
+          continue;
+        }
+        const ok = await article._saveItemChanges({ refreshAfterSave: false, openAfterCreate: false });
+        if (ok) saved++;
+        else failed++;
+      }
+      refreshItemsView();
+      setSaveAllBusy(false);
+      updateUnsavedChangesUi();
+      if (failed) {
+        const remaining = getDirtyItems();
+        setStatus(
+          shopStatus,
+          (saved ? saved + ' saved. ' : '') + failed + ' gift' + (failed === 1 ? '' : 's') + ' still need review before saving.',
+          'error'
+        );
+        if (remaining[0]) remaining[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      setStatus(shopStatus, saved ? 'All changes saved.' : '', 'success');
+    }
+
     function updateItemsStatus() {
       const items = itemsList.querySelectorAll('.item');
       const total = items.length;
@@ -2478,6 +2875,19 @@
       return response.json();
     }
 
+    async function fetchInitialItem() {
+      const response = await fetch(restUrl('gift_shop_items', {
+        select: '*,gift_shop_listings(*)',
+        id: 'eq.' + initialItemId,
+        limit: '1'
+      }), {
+        headers: authHeaders({ Accept: 'application/json' }),
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Could not load this gift.'));
+      return response.json();
+    }
+
     async function insertItem(payload) {
       const response = await fetch(restUrl('gift_shop_items'), {
         method: 'POST',
@@ -2539,11 +2949,11 @@
       if (!response.ok) throw new Error(await readError(response, 'Could not remove listing.'));
     }
 
-    function renderEmpty() {
+    function renderEmpty(message) {
       itemsList.innerHTML = '';
       const div = document.createElement('div');
       div.className = 'empty';
-      div.textContent = 'No items yet. Click ADD to start.';
+      div.textContent = message || 'No items yet. Click ADD to start.';
       itemsList.appendChild(div);
     }
 
@@ -2625,8 +3035,9 @@
             if (e && e.listingId) removed.push(e.listingId);
             entries.delete(city);
             renderChips();
-            // Unlisting frees the city — surface it again in the add picker.
+            // Unlisting frees the city - surface it again in the add picker.
             renderOptions(searchEl.value);
+            markItemDirty(article, 'Unsaved city changes.');
           });
           chip.appendChild(x);
           chipsEl.appendChild(chip);
@@ -2648,13 +3059,18 @@
       }
 
       function commitSelected() {
+        let added = 0;
         Array.from(selectEl.selectedOptions).forEach((o) => {
-          if (o.value && !entries.has(o.value)) entries.set(o.value, { listingId: null, position: 0 });
+          if (o.value && !entries.has(o.value)) {
+            entries.set(o.value, { listingId: null, position: 0 });
+            added++;
+          }
         });
         renderChips();
         // Refresh the list so just-added cities drop out; keep the picker ready.
         searchEl.value = '';
         renderOptions('');
+        if (added) markItemDirty(article, 'Unsaved city changes.');
       }
 
       addSelectedBtn.addEventListener('click', commitSelected);
@@ -2674,6 +3090,7 @@
         entries.set(c, { listingId: null, position: 0 });
         renderChips();
         renderOptions(searchEl.value);
+        markItemDirty(article, 'Unsaved city changes.');
         return true;
       };
 
@@ -2771,8 +3188,10 @@
         }
         if (Object.prototype.hasOwnProperty.call(opts, 'certifiedAt')) payload.certified_at = opts.certifiedAt;
         if (Object.prototype.hasOwnProperty.call(opts, 'archived')) payload.archived = !!opts.archived;
+        article.dataset.saving = 'true';
         setItemStatus('Saving…');
         try {
+          const wasNewItem = !article.dataset.id;
           const saved = article.dataset.id
             ? await updateItem(article.dataset.id, payload)
             : await insertItem(payload);
@@ -2786,15 +3205,27 @@
           setItemStatus(opts.certifiedAt
             ? 'Saved & published ' + formatCertDate(opts.certifiedAt) + '.'
             : (opts.archived ? 'Saved & archived.' : 'Saved.'), 'success');
+          clearItemDirty(article);
           setTimeout(() => setItemStatus(''), 2200);
-          if (fannedOut) { await showShop(); } else { refreshItemsView(); }
+          if (wasNewItem && article.dataset.id && opts.openAfterCreate !== false) {
+            openSingleGiftInStockRoom(article.dataset.id);
+            return true;
+          }
+          if (opts.refreshAfterSave !== false) {
+            if (fannedOut && !hasUnsavedChanges()) { await showShop(); }
+            else { refreshItemsView(); }
+          }
           return true;
         } catch (error) {
           console.error(error);
           setItemStatus(error instanceof Error ? error.message : String(error), 'error');
           return false;
+        } finally {
+          delete article.dataset.saving;
         }
       }
+
+      article._saveItemChanges = (saveOpts = {}) => doSave(saveOpts);
 
       // Focus picker: 400×220 frame matching the public card-media
       // aspect ratio (154px tall × ≥280px wide, scaled up for usability).
@@ -2962,6 +3393,7 @@
         currentFocus.y = lastLayout.overflowY > 0 ? (-ty / lastLayout.overflowY) * 100 : 50;
         writeFocus();
         applyTransform();
+        markItemDirty(article, 'Unsaved image crop.');
       });
       const endDrag = (e) => {
         if (!dragging) return;
@@ -2975,6 +3407,12 @@
 
       const statusEl = article.querySelector('[data-status]');
       const setItemStatus = (msg, kind = '') => setStatus(statusEl, msg, kind);
+      article.addEventListener('input', (event) => {
+        if (event.target && event.target.matches('[data-field]')) markItemDirty(article);
+      });
+      article.addEventListener('change', (event) => {
+        if (event.target && event.target.matches('[data-field]')) markItemDirty(article);
+      });
 
       const savePublishButton = article.querySelector('[data-action="save-publish"]');
       const saveArchiveButton = article.querySelector('[data-action="save-archive"]');
@@ -3106,6 +3544,7 @@
               });
             }
 
+            if (filled || citiesAdded) markItemDirty(article);
             const parts = [];
             if (filled) parts.push('filled blank fields');
             if (citiesAdded) parts.push('added ' + citiesAdded + ' cit' + (citiesAdded === 1 ? 'y' : 'ies'));
@@ -3144,7 +3583,8 @@
         });
         if (!ok) return;
         if (!id) {
-          // Brand-new row never saved — just remove from DOM.
+          // Brand-new row never saved - just remove from DOM.
+          clearItemDirty(article);
           article.remove();
           if (!itemsList.children.length) renderEmpty();
           applyItemsPagination();
@@ -3153,6 +3593,7 @@
         setItemStatus('Deleting…');
         try {
           await deleteItem(id);
+          clearItemDirty(article);
           article.remove();
           if (!itemsList.children.length) renderEmpty();
           applyItemsPagination();
@@ -3176,13 +3617,18 @@
 
     async function renderAllItems() {
       itemsList.innerHTML = '';
-      setStatus(shopStatus, 'Loading items…');
+      updateUnsavedChangesUi();
+      setStatus(shopStatus, isInitialItemMode ? 'Loading gift...' : 'Loading items...');
       try {
-        const items = await fetchAllItems();
+        const items = isInitialItemMode ? await fetchInitialItem() : await fetchAllItems();
         allGiftItemsCache = Array.isArray(items) ? items : [];
         if (!items.length) {
-          renderEmpty();
-          setStatus(shopStatus, '');
+          renderEmpty(isInitialItemMode ? 'Gift not found.' : undefined);
+          setStatus(
+            shopStatus,
+            isInitialItemMode ? 'Gift not found for item=' + initialItemId + '.' : '',
+            isInitialItemMode ? 'error' : ''
+          );
           return;
         }
         items.forEach((item) => appendItemRow(item));
@@ -3273,7 +3719,8 @@
       // Already removed (e.g. deleted from inside the modal) — nothing to place.
       if (!article.isConnected && body && !body.contains(article)) return;
       if (!saved && article.classList.contains('is-new')) {
-        // Cancelled a brand-new, never-saved gift — discard it.
+        // Cancelled a brand-new, never-saved gift - discard it.
+        clearItemDirty(article);
         article.remove();
         if (!itemsList.children.length) renderEmpty();
         applyItemsPagination();
@@ -3987,6 +4434,7 @@ $$;`.trim();
       if (itemSortSelect) itemSortSelect.disabled = true;
       if (recentFilter) recentFilter.disabled = true;
       if (itemSearchInput) itemSearchInput.disabled = true;
+      if (clearFiltersBtn) clearFiltersBtn.disabled = true;
       setCityFilterEnabled(false);
       if (newGiftCityInput) newGiftCityInput.disabled = true;
       if (addGiftCityBtn) addGiftCityBtn.disabled = true;
@@ -3998,6 +4446,7 @@ $$;`.trim();
         if (itemSortSelect) itemSortSelect.disabled = false;
         if (recentFilter) recentFilter.disabled = false;
         if (itemSearchInput) itemSearchInput.disabled = false;
+        if (clearFiltersBtn) clearFiltersBtn.disabled = false;
         setCityFilterEnabled(true);
         if (newGiftCityInput) newGiftCityInput.disabled = false;
         if (addGiftCityBtn) addGiftCityBtn.disabled = false;
@@ -4008,6 +4457,7 @@ $$;`.trim();
         if (itemSortSelect) itemSortSelect.disabled = false;
         if (recentFilter) recentFilter.disabled = false;
         if (itemSearchInput) itemSearchInput.disabled = false;
+        if (clearFiltersBtn) clearFiltersBtn.disabled = false;
         setCityFilterEnabled(true);
         if (newGiftCityInput) newGiftCityInput.disabled = false;
         if (addGiftCityBtn) addGiftCityBtn.disabled = false;

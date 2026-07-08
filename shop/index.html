@@ -277,18 +277,20 @@
     body.home-page .card-media[data-has-image="true"] .card-monogram {
       display: none;
     }
+    /* Contained products (book covers, portrait items) sit on a calm, softly
+       game-tinted panel instead of a busy blown-up copy of their own art. */
     body.home-page .card-media[data-image-fit="contain"] {
       background:
-        linear-gradient(180deg, rgba(8, 11, 17, 0.20), rgba(8, 11, 17, 0.72)),
-        var(--gift-contain-image) center / cover no-repeat,
+        radial-gradient(130% 110% at 50% 0%, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 62%),
+        linear-gradient(180deg, rgba(10, 13, 19, 0.72), rgba(6, 9, 14, 0.94)),
         var(--card-game-color, var(--accent));
     }
     body.home-page .card-media[data-image-fit="contain"] .card-image {
       z-index: 1;
       box-sizing: border-box;
-      padding: 8px;
+      padding: 14px;
       object-fit: contain;
-      filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.36));
+      filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.5));
     }
 
     body.home-page .card-body {
@@ -312,6 +314,55 @@
     }
 
     body.home-page .card-game-eyebrow { display: none; }
+    body.home-page .card-city-tags {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 6px;
+      margin: 0;
+      font-family: "JetBrains Mono", "Menlo", "Consolas", monospace;
+      line-height: 1.25;
+      /* Single-row horizontal scroller: click-drag with the mouse (or swipe on
+         touch) to advance/rewind through the cities. Scrollbar hidden. */
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      touch-action: pan-x;
+      cursor: grab;
+      -webkit-overflow-scrolling: touch;
+    }
+    body.home-page .card-city-tags::-webkit-scrollbar { width: 0; height: 0; display: none; }
+    body.home-page .card-city-tags.is-dragging {
+      cursor: grabbing;
+      scroll-behavior: auto;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    body.home-page .card-city-tags.is-dragging .card-city-tag { cursor: grabbing; }
+    body.home-page .card-city-tag {
+      display: inline-flex;
+      align-items: center;
+      flex: 0 0 auto;
+      white-space: nowrap;
+      padding: 3px 7px;
+      border: 1px solid rgba(243, 238, 220, 0.28);
+      border-radius: 999px;
+      background: rgba(243, 238, 220, 0.08);
+      color: rgba(243, 238, 220, 0.78);
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-decoration: none;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    body.home-page .card-city-tag:hover,
+    body.home-page .card-city-tag:focus-visible {
+      border-color: rgba(243, 238, 220, 0.62);
+      background: rgba(243, 238, 220, 0.16);
+      color: #fff;
+      outline: none;
+    }
     body.home-page .card-price { color: var(--ink); }
     /* Prices are not shown anywhere in the public gift shop. */
     body.home-page .card-price,
@@ -362,9 +413,22 @@
       line-height: 1.05;
       letter-spacing: 0;
       text-transform: uppercase;
+      /* Bound the title to 2 lines so a long name can't crowd out the
+         cities/caption below it in the fixed-height card. */
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
 
     body.home-page .card-caption {
+      /* flex:0 0 auto keeps the caption at its full clamped height so the
+         line-clamp ellipsis shows — without it the caption shrinks and the
+         text gets sliced off (horizontal cut) with no "…". Overflowing words
+         wrap instead of running past the card edge. */
+      position: relative;
+      flex: 0 0 auto;
       min-height: 0;
       color: rgba(243, 238, 220, 0.72);
       font-family: "JetBrains Mono", "Menlo", "Consolas", monospace;
@@ -376,22 +440,30 @@
       line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
-    /* "More" link on cards whose description is truncated — opens the detail
-       lightbox. Sits between the caption and the CTA. */
+    /* "more" affordance for truncated captions — sits inline at the end of the
+       last clamped line (bottom-right of the caption) with a gradient fade so
+       it reads as part of the sentence: "…records, a… more". Opens the detail
+       lightbox. */
     body.home-page .card-more {
-      align-self: flex-start;
-      margin-top: 2px;
-      padding: 0;
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      padding: 0 0 0 2.6em;
       border: 0;
-      background: transparent;
+      /* Fade the underlying text into the card surface so "more" doesn't
+         collide with the clamped text behind it. */
+      background: linear-gradient(to right, rgba(0, 0, 0, 0) 0%, var(--card-paper) 34%, var(--card-paper) 100%);
       color: var(--accent);
       font-family: "JetBrains Mono", "Menlo", "Consolas", monospace;
-      font-size: 0.7rem;
+      font-size: 0.8rem;
       font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      line-height: 1.4;
+      letter-spacing: 0;
+      text-transform: lowercase;
       text-decoration: underline;
       cursor: pointer;
     }
@@ -1241,11 +1313,7 @@
       const applyContain = () => {
         img.style.objectFit = 'contain';
         img.style.objectPosition = focus || '50% 50%';
-        if (media) {
-          const imageUrl = String(img.currentSrc || img.src || (item && item.image_url) || '').replace(/["\\]/g, '\\$&');
-          media.dataset.imageFit = 'contain';
-          if (imageUrl) media.style.setProperty('--gift-contain-image', 'url("' + imageUrl + '")');
-        }
+        if (media) media.dataset.imageFit = 'contain';
       };
       if (shouldContainGiftImage(item)) {
         applyContain();
@@ -1321,6 +1389,145 @@
       const bt = String(b && b.item && b.item.title || '').trim();
       return at.localeCompare(bt, undefined, { sensitivity: 'base', numeric: true }) ||
         String(a && a.item && a.item.id || '').localeCompare(String(b && b.item && b.item.id || ''));
+    }
+
+    function sampleOneGiftEntryPerCity(entries) {
+      const buckets = new Map();
+      (Array.isArray(entries) ? entries : []).forEach((entry) => {
+        const cities = Array.isArray(entry && entry.cities) ? entry.cities : [];
+        cities.forEach((cityValue) => {
+          const city = String(cityValue || '').trim();
+          if (!city) return;
+          if (!buckets.has(city)) buckets.set(city, []);
+          buckets.get(city).push(entry);
+        });
+      });
+      const usedItemIds = new Set();
+      const sampled = [];
+      [...buckets.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], undefined, { sensitivity: 'base', numeric: true }))
+        .forEach(([city, bucket]) => {
+          let candidates = bucket.filter((entry) => {
+            const id = String(entry && entry.item && entry.item.id || '');
+            return id && !usedItemIds.has(id);
+          });
+          if (!candidates.length) {
+            candidates = bucket.filter((entry) => String(entry && entry.item && entry.item.id || ''));
+          }
+          if (!candidates.length) return;
+          const pick = candidates[Math.floor(Math.random() * candidates.length)];
+          usedItemIds.add(String(pick && pick.item && pick.item.id || ''));
+          sampled.push(Object.assign({}, pick, { sampleCity: city }));
+        });
+      return sampled;
+    }
+
+    function normalizeGiftCities(cities) {
+      const seen = new Map();
+      (Array.isArray(cities) ? cities : []).forEach((cityValue) => {
+        const city = String(cityValue || '').trim();
+        if (!city) return;
+        const key = city.toLowerCase();
+        if (!seen.has(key)) seen.set(key, city);
+      });
+      return Array.from(seen.values())
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
+    }
+
+    function appendGiftCityTags(body, cities) {
+      const labels = normalizeGiftCities(cities);
+      if (!labels.length || !body) return;
+      const tags = document.createElement('div');
+      tags.className = 'card-city-tags';
+      labels.forEach((city) => {
+        const tag = document.createElement('span');
+        tag.className = 'card-city-tag';
+        tag.setAttribute('role', 'link');
+        tag.tabIndex = 0;
+        tag.dataset.city = city;
+        tag.textContent = cityDisplayName(city) || city;
+        tag.title = 'Shop ' + city;
+        const openCity = (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          window.location.href = giftCityHref(city);
+        };
+        tag.addEventListener('click', openCity);
+        tag.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') openCity(event);
+        });
+        tags.appendChild(tag);
+      });
+      attachCityTagDragScroll(tags);
+      body.appendChild(tags);
+    }
+
+    // Make a horizontal city-tag row draggable: click-drag with the mouse (or
+    // swipe on touch) advances/rewinds the strip. A drag is distinguished from a
+    // click by a small movement threshold; once dragging, the trailing click is
+    // swallowed in the capture phase so it neither navigates to a city nor fires
+    // the parent card's click handler.
+    function attachCityTagDragScroll(el) {
+      let down = false, moved = false, startX = 0, startScroll = 0, pid = null;
+      el.addEventListener('pointerdown', (e) => {
+        if (e.button != null && e.button > 0) return; // primary button / touch only
+        down = true;
+        moved = false;
+        startX = e.clientX;
+        startScroll = el.scrollLeft;
+        pid = e.pointerId;
+      });
+      el.addEventListener('pointermove', (e) => {
+        if (!down) return;
+        const dx = e.clientX - startX;
+        if (!moved && Math.abs(dx) > 4) {
+          moved = true;
+          el.classList.add('is-dragging');
+          try { el.setPointerCapture(pid); } catch (_) {}
+        }
+        if (moved) {
+          e.preventDefault();
+          el.scrollLeft = startScroll - dx;
+        }
+      });
+      const end = () => {
+        if (!down) return;
+        down = false;
+        if (moved) {
+          el.classList.remove('is-dragging');
+          try { el.releasePointerCapture(pid); } catch (_) {}
+        }
+      };
+      el.addEventListener('pointerup', end);
+      el.addEventListener('pointercancel', end);
+      // Capture-phase click guard: if the pointer moved (a drag), cancel the
+      // click before it reaches a city chip or the card itself.
+      el.addEventListener('click', (e) => {
+        if (moved) {
+          e.preventDefault();
+          e.stopPropagation();
+          moved = false;
+        }
+      }, true);
+    }
+
+    function buildGiftItemCities(listings) {
+      const citiesByItemId = new Map();
+      (Array.isArray(listings) ? listings : []).forEach((listing) => {
+        const item = listing && listing.gift_shop_items;
+        if (!item || item.id == null) return;
+        if (item.gift_card_game_id) return;
+        const city = String(listing && listing.city || '').trim();
+        if (!city) return;
+        const id = String(item.id);
+        if (!citiesByItemId.has(id)) citiesByItemId.set(id, new Set());
+        citiesByItemId.get(id).add(city);
+      });
+      const result = new Map();
+      citiesByItemId.forEach((cities, id) => {
+        result.set(id, normalizeGiftCities(Array.from(cities)));
+      });
+      return result;
     }
 
     function getMonogram(title) {
@@ -1541,9 +1748,12 @@
       return card;
     }
 
-    // Show a "More" affordance once the description is long enough to clamp.
-    function shouldShowMore(desc) {
-      return String(desc || '').length > 120;
+    // Every card gets a "more" affordance into the detail lightbox — whether or
+    // not the caption is truncated. When the text is clamped it reads as the
+    // continuation ("…records, a… more"); when it fits, it's still an explicit
+    // door into the full details.
+    function attachMoreAffordance(captionEl, item, opts) {
+      captionEl.appendChild(buildMoreLink(item, opts));
     }
 
     // A "More" link that opens the detail lightbox. Built as a role=button span
@@ -1576,10 +1786,6 @@
       const descEl  = document.getElementById('giftDetailDesc');
       const ctaWrap = document.getElementById('giftDetailCtaWrap');
 
-      // The CTA element is built further down; capturing it here lets the
-      // thumbnail trigger the same action (open the affiliate URL / buy flow).
-      let ctaEl = null;
-
       media.innerHTML = '';
       media.classList.remove('is-clickable');
       media.style.removeProperty('--card-game-color');
@@ -1592,15 +1798,23 @@
         img.referrerPolicy = 'no-referrer';
         applyGiftImageDisplay(img, item, media);
         media.appendChild(img);
-        // Clicking the thumbnail does whatever the CTA does.
-        media.classList.add('is-clickable');
-        media.setAttribute('role', 'link');
-        media.tabIndex = 0;
-        const activate = () => { if (ctaEl) ctaEl.click(); };
-        media.addEventListener('click', activate);
-        media.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
-        });
+        // Clicking the image opens the full-size zoom — the same behaviour as
+        // clicking a product image on the shop grid (not the buy/CTA action).
+        const isBanner = /shop_banner\.png(?:$|\?)/.test(imageUrl);
+        if (!isBanner) {
+          media.classList.add('is-clickable');
+          media.setAttribute('role', 'button');
+          media.setAttribute('aria-label', 'View full-size image');
+          media.tabIndex = 0;
+          const zoom = (e) => {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            if (window.TgbImageZoom) window.TgbImageZoom.open(img.currentSrc || imageUrl, img.alt);
+          };
+          media.addEventListener('click', zoom);
+          media.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') zoom(e);
+          });
+        }
       } else {
         const mono = document.createElement('div');
         mono.className = 'gift-detail-monogram';
@@ -1631,7 +1845,6 @@
             engine: item.engine || opts.engine || ''
           });
         });
-        ctaEl = btn;
         ctaWrap.appendChild(btn);
       } else {
         const url = String(item.url || '').trim();
@@ -1642,15 +1855,8 @@
           a.target = '_blank';
           a.rel = 'noopener nofollow sponsored';
           a.textContent = affiliateCtaLabel(url, item.price_display);
-          ctaEl = a;
           ctaWrap.appendChild(a);
         }
-      }
-      // If there's no CTA (e.g. an item with no url), the thumbnail isn't a link.
-      if (!ctaEl) {
-        media.classList.remove('is-clickable');
-        media.removeAttribute('role');
-        media.removeAttribute('tabindex');
       }
 
       el.hidden = false;
@@ -1665,7 +1871,9 @@
     });
     document.addEventListener('keydown', (e) => {
       const el = document.getElementById('giftDetail');
-      if (e.key === 'Escape' && el && !el.hidden) closeGiftDetail();
+      const zoom = document.getElementById('imageZoom');
+      // When the full-size zoom is open on top, let Escape close it first.
+      if (e.key === 'Escape' && el && !el.hidden && (!zoom || zoom.hidden)) closeGiftDetail();
     });
 
     function createCard(item, opts = {}) {
@@ -1730,11 +1938,12 @@
         ge.textContent = gameNames.join(' / ');
         body.appendChild(ge);
       }
-
       const title = document.createElement('h2');
       title.className = 'card-title';
       title.textContent = escapeText(item.title || 'Untitled item');
       body.appendChild(title);
+
+      appendGiftCityTags(body, opts.cities);
 
       const price = String(item.price_display || '').trim();
       if (price) {
@@ -1749,8 +1958,8 @@
         const captionEl = document.createElement('p');
         captionEl.className = 'card-caption';
         captionEl.textContent = desc;
+        attachMoreAffordance(captionEl, item, opts);
         body.appendChild(captionEl);
-        if (shouldShowMore(desc)) body.appendChild(buildMoreLink(item, opts));
       }
 
       const cta = document.createElement('span');
@@ -1836,11 +2045,12 @@
         ge.textContent = gameNames.join(' / ');
         body.appendChild(ge);
       }
-
       const title = document.createElement('h2');
       title.className = 'card-title';
       title.textContent = escapeText(item.title || 'Game access');
       body.appendChild(title);
+
+      appendGiftCityTags(body, opts.cities);
 
       const price = String(item.price_display || '').trim();
       if (price) {
@@ -1855,8 +2065,8 @@
         const captionEl = document.createElement('p');
         captionEl.className = 'card-caption';
         captionEl.textContent = desc;
+        attachMoreAffordance(captionEl, item, opts);
         body.appendChild(captionEl);
-        if (shouldShowMore(desc)) body.appendChild(buildMoreLink(item, opts));
       }
 
       const cta = document.createElement('span');
@@ -1929,6 +2139,7 @@
         const safeItems    = Array.isArray(allItems) ? allItems : [];
         const safeShopCities = Array.isArray(shopCities) ? shopCities : [];
         const cityData = buildGiftCityEntries(safeShopCities, safeListings, safeItems, safeGames);
+        const giftItemCities = buildGiftItemCities(safeListings);
         renderGiftCityRail(cityData);
 
         // ── Single-item view (?item=<gift_shop_items.id>) — the admin's
@@ -1951,7 +2162,7 @@
             ? 'Game Souvenirs and Other Curated Memorabilia'
             : 'Preview — this gift is not currently published in the shop.';
           if (itemName) document.title = itemName.toUpperCase() + ' | GIFT SHOP | THE GAME BUREAU';
-          const card = item ? createCard(item, {}) : null;
+          const card = item ? createCard(item, { cities: giftItemCities.get(String(item.id)) || [] }) : null;
           gridEl.innerHTML = '';
           if (card) {
             gridEl.appendChild(card);
@@ -2011,28 +2222,37 @@
           if (item.gift_card_game_id) continue; // generated game cards own this
           if (isHiddenGiftItem(item)) continue; // kept for dedupe, hidden from public shop
           if (!isCertified(item)) continue;     // only show certified gifts
-          if (!grouped.has(item.id)) grouped.set(item.id, { item });
+          if (!grouped.has(item.id)) {
+            grouped.set(item.id, { item, cities: giftItemCities.get(String(item.id)) || [] });
+          }
         }
 
         // Gifts are city-based now (not game-based), so no per-game name/color tags.
-        const giftEntries = [];
-        for (const { item } of grouped.values()) {
-          giftEntries.push({ item, opts: {} });
+        let giftEntries = [];
+        for (const { item, cities } of grouped.values()) {
+          giftEntries.push({ item, opts: { cities }, cities });
         }
 
-        // Every other item that isn't already shown via a listing — so the shop
-        // shows everything, with or without a game attached.
-        ((requestedCity || requestedGameId) ? [] : safeItems)
-          .filter((item) => item && item.id != null)
-          .filter((item) => !grouped.has(item.id))   // not already shown via a listing
-          .filter((item) => !item.gift_card_game_id)  // generated game cards own access-code products
-          .filter((item) => !isHiddenGiftItem(item))
-          .filter(isCertified)                        // only show certified gifts
-          .forEach((item) => giftEntries.push({ item, opts: {} }));
+        // On the unfiltered landing view, show a browseable city sampler
+        // instead of dumping every certified gift at once. City/game filters
+        // still show the full matching list.
+        const isDefaultLandingView = !requestedCity && !requestedGameId;
+        if (isDefaultLandingView) {
+          giftEntries = sampleOneGiftEntryPerCity(giftEntries);
+        }
 
-        // Alphabetical by item title. (Entries were already filtered to
-        // certified, non-hidden items as they were collected above.)
-        giftEntries.sort(compareGiftEntries);
+        // Default landing view reads city-by-city; filtered views keep the
+        // normal alphabetical-by-title ordering.
+        if (isDefaultLandingView) {
+          giftEntries.sort((a, b) => {
+            const ac = String(a && a.sampleCity || '').trim();
+            const bc = String(b && b.sampleCity || '').trim();
+            return ac.localeCompare(bc, undefined, { sensitivity: 'base', numeric: true }) ||
+              compareGiftEntries(a, b);
+          });
+        } else {
+          giftEntries.sort(compareGiftEntries);
+        }
         const itemCards = giftEntries
           .map(({ item, opts }) => createCard(item, opts))
           .filter(Boolean);
@@ -2153,6 +2373,10 @@
       document.addEventListener('keydown', function (event) {
         if (!zoom.hidden && event.key === 'Escape') closeZoom();
       });
+
+      // Exposed so the gift-detail popup can open the same full-size zoom when
+      // its image is clicked (parity with clicking a product image on the grid).
+      window.TgbImageZoom = { open: openZoom, close: closeZoom };
     }());
   </script>
 </body>

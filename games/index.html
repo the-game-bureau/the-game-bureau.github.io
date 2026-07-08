@@ -305,6 +305,13 @@
       let selectedEntryKind = '';
       let selectedEntryKey  = '';
       let liveGames = [];
+      let defaultCitySampleGames = [];
+      const DEFAULT_CITY_SAMPLE_KIND = 'default-city-sample';
+      const DEFAULT_CITY_SAMPLE_ENTRY = Object.freeze({
+        entryKind: DEFAULT_CITY_SAMPLE_KIND,
+        entryKey: '*',
+        label: 'One Random Game Per City'
+      });
       // All rows as fetched (before the public archived/past-date filters). Kept so
       // an admin can toggle "show all games" and we re-filter without a refetch.
       let rawGames = [];
@@ -913,12 +920,7 @@
         selectedEntryKind = '';
         selectedEntryKey  = '';
         refreshSelectionStyles();
-        if (selectedGamesGridEl) selectedGamesGridEl.innerHTML = '';
-        if (selectedGamesTitleEl) selectedGamesTitleEl.textContent = '';
-        if (selectedGamesEl) {
-          selectedGamesEl.hidden = true;
-          selectedGamesEl.classList.remove('is-fresh');
-        }
+        renderDefaultSelectedGames({ scroll: false });
         writeUrlState();
       }
 
@@ -969,7 +971,10 @@
         const fan = params.get('fan');
         const key = city ? 'city|' + city : fan ? 'fan|' + fan : '';
         if (!key) {
-          if (selectedEntryKind) clearSelectedEntry();
+          selectedEntryKind = '';
+          selectedEntryKey = '';
+          refreshSelectionStyles();
+          renderDefaultSelectedGames({ scroll: false, animate: false });
           return;
         }
         const entry = heroMetaEntries.get(key);
@@ -1251,7 +1256,32 @@
       // ---------------------------------------------------------------------------
       // Selected-games rendering
       // ---------------------------------------------------------------------------
+      function sampleOneGamePerCity(games) {
+        const buckets = new Map();
+        (Array.isArray(games) ? games : []).forEach((game) => {
+          const city = getCity(game);
+          if (!city) return;
+          if (!buckets.has(city)) buckets.set(city, []);
+          buckets.get(city).push(game);
+        });
+        return [...buckets.entries()]
+          .sort((left, right) => left[0].localeCompare(right[0], undefined, { sensitivity: 'base' }))
+          .map(([, bucket]) => bucket[Math.floor(Math.random() * bucket.length)])
+          .filter(Boolean);
+      }
+
+      function refreshDefaultCitySampleGames() {
+        defaultCitySampleGames = sampleOneGamePerCity(liveGames);
+      }
+
+      function renderDefaultSelectedGames(options) {
+        renderSelectedGames(DEFAULT_CITY_SAMPLE_ENTRY, options || { scroll: false, animate: false });
+      }
+
       function gamesForEntry(entry) {
+        if (entry.entryKind === DEFAULT_CITY_SAMPLE_KIND) {
+          return defaultCitySampleGames.slice();
+        }
         if (entry.entryKind === 'all') {
           // Admin "show all" view — every game currently in liveGames, including
           // ones that don't bucket into any city/fan entry.
@@ -1372,11 +1402,21 @@
         if (!selectedGamesEl || !selectedGamesGridEl || !selectedGamesTitleEl) return;
         const shouldScroll = !options || options.scroll !== false;
         const shouldAnimate = !options || options.animate !== false;
-        const games = gamesForEntry(entry).slice().sort((a, b) => {
+        const games = gamesForEntry(entry).slice();
+        const byGameDate = (a, b) => {
           const da = (a.game_date || '') + (a.start_time || '');
           const db = (b.game_date || '') + (b.start_time || '');
           return da.localeCompare(db);
-        });
+        };
+        if (entry.entryKind === DEFAULT_CITY_SAMPLE_KIND) {
+          games.sort((a, b) => {
+            const ca = cityDisplayName(getCity(a));
+            const cb = cityDisplayName(getCity(b));
+            return ca.localeCompare(cb, undefined, { sensitivity: 'base' }) || byGameDate(a, b);
+          });
+        } else {
+          games.sort(byGameDate);
+        }
         selectedGamesTitleEl.innerHTML = '';
         const countLabel = getGameCountLabel(games.length);
         let titleText = '';
@@ -1408,6 +1448,8 @@
           titleText = `${getGameCountHeadline(games.length)} in ${entry.label}`;
           const badge = cityGeoBadge(entry.label);
           if (badge) iconNode = buildGeoBadge(badge, 'selected-games-icon');
+        } else if (entry.entryKind === DEFAULT_CITY_SAMPLE_KIND) {
+          titleText = games.length ? `${entry.label} (${countLabel})` : entry.label;
         } else {
           titleText = `${entry.label} · ${countLabel}`;
         }
@@ -1777,6 +1819,7 @@
           const gd = String((game && game.game_date) || '').trim();
           return !gd || gd >= todayStr;
         });
+        refreshDefaultCitySampleGames();
         renderDirectory();
         // applyUrlSelection is idempotent — reapplying after fresh data
         // recovers any URL-bookmarked selection that wasn't yet in the
@@ -1794,10 +1837,6 @@
 
       async function load() {
         const initParams = new URLSearchParams(window.location.search);
-        const hasExplicitDirectoryMode = initParams.has('city')
-          || initParams.has('fan')
-          || initParams.get('mode') === MODE_CITY
-          || initParams.get('mode') === MODE_FAN;
         if (initParams.get('city')) activeMode = MODE_CITY;
         else if (initParams.get('fan')) activeMode = MODE_FAN;
         else if (initParams.get('mode') === 'city') activeMode = MODE_CITY;
@@ -1820,7 +1859,6 @@
           writeCache(CACHE_KEY_GAMES, games);
           writeCache(CACHE_KEY_TEAMS, teamColorsResult.teams);
           applyDirectoryData(games, teamColorsResult);
-          if (!painted && !hasExplicitDirectoryMode) tryGeolocateAndSelectNearestFan();
         } catch (error) {
           console.error(error);
           if (!painted) renderError(error instanceof Error ? error.message : String(error));
