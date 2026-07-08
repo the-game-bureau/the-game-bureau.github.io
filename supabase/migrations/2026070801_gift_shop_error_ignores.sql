@@ -22,15 +22,19 @@ grant select, insert, delete on public.gift_shop_error_ignores to authenticated;
 
 alter table public.gift_shop_error_ignores enable row level security;
 
--- Only admins may see, add, or remove ignores.
+-- Only admins may see, add, or remove ignores. (drop-then-create so this
+-- migration is safe to re-run — create policy is not idempotent.)
+drop policy if exists "Admins can read gift shop error ignores" on public.gift_shop_error_ignores;
 create policy "Admins can read gift shop error ignores"
   on public.gift_shop_error_ignores for select to authenticated
   using (public.is_photo_admin());
 
+drop policy if exists "Admins can add gift shop error ignores" on public.gift_shop_error_ignores;
 create policy "Admins can add gift shop error ignores"
   on public.gift_shop_error_ignores for insert to authenticated
   with check (public.is_photo_admin());
 
+drop policy if exists "Admins can remove gift shop error ignores" on public.gift_shop_error_ignores;
 create policy "Admins can remove gift shop error ignores"
   on public.gift_shop_error_ignores for delete to authenticated
   using (public.is_photo_admin());

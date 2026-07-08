@@ -37,6 +37,7 @@
   <script src="../assets/public-account.js"></script>
   <script src="../assets/team-palette.js"></script>
   <script src="../assets/states/us-state-shapes.js"></script>
+  <script src="../mc/js/supabase-rest.js"></script>
   <style>
     /* ── Gift shop overrides on top of site-shell.css home-page chrome.
        Body class `home-page` brings the dark night theme, nav, footer,
@@ -84,6 +85,16 @@
       font-size: 0.96rem;
     }
 
+    /* The hook: what this shop actually is. Sits under the tagline so a
+       first-time visitor gets the city connection without reading the footer. */
+    body.home-page main.gift-page .hero-sub {
+      max-width: 620px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.5;
+    }
+
     /* Tablet/mobile steps mirror the Highlights hero breakpoints. */
     @media (max-width: 980px) {
       body.home-page main.gift-page .hero {
@@ -93,6 +104,23 @@
         font-size: 3rem;
       }
     }
+
+    /* Landing-view nudge: the grid shows one pick per city, so point browsers
+       to the full list (?all=1) instead of leaving half the shop hidden. */
+    body.home-page .gift-sample-nudge {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    body.home-page .gift-sample-nudge-link {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: underline;
+      white-space: nowrap;
+    }
+    body.home-page .gift-sample-nudge-link:hover,
+    body.home-page .gift-sample-nudge-link:focus-visible { color: #fff; outline: none; }
 
     /* Container — mirrors body.home-page .selected-games panel. */
     body.home-page .gift-grid-wrap {
@@ -193,6 +221,20 @@
         0 1px 0 rgba(255, 255, 255, 0.06) inset,
         0 0 0 2px var(--accent),
         0 12px 26px rgba(0, 0, 0, 0.4);
+    }
+    /* "All Cities" globe badge — sits in the same 44×30 shape slot as the state
+       badges, echoing their white-shape + dark-detail treatment (white disc,
+       dark lat/long lines) so the rail reads as one set. */
+    body.home-page .hero-meta-list-geo--globe .globe-disc {
+      fill: #ffffff;
+      stroke: none;
+    }
+    body.home-page .hero-meta-list-geo--globe .globe-grid {
+      fill: none;
+      stroke: #111111;
+      stroke-width: 1.2;
+      vector-effect: non-scaling-stroke;
+      stroke-linecap: round;
     }
 
     body.home-page .grid {
@@ -368,15 +410,21 @@
     body.home-page .card-price,
     .gift-detail-price { display: none !important; }
 
-    /* Admin-only logout pill (upper-right). Mirrors admin-bridge's EDIT GIFT
-       button; hidden unless admin-bridge has verified a logged-in admin
-       (it adds html.tgb-admin-authorized). */
-    .gift-admin-logout {
+    /* Admin-only controls (upper-right): STOCK ROOM + Log out. Mirrors
+       admin-bridge's EDIT GIFT button; hidden unless admin-bridge has verified a
+       logged-in admin (it adds html.tgb-admin-authorized). */
+    .gift-admin-controls {
       position: fixed;
       top: 14px;
       right: 14px;
       z-index: 1300;
       display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    html.tgb-admin-authorized .gift-admin-controls { display: inline-flex; }
+    .gift-admin-pill {
+      display: inline-flex;
       align-items: center;
       justify-content: center;
       min-height: 34px;
@@ -391,13 +439,13 @@
       line-height: 1;
       text-transform: uppercase;
       white-space: nowrap;
+      text-decoration: none;
       cursor: pointer;
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
       transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
     }
-    html.tgb-admin-authorized .gift-admin-logout { display: inline-flex; }
-    .gift-admin-logout:hover,
-    .gift-admin-logout:focus-visible {
+    .gift-admin-pill:hover,
+    .gift-admin-pill:focus-visible {
       background: #fff;
       color: #111;
       outline: none;
@@ -828,6 +876,7 @@
             <p class="hero-kicker"><span id="itemCount">LOADING...</span> <span id="itemLabel"></span><span id="eyebrowSuffix" hidden> / <span id="eyebrow"></span></span></p>
             <h1 class="hero-headline" id="heading">Gift Shop</h1>
             <p class="hero-copy" id="lead">Game Souvenirs and Other Curated Memorabilia</p>
+            <p class="hero-sub">Books, gear, and local finds from the cities our games take you to.</p>
           </div>
         </div>
       </section>
@@ -841,6 +890,10 @@
       </section>
 
       <section class="gift-grid-wrap" aria-label="Gift shop items">
+        <p class="gift-sample-nudge" id="giftSampleNudge" hidden>
+          You're seeing one pick per city.
+          <a class="gift-sample-nudge-link" href="/shop/?all=1">See all <span id="giftSampleTotal">0</span> gifts →</a>
+        </p>
         <div class="grid" id="grid"></div>
       </section>
 
@@ -860,6 +913,10 @@
 
     const params = new URLSearchParams(location.search);
     const requestedCity = String(params.get('city') || '').trim();
+    // "All Cities" (?all=1) is distinct from the initial landing view: the
+    // landing view shows one random gift per city (an overview), while All
+    // Cities shows EVERY gift sorted by city then name.
+    const showAllGifts = params.get('all') === '1';
     // Optional game filter. Canonical is ?id=<game-id> (matches the engine
     // URLs); ?game= is also accepted and may be an id or a game name. The raw
     // value is resolved to a real game once the games list loads (loadAllShops).
@@ -878,11 +935,12 @@
     const itemLabelEl = document.getElementById('itemLabel');
     const giftCityPanelEl = document.getElementById('giftCityPanel');
 
-    // Set the count and its singular/plural label together ("1 ITEM" vs "3 ITEMS").
+    // Set the count and its singular/plural label together ("1 GIFT SHOWING"
+    // vs "3 GIFTS SHOWING").
     function setItemCount(n) {
       const count = Number(n) || 0;
       itemCountEl.textContent = String(count);
-      if (itemLabelEl) itemLabelEl.textContent = count === 1 ? 'ITEM' : 'ITEMS';
+      if (itemLabelEl) itemLabelEl.textContent = count === 1 ? 'GIFT SHOWING' : 'GIFTS SHOWING';
     }
     const giftCityListEl = document.getElementById('giftCityList');
     const giftCityCountEl = document.getElementById('giftCityCount');
@@ -1080,6 +1138,37 @@
       return span;
     }
 
+    // Globe badge for the "All Cities" chip. Uses the same geo/shape classes as
+    // the state badges so it lands in the identical 44×30 slot and matches their
+    // look; a white disc with dark lat/long lines mirrors the state silhouettes.
+    function buildAllCitiesGlobe() {
+      const NS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('class', 'hero-meta-list-geo hero-meta-list-geo--shape hero-meta-list-geo--globe');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.setAttribute('focusable', 'false');
+      const disc = document.createElementNS(NS, 'circle');
+      disc.setAttribute('class', 'globe-disc');
+      disc.setAttribute('cx', '12');
+      disc.setAttribute('cy', '12');
+      disc.setAttribute('r', '10');
+      svg.appendChild(disc);
+      const grid = [
+        ['ellipse', { cx: 12, cy: 12, rx: 4.2, ry: 10 }],  // meridian
+        ['line', { x1: 2, y1: 12, x2: 22, y2: 12 }],        // equator
+        ['line', { x1: 3.8, y1: 6.3, x2: 20.2, y2: 6.3 }],  // upper latitude
+        ['line', { x1: 3.8, y1: 17.7, x2: 20.2, y2: 17.7 }],// lower latitude
+      ];
+      grid.forEach(([tag, attrs]) => {
+        const el = document.createElementNS(NS, tag);
+        el.setAttribute('class', 'globe-grid');
+        Object.keys(attrs).forEach((k) => el.setAttribute(k, String(attrs[k])));
+        svg.appendChild(el);
+      });
+      return svg;
+    }
+
     function renderGiftCityRail(cityData) {
       if (!giftCityPanelEl || !giftCityListEl) return;
       const entries = cityData && Array.isArray(cityData.entries) ? cityData.entries : [];
@@ -1124,18 +1213,17 @@
     function createGiftCityChip(entry) {
       const item = document.createElement('a');
       item.className = 'hero-meta-list-item';
-      item.href = giftCityHref(entry.city);
+      item.href = entry.isAll ? '/shop/?all=1' : giftCityHref(entry.city);
       item.dataset.city = entry.city;
-      const active = entry.isAll ? !requestedCity : entry.city === requestedCity;
+      const active = entry.isAll ? showAllGifts : entry.city === requestedCity;
       if (active) {
         item.classList.add('is-active');
         item.setAttribute('aria-current', 'true');
       }
-      // Badge slot: geo badge for a real city, empty spacer for "All Cities".
+      // Badge slot: a globe for "All Cities", the geo (state/country) badge for
+      // a real city.
       if (entry.isAll) {
-        const spacer = document.createElement('span');
-        spacer.className = 'hero-meta-list-helmet hero-meta-list-helmet--spacer';
-        item.appendChild(spacer);
+        item.appendChild(buildAllCitiesGlobe());
       } else {
         item.appendChild(buildGeoBadge(cityGeoBadge(entry.city || entry.label)));
       }
@@ -1147,7 +1235,7 @@
       copy.appendChild(name);
       const count = document.createElement('span');
       count.className = 'hero-meta-list-count';
-      count.textContent = entry.count + ' item' + (entry.count === 1 ? '' : 's');
+      count.textContent = entry.count + ' gift' + (entry.count === 1 ? '' : 's');
       item.append(copy, count);
       return item;
     }
@@ -1276,7 +1364,9 @@
       startGiftCityAutoScroll();
     }
 
-    function escapeText(value) {
+    // Coerce any value to a display string. NOTE: this does NOT escape HTML —
+    // callers must assign the result via textContent (never innerHTML).
+    function asText(value) {
       return String(value == null ? '' : value);
     }
 
@@ -1391,6 +1481,7 @@
         String(a && a.item && a.item.id || '').localeCompare(String(b && b.item && b.item.id || ''));
     }
 
+    // Landing view: pick one random gift per city (cities sorted alphabetically).
     function sampleOneGiftEntryPerCity(entries) {
       const buckets = new Map();
       (Array.isArray(entries) ? entries : []).forEach((entry) => {
@@ -1593,8 +1684,19 @@
       return res.json();
     }
 
+    // "Load the whole table" reads must paginate past PostgREST's 1000-row cap,
+    // or the tail silently vanishes once a table grows past 1000 rows (see
+    // CLAUDE.md). TgbRest.fetchAll loops with the Range header; fall back to a
+    // single unpaginated read only if the helper failed to load.
+    async function fetchAllRows(url) {
+      if (window.TgbRest && typeof window.TgbRest.fetchAll === 'function') {
+        return window.TgbRest.fetchAll(url, {});
+      }
+      return fetchJson(url);
+    }
+
     async function fetchAllListings() {
-      return fetchJson(buildSupabaseUrl('gift_shop_listings', {
+      return fetchAllRows(buildSupabaseUrl('gift_shop_listings', {
         // Listings now carry the city directly; no game join needed.
         select: '*,gift_shop_items(*)',
         archived: 'eq.false',
@@ -1603,7 +1705,7 @@
     }
 
     async function fetchGiftShopCities() {
-      return fetchJson(buildSupabaseUrl('gift_shop_cities', {
+      return fetchAllRows(buildSupabaseUrl('gift_shop_cities', {
         select: 'city,label,sort_order',
         archived: 'eq.false',
         order: 'sort_order.asc,city.asc'
@@ -1613,7 +1715,7 @@
     // Every gift_shop_items row, so the shop can show items even when they have
     // no game listing. Archived / access-code rows are filtered out by the caller.
     async function fetchAllShopItems() {
-      return fetchJson(buildSupabaseUrl('gift_shop_items', {
+      return fetchAllRows(buildSupabaseUrl('gift_shop_items', {
         select: '*',
         order: 'created_at.desc'
       }));
@@ -1625,7 +1727,7 @@
     // games.price — the only thing the client passes is game_id, so
     // there's no tampering surface.
     async function fetchAllGames() {
-      return fetchJson(buildSupabaseUrl('games_with_teams', {
+      return fetchAllRows(buildSupabaseUrl('games_with_teams', {
         select: 'id,name,tagline,price,engine,archived,primary_color,secondary_color,tertiary_color,city,away_team_city,away_team_mascot,fandom_game,tags,category_icon,logo_url,guide_image_url,away_team_key,home_team_key,away_team_tgbid,home_team_tgbid,away_team,home_team'
       }));
     }
@@ -1771,9 +1873,50 @@
       return more;
     }
 
+    // Ref-counted body-scroll lock, shared by the gift-detail dialog and the
+    // image zoom so that closing the zoom (opened on top of the dialog) doesn't
+    // unlock scrolling while the dialog is still open.
+    let scrollLockCount = 0;
+    function lockBodyScroll() {
+      if (scrollLockCount++ === 0) document.body.style.overflow = 'hidden';
+    }
+    function unlockBodyScroll() {
+      if (scrollLockCount > 0 && --scrollLockCount === 0) document.body.style.overflow = '';
+    }
+
+    // Element focused before the dialog opened, so we can restore it on close.
+    let giftDetailReturnFocus = null;
+
+    // Keep Tab focus inside the open dialog panel.
+    function trapGiftDetailFocus(event) {
+      if (event.key !== 'Tab') return;
+      const el = document.getElementById('giftDetail');
+      if (!el || el.hidden) return;
+      const focusables = el.querySelectorAll(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
     function closeGiftDetail() {
       const el = document.getElementById('giftDetail');
-      if (el) el.hidden = true;
+      if (!el || el.hidden) return;
+      el.hidden = true;
+      document.removeEventListener('keydown', trapGiftDetailFocus, true);
+      unlockBodyScroll();
+      if (giftDetailReturnFocus && typeof giftDetailReturnFocus.focus === 'function') {
+        giftDetailReturnFocus.focus();
+      }
+      giftDetailReturnFocus = null;
     }
 
     // Populate + open the full-gift lightbox (scrolls if the description is long).
@@ -1822,7 +1965,7 @@
         media.appendChild(mono);
       }
 
-      titleEl.textContent = escapeText(item.title || 'Untitled item');
+      titleEl.textContent = asText(item.title || 'Untitled item');
       const price = String(item.price_display || '').trim();
       priceEl.textContent = price;
       priceEl.hidden = !price;
@@ -1848,7 +1991,7 @@
         ctaWrap.appendChild(btn);
       } else {
         const url = String(item.url || '').trim();
-        if (url) {
+        if (/^https?:\/\//i.test(url)) {
           const a = document.createElement('a');
           a.className = 'gift-detail-cta';
           a.href = url;
@@ -1859,9 +2002,15 @@
         }
       }
 
+      giftDetailReturnFocus = document.activeElement;
       el.hidden = false;
       const body = el.querySelector('.gift-detail-body');
       if (body) body.scrollTop = 0;
+      lockBodyScroll();
+      document.addEventListener('keydown', trapGiftDetailFocus, true);
+      // Move focus into the dialog (the close button) for keyboard/AT users.
+      const closeBtn = el.querySelector('.gift-detail-close');
+      if (closeBtn) closeBtn.focus();
     }
 
     // Close on backdrop / × / Escape (delegated so it works no matter when the
@@ -1885,7 +2034,9 @@
       }
 
       const url = String(item.url || '').trim();
-      if (!url) return null;
+      // Only http(s) links render — guards against a stray javascript:/data: URL
+      // in the admin-entered url executing on click.
+      if (!/^https?:\/\//i.test(url)) return null;
 
       const card = document.createElement('a');
       card.className = 'card';
@@ -1940,7 +2091,7 @@
       }
       const title = document.createElement('h2');
       title.className = 'card-title';
-      title.textContent = escapeText(item.title || 'Untitled item');
+      title.textContent = asText(item.title || 'Untitled item');
       body.appendChild(title);
 
       appendGiftCityTags(body, opts.cities);
@@ -1971,9 +2122,14 @@
       return card;
     }
 
-    // Every gift button reads "Buy now" (CSS uppercases it to BUY NOW).
-    function affiliateCtaLabel() {
-      return 'Buy now';
+    // Affiliate CTAs name the retailer they open, so "buy" isn't a bait-and-
+    // switch — the click leaves for Amazon/Bookshop (and that's where the price
+    // lives). CSS uppercases the label and appends a "→" on cards.
+    function affiliateCtaLabel(url) {
+      const u = String(url || '').toLowerCase();
+      if (/amazon\.|amzn\.to|\ba\.co\//.test(u)) return 'View on Amazon';
+      if (/bookshop\.org/.test(u)) return 'View on Bookshop';
+      return 'View item';
     }
 
     function showGamePurchasePlaceholder(gameName) {
@@ -2047,7 +2203,7 @@
       }
       const title = document.createElement('h2');
       title.className = 'card-title';
-      title.textContent = escapeText(item.title || 'Game access');
+      title.textContent = asText(item.title || 'Game access');
       body.appendChild(title);
 
       appendGiftCityTags(body, opts.cities);
@@ -2233,21 +2389,24 @@
           giftEntries.push({ item, opts: { cities }, cities });
         }
 
-        // On the unfiltered landing view, show a browseable city sampler
-        // instead of dumping every certified gift at once. City/game filters
-        // still show the full matching list.
-        const isDefaultLandingView = !requestedCity && !requestedGameId;
-        if (isDefaultLandingView) {
+        // Three ordering modes for the unfiltered (no city/game) view:
+        //  • initial landing → one random gift per city, cities alphabetical.
+        //  • "All Cities" (?all=1) → EVERY gift, sorted by city then A→Z by name.
+        //  • a city/game filter → normal alphabetical-by-title ordering.
+        const isUnfiltered = !requestedCity && !requestedGameId;
+        const totalGiftCount = giftEntries.length; // before any per-city sampling
+        if (isUnfiltered && !showAllGifts) {
           giftEntries = sampleOneGiftEntryPerCity(giftEntries);
-        }
-
-        // Default landing view reads city-by-city; filtered views keep the
-        // normal alphabetical-by-title ordering.
-        if (isDefaultLandingView) {
           giftEntries.sort((a, b) => {
             const ac = String(a && a.sampleCity || '').trim();
             const bc = String(b && b.sampleCity || '').trim();
             return ac.localeCompare(bc, undefined, { sensitivity: 'base', numeric: true }) ||
+              compareGiftEntries(a, b);
+          });
+        } else if (isUnfiltered && showAllGifts) {
+          const primaryCity = (entry) => (normalizeGiftCities(entry && entry.cities)[0] || '');
+          giftEntries.sort((a, b) => {
+            return primaryCity(a).localeCompare(primaryCity(b), undefined, { sensitivity: 'base', numeric: true }) ||
               compareGiftEntries(a, b);
           });
         } else {
@@ -2261,6 +2420,18 @@
         const cards = []
           .concat(gameCards)
           .concat(itemCards);
+
+        // The landing view shows one pick per city, so tell the browser the rest
+        // exist and link to the full list. Only when there's genuinely more to see.
+        const sampleNudge = document.getElementById('giftSampleNudge');
+        if (sampleNudge) {
+          const showNudge = isUnfiltered && !showAllGifts && totalGiftCount > itemCards.length;
+          if (showNudge) {
+            const totalEl = document.getElementById('giftSampleTotal');
+            if (totalEl) totalEl.textContent = String(totalGiftCount);
+          }
+          sampleNudge.hidden = !showNudge;
+        }
 
         gridEl.innerHTML = '';
         if (!cards.length) {
@@ -2325,7 +2496,10 @@
   </div>
 
   <!-- Admin-only: shown only when admin-bridge verifies a logged-in admin. -->
-  <button class="gift-admin-logout" id="giftAdminLogout" type="button">Log out</button>
+  <div class="gift-admin-controls" id="giftAdminControls">
+    <a class="gift-admin-pill" id="giftAdminStockRoom" href="/shop/admin/">Stock Room</a>
+    <button class="gift-admin-pill" id="giftAdminLogout" type="button">Log out</button>
+  </div>
 
   <script src="../mc/js/gs-buy-modal.js"></script>
 
@@ -2345,15 +2519,21 @@
       if (!zoom || !zoomImg) return;
 
       function openZoom(src, alt) {
+        if (!zoom.hidden) return;
         zoomImg.src = src;
         zoomImg.alt = alt || '';
         zoom.hidden = false;
-        document.body.style.overflow = 'hidden';
+        // Shared ref-counted lock (defined in the main script) so closing the
+        // zoom over an open gift-detail dialog doesn't unlock scroll early.
+        if (typeof lockBodyScroll === 'function') lockBodyScroll();
+        else document.body.style.overflow = 'hidden';
       }
       function closeZoom() {
+        if (zoom.hidden) return;
         zoom.hidden = true;
         zoomImg.removeAttribute('src');
-        document.body.style.overflow = '';
+        if (typeof unlockBodyScroll === 'function') unlockBodyScroll();
+        else document.body.style.overflow = '';
       }
 
       // Capture-phase so an image click zooms instead of following its card link.

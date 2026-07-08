@@ -6399,5 +6399,41 @@ const WEATHER_CODE_MAP = {
   <div data-admin-edit="game-run" class="game-run-admin-edit"></div>
 
   <script src="../../assets/admin-bridge.js"></script>
+  <!-- ==========================================================================
+       TEMP · "COMING SOON" gate on the Start Game button.
+       Intercepts clicks on #startBtn and shows a popup instead of launching the
+       game engine. Temporary — DELETE THIS ENTIRE <script> BLOCK to restore play.
+       Nothing else was changed; the button and its handler are untouched.
+       ========================================================================== -->
+  <script>
+  (function () {
+    function showComingSoon() {
+      var prev = document.getElementById('tgbComingSoonToast');
+      if (prev) prev.remove();
+      var overlay = document.createElement('div');
+      overlay.id = 'tgbComingSoonToast';
+      overlay.setAttribute('role', 'status');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(4,6,10,0.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);cursor:pointer;';
+      var box = document.createElement('div');
+      box.style.cssText = 'max-width:340px;text-align:center;padding:26px 28px;border-radius:16px;border:1px solid rgba(245,180,97,0.4);background:#111a27;color:#fff;box-shadow:0 24px 60px rgba(0,0,0,0.5);';
+      box.innerHTML = '<div style="font-size:1.5rem;font-weight:800;letter-spacing:0.08em;margin-bottom:8px;">COMING SOON</div>' +
+        '<div style="color:#c8d3e0;font-size:0.9rem;line-height:1.5;">Games aren\'t quite ready to play yet — check back soon.</div>';
+      overlay.appendChild(box);
+      var close = function () { overlay.remove(); document.removeEventListener('keydown', onKey); };
+      var onKey = function (e) { if (e.key === 'Escape') close(); };
+      overlay.addEventListener('click', close);
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(overlay);
+    }
+    // Capture phase so this beats the Start button's own launch handler.
+    document.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('#startBtn') : null;
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      showComingSoon();
+    }, true);
+  }());
+  </script>
 </body>
 </html>
