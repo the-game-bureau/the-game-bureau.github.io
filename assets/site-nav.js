@@ -141,6 +141,10 @@
           '<span class="nav-stats-num" data-tgb-nav-stat="cities">0</span>' +
           '<span class="nav-stats-label">cities</span>' +
         '</div>' +
+        '<div class="nav-stats-stat">' +
+          '<span class="nav-stats-num" data-tgb-nav-stat="gifts">0</span>' +
+          '<span class="nav-stats-label">gifts</span>' +
+        '</div>' +
       '</div>';
     var statsHolder = document.createElement('div');
     statsHolder.innerHTML = statsHtml;
@@ -148,52 +152,64 @@
 
     var gamesEl = header.querySelector('[data-tgb-nav-stat="games"]');
     var citiesEl = header.querySelector('[data-tgb-nav-stat="cities"]');
+    var giftsEl = header.querySelector('[data-tgb-nav-stat="gifts"]');
 
     // ── Ticker: open-ended count-up until real numbers land ────────
     var GAME_TICK_MS = 50;
     var CITY_TICK_MS = 150;
+    var GIFT_TICK_MS = 40;
     var EASE_DURATION = 1400;
     var gameDisplayed = 0;
     var cityDisplayed = 0;
+    var giftDisplayed = 0;
     var gameTarget = null;
     var cityTarget = null;
+    var giftTarget = null;
     var lastGameTick = 0;
     var lastCityTick = 0;
+    var lastGiftTick = 0;
     var easing = false;
     var easeStart = 0;
     var easeGameFrom = 0;
     var easeCityFrom = 0;
+    var easeGiftFrom = 0;
     var raf = null;
 
     function render() {
       if (gamesEl) gamesEl.textContent = String(gameDisplayed);
       if (citiesEl) citiesEl.textContent = String(cityDisplayed);
+      if (giftsEl) giftsEl.textContent = String(giftDisplayed);
     }
     function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
     function tick(ts) {
       if (easing) {
         var t = Math.min(1, (ts - easeStart) / EASE_DURATION);
         var e = easeOutCubic(t);
-        gameDisplayed = Math.round(easeGameFrom + (gameTarget - easeGameFrom) * e);
-        cityDisplayed = Math.round(easeCityFrom + (cityTarget - easeCityFrom) * e);
+        if (gameTarget != null) gameDisplayed = Math.round(easeGameFrom + (gameTarget - easeGameFrom) * e);
+        if (cityTarget != null) cityDisplayed = Math.round(easeCityFrom + (cityTarget - easeCityFrom) * e);
+        if (giftTarget != null) giftDisplayed = Math.round(easeGiftFrom + (giftTarget - easeGiftFrom) * e);
         render();
         if (t >= 1) { easing = false; raf = null; return; }
       } else {
         if (!lastGameTick) lastGameTick = ts;
         if (!lastCityTick) lastCityTick = ts;
+        if (!lastGiftTick) lastGiftTick = ts;
         if (ts - lastGameTick >= GAME_TICK_MS) { gameDisplayed += 1; lastGameTick = ts; }
         if (ts - lastCityTick >= CITY_TICK_MS) { cityDisplayed += 1; lastCityTick = ts; }
+        if (ts - lastGiftTick >= GIFT_TICK_MS) { giftDisplayed += 1; lastGiftTick = ts; }
         render();
       }
       raf = requestAnimationFrame(tick);
     }
-    function setStats(games, cities) {
-      gameTarget = Number(games) || 0;
-      cityTarget = Number(cities) || 0;
-      if (gameDisplayed > gameTarget) gameDisplayed = gameTarget;
-      if (cityDisplayed > cityTarget) cityDisplayed = cityTarget;
+    // Merge-style setter: only the values passed (non-null) are updated, so
+    // separate fetches (games, gifts) can each land without clobbering the other.
+    function setStats(games, cities, gifts) {
+      if (games != null) { gameTarget = Number(games) || 0; if (gameDisplayed > gameTarget) gameDisplayed = gameTarget; }
+      if (cities != null) { cityTarget = Number(cities) || 0; if (cityDisplayed > cityTarget) cityDisplayed = cityTarget; }
+      if (gifts != null) { giftTarget = Number(gifts) || 0; if (giftDisplayed > giftTarget) giftDisplayed = giftTarget; }
       easeGameFrom = gameDisplayed;
       easeCityFrom = cityDisplayed;
+      easeGiftFrom = giftDisplayed;
       easeStart = performance.now();
       easing = true;
       if (!raf) raf = requestAnimationFrame(tick);
@@ -201,15 +217,16 @@
     raf = requestAnimationFrame(tick);
     window.TgbNav.setStats = setStats;
 
-    // ── Fetch live games for real targets ──────────────────────────
+    // ── Fetch live games + gift count for real targets ─────────────
     var SB_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
     var SB_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
+    var sbHeaders = {
+      apikey: SB_KEY,
+      Authorization: 'Bearer ' + SB_KEY,
+      Accept: 'application/json'
+    };
     fetch(SB_URL + '/rest/v1/games?select=city,archived&apikey=' + SB_KEY, {
-      headers: {
-        apikey: SB_KEY,
-        Authorization: 'Bearer ' + SB_KEY,
-        Accept: 'application/json'
-      },
+      headers: sbHeaders,
       cache: 'no-store'
     })
       .then(function (r) { return r.ok ? r.json() : []; })
@@ -225,8 +242,31 @@
           var c = g && g.city ? String(g.city).trim() : '';
           if (c) cities.add(c.toLowerCase());
         });
-        setStats(live.length, cities.size);
+        setStats(live.length, cities.size, null);
       })
       .catch(function () { /* leave ticker climbing; not worth surfacing */ });
+
+    // Gift count: the total number of live gifts — certified and not archived
+    // (matches the shop's public gift total, currently 462). Range 0-0 +
+    // count=exact returns just the total in Content-Range, so no rows are
+    // transferred and the 1000-row page cap is irrelevant.
+    var giftHeaders = {
+      apikey: SB_KEY,
+      Authorization: 'Bearer ' + SB_KEY,
+      Accept: 'application/json',
+      Prefer: 'count=exact',
+      Range: '0-0'
+    };
+    var giftQuery = 'gift_shop_items?select=id&certified_at=not.is.null&archived=is.false';
+    fetch(SB_URL + '/rest/v1/' + giftQuery + '&apikey=' + SB_KEY, {
+      headers: giftHeaders,
+      cache: 'no-store'
+    })
+      .then(function (r) {
+        var cr = r.headers.get('content-range') || '';
+        var total = cr.indexOf('/') >= 0 ? parseInt(cr.split('/')[1], 10) : NaN;
+        if (!isNaN(total)) setStats(null, null, total);
+      })
+      .catch(function () { /* leave gifts ticker climbing */ });
   }
 }());
