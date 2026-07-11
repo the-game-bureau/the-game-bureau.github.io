@@ -1077,6 +1077,8 @@
       cursor: pointer;
     }
     .listing-toggle:hover { background: rgba(var(--bic-blue-rgb), 0.08); border-color: var(--accent); }
+    .listing-toggle:disabled { opacity: 0.55; cursor: default; }
+    .item-listings-head-actions { display: flex; flex: 0 0 auto; gap: 6px; }
     .item-listings.is-collapsed .item-listings-picker { display: none; }
     .item-listings-list {
       display: flex;
@@ -2061,7 +2063,10 @@
         <div class="item-listings is-collapsed" data-listings>
           <div class="item-listings-head">
             <span>Shops</span>
-            <button class="listing-toggle" data-action="toggle-picker" type="button">+ Add city</button>
+            <div class="item-listings-head-actions">
+              <button class="listing-toggle" data-action="toggle-picker" type="button">+ Add city</button>
+              <button class="listing-toggle" data-action="add-new-city" type="button" title="Create a brand-new city and add this gift to it">ADD NEW</button>
+            </div>
           </div>
           <div class="item-listings-chips" data-listings-chips></div>
           <div class="item-listings-picker" data-listings-picker>
@@ -2119,6 +2124,7 @@
   <script src="/mc/js/admin-auth.js"></script>
   <script src="/mc/js/admin-shell.js"></script>
   <script src="/mc/js/admin-nav-menu.js"></script>
+  <script src="/assets/geo.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -2489,6 +2495,11 @@
     );
 
     function canonicalShopCity(value) {
+      // Prefer the shared, country/province-aware canonicalizer (assets/geo.js).
+      if (window.TgbGeo && typeof window.TgbGeo.canonicalCity === 'function') {
+        return window.TgbGeo.canonicalCity(value);
+      }
+      // Fallback: US-states-only (original behaviour) if geo.js failed to load.
       const city = String(value || '').trim().replace(/\s+/g, ' ');
       if (!city) return '';
       if (/^Washington\s+D\.?\s*C\.?$/i.test(city)) return 'Washington, D.C.';
@@ -3093,6 +3104,51 @@
         markItemDirty(article, 'Unsaved city changes.');
         return true;
       };
+
+      // "ADD NEW" — create a brand-new city in gift_shop_cities, then drop this
+      // gift straight into it. Prompts for the name, canonicalizes it, upserts,
+      // adds it to the shared cityList (so every picker sees it), and assigns it
+      // to this item as an unsaved chip.
+      const addNewCityBtn = article.querySelector('[data-action="add-new-city"]');
+      if (addNewCityBtn) {
+        addNewCityBtn.addEventListener('click', async () => {
+          const raw = window.prompt('Add a brand-new city.\n\nUse "City, State" — e.g. Portland, OR (or Washington, D.C.):');
+          if (raw == null) return;
+          const city = canonicalShopCity(raw);
+          if (!city) { setStatus(shopStatus, 'Type a city first.', 'error'); return; }
+          addNewCityBtn.disabled = true;
+          const prevText = addNewCityBtn.textContent;
+          addNewCityBtn.textContent = 'ADDING...';
+          try {
+            const row = await upsertGiftShopCity(city);
+            if (!cityList.includes(row.city)) cityList.push(row.city);
+            cityList.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
+            renderCityFilterOptions();
+            refreshCityPickers();
+            // Open this gift's picker and surface the new city in its dropdown,
+            // pre-selected so a single "Add selected" lists this gift there.
+            if (listingsEl) {
+              listingsEl.classList.remove('is-collapsed');
+              if (toggleBtn) toggleBtn.textContent = 'Done';
+            }
+            searchEl.value = '';
+            renderOptions('');
+            const newOpt = Array.from(selectEl.options).find((o) => o.value === row.city);
+            if (newOpt) {
+              newOpt.selected = true;
+              if (typeof newOpt.scrollIntoView === 'function') newOpt.scrollIntoView({ block: 'nearest' });
+            }
+            setStatus(shopStatus, 'Added ' + row.city + ' — now in the Shops list. Click "Add selected", then Save.', 'success');
+            setTimeout(() => setStatus(shopStatus, ''), 3500);
+          } catch (error) {
+            console.error(error);
+            setStatus(shopStatus, error instanceof Error ? error.message : String(error), 'error');
+          } finally {
+            addNewCityBtn.disabled = false;
+            addNewCityBtn.textContent = prevText;
+          }
+        });
+      }
 
       renderChips();
       renderOptions('');

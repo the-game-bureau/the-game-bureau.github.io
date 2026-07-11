@@ -125,6 +125,7 @@
   <script src="/assets/site-nav-login.js"></script>
   <script src="/assets/admin-bridge.js"></script>
   <script src="/assets/states/us-state-shapes.js"></script>
+  <script src="/assets/geo.js"></script>
 
   <!-- Page controller: data loading, hero finder, selected-game cards, and URL state. -->
   <script>
@@ -201,6 +202,12 @@
       // Geography badges
       // ---------------------------------------------------------------------------
       function cityGeoBadge(label) {
+        // Prefer the shared, structured-aware badge (assets/geo.js): it accepts
+        // a row object (state_code/country_code) or a "City, State"/"City,
+        // Country" string, and resolves 2-letter codes the local map below can't.
+        if (window.TgbGeo && typeof window.TgbGeo.geoBadge === 'function') {
+          return window.TgbGeo.geoBadge(label);
+        }
         const labelStr = String(label || '').trim();
         // Special case: "Washington D.C." (and variants like "Washington DC",
         // "Washington, D.C.") may arrive WITHOUT a real comma separator, so the
@@ -2125,8 +2132,9 @@
       overlay.setAttribute('role', 'status');
       overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(4,6,10,0.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);cursor:pointer;';
       var box = document.createElement('div');
-      box.style.cssText = 'max-width:340px;text-align:center;padding:26px 28px;border-radius:16px;border:1px solid rgba(245,180,97,0.4);background:#111a27;color:#fff;box-shadow:0 24px 60px rgba(0,0,0,0.5);';
-      box.innerHTML = '<div style="font-size:1.5rem;font-weight:800;letter-spacing:0.08em;margin-bottom:8px;">COMING SOON</div>' +
+      box.style.cssText = 'position:relative;max-width:340px;text-align:center;padding:26px 28px;border-radius:16px;border:1px solid rgba(245,180,97,0.4);background:#111a27;color:#fff;box-shadow:0 24px 60px rgba(0,0,0,0.5);';
+      box.innerHTML = '<button type="button" id="tgbComingSoonClose" aria-label="Close" style="position:absolute;top:8px;right:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:8px;background:transparent;color:#c8d3e0;font-size:1.25rem;line-height:1;cursor:pointer;">&times;</button>' +
+        '<div style="font-size:1.5rem;font-weight:800;letter-spacing:0.08em;margin-bottom:8px;">COMING SOON</div>' +
         '<div style="color:#c8d3e0;font-size:0.9rem;line-height:1.5;">Games aren\'t quite ready to play yet — check back soon.</div>';
       overlay.appendChild(box);
       var close = function () { overlay.remove(); document.removeEventListener('keydown', onKey); };

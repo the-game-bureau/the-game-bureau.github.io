@@ -37,6 +37,7 @@
   <script src="../assets/public-account.js"></script>
   <script src="../assets/team-palette.js"></script>
   <script src="../assets/states/us-state-shapes.js"></script>
+  <script src="../assets/geo.js"></script>
   <script src="../mc/js/supabase-rest.js"></script>
   <style>
     /* ── Gift shop overrides on top of site-shell.css home-page chrome.
@@ -1150,6 +1151,11 @@
     };
 
     function cityGeoBadge(label) {
+      // Prefer the shared, structured-aware badge (assets/geo.js): resolves
+      // 2-letter codes + countries the local map below can't.
+      if (window.TgbGeo && typeof window.TgbGeo.geoBadge === 'function') {
+        return window.TgbGeo.geoBadge(label);
+      }
       const labelStr = String(label || '').trim();
       if (/\bd\.?\s*c\.?$/i.test(labelStr)) return { kind: 'state', value: 'DC' };
       const parts = labelStr.split(',').map((s) => s.trim()).filter(Boolean);

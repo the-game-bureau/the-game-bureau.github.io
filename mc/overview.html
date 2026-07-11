@@ -9911,8 +9911,22 @@ html.admin-embedded .builder-section-head{
                     </div>
 
                     <div class="field" id="cityField">
-                      <label class="field-label field-label--with-meta" for="nodeCityInput">Start City, State<span class="field-info" tabindex="0" role="note" aria-label="The city the tour takes place in.">i<span class="field-tooltip" role="tooltip">The city the tour takes place in.</span></span></label>
-                      <input id="nodeCityInput" type="text" autocomplete="off" disabled>
+                      <label class="field-label field-label--with-meta" for="nodeCityInput">Start City<span class="field-info" tabindex="0" role="note" aria-label="The city the tour takes place in.">i<span class="field-tooltip" role="tooltip">The city the tour takes place in.</span></span></label>
+                      <input id="nodeCityInput" type="text" autocomplete="off" placeholder="e.g. Denver" disabled>
+                    </div>
+
+                    <div class="field" id="stateField">
+                      <label class="field-label field-label--with-meta" for="nodeStateInput">State / Province<span class="field-info" tabindex="0" role="note" aria-label="Pick the state or province. Drives the map icon.">i<span class="field-tooltip" role="tooltip">Pick the state or province. Drives the map icon.</span></span></label>
+                      <select id="nodeStateInput" autocomplete="off" disabled>
+                        <option value="">—</option>
+                      </select>
+                    </div>
+
+                    <div class="field" id="countryField">
+                      <label class="field-label field-label--with-meta" for="nodeCountryInput">Country<span class="field-info" tabindex="0" role="note" aria-label="Country. Non-US countries show a country badge instead of a state.">i<span class="field-tooltip" role="tooltip">Country. Non-US countries show a country badge instead of a state.</span></span></label>
+                      <select id="nodeCountryInput" autocomplete="off" disabled>
+                        <option value="">—</option>
+                      </select>
                     </div>
 
                     <div class="field" id="startNameField">
@@ -10282,6 +10296,7 @@ window.TGB_SUPABASE_CONFIG = {
   <script src="js/admin-shell.js"></script>
   <script src="js/admin-nav-menu.js"></script>
   <script src="../assets/team-palette.js"></script>
+  <script src="../assets/geo.js"></script>
   <script>
 // TGB Builder writes Supabase-backed game data that is read later by the game engine.
 const TYPE_CONFIG = {
@@ -12022,6 +12037,8 @@ const objectBubbleImageThumbPlaceholder = document.getElementById('objectBubbleI
 const nodePriceInput = document.getElementById('nodePriceInput');
 const nodeEngineInput = document.getElementById('nodeEngineInput');
 const nodeCityInput = document.getElementById('nodeCityInput');
+const nodeStateInput = document.getElementById('nodeStateInput');
+const nodeCountryInput = document.getElementById('nodeCountryInput');
 const nodeStartNameInput = document.getElementById('nodeStartNameInput');
 const nodeStartAddressInput = document.getElementById('nodeStartAddressInput');
 const nodeVenueNameInput = document.getElementById('nodeVenueNameInput');
@@ -16145,6 +16162,11 @@ function initGameMeta(game) {
     categoryIcon:         normalizeCategoryIconValue(g.category_icon ?? g.categoryIcon ?? gn.categoryIcon ?? gn.category_icon),
     logoUrl:              g.logo_url        ?? g.logoUrl          ?? gn.logoUrl         ?? gn.logo         ?? '',
     city:                 g.city            ?? gn.city            ?? '',
+    cityName:             g.city_name       ?? g.cityName         ?? gn.cityName        ?? '',
+    stateCode:            g.state_code      ?? g.stateCode        ?? gn.stateCode       ?? '',
+    stateName:            g.state_name      ?? g.stateName        ?? gn.stateName       ?? '',
+    countryCode:          g.country_code    ?? g.countryCode      ?? gn.countryCode     ?? '',
+    countryName:          g.country_name    ?? g.countryName      ?? gn.countryName     ?? '',
     startingLocationName:    g.starting_location_name    ?? g.startingLocationName    ?? gn.startingLocationName    ?? '',
     startingLocationAddress: g.starting_location_address ?? g.startingLocationAddress ?? gn.startingLocationAddress ?? '',
     startingLocationPlusCode,
@@ -16765,6 +16787,11 @@ async function openGameEraseFlow() {
 const GAME_COLUMN_TO_NODE_FIELD = {
   tagline: 'tagline',
   city: 'city',
+  city_name: 'cityName',
+  state_code: 'stateCode',
+  state_name: 'stateName',
+  country_code: 'countryCode',
+  country_name: 'countryName',
   body: 'body',
   price: 'price',
   default_emoji: 'defaultEmoji',
@@ -19262,6 +19289,8 @@ function updateSelectionUi(options = {}) {
   if (!isGameNode) setGameLogoOnlineMenuOpen(false);
 
   if (nodeCityInput) nodeCityInput.disabled = !isGameNode;
+  if (nodeStateInput) nodeStateInput.disabled = !isGameNode;
+  if (nodeCountryInput) nodeCountryInput.disabled = !isGameNode;
   if (nodeStartNameInput) nodeStartNameInput.disabled = !isGameNode;
   if (nodeStartAddressInput) nodeStartAddressInput.disabled = !isGameNode;
   if (nodeVenueNameInput) nodeVenueNameInput.disabled = !isGameNode;
@@ -19414,7 +19443,7 @@ function updateSelectionUi(options = {}) {
   }
 
   const meta = state.currentGameMeta || {};
-  if (nodeCityInput) nodeCityInput.value = isGameNode ? (meta.city || '') : '';
+  applyGeoControls(isGameNode ? meta : null);
   if (nodeStartNameInput) nodeStartNameInput.value = isGameNode ? (meta.startingLocationName || '') : '';
   if (nodeStartAddressInput) nodeStartAddressInput.value = isGameNode ? (meta.startingLocationAddress || '') : '';
   if (nodeVenueNameInput) nodeVenueNameInput.value = isGameNode ? (meta.venueName || '') : '';
@@ -20945,6 +20974,11 @@ function stageCurrentGameIntoStore() {
     id: state.currentGameId,
     name: savedGameName,
     city:                  _meta.city || (existingGame && existingGame.city ? existingGame.city : ''),
+    city_name:             _meta.cityName || null,
+    state_code:            _meta.stateCode || null,
+    state_name:            _meta.stateName || null,
+    country_code:          _meta.countryCode || null,
+    country_name:          _meta.countryName || null,
     tagline:               _meta.tagline || _gn.tagline || '',
     updatedAt:             docPayload.updatedAt,
     primaryColor:          colors.primaryColor,
@@ -21763,31 +21797,126 @@ if (coordinatesGenerateBtn) {
   });
 }
 
+// ── Start City / State / Country controls ──────────────────────────────────
+// A city textbox + state/province dropdown + country dropdown that together
+// compose the canonical games.city string ("City, State" / "City, Country") and
+// fill the structured meta fields (cityName/stateCode/stateName/country*). The
+// 2-letter state_code is what drives the map icons. Shared logic lives in
+// assets/geo.js (window.TgbGeo) so the shop + public pages agree.
+const TGB_GEO = window.TgbGeo || null;
+
+function fillSelect(sel, options, placeholder) {
+  if (!sel) return;
+  const html = ['<option value="">' + (placeholder || '—') + '</option>']
+    .concat(options.map((o) => '<option value="' + o.code + '">' + o.name + ' (' + o.code + ')</option>'));
+  sel.innerHTML = html.join('');
+}
+
+// State list depends on the chosen country: US states, Canadian provinces, or
+// none (non-US/Canada countries carry only a country badge).
+function stateOptionsForCountry(countryCode) {
+  if (!TGB_GEO) return [];
+  if (countryCode === 'CAN') return TGB_GEO.provinceOptions();
+  if (countryCode === '' || countryCode === 'USA') return TGB_GEO.usStateOptions();
+  return [];
+}
+
+function refreshStateOptions(countryCode, keepCode) {
+  if (!nodeStateInput) return;
+  const opts = stateOptionsForCountry(countryCode);
+  fillSelect(nodeStateInput, opts, opts.length ? '—' : '— n/a —');
+  if (keepCode && opts.some((o) => o.code === keepCode)) nodeStateInput.value = keepCode;
+}
+
+// One-time population of the country dropdown + default (US) state list.
+if (TGB_GEO && nodeCountryInput) {
+  fillSelect(nodeCountryInput, TGB_GEO.countryOptions(), '—');
+  refreshStateOptions('USA', '');
+}
+
+// Paint the three controls from a game's meta (null = non-game node → clear).
+function applyGeoControls(meta) {
+  if (!nodeCityInput) return;
+  if (!meta) {
+    nodeCityInput.value = '';
+    if (nodeStateInput) { refreshStateOptions('USA', ''); nodeStateInput.value = ''; }
+    if (nodeCountryInput) nodeCountryInput.value = '';
+    return;
+  }
+  // Prefer structured fields; fall back to parsing the composed city string.
+  const parsed = TGB_GEO ? TGB_GEO.parseGeo(meta.city || '') : {};
+  const cityName = (meta.cityName != null && meta.cityName !== '') ? meta.cityName : (parsed.cityName || '');
+  const stateCode = (meta.stateCode || parsed.stateCode || '');
+  const countryCode = (meta.countryCode || parsed.countryCode || (stateCode ? 'USA' : ''));
+  nodeCityInput.value = cityName;
+  if (nodeCountryInput) nodeCountryInput.value = countryCode;
+  refreshStateOptions(countryCode, stateCode);
+}
+
+// Recompute meta.city + structured fields from the three controls, then reuse
+// the existing debounced geocode to fill coordinates when they're blank.
+function syncGeoControlsToMeta(runGeocode) {
+  if (!getGameNode() || !state.currentGameMeta) return;
+  const cityName = nodeCityInput ? nodeCityInput.value.trim() : '';
+  const stateCode = nodeStateInput ? nodeStateInput.value : '';
+  const countryCode = nodeCountryInput ? nodeCountryInput.value : '';
+  const parts = TGB_GEO
+    ? {
+        cityName: cityName,
+        stateCode: stateCode,
+        stateName: stateCode ? (TGB_GEO.US_STATE_CODE_TO_NAME[stateCode] || TGB_GEO.CA_PROVINCE_CODE_TO_NAME[stateCode] || '') : '',
+        countryCode: countryCode,
+        countryName: countryCode ? (TGB_GEO.COUNTRY_CODE_TO_NAME[countryCode] || '') : ''
+      }
+    : { cityName: cityName, stateCode: stateCode, stateName: '', countryCode: countryCode, countryName: '' };
+  const composed = TGB_GEO ? TGB_GEO.composeGeo(parts) : cityName;
+  const m = state.currentGameMeta;
+  m.city = composed;
+  m.cityName = parts.cityName;
+  m.stateCode = parts.stateCode;
+  m.stateName = parts.stateName;
+  m.countryCode = parts.countryCode;
+  m.countryName = parts.countryName;
+
+  if (runGeocode && nodeCoordinatesInput && !nodeCoordinatesInput.value.trim() && composed.trim()) {
+    clearTimeout(nodeCityInput._geoTimer);
+    nodeCityInput._geoTimer = setTimeout(async () => {
+      try {
+        const hit = await geocodeLocation(m.city);
+        if (!hit) return;
+        const lat = parseFloat(Number(hit.lat).toFixed(6));
+        const lon = parseFloat(Number(hit.lon).toFixed(6));
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+        if (nodeCoordinatesInput.value.trim()) return;   // debounced — user may have typed a code
+        const plusCode = encodePlusCode(lat, lon);
+        nodeCoordinatesInput.value = plusCode;
+        m.startingLocationPlusCode = plusCode;
+        const decoded = decodePlusCode(plusCode);
+        m.startingLocationLat = decoded ? decoded.lat : lat;
+        m.startingLocationLon = decoded ? decoded.lon : lon;
+      } catch (e) {}
+    }, 900);
+  }
+}
+
 if (nodeCityInput) {
-  nodeCityInput.addEventListener('input', () => {
-    if (!getGameNode() || !state.currentGameMeta) return;
-    state.currentGameMeta.city = nodeCityInput.value;
-    // Auto-fill coordinates from city if blank
-    if (nodeCoordinatesInput && !nodeCoordinatesInput.value.trim() && state.currentGameMeta.city.trim()) {
-      clearTimeout(nodeCityInput._geoTimer);
-      nodeCityInput._geoTimer = setTimeout(async () => {
-        try {
-          const hit = await geocodeLocation(state.currentGameMeta.city);
-          if (!hit) return;
-          const lat = parseFloat(Number(hit.lat).toFixed(6));
-          const lon = parseFloat(Number(hit.lon).toFixed(6));
-          if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-          // Bail if the user has since typed a code (this is debounced/async).
-          if (nodeCoordinatesInput.value.trim()) return;
-          const plusCode = encodePlusCode(lat, lon);
-          nodeCoordinatesInput.value = plusCode;
-          state.currentGameMeta.startingLocationPlusCode = plusCode;
-          const decoded = decodePlusCode(plusCode);
-          state.currentGameMeta.startingLocationLat = decoded ? decoded.lat : lat;
-          state.currentGameMeta.startingLocationLon = decoded ? decoded.lon : lon;
-        } catch(e) {}
-      }, 900);
-    }
+  // 'input' fires the delegated dirty-marker for us; also recompute + geocode.
+  nodeCityInput.addEventListener('input', () => syncGeoControlsToMeta(true));
+}
+if (nodeStateInput) {
+  nodeStateInput.addEventListener('change', () => {
+    syncGeoControlsToMeta(true);
+    scheduleRecoverySync();      // <select> change isn't caught by the delegated marker
+    scheduleUpdateActionUi();
+  });
+}
+if (nodeCountryInput) {
+  nodeCountryInput.addEventListener('change', () => {
+    // Swap the state list to match the country, preserving a still-valid pick.
+    refreshStateOptions(nodeCountryInput.value, nodeStateInput ? nodeStateInput.value : '');
+    syncGeoControlsToMeta(true);
+    scheduleRecoverySync();
+    scheduleUpdateActionUi();
   });
 }
 
