@@ -482,6 +482,16 @@
       overflow-wrap: anywhere;
     }
 
+    body.home-page .result-game-date {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
     body.home-page .result-team {
       display: grid;
       gap: 3px;
@@ -1769,6 +1779,22 @@
         }
       }
 
+      // Compact "played on" date shown under the game name in each row.
+      function formatPlayedDate(value) {
+        if (!value) return '';
+        try {
+          const date = new Date(value);
+          if (!Number.isFinite(date.getTime())) return '';
+          return new Intl.DateTimeFormat(undefined, {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          }).format(date);
+        } catch (error) {
+          return '';
+        }
+      }
+
       function quotedInValue(value) {
         return '"' + String(value || '').replace(/["\\]/g, '') + '"';
       }
@@ -2561,6 +2587,7 @@
           const tgbLabelHtml = (tgbWins ? trophy : '') + escapeHtml(tgbLabel);
           const opponentLabelHtml = (opponentWins ? trophy : '') + escapeHtml(opponentLabel);
           const datePhrase = formatAnchorDate(row.created_at);
+          const playedDate = formatPlayedDate(row.created_at);
           const datePrefix = datePhrase ? ('On ' + escapeHtml(datePhrase) + ', ') : '';
           const lead = datePrefix ? 'the ' : 'The ';
           const gameEm = '<strong class="result-anchor-em">' + escapeHtml(gameName) + '</strong>';
@@ -2602,7 +2629,7 @@
           const rowClass = 'result-main-row' + (index % 2 ? ' is-alt' : '');
           return [
             '<tr class="' + rowClass + '" data-result-lightbox data-result-key="' + escapeHtml(detailKey) + '" role="button" tabindex="0" aria-haspopup="dialog" data-instanceid="' + escapeHtml(instanceId) + '" data-result-label="' + escapeHtml(gameName) + '" aria-label="Open score details for ' + escapeHtml(gameName) + '">',
-              '<td><span class="result-game-name" title="' + escapeHtml(gameName) + '">' + escapeHtml(gameName) + '</span></td>',
+              '<td><span class="result-game-name" title="' + escapeHtml(gameName) + '">' + escapeHtml(gameName) + '</span>' + (playedDate ? '<span class="result-game-date">' + escapeHtml(playedDate) + '</span>' : '') + '</td>',
               '<td><span class="' + tgbTeamClass + '"><span class="result-team-label">' + tgbLabelHtml + '</span><span class="result-team-name" title="' + escapeHtml(tgb) + '">' + escapeHtml(tgb) + '</span></span></td>',
               '<td><span class="result-score">' + escapeHtml(tgbScore) + '</span></td>',
               '<td><span class="' + opponentTeamClass + '"><span class="result-team-label">' + opponentLabelHtml + '</span><span class="result-team-name" title="' + escapeHtml(opponent) + '">' + escapeHtml(opponent) + '</span></span></td>',
