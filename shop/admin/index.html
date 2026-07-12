@@ -170,18 +170,17 @@
     /* Unified actions bar under the hero: create actions, the public shop link,
        and external reference links. */
     .admin-actions-bar {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       width: 100%;
       margin-bottom: 6px;
     }
 
     .admin-actions-bar .btn {
-      width: 100%;
       min-width: 0;
-      padding-left: 8px;
-      padding-right: 8px;
+      padding-left: 12px;
+      padding-right: 12px;
       font-size: 0.78rem;
       letter-spacing: 0.02em;
       white-space: nowrap;
@@ -1351,6 +1350,54 @@
     }
     .add-gift-body .item { margin: 0; }
 
+    /* ── Add-city lightbox ────────────────────────────────────── */
+    .add-city-modal {
+      position: fixed; inset: 0; z-index: 1600;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .add-city-modal[hidden] { display: none; }
+    .add-city-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+    }
+    .add-city-panel {
+      position: relative;
+      width: min(440px, 100%);
+      display: flex; flex-direction: column;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
+    }
+    .add-city-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .add-city-head h2 { margin: 0; font-size: 1rem; }
+    .add-city-close {
+      background: transparent; border: 0;
+      font-size: 1.3rem; line-height: 1; color: var(--muted);
+      cursor: pointer; padding: 4px 8px; border-radius: 6px;
+    }
+    .add-city-close:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
+    .add-city-form { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+    .add-city-form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; font-weight: 600; color: var(--ink); }
+    .add-city-form input, .add-city-form select {
+      font: inherit; padding: 8px 10px;
+      border: 1px solid var(--line); border-radius: 8px;
+      background: #fff; color: var(--ink);
+    }
+    .add-city-form input:focus, .add-city-form select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .add-city-preview { font-size: 0.8rem; color: var(--muted); min-height: 1.1em; }
+    .add-city-preview strong { color: var(--ink); }
+    .add-city-status { font-size: 0.82rem; min-height: 1.1em; margin: 0; }
+    .add-city-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+
     /* ── Suggest lightbox ─────────────────────────────────────── */
     .suggest-modal {
       position: fixed; inset: 0; z-index: 1500;
@@ -1658,7 +1705,10 @@
 
       /* The action bar gets too narrow on phones - stack the actions full-width. */
       .admin-actions-bar {
-        grid-template-columns: 1fr;
+        flex-direction: column;
+      }
+      .admin-actions-bar .btn {
+        width: 100%;
       }
 
       .section-gear-art {
@@ -2064,7 +2114,7 @@
           <div class="item-listings-head">
             <span>Shops</span>
             <div class="item-listings-head-actions">
-              <button class="listing-toggle" data-action="toggle-picker" type="button">+ Add city</button>
+              <button class="listing-toggle" data-action="toggle-picker" type="button">+ Add shop</button>
               <button class="listing-toggle" data-action="add-new-city" type="button" title="Create a brand-new city and add this gift to it">ADD NEW</button>
             </div>
           </div>
@@ -2118,6 +2168,33 @@
           <a class="btn" href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/" target="_blank" rel="noopener">Go to Database</a>
         </div>
       </div>
+    </section>
+  </div>
+
+  <div class="add-city-modal" id="addCityModal" hidden>
+    <div class="add-city-backdrop" data-add-city-dismiss></div>
+    <section class="add-city-panel" role="dialog" aria-modal="true" aria-labelledby="addCityTitle">
+      <header class="add-city-head">
+        <h2 id="addCityTitle">Add a new shop</h2>
+        <button class="add-city-close" type="button" data-add-city-dismiss aria-label="Close">&times;</button>
+      </header>
+      <form class="add-city-form" id="addCityForm">
+        <label>City
+          <input id="addCityName" type="text" placeholder="e.g. Portland" autocomplete="off" required>
+        </label>
+        <label>Country
+          <select id="addCityCountry"></select>
+        </label>
+        <label id="addCityStateWrap">State / Province
+          <select id="addCityState"></select>
+        </label>
+        <p class="add-city-preview" id="addCityPreview"></p>
+        <p class="add-city-status" id="addCityStatus" aria-live="polite"></p>
+        <div class="add-city-actions">
+          <button class="btn" type="button" data-add-city-dismiss>Cancel</button>
+          <button class="btn primary" id="addCitySave" type="submit">Add shop</button>
+        </div>
+      </form>
     </section>
   </div>
 
@@ -2620,6 +2697,131 @@
       });
     }
 
+    // ── "Add new shop" modal ────────────────────────────────────────────────
+    // A structured popup form (City + Country + State/Province) that composes a
+    // canonical city string via TgbGeo and upserts it into gift_shop_cities.
+    // openAddCityModal({ onCreated }) shows it; onCreated(row) fires on success
+    // so the caller (a gift's Shops picker) can drop the fresh city in.
+    const addCityModal = (() => {
+      const modal   = document.getElementById('addCityModal');
+      const form    = document.getElementById('addCityForm');
+      const nameEl  = document.getElementById('addCityName');
+      const ctryEl  = document.getElementById('addCityCountry');
+      const stateEl = document.getElementById('addCityState');
+      const stateWrap = document.getElementById('addCityStateWrap');
+      const previewEl = document.getElementById('addCityPreview');
+      const statusEl  = document.getElementById('addCityStatus');
+      const saveBtn   = document.getElementById('addCitySave');
+      if (!modal || !form) return { open() {} };
+
+      const hasGeo = () => !!(window.TgbGeo && typeof window.TgbGeo.composeGeo === 'function');
+      let onCreated = null;
+      let lastFocus = null;
+
+      // Populate the country dropdown once (United States first, then A–Z).
+      if (hasGeo()) {
+        ctryEl.innerHTML = window.TgbGeo.countryOptions()
+          .map((o) => '<option value="' + o.code + '">' + o.name + '</option>').join('');
+        ctryEl.value = 'USA';
+      } else {
+        ctryEl.innerHTML = '<option value="USA">United States</option>';
+      }
+
+      // The State/Province dropdown swaps its list (and hides itself) with the
+      // chosen country: US states, Canadian provinces, or nothing.
+      function syncStateOptions() {
+        if (!hasGeo()) { stateWrap.style.display = 'none'; return; }
+        const country = ctryEl.value;
+        let opts = null, label = '';
+        if (country === 'USA') { opts = window.TgbGeo.usStateOptions(); label = 'State'; }
+        else if (country === 'CAN') { opts = window.TgbGeo.provinceOptions(); label = 'Province'; }
+        if (opts) {
+          stateWrap.style.display = '';
+          stateWrap.childNodes[0].nodeValue = label + ' ';
+          stateEl.innerHTML = '<option value="">— Select ' + label.toLowerCase() + ' —</option>'
+            + opts.map((o) => '<option value="' + o.code + '">' + o.name + '</option>').join('');
+        } else {
+          stateWrap.style.display = 'none';
+          stateEl.innerHTML = '';
+        }
+      }
+
+      // Build the canonical "City, State" / "City, Country" string from inputs.
+      function compose() {
+        const cityName = nameEl.value.trim();
+        if (!cityName) return '';
+        if (!hasGeo()) return cityName;
+        return window.TgbGeo.composeGeo({
+          cityName,
+          stateCode: stateWrap.style.display === 'none' ? '' : stateEl.value,
+          countryCode: ctryEl.value
+        });
+      }
+
+      function refreshPreview() {
+        const c = compose();
+        previewEl.innerHTML = c ? 'Will be saved as <strong>' + c + '</strong>' : '';
+      }
+
+      function setStatusLine(msg, state) { setStatus(statusEl, msg || '', state || ''); }
+
+      function close() {
+        modal.hidden = true;
+        document.removeEventListener('keydown', onKey);
+        onCreated = null;
+        if (lastFocus && typeof lastFocus.focus === 'function') lastFocus.focus();
+      }
+      function onKey(e) { if (e.key === 'Escape') close(); }
+
+      function open(opts) {
+        onCreated = (opts && opts.onCreated) || null;
+        lastFocus = document.activeElement;
+        form.reset();
+        saveBtn.disabled = false;
+        if (hasGeo()) ctryEl.value = 'USA';
+        syncStateOptions();
+        setStatusLine('');
+        refreshPreview();
+        modal.hidden = false;
+        document.addEventListener('keydown', onKey);
+        nameEl.focus();
+      }
+
+      modal.querySelectorAll('[data-add-city-dismiss]').forEach((el) => el.addEventListener('click', close));
+      ctryEl.addEventListener('change', () => { syncStateOptions(); refreshPreview(); });
+      stateEl.addEventListener('change', refreshPreview);
+      nameEl.addEventListener('input', refreshPreview);
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const city = canonicalShopCity(compose());
+        if (!city) { setStatusLine('Type a city first.', 'error'); nameEl.focus(); return; }
+        if (hasGeo() && stateWrap.style.display !== 'none' && !stateEl.value) {
+          setStatusLine('Pick a ' + stateWrap.childNodes[0].nodeValue.trim().toLowerCase() + '.', 'error');
+          stateEl.focus();
+          return;
+        }
+        saveBtn.disabled = true;
+        setStatusLine('Adding shop...');
+        try {
+          const row = await upsertGiftShopCity(city);
+          if (!cityList.includes(row.city)) cityList.push(row.city);
+          cityList.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
+          renderCityFilterOptions();
+          refreshCityPickers();
+          const cb = onCreated;
+          close();
+          if (cb) cb(row);
+        } catch (error) {
+          console.error(error);
+          setStatusLine(error instanceof Error ? error.message : String(error), 'error');
+          saveBtn.disabled = false;
+        }
+      });
+
+      return { open };
+    })();
+
     function setGiftShopCities(rows) {
       const cities = new Set();
       (Array.isArray(rows) ? rows : []).forEach((row) => {
@@ -3000,7 +3202,7 @@
       if (toggleBtn && listingsEl) {
         toggleBtn.addEventListener('click', () => {
           const collapsed = listingsEl.classList.toggle('is-collapsed');
-          toggleBtn.textContent = collapsed ? '+ Add city' : 'Done';
+          toggleBtn.textContent = collapsed ? '+ Add shop' : 'Done';
           if (!collapsed) searchEl.focus();
         });
       }
@@ -3105,48 +3307,32 @@
         return true;
       };
 
-      // "ADD NEW" — create a brand-new city in gift_shop_cities, then drop this
-      // gift straight into it. Prompts for the name, canonicalizes it, upserts,
-      // adds it to the shared cityList (so every picker sees it), and assigns it
-      // to this item as an unsaved chip.
+      // "ADD NEW" — open the structured Add-shop popup (City + Country +
+      // State/Province). On success the modal has already upserted the city into
+      // gift_shop_cities and refreshed every picker; here we just drop the fresh
+      // city straight into THIS gift as a pre-selected, unsaved chip.
       const addNewCityBtn = article.querySelector('[data-action="add-new-city"]');
       if (addNewCityBtn) {
-        addNewCityBtn.addEventListener('click', async () => {
-          const raw = window.prompt('Add a brand-new city.\n\nUse "City, State" — e.g. Portland, OR (or Washington, D.C.):');
-          if (raw == null) return;
-          const city = canonicalShopCity(raw);
-          if (!city) { setStatus(shopStatus, 'Type a city first.', 'error'); return; }
-          addNewCityBtn.disabled = true;
-          const prevText = addNewCityBtn.textContent;
-          addNewCityBtn.textContent = 'ADDING...';
-          try {
-            const row = await upsertGiftShopCity(city);
-            if (!cityList.includes(row.city)) cityList.push(row.city);
-            cityList.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
-            renderCityFilterOptions();
-            refreshCityPickers();
-            // Open this gift's picker and surface the new city in its dropdown,
-            // pre-selected so a single "Add selected" lists this gift there.
-            if (listingsEl) {
-              listingsEl.classList.remove('is-collapsed');
-              if (toggleBtn) toggleBtn.textContent = 'Done';
+        addNewCityBtn.addEventListener('click', () => {
+          addCityModal.open({
+            onCreated: (row) => {
+              // Open this gift's picker and surface the new city in its dropdown,
+              // pre-selected so a single "Add selected" lists this gift there.
+              if (listingsEl) {
+                listingsEl.classList.remove('is-collapsed');
+                if (toggleBtn) toggleBtn.textContent = 'Done';
+              }
+              searchEl.value = '';
+              renderOptions('');
+              const newOpt = Array.from(selectEl.options).find((o) => o.value === row.city);
+              if (newOpt) {
+                newOpt.selected = true;
+                if (typeof newOpt.scrollIntoView === 'function') newOpt.scrollIntoView({ block: 'nearest' });
+              }
+              setStatus(shopStatus, 'Added ' + row.city + ' — now in the Shops list. Click "Add selected", then Save.', 'success');
+              setTimeout(() => setStatus(shopStatus, ''), 3500);
             }
-            searchEl.value = '';
-            renderOptions('');
-            const newOpt = Array.from(selectEl.options).find((o) => o.value === row.city);
-            if (newOpt) {
-              newOpt.selected = true;
-              if (typeof newOpt.scrollIntoView === 'function') newOpt.scrollIntoView({ block: 'nearest' });
-            }
-            setStatus(shopStatus, 'Added ' + row.city + ' — now in the Shops list. Click "Add selected", then Save.', 'success');
-            setTimeout(() => setStatus(shopStatus, ''), 3500);
-          } catch (error) {
-            console.error(error);
-            setStatus(shopStatus, error instanceof Error ? error.message : String(error), 'error');
-          } finally {
-            addNewCityBtn.disabled = false;
-            addNewCityBtn.textContent = prevText;
-          }
+          });
         });
       }
 
