@@ -364,6 +364,47 @@
       filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.5));
     }
 
+    /* Zoom affordance: a small corner badge over the image + a zoom-in cursor,
+       shown only on cards that actually have a zoomable image (the badge is
+       appended by addImageZoomBadge). Clicking the image opens the full-size
+       lightbox; the badge itself is inert so the click passes to the image. */
+    body.home-page .card-media:has(.card-zoom-badge) { cursor: zoom-in; }
+    body.home-page .card-zoom-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      border: 1px solid rgba(243, 238, 220, 0.30);
+      background: rgba(4, 6, 10, 0.60);
+      color: rgba(243, 238, 220, 0.92);
+      pointer-events: none;
+      -webkit-backdrop-filter: blur(2px);
+      backdrop-filter: blur(2px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+    }
+    body.home-page .card-zoom-badge svg { width: 15px; height: 15px; display: block; }
+    body.home-page .card:hover .card-zoom-badge {
+      background: rgba(4, 6, 10, 0.78);
+      color: #fff;
+      transform: scale(1.06);
+    }
+
+    /* Now that cards aren't anchors/buttons, the admin EDIT link (injected by
+       admin-bridge.js as a direct child of the card) needs corner positioning. */
+    html.tgb-admin-authorized body.home-page .card > .tgb-admin-edit-link {
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      z-index: 5;
+    }
+
     body.home-page .card-body {
       display: flex;
       flex-direction: column;
@@ -715,6 +756,8 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
+      width: 100%;
+      box-sizing: border-box;
       margin: auto 0 0;
       padding: 0 14px;
       min-height: 42px;
@@ -729,17 +772,24 @@
       letter-spacing: 0.06em;
       line-height: 1;
       text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
       box-shadow: 0 1px 0 rgba(255, 255, 255, 0.32) inset;
       transition: box-shadow 200ms ease, transform 200ms ease;
     }
     body.home-page .card-cta::after { content: " \2192"; font-size: 1rem; line-height: 1; }
+    /* Glow on card hover, and also when the button itself is hovered/focused. */
     body.home-page .card:hover .card-cta,
-    body.home-page .card:focus-visible .card-cta {
+    body.home-page .card-cta:hover,
+    body.home-page .card-cta:focus-visible {
       box-shadow:
         0 1px 0 rgba(255, 255, 255, 0.32) inset,
         0 10px 24px rgba(0, 0, 0, 0.45),
         0 0 22px color-mix(in srgb, var(--accent) 55%, transparent);
       transform: translateY(-1px);
+      outline: none;
     }
 
     body.home-page .empty {
@@ -1920,12 +1970,8 @@
     // the chooser step, where the buyer picks a game from the list
     // of paid games and continues into the same Stripe flow.
     function createChooseAnyGameCard(paidGames) {
-      const card = document.createElement('button');
-      card.type = 'button';
+      const card = document.createElement('article');
       card.className = 'card card--gift-card card--gift-card-choose';
-      card.style.font = 'inherit';
-      card.style.textAlign = 'left';
-      card.style.cursor = 'pointer';
       card.dataset.giftCardChoose = 'true';
 
       const media = document.createElement('div');
@@ -1968,14 +2014,15 @@
         : 'Pick any game at checkout. Recipient gets an access code that unlocks it on any device.';
       body.appendChild(desc);
 
-      const cta = document.createElement('span');
+      const cta = document.createElement('button');
+      cta.type = 'button';
       cta.className = 'card-cta';
       cta.textContent = 'Buy now';
       body.appendChild(cta);
 
       card.append(media, body);
 
-      card.addEventListener('click', () => {
+      cta.addEventListener('click', () => {
         if (!window.TgbGift) return;
         window.TgbGift.openForChoice({ games: paidGames || [] });
       });
@@ -2129,8 +2176,8 @@
           a.className = 'gift-detail-cta';
           a.href = url;
           a.target = '_blank';
-          a.rel = 'noopener nofollow sponsored';
-          a.textContent = affiliateCtaLabel(url, item.price_display);
+          a.rel = giftCtaRel(url);
+          a.textContent = giftCtaLabel(item);
           ctaWrap.appendChild(a);
         }
       }
@@ -2158,6 +2205,25 @@
       if (e.key === 'Escape' && el && !el.hidden && (!zoom || zoom.hidden)) closeGiftDetail();
     });
 
+    // Small corner overlay signalling the image opens a full-size zoom on click.
+    // Purely decorative (pointer-events:none) — the image beneath owns the click,
+    // handled by the global img.card-image zoom listener near the page bottom.
+    function addImageZoomBadge(media) {
+      if (!media) return;
+      const badge = document.createElement('span');
+      badge.className = 'card-zoom-badge';
+      badge.setAttribute('aria-hidden', 'true');
+      badge.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
+        'stroke-linecap="round" stroke-linejoin="round">' +
+        '<circle cx="10.5" cy="10.5" r="6.5"></circle>' +
+        '<line x1="15.5" y1="15.5" x2="21" y2="21"></line>' +
+        '<line x1="10.5" y1="7.5" x2="10.5" y2="13.5"></line>' +
+        '<line x1="7.5" y1="10.5" x2="13.5" y2="10.5"></line>' +
+        '</svg>';
+      media.appendChild(badge);
+    }
+
     function createCard(item, opts = {}) {
       // Access-code items are TGB's own products (not affiliate). They have
       // no external url; clicking the card opens the shared gift-buy
@@ -2171,11 +2237,11 @@
       // in the admin-entered url executing on click.
       if (!/^https?:\/\//i.test(url)) return null;
 
-      const card = document.createElement('a');
+      // The card itself is no longer one big link — only the image (→ zoom),
+      // the "more" affordance (→ detail), and the CTA button (→ retailer) are
+      // clickable. The container is an inert <article>.
+      const card = document.createElement('article');
       card.className = 'card';
-      card.href = url;
-      card.target = '_blank';
-      card.rel = 'noopener nofollow sponsored';
       card.dataset.adminEdit = 'gift-item';
       card.dataset.adminId = item.id || '';
 
@@ -2208,6 +2274,7 @@
           media.dataset.hasImage = 'false';
         });
         media.appendChild(img);
+        addImageZoomBadge(media);
       }
 
       const body = document.createElement('div');
@@ -2246,23 +2313,42 @@
         body.appendChild(captionEl);
       }
 
-      const cta = document.createElement('span');
+      // The CTA is now the real clickable control that leaves for the retailer.
+      const cta = document.createElement('a');
       cta.className = 'card-cta';
-      cta.textContent = affiliateCtaLabel(url, item.price_display);
+      cta.href = url;
+      cta.target = '_blank';
+      cta.rel = giftCtaRel(url);
+      cta.textContent = giftCtaLabel(item);
       body.appendChild(cta);
 
       card.append(media, body);
       return card;
     }
 
-    // Affiliate CTAs name the retailer they open, so "buy" isn't a bait-and-
-    // switch — the click leaves for Amazon/Bookshop (and that's where the price
-    // lives). CSS uppercases the label and appends a "→" on cards.
-    function affiliateCtaLabel(url) {
+    // Amazon/Bookshop links are affiliate (paid) — flagged rel="sponsored".
+    // Hand-added destination links (visitor guides, tickets, experiences) are
+    // not affiliate, so they don't carry the sponsored token.
+    function isAffiliateUrl(url) {
       const u = String(url || '').toLowerCase();
+      return /amazon\.|amzn\.to|\ba\.co\//.test(u) || /bookshop\.org/.test(u);
+    }
+    function giftCtaRel(url) {
+      return isAffiliateUrl(url) ? 'noopener nofollow sponsored' : 'noopener noreferrer';
+    }
+
+    // The CTA names where the click goes so "buy" isn't a bait-and-switch. A
+    // hand-entered per-item label (cta_label) wins — that's how a destination
+    // item reads "Request Guide" / "Get Tickets". Otherwise Amazon/Bookshop are
+    // named, and any other destination falls back to "Visit Site". CSS uppercases
+    // the label and appends a "→" on cards.
+    function giftCtaLabel(item) {
+      const custom = String(item && item.cta_label || '').trim();
+      if (custom) return custom;
+      const u = String(item && item.url || '').toLowerCase();
       if (/amazon\.|amzn\.to|\ba\.co\//.test(u)) return 'View on Amazon';
       if (/bookshop\.org/.test(u)) return 'View on Bookshop';
-      return 'View item';
+      return 'Visit Site';
     }
 
     function showGamePurchasePlaceholder(gameName) {
@@ -2276,19 +2362,14 @@
     // gift-buy modal; generated game cards pass placeholderPurchase until
     // checkout is ready.
     function createGiftCardCard(item, opts = {}) {
-      const card = document.createElement('button');
-      card.type = 'button';
+      // Inert container — only the CTA button below is clickable (plus the
+      // image → zoom and the "more" affordance).
+      const card = document.createElement('article');
       card.className = 'card card--gift-card';
       card.dataset.adminEdit = opts.adminKind || 'gift-item';
       card.dataset.adminId = opts.adminId || item.id || '';
-      // Strip native button styles so the card layout (which inherits
-      // anchor-like styling) renders consistently.
-      card.style.font = 'inherit';
-      card.style.textAlign = 'left';
-      card.style.cursor = 'pointer';
       if (opts.placeholderPurchase) {
         card.dataset.purchasePlaceholder = 'true';
-        card.setAttribute('aria-label', 'Buy ' + (item.title || 'this game') + ' (coming soon)');
       }
 
       if (opts.gameColor) {
@@ -2320,6 +2401,7 @@
           media.dataset.hasImage = 'false';
         });
         media.appendChild(img);
+        addImageZoomBadge(media);
       }
 
       const body = document.createElement('div');
@@ -2358,18 +2440,19 @@
         body.appendChild(captionEl);
       }
 
-      const cta = document.createElement('span');
+      // Only the CTA is clickable now — it opens the buy modal.
+      const cta = document.createElement('button');
+      cta.type = 'button';
       cta.className = 'card-cta';
       cta.textContent = 'Buy now';
+      if (opts.placeholderPurchase) {
+        cta.setAttribute('aria-label', 'Buy ' + (item.title || 'this game') + ' (coming soon)');
+      }
       body.appendChild(cta);
 
       card.append(media, body);
 
-      card.addEventListener('click', (event) => {
-        // Don't fire if the user clicked the admin-edit affordance
-        // (admin-bridge.js owns that click path).
-        const clickEl = event.target && event.target.closest ? event.target : (event.target && event.target.parentElement);
-        if (clickEl && clickEl.closest('[data-admin-action], [data-tgb-admin-injected]')) return;
+      cta.addEventListener('click', () => {
         if (opts.placeholderPurchase) {
           showGamePurchasePlaceholder(item.title || opts.gameName || '');
           return;

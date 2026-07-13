@@ -333,6 +333,26 @@
 
     .copy { margin: 0; color: var(--muted); line-height: 1.5; max-width: 620px; }
 
+    /* Low-stock warning banner — flags cities under the 3-gift minimum. */
+    .city-stock-warning {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin: 0 0 14px;
+      padding: 14px 16px;
+      border: 1px solid #d9a300;
+      border-left: 4px solid #d9a300;
+      border-radius: 10px;
+      background: rgba(217, 163, 0, 0.10);
+      color: #7a5b00;
+      line-height: 1.5;
+    }
+    .city-stock-warning[hidden] { display: none; }
+    .city-stock-warning-icon { font-size: 18px; line-height: 1.4; color: #b98600; }
+    .city-stock-warning-body { display: grid; gap: 4px; min-width: 0; }
+    .city-stock-warning-title { margin: 0; font-weight: 800; font-size: 0.92rem; color: #6b5000; }
+    .city-stock-warning-list { margin: 0; font-size: 0.85rem; color: #7a5b00; }
+
     .toolbar {
       display: flex;
       flex-direction: column;
@@ -742,7 +762,7 @@
       display: grid;
       gap: 14px;
     }
-    .items-more { display: flex; justify-content: center; margin-top: 14px; }
+    .items-more { display: flex; justify-content: center; gap: 10px; margin-top: 14px; }
     .item.paged-out { display: none; }
     .item-review {
       width: 100%;
@@ -2023,6 +2043,16 @@
         </div>
       </div>
 
+      <!-- Low-stock warning: cities carrying fewer than MIN_CITY_GIFTS gifts.
+           Populated by renderCityGiftWarning() after the catalog loads. -->
+      <div class="city-stock-warning" id="cityStockWarning" role="alert" hidden>
+        <span class="city-stock-warning-icon" aria-hidden="true">⚠</span>
+        <div class="city-stock-warning-body">
+          <p class="city-stock-warning-title" id="cityStockWarningTitle"></p>
+          <p class="city-stock-warning-list" id="cityStockWarningList"></p>
+        </div>
+      </div>
+
       <!-- Unified actions bar: create actions, public shop, and reference tools. -->
       <div class="admin-actions-bar">
         <button class="btn primary" id="addItemBtn" type="button" disabled>ADD NEW GIFT</button>
@@ -2048,7 +2078,7 @@
           <select id="itemSortSelect" aria-label="Sort gifts" disabled>
             <option value="title">Sort: A → Z</option>
             <option value="city">Sort: By city</option>
-            <option value="status">Sort: By status</option>
+            <option value="status" selected>Sort: By status</option>
           </select>
           <select id="recentFilter" aria-label="Filter gifts by when added" disabled>
             <option value="">Any time</option>
@@ -2065,6 +2095,7 @@
       <div class="items" id="itemsList"></div>
       <div class="items-more">
         <button class="btn" id="showMoreItemsBtn" type="button" hidden>Show more</button>
+        <button class="btn" id="showAllItemsBtn" type="button" hidden>Show all</button>
       </div>
     </section>
   </main>
@@ -2090,15 +2121,19 @@
       </div>
       <div class="item-fields">
         <label>
-          <span class="field-label-row">Link<button class="field-info" type="button" aria-label="About the Link field" data-tip="Provide a link/url to an item to sell in the Gift Shop. Use a link that includes affiliate information.">i</button></span>
+          <span class="field-label-row">Link<button class="field-info" type="button" aria-label="About the Link field" data-tip="Where the gift-shop button sends the shopper. Three kinds of link work: an Amazon or Bookshop.org AFFILIATE link (paid), or a plain DESTINATION link — e.g. a city's official visitor guide (https://www.neworleans.com/plan/request-a-guide/), tickets, or an experience. Destination items can be free or paid; that's handled on the destination's own page, not here.">i</button></span>
           <span class="address-row">
-            <input data-field="url" type="url" placeholder="https://www.amazon.com/dp/…">
-            <button class="btn" data-action="grab-image" type="button" title="Fetch the real product image (and any empty title/description) from the Link URL via the scrape-amazon function">Auto Fill</button>
+            <input data-field="url" type="url" placeholder="https://www.amazon.com/dp/… or https://www.neworleans.com/…">
+            <button class="btn" data-action="grab-image" type="button" title="Fetch the real product image (and any empty title/description) from the Link URL via the scrape-amazon function. Amazon/Bookshop only — for destination links, fill Title/Image/Description by hand.">Auto Fill</button>
           </span>
         </label>
         <label>
           Title
           <input data-field="title" type="text" placeholder="Field Notebook">
+        </label>
+        <label>
+          <span class="field-label-row">Button label<button class="field-info" type="button" aria-label="About the Button label field" data-tip="Optional. The exact text on the gift-shop button, e.g. &quot;Request Guide&quot; or &quot;Get Tickets&quot;. Leave blank to auto-label: Amazon/Bookshop links read &quot;View on Amazon/Bookshop&quot;, any other link reads &quot;Visit Site&quot;.">i</button></span>
+          <input data-field="cta_label" type="text" placeholder="Leave blank for the default (e.g. Visit Site)">
         </label>
         <label>
           Image
@@ -2149,6 +2184,7 @@
           <div class="suggest-source-toggle" role="group" aria-label="Choose source">
             <button class="btn suggest-source-btn is-active" type="button" data-suggest-source="book">Bookshop.org</button>
             <button class="btn suggest-source-btn" type="button" data-suggest-source="amazon">Amazon.com</button>
+            <button class="btn suggest-source-btn" type="button" data-suggest-source="destination">City Guides</button>
           </div>
           <label class="suggest-records">Records
             <input id="suggestCount" type="number" min="1" max="500" step="1" value="100">
@@ -2221,6 +2257,7 @@
     const searchPromptBtn = document.getElementById('searchPromptBtn');
     const itemsList    = document.getElementById('itemsList');
     const showMoreItemsBtn = document.getElementById('showMoreItemsBtn');
+    const showAllItemsBtn = document.getElementById('showAllItemsBtn');
     const cityFilter   = document.getElementById('cityFilter');
     const cityFilterBtn = document.getElementById('cityFilterBtn');
     const cityFilterPanel = document.getElementById('cityFilterPanel');
@@ -2249,14 +2286,30 @@
           if (shown < itemsPageLimit) { item.classList.remove('paged-out'); shown++; }
           else { item.classList.add('paged-out'); pagedOut++; }
         });
+      // The counts show the running total you'll be looking at AFTER the click:
+      // what's visible now + what that button reveals.
+      const visible = itemsList.querySelectorAll('.item:not(.hidden):not(.paged-out)').length;
+      const nextReveal = Math.min(ITEMS_PAGE_SIZE, pagedOut);
       if (showMoreItemsBtn) {
         showMoreItemsBtn.hidden = pagedOut === 0;
-        showMoreItemsBtn.textContent = 'Show more (' + pagedOut + ' more)';
+        showMoreItemsBtn.textContent = 'Show more (' + (visible + nextReveal) + ')';
+      }
+      // "Show all" appears alongside "Show more" only when there's more than one
+      // page still hidden — otherwise "Show more" already reveals everything.
+      if (showAllItemsBtn) {
+        showAllItemsBtn.hidden = pagedOut <= ITEMS_PAGE_SIZE;
+        showAllItemsBtn.textContent = 'Show all (' + (visible + pagedOut) + ')';
       }
     }
     if (showMoreItemsBtn) {
       showMoreItemsBtn.addEventListener('click', () => {
         itemsPageLimit += ITEMS_PAGE_SIZE;
+        applyItemsPagination();
+      });
+    }
+    if (showAllItemsBtn) {
+      showAllItemsBtn.addEventListener('click', () => {
+        itemsPageLimit = itemsList.querySelectorAll('.item').length;
         applyItemsPagination();
       });
     }
@@ -2316,6 +2369,7 @@
     const AMAZON_TAG = 'thegamebureau-20';
     const AMAZON_STORE = 'nolanatives-20';
     const AMAZON_IMPORT_HELPER_SQL = 'supabase/gs-amazon-prompt-import.sql';
+    const DESTINATION_IMPORT_HELPER_SQL = 'supabase/gs-destination-prompt-import.sql';
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
       onAuthorized: async () => {
@@ -2328,7 +2382,7 @@
         allGiftItemsCache = [];
         gameOptionsHtml = '<option value="">— Pick a game —</option>';
         if (itemSortSelect) {
-          itemSortSelect.value = 'title';
+          itemSortSelect.value = 'status';
           itemSortSelect.disabled = true;
         }
         if (itemSearchInput) {
@@ -3180,6 +3234,7 @@
         kind: 'amazon_link',
         title: get('title').trim() || null,
         url: get('url').trim(),
+        cta_label: get('cta_label').trim() || null,
         image_url: get('image_url').trim() || null,
         image_focus: focus,
         description: get('description').trim() || null,
@@ -3384,6 +3439,7 @@
 
       set('title', item.title);
       set('url', item.url);
+      set('cta_label', item.cta_label);
       set('image_url', item.image_url);
       set('description', item.description);
 
@@ -3876,6 +3932,7 @@
         items.forEach((item) => appendItemRow(item));
         refreshItemsView();
         updateViewGiftShopLink();
+        renderCityGiftWarning();
         focusInitialItem();
       } catch (error) {
         console.error(error);
@@ -4067,6 +4124,40 @@
       }
       return 'Coverage priority: these cities are tied for the FEWEST gifts (' + min + ' each): ' + list
         + '. Favor items that fit one of them where a natural, honest tie exists — never force an unrelated item onto a city.';
+    }
+
+    // Minimum gifts a city should carry before it's considered well-stocked.
+    const MIN_CITY_GIFTS = 3;
+
+    // Render the top-of-page warning listing every city with fewer than
+    // MIN_CITY_GIFTS gifts (reusing the whole-catalog counts). Hidden entirely
+    // in single-item mode (the cache holds one gift, so counts aren't meaningful).
+    function renderCityGiftWarning() {
+      const warnEl = document.getElementById('cityStockWarning');
+      const titleEl = document.getElementById('cityStockWarningTitle');
+      const listEl = document.getElementById('cityStockWarningList');
+      if (!warnEl || !titleEl || !listEl) return;
+      const hide = () => { warnEl.hidden = true; listEl.textContent = ''; };
+      if (isInitialItemMode || !Array.isArray(allGiftItemsCache) || !allGiftItemsCache.length) {
+        hide();
+        return;
+      }
+      const counts = buildPromptCityGiftCounts();
+      const low = Array.from(counts.entries())
+        .filter((entry) => entry[1] < MIN_CITY_GIFTS)
+        .sort((a, b) => a[1] - b[1] ||
+          a[0].localeCompare(b[0], undefined, { sensitivity: 'base', numeric: true }));
+      if (!low.length) {
+        hide();
+        return;
+      }
+      const cityWord = low.length === 1 ? 'city has' : 'cities have';
+      titleEl.textContent = low.length + ' ' + cityWord + ' fewer than ' +
+        MIN_CITY_GIFTS + ' gifts';
+      listEl.textContent = low
+        .map((entry) => entry[0] + ' (' + entry[1] + ')')
+        .join('  ·  ');
+      warnEl.hidden = false;
     }
 
     function buildTeamDisplayName(city, mascot) {
@@ -4597,28 +4688,239 @@ $$;`.trim();
       ].join('\n');
     }
 
+    function buildDestinationImportHelperSql() {
+      return String.raw`
+alter table public.gift_shop_items
+  add column if not exists certified_at timestamptz;
+
+alter table public.gift_shop_items
+  add column if not exists cta_label text;
+
+create or replace function public.tgb_import_destination_prompt_items(items jsonb)
+returns table (
+  action text,
+  title text,
+  item_id text,
+  listings_added integer,
+  note text
+)
+language plpgsql
+as $$
+declare
+  v_entry jsonb;
+  v_title text;
+  v_url text;
+  v_cta_label text;
+  v_image_url text;
+  v_description text;
+  v_cities jsonb;
+  v_city text;
+  v_item_id public.gift_shop_items.id%type;
+  v_existing_item_id public.gift_shop_items.id%type;
+  v_position integer;
+  v_listings_added integer;
+  v_rows integer;
+begin
+  if items is null or jsonb_typeof(items) <> 'array' then
+    raise exception 'Expected a JSON array of destination item objects.';
+  end if;
+
+  for v_entry in select value from jsonb_array_elements(items)
+  loop
+    v_title := nullif(btrim(v_entry->>'title'), '');
+    v_url := nullif(btrim(v_entry->>'url'), '');
+    v_cta_label := nullif(left(btrim(coalesce(v_entry->>'cta_label', '')), 40), '');
+    v_image_url := nullif(btrim(v_entry->>'image_url'), '');
+    v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
+
+    if v_title is null then
+      return query select 'skipped'::text, null::text, null::text, 0, 'missing title'::text;
+      continue;
+    end if;
+
+    if v_url is null or v_url !~* '^https?://' then
+      return query select 'skipped'::text, v_title, null::text, 0, 'missing or invalid http(s) url'::text;
+      continue;
+    end if;
+
+    if jsonb_typeof(v_entry->'cities') = 'array' then
+      v_cities := v_entry->'cities';
+    else
+      v_cities := '[]'::jsonb;
+    end if;
+
+    v_existing_item_id := null;
+    select i.id
+      into v_existing_item_id
+      from public.gift_shop_items i
+     where lower(btrim(coalesce(i.url, ''))) = lower(v_url)
+        or lower(btrim(coalesce(i.title, ''))) = lower(v_title)
+     limit 1;
+
+    if v_existing_item_id is not null then
+      return query select 'skipped'::text, v_title, v_existing_item_id::text, 0, 'existing title or url'::text;
+      continue;
+    end if;
+
+    insert into public.gift_shop_items (
+      kind, title, url, cta_label, image_url, image_focus,
+      description, archived, certified_at
+    )
+    values (
+      'destination_link',
+      v_title,
+      v_url,
+      v_cta_label,
+      v_image_url,
+      '50% 50%',
+      v_description,
+      true,
+      null
+    )
+    returning id into v_item_id;
+
+    v_listings_added := 0;
+    v_position := 0;
+
+    for v_city in select btrim(value) from jsonb_array_elements_text(v_cities)
+    loop
+      if v_city is null or v_city = '' then
+        continue;
+      end if;
+
+      insert into public.gift_shop_listings (item_id, city, position, archived)
+      select v_item_id, v_city, v_position, false
+      where not exists (
+        select 1
+          from public.gift_shop_listings l
+         where l.item_id = v_item_id
+           and l.city = v_city
+      );
+
+      get diagnostics v_rows = row_count;
+      v_listings_added := v_listings_added + v_rows;
+      v_position := v_position + 1;
+    end loop;
+
+    return query select 'inserted'::text, v_title, v_item_id::text, v_listings_added, null::text;
+  end loop;
+end;
+$$;`.trim();
+    }
+
+    function buildDestinationSearchPrompt() {
+      const generatedAt = new Date();
+      const count = getPromptCount();
+      const cities = buildPromptCitySnapshot();
+      const existingItems = buildPromptExistingItemsSnapshot();
+      const leanestCityLine = buildPromptLeastStockedCityLine();
+      const helperSql = buildDestinationImportHelperSql();
+      const sqlExample = [
+        helperSql,
+        '',
+        'select *',
+        'from public.tgb_import_destination_prompt_items($tgb$',
+        '[',
+        '  {',
+        '    "title": "New Orleans Official Visitor Guide",',
+        '    "url": "https://www.neworleans.com/plan/request-a-guide/",',
+        '    "cta_label": "Request Guide",',
+        '    "image_url": null,',
+        '    "description": "One original shopper-facing sentence on what this free guide/experience is and why it fits a visit.",',
+        '    "cities": ["City, State from the list"]',
+        '  }',
+        ']',
+        '$tgb$::jsonb);'
+      ].join('\n');
+
+      return [
+        'You are helping The Game Bureau build gift-shop inventory.',
+        '',
+        'Task: research OFFICIAL destination resources and return a Supabase SQL import for up to ' + count + ' NEW "destination" items tied to the cities listed below. These are NOT products for sale by us — they are links out to a city\'s own tourism/authority pages. Each may be free or paid; that is handled entirely on the destination\'s page. We only link out.' + promptKeywordLine(),
+        '',
+        'What counts as a destination item (mix these across the cities — do not just do visitor guides):',
+        '- Official city/regional VISITOR GUIDES: prioritize a DIRECT LINK TO THE DOWNLOADABLE PDF of the official visitor guide when one exists (a URL ending in .pdf, hosted on the tourism board / CVB / official domain). If there is no public PDF, use the "request a guide" / "order a free guide" / digital-flipbook page instead (e.g. https://www.neworleans.com/plan/request-a-guide/).',
+        '- FREE walking tours — official self-guided walking-tour pages/maps from the tourism board or park service, OR reputable tip-based free walking-tour operators for that city.',
+        '- Free or low-cost local experiences: public art / mural trails, historic-district heritage walks, riverwalks, scenic overlooks, botanical gardens or parks with free entry, free-museum days, official event/festival calendars, farmers markets, official "things to do" pages.',
+        '- Park, landmark, or monument pages on official (.gov / national or state park / official attraction) sites.',
+        '',
+        'Research instructions:',
+        '- Do the research yourself with your web browsing/search tools. Do not ask me for a dataset; the deliverable is the finished SQL.',
+        '- Goal: ' + count + ' verified items, but a smaller verified batch is fine. Never fabricate a URL, page, or organization to hit the count.',
+        '- Only use a URL you can verify resolves to the OFFICIAL page for that resource. Strongly prefer the destination\'s own domain, the local Convention & Visitors Bureau / tourism board (DMO), or a .gov / park-service site.',
+        '- Do NOT use online-travel-agency or reseller/aggregator pages (Viator, GetYourGuide, Expedia, Booking.com, TripAdvisor, Groupon, Airbnb Experiences, etc.). A free-walking-tour operator\'s OWN official site is allowed.',
+        '- No affiliate tags or tracking parameters — return the clean canonical URL.',
+        '- Visitor guides specifically: actively hunt for the official DOWNLOADABLE PDF (search terms like "<city> official visitor guide filetype:pdf" or "<city> visitor guide pdf download"). Verify the .pdf URL actually loads and is the current official guide before using it. A direct .pdf is preferred; when one exists, set cta_label to "Download Guide" (or "Download Guide (PDF)") and note in the description that it is a free downloadable PDF.',
+        '',
+        'Hard requirements:',
+        '- Each JSON object needs: title, url, cta_label, image_url, description, cities.',
+        '- title: a clear, specific name for the resource (e.g. "French Quarter Self-Guided Walking Tour", "Visit Denver Official Visitor Guide").',
+        '- url: the clean https link to the official page. Raw URL string only, never a Markdown link.',
+        '- cta_label: 2-4 word button text describing the action, e.g. "Request Guide", "Free Walking Tour", "Plan Your Visit", "See Events", "Explore Trail". Keep it under 40 characters.',
+        '- image_url: a stable, public image URL for the resource if you can confidently find one (e.g. the page\'s Open Graph image); otherwise set it to null. Do not guess or fabricate image URLs — null is fine, an admin adds images after import.',
+        '- description: one original, concise, shopper-facing sentence. If it is free or tip-based, say so plainly. Do not paste marketing copy.',
+        '- cities must use only values from the current cities JSON below, copied verbatim ("City, State"). Assign each item to the city (or cities) it actually serves. A resource for a specific city maps to that city; a state/region resource maps to every listed city it covers. Leave "cities" empty (omit it) if it fits no listed city.',
+        (leanestCityLine ? '- ' + leanestCityLine : ''),
+        '- Do not include any current gift-shop inventory item listed below. Hidden, archived, or unpublished rows still count as already-owned inventory. Avoid duplicate titles and duplicate URLs.',
+        '- The JSON array may contain 1 to ' + count + ' objects. Do not pad to ' + count + ' with unverifiable entries.',
+        '- Do not set certified_at or archived in the JSON. Imported items start ARCHIVED and unpublished; the helper sets archived to true and certified_at to null. An admin reviews and publishes them.',
+        '- Do not put the literal sequence $tgb$ inside any JSON string value.',
+        '- Output the COMPLETE script as ONE copy-pasteable block: a single fenced ```sql code block (or a code artifact/canvas with a copy button). Do NOT split it across multiple blocks.',
+        '- CRITICAL for copy-paste: use ONLY plain ASCII characters. Straight apostrophes and straight double-quotes only; never smart/curly quotes, en/em dashes, non-breaking spaces, or other Unicode punctuation. Do not hard-wrap or reflow long lines. Those silently corrupt the SQL (especially the $tgb$ dollar-quoted JSON).',
+        '- The block must contain ONLY SQL — no prose, headings, or commentary before, after, or inside it.',
+        '',
+        'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper with the verified-item JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
+        sqlExample,
+        '',
+        'Reusable helper source also lives in this repo at ' + DESTINATION_IMPORT_HELPER_SQL + ', but the SQL you return must include the helper setup inline.',
+        '',
+        'Current cities JSON:',
+        JSON.stringify(cities, null, 2),
+        '',
+        'Current gift-shop inventory to exclude JSON (includes hidden/archived/unpublished rows; do not recreate any of them):',
+        JSON.stringify(existingItems, null, 2),
+        '',
+        'Generated at: ' + generatedAt.toISOString()
+      ].join('\n');
+    }
+
     // Render the prompt for the chosen source and reflect the active toggle.
     function applySuggestSource(mode) {
-      const isAmazon = mode === 'amazon';
+      const key = (mode === 'amazon' || mode === 'destination') ? mode : 'book';
       document.querySelectorAll('[data-suggest-source]').forEach((b) => {
-        b.classList.toggle('is-active', b.getAttribute('data-suggest-source') === (isAmazon ? 'amazon' : 'book'));
+        b.classList.toggle('is-active', b.getAttribute('data-suggest-source') === key);
       });
-      const prompt = isAmazon ? buildAmazonSearchPrompt() : buildBookshopSearchPrompt();
-      if (suggestTitle) suggestTitle.textContent = isAmazon ? 'Amazon search prompt' : 'Book search prompt';
+      const count = getPromptCount();
+      let prompt, title, copyLabel, hint, statusLabel;
+      if (key === 'amazon') {
+        prompt = buildAmazonSearchPrompt();
+        title = 'Amazon search prompt';
+        copyLabel = 'Copy Amazon Prompt';
+        statusLabel = 'Amazon';
+        hint = 'Copy this fresh prompt into a web-capable assistant. It asks for up to ' + count + ' broader Amazon gift items, allows verified partial batches, includes pro teams, excludes archived inventory, includes your Amazon referral tags, and returns the SQL as one copy-paste-ready code block (plain ASCII, no smart quotes). Images are left blank on purpose — add each one after import with the Grab button on the item.';
+      } else if (key === 'destination') {
+        prompt = buildDestinationSearchPrompt();
+        title = 'City guide search prompt';
+        copyLabel = 'Copy City-Guide Prompt';
+        statusLabel = 'City guide';
+        hint = 'Copy this fresh prompt into a web-capable assistant. It asks for up to ' + count + ' OFFICIAL destination links — city visitor guides (preferring the downloadable PDF when one exists), free walking tours, and other free/local experiences tied to your cities — each with its own button label. No affiliate links; these point to official destination pages. Excludes current inventory and returns the SQL as one copy-paste-ready block (plain ASCII, no smart quotes). Add any images by hand after import.';
+      } else {
+        prompt = buildBookshopSearchPrompt();
+        title = 'Book search prompt';
+        copyLabel = 'Copy Bookshop Prompt';
+        statusLabel = 'Book';
+        hint = 'Copy this fresh prompt into a web-capable assistant. It asks for ' + count + ' Bookshop.org books with an exact "Title by Author" and ISBN — we build the affiliate link and cover from the ISBN ourselves (same as Auto Fill), so the model no longer guesses those. Includes pro teams, excludes current inventory including archived rows, and returns the SQL as one copy-paste-ready code block (plain ASCII, no smart quotes).';
+      }
+      if (suggestTitle) suggestTitle.textContent = title;
       // Name the source on the copy button so the active prompt can't be copied
       // by mistake (the modal opens on Bookshop by default).
-      if (copyPromptBtn) copyPromptBtn.textContent = isAmazon ? 'Copy Amazon Prompt' : 'Copy Bookshop Prompt';
-      if (suggestHint) {
-        const count = getPromptCount();
-        suggestHint.textContent = isAmazon
-          ? 'Copy this fresh prompt into a web-capable assistant. It asks for up to ' + count + ' broader Amazon gift items, allows verified partial batches, includes pro teams, excludes archived inventory, includes your Amazon referral tags, and returns the SQL as one copy-paste-ready code block (plain ASCII, no smart quotes). Images are left blank on purpose — add each one after import with the Grab button on the item.'
-          : 'Copy this fresh prompt into a web-capable assistant. It asks for ' + count + ' Bookshop.org books with an exact "Title by Author" and ISBN — we build the affiliate link and cover from the ISBN ourselves (same as Auto Fill), so the model no longer guesses those. Includes pro teams, excludes current inventory including archived rows, and returns the SQL as one copy-paste-ready code block (plain ASCII, no smart quotes).';
-      }
+      if (copyPromptBtn) copyPromptBtn.textContent = copyLabel;
+      if (suggestHint) suggestHint.textContent = hint;
       suggestPromptText.value = prompt;
+      const nCities = buildPromptCitySnapshot().length;
       setStatus(
         suggestStatus,
-        (isAmazon ? 'Amazon' : 'Book') + ' prompt refreshed with ' + buildPromptCitySnapshot().length + ' cit' + (buildPromptCitySnapshot().length === 1 ? 'y' : 'ies') + ' and ' +
-          buildPromptSportsTeamSnapshot().length + ' pro sports team(s) and ' +
+        statusLabel + ' prompt refreshed with ' + nCities + ' cit' + (nCities === 1 ? 'y' : 'ies') + ' and ' +
           buildPromptExistingItemsSnapshot().length + ' existing item(s).',
         'success'
       );
