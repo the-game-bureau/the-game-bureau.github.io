@@ -762,7 +762,49 @@
       display: grid;
       gap: 14px;
     }
-    .items-more { display: flex; justify-content: center; gap: 10px; margin-top: 14px; }
+    .items-pager {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      margin-top: 18px;
+    }
+    .items-pager[hidden] { display: none; }
+    .items-pager-btn {
+      min-width: 36px;
+      min-height: 36px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+    }
+    .items-pager-btn:hover:not(:disabled) {
+      background: rgba(var(--bic-blue-rgb), 0.08);
+      border-color: var(--accent);
+    }
+    .items-pager-btn.is-active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      cursor: default;
+    }
+    .items-pager-btn.is-ellipsis {
+      border-color: transparent;
+      background: transparent;
+      color: var(--muted);
+      cursor: default;
+    }
+    .items-pager-btn:disabled:not(.is-active):not(.is-ellipsis) {
+      opacity: 0.45;
+      cursor: default;
+    }
     .item.paged-out { display: none; }
     .item-review {
       width: 100%;
@@ -807,15 +849,70 @@
       padding: 0 12px;
       font-size: 0.72rem;
     }
+    /* Bulk action bar above the gift list. */
+    .bulk-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--paper);
+    }
+    .bulk-selectall {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--ink);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .bulk-selectall input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+    .bulk-count {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .bulk-count.has-selection { color: var(--accent); }
+    .bulk-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-left: auto;
+    }
+
     .item {
       display: grid;
-      grid-template-columns: auto 1fr;
+      grid-template-columns: auto auto 1fr;
       gap: 14px;
       padding: 14px;
       background: var(--paper);
       border: 1px solid var(--line);
       border-radius: 10px;
       box-shadow: 0 10px 24px var(--paper-shadow);
+    }
+
+    /* Bulk-select checkbox column (far left of each gift row). */
+    .item-select {
+      display: flex;
+      align-self: start;
+      padding-top: 2px;
+      cursor: pointer;
+    }
+    .item-select-box {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+    .item.is-selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(215, 58, 49, 0.10), 0 10px 24px var(--paper-shadow);
     }
 
     .item.is-hidden { opacity: 0.65; }
@@ -1369,6 +1466,9 @@
       -webkit-overflow-scrolling: touch;
     }
     .add-gift-body .item { margin: 0; }
+    /* No bulk-select checkbox while a single new gift is being added in the modal. */
+    .add-gift-body .item-select { display: none; }
+    .add-gift-body .item { grid-template-columns: auto 1fr; }
 
     /* ── Add-city lightbox ────────────────────────────────────── */
     .add-city-modal {
@@ -2092,16 +2192,33 @@
 
       <p class="city-tools-status" id="giftCityStatus" aria-live="polite"></p>
 
-      <div class="items" id="itemsList"></div>
-      <div class="items-more">
-        <button class="btn" id="showMoreItemsBtn" type="button" hidden>Show more</button>
-        <button class="btn" id="showAllItemsBtn" type="button" hidden>Show all</button>
+      <!-- Bulk actions: tick several gifts, then archive / publish / delete them
+           in one go. Selection persists across pages (checked state lives in the
+           DOM). Action buttons stay disabled until at least one gift is ticked. -->
+      <div class="bulk-bar" id="bulkBar">
+        <label class="bulk-selectall">
+          <input type="checkbox" id="bulkSelectAll" aria-label="Select all gifts on this page">
+          <span>Select all on this page</span>
+        </label>
+        <span class="bulk-count" id="bulkCount">0 selected</span>
+        <div class="bulk-actions">
+          <button class="btn" id="bulkArchiveBtn" type="button" disabled>Save &amp; Archive</button>
+          <button class="btn primary" id="bulkPublishBtn" type="button" disabled>Save &amp; Publish</button>
+          <button class="btn danger" id="bulkDeleteBtn" type="button" disabled>Delete</button>
+          <button class="btn bulk-clear" id="bulkClearBtn" type="button" disabled>Clear</button>
+        </div>
       </div>
+
+      <div class="items" id="itemsList"></div>
+      <nav class="items-pager" id="itemsPager" aria-label="Gift list pages" hidden></nav>
     </section>
   </main>
 
   <template id="itemTemplate">
     <article class="item" data-id="">
+      <label class="item-select" title="Select for bulk actions">
+        <input type="checkbox" class="item-select-box" data-item-select aria-label="Select this gift for bulk actions">
+      </label>
       <div class="item-focus-col">
         <div class="item-focus" data-has-image="false">
           <span data-focus-placeholder>IMG</span>
@@ -2256,8 +2373,14 @@
     const clearFiltersBtn = document.getElementById('clearFiltersBtn');
     const searchPromptBtn = document.getElementById('searchPromptBtn');
     const itemsList    = document.getElementById('itemsList');
-    const showMoreItemsBtn = document.getElementById('showMoreItemsBtn');
-    const showAllItemsBtn = document.getElementById('showAllItemsBtn');
+    const itemsPager   = document.getElementById('itemsPager');
+    const bulkBar        = document.getElementById('bulkBar');
+    const bulkSelectAll  = document.getElementById('bulkSelectAll');
+    const bulkCount      = document.getElementById('bulkCount');
+    const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
+    const bulkPublishBtn = document.getElementById('bulkPublishBtn');
+    const bulkDeleteBtn  = document.getElementById('bulkDeleteBtn');
+    const bulkClearBtn   = document.getElementById('bulkClearBtn');
     const cityFilter   = document.getElementById('cityFilter');
     const cityFilterBtn = document.getElementById('cityFilterBtn');
     const cityFilterPanel = document.getElementById('cityFilterPanel');
@@ -2268,51 +2391,255 @@
     const addGiftCityBtn = document.getElementById('addGiftCityBtn');
     const giftCityStatus = document.getElementById('giftCityStatus');
 
-    // Items list pagination: the first page load shows just ONE item (fast
-    // initial paint), then "Show more" reveals the rest 50 at a time. Later
-    // filter/sort changes reset to a normal 50-item page. Unsaved/new and
-    // dirty items always show.
-    const ITEMS_PAGE_SIZE = 50;
-    const ITEMS_INITIAL_LIMIT = 1;
-    let itemsPageLimit = ITEMS_INITIAL_LIMIT;
-    let itemsFirstRender = true;
+    // Items list pagination: classic numbered pages, 20 gifts per page. New/
+    // unsaved and dirty items always show (never paged out) so an in-progress
+    // edit can't scroll off behind a page change. Filter/sort resets to page 1.
+    const ITEMS_PER_PAGE = 20;
+    let itemsCurrentPage = 1;
+
+    // The paginable items in DOM order: everything not filtered out and not
+    // force-shown (new/dirty). These are the rows the page window slices.
+    function paginableItems() {
+      return Array.from(itemsList.querySelectorAll('.item')).filter((item) =>
+        !item.classList.contains('hidden') &&
+        !item.classList.contains('is-new') &&
+        !item.classList.contains('is-dirty'));
+    }
+
     function applyItemsPagination() {
-      let shown = 0;
-      let pagedOut = 0;
-        itemsList.querySelectorAll('.item').forEach((item) => {
-          if (item.classList.contains('hidden')) { item.classList.remove('paged-out'); return; }
-          if (item.classList.contains('is-new')) { item.classList.remove('paged-out'); return; }
-          if (item.classList.contains('is-dirty')) { item.classList.remove('paged-out'); return; }
-          if (shown < itemsPageLimit) { item.classList.remove('paged-out'); shown++; }
-          else { item.classList.add('paged-out'); pagedOut++; }
+      const eligible = paginableItems();
+      const totalPages = Math.max(1, Math.ceil(eligible.length / ITEMS_PER_PAGE));
+      itemsCurrentPage = Math.min(Math.max(1, itemsCurrentPage), totalPages);
+      const start = (itemsCurrentPage - 1) * ITEMS_PER_PAGE;
+      const end = start + ITEMS_PER_PAGE;
+      let i = 0;
+      itemsList.querySelectorAll('.item').forEach((item) => {
+        if (item.classList.contains('hidden') ||
+            item.classList.contains('is-new') ||
+            item.classList.contains('is-dirty')) {
+          item.classList.remove('paged-out');
+          return;
+        }
+        if (i >= start && i < end) item.classList.remove('paged-out');
+        else item.classList.add('paged-out');
+        i++;
+      });
+      renderItemsPager(totalPages);
+      updateBulkBar();
+    }
+
+    function goToItemsPage(page) {
+      itemsCurrentPage = page;
+      applyItemsPagination();
+      // Bring the top of the list into view so the new page starts at the top.
+      if (itemsList) itemsList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Jump to whichever page holds `article` (used to reveal a deep-linked or
+    // just-saved item that would otherwise sit on another page).
+    function goToItemPage(article) {
+      const idx = paginableItems().indexOf(article);
+      if (idx < 0) return; // force-shown or filtered out — already visible or N/A
+      itemsCurrentPage = Math.floor(idx / ITEMS_PER_PAGE) + 1;
+      applyItemsPagination();
+    }
+
+    // Compact page-number list: 1 … (cur-1) cur (cur+1) … last.
+    function itemsPageList(current, total) {
+      const wanted = [1, total, current, current - 1, current + 1]
+        .filter((p) => p >= 1 && p <= total)
+        .sort((a, b) => a - b);
+      const uniq = [...new Set(wanted)];
+      const out = [];
+      let prev = 0;
+      uniq.forEach((p) => {
+        if (p - prev > 1) out.push('…');
+        out.push(p);
+        prev = p;
+      });
+      return out;
+    }
+
+    function renderItemsPager(totalPages) {
+      if (!itemsPager) return;
+      itemsPager.innerHTML = '';
+      if (totalPages <= 1) { itemsPager.hidden = true; return; }
+      itemsPager.hidden = false;
+
+      const mkBtn = (label, page, opts = {}) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'items-pager-btn' +
+          (opts.active ? ' is-active' : '') +
+          (opts.ellipsis ? ' is-ellipsis' : '');
+        b.textContent = label;
+        if (opts.disabled || opts.ellipsis || opts.active) b.disabled = true;
+        if (opts.active) b.setAttribute('aria-current', 'page');
+        if (!opts.disabled && !opts.ellipsis && !opts.active) {
+          b.addEventListener('click', () => goToItemsPage(page));
+        }
+        return b;
+      };
+
+      itemsPager.appendChild(mkBtn('‹ Prev', itemsCurrentPage - 1, { disabled: itemsCurrentPage === 1 }));
+      itemsPageList(itemsCurrentPage, totalPages).forEach((p) => {
+        itemsPager.appendChild(p === '…'
+          ? mkBtn('…', 0, { ellipsis: true })
+          : mkBtn(String(p), p, { active: p === itemsCurrentPage }));
+      });
+      itemsPager.appendChild(mkBtn('Next ›', itemsCurrentPage + 1, { disabled: itemsCurrentPage === totalPages }));
+    }
+
+    // ── Bulk actions ────────────────────────────────────────────────────
+    // Tick several gifts and archive / publish / delete them in one pass.
+    // Selection is read straight off the checkboxes, so it survives sorting,
+    // filtering, and page changes (checked state stays in the DOM).
+    let bulkBusy = false;
+
+    function selectedItemArticles() {
+      return Array.from(itemsList.querySelectorAll('.item-select-box:checked'))
+        .map((box) => box.closest('.item'))
+        .filter(Boolean);
+    }
+
+    function setItemSelected(article, on) {
+      const box = article.querySelector('.item-select-box');
+      if (box) box.checked = on;
+      article.classList.toggle('is-selected', on);
+    }
+
+    function updateBulkBar() {
+      if (!bulkBar) return;
+      const count = selectedItemArticles().length;
+      if (bulkCount) {
+        bulkCount.textContent = count + ' selected';
+        bulkCount.classList.toggle('has-selection', count > 0);
+      }
+      const actionsDisabled = bulkBusy || count === 0;
+      [bulkArchiveBtn, bulkPublishBtn, bulkDeleteBtn, bulkClearBtn].forEach((b) => {
+        if (b) b.disabled = actionsDisabled;
+      });
+      // Sync the "select all on this page" box against the visible rows.
+      const visibleBoxes = Array.from(
+        itemsList.querySelectorAll('.item:not(.paged-out):not(.hidden) .item-select-box')
+      );
+      const checkedVisible = visibleBoxes.filter((b) => b.checked).length;
+      if (bulkSelectAll) {
+        bulkSelectAll.checked = visibleBoxes.length > 0 && checkedVisible === visibleBoxes.length;
+        bulkSelectAll.indeterminate = checkedVisible > 0 && checkedVisible < visibleBoxes.length;
+        bulkSelectAll.disabled = bulkBusy || visibleBoxes.length === 0;
+      }
+    }
+
+    function clearItemSelection() {
+      itemsList.querySelectorAll('.item-select-box:checked').forEach((box) => {
+        box.checked = false;
+        const article = box.closest('.item');
+        if (article) article.classList.remove('is-selected');
+      });
+      updateBulkBar();
+    }
+
+    // Keep the row highlight + bulk bar in sync as individual boxes are ticked.
+    itemsList.addEventListener('change', (event) => {
+      const box = event.target.closest && event.target.closest('.item-select-box');
+      if (!box) return;
+      const article = box.closest('.item');
+      if (article) article.classList.toggle('is-selected', box.checked);
+      updateBulkBar();
+    });
+
+    if (bulkSelectAll) {
+      bulkSelectAll.addEventListener('change', () => {
+        const on = bulkSelectAll.checked;
+        itemsList.querySelectorAll('.item:not(.paged-out):not(.hidden)').forEach((article) => {
+          setItemSelected(article, on);
         });
-      // The counts show the running total you'll be looking at AFTER the click:
-      // what's visible now + what that button reveals.
-      const visible = itemsList.querySelectorAll('.item:not(.hidden):not(.paged-out)').length;
-      const nextReveal = Math.min(ITEMS_PAGE_SIZE, pagedOut);
-      if (showMoreItemsBtn) {
-        showMoreItemsBtn.hidden = pagedOut === 0;
-        showMoreItemsBtn.textContent = 'Show more (' + (visible + nextReveal) + ')';
-      }
-      // "Show all" appears alongside "Show more" only when there's more than one
-      // page still hidden — otherwise "Show more" already reveals everything.
-      if (showAllItemsBtn) {
-        showAllItemsBtn.hidden = pagedOut <= ITEMS_PAGE_SIZE;
-        showAllItemsBtn.textContent = 'Show all (' + (visible + pagedOut) + ')';
-      }
-    }
-    if (showMoreItemsBtn) {
-      showMoreItemsBtn.addEventListener('click', () => {
-        itemsPageLimit += ITEMS_PAGE_SIZE;
-        applyItemsPagination();
+        updateBulkBar();
       });
     }
-    if (showAllItemsBtn) {
-      showAllItemsBtn.addEventListener('click', () => {
-        itemsPageLimit = itemsList.querySelectorAll('.item').length;
-        applyItemsPagination();
+
+    if (bulkClearBtn) bulkClearBtn.addEventListener('click', clearItemSelection);
+
+    function setBulkBusy(on) {
+      bulkBusy = on;
+      updateBulkBar();
+    }
+
+    // Save & Archive / Save & Publish, applied to every selected gift by reusing
+    // each row's own save routine (so validation + listings sync are identical to
+    // the single-item buttons). Rows that fail validation keep their checkbox and
+    // show their own error; the summary reports how many were skipped.
+    async function runBulkSave(opts, verb) {
+      const targets = selectedItemArticles();
+      if (!targets.length || bulkBusy) return;
+      setBulkBusy(true);
+      let ok = 0, skipped = 0;
+      for (const article of targets) {
+        const saved = typeof article._saveItemChanges === 'function'
+          ? await article._saveItemChanges({ ...opts, refreshAfterSave: false, openAfterCreate: false })
+          : false;
+        if (saved) { setItemSelected(article, false); ok++; }
+        else skipped++;
+      }
+      setBulkBusy(false);
+      refreshItemsView();
+      updateBulkBar();
+      setStatus(
+        shopStatus,
+        verb + ' ' + ok + ' gift' + (ok === 1 ? '' : 's') +
+          (skipped ? ' · ' + skipped + ' skipped (see the highlighted row' + (skipped === 1 ? '' : 's') + ')' : '') + '.',
+        skipped ? 'warning' : 'success'
+      );
+    }
+
+    if (bulkArchiveBtn) {
+      bulkArchiveBtn.addEventListener('click', () =>
+        runBulkSave({ certifiedAt: null, archived: true }, 'Archived'));
+    }
+    if (bulkPublishBtn) {
+      bulkPublishBtn.addEventListener('click', () =>
+        runBulkSave({ certifiedAt: new Date().toISOString(), archived: false }, 'Published'));
+    }
+
+    if (bulkDeleteBtn) {
+      bulkDeleteBtn.addEventListener('click', async () => {
+        const targets = selectedItemArticles();
+        if (!targets.length || bulkBusy) return;
+        const confirmFn = window.TgbConfirm || ((m) => Promise.resolve(window.confirm(m)));
+        const n = targets.length;
+        const ok = await confirmFn(
+          'Delete ' + n + ' selected gift' + (n === 1 ? '' : 's') + '? This cannot be undone.',
+          { title: 'Delete gifts', okLabel: 'Delete ' + n, danger: true }
+        );
+        if (!ok) return;
+        setBulkBusy(true);
+        let done = 0, failed = 0;
+        for (const article of targets) {
+          const id = article.dataset.id;
+          try {
+            if (id) await deleteItem(id);
+            clearItemDirty(article);
+            article.remove();
+            done++;
+          } catch (error) {
+            console.error(error);
+            failed++;
+          }
+        }
+        setBulkBusy(false);
+        if (!itemsList.querySelector('.item')) renderEmpty();
+        refreshItemsView();
+        updateBulkBar();
+        setStatus(
+          shopStatus,
+          'Deleted ' + done + ' gift' + (done === 1 ? '' : 's') +
+            (failed ? ' · ' + failed + ' failed' : '') + '.',
+          failed ? 'error' : 'success'
+        );
       });
     }
+
     if (itemSortSelect) {
       itemSortSelect.addEventListener('change', refreshItemsView);
     }
@@ -2953,10 +3280,8 @@
         if (show) visible++;
       });
       updateItemsStatus();
-      // The very first render shows a single item; afterwards a filter change
-      // resets pagination back to a full page.
-      itemsPageLimit = itemsFirstRender ? ITEMS_INITIAL_LIMIT : ITEMS_PAGE_SIZE;
-      itemsFirstRender = false;
+      // Any filter/sort change (or a fresh render) resets to the first page.
+      itemsCurrentPage = 1;
       applyItemsPagination();
     }
 
@@ -3948,9 +4273,7 @@
       initialItemFocusPending = false;
       // Make sure the deep-linked item isn't hidden behind pagination.
       if (article.classList.contains('paged-out')) {
-        const all = Array.from(itemsList.querySelectorAll('.item'));
-        itemsPageLimit = Math.max(itemsPageLimit, all.indexOf(article) + 1);
-        applyItemsPagination();
+        goToItemPage(article);
       }
       article.classList.add('is-targeted');
       article.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -4029,9 +4352,7 @@
       itemsList.appendChild(article);
       refreshItemsView();
       if (article.classList.contains('paged-out')) {
-        const all = Array.from(itemsList.querySelectorAll('.item'));
-        itemsPageLimit = Math.max(itemsPageLimit, all.indexOf(article) + 1);
-        applyItemsPagination();
+        goToItemPage(article);
       }
       article.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
