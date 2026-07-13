@@ -45,6 +45,12 @@
        Big Shoulders Display + IBM Plex Mono. These rules style the
        gift-specific surfaces (grid cards, detail lightbox) to match. ──── */
 
+    /* One shared corner radius for every small interactive/tag/pill/badge
+       control (chips, tags, CTAs, badges, search field, close button) so they
+       read as one family. Containers (cards, panels, modals) keep their own,
+       larger radii. Change this one value to reshape all controls at once. */
+    body.home-page { --ctl-radius: 8px; }
+
     body.home-page .gift-page {
       display: grid;
       gap: 28px;
@@ -123,14 +129,15 @@
     body.home-page .gift-grid-head {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
+      flex-wrap: wrap;
+      gap: 12px 18px;
       margin: 0 0 20px;
       padding: 0 2px 12px;
       border-bottom: 1px solid var(--line);
     }
     body.home-page .gift-grid-title {
-      margin: 0;
+      /* Push the filter + count cluster to the right edge of the row. */
+      margin: 0 auto 0 0;
       color: var(--ink);
       font-family: "Big Shoulders Display", "Impact", "Arial Narrow", sans-serif;
       font-size: 1.35rem;
@@ -149,7 +156,7 @@
       gap: 4px;
       padding: 8px 18px;
       border: 1px solid var(--line-strong);
-      border-radius: 10px;
+      border-radius: var(--ctl-radius);
       background: rgba(16, 21, 30, 0.78);
       box-shadow: var(--shadow-chip);
       -webkit-backdrop-filter: blur(18px);
@@ -173,6 +180,108 @@
       letter-spacing: 0.18em;
       text-transform: uppercase;
       color: rgba(243, 238, 220, 0.62);
+    }
+    /* Source filter — slick toggle pills that read as "on" (filled, accent
+       ring, check) or "off" (dim, no fill). Multi-select, all on by default.
+       Lives inline in the grid-head row, between the title and count badge. */
+    body.home-page .gift-filter {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      margin: 0;
+      padding: 0;
+    }
+    /* Author display:flex above would otherwise beat the UA [hidden] rule. */
+    body.home-page .gift-filter[hidden] { display: none; }
+    body.home-page .gift-filter-label {
+      font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    body.home-page .gift-filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    body.home-page .gift-filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px 7px 11px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--ctl-radius);
+      background: rgba(16, 21, 30, 0.78);
+      box-shadow: var(--shadow-chip);
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+      color: var(--ink);
+      font-family: "Big Shoulders Display", "Impact", "Arial Narrow", sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      line-height: 1;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease,
+        box-shadow 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+    }
+    body.home-page .gift-filter-chip:hover {
+      border-color: var(--accent);
+    }
+    body.home-page .gift-filter-chip:focus-visible {
+      outline: none;
+      box-shadow: var(--shadow-chip), 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
+    }
+    /* The tick + accent fill only appear when the source is active. */
+    body.home-page .gift-filter-chip .gift-filter-tick {
+      display: grid;
+      place-items: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1.5px solid var(--line-strong);
+      color: #0a0e15;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }
+    body.home-page .gift-filter-chip .gift-filter-tick svg {
+      width: 10px;
+      height: 10px;
+      opacity: 0;
+      transform: scale(0.6);
+      transition: opacity 0.12s ease, transform 0.12s ease;
+    }
+    body.home-page .gift-filter-chip .gift-filter-count {
+      font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    body.home-page .gift-filter-chip[aria-pressed="true"] {
+      background: color-mix(in srgb, var(--accent) 16%, rgba(16, 21, 30, 0.78));
+      border-color: var(--accent);
+    }
+    body.home-page .gift-filter-chip[aria-pressed="true"] .gift-filter-tick {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    body.home-page .gift-filter-chip[aria-pressed="true"] .gift-filter-tick svg {
+      opacity: 1;
+      transform: scale(1);
+    }
+    body.home-page .gift-filter-chip[aria-pressed="true"] .gift-filter-count {
+      color: var(--accent);
+    }
+    body.home-page .gift-filter-chip[aria-pressed="false"] {
+      opacity: 0.55;
+    }
+    body.home-page .gift-filter-chip[aria-pressed="false"]:hover {
+      opacity: 0.85;
     }
     body.home-page .gift-city-panel {
       display: grid;
@@ -218,7 +327,7 @@
       height: 34px;
       padding: 0;
       border: 1px solid transparent;
-      border-radius: 999px;
+      border-radius: var(--ctl-radius);
       background: rgba(8, 11, 17, 0);
       color: var(--ink);
       font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
@@ -253,7 +362,7 @@
       margin-left: 4px;
       padding: 0;
       border: 1px solid transparent;
-      border-radius: 999px;
+      border-radius: var(--ctl-radius);
       background: transparent;
       color: rgba(243, 238, 220, 0.6);
       cursor: pointer;
@@ -291,7 +400,7 @@
       width: 100%;
       padding: 8px 10px;
       border: 0;
-      border-radius: 8px;
+      border-radius: var(--ctl-radius);
       background: transparent;
       color: var(--ink);
       text-align: left;
@@ -409,6 +518,10 @@
       transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
     }
 
+    /* The source filter hides cards via the [hidden] attribute; the grid
+       display above would otherwise win over the UA rule. */
+    body.home-page .card[hidden] { display: none !important; }
+
     body.home-page .card:hover,
     body.home-page .card:focus-visible {
       border-color: rgba(245, 180, 97, 0.34);
@@ -497,7 +610,7 @@
       justify-content: center;
       width: 26px;
       height: 26px;
-      border-radius: 6px;
+      border-radius: var(--ctl-radius);
       border: 1px solid rgba(243, 238, 220, 0.30);
       background: rgba(4, 6, 10, 0.60);
       color: rgba(243, 238, 220, 0.92);
@@ -576,7 +689,7 @@
       white-space: nowrap;
       padding: 3px 7px;
       border: 1px solid rgba(243, 238, 220, 0.28);
-      border-radius: 999px;
+      border-radius: var(--ctl-radius);
       background: rgba(243, 238, 220, 0.08);
       color: rgba(243, 238, 220, 0.78);
       font-size: 0.66rem;
@@ -773,7 +886,7 @@
       width: 34px;
       height: 34px;
       border: 0;
-      border-radius: 8px;
+      border-radius: var(--ctl-radius);
       background: rgba(8, 12, 18, 0.6);
       color: var(--ink);
       font-size: 1.4rem;
@@ -852,7 +965,7 @@
       min-height: 46px;
       padding: 0 16px;
       border: 1px solid var(--accent);
-      border-radius: 6px;
+      border-radius: var(--ctl-radius);
       background: var(--accent);
       color: #080c12;
       font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
@@ -881,7 +994,7 @@
       min-height: 42px;
       flex-shrink: 0;
       border: 1px solid var(--accent);
-      border-radius: 6px;
+      border-radius: var(--ctl-radius);
       background: var(--accent);
       color: #080c12;
       font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
@@ -959,7 +1072,7 @@
     body.home-page .skeleton-line { height: 14px; border-radius: 5px; }
     body.home-page .skeleton-line--title { height: 24px; width: 72%; }
     body.home-page .skeleton-line--short { width: 45%; }
-    body.home-page .skeleton-cta { height: 42px; margin-top: auto; border-radius: 6px; }
+    body.home-page .skeleton-cta { height: 42px; margin-top: auto; border-radius: var(--ctl-radius); }
     /* City-rail placeholder pills — sized to the real .hero-meta-list-item chips
        (min-height 60px, rounded) so the rail holds its height and doesn't shift
        when the real cities land. */
@@ -992,6 +1105,21 @@
       letter-spacing: 0.04em;
       line-height: 1.6;
       text-transform: none;
+    }
+    body.home-page .footer-note-link {
+      display: inline-block;
+      margin-left: 4px;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-decoration: none;
+      white-space: nowrap;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.15s ease, color 0.15s ease;
+    }
+    body.home-page .footer-note-link:hover,
+    body.home-page .footer-note-link:focus-visible {
+      border-bottom-color: var(--accent);
     }
 
     /* Footer fold — the affiliate note and the shared social row read as one
@@ -1140,6 +1268,14 @@
       <section class="gift-grid-wrap" aria-label="Gift shop items">
         <header class="gift-grid-head" id="giftGridHead" hidden>
           <h2 class="gift-grid-title" id="giftGridTitle"></h2>
+          <!-- Source filter: toggle gift cards by where they're curated from
+               (Amazon / Bookshop / free publications). Sits inline in the head
+               row; built + shown by setupGiftSourceFilter() only when >1
+               source is present. -->
+          <div class="gift-filter" id="giftFilter" role="group" aria-label="Filter gifts by source" hidden>
+            <span class="gift-filter-label">Curated from</span>
+            <div class="gift-filter-chips" id="giftFilterChips"></div>
+          </div>
           <span class="gift-grid-count" id="giftGridCount">
             <span class="gift-grid-count-num" id="giftGridCountNum">0</span>
             <span class="gift-grid-count-label">gifts</span>
@@ -1151,7 +1287,7 @@
     </main>
 
     <!-- Footer fold: affiliate disclosure + shared social row as one quiet block -->
-    <p class="footer-note">As an Amazon Associate and a Bookshop.org affiliate, The Game Bureau may earn from qualifying purchases.</p>
+    <p class="footer-note">As an Amazon Associate and a Bookshop.org affiliate, The Game Bureau may earn from qualifying purchases. <a class="footer-note-link" href="aboutshop.html">How our shop works &rsaquo;</a></p>
     <footer class="site-footer" data-site-footer></footer>
     <script src="../assets/site-footer.js"></script>
   </div>
@@ -1189,6 +1325,88 @@
     const giftGridTitleEl = document.getElementById('giftGridTitle');
     const giftGridCountEl = document.getElementById('giftGridCount');
     const giftGridCountNumEl = document.getElementById('giftGridCountNum');
+    const giftFilterEl = document.getElementById('giftFilter');
+    const giftFilterChipsEl = document.getElementById('giftFilterChips');
+
+    // ── "Curated from" source filter ──────────────────────────────────────
+    // Toggle gift cards by where they come from. Multi-select pills, all on by
+    // default; a source with no items this view is omitted, and the whole bar
+    // hides unless at least two sources are present (nothing to filter).
+    const GIFT_SOURCE_DEFS = [
+      { key: 'amazon',   label: 'Amazon' },
+      { key: 'bookshop', label: 'Bookshop' },
+      { key: 'free',     label: 'Free' }
+    ];
+    const giftFilterActive = new Set(GIFT_SOURCE_DEFS.map((s) => s.key));
+    let giftFilterCards = [];
+
+    const TICK_SVG =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+    function applyGiftSourceFilter() {
+      let shown = 0;
+      giftFilterCards.forEach((card) => {
+        const src = card.dataset.giftSource || 'free';
+        const visible = giftFilterActive.has(src);
+        card.hidden = !visible;
+        if (visible) shown += 1;
+      });
+      // Keep the head badge in sync with what's actually on screen.
+      if (giftGridCountNumEl) giftGridCountNumEl.textContent = String(shown);
+    }
+
+    function setupGiftSourceFilter(itemCards) {
+      if (!giftFilterEl || !giftFilterChipsEl) return;
+      giftFilterCards = Array.isArray(itemCards) ? itemCards : [];
+
+      // Tally how many gift cards each source has in this view.
+      const counts = {};
+      giftFilterCards.forEach((card) => {
+        const src = card.dataset.giftSource || 'free';
+        counts[src] = (counts[src] || 0) + 1;
+      });
+      const present = GIFT_SOURCE_DEFS.filter((s) => counts[s.key] > 0);
+
+      // Reset to "all on" for every source present in this view.
+      giftFilterActive.clear();
+      present.forEach((s) => giftFilterActive.add(s.key));
+
+      // Nothing to filter unless there are at least two distinct sources.
+      if (present.length < 2) {
+        giftFilterEl.hidden = true;
+        giftFilterChipsEl.innerHTML = '';
+        applyGiftSourceFilter();
+        return;
+      }
+
+      giftFilterChipsEl.innerHTML = '';
+      present.forEach((s) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'gift-filter-chip';
+        chip.dataset.source = s.key;
+        chip.setAttribute('aria-pressed', 'true');
+        chip.innerHTML =
+          '<span class="gift-filter-tick">' + TICK_SVG + '</span>' +
+          '<span class="gift-filter-name">' + s.label + '</span>' +
+          '<span class="gift-filter-count">' + counts[s.key] + '</span>';
+        chip.addEventListener('click', () => {
+          const on = chip.getAttribute('aria-pressed') === 'true';
+          // Don't let the user turn off the last active source — that would
+          // blank the grid with no way to read why.
+          if (on && giftFilterActive.size <= 1) return;
+          if (on) { giftFilterActive.delete(s.key); chip.setAttribute('aria-pressed', 'false'); }
+          else    { giftFilterActive.add(s.key);    chip.setAttribute('aria-pressed', 'true'); }
+          applyGiftSourceFilter();
+        });
+        giftFilterChipsEl.appendChild(chip);
+      });
+
+      giftFilterEl.hidden = false;
+      applyGiftSourceFilter();
+    }
 
     // Per-view "gifts showing" count (kept for internal bookkeeping / a11y; the
     // shop-wide totals live in the shared nav-stats chip).
@@ -2503,6 +2721,9 @@
       card.className = 'card';
       card.dataset.adminEdit = 'gift-item';
       card.dataset.adminId = item.id || '';
+      // Tag the card with its curation source so the source filter can
+      // show/hide it (amazon | bookshop | free).
+      card.dataset.giftSource = giftItemSource(item);
 
       if (opts.gameColor) {
         card.dataset.gameColor = '';
@@ -2591,6 +2812,18 @@
     function isAffiliateUrl(url) {
       const u = String(url || '').toLowerCase();
       return /amazon\.|amzn\.to|\ba\.co\//.test(u) || /bookshop\.org/.test(u);
+    }
+
+    // Which bucket a gift card belongs to for the "Curated from" filter:
+    //   amazon   → Amazon affiliate link
+    //   bookshop → Bookshop.org affiliate link
+    //   free     → everything else: free publications (travel guides, audio
+    //              tours, free walking tours) — no book-retailer affiliate.
+    function giftItemSource(item) {
+      const u = String(item && item.url || '').toLowerCase();
+      if (/amazon\.|amzn\.to|\ba\.co\//.test(u)) return 'amazon';
+      if (/bookshop\.org/.test(u)) return 'bookshop';
+      return 'free';
     }
     function giftCtaRel(url) {
       return isAffiliateUrl(url) ? 'noopener nofollow sponsored' : 'noopener noreferrer';
@@ -2915,10 +3148,14 @@
             ? 'No games or gifts for ' + (requestedGame.name || 'this game') + ' yet.'
             : (requestedCity ? 'No games or gifts match ' + requestedCity + '.' : 'No items in the gift shop yet.'));
           setItemCount(0);
+          setupGiftSourceFilter([]);
           return;
         }
         cards.forEach((card) => gridEl.appendChild(card));
         setItemCount(cards.length);
+        // Per-game views hide the grid head/filter chrome; everywhere else,
+        // offer the source filter (it hides itself if <2 sources are present).
+        setupGiftSourceFilter(requestedGame ? [] : itemCards);
       } catch (error) {
         console.error('[giftshop] all-shops load failed', error);
         renderEmpty('Could not load gift shop.');
