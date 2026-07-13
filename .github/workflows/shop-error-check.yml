@@ -15,7 +15,12 @@ on:
   schedule:
     - cron: "0 8 * * *"   # 03:00 CDT (summer)
     - cron: "0 9 * * *"   # 03:00 CST (winter)
-  workflow_dispatch: {}    # manual run (checks whatever seventh matches today)
+  workflow_dispatch:       # manual run
+    inputs:
+      full:
+        description: "Recheck the entire catalog (not just today's 1/7 slice)"
+        type: boolean
+        default: true
 
 permissions:
   contents: write          # needed to push the auto-commit
@@ -63,6 +68,9 @@ jobs:
           # Optional: bypasses RLS so ARCHIVED items are checked too. Without it,
           # only published (non-archived) items are covered.
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Empty on scheduled runs (→ today's 1/7 slice); "true" when a manual
+          # dispatch asks for a full-catalog recheck.
+          SHOP_ERROR_FULL: ${{ github.event.inputs.full }}
         run: node _dev/scripts/shop-error-check.mjs
 
       - name: Commit & push if the report changed

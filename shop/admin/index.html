@@ -352,6 +352,17 @@
     .city-stock-warning-body { display: grid; gap: 4px; min-width: 0; }
     .city-stock-warning-title { margin: 0; font-weight: 800; font-size: 0.92rem; color: #6b5000; }
     .city-stock-warning-list { margin: 0; font-size: 0.85rem; color: #7a5b00; }
+    /* Info variant: shown when every city is stocked — a calm coverage nudge
+       (the 3 leanest cities) rather than an amber shortage alarm. */
+    .city-stock-warning.is-info {
+      border-color: #2f6f9e;
+      border-left-color: #2f6f9e;
+      background: rgba(47, 111, 158, 0.10);
+      color: #274b63;
+    }
+    .city-stock-warning.is-info .city-stock-warning-icon { color: #2f6f9e; }
+    .city-stock-warning.is-info .city-stock-warning-title { color: #1f3b4d; }
+    .city-stock-warning.is-info .city-stock-warning-list { color: #33566b; }
 
     .toolbar {
       display: flex;
@@ -2143,8 +2154,10 @@
         </div>
       </div>
 
-      <!-- Low-stock warning: cities carrying fewer than MIN_CITY_GIFTS gifts.
-           Populated by renderCityGiftWarning() after the catalog loads. -->
+      <!-- Dual-purpose stock note (renderCityGiftWarning(), after the catalog
+           loads): amber WARNING listing cities under MIN_CITY_GIFTS gifts, or —
+           when every city is stocked — a calm blue INFO nudge (.is-info) naming
+           the 3 cities with the fewest gifts. -->
       <div class="city-stock-warning" id="cityStockWarning" role="alert" hidden>
         <span class="city-stock-warning-icon" aria-hidden="true">⚠</span>
         <div class="city-stock-warning-body">
@@ -2178,6 +2191,7 @@
           <select id="itemSortSelect" aria-label="Sort gifts" disabled>
             <option value="title">Sort: A → Z</option>
             <option value="city">Sort: By city</option>
+            <option value="cities">Sort: Most cities</option>
             <option value="status" selected>Sort: By status</option>
           </select>
           <select id="recentFilter" aria-label="Filter gifts by when added" disabled>
@@ -2202,6 +2216,7 @@
         </label>
         <span class="bulk-count" id="bulkCount">0 selected</span>
         <div class="bulk-actions">
+          <button class="btn" id="bulkAutoFillBtn" type="button" disabled title="Run Auto Fill on every selected gift — scrapes the image and backfills any blank Title/Description from each row's Link. Fills but does not save; review, then Save &amp; Publish.">Auto Fill</button>
           <button class="btn" id="bulkArchiveBtn" type="button" disabled>Save &amp; Archive</button>
           <button class="btn primary" id="bulkPublishBtn" type="button" disabled>Save &amp; Publish</button>
           <button class="btn danger" id="bulkDeleteBtn" type="button" disabled>Delete</button>
@@ -2377,6 +2392,7 @@
     const bulkBar        = document.getElementById('bulkBar');
     const bulkSelectAll  = document.getElementById('bulkSelectAll');
     const bulkCount      = document.getElementById('bulkCount');
+    const bulkAutoFillBtn = document.getElementById('bulkAutoFillBtn');
     const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
     const bulkPublishBtn = document.getElementById('bulkPublishBtn');
     const bulkDeleteBtn  = document.getElementById('bulkDeleteBtn');
@@ -2516,7 +2532,7 @@
         bulkCount.classList.toggle('has-selection', count > 0);
       }
       const actionsDisabled = bulkBusy || count === 0;
-      [bulkArchiveBtn, bulkPublishBtn, bulkDeleteBtn, bulkClearBtn].forEach((b) => {
+      [bulkAutoFillBtn, bulkArchiveBtn, bulkPublishBtn, bulkDeleteBtn, bulkClearBtn].forEach((b) => {
         if (b) b.disabled = actionsDisabled;
       });
       // Sync the "select all on this page" box against the visible rows.
@@ -2592,6 +2608,36 @@
         skipped ? 'warning' : 'success'
       );
     }
+
+    // Auto Fill every selected gift by reusing each row's own Auto Fill routine
+    // (scrape image + backfill blank title/description/cities). Runs one row at a
+    // time so we don't hammer the scrape-amazon function. Like the single-item
+    // button, it fills but does NOT save — review, then bulk Save & Publish.
+    async function runBulkAutoFill() {
+      const targets = selectedItemArticles();
+      if (!targets.length || bulkBusy) return;
+      setBulkBusy(true);
+      let ran = 0, skipped = 0;
+      for (const article of targets) {
+        if (typeof article._runAutoFill === 'function') {
+          try { await article._runAutoFill(); ran++; }
+          catch (_) { skipped++; }
+        } else {
+          skipped++;
+        }
+      }
+      setBulkBusy(false);
+      updateBulkBar();
+      setStatus(
+        shopStatus,
+        'Auto Fill ran on ' + ran + ' gift' + (ran === 1 ? '' : 's') +
+          (skipped ? ' · ' + skipped + ' skipped' : '') +
+          '. Review the filled rows, then Save.',
+        skipped ? 'warning' : 'success'
+      );
+    }
+
+    if (bulkAutoFillBtn) bulkAutoFillBtn.addEventListener('click', runBulkAutoFill);
 
     if (bulkArchiveBtn) {
       bulkArchiveBtn.addEventListener('click', () =>
@@ -3406,6 +3452,7 @@
     // Reorder the admin list per the selected sort mode (toolbar dropdown):
     //   title  — alphabetical by gift title (default)
     //   city   — by the item's first assigned city, then title (no city sorts last)
+    //   cities — most cities/shops first (widest reach), then title
     //   status — archived first, then published; alphabetical within each
     function sortItems() {
       const mode = itemSortSelect ? itemSortSelect.value : 'title';
@@ -3425,10 +3472,15 @@
         titleOf(a).localeCompare(titleOf(b), undefined, collate) ||
         idOf(a).localeCompare(idOf(b), undefined, collate);
 
+      // How many cities/shops a gift is listed in (widest reach first).
+      const cityCountOf = (el) => itemCities(el).length;
+
       let comparator;
       if (mode === 'city') {
         comparator = (a, b) =>
           cityOf(a).localeCompare(cityOf(b), undefined, collate) || byTitle(a, b);
+      } else if (mode === 'cities') {
+        comparator = (a, b) => (cityCountOf(b) - cityCountOf(a)) || byTitle(a, b);
       } else if (mode === 'status') {
         comparator = (a, b) => (statusRank(a) - statusRank(b)) || byTitle(a, b);
       } else {
@@ -4089,7 +4141,7 @@
       // Also backfills title/description only when those are still empty.
       const grabImageButton = article.querySelector('[data-action="grab-image"]');
       if (grabImageButton) {
-        grabImageButton.addEventListener('click', async () => {
+        const runAutoFill = async () => {
           const linkVal = (article.querySelector('[data-field="url"]')?.value || '').trim();
           const titleVal = (article.querySelector('[data-field="title"]')?.value || '').trim();
           // No link required — fall back to the Title (a book name or ISBN).
@@ -4191,7 +4243,10 @@
             grabImageButton.disabled = false;
             grabImageButton.textContent = original;
           }
-        });
+        };
+        grabImageButton.addEventListener('click', runAutoFill);
+        // Exposed so the bulk "Auto Fill" action can run + await this row.
+        article._runAutoFill = runAutoFill;
       }
 
       article.querySelector('[data-action="delete"]').addEventListener('click', async () => {
@@ -4458,24 +4513,52 @@
       const titleEl = document.getElementById('cityStockWarningTitle');
       const listEl = document.getElementById('cityStockWarningList');
       if (!warnEl || !titleEl || !listEl) return;
-      const hide = () => { warnEl.hidden = true; listEl.textContent = ''; };
+      const iconEl = warnEl.querySelector('.city-stock-warning-icon');
+      const hide = () => {
+        warnEl.hidden = true;
+        listEl.textContent = '';
+        warnEl.classList.remove('is-info');
+      };
       if (isInitialItemMode || !Array.isArray(allGiftItemsCache) || !allGiftItemsCache.length) {
         hide();
         return;
       }
       const counts = buildPromptCityGiftCounts();
-      const low = Array.from(counts.entries())
-        .filter((entry) => entry[1] < MIN_CITY_GIFTS)
-        .sort((a, b) => a[1] - b[1] ||
-          a[0].localeCompare(b[0], undefined, { sensitivity: 'base', numeric: true }));
-      if (!low.length) {
+      if (!counts.size) {
         hide();
         return;
       }
-      const cityWord = low.length === 1 ? 'city has' : 'cities have';
-      titleEl.textContent = low.length + ' ' + cityWord + ' fewer than ' +
-        MIN_CITY_GIFTS + ' gifts';
-      listEl.textContent = low
+      const byFewest = (a, b) => a[1] - b[1] ||
+        a[0].localeCompare(b[0], undefined, { sensitivity: 'base', numeric: true });
+      const low = Array.from(counts.entries())
+        .filter((entry) => entry[1] < MIN_CITY_GIFTS)
+        .sort(byFewest);
+      if (low.length) {
+        // Warning mode: one or more cities are understocked.
+        warnEl.classList.remove('is-info');
+        warnEl.setAttribute('role', 'alert');
+        if (iconEl) iconEl.textContent = '⚠';
+        const cityWord = low.length === 1 ? 'city has' : 'cities have';
+        titleEl.textContent = low.length + ' ' + cityWord + ' fewer than ' +
+          MIN_CITY_GIFTS + ' gifts';
+        listEl.textContent = low
+          .map((entry) => entry[0] + ' (' + entry[1] + ')')
+          .join('  ·  ');
+        warnEl.hidden = false;
+        return;
+      }
+      // Every city is stocked (>= MIN_CITY_GIFTS): reuse the same space as a
+      // gentler coverage nudge — the 3 cities carrying the fewest gifts.
+      const leanest = Array.from(counts.entries()).sort(byFewest).slice(0, 3);
+      if (!leanest.length) {
+        hide();
+        return;
+      }
+      warnEl.classList.add('is-info');
+      warnEl.setAttribute('role', 'status');
+      if (iconEl) iconEl.textContent = '🎯';
+      titleEl.textContent = 'All cities stocked — coverage priority (fewest gifts)';
+      listEl.textContent = leanest
         .map((entry) => entry[0] + ' (' + entry[1] + ')')
         .join('  ·  ');
       warnEl.hidden = false;
@@ -4946,7 +5029,7 @@ $$;`.trim();
         '    "title": "Example Gift Item",',
         '    "asin": "' + exampleAsin + '",',
         '    "url": "' + amazonAffiliateUrl(exampleAsin) + '",',
-        '    "image_url": "https://m.media-amazon.com/images/I/EXAMPLE._AC_SL1500_.jpg",',
+        '    "image_url": null,',
         '    "description": "One original shopper-facing sentence explaining why this item fits the game.",',
         '    "cities": ["City, State from the list"]',
         '  }',
@@ -4961,11 +5044,14 @@ $$;`.trim();
         '',
         'Research instructions:',
         '- Do the Amazon product research yourself using your web browsing/search tools. Do not ask me for a product export, scrape list, CSV, or outside dataset; the deliverable from this prompt is the finished SQL.',
+        '- Search strategy (do this to find better items): for EACH target city run several SPECIFIC Amazon.com searches that pair the place with a giftable category, instead of one generic query. Example query shapes: "<city> map puzzle", "<city> skyline art print", "<team name> ornament", "<state> field guide book", "<local food> enamel pin", "<neighborhood> coffee mug", "<city> history book".',
+        '- Draw the place-specific keywords from real local identity: the pro sports teams and mascots in the teams JSON below, plus each city\'s famous landmarks, neighborhoods, regional food and drink, state symbols, local history/folklore, music, and nicknames. The more place-specific the keyword, the better the result.',
+        '- Search wider than page one: scan several result pages, look past the sponsored row, and open the product detail page for anything promising. Favor products that are unmistakably about the place over generic national items that merely mention it, and keep the batch varied across categories and spread across the requested cities rather than clustered on one.',
         '- Goal: ' + count + ' verified items. If Amazon search pages or product pages are blocked, return the largest verified batch you can in one SQL script instead of refusing. A verified partial import is acceptable; fabricated padding is not.',
         '- If a candidate is blocked, unsafe, already in inventory, or not clearly tied to a city/team, discard it and find another candidate.',
         '- Use Amazon product detail pages as the canonical source. General web search results may be used only to discover Amazon product URLs/ASINs that point to Amazon.com product detail pages.',
         '- Include only products where you can confidently verify the title and 10-character ASIN from an Amazon product detail page or a search result that links to an Amazon product detail page. Do not invent ASINs or titles.',
-        '- Try hard to find and include the REAL product image URL. On Amazon product pages the full-size image is often hidden behind a link or control labeled "Click to see full view" (or reachable by opening the main image thumbnail) — open it and copy the actual high-resolution image URL. It is almost always hosted on m.media-amazon.com and ends in .jpg; prefer the largest variant (e.g. one containing _AC_SL1500_). Only if you genuinely cannot find the real image after checking should you set image_url to null (our admin has a "Grab" button that can scrape it later as a fallback). NEVER fabricate, guess, or construct an image URL you did not read directly from the product page — a wrong URL is worse than null.',
+        '- ALWAYS set image_url to null. Do not include, guess, or look up product image URLs at all. We fetch the real product image ourselves after import (a "Grab" button in our admin scrapes it from the product page). Amazon image URLs you produce are almost always wrong, so do not spend effort on them.',
         '- Do not respond that you cannot safely produce the SQL because Amazon search is blocked or because you have fewer than ' + count + ' items. Return SQL only with the verified items you found.',
         '',
         'Hard requirements:',
@@ -4973,13 +5059,13 @@ $$;`.trim();
         '- Expand beyond books. Prioritize physical giftable items such as puzzles, maps, field notebooks, pens, cards, local-history objects, sports fan gear, tailgate gear, travel accessories, guide tools, playful desk items, apparel, ornaments, posters, and other game-relevant souvenirs.',
         '- Avoid Kindle ebooks, Audible products, subscriptions, gift cards, groceries, perishable items, weapons, restricted items, and anything that looks counterfeit or unsafe.',
         '- Books are allowed only when an item is unusually perfect and not already covered by the Bookshop prompt; most results should be non-book products.',
-        '- Every item must have a real Amazon ASIN. Include the real product image URL when you can find it (see the image instructions above); use null only as a last resort.',
+        '- Every item must have a real Amazon ASIN. image_url must always be null (we add the image after import).',
         '- Every item must use this referral URL pattern exactly: https://www.amazon.com/dp/<ASIN>?tag=' + AMAZON_TAG + '&ascsubtag=' + AMAZON_STORE + '&store=' + AMAZON_STORE + '.',
         '- Prefer stable /dp/<ASIN> URLs. Strip tracking junk and do not use shortened links.',
         '- Do not include any current gift-shop inventory item listed below. Hidden, archived, or unpublished rows still count as already-owned inventory. Avoid duplicate titles, duplicate ASINs, and duplicate URLs.',
         '- The JSON array may contain 1 to ' + count + ' objects. Do not pad to ' + count + ' with unverifiable items.',
-        '- Each JSON object needs: title, asin, url, image_url, description, cities. image_url should be the real product image URL, or null only if you truly could not find it.',
-        '- url must be a raw URL string only, never a Markdown link like [url](url). image_url must likewise be a raw image URL string (or null), never a Markdown link.',
+        '- Each JSON object needs: title, asin, url, image_url, description, cities. image_url must always be null.',
+        '- url must be a raw URL string only, never a Markdown link like [url](url). image_url must always be null (do not output any image URL).',
         '- cities must use only values from the current cities JSON below, copied verbatim ("City, State"). Assign each item to the city or cities its description names.',
         '- A specific city named in the description maps to that city only; a U.S. STATE named in the description maps to every listed city in that state (e.g. "Texas" => Houston, Dallas, San Antonio). Leave "cities" empty (omit it) if the description names no TGB city or state.',
         (leanestCityLine ? '- ' + leanestCityLine : ''),

@@ -105,6 +105,51 @@ async function fetchIgnoredIds() {
   }
 }
 
+// Persisted AI coherence verdicts (gift_shop_coherence). Written by the report
+// page's "AI audit" (via the shop-coherence-check Edge Function); read here so
+// they survive the nightly regeneration. Same key rules as the ignore list:
+// the CI service-role key bypasses RLS; a local publishable-key run is denied
+// and yields none (best-effort — never fatal). Returns Map(id → verdict).
+async function fetchCoherence() {
+  try {
+    const cols = 'item_id,verdict,summary,issues,image_matches,title_matches_page,city_ok,checked_at';
+    const res = await fetch(`${SB_URL}/rest/v1/gift_shop_coherence?select=${cols}`, {
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
+    });
+    if (!res.ok) {
+      console.warn(`[shop-error-check] could not read coherence (${res.status}); treating as none.`);
+      return new Map();
+    }
+    const rows = await res.json();
+    const m = new Map();
+    for (const r of rows || []) {
+      m.set(String(r.item_id), {
+        verdict: r.verdict || 'warn',
+        summary: r.summary || '',
+        issues: Array.isArray(r.issues) ? r.issues : [],
+        imageMatches: r.image_matches,
+        titleMatchesPage: r.title_matches_page,
+        cityOk: r.city_ok,
+        checkedAt: r.checked_at || '',
+      });
+    }
+    return m;
+  } catch (e) {
+    console.warn('[shop-error-check] coherence read failed; treating as none:', e && e.message ? e.message : e);
+    return new Map();
+  }
+}
+
+// Fold stored verdicts onto the per-item state (and drop any that were cleared),
+// so they're embedded in the page + rendered into the mismatch section.
+function mergeCoherence(state, coherence) {
+  for (const id of Object.keys(state.items)) {
+    const v = coherence.get(id);
+    if (v) state.items[id].coherence = v;
+    else if (state.items[id].coherence) delete state.items[id].coherence;
+  }
+}
+
 // Classify a single URL fetch.
 //   ok        — 2xx (image checks also require an image content-type)
 //   dead      — confirmed gone (404/410/451)
@@ -190,6 +235,11 @@ function readExistingMeta() {
   if (!existsSync(HTM_PATH)) return null;
   const html = readFileSync(HTM_PATH, 'utf8');
   const run = html.match(/Last run <strong>(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})[^<]*<\/strong>/);
+  const fullCoverage = /Coverage: <strong>full catalog<\/strong>/.test(html);
+  const full = html.match(/checked the <strong>full catalog<\/strong> \(manual run\)\s*—\s*(\d+) items/);
+  if (run && full) {
+    return { date: run[1], time: run[2], segment: 0, weekday: '', checkedThisRun: parseInt(full[1], 10), full: true, fullCoverage };
+  }
   const slice = html.match(/checked the <strong>(\d+)\/7<\/strong> slice \(([^)]+)\)\s*—\s*(\d+) items/);
   if (!run || !slice) return null;
   return {
@@ -198,7 +248,7 @@ function readExistingMeta() {
     segment: Math.max(0, parseInt(slice[1], 10) - 1),
     weekday: slice[2],
     checkedThisRun: parseInt(slice[3], 10),
-    fullCoverage: /Coverage: <strong>full catalog<\/strong>/.test(html),
+    fullCoverage,
   };
 }
 
@@ -226,8 +276,11 @@ function buildHtml(state, meta, ignoredIds) {
   const errored = flagged.filter((it) => isError(it) && !ignoreSet.has(String(it.id)));
   const blocked = flagged.filter((it) => isBlocked(it) && !ignoreSet.has(String(it.id)));
 
+  // AI coherence mismatches — persisted verdicts folded onto state.items[].coherence.
+  const mism = items.filter((it) => it.coherence && it.coherence.verdict && it.coherence.verdict !== 'ok');
+
   const byTitle = (a, b) => String(a.title || '').localeCompare(String(b.title || ''));
-  errored.sort(byTitle); blocked.sort(byTitle); ignored.sort(byTitle);
+  errored.sort(byTitle); blocked.sort(byTitle); ignored.sort(byTitle); mism.sort(byTitle);
 
   const badgeFor = (field, st, code) => {
     if (!st || st === 'ok') return '';
@@ -252,14 +305,18 @@ function buildHtml(state, meta, ignoredIds) {
       `<a class="edit" href="/shop/admin/?item=${encodeURIComponent(it.id)}" target="_blank" rel="noopener">edit in shop</a>`,
     ].filter(Boolean).join(' · ');
     const action = mode === 'ignored'
-      ? `<button class="rowbtn rowbtn--restore" type="button" data-action="restore" data-id="${esc(it.id)}">restore</button>`
-      : `<button class="rowbtn" type="button" data-action="ignore" data-id="${esc(it.id)}">ignore</button>`;
+      ? `<button class="rowbtn rowbtn--ig rowbtn--restore" type="button" data-action="restore" data-id="${esc(it.id)}">restore</button>`
+      : `<button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="${esc(it.id)}">ignore</button>`;
+    const rowActions =
+      `<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="${esc(it.id)}">stock room</button>` +
+      `<button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="${esc(it.id)}">delete</button>` +
+      action;
     return `<tr data-item-id="${esc(it.id)}" data-origin="${originOf(it)}">
       <td class="t">${esc(it.title || '(untitled)')}</td>
       <td>${flags}</td>
       <td class="l">${links}</td>
       <td class="dim">${esc(it.checkedAt || '')}</td>
-      <td class="act">${action}</td>
+      <td class="act">${rowActions}</td>
     </tr>`;
   };
 
@@ -269,6 +326,28 @@ function buildHtml(state, meta, ignoredIds) {
   const errorsBody = errored.map((it) => rowFor(it, 'active')).join('');
   const blockedBody = blocked.map((it) => rowFor(it, 'active')).join('');
   const ignoredBody = ignored.map((it) => rowFor(it, 'ignored')).join('');
+
+  // A persisted AI-mismatch row (matches the client-built row in addMismatchRow).
+  const mismRowFor = (it) => {
+    const v = it.coherence || {};
+    const badgeClass = v.verdict === 'mismatch' ? 'b-dead' : (v.verdict === 'error' ? 'b-error' : 'b-blocked');
+    const issues = (Array.isArray(v.issues) && v.issues.length) ? ' — ' + v.issues.join('; ') : '';
+    const links = [
+      it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener nofollow">url</a>` : '',
+      it.image_url ? `<a href="${esc(it.image_url)}" target="_blank" rel="noopener nofollow">img</a>` : '',
+      `<a class="edit" href="/shop/admin/?item=${encodeURIComponent(it.id)}" target="_blank" rel="noopener">edit in shop</a>`,
+    ].filter(Boolean).join(' · ');
+    const acts =
+      `<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="${esc(it.id)}">stock room</button>` +
+      `<button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="${esc(it.id)}">delete</button>`;
+    return `<tr data-item-id="${esc(it.id)}">
+      <td class="t">${esc(it.title || '(untitled)')}</td>
+      <td><span class="b ${badgeClass}">${esc(String(v.verdict || 'warn').toUpperCase())}</span> <span class="dim">${esc(String(v.summary || '') + issues)}</span></td>
+      <td class="l">${links}</td>
+      <td class="act">${acts}</td>
+    </tr>`;
+  };
+  const mismatchBody = mism.map(mismRowFor).join('');
 
   const checkedCount = items.filter((it) => it.checkedAt).length;
   const stateJson = JSON.stringify(state);
@@ -308,33 +387,49 @@ function buildHtml(state, meta, ignoredIds) {
   details summary { cursor: pointer; color: #93a4ba; margin: 8px 0; }
   a { color: #6db1ff; }
   td.act, th.act { width: 1%; white-space: nowrap; text-align: right; }
-  /* The ignore/restore controls only appear once an admin is signed in. */
+  /* The per-row controls only appear once an admin is signed in. */
   .rowbtn { display: none; }
   body.is-admin .rowbtn {
     display: inline-block; font: inherit; font-size: 0.72rem; text-transform: uppercase;
     letter-spacing: 0.04em; cursor: pointer; border: 1px solid #33425c; background: #16202f;
-    color: #93a4ba; border-radius: 6px; padding: 2px 9px;
+    color: #93a4ba; border-radius: 6px; padding: 2px 9px; margin-left: 6px;
   }
   body.is-admin .rowbtn:hover { background: #3a1620; border-color: #7a2634; color: #ff9a90; }
   body.is-admin .rowbtn--restore:hover { background: #14351f; border-color: #2f7a45; color: #7ee0a0; }
+  /* Stock Room = blue (navigate away), Delete = red (destructive). */
+  body.is-admin .rowbtn--open:hover { background: #13294a; border-color: #2f5f9e; color: #9ecbff; }
+  body.is-admin .rowbtn--del { border-color: #5a2732; color: #e79aa4; }
+  body.is-admin .rowbtn--del:hover { background: #4a1620; border-color: #7a2634; color: #ff9a90; }
   .rowbtn:disabled { opacity: 0.5; cursor: default; }
-  #manageBtn {
+  .topbar-actions { flex: 0 0 auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  #manageBtn, #runCheckBtn, #aiAuditBtn {
     flex: 0 0 auto; font: inherit; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;
     cursor: pointer; border: 1px solid #33425c; background: #16202f; color: #cbd7e6;
     border-radius: 8px; padding: 7px 14px;
   }
-  #manageBtn:hover { background: #1d2738; color: #fff; }
+  #manageBtn:hover, #runCheckBtn:hover, #aiAuditBtn:hover { background: #1d2738; color: #fff; }
+  #runCheckBtn:disabled, #aiAuditBtn:disabled { opacity: 0.6; cursor: default; }
+  /* AI audit + its results only matter to a signed-in admin. */
+  #aiAuditBtn { display: none; }
+  body.is-admin #aiAuditBtn { display: inline-block; }
+  #aiAuditBtn { border-color: #3a2f5c; color: #c9b8ff; }
+  body.is-admin #aiAuditBtn:hover { background: #241d3a; color: #fff; border-color: #5a47a0; }
 </style>
 </head>
 <body>
   <div class="topbar">
     <div>
       <h1>Gift Shop · URL Error Report</h1>
-      <p class="meta">Last run <strong>${esc(meta.date)} ${esc(meta.time)} ${esc(TZ)}</strong> ·
-         checked the <strong>${meta.segment + 1}/7</strong> slice (${esc(meta.weekday)}) — ${meta.checkedThisRun} items.
-         Each item is re-checked once a week. Coverage: <strong>${meta.fullCoverage ? 'full catalog' : 'published only (no service key — archived items skipped)'}</strong>.</p>
+      <p class="meta">Last run <strong>${esc(meta.date)} ${esc(meta.time)} ${esc(TZ)}</strong> · ${meta.full
+        ? `checked the <strong>full catalog</strong> (manual run) — ${meta.checkedThisRun} items.`
+        : `checked the <strong>${meta.segment + 1}/7</strong> slice (${esc(meta.weekday)}) — ${meta.checkedThisRun} items. Each item is re-checked once a week.`}
+         Coverage: <strong>${meta.fullCoverage ? 'full catalog' : 'published only (no service key — archived items skipped)'}</strong>.</p>
     </div>
-    <button id="manageBtn" type="button">Admin sign-in</button>
+    <div class="topbar-actions">
+      <button id="aiAuditBtn" type="button" title="Use AI to check every tracked gift's fields agree: the image matches the title, the title matches the linked product page, and the city lines up.">AI audit</button>
+      <button id="runCheckBtn" type="button" title="Kick off the URL health check on GitHub Actions now instead of waiting for the nightly run.">Run check now</button>
+      <button id="manageBtn" type="button">Admin sign-in</button>
+    </div>
   </div>
   <div class="cards">
     <div class="card"><div class="n" id="countErrors">${errored.length}</div><div class="k">Errors</div></div>
@@ -356,6 +451,14 @@ function buildHtml(state, meta, ignoredIds) {
   <details id="ignoredSection"${hid(ignored.length > 0)}>
     <summary><span id="ignoredCount">${ignored.length}</span> ignored (kept out of the counts above)</summary>
     <table>${thead('Status')}<tbody id="ignoredBody">${ignoredBody}</tbody></table>
+  </details>
+
+  <!-- Persisted AI mismatches (from gift_shop_coherence); the "AI audit" button
+       refreshes these live. Items whose fields don't line up: image ≠ title,
+       title ≠ linked page, or city mismatch. -->
+  <details id="mismatchSection"${hid(mism.length > 0)} open>
+    <summary><span id="mismatchCount">${mism.length}</span> field mismatches (AI — image / title / page / city don't line up)</summary>
+    <table><thead><tr><th>Item</th><th>AI verdict</th><th>Links</th><th class="act"></th></tr></thead><tbody id="mismatchBody">${mismatchBody}</tbody></table>
   </details>
 
   <p class="dim">DEAD = 404/410/451 · NOT-IMAGE = 200 but not an image · ERROR = other 4xx/5xx, timeout, DNS · blocked = 403/429/503 (anti-bot, inconclusive).</p>
@@ -420,6 +523,15 @@ function buildHtml(state, meta, ignoredIds) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
     }
 
+    // Permanently delete the gift item itself (same table + auth the Stock Room
+    // uses). RLS restricts DELETE to admins; the signed-in admin JWT carries it.
+    async function deleteItemRow(id) {
+      var res = await fetch(restUrl('gift_shop_items', { id: 'eq.' + id }), {
+        method: 'DELETE', headers: adminAuth.authHeaders({})
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+    }
+
     async function fetchIgnored() {
       try {
         var res = await fetch(restUrl(TABLE, { select: 'item_id' }), {
@@ -433,7 +545,7 @@ function buildHtml(state, meta, ignoredIds) {
 
     function moveRow(row, targetSel, mode) {
       q(targetSel).appendChild(row);
-      var btn = row.querySelector('.rowbtn');
+      var btn = row.querySelector('.rowbtn--ig');
       if (btn) {
         var restore = mode === 'ignored';
         btn.dataset.action = restore ? 'restore' : 'ignore';
@@ -454,6 +566,10 @@ function buildHtml(state, meta, ignoredIds) {
       setText('#blockedCount', b); setText('#ignoredCount', i);
       setHidden('#errorsTable', e === 0); setHidden('#errorsEmpty', e !== 0);
       setHidden('#blockedSection', b === 0); setHidden('#ignoredSection', i === 0);
+      var mmBody = q('#mismatchBody');
+      var mm = mmBody ? mmBody.children.length : 0;
+      setText('#mismatchCount', mm);
+      setHidden('#mismatchSection', mm === 0);
     }
 
     // Bring the DOM in line with the server's ignore set (covers changes another
@@ -479,15 +595,39 @@ function buildHtml(state, meta, ignoredIds) {
       if (!btn) return;
       var row = btn.closest('tr'); if (!row) return;
       var id = btn.dataset.id; var action = btn.dataset.action;
+
+      // Open in Stock Room — pure navigation, no write, no auth prompt (the
+      // Stock Room gates itself).
+      if (action === 'stockroom') {
+        window.open('/shop/admin/?item=' + encodeURIComponent(id), '_blank', 'noopener');
+        return;
+      }
+
       if (!(await ensureAdmin())) return;
       btn.disabled = true;
       try {
-        if (action === 'ignore') { await writeIgnore(id); moveRow(row, '#ignoredBody', 'ignored'); }
-        else { await deleteIgnore(id); moveRow(row, row.dataset.origin === 'error' ? '#errorsBody' : '#blockedBody', 'active'); }
+        if (action === 'ignore') {
+          await writeIgnore(id);
+          moveRow(row, '#ignoredBody', 'ignored');
+        } else if (action === 'restore') {
+          await deleteIgnore(id);
+          moveRow(row, row.dataset.origin === 'error' ? '#errorsBody' : '#blockedBody', 'active');
+        } else if (action === 'delete') {
+          var titleCell = row.querySelector('td.t');
+          var title = (titleCell && titleCell.textContent || 'this item').trim();
+          if (!window.confirm('Permanently delete "' + title + '" from the gift shop? This removes the item everywhere and cannot be undone.')) {
+            btn.disabled = false;
+            return;
+          }
+          await deleteItemRow(id);
+          // Clear any lingering ignore row for the now-deleted item (best effort).
+          try { await deleteIgnore(id); } catch (e) {}
+          if (row.parentNode) row.parentNode.removeChild(row);
+        }
         refresh();
       } catch (err) {
         btn.disabled = false;
-        window.alert('Could not update this entry: ' + (err && err.message ? err.message : err));
+        window.alert('Could not complete that action: ' + (err && err.message ? err.message : err));
       }
     });
 
@@ -506,6 +646,138 @@ function buildHtml(state, meta, ignoredIds) {
     } else if (mb) {
       mb.hidden = true;
     }
+
+    // "Run check now" — the actual check runs in GitHub Actions (it has to, so it
+    // can commit the refreshed report file), so this triggers a workflow_dispatch
+    // via the GitHub API using a token kept only in this browser. Falls back to
+    // opening the Actions page so you can click "Run workflow" by hand.
+    var GH_REPO = 'the-game-bureau/the-game-bureau';
+    var GH_WORKFLOW = 'shop-error-check.yml';
+    var GH_TOKEN_KEY = 'tgb-gh-dispatch-token';
+    var GH_ACTIONS_URL = 'https://github.com/' + GH_REPO + '/actions/workflows/' + GH_WORKFLOW;
+    var runBtn = q('#runCheckBtn');
+    if (runBtn) {
+      runBtn.addEventListener('click', async function () {
+        var token = '';
+        try { token = localStorage.getItem(GH_TOKEN_KEY) || ''; } catch (e) {}
+        if (!token) {
+          var entered = window.prompt('Paste a GitHub token with Actions: write on ' + GH_REPO + ' to start the check now. It is stored only in this browser. Leave blank to open the Actions page instead.');
+          if (entered === null) return;
+          token = String(entered).trim();
+          if (!token) { window.open(GH_ACTIONS_URL, '_blank', 'noopener'); return; }
+          try { localStorage.setItem(GH_TOKEN_KEY, token); } catch (e) {}
+        }
+        var orig = runBtn.textContent;
+        runBtn.disabled = true; runBtn.textContent = 'Starting…';
+        try {
+          var res = await fetch('https://api.github.com/repos/' + GH_REPO + '/actions/workflows/' + GH_WORKFLOW + '/dispatches', {
+            method: 'POST',
+            headers: { 'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + token, 'X-GitHub-Api-Version': '2022-11-28' },
+            body: JSON.stringify({ ref: 'main', inputs: { full: 'true' } })
+          });
+          if (res.status === 204) {
+            runBtn.textContent = 'Queued ✓';
+            window.alert('Full recheck started. It re-checks the whole catalog on GitHub and commits the refreshed report in a few minutes — reload this page then.');
+          } else if (res.status === 401 || res.status === 403) {
+            try { localStorage.removeItem(GH_TOKEN_KEY); } catch (e) {}
+            throw new Error('GitHub rejected the token (' + res.status + '); it needs Actions: write on ' + GH_REPO + '. Cleared it — click again to re-enter.');
+          } else {
+            throw new Error('GitHub returned HTTP ' + res.status + '.');
+          }
+        } catch (err) {
+          window.alert('Could not start the check: ' + (err && err.message ? err.message : err) + '\\n\\nOpening the Actions page so you can run it manually.');
+          window.open(GH_ACTIONS_URL, '_blank', 'noopener');
+        } finally {
+          runBtn.disabled = false;
+          setTimeout(function () { if (runBtn) runBtn.textContent = orig; }, 4000);
+        }
+      });
+    }
+
+    // ── AI field-coherence audit ──────────────────────────────────────────
+    // Runs the shop-coherence-check Edge Function over every tracked item and
+    // lists the ones whose fields don't line up (image vs title, title vs the
+    // linked page, city). Full item set comes from the embedded state JSON.
+    var STATE = (function () {
+      try { return JSON.parse(q('#shoperrors-state').textContent) || { items: {} }; }
+      catch (e) { return { items: {} }; }
+    })();
+    function escHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
+
+    async function coherenceCheck(it) {
+      var res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/shop-coherence-check', {
+        method: 'POST',
+        headers: adminAuth.authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ id: it.id, title: it.title, url: it.url, image_url: it.image_url })
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw new Error(data && data.error ? data.error : ('HTTP ' + res.status));
+      return data;
+    }
+
+    function addMismatchRow(it, v) {
+      var badgeClass = v.verdict === 'mismatch' ? 'b-dead' : (v.verdict === 'error' ? 'b-error' : 'b-blocked');
+      var issues = (v.issues && v.issues.length) ? ' — ' + v.issues.join('; ') : '';
+      var links = [
+        it.url ? '<a href="' + escHtml(it.url) + '" target="_blank" rel="noopener nofollow">url</a>' : '',
+        it.image_url ? '<a href="' + escHtml(it.image_url) + '" target="_blank" rel="noopener nofollow">img</a>' : '',
+        '<a class="edit" href="/shop/admin/?item=' + encodeURIComponent(it.id) + '" target="_blank" rel="noopener">edit in shop</a>'
+      ].filter(Boolean).join(' · ');
+      var tr = document.createElement('tr');
+      tr.setAttribute('data-item-id', it.id);
+      tr.innerHTML =
+        '<td class="t">' + escHtml(it.title || '(untitled)') + '</td>' +
+        '<td><span class="b ' + badgeClass + '">' + escHtml((v.verdict || 'warn').toUpperCase()) + '</span> ' +
+          '<span class="dim">' + escHtml((v.summary || '') + issues) + '</span></td>' +
+        '<td class="l">' + links + '</td>' +
+        '<td class="act">' +
+          '<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="' + escHtml(it.id) + '">stock room</button>' +
+          '<button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="' + escHtml(it.id) + '">delete</button>' +
+        '</td>';
+      q('#mismatchBody').appendChild(tr);
+      setHidden('#mismatchSection', false);
+    }
+
+    async function runAiAudit() {
+      if (!(await ensureAdmin())) return;
+      var btn = q('#aiAuditBtn'); if (!btn) return;
+      var entries = Object.keys(STATE.items || {}).map(function (id) {
+        var v = STATE.items[id] || {};
+        return { id: id, title: v.title || '', url: v.url || '', image_url: v.image_url || '' };
+      });
+      if (!entries.length) { window.alert('No tracked items to audit yet.'); return; }
+      q('#mismatchBody').innerHTML = '';
+      var orig = btn.textContent;
+      btn.disabled = true;
+      var done = 0, flagged = 0, idx = 0, total = entries.length;
+      async function worker() {
+        while (idx < entries.length) {
+          var it = entries[idx++];
+          try {
+            var v = await coherenceCheck(it);
+            if (v && v.verdict && v.verdict !== 'ok') { flagged++; addMismatchRow(it, v); }
+          } catch (e) {
+            flagged++;
+            addMismatchRow(it, { verdict: 'error', summary: (e && e.message ? e.message : String(e)), issues: [] });
+          }
+          done++;
+          btn.textContent = 'Auditing ' + done + '/' + total + '…';
+        }
+      }
+      // Two at a time — enough to move, gentle on the function + Anthropic.
+      await Promise.all([worker(), worker()]);
+      btn.disabled = false;
+      btn.textContent = orig;
+      refresh();
+      if (flagged === 0) window.alert('AI audit: all ' + total + ' tracked items look coherent. 🎉');
+    }
+
+    var aiBtn = q('#aiAuditBtn');
+    if (aiBtn) aiBtn.addEventListener('click', runAiAudit);
 
     if (adminAuth) adminAuth.init();
     refresh();
@@ -528,6 +800,7 @@ async function main() {
   if (process.env.SHOP_ERROR_RENDER_ONLY === '1') {
     const state = loadState();
     const ignoredIds = await fetchIgnoredIds();
+    mergeCoherence(state, await fetchCoherence());
     const checkedCount = Object.values(state.items).filter((it) => it.checkedAt).length;
     // Preserve the real "last run" line — a re-render didn't check anything, so
     // don't fabricate a slice/timestamp. Fall back to now only if unparseable.
@@ -541,8 +814,11 @@ async function main() {
   const segment = process.env.SHOP_ERROR_SEGMENT != null && process.env.SHOP_ERROR_SEGMENT !== ''
     ? Math.max(0, Math.min(SEGMENTS - 1, parseInt(process.env.SHOP_ERROR_SEGMENT, 10)))
     : wk.segment;
+  // Manual "full recheck" (from the report's Run-check button / workflow_dispatch
+  // input): sweep the WHOLE catalog this run instead of today's 1/7 slice.
+  const runFull = /^(1|true|yes)$/i.test(String(process.env.SHOP_ERROR_FULL || ''));
 
-  console.log(`[shop-error-check] ${wk.date} ${wk.time} ${TZ} — ${wk.weekday} → segment ${segment + 1}/7`);
+  console.log(`[shop-error-check] ${wk.date} ${wk.time} ${TZ} — ${runFull ? 'FULL manual recheck' : wk.weekday + ' → segment ' + (segment + 1) + '/7'}`);
   if (!USING_SERVICE_KEY) {
     console.warn('[shop-error-check] WARNING: no SUPABASE_SERVICE_KEY — using publishable key, which cannot see ARCHIVED items. Set the secret to check the whole catalog.');
   }
@@ -552,8 +828,8 @@ async function main() {
   const N = all.length;
   const start = Math.floor((segment * N) / SEGMENTS);
   const end = Math.floor(((segment + 1) * N) / SEGMENTS);
-  const slice = all.slice(start, end);
-  console.log(`[shop-error-check] ${N} items total; checking ${slice.length} (rows ${start}..${end - 1}).`);
+  const slice = runFull ? all : all.slice(start, end);
+  console.log(`[shop-error-check] ${N} items total; checking ${slice.length}${runFull ? ' (full catalog)' : ` (rows ${start}..${end - 1})`}.`);
 
   const checkedAt = `${wk.date} ${wk.time}`;
   const state = loadState();
@@ -597,12 +873,13 @@ async function main() {
   }
 
   const ignoredIds = await fetchIgnoredIds();
-  const html = buildHtml(state, { ...wk, segment, checkedThisRun: slice.length, fullCoverage: USING_SERVICE_KEY }, ignoredIds);
+  mergeCoherence(state, await fetchCoherence());
+  const html = buildHtml(state, { ...wk, segment, checkedThisRun: slice.length, fullCoverage: USING_SERVICE_KEY, full: runFull }, ignoredIds);
   await writeFile(HTM_PATH, html, 'utf8');
 
   // Append a human-readable block to the log.
   const lines = [];
-  lines.push(`=== ${wk.date} ${wk.time} ${TZ} · ${wk.weekday} · slice ${segment + 1}/7 · ${slice.length} items checked · coverage: ${USING_SERVICE_KEY ? 'full catalog' : 'published only'} ===`);
+  lines.push(`=== ${wk.date} ${wk.time} ${TZ} · ${runFull ? 'FULL manual recheck' : wk.weekday + ' · slice ' + (segment + 1) + '/7'} · ${slice.length} items checked · coverage: ${USING_SERVICE_KEY ? 'full catalog' : 'published only'} ===`);
   lines.push(`errors: ${runErrors.length} · inconclusive(blocked): ${runBlocked.length} · ok: ${slice.length - runErrors.length - runBlocked.length}`);
   for (const e of runErrors) {
     lines.push(`  ! ${e.title || '(untitled)'}`);

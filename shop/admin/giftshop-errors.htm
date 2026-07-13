@@ -30,33 +30,47 @@
   details summary { cursor: pointer; color: #93a4ba; margin: 8px 0; }
   a { color: #6db1ff; }
   td.act, th.act { width: 1%; white-space: nowrap; text-align: right; }
-  /* The ignore/restore controls only appear once an admin is signed in. */
+  /* The per-row controls only appear once an admin is signed in. */
   .rowbtn { display: none; }
   body.is-admin .rowbtn {
     display: inline-block; font: inherit; font-size: 0.72rem; text-transform: uppercase;
     letter-spacing: 0.04em; cursor: pointer; border: 1px solid #33425c; background: #16202f;
-    color: #93a4ba; border-radius: 6px; padding: 2px 9px;
+    color: #93a4ba; border-radius: 6px; padding: 2px 9px; margin-left: 6px;
   }
   body.is-admin .rowbtn:hover { background: #3a1620; border-color: #7a2634; color: #ff9a90; }
   body.is-admin .rowbtn--restore:hover { background: #14351f; border-color: #2f7a45; color: #7ee0a0; }
+  /* Stock Room = blue (navigate away), Delete = red (destructive). */
+  body.is-admin .rowbtn--open:hover { background: #13294a; border-color: #2f5f9e; color: #9ecbff; }
+  body.is-admin .rowbtn--del { border-color: #5a2732; color: #e79aa4; }
+  body.is-admin .rowbtn--del:hover { background: #4a1620; border-color: #7a2634; color: #ff9a90; }
   .rowbtn:disabled { opacity: 0.5; cursor: default; }
-  #manageBtn {
+  .topbar-actions { flex: 0 0 auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  #manageBtn, #runCheckBtn, #aiAuditBtn {
     flex: 0 0 auto; font: inherit; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;
     cursor: pointer; border: 1px solid #33425c; background: #16202f; color: #cbd7e6;
     border-radius: 8px; padding: 7px 14px;
   }
-  #manageBtn:hover { background: #1d2738; color: #fff; }
+  #manageBtn:hover, #runCheckBtn:hover, #aiAuditBtn:hover { background: #1d2738; color: #fff; }
+  #runCheckBtn:disabled, #aiAuditBtn:disabled { opacity: 0.6; cursor: default; }
+  /* AI audit + its results only matter to a signed-in admin. */
+  #aiAuditBtn { display: none; }
+  body.is-admin #aiAuditBtn { display: inline-block; }
+  #aiAuditBtn { border-color: #3a2f5c; color: #c9b8ff; }
+  body.is-admin #aiAuditBtn:hover { background: #241d3a; color: #fff; border-color: #5a47a0; }
 </style>
 </head>
 <body>
   <div class="topbar">
     <div>
       <h1>Gift Shop · URL Error Report</h1>
-      <p class="meta">Last run <strong>2026-06-28 00:06 America/Chicago</strong> ·
-         checked the <strong>7/7</strong> slice (Sunday) — 28 items.
-         Each item is re-checked once a week. Coverage: <strong>published only (no service key — archived items skipped)</strong>.</p>
+      <p class="meta">Last run <strong>2026-06-28 00:06 America/Chicago</strong> · checked the <strong>7/7</strong> slice (Sunday) — 28 items. Each item is re-checked once a week.
+         Coverage: <strong>published only (no service key — archived items skipped)</strong>.</p>
     </div>
-    <button id="manageBtn" type="button">Admin sign-in</button>
+    <div class="topbar-actions">
+      <button id="aiAuditBtn" type="button" title="Use AI to check every tracked gift's fields agree: the image matches the title, the title matches the linked product page, and the city lines up.">AI audit</button>
+      <button id="runCheckBtn" type="button" title="Kick off the URL health check on GitHub Actions now instead of waiting for the nightly run.">Run check now</button>
+      <button id="manageBtn" type="button">Admin sign-in</button>
+    </div>
   </div>
   <div class="cards">
     <div class="card"><div class="n" id="countErrors">0</div><div class="k">Errors</div></div>
@@ -77,85 +91,93 @@
       <td><span class="b b-blocked">URL blocked 403</span></td>
       <td class="l"><a href="https://bookshop.org/a/87073/9780253072214" target="_blank" rel="noopener nofollow">url</a> · <a href="https://images-us.bookshop.org/ingram/9780253072214.jpg" target="_blank" rel="noopener nofollow">img</a> · <a class="edit" href="/shop/admin/?item=e4c2bea7-0694-4fba-a06f-1db3b4d150ac" target="_blank" rel="noopener">edit in shop</a></td>
       <td class="dim">2026-06-28 00:06</td>
-      <td class="act"><button class="rowbtn" type="button" data-action="ignore" data-id="e4c2bea7-0694-4fba-a06f-1db3b4d150ac">ignore</button></td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="e4c2bea7-0694-4fba-a06f-1db3b4d150ac">stock room</button><button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="e4c2bea7-0694-4fba-a06f-1db3b4d150ac">delete</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="e4c2bea7-0694-4fba-a06f-1db3b4d150ac">ignore</button></td>
     </tr><tr data-item-id="e4176059-e899-4162-81f6-1583fac1849b" data-origin="blocked">
       <td class="t">Coming Through Slaughter</td>
       <td><span class="b b-blocked">URL blocked 403</span></td>
       <td class="l"><a href="https://bookshop.org/a/87073/9780679767855" target="_blank" rel="noopener nofollow">url</a> · <a href="https://images-us.bookshop.org/ingram/9780679767855.jpg" target="_blank" rel="noopener nofollow">img</a> · <a class="edit" href="/shop/admin/?item=e4176059-e899-4162-81f6-1583fac1849b" target="_blank" rel="noopener">edit in shop</a></td>
       <td class="dim">2026-06-28 00:06</td>
-      <td class="act"><button class="rowbtn" type="button" data-action="ignore" data-id="e4176059-e899-4162-81f6-1583fac1849b">ignore</button></td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="e4176059-e899-4162-81f6-1583fac1849b">stock room</button><button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="e4176059-e899-4162-81f6-1583fac1849b">delete</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="e4176059-e899-4162-81f6-1583fac1849b">ignore</button></td>
     </tr><tr data-item-id="f6ddca9e-7b98-480e-8999-36dada30ceff" data-origin="blocked">
       <td class="t">Gone with the Wind</td>
       <td><span class="b b-blocked">URL blocked 403</span></td>
       <td class="l"><a href="https://bookshop.org/a/87073/9781451635621" target="_blank" rel="noopener nofollow">url</a> · <a href="https://images-us.bookshop.org/ingram/9781451635621.jpg" target="_blank" rel="noopener nofollow">img</a> · <a class="edit" href="/shop/admin/?item=f6ddca9e-7b98-480e-8999-36dada30ceff" target="_blank" rel="noopener">edit in shop</a></td>
       <td class="dim">2026-06-28 00:06</td>
-      <td class="act"><button class="rowbtn" type="button" data-action="ignore" data-id="f6ddca9e-7b98-480e-8999-36dada30ceff">ignore</button></td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="f6ddca9e-7b98-480e-8999-36dada30ceff">stock room</button><button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="f6ddca9e-7b98-480e-8999-36dada30ceff">delete</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="f6ddca9e-7b98-480e-8999-36dada30ceff">ignore</button></td>
     </tr><tr data-item-id="e5abd527-2e4d-4790-932a-85a453c25875" data-origin="blocked">
       <td class="t">Infinite City</td>
       <td><span class="b b-blocked">URL blocked 403</span></td>
       <td class="l"><a href="https://bookshop.org/a/87073/9780520262492" target="_blank" rel="noopener nofollow">url</a> · <a href="https://images-us.bookshop.org/ingram/9780520262492.jpg" target="_blank" rel="noopener nofollow">img</a> · <a class="edit" href="/shop/admin/?item=e5abd527-2e4d-4790-932a-85a453c25875" target="_blank" rel="noopener">edit in shop</a></td>
       <td class="dim">2026-06-28 00:06</td>
-      <td class="act"><button class="rowbtn" type="button" data-action="ignore" data-id="e5abd527-2e4d-4790-932a-85a453c25875">ignore</button></td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="e5abd527-2e4d-4790-932a-85a453c25875">stock room</button><button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="e5abd527-2e4d-4790-932a-85a453c25875">delete</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="e5abd527-2e4d-4790-932a-85a453c25875">ignore</button></td>
     </tr><tr data-item-id="f884e6ea-c4c9-4cfb-8329-4ec8133bcbd3" data-origin="blocked">
       <td class="t">Lady in the Lake</td>
       <td><span class="b b-blocked">URL blocked 403</span></td>
       <td class="l"><a href="https://bookshop.org/a/87073/9780062390035" target="_blank" rel="noopener nofollow">url</a> · <a href="https://images-us.bookshop.org/ingram/9780062390035.jpg" target="_blank" rel="noopener nofollow">img</a> · <a class="edit" href="/shop/admin/?item=f884e6ea-c4c9-4cfb-8329-4ec8133bcbd3" target="_blank" rel="noopener">edit in shop</a></td>
       <td class="dim">2026-06-28 00:06</td>
-      <td class="act"><button class="rowbtn" type="button" data-action="ignore" data-id="f884e6ea-c4c9-4cfb-8329-4ec8133bcbd3">ignore</button></td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="f884e6ea-c4c9-4cfb-8329-4ec8133bcbd3">stock room</button><button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="f884e6ea-c4c9-4cfb-8329-4ec8133bcbd3">delete</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="f884e6ea-c4c9-4cfb-8329-4ec8133bcbd3">ignore</button></td>
     </tr><tr data-item-id="e12c2af9-5cb2-4207-ac51-6eee9c799b55" data-origin="blocked">
       <td class="t">Nine Lives</td>
       <td><span class="b b-blocked">URL blocked 403</span></td>
       <td class="l"><a href="https://bookshop.org/a/87073/9780812977400" target="_blank" rel="noopener nofollow">url</a> · <a href="https://images-us.bookshop.org/ingram/9780812977400.jpg" target="_blank" rel="noopener nofollow">img</a> · <a class="edit" href="/shop/admin/?item=e12c2af9-5cb2-4207-ac51-6eee9c799b55" target="_blank" rel="noopener">edit in shop</a></td>
       <td class="dim">2026-06-28 00:06</td>
-      <td class="act"><button class="rowbtn" type="button" data-action="ignore" data-id="e12c2af9-5cb2-4207-ac51-6eee9c799b55">ignore</button></td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="e12c2af9-5cb2-4207-ac51-6eee9c799b55">stock room</button><button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="e12c2af9-5cb2-4207-ac51-6eee9c799b55">delete</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="e12c2af9-5cb2-4207-ac51-6eee9c799b55">ignore</button></td>
     </tr><tr data-item-id="e0c3a076-cff4-4923-92b0-3ed58d0b01d6" data-origin="blocked">
       <td class="t">Red Ribbons &amp; Black Colts</td>
       <td><span class="b b-blocked">URL blocked 403</span></td>
       <td class="l"><a href="https://bookshop.org/a/87073/9798640289633" target="_blank" rel="noopener nofollow">url</a> · <a href="https://images-us.bookshop.org/ingram/9798640289633.jpg" target="_blank" rel="noopener nofollow">img</a> · <a class="edit" href="/shop/admin/?item=e0c3a076-cff4-4923-92b0-3ed58d0b01d6" target="_blank" rel="noopener">edit in shop</a></td>
       <td class="dim">2026-06-28 00:06</td>
-      <td class="act"><button class="rowbtn" type="button" data-action="ignore" data-id="e0c3a076-cff4-4923-92b0-3ed58d0b01d6">ignore</button></td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="e0c3a076-cff4-4923-92b0-3ed58d0b01d6">stock room</button><button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="e0c3a076-cff4-4923-92b0-3ed58d0b01d6">delete</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="e0c3a076-cff4-4923-92b0-3ed58d0b01d6">ignore</button></td>
     </tr><tr data-item-id="f1b0c449-5da0-422c-8013-908ab6f468ef" data-origin="blocked">
       <td class="t">Team Rodent</td>
       <td><span class="b b-blocked">URL blocked 403</span></td>
       <td class="l"><a href="https://bookshop.org/a/87073/9780345422804" target="_blank" rel="noopener nofollow">url</a> · <a href="https://images-us.bookshop.org/ingram/9780345422804.jpg" target="_blank" rel="noopener nofollow">img</a> · <a class="edit" href="/shop/admin/?item=f1b0c449-5da0-422c-8013-908ab6f468ef" target="_blank" rel="noopener">edit in shop</a></td>
       <td class="dim">2026-06-28 00:06</td>
-      <td class="act"><button class="rowbtn" type="button" data-action="ignore" data-id="f1b0c449-5da0-422c-8013-908ab6f468ef">ignore</button></td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="f1b0c449-5da0-422c-8013-908ab6f468ef">stock room</button><button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="f1b0c449-5da0-422c-8013-908ab6f468ef">delete</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="f1b0c449-5da0-422c-8013-908ab6f468ef">ignore</button></td>
     </tr><tr data-item-id="ea222ec9-6dcd-4835-aedd-ec3904a27d02" data-origin="blocked">
       <td class="t">The 2% Way How a Philosophy of Small Improvements Took Me to Oxford, the Nfl, and Neurosurgery</td>
       <td><span class="b b-blocked">URL blocked 403</span></td>
       <td class="l"><a href="https://bookshop.org/a/87073/9780310363651" target="_blank" rel="noopener nofollow">url</a> · <a href="https://images-us.bookshop.org/ingram/9780310363651.jpg?v=enc-v1" target="_blank" rel="noopener nofollow">img</a> · <a class="edit" href="/shop/admin/?item=ea222ec9-6dcd-4835-aedd-ec3904a27d02" target="_blank" rel="noopener">edit in shop</a></td>
       <td class="dim">2026-06-28 00:06</td>
-      <td class="act"><button class="rowbtn" type="button" data-action="ignore" data-id="ea222ec9-6dcd-4835-aedd-ec3904a27d02">ignore</button></td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="ea222ec9-6dcd-4835-aedd-ec3904a27d02">stock room</button><button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="ea222ec9-6dcd-4835-aedd-ec3904a27d02">delete</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="ea222ec9-6dcd-4835-aedd-ec3904a27d02">ignore</button></td>
     </tr><tr data-item-id="fcf697ab-7101-4f6d-8972-547209e38c76" data-origin="blocked">
       <td class="t">The Chicago Cubs Story of a Curse</td>
       <td><span class="b b-blocked">URL blocked 403</span></td>
       <td class="l"><a href="https://bookshop.org/a/87073/9781250192783" target="_blank" rel="noopener nofollow">url</a> · <a href="https://images-us.bookshop.org/ingram/9781250192783.jpg?v=4d81991d2efcd92c9942b39777133e6e" target="_blank" rel="noopener nofollow">img</a> · <a class="edit" href="/shop/admin/?item=fcf697ab-7101-4f6d-8972-547209e38c76" target="_blank" rel="noopener">edit in shop</a></td>
       <td class="dim">2026-06-28 00:06</td>
-      <td class="act"><button class="rowbtn" type="button" data-action="ignore" data-id="fcf697ab-7101-4f6d-8972-547209e38c76">ignore</button></td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="fcf697ab-7101-4f6d-8972-547209e38c76">stock room</button><button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="fcf697ab-7101-4f6d-8972-547209e38c76">delete</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="fcf697ab-7101-4f6d-8972-547209e38c76">ignore</button></td>
     </tr><tr data-item-id="e0968bcf-0344-4d1f-b577-148f5b488400" data-origin="blocked">
       <td class="t">The Incredible Boston Red Sox Trivia Book</td>
       <td><span class="b b-blocked">URL blocked 403</span></td>
       <td class="l"><a href="https://bookshop.org/a/87073/9781493045853" target="_blank" rel="noopener nofollow">url</a> · <a href="https://images-us.bookshop.org/ingram/9781493045853.jpg" target="_blank" rel="noopener nofollow">img</a> · <a class="edit" href="/shop/admin/?item=e0968bcf-0344-4d1f-b577-148f5b488400" target="_blank" rel="noopener">edit in shop</a></td>
       <td class="dim">2026-06-28 00:06</td>
-      <td class="act"><button class="rowbtn" type="button" data-action="ignore" data-id="e0968bcf-0344-4d1f-b577-148f5b488400">ignore</button></td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="e0968bcf-0344-4d1f-b577-148f5b488400">stock room</button><button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="e0968bcf-0344-4d1f-b577-148f5b488400">delete</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="e0968bcf-0344-4d1f-b577-148f5b488400">ignore</button></td>
     </tr><tr data-item-id="f98c0ebb-c4a9-4c4b-8230-2415e393917f" data-origin="blocked">
       <td class="t">The Library Book</td>
       <td><span class="b b-blocked">URL blocked 403</span></td>
       <td class="l"><a href="https://bookshop.org/a/87073/9781476740195" target="_blank" rel="noopener nofollow">url</a> · <a href="https://images-us.bookshop.org/ingram/9781476740195.jpg" target="_blank" rel="noopener nofollow">img</a> · <a class="edit" href="/shop/admin/?item=f98c0ebb-c4a9-4c4b-8230-2415e393917f" target="_blank" rel="noopener">edit in shop</a></td>
       <td class="dim">2026-06-28 00:06</td>
-      <td class="act"><button class="rowbtn" type="button" data-action="ignore" data-id="f98c0ebb-c4a9-4c4b-8230-2415e393917f">ignore</button></td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="f98c0ebb-c4a9-4c4b-8230-2415e393917f">stock room</button><button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="f98c0ebb-c4a9-4c4b-8230-2415e393917f">delete</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="f98c0ebb-c4a9-4c4b-8230-2415e393917f">ignore</button></td>
     </tr><tr data-item-id="e5a87da6-6803-4687-9c1a-ba2a0f73f2ab" data-origin="blocked">
       <td class="t">The Sender</td>
       <td><span class="b b-blocked">URL blocked 403</span></td>
       <td class="l"><a href="https://bookshop.org/a/87073/9781501136696" target="_blank" rel="noopener nofollow">url</a> · <a href="https://images-us.bookshop.org/ingram/9781501136696.jpg" target="_blank" rel="noopener nofollow">img</a> · <a class="edit" href="/shop/admin/?item=e5a87da6-6803-4687-9c1a-ba2a0f73f2ab" target="_blank" rel="noopener">edit in shop</a></td>
       <td class="dim">2026-06-28 00:06</td>
-      <td class="act"><button class="rowbtn" type="button" data-action="ignore" data-id="e5a87da6-6803-4687-9c1a-ba2a0f73f2ab">ignore</button></td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="e5a87da6-6803-4687-9c1a-ba2a0f73f2ab">stock room</button><button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="e5a87da6-6803-4687-9c1a-ba2a0f73f2ab">delete</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="e5a87da6-6803-4687-9c1a-ba2a0f73f2ab">ignore</button></td>
     </tr></tbody></table>
   </details>
 
   <details id="ignoredSection" hidden>
     <summary><span id="ignoredCount">0</span> ignored (kept out of the counts above)</summary>
     <table><thead><tr><th>Item</th><th>Status</th><th>Links</th><th>Checked</th><th class="act"></th></tr></thead><tbody id="ignoredBody"></tbody></table>
+  </details>
+
+  <!-- Persisted AI mismatches (from gift_shop_coherence); the "AI audit" button
+       refreshes these live. Items whose fields don't line up: image ≠ title,
+       title ≠ linked page, or city mismatch. -->
+  <details id="mismatchSection" hidden open>
+    <summary><span id="mismatchCount">0</span> field mismatches (AI — image / title / page / city don't line up)</summary>
+    <table><thead><tr><th>Item</th><th>AI verdict</th><th>Links</th><th class="act"></th></tr></thead><tbody id="mismatchBody"></tbody></table>
   </details>
 
   <p class="dim">DEAD = 404/410/451 · NOT-IMAGE = 200 but not an image · ERROR = other 4xx/5xx, timeout, DNS · blocked = 403/429/503 (anti-bot, inconclusive).</p>
@@ -220,6 +242,15 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
     }
 
+    // Permanently delete the gift item itself (same table + auth the Stock Room
+    // uses). RLS restricts DELETE to admins; the signed-in admin JWT carries it.
+    async function deleteItemRow(id) {
+      var res = await fetch(restUrl('gift_shop_items', { id: 'eq.' + id }), {
+        method: 'DELETE', headers: adminAuth.authHeaders({})
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+    }
+
     async function fetchIgnored() {
       try {
         var res = await fetch(restUrl(TABLE, { select: 'item_id' }), {
@@ -233,7 +264,7 @@
 
     function moveRow(row, targetSel, mode) {
       q(targetSel).appendChild(row);
-      var btn = row.querySelector('.rowbtn');
+      var btn = row.querySelector('.rowbtn--ig');
       if (btn) {
         var restore = mode === 'ignored';
         btn.dataset.action = restore ? 'restore' : 'ignore';
@@ -254,6 +285,10 @@
       setText('#blockedCount', b); setText('#ignoredCount', i);
       setHidden('#errorsTable', e === 0); setHidden('#errorsEmpty', e !== 0);
       setHidden('#blockedSection', b === 0); setHidden('#ignoredSection', i === 0);
+      var mmBody = q('#mismatchBody');
+      var mm = mmBody ? mmBody.children.length : 0;
+      setText('#mismatchCount', mm);
+      setHidden('#mismatchSection', mm === 0);
     }
 
     // Bring the DOM in line with the server's ignore set (covers changes another
@@ -279,15 +314,39 @@
       if (!btn) return;
       var row = btn.closest('tr'); if (!row) return;
       var id = btn.dataset.id; var action = btn.dataset.action;
+
+      // Open in Stock Room — pure navigation, no write, no auth prompt (the
+      // Stock Room gates itself).
+      if (action === 'stockroom') {
+        window.open('/shop/admin/?item=' + encodeURIComponent(id), '_blank', 'noopener');
+        return;
+      }
+
       if (!(await ensureAdmin())) return;
       btn.disabled = true;
       try {
-        if (action === 'ignore') { await writeIgnore(id); moveRow(row, '#ignoredBody', 'ignored'); }
-        else { await deleteIgnore(id); moveRow(row, row.dataset.origin === 'error' ? '#errorsBody' : '#blockedBody', 'active'); }
+        if (action === 'ignore') {
+          await writeIgnore(id);
+          moveRow(row, '#ignoredBody', 'ignored');
+        } else if (action === 'restore') {
+          await deleteIgnore(id);
+          moveRow(row, row.dataset.origin === 'error' ? '#errorsBody' : '#blockedBody', 'active');
+        } else if (action === 'delete') {
+          var titleCell = row.querySelector('td.t');
+          var title = (titleCell && titleCell.textContent || 'this item').trim();
+          if (!window.confirm('Permanently delete "' + title + '" from the gift shop? This removes the item everywhere and cannot be undone.')) {
+            btn.disabled = false;
+            return;
+          }
+          await deleteItemRow(id);
+          // Clear any lingering ignore row for the now-deleted item (best effort).
+          try { await deleteIgnore(id); } catch (e) {}
+          if (row.parentNode) row.parentNode.removeChild(row);
+        }
         refresh();
       } catch (err) {
         btn.disabled = false;
-        window.alert('Could not update this entry: ' + (err && err.message ? err.message : err));
+        window.alert('Could not complete that action: ' + (err && err.message ? err.message : err));
       }
     });
 
@@ -306,6 +365,138 @@
     } else if (mb) {
       mb.hidden = true;
     }
+
+    // "Run check now" — the actual check runs in GitHub Actions (it has to, so it
+    // can commit the refreshed report file), so this triggers a workflow_dispatch
+    // via the GitHub API using a token kept only in this browser. Falls back to
+    // opening the Actions page so you can click "Run workflow" by hand.
+    var GH_REPO = 'the-game-bureau/the-game-bureau';
+    var GH_WORKFLOW = 'shop-error-check.yml';
+    var GH_TOKEN_KEY = 'tgb-gh-dispatch-token';
+    var GH_ACTIONS_URL = 'https://github.com/' + GH_REPO + '/actions/workflows/' + GH_WORKFLOW;
+    var runBtn = q('#runCheckBtn');
+    if (runBtn) {
+      runBtn.addEventListener('click', async function () {
+        var token = '';
+        try { token = localStorage.getItem(GH_TOKEN_KEY) || ''; } catch (e) {}
+        if (!token) {
+          var entered = window.prompt('Paste a GitHub token with Actions: write on ' + GH_REPO + ' to start the check now. It is stored only in this browser. Leave blank to open the Actions page instead.');
+          if (entered === null) return;
+          token = String(entered).trim();
+          if (!token) { window.open(GH_ACTIONS_URL, '_blank', 'noopener'); return; }
+          try { localStorage.setItem(GH_TOKEN_KEY, token); } catch (e) {}
+        }
+        var orig = runBtn.textContent;
+        runBtn.disabled = true; runBtn.textContent = 'Starting…';
+        try {
+          var res = await fetch('https://api.github.com/repos/' + GH_REPO + '/actions/workflows/' + GH_WORKFLOW + '/dispatches', {
+            method: 'POST',
+            headers: { 'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + token, 'X-GitHub-Api-Version': '2022-11-28' },
+            body: JSON.stringify({ ref: 'main', inputs: { full: 'true' } })
+          });
+          if (res.status === 204) {
+            runBtn.textContent = 'Queued ✓';
+            window.alert('Full recheck started. It re-checks the whole catalog on GitHub and commits the refreshed report in a few minutes — reload this page then.');
+          } else if (res.status === 401 || res.status === 403) {
+            try { localStorage.removeItem(GH_TOKEN_KEY); } catch (e) {}
+            throw new Error('GitHub rejected the token (' + res.status + '); it needs Actions: write on ' + GH_REPO + '. Cleared it — click again to re-enter.');
+          } else {
+            throw new Error('GitHub returned HTTP ' + res.status + '.');
+          }
+        } catch (err) {
+          window.alert('Could not start the check: ' + (err && err.message ? err.message : err) + '\n\nOpening the Actions page so you can run it manually.');
+          window.open(GH_ACTIONS_URL, '_blank', 'noopener');
+        } finally {
+          runBtn.disabled = false;
+          setTimeout(function () { if (runBtn) runBtn.textContent = orig; }, 4000);
+        }
+      });
+    }
+
+    // ── AI field-coherence audit ──────────────────────────────────────────
+    // Runs the shop-coherence-check Edge Function over every tracked item and
+    // lists the ones whose fields don't line up (image vs title, title vs the
+    // linked page, city). Full item set comes from the embedded state JSON.
+    var STATE = (function () {
+      try { return JSON.parse(q('#shoperrors-state').textContent) || { items: {} }; }
+      catch (e) { return { items: {} }; }
+    })();
+    function escHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
+
+    async function coherenceCheck(it) {
+      var res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/shop-coherence-check', {
+        method: 'POST',
+        headers: adminAuth.authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ id: it.id, title: it.title, url: it.url, image_url: it.image_url })
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw new Error(data && data.error ? data.error : ('HTTP ' + res.status));
+      return data;
+    }
+
+    function addMismatchRow(it, v) {
+      var badgeClass = v.verdict === 'mismatch' ? 'b-dead' : (v.verdict === 'error' ? 'b-error' : 'b-blocked');
+      var issues = (v.issues && v.issues.length) ? ' — ' + v.issues.join('; ') : '';
+      var links = [
+        it.url ? '<a href="' + escHtml(it.url) + '" target="_blank" rel="noopener nofollow">url</a>' : '',
+        it.image_url ? '<a href="' + escHtml(it.image_url) + '" target="_blank" rel="noopener nofollow">img</a>' : '',
+        '<a class="edit" href="/shop/admin/?item=' + encodeURIComponent(it.id) + '" target="_blank" rel="noopener">edit in shop</a>'
+      ].filter(Boolean).join(' · ');
+      var tr = document.createElement('tr');
+      tr.setAttribute('data-item-id', it.id);
+      tr.innerHTML =
+        '<td class="t">' + escHtml(it.title || '(untitled)') + '</td>' +
+        '<td><span class="b ' + badgeClass + '">' + escHtml((v.verdict || 'warn').toUpperCase()) + '</span> ' +
+          '<span class="dim">' + escHtml((v.summary || '') + issues) + '</span></td>' +
+        '<td class="l">' + links + '</td>' +
+        '<td class="act">' +
+          '<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="' + escHtml(it.id) + '">stock room</button>' +
+          '<button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="' + escHtml(it.id) + '">delete</button>' +
+        '</td>';
+      q('#mismatchBody').appendChild(tr);
+      setHidden('#mismatchSection', false);
+    }
+
+    async function runAiAudit() {
+      if (!(await ensureAdmin())) return;
+      var btn = q('#aiAuditBtn'); if (!btn) return;
+      var entries = Object.keys(STATE.items || {}).map(function (id) {
+        var v = STATE.items[id] || {};
+        return { id: id, title: v.title || '', url: v.url || '', image_url: v.image_url || '' };
+      });
+      if (!entries.length) { window.alert('No tracked items to audit yet.'); return; }
+      q('#mismatchBody').innerHTML = '';
+      var orig = btn.textContent;
+      btn.disabled = true;
+      var done = 0, flagged = 0, idx = 0, total = entries.length;
+      async function worker() {
+        while (idx < entries.length) {
+          var it = entries[idx++];
+          try {
+            var v = await coherenceCheck(it);
+            if (v && v.verdict && v.verdict !== 'ok') { flagged++; addMismatchRow(it, v); }
+          } catch (e) {
+            flagged++;
+            addMismatchRow(it, { verdict: 'error', summary: (e && e.message ? e.message : String(e)), issues: [] });
+          }
+          done++;
+          btn.textContent = 'Auditing ' + done + '/' + total + '…';
+        }
+      }
+      // Two at a time — enough to move, gentle on the function + Anthropic.
+      await Promise.all([worker(), worker()]);
+      btn.disabled = false;
+      btn.textContent = orig;
+      refresh();
+      if (flagged === 0) window.alert('AI audit: all ' + total + ' tracked items look coherent. 🎉');
+    }
+
+    var aiBtn = q('#aiAuditBtn');
+    if (aiBtn) aiBtn.addEventListener('click', runAiAudit);
 
     if (adminAuth) adminAuth.init();
     refresh();
