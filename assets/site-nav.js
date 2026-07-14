@@ -38,6 +38,7 @@
         '</div>' +
         '<a class="nav-link nav-link--major nav-link--gifts" href="/shop/">GIFTS</a>' +
         '<a class="nav-link nav-link--major nav-link--highlights" href="/highlights/">HIGHLIGHTS</a>' +
+        '<a class="nav-link nav-link--major nav-link--sound" href="/sound/">SOUNDTRACKS</a>' +
       '</div>' +
     '</nav>';
 

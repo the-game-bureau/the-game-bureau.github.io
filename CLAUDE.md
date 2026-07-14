@@ -4,6 +4,18 @@ Durable project knowledge for Claude Code (and any teammate working in this repo
 
 ---
 
+## Sound / city playlists
+
+The public page [sound/index.html](sound/index.html) shows one card per city (62 of them), each listing 10 songs where **every song is a link that plays on Spotify** (`open.spotify.com/track/<id>`, or a Spotify search when the ID is unknown). The cards are **statically generated and baked into `index.html`** between `<!-- CITY-CARDS:START/END -->` markers — no embeds, no API, no client-side fetch.
+
+**When adding or editing city playlists, read [sound/playlists/README.md](sound/playlists/README.md) first.** Key points:
+- Source of truth is [sound/playlists/song-playlists.json](sound/playlists/song-playlists.json) (per city: `slug`, `city`, `region`, `songs[]` with `title`/`artist`/`spotifyId`). Curated titles/artists also live in [sound/playlists/all-cities-spotify-import.csv](sound/playlists/all-cities-spotify-import.csv); city metadata (incl. `playlistName`, optional `accent`) in [sound/playlists/city-playlists.json](sound/playlists/city-playlists.json).
+- Regenerate the page with `node playlists/build-sound-page.js` — it reads the JSON/CSV, matches Spotify track IDs, writes IDs back into `song-playlists.json`, and rewrites the cards + city count in `index.html`. Never hand-edit between the card markers.
+- Track IDs come from **Exportify** ([exportify.net](https://exportify.net)) CSVs dropped in `playlists/exportify/` (one-time; IDs then persist in the JSON so the folder is deletable). The 10-song recipe = local artists + sports/stadium cues + songs that name the city; exactly 10, max 2 per artist.
+- We do **not** embed Spotify playlists: that needs the Web API, which now requires the app-owner account to have Premium (this account doesn't). Per-track links sidestep that entirely.
+
+---
+
 ## Game play tracking (instances / responses / events)
 
 **"Team" is two different things:** a **sports team** is a pro team a game is based on (`public.teams`; **team colors** = shell/stripe/mask belong here), reachable via `game_id → games`. A **Game Bureau team** is a group of our players, led by a **team leader** and identified by a chosen **team name**, never a color. The engine's blue/black/purple/silver/orange value is a **route-rotation slot** (`route_color`), not a sports-team color — don't label Game Bureau teams with it.
