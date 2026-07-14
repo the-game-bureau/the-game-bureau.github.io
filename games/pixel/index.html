@@ -1,0 +1,2825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#101522">
+  <meta name="description" content="Browser-based scavenger hunts written against real city streets. Each clue points to a real corner, storefront, or oddity. No app, no install, no account.">
+  <title>The Game Bureau Pixel Edition - Games</title>
+  <base target="_top">
+  <link rel="icon" href="/assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="canonical" href="https://thegamebureau.com/games/pixel/">
+
+  <!-- Share card: OG + Twitter -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Game Bureau">
+  <meta property="og:url" content="https://thegamebureau.com/games/pixel/">
+  <meta property="og:title" content="The Game Bureau Pixel Edition - Turn Your Next Trip Into a Game">
+  <meta property="og:description" content="Browser-based scavenger hunts written against real city streets. Each clue points to a real corner, storefront, or oddity. No app, no install, no account.">
+  <meta property="og:image" content="https://thegamebureau.com/assets/brand/share-thumbnail.png">
+  <meta property="og:image:alt" content="The Game Bureau — Turn Your Next Trip Into a Game">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@thegamebureau">
+  <meta name="twitter:creator" content="@thegamebureau">
+  <meta name="twitter:title" content="The Game Bureau Pixel Edition - Turn Your Next Trip Into a Game">
+  <meta name="twitter:description" content="Browser-based scavenger hunts written against real city streets. Each clue points to a real corner, storefront, or oddity. No app, no install, no account.">
+  <meta name="twitter:image" content="https://thegamebureau.com/assets/brand/share-thumbnail.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://qmaafbncpzrdmqapkkgr.supabase.co" crossorigin>
+  <link rel="dns-prefetch" href="https://qmaafbncpzrdmqapkkgr.supabase.co">
+  <script src="/assets/supabase-fallback.js"></script>
+  <script src="/assets/games-prefetch.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400..900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <!-- Runtime assets: sport marks, team lookup data, and shared shell styles. -->
+  <script src="/assets/games/helmets/helmet.js"></script>
+  <script src="/assets/games/helmets/basketball.js"></script>
+  <script src="/assets/games/helmets/baseball.js"></script>
+  <script src="/assets/states/your_nearest_team.js"></script>
+  <link rel="stylesheet" href="/assets/site-shell.css">
+  <script src="/assets/public-account.js"></script>
+  <link rel="stylesheet" href="/assets/site-pages.css">
+  <style>
+    /* Games hero: keep it compact on desktop so the hero + nav fit the viewport
+       without needing to scroll. Overrides the taller shared
+       `body.home-page .hero` default (clamp 620–760px). Scoped to this page via
+       the inline <style>, and to desktop via the media query, so how/shop/
+       highlights heroes and this page's mobile sizing (min-height: 0) are
+       untouched. */
+    @media (min-width: 981px) {
+      body.home-page .hero {
+        min-height: clamp(420px, calc(100svh - 320px), 560px);
+      }
+    }
+
+    body.pixel-art-page {
+      --pixel-font: "Press Start 2P", "Courier New", monospace;
+      --paper: #101522;
+      --paper-strong: #182033;
+      --ink: #fff1c7;
+      --muted: #b8c6a5;
+      --line: #2e3452;
+      --line-strong: #060816;
+      --accent: #ffd447;
+      --accent-deep: #48c7ff;
+      --accent-soft: rgba(255, 212, 71, 0.16);
+      --signal: #ff5f57;
+      --gold: #ffd447;
+      --card-paper: #151c2e;
+      --card-ink: #fff1c7;
+      --card-muted: #b8c6a5;
+      --shadow-chip: 6px 6px 0 #060816;
+      --shadow-panel: 8px 8px 0 #060816;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 16px 16px,
+        linear-gradient(180deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 16px 16px,
+        linear-gradient(180deg, #101522 0%, #0a1020 56%, #070a15 100%);
+      color: var(--ink);
+      image-rendering: pixelated;
+    }
+
+    body.pixel-art-page::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.045) 0,
+          rgba(255, 255, 255, 0.045) 1px,
+          transparent 1px,
+          transparent 4px
+        );
+      mix-blend-mode: screen;
+      opacity: 0.22;
+    }
+
+    body.pixel-art-page .page-shell {
+      position: relative;
+      z-index: 1;
+      width: min(1280px, calc(100% - 32px));
+    }
+
+    body.pixel-art-page .site-nav.site-nav {
+      grid-template-columns: minmax(0, 1fr) auto minmax(132px, auto);
+      gap: 18px;
+      padding: 16px;
+      border: 4px solid #060816;
+      background: #151c2e;
+      box-shadow: 8px 8px 0 #060816;
+    }
+
+    body.pixel-art-page .site-nav.site-nav .brand-name,
+    body.pixel-art-page .site-nav.site-nav .nav-link,
+    body.pixel-art-page .site-nav.site-nav [data-account-link].nav-link,
+    body.pixel-art-page .site-nav.site-nav .nav-stats-num {
+      font-family: var(--pixel-font);
+      letter-spacing: 0;
+    }
+
+    body.pixel-art-page .site-nav.site-nav .brand-name {
+      color: #ffd447;
+      font-size: 0.78rem;
+      line-height: 1.55;
+      text-shadow: 2px 2px 0 #060816;
+    }
+
+    body.pixel-art-page .site-nav.site-nav .brand-tagline,
+    body.pixel-art-page .site-nav.site-nav .nav-stats-label {
+      color: #b8c6a5;
+      font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    body.pixel-art-page .site-nav.site-nav .nav-link,
+    body.pixel-art-page .site-nav.site-nav [data-account-link].nav-link {
+      min-height: 42px;
+      border: 3px solid #060816;
+      border-radius: 0;
+      background: #23304b;
+      color: #fff1c7;
+      font-size: 0.52rem !important;
+      box-shadow: 4px 4px 0 #060816;
+      transition: transform 80ms steps(1), box-shadow 80ms steps(1), background 80ms steps(1);
+    }
+
+    body.pixel-art-page .site-nav.site-nav .nav-link:hover,
+    body.pixel-art-page .site-nav.site-nav .nav-link:focus-visible {
+      border-color: #060816;
+      background: #315b57;
+      color: #ffffff;
+      box-shadow: 2px 2px 0 #060816;
+      transform: translate(2px, 2px);
+    }
+
+    body.pixel-art-page .nav-dropdown-menu {
+      border: 3px solid #060816;
+      border-radius: 0;
+      background: #151c2e;
+      box-shadow: 6px 6px 0 #060816;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    body.pixel-art-page .nav-dropdown-item {
+      border-radius: 0;
+      color: #fff1c7;
+      font-size: 0.74rem;
+    }
+
+    body.pixel-art-page .nav-dropdown-item:hover,
+    body.pixel-art-page .nav-dropdown-item:focus-visible {
+      background: #263852;
+      color: #ffd447;
+      border-color: #ffd447;
+    }
+
+    body.pixel-art-page .site-nav.site-nav .nav-stats {
+      gap: 8px;
+    }
+
+    body.pixel-art-page .site-nav.site-nav .nav-stats-stat {
+      min-width: 70px;
+      border: 3px solid #060816;
+      border-radius: 0;
+      background: #0c1020;
+      box-shadow: 4px 4px 0 #060816;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    body.pixel-art-page .site-nav.site-nav .nav-stats-num {
+      color: #7dff7a;
+      font-size: 0.84rem;
+      line-height: 1.55;
+      text-shadow: 2px 2px 0 #143b2d;
+    }
+
+    body.pixel-art-page .hero,
+    body.pixel-art-page .selected-games,
+    body.pixel-art-page .site-footer {
+      border: 4px solid #060816;
+      border-radius: 0;
+      box-shadow: var(--shadow-panel);
+    }
+
+    body.pixel-art-page .hero {
+      min-height: 620px;
+      padding: 42px;
+      background:
+        linear-gradient(90deg, rgba(7, 10, 21, 0.96) 0%, rgba(7, 10, 21, 0.88) 38%, rgba(7, 10, 21, 0.44) 72%, rgba(7, 10, 21, 0.72) 100%),
+        url("/assets/home/home-map-poster-clean-pixel.png") center / cover no-repeat;
+      image-rendering: pixelated;
+      overflow: hidden;
+    }
+
+    body.pixel-art-page .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(255, 212, 71, 0.18) 0 2px, transparent 2px 100%) 0 0 / 32px 32px,
+        linear-gradient(180deg, rgba(72, 199, 255, 0.10) 0 2px, transparent 2px 100%) 0 0 / 32px 32px;
+      opacity: 0.26;
+    }
+
+    body.pixel-art-page .hero::after {
+      content: "";
+      position: absolute;
+      right: 44px;
+      bottom: 40px;
+      z-index: 0;
+      width: 8px;
+      height: 8px;
+      background: #ffd447;
+      box-shadow:
+        16px 0 0 #ffd447,
+        32px 0 0 #ffd447,
+        48px 0 0 #ffd447,
+        64px 0 0 #ffd447,
+        80px -16px 0 #ffd447,
+        96px -32px 0 #ffd447,
+        112px -32px 0 #ff5f57,
+        128px -32px 0 #ff5f57,
+        144px -32px 0 #ff5f57,
+        128px -48px 0 #ff5f57,
+        128px -16px 0 #ff5f57,
+        160px -16px 0 #48c7ff,
+        176px 0 0 #48c7ff,
+        192px 16px 0 #48c7ff,
+        208px 16px 0 #7dff7a;
+      filter: drop-shadow(4px 4px 0 #060816);
+    }
+
+    body.pixel-art-page .hero-grid {
+      min-height: 500px;
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 0.62fr);
+      gap: 32px;
+    }
+
+    body.pixel-art-page .hero-mode-label,
+    body.pixel-art-page .hero-mode-tab,
+    body.pixel-art-page .hero-meta-heading,
+    body.pixel-art-page .selected-games-title,
+    body.pixel-art-page .game-card-title,
+    body.pixel-art-page .game-card-play {
+      font-family: var(--pixel-font);
+      letter-spacing: 0;
+    }
+
+    body.pixel-art-page .hero-mode-label {
+      color: #7dff7a;
+      font-size: 0.56rem;
+      line-height: 1.7;
+      text-shadow: 2px 2px 0 #060816;
+    }
+
+    body.pixel-art-page .hero-mode-label-dash {
+      width: 28px;
+      height: 4px;
+      background: #7dff7a;
+      box-shadow: 4px 4px 0 #060816;
+    }
+
+    body.pixel-art-page .hero-mode-track {
+      padding: 6px;
+      border: 3px solid #060816;
+      border-radius: 0;
+      background: #151c2e;
+      box-shadow: 5px 5px 0 #060816;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    body.pixel-art-page .hero-mode-marker {
+      top: 6px;
+      bottom: 6px;
+      left: 6px;
+      width: calc(50% - 6px);
+      border-radius: 0;
+      background: #ffd447;
+      box-shadow: 3px 3px 0 #060816;
+      transition: transform 180ms steps(4, end);
+    }
+
+    body.pixel-art-page .hero-mode-tab {
+      min-height: 50px;
+      padding: 0 18px;
+      color: #b8c6a5;
+      font-size: 0.58rem;
+      line-height: 1.6;
+      text-shadow: 2px 2px 0 #060816;
+    }
+
+    body.pixel-art-page .hero-mode-tab[aria-selected="true"] {
+      color: #101522;
+      text-shadow: none;
+    }
+
+    body.pixel-art-page .hero-headline {
+      max-width: 19ch;
+      color: #fff1c7;
+      font-family: var(--pixel-font);
+      font-size: 2.8rem;
+      letter-spacing: 0;
+      line-height: 1.28;
+      text-shadow:
+        4px 4px 0 #060816,
+        8px 8px 0 #315b57;
+    }
+
+    body.pixel-art-page .hero-copy {
+      max-width: 42rem;
+      color: #dce3b5;
+      font-size: 1rem;
+      line-height: 1.7;
+      text-shadow: 2px 2px 0 #060816;
+    }
+
+    body.pixel-art-page .hero-meta {
+      border: 4px solid #060816;
+      border-radius: 0;
+      background:
+        linear-gradient(180deg, rgba(255, 212, 71, 0.07), transparent 38%),
+        #151c2e;
+      box-shadow: 8px 8px 0 #060816;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    body.pixel-art-page .hero-meta-header {
+      border-bottom: 3px solid #060816;
+    }
+
+    body.pixel-art-page .hero-meta-heading {
+      color: #ffd447;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      text-shadow: 2px 2px 0 #060816;
+    }
+
+    body.pixel-art-page .hero-meta-list-wrap {
+      position: relative;
+    }
+
+    body.pixel-art-page .hero-meta-list-wrap::before,
+    body.pixel-art-page .hero-meta-list-wrap::after {
+      content: "";
+      position: absolute;
+      display: none;
+      right: 0;
+      left: 0;
+      z-index: 2;
+      height: 44px;
+      pointer-events: none;
+    }
+
+    body.pixel-art-page .hero-meta-list-wrap::before {
+      top: 0;
+      background: linear-gradient(180deg, #151c2e 0%, #151c2e 58%, rgba(21, 28, 46, 0) 100%);
+    }
+
+    body.pixel-art-page .hero-meta-list-wrap::after {
+      display: block;
+      bottom: 0;
+      background: linear-gradient(0deg, #151c2e 0%, #151c2e 58%, rgba(21, 28, 46, 0) 100%);
+    }
+
+    body.pixel-art-page .hero-meta-list {
+      padding: 4px;
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
+
+    body.pixel-art-page .hero-meta-list-track {
+      gap: 0;
+    }
+
+    body.pixel-art-page .hero-meta-list-chunk {
+      gap: 8px;
+      padding: 4px 0;
+    }
+
+    body.pixel-art-page .hero-meta-list-item {
+      grid-template-columns: 44px minmax(0, 1fr) auto;
+      min-height: 64px;
+      border: 3px solid #060816;
+      border-radius: 0;
+      background: #23304b;
+      box-shadow: 4px 4px 0 #060816;
+      color: #fff1c7;
+      transition: transform 80ms steps(1), box-shadow 80ms steps(1), background 80ms steps(1);
+    }
+
+    body.pixel-art-page .hero-meta-list-item::before {
+      display: none;
+    }
+
+    body.pixel-art-page .hero-meta-list-item:hover,
+    body.pixel-art-page .hero-meta-list-item:focus-visible {
+      border-color: #060816;
+      background: #315b57;
+      box-shadow: 2px 2px 0 #060816;
+      transform: translate(2px, 2px);
+      outline: none;
+    }
+
+    body.pixel-art-page .hero-meta-list-item.is-active {
+      border-color: #060816;
+      background: #ff5f57;
+      box-shadow: 2px 2px 0 #060816;
+      color: #ffffff;
+    }
+
+    @supports (background: color-mix(in srgb, #000 50%, #fff)) {
+      body.pixel-art-page .hero-meta-list-item[data-team-tint] {
+        border-color: #060816;
+        background:
+          linear-gradient(90deg, color-mix(in srgb, var(--team-primary) 46%, #23304b 54%), #23304b 72%);
+      }
+
+      body.pixel-art-page .hero-meta-list-item[data-team-tint]:hover,
+      body.pixel-art-page .hero-meta-list-item[data-team-tint].is-active {
+        border-color: #060816;
+      }
+    }
+
+    body.pixel-art-page .hero-meta-list-name {
+      color: #fff1c7;
+      font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+      font-size: 1rem;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    body.pixel-art-page .hero-meta-list-count {
+      min-height: 28px;
+      border: 2px solid #060816;
+      border-radius: 0;
+      background: #0c1020;
+      color: #7dff7a;
+      font-size: 0.64rem;
+    }
+
+    body.pixel-art-page .hero-meta-list-geo {
+      border: 3px solid #060816;
+      border-radius: 0;
+      box-shadow: 3px 3px 0 #060816;
+    }
+
+    body.pixel-art-page .hero-meta-list-geo--country {
+      border-radius: 50% !important;
+    }
+
+    body.pixel-art-page .selected-games {
+      padding: 28px;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 12px 12px,
+        linear-gradient(180deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 12px 12px,
+        #151c2e;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    body.pixel-art-page .selected-games-head {
+      border-bottom: 3px solid #060816;
+    }
+
+    body.pixel-art-page .selected-games-title {
+      color: #ffd447;
+      font-size: 0.96rem;
+      line-height: 1.7;
+      text-shadow: 2px 2px 0 #060816;
+    }
+
+    body.pixel-art-page .selected-games-empty {
+      border: 3px solid #060816;
+      border-radius: 0;
+      background: #0c1020;
+      box-shadow: 4px 4px 0 #060816;
+      color: #b8c6a5;
+    }
+
+    body.pixel-art-page .game-card {
+      border: 4px solid #060816;
+      border-radius: 0;
+      background: #101522;
+      box-shadow: 6px 6px 0 #060816;
+      transition: transform 80ms steps(1), box-shadow 80ms steps(1);
+    }
+
+    body.pixel-art-page .game-card:hover {
+      border-color: #060816;
+      box-shadow: 3px 3px 0 #060816;
+      transform: translate(3px, 3px);
+    }
+
+    body.pixel-art-page .game-card-deed {
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.16) 1px, transparent 1px) 0 0 / 10px 10px,
+        linear-gradient(180deg, rgba(255, 255, 255, 0.10) 1px, transparent 1px) 0 0 / 10px 10px,
+        var(--card-accent, #315b57);
+    }
+
+    body.pixel-art-page .game-card-deed::before {
+      display: none;
+    }
+
+    body.pixel-art-page .game-card-deed-label {
+      border: 2px solid #060816;
+      border-radius: 0;
+      background: #fff1c7;
+      color: #101522;
+      font-size: 0.62rem;
+      font-weight: 800;
+    }
+
+    body.pixel-art-page .game-card-title {
+      color: #ffffff;
+      line-height: 1.45;
+      text-shadow: 3px 3px 0 #060816;
+    }
+
+    body.pixel-art-page .game-card-deed-lines {
+      background: #151c2e;
+    }
+
+    body.pixel-art-page .game-card-deed-line {
+      border-bottom: 2px solid #2e3452;
+    }
+
+    body.pixel-art-page .game-card-deed-line dt {
+      color: #48c7ff;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    body.pixel-art-page .game-card-deed-line dd,
+    body.pixel-art-page .game-card-tagline {
+      color: #fff1c7;
+      font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
+    }
+
+    body.pixel-art-page .game-card-tagline {
+      color: #b8c6a5;
+      border-top: 2px solid #2e3452;
+    }
+
+    body.pixel-art-page .game-card-play {
+      border: 3px solid #060816;
+      border-radius: 0;
+      background: #ffd447;
+      color: #101522;
+      font-size: 0.56rem;
+      line-height: 1.4;
+      box-shadow: 4px 4px 0 #060816;
+      transition: transform 80ms steps(1), box-shadow 80ms steps(1), background 80ms steps(1);
+    }
+
+    body.pixel-art-page .game-card-play:hover,
+    body.pixel-art-page .game-card-play:focus-visible {
+      border-color: #060816;
+      background: #7dff7a;
+      color: #101522;
+      box-shadow: 2px 2px 0 #060816;
+      transform: translate(2px, 2px);
+    }
+
+    body.pixel-art-page .site-footer {
+      padding: 20px;
+      background: #151c2e;
+      color: #b8c6a5;
+    }
+
+    body.pixel-art-page .site-footer a {
+      color: #ffd447;
+    }
+
+    body.pixel-art-page #tgbAdminShowAll {
+      border: 3px solid #060816 !important;
+      border-radius: 0 !important;
+      background: #ffd447 !important;
+      color: #101522 !important;
+      box-shadow: 4px 4px 0 #060816 !important;
+      font-family: var(--pixel-font) !important;
+      font-size: 8px !important;
+    }
+
+    body.pixel-art-page #tgbComingSoonToast > div {
+      border: 4px solid #060816 !important;
+      border-radius: 0 !important;
+      background: #151c2e !important;
+      box-shadow: 8px 8px 0 #060816 !important;
+      font-family: var(--pixel-font) !important;
+    }
+
+    @media (max-width: 980px) {
+      body.pixel-art-page .page-shell {
+        width: min(100% - 24px, 1280px);
+      }
+
+      body.pixel-art-page .site-nav.site-nav {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      body.pixel-art-page .hero {
+        min-height: 0;
+        padding: 30px;
+      }
+
+      body.pixel-art-page .hero-grid {
+        grid-template-columns: minmax(0, 1fr);
+        min-height: 0;
+      }
+
+      body.pixel-art-page .hero-headline {
+        font-size: 2.25rem;
+      }
+    }
+
+    @media (max-width: 720px) {
+      body.pixel-art-page .page-shell {
+        width: min(100% - 18px, 1280px);
+      }
+
+      body.pixel-art-page .site-nav.site-nav {
+        padding: 12px;
+        box-shadow: 5px 5px 0 #060816;
+      }
+
+      body.pixel-art-page .hero {
+        padding: 22px 16px;
+      }
+
+      body.pixel-art-page .hero-headline {
+        font-size: 1.42rem;
+        line-height: 1.42;
+      }
+
+      body.pixel-art-page .hero-copy {
+        font-size: 0.92rem;
+      }
+
+      body.pixel-art-page .hero-mode-track {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      }
+
+      body.pixel-art-page .hero-mode-tab {
+        padding: 0 8px;
+        font-size: 0.46rem;
+      }
+
+      body.pixel-art-page .hero-meta {
+        min-height: 420px;
+      }
+
+      body.pixel-art-page .hero-meta-list-item {
+        grid-template-columns: 34px minmax(0, 1fr);
+      }
+
+      body.pixel-art-page .hero-meta-list-count {
+        grid-column: 2;
+        justify-self: start;
+      }
+
+      body.pixel-art-page .selected-games {
+        padding: 18px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body.pixel-art-page .site-nav.site-nav .brand-name {
+        font-size: 0.62rem;
+      }
+
+      body.pixel-art-page .hero-headline {
+        font-size: 1.18rem;
+      }
+
+      body.pixel-art-page .selected-games-title {
+        font-size: 0.74rem;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      body.pixel-art-page *,
+      body.pixel-art-page *::before,
+      body.pixel-art-page *::after {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="home-page pixel-art-page" data-admin-page="mission-control">
+  <div class="page-shell">
+    <!-- Site navigation (shared via /assets/site-nav.js) -->
+    <header class="site-nav" data-site-nav>
+      <div class="nav-stats" aria-label="Game count">
+        <div class="nav-stats-stat">
+          <span class="nav-stats-num" id="heroKickerGameCount">0</span>
+          <span class="nav-stats-label">games</span>
+        </div>
+        <div class="nav-stats-stat">
+          <span class="nav-stats-num" id="heroKickerCityCount">0</span>
+          <span class="nav-stats-label">cities</span>
+        </div>
+      </div>
+    </header>
+    <script src="/assets/site-nav.js"></script>
+
+    <main>
+      <!-- Hero and game finder -->
+      <section class="hero" aria-label="The Game Bureau overview">
+        <div class="hero-grid">
+          <div class="hero-story">
+            <div class="hero-mode-switch" id="heroModeSwitch" data-mode="fan" role="tablist" aria-label="Browse games by">
+              <span class="hero-mode-label" aria-hidden="true">
+                <span class="hero-mode-label-dash"></span>
+                VIEW GAMES
+              </span>
+              <div class="hero-mode-track">
+                <span class="hero-mode-marker" aria-hidden="true"></span>
+                <button class="hero-mode-tab" type="button" role="tab" data-mode="fan" aria-selected="true" tabindex="0">
+                  <span class="hero-mode-tab-text">BY FANDOM</span>
+                </button>
+                <button class="hero-mode-tab" type="button" role="tab" data-mode="city" aria-selected="false" tabindex="-1">
+                  <span class="hero-mode-tab-text">BY CITY</span>
+                </button>
+              </div>
+            </div>
+            <h1 class="hero-headline">Turn Your Next Trip Into a Game</h1>
+            <p class="hero-copy">Part scavenger hunt, part escape room. The city you're visiting is now the gameboard. Written by locals... human locals.</p>
+          </div>
+
+          <aside class="hero-meta" aria-label="Find games">
+            <div class="hero-meta-header">
+              <h2 class="hero-meta-heading" id="heroMetaPrompt" aria-live="polite">WHO DO YOU CHEER FOR?</h2>
+            </div>
+            <div class="hero-meta-list-wrap">
+              <div class="hero-meta-list" id="heroMetaList" aria-live="polite"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Selected games output -->
+      <section class="selected-games" id="selectedGames" hidden aria-labelledby="selectedGamesTitle" aria-live="polite" tabindex="-1">
+        <header class="selected-games-head">
+          <h3 class="selected-games-title" id="selectedGamesTitle"></h3>
+        </header>
+        <div class="selected-games-grid" id="selectedGamesGrid"></div>
+      </section>
+
+    </main>
+
+    <!-- Site footer (shared via /assets/site-footer.js) -->
+    <footer class="site-footer" data-site-footer></footer>
+    <script src="/assets/site-footer.js"></script>
+  </div>
+
+  <!-- Admin/session integrations used by Mission Control. -->
+  <script src="/mc/js/admin-auth.js"></script>
+  <script src="/assets/site-nav-login.js"></script>
+  <script src="/assets/admin-bridge.js"></script>
+  <script src="/assets/states/us-state-shapes.js"></script>
+  <script src="/assets/geo.js"></script>
+
+  <!-- Page controller: data loading, hero finder, selected-game cards, and URL state. -->
+  <script>
+    (function () {
+      // ---------------------------------------------------------------------------
+      // Configuration and DOM handles
+      // ---------------------------------------------------------------------------
+      const SB_CONFIG = {
+        url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+        key: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3',
+        table: 'games_with_teams'
+      };
+
+      const selectedGamesEl = document.getElementById('selectedGames');
+      const selectedGamesTitleEl = document.getElementById('selectedGamesTitle');
+      const selectedGamesGridEl = document.getElementById('selectedGamesGrid');
+
+      // Hero finder mode labels and targets.
+      const MODE_CITY = 'city';
+      const MODE_FAN = 'fan';
+      const PROMPT_FAN = 'WHO DO YOU CHEER FOR?';
+      const PROMPT_CITY = 'WHERE ARE YOU HEADED?';
+      const heroMetaListEl = document.getElementById('heroMetaList');
+      const heroMetaPromptEl = document.getElementById('heroMetaPrompt');
+
+      // The Supabase `teams` table is the single source of truth for team data.
+      // If Supabase is unavailable, /assets/supabase-fallback.js can serve the
+      // latest public-safe backup snapshot from /backups/. The table
+      // stores palette columns as shell/stripe/mask and the geographic
+      // game/venue city as game_city/venue_city; buildTeamIndex maps those onto
+      // the primary/secondary/tertiary + gameCity shape the directory expects.
+      const TEAMS_REST_URL = SB_CONFIG.url + '/rest/v1/teams'
+        + '?select=tgbid,team_key,league,conference,division,code,full_name,first_name,fanbase,mascot,sport,shell,stripe,mask,text_color,game_city,venue_city,timezone'
+        + '&order=league_sort.asc&order=team_sort.asc';
+      const NO_HELMET_PALETTE = {
+        primary_color: '#c8c4ba',
+        secondary_color: '#8a8680',
+        tertiary_color: '#4a4642'
+      };
+      const CATEGORY_ICON_FOOTBALL = 'football';
+      const CATEGORY_ICON_MUSIC = 'music';
+      const CATEGORY_ICON_VALUES = new Set([CATEGORY_ICON_FOOTBALL, 'basketball', 'baseball', CATEGORY_ICON_MUSIC]);
+
+      // Geography badge lookup tables.
+      const US_STATES = {
+        'alabama':'AL','alaska':'AK','arizona':'AZ','arkansas':'AR','california':'CA',
+        'colorado':'CO','connecticut':'CT','delaware':'DE','florida':'FL','georgia':'GA',
+        'hawaii':'HI','idaho':'ID','illinois':'IL','indiana':'IN','iowa':'IA',
+        'kansas':'KS','kentucky':'KY','louisiana':'LA','maine':'ME','maryland':'MD',
+        'massachusetts':'MA','michigan':'MI','minnesota':'MN','mississippi':'MS','missouri':'MO',
+        'montana':'MT','nebraska':'NE','nevada':'NV','new hampshire':'NH','new jersey':'NJ',
+        'new mexico':'NM','new york':'NY','north carolina':'NC','north dakota':'ND','ohio':'OH',
+        'oklahoma':'OK','oregon':'OR','pennsylvania':'PA','rhode island':'RI','south carolina':'SC',
+        'south dakota':'SD','tennessee':'TN','texas':'TX','utah':'UT','vermont':'VT',
+        'virginia':'VA','washington':'WA','west virginia':'WV','wisconsin':'WI','wyoming':'WY',
+        'district of columbia':'DC', 'dc':'DC', 'd.c.':'DC', 'd. c.':'DC'
+      };
+      // Country oval decals — ISO 3166-1 alpha-3 codes (Olympic/FIFA style).
+      const COUNTRY_CODES = {
+        'united kingdom':'GBR','england':'GBR','scotland':'GBR','wales':'GBR','northern ireland':'GBR',
+        'france':'FRA','germany':'DEU','spain':'ESP','italy':'ITA','portugal':'PRT',
+        'netherlands':'NLD','belgium':'BEL','ireland':'IRL','sweden':'SWE','norway':'NOR',
+        'denmark':'DNK','finland':'FIN','austria':'AUT','switzerland':'CHE','poland':'POL',
+        'czech republic':'CZE','greece':'GRC','turkey':'TUR','russia':'RUS','ukraine':'UKR',
+        'mexico':'MEX','canada':'CAN','brazil':'BRA','argentina':'ARG','chile':'CHL',
+        'colombia':'COL','peru':'PER','uruguay':'URY',
+        'australia':'AUS','new zealand':'NZL','japan':'JPN','china':'CHN','south korea':'KOR',
+        'india':'IND','singapore':'SGP','thailand':'THA','indonesia':'IDN','philippines':'PHL',
+        'south africa':'ZAF','egypt':'EGY','israel':'ISR','united arab emirates':'ARE',
+        'united states':'USA','usa':'USA'
+      };
+
+      // ---------------------------------------------------------------------------
+      // Geography badges
+      // ---------------------------------------------------------------------------
+      function cityGeoBadge(label) {
+        // Prefer the shared, structured-aware badge (assets/geo.js): it accepts
+        // a row object (state_code/country_code) or a "City, State"/"City,
+        // Country" string, and resolves 2-letter codes the local map below can't.
+        if (window.TgbGeo && typeof window.TgbGeo.geoBadge === 'function') {
+          return window.TgbGeo.geoBadge(label);
+        }
+        const labelStr = String(label || '').trim();
+        // Special case: "Washington D.C." (and variants like "Washington DC",
+        // "Washington, D.C.") may arrive WITHOUT a real comma separator, so the
+        // parts-after-comma loop below would miss it. Short-circuit to the DC
+        // badge here.
+        if (/\bd\.?\s*c\.?$/i.test(labelStr)) {
+          return { kind: 'state', value: 'DC' };
+        }
+        const parts = labelStr.split(',').map((s) => s.trim()).filter(Boolean);
+        // Walk from the end inward so "London, England, United Kingdom" still matches UK.
+        for (let i = parts.length - 1; i >= 1; i--) {
+          const key = parts[i].toLowerCase();
+          if (US_STATES[key]) return { kind: 'state', value: US_STATES[key] };
+          if (COUNTRY_CODES[key]) return { kind: 'country', value: COUNTRY_CODES[key] };
+        }
+        return null;
+      }
+
+      function cityDisplayName(label) {
+        const s = String(label || '').trim();
+        // "Washington, D.C." — the "D.C." is part of the city name, keep it whole.
+        if (/\bd\.?\s*c\.?$/i.test(s)) return s;
+        const parts = s.split(',').map((p) => p.trim()).filter(Boolean);
+        return parts[0] || s || '';
+      }
+
+      function svgPathCenter(pathData, fallbackX, fallbackY) {
+        const numbers = String(pathData || '').match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi);
+        if (!numbers || numbers.length < 2) return { x: fallbackX, y: fallbackY };
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        for (let i = 0; i < numbers.length - 1; i += 2) {
+          const x = Number(numbers[i]);
+          const y = Number(numbers[i + 1]);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+        if (![minX, minY, maxX, maxY].every(Number.isFinite)) {
+          return { x: fallbackX, y: fallbackY };
+        }
+        return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+      }
+
+      // Builds the visual element for a geo badge. For US states we have
+      // baked-in SVG outlines (us-state-shapes.js) — render the silhouette
+      // with the 2-letter abbreviation overlaid. Countries (and any state we
+      // somehow don't have a shape for) fall back to the existing span.
+      function buildGeoBadge(badge, extraClass) {
+        const cls = (s) => 'hero-meta-list-geo' + (s ? ' ' + s : '') + (extraClass ? ' ' + extraClass : '');
+        const shapes = window.US_STATE_SHAPES || null;
+        if (badge && badge.kind === 'state' && shapes && shapes[badge.value]) {
+          const NS = 'http://www.w3.org/2000/svg';
+          const svg = document.createElementNS(NS, 'svg');
+          svg.setAttribute('viewBox', shapes._viewBox || '0 0 40 24');
+          svg.setAttribute('class', cls('hero-meta-list-geo--state hero-meta-list-geo--shape'));
+          svg.setAttribute('aria-hidden', 'true');
+          svg.setAttribute('focusable', 'false');
+          const path = document.createElementNS(NS, 'path');
+          path.setAttribute('d', shapes[badge.value]);
+          svg.appendChild(path);
+          const fallbackX = (shapes._w || 40) / 2;
+          const fallbackY = (shapes._h || 24) / 2;
+          const labelPoint = svgPathCenter(shapes[badge.value], fallbackX, fallbackY);
+          const text = document.createElementNS(NS, 'text');
+          text.setAttribute('x', String(labelPoint.x));
+          text.setAttribute('y', String(labelPoint.y));
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('dominant-baseline', 'middle');
+          text.setAttribute('alignment-baseline', 'middle');
+          text.setAttribute('dy', '0.04em');
+          text.textContent = badge.value;
+          svg.appendChild(text);
+          return svg;
+        }
+        const span = document.createElement('span');
+        if (badge) {
+          span.className = cls('hero-meta-list-geo--' + badge.kind);
+          if (badge.kind === 'country') {
+            const label = document.createElement('span');
+            label.className = 'hero-meta-list-geo-label';
+            label.textContent = badge.value;
+            span.appendChild(label);
+          } else {
+            span.textContent = badge.value;
+          }
+          span.setAttribute('aria-hidden', 'true');
+        } else {
+          span.className = cls('');
+        }
+        return span;
+      }
+
+      // ---------------------------------------------------------------------------
+      // Page state
+      // ---------------------------------------------------------------------------
+      let activeMode = MODE_FAN;
+      let selectedEntryKind = '';
+      let selectedEntryKey  = '';
+      let liveGames = [];
+      let defaultCitySampleGames = [];
+      const DEFAULT_CITY_SAMPLE_KIND = 'default-city-sample';
+      const DEFAULT_CITY_SAMPLE_ENTRY = Object.freeze({
+        entryKind: DEFAULT_CITY_SAMPLE_KIND,
+        entryKey: '*',
+        label: 'One Random Game Per City'
+      });
+      // All rows as fetched (before the public archived/past-date filters). Kept so
+      // an admin can toggle "show all games" and we re-filter without a refetch.
+      let rawGames = [];
+      let adminShowAll = false;
+      let colorsByCityMascot = new Map();
+      let allTeams = [];
+
+      // ---------------------------------------------------------------------------
+      // Team data and schedule normalization
+      // ---------------------------------------------------------------------------
+      function teamKey(value) {
+        return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      }
+
+      const TEAM_REGION_NAMES = {
+        AB: 'Alberta', AL: 'Alabama', AZ: 'Arizona', BC: 'British Columbia',
+        CA: 'California', CO: 'Colorado', DC: 'District of Columbia', FL: 'Florida',
+        GA: 'Georgia', IL: 'Illinois', IN: 'Indiana', LA: 'Louisiana',
+        MA: 'Massachusetts', MB: 'Manitoba', MD: 'Maryland', MI: 'Michigan',
+        MN: 'Minnesota', MO: 'Missouri', NC: 'North Carolina', NV: 'Nevada',
+        NY: 'New York', OH: 'Ohio', OK: 'Oklahoma', ON: 'Ontario',
+        OR: 'Oregon', PA: 'Pennsylvania', QC: 'Quebec', TN: 'Tennessee',
+        TX: 'Texas', UT: 'Utah', WA: 'Washington', WI: 'Wisconsin'
+      };
+      const TEAM_GAME_CITY_OVERRIDES = {
+        'alabama|crimson tide': 'Tuscaloosa, Alabama',
+        'louisiana|tigers': 'Baton Rouge, Louisiana',
+        'san antonio|roadrunners': 'San Antonio, Texas',
+        'tulane|green wave': 'New Orleans, Louisiana'
+      };
+
+      function formatTeamCityName(value) {
+        const city = String(value || '').trim();
+        const match = city.match(/^(.+?),\s*([A-Za-z]{2})$/);
+        if (!match) return city;
+        const region = TEAM_REGION_NAMES[match[2].toUpperCase()];
+        return region ? match[1].trim() + ', ' + region : city;
+      }
+
+      function getTeamGameCity(value) {
+        const explicitCity = value.TGBGameCity || value.gameCity || value.game_city || '';
+        if (explicitCity) return formatTeamCityName(explicitCity);
+        const fanbase = value.fanbase || value.firstName || value.first_name || value.GeoName || '';
+        const mascot = value.mascot || value.MascotName || '';
+        return TEAM_GAME_CITY_OVERRIDES[teamKey(fanbase) + '|' + teamKey(mascot)] || '';
+      }
+
+      // Build the same { lookup, teams } shape from a flat list of team records.
+      // Accepts Supabase rows, old nested palette rows, or imported legacy rows.
+      function buildTeamIndex(records) {
+        const lookup = new Map();
+        const teams = [];
+        for (const value of records || []) {
+          if (!value || typeof value !== 'object') continue;
+          const firstName = value.firstName || value.first_name || value.GeoName || '';
+          const fanbase   = value.fanbase   || firstName        || '';
+          const gameCity  = getTeamGameCity(value);
+          const mascot    = value.mascot    || value.MascotName || '';
+          const sport     = value.sport     || sportFromLeague(value.League || value.league);
+          const primary   = value.primary   || value.primary_color   || value.shell  || '';
+          const secondary = value.secondary || value.secondary_color || value.stripe || '';
+          const tertiary  = value.tertiary  || value.tertiary_color  || value.mask   || '';
+          const textColor = value.text_color || value.textColor || value.quaternary || value.quaternary_color || '';
+          const tgbid = value.tgbid || value.team_tgbid || value.teamTgbid || '';
+          const stableTeamKey = value.team_key || value.teamKey || '';
+          const palette = {
+            tgbid,
+            team_key: stableTeamKey,
+            primary_color: primary,
+            secondary_color: secondary,
+            tertiary_color: tertiary,
+            text_color: textColor,
+            sport,
+            fanbase
+          };
+          if (tgbid) lookup.set('tgbid|' + String(tgbid), palette);
+          if (stableTeamKey) lookup.set('team_key|' + String(stableTeamKey).toUpperCase(), palette);
+          // Index identity labels plus the canonical geographic game city so
+          // both legacy schedules and normalized game records resolve.
+          const fanbaseKey = teamKey(fanbase);
+          const firstNameKey = teamKey(firstName);
+          const gameCityKey = teamKey(gameCity);
+          const mascotKey = teamKey(mascot);
+          if (mascotKey) {
+            if (fanbaseKey) lookup.set(fanbaseKey + '|' + mascotKey, palette);
+            if (firstNameKey && firstNameKey !== fanbaseKey) lookup.set(firstNameKey + '|' + mascotKey, palette);
+            if (gameCityKey && gameCityKey !== fanbaseKey && gameCityKey !== firstNameKey) {
+              lookup.set(gameCityKey + '|' + mascotKey, palette);
+            }
+          }
+          teams.push({
+            ...value,
+            firstName,
+            first_name: value.first_name || firstName,
+            tgbid,
+            team_key: stableTeamKey,
+            fanbase,
+            gameCity,
+            game_city: value.game_city || gameCity,
+            mascot,
+            sport,
+            shell: value.shell || primary,
+            stripe: value.stripe || secondary,
+            mask: value.mask || tertiary,
+            text_color: textColor,
+            palette
+          });
+        }
+        return { lookup, teams };
+      }
+
+      function sportFromLeague(league) {
+        switch (String(league || '').toUpperCase()) {
+          case 'NBA':
+          case 'WNBA':
+          case 'NCAAM':
+          case 'NCAAW':
+            return 'basketball';
+          case 'MLB':
+            return 'baseball';
+          case 'NHL':
+            return 'hockey';
+          default:
+            return 'football';
+        }
+      }
+
+      async function fetchTeamColorsFromSupabase() {
+        let response = null;
+        if (window.__tgbPrefetch && window.__tgbPrefetch.teams) {
+          try { response = await window.__tgbPrefetch.teams; } catch (_) { response = null; }
+          window.__tgbPrefetch.teams = null; // single-use
+        }
+        if (!response) {
+          response = await fetch(TEAMS_REST_URL, {
+            headers: { apikey: SB_CONFIG.key, Authorization: 'Bearer ' + SB_CONFIG.key },
+            cache: 'no-store'
+          });
+        }
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return await response.json();
+      }
+
+      function canonicalTeamColorRow(row) {
+        const next = { ...row };
+        next.primary = row.primary || row.primary_color || row.shell || '';
+        next.secondary = row.secondary || row.secondary_color || row.stripe || '';
+        next.tertiary = row.tertiary || row.tertiary_color || row.mask || '';
+        delete next.shell;
+        delete next.stripe;
+        delete next.mask;
+        return next;
+      }
+
+      function teamIdentityKeys(record) {
+        const league = String(record && (record.League || record.league) || '').toUpperCase();
+        const code = teamKey(record && (record.code || record.Code));
+        const firstName = record && (record.firstName || record.first_name || record.GeoName || record.fanbase) || '';
+        const fanbase = record && (record.fanbase || firstName) || '';
+        const mascot = record && (record.mascot || record.MascotName) || '';
+        const fullName = record && (record.fullName || record.full_name || [record.GeoName, record.MascotName].filter(Boolean).join(' ')) || '';
+        return [
+          code && league + '|code|' + code,
+          fullName && league + '|name|' + teamKey(fullName),
+          mascot && fanbase && league + '|fan|' + teamKey(fanbase) + '|' + teamKey(mascot),
+          mascot && firstName && league + '|fan|' + teamKey(firstName) + '|' + teamKey(mascot)
+        ].filter(Boolean);
+      }
+
+      function mergeTeamColorRows(baseRows, overrideRows) {
+        const rows = (Array.isArray(baseRows) ? baseRows : []).map(canonicalTeamColorRow);
+        const lookup = new Map();
+        rows.forEach((row, index) => {
+          teamIdentityKeys(row).forEach((key) => {
+            if (!lookup.has(key)) lookup.set(key, index);
+          });
+        });
+
+        (Array.isArray(overrideRows) ? overrideRows : []).forEach((override) => {
+          if (!override || typeof override !== 'object') return;
+          const matchIndex = teamIdentityKeys(override).map((key) => lookup.get(key)).find((index) => index !== undefined);
+          if (matchIndex === undefined) {
+            rows.push(canonicalTeamColorRow(override));
+            const index = rows.length - 1;
+            teamIdentityKeys(override).forEach((key) => {
+              if (!lookup.has(key)) lookup.set(key, index);
+            });
+            return;
+          }
+
+          const target = rows[matchIndex];
+          ['code', 'conference', 'sport'].forEach((key) => {
+            if (override[key]) target[key] = override[key];
+          });
+          const paletteOverride = canonicalTeamColorRow(override);
+          ['primary', 'secondary', 'tertiary'].forEach((key) => {
+            if (paletteOverride[key]) target[key] = paletteOverride[key];
+          });
+          if (override.league && !target.league) target.league = override.league;
+          target.paletteSource = 'supabase';
+        });
+        return rows;
+      }
+
+      // All team data - identity labels, palette, sport, and game/venue city -
+      // lives in the Supabase `teams` table. The global fallback wrapper may
+      // satisfy this request from /backups/supabase-teams-latest.json if
+      // Supabase is down; otherwise we render with the no-helmet fallback.
+      async function fetchTeamColors() {
+        try {
+          const rows = await fetchTeamColorsFromSupabase();
+          if (Array.isArray(rows) && rows.length) return buildTeamIndex(rows);
+        } catch (error) {
+          // Network/RLS/etc — fall through to an empty index.
+        }
+        return buildTeamIndex([]);
+      }
+
+      function getHelmetByAwayTeam(game) {
+        if (!game) return null;
+        const joinedAway = game.away_team || game.awayTeam;
+        if (joinedAway && typeof joinedAway === 'object') {
+          const indexed = buildTeamIndex([joinedAway]);
+          const joinedPalette = indexed.teams && indexed.teams[0] && indexed.teams[0].palette;
+          if (joinedPalette && joinedPalette.primary_color) return joinedPalette;
+        }
+        const tgbid = game.away_team_tgbid || game.awayTeamTgbid;
+        if (tgbid) {
+          const hit = colorsByCityMascot.get('tgbid|' + String(tgbid));
+          if (hit) return hit;
+        }
+        const stableTeamKey = game.away_team_key || game.awayTeamKey;
+        if (stableTeamKey) {
+          const hit = colorsByCityMascot.get('team_key|' + String(stableTeamKey).toUpperCase());
+          if (hit) return hit;
+        }
+        const mascotKey = teamKey(game.away_team_mascot);
+        if (!mascotKey) return null;
+        // away_team_city may be stored as the full "City, State" form (the
+        // full-team-city-names migration), but the team index is keyed on the
+        // short city/fanbase. Try the full value first, then the city-only
+        // segment before the comma, so both shapes resolve.
+        const cityRaw = String(game.away_team_city || '');
+        const cityCandidates = cityRaw.indexOf(',') >= 0 ? [cityRaw, cityRaw.split(',')[0]] : [cityRaw];
+        for (const candidate of cityCandidates) {
+          const cityKey = teamKey(candidate);
+          if (!cityKey) continue;
+          const hit = colorsByCityMascot.get(cityKey + '|' + mascotKey);
+          if (hit) return hit;
+        }
+        return null;
+      }
+
+      function normalizeCategoryIcon(value) {
+        const normalized = String(value || '').trim().toLowerCase();
+        return CATEGORY_ICON_VALUES.has(normalized) ? normalized : '';
+      }
+
+      function getGameCategoryIcon(game, fallbackPalette) {
+        return normalizeCategoryIcon(game && game.category_icon)
+          || normalizeCategoryIcon(game && game.categoryIcon)
+          || normalizeCategoryIcon(fallbackPalette && fallbackPalette.sport);
+      }
+
+      function getEntryCategoryIcon(games, fallbackPalette) {
+        for (const game of games || []) {
+          const explicit = normalizeCategoryIcon(game && game.category_icon)
+            || normalizeCategoryIcon(game && game.categoryIcon);
+          if (explicit) return explicit;
+        }
+        return normalizeCategoryIcon(fallbackPalette && fallbackPalette.sport) || CATEGORY_ICON_FOOTBALL;
+      }
+
+      function pixelMusicNotesSVG(primary, secondary, tertiary) {
+        const ink = '#181818';
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">'
+          + '<rect width="64" height="64" fill="none"/>'
+          + '<g fill="' + ink + '">'
+          + '<g transform="rotate(-7 15 28)">'
+          + '<rect x="11" y="10" width="4" height="25"/><rect x="14" y="13" width="13" height="4"/>'
+          + '<rect x="24" y="17" width="4" height="8"/><rect x="28" y="22" width="5" height="4"/>'
+          + '<rect x="3" y="33" width="16" height="9"/><rect x="7" y="30" width="12" height="15"/>'
+          + '<rect x="10" y="44" width="10" height="4"/>'
+          + '</g>'
+          + '<g transform="rotate(-6 51 17)">'
+          + '<rect x="46" y="5" width="3" height="16"/><rect x="49" y="7" width="10" height="3"/>'
+          + '<rect x="57" y="10" width="3" height="7"/><rect x="50" y="18" width="9" height="3"/>'
+          + '<rect x="59" y="21" width="3" height="6"/><rect x="42" y="22" width="10" height="8"/>'
+          + '<rect x="44" y="29" width="7" height="3"/>'
+          + '</g>'
+          + '<g transform="rotate(-6 43 48)">'
+          + '<rect x="29" y="33" width="28" height="5"/><rect x="31" y="41" width="25" height="5"/>'
+          + '<rect x="33" y="45" width="5" height="11"/><rect x="53" y="44" width="5" height="11"/>'
+          + '<rect x="24" y="53" width="16" height="9"/><rect x="28" y="50" width="12" height="14"/>'
+          + '<rect x="46" y="52" width="16" height="9"/><rect x="50" y="49" width="12" height="14"/>'
+          + '</g>'
+          + '</g>'
+          + '</svg>';
+        return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+      }
+
+      // Dispatch to the right CATEGORY_ICON SVG generator. Falls back to the
+      // football helmet so legacy entries with no icon tag still render.
+      function teamMarkSVG(categoryIcon, primary, secondary, tertiary) {
+        switch (normalizeCategoryIcon(categoryIcon) || CATEGORY_ICON_FOOTBALL) {
+          case CATEGORY_ICON_MUSIC:
+            return pixelMusicNotesSVG(primary, secondary, tertiary);
+          case 'basketball':
+            if (typeof window.basketballSVG === 'function') return window.basketballSVG(primary, secondary, tertiary);
+            break;
+          case 'baseball':
+            if (typeof window.baseballSVG === 'function') return window.baseballSVG(primary, secondary, tertiary);
+            break;
+        }
+        return typeof window.helmetSVG === 'function' ? window.helmetSVG(primary, secondary, tertiary) : null;
+      }
+
+      function isTrueish(value) {
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'string') {
+          const normalized = value.trim().toLowerCase();
+          return !!normalized && normalized !== 'false' && normalized !== '0' && normalized !== 'no';
+        }
+        return !!value;
+      }
+
+      function plainText(value) {
+        return String(value || '')
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      function getCity(game) {
+        return plainText(game && game.city);
+      }
+
+      // Always bucket fan-mode games by fanbase+mascot internally so two
+      // teams with the same fanbase (LA Rams/Chargers, NY Yankees/Mets,
+      // UTSA Roadrunners + San Antonio Spurs, etc.) each get their own
+      // directory row. The row displays only the fanbase; the helmet icon
+      // tells them apart visually. We normalize via the team's `fanbase`
+      // from the teams table so schedule inconsistencies (UTSA vs San Antonio)
+      // don't fracture a single team into multiple rows.
+      function getFanTeam(game) {
+        const cityRaw = plainText(game && game.away_team_city);
+        const mascot = plainText(game && game.away_team_mascot);
+        const helmet = getHelmetByAwayTeam(game);
+        const city = (helmet && helmet.fanbase) || cityRaw;
+        if (city) {
+          return mascot ? city + ' ' + mascot : city;
+        }
+        const joinedAway = game && (game.away_team || game.awayTeam);
+        if (joinedAway && typeof joinedAway === 'object') {
+          const joinedFanbase = plainText(joinedAway.fanbase || joinedAway.first_name || joinedAway.full_name);
+          const joinedMascot = plainText(joinedAway.mascot);
+          if (joinedFanbase) return joinedMascot ? joinedFanbase + ' ' + joinedMascot : joinedFanbase;
+        }
+        const structuredCandidates = [
+          game && game.away_team,
+          game && game.awayTeam,
+          game && game.visitor_team,
+          game && game.visitorTeam,
+          game && game.fan_team,
+          game && game.fanTeam,
+          game && game.opponent_team,
+          game && game.opponentTeam
+        ];
+        for (const candidate of structuredCandidates) {
+          const team = plainText(candidate);
+          if (team) return team;
+        }
+        const name = plainText(game && game.name);
+        const match = name.match(/^(.+?)\s+Fans Takeover\s+/i);
+        return match ? plainText(match[1]) : '';
+      }
+
+      function getGameCountLabel(count) {
+        return count === 1 ? '1 game' : count + ' games';
+      }
+
+      function getGameCountHeadline(count) {
+        return count === 1 ? '1 Game' : count + ' Games';
+      }
+
+      function isFandomGame(game) {
+        if (!game || typeof game !== 'object') return false;
+        if (Object.prototype.hasOwnProperty.call(game, 'fandom_game')) {
+          return isTrueish(game.fandom_game);
+        }
+        // Backward-compatible until the database migration is applied.
+        return !!(plainText(game.away_team_city) && plainText(game.away_team_mascot));
+      }
+
+      async function fetchGames() {
+        let response = null;
+        if (window.__tgbPrefetch && window.__tgbPrefetch.games) {
+          try { response = await window.__tgbPrefetch.games; } catch (_) { response = null; }
+          window.__tgbPrefetch.games = null; // single-use
+        }
+        if (!response) {
+          const url = new URL('rest/v1/' + SB_CONFIG.table, SB_CONFIG.url.replace(/\/+$/, '') + '/');
+          url.searchParams.set('apikey', SB_CONFIG.key);
+          url.searchParams.set('select', '*');
+          url.searchParams.set('order', 'name.asc');
+          response = await fetch(url.toString(), {
+            headers: {
+              apikey: SB_CONFIG.key,
+              Authorization: 'Bearer ' + SB_CONFIG.key,
+              Accept: 'application/json'
+            },
+            cache: 'no-store'
+          });
+        }
+        if (!response.ok) {
+          const text = await response.text().catch(() => '');
+          throw new Error('Supabase ' + response.status + ': ' + text.slice(0, 200));
+        }
+        return response.json();
+      }
+
+      // ---------------------------------------------------------------------------
+      // Hero counts and directory data
+      // ---------------------------------------------------------------------------
+      function updateHeroButtons() {
+        document.querySelectorAll('.hero-mode-tab').forEach((btn) => {
+          const isFan = btn.dataset.mode === 'fan';
+          const selected = (isFan && activeMode === MODE_FAN) || (!isFan && activeMode === MODE_CITY);
+          btn.setAttribute('aria-selected', String(selected));
+          btn.setAttribute('tabindex', selected ? '0' : '-1');
+        });
+        const switchEl = document.getElementById('heroModeSwitch');
+        if (switchEl) switchEl.dataset.mode = activeMode === MODE_FAN ? 'fan' : 'city';
+        if (heroMetaPromptEl) {
+          heroMetaPromptEl.textContent = activeMode === MODE_FAN ? PROMPT_FAN : PROMPT_CITY;
+        }
+      }
+
+      function buildCityEntries() {
+        const counts = new Map();
+        liveGames.forEach((game) => {
+          const city = getCity(game);
+          if (!city) return;
+          counts.set(city, (counts.get(city) || 0) + 1);
+        });
+        return [...counts.entries()]
+          .sort((left, right) => left[0].localeCompare(right[0], undefined, { sensitivity: 'base' }))
+          .map(([label, count]) => ({
+            label,
+            count,
+            sub: getGameCountLabel(count),
+            href: '#',
+            entryKind: 'city',
+            entryKey: label
+          }));
+      }
+
+      // Fan-mode directory is driven by the teams table, not
+      // by whatever free-form text happens to be in the Supabase game rows.
+      // We pre-bucket games by their normalized fanKey so each team can claim
+      // its own entries; teams with no matching games are dropped so the list
+      // stays focused on currently-playable fandoms.
+      function buildFanEntries() {
+        const gamesByFanKey = new Map();
+        liveGames.filter(isFandomGame).forEach((game) => {
+          const fan = getFanTeam(game);
+          if (!fan) return;
+          if (!gamesByFanKey.has(fan)) gamesByFanKey.set(fan, []);
+          gamesByFanKey.get(fan).push(game);
+        });
+        return allTeams
+          .map((team) => {
+            const fanbase = team.fanbase || team.firstName || '';
+            const mascot = team.mascot || '';
+            if (!fanbase || !mascot) return null;
+            const fanKey = fanbase + ' ' + mascot;
+            const games = gamesByFanKey.get(fanKey) || [];
+            const count = games.length;
+            const categoryIcon = getEntryCategoryIcon(games, team.palette);
+            return {
+              label: fanbase,
+              count,
+              sub: count > 0 ? getGameCountLabel(count) : 'No games yet',
+              href: '#',
+              helmet: team.palette,
+              categoryIcon,
+              expectsHelmet: true,
+              entryKind: 'fan',
+              entryKey: fanKey
+            };
+          })
+          .filter((entry) => entry && entry.count > 0)
+          .sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }));
+      }
+
+      // Nav-stats ticker — starts at 0 and counts up open-ended on page
+      // load, then eases into the real totals once games/teams have loaded.
+      // If the open-ended count happens to exceed the actual total (rare —
+      // e.g. only a handful of cities and a slow connection), it clamps to
+      // the target rather than counting backwards.
+      const statsTicker = (function () {
+        const gameEl = document.getElementById('heroKickerGameCount');
+        const cityEl = document.getElementById('heroKickerCityCount');
+        const GAME_TICK_MS = 50;
+        const CITY_TICK_MS = 150;
+        const EASE_DURATION = 1400;
+        let gameDisplayed = 0;
+        let cityDisplayed = 0;
+        let gameTarget = null;
+        let cityTarget = null;
+        let lastGameTick = 0;
+        let lastCityTick = 0;
+        let easing = false;
+        let easeStart = 0;
+        let easeGameFrom = 0;
+        let easeCityFrom = 0;
+        let raf = null;
+
+        function render() {
+          if (gameEl) gameEl.textContent = String(gameDisplayed);
+          if (cityEl) cityEl.textContent = String(cityDisplayed);
+        }
+
+        function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+        function tick(ts) {
+          if (easing) {
+            const t = Math.min(1, (ts - easeStart) / EASE_DURATION);
+            const e = easeOutCubic(t);
+            gameDisplayed = Math.round(easeGameFrom + (gameTarget - easeGameFrom) * e);
+            cityDisplayed = Math.round(easeCityFrom + (cityTarget - easeCityFrom) * e);
+            render();
+            if (t >= 1) {
+              easing = false;
+              raf = null;
+              return;
+            }
+          } else {
+            if (!lastGameTick) lastGameTick = ts;
+            if (!lastCityTick) lastCityTick = ts;
+            if (ts - lastGameTick >= GAME_TICK_MS) {
+              gameDisplayed += 1;
+              lastGameTick = ts;
+            }
+            if (ts - lastCityTick >= CITY_TICK_MS) {
+              cityDisplayed += 1;
+              lastCityTick = ts;
+            }
+            render();
+          }
+          raf = requestAnimationFrame(tick);
+        }
+
+        function start() {
+          if (raf || easing) return;
+          raf = requestAnimationFrame(tick);
+        }
+
+        function setTarget(games, cities) {
+          if (gameTarget === games && cityTarget === cities) return;
+          gameTarget = games;
+          cityTarget = cities;
+          if (gameDisplayed > games) gameDisplayed = games;
+          if (cityDisplayed > cities) cityDisplayed = cities;
+          easeGameFrom = gameDisplayed;
+          easeCityFrom = cityDisplayed;
+          easeStart = performance.now();
+          easing = true;
+          if (!raf) raf = requestAnimationFrame(tick);
+        }
+
+        return { start, setTarget };
+      }());
+      statsTicker.start();
+
+      function renderDirectory() {
+        updateHeroButtons();
+        const cityCount = new Set(liveGames.map(getCity).filter(Boolean)).size;
+        statsTicker.setTarget(liveGames.length, cityCount);
+        renderHeroMetaList();
+      }
+
+      // ---------------------------------------------------------------------------
+      // Selection and URL state
+      // ---------------------------------------------------------------------------
+      function refreshSelectionStyles() {
+        document.querySelectorAll('[data-entry-kind][data-entry-key]').forEach((el) => {
+          const matches = el.dataset.entryKind === selectedEntryKind && el.dataset.entryKey === selectedEntryKey;
+          el.classList.toggle('is-active', matches && !!selectedEntryKind);
+        });
+      }
+
+      function toggleSelectedEntry(entry) {
+        if (selectedEntryKind === entry.entryKind && selectedEntryKey === entry.entryKey) {
+          clearSelectedEntry();
+          return;
+        }
+        selectedEntryKind = entry.entryKind;
+        selectedEntryKey  = entry.entryKey;
+        refreshSelectionStyles();
+        renderSelectedGames(entry);
+        writeUrlState();
+      }
+
+      function clearSelectedEntry() {
+        selectedEntryKind = '';
+        selectedEntryKey  = '';
+        refreshSelectionStyles();
+        renderDefaultSelectedGames({ scroll: false });
+        writeUrlState();
+      }
+
+      // URL state: ?city= / ?fan= mirror the current selection so views are
+      // bookmarkable, shareable, and survive back/forward navigation.
+      let suppressUrlWrite = false;
+
+      function modeHref(mode) {
+        const path = window.location.pathname || '/games/pixel/';
+        return path + '?mode=' + (mode === MODE_FAN ? MODE_FAN : MODE_CITY);
+      }
+
+      function pushModeState(mode) {
+        const nextMode = mode === MODE_FAN ? MODE_FAN : MODE_CITY;
+        const next = new URL(window.location.href);
+        next.search = '';
+        next.searchParams.set('mode', nextMode);
+        if (next.href === window.location.href) return;
+        history.pushState({ mode: nextMode }, '', next.pathname + next.search);
+      }
+
+      function setModeFromControl(mode) {
+        const nextMode = mode === MODE_FAN ? MODE_FAN : MODE_CITY;
+        suppressUrlWrite = true;
+        try {
+          setMode(nextMode);
+        } finally {
+          suppressUrlWrite = false;
+        }
+        pushModeState(nextMode);
+      }
+
+      function writeUrlState() {
+        if (suppressUrlWrite) return;
+        const next = new URL(window.location.href);
+        next.search = '';
+        if (selectedEntryKind === 'city' && selectedEntryKey) {
+          next.searchParams.set('city', selectedEntryKey);
+        } else if (selectedEntryKind === 'fan' && selectedEntryKey) {
+          next.searchParams.set('fan', selectedEntryKey);
+        }
+        if (next.href === window.location.href) return;
+        history.pushState({ kind: selectedEntryKind, key: selectedEntryKey }, '', next);
+      }
+
+      function applyUrlSelection() {
+        const params = new URLSearchParams(window.location.search);
+        const city = params.get('city');
+        const fan = params.get('fan');
+        const key = city ? 'city|' + city : fan ? 'fan|' + fan : '';
+        if (!key) {
+          selectedEntryKind = '';
+          selectedEntryKey = '';
+          refreshSelectionStyles();
+          renderDefaultSelectedGames({ scroll: false, animate: false });
+          return;
+        }
+        const entry = heroMetaEntries.get(key);
+        if (entry) {
+          selectedEntryKind = entry.entryKind;
+          selectedEntryKey  = entry.entryKey;
+          refreshSelectionStyles();
+          renderSelectedGames(entry, { scroll: false, animate: false });
+        } else if (selectedEntryKind) {
+          clearSelectedEntry();
+        }
+      }
+
+      function rerenderSelectedGames(options) {
+        if (!selectedEntryKind || !selectedEntryKey) return;
+        const entry = heroMetaEntries.get(selectedEntryKind + '|' + selectedEntryKey);
+        if (entry) renderSelectedGames(entry, options || { scroll: false, animate: false });
+      }
+
+      // ---------------------------------------------------------------------------
+      // Hero directory rendering
+      // ---------------------------------------------------------------------------
+      function createHeroMetaItem(entry) {
+        const item = document.createElement('a');
+        item.className = 'hero-meta-list-item';
+        item.href = '#';
+        item.dataset.entryKind = entry.entryKind;
+        item.dataset.entryKey  = entry.entryKey;
+        if (selectedEntryKind === entry.entryKind && selectedEntryKey === entry.entryKey) {
+          item.classList.add('is-active');
+        }
+
+        if (entry.expectsHelmet) {
+          const palette = entry.helmet || NO_HELMET_PALETTE;
+          const categoryIcon = entry.categoryIcon || palette.sport;
+          // Tint the row using the team's primary (and secondary) so each
+          // team has its own visual identity in the scrolling directory.
+          if (entry.helmet && entry.helmet.primary_color) {
+            item.dataset.teamTint = '';
+            item.style.setProperty('--team-primary', entry.helmet.primary_color);
+            if (entry.helmet.secondary_color) {
+              item.style.setProperty('--team-secondary', entry.helmet.secondary_color);
+            }
+          }
+          const src = teamMarkSVG(
+            categoryIcon,
+            palette.primary_color,
+            palette.secondary_color,
+            palette.tertiary_color
+          );
+          if (src) {
+            const img = document.createElement('img');
+            img.className = 'hero-meta-list-helmet';
+            img.alt = '';
+            img.src = src;
+            if (normalizeCategoryIcon(categoryIcon) === 'baseball') img.classList.add('team-mark--baseball');
+            if (!entry.helmet) img.classList.add('hero-meta-list-helmet--none');
+            item.appendChild(img);
+          }
+        } else if (entry.entryKind === 'city') {
+          const badge = cityGeoBadge(entry.label);
+          item.appendChild(buildGeoBadge(badge));
+        } else {
+          const spacer = document.createElement('span');
+          spacer.className = 'hero-meta-list-helmet hero-meta-list-helmet--spacer';
+          item.appendChild(spacer);
+        }
+
+        const labelWrap = document.createElement('span');
+        labelWrap.className = 'hero-meta-list-copy';
+        const label = document.createElement('span');
+        label.className = 'hero-meta-list-name';
+        label.textContent = entry.entryKind === 'city' ? cityDisplayName(entry.label) : entry.label;
+        labelWrap.append(label);
+        const count = document.createElement('span');
+        count.className = 'hero-meta-list-count';
+        count.textContent = getGameCountLabel(entry.count);
+        item.append(labelWrap, count);
+        return item;
+      }
+
+      const heroMetaEntries = new Map();
+
+      function renderHeroMetaList() {
+        if (!heroMetaListEl) return;
+        heroMetaListEl.innerHTML = '';
+        heroMetaEntries.clear();
+        const entries = activeMode === MODE_FAN ? buildFanEntries() : buildCityEntries();
+        if (!entries.length) return;
+
+        const track = document.createElement('div');
+        track.className = 'hero-meta-list-track';
+        // Three identical stacked chunks: [pre | primary | post]. We start the
+        // scrollTop inside the primary chunk so the user has a full chunk's
+        // worth of content available both above (pre) and below (post). When
+        // the auto-scroll or a manual drag/wheel moves scrollTop outside the
+        // primary chunk's range, setMetaScrollPosition silently jumps by
+        // exactly one chunk-height — invisible because the chunks are clones.
+        const preChunk = document.createElement('div');
+        preChunk.className = 'hero-meta-list-chunk';
+        preChunk.setAttribute('aria-hidden', 'true');
+        const primaryChunk = document.createElement('div');
+        primaryChunk.className = 'hero-meta-list-chunk';
+        const postChunk = document.createElement('div');
+        postChunk.className = 'hero-meta-list-chunk';
+        postChunk.setAttribute('aria-hidden', 'true');
+        // Stash each entry by its lookup key for the delegated click handler.
+        entries.forEach((entry) => {
+          heroMetaEntries.set(entry.entryKind + '|' + entry.entryKey, entry);
+          primaryChunk.appendChild(createHeroMetaItem(entry));
+        });
+        // Clone into pre/post chunks so the measured loop height matches
+        // the primary list exactly.
+        entries.forEach((entry) => preChunk.appendChild(createHeroMetaItem(entry)));
+        entries.forEach((entry) => postChunk.appendChild(createHeroMetaItem(entry)));
+        track.append(preChunk, primaryChunk, postChunk);
+        heroMetaListEl.appendChild(track);
+        // Park scrollTop at the top of the primary chunk so there's a full
+        // chunk visible above AND below right from frame 0 — that's what
+        // makes "scroll up" feel infinite instead of clamping at the top.
+        const initialLoopHeight = getMetaScrollLoopHeight();
+        metaScrollPosition = initialLoopHeight;
+        heroMetaListEl.scrollTop = initialLoopHeight;
+        startMetaScroll();
+      }
+
+      // ---------------------------------------------------------------------------
+      // Hero directory infinite scroll
+      // ---------------------------------------------------------------------------
+      const META_SCROLL_PX_PER_SEC = document.body.classList.contains('pixel-art-page') ? 0 : 22;
+      let metaScrollRaf = null;
+      let metaScrollLastTs = 0;
+      let metaScrollPosition = 0;
+      let metaDragActive = false;
+      let metaUserPauseUntil = 0;
+      const metaReducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+      function getMetaScrollLoopHeight() {
+        if (!heroMetaListEl) return 0;
+        const firstChunk = heroMetaListEl.querySelector('.hero-meta-list-chunk');
+        if (!firstChunk) return 0;
+        return Math.max(0, Math.round(firstChunk.getBoundingClientRect().height));
+      }
+
+      function shouldPauseMetaScroll(ts) {
+        if (!heroMetaListEl) return true;
+        if (metaDragActive) return true;
+        if (heroMetaListEl.contains(document.activeElement)) return true;
+        return ts < metaUserPauseUntil;
+      }
+
+      function setMetaScrollPosition(next, loopHeight) {
+        if (!heroMetaListEl) return;
+        let value = Number.isFinite(next) ? next : 0;
+        if (loopHeight > 0 && loopHeight > heroMetaListEl.clientHeight) {
+          // Keep scrollTop inside the *primary* chunk's range — i.e.
+          // [loopHeight, 2 * loopHeight). Jumps by exactly one loopHeight are
+          // invisible because the three stacked chunks are identical, which
+          // is what makes scrolling feel infinite in BOTH directions.
+          while (value >= 2 * loopHeight) value -= loopHeight;
+          while (value < loopHeight) value += loopHeight;
+        } else {
+          // Content fits in the viewport — there's nothing to wrap. Clamp
+          // to the natural scroll range so metaScrollPosition can't drift
+          // beyond the browser's actual scrollTop.
+          const max = Math.max(0, heroMetaListEl.scrollHeight - heroMetaListEl.clientHeight);
+          if (value < 0) value = 0;
+          if (value > max) value = max;
+        }
+        metaScrollPosition = value;
+        heroMetaListEl.scrollTop = value;
+      }
+
+      function startMetaScroll() {
+        if (metaScrollRaf || metaReducedMotion || !heroMetaListEl) return;
+        metaScrollLastTs = 0;
+        const tick = (ts) => {
+          if (!metaScrollLastTs) metaScrollLastTs = ts;
+          const dt = Math.min(40, ts - metaScrollLastTs);
+          metaScrollLastTs = ts;
+          const loopHeight = getMetaScrollLoopHeight();
+          if (!shouldPauseMetaScroll(ts) && heroMetaListEl && loopHeight > heroMetaListEl.clientHeight) {
+            setMetaScrollPosition(metaScrollPosition + META_SCROLL_PX_PER_SEC * (dt / 1000), loopHeight);
+          }
+          metaScrollRaf = requestAnimationFrame(tick);
+        };
+        metaScrollRaf = requestAnimationFrame(tick);
+      }
+
+      // Wrap scrollTop into the height of the original chunk so user
+      // scrolling / wheel / drag still looks seamless.
+      function wrapMetaScroll() {
+        if (!heroMetaListEl) return;
+        const loopHeight = getMetaScrollLoopHeight();
+        if (loopHeight <= 0) {
+          metaScrollPosition = heroMetaListEl.scrollTop;
+          return;
+        }
+        setMetaScrollPosition(heroMetaListEl.scrollTop, loopHeight);
+      }
+
+      function initMetaScrollInteractions() {
+        if (!heroMetaListEl) return;
+        // Drag-to-scroll.
+        let dragStartY = 0;
+        let dragStartScroll = 0;
+        let dragSuppressClick = false;
+        const DRAG_THRESHOLD = 4;
+
+        let pointerDownId = null;
+        heroMetaListEl.addEventListener('pointerdown', (e) => {
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          metaDragActive = false;
+          pointerDownId = e.pointerId;
+          dragStartY = e.clientY;
+          metaScrollPosition = heroMetaListEl.scrollTop;
+          dragStartScroll = heroMetaListEl.scrollTop;
+          metaUserPauseUntil = performance.now() + 600;
+          // Do NOT setPointerCapture here — it would retarget the subsequent
+          // `click` event to heroMetaListEl, breaking chip click detection.
+          // Capture is set only once a real drag is detected (in pointermove).
+        });
+
+        heroMetaListEl.addEventListener('pointermove', (e) => {
+          if (e.pointerId !== pointerDownId) return;
+          const dy = e.clientY - dragStartY;
+          if (!metaDragActive && Math.abs(dy) > DRAG_THRESHOLD) {
+            metaDragActive = true;
+            heroMetaListEl.classList.add('is-dragging');
+            try { heroMetaListEl.setPointerCapture(e.pointerId); } catch (_) {}
+          }
+          if (metaDragActive) {
+            heroMetaListEl.scrollTop = dragStartScroll - dy;
+            wrapMetaScroll();
+            // Re-baseline so wrap doesn't make subsequent moves jump.
+            const consumed = (dragStartScroll - dy) - heroMetaListEl.scrollTop;
+            if (consumed !== 0) {
+              dragStartScroll -= consumed;
+            }
+            e.preventDefault();
+          }
+        });
+
+        const endDrag = (e) => {
+          if (e.pointerId === pointerDownId) pointerDownId = null;
+          if (heroMetaListEl.hasPointerCapture(e.pointerId)) {
+            try { heroMetaListEl.releasePointerCapture(e.pointerId); } catch (_) {}
+          }
+          if (metaDragActive) {
+            dragSuppressClick = true;
+            // Allow one event loop turn for the click to fire and be swallowed.
+            setTimeout(() => { dragSuppressClick = false; }, 0);
+          }
+          metaDragActive = false;
+          heroMetaListEl.classList.remove('is-dragging');
+          metaUserPauseUntil = performance.now() + 350;
+        };
+        heroMetaListEl.addEventListener('pointerup', endDrag);
+        heroMetaListEl.addEventListener('pointercancel', endDrag);
+
+        // Swallow the click that follows a drag.
+        heroMetaListEl.addEventListener('click', (e) => {
+          if (dragSuppressClick) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }, true);
+
+        // Native scroll (wheel) — pause briefly so we don't fight the user.
+        heroMetaListEl.addEventListener('wheel', () => {
+          metaUserPauseUntil = performance.now() + 800;
+        }, { passive: true });
+
+        heroMetaListEl.addEventListener('scroll', wrapMetaScroll, { passive: true });
+      }
+
+      initMetaScrollInteractions();
+
+      // ---------------------------------------------------------------------------
+      // Selected-games rendering
+      // ---------------------------------------------------------------------------
+      function sampleOneGamePerCity(games) {
+        const buckets = new Map();
+        (Array.isArray(games) ? games : []).forEach((game) => {
+          const city = getCity(game);
+          if (!city) return;
+          if (!buckets.has(city)) buckets.set(city, []);
+          buckets.get(city).push(game);
+        });
+        return [...buckets.entries()]
+          .sort((left, right) => left[0].localeCompare(right[0], undefined, { sensitivity: 'base' }))
+          .map(([, bucket]) => bucket[Math.floor(Math.random() * bucket.length)])
+          .filter(Boolean);
+      }
+
+      function refreshDefaultCitySampleGames() {
+        defaultCitySampleGames = sampleOneGamePerCity(liveGames);
+      }
+
+      function renderDefaultSelectedGames(options) {
+        renderSelectedGames(DEFAULT_CITY_SAMPLE_ENTRY, options || { scroll: false, animate: false });
+      }
+
+      function gamesForEntry(entry) {
+        if (entry.entryKind === DEFAULT_CITY_SAMPLE_KIND) {
+          return defaultCitySampleGames.slice();
+        }
+        if (entry.entryKind === 'all') {
+          // Admin "show all" view — every game currently in liveGames, including
+          // ones that don't bucket into any city/fan entry.
+          return liveGames.slice();
+        }
+        if (entry.entryKind === 'city') {
+          return liveGames.filter((g) => getCity(g) === entry.entryKey);
+        }
+        if (entry.entryKind === 'fan') {
+          return liveGames.filter((g) => getFanTeam(g) === entry.entryKey);
+        }
+        return [];
+      }
+
+      function formatGameDate(game) {
+        const dateStr = String((game && game.game_date) || '').trim();
+        const timeStr = String((game && game.start_time) || '').trim();
+        const parts = [];
+
+        if (dateStr) {
+          // Parse YYYY-MM-DD as a *local* date so the weekday isn't shifted
+          // by the viewer's timezone (new Date('2026-10-12') would be UTC).
+          const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (match) {
+            const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+            const sameYear = d.getFullYear() === new Date().getFullYear();
+            parts.push(d.toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              year: sameYear ? undefined : 'numeric'
+            }));
+          } else {
+            parts.push(dateStr);
+          }
+        }
+
+        if (timeStr) {
+          const timeMatch = timeStr.match(/^(\d{1,2}):(\d{2})/);
+          if (timeMatch) {
+            const h24 = Number(timeMatch[1]);
+            const minutes = timeMatch[2];
+            const period = h24 >= 12 ? 'PM' : 'AM';
+            const h12 = ((h24 + 11) % 12) + 1;
+            parts.push(h12 + (minutes === '00' ? '' : ':' + minutes) + ' ' + period);
+          } else {
+            parts.push(timeStr.slice(0, 5));
+          }
+        }
+
+        return parts.join(' · ');
+      }
+
+      function escapeRegExp(value) {
+        return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+
+      function stripMascotNames(value, game) {
+        let text = plainText(value);
+        if (!text) return '';
+        [
+          [game && game.away_team_mascot, game && game.away_team_city],
+          [game && game.home_team_mascot, game && game.home_team_city]
+        ].forEach(([mascot, city]) => {
+          const mascotText = plainText(mascot);
+          const cityText = plainText(city);
+          if (!mascotText || !cityText) return;
+          text = text.replace(new RegExp('\\b' + escapeRegExp(mascotText) + '\\b', 'gi'), cityText);
+        });
+        return text.replace(/\s{2,}/g, ' ').trim();
+      }
+
+      function hexToRgb(hex) {
+        const value = String(hex || '').replace('#', '').trim();
+        const normalized = value.length === 3
+          ? value.split('').map((ch) => ch + ch).join('')
+          : value;
+        if (!/^[0-9a-f]{6}$/i.test(normalized)) return null;
+        return {
+          r: parseInt(normalized.slice(0, 2), 16),
+          g: parseInt(normalized.slice(2, 4), 16),
+          b: parseInt(normalized.slice(4, 6), 16)
+        };
+      }
+
+      function accentTextColor(hex) {
+        const rgb = hexToRgb(hex);
+        if (!rgb) return '#ffffff';
+        const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+        return luminance > 0.58 ? '#111111' : '#ffffff';
+      }
+
+      function fitTextToBox(el) {
+        if (!el) return;
+        const minSize = Number(el.dataset.fitMin || 10);
+        const fallbackMax = parseFloat(window.getComputedStyle(el).fontSize) || 16;
+        const maxSize = Number(el.dataset.fitMax || fallbackMax);
+        let size = maxSize;
+        el.style.fontSize = size + 'px';
+        if (!el.clientWidth || !el.clientHeight) return;
+        while (size > minSize && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)) {
+          size -= 0.5;
+          el.style.fontSize = size + 'px';
+        }
+      }
+
+      let selectedCardFitRaf = null;
+      function scheduleSelectedCardTextFit() {
+        if (selectedCardFitRaf) cancelAnimationFrame(selectedCardFitRaf);
+        selectedCardFitRaf = requestAnimationFrame(() => {
+          selectedCardFitRaf = null;
+          if (!selectedGamesEl || selectedGamesEl.hidden) return;
+          selectedGamesEl.querySelectorAll('[data-fit-text]').forEach(fitTextToBox);
+        });
+      }
+
+      function renderSelectedGames(entry, options) {
+        if (!selectedGamesEl || !selectedGamesGridEl || !selectedGamesTitleEl) return;
+        const shouldScroll = !options || options.scroll !== false;
+        const shouldAnimate = !options || options.animate !== false;
+        const games = gamesForEntry(entry).slice();
+        const byGameDate = (a, b) => {
+          const da = (a.game_date || '') + (a.start_time || '');
+          const db = (b.game_date || '') + (b.start_time || '');
+          return da.localeCompare(db);
+        };
+        if (entry.entryKind === DEFAULT_CITY_SAMPLE_KIND) {
+          games.sort((a, b) => {
+            const ca = cityDisplayName(getCity(a));
+            const cb = cityDisplayName(getCity(b));
+            return ca.localeCompare(cb, undefined, { sensitivity: 'base' }) || byGameDate(a, b);
+          });
+        } else {
+          games.sort(byGameDate);
+        }
+        selectedGamesTitleEl.innerHTML = '';
+        const countLabel = getGameCountLabel(games.length);
+        let titleText = '';
+        let iconNode = null;
+
+        if (entry.entryKind === 'fan') {
+          const sample = games[0] || null;
+          const fanbase = (entry.helmet && entry.helmet.fanbase) || plainText(sample && sample.away_team_city);
+          titleText = `${getGameCountHeadline(games.length)} for traveling ${fanbase || entry.label} fans`;
+          {
+            const palette = entry.helmet || NO_HELMET_PALETTE;
+            const categoryIcon = entry.categoryIcon || getGameCategoryIcon(sample, palette) || palette.sport;
+            const src = teamMarkSVG(
+              categoryIcon,
+              palette.primary_color,
+              palette.secondary_color,
+              palette.tertiary_color
+            );
+            if (src) {
+              const img = document.createElement('img');
+              img.className = 'selected-games-icon selected-games-icon--helmet';
+              img.alt = '';
+              img.src = src;
+              if (normalizeCategoryIcon(categoryIcon) === 'baseball') img.classList.add('team-mark--baseball');
+              iconNode = img;
+            }
+          }
+        } else if (entry.entryKind === 'city') {
+          titleText = `${getGameCountHeadline(games.length)} in ${entry.label}`;
+          const badge = cityGeoBadge(entry.label);
+          if (badge) iconNode = buildGeoBadge(badge, 'selected-games-icon');
+        } else if (entry.entryKind === DEFAULT_CITY_SAMPLE_KIND) {
+          titleText = games.length ? `${entry.label} (${countLabel})` : entry.label;
+        } else {
+          titleText = `${entry.label} · ${countLabel}`;
+        }
+
+        if (iconNode) selectedGamesTitleEl.appendChild(iconNode);
+        const textSpan = document.createElement('span');
+        textSpan.className = 'selected-games-title-text';
+        textSpan.textContent = titleText;
+        selectedGamesTitleEl.appendChild(textSpan);
+
+        selectedGamesGridEl.innerHTML = '';
+        if (!games.length) {
+          const empty = document.createElement('div');
+          empty.className = 'selected-games-empty';
+          empty.textContent = 'No live games found.';
+          selectedGamesGridEl.appendChild(empty);
+        } else {
+          games.forEach((game) => {
+            const gameId = game.id || '';
+            const gameHref = '/game/run/index.html?id=' + encodeURIComponent(gameId);
+            const card = document.createElement('article');
+            card.className = 'game-card';
+            card.dataset.gameId = gameId;
+            // Admin overlay: signed-in admins get an "EDIT GAME" button on each
+            // card (painted by admin-bridge.js), opening the builder for this id.
+            card.dataset.adminEdit = 'game';
+            card.dataset.adminId = gameId;
+
+            // Deed stamps: CATEGORY_ICON mark + state/country badge for the host city.
+            const icons = document.createElement('div');
+            icons.className = 'game-card-icons';
+            const teamPalette = getHelmetByAwayTeam(game);
+            const hasAwayTeam = !!(plainText(game.away_team_city) && plainText(game.away_team_mascot));
+            // The game's own primary_color (set in the builder) wins over the
+            // team helmet color, so non-fan games can have their own identity.
+            const cardAccent = plainText(game.primary_color)
+                            || (teamPalette && teamPalette.primary_color)
+                            || '#2d4880';
+            const cardSecondary = plainText(game.secondary_color)
+                                || (teamPalette && teamPalette.secondary_color)
+                                || cardAccent;
+            card.style.setProperty('--card-accent', cardAccent);
+            card.style.setProperty('--card-accent-ink', accentTextColor(cardAccent));
+            card.style.setProperty('--card-secondary', cardSecondary);
+            card.style.setProperty('--card-secondary-ink', accentTextColor(cardSecondary));
+            const explicitCategoryIcon = normalizeCategoryIcon(game.category_icon) || normalizeCategoryIcon(game.categoryIcon);
+            const categoryIcon = getGameCategoryIcon(game, teamPalette);
+            if (hasAwayTeam || explicitCategoryIcon) {
+              const palette = teamPalette || NO_HELMET_PALETTE;
+              const helmetSrc = teamMarkSVG(
+                categoryIcon,
+                (teamPalette && teamPalette.primary_color) || cardAccent,
+                (teamPalette && teamPalette.secondary_color) || plainText(game.secondary_color) || '#ffffff',
+                (teamPalette && teamPalette.tertiary_color) || plainText(game.tertiary_color) || '#111111'
+              );
+              if (helmetSrc) {
+                const helmetImg = document.createElement('img');
+                helmetImg.className = 'game-card-helmet';
+                helmetImg.alt = '';
+                helmetImg.src = helmetSrc;
+                if (normalizeCategoryIcon(categoryIcon) === 'baseball') helmetImg.classList.add('team-mark--baseball');
+                icons.appendChild(helmetImg);
+              }
+            }
+            const venueBadge = cityGeoBadge(game.city);
+            if (venueBadge) icons.appendChild(buildGeoBadge(venueBadge));
+
+            const deed = document.createElement('div');
+            deed.className = 'game-card-deed';
+            const deedHead = document.createElement('div');
+            deedHead.className = 'game-card-deed-head';
+            const primaryTagText = plainText(game.primary_tag);
+            if (primaryTagText) {
+              const deedLabel = document.createElement('span');
+              deedLabel.className = 'game-card-deed-label';
+              deedLabel.textContent = primaryTagText.toUpperCase();
+              deedHead.appendChild(deedLabel);
+            }
+            if (icons.childNodes.length) deedHead.appendChild(icons);
+
+            const title = document.createElement('div');
+            title.className = 'game-card-title';
+            title.textContent = stripMascotNames(game.name, game) || '(untitled game)';
+            title.dataset.fitText = 'true';
+            title.dataset.fitMax = document.body.classList.contains('pixel-art-page') ? '17' : '32';
+            title.dataset.fitMin = document.body.classList.contains('pixel-art-page') ? '7.5' : '14';
+            deed.append(deedHead, title);
+            card.appendChild(deed);
+
+            const deedLines = document.createElement('dl');
+            deedLines.className = 'game-card-deed-lines';
+            const addDeedLine = (labelText, valueText) => {
+              const value = plainText(valueText);
+              if (!value) return;
+              const row = document.createElement('div');
+              row.className = 'game-card-deed-line';
+              const label = document.createElement('dt');
+              label.textContent = labelText;
+              const valueEl = document.createElement('dd');
+              valueEl.textContent = value;
+              valueEl.dataset.fitText = 'true';
+              valueEl.dataset.fitMax = '14';
+              valueEl.dataset.fitMin = '9';
+              row.append(label, valueEl);
+              deedLines.appendChild(row);
+            };
+            const dateStr = formatGameDate(game);
+            addDeedLine('When', dateStr || 'Anytime');
+
+            const cityText = plainText(game.city);
+            if (cityText) {
+              const commaIdx = cityText.indexOf(',');
+              const cityLine1 = commaIdx >= 0 ? cityText.slice(0, commaIdx).trim() : cityText;
+              const cityLine2 = commaIdx >= 0 ? cityText.slice(commaIdx + 1).trim() : '';
+              const row = document.createElement('div');
+              row.className = 'game-card-deed-line game-card-deed-line--city';
+              const label = document.createElement('dt');
+              label.textContent = 'Start City';
+              const valueEl = document.createElement('dd');
+              valueEl.dataset.fitText = 'true';
+              // Lower max than other deed lines because two stacked lines
+              // need to share the ~28px row content area without bleeding
+              // upward into the "When" row above.
+              valueEl.dataset.fitMax = '11';
+              valueEl.dataset.fitMin = '8';
+              const line1 = document.createElement('span');
+              line1.className = 'game-card-deed-city-line';
+              line1.textContent = cityLine1;
+              const line2 = document.createElement('span');
+              line2.className = 'game-card-deed-city-line';
+              line2.textContent = cityLine2;
+              valueEl.append(line1, line2);
+              row.append(label, valueEl);
+              deedLines.appendChild(row);
+            }
+            if (deedLines.childNodes.length) card.appendChild(deedLines);
+
+            const tagline = document.createElement('div');
+            tagline.className = 'game-card-tagline';
+            tagline.textContent = stripMascotNames(game.tagline, game) || 'Open the link. Start on site.';
+            tagline.dataset.fitText = 'true';
+            tagline.dataset.fitMax = document.body.classList.contains('pixel-art-page') ? '12.5' : '14.5';
+            tagline.dataset.fitMin = document.body.classList.contains('pixel-art-page') ? '9' : '10';
+            card.appendChild(tagline);
+
+            const actions = document.createElement('div');
+            actions.className = 'game-card-actions';
+
+            const playLink = document.createElement('a');
+            playLink.className = 'game-card-play';
+            playLink.href = gameHref;
+            playLink.textContent = 'PLAY GAME';
+            actions.appendChild(playLink);
+
+            card.appendChild(actions);
+
+            selectedGamesGridEl.appendChild(card);
+          });
+        }
+        selectedGamesEl.hidden = false;
+        scheduleSelectedCardTextFit();
+        selectedGamesEl.classList.remove('is-fresh');
+        if (shouldAnimate) {
+          void selectedGamesEl.offsetWidth;
+          selectedGamesEl.classList.add('is-fresh');
+        }
+        if (shouldScroll) {
+          selectedGamesEl.scrollIntoView({ behavior: metaReducedMotion ? 'auto' : 'smooth', block: 'start' });
+          selectedGamesEl.focus({ preventScroll: true });
+        }
+      }
+
+      function setMode(mode) {
+        activeMode = mode === MODE_FAN ? MODE_FAN : MODE_CITY;
+        clearSelectedEntry();
+        renderDirectory();
+      }
+
+      function renderError(message) {
+        updateHeroButtons();
+        if (heroMetaListEl) {
+          heroMetaListEl.innerHTML = '';
+          const err = document.createElement('div');
+          err.style.cssText = 'padding:14px;color:var(--muted);font-size:0.8rem;text-align:center;';
+          err.textContent = message;
+          heroMetaListEl.appendChild(err);
+        }
+      }
+
+      // ---------------------------------------------------------------------------
+      // Geolocation default selection
+      // ---------------------------------------------------------------------------
+      // On page load, ask the browser for the visitor's coordinates and
+      // auto-select the team whose fanbase city is geographically
+      // closest. If geolocation is denied / unavailable / errors out, OR
+      // if no fanbase city has known coordinates, fall back to the City
+      // tab with "New Orleans" pre-selected so the page always shows
+      // something meaningful below the hero.
+      // Never overrides a selection the user made via URL (?fan=, ?city=)
+      // or by clicking a row before geolocation resolved.
+      const FALLBACK_CITY_NAME = 'New Orleans';
+
+      function haversineKm(lat1, lng1, lat2, lng2) {
+        const R = 6371;
+        const toRad = (deg) => deg * Math.PI / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a = Math.sin(dLat / 2) ** 2
+                + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2))
+                * Math.sin(dLng / 2) ** 2;
+        return 2 * R * Math.asin(Math.sqrt(a));
+      }
+
+      // Earliest upcoming game timestamp for a fan entry (Infinity if none).
+      // Used to tie-break the nearest-team pick when multiple teams share a
+      // fanbase city (e.g. Saints + Pelicans both in New Orleans → both at
+      // identical distance from a New Orleans visitor).
+      function soonestUpcomingGameTs(entry) {
+        const games = gamesForEntry(entry);
+        const cutoff = Date.now() - 86400000;
+        let soonest = Infinity;
+        for (const game of games) {
+          const dateStr = String((game && game.game_date) || '').trim();
+          const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (!match) continue;
+          const ts = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+          if (ts < cutoff) continue;
+          if (ts < soonest) soonest = ts;
+        }
+        return soonest;
+      }
+
+      function findNearestFanEntry(userLat, userLng) {
+        const coords = window.TGB_TEAM_CITY_COORDS || {};
+        const entries = buildFanEntries();
+        let best = null;
+        let bestDist = Infinity;
+        let bestSoonest = Infinity;
+        for (const entry of entries) {
+          const fanbase = (entry.helmet && entry.helmet.fanbase) || entry.label || '';
+          // fanbase may be "City, ST"; coords are keyed by the bare city, so key
+          // off the part before the comma.
+          const cityCoords = coords[teamKey(String(fanbase).split(',')[0])];
+          if (!cityCoords) continue;
+          const dist = haversineKm(userLat, userLng, cityCoords[0], cityCoords[1]);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestSoonest = soonestUpcomingGameTs(entry);
+            best = entry;
+          } else if (dist === bestDist) {
+            const soonest = soonestUpcomingGameTs(entry);
+            if (soonest < bestSoonest) {
+              bestSoonest = soonest;
+              best = entry;
+            }
+          }
+        }
+        return best;
+      }
+
+      function selectFallbackCity() {
+        if (selectedEntryKey) return;
+        if (activeMode !== MODE_CITY) {
+          setMode(MODE_CITY);
+        }
+        let target = null;
+        for (const entry of heroMetaEntries.values()) {
+          if (entry.entryKind !== 'city') continue;
+          if (cityDisplayName(entry.label).toLowerCase() === FALLBACK_CITY_NAME.toLowerCase()) {
+            target = entry;
+            break;
+          }
+        }
+        if (target) toggleSelectedEntry(target);
+      }
+
+      function tryGeolocateAndSelectNearestFan() {
+        if (selectedEntryKey) return;
+        if (activeMode !== MODE_FAN) return;
+        if (!navigator.geolocation) {
+          selectFallbackCity();
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            // Re-check guards: user may have switched tabs or clicked a
+            // row between the prompt and the resolve.
+            if (selectedEntryKey) return;
+            if (activeMode !== MODE_FAN) {
+              selectFallbackCity();
+              return;
+            }
+            const nearest = findNearestFanEntry(
+              position.coords.latitude,
+              position.coords.longitude
+            );
+            if (nearest) {
+              toggleSelectedEntry(nearest);
+            } else {
+              selectFallbackCity();
+            }
+          },
+          () => {
+            if (selectedEntryKey) return;
+            selectFallbackCity();
+          },
+          { timeout: 8000, maximumAge: 600000 }
+        );
+      }
+
+      // ---------------------------------------------------------------------------
+      // Data load
+      // ---------------------------------------------------------------------------
+      // localStorage cache so returning visitors see the scrolling
+      // directory paint instantly on first frame instead of waiting for
+      // two Supabase round-trips. The fresh network response replaces
+      // the cached render once it arrives.
+      const CACHE_KEY_GAMES = 'tgb-games-cache-v1';
+      const CACHE_KEY_TEAMS = 'tgb-teams-cache-v1';
+
+      function readCache(key) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : null;
+        } catch (_) { return null; }
+      }
+      function writeCache(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); }
+        catch (_) { /* quota / private mode — ignore */ }
+      }
+
+      // True only for a verified admin (painted by /assets/admin-bridge.js, which
+      // adds the body/root class and exposes the bridge API). Signed-out public
+      // visitors are never admins.
+      function isAdminAuthorized() {
+        return !!((window.TgbPublicAdminBridge
+            && typeof window.TgbPublicAdminBridge.isAuthorized === 'function'
+            && window.TgbPublicAdminBridge.isAuthorized())
+          || document.documentElement.classList.contains('tgb-admin-authorized'));
+      }
+
+      // Force /assets/admin-bridge.js to (re)paint EDIT GAME buttons onto every
+      // [data-admin-edit] card now, instead of waiting on its debounced observer.
+      function paintEditButtons() {
+        const bridge = window.TgbPublicAdminBridge;
+        if (!bridge || typeof bridge.scan !== 'function') return;
+        requestAnimationFrame(() => { try { bridge.scan(); } catch (_) {} });
+      }
+
+      // Rebuild liveGames from the raw rows. Public visitors (and admins who
+      // haven't toggled "show all") get the archived + past-date filters; an
+      // admin who opts in sees every game, archived and past included.
+      function recomputeLiveGames() {
+        const showAll = adminShowAll && isAdminAuthorized();
+        // Today (local) as YYYY-MM-DD, recomputed each pass so it's always current.
+        const todayStr = (() => {
+          const d = new Date();
+          return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        })();
+        liveGames = (Array.isArray(rawGames) ? rawGames : []).filter((game) => {
+          if (showAll) return true;
+          if (isTrueish(game && game.archived)) return false;
+          // Drop games that already took place. Keep today + future, and keep
+          // undated/"anytime" games (no game_date) which are always playable.
+          const gd = String((game && game.game_date) || '').trim();
+          return !gd || gd >= todayStr;
+        });
+        refreshDefaultCitySampleGames();
+        renderDirectory();
+        // applyUrlSelection is idempotent — reapplying after fresh data
+        // recovers any URL-bookmarked selection that wasn't yet in the
+        // cached snapshot.
+        suppressUrlWrite = true;
+        try { applyUrlSelection(); } finally { suppressUrlWrite = false; }
+      }
+
+      function applyDirectoryData(games, teamColorsResult) {
+        colorsByCityMascot = teamColorsResult.lookup;
+        allTeams = teamColorsResult.teams;
+        rawGames = Array.isArray(games) ? games : [];
+        recomputeLiveGames();
+      }
+
+      async function load() {
+        const initParams = new URLSearchParams(window.location.search);
+        if (initParams.get('city')) activeMode = MODE_CITY;
+        else if (initParams.get('fan')) activeMode = MODE_FAN;
+        else if (initParams.get('mode') === 'city') activeMode = MODE_CITY;
+        else if (initParams.get('mode') === 'fan') activeMode = MODE_FAN;
+
+        // ── 1. Paint immediately from cache if we have it ────────────
+        const cachedGames = readCache(CACHE_KEY_GAMES);
+        const cachedTeams = readCache(CACHE_KEY_TEAMS);
+        let painted = false;
+        if (cachedGames && cachedTeams) {
+          try {
+            applyDirectoryData(cachedGames, buildTeamIndex(cachedTeams));
+            painted = true;
+          } catch (_) { /* cache shape mismatch — let fresh fetch repaint */ }
+        }
+
+        // ── 2. Fetch fresh and repaint ───────────────────────────────
+        try {
+          const [games, teamColorsResult] = await Promise.all([fetchGames(), fetchTeamColors()]);
+          writeCache(CACHE_KEY_GAMES, games);
+          writeCache(CACHE_KEY_TEAMS, teamColorsResult.teams);
+          applyDirectoryData(games, teamColorsResult);
+        } catch (error) {
+          console.error(error);
+          if (!painted) renderError(error instanceof Error ? error.message : String(error));
+        }
+      }
+
+      // ---------------------------------------------------------------------------
+      // Event wiring
+      // ---------------------------------------------------------------------------
+      // GAMES dropdown.
+      // Dropdown open/close/escape lives in /assets/site-nav.js. Here we
+      // only register the games-page-specific handler that intercepts
+      // clicks on a same-page dropdown link and swaps mode in-place
+      // (returning false tells site-nav.js to preventDefault + close).
+      if (window.TgbNav && typeof window.TgbNav.onDropdownItemClick === 'function') {
+        window.TgbNav.onDropdownItemClick(function (item) {
+          var target = new URL(item.href, window.location.href);
+          var targetPath = target.pathname.replace(/\/+$/, '/');
+          var currentPath = window.location.pathname.replace(/\/+$/, '/');
+          var isPixelGamesPath = document.body.classList.contains('pixel-art-page') && targetPath === '/games/';
+          if (targetPath !== currentPath && !isPixelGamesPath) return;
+          var wantMode = item.dataset.mode === 'fan' ? MODE_FAN : MODE_CITY;
+          setModeFromControl(wantMode);
+          return false;
+        });
+      }
+
+      document.querySelectorAll('.hero-mode-tab').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          setModeFromControl(btn.dataset.mode === 'fan' ? MODE_FAN : MODE_CITY);
+        });
+        btn.addEventListener('keydown', (event) => {
+          const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+          if (!keys.includes(event.key)) return;
+          event.preventDefault();
+          let nextMode = activeMode;
+          if (event.key === 'Home') nextMode = MODE_FAN;
+          if (event.key === 'End') nextMode = MODE_CITY;
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            nextMode = activeMode === MODE_FAN ? MODE_CITY : MODE_FAN;
+          }
+          setModeFromControl(nextMode);
+          const nextBtn = document.querySelector(`.hero-mode-tab[data-mode="${nextMode}"]`);
+          if (nextBtn) nextBtn.focus();
+        });
+      });
+
+      // Hero mode slider: click tabs, drag with mouse, or swipe with touch.
+      (function () {
+        const switchEl = document.getElementById('heroModeSwitch');
+        const trackEl = document.querySelector('.hero-mode-track');
+        const markerEl = trackEl ? trackEl.querySelector('.hero-mode-marker') : null;
+        if (!switchEl || !trackEl || !markerEl) return;
+        const DRAG_THRESHOLD = 6;
+        let startX = 0;
+        let startY = 0;
+        let startProgress = 0;
+        let currentProgress = 0;
+        let pointerId = null;
+        let tracking = false;
+        let dragging = false;
+        let suppressNextClick = false;
+
+        const clamp = (value) => Math.min(1, Math.max(0, value));
+        const modeProgress = () => activeMode === MODE_CITY ? 1 : 0;
+        const setMarkerProgress = (value) => {
+          currentProgress = clamp(value);
+          markerEl.style.transform = 'translateX(' + (currentProgress * 100) + '%)';
+        };
+        const resetDragState = () => {
+          switchEl.classList.remove('is-sliding');
+          markerEl.style.transform = '';
+        };
+
+        const beginGesture = (clientX, clientY, id) => {
+          pointerId = id;
+          startX = clientX;
+          startY = clientY;
+          startProgress = modeProgress();
+          currentProgress = startProgress;
+          tracking = true;
+          dragging = false;
+        };
+
+        const moveGesture = (clientX, clientY, id, event) => {
+          if (!tracking || id !== pointerId) return;
+          const dx = clientX - startX;
+          const dy = clientY - startY;
+          if (!dragging) {
+            if (Math.abs(dy) > DRAG_THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
+              tracking = false;
+              pointerId = null;
+              return;
+            }
+            if (Math.abs(dx) < DRAG_THRESHOLD) return;
+            dragging = true;
+            switchEl.classList.add('is-sliding');
+            if (typeof id === 'number') {
+              try { trackEl.setPointerCapture(id); } catch (e) {}
+            }
+          }
+          const travel = Math.max(1, trackEl.getBoundingClientRect().width / 2);
+          setMarkerProgress(startProgress + (dx / travel));
+          if (event) event.preventDefault();
+        };
+
+        const endGesture = (id) => {
+          if (!tracking || id !== pointerId) return;
+          const shouldCommitDrag = dragging;
+          tracking = false;
+          pointerId = null;
+          if (shouldCommitDrag) {
+            suppressNextClick = true;
+            setModeFromControl(currentProgress >= 0.5 ? MODE_CITY : MODE_FAN);
+          }
+          resetDragState();
+        };
+
+        trackEl.addEventListener('click', (event) => {
+          if (!suppressNextClick) return;
+          suppressNextClick = false;
+          event.preventDefault();
+          event.stopPropagation();
+        }, true);
+
+        if (typeof window.PointerEvent !== 'undefined') {
+          trackEl.addEventListener('pointerdown', (event) => {
+            if (event.pointerType === 'mouse' && event.button !== 0) return;
+            beginGesture(event.clientX, event.clientY, event.pointerId);
+          });
+          trackEl.addEventListener('pointermove', (event) => {
+            moveGesture(event.clientX, event.clientY, event.pointerId, event);
+          }, { passive: false });
+          trackEl.addEventListener('pointerup', (event) => endGesture(event.pointerId));
+          trackEl.addEventListener('pointercancel', (event) => endGesture(event.pointerId));
+          trackEl.addEventListener('lostpointercapture', (event) => endGesture(event.pointerId));
+        }
+
+        trackEl.addEventListener('touchstart', (event) => {
+          if (event.touches.length !== 1) return;
+          const touch = event.touches[0];
+          beginGesture(touch.clientX, touch.clientY, 'touch');
+        }, { passive: true });
+        trackEl.addEventListener('touchmove', (event) => {
+          if (event.touches.length !== 1) return;
+          const touch = event.touches[0];
+          moveGesture(touch.clientX, touch.clientY, 'touch', event);
+        }, { passive: false });
+        trackEl.addEventListener('touchend', () => endGesture('touch'));
+        trackEl.addEventListener('touchcancel', () => endGesture('touch'));
+      }());
+
+      if (heroMetaListEl) {
+        heroMetaListEl.addEventListener('click', (e) => {
+          const item = e.target.closest('.hero-meta-list-item');
+          if (!item) return;
+          e.preventDefault();
+          const entry = heroMetaEntries.get(item.dataset.entryKind + '|' + item.dataset.entryKey);
+          if (entry) toggleSelectedEntry(entry);
+        });
+      }
+
+      window.addEventListener('resize', scheduleSelectedCardTextFit);
+
+      // Back/forward: re-apply the URL's mode + selection without pushing.
+      window.addEventListener('popstate', () => {
+        const params = new URLSearchParams(window.location.search);
+        const modeParam = params.get('mode');
+        const wantMode = params.get('city') ? MODE_CITY
+                       : params.get('fan')  ? MODE_FAN
+                       : modeParam === MODE_CITY ? MODE_CITY
+                       : modeParam === MODE_FAN ? MODE_FAN
+                       : activeMode;
+        suppressUrlWrite = true;
+        try {
+          if (wantMode !== activeMode) {
+            activeMode = wantMode;
+            renderDirectory();
+          }
+          applyUrlSelection();
+        } finally {
+          suppressUrlWrite = false;
+        }
+      });
+
+      // Admin-only "show all games" toggle. Hidden for the public; revealed when
+      // /assets/admin-bridge.js verifies an admin. Flips adminShowAll and re-filters
+      // the already-fetched rows — no refetch, no public exposure of the data.
+      function setupAdminAllGamesToggle() {
+        const style = document.createElement('style');
+        style.textContent = [
+          '#tgbAdminShowAll{position:fixed;left:14px;bottom:14px;z-index:2147482000;display:none;align-items:center;gap:8px;min-height:34px;padding:0 14px;border:1px solid #111;border-radius:8px;background:#111;color:#fff;font-family:"IBM Plex Mono",Consolas,monospace;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);}',
+          '#tgbAdminShowAll.is-visible{display:inline-flex;}',
+          '#tgbAdminShowAll.is-on{background:#fff;color:#111;}'
+        ].join('');
+        document.head.appendChild(style);
+
+        const btn = document.createElement('button');
+        btn.id = 'tgbAdminShowAll';
+        btn.type = 'button';
+        const paint = () => {
+          btn.classList.toggle('is-on', adminShowAll);
+          btn.textContent = adminShowAll ? 'Showing all games' : 'Show all games';
+        };
+        paint();
+        btn.addEventListener('click', () => {
+          adminShowAll = !adminShowAll;
+          paint();
+          // recomputeLiveGames() re-filters and (via applyUrlSelection) resets any
+          // city/fan selection. When turning ON, immediately drive the generic
+          // selected-games grid with a synthetic "all" entry so the admin sees a
+          // flat list of EVERY game — not just bumped city/fan counts.
+          recomputeLiveGames();
+          if (adminShowAll) {
+            selectedEntryKind = 'all';
+            selectedEntryKey = '*';
+            refreshSelectionStyles();
+            renderSelectedGames({ entryKind: 'all', entryKey: '*', label: 'All games (admin)' });
+            // The cards carry data-admin-edit; nudge the bridge to paint every
+            // EDIT GAME button immediately rather than waiting on its debounced
+            // observer (which can miss a bulk re-render).
+            paintEditButtons();
+          }
+        });
+        document.body.appendChild(btn);
+
+        const sync = () => {
+          const admin = isAdminAuthorized();
+          btn.classList.toggle('is-visible', admin);
+          // If the admin signs out while "show all" is on, drop back to the
+          // public view so archived/past games don't linger for a public visitor.
+          if (!admin && adminShowAll) {
+            adminShowAll = false;
+            paint();
+            recomputeLiveGames();
+          }
+        };
+        sync();
+        // The bridge verifies asynchronously and toggles the root class when it
+        // resolves; watch for that so the control appears without a reload.
+        new MutationObserver(sync).observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['class']
+        });
+      }
+
+      // ---------------------------------------------------------------------------
+      // Bootstrap
+      // ---------------------------------------------------------------------------
+      setupAdminAllGamesToggle();
+      load();
+    }());
+  </script>
+  <!-- ==========================================================================
+       TEMP · "COMING SOON" gate on PLAY GAME buttons.
+       Intercepts clicks on .game-card-play and shows a popup instead of playing.
+       This is temporary — DELETE THIS ENTIRE <script> BLOCK to restore play.
+       Nothing else was changed; the buttons/hrefs are untouched.
+       ========================================================================== -->
+  <script>
+  (function () {
+    function showComingSoon() {
+      var prev = document.getElementById('tgbComingSoonToast');
+      if (prev) prev.remove();
+      var overlay = document.createElement('div');
+      overlay.id = 'tgbComingSoonToast';
+      overlay.setAttribute('role', 'status');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(4,6,10,0.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);cursor:pointer;';
+      var box = document.createElement('div');
+      box.style.cssText = 'position:relative;max-width:340px;text-align:center;padding:26px 28px;border-radius:16px;border:1px solid rgba(245,180,97,0.4);background:#111a27;color:#fff;box-shadow:0 24px 60px rgba(0,0,0,0.5);';
+      box.innerHTML = '<button type="button" id="tgbComingSoonClose" aria-label="Close" style="position:absolute;top:8px;right:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:8px;background:transparent;color:#c8d3e0;font-size:1.25rem;line-height:1;cursor:pointer;">&times;</button>' +
+        '<div style="font-size:1.5rem;font-weight:800;letter-spacing:0.08em;margin-bottom:8px;">COMING SOON</div>' +
+        '<div style="color:#c8d3e0;font-size:0.9rem;line-height:1.5;">Games aren\'t quite ready to play yet — check back soon.</div>';
+      overlay.appendChild(box);
+      var close = function () { overlay.remove(); document.removeEventListener('keydown', onKey); };
+      var onKey = function (e) { if (e.key === 'Escape') close(); };
+      overlay.addEventListener('click', close);
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(overlay);
+    }
+    // Capture phase so this beats the link's navigation and any other handlers.
+    document.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('.game-card-play') : null;
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      showComingSoon();
+    }, true);
+  }());
+  </script>
+</body>
+</html>
