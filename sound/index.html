@@ -742,6 +742,18 @@
       height: 80px;
       border: 0;
     }
+
+    /* Controller failed → show the real Spotify embed so the song still plays. */
+    .sx-player-host.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+      z-index: 4;
+      width: min(320px, 84%);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(2, 4, 10, 0.5);
+    }
+    .tgb-cass-stage.is-fallback .tgb-cass-play,
+    .tgb-cass-stage.is-fallback .tgb-cass-pause { display: none !important; }
     .sx-player-fallback {
       display: grid;
       place-items: center;
@@ -2191,8 +2203,15 @@
         if (!song) return;
         if (!spotifyUriFromHref(song.href)) { window.open(song.href, '_blank', 'noopener'); return; }
         state.playing = !state.playing;
-        if (state.playing) playSpotifyPlayer();
-        else pauseSpotifyPlayer();
+        if (state.playing) {
+          // If the controller hasn't attached yet, remember the intent so it
+          // starts the moment it is ready (this click is the needed gesture).
+          state.wantAutoplay = !playerController;
+          playSpotifyPlayer();
+        } else {
+          state.wantAutoplay = false;
+          pauseSpotifyPlayer();
+        }
         updatePlaybackUi();
       }
 
@@ -2344,6 +2363,14 @@
         iframe.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
         iframe.loading = 'lazy';
         host.appendChild(iframe);
+        // The controller failed, so the SVG buttons can't drive audio. Reveal the
+        // real Spotify embed (with its own play button) so the song is still
+        // playable, and mark the cassette so its dead play/pause is hidden.
+        host.classList.add('is-visible');
+        if (modal) {
+          var stage = modal.querySelector('.tgb-cass-stage');
+          if (stage) stage.classList.add('is-fallback');
+        }
       }
 
       function renderPlayer(song) {
@@ -2388,6 +2415,9 @@
         }
 
         host.textContent = '';
+        host.classList.remove('is-visible');
+        var stageEl = modal.querySelector('.tgb-cass-stage');
+        if (stageEl) stageEl.classList.remove('is-fallback');
         playerEntity = song.href;
         var mount = document.createElement('div');
         mount.className = 'sx-spotify-embed';
@@ -2409,7 +2439,8 @@
             playerController = controller;
             attachPlayerEvents(controller);
             setPlayerVolume(state.volume / 100);
-            if (state.playing) window.setTimeout(playSpotifyPlayer, 120);
+            if (state.playing || state.wantAutoplay) window.setTimeout(playSpotifyPlayer, 120);
+            state.wantAutoplay = false;
             updatePlaybackUi();
           });
         });
