@@ -133,19 +133,19 @@
   // games page drives a richer ticker tied to its filtered directory).
   if (!header.querySelector('.nav-stats')) {
     var statsHtml =
-      '<div class="nav-stats" aria-label="Game count">' +
-        '<div class="nav-stats-stat">' +
+      '<div class="nav-stats" aria-label="Site counts">' +
+        '<a class="nav-stats-stat nav-stats-stat--link" href="/" aria-label="Go to home page">' +
           '<span class="nav-stats-num" data-tgb-nav-stat="games">0</span>' +
           '<span class="nav-stats-label">games</span>' +
-        '</div>' +
+        '</a>' +
         '<div class="nav-stats-stat">' +
           '<span class="nav-stats-num" data-tgb-nav-stat="cities">0</span>' +
           '<span class="nav-stats-label">cities</span>' +
         '</div>' +
-        '<div class="nav-stats-stat">' +
+        '<a class="nav-stats-stat nav-stats-stat--link" href="/shop/" aria-label="Browse gifts">' +
           '<span class="nav-stats-num" data-tgb-nav-stat="gifts">0</span>' +
           '<span class="nav-stats-label">gifts</span>' +
-        '</div>' +
+        '</a>' +
       '</div>';
     var statsHolder = document.createElement('div');
     statsHolder.innerHTML = statsHtml;

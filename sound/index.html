@@ -689,13 +689,20 @@
     }
     .sx-artbox-close:hover { border-color: #f5b461; color: #f5b461; }
 
-    /* Explicit-lyrics tile ("E") shown next to the title. */
-    .tgb-cass-explicit-box { fill: #6a6a6a; }
-    .tgb-cass-explicit-e {
-      fill: #ffffff;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 3.8px;
-      font-weight: 700;
+    /* Explicit-lyrics mark: "DIRTY" scrawled in thick red marker next to the
+       title. A matching stroke (painted under the fill) fattens the glyphs into
+       a bold Sharpie stroke. */
+    .tgb-cass-explicit-word {
+      fill: #d61f26;
+      stroke: #d61f26;
+      stroke-width: 0.5px;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      paint-order: stroke;
+      font-family: "Permanent Marker", "Reenie Beanie", cursive;
+      font-size: 4.4px;
+      font-weight: 400;
+      letter-spacing: 0.1px;
       text-anchor: middle;
     }
 
@@ -1088,15 +1095,13 @@
         brand.textContent = 'The Game Bureau';
         svg.appendChild(brand);
 
-        // Explicit-lyrics badge: the familiar grey "E" tile. Centered on its own
-        // origin, then positioned just after the title in renderModal (so it sits
-        // next to the track name). Hidden unless the song is flagged explicit.
+        // Explicit-lyrics mark: the word "DIRTY" scrawled in red marker, placed
+        // just after the title in renderModal. Hidden unless the song is flagged.
         var explicit = svgEl('g', { 'aria-label': 'Explicit lyrics' }, 'tgb-cass-explicit');
         explicit.style.display = 'none';
-        explicit.appendChild(svgEl('rect', { x: '-2.5', y: '-2.5', width: '5', height: '5', rx: '1.1' }, 'tgb-cass-explicit-box'));
-        var eLetter = svgEl('text', { x: '0', y: '1.5' }, 'tgb-cass-explicit-e');
-        eLetter.textContent = 'E';
-        explicit.appendChild(eLetter);
+        var dirtyWord = svgEl('text', { x: '0', y: '0' }, 'tgb-cass-explicit-word');
+        dirtyWord.textContent = 'DIRTY';
+        explicit.appendChild(dirtyWord);
         svg.appendChild(explicit);
 
         // play/pause wiring
@@ -1108,16 +1113,17 @@
         return svg;
       }
 
-      // Show/hide + position the explicit "E" tile just to the right of the
-      // (centered) title text, clamped to stay on the label.
+      // Show/hide + position "DIRTY" just past the (centered) title, tilted like
+      // a marker scrawl and clamped to stay on the label.
       function setExplicitBadge(isExplicit) {
         if (!cass || !cass.explicit) return;
         if (!isExplicit) { cass.explicit.style.display = 'none'; return; }
-        var tw = 0;
-        try { tw = cass.title.getComputedTextLength(); } catch (e) { tw = 0; }
-        var x = Math.min(86.5, 50 + tw / 2 + 4);
-        cass.explicit.setAttribute('transform', 'translate(' + x.toFixed(2) + ', 15.9)');
-        cass.explicit.style.display = '';
+        cass.explicit.style.display = ''; // show first so the word can be measured
+        var tw = 0, dw = 11;
+        try { tw = cass.title.getComputedTextLength(); } catch (e) {}
+        try { dw = cass.explicit.querySelector('text').getComputedTextLength(); } catch (e) {}
+        var x = Math.min(88 - dw / 2, 50 + tw / 2 + 2 + dw / 2);
+        cass.explicit.setAttribute('transform', 'translate(' + x.toFixed(2) + ', 17.2) rotate(-6)');
       }
 
       // Load the track's cover art (Spotify oembed thumbnail) and show it in the
@@ -1759,8 +1765,8 @@
         var artToken = ++artRenderToken;
         if (cass) {
           fitText(cass.artist, song.artist, 78);
-          // Leave room for the "E" tile after the title when the song is explicit.
-          fitText(cass.title, song.title, song.explicit ? 70 : 80);
+          // Leave room for the "DIRTY" mark after the title when explicit.
+          fitText(cass.title, song.title, song.explicit ? 56 : 80);
           fitText(cass.blurb, song.blurb || '', 82);
           setExplicitBadge(song.explicit);
           loadAlbumArt(song, artToken);
