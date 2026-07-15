@@ -9,7 +9,7 @@ Durable project knowledge for Claude Code (and any teammate working in this repo
 The public page [sound/index.html](sound/index.html) renders city cassette cards at runtime from two sources:
 
 - City identity, labels, order, geo badge fields, tape colors, and optional Spotify playlist ids come from the database table `public.cities` (created/seeded by [supabase/migrations/2026071501_cities_soundtracks.sql](supabase/migrations/2026071501_cities_soundtracks.sql)).
-- Track lists live in [sound/soundtracks.json](sound/soundtracks.json), keyed by `city_slug` matching `public.cities.slug`.
+- Track lists and cassette-spine phrase tags live in [sound/soundtracks.json](sound/soundtracks.json), keyed by `city_slug` matching `public.cities.slug`.
 
 Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-playlists.json`, or CSV-driven build scripts under `sound/`. To add or edit a soundtrack, update the city row in `public.cities` and the matching `soundtracks.json` entry. Run the cities migration before deploying sound-page changes that depend on new city rows.
 
