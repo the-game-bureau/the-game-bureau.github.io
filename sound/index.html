@@ -2053,7 +2053,7 @@
       var grid = document.getElementById('playlistGrid');
       var cards = grid ? Array.prototype.slice.call(grid.querySelectorAll('.playlist-card')) : [];
       var modal;
-      var state = { card: null, songs: [], index: 0, playing: false, pendingCity: '', volume: 70, position: 0, duration: 0 };
+      var state = { card: null, songs: [], index: 0, playing: false, wantAutoplay: false, pendingCity: '', volume: 70, position: 0, duration: 0 };
       var spotifyIframeApi = null;
       var spotifyIframeApiRequested = false;
       var spotifyIframeApiCallbacks = [];
@@ -2396,7 +2396,7 @@
           if (!playerController && host.contains(mount) && playerEntity === song.href) {
             renderPlainSpotifyIframe(host, song);
           }
-        }, 3200);
+        }, 8000);
         ensureSpotifyIframeApi(function (IFrameAPI) {
           if (!modal || !host.contains(mount) || playerEntity !== song.href) return;
           IFrameAPI.createController(mount, {
@@ -2524,7 +2524,11 @@
         state.card = card;
         state.songs = songsFor(card);
         state.index = firstPlayableIndex(state.songs);
-        state.playing = true; // auto-play when the cassette opens
+        // Attempt autoplay, but let the ACTUAL Spotify events set state.playing —
+        // browsers block autoplay-with-sound, so the tape shows "play" until the
+        // controller confirms playback, keeping the first click a real Play.
+        state.playing = false;
+        state.wantAutoplay = true;
         cards.forEach(function (item) { item.classList.toggle('is-playing', item === card); });
         modal.hidden = false;
         document.body.style.overflow = 'hidden';
