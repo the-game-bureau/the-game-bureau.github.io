@@ -53,6 +53,13 @@ function norm(s) {
     .replace(/[^a-z0-9]/g, '');
 }
 
+// Per-song identity key = normalized title + artist. Two songs can share a title
+// within one city (e.g. Baltimore: Nina Simone vs. Randy Newman), so IDs/blurbs are
+// keyed by title+artist, never title alone, to keep them from colliding.
+function songKey(title, artist) {
+  return norm(title) + '|' + norm(artist);
+}
+
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -66,14 +73,19 @@ function exportifyFilename(playlistName) {
 const master = JSON.parse(fs.readFileSync(MASTER_JSON, 'utf8')).cities;
 const byName = new Map(master.map((c) => [c.playlistName, c]));
 
-// --- previously-resolved IDs, so ./exportify is optional on future runs ---
-const prevIds = new Map(); // slug -> Map(normTitle -> id)
+// --- previously-resolved IDs + blurbs, so ./exportify is optional on future runs ---
+const prevIds = new Map();    // slug -> Map(normTitle -> id)
+const prevBlurbs = new Map(); // slug -> Map(normTitle -> blurb): the "why it fits the city" line
 if (fs.existsSync(SONGS_JSON)) {
   try {
     for (const c of (JSON.parse(fs.readFileSync(SONGS_JSON, 'utf8')).cities || [])) {
-      const m = new Map();
-      for (const s of (c.songs || [])) if (s.spotifyId) m.set(norm(s.title), s.spotifyId);
-      prevIds.set(c.slug, m);
+      const ids = new Map(), blurbs = new Map();
+      for (const s of (c.songs || [])) {
+        if (s.spotifyId) ids.set(songKey(s.title, s.artist), s.spotifyId);
+        if (s.blurb) blurbs.set(songKey(s.title, s.artist), s.blurb);
+      }
+      prevIds.set(c.slug, ids);
+      prevBlurbs.set(c.slug, blurbs);
     }
   } catch (e) { /* ignore malformed */ }
 }
@@ -88,29 +100,35 @@ for (const r of cleanRows) {
   cleanByPlaylist.get(playlist).push({ title, artist });
 }
 
-// --- build a title->id index from each city's Exportify CSV ---
+// --- build id indexes from each city's Exportify CSV ---
+// Exportify columns: Track URI, Track Name, Artist Name(s), ... — so r[0]/r[1]/r[2].
+// byKey (title+artist) is exact & collision-proof; byTitle keeps the old fuzzy fallback.
 function idIndexFor(playlistName) {
   const file = path.join(EXPORTIFY_DIR, exportifyFilename(playlistName));
   if (!fs.existsSync(file)) return null;
   const rows = parseCsv(fs.readFileSync(file, 'utf8')).slice(1);
-  const map = new Map();
+  const byKey = new Map(), byTitle = new Map();
   for (const r of rows) {
-    const uri = r[0] || '';
+    const id = (r[0] || '').replace('spotify:track:', '').trim();
     const name = r[1] || '';
-    const id = uri.replace('spotify:track:', '').trim();
+    const artist = r[2] || '';
     if (!id) continue;
-    const key = norm(name);
-    if (key && !map.has(key)) map.set(key, id);
+    const tkey = norm(name);
+    const fkey = songKey(name, artist);
+    if (fkey && !byKey.has(fkey)) byKey.set(fkey, id);
+    if (tkey && !byTitle.has(tkey)) byTitle.set(tkey, id);
   }
-  return map;
+  return { byKey, byTitle };
 }
 
-function findId(idIndex, title) {
+function findId(idIndex, title, artist) {
   if (!idIndex) return null;
+  const exact = idIndex.byKey.get(songKey(title, artist)); // artist-scoped exact match first
+  if (exact) return exact;
   const key = norm(title);
-  if (idIndex.has(key)) return idIndex.get(key);
+  if (idIndex.byTitle.has(key)) return idIndex.byTitle.get(key);
   // fuzzy: one contains the other (guards against "The Super Bowl Shuffle" vs "Superbowl Shuffle")
-  for (const [k, v] of idIndex) {
+  for (const [k, v] of idIndex.byTitle) {
     if (k.length >= 5 && key.length >= 5 && (k.includes(key) || key.includes(k))) return v;
   }
   return null;
@@ -124,10 +142,12 @@ const cities = master
     const clean = cleanByPlaylist.get(c.playlistName) || [];
     const idIndex = idIndexFor(c.playlistName);
     const prev = prevIds.get(c.slug);
+    const blurbs = prevBlurbs.get(c.slug);
     const songs = clean.map((t) => {
-      let id = findId(idIndex, t.title);              // fresh from ./exportify
-      if (!id && prev) id = prev.get(norm(t.title)) || null; // else keep prior ID
-      return { title: t.title, artist: t.artist, spotifyId: id };
+      let id = findId(idIndex, t.title, t.artist);    // fresh from ./exportify
+      if (!id && prev) id = prev.get(songKey(t.title, t.artist)) || null; // else keep prior artist-scoped ID
+      const blurb = (blurbs && blurbs.get(songKey(t.title, t.artist))) || ''; // "why it fits the city"
+      return { title: t.title, artist: t.artist, spotifyId: id, blurb };
     });
     return { slug: c.slug, city: c.city, region: c.region, accent: c.accent, secondary: c.secondary, songs };
   });
@@ -154,6 +174,7 @@ function cardHtml(c) {
     '            <li><a class="song-link" href="' + esc(songHref(s)) + '" target="_blank" rel="noopener">' +
     '<span class="song-main"><span class="song-title">' + esc(s.title) + '</span>' +
     '<span class="song-artist">' + esc(s.artist) + '</span></span>' +
+    '<span class="song-blurb">' + esc(s.blurb || '') + '</span>' +
     '<span class="song-play">Play</span></a></li>'
   ).join('\n');
   return [
