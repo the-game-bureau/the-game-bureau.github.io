@@ -57,7 +57,7 @@
   <div class="page-shell">
     <!-- Site navigation (shared via /assets/site-nav.js) -->
     <header class="site-nav" data-site-nav>
-      <div class="nav-stats" aria-label="Game count">
+      <div class="nav-stats" aria-label="Site counts">
         <a class="nav-stats-stat nav-stats-stat--link" href="/" aria-label="Go to home page">
           <span class="nav-stats-num" id="heroKickerGameCount">0</span>
           <span class="nav-stats-label">games</span>
@@ -66,6 +66,10 @@
           <span class="nav-stats-num" id="heroKickerCityCount">0</span>
           <span class="nav-stats-label">cities</span>
         </div>
+        <a class="nav-stats-stat nav-stats-stat--link" href="/shop/" aria-label="Browse gifts">
+          <span class="nav-stats-num" id="heroKickerGiftCount">0</span>
+          <span class="nav-stats-label">gifts</span>
+        </a>
       </div>
     </header>
     <script src="/assets/site-nav.js"></script>
@@ -740,6 +744,28 @@
         return response.json();
       }
 
+      async function fetchGiftCount() {
+        const url = new URL('rest/v1/gift_shop_items', SB_CONFIG.url.replace(/\/+$/, '') + '/');
+        url.searchParams.set('apikey', SB_CONFIG.key);
+        url.searchParams.set('select', 'id');
+        url.searchParams.set('certified_at', 'not.is.null');
+        url.searchParams.set('archived', 'is.false');
+        const response = await fetch(url.toString(), {
+          headers: {
+            apikey: SB_CONFIG.key,
+            Authorization: 'Bearer ' + SB_CONFIG.key,
+            Accept: 'application/json',
+            Prefer: 'count=exact',
+            Range: '0-0'
+          },
+          cache: 'no-store'
+        });
+        if (!response.ok) throw new Error('Supabase ' + response.status);
+        const contentRange = response.headers.get('content-range') || '';
+        const total = contentRange.indexOf('/') >= 0 ? Number.parseInt(contentRange.split('/')[1], 10) : NaN;
+        return Number.isFinite(total) ? total : 0;
+      }
+
       // ---------------------------------------------------------------------------
       // Hero counts and directory data
       // ---------------------------------------------------------------------------
@@ -822,24 +848,31 @@
       const statsTicker = (function () {
         const gameEl = document.getElementById('heroKickerGameCount');
         const cityEl = document.getElementById('heroKickerCityCount');
+        const giftEl = document.getElementById('heroKickerGiftCount');
         const GAME_TICK_MS = 50;
         const CITY_TICK_MS = 150;
+        const GIFT_TICK_MS = 40;
         const EASE_DURATION = 1400;
         let gameDisplayed = 0;
         let cityDisplayed = 0;
+        let giftDisplayed = 0;
         let gameTarget = null;
         let cityTarget = null;
+        let giftTarget = null;
         let lastGameTick = 0;
         let lastCityTick = 0;
+        let lastGiftTick = 0;
         let easing = false;
         let easeStart = 0;
         let easeGameFrom = 0;
         let easeCityFrom = 0;
+        let easeGiftFrom = 0;
         let raf = null;
 
         function render() {
           if (gameEl) gameEl.textContent = String(gameDisplayed);
           if (cityEl) cityEl.textContent = String(cityDisplayed);
+          if (giftEl) giftEl.textContent = String(giftDisplayed);
         }
 
         function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
@@ -848,8 +881,9 @@
           if (easing) {
             const t = Math.min(1, (ts - easeStart) / EASE_DURATION);
             const e = easeOutCubic(t);
-            gameDisplayed = Math.round(easeGameFrom + (gameTarget - easeGameFrom) * e);
-            cityDisplayed = Math.round(easeCityFrom + (cityTarget - easeCityFrom) * e);
+            if (gameTarget != null) gameDisplayed = Math.round(easeGameFrom + (gameTarget - easeGameFrom) * e);
+            if (cityTarget != null) cityDisplayed = Math.round(easeCityFrom + (cityTarget - easeCityFrom) * e);
+            if (giftTarget != null) giftDisplayed = Math.round(easeGiftFrom + (giftTarget - easeGiftFrom) * e);
             render();
             if (t >= 1) {
               easing = false;
@@ -867,6 +901,11 @@
               cityDisplayed += 1;
               lastCityTick = ts;
             }
+            if (!lastGiftTick) lastGiftTick = ts;
+            if (ts - lastGiftTick >= GIFT_TICK_MS) {
+              giftDisplayed += 1;
+              lastGiftTick = ts;
+            }
             render();
           }
           raf = requestAnimationFrame(tick);
@@ -877,14 +916,26 @@
           raf = requestAnimationFrame(tick);
         }
 
-        function setTarget(games, cities) {
-          if (gameTarget === games && cityTarget === cities) return;
-          gameTarget = games;
-          cityTarget = cities;
-          if (gameDisplayed > games) gameDisplayed = games;
-          if (cityDisplayed > cities) cityDisplayed = cities;
+        function setTarget(games, cities, gifts) {
+          const nextGameTarget = games != null ? games : gameTarget;
+          const nextCityTarget = cities != null ? cities : cityTarget;
+          const nextGiftTarget = gifts != null ? gifts : giftTarget;
+          if (gameTarget === nextGameTarget && cityTarget === nextCityTarget && giftTarget === nextGiftTarget) return;
+          if (games != null) {
+            gameTarget = games;
+            if (gameDisplayed > games) gameDisplayed = games;
+          }
+          if (cities != null) {
+            cityTarget = cities;
+            if (cityDisplayed > cities) cityDisplayed = cities;
+          }
+          if (gifts != null) {
+            giftTarget = gifts;
+            if (giftDisplayed > gifts) giftDisplayed = gifts;
+          }
           easeGameFrom = gameDisplayed;
           easeCityFrom = cityDisplayed;
+          easeGiftFrom = giftDisplayed;
           easeStart = performance.now();
           easing = true;
           if (!raf) raf = requestAnimationFrame(tick);
@@ -897,7 +948,7 @@
       function renderDirectory() {
         updateHeroButtons();
         const cityCount = new Set(liveGames.map(getCity).filter(Boolean)).size;
-        statsTicker.setTarget(liveGames.length, cityCount);
+        statsTicker.setTarget(liveGames.length, cityCount, null);
         renderHeroMetaList();
       }
 
@@ -1861,6 +1912,10 @@
         }
 
         // ── 2. Fetch fresh and repaint ───────────────────────────────
+        fetchGiftCount()
+          .then((count) => statsTicker.setTarget(null, null, count))
+          .catch(() => { /* leave the gifts ticker at its current value */ });
+
         try {
           const [games, teamColorsResult] = await Promise.all([fetchGames(), fetchTeamColors()]);
           writeCache(CACHE_KEY_GAMES, games);
