@@ -65,9 +65,9 @@
 
     body.home-page main.sound-page .hero-headline {
       max-width: 760px;
-      font-size: clamp(3rem, 8vw, 5.8rem);
+      font-size: 3.35rem;
       letter-spacing: 0;
-      line-height: 0.92;
+      line-height: 0.96;
     }
 
     body.home-page main.sound-page .hero-sub {
@@ -87,6 +87,16 @@
       border: 0;
       background: transparent;
       box-shadow: none;
+    }
+
+    /* Tablet step mirrors the Gift Shop hero so the two heroes shrink in lock-step. */
+    @media (max-width: 980px) {
+      body.home-page main.sound-page .hero {
+        padding: 24px 28px;
+      }
+      body.home-page main.sound-page .hero-headline {
+        font-size: 3rem;
+      }
     }
 
     body.home-page .playlist-grid {
@@ -288,7 +298,9 @@
     body.home-page .listen-city-panel {
       display: grid;
       gap: 4px;
-      width: min(1160px, 100%);
+      /* Match the hero's width: on body.home-page the hero is width:100% of the
+         page-shell content box (site-shell.css). Fill the same track here. */
+      width: 100%;
       margin-inline: auto;
       padding: 14px 16px 8px;
       border: 2px solid #28344a;
@@ -600,29 +612,45 @@
     .tgb-cass-mount.nudge-next { transform: translateX(6px) rotate(0.6deg); }
     .tgb-cass-stage.is-empty .tgb-cass-mount { opacity: 0.5; filter: grayscale(0.4) drop-shadow(7px 9px 0 rgba(2, 4, 10, 0.9)); }
 
+    /* Chunky raised boom-box transport buttons flanking the cassette. The stacked
+       box-shadows fake moulded plastic: inset top highlight + inset bottom shade,
+       then a hard bottom edge and a drop shadow so the key sits proud of the deck.
+       :active presses it down into that edge. */
     .tgb-cass-nav {
       display: grid;
       place-items: center;
-      width: 42px;
-      height: 42px;
+      width: 62px;
+      height: 54px;
       padding: 0;
-      border: 2px solid #07122a;
-      border-radius: 999px;
-      background: #111827;
+      border: 2px solid #05101f;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #3b4759 0%, #232d3f 48%, #151c2a 100%);
       color: #f7f0dc;
       font-family: "IBM Plex Mono", monospace;
-      font-size: 0.72rem;
+      font-size: 1.05rem;
+      letter-spacing: 1px;
       line-height: 1;
       cursor: pointer;
-      transition: transform 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.22),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.5),
+        0 5px 0 #05101f,
+        0 8px 11px rgba(2, 4, 10, 0.55);
+      transition: transform 0.08s ease, box-shadow 0.08s ease, color 0.12s ease;
     }
     .tgb-cass-nav:hover,
     .tgb-cass-nav:focus-visible {
-      border-color: #f5b461;
       color: #f5b461;
       outline: none;
     }
-    .tgb-cass-nav:active { transform: scale(0.88); }
+    .tgb-cass-nav:active {
+      transform: translateY(4px);
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -2px 5px rgba(0, 0, 0, 0.55),
+        0 1px 0 #05101f,
+        0 2px 5px rgba(2, 4, 10, 0.5);
+    }
     .tgb-cass-stage.is-empty .tgb-cass-nav { opacity: 0.3; pointer-events: none; }
 
     /* SVG internals — filled from CSS custom props / classes set in JS. */
@@ -871,7 +899,7 @@
         overflow: visible;
       }
       .tgb-cass-stage { min-height: 210px; gap: 6px; width: 100%; }
-      .tgb-cass-nav { width: 36px; height: 36px; font-size: 0.62rem; }
+      .tgb-cass-nav { width: 52px; height: 48px; font-size: 0.9rem; letter-spacing: 0; }
       .sx-foot { grid-template-columns: 1fr; }
       .sx-player-host,
       .sx-player-host iframe,
@@ -879,6 +907,51 @@
       body.home-page .listen-city-panel { padding: 12px 12px 6px; }
       body.home-page .listen-city-title { font-size: 1.15rem; }
       body.home-page .lc-search.is-open .lc-search-input { width: clamp(120px, 52vw, 200px); }
+    }
+
+    /* Admin-only control (upper-right): ADMIN link into sound/admin.html.
+       Mirrors the gift shop's Stock Room pill; hidden unless admin-bridge has
+       verified a logged-in admin (it adds html.tgb-admin-authorized). */
+    .sound-admin-controls {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      z-index: 1300;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    html.tgb-admin-authorized .sound-admin-controls { display: inline-flex; }
+    /* Suppress admin-bridge's bottom-right floating LOG OUT — this page has its
+       own Log out pill in the upper-right controls above. */
+    .tgb-admin-logout { display: none !important; }
+    .sound-admin-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid #111;
+      background: #111;
+      color: #fff;
+      font-family: "IBM Plex Mono", Consolas, monospace;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      line-height: 1;
+      text-transform: uppercase;
+      white-space: nowrap;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+      transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
+    }
+    .sound-admin-pill:hover,
+    .sound-admin-pill:focus-visible {
+      background: #fff;
+      color: #111;
+      outline: none;
+      transform: translateY(-1px);
     }
   </style>
 </head>
@@ -934,7 +1007,48 @@
     <script src="../assets/site-footer.js"></script>
   </div>
 
+  <!-- Admin-only controls (upper-right): ADMIN link. Mirrors the gift shop's
+       Stock Room pill; hidden unless admin-bridge has verified a logged-in
+       admin (it adds html.tgb-admin-authorized). -->
+  <div class="sound-admin-controls" id="soundAdminControls">
+    <a class="sound-admin-pill" id="soundAdminLink" href="admin.html">Admin</a>
+    <button class="sound-admin-pill" id="soundAdminLogout" type="button">Log out</button>
+  </div>
+
   <script src="../assets/admin-bridge.js"></script>
+
+  <!-- Admin-only logout (the #soundAdminLogout pill is shown by CSS only when
+       admin-bridge has verified a logged-in admin). Clears the shared session,
+       best-effort revokes it server-side, and tells admin-bridge to tear down
+       its EDIT controls — which also hides these buttons again. -->
+  <script>
+    (function () {
+      var SB_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
+      var SB_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
+      async function soundAdminLogout() {
+        var KEY = 'tgb-photo-review-auth-session';
+        var token = '';
+        try {
+          var session = JSON.parse(localStorage.getItem(KEY) || 'null');
+          token = (session && session.access_token) || '';
+        } catch (_) {}
+        if (token) {
+          try {
+            await fetch(SB_URL.replace(/\/+$/, '') + '/auth/v1/logout', {
+              method: 'POST',
+              headers: { apikey: SB_KEY, Authorization: 'Bearer ' + token }
+            });
+          } catch (_) {}
+        }
+        try { localStorage.removeItem(KEY); } catch (_) {}
+        window.dispatchEvent(new CustomEvent('tgb-admin-auth-change', { detail: { signedIn: false } }));
+        if (window.TgbPublicAdminBridge) window.TgbPublicAdminBridge.setAuthorized(false);
+      }
+      document.addEventListener('click', function (e) {
+        if (e.target.closest('#soundAdminLogout')) { e.preventDefault(); soundAdminLogout(); }
+      });
+    })();
+  </script>
 
   <script>
     (function () {
@@ -1621,9 +1735,9 @@
           '<div class="sx-panel" role="dialog" aria-modal="true" aria-label="City cassette player">' +
             '<button class="sx-close" type="button" aria-label="Close cassette">X</button>' +
             '<div class="tgb-cass-stage">' +
-              '<button class="tgb-cass-nav tgb-cass-prev" type="button" aria-label="Previous track">&#8249;</button>' +
+              '<button class="tgb-cass-nav tgb-cass-prev" type="button" aria-label="Previous track">&#9664;&#9664;</button>' +
               '<div class="tgb-cass tgb-cass-mount"></div>' +
-              '<button class="tgb-cass-nav tgb-cass-next" type="button" aria-label="Next track">&#8250;</button>' +
+              '<button class="tgb-cass-nav tgb-cass-next" type="button" aria-label="Next track">&#9654;&#9654;</button>' +
               '<div class="sx-player-host" aria-hidden="true"></div>' +
               '<div class="sx-player-host sx-player-host--pre" aria-hidden="true"></div>' +
             '</div>' +
