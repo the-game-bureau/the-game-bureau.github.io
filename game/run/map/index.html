@@ -73,6 +73,7 @@
       margin-bottom: 0.2rem;
       touch-action: none;
       -webkit-touch-callout: none;
+      -webkit-user-select: none;
       user-select: none;
     }
 
@@ -578,8 +579,8 @@
       padding: max(env(safe-area-inset-top), 0px) 70px 10px;
       min-height: calc(max(env(safe-area-inset-top), 44px) + 54px);
       background: rgba(249, 249, 249, 0.97);
-      backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
       border-bottom: 0.5px solid rgba(0, 0, 0, 0.2);
     }
 
@@ -3211,11 +3212,15 @@
       const avatarWrap = headerLogoEl && headerLogoEl.closest('.avatar');
       if (!thumbnailEl || !headerLogoEl || !avatarWrap) return;
 
-      // Guide avatar is always assets/guides/{gameId}.png (host-relative so it
-      // resolves on localhost and prod); the stored guide_image_url is ignored.
-      const guideImageUrl = (gameNode && gameNode.id)
-        ? '/assets/guides/' + encodeURIComponent(gameNode.id) + '.png'
-        : resolveAssetUrl((gameNode && (gameNode.guideImage || gameNode.guideImageUrl)) || '');
+      // Prefer a stored absolute guide_image_url (e.g. a Supabase Storage URL
+      // set via the editor's URL upload); fall back to the conventional
+      // assets/guides/{gameId}.png (host-relative) for legacy games.
+      const storedGuideUrl = String((gameNode && (gameNode.guideImageUrl || gameNode.guideImage)) || '').trim();
+      const guideImageUrl = /^https?:\/\//i.test(storedGuideUrl)
+        ? storedGuideUrl
+        : ((gameNode && gameNode.id)
+            ? '/assets/guides/' + encodeURIComponent(gameNode.id) + '.png'
+            : resolveAssetUrl(storedGuideUrl));
       const logoUrl = resolveAssetUrl((gameNode && (gameNode.logo || gameNode.logoUrl)) || '');
       const logoAlt = (gameNode && (gameNode.title || gameNode.guideName)) || 'Game Logo';
       const loadToken = ++headerLogoLoadToken;

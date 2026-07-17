@@ -10003,15 +10003,15 @@ html.admin-embedded .builder-section-head{
                           <img class="guide-image-thumb-image" id="guideImgThumbImage" alt="Guide image" hidden>
                           <span class="guide-image-thumb-placeholder" id="guideImgPlaceholder">NOT YET UPLOADED</span>
                         </button>
-                        <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
-                          <code id="guideImgFileName" style="font-family:'IBM Plex Mono',monospace;font-size:.8rem;word-break:break-all;">{GAMEID}.png</code>
-                          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                            <a class="guide-image-asset-btn" id="guideImgOpenLink" href="#" target="_blank" rel="noopener" aria-disabled="true" title="Open the assets/guides folder in a new tab">Open folder</a>
-                            <button class="guide-image-asset-btn" id="guideImgCopyBtn" type="button" title="Copy the guide image filename" disabled>Copy name</button>
+                        <div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1;">
+                          <input id="guideImageUrlInput" type="url" placeholder="Paste an image URL…" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;" disabled>
+                          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                            <button class="guide-image-asset-btn" id="guideImageUrlUploadBtn" type="button" disabled>Upload</button>
+                            <span id="guideImageUploadStatus" aria-live="polite" style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;"></span>
                           </div>
                         </div>
                       </div>
-                      <p class="field-hint" id="guideImageNote">Upload a guide image for this game to the assets\guides folder and name the image {GAMEID}.png</p>
+                      <p class="field-hint" id="guideImageNote">Paste an image URL and click Upload — it is saved to Supabase and shown in the game.</p>
                       <input id="nodeGuideImageInput" type="hidden">
                     </div>
                   </div>
@@ -14773,7 +14773,17 @@ function getGuideImageAssetFileName(value) {
 }
 
 function normalizeGuideImageAssetUrl(value) {
-  const fileName = getGuideImageAssetFileName(value);
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  // An absolute http(s) URL that is NOT under /assets/guides/ (e.g. a Supabase
+  // Storage public URL from the upload-guide-image function) is stored verbatim
+  // — only assets/guides paths and bare filenames get canonicalized.
+  if (/^https?:\/\//i.test(raw)) {
+    let pathname = '';
+    try { pathname = new URL(raw).pathname || ''; } catch (error) { pathname = ''; }
+    if (!/\/assets\/guides\//i.test(pathname)) return raw;
+  }
+  const fileName = getGuideImageAssetFileName(raw);
   return fileName ? buildPublishedGameLogoAssetUrl(GUIDE_IMAGE_ASSET_FOLDER + fileName) : '';
 }
 
@@ -15243,9 +15253,7 @@ function syncSelectedGameLogoFromInput() {
 function updateGuideImageNote(isGameNode) {
   const note = document.getElementById('guideImageNote');
   if (!note) return;
-  const gameId = isGameNode ? String(state.currentGameId || '').trim() : '';
-  const fileName = (gameId || '{GAMEID}') + '.png';
-  note.textContent = 'Upload a guide image for this game to the assets\\guides folder and name the image ' + fileName;
+  note.textContent = 'Paste an image URL and click Upload — it is saved to Supabase and shown in the game.';
 }
 
 // Thumbnail + filename + Open/Copy for the guide avatar at assets/guides/{id}.png.
@@ -15267,34 +15275,38 @@ function updateGuideImageStatus(isGameNode) {
   if (!btn) return;
   const img = document.getElementById('guideImgThumbImage');
   const ph = document.getElementById('guideImgPlaceholder');
-  const nameEl = document.getElementById('guideImgFileName');
-  const openLink = document.getElementById('guideImgOpenLink');
-  const copyBtn = document.getElementById('guideImgCopyBtn');
+  const urlInput = document.getElementById('guideImageUrlInput');
+  const uploadBtn = document.getElementById('guideImageUrlUploadBtn');
   const gameId = isGameNode ? String(state.currentGameId || '').trim() : '';
-  const fileName = (gameId || '{GAMEID}') + '.png';
-  const url = gameId ? '../assets/guides/' + encodeURIComponent(gameId) + '.png' : '';
-  if (nameEl) nameEl.textContent = fileName;
-  if (openLink) {
-    // Open the assets/guides FOLDER (to drop/replace the file), not the image.
-    if (gameId) {
-      const folderHref = guideFolderOpenHref();
-      openLink.href = folderHref;
-      if (folderHref.indexOf('vscode://') === 0) { openLink.removeAttribute('target'); openLink.removeAttribute('rel'); }
-      else { openLink.target = '_blank'; openLink.rel = 'noopener'; }
-      openLink.removeAttribute('aria-disabled');
-    } else { openLink.href = '#'; openLink.setAttribute('aria-disabled', 'true'); }
+  const storedUrl = isGameNode
+    ? String((state.currentGameMeta && state.currentGameMeta.guideImageUrl) || '').trim()
+    : '';
+
+  // Upload + URL entry are available whenever a game node is selected.
+  if (uploadBtn) uploadBtn.disabled = !gameId;
+  if (urlInput) {
+    urlInput.disabled = !gameId;
+    // Mirror the stored URL into the box, unless the admin is mid-edit.
+    if (document.activeElement !== urlInput) {
+      urlInput.value = /^https?:\/\//i.test(storedUrl) ? storedUrl : '';
+    }
   }
-  if (copyBtn) copyBtn.disabled = !gameId;
+
+  // Thumbnail target: a stored absolute URL (Supabase Storage) wins; else fall
+  // back to the conventional assets/guides/{gameId}.png for legacy games.
+  const url = /^https?:\/\//i.test(storedUrl)
+    ? storedUrl
+    : (gameId ? '../assets/guides/' + encodeURIComponent(gameId) + '.png' : '');
 
   // Re-probe only when the target changes, so renders don't spam image requests.
-  if (_guideImgProbedKey === (gameId || '')) return;
-  _guideImgProbedKey = gameId || '';
+  if (_guideImgProbedKey === url) return;
+  _guideImgProbedKey = url;
   btn.dataset.url = '';
   btn.disabled = true;
   if (img) { img.hidden = true; img.removeAttribute('src'); }
-  if (ph) { ph.hidden = false; ph.textContent = gameId ? 'CHECKING…' : 'NOT YET UPLOADED'; }
+  if (ph) { ph.hidden = false; ph.textContent = url ? 'CHECKING…' : 'NOT YET UPLOADED'; }
   if (!url) return;
-  const key = gameId;
+  const key = url;
   const probe = new Image();
   probe.onload = () => {
     if (_guideImgProbedKey !== key) return;
@@ -22471,6 +22483,75 @@ nodeGuideImageInput.addEventListener('change', () => {
   updateSelectionUi();
   updatePhoneChrome();
 });
+
+// URL -> Upload: fetch the image server-side via the upload-guide-image Edge
+// Function (dodging browser CORS), store it in the Supabase `guides` bucket,
+// and record the returned public URL on the game so the engines render it.
+const guideImageUrlInput = document.getElementById('guideImageUrlInput');
+const guideImageUrlUploadBtn = document.getElementById('guideImageUrlUploadBtn');
+const guideImageUploadStatusEl = document.getElementById('guideImageUploadStatus');
+
+function setGuideImageUrlUploadStatus(message, isError) {
+  if (!guideImageUploadStatusEl) return;
+  guideImageUploadStatusEl.textContent = String(message || '');
+  guideImageUploadStatusEl.style.color = isError ? '#d9534f' : 'var(--muted, #8a94a6)';
+}
+
+async function uploadGuideImageFromUrl() {
+  const node = getGameNode();
+  if (!node || node.type !== 'game') { setGuideImageUrlUploadStatus('Select a game first.', true); return; }
+  const gameId = String(state.currentGameId || '').trim();
+  if (!gameId) { setGuideImageUrlUploadStatus('Save the game so it has an id first.', true); return; }
+  const sourceUrl = String((guideImageUrlInput && guideImageUrlInput.value) || '').trim();
+  if (!/^https?:\/\//i.test(sourceUrl)) { setGuideImageUrlUploadStatus('Enter a valid image URL (http/https).', true); return; }
+  const session = (typeof builderAdminAuth !== 'undefined' && builderAdminAuth) ? builderAdminAuth.getSession() : null;
+  const token = session && session.access_token ? session.access_token : '';
+  if (!token) { setGuideImageUrlUploadStatus('Sign in as an admin to upload.', true); return; }
+
+  if (guideImageUrlUploadBtn) { guideImageUrlUploadBtn.disabled = true; guideImageUrlUploadBtn.textContent = 'Uploading…'; }
+  setGuideImageUrlUploadStatus('Uploading…', false);
+  try {
+    const endpoint = supabaseConfig.url.replace(/\/+$/, '') + '/functions/v1/upload-guide-image';
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: supabaseConfig.publishableKey,
+        Authorization: 'Bearer ' + token
+      },
+      body: JSON.stringify({ url: sourceUrl, gameId })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data && data.error) || ('upload failed (' + res.status + ')'));
+    const publicUrl = String((data && data.url) || '').trim();
+    if (!publicUrl) throw new Error('no url returned');
+    // Record on the game (change event -> sync -> currentGameMeta) and persist.
+    if (nodeGuideImageInput) {
+      nodeGuideImageInput.value = publicUrl;
+      nodeGuideImageInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    try { await saveDoc({ silent: true }); } catch (saveErr) {}
+    _guideImgProbedKey = null; // force the thumbnail to re-probe the new URL
+    updateGuideImageStatus(true);
+    setGuideImageUrlUploadStatus('Uploaded ✓', false);
+  } catch (err) {
+    setGuideImageUrlUploadStatus(String((err && err.message) || 'Upload failed.'), true);
+  } finally {
+    if (guideImageUrlUploadBtn) {
+      guideImageUrlUploadBtn.disabled = !String(state.currentGameId || '').trim();
+      guideImageUrlUploadBtn.textContent = 'Upload';
+    }
+  }
+}
+
+if (guideImageUrlUploadBtn) {
+  guideImageUrlUploadBtn.addEventListener('click', uploadGuideImageFromUrl);
+}
+if (guideImageUrlInput) {
+  guideImageUrlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); uploadGuideImageFromUrl(); }
+  });
+}
 
 if (guideImageUploadBtn && guideImageUploadInput) {
   guideImageUploadBtn.addEventListener('click', async () => {

@@ -51,6 +51,42 @@
         min-height: clamp(420px, calc(100svh - 320px), 560px);
       }
     }
+
+    /* Admin-only EDIT GAMES button — sits to the LEFT of the floating LOG OUT
+       control painted by admin-bridge.js (top-right, right:14px). Same visual
+       treatment as LOG OUT / EDIT HIGHLIGHTS, gated on the same
+       html.tgb-admin-authorized class so only a signed-in admin ever sees it.
+       The right offset clears the ~90px LOG OUT button plus a small gap. */
+    .tgb-games-edit {
+      display: none;
+      position: fixed;
+      top: 14px;
+      right: 114px;
+      z-index: 2147483000;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 14px;
+      border: 1px solid #111;
+      background: #111;
+      color: #fff !important;
+      font-family: "IBM Plex Mono", Consolas, monospace;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      text-decoration: none !important;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, .3);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tgb-games-edit:hover,
+    .tgb-games-edit:focus-visible {
+      background: #fff;
+      color: #111 !important;
+      outline: none;
+    }
+    html.tgb-admin-authorized .tgb-games-edit { display: inline-flex; }
   </style>
 </head>
 <body class="home-page" data-admin-page="mission-control">
@@ -81,7 +117,6 @@
           <div class="hero-story">
             <div class="hero-mode-switch" id="heroModeSwitch" data-mode="fan" role="tablist" aria-label="Browse games by">
               <span class="hero-mode-label" aria-hidden="true">
-                <span class="hero-mode-label-dash"></span>
                 VIEW GAMES
               </span>
               <div class="hero-mode-track">
@@ -118,6 +153,10 @@
       </section>
 
     </main>
+
+    <!-- Admin-only games editor entry (shown only to signed-in admins; sits to
+         the left of the floating LOG OUT button). -->
+    <a class="tgb-games-edit" href="/mc/overview.html" target="_top">EDIT GAMES</a>
 
     <!-- Site footer (shared via /assets/site-footer.js) -->
     <footer class="site-footer" data-site-footer></footer>
@@ -815,28 +854,45 @@
           if (!gamesByFanKey.has(fan)) gamesByFanKey.set(fan, []);
           gamesByFanKey.get(fan).push(game);
         });
-        return allTeams
-          .map((team) => {
-            const fanbase = team.fanbase || team.firstName || '';
-            const mascot = team.mascot || '';
-            if (!fanbase || !mascot) return null;
-            const fanKey = fanbase + ' ' + mascot;
-            const games = gamesByFanKey.get(fanKey) || [];
-            const count = games.length;
-            const categoryIcon = getEntryCategoryIcon(games, team.palette);
-            return {
+        // Two teams can share a fanbase (LA Rams/Chargers, NY Yankees/Mets),
+        // which previously produced two identical "NEW YORK" directory rows.
+        // Merge those into ONE scrolling row that carries every team's helmet,
+        // so the fanbase (city) is listed once, not twice. entryKey is the
+        // fanbase; the row's member fanKeys drive game selection.
+        const byFanbase = new Map();
+        allTeams.forEach((team) => {
+          const fanbase = team.fanbase || team.firstName || '';
+          const mascot = team.mascot || '';
+          if (!fanbase || !mascot) return;
+          const fanKey = fanbase + ' ' + mascot;
+          const games = gamesByFanKey.get(fanKey) || [];
+          if (!games.length) return; // teams with no live games are dropped
+          const categoryIcon = getEntryCategoryIcon(games, team.palette);
+          let entry = byFanbase.get(fanbase);
+          if (!entry) {
+            entry = {
               label: fanbase,
-              count,
-              sub: count > 0 ? getGameCountLabel(count) : 'No games yet',
+              count: 0,
               href: '#',
-              helmet: team.palette,
-              categoryIcon,
+              helmets: [],
+              fanKeys: [],
               expectsHelmet: true,
               entryKind: 'fan',
-              entryKey: fanKey
+              entryKey: fanbase
             };
-          })
-          .filter((entry) => entry && entry.count > 0)
+            byFanbase.set(fanbase, entry);
+          }
+          entry.count += games.length;
+          entry.fanKeys.push(fanKey);
+          entry.helmets.push({ helmet: team.palette, categoryIcon });
+        });
+        return [...byFanbase.values()]
+          .map((entry) => Object.assign(entry, {
+            sub: getGameCountLabel(entry.count),
+            // First team stands in for the single-icon selected-panel header.
+            helmet: entry.helmets[0] && entry.helmets[0].helmet,
+            categoryIcon: entry.helmets[0] && entry.helmets[0].categoryIcon
+          }))
           .sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }));
       }
 
@@ -1066,32 +1122,36 @@
         }
 
         if (entry.expectsHelmet) {
-          const palette = entry.helmet || NO_HELMET_PALETTE;
-          const categoryIcon = entry.categoryIcon || palette.sport;
-          // Tint the row using the team's primary (and secondary) so each
-          // team has its own visual identity in the scrolling directory.
-          if (entry.helmet && entry.helmet.primary_color) {
-            item.dataset.teamTint = '';
-            item.style.setProperty('--team-primary', entry.helmet.primary_color);
-            if (entry.helmet.secondary_color) {
-              item.style.setProperty('--team-secondary', entry.helmet.secondary_color);
-            }
-          }
-          const src = teamMarkSVG(
-            categoryIcon,
-            palette.primary_color,
-            palette.secondary_color,
-            palette.tertiary_color
-          );
-          if (src) {
+          // A fandom row can carry more than one team's helmet (fanbases shared
+          // by two teams are merged into a single row). No team-color border
+          // tint — fandom rows use the same neutral border as the by-city rows.
+          const specs = (entry.helmets && entry.helmets.length)
+            ? entry.helmets
+            : [{ helmet: entry.helmet, categoryIcon: entry.categoryIcon }];
+          const stack = document.createElement('span');
+          stack.className = 'hero-meta-list-helmet-stack';
+          specs.forEach((spec) => {
+            const palette = (spec && spec.helmet) || NO_HELMET_PALETTE;
+            const categoryIcon = (spec && spec.categoryIcon) || palette.sport;
+            const src = teamMarkSVG(
+              categoryIcon,
+              palette.primary_color,
+              palette.secondary_color,
+              palette.tertiary_color
+            );
+            if (!src) return;
             const img = document.createElement('img');
             img.className = 'hero-meta-list-helmet';
             img.alt = '';
             img.src = src;
             if (normalizeCategoryIcon(categoryIcon) === 'baseball') img.classList.add('team-mark--baseball');
-            if (!entry.helmet) img.classList.add('hero-meta-list-helmet--none');
-            item.appendChild(img);
-          }
+            if (!(spec && spec.helmet)) img.classList.add('hero-meta-list-helmet--none');
+            // First helmet starts visible; the rotation ticker cross-fades the
+            // rest in for rows that carry more than one team.
+            if (!stack.childNodes.length) img.classList.add('is-visible');
+            stack.appendChild(img);
+          });
+          item.appendChild(stack);
         } else if (entry.entryKind === 'city') {
           const badge = cityGeoBadge(entry.label);
           item.appendChild(buildGeoBadge(badge));
@@ -1311,6 +1371,26 @@
 
       initMetaScrollInteractions();
 
+      // Fandom rows that merge two teams show one helmet at a time and
+      // cross-fade between them. One shared ticker re-queries the live DOM each
+      // beat, so it naturally covers re-renders and the pre/primary/post clones
+      // without leaking per-row timers. Single-helmet rows are left alone.
+      const HELMET_ROTATE_MS = 2200;
+      setInterval(() => {
+        document.querySelectorAll('.hero-meta-list-helmet-stack').forEach((stack) => {
+          const imgs = stack.children;
+          if (imgs.length < 2) return;
+          let current = -1;
+          for (let i = 0; i < imgs.length; i++) {
+            if (imgs[i].classList.contains('is-visible')) { current = i; break; }
+          }
+          const next = (current + 1) % imgs.length;
+          for (let i = 0; i < imgs.length; i++) {
+            imgs[i].classList.toggle('is-visible', i === next);
+          }
+        });
+      }, HELMET_ROTATE_MS);
+
       // ---------------------------------------------------------------------------
       // Selected-games rendering
       // ---------------------------------------------------------------------------
@@ -1349,7 +1429,11 @@
           return liveGames.filter((g) => getCity(g) === entry.entryKey);
         }
         if (entry.entryKind === 'fan') {
-          return liveGames.filter((g) => getFanTeam(g) === entry.entryKey);
+          // A fan row may merge several teams that share a fanbase; match any
+          // of the row's member fanKeys (fall back to the entryKey for legacy
+          // single-team entries).
+          const keys = new Set(entry.fanKeys && entry.fanKeys.length ? entry.fanKeys : [entry.entryKey]);
+          return liveGames.filter((g) => keys.has(getFanTeam(g)));
         }
         return [];
       }
@@ -1859,24 +1943,12 @@
         requestAnimationFrame(() => { try { bridge.scan(); } catch (_) {} });
       }
 
-      // Rebuild liveGames from the raw rows. Public visitors (and admins who
-      // haven't toggled "show all") get the archived + past-date filters; an
-      // admin who opts in sees every game, archived and past included.
+      // Rebuild liveGames from the raw rows. Every non-archived game is shown,
+      // regardless of date (past, present, future, or undated) — for the public
+      // and admins alike. Archived is the only exclusion, and it's absolute.
       function recomputeLiveGames() {
-        const showAll = adminShowAll && isAdminAuthorized();
-        // Today (local) as YYYY-MM-DD, recomputed each pass so it's always current.
-        const todayStr = (() => {
-          const d = new Date();
-          return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-        })();
-        liveGames = (Array.isArray(rawGames) ? rawGames : []).filter((game) => {
-          if (showAll) return true;
-          if (isTrueish(game && game.archived)) return false;
-          // Drop games that already took place. Keep today + future, and keep
-          // undated/"anytime" games (no game_date) which are always playable.
-          const gd = String((game && game.game_date) || '').trim();
-          return !gd || gd >= todayStr;
-        });
+        liveGames = (Array.isArray(rawGames) ? rawGames : [])
+          .filter((game) => !isTrueish(game && game.archived));
         refreshDefaultCitySampleGames();
         renderDirectory();
         // applyUrlSelection is idempotent — reapplying after fresh data
@@ -2104,12 +2176,16 @@
       });
 
       // Admin-only "show all games" toggle. Hidden for the public; revealed when
-      // /assets/admin-bridge.js verifies an admin. Flips adminShowAll and re-filters
-      // the already-fetched rows — no refetch, no public exposure of the data.
+      // /assets/admin-bridge.js verifies an admin. All non-archived games are
+      // always in view now (no date filtering), so this no longer changes which
+      // games appear — it switches the admin between a flat "All games" list and
+      // the normal city/fandom grouping.
       function setupAdminAllGamesToggle() {
         const style = document.createElement('style');
         style.textContent = [
-          '#tgbAdminShowAll{position:fixed;left:14px;bottom:14px;z-index:2147482000;display:none;align-items:center;gap:8px;min-height:34px;padding:0 14px;border:1px solid #111;border-radius:8px;background:#111;color:#fff;font-family:"IBM Plex Mono",Consolas,monospace;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);}',
+          // Top-right, to the LEFT of EDIT GAMES (right:114px) which is itself
+          // left of the floating LOG OUT (right:14px): [Show all][EDIT GAMES][LOG OUT].
+          '#tgbAdminShowAll{position:fixed;top:14px;right:242px;z-index:2147482000;display:none;align-items:center;gap:8px;min-height:34px;padding:0 14px;border:1px solid #111;border-radius:8px;background:#111;color:#fff;font-family:"IBM Plex Mono",Consolas,monospace;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);}',
           '#tgbAdminShowAll.is-visible{display:inline-flex;}',
           '#tgbAdminShowAll.is-on{background:#fff;color:#111;}'
         ].join('');
@@ -2148,7 +2224,7 @@
           const admin = isAdminAuthorized();
           btn.classList.toggle('is-visible', admin);
           // If the admin signs out while "show all" is on, drop back to the
-          // public view so archived/past games don't linger for a public visitor.
+          // normal grouped view (the flat admin list isn't for the public).
           if (!admin && adminShowAll) {
             adminShowAll = false;
             paint();

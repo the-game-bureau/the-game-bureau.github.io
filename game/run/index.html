@@ -4625,12 +4625,17 @@ const WEATHER_CODE_MAP = {
       const logoEl = document.getElementById('landingLogo');
       const guideAvatarEl = document.getElementById('guideAvatar');
       const logoUrl = sanitizeAssetUrl((gameNode && (gameNode.logo || gameNode.logoUrl)) || '');
-      // Guide avatar is always the game-id image under /assets/guides. Use a
-      // host-relative path so it resolves on localhost (local file) and prod
-      // alike, instead of forcing the production domain.
-      const guideUrl = gameNode && gameNode.id
-        ? '/assets/guides/' + encodeURIComponent(gameNode.id) + '.png'
-        : '';
+      // Prefer a stored absolute guide_image_url (e.g. a Supabase Storage URL
+      // set via the editor's URL upload); else fall back to the conventional
+      // game-id image under /assets/guides (host-relative so it resolves on
+      // localhost and prod alike). The <img> onerror below still drops to
+      // FALLBACK_GUIDE_AVATAR if neither loads.
+      const storedGuideUrl = String((gameNode && (gameNode.guideImageUrl || gameNode.guideImage)) || '').trim();
+      const guideUrl = /^https?:\/\//i.test(storedGuideUrl)
+        ? storedGuideUrl
+        : (gameNode && gameNode.id
+            ? '/assets/guides/' + encodeURIComponent(gameNode.id) + '.png'
+            : '');
 
       if (logoEl) {
         logoEl.style.display = 'none';
@@ -5869,6 +5874,7 @@ const WEATHER_CODE_MAP = {
           startingLocationLat:     game.starting_location_lat,
           startingLocationLon:     game.starting_location_lon,
           logoUrl:             game.logo_url || game.logoUrl || game.logo,
+          guideImageUrl:       game.guide_image_url || game.guideImageUrl,
         };
         const defaultEmoji = gameNode.defaultEmoji || '🧩';
 
