@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>GAME PLAYS | THE GAME BUREAU</title>
+  <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="js/admin-shell.css">
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --paper-base: #fefef9; --bic-blue: #2d4880; --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12); --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --ink: var(--bic-blue); --muted: rgba(var(--bic-blue-rgb), 0.72); --line: rgba(var(--bic-blue-rgb), 0.18);
+      --accent: var(--bic-blue); --danger: #a03f2d; --success: #2f6b3d; --warn: #9a6a1e;
+    }
+    body {
+      margin: 0; min-height: 100vh;
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 100% 100%; color: var(--ink);
+    }
+    button, input, select { font: inherit; }
+    .app { max-width: 1200px; margin: 0 auto; padding: 0 18px 80px; }
+    .section-head {
+      display: grid; gap: 6px; margin: 0 0 18px; padding: 20px 22px 22px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.14); border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.74) 0%, rgba(var(--bic-blue-rgb), 0.08) 100%);
+      box-shadow: 0 18px 36px var(--paper-shadow);
+    }
+    .kicker { margin: 0; font-family: "IBM Plex Mono", monospace; font-size: .68rem; letter-spacing: .22em; color: var(--muted); }
+    .section-head h2 { margin: 2px 0 0; font-size: 1.6rem; }
+    .legend { margin: 6px 0 0; color: var(--muted); font-size: .9rem; max-width: 780px; }
+    .panel { margin: 0 0 18px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,0.82); box-shadow: 0 10px 24px var(--paper-shadow); }
+    .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 0 0 14px; }
+    .toolbar input[type="search"] { min-width: 260px; }
+    input, select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--accent); border-radius: 8px; background: #fff; color: var(--accent); cursor: pointer; font-weight: 600; }
+    .btn:hover { background: var(--accent); color: #fff; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .count { font-family: "IBM Plex Mono", monospace; font-size: .72rem; color: var(--muted); margin-left: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-family: "IBM Plex Mono", monospace; font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+    tr.play-row { cursor: pointer; }
+    tr.play-row:hover td { background: rgba(var(--bic-blue-rgb), 0.05); }
+    tr.play-row.is-active td { background: rgba(var(--bic-blue-rgb), 0.10); }
+    .tid { font-family: "IBM Plex Mono", monospace; font-size: .7rem; color: var(--muted); }
+    .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .68rem; font-weight: 700; font-family: "IBM Plex Mono", monospace; }
+    .badge.ok { background: rgba(47,107,61,0.14); color: var(--success); }
+    .badge.mid { background: rgba(154,106,30,0.14); color: var(--warn); }
+    .empty { padding: 24px; text-align: center; color: var(--muted); }
+    /* Detail */
+    #detailPanel[hidden] { display: none; }
+    .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 18px; margin: 4px 0 16px; }
+    .meta-grid .k { font-size: .64rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+    .meta-grid .v { font-size: .9rem; word-break: break-word; }
+    .detail-h { display: flex; align-items: baseline; gap: 12px; margin: 18px 0 8px; }
+    .detail-h h4 { margin: 0; font-size: .95rem; }
+    .sub { margin: 0 0 14px; }
+    .sub h3 { margin: 0 0 4px; font-size: 1.1rem; }
+    .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,.2); vertical-align: -1px; margin-right: 5px; }
+  </style>
+  <script src="js/admin-auth.js"></script>
+  <script src="js/admin-shell.js"></script>
+  <script src="js/admin-nav-menu.js"></script>
+  <script src="js/supabase-rest.js"></script>
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <div class="topbar">
+      <div class="topbar-actions" style="margin-left:auto;">
+        <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <section class="section-head">
+      <p class="kicker">TGB MISSION CONTROL</p>
+      <h2>GAME PLAYS</h2>
+      <p class="legend">Every playthrough recorded to Supabase as teams play — the <code>game_instances</code>, <code>game_responses</code>, and <code>game_events</code> tables. Pick a play to see the team, their answers at each stop, and the lifecycle timeline. Read-only (players write append-only; only admins read). Shows the most recent 1000 plays.</p>
+    </section>
+
+    <!-- Detail (shown when a play is selected) -->
+    <section class="panel" id="detailPanel" hidden>
+      <div class="sub">
+        <h3 id="detailTitle">Play</h3>
+        <div class="tid" id="detailId"></div>
+      </div>
+      <div class="meta-grid" id="detailMeta"></div>
+      <div class="detail-h"><h4>Responses</h4><span class="tid" id="respCount"></span></div>
+      <div id="respWrap"></div>
+      <div class="detail-h"><h4>Events</h4><span class="tid" id="evtCount"></span></div>
+      <div id="evtWrap"></div>
+    </section>
+
+    <!-- Plays list -->
+    <section class="panel">
+      <div class="toolbar">
+        <input type="search" id="search" placeholder="Search team / leader / email / game">
+        <select id="gameFilter"><option value="">All games</option></select>
+        <select id="statusFilter">
+          <option value="">All plays</option>
+          <option value="completed">Completed</option>
+          <option value="incomplete">Not completed</option>
+        </select>
+        <button class="btn" id="reloadBtn" type="button">Reload</button>
+        <span class="count" id="listCount"></span>
+      </div>
+      <div id="listWrap"><div class="empty" id="listEmpty">Sign in with an admin account to load plays.</div></div>
+    </section>
+  </main>
+
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+    const INSTANCE_COLS = 'id,game_id,access_code,team_leader_email,team_leader_name,team_name,route_color,engine,mode,stops_total,started_at,created_at';
+    const RESPONSE_COLS = 'id,instance_id,stop_id,stop_title,stop_index,waypoint_id,var_name,response_kind,response_value,is_correct,created_at';
+    const EVENT_COLS = 'id,instance_id,event_type,stop_id,stop_index,waypoint_id,detail,created_at';
+    const MAX_PLAYS = 1000;
+
+    const signOutBtn = document.getElementById('signOutBtn');
+    const search = document.getElementById('search');
+    const gameFilter = document.getElementById('gameFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const reloadBtn = document.getElementById('reloadBtn');
+    const listWrap = document.getElementById('listWrap');
+    const listCount = document.getElementById('listCount');
+    const detailPanel = document.getElementById('detailPanel');
+    const detailTitle = document.getElementById('detailTitle');
+    const detailId = document.getElementById('detailId');
+    const detailMeta = document.getElementById('detailMeta');
+    const respWrap = document.getElementById('respWrap');
+    const respCount = document.getElementById('respCount');
+    const evtWrap = document.getElementById('evtWrap');
+    const evtCount = document.getElementById('evtCount');
+
+    const state = { authed: false, plays: [], gamesById: new Map(), completed: new Set(), filter: '', game: '', status: '', activeId: '' };
+
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      onAuthorized: async () => { state.authed = true; await loadAll(); },
+      onSignedOut: () => { state.authed = false; state.plays = []; detailPanel.hidden = true; render(); }
+    });
+
+    function restUrl(table, params) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params || {}).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v)); });
+      return url.toString();
+    }
+    function authHeaders(extra) {
+      if (adminAuth && typeof adminAuth.authHeaders === 'function') return adminAuth.authHeaders(extra || {});
+      const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      const token = (session && session.access_token) || SUPABASE_CONFIG.publishableKey;
+      return Object.assign({ apikey: SUPABASE_CONFIG.publishableKey, Authorization: 'Bearer ' + token, Accept: 'application/json' }, extra || {});
+    }
+    async function ensureFreshSession() {
+      if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') { try { await adminAuth.ensureFreshSession(); } catch (e) {} }
+    }
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    function fmt(ts) {
+      if (!ts) return '—';
+      const d = new Date(ts); if (isNaN(d)) return String(ts);
+      return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+    function gameName(id) { const g = state.gamesById.get(String(id)); return (g && g.name) || id || '—'; }
+
+    async function loadAll() {
+      try {
+        await ensureFreshSession();
+        const headers = authHeaders({ Accept: 'application/json' });
+        // Games (id -> name) for display, and the set of completed instance ids.
+        const [games, completed, plays] = await Promise.all([
+          TgbRest.fetchAll(restUrl('games', { select: 'id,name' }), headers).catch(() => []),
+          TgbRest.fetchAll(restUrl('game_events', { select: 'instance_id', event_type: 'eq.completed' }), headers).catch(() => []),
+          fetch(restUrl('game_instances', { select: INSTANCE_COLS, order: 'created_at.desc', limit: String(MAX_PLAYS) }), { headers, cache: 'no-store' }).then((r) => r.ok ? r.json() : [])
+        ]);
+        state.gamesById = new Map((games || []).map((g) => [String(g.id), g]));
+        state.completed = new Set((completed || []).map((e) => String(e.instance_id)));
+        state.plays = Array.isArray(plays) ? plays : [];
+        // Populate the game filter from the plays actually present.
+        const seen = new Map();
+        state.plays.forEach((p) => { if (!seen.has(p.game_id)) seen.set(p.game_id, gameName(p.game_id)); });
+        const cur = gameFilter.value;
+        gameFilter.innerHTML = '<option value="">All games</option>' +
+          [...seen.entries()].sort((a, b) => String(a[1]).localeCompare(String(b[1])))
+            .map(([id, name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join('');
+        gameFilter.value = cur;
+        render();
+      } catch (e) { console.error(e); listWrap.innerHTML = '<div class="empty">Load failed: ' + esc(e && e.message) + '</div>'; }
+    }
+
+    function matches(p) {
+      if (state.game && String(p.game_id) !== state.game) return false;
+      const done = state.completed.has(String(p.id));
+      if (state.status === 'completed' && !done) return false;
+      if (state.status === 'incomplete' && done) return false;
+      if (state.filter) {
+        const hay = [p.team_name, p.team_leader_name, p.team_leader_email, gameName(p.game_id), p.game_id, p.engine, p.route_color]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(state.filter)) return false;
+      }
+      return true;
+    }
+
+    function render() {
+      if (!state.authed) { listWrap.innerHTML = '<div class="empty">Sign in with an admin account to load plays.</div>'; listCount.textContent = ''; return; }
+      const rows = state.plays.filter(matches);
+      listCount.textContent = state.plays.length ? (rows.length + ' of ' + state.plays.length + (state.plays.length >= MAX_PLAYS ? '+' : '')) : '';
+      if (!state.plays.length) { listWrap.innerHTML = '<div class="empty">No plays recorded yet.</div>'; return; }
+      if (!rows.length) { listWrap.innerHTML = '<div class="empty">No plays match your filters.</div>'; return; }
+      const body = rows.map((p) => {
+        const done = state.completed.has(String(p.id));
+        return `<tr class="play-row${p.id === state.activeId ? ' is-active' : ''}" data-id="${esc(p.id)}">
+          <td><strong>${esc(p.team_name || '—')}</strong>${p.route_color ? '<div class="tid"><span class="swatch" style="background:' + esc(p.route_color) + '"></span>' + esc(p.route_color) + '</div>' : ''}</td>
+          <td>${esc(gameName(p.game_id))}<div class="tid">${esc(p.game_id)}</div></td>
+          <td>${esc(p.team_leader_name || '—')}${p.team_leader_email ? '<div class="tid">' + esc(p.team_leader_email) + '</div>' : ''}</td>
+          <td>${esc(p.engine || '—')}</td>
+          <td>${esc(fmt(p.created_at))}</td>
+          <td>${done ? '<span class="badge ok">completed</span>' : '<span class="badge mid">in progress</span>'}</td>
+        </tr>`;
+      }).join('');
+      listWrap.innerHTML = `<table><thead><tr><th>Team</th><th>Game</th><th>Leader</th><th>Engine</th><th>Started</th><th>Status</th></tr></thead><tbody>${body}</tbody></table>`;
+      listWrap.querySelectorAll('.play-row').forEach((tr) => tr.addEventListener('click', () => selectPlay(tr.getAttribute('data-id'))));
+    }
+
+    async function selectPlay(id) {
+      const p = state.plays.find((x) => String(x.id) === String(id));
+      if (!p) return;
+      state.activeId = String(id);
+      render();
+      detailPanel.hidden = false;
+      detailTitle.textContent = p.team_name || '(no team name)';
+      detailId.textContent = 'instance ' + p.id;
+      const done = state.completed.has(String(p.id));
+      const meta = [
+        ['Game', esc(gameName(p.game_id)) + ' <span class="tid">' + esc(p.game_id) + '</span>'],
+        ['Status', done ? '<span class="badge ok">completed</span>' : '<span class="badge mid">in progress</span>'],
+        ['Team leader', esc(p.team_leader_name || '—')],
+        ['Leader email', esc(p.team_leader_email || '—')],
+        ['Route color', p.route_color ? ('<span class="swatch" style="background:' + esc(p.route_color) + '"></span>' + esc(p.route_color)) : '—'],
+        ['Engine / mode', esc([p.engine, p.mode].filter(Boolean).join(' / ') || '—')],
+        ['Access code', esc(p.access_code || '—')],
+        ['Stops', esc(p.stops_total != null ? p.stops_total : '—')],
+        ['Started', esc(fmt(p.started_at || p.created_at))]
+      ];
+      detailMeta.innerHTML = meta.map(([k, v]) => `<div><div class="k">${esc(k)}</div><div class="v">${v}</div></div>`).join('');
+      respWrap.innerHTML = '<div class="empty">Loading…</div>';
+      evtWrap.innerHTML = '';
+      respCount.textContent = ''; evtCount.textContent = '';
+      try {
+        await ensureFreshSession();
+        const headers = authHeaders({ Accept: 'application/json' });
+        const [responses, events] = await Promise.all([
+          fetch(restUrl('game_responses', { select: RESPONSE_COLS, instance_id: 'eq.' + id, order: 'created_at.asc' }), { headers, cache: 'no-store' }).then((r) => r.ok ? r.json() : []),
+          fetch(restUrl('game_events', { select: EVENT_COLS, instance_id: 'eq.' + id, order: 'created_at.asc' }), { headers, cache: 'no-store' }).then((r) => r.ok ? r.json() : [])
+        ]);
+        renderResponses(responses || []);
+        renderEvents(events || []);
+      } catch (e) { respWrap.innerHTML = '<div class="empty">Failed to load detail: ' + esc(e && e.message) + '</div>'; }
+    }
+
+    function correctCell(v) {
+      if (v === true) return '<span class="badge ok">✓</span>';
+      if (v === false) return '<span class="badge mid">✗</span>';
+      return '<span class="tid">—</span>';
+    }
+    function renderResponses(rows) {
+      respCount.textContent = rows.length + ' response' + (rows.length === 1 ? '' : 's');
+      if (!rows.length) { respWrap.innerHTML = '<div class="empty">No responses recorded.</div>'; return; }
+      respWrap.innerHTML = '<table><thead><tr><th>#</th><th>Stop</th><th>Saved as</th><th>Kind</th><th>Answer</th><th>Correct</th><th>Time</th></tr></thead><tbody>' +
+        rows.map((r) => `<tr>
+          <td>${esc(r.stop_index != null ? r.stop_index : '—')}</td>
+          <td>${esc(r.stop_title || r.stop_id || '—')}${r.waypoint_id ? '<div class="tid">wp ' + esc(r.waypoint_id) + '</div>' : ''}</td>
+          <td class="tid">${esc(r.var_name || '—')}</td>
+          <td>${esc(r.response_kind || 'text')}</td>
+          <td>${esc(r.response_value || '—')}</td>
+          <td>${correctCell(r.is_correct)}</td>
+          <td class="tid">${esc(fmt(r.created_at))}</td>
+        </tr>`).join('') + '</tbody></table>';
+    }
+    function renderEvents(rows) {
+      evtCount.textContent = rows.length + ' event' + (rows.length === 1 ? '' : 's');
+      if (!rows.length) { evtWrap.innerHTML = '<div class="empty">No events recorded.</div>'; return; }
+      evtWrap.innerHTML = '<table><thead><tr><th>Event</th><th>Stop</th><th>Detail</th><th>Time</th></tr></thead><tbody>' +
+        rows.map((e) => `<tr>
+          <td><strong>${esc(e.event_type)}</strong></td>
+          <td>${esc(e.stop_index != null ? e.stop_index : (e.stop_id || '—'))}${e.waypoint_id ? '<div class="tid">wp ' + esc(e.waypoint_id) + '</div>' : ''}</td>
+          <td class="tid">${e.detail != null ? esc(JSON.stringify(e.detail)) : '—'}</td>
+          <td class="tid">${esc(fmt(e.created_at))}</td>
+        </tr>`).join('') + '</tbody></table>';
+    }
+
+    search.addEventListener('input', () => { state.filter = search.value.trim().toLowerCase(); render(); });
+    gameFilter.addEventListener('change', () => { state.game = gameFilter.value; render(); });
+    statusFilter.addEventListener('change', () => { state.status = statusFilter.value; render(); });
+    reloadBtn.addEventListener('click', () => { if (state.authed) loadAll(); });
+
+    window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
+    adminAuth.init();
+  </script>
+</body>
+</html>

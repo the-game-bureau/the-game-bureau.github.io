@@ -48,6 +48,11 @@
       appendOpenGameId: true
     },
     {
+      label: 'Game Plays',
+      href: '/mc/game-plays.html',
+      description: 'See every recorded playthrough — team names, their answers at each stop, and the lifecycle timeline.'
+    },
+    {
       label: 'Batch Edit',
       items: [
         {
