@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>ANCHOR EVENTS | THE GAME BUREAU</title>
+  <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="js/admin-shell.css">
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);-- Anchor events (real-world sporting matchups)
+-- ---------------------------------------------------------------------------
+-- Promotes the "anchor event" of a fandom game from fields copied onto each
+-- games row to a first-class, shared catalog. A TGB game may reference one row
+-- here via games.anchor_event_id; the builder still fills the existing
+-- denormalized away/home team columns from the chosen event, so the public
+-- engines / landing / shop keep working unchanged (backward compatible).
+--
+-- Teams are referenced by teams.tgbid (the permanent team identity). The row
+-- shape mirrors the mc/get_games.html / mc/mlb.html research output so those
+-- generators can feed the bulk importer directly.
+--
+-- Idempotent: safe to re-run.
+
+create table if not exists public.anchor_events (
+  id              text primary key,        -- e.g. NFL-2026-09-07-<home_tgbid>-<away_tgbid>
+  league          text,                    -- NFL / NBA / NHL / MLB
+  sport           text,
+  event_date      date,                    -- the REAL matchup date (not the TGB "takeover" date)
+  start_time      time,                    -- real local start / kickoff
+  away_team_tgbid integer references public.teams(tgbid),
+  home_team_tgbid integer references public.teams(tgbid),
+  away_label      text,                    -- optional free-text display fallback
+  home_label      text,
+  venue_name      text,
+  city            text,
+  status          text,                    -- scheduled / final / postponed / ...
+  away_score      integer,
+  home_score      integer,
+  source          text,                    -- where the row came from (research tool, ESPN, manual)
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+
+create index if not exists anchor_events_date_idx        on public.anchor_events (event_date);
+create index if not exists anchor_events_away_tgbid_idx  on public.anchor_events (away_team_tgbid);
+create index if not exists anchor_events_home_tgbid_idx  on public.anchor_events (home_team_tgbid);
+
+-- Link column on games (nullable — most games are not anchored).
+alter table public.games
+  add column if not exists anchor_event_id text references public.anchor_events(id);
+create index if not exists games_anchor_event_id_idx on public.games (anchor_event_id);
+
+-- keep updated_at fresh
+create or replace function public.tgb_touch_anchor_events_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists tgb_anchor_events_touch on public.anchor_events;
+create trigger tgb_anchor_events_touch
+  before update on public.anchor_events
+  for each row execute function public.tgb_touch_anchor_events_updated_at();
+
+-- RLS: public read (schedule data is not sensitive and mirrors the teams/games
+-- convention); writes restricted to photo admins (the Mission Control gate).
+alter table public.anchor_events enable row level security;
+
+drop policy if exists "anchor_events public read"  on public.anchor_events;
+drop policy if exists "anchor_events admin insert"  on public.anchor_events;
+drop policy if exists "anchor_events admin update"  on public.anchor_events;
+drop policy if exists "anchor_events admin delete"  on public.anchor_events;
+
+create policy "anchor_events public read"
+  on public.anchor_events for select
+  using (true);
+
+create policy "anchor_events admin insert"
+  on public.anchor_events for insert
+  with check (public.is_photo_admin());
+
+create policy "anchor_events admin update"
+  on public.anchor_events for update
+  using (public.is_photo_admin())
+  with check (public.is_photo_admin());
+
+create policy "anchor_events admin delete"
+  on public.anchor_events for delete
+  using (public.is_photo_admin());
+
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --accent: var(--bic-blue);
+      --danger: #a03f2d;
+      --success: #2f6b3d;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 100% 100%;
+      color: var(--ink);
+    }
+    button, input, textarea, select { font: inherit; }
+    .app { max-width: 1100px; margin: 0 auto; padding: 0 18px 80px; }
+    .section-head {
+      display: grid; gap: 6px; margin: 0 0 18px; padding: 20px 22px 22px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.14); border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.74) 0%, rgba(var(--bic-blue-rgb), 0.08) 100%);
+      box-shadow: 0 18px 36px var(--paper-shadow);
+    }
+    .kicker { margin: 0; font-family: "IBM Plex Mono", monospace; font-size: .68rem; letter-spacing: .22em; color: var(--muted); }
+    .section-head h2 { margin: 2px 0 0; font-size: 1.6rem; letter-spacing: .02em; }
+    .legend { margin: 6px 0 0; color: var(--muted); font-size: .9rem; max-width: 760px; }
+    .panel {
+      margin: 0 0 18px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px;
+      background: rgba(255,255,255,0.82); box-shadow: 0 10px 24px var(--paper-shadow);
+    }
+    .panel h3 { margin: 0 0 10px; font-size: 1rem; letter-spacing: .02em; }
+    .panel .hint { margin: 0 0 10px; color: var(--muted); font-size: .8rem; }
+    label { display: block; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 3px; }
+    input, select, textarea {
+      width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+      background: #fff; color: var(--ink);
+    }
+    textarea { min-height: 150px; font-family: "IBM Plex Mono", monospace; font-size: .8rem; resize: vertical; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1px solid var(--accent);
+      border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer; font-weight: 600; letter-spacing: .02em;
+    }
+    .btn:hover { filter: brightness(1.08); }
+    .btn.secondary { background: #fff; color: var(--accent); }
+    .btn.danger { background: #fff; color: var(--danger); border-color: var(--danger); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .row-actions { display: flex; gap: 12px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+    .status { font-family: "IBM Plex Mono", monospace; font-size: .78rem; min-height: 1.2em; }
+    .status.error { color: var(--danger); }
+    .status.success { color: var(--success); }
+    .list-toolbar { display: flex; gap: 12px; align-items: center; margin: 0 0 12px; flex-wrap: wrap; }
+    .list-toolbar input[type="search"] { max-width: 320px; }
+    table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-family: "IBM Plex Mono", monospace; font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+    td .tid { font-family: "IBM Plex Mono", monospace; font-size: .7rem; color: var(--muted); }
+    .tbl-actions { white-space: nowrap; }
+    .tbl-actions button { padding: 4px 10px; font-size: .78rem; }
+    .empty { padding: 24px; text-align: center; color: var(--muted); }
+    .count { font-family: "IBM Plex Mono", monospace; font-size: .72rem; color: var(--muted); }
+  </style>
+  <script src="js/admin-auth.js"></script>
+  <script src="js/admin-shell.js"></script>
+  <script src="js/admin-nav-menu.js"></script>
+  <script src="js/supabase-rest.js"></script>
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <div class="topbar">
+      <div class="topbar-actions" style="margin-left:auto;">
+        <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <section class="section-head">
+      <p class="kicker">TGB MISSION CONTROL</p>
+      <h2>ANCHOR EVENTS</h2>
+      <p class="legend">The shared catalog of real-world events a game can be anchored to — a <strong>concert, convention, festival, expo, sports matchup, anything</strong>. Import in bulk, add one at a time, or edit below. A sports event can also link the two teams (by <code>tgbid</code>) so the builder auto-fills a game's away/home teams; other kinds just need a title. During game building you pick an event from here.</p>
+    </section>
+
+    <!-- Bulk import -->
+    <section class="panel">
+      <h3>Bulk import (paste JSON)</h3>
+      <p class="hint">Paste a JSON array or JSONL (one object per line). Recognized keys: <code>id/game_id</code>, <code>kind/type</code>, <code>title/name</code>, <code>date/event_date</code>, <code>end_date</code>, <code>start_time/time</code>, <code>venue</code>, <code>city</code>, <code>status</code>, <code>url/link</code>, <code>description</code>, <code>source</code> — plus sports: <code>league/sport</code>, <code>away_tgbid/away_team_tgbid</code>, <code>home_tgbid/home_team_tgbid</code>, <code>away/home</code> (labels), <code>away_score/home_score</code>. Rows re-import by <code>id</code> (upsert). Kind defaults to <code>sports</code> when teams are present.</p>
+      <textarea id="importText" placeholder='[{"kind":"concert","title":"Eras Tour","date":"2026-09-07","venue":"Soldier Field","city":"Chicago, Illinois","url":"https://…"},
+{"kind":"sports","league":"NFL","date":"2026-09-07","away_tgbid":12,"home_tgbid":21,"away":"Packers","home":"Bears","venue":"Soldier Field","city":"Chicago, Illinois"}]'></textarea>
+      <div class="row-actions">
+        <button class="btn" id="importBtn" type="button">Import</button>
+        <span class="status" id="importStatus" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <!-- Add / edit one -->
+    <section class="panel">
+      <h3 id="formTitle">Add an event</h3>
+      <div class="form-grid">
+        <div><label for="fKind">Kind</label>
+          <input id="fKind" list="kindOptions" type="text" placeholder="sports, concert, convention…" autocomplete="off">
+          <datalist id="kindOptions"><option>sports</option><option>concert</option><option>convention</option><option>festival</option><option>expo</option><option>other</option></datalist></div>
+        <div><label for="fTitle">Title / name</label><input id="fTitle" type="text" placeholder="Eras Tour"></div>
+        <div><label for="fDate">Date</label><input id="fDate" type="date"></div>
+        <div><label for="fEndDate">End date</label><input id="fEndDate" type="date"></div>
+        <div><label for="fTime">Start time</label><input id="fTime" type="time"></div>
+        <div><label for="fVenue">Venue</label><input id="fVenue" type="text" placeholder="Soldier Field"></div>
+        <div><label for="fCity">City</label><input id="fCity" type="text" placeholder="Chicago, Illinois"></div>
+        <div><label for="fStatus">Status</label><input id="fStatus" type="text" placeholder="scheduled"></div>
+        <div><label for="fUrl">URL</label><input id="fUrl" type="url" placeholder="https://…"></div>
+        <div><label for="fSource">Source</label><input id="fSource" type="text" placeholder="manual"></div>
+      </div>
+      <div style="margin:14px 0 0;padding:12px;border:1px dashed var(--line);border-radius:8px;">
+        <p class="hint" style="margin:0 0 10px;">Sports only — pick the two teams (leave blank for concerts, conventions, etc.). Filling these links to the <strong>teams</strong> catalog and lets the builder auto-fill a game's away/home teams.</p>
+        <div class="form-grid">
+          <div><label for="fLeague">League</label>
+            <select id="fLeague"><option value="">—</option><option>NFL</option><option>NBA</option><option>NHL</option><option>MLB</option></select></div>
+          <div><label for="fAway">Away team (fan's team)</label><select id="fAway"><option value="">—</option></select></div>
+          <div><label for="fHome">Home team</label><select id="fHome"><option value="">—</option></select></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;"><label for="fDescription">Description</label><textarea id="fDescription" style="min-height:64px;" placeholder="Optional notes about the event"></textarea></div>
+      <div class="row-actions">
+        <button class="btn" id="saveBtn" type="button">Add event</button>
+        <button class="btn secondary" id="resetBtn" type="button" hidden>Cancel edit</button>
+        <span class="status" id="formStatus" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <!-- List -->
+    <section class="panel">
+      <div class="list-toolbar">
+        <h3 style="margin:0;">Events</h3>
+        <span class="count" id="listCount"></span>
+        <input type="search" id="listSearch" placeholder="Search title / team / venue / city / kind" style="margin-left:auto;">
+        <button class="btn secondary" id="reloadBtn" type="button">Reload</button>
+      </div>
+      <div id="listWrap">
+        <div class="empty" id="listEmpty">Sign in with an admin account to load events.</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+    const TABLE = 'anchor_events';
+    const COLUMNS = ['id','kind','title','description','url','league','sport','event_date','end_date','start_time','away_team_tgbid','home_team_tgbid','away_label','home_label','venue_name','city','status','away_score','home_score','source','updated_at'];
+
+    // --- DOM refs ---
+    const signOutBtn = document.getElementById('signOutBtn');
+    const importText = document.getElementById('importText');
+    const importBtn = document.getElementById('importBtn');
+    const importStatus = document.getElementById('importStatus');
+    const fKind = document.getElementById('fKind');
+    const fTitle = document.getElementById('fTitle');
+    const fLeague = document.getElementById('fLeague');
+    const fAway = document.getElementById('fAway');
+    const fHome = document.getElementById('fHome');
+    const fDate = document.getElementById('fDate');
+    const fEndDate = document.getElementById('fEndDate');
+    const fTime = document.getElementById('fTime');
+    const fVenue = document.getElementById('fVenue');
+    const fCity = document.getElementById('fCity');
+    const fStatus = document.getElementById('fStatus');
+    const fUrl = document.getElementById('fUrl');
+    const fSource = document.getElementById('fSource');
+    const fDescription = document.getElementById('fDescription');
+    const saveBtn = document.getElementById('saveBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const formStatus = document.getElementById('formStatus');
+    const formTitle = document.getElementById('formTitle');
+    const listWrap = document.getElementById('listWrap');
+    const listCount = document.getElementById('listCount');
+    const listSearch = document.getElementById('listSearch');
+    const reloadBtn = document.getElementById('reloadBtn');
+
+    const state = { authed: false, rows: [], teams: [], teamsById: new Map(), editingId: null, filter: '' };
+
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      onAuthorized: async () => { state.authed = true; await loadAll(); },
+      onSignedOut: () => { state.authed = false; state.rows = []; render(); document.getElementById('listEmpty') && (document.getElementById('listEmpty').textContent = 'Sign in with an admin account to load events.'); }
+    });
+
+    function restUrl(table, params) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params || {}).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v)); });
+      return url.toString();
+    }
+    function authHeaders(extra) {
+      if (adminAuth && typeof adminAuth.authHeaders === 'function') return adminAuth.authHeaders(extra || {});
+      const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      const token = (session && session.access_token) || SUPABASE_CONFIG.publishableKey;
+      return Object.assign({ apikey: SUPABASE_CONFIG.publishableKey, Authorization: 'Bearer ' + token, Accept: 'application/json' }, extra || {});
+    }
+    async function ensureFreshSession() {
+      if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') { try { await adminAuth.ensureFreshSession(); } catch (e) {} }
+    }
+    async function readError(response, fallback) {
+      try { const t = await response.text(); if (!t) return fallback;
+        try { const p = JSON.parse(t); return p.message || p.error_description || p.error || t; } catch (e) { return t; } }
+      catch (e) { return fallback; }
+    }
+    function setStatus(el, msg, kind) {
+      if (!el) return; el.textContent = msg || '';
+      el.classList.toggle('error', kind === 'error'); el.classList.toggle('success', kind === 'success');
+    }
+
+    // --- Teams (for dropdowns + display) ---
+    function teamLabel(team) {
+      if (!team) return '';
+      const name = team.full_name || [team.fanbase || team.first_name, team.mascot].filter(Boolean).join(' ') || ('tgbid ' + team.tgbid);
+      return (team.league ? team.league + ' · ' : '') + name;
+    }
+    function fillTeamSelect(select) {
+      const cur = select.value;
+      select.innerHTML = '<option value="">—</option>';
+      state.teams.forEach((t) => {
+        const opt = document.createElement('option');
+        opt.value = String(t.tgbid);
+        opt.textContent = teamLabel(t);
+        select.appendChild(opt);
+      });
+      select.value = cur;
+    }
+    async function loadTeams() {
+      const url = restUrl('teams', { select: 'tgbid,league,full_name,first_name,fanbase,mascot', order: 'league.asc,full_name.asc' });
+      const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
+      state.teams = (rows || []).filter((t) => t.tgbid != null);
+      state.teamsById = new Map(state.teams.map((t) => [String(t.tgbid), t]));
+      fillTeamSelect(fAway); fillTeamSelect(fHome);
+    }
+
+    // --- Events ---
+    async function loadEvents() {
+      const url = restUrl(TABLE, { select: COLUMNS.join(','), order: 'event_date.desc.nullslast,id.asc' });
+      state.rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' })) || [];
+    }
+    async function loadAll() {
+      try {
+        await ensureFreshSession();
+        await loadTeams();
+        await loadEvents();
+        render();
+      } catch (e) { console.error(e); setStatus(formStatus, 'Load failed: ' + (e && e.message), 'error'); }
+    }
+
+    function slug(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40); }
+    function hasTeams(row) {
+      return (row.away_team_tgbid != null && row.away_team_tgbid !== '') || (row.home_team_tgbid != null && row.home_team_tgbid !== '');
+    }
+    function makeEventId(row) {
+      const d = (row.event_date && String(row.event_date).trim()) || 'undated';
+      if (hasTeams(row)) {
+        const lg = String(row.league || row.sport || 'EVT').toUpperCase().replace(/[^A-Z0-9]/g, '') || 'EVT';
+        const h = row.home_team_tgbid != null && row.home_team_tgbid !== '' ? row.home_team_tgbid : 'h';
+        const a = row.away_team_tgbid != null && row.away_team_tgbid !== '' ? row.away_team_tgbid : 'a';
+        return [lg, d, h, a].join('-');
+      }
+      const k = String(row.kind || 'EVENT').toUpperCase().replace(/[^A-Z0-9]/g, '') || 'EVENT';
+      return [k, d, slug(row.title) || 'event'].join('-');
+    }
+
+    function toInt(v) { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; }
+    function clean(v) { const s = (v == null ? '' : String(v)).trim(); return s === '' ? null : s; }
+
+    // Map an arbitrary imported object onto our column shape.
+    function mapImportedRow(obj) {
+      const row = {
+        league: clean(obj.league || obj.sport),
+        sport: clean(obj.sport || obj.league),
+        title: clean(obj.title || obj.name || obj.event),
+        description: clean(obj.description || obj.notes),
+        url: clean(obj.url || obj.link),
+        event_date: clean(obj.event_date || obj.date),
+        end_date: clean(obj.end_date || obj.enddate),
+        start_time: clean(obj.start_time || obj.time),
+        away_team_tgbid: toInt(obj.away_team_tgbid != null ? obj.away_team_tgbid : obj.away_tgbid),
+        home_team_tgbid: toInt(obj.home_team_tgbid != null ? obj.home_team_tgbid : obj.home_tgbid),
+        away_label: clean(obj.away_label || obj.away),
+        home_label: clean(obj.home_label || obj.home),
+        venue_name: clean(obj.venue_name || obj.venue),
+        city: clean(obj.city),
+        status: clean(obj.status),
+        away_score: toInt(obj.away_score),
+        home_score: toInt(obj.home_score),
+        source: clean(obj.source) || 'import'
+      };
+      // Kind defaults to 'sports' when teams are present, else 'other'.
+      row.kind = clean(obj.kind || obj.type) || (hasTeams(row) ? 'sports' : 'other');
+      row.id = clean(obj.id || obj.game_id) || makeEventId(row);
+      return row;
+    }
+
+    function parseImport(text) {
+      const trimmed = String(text || '').trim();
+      if (!trimmed) return { rows: [], errors: [] };
+      const rows = [], errors = [];
+      // Try a single JSON array/object first.
+      if (trimmed[0] === '[' || trimmed[0] === '{') {
+        try {
+          const parsed = JSON.parse(trimmed);
+          const arr = Array.isArray(parsed) ? parsed : [parsed];
+          arr.forEach((o, i) => { try { rows.push(mapImportedRow(o)); } catch (e) { errors.push('item ' + i + ': ' + e.message); } });
+          return { rows, errors };
+        } catch (e) { /* fall through to JSONL */ }
+      }
+      // JSONL: one object per line.
+      trimmed.split(/\r?\n/).forEach((line, i) => {
+        const s = line.trim(); if (!s) return;
+        try { rows.push(mapImportedRow(JSON.parse(s))); } catch (e) { errors.push('line ' + (i + 1) + ': ' + e.message); }
+      });
+      return { rows, errors };
+    }
+
+    async function upsertRows(rows) {
+      await ensureFreshSession();
+      const res = await fetch(restUrl(TABLE, {}), {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }),
+        body: JSON.stringify(rows)
+      });
+      if (!res.ok) throw new Error(await readError(res, 'upsert failed (' + res.status + ')'));
+    }
+
+    async function doImport() {
+      if (!state.authed) { setStatus(importStatus, 'Sign in first.', 'error'); return; }
+      const { rows, errors } = parseImport(importText.value);
+      if (!rows.length) { setStatus(importStatus, errors.length ? ('No valid rows. ' + errors[0]) : 'Nothing to import.', 'error'); return; }
+      importBtn.disabled = true; setStatus(importStatus, 'Importing ' + rows.length + '…');
+      try {
+        await upsertRows(rows);
+        await loadEvents(); render();
+        setStatus(importStatus, 'Imported ' + rows.length + ' event(s)' + (errors.length ? (', ' + errors.length + ' skipped') : '') + '.', 'success');
+        if (!errors.length) importText.value = '';
+      } catch (e) { setStatus(importStatus, String(e.message || e), 'error'); }
+      finally { importBtn.disabled = false; }
+    }
+
+    // --- Add / edit form ---
+    function readForm() {
+      const row = {
+        title: clean(fTitle.value),
+        description: clean(fDescription.value),
+        url: clean(fUrl.value),
+        league: clean(fLeague.value),
+        sport: clean(fLeague.value),
+        event_date: clean(fDate.value),
+        end_date: clean(fEndDate.value),
+        start_time: clean(fTime.value),
+        away_team_tgbid: toInt(fAway.value),
+        home_team_tgbid: toInt(fHome.value),
+        away_label: (() => { const t = state.teamsById.get(String(fAway.value)); return t ? (t.fanbase || t.first_name || '') : null; })(),
+        home_label: (() => { const t = state.teamsById.get(String(fHome.value)); return t ? (t.fanbase || t.first_name || '') : null; })(),
+        venue_name: clean(fVenue.value),
+        city: clean(fCity.value),
+        status: clean(fStatus.value),
+        source: clean(fSource.value) || 'manual'
+      };
+      row.kind = clean(fKind.value) || (hasTeams(row) ? 'sports' : 'other');
+      row.id = state.editingId || makeEventId(row);
+      return row;
+    }
+    function startEdit(row) {
+      state.editingId = row.id;
+      fKind.value = row.kind || '';
+      fTitle.value = row.title || '';
+      fLeague.value = row.league || '';
+      fAway.value = row.away_team_tgbid != null ? String(row.away_team_tgbid) : '';
+      fHome.value = row.home_team_tgbid != null ? String(row.home_team_tgbid) : '';
+      fDate.value = row.event_date || '';
+      fEndDate.value = row.end_date || '';
+      fTime.value = row.start_time ? String(row.start_time).slice(0, 5) : '';
+      fVenue.value = row.venue_name || '';
+      fCity.value = row.city || '';
+      fStatus.value = row.status || '';
+      fUrl.value = row.url || '';
+      fSource.value = row.source || '';
+      fDescription.value = row.description || '';
+      formTitle.textContent = 'Edit event — ' + row.id;
+      saveBtn.textContent = 'Update event';
+      resetBtn.hidden = false;
+      setStatus(formStatus, '');
+      window.scrollTo({ top: document.querySelector('#formTitle').offsetTop - 80, behavior: 'smooth' });
+    }
+    function resetForm() {
+      state.editingId = null;
+      [fKind, fTitle, fLeague, fAway, fHome, fDate, fEndDate, fTime, fVenue, fCity, fStatus, fUrl, fSource, fDescription].forEach((el) => { el.value = ''; });
+      formTitle.textContent = 'Add an event'; saveBtn.textContent = 'Add event'; resetBtn.hidden = true; setStatus(formStatus, '');
+    }
+    async function saveForm() {
+      if (!state.authed) { setStatus(formStatus, 'Sign in first.', 'error'); return; }
+      const row = readForm();
+      if (!row.title && (row.away_team_tgbid == null || row.home_team_tgbid == null)) {
+        setStatus(formStatus, 'Give the event a title — or, for a sports matchup, pick both teams.', 'error'); return;
+      }
+      saveBtn.disabled = true; setStatus(formStatus, 'Saving…');
+      try {
+        await upsertRows([row]);
+        await loadEvents(); render();
+        setStatus(formStatus, (state.editingId ? 'Updated ' : 'Added ') + row.id, 'success');
+        resetForm();
+      } catch (e) { setStatus(formStatus, String(e.message || e), 'error'); }
+      finally { saveBtn.disabled = false; }
+    }
+    async function deleteRow(id) {
+      if (!confirm('Delete anchor event\n' + id + '?')) return;
+      try {
+        await ensureFreshSession();
+        const res = await fetch(restUrl(TABLE, { id: 'eq.' + id }), { method: 'DELETE', headers: authHeaders({ Prefer: 'return=minimal' }) });
+        if (!res.ok) throw new Error(await readError(res, 'delete failed'));
+        state.rows = state.rows.filter((r) => r.id !== id); render();
+      } catch (e) { alert('Delete failed: ' + (e.message || e)); }
+    }
+
+    // --- Render list ---
+    function teamName(tgbid, fallback) {
+      const t = state.teamsById.get(String(tgbid));
+      if (t) return t.full_name || [t.fanbase || t.first_name, t.mascot].filter(Boolean).join(' ');
+      return fallback || (tgbid != null ? ('tgbid ' + tgbid) : '—');
+    }
+    function matchesFilter(r) {
+      if (!state.filter) return true;
+      const hay = [r.id, r.kind, r.title, r.description, r.league, r.venue_name, r.city, r.status,
+        teamName(r.away_team_tgbid, r.away_label), teamName(r.home_team_tgbid, r.home_label)]
+        .filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(state.filter);
+    }
+    function render() {
+      const rows = state.rows.filter(matchesFilter);
+      listCount.textContent = state.rows.length ? (rows.length + ' of ' + state.rows.length) : '';
+      if (!state.authed) { listWrap.innerHTML = '<div class="empty">Sign in with an admin account to load events.</div>'; return; }
+      if (!state.rows.length) { listWrap.innerHTML = '<div class="empty">No anchor events yet. Import a schedule or add one above.</div>'; return; }
+      if (!rows.length) { listWrap.innerHTML = '<div class="empty">No events match your search.</div>'; return; }
+      const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const body = rows.map((r) => {
+        const teams = hasTeams(r);
+        const matchup = teams ? (teamName(r.away_team_tgbid, r.away_label) + ' @ ' + teamName(r.home_team_tgbid, r.home_label)) : '';
+        const title = r.title || matchup || r.id;
+        const sub = (r.title && matchup) ? matchup : '';
+        const dateSub = [r.end_date ? '→ ' + r.end_date : '', r.start_time ? String(r.start_time).slice(0,5) : ''].filter(Boolean);
+        return `
+        <tr>
+          <td>${esc(r.event_date || '—')}${dateSub.map((d) => '<div class="tid">' + esc(d) + '</div>').join('')}</td>
+          <td>${esc(r.kind || (teams ? 'sports' : '—'))}</td>
+          <td>${esc(title)}${sub ? '<div class="tid">' + esc(sub) + '</div>' : ''}</td>
+          <td>${esc(r.venue_name || '—')}${r.city ? '<div class="tid">' + esc(r.city) + '</div>' : ''}</td>
+          <td>${esc(r.status || '—')}<div class="tid">${esc(r.id)}</div></td>
+          <td class="tbl-actions">
+            <button class="btn secondary" data-edit="${esc(r.id)}" type="button">Edit</button>
+            <button class="btn danger" data-del="${esc(r.id)}" type="button">Delete</button>
+          </td>
+        </tr>`;
+      }).join('');
+      listWrap.innerHTML = `<table>
+        <thead><tr><th>Date</th><th>Kind</th><th>Event</th><th>Venue</th><th>Status / id</th><th></th></tr></thead>
+        <tbody>${body}</tbody></table>`;
+      listWrap.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => {
+        const row = state.rows.find((r) => r.id === b.getAttribute('data-edit')); if (row) startEdit(row);
+      }));
+      listWrap.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => deleteRow(b.getAttribute('data-del'))));
+    }
+
+    // --- Wire up ---
+    importBtn.addEventListener('click', doImport);
+    saveBtn.addEventListener('click', saveForm);
+    resetBtn.addEventListener('click', resetForm);
+    reloadBtn.addEventListener('click', () => { if (state.authed) loadAll(); });
+    listSearch.addEventListener('input', () => { state.filter = listSearch.value.trim().toLowerCase(); render(); });
+
+    window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
+    adminAuth.init();
+  </script>
+</body>
+</html>

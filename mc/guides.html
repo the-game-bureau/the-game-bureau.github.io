@@ -616,6 +616,7 @@
   <script src="js/admin-auth.js"></script>
   <script src="js/admin-shell.js"></script>
   <script src="js/admin-nav-menu.js"></script>
+  <script src="picmaker/prompts.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -839,30 +840,13 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       }
     }
 
-    // Build a paste-ready AI IMAGE prompt for the guide portrait, from the
-    // current guide name / bio / background.
+    // Build a paste-ready AI IMAGE prompt for the guide portrait.
     function buildGuideImagePrompt(game) {
-      const name = String(game.guide_name || '').trim();
-      const bio = String(game.guide_bio || '').trim();
-      const background = String(game.guide_background || '').trim();
-      const lines = [];
-      lines.push('Generate a single portrait image to use as the in-game avatar for the guide character of a real-world, location-based scavenger-hunt game.');
-      lines.push('');
-      lines.push('CHARACTER');
-      lines.push('- Name: ' + (name || '[unnamed guide]'));
-      if (bio) lines.push('- Bio: ' + bio);
-      if (background) lines.push('- Background: ' + background);
-      if (!bio && !background) lines.push('- (No bio/background filled in yet — invent a fitting look from the name and the tour-guide role.)');
-      lines.push('');
-      lines.push('IMAGE DIRECTION');
-      lines.push('- Head-and-shoulders character portrait, facing the viewer, warm and confident.');
-      lines.push('- Polished, stylized digital illustration — not a photograph of a real person.');
-      lines.push('- Clear, well-lit face; simple, uncluttered background that hints at the setting without distracting.');
-      lines.push('- Square 1:1 framing, subject centered, safe to crop to a circle for an avatar.');
-      lines.push('- No text, letters, logos, or watermarks anywhere in the image.');
-      lines.push('');
-      lines.push('Produce the image now.');
-      return lines.join('\n');
+      return window.TgbPicmakerPrompts.buildGuideImagePrompt({
+        guideName: game && game.guide_name,
+        guideBio: game && game.guide_bio,
+        guideBackground: game && game.guide_background
+      });
     }
 
     async function generateGuideImagePrompt(gameId) {

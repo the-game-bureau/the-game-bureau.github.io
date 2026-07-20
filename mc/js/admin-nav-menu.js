@@ -66,6 +66,11 @@
           description: 'Manage the waypoints catalog — add, edit, and delete real-world points.'
         },
         {
+          href: '/mc/anchor-events.html',
+          label: 'Anchor Events',
+          description: 'Manage the anchor-events catalog — the real sporting matchups a fandom game can be anchored to. Bulk-import, add, edit, delete.'
+        },
+        {
           href: '/mc/mapper.html',
           label: 'Game Mapper',
           description: 'Build a game’s route from ordered waypoints and save it to the map.'
@@ -97,6 +102,16 @@
           href: '/sound/admin.html',
           label: 'Soundtracks',
           description: 'Maintain the city soundtracks — review Gmail suggestions, add tracks, and how it all works.'
+        }
+      ]
+    },
+    {
+      label: 'Creative',
+      items: [
+        {
+          href: '/mc/picmaker/',
+          label: 'Picmaker',
+          description: 'Generate sport marks, takeover hero images, and reusable guide portrait image prompts.'
         }
       ]
     },

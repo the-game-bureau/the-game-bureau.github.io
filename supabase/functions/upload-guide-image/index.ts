@@ -1,9 +1,14 @@
-// upload-guide-image — POST { url: string, gameId: string }
+// upload-guide-image — POST { url: string, gameId: string, bucket?: 'guides' | 'logos' }
 //
 // Fetches an image from an arbitrary URL server-side (no browser CORS limits),
-// stores it in the public `guides` bucket as `{gameId}.{ext}` (upsert), and
+// stores it in the given public bucket as `{gameId}.{ext}` (upsert), and
 // returns its public URL. The mc/overview.html editor then records that URL in
-// games.guide_image_url so the play-time engines render it.
+// the matching games column (guide_image_url for 'guides', logo_url for
+// 'logos') so the landing page / play-time engines / shop render it.
+//
+// `bucket` defaults to 'guides' so the original guide-image callers are
+// unchanged; the logo uploader passes bucket: 'logos'. Both buckets are keyed
+// by game id, so they must stay separate to avoid path collisions.
 //
 // Auth: requires the caller's JWT in the Authorization header AND that the JWT
 // identifies a photo admin (via is_photo_admin()). The upload uses the service
@@ -25,7 +30,8 @@ const SUPABASE_URL      = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const SERVICE_ROLE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-const BUCKET       = 'guides';
+const ALLOWED_BUCKETS = ['guides', 'logos'];
+const DEFAULT_BUCKET  = 'guides';
 const MAX_BYTES    = 15 * 1024 * 1024; // 15 MB cap on source images
 const FETCH_TIMEOUT_MS = 20000;
 
@@ -89,14 +95,16 @@ Deno.serve(async (req) => {
   if (adminErr) return json(500, { error: 'admin check failed: ' + adminErr.message });
   if (!isAdmin)  return json(403, { error: 'not authorized' });
 
-  let body: { url?: string; gameId?: string } = {};
+  let body: { url?: string; gameId?: string; bucket?: string } = {};
   try { body = await req.json(); } catch { return json(400, { error: 'invalid JSON body' }); }
 
   const sourceUrl = String(body.url || '').trim();
   const gameId    = sanitizeGameId(body.gameId || '');
+  const bucket    = String(body.bucket || DEFAULT_BUCKET).trim().toLowerCase();
   if (!sourceUrl)         return json(400, { error: 'missing url' });
   if (!gameId)            return json(400, { error: 'missing or invalid gameId' });
   if (!/^https?:\/\//i.test(sourceUrl)) return json(400, { error: 'url must be http(s)' });
+  if (!ALLOWED_BUCKETS.includes(bucket)) return json(400, { error: 'bucket must be one of: ' + ALLOWED_BUCKETS.join(', ') });
 
   // --- Fetch the source image (server-side, so no browser CORS) -----------
   let sourceResp: Response;
@@ -124,7 +132,7 @@ Deno.serve(async (req) => {
   const path = `${gameId}.${ext}`;
   const uploadType = Object.keys(EXT_BY_MIME).find((m) => EXT_BY_MIME[m] === ext) || 'application/octet-stream';
 
-  const { error: upErr } = await admin.storage.from(BUCKET).upload(path, buf, {
+  const { error: upErr } = await admin.storage.from(bucket).upload(path, buf, {
     contentType: uploadType,
     upsert: true,
     cacheControl: '3600',
@@ -133,8 +141,8 @@ Deno.serve(async (req) => {
 
   // Public URL + a cache-busting version param so replacing an existing image
   // isn't masked by a stale CDN copy.
-  const { data: pub } = admin.storage.from(BUCKET).getPublicUrl(path);
-  const publicUrl = (pub?.publicUrl || `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`)
+  const { data: pub } = admin.storage.from(bucket).getPublicUrl(path);
+  const publicUrl = (pub?.publicUrl || `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`)
     + '?v=' + Date.now();
 
   return json(200, { url: publicUrl, path });

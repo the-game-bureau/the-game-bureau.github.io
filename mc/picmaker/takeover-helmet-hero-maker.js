@@ -8,22 +8,22 @@
 // logo_url is patched in Supabase to the new URL.
 //
 // Usage:
-//   node _dev/scripts/takeover-helmet-hero-maker.js           # generate + update DB
-//   node _dev/scripts/takeover-helmet-hero-maker.js --dry-run # generate, no DB write
-//   node _dev/scripts/takeover-helmet-hero-maker.js --only=<game-id>
+//   node mc/picmaker/takeover-helmet-hero-maker.js           # generate + update DB
+//   node mc/picmaker/takeover-helmet-hero-maker.js --dry-run # generate, no DB write
+//   node mc/picmaker/takeover-helmet-hero-maker.js --only=<game-id>
 
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-const { helmetSVGString } = require('../../assets/games/helmets/helmet.js');
+const { helmetSVGString } = require('./helmet.js');
 const TeamPalette = require('../../assets/team-palette.js');
 
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 const USER_AGENT = 'TGB Takeover Hero Maker/1.0';
 
-const ASSET_DIR = path.resolve(__dirname, '..', '..', 'site', 'assets', 'games', 'takeover-hero');
+const ASSET_DIR = path.resolve(__dirname, '..', '..', 'assets', 'games', 'takeover-hero');
 // Domain-relative URL: resolves to localhost during local dev and to
 // thegamebureau.com in production -- one stored value, works in both contexts.
 const ASSET_URL_BASE = '/assets/games/takeover-hero';

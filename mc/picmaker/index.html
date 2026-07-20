@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>PICMAKER | THE GAME BUREAU</title>
+  <link rel="icon" href="../../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --bic-red: #c23737;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255,255,255,0.92);
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);
+      --accent: var(--bic-blue);
+      --danger: #a03f2d;
+      --success: #2f6b3d;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+    }
+
+    button,
+    input,
+    textarea,
+    select { font: inherit; }
+
+    .section-head {
+      display: grid;
+      gap: 8px;
+      margin: 0 0 18px;
+      padding: 22px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.14);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.76) 0%, rgba(var(--bic-blue-rgb), 0.08) 100%);
+      box-shadow: 0 18px 36px var(--paper-shadow);
+    }
+
+    .kicker,
+    .tool-label,
+    .field span,
+    .mini-title,
+    .pill,
+    .code-line {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .kicker {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.74rem;
+      letter-spacing: 0.18em;
+    }
+
+    .section-head h1 {
+      margin: 0;
+      font-size: clamp(2.2rem, 6vw, 4.8rem);
+      line-height: 0.94;
+      letter-spacing: -0.04em;
+    }
+
+    .section-head p {
+      max-width: 760px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.55;
+    }
+
+    .directory {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 18px;
+    }
+
+    .directory a {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: rgba(255,255,255,0.88);
+      color: var(--ink);
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    .directory a:hover,
+    .directory a:focus-visible {
+      background: #fff;
+      border-color: var(--bic-blue);
+      outline: none;
+      transform: translateY(-1px);
+    }
+
+    .tools {
+      display: grid;
+      gap: 18px;
+    }
+
+    .tool {
+      display: grid;
+      grid-template-columns: minmax(300px, 0.9fr) minmax(320px, 1.1fr);
+      gap: 16px;
+      align-items: stretch;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--paper);
+      box-shadow: 0 12px 28px var(--paper-shadow);
+    }
+
+    .tool-copy {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+    }
+
+    .tool-label {
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .tool h2 {
+      margin: 0;
+      font-size: clamp(1.35rem, 2.5vw, 2rem);
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+
+    .tool p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .tool-panel {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      padding: 14px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.16);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.72);
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .field-grid--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .field-grid--one { grid-template-columns: 1fr; }
+
+    .field {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .field span {
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .field input,
+    .field textarea,
+    .field select {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      outline: none;
+    }
+
+    .field textarea {
+      min-height: 90px;
+      line-height: 1.42;
+      resize: vertical;
+    }
+
+    .color-row {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 7px;
+      align-items: center;
+    }
+
+    .field input[type="color"] {
+      min-height: 42px;
+      padding: 3px;
+      cursor: pointer;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    .btn:hover,
+    .btn:focus-visible {
+      background: rgba(var(--bic-blue-rgb), 0.08);
+      border-color: var(--bic-blue);
+      outline: none;
+      transform: translateY(-1px);
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn.primary:hover,
+    .btn.primary:focus-visible {
+      background: rgba(var(--bic-blue-rgb), 0.86);
+      color: #fff;
+    }
+
+    .btn:disabled {
+      opacity: 0.48;
+      cursor: default;
+      transform: none;
+    }
+
+    .status {
+      min-height: 1.35em;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.4;
+    }
+
+    .status.is-error {
+      color: var(--danger);
+      font-weight: 800;
+    }
+
+    .status.is-success {
+      color: var(--success);
+      font-weight: 800;
+    }
+
+    .preview-wrap {
+      display: grid;
+      gap: 10px;
+    }
+
+    .mark-preview {
+      display: grid;
+      place-items: center;
+      min-height: 260px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.16);
+      border-radius: 8px;
+      background:
+        linear-gradient(45deg, rgba(var(--bic-blue-rgb),0.07) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(var(--bic-blue-rgb),0.07) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(var(--bic-blue-rgb),0.07) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(var(--bic-blue-rgb),0.07) 75%),
+        #fff;
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+    }
+
+    .mark-preview img {
+      width: min(220px, 70vw);
+      height: min(220px, 70vw);
+      image-rendering: pixelated;
+      object-fit: contain;
+    }
+
+    .hero-canvas-wrap {
+      overflow: auto;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.16);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb),0.06);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      aspect-ratio: 3 / 2;
+      image-rendering: pixelated;
+      background: #555558;
+    }
+
+    .prompt-output {
+      min-height: 280px;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.82rem;
+      line-height: 1.48;
+    }
+
+    .mini {
+      display: grid;
+      gap: 6px;
+      padding: 10px;
+      border: 1px dashed rgba(var(--bic-blue-rgb), 0.22);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.035);
+    }
+
+    .mini-title,
+    .pill {
+      color: var(--muted);
+      font-size: 0.66rem;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 8px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.16);
+      border-radius: 999px;
+      background: #fff;
+    }
+
+    .code-line {
+      display: block;
+      overflow-x: auto;
+      padding: 10px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.14);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 0.72rem;
+      letter-spacing: 0;
+      text-transform: none;
+      white-space: nowrap;
+    }
+
+    .signout-btn {
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      border-radius: 50%;
+      background: #fff;
+      border: 1px solid var(--line);
+      cursor: pointer;
+    }
+
+    .signout-btn svg { width: 22px; height: 22px; color: var(--ink); }
+
+    @media (max-width: 920px) {
+      .tool { grid-template-columns: 1fr; }
+      .field-grid,
+      .field-grid--two { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="../js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <div class="topbar">
+      <div class="topbar-actions" style="margin-left:auto;">
+        <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <section class="section-head">
+      <p class="kicker">TGB Mission Control</p>
+      <h1>Picmaker</h1>
+      <p>One bench for TGB image work: sport marks, takeover hero PNGs, and paste-ready image prompts for guide portraits.</p>
+      <p class="status" id="pageStatus" aria-live="polite">Sign in with an admin account.</p>
+    </section>
+
+    <nav class="directory" aria-label="Picmaker tools">
+      <a href="#guide-prompts">Guide Prompts</a>
+      <a href="#sport-marks">Sport Marks</a>
+      <a href="#takeover-heroes">Takeover Heroes</a>
+      <a href="takeover-helmet-hero-maker.js">Batch Script</a>
+    </nav>
+
+    <div class="tools">
+      <section class="tool" id="guide-prompts">
+        <div class="tool-copy">
+          <span class="tool-label">Image Prompt</span>
+          <h2>Guide Portraits</h2>
+          <p>Builds the same image prompt used by the editor and Guides batch page. Load a game by ID or type the guide fields by hand, then copy the prompt into your image generator and save the result under `assets/guides/`.</p>
+          <div class="mini">
+            <span class="mini-title">Output convention</span>
+            <span class="code-line" id="guideAssetHint">/assets/guides/{game-id}.png</span>
+          </div>
+        </div>
+        <div class="tool-panel">
+          <div class="field-grid field-grid--two">
+            <label class="field">
+              <span>Game ID</span>
+              <input id="guideGameId" type="text" autocomplete="off" placeholder="atl2026nor">
+            </label>
+            <label class="field">
+              <span>Guide Name</span>
+              <input id="guideName" type="text" autocomplete="off">
+            </label>
+          </div>
+          <div class="field-grid field-grid--one">
+            <label class="field">
+              <span>Guide Bio</span>
+              <textarea id="guideBio"></textarea>
+            </label>
+            <label class="field">
+              <span>Guide Background</span>
+              <textarea id="guideBackground"></textarea>
+            </label>
+          </div>
+          <div class="actions">
+            <button class="btn" id="loadGuideGameBtn" type="button">Load Game</button>
+            <button class="btn primary" id="copyGuidePromptBtn" type="button">Copy Prompt</button>
+          </div>
+          <div class="status" id="guideStatus" aria-live="polite"></div>
+          <label class="field">
+            <span>Prompt</span>
+            <textarea class="prompt-output" id="guidePromptOutput" spellcheck="false"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="tool" id="sport-marks">
+        <div class="tool-copy">
+          <span class="tool-label">SVG Generator</span>
+          <h2>Sport Marks</h2>
+          <p>The canonical football helmet, baseball, and basketball mark generators now live here. Public pages still have compatibility wrappers at the old asset URLs.</p>
+          <div class="mini">
+            <span class="mini-title">Source files</span>
+            <div class="pill-row">
+              <span class="pill">helmet.js</span>
+              <span class="pill">baseball.js</span>
+              <span class="pill">basketball.js</span>
+            </div>
+          </div>
+        </div>
+        <div class="tool-panel">
+          <div class="field-grid field-grid--two">
+            <label class="field">
+              <span>Sport</span>
+              <select id="markSport">
+                <option value="football">Football Helmet</option>
+                <option value="baseball">Baseball</option>
+                <option value="basketball">Basketball</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Team Key</span>
+              <input id="markTeamKey" type="text" autocomplete="off" placeholder="NFL:NO">
+            </label>
+          </div>
+          <div class="field-grid">
+            <label class="field">
+              <span>Primary</span>
+              <span class="color-row"><input id="markPrimaryColor" type="color" value="#2d4880"><input id="markPrimary" type="text" value="#2D4880"></span>
+            </label>
+            <label class="field">
+              <span>Secondary</span>
+              <span class="color-row"><input id="markSecondaryColor" type="color" value="#c23737"><input id="markSecondary" type="text" value="#C23737"></span>
+            </label>
+            <label class="field">
+              <span>Tertiary</span>
+              <span class="color-row"><input id="markTertiaryColor" type="color" value="#ffffff"><input id="markTertiary" type="text" value="#FFFFFF"></span>
+            </label>
+          </div>
+          <div class="actions">
+            <button class="btn" id="loadMarkTeamBtn" type="button">Load Team</button>
+            <button class="btn" id="downloadMarkSvgBtn" type="button">Download SVG</button>
+            <button class="btn primary" id="copyMarkDataBtn" type="button">Copy Data URI</button>
+          </div>
+          <div class="status" id="markStatus" aria-live="polite"></div>
+          <div class="preview-wrap">
+            <div class="mark-preview"><img id="markPreview" alt="Sport mark preview"></div>
+            <label class="field">
+              <span>Data URI</span>
+              <textarea id="markOutput" spellcheck="false"></textarea>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="tool" id="takeover-heroes">
+        <div class="tool-copy">
+          <span class="tool-label">PNG Composer</span>
+          <h2>Takeover Hero Images</h2>
+          <p>Generate the 1200 x 800 helmet-vs-helmet hero PNG used by fandom game cards and landing pages. Use the browser composer for one-offs; use the batch script for all Takeover games and database patching.</p>
+          <div class="mini">
+            <span class="mini-title">Batch command</span>
+            <code class="code-line">node mc/picmaker/takeover-helmet-hero-maker.js --dry-run</code>
+          </div>
+        </div>
+        <div class="tool-panel">
+          <div class="field-grid">
+            <label class="field">
+              <span>Game ID</span>
+              <input id="heroGameId" type="text" autocomplete="off" placeholder="nfl2026-20260913-no-det-no-detroit">
+            </label>
+            <label class="field">
+              <span>Away Key</span>
+              <input id="heroAwayKey" type="text" autocomplete="off" value="NFL:NO">
+            </label>
+            <label class="field">
+              <span>Home Key</span>
+              <input id="heroHomeKey" type="text" autocomplete="off" value="NFL:ATL">
+            </label>
+          </div>
+          <label class="field">
+            <span>Composer</span>
+            <select id="heroComposer">
+              <option value="helmets">Helmet Pair</option>
+              <option value="helmet-eiffel">Saint-Denis Eiffel Special</option>
+            </select>
+          </label>
+          <div class="actions">
+            <button class="btn" id="loadHeroTeamsBtn" type="button">Load Palettes</button>
+            <button class="btn primary" id="downloadHeroBtn" type="button">Download PNG</button>
+            <button class="btn" id="copyHeroUrlBtn" type="button">Copy Logo URL</button>
+          </div>
+          <div class="status" id="heroStatus" aria-live="polite"></div>
+          <div class="hero-canvas-wrap">
+            <canvas id="heroCanvas" width="1200" height="800" aria-label="Takeover hero preview"></canvas>
+          </div>
+          <div class="mini">
+            <span class="mini-title">Logo URL</span>
+            <span class="code-line" id="heroUrlOutput">/assets/games/takeover-hero/{game-id}.png</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="../js/admin-auth.js"></script>
+  <script src="../js/admin-shell.js"></script>
+  <script src="../js/admin-nav-menu.js"></script>
+  <script src="../../assets/team-palette.js"></script>
+  <script src="helmet.js"></script>
+  <script src="baseball.js"></script>
+  <script src="basketball.js"></script>
+  <script src="prompts.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const SUPABASE_CONFIG = {
+        url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+        publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+      };
+
+      const TEAM_FALLBACK = {
+        primary: '#2D4880',
+        secondary: '#C23737',
+        tertiary: '#FFFFFF'
+      };
+
+      const TEAM_CODES = {
+        ARI: 'Arizona', ATL: 'Atlanta', BAL: 'Baltimore', BUF: 'Buffalo',
+        CAR: 'Carolina', CHI: 'Chicago', CIN: 'Cincinnati', CLE: 'Cleveland',
+        DAL: 'Dallas', DEN: 'Denver', DET: 'Detroit', GB: 'Green Bay',
+        HOU: 'Houston', IND: 'Indianapolis', JAX: 'Jacksonville',
+        KC: 'Kansas City', LV: 'Las Vegas', LAC: 'Los Angeles',
+        LAR: 'Los Angeles', MIA: 'Miami', MIN: 'Minnesota',
+        NE: 'New England', NO: 'New Orleans', NYG: 'New York',
+        NYJ: 'New York', PHI: 'Philadelphia', PIT: 'Pittsburgh',
+        SF: 'San Francisco', SEA: 'Seattle', TB: 'Tampa Bay',
+        TEN: 'Tennessee', WSH: 'Washington'
+      };
+
+      const HERO = {
+        w: 1200,
+        h: 800,
+        bg: '#555558',
+        large: { x: 75, y: 96, size: 608 },
+        small: { x: 741, y: 208, size: 384 }
+      };
+
+      let teamsPromise = null;
+      let heroPalettes = {
+        away: { primary: '#D3BC8D', secondary: '#101820', tertiary: '#FFFFFF' },
+        home: { primary: '#A71930', secondary: '#000000', tertiary: '#A5ACAF' }
+      };
+
+      const signOutBtn = document.getElementById('signOutBtn');
+      const pageStatus = document.getElementById('pageStatus');
+      const adminAuth = window.TgbMcAdminAuth.create({ supabaseConfig: SUPABASE_CONFIG });
+      window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
+
+      function $(id) {
+        return document.getElementById(id);
+      }
+
+      function clean(value) {
+        return String(value == null ? '' : value).trim();
+      }
+
+      function setStatus(el, message, kind) {
+        if (!el) return;
+        el.textContent = message || '';
+        el.classList.toggle('is-error', kind === 'error');
+        el.classList.toggle('is-success', kind === 'success');
+      }
+
+      function normalizeHex(value, fallback) {
+        const match = clean(value).match(/^#?([0-9a-f]{6})$/i);
+        return match ? '#' + match[1].toUpperCase() : fallback;
+      }
+
+      function syncColorPair(textId, colorId) {
+        const text = $(textId);
+        const color = $(colorId);
+        if (!text || !color) return;
+        color.addEventListener('input', () => {
+          text.value = color.value.toUpperCase();
+          renderSportMark();
+        });
+        text.addEventListener('input', () => {
+          const value = normalizeHex(text.value, '');
+          if (value) color.value = value;
+          renderSportMark();
+        });
+      }
+
+      function currentMarkPalette() {
+        return {
+          primary: normalizeHex($('markPrimary').value, TEAM_FALLBACK.primary),
+          secondary: normalizeHex($('markSecondary').value, TEAM_FALLBACK.secondary),
+          tertiary: normalizeHex($('markTertiary').value, TEAM_FALLBACK.tertiary)
+        };
+      }
+
+      function setMarkPalette(palette) {
+        const pairs = [
+          ['markPrimary', 'markPrimaryColor', palette.primary],
+          ['markSecondary', 'markSecondaryColor', palette.secondary],
+          ['markTertiary', 'markTertiaryColor', palette.tertiary]
+        ];
+        pairs.forEach(([textId, colorId, value]) => {
+          const normalized = normalizeHex(value, '#000000');
+          $(textId).value = normalized;
+          $(colorId).value = normalized;
+        });
+      }
+
+      function markSvgString(sport, palette) {
+        if (sport === 'basketball' && window.basketballSVGString) {
+          return window.basketballSVGString(palette.primary, palette.secondary, palette.tertiary);
+        }
+        if (sport === 'baseball' && window.baseballSVGString) {
+          return window.baseballSVGString(palette.primary, palette.secondary, palette.tertiary);
+        }
+        return window.helmetSVGString(palette.primary, palette.secondary, palette.tertiary);
+      }
+
+      function markDataUri(sport, palette) {
+        if (sport === 'basketball' && window.basketballSVG) {
+          return window.basketballSVG(palette.primary, palette.secondary, palette.tertiary);
+        }
+        if (sport === 'baseball' && window.baseballSVG) {
+          return window.baseballSVG(palette.primary, palette.secondary, palette.tertiary);
+        }
+        return window.helmetSVG(palette.primary, palette.secondary, palette.tertiary);
+      }
+
+      function renderSportMark() {
+        const palette = currentMarkPalette();
+        const sport = $('markSport').value;
+        const uri = markDataUri(sport, palette);
+        $('markPreview').src = uri;
+        $('markOutput').value = uri;
+      }
+
+      async function copyText(value, statusEl, successText) {
+        let copied = false;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(value);
+            copied = true;
+          }
+        } catch (error) {
+        }
+        if (!copied) {
+          const temp = document.createElement('textarea');
+          temp.value = value;
+          temp.setAttribute('readonly', '');
+          temp.style.position = 'fixed';
+          temp.style.left = '-9999px';
+          document.body.appendChild(temp);
+          temp.select();
+          try { copied = document.execCommand('copy'); } catch (error) {}
+          temp.remove();
+        }
+        setStatus(statusEl, copied ? successText : 'Select the text and copy it manually.', copied ? 'success' : 'error');
+        return copied;
+      }
+
+      function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 600);
+      }
+
+      async function loadTeams() {
+        if (!teamsPromise) {
+          teamsPromise = window.TgbTeamPalette.loadTeams({
+            url: SUPABASE_CONFIG.url,
+            key: SUPABASE_CONFIG.publishableKey
+          });
+        }
+        return teamsPromise;
+      }
+
+      function teamByKey(teams, rawKey) {
+        const key = window.TgbTeamPalette.normalizeTeamKey(rawKey);
+        if (!key) return null;
+        return window.TgbTeamPalette.inferTeam(teams, { key });
+      }
+
+      function teamPalette(team) {
+        return window.TgbTeamPalette.teamPalette(team, TEAM_FALLBACK);
+      }
+
+      async function loadMarkTeam() {
+        const statusEl = $('markStatus');
+        const key = clean($('markTeamKey').value);
+        if (!key) {
+          setStatus(statusEl, 'Enter a team key such as NFL:NO.', 'error');
+          return;
+        }
+        setStatus(statusEl, 'Loading team palette...');
+        try {
+          const team = teamByKey(await loadTeams(), key);
+          if (!team) throw new Error('No team found for ' + key + '.');
+          setMarkPalette(teamPalette(team));
+          const sport = clean(team.sport).toLowerCase();
+          if (sport === 'baseball' || sport === 'basketball') $('markSport').value = sport;
+          else $('markSport').value = 'football';
+          renderSportMark();
+          setStatus(statusEl, 'Loaded ' + (team.full_name || key) + '.', 'success');
+        } catch (error) {
+          setStatus(statusEl, error.message || String(error), 'error');
+        }
+      }
+
+      function downloadMarkSvg() {
+        const sport = $('markSport').value;
+        const svg = markSvgString(sport, currentMarkPalette());
+        downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), 'tgb-' + sport + '-mark.svg');
+        setStatus($('markStatus'), 'SVG downloaded.', 'success');
+      }
+
+      function updateGuidePrompt() {
+        const gameId = clean($('guideGameId').value);
+        const prompt = window.TgbPicmakerPrompts.buildGuideImagePrompt({
+          guideName: $('guideName').value,
+          guideBio: $('guideBio').value,
+          guideBackground: $('guideBackground').value
+        });
+        $('guidePromptOutput').value = prompt;
+        $('guideAssetHint').textContent = window.TgbPicmakerPrompts.guideImageAssetUrl(gameId);
+      }
+
+      async function fetchGame(gameId) {
+        const url = new URL('/rest/v1/games', SUPABASE_CONFIG.url + '/');
+        url.searchParams.set('select', 'id,name,guide_name,guide_bio,guide_background,guide_image_url,away_team_key,home_team_key,logo_url');
+        url.searchParams.set('id', 'eq.' + gameId);
+        url.searchParams.set('limit', '1');
+        if (adminAuth && adminAuth.ensureFreshSession) await adminAuth.ensureFreshSession();
+        const headers = adminAuth && adminAuth.authHeaders
+          ? adminAuth.authHeaders({ Accept: 'application/json' })
+          : { apikey: SUPABASE_CONFIG.publishableKey, Authorization: 'Bearer ' + SUPABASE_CONFIG.publishableKey, Accept: 'application/json' };
+        const response = await fetch(url.toString(), { headers, cache: 'no-store' });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(text || 'Game lookup failed.');
+        }
+        const rows = await response.json();
+        return Array.isArray(rows) ? rows[0] : null;
+      }
+
+      async function loadGuideGame() {
+        const statusEl = $('guideStatus');
+        const gameId = clean($('guideGameId').value);
+        if (!gameId) {
+          setStatus(statusEl, 'Enter a game ID first.', 'error');
+          return;
+        }
+        setStatus(statusEl, 'Loading game...');
+        try {
+          const game = await fetchGame(gameId);
+          if (!game) throw new Error('No game found for ' + gameId + '.');
+          $('guideName').value = game.guide_name || '';
+          $('guideBio').value = game.guide_bio || '';
+          $('guideBackground').value = game.guide_background || '';
+          if (game.away_team_key) $('heroAwayKey').value = game.away_team_key;
+          if (game.home_team_key) $('heroHomeKey').value = game.home_team_key;
+          if (game.id) $('heroGameId').value = game.id;
+          updateGuidePrompt();
+          updateHeroUrl();
+          setStatus(statusEl, 'Loaded ' + (game.name || game.id) + '.', 'success');
+        } catch (error) {
+          setStatus(statusEl, error.message || String(error), 'error');
+        }
+      }
+
+      function updateHeroUrl() {
+        const gameId = clean($('heroGameId').value);
+        $('heroUrlOutput').textContent = gameId ? '/assets/games/takeover-hero/' + gameId + '.png' : '/assets/games/takeover-hero/{game-id}.png';
+      }
+
+      function normalizeTeamCode(rawKey) {
+        const key = window.TgbTeamPalette.normalizeTeamKey(rawKey);
+        const code = key.split(':')[1] || clean(rawKey).toUpperCase();
+        return code === 'WAS' ? 'WSH' : code;
+      }
+
+      function parseHeroKeysFromGameId() {
+        const match = clean($('heroGameId').value).match(/^nfl\d{4}-\d{8}-([a-z]+)-([a-z]+)-/i);
+        if (!match) return;
+        if (!clean($('heroAwayKey').value)) $('heroAwayKey').value = 'NFL:' + normalizeTeamCode(match[1]);
+        if (!clean($('heroHomeKey').value)) $('heroHomeKey').value = 'NFL:' + normalizeTeamCode(match[2]);
+      }
+
+      async function loadHeroTeams() {
+        const statusEl = $('heroStatus');
+        parseHeroKeysFromGameId();
+        const awayKey = clean($('heroAwayKey').value);
+        const homeKey = clean($('heroHomeKey').value);
+        if (!awayKey) {
+          setStatus(statusEl, 'Enter at least an away team key.', 'error');
+          return false;
+        }
+        setStatus(statusEl, 'Loading palettes...');
+        try {
+          const rows = await loadTeams();
+          const away = teamByKey(rows, awayKey);
+          const home = homeKey ? teamByKey(rows, homeKey) : null;
+          if (!away) throw new Error('No away team found for ' + awayKey + '.');
+          if ($('heroComposer').value !== 'helmet-eiffel' && !home) throw new Error('No home team found for ' + homeKey + '.');
+          heroPalettes.away = teamPalette(away);
+          if (home) heroPalettes.home = teamPalette(home);
+          await renderHero();
+          setStatus(statusEl, 'Loaded palettes for ' + labelTeam(away) + (home ? ' vs ' + labelTeam(home) : '') + '.', 'success');
+          return true;
+        } catch (error) {
+          setStatus(statusEl, error.message || String(error), 'error');
+          return false;
+        }
+      }
+
+      function labelTeam(team) {
+        return team && (team.full_name || team.team_key || team.code) || 'team';
+      }
+
+      function svgImage(svg) {
+        return new Promise((resolve, reject) => {
+          const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+          const img = new Image();
+          img.onload = () => {
+            URL.revokeObjectURL(url);
+            resolve(img);
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Could not render SVG.'));
+          };
+          img.src = url;
+        });
+      }
+
+      async function drawHelmet(ctx, palette, x, y, size, mirror) {
+        const img = await svgImage(window.helmetSVGString(palette.primary, palette.secondary, palette.tertiary));
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        if (mirror) {
+          ctx.translate(x + size, y);
+          ctx.scale(-1, 1);
+          ctx.drawImage(img, 0, 0, size, size);
+        } else {
+          ctx.drawImage(img, x, y, size, size);
+        }
+        ctx.restore();
+      }
+
+      function fillHeroBackground(ctx, special) {
+        if (!special) {
+          ctx.fillStyle = HERO.bg;
+          ctx.fillRect(0, 0, HERO.w, HERO.h);
+          return;
+        }
+        const bg = [0x52, 0x51, 0x4c];
+        const imageData = ctx.createImageData(HERO.w, HERO.h);
+        const data = imageData.data;
+        for (let y = 0; y < HERO.h; y++) {
+          for (let x = 0; x < HERO.w; x++) {
+            const i = (y * HERO.w + x) * 4;
+            const glow = Math.max(0, 1 - Math.hypot((x - 840) / 640, (y - 350) / 520));
+            data[i] = Math.min(255, Math.round(bg[0] + glow * 22));
+            data[i + 1] = Math.min(255, Math.round(bg[1] + glow * 18));
+            data[i + 2] = Math.min(255, Math.round(bg[2] + glow * 8));
+            data[i + 3] = 255;
+          }
+        }
+        ctx.putImageData(imageData, 0, 0);
+      }
+
+      function drawPixelRect(ctx, x, y, w, h, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+      }
+
+      function drawPixelGrid(ctx, rows, ox, oy, scale, palette) {
+        rows.forEach((line, row) => {
+          for (let col = 0; col < line.length; col++) {
+            const color = palette[line[col]];
+            if (color) drawPixelRect(ctx, ox + col * scale, oy + row * scale, scale, scale, color);
+          }
+        });
+      }
+
+      function drawEiffel(ctx) {
+        drawPixelGrid(ctx, [
+          '00000000200000000',
+          '00000002220000000',
+          '00000000200000000',
+          '00000001110000000',
+          '00000001110000000',
+          '00000001110000000',
+          '00000001110000000',
+          '00000001110000000',
+          '00000001110000000',
+          '00000001110000000',
+          '00022222222220000',
+          '00000001110000000',
+          '00000001110000000',
+          '00000011111000000',
+          '00000111011100000',
+          '00001110001110000',
+          '00011100000111000',
+          '00022222222222000',
+          '00011100000111000',
+          '00111000000011100',
+          '00110000000001100',
+          '01110000000001110',
+          '01100000000000110',
+          '11100000000000111',
+          '11000000000000011'
+        ], 750, 92, 18, { '1': '#90918a', '2': '#2c2c25' });
+      }
+
+      async function renderHero() {
+        const canvas = $('heroCanvas');
+        const ctx = canvas.getContext('2d');
+        const special = $('heroComposer').value === 'helmet-eiffel';
+        fillHeroBackground(ctx, special);
+        if (special) {
+          drawEiffel(ctx);
+          await drawHelmet(ctx, heroPalettes.away, 88, 126, 560, false);
+        } else {
+          await drawHelmet(ctx, heroPalettes.home, HERO.small.x, HERO.small.y, HERO.small.size, true);
+          await drawHelmet(ctx, heroPalettes.away, HERO.large.x, HERO.large.y, HERO.large.size, false);
+        }
+        updateHeroUrl();
+      }
+
+      function downloadHero() {
+        const gameId = clean($('heroGameId').value) || 'takeover-hero';
+        $('heroCanvas').toBlob((blob) => {
+          if (!blob) {
+            setStatus($('heroStatus'), 'Could not export the PNG.', 'error');
+            return;
+          }
+          downloadBlob(blob, gameId + '.png');
+          setStatus($('heroStatus'), 'PNG downloaded. Save it under assets/games/takeover-hero/.', 'success');
+        }, 'image/png');
+      }
+
+      function bind() {
+        ['guideGameId', 'guideName', 'guideBio', 'guideBackground'].forEach((id) => {
+          $(id).addEventListener('input', updateGuidePrompt);
+        });
+        $('loadGuideGameBtn').addEventListener('click', loadGuideGame);
+        $('copyGuidePromptBtn').addEventListener('click', () => {
+          updateGuidePrompt();
+          copyText($('guidePromptOutput').value, $('guideStatus'), 'Prompt copied.');
+        });
+
+        syncColorPair('markPrimary', 'markPrimaryColor');
+        syncColorPair('markSecondary', 'markSecondaryColor');
+        syncColorPair('markTertiary', 'markTertiaryColor');
+        $('markSport').addEventListener('change', renderSportMark);
+        $('loadMarkTeamBtn').addEventListener('click', loadMarkTeam);
+        $('downloadMarkSvgBtn').addEventListener('click', downloadMarkSvg);
+        $('copyMarkDataBtn').addEventListener('click', () => {
+          copyText($('markOutput').value, $('markStatus'), 'Data URI copied.');
+        });
+
+        ['heroGameId', 'heroAwayKey', 'heroHomeKey'].forEach((id) => {
+          $(id).addEventListener('input', updateHeroUrl);
+        });
+        $('heroComposer').addEventListener('change', renderHero);
+        $('loadHeroTeamsBtn').addEventListener('click', loadHeroTeams);
+        $('downloadHeroBtn').addEventListener('click', downloadHero);
+        $('copyHeroUrlBtn').addEventListener('click', () => {
+          updateHeroUrl();
+          copyText($('heroUrlOutput').textContent, $('heroStatus'), 'Logo URL copied.');
+        });
+
+        window.addEventListener('tgb-admin-auth-change', (event) => {
+          const signedIn = !!(event && event.detail && event.detail.signedIn);
+          setStatus(pageStatus, signedIn ? 'Picmaker ready.' : 'Sign in with an admin account.', signedIn ? 'success' : '');
+        });
+      }
+
+      bind();
+      updateGuidePrompt();
+      renderSportMark();
+      renderHero();
+      adminAuth.init();
+    }());
+  </script>
+</body>
+</html>

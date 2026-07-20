@@ -2389,7 +2389,7 @@
     // there's no tampering surface.
     async function fetchAllGames() {
       return fetchAllRows(buildSupabaseUrl('games_with_teams', {
-        select: 'id,name,tagline,price,engine,archived,primary_color,secondary_color,tertiary_color,city,away_team_city,away_team_mascot,fandom_game,tags,category_icon,logo_url,guide_image_url,away_team_key,home_team_key,away_team_tgbid,home_team_tgbid,away_team,home_team'
+        select: 'id,name,tagline,price,engine,archived,primary_color,secondary_color,tertiary_color,city,away_team_city,away_team_mascot,fandom_game,tags,category_icon,logo_url,away_team_key,home_team_key,away_team_tgbid,home_team_tgbid,away_team,home_team'
       }));
     }
 
@@ -2425,10 +2425,10 @@
     }
 
     function gameShopImageUrl(game) {
-      const logo = String(game && game.logo_url || '').trim();
-      const guide = String(game && game.guide_image_url || '').trim();
-      if (/\/assets\/games\/takeover-hero\//i.test(logo)) return logo;
-      return guide || logo;
+      // Strict separation: the shop card is the GAME's image, so it uses the
+      // game logo ONLY — never the guide portrait. A game with no logo shows no
+      // card image rather than borrowing the guide image.
+      return String(game && game.logo_url || '').trim();
     }
 
     function gameToGiftCardItem(game) {

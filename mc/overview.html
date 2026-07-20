@@ -9782,11 +9782,14 @@ html.admin-embedded .builder-section-head{
                           <span class="guide-image-thumb-placeholder" id="gameLogoThumbPlaceholder">No image</span>
                         </button>
                         <input id="nodeGameLogoInput" type="text" placeholder="http://" autocomplete="off" disabled>
+                        <button class="guide-image-asset-btn" id="gameLogoUrlUploadBtn" type="button" disabled title="Fetch the image at this URL and host it on Supabase, then use it as this game's logo">Upload</button>
+                        <button class="guide-image-asset-btn" id="gameLogoFileBtn" type="button" disabled title="Upload an image from this computer">Upload file…</button>
                         <button class="guide-image-asset-btn" id="gameLogoOnlinePickBtn" type="button" disabled aria-label="Choose logo asset" title="Choose logo asset" aria-expanded="false" aria-controls="gameLogoOnlineMenu">Choose</button>
                       </div>
                       <div class="guide-image-asset-menu" id="gameLogoOnlineMenu" hidden>
                         <div class="guide-image-asset-list" id="gameLogoOnlineList" role="listbox" aria-label="Uploaded logo assets"></div>
                       </div>
+                      <input id="gameLogoFileInput" type="file" accept="image/*" hidden>
                       <div class="field-hint" id="gameLogoAssetStatus" aria-live="polite"></div>
                     </div>
 
@@ -9961,6 +9964,12 @@ html.admin-embedded .builder-section-head{
                         <span class="loc-toggle-side-label" id="fandomGameLabelYes">YES</span>
                       </div>
                     </div>
+                    <div class="field" id="anchorEventField">
+                      <label class="field-label field-label--with-meta" for="anchorEventSelect">Choose Event<span class="field-info" tabindex="0" role="note" aria-label="Pick a real matchup from the Anchor Events catalog to auto-fill the teams below.">i<span class="field-tooltip" role="tooltip">Pick an event from the Anchor Events catalog — a concert, convention, sports matchup, anything. A sports event also auto-fills the away/home teams below. Manage the catalog in Mission Control → Anchor Events.</span></span></label>
+                      <select id="anchorEventSelect" autocomplete="off" disabled>
+                        <option value="">— none —</option>
+                      </select>
+                    </div>
                     <div class="field" id="awayTeamField">
                       <label class="field-label" for="nodeAwayTeamInput">Away Team (Fan's Team)</label>
                       <select id="nodeAwayTeamInput" autocomplete="off" disabled>
@@ -10007,11 +10016,13 @@ html.admin-embedded .builder-section-head{
                           <input id="guideImageUrlInput" type="url" placeholder="Paste an image URL…" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;" disabled>
                           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                             <button class="guide-image-asset-btn" id="guideImageUrlUploadBtn" type="button" disabled>Upload</button>
+                            <button class="guide-image-asset-btn" id="guideImageFileBtn" type="button" disabled title="Upload an image from this computer">Upload file…</button>
                             <span id="guideImageUploadStatus" aria-live="polite" style="font-family:'IBM Plex Mono',monospace;font-size:.72rem;"></span>
                           </div>
                         </div>
                       </div>
-                      <p class="field-hint" id="guideImageNote">Paste an image URL and click Upload — it is saved to Supabase and shown in the game.</p>
+                      <p class="field-hint" id="guideImageNote">Paste an image URL and click Upload, or Upload file… to pick one from this computer — either way it is saved to Supabase and shown in the game.</p>
+                      <input id="guideImageFileInput" type="file" accept="image/*" hidden>
                       <input id="nodeGuideImageInput" type="hidden">
                     </div>
                   </div>
@@ -10295,6 +10306,7 @@ window.TGB_SUPABASE_CONFIG = {
   <script src="js/admin-auth.js"></script>
   <script src="js/admin-shell.js"></script>
   <script src="js/admin-nav-menu.js"></script>
+  <script src="picmaker/prompts.js"></script>
   <script src="../assets/team-palette.js"></script>
   <script src="../assets/geo.js"></script>
   <script>
@@ -10401,7 +10413,8 @@ const SUPABASE_GAMES_SCHEMA = {
   away_team_tgbid: true,
   home_team_tgbid: true,
   venue_name: true,
-  venue_city: true
+  venue_city: true,
+  anchor_event_id: true
 };
 const CATEGORY_ICON_VALUES = new Set(['football', 'basketball', 'baseball', 'music']);
 const DEFAULT_CATEGORY_ICON = '';
@@ -10891,6 +10904,12 @@ function serializeGameRow(game, index = 0) {
   emitColumn('away_team_tgbid', inferBuilderTeamTgbid(gameNode.awayTeamCity, gameNode.awayTeamMascot, normalizedGame.away_team_tgbid, normalizedGame.away_team_key) || null);
   emitColumn('home_team_tgbid', inferBuilderTeamTgbid(gameNode.homeTeamCity, gameNode.homeTeamMascot, normalizedGame.home_team_tgbid, normalizedGame.home_team_key) || null);
 
+  // Anchor-event link: write explicitly (not via emitColumn) so clearing the
+  // picker persists a null and actually unlinks the game.
+  if (SUPABASE_GAMES_SCHEMA.anchor_event_id !== false) {
+    payload.anchor_event_id = (gameNode.anchorEventId || normalizedGame.anchor_event_id) || null;
+  }
+
   return payload;
 }
 
@@ -10918,6 +10937,7 @@ function normalizeGameRow(row, index = 0) {
     guide_background:      row && row.guide_background,
     guide_image_url:       normalizeGuideImageAssetUrl(row && (row.guide_image_url ?? row.guideImageUrl)),
     logo_url:              row && row.logo_url,
+    anchor_event_id:       row && row.anchor_event_id,
     link_url:              row && row.link_url,
     button_url:            row && row.button_url,
     tertiary_color:        row && row.tertiary_color,
@@ -10987,6 +11007,7 @@ async function fetchGameRowsFromSupabase(select = null, tableName = SUPABASE_GAM
     'guide_background',
     'guide_image_url',
     'logo_url',
+    'anchor_event_id',
     'link_url',
     'button_url',
     'tertiary_color',
@@ -11113,6 +11134,7 @@ async function fetchGameRowFromSupabase(gameId, select = null, tableName = SUPAB
     'guide_background',
     'guide_image_url',
     'logo_url',
+    'anchor_event_id',
     'link_url',
     'button_url',
     'tertiary_color',
@@ -11766,11 +11788,15 @@ const nodeHomeTeamMascotInput = document.getElementById('nodeHomeTeamMascotInput
 const nodeAwayTeamInput = document.getElementById('nodeAwayTeamInput');
 const nodeAwayTeamCityInput = document.getElementById('nodeAwayTeamCityInput');
 const nodeAwayTeamMascotInput = document.getElementById('nodeAwayTeamMascotInput');
+const anchorEventSelect = document.getElementById('anchorEventSelect');
 
 // Teams dropdown — sourced from the public.teams Supabase catalog (the single
 // source of truth). Selecting the away team also fills the editable Away Team
 // City with its TGB game city.
 let builderTeamsList = [];
+// Anchor-events catalog (public.anchor_events) — the pickable real matchups.
+let builderAnchorEvents = [];
+let builderAnchorEventsById = new Map();
 const TEAM_REGION_NAMES = {
   AB: 'Alberta', AL: 'Alabama', AZ: 'Arizona', BC: 'British Columbia',
   CA: 'California', CO: 'Colorado', DC: 'District of Columbia', FL: 'Florida',
@@ -11901,6 +11927,9 @@ async function loadBuilderTeams() {
     }
   }
   populateTeamSelects();
+  // Teams supply the human-readable names in the event labels — rebuild the
+  // event picker now that they're available.
+  populateAnchorEventSelect();
 }
 
 function populateTeamSelects() {
@@ -11929,6 +11958,99 @@ function populateTeamSelects() {
       select.value = '';
     }
   });
+}
+
+// ── Anchor events (Stage-3 picker) ──────────────────────────────────────────
+// Load the shared anchor_events catalog and let the builder pick one; picking
+// an event stamps games.anchor_event_id and auto-fills the away/home team
+// selects (which then apply the palette exactly as a manual pick would).
+async function loadBuilderAnchorEvents() {
+  if (!hasSupabaseStore()) return;
+  const url = buildSupabaseUrl({ select: '*', order: 'event_date.desc.nullslast,id.asc' }, 'anchor_events');
+  if (!url) return;
+  try {
+    const res = await fetch(url, { headers: getSupabaseHeaders(), cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = await res.json();
+    builderAnchorEvents = Array.isArray(rows) ? rows : [];
+    builderAnchorEventsById = new Map(builderAnchorEvents.map((e) => [String(e.id), e]));
+    populateAnchorEventSelect();
+  } catch (err) { console.warn('loadBuilderAnchorEvents failed:', err); }
+}
+
+function anchorEventTeamName(tgbid, fallback) {
+  const id = tgbid == null ? '' : String(tgbid);
+  if (id) {
+    const team = builderTeamsList.find((t) => String((window.TgbTeamPalette && window.TgbTeamPalette.teamTgbid(t)) || t.tgbid || '') === id);
+    if (team) return ((team.firstName || team.fanbase || '') + (team.mascot ? ' ' + team.mascot : '')).trim();
+  }
+  return fallback || (id ? 'tgbid ' + id : '?');
+}
+
+function anchorEventLabel(ev) {
+  const date = (ev.event_date && String(ev.event_date).trim()) || 'undated';
+  const teams = ev.away_team_tgbid != null || ev.home_team_tgbid != null;
+  // Any event can be anchored — a concert/convention shows its title; a sports
+  // event with teams shows the matchup.
+  const main = ev.title
+    ? ev.title
+    : (teams
+        ? (anchorEventTeamName(ev.away_team_tgbid, ev.away_label) + ' @ ' + anchorEventTeamName(ev.home_team_tgbid, ev.home_label))
+        : (ev.id || 'event'));
+  const kind = ev.kind ? ev.kind + ' · ' : '';
+  return date + ' · ' + kind + main;
+}
+
+function populateAnchorEventSelect() {
+  if (!anchorEventSelect) return;
+  const cur = String((state && state.currentGameMeta && state.currentGameMeta.anchorEventId) || anchorEventSelect.value || '');
+  while (anchorEventSelect.options.length > 1) anchorEventSelect.remove(1);
+  builderAnchorEvents.forEach((ev) => {
+    const opt = document.createElement('option');
+    opt.value = String(ev.id);
+    opt.textContent = anchorEventLabel(ev);
+    anchorEventSelect.appendChild(opt);
+  });
+  // Preserve an already-linked id even if the catalog hasn't loaded it (or it
+  // was deleted) so opening the game doesn't silently drop the link.
+  if (cur && !builderAnchorEventsById.has(cur)) {
+    const opt = document.createElement('option');
+    opt.value = cur;
+    opt.textContent = cur + ' (not in catalog)';
+    anchorEventSelect.appendChild(opt);
+  }
+  anchorEventSelect.value = cur || '';
+}
+
+function applyAnchorEventSelection() {
+  if (!getGameNode() || !state.currentGameMeta) return;
+  const id = anchorEventSelect ? String(anchorEventSelect.value || '') : '';
+  state.currentGameMeta.anchorEventId = id;
+  const ev = id ? builderAnchorEventsById.get(id) : null;
+  const eventHasTeams = !!(ev && (ev.away_team_tgbid != null || ev.home_team_tgbid != null));
+  if (ev && eventHasTeams) {
+    // A SPORTS event (has teams) behaves as a fandom anchor: turn the toggle on
+    // so the away-team palette applies (bindTeamSelect gates on fandomGame), and
+    // auto-fill the team selects.
+    if (fandomGameToggle && !fandomGameToggle.checked) {
+      fandomGameToggle.checked = true;
+      fandomGameToggle.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+      state.currentGameMeta.fandomGame = true;
+    }
+    if (ev.away_team_tgbid != null && nodeAwayTeamInput) {
+      setTeamSelectValue(nodeAwayTeamInput, '', '', '', ev.away_team_tgbid);
+      nodeAwayTeamInput.dispatchEvent(new Event('change'));
+    }
+    if (ev.home_team_tgbid != null && nodeHomeTeamCityInput) {
+      setTeamSelectValue(nodeHomeTeamCityInput, '', '', '', ev.home_team_tgbid);
+      nodeHomeTeamCityInput.dispatchEvent(new Event('change'));
+    }
+  }
+  // Non-sports events (concert/convention/…) just record the link — no team
+  // fill, no palette change, so the game keeps its own colors.
+  scheduleRecoverySync();
+  scheduleUpdateActionUi();
 }
 
 // Select the option matching (city, mascot). If no canonical match exists
@@ -11991,6 +12113,11 @@ const nodeGuideNameInput = document.getElementById('nodeGuideNameInput');
 const nodeGuideBioInput = document.getElementById('nodeGuideBioInput');
 const nodeGuideBackgroundInput = document.getElementById('nodeGuideBackgroundInput');
 const nodeGameLogoInput = document.getElementById('nodeGameLogoInput');
+const gameLogoUrlUploadBtn = document.getElementById('gameLogoUrlUploadBtn');
+const gameLogoFileBtn = document.getElementById('gameLogoFileBtn');
+const gameLogoFileInput = document.getElementById('gameLogoFileInput');
+const guideImageFileBtn = document.getElementById('guideImageFileBtn');
+const guideImageFileInput = document.getElementById('guideImageFileInput');
 const gameLogoOnlinePickBtn = document.getElementById('gameLogoOnlinePickBtn');
 const gameLogoOnlineMenu = document.getElementById('gameLogoOnlineMenu');
 const gameLogoOnlineList = document.getElementById('gameLogoOnlineList');
@@ -15282,8 +15409,10 @@ function updateGuideImageStatus(isGameNode) {
     ? String((state.currentGameMeta && state.currentGameMeta.guideImageUrl) || '').trim()
     : '';
 
-  // Upload + URL entry are available whenever a game node is selected.
+  // Upload (URL + local file) + URL entry are available whenever a game node
+  // is selected.
   if (uploadBtn) uploadBtn.disabled = !gameId;
+  if (guideImageFileBtn) guideImageFileBtn.disabled = !gameId;
   if (urlInput) {
     urlInput.disabled = !gameId;
     // Mirror the stored URL into the box, unless the admin is mid-edit.
@@ -15601,6 +15730,7 @@ function normalizeNode(raw, typeOverride = null, idOverride = null) {
     guideBackground: raw && typeof raw.guideBackground === 'string' ? raw.guideBackground : '',
     guideImageUrl: normalizeGuideImageAssetUrl(raw && raw.guideImageUrl),
     logoUrl: raw && typeof raw.logoUrl === 'string' ? raw.logoUrl : '',
+    anchorEventId: raw && typeof raw.anchorEventId === 'string' ? raw.anchorEventId : '',
     price: raw && typeof raw.price === 'string' ? raw.price : '',
     checkoutUrl: raw && typeof raw.checkoutUrl === 'string' ? raw.checkoutUrl : '',
     tags: Array.isArray(raw && raw.tags)
@@ -15770,6 +15900,7 @@ function getDocSnapshot(doc = state.doc) {
       defaultEmoji: meta.defaultEmoji || '',
       categoryIcon: normalizeCategoryIconValue(meta.categoryIcon),
       logoUrl: meta.logoUrl || '',
+      anchorEventId: meta.anchorEventId || '',
       city: meta.city || '',
       startingLocationName: meta.startingLocationName || '',
       startingLocationAddress: meta.startingLocationAddress || '',
@@ -15818,6 +15949,7 @@ function getDocSnapshot(doc = state.doc) {
       guideBackground: node.guideBackground || '',
       guideImageUrl: normalizeGuideImageAssetUrl(node.guideImageUrl) || '',
       logoUrl: node.logoUrl || '',
+      anchorEventId: node.anchorEventId || '',
       price: node.price || '',
       tags: (node.tags || []).filter(Boolean),
       primaryTag: node.primaryTag || '',
@@ -16173,6 +16305,7 @@ function initGameMeta(game) {
     defaultEmoji:         g.default_emoji   ?? g.defaultEmoji     ?? gn.defaultEmoji    ?? '',
     categoryIcon:         normalizeCategoryIconValue(g.category_icon ?? g.categoryIcon ?? gn.categoryIcon ?? gn.category_icon),
     logoUrl:              g.logo_url        ?? g.logoUrl          ?? gn.logoUrl         ?? gn.logo         ?? '',
+    anchorEventId:        g.anchor_event_id ?? g.anchorEventId    ?? gn.anchorEventId   ?? '',
     city:                 g.city            ?? gn.city            ?? '',
     cityName:             g.city_name       ?? g.cityName         ?? gn.cityName        ?? '',
     stateCode:            g.state_code      ?? g.stateCode        ?? gn.stateCode       ?? '',
@@ -16813,6 +16946,7 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   guide_background: 'guideBackground',
   guide_image_url: 'guideImageUrl',
   logo_url: 'logoUrl',
+  anchor_event_id: 'anchorEventId',
   link_url: 'linkUrl',
   button_url: 'buttonUrl',
   tertiary_color: 'tertiaryColor',
@@ -16919,6 +17053,7 @@ function normalizeSavedGame(raw, index) {
     guide_background:      raw && (raw.guide_background ?? raw.guideBackground),
     guide_image_url:       normalizeGuideImageAssetUrl(raw && (raw.guide_image_url ?? raw.guideImageUrl)),
     logo_url:              raw && raw.logo_url,
+    anchor_event_id:       raw && raw.anchor_event_id,
     link_url:              raw && raw.link_url,
     button_url:            raw && raw.button_url,
     tertiary_color:        raw && raw.tertiary_color,
@@ -16995,6 +17130,7 @@ function createNode(type, x, y) {
     guideBackground: '',
     guideImageUrl: '',
     logoUrl: '',
+    anchorEventId: '',
     price: type === 'game' ? 'Free To Start / In App Purchases' : '',
     tags: [],
     teams: [],
@@ -19298,6 +19434,8 @@ function updateSelectionUi(options = {}) {
   if (nodeGameEndTimeInput) nodeGameEndTimeInput.disabled = !isGameNode;
   nodeGameLogoInput.disabled = !isGameNode;
   if (gameLogoOnlinePickBtn) gameLogoOnlinePickBtn.disabled = !isGameNode;
+  if (gameLogoUrlUploadBtn) gameLogoUrlUploadBtn.disabled = !isGameNode;
+  if (gameLogoFileBtn) gameLogoFileBtn.disabled = !isGameNode;
   if (!isGameNode) setGameLogoOnlineMenuOpen(false);
 
   if (nodeCityInput) nodeCityInput.disabled = !isGameNode;
@@ -19489,6 +19627,15 @@ function updateSelectionUi(options = {}) {
   }
   if (fandomGameLabelNo)  fandomGameLabelNo.classList.toggle('is-active', !isFandomGame);
   if (fandomGameLabelYes) fandomGameLabelYes.classList.toggle('is-active',  isFandomGame);
+  if (anchorEventSelect) {
+    anchorEventSelect.disabled = !isGameNode;
+    anchorEventSelect.value = isGameNode ? String(meta.anchorEventId || '') : '';
+    // If the linked id isn't among the current options (catalog still loading,
+    // or the row was removed), inject a preserving option so it doesn't blank.
+    if (isGameNode && meta.anchorEventId && anchorEventSelect.value !== String(meta.anchorEventId)) {
+      populateAnchorEventSelect();
+    }
+  }
   nodeGuideNameInput.value = isGameNode ? (meta.guideName || '') : '';
   nodeGuideBioInput.value = isGameNode ? (meta.guideBio || '') : '';
   if (nodeGuideBackgroundInput) nodeGuideBackgroundInput.value = isGameNode ? (meta.guideBackground || '') : '';
@@ -20613,6 +20760,7 @@ function serializeNodeState(node) {
     guideBackground: (meta ? meta.guideBackground : node.guideBackground) || '',
     guideImageUrl: normalizeGuideImageAssetUrl(meta ? meta.guideImageUrl : node.guideImageUrl) || '',
     logoUrl: (meta ? meta.logoUrl : node.logoUrl) || '',
+    anchorEventId: (meta ? meta.anchorEventId : node.anchorEventId) || '',
     price: (meta ? meta.price : node.price) || '',
     checkoutUrl: (meta ? meta.checkoutUrl : node.checkoutUrl) || '',
     tags: (node.tags || []).filter(Boolean),
@@ -21010,6 +21158,7 @@ function stageCurrentGameIntoStore() {
     guide_background:      _meta.guideBackground || null,
     guide_image_url:       guideImageUrl || null,
     logo_url:              _meta.logoUrl || null,
+    anchor_event_id:       _meta.anchorEventId || null,
     link_url:              _gn.linkUrl || null,
     button_url:            _gn.buttonUrl || null,
     checkout_url:          _meta.checkoutUrl || _gn.checkoutUrl || null,
@@ -21623,6 +21772,7 @@ bindTeamSelect(nodeHomeTeamCityInput, nodeHomeTeamMascotInput, 'homeTeamCity', '
   keyField: 'homeTeamKey',
   tgbidField: 'homeTeamTgbid'
 });
+if (anchorEventSelect) anchorEventSelect.addEventListener('change', applyAnchorEventSelection);
 
 if (nodeAwayTeamCityInput) {
   nodeAwayTeamCityInput.addEventListener('input', () => {
@@ -22553,6 +22703,160 @@ if (guideImageUrlInput) {
   });
 }
 
+// URL -> Upload for the game LOGO. Reuses the upload-guide-image Edge Function
+// but targets the `logos` bucket; the returned public URL is stored raw in
+// games.logo_url (the landing page, engines, and shop all read it straight
+// through — no normalization). Mirrors the guide uploader above.
+// gameLogoUrlUploadBtn is declared with the other logo consts near the top.
+function setGameLogoUrlUploadStatus(message, isError) {
+  if (!gameLogoAssetStatus) return;
+  const msg = String(message || '');
+  gameLogoAssetStatus.textContent = msg;
+  gameLogoAssetStatus.hidden = !msg;
+  gameLogoAssetStatus.classList.toggle('is-error', !!isError);
+}
+
+async function uploadGameLogoFromUrl() {
+  const node = getGameNode();
+  if (!node || node.type !== 'game') { setGameLogoUrlUploadStatus('Select a game first.', true); return; }
+  const gameId = String(state.currentGameId || '').trim();
+  if (!gameId) { setGameLogoUrlUploadStatus('Save the game so it has an id first.', true); return; }
+  const sourceUrl = String((nodeGameLogoInput && nodeGameLogoInput.value) || '').trim();
+  if (!/^https?:\/\//i.test(sourceUrl)) { setGameLogoUrlUploadStatus('Enter a valid image URL (http/https).', true); return; }
+  const session = (typeof builderAdminAuth !== 'undefined' && builderAdminAuth) ? builderAdminAuth.getSession() : null;
+  const token = session && session.access_token ? session.access_token : '';
+  if (!token) { setGameLogoUrlUploadStatus('Sign in as an admin to upload.', true); return; }
+
+  if (gameLogoUrlUploadBtn) { gameLogoUrlUploadBtn.disabled = true; gameLogoUrlUploadBtn.textContent = 'Uploading…'; }
+  setGameLogoUrlUploadStatus('Uploading…', false);
+  try {
+    const endpoint = supabaseConfig.url.replace(/\/+$/, '') + '/functions/v1/upload-guide-image';
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: supabaseConfig.publishableKey,
+        Authorization: 'Bearer ' + token
+      },
+      body: JSON.stringify({ url: sourceUrl, gameId, bucket: 'logos' })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data && data.error) || ('upload failed (' + res.status + ')'));
+    const publicUrl = String((data && data.url) || '').trim();
+    if (!publicUrl) throw new Error('no url returned');
+    // Record on the game (change event -> sync -> currentGameMeta -> preview) and persist.
+    nodeGameLogoInput.value = publicUrl;
+    nodeGameLogoInput.dispatchEvent(new Event('change', { bubbles: true }));
+    try { await saveDoc({ silent: true }); } catch (saveErr) {}
+    setGameLogoUrlUploadStatus('Uploaded ✓', false);
+  } catch (err) {
+    setGameLogoUrlUploadStatus(String((err && err.message) || 'Upload failed.'), true);
+  } finally {
+    if (gameLogoUrlUploadBtn) {
+      gameLogoUrlUploadBtn.disabled = !String(state.currentGameId || '').trim();
+      gameLogoUrlUploadBtn.textContent = 'Upload';
+    }
+  }
+}
+
+if (gameLogoUrlUploadBtn) {
+  gameLogoUrlUploadBtn.addEventListener('click', uploadGameLogoFromUrl);
+}
+
+// ── Local desktop file upload (guide image + game logo) ──────────────────────
+// Local files have no CORS constraint, so they go straight from the browser to
+// Supabase Storage using the admin's token — no Edge Function needed. The
+// bucket's RLS insert policy (is_photo_admin()) is satisfied by that token.
+// Destination + stored public URL are identical to the URL uploader, so the
+// value flows to the game the same way. Same 15 MB cap as the Edge Function.
+async function uploadImageFileToSupabase(file, gameId, bucket) {
+  const session = (typeof builderAdminAuth !== 'undefined' && builderAdminAuth) ? builderAdminAuth.getSession() : null;
+  const token = session && session.access_token ? session.access_token : '';
+  if (!token) throw new Error('Sign in as an admin to upload.');
+  if (!/^image\//i.test(file.type || '')) throw new Error('Choose an image file.');
+  if (file.size > 15 * 1024 * 1024) throw new Error('Image is larger than 15 MB.');
+  const rawExt = (String(file.name).split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const ext = rawExt || (String(file.type).split('/')[1] || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+  const path = encodeURIComponent(String(gameId) + '.' + ext);
+  const base = supabaseConfig.url.replace(/\/+$/, '');
+  const res = await fetch(base + '/storage/v1/object/' + bucket + '/' + path, {
+    method: 'POST',
+    headers: {
+      apikey: supabaseConfig.publishableKey,
+      Authorization: 'Bearer ' + token,
+      'Content-Type': file.type || 'application/octet-stream',
+      'x-upsert': 'true'
+    },
+    body: file
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error('upload failed (' + res.status + ')' + (t ? ': ' + t.slice(0, 140) : ''));
+  }
+  // Public URL + cache-bust so a replacement isn't masked by a stale CDN copy.
+  return base + '/storage/v1/object/public/' + bucket + '/' + path + '?v=' + Date.now();
+}
+
+// Guide image — pick a local file.
+if (guideImageFileBtn && guideImageFileInput) {
+  guideImageFileBtn.addEventListener('click', () => { if (!guideImageFileBtn.disabled) guideImageFileInput.click(); });
+  guideImageFileInput.addEventListener('change', async () => {
+    const file = guideImageFileInput.files && guideImageFileInput.files[0];
+    guideImageFileInput.value = '';
+    if (!file) return;
+    const node = getGameNode();
+    if (!node || node.type !== 'game') { setGuideImageUrlUploadStatus('Select a game first.', true); return; }
+    const gameId = String(state.currentGameId || '').trim();
+    if (!gameId) { setGuideImageUrlUploadStatus('Save the game so it has an id first.', true); return; }
+    guideImageFileBtn.disabled = true; guideImageFileBtn.textContent = 'Uploading…';
+    setGuideImageUrlUploadStatus('Uploading…', false);
+    try {
+      const publicUrl = await uploadImageFileToSupabase(file, gameId, 'guides');
+      if (nodeGuideImageInput) {
+        nodeGuideImageInput.value = publicUrl;
+        nodeGuideImageInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      try { await saveDoc({ silent: true }); } catch (e) {}
+      _guideImgProbedKey = null;
+      updateGuideImageStatus(true);
+      setGuideImageUrlUploadStatus('Uploaded ✓', false);
+    } catch (err) {
+      setGuideImageUrlUploadStatus(String((err && err.message) || 'Upload failed.'), true);
+    } finally {
+      guideImageFileBtn.disabled = !String(state.currentGameId || '').trim();
+      guideImageFileBtn.textContent = 'Upload file…';
+    }
+  });
+}
+
+// Game logo — pick a local file.
+if (gameLogoFileBtn && gameLogoFileInput) {
+  gameLogoFileBtn.addEventListener('click', () => { if (!gameLogoFileBtn.disabled) gameLogoFileInput.click(); });
+  gameLogoFileInput.addEventListener('change', async () => {
+    const file = gameLogoFileInput.files && gameLogoFileInput.files[0];
+    gameLogoFileInput.value = '';
+    if (!file) return;
+    const node = getGameNode();
+    if (!node || node.type !== 'game') { setGameLogoUrlUploadStatus('Select a game first.', true); return; }
+    const gameId = String(state.currentGameId || '').trim();
+    if (!gameId) { setGameLogoUrlUploadStatus('Save the game so it has an id first.', true); return; }
+    gameLogoFileBtn.disabled = true; gameLogoFileBtn.textContent = 'Uploading…';
+    setGameLogoUrlUploadStatus('Uploading…', false);
+    try {
+      const publicUrl = await uploadImageFileToSupabase(file, gameId, 'logos');
+      nodeGameLogoInput.value = publicUrl;
+      nodeGameLogoInput.dispatchEvent(new Event('change', { bubbles: true }));
+      try { await saveDoc({ silent: true }); } catch (e) {}
+      setGameLogoUrlUploadStatus('Uploaded ✓', false);
+    } catch (err) {
+      setGameLogoUrlUploadStatus(String((err && err.message) || 'Upload failed.'), true);
+    } finally {
+      gameLogoFileBtn.disabled = !String(state.currentGameId || '').trim();
+      gameLogoFileBtn.textContent = 'Upload file…';
+    }
+  });
+}
+
 if (guideImageUploadBtn && guideImageUploadInput) {
   guideImageUploadBtn.addEventListener('click', async () => {
     if (guideImageUploadBtn.disabled) return;
@@ -22828,32 +23132,14 @@ function closeGuidePromptPopup() {
   if (backdrop) backdrop.hidden = true;
 }
 
-// Build a paste-ready AI IMAGE prompt for the guide portrait, from the current
-// guide name / bio / background. Output is the image-gen instruction itself, so
-// it can go straight into ChatGPT (DALL·E) or another image generator.
+// Build a paste-ready AI IMAGE prompt for the guide portrait.
 function buildGuideImagePrompt() {
   const meta = state.currentGameMeta || {};
-  const name = String(meta.guideName || '').trim();
-  const bio = String(meta.guideBio || '').trim();
-  const background = String(meta.guideBackground || '').trim();
-  const lines = [];
-  lines.push('Generate a single portrait image to use as the in-game avatar for the guide character of a real-world, location-based scavenger-hunt game.');
-  lines.push('');
-  lines.push('CHARACTER');
-  lines.push('- Name: ' + (name || '[unnamed guide]'));
-  if (bio) lines.push('- Bio: ' + bio);
-  if (background) lines.push('- Background: ' + background);
-  if (!bio && !background) lines.push('- (No bio/background filled in yet — invent a fitting look from the name and the tour-guide role.)');
-  lines.push('');
-  lines.push('IMAGE DIRECTION');
-  lines.push('- Head-and-shoulders character portrait, facing the viewer, warm and confident.');
-  lines.push('- Polished, stylized digital illustration — not a photograph of a real person.');
-  lines.push('- Clear, well-lit face; simple, uncluttered background that hints at the setting without distracting.');
-  lines.push('- Square 1:1 framing, subject centered, safe to crop to a circle for an avatar.');
-  lines.push('- No text, letters, logos, or watermarks anywhere in the image.');
-  lines.push('');
-  lines.push('Produce the image now.');
-  return lines.join('\n');
+  return window.TgbPicmakerPrompts.buildGuideImagePrompt({
+    guideName: meta.guideName,
+    guideBio: meta.guideBio,
+    guideBackground: meta.guideBackground
+  });
 }
 
 function openGuideImagePromptPopup() {
@@ -23982,6 +24268,7 @@ async function initializeBuilder() {
   applyZoom();
   setGameDetailsCollapsed(false);
   loadBuilderTeams().catch((err) => console.warn('loadBuilderTeams failed:', err));
+  loadBuilderAnchorEvents().catch((err) => console.warn('loadBuilderAnchorEvents failed:', err));
   await loadDoc();
   builderInitialized = true;
   syncGameIdToUrl();
