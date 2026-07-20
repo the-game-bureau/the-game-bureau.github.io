@@ -387,81 +387,148 @@ function buildHtml(state, meta, ignoredIds) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex,nofollow">
-<title>Gift Shop · URL Error Report</title>
+<title>Gift Shop · Issues</title>
+<link rel="icon" href="/assets/brand/tgb.ico" type="image/x-icon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: light dark; }
-  body { margin: 0; padding: 24px; font: 14px/1.5 "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; background: #0b1018; color: #e8eef6; }
-  h1 { font-size: 1.4rem; margin: 0 0 4px; }
-  .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  .meta { color: #93a4ba; margin: 0 0 20px; max-width: 760px; }
-  .cards { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 22px; }
-  .card { border: 1px solid #243044; border-radius: 8px; padding: 10px 14px; background: #111a27; }
-  .card .n { font-size: 1.5rem; font-weight: 700; }
-  .card .k { color: #93a4ba; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; }
-  table { width: 100%; border-collapse: collapse; margin: 8px 0 22px; }
-  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #1d2738; vertical-align: top; }
-  th { color: #93a4ba; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  /* Mission Control "paper" theme — mirrors mc/js/admin-shell.css + game-plays.html. */
+  * { box-sizing: border-box; }
+  :root {
+    color-scheme: light;
+    --paper-base: #fefef9; --bic-blue: #2d4880; --bic-blue-rgb: 45, 72, 128;
+    --paper-shadow: rgba(var(--bic-blue-rgb), 0.12); --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+    --ink: var(--bic-blue); --muted: rgba(var(--bic-blue-rgb), 0.72); --line: rgba(var(--bic-blue-rgb), 0.18);
+    --accent: var(--bic-blue); --danger: #a03f2d; --warn: #9a6a1e; --success: #2f6b3d;
+  }
+  body {
+    margin: 0 auto; max-width: 1200px; min-height: 100vh; padding: 24px 18px 80px;
+    font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    background:
+      linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+      linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+      linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+    background-size: 24px 24px, 24px 24px, 100% 100%; background-attachment: fixed;
+  }
+  button, input, select { font: inherit; }
+  /* Top action row, then a section-head hero, matching every other MC page. */
+  .topbar { display: flex; justify-content: flex-end; gap: 10px; margin: 0 0 18px; }
+  .topbar-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  #manageBtn, #runCheckBtn, #aiAuditBtn {
+    display: inline-flex; align-items: center; min-height: 42px; padding: 0 16px;
+    border: 1px solid var(--line); border-radius: 8px; background: rgba(255, 255, 255, 0.92);
+    color: var(--ink); font-size: 0.78rem; font-weight: 800; letter-spacing: 0.04em;
+    text-transform: uppercase; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+  }
+  #manageBtn:hover, #runCheckBtn:hover, #aiAuditBtn:hover { background: #fff; border-color: var(--accent); }
+  #runCheckBtn:disabled, #aiAuditBtn:disabled { opacity: 0.5; cursor: default; }
+  /* AI audit only matters to a signed-in admin. */
+  #aiAuditBtn { display: none; }
+  body.is-admin #aiAuditBtn { display: inline-flex; }
+
+  .section-head {
+    display: grid; gap: 6px; margin: 0 0 18px; padding: 20px 22px 22px;
+    border: 1px solid rgba(var(--bic-blue-rgb), 0.14); border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.74) 0%, rgba(var(--bic-blue-rgb), 0.08) 100%);
+    box-shadow: 0 18px 36px var(--paper-shadow);
+  }
+  .kicker { margin: 0; font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+  h1 { margin: 2px 0 0; font-size: 1.9rem; font-weight: 700; color: var(--bic-blue); }
+  .meta { margin: 6px 0 0; color: var(--muted); font-size: 0.9rem; max-width: 820px; }
+
+  .cards { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 22px; }
+  .card { min-width: 92px; padding: 12px 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.82); box-shadow: 0 10px 24px var(--paper-shadow); }
+  .card .n { font-family: "IBM Plex Mono", monospace; font-size: 1.6rem; font-weight: 700; }
+  .card .k { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; }
+
+  section, details { margin: 0 0 18px; }
+  table { width: 100%; margin: 8px 0; border-collapse: collapse; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: rgba(255, 255, 255, 0.82); }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 0.84rem; }
+  th { font-family: "IBM Plex Mono", monospace; font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  tbody tr:last-child td { border-bottom: 0; }
   td.t { font-weight: 600; max-width: 360px; }
-  td.l a { color: #6db1ff; }
-  td.l a.edit { color: #ffc266; }
-  .dim { color: #7f8ea3; font-size: 0.85em; }
-  .ok { color: #66d088; font-weight: 700; }
-  .b { display: inline-block; padding: 1px 7px; border-radius: 5px; font-size: 0.72rem; font-weight: 700; margin: 1px 2px 1px 0; white-space: nowrap; }
-  .b-dead, .b-notimage { background: #4a1620; color: #ff8e84; }
-  .b-error { background: #4a3414; color: #ffc266; }
-  .b-blocked { background: #1d2738; color: #93a4ba; }
-  details summary { cursor: pointer; color: #93a4ba; margin: 8px 0; }
-  a { color: #6db1ff; }
+  a { color: var(--bic-blue); }
+  td.l a { color: var(--bic-blue); }
+  td.l a.edit { color: var(--warn); }
+  .dim { color: var(--muted); font-size: 0.85em; }
+  .ok { color: var(--success); font-weight: 700; }
+  .b { display: inline-block; padding: 1px 8px; border-radius: 999px; font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; font-weight: 700; margin: 1px 2px 1px 0; white-space: nowrap; }
+  .b-dead, .b-notimage { background: rgba(160, 63, 45, 0.14); color: var(--danger); }
+  .b-error { background: rgba(154, 106, 30, 0.16); color: var(--warn); }
+  .b-blocked { background: rgba(45, 72, 128, 0.10); color: var(--muted); }
+  details summary { margin: 8px 0; color: var(--muted); font-weight: 600; cursor: pointer; }
   td.act, th.act { width: 1%; white-space: nowrap; text-align: right; }
   /* The per-row controls only appear once an admin is signed in. */
   .rowbtn { display: none; }
   body.is-admin .rowbtn {
-    display: inline-block; font: inherit; font-size: 0.72rem; text-transform: uppercase;
-    letter-spacing: 0.04em; cursor: pointer; border: 1px solid #33425c; background: #16202f;
-    color: #93a4ba; border-radius: 6px; padding: 2px 9px; margin-left: 6px;
+    display: inline-block; font: inherit; font-size: 0.66rem; text-transform: uppercase;
+    letter-spacing: 0.04em; cursor: pointer; border: 1px solid var(--line); background: #fff;
+    color: var(--muted); border-radius: 6px; padding: 3px 9px; margin-left: 6px;
   }
-  body.is-admin .rowbtn:hover { background: #3a1620; border-color: #7a2634; color: #ff9a90; }
-  body.is-admin .rowbtn--restore:hover { background: #14351f; border-color: #2f7a45; color: #7ee0a0; }
+  body.is-admin .rowbtn:hover { background: rgba(160, 63, 45, 0.10); border-color: var(--danger); color: var(--danger); }
+  body.is-admin .rowbtn--restore:hover { background: rgba(47, 107, 61, 0.12); border-color: var(--success); color: var(--success); }
   /* Stock Room = blue (navigate away), Delete = red (destructive). */
-  body.is-admin .rowbtn--open:hover { background: #13294a; border-color: #2f5f9e; color: #9ecbff; }
-  body.is-admin .rowbtn--del { border-color: #5a2732; color: #e79aa4; }
-  body.is-admin .rowbtn--del:hover { background: #4a1620; border-color: #7a2634; color: #ff9a90; }
+  body.is-admin .rowbtn--open:hover { background: rgba(45, 72, 128, 0.10); border-color: var(--accent); color: var(--accent); }
+  body.is-admin .rowbtn--del { border-color: rgba(160, 63, 45, 0.5); color: var(--danger); }
+  body.is-admin .rowbtn--del:hover { background: rgba(160, 63, 45, 0.12); border-color: var(--danger); color: var(--danger); }
   .rowbtn:disabled { opacity: 0.5; cursor: default; }
-  .topbar-actions { flex: 0 0 auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-  #manageBtn, #runCheckBtn, #aiAuditBtn {
-    flex: 0 0 auto; font: inherit; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;
-    cursor: pointer; border: 1px solid #33425c; background: #16202f; color: #cbd7e6;
-    border-radius: 8px; padding: 7px 14px;
+  /* Bulk-select column + floating action bar (admin-only, like the row buttons). */
+  th.sel, td.sel { display: none; width: 1%; white-space: nowrap; }
+  body.is-admin th.sel, body.is-admin td.sel { display: table-cell; }
+  .rowchk, .allchk { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
+  .bulkbar {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    display: none; align-items: center; gap: 10px; z-index: 90;
+    padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px;
+    background: rgba(255, 255, 255, 0.98); box-shadow: 0 18px 36px var(--paper-shadow);
   }
-  #manageBtn:hover, #runCheckBtn:hover, #aiAuditBtn:hover { background: #1d2738; color: #fff; }
-  #runCheckBtn:disabled, #aiAuditBtn:disabled { opacity: 0.6; cursor: default; }
-  /* AI audit + its results only matter to a signed-in admin. */
-  #aiAuditBtn { display: none; }
-  body.is-admin #aiAuditBtn { display: inline-block; }
-  #aiAuditBtn { border-color: #3a2f5c; color: #c9b8ff; }
-  body.is-admin #aiAuditBtn:hover { background: #241d3a; color: #fff; border-color: #5a47a0; }
+  body.is-admin .bulkbar.is-visible { display: flex; }
+  .bulkbar .bulk-n { font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; font-weight: 700; }
+  .bulkbar button {
+    min-height: 34px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px;
+    background: #fff; color: var(--ink); font: inherit; font-size: 0.72rem; font-weight: 800;
+    letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
+  }
+  .bulkbar button:hover { border-color: var(--accent); }
+  .bulkbar button.danger { border-color: rgba(160, 63, 45, 0.5); color: var(--danger); }
+  .bulkbar button.danger:hover { background: rgba(160, 63, 45, 0.12); border-color: var(--danger); }
+  .bulkbar .bulk-clear { color: var(--muted); }
 </style>
 </head>
 <body>
   <div class="topbar">
-    <div>
-      <h1>Gift Shop · URL Error Report</h1>
-      <p class="meta">Last run <strong>${esc(meta.date)} ${esc(meta.time)} ${esc(TZ)}</strong> · ${meta.full
-        ? `checked the <strong>full catalog</strong> (manual run) — ${meta.checkedThisRun} items.`
-        : `checked the <strong>${meta.segment + 1}/7</strong> slice (${esc(meta.weekday)}) — ${meta.checkedThisRun} items. Each item is re-checked once a week.`}
-         Coverage: <strong>${meta.fullCoverage ? 'full catalog' : 'published only (no service key — archived items skipped)'}</strong>.</p>
-    </div>
     <div class="topbar-actions">
       <button id="aiAuditBtn" type="button" title="Use AI to check every tracked gift's fields agree: the image matches the title, the title matches the linked product page, and the city lines up.">AI audit</button>
       <button id="runCheckBtn" type="button" title="Kick off the URL health check on GitHub Actions now instead of waiting for the nightly run.">Run check now</button>
       <button id="manageBtn" type="button">Admin sign-in</button>
     </div>
   </div>
+  <section class="section-head">
+    <p class="kicker">TGB MISSION CONTROL</p>
+    <h1>Gift Shop · Issues</h1>
+    <p class="meta">Last run <strong>${esc(meta.date)} ${esc(meta.time)} ${esc(TZ)}</strong> · ${meta.full
+      ? `checked the <strong>full catalog</strong> (manual run) — ${meta.checkedThisRun} items.`
+      : `checked the <strong>${meta.segment + 1}/7</strong> slice (${esc(meta.weekday)}) — ${meta.checkedThisRun} items. Each item is re-checked once a week.`}
+       Coverage: <strong>${meta.fullCoverage ? 'full catalog' : 'published only (no service key — archived items skipped)'}</strong>.</p>
+  </section>
   <div class="cards">
     <div class="card"><div class="n" id="countErrors">${errored.length}</div><div class="k">Errors</div></div>
     <div class="card"><div class="n" id="countBlocked">${blocked.length}</div><div class="k">Inconclusive</div></div>
     <div class="card"><div class="n" id="countIgnored">${ignored.length}</div><div class="k">Ignored</div></div>
     <div class="card"><div class="n">${checkedCount}</div><div class="k">Tracked</div></div>
+    <div class="card"><div class="n" id="countLowStock">–</div><div class="k">Low-stock cities</div></div>
+  </div>
+
+  <!-- Floating bulk-action bar. Appears (admin only) when one or more row
+       checkboxes are ticked; acts on every checked row across all tables. -->
+  <div class="bulkbar" id="bulkBar" role="region" aria-label="Bulk actions">
+    <span class="bulk-n" id="bulkN">0 selected</span>
+    <button type="button" id="bulkStock">Stock room</button>
+    <button type="button" id="bulkIgnore">Ignore</button>
+    <button type="button" class="danger" id="bulkDelete">Delete</button>
+    <button type="button" class="bulk-clear" id="bulkClear">Clear</button>
   </div>
 
   <section id="errorsWrap">
@@ -485,6 +552,13 @@ function buildHtml(state, meta, ignoredIds) {
   <details id="mismatchSection"${hid(mism.length > 0)} open>
     <summary><span id="mismatchCount">${mism.length}</span> field mismatches (AI — image / title / page / city don't line up)</summary>
     <table><thead><tr><th>Item</th><th>AI verdict</th><th>Links</th><th class="act"></th></tr></thead><tbody id="mismatchBody">${mismatchBody}</tbody></table>
+  </details>
+
+  <!-- Understocked cities (moved here from the Stock Room). Filled live on load
+       by the script below — any active shop city carrying fewer than 3 gifts. -->
+  <details id="lowStockSection" hidden open>
+    <summary><span id="lowStockCount">0</span> cities with fewer than 3 gifts</summary>
+    <table><thead><tr><th>City</th><th>Gifts</th><th class="act"></th></tr></thead><tbody id="lowStockBody"></tbody></table>
   </details>
 
   <p class="dim">DEAD = 404/410/451 · NOT-IMAGE = 200 but not an image · ERROR = other 4xx/5xx, timeout, DNS · blocked = 403/429/503 (anti-bot, inconclusive).</p>
@@ -596,6 +670,8 @@ function buildHtml(state, meta, ignoredIds) {
       var mm = mmBody ? mmBody.children.length : 0;
       setText('#mismatchCount', mm);
       setHidden('#mismatchSection', mm === 0);
+      installSelection();
+      updateBulk();
     }
 
     // Bring the DOM in line with the server's ignore set (covers changes another
@@ -615,6 +691,120 @@ function buildHtml(state, meta, ignoredIds) {
       });
       refresh();
     }
+
+    // ── Bulk selection ────────────────────────────────────────────────────
+    // Checkboxes are injected at runtime so the (large) generated row markup
+    // stays untouched. The floating bar acts on every checked row at once.
+    var SEL_BODIES = ['#errorsBody', '#blockedBody', '#ignoredBody', '#mismatchBody'];
+    function ensureSelCell(tr) {
+      if (tr.querySelector('td.sel')) return;
+      var td = document.createElement('td');
+      td.className = 'sel';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'rowchk';
+      cb.setAttribute('aria-label', 'Select row');
+      td.appendChild(cb);
+      tr.insertBefore(td, tr.firstChild);
+    }
+    function ensureHeadCell(table) {
+      if (!table) return;
+      var htr = table.querySelector('thead tr');
+      if (!htr || htr.querySelector('th.sel')) return;
+      var th = document.createElement('th');
+      th.className = 'sel';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'allchk';
+      cb.setAttribute('aria-label', 'Select all in this table');
+      th.appendChild(cb);
+      htr.insertBefore(th, htr.firstChild);
+    }
+    function installSelection() {
+      SEL_BODIES.forEach(function (sel) {
+        var body = q(sel);
+        if (!body) return;
+        ensureHeadCell(body.closest('table'));
+        Array.prototype.forEach.call(body.children, ensureSelCell);
+      });
+    }
+    function checkedRows() {
+      return Array.prototype.slice.call(document.querySelectorAll('tr .rowchk:checked'))
+        .map(function (cb) { return cb.closest('tr'); })
+        .filter(Boolean);
+    }
+    function clearSelection() {
+      Array.prototype.slice.call(document.querySelectorAll('.rowchk:checked, .allchk:checked'))
+        .forEach(function (cb) { cb.checked = false; });
+      updateBulk();
+    }
+    function updateBulk() {
+      var n = checkedRows().length;
+      var label = q('#bulkN');
+      var bar = q('#bulkBar');
+      if (label) label.textContent = n + ' selected';
+      if (bar) bar.classList.toggle('is-visible', n > 0);
+    }
+
+    document.addEventListener('change', function (event) {
+      var t = event.target;
+      if (!t || !t.classList) return;
+      if (t.classList.contains('allchk')) {
+        var table = t.closest('table');
+        if (table) {
+          Array.prototype.slice.call(table.querySelectorAll('tbody .rowchk'))
+            .forEach(function (cb) { cb.checked = t.checked; });
+        }
+        updateBulk();
+      } else if (t.classList.contains('rowchk')) {
+        updateBulk();
+      }
+    });
+
+    async function bulkStock() {
+      var rs = checkedRows();
+      if (!rs.length) return;
+      if (rs.length > 8 && !window.confirm('Open ' + rs.length + ' items in the Stock Room? That opens ' + rs.length + ' new tabs.')) return;
+      rs.forEach(function (row) {
+        window.open('/shop/admin/?item=' + encodeURIComponent(row.dataset.itemId), '_blank', 'noopener');
+      });
+    }
+    async function bulkIgnore() {
+      // Ignore only makes sense for still-active Errors / Inconclusive rows.
+      var rs = checkedRows().filter(function (row) {
+        var p = row.parentNode;
+        return p && (p.id === 'errorsBody' || p.id === 'blockedBody');
+      });
+      if (!rs.length) { window.alert('Tick one or more rows in Errors or Inconclusive to ignore.'); return; }
+      if (!(await ensureAdmin())) return;
+      for (var k = 0; k < rs.length; k++) {
+        try { await writeIgnore(rs[k].dataset.itemId); moveRow(rs[k], '#ignoredBody', 'ignored'); }
+        catch (e) { /* keep going, report at the end via refresh counts */ }
+      }
+      clearSelection();
+      refresh();
+    }
+    async function bulkDelete() {
+      var rs = checkedRows();
+      if (!rs.length) return;
+      if (!(await ensureAdmin())) return;
+      if (!window.confirm('Permanently delete ' + rs.length + ' item' + (rs.length === 1 ? '' : 's') + ' from the gift shop? This removes them everywhere and cannot be undone.')) return;
+      for (var k = 0; k < rs.length; k++) {
+        var row = rs[k];
+        try {
+          await deleteItemRow(row.dataset.itemId);
+          try { await deleteIgnore(row.dataset.itemId); } catch (e) {}
+          if (row.parentNode) row.parentNode.removeChild(row);
+        } catch (e) { /* keep going */ }
+      }
+      clearSelection();
+      refresh();
+    }
+    (function wireBulk() {
+      var b;
+      if ((b = q('#bulkStock'))) b.addEventListener('click', bulkStock);
+      if ((b = q('#bulkIgnore'))) b.addEventListener('click', bulkIgnore);
+      if ((b = q('#bulkDelete'))) b.addEventListener('click', bulkDelete);
+      if ((b = q('#bulkClear'))) b.addEventListener('click', clearSelection);
+    })();
 
     document.addEventListener('click', async function (event) {
       var btn = event.target && event.target.closest ? event.target.closest('.rowbtn') : null;
@@ -808,6 +998,77 @@ function buildHtml(state, meta, ignoredIds) {
     if (adminAuth) adminAuth.init();
     refresh();
   })();
+  </script>
+  <script>
+  // Understocked cities (moved here from the Stock Room). Live from Supabase on
+  // load: any active shop city carrying fewer than MIN_CITY_GIFTS distinct gifts.
+  // Public read (gift_shop_cities / gift_shop_listings), so no admin sign-in needed.
+  (function () {
+    var SB = { url: ${JSON.stringify(PAGE_SB_URL)}, key: ${JSON.stringify(PAGE_SB_PUBLISHABLE_KEY)} };
+    var MIN_CITY_GIFTS = 3;
+    var sec = document.getElementById('lowStockSection');
+    var body = document.getElementById('lowStockBody');
+    var countEl = document.getElementById('lowStockCount');
+    var cardEl = document.getElementById('countLowStock');
+    if (!sec || !body) return;
+    var headers = { apikey: SB.key, Authorization: 'Bearer ' + SB.key, Accept: 'application/json' };
+    function restUrl(table, params) {
+      var url = new URL('/rest/v1/' + encodeURIComponent(table), SB.url + '/');
+      Object.keys(params || {}).forEach(function (k) { url.searchParams.set(k, params[k]); });
+      return url.toString();
+    }
+    async function getAll(table, params) {
+      var out = [], from = 0, PAGE = 1000;
+      for (;;) {
+        var res = await fetch(restUrl(table, params), {
+          headers: Object.assign({ Range: from + '-' + (from + PAGE - 1) }, headers), cache: 'no-store'
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var rows = await res.json();
+        out = out.concat(rows);
+        if (!rows.length || rows.length < PAGE) break;
+        from += PAGE;
+      }
+      return out;
+    }
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
+    (async function () {
+      try {
+        var cities = await getAll('gift_shop_cities', { select: 'city,archived' });
+        var listings = await getAll('gift_shop_listings', { select: 'item_id,city' });
+        // Distinct gift items per active city (archived cities are excluded, same
+        // as the old Stock Room check). Listings reference the canonical city PK.
+        var perCity = {};
+        cities.forEach(function (c) { if (c && c.city && !c.archived) perCity[c.city] = new Set(); });
+        listings.forEach(function (l) {
+          if (l && l.city && perCity[l.city]) perCity[l.city].add(String(l.item_id));
+        });
+        var low = Object.keys(perCity)
+          .map(function (city) { return { city: city, n: perCity[city].size }; })
+          .filter(function (r) { return r.n < MIN_CITY_GIFTS; })
+          .sort(function (a, b) { return a.n - b.n || a.city.localeCompare(b.city, undefined, { sensitivity: 'base', numeric: true }); });
+        if (cardEl) cardEl.textContent = String(low.length);
+        if (countEl) countEl.textContent = String(low.length);
+        if (!low.length) { sec.hidden = true; return; }
+        body.innerHTML = low.map(function (r) {
+          return '<tr>' +
+            '<td class="t">' + esc(r.city) + '</td>' +
+            '<td><span class="b b-error">' + r.n + ' / ' + MIN_CITY_GIFTS + '</span></td>' +
+            '<td class="act"><a class="edit" href="/shop/admin/?city=' + encodeURIComponent(r.city) +
+              '" target="_blank" rel="noopener">stock room →</a></td>' +
+          '</tr>';
+        }).join('');
+        sec.hidden = false;
+      } catch (e) {
+        if (cardEl) cardEl.textContent = '?';
+        // Best-effort: leave the section hidden if the read fails.
+      }
+    })();
+  }());
   </script>
 </body>
 </html>
