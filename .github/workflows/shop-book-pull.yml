@@ -1,0 +1,73 @@
+name: Gift Shop nightly book pull
+
+# Nightly at ~03:30 America/Chicago (offset from the 03:00 URL error check so
+# they don't overlap). GitHub cron is UTC with no DST, so we trigger at BOTH
+# 08:30 and 09:30 UTC and let the guard proceed only at 03:30 Central — exactly
+# one fires year-round.
+#
+# Each run asks Claude (with web search) for a few books tied to one of our shop
+# cities and inserts them as ARCHIVED, unpublished candidates via
+# tgb_import_bookshop_prompt_items. An admin reviews them in the Stock Room and
+# either unarchives+publishes or rejects. Nothing is committed to the repo —
+# the write lands in Supabase.
+
+on:
+  schedule:
+    - cron: "30 8 * * *"   # 03:30 CDT (summer)
+    - cron: "30 9 * * *"   # 03:30 CST (winter)
+  workflow_dispatch:
+    inputs:
+      count:
+        description: "How many books to pull this run"
+        type: string
+        default: "5"
+      topic:
+        description: "Override the city/topic (optional)"
+        type: string
+        default: ""
+
+concurrency:
+  group: shop-book-pull
+  cancel-in-progress: false
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Proceed only at 03:30 Central (or on manual dispatch)
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          hm=$(TZ='America/Chicago' date +%H%M)
+          echo "Central time: $hm"
+          if [ "$hm" = "0330" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "Not 3:30am Central — skipping this trigger (the other cron handles it)."
+          fi
+
+      - name: Checkout
+        if: steps.gate.outputs.go == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Node
+        if: steps.gate.outputs.go == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Pull candidate books
+        if: steps.gate.outputs.go == 'true'
+        env:
+          SUPABASE_URL: https://qmaafbncpzrdmqapkkgr.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BOOK_PULL_COUNT: ${{ github.event.inputs.count }}
+          BOOK_PULL_TOPIC: ${{ github.event.inputs.topic }}
+        run: node _dev/scripts/shop-book-pull.mjs

@@ -2206,6 +2206,38 @@
 
       <p class="city-tools-status" id="giftCityStatus" aria-live="polite"></p>
 
+      <!-- Nightly URL/image-check summary. Counts come from
+           shop/admin/giftshop-errors.json (written by _dev/scripts/shop-error-check.mjs);
+           the button opens the full report to process errors. Hidden until the
+           first nightly run has produced the JSON. -->
+      <div id="errCheckBar" hidden style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:10px 14px;border:1px solid rgba(255,255,255,0.14);border-radius:10px;background:rgba(255,255,255,0.04);">
+        <strong style="font-size:.72rem;letter-spacing:.1em;">NIGHTLY LINK CHECK</strong>
+        <span id="errCheckCounts" style="font-size:.85rem;opacity:.9;">…</span>
+        <a id="errCheckLink" class="btn" href="giftshop-errors.htm" target="_blank" rel="noopener" style="margin-left:auto;">Process errors →</a>
+      </div>
+      <script>
+        (function () {
+          var bar = document.getElementById('errCheckBar');
+          var counts = document.getElementById('errCheckCounts');
+          if (!bar || !counts) return;
+          fetch('giftshop-errors.json?t=' + Date.now(), { cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (s) {
+              if (!s) return;
+              bar.hidden = false;
+              if ((s.errors || 0) > 0) bar.style.borderColor = 'rgba(255,120,110,0.55)';
+              var when = [s.date, s.time, s.tz].filter(Boolean).join(' ');
+              counts.innerHTML =
+                '<strong>' + (s.errors || 0) + '</strong> errors · ' +
+                (s.inconclusive || 0) + ' inconclusive · ' +
+                (s.mismatches || 0) + ' mismatches · ' +
+                (s.ignored || 0) + ' ignored' +
+                (when ? ' <span style="opacity:.6;">(last run ' + when + ')</span>' : '');
+            })
+            .catch(function () {});
+        }());
+      </script>
+
       <!-- Bulk actions: tick several gifts, then archive / publish / delete them
            in one go. Selection persists across pages (checked state lives in the
            DOM). Action buttons stay disabled until at least one gift is ticked. -->
@@ -2219,6 +2251,7 @@
           <button class="btn" id="bulkAutoFillBtn" type="button" disabled title="Run Auto Fill on every selected gift — scrapes the image and backfills any blank Title/Description from each row's Link. Fills but does not save; review, then Save &amp; Publish.">Auto Fill</button>
           <button class="btn" id="bulkArchiveBtn" type="button" disabled>Save &amp; Archive</button>
           <button class="btn primary" id="bulkPublishBtn" type="button" disabled>Save &amp; Publish</button>
+          <button class="btn danger" id="bulkRejectBtn" type="button" disabled title="Reject the selected gifts — archives them and marks them rejected so future import prompts never suggest them again. Un-reject from a gift's own controls.">Reject</button>
           <button class="btn danger" id="bulkDeleteBtn" type="button" disabled>Delete</button>
           <button class="btn bulk-clear" id="bulkClearBtn" type="button" disabled>Clear</button>
         </div>
@@ -2297,6 +2330,7 @@
         <div class="item-actions">
           <button class="btn" data-action="save-archive" type="button">Save &amp; Archive</button>
           <button class="btn primary" data-action="save-publish" type="button">Save &amp; Publish</button>
+          <button class="btn danger" data-action="toggle-reject" type="button" title="Reject: archive this gift and mark it rejected so import prompts never suggest it again. Click again to un-reject.">Reject</button>
           <button class="btn danger" data-action="delete" type="button">Delete</button>
           <span class="item-status" data-status></span>
         </div>
@@ -2395,6 +2429,7 @@
     const bulkAutoFillBtn = document.getElementById('bulkAutoFillBtn');
     const bulkArchiveBtn = document.getElementById('bulkArchiveBtn');
     const bulkPublishBtn = document.getElementById('bulkPublishBtn');
+    const bulkRejectBtn  = document.getElementById('bulkRejectBtn');
     const bulkDeleteBtn  = document.getElementById('bulkDeleteBtn');
     const bulkClearBtn   = document.getElementById('bulkClearBtn');
     const cityFilter   = document.getElementById('cityFilter');
@@ -2532,7 +2567,7 @@
         bulkCount.classList.toggle('has-selection', count > 0);
       }
       const actionsDisabled = bulkBusy || count === 0;
-      [bulkAutoFillBtn, bulkArchiveBtn, bulkPublishBtn, bulkDeleteBtn, bulkClearBtn].forEach((b) => {
+      [bulkAutoFillBtn, bulkArchiveBtn, bulkPublishBtn, bulkRejectBtn, bulkDeleteBtn, bulkClearBtn].forEach((b) => {
         if (b) b.disabled = actionsDisabled;
       });
       // Sync the "select all on this page" box against the visible rows.
@@ -2645,7 +2680,11 @@
     }
     if (bulkPublishBtn) {
       bulkPublishBtn.addEventListener('click', () =>
-        runBulkSave({ certifiedAt: new Date().toISOString(), archived: false }, 'Published'));
+        runBulkSave({ certifiedAt: new Date().toISOString(), archived: false, rejectedAt: null }, 'Published'));
+    }
+    if (bulkRejectBtn) {
+      bulkRejectBtn.addEventListener('click', () =>
+        runBulkSave({ rejectedAt: new Date().toISOString(), archived: true, certifiedAt: null }, 'Rejected'));
     }
 
     if (bulkDeleteBtn) {
@@ -3832,13 +3871,29 @@
         const formatted = formatCertDate(value);
         publishDateEl.textContent = 'Last published: ' + (formatted || 'never');
       };
+      const refreshStatusLabel = () => {
+        const archived = article.dataset.archived === 'true';
+        const rejected = article.dataset.rejected === 'true';
+        archiveStatusEl.textContent = 'Archived: ' + (archived ? 'yes' : 'no') + (rejected ? ' · REJECTED' : '');
+      };
       const setArchiveState = (value) => {
         const archived = !!value;
         article.dataset.archived = archived ? 'true' : 'false';
         article.classList.toggle('is-hidden', archived);
-        archiveStatusEl.textContent = 'Archived: ' + (archived ? 'yes' : 'no');
+        refreshStatusLabel();
+      };
+      // Rejected is a tombstone: archived + flagged so import prompts skip it and
+      // the public shop hides it. The one button toggles Reject / Un-reject.
+      const setRejectState = (value) => {
+        const rejected = !!(value && String(value).trim());
+        article.dataset.rejected = rejected ? 'true' : 'false';
+        article.classList.toggle('is-rejected', rejected);
+        const rejectBtn = article.querySelector('[data-action="toggle-reject"]');
+        if (rejectBtn) rejectBtn.textContent = rejected ? 'Un-reject' : 'Reject';
+        refreshStatusLabel();
       };
       setPublishLabel(item.certified_at);
+      setRejectState(item.rejected_at);
       setArchiveState(isHiddenGiftItem(item));
 
       // Shared save routine. Publish/archive buttons apply their flag before saving.
@@ -3863,6 +3918,7 @@
         }
         if (Object.prototype.hasOwnProperty.call(opts, 'certifiedAt')) payload.certified_at = opts.certifiedAt;
         if (Object.prototype.hasOwnProperty.call(opts, 'archived')) payload.archived = !!opts.archived;
+        if (Object.prototype.hasOwnProperty.call(opts, 'rejectedAt')) payload.rejected_at = opts.rejectedAt;
         article.dataset.saving = 'true';
         setItemStatus('Saving…');
         try {
@@ -3872,6 +3928,7 @@
             : await insertItem(payload);
           if (saved && saved.id) { article.dataset.id = saved.id; article.classList.remove('is-new'); }
           setArchiveState(!!payload.archived);
+          if (Object.prototype.hasOwnProperty.call(opts, 'rejectedAt')) setRejectState(opts.rejectedAt);
           if (Object.prototype.hasOwnProperty.call(opts, 'certifiedAt')) {
             article.dataset.certifiedAt = opts.certifiedAt || '';
             setPublishLabel(opts.certifiedAt);
@@ -4095,7 +4152,8 @@
         savePublishButton.addEventListener('click', async () => {
           savePublishButton.disabled = true;
           try {
-            await doSave({ certifiedAt: new Date().toISOString(), archived: false });
+            // Publishing clears any rejection — a live gift can't be rejected.
+            await doSave({ certifiedAt: new Date().toISOString(), archived: false, rejectedAt: null });
           } finally {
             savePublishButton.disabled = false;
           }
@@ -4108,6 +4166,23 @@
             await doSave({ certifiedAt: null, archived: true });
           } finally {
             saveArchiveButton.disabled = false;
+          }
+        });
+      }
+
+      const rejectButton = article.querySelector('[data-action="toggle-reject"]');
+      if (rejectButton) {
+        rejectButton.addEventListener('click', async () => {
+          const rejecting = article.dataset.rejected !== 'true';
+          rejectButton.disabled = true;
+          try {
+            // Reject → tombstone (archived + flagged). Un-reject → clear the flag,
+            // leaving it archived for review.
+            await doSave(rejecting
+              ? { rejectedAt: new Date().toISOString(), archived: true, certifiedAt: null }
+              : { rejectedAt: null });
+          } finally {
+            rejectButton.disabled = false;
           }
         });
       }

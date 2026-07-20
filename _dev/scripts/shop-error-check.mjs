@@ -34,6 +34,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const HTM_PATH = path.join(REPO_ROOT, 'shop', 'admin', 'giftshop-errors.htm');
 const LOG_PATH = path.join(REPO_ROOT, 'shop', 'admin', 'giftshop-errors.log');
+// Machine-readable summary the Stock Room fetches to show a counts panel + link.
+const JSON_PATH = path.join(REPO_ROOT, 'shop', 'admin', 'giftshop-errors.json');
 
 const SB_URL = (process.env.SUPABASE_URL || 'https://qmaafbncpzrdmqapkkgr.supabase.co').replace(/\/+$/, '');
 // Prefer the service-role key (bypasses RLS so ARCHIVED items are checked too).
@@ -262,6 +264,30 @@ function esc(s) {
 // signed-in admin's JWT reach PostgREST.
 const PAGE_SB_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const PAGE_SB_PUBLISHABLE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
+
+// Counts for the Stock Room summary panel — mirrors buildHtml's categorization.
+function summarize(state, ignoredIds, meta) {
+  const ignoreSet = ignoredIds instanceof Set ? ignoredIds : new Set(ignoredIds || []);
+  const items = Object.entries(state.items).map(([id, v]) => ({ id, ...v }));
+  const isError = (it) => HARD.has(it.urlState) || HARD.has(it.imageState);
+  const isBlocked = (it) => !isError(it) && (it.urlState === 'blocked' || it.imageState === 'blocked');
+  const flagged = items.filter((it) => isError(it) || isBlocked(it));
+  const notIgnored = (it) => !ignoreSet.has(String(it.id));
+  return {
+    errors:       flagged.filter((it) => isError(it) && notIgnored(it)).length,
+    inconclusive: flagged.filter((it) => isBlocked(it) && notIgnored(it)).length,
+    ignored:      flagged.filter((it) => ignoreSet.has(String(it.id))).length,
+    mismatches:   items.filter((it) => it.coherence && it.coherence.verdict && it.coherence.verdict !== 'ok').length,
+    tracked:      items.length,
+    date:         (meta && meta.date) || '',
+    time:         (meta && meta.time) || '',
+    tz:           TZ,
+  };
+}
+
+async function writeSummary(state, ignoredIds, meta) {
+  await writeFile(JSON_PATH, JSON.stringify(summarize(state, ignoredIds, meta), null, 2) + '\n', 'utf8');
+}
 
 function buildHtml(state, meta, ignoredIds) {
   const ignoreSet = ignoredIds instanceof Set ? ignoredIds : new Set(ignoredIds || []);
@@ -807,6 +833,7 @@ async function main() {
     const meta = readExistingMeta() || { ...wk, segment: wk.segment, checkedThisRun: 0, fullCoverage: USING_SERVICE_KEY };
     const html = buildHtml(state, meta, ignoredIds);
     await writeFile(HTM_PATH, html, 'utf8');
+    await writeSummary(state, ignoredIds, meta);
     console.log(`[shop-error-check] render-only — rewrote ${HTM_PATH} (${checkedCount} tracked, ${ignoredIds.size} ignored).`);
     return;
   }
@@ -874,8 +901,10 @@ async function main() {
 
   const ignoredIds = await fetchIgnoredIds();
   mergeCoherence(state, await fetchCoherence());
-  const html = buildHtml(state, { ...wk, segment, checkedThisRun: slice.length, fullCoverage: USING_SERVICE_KEY, full: runFull }, ignoredIds);
+  const runMeta = { ...wk, segment, checkedThisRun: slice.length, fullCoverage: USING_SERVICE_KEY, full: runFull };
+  const html = buildHtml(state, runMeta, ignoredIds);
   await writeFile(HTM_PATH, html, 'utf8');
+  await writeSummary(state, ignoredIds, runMeta);
 
   // Append a human-readable block to the log.
   const lines = [];
