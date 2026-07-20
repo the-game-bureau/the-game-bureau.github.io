@@ -38,7 +38,7 @@ const LOG_PATH = path.join(REPO_ROOT, 'shop', 'admin', 'giftshop-errors.log');
 const JSON_PATH = path.join(REPO_ROOT, 'shop', 'admin', 'giftshop-errors.json');
 
 const SB_URL = (process.env.SUPABASE_URL || 'https://qmaafbncpzrdmqapkkgr.supabase.co').replace(/\/+$/, '');
-// Prefer the service-role key (bypasses RLS so ARCHIVED items are checked too).
+// Prefer the service-role key (bypasses RLS so hidden Review/Shelved items are checked too).
 // Falls back to the public publishable key, which only sees non-archived rows.
 const SB_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const SB_PUBLISHABLE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
@@ -847,7 +847,7 @@ async function main() {
 
   console.log(`[shop-error-check] ${wk.date} ${wk.time} ${TZ} — ${runFull ? 'FULL manual recheck' : wk.weekday + ' → segment ' + (segment + 1) + '/7'}`);
   if (!USING_SERVICE_KEY) {
-    console.warn('[shop-error-check] WARNING: no SUPABASE_SERVICE_KEY — using publishable key, which cannot see ARCHIVED items. Set the secret to check the whole catalog.');
+    console.warn('[shop-error-check] WARNING: no SUPABASE_SERVICE_KEY — using publishable key, which cannot see hidden (Review/Shelved) items. Set the secret to check the whole catalog.');
   }
 
   const all = await fetchAllItems();

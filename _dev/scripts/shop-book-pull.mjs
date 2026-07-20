@@ -2,12 +2,11 @@
 //
 // Each run asks Claude (with web search, so the ISBNs are real, not
 // hallucinated) for a handful of books tied to one of our shop cities, then
-// inserts them as ARCHIVED, unpublished candidates via the same
+// inserts them as REVIEW candidates (archived=true, unpublished) via the same
 // tgb_import_bookshop_prompt_items RPC the Mission Control SEARCH PROMPT uses.
-// An admin later reviews each candidate and either unarchives+publishes it or
-// rejects it. Rejected rows are kept (never deleted), and both the RPC's
-// url/title dedupe AND the prompt's avoid-list below skip them — so a rejected
-// book is never suggested again.
+// An admin later reviews each candidate and either makes it Live or Shelves it.
+// SHELVED rows are kept (never deleted), and both the RPC's url/title dedupe AND
+// the prompt's avoid-list below skip them — so a shelved book never comes back.
 //
 // Zero dependencies: raw fetch, matching shop-error-check.mjs. Run by the
 // .github/workflows/shop-book-pull.yml nightly job.
@@ -56,8 +55,9 @@ async function pickTopic() {
 }
 
 async function avoidTitles() {
-  // Rejected titles first (must-avoid), then a sample of everything else so the
-  // model doesn't re-pitch books we already carry. Capped to bound the prompt.
+  // Shelved titles first (must-avoid — rejected_at is the SHELVED marker), then a
+  // sample of everything else so the model doesn't re-pitch books we already
+  // carry. Capped to bound the prompt.
   const out = [];
   const seen = new Set();
   const add = (rows) => (rows || []).forEach((r) => {
@@ -97,7 +97,7 @@ function extractText(content) {
 
 async function getBooks(topic, avoid) {
   const avoidBlock = avoid.length
-    ? `\n\nDo NOT suggest any of these — we already carry them or have rejected them:\n- ${avoid.join('\n- ')}`
+    ? `\n\nDo NOT suggest any of these — we already carry them or have shelved them:\n- ${avoid.join('\n- ')}`
     : '';
   const prompt =
 `Find ${COUNT} real books, available on Bookshop.org, that a traveler would love as a gift connected to: ${topic}.
@@ -167,7 +167,7 @@ async function importItems(items) {
   const results = await importItems(items);
   const inserted = (results || []).filter((r) => r.action === 'inserted');
   const skipped = (results || []).filter((r) => r.action === 'skipped');
-  inserted.forEach((r) => console.log(`  + inserted (archived): ${r.title}`));
+  inserted.forEach((r) => console.log(`  + inserted (Review): ${r.title}`));
   skipped.forEach((r) => console.log(`  · skipped (${r.note}): ${r.title || '(no title)'}`));
-  console.log(`Done: ${inserted.length} new archived candidate(s), ${skipped.length} skipped.`);
+  console.log(`Done: ${inserted.length} new Review candidate(s), ${skipped.length} skipped.`);
 })().catch((err) => { console.error('shop-book-pull failed:', err.message); process.exit(1); });
