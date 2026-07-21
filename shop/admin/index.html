@@ -880,6 +880,9 @@
       gap: 14px;
     }
     .item.paged-out { display: none; }
+    .items-footer { display: flex; justify-content: center; margin-top: 18px; }
+    .items-footer .btn[hidden] { display: none; }
+    #loadMoreBtn { min-width: 200px; }
     .item-review {
       width: 100%;
       margin: 0;
@@ -2340,6 +2343,9 @@
       </div>
 
       <div class="items" id="itemsList"></div>
+      <div class="items-footer">
+        <button class="btn" id="loadMoreBtn" type="button" hidden>Load more</button>
+      </div>
     </section>
   </main>
 
@@ -2502,6 +2508,7 @@
     const clearFiltersBtn = document.getElementById('clearFiltersBtn');
     const searchPromptBtn = document.getElementById('searchPromptBtn');
     const itemsList    = document.getElementById('itemsList');
+    const loadMoreBtn  = document.getElementById('loadMoreBtn');
     const bulkBar        = document.getElementById('bulkBar');
     const bulkSelectAll  = document.getElementById('bulkSelectAll');
     const bulkCount      = document.getElementById('bulkCount');
@@ -2520,17 +2527,59 @@
     const addGiftCityBtn = document.getElementById('addGiftCityBtn');
     const giftCityStatus = document.getElementById('giftCityStatus');
 
-    // Footer pager removed — no paging. Every non-filtered gift shows in one
-    // scrolling list; clear any leftover paged-out flags and refresh the bulk bar.
+    // "Load more" reveal — show gifts in batches of ITEMS_PER_LOAD (footer button)
+    // instead of all at once. Filtered-out (.hidden) rows stay hidden; force-shown
+    // new/dirty rows are always visible and don't count against the window.
+    const ITEMS_PER_LOAD = 10;
+    let itemsVisibleCount = ITEMS_PER_LOAD;
+
+    // The batchable rows in DOM order: not filtered out, not force-shown.
+    function paginableItems() {
+      return Array.from(itemsList.querySelectorAll('.item')).filter((item) =>
+        !item.classList.contains('hidden') &&
+        !item.classList.contains('is-new') &&
+        !item.classList.contains('is-dirty'));
+    }
+
+    function updateLoadMore() {
+      if (!loadMoreBtn) return;
+      const remaining = paginableItems().length - itemsVisibleCount;
+      loadMoreBtn.hidden = remaining <= 0;
+      if (remaining > 0) {
+        loadMoreBtn.textContent = 'Load more (' + remaining + ' more)';
+      }
+    }
+
     function applyItemsPagination() {
-      itemsList.querySelectorAll('.item.paged-out').forEach((item) => item.classList.remove('paged-out'));
+      let shown = 0;
+      itemsList.querySelectorAll('.item').forEach((item) => {
+        if (item.classList.contains('hidden') ||
+            item.classList.contains('is-new') ||
+            item.classList.contains('is-dirty')) {
+          item.classList.remove('paged-out');   // filtered stays hidden by .hidden; new/dirty always show
+          return;
+        }
+        if (shown < itemsVisibleCount) { item.classList.remove('paged-out'); shown++; }
+        else item.classList.add('paged-out');
+      });
+      updateLoadMore();
       updateBulkBar();
     }
 
-    // Reveal a deep-linked or just-saved item. With no pagination every gift is
-    // already visible, so this only needs to keep the list state fresh.
-    function goToItemPage() {
+    // Reveal a deep-linked or just-saved item: widen the window so it's visible.
+    function goToItemPage(article) {
+      const idx = paginableItems().indexOf(article);
+      if (idx >= 0 && idx + 1 > itemsVisibleCount) {
+        itemsVisibleCount = Math.ceil((idx + 1) / ITEMS_PER_LOAD) * ITEMS_PER_LOAD;
+      }
       applyItemsPagination();
+    }
+
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener('click', () => {
+        itemsVisibleCount += ITEMS_PER_LOAD;
+        applyItemsPagination();
+      });
     }
 
     // ── Bulk actions ────────────────────────────────────────────────────
@@ -3322,6 +3371,8 @@
         if (show) visible++;
       });
       updateItemsStatus();
+      // A filter/sort/search change starts the reveal window over at the first batch.
+      itemsVisibleCount = ITEMS_PER_LOAD;
       applyItemsPagination();
     }
 
