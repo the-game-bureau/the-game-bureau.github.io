@@ -83,7 +83,7 @@ fallback).
 
 ## Admin stats page (done)
 
-[shop/giftcards.html](../../../shop/giftcards.html) has a **Game Play Stats** panel that
+The admin **Game Play Stats** panel
 reads `game_play_stats` (admin-gated) and shows per-game plays / distinct team
 leaders / completed plays / total responses / last played, with game names
 resolved from `games`.

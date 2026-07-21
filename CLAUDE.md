@@ -23,7 +23,6 @@ Playthroughs are recorded for stats. A **team leader** (the buyer/leader — we 
 - **Append-only for anon** (engines use the anon key): RLS allows `INSERT` only; admin reads gated by `is_photo_admin()`. Don't add anon update/delete — record progress as `game_events`, not by mutating rows.
 - **Team leader email is folded in server-side**, never sent by the client: the `tgb_link_game_instance_identity` SECURITY DEFINER trigger looks the play's `access_code` up in `gift_codes` and copies the Stripe email. The link is **Stripe → gift_codes → game_instances → game_responses**.
 - Team name + team leader name are collected *before* Stripe in the buy modal (`mc/js/gs-buy-modal.js`) and written to `gift_codes` (`team_name`, `team_leader_name`) by `gs-create-checkout`; the instance trigger folds them onto the play. They're also best-effort on the instance (chosen in-game), and the authoritative team name is recoverable from `game_responses` (the `player_name` var). `route_color` is the engine route slot, not a sports color.
-- Admin stats live in [shop/giftcards.html](shop/giftcards.html) ("Game Play Stats" panel, reads the `game_play_stats` view).
 
 ---
 
@@ -43,7 +42,7 @@ Use **"site pages"** to mean the public-site pages that share the same navigatio
 - every file matched by `birthdayball/**/*.html`
 - every file matched by `how/**/*.html`
 - every file matched by `ww/**/*.html`
-- [shop/index.html](shop/index.html) — the public shop (formerly `/gifts/`; renamed 2026-06-26). Only `shop/index.html` is a site page; the other files under `shop/` (`admin/index.html` — the gift-shop admin, formerly `gs-shop.html`; `giftcards.html` — access-codes + Game Play Stats, formerly `gs-codes.html`; `scripts/`; `shop_banner.png`) are moved gift-shop admin/assets that keep Mission Control chrome, not public chrome.
+- [shop/index.html](shop/index.html) — the public shop (formerly `/gifts/`; renamed 2026-06-26). Only `shop/index.html` is a site page; the other files under `shop/` (`admin/index.html` — the gift-shop admin, formerly `gs-shop.html`; `scripts/`; `shop_banner.png`) are moved gift-shop admin/assets that keep Mission Control chrome, not public chrome.
 - every file matched by `highlights/**/*.html`
 - every file matched by `sampler/**/*.html`
 - every file matched by `survey/**/*.html`
