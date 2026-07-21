@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// Nightly gift-shop URL health check.
+// Nightly gift-shop Link/Image health check.
 //
 // Each run checks ONE SEVENTH of gift_shop_items — the slice keyed to the
 // current weekday in America/Chicago (Monday = 1st seventh, Tuesday = 2nd, …,
 // Sunday = 7th). Over a week every item is checked exactly once. For each item
-// in the slice we test the product `url` and the `image_url`.
+// in the slice we test the gift's Link (`url`) and Image (`image_url`).
 //
 // Results are merged into a persistent per-item state embedded in
 // shop/admin/giftshop-errors.htm (so other days' results survive), the page is
@@ -14,10 +14,10 @@
 // Admins can "ignore" an entry from the report page — that decision is stored
 // in Supabase (public.gift_shop_error_ignores), NOT in this file (which is
 // overwritten every run). Each run reads that table and moves ignored items
-// into a collapsed "Ignored" section, out of the Errors / Inconclusive counts.
+// into a collapsed "Ignored" section, out of the Issues / Inconclusive counts.
 //
 // Reads only (anon publishable key). No secrets required. (The service-role key
-// is preferred so archived items — and the admin-only ignore list — are read.)
+// is preferred so Review/Shelved gifts — and the admin-only ignore list — are read.)
 //
 // Env overrides (optional):
 //   SUPABASE_URL, SUPABASE_KEY  — Supabase REST endpoint + key
@@ -34,7 +34,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const HTM_PATH = path.join(REPO_ROOT, 'shop', 'admin', 'giftshop-errors.htm');
 const LOG_PATH = path.join(REPO_ROOT, 'shop', 'admin', 'giftshop-errors.log');
-// Machine-readable summary the Stock Room fetches to show a counts panel + link.
+// Machine-readable summary the gift admin fetches to show a counts panel + link.
 const JSON_PATH = path.join(REPO_ROOT, 'shop', 'admin', 'giftshop-errors.json');
 
 const SB_URL = (process.env.SUPABASE_URL || 'https://qmaafbncpzrdmqapkkgr.supabase.co').replace(/\/+$/, '');
@@ -237,12 +237,12 @@ function readExistingMeta() {
   if (!existsSync(HTM_PATH)) return null;
   const html = readFileSync(HTM_PATH, 'utf8');
   const run = html.match(/Last run <strong>(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})[^<]*<\/strong>/);
-  const fullCoverage = /Coverage: <strong>full catalog<\/strong>/.test(html);
-  const full = html.match(/checked the <strong>full catalog<\/strong> \(manual run\)\s*—\s*(\d+) items/);
+  const fullCoverage = /Coverage: <strong>(?:full catalog|all gifts)<\/strong>/.test(html);
+  const full = html.match(/checked (?:the )?<strong>(?:full catalog|all gifts)<\/strong> \(manual run\)\s*—\s*(\d+) (?:items|gifts)/);
   if (run && full) {
     return { date: run[1], time: run[2], segment: 0, weekday: '', checkedThisRun: parseInt(full[1], 10), full: true, fullCoverage };
   }
-  const slice = html.match(/checked the <strong>(\d+)\/7<\/strong> slice \(([^)]+)\)\s*—\s*(\d+) items/);
+  const slice = html.match(/checked the <strong>(\d+)\/7<\/strong> slice \(([^)]+)\)\s*—\s*(\d+) (?:items|gifts)/);
   if (!run || !slice) return null;
   return {
     date: run[1],
@@ -265,7 +265,7 @@ function esc(s) {
 const PAGE_SB_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const PAGE_SB_PUBLISHABLE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 
-// Counts for the Stock Room summary panel — mirrors buildHtml's categorization.
+// Counts for the gift admin summary panel — mirrors buildHtml's categorization.
 function summarize(state, ignoredIds, meta) {
   const ignoreSet = ignoredIds instanceof Set ? ignoredIds : new Set(ignoredIds || []);
   const items = Object.entries(state.items).map(([id, v]) => ({ id, ...v }));
@@ -310,44 +310,38 @@ function buildHtml(state, meta, ignoredIds) {
 
   const badgeFor = (field, st, code) => {
     if (!st || st === 'ok') return '';
-    const label = st === 'dead' ? `${field} DEAD${code ? ' ' + code : ''}`
-      : st === 'notimage' ? `${field} NOT-IMAGE`
+    const label = st === 'dead' ? `${field} dead${code ? ' ' + code : ''}`
+      : st === 'notimage' ? `${field} not image`
       : st === 'blocked' ? `${field} blocked${code ? ' ' + code : ''}`
-      : `${field} ERROR${code ? ' ' + code : ''}`;
+      : `${field} error${code ? ' ' + code : ''}`;
     return `<span class="b b-${st}">${esc(label)}</span>`;
   };
 
-  // mode: 'active' → an Ignore button; 'ignored' → a Restore button.
+  // mode: 'active' -> an Ignore button; 'ignored' -> a Restore button.
   const rowFor = (it, mode) => {
     const flags = [
-      badgeFor('URL', it.urlState, it.urlCode),
-      badgeFor('IMG', it.imageState, it.imageCode),
+      badgeFor('Link', it.urlState, it.urlCode),
+      badgeFor('Image', it.imageState, it.imageCode),
       it.urlDetail ? `<span class="dim">${esc(it.urlDetail)}</span>` : '',
       it.imageDetail ? `<span class="dim">${esc(it.imageDetail)}</span>` : '',
     ].filter(Boolean).join(' ');
-    const links = [
-      it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener nofollow">url</a>` : '',
-      it.image_url ? `<a href="${esc(it.image_url)}" target="_blank" rel="noopener nofollow">img</a>` : '',
-      `<a class="edit" href="/shop/admin/?item=${encodeURIComponent(it.id)}" target="_blank" rel="noopener">edit in shop</a>`,
-    ].filter(Boolean).join(' · ');
     const action = mode === 'ignored'
       ? `<button class="rowbtn rowbtn--ig rowbtn--restore" type="button" data-action="restore" data-id="${esc(it.id)}">restore</button>`
       : `<button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="${esc(it.id)}">ignore</button>`;
     const rowActions =
-      `<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="${esc(it.id)}">stock room</button>` +
+      `<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="${esc(it.id)}">edit</button>` +
       `<button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="${esc(it.id)}">delete</button>` +
       action;
     return `<tr data-item-id="${esc(it.id)}" data-origin="${originOf(it)}">
       <td class="t">${esc(it.title || '(untitled)')}</td>
       <td>${flags}</td>
-      <td class="l">${links}</td>
       <td class="dim">${esc(it.checkedAt || '')}</td>
       <td class="act">${rowActions}</td>
     </tr>`;
   };
 
   const thead = (statusLabel) =>
-    `<thead><tr><th>Item</th><th>${statusLabel}</th><th>Links</th><th>Checked</th><th class="act"></th></tr></thead>`;
+    `<thead><tr><th>Gift</th><th>${statusLabel}</th><th>Checked</th><th class="act"></th></tr></thead>`;
 
   const errorsBody = errored.map((it) => rowFor(it, 'active')).join('');
   const blockedBody = blocked.map((it) => rowFor(it, 'active')).join('');
@@ -358,18 +352,12 @@ function buildHtml(state, meta, ignoredIds) {
     const v = it.coherence || {};
     const badgeClass = v.verdict === 'mismatch' ? 'b-dead' : (v.verdict === 'error' ? 'b-error' : 'b-blocked');
     const issues = (Array.isArray(v.issues) && v.issues.length) ? ' — ' + v.issues.join('; ') : '';
-    const links = [
-      it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener nofollow">url</a>` : '',
-      it.image_url ? `<a href="${esc(it.image_url)}" target="_blank" rel="noopener nofollow">img</a>` : '',
-      `<a class="edit" href="/shop/admin/?item=${encodeURIComponent(it.id)}" target="_blank" rel="noopener">edit in shop</a>`,
-    ].filter(Boolean).join(' · ');
     const acts =
-      `<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="${esc(it.id)}">stock room</button>` +
+      `<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="${esc(it.id)}">edit</button>` +
       `<button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="${esc(it.id)}">delete</button>`;
     return `<tr data-item-id="${esc(it.id)}">
       <td class="t">${esc(it.title || '(untitled)')}</td>
       <td><span class="b ${badgeClass}">${esc(String(v.verdict || 'warn').toUpperCase())}</span> <span class="dim">${esc(String(v.summary || '') + issues)}</span></td>
-      <td class="l">${links}</td>
       <td class="act">${acts}</td>
     </tr>`;
   };
@@ -469,7 +457,7 @@ function buildHtml(state, meta, ignoredIds) {
   }
   body.is-admin .rowbtn:hover { background: rgba(160, 63, 45, 0.10); border-color: var(--danger); color: var(--danger); }
   body.is-admin .rowbtn--restore:hover { background: rgba(47, 107, 61, 0.12); border-color: var(--success); color: var(--success); }
-  /* Stock Room = blue (navigate away), Delete = red (destructive). */
+  /* Edit = blue (navigate away), Delete = red (destructive). */
   body.is-admin .rowbtn--open:hover { background: rgba(45, 72, 128, 0.10); border-color: var(--accent); color: var(--accent); }
   body.is-admin .rowbtn--del { border-color: rgba(160, 63, 45, 0.5); color: var(--danger); }
   body.is-admin .rowbtn--del:hover { background: rgba(160, 63, 45, 0.12); border-color: var(--danger); color: var(--danger); }
@@ -495,13 +483,37 @@ function buildHtml(state, meta, ignoredIds) {
   .bulkbar button.danger { border-color: rgba(160, 63, 45, 0.5); color: var(--danger); }
   .bulkbar button.danger:hover { background: rgba(160, 63, 45, 0.12); border-color: var(--danger); }
   .bulkbar .bulk-clear { color: var(--muted); }
+  /* Reference: the nightly job that produces this report. */
+  .automations { margin: 0 0 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.82); }
+  .automations > summary {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; list-style: none;
+    font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 800;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+  }
+  .automations > summary::-webkit-details-marker { display: none; }
+  .automations > summary::before { content: "▸"; color: var(--accent); transition: transform 0.15s ease; }
+  .automations[open] > summary::before { transform: rotate(90deg); }
+  .automations-count { margin-left: auto; font-weight: 600; letter-spacing: 0.06em; opacity: 0.8; }
+  .automations-body { padding: 4px 16px 14px; }
+  .automation-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .automation-head strong { font-size: 0.95rem; color: var(--ink); }
+  .automation-when {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .automation-desc { margin: 4px 0 8px; font-size: 0.86rem; line-height: 1.45; color: rgba(var(--bic-blue-rgb), 0.86); max-width: 760px; }
+  .automation-meta { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; font-size: 0.72rem; }
+  .automation-meta code {
+    padding: 2px 7px; border-radius: 6px; background: rgba(var(--bic-blue-rgb), 0.08);
+    font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; color: var(--muted);
+  }
 </style>
 </head>
 <body>
   <div class="topbar">
     <div class="topbar-actions">
-      <button id="aiAuditBtn" type="button" title="Use AI to check every tracked gift's fields agree: the image matches the title, the title matches the linked product page, and the city lines up.">AI audit</button>
-      <button id="runCheckBtn" type="button" title="Kick off the URL health check on GitHub Actions now instead of waiting for the nightly run.">Run check now</button>
+      <button id="aiAuditBtn" type="button" title="Use AI to check every tracked gift's fields agree: Image matches Title, Title matches Link, and Shops line up.">AI audit</button>
+      <button id="runCheckBtn" type="button" title="Kick off the Link/Image check on GitHub Actions now instead of waiting for the nightly run.">Run check now</button>
       <button id="manageBtn" type="button">Admin sign-in</button>
     </div>
   </div>
@@ -509,35 +521,35 @@ function buildHtml(state, meta, ignoredIds) {
     <p class="kicker">TGB MISSION CONTROL</p>
     <h1>Gift Shop · Issues</h1>
     <p class="meta">Last run <strong>${esc(meta.date)} ${esc(meta.time)} ${esc(TZ)}</strong> · ${meta.full
-      ? `checked the <strong>full catalog</strong> (manual run) — ${meta.checkedThisRun} items.`
-      : `checked the <strong>${meta.segment + 1}/7</strong> slice (${esc(meta.weekday)}) — ${meta.checkedThisRun} items. Each item is re-checked once a week.`}
-       Coverage: <strong>${meta.fullCoverage ? 'full catalog' : 'published only (no service key — archived items skipped)'}</strong>.</p>
+      ? `checked <strong>all gifts</strong> (manual run) — ${meta.checkedThisRun} gifts.`
+      : `checked the <strong>${meta.segment + 1}/7</strong> slice (${esc(meta.weekday)}) — ${meta.checkedThisRun} gifts. Each gift is re-checked once a week.`}
+       Coverage: <strong>${meta.fullCoverage ? 'all gifts' : 'Live gifts only (no service key — Review/Shelved gifts skipped)'}</strong>.</p>
   </section>
   <div class="cards">
-    <div class="card"><div class="n" id="countErrors">${errored.length}</div><div class="k">Errors</div></div>
+    <div class="card"><div class="n" id="countErrors">${errored.length}</div><div class="k">Confirmed issues</div></div>
     <div class="card"><div class="n" id="countBlocked">${blocked.length}</div><div class="k">Inconclusive</div></div>
     <div class="card"><div class="n" id="countIgnored">${ignored.length}</div><div class="k">Ignored</div></div>
-    <div class="card"><div class="n">${checkedCount}</div><div class="k">Tracked</div></div>
-    <div class="card"><div class="n" id="countLowStock">–</div><div class="k">Low-stock cities</div></div>
+    <div class="card"><div class="n">${checkedCount}</div><div class="k">Checked gifts</div></div>
+    <div class="card"><div class="n" id="countLowStock">–</div><div class="k">Cities needing gifts</div></div>
   </div>
 
   <!-- Floating bulk-action bar. Appears (admin only) when one or more row
        checkboxes are ticked; acts on every checked row across all tables. -->
-  <div class="bulkbar" id="bulkBar" role="region" aria-label="Bulk actions">
-    <span class="bulk-n" id="bulkN">0 selected</span>
-    <button type="button" id="bulkStock">Stock room</button>
+  <div class="bulkbar" id="bulkBar" role="region" aria-label="Selected gift actions">
+    <span class="bulk-n" id="bulkN">0 gifts selected</span>
+    <button type="button" id="bulkStock">Edit</button>
     <button type="button" id="bulkIgnore">Ignore</button>
     <button type="button" class="danger" id="bulkDelete">Delete</button>
     <button type="button" class="bulk-clear" id="bulkClear">Clear</button>
   </div>
 
   <section id="errorsWrap">
-    <p class="ok" id="errorsEmpty"${hid(errored.length === 0)}>No confirmed errors. 🎉</p>
-    <table id="errorsTable"${hid(errored.length > 0)}>${thead('Problem')}<tbody id="errorsBody">${errorsBody}</tbody></table>
+    <p class="ok" id="errorsEmpty"${hid(errored.length === 0)}>No confirmed issues. 🎉</p>
+    <table id="errorsTable"${hid(errored.length > 0)}>${thead('Issue')}<tbody id="errorsBody">${errorsBody}</tbody></table>
   </section>
 
   <details id="blockedSection"${hid(blocked.length > 0)}>
-    <summary><span id="blockedCount">${blocked.length}</span> inconclusive (bot-blocked / rate-limited — not confirmed errors)</summary>
+    <summary><span id="blockedCount">${blocked.length}</span> inconclusive (bot-blocked / rate-limited — not confirmed issues)</summary>
     <table>${thead('Status')}<tbody id="blockedBody">${blockedBody}</tbody></table>
   </details>
 
@@ -547,22 +559,38 @@ function buildHtml(state, meta, ignoredIds) {
   </details>
 
   <!-- Persisted AI mismatches (from gift_shop_coherence); the "AI audit" button
-       refreshes these live. Items whose fields don't line up: image ≠ title,
-       title ≠ linked page, or city mismatch. -->
+       refreshes these live. Gifts whose fields don't line up: Image vs Title,
+       Title vs Link, or Shops mismatch. -->
   <details id="mismatchSection"${hid(mism.length > 0)} open>
-    <summary><span id="mismatchCount">${mism.length}</span> field mismatches (AI — image / title / page / city don't line up)</summary>
-    <table><thead><tr><th>Item</th><th>AI verdict</th><th>Links</th><th class="act"></th></tr></thead><tbody id="mismatchBody">${mismatchBody}</tbody></table>
+    <summary><span id="mismatchCount">${mism.length}</span> field mismatches (AI — Image / Title / Link / Shops don't line up)</summary>
+    <table><thead><tr><th>Gift</th><th>AI result</th><th class="act"></th></tr></thead><tbody id="mismatchBody">${mismatchBody}</tbody></table>
   </details>
 
-  <!-- Understocked cities (moved here from the Stock Room). Filled live on load
+  <!-- Cities needing gifts. Filled live on load
        by the script below — any active shop city carrying fewer than 3 gifts. -->
   <details id="lowStockSection" hidden open>
     <summary><span id="lowStockCount">0</span> cities with fewer than 3 gifts</summary>
     <table><thead><tr><th>City</th><th>Gifts</th><th class="act"></th></tr></thead><tbody id="lowStockBody"></tbody></table>
   </details>
 
-  <p class="dim">DEAD = 404/410/451 · NOT-IMAGE = 200 but not an image · ERROR = other 4xx/5xx, timeout, DNS · blocked = 403/429/503 (anti-bot, inconclusive).</p>
-  <p class="dim">Sign in as an admin to <strong>ignore</strong> or <strong>restore</strong> entries. Ignores are stored in Supabase, so they persist across devices and survive the nightly regeneration.</p>
+  <!-- The scheduled job behind this page. -->
+  <details class="automations">
+    <summary>Automated script <span class="automations-count">1 nightly job</span></summary>
+    <div class="automations-body">
+      <div class="automation-head">
+        <strong>Gift Shop Link/Image check</strong>
+        <span class="automation-when">nightly · ~03:00 Central</span>
+      </div>
+      <p class="automation-desc">Re-checks one-seventh of gift Links &amp; Images each night (all gifts once a week) and flags dead or blocked links. Writes this report + a summary count.</p>
+      <div class="automation-meta">
+        <code>_dev/scripts/shop-error-check.mjs</code>
+        <code>.github/workflows/shop-error-check.yml</code>
+      </div>
+    </div>
+  </details>
+
+  <p class="dim">dead = 404/410/451 · not image = 200 but not an image · error = other 4xx/5xx, timeout, DNS · blocked = 403/429/503 (anti-bot, inconclusive).</p>
+  <p class="dim">Sign in as an admin to <strong>ignore</strong> or <strong>restore</strong> issue entries. Ignores are stored in Supabase, so they persist across devices and survive the nightly regeneration.</p>
   <script id="shoperrors-state" type="application/json">${stateJson}</script>
   <script src="/mc/js/admin-auth.js"></script>
   <script>
@@ -574,8 +602,8 @@ function buildHtml(state, meta, ignoredIds) {
 
     var adminAuth = window.TgbMcAdminAuth ? window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
-      initialMessage: 'Sign in with an admin account to manage ignored entries.',
-      modalCopy: 'Sign in to ignore or restore gift-shop error entries.'
+      initialMessage: 'Sign in with an admin account to manage ignored issue entries.',
+      modalCopy: 'Sign in to ignore or restore gift-shop issue entries.'
     }) : null;
     var signedIn = false;
 
@@ -623,7 +651,7 @@ function buildHtml(state, meta, ignoredIds) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
     }
 
-    // Permanently delete the gift item itself (same table + auth the Stock Room
+    // Permanently delete the gift itself (same table + auth the gift admin
     // uses). RLS restricts DELETE to admins; the signed-in admin JWT carries it.
     async function deleteItemRow(id) {
       var res = await fetch(restUrl('gift_shop_items', { id: 'eq.' + id }), {
@@ -702,7 +730,7 @@ function buildHtml(state, meta, ignoredIds) {
       td.className = 'sel';
       var cb = document.createElement('input');
       cb.type = 'checkbox'; cb.className = 'rowchk';
-      cb.setAttribute('aria-label', 'Select row');
+      cb.setAttribute('aria-label', 'Select gift');
       td.appendChild(cb);
       tr.insertBefore(td, tr.firstChild);
     }
@@ -714,7 +742,7 @@ function buildHtml(state, meta, ignoredIds) {
       th.className = 'sel';
       var cb = document.createElement('input');
       cb.type = 'checkbox'; cb.className = 'allchk';
-      cb.setAttribute('aria-label', 'Select all in this table');
+      cb.setAttribute('aria-label', 'Select all gifts in this table');
       th.appendChild(cb);
       htr.insertBefore(th, htr.firstChild);
     }
@@ -740,7 +768,7 @@ function buildHtml(state, meta, ignoredIds) {
       var n = checkedRows().length;
       var label = q('#bulkN');
       var bar = q('#bulkBar');
-      if (label) label.textContent = n + ' selected';
+      if (label) label.textContent = n + ' gift' + (n === 1 ? '' : 's') + ' selected';
       if (bar) bar.classList.toggle('is-visible', n > 0);
     }
 
@@ -762,18 +790,18 @@ function buildHtml(state, meta, ignoredIds) {
     async function bulkStock() {
       var rs = checkedRows();
       if (!rs.length) return;
-      if (rs.length > 8 && !window.confirm('Open ' + rs.length + ' items in the Stock Room? That opens ' + rs.length + ' new tabs.')) return;
+      if (rs.length > 8 && !window.confirm('Open ' + rs.length + ' gifts for editing? That opens ' + rs.length + ' new tabs.')) return;
       rs.forEach(function (row) {
         window.open('/shop/admin/?item=' + encodeURIComponent(row.dataset.itemId), '_blank', 'noopener');
       });
     }
     async function bulkIgnore() {
-      // Ignore only makes sense for still-active Errors / Inconclusive rows.
+      // Ignore only makes sense for still-active Confirmed Issues / Inconclusive rows.
       var rs = checkedRows().filter(function (row) {
         var p = row.parentNode;
         return p && (p.id === 'errorsBody' || p.id === 'blockedBody');
       });
-      if (!rs.length) { window.alert('Tick one or more rows in Errors or Inconclusive to ignore.'); return; }
+      if (!rs.length) { window.alert('Select one or more gifts in Confirmed Issues or Inconclusive to ignore.'); return; }
       if (!(await ensureAdmin())) return;
       for (var k = 0; k < rs.length; k++) {
         try { await writeIgnore(rs[k].dataset.itemId); moveRow(rs[k], '#ignoredBody', 'ignored'); }
@@ -786,7 +814,7 @@ function buildHtml(state, meta, ignoredIds) {
       var rs = checkedRows();
       if (!rs.length) return;
       if (!(await ensureAdmin())) return;
-      if (!window.confirm('Permanently delete ' + rs.length + ' item' + (rs.length === 1 ? '' : 's') + ' from the gift shop? This removes them everywhere and cannot be undone.')) return;
+      if (!window.confirm('Permanently delete ' + rs.length + ' gift' + (rs.length === 1 ? '' : 's') + ' from the gift shop? This removes them everywhere and cannot be undone.')) return;
       for (var k = 0; k < rs.length; k++) {
         var row = rs[k];
         try {
@@ -812,8 +840,8 @@ function buildHtml(state, meta, ignoredIds) {
       var row = btn.closest('tr'); if (!row) return;
       var id = btn.dataset.id; var action = btn.dataset.action;
 
-      // Open in Stock Room — pure navigation, no write, no auth prompt (the
-      // Stock Room gates itself).
+      // Open in gift admin — pure navigation, no write, no auth prompt (the
+      // gift admin gates itself).
       if (action === 'stockroom') {
         window.open('/shop/admin/?item=' + encodeURIComponent(id), '_blank', 'noopener');
         return;
@@ -830,8 +858,8 @@ function buildHtml(state, meta, ignoredIds) {
           moveRow(row, row.dataset.origin === 'error' ? '#errorsBody' : '#blockedBody', 'active');
         } else if (action === 'delete') {
           var titleCell = row.querySelector('td.t');
-          var title = (titleCell && titleCell.textContent || 'this item').trim();
-          if (!window.confirm('Permanently delete "' + title + '" from the gift shop? This removes the item everywhere and cannot be undone.')) {
+          var title = (titleCell && titleCell.textContent || 'this gift').trim();
+          if (!window.confirm('Permanently delete "' + title + '" from the gift shop? This removes the gift everywhere and cannot be undone.')) {
             btn.disabled = false;
             return;
           }
@@ -893,7 +921,7 @@ function buildHtml(state, meta, ignoredIds) {
           });
           if (res.status === 204) {
             runBtn.textContent = 'Queued ✓';
-            window.alert('Full recheck started. It re-checks the whole catalog on GitHub and commits the refreshed report in a few minutes — reload this page then.');
+            window.alert('Full recheck started. It re-checks all gifts on GitHub and commits the refreshed report in a few minutes — reload this page then.');
           } else if (res.status === 401 || res.status === 403) {
             try { localStorage.removeItem(GH_TOKEN_KEY); } catch (e) {}
             throw new Error('GitHub rejected the token (' + res.status + '); it needs Actions: write on ' + GH_REPO + '. Cleared it — click again to re-enter.');
@@ -911,9 +939,9 @@ function buildHtml(state, meta, ignoredIds) {
     }
 
     // ── AI field-coherence audit ──────────────────────────────────────────
-    // Runs the shop-coherence-check Edge Function over every tracked item and
-    // lists the ones whose fields don't line up (image vs title, title vs the
-    // linked page, city). Full item set comes from the embedded state JSON.
+    // Runs the shop-coherence-check Edge Function over every tracked gift and
+    // lists the ones whose fields don't line up (Image vs Title, Title vs Link,
+    // Shops). Full gift set comes from the embedded state JSON.
     var STATE = (function () {
       try { return JSON.parse(q('#shoperrors-state').textContent) || { items: {} }; }
       catch (e) { return { items: {} }; }
@@ -938,20 +966,14 @@ function buildHtml(state, meta, ignoredIds) {
     function addMismatchRow(it, v) {
       var badgeClass = v.verdict === 'mismatch' ? 'b-dead' : (v.verdict === 'error' ? 'b-error' : 'b-blocked');
       var issues = (v.issues && v.issues.length) ? ' — ' + v.issues.join('; ') : '';
-      var links = [
-        it.url ? '<a href="' + escHtml(it.url) + '" target="_blank" rel="noopener nofollow">url</a>' : '',
-        it.image_url ? '<a href="' + escHtml(it.image_url) + '" target="_blank" rel="noopener nofollow">img</a>' : '',
-        '<a class="edit" href="/shop/admin/?item=' + encodeURIComponent(it.id) + '" target="_blank" rel="noopener">edit in shop</a>'
-      ].filter(Boolean).join(' · ');
       var tr = document.createElement('tr');
       tr.setAttribute('data-item-id', it.id);
       tr.innerHTML =
         '<td class="t">' + escHtml(it.title || '(untitled)') + '</td>' +
         '<td><span class="b ' + badgeClass + '">' + escHtml((v.verdict || 'warn').toUpperCase()) + '</span> ' +
           '<span class="dim">' + escHtml((v.summary || '') + issues) + '</span></td>' +
-        '<td class="l">' + links + '</td>' +
         '<td class="act">' +
-          '<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="' + escHtml(it.id) + '">stock room</button>' +
+          '<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="' + escHtml(it.id) + '">edit</button>' +
           '<button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="' + escHtml(it.id) + '">delete</button>' +
         '</td>';
       q('#mismatchBody').appendChild(tr);
@@ -965,7 +987,7 @@ function buildHtml(state, meta, ignoredIds) {
         var v = STATE.items[id] || {};
         return { id: id, title: v.title || '', url: v.url || '', image_url: v.image_url || '' };
       });
-      if (!entries.length) { window.alert('No tracked items to audit yet.'); return; }
+      if (!entries.length) { window.alert('No tracked gifts to audit yet.'); return; }
       q('#mismatchBody').innerHTML = '';
       var orig = btn.textContent;
       btn.disabled = true;
@@ -989,7 +1011,7 @@ function buildHtml(state, meta, ignoredIds) {
       btn.disabled = false;
       btn.textContent = orig;
       refresh();
-      if (flagged === 0) window.alert('AI audit: all ' + total + ' tracked items look coherent. 🎉');
+      if (flagged === 0) window.alert('AI audit: all ' + total + ' tracked gifts look coherent. 🎉');
     }
 
     var aiBtn = q('#aiAuditBtn');
@@ -1000,7 +1022,7 @@ function buildHtml(state, meta, ignoredIds) {
   })();
   </script>
   <script>
-  // Understocked cities (moved here from the Stock Room). Live from Supabase on
+  // Cities needing gifts. Live from Supabase on
   // load: any active shop city carrying fewer than MIN_CITY_GIFTS distinct gifts.
   // Public read (gift_shop_cities / gift_shop_listings), so no admin sign-in needed.
   (function () {
@@ -1040,8 +1062,7 @@ function buildHtml(state, meta, ignoredIds) {
       try {
         var cities = await getAll('gift_shop_cities', { select: 'city,archived' });
         var listings = await getAll('gift_shop_listings', { select: 'item_id,city' });
-        // Distinct gift items per active city (archived cities are excluded, same
-        // as the old Stock Room check). Listings reference the canonical city PK.
+        // Distinct gifts per active city. Listings reference the canonical city PK.
         var perCity = {};
         cities.forEach(function (c) { if (c && c.city && !c.archived) perCity[c.city] = new Set(); });
         listings.forEach(function (l) {
@@ -1059,7 +1080,7 @@ function buildHtml(state, meta, ignoredIds) {
             '<td class="t">' + esc(r.city) + '</td>' +
             '<td><span class="b b-error">' + r.n + ' / ' + MIN_CITY_GIFTS + '</span></td>' +
             '<td class="act"><a class="edit" href="/shop/admin/?city=' + encodeURIComponent(r.city) +
-              '" target="_blank" rel="noopener">stock room →</a></td>' +
+              '" target="_blank" rel="noopener">edit gifts</a></td>' +
           '</tr>';
         }).join('');
         sec.hidden = false;
@@ -1081,7 +1102,7 @@ async function main() {
   const wk = weekdayInfo();
 
   // Render-only: re-emit the HTML from the existing embedded state (+ current
-  // ignore list) WITHOUT hitting product URLs or re-fetching the catalog. Used
+  // ignore list) WITHOUT hitting gift Links or re-fetching all gifts. Used
   // to regenerate the page after a template change. `node … ` with
   // SHOP_ERROR_RENDER_ONLY=1.
   if (process.env.SHOP_ERROR_RENDER_ONLY === '1') {
@@ -1103,12 +1124,12 @@ async function main() {
     ? Math.max(0, Math.min(SEGMENTS - 1, parseInt(process.env.SHOP_ERROR_SEGMENT, 10)))
     : wk.segment;
   // Manual "full recheck" (from the report's Run-check button / workflow_dispatch
-  // input): sweep the WHOLE catalog this run instead of today's 1/7 slice.
+  // input): sweep ALL gifts this run instead of today's 1/7 slice.
   const runFull = /^(1|true|yes)$/i.test(String(process.env.SHOP_ERROR_FULL || ''));
 
   console.log(`[shop-error-check] ${wk.date} ${wk.time} ${TZ} — ${runFull ? 'FULL manual recheck' : wk.weekday + ' → segment ' + (segment + 1) + '/7'}`);
   if (!USING_SERVICE_KEY) {
-    console.warn('[shop-error-check] WARNING: no SUPABASE_SERVICE_KEY — using publishable key, which cannot see hidden (Review/Shelved) items. Set the secret to check the whole catalog.');
+    console.warn('[shop-error-check] WARNING: no SUPABASE_SERVICE_KEY — using publishable key, which cannot see Review/Shelved gifts. Set the secret to check all gifts.');
   }
 
   const all = await fetchAllItems();
@@ -1117,7 +1138,7 @@ async function main() {
   const start = Math.floor((segment * N) / SEGMENTS);
   const end = Math.floor(((segment + 1) * N) / SEGMENTS);
   const slice = runFull ? all : all.slice(start, end);
-  console.log(`[shop-error-check] ${N} items total; checking ${slice.length}${runFull ? ' (full catalog)' : ` (rows ${start}..${end - 1})`}.`);
+  console.log(`[shop-error-check] ${N} gifts total; checking ${slice.length}${runFull ? ' (all gifts)' : ` (rows ${start}..${end - 1})`}.`);
 
   const checkedAt = `${wk.date} ${wk.time}`;
   const state = loadState();
@@ -1143,7 +1164,7 @@ async function main() {
     };
   }, CONCURRENCY);
 
-  // Drop state for items that no longer exist in the catalog.
+  // Drop state for gifts that no longer exist.
   const live = new Set(all.map((it) => String(it.id)));
   for (const id of Object.keys(state.items)) if (!live.has(id)) delete state.items[id];
 
@@ -1169,7 +1190,7 @@ async function main() {
 
   // Append a human-readable block to the log.
   const lines = [];
-  lines.push(`=== ${wk.date} ${wk.time} ${TZ} · ${runFull ? 'FULL manual recheck' : wk.weekday + ' · slice ' + (segment + 1) + '/7'} · ${slice.length} items checked · coverage: ${USING_SERVICE_KEY ? 'full catalog' : 'published only'} ===`);
+  lines.push(`=== ${wk.date} ${wk.time} ${TZ} · ${runFull ? 'FULL manual recheck' : wk.weekday + ' · slice ' + (segment + 1) + '/7'} · ${slice.length} gifts checked · coverage: ${USING_SERVICE_KEY ? 'all gifts' : 'Live gifts only'} ===`);
   lines.push(`errors: ${runErrors.length} · inconclusive(blocked): ${runBlocked.length} · ok: ${slice.length - runErrors.length - runBlocked.length}`);
   for (const e of runErrors) {
     lines.push(`  ! ${e.title || '(untitled)'}`);
