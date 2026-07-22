@@ -845,7 +845,7 @@
     }
     .item-status-choices {
       display: grid;
-      grid-template-columns: repeat(3, minmax(78px, 1fr));
+      grid-template-columns: repeat(4, minmax(72px, 1fr));
       align-items: start;
       gap: 6px;
       margin: 0;
@@ -905,6 +905,35 @@
       box-shadow: 0 8px 18px rgba(var(--bic-blue-rgb), 0.16);
     }
     /* Sits under the status choices — it's the date the item last went LIVE. */
+    /* Delete sits in the status row but is an action, not a state: red, never
+       "selected", and it asks before it does anything. */
+    .item-status-delete {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      min-height: 32px;
+      padding: 6px 10px;
+      border: 1px dashed var(--danger);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--danger);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      line-height: 1.1;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .item-status-delete:hover,
+    .item-status-delete:focus-visible {
+      border-style: solid;
+      background: var(--danger);
+      color: #fff;
+      outline: none;
+    }
+    .item-status-delete[disabled] { opacity: 0.5; cursor: progress; }
+
     .item-status-panel .item-publish-date {
       display: block;
       width: 100%;
@@ -2584,6 +2613,9 @@
                 <span>Shelved</span>
               </label>
             </div>
+            <div class="item-status-slot">
+              <button class="item-status-delete" type="button" data-action="delete-item" title="Delete this gift from the database. Permanent — use Shelved to keep the record.">Delete</button>
+            </div>
           </div>
           <span class="item-publish-date" data-publish-date>Last live: never</span>
         </fieldset>
@@ -3839,6 +3871,29 @@
       return rows[0];
     }
 
+    // Hard delete. Listings go first — they reference the item and there is no
+    // cascade. Prefer: return=representation so an RLS refusal (200 with an
+    // empty body) is caught instead of passing for success.
+    async function deleteItemForever(id) {
+      const listingsRes = await fetch(restUrl('gift_shop_listings', { item_id: 'eq.' + id }), {
+        method: 'DELETE',
+        headers: authHeaders({ Prefer: 'return=representation' })
+      });
+      if (!listingsRes.ok) throw new Error(await readError(listingsRes, 'Could not remove this gift from its shops.'));
+      const removedListings = await listingsRes.json().catch(() => []);
+
+      const itemRes = await fetch(restUrl('gift_shop_items', { id: 'eq.' + id }), {
+        method: 'DELETE',
+        headers: authHeaders({ Prefer: 'return=representation' })
+      });
+      if (!itemRes.ok) throw new Error(await readError(itemRes, 'Delete failed.'));
+      const removed = await itemRes.json().catch(() => []);
+      if (!Array.isArray(removed) || !removed.length) {
+        throw new Error('Nothing was deleted — the database refused (id ' + id + '). Check that you are still signed in as an admin.');
+      }
+      return { listings: Array.isArray(removedListings) ? removedListings.length : 0 };
+    }
+
     // ── Listings ─────────────────────────────────────────────────────
     async function insertListing(payload) {
       const response = await fetch(restUrl('gift_shop_listings'), {
@@ -4408,6 +4463,46 @@
           if (input.checked) markItemDirty(article, 'Unsaved status change.');
         });
       });
+
+      // Delete for real. Shelving keeps the record; this is for the near-copies
+      // and mistakes you never want to see again.
+      const deleteItemButton = article.querySelector('[data-action="delete-item"]');
+      if (deleteItemButton) {
+        deleteItemButton.addEventListener('click', async () => {
+          const id = String(article.dataset.id || '').trim();
+          const name = (article.querySelector('[data-field="title"]')?.value || '').trim() || 'this gift';
+          if (!id) {
+            // Never saved — nothing in the database to delete.
+            clearItemDirty(article);
+            article.remove();
+            refreshItemsView();
+            return;
+          }
+          const cityCount = itemCities(article).length;
+          const where = cityCount ? ' It is listed in ' + cityCount + ' shop' + (cityCount === 1 ? '' : 's') + '.' : '';
+          const ok = await window.TgbConfirm(
+            'Delete “' + name + '” from the database?' + where + ' This cannot be undone — Shelved keeps the record instead.',
+            { title: 'Delete gift', okLabel: 'Delete forever' }
+          );
+          if (!ok) return;
+          deleteItemButton.disabled = true;
+          setItemStatus('Deleting…');
+          try {
+            await deleteItemForever(id);
+            allGiftItemsCache = (Array.isArray(allGiftItemsCache) ? allGiftItemsCache : [])
+              .filter((row) => String(row && row.id) !== id);
+            clearItemDirty(article);
+            article.remove();
+            refreshItemsView();
+            updateUnsavedChangesUi();
+            setStatus(shopStatus, 'Deleted “' + name + '”.', 'success');
+          } catch (error) {
+            console.error(error);
+            deleteItemButton.disabled = false;
+            setItemStatus(error instanceof Error ? error.message : String(error), 'error');
+          }
+        });
+      }
 
       const saveItemButton = article.querySelector('[data-action="save-item"]');
       if (saveItemButton) {
