@@ -552,6 +552,18 @@ function buildHtml(state, meta, ignoredIds) {
     font-size: 0.76rem; color: var(--muted);
   }
   .quiet-chip b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  button.quiet-chip { cursor: pointer; font: inherit; font-size: 0.76rem; }
+  button.quiet-chip:hover, button.quiet-chip:focus-visible {
+    border-color: var(--accent); color: var(--ink); outline: none;
+  }
+  .quiet-chip.is-static { cursor: default; }
+  /* Brief highlight so a jump lands somewhere obvious. */
+  .jump-flash { animation: jump-flash 1.1s ease-out; }
+  @keyframes jump-flash {
+    from { background: rgba(var(--bic-blue-rgb), 0.16); }
+    to { background: transparent; }
+  }
+  @media (prefers-reduced-motion: reduce) { .jump-flash { animation: none; } }
   .quiet-chip.is-note { border-color: var(--accent); color: var(--accent); }
   .quiet-chip.is-note b { color: var(--accent); }
 
@@ -662,20 +674,67 @@ function buildHtml(state, meta, ignoredIds) {
   <!-- One verdict up top; the counts that rarely need action sit behind it
        as quiet chips. countErrors/countBlocked/... keep their ids so the
        live refresh below still updates them. -->
+  <!-- The counts render as "?" and are filled by refresh() on load, so a
+       number on screen is always one the page has just worked out rather than
+       one baked in at generation time. -->
   <div class="verdict" id="verdictBox">
-    <span class="verdict-n" id="countErrors">${errored.length}</span>
+    <span class="verdict-n" id="countErrors">?</span>
     <span>
       <div class="verdict-t" id="verdictTitle">gifts are broken and still selling</div>
       <div class="verdict-s" id="verdictSub">Their link or image fails to load. Shoppers clicking them hit a dead page.</div>
     </span>
   </div>
   <div class="quiet">
-    <span class="quiet-chip"><b id="countBlocked">${blocked.length}</b> inconclusive — the site blocked our robot</span>
-    <span class="quiet-chip"><b id="countIgnored">${ignored.length}</b> cleared</span>
-    <span class="quiet-chip"><b>${checkedCount}</b> gifts tracked</span>
-    <span class="quiet-chip is-note">Cities needing gifts <b id="countLowStock">–</b></span>
+    <button type="button" class="quiet-chip" data-jump="#blockedSection"><b id="countBlocked">?</b> inconclusive — the site blocked our robot</button>
+    <button type="button" class="quiet-chip" data-jump="#ignoredSection"><b id="countIgnored">?</b> cleared</button>
+    <span class="quiet-chip is-static"><b>${checkedCount}</b> gifts tracked</span>
+    <button type="button" class="quiet-chip is-note" data-jump="#lowStockSection">Cities needing gifts <b id="countLowStock">?</b></button>
   </div>
 
+
+  <!-- Floating bulk-action bar. Appears (admin only) when one or more row
+       checkboxes are ticked; acts on every checked row across all tables. -->
+  <div class="bulkbar" id="bulkBar" role="region" aria-label="Selected gift actions">
+    <span class="bulk-n" id="bulkN">0 gifts selected</span>
+    <button type="button" id="bulkStock">Edit gifts</button>
+    <button type="button" id="bulkIgnore">Clear issues</button>
+    <button type="button" class="bulk-clear" id="bulkClear">Deselect</button>
+  </div>
+
+  <section id="errorsWrap">
+    <p class="hint">Broken for real: these links or images failed to load. Fix the gift, or clear the line if it is a false alarm.</p>
+    <p class="ok" id="errorsEmpty"${hid(errored.length === 0)}>No confirmed issues. 🎉</p>
+    <table id="errorsTable"${hid(errored.length > 0)}>${thead('Issue')}<tbody id="errorsBody">${errorsBody}</tbody></table>
+  </section>
+
+  <details id="blockedSection"${hid(blocked.length > 0)}>
+    <summary><span id="blockedCount">?</span> inconclusive (bot-blocked / rate-limited — not confirmed issues)</summary>
+    <p class="hint">The site refused our robot rather than telling us the link is bad. Usually anti-bot protection, not a fault — open one in a browser before acting on it.</p>
+    <table>${thead('Status')}<tbody id="blockedBody">${blockedBody}</tbody></table>
+  </details>
+
+  <details id="ignoredSection"${hid(ignored.length > 0)}>
+    <summary><span id="ignoredCount">?</span> cleared (kept out of the counts above)</summary>
+    <p class="hint">Lines you have silenced. The gifts are unchanged and still selling &mdash; restore one to see it reported again.</p>
+    <table>${thead('Status')}<tbody id="ignoredBody">${ignoredBody}</tbody></table>
+  </details>
+
+  <!-- Persisted AI mismatches (from gift_shop_coherence); the "AI audit" button
+       refreshes these live. Gifts whose fields don't line up: Image vs Title,
+       Title vs Link, or Shops mismatch. -->
+  <details id="mismatchSection"${hid(mism.length > 0)} open>
+    <summary><span id="mismatchCount">?</span> field mismatches (AI — Image / Title / Link / Shops don't line up)</summary>
+    <p class="hint">From the AI audit, not the nightly check: gifts whose link loads fine but whose fields disagree with each other or with the page.</p>
+    <table><thead><tr><th>Gift</th><th>AI result</th><th class="act"></th></tr></thead><tbody id="mismatchBody">${mismatchBody}</tbody></table>
+  </details>
+
+  <!-- Cities needing gifts. Filled live on load
+       by the script below — any active shop city carrying fewer than 3 gifts. -->
+  <details id="lowStockSection" hidden open>
+    <summary><span id="lowStockCount">?</span> cities with 3 or fewer gifts</summary>
+    <p class="hint">Not a fault &mdash; cities that look thin in the shop. Worked out live each time the page loads.</p>
+    <table><thead><tr><th>City</th><th>Gifts</th><th class="act"></th></tr></thead><tbody id="lowStockBody"></tbody></table>
+  </details>
 
   <!-- Plain-English guide: everything on this page explained once, so nobody
        has to guess what a button does or when the check last ran. -->
@@ -725,50 +784,6 @@ function buildHtml(state, meta, ignoredIds) {
         <dt>Blocked</dt><dd>403, 429 or 503 &mdash; refused, probably anti-bot. Inconclusive, not proof of a fault.</dd>
       </dl>
     </div>
-  </details>
-
-  <!-- Floating bulk-action bar. Appears (admin only) when one or more row
-       checkboxes are ticked; acts on every checked row across all tables. -->
-  <div class="bulkbar" id="bulkBar" role="region" aria-label="Selected gift actions">
-    <span class="bulk-n" id="bulkN">0 gifts selected</span>
-    <button type="button" id="bulkStock">Edit gifts</button>
-    <button type="button" id="bulkIgnore">Clear issues</button>
-    <button type="button" class="bulk-clear" id="bulkClear">Deselect</button>
-  </div>
-
-  <section id="errorsWrap">
-    <p class="hint">Broken for real: these links or images failed to load. Fix the gift, or clear the line if it is a false alarm.</p>
-    <p class="ok" id="errorsEmpty"${hid(errored.length === 0)}>No confirmed issues. 🎉</p>
-    <table id="errorsTable"${hid(errored.length > 0)}>${thead('Issue')}<tbody id="errorsBody">${errorsBody}</tbody></table>
-  </section>
-
-  <details id="blockedSection"${hid(blocked.length > 0)}>
-    <summary><span id="blockedCount">${blocked.length}</span> inconclusive (bot-blocked / rate-limited — not confirmed issues)</summary>
-    <p class="hint">The site refused our robot rather than telling us the link is bad. Usually anti-bot protection, not a fault — open one in a browser before acting on it.</p>
-    <table>${thead('Status')}<tbody id="blockedBody">${blockedBody}</tbody></table>
-  </details>
-
-  <details id="ignoredSection"${hid(ignored.length > 0)}>
-    <summary><span id="ignoredCount">${ignored.length}</span> cleared (kept out of the counts above)</summary>
-    <p class="hint">Lines you have silenced. The gifts are unchanged and still selling &mdash; restore one to see it reported again.</p>
-    <table>${thead('Status')}<tbody id="ignoredBody">${ignoredBody}</tbody></table>
-  </details>
-
-  <!-- Persisted AI mismatches (from gift_shop_coherence); the "AI audit" button
-       refreshes these live. Gifts whose fields don't line up: Image vs Title,
-       Title vs Link, or Shops mismatch. -->
-  <details id="mismatchSection"${hid(mism.length > 0)} open>
-    <summary><span id="mismatchCount">${mism.length}</span> field mismatches (AI — Image / Title / Link / Shops don't line up)</summary>
-    <p class="hint">From the AI audit, not the nightly check: gifts whose link loads fine but whose fields disagree with each other or with the page.</p>
-    <table><thead><tr><th>Gift</th><th>AI result</th><th class="act"></th></tr></thead><tbody id="mismatchBody">${mismatchBody}</tbody></table>
-  </details>
-
-  <!-- Cities needing gifts. Filled live on load
-       by the script below — any active shop city carrying fewer than 3 gifts. -->
-  <details id="lowStockSection" hidden open>
-    <summary><span id="lowStockCount">0</span> cities with 3 or fewer gifts</summary>
-    <p class="hint">Not a fault &mdash; cities that look thin in the shop. Worked out live each time the page loads.</p>
-    <table><thead><tr><th>City</th><th>Gifts</th><th class="act"></th></tr></thead><tbody id="lowStockBody"></tbody></table>
   </details>
 
   <!-- The scheduled job behind this page. -->
@@ -1176,6 +1191,22 @@ function buildHtml(state, meta, ignoredIds) {
       refresh();
       if (flagged === 0) window.alert('AI audit: all ' + total + ' tracked gifts look coherent. 🎉');
     }
+
+    // A count you can press: opens its section and scrolls to it. The sections
+    // are <details>, so "show me the 63 inconclusive" is one click rather than
+    // hunt-then-expand.
+    document.addEventListener('click', function (event) {
+      var chip = event.target && event.target.closest ? event.target.closest('[data-jump]') : null;
+      if (!chip) return;
+      var target = document.querySelector(chip.getAttribute('data-jump'));
+      if (!target) return;
+      target.hidden = false;
+      target.open = true;
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      target.classList.remove('jump-flash');
+      void target.offsetWidth;               // restart the animation
+      target.classList.add('jump-flash');
+    });
 
     var aiBtn = q('#aiAuditBtn');
     if (aiBtn) aiBtn.addEventListener('click', runAiAudit);
