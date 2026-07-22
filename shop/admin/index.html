@@ -3059,6 +3059,16 @@
         } catch (error) { return; }
       }
       if (!summary) return;
+
+      // No admin session yet? The cleared-issues read would 401 and drop us into
+      // the fallback, flashing the nightly count. Wait — showShop() calls this
+      // again once the session is up.
+      const session = (adminAuth && typeof adminAuth.getSession === 'function') ? adminAuth.getSession() : null;
+      if (!session || !session.access_token) {
+        paint(0, 'Checking for open issues… (sign in to re-check)');
+        return;
+      }
+
       if (!Array.isArray(summary.errorIds)) { fallback(summary); return; }   // summary predates errorIds
       if (!summary.errorIds.length) { paint(0, 'No issues at the last run' + (runStamp(summary) ? ', ' + runStamp(summary) : '')); return; }
       const ids = summary.errorIds.map(String);
@@ -3072,6 +3082,10 @@
             headers: authHeaders({ Accept: 'application/json' }), cache: 'no-store'
           })
         ]);
+        // 401/403 means the session lapsed mid-check, not that the data is bad —
+        // same reasoning as above: don't put a stale number back on screen.
+        if (liveRes.status === 401 || liveRes.status === 403 ||
+            clearedRes.status === 401 || clearedRes.status === 403) return;
         if (!liveRes.ok || !clearedRes.ok) { fallback(summary); return; }
         const live = new Set((await liveRes.json()).map((row) => String(row.id)));
         const cleared = new Set((await clearedRes.json()).map((row) => String(row.item_id)));
