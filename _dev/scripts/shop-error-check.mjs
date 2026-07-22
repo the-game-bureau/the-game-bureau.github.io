@@ -455,10 +455,8 @@ function buildHtml(state, meta, ignoredIds) {
   }
   body.is-admin .rowbtn:hover { background: rgba(160, 63, 45, 0.10); border-color: var(--danger); color: var(--danger); }
   body.is-admin .rowbtn--restore:hover { background: rgba(47, 107, 61, 0.12); border-color: var(--success); color: var(--success); }
-  /* Edit = blue (navigate away), Delete = red (destructive). */
+  /* Edit navigates away; ignore/restore act on this report only. */
   body.is-admin .rowbtn--open:hover { background: rgba(45, 72, 128, 0.10); border-color: var(--accent); color: var(--accent); }
-  body.is-admin .rowbtn--del { border-color: rgba(160, 63, 45, 0.5); color: var(--danger); }
-  body.is-admin .rowbtn--del:hover { background: rgba(160, 63, 45, 0.12); border-color: var(--danger); color: var(--danger); }
   .rowbtn:disabled { opacity: 0.5; cursor: default; }
   /* Bulk-select column + floating action bar (admin-only, like the row buttons). */
   th.sel, td.sel { display: none; width: 1%; white-space: nowrap; }
@@ -537,7 +535,6 @@ function buildHtml(state, meta, ignoredIds) {
     <span class="bulk-n" id="bulkN">0 gifts selected</span>
     <button type="button" id="bulkStock">Edit gifts</button>
     <button type="button" id="bulkIgnore">Ignore issues</button>
-    <button type="button" class="danger" id="bulkDelete">Delete gifts</button>
     <button type="button" class="bulk-clear" id="bulkClear">Clear</button>
   </div>
 
@@ -651,12 +648,6 @@ function buildHtml(state, meta, ignoredIds) {
 
     // Permanently delete the gift itself (same table + auth the gift admin
     // uses). RLS restricts DELETE to admins; the signed-in admin JWT carries it.
-    async function deleteItemRow(id) {
-      var res = await fetch(restUrl('gift_shop_items', { id: 'eq.' + id }), {
-        method: 'DELETE', headers: adminAuth.authHeaders({})
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-    }
 
     async function fetchIgnored() {
       try {
@@ -808,27 +799,10 @@ function buildHtml(state, meta, ignoredIds) {
       clearSelection();
       refresh();
     }
-    async function bulkDelete() {
-      var rs = checkedRows();
-      if (!rs.length) return;
-      if (!(await ensureAdmin())) return;
-      if (!window.confirm('Permanently delete ' + rs.length + ' gift' + (rs.length === 1 ? '' : 's') + ' from the gift shop? This removes them everywhere and cannot be undone.')) return;
-      for (var k = 0; k < rs.length; k++) {
-        var row = rs[k];
-        try {
-          await deleteItemRow(row.dataset.itemId);
-          try { await deleteIgnore(row.dataset.itemId); } catch (e) {}
-          if (row.parentNode) row.parentNode.removeChild(row);
-        } catch (e) { /* keep going */ }
-      }
-      clearSelection();
-      refresh();
-    }
     (function wireBulk() {
       var b;
       if ((b = q('#bulkStock'))) b.addEventListener('click', bulkStock);
       if ((b = q('#bulkIgnore'))) b.addEventListener('click', bulkIgnore);
-      if ((b = q('#bulkDelete'))) b.addEventListener('click', bulkDelete);
       if ((b = q('#bulkClear'))) b.addEventListener('click', clearSelection);
     })();
 
@@ -854,17 +828,6 @@ function buildHtml(state, meta, ignoredIds) {
         } else if (action === 'restore') {
           await deleteIgnore(id);
           moveRow(row, row.dataset.origin === 'error' ? '#errorsBody' : '#blockedBody', 'active');
-        } else if (action === 'delete') {
-          var titleCell = row.querySelector('td.t');
-          var title = (titleCell && titleCell.textContent || 'this gift').trim();
-          if (!window.confirm('Permanently delete "' + title + '" from the gift shop? This removes the gift everywhere and cannot be undone.')) {
-            btn.disabled = false;
-            return;
-          }
-          await deleteItemRow(id);
-          // Clear any lingering ignore row for the now-deleted item (best effort).
-          try { await deleteIgnore(id); } catch (e) {}
-          if (row.parentNode) row.parentNode.removeChild(row);
         }
         refresh();
       } catch (err) {
