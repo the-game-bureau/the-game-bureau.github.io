@@ -2535,17 +2535,21 @@
         (function () {
           var badge = document.getElementById('urlErrCount');
           if (!badge) return;
+          // Paint the nightly number first, then (once signed in) recheck it
+          // against live data — see refreshIssueBadge below.
           fetch('/shop/admin/giftshop-errors.json?t=' + Date.now(), { cache: 'no-store' })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (s) {
               if (!s) return;
+              window.TgbIssueSummary = s;
               var n = s.errors || 0;
               badge.textContent = n;
               badge.classList.toggle('has-errors', n > 0);
               badge.hidden = false;
               var link = document.getElementById('urlErrReportLink');
               if (link) link.title = n + ' confirmed URL error' + (n === 1 ? '' : 's') +
-                ((s.date || s.time) ? ' · last run ' + [s.date, s.time, s.tz].filter(Boolean).join(' ') : '');
+                ((s.date || s.time) ? ' · as of the last run, ' + [s.date, s.time, s.tz].filter(Boolean).join(' ') : '');
+              if (typeof window.TgbRefreshIssueBadge === 'function') window.TgbRefreshIssueBadge();
             })
             .catch(function () {});
         }());
@@ -3015,6 +3019,55 @@
     function authHeaders(extra = {}) {
       return adminAuth.authHeaders(extra);
     }
+
+    // ── ISSUES badge ─────────────────────────────────────────────────
+    // giftshop-errors.json is a snapshot from the nightly run, so its count
+    // goes stale the moment you clear an issue or delete the gift behind one.
+    // The run now also writes the offending ids, so re-check them: an id that
+    // no longer exists, or whose issue has been cleared, is not an open issue.
+    // (A link you FIXED still counts until tonight — only the checker knows.)
+    window.TgbRefreshIssueBadge = async function refreshIssueBadge() {
+      const badge = document.getElementById('urlErrCount');
+      const link = document.getElementById('urlErrReportLink');
+      if (!badge) return;
+      // The paint-first fetch above may not have landed yet (sign-in can beat
+      // it), so fetch the summary here when it is missing rather than giving up.
+      let summary = window.TgbIssueSummary;
+      if (!summary) {
+        try {
+          const res = await fetch('/shop/admin/giftshop-errors.json?t=' + Date.now(), { cache: 'no-store' });
+          summary = res.ok ? await res.json() : null;
+          if (summary) window.TgbIssueSummary = summary;
+        } catch (error) { return; }
+      }
+      if (!summary || !Array.isArray(summary.errorIds) || !summary.errorIds.length) return;
+      const ids = summary.errorIds.map(String);
+      const inList = '(' + ids.map((id) => '"' + id + '"').join(',') + ')';
+      try {
+        const [liveRes, clearedRes] = await Promise.all([
+          fetch(restUrl('gift_shop_items', { select: 'id', id: 'in.' + inList }), {
+            headers: authHeaders({ Accept: 'application/json' }), cache: 'no-store'
+          }),
+          fetch(restUrl('gift_shop_error_ignores', { select: 'item_id', item_id: 'in.' + inList }), {
+            headers: authHeaders({ Accept: 'application/json' }), cache: 'no-store'
+          })
+        ]);
+        if (!liveRes.ok || !clearedRes.ok) return;   // leave the nightly number alone
+        const live = new Set((await liveRes.json()).map((row) => String(row.id)));
+        const cleared = new Set((await clearedRes.json()).map((row) => String(row.item_id)));
+        const open = ids.filter((id) => live.has(id) && !cleared.has(id));
+        const gone = ids.length - open.length;
+        badge.textContent = open.length;
+        badge.classList.toggle('has-errors', open.length > 0);
+        if (link) {
+          link.title = open.length + ' open issue' + (open.length === 1 ? '' : 's') +
+            (gone ? ' · ' + gone + ' cleared or deleted since the last run' : '') +
+            ((summary.date || summary.time) ? ' · last run ' + [summary.date, summary.time, summary.tz].filter(Boolean).join(' ') : '');
+        }
+      } catch (error) {
+        console.warn('[issues badge] live recheck failed; showing the nightly count.', error);
+      }
+    };
 
     // ── Gift images in Storage ───────────────────────────────────────
     // Some sources (Cloudflare-protected sites, hosts sending
@@ -5819,6 +5872,7 @@ $$;`.trim();
         if (clearFiltersBtn) clearFiltersBtn.disabled = false;
         setCityFilterEnabled(true);
         setSuggestItemsButtonEnabled(true);
+        window.TgbRefreshIssueBadge();   // needs the admin session to read cleared issues
       } catch (error) {
         console.error(error);
         addItemBtn.disabled = false;

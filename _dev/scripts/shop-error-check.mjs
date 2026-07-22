@@ -273,8 +273,12 @@ function summarize(state, ignoredIds, meta) {
   const isBlocked = (it) => !isError(it) && (it.urlState === 'blocked' || it.imageState === 'blocked');
   const flagged = items.filter((it) => isError(it) || isBlocked(it));
   const notIgnored = (it) => !ignoreSet.has(String(it.id));
+  const errorItems = flagged.filter((it) => isError(it) && notIgnored(it));
   return {
-    errors:       flagged.filter((it) => isError(it) && notIgnored(it)).length,
+    // The ids too, so the Stock Room's ISSUES badge can re-check this snapshot
+    // against live data instead of quoting a number that is a day old.
+    errorIds:     errorItems.map((it) => String(it.id)),
+    errors:       errorItems.length,
     inconclusive: flagged.filter((it) => isBlocked(it) && notIgnored(it)).length,
     ignored:      flagged.filter((it) => ignoreSet.has(String(it.id))).length,
     mismatches:   items.filter((it) => it.coherence && it.coherence.verdict && it.coherence.verdict !== 'ok').length,
