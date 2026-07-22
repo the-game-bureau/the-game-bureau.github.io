@@ -1163,6 +1163,37 @@
       color: var(--accent);
       outline: none;
     }
+    /* Per-field refetch. Each one pulls only its own field from the Link, so a
+       description you wrote by hand is never collateral damage. */
+    .field-refill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 17px;
+      height: 17px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: rgba(var(--bic-blue-rgb), 0.06);
+      color: var(--muted);
+      font-size: 0.72rem;
+      line-height: 1;
+      letter-spacing: 0;
+      text-transform: none;
+      cursor: pointer;
+    }
+    .field-refill:hover,
+    .field-refill:focus-visible {
+      border-color: var(--accent);
+      color: var(--accent);
+      outline: none;
+    }
+    .field-refill[disabled] { opacity: 0.5; cursor: progress; }
+    .field-refill.is-busy { animation: field-refill-spin 900ms linear infinite; }
+    @keyframes field-refill-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .field-refill.is-busy { animation: none; opacity: 0.6; }
+    }
     .field-info::after {
       content: attr(data-tip);
       position: absolute;
@@ -1447,8 +1478,19 @@
     .item-view-shop {
       min-width: 0;
     }
+    /* AUTO FILL is hidden on a saved card — each field has its own ↻ — but the
+       Add Gift modal still shows it: every field is blank there, so one press
+       beats three. */
     .item-autofill-btn {
       grid-column: 1 / -1;
+    }
+    /* The global `button { display: inline-flex }` outranks the hidden
+       attribute, so say it explicitly — then put it back inside the modal. */
+    .item-autofill-btn[hidden] {
+      display: none;
+    }
+    .add-gift-body .item-autofill-btn[hidden] {
+      display: inline-flex;
     }
     /* Save is the last thing in the field column, so it sits under the field
        you just edited instead of across the card. */
@@ -2478,13 +2520,13 @@
           <div class="btn-fieldset-inner">
             <button class="btn item-view-target" data-action="view-url" type="button">TARGET</button>
             <button class="btn item-view-shop" data-action="view-in-shop" type="button">SHOP</button>
-            <button class="btn item-autofill-btn" data-action="grab-image" type="button" title="Fetch the real product image (and any empty title/description) from the Link URL via the scrape-amazon function. Amazon/Bookshop only - for destination links, fill Title/Image/Description by hand.">AUTO FILL</button>
+            <button class="btn item-autofill-btn" data-action="grab-image" type="button" hidden title="Fetch the real product image (and any empty title/description) from the Link URL via the scrape-amazon function. Amazon/Bookshop only - for destination links, fill Title/Image/Description by hand.">AUTO FILL</button>
           </div>
         </fieldset>
         </div>
         <div class="item-fields">
         <label>
-          Title
+          <span class="field-label-row">Title<button class="field-refill" type="button" data-action="refill-field" data-refill="title" title="Refetch just the title from the Link (or search by what is typed here)" aria-label="Refetch the title">↻</button></span>
           <input data-field="title" type="text" placeholder="Field Notebook">
         </label>
         <label>
@@ -2494,13 +2536,13 @@
           </span>
         </label>
         <label>
-          Image
+          <span class="field-label-row">Image<button class="field-refill" type="button" data-action="refill-field" data-refill="image_url" title="Refetch just the image from the Link" aria-label="Refetch the image">↻</button></span>
           <span class="address-row">
             <input data-field="image_url" type="url" required placeholder="https://m.media-amazon.com/images/…">
           </span>
         </label>
         <label class="field-wide">
-          Description
+          <span class="field-label-row">Description<button class="field-refill" type="button" data-action="refill-field" data-refill="description" title="Refetch just the description from the Link" aria-label="Refetch the description">↻</button></span>
           <textarea data-field="description" placeholder="Short blurb shown under the title."></textarea>
         </label>
         <label>
@@ -4301,6 +4343,63 @@
       // from the ASIN the way a Bookshop ISBN can) via the scrape-amazon edge
       // function, which reads og:image / JSON-LD / #landingImage server-side.
       // Also backfills title/description only when those are still empty.
+      // Per-field refetch (the ↻ beside Title / Image / Description). Same
+      // lookup as AUTO FILL, but it writes exactly one field and DOES overwrite
+      // it — pressing a field's own refresh is an explicit ask for that value.
+      const FIELD_REFILL_LABELS = { title: 'Title', image_url: 'Image', description: 'Description' };
+      async function lookupSource(query) {
+        const res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/scrape-amazon', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ url: query })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+        return data;
+      }
+
+      article.querySelectorAll('[data-action="refill-field"]').forEach((button) => {
+        const field = button.dataset.refill;
+        button.addEventListener('click', async (event) => {
+          event.preventDefault();
+          const input = article.querySelector('[data-field="' + field + '"]');
+          if (!input) return;
+          const linkVal = (article.querySelector('[data-field="url"]')?.value || '').trim();
+          // No link yet? The Title doubles as the search term (a book or ISBN).
+          const query = linkVal || (article.querySelector('[data-field="title"]')?.value || '').trim();
+          const label = FIELD_REFILL_LABELS[field] || field;
+          if (!query) { setItemStatus('Type a link, ISBN, or title first.', 'error'); return; }
+          button.disabled = true;
+          button.classList.add('is-busy');
+          setItemStatus('Fetching ' + label.toLowerCase() + '…');
+          try {
+            const data = await lookupSource(query);
+            let value = '';
+            if (field === 'title') {
+              const author = String(data.author || '').trim();
+              value = String(data.title || '').trim();
+              if (value && author && !value.toLowerCase().includes(author.toLowerCase())) {
+                value = value + ' by ' + author;
+              }
+            } else if (field === 'image_url') {
+              value = String(data.image_url || '').trim();
+            } else {
+              value = String(data.description || '').trim();
+            }
+            if (!value) { setItemStatus('No ' + label.toLowerCase() + ' found at that link.', 'error'); return; }
+            if (value === input.value.trim()) { setItemStatus(label + ' already matches the link.', ''); return; }
+            input.value = value;
+            input.dispatchEvent(new Event('input', { bubbles: true }));   // repaints the preview, marks dirty
+            setItemStatus(label + ' updated — review, then Save.', 'success');
+          } catch (err) {
+            setItemStatus(err instanceof Error ? err.message : String(err), 'error');
+          } finally {
+            button.disabled = false;
+            button.classList.remove('is-busy');
+          }
+        });
+      });
+
       const grabImageButton = article.querySelector('[data-action="grab-image"]');
       if (grabImageButton) {
         const runAutoFill = async () => {
