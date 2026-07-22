@@ -1706,6 +1706,49 @@
       font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 0 4px; border-radius: 6px;
     }
     .nightly-close:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
+    .nightly-lede {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .nightly-h {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 18px 0 6px;
+      font-size: 0.95rem;
+    }
+    .nightly-h:first-of-type { margin-top: 6px; }
+    .nightly-prompt {
+      margin: 8px 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.04);
+    }
+    .nightly-prompt > summary {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .nightly-prompt pre {
+      margin: 0;
+      padding: 0 12px 12px;
+      overflow-x: auto;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      line-height: 1.5;
+      color: var(--ink);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .nightly-note { font-style: italic; }
     .nightly-body { padding: 18px; overflow: auto; }
 
     .confirm-modal {
@@ -2818,26 +2861,35 @@
       });
     }
 
-    // NIGHTLY — read-only pop-up describing the nightly book-pull automation.
+    // NIGHTLY — read-only pop-up describing the nightly automations.
+    // The modal markup lives at the end of <body>, well below this script, so
+    // look it up at CLICK time: a parse-time getElementById finds nothing and
+    // the button silently does nothing (which is exactly what it used to do).
     (function wireNightlyModal() {
       const btn = document.getElementById('nightlyBtn');
-      const modal = document.getElementById('nightlyModal');
-      if (!btn || !modal) return;
+      if (!btn) return;
+      let onKey = null;
       const close = () => {
-        modal.hidden = true;
+        const modal = document.getElementById('nightlyModal');
+        if (modal) modal.hidden = true;
         document.body.style.overflow = '';
-        document.removeEventListener('keydown', onKey);
+        if (onKey) { document.removeEventListener('keydown', onKey); onKey = null; }
       };
-      function onKey(event) { if (event.key === 'Escape') close(); }
       btn.addEventListener('click', () => {
+        const modal = document.getElementById('nightlyModal');
+        if (!modal) return;
         modal.hidden = false;
         document.body.style.overflow = 'hidden';
+        onKey = (event) => { if (event.key === 'Escape') close(); };
         document.addEventListener('keydown', onKey);
+        if (!modal._wired) {
+          modal._wired = true;
+          modal.addEventListener('click', (event) => {
+            if (event.target.closest('[data-nightly-close]')) close();
+          });
+        }
         const closeBtn = modal.querySelector('.nightly-close');
         if (closeBtn) closeBtn.focus();
-      });
-      modal.addEventListener('click', (event) => {
-        if (event.target.closest('[data-nightly-close]')) close();
       });
     }());
     if (itemSearchInput) {
@@ -6032,15 +6084,47 @@ $$;`.trim();
     <div class="nightly-backdrop" data-nightly-close></div>
     <section class="nightly-panel">
       <header class="nightly-panel-head">
-        <h2 id="nightlyTitle">Gift Shop nightly book pull</h2>
+        <h2 id="nightlyTitle">What runs every night</h2>
         <button class="nightly-close" type="button" data-nightly-close aria-label="Close">&times;</button>
       </header>
       <div class="nightly-body">
-        <p class="automation-when">nightly · ~03:30 Central</p>
-        <p class="automation-desc">Uses Claude + web search to add ~5 verified Bookshop.org books as <strong>Review</strong> candidates for a rotating shop city. Skips anything already stocked or shelved, so nothing shelved ever comes back.</p>
+        <p class="nightly-lede">Two jobs run on their own, both on GitHub Actions, both committing their results back to the site. Nothing here needs you — this is just what happens while you sleep.</p>
+
+        <h3 class="nightly-h">1 · Book pull <span class="automation-when">~3:30 AM Central</span></h3>
+        <p class="automation-desc">Picks tonight's city by rotating through the shop's city list (one per day of the year), then asks Claude &mdash; <code>claude-opus-4-8</code>, with web search switched on &mdash; for 5 real books tied to that place. Each one is added as a <strong>Review</strong> candidate, never Live: you decide what actually goes in the shop.</p>
+        <p class="automation-desc">It sends the model a list of every title you already stock <em>or have shelved</em>, with instructions not to suggest them. That is why a book you shelved never comes back.</p>
+        <details class="nightly-prompt">
+          <summary>The prompt it sends</summary>
+          <pre>Find 5 real books, available on Bookshop.org, that a traveler
+would love as a gift connected to: {tonight's city}.
+Use web search to VERIFY each book exists and to get its real
+ISBN-13 — do not guess ISBNs.
+Prefer a mix: local history, fiction set there, food/culture,
+a kids' pick.
+
+Do NOT suggest any of these — we already carry them or have
+shelved them:
+- {up to 300 titles}
+
+When done, output ONLY a JSON array (no prose, no code fence)
+of objects with exactly these keys:
+[{"title": "…", "isbn": "978…", "description": "one short
+original gift-shop blurb", "cities": ["{city}"]}]</pre>
+        </details>
+        <p class="automation-desc nightly-note">The ISBN is the part that matters: we build the Bookshop link and the cover image from it ourselves, the same way Auto Fill does, so the model never gets to invent a URL.</p>
         <div class="automation-meta">
           <code>_dev/scripts/shop-book-pull.mjs</code>
           <code>.github/workflows/shop-book-pull.yml</code>
+          <code>tgb_import_bookshop_prompt_items()</code>
+        </div>
+
+        <h3 class="nightly-h">2 · Link &amp; image check <span class="automation-when">~3:00 AM Central</span></h3>
+        <p class="automation-desc">Tries every gift's product link and image the way a shopper's browser would, and writes up whatever fails. It checks <strong>one seventh</strong> of the catalogue a night — Monday the first seventh, Tuesday the second — so every gift is re-tested once a week. No AI involved; it just fetches URLs.</p>
+        <p class="automation-desc">Results land on the <a href="/shop/admin/gsissues.htm" target="_blank" rel="noopener noreferrer">Issues page</a>, and the ISSUES badge in the toolbar counts what is still open.</p>
+        <div class="automation-meta">
+          <code>_dev/scripts/shop-error-check.mjs</code>
+          <code>.github/workflows/shop-error-check.yml</code>
+          <code>shop/admin/gsissues.htm</code>
         </div>
       </div>
     </section>
