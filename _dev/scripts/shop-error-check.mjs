@@ -404,8 +404,16 @@ function buildHtml(state, meta, ignoredIds) {
   }
   button, input, select { font: inherit; }
   /* Top action row, then a section-head hero, matching every other MC page. */
-  .topbar { display: flex; justify-content: flex-end; gap: 10px; margin: 0 0 18px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 18px; flex-wrap: wrap; }
   .topbar-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  .topbar-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px;
+    background: rgba(var(--bic-blue-rgb), 0.06); color: var(--accent);
+    font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none;
+  }
+  .topbar-back:hover, .topbar-back:focus-visible { background: #fff; border-color: var(--accent); }
   #manageBtn, #runCheckBtn, #aiAuditBtn {
     display: inline-flex; align-items: center; min-height: 42px; padding: 0 16px;
     border: 1px solid var(--line); border-radius: 8px; background: rgba(255, 255, 255, 0.92);
@@ -511,6 +519,7 @@ function buildHtml(state, meta, ignoredIds) {
 </head>
 <body>
   <div class="topbar">
+    <a class="topbar-back" href="/shop/admin/" title="Back to the Gift Shop Stock Room">← Stock Room</a>
     <div class="topbar-actions">
       <button id="aiAuditBtn" type="button" title="Use AI to check every tracked gift's fields agree: Image matches Title, Title matches Link, and Shops line up.">AI audit</button>
       <button id="runCheckBtn" type="button" title="Kick off the Link/Image check on GitHub Actions now instead of waiting for the nightly run.">Run check now</button>
