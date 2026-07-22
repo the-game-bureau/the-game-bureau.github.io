@@ -2504,6 +2504,7 @@
           </div>
           <select id="statusFilter" aria-label="Filter gifts by status" disabled>
             <option value="">Filter: Any status</option>
+            <option value="NOT_SHELVED">Filter: Not shelved</option>
             <option value="LIVE">Filter: Live</option>
             <option value="REVIEW">Filter: Review</option>
             <option value="SHELVED">Filter: Shelved</option>
@@ -3632,7 +3633,11 @@
       const wantStatus = statusFilter ? statusFilter.value : '';
       const cityMatch = cityFilterSelected.size === 0 ||
         entryCities(entry).some((c) => cityFilterSelected.has(c));
-      const statusMatch = !wantStatus || entryStatus(entry) === wantStatus;
+      // NOT_SHELVED is the working set: everything still in play (Live +
+      // Review), i.e. anything you haven't passed on.
+      const status = entryStatus(entry);
+      const statusMatch = !wantStatus ||
+        (wantStatus === 'NOT_SHELVED' ? status !== 'SHELVED' : status === wantStatus);
       const queryMatch = !query ||
         entryTitle(entry).toLowerCase().includes(query) ||
         entryDescription(entry).toLowerCase().includes(query);
