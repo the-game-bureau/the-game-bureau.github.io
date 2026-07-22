@@ -3830,7 +3830,13 @@
       });
       if (!response.ok) throw new Error(await readError(response, 'Update failed.'));
       const rows = await response.json();
-      return Array.isArray(rows) && rows.length ? rows[0] : null;
+      // A PATCH that matches no row still comes back 200 with an empty array —
+      // that's what an RLS policy refusing the write looks like from here. Say
+      // so instead of reporting "Saved." over a change that never landed.
+      if (!Array.isArray(rows) || !rows.length) {
+        throw new Error('Nothing was saved — the database refused the change (id ' + id + '). Check that you are still signed in as an admin, then try again.');
+      }
+      return rows[0];
     }
 
     // ── Listings ─────────────────────────────────────────────────────
