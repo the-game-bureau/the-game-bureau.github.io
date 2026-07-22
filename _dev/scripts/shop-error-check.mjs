@@ -327,7 +327,7 @@ function buildHtml(state, meta, ignoredIds) {
     ].filter(Boolean).join(' ');
     const action = mode === 'ignored'
       ? `<button class="rowbtn rowbtn--ig rowbtn--restore" type="button" data-action="restore" data-id="${esc(it.id)}">restore issue</button>`
-      : `<button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="${esc(it.id)}">ignore issue</button>`;
+      : `<button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="${esc(it.id)}">clear issue</button>`;
     const rowActions =
       `<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="${esc(it.id)}">edit gift</button>` +
       action;
@@ -524,7 +524,7 @@ function buildHtml(state, meta, ignoredIds) {
   <div class="cards">
     <div class="card"><div class="n" id="countErrors">${errored.length}</div><div class="k">Confirmed issues</div></div>
     <div class="card"><div class="n" id="countBlocked">${blocked.length}</div><div class="k">Inconclusive</div></div>
-    <div class="card"><div class="n" id="countIgnored">${ignored.length}</div><div class="k">Ignored</div></div>
+    <div class="card"><div class="n" id="countIgnored">${ignored.length}</div><div class="k">Cleared</div></div>
     <div class="card"><div class="n">${checkedCount}</div><div class="k">Checked gifts</div></div>
     <div class="card"><div class="n" id="countLowStock">–</div><div class="k">Cities needing gifts</div></div>
   </div>
@@ -534,8 +534,8 @@ function buildHtml(state, meta, ignoredIds) {
   <div class="bulkbar" id="bulkBar" role="region" aria-label="Selected gift actions">
     <span class="bulk-n" id="bulkN">0 gifts selected</span>
     <button type="button" id="bulkStock">Edit gifts</button>
-    <button type="button" id="bulkIgnore">Ignore issues</button>
-    <button type="button" class="bulk-clear" id="bulkClear">Clear</button>
+    <button type="button" id="bulkIgnore">Clear issues</button>
+    <button type="button" class="bulk-clear" id="bulkClear">Deselect</button>
   </div>
 
   <section id="errorsWrap">
@@ -549,7 +549,7 @@ function buildHtml(state, meta, ignoredIds) {
   </details>
 
   <details id="ignoredSection"${hid(ignored.length > 0)}>
-    <summary><span id="ignoredCount">${ignored.length}</span> ignored (kept out of the counts above)</summary>
+    <summary><span id="ignoredCount">${ignored.length}</span> cleared (kept out of the counts above)</summary>
     <table>${thead('Status')}<tbody id="ignoredBody">${ignoredBody}</tbody></table>
   </details>
 
@@ -585,7 +585,7 @@ function buildHtml(state, meta, ignoredIds) {
   </details>
 
   <p class="dim">dead = 404/410/451 · not image = 200 but not an image · error = other 4xx/5xx, timeout, DNS · blocked = 403/429/503 (anti-bot, inconclusive).</p>
-  <p class="dim"><strong>Edit gift</strong> opens the gift in the Stock Room, where you can fix or delete it. <strong>Ignore issue</strong> only silences this report line; the gift stays exactly as it is, and <strong>restore issue</strong> puts the line back. Ignores live in Supabase, so they persist across devices and survive the nightly regeneration. Sign in as an admin to use any of them.</p>
+  <p class="dim"><strong>Edit gift</strong> opens the gift in the Stock Room, where you can fix or delete it. <strong>Clear issue</strong> only silences this report line; the gift stays exactly as it is, and <strong>restore issue</strong> puts the line back. Cleared lines live in Supabase, so they persist across devices and survive the nightly regeneration. Sign in as an admin to use any of them.</p>
   <script id="shoperrors-state" type="application/json">${stateJson}</script>
   <script src="/mc/js/admin-auth.js"></script>
   <script>
@@ -597,8 +597,8 @@ function buildHtml(state, meta, ignoredIds) {
 
     var adminAuth = window.TgbMcAdminAuth ? window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
-      initialMessage: 'Sign in with an admin account to manage ignored issue entries.',
-      modalCopy: 'Sign in to ignore or restore gift-shop issue entries.'
+      initialMessage: 'Sign in with an admin account to clear or restore issue entries.',
+      modalCopy: 'Sign in to clear or restore gift-shop issue entries.'
     }) : null;
     var signedIn = false;
 
@@ -666,7 +666,7 @@ function buildHtml(state, meta, ignoredIds) {
       if (btn) {
         var restore = mode === 'ignored';
         btn.dataset.action = restore ? 'restore' : 'ignore';
-        btn.textContent = restore ? 'restore' : 'ignore';
+        btn.textContent = restore ? 'restore issue' : 'clear issue';
         btn.classList.toggle('rowbtn--restore', restore);
         btn.disabled = false;
       }
@@ -790,7 +790,7 @@ function buildHtml(state, meta, ignoredIds) {
         var p = row.parentNode;
         return p && (p.id === 'errorsBody' || p.id === 'blockedBody');
       });
-      if (!rs.length) { window.alert('Select one or more gifts in Confirmed Issues or Inconclusive to ignore.'); return; }
+      if (!rs.length) { window.alert('Select one or more gifts in Confirmed Issues or Inconclusive to clear.'); return; }
       if (!(await ensureAdmin())) return;
       for (var k = 0; k < rs.length; k++) {
         try { await writeIgnore(rs[k].dataset.itemId); moveRow(rs[k], '#ignoredBody', 'ignored'); }
