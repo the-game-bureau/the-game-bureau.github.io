@@ -2542,13 +2542,15 @@
             .then(function (s) {
               if (!s) return;
               window.TgbIssueSummary = s;
-              var n = s.errors || 0;
-              badge.textContent = n;
-              badge.classList.toggle('has-errors', n > 0);
+              // Show 0, not the nightly figure: that number counts issues you
+              // may already have dealt with. The recheck below replaces it with
+              // what is actually open, and falls back to the nightly count only
+              // if it cannot run.
+              badge.textContent = '0';
+              badge.classList.remove('has-errors');
               badge.hidden = false;
               var link = document.getElementById('urlErrReportLink');
-              if (link) link.title = n + ' confirmed URL error' + (n === 1 ? '' : 's') +
-                ((s.date || s.time) ? ' · as of the last run, ' + [s.date, s.time, s.tz].filter(Boolean).join(' ') : '');
+              if (link) link.title = 'Checking for open issues…';
               if (typeof window.TgbRefreshIssueBadge === 'function') window.TgbRefreshIssueBadge();
             })
             .catch(function () {});
@@ -3028,10 +3030,26 @@
     // (A link you FIXED still counts until tonight — only the checker knows.)
     window.TgbRefreshIssueBadge = async function refreshIssueBadge() {
       const badge = document.getElementById('urlErrCount');
-      const link = document.getElementById('urlErrReportLink');
       if (!badge) return;
       // The paint-first fetch above may not have landed yet (sign-in can beat
       // it), so fetch the summary here when it is missing rather than giving up.
+      const link = document.getElementById('urlErrReportLink');
+      const paint = (n, title) => {
+        badge.textContent = n;
+        badge.classList.toggle('has-errors', n > 0);
+        badge.hidden = false;
+        if (link) link.title = title;
+      };
+      const runStamp = (s) => (s && (s.date || s.time))
+        ? [s.date, s.time, s.tz].filter(Boolean).join(' ') : '';
+      // Couldn't check live — say what the last run found rather than leave a 0
+      // standing for "clean".
+      const fallback = (s) => {
+        const n = (s && s.errors) || 0;
+        paint(n, n + ' issue' + (n === 1 ? '' : 's') + ' at the last run' +
+          (runStamp(s) ? ', ' + runStamp(s) : '') + ' — not re-checked');
+      };
+
       let summary = window.TgbIssueSummary;
       if (!summary) {
         try {
@@ -3040,7 +3058,9 @@
           if (summary) window.TgbIssueSummary = summary;
         } catch (error) { return; }
       }
-      if (!summary || !Array.isArray(summary.errorIds) || !summary.errorIds.length) return;
+      if (!summary) return;
+      if (!Array.isArray(summary.errorIds)) { fallback(summary); return; }   // summary predates errorIds
+      if (!summary.errorIds.length) { paint(0, 'No issues at the last run' + (runStamp(summary) ? ', ' + runStamp(summary) : '')); return; }
       const ids = summary.errorIds.map(String);
       const inList = '(' + ids.map((id) => '"' + id + '"').join(',') + ')';
       try {
@@ -3052,20 +3072,17 @@
             headers: authHeaders({ Accept: 'application/json' }), cache: 'no-store'
           })
         ]);
-        if (!liveRes.ok || !clearedRes.ok) return;   // leave the nightly number alone
+        if (!liveRes.ok || !clearedRes.ok) { fallback(summary); return; }
         const live = new Set((await liveRes.json()).map((row) => String(row.id)));
         const cleared = new Set((await clearedRes.json()).map((row) => String(row.item_id)));
         const open = ids.filter((id) => live.has(id) && !cleared.has(id));
         const gone = ids.length - open.length;
-        badge.textContent = open.length;
-        badge.classList.toggle('has-errors', open.length > 0);
-        if (link) {
-          link.title = open.length + ' open issue' + (open.length === 1 ? '' : 's') +
-            (gone ? ' · ' + gone + ' cleared or deleted since the last run' : '') +
-            ((summary.date || summary.time) ? ' · last run ' + [summary.date, summary.time, summary.tz].filter(Boolean).join(' ') : '');
-        }
+        paint(open.length, open.length + ' open issue' + (open.length === 1 ? '' : 's') +
+          (gone ? ' · ' + gone + ' cleared or deleted since the last run' : '') +
+          (runStamp(summary) ? ' · last run ' + runStamp(summary) : ''));
       } catch (error) {
         console.warn('[issues badge] live recheck failed; showing the nightly count.', error);
+        fallback(summary);
       }
     };
 
