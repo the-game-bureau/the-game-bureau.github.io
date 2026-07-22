@@ -1126,6 +1126,46 @@
       background: #eef0f4;
     }
     .item-details > legend { font-size: 0.72rem; }
+    /* Button label is shown AS the button the shopper will see. Click it and it
+       turns back into an ordinary text box; blank shows the default the shop
+       would use for this link, greyed. Keep in step with giftCtaLabel() in
+       shop/index.html. */
+    .cta-button-input {
+      height: 40px;
+      border: 1px solid var(--bic-blue) !important;
+      border-radius: 999px !important;
+      background: rgba(var(--bic-blue-rgb), 0.06) !important;
+      color: var(--bic-blue) !important;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-align: center;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .cta-button-input::placeholder {
+      color: var(--muted);
+      opacity: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .cta-button-input:hover {
+      background: rgba(var(--bic-blue-rgb), 0.12) !important;
+    }
+    /* Editing: drop the costume so the caret and the typed text read normally. */
+    .cta-button-input:focus {
+      border-radius: 8px !important;
+      background: #fff !important;
+      color: var(--ink) !important;
+      font-family: inherit;
+      font-size: inherit;
+      font-weight: 400;
+      letter-spacing: 0;
+      text-align: left;
+      text-transform: none;
+      cursor: text;
+    }
     .item-details-body {
       display: grid;
       grid-template-columns: 1fr;
@@ -2564,7 +2604,7 @@
           </label>
           <label>
             <span class="field-label-row">Button label<button class="field-info" type="button" aria-label="About the Button label field" data-tip="Optional. The exact text on the gift-shop button, e.g. &quot;Request Guide&quot; or &quot;Get Tickets&quot;. Leave blank to auto-label: Amazon/Bookshop links read &quot;View on Amazon/Bookshop&quot;, any other link reads &quot;Visit Site&quot;.">i</button></span>
-            <input data-field="cta_label" type="text" placeholder="Leave blank for the default (e.g. Visit Site)">
+            <input class="cta-button-input" data-field="cta_label" type="text" placeholder="Visit Site →" title="Click to type a custom label. Left blank, the shop uses the greyed default shown here.">
           </label>
           </div>
         </fieldset>
@@ -4363,6 +4403,29 @@
       // from the ASIN the way a Bookshop ISBN can) via the scrape-amazon edge
       // function, which reads og:image / JSON-LD / #landingImage server-side.
       // Also backfills title/description only when those are still empty.
+      // The Button label field wears the shop's CTA button. Empty, its
+      // placeholder shows the label the shop would pick for this link, so you
+      // can see the default without leaving it blank to find out.
+      // Mirror of giftCtaLabel() in shop/index.html — keep the two in step.
+      const ctaInput = article.querySelector('[data-field="cta_label"]');
+      const urlInput = article.querySelector('[data-field="url"]');
+      function defaultCtaLabel(url) {
+        const u = String(url || '').toLowerCase();
+        if (/amazon\.|amzn\.to|a\.co\//.test(u)) return 'View on Amazon';
+        if (/bookshop\.org/.test(u)) return 'View on Bookshop';
+        return 'Visit Site';
+      }
+      function refreshCtaPlaceholder() {
+        if (!ctaInput) return;
+        ctaInput.placeholder = defaultCtaLabel(urlInput ? urlInput.value : '') + ' →';
+      }
+      refreshCtaPlaceholder();
+      if (urlInput) urlInput.addEventListener('input', refreshCtaPlaceholder);
+      // A click anywhere on the "button" should put the caret in it.
+      if (ctaInput) {
+        ctaInput.addEventListener('focus', () => { ctaInput.select(); });
+      }
+
       // Per-field refetch (the ↻ beside Title / Image / Description). Same
       // lookup as AUTO FILL, but it writes exactly one field and DOES overwrite
       // it — pressing a field's own refresh is an explicit ask for that value.
