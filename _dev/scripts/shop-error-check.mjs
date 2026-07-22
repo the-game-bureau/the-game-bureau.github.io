@@ -326,11 +326,11 @@ function buildHtml(state, meta, ignoredIds) {
       it.imageDetail ? `<span class="dim">${esc(it.imageDetail)}</span>` : '',
     ].filter(Boolean).join(' ');
     const action = mode === 'ignored'
-      ? `<button class="rowbtn rowbtn--ig rowbtn--restore" type="button" data-action="restore" data-id="${esc(it.id)}">restore</button>`
-      : `<button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="${esc(it.id)}">ignore</button>`;
+      ? `<button class="rowbtn rowbtn--ig rowbtn--restore" type="button" data-action="restore" data-id="${esc(it.id)}">restore issue</button>`
+      : `<button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="${esc(it.id)}">ignore issue</button>`;
     const rowActions =
-      `<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="${esc(it.id)}">edit</button>` +
-      `<button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="${esc(it.id)}">delete</button>` +
+      `<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="${esc(it.id)}">edit gift</button>` +
+      `<button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="${esc(it.id)}">delete gift</button>` +
       action;
     return `<tr data-item-id="${esc(it.id)}" data-origin="${originOf(it)}">
       <td class="t">${esc(it.title || '(untitled)')}</td>
@@ -353,8 +353,8 @@ function buildHtml(state, meta, ignoredIds) {
     const badgeClass = v.verdict === 'mismatch' ? 'b-dead' : (v.verdict === 'error' ? 'b-error' : 'b-blocked');
     const issues = (Array.isArray(v.issues) && v.issues.length) ? ' — ' + v.issues.join('; ') : '';
     const acts =
-      `<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="${esc(it.id)}">edit</button>` +
-      `<button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="${esc(it.id)}">delete</button>`;
+      `<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="${esc(it.id)}">edit gift</button>` +
+      `<button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="${esc(it.id)}">delete gift</button>`;
     return `<tr data-item-id="${esc(it.id)}">
       <td class="t">${esc(it.title || '(untitled)')}</td>
       <td><span class="b ${badgeClass}">${esc(String(v.verdict || 'warn').toUpperCase())}</span> <span class="dim">${esc(String(v.summary || '') + issues)}</span></td>
@@ -537,9 +537,9 @@ function buildHtml(state, meta, ignoredIds) {
        checkboxes are ticked; acts on every checked row across all tables. -->
   <div class="bulkbar" id="bulkBar" role="region" aria-label="Selected gift actions">
     <span class="bulk-n" id="bulkN">0 gifts selected</span>
-    <button type="button" id="bulkStock">Edit</button>
-    <button type="button" id="bulkIgnore">Ignore</button>
-    <button type="button" class="danger" id="bulkDelete">Delete</button>
+    <button type="button" id="bulkStock">Edit gifts</button>
+    <button type="button" id="bulkIgnore">Ignore issues</button>
+    <button type="button" class="danger" id="bulkDelete">Delete gifts</button>
     <button type="button" class="bulk-clear" id="bulkClear">Clear</button>
   </div>
 
@@ -590,7 +590,7 @@ function buildHtml(state, meta, ignoredIds) {
   </details>
 
   <p class="dim">dead = 404/410/451 · not image = 200 but not an image · error = other 4xx/5xx, timeout, DNS · blocked = 403/429/503 (anti-bot, inconclusive).</p>
-  <p class="dim">Sign in as an admin to <strong>ignore</strong> or <strong>restore</strong> issue entries. Ignores are stored in Supabase, so they persist across devices and survive the nightly regeneration.</p>
+  <p class="dim"><strong>Edit gift</strong> and <strong>delete gift</strong> act on the gift itself — delete removes it from the shop everywhere. <strong>Ignore issue</strong> only silences this report line; the gift stays exactly as it is, and <strong>restore issue</strong> puts the line back. Ignores live in Supabase, so they persist across devices and survive the nightly regeneration. Sign in as an admin to use any of them.</p>
   <script id="shoperrors-state" type="application/json">${stateJson}</script>
   <script src="/mc/js/admin-auth.js"></script>
   <script>
@@ -973,8 +973,8 @@ function buildHtml(state, meta, ignoredIds) {
         '<td><span class="b ' + badgeClass + '">' + escHtml((v.verdict || 'warn').toUpperCase()) + '</span> ' +
           '<span class="dim">' + escHtml((v.summary || '') + issues) + '</span></td>' +
         '<td class="act">' +
-          '<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="' + escHtml(it.id) + '">edit</button>' +
-          '<button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="' + escHtml(it.id) + '">delete</button>' +
+          '<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="' + escHtml(it.id) + '">edit gift</button>' +
+          '<button class="rowbtn rowbtn--del" type="button" data-action="delete" data-id="' + escHtml(it.id) + '">delete gift</button>' +
         '</td>';
       q('#mismatchBody').appendChild(tr);
       setHidden('#mismatchSection', false);
