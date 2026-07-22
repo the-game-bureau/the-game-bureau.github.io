@@ -2542,11 +2542,10 @@
             .then(function (s) {
               if (!s) return;
               window.TgbIssueSummary = s;
-              // Show 0, not the nightly figure: that number counts issues you
-              // may already have dealt with. The recheck below replaces it with
-              // what is actually open, and falls back to the nightly count only
-              // if it cannot run.
-              badge.textContent = '0';
+              // "?" until the recheck answers — not the nightly figure (which
+              // counts issues you may already have dealt with) and not 0 (which
+              // would claim "clean" before anything has been checked).
+              badge.textContent = '?';
               badge.classList.remove('has-errors');
               badge.hidden = false;
               var link = document.getElementById('urlErrReportLink');
@@ -3036,7 +3035,7 @@
       const link = document.getElementById('urlErrReportLink');
       const paint = (n, title) => {
         badge.textContent = n;
-        badge.classList.toggle('has-errors', n > 0);
+        badge.classList.toggle('has-errors', Number(n) > 0);
         badge.hidden = false;
         if (link) link.title = title;
       };
@@ -3065,7 +3064,7 @@
       // again once the session is up.
       const session = (adminAuth && typeof adminAuth.getSession === 'function') ? adminAuth.getSession() : null;
       if (!session || !session.access_token) {
-        paint(0, 'Checking for open issues… (sign in to re-check)');
+        paint('?', 'Checking for open issues… (sign in to re-check)');
         return;
       }
 
