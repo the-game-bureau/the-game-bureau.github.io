@@ -266,6 +266,8 @@
   <script src="js/admin-shell.js"></script>
   <script src="js/admin-nav-menu.js"></script>
   <script src="js/supabase-rest.js"></script>
+  <script src="../assets/geo.js"></script>
+  <script src="../assets/city-picker.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -522,19 +524,47 @@
       });
     }
 
+    // Cities come from public.cities (the one catalog), plus any city already on
+    // a waypoint so nothing on screen becomes unfilterable. Venue-only cities
+    // are shown grey. The + beside the box adds a city to the catalog.
     function renderCityFilter() {
-      const cities = Array.from(new Set(state.waypoints.map((w) => w.city).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+      const onWaypoints = new Set(state.waypoints.map((w) => w.city).filter(Boolean));
+      const catalog = window.TgbCities ? window.TgbCities.all() : [];
+      const ignored = new Set(catalog.filter((c) => c.ignored).map((c) => c.city));
+      const names = Array.from(new Set(catalog.map((c) => c.city).concat(Array.from(onWaypoints))))
+        .sort((a, b) => a.localeCompare(b));
       cityFilter.innerHTML = '';
       const all = document.createElement('option');
       all.value = ''; all.textContent = 'All cities (' + state.waypoints.length + ')';
       cityFilter.append(all);
-      cities.forEach((c) => {
+      names.forEach((c) => {
         const n = state.waypoints.filter((w) => w.city === c).length;
         const o = document.createElement('option');
         o.value = c; o.textContent = c + ' (' + n + ')';
+        if (ignored.has(c)) { o.className = 'tgb-city-ignored'; o.title = 'Venue only'; }
         if (c === state.cityFilter) o.selected = true;
         cityFilter.append(o);
       });
+    }
+
+    // Load the catalog, then repaint; and hang the add button off the filter.
+    if (window.TgbCities) {
+      window.TgbCities.load().then(renderCityFilter).catch(() => {});
+      const addCityBtn = document.createElement('button');
+      addCityBtn.type = 'button';
+      addCityBtn.className = 'tgb-city-add';
+      addCityBtn.textContent = '+';
+      addCityBtn.title = 'Add a city to the shared list';
+      addCityBtn.setAttribute('aria-label', 'Add a city');
+      addCityBtn.addEventListener('click', () => {
+        window.TgbCities.openAddDialog({ authHeaders: authHeaders }).then((row) => {
+          if (!row) return;
+          renderCityFilter();
+          cityFilter.value = row.city;
+          cityFilter.dispatchEvent(new Event('change'));
+        });
+      });
+      cityFilter.insertAdjacentElement('afterend', addCityBtn);
     }
 
     function isSelected(wpid) { return state.selected.some((s) => s.wpid === String(wpid)); }

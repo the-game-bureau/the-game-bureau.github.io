@@ -2335,12 +2335,15 @@
       }));
     }
 
+    // Venue-only cities (cities.ignored) are not shopping cities. select=* so
+    // this keeps working before 2026072205_cities_ignored.sql is applied.
     async function fetchGiftShopCities() {
-      return fetchAllRows(buildSupabaseUrl('cities', {
-        select: 'city,label,sort_order',
+      const rows = await fetchAllRows(buildSupabaseUrl('cities', {
+        select: '*',
         archived: 'eq.false',
         order: 'sort_order.asc,city.asc'
       }));
+      return (Array.isArray(rows) ? rows : []).filter((row) => row && row.ignored !== true);
     }
 
     // Every gift_shop_items row, so the shop can show items even when they have

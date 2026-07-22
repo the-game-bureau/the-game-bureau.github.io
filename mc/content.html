@@ -237,6 +237,8 @@
   <script src="js/admin-auth.js"></script>
   <script src="js/admin-shell.js"></script>
   <script src="js/admin-nav-menu.js"></script>
+  <script src="../assets/geo.js"></script>
+  <script src="../assets/city-picker.js"></script>
   <script>
     // Mission Control chrome: sign-in dropdown + sign-out, shared across /mc/ pages.
     (function () {
@@ -563,13 +565,51 @@
         stopCount + ' stop' + (stopCount === 1 ? '' : 's') + (savedRoute.city ? ' · ' + savedRoute.city : '') + '.';
     }
 
+    // Cities come from public.cities (the one catalog), plus any city already on
+    // a place so nothing on screen becomes unfilterable. Venue-only cities show
+    // grey; the + beside the box adds a city to the catalog.
+    function cityFilterOptions() {
+      const onPlaces = [...new Set(places.map((s) => s.city).filter(Boolean))];
+      const catalog = window.TgbCities ? window.TgbCities.all() : [];
+      const ignored = new Set(catalog.filter((c) => c.ignored).map((c) => c.city));
+      const names = [...new Set(catalog.map((c) => c.city).concat(onPlaces))].sort();
+      return { names, ignored, onPlaces };
+    }
+
+    function paintCityFilter(keepValue) {
+      const { names, ignored } = cityFilterOptions();
+      const current = keepValue !== undefined ? keepValue : cityEl.value;
+      cityEl.innerHTML = '<option value="">All cities</option>' + names.map((c) =>
+        '<option value="' + esc(c) + '"' + (ignored.has(c) ? ' class="tgb-city-ignored" title="Venue only"' : '') + '>' + esc(c) + '</option>'
+      ).join('');
+      cityEl.value = current || '';
+    }
+
     function buildCityFilter() {
-      const cities = [...new Set(places.map((s) => s.city).filter(Boolean))].sort();
-      cityEl.innerHTML = '<option value="">All cities</option>' + cities.map((c) => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+      const { onPlaces } = cityFilterOptions();
+      paintCityFilter('');
       const DEFAULT_CITY = 'New Orleans, LA';
-      const start = cities.includes(DEFAULT_CITY) ? DEFAULT_CITY : (cities.length > 1 ? cities[0] : '');
+      const start = onPlaces.includes(DEFAULT_CITY) ? DEFAULT_CITY : (onPlaces.length > 1 ? onPlaces[0] : '');
       cityEl.value = start;
       cityEl.addEventListener('change', () => render(cityEl.value));
+
+      if (window.TgbCities) {
+        window.TgbCities.load().then(() => paintCityFilter()).catch(() => {});
+        const addCityBtn = document.createElement('button');
+        addCityBtn.type = 'button';
+        addCityBtn.className = 'tgb-city-add';
+        addCityBtn.textContent = '+';
+        addCityBtn.title = 'Add a city to the shared list';
+        addCityBtn.setAttribute('aria-label', 'Add a city');
+        addCityBtn.addEventListener('click', () => {
+          window.TgbCities.openAddDialog({ authHeaders: typeof authHeaders === 'function' ? authHeaders : undefined }).then((row) => {
+            if (!row) return;
+            paintCityFilter(row.city);
+            render(cityEl.value);
+          });
+        });
+        cityEl.insertAdjacentElement('afterend', addCityBtn);
+      }
       render(start);
     }
 

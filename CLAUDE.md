@@ -169,9 +169,14 @@ There is exactly **one** city table for the whole site: `public.cities`, keyed b
 `public.gift_shop_cities` was a second, parallel catalog keyed by the city string. It was merged into `cities` on 2026-07-22 by [supabase/migrations/2026072202_merge_gift_shop_cities_into_cities.sql](supabase/migrations/2026072202_merge_gift_shop_cities_into_cities.sql). **Do not create a new per-product city table** — add a column to `cities` instead (that's what `sound_playlist_id` / `sound_accent` / `sound_secondary` are).
 
 - **Writers don't send a slug.** The `cities_fill_slug` BEFORE INSERT trigger derives it from the city string via `tgb_city_slug()` — city name only (`"St. Louis, Missouri"` → `st-louis`), qualified with the state/country code if that base is taken by a different city (two Portlands), then numbered. The shop admin posts `{ city, archived: false }` with `on_conflict=city` and nothing else.
-- **Never send `slug` from a client.** It stays the NOT NULL primary key; the BEFORE INSERT trigger fills it, which works because row triggers run before constraint checks.
 - `cities_sync_geo` fills the structured geo columns, matching the `tgb_sync_*_geo` triggers on `games` and `teams`.
 - The old `gift_shop_cities` table is **left in place but unread**; the drop statement is at the bottom of the migration, commented, for once the deployed site has been on `cities` for a while.
+- **`ignored` = venue-only.** A city a team plays in but that we don't sell gifts for or make a soundtrack for (Orchard Park, Santa Clara). It is NOT `archived`: the row is real and current, it just isn't a destination. Added by [supabase/migrations/2026072205_cities_ignored.sql](supabase/migrations/2026072205_cities_ignored.sql).
+  - Hidden entirely from `/shop/` and `/sound/`, and from the Stock Room's filter and Shops picker.
+  - Shown **grey** (`.tgb-city-ignored`) in admin pickers and filters, where a venue city is a legitimate pick.
+- **Every city control goes through [assets/city-picker.js](assets/city-picker.js)** (`window.TgbCities`) — Start City in `mc/overview.html`, City in `mc/anchor-events.html`, the filters in `mc/mapper.html` and `mc/content.html`. It fills the control from the catalog and hangs a **+** beside it that adds a city without leaving the page. `attach(el, { includeIgnored: true })` for admin surfaces; omit the flag where only real destinations belong.
+- **Queries use `select=*`, never a column list naming `ignored`.** PostgREST 400s on an unknown column, so an explicit list breaks any database that hasn't run the migration yet; the readers treat a missing `ignored` as `false`.
+- **Never send `slug` from a client.** It stays the NOT NULL primary key; the trigger fills it, which works because row triggers run before constraint checks.
 
 ---
 

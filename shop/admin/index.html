@@ -2922,8 +2922,10 @@
     // The gift shop's old gift_shop_cities table was merged into it by
     // supabase/migrations/2026072202_merge_gift_shop_cities_into_cities.sql.
     async function fetchGiftShopCities() {
+      // select=* so this still works on a database that has not run
+      // 2026072205_cities_ignored.sql yet (naming `ignored` would 400).
       const response = await fetch(restUrl('cities', {
-        select: 'city,label,sort_order,archived',
+        select: '*',
         archived: 'eq.false',
         order: 'sort_order.asc,city.asc'
       }), {
@@ -3323,9 +3325,12 @@
       return { open };
     })();
 
+    // Venue-only cities (cities.ignored) are never gift-shop cities: they are
+    // dropped here, so they can't be filtered on or added to a gift.
     function setGiftShopCities(rows) {
       const cities = new Set();
       (Array.isArray(rows) ? rows : []).forEach((row) => {
+        if (row && row.ignored === true) return;
         const city = canonicalShopCity(row && row.city);
         if (city) cities.add(city);
       });

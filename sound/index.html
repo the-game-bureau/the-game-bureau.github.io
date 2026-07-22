@@ -2271,14 +2271,21 @@
       }
 
       // ── City panel: fetch all cities, build the rail + spyglass search ─────
+      // Venue-only cities (cities.ignored) are not listening cities. select=*
+      // so this keeps working before 2026072205_cities_ignored.sql is applied;
+      // the filter treats a missing column as "not ignored".
       function fetchCities() {
         return fetchJson(buildSupabaseUrl('cities', {
-          select: CITY_SELECT,
+          select: '*',
           archived: 'eq.false',
           order: 'sort_order.asc,city.asc'
         }), {
           headers: SB_HEADERS,
           cache: 'no-store'
+        }).then(function (rows) {
+          return (Array.isArray(rows) ? rows : []).filter(function (row) {
+            return row && row.ignored !== true;
+          });
         });
       }
 

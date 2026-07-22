@@ -10309,6 +10309,7 @@ window.TGB_SUPABASE_CONFIG = {
   <script src="picmaker/prompts.js"></script>
   <script src="../assets/team-palette.js"></script>
   <script src="../assets/geo.js"></script>
+  <script src="../assets/city-picker.js"></script>
   <script>
 // TGB Builder writes Supabase-backed game data that is read later by the game engine.
 const TYPE_CONFIG = {
@@ -22064,6 +22065,33 @@ function syncGeoControlsToMeta(runGeocode) {
 if (nodeCityInput) {
   // 'input' fires the delegated dirty-marker for us; also recompute + geocode.
   nodeCityInput.addEventListener('input', () => syncGeoControlsToMeta(true));
+}
+
+// Start City is backed by public.cities (window.TgbCities): the box suggests
+// catalog cities and carries a + to add a missing one. The catalog stores full
+// "City, State" strings while this box holds the city NAME only, so a pick is
+// split back across the City / State / Country controls.
+if (nodeCityInput && window.TgbCities) {
+  const applyCatalogCity = (fullCity) => {
+    if (!fullCity || !TGB_GEO) return;
+    const parsed = TGB_GEO.parseGeo(fullCity);
+    if (!parsed || !parsed.cityName) return;
+    nodeCityInput.value = parsed.cityName;
+    if (nodeCountryInput) nodeCountryInput.value = parsed.countryCode || 'USA';
+    refreshStateOptions(parsed.countryCode || 'USA', parsed.stateCode || '');
+    syncGeoControlsToMeta(true);
+    scheduleRecoverySync();
+    scheduleUpdateActionUi();
+  };
+  window.TgbCities.attach(nodeCityInput, {
+    includeIgnored: true,   // a game can be set in a venue city
+    onChange: applyCatalogCity,
+    authHeaders: (extra) => {
+      const session = (typeof builderAdminAuth !== 'undefined' && builderAdminAuth) ? builderAdminAuth.getSession() : null;
+      const token = (session && session.access_token) ? session.access_token : supabaseConfig.publishableKey;
+      return Object.assign({ apikey: supabaseConfig.publishableKey, Authorization: 'Bearer ' + token }, extra || {});
+    }
+  });
 }
 if (nodeStateInput) {
   nodeStateInput.addEventListener('change', () => {
