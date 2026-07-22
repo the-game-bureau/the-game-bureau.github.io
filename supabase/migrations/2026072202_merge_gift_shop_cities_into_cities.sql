@@ -89,7 +89,9 @@ begin
 end;
 $$;
 
-alter table public.cities alter column slug drop not null;
+-- No "alter column slug drop not null" here: slug is the primary key, so that
+-- is illegal -- and unnecessary. BEFORE ROW triggers fire before constraint
+-- checks, so this trigger fills a null slug and the insert still passes.
 
 drop trigger if exists cities_fill_slug on public.cities;
 create trigger cities_fill_slug
@@ -158,4 +160,3 @@ select distinct l.city
 -- drop function if exists public.tgb_sync_cities_geo();
 -- drop function if exists public.tgb_cities_fill_slug();
 -- drop function if exists public.tgb_city_slug(text);
--- alter table public.cities alter column slug set not null;

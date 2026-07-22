@@ -169,7 +169,7 @@ There is exactly **one** city table for the whole site: `public.cities`, keyed b
 `public.gift_shop_cities` was a second, parallel catalog keyed by the city string. It was merged into `cities` on 2026-07-22 by [supabase/migrations/2026072202_merge_gift_shop_cities_into_cities.sql](supabase/migrations/2026072202_merge_gift_shop_cities_into_cities.sql). **Do not create a new per-product city table** — add a column to `cities` instead (that's what `sound_playlist_id` / `sound_accent` / `sound_secondary` are).
 
 - **Writers don't send a slug.** The `cities_fill_slug` BEFORE INSERT trigger derives it from the city string via `tgb_city_slug()` — city name only (`"St. Louis, Missouri"` → `st-louis`), qualified with the state/country code if that base is taken by a different city (two Portlands), then numbered. The shop admin posts `{ city, archived: false }` with `on_conflict=city` and nothing else.
-- **`slug` is nullable** so the trigger can fill it; treat it as required anyway.
+- **Never send `slug` from a client.** It stays the NOT NULL primary key; the BEFORE INSERT trigger fills it, which works because row triggers run before constraint checks.
 - `cities_sync_geo` fills the structured geo columns, matching the `tgb_sync_*_geo` triggers on `games` and `teams`.
 - The old `gift_shop_cities` table is **left in place but unread**; the drop statement is at the bottom of the migration, commented, for once the deployed site has been on `cities` for a while.
 
