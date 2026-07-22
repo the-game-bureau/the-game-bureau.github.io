@@ -7,7 +7,7 @@
 // in the slice we test the gift's Link (`url`) and Image (`image_url`).
 //
 // Results are merged into a persistent per-item state embedded in
-// shop/admin/giftshop-errors.htm (so other days' results survive), the page is
+// shop/admin/gsissues.htm (so other days' results survive), the page is
 // regenerated to show current errors, and a summary line is appended to
 // shop/admin/giftshop-errors.log.
 //
@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const HTM_PATH = path.join(REPO_ROOT, 'shop', 'admin', 'giftshop-errors.htm');
+const HTM_PATH = path.join(REPO_ROOT, 'shop', 'admin', 'gsissues.htm');
 const LOG_PATH = path.join(REPO_ROOT, 'shop', 'admin', 'giftshop-errors.log');
 // Machine-readable summary the gift admin fetches to show a counts panel + link.
 const JSON_PATH = path.join(REPO_ROOT, 'shop', 'admin', 'giftshop-errors.json');

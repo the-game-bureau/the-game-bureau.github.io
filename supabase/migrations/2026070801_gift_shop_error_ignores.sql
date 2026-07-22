@@ -1,7 +1,7 @@
 -- Gift shop URL error report: per-item "ignore" list.
 --
 -- The nightly health check (_dev/scripts/shop-error-check.mjs) regenerates
--- shop/admin/giftshop-errors.htm every run, so an admin's "ignore this entry"
+-- shop/admin/gsissues.htm every run, so an admin's "ignore this entry"
 -- decision cannot live in the committed HTML (it would be overwritten) or in
 -- localStorage (per-browser only). It lives here instead: the report page
 -- writes a row when an admin ignores an item and deletes it on restore, and the

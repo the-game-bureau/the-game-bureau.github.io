@@ -1,6 +1,6 @@
 -- Gift shop AI field-coherence verdicts (persisted).
 --
--- The "AI audit" on the URL error report (shop/admin/giftshop-errors.htm) asks
+-- The "AI audit" on the URL error report (shop/admin/gsissues.htm) asks
 -- Claude whether each gift's fields line up — image vs title, title vs the
 -- linked product page, city. Those verdicts used to be browser-only and vanished
 -- on reload. They live here instead so they persist across devices AND survive
