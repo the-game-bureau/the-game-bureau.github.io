@@ -492,6 +492,30 @@ function buildHtml(state, meta, ignoredIds) {
   .bulkbar button.danger:hover { background: rgba(160, 63, 45, 0.12); border-color: var(--danger); }
   .bulkbar .bulk-clear { color: var(--muted); }
   /* Reference: the nightly job that produces this report. */
+  /* Plain-English guide + per-section hints. */
+  .hint { margin: 6px 0 10px; font-size: 0.82rem; line-height: 1.5; color: rgba(var(--bic-blue-rgb), 0.78); max-width: 820px; }
+  .guide { margin: 0 0 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.82); }
+  .guide > summary {
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px; cursor: pointer;
+    font-family: "IBM Plex Mono", monospace; font-size: 0.74rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); list-style: none;
+  }
+  .guide > summary::-webkit-details-marker { display: none; }
+  .guide > summary::before { content: "▸"; color: var(--accent); transition: transform 0.15s ease; }
+  .guide[open] > summary::before { transform: rotate(90deg); }
+  .guide-body { padding: 0 16px 16px; font-size: 0.86rem; line-height: 1.55; color: rgba(var(--bic-blue-rgb), 0.88); }
+  .guide-body h3 {
+    margin: 14px 0 6px; font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
+    font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+  }
+  .guide-body p { margin: 0 0 8px; max-width: 820px; }
+  .guide-body dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; align-items: baseline; max-width: 860px; }
+  .guide-body dt { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink); white-space: nowrap; }
+  .guide-body dd { margin: 0; }
+  @media (max-width: 620px) {
+    .guide-body dl { grid-template-columns: 1fr; gap: 2px; }
+    .guide-body dd { margin: 0 0 8px; }
+  }
   .automations { margin: 0 0 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.82); }
   .automations > summary {
     display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; list-style: none;
@@ -542,6 +566,57 @@ function buildHtml(state, meta, ignoredIds) {
     <div class="card"><div class="n" id="countLowStock">–</div><div class="k">Cities needing gifts</div></div>
   </div>
 
+
+  <!-- Plain-English guide: everything on this page explained once, so nobody
+       has to guess what a button does or when the check last ran. -->
+  <details class="guide" id="guide" open>
+    <summary>How this page works</summary>
+    <div class="guide-body">
+      <p><strong>What this is.</strong> A robot visits every gift in the shop and tries its product link and its image, the way a shopper's browser would. Anything that fails to load lands here. Nothing on this page changes a gift by itself &mdash; it only tells you what looks broken.</p>
+
+      <h3>When it runs</h3>
+      <p><strong>Every night at about 3:00 AM Central</strong>, automatically. Each run checks <strong>one seventh</strong> of the catalogue &mdash; Monday takes the first seventh, Tuesday the second, and so on &mdash; so every gift is re-checked <strong>once a week</strong>. The date at the top of this page is the last run.</p>
+      <p>So a gift you fixed this morning keeps its issue listed until its turn comes round again. Press <strong>Run check now</strong> to re-test the whole catalogue immediately instead of waiting; it takes a few minutes and the page updates when it finishes.</p>
+
+      <h3>The five counts</h3>
+      <dl>
+        <dt>Confirmed issues</dt><dd>Genuinely broken &mdash; the link or image returned a dead response. These need you.</dd>
+        <dt>Inconclusive</dt><dd>The site refused our robot (403/429), which usually means anti-bot protection rather than a real fault. Amazon and Bookshop do this constantly. Open one in a browser before believing it.</dd>
+        <dt>Cleared</dt><dd>Issues you have told this page to stop reporting. The gifts themselves are untouched.</dd>
+        <dt>Checked gifts</dt><dd>How many gifts are being tracked in total.</dd>
+        <dt>Cities needing gifts</dt><dd>Not an error &mdash; shop cities carrying fewer than 3 gifts, worked out live when the page loads. A prompt to stock them.</dd>
+      </dl>
+
+      <h3>The buttons on each row</h3>
+      <dl>
+        <dt>Edit gift</dt><dd>Opens that gift in the Stock Room in a new tab, where you can fix it &mdash; or delete it. Nothing on this page deletes anything.</dd>
+        <dt>Clear issue</dt><dd>Silences this line. The gift is not changed at all: a dead link stays dead and shoppers still hit it. For a false alarm, not for something you mean to fix later.</dd>
+        <dt>Restore issue</dt><dd>Undoes that &mdash; the line comes back on the next run.</dd>
+      </dl>
+      <p>Tick the checkboxes to act on several at once; the bar that appears does the same two things to everything selected.</p>
+
+      <h3>The buttons at the top</h3>
+      <dl>
+        <dt>Run check now</dt><dd>Re-tests every gift's link and image right away, rather than tonight's seventh. Runs on GitHub Actions; takes a few minutes.</dd>
+        <dt>AI audit</dt><dd>A different question entirely &mdash; see below.</dd>
+        <dt>Admin sign-in</dt><dd>Clearing and restoring need an admin account. Reading the page does not.</dd>
+      </dl>
+
+      <h3>What the AI audit does</h3>
+      <p>The nightly check only asks <em>&ldquo;does this link load?&rdquo;</em>. A gift can pass that while still being wrong &mdash; the link works but points at a different book, or the image is a placeholder. The AI audit catches that class of mistake.</p>
+      <p>It goes through <strong>every tracked gift</strong> and, for each one, shows Claude the product image alongside our stored title, description, link and cities, plus whatever the linked page actually says. It answers three questions: does the <strong>image</strong> show what the title claims, does our <strong>title</strong> match the product on the page, and does any <strong>place</strong> mentioned match the cities the gift is filed under. Anything that disagrees appears under <em>field mismatches</em>.</p>
+      <p>It is deliberately cautious &mdash; only a specific contradiction counts, not a difference of wording &mdash; and it says &ldquo;can't tell&rdquo; rather than guessing when a site blocks us or an image won't load. It is <strong>not</strong> automatic: it runs only when you press the button, costs a little money each time, and takes a while across a full catalogue.</p>
+
+      <h3>What the badges mean</h3>
+      <dl>
+        <dt>Dead</dt><dd>404, 410 or 451 &mdash; the page is gone.</dd>
+        <dt>Not image</dt><dd>The URL loaded, but what came back isn't a picture.</dd>
+        <dt>Error</dt><dd>Some other failure: a 5xx, a timeout, or a domain that no longer resolves.</dd>
+        <dt>Blocked</dt><dd>403, 429 or 503 &mdash; refused, probably anti-bot. Inconclusive, not proof of a fault.</dd>
+      </dl>
+    </div>
+  </details>
+
   <!-- Floating bulk-action bar. Appears (admin only) when one or more row
        checkboxes are ticked; acts on every checked row across all tables. -->
   <div class="bulkbar" id="bulkBar" role="region" aria-label="Selected gift actions">
@@ -552,17 +627,20 @@ function buildHtml(state, meta, ignoredIds) {
   </div>
 
   <section id="errorsWrap">
+    <p class="hint">Broken for real: these links or images failed to load. Fix the gift, or clear the line if it is a false alarm.</p>
     <p class="ok" id="errorsEmpty"${hid(errored.length === 0)}>No confirmed issues. 🎉</p>
     <table id="errorsTable"${hid(errored.length > 0)}>${thead('Issue')}<tbody id="errorsBody">${errorsBody}</tbody></table>
   </section>
 
   <details id="blockedSection"${hid(blocked.length > 0)}>
     <summary><span id="blockedCount">${blocked.length}</span> inconclusive (bot-blocked / rate-limited — not confirmed issues)</summary>
+    <p class="hint">The site refused our robot rather than telling us the link is bad. Usually anti-bot protection, not a fault — open one in a browser before acting on it.</p>
     <table>${thead('Status')}<tbody id="blockedBody">${blockedBody}</tbody></table>
   </details>
 
   <details id="ignoredSection"${hid(ignored.length > 0)}>
     <summary><span id="ignoredCount">${ignored.length}</span> cleared (kept out of the counts above)</summary>
+    <p class="hint">Lines you have silenced. The gifts are unchanged and still selling &mdash; restore one to see it reported again.</p>
     <table>${thead('Status')}<tbody id="ignoredBody">${ignoredBody}</tbody></table>
   </details>
 
@@ -571,6 +649,7 @@ function buildHtml(state, meta, ignoredIds) {
        Title vs Link, or Shops mismatch. -->
   <details id="mismatchSection"${hid(mism.length > 0)} open>
     <summary><span id="mismatchCount">${mism.length}</span> field mismatches (AI — Image / Title / Link / Shops don't line up)</summary>
+    <p class="hint">From the AI audit, not the nightly check: gifts whose link loads fine but whose fields disagree with each other or with the page.</p>
     <table><thead><tr><th>Gift</th><th>AI result</th><th class="act"></th></tr></thead><tbody id="mismatchBody">${mismatchBody}</tbody></table>
   </details>
 
@@ -578,6 +657,7 @@ function buildHtml(state, meta, ignoredIds) {
        by the script below — any active shop city carrying fewer than 3 gifts. -->
   <details id="lowStockSection" hidden open>
     <summary><span id="lowStockCount">0</span> cities with fewer than 3 gifts</summary>
+    <p class="hint">Not a fault &mdash; cities that look thin in the shop. Worked out live each time the page loads.</p>
     <table><thead><tr><th>City</th><th>Gifts</th><th class="act"></th></tr></thead><tbody id="lowStockBody"></tbody></table>
   </details>
 
