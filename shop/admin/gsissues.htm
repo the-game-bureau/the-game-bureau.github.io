@@ -119,6 +119,68 @@
   .bulkbar button.danger:hover { background: rgba(160, 63, 45, 0.12); border-color: var(--danger); }
   .bulkbar .bulk-clear { color: var(--muted); }
   /* Reference: the nightly job that produces this report. */
+  /* ── Triage header: one verdict, everything else demoted ─────────────── */
+  .verdict {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    margin: 0 0 10px; padding: 16px 18px; border-radius: 12px;
+    border: 1px solid var(--danger); background: rgba(160, 63, 45, 0.08);
+  }
+  .verdict.is-clear { border-color: var(--success); background: rgba(47, 107, 61, 0.10); }
+  .verdict-n {
+    font-size: 2.6rem; font-weight: 700; line-height: 1; color: var(--danger);
+    font-variant-numeric: tabular-nums;
+  }
+  .verdict.is-clear .verdict-n { color: var(--success); }
+  .verdict-t { font-size: 1rem; font-weight: 700; color: var(--ink); }
+  .verdict-s { margin-top: 2px; font-size: 0.83rem; color: var(--muted); }
+  .quiet { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+  .quiet-chip {
+    display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px;
+    border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,0.7);
+    font-size: 0.76rem; color: var(--muted);
+  }
+  .quiet-chip b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .quiet-chip.is-note { border-color: var(--accent); color: var(--accent); }
+  .quiet-chip.is-note b { color: var(--accent); }
+
+  /* Confirmed issues as case files rather than table rows. */
+  .cases { display: grid; gap: 8px; margin: 0 0 6px; }
+  .case {
+    display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 14px; align-items: center;
+    padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--danger);
+    border-radius: 10px; background: rgba(255,255,255,0.82);
+  }
+  .case-thumb {
+    width: 56px; height: 56px; border-radius: 8px; overflow: hidden;
+    border: 1px solid var(--line); background: rgba(var(--bic-blue-rgb), 0.08);
+    display: grid; place-items: center;
+    font-family: "IBM Plex Mono", monospace; font-size: 0.56rem; color: var(--muted);
+  }
+  .case-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .case-name { font-weight: 700; font-size: 0.94rem; margin-bottom: 3px; }
+  .case-diag { font-size: 0.8rem; color: var(--muted); line-height: 1.45; }
+  .case-diag code {
+    padding: 1px 5px; border-radius: 4px; background: rgba(var(--bic-blue-rgb), 0.08);
+    font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
+  }
+  .case-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  @media (max-width: 620px) {
+    .case { grid-template-columns: 44px minmax(0, 1fr); }
+    .case-thumb { width: 44px; height: 44px; }
+    .case-acts { grid-column: 1 / -1; justify-content: flex-start; }
+  }
+  /* Row severity edge + thumbnail + the plain-English reason line. */
+  td.thumb, th.thumb { width: 46px; padding-right: 0; }
+  .row-thumb {
+    display: grid; place-items: center; overflow: hidden;
+    width: 38px; height: 38px; border-radius: 7px;
+    border: 1px solid var(--line); background: rgba(var(--bic-blue-rgb), 0.08);
+    font-family: "IBM Plex Mono", monospace; font-size: 0.52rem; color: var(--muted);
+  }
+  .row-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .row-why { margin-top: 3px; font-size: 0.78rem; font-weight: 400; line-height: 1.4; color: var(--muted); max-width: 62ch; }
+  tr.sev-dead td.thumb { box-shadow: inset 3px 0 0 var(--danger); }
+  tr.sev-blocked td.thumb { box-shadow: inset 3px 0 0 rgba(138, 100, 16, 0.75); }
   /* Plain-English guide + per-section hints. */
   .hint { margin: 6px 0 10px; font-size: 0.82rem; line-height: 1.5; color: rgba(var(--bic-blue-rgb), 0.78); max-width: 820px; }
   .guide { margin: 0 0 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.82); }
@@ -183,12 +245,21 @@
     <p class="meta">Last run <strong>2026-07-22 03:52 America/Chicago</strong> · checked the <strong>3/7</strong> slice (Wednesday) — 65 gifts. Each gift is re-checked once a week.
        Coverage: <strong>all gifts</strong>.</p>
   </section>
-  <div class="cards">
-    <div class="card"><div class="n" id="countErrors">3</div><div class="k">Confirmed issues</div></div>
-    <div class="card"><div class="n" id="countBlocked">63</div><div class="k">Inconclusive</div></div>
-    <div class="card"><div class="n" id="countIgnored">3</div><div class="k">Cleared</div></div>
-    <div class="card"><div class="n">209</div><div class="k">Checked gifts</div></div>
-    <div class="card"><div class="n" id="countLowStock">–</div><div class="k">Cities needing gifts</div></div>
+  <!-- One verdict up top; the counts that rarely need action sit behind it
+       as quiet chips. countErrors/countBlocked/... keep their ids so the
+       live refresh below still updates them. -->
+  <div class="verdict" id="verdictBox">
+    <span class="verdict-n" id="countErrors">3</span>
+    <span>
+      <div class="verdict-t" id="verdictTitle">gifts are broken and still selling</div>
+      <div class="verdict-s" id="verdictSub">Their link or image fails to load. Shoppers clicking them hit a dead page.</div>
+    </span>
+  </div>
+  <div class="quiet">
+    <span class="quiet-chip"><b id="countBlocked">66</b> inconclusive — the site blocked our robot</span>
+    <span class="quiet-chip"><b id="countIgnored">0</b> cleared</span>
+    <span class="quiet-chip"><b>209</b> gifts tracked</span>
+    <span class="quiet-chip is-note">Cities needing gifts <b id="countLowStock">–</b></span>
   </div>
 
 
@@ -209,7 +280,7 @@
         <dt>Inconclusive</dt><dd>The site refused our robot (403/429), which usually means anti-bot protection rather than a real fault. Amazon and Bookshop do this constantly. Open one in a browser before believing it.</dd>
         <dt>Cleared</dt><dd>Issues you have told this page to stop reporting. The gifts themselves are untouched.</dd>
         <dt>Checked gifts</dt><dd>How many gifts are being tracked in total.</dd>
-        <dt>Cities needing gifts</dt><dd>Not an error &mdash; shop cities carrying fewer than 3 gifts, worked out live when the page loads. A prompt to stock them.</dd>
+        <dt>Cities needing gifts</dt><dd>Not an error &mdash; shop cities carrying <strong>3 or fewer</strong> gifts, worked out live when the page loads. Venue-only cities are left out. A prompt to stock them.</dd>
       </dl>
 
       <h3>The buttons on each row</h3>
@@ -254,18 +325,24 @@
   <section id="errorsWrap">
     <p class="hint">Broken for real: these links or images failed to load. Fix the gift, or clear the line if it is a false alarm.</p>
     <p class="ok" id="errorsEmpty" hidden>No confirmed issues. 🎉</p>
-    <table id="errorsTable"><thead><tr><th>Gift</th><th>Issue</th><th>Checked</th><th class="act"></th></tr></thead><tbody id="errorsBody"><tr data-item-id="42cb8eed-ca1b-4a8f-b837-4ca818fe8468" data-origin="error">
-      <td class="t">Lost Souls</td>
+    <table id="errorsTable"><thead><tr><th class="thumb"></th><th>Gift</th><th>Issue</th><th>Checked</th><th class="act"></th></tr></thead><tbody id="errorsBody"><tr class="sev-dead" data-item-id="42cb8eed-ca1b-4a8f-b837-4ca818fe8468" data-origin="error">
+      <td class="thumb"><span class="row-thumb"><img src="https://covers.openlibrary.org/b/id/2815463-M.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Lost Souls
+        <div class="row-why">Bookshop no longer has this product page (404) — shoppers clicking it hit a dead page.</div></td>
       <td><span class="b b-dead">Link dead 404</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="42cb8eed-ca1b-4a8f-b837-4ca818fe8468">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="42cb8eed-ca1b-4a8f-b837-4ca818fe8468">clear issue</button></td>
-    </tr><tr data-item-id="21a470af-fbc3-4f0c-be57-055c6d4c317e" data-origin="error">
-      <td class="t">The NFL Media Information Book, 1983</td>
+    </tr><tr class="sev-dead" data-item-id="21a470af-fbc3-4f0c-be57-055c6d4c317e" data-origin="error">
+      <td class="thumb"><span class="row-thumb"><img src="https://covers.openlibrary.org/b/id/9542370-M.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">The NFL Media Information Book, 1983
+        <div class="row-why">Bookshop no longer has this product page (404) — shoppers clicking it hit a dead page.</div></td>
       <td><span class="b b-dead">Link dead 404</span></td>
       <td class="dim">2026-07-21 03:53</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="21a470af-fbc3-4f0c-be57-055c6d4c317e">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="21a470af-fbc3-4f0c-be57-055c6d4c317e">clear issue</button></td>
-    </tr><tr data-item-id="c4785b23-aaef-4350-aca4-53957f2de439" data-origin="error">
-      <td class="t">The World That Made New Orleans: From Spanish Silver to Congo Square by Ned Sublette</td>
+    </tr><tr class="sev-dead" data-item-id="c4785b23-aaef-4350-aca4-53957f2de439" data-origin="error">
+      <td class="thumb"><span class="row-thumb"><img src="https://covers.openlibrary.org/b/isbn/9781556527302-L.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">The World That Made New Orleans: From Spanish Silver to Congo Square by Ned Sublette
+        <div class="row-why">Bookshop no longer has this product page (404) — shoppers clicking it hit a dead page.</div></td>
       <td><span class="b b-dead">Link dead 404</span></td>
       <td class="dim">2026-07-18 03:33</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="c4785b23-aaef-4350-aca4-53957f2de439">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="c4785b23-aaef-4350-aca4-53957f2de439">clear issue</button></td>
@@ -273,345 +350,477 @@
   </section>
 
   <details id="blockedSection">
-    <summary><span id="blockedCount">63</span> inconclusive (bot-blocked / rate-limited — not confirmed issues)</summary>
+    <summary><span id="blockedCount">66</span> inconclusive (bot-blocked / rate-limited — not confirmed issues)</summary>
     <p class="hint">The site refused our robot rather than telling us the link is bad. Usually anti-bot protection, not a fault — open one in a browser before acting on it.</p>
-    <table><thead><tr><th>Gift</th><th>Status</th><th>Checked</th><th class="act"></th></tr></thead><tbody id="blockedBody"><tr data-item-id="4909fb17-458b-44c9-b4d6-3b880aedfa0d" data-origin="blocked">
-      <td class="t">100 Things Broncos Fans Should Know &amp; Do Before They Die by Brian Howell</td>
+    <table><thead><tr><th class="thumb"></th><th>Gift</th><th>Status</th><th>Checked</th><th class="act"></th></tr></thead><tbody id="blockedBody"><tr class="sev-blocked" data-item-id="4909fb17-458b-44c9-b4d6-3b880aedfa0d" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781629373164.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">100 Things Broncos Fans Should Know &amp; Do Before They Die by Brian Howell
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4909fb17-458b-44c9-b4d6-3b880aedfa0d">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4909fb17-458b-44c9-b4d6-3b880aedfa0d">clear issue</button></td>
-    </tr><tr data-item-id="46816296-ae4d-4dad-8b76-c8b060e12524" data-origin="blocked">
-      <td class="t">100 Things Eagles Fans Should Know &amp; Do Before They Die by Chuck Carlson</td>
+    </tr><tr class="sev-blocked" data-item-id="46816296-ae4d-4dad-8b76-c8b060e12524" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781629376172.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">100 Things Eagles Fans Should Know &amp; Do Before They Die by Chuck Carlson
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="46816296-ae4d-4dad-8b76-c8b060e12524">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="46816296-ae4d-4dad-8b76-c8b060e12524">clear issue</button></td>
-    </tr><tr data-item-id="36492bd3-4bd5-41ae-bb4d-69d561a661e2" data-origin="blocked">
-      <td class="t">100 Things Lions Fans Should Know &amp; Do Before They Die by Paula Pasche</td>
+    </tr><tr class="sev-blocked" data-item-id="36492bd3-4bd5-41ae-bb4d-69d561a661e2" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781600787294.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">100 Things Lions Fans Should Know &amp; Do Before They Die by Paula Pasche
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="36492bd3-4bd5-41ae-bb4d-69d561a661e2">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="36492bd3-4bd5-41ae-bb4d-69d561a661e2">clear issue</button></td>
-    </tr><tr data-item-id="493f0533-6d81-47a8-9e70-69b48f9d3a82" data-origin="blocked">
-      <td class="t">50 Hidden Gems of Greater Western New York by Christopher Carosa</td>
+    </tr><tr class="sev-blocked" data-item-id="493f0533-6d81-47a8-9e70-69b48f9d3a82" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781938465017.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">50 Hidden Gems of Greater Western New York by Christopher Carosa
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span> <span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="493f0533-6d81-47a8-9e70-69b48f9d3a82">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="493f0533-6d81-47a8-9e70-69b48f9d3a82">clear issue</button></td>
-    </tr><tr data-item-id="43c1488c-ae53-4cd2-84a7-5d9f164a311f" data-origin="blocked">
-      <td class="t">A New Material Interpretation of Twelfth-Century Architecture: Reconstructing the Abbey of Saint-Denis by Jason Crow</td>
+    </tr><tr class="sev-blocked" data-item-id="43c1488c-ae53-4cd2-84a7-5d9f164a311f" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781041175056.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">A New Material Interpretation of Twelfth-Century Architecture: Reconstructing the Abbey of Saint-Denis by Jason Crow
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="43c1488c-ae53-4cd2-84a7-5d9f164a311f">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="43c1488c-ae53-4cd2-84a7-5d9f164a311f">clear issue</button></td>
-    </tr><tr data-item-id="3722d347-0344-4508-9cc2-b7e6d1fb83e3" data-origin="blocked">
-      <td class="t">Architecture of the Old South: Mississippi and Alabama by Mills Lane</td>
+    </tr><tr class="sev-blocked" data-item-id="3722d347-0344-4508-9cc2-b7e6d1fb83e3" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781558534841.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Architecture of the Old South: Mississippi and Alabama by Mills Lane
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3722d347-0344-4508-9cc2-b7e6d1fb83e3">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3722d347-0344-4508-9cc2-b7e6d1fb83e3">clear issue</button></td>
-    </tr><tr data-item-id="405305b8-1285-4833-bcf7-cd702d135e55" data-origin="blocked">
-      <td class="t">Atlanta Record Stores: An Oral History by Chad Radford</td>
+    </tr><tr class="sev-blocked" data-item-id="405305b8-1285-4833-bcf7-cd702d135e55" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781439677292.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Atlanta Record Stores: An Oral History by Chad Radford
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="405305b8-1285-4833-bcf7-cd702d135e55">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="405305b8-1285-4833-bcf7-cd702d135e55">clear issue</button></td>
-    </tr><tr data-item-id="4837faad-4a72-4833-bdba-991d557537c3" data-origin="blocked">
-      <td class="t">Auto Racing in Charlotte and the Carolina Piedmont</td>
+    </tr><tr class="sev-blocked" data-item-id="4837faad-4a72-4833-bdba-991d557537c3" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780738515151.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Auto Racing in Charlotte and the Carolina Piedmont
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4837faad-4a72-4833-bdba-991d557537c3">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4837faad-4a72-4833-bdba-991d557537c3">clear issue</button></td>
-    </tr><tr data-item-id="47116b8c-d692-47c9-810b-d99749c7c4bf" data-origin="blocked">
-      <td class="t">Baseball in Tampa Bay</td>
+    </tr><tr class="sev-blocked" data-item-id="47116b8c-d692-47c9-810b-d99749c7c4bf" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780738500584.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Baseball in Tampa Bay
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="47116b8c-d692-47c9-810b-d99749c7c4bf">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="47116b8c-d692-47c9-810b-d99749c7c4bf">clear issue</button></td>
-    </tr><tr data-item-id="4be114b6-dfc9-435e-b93e-c7f4591dbeeb" data-origin="blocked">
-      <td class="t">Best Easy Day Hikes Indianapolis</td>
+    </tr><tr class="sev-blocked" data-item-id="4be114b6-dfc9-435e-b93e-c7f4591dbeeb" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781493055883.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Best Easy Day Hikes Indianapolis
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span> <span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4be114b6-dfc9-435e-b93e-c7f4591dbeeb">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4be114b6-dfc9-435e-b93e-c7f4591dbeeb">clear issue</button></td>
-    </tr><tr data-item-id="3f18082d-db9a-48aa-a63d-3a21e11aeeae" data-origin="blocked">
-      <td class="t">Blue Monday: Fats Domino and the Lost Dawn of Rock 'n' Roll by Rick Coleman</td>
+    </tr><tr class="sev-blocked" data-item-id="3f18082d-db9a-48aa-a63d-3a21e11aeeae" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780306815317.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Blue Monday: Fats Domino and the Lost Dawn of Rock 'n' Roll by Rick Coleman
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3f18082d-db9a-48aa-a63d-3a21e11aeeae">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3f18082d-db9a-48aa-a63d-3a21e11aeeae">clear issue</button></td>
-    </tr><tr data-item-id="4c3caf0b-331c-4991-b8e2-bee6b1d63d98" data-origin="blocked">
-      <td class="t">Brown Girls: A Novel by Daphne Palasi Andreades</td>
+    </tr><tr class="sev-blocked" data-item-id="4c3caf0b-331c-4991-b8e2-bee6b1d63d98" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780593243442.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Brown Girls: A Novel by Daphne Palasi Andreades
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span> <span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4c3caf0b-331c-4991-b8e2-bee6b1d63d98">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4c3caf0b-331c-4991-b8e2-bee6b1d63d98">clear issue</button></td>
-    </tr><tr data-item-id="4be4f028-e898-4b04-aa4a-8edbc0510187" data-origin="blocked">
-      <td class="t">Buffalo Architecture: A Guide by Reyner Banham</td>
+    </tr><tr class="sev-blocked" data-item-id="4be4f028-e898-4b04-aa4a-8edbc0510187" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780262520638.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Buffalo Architecture: A Guide by Reyner Banham
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span> <span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4be4f028-e898-4b04-aa4a-8edbc0510187">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4be4f028-e898-4b04-aa4a-8edbc0510187">clear issue</button></td>
-    </tr><tr data-item-id="44c3fe8d-88a1-4f2b-a379-cfcb36e1ae2c" data-origin="blocked">
-      <td class="t">Carolina Panthers</td>
+    </tr><tr class="sev-blocked" data-item-id="44c3fe8d-88a1-4f2b-a379-cfcb36e1ae2c" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781532118401.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Carolina Panthers
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="44c3fe8d-88a1-4f2b-a379-cfcb36e1ae2c">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="44c3fe8d-88a1-4f2b-a379-cfcb36e1ae2c">clear issue</button></td>
-    </tr><tr data-item-id="3d37c409-e786-44b5-937b-64d7dacdecb5" data-origin="blocked">
-      <td class="t">City of Quartz</td>
+    </tr><tr class="sev-blocked" data-item-id="3d37c409-e786-44b5-937b-64d7dacdecb5" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781786635891.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">City of Quartz
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3d37c409-e786-44b5-937b-64d7dacdecb5">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3d37c409-e786-44b5-937b-64d7dacdecb5">clear issue</button></td>
-    </tr><tr data-item-id="3135a634-15ca-43cf-8e4e-436eecad31dd" data-origin="blocked">
-      <td class="t">Cleveland Browns</td>
+    </tr><tr class="sev-blocked" data-item-id="3135a634-15ca-43cf-8e4e-436eecad31dd" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781098296698.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Cleveland Browns
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span></td>
       <td class="dim">2026-07-21 03:53</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3135a634-15ca-43cf-8e4e-436eecad31dd">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3135a634-15ca-43cf-8e4e-436eecad31dd">clear issue</button></td>
-    </tr><tr data-item-id="3437213c-c49b-4313-aed5-b6453e9bc01b" data-origin="blocked">
-      <td class="t">Color Niagara Falls by Veronica Young</td>
+    </tr><tr class="sev-blocked" data-item-id="3437213c-c49b-4313-aed5-b6453e9bc01b" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780999533086.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Color Niagara Falls by Veronica Young
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3437213c-c49b-4313-aed5-b6453e9bc01b">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3437213c-c49b-4313-aed5-b6453e9bc01b">clear issue</button></td>
-    </tr><tr data-item-id="480b3188-4a89-41fa-b9bf-034e9e657227" data-origin="blocked">
-      <td class="t">Creating Jazz Counterpoint: New Orleans, Barbershop Harmony, and the Blues by Vic Hobson</td>
+    </tr><tr class="sev-blocked" data-item-id="480b3188-4a89-41fa-b9bf-034e9e657227" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781496807786.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Creating Jazz Counterpoint: New Orleans, Barbershop Harmony, and the Blues by Vic Hobson
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span> <span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="480b3188-4a89-41fa-b9bf-034e9e657227">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="480b3188-4a89-41fa-b9bf-034e9e657227">clear issue</button></td>
-    </tr><tr data-item-id="3324ca4c-b5bf-4398-a23a-10a170d92de8" data-origin="blocked">
-      <td class="t">Creole Italian: Sicilian Immigrants and the Shaping of New Orleans Food Culture by Justin A. Nystrom</td>
+    </tr><tr class="sev-blocked" data-item-id="3324ca4c-b5bf-4398-a23a-10a170d92de8" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780820353555.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Creole Italian: Sicilian Immigrants and the Shaping of New Orleans Food Culture by Justin A. Nystrom
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3324ca4c-b5bf-4398-a23a-10a170d92de8">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3324ca4c-b5bf-4398-a23a-10a170d92de8">clear issue</button></td>
-    </tr><tr data-item-id="451ea12d-6ef6-4c45-bcca-0ef2495310f3" data-origin="blocked">
-      <td class="t">Dearborn by Ghassan Zeineddine</td>
+    </tr><tr class="sev-blocked" data-item-id="451ea12d-6ef6-4c45-bcca-0ef2495310f3" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781959030294.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Dearborn by Ghassan Zeineddine
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="451ea12d-6ef6-4c45-bcca-0ef2495310f3">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="451ea12d-6ef6-4c45-bcca-0ef2495310f3">clear issue</button></td>
-    </tr><tr data-item-id="349f0326-cb3d-44f3-b86d-fb90c96b0260" data-origin="blocked">
-      <td class="t">Democracy by Joan Didion</td>
+    </tr><tr class="sev-blocked" data-item-id="349f0326-cb3d-44f3-b86d-fb90c96b0260" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780679754855.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Democracy by Joan Didion
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="349f0326-cb3d-44f3-b86d-fb90c96b0260">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="349f0326-cb3d-44f3-b86d-fb90c96b0260">clear issue</button></td>
-    </tr><tr data-item-id="345bb75d-dea7-4037-99f6-56e6b7af4b7a" data-origin="blocked">
-      <td class="t">Discovering North Carolina's Mountains-To-Sea Trail: A Companion for Hikers and Armchair Explorers by Jerry Barker</td>
+    </tr><tr class="sev-blocked" data-item-id="345bb75d-dea7-4037-99f6-56e6b7af4b7a" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781469670096.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Discovering North Carolina's Mountains-To-Sea Trail: A Companion for Hikers and Armchair Explorers by Jerry Barker
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="345bb75d-dea7-4037-99f6-56e6b7af4b7a">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="345bb75d-dea7-4037-99f6-56e6b7af4b7a">clear issue</button></td>
-    </tr><tr data-item-id="4364bb54-90b1-4e18-a9b7-1e83054682c5" data-origin="blocked">
-      <td class="t">Dr. John Sheet Music Anthology by Dr. John</td>
+    </tr><tr class="sev-blocked" data-item-id="4364bb54-90b1-4e18-a9b7-1e83054682c5" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781540027474.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Dr. John Sheet Music Anthology by Dr. John
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4364bb54-90b1-4e18-a9b7-1e83054682c5">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4364bb54-90b1-4e18-a9b7-1e83054682c5">clear issue</button></td>
-    </tr><tr data-item-id="49d3a52b-25fd-4036-a67a-04cb6d85894c" data-origin="blocked">
-      <td class="t">Fever 1793</td>
+    </tr><tr class="sev-blocked" data-item-id="49d3a52b-25fd-4036-a67a-04cb6d85894c" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780689848919.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Fever 1793
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="49d3a52b-25fd-4036-a67a-04cb6d85894c">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="49d3a52b-25fd-4036-a67a-04cb6d85894c">clear issue</button></td>
-    </tr><tr data-item-id="4ab51752-4b7a-4d47-b7c3-09c8ad953084" data-origin="blocked">
-      <td class="t">Good Night Boston</td>
+    </tr><tr class="sev-blocked" data-item-id="f6ddca9e-7b98-480e-8999-36dada30ceff" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781451635621.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Gone with the Wind
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
+      <td><span class="b b-blocked">Link blocked 429</span></td>
+      <td class="dim">2026-07-19 03:46</td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="f6ddca9e-7b98-480e-8999-36dada30ceff">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="f6ddca9e-7b98-480e-8999-36dada30ceff">clear issue</button></td>
+    </tr><tr class="sev-blocked" data-item-id="4ab51752-4b7a-4d47-b7c3-09c8ad953084" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781602190030.jpg?v=enc-v1" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Good Night Boston
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4ab51752-4b7a-4d47-b7c3-09c8ad953084">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4ab51752-4b7a-4d47-b7c3-09c8ad953084">clear issue</button></td>
-    </tr><tr data-item-id="387e9201-549d-4c85-9e14-bf1d51b96d01" data-origin="blocked">
-      <td class="t">Guide to Civil War Philadelphia</td>
+    </tr><tr class="sev-blocked" data-item-id="387e9201-549d-4c85-9e14-bf1d51b96d01" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780306812323.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Guide to Civil War Philadelphia
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="387e9201-549d-4c85-9e14-bf1d51b96d01">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="387e9201-549d-4c85-9e14-bf1d51b96d01">clear issue</button></td>
-    </tr><tr data-item-id="31e5574d-7086-4d4a-a1dc-3c70904d7301" data-origin="blocked">
-      <td class="t">Head On: A Memoir by Larry Csonka</td>
+    </tr><tr class="sev-blocked" data-item-id="31e5574d-7086-4d4a-a1dc-3c70904d7301" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781637743256.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Head On: A Memoir by Larry Csonka
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span></td>
       <td class="dim">2026-07-21 03:53</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="31e5574d-7086-4d4a-a1dc-3c70904d7301">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="31e5574d-7086-4d4a-a1dc-3c70904d7301">clear issue</button></td>
-    </tr><tr data-item-id="3892b89b-d52c-4be8-829c-55d5df9181ff" data-origin="blocked">
-      <td class="t">Hidden History of Kansas City</td>
+    </tr><tr class="sev-blocked" data-item-id="3892b89b-d52c-4be8-829c-55d5df9181ff" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781609496159.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Hidden History of Kansas City
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3892b89b-d52c-4be8-829c-55d5df9181ff">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3892b89b-d52c-4be8-829c-55d5df9181ff">clear issue</button></td>
-    </tr><tr data-item-id="3064845a-d74e-4a86-bc1c-09a92f1918c0" data-origin="blocked">
-      <td class="t">Hidden History of Milwaukee by Robert Tanzilo</td>
+    </tr><tr class="sev-blocked" data-item-id="3064845a-d74e-4a86-bc1c-09a92f1918c0" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://covers.openlibrary.org/b/isbn/9781625849892-L.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Hidden History of Milwaukee by Robert Tanzilo
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span></td>
       <td class="dim">2026-07-21 03:53</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3064845a-d74e-4a86-bc1c-09a92f1918c0">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3064845a-d74e-4a86-bc1c-09a92f1918c0">clear issue</button></td>
-    </tr><tr data-item-id="36d403c0-ff9f-4143-b611-08018197a208" data-origin="blocked">
-      <td class="t">Historic Buildings of Boston: A Coloring Book of Architecture by Scott Clowney</td>
+    </tr><tr class="sev-blocked" data-item-id="36d403c0-ff9f-4143-b611-08018197a208" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781641940016.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Historic Buildings of Boston: A Coloring Book of Architecture by Scott Clowney
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="36d403c0-ff9f-4143-b611-08018197a208">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="36d403c0-ff9f-4143-b611-08018197a208">clear issue</button></td>
-    </tr><tr data-item-id="4308cd6a-22ac-40fd-944c-955660eeecdc" data-origin="blocked">
-      <td class="t">Houston, TX: Cool Stuff Every Kid Should Know by Kate Boehm Jerome</td>
+    </tr><tr class="sev-blocked" data-item-id="4308cd6a-22ac-40fd-944c-955660eeecdc" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781439600665.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Houston, TX: Cool Stuff Every Kid Should Know by Kate Boehm Jerome
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4308cd6a-22ac-40fd-944c-955660eeecdc">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4308cd6a-22ac-40fd-944c-955660eeecdc">clear issue</button></td>
-    </tr><tr data-item-id="4197013c-3eef-4a2a-a6a4-468b30464a65" data-origin="blocked">
-      <td class="t">If These Walls Could Talk: Raiders</td>
+    </tr><tr class="sev-blocked" data-item-id="4197013c-3eef-4a2a-a6a4-468b30464a65" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781629379180.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">If These Walls Could Talk: Raiders
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4197013c-3eef-4a2a-a6a4-468b30464a65">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4197013c-3eef-4a2a-a6a4-468b30464a65">clear issue</button></td>
-    </tr><tr data-item-id="44a18536-f342-4cb3-a8ec-2c902af04375" data-origin="blocked">
-      <td class="t">Johnny Tremain by Esther Forbes</td>
+    </tr><tr class="sev-blocked" data-item-id="e5abd527-2e4d-4790-932a-85a453c25875" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780520262492.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Infinite City by Rebecca Solnit
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
+      <td><span class="b b-blocked">Image blocked 403</span></td>
+      <td class="dim">2026-07-19 03:46</td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="e5abd527-2e4d-4790-932a-85a453c25875">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="e5abd527-2e4d-4790-932a-85a453c25875">clear issue</button></td>
+    </tr><tr class="sev-blocked" data-item-id="44a18536-f342-4cb3-a8ec-2c902af04375" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780547614328.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Johnny Tremain by Esther Forbes
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="44a18536-f342-4cb3-a8ec-2c902af04375">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="44a18536-f342-4cb3-a8ec-2c902af04375">clear issue</button></td>
-    </tr><tr data-item-id="40f05517-752f-4ba4-91c1-0367b56a948f" data-origin="blocked">
-      <td class="t">Le Ker Creole: Creole Compositions and Stories from Louisiana by Bruce Sunpie Barnes, Rachel Breunlin, Leroy Etienne, and Jeffrey David Ehrenreich</td>
+    </tr><tr class="sev-blocked" data-item-id="f884e6ea-c4c9-4cfb-8329-4ec8133bcbd3" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780062390035.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Lady in the Lake
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
+      <td><span class="b b-blocked">Link blocked 429</span></td>
+      <td class="dim">2026-07-19 03:46</td>
+      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="f884e6ea-c4c9-4cfb-8329-4ec8133bcbd3">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="f884e6ea-c4c9-4cfb-8329-4ec8133bcbd3">clear issue</button></td>
+    </tr><tr class="sev-blocked" data-item-id="40f05517-752f-4ba4-91c1-0367b56a948f" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781608011728.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Le Ker Creole: Creole Compositions and Stories from Louisiana by Bruce Sunpie Barnes, Rachel Breunlin, Leroy Etienne, and Jeffrey David Ehrenreich
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="40f05517-752f-4ba4-91c1-0367b56a948f">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="40f05517-752f-4ba4-91c1-0367b56a948f">clear issue</button></td>
-    </tr><tr data-item-id="3107c332-85ef-4295-bc95-92cf4d262396" data-origin="blocked">
-      <td class="t">Lonely Planet Pocket Toronto: Discover Twice the City in Half the Time Top Sights Maps &amp; Walking Tours Covers Toronto Islands, Evergreen Brick Works, Harbourfront Centre and More by Isabella Noble</td>
+    </tr><tr class="sev-blocked" data-item-id="3107c332-85ef-4295-bc95-92cf4d262396" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781837584222.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Lonely Planet Pocket Toronto: Discover Twice the City in Half the Time Top Sights Maps &amp; Walking Tours Covers Toronto Islands, Evergreen Brick Works, Harbourfront Centre and More by Isabella Noble
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span></td>
       <td class="dim">2026-07-21 03:53</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3107c332-85ef-4295-bc95-92cf4d262396">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3107c332-85ef-4295-bc95-92cf4d262396">clear issue</button></td>
-    </tr><tr data-item-id="3ec20c43-1713-41c8-9522-cceacdc562e9" data-origin="blocked">
-      <td class="t">Lonesome Dove by Larry McMurtry</td>
+    </tr><tr class="sev-blocked" data-item-id="3ec20c43-1713-41c8-9522-cceacdc562e9" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781439195260.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Lonesome Dove by Larry McMurtry
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3ec20c43-1713-41c8-9522-cceacdc562e9">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3ec20c43-1713-41c8-9522-cceacdc562e9">clear issue</button></td>
-    </tr><tr data-item-id="476433a2-335a-4613-8526-2e674dece3ec" data-origin="blocked">
-      <td class="t">Look Up London: Discover the Details You Have Never Noticed Before in 10 Walks by Katie Wignall</td>
+    </tr><tr class="sev-blocked" data-item-id="476433a2-335a-4613-8526-2e674dece3ec" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781529419429.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Look Up London: Discover the Details You Have Never Noticed Before in 10 Walks by Katie Wignall
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="476433a2-335a-4613-8526-2e674dece3ec">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="476433a2-335a-4613-8526-2e674dece3ec">clear issue</button></td>
-    </tr><tr data-item-id="3dbfa5bc-d8f9-4e6b-94f8-3f0fb38160f5" data-origin="blocked">
-      <td class="t">Miami</td>
+    </tr><tr class="sev-blocked" data-item-id="3dbfa5bc-d8f9-4e6b-94f8-3f0fb38160f5" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780679781806.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Miami
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3dbfa5bc-d8f9-4e6b-94f8-3f0fb38160f5">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3dbfa5bc-d8f9-4e6b-94f8-3f0fb38160f5">clear issue</button></td>
-    </tr><tr data-item-id="329a19a9-de02-4138-b2ba-bbaf3d9f542c" data-origin="blocked">
-      <td class="t">Miami Dolphins by Marcia Zappa</td>
+    </tr><tr class="sev-blocked" data-item-id="329a19a9-de02-4138-b2ba-bbaf3d9f542c" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781624033629.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Miami Dolphins by Marcia Zappa
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span></td>
       <td class="dim">2026-07-21 03:53</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="329a19a9-de02-4138-b2ba-bbaf3d9f542c">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="329a19a9-de02-4138-b2ba-bbaf3d9f542c">clear issue</button></td>
-    </tr><tr data-item-id="31b2eeb3-03d2-4ea6-8283-4b1fbd18a4de" data-origin="blocked">
-      <td class="t">Mystic River by Dennis Lehane</td>
+    </tr><tr class="sev-blocked" data-item-id="31b2eeb3-03d2-4ea6-8283-4b1fbd18a4de" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780062068408.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Mystic River by Dennis Lehane
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span></td>
       <td class="dim">2026-07-21 03:53</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="31b2eeb3-03d2-4ea6-8283-4b1fbd18a4de">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="31b2eeb3-03d2-4ea6-8283-4b1fbd18a4de">clear issue</button></td>
-    </tr><tr data-item-id="4270f364-832f-448a-851b-97eda0ef4a97" data-origin="blocked">
-      <td class="t">New Orleans in the Fifties by Mary Lou Widmer</td>
+    </tr><tr class="sev-blocked" data-item-id="4270f364-832f-448a-851b-97eda0ef4a97" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781589802681.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">New Orleans in the Fifties by Mary Lou Widmer
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4270f364-832f-448a-851b-97eda0ef4a97">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4270f364-832f-448a-851b-97eda0ef4a97">clear issue</button></td>
-    </tr><tr data-item-id="3a8b6193-9817-4f39-bf29-3f051171d81b" data-origin="blocked">
-      <td class="t">New Orleans: A Pictorial History by Leonard Huber</td>
+    </tr><tr class="sev-blocked" data-item-id="3a8b6193-9817-4f39-bf29-3f051171d81b" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781455619658.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">New Orleans: A Pictorial History by Leonard Huber
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3a8b6193-9817-4f39-bf29-3f051171d81b">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3a8b6193-9817-4f39-bf29-3f051171d81b">clear issue</button></td>
-    </tr><tr data-item-id="464e4903-9891-4331-b9b5-85dd9d6387a3" data-origin="blocked">
-      <td class="t">New York Coloring Book by Colour Your Streets</td>
+    </tr><tr class="sev-blocked" data-item-id="464e4903-9891-4331-b9b5-85dd9d6387a3" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781806880102.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">New York Coloring Book by Colour Your Streets
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="464e4903-9891-4331-b9b5-85dd9d6387a3">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="464e4903-9891-4331-b9b5-85dd9d6387a3">clear issue</button></td>
-    </tr><tr data-item-id="47feca87-667b-4df1-b2a9-12bad81637b4" data-origin="blocked">
-      <td class="t">Phoenix: A History of the Southwest Metropolis</td>
+    </tr><tr class="sev-blocked" data-item-id="47feca87-667b-4df1-b2a9-12bad81637b4" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780816511167.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Phoenix: A History of the Southwest Metropolis
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span> <span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="47feca87-667b-4df1-b2a9-12bad81637b4">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="47feca87-667b-4df1-b2a9-12bad81637b4">clear issue</button></td>
-    </tr><tr data-item-id="475d4ea5-a07a-46f4-bfcd-9d50db7dd81c" data-origin="blocked">
-      <td class="t">Promises to Keep</td>
+    </tr><tr class="sev-blocked" data-item-id="475d4ea5-a07a-46f4-bfcd-9d50db7dd81c" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781600787539.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Promises to Keep
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span> <span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="475d4ea5-a07a-46f4-bfcd-9d50db7dd81c">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="475d4ea5-a07a-46f4-bfcd-9d50db7dd81c">clear issue</button></td>
-    </tr><tr data-item-id="44fd80ea-c281-44dc-8b14-ca4d301ef770" data-origin="blocked">
-      <td class="t">Rand McNally Folded Map: Sacramento Street Map by Rand McNally</td>
+    </tr><tr class="sev-blocked" data-item-id="44fd80ea-c281-44dc-8b14-ca4d301ef770" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780528028854.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Rand McNally Folded Map: Sacramento Street Map by Rand McNally
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="44fd80ea-c281-44dc-8b14-ca4d301ef770">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="44fd80ea-c281-44dc-8b14-ca4d301ef770">clear issue</button></td>
-    </tr><tr data-item-id="344f3860-41de-479b-a794-dd45f8ad5b90" data-origin="blocked">
-      <td class="t">Secret Dallas: A Guide to the Weird, Wonderful, and Obscure by Mark Stuertz</td>
+    </tr><tr class="sev-blocked" data-item-id="344f3860-41de-479b-a794-dd45f8ad5b90" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781681061047.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Secret Dallas: A Guide to the Weird, Wonderful, and Obscure by Mark Stuertz
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="344f3860-41de-479b-a794-dd45f8ad5b90">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="344f3860-41de-479b-a794-dd45f8ad5b90">clear issue</button></td>
-    </tr><tr data-item-id="3ddbef48-f0ff-4fe1-a802-8a7b00dbc84f" data-origin="blocked">
-      <td class="t">Secret Philadelphia</td>
+    </tr><tr class="sev-blocked" data-item-id="3ddbef48-f0ff-4fe1-a802-8a7b00dbc84f" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781681061344.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Secret Philadelphia
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3ddbef48-f0ff-4fe1-a802-8a7b00dbc84f">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3ddbef48-f0ff-4fe1-a802-8a7b00dbc84f">clear issue</button></td>
-    </tr><tr data-item-id="4aced10b-211a-4641-836f-a61922e02170" data-origin="blocked">
-      <td class="t">Secret San Francisco: A Guide to the Weird, Wonderful, and Obscure by Ruth Carlson</td>
+    </tr><tr class="sev-blocked" data-item-id="4aced10b-211a-4641-836f-a61922e02170" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781681062051.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Secret San Francisco: A Guide to the Weird, Wonderful, and Obscure by Ruth Carlson
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span> <span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4aced10b-211a-4641-836f-a61922e02170">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4aced10b-211a-4641-836f-a61922e02170">clear issue</button></td>
-    </tr><tr data-item-id="39b0ca38-7fd6-47c4-9633-4c5beb665875" data-origin="blocked">
-      <td class="t">Selected Works of Abbot Suger of Saint-Denis by Suger</td>
+    </tr><tr class="sev-blocked" data-item-id="39b0ca38-7fd6-47c4-9633-4c5beb665875" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780813237084.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Selected Works of Abbot Suger of Saint-Denis by Suger
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="39b0ca38-7fd6-47c4-9633-4c5beb665875">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="39b0ca38-7fd6-47c4-9633-4c5beb665875">clear issue</button></td>
-    </tr><tr data-item-id="35d34d5b-d0dd-47f9-97fe-c64378c55c9e" data-origin="blocked">
-      <td class="t">Shutter Island by Dennis Lehane</td>
+    </tr><tr class="sev-blocked" data-item-id="35d34d5b-d0dd-47f9-97fe-c64378c55c9e" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780061898815.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Shutter Island by Dennis Lehane
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="35d34d5b-d0dd-47f9-97fe-c64378c55c9e">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="35d34d5b-d0dd-47f9-97fe-c64378c55c9e">clear issue</button></td>
-    </tr><tr data-item-id="3b48d14b-c7e6-407f-bfa5-4e0e87de48c1" data-origin="blocked">
-      <td class="t">The Amazing Adventures of Kavalier &amp; Clay by Michael Chabon</td>
+    </tr><tr class="sev-blocked" data-item-id="3b48d14b-c7e6-407f-bfa5-4e0e87de48c1" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780812983586.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">The Amazing Adventures of Kavalier &amp; Clay by Michael Chabon
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3b48d14b-c7e6-407f-bfa5-4e0e87de48c1">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3b48d14b-c7e6-407f-bfa5-4e0e87de48c1">clear issue</button></td>
-    </tr><tr data-item-id="334fedca-2cbb-46fa-98e7-348fbfc3afd9" data-origin="blocked">
-      <td class="t">The Joy Luck Club</td>
+    </tr><tr class="sev-blocked" data-item-id="334fedca-2cbb-46fa-98e7-348fbfc3afd9" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780143038092.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">The Joy Luck Club
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="334fedca-2cbb-46fa-98e7-348fbfc3afd9">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="334fedca-2cbb-46fa-98e7-348fbfc3afd9">clear issue</button></td>
-    </tr><tr data-item-id="4b7f5f9e-5f53-4a15-9acf-775f7cc890a6" data-origin="blocked">
-      <td class="t">The Kansas City Royals: An Illustrated Timeline by Matt Stewart</td>
+    </tr><tr class="sev-blocked" data-item-id="4b7f5f9e-5f53-4a15-9acf-775f7cc890a6" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781681065045.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">The Kansas City Royals: An Illustrated Timeline by Matt Stewart
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span> <span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4b7f5f9e-5f53-4a15-9acf-775f7cc890a6">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4b7f5f9e-5f53-4a15-9acf-775f7cc890a6">clear issue</button></td>
-    </tr><tr data-item-id="3d0f5676-26f5-4c57-a492-ddab5704077d" data-origin="blocked">
-      <td class="t">The Monocle Travel Guide to Rio de Janeiro by Monocle</td>
+    </tr><tr class="sev-blocked" data-item-id="3d0f5676-26f5-4c57-a492-ddab5704077d" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9783899556346.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">The Monocle Travel Guide to Rio de Janeiro by Monocle
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3d0f5676-26f5-4c57-a492-ddab5704077d">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3d0f5676-26f5-4c57-a492-ddab5704077d">clear issue</button></td>
-    </tr><tr data-item-id="4ab27197-35be-442e-aa84-e56e27537718" data-origin="blocked">
-      <td class="t">The Story of Arthur Ashe: An Inspiring Story for Kids by Reza Nazari</td>
+    </tr><tr class="sev-blocked" data-item-id="4ab27197-35be-442e-aa84-e56e27537718" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9798896474852.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">The Story of Arthur Ashe: An Inspiring Story for Kids by Reza Nazari
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span> <span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4ab27197-35be-442e-aa84-e56e27537718">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4ab27197-35be-442e-aa84-e56e27537718">clear issue</button></td>
-    </tr><tr data-item-id="3b5a57e0-1d3b-4168-a769-4329bb34f8c8" data-origin="blocked">
-      <td class="t">The Time Traveler's Wife by Audrey Niffenegger</td>
+    </tr><tr class="sev-blocked" data-item-id="3b5a57e0-1d3b-4168-a769-4329bb34f8c8" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781476764832.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">The Time Traveler's Wife by Audrey Niffenegger
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3b5a57e0-1d3b-4168-a769-4329bb34f8c8">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3b5a57e0-1d3b-4168-a769-4329bb34f8c8">clear issue</button></td>
-    </tr><tr data-item-id="39f2acd8-ff27-4b77-9068-edf7bd0e0e4a" data-origin="blocked">
-      <td class="t">The View from the O-Line</td>
+    </tr><tr class="sev-blocked" data-item-id="39f2acd8-ff27-4b77-9068-edf7bd0e0e4a" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781629372488.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">The View from the O-Line
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="39f2acd8-ff27-4b77-9068-edf7bd0e0e4a">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="39f2acd8-ff27-4b77-9068-edf7bd0e0e4a">clear issue</button></td>
-    </tr><tr data-item-id="4047c590-fdb5-43dd-a788-7de94f214816" data-origin="blocked">
-      <td class="t">This Is Mexico City by Abby Clawson Low</td>
+    </tr><tr class="sev-blocked" data-item-id="4047c590-fdb5-43dd-a788-7de94f214816" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9781524762117.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">This Is Mexico City by Abby Clawson Low
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4047c590-fdb5-43dd-a788-7de94f214816">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4047c590-fdb5-43dd-a788-7de94f214816">clear issue</button></td>
-    </tr><tr data-item-id="3fbb15b4-fcca-44e0-b1fa-b77ae1e1b6f7" data-origin="blocked">
-      <td class="t">This Is Paris by Miroslav Sasek</td>
+    </tr><tr class="sev-blocked" data-item-id="3fbb15b4-fcca-44e0-b1fa-b77ae1e1b6f7" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780789310637.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">This Is Paris by Miroslav Sasek
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3fbb15b4-fcca-44e0-b1fa-b77ae1e1b6f7">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3fbb15b4-fcca-44e0-b1fa-b77ae1e1b6f7">clear issue</button></td>
-    </tr><tr data-item-id="4c705390-265a-415a-851a-eb3cf4d26463" data-origin="blocked">
-      <td class="t">Walking Cincinnati by Danny Korman and Katie Meyer</td>
+    </tr><tr class="sev-blocked" data-item-id="4c705390-265a-415a-851a-eb3cf4d26463" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780899977225.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Walking Cincinnati by Danny Korman and Katie Meyer
+        <div class="row-why">Bookshop refused our checker on the product page (429). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Link blocked 429</span> <span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="4c705390-265a-415a-851a-eb3cf4d26463">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="4c705390-265a-415a-851a-eb3cf4d26463">clear issue</button></td>
-    </tr><tr data-item-id="3d1721cf-d4fa-41c6-9d7d-b97c7de795cb" data-origin="blocked">
-      <td class="t">Where Is Niagara Falls? by Megan Stine</td>
+    </tr><tr class="sev-blocked" data-item-id="3d1721cf-d4fa-41c6-9d7d-b97c7de795cb" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780448484259.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Where Is Niagara Falls? by Megan Stine
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="3d1721cf-d4fa-41c6-9d7d-b97c7de795cb">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="3d1721cf-d4fa-41c6-9d7d-b97c7de795cb">clear issue</button></td>
-    </tr><tr data-item-id="43e56c94-b90a-47b5-9501-933f722392df" data-origin="blocked">
-      <td class="t">Where'd You Go, Bernadette</td>
+    </tr><tr class="sev-blocked" data-item-id="43e56c94-b90a-47b5-9501-933f722392df" data-origin="blocked">
+      <td class="thumb"><span class="row-thumb"><img src="https://images-us.bookshop.org/ingram/9780316204279.jpg" alt="" loading="lazy" referrerpolicy="no-referrer"></span></td>
+      <td class="t">Where'd You Go, Bernadette
+        <div class="row-why">Bookshop refused our checker on the image (403). Usually anti-bot protection — open it in a browser before acting.</div></td>
       <td><span class="b b-blocked">Image blocked 403</span></td>
       <td class="dim">2026-07-22 03:52</td>
       <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="43e56c94-b90a-47b5-9501-933f722392df">edit gift</button><button class="rowbtn rowbtn--ig" type="button" data-action="ignore" data-id="43e56c94-b90a-47b5-9501-933f722392df">clear issue</button></td>
     </tr></tbody></table>
   </details>
 
-  <details id="ignoredSection">
-    <summary><span id="ignoredCount">3</span> cleared (kept out of the counts above)</summary>
+  <details id="ignoredSection" hidden>
+    <summary><span id="ignoredCount">0</span> cleared (kept out of the counts above)</summary>
     <p class="hint">Lines you have silenced. The gifts are unchanged and still selling &mdash; restore one to see it reported again.</p>
-    <table><thead><tr><th>Gift</th><th>Status</th><th>Checked</th><th class="act"></th></tr></thead><tbody id="ignoredBody"><tr data-item-id="f6ddca9e-7b98-480e-8999-36dada30ceff" data-origin="blocked">
-      <td class="t">Gone with the Wind</td>
-      <td><span class="b b-blocked">Link blocked 429</span></td>
-      <td class="dim">2026-07-19 03:46</td>
-      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="f6ddca9e-7b98-480e-8999-36dada30ceff">edit gift</button><button class="rowbtn rowbtn--ig rowbtn--restore" type="button" data-action="restore" data-id="f6ddca9e-7b98-480e-8999-36dada30ceff">restore issue</button></td>
-    </tr><tr data-item-id="e5abd527-2e4d-4790-932a-85a453c25875" data-origin="blocked">
-      <td class="t">Infinite City by Rebecca Solnit</td>
-      <td><span class="b b-blocked">Image blocked 403</span></td>
-      <td class="dim">2026-07-19 03:46</td>
-      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="e5abd527-2e4d-4790-932a-85a453c25875">edit gift</button><button class="rowbtn rowbtn--ig rowbtn--restore" type="button" data-action="restore" data-id="e5abd527-2e4d-4790-932a-85a453c25875">restore issue</button></td>
-    </tr><tr data-item-id="f884e6ea-c4c9-4cfb-8329-4ec8133bcbd3" data-origin="blocked">
-      <td class="t">Lady in the Lake</td>
-      <td><span class="b b-blocked">Link blocked 429</span></td>
-      <td class="dim">2026-07-19 03:46</td>
-      <td class="act"><button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="f884e6ea-c4c9-4cfb-8329-4ec8133bcbd3">edit gift</button><button class="rowbtn rowbtn--ig rowbtn--restore" type="button" data-action="restore" data-id="f884e6ea-c4c9-4cfb-8329-4ec8133bcbd3">restore issue</button></td>
-    </tr></tbody></table>
+    <table><thead><tr><th class="thumb"></th><th>Gift</th><th>Status</th><th>Checked</th><th class="act"></th></tr></thead><tbody id="ignoredBody"></tbody></table>
   </details>
 
   <!-- Persisted AI mismatches (from gift_shop_coherence); the "AI audit" button
@@ -626,7 +835,7 @@
   <!-- Cities needing gifts. Filled live on load
        by the script below — any active shop city carrying fewer than 3 gifts. -->
   <details id="lowStockSection" hidden open>
-    <summary><span id="lowStockCount">0</span> cities with fewer than 3 gifts</summary>
+    <summary><span id="lowStockCount">0</span> cities with 3 or fewer gifts</summary>
     <p class="hint">Not a fault &mdash; cities that look thin in the shop. Worked out live each time the page loads.</p>
     <table><thead><tr><th>City</th><th>Gifts</th><th class="act"></th></tr></thead><tbody id="lowStockBody"></tbody></table>
   </details>
@@ -998,7 +1207,6 @@
           '<span class="dim">' + escHtml((v.summary || '') + issues) + '</span></td>' +
         '<td class="act">' +
           '<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="' + escHtml(it.id) + '">edit gift</button>' +
-          '' +
         '</td>';
       q('#mismatchBody').appendChild(tr);
       setHidden('#mismatchSection', false);
@@ -1047,8 +1255,9 @@
   </script>
   <script>
   // Cities needing gifts. Live from Supabase on
-  // load: any active shop city carrying fewer than MIN_CITY_GIFTS distinct gifts.
-  // Public read (gift_shop_cities / gift_shop_listings), so no admin sign-in needed.
+  // load: any active, non-ignored shop city carrying MIN_CITY_GIFTS or fewer
+  // distinct gifts.
+  // Public read (cities / gift_shop_listings), so no admin sign-in needed.
   (function () {
     var SB = { url: "https://qmaafbncpzrdmqapkkgr.supabase.co", key: "sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3" };
     var MIN_CITY_GIFTS = 3;
@@ -1084,17 +1293,23 @@
     }
     (async function () {
       try {
-        var cities = await getAll('gift_shop_cities', { select: 'city,archived' });
+        // select=* so this still works before 2026072205_cities_ignored.sql;
+        // a missing 'ignored' column reads as false.
+        var cities = await getAll('cities', { select: '*' });
         var listings = await getAll('gift_shop_listings', { select: 'item_id,city' });
         // Distinct gifts per active city. Listings reference the canonical city PK.
         var perCity = {};
-        cities.forEach(function (c) { if (c && c.city && !c.archived) perCity[c.city] = new Set(); });
+        // Venue-only cities never stock gifts on purpose — they are not thin,
+        // they are out of scope.
+        cities.forEach(function (c) {
+          if (c && c.city && !c.archived && c.ignored !== true) perCity[c.city] = new Set();
+        });
         listings.forEach(function (l) {
           if (l && l.city && perCity[l.city]) perCity[l.city].add(String(l.item_id));
         });
         var low = Object.keys(perCity)
           .map(function (city) { return { city: city, n: perCity[city].size }; })
-          .filter(function (r) { return r.n < MIN_CITY_GIFTS; })
+          .filter(function (r) { return r.n <= MIN_CITY_GIFTS; })
           .sort(function (a, b) { return a.n - b.n || a.city.localeCompare(b.city, undefined, { sensitivity: 'base', numeric: true }); });
         if (cardEl) cardEl.textContent = String(low.length);
         if (countEl) countEl.textContent = String(low.length);
@@ -1102,7 +1317,7 @@
         body.innerHTML = low.map(function (r) {
           return '<tr>' +
             '<td class="t">' + esc(r.city) + '</td>' +
-            '<td><span class="b b-error">' + r.n + ' / ' + MIN_CITY_GIFTS + '</span></td>' +
+            '<td><span class="b b-error">' + r.n + ' gift' + (r.n === 1 ? '' : 's') + '</span></td>' +
             '<td class="act"><a class="edit" href="/shop/admin/?city=' + encodeURIComponent(r.city) +
               '" target="_blank" rel="noopener">edit gifts</a></td>' +
           '</tr>';

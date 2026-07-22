@@ -322,6 +322,39 @@ function buildHtml(state, meta, ignoredIds) {
   };
 
   // mode: 'active' -> an Ignore button; 'ignored' -> a Restore button.
+  // The host a URL points at, for the plain-English sentence ("Bookshop").
+  const hostLabel = (url) => {
+    const h = String(url || '').replace(/^https?:\/\//i, '').split('/')[0].toLowerCase();
+    if (!h) return 'The site';
+    if (/amazon\.|amzn\.to|a\.co/.test(h)) return 'Amazon';
+    if (/bookshop\.org/.test(h)) return 'Bookshop';
+    return h.replace(/^www\./, '');
+  };
+
+  // What went wrong, said as a sentence instead of a status code. This is the
+  // line an admin actually reads before deciding, so it names the host, what
+  // failed (link vs image), and what that means.
+  const plainReason = (it) => {
+    const host = hostLabel(it.url);
+    const dead = (state) => HARD.has(state);
+    const bits = [];
+    if (dead(it.urlState)) {
+      bits.push(it.urlCode === 404 || it.urlCode === 410
+        ? `${host} no longer has this product page (${it.urlCode}) — shoppers clicking it hit a dead page.`
+        : `The product link failed (${it.urlState}${it.urlCode ? ' ' + it.urlCode : ''}).`);
+    }
+    if (dead(it.imageState)) {
+      bits.push(it.imageState === 'notimage'
+        ? 'The image URL returns something that is not a picture, so the card shows a blank.'
+        : `The image failed to load (${it.imageState}${it.imageCode ? ' ' + it.imageCode : ''}).`);
+    }
+    if (!bits.length) {
+      const which = it.urlState === 'blocked' ? 'product page' : 'image';
+      bits.push(`${host} refused our checker on the ${which} (${it.urlState === 'blocked' ? it.urlCode : it.imageCode}). Usually anti-bot protection — open it in a browser before acting.`);
+    }
+    return bits.join(' ');
+  };
+
   const rowFor = (it, mode) => {
     const flags = [
       badgeFor('Link', it.urlState, it.urlCode),
@@ -335,8 +368,14 @@ function buildHtml(state, meta, ignoredIds) {
     const rowActions =
       `<button class="rowbtn rowbtn--open" type="button" data-action="stockroom" data-id="${esc(it.id)}">edit gift</button>` +
       action;
-    return `<tr data-item-id="${esc(it.id)}" data-origin="${originOf(it)}">
-      <td class="t">${esc(it.title || '(untitled)')}</td>
+    const sev = HARD.has(it.urlState) || HARD.has(it.imageState) ? 'sev-dead' : 'sev-blocked';
+    const thumb = it.image_url
+      ? `<img src="${esc(it.image_url)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+      : 'IMG';
+    return `<tr class="${sev}" data-item-id="${esc(it.id)}" data-origin="${originOf(it)}">
+      <td class="thumb"><span class="row-thumb">${thumb}</span></td>
+      <td class="t">${esc(it.title || '(untitled)')}
+        <div class="row-why">${esc(plainReason(it))}</div></td>
       <td>${flags}</td>
       <td class="dim">${esc(it.checkedAt || '')}</td>
       <td class="act">${rowActions}</td>
@@ -344,7 +383,7 @@ function buildHtml(state, meta, ignoredIds) {
   };
 
   const thead = (statusLabel) =>
-    `<thead><tr><th>Gift</th><th>${statusLabel}</th><th>Checked</th><th class="act"></th></tr></thead>`;
+    `<thead><tr><th class="thumb"></th><th>Gift</th><th>${statusLabel}</th><th>Checked</th><th class="act"></th></tr></thead>`;
 
   const errorsBody = errored.map((it) => rowFor(it, 'active')).join('');
   const blockedBody = blocked.map((it) => rowFor(it, 'active')).join('');
@@ -492,6 +531,68 @@ function buildHtml(state, meta, ignoredIds) {
   .bulkbar button.danger:hover { background: rgba(160, 63, 45, 0.12); border-color: var(--danger); }
   .bulkbar .bulk-clear { color: var(--muted); }
   /* Reference: the nightly job that produces this report. */
+  /* ── Triage header: one verdict, everything else demoted ─────────────── */
+  .verdict {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    margin: 0 0 10px; padding: 16px 18px; border-radius: 12px;
+    border: 1px solid var(--danger); background: rgba(160, 63, 45, 0.08);
+  }
+  .verdict.is-clear { border-color: var(--success); background: rgba(47, 107, 61, 0.10); }
+  .verdict-n {
+    font-size: 2.6rem; font-weight: 700; line-height: 1; color: var(--danger);
+    font-variant-numeric: tabular-nums;
+  }
+  .verdict.is-clear .verdict-n { color: var(--success); }
+  .verdict-t { font-size: 1rem; font-weight: 700; color: var(--ink); }
+  .verdict-s { margin-top: 2px; font-size: 0.83rem; color: var(--muted); }
+  .quiet { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+  .quiet-chip {
+    display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px;
+    border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,0.7);
+    font-size: 0.76rem; color: var(--muted);
+  }
+  .quiet-chip b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .quiet-chip.is-note { border-color: var(--accent); color: var(--accent); }
+  .quiet-chip.is-note b { color: var(--accent); }
+
+  /* Confirmed issues as case files rather than table rows. */
+  .cases { display: grid; gap: 8px; margin: 0 0 6px; }
+  .case {
+    display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 14px; align-items: center;
+    padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--danger);
+    border-radius: 10px; background: rgba(255,255,255,0.82);
+  }
+  .case-thumb {
+    width: 56px; height: 56px; border-radius: 8px; overflow: hidden;
+    border: 1px solid var(--line); background: rgba(var(--bic-blue-rgb), 0.08);
+    display: grid; place-items: center;
+    font-family: "IBM Plex Mono", monospace; font-size: 0.56rem; color: var(--muted);
+  }
+  .case-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .case-name { font-weight: 700; font-size: 0.94rem; margin-bottom: 3px; }
+  .case-diag { font-size: 0.8rem; color: var(--muted); line-height: 1.45; }
+  .case-diag code {
+    padding: 1px 5px; border-radius: 4px; background: rgba(var(--bic-blue-rgb), 0.08);
+    font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
+  }
+  .case-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  @media (max-width: 620px) {
+    .case { grid-template-columns: 44px minmax(0, 1fr); }
+    .case-thumb { width: 44px; height: 44px; }
+    .case-acts { grid-column: 1 / -1; justify-content: flex-start; }
+  }
+  /* Row severity edge + thumbnail + the plain-English reason line. */
+  td.thumb, th.thumb { width: 46px; padding-right: 0; }
+  .row-thumb {
+    display: grid; place-items: center; overflow: hidden;
+    width: 38px; height: 38px; border-radius: 7px;
+    border: 1px solid var(--line); background: rgba(var(--bic-blue-rgb), 0.08);
+    font-family: "IBM Plex Mono", monospace; font-size: 0.52rem; color: var(--muted);
+  }
+  .row-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .row-why { margin-top: 3px; font-size: 0.78rem; font-weight: 400; line-height: 1.4; color: var(--muted); max-width: 62ch; }
+  tr.sev-dead td.thumb { box-shadow: inset 3px 0 0 var(--danger); }
+  tr.sev-blocked td.thumb { box-shadow: inset 3px 0 0 rgba(138, 100, 16, 0.75); }
   /* Plain-English guide + per-section hints. */
   .hint { margin: 6px 0 10px; font-size: 0.82rem; line-height: 1.5; color: rgba(var(--bic-blue-rgb), 0.78); max-width: 820px; }
   .guide { margin: 0 0 18px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.82); }
@@ -558,12 +659,21 @@ function buildHtml(state, meta, ignoredIds) {
       : `checked the <strong>${meta.segment + 1}/7</strong> slice (${esc(meta.weekday)}) — ${meta.checkedThisRun} gifts. Each gift is re-checked once a week.`}
        Coverage: <strong>${meta.fullCoverage ? 'all gifts' : 'Live gifts only (no service key — Review/Shelved gifts skipped)'}</strong>.</p>
   </section>
-  <div class="cards">
-    <div class="card"><div class="n" id="countErrors">${errored.length}</div><div class="k">Confirmed issues</div></div>
-    <div class="card"><div class="n" id="countBlocked">${blocked.length}</div><div class="k">Inconclusive</div></div>
-    <div class="card"><div class="n" id="countIgnored">${ignored.length}</div><div class="k">Cleared</div></div>
-    <div class="card"><div class="n">${checkedCount}</div><div class="k">Checked gifts</div></div>
-    <div class="card"><div class="n" id="countLowStock">–</div><div class="k">Cities needing gifts</div></div>
+  <!-- One verdict up top; the counts that rarely need action sit behind it
+       as quiet chips. countErrors/countBlocked/... keep their ids so the
+       live refresh below still updates them. -->
+  <div class="verdict" id="verdictBox">
+    <span class="verdict-n" id="countErrors">${errored.length}</span>
+    <span>
+      <div class="verdict-t" id="verdictTitle">gifts are broken and still selling</div>
+      <div class="verdict-s" id="verdictSub">Their link or image fails to load. Shoppers clicking them hit a dead page.</div>
+    </span>
+  </div>
+  <div class="quiet">
+    <span class="quiet-chip"><b id="countBlocked">${blocked.length}</b> inconclusive — the site blocked our robot</span>
+    <span class="quiet-chip"><b id="countIgnored">${ignored.length}</b> cleared</span>
+    <span class="quiet-chip"><b>${checkedCount}</b> gifts tracked</span>
+    <span class="quiet-chip is-note">Cities needing gifts <b id="countLowStock">–</b></span>
   </div>
 
 
@@ -584,7 +694,7 @@ function buildHtml(state, meta, ignoredIds) {
         <dt>Inconclusive</dt><dd>The site refused our robot (403/429), which usually means anti-bot protection rather than a real fault. Amazon and Bookshop do this constantly. Open one in a browser before believing it.</dd>
         <dt>Cleared</dt><dd>Issues you have told this page to stop reporting. The gifts themselves are untouched.</dd>
         <dt>Checked gifts</dt><dd>How many gifts are being tracked in total.</dd>
-        <dt>Cities needing gifts</dt><dd>Not an error &mdash; shop cities carrying fewer than 3 gifts, worked out live when the page loads. A prompt to stock them.</dd>
+        <dt>Cities needing gifts</dt><dd>Not an error &mdash; shop cities carrying <strong>3 or fewer</strong> gifts, worked out live when the page loads. Venue-only cities are left out. A prompt to stock them.</dd>
       </dl>
 
       <h3>The buttons on each row</h3>
@@ -656,7 +766,7 @@ function buildHtml(state, meta, ignoredIds) {
   <!-- Cities needing gifts. Filled live on load
        by the script below — any active shop city carrying fewer than 3 gifts. -->
   <details id="lowStockSection" hidden open>
-    <summary><span id="lowStockCount">0</span> cities with fewer than 3 gifts</summary>
+    <summary><span id="lowStockCount">0</span> cities with 3 or fewer gifts</summary>
     <p class="hint">Not a fault &mdash; cities that look thin in the shop. Worked out live each time the page loads.</p>
     <table><thead><tr><th>City</th><th>Gifts</th><th class="act"></th></tr></thead><tbody id="lowStockBody"></tbody></table>
   </details>
@@ -1076,7 +1186,8 @@ function buildHtml(state, meta, ignoredIds) {
   </script>
   <script>
   // Cities needing gifts. Live from Supabase on
-  // load: any active shop city carrying fewer than MIN_CITY_GIFTS distinct gifts.
+  // load: any active, non-ignored shop city carrying MIN_CITY_GIFTS or fewer
+  // distinct gifts.
   // Public read (cities / gift_shop_listings), so no admin sign-in needed.
   (function () {
     var SB = { url: ${JSON.stringify(PAGE_SB_URL)}, key: ${JSON.stringify(PAGE_SB_PUBLISHABLE_KEY)} };
@@ -1113,17 +1224,23 @@ function buildHtml(state, meta, ignoredIds) {
     }
     (async function () {
       try {
-        var cities = await getAll('cities', { select: 'city,archived' });
+        // select=* so this still works before 2026072205_cities_ignored.sql;
+        // a missing 'ignored' column reads as false.
+        var cities = await getAll('cities', { select: '*' });
         var listings = await getAll('gift_shop_listings', { select: 'item_id,city' });
         // Distinct gifts per active city. Listings reference the canonical city PK.
         var perCity = {};
-        cities.forEach(function (c) { if (c && c.city && !c.archived) perCity[c.city] = new Set(); });
+        // Venue-only cities never stock gifts on purpose — they are not thin,
+        // they are out of scope.
+        cities.forEach(function (c) {
+          if (c && c.city && !c.archived && c.ignored !== true) perCity[c.city] = new Set();
+        });
         listings.forEach(function (l) {
           if (l && l.city && perCity[l.city]) perCity[l.city].add(String(l.item_id));
         });
         var low = Object.keys(perCity)
           .map(function (city) { return { city: city, n: perCity[city].size }; })
-          .filter(function (r) { return r.n < MIN_CITY_GIFTS; })
+          .filter(function (r) { return r.n <= MIN_CITY_GIFTS; })
           .sort(function (a, b) { return a.n - b.n || a.city.localeCompare(b.city, undefined, { sensitivity: 'base', numeric: true }); });
         if (cardEl) cardEl.textContent = String(low.length);
         if (countEl) countEl.textContent = String(low.length);
@@ -1131,7 +1248,7 @@ function buildHtml(state, meta, ignoredIds) {
         body.innerHTML = low.map(function (r) {
           return '<tr>' +
             '<td class="t">' + esc(r.city) + '</td>' +
-            '<td><span class="b b-error">' + r.n + ' / ' + MIN_CITY_GIFTS + '</span></td>' +
+            '<td><span class="b b-error">' + r.n + ' gift' + (r.n === 1 ? '' : 's') + '</span></td>' +
             '<td class="act"><a class="edit" href="/shop/admin/?city=' + encodeURIComponent(r.city) +
               '" target="_blank" rel="noopener">edit gifts</a></td>' +
           '</tr>';
