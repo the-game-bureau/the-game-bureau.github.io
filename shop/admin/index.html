@@ -4187,10 +4187,25 @@
         const selected = statusChoiceInputs.find((input) => input.checked);
         return selected ? selected.value : articleStatus();
       };
+      // Each choice reads as a state when it is the current one and as the
+      // action that gets you there when it isn't: Live / Go live.
+      const STATUS_CHOICE_WORDS = {
+        REVIEW:  { on: 'Reviewing', off: 'Review' },
+        LIVE:    { on: 'Live',      off: 'Go live' },
+        SHELVED: { on: 'Shelved',   off: 'Shelve' }
+      };
+      const refreshStatusChoiceWords = () => {
+        statusChoiceInputs.forEach((input) => {
+          const words = STATUS_CHOICE_WORDS[input.value];
+          const span = input.parentElement && input.parentElement.querySelector('span');
+          if (words && span) span.textContent = input.checked ? words.on : words.off;
+        });
+      };
       const setStatusChoice = (status) => {
         statusChoiceInputs.forEach((input) => {
           input.checked = input.value === status;
         });
+        refreshStatusChoiceWords();
       };
       const statusOptionsForChoice = (status) => {
         const current = articleStatus();
@@ -4481,6 +4496,7 @@
 
       statusChoiceInputs.forEach((input) => {
         input.addEventListener('change', () => {
+          refreshStatusChoiceWords();
           if (input.checked) markItemDirty(article, 'Unsaved status change.');
         });
       });
