@@ -1,3 +1,11 @@
+-- SUPERSEDED 2026-07-22 — do not run.
+--
+-- public.gift_shop_cities was merged into public.cities; see
+-- supabase/migrations/2026072202_merge_gift_shop_cities_into_cities.sql.
+-- Kept only as the historical definition of the table and of
+-- tgb_canonical_gift_shop_city() (that function is still current — its live
+-- version is in supabase/migrations/20260711_structured_geo.sql).
+--
 -- Gift shop city source of truth.
 --
 -- Public /shop/ and Mission Control /shop/admin/ both read

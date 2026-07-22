@@ -1024,7 +1024,7 @@ function buildHtml(state, meta, ignoredIds) {
   <script>
   // Cities needing gifts. Live from Supabase on
   // load: any active shop city carrying fewer than MIN_CITY_GIFTS distinct gifts.
-  // Public read (gift_shop_cities / gift_shop_listings), so no admin sign-in needed.
+  // Public read (cities / gift_shop_listings), so no admin sign-in needed.
   (function () {
     var SB = { url: ${JSON.stringify(PAGE_SB_URL)}, key: ${JSON.stringify(PAGE_SB_PUBLISHABLE_KEY)} };
     var MIN_CITY_GIFTS = 3;
@@ -1060,7 +1060,7 @@ function buildHtml(state, meta, ignoredIds) {
     }
     (async function () {
       try {
-        var cities = await getAll('gift_shop_cities', { select: 'city,archived' });
+        var cities = await getAll('cities', { select: 'city,archived' });
         var listings = await getAll('gift_shop_listings', { select: 'item_id,city' });
         // Distinct gifts per active city. Listings reference the canonical city PK.
         var perCity = {};

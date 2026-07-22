@@ -424,24 +424,11 @@
       border: 1px solid var(--line);
       border-radius: 10px;
     }
-    /* Two logical rows: filters (find gifts) on top, actions (add/manage) below. */
+    /* One row: search, city, status, sort, CLEAR. */
     .toolbar-row {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 10px;
-    }
-    /* Separator line between the two rows. */
-    .toolbar-actions {
-      padding-top: 10px;
-      border-top: 1px solid var(--line);
-    }
-    /* Pushes the city-add group to the right edge of the actions row. */
-    .toolbar-spacer { flex: 1 1 auto; }
-    /* Keep the "add city" input + button together as one unit when wrapping. */
-    .city-add {
-      display: flex;
-      align-items: center;
       gap: 10px;
     }
 
@@ -546,27 +533,6 @@
       margin-left: auto;
     }
     .toolbar select::-ms-expand { display: none; }
-
-    .toolbar #newGiftCityInput {
-      flex: 0 1 180px;
-      min-width: 130px;
-      height: 42px;
-      padding: 0 12px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      color: var(--ink);
-      background: rgba(255,255,255,0.92);
-    }
-    .city-tools-status {
-      margin: 0 0 var(--stack-gap);
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.72rem;
-      color: var(--muted);
-    }
-    /* No reserved space when there's no message (keeps the gifts tight to the bar). */
-    .city-tools-status:empty { display: none; }
-    .city-tools-status.error { color: var(--danger); }
-    .city-tools-status.success { color: var(--accent); }
 
     button, .btn, .admin-nav-link, [class*="-btn"] {
       text-transform: uppercase;
@@ -829,23 +795,59 @@
       display: grid;
       gap: 14px;
     }
+    /* Paging footer: the list renders ITEMS_PAGE_SIZE cards at a time. */
+    .items-more {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .items-more[hidden] { display: none; }
+    .items-more-btn {
+      min-width: 180px;
+      min-height: 42px;
+    }
+    .items-more-count {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.76rem;
+      color: var(--muted);
+    }
     .item-publish-date {
       font-size: 0.76rem;
       color: var(--muted);
       font-family: "IBM Plex Mono", monospace;
     }
+    /* Status lives in the card header now: it describes the item, so it should
+       read while scrolling past instead of hiding in a footer action bar. */
+    .item-head {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      min-inline-size: 0;
+      margin: 0 0 8px;
+    }
+    .item-head .item-status {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .item-status-panel {
-      flex: 0 1 330px;
+      flex: 0 0 auto;
       display: block;
       min-inline-size: 0;
-      padding: 2px 8px 8px;
+      padding: 0 8px 6px;
       background: #eef0f4;
     }
     .item-status-choices {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(78px, 1fr));
       align-items: start;
-      gap: 8px;
+      gap: 6px;
       margin: 0;
     }
     .item-status-slot {
@@ -861,8 +863,8 @@
       align-items: center;
       gap: 3px;
       min-width: 0;
-      min-height: 42px;
-      padding: 7px 12px;
+      min-height: 32px;
+      padding: 6px 12px;
       border: 1px solid var(--line);
       border-radius: 8px;
       background: rgba(255,255,255,0.92);
@@ -902,12 +904,12 @@
       color: #fff;
       box-shadow: 0 8px 18px rgba(var(--bic-blue-rgb), 0.16);
     }
+    /* Sits under the status choices — it's the date the item last went LIVE. */
     .item-status-panel .item-publish-date {
       display: block;
-      width: max-content;
-      max-width: 100%;
+      width: 100%;
       min-height: 15px;
-      margin: 6px auto 0;
+      margin: 5px 0 0;
       color: var(--muted);
       font-size: 0.62rem;
       font-weight: 600;
@@ -947,12 +949,14 @@
       box-shadow: 0 0 0 3px rgba(215, 58, 49, 0.12), 0 10px 24px var(--paper-shadow);
     }
 
+    /* Verification column: the image and the three controls that ask questions
+       about it (open the target, open it in the shop, refetch from the link). */
     .item-focus-col {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      align-items: flex-start;
-      width: 220px;
+      gap: 8px;
+      align-items: stretch;
+      width: 280px;
       flex-shrink: 0;
     }
     /* Aspect-ratio + height match the public gift card's .card-media
@@ -1012,6 +1016,27 @@
       padding: 0 12px;
       color: rgba(255, 255, 255, 0.78);
       text-align: center;
+    }
+    /* Upload affordance, revealed inside the preview when the URL won't load.
+       Sits below the message, which is why the placeholder gets bottom padding
+       while this is on screen. */
+    .item-focus-upload {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 14px;
+      z-index: 3;
+      display: flex;
+      justify-content: center;
+      padding: 0 12px;
+    }
+    .item-focus-upload[hidden] { display: none; }
+    .item-focus:has(.item-focus-upload:not([hidden])) [data-focus-placeholder] {
+      padding-bottom: 46px;
+    }
+    .item-focus-upload-btn {
+      min-height: 34px;
+      background: rgba(255, 255, 255, 0.94);
     }
     .item-focus[data-image-fit="contain"] {
       background: #121821;
@@ -1406,55 +1431,37 @@
       font-style: italic;
     }
 
-    .item-actions {
-      grid-column: 1 / -1;
-      display: flex;
-      gap: 10px;
-      flex-wrap: nowrap;
-      align-items: flex-start;
-      justify-content: flex-end;
-      padding-top: 8px;
-      border-top: 1px dashed var(--line);
-      margin-top: 4px;
-    }
-
-    /* Keep the transient save status on the left; push the buttons to the right. */
-    .item-actions .item-status {
-      flex: 1 1 auto;
-      min-width: 0;
-      margin-right: 0;
-      overflow: hidden;
-      text-align: left;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .item-action-separator {
-      flex: 0 0 1px;
-      align-self: stretch;
-      min-height: 28px;
-      background: var(--line);
-      margin: 0 2px;
-    }
-    .item-action-view,
-    .item-action-edit {
+    .item-action-view {
       flex: 0 0 auto;
-      padding: 2px 8px 7px;
+      padding: 2px 8px 8px;
     }
-    .item-action-view > legend,
-    .item-action-edit > legend {
+    .item-action-view > legend {
       font-size: 0.72rem;
     }
-    .item-action-view .btn-fieldset-inner,
-    .item-action-edit .btn-fieldset-inner {
+    .item-action-view .btn-fieldset-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 6px;
-      flex-wrap: nowrap;
     }
     .item-view-target,
     .item-view-shop {
-      min-width: 82px;
+      min-width: 0;
+    }
+    .item-autofill-btn {
+      grid-column: 1 / -1;
+    }
+    /* Save is the last thing in the field column, so it sits under the field
+       you just edited instead of across the card. */
+    .item-save-row {
+      display: flex;
+      justify-content: flex-end;
+      padding-top: 10px;
+      margin-top: 2px;
+      border-top: 1px dashed var(--line);
     }
     .item-save-btn {
-      min-width: 118px;
+      min-width: 150px;
+      min-height: 38px;
     }
 
     /* ── Confirm dialog ───────────────────────────────────────── */
@@ -2121,39 +2128,23 @@
         min-height: 144px;
       }
 
-      .item-actions {
-        flex-wrap: wrap;
+      .item-head {
+        flex-direction: column;
         align-items: stretch;
-        justify-content: stretch;
+        gap: 6px;
       }
 
-      .item-actions .item-status {
-        flex: 1 1 100%;
-        margin-right: 0;
-        text-align: left;
+      .item-action-view {
+        width: 100%;
       }
 
-      .item-actions .btn {
-        flex: 1 1 100%;
+      .item-action-view .btn {
         min-height: 44px;
       }
 
-      .item-action-separator {
-        flex: 1 1 100%;
-        width: 100%;
-        min-height: 0;
-        height: 1px;
-        margin: 0;
-      }
-
-      .item-action-view,
-      .item-action-edit {
-        flex: 1 1 100%;
-        width: 100%;
-      }
-      .item-action-view .btn-fieldset-inner,
-      .item-action-edit .btn-fieldset-inner {
-        flex-wrap: wrap;
+      .item-save-row .btn {
+        flex: 1 1 auto;
+        min-height: 44px;
       }
 
       .item-status-panel {
@@ -2162,7 +2153,7 @@
       }
 
       .item-status-choices {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
       .add-gift-modal {
@@ -2209,7 +2200,7 @@
         box-shadow: none;
       }
 
-      .add-gift-body .item-actions {
+      .add-gift-body .item-save-row {
         position: sticky;
         bottom: 0;
         z-index: 4;
@@ -2261,7 +2252,7 @@
         padding-inline: 8px;
       }
 
-      .add-gift-body .item-actions {
+      .add-gift-body .item-save-row {
         margin-inline: -10px;
         padding-inline: 10px;
       }
@@ -2431,21 +2422,65 @@
         </div>
       </fieldset>
 
-      <p class="city-tools-status" id="giftCityStatus" aria-live="polite"></p>
-
       <div class="items" id="itemsList"></div>
+
+      <div class="items-more" id="itemsMore" hidden>
+        <button class="btn items-more-btn" id="loadMoreBtn" type="button">LOAD MORE</button>
+        <span class="items-more-count" id="itemsMoreCount"></span>
+      </div>
     </section>
   </main>
 
   <template id="itemTemplate">
     <fieldset class="item btn-fieldset" data-id="">
       <legend>GIFT</legend>
+      <div class="item-head">
+        <span class="item-status" data-status></span>
+        <fieldset class="item-status-panel btn-fieldset">
+          <legend>STATUS</legend>
+          <div class="item-status-choices" data-status-choices>
+            <div class="item-status-slot">
+              <label class="item-status-choice">
+                <input type="radio" value="REVIEW" data-status-choice>
+                <span>Review</span>
+              </label>
+            </div>
+            <div class="item-status-slot">
+              <label class="item-status-choice">
+                <input type="radio" value="LIVE" data-status-choice>
+                <span>Live</span>
+              </label>
+            </div>
+            <div class="item-status-slot">
+              <label class="item-status-choice">
+                <input type="radio" value="SHELVED" data-status-choice>
+                <span>Shelved</span>
+              </label>
+            </div>
+          </div>
+          <span class="item-publish-date" data-publish-date>Last live: never</span>
+        </fieldset>
+      </div>
       <div class="item-body">
         <div class="item-focus-col">
         <div class="item-focus" data-has-image="false">
           <span data-focus-placeholder>IMG</span>
+          <!-- Shown only when the image URL fails to load (dead link, or a host
+               that blocks hotlinking) — upload the picture to Storage instead. -->
+          <div class="item-focus-upload" data-upload-wrap hidden>
+            <button class="btn item-focus-upload-btn" data-action="upload-image" type="button">UPLOAD IMAGE</button>
+            <input class="item-focus-upload-input" data-upload-input type="file" accept="image/*" hidden>
+          </div>
           <button class="item-focus-zoom" data-action="zoom-image" type="button" title="Expand image" aria-label="Expand image">⤢</button>
         </div>
+        <fieldset class="item-action-view btn-fieldset">
+          <legend>VERIFY</legend>
+          <div class="btn-fieldset-inner">
+            <button class="btn item-view-target" data-action="view-url" type="button">TARGET</button>
+            <button class="btn item-view-shop" data-action="view-in-shop" type="button">SHOP</button>
+            <button class="btn item-autofill-btn" data-action="grab-image" type="button" title="Fetch the real product image (and any empty title/description) from the Link URL via the scrape-amazon function. Amazon/Bookshop only - for destination links, fill Title/Image/Description by hand.">AUTO FILL</button>
+          </div>
+        </fieldset>
         </div>
         <div class="item-fields">
         <label>
@@ -2489,48 +2524,9 @@
             </div>
           </div>
         </fieldset>
+        <div class="item-save-row">
+          <button class="btn primary item-save-btn" data-action="save-item" type="button">SAVE</button>
         </div>
-        <div class="item-actions">
-          <span class="item-status" data-status></span>
-          <fieldset class="item-status-panel btn-fieldset">
-            <legend>STATUS</legend>
-            <div class="item-status-choices" data-status-choices>
-              <div class="item-status-slot">
-                <label class="item-status-choice">
-                  <input type="radio" value="REVIEW" data-status-choice>
-                  <span>Review</span>
-                </label>
-              </div>
-              <div class="item-status-slot">
-                <label class="item-status-choice">
-                  <input type="radio" value="LIVE" data-status-choice>
-                  <span>Live</span>
-                </label>
-              </div>
-              <div class="item-status-slot">
-                <label class="item-status-choice">
-                  <input type="radio" value="SHELVED" data-status-choice>
-                  <span>Shelved</span>
-                </label>
-              </div>
-            </div>
-            <span class="item-publish-date" data-publish-date>Last live: never</span>
-          </fieldset>
-          <fieldset class="item-action-view btn-fieldset">
-            <legend>VIEW</legend>
-            <div class="btn-fieldset-inner">
-              <button class="btn item-view-target" data-action="view-url" type="button">TARGET</button>
-              <button class="btn item-view-shop" data-action="view-in-shop" type="button">SHOP</button>
-            </div>
-          </fieldset>
-          <span class="item-action-separator" aria-hidden="true"></span>
-          <fieldset class="item-action-edit btn-fieldset">
-            <legend>EDIT</legend>
-            <div class="btn-fieldset-inner">
-              <button class="btn" data-action="grab-image" type="button" title="Fetch the real product image (and any empty title/description) from the Link URL via the scrape-amazon function. Amazon/Bookshop only - for destination links, fill Title/Image/Description by hand.">AUTO FILL</button>
-              <button class="btn primary item-save-btn" data-action="save-item" type="button">SAVE</button>
-            </div>
-          </fieldset>
         </div>
       </div>
     </fieldset>
@@ -2621,38 +2617,29 @@
     const clearFiltersBtn = document.getElementById('clearFiltersBtn');
     const searchPromptBtn = document.getElementById('searchPromptBtn');
     const itemsList    = document.getElementById('itemsList');
+    const itemsMore    = document.getElementById('itemsMore');
+    const itemsMoreCount = document.getElementById('itemsMoreCount');
+    const loadMoreBtn  = document.getElementById('loadMoreBtn');
     const cityFilter   = document.getElementById('cityFilter');
     const cityFilterBtn = document.getElementById('cityFilterBtn');
     const cityFilterPanel = document.getElementById('cityFilterPanel');
     const cityFilterLabel = document.getElementById('cityFilterLabel');
     // Selected cities for the filter. Empty Set = no filter ("All cities").
     let cityFilterSelected = new Set();
-    const newGiftCityInput = document.getElementById('newGiftCityInput');
-    const addGiftCityBtn = document.getElementById('addGiftCityBtn');
-    const giftCityStatus = document.getElementById('giftCityStatus');
 
     let statusRadioGroupCounter = 0;
 
-    function itemMatchesCurrentFilter(item) {
-      const cities = cityFilterSelected; // empty Set = no city filter
-      const query = itemSearchInput ? itemSearchInput.value.trim().toLowerCase() : '';
-      const wantStatus = statusFilter ? statusFilter.value : '';
-      const cityMatch = cities.size === 0 || itemCities(item).some((c) => cities.has(c));
-      const statusMatch = !wantStatus || itemStatusOf(item) === wantStatus;
-      let queryMatch = true;
-      if (query) {
-        const title = String(item.querySelector('[data-field="title"]')?.value || '').toLowerCase();
-        const desc = String(item.querySelector('[data-field="description"]')?.value || '').toLowerCase();
-        queryMatch = title.includes(query) || desc.includes(query);
-      }
-      return cityMatch && queryMatch && statusMatch;
-    }
-
     if (itemSortSelect) {
-      itemSortSelect.addEventListener('change', refreshItemsView);
+      itemSortSelect.addEventListener('change', resetItemsPaging);
     }
     if (statusFilter) {
-      statusFilter.addEventListener('change', refreshItemsView);
+      statusFilter.addEventListener('change', resetItemsPaging);
+    }
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener('click', () => {
+        itemsVisibleLimit += ITEMS_PAGE_SIZE;
+        refreshItemsView();
+      });
     }
 
     // NIGHTLY — read-only pop-up describing the nightly book-pull automation.
@@ -2678,7 +2665,7 @@
       });
     }());
     if (itemSearchInput) {
-      itemSearchInput.addEventListener('input', refreshItemsView);
+      itemSearchInput.addEventListener('input', resetItemsPaging);
     }
     if (clearFiltersBtn) {
       clearFiltersBtn.addEventListener('click', clearStockRoomFilters);
@@ -2705,24 +2692,20 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeCityFilterPanel();
     });
-    if (addGiftCityBtn) {
-      addGiftCityBtn.addEventListener('click', handleAddGiftCity);
-    }
-    if (newGiftCityInput) {
-      newGiftCityInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          handleAddGiftCity();
-        }
-      });
-    }
     const itemTemplate = document.getElementById('itemTemplate');
     const initialParams = new URLSearchParams(window.location.search);
-    const DEFAULT_SHOP_CITY = 'New Orleans, Louisiana';
     const initialItemId = String(initialParams.get('item') || '').trim();
     const isInitialItemMode = !!initialItemId;
     const initialShopCityParam = String(initialParams.get('city') || '').trim();
-    const initialShopCity = initialShopCityParam || (isInitialItemMode ? '' : DEFAULT_SHOP_CITY);
+    // The stock room opens with every filter off — the whole catalog, no city
+    // preselected. ?city=<name> still deep-links to one city; ?city=all is the
+    // explicit "no filter" spelling used by CLEAR and the All Cities row.
+    const ALL_CITIES_PARAM = 'all';
+    const wantsAllCities = initialShopCityParam.toLowerCase() === ALL_CITIES_PARAM;
+    const initialShopCity = wantsAllCities ? '' : initialShopCityParam;
+    // Cards are heavy, so the list paints a page at a time behind LOAD MORE.
+    const ITEMS_PAGE_SIZE = 100;
+    let itemsVisibleLimit = ITEMS_PAGE_SIZE;
     let initialItemFocusPending = !!initialItemId;
     let initialCityFilterApplied = false;
     const BOOKSHOP_AFFILIATE_ID = '87073';
@@ -2765,17 +2748,13 @@
           statusFilter.disabled = true;
         }
         if (clearFiltersBtn) clearFiltersBtn.disabled = true;
+        itemsVisibleLimit = ITEMS_PAGE_SIZE;
+        if (itemsMore) itemsMore.hidden = true;
         cityFilterSelected.clear();
         initialCityFilterApplied = false;
         if (cityFilterPanel) cityFilterPanel.innerHTML = '';
         updateCityFilterLabel();
         setCityFilterEnabled(false);
-        if (newGiftCityInput) {
-          newGiftCityInput.value = '';
-          newGiftCityInput.disabled = true;
-        }
-        if (addGiftCityBtn) addGiftCityBtn.disabled = true;
-        setStatus(giftCityStatus, '');
         updateViewGiftShopLink();
         addItemBtn.disabled = true;
         setSuggestItemsButtonEnabled(false);
@@ -2860,6 +2839,63 @@
       return adminAuth.authHeaders(extra);
     }
 
+    // ── Gift images in Storage ───────────────────────────────────────
+    // Some sources (Cloudflare-protected sites, hosts sending
+    // Cross-Origin-Resource-Policy: same-origin) can't be hotlinked at all —
+    // the browser gets a challenge page instead of an image. Those pictures get
+    // uploaded to the public `gift-pics` bucket and the gift points at that URL.
+    // Bucket + policies: supabase/migrations/2026072201_gift_pics_storage.sql
+    const GIFT_PICS_BUCKET = 'gift-pics';
+    const GIFT_PIC_MAX_EDGE = 1200; // px, longest side
+    const GIFT_PIC_QUALITY = 0.85;
+
+    // Downscale before upload so a 6 MB phone photo doesn't become the shop's
+    // hero image. Anything already small enough is sent untouched.
+    function shrinkImageFile(file) {
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          const longest = Math.max(img.naturalWidth, img.naturalHeight);
+          if (!longest || longest <= GIFT_PIC_MAX_EDGE) {
+            URL.revokeObjectURL(url);
+            resolve({ blob: file, type: file.type || 'image/jpeg' });
+            return;
+          }
+          const scale = GIFT_PIC_MAX_EDGE / longest;
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.naturalWidth * scale);
+          canvas.height = Math.round(img.naturalHeight * scale);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => {
+            URL.revokeObjectURL(url);
+            resolve(blob ? { blob, type: 'image/jpeg' } : { blob: file, type: file.type || 'image/jpeg' });
+          }, 'image/jpeg', GIFT_PIC_QUALITY);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve({ blob: file, type: file.type || 'image/jpeg' });
+        };
+        img.src = url;
+      });
+    }
+
+    // Uploads one picture and returns its public URL. Objects are keyed
+    // <item id>/<timestamp>.<ext> so re-uploads never clobber the old file.
+    async function uploadGiftPic(file, itemId) {
+      const { blob, type } = await shrinkImageFile(file);
+      const ext = type === 'image/png' ? 'png' : (type === 'image/webp' ? 'webp' : 'jpg');
+      const key = (String(itemId || '').trim() || 'unsaved') + '/' + Date.now() + '.' + ext;
+      const endpoint = SUPABASE_CONFIG.url + '/storage/v1/object/' + GIFT_PICS_BUCKET + '/' + key;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': type, 'x-upsert': 'true' }),
+        body: blob
+      });
+      if (!response.ok) throw new Error(await readError(response, 'Upload failed.'));
+      return SUPABASE_CONFIG.url + '/storage/v1/object/public/' + GIFT_PICS_BUCKET + '/' + key;
+    }
+
     // ── Games ────────────────────────────────────────────────────────
     async function fetchGames() {
       const response = await fetch(restUrl('games', { select: 'id,name,city,away_team_city,away_team_mascot,home_team_city,home_team_mascot,away_team_key,home_team_key,fandom_game,archived', order: 'name.asc' }), {
@@ -2882,8 +2918,11 @@
       return response.json();
     }
 
+    // public.cities is the whole site's city catalog (it also backs /sound/).
+    // The gift shop's old gift_shop_cities table was merged into it by
+    // supabase/migrations/2026072202_merge_gift_shop_cities_into_cities.sql.
     async function fetchGiftShopCities() {
-      const response = await fetch(restUrl('gift_shop_cities', {
+      const response = await fetch(restUrl('cities', {
         select: 'city,label,sort_order,archived',
         archived: 'eq.false',
         order: 'sort_order.asc,city.asc'
@@ -2891,14 +2930,15 @@
         headers: authHeaders({ Accept: 'application/json' }),
         cache: 'no-store'
       });
-      if (!response.ok) throw new Error(await readError(response, 'Could not load gift shop cities.'));
+      if (!response.ok) throw new Error(await readError(response, 'Could not load cities.'));
       return response.json();
     }
 
+    // No slug is sent: a BEFORE INSERT trigger derives it from the city string.
     async function upsertGiftShopCity(city) {
       const canonical = canonicalShopCity(city);
       if (!canonical) throw new Error('City is required.');
-      const response = await fetch(restUrl('gift_shop_cities', { on_conflict: 'city' }), {
+      const response = await fetch(restUrl('cities', { on_conflict: 'city' }), {
         method: 'POST',
         headers: authHeaders({
           'Content-Type': 'application/json',
@@ -3086,8 +3126,30 @@
       else closeCityFilterPanel();
     }
 
-    // Rebuild the checkbox list from cityList, preserving the current selection
-    // (dropping any city that no longer exists).
+    // Drop every city selection: All Cities means the whole catalog, no filter.
+    function selectAllCities() {
+      cityFilterSelected.clear();
+      if (cityFilterPanel) {
+        cityFilterPanel.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
+      }
+      rememberCityFilterInUrl();
+      updateCityFilterLabel();
+      resetItemsPaging();
+    }
+
+    // Keep the address bar in step with the picker so a reload (or a shared
+    // link) lands on the same set. No selection is written as ?city=all, which
+    // reads the same as an absent param: every city.
+    function rememberCityFilterInUrl() {
+      if (!window.history || typeof window.history.replaceState !== 'function') return;
+      const sel = Array.from(cityFilterSelected);
+      const url = new URL(window.location.href);
+      if (!sel.length) url.searchParams.set('city', ALL_CITIES_PARAM);
+      else if (sel.length === 1) url.searchParams.set('city', sel[0]);
+      else url.searchParams.delete('city');
+      window.history.replaceState(null, '', url.pathname + url.search);
+    }
+
     function renderCityFilterOptions() {
       if (!cityFilterPanel) return;
       const valid = new Set(cityList);
@@ -3099,12 +3161,7 @@
       allRow.type = 'button';
       allRow.className = 'multiselect-opt multiselect-all';
       allRow.textContent = 'All Cities';
-      allRow.addEventListener('click', () => {
-        cityFilterSelected.clear();
-        cityFilterPanel.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
-        updateCityFilterLabel();
-        refreshItemsView();
-      });
+      allRow.addEventListener('click', selectAllCities);
       cityFilterPanel.appendChild(allRow);
 
       const sep = document.createElement('div');
@@ -3121,8 +3178,9 @@
         cb.addEventListener('change', () => {
           if (cb.checked) cityFilterSelected.add(c);
           else cityFilterSelected.delete(c);
+          rememberCityFilterInUrl();
           updateCityFilterLabel();
-          refreshItemsView();
+          resetItemsPaging();
         });
         const span = document.createElement('span');
         span.textContent = c;
@@ -3142,7 +3200,7 @@
 
     // ── "Add new shop" modal ────────────────────────────────────────────────
     // A structured popup form (City + Country + State/Province) that composes a
-    // canonical city string via TgbGeo and upserts it into gift_shop_cities.
+    // canonical city string via TgbGeo and upserts it into public.cities.
     // openAddCityModal({ onCreated }) shows it; onCreated(row) fires on success
     // so the caller (a gift's Shops picker) can drop the fresh city in.
     const addCityModal = (() => {
@@ -3281,32 +3339,6 @@
       refreshCityPickers();
     }
 
-    async function handleAddGiftCity() {
-      if (!newGiftCityInput || !addGiftCityBtn) return;
-      const city = canonicalShopCity(newGiftCityInput.value);
-      if (!city) {
-        setStatus(giftCityStatus, 'Type a city first.', 'error');
-        return;
-      }
-      addGiftCityBtn.disabled = true;
-      setStatus(giftCityStatus, 'Adding city...');
-      try {
-        const row = await upsertGiftShopCity(city);
-        if (!cityList.includes(row.city)) cityList.push(row.city);
-        cityList.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
-        renderCityFilterOptions();
-        refreshCityPickers();
-        newGiftCityInput.value = '';
-        setStatus(giftCityStatus, 'Added ' + city + '.', 'success');
-        setTimeout(() => setStatus(giftCityStatus, ''), 2200);
-      } catch (error) {
-        console.error(error);
-        setStatus(giftCityStatus, error instanceof Error ? error.message : String(error), 'error');
-      } finally {
-        addGiftCityBtn.disabled = false;
-      }
-    }
-
     // Short city label, e.g. "Houston, Texas" -> "Houston".
     function cityShort(c) { return String(c || '').split(',')[0].trim(); }
 
@@ -3324,26 +3356,18 @@
       return article.dataset.certifiedAt ? 'LIVE' : 'REVIEW';
     }
 
-    function applyCityFilter() {
-      const items = itemsList.querySelectorAll('.item');
-      let visible = 0;
-      items.forEach((item) => {
-        const show = item.classList.contains('is-dirty') || itemMatchesCurrentFilter(item);
-        item.classList.toggle('hidden', !show);
-        if (show) visible++;
-      });
-      updateItemsStatus();
-    }
-
-    // Status line: "N items · P published". Recounts from the DOM, so it can be
-    // called after Go Live updates an item.
+    // CLEAR drops every filter, cities included — it ends on the whole catalog,
+    // not on DEFAULT_SHOP_CITY. Single-gift mode (?item=) only ever loaded one
+    // row, so that case reloads into the full catalog with no city filter.
     function clearStockRoomFilters() {
-      const cleanUrl = window.location.origin + window.location.pathname;
-      if (window.location.href === cleanUrl) {
-        window.location.reload();
+      if (isInitialItemMode) {
+        window.location.assign(window.location.pathname + '?city=' + ALL_CITIES_PARAM);
         return;
       }
-      window.location.assign(cleanUrl);
+      if (itemSearchInput) itemSearchInput.value = '';
+      if (statusFilter) statusFilter.value = '';
+      if (itemSortSelect) itemSortSelect.value = 'status';
+      selectAllCities(); // resets paging back to the first page
     }
 
     function openSingleGiftInStockRoom(itemId) {
@@ -3437,76 +3461,171 @@
       setStatus(shopStatus, saved ? 'All changes saved.' : '', 'success');
     }
 
-    function updateItemsStatus() {
-      const items = itemsList.querySelectorAll('.item');
-      const total = items.length;
-      let shelved = 0, review = 0, live = 0;
-      items.forEach((item) => {
-        const status = itemStatusOf(item);
-        if (status === 'SHELVED') shelved++;
-        else if (status === 'LIVE') live++;
-        else review++;
-      });
-      setStatus(shopStatus,
-        live + ' live + ' + review + ' need review + ' + shelved + ' shelved = ' +
-        total + ' item' + (total === 1 ? '' : 's'),
-        'success');
-    }
-
     // VIEW GIFT SHOP button was removed; retained as a no-op so the existing
     // call sites (city-filter changes, refreshes, etc.) stay harmless.
     function updateViewGiftShopLink() {}
 
-    // Reorder the admin list per the selected sort mode (toolbar dropdown):
-    //   title  — alphabetical by gift title (default)
-    //   city   — by the item's first assigned city, then title (no city sorts last)
-    //   cities — most cities/shops first (widest reach), then title
-    //   status — not-yet-live (Review/Shelved) first, then Live; alphabetical within each
-    function sortItems() {
-      const mode = itemSortSelect ? itemSortSelect.value : 'title';
-      const collate = { sensitivity: 'base', numeric: true };
-      const titleOf = (el) => String(el.querySelector('[data-field="title"]')?.value || '').trim();
-      const idOf = (el) => String(el.dataset.id || '');
-      // First assigned city, alphabetically; '~' sentinel pushes no-city items last.
-      const cityOf = (el) => {
-        const cities = itemCities(el).slice().sort((a, b) => a.localeCompare(b, undefined, collate));
-        return cities[0] || '~~~';
-      };
-      // Status rank: not-yet-live (Review/Shelved = 0) before Live (1).
-      const statusRank = (el) => (itemStatusOf(el) === 'LIVE' ? 1 : 0);
-
-      const byTitle = (a, b) =>
-        titleOf(a).localeCompare(titleOf(b), undefined, collate) ||
-        idOf(a).localeCompare(idOf(b), undefined, collate);
-
-      // How many cities/shops a gift is listed in (widest reach first).
-      const cityCountOf = (el) => itemCities(el).length;
-
-      let comparator;
-      if (mode === 'city') {
-        comparator = (a, b) =>
-          cityOf(a).localeCompare(cityOf(b), undefined, collate) || byTitle(a, b);
-      } else if (mode === 'cities') {
-        comparator = (a, b) => (cityCountOf(b) - cityCountOf(a)) || byTitle(a, b);
-      } else if (mode === 'status') {
-        comparator = (a, b) => (statusRank(a) - statusRank(b)) || byTitle(a, b);
-      } else {
-        comparator = byTitle;
-      }
-
-      Array.from(itemsList.querySelectorAll('.item'))
-        .sort(comparator)
-        .forEach((item) => itemsList.appendChild(item));
+    // ── List view: filter → sort → page ──────────────────────────────
+    // The whole catalog is held as rows in allGiftItemsCache; cards are only
+    // built for the page you can actually see. An entry is a row plus its card
+    // if one has been built yet, so filtering and sorting read live edits when
+    // a card exists and fall back to the stored row when it doesn't.
+    function itemEntries() {
+      const nodesById = new Map();
+      const looseNodes = [];
+      itemsList.querySelectorAll('.item').forEach((node) => {
+        const id = String(node.dataset.id || '');
+        if (id) nodesById.set(id, node);
+        else looseNodes.push(node); // a brand-new gift that has never been saved
+      });
+      const rows = Array.isArray(allGiftItemsCache) ? allGiftItemsCache : [];
+      const claimed = new Set();
+      const entries = rows.map((row) => {
+        const id = String(row && row.id != null ? row.id : '');
+        const node = nodesById.get(id) || null;
+        if (node) claimed.add(node);
+        return { id, row, node };
+      });
+      // Cards with no row behind them — a gift added since the last load —
+      // still belong in the list.
+      nodesById.forEach((node, id) => {
+        if (!claimed.has(node)) entries.push({ id, row: null, node });
+      });
+      looseNodes.forEach((node) => entries.push({ id: '', row: null, node }));
+      return entries;
     }
 
-    // Single source of truth for the list view. Every toolbar control (sort,
-    // city, search, recency) routes through here so the four compose instead
-    // of acting alone: sort reorders the FULL list, then the active filters
-    // hide non-matches. Result: you can filter and still sort within that
-    // filter, in any order.
+    function entryTitle(entry) {
+      if (entry.node) return String(entry.node.querySelector('[data-field="title"]')?.value || '').trim();
+      return String((entry.row && entry.row.title) || '').trim();
+    }
+    function entryDescription(entry) {
+      if (entry.node) return String(entry.node.querySelector('[data-field="description"]')?.value || '');
+      return String((entry.row && entry.row.description) || '');
+    }
+    function entryStatus(entry) {
+      if (entry.node) return itemStatusOf(entry.node);
+      const row = entry.row || {};
+      if (String(row.rejected_at || '').trim()) return 'SHELVED';
+      return String(row.certified_at || '').trim() ? 'LIVE' : 'REVIEW';
+    }
+    function entryCities(entry) {
+      if (entry.node) return itemCities(entry.node);
+      const listings = (entry.row && entry.row.gift_shop_listings) || [];
+      return (Array.isArray(listings) ? listings : [])
+        .map((listing) => canonicalShopCity(listing && listing.city))
+        .filter(Boolean);
+    }
+
+    function entryMatchesCurrentFilter(entry) {
+      // An unsaved card always stays on screen, whatever the filters say.
+      if (entry.node && entry.node.classList.contains('is-dirty')) return true;
+      if (!entry.row && !entry.node) return true;
+      const query = itemSearchInput ? itemSearchInput.value.trim().toLowerCase() : '';
+      const wantStatus = statusFilter ? statusFilter.value : '';
+      const cityMatch = cityFilterSelected.size === 0 ||
+        entryCities(entry).some((c) => cityFilterSelected.has(c));
+      const statusMatch = !wantStatus || entryStatus(entry) === wantStatus;
+      const queryMatch = !query ||
+        entryTitle(entry).toLowerCase().includes(query) ||
+        entryDescription(entry).toLowerCase().includes(query);
+      return cityMatch && statusMatch && queryMatch;
+    }
+
+    // Sort modes (toolbar dropdown):
+    //   status — default: not-yet-live (Review/Shelved) first, then Live;
+    //            alphabetical within each group
+    //   title  — alphabetical by gift title
+    //   city   — by the gift's first assigned city, then title (no city last)
+    //   cities — most cities/shops first (widest reach), then title
+    function itemComparator() {
+      const mode = itemSortSelect ? itemSortSelect.value : 'status';
+      const collate = { sensitivity: 'base', numeric: true };
+      const byTitle = (a, b) =>
+        entryTitle(a).localeCompare(entryTitle(b), undefined, collate) ||
+        String(a.id).localeCompare(String(b.id), undefined, collate);
+      // '~~~' sentinel pushes gifts with no city to the end.
+      const firstCity = (entry) =>
+        entryCities(entry).slice().sort((a, b) => a.localeCompare(b, undefined, collate))[0] || '~~~';
+      const statusRank = (entry) => (entryStatus(entry) === 'LIVE' ? 1 : 0);
+
+      if (mode === 'city') {
+        return (a, b) => firstCity(a).localeCompare(firstCity(b), undefined, collate) || byTitle(a, b);
+      }
+      if (mode === 'cities') {
+        return (a, b) => (entryCities(b).length - entryCities(a).length) || byTitle(a, b);
+      }
+      if (mode === 'title') return byTitle;
+      return (a, b) => (statusRank(a) - statusRank(b)) || byTitle(a, b);
+    }
+
+    // Single source of truth for the list. Search, city, status, sort and the
+    // page size all compose here: filter the catalog, order it, then paint the
+    // first itemsVisibleLimit cards and hide any card that fell out of range.
     function refreshItemsView() {
-      sortItems();       // reorder the whole list by the current sort mode
-      applyCityFilter(); // city + search + status over the sorted list
+      if (!itemsList) return;
+      const matching = itemEntries().filter(entryMatchesCurrentFilter).sort(itemComparator());
+      const visible = matching.slice(0, itemsVisibleLimit);
+      const visibleNodes = new Set();
+
+      visible.forEach((entry) => {
+        const node = entry.node || appendItemRow(entry.row || {});
+        entry.node = node;
+        node.classList.remove('hidden');
+        itemsList.appendChild(node); // appending an existing node reorders it
+        visibleNodes.add(node);
+      });
+      // Cards built earlier that no longer make the cut stay in the DOM (they
+      // may hold unsaved edits) but drop out of view.
+      itemsList.querySelectorAll('.item').forEach((node) => {
+        if (!visibleNodes.has(node)) node.classList.add('hidden');
+      });
+
+      const placeholder = itemsList.querySelector('.empty');
+      if (!visible.length && !placeholder) {
+        renderEmpty(allGiftItemsCache.length ? 'No gifts match these filters.' : undefined);
+      } else if (visible.length && placeholder) {
+        placeholder.remove();
+      }
+
+      updateLoadMoreButton(matching.length, visible.length);
+      updateItemsStatus(matching, visible.length);
+    }
+
+    function updateLoadMoreButton(matchCount, shownCount) {
+      if (!itemsMore || !itemsMoreCount) return;
+      const remaining = Math.max(0, matchCount - shownCount);
+      itemsMore.hidden = remaining === 0;
+      itemsMoreCount.textContent = remaining
+        ? 'Showing ' + shownCount + ' of ' + matchCount + ' · ' + remaining + ' more'
+        : '';
+    }
+
+    // Status line counts the whole filtered set, not just the painted page.
+    function updateItemsStatus(matching, shownCount) {
+      const entries = Array.isArray(matching)
+        ? matching
+        : itemEntries().filter(entryMatchesCurrentFilter);
+      const shown = typeof shownCount === 'number' ? shownCount : entries.length;
+      let shelved = 0, review = 0, live = 0;
+      entries.forEach((entry) => {
+        const status = entryStatus(entry);
+        if (status === 'SHELVED') shelved++;
+        else if (status === 'LIVE') live++;
+        else review++;
+      });
+      const total = entries.length;
+      const shownNote = shown < total ? ' (showing ' + shown + ')' : '';
+      setStatus(shopStatus,
+        live + ' live + ' + review + ' need review + ' + shelved + ' shelved = ' +
+        total + ' item' + (total === 1 ? '' : 's') + shownNote,
+        'success');
+    }
+
+    // Any change to the filters or the sort restarts paging from the first page.
+    function resetItemsPaging() {
+      itemsVisibleLimit = ITEMS_PAGE_SIZE;
+      refreshItemsView();
     }
 
     // ── Items ────────────────────────────────────────────────────────
@@ -3514,15 +3633,26 @@
       // Embed each item's listings so we can render the full edit UI in
       // one round-trip. Order is title-asc; per-listing position is
       // surfaced inside each card, not at the catalog level.
-      const response = await fetch(restUrl('gift_shop_items', {
-        select: '*,gift_shop_listings(*)',
-        order: 'title.asc.nullslast'
-      }), {
-        headers: authHeaders({ Accept: 'application/json' }),
-        cache: 'no-store'
-      });
-      if (!response.ok) throw new Error(await readError(response, 'Could not load gift shop items.'));
-      return response.json();
+      // PostgREST caps a response at 1000 rows, so page through with Range
+      // until a short page comes back — otherwise the catalog silently
+      // truncates once it passes 1000 gifts.
+      const PAGE = 1000;
+      const all = [];
+      for (let from = 0; ; from += PAGE) {
+        const response = await fetch(restUrl('gift_shop_items', {
+          select: '*,gift_shop_listings(*)',
+          order: 'title.asc.nullslast'
+        }), {
+          headers: authHeaders({ Accept: 'application/json', Range: from + '-' + (from + PAGE - 1) }),
+          cache: 'no-store'
+        });
+        if (!response.ok) throw new Error(await readError(response, 'Could not load gift shop items.'));
+        const page = await response.json();
+        if (!Array.isArray(page) || !page.length) break;
+        all.push(...page);
+        if (page.length < PAGE) break;
+      }
+      return all;
     }
 
     async function fetchInitialItem() {
@@ -3742,7 +3872,7 @@
 
       // "ADD CITY" opens the structured Add-shop popup (City + Country +
       // State/Province). On success the modal has already upserted the city into
-      // gift_shop_cities and refreshed every picker; here we just drop the fresh
+      // public.cities and refreshed every picker; here we just drop the fresh
       // city straight into THIS gift as a pre-selected, unsaved chip.
       const addNewCityBtn = article.querySelector('[data-action="add-new-city"]');
       if (addNewCityBtn) {
@@ -3968,6 +4098,10 @@
       // smart contain for books/DVDs/portrait products and no crop dragging.
       const focusBox = article.querySelector('.item-focus');
       const placeholder = focusBox.querySelector('[data-focus-placeholder]');
+      const uploadWrap = focusBox.querySelector('[data-upload-wrap]');
+      const uploadInput = focusBox.querySelector('[data-upload-input]');
+      const uploadButton = focusBox.querySelector('[data-action="upload-image"]');
+      const showUploadOffer = (show) => { if (uploadWrap) uploadWrap.hidden = !show; };
       const currentImageFitItem = () => ({
         title: article.querySelector('[data-field="title"]')?.value || '',
         url: article.querySelector('[data-field="url"]')?.value || '',
@@ -4011,6 +4145,7 @@
         focusBox.removeAttribute('aria-label');
         placeholder.textContent = url ? 'LOADING' : 'IMG';
         placeholder.style.display = '';
+        showUploadOffer(false);
         if (url) {
           focusBox.style.setProperty('--gift-preview-image', cssImageUrl(url));
           const img = document.createElement('img');
@@ -4023,6 +4158,7 @@
             if (!img.isConnected) return;
             focusBox.dataset.hasImage = 'true';
             placeholder.style.display = 'none';
+            showUploadOffer(false);
             applyPreviewFit(img);
           };
           const onError = () => {
@@ -4034,8 +4170,11 @@
             focusBox.removeAttribute('aria-label');
             delete focusBox.dataset.imageFit;
             focusBox.style.removeProperty('--gift-preview-image');
-            placeholder.textContent = 'IMAGE DID NOT LOAD';
+            // A dead link, or a host that refuses to be hotlinked. Either way
+            // the URL can never render in the shop — offer the upload instead.
+            placeholder.textContent = 'IMAGE NOT REACHABLE — UPLOAD IT INSTEAD';
             placeholder.style.display = '';
+            showUploadOffer(true);
           };
           img.addEventListener('load', onLoad);
           img.addEventListener('error', onError);
@@ -4056,6 +4195,37 @@
       };
       refreshFocusImage();
       article.querySelector('[data-field="image_url"]').addEventListener('input', refreshFocusImage);
+
+      // Upload a picture to Storage and point the gift at the public URL. The
+      // gift still needs SAVE — this only fills the Image field.
+      if (uploadButton && uploadInput) {
+        uploadButton.addEventListener('click', (event) => {
+          event.stopPropagation();
+          uploadInput.click();
+        });
+        uploadInput.addEventListener('change', async () => {
+          const file = uploadInput.files && uploadInput.files[0];
+          uploadInput.value = ''; // let the same file be picked again after a failure
+          if (!file) return;
+          const statusEl = article.querySelector('[data-status]');
+          uploadButton.disabled = true;
+          uploadButton.textContent = 'UPLOADING...';
+          setStatus(statusEl, 'Uploading image...');
+          try {
+            const publicUrl = await uploadGiftPic(file, article.dataset.id);
+            const imageInput = article.querySelector('[data-field="image_url"]');
+            imageInput.value = publicUrl;
+            imageInput.dispatchEvent(new Event('input', { bubbles: true }));
+            setStatus(statusEl, 'Image uploaded — SAVE to keep it.', 'success');
+          } catch (error) {
+            console.error(error);
+            setStatus(statusEl, error instanceof Error ? error.message : String(error), 'error');
+          } finally {
+            uploadButton.disabled = false;
+            uploadButton.textContent = 'UPLOAD IMAGE';
+          }
+        });
+      }
       article.querySelector('[data-field="title"]').addEventListener('input', refreshPreviewFit);
       article.querySelector('[data-field="url"]').addEventListener('input', refreshPreviewFit);
       const openPreviewLightbox = () => {
@@ -4263,8 +4433,8 @@
           );
           return;
         }
-        items.forEach((item) => appendItemRow(item));
-        refreshItemsView();
+        // Cards are built by refreshItemsView, a page at a time.
+        resetItemsPaging();
         updateViewGiftShopLink();
         focusInitialItem();
       } catch (error) {
@@ -5274,8 +5444,6 @@ $$;`.trim();
       if (itemSearchInput) itemSearchInput.disabled = true;
       if (clearFiltersBtn) clearFiltersBtn.disabled = true;
       setCityFilterEnabled(false);
-      if (newGiftCityInput) newGiftCityInput.disabled = true;
-      if (addGiftCityBtn) addGiftCityBtn.disabled = true;
       setSuggestItemsButtonEnabled(false);
       try {
         await loadGames();
@@ -5286,8 +5454,6 @@ $$;`.trim();
         if (itemSearchInput) itemSearchInput.disabled = false;
         if (clearFiltersBtn) clearFiltersBtn.disabled = false;
         setCityFilterEnabled(true);
-        if (newGiftCityInput) newGiftCityInput.disabled = false;
-        if (addGiftCityBtn) addGiftCityBtn.disabled = false;
         setSuggestItemsButtonEnabled(true);
       } catch (error) {
         console.error(error);
@@ -5297,8 +5463,6 @@ $$;`.trim();
         if (itemSearchInput) itemSearchInput.disabled = false;
         if (clearFiltersBtn) clearFiltersBtn.disabled = false;
         setCityFilterEnabled(true);
-        if (newGiftCityInput) newGiftCityInput.disabled = false;
-        if (addGiftCityBtn) addGiftCityBtn.disabled = false;
         setSuggestItemsButtonEnabled(true);
         setStatus(shopStatus, error instanceof Error ? error.message : String(error), 'error');
       }

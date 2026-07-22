@@ -44,7 +44,7 @@ function dayOfYear(d) {
 async function pickTopic() {
   if (process.env.BOOK_PULL_TOPIC) return { topic: process.env.BOOK_PULL_TOPIC, city: null };
   try {
-    const cities = await sbGet('gift_shop_cities?select=city,archived&order=city.asc');
+    const cities = await sbGet('cities?select=city,archived&order=city.asc');
     const active = (cities || []).filter((c) => !c.archived && c.city).map((c) => c.city);
     if (active.length) {
       const city = active[dayOfYear(new Date()) % active.length];

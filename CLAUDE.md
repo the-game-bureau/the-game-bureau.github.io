@@ -162,19 +162,32 @@ The country badge that appears on the public games page (in the hero meta list a
 
 ---
 
+## One city catalog: `public.cities`
+
+There is exactly **one** city table for the whole site: `public.cities`, keyed by `slug`, with `city` (the canonical string) unique. `/sound/`, `/shop/`, and `/shop/admin/` all read it.
+
+`public.gift_shop_cities` was a second, parallel catalog keyed by the city string. It was merged into `cities` on 2026-07-22 by [supabase/migrations/2026072202_merge_gift_shop_cities_into_cities.sql](supabase/migrations/2026072202_merge_gift_shop_cities_into_cities.sql). **Do not create a new per-product city table** — add a column to `cities` instead (that's what `sound_playlist_id` / `sound_accent` / `sound_secondary` are).
+
+- **Writers don't send a slug.** The `cities_fill_slug` BEFORE INSERT trigger derives it from the city string via `tgb_city_slug()` — city name only (`"St. Louis, Missouri"` → `st-louis`), qualified with the state/country code if that base is taken by a different city (two Portlands), then numbered. The shop admin posts `{ city, archived: false }` with `on_conflict=city` and nothing else.
+- **`slug` is nullable** so the trigger can fill it; treat it as required anyway.
+- `cities_sync_geo` fills the structured geo columns, matching the `tgb_sync_*_geo` triggers on `games` and `teams`.
+- The old `gift_shop_cities` table is **left in place but unread**; the drop statement is at the bottom of the migration, commented, for once the deployed site has been on `cities` for a while.
+
+---
+
 ## Structured city / state / country model (`assets/geo.js`)
 
 Geography is stored two ways at once, and they must stay consistent:
 
-1. **The canonical string** — `games.city`, `gift_shop_cities.city` (PK), `gift_shop_listings.city`, `teams.game_city` — remains the display/key value and the `/shop/?city=` URL contract. Standard form: US → `"City, FullStateName"`, DC → `"City, D.C."`, non-US → `"City, CountryName"` (e.g. `"Paris, France"`). Teams keep their legacy `"City, ST"` strings.
-2. **Structured columns** (added 2026-07-11, all nullable text) on `games`, `gift_shop_cities`, `teams`: `city_name`, `state_code` (2-letter — **drives the map icons**), `state_name`, `country_code` (alpha-3 — drives the country oval), `country_name`.
+1. **The canonical string** — `games.city`, `cities.city` (unique), `gift_shop_listings.city`, `teams.game_city` — remains the display/key value and the `/shop/?city=` URL contract. Standard form: US → `"City, FullStateName"`, DC → `"City, D.C."`, non-US → `"City, CountryName"` (e.g. `"Paris, France"`). Teams keep their legacy `"City, ST"` strings.
+2. **Structured columns** (added 2026-07-11, all nullable text) on `games`, `cities`, `teams`: `city_name`, `state_code` (2-letter — **drives the map icons**), `state_name`, `country_code` (alpha-3 — drives the country oval), `country_name`.
 
 **Single source of truth: [assets/geo.js](assets/geo.js)** (`window.TgbGeo`). It replaces the old copy-pasted `US_STATES`/`COUNTRY_CODES` maps and `canonicalShopCity()`/`cityGeoBadge()`. API: `parseGeo(str)`, `composeGeo(parts)`, `canonicalCity(str)`, `geoBadge(rowOrStr)`, `usStateOptions()/provinceOptions()/countryOptions()`. Its **SQL twin** is `tgb_parse_geo` / `tgb_compose_geo` / `tgb_canonical_gift_shop_city` in [supabase/migrations/20260711_structured_geo.sql](supabase/migrations/20260711_structured_geo.sql) — **keep JS and SQL in lock-step** (same parse cases: `Denver, CO`→`CO/Colorado/USA`, `Paris, France`→`FRA`, `Toronto, ON`→`ON/Ontario/CAN`).
 
 - The **game editor is [mc/overview.html](mc/overview.html)** (editgames.html/builder.html/mapper.html all point here). Its Start City is now **City textbox + State/Province dropdown + Country dropdown** (`#nodeCityInput` / `#nodeStateInput` / `#nodeCountryInput`); on change it composes `meta.city` and fills `meta.cityName/stateCode/stateName/countryCode/countryName`, serialized via `GAME_COLUMN_TO_NODE_FIELD`. `builder.html` has no Start City inspector markup (its `nodeCityInput` JS is dead/guarded) — only its data-path was updated. `mc/challenges.html` is a stale, unreferenced twin — do not edit it.
 - **BEFORE INSERT/UPDATE triggers** (`tgb_sync_*_geo`) fill the structured columns from the string via `coalesce(existing, parsed)`, so **explicit values win** and SQL-only inserts (the shop's paste-in importers) still get them. This is why the shop admin didn't need to send structured columns — the trigger derives them.
 - **Icons** (`cityGeoBadge` in [games/index.html](games/index.html) + [shop/index.html](shop/index.html)) delegate to `TgbGeo.geoBadge`, which resolves 2-letter codes / provinces / countries the old name-only map couldn't. New `games` columns are probed by `serializeGameRow` (auto-disabled if the migration isn't applied yet), so the writer degrades gracefully.
-- The migration is **additive + reversible**: rollback is [_dev/scratch/rollback-structured-geo.sql](_dev/scratch/rollback-structured-geo.sql). It normalizes existing **US** `games.city` strings to full-name form but never rewrites the `gift_shop_cities` PK or `/shop/?city=` links.
+- The migration is **additive + reversible**: rollback is [_dev/scratch/rollback-structured-geo.sql](_dev/scratch/rollback-structured-geo.sql). It normalizes existing **US** `games.city` strings to full-name form but never rewrites city keys or `/shop/?city=` links.
 
 **How to apply:** add new geo fields via `TgbGeo` — never re-introduce a local state map. When adding a `games` meta field, follow the `initGameMeta` snake_case ?? camelCase ?? node fallback rule. If you change the maps, update both `assets/geo.js` and the SQL twin.
 

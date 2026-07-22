@@ -14,7 +14,7 @@
  * <script src="/assets/geo.js"></script> and read window.TgbGeo.
  *
  * Canonical composed-string standard (the value stored in games.city /
- * gift_shop_cities.city and passed through the /shop/?city= URL):
+ * cities.city and passed through the /shop/?city= URL):
  *   - US:   "City, FullStateName"        (e.g. "Denver, Colorado")
  *   - DC:   "City, D.C."                  (e.g. "Washington, D.C.")
  *   - Intl: "City, CountryName"          (e.g. "Paris, France")
