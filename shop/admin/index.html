@@ -2801,7 +2801,10 @@
       itemSortSelect.addEventListener('change', resetItemsPaging);
     }
     if (statusFilter) {
-      statusFilter.addEventListener('change', resetItemsPaging);
+      statusFilter.addEventListener('change', () => {
+        keptInStatusView.clear();   // a new view, not the pass you were making
+        resetItemsPaging();
+      });
     }
     if (loadMoreBtn) {
       loadMoreBtn.addEventListener('click', () => {
@@ -2871,6 +2874,12 @@
     const ALL_CITIES_PARAM = 'all';
     const wantsAllCities = initialShopCityParam.toLowerCase() === ALL_CITIES_PARAM;
     const initialShopCity = wantsAllCities ? '' : initialShopCityParam;
+    // Gifts saved into a status that the active status filter excludes. They
+    // stay on screen anyway: working down "Review" and shelving as you go
+    // shouldn't make each card vanish the moment you decide about it — you lose
+    // your place, and an undo means hunting for it under another filter.
+    // Cleared when you pick a different status filter.
+    const keptInStatusView = new Set();
     // Cards are heavy, so the list paints a page at a time behind LOAD MORE.
     const ITEMS_PAGE_SIZE = 100;
     let itemsVisibleLimit = ITEMS_PAGE_SIZE;
@@ -3540,6 +3549,7 @@
       if (itemSearchInput) itemSearchInput.value = '';
       if (statusFilter) statusFilter.value = '';
       if (itemSortSelect) itemSortSelect.value = 'status';
+      keptInStatusView.clear();
       selectAllCities(); // resets paging back to the first page
     }
 
@@ -3702,7 +3712,8 @@
       // Review), i.e. anything you haven't passed on.
       const status = entryStatus(entry);
       const statusMatch = !wantStatus ||
-        (wantStatus === 'NOT_SHELVED' ? status !== 'SHELVED' : status === wantStatus);
+        (wantStatus === 'NOT_SHELVED' ? status !== 'SHELVED' : status === wantStatus) ||
+        keptInStatusView.has(entry.id);
       const queryMatch = !query ||
         entryTitle(entry).toLowerCase().includes(query) ||
         entryDescription(entry).toLowerCase().includes(query);
@@ -4265,9 +4276,17 @@
           setStatusChoice(articleStatus());
           refreshStatusLabel();
           const fannedOut = await syncListings(article, article.dataset.id);
-          setItemStatus(opts.certifiedAt
+          // Saved out of the filtered view? Pin it so it stays put for now.
+          const wantStatus = statusFilter ? statusFilter.value : '';
+          const nowStatus = articleStatus();
+          const leftTheView = wantStatus && (wantStatus === 'NOT_SHELVED'
+            ? nowStatus === 'SHELVED'
+            : nowStatus !== wantStatus);
+          if (leftTheView && article.dataset.id) keptInStatusView.add(String(article.dataset.id));
+          const savedMsg = opts.certifiedAt
             ? 'Saved & published ' + formatCertDate(opts.certifiedAt) + '.'
-            : (opts.rejectedAt ? 'Saved & shelved.' : 'Saved.'), 'success');
+            : (opts.rejectedAt ? 'Saved & shelved.' : 'Saved.');
+          setItemStatus(leftTheView ? savedMsg + ' Kept in view.' : savedMsg, 'success');
           clearItemDirty(article);
           setTimeout(() => setItemStatus(''), 2200);
           if (wasNewItem && article.dataset.id && opts.openAfterCreate !== false) {
