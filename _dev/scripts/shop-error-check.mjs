@@ -603,6 +603,7 @@ function buildHtml(state, meta, ignoredIds) {
   .guide-body dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; align-items: baseline; max-width: 860px; }
   .guide-body dt { font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink); white-space: nowrap; }
   .guide-body dd { margin: 0; }
+  .guide-body dd code { padding: 1px 5px; border-radius: 4px; background: rgba(var(--bic-blue-rgb), 0.08); font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; }
   @media (max-width: 620px) {
     .guide-body dl { grid-template-columns: 1fr; gap: 2px; }
     .guide-body dd { margin: 0 0 8px; }
@@ -751,7 +752,7 @@ function buildHtml(state, meta, ignoredIds) {
       <dl>
         <dt>Edit gift</dt><dd>Opens that gift in the Stock Room in a new tab, where you can fix it &mdash; or delete it. Nothing on this page deletes anything.</dd>
         <dt>Clear issue</dt><dd>Silences this line. The gift is not changed at all: a dead link stays dead and shoppers still hit it. For a false alarm, not for something you mean to fix later.</dd>
-        <dt>Restore issue</dt><dd>Undoes that &mdash; the line comes back on the next run.</dd>
+        <dt>Restore issue</dt><dd>Undoes that &mdash; the line comes back on the next run. Clears live in Supabase, so they hold across devices and survive the nightly regeneration.</dd>
       </dl>
       <p>Tick the checkboxes to act on several at once; the bar that appears does the same two things to everything selected.</p>
 
@@ -769,10 +770,10 @@ function buildHtml(state, meta, ignoredIds) {
 
       <h3>What the badges mean</h3>
       <dl>
-        <dt>Dead</dt><dd>404, 410 or 451 &mdash; the page is gone.</dd>
-        <dt>Not image</dt><dd>The URL loaded, but what came back isn't a picture.</dd>
-        <dt>Error</dt><dd>Some other failure: a 5xx, a timeout, or a domain that no longer resolves.</dd>
-        <dt>Blocked</dt><dd>403, 429 or 503 &mdash; refused, probably anti-bot. Inconclusive, not proof of a fault.</dd>
+        <dt>Dead</dt><dd><code>404 / 410 / 451</code> &mdash; the page is gone.</dd>
+        <dt>Not image</dt><dd><code>200</code>, but what came back isn't a picture.</dd>
+        <dt>Error</dt><dd>Some other failure &mdash; a <code>4xx/5xx</code>, a timeout, or a domain that no longer resolves.</dd>
+        <dt>Blocked</dt><dd><code>403 / 429 / 503</code> &mdash; refused, probably anti-bot. Inconclusive, not proof of a fault.</dd>
       </dl>
     </div>
   </details>
@@ -793,8 +794,6 @@ function buildHtml(state, meta, ignoredIds) {
     </div>
   </details>
 
-  <p class="dim">dead = 404/410/451 · not image = 200 but not an image · error = other 4xx/5xx, timeout, DNS · blocked = 403/429/503 (anti-bot, inconclusive).</p>
-  <p class="dim"><strong>Edit gift</strong> opens the gift in the Stock Room, where you can fix or delete it. <strong>Clear issue</strong> only silences this report line; the gift stays exactly as it is, and <strong>restore issue</strong> puts the line back. Cleared lines live in Supabase, so they persist across devices and survive the nightly regeneration. Sign in as an admin to use any of them.</p>
   <script id="shoperrors-state" type="application/json">${stateJson}</script>
   <script src="/mc/js/admin-auth.js"></script>
   <script>
