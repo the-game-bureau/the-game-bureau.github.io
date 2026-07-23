@@ -918,6 +918,13 @@
       color: #fff;
       box-shadow: 0 8px 18px rgba(var(--bic-blue-rgb), 0.16);
     }
+    /* Featured is an independent toggle, not a status — gold, not accent-blue. */
+    .item-featured-choice:has(input:checked) {
+      border-color: #b8860b;
+      background: #c9a227;
+      color: #3a2c05;
+      box-shadow: 0 8px 18px rgba(180, 134, 11, 0.22);
+    }
     /* Sits under the status choices — it's the date the item last went LIVE. */
     /* Delete sits in the status row but is an action, not a state: red, never
        "selected", and it asks before it does anything. */
@@ -3148,6 +3155,12 @@
                 </label>
               </div>
               <div class="item-status-slot">
+                <label class="item-status-choice item-featured-choice" title="Feature this gift on the shop's default FEATURED GIFTS view. Independent of status.">
+                  <input type="checkbox" data-field="featured">
+                  <span>★ Featured</span>
+                </label>
+              </div>
+              <div class="item-status-slot">
                 <button class="item-status-delete" type="button" data-action="delete-item" title="Delete this gift from the database. Permanent — use Shelved to keep the record.">Delete</button>
               </div>
             </div>
@@ -4515,6 +4528,7 @@
         return el ? el.value : '';
       };
       const focus = String(article.dataset.imageFocus || '50% 50%');
+      const featuredEl = article.querySelector('[data-field="featured"]');
       return {
         kind: 'amazon_link',
         title: get('title').trim() || null,
@@ -4523,6 +4537,8 @@
         image_url: get('image_url').trim() || null,
         image_focus: focus,
         description: get('description').trim() || null,
+        // Featured flag, same 'YES'/null convention as games.featured.
+        featured: featuredEl && featuredEl.checked ? 'YES' : null,
         // Review is automatic unless this row is shelved or live. Keep archived
         // false for ordinary Review/Live saves; shelving still writes true as a
         // legacy/public-hide belt-and-suspenders value.
@@ -4730,6 +4746,7 @@
       set('cta_label', item.cta_label);
       set('image_url', item.image_url);
       set('description', item.description);
+      set('featured', /^(yes|true|t|1)$/i.test(String(item.featured || '')));
 
       // Current shops render as deletable chips; "+ Add to shops" opens a
       // searchable multi-select picker. State + persistence live in bindListings.
