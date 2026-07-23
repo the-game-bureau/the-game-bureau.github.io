@@ -2631,15 +2631,46 @@
         width: 100%;
       }
 
-      /* Target preview: on a phone the card goes full-width and the box gets a
-         touch taller, so give the title room. The "page and image loads" line is
-         reassurance — drop it on mobile so the gift TITLE always fits and shows;
-         the match line below still reports the image state. */
-      .item-target-frame { aspect-ratio: 400 / 232; }
-      .item-target-ok { display: none; }
+      /* Target preview on a phone: the desktop layout is a fixed-height box with
+         the chrome bar, image and text all absolutely positioned — on a short
+         phone box the title/status overflow and get clipped, so you'd see "just
+         the image". Here the box instead GROWS to fit its content: the bar, image
+         and text sit in normal flow, nothing is clipped, and the title always
+         shows. fitTargetTitle() bails on this width (see its guard) so the title
+         keeps a readable size and simply wraps. */
+      .item-target-frame {
+        aspect-ratio: auto;
+        height: auto;
+        min-height: 150px;
+      }
+      .item-target-bar { position: relative; }
+      .item-target-page {
+        position: relative;
+        top: auto;
+        min-height: 118px;
+      }
+      .item-target-frame [data-target-placeholder] {
+        position: relative;
+        top: auto;
+        min-height: 118px;
+      }
       .item-target-img,
-      .item-target-pdf { flex: 0 0 42%; }
-      .item-target-title { font-size: 0.72rem; }
+      .item-target-pdf {
+        flex: 0 0 40%;
+        min-height: 118px;
+      }
+      .item-target-text {
+        justify-content: flex-start;
+        overflow: visible;
+      }
+      /* Reassurance line is dropped on mobile; the match line still reports the
+         image state, and the title now has room to wrap in full. */
+      .item-target-ok { display: none; }
+      .item-target-title {
+        font-size: 0.82rem;
+        overflow: visible;
+      }
+      .item-target-thumb { width: 30px; height: 30px; }
 
       /* Target lightbox goes full-screen with roomy touch targets on a phone. */
       .target-frame { padding: 0; }
@@ -5154,6 +5185,13 @@
       // the two status lines below it.
       function fitTargetTitle() {
         if (!targetCaption) return;
+        // On phones the preview box grows to fit its content (see the mobile CSS),
+        // so there's nothing to shrink into — keep the CSS font size and let the
+        // title wrap. Shrinking here would just make it needlessly tiny.
+        if (window.matchMedia && window.matchMedia('(max-width: 720px)').matches) {
+          targetCaption.style.fontSize = '';
+          return;
+        }
         const col = targetCaption.parentElement;
         if (!col) return;
         targetCaption.style.fontSize = '';
