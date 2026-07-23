@@ -1362,11 +1362,20 @@
       z-index: 2;
       display: grid;
       place-items: center;
-      padding: 0 12px;
+      padding: 8px 14px;
+      /* The error text can be a full explanation now, so drop the uppercase +
+         letter-spacing it inherits from .item-focus and let it read as a
+         sentence that wraps. */
       white-space: pre-line;
+      overflow-wrap: anywhere;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 0.66rem;
+      line-height: 1.4;
       color: var(--muted);
       text-align: center;
     }
+    .item-target-frame[data-state="error"] [data-target-placeholder] { color: #b23a3a; }
     .item-target-frame[data-state="ok"] [data-target-placeholder],
     .item-target-frame[data-state="pdf"] [data-target-placeholder] { display: none; }
 
@@ -5100,6 +5109,18 @@
       const targetPdf = article.querySelector('[data-target-pdf]');
       const targetOkLine = article.querySelector('.item-target-ok');
       const isPdfUrl = (u) => /\.pdf($|[?#])/i.test(u || '');
+      // The scraper can return an image URL the browser itself can't load (a
+      // hotlink-/referrer-blocked og:image is the usual culprit). Catch that so
+      // the status line explains it rather than leaving a broken-image icon.
+      if (targetImg) {
+        targetImg.addEventListener('error', () => {
+          if (!targetImg.getAttribute('src')) return; // cleared on purpose, not a failure
+          if (targetFrame && targetFrame.dataset.state === 'ok' && targetOkLine) {
+            targetOkLine.textContent = '⚠ image link found, but it won’t load here (often hotlink-blocked) — use ⧉ or add your own';
+            targetOkLine.style.color = '#a5791a';
+          }
+        });
+      }
       const targetPlaceholder = targetFrame ? targetFrame.querySelector('[data-target-placeholder]') : null;
       const targetCaption = article.querySelector('[data-target-caption]');
       const targetHost = article.querySelector('[data-target-host]');
@@ -5156,9 +5177,9 @@
         if (targetFrame) targetFrame.dataset.state = state;
         if (targetPlaceholder && state !== 'ok' && state !== 'pdf') {
           targetPlaceholder.textContent =
-            state === 'loading' ? 'LOADING…' :
-            state === 'error' ? (opts.message || 'PAGE UNREACHABLE\nMAYBE A 404 — CHECK WITH ⤢') :
-            'NO LINK';
+            state === 'loading' ? 'Loading preview…' :
+            state === 'error' ? (opts.message || 'No preview available.\nUse ⤢ to open the link.') :
+            'No link yet';
         }
         // A PDF link is embedded live (no scrape); everything else shows the
         // scraped og:image. Only one of the two <img>/<iframe> is ever loaded.
@@ -5168,13 +5189,29 @@
           if (state === 'pdf') {
             targetPreviewImage = ''; // no web image to offer for a PDF
             if (targetPdf) targetPdf.src = opts.pdf + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
-            if (targetOkLine) targetOkLine.textContent = '✓ PDF loads successfully';
+            if (targetOkLine) { targetOkLine.textContent = '✓ PDF loads successfully'; targetOkLine.style.color = ''; }
           } else {
             targetPreviewImage = opts.image || '';
-            if (targetImg) targetImg.src = opts.image || '';
-            if (targetOkLine) targetOkLine.textContent = '✓ page and image loads successfully';
+            if (targetOkLine) targetOkLine.style.color = ''; // clear any prior warn tint
+            if (targetImg) {
+              if (opts.image) targetImg.src = opts.image;
+              else targetImg.removeAttribute('src');
+            }
+            // Say what actually came back — image + title, or one without the other —
+            // so a missing name/image reads as a known state, not a silent gap.
+            if (targetOkLine) targetOkLine.textContent = opts.image
+              ? '✓ page loaded, preview image found'
+              : '✓ page loaded — no preview image found (add one below)';
           }
-          if (targetCaption) targetCaption.textContent = opts.title || '';
+          // Fall back to the gift's own Title, then the host, so the caption is
+          // never blank when the page has no og:title.
+          if (targetCaption) {
+            targetCaption.textContent = (state === 'pdf' ? opts.title : (
+              opts.title ||
+              (article.querySelector('[data-field="title"]')?.value || '').trim() ||
+              (targetHost && targetHost.textContent) || ''
+            )) || '';
+          }
           refreshTargetMatch();  // sets the second line's height…
           fitTargetTitle();      // …so the title fits the space that's left
         } else {
@@ -5199,16 +5236,42 @@
           return;
         }
         setTargetState('loading');
+        let res, data;
         try {
-          const data = await lookupSource(url);
-          const image = String(data.image_url || '').trim();
-          const title = String(data.title || '').trim();
-          if (!image && !title) { setTargetState('error', { message: 'NO PREVIEW\nOPEN WITH ⤢' }); return; }
-          setTargetState('ok', { image, title });
+          res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/scrape-amazon', {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ url })
+          });
+          data = await res.json().catch(() => ({}));
         } catch (err) {
-          targetLoadedUrl = null; // let a later retry try again
-          setTargetState('error');
+          // A thrown fetch means the browser never got a reply — network/CORS,
+          // not the target page. Let a later scroll-in retry.
+          targetLoadedUrl = null;
+          setTargetState('error', { message:
+            'Couldn’t reach the preview service.\nCheck your connection, then use ⤢ to open the link.' });
+          return;
         }
+        const image = String((data && data.image_url) || '').trim();
+        const title = String((data && data.title) || '').trim();
+        // Even a partial result (image OR title) is worth showing.
+        if (image || title) { setTargetState('ok', { image, title }); return; }
+        // Nothing to show — explain exactly why, from the server's own reason.
+        setTargetState('error', { message: describeTargetError(res.status, data, url) });
+      }
+      // Turn the scraper's response into a plain, specific explanation for the
+      // middle of the preview box — so a blank preview says WHY (blocked bot,
+      // 404, no OG tags, timeout) instead of a generic "unreachable".
+      function describeTargetError(status, data, url) {
+        const reason = (data && data.error ? String(data.error) : '').trim();
+        const host = hostOf(url) || 'the site';
+        if (reason) {
+          // The Edge Function already writes a full sentence; add an open hint
+          // unless it already tells you to open the link.
+          return /open (it|the link|with)|⤢/i.test(reason) ? reason : reason + '\nUse ⤢ to open and check it.';
+        }
+        if (!status) return 'No preview came back for ' + host + '.\nUse ⤢ to open the link.';
+        return 'Couldn’t build a preview for ' + host + ' (error ' + status + ').\nThe link may still be fine — use ⤢ to open it.';
       }
       if (targetHost) targetHost.textContent = hostOf((urlInput && urlInput.value || '').trim());
       setTargetState((urlInput && urlInput.value || '').trim() ? 'loading' : 'empty');

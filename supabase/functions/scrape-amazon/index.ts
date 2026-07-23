@@ -1,10 +1,18 @@
 // scrape-amazon — Supabase Edge Function
 //
-// Fetches an Amazon or Bookshop.org product page and returns:
+// Fetches a product/destination page and returns:
 //   { title, description, image_url, price_display }
+// or, when there's nothing to show, a specific { error, ... } the caller can
+// display verbatim (blocked bot, 404, timeout, non-HTML, no OG tags, …).
 //
-// (Name kept as scrape-amazon so the deployed endpoint / config stays stable;
-// it now also accepts bookshop.org, extracted via the generic OG/JSON-LD path.)
+// (Name kept as scrape-amazon so the deployed endpoint / config stays stable.)
+// It handles THREE cases:
+//   1. Bookshop.org  → metadata by ISBN via Google Books + Open Library
+//      (the page itself sits behind Cloudflare and 403s datacenter scrapes).
+//   2. Amazon        → fetch + Amazon-specific DOM selectors, then OG/JSON-LD.
+//   3. Any other site (visitor guides, tickets, experiences) → fetch + generic
+//      OG / JSON-LD / meta extraction. This is what makes destination links,
+//      not just store links, previewable.
 //
 // Why server-side: Amazon blocks browser CORS, varies content by
 // User-Agent, and 429s anonymous traffic aggressively. Running this
@@ -41,7 +49,8 @@ const CORS_HEADERS = {
 const DESKTOP_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-const AMAZON_HOST_RE = /(?:^|\.)amazon\.[a-z.]+$|(?:^|\.)amzn\.[a-z]+$|^a\.co$/;
+// Amazon no longer needs a host test — it flows through the same fetch+extract
+// path as every other site, with readAmazonDom() adding Amazon-only selectors.
 const BOOKSHOP_HOST_RE = /(?:^|\.)bookshop\.org$/;
 
 // Optional Google Books API key. The keyless quota is shared globally and is
@@ -93,10 +102,14 @@ Deno.serve(async (req: Request) => {
         return "";
       }
     })();
-    const isAmazon = AMAZON_HOST_RE.test(hostname);
     const isBookshop = BOOKSHOP_HOST_RE.test(hostname);
-    if (!hostname || (!isAmazon && !isBookshop)) {
-      return json({ error: "Only Amazon or Bookshop.org URLs are supported." }, 400);
+    if (!hostname) {
+      return json({ error: "That link isn't a valid web address." }, 400);
+    }
+    // Now that any host is fetchable, refuse internal/private targets so this
+    // can't be used to probe the local network (basic SSRF guard).
+    if (isPrivateHost(hostname)) {
+      return json({ error: "That address is a private/internal host and can't be previewed." }, 400);
     }
 
     // Bookshop.org sits behind Cloudflare and 403s server-side scrapes from
@@ -118,27 +131,61 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const upstream = await fetch(targetUrl, {
-      headers: {
-        "User-Agent": DESKTOP_UA,
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-      },
-      redirect: "follow",
-    });
+    let upstream: Response;
+    try {
+      upstream = await fetchWithTimeout(targetUrl, {
+        headers: {
+          "User-Agent": DESKTOP_UA,
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Accept-Encoding": "gzip, deflate, br",
+        },
+        redirect: "follow",
+      });
+    } catch (err) {
+      const timedOut = err instanceof DOMException && err.name === "AbortError";
+      return json({
+        error: timedOut
+          ? "The site took too long to respond (timed out after 9s)."
+          : `Couldn't reach the site (${err instanceof Error ? err.message : String(err)}). It may be down, or it blocks servers.`,
+      }, 502);
+    }
 
     if (!upstream.ok) {
-      return json(
-        { error: `Product page fetch failed (${upstream.status} ${upstream.statusText})` },
-        502,
-      );
+      // Distinguish "the site refused our bot" from "the page is really gone",
+      // so the caller can say which — a live link often still 403s a scraper.
+      const blocked = upstream.status === 403 || upstream.status === 401 ||
+        upstream.status === 429 || upstream.status === 406;
+      return json({
+        error: blocked
+          ? `The site blocked our preview bot (${upstream.status} ${upstream.statusText || "Forbidden"}). The link itself may be fine — open it to check.`
+          : `The page didn't load (${upstream.status} ${upstream.statusText || "error"})${upstream.status === 404 ? " — it looks gone (404)" : ""}.`,
+        status: upstream.status,
+        blocked,
+      }, 502);
     }
+
+    // Only HTML has OG/JSON-LD tags to read; a direct image/PDF/JSON URL doesn't.
+    const contentType = (upstream.headers.get("content-type") || "").toLowerCase();
+    if (contentType && !/(text\/html|application\/xhtml)/.test(contentType)) {
+      return json({
+        error: `That link is a ${contentType.split(";")[0] || "non-HTML"} file, not a web page — nothing to preview here.`,
+      }, 200);
+    }
+
     const html = await upstream.text();
     const doc = new DOMParser().parseFromString(html, "text/html");
-    if (!doc) return json({ error: "Could not parse Amazon page." }, 500);
+    if (!doc) return json({ error: "The page loaded but its HTML couldn't be read." }, 502);
 
-    const result = extract(doc);
+    const result = extract(doc, targetUrl);
+    // A page with no title AND no image gives nothing to show — say so plainly
+    // rather than returning an empty-looking success.
+    if (!result.title && !result.image_url) {
+      return json({
+        error: "The page loaded, but it offers no title or preview image to show.",
+        empty: true,
+      }, 200);
+    }
     return json(result, 200);
   } catch (err) {
     console.error("[scrape-amazon] error", err);
@@ -148,6 +195,37 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
+
+// Block loopback, link-local, and RFC-1918 private hosts — a scraper that
+// fetches any URL shouldn't be usable to reach the internal network.
+function isPrivateHost(host: string): boolean {
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return true;
+  if (host === "0.0.0.0" || host === "::1" || host === "[::1]") return true;
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const [a, b] = [Number(m[1]), Number(m[2])];
+    if (a === 127 || a === 10 || a === 0) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+  }
+  return false;
+}
+
+// Fetch with a hard timeout so one slow/hanging site can't stall the function.
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  ms = 9000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function readUrl(req: Request): Promise<string> {
   if (req.method === "POST") {
@@ -288,17 +366,34 @@ async function coverForIsbn(isbn: string, fallback: string): Promise<string> {
 // First non-empty value wins.
 // ──────────────────────────────────────────────────────────────────────
 
-function extract(doc: ReturnType<typeof parse>): ScrapeResult {
+function extract(doc: ReturnType<typeof parse>, baseUrl = ""): ScrapeResult {
   const og = readOg(doc);
   const ld = readJsonLd(doc);
   const az = readAmazonDom(doc);
 
+  const title = (az.title || ld.title || og.title || "").trim();
+  // og:image / JSON-LD image can be root-relative or protocol-relative on
+  // non-Amazon sites; resolve against the page URL so the browser can load it.
+  const rawImage = (az.image || ld.image || og.image || "").trim();
   return {
-    title: az.title || ld.title || og.title,
+    title,
     description: az.description || ld.description || og.description,
-    image_url: az.image || ld.image || og.image,
+    image_url: absolutize(rawImage, baseUrl),
     price_display: az.price || ld.price || "",
   };
+}
+
+// Turn a relative or protocol-relative image URL into an absolute one.
+function absolutize(src: string, base: string): string {
+  if (!src) return "";
+  if (/^https?:\/\//i.test(src)) return src;
+  if (src.startsWith("//")) return "https:" + src;
+  if (!base) return src;
+  try {
+    return new URL(src, base).toString();
+  } catch {
+    return src;
+  }
 }
 
 // dummy parse type for the helpers — unused at runtime, just gives us
