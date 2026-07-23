@@ -261,6 +261,17 @@
       letter-spacing: 0.03em;
       line-height: 1;
     }
+    /* Item-count summary sits directly under the title. Double-scoped so it beats
+       the later, lower-specificity .status rule on margin/min-height. */
+    .stockroom-titlecol .stockroom-substat {
+      margin: 3px 0 0;
+      min-height: 0;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .stockroom-substat:empty { display: none; }
     .stockroom-tag {
       align-self: center;
       font-family: "IBM Plex Mono", monospace;
@@ -761,7 +772,8 @@
       position: fixed;
       right: 20px;
       bottom: 20px;
-      z-index: 1200;
+      /* Always on top when visible — above every modal/lightbox on the page. */
+      z-index: 3000;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -1300,6 +1312,28 @@
       display: block;
       pointer-events: none;
     }
+    /* Thumbnail + (in the override state) a copy-the-preview button beside it. */
+    .item-target-thumbrow { align-self: center; display: flex; align-items: center; gap: 6px; }
+    .item-target-copy {
+      flex: 0 0 auto;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 0.95rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .item-target-copy:hover,
+    .item-target-copy:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+    /* Offered only when our image doesn't match the suggested one. */
+    .item-target-match[data-state="override"] .item-target-copy { display: inline-flex; }
     .item-target-frame [data-target-placeholder] {
       position: absolute;
       top: 24px;
@@ -2811,15 +2845,15 @@
           <div class="stockroom-titlecol">
             <span class="stockroom-eyebrow">THE GAME BUREAU</span>
             <h1 class="stockroom-title">STOCK ROOM</h1>
+            <p class="status stockroom-substat" id="shopStatus" aria-live="polite"></p>
           </div>
-          <a class="stockroom-tag" href="/shop/" title="Open the public gift shop">GIFT SHOP ↗</a>
         </div>
         <div class="stockroom-head-status">
-          <p class="status" id="shopStatus" aria-live="polite"></p>
           <div class="save-needed" id="saveNeededBanner" aria-live="polite" hidden>
             <span class="save-needed-text" id="saveNeededText">Unsaved changes</span>
             <button class="btn primary" id="saveAllChangesBtn" type="button">SAVE ALL CHANGES</button>
           </div>
+          <a class="btn" href="/shop/" target="_blank" rel="noopener noreferrer" title="Open the public gift shop in a new tab">GIFT SHOP ↗</a>
           <button class="btn admin-auth-toggle" id="adminAuthToggleBtn" type="button" aria-label="ADMIN LOGON" title="ADMIN LOGON">ADMIN LOGON</button>
         </div>
       </div>
@@ -2930,9 +2964,12 @@
                 <span class="item-target-ok">✓ page and image loads successfully</span>
                 <span class="item-target-match" data-target-match>
                   <span class="item-target-match-text" data-target-match-text></span>
-                  <button type="button" class="item-target-thumb" data-action="zoom-our-image" title="Open our gift image" hidden>
-                    <img data-target-thumb alt="" referrerpolicy="no-referrer">
-                  </button>
+                  <span class="item-target-thumbrow">
+                    <button type="button" class="item-target-thumb" data-action="zoom-our-image" title="Open our gift image" hidden>
+                      <img data-target-thumb alt="" referrerpolicy="no-referrer">
+                    </button>
+                    <button type="button" class="item-target-copy" data-action="use-preview-image" title="Copy the image shown in the Target preview into the Image field" aria-label="Use the target preview image">⧉</button>
+                  </span>
                 </span>
               </div>
             </div>
@@ -3217,7 +3254,7 @@
     // Cleared when you pick a different status filter.
     const keptInStatusView = new Set();
     // Cards are heavy, so the list paints a page at a time behind LOAD MORE.
-    const ITEMS_PAGE_SIZE = 100;
+    const ITEMS_PAGE_SIZE = 10;
     let itemsVisibleLimit = ITEMS_PAGE_SIZE;
     let initialItemFocusPending = !!initialItemId;
     let initialCityFilterApplied = false;
@@ -5128,11 +5165,11 @@
         });
       });
 
-      // The Image field's button copies the image already shown in the Target
-      // preview (the page's og:image) into the Image field — no re-scrape. You can
-      // still type any other address in the field for the gift-shop image.
-      const usePreviewBtn = article.querySelector('[data-action="use-preview-image"]');
-      if (usePreviewBtn) {
+      // The "use preview image" buttons copy the image already shown in the Target
+      // preview (the page's og:image) into the Image field — no re-scrape. There are
+      // two: one beside the Image field, and one beside the thumbnail (shown only
+      // when our image differs). You can still type any other address in the field.
+      article.querySelectorAll('[data-action="use-preview-image"]').forEach((usePreviewBtn) => {
         usePreviewBtn.addEventListener('click', () => {
           const imageInput = article.querySelector('[data-field="image_url"]');
           if (!imageInput) return;
@@ -5149,7 +5186,7 @@
           markItemDirty(article);
           setItemStatus('Copied the target preview image into the Image field — review, then Save.', 'success');
         });
-      }
+      });
 
       // Keep the match line in step as the Image field is edited, and open our
       // image in the lightbox from the tiny thumbnail (⤢ inside it → new tab).
