@@ -86,7 +86,7 @@
       // Single button to the Stock Room. The affiliate/API reference links
       // (Google Cloud, Amazon Associates, Bookshop.org) now live on the Stock
       // Room page itself, so the hub just needs the one door in.
-      label: 'Gift Shop Stock Room',
+      label: 'Stock Room',
       href: '/shop/admin/',
       description: 'Manage gift-shop items — links, images, cities, and publish/archive state.'
     },

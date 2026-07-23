@@ -635,7 +635,7 @@ function buildHtml(state, meta, ignoredIds) {
 </head>
 <body>
   <div class="topbar">
-    <a class="topbar-back" href="/shop/admin/" title="Back to the Gift Shop Stock Room">← Stock Room</a>
+    <a class="topbar-back" href="/shop/admin/" title="Back to the Stock Room">← Stock Room</a>
     <div class="topbar-actions">
       <button id="aiAuditBtn" type="button" title="Use AI to check every tracked gift's fields agree: Image matches Title, Title matches Link, and Shops line up.">AI audit</button>
       <button id="runCheckBtn" type="button" title="Kick off the Link/Image check on GitHub Actions now instead of waiting for the nightly run.">Run check now</button>
@@ -643,7 +643,7 @@ function buildHtml(state, meta, ignoredIds) {
     </div>
   </div>
   <section class="section-head">
-    <p class="kicker">TGB MISSION CONTROL</p>
+    <p class="kicker">GIFT SHOP</p>
     <h1>Gift Shop · Issues</h1>
     <p class="meta">Last run <strong>${esc(meta.date)} ${esc(meta.time)} ${esc(TZ)}</strong> · ${meta.full
       ? `checked <strong>all gifts</strong> (manual run) — ${meta.checkedThisRun} gifts.`
