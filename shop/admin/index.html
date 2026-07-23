@@ -1217,7 +1217,26 @@
       padding: 10px;
       background: #fff;
     }
-    .item-target-frame[data-state="ok"] .item-target-page { display: flex; }
+    .item-target-frame[data-state="ok"] .item-target-page,
+    .item-target-frame[data-state="pdf"] .item-target-page { display: flex; }
+    /* A real PDF (city visitor guides etc.) can't be scraped for an og:image, so
+       instead of "NO PREVIEW" we embed the PDF itself as the page body — the same
+       46% slot the image would take — which both previews it and proves it loads. */
+    .item-target-pdf {
+      display: none;
+      flex: 0 0 46%;
+      align-self: stretch;
+      width: auto;
+      height: auto;
+      min-height: 0;
+      border: 0;
+      border-radius: 4px;
+      background: #f4f5f7;
+      /* Let touch scrolling reach the card, not the embedded PDF. */
+      pointer-events: none;
+    }
+    .item-target-frame[data-state="pdf"] .item-target-pdf { display: block; }
+    .item-target-frame[data-state="pdf"] .item-target-img { display: none; }
     .item-target-frame .item-target-img {
       position: static;
       flex: 0 0 46%;
@@ -1348,7 +1367,8 @@
       color: var(--muted);
       text-align: center;
     }
-    .item-target-frame[data-state="ok"] [data-target-placeholder] { display: none; }
+    .item-target-frame[data-state="ok"] [data-target-placeholder],
+    .item-target-frame[data-state="pdf"] [data-target-placeholder] { display: none; }
 
     .item-fields .field-wide { grid-column: 1 / -1; }
     /* The five shopper-facing fields, boxed like their siblings (Verify, Shops,
@@ -2602,6 +2622,29 @@
         width: 100%;
       }
 
+      /* Target preview: on a phone the card goes full-width and the box gets a
+         touch taller, so give the title room. The "page and image loads" line is
+         reassurance — drop it on mobile so the gift TITLE always fits and shows;
+         the match line below still reports the image state. */
+      .item-target-frame { aspect-ratio: 400 / 232; }
+      .item-target-ok { display: none; }
+      .item-target-img,
+      .item-target-pdf { flex: 0 0 42%; }
+      .item-target-title { font-size: 0.72rem; }
+
+      /* Target lightbox goes full-screen with roomy touch targets on a phone. */
+      .target-frame { padding: 0; }
+      .target-frame-panel {
+        width: 100%;
+        height: 100svh;
+        height: 100dvh;
+        max-height: none;
+        border-radius: 0;
+      }
+      .target-frame-bar { padding: 10px 12px; gap: 8px; }
+      .target-frame-open { padding: 8px 12px; min-height: 40px; display: inline-flex; align-items: center; }
+      .target-frame-close { width: 40px; height: 40px; }
+
       .item-status-panel {
         width: 100%;
       }
@@ -2959,6 +3002,7 @@
             <span data-target-placeholder>NO LINK</span>
             <div class="item-target-page">
               <img class="item-target-img" data-target-img alt="" referrerpolicy="no-referrer">
+              <iframe class="item-target-pdf" data-target-pdf title="PDF preview" referrerpolicy="no-referrer" tabindex="-1"></iframe>
               <div class="item-target-text">
                 <span class="item-target-title" data-target-caption></span>
                 <span class="item-target-ok">✓ page and image loads successfully</span>
@@ -5053,6 +5097,9 @@
       // dozens of edge-function calls at once; the ⤢ expand opens it in a new tab.
       const targetFrame = article.querySelector('[data-target-frame]');
       const targetImg = article.querySelector('[data-target-img]');
+      const targetPdf = article.querySelector('[data-target-pdf]');
+      const targetOkLine = article.querySelector('.item-target-ok');
+      const isPdfUrl = (u) => /\.pdf($|[?#])/i.test(u || '');
       const targetPlaceholder = targetFrame ? targetFrame.querySelector('[data-target-placeholder]') : null;
       const targetCaption = article.querySelector('[data-target-caption]');
       const targetHost = article.querySelector('[data-target-host]');
@@ -5107,15 +5154,26 @@
       function setTargetState(state, opts) {
         opts = opts || {};
         if (targetFrame) targetFrame.dataset.state = state;
-        if (targetPlaceholder && state !== 'ok') {
+        if (targetPlaceholder && state !== 'ok' && state !== 'pdf') {
           targetPlaceholder.textContent =
             state === 'loading' ? 'LOADING…' :
             state === 'error' ? (opts.message || 'PAGE UNREACHABLE\nMAYBE A 404 — CHECK WITH ⤢') :
             'NO LINK';
         }
-        if (state === 'ok') {
-          targetPreviewImage = opts.image || '';
-          if (targetImg) targetImg.src = opts.image || '';
+        // A PDF link is embedded live (no scrape); everything else shows the
+        // scraped og:image. Only one of the two <img>/<iframe> is ever loaded.
+        if (state === 'pdf') { if (targetImg) targetImg.removeAttribute('src'); }
+        else if (targetPdf) targetPdf.removeAttribute('src');
+        if (state === 'ok' || state === 'pdf') {
+          if (state === 'pdf') {
+            targetPreviewImage = ''; // no web image to offer for a PDF
+            if (targetPdf) targetPdf.src = opts.pdf + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
+            if (targetOkLine) targetOkLine.textContent = '✓ PDF loads successfully';
+          } else {
+            targetPreviewImage = opts.image || '';
+            if (targetImg) targetImg.src = opts.image || '';
+            if (targetOkLine) targetOkLine.textContent = '✓ page and image loads successfully';
+          }
           if (targetCaption) targetCaption.textContent = opts.title || '';
           refreshTargetMatch();  // sets the second line's height…
           fitTargetTitle();      // …so the title fits the space that's left
@@ -5131,6 +5189,15 @@
         if (!url) { targetLoadedUrl = null; setTargetState('empty'); return; }
         if (url === targetLoadedUrl) return; // already loaded/loading this exact link
         targetLoadedUrl = url;
+        // A PDF (city visitor guides etc.) has no og:image/title to scrape — embed
+        // the file itself and caption it from the gift's Title (or the file name).
+        if (isPdfUrl(url)) {
+          let name = '';
+          try { name = decodeURIComponent(new URL(url).pathname.split('/').pop() || ''); } catch (e) { name = ''; }
+          const title = (article.querySelector('[data-field="title"]')?.value || '').trim() || name || 'PDF document';
+          setTargetState('pdf', { pdf: url, title });
+          return;
+        }
         setTargetState('loading');
         try {
           const data = await lookupSource(url);
@@ -5152,6 +5219,18 @@
         io.observe(targetFrame);
       } else {
         loadTargetPreview();
+      }
+      // Re-fit the title whenever the preview box changes size — phone rotation,
+      // the card going full-width on mobile, or the browser resizing — so a title
+      // sized for a desktop column doesn't end up clipped in a narrow one.
+      if (targetFrame && 'ResizeObserver' in window) {
+        let refitPending = false;
+        const ro = new ResizeObserver(() => {
+          if (refitPending) return;
+          refitPending = true;
+          requestAnimationFrame(() => { refitPending = false; fitTargetTitle(); });
+        });
+        ro.observe(targetFrame);
       }
       // Editing the Link re-fetches (the card is on-screen when you type).
       if (urlInput) urlInput.addEventListener('change', () => { targetLoadedUrl = null; loadTargetPreview(); });
