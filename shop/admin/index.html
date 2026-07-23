@@ -5239,21 +5239,33 @@
             if (targetOkLine) { targetOkLine.textContent = '✓ PDF loads successfully'; targetOkLine.style.color = ''; }
           } else {
             targetPreviewImage = opts.image || '';
-            if (targetOkLine) targetOkLine.style.color = ''; // clear any prior warn tint
-            // Show the scraped web image if there is one; otherwise fall back to
-            // OUR gift image so the tiny browser isn't blank when we already have
-            // a picture. Only when neither exists is the image area empty.
+            // Image priority: scraped web image → OUR gift image → the site's
+            // favicon (so a blocked/preview-less link is branded, never blank).
             const ourImage = (article.querySelector('[data-field="image_url"]')?.value || '').trim();
-            const shownImage = opts.image || ourImage;
+            const host = (targetHost && targetHost.textContent) || hostOf((urlInput && urlInput.value) || '');
+            const favicon = host ? ('https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host) + '&sz=128') : '';
+            const shownImage = opts.image || ourImage || favicon;
             if (targetImg) {
               if (shownImage) targetImg.src = shownImage;
               else targetImg.removeAttribute('src');
             }
-            // Say what's actually on screen so it never reads as a silent gap.
-            if (targetOkLine) targetOkLine.textContent =
-              opts.image ? '✓ page loaded, web preview image found'
-              : ourImage ? '✓ page loaded — showing your gift image (no web preview)'
-              : '✓ page loaded — no preview image found (add one below)';
+            // Status line reflects exactly what's on screen and why. A site that
+            // blocks preview bots (Cloudflare "Just a moment", 403) is NOT broken —
+            // the link is fine, we just can't read a preview from it.
+            let okText, okColor = '';
+            if (opts.image) {
+              okText = '✓ page loaded, web preview image found';
+            } else if (ourImage) {
+              okText = opts.blocked
+                ? '✓ site blocks previews — showing your gift image & title'
+                : '✓ page loaded — showing your gift image (no web preview)';
+            } else {
+              okText = opts.blocked
+                ? '⚑ site blocks previews — showing its icon; add a gift image below'
+                : '⚑ no preview image — showing site icon; add a gift image below';
+              okColor = '#a5791a';
+            }
+            if (targetOkLine) { targetOkLine.textContent = okText; targetOkLine.style.color = okColor; }
           }
           // Fall back to the gift's own Title, then the host, so the caption is
           // never blank when the page has no og:title.
@@ -5311,11 +5323,19 @@
         const title = String((data && data.title) || '').trim();
         // Even a partial result (image OR title) is worth showing.
         if (image || title) { setTargetState('ok', { image, title }); return; }
-        // The link resolved (200) but had no scrapable title/image — show the
-        // tiny browser with OUR gift title (caption falls back to it) rather than
-        // an error. Only a real failure (blocked/404/timeout/bad host — all
-        // non-200) shows the descriptive message.
-        if (res.ok) { setTargetState('ok', { image: '', title: '' }); return; }
+        // A site that blocks preview bots (Cloudflare "Just a moment", 403/429)
+        // is a VALID link — we just can't read it. Show our own title/image
+        // rather than a scary error, same as a page that simply had no OG tags.
+        const errText = (data && data.error) ? String(data.error) : '';
+        const blocked = !!(data && (
+          data.blocked ||
+          [401, 403, 406, 429].includes(data.status) ||
+          /\b(401|403|406|429)\b/.test(errText) ||       // older builds put the code in the text
+          /blocked|just a moment|cloudflare|forbidden/i.test(errText)
+        ));
+        if (res.ok || blocked) { setTargetState('ok', { image: '', title: '', blocked }); return; }
+        // Only a genuine failure (404 gone, timeout, network, bad host) shows the
+        // descriptive message.
         setTargetState('error', { message: describeTargetError(res.status, data, url) });
       }
       // Turn the scraper's response into a plain, specific explanation for the
