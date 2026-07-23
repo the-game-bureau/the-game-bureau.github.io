@@ -228,6 +228,11 @@
     }
     .command-bar .btn.ghost:hover { color: var(--ink); border-color: var(--accent); }
 
+    /* Mode toggle on the "With AI" picker: OpenStreetMap vs AI prompt → SQL. */
+    .prompt-modes { display: flex; flex-wrap: wrap; gap: 6px; }
+    .prompt-mode.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .prompt-mode.is-active:hover { background: rgba(var(--bic-blue-rgb), 0.85); }
+
     /* Options row on the "With AI" prompt picker (Stops count + keywords). */
     .prompt-opts { display: flex; flex-wrap: wrap; gap: 10px; }
     .prompt-opt {
@@ -610,7 +615,10 @@
     .prompt-text:focus { outline: none; }
 
     #dedupDialog { width: min(720px, calc(100vw - 32px)); }
-    #importDialog, #finderDialog, #bulkDialog { width: min(760px, calc(100vw - 32px)); }
+    #importDialog, #bulkDialog { width: min(760px, calc(100vw - 32px)); }
+    /* The manual add form is a single narrow column — size the lightbox to it. */
+    #manualDialog { width: min(440px, calc(100vw - 32px)); }
+    #manualBody { padding: 14px; }
     .import-text {
       width: 100%;
       min-height: 38vh;
@@ -725,7 +733,7 @@
 
       /* Dialogs (Find waypoints, Prompt, Import, Dedup, Near) fill the screen. */
       .modal,
-      #dedupDialog, #importDialog, #finderDialog, #bulkDialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
+      #dedupDialog, #importDialog, #bulkDialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
       .modal-bar { flex-wrap: wrap; padding: 10px; }
       .modal-title { flex: 1 1 100%; }
       .modal-bar .btn { flex: 1 1 auto; }
@@ -805,15 +813,14 @@
       <button class="btn small" id="dedupBtn" type="button" title="Find waypoints with the same or similar name or address">Dedup</button>
     </div>
 
-    <!-- Add waypoints: every way to bring new waypoints in, on their own row.
-         Manual (by hand) and With AI (Supabase-SQL prompt) lead; Find waypoints
-         and Import follow; Links are quiet reference shortcuts. -->
+    <!-- Add waypoints: Manual (by-hand pop-up) and With AI (OpenStreetMap pull OR
+         AI→Supabase-SQL prompt) lead; Import follows; Links are quiet reference
+         shortcuts. -->
     <div class="command-bar" aria-label="Add waypoints">
       <span class="command-bar-label">Add waypoints</span>
       <button class="btn small" id="newBtn" type="button" title="Add one waypoint by hand in a pop-up form">Manual</button>
-      <button class="btn small primary" id="promptBtn" type="button" title="Generate an AI prompt that returns Supabase SQL you paste into the database">With AI</button>
+      <button class="btn small primary" id="promptBtn" type="button" title="Find stops for a city — pull them live from OpenStreetMap, or get an AI prompt that returns Supabase SQL">With AI</button>
       <span class="command-bar-divider" aria-hidden="true"></span>
-      <button class="btn small" id="findStopsBtn" type="button" title="Pull real tour-worthy places from OpenStreetMap for a city">Find waypoints</button>
       <button class="btn small" id="importBtn" type="button" title="Paste CSV/spreadsheet rows and add them all as waypoints">Import</button>
       <span class="command-bar-divider" aria-hidden="true"></span>
       <a class="btn small ghost" id="w3wLinkBtn" href="https://what3words.com" target="_blank" rel="noopener" title="Open what3words in a new tab">Links ↗</a>
@@ -842,6 +849,7 @@
       <button class="btn small" id="promptBackBtn" type="button" hidden>Back</button>
       <a class="btn small" id="promptDbBtn" href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/" target="_blank" rel="noopener" hidden>Go to Database ↗</a>
       <button class="btn small primary" id="promptCopyBtn" type="button" hidden>Copy</button>
+      <button class="btn small primary" id="promptAddBtn" type="button" hidden>Add selected</button>
       <button class="btn small" id="promptCloseBtn" type="button">Close</button>
     </div>
     <div class="prompt-body" id="promptBody"></div>
@@ -877,16 +885,6 @@
     <div class="prompt-body" id="importBody"></div>
   </section>
 
-  <div class="modal-backdrop" id="finderBackdrop" hidden></div>
-  <section class="modal" id="finderDialog" hidden role="dialog" aria-modal="true" aria-labelledby="finderTitle">
-    <div class="modal-bar">
-      <h3 class="modal-title" id="finderTitle">Find walking-tour stops</h3>
-      <button class="btn small" id="finderBackBtn" type="button" hidden>Back</button>
-      <button class="btn primary small" id="finderAddBtn" type="button" hidden>Add selected</button>
-      <button class="btn small" id="finderCloseBtn" type="button">Close</button>
-    </div>
-    <div class="prompt-body" id="finderBody"></div>
-  </section>
 
   <div class="modal-backdrop" id="bulkBackdrop" hidden></div>
   <section class="modal" id="bulkDialog" hidden role="dialog" aria-modal="true" aria-labelledby="bulkTitle">
@@ -2451,13 +2449,15 @@ $$;`.trim();
       return { wrap: wrap, input: input };
     }
 
-    function setPromptView(view) { // 'picker' | 'prompt'
+    function setPromptView(view) { // 'picker' | 'prompt' | 'results'
       const back = document.getElementById('promptBackBtn');
       const copy = document.getElementById('promptCopyBtn');
       const db = document.getElementById('promptDbBtn');
-      if (back) back.hidden = view !== 'prompt';
+      const add = document.getElementById('promptAddBtn');
+      if (back) back.hidden = view === 'picker';
       if (copy) copy.hidden = view !== 'prompt';
       if (db) db.hidden = view !== 'prompt';
+      if (add) add.hidden = view !== 'results';
     }
 
     function zipNote(text) {
@@ -2479,6 +2479,11 @@ $$;`.trim();
     let aiPromptCount = 20;
     let aiPromptKeywords = '';
 
+    // Which "With AI" mode is active: pull live from OpenStreetMap, or build an
+    // AI prompt that returns Supabase SQL. (Was the standalone Find waypoints
+    // button — folded in here as a mode.)
+    let aiMode = 'osm'; // 'osm' | 'sql'
+
     function renderPromptChooser() {
       setPromptView('picker');
       const title = document.getElementById('promptTitle');
@@ -2486,37 +2491,65 @@ $$;`.trim();
       const body = document.getElementById('promptBody');
       if (!body) return;
       body.innerHTML = '';
-      const hint = zipNote('Pick a city, then copy the prompt into an AI. It returns Supabase SQL you paste into the database — real walking-tour stops, added straight to the table.');
 
-      // Stops count + optional keywords, like the Stock Room's Suggest prompt.
-      const opts = document.createElement('div');
-      opts.className = 'prompt-opts';
-      const countWrap = document.createElement('label');
-      countWrap.className = 'prompt-opt';
-      countWrap.textContent = 'Stops (max)';
-      const countInput = document.createElement('input');
-      countInput.type = 'number';
-      countInput.min = '1';
-      countInput.max = '100';
-      countInput.step = '1';
-      countInput.value = String(aiPromptCount);
-      countInput.addEventListener('input', () => { aiPromptCount = Math.max(1, Math.min(100, parseInt(countInput.value, 10) || 20)); });
-      countWrap.appendChild(countInput);
-      const kwWrap = document.createElement('label');
-      kwWrap.className = 'prompt-opt prompt-opt--wide';
-      kwWrap.textContent = 'Keywords (optional)';
-      const kwInput = document.createElement('input');
-      kwInput.type = 'text';
-      kwInput.placeholder = 'e.g. jazz, French Quarter, murals';
-      kwInput.value = aiPromptKeywords;
-      kwInput.addEventListener('input', () => { aiPromptKeywords = kwInput.value; });
-      kwWrap.appendChild(kwInput);
-      opts.append(countWrap, kwWrap);
+      // Mode toggle — same two-choice pattern as the Stock Room's Suggest source.
+      const modes = document.createElement('div');
+      modes.className = 'prompt-modes';
+      const mkMode = (mode, label) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn small prompt-mode' + (aiMode === mode ? ' is-active' : '');
+        b.textContent = label;
+        b.addEventListener('click', () => { if (aiMode !== mode) { aiMode = mode; renderPromptChooser(); } });
+        return b;
+      };
+      modes.append(mkMode('osm', 'From OpenStreetMap'), mkMode('sql', 'AI prompt → SQL'));
+
+      const hint = zipNote(aiMode === 'osm'
+        ? 'Pulls real tour-worthy places (historic sites, monuments, museums, landmarks) live from OpenStreetMap and Wikipedia — pick which to add, with real coordinates, straight into the table.'
+        : 'Copies a prompt into an AI that returns Supabase SQL you paste into the database — richer, AI-written stops with descriptions.');
+
+      // Stops count + optional keywords (SQL mode only), like the Suggest prompt.
+      let opts = null;
+      if (aiMode === 'sql') {
+        opts = document.createElement('div');
+        opts.className = 'prompt-opts';
+        const countWrap = document.createElement('label');
+        countWrap.className = 'prompt-opt';
+        countWrap.textContent = 'Stops (max)';
+        const countInput = document.createElement('input');
+        countInput.type = 'number';
+        countInput.min = '1';
+        countInput.max = '100';
+        countInput.step = '1';
+        countInput.value = String(aiPromptCount);
+        countInput.addEventListener('input', () => { aiPromptCount = Math.max(1, Math.min(100, parseInt(countInput.value, 10) || 20)); });
+        countWrap.appendChild(countInput);
+        const kwWrap = document.createElement('label');
+        kwWrap.className = 'prompt-opt prompt-opt--wide';
+        kwWrap.textContent = 'Keywords (optional)';
+        const kwInput = document.createElement('input');
+        kwInput.type = 'text';
+        kwInput.placeholder = 'e.g. jazz, French Quarter, murals';
+        kwInput.value = aiPromptKeywords;
+        kwInput.addEventListener('input', () => { aiPromptKeywords = kwInput.value; });
+        kwWrap.appendChild(kwInput);
+        opts.append(countWrap, kwWrap);
+      }
 
       const current = findRow(state.randomId);
       const seed = current ? [cleanText(current.city), cleanText(current.state)].filter(Boolean).join(', ') : '';
-      const chooser = buildLocationChooser('Make AI prompt', (loc) => showPromptForArea(loc, loc), seed);
-      body.append(hint, opts, chooser.wrap);
+      const list = document.createElement('div');
+      list.className = 'pick-list';
+      const goLabel = aiMode === 'osm' ? 'Find on OpenStreetMap' : 'Make AI prompt';
+      const chooser = buildLocationChooser(goLabel, (loc) => {
+        if (aiMode === 'osm') runFinder(loc, list);
+        else showPromptForArea(loc, loc);
+      }, seed);
+
+      body.append(modes, hint);
+      if (opts) body.append(opts);
+      body.append(chooser.wrap, list);
       chooser.input.focus();
     }
 
@@ -3155,49 +3188,12 @@ $$;`.trim();
       setStatus('Imported ' + added + ' waypoint' + (added === 1 ? '' : 's') + (skipped ? ' (' + skipped + ' duplicate' + (skipped === 1 ? '' : 's') + ' skipped)' : '') + '.', failed ? 'error' : 'success');
     }
 
-    // --- Find waypoints: pull real tour-worthy places from OpenStreetMap ----------
+    // --- OpenStreetMap finder (a mode of the With AI modal, above) ----------------
+    // Pulls real tour-worthy places from OpenStreetMap + Wikipedia and renders the
+    // pick/results/add flow inside the prompt (With AI) modal.
     let finderPending = [];
     let finderContext = { loc: '', city: '', region: '' };
     let finderBusy = false;
-
-    function openFinderDialog() {
-      const d = document.getElementById('finderDialog');
-      const b = document.getElementById('finderBackdrop');
-      if (d) d.hidden = false;
-      if (b) b.hidden = false;
-      const current = findRow(state.randomId);
-      const seed = current ? [cleanText(current.city), cleanText(current.state)].filter(Boolean).join(', ') : '';
-      renderFinderPicker(seed);
-    }
-
-    function closeFinderDialog() {
-      const d = document.getElementById('finderDialog');
-      const b = document.getElementById('finderBackdrop');
-      if (d) d.hidden = true;
-      if (b) b.hidden = true;
-    }
-
-    function setFinderBar(stage) { // 'picker' | 'results'
-      const back = document.getElementById('finderBackBtn');
-      const add = document.getElementById('finderAddBtn');
-      if (back) back.hidden = stage !== 'results';
-      if (add) add.hidden = stage !== 'results';
-    }
-
-    function renderFinderPicker(seed) {
-      setFinderBar('picker');
-      const title = document.getElementById('finderTitle');
-      if (title) title.textContent = 'Find walking-tour stops';
-      const body = document.getElementById('finderBody');
-      if (!body) return;
-      body.innerHTML = '';
-      const hint = zipNote('Pulls real tour-worthy places (historic sites, monuments, museums, notable landmarks) from OpenStreetMap and Wikipedia for a city — anywhere in the world.');
-      const list = document.createElement('div');
-      list.className = 'pick-list';
-      const chooser = buildLocationChooser('Find waypoints', (loc) => runFinder(loc, list), seed || '');
-      body.append(hint, chooser.wrap, list);
-      chooser.input.focus();
-    }
 
     // Overpass query for tour-worthy named features inside a bounding box.
     async function fetchTourStops(bbox) {
@@ -3317,16 +3313,16 @@ $$;`.trim();
     }
 
     function renderFinderResults(items) {
-      setFinderBar('results');
+      setPromptView('results');
       finderPending = items;
       items.forEach((it) => { it._dup = findSimilarExisting(it); it._include = !it._dup; });
       const dupCount = items.filter((it) => it._dup).length;
-      const title = document.getElementById('finderTitle');
+      const title = document.getElementById('promptTitle');
       if (title) title.textContent = items.length + ' found in ' + finderContext.loc;
-      const body = document.getElementById('finderBody');
+      const body = document.getElementById('promptBody');
       if (!body) return;
       body.innerHTML = '';
-      if (!items.length) { body.append(zipNote('No tour-worthy places found here. Try a larger nearby city.')); setFinderBar('picker'); return; }
+      if (!items.length) { body.append(zipNote('No tour-worthy places found here. Try a larger nearby city.')); setPromptView('picker'); return; }
 
       const tools = document.createElement('div');
       tools.className = 'pick-tools';
@@ -3344,7 +3340,7 @@ $$;`.trim();
       const refresh = () => {
         const n = items.filter((it) => it._include).length;
         summary.textContent = n + ' of ' + items.length + ' selected' + (dupCount ? ' · ' + dupCount + ' already in your list' : '');
-        const add = document.getElementById('finderAddBtn');
+        const add = document.getElementById('promptAddBtn');
         if (add) add.textContent = 'Add selected (' + n + ')';
       };
       items.forEach((it) => {
@@ -3385,11 +3381,11 @@ $$;`.trim();
       if (!items.length) { setStatus('Nothing selected to add.', 'error'); return; }
       finderBusy = true;
       finderPending.forEach((it) => { it._include = false; }); // can't be re-added
-      setFinderBar('picker');
-      const title = document.getElementById('finderTitle');
-      const body = document.getElementById('finderBody');
-      const back = document.getElementById('finderBackBtn');
-      const add = document.getElementById('finderAddBtn');
+      setPromptView('picker');
+      const title = document.getElementById('promptTitle');
+      const body = document.getElementById('promptBody');
+      const back = document.getElementById('promptBackBtn');
+      const add = document.getElementById('promptAddBtn');
       if (back) back.hidden = true;
       if (add) add.hidden = true;
       if (title) title.textContent = 'Adding…';
@@ -3436,7 +3432,7 @@ $$;`.trim();
         again.type = 'button';
         again.className = 'btn small';
         again.textContent = 'Find more';
-        again.addEventListener('click', () => renderFinderPicker(finderContext.loc));
+        again.addEventListener('click', () => renderPromptChooser());
         body.append(done, again);
       }
       setStatus('Added ' + added + ' stop' + (added === 1 ? '' : 's') + (skipped ? ' (' + skipped + ' duplicate' + (skipped === 1 ? '' : 's') + ' skipped)' : '') + '.', failed ? 'error' : 'success');
@@ -4558,8 +4554,6 @@ $$;`.trim();
     if (manualAddBtn) manualAddBtn.addEventListener('click', submitManual);
     const manualBackdrop = document.getElementById('manualBackdrop');
     if (manualBackdrop) manualBackdrop.addEventListener('click', closeManualDialog);
-    const findStopsBtn = document.getElementById('findStopsBtn');
-    if (findStopsBtn) findStopsBtn.addEventListener('click', openFinderDialog);
     const promptBtn = document.getElementById('promptBtn');
     if (promptBtn) promptBtn.addEventListener('click', openPromptDialog);
     const importBtn = document.getElementById('importBtn');
@@ -4587,14 +4581,9 @@ $$;`.trim();
     const importNextBtn = document.getElementById('importNextBtn');
     if (importNextBtn) importNextBtn.addEventListener('click', () => { if (importStage === 'paste') importPreview(); else if (importStage === 'preview') importRun(); });
 
-    const finderCloseBtn = document.getElementById('finderCloseBtn');
-    if (finderCloseBtn) finderCloseBtn.addEventListener('click', closeFinderDialog);
-    const finderBackdrop = document.getElementById('finderBackdrop');
-    if (finderBackdrop) finderBackdrop.addEventListener('click', closeFinderDialog);
-    const finderBackBtn = document.getElementById('finderBackBtn');
-    if (finderBackBtn) finderBackBtn.addEventListener('click', () => renderFinderPicker(finderContext.loc));
-    const finderAddBtn = document.getElementById('finderAddBtn');
-    if (finderAddBtn) finderAddBtn.addEventListener('click', finderAdd);
+    // "Add selected" in the With AI modal's OpenStreetMap results view.
+    const promptAddBtn = document.getElementById('promptAddBtn');
+    if (promptAddBtn) promptAddBtn.addEventListener('click', finderAdd);
 
     const nearCloseBtn = document.getElementById('nearCloseBtn');
     if (nearCloseBtn) nearCloseBtn.addEventListener('click', closeNearDialog);
@@ -4641,8 +4630,6 @@ $$;`.trim();
       if (dedupDialog && !dedupDialog.hidden) closeDedupDialog();
       const importDialog = document.getElementById('importDialog');
       if (importDialog && !importDialog.hidden) closeImportDialog();
-      const finderDialog = document.getElementById('finderDialog');
-      if (finderDialog && !finderDialog.hidden) closeFinderDialog();
       const bulkDialog = document.getElementById('bulkDialog');
       if (bulkDialog && !bulkDialog.hidden && !bulkBusy) closeBulkDialog();
     });
