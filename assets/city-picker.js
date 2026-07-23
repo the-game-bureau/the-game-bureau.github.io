@@ -133,7 +133,64 @@
     return raw;
   }
 
-  // Insert a city. Slug and the structured geo columns are filled by triggers.
+  // ── Structured geo from the separate City / State / Country fields ──────────
+  // Uses TgbGeo's option lists to resolve a typed state/country (code OR name)
+  // and infer the country from a US state / CA province. Returns the canonical
+  // `city` key string plus the structured columns to store alongside it.
+  function stateList() {
+    var g = global.TgbGeo, out = [];
+    (g && g.usStateOptions ? g.usStateOptions() : []).forEach(function (o) { out.push({ code: String(o.code).toUpperCase(), name: o.name, country: 'USA' }); });
+    (g && g.provinceOptions ? g.provinceOptions() : []).forEach(function (o) { out.push({ code: String(o.code).toUpperCase(), name: o.name, country: 'CAN' }); });
+    return out;
+  }
+  function countryList() {
+    var g = global.TgbGeo;
+    return (g && g.countryOptions ? g.countryOptions() : []).map(function (o) { return { code: String(o.code).toUpperCase(), name: o.name }; });
+  }
+  function findState(val) {
+    val = String(val == null ? '' : val).trim();
+    if (!val) return null;
+    var u = val.toUpperCase(), l = val.toLowerCase(), list = stateList();
+    for (var i = 0; i < list.length; i++) { if (list[i].code === u || list[i].name.toLowerCase() === l) return list[i]; }
+    return { code: val.length <= 3 ? u : '', name: val.length <= 3 ? '' : titleCaseTypedName(val), country: '' };
+  }
+  function findCountry(val) {
+    val = String(val == null ? '' : val).trim();
+    if (!val) return null;
+    var u = val.toUpperCase(), l = val.toLowerCase(), list = countryList();
+    for (var i = 0; i < list.length; i++) { if (list[i].code === u || list[i].name.toLowerCase() === l) return list[i]; }
+    return { code: val.length === 3 ? u : '', name: titleCaseTypedName(val) };
+  }
+  function resolveGeoParts(cityRaw, stateRaw, countryRaw) {
+    var cityName = titleCaseTypedName(String(cityRaw == null ? '' : cityRaw).trim());
+    var st = findState(stateRaw);
+    var ct = findCountry(countryRaw);
+    if ((!ct || !ct.code) && st && st.country) ct = findCountry(st.country) || { code: st.country, name: '' };
+    var composed = (global.TgbGeo && global.TgbGeo.composeGeo)
+      ? global.TgbGeo.composeGeo({
+          cityName: cityName,
+          stateCode: st ? st.code : '', stateName: st ? st.name : '',
+          countryCode: ct ? ct.code : '', countryName: ct ? ct.name : ''
+        })
+      : cityName;
+    return {
+      composed: composed || cityName,
+      geo: {
+        city_name: cityName || null,
+        state_code: (st && st.code) || null,
+        state_name: (st && st.name) || null,
+        country_code: (ct && ct.code) || null,
+        country_name: (ct && ct.name) || null
+      }
+    };
+  }
+
+  // Insert a city. The slug is always filled by the cities_fill_slug trigger.
+  // opts.geo (city_name/state_code/state_name/country_code/country_name) is sent
+  // explicitly so the structured columns match exactly what was entered — the
+  // tgb_sync_geo trigger fills any left null via coalesce(existing, parsed). On a
+  // database missing those columns (or `ignored`), we strip them and retry so the
+  // add still succeeds.
   function add(city, opts) {
     var canonicalCity = canonical(city);
     if (!canonicalCity) return Promise.reject(new Error('City is required.'));
@@ -141,6 +198,8 @@
       ? opts.authHeaders({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=representation' })
       : readHeaders({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=representation' });
     var wantIgnored = !!(opts && opts.ignored);
+    var geo = (opts && opts.geo) || null;
+
     function post(payload) {
       return fetch(config.url + '/rest/v1/cities?on_conflict=city', {
         method: 'POST',
@@ -148,24 +207,37 @@
         body: JSON.stringify(payload)
       });
     }
-    var payload = { city: canonicalCity, archived: false };
-    if (wantIgnored) payload.ignored = true;
-    return post(payload).then(function (res) {
-      if (!res.ok) {
+    function base() {
+      var p = { city: canonicalCity, archived: false };
+      if (wantIgnored) p.ignored = true;
+      return p;
+    }
+    var payload = base();
+    if (geo) {
+      ['city_name', 'state_code', 'state_name', 'country_code', 'country_name'].forEach(function (k) {
+        if (geo[k]) payload[k] = geo[k];
+      });
+    }
+
+    // Try full; on a column error, retry without geo, then without ignored.
+    function attempt(p, allowGeoStrip, allowIgnoredStrip) {
+      return post(p).then(function (res) {
+        if (res.ok) return res.json();
         return res.text().then(function (text) {
-          // Database without 2026072205_cities_ignored.sql: retry without the
-          // column rather than failing the whole add.
-          if (wantIgnored && /ignored/.test(text || '')) {
-            return post({ city: canonicalCity, archived: false }).then(function (retry) {
-              if (!retry.ok) throw new Error('Could not add "' + canonicalCity + '".');
-              return retry.json();
-            });
+          var t = text || '';
+          if (allowGeoStrip && geo && /city_name|state_code|state_name|country_code|country_name|column/i.test(t)) {
+            var noGeo = base();
+            return attempt(noGeo, false, allowIgnoredStrip);
           }
-          throw new Error(text || 'Could not add "' + canonicalCity + '".');
+          if (allowIgnoredStrip && wantIgnored && /ignored/.test(t)) {
+            return attempt({ city: canonicalCity, archived: false }, false, false);
+          }
+          throw new Error(t || 'Could not add "' + canonicalCity + '".');
         });
-      }
-      return res.json();
-    }).then(function (rows) {
+      });
+    }
+
+    return attempt(payload, !!geo, wantIgnored).then(function (rows) {
       var row = normalizeRow((Array.isArray(rows) && rows[0]) || { city: canonicalCity });
       return load({ force: true }).then(function () { return row; });
     });
@@ -196,6 +268,8 @@
       '.tgb-city-card p{margin:0 0 12px;color:#5b616e;font-size:.85rem;}',
       '.tgb-city-card input{width:100%;height:40px;padding:0 10px;margin-bottom:6px;',
       'border:1px solid #cdcbc4;border-radius:8px;font:inherit;box-sizing:border-box;}',
+      '.tgb-city-row{display:flex;gap:8px;}',
+      '.tgb-city-row > *{flex:1;min-width:0;}',
       '.tgb-city-preview{min-height:18px;margin-bottom:12px;color:#5b616e;font-size:.8rem;}',
       '.tgb-city-preview.is-error{color:#c02c22;}',
       '.tgb-city-actions{display:flex;justify-content:flex-end;gap:8px;}',
@@ -218,8 +292,14 @@
       wrap.innerHTML =
         '<div class="tgb-city-card" role="dialog" aria-modal="true" aria-label="Add a city">' +
           '<h3>Add a city</h3>' +
-          '<p>Type it as "City, State" or "City, Country". It is saved to the one city list the whole site reads.</p>' +
-          '<input type="text" placeholder="e.g. Youngstown, Ohio" autocomplete="off">' +
+          '<p>City, state/province, and country. The rest of the row (slug and the map/oval fields) fills in from these.</p>' +
+          '<input type="text" class="tgb-city-in-city" placeholder="City, e.g. Youngstown" autocomplete="off">' +
+          '<div class="tgb-city-row">' +
+            '<input type="text" class="tgb-city-in-state" placeholder="State / Province" autocomplete="off" list="tgb-city-states">' +
+            '<input type="text" class="tgb-city-in-country" placeholder="Country" autocomplete="off" list="tgb-city-countries">' +
+          '</div>' +
+          '<datalist id="tgb-city-states"></datalist>' +
+          '<datalist id="tgb-city-countries"></datalist>' +
           '<div class="tgb-city-preview"></div>' +
           '<label class="tgb-city-ignored-note">' +
             '<input type="checkbox" class="tgb-city-ignored-box"> Venue only — hide from gifts and soundtracks' +
@@ -231,10 +311,19 @@
         '</div>';
       document.body.appendChild(wrap);
 
-      var input = wrap.querySelector('input[type="text"]');
+      var cityInput = wrap.querySelector('.tgb-city-in-city');
+      var stateInput = wrap.querySelector('.tgb-city-in-state');
+      var countryInput = wrap.querySelector('.tgb-city-in-country');
       var ignoredBox = wrap.querySelector('.tgb-city-ignored-box');
       var preview = wrap.querySelector('.tgb-city-preview');
       var saveBtn = wrap.querySelector('.tgb-city-save');
+
+      // Fill the type-ahead lists from TgbGeo's option maps.
+      var stateDl = wrap.querySelector('#tgb-city-states');
+      var countryDl = wrap.querySelector('#tgb-city-countries');
+      stateList().forEach(function (s) { var o = document.createElement('option'); o.value = s.name; stateDl.appendChild(o); });
+      countryList().forEach(function (c) { var o = document.createElement('option'); o.value = c.name; countryDl.appendChild(o); });
+      countryInput.value = 'United States';
 
       function close(result) {
         document.removeEventListener('keydown', onKey);
@@ -243,23 +332,24 @@
       }
       function onKey(event) {
         if (event.key === 'Escape') close(null);
-        if (event.key === 'Enter' && document.activeElement === input) save();
+        if (event.key === 'Enter' && wrap.contains(document.activeElement)) save();
       }
       function refreshPreview() {
-        var canonicalCity = canonical(input.value);
+        var r = resolveGeoParts(cityInput.value, stateInput.value, countryInput.value);
         preview.classList.remove('is-error');
-        preview.textContent = canonicalCity ? 'Saves as: ' + canonicalCity : '';
+        preview.textContent = r.geo.city_name ? 'Saves as: ' + r.composed : '';
       }
       function save() {
-        var canonicalCity = canonical(input.value);
-        if (!canonicalCity) {
+        var r = resolveGeoParts(cityInput.value, stateInput.value, countryInput.value);
+        if (!r.geo.city_name) {
           preview.classList.add('is-error');
           preview.textContent = 'Type a city first.';
+          cityInput.focus();
           return;
         }
         saveBtn.disabled = true;
         saveBtn.textContent = 'Adding...';
-        add(canonicalCity, { authHeaders: opts && opts.authHeaders, ignored: ignoredBox.checked })
+        add(r.composed, { authHeaders: opts && opts.authHeaders, ignored: ignoredBox.checked, geo: r.geo })
           .then(function (row) { close(row); })
           .catch(function (error) {
             preview.classList.add('is-error');
@@ -269,13 +359,25 @@
           });
       }
 
-      input.addEventListener('input', refreshPreview);
+      [cityInput, stateInput, countryInput].forEach(function (el) { el.addEventListener('input', refreshPreview); });
       wrap.querySelector('.tgb-city-cancel').addEventListener('click', function () { close(null); });
       saveBtn.addEventListener('click', save);
       wrap.addEventListener('click', function (event) { if (event.target === wrap) close(null); });
       document.addEventListener('keydown', onKey);
-      if (opts && opts.initialValue) { input.value = opts.initialValue; refreshPreview(); }
-      input.focus();
+
+      // Prefill from a typed value ("Youngstown, Ohio") passed by the + button.
+      if (opts && opts.initialValue) {
+        var parsed = (global.TgbGeo && global.TgbGeo.parseGeo) ? global.TgbGeo.parseGeo(opts.initialValue) : null;
+        if (parsed && parsed.cityName) {
+          cityInput.value = parsed.cityName;
+          stateInput.value = parsed.stateName || parsed.stateCode || '';
+          if (parsed.countryName) countryInput.value = parsed.countryName;
+        } else {
+          cityInput.value = String(opts.initialValue).replace(/,.*$/, '').trim();
+        }
+        refreshPreview();
+      }
+      cityInput.focus();
     });
   }
 
