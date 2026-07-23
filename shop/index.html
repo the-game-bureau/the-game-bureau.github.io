@@ -1313,6 +1313,11 @@
     // then name. Keep ?all=1 as a legacy alias, but /shop/ itself is canonical.
     const showAllGifts = params.get('all') === '1' ||
       (!requestedCity && !requestedGameParam && !requestedItemId);
+    // The canonical default view (/shop/ with no params, no ?all=1) shows only
+    // gifts flagged featured='YES' — at least one per city. ?all=1 still shows
+    // every gift.
+    const isFeaturedView = !requestedCity && !requestedGameParam &&
+      !requestedItemId && params.get('all') !== '1';
 
     const gridEl = document.getElementById('grid');
     const headingEl = document.getElementById('heading');
@@ -2076,6 +2081,12 @@
         return isYesish(item.certified_yes);
       }
       return !!String(item && item.certified_at || '').trim();
+    }
+
+    // Featured flag (gift_shop_items.featured), same 'YES'/null convention as
+    // games. Drives the default /shop/ view.
+    function isFeatured(item) {
+      return isYesish(item && item.featured);
     }
 
     function isHiddenGiftItem(item) {
@@ -3073,6 +3084,15 @@
           giftEntries.push({ item, opts: { cities }, cities });
         }
 
+        // Default /shop/ view: only featured gifts (one+ per city). Fall back to
+        // all gifts if nothing is featured yet (e.g. before the column is set),
+        // so the shop is never empty.
+        let showingFeatured = false;
+        if (isFeaturedView) {
+          const featured = giftEntries.filter((e) => isFeatured(e.item));
+          if (featured.length) { giftEntries = featured; showingFeatured = true; }
+        }
+
         // Ordering modes:
         //  • "All Cities" / unfiltered → EVERY gift, sorted by city then A→Z by name.
         //  • a city/game filter → normal alphabetical-by-title ordering.
@@ -3099,7 +3119,7 @@
         if (giftGridHeadEl && !requestedGame) {
           giftGridTitleEl.textContent = requestedCity
             ? 'Games and gifts curated from ' + requestedCity
-            : "Every gift we've gathered, all in one place.";
+            : (showingFeatured ? 'Featured gifts' : "Every gift we've gathered, all in one place.");
           // Count only the gift cards — the badge is labelled "gifts", and the
           // game (access-code) cards shown alongside them aren't gifts.
           if (giftGridCountNumEl) giftGridCountNumEl.textContent = String(itemCards.length);
