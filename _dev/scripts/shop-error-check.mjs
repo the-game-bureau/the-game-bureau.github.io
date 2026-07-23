@@ -531,68 +531,46 @@ function buildHtml(state, meta, ignoredIds) {
   .bulkbar button.danger:hover { background: rgba(160, 63, 45, 0.12); border-color: var(--danger); }
   .bulkbar .bulk-clear { color: var(--muted); }
   /* Reference: the nightly job that produces this report. */
-  /* ── Triage header: one verdict, everything else demoted ─────────────── */
-  .verdict {
-    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-    margin: 0 0 10px; padding: 16px 18px; border-radius: 12px;
-    border: 1px solid var(--danger); background: rgba(160, 63, 45, 0.08);
+  /* ── Stat pills: the whole page is this row until you open a panel ────── */
+  .pills { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; }
+  .pill {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+    padding: 12px 16px; min-width: 118px; border: 1px solid var(--line);
+    border-radius: 12px; background: rgba(255,255,255,0.72); color: var(--ink);
+    text-align: left; cursor: pointer; font: inherit;
+    transition: border-color .12s ease, background .12s ease, box-shadow .12s ease;
   }
-  .verdict.is-clear { border-color: var(--success); background: rgba(47, 107, 61, 0.10); }
-  .verdict-n {
-    font-size: 2.6rem; font-weight: 700; line-height: 1; color: var(--danger);
-    font-variant-numeric: tabular-nums;
+  .pill-n { font-size: 1.7rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .pill-t {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.66rem; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
   }
-  .verdict.is-clear .verdict-n { color: var(--success); }
-  .verdict-t { font-size: 1rem; font-weight: 700; color: var(--ink); }
-  .verdict-s { margin-top: 2px; font-size: 0.83rem; color: var(--muted); }
-  .quiet { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
-  .quiet-chip {
-    display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px;
-    border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,0.7);
-    font-size: 0.76rem; color: var(--muted);
+  .pill:hover, .pill:focus-visible { border-color: var(--accent); outline: none; background: #fff; }
+  .pill[aria-expanded="true"] {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 8px 20px rgba(var(--bic-blue-rgb), 0.14);
+    background: #fff;
   }
-  .quiet-chip b { color: var(--ink); font-variant-numeric: tabular-nums; }
-  button.quiet-chip { cursor: pointer; font: inherit; font-size: 0.76rem; }
-  button.quiet-chip:hover, button.quiet-chip:focus-visible {
-    border-color: var(--accent); color: var(--ink); outline: none;
-  }
-  .quiet-chip.is-static { cursor: default; }
-  /* Brief highlight so a jump lands somewhere obvious. */
-  .jump-flash { animation: jump-flash 1.1s ease-out; }
-  @keyframes jump-flash {
-    from { background: rgba(var(--bic-blue-rgb), 0.16); }
-    to { background: transparent; }
-  }
-  @media (prefers-reduced-motion: reduce) { .jump-flash { animation: none; } }
-  .quiet-chip.is-note { border-color: var(--accent); color: var(--accent); }
-  .quiet-chip.is-note b { color: var(--accent); }
+  /* The verdict pill carries the alarm colour when it isn't zero. */
+  .pill--verdict { border-color: var(--danger); }
+  .pill--verdict .pill-n { color: var(--danger); }
+  .pill--verdict.is-zero { border-color: var(--line); }
+  .pill--verdict.is-zero .pill-n { color: var(--success); }
+  .pill--verdict[aria-expanded="true"] { box-shadow: 0 0 0 1px var(--danger), 0 8px 20px rgba(160,63,45,0.16); }
+  .pill--note .pill-n { color: var(--accent); }
+  .pill--static { cursor: default; background: transparent; border-style: dashed; }
+  .pill--static:hover { border-color: var(--line); background: transparent; }
+  .pill--static .pill-n { color: var(--muted); font-weight: 600; }
 
-  /* Confirmed issues as case files rather than table rows. */
-  .cases { display: grid; gap: 8px; margin: 0 0 6px; }
-  .case {
-    display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 14px; align-items: center;
-    padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--danger);
-    border-radius: 10px; background: rgba(255,255,255,0.82);
-  }
-  .case-thumb {
-    width: 56px; height: 56px; border-radius: 8px; overflow: hidden;
-    border: 1px solid var(--line); background: rgba(var(--bic-blue-rgb), 0.08);
-    display: grid; place-items: center;
-    font-family: "IBM Plex Mono", monospace; font-size: 0.56rem; color: var(--muted);
-  }
-  .case-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .case-name { font-weight: 700; font-size: 0.94rem; margin-bottom: 3px; }
-  .case-diag { font-size: 0.8rem; color: var(--muted); line-height: 1.45; }
-  .case-diag code {
-    padding: 1px 5px; border-radius: 4px; background: rgba(var(--bic-blue-rgb), 0.08);
-    font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
-  }
-  .case-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-  @media (max-width: 620px) {
-    .case { grid-template-columns: 44px minmax(0, 1fr); }
-    .case-thumb { width: 44px; height: 44px; }
-    .case-acts { grid-column: 1 / -1; justify-content: flex-start; }
-  }
+  /* Panels: hidden until a pill opens them; only one is open at a time. */
+  .panel[hidden] { display: none; }
+  .panel { margin: 0 0 16px; }
+  .panel-head { margin: 0 0 4px; font-size: 1rem; font-weight: 700; color: var(--ink); }
+  .panel-head .dim { font-weight: 400; }
+  .panel-open { animation: panel-open .18s ease-out; }
+  @keyframes panel-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .panel-open { animation: none; } }
+
   /* Row severity edge + thumbnail + the plain-English reason line. */
   td.thumb, th.thumb { width: 46px; padding-right: 0; }
   .row-thumb {
@@ -677,18 +655,31 @@ function buildHtml(state, meta, ignoredIds) {
   <!-- The counts render as "?" and are filled by refresh() on load, so a
        number on screen is always one the page has just worked out rather than
        one baked in at generation time. -->
-  <div class="verdict" id="verdictBox">
-    <span class="verdict-n" id="countErrors">?</span>
-    <span>
-      <div class="verdict-t" id="verdictTitle">gifts are broken and still selling</div>
-      <div class="verdict-s" id="verdictSub">Their link or image fails to load. Shoppers clicking them hit a dead page.</div>
+  <!-- Every count is a pill that opens its own panel; the panels below all
+       start hidden, so the page is just this row until you pick one. The verdict
+       pill is the loud one — broken gifts — and opens first on load if any exist.
+       Counts render as "?" and are filled by refresh() on load. -->
+  <div class="pills" id="pillRow">
+    <button type="button" class="pill pill--verdict" data-panel="#errorsWrap" aria-expanded="false">
+      <span class="pill-n" id="countErrors">?</span>
+      <span class="pill-t">broken &amp; still selling</span>
+    </button>
+    <button type="button" class="pill" data-panel="#blockedSection" aria-expanded="false">
+      <span class="pill-n" id="countBlocked">?</span>
+      <span class="pill-t">inconclusive</span>
+    </button>
+    <button type="button" class="pill" data-panel="#ignoredSection" aria-expanded="false">
+      <span class="pill-n" id="countIgnored">?</span>
+      <span class="pill-t">cleared</span>
+    </button>
+    <button type="button" class="pill pill--note" data-panel="#lowStockSection" aria-expanded="false">
+      <span class="pill-n" id="countLowStock">?</span>
+      <span class="pill-t">cities need gifts</span>
+    </button>
+    <span class="pill pill--static">
+      <span class="pill-n">${checkedCount}</span>
+      <span class="pill-t">gifts tracked</span>
     </span>
-  </div>
-  <div class="quiet">
-    <button type="button" class="quiet-chip" data-jump="#blockedSection"><b id="countBlocked">?</b> inconclusive — the site blocked our robot</button>
-    <button type="button" class="quiet-chip" data-jump="#ignoredSection"><b id="countIgnored">?</b> cleared</button>
-    <span class="quiet-chip is-static"><b>${checkedCount}</b> gifts tracked</span>
-    <button type="button" class="quiet-chip is-note" data-jump="#lowStockSection">Cities needing gifts <b id="countLowStock">?</b></button>
   </div>
 
 
@@ -701,40 +692,40 @@ function buildHtml(state, meta, ignoredIds) {
     <button type="button" class="bulk-clear" id="bulkClear">Deselect</button>
   </div>
 
-  <section id="errorsWrap">
+  <section class="panel" id="errorsWrap" hidden>
     <p class="hint">Broken for real: these links or images failed to load. Fix the gift, or clear the line if it is a false alarm.</p>
     <p class="ok" id="errorsEmpty"${hid(errored.length === 0)}>No confirmed issues. 🎉</p>
     <table id="errorsTable"${hid(errored.length > 0)}>${thead('Issue')}<tbody id="errorsBody">${errorsBody}</tbody></table>
   </section>
 
-  <details id="blockedSection"${hid(blocked.length > 0)}>
-    <summary><span id="blockedCount">?</span> inconclusive (bot-blocked / rate-limited — not confirmed issues)</summary>
+  <section class="panel" id="blockedSection" hidden>
+    <p class="panel-head">Inconclusive <span class="dim">— bot-blocked / rate-limited, not confirmed issues</span></p>
     <p class="hint">The site refused our robot rather than telling us the link is bad. Usually anti-bot protection, not a fault — open one in a browser before acting on it.</p>
     <table>${thead('Status')}<tbody id="blockedBody">${blockedBody}</tbody></table>
-  </details>
+  </section>
 
-  <details id="ignoredSection"${hid(ignored.length > 0)}>
-    <summary><span id="ignoredCount">?</span> cleared (kept out of the counts above)</summary>
+  <section class="panel" id="ignoredSection" hidden>
+    <p class="panel-head">Cleared <span class="dim">— kept out of the counts above</span></p>
     <p class="hint">Lines you have silenced. The gifts are unchanged and still selling &mdash; restore one to see it reported again.</p>
     <table>${thead('Status')}<tbody id="ignoredBody">${ignoredBody}</tbody></table>
-  </details>
+  </section>
 
   <!-- Persisted AI mismatches (from gift_shop_coherence); the "AI audit" button
        refreshes these live. Gifts whose fields don't line up: Image vs Title,
        Title vs Link, or Shops mismatch. -->
-  <details id="mismatchSection"${hid(mism.length > 0)} open>
-    <summary><span id="mismatchCount">?</span> field mismatches (AI — Image / Title / Link / Shops don't line up)</summary>
+  <section class="panel" id="mismatchSection" hidden>
+    <p class="panel-head">AI field mismatches <span class="dim">— Image / Title / Link / Shops don't line up</span></p>
     <p class="hint">From the AI audit, not the nightly check: gifts whose link loads fine but whose fields disagree with each other or with the page.</p>
     <table><thead><tr><th>Gift</th><th>AI result</th><th class="act"></th></tr></thead><tbody id="mismatchBody">${mismatchBody}</tbody></table>
-  </details>
+  </section>
 
   <!-- Cities needing gifts. Filled live on load
        by the script below — any active shop city carrying fewer than 3 gifts. -->
-  <details id="lowStockSection" hidden open>
-    <summary><span id="lowStockCount">?</span> cities with 3 or fewer gifts</summary>
+  <section class="panel" id="lowStockSection" hidden>
+    <p class="panel-head">Cities with 3 or fewer gifts</p>
     <p class="hint">Not a fault &mdash; cities that look thin in the shop. Worked out live each time the page loads.</p>
     <table><thead><tr><th>City</th><th>Gifts</th><th class="act"></th></tr></thead><tbody id="lowStockBody"></tbody></table>
-  </details>
+  </section>
 
   <!-- Plain-English guide: everything on this page explained once, so nobody
        has to guess what a button does or when the check last ran. -->
@@ -905,6 +896,12 @@ function buildHtml(state, meta, ignoredIds) {
       var mm = mmBody ? mmBody.children.length : 0;
       setText('#mismatchCount', mm);
       setHidden('#mismatchSection', mm === 0);
+      var verdictPill = q('.pill--verdict');
+      if (verdictPill) verdictPill.classList.toggle('is-zero', e === 0);
+      // First load: if anything is broken, open that panel so it isn't a click
+      // away; otherwise leave the page as just the pill row.
+      if (!refresh._did && e > 0 && window.TgbOpenPanel) { window.TgbOpenPanel('#errorsWrap'); }
+      refresh._did = true;
       installSelection();
       updateBulk();
     }
@@ -1192,21 +1189,39 @@ function buildHtml(state, meta, ignoredIds) {
       if (flagged === 0) window.alert('AI audit: all ' + total + ' tracked gifts look coherent. 🎉');
     }
 
-    // A count you can press: opens its section and scrolls to it. The sections
-    // are <details>, so "show me the 63 inconclusive" is one click rather than
-    // hunt-then-expand.
+    // Pills open panels, one at a time. Click a pill: its panel shows and the
+    // others hide; click the open pill again to close it. The page is just the
+    // pill row until you pick one.
+    var PANELS = ['#errorsWrap', '#blockedSection', '#ignoredSection', '#mismatchSection', '#lowStockSection'];
+    function openPanel(sel) {
+      PANELS.forEach(function (s2) {
+        var p = document.querySelector(s2);
+        var pill = document.querySelector('[data-panel="' + s2 + '"]');
+        var on = s2 === sel;
+        if (p) {
+          p.hidden = !on;
+          if (on) { p.classList.remove('panel-open'); void p.offsetWidth; p.classList.add('panel-open'); }
+        }
+        if (pill) pill.setAttribute('aria-expanded', on ? 'true' : 'false');
+      });
+    }
+    function closePanels() {
+      PANELS.forEach(function (s2) {
+        var p = document.querySelector(s2); if (p) p.hidden = true;
+        var pill = document.querySelector('[data-panel="' + s2 + '"]');
+        if (pill) pill.setAttribute('aria-expanded', 'false');
+      });
+    }
     document.addEventListener('click', function (event) {
-      var chip = event.target && event.target.closest ? event.target.closest('[data-jump]') : null;
-      if (!chip) return;
-      var target = document.querySelector(chip.getAttribute('data-jump'));
-      if (!target) return;
-      target.hidden = false;
-      target.open = true;
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      target.classList.remove('jump-flash');
-      void target.offsetWidth;               // restart the animation
-      target.classList.add('jump-flash');
+      var pill = event.target && event.target.closest ? event.target.closest('[data-panel]') : null;
+      if (!pill) return;
+      var sel = pill.getAttribute('data-panel');
+      if (pill.getAttribute('aria-expanded') === 'true') { closePanels(); return; }
+      openPanel(sel);
+      var p = document.querySelector(sel);
+      if (p) p.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
+    window.TgbOpenPanel = openPanel;
 
     var aiBtn = q('#aiAuditBtn');
     if (aiBtn) aiBtn.addEventListener('click', runAiAudit);
@@ -1275,7 +1290,6 @@ function buildHtml(state, meta, ignoredIds) {
           .sort(function (a, b) { return a.n - b.n || a.city.localeCompare(b.city, undefined, { sensitivity: 'base', numeric: true }); });
         if (cardEl) cardEl.textContent = String(low.length);
         if (countEl) countEl.textContent = String(low.length);
-        if (!low.length) { sec.hidden = true; return; }
         body.innerHTML = low.map(function (r) {
           return '<tr>' +
             '<td class="t">' + esc(r.city) + '</td>' +
@@ -1284,7 +1298,6 @@ function buildHtml(state, meta, ignoredIds) {
               '" target="_blank" rel="noopener">edit gifts</a></td>' +
           '</tr>';
         }).join('');
-        sec.hidden = false;
       } catch (e) {
         if (cardEl) cardEl.textContent = '?';
         // Best-effort: leave the section hidden if the read fails.
