@@ -279,6 +279,9 @@
       color: var(--ink);
     }
     .field select { min-height: 38px; }
+    .wp-citystate-control { display: flex; gap: 6px; align-items: center; }
+    .wp-citystate-control select { flex: 1 1 auto; min-width: 0; }
+    .wp-city-add { flex: 0 0 auto; width: 38px; padding: 0; }
     .field textarea {
       min-height: 64px;
       resize: vertical;
@@ -713,6 +716,8 @@
   <script src="js/admin-shell.js"></script>
   <script src="js/admin-nav-menu.js"></script>
   <script src="js/supabase-rest.js"></script>
+  <script src="../assets/geo.js"></script>
+  <script src="../assets/city-picker.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -2014,18 +2019,21 @@
     // never name the 'ignored' column in a query). Archived cities are dropped;
     // everything else — including venue-only "ignored" cities, which are real
     // places you'd add waypoints for — is offered.
-    let catalogCitiesPromise = null;
     let catalogCitiesList = []; // sync snapshot (for the Save-typed dedup check)
-    function loadCatalogCities() {
-      if (catalogCitiesPromise) return catalogCitiesPromise;
-      catalogCitiesPromise = (async () => {
-        const url = restUrl('cities', { select: '*', order: 'city.asc' });
-        const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
+    // Delegates to the shared city-picker cache (window.TgbCities) so adding a
+    // city through its "+" dialog refreshes every control at once. TgbCities.load
+    // already filters archived and pages past the 1000-row cap; venue-only
+    // ("ignored") cities are kept — they're real places you'd add waypoints for.
+    function loadCatalogCities(opts) {
+      if (!(window.TgbCities && typeof window.TgbCities.load === 'function')) {
+        return Promise.resolve(catalogCitiesList);
+      }
+      return window.TgbCities.load(opts).then((rows) => {
         const seen = new Set();
         const out = [];
         (Array.isArray(rows) ? rows : []).forEach((r) => {
           const city = cleanText(r && r.city);
-          if (!city || r.archived) return;
+          if (!city) return;
           const key = city.toLowerCase();
           if (seen.has(key)) return;
           seen.add(key);
@@ -2034,8 +2042,7 @@
         out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
         catalogCitiesList = out;
         return out;
-      })().catch((err) => { catalogCitiesPromise = null; throw err; });
-      return catalogCitiesPromise;
+      }).catch(() => catalogCitiesList);
     }
 
     // Split a typed location into a city and a region (state/country) for storing
@@ -3781,7 +3788,28 @@
         }
       }).catch(() => {});
 
-      wrap.append(label, sel);
+      // "+" adds a new city to the shared public.cities catalog (same dialog the
+      // shop/overview pages use), then selects it here.
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'btn small wp-city-add';
+      addBtn.textContent = '+';
+      addBtn.title = 'Add a new city to the shared list';
+      addBtn.addEventListener('click', () => {
+        if (!(window.TgbCities && typeof window.TgbCities.openAddDialog === 'function')) return;
+        window.TgbCities.openAddDialog({ authHeaders: authHeaders, initialValue: [curCity, curState].filter(Boolean).join(', ') }).then((cityRow) => {
+          if (!cityRow || !cityRow.city) return;
+          const p = parseLocation(cityRow.city);
+          updateField(row.wpid, 'city', p.city);
+          updateField(row.wpid, 'state', p.region);
+          render(); // rebuild the card; the dropdown now lists and selects the new city
+        });
+      });
+
+      const controlRow = document.createElement('div');
+      controlRow.className = 'wp-citystate-control';
+      controlRow.append(sel, addBtn);
+      wrap.append(label, controlRow);
       return wrap;
     }
 
