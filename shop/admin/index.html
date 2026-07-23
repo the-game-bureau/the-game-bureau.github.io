@@ -859,7 +859,7 @@
     }
     .item-status-choices {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       align-items: start;
       gap: 6px;
       margin: 0;
@@ -926,6 +926,13 @@
       background: #c9a227;
       color: #3a2c05;
       box-shadow: 0 8px 18px rgba(180, 134, 11, 0.22);
+    }
+    /* Sports is another independent toggle — green. */
+    .item-sports-choice:has(input:checked) {
+      border-color: #2f6b3d;
+      background: #2f7d4f;
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(47, 107, 61, 0.22);
     }
     /* Sits under the status choices — it's the date the item last went LIVE. */
     /* Delete sits in the status row but is an action, not a state: red, never
@@ -2782,7 +2789,7 @@
       }
 
       .item-status-choices {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
       }
 
       .add-gift-modal {
@@ -2848,6 +2855,16 @@
       }
 
       h1 { font-size: 2.05rem; }
+
+      /* Six status pills on one line — tighten them so labels don't clip on the
+         narrowest phones. */
+      .item-status-choices { gap: 4px; }
+      .item-status-choice,
+      .item-status-delete {
+        font-size: 0.6rem;
+        letter-spacing: 0;
+        padding: 6px 3px;
+      }
 
       .toolbar {
         padding: 10px;
@@ -3162,6 +3179,12 @@
                 <label class="item-status-choice item-featured-choice" title="Featured — show this gift on the shop's default FEATURED GIFTS view. Independent of status.">
                   <input type="checkbox" data-field="featured">
                   <span>★</span>
+                </label>
+              </div>
+              <div class="item-status-slot">
+                <label class="item-status-choice item-sports-choice" title="Sports — mark this gift as sports / team merch (for future filtering). Independent of status.">
+                  <input type="checkbox" data-field="sports">
+                  <span>SP</span>
                 </label>
               </div>
               <div class="item-status-slot">
@@ -4427,32 +4450,67 @@
       return response.json();
     }
 
-    async function insertItem(payload) {
-      const response = await fetch(restUrl('gift_shop_items'), {
-        method: 'POST',
-        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-        body: JSON.stringify(payload)
+    // Optional flag columns that a database may not have yet (before their
+    // migration runs). If PostgREST reports one missing, drop it and retry rather
+    // than failing the whole save.
+    const OPTIONAL_ITEM_COLUMNS = ['sports', 'featured'];
+    function stripMissingColumns(payload, errText) {
+      const t = String(errText || '');
+      if (!/does not exist|schema cache|could not find/i.test(t)) return null;
+      let removed = false;
+      const next = Object.assign({}, payload);
+      OPTIONAL_ITEM_COLUMNS.forEach((col) => {
+        if (Object.prototype.hasOwnProperty.call(next, col) &&
+            new RegExp('\\b' + col + '\\b', 'i').test(t)) {
+          delete next[col];
+          removed = true;
+        }
       });
-      if (!response.ok) throw new Error(await readError(response, 'Insert failed.'));
-      const rows = await response.json();
-      return Array.isArray(rows) && rows.length ? rows[0] : null;
+      return removed ? next : null;
+    }
+
+    async function insertItem(payload) {
+      let body = payload;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const response = await fetch(restUrl('gift_shop_items'), {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify(body)
+        });
+        if (response.ok) {
+          const rows = await response.json();
+          return Array.isArray(rows) && rows.length ? rows[0] : null;
+        }
+        const text = await readError(response, 'Insert failed.');
+        const stripped = attempt === 0 ? stripMissingColumns(body, text) : null;
+        if (stripped) { body = stripped; continue; }
+        throw new Error(text);
+      }
     }
 
     async function updateItem(id, payload) {
-      const response = await fetch(restUrl('gift_shop_items', { id: 'eq.' + id }), {
-        method: 'PATCH',
-        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) throw new Error(await readError(response, 'Update failed.'));
-      const rows = await response.json();
-      // A PATCH that matches no row still comes back 200 with an empty array —
-      // that's what an RLS policy refusing the write looks like from here. Say
-      // so instead of reporting "Saved." over a change that never landed.
-      if (!Array.isArray(rows) || !rows.length) {
-        throw new Error('Nothing was saved — the database refused the change (id ' + id + '). Check that you are still signed in as an admin, then try again.');
+      let body = payload;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const response = await fetch(restUrl('gift_shop_items', { id: 'eq.' + id }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify(body)
+        });
+        if (response.ok) {
+          const rows = await response.json();
+          // A PATCH that matches no row still comes back 200 with an empty array —
+          // that's what an RLS policy refusing the write looks like from here. Say
+          // so instead of reporting "Saved." over a change that never landed.
+          if (!Array.isArray(rows) || !rows.length) {
+            throw new Error('Nothing was saved — the database refused the change (id ' + id + '). Check that you are still signed in as an admin, then try again.');
+          }
+          return rows[0];
+        }
+        const text = await readError(response, 'Update failed.');
+        const stripped = attempt === 0 ? stripMissingColumns(body, text) : null;
+        if (stripped) { body = stripped; continue; }
+        throw new Error(text);
       }
-      return rows[0];
     }
 
     // Hard delete. Listings go first — they reference the item and there is no
@@ -4533,6 +4591,7 @@
       };
       const focus = String(article.dataset.imageFocus || '50% 50%');
       const featuredEl = article.querySelector('[data-field="featured"]');
+      const sportsEl = article.querySelector('[data-field="sports"]');
       return {
         kind: 'amazon_link',
         title: get('title').trim() || null,
@@ -4541,8 +4600,9 @@
         image_url: get('image_url').trim() || null,
         image_focus: focus,
         description: get('description').trim() || null,
-        // Featured flag, same 'YES'/null convention as games.featured.
+        // Independent flags, same 'YES'/null convention as games.featured.
         featured: featuredEl && featuredEl.checked ? 'YES' : null,
+        sports: sportsEl && sportsEl.checked ? 'YES' : null,
         // Review is automatic unless this row is shelved or live. Keep archived
         // false for ordinary Review/Live saves; shelving still writes true as a
         // legacy/public-hide belt-and-suspenders value.
@@ -4751,6 +4811,7 @@
       set('image_url', item.image_url);
       set('description', item.description);
       set('featured', /^(yes|true|t|1)$/i.test(String(item.featured || '')));
+      set('sports', /^(yes|true|t|1)$/i.test(String(item.sports || '')));
 
       // Current shops render as deletable chips; "+ Add to shops" opens a
       // searchable multi-select picker. State + persistence live in bindListings.
