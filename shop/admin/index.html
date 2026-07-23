@@ -5140,6 +5140,7 @@
       const targetPdf = article.querySelector('[data-target-pdf]');
       const targetOkLine = article.querySelector('.item-target-ok');
       const isPdfUrl = (u) => /\.pdf($|[?#])/i.test(u || '');
+      const isImageUrl = (u) => /\.(svg|png|jpe?g|gif|webp|avif|bmp|ico|tiff?)($|[?#])/i.test(u || '');
       // The scraper can return an image URL the browser itself can't load (a
       // hotlink-/referrer-blocked og:image is the usual culprit). Catch that so
       // the status line explains it rather than leaving a broken-image icon.
@@ -5273,6 +5274,9 @@
           setTargetState('pdf', { pdf: url, title });
           return;
         }
+        // A link that IS an image (a logo/photo URL) is its own preview — show it
+        // directly, no scrape needed. Caption falls back to our gift title/host.
+        if (isImageUrl(url)) { setTargetState('ok', { image: url }); return; }
         setTargetState('loading');
         let res, data;
         try {
@@ -5294,7 +5298,11 @@
         const title = String((data && data.title) || '').trim();
         // Even a partial result (image OR title) is worth showing.
         if (image || title) { setTargetState('ok', { image, title }); return; }
-        // Nothing to show — explain exactly why, from the server's own reason.
+        // The link resolved (200) but had no scrapable title/image — show the
+        // tiny browser with OUR gift title (caption falls back to it) rather than
+        // an error. Only a real failure (blocked/404/timeout/bad host — all
+        // non-200) shows the descriptive message.
+        if (res.ok) { setTargetState('ok', { image: '', title: '' }); return; }
         setTargetState('error', { message: describeTargetError(res.status, data, url) });
       }
       // Turn the scraper's response into a plain, specific explanation for the

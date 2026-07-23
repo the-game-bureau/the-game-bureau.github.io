@@ -52,6 +52,9 @@ const DESKTOP_UA =
 // Amazon no longer needs a host test — it flows through the same fetch+extract
 // path as every other site, with readAmazonDom() adding Amazon-only selectors.
 const BOOKSHOP_HOST_RE = /(?:^|\.)bookshop\.org$/;
+// Issuu serves a client-rendered JS shell with no OG tags, so scraping its HTML
+// yields nothing. Its oEmbed endpoint returns the title + a page-1 thumbnail.
+const ISSUU_HOST_RE = /(?:^|\.)issuu\.com$/;
 
 // Optional Google Books API key. The keyless quota is shared globally and is
 // frequently exhausted (429), so set one for reliable Bookshop lookups:
@@ -131,6 +134,21 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Issuu (flipbook visitor guides etc.): the page is a JS shell, but oEmbed
+    // gives us the document title + a page-1 thumbnail image.
+    if (ISSUU_HOST_RE.test(hostname)) {
+      const clean = (() => {
+        try { const u = new URL(targetUrl); return u.origin + u.pathname; } catch { return targetUrl; }
+      })();
+      const r = await fromOembed(
+        `https://issuu.com/oembed?format=json&url=${encodeURIComponent(clean)}`,
+      );
+      if (r) return json(r, 200);
+      return json({
+        error: "Couldn't read this Issuu document's preview — open it to check the link.",
+      }, 502);
+    }
+
     let upstream: Response;
     try {
       upstream = await fetchWithTimeout(targetUrl, {
@@ -168,6 +186,10 @@ Deno.serve(async (req: Request) => {
     // Only HTML has OG/JSON-LD tags to read; a direct image/PDF/JSON URL doesn't.
     const contentType = (upstream.headers.get("content-type") || "").toLowerCase();
     if (contentType && !/(text\/html|application\/xhtml)/.test(contentType)) {
+      // A direct image URL IS its own preview — hand it straight back as the image.
+      if (/^image\//.test(contentType)) {
+        return json({ title: "", description: "", image_url: targetUrl, price_display: "" }, 200);
+      }
       return json({
         error: `That link is a ${contentType.split(";")[0] || "non-HTML"} file, not a web page — nothing to preview here.`,
       }, 200);
@@ -195,6 +217,32 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
+
+// Pull { title, image_url } from any oEmbed JSON endpoint (Issuu, and any other
+// provider we choose to route here). thumbnail_url is the preview image.
+async function fromOembed(endpoint: string): Promise<ScrapeResult | null> {
+  try {
+    // Issuu (and others) 403 requests without a browser User-Agent.
+    const res = await fetchWithTimeout(
+      endpoint,
+      { headers: { Accept: "application/json", "User-Agent": DESKTOP_UA } },
+      8000,
+    );
+    if (!res.ok) return null;
+    const d = await res.json();
+    const title = String(d?.title || "").trim();
+    const image = String(d?.thumbnail_url || "").trim();
+    if (!title && !image) return null;
+    return {
+      title,
+      description: String(d?.description || "").trim(),
+      image_url: image,
+      price_display: "",
+    };
+  } catch {
+    return null;
+  }
+}
 
 // Block loopback, link-local, and RFC-1918 private hosts — a scraper that
 // fetches any URL shouldn't be usable to reach the internal network.
