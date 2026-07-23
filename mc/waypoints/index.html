@@ -934,6 +934,11 @@
     // after a save; otherwise feature a fresh random one.
     async function refresh(keepId) {
       try {
+        // Always show a state in the list — a blank panel during a slow load or a
+        // silent failure reads as "nothing's here".
+        if (wpList && !wpList.children.length) {
+          wpList.appendChild(emptyNode('Loading waypoints…'));
+        }
         await ensureFreshSession();
         // TgbRest.fetchAll paginates past PostgREST's 1000-row cap.
         const url = restUrl(TABLE, { select: WAYPOINT_COLUMNS.join(','), order: PK + '.asc' });
@@ -952,8 +957,19 @@
         }
       } catch (error) {
         console.error(error);
-        setStatus(error.message || 'Load failed.', 'error');
-        render();
+        const msg = error && error.message ? error.message : 'Load failed.';
+        setStatus(msg, 'error');
+        // Surface the failure IN the list, not just the small status line, so an
+        // auth/session error doesn't look like an empty waypoint set.
+        if (wpList) {
+          wpList.innerHTML = '';
+          const isAuth = /jwt|401|permission|auth|sign/i.test(msg);
+          wpList.appendChild(emptyNode(
+            (isAuth ? 'Could not load waypoints — sign-in issue. ' : 'Could not load waypoints. ') +
+            msg + ' · Reload the page (Ctrl+Shift+R).'
+          ));
+        }
+        updateSummary();
       }
     }
 
