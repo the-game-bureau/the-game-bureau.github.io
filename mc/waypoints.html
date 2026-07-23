@@ -148,17 +148,6 @@
       box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
     }
 
-    .howto {
-      margin: 10px 0 0;
-      padding-left: 1.2em;
-      display: grid;
-      gap: 3px;
-      max-width: 70ch;
-      font-size: 0.84rem;
-      color: var(--muted);
-    }
-    .howto li { line-height: 1.4; }
-    .howto em { font-style: normal; font-weight: 700; color: var(--ink); }
 
     .panel {
       display: grid;
@@ -627,11 +616,6 @@
       <p class="kicker">TGB MISSION CONTROL</p>
       <h2>WAYPOINTS</h2>
       <p class="legend">Waypoints are real-world places that become walking-tour stops. One waypoint can be used in many games. <strong>Waypoint + Challenge = Game Stop.</strong></p>
-      <ol class="howto">
-        <li><strong>Find places</strong> — <em>Find waypoints</em> pulls real tour spots from the map, or <em>Prompt</em> gives you an AI prompt that returns a list.</li>
-        <li><strong>Add them</strong> — <em>Find waypoints</em> adds straight in; for a pasted list use <em>Import</em>; or <em>New</em> to add one by hand.</li>
-        <li><strong>Tidy up</strong> — open a card to edit, <em>Fill</em> blanks from the map, and <em>Dedup</em> to merge repeats.</li>
-      </ol>
     </section>
 
     <div class="toolbar">
@@ -768,6 +752,7 @@
       onAuthorized: async () => {
         state.authed = true;
         setStatus('Loading waypoints...');
+        loadCatalogCities().catch(() => {}); // warm the city catalog for the chooser
         await refresh();
       },
       onSignedOut: () => {
@@ -2010,12 +1995,44 @@
       loc = cleanText(loc);
       if (!loc) return false;
       const exists = (c) => c.toLowerCase() === loc.toLowerCase();
-      if (NFL_US_CITIES.some(exists) || NFL_INTL_CITIES.some(exists)) return false;
+      // Don't duplicate a city already offered — from the shared catalog or the
+      // built-in NFL lists (still used here as a dedup guard).
+      if (catalogCitiesList.some(exists) || NFL_US_CITIES.some(exists) || NFL_INTL_CITIES.some(exists)) return false;
       const list = loadCustomCities();
       if (list.some(exists)) return false;
       list.push(loc);
       try { localStorage.setItem(CITY_STORE_KEY, JSON.stringify(list)); } catch (error) {}
       return true;
+    }
+
+    // Cities pulled from the shared public.cities catalog — the same table the
+    // shop and sound pages read. Cached after the first load. select=* so it
+    // still works before the cities-ignored migration (per project convention:
+    // never name the 'ignored' column in a query). Archived cities are dropped;
+    // everything else — including venue-only "ignored" cities, which are real
+    // places you'd add waypoints for — is offered.
+    let catalogCitiesPromise = null;
+    let catalogCitiesList = []; // sync snapshot (for the Save-typed dedup check)
+    function loadCatalogCities() {
+      if (catalogCitiesPromise) return catalogCitiesPromise;
+      catalogCitiesPromise = (async () => {
+        const url = restUrl('cities', { select: '*', order: 'city.asc' });
+        const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
+        const seen = new Set();
+        const out = [];
+        (Array.isArray(rows) ? rows : []).forEach((r) => {
+          const city = cleanText(r && r.city);
+          if (!city || r.archived) return;
+          const key = city.toLowerCase();
+          if (seen.has(key)) return;
+          seen.add(key);
+          out.push(city);
+        });
+        out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        catalogCitiesList = out;
+        return out;
+      })().catch((err) => { catalogCitiesPromise = null; throw err; });
+      return catalogCitiesPromise;
     }
 
     // Split a typed location into a city and a region (state/country) for storing
@@ -2049,8 +2066,22 @@
         cities.forEach((c) => { const o = document.createElement('option'); o.value = c; o.textContent = c; og.append(o); });
         sel.append(og);
       };
-      addGroup('NFL cities', NFL_US_CITIES);
-      addGroup('NFL international', NFL_INTL_CITIES);
+      // Cities come from the shared public.cities catalog, filled in async. A
+      // brief "Loading…" placeholder shows until the fetch resolves.
+      const catalogGroup = document.createElement('optgroup');
+      catalogGroup.label = 'Cities';
+      const loadingOpt = document.createElement('option');
+      loadingOpt.value = '';
+      loadingOpt.disabled = true;
+      loadingOpt.textContent = 'Loading cities…';
+      catalogGroup.append(loadingOpt);
+      sel.append(catalogGroup);
+      loadCatalogCities().then((cities) => {
+        catalogGroup.textContent = '';
+        if (!cities.length) { catalogGroup.remove(); return; }
+        cities.forEach((c) => { const o = document.createElement('option'); o.value = c; o.textContent = c; catalogGroup.append(o); });
+      }).catch(() => { catalogGroup.remove(); });
+
       addGroup('My cities', loadCustomCities());
 
       const input = document.createElement('input');
