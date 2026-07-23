@@ -182,16 +182,76 @@
       margin: 0 0 16px;
     }
     .toolbar .btn { flex: 0 0 auto; white-space: nowrap; }
-    /* The add-waypoints row sits just under the search/filter row. */
-    .toolbar--add { margin-top: -6px; flex-wrap: wrap; }
-    .toolbar-label {
-      flex: 0 0 auto;
-      color: var(--muted);
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+    /* Add-waypoints row: the Stock Room's command-bar look — a soft panel with a
+       mono label, dividers between groups, and quiet "ghost" reference links. */
+    .command-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      width: 100%;
+      margin: -6px 0 0;
+      padding: 10px 12px;
+      background: #eef0f4;
+      border: 1px solid var(--line);
+      border-radius: 10px;
     }
+    .command-bar-label {
+      flex: 0 0 auto;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .command-bar-divider {
+      width: 1px;
+      align-self: stretch;
+      min-height: 24px;
+      margin: 0 2px;
+      background: var(--line);
+    }
+    .command-bar .btn {
+      flex: 0 0 auto;
+      min-width: 0;
+      padding: 0 12px;
+      font-size: 0.78rem;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    /* Reference links read quieter than the create actions. */
+    .command-bar .btn.ghost {
+      background: transparent;
+      border-style: dashed;
+      color: var(--muted);
+    }
+    .command-bar .btn.ghost:hover { color: var(--ink); border-color: var(--accent); }
+
+    /* Options row on the "With AI" prompt picker (Stops count + keywords). */
+    .prompt-opts { display: flex; flex-wrap: wrap; gap: 10px; }
+    .prompt-opt {
+      display: grid;
+      gap: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .prompt-opt--wide { flex: 1 1 220px; }
+    .prompt-opt input {
+      min-height: 38px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-weight: 500;
+      letter-spacing: normal;
+      text-transform: none;
+    }
+    .prompt-opt input[type="number"] { width: 96px; }
 
     .toolbar input {
       flex: 1 1 80px;
@@ -658,6 +718,11 @@
       .toolbar input { flex: 1 1 100%; }
       .toolbar .btn { flex: 1 1 auto; }
 
+      /* Add-waypoints command bar: buttons stretch, dividers drop out. */
+      .command-bar .btn { flex: 1 1 auto; }
+      .command-bar-label { flex: 1 1 100%; }
+      .command-bar-divider { display: none; }
+
       /* Dialogs (Find waypoints, Prompt, Import, Dedup, Near) fill the screen. */
       .modal,
       #dedupDialog, #importDialog, #finderDialog, #bulkDialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
@@ -740,13 +805,18 @@
       <button class="btn small" id="dedupBtn" type="button" title="Find waypoints with the same or similar name or address">Dedup</button>
     </div>
 
-    <!-- Add waypoints: every way to bring new waypoints in, on their own row. -->
-    <div class="toolbar toolbar--add">
-      <span class="toolbar-label">Add waypoints</span>
-      <button class="btn small" id="newBtn" type="button" title="Search the world for the text in the box, or add a blank waypoint when empty">New</button>
+    <!-- Add waypoints: every way to bring new waypoints in, on their own row.
+         Manual (by hand) and With AI (Supabase-SQL prompt) lead; Find waypoints
+         and Import follow; Links are quiet reference shortcuts. -->
+    <div class="command-bar" aria-label="Add waypoints">
+      <span class="command-bar-label">Add waypoints</span>
+      <button class="btn small" id="newBtn" type="button" title="Add a waypoint by hand — or search the world for the text in the search box">Manual</button>
+      <button class="btn small primary" id="promptBtn" type="button" title="Generate an AI prompt that returns Supabase SQL you paste into the database">With AI</button>
+      <span class="command-bar-divider" aria-hidden="true"></span>
       <button class="btn small" id="findStopsBtn" type="button" title="Pull real tour-worthy places from OpenStreetMap for a city">Find waypoints</button>
-      <button class="btn small" id="promptBtn" type="button" title="Generate an AI prompt that returns walking-tour stops as CSV">Prompt</button>
       <button class="btn small" id="importBtn" type="button" title="Paste CSV/spreadsheet rows and add them all as waypoints">Import</button>
+      <span class="command-bar-divider" aria-hidden="true"></span>
+      <a class="btn small ghost" id="w3wLinkBtn" href="https://what3words.com" target="_blank" rel="noopener" title="Open what3words in a new tab">Links ↗</a>
     </div>
 
     <section class="panel">
@@ -768,9 +838,10 @@
   <div class="modal-backdrop" id="promptBackdrop" hidden></div>
   <section class="modal" id="promptDialog" hidden role="dialog" aria-modal="true" aria-labelledby="promptTitle">
     <div class="modal-bar">
-      <h3 class="modal-title" id="promptTitle">Walking-tour stops by ZIP</h3>
+      <h3 class="modal-title" id="promptTitle">Add waypoints with AI</h3>
       <button class="btn small" id="promptBackBtn" type="button" hidden>Back</button>
-      <button class="btn small" id="promptCopyBtn" type="button" hidden>Copy</button>
+      <a class="btn small" id="promptDbBtn" href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/" target="_blank" rel="noopener" hidden>Go to Database ↗</a>
+      <button class="btn small primary" id="promptCopyBtn" type="button" hidden>Copy</button>
       <button class="btn small" id="promptCloseBtn" type="button">Close</button>
     </div>
     <div class="prompt-body" id="promptBody"></div>
@@ -2017,28 +2088,144 @@
 
     // Build an AI prompt that asks for REAL walking-tour stops in an area and
     // returns CSV ready to paste into this page's Import box.
-    function buildWalkingTourPrompt(area) {
-      return [
-        'You are a local walking-tour expert helping build a catalog of real walking-tour stops for a location-based game.',
+    const WAYPOINT_IMPORT_HELPER_SQL_PATH = 'supabase/waypoints-prompt-import.sql';
+    const SUPABASE_SQL_URL = 'https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/';
+
+    // The tgb_import_waypoints_prompt_items helper, inlined into the AI prompt so
+    // the SQL the model returns is self-contained (the DB may not have it yet).
+    // Keep in sync with supabase/waypoints-prompt-import.sql.
+    function buildWaypointImportHelperSql() {
+      return String.raw`
+create or replace function public.tgb_import_waypoints_prompt_items(items jsonb)
+returns table (action text, name text, wpid text, note text)
+language plpgsql
+as $$
+declare
+  v_entry jsonb;
+  v_name text; v_city text; v_state text; v_zip text; v_address text;
+  v_description text; v_w3w text; v_lat double precision; v_lon double precision;
+  v_wpid public.waypoints.wpid%type;
+  v_existing public.waypoints.wpid%type;
+begin
+  if items is null or jsonb_typeof(items) <> 'array' then
+    raise exception 'Expected a JSON array of waypoint objects.';
+  end if;
+  for v_entry in select value from jsonb_array_elements(items)
+  loop
+    v_name := nullif(btrim(v_entry->>'name'), '');
+    v_city := nullif(btrim(v_entry->>'city'), '');
+    v_state := nullif(btrim(v_entry->>'state'), '');
+    v_zip := nullif(btrim(v_entry->>'zip'), '');
+    v_address := nullif(btrim(v_entry->>'address'), '');
+    v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
+    v_w3w := nullif(btrim(v_entry->>'w3w'), '');
+    begin v_lat := nullif(btrim(coalesce(v_entry->>'lat', '')), '')::double precision; exception when others then v_lat := null; end;
+    begin v_lon := nullif(btrim(coalesce(v_entry->>'lon', '')), '')::double precision; exception when others then v_lon := null; end;
+    if v_name is null then
+      return query select 'skipped'::text, null::text, null::text, 'missing name'::text; continue;
+    end if;
+    v_existing := null;
+    select w.wpid into v_existing from public.waypoints w
+     where lower(btrim(coalesce(w.name, ''))) = lower(v_name)
+       and lower(btrim(coalesce(w.city, ''))) = lower(coalesce(v_city, '')) limit 1;
+    if v_existing is not null then
+      return query select 'skipped'::text, v_name, v_existing::text, 'existing name + city'::text; continue;
+    end if;
+    insert into public.waypoints (name, city, state, zip, address, description, w3w, lat, lon)
+    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_w3w, v_lat, v_lon)
+    returning wpid into v_wpid;
+    return query select 'inserted'::text, v_name, v_wpid::text, null::text;
+  end loop;
+end;
+$$;`.trim();
+    }
+
+    // Existing waypoint names in the target city, so the AI won't re-suggest them.
+    function existingWaypointNamesFor(area) {
+      const city = (parseLocation(area).city || '').toLowerCase();
+      if (!city) return [];
+      const seen = new Set();
+      const out = [];
+      state.rows.forEach((r) => {
+        if (cleanText(r.city).toLowerCase() !== city) return;
+        const n = cleanText(r.name);
+        if (!n || seen.has(n.toLowerCase())) return;
+        seen.add(n.toLowerCase());
+        out.push(n);
+      });
+      return out.slice(0, 400);
+    }
+
+    // The "With AI" prompt: the model researches real stops and returns ONE
+    // Supabase SQL block (helper setup + a call with the verified stops as JSON)
+    // that the admin pastes into the Supabase SQL editor. Mirrors the gift shop's
+    // buildDestinationSearchPrompt flow.
+    function buildWaypointAiPrompt(area, count, keywords) {
+      const n = Math.max(1, Math.min(100, parseInt(count, 10) || 20));
+      const kw = cleanText(keywords);
+      const p = parseLocation(area);
+      const region = p.region || '';
+      const existing = existingWaypointNamesFor(area);
+      const sqlExample = [
+        buildWaypointImportHelperSql(),
         '',
-        'List actual places in or immediately around ' + area + ' that ALREADY appear as stops on real walking tours — guided tours, self-guided tour apps and routes, historical-society markers, and official city or visitor-bureau walking tours. Put the best-known, most-visited tour stops first, then add strong additional candidates. Favor places that are:',
-        '- Within comfortable walking distance of one another (about a 1-mile loop).',
-        '- Interesting and photogenic: historic sites and markers, landmarks, monuments and memorials, public art and murals, notable architecture, parks and plazas, museums, and iconic local businesses.',
+        'select *',
+        'from public.tgb_import_waypoints_prompt_items($tgb$',
+        '[',
+        '  {',
+        '    "name": "Cafe du Monde",',
+        '    "city": "New Orleans",',
+        '    "state": "LA",',
+        '    "zip": "70116",',
+        '    "address": "800 Decatur St, New Orleans, LA 70116",',
+        '    "description": "One original tour-guide sentence: a fact or what makes it a stop.",',
+        '    "w3w": null,',
+        '    "lat": 29.957444,',
+        '    "lon": -90.061722',
+        '  }',
+        ']',
+        '$tgb$::jsonb);'
+      ].join('\n');
+
+      return [
+        'You are a local walking-tour expert helping The Game Bureau build a catalog of real walking-tour stops for a location-based game.',
+        '',
+        'Task: research real, publicly accessible walking-tour stops in or immediately around ' + area + ' and return a Supabase SQL import for up to ' + n + ' NEW stops.' + (kw ? ' Bias toward: ' + kw + '.' : ''),
+        '',
+        'What makes a good stop (best-known, most-visited first, then strong additional candidates):',
+        '- Places that ALREADY appear on real walking tours — guided tours, self-guided tour apps/routes, historical-society markers, official city or visitor-bureau tours.',
+        '- Within a comfortable ~1-mile loop of one another; interesting and photogenic (historic sites and markers, landmarks, monuments/memorials, public art and murals, notable architecture, parks and plazas, museums, iconic local businesses).',
         '- Publicly accessible and safe to stand in front of.',
         '',
-        'Aim for 12–25 real stops. For each, give the place name, the city, the region (the 2-letter state code for US places, otherwise the country), the postal/ZIP code, the most specific street address you can, and a one-sentence tour-guide description (an interesting fact, or what makes it a stop).',
+        'Research instructions:',
+        '- Do the research yourself with your web browsing/search tools. Do not ask me for a dataset; the deliverable is the finished SQL.',
+        '- Goal: ' + n + ' verified stops, but a smaller verified batch is fine. Never fabricate a place, address, or coordinate to hit the count.',
+        '- Give the most specific street address you can, and the real decimal-degree latitude/longitude of the place. Verify coordinates land on the actual place.',
         '',
-        'Return the result as CSV ONLY, with exactly this header row and one stop per line:',
+        'Hard requirements for each JSON object:',
+        '- name: the place name (e.g. "Cafe du Monde"). Required.',
+        '- city: the city as a plain string (e.g. "' + (p.city || 'New Orleans') + '").',
+        '- state: the 2-letter code for US places (e.g. "' + (region || 'LA') + '"), otherwise the country name.',
+        '- zip: the postal/ZIP code as a string, or null.',
+        '- address: the most specific street address you can (raw string), or null.',
+        '- description: ONE original, concise tour-guide sentence (a fact, or what makes it a stop). No marketing copy.',
+        '- w3w: a what3words address as a full https://w3w.co/word.word.word URL only if you are confident, otherwise null. Do not guess.',
+        '- lat, lon: the real decimal-degree coordinates as numbers, or null if unsure. Do not fabricate.',
+        '- Do NOT include a wpid or id — the database assigns it.',
+        '- Do not include any stop already in the "existing" list below. Avoid duplicate names.',
+        '- The JSON array may contain 1 to ' + n + ' objects. Do not pad with unverifiable entries.',
+        '- Do not put the literal sequence $tgb$ inside any JSON string value.',
+        '- Output the COMPLETE script as ONE copy-pasteable block: a single fenced ```sql code block (or a code artifact/canvas with a copy button). Do NOT split it across multiple blocks.',
+        '- CRITICAL for copy-paste: use ONLY plain ASCII characters. Straight apostrophes and straight double-quotes only; never smart/curly quotes, en/em dashes, non-breaking spaces, or other Unicode punctuation. Do not hard-wrap or reflow long lines. Those silently corrupt the SQL (especially the $tgb$ dollar-quoted JSON).',
+        '- The block must contain ONLY SQL — no prose, headings, or commentary before, after, or inside it.',
         '',
-        'name,city,state,zip,address,description',
-        'Cafe du Monde,New Orleans,LA,70116,"800 Decatur St, New Orleans, LA",Historic open-air coffee stand serving beignets since 1862.',
-        'Museo del Prado,Madrid,Spain,28014,"C. de Ruiz de Alarcón 23, Madrid",Spain’s national art museum, a flagship stop on most Madrid walking tours.',
+        'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper with the verified-stop JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
+        sqlExample,
         '',
-        'Rules:',
-        '- Output ONLY the CSV — the header line plus the data lines. No commentary, no code fences, no numbering.',
-        '- Wrap any value that contains a comma in double quotes; double any quote that appears inside a value.',
-        '- For the state column use the 2-letter code for US states, or the country name for places outside the US.',
-        '- One stop per line. Do not include a wpid or id column.'
+        'Reusable helper source also lives in this repo at ' + WAYPOINT_IMPORT_HELPER_SQL_PATH + ', but the SQL you return must include the helper setup inline.',
+        '',
+        'Existing waypoints in this city to exclude (do not re-suggest any of these names):',
+        JSON.stringify(existing, null, 2)
       ].join('\n');
     }
 
@@ -2257,8 +2444,10 @@
     function setPromptView(view) { // 'picker' | 'prompt'
       const back = document.getElementById('promptBackBtn');
       const copy = document.getElementById('promptCopyBtn');
+      const db = document.getElementById('promptDbBtn');
       if (back) back.hidden = view !== 'prompt';
       if (copy) copy.hidden = view !== 'prompt';
+      if (db) db.hidden = view !== 'prompt';
     }
 
     function zipNote(text) {
@@ -2276,37 +2465,67 @@
       renderPromptChooser();
     }
 
+    // Options for the "With AI" prompt, remembered between opens.
+    let aiPromptCount = 20;
+    let aiPromptKeywords = '';
+
     function renderPromptChooser() {
       setPromptView('picker');
       const title = document.getElementById('promptTitle');
-      if (title) title.textContent = 'Walking-tour prompt';
+      if (title) title.textContent = 'Add waypoints with AI';
       const body = document.getElementById('promptBody');
       if (!body) return;
       body.innerHTML = '';
-      const hint = zipNote('Pick a city — or type any City, State, Country — to get an AI prompt for that city.');
+      const hint = zipNote('Pick a city, then copy the prompt into an AI. It returns Supabase SQL you paste into the database — real walking-tour stops, added straight to the table.');
+
+      // Stops count + optional keywords, like the Stock Room's Suggest prompt.
+      const opts = document.createElement('div');
+      opts.className = 'prompt-opts';
+      const countWrap = document.createElement('label');
+      countWrap.className = 'prompt-opt';
+      countWrap.textContent = 'Stops (max)';
+      const countInput = document.createElement('input');
+      countInput.type = 'number';
+      countInput.min = '1';
+      countInput.max = '100';
+      countInput.step = '1';
+      countInput.value = String(aiPromptCount);
+      countInput.addEventListener('input', () => { aiPromptCount = Math.max(1, Math.min(100, parseInt(countInput.value, 10) || 20)); });
+      countWrap.appendChild(countInput);
+      const kwWrap = document.createElement('label');
+      kwWrap.className = 'prompt-opt prompt-opt--wide';
+      kwWrap.textContent = 'Keywords (optional)';
+      const kwInput = document.createElement('input');
+      kwInput.type = 'text';
+      kwInput.placeholder = 'e.g. jazz, French Quarter, murals';
+      kwInput.value = aiPromptKeywords;
+      kwInput.addEventListener('input', () => { aiPromptKeywords = kwInput.value; });
+      kwWrap.appendChild(kwInput);
+      opts.append(countWrap, kwWrap);
+
       const current = findRow(state.randomId);
       const seed = current ? [cleanText(current.city), cleanText(current.state)].filter(Boolean).join(', ') : '';
-      const chooser = buildLocationChooser('Make prompt', (loc) => showPromptForArea(loc, loc), seed);
-      body.append(hint, chooser.wrap);
+      const chooser = buildLocationChooser('Make AI prompt', (loc) => showPromptForArea(loc, loc), seed);
+      body.append(hint, opts, chooser.wrap);
       chooser.input.focus();
     }
 
     function showPromptForArea(descriptor, label) {
       setPromptView('prompt');
       const title = document.getElementById('promptTitle');
-      if (title) title.textContent = 'Walking-tour prompt · ' + label;
+      if (title) title.textContent = 'Add waypoints with AI · ' + label;
       const body = document.getElementById('promptBody');
       if (!body) return;
       body.innerHTML = '';
       const hint = document.createElement('div');
       hint.className = 'zip-desc';
-      hint.innerHTML = '<strong>Copy</strong> this, paste it into ChatGPT (or any AI), then paste the CSV it gives back into <strong>Import</strong>.';
+      hint.innerHTML = '<strong>Copy</strong> this prompt, paste it into ChatGPT (or any web-capable AI), then paste the <strong>Supabase SQL</strong> it returns into the database (use <strong>Go to Database</strong>) and run it.';
       const ta = document.createElement('textarea');
       ta.className = 'prompt-text';
       ta.id = 'promptText';
       ta.readOnly = true;
       ta.spellcheck = false;
-      ta.value = buildWalkingTourPrompt(descriptor);
+      ta.value = buildWaypointAiPrompt(descriptor, aiPromptCount, aiPromptKeywords);
       body.append(hint, ta);
       ta.focus();
       ta.select();
