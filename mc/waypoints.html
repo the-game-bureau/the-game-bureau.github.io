@@ -256,6 +256,7 @@
       gap: 10px;
     }
     .field-row--3 { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.7fr) minmax(0, 0.9fr); }
+    .field-row--citystate { grid-template-columns: minmax(0, 2fr) minmax(0, 0.8fr); }
 
     .field { display: grid; gap: 5px; }
 
@@ -268,7 +269,8 @@
     }
 
     .field input,
-    .field textarea {
+    .field textarea,
+    .field select {
       width: 100%;
       padding: 9px 10px;
       border: 1px solid var(--line);
@@ -276,6 +278,7 @@
       background: #fff;
       color: var(--ink);
     }
+    .field select { min-height: 38px; }
     .field textarea {
       min-height: 64px;
       resize: vertical;
@@ -3508,8 +3511,8 @@
       fields.className = 'field-grid';
       fields.appendChild(renderNameField(row));
       const cityState = document.createElement('div');
-      cityState.className = 'field-row field-row--3';
-      cityState.append(renderTextField(row, 'city', 'City'), renderTextField(row, 'state', 'State'), renderTextField(row, 'zip', 'ZIP'));
+      cityState.className = 'field-row field-row--citystate';
+      cityState.append(renderCityStateField(row), renderTextField(row, 'zip', 'ZIP'));
       fields.appendChild(cityState);
       fields.appendChild(renderTextField(row, 'address', 'Address', 'Street address, lat/lon coordinates, or a Plus Code.'));
       fields.appendChild(renderW3WField(row));
@@ -3715,6 +3718,70 @@
         help.textContent = hint;
         wrap.appendChild(help);
       }
+      return wrap;
+    }
+
+    // City + State as ONE dropdown, sourced from the shared public.cities catalog.
+    // Waypoints keep city and state in separate columns, so a pick is split back
+    // into them (state normalized to its 2-letter code). A value already on the
+    // row that isn't in the catalog is kept as its own selected option so editing
+    // one field never wipes an existing out-of-catalog city.
+    function renderCityStateField(row) {
+      const wrap = document.createElement('div');
+      wrap.className = 'field';
+      const id = 'wp-citystate-' + row.wpid;
+      const label = document.createElement('label');
+      label.setAttribute('for', id);
+      label.textContent = 'City · State';
+      const sel = document.createElement('select');
+      sel.id = id;
+      sel.dataset.field = 'city_state';
+
+      const makeOpt = (value, text, city, region) => {
+        const o = document.createElement('option');
+        o.value = value; o.textContent = text;
+        o.dataset.city = city; o.dataset.region = region;
+        return o;
+      };
+
+      const curCity = cleanText(row.city);
+      const curState = cleanText(row.state);
+      const curRegion = stateAbbrOf(curState) || curState;
+      const curKey = curCity ? (curCity.toLowerCase() + '|' + curRegion.toLowerCase()) : '';
+
+      sel.append(makeOpt('', curKey ? '— clear —' : 'Choose a city…', '', ''));
+
+      // Preserve the current value until (and unless) a catalog match is found.
+      let currentOpt = null;
+      if (curKey) {
+        currentOpt = makeOpt('cur', [curCity, curRegion].filter(Boolean).join(', '), curCity, curRegion);
+        sel.append(currentOpt);
+        sel.value = 'cur';
+      }
+
+      sel.addEventListener('change', () => {
+        const opt = sel.selectedOptions[0];
+        updateField(row.wpid, 'city', (opt && opt.dataset.city) || '');
+        updateField(row.wpid, 'state', (opt && opt.dataset.region) || '');
+      });
+
+      // Fill catalog cities async. If the row's city is in the catalog, use that
+      // option and drop the standalone "current" one.
+      loadCatalogCities().then((cities) => {
+        let matchValue = '';
+        cities.forEach((c) => {
+          const p = parseLocation(c);
+          const key = p.city.toLowerCase() + '|' + (p.region || '').toLowerCase();
+          sel.append(makeOpt(c, c, p.city, p.region));
+          if (curKey && key === curKey) matchValue = c;
+        });
+        if (matchValue) {
+          if (currentOpt) { currentOpt.remove(); currentOpt = null; }
+          sel.value = matchValue;
+        }
+      }).catch(() => {});
+
+      wrap.append(label, sel);
       return wrap;
     }
 
