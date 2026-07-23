@@ -1302,6 +1302,7 @@
     }
     .item-target-match-text { min-width: 0; }
     .item-target-match[data-state="match"] .item-target-match-text { color: #2f7d4f; }
+    .item-target-match[data-state="using"] .item-target-match-text { color: #2f7d4f; }
     .item-target-match[data-state="override"] .item-target-match-text { color: #a5791a; }
     .item-target-match[data-state="missing"] .item-target-match-text { color: #b23a3a; }
     /* Tiny thumbnail of our image — opens it in the image lightbox. */
@@ -5166,17 +5167,24 @@
       function refreshTargetMatch() {
         if (!targetMatch) return;
         const our = (article.querySelector('[data-field="image_url"]')?.value || '').trim();
-        if (targetThumbBtn && targetThumbImg) {
-          if (our) { if (targetThumbImg.getAttribute('src') !== our) targetThumbImg.src = our; targetThumbBtn.hidden = false; }
-          else { targetThumbImg.removeAttribute('src'); targetThumbBtn.hidden = true; }
-        }
         let state, text;
         if (!our) {
           state = 'missing'; text = '✗ fetch or add gift image';
         } else if (targetPreviewImage && our === targetPreviewImage) {
           state = 'match'; text = '✓ our thumbnail and web image match';
+        } else if (targetPreviewImage) {
+          state = 'override'; text = '⚑ our thumbnail overrides web image';
         } else {
-          state = 'override'; text = '⚑ our thumbnail overrides suggested';
+          // No web image — our image is what's shown in the preview above.
+          state = 'using'; text = '✓ your gift image is shown above';
+        }
+        // The little compare-thumbnail is only useful when a DIFFERENT web image
+        // is showing in the preview; when our image is already the preview, it's
+        // redundant, so hide it.
+        if (targetThumbBtn && targetThumbImg) {
+          const showThumb = our && targetPreviewImage && our !== targetPreviewImage;
+          if (showThumb) { if (targetThumbImg.getAttribute('src') !== our) targetThumbImg.src = our; targetThumbBtn.hidden = false; }
+          else { targetThumbImg.removeAttribute('src'); targetThumbBtn.hidden = true; }
         }
         targetMatch.dataset.state = state;
         if (targetMatchText) targetMatchText.textContent = text;
@@ -5232,14 +5240,19 @@
           } else {
             targetPreviewImage = opts.image || '';
             if (targetOkLine) targetOkLine.style.color = ''; // clear any prior warn tint
+            // Show the scraped web image if there is one; otherwise fall back to
+            // OUR gift image so the tiny browser isn't blank when we already have
+            // a picture. Only when neither exists is the image area empty.
+            const ourImage = (article.querySelector('[data-field="image_url"]')?.value || '').trim();
+            const shownImage = opts.image || ourImage;
             if (targetImg) {
-              if (opts.image) targetImg.src = opts.image;
+              if (shownImage) targetImg.src = shownImage;
               else targetImg.removeAttribute('src');
             }
-            // Say what actually came back — image + title, or one without the other —
-            // so a missing name/image reads as a known state, not a silent gap.
-            if (targetOkLine) targetOkLine.textContent = opts.image
-              ? '✓ page loaded, preview image found'
+            // Say what's actually on screen so it never reads as a silent gap.
+            if (targetOkLine) targetOkLine.textContent =
+              opts.image ? '✓ page loaded, web preview image found'
+              : ourImage ? '✓ page loaded — showing your gift image (no web preview)'
               : '✓ page loaded — no preview image found (add one below)';
           }
           // Fall back to the gift's own Title, then the host, so the caption is
@@ -5380,7 +5393,16 @@
       // image in the lightbox from the tiny thumbnail (⤢ inside it → new tab).
       const imageUrlInput = article.querySelector('[data-field="image_url"]');
       if (imageUrlInput) {
-        imageUrlInput.addEventListener('input', () => { refreshTargetMatch(); fitTargetTitle(); });
+        imageUrlInput.addEventListener('input', () => {
+          // When our image IS the preview (no scraped web image), keep the big
+          // preview in step as you edit the Image field.
+          if (targetImg && targetFrame && targetFrame.dataset.state === 'ok' && !targetPreviewImage) {
+            const our = imageUrlInput.value.trim();
+            if (our) targetImg.src = our; else targetImg.removeAttribute('src');
+          }
+          refreshTargetMatch();
+          fitTargetTitle();
+        });
       }
       if (targetThumbBtn) {
         targetThumbBtn.addEventListener('click', () => {
