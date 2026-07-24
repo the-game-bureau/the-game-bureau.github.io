@@ -1,0 +1,61 @@
+-- 2026072404_us_state_capitals.sql
+--
+-- Add all 50 US state capital cities to public.cities. Canonical key is
+-- "City, FullStateName" (the US convention), with the structured stem / state /
+-- country filled in. No slug is sent — the cities_fill_slug BEFORE INSERT
+-- trigger derives it. ON CONFLICT (city) DO NOTHING skips the 11 capitals
+-- already in the catalog (Atlanta, Austin, Phoenix, Denver, Indianapolis,
+-- Nashville, Raleigh, Richmond, Sacramento, Baton Rouge, Boston). Safe to re-run.
+
+insert into public.cities (city, city_name, state_code, state_name, country_code, country_name) values
+  ('Montgomery, Alabama',        'Montgomery',     'AL', 'Alabama',        'USA', 'United States'),
+  ('Juneau, Alaska',             'Juneau',         'AK', 'Alaska',         'USA', 'United States'),
+  ('Phoenix, Arizona',          'Phoenix',        'AZ', 'Arizona',        'USA', 'United States'),
+  ('Little Rock, Arkansas',      'Little Rock',    'AR', 'Arkansas',       'USA', 'United States'),
+  ('Sacramento, California',     'Sacramento',     'CA', 'California',     'USA', 'United States'),
+  ('Denver, Colorado',           'Denver',         'CO', 'Colorado',       'USA', 'United States'),
+  ('Hartford, Connecticut',      'Hartford',       'CT', 'Connecticut',    'USA', 'United States'),
+  ('Dover, Delaware',            'Dover',          'DE', 'Delaware',       'USA', 'United States'),
+  ('Tallahassee, Florida',       'Tallahassee',    'FL', 'Florida',        'USA', 'United States'),
+  ('Atlanta, Georgia',           'Atlanta',        'GA', 'Georgia',        'USA', 'United States'),
+  ('Honolulu, Hawaii',           'Honolulu',       'HI', 'Hawaii',         'USA', 'United States'),
+  ('Boise, Idaho',               'Boise',          'ID', 'Idaho',          'USA', 'United States'),
+  ('Springfield, Illinois',      'Springfield',    'IL', 'Illinois',       'USA', 'United States'),
+  ('Indianapolis, Indiana',      'Indianapolis',   'IN', 'Indiana',        'USA', 'United States'),
+  ('Des Moines, Iowa',           'Des Moines',     'IA', 'Iowa',           'USA', 'United States'),
+  ('Topeka, Kansas',             'Topeka',         'KS', 'Kansas',         'USA', 'United States'),
+  ('Frankfort, Kentucky',        'Frankfort',      'KY', 'Kentucky',       'USA', 'United States'),
+  ('Baton Rouge, Louisiana',     'Baton Rouge',    'LA', 'Louisiana',      'USA', 'United States'),
+  ('Augusta, Maine',             'Augusta',        'ME', 'Maine',          'USA', 'United States'),
+  ('Annapolis, Maryland',        'Annapolis',      'MD', 'Maryland',       'USA', 'United States'),
+  ('Boston, Massachusetts',      'Boston',         'MA', 'Massachusetts',  'USA', 'United States'),
+  ('Lansing, Michigan',          'Lansing',        'MI', 'Michigan',       'USA', 'United States'),
+  ('Saint Paul, Minnesota',      'Saint Paul',     'MN', 'Minnesota',      'USA', 'United States'),
+  ('Jackson, Mississippi',       'Jackson',        'MS', 'Mississippi',    'USA', 'United States'),
+  ('Jefferson City, Missouri',   'Jefferson City', 'MO', 'Missouri',       'USA', 'United States'),
+  ('Helena, Montana',            'Helena',         'MT', 'Montana',        'USA', 'United States'),
+  ('Lincoln, Nebraska',          'Lincoln',        'NE', 'Nebraska',       'USA', 'United States'),
+  ('Carson City, Nevada',        'Carson City',    'NV', 'Nevada',         'USA', 'United States'),
+  ('Concord, New Hampshire',     'Concord',        'NH', 'New Hampshire',  'USA', 'United States'),
+  ('Trenton, New Jersey',        'Trenton',        'NJ', 'New Jersey',     'USA', 'United States'),
+  ('Santa Fe, New Mexico',       'Santa Fe',       'NM', 'New Mexico',     'USA', 'United States'),
+  ('Albany, New York',           'Albany',         'NY', 'New York',       'USA', 'United States'),
+  ('Raleigh, North Carolina',    'Raleigh',        'NC', 'North Carolina', 'USA', 'United States'),
+  ('Bismarck, North Dakota',     'Bismarck',       'ND', 'North Dakota',   'USA', 'United States'),
+  ('Columbus, Ohio',             'Columbus',       'OH', 'Ohio',           'USA', 'United States'),
+  ('Oklahoma City, Oklahoma',    'Oklahoma City',  'OK', 'Oklahoma',       'USA', 'United States'),
+  ('Salem, Oregon',              'Salem',          'OR', 'Oregon',         'USA', 'United States'),
+  ('Harrisburg, Pennsylvania',   'Harrisburg',     'PA', 'Pennsylvania',   'USA', 'United States'),
+  ('Providence, Rhode Island',   'Providence',     'RI', 'Rhode Island',   'USA', 'United States'),
+  ('Columbia, South Carolina',   'Columbia',       'SC', 'South Carolina', 'USA', 'United States'),
+  ('Pierre, South Dakota',       'Pierre',         'SD', 'South Dakota',   'USA', 'United States'),
+  ('Nashville, Tennessee',       'Nashville',      'TN', 'Tennessee',      'USA', 'United States'),
+  ('Austin, Texas',              'Austin',         'TX', 'Texas',          'USA', 'United States'),
+  ('Salt Lake City, Utah',       'Salt Lake City', 'UT', 'Utah',           'USA', 'United States'),
+  ('Montpelier, Vermont',        'Montpelier',     'VT', 'Vermont',        'USA', 'United States'),
+  ('Richmond, Virginia',         'Richmond',       'VA', 'Virginia',       'USA', 'United States'),
+  ('Olympia, Washington',        'Olympia',        'WA', 'Washington',     'USA', 'United States'),
+  ('Charleston, West Virginia',  'Charleston',     'WV', 'West Virginia',  'USA', 'United States'),
+  ('Madison, Wisconsin',         'Madison',        'WI', 'Wisconsin',      'USA', 'United States'),
+  ('Cheyenne, Wyoming',          'Cheyenne',       'WY', 'Wyoming',        'USA', 'United States')
+on conflict (city) do nothing;
