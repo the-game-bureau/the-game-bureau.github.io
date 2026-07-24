@@ -71,6 +71,11 @@
           description: 'Manage the waypoints catalog — add, edit, and delete real-world points.'
         },
         {
+          href: '/mc/cities/index.htm',
+          label: 'Cities',
+          description: 'The one city catalog the whole site reads — add, label, sort, mark venue-only/archived, or delete.'
+        },
+        {
           href: '/mc/anchor-events.html',
           label: 'Anchor Events',
           description: 'Manage the anchor-events catalog — the real sporting matchups a fandom game can be anchored to. Bulk-import, add, edit, delete.'

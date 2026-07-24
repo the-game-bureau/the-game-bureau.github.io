@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>CITIES | THE GAME BUREAU</title>
+  <link rel="icon" href="../../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);
+      --bic-red: #c23737;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255, 255, 255, 0.92);
+      --accent: var(--bic-blue);
+      --danger: #a03f2d;
+      --success: #2f6b3d;
+      --stack-gap: 14px;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+      color: var(--ink);
+    }
+    button, input, select { font: inherit; }
+
+    /* ── Stock Room header lockup ──────────────────────────────────────────── */
+    .stockroom-head {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      min-height: 72px;
+      padding: 0 12px;
+      margin: 0 0 var(--stack-gap);
+    }
+    .stockroom-head-lockup,
+    .stockroom-head-status { position: relative; z-index: 1; }
+    .stockroom-head-lockup { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .stockroom-gear {
+      position: absolute; top: 50%; left: -28px; transform: translateY(-50%) scaleX(-1);
+      width: 184px; height: 184px; z-index: 0; pointer-events: none; overflow: visible;
+    }
+    .stockroom-gear .header-gear { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .stockroom-gear .header-gear--large { stroke: rgba(var(--bic-blue-rgb), 0.15); }
+    .stockroom-gear .header-gear--small { stroke: rgba(var(--bic-blue-rgb), 0.11); }
+    .stockroom-gear .header-gear-body { fill: rgba(var(--bic-blue-rgb), 0.022); stroke-width: 3.4; }
+    .stockroom-gear .header-gear-ring { fill: none; stroke-width: 3; }
+    .stockroom-gear .header-gear-inner { fill: none; stroke-width: 2.4; }
+    .stockroom-gear .header-gear-spoke { fill: rgba(var(--bic-blue-rgb), 0.06); stroke: none; }
+    .stockroom-gear .header-gear-core { fill: rgba(var(--bic-blue-rgb), 0.05); stroke-width: 2.2; }
+    .stockroom-gear .header-gear-bore { fill: none; stroke-width: 2; }
+    .stockroom-gear .header-gear-crosshair { stroke: rgba(var(--bic-blue-rgb), 0.12); stroke-width: 1.4; }
+    .stockroom-titlecol { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .stockroom-eyebrow {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.6rem; font-weight: 800;
+      letter-spacing: 0.22em; text-transform: uppercase; color: rgba(var(--bic-blue-rgb), 0.9);
+      text-shadow: 0 0 3px var(--paper-base), 0 0 3px var(--paper-base), 0 0 5px var(--paper-base);
+    }
+    .stockroom-title { margin: 0; font-size: 1.7rem; letter-spacing: 0.03em; line-height: 1; }
+    .stockroom-substat {
+      margin: 3px 0 0; min-height: 0;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.02em; color: var(--muted);
+    }
+    .stockroom-substat:empty { display: none; }
+    .stockroom-substat.error { color: var(--danger); }
+    .stockroom-substat.success { color: var(--success); }
+    .stockroom-head-status {
+      margin-left: auto; display: flex; align-items: center; justify-content: flex-end;
+      gap: 12px; flex-wrap: wrap;
+    }
+    .signout-btn {
+      width: 42px; height: 42px; padding: 0; border-radius: 50%;
+      background: #fff; border: 1px solid var(--line); cursor: pointer;
+    }
+    .signout-btn svg { width: 22px; height: 22px; color: var(--ink); }
+
+    .legend { margin: 0 0 18px; padding: 0 12px; color: var(--muted); font-size: 0.98rem; line-height: 1.4; }
+    .legend strong { color: var(--ink); }
+
+    /* ── Buttons ───────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; min-height: 38px;
+      padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
+      color: var(--ink); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em;
+      text-decoration: none; cursor: pointer; white-space: nowrap;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .btn:hover { background: rgba(var(--bic-blue-rgb), 0.08); border-color: var(--accent); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { background: rgba(var(--bic-blue-rgb), 0.85); }
+    .btn.warn { color: var(--danger); border-color: rgba(160, 63, 45, 0.45); background: transparent; }
+    .btn.warn:hover { background: rgba(160, 63, 45, 0.08); border-color: var(--danger); }
+    .btn.small { min-height: 32px; padding: 0 10px; font-size: 0.76rem; }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── Command bar (Stock Room look) ─────────────────────────────────────── */
+    .command-bar {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%;
+      margin: 0 0 var(--stack-gap); padding: 10px 12px;
+      background: #eef0f4; border: 1px solid var(--line); border-radius: 10px;
+    }
+    .command-bar-label {
+      flex: 0 0 auto; font-family: "IBM Plex Mono", monospace; font-size: 0.66rem;
+      font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+    }
+    .command-bar-divider { width: 1px; align-self: stretch; min-height: 24px; margin: 0 2px; background: var(--line); }
+    .command-bar input[type="search"] {
+      flex: 1 1 160px; min-width: 0; min-height: 38px; padding: 8px 12px;
+      border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
+    }
+    .command-bar-toggle {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem;
+      font-weight: 700; color: var(--muted); cursor: pointer; white-space: nowrap;
+    }
+    .command-bar-count { margin-left: auto; font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+
+    /* ── City list ─────────────────────────────────────────────────────────── */
+    .panel {
+      border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.7);
+      box-shadow: 0 18px 36px var(--paper-shadow); padding: 8px; margin: 0 0 40px;
+    }
+    .city-list { display: grid; gap: 8px; }
+    .city-empty { padding: 22px; text-align: center; color: var(--muted); }
+
+    .city-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto auto;
+      align-items: center; gap: 10px 14px;
+      padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+      background: rgba(255, 255, 255, 0.92);
+    }
+    .city-row.is-dirty { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(var(--bic-blue-rgb), 0.12); }
+    .city-row.is-archived { opacity: 0.6; }
+    .city-row.is-ignored .city-name { color: #9aa0a6; }
+
+    .city-idcol { display: grid; gap: 2px; min-width: 0; }
+    .city-name { font-weight: 700; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .city-sub { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .geo-badge {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.6rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+      border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px;
+    }
+    .geo-badge--country { border-radius: 999px; }
+    .city-slug { font-family: "IBM Plex Mono", monospace; font-size: 0.66rem; color: var(--muted); }
+
+    .city-fields { display: grid; grid-template-columns: 1fr 64px; gap: 6px; min-width: 0; }
+    .city-fields label { display: grid; gap: 3px; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+    .city-fields input {
+      min-height: 34px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px;
+      background: #fff; color: var(--ink); font-weight: 500; min-width: 0;
+    }
+
+    .city-flags { display: grid; gap: 4px; }
+    .flag { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 700; color: var(--muted); white-space: nowrap; cursor: pointer; }
+    .flag input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+
+    .city-actions { display: flex; gap: 6px; }
+
+    @media (max-width: 760px) {
+      .stockroom-gear { display: none; }
+      .stockroom-head { padding: 0 2px; min-height: 0; }
+      .stockroom-title { font-size: 1.4rem; }
+      .legend { padding: 0 2px; }
+      .city-row { grid-template-columns: 1fr; }
+      .city-actions { justify-content: flex-end; }
+      .city-actions .btn { flex: 1 1 auto; }
+    }
+  </style>
+  <link rel="stylesheet" href="../js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <div class="stockroom-head">
+      <svg class="stockroom-gear" viewBox="128 -12 220 216" aria-hidden="true">
+        <g class="header-gear header-gear--large" transform="translate(212 72) rotate(-14)">
+          <polygon class="header-gear-body" points="-11.3,-65.0 -13.8,-78.8 -7.5,-79.6 7.5,-79.6 13.8,-78.8 11.3,-65.0 22.7,-62.0 27.5,-75.1 33.3,-72.7 46.3,-65.2 51.3,-61.4 42.3,-50.6 50.6,-42.3 61.4,-51.3 65.2,-46.3 72.7,-33.3 75.1,-27.5 62.0,-22.7 65.0,-11.3 78.8,-13.8 79.6,-7.5 79.6,7.5 78.8,13.8 65.0,11.3 62.0,22.7 75.1,27.5 72.7,33.3 65.2,46.3 61.4,51.3 50.6,42.3 42.3,50.6 51.3,61.4 46.3,65.2 33.3,72.7 27.5,75.1 22.7,62.0 11.3,65.0 13.8,78.8 7.5,79.6 -7.5,79.6 -13.8,78.8 -11.3,65.0 -22.7,62.0 -27.5,75.1 -33.3,72.7 -46.3,65.2 -51.3,61.4 -42.3,50.6 -50.6,42.3 -61.4,51.3 -65.2,46.3 -72.7,33.3 -75.1,27.5 -62.0,22.7 -65.0,11.3 -78.8,13.8 -79.6,7.5 -79.6,-7.5 -78.8,-13.8 -65.0,-11.3 -62.0,-22.7 -75.1,-27.5 -72.7,-33.3 -65.2,-46.3 -61.4,-51.3 -50.6,-42.3 -42.3,-50.6 -51.3,-61.4 -46.3,-65.2 -33.3,-72.7 -27.5,-75.1 -22.7,-62.0"></polygon>
+          <circle class="header-gear-ring" r="54"></circle>
+          <circle class="header-gear-inner" r="34"></circle>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5"></rect>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(60)"></rect>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(120)"></rect>
+          <circle class="header-gear-core" r="11"></circle>
+          <circle class="header-gear-bore" r="5.5"></circle>
+          <line class="header-gear-crosshair" x1="-18" y1="0" x2="18" y2="0"></line>
+          <line class="header-gear-crosshair" x1="0" y1="-18" x2="0" y2="18"></line>
+        </g>
+        <g class="header-gear header-gear--small" transform="translate(286 132) rotate(19)">
+          <polygon class="header-gear-body" points="-9.8,-45.0 -12.3,-56.7 -6.5,-57.6 6.5,-57.6 12.3,-56.7 9.8,-45.0 18.5,-42.1 23.4,-53.1 28.6,-50.5 39.2,-42.8 43.3,-38.6 34.3,-30.6 39.7,-23.2 50.1,-29.2 52.8,-24.0 56.8,-11.6 57.7,-5.8 45.8,-4.6 45.8,4.6 57.7,5.8 56.8,11.6 52.8,24.0 50.1,29.2 39.7,23.2 34.3,30.6 43.3,38.6 39.2,42.8 28.6,50.5 23.4,53.1 18.5,42.1 9.8,45.0 12.3,56.7 6.5,57.6 -6.5,57.6 -12.3,56.7 -9.8,45.0 -18.5,42.1 -23.4,53.1 -28.6,50.5 -39.2,42.8 -43.3,38.6 -34.3,30.6 -39.7,23.2 -50.1,29.2 -52.8,24.0 -56.8,11.6 -57.7,5.8 -45.8,4.6 -45.8,-4.6 -57.7,-5.8 -56.8,-11.6 -52.8,-24.0 -50.1,-29.2 -39.7,-23.2 -34.3,-30.6 -43.3,-38.6 -39.2,-42.8 -28.6,-50.5 -23.4,-53.1 -18.5,-42.1"></polygon>
+          <circle class="header-gear-ring" r="38"></circle>
+          <circle class="header-gear-inner" r="24"></circle>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5"></rect>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(60)"></rect>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(120)"></rect>
+          <circle class="header-gear-core" r="7.5"></circle>
+          <circle class="header-gear-bore" r="3.8"></circle>
+          <line class="header-gear-crosshair" x1="-12" y1="0" x2="12" y2="0"></line>
+          <line class="header-gear-crosshair" x1="0" y1="-12" x2="0" y2="12"></line>
+        </g>
+      </svg>
+      <div class="stockroom-head-lockup">
+        <div class="stockroom-titlecol">
+          <span class="stockroom-eyebrow">THE GAME BUREAU</span>
+          <h1 class="stockroom-title">CITIES</h1>
+          <p class="stockroom-substat" id="pageStatus" aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="stockroom-head-status">
+        <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <p class="legend">The one city catalog the whole site reads &mdash; <strong>/sound/</strong>, <strong>/shop/</strong>, and every admin picker. <strong>Venue only</strong> hides a city from gifts &amp; soundtracks (a place teams play but we don't sell for); <strong>Archived</strong> hides it everywhere.</p>
+
+    <div class="command-bar" aria-label="Cities">
+      <span class="command-bar-label">Cities</span>
+      <button class="btn small primary" id="addCityBtn" type="button">+ Add city</button>
+      <span class="command-bar-divider" aria-hidden="true"></span>
+      <input type="search" id="searchInput" placeholder="Search cities…" autocomplete="off">
+      <label class="command-bar-toggle"><input type="checkbox" id="showArchived"> Show archived</label>
+      <span class="command-bar-count" id="cityCount"></span>
+    </div>
+
+    <section class="panel">
+      <div class="city-list" id="cityList"></div>
+    </section>
+  </main>
+
+  <script src="../js/admin-auth.js"></script>
+  <script src="../js/admin-shell.js"></script>
+  <script src="../js/admin-nav-menu.js"></script>
+  <script src="../js/supabase-rest.js"></script>
+  <script src="../../assets/geo.js"></script>
+  <script src="../../assets/city-picker.js"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+    const TABLE = 'cities';
+
+    const pageStatus = document.getElementById('pageStatus');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const addCityBtn = document.getElementById('addCityBtn');
+    const searchInput = document.getElementById('searchInput');
+    const showArchivedEl = document.getElementById('showArchived');
+    const cityListEl = document.getElementById('cityList');
+    const cityCountEl = document.getElementById('cityCount');
+
+    const state = { rows: [], authed: false };
+
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      onAuthorized: async () => { state.authed = true; await loadCities(); },
+      onSignedOut: () => { state.authed = false; state.rows = []; render(); setStatus('Sign in with an admin account.'); }
+    });
+
+    function setStatus(text, kind) {
+      if (!pageStatus) return;
+      pageStatus.textContent = text || '';
+      pageStatus.classList.toggle('error', kind === 'error');
+      pageStatus.classList.toggle('success', kind === 'success');
+    }
+
+    function restUrl(table, params) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params || {}).forEach(([k, v]) => { if (v != null) url.searchParams.set(k, v); });
+      return url.toString();
+    }
+    function authHeaders(extra) {
+      if (adminAuth && typeof adminAuth.authHeaders === 'function') return adminAuth.authHeaders(extra || {});
+      return Object.assign({ apikey: SUPABASE_CONFIG.publishableKey, Authorization: 'Bearer ' + SUPABASE_CONFIG.publishableKey }, extra || {});
+    }
+    async function readError(res, fallback) {
+      try { const t = await res.text(); if (!t) return fallback; try { const j = JSON.parse(t); return j.message || j.error || t; } catch (e) { return t; } }
+      catch (e) { return fallback; }
+    }
+
+    // select=* on purpose: never name `ignored` (a DB without the migration 400s
+    // on an unknown column); a missing flag reads as false.
+    async function loadCities() {
+      setStatus('Loading cities…');
+      try {
+        const url = restUrl(TABLE, { select: '*', order: 'sort_order.asc,city.asc' });
+        const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
+        state.rows = Array.isArray(rows) ? rows : [];
+        render();
+        setStatus('Loaded ' + state.rows.length + ' cities.', 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err && err.message ? err.message : 'Could not load cities.', 'error');
+        if (cityListEl) { cityListEl.innerHTML = ''; cityListEl.appendChild(emptyNode('Could not load cities. Reload the page.')); }
+      }
+    }
+
+    function emptyNode(text) {
+      const d = document.createElement('div');
+      d.className = 'city-empty';
+      d.textContent = text;
+      return d;
+    }
+
+    function render() {
+      if (!cityListEl) return;
+      cityListEl.innerHTML = '';
+      if (!state.authed) { cityListEl.appendChild(emptyNode('Sign in to manage cities.')); if (cityCountEl) cityCountEl.textContent = ''; return; }
+      const q = (searchInput && searchInput.value || '').trim().toLowerCase();
+      const showArchived = !!(showArchivedEl && showArchivedEl.checked);
+      const rows = state.rows.filter((r) => {
+        if (!showArchived && r.archived === true) return false;
+        if (!q) return true;
+        return [r.city, r.slug, r.label, r.state_name, r.country_name].some((v) => String(v || '').toLowerCase().includes(q));
+      });
+      if (!rows.length) { cityListEl.appendChild(emptyNode(state.rows.length ? 'No cities match.' : 'No cities yet — hit “+ Add city”.')); }
+      else rows.forEach((r) => cityListEl.appendChild(renderRow(r)));
+      if (cityCountEl) {
+        const arch = state.rows.filter((r) => r.archived === true).length;
+        cityCountEl.textContent = rows.length + ' shown · ' + state.rows.length + ' total' + (arch ? ' · ' + arch + ' archived' : '');
+      }
+    }
+
+    function geoBadges(row) {
+      const wrap = document.createDocumentFragment();
+      const badge = (window.TgbGeo && TgbGeo.geoBadge) ? TgbGeo.geoBadge(row) : null;
+      const state = row.state_code || (badge && badge.kind === 'state' ? badge.value : '');
+      const country = row.country_code || (badge && badge.kind === 'country' ? badge.value : '');
+      if (state) { const s = document.createElement('span'); s.className = 'geo-badge'; s.textContent = state; wrap.appendChild(s); }
+      if (country && country !== 'USA') { const c = document.createElement('span'); c.className = 'geo-badge geo-badge--country'; c.textContent = country; wrap.appendChild(c); }
+      else if (!state && country) { const c = document.createElement('span'); c.className = 'geo-badge geo-badge--country'; c.textContent = country; wrap.appendChild(c); }
+      return wrap;
+    }
+
+    function renderRow(row) {
+      const el = document.createElement('div');
+      el.className = 'city-row';
+      el.dataset.slug = row.slug || '';
+      if (row.archived === true) el.classList.add('is-archived');
+      if (row.ignored === true) el.classList.add('is-ignored');
+
+      // Identity: city (the key, read-only) + geo badges + slug.
+      const idcol = document.createElement('div');
+      idcol.className = 'city-idcol';
+      const name = document.createElement('span');
+      name.className = 'city-name';
+      name.textContent = row.city || '(unnamed)';
+      const sub = document.createElement('span');
+      sub.className = 'city-sub';
+      sub.appendChild(geoBadges(row));
+      const slug = document.createElement('span');
+      slug.className = 'city-slug';
+      slug.textContent = row.slug || '';
+      sub.appendChild(slug);
+      idcol.append(name, sub);
+
+      // Editable non-key fields.
+      const fields = document.createElement('div');
+      fields.className = 'city-fields';
+      const labelWrap = document.createElement('label');
+      labelWrap.textContent = 'Label';
+      const labelInput = document.createElement('input');
+      labelInput.type = 'text';
+      labelInput.value = row.label || '';
+      labelInput.placeholder = row.city_name || '';
+      labelWrap.appendChild(labelInput);
+      const sortWrap = document.createElement('label');
+      sortWrap.textContent = 'Sort';
+      const sortInput = document.createElement('input');
+      sortInput.type = 'number';
+      sortInput.value = (row.sort_order == null ? '' : row.sort_order);
+      sortWrap.appendChild(sortInput);
+      fields.append(labelWrap, sortWrap);
+
+      // Flags.
+      const flags = document.createElement('div');
+      flags.className = 'city-flags';
+      const ignoredLabel = document.createElement('label');
+      ignoredLabel.className = 'flag';
+      const ignoredCb = document.createElement('input');
+      ignoredCb.type = 'checkbox';
+      ignoredCb.checked = row.ignored === true;
+      ignoredLabel.append(ignoredCb, document.createTextNode('Venue only'));
+      const archivedLabel = document.createElement('label');
+      archivedLabel.className = 'flag';
+      const archivedCb = document.createElement('input');
+      archivedCb.type = 'checkbox';
+      archivedCb.checked = row.archived === true;
+      archivedLabel.append(archivedCb, document.createTextNode('Archived'));
+      flags.append(ignoredLabel, archivedLabel);
+
+      // Actions.
+      const actions = document.createElement('div');
+      actions.className = 'city-actions';
+      const saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = 'btn small primary';
+      saveBtn.textContent = 'Save';
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn small warn';
+      delBtn.textContent = 'Delete';
+      actions.append(saveBtn, delBtn);
+
+      const markDirty = () => el.classList.add('is-dirty');
+      [labelInput, sortInput, ignoredCb, archivedCb].forEach((i) => i.addEventListener('input', markDirty));
+      [ignoredCb, archivedCb].forEach((i) => i.addEventListener('change', markDirty));
+
+      saveBtn.addEventListener('click', () => {
+        const sortVal = sortInput.value.trim();
+        saveRow(row, {
+          label: labelInput.value.trim() || null,
+          sort_order: sortVal === '' ? null : (parseInt(sortVal, 10) || 0),
+          ignored: ignoredCb.checked,
+          archived: archivedCb.checked
+        }, saveBtn, el);
+      });
+      delBtn.addEventListener('click', () => deleteRow(row, delBtn));
+
+      el.append(idcol, fields, flags, actions);
+      return el;
+    }
+
+    // PATCH by slug. Never send slug or city (the key + its derived slug); the
+    // structured geo stays in sync via the cities_sync_geo trigger.
+    async function saveRow(row, payload, btn, el) {
+      const slug = row.slug;
+      if (!slug) { setStatus('This row has no slug to update.', 'error'); return; }
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Saving…';
+      try {
+        const res = await fetch(restUrl(TABLE, { slug: 'eq.' + slug }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Save failed.'));
+        const rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) throw new Error('Nothing was saved — the database refused the change. Check you are signed in as an admin.');
+        Object.assign(row, rows[0]);
+        if (el) { el.classList.remove('is-dirty'); el.classList.toggle('is-archived', row.archived === true); el.classList.toggle('is-ignored', row.ignored === true); }
+        setStatus('Saved ' + (row.city || slug) + '.', 'success');
+        render();
+      } catch (err) {
+        console.error(err);
+        setStatus(err && err.message ? err.message : 'Save failed.', 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = orig;
+      }
+    }
+
+    async function deleteRow(row, btn) {
+      const slug = row.slug;
+      if (!slug) return;
+      if (!window.confirm('Delete "' + (row.city || slug) + '" from the city catalog? This is permanent. To just hide it, use Archived instead.')) return;
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Deleting…';
+      try {
+        const res = await fetch(restUrl(TABLE, { slug: 'eq.' + slug }), { method: 'DELETE', headers: authHeaders({ Prefer: 'return=minimal' }) });
+        if (!res.ok) throw new Error(await readError(res, 'Delete failed.'));
+        state.rows = state.rows.filter((r) => r.slug !== slug);
+        render();
+        setStatus('Deleted ' + (row.city || slug) + '.', 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err && err.message ? err.message : 'Delete failed.', 'error');
+        btn.disabled = false; btn.textContent = orig;
+      }
+    }
+
+    if (addCityBtn) {
+      addCityBtn.addEventListener('click', () => {
+        if (!(window.TgbCities && typeof TgbCities.openAddDialog === 'function')) { setStatus('City picker not loaded.', 'error'); return; }
+        TgbCities.openAddDialog({ authHeaders: authHeaders }).then((cityRow) => {
+          if (!cityRow) return;
+          setStatus('Added ' + (cityRow.city || 'city') + '.', 'success');
+          loadCities();
+        });
+      });
+    }
+    if (searchInput) searchInput.addEventListener('input', render);
+    if (showArchivedEl) showArchivedEl.addEventListener('change', render);
+
+    if (window.TgbMcAdminNav && typeof TgbMcAdminNav.init === 'function') {
+      TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
+    }
+
+    render();
+    adminAuth.init();
+  </script>
+</body>
+</html>
