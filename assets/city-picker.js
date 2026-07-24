@@ -307,7 +307,7 @@
       'font:14px/1.5 system-ui,sans-serif;}',
       '.tgb-city-card h3{margin:0 0 4px;font-size:1rem;}',
       '.tgb-city-card p{margin:0 0 12px;color:#5b616e;font-size:.85rem;}',
-      '.tgb-city-card input,.tgb-city-card select{width:100%;height:40px;padding:0 10px;margin-bottom:6px;',
+      '.tgb-city-card input:not([type="checkbox"]),.tgb-city-card select{width:100%;height:40px;padding:0 10px;margin-bottom:6px;',
       'border:1px solid #cdcbc4;border-radius:8px;font:inherit;box-sizing:border-box;',
       'background:#fff;color:inherit;appearance:auto;}',
       '.tgb-city-row{display:flex;gap:8px;}',
