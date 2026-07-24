@@ -158,7 +158,15 @@
     .city-row.is-ignored .city-name { color: #9aa0a6; }
 
     .city-idcol { display: grid; gap: 2px; min-width: 0; }
-    .city-name { font-weight: 700; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .city-name { font-weight: 700; font-size: 1rem; color: var(--ink); }
+    /* The name is inline-editable — looks like text, reveals a field on hover. */
+    input.city-name {
+      width: 100%; min-width: 0; padding: 4px 6px; margin: -4px -6px;
+      border: 1px solid transparent; border-radius: 6px; background: transparent;
+      text-overflow: ellipsis;
+    }
+    input.city-name:hover { border-color: var(--line); }
+    input.city-name:focus { border-color: var(--accent); background: #fff; outline: none; }
     .city-sub { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .geo-badge {
       font-family: "IBM Plex Mono", monospace; font-size: 0.6rem; font-weight: 700;
@@ -366,12 +374,15 @@
       if (row.archived === true) el.classList.add('is-archived');
       if (row.ignored === true) el.classList.add('is-ignored');
 
-      // Identity: city (the key, read-only) + geo badges + slug.
+      // Identity: city (inline-editable key) + geo badges + slug.
       const idcol = document.createElement('div');
       idcol.className = 'city-idcol';
-      const name = document.createElement('span');
+      const name = document.createElement('input');
+      name.type = 'text';
       name.className = 'city-name';
-      name.textContent = row.city || '(unnamed)';
+      name.value = row.city || '';
+      name.setAttribute('aria-label', 'City name');
+      name.title = 'City name — the key other tables reference. Editing it renames the city (you’ll be warned first).';
       const sub = document.createElement('span');
       sub.className = 'city-sub';
       sub.appendChild(geoBadges(row));
@@ -430,17 +441,44 @@
       actions.append(saveBtn, delBtn);
 
       const markDirty = () => el.classList.add('is-dirty');
-      [labelInput, sortInput, ignoredCb, archivedCb].forEach((i) => i.addEventListener('input', markDirty));
+      [name, labelInput, sortInput, ignoredCb, archivedCb].forEach((i) => i.addEventListener('input', markDirty));
       [ignoredCb, archivedCb].forEach((i) => i.addEventListener('change', markDirty));
 
       saveBtn.addEventListener('click', () => {
         const sortVal = sortInput.value.trim();
-        saveRow(row, {
+        const payload = {
           label: labelInput.value.trim() || null,
           sort_order: sortVal === '' ? null : (parseInt(sortVal, 10) || 0),
           ignored: ignoredCb.checked,
           archived: archivedCb.checked
-        }, saveBtn, el);
+        };
+
+        // Rename? The city string is the KEY other tables reference. Canonicalize
+        // the typed value, warn, and (on confirm) also re-derive the structured
+        // geo so state/country stay in sync. The slug is a stable PK and does not
+        // change on rename.
+        const rawNew = name.value.trim();
+        const canonical = (window.TgbGeo && TgbGeo.canonicalCity) ? (TgbGeo.canonicalCity(rawNew) || rawNew) : rawNew;
+        if (!canonical) { setStatus('City name can’t be empty.', 'error'); name.focus(); return; }
+        if (canonical.toLowerCase() !== String(row.city || '').toLowerCase()) {
+          const ok = window.confirm(
+            'Rename “' + (row.city || '') + '” → “' + canonical + '”?\n\n' +
+            'The city name is the KEY that games and gift-shop listings reference by string — those are NOT updated automatically. Anything still pointing at “' + (row.city || '') + '” (a game\'s Start City, a gift\'s shop, a /shop/?city=… link) will stop matching this city until you fix it there too.\n\n' +
+            'Rename anyway?'
+          );
+          if (!ok) { name.value = row.city || ''; return; }
+          payload.city = canonical;
+          const g = (window.TgbGeo && TgbGeo.parseGeo) ? TgbGeo.parseGeo(canonical) : null;
+          if (g) {
+            payload.city_name = g.cityName || null;
+            payload.state_code = g.stateCode || null;
+            payload.state_name = g.stateName || null;
+            payload.country_code = g.countryCode || null;
+            payload.country_name = g.countryName || null;
+          }
+        }
+
+        saveRow(row, payload, saveBtn, el);
       });
       delBtn.addEventListener('click', () => deleteRow(row, delBtn));
 
@@ -448,8 +486,9 @@
       return el;
     }
 
-    // PATCH by slug. Never send slug or city (the key + its derived slug); the
-    // structured geo stays in sync via the cities_sync_geo trigger.
+    // PATCH by slug — the stable primary key, unchanged even on rename. The
+    // payload never contains slug; it carries `city` + structured geo only when
+    // the Save handler detected (and warned about) a rename.
     async function saveRow(row, payload, btn, el) {
       const slug = row.slug;
       if (!slug) { setStatus('This row has no slug to update.', 'error'); return; }
