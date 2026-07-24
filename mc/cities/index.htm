@@ -316,8 +316,16 @@
     // select=* on purpose: never name `ignored` (a DB without the migration 400s
     // on an unknown column); a missing flag reads as false.
     async function loadCities() {
+      // Always show a state in the list — a blank panel during a slow load or a
+      // silent auth failure reads as "nothing's here".
+      if (cityListEl) { cityListEl.innerHTML = ''; cityListEl.appendChild(emptyNode('Loading cities…')); }
       setStatus('Loading cities…');
       try {
+        // Refresh a stale/expiring access token before the read, so a valid
+        // session doesn't 401 with "Empty JWT" / an expired token.
+        if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') {
+          try { await adminAuth.ensureFreshSession(); } catch (e) {}
+        }
         const url = restUrl(TABLE, { select: '*', order: 'sort_order.asc,city.asc' });
         const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
         state.rows = Array.isArray(rows) ? rows : [];
@@ -325,8 +333,16 @@
         setStatus('Loaded ' + state.rows.length + ' cities.', 'success');
       } catch (err) {
         console.error(err);
-        setStatus(err && err.message ? err.message : 'Could not load cities.', 'error');
-        if (cityListEl) { cityListEl.innerHTML = ''; cityListEl.appendChild(emptyNode('Could not load cities. Reload the page.')); }
+        const msg = err && err.message ? err.message : 'Could not load cities.';
+        setStatus(msg, 'error');
+        if (cityListEl) {
+          cityListEl.innerHTML = '';
+          const isAuth = /jwt|401|permission|auth|sign/i.test(msg);
+          cityListEl.appendChild(emptyNode(
+            (isAuth ? 'Could not load cities — sign-in issue. ' : 'Could not load cities. ') +
+            msg + ' · Reload the page (Ctrl+Shift+R).'
+          ));
+        }
       }
     }
 
