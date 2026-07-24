@@ -350,7 +350,7 @@
           '</label>' +
           '<div class="tgb-city-actions">' +
             '<button type="button" class="tgb-city-cancel">Cancel</button>' +
-            '<button type="button" class="tgb-city-save">Add city</button>' +
+            '<button type="button" class="tgb-city-save">Add</button>' +
           '</div>' +
         '</div>';
       document.body.appendChild(wrap);
@@ -405,7 +405,7 @@
             preview.classList.add('is-error');
             preview.textContent = error && error.message ? error.message : 'Could not add that city.';
             saveBtn.disabled = false;
-            saveBtn.textContent = 'Add city';
+            saveBtn.textContent = 'Add';
           });
       }
 
