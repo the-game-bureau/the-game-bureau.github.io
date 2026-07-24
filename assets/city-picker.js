@@ -174,9 +174,15 @@
     }
     return { code: val.length === 3 ? u : '', name: titleCaseTypedName(val) };
   }
-  function resolveGeoParts(cityRaw, stateRaw, countryRaw) {
+  function resolveGeoParts(cityRaw, stateRaw, countryRaw, stateCodeRaw) {
     var cityName = titleCaseTypedName(String(cityRaw == null ? '' : cityRaw).trim());
-    var st = findState(stateRaw);
+    var st = findState(stateRaw) || { code: '', name: '', country: '' };
+    // An explicit St. abbr wins over the code derived from the name — this is
+    // how a foreign region gets a code geo.js doesn't know (Île-de-France -> IDF).
+    var explicitCode = String(stateCodeRaw == null ? '' : stateCodeRaw).trim().toUpperCase();
+    if (explicitCode) {
+      st = { code: explicitCode, name: st.name || titleCaseTypedName(stateRaw), country: st.country };
+    }
     var ct = findCountry(countryRaw);
     if ((!ct || !ct.code) && st && st.country) ct = findCountry(st.country) || { code: st.country, name: '' };
     var composed = (global.TgbGeo && global.TgbGeo.composeGeo)
@@ -338,6 +344,9 @@
           '<input type="text" class="tgb-city-in-city" placeholder="City, e.g. Youngstown" autocomplete="off">' +
           '<div class="tgb-city-row">' +
             '<input type="text" class="tgb-city-in-state" placeholder="State / Province" autocomplete="off" list="tgb-city-states">' +
+            '<input type="text" class="tgb-city-in-abbr" placeholder="Abbr" autocomplete="off" maxlength="3" aria-label="State abbreviation" style="flex:0 0 78px;text-transform:uppercase;">' +
+          '</div>' +
+          '<div class="tgb-city-row">' +
             '<span class="tgb-city-wrap">' +
               '<select class="tgb-city-in-country" aria-label="Country"></select>' +
               '<button type="button" class="tgb-city-add tgb-city-add-country" title="Add a country to the shared list" aria-label="Add a country">+</button>' +
@@ -357,6 +366,7 @@
 
       var cityInput = wrap.querySelector('.tgb-city-in-city');
       var stateInput = wrap.querySelector('.tgb-city-in-state');
+      var abbrInput = wrap.querySelector('.tgb-city-in-abbr');
       var countryInput = wrap.querySelector('.tgb-city-in-country');
       var ignoredBox = wrap.querySelector('.tgb-city-ignored-box');
       var preview = wrap.querySelector('.tgb-city-preview');
@@ -390,12 +400,19 @@
         if (event.key === 'Enter' && wrap.contains(document.activeElement)) save();
       }
       function refreshPreview() {
-        var r = resolveGeoParts(cityInput.value, stateInput.value, countryInput.value);
+        var r = resolveGeoParts(cityInput.value, stateInput.value, countryInput.value, abbrInput.value);
         preview.classList.remove('is-error');
         preview.textContent = r.geo.city_name ? 'Saves as: ' + r.composed : '';
       }
+      // Typing a known state/province name auto-fills its abbr (leave a manually
+      // typed one alone; foreign regions stay blank for you to enter a code).
+      function autofillAbbr() {
+        if (abbrInput.value.trim()) return;
+        var st = findState(stateInput.value);
+        if (st && st.code) abbrInput.value = st.code;
+      }
       function save() {
-        var r = resolveGeoParts(cityInput.value, stateInput.value, countryInput.value);
+        var r = resolveGeoParts(cityInput.value, stateInput.value, countryInput.value, abbrInput.value);
         if (!r.geo.city_name) {
           preview.classList.add('is-error');
           preview.textContent = 'Type a city first.';
@@ -425,7 +442,8 @@
           });
       });
 
-      [cityInput, stateInput, countryInput].forEach(function (el) { el.addEventListener('input', refreshPreview); });
+      [cityInput, stateInput, abbrInput, countryInput].forEach(function (el) { el.addEventListener('input', refreshPreview); });
+      stateInput.addEventListener('input', autofillAbbr);
       countryInput.addEventListener('change', refreshPreview);   // <select> fires change
       wrap.querySelector('.tgb-city-cancel').addEventListener('click', function () { close(null); });
       saveBtn.addEventListener('click', save);
@@ -438,6 +456,7 @@
         if (parsed && parsed.cityName) {
           cityInput.value = parsed.cityName;
           stateInput.value = parsed.stateName || parsed.stateCode || '';
+          if (parsed.stateCode) abbrInput.value = parsed.stateCode;
           if (parsed.countryName) countryInput.value = parsed.countryName;
         } else {
           cityInput.value = String(opts.initialValue).replace(/,.*$/, '').trim();
