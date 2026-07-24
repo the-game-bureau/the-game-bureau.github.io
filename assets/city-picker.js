@@ -338,12 +338,11 @@
           '<div class="tgb-city-row">' +
             '<input type="text" class="tgb-city-in-state" placeholder="State / Province" autocomplete="off" list="tgb-city-states">' +
             '<span class="tgb-city-wrap">' +
-              '<input type="text" class="tgb-city-in-country" placeholder="Country" autocomplete="off" list="tgb-city-countries">' +
+              '<select class="tgb-city-in-country" aria-label="Country"></select>' +
               '<button type="button" class="tgb-city-add tgb-city-add-country" title="Add a country to the shared list" aria-label="Add a country">+</button>' +
             '</span>' +
           '</div>' +
           '<datalist id="tgb-city-states"></datalist>' +
-          '<datalist id="tgb-city-countries"></datalist>' +
           '<div class="tgb-city-preview"></div>' +
           '<label class="tgb-city-ignored-note">' +
             '<input type="checkbox" class="tgb-city-ignored-box"> Venue only — hide from gifts and soundtracks' +
@@ -362,18 +361,23 @@
       var preview = wrap.querySelector('.tgb-city-preview');
       var saveBtn = wrap.querySelector('.tgb-city-save');
 
-      // States come from geo.js; countries come from the catalog (its distinct
-      // countries). Refill countries once the catalog is loaded.
+      // State is a type-ahead from geo.js; Country is a real dropdown sourced
+      // from the countries catalog (public.countries via TgbGeo). Refill once
+      // the catalog loads, keeping the current pick.
       var stateDl = wrap.querySelector('#tgb-city-states');
-      var countryDl = wrap.querySelector('#tgb-city-countries');
       stateList().forEach(function (s) { var o = document.createElement('option'); o.value = s.name; stateDl.appendChild(o); });
       function fillCountries() {
-        countryDl.innerHTML = '';
-        countryList().forEach(function (c) { var o = document.createElement('option'); o.value = c.name; countryDl.appendChild(o); });
+        var keep = countryInput.value;
+        countryInput.innerHTML = '';
+        countryList().forEach(function (c) {
+          var o = document.createElement('option');
+          o.value = c.name; o.textContent = c.name;
+          countryInput.appendChild(o);
+        });
+        countryInput.value = keep || 'United States';
       }
       fillCountries();
       if (global.TgbGeo && global.TgbGeo.countriesReady) global.TgbGeo.countriesReady.then(fillCountries).catch(function () {});
-      countryInput.value = 'United States';
 
       function close(result) {
         document.removeEventListener('keydown', onKey);
@@ -421,6 +425,7 @@
       });
 
       [cityInput, stateInput, countryInput].forEach(function (el) { el.addEventListener('input', refreshPreview); });
+      countryInput.addEventListener('change', refreshPreview);   // <select> fires change
       wrap.querySelector('.tgb-city-cancel').addEventListener('click', function () { close(null); });
       saveBtn.addEventListener('click', save);
       wrap.addEventListener('click', function (event) { if (event.target === wrap) close(null); });
