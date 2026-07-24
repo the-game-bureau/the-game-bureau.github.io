@@ -242,6 +242,22 @@
     body.home-page .gift-filter-chip[aria-pressed="true"] .gift-filter-count {
       color: var(--accent);
     }
+    /* Tag filters (Featured / Sports) show their category icon always — it is
+       the chip's identity, not a tick that only appears when selected. */
+    body.home-page .gift-filter-chip--tag .gift-filter-tick {
+      border: none;
+      width: 18px;
+      height: 18px;
+    }
+    body.home-page .gift-filter-chip--tag .gift-filter-tick svg {
+      opacity: 1;
+      transform: none;
+      width: 16px;
+      height: 16px;
+    }
+    body.home-page .gift-filter-chip--tag[aria-pressed="true"] .gift-filter-tick {
+      background: transparent;
+    }
     body.home-page .gift-filter-chip[aria-pressed="false"] {
       opacity: 0.55;
     }
@@ -1236,11 +1252,13 @@
           <h2 class="gift-grid-title" id="giftGridTitle"></h2>
           <!-- Source filter: toggle gift cards by where they're curated from
                (Amazon / Bookshop / free publications). Sits inline in the head
-               row; built + shown by setupGiftSourceFilter() only when >1
+               row; built + shown by setupGiftFilters() only when >1
                source is present. -->
-          <div class="gift-filter" id="giftFilter" role="group" aria-label="Filter gifts by source" hidden>
-            <span class="gift-filter-label">Curated from</span>
+          <div class="gift-filter" id="giftFilter" role="group" aria-label="Filter gifts" hidden>
+            <span class="gift-filter-label" id="giftSourceLabel">Curated from</span>
             <div class="gift-filter-chips" id="giftFilterChips"></div>
+            <span class="gift-filter-label" id="giftTagLabel" hidden>Show</span>
+            <div class="gift-filter-chips" id="giftTagChips"></div>
           </div>
         </header>
         <div class="grid" id="grid"></div>
@@ -1305,71 +1323,119 @@
     const giftFilterActive = new Set(GIFT_SOURCE_DEFS.map((s) => s.key));
     let giftFilterCards = [];
 
+    // Tag filters (Featured / Sports) narrow the view: each active tag REQUIRES
+    // the card to carry that flag. Empty = no tag narrowing. Icons match the
+    // Stock Room (gold star / Tabler football).
+    const STAR_ICON =
+      '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">' +
+      '<path d="M12 2.6l2.7 5.9 6.4.7-4.8 4.3 1.3 6.3L12 17l-5.6 2.8 1.3-6.3-4.8-4.3 6.4-.7z"></path></svg>';
+    const FOOTBALL_ICON =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M15 9l-6 6"></path><path d="M10 12l2 2"></path><path d="M12 10l2 2"></path>' +
+      '<path d="M8 21a5 5 0 0 0 -5 -5"></path>' +
+      '<path d="M16 3c-7.18 0 -13 5.82 -13 13a5 5 0 0 0 5 5c7.18 0 13 -5.82 13 -13a5 5 0 0 0 -5 -5"></path>' +
+      '<path d="M16 3a5 5 0 0 0 5 5"></path></svg>';
+    const GIFT_TAG_DEFS = [
+      { key: 'featured', label: 'Featured', attr: 'featured', icon: STAR_ICON },
+      { key: 'sports',   label: 'Sports',   attr: 'sports',   icon: FOOTBALL_ICON }
+    ];
+    const giftTagActive = new Set();
+
+    const giftTagChipsEl = document.getElementById('giftTagChips');
+    const giftSourceLabelEl = document.getElementById('giftSourceLabel');
+    const giftTagLabelEl = document.getElementById('giftTagLabel');
+
     const TICK_SVG =
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" ' +
       'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
       '<polyline points="20 6 9 17 4 12"></polyline></svg>';
 
-    function applyGiftSourceFilter() {
+    function applyGiftFilter() {
       let shown = 0;
       giftFilterCards.forEach((card) => {
         const src = card.dataset.giftSource || 'free';
-        const visible = giftFilterActive.has(src);
+        let visible = giftFilterActive.has(src);
+        if (visible) {
+          giftTagActive.forEach((tag) => { if (card.dataset[tag] !== '1') visible = false; });
+        }
         card.hidden = !visible;
         if (visible) shown += 1;
       });
       setItemCount(shown); // keep the top nav-stats count in sync with the filter
     }
 
-    function setupGiftSourceFilter(itemCards) {
+    function setupGiftFilters(itemCards) {
       if (!giftFilterEl || !giftFilterChipsEl) return;
       giftFilterCards = Array.isArray(itemCards) ? itemCards : [];
+      const total = giftFilterCards.length;
 
-      // Tally how many gift cards each source has in this view.
+      // ── Source chips (multi-select, all on; hides below 2 sources). ──
       const counts = {};
       giftFilterCards.forEach((card) => {
         const src = card.dataset.giftSource || 'free';
         counts[src] = (counts[src] || 0) + 1;
       });
       const present = GIFT_SOURCE_DEFS.filter((s) => counts[s.key] > 0);
-
-      // Reset to "all on" for every source present in this view.
       giftFilterActive.clear();
       present.forEach((s) => giftFilterActive.add(s.key));
-
-      // Nothing to filter unless there are at least two distinct sources.
-      if (present.length < 2) {
-        giftFilterEl.hidden = true;
-        giftFilterChipsEl.innerHTML = '';
-        applyGiftSourceFilter();
-        return;
-      }
-
       giftFilterChipsEl.innerHTML = '';
-      present.forEach((s) => {
+      const showSources = present.length >= 2;
+      if (showSources) {
+        present.forEach((s) => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'gift-filter-chip';
+          chip.dataset.source = s.key;
+          chip.setAttribute('aria-pressed', 'true');
+          chip.innerHTML =
+            '<span class="gift-filter-tick">' + TICK_SVG + '</span>' +
+            '<span class="gift-filter-name">' + s.label + '</span>' +
+            '<span class="gift-filter-count">' + counts[s.key] + '</span>';
+          chip.addEventListener('click', () => {
+            const on = chip.getAttribute('aria-pressed') === 'true';
+            if (on && giftFilterActive.size <= 1) return; // never turn off the last source
+            if (on) { giftFilterActive.delete(s.key); chip.setAttribute('aria-pressed', 'false'); }
+            else    { giftFilterActive.add(s.key);    chip.setAttribute('aria-pressed', 'true'); }
+            applyGiftFilter();
+          });
+          giftFilterChipsEl.appendChild(chip);
+        });
+      }
+      if (giftSourceLabelEl) giftSourceLabelEl.hidden = !showSources;
+
+      // ── Tag chips (Featured / Sports) — opt-in narrowers. A tag chip only
+      // appears when the view has BOTH flagged and un-flagged cards (else it's
+      // all-or-nothing). Default off. ──
+      giftTagActive.clear();
+      if (giftTagChipsEl) giftTagChipsEl.innerHTML = '';
+      let tagCount = 0;
+      GIFT_TAG_DEFS.forEach((t) => {
+        const n = giftFilterCards.filter((c) => c.dataset[t.attr] === '1').length;
+        if (n === 0 || n === total || !giftTagChipsEl) return; // nothing to narrow
+        tagCount += 1;
         const chip = document.createElement('button');
         chip.type = 'button';
-        chip.className = 'gift-filter-chip';
-        chip.dataset.source = s.key;
-        chip.setAttribute('aria-pressed', 'true');
+        chip.className = 'gift-filter-chip gift-filter-chip--tag';
+        chip.dataset.tag = t.key;
+        chip.setAttribute('aria-pressed', 'false');
         chip.innerHTML =
-          '<span class="gift-filter-tick">' + TICK_SVG + '</span>' +
-          '<span class="gift-filter-name">' + s.label + '</span>' +
-          '<span class="gift-filter-count">' + counts[s.key] + '</span>';
+          '<span class="gift-filter-tick">' + t.icon + '</span>' +
+          '<span class="gift-filter-name">' + t.label + '</span>' +
+          '<span class="gift-filter-count">' + n + '</span>';
         chip.addEventListener('click', () => {
           const on = chip.getAttribute('aria-pressed') === 'true';
-          // Don't let the user turn off the last active source — that would
-          // blank the grid with no way to read why.
-          if (on && giftFilterActive.size <= 1) return;
-          if (on) { giftFilterActive.delete(s.key); chip.setAttribute('aria-pressed', 'false'); }
-          else    { giftFilterActive.add(s.key);    chip.setAttribute('aria-pressed', 'true'); }
-          applyGiftSourceFilter();
+          if (on) { giftTagActive.delete(t.key); chip.setAttribute('aria-pressed', 'false'); }
+          else    { giftTagActive.add(t.key);    chip.setAttribute('aria-pressed', 'true'); }
+          applyGiftFilter();
         });
-        giftFilterChipsEl.appendChild(chip);
+        giftTagChipsEl.appendChild(chip);
       });
+      if (giftTagLabelEl) giftTagLabelEl.hidden = tagCount === 0;
 
-      giftFilterEl.hidden = false;
-      applyGiftSourceFilter();
+      // Show the bar if there's anything to filter at all.
+      giftFilterEl.hidden = !(showSources || tagCount > 0);
+      applyGiftFilter();
     }
 
     // Per-view "gifts showing" count (kept for internal bookkeeping / a11y; the
@@ -2047,6 +2113,11 @@
       return isYesish(item && item.featured);
     }
 
+    // Sports flag (gift_shop_items.sports) — team / sports merch, for the filter.
+    function isSports(item) {
+      return isYesish(item && item.sports);
+    }
+
     function isHiddenGiftItem(item) {
       // A SHELVED item (rejected_at set) is never shown publicly, same as one in Review.
       if (item && String(item.rejected_at || '').trim()) return true;
@@ -2665,8 +2736,11 @@
       card.dataset.adminEdit = 'gift-item';
       card.dataset.adminId = item.id || '';
       // Tag the card with its curation source so the source filter can
-      // show/hide it (amazon | bookshop | free).
+      // show/hide it (amazon | bookshop | free), plus the featured/sports flags
+      // the tag filters narrow by.
       card.dataset.giftSource = giftItemSource(item);
+      if (isFeatured(item)) card.dataset.featured = '1';
+      if (isSports(item)) card.dataset.sports = '1';
 
       if (opts.gameColor) {
         card.dataset.gameColor = '';
@@ -3085,14 +3159,14 @@
             ? 'No games or gifts for ' + (requestedGame.name || 'this game') + ' yet.'
             : (requestedCity ? 'No games or gifts match ' + requestedCity + '.' : 'No items in the gift shop yet.'));
           setItemCount(0);
-          setupGiftSourceFilter([]);
+          setupGiftFilters([]);
           return;
         }
         cards.forEach((card) => gridEl.appendChild(card));
         setItemCount(cards.length);
         // Per-game views hide the grid head/filter chrome; everywhere else,
         // offer the source filter (it hides itself if <2 sources are present).
-        setupGiftSourceFilter(requestedGame ? [] : itemCards);
+        setupGiftFilters(requestedGame ? [] : itemCards);
       } catch (error) {
         console.error('[giftshop] all-shops load failed', error);
         renderEmpty('Could not load gift shop.');
