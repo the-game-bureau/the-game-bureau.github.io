@@ -152,7 +152,7 @@
     return fetchTable('countries?select=code,name,aliases&order=name.asc')
       .then(function (rows) {
         if (Array.isArray(rows) && rows.length) return rows;
-        return fetchTable('cities?select=country_code,country_name&archived=eq.false').then(citiesToCountries);
+        return fetchTable('cities?select=country_code,country_name').then(citiesToCountries);
       })
       .then(function (rows) {
         if (Array.isArray(rows) && rows.length) { hydrateCountries(rows); writeCountriesCache(rows); return rows; }

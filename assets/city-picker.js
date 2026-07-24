@@ -75,7 +75,7 @@
     // select=* on purpose: naming `ignored` explicitly would 400 on a database
     // that has not run 2026072205_cities_ignored.sql yet.
     var url = config.url + '/rest/v1/cities' +
-      '?select=*&archived=eq.false&order=sort_order.asc,city.asc';
+      '?select=*&order=sort_order.asc,city.asc';
     inflight = fetchAll(url, readHeaders({ Accept: 'application/json' }))
       .then(function (rows) {
         cache = rows.map(normalizeRow);
@@ -221,7 +221,7 @@
       });
     }
     function base() {
-      var p = { city: canonicalCity, archived: false };
+      var p = { city: canonicalCity };
       if (wantIgnored) p.ignored = true;
       return p;
     }
@@ -243,7 +243,7 @@
             return attempt(noGeo, false, allowIgnoredStrip);
           }
           if (allowIgnoredStrip && wantIgnored && /ignored/.test(t)) {
-            return attempt({ city: canonicalCity, archived: false }, false, false);
+            return attempt({ city: canonicalCity }, false, false);
           }
           throw new Error(t || 'Could not add "' + canonicalCity + '".');
         });
