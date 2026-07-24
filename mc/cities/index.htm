@@ -148,7 +148,7 @@
 
     .city-row {
       display: grid;
-      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto auto;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 2.1fr) auto auto;
       align-items: center; gap: 10px 14px;
       padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
       background: rgba(255, 255, 255, 0.92);
@@ -176,9 +176,8 @@
     .geo-badge--country { border-radius: 999px; }
     .city-slug { font-family: "IBM Plex Mono", monospace; font-size: 0.66rem; color: var(--muted); }
 
-    .city-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; min-width: 0; }
+    .city-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 8px; min-width: 0; }
     .city-fields label { display: grid; gap: 3px; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-    .city-fields .field-sort { max-width: 78px; }
     .city-fields input,
     .city-fields select {
       min-height: 34px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px;
@@ -296,15 +295,6 @@
     const STATE_OPTS = [];
     if (window.TgbGeo && TgbGeo.usStateOptions) TgbGeo.usStateOptions().forEach((o) => STATE_OPTS.push({ code: String(o.code).toUpperCase(), name: o.name }));
     if (window.TgbGeo && TgbGeo.provinceOptions) TgbGeo.provinceOptions().forEach((o) => STATE_OPTS.push({ code: String(o.code).toUpperCase(), name: o.name }));
-    // Resolve a typed state (code OR name) to { code, name }.
-    function resolveState(val) {
-      val = String(val == null ? '' : val).trim();
-      if (!val) return { code: null, name: null };
-      const u = val.toUpperCase(), l = val.toLowerCase();
-      const hit = STATE_OPTS.find((s) => s.code === u || s.name.toLowerCase() === l);
-      if (hit) return { code: hit.code, name: hit.name };
-      return { code: val.length <= 3 ? u : null, name: val.length <= 3 ? null : val };
-    }
     // One shared datalist of state/province names for the State inputs.
     (function () {
       const dl = document.createElement('datalist');
@@ -442,9 +432,28 @@
       sub.appendChild(slug);
       idcol.append(name, sub);
 
-      // Editable non-key fields: Country + State/Province, then Label + Sort.
+      // Editable structured fields: City name, State, St. abbr, Country, then
+      // Label + Sort. (The inline field above is the full "City, Region" key.)
       const fields = document.createElement('div');
       fields.className = 'city-fields';
+
+      const mkText = (labelText, value, opts) => {
+        opts = opts || {};
+        const wrap = document.createElement('label');
+        wrap.textContent = labelText;
+        const input = document.createElement('input');
+        input.type = opts.type || 'text';
+        if (opts.list) input.setAttribute('list', opts.list);
+        if (opts.placeholder) input.placeholder = opts.placeholder;
+        if (opts.maxLength) input.maxLength = opts.maxLength;
+        input.value = value == null ? '' : String(value);
+        wrap.appendChild(input);
+        return { wrap, input };
+      };
+
+      const cityNameF = mkText('City', row.city_name || '', { placeholder: 'Atlanta' });
+      const stateF = mkText('State', row.state_name || '', { list: 'city-state-list', placeholder: 'Georgia' });
+      const abbrF = mkText('St. abbr', row.state_code || '', { placeholder: 'GA', maxLength: 3 });
 
       const countryWrap = document.createElement('label');
       countryWrap.textContent = 'Country';
@@ -461,31 +470,13 @@
       countrySelect.value = String(row.country_code || '').toUpperCase();
       countryWrap.appendChild(countrySelect);
 
-      const stateWrap = document.createElement('label');
-      stateWrap.textContent = 'State / Prov';
-      const stateInput = document.createElement('input');
-      stateInput.type = 'text';
-      stateInput.setAttribute('list', 'city-state-list');
-      stateInput.placeholder = '—';
-      stateInput.value = row.state_name || row.state_code || '';
-      stateWrap.appendChild(stateInput);
+      const labelF = mkText('Label', row.label || '', { placeholder: row.city_name || '' });
+      const sortF = mkText('Sort', (row.sort_order == null ? '' : row.sort_order), { type: 'number' });
 
-      const labelWrap = document.createElement('label');
-      labelWrap.textContent = 'Label';
-      const labelInput = document.createElement('input');
-      labelInput.type = 'text';
-      labelInput.value = row.label || '';
-      labelInput.placeholder = row.city_name || '';
-      labelWrap.appendChild(labelInput);
-      const sortWrap = document.createElement('label');
-      sortWrap.className = 'field-sort';
-      sortWrap.textContent = 'Sort';
-      const sortInput = document.createElement('input');
-      sortInput.type = 'number';
-      sortInput.value = (row.sort_order == null ? '' : row.sort_order);
-      sortWrap.appendChild(sortInput);
+      const cityNameInput = cityNameF.input, stateInput = stateF.input, abbrInput = abbrF.input,
+            labelInput = labelF.input, sortInput = sortF.input;
 
-      fields.append(countryWrap, stateWrap, labelWrap, sortWrap);
+      fields.append(cityNameF.wrap, stateF.wrap, abbrF.wrap, countryWrap, labelF.wrap, sortF.wrap);
 
       // Flags.
       const flags = document.createElement('div');
@@ -518,7 +509,7 @@
       actions.append(saveBtn, delBtn);
 
       const markDirty = () => el.classList.add('is-dirty');
-      [name, stateInput, labelInput, sortInput].forEach((i) => i.addEventListener('input', markDirty));
+      [name, cityNameInput, stateInput, abbrInput, labelInput, sortInput].forEach((i) => i.addEventListener('input', markDirty));
       [countrySelect, ignoredCb, archivedCb].forEach((i) => i.addEventListener('change', markDirty));
 
       saveBtn.addEventListener('click', () => {
@@ -526,20 +517,17 @@
         const canonical = (window.TgbGeo && TgbGeo.canonicalCity) ? (TgbGeo.canonicalCity(rawNew) || rawNew) : rawNew;
         if (!canonical) { setStatus('City name can’t be empty.', 'error'); name.focus(); return; }
 
-        // Country + State come from the editable fields (source of truth for the
-        // structured columns); city_name derives from the city string.
-        const st = resolveState(stateInput.value);
+        // Every structured column comes straight from its own editable field.
         const cc = countrySelect.value ? countrySelect.value.toUpperCase() : null;
-        const parsedCity = (window.TgbGeo && TgbGeo.parseGeo) ? TgbGeo.parseGeo(canonical) : null;
         const sortVal = sortInput.value.trim();
         const payload = {
           label: labelInput.value.trim() || null,
           sort_order: sortVal === '' ? null : (parseInt(sortVal, 10) || 0),
           ignored: ignoredCb.checked,
           archived: archivedCb.checked,
-          city_name: (parsedCity && parsedCity.cityName) || null,
-          state_code: st.code,
-          state_name: st.name,
+          city_name: cityNameInput.value.trim() || null,
+          state_name: stateInput.value.trim() || null,
+          state_code: abbrInput.value.trim().toUpperCase() || null,
           country_code: cc,
           country_name: cc ? (COUNTRY_NAME_BY_CODE[cc] || null) : null
         };
