@@ -176,9 +176,11 @@
     .geo-badge--country { border-radius: 999px; }
     .city-slug { font-family: "IBM Plex Mono", monospace; font-size: 0.66rem; color: var(--muted); }
 
-    .city-fields { display: grid; grid-template-columns: 1fr 64px; gap: 6px; min-width: 0; }
+    .city-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; min-width: 0; }
     .city-fields label { display: grid; gap: 3px; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-    .city-fields input {
+    .city-fields .field-sort { max-width: 78px; }
+    .city-fields input,
+    .city-fields select {
       min-height: 34px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px;
       background: #fff; color: var(--ink); font-weight: 500; min-width: 0;
     }
@@ -285,6 +287,31 @@
     const cityCountEl = document.getElementById('cityCount');
 
     const state = { rows: [], authed: false };
+
+    // Country / state option lists from the shared geo module, for the editable
+    // Country dropdown and State type-ahead on each row.
+    const COUNTRY_OPTS = (window.TgbGeo && TgbGeo.countryOptions) ? TgbGeo.countryOptions() : [];
+    const COUNTRY_NAME_BY_CODE = {};
+    COUNTRY_OPTS.forEach((o) => { COUNTRY_NAME_BY_CODE[String(o.code).toUpperCase()] = o.name; });
+    const STATE_OPTS = [];
+    if (window.TgbGeo && TgbGeo.usStateOptions) TgbGeo.usStateOptions().forEach((o) => STATE_OPTS.push({ code: String(o.code).toUpperCase(), name: o.name }));
+    if (window.TgbGeo && TgbGeo.provinceOptions) TgbGeo.provinceOptions().forEach((o) => STATE_OPTS.push({ code: String(o.code).toUpperCase(), name: o.name }));
+    // Resolve a typed state (code OR name) to { code, name }.
+    function resolveState(val) {
+      val = String(val == null ? '' : val).trim();
+      if (!val) return { code: null, name: null };
+      const u = val.toUpperCase(), l = val.toLowerCase();
+      const hit = STATE_OPTS.find((s) => s.code === u || s.name.toLowerCase() === l);
+      if (hit) return { code: hit.code, name: hit.name };
+      return { code: val.length <= 3 ? u : null, name: val.length <= 3 ? null : val };
+    }
+    // One shared datalist of state/province names for the State inputs.
+    (function () {
+      const dl = document.createElement('datalist');
+      dl.id = 'city-state-list';
+      STATE_OPTS.forEach((s) => { const o = document.createElement('option'); o.value = s.name; dl.appendChild(o); });
+      document.body.appendChild(dl);
+    }());
 
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
@@ -398,7 +425,7 @@
       if (row.archived === true) el.classList.add('is-archived');
       if (row.ignored === true) el.classList.add('is-ignored');
 
-      // Identity: city (inline-editable key) + geo badges + slug.
+      // Identity: city (inline-editable key) + slug.
       const idcol = document.createElement('div');
       idcol.className = 'city-idcol';
       const name = document.createElement('input');
@@ -409,16 +436,40 @@
       name.title = 'City name — the key other tables reference. Editing it renames the city (you’ll be warned first).';
       const sub = document.createElement('span');
       sub.className = 'city-sub';
-      sub.appendChild(geoBadges(row));
       const slug = document.createElement('span');
       slug.className = 'city-slug';
       slug.textContent = row.slug || '';
       sub.appendChild(slug);
       idcol.append(name, sub);
 
-      // Editable non-key fields.
+      // Editable non-key fields: Country + State/Province, then Label + Sort.
       const fields = document.createElement('div');
       fields.className = 'city-fields';
+
+      const countryWrap = document.createElement('label');
+      countryWrap.textContent = 'Country';
+      const countrySelect = document.createElement('select');
+      const blankOpt = document.createElement('option');
+      blankOpt.value = ''; blankOpt.textContent = '—';
+      countrySelect.appendChild(blankOpt);
+      COUNTRY_OPTS.forEach((o) => {
+        const op = document.createElement('option');
+        op.value = String(o.code).toUpperCase();
+        op.textContent = o.name;
+        countrySelect.appendChild(op);
+      });
+      countrySelect.value = String(row.country_code || '').toUpperCase();
+      countryWrap.appendChild(countrySelect);
+
+      const stateWrap = document.createElement('label');
+      stateWrap.textContent = 'State / Prov';
+      const stateInput = document.createElement('input');
+      stateInput.type = 'text';
+      stateInput.setAttribute('list', 'city-state-list');
+      stateInput.placeholder = '—';
+      stateInput.value = row.state_name || row.state_code || '';
+      stateWrap.appendChild(stateInput);
+
       const labelWrap = document.createElement('label');
       labelWrap.textContent = 'Label';
       const labelInput = document.createElement('input');
@@ -427,12 +478,14 @@
       labelInput.placeholder = row.city_name || '';
       labelWrap.appendChild(labelInput);
       const sortWrap = document.createElement('label');
+      sortWrap.className = 'field-sort';
       sortWrap.textContent = 'Sort';
       const sortInput = document.createElement('input');
       sortInput.type = 'number';
       sortInput.value = (row.sort_order == null ? '' : row.sort_order);
       sortWrap.appendChild(sortInput);
-      fields.append(labelWrap, sortWrap);
+
+      fields.append(countryWrap, stateWrap, labelWrap, sortWrap);
 
       // Flags.
       const flags = document.createElement('div');
@@ -465,25 +518,34 @@
       actions.append(saveBtn, delBtn);
 
       const markDirty = () => el.classList.add('is-dirty');
-      [name, labelInput, sortInput, ignoredCb, archivedCb].forEach((i) => i.addEventListener('input', markDirty));
-      [ignoredCb, archivedCb].forEach((i) => i.addEventListener('change', markDirty));
+      [name, stateInput, labelInput, sortInput].forEach((i) => i.addEventListener('input', markDirty));
+      [countrySelect, ignoredCb, archivedCb].forEach((i) => i.addEventListener('change', markDirty));
 
       saveBtn.addEventListener('click', () => {
+        const rawNew = name.value.trim();
+        const canonical = (window.TgbGeo && TgbGeo.canonicalCity) ? (TgbGeo.canonicalCity(rawNew) || rawNew) : rawNew;
+        if (!canonical) { setStatus('City name can’t be empty.', 'error'); name.focus(); return; }
+
+        // Country + State come from the editable fields (source of truth for the
+        // structured columns); city_name derives from the city string.
+        const st = resolveState(stateInput.value);
+        const cc = countrySelect.value ? countrySelect.value.toUpperCase() : null;
+        const parsedCity = (window.TgbGeo && TgbGeo.parseGeo) ? TgbGeo.parseGeo(canonical) : null;
         const sortVal = sortInput.value.trim();
         const payload = {
           label: labelInput.value.trim() || null,
           sort_order: sortVal === '' ? null : (parseInt(sortVal, 10) || 0),
           ignored: ignoredCb.checked,
-          archived: archivedCb.checked
+          archived: archivedCb.checked,
+          city_name: (parsedCity && parsedCity.cityName) || null,
+          state_code: st.code,
+          state_name: st.name,
+          country_code: cc,
+          country_name: cc ? (COUNTRY_NAME_BY_CODE[cc] || null) : null
         };
 
-        // Rename? The city string is the KEY other tables reference. Canonicalize
-        // the typed value, warn, and (on confirm) also re-derive the structured
-        // geo so state/country stay in sync. The slug is a stable PK and does not
-        // change on rename.
-        const rawNew = name.value.trim();
-        const canonical = (window.TgbGeo && TgbGeo.canonicalCity) ? (TgbGeo.canonicalCity(rawNew) || rawNew) : rawNew;
-        if (!canonical) { setStatus('City name can’t be empty.', 'error'); name.focus(); return; }
+        // Rename? The city string is the KEY other tables reference — warn. The
+        // slug is a stable PK and does not change on rename.
         if (canonical.toLowerCase() !== String(row.city || '').toLowerCase()) {
           const ok = window.confirm(
             'Rename “' + (row.city || '') + '” → “' + canonical + '”?\n\n' +
@@ -492,14 +554,6 @@
           );
           if (!ok) { name.value = row.city || ''; return; }
           payload.city = canonical;
-          const g = (window.TgbGeo && TgbGeo.parseGeo) ? TgbGeo.parseGeo(canonical) : null;
-          if (g) {
-            payload.city_name = g.cityName || null;
-            payload.state_code = g.stateCode || null;
-            payload.state_name = g.stateName || null;
-            payload.country_code = g.countryCode || null;
-            payload.country_name = g.countryName || null;
-          }
         }
 
         saveRow(row, payload, saveBtn, el);
