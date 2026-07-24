@@ -95,7 +95,7 @@
     return {
       slug: row.slug || '',
       city: row.city || '',
-      label: row.label || '',
+      label: row.label || row.city_name || '',   // label column is being retired; fall back to the stem
       sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
       ignored: row.ignored === true
     };

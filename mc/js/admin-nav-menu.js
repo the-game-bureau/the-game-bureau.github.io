@@ -73,7 +73,7 @@
         {
           href: '/mc/cities/index.htm',
           label: 'Cities',
-          description: 'The one city catalog the whole site reads — add, label, sort, mark venue-only/archived, or delete.'
+          description: 'The one city catalog the whole site reads — add, edit, mark venue-only/archived, or delete.'
         },
         {
           href: '/mc/anchor-events.html',
