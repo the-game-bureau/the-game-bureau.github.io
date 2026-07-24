@@ -364,6 +364,14 @@
         if (!q) return true;
         return [r.city, r.slug, r.label, r.state_name, r.country_name].some((v) => String(v || '').toLowerCase().includes(q));
       });
+      // Sort: country alpha, then state alpha, then city alpha (case-insensitive;
+      // blanks sort last so unclassified rows fall to the bottom of each group).
+      const key = (v) => { const s = String(v == null ? '' : v).trim(); return s || '￿'; };
+      const cmp = (a, b, f) => key(f(a)).localeCompare(key(f(b)), undefined, { sensitivity: 'base', numeric: true });
+      rows.sort((a, b) =>
+        cmp(a, b, (r) => r.country_name) ||
+        cmp(a, b, (r) => r.state_name) ||
+        cmp(a, b, (r) => r.city_name || r.city));
       if (!rows.length) { cityListEl.appendChild(emptyNode(state.rows.length ? 'No cities match.' : 'No cities yet — hit “+ Add city”.')); }
       else rows.forEach((r) => cityListEl.appendChild(renderRow(r)));
       if (cityCountEl) {
