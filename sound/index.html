@@ -2278,7 +2278,7 @@
         return fetchJson(buildSupabaseUrl('cities', {
           select: '*',
           archived: 'eq.false',
-          order: 'sort_order.asc,city.asc'
+          order: 'city.asc'
         }), {
           headers: SB_HEADERS,
           cache: 'no-store'
@@ -2333,11 +2333,10 @@
       function setCityEntries(rows) {
         cityEntries = (Array.isArray(rows) ? rows : [])
           .filter(function (row) { return citySlug(row); })
+          // Alphabetical by city name (full "City, Region" as the tiebreak).
           .sort(function (a, b) {
-            var ao = Number(a.sort_order) || 0;
-            var bo = Number(b.sort_order) || 0;
-            if (ao !== bo) return ao - bo;
-            return cityLabel(a).localeCompare(cityLabel(b));
+            return cityShortLabel(a).localeCompare(cityShortLabel(b), undefined, { sensitivity: 'base', numeric: true })
+              || cityLabel(a).localeCompare(cityLabel(b), undefined, { sensitivity: 'base' });
           });
         renderSoundGrid(cityEntries);
         setupListenCityPanel();

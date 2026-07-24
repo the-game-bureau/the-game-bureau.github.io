@@ -343,7 +343,7 @@
         if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') {
           try { await adminAuth.ensureFreshSession(); } catch (e) {}
         }
-        const url = restUrl(TABLE, { select: '*', order: 'sort_order.asc,city.asc' });
+        const url = restUrl(TABLE, { select: '*', order: 'city.asc' });
         const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
         state.rows = Array.isArray(rows) ? rows : [];
         render();
@@ -432,8 +432,8 @@
       sub.appendChild(slug);
       idcol.append(name, sub);
 
-      // Editable structured fields: City name, State, St. abbr, Country, then
-      // Label + Sort. (The inline field above is the full "City, Region" key.)
+      // Editable structured fields: City name, State, St. abbr, Country, Label.
+      // (The inline field above is the full "City, Region" key.)
       const fields = document.createElement('div');
       fields.className = 'city-fields';
 
@@ -471,12 +471,11 @@
       countryWrap.appendChild(countrySelect);
 
       const labelF = mkText('Label', row.label || '', { placeholder: row.city_name || '' });
-      const sortF = mkText('Sort', (row.sort_order == null ? '' : row.sort_order), { type: 'number' });
 
       const cityNameInput = cityNameF.input, stateInput = stateF.input, abbrInput = abbrF.input,
-            labelInput = labelF.input, sortInput = sortF.input;
+            labelInput = labelF.input;
 
-      fields.append(cityNameF.wrap, stateF.wrap, abbrF.wrap, countryWrap, labelF.wrap, sortF.wrap);
+      fields.append(cityNameF.wrap, stateF.wrap, abbrF.wrap, countryWrap, labelF.wrap);
 
       // Flags.
       const flags = document.createElement('div');
@@ -509,7 +508,7 @@
       actions.append(saveBtn, delBtn);
 
       const markDirty = () => el.classList.add('is-dirty');
-      [name, cityNameInput, stateInput, abbrInput, labelInput, sortInput].forEach((i) => i.addEventListener('input', markDirty));
+      [name, cityNameInput, stateInput, abbrInput, labelInput].forEach((i) => i.addEventListener('input', markDirty));
       [countrySelect, ignoredCb, archivedCb].forEach((i) => i.addEventListener('change', markDirty));
 
       saveBtn.addEventListener('click', () => {
@@ -519,10 +518,8 @@
 
         // Every structured column comes straight from its own editable field.
         const cc = countrySelect.value ? countrySelect.value.toUpperCase() : null;
-        const sortVal = sortInput.value.trim();
         const payload = {
           label: labelInput.value.trim() || null,
-          sort_order: sortVal === '' ? null : (parseInt(sortVal, 10) || 0),
           ignored: ignoredCb.checked,
           archived: archivedCb.checked,
           city_name: cityNameInput.value.trim() || null,
