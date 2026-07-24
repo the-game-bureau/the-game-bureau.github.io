@@ -101,6 +101,15 @@
     };
   }
 
+  // Countries come from the single source (public.countries) via TgbGeo, which
+  // hydrates it. { code, name }, United States first then alphabetical.
+  function countryOptions() {
+    var g = global.TgbGeo;
+    return (g && g.countryOptions ? g.countryOptions() : []).map(function (o) {
+      return { code: String(o.code).toUpperCase(), name: o.name };
+    });
+  }
+
   function isIgnored(city) {
     if (!cache || !city) return false;
     for (var i = 0; i < cache.length; i++) if (cache[i].city === city) return cache[i].ignored;
@@ -143,10 +152,7 @@
     (g && g.provinceOptions ? g.provinceOptions() : []).forEach(function (o) { out.push({ code: String(o.code).toUpperCase(), name: o.name, country: 'CAN' }); });
     return out;
   }
-  function countryList() {
-    var g = global.TgbGeo;
-    return (g && g.countryOptions ? g.countryOptions() : []).map(function (o) { return { code: String(o.code).toUpperCase(), name: o.name }; });
-  }
+  function countryList() { return countryOptions(); }
   function findState(val) {
     val = String(val == null ? '' : val).trim();
     if (!val) return null;
@@ -159,6 +165,13 @@
     if (!val) return null;
     var u = val.toUpperCase(), l = val.toLowerCase(), list = countryList();
     for (var i = 0; i < list.length; i++) { if (list[i].code === u || list[i].name.toLowerCase() === l) return list[i]; }
+    // Not in the catalog yet: let geo.js resolve a typed name/code to an alpha-3
+    // (it knows the catalog's aliases too), so the oval badge still gets a code.
+    var g = global.TgbGeo;
+    if (g && g.parseGeo) {
+      var parsed = g.parseGeo('X, ' + val);
+      if (parsed && parsed.countryCode) return { code: parsed.countryCode, name: parsed.countryName || titleCaseTypedName(val) };
+    }
     return { code: val.length === 3 ? u : '', name: titleCaseTypedName(val) };
   }
   function resolveGeoParts(cityRaw, stateRaw, countryRaw) {
@@ -318,11 +331,17 @@
       var preview = wrap.querySelector('.tgb-city-preview');
       var saveBtn = wrap.querySelector('.tgb-city-save');
 
-      // Fill the type-ahead lists from TgbGeo's option maps.
+      // States come from geo.js; countries come from the catalog (its distinct
+      // countries). Refill countries once the catalog is loaded.
       var stateDl = wrap.querySelector('#tgb-city-states');
       var countryDl = wrap.querySelector('#tgb-city-countries');
       stateList().forEach(function (s) { var o = document.createElement('option'); o.value = s.name; stateDl.appendChild(o); });
-      countryList().forEach(function (c) { var o = document.createElement('option'); o.value = c.name; countryDl.appendChild(o); });
+      function fillCountries() {
+        countryDl.innerHTML = '';
+        countryList().forEach(function (c) { var o = document.createElement('option'); o.value = c.name; countryDl.appendChild(o); });
+      }
+      fillCountries();
+      if (global.TgbGeo && global.TgbGeo.countriesReady) global.TgbGeo.countriesReady.then(fillCountries).catch(function () {});
       countryInput.value = 'United States';
 
       function close(result) {
@@ -527,6 +546,7 @@
     attach: attach,
     add: add,
     all: function () { return (cache || []).slice(); },
+    countryOptions: countryOptions,
     selectable: selectable,
     isIgnored: isIgnored,
     canonical: canonical,

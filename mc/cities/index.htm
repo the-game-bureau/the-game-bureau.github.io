@@ -280,11 +280,16 @@
 
     const state = { rows: [], authed: false };
 
-    // Country / state option lists from the shared geo module, for the editable
-    // Country dropdown and State type-ahead on each row.
-    const COUNTRY_OPTS = (window.TgbGeo && TgbGeo.countryOptions) ? TgbGeo.countryOptions() : [];
-    const COUNTRY_NAME_BY_CODE = {};
-    COUNTRY_OPTS.forEach((o) => { COUNTRY_NAME_BY_CODE[String(o.code).toUpperCase()] = o.name; });
+    // The Country dropdown reads the single source of truth — public.countries,
+    // via TgbGeo (assets/geo.js hydrates it). Rebuilt once countries load.
+    let COUNTRY_OPTS = (window.TgbGeo && TgbGeo.countryOptions) ? TgbGeo.countryOptions() : [];
+    let COUNTRY_NAME_BY_CODE = {};
+    function rebuildCountryOpts() {
+      COUNTRY_OPTS = (window.TgbGeo && TgbGeo.countryOptions) ? TgbGeo.countryOptions() : COUNTRY_OPTS;
+      COUNTRY_NAME_BY_CODE = {};
+      COUNTRY_OPTS.forEach((o) => { COUNTRY_NAME_BY_CODE[String(o.code).toUpperCase()] = o.name; });
+    }
+    rebuildCountryOpts();
     const STATE_OPTS = [];
     if (window.TgbGeo && TgbGeo.usStateOptions) TgbGeo.usStateOptions().forEach((o) => STATE_OPTS.push({ code: String(o.code).toUpperCase(), name: o.name }));
     if (window.TgbGeo && TgbGeo.provinceOptions) TgbGeo.provinceOptions().forEach((o) => STATE_OPTS.push({ code: String(o.code).toUpperCase(), name: o.name }));
@@ -336,6 +341,10 @@
         if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') {
           try { await adminAuth.ensureFreshSession(); } catch (e) {}
         }
+        // Country dropdown options come from public.countries (via geo.js) —
+        // make sure they're hydrated before we render the row editors.
+        if (window.TgbGeo && TgbGeo.countriesReady) { try { await TgbGeo.countriesReady; } catch (e) {} }
+        rebuildCountryOpts();
         const url = restUrl(TABLE, { select: '*', order: 'city.asc' });
         const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
         state.rows = Array.isArray(rows) ? rows : [];

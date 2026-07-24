@@ -51,34 +51,15 @@
     SK: 'Saskatchewan', YT: 'Yukon'
   };
 
-  // Country name (lowercased, incl. common sub-nation aliases) -> ISO 3166-1
-  // alpha-3 code (the Olympic/FIFA-style code shown in the oval decal).
-  var COUNTRY_NAME_TO_CODE = {
-    'united kingdom': 'GBR', 'england': 'GBR', 'scotland': 'GBR', 'wales': 'GBR', 'northern ireland': 'GBR', 'great britain': 'GBR', 'uk': 'GBR',
-    'france': 'FRA', 'germany': 'DEU', 'spain': 'ESP', 'italy': 'ITA', 'portugal': 'PRT',
-    'netherlands': 'NLD', 'belgium': 'BEL', 'ireland': 'IRL', 'sweden': 'SWE', 'norway': 'NOR',
-    'denmark': 'DNK', 'finland': 'FIN', 'austria': 'AUT', 'switzerland': 'CHE', 'poland': 'POL',
-    'czech republic': 'CZE', 'czechia': 'CZE', 'greece': 'GRC', 'turkey': 'TUR', 'russia': 'RUS', 'ukraine': 'UKR',
-    'mexico': 'MEX', 'canada': 'CAN', 'brazil': 'BRA', 'argentina': 'ARG', 'chile': 'CHL',
-    'colombia': 'COL', 'peru': 'PER', 'uruguay': 'URY',
-    'australia': 'AUS', 'new zealand': 'NZL', 'japan': 'JPN', 'china': 'CHN', 'south korea': 'KOR',
-    'india': 'IND', 'singapore': 'SGP', 'thailand': 'THA', 'indonesia': 'IDN', 'philippines': 'PHL',
-    'south africa': 'ZAF', 'egypt': 'EGY', 'israel': 'ISR', 'united arab emirates': 'ARE', 'uae': 'ARE',
-    'united states': 'USA', 'united states of america': 'USA', 'usa': 'USA', 'us': 'USA', 'u.s.': 'USA', 'u.s.a.': 'USA'
-  };
-
-  // alpha-3 code -> canonical display name (for composeGeo + the country dropdown).
-  var COUNTRY_CODE_TO_NAME = {
-    USA: 'United States', GBR: 'United Kingdom', FRA: 'France', DEU: 'Germany', ESP: 'Spain',
-    ITA: 'Italy', PRT: 'Portugal', NLD: 'Netherlands', BEL: 'Belgium', IRL: 'Ireland',
-    SWE: 'Sweden', NOR: 'Norway', DNK: 'Denmark', FIN: 'Finland', AUT: 'Austria',
-    CHE: 'Switzerland', POL: 'Poland', CZE: 'Czech Republic', GRC: 'Greece', TUR: 'Turkey',
-    RUS: 'Russia', UKR: 'Ukraine', MEX: 'Mexico', CAN: 'Canada', BRA: 'Brazil',
-    ARG: 'Argentina', CHL: 'Chile', COL: 'Colombia', PER: 'Peru', URY: 'Uruguay',
-    AUS: 'Australia', NZL: 'New Zealand', JPN: 'Japan', CHN: 'China', KOR: 'South Korea',
-    IND: 'India', SGP: 'Singapore', THA: 'Thailand', IDN: 'Indonesia', PHL: 'Philippines',
-    ZAF: 'South Africa', EGY: 'Egypt', ISR: 'Israel', ARE: 'United Arab Emirates'
-  };
+  // Countries are NOT hardcoded here — they live in one place, the public.countries
+  // table, and are hydrated into these two live maps at runtime (see the
+  // "Country catalog" block below). Both stay the SAME object reference for the
+  // module's lifetime (filled/cleared in place) so callers that captured a
+  // reference — e.g. `TgbGeo.COUNTRY_CODE_TO_NAME` — keep seeing fresh data.
+  //   COUNTRY_NAME_TO_CODE: lowercased name/alias/code -> alpha-3 code (parsing)
+  //   COUNTRY_CODE_TO_NAME: alpha-3 code -> canonical display name (compose + dropdown)
+  var COUNTRY_NAME_TO_CODE = {};
+  var COUNTRY_CODE_TO_NAME = {};
 
   // Reverse maps: lowercased full name -> code (for parsing).
   var US_STATE_NAME_TO_CODE = buildNameToCode(US_STATE_CODE_TO_NAME);
@@ -96,6 +77,93 @@
     });
     return out;
   }
+
+  // ── Country catalog (hydrated from public.countries) ───────────────────────
+  // The single source of truth is the DB table. This module fetches it once and
+  // fills the two maps above. To avoid a first-paint gap on public pages that
+  // draw the country oval, the last successful fetch is cached in localStorage
+  // and replayed synchronously on load; the network copy refreshes it in the
+  // background. Admin dropdowns should await TgbGeo.countriesReady for freshness.
+  var DEFAULT_SUPABASE = {
+    url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+    publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+  };
+  var geoConfig = {
+    url: (global.TGB_SUPABASE_CONFIG && global.TGB_SUPABASE_CONFIG.url) || DEFAULT_SUPABASE.url,
+    publishableKey: (global.TGB_SUPABASE_CONFIG && (global.TGB_SUPABASE_CONFIG.publishableKey || global.TGB_SUPABASE_CONFIG.anonKey)) || DEFAULT_SUPABASE.publishableKey
+  };
+  var COUNTRIES_CACHE_KEY = 'tgb_countries_v1';
+  var IS_BROWSER = typeof window !== 'undefined' && typeof document !== 'undefined';
+
+  function hydrateCountries(rows) {
+    Object.keys(COUNTRY_CODE_TO_NAME).forEach(function (k) { delete COUNTRY_CODE_TO_NAME[k]; });
+    Object.keys(COUNTRY_NAME_TO_CODE).forEach(function (k) { delete COUNTRY_NAME_TO_CODE[k]; });
+    (rows || []).forEach(function (r) {
+      var code = String(r && r.code || '').toUpperCase();
+      if (!code) return;
+      var name = (r && r.name) || code;
+      COUNTRY_CODE_TO_NAME[code] = name;
+      COUNTRY_NAME_TO_CODE[String(name).toLowerCase()] = code;
+      COUNTRY_NAME_TO_CODE[code.toLowerCase()] = code;         // code typed as a "name"
+      (r && r.aliases || []).forEach(function (a) {
+        if (a) COUNTRY_NAME_TO_CODE[String(a).toLowerCase()] = code;
+      });
+    });
+  }
+
+  function readCountriesCache() {
+    try {
+      var raw = IS_BROWSER && window.localStorage && window.localStorage.getItem(COUNTRIES_CACHE_KEY);
+      if (raw) { var d = JSON.parse(raw); if (Array.isArray(d) && d.length) return d; }
+    } catch (e) {}
+    return null;
+  }
+  function writeCountriesCache(rows) {
+    try {
+      if (IS_BROWSER && window.localStorage) window.localStorage.setItem(COUNTRIES_CACHE_KEY, JSON.stringify(rows));
+    } catch (e) {}
+  }
+
+  var cachedCountries = readCountriesCache();
+  if (cachedCountries) hydrateCountries(cachedCountries);   // instant, offline-safe
+
+  function fetchTable(path) {
+    return fetch(geoConfig.url + '/rest/v1/' + path, {
+      headers: { apikey: geoConfig.publishableKey, Authorization: 'Bearer ' + geoConfig.publishableKey },
+      cache: 'no-store'
+    }).then(function (res) { return res.ok ? res.json() : []; }).catch(function () { return []; });
+  }
+  // Distinct { code, name } from the cities catalog — the fallback used before
+  // public.countries exists (the migration window), so ovals/dropdowns never go
+  // blank. No aliases, so alt spellings like "England" won't parse until the
+  // countries table is live; canonical names ("United Kingdom") still do.
+  function citiesToCountries(rows) {
+    var seen = {}, out = [];
+    (rows || []).forEach(function (r) {
+      var code = String(r && r.country_code || '').toUpperCase();
+      if (!code || seen[code]) return;
+      seen[code] = true;
+      out.push({ code: code, name: (r && r.country_name) || code, aliases: [] });
+    });
+    return out;
+  }
+  function fetchCountries() {
+    if (!IS_BROWSER || typeof fetch !== 'function') return Promise.resolve(cachedCountries || []);
+    return fetchTable('countries?select=code,name,aliases&order=name.asc')
+      .then(function (rows) {
+        if (Array.isArray(rows) && rows.length) return rows;
+        return fetchTable('cities?select=country_code,country_name&archived=eq.false').then(citiesToCountries);
+      })
+      .then(function (rows) {
+        if (Array.isArray(rows) && rows.length) { hydrateCountries(rows); writeCountriesCache(rows); return rows; }
+        return cachedCountries || [];
+      })
+      .catch(function () { return cachedCountries || []; });
+  }
+
+  // Promise that resolves when countries are loaded (from network, or the cache
+  // if the network is unavailable). Reassigned by configure().
+  var countriesReady = fetchCountries();
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   function norm(value) {
@@ -251,12 +319,15 @@
   function usStateOptions() { return optionsFromMap(US_STATE_CODE_TO_NAME); }
   function provinceOptions() { return optionsFromMap(CA_PROVINCE_CODE_TO_NAME); }
   function countryOptions() {
-    // United States first, then alphabetical.
-    var rest = Object.keys(COUNTRY_CODE_TO_NAME)
-      .filter(function (c) { return c !== 'USA'; })
+    // From the hydrated catalog: United States first, then alphabetical. Returns
+    // [] until countries load (callers that need it await TgbGeo.countriesReady).
+    var codes = Object.keys(COUNTRY_CODE_TO_NAME);
+    var usa = codes.filter(function (c) { return c === 'USA'; })
+      .map(function (c) { return { code: c, name: COUNTRY_CODE_TO_NAME[c] }; });
+    var rest = codes.filter(function (c) { return c !== 'USA'; })
       .map(function (code) { return { code: code, name: COUNTRY_CODE_TO_NAME[code] }; })
       .sort(function (a, b) { return a.name.localeCompare(b.name); });
-    return [{ code: 'USA', name: 'United States' }].concat(rest);
+    return usa.concat(rest);
   }
 
   global.TgbGeo = {
@@ -272,6 +343,15 @@
     geoBadge: geoBadge,
     usStateOptions: usStateOptions,
     provinceOptions: provinceOptions,
-    countryOptions: countryOptions
+    countryOptions: countryOptions,
+    // Country catalog (public.countries):
+    hydrateCountries: hydrateCountries,
+    get countriesReady() { return countriesReady; },
+    configure: function (next) {
+      if (next && next.url) geoConfig.url = next.url;
+      if (next && (next.publishableKey || next.anonKey)) geoConfig.publishableKey = next.publishableKey || next.anonKey;
+      countriesReady = fetchCountries();
+      return countriesReady;
+    }
   };
 }(typeof window !== 'undefined' ? window : this));

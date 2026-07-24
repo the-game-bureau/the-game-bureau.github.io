@@ -21991,10 +21991,18 @@ function refreshStateOptions(countryCode, keepCode) {
   if (keepCode && opts.some((o) => o.code === keepCode)) nodeStateInput.value = keepCode;
 }
 
-// One-time population of the country dropdown + default (US) state list.
-if (TGB_GEO && nodeCountryInput) {
+// Populate the country dropdown + default (US) state list. Countries come from
+// public.countries via geo.js, so (re)fill once it's hydrated, keeping the pick.
+function fillCountrySelect() {
+  if (!(TGB_GEO && nodeCountryInput)) return;
+  const keep = nodeCountryInput.value;
   fillSelect(nodeCountryInput, TGB_GEO.countryOptions(), '—');
+  if (keep) nodeCountryInput.value = keep;
+}
+if (TGB_GEO && nodeCountryInput) {
+  fillCountrySelect();
   refreshStateOptions('USA', '');
+  if (TGB_GEO.countriesReady) TGB_GEO.countriesReady.then(fillCountrySelect).catch(() => {});
 }
 
 // Paint the three controls from a game's meta (null = non-game node → clear).

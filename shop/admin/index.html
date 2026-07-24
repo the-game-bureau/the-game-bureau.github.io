@@ -4006,13 +4006,22 @@
       let onCreated = null;
       let lastFocus = null;
 
-      // Populate the country dropdown once (United States first, then A–Z).
-      if (hasGeo()) {
-        ctryEl.innerHTML = window.TgbGeo.countryOptions()
-          .map((o) => '<option value="' + o.code + '">' + o.name + '</option>').join('');
-        ctryEl.value = 'USA';
-      } else {
-        ctryEl.innerHTML = '<option value="USA">United States</option>';
+      // Populate the country dropdown (United States first, then A–Z). Countries
+      // come from public.countries via geo.js, so (re)fill once it's hydrated.
+      function fillCountryOptions() {
+        if (hasGeo() && window.TgbGeo.countryOptions().length) {
+          const keep = ctryEl.value;
+          ctryEl.innerHTML = window.TgbGeo.countryOptions()
+            .map((o) => '<option value="' + o.code + '">' + o.name + '</option>').join('');
+          ctryEl.value = keep || 'USA';
+        } else {
+          ctryEl.innerHTML = '<option value="USA">United States</option>';
+          ctryEl.value = 'USA';
+        }
+      }
+      fillCountryOptions();
+      if (window.TgbGeo && window.TgbGeo.countriesReady) {
+        window.TgbGeo.countriesReady.then(fillCountryOptions).catch(() => {});
       }
 
       // The State/Province dropdown swaps its list (and hides itself) with the
