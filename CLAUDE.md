@@ -6,12 +6,12 @@ Durable project knowledge for Claude Code (and any teammate working in this repo
 
 ## Sound / city playlists
 
-The public page [sound/index.html](sound/index.html) renders city cassette cards at runtime from two sources:
+The public page [sound/index.html](sound/index.html) renders city cassette cards at runtime, driven by [sound/soundtracks.json](sound/soundtracks.json) (per-city `city_slug`, spine phrase tags, and the song list — each song carries its own `spotifyId` for playback).
 
-- City identity, labels, order, geo badge fields, tape colors, and optional Spotify playlist ids come from the database table `public.cities` (created/seeded by [supabase/migrations/2026071501_cities_soundtracks.sql](supabase/migrations/2026071501_cities_soundtracks.sql)).
-- Track lists and cassette-spine phrase tags live in [sound/soundtracks.json](sound/soundtracks.json), keyed by `city_slug` matching `public.cities.slug`.
+- It reads `public.cities` with **`select=*`** only for nicer city display names + geo badges, filtering out venue-only (`ignored`) rows. This is optional: if the cities fetch fails, `fallbackCityRowsFromSoundtracks` renders from `soundtracks.json` alone (slug → display name). **The page depends on no specific `cities` column** — don't reintroduce one.
+- The old per-city `cities` sound columns (`sound_playlist_id` / `sound_accent` / `sound_secondary`) were **dropped 2026-07-24**; soundtracks are handled separately now and cassette colors come from the CSS `nth-child` scheme. Don't re-add them.
 
-Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-playlists.json`, or CSV-driven build scripts under `sound/`. To add or edit a soundtrack, update the city row in `public.cities` and the matching `soundtracks.json` entry. Run the cities migration before deploying sound-page changes that depend on new city rows.
+Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-playlists.json`, or CSV-driven build scripts under `sound/`. To add or edit a soundtrack, edit the `soundtracks.json` entry (and add the city to `public.cities` if you want the polished name/badge).
 
 ---
 ## Game play tracking (instances / responses / events)
