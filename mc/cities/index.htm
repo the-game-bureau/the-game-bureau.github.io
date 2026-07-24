@@ -158,15 +158,8 @@
     .city-row.is-ignored .city-name { color: #9aa0a6; }
 
     .city-idcol { display: grid; gap: 2px; min-width: 0; }
-    .city-name { font-weight: 700; font-size: 1rem; color: var(--ink); }
-    /* The name is inline-editable — looks like text, reveals a field on hover. */
-    input.city-name {
-      width: 100%; min-width: 0; padding: 4px 6px; margin: -4px -6px;
-      border: 1px solid transparent; border-radius: 6px; background: transparent;
-      text-overflow: ellipsis;
-    }
-    input.city-name:hover { border-color: var(--line); }
-    input.city-name:focus { border-color: var(--accent); background: #fff; outline: none; }
+    /* The "City, Region" key, composed read-only from the fields below. */
+    .city-name { font-weight: 700; font-size: 1rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
     .city-sub { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .geo-badge {
       font-family: "IBM Plex Mono", monospace; font-size: 0.6rem; font-weight: 700;
@@ -415,25 +408,24 @@
       if (row.archived === true) el.classList.add('is-archived');
       if (row.ignored === true) el.classList.add('is-ignored');
 
-      // Identity: city (inline-editable key) + slug.
+      // Identity: the "City, Region" key (composed from the fields, read-only) +
+      // slug. The key is what other tables reference; it updates live as you edit
+      // City / State / Country below, and changing it warns before saving.
       const idcol = document.createElement('div');
       idcol.className = 'city-idcol';
-      const name = document.createElement('input');
-      name.type = 'text';
-      name.className = 'city-name';
-      name.value = row.city || '';
-      name.setAttribute('aria-label', 'City name');
-      name.title = 'City name — the key other tables reference. Editing it renames the city (you’ll be warned first).';
+      const keyDisplay = document.createElement('div');
+      keyDisplay.className = 'city-name';
+      keyDisplay.textContent = row.city || '(unnamed)';
+      keyDisplay.title = 'The "City, Region" key other tables reference — built from the fields.';
       const sub = document.createElement('span');
       sub.className = 'city-sub';
       const slug = document.createElement('span');
       slug.className = 'city-slug';
       slug.textContent = row.slug || '';
       sub.appendChild(slug);
-      idcol.append(name, sub);
+      idcol.append(keyDisplay, sub);
 
       // Editable structured fields: City name, State, St. abbr, Country, Label.
-      // (The inline field above is the full "City, Region" key.)
       const fields = document.createElement('div');
       fields.className = 'city-fields';
 
@@ -507,14 +499,31 @@
       delBtn.textContent = 'Delete';
       actions.append(saveBtn, delBtn);
 
-      const markDirty = () => el.classList.add('is-dirty');
-      [name, cityNameInput, stateInput, abbrInput, labelInput].forEach((i) => i.addEventListener('input', markDirty));
+      // Compose the canonical "City, Region" key from the current field values.
+      const composeKey = () => {
+        const cityName = cityNameInput.value.trim();
+        const cc = countrySelect.value ? countrySelect.value.toUpperCase() : '';
+        if (window.TgbGeo && TgbGeo.composeGeo) {
+          return TgbGeo.composeGeo({
+            cityName: cityName,
+            stateCode: abbrInput.value.trim().toUpperCase(),
+            stateName: stateInput.value.trim(),
+            countryCode: cc,
+            countryName: cc ? (COUNTRY_NAME_BY_CODE[cc] || '') : ''
+          }) || cityName;
+        }
+        return cityName;
+      };
+      const updateKeyPreview = () => { keyDisplay.textContent = composeKey() || '(unnamed)'; };
+
+      const markDirty = () => { el.classList.add('is-dirty'); updateKeyPreview(); };
+      [cityNameInput, stateInput, abbrInput, labelInput].forEach((i) => i.addEventListener('input', markDirty));
       [countrySelect, ignoredCb, archivedCb].forEach((i) => i.addEventListener('change', markDirty));
 
       saveBtn.addEventListener('click', () => {
-        const rawNew = name.value.trim();
-        const canonical = (window.TgbGeo && TgbGeo.canonicalCity) ? (TgbGeo.canonicalCity(rawNew) || rawNew) : rawNew;
-        if (!canonical) { setStatus('City name can’t be empty.', 'error'); name.focus(); return; }
+        const cityName = cityNameInput.value.trim();
+        if (!cityName) { setStatus('City name can’t be empty.', 'error'); cityNameInput.focus(); return; }
+        const canonical = composeKey();
 
         // Every structured column comes straight from its own editable field.
         const cc = countrySelect.value ? countrySelect.value.toUpperCase() : null;
@@ -522,14 +531,14 @@
           label: labelInput.value.trim() || null,
           ignored: ignoredCb.checked,
           archived: archivedCb.checked,
-          city_name: cityNameInput.value.trim() || null,
+          city_name: cityName || null,
           state_name: stateInput.value.trim() || null,
           state_code: abbrInput.value.trim().toUpperCase() || null,
           country_code: cc,
           country_name: cc ? (COUNTRY_NAME_BY_CODE[cc] || null) : null
         };
 
-        // Rename? The city string is the KEY other tables reference — warn. The
+        // Rename? The composed key is what other tables reference — warn. The
         // slug is a stable PK and does not change on rename.
         if (canonical.toLowerCase() !== String(row.city || '').toLowerCase()) {
           const ok = window.confirm(
@@ -537,7 +546,7 @@
             'The city name is the KEY that games and gift-shop listings reference by string — those are NOT updated automatically. Anything still pointing at “' + (row.city || '') + '” (a game\'s Start City, a gift\'s shop, a /shop/?city=… link) will stop matching this city until you fix it there too.\n\n' +
             'Rename anyway?'
           );
-          if (!ok) { name.value = row.city || ''; return; }
+          if (!ok) return;
           payload.city = canonical;
         }
 
