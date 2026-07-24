@@ -332,7 +332,7 @@
       wrap.className = 'tgb-city-dialog';
       wrap.innerHTML =
         '<div class="tgb-city-card" role="dialog" aria-modal="true" aria-label="Add a city">' +
-          '<h3>Add a city</h3>' +
+          '<h3>Add</h3>' +
           '<p>City, state/province, and country. The rest of the row (slug and the map/oval fields) fills in from these.</p>' +
           '<input type="text" class="tgb-city-in-city" placeholder="City, e.g. Youngstown" autocomplete="off">' +
           '<div class="tgb-city-row">' +
