@@ -256,6 +256,34 @@
     });
   }
 
+  // ── Countries (public.countries — the shared country catalog) ───────────────
+  // Insert/upsert a country, then re-hydrate geo.js so every dropdown/parser on
+  // the page sees it immediately. Needs an admin session (authHeaders). Requires
+  // the countries table to exist (migration 2026072304).
+  function addCountry(country, opts) {
+    var code = String(country && country.code || '').trim().toUpperCase();
+    var name = String(country && country.name || '').trim();
+    if (!/^[A-Z]{3}$/.test(code)) return Promise.reject(new Error('Country code must be 3 letters (e.g. PRT).'));
+    if (!name) return Promise.reject(new Error('Country name is required.'));
+    var aliases = ((country && country.aliases) || []).map(function (a) { return String(a).trim().toLowerCase(); }).filter(Boolean);
+    var headers = (opts && typeof opts.authHeaders === 'function')
+      ? opts.authHeaders({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=representation' })
+      : readHeaders({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=representation' });
+    return fetch(config.url + '/rest/v1/countries?on_conflict=code', {
+      method: 'POST', headers: headers, body: JSON.stringify({ code: code, name: name, aliases: aliases })
+    }).then(function (res) {
+      if (res.ok) return res.json();
+      return res.text().then(function (t) { throw new Error(t || 'Could not add "' + name + '".'); });
+    }).then(function (rows) {
+      var row = (Array.isArray(rows) && rows[0]) || { code: code, name: name, aliases: aliases };
+      // Refresh geo's country maps (re-fetch the table) so callers see the new one.
+      if (global.TgbGeo && typeof global.TgbGeo.configure === 'function') {
+        return global.TgbGeo.configure().then(function () { return row; }, function () { return row; });
+      }
+      return row;
+    });
+  }
+
   // ── Styles ─────────────────────────────────────────────────────────────────
 
   function ensureStyles() {
@@ -309,7 +337,10 @@
           '<input type="text" class="tgb-city-in-city" placeholder="City, e.g. Youngstown" autocomplete="off">' +
           '<div class="tgb-city-row">' +
             '<input type="text" class="tgb-city-in-state" placeholder="State / Province" autocomplete="off" list="tgb-city-states">' +
-            '<input type="text" class="tgb-city-in-country" placeholder="Country" autocomplete="off" list="tgb-city-countries">' +
+            '<span class="tgb-city-wrap">' +
+              '<input type="text" class="tgb-city-in-country" placeholder="Country" autocomplete="off" list="tgb-city-countries">' +
+              '<button type="button" class="tgb-city-add tgb-city-add-country" title="Add a country to the shared list" aria-label="Add a country">+</button>' +
+            '</span>' +
           '</div>' +
           '<datalist id="tgb-city-states"></datalist>' +
           '<datalist id="tgb-city-countries"></datalist>' +
@@ -378,6 +409,17 @@
           });
       }
 
+      // "+" beside the country field → add a country to the shared catalog.
+      wrap.querySelector('.tgb-city-add-country').addEventListener('click', function () {
+        openAddCountryDialog({ authHeaders: opts && opts.authHeaders, initialName: countryInput.value.trim() })
+          .then(function (row) {
+            if (!row) return;
+            fillCountries();
+            countryInput.value = row.name;
+            refreshPreview();
+          });
+      });
+
       [cityInput, stateInput, countryInput].forEach(function (el) { el.addEventListener('input', refreshPreview); });
       wrap.querySelector('.tgb-city-cancel').addEventListener('click', function () { close(null); });
       saveBtn.addEventListener('click', save);
@@ -397,6 +439,69 @@
         refreshPreview();
       }
       cityInput.focus();
+    });
+  }
+
+  // ── Add-country dialog ──────────────────────────────────────────────────────
+  // Resolves the created row ({ code, name, aliases }) or null if cancelled.
+  function openAddCountryDialog(opts) {
+    ensureStyles();
+    return new Promise(function (resolve) {
+      var wrap = document.createElement('div');
+      wrap.className = 'tgb-city-dialog';
+      wrap.innerHTML =
+        '<div class="tgb-city-card" role="dialog" aria-modal="true" aria-label="Add a country">' +
+          '<h3>Add a country</h3>' +
+          '<p>Adds a row to the shared countries catalog. It appears in every country dropdown right away.</p>' +
+          '<input type="text" class="tgb-ctry-name" placeholder="Country name, e.g. Portugal" autocomplete="off">' +
+          '<input type="text" class="tgb-ctry-code" placeholder="3-letter code, e.g. PRT" autocomplete="off" maxlength="3" style="text-transform:uppercase;">' +
+          '<input type="text" class="tgb-ctry-aliases" placeholder="Other spellings (optional, comma-separated)" autocomplete="off">' +
+          '<div class="tgb-city-preview"></div>' +
+          '<div class="tgb-city-actions">' +
+            '<button type="button" class="tgb-city-cancel">Cancel</button>' +
+            '<button type="button" class="tgb-city-save">Add country</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(wrap);
+
+      var nameInput = wrap.querySelector('.tgb-ctry-name');
+      var codeInput = wrap.querySelector('.tgb-ctry-code');
+      var aliasInput = wrap.querySelector('.tgb-ctry-aliases');
+      var preview = wrap.querySelector('.tgb-city-preview');
+      var saveBtn = wrap.querySelector('.tgb-city-save');
+      if (opts && opts.initialName) nameInput.value = opts.initialName;
+
+      function aliasesOf() { return aliasInput.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean); }
+      function close(result) { document.removeEventListener('keydown', onKey); wrap.remove(); resolve(result || null); }
+      function onKey(event) {
+        if (event.key === 'Escape') close(null);
+        if (event.key === 'Enter' && wrap.contains(document.activeElement)) save();
+      }
+      function refreshPreview() {
+        var code = codeInput.value.trim().toUpperCase(), name = nameInput.value.trim();
+        preview.classList.remove('is-error');
+        preview.textContent = (code && name) ? ('Saves as: ' + code + ' — ' + name) : '';
+      }
+      function save() {
+        var code = codeInput.value.trim().toUpperCase(), name = nameInput.value.trim();
+        if (!name) { preview.classList.add('is-error'); preview.textContent = 'Country name is required.'; nameInput.focus(); return; }
+        if (!/^[A-Z]{3}$/.test(code)) { preview.classList.add('is-error'); preview.textContent = 'Code must be 3 letters (e.g. PRT).'; codeInput.focus(); return; }
+        saveBtn.disabled = true; saveBtn.textContent = 'Adding...';
+        addCountry({ code: code, name: name, aliases: aliasesOf() }, { authHeaders: opts && opts.authHeaders })
+          .then(function (row) { close(row); })
+          .catch(function (error) {
+            preview.classList.add('is-error');
+            preview.textContent = error && error.message ? error.message : 'Could not add that country.';
+            saveBtn.disabled = false; saveBtn.textContent = 'Add country';
+          });
+      }
+
+      [nameInput, codeInput].forEach(function (el) { el.addEventListener('input', refreshPreview); });
+      wrap.querySelector('.tgb-city-cancel').addEventListener('click', function () { close(null); });
+      saveBtn.addEventListener('click', save);
+      wrap.addEventListener('click', function (event) { if (event.target === wrap) close(null); });
+      document.addEventListener('keydown', onKey);
+      nameInput.focus();
     });
   }
 
@@ -552,5 +657,12 @@
     canonical: canonical,
     refreshAll: refreshAll,
     openAddDialog: openAddDialog
+  };
+
+  // Country catalog helpers, for the "+ add a country" affordance on country
+  // dropdowns. The list itself is served by TgbGeo (public.countries).
+  global.TgbCountries = {
+    add: addCountry,
+    openAddDialog: openAddCountryDialog
   };
 }(typeof window !== 'undefined' ? window : this));

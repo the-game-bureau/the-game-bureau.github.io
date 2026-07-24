@@ -468,6 +468,10 @@
         op.textContent = o.name;
         countrySelect.appendChild(op);
       });
+      const addCountryOpt = document.createElement('option');
+      addCountryOpt.value = '__add_country__';
+      addCountryOpt.textContent = '+ Add a country…';
+      countrySelect.appendChild(addCountryOpt);
       countrySelect.value = String(row.country_code || '').toUpperCase();
       countryWrap.appendChild(countrySelect);
 
@@ -527,7 +531,27 @@
 
       const markDirty = () => { el.classList.add('is-dirty'); updateKeyPreview(); };
       [cityNameInput, stateInput, abbrInput, labelInput].forEach((i) => i.addEventListener('input', markDirty));
-      [countrySelect, ignoredCb, archivedCb].forEach((i) => i.addEventListener('change', markDirty));
+      [ignoredCb, archivedCb].forEach((i) => i.addEventListener('change', markDirty));
+
+      // Country <select> doubles as an "add a country" entry point: picking the
+      // "+ Add a country…" option opens the shared dialog instead of selecting it.
+      countrySelect.addEventListener('change', () => {
+        if (countrySelect.value !== '__add_country__') { markDirty(); return; }
+        countrySelect.value = String(row.country_code || '').toUpperCase();   // revert
+        if (!window.TgbCountries) return;
+        window.TgbCountries.openAddDialog({ authHeaders }).then((c) => {
+          if (!c) return;
+          rebuildCountryOpts();
+          const code = String(c.code).toUpperCase();
+          if (!countrySelect.querySelector('option[value="' + code + '"]')) {
+            const op = document.createElement('option');
+            op.value = code; op.textContent = c.name;
+            countrySelect.insertBefore(op, countrySelect.querySelector('option[value="__add_country__"]'));
+          }
+          countrySelect.value = code;
+          markDirty();
+        });
+      });
 
       saveBtn.addEventListener('click', () => {
         const cityName = cityNameInput.value.trim();
