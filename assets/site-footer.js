@@ -26,6 +26,10 @@
         '<span class="nav-stats-num" id="heroKickerGiftCount" data-tgb-footer-stat="gifts">0</span>' +
         '<span class="nav-stats-label">gifts</span>' +
       '</a>' +
+      '<a class="nav-stats-stat nav-stats-stat--link" href="/sound/" aria-label="Browse soundtracks">' +
+        '<span class="nav-stats-num" id="heroKickerSoundtrackCount" data-tgb-footer-stat="soundtracks">0</span>' +
+        '<span class="nav-stats-label">soundtracks</span>' +
+      '</a>' +
     '</div>' +
     '<div class="footer-bottom">' +
       '<span>&copy; The Game Bureau</span>' +
@@ -42,16 +46,39 @@
   var gamesEl = footer.querySelector('[data-tgb-footer-stat="games"]');
   var citiesEl = footer.querySelector('[data-tgb-footer-stat="cities"]');
   var giftsEl = footer.querySelector('[data-tgb-footer-stat="gifts"]');
+  var soundtracksEl = footer.querySelector('[data-tgb-footer-stat="soundtracks"]');
 
-  function setStats(games, cities, gifts) {
+  function setStats(games, cities, gifts, soundtracks) {
     if (games != null && gamesEl) gamesEl.textContent = String(Number(games) || 0);
     if (cities != null && citiesEl) citiesEl.textContent = String(Number(cities) || 0);
     if (gifts != null && giftsEl) giftsEl.textContent = String(Number(gifts) || 0);
+    if (soundtracks != null && soundtracksEl) soundtracksEl.textContent = String(Number(soundtracks) || 0);
   }
 
   window.TgbFooterStats = { setStats: setStats };
   window.TgbNav = window.TgbNav || {};
   window.TgbNav.setStats = setStats;
+
+  function soundtrackTrackCount(tracklist) {
+    if (!tracklist || !Array.isArray(tracklist.songs)) return 0;
+    return tracklist.songs.filter(function (song) {
+      return song && String(song.spotifyId || song.spotify_url || song.title || song.artist || '').trim();
+    }).length;
+  }
+
+  function countSoundtracks(data) {
+    var rows = Array.isArray(data && data.soundtracks) ? data.soundtracks : [];
+    return rows.filter(function (tracklist) {
+      return tracklist && tracklist.city_slug && soundtrackTrackCount(tracklist) > 0;
+    }).length;
+  }
+
+  fetch('/sound/soundtracks.json', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) {
+      if (data) setStats(null, null, null, countSoundtracks(data));
+    })
+    .catch(function () {});
 
   // The Games page has its own animated ticker wired to the same IDs above.
   if (document.body && document.body.dataset.adminPage === 'mission-control') return;

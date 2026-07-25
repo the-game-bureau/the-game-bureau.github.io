@@ -1204,7 +1204,7 @@
         let lastCityTick = 0;
         let lastGiftTick = 0;
         let easing = false;
-        let easeStart = 0;
+        let easeStart = null;
         let easeGameFrom = 0;
         let easeCityFrom = 0;
         let easeGiftFrom = 0;
@@ -1220,6 +1220,7 @@
 
         function tick(ts) {
           if (easing) {
+            if (easeStart == null) easeStart = ts;
             const t = Math.min(1, (ts - easeStart) / EASE_DURATION);
             const e = easeOutCubic(t);
             if (gameTarget != null) gameDisplayed = Math.round(easeGameFrom + (gameTarget - easeGameFrom) * e);
@@ -1228,6 +1229,7 @@
             render();
             if (t >= 1) {
               easing = false;
+              easeStart = null;
               raf = null;
               return;
             }
@@ -1277,7 +1279,7 @@
           easeGameFrom = gameDisplayed;
           easeCityFrom = cityDisplayed;
           easeGiftFrom = giftDisplayed;
-          easeStart = performance.now();
+          easeStart = null;
           easing = true;
           if (!raf) raf = requestAnimationFrame(tick);
         }

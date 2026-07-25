@@ -1985,7 +1985,7 @@
       }
 
       function citySlug(row) {
-        return row && (row.slug || row.city_slug || slugify(row.city || row.city_name));
+        return slugify(row && (row.slug || row.city_slug || row.city || row.city_name));
       }
 
       function cityLabel(row) {
@@ -2322,14 +2322,34 @@
         var soundtracks = Array.isArray(data && data.soundtracks) ? data.soundtracks : [];
         soundtracksBySlug = {};
         soundtracks.forEach(function (tracklist) {
-          if (tracklist && tracklist.city_slug) soundtracksBySlug[tracklist.city_slug] = tracklist;
+          var slug = slugify(tracklist && tracklist.city_slug);
+          if (slug) soundtracksBySlug[slug] = tracklist;
         });
         return soundtracks;
       }
 
       function setCityEntries(rows) {
-        cityEntries = (Array.isArray(rows) ? rows : [])
-          .filter(function (row) { return citySlug(row); })
+        var seen = {};
+        var rowsWithSoundtracks = (Array.isArray(rows) ? rows : [])
+          .filter(function (row) {
+            var slug = citySlug(row);
+            if (!slug || seen[slug] || soundtrackTrackCount(soundtracksBySlug[slug]) <= 0) return false;
+            seen[slug] = true;
+            return true;
+          });
+        Object.keys(soundtracksBySlug).forEach(function (slug) {
+          var tracklist = soundtracksBySlug[slug];
+          if (!slug || seen[slug] || soundtrackTrackCount(tracklist) <= 0) return;
+          var label = displayNameFromSlug((tracklist && tracklist.city_slug) || slug);
+          seen[slug] = true;
+          rowsWithSoundtracks.push({
+            slug: slug,
+            city: label,
+            label: label,
+            city_name: label
+          });
+        });
+        cityEntries = rowsWithSoundtracks
           // Alphabetical by city name (full "City, Region" as the tiebreak).
           .sort(function (a, b) {
             return cityShortLabel(a).localeCompare(cityShortLabel(b), undefined, { sensitivity: 'base', numeric: true })
