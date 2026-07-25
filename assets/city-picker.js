@@ -74,9 +74,14 @@
     if (inflight && !force) return inflight;
     // select=* on purpose: naming `ignored` explicitly would 400 on a database
     // that has not run 2026072205_cities_ignored.sql yet.
-    var url = config.url + '/rest/v1/cities' +
-      '?select=*&order=sort_order.asc,city.asc';
-    inflight = fetchAll(url, readHeaders({ Accept: 'application/json' }))
+    // sort_order can also be absent (it was dropped and restored by
+    // 2026072405_restore_cities_columns.sql) — ordering by a missing column
+    // 400s the whole read, so fall back to plain alphabetical rather than
+    // leaving every city control empty.
+    var base = config.url + '/rest/v1/cities?select=*&order=';
+    var headers = readHeaders({ Accept: 'application/json' });
+    inflight = fetchAll(base + 'sort_order.asc,city.asc', headers)
+      .catch(function () { return fetchAll(base + 'city.asc', headers); })
       .then(function (rows) {
         cache = rows.map(normalizeRow);
         inflight = null;

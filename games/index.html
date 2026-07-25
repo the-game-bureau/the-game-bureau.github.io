@@ -87,27 +87,173 @@
       outline: none;
     }
     html.tgb-admin-authorized .tgb-games-edit { display: inline-flex; }
+
+    /* ── Gift shop strip (above the footer) ────────────────────────────────
+       A self-running marquee of gifts flagged sports AND featured. The track
+       holds the item list TWICE (the copy is aria-hidden) and slides exactly
+       -50%, so the seam lands where the second copy's first tile sits under
+       the first copy's — the loop reads as continuous.
+
+       No scrollbar anywhere: the viewport is overflow:hidden, so the strip
+       can never give the page a horizontal scrollbar either.
+
+       Colors: this page runs the DARK body.home-page skin, where site-shell.css
+       redefines --paper/--ink/--line/--accent. Everything below is expressed in
+       those vars (plus --card-paper for the tiles), so the panel and its tiles
+       match .selected-games and .game-card above rather than the light paper
+       stock the same vars mean on other public pages. */
+    /* min-width/max-width are load-bearing, not defensive: this section is a
+       grid item of body.home-page main, so its automatic minimum size would
+       otherwise resolve against the max-content width of the marquee track
+       (~5800px) and stretch the whole page — hero text clipped, cards off the
+       right edge, a document-level horizontal scrollbar. Same reason the
+       viewport below pins min-width. */
+    .gift-strip {
+      min-width: 0;
+      max-width: 100%;
+      padding: 24px 28px;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.01)),
+        rgba(11, 16, 24, 0.86);
+      box-shadow: var(--shadow-panel);
+    }
+    .gift-strip-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    /* Same display face/size as .selected-games-title so the two section
+       headings on this page read as a pair. */
+    .gift-strip-title {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Big Shoulders Display", "Impact", "Arial Narrow", sans-serif;
+      font-size: 1.55rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      line-height: 1.1;
+      text-transform: uppercase;
+    }
+    .gift-strip-all {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .gift-strip-all:hover,
+    .gift-strip-all:focus-visible { text-decoration: underline; outline: none; }
+
+    .gift-strip-viewport {
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;   /* the whole point: never a browser scrollbar */
+      padding: 4px 0 10px;
+    }
+    .gift-strip-track {
+      display: flex;
+      gap: 12px;
+      width: max-content;
+      animation: giftStripScroll var(--gift-strip-duration, 60s) linear infinite;
+    }
+    /* Pause while the visitor is reading or tabbing through the tiles. */
+    .gift-strip-viewport:hover .gift-strip-track,
+    .gift-strip-viewport:focus-within .gift-strip-track { animation-play-state: paused; }
+    @keyframes giftStripScroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(calc(-50% - 6px)); }  /* half the gap */
+    }
+    /* Reduced motion: no marquee. Hand the row back to manual scrolling so
+       the tail is still reachable — a scrollbar inside the strip only, and
+       only for visitors who asked motion to stop. */
+    @media (prefers-reduced-motion: reduce) {
+      .gift-strip-track { animation: none; }
+      .gift-strip-viewport { overflow-x: auto; overscroll-behavior-x: contain; }
+    }
+
+    /* Tile treatment mirrors body.home-page .game-card: hairline border, 8px
+       radius, the same top-sheen gradient over --card-paper, same lift. */
+    .gift-strip-item {
+      flex: 0 0 176px;
+      display: grid;
+      grid-template-rows: 148px auto;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 42%),
+        var(--card-paper, #161b25);
+      color: var(--ink);
+      text-decoration: none;
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.05) inset,
+        0 16px 34px rgba(0, 0, 0, 0.36);
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+    .gift-strip-item:hover,
+    .gift-strip-item:focus-visible {
+      border-color: var(--accent);
+      transform: translateY(-3px);
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.06) inset,
+        0 0 0 2px var(--accent),
+        0 22px 48px rgba(0, 0, 0, 0.42);
+      outline: none;
+    }
+    /* The image well stays white on purpose: retail photography is shot on
+       white, so a dark well would frame every product in a grey halo. */
+    .gift-strip-media {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border-radius: 5px;
+      background: #ffffff;
+    }
+    .gift-strip-media img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    /* Fallback when a gift has no image_url (or it 404s): the monogram. */
+    .gift-strip-monogram {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: rgba(17, 17, 17, 0.28);   /* sits on the white well, not the card */
+    }
+    .gift-strip-name {
+      margin: 0;
+      font-size: 0.78rem;
+      font-weight: 700;
+      line-height: 1.28;
+      color: var(--ink);
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    @media (max-width: 640px) {
+      .gift-strip-item { flex-basis: 148px; grid-template-rows: 124px auto; }
+    }
   </style>
+  <link rel="stylesheet" href="/assets/civic-modernist-pages.css">
 </head>
 <body class="home-page" data-admin-page="mission-control">
   <div class="page-shell">
     <!-- Site navigation (shared via /assets/site-nav.js) -->
-    <header class="site-nav" data-site-nav>
-      <div class="nav-stats" aria-label="Site counts">
-        <a class="nav-stats-stat nav-stats-stat--link" href="/" aria-label="Go to home page">
-          <span class="nav-stats-num" id="heroKickerGameCount">0</span>
-          <span class="nav-stats-label">games</span>
-        </a>
-        <div class="nav-stats-stat">
-          <span class="nav-stats-num" id="heroKickerCityCount">0</span>
-          <span class="nav-stats-label">cities</span>
-        </div>
-        <a class="nav-stats-stat nav-stats-stat--link" href="/shop/" aria-label="Browse gifts">
-          <span class="nav-stats-num" id="heroKickerGiftCount">0</span>
-          <span class="nav-stats-label">gifts</span>
-        </a>
-      </div>
-    </header>
+    <header class="site-nav" data-site-nav></header>
     <script src="/assets/site-nav.js"></script>
 
     <main>
@@ -150,6 +296,20 @@
           <h3 class="selected-games-title" id="selectedGamesTitle"></h3>
         </header>
         <div class="selected-games-grid" id="selectedGamesGrid"></div>
+      </section>
+
+      <!-- Gift shop strip: gift_shop_items that are BOTH sports='YES' and
+           featured='YES'. Self-scrolling marquee; stays hidden if nothing
+           qualifies (or Supabase is unreachable) so the page never shows an
+           empty rail. Populated by loadGiftStrip() below. -->
+      <section class="gift-strip" id="giftStrip" hidden aria-labelledby="giftStripTitle">
+        <header class="gift-strip-head">
+          <h3 class="gift-strip-title" id="giftStripTitle">FROM THE GIFT SHOP</h3>
+          <a class="gift-strip-all" href="/shop/">SHOP ALL &rsaquo;</a>
+        </header>
+        <div class="gift-strip-viewport">
+          <div class="gift-strip-track" id="giftStripTrack"></div>
+        </div>
       </section>
 
     </main>
@@ -803,6 +963,131 @@
         const contentRange = response.headers.get('content-range') || '';
         const total = contentRange.indexOf('/') >= 0 ? Number.parseInt(contentRange.split('/')[1], 10) : NaN;
         return Number.isFinite(total) ? total : 0;
+      }
+
+      // ---------------------------------------------------------------------------
+      // Sports gifts strip (above the footer)
+      // ---------------------------------------------------------------------------
+      // Same 'YES'/null TEXT-flag convention as games.featured — tolerate the
+      // shapes /shop/ tolerates rather than trusting a strict eq.YES filter.
+      function isYesish(value) {
+        if (value === true) return true;
+        const normalized = String(value == null ? '' : value).trim().toUpperCase();
+        return normalized === 'YES' || normalized === 'TRUE' || normalized === '1';
+      }
+
+      // select=* (never a column list) so the read doesn't break on a column
+      // name; the flags are narrowed server-side to keep the response small,
+      // then re-checked with isYesish because not.is.null also lets '' through.
+      // If a database predates the sports/featured columns the request 400s and
+      // loadGiftStrip just leaves the strip hidden.
+      async function fetchSportsFeaturedGifts() {
+        const url = new URL('rest/v1/gift_shop_items', SB_CONFIG.url.replace(/\/+$/, '') + '/');
+        url.searchParams.set('apikey', SB_CONFIG.key);
+        url.searchParams.set('select', '*');
+        url.searchParams.set('certified_at', 'not.is.null');
+        url.searchParams.set('rejected_at', 'is.null');
+        url.searchParams.set('archived', 'is.false');
+        url.searchParams.set('sports', 'not.is.null');
+        url.searchParams.set('featured', 'not.is.null');
+        url.searchParams.set('order', 'created_at.desc');
+        url.searchParams.set('limit', '40');
+        const response = await fetch(url.toString(), {
+          headers: {
+            apikey: SB_CONFIG.key,
+            Authorization: 'Bearer ' + SB_CONFIG.key,
+            Accept: 'application/json'
+          },
+          cache: 'no-store'
+        });
+        if (!response.ok) throw new Error('Supabase ' + response.status);
+        const rows = await response.json();
+        return (Array.isArray(rows) ? rows : []).filter((item) => {
+          return isYesish(item && item.sports)
+            && isYesish(item && item.featured)
+            && !isYesish(item && item.hidden);
+        });
+      }
+
+      function giftMonogram(title) {
+        const text = String(title || '').trim();
+        return text ? text.charAt(0).toUpperCase() : '?';
+      }
+
+      function buildGiftStripCard(item, isClone) {
+          // Link into the shop's single-item view rather than straight out to
+          // the retailer, so the gift keeps its shop context (city tags, CTA).
+          const card = document.createElement('a');
+          card.className = 'gift-strip-item';
+          card.href = '/shop/?item=' + encodeURIComponent(item.id || '');
+          if (isClone) {
+            // The marquee's second copy exists only to make the loop seamless —
+            // keep it out of the accessibility tree and the tab order so the
+            // same gift isn't announced or focused twice.
+            card.setAttribute('aria-hidden', 'true');
+            card.tabIndex = -1;
+          }
+
+          const media = document.createElement('div');
+          media.className = 'gift-strip-media';
+          const addMonogram = () => {
+            const monogram = document.createElement('span');
+            monogram.className = 'gift-strip-monogram';
+            monogram.textContent = giftMonogram(item.title);
+            media.appendChild(monogram);
+          };
+
+          const imageUrl = String(item.image_url || '').trim();
+          if (/^https?:\/\//i.test(imageUrl)) {
+            const img = document.createElement('img');
+            img.src = imageUrl;
+            img.alt = '';
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.referrerPolicy = 'no-referrer';
+            // Swap in the monogram only once the image is known bad, so the
+            // two never render side by side in the flex row.
+            img.addEventListener('error', () => { img.remove(); addMonogram(); });
+            media.appendChild(img);
+          } else {
+            addMonogram();
+          }
+          card.appendChild(media);
+
+          const name = document.createElement('p');
+          name.className = 'gift-strip-name';
+          name.textContent = String(item.title || 'Untitled item');
+          card.appendChild(name);
+
+          card.setAttribute('aria-label', String(item.title || 'Gift') + ' — view in the shop');
+          return card;
+      }
+
+      function renderGiftStrip(items) {
+        const section = document.getElementById('giftStrip');
+        const track = document.getElementById('giftStripTrack');
+        if (!section || !track) return;
+        track.textContent = '';
+        section.hidden = items.length === 0;
+        if (!items.length) return;
+
+        // Two passes: the real list, then an aria-hidden clone of it. The
+        // -50% keyframe therefore lands on a tile identical to the one that
+        // started the loop, with no visible jump.
+        items.forEach((item) => track.appendChild(buildGiftStripCard(item, false)));
+        items.forEach((item) => track.appendChild(buildGiftStripCard(item, true)));
+
+        // Constant speed regardless of how many gifts qualify — ~7s per tile,
+        // so 5 gifts don't sprint and 40 don't crawl.
+        track.style.setProperty('--gift-strip-duration', (items.length * 7) + 's');
+      }
+
+      async function loadGiftStrip() {
+        try {
+          renderGiftStrip(await fetchSportsFeaturedGifts());
+        } catch (_) {
+          // Leave the strip hidden — it's supplementary to the games directory.
+        }
       }
 
       // ---------------------------------------------------------------------------
@@ -1988,6 +2273,8 @@
           .then((count) => statsTicker.setTarget(null, null, count))
           .catch(() => { /* leave the gifts ticker at its current value */ });
 
+        loadGiftStrip();
+
         try {
           const [games, teamColorsResult] = await Promise.all([fetchGames(), fetchTeamColors()]);
           writeCache(CACHE_KEY_GAMES, games);
@@ -2002,20 +2289,6 @@
       // ---------------------------------------------------------------------------
       // Event wiring
       // ---------------------------------------------------------------------------
-      // GAMES dropdown.
-      // Dropdown open/close/escape lives in /assets/site-nav.js. Here we
-      // only register the games-page-specific handler that intercepts
-      // clicks on a same-page dropdown link and swaps mode in-place
-      // (returning false tells site-nav.js to preventDefault + close).
-      if (window.TgbNav && typeof window.TgbNav.onDropdownItemClick === 'function') {
-        window.TgbNav.onDropdownItemClick(function (item) {
-          var target = new URL(item.href, window.location.href);
-          if (target.pathname !== window.location.pathname) return;
-          var wantMode = item.dataset.mode === 'fan' ? MODE_FAN : MODE_CITY;
-          setModeFromControl(wantMode);
-          return false;
-        });
-      }
 
       document.querySelectorAll('.hero-mode-tab').forEach((btn) => {
         btn.addEventListener('click', () => {

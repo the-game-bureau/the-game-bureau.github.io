@@ -524,6 +524,10 @@
     .toolbar .multiselect-opt:hover { background: rgba(0,0,0,0.05); }
     .toolbar .multiselect-opt input { width: auto; height: auto; margin: 0; }
     .toolbar .multiselect-all { font-weight: 700; }
+    /* A selected city that isn't a gift-shop city (venue-only, or a catalog row
+       that didn't load). Kept so the filter still applies, marked so it reads as
+       off-catalog rather than a normal choice. */
+    .toolbar .multiselect-opt--offcatalog { color: var(--muted); font-style: italic; }
     .toolbar .multiselect-sep { height: 1px; margin: 4px 2px; background: var(--line); }
     .toolbar #itemSearchInput {
       flex: 1 1 220px;
@@ -994,6 +998,20 @@
     }
     .item-focus-col,
     .item-fields { display: contents; }
+
+    /* A gift the save moved out of the active filter. It fades where it sits and
+       then goes invisible — still in flow, so the gap it occupied stays open and
+       the cards below don't jump up under your cursor. Cleared on the next
+       filter/sort change, which repaints the list for real. */
+    .item.is-vacated {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.45s ease, visibility 0s linear 0.45s;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .item.is-vacated { transition: none; }
+    }
 
     .item.is-hidden { opacity: 1; }
     /* Status should not dim rows; badges and buttons carry the meaning. */
@@ -1560,6 +1578,8 @@
       letter-spacing: 0;
       text-transform: none;
       cursor: help;
+      -webkit-user-select: none;
+      user-select: none;
     }
     .field-info:hover,
     .field-info:focus-visible {
@@ -3139,8 +3159,16 @@
             </span>
           </label>
           <label>
-            <span class="field-label-row">Button label<button class="field-info" type="button" aria-label="About the Button label field" data-tip="Optional. The exact text on the gift-shop button, e.g. &quot;Request Guide&quot; or &quot;Get Tickets&quot;. Leave blank to auto-label: Amazon/Bookshop links read &quot;View on Amazon/Bookshop&quot;, any other link reads &quot;Visit Site&quot;.">i</button></span>
-            <input class="cta-button-input" data-field="cta_label" type="text" placeholder="Visit Site →" title="Click to type a custom label. Left blank, the shop uses the greyed default shown here.">
+            <!-- A span, not a <button>: a button is a labelable element, so as the
+                 first one in this <label> it became the label's control. Clicking
+                 anywhere in the label — the faux CTA button included — forwarded a
+                 synthetic click to it and left it focus-visible, which held the tip
+                 open over the faux button. Same span+tabindex shape as .field-lead. -->
+            <span class="field-label-row">Button label<span class="field-info" tabindex="0" role="img" aria-label="About the Button label field" data-tip="Optional. The exact text on the gift-shop button, e.g. &quot;Request Guide&quot; or &quot;Get Tickets&quot;. Leave blank to auto-label: Amazon/Bookshop links read &quot;View on Amazon/Bookshop&quot;, any other link reads &quot;Visit Site&quot;.">i</span></span>
+            <!-- No title= here: this input is dressed as the shop's CTA button,
+                 and a tooltip riding the faux button reads like the button has a
+                 hint of its own. The "i" beside the label is the only tip. -->
+            <input class="cta-button-input" data-field="cta_label" type="text" placeholder="Visit Site →">
           </label>
           </div>
         </fieldset>
@@ -3295,6 +3323,14 @@
     const saveNeededBanner = document.getElementById('saveNeededBanner');
     const saveNeededText = document.getElementById('saveNeededText');
     const saveAllChangesBtn = document.getElementById('saveAllChangesBtn');
+    // The toast is authored inside the header for markup locality, but the header
+    // builds a stacking context (.stockroom-head-status is position:relative
+    // z-index:1, inside an overflow:hidden .stockroom-head), which clamps this
+    // fixed element below every modal no matter how high its own z-index goes.
+    // Re-parent it to <body> so z-index: 3000 is measured against the page root.
+    if (saveNeededBanner && saveNeededBanner.parentNode !== document.body) {
+      document.body.appendChild(saveNeededBanner);
+    }
     const addItemBtn   = document.getElementById('addItemBtn');
     const itemSortSelect = document.getElementById('itemSortSelect');
     const statusFilter = document.getElementById('statusFilter');
@@ -3318,12 +3354,12 @@
       itemSortSelect.addEventListener('change', resetItemsPaging);
     }
     if (statusFilter) {
-      statusFilter.addEventListener('change', () => {
-        keptInStatusView.clear();   // a new view, not the pass you were making
-        resetItemsPaging();
-      });
+      statusFilter.addEventListener('change', resetItemsPaging);
     }
     if (loadMoreBtn) {
+      // One page at a time, always within the current filter — the button hides
+      // once the filtered set is fully painted and never reaches past it into the
+      // wider catalog. Changing a filter resets to page one (resetItemsPaging).
       loadMoreBtn.addEventListener('click', () => {
         itemsVisibleLimit += ITEMS_PAGE_SIZE;
         refreshItemsView();
@@ -3400,12 +3436,22 @@
     const ALL_CITIES_PARAM = 'all';
     const wantsAllCities = initialShopCityParam.toLowerCase() === ALL_CITIES_PARAM;
     const initialShopCity = wantsAllCities ? '' : initialShopCityParam;
-    // Gifts saved into a status that the active status filter excludes. They
-    // stay on screen anyway: working down "Review" and shelving as you go
-    // shouldn't make each card vanish the moment you decide about it — you lose
-    // your place, and an undo means hunting for it under another filter.
-    // Cleared when you pick a different status filter.
-    const keptInStatusView = new Set();
+
+    // The rest of the toolbar rides in the URL too (?q= / ?status= / ?sort=), so
+    // a refresh — or a link you paste to someone — lands on the same view. Values
+    // are matched against the real <option>s: anything unrecognised is ignored
+    // rather than left as a filter the dropdown can't show.
+    (function restoreFiltersFromUrl() {
+      const q = initialParams.get('q');
+      if (q && itemSearchInput) itemSearchInput.value = q;
+      const applySelect = (el, value) => {
+        if (!el || !value) return;
+        const match = Array.from(el.options).some((o) => o.value === value);
+        if (match) el.value = value;
+      };
+      applySelect(statusFilter, String(initialParams.get('status') || '').trim());
+      applySelect(itemSortSelect, String(initialParams.get('sort') || '').trim());
+    }());
     // Cards are heavy, so the list paints a page at a time behind LOAD MORE.
     const ITEMS_PAGE_SIZE = 10;
     let itemsVisibleLimit = ITEMS_PAGE_SIZE;
@@ -3709,13 +3755,15 @@
     async function fetchGiftShopCities() {
       // select=* so this still works on a database that has not run
       // 2026072205_cities_ignored.sql yet (naming `ignored` would 400).
-      const response = await fetch(restUrl('cities', {
-        select: '*',
-        order: 'sort_order.asc,city.asc'
-      }), {
+      // sort_order can also be absent (dropped, then restored by
+      // 2026072405_restore_cities_columns.sql) — ordering by a missing column
+      // 400s, so retry alphabetically rather than taking the catalog down.
+      const read = async (order) => fetch(restUrl('cities', { select: '*', order }), {
         headers: authHeaders({ Accept: 'application/json' }),
         cache: 'no-store'
       });
+      let response = await read('sort_order.asc,city.asc');
+      if (!response.ok) response = await read('city.asc');
       if (!response.ok) throw new Error(await readError(response, 'Could not load cities.'));
       return response.json();
     }
@@ -3918,28 +3966,49 @@
       if (cityFilterPanel) {
         cityFilterPanel.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
       }
-      rememberCityFilterInUrl();
       updateCityFilterLabel();
-      resetItemsPaging();
+      resetItemsPaging();   // writes the city back to the URL
     }
 
-    // Keep the address bar in step with the picker so a reload (or a shared
-    // link) lands on the same set. No selection is written as ?city=all, which
-    // reads the same as an absent param: every city.
-    function rememberCityFilterInUrl() {
+    // Keep the address bar in step with the whole toolbar — city, search, status
+    // and sort — so a reload (or a shared link) lands on the same view. No city
+    // selection is written as ?city=all, which reads the same as an absent param:
+    // every city. The other three are dropped from the URL when they're at their
+    // default, to keep the address short. Called from resetItemsPaging, which
+    // every filter/sort change already goes through.
+    function rememberFiltersInUrl() {
       if (!window.history || typeof window.history.replaceState !== 'function') return;
       const sel = Array.from(cityFilterSelected);
       const url = new URL(window.location.href);
       if (!sel.length) url.searchParams.set('city', ALL_CITIES_PARAM);
       else if (sel.length === 1) url.searchParams.set('city', sel[0]);
       else url.searchParams.delete('city');
+
+      const setOrDrop = (key, value) => {
+        if (value) url.searchParams.set(key, value);
+        else url.searchParams.delete(key);
+      };
+      setOrDrop('q', itemSearchInput ? itemSearchInput.value.trim() : '');
+      setOrDrop('status', statusFilter ? statusFilter.value : '');
+      // 'status' is the default sort; only a deliberate change needs recording.
+      setOrDrop('sort', itemSortSelect && itemSortSelect.value !== 'status' ? itemSortSelect.value : '');
+
       window.history.replaceState(null, '', url.pathname + url.search);
     }
 
     function renderCityFilterOptions() {
       if (!cityFilterPanel) return;
-      const valid = new Set(cityList);
-      cityFilterSelected = new Set(Array.from(cityFilterSelected).filter((c) => valid.has(c)));
+      // A selected city that isn't in the catalog list — a ?city= deep link to a
+      // venue-only city, or any city whose catalog row didn't load — is KEPT and
+      // given its own row. Dropping it silently used to leave the label reading
+      // "All Cities" over an unfiltered list, so the counts looked like they
+      // ignored the filter when really the filter had been thrown away.
+      const options = cityList.slice();
+      const known = new Set(options);
+      Array.from(cityFilterSelected)
+        .filter((c) => !known.has(c))
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }))
+        .forEach((c) => options.push(c));
 
       cityFilterPanel.innerHTML = '';
 
@@ -3954,9 +4023,10 @@
       sep.className = 'multiselect-sep';
       cityFilterPanel.appendChild(sep);
 
-      cityList.forEach((c) => {
+      options.forEach((c) => {
         const opt = document.createElement('label');
-        opt.className = 'multiselect-opt';
+        opt.className = 'multiselect-opt' + (known.has(c) ? '' : ' multiselect-opt--offcatalog');
+        if (!known.has(c)) opt.title = c + ' is not a gift-shop city — filtering on it anyway.';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.value = c;
@@ -3964,9 +4034,8 @@
         cb.addEventListener('change', () => {
           if (cb.checked) cityFilterSelected.add(c);
           else cityFilterSelected.delete(c);
-          rememberCityFilterInUrl();
           updateCityFilterLabel();
-          resetItemsPaging();
+          resetItemsPaging();   // writes the city back to the URL
         });
         const span = document.createElement('span');
         span.textContent = c;
@@ -4165,7 +4234,6 @@
       if (itemSearchInput) itemSearchInput.value = '';
       if (statusFilter) statusFilter.value = '';
       if (itemSortSelect) itemSortSelect.value = 'status';
-      keptInStatusView.clear();
       selectAllCities(); // resets paging back to the first page
     }
 
@@ -4328,8 +4396,7 @@
       // Review), i.e. anything you haven't passed on.
       const status = entryStatus(entry);
       const statusMatch = !wantStatus ||
-        (wantStatus === 'NOT_SHELVED' ? status !== 'SHELVED' : status === wantStatus) ||
-        keptInStatusView.has(entry.id);
+        (wantStatus === 'NOT_SHELVED' ? status !== 'SHELVED' : status === wantStatus);
       const queryMatch = !query ||
         entryTitle(entry).toLowerCase().includes(query) ||
         entryDescription(entry).toLowerCase().includes(query);
@@ -4378,17 +4445,44 @@
       const visible = matching.slice(0, itemsVisibleLimit);
       const visibleNodes = new Set();
 
-      visible.forEach((entry) => {
+      // Which grid slots the blank (saved-away) cards are holding, read off the
+      // list as it stands. Painting moves every visible card to the end of the
+      // container, so a vacated card left where it was would slide to the front
+      // and shove every card after it into the next cell — the whole grid shifts
+      // by one, which reads as the neighbouring card misbehaving.
+      const heldSlots = new Map();
+      Array.from(itemsList.querySelectorAll('.item:not(.hidden)')).forEach((node, i) => {
+        if (node.classList.contains('is-vacated')) heldSlots.set(i, node);
+      });
+
+      const visibleInOrder = visible.map((entry) => {
         const node = entry.node || appendItemRow(entry.row || {});
         entry.node = node;
-        node.classList.remove('hidden');
-        itemsList.appendChild(node); // appending an existing node reorders it
+        node.classList.remove('hidden', 'is-vacated');
         visibleNodes.add(node);
+        return node;
       });
+
+      // Re-append everything in one pass: blanks keep their slot, the visible
+      // cards fill the rest in sorted order.
+      const painted = new Set();
+      const order = [];
+      let next = 0;
+      for (let slot = 0; slot < visibleInOrder.length + heldSlots.size; slot += 1) {
+        const held = heldSlots.get(slot);
+        if (held) { order.push(held); painted.add(held); }
+        else if (next < visibleInOrder.length) order.push(visibleInOrder[next++]);
+      }
+      while (next < visibleInOrder.length) order.push(visibleInOrder[next++]);
+      heldSlots.forEach((node) => { if (!painted.has(node)) order.push(node); });
+      order.forEach((node) => itemsList.appendChild(node));
       // Cards built earlier that no longer make the cut stay in the DOM (they
-      // may hold unsaved edits) but drop out of view.
+      // may hold unsaved edits) but drop out of view. A card marked is-vacated
+      // is the exception: it just fell out of the filter on save, so it keeps
+      // its slot — faded and empty — instead of collapsing the list mid-edit.
       itemsList.querySelectorAll('.item').forEach((node) => {
-        if (!visibleNodes.has(node)) node.classList.add('hidden');
+        if (visibleNodes.has(node) || node.classList.contains('is-vacated')) return;
+        node.classList.add('hidden');
       });
 
       const placeholder = itemsList.querySelector('.empty');
@@ -4399,24 +4493,35 @@
       }
 
       updateLoadMoreButton(matching.length, visible.length);
-      updateItemsStatus(matching, visible.length);
+      updateItemsStatus();
     }
 
+    // True when the list is narrowed by anything the toolbar controls.
+    function hasActiveItemFilters() {
+      return !!(
+        (itemSearchInput && itemSearchInput.value.trim()) ||
+        (statusFilter && statusFilter.value) ||
+        cityFilterSelected.size
+      );
+    }
+
+    // matchCount is the filtered set, never the whole catalog — say so, so the
+    // number can't be misread as "551 gifts exist" when a filter is on.
     function updateLoadMoreButton(matchCount, shownCount) {
       if (!itemsMore || !itemsMoreCount) return;
       const remaining = Math.max(0, matchCount - shownCount);
       itemsMore.hidden = remaining === 0;
+      const noun = hasActiveItemFilters() ? ' matching' : '';
       itemsMoreCount.textContent = remaining
-        ? 'Showing ' + shownCount + ' of ' + matchCount + ' · ' + remaining + ' more'
+        ? 'Showing ' + shownCount + ' of ' + matchCount + noun + ' · ' + remaining + ' more'
         : '';
     }
 
-    // Status line counts the whole filtered set, not just the painted page.
-    function updateItemsStatus(matching, shownCount) {
-      const entries = Array.isArray(matching)
-        ? matching
-        : itemEntries().filter(entryMatchesCurrentFilter);
-      const shown = typeof shownCount === 'number' ? shownCount : entries.length;
+    // Header status is the CATALOG total — every gift, whatever the filters say.
+    // It's the standing "how big is the shop" figure; the filtered/paged numbers
+    // belong to the LOAD MORE line at the foot of the list.
+    function updateItemsStatus() {
+      const entries = itemEntries();
       let shelved = 0, review = 0, live = 0;
       entries.forEach((entry) => {
         const status = entryStatus(entry);
@@ -4425,16 +4530,19 @@
         else review++;
       });
       const total = entries.length;
-      const shownNote = shown < total ? ' (showing ' + shown + ')' : '';
       setStatus(shopStatus,
         live + ' live + ' + review + ' need review + ' + shelved + ' shelved = ' +
-        total + ' item' + (total === 1 ? '' : 's') + shownNote,
+        total + ' item' + (total === 1 ? '' : 's'),
         'success');
     }
 
     // Any change to the filters or the sort restarts paging from the first page.
     function resetItemsPaging() {
       itemsVisibleLimit = ITEMS_PAGE_SIZE;
+      // A new view closes the blank slots left by saved-away gifts.
+      itemsList.querySelectorAll('.item.is-vacated')
+        .forEach((node) => node.classList.remove('is-vacated'));
+      rememberFiltersInUrl();
       refreshItemsView();
     }
 
@@ -4957,17 +5065,20 @@
           setStatusChoice(articleStatus());
           refreshStatusLabel();
           const fannedOut = await syncListings(article, article.dataset.id);
-          // Saved out of the filtered view? Pin it so it stays put for now.
+          // A save that moves a gift out of the active status filter lets it go:
+          // the filter is the view, so the card fades out of it (is-vacated) and
+          // leaves its slot blank. The header carries the confirmation, since the
+          // card itself is on its way out.
           const wantStatus = statusFilter ? statusFilter.value : '';
           const nowStatus = articleStatus();
           const leftTheView = wantStatus && (wantStatus === 'NOT_SHELVED'
             ? nowStatus === 'SHELVED'
             : nowStatus !== wantStatus);
-          if (leftTheView && article.dataset.id) keptInStatusView.add(String(article.dataset.id));
           const savedMsg = opts.certifiedAt
             ? 'Saved & published ' + formatCertDate(opts.certifiedAt) + '.'
             : (opts.rejectedAt ? 'Saved & shelved.' : 'Saved.');
-          setItemStatus(leftTheView ? savedMsg + ' Kept in view.' : savedMsg, 'success');
+          setItemStatus(savedMsg, 'success');
+          if (leftTheView) article.classList.add('is-vacated');
           clearItemDirty(article);
           setTimeout(() => setItemStatus(''), 2200);
           if (wasNewItem && article.dataset.id && opts.openAfterCreate !== false) {
@@ -4977,6 +5088,10 @@
           if (opts.refreshAfterSave !== false) {
             if (fannedOut && !hasUnsavedChanges()) { await showShop(); }
             else { refreshItemsView(); }
+          }
+          // Said after the repaint — refreshItemsView rewrites the header line.
+          if (leftTheView) {
+            setStatus(shopStatus, savedMsg + ' It no longer matches the status filter, so it left the list.', 'success');
           }
           return true;
         } catch (error) {

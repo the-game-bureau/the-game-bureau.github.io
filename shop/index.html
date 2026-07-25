@@ -1203,6 +1203,7 @@
       body.home-page .empty { grid-template-rows: 180px auto; }
     }
   </style>
+  <link rel="stylesheet" href="/assets/civic-modernist-pages.css">
   <script src="../mc/js/admin-auth.js"></script>
   <script src="/assets/supabase-fallback.js"></script>
   <script src="../assets/site-nav-login.js" defer></script>
@@ -1217,10 +1218,27 @@
       <section class="hero" aria-label="Gift shop overview">
         <div class="hero-grid">
           <div>
-            <p class="hero-kicker"><span id="eyebrowSuffix" hidden><span id="eyebrow"></span></span></p>
+            <p class="hero-kicker"><span class="shop-hero-kicker-base">Gift Shop Counter</span><span id="eyebrowSuffix" hidden> / <span id="eyebrow"></span></span></p>
             <h1 class="hero-headline" id="heading">Gift Shop</h1>
             <p class="hero-sub">Books, gear, and local finds from the cities you play.</p>
             <p class="hero-copy" id="lead" hidden></p>
+            <div class="shop-hero-status" aria-label="Gift shop quick facts">
+              <div class="shop-hero-status-item">
+                <span class="shop-hero-status-label">Catalog</span>
+                <strong class="shop-hero-status-value" id="shopHeroGiftCount">...</strong>
+                <span class="shop-hero-status-note">gifts available</span>
+              </div>
+              <div class="shop-hero-status-item">
+                <span class="shop-hero-status-label">Cities</span>
+                <strong class="shop-hero-status-value" id="shopHeroCityCount">...</strong>
+                <span class="shop-hero-status-note">shop by city below</span>
+              </div>
+              <div class="shop-hero-status-item">
+                <span class="shop-hero-status-label">Checkout</span>
+                <strong class="shop-hero-status-value">Partner shops</strong>
+                <span class="shop-hero-status-note">links open directly</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -1303,6 +1321,8 @@
     const eyebrowEl = document.getElementById('eyebrow');
     const eyebrowSuffixEl = document.getElementById('eyebrowSuffix');
     const leadEl = document.getElementById('lead');
+    const shopHeroGiftCountEl = document.getElementById('shopHeroGiftCount');
+    const shopHeroCityCountEl = document.getElementById('shopHeroCityCount');
     const itemCountEl = document.getElementById('itemCount');
     const itemLabelEl = document.getElementById('itemLabel');
     const giftCityPanelEl = document.getElementById('giftCityPanel');
@@ -1362,7 +1382,7 @@
         card.hidden = !visible;
         if (visible) shown += 1;
       });
-      setItemCount(shown); // keep the top nav-stats count in sync with the filter
+      setItemCount(shown);
     }
 
     function setupGiftFilters(itemCards) {
@@ -1438,8 +1458,7 @@
       applyGiftFilter();
     }
 
-    // Per-view "gifts showing" count (kept for internal bookkeeping / a11y; the
-    // shop-wide totals live in the shared nav-stats chip).
+    // Per-view "gifts showing" count; shop-wide totals live in the shared footer.
     function setItemCount(n) {
       const count = Number(n) || 0;
       if (itemCountEl) itemCountEl.textContent = String(count);
@@ -1453,6 +1472,15 @@
       const trimmed = String(text || '').trim();
       if (eyebrowEl) eyebrowEl.textContent = trimmed;
       if (eyebrowSuffixEl) eyebrowSuffixEl.hidden = !trimmed;
+    }
+
+    function setShopHeroStatus(gifts, cities) {
+      if (shopHeroGiftCountEl && gifts != null) {
+        shopHeroGiftCountEl.textContent = String(Number(gifts) || 0);
+      }
+      if (shopHeroCityCountEl && cities != null) {
+        shopHeroCityCountEl.textContent = String(Number(cities) || 0);
+      }
     }
 
     function cityDisplayName(label) {
@@ -2378,10 +2406,16 @@
     // Venue-only cities (cities.ignored) are not shopping cities. select=* so
     // this keeps working before 2026072205_cities_ignored.sql is applied.
     async function fetchGiftShopCities() {
+      // Ordering by sort_order 400s if that column is missing (it was dropped
+      // and restored by 2026072405_restore_cities_columns.sql) — fall back to
+      // alphabetical instead of losing the whole catalog.
       const rows = await fetchAllRows(buildSupabaseUrl('cities', {
         select: '*',
         order: 'sort_order.asc,city.asc'
-      }));
+      })).catch(() => fetchAllRows(buildSupabaseUrl('cities', {
+        select: '*',
+        order: 'city.asc'
+      })));
       return (Array.isArray(rows) ? rows : []).filter((row) => row && row.ignored !== true);
     }
 
@@ -3020,6 +3054,7 @@
         const safeShopCities = Array.isArray(shopCities) ? shopCities : [];
         const cityData = buildGiftCityEntries(safeShopCities, safeListings, safeItems, safeGames);
         const giftItemCities = buildGiftItemCities(safeListings);
+        setShopHeroStatus(cityData.giftTotal, cityData.entries.length);
         renderGiftCityRail(cityData);
 
         // ── Single-item view (?item=<gift_shop_items.id>) — the admin's
