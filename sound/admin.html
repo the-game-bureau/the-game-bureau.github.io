@@ -418,7 +418,8 @@ City selection:
 4. Compare active public.cities.slug values against soundtracks[].city_slug entries that have at least one valid song.
 5. Pick one existing active Supabase city whose slug does not have a soundtrack yet. Do not add a new city.
 6. Use the exact Supabase slug as city_slug.
-7. Also find existing soundtrack entries with 1 to 14 valid songs. Randomly choose one of those entries and add only the number of songs needed to bring it to exactly 15 songs. If every existing soundtrack already has 15 or more valid songs, skip the top-up and report that.
+7. Also find existing active soundtrack entries with 1 to 14 valid songs. The top-up target must have a public.cities slug where ignored is not true. Do not top up ignored or venue-only city soundtracks. If every active existing soundtrack already has 15 or more valid songs, skip the top-up and report that.
+8. If any ignored or venue-only city has a standalone soundtrack entry, merge its useful tracks into the nearest real active city and remove the ignored-city entry before generating new tracks.
 
 Suggestions:
 - Before choosing tracks, check email for song suggestions if email/Gmail access is available.
@@ -459,9 +460,10 @@ Implementation:
 4. Validate sound/soundtracks.json with JSON.parse after editing.
 5. Confirm exactly one entry exists for the selected new city_slug.
 6. Confirm the new entry has exactly 15 songs.
-7. Confirm the top-up target now has exactly 15 songs, unless no underfilled target existed.
-8. Confirm the total soundtrack count increased by 1.
-9. If a verified public.soundtracks table exists in Supabase, upsert the same finished objects there using city_slug as the conflict key after confirming the schema. Otherwise do not write soundtrack songs to Supabase; public.cities was only used to choose an existing city.
+7. Confirm the top-up target now has exactly 15 songs, unless no active underfilled target existed.
+8. Confirm no ignored=true public.cities slug has a standalone soundtrack entry.
+9. Confirm the total soundtrack count increased by 1, except when a hidden-city merge removed an entry in the same pass; in that case report both counts.
+10. If a verified public.soundtracks table exists in Supabase, upsert the same finished objects there using city_slug as the conflict key after confirming the schema. Otherwise do not write soundtrack songs to Supabase; public.cities was only used to choose an existing city.
 
 Final report:
 - Selected city and city_slug.

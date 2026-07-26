@@ -4,8 +4,10 @@ name: Daily soundtrack generator
 # at BOTH 15:00 and 16:00 UTC and let the guard proceed only during the 10am
 # Central hour. Exactly one scheduled job does real work year-round.
 #
-# The job asks Claude with web search for one missing city soundtrack plus one
-# underfilled soundtrack top-up, updates sound/soundtracks.json, and commits any
+# The job asks Claude with web search for one missing active city soundtrack
+# plus one active underfilled soundtrack top-up. The runner excludes
+# public.cities rows where ignored=true, fails if any hidden/venue-only city has
+# a standalone soundtrack, updates sound/soundtracks.json, and commits any
 # resulting change. The public /sound/ page reads that JSON directly.
 
 on:
@@ -15,11 +17,11 @@ on:
   workflow_dispatch:
     inputs:
       city_slug:
-        description: "Force the missing city slug (optional)"
+        description: "Force the missing active city slug; ignored=true cities are rejected"
         type: string
         default: ""
       top_up_slug:
-        description: "Force the underfilled soundtrack slug (optional)"
+        description: "Force the active underfilled soundtrack slug; ignored=true cities are rejected"
         type: string
         default: ""
       dry_run:

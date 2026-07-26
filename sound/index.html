@@ -2649,9 +2649,8 @@
       }
 
       // ── City panel: fetch all cities, build the rail + spyglass search ─────
-      // Venue-only cities (cities.ignored) are not listening cities. select=*
-      // so this keeps working before 2026072205_cities_ignored.sql is applied;
-      // the filter treats a missing column as "not ignored".
+      // Fetch all city rows so venue-only cities (cities.ignored) can block
+      // matching soundtrack slugs from the active public list.
       function fetchCities() {
         return fetchJson(buildSupabaseUrl('cities', {
           select: '*',
@@ -2659,10 +2658,6 @@
         }), {
           headers: SB_HEADERS,
           cache: 'no-store'
-        }).then(function (rows) {
-          return (Array.isArray(rows) ? rows : []).filter(function (row) {
-            return row && row.ignored !== true;
-          });
         });
       }
 
@@ -2705,9 +2700,6 @@
           var slug = slugify(tracklist && tracklist.city_slug);
           if (slug) soundtracksBySlug[slug] = tracklist;
         });
-        setSoundHeroTitle(soundtracks.filter(function (tracklist) {
-          return tracklist && tracklist.city_slug && soundtrackTrackCount(tracklist) > 0;
-        }).length);
         return soundtracks;
       }
 
@@ -2717,33 +2709,38 @@
         soundHeroTitleEl.textContent = n ? (n + ' Soundtrack' + (n === 1 ? '' : 's')) : 'Soundtracks';
       }
 
-      function setCityEntries(rows) {
+      function setCityEntries(rows, allowSoundtrackSlugFallback) {
         var seen = {};
-        var rowsWithSoundtracks = (Array.isArray(rows) ? rows : [])
+        var rowsList = Array.isArray(rows) ? rows : [];
+        var rowsWithSoundtracks = rowsList
           .filter(function (row) {
+            if (row && row.ignored === true) return false;
             var slug = citySlug(row);
             if (!slug || seen[slug] || soundtrackTrackCount(soundtracksBySlug[slug]) <= 0) return false;
             seen[slug] = true;
             return true;
           });
-        Object.keys(soundtracksBySlug).forEach(function (slug) {
-          var tracklist = soundtracksBySlug[slug];
-          if (!slug || seen[slug] || soundtrackTrackCount(tracklist) <= 0) return;
-          var label = displayNameFromSlug((tracklist && tracklist.city_slug) || slug);
-          seen[slug] = true;
-          rowsWithSoundtracks.push({
-            slug: slug,
-            city: label,
-            label: label,
-            city_name: label
+        if (allowSoundtrackSlugFallback) {
+          Object.keys(soundtracksBySlug).forEach(function (slug) {
+            var tracklist = soundtracksBySlug[slug];
+            if (!slug || seen[slug] || soundtrackTrackCount(tracklist) <= 0) return;
+            var label = displayNameFromSlug((tracklist && tracklist.city_slug) || slug);
+            seen[slug] = true;
+            rowsWithSoundtracks.push({
+              slug: slug,
+              city: label,
+              label: label,
+              city_name: label
+            });
           });
-        });
+        }
         cityEntries = rowsWithSoundtracks
           // Alphabetical by city name (full "City, Region" as the tiebreak).
           .sort(function (a, b) {
             return cityShortLabel(a).localeCompare(cityShortLabel(b), undefined, { sensitivity: 'base', numeric: true })
               || cityLabel(a).localeCompare(cityLabel(b), undefined, { sensitivity: 'base' });
           });
+        setSoundHeroTitle(cityEntries.length);
         renderSoundGrid(cityEntries);
         setupListenCityPanel();
         // Cards exist now, so a session carried in from another page can be
@@ -2761,8 +2758,9 @@
                 return fallbackCityRowsFromSoundtracks(soundtracks);
               })
               .then(function (rows) {
-                var cityRows = Array.isArray(rows) && rows.length ? rows : fallbackCityRowsFromSoundtracks(soundtracks);
-                setCityEntries(cityRows);
+                var hasCityCatalog = Array.isArray(rows) && rows.length > 0;
+                var cityRows = hasCityCatalog ? rows : fallbackCityRowsFromSoundtracks(soundtracks);
+                setCityEntries(cityRows, !hasCityCatalog);
               });
           })
           .catch(function (error) {

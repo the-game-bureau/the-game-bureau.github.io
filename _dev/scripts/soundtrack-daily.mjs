@@ -2,7 +2,7 @@
 //
 // Daily soundtrack generator for /sound/.
 // - Picks one active Supabase city that has no soundtrack yet.
-// - Picks one existing soundtrack with 1-14 songs and tops it up to 15.
+// - Picks one active existing soundtrack with 1-14 songs and tops it up to 15.
 // - Asks a model with web search for real Spotify-backed tracks.
 // - Updates sound/soundtracks.json, which is the public soundtrack source.
 
@@ -94,15 +94,26 @@ function findNewCity(activeCities, soundtracks) {
   return { picked, missing };
 }
 
-function findTopUp(soundtracks, newCitySlug) {
+function assertNoHiddenSoundtracks(soundtracks, hiddenCitySlugs) {
+  const hiddenSoundtracks = soundtracks
+    .map((tracklist) => ({ slug: slugify(tracklist.city_slug), count: validSongs(tracklist).length }))
+    .filter((entry) => entry.slug && entry.count > 0 && hiddenCitySlugs.has(entry.slug))
+    .map((entry) => entry.slug);
+
+  if (hiddenSoundtracks.length) {
+    throw new Error(`Hidden/venue-only cities cannot have soundtracks: ${hiddenSoundtracks.join(', ')}. Merge or remove them first.`);
+  }
+}
+
+function findTopUp(soundtracks, newCitySlug, activeCitySlugs) {
   const candidates = soundtracks
     .map((tracklist) => ({ tracklist, slug: slugify(tracklist.city_slug), count: validSongs(tracklist).length }))
-    .filter((entry) => entry.slug && entry.slug !== newCitySlug && entry.count > 0 && entry.count < 15)
+    .filter((entry) => entry.slug && activeCitySlugs.has(entry.slug) && entry.slug !== newCitySlug && entry.count > 0 && entry.count < 15)
     .sort((a, b) => a.slug.localeCompare(b.slug, undefined, { sensitivity: 'base', numeric: true }));
 
   if (TOP_UP_OVERRIDE) {
     const picked = candidates.find((entry) => entry.slug === TOP_UP_OVERRIDE);
-    if (!picked) throw new Error(`SOUNDTRACK_TOP_UP_SLUG=${TOP_UP_OVERRIDE} is not an underfilled soundtrack.`);
+    if (!picked) throw new Error(`SOUNDTRACK_TOP_UP_SLUG=${TOP_UP_OVERRIDE} is not an active underfilled soundtrack.`);
     return { picked, candidates };
   }
   return { picked: pickRotating(candidates, 17), candidates };
@@ -350,10 +361,14 @@ async function assertNoSoundtrackTable() {
   const soundtracks = Array.isArray(data.soundtracks) ? data.soundtracks : [];
   const beforeCount = soundtracks.length;
 
-  const cities = await fetchCities();
-  const activeCities = (Array.isArray(cities) ? cities : []).filter((row) => row && row.ignored !== true);
+  const cityRows = await fetchCities();
+  const cities = Array.isArray(cityRows) ? cityRows : [];
+  const activeCities = cities.filter((row) => row && row.ignored !== true);
+  const activeCitySlugs = new Set(activeCities.map((row) => slugify(row.slug || row.city_name || row.city)).filter(Boolean));
+  const hiddenCitySlugs = new Set(cities.filter((row) => row && row.ignored === true).map((row) => slugify(row.slug || row.city_name || row.city)).filter(Boolean));
+  assertNoHiddenSoundtracks(soundtracks, hiddenCitySlugs);
   const { picked: newCity, missing } = findNewCity(activeCities, soundtracks);
-  const { picked: topUp, candidates } = findTopUp(soundtracks, newCity.slug);
+  const { picked: topUp, candidates } = findTopUp(soundtracks, newCity.slug, activeCitySlugs);
 
   console.log(`Active cities: ${activeCities.length}`);
   console.log(`Missing soundtrack cities: ${missing.length}`);
