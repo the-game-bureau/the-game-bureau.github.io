@@ -4452,15 +4452,22 @@
       // by one, which reads as the neighbouring card misbehaving.
       const heldSlots = new Map();
       Array.from(itemsList.querySelectorAll('.item:not(.hidden)')).forEach((node, i) => {
-        if (node.classList.contains('is-vacated')) heldSlots.set(i, node);
+        if (node.classList.contains('is-vacated') || node.dataset.holdSlot) heldSlots.set(i, node);
       });
+      const heldNodes = new Set(heldSlots.values());
 
-      const visibleInOrder = visible.map((entry) => {
+      // Held cards are pinned to their old index below, so they are kept out of
+      // the sorted sequence — otherwise they would be placed twice and end up
+      // wherever the sort wanted them.
+      const visibleInOrder = [];
+      visible.forEach((entry) => {
         const node = entry.node || appendItemRow(entry.row || {});
         entry.node = node;
-        node.classList.remove('hidden', 'is-vacated');
+        node.classList.remove('hidden');
         visibleNodes.add(node);
-        return node;
+        if (heldNodes.has(node)) return;
+        node.classList.remove('is-vacated');
+        visibleInOrder.push(node);
       });
 
       // Re-append everything in one pass: blanks keep their slot, the visible
@@ -4481,7 +4488,7 @@
       // is the exception: it just fell out of the filter on save, so it keeps
       // its slot — faded and empty — instead of collapsing the list mid-edit.
       itemsList.querySelectorAll('.item').forEach((node) => {
-        if (visibleNodes.has(node) || node.classList.contains('is-vacated')) return;
+        if (visibleNodes.has(node) || node.classList.contains('is-vacated') || node.dataset.holdSlot) return;
         node.classList.add('hidden');
       });
 
@@ -4539,9 +4546,12 @@
     // Any change to the filters or the sort restarts paging from the first page.
     function resetItemsPaging() {
       itemsVisibleLimit = ITEMS_PAGE_SIZE;
-      // A new view closes the blank slots left by saved-away gifts.
+      // A new view closes the blank slots left by saved-away gifts and releases
+      // the pinned slots, so the list finally paints in true sorted order.
       itemsList.querySelectorAll('.item.is-vacated')
         .forEach((node) => node.classList.remove('is-vacated'));
+      itemsList.querySelectorAll('.item[data-hold-slot]')
+        .forEach((node) => { delete node.dataset.holdSlot; });
       rememberFiltersInUrl();
       refreshItemsView();
     }
@@ -5065,21 +5075,32 @@
           setStatusChoice(articleStatus());
           refreshStatusLabel();
           const fannedOut = await syncListings(article, article.dataset.id);
-          // A save that moves a gift out of the active status filter lets it go:
-          // the filter is the view, so the card fades out of it (is-vacated) and
-          // leaves its slot blank. The header carries the confirmation, since the
-          // card itself is on its way out.
-          const wantStatus = statusFilter ? statusFilter.value : '';
-          const nowStatus = articleStatus();
-          const leftTheView = wantStatus && (wantStatus === 'NOT_SHELVED'
-            ? nowStatus === 'SHELVED'
-            : nowStatus !== wantStatus);
           const savedMsg = opts.certifiedAt
             ? 'Saved & published ' + formatCertDate(opts.certifiedAt) + '.'
             : (opts.rejectedAt ? 'Saved & shelved.' : 'Saved.');
           setItemStatus(savedMsg, 'success');
-          if (leftTheView) article.classList.add('is-vacated');
+          // A save that moves a gift out of the current view lets it go: the
+          // filters are the view, so the card fades out (is-vacated) and leaves
+          // its slot blank rather than collapsing the grid under the cursor.
+          // The header carries the confirmation, since the card is on its way out.
+          //
+          // Asked of entryMatchesCurrentFilter itself, so it covers every filter
+          // — city and search as well as status. Re-deriving just the status
+          // here missed a gift whose cities changed on save: it dropped from the
+          // list with no blank left behind, and the whole grid shifted.
+          //
+          // Order matters: clearItemDirty first, because the predicate keeps any
+          // dirty card on screen, which would mask the move every time.
           clearItemDirty(article);
+          const savedEntry = itemEntries().find((entry) => entry.node === article);
+          const leftTheView = !!savedEntry && !entryMatchesCurrentFilter(savedEntry);
+          // Pin the card to the slot it is sitting in, whether it left the view
+          // or merely re-sorted. Publishing under the default status sort moves
+          // a gift from the Review group to the Live group, which slid every
+          // card after it up by one — the same confusion as a vanishing card.
+          // Cleared by resetItemsPaging on the next real filter/sort change.
+          article.dataset.holdSlot = '1';
+          if (leftTheView) article.classList.add('is-vacated');
           setTimeout(() => setItemStatus(''), 2200);
           if (wasNewItem && article.dataset.id && opts.openAfterCreate !== false) {
             openSingleGiftInStockRoom(article.dataset.id);

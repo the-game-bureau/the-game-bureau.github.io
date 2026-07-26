@@ -553,15 +553,6 @@
     body[data-admin-page="gift-shop"].home-page main.gift-page .hero-sub {
       margin-top: 4px;
     }
-    body[data-admin-page="gift-shop"].home-page .gift-city-summary {
-      margin: 0 0 5px;
-      color: var(--civic-blue);
-      font-size: 0.74rem;
-      font-weight: 800;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      font-variant-numeric: tabular-nums;
-    }
 
     /* ── Gift detail lightbox ─────────────────────────────────────────── */
     .gift-detail {
@@ -877,7 +868,6 @@
         <div class="hero-grid">
           <div>
             <p class="hero-kicker"><span id="eyebrowSuffix" hidden><span id="eyebrow"></span></span></p>
-            <p class="gift-city-summary" id="giftCitySummary"></p>
             <h1 class="hero-headline" id="heading">Gift Shop</h1>
             <p class="hero-sub" id="heroSub">Books, gear, and local finds from the cities you play.</p>
             <p class="hero-copy" id="lead" hidden></p>
@@ -951,7 +941,7 @@
     // Toggle gift cards by where they come from. Multi-select pills, all on by
     // default; a source with no items this view is omitted, and the whole bar
     // hides unless at least two sources are present (nothing to filter).
-    const giftCitySummaryEl = document.getElementById('giftCitySummary');
+    const heroSubEl = document.getElementById('heroSub');
 
     // Eyebrow: the game/item name shown in the hero kicker on filtered views.
     function setEyebrow(text) {
@@ -1214,6 +1204,21 @@
       if (itemLabelEl) itemLabelEl.textContent = count === 1 ? 'GIFT SHOWING' : 'GIFTS SHOWING';
     }
 
+    function setGiftHeroTotals(totalGifts, cityCount) {
+      const gifts = Number(totalGifts) || 0;
+      const cities = Number(cityCount) || 0;
+      // The headline is the shop's name, not a number. Both counts live in the
+      // dek: "547 books, gear, and local finds from 86 cities."
+      if (headingEl && !requestedCity && !requestedGameParam && !requestedItemId) {
+        headingEl.textContent = 'Gift Shop';
+      }
+      if (heroSubEl) {
+        const cityWord = cities === 1 ? 'city' : 'cities';
+        heroSubEl.textContent = gifts + ' books, gear, and local finds from ' +
+          cities + ' ' + cityWord + '.';
+      }
+    }
+
     function renderGiftCityRail(cityData) {
       if (!giftCityPanelEl || !giftCityListEl) return;
       const entries = cityData && Array.isArray(cityData.entries) ? cityData.entries : [];
@@ -1225,12 +1230,7 @@
       giftCityPanelEl.hidden = false;
       const totalGifts = Number(cityData && cityData.total) ||
         entries.reduce((sum, entry) => sum + (Number(entry && entry.count) || 0), 0);
-      if (giftCitySummaryEl) {
-        const giftWord = totalGifts === 1 ? 'gift' : 'gifts';
-        const cityWord = entries.length === 1 ? 'city' : 'cities';
-        giftCitySummaryEl.textContent =
-          totalGifts + ' ' + giftWord + ' from ' + entries.length + ' ' + cityWord;
-      }
+      setGiftHeroTotals(totalGifts, entries.length);
 
       giftCityListEl.innerHTML = '';
       // Featured leads the rail (it is the landing view), then the whole
@@ -1719,7 +1719,6 @@
       if (!giftCityPanelEl || !giftCityListEl) return;
       giftCityPanelEl.hidden = false;
       if (giftCityTitleEl) giftCityTitleEl.textContent = 'Cities';
-      if (giftCitySummaryEl) giftCitySummaryEl.textContent = 'Loading';
       giftCityListEl.innerHTML = '';
       const track = document.createElement('div');
       track.className = 'gift-city-track';
@@ -1752,7 +1751,6 @@
       renderSkeleton();
       if (requestedItemId) {
         if (giftCityPanelEl) giftCityPanelEl.hidden = true;
-        if (giftCitySummaryEl) giftCitySummaryEl.textContent = '';
         if (giftGridHeadEl) giftGridHeadEl.hidden = true;
         return;
       }
@@ -2499,9 +2497,6 @@
           leadEl.appendChild(leadGameEm);
           leadEl.appendChild(document.createTextNode('.'));
           document.title = String(requestedGame.name || '').toUpperCase() + ' GIFTS | THE GAME BUREAU';
-        } else if (requestedCity) {
-          leadEl.textContent = 'Curated from ' + requestedCity + '.';
-          leadEl.hidden = false;
         }
 
         // Effective city filter: an explicit ?city=, or the city of a ?id=/?game= game.
@@ -2576,10 +2571,13 @@
 
         gridEl.innerHTML = '';
         if (giftGridHeadEl && !requestedGame) {
-          giftGridTitleEl.textContent = requestedCity
-            ? 'Curated from ' + requestedCity
-            : (showingFeatured ? 'Featured' : 'All Finds');
-          giftGridHeadEl.hidden = false;
+          if (requestedCity) {
+            giftGridTitleEl.textContent = '';
+            giftGridHeadEl.hidden = true;
+          } else {
+            giftGridTitleEl.textContent = showingFeatured ? 'Featured' : 'All Finds';
+            giftGridHeadEl.hidden = false;
+          }
         }
         if (!cards.length) {
           renderEmpty(requestedGame
