@@ -4,7 +4,8 @@
      <script src="/assets/site-nav.js"></script>
 
    The script fills the placeholder with the shared brand + nav links.
-   Site count badges live in /assets/site-footer.js.
+   Site count data is fetched by /assets/site-footer.js and mirrored into the
+   nav buttons through window.TgbNav.setStats.
 */
 (function () {
   var header =
@@ -14,6 +15,16 @@
 
   header.classList.add('site-nav');
 
+  var statValues = {};
+
+  function statBadge(key) {
+    return '<span class="nav-count" data-tgb-nav-stat="' + key + '" hidden>0</span>';
+  }
+
+  function statBadges(keys) {
+    return '<span class="nav-counts">' + keys.map(statBadge).join('') + '</span>';
+  }
+
   var navHtml =
     '<div class="brand-lockup">' +
       '<span class="brand-name">The Game Bureau</span>' +
@@ -21,10 +32,10 @@
     '</div>' +
     '<nav class="nav-links" aria-label="Primary">' +
       '<div class="nav-primary-links" aria-label="Featured">' +
-        '<a class="nav-link nav-link--major nav-link--games" href="/games/">GAMES</a>' +
-        '<a class="nav-link nav-link--major nav-link--gifts" href="/shop/">GIFTS</a>' +
-        '<a class="nav-link nav-link--major nav-link--highlights" href="/highlights/">HIGHLIGHTS</a>' +
-        '<a class="nav-link nav-link--major nav-link--sound" href="/sound/">SOUNDTRACKS</a>' +
+        '<a class="nav-link nav-link--major nav-link--games nav-link--has-count" href="/games/"><span class="nav-label">GAMES</span>' + statBadges(['games']) + '</a>' +
+        '<a class="nav-link nav-link--major nav-link--gifts nav-link--has-count" href="/shop/"><span class="nav-label">GIFTS</span>' + statBadges(['gifts']) + '</a>' +
+        '<a class="nav-link nav-link--major nav-link--sound nav-link--has-count" href="/sound/"><span class="nav-label">SOUNDTRACKS</span>' + statBadges(['soundtracks']) + '</a>' +
+        '<a class="nav-link nav-link--major nav-link--highlights nav-link--has-count" href="/highlights/"><span class="nav-label">HIGHLIGHTS</span>' + statBadges(['highlights']) + '</a>' +
       '</div>' +
     '</nav>';
 
@@ -55,7 +66,63 @@
     }
   });
 
+  var statEls = {};
+  header.querySelectorAll('[data-tgb-nav-stat]').forEach(function (el) {
+    statEls[el.getAttribute('data-tgb-nav-stat')] = el;
+  });
+
+  var statLabels = {
+    games: 'games',
+    cities: 'cities',
+    gifts: 'gifts',
+    soundtracks: 'soundtracks',
+    highlights: 'scorelines'
+  };
+
+  function formatStatPhrase(key, count) {
+    var label = statLabels[key] || key;
+    return count + ' ' + label;
+  }
+
+  function updateLinkAria(link) {
+    if (!link) return;
+    var labelEl = link.querySelector && link.querySelector('.nav-label');
+    var label = labelEl ? String(labelEl.textContent || '').trim() : String(link.textContent || '').trim();
+    var phrases = [];
+    if (link.querySelectorAll) {
+      link.querySelectorAll('[data-tgb-nav-stat]').forEach(function (el) {
+        var key = el.getAttribute('data-tgb-nav-stat');
+        if (key && statValues[key] != null) phrases.push(formatStatPhrase(key, statValues[key]));
+      });
+    }
+    link.setAttribute('aria-label', phrases.length ? label + ': ' + phrases.join(', ') : label);
+  }
+
+  function setStat(key, value) {
+    var el = statEls[key];
+    if (!el || value == null) return;
+    var count = Number(value);
+    if (!isFinite(count)) count = 0;
+    count = Math.max(0, Math.round(count));
+    statValues[key] = count;
+    el.textContent = String(count);
+    el.hidden = false;
+
+    var link = el.closest && el.closest('a.nav-link');
+    updateLinkAria(link);
+  }
+
+  function setStats(games, cities, gifts, soundtracks, highlights) {
+    setStat('games', games);
+    setStat('cities', cities);
+    setStat('gifts', gifts);
+    setStat('soundtracks', soundtracks);
+    setStat('highlights', highlights);
+  }
+
   window.TgbNav = window.TgbNav || {};
+  window.TgbNav.setButtonStats = setStats;
+  window.TgbNav.setStats = setStats;
   window.TgbNav.dropdown = {
     close: function () {},
     open: function () {}

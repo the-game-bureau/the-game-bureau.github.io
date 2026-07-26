@@ -32,6 +32,11 @@
   <script src="../mc/js/admin-auth.js"></script>
   <script src="../assets/site-nav-login.js" defer></script>
   <script src="../assets/geo.js"></script>
+  <!-- This page owns its own cassette player, so mini-cassette.js acts only as
+       the shared session store + case styling here (TGB_CASSETTE_HOME). On the
+       other pages the case is allowed on, the same file owns the player too. -->
+  <script>window.TGB_CASSETTE_HOME = true;</script>
+  <script src="../assets/mini-cassette.js"></script>
   <script src="../assets/states/us-state-shapes.js"></script>
 
   <style>
@@ -145,12 +150,17 @@
       transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
     }
 
+    /* Spine colours. Three of the six are sampled from the shells in the hero
+       photograph — blue #5570d8, red #c8503a and yellow #dec348 are the median
+       lit values of those cassettes, nudged up a touch in chroma so an 8px
+       stripe still reads as a colour rather than as grime. Orange, lavender and
+       green are the original palette, kept for spread. */
     body.home-page .playlist-card:nth-child(6n + 1) { --case-stripe: #ff9f43; }
-    body.home-page .playlist-card:nth-child(6n + 2) { --case-offset: 2px; --case-tilt: 0.25deg; --case-stripe: #55c7ef; }
+    body.home-page .playlist-card:nth-child(6n + 2) { --case-offset: 2px; --case-tilt: 0.25deg; --case-stripe: #5570d8; }
     body.home-page .playlist-card:nth-child(6n + 3) { --case-offset: -1px; --case-tilt: -0.65deg; --case-stripe: #cda7ff; }
     body.home-page .playlist-card:nth-child(6n + 4) { --case-offset: 3px; --case-tilt: 0.45deg; --case-stripe: #68f27d; }
-    body.home-page .playlist-card:nth-child(6n + 5) { --case-offset: -2px; --case-tilt: -0.2deg; --case-stripe: #ff6f91; }
-    body.home-page .playlist-card:nth-child(6n) { --case-offset: 1px; --case-tilt: 0.15deg; --case-stripe: #ffcc2e; }
+    body.home-page .playlist-card:nth-child(6n + 5) { --case-offset: -2px; --case-tilt: -0.2deg; --case-stripe: #c8503a; }
+    body.home-page .playlist-card:nth-child(6n) { --case-offset: 1px; --case-tilt: 0.15deg; --case-stripe: #dec348; }
     body.home-page .playlist-card:nth-child(4n + 1) { --label-bg: #fffdf7; }
     body.home-page .playlist-card:nth-child(4n + 2) { --label-bg: #fff6df; }
     body.home-page .playlist-card:nth-child(4n + 3) { --label-bg: #ffffff; }
@@ -362,8 +372,8 @@
     body.home-page .lc-search-input::placeholder { color: rgba(247, 240, 220, 0.42); }
     body.home-page .lc-search.is-open .lc-search-input:focus {
       outline: none;
-      border-color: #f5b461;
-      box-shadow: 0 0 0 3px rgba(245, 180, 97, 0.28);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
     }
     body.home-page .lc-search-toggle {
       flex: 0 0 auto;
@@ -387,7 +397,7 @@
       background: rgba(255, 255, 255, 0.06);
       outline: none;
     }
-    body.home-page .lc-search.is-open .lc-search-toggle { color: #f5b461; }
+    body.home-page .lc-search.is-open .lc-search-toggle { color: var(--accent); }
     body.home-page .lc-search-toggle svg { width: 17px; height: 17px; display: block; }
     /* Portaled to <body> and viewport-fixed (JS sets top/right) so it floats
        above the grid — the panel's backdrop would otherwise clip it. */
@@ -488,21 +498,22 @@
       overflow: visible;
       text-overflow: clip;
     }
-    body.home-page .lc-list .hero-meta-list-count { color: rgba(247, 240, 220, 0.5); }
+    /* Theme var, not a literal: this used to be cream-at-50%, which vanished
+       against the light chip once the skin changed and hid the song count. */
+    body.home-page .lc-list .hero-meta-list-count { color: var(--muted); }
     body.home-page .lc-list .hero-meta-list-item:hover {
-      background: rgba(245, 180, 97, 0.12);
-      border-color: #f5b461;
-      color: #f7f0dc;
-      box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.06) inset,
-        0 0 0 2px #f5b461,
-        0 12px 26px rgba(0, 0, 0, 0.45);
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--ink);
+      box-shadow: 0 0 0 2px var(--accent);
     }
     body.home-page .lc-list .hero-meta-list-item.lc-chip--empty .hero-meta-list-name { opacity: 0.72; }
 
     /* No-soundtrack cassette state: dim the tape + arrows, spotlight Suggest. */
     body.home-page .sx-panel.sx-empty .tgb-cass-mount { opacity: 0.5; }
-    body.home-page .sx-panel.sx-empty .tgb-cass-nav { pointer-events: none; opacity: 0.3; }
+    /* "No soundtrack yet" is precisely when we want a suggestion, so the ?
+       key stays live and at full strength while the rest of the tape dims. */
+    body.home-page .sx-panel.sx-empty .tgb-cass-suggest { opacity: 2; pointer-events: auto; }
     body.home-page .sx-player-empty {
       display: grid;
       place-items: center;
@@ -513,18 +524,6 @@
       font-size: 0.5rem;
       line-height: 1.6;
       text-align: center;
-    }
-    body.home-page .sx-panel.sx-empty .sx-suggest {
-      border-color: #f5b461;
-      background: #f5b461;
-      color: #0b1322;
-      font-size: 0.56rem;
-    }
-    body.home-page .sx-panel.sx-empty .sx-suggest:hover,
-    body.home-page .sx-panel.sx-empty .sx-suggest:focus-visible {
-      background: #ffcc7a;
-      border-color: #ffcc7a;
-      color: #0b1322;
     }
 
     .sx-modal[hidden] { display: none; }
@@ -558,32 +557,69 @@
         0 20px 60px rgba(0, 0, 0, 0.55);
     }
 
-    .sx-close {
-      position: absolute;
-      right: 12px;
-      top: 12px;
-      z-index: 5;
-      display: grid;
-      place-items: center;
-      width: 34px;
-      height: 34px;
-      border: 2px solid #344154;
-      border-radius: 0;
-      background: #101725;
-      color: #f7f0dc;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.72rem;
-      cursor: pointer;
+    /* ── Tape chrome: minimize + close ─────────────────────────────────────
+       Bare glyphs in the shell band above the label — no background, no border,
+       nothing to box them in. Drawn in the SVG so they scale with the tape and
+       stay clear of the handwriting at any size; the pressable area is a
+       transparent rect wider than the glyph, so the whole key works, not just
+       the strokes. Hover picks up --tgb-stripe, the colour of the band behind
+       the play button, so they read as part of the same control set. */
+    .tgb-cass-key { cursor: pointer; }
+    /* Philips screw head for the close key: pale metal disc, dark cross slot. */
+    .tgb-cass-screw-head {
+      fill: #d5cec1;
+      stroke: rgba(20, 14, 8, 0.5);
+      stroke-width: 0.22;
+      transition: fill 0.12s ease;
+    }
+    .tgb-cass-screw-slot {
+      stroke: #322b22;
+      stroke-width: 0.5;
+      stroke-linecap: round;
+      fill: none;
+      pointer-events: none;
+      transition: stroke 0.12s ease;
+    }
+    /* Neither screw changes colour. Both sit off true, the way driven screws
+       do, and answer a hover by turning a little further — the feedback is the
+       movement. transform-box: fill-box keeps each pivot on its own head. */
+    .tgb-cass-key {
+      transform-box: fill-box;
+      transform-origin: center;
+      transition: transform 0.18s ease;
+    }
+    .tgb-cass-key--flat { transform: rotate(-7deg); }
+    .tgb-cass-key--flat:hover,
+    .tgb-cass-key--flat:focus-visible { transform: rotate(6deg); }
+    .tgb-cass-key--philips { transform: rotate(30deg); }
+    .tgb-cass-key--philips:hover,
+    .tgb-cass-key--philips:focus-visible { transform: rotate(43deg); }
+    @media (prefers-reduced-motion: reduce) {
+      .tgb-cass-key { transition: none; }
+    }
+    .tgb-cass-key:focus { outline: none; }
+    .tgb-cass-key:focus-visible { outline: none; }
+
+    /* ── The panel is a frame, not a box ───────────────────────────────────
+       No card behind the tape: the cassette, its transport arrows and the foot
+       buttons float directly on the page. Needs the .sx-modal descendant to
+       outrank civic-modernist-pages.css, which loads later and paints
+       `body.home-page .sx-panel` white with a border. */
+    body.home-page .sx-modal .sx-panel {
+      border: 0;
+      background: transparent;
+      box-shadow: none;
     }
 
     /* ── City cassette (inline SVG, built from scratch in JS) ───────────────
        The cassette is drawn as an SVG and themed per city via --tgb-accent /
-       --tgb-accent-dark set on .tgb-cass by JS. Play/pause lives on the tape;
-       prev/next are the round buttons flanking it; drag the tape to seek. */
+       --tgb-accent-dark set on .tgb-cass by JS. The whole transport lives on the
+       tape itself — prev / play-pause / next sit in the bottom band; drag the
+       tape to seek. */
     .tgb-cass-stage {
       position: relative;
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr);
       align-items: center;
       gap: 10px;
       width: min(600px, 100%);
@@ -612,46 +648,6 @@
     .tgb-cass-mount.nudge-next { transform: translateX(6px) rotate(0.6deg); }
     .tgb-cass-stage.is-empty .tgb-cass-mount { opacity: 0.5; filter: grayscale(0.4) drop-shadow(7px 9px 0 rgba(2, 4, 10, 0.9)); }
 
-    /* Chunky raised boom-box transport buttons flanking the cassette. The stacked
-       box-shadows fake moulded plastic: inset top highlight + inset bottom shade,
-       then a hard bottom edge and a drop shadow so the key sits proud of the deck.
-       :active presses it down into that edge. */
-    .tgb-cass-nav {
-      display: grid;
-      place-items: center;
-      width: 62px;
-      height: 54px;
-      padding: 0;
-      border: 2px solid #05101f;
-      border-radius: 10px;
-      background: linear-gradient(180deg, #3b4759 0%, #232d3f 48%, #151c2a 100%);
-      color: #f7f0dc;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 1.05rem;
-      letter-spacing: 1px;
-      line-height: 1;
-      cursor: pointer;
-      box-shadow:
-        inset 0 2px 0 rgba(255, 255, 255, 0.22),
-        inset 0 -3px 6px rgba(0, 0, 0, 0.5),
-        0 5px 0 #05101f,
-        0 8px 11px rgba(2, 4, 10, 0.55);
-      transition: transform 0.08s ease, box-shadow 0.08s ease, color 0.12s ease;
-    }
-    .tgb-cass-nav:hover,
-    .tgb-cass-nav:focus-visible {
-      color: #f5b461;
-      outline: none;
-    }
-    .tgb-cass-nav:active {
-      transform: translateY(4px);
-      box-shadow:
-        inset 0 2px 0 rgba(255, 255, 255, 0.15),
-        inset 0 -2px 5px rgba(0, 0, 0, 0.55),
-        0 1px 0 #05101f,
-        0 2px 5px rgba(2, 4, 10, 0.5);
-    }
-    .tgb-cass-stage.is-empty .tgb-cass-nav { opacity: 0.3; pointer-events: none; }
 
     /* SVG internals — filled from CSS custom props / classes set in JS. */
     .tgb-cass svg text { pointer-events: none; }
@@ -666,7 +662,21 @@
     .tgb-cass-hub { transform-box: fill-box; transform-origin: center; }
     .tgb-cass-spool { fill: #14110d; transform-box: fill-box; transform-origin: center; }
     .tgb-cass-btn { fill: #eee7d6; cursor: pointer; transition: fill 0.12s ease; }
-    .tgb-cass-btn:hover { fill: #ffffff; }
+    /* :focus as well as :focus-visible — clicking an SVG <g tabindex> leaves it
+       in plain :focus, where Chrome paints its default ring (a dark ring plus a
+       white contrast halo) straight across the tape. focus-visible alone does
+       not catch that case. */
+    .tgb-cass-btn:focus,
+    .tgb-cass-btn:focus-visible { outline: none; }
+    .tgb-cass-btn:hover,
+    .tgb-cass-btn:focus-visible { fill: #ffffff; }
+    /* Keyboard focus still needs to be visible: outline the black key in the
+       label cream rather than letting the browser draw over the artwork. */
+    .tgb-cass-btn:focus-visible .tgb-cass-hole { stroke: #eee7d6; stroke-width: 0.5; }
+    /* No playlist loaded → the on-tape transport is inert, matching the dimmed
+       tape (the flanking nav buttons that used to carry this state are gone). */
+    .tgb-cass-stage.is-empty .tgb-cass-step,
+    .sx-panel.sx-empty .tgb-cass-step { pointer-events: none; }
     .tgb-cass-text {
       font-family: "Reenie Beanie", cursive;
       fill: #241f18;
@@ -679,6 +689,41 @@
 
     /* Album art shown through the cassette window; click for the full-size popup. */
     .tgb-cass-art { cursor: zoom-in; }
+
+    /* Suggest-a-song key in the LEFT hub hole: black disc, cream "?". Pairs
+       with the Spotify mark opposite it so the tape has two moulded keys rather
+       than one key and one leftover hole. Its hover wording (with the city
+       name) lives in the <title>, set by updateSuggestLabel. */
+    .tgb-cass-suggest { cursor: pointer; }
+    .tgb-cass-suggest-mark {
+      fill: #f3ede0;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 3.6px;
+      font-weight: 700;
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    .tgb-cass-suggest:hover .tgb-cass-suggest-mark,
+    .tgb-cass-suggest:focus-visible .tgb-cass-suggest-mark { fill: #ffffff; }
+    .tgb-cass-suggest:hover .tgb-cass-hole,
+    .tgb-cass-suggest:focus-visible .tgb-cass-hole { stroke: #eee7d6; stroke-width: 0.4; }
+    .tgb-cass-suggest:focus { outline: none; }
+    .tgb-cass-suggest:focus-visible { outline: none; }
+
+    /* Spotify mark sitting in the right hub hole. Brand green is fixed by
+       Spotify's guidelines, so this one stays a literal and does not follow the
+       site skin. */
+    .tgb-cass-spotify { cursor: pointer; }
+    .tgb-cass-spotify-disc { fill: #1db954; }
+    .tgb-cass-spotify-wave { stroke: #000000; fill: none; }
+    .tgb-cass-spotify:hover .tgb-cass-spotify-disc,
+    .tgb-cass-spotify:focus-visible .tgb-cass-spotify-disc { fill: #1ed760; }
+    .tgb-cass-spotify:focus { outline: none; }
+    .tgb-cass-spotify:focus-visible { outline: none; }
+    .tgb-cass-spotify:focus-visible .tgb-cass-hole { stroke: #eee7d6; stroke-width: 0.5; }
+    .tgb-cass-spotify.is-inert { cursor: default; pointer-events: none; }
+    .tgb-cass-spotify.is-inert .tgb-cass-spotify-disc,
+    .tgb-cass-spotify.is-inert .tgb-cass-spotify-wave { display: none; }
 
     /* Full-size album-art popup. */
     .sx-artbox {
@@ -715,7 +760,7 @@
       font-size: 0.7rem;
       cursor: pointer;
     }
-    .sx-artbox-close:hover { border-color: #f5b461; color: #f5b461; }
+    .sx-artbox-close:hover { border-color: var(--accent); color: var(--accent); }
 
     /* Explicit-lyrics mark: "DIRTY" scrawled in thick red marker next to the
        title. A matching stroke (painted under the fill) fattens the glyphs into
@@ -747,43 +792,6 @@
       .tgb-cass.is-playing .tgb-cass-spool--right { animation: none; }
     }
 
-    /* Footer: Suggest (fills) + Open in Spotify, side by side. */
-    .sx-foot {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 8px;
-    }
-
-    .sx-suggest,
-    .sx-foot .sx-open {
-      display: inline-grid;
-      place-items: center;
-      min-height: 34px;
-      padding: 0 12px;
-      border: 2px solid #344154;
-      border-radius: 0;
-      background: #111827;
-      color: #f7f0dc;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.72rem;
-      text-decoration: none;
-      cursor: pointer;
-    }
-
-    .sx-suggest:hover,
-    .sx-suggest:focus-visible,
-    .sx-foot .sx-open:hover,
-    .sx-foot .sx-open:focus-visible {
-      border-color: #f5b461;
-      outline: none;
-    }
-
-    .sx-suggest:hover,
-    .sx-suggest:focus-visible,
-    .sx-foot .sx-open:hover,
-    .sx-foot .sx-open:focus-visible {
-      color: #f5b461;
-    }
 
     /* The Spotify iframe is the actual audio. Kept rendered at real size but
        tucked behind the cassette (z-index 0, near-zero opacity) so the browser
@@ -894,13 +902,13 @@
         width: min(100%, 390px);
         min-height: 0;
         max-height: none;
-        padding: 44px 10px 12px;
+        /* No top inset any more — close/minimize moved onto the tape, so there
+           is no button strip above it to clear. */
+        padding: 10px 10px 12px;
         align-content: center;
         overflow: visible;
       }
       .tgb-cass-stage { min-height: 210px; gap: 6px; width: 100%; }
-      .tgb-cass-nav { width: 52px; height: 48px; font-size: 0.9rem; letter-spacing: 0; }
-      .sx-foot { grid-template-columns: 1fr; }
       .sx-player-host,
       .sx-player-host iframe,
       .sx-player-fallback { min-height: 74px; height: 74px; }
@@ -962,16 +970,15 @@
     <script src="../assets/site-nav.js"></script>
 
     <main class="sound-page">
-      <section class="hero" aria-label="Sound overview">
+      <section class="hero sound-header" aria-label="Sound overview">
         <div class="hero-grid">
           <div>
-            <h1 class="hero-headline">Soundtracks</h1>
+            <h1 class="hero-headline" id="soundHeroTitle">Soundtracks</h1>
             <p class="hero-sub">Choose a city you know, or press play on one you're still getting to know.</p>
           </div>
         </div>
-      </section>
 
-      <section class="listen-city-panel" id="listenCityPanel" aria-labelledby="listenCityTitle">
+        <section class="listen-city-panel" id="listenCityPanel" aria-labelledby="listenCityTitle">
         <header class="listen-city-head">
           <h2 class="listen-city-title" id="listenCityTitle">Listen By City</h2>
           <!-- Inconspicuous city search: a spyglass that expands into a field
@@ -990,7 +997,8 @@
             <div class="lc-search-results" id="lcSearchResults" role="listbox" aria-label="Matching cities" hidden></div>
           </div>
         </header>
-        <div class="lc-list" id="lcList" aria-label="Listen to a soundtrack by city"></div>
+          <div class="lc-list" id="lcList" aria-label="Listen to a soundtrack by city"></div>
+        </section>
       </section>
 
       <section class="sound-grid-wrap" aria-label="City tapes">
@@ -1054,6 +1062,7 @@
     (function () {
       var grid = document.getElementById('playlistGrid');
       var statusEl = document.getElementById('soundGridStatus');
+      var soundHeroTitleEl = document.getElementById('soundHeroTitle');
       var cards = [];
       var cardByCity = {};
       var cityEntries = [];
@@ -1066,7 +1075,13 @@
         Accept: 'application/json'
       };
       var modal;
-      var state = { card: null, songs: [], index: 0, playing: false, wantAutoplay: false, pendingCity: '', volume: 70, position: 0, duration: 0, artUrl: '', autoAdvanced: false, maxPos: 0 };
+      var state = { card: null, songs: [], index: 0, playing: false, wantAutoplay: false, pendingCity: '', volume: 70, position: 0, duration: 0, artUrl: '', autoAdvanced: false, maxPos: 0, resumeAt: 0 };
+      // True while the cassette is collapsed to the corner case.
+      var minimized = false;
+      // <title> of the tape's suggest key; carries the per-city hover wording.
+      var suggestTitle = null;
+      // <title> of the tape's Spotify mark; its wording switches with preview state.
+      var spotifyTitle = null;
       var artCache = {}; // trackId -> cover URL (or null when unavailable)
       var artRenderToken = 0;
       var spotifyIframeApi = null;
@@ -1175,22 +1190,172 @@
           svg.appendChild(hub);
         }
 
-        // play + pause buttons (on the tape)
-        var play = svgEl('path', { d: 'M47 48 53 51 47 54 z', 'stroke-linejoin': 'round', 'aria-label': 'Play' }, 'tgb-cass-btn tgb-cass-play');
+        // Play / pause: a round black key, matching the black boxes on prev and
+        // next. The disc is drawn once and shared; only the glyph on top swaps.
+        svg.appendChild(svgEl('circle', { cx: '50', cy: '51', r: '3.1' }, 'tgb-cass-hole tgb-cass-play-key'));
+        // Triangle nudged right of centre so it reads as centred in the disc
+        // (a triangle's visual centre sits behind its geometric one).
+        var play = svgEl('path', { d: 'M48.7 48.9 52.3 51 48.7 53.1 z', 'stroke-linejoin': 'round', 'aria-label': 'Play' }, 'tgb-cass-btn tgb-cass-play');
         play.setAttribute('role', 'button');
         play.setAttribute('tabindex', '0');
         svg.appendChild(play);
         var pause = svgEl('g', { 'pointer-events': 'bounding-box', 'aria-label': 'Pause' }, 'tgb-cass-btn tgb-cass-pause');
         pause.setAttribute('role', 'button');
         pause.style.display = 'none';
-        for (var p = 0; p < 2; p++) pause.appendChild(svgEl('line', { x1: 47.5 + p * 5, y1: '47.5', x2: 47.5 + p * 5, y2: '54.5', 'stroke-width': '2.25', stroke: '#eee7d6' }));
+        for (var p = 0; p < 2; p++) pause.appendChild(svgEl('line', { x1: 48.85 + p * 2.3, y1: '49.1', x2: 48.85 + p * 2.3, y2: '52.9', 'stroke-width': '1.15', stroke: '#eee7d6' }));
         svg.appendChild(pause);
 
-        // bottom holes
-        for (var hn = 0; hn < 2; hn++) {
-          svg.appendChild(svgEl('circle', { cx: 25 + hn * 50, cy: '54', r: '1.75' }, 'tgb-cass-hole'));
-          svg.appendChild(svgEl('path', { d: 'M' + (35 + hn * 30) + ' 51 ' + (37 + hn * 26) + ' 51 ' + (37 + hn * 26) + ' 53 ' + (35 + hn * 30) + ' 53 z' }, 'tgb-cass-hole'));
+        // Minimize + close, in the shell band ABOVE the cream label so they sit
+        // on the tape's moulding rather than over the handwriting. No box: bare
+        // glyphs, with an invisible hit rect doing the pressing. Hover takes the
+        // colour of the band behind the transport (--tgb-stripe), tying them to
+        // the rest of the controls.
+        // Philips screw head: pale metal disc with a cross slot. `diagonal`
+        // turns the slot into an × — that orientation reads as a close mark, so
+        // it belongs only on the key that actually closes. The plain + is just
+        // hardware.
+        // Screw head: pale metal disc with a slot. 'flat' is a single horizontal
+        // groove — which doubles as the minimize dash; 'philips' is a cross,
+        // sitting a quarter turn off the flathead's axis.
+        function drawScrew(parent, cx, cy, slot) {
+          var d = 0.85;
+          parent.appendChild(svgEl('circle', { cx: cx, cy: cy, r: '1.6' }, 'tgb-cass-screw-head'));
+          parent.appendChild(svgEl('line', { x1: cx - d, y1: cy, x2: cx + d, y2: cy }, 'tgb-cass-screw-slot'));
+          if (slot === 'philips') {
+            parent.appendChild(svgEl('line', { x1: cx, y1: cy - d, x2: cx, y2: cy + d }, 'tgb-cass-screw-slot'));
+          }
+          return parent;
         }
+
+        function chromeKey(cx, kind, label, onPress) {
+          var g = svgEl('g', { 'pointer-events': 'bounding-box' },
+            'tgb-cass-key tgb-cass-key--' + kind);
+          g.setAttribute('role', 'button');
+          g.setAttribute('tabindex', '0');
+          var t = svgEl('title');
+          t.textContent = label;
+          g.appendChild(t);
+          // Pressable area fills the shell band (y 2.5–7.5) without crossing onto
+          // the label below it.
+          g.appendChild(svgEl('rect', { x: cx - 2.6, y: '2.7', width: '5.2', height: '4.8', fill: 'transparent' }));
+          // Both keys are screws in the shell corners, where a cassette carries
+          // them: the slot is the only thing that differs.
+          drawScrew(g, cx, 5, kind);
+          g.addEventListener('click', onPress);
+          g.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPress(); }
+          });
+          return g;
+        }
+        // Close: Philips head in the top-right corner. The head (r 1.6) reaches
+        // x 95.6 here, still inside the shell's painted edge at 97.5.
+        svg.appendChild(chromeKey(94, 'philips', 'Close', function () { closeModal(); }));
+        // Minimize: flathead in the opposite corner (x 6 mirrors x 94 about the
+        // tape's centre). Its single horizontal groove is exactly the minimize
+        // dash, so the tape needs no separate dash key.
+        svg.appendChild(chromeKey(6, 'flat', 'Minimize', function () { setMinimized(true); }));
+
+        // The left hub hole is the "suggest a song" control — same construction
+        // as the Spotify mark on the right, so the tape reads as having a pair
+        // of moulded buttons rather than one button and one leftover hole.
+        var suggest = svgEl('g', { 'pointer-events': 'bounding-box' }, 'tgb-cass-suggest');
+        suggest.setAttribute('role', 'button');
+        suggest.setAttribute('tabindex', '0');
+        var QX = 25, QY = 54, QR = 2.6;
+        suggestTitle = svgEl('title');
+        suggestTitle.textContent = 'Suggest a song';
+        suggest.appendChild(suggestTitle);
+        suggest.appendChild(svgEl('rect', { x: QX - 5, y: QY - 4.5, width: '10', height: '9', fill: 'transparent' }));
+        suggest.appendChild(svgEl('circle', { cx: QX, cy: QY, r: QR }, 'tgb-cass-hole'));
+        var qMark = svgEl('text', { x: QX, y: QY + 1.35 }, 'tgb-cass-suggest-mark');
+        qMark.textContent = '?';
+        suggest.appendChild(qMark);
+        suggest.addEventListener('click', suggestSong);
+        suggest.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); suggestSong(); }
+        });
+        svg.appendChild(suggest);
+
+        // The right hub hole is now the "open in Spotify" control: the black
+        // hole is the backdrop and the green mark sits on top of it, so the
+        // link lives on the tape instead of as a button under it.
+        var spotify = svgEl('a', { target: '_blank', rel: 'noopener' }, 'tgb-cass-spotify');
+        spotify.setAttribute('aria-label', 'Open in Spotify');
+        // <title> is the SVG tooltip: hovering the mark says "Open in Spotify".
+        // A drawn-on label would have to share the bottom band with prev/play/
+        // next, which leaves no room for the words.
+        spotifyTitle = svgEl('title');
+        spotifyTitle.textContent = 'Open in Spotify';
+        spotify.appendChild(spotifyTitle);
+        var SX = 75, SY = 54, SR = 2.6;
+        spotify.appendChild(svgEl('rect', { x: SX - 5, y: SY - 4.5, width: '10', height: '9', fill: 'transparent' }));
+        spotify.appendChild(svgEl('circle', { cx: SX, cy: SY, r: SR }, 'tgb-cass-hole'));
+        spotify.appendChild(svgEl('circle', { cx: SX, cy: SY, r: SR - 0.25 }, 'tgb-cass-spotify-disc'));
+        // The three waves, drawn as arcs rather than the official single filled
+        // path: at this size (~5 units across) a cut-out path muddies into a
+        // green blob, while stroked arcs stay legible.
+        // Stroke widths track the official mark (~0.17 / 0.145 / 0.12 of the
+        // radius). The first pass used roughly double that and the waves read as
+        // three fat bars rather than the logo.
+        var WAVES = [
+          { x1: -0.62, y1: -0.30, cx: 0.01, cy: -0.52, x2: 0.64, y2: -0.19, w: 0.17 },
+          { x1: -0.52, y1: -0.02, cx: 0.01, cy: -0.23, x2: 0.54, y2: 0.10,  w: 0.145 },
+          { x1: -0.42, y1: 0.24,  cx: 0.00, cy: 0.07,  x2: 0.44, y2: 0.35,  w: 0.12 }
+        ];
+        WAVES.forEach(function (w) {
+          spotify.appendChild(svgEl('path', {
+            d: 'M' + (SX + w.x1 * SR) + ' ' + (SY + w.y1 * SR) +
+               ' Q' + (SX + w.cx * SR) + ' ' + (SY + w.cy * SR) +
+               ' ' + (SX + w.x2 * SR) + ' ' + (SY + w.y2 * SR),
+            fill: 'none',
+            'stroke-width': (w.w * SR).toFixed(2),
+            'stroke-linecap': 'round'
+          }, 'tgb-cass-spotify-wave'));
+        });
+        svg.appendChild(spotify);
+
+        // Prev / next, in the bottom band where the two decorative squares used
+        // to sit — centered on x 36 and x 64, the same 14 either side of the
+        // play glyph at x 50, so the transport row reads as one set. Each is a
+        // double triangle in the play button's own fill, plus an invisible
+        // hit rect: the glyph is ~6 units wide, which is only ~9px once the
+        // tape is minimized, far too small to press.
+        function transportButton(cx, dir, label) {
+          var g = svgEl('g', { 'pointer-events': 'bounding-box', 'aria-label': label }, 'tgb-cass-btn tgb-cass-step');
+          g.setAttribute('role', 'button');
+          g.setAttribute('tabindex', '0');
+          // Hit area first so it sits under the glyphs.
+          // CY 51.7 rather than 51: prev/next sit a shade lower than play, so
+          // the round key reads as the centrepiece of the row.
+          var CY = 51.7;
+          var hit = svgEl('rect', { x: cx - 5, y: CY - 4.5, width: '10', height: '9', fill: 'transparent' });
+          g.appendChild(hit);
+          // Black key the arrow sits in — same .tgb-cass-hole black as the tape's
+          // other cutouts. Its own class beats the cream fill inherited from
+          // .tgb-cass-btn, so the box stays black while the glyph lights up.
+          // Deliberately smaller than the play glyph: play is the primary
+          // control, prev/next are secondary keys either side of it.
+          g.appendChild(svgEl('rect', { x: cx - 2.5, y: CY - 1.9, width: '5', height: '3.8', rx: '0.4' }, 'tgb-cass-hole'));
+          var W = 1.5;   // half-width of the pair of triangles
+          var H = 1.2;   // half-height of each triangle
+          for (var t = 0; t < 2; t++) {
+            var tip = cx + dir * (W - t * W);        // outer then inner triangle
+            var back = cx + dir * (-t * W);
+            g.appendChild(svgEl('path', {
+              d: 'M' + tip + ' ' + CY + ' ' + back + ' ' + (CY - H) + ' ' + back + ' ' + (CY + H) + ' z',
+              'stroke-linejoin': 'round'
+            }));
+          }
+          return g;
+        }
+        var prevBtn = transportButton(36, -1, 'Previous track');
+        var nextBtn = transportButton(64, 1, 'Next track');
+        svg.appendChild(prevBtn);
+        svg.appendChild(nextBtn);
+        prevBtn.addEventListener('click', function () { pulseTransport('rewind'); step(-1); });
+        nextBtn.addEventListener('click', function () { pulseTransport('forward'); step(1); });
+        prevBtn.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pulseTransport('rewind'); step(-1); } });
+        nextBtn.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pulseTransport('forward'); step(1); } });
 
         // ruled label lines
         for (var ln = 0; ln < 2; ln++) svg.appendChild(svgEl('line', { x1: '12.5', y1: 12.5 + ln * 5, x2: '87.5', y2: 12.5 + ln * 5 }, 'tgb-cass-line'));
@@ -1198,12 +1363,16 @@
         // three handwritten metadata lines: artist / title / blurb
         var artist = svgEl('text', { x: '50', y: '12' }, 'tgb-cass-text tgb-cass-text--artist');
         var title = svgEl('text', { x: '50', y: '17.4' }, 'tgb-cass-text tgb-cass-text--title');
-        var blurb = svgEl('text', { x: '50', y: '21.4' }, 'tgb-cass-text tgb-cass-text--blurb');
+        // y 20.4, not 21.4: the label stripes start at y 21.5, and at this font
+        // size the descenders of y/g/p drop ~0.95 below the baseline — enough to
+        // hang off the white label onto the stripe band.
+        var blurb = svgEl('text', { x: '50', y: '20.4' }, 'tgb-cass-text tgb-cass-text--blurb');
         svg.appendChild(artist);
         svg.appendChild(title);
         svg.appendChild(blurb);
 
         // Brand signature, centered in the cream band below the tape window.
+        // Filled per city by updateBrandLine (this is only the fallback copy).
         var brand = svgEl('text', { x: '50', y: '41.3' }, 'tgb-cass-text tgb-cass-text--brand');
         brand.textContent = 'The Game Bureau';
         svg.appendChild(brand);
@@ -1222,7 +1391,7 @@
         pause.addEventListener('click', togglePlayback);
         play.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePlayback(); } });
 
-        cass = { svg: svg, leftSpool: leftSpool, rightSpool: rightSpool, play: play, pause: pause, artist: artist, title: title, blurb: blurb, explicit: explicit, art: art, stripes: stripeEls };
+        cass = { svg: svg, leftSpool: leftSpool, rightSpool: rightSpool, play: play, pause: pause, artist: artist, title: title, blurb: blurb, explicit: explicit, art: art, stripes: stripeEls, spotify: spotify, brand: brand };
         return svg;
       }
 
@@ -1251,6 +1420,7 @@
       }
       function showArt(url) {
         state.artUrl = url;
+        saveCassetteSession(true);   // the case on the next page shows this art
         if (!cass || !cass.art) return;
         cass.art.setAttributeNS('http://www.w3.org/1999/xlink', 'href', url);
         cass.art.setAttribute('href', url);
@@ -1291,6 +1461,41 @@
         if (artLightbox) artLightbox.hidden = true;
       }
 
+      // The Spotify mark is the whole notice: while Spotify is serving a
+      // 30-second preview it explains why and sends the visitor to log in;
+      // otherwise it opens the track, which is also the attribution link.
+      var SPOTIFY_LOGIN_URL = 'https://accounts.spotify.com/login';
+      var PREVIEW_COPY = 'Hearing a 30-second preview — log in to Spotify Premium for full songs';
+      var spotifyTrackHref = '';
+
+      function setSpotifyLink(href) {
+        spotifyTrackHref = href || '';
+        updateSpotifyMark();
+      }
+
+      function updateSpotifyMark() {
+        if (!cass || !cass.spotify) return;
+        var XLINK = 'http://www.w3.org/1999/xlink';
+        var d = Number(state.duration) || 0;
+        var preview = d > 0 && d <= PREVIEW_MAX_SECONDS;
+        var href = preview ? SPOTIFY_LOGIN_URL : spotifyTrackHref;
+        var label = preview ? PREVIEW_COPY : 'Open in Spotify';
+        if (spotifyTitle) spotifyTitle.textContent = label;
+        cass.spotify.setAttribute('aria-label', label);
+        // An SVG <a> needs href (SVG2) and the xlink form for older engines.
+        if (href) {
+          cass.spotify.setAttribute('href', href);
+          cass.spotify.setAttributeNS(XLINK, 'xlink:href', href);
+          cass.spotify.classList.remove('is-inert');
+        } else {
+          cass.spotify.removeAttribute('href');
+          cass.spotify.removeAttributeNS(XLINK, 'href');
+          // Hide the green mark only — the black hole stays so the tape keeps
+          // its moulding.
+          cass.spotify.classList.add('is-inert');
+        }
+      }
+
       // Current city as shown on the open cassette (full "City, Region" label).
       function currentCityLabel() {
         return String((state.card && (state.card.getAttribute('data-location')
@@ -1301,13 +1506,47 @@
         return currentCityLabel().split(',')[0].trim();
       }
       // "Suggest a song for the {City} Soundtrack" on the footer button.
+      // The tooltip on the tape's "?" key. Same wording the footer button used
+      // to carry, city and all.
       function updateSuggestLabel() {
-        if (!modal) return;
-        var btn = modal.querySelector('.sx-suggest');
-        if (!btn) return;
+        if (!suggestTitle) return;
         var name = currentCityName();
-        btn.textContent = name ? ('Suggest a song for the ' + name + ' Soundtrack') : 'Suggest a song';
+        suggestTitle.textContent = name
+          ? ('Suggest a song for the ' + name + ' Soundtrack')
+          : 'Suggest a song';
       }
+
+      // Open a pre-filled song suggestion for whichever city is on the tape.
+      function suggestSong() {
+        var city = (state.card && (state.card.getAttribute('data-location')
+          || (state.card.querySelector('.playlist-title') || {}).textContent))
+          || state.pendingCity || '';
+        var subject = 'Song suggestion' + (city ? ' for ' + city : '');
+        var body = 'Suggested song for ' + city + '\n\nSong title:\nArtist:\nWhy it fits the city:\n';
+        window.location.href = 'mailto:soundtrack@thegamebureau.com?subject='
+          + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+      }
+
+      // The soundtrack's own name, as written on its cassette card spine
+      // (e.g. "Songs for Atlanta", "Baltimore Street Sounds").
+      function currentSoundtrackName() {
+        var el = state.card && state.card.querySelector('.playlist-title');
+        return el ? String(el.textContent || '').trim() : '';
+      }
+
+      // Signature under the tape window: "The Game Bureau's {soundtrack}
+      // Cassingle", falling back to the plain wordmark when no tape is loaded.
+      function updateBrandLine() {
+        if (!cass || !cass.brand) return;
+        var name = currentSoundtrackName();
+        fitText(cass.brand, name ? ("The Game Bureau's " + name + ' Cassingle') : 'The Game Bureau', 82);
+      }
+
+      // Spotify's embed serves 30-second previews to signed-out listeners and
+      // the whole track to a signed-in Premium one — nothing here can change
+      // that, but the reported duration tells us which is playing, so the mark
+      // only offers the login when the visitor is actually missing something.
+      var PREVIEW_MAX_SECONDS = 31;
 
       // Shrink an SVG <text> to fit maxWidth (label is ~80 units wide).
       function fitText(el, str, maxWidth) {
@@ -1374,6 +1613,20 @@
         return Array.prototype.slice.call(card.querySelectorAll('.song-link')).map(songFromLink);
       }
 
+      // Fisher-Yates on a copy — songsFor already hands back a fresh array, but
+      // never shuffle a card's stored list in place: reopening a city would keep
+      // re-scrambling the same array and the song list on the card would drift.
+      function shuffled(songs) {
+        var arr = songs.slice();
+        for (var i = arr.length - 1; i > 0; i -= 1) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var swap = arr[i];
+          arr[i] = arr[j];
+          arr[j] = swap;
+        }
+        return arr;
+      }
+
       function firstPlayableIndex(songs) {
         for (var i = 0; i < songs.length; i += 1) {
           if (spotifyUriFromHref(songs[i].href)) return i;
@@ -1397,6 +1650,14 @@
       }
 
       function ensureSpotifyIframeApi(callback) {
+        // The floating case may have loaded the API before the cassette opened
+        // (arriving mid-session, then maximizing). onSpotifyIframeApiReady only
+        // ever fires once, so a second request here would wait forever, no
+        // controller would be built, and the 8s fallback would reveal the raw
+        // Spotify embed on top of the tape. Take the shared object instead.
+        if (!spotifyIframeApi && window.__tgbSpotifyIframeApi) {
+          spotifyIframeApi = window.__tgbSpotifyIframeApi;
+        }
         if (spotifyIframeApi) {
           callback(spotifyIframeApi);
           return;
@@ -1407,6 +1668,10 @@
         var previousReady = window.onSpotifyIframeApiReady;
         window.onSpotifyIframeApiReady = function (IFrameAPI) {
           spotifyIframeApi = IFrameAPI;
+          // Share it with the floating case: the API fires this hook once per
+          // page, so the case cannot load its own copy after we've taken it.
+          window.__tgbSpotifyIframeApi = IFrameAPI;
+          if (window.TgbCassette && window.TgbCassette.setApi) window.TgbCassette.setApi(IFrameAPI);
           if (typeof previousReady === 'function') {
             try { previousReady(IFrameAPI); } catch (error) {}
           }
@@ -1434,6 +1699,8 @@
         }
         if (wrap) wrap.classList.toggle('is-playing', isPlaying);
         if (panel) panel.classList.toggle('is-playing', isPlaying);
+        // Keep the roaming session in step with what the tape is actually doing.
+        saveCassetteSession(false);
       }
 
       // Stamp allow="autoplay" onto the Spotify-built iframe as soon as it lands
@@ -1507,6 +1774,7 @@
           if (typeof d.duration === 'number' && d.duration > 0) {
             state.duration = d.duration / 1000;
             state.position = (Number(d.position) || 0) / 1000;
+            updateSpotifyMark();
             updateSpools(state.position / state.duration);
             if (!d.isPaused) state.maxPos = Math.max(state.maxPos || 0, state.position);
             // Auto-advance: fire when the track reaches its end, or when the
@@ -1611,6 +1879,12 @@
             playerController = controller;
             attachPlayerEvents(controller);
             setPlayerVolume(state.volume / 100);
+            // Restored from another page: drop the needle where the case left
+            // off before asking for audio.
+            if (state.resumeAt > 1) {
+              try { controller.seek(state.resumeAt); } catch (error) {}
+              state.resumeAt = 0;
+            }
             if (state.playing || state.wantAutoplay) window.setTimeout(playSpotifyPlayer, 120);
             state.wantAutoplay = false;
             updatePlaybackUi();
@@ -1732,17 +2006,10 @@
         node.hidden = true;
         node.innerHTML = '' +
           '<div class="sx-panel" role="dialog" aria-modal="true" aria-label="City cassette player">' +
-            '<button class="sx-close" type="button" aria-label="Close cassette">X</button>' +
             '<div class="tgb-cass-stage">' +
-              '<button class="tgb-cass-nav tgb-cass-prev" type="button" aria-label="Previous track">&#9664;&#9664;</button>' +
               '<div class="tgb-cass tgb-cass-mount"></div>' +
-              '<button class="tgb-cass-nav tgb-cass-next" type="button" aria-label="Next track">&#9654;&#9654;</button>' +
               '<div class="sx-player-host" aria-hidden="true"></div>' +
               '<div class="sx-player-host sx-player-host--pre" aria-hidden="true"></div>' +
-            '</div>' +
-            '<div class="sx-foot">' +
-              '<button class="sx-suggest" type="button">Suggest a song for this city</button>' +
-              '<a class="sx-open" target="_blank" rel="noopener">Open in Spotify</a>' +
             '</div>' +
           '</div>';
         document.body.appendChild(node);
@@ -1755,22 +2022,21 @@
         playerHosts = Array.prototype.slice.call(node.querySelectorAll('.sx-player-host'));
         activePlayerHost = playerHosts[0];
 
-        node.querySelector('.sx-close').addEventListener('click', closeModal);
-        node.querySelector('.sx-suggest').addEventListener('click', function () {
-          var city = (state.card && (state.card.getAttribute('data-location')
-            || (state.card.querySelector('.playlist-title') || {}).textContent))
-            || state.pendingCity || '';
-          var subject = 'Song suggestion' + (city ? ' for ' + city : '');
-          var body = 'Suggested song for ' + city + '\n\nSong title:\nArtist:\nWhy it fits the city:\n';
-          window.location.href = 'mailto:soundtrack@thegamebureau.com?subject='
-            + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+        // Backdrop click closes — but only when the gesture BEGINS on the
+        // backdrop too. Without the mousedown check, a press that starts on the
+        // tape and releases off it fires a click whose target is the modal
+        // (the common ancestor of the two), and the player closes under a
+        // gesture the visitor aimed at the cassette.
+        var pressStartedOnBackdrop = false;
+        node.addEventListener('mousedown', function (event) { pressStartedOnBackdrop = (event.target === node); });
+        node.addEventListener('touchstart', function (event) {
+          pressStartedOnBackdrop = (event.target === node);
+        }, { passive: true });
+        node.addEventListener('click', function (event) {
+          if (event.target === node && pressStartedOnBackdrop) closeModal();
+          pressStartedOnBackdrop = false;
         });
-        node.addEventListener('click', function (event) { if (event.target === node) closeModal(); });
 
-        var prevButton = node.querySelector('.tgb-cass-prev');
-        var nextButton = node.querySelector('.tgb-cass-next');
-        prevButton.addEventListener('click', function () { pulseTransport('rewind'); step(-1); });
-        nextButton.addEventListener('click', function () { pulseTransport('forward'); step(1); });
 
         // Drag the tape to seek. Works for mouse + touch; a small horizontal
         // drag maps to a fraction of the track and calls the Spotify seek().
@@ -1786,11 +2052,15 @@
         }
         // Skip drag-seek when starting on the play/pause buttons or the album art
         // (those have their own click actions).
-        var noDrag = function (e) { return e.target.closest('.tgb-cass-btn, .tgb-cass-art'); };
+        var noDrag = function (e) { return e.target.closest('.tgb-cass-btn, .tgb-cass-art, .tgb-cass-spotify, .tgb-cass-suggest'); };
         mount.addEventListener('mousedown', function (e) { if (noDrag(e)) return; dragStart(e.clientX); });
         window.addEventListener('mouseup', function (e) { dragEnd(e.clientX); });
         mount.addEventListener('touchstart', function (e) { if (noDrag(e)) return; dragStart(e.touches[0].clientX); }, { passive: true });
         mount.addEventListener('touchend', function (e) { dragEnd((e.changedTouches[0] || {}).clientX || dragX); });
+
+        // Last write before the page goes away, so the next page resumes at the
+        // real offset rather than the last throttled save.
+        window.addEventListener('pagehide', function () { saveCassetteSession(true); });
 
         document.addEventListener('keydown', function (event) {
           if (node.hidden) return;
@@ -1872,6 +2142,7 @@
         state.duration = 0;
         state.position = 0;
         state.maxPos = 0;
+        updateSpotifyMark();
         state.autoAdvanced = false;
         updateSpools(0);
         renderPlayer(song);
@@ -1882,12 +2153,14 @@
           fitText(cass.title, song.title, song.explicit ? 56 : 80);
           fitText(cass.blurb, song.blurb || '', 82);
           setExplicitBadge(song.explicit);
+          updateBrandLine();
           loadAlbumArt(song, artToken);
         }
         updateSuggestLabel();
-        modal.querySelector('.sx-open').href = song.href;
+        setSpotifyLink(song.href);
         updatePlaybackUi();
         schedulePreloadNext();
+        saveCassetteSession(true);
       }
 
       function openCard(card) {
@@ -1895,7 +2168,8 @@
         modal.querySelector('.sx-panel').classList.remove('sx-empty');
         state.pendingCity = '';
         state.card = card;
-        state.songs = songsFor(card);
+        // Fresh running order every time a tape is opened.
+        state.songs = shuffled(songsFor(card));
         state.index = firstPlayableIndex(state.songs);
         // Attempt autoplay, but let the ACTUAL Spotify events set state.playing —
         // browsers block autoplay-with-sound, so the tape shows "play" until the
@@ -1904,14 +2178,18 @@
         state.wantAutoplay = true;
         cards.forEach(function (item) { item.classList.toggle('is-playing', item === card); });
         modal.hidden = false;
+        // Picking a city is a request for the full cassette, so any floating
+        // case steps aside (its audio stops; this card's is about to start).
+        if (window.TgbCassette) window.TgbCassette.handoff();
+        minimized = false;
         document.body.style.overflow = 'hidden';
         renderModal();
-        modal.querySelector('.sx-close').focus();
       }
 
       function closeModal() {
         if (!modal) return;
         modal.hidden = true;
+        minimized = false;
         closeArtLightbox();
         clearPreload();          // destroy the preloaded (next-track) controller
         destroyActivePlayer();   // destroy the active controller so audio fully stops
@@ -1920,6 +2198,108 @@
         cards.forEach(function (item) { item.classList.remove('is-playing'); });
         document.body.style.overflow = '';
         updatePlaybackUi();
+        // Closing is the one action that ends the roaming session. Until this
+        // happens the case follows the listener onto games / shop / highlights.
+        if (window.TgbCassette) window.TgbCassette.clear();
+      }
+
+      // ── Minimize + the roaming session ────────────────────────────────────
+      // Minimizing hands playback to the SAME floating case the other pages
+      // use, so the minimized player looks identical everywhere. The cost is a
+      // brief gap: the case builds its own Spotify embed, and an iframe cannot
+      // be moved between DOM positions without reloading. The click is a user
+      // gesture, so the new embed is allowed to start itself.
+      function setMinimized(on) {
+        if (!on) { expandFromCase(); return; }
+        if (!modal || modal.hidden) return;
+        saveCassetteSession(true);
+        modal.hidden = true;
+        minimized = true;
+        document.body.style.overflow = '';
+        closeArtLightbox();
+        clearPreload();
+        destroyActivePlayer();
+        state.playing = false;
+        updatePlaybackUi();
+        mountMiniCase();
+      }
+
+      function mountMiniCase() {
+        if (!window.TgbCassette) return;
+        window.TgbCassette.mount({ onExpand: expandFromCase });
+      }
+
+      // Case → full cassette. Takes the case down without ending the session so
+      // the modal can resume at whatever position the case reached.
+      function expandFromCase() {
+        if (!window.TgbCassette) return;
+        var session = window.TgbCassette.handoff();
+        minimized = false;
+        if (!session || !session.city) return;
+        var card = cardForCity(session.city);
+        if (!card) return;
+        openCard(card);
+        var wanted = (session.songs[session.index] || {}).href;
+        for (var i = 0; i < state.songs.length; i++) {
+          if (state.songs[i].href === wanted) { state.index = i; break; }
+        }
+        state.resumeAt = Math.max(0, Number(session.position) || 0);
+        state.wantAutoplay = !!session.playing;
+        renderModal();
+      }
+
+      // Snapshot enough for another page to rebuild this exact moment: the
+      // playlist, where we are in it, and how far into the track.
+      function cassetteSessionPayload() {
+        var mount = modal && modal.querySelector('.tgb-cass-mount');
+        return {
+          songs: state.songs.map(function (song) {
+            // blurb rides along: the case shows the same track explanation the
+            // cassette label carries.
+            return { href: song.href, title: song.title, artist: song.artist, blurb: song.blurb };
+          }),
+          index: state.index,
+          position: state.position || 0,
+          duration: state.duration || 0,
+          playing: !!state.playing,
+          city: currentCityLabel(),
+          accent: (mount && mount.style.getPropertyValue('--tgb-accent').trim()) || '',
+          artUrl: state.artUrl || ''
+        };
+      }
+
+      var sessionSaveAt = 0;
+      function saveCassetteSession(force) {
+        if (!window.TgbCassette || !modal || modal.hidden || !state.songs.length) return;
+        var now = new Date().getTime();
+        if (!force && now - sessionSaveAt < 1000) return;   // playback_update is chatty
+        sessionSaveAt = now;
+        window.TgbCassette.write(cassetteSessionPayload());
+      }
+
+      // Coming back from another page: reopen that city's cassette, minimized,
+      // on the same track and offset the case was showing.
+      // Arriving with a session in flight (from another page, or a reload):
+      // show the floating case, exactly as any other page would. Expanding it
+      // opens the full cassette at the same spot.
+      function restoreCassetteSession() {
+        if (!window.TgbCassette) return;
+        var session = window.TgbCassette.read();
+        if (!session) return;
+        var wantsFull = false;
+        try { wantsFull = new URLSearchParams(window.location.search).get('expand') === '1'; } catch (e) {}
+        if (wantsFull) {
+          // Arrived via the case's maximize button: open the cassette itself and
+          // drop the flag so a reload doesn't keep forcing it open.
+          try {
+            var url = window.location.pathname + window.location.hash;
+            window.history.replaceState(null, '', url);
+          } catch (e) {}
+          expandFromCase();
+          return;
+        }
+        minimized = true;
+        mountMiniCase();
       }
 
       // A track finished on its own → roll on to the next (looping the playlist),
@@ -2185,16 +2565,16 @@
           fitText(cass.title, 'No soundtrack yet', 80);
           fitText(cass.blurb, 'Be the first — suggest a song', 82);
           setExplicitBadge(false);
+          updateBrandLine();
           clearArt();
         }
         updateSuggestLabel();
         var host = modal.querySelector('.sx-player-host');
         host.textContent = '';
-        modal.querySelector('.sx-open').removeAttribute('href');
+        setSpotifyLink('');
         modal.hidden = false;
         document.body.style.overflow = 'hidden';
         updatePlaybackUi();
-        modal.querySelector('.sx-close').focus();
       }
 
       // Entry point for the search + rail: jump straight to the cassette.
@@ -2325,7 +2705,16 @@
           var slug = slugify(tracklist && tracklist.city_slug);
           if (slug) soundtracksBySlug[slug] = tracklist;
         });
+        setSoundHeroTitle(soundtracks.filter(function (tracklist) {
+          return tracklist && tracklist.city_slug && soundtrackTrackCount(tracklist) > 0;
+        }).length);
         return soundtracks;
+      }
+
+      function setSoundHeroTitle(count) {
+        if (!soundHeroTitleEl) return;
+        var n = Math.max(0, Math.round(Number(count) || 0));
+        soundHeroTitleEl.textContent = n ? (n + ' Soundtrack' + (n === 1 ? '' : 's')) : 'Soundtracks';
       }
 
       function setCityEntries(rows) {
@@ -2357,6 +2746,9 @@
           });
         renderSoundGrid(cityEntries);
         setupListenCityPanel();
+        // Cards exist now, so a session carried in from another page can be
+        // reopened against the right city.
+        restoreCassetteSession();
       }
 
       function loadSoundPageData() {

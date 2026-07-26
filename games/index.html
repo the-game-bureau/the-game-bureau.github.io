@@ -97,11 +97,12 @@
        No scrollbar anywhere: the viewport is overflow:hidden, so the strip
        can never give the page a horizontal scrollbar either.
 
-       Colors: this page runs the DARK body.home-page skin, where site-shell.css
-       redefines --paper/--ink/--line/--accent. Everything below is expressed in
-       those vars (plus --card-paper for the tiles), so the panel and its tiles
-       match .selected-games and .game-card above rather than the light paper
-       stock the same vars mean on other public pages. */
+       Colors: everything is expressed in the page's palette vars, never in
+       literal colors, because the skin is a swappable layer — site-shell.css
+       sets a dark body.home-page palette and civic-modernist-pages.css (loaded
+       last) currently remaps the same vars to white/navy. Var-only means the
+       panel and tiles follow .selected-games and .game-card through a skin
+       change instead of stranding a dark slab on a light page. */
     /* min-width/max-width are load-bearing, not defensive: this section is a
        grid item of body.home-page main, so its automatic minimum size would
        otherwise resolve against the max-content width of the marquee track
@@ -113,11 +114,8 @@
       max-width: 100%;
       padding: 24px 28px;
       border: 1px solid var(--line-strong);
-      border-radius: 10px;
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.01)),
-        rgba(11, 16, 24, 0.86);
-      box-shadow: var(--shadow-panel);
+      background: var(--paper-strong);
+      box-shadow: var(--shadow-panel, none);
     }
     .gift-strip-head {
       display: flex;
@@ -131,20 +129,31 @@
     /* Same display face/size as .selected-games-title so the two section
        headings on this page read as a pair. */
     .gift-strip-title {
+      min-width: 0;
       margin: 0;
       color: var(--ink);
-      font-family: "Big Shoulders Display", "Impact", "Arial Narrow", sans-serif;
+      font-family: inherit;   /* the skin owns the display face */
       font-size: 1.55rem;
       font-weight: 600;
       letter-spacing: 0.01em;
       line-height: 1.1;
       text-transform: uppercase;
     }
+    /* The skin may repaint this as a solid button (civic-modernist does, with
+       min-height 42 and a navy fill) but supplies no padding or display, so the
+       label ends up jammed against the box edges. Own those here: inline-flex
+       centres the text vertically inside whatever height the skin sets, and the
+       side padding keeps it off the edges either way. */
     .gift-strip-all {
-      font-family: "IBM Plex Mono", monospace;
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      padding: 0 16px;
+      font-family: inherit;
       font-size: 0.7rem;
       font-weight: 800;
       letter-spacing: 0.14em;
+      line-height: 1;
       text-transform: uppercase;
       color: var(--accent);
       text-decoration: none;
@@ -180,44 +189,34 @@
       .gift-strip-viewport { overflow-x: auto; overscroll-behavior-x: contain; }
     }
 
-    /* Tile treatment mirrors body.home-page .game-card: hairline border, 8px
-       radius, the same top-sheen gradient over --card-paper, same lift. */
+    /* Tile treatment mirrors .game-card as the skin renders it: hairline
+       border on --card-paper, accent border on hover. */
     .gift-strip-item {
       flex: 0 0 176px;
       display: grid;
       grid-template-rows: 148px auto;
       gap: 10px;
       padding: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 8px;
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 42%),
-        var(--card-paper, #161b25);
+      border: 1px solid var(--line, rgba(255, 255, 255, 0.14));
+      background: var(--card-paper, #161b25);
       color: var(--ink);
       text-decoration: none;
-      box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.05) inset,
-        0 16px 34px rgba(0, 0, 0, 0.36);
       transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
     }
     .gift-strip-item:hover,
     .gift-strip-item:focus-visible {
       border-color: var(--accent);
       transform: translateY(-3px);
-      box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.06) inset,
-        0 0 0 2px var(--accent),
-        0 22px 48px rgba(0, 0, 0, 0.42);
+      box-shadow: 0 0 0 2px var(--accent);
       outline: none;
     }
     /* The image well stays white on purpose: retail photography is shot on
-       white, so a dark well would frame every product in a grey halo. */
+       white, so a tinted well would frame every product in a halo. */
     .gift-strip-media {
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      border-radius: 5px;
       background: #ffffff;
     }
     .gift-strip-media img {
@@ -262,7 +261,7 @@
         <div class="hero-grid">
           <div class="hero-story">
             <div class="hero-mode-switch" id="heroModeSwitch" data-mode="fan" role="tablist" aria-label="Browse games by">
-              <span class="hero-mode-label" aria-hidden="true">
+              <span class="hero-mode-label" id="heroModeLabel" aria-hidden="true">
                 VIEW GAMES
               </span>
               <div class="hero-mode-track">
@@ -322,6 +321,11 @@
     <footer class="site-footer" data-site-footer></footer>
     <script src="/assets/site-footer.js"></script>
   </div>
+
+  <!-- Roaming cassette case: if a city soundtrack is playing and was minimized
+       on /sound/, it reappears here (lower right; centered on mobile) and picks
+       the track back up. See assets/mini-cassette.js. -->
+  <script src="/assets/mini-cassette.js" defer></script>
 
   <!-- Admin/session integrations used by Mission Control. -->
   <script src="/mc/js/admin-auth.js"></script>
@@ -1214,6 +1218,14 @@
           if (gameEl) gameEl.textContent = String(gameDisplayed);
           if (cityEl) cityEl.textContent = String(cityDisplayed);
           if (giftEl) giftEl.textContent = String(giftDisplayed);
+          const navSetter = window.TgbNav && (window.TgbNav.setButtonStats || window.TgbNav.setStats);
+          if (typeof navSetter === 'function') {
+            navSetter(
+              gameTarget != null ? gameDisplayed : null,
+              cityTarget != null ? cityDisplayed : null,
+              giftTarget != null ? giftDisplayed : null
+            );
+          }
         }
 
         function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
@@ -1292,6 +1304,11 @@
         updateHeroButtons();
         const cityCount = new Set(liveGames.map(getCity).filter(Boolean)).size;
         statsTicker.setTarget(liveGames.length, cityCount, null);
+        // Same count the ticker uses, so the label can't disagree with it.
+        const modeLabel = document.getElementById('heroModeLabel');
+        if (modeLabel && cityCount > 0) {
+          modeLabel.textContent = 'VIEW GAMES IN ' + cityCount + (cityCount === 1 ? ' CITY' : ' CITIES');
+        }
         renderHeroMetaList();
       }
 

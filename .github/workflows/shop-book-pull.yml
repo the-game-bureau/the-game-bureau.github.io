@@ -1,9 +1,14 @@
-name: Gift Shop nightly book pull
+name: Gift Shop daily book pull
 
-# Nightly at ~03:30 America/Chicago (offset from the 03:00 URL error check so
-# they don't overlap). GitHub cron is UTC with no DST, so we trigger at BOTH
-# 08:30 and 09:30 UTC and let the guard proceed only at 03:30 Central — exactly
-# one fires year-round.
+# Twice daily at ~06:55 and ~18:55 America/Chicago. GitHub cron is UTC with no
+# DST, so each Central run has a summer and winter UTC trigger. The guard below
+# proceeds only during the 06:00 or 18:00 Central HOUR, so exactly two scheduled
+# runs do real work year-round.
+#
+# The guard checks the hour, not the exact minute. Scheduled triggers routinely
+# start late, and a minute-exact test ("0655") skips the whole job on any delay
+# — a green run that silently did nothing. The URL error check gates the same
+# way for the same reason.
 #
 # Each run asks Claude (with web search) for a few books tied to one of our shop
 # cities and inserts them as ARCHIVED, unpublished candidates via
@@ -13,8 +18,10 @@ name: Gift Shop nightly book pull
 
 on:
   schedule:
-    - cron: "30 8 * * *"   # 03:30 CDT (summer)
-    - cron: "30 9 * * *"   # 03:30 CST (winter)
+    - cron: "55 11 * * *"  # 06:55 CDT (summer)
+    - cron: "55 12 * * *"  # 06:55 CST (winter)
+    - cron: "55 23 * * *"  # 18:55 CDT (summer)
+    - cron: "55 0 * * *"   # 18:55 CST (winter)
   workflow_dispatch:
     inputs:
       count:
@@ -35,19 +42,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Proceed only at 03:30 Central (or on manual dispatch)
+      - name: Proceed only at 06:55 or 18:55 Central (or on manual dispatch)
         id: gate
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "go=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          hm=$(TZ='America/Chicago' date +%H%M)
-          echo "Central time: $hm"
-          if [ "$hm" = "0330" ]; then
+          hour=$(TZ='America/Chicago' date +%H)
+          echo "Central hour: $hour"
+          if [ "$hour" = "06" ] || [ "$hour" = "18" ]; then
             echo "go=true" >> "$GITHUB_OUTPUT"
           else
             echo "go=false" >> "$GITHUB_OUTPUT"
-            echo "Not 3:30am Central — skipping this trigger (the other cron handles it)."
+            echo "Not the 6am or 6pm Central hour — skipping this trigger (the paired cron handles it)."
           fi
 
       - name: Checkout
