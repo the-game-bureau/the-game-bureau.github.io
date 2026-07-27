@@ -181,8 +181,12 @@ async function callOpenAI(prompt) {
     }),
   });
   if (!res.ok) {
-    const err = new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 500)}`);
+    const body = await res.text();
+    const err = new Error(`OpenAI ${res.status}: ${body.slice(0, 500)}`);
     err.status = res.status;
+    // insufficient_quota arrives as a 429 but is a billing state, not a rate
+    // limit - retrying it burns two minutes to reach the same answer.
+    if (/insufficient_quota/.test(body)) err.fatal = true;
     throw err;
   }
   return res.json();
@@ -196,7 +200,7 @@ async function callOpenAIWithRetry(prompt) {
       return await callOpenAI(prompt);
     } catch (err) {
       const status = err.status || 0;
-      const retryable = !status || status === 408 || status === 429 || status >= 500;
+      const retryable = !err.fatal && (!status || status === 408 || status === 429 || status >= 500);
       if (!retryable || attempt >= 4) throw err;
       console.log(`OpenAI call failed (${err.message.slice(0, 160)}); retrying in ${delay / 1000}s`);
       await sleep(delay);
@@ -403,7 +407,8 @@ async function generatePayload(newCity, topUp) {
         : await runAnthropicTurn(messages);
       payload = extractJsonObject(text);
     } catch (err) {
-      // Auth / bad-request failures never fix themselves - fail loudly and fast.
+      // Auth / billing / bad-request failures never fix themselves - fail fast.
+      if (err.fatal) throw err;
       if (err.status && err.status < 500 && err.status !== 408 && err.status !== 429) throw err;
       problems = [err.message];
       console.log(`Attempt ${attempt} produced no usable JSON: ${err.message.slice(0, 300)}`);
