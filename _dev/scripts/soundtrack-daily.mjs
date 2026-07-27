@@ -19,7 +19,10 @@ const TOP_UP_OVERRIDE = clean(process.env.SOUNDTRACK_TOP_UP_SLUG);
 const DRY_RUN = /^(1|true|yes)$/i.test(String(process.env.SOUNDTRACK_DRY_RUN || ''));
 
 if (!ANTHROPIC_KEY && !OPENAI_KEY) {
-  console.error('ANTHROPIC_API_KEY or OPENAI_API_KEY is required.');
+  console.error('ANTHROPIC_API_KEY or OPENAI_API_KEY is required, and neither is set.');
+  console.error('In CI this means the repository secret is missing or misnamed. Add it under');
+  console.error('Settings -> Secrets and variables -> ACTIONS (not Codespaces, not Dependabot),');
+  console.error('named exactly ANTHROPIC_API_KEY, on the-game-bureau/the-game-bureau.github.io.');
   process.exit(1);
 }
 
