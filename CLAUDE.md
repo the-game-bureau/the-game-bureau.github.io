@@ -13,6 +13,14 @@ The public page [sound/index.html](sound/index.html) renders city cassette cards
 
 Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-playlists.json`, or CSV-driven build scripts under `sound/`. To add or edit a soundtrack, edit the `soundtracks.json` entry (and add the city to `public.cities` if you want the polished name/badge).
 
+### Daily generation — a Claude Code cloud routine, not CI
+
+New soundtracks are added by a **scheduled Claude Code cloud agent** ("Daily soundtrack generator", `trig_014sqaUyU7557svq9mGA1E4a`, cron `0 15 * * *` UTC), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the alphabetically-first city with no soundtrack plus the most underfilled existing one, verifies Spotify IDs by web search, and commits `sound/soundtracks.json` to `main`.
+
+**Why not GitHub Actions:** it used to be `.github/workflows/soundtrack-daily.yml` + `_dev/scripts/soundtrack-daily.mjs`, both **deleted 2026-07-27**. That path needed a funded Anthropic or OpenAI API key; neither account had credit, so every run failed on a billing error. The routine bills against the Claude subscription instead. Don't recreate the workflow unless an API key gets funded — and if you do, don't leave both running or you'll get two soundtracks a day.
+
+**DST:** cloud cron is UTC with no DST and can't use the two-cron-plus-hour-guard trick, so the run lands at 10 AM Central in summer and 9 AM in winter. That's accepted, not a bug.
+
 ---
 ## Game play tracking (instances / responses / events)
 
