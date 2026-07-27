@@ -119,6 +119,10 @@ function findTopUp(soundtracks, newCitySlug, activeCitySlugs) {
   return { picked: pickRotating(candidates, 17), candidates };
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function callAnthropic(messages) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -129,13 +133,34 @@ async function callAnthropic(messages) {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 12000,
+      max_tokens: 16000,
       tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 25 }],
       messages,
     }),
   });
-  if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 500)}`);
+  if (!res.ok) {
+    const err = new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 500)}`);
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
+}
+
+// Overload/rate-limit/transport blips must not cost the whole day's run.
+async function callAnthropicWithRetry(messages) {
+  let delay = 5000;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await callAnthropic(messages);
+    } catch (err) {
+      const status = err.status || 0;
+      const retryable = !status || status === 408 || status === 429 || status >= 500;
+      if (!retryable || attempt >= 4) throw err;
+      console.log(`Anthropic call failed (${err.message.slice(0, 160)}); retrying in ${delay / 1000}s`);
+      await sleep(delay);
+      delay *= 2;
+    }
+  }
 }
 
 async function callOpenAI(prompt) {
@@ -183,7 +208,7 @@ function extractJsonObject(text) {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-async function askForSoundtracks(newCity, topUp) {
+function buildPrompt(newCity, topUp) {
   const topUpSongs = topUp
     ? validSongs(topUp.tracklist).map((song) => ({
         title: song.title,
@@ -239,18 +264,18 @@ Return ONLY a JSON object with this exact shape:
   }` : 'null'}
 }`;
 
-  if (!ANTHROPIC_KEY && OPENAI_KEY) {
-    return extractJsonObject(extractOpenAIText(await callOpenAI(prompt)));
-  }
+  return prompt;
+}
 
-  let messages = [{ role: 'user', content: prompt }];
+// One model turn, unwinding web-search pause_turn hops. Appends to `messages`
+// so a follow-up correction round keeps the search work it already did.
+async function runAnthropicTurn(messages) {
   for (let i = 0; i < 8; i += 1) {
-    const res = await callAnthropic(messages);
-    if (res.stop_reason === 'pause_turn') {
-      messages.push({ role: 'assistant', content: res.content });
-      continue;
-    }
-    return extractJsonObject(extractText(res.content));
+    const res = await callAnthropicWithRetry(messages);
+    messages.push({ role: 'assistant', content: res.content });
+    if (res.stop_reason === 'pause_turn') continue;
+    if (res.stop_reason === 'max_tokens') throw new Error('Model hit max_tokens before finishing the JSON payload.');
+    return extractText(res.content);
   }
   throw new Error('Claude web search kept pausing without a final answer.');
 }
@@ -307,32 +332,97 @@ function assertMaxTwoArtists(songs, context) {
   }
 }
 
-function validateModelPayload(payload, newCity, topUp) {
+function validateNewSoundtrack(payload, newCity) {
   const newSoundtrack = normalizeTracklist(payload && payload.newSoundtrack);
   if (newSoundtrack.city_slug !== newCity.slug) throw new Error(`newSoundtrack.city_slug must be ${newCity.slug}`);
   if (newSoundtrack.songs.length !== 15) throw new Error(`newSoundtrack must have 15 songs; got ${newSoundtrack.songs.length}`);
   assertSongs(newSoundtrack.songs, `new ${newCity.slug}`);
   assertMaxTwoArtists(newSoundtrack.songs, `new ${newCity.slug}`);
+  return newSoundtrack;
+}
 
-  let additions = [];
-  if (topUp) {
-    if (!payload || !payload.topUp) throw new Error(`topUp payload is required for ${topUp.slug}`);
-    const topUpSlug = slugify(payload.topUp.city_slug);
-    if (topUpSlug !== topUp.slug) throw new Error(`topUp.city_slug must be ${topUp.slug}`);
-    additions = ((Array.isArray(payload.topUp.songs)) ? payload.topUp.songs : []).map(normalizeSong);
-    const needed = 15 - topUp.count;
-    if (additions.length !== needed) throw new Error(`topUp needs ${needed} songs; got ${additions.length}`);
-    assertSongs(additions, `top-up ${topUp.slug}`);
+function validateTopUp(payload, topUp) {
+  if (!payload || !payload.topUp) throw new Error(`topUp payload is required for ${topUp.slug}`);
+  const topUpSlug = slugify(payload.topUp.city_slug);
+  if (topUpSlug !== topUp.slug) throw new Error(`topUp.city_slug must be ${topUp.slug}`);
+  const additions = ((Array.isArray(payload.topUp.songs)) ? payload.topUp.songs : []).map(normalizeSong);
+  const needed = 15 - topUp.count;
+  if (additions.length !== needed) throw new Error(`topUp needs ${needed} songs; got ${additions.length}`);
+  assertSongs(additions, `top-up ${topUp.slug}`);
 
-    const existingKeys = new Set(validSongs(topUp.tracklist).map(songKey));
-    additions.forEach((song) => {
-      const key = songKey(song);
-      if (existingKeys.has(key)) throw new Error(`top-up ${topUp.slug}: duplicate existing title/artist pair ${key}`);
-    });
-    assertMaxTwoArtists([...validSongs(topUp.tracklist), ...additions], `top-up ${topUp.slug}`);
+  const existingKeys = new Set(validSongs(topUp.tracklist).map(songKey));
+  additions.forEach((song) => {
+    const key = songKey(song);
+    if (existingKeys.has(key)) throw new Error(`top-up ${topUp.slug}: duplicate existing title/artist pair ${key}`);
+  });
+  assertMaxTwoArtists([...validSongs(topUp.tracklist), ...additions], `top-up ${topUp.slug}`);
+  return additions;
+}
+
+// Up to 3 rounds: whatever validates is kept, and only the still-failing half is
+// sent back for correction. A rejected top-up no longer costs us the new city.
+async function generatePayload(newCity, topUp) {
+  const prompt = buildPrompt(newCity, topUp);
+  const messages = [{ role: 'user', content: prompt }];
+  const useOpenAI = !ANTHROPIC_KEY && OPENAI_KEY;
+  let openAIPrompt = prompt;
+
+  let newSoundtrack = null;
+  let additions = topUp ? null : [];
+  let problems = [];
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    let payload;
+    try {
+      const text = useOpenAI
+        ? extractOpenAIText(await callOpenAI(openAIPrompt))
+        : await runAnthropicTurn(messages);
+      payload = extractJsonObject(text);
+    } catch (err) {
+      // Auth / bad-request failures never fix themselves - fail loudly and fast.
+      if (err.status && err.status < 500 && err.status !== 408 && err.status !== 429) throw err;
+      problems = [err.message];
+      console.log(`Attempt ${attempt} produced no usable JSON: ${err.message.slice(0, 300)}`);
+      if (attempt === 3) break;
+      const retryNote = 'The previous reply could not be parsed. Reply with ONLY the JSON object described above, nothing else.';
+      if (useOpenAI) openAIPrompt = `${prompt}\n\n${retryNote}`;
+      else messages.push({ role: 'user', content: retryNote });
+      continue;
+    }
+
+    problems = [];
+    if (!newSoundtrack) {
+      try {
+        newSoundtrack = validateNewSoundtrack(payload, newCity);
+      } catch (err) {
+        problems.push(err.message);
+      }
+    }
+    if (topUp && !additions) {
+      try {
+        additions = validateTopUp(payload, topUp);
+      } catch (err) {
+        problems.push(err.message);
+      }
+    }
+    if (!problems.length) break;
+
+    problems.forEach((message) => console.log(`Attempt ${attempt} rejected: ${message}`));
+    if (attempt === 3) break;
+
+    const keep = [
+      newSoundtrack ? `"newSoundtrack" was accepted - repeat it unchanged.` : '',
+      (topUp && additions) ? `"topUp" was accepted - repeat it unchanged.` : '',
+    ].filter(Boolean).join(' ');
+    const fixNote = `That payload was rejected:\n- ${problems.join('\n- ')}\n${keep}\nFix the problems and return ONLY the corrected full JSON object in the same shape.`;
+    if (useOpenAI) openAIPrompt = `${prompt}\n\n${fixNote}`;
+    else messages.push({ role: 'user', content: fixNote });
   }
 
-  return { newSoundtrack, additions };
+  if (!newSoundtrack && !(additions && additions.length)) {
+    throw new Error(`Model produced nothing usable after 3 attempts: ${problems.join('; ')}`);
+  }
+  return { newSoundtrack, additions: additions || [] };
 }
 
 function insertAlphabetically(soundtracks, entry) {
@@ -376,15 +466,17 @@ async function assertNoSoundtrackTable() {
   if (topUp) console.log(`Selected top-up: ${topUp.slug} (${topUp.count} -> 15)`);
   else console.log(`No underfilled soundtrack found among ${candidates.length} candidate(s).`);
 
-  const payload = await askForSoundtracks(newCity, topUp);
-  const { newSoundtrack, additions } = validateModelPayload(payload, newCity, topUp);
+  const { newSoundtrack, additions } = await generatePayload(newCity, topUp);
 
-  insertAlphabetically(soundtracks, newSoundtrack);
+  if (newSoundtrack) insertAlphabetically(soundtracks, newSoundtrack);
+  else console.log(`No usable new soundtrack for ${newCity.slug} this run; keeping the top-up only.`);
   if (topUp && additions.length) topUp.tracklist.songs.push(...additions);
+  else if (topUp) console.log(`No usable top-up for ${topUp.slug} this run.`);
 
-  if (soundtracks.length !== beforeCount + 1) throw new Error('Soundtrack count did not increase by 1.');
-  if (validSongs(newSoundtrack).length !== 15) throw new Error('New soundtrack did not end at 15 songs.');
-  if (topUp && validSongs(topUp.tracklist).length !== 15) throw new Error('Top-up soundtrack did not end at 15 songs.');
+  const expectedCount = beforeCount + (newSoundtrack ? 1 : 0);
+  if (soundtracks.length !== expectedCount) throw new Error('Soundtrack count did not change as expected.');
+  if (newSoundtrack && validSongs(newSoundtrack).length !== 15) throw new Error('New soundtrack did not end at 15 songs.');
+  if (topUp && additions.length && validSongs(topUp.tracklist).length !== 15) throw new Error('Top-up soundtrack did not end at 15 songs.');
 
   const output = JSON.stringify(data, null, 2) + '\n';
   JSON.parse(output);
@@ -394,8 +486,8 @@ async function assertNoSoundtrackTable() {
     await fs.writeFile(ROOT_JSON, output, 'utf8');
   }
 
-  console.log(`Added ${newSoundtrack.city_slug}: ${newSoundtrack.songs.map((song) => song.title).join(' | ')}`);
-  if (topUp) console.log(`Topped up ${topUp.slug}: ${additions.map((song) => song.title).join(' | ')}`);
+  if (newSoundtrack) console.log(`Added ${newSoundtrack.city_slug}: ${newSoundtrack.songs.map((song) => song.title).join(' | ')}`);
+  if (topUp && additions.length) console.log(`Topped up ${topUp.slug}: ${additions.map((song) => song.title).join(' | ')}`);
   console.log(`Done. Soundtrack count: ${beforeCount} -> ${soundtracks.length}`);
 })().catch((err) => {
   console.error('soundtrack-daily failed:', err.message);
