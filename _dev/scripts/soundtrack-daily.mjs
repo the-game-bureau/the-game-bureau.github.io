@@ -20,9 +20,9 @@ const DRY_RUN = /^(1|true|yes)$/i.test(String(process.env.SOUNDTRACK_DRY_RUN || 
 
 if (!ANTHROPIC_KEY && !OPENAI_KEY) {
   console.error('ANTHROPIC_API_KEY or OPENAI_API_KEY is required, and neither is set.');
-  console.error('In CI this means the repository secret is missing or misnamed. Add it under');
-  console.error('Settings -> Secrets and variables -> ACTIONS (not Codespaces, not Dependabot),');
-  console.error('named exactly ANTHROPIC_API_KEY, on the-game-bureau/the-game-bureau.github.io.');
+  console.error('In CI this workflow maps the `gptkey` repository secret to OPENAI_API_KEY.');
+  console.error('If this fires, that secret is missing, renamed, or was added under the wrong tab');
+  console.error('(Settings -> Secrets and variables -> ACTIONS, not Codespaces or Dependabot).');
   process.exit(1);
 }
 
@@ -175,13 +175,34 @@ async function callOpenAI(prompt) {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_output_tokens: 12000,
+      max_output_tokens: 16000,
       tools: [{ type: 'web_search_preview' }],
       input: prompt,
     }),
   });
-  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 500)}`);
+  if (!res.ok) {
+    const err = new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 500)}`);
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
+}
+
+// Same backoff as the Anthropic path - a 429 or 5xx shouldn't cost the day's run.
+async function callOpenAIWithRetry(prompt) {
+  let delay = 5000;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await callOpenAI(prompt);
+    } catch (err) {
+      const status = err.status || 0;
+      const retryable = !status || status === 408 || status === 429 || status >= 500;
+      if (!retryable || attempt >= 4) throw err;
+      console.log(`OpenAI call failed (${err.message.slice(0, 160)}); retrying in ${delay / 1000}s`);
+      await sleep(delay);
+      delay *= 2;
+    }
+  }
 }
 
 function extractText(content) {
@@ -378,7 +399,7 @@ async function generatePayload(newCity, topUp) {
     let payload;
     try {
       const text = useOpenAI
-        ? extractOpenAIText(await callOpenAI(openAIPrompt))
+        ? extractOpenAIText(await callOpenAIWithRetry(openAIPrompt))
         : await runAnthropicTurn(messages);
       payload = extractJsonObject(text);
     } catch (err) {
