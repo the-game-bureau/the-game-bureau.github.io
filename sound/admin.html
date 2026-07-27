@@ -286,6 +286,56 @@
       line-height: 1.5;
     }
 
+    .run-status {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.05);
+    }
+
+    .run-dot {
+      flex: 0 0 auto;
+      width: 9px;
+      height: 9px;
+      margin-top: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .run-status[data-state="ok"] .run-dot {
+      background: #1e7a4b;
+    }
+
+    .run-status[data-state="stale"] .run-dot {
+      background: var(--bic-red);
+    }
+
+    .run-body {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .run-line {
+      color: var(--ink);
+      font-size: 0.92rem;
+      font-weight: 800;
+    }
+
+    .run-sub {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .run-sub a {
+      color: inherit;
+    }
+
     .side-label {
       display: block;
       margin: 0 0 8px;
@@ -513,6 +563,13 @@ Final report:
           <span class="side-label">Automation</span>
           <h2>Daily Routine</h2>
           <p>You don't have to run the prompt by hand. A scheduled Claude Code cloud agent does this every morning: it reads <code>public.cities</code>, takes the next city with no tape plus the emptiest existing tape, researches and verifies each Spotify ID by search, then commits <code>sound/soundtracks.json</code> straight to <code>main</code>. New tapes appear on <a href="/sound/" target="_blank" rel="noopener">/sound/</a> without anyone touching this page.</p>
+          <div class="run-status" id="runStatus" data-state="loading">
+            <span class="run-dot" aria-hidden="true"></span>
+            <div class="run-body">
+              <span class="run-line" id="runWhen">Checking last run&hellip;</span>
+              <span class="run-sub" id="runWhat"></span>
+            </div>
+          </div>
           <ul class="mini-list">
             <li>Runs <b>10 AM CT</b></li>
             <li>Model <b>Opus 5</b></li>
@@ -584,6 +641,81 @@ Final report:
       copyButtons.forEach(function (button) {
         button.addEventListener('click', copyPrompt);
       });
+
+      // Last run of the daily routine. Read from the public GitHub commits API
+      // rather than the routine API: this page is static and unauthenticated,
+      // and the commit is the thing that actually shipped. A run that errored
+      // pushes nothing, so a stale timestamp IS the failure signal - hence the
+      // 26-hour staleness check below.
+      var RUN_FEED = 'https://api.github.com/repos/the-game-bureau/the-game-bureau.github.io/commits'
+        + '?path=sound/soundtracks.json&per_page=1';
+      var STALE_AFTER_HOURS = 26;
+
+      function relativeTime(then, now) {
+        var mins = Math.round((now - then) / 60000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return mins + (mins === 1 ? ' minute ago' : ' minutes ago');
+        var hours = Math.round(mins / 60);
+        if (hours < 24) return hours + (hours === 1 ? ' hour ago' : ' hours ago');
+        var days = Math.round(hours / 24);
+        return days + (days === 1 ? ' day ago' : ' days ago');
+      }
+
+      function describeCommit(message) {
+        var firstLine = String(message || '').split('\n')[0];
+        var cities = firstLine.match(/\(([^)]+)\)\s*$/);
+        if (cities) return cities[1].replace(/\s*\+\s*/, ' + ');
+        return firstLine;
+      }
+
+      async function loadLastRun() {
+        var wrap = document.getElementById('runStatus');
+        var when = document.getElementById('runWhen');
+        var what = document.getElementById('runWhat');
+        if (!wrap || !when || !what) return;
+
+        try {
+          var res = await fetch(RUN_FEED, { headers: { Accept: 'application/vnd.github+json' } });
+          if (!res.ok) throw new Error('GitHub ' + res.status);
+          var commits = await res.json();
+          if (!Array.isArray(commits) || !commits.length) throw new Error('no commits');
+
+          var commit = commits[0];
+          var stamp = new Date(commit.commit && commit.commit.committer && commit.commit.committer.date);
+          var now = new Date();
+          var stale = (now - stamp) / 3600000 > STALE_AFTER_HOURS;
+
+          wrap.dataset.state = stale ? 'stale' : 'ok';
+          when.textContent = 'Last run ' + relativeTime(stamp, now);
+
+          var detail = describeCommit(commit.commit && commit.commit.message);
+          what.textContent = '';
+          what.appendChild(document.createTextNode(
+            stamp.toLocaleString([], {
+              weekday: 'short', month: 'short', day: 'numeric',
+              hour: 'numeric', minute: '2-digit'
+            }) + (detail ? ' — ' + detail : '') + ' '
+          ));
+          var link = document.createElement('a');
+          link.href = commit.html_url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = 'diff';
+          what.appendChild(link);
+
+          if (stale) {
+            what.appendChild(document.createTextNode(
+              ' · no soundtrack change in over a day — check the routine.'
+            ));
+          }
+        } catch (error) {
+          wrap.dataset.state = 'error';
+          when.textContent = 'Last run unavailable';
+          what.textContent = 'Could not reach the GitHub commits API. Open the routine to check directly.';
+        }
+      }
+
+      loadLastRun();
 
       window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
       adminAuth.init();
