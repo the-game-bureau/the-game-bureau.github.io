@@ -294,19 +294,27 @@
   // Decide which map icon to draw. Prefers explicit structured codes on a row
   // (state_code/country_code, or camelCase), and falls back to parsing a
   // "City, State" string. Returns null when there's nothing to show.
+  //
+  // Country wins over state for anywhere outside the US. A non-US city can
+  // carry a perfectly valid subdivision code that collides with a US state:
+  // Amsterdam is Noord-Holland = "NH", which the callers' US_STATE_SHAPES map
+  // resolves to New Hampshire, so the tape rendered a New Hampshire silhouette.
+  // Only US subdivisions get the map-shape treatment; everyone else gets the
+  // country oval. Checked before state, not after, precisely because the state
+  // code is present and wrong-looking in these rows.
   function geoBadge(input) {
     if (input && typeof input === 'object') {
-      var sc = String(input.stateCode || input.state_code || '').toUpperCase();
-      if (sc) return { kind: 'state', value: sc };
       var cc = String(input.countryCode || input.country_code || '').toUpperCase();
       if (cc && cc !== 'USA') return { kind: 'country', value: cc };
+      var sc = String(input.stateCode || input.state_code || '').toUpperCase();
+      if (sc) return { kind: 'state', value: sc };
       // A row that only carries a composed string.
       if (input.city != null || input.label != null) input = input.city || input.label;
       else return null;
     }
     var parsed = parseGeo(input);
-    if (parsed.stateCode) return { kind: 'state', value: parsed.stateCode };
     if (parsed.countryCode && parsed.countryCode !== 'USA') return { kind: 'country', value: parsed.countryCode };
+    if (parsed.stateCode) return { kind: 'state', value: parsed.stateCode };
     return null;
   }
 
