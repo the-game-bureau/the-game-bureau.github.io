@@ -391,6 +391,9 @@
     .field-row--citystate { grid-template-columns: minmax(0, 2fr) minmax(0, 0.8fr); }
 
     .field { display: grid; gap: 5px; }
+    /* A field whose input shares a row with a button (e.g. Name + Translate). */
+    .field-line { display: flex; gap: 6px; align-items: center; }
+    .field-line input { flex: 1; min-width: 0; }
 
     .field label {
       color: var(--muted);
@@ -426,8 +429,6 @@
       line-height: 1.35;
     }
 
-    .w3w-row { display: flex; gap: 6px; align-items: center; }
-    .w3w-row input { flex: 1; min-width: 0; }
 
     .wp-card-body {
       display: grid;
@@ -469,22 +470,6 @@
       white-space: nowrap;
     }
     .wp-map-preview a.wp-sv-btn:hover { background: #f3f4f6; }
-    /* Live what3words readout under the cursor (bottom-left of the map). */
-    .wp-w3w-readout {
-      position: absolute;
-      left: 8px;
-      bottom: 8px;
-      z-index: 650;
-      pointer-events: none;
-      background: rgba(255, 255, 255, 0.92);
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 3px 7px;
-      font: 600 0.78rem/1.2 'IBM Plex Mono', monospace;
-      color: #c23737;
-      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
-    }
-    .wp-w3w-readout[hidden] { display: none; }
     @keyframes wp-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
     .wp-blink { animation: wp-blink 0.45s ease-in-out infinite; }
     .wp-map-empty {
@@ -767,7 +752,6 @@
       </select>
       <select id="filterSelect" title="Filter waypoints by what's missing">
         <option value="">All waypoints</option>
-        <option value="no_w3w">Missing what3words</option>
         <option value="no_address">Missing address</option>
         <option value="no_zip">Missing ZIP</option>
         <option value="no_city">Missing city</option>
@@ -783,7 +767,6 @@
       <button class="btn small primary" id="promptBtn" type="button" title="Find stops for a city — pull them live from OpenStreetMap, or get an AI prompt that returns Supabase SQL">With AI</button>
       <span class="command-bar-divider" aria-hidden="true"></span>
       <span class="command-bar-label">Links</span>
-      <a class="btn small ghost" id="w3wLinkBtn" href="https://developer.what3words.com/public-api" target="_blank" rel="noopener" title="Open the what3words Public API docs in a new tab">W3W ↗</a>
     </div>
 
     <section class="panel">
@@ -843,13 +826,13 @@
     const PK = 'wpid';
     // Columns read from the table. wpid is the identity primary key.
     // waypoints.lat / waypoints.lon were dropped from the table on 2026-07-27.
-    // Coordinates still exist at RUNTIME — geocoded from w3w/address/city and
-    // held on the in-memory row so the map can centre and the what3words grid
-    // can draw — but they are never selected and never written. PostgREST 400s
+    // Coordinates still exist at RUNTIME — geocoded from the address/city and
+    // held on the in-memory row so the map can centre — but they are never
+    // selected and never written. PostgREST 400s
     // on an unknown column, so re-adding them here breaks the whole page load.
-    const WAYPOINT_COLUMNS = ['wpid', 'city', 'state', 'zip', 'address', 'name', 'description', 'w3w'];
+    const WAYPOINT_COLUMNS = ['wpid', 'city', 'state', 'zip', 'address', 'name', 'description'];
     // Editable text fields (everything except the auto-number PK and lat/lon).
-    const EDITABLE_FIELDS = ['name', 'city', 'state', 'zip', 'address', 'description', 'w3w'];
+    const EDITABLE_FIELDS = ['name', 'city', 'state', 'zip', 'address', 'description'];
     // Fields actually persisted on save / used for change detection — the editable
     // text fields plus the stored exact coordinates (lat/lon are not form fields).
     const SAVED_FIELDS = EDITABLE_FIELDS.concat(['lat', 'lon']);
@@ -868,7 +851,7 @@
       rows: [],
       authed: false,
       filter: '',
-      fieldFilter: '',  // dropdown filter: '', 'no_w3w', 'no_address', 'no_zip', 'no_city', 'no_description'
+      fieldFilter: '',  // dropdown filter: '', 'no_address', 'no_zip', 'no_city', 'no_description'
       cityFilter: '',   // lowercased city key; '' means every city
       // The single waypoint currently shown. Exactly one is featured at a time;
       // Back/Next/Random step through the (optionally filtered) set.
@@ -1006,7 +989,6 @@
         address: String(r.address || ''),
         name: String(r.name || ''),
         description: String(r.description || ''),
-        w3w: String(r.w3w || ''),
         // Runtime-only, never round-tripped to the database: filled in by
         // geocoding so the map can centre. Always null straight off a fetch.
         lat: (r.lat == null || r.lat === '') ? null : Number(r.lat),
@@ -1152,14 +1134,8 @@
 
     // --- Interactive map (Leaflet / OpenStreetMap) ---------------------------
     // The preview is a clickable map: click a spot to search nearby. One map
-    // instance at a time, with the what3words 3m grid overlaid when zoomed in.
+    // instance at a time.
     let leafletMap = null;
-    let w3wGridLayer = null;
-    let w3wGridAbort = null;      // in-flight grid request, so we can cancel it
-    let w3wGridTimer = null;      // debounce for pan/zoom grid refreshes
-    let w3wHoverAbort = null;     // in-flight hover convert-to-3wa request
-    let w3wHoverTimer = null;     // debounce for the hover readout
-    const W3W_GRID_MIN_ZOOM = 18; // grid is illegible / too large to fetch below this
 
     async function setupMap(row) {
       if (typeof L === 'undefined') return;
@@ -1168,25 +1144,15 @@
       if (leafletMap) { try { leafletMap.remove(); } catch (error) {} leafletMap = null; }
       // Cancel any pending grid work from the previous map so it can't keep the
       // page in a "loading" (busy/hourglass cursor) state.
-      if (w3wGridTimer) { clearTimeout(w3wGridTimer); w3wGridTimer = null; }
-      if (w3wGridAbort) { try { w3wGridAbort.abort(); } catch (error) {} w3wGridAbort = null; }
-      if (w3wHoverTimer) { clearTimeout(w3wHoverTimer); w3wHoverTimer = null; }
-      if (w3wHoverAbort) { try { w3wHoverAbort.abort(); } catch (error) {} w3wHoverAbort = null; }
       container.innerHTML = '';
 
-      // Center priority: stored coordinates -> what3words -> address -> city/state,
+      // Center priority: stored coordinates -> address -> city/state,
       // else a wide New Orleans view so a blank waypoint is still usable.
       const stale = () => wpList.querySelector('[data-map-preview]') !== container || !container.isConnected;
       let center = null;
 
       // 0) stored exact coordinates — most reliable, no geocoding.
       if (Number.isFinite(row.lat) && Number.isFinite(row.lon)) center = { lat: row.lat, lon: row.lon };
-
-      // 1) what3words (only when the key plan supports words -> coordinates).
-      if (W3W_TO_COORDS) {
-        const words = parseW3W(cleanText(row.w3w));
-        if (words) { try { center = await w3wToPoint(words); } catch (error) {} if (stale()) return; }
-      }
 
       // 2) address (decode coords/Plus Code locally, else geocode it WITH the
       //    city/state/zip so a bare street like "1427 Washington Avenue" doesn't
@@ -1220,7 +1186,7 @@
 
       const has = !!center;
       const view = center || { lat: 29.9584, lon: -90.0644 };
-      // Open located waypoints zoomed in past W3W_GRID_MIN_ZOOM so the what3words grid shows immediately.
+      // Open located waypoints zoomed in.
       const map = L.map(container, { scrollWheelZoom: false, maxZoom: 22 }).setView([view.lat, view.lon], has ? 19 : 12);
       // Satellite (keyless Esri World Imagery) is the default; Streets is a toggle.
       const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -1249,149 +1215,27 @@
         }
       });
       map.addControl(new SvControl());
-      // what3words button: opens this waypoint's exact 3m square on what3words.com.
-      const w3wWords = parseW3W(cleanText(row.w3w));
-      if (w3wWords) {
-        const W3wControl = L.Control.extend({
-          options: { position: 'topleft' },
-          onAdd: function () {
-            const btn = L.DomUtil.create('a', 'leaflet-bar wp-sv-btn');
-            btn.href = '#';
-            btn.textContent = 'what3words';
-            btn.title = 'Open this waypoint’s what3words square (///' + w3wWords + ')';
-            L.DomEvent.on(btn, 'click', L.DomEvent.stop);
-            L.DomEvent.on(btn, 'click', () => {
-              window.open('https://what3words.com/' + encodeURIComponent(w3wWords), '_blank', 'noopener');
-            });
-            return btn;
-          }
-        });
-        map.addControl(new W3wControl());
-      }
-      leafletMap = map;
 
-      // what3words 3m grid overlay — refreshed on pan/zoom (debounced), shown only when close.
-      w3wGridLayer = null;
-      map.on('moveend zoomend', () => {
-        if (w3wGridTimer) clearTimeout(w3wGridTimer);
-        w3wGridTimer = setTimeout(() => updateW3WGrid(map), 250);
-      });
-      updateW3WGrid(map);
-
-      // Live what3words readout: hover the map and the ///words under the cursor
-      // appears (when you pause) — no click, no search.
-      const readout = document.createElement('div');
-      readout.className = 'wp-w3w-readout';
-      readout.hidden = true;
-      container.appendChild(readout);
-      map.on('mousemove', (e) => {
-        if (w3wHoverTimer) clearTimeout(w3wHoverTimer);
-        const latlng = e.latlng;
-        w3wHoverTimer = setTimeout(() => showHoverW3W(map, latlng, readout), 300);
-      });
-      map.on('mouseout', () => { if (w3wHoverTimer) clearTimeout(w3wHoverTimer); readout.hidden = true; });
-
-      map.on('click', async (e) => {
-        const popup = L.popup({ closeButton: false, autoClose: false, closeOnClick: false })
-          .setLatLng(e.latlng).setContent('<span class="wp-blink">Finding…</span>').openOn(map);
-        try {
-          await onMapClick(e.latlng.lat, e.latlng.lng);
-        } finally {
-          map.closePopup(popup);
-        }
-      });
-
-      // Right-click a spot to see its what3words address.
+      // Right-click a spot for Street View / add-a-waypoint actions.
       map.on('contextmenu', (e) => {
         if (e.originalEvent && e.originalEvent.preventDefault) e.originalEvent.preventDefault();
-        showW3WAt(map, e.latlng.lat, e.latlng.lng);
+        showPointActions(map, e.latlng.lat, e.latlng.lng);
       });
       setTimeout(() => { try { map.invalidateSize(); } catch (error) {} }, 0);
     }
 
-    // Overlay the what3words 3m grid (GeoJSON lines) for the current view. Only
-    // fetched when zoomed in enough to be legible (and small enough for the API).
-    async function updateW3WGrid(map) {
-      if (map !== leafletMap) return; // stale map
-      const removeGrid = () => { if (w3wGridLayer) { try { map.removeLayer(w3wGridLayer); } catch (error) {} w3wGridLayer = null; } };
-      if (!W3W_API_KEY || map.getZoom() < W3W_GRID_MIN_ZOOM) { removeGrid(); return; }
-      const b = map.getBounds();
-      const bbox = b.getSouth() + ',' + b.getWest() + ',' + b.getNorth() + ',' + b.getEast();
-      // Cancel any earlier request; cap this one so a slow response can't hang
-      // the page (which shows as a persistent busy/hourglass cursor).
-      if (w3wGridAbort) { try { w3wGridAbort.abort(); } catch (error) {} }
-      const controller = new AbortController();
-      w3wGridAbort = controller;
-      const timer = setTimeout(() => { try { controller.abort(); } catch (error) {} }, 7000);
-      try {
-        const url = 'https://api.what3words.com/v3/grid-section?bounding-box=' + encodeURIComponent(bbox)
-          + '&format=geojson&key=' + encodeURIComponent(W3W_API_KEY);
-        const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok || map !== leafletMap) return;
-        const geo = await res.json();
-        if (!geo || geo.error || map !== leafletMap) return;
-        removeGrid();
-        w3wGridLayer = L.geoJSON(geo, {
-          interactive: false,
-          style: { color: '#c23737', weight: 0.5, opacity: 0.45 }
-        }).addTo(map);
-      } catch (error) {
-        // aborted or network error — leave the grid as-is
-      } finally {
-        clearTimeout(timer);
-        if (w3wGridAbort === controller) w3wGridAbort = null;
-      }
-    }
 
-    // Hover readout: show the what3words address under the cursor (debounced),
-    // without clicking or starting a search.
-    async function showHoverW3W(map, latlng, readout) {
-      if (map !== leafletMap || !W3W_API_KEY) return;
-      if (w3wHoverAbort) { try { w3wHoverAbort.abort(); } catch (error) {} }
-      const controller = new AbortController();
-      w3wHoverAbort = controller;
-      const timer = setTimeout(() => { try { controller.abort(); } catch (error) {} }, 5000);
-      try {
-        const url = 'https://api.what3words.com/v3/convert-to-3wa?coordinates=' + latlng.lat + ',' + latlng.lng
-          + '&key=' + encodeURIComponent(W3W_API_KEY);
-        const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok || map !== leafletMap) return;
-        const data = await res.json();
-        if (!data || !data.words || map !== leafletMap) return;
-        readout.textContent = '///' + data.words;
-        readout.hidden = false;
-      } catch (error) {
-        // aborted or network error — leave the readout as-is
-      } finally {
-        clearTimeout(timer);
-        if (w3wHoverAbort === controller) w3wHoverAbort = null;
-      }
-    }
-
-    // Right-click handler: show the what3words address at a point, with a link
-    // and a button to create a new waypoint there (reverse-geocoded + w3w).
-    async function showW3WAt(map, lat, lon) {
-      if (!W3W_API_KEY) return;
-      const popup = L.popup({ closeButton: true }).setLatLng([lat, lon]).setContent('Looking up what3words…').openOn(map);
-      let words = '';
-      try {
-        const url = 'https://api.what3words.com/v3/convert-to-3wa?coordinates=' + lat + ',' + lon + '&key=' + encodeURIComponent(W3W_API_KEY);
-        const res = await fetch(url);
-        const data = await res.json();
-        words = data && data.words ? data.words : '';
-      } catch (error) {}
+    // Right-click handler: a popup at the clicked point with a Street View link
+    // and a button to create a new waypoint there (reverse-geocoded).
+    async function showPointActions(map, lat, lon) {
+      const popup = L.popup({ closeButton: true }).setLatLng([lat, lon]).setContent('Loading…').openOn(map);
       if (map !== leafletMap) return;
-      if (!words) { popup.setContent('Couldn’t get a what3words address here.'); return; }
-      const href = 'https://w3w.co/' + words;
       const wrap = document.createElement('div');
       wrap.style.display = 'grid';
       wrap.style.gap = '6px';
       wrap.style.justifyItems = 'start';
-      const link = document.createElement('a');
-      link.href = href;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      link.textContent = '///' + words;
+      const link = document.createElement('span');
+      link.textContent = lat.toFixed(6) + ', ' + lon.toFixed(6);
       link.style.fontWeight = '700';
       const streetView = document.createElement('a');
       streetView.href = 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + lat + ',' + lon;
@@ -1415,9 +1259,8 @@
           const place = await res.json();
           if (place && !place.error) await fillFieldsFromPlace(payload, place, point, true);
         } catch (error) {}
-        // The what3words link carries the exact point. The address field stays a
-        // street address or stays empty — never a "lat, lon" string.
-        if (!cleanText(payload.w3w)) payload.w3w = href;
+        // The address field stays a street address or stays empty — never a
+        // "lat, lon" string.
         Object.keys(payload).forEach((k) => { if (!cleanText(payload[k])) delete payload[k]; });
         try { map.closePopup(popup); } catch (error) {}
         await insertWaypointAndGo(payload, null);
@@ -1462,18 +1305,6 @@
       }
     }
 
-    // The Address field accepts: a street address, "lat, lon" coordinates, a
-    // full Google Plus Code, or a what3words reference (///words or a
-    // what3words.com URL). Coordinates and Plus Codes decode locally (keyless);
-    // what3words uses the API key (same one as mc/js/add-w3w.mjs).
-    // NOTE: this key's plan currently allows convert-to-3wa (coords->words) but
-    // NOT convert-to-coordinates (words->coords), so pasted ///words will fail
-    // with QuotaExceeded until the plan is upgraded — coords/Plus Code/address
-    // all still work.
-    const W3W_API_KEY = 'CSNL2XHT';
-    // Words -> coordinates is not in this key's plan, so don't waste a (failing)
-    // call centering the map from a what3words address. Flip to true if upgraded.
-    const W3W_TO_COORDS = false;
 
     function parseLatLon(text) {
       const m = cleanText(text).match(/^\s*(-?\d{1,3}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
@@ -1514,52 +1345,12 @@
       return { lat: parseFloat(lat.toFixed(6)), lon: parseFloat(lon.toFixed(6)) };
     }
 
-    // Extract "word.word.word" from a what3words URL, ///prefix, or bare triple.
-    function parseW3W(text) {
-      const t = cleanText(text);
-      const url = t.match(/^(?:\/\/\/|https?:\/\/(?:www\.)?(?:what3words\.com|w3w\.co|w3w\.com)\/)([^\/?#\s]+)/i);
-      const words = url ? url[1] : t;
-      return /^[^.\s\/]+\.[^.\s\/]+\.[^.\s\/]+$/.test(words) ? words : null;
-    }
-
-    async function w3wToPoint(words) {
-      if (!W3W_API_KEY || !words) return null;
-      try {
-        const url = 'https://api.what3words.com/v3/convert-to-coordinates?words=' + encodeURIComponent(words) + '&key=' + encodeURIComponent(W3W_API_KEY);
-        const res = await fetch(url);
-        if (!res.ok) return null;
-        const data = await res.json();
-        const c = data && data.coordinates;
-        return c && Number.isFinite(c.lat) && Number.isFinite(c.lng) ? { lat: c.lat, lon: c.lng } : null;
-      } catch (error) { return null; }
-    }
-
-    // Point → what3words address (///word.word.word). This key's plan allows
-    // convert-to-3wa (coords -> words), so Fill can generate/store a w3w address.
-    async function pointToW3W(lat, lon) {
-      if (!W3W_API_KEY || !Number.isFinite(lat) || !Number.isFinite(lon)) return '';
-      try {
-        const url = 'https://api.what3words.com/v3/convert-to-3wa?coordinates=' + lat + ',' + lon + '&key=' + encodeURIComponent(W3W_API_KEY);
-        const res = await fetch(url);
-        if (!res.ok) return '';
-        const data = await res.json();
-        return data && data.words ? 'https://w3w.co/' + data.words : '';
-      } catch (error) { return ''; }
-    }
-
-    // Build a what3words URL from any w3w form (URL, ///, or bare words).
-    function w3wHref(value) {
-      const words = parseW3W(value);
-      return words ? 'https://w3w.co/' + words : '';
-    }
-
     // Coordinates or Plus Code → a precise point, locally (no network).
     function addressToPoint(text) {
       return parseLatLon(text) || decodePlusCode(text) || null;
     }
 
     // Resolve the Address field to a point: coordinates or a Plus Code, locally.
-    // (what3words lives in its own field — it is not an address-field option.)
     function resolveAddressPoint(text) {
       return addressToPoint(text);
     }
@@ -1622,14 +1413,12 @@
     }
 
     // A precise point from the most authoritative filled field: the Address
-    // (coords / Plus Code / what3words) or the dedicated what3words field.
+    // (coords / Plus Code).
     async function bestPoint(row) {
       // Stored exact coordinates win — no geocoding needed.
       if (Number.isFinite(row.lat) && Number.isFinite(row.lon)) return { lat: row.lat, lon: row.lon };
       let pt = await resolveAddressPoint(cleanText(row.address));
       if (pt) return pt;
-      const words = parseW3W(cleanText(row.w3w));
-      if (words) { pt = await w3wToPoint(words); if (pt) return pt; }
       return null;
     }
 
@@ -1661,23 +1450,20 @@
       // reverse geocode has no street, leave it blank so the "Missing address"
       // filter finds it. It used to fall back to a "lat, lon" string, which put
       // coordinates in a text field nothing could parse, geocode, or show a
-      // player. The precise point survives as the what3words link.
       const streetAddress = [cleanText(addr.house_number), cleanText(addr.road)].filter(Boolean).join(' ');
       const address = streetAddress;
 
       if (overwrite) {
         // Clear-then-fill: replace every field with the clicked location.
         const description = cleanText(await resolveDescription(place, addr, { name: name }));
-        const w3w = cleanText(await pointToW3W(lat, lon));
         row.name = name;
         row.city = city;
         row.state = state;
         row.zip = zip;
         row.address = address;
         row.description = description;
-        row.w3w = w3w;
         if (hasCoords) { row.lat = round6(lat); row.lon = round6(lon); }
-        return ['name', 'city', 'state', 'zip', 'address', 'description', 'w3w'];
+        return ['name', 'city', 'state', 'zip', 'address', 'description'];
       }
 
       // Fill blanks only — keep anything already entered.
@@ -1695,10 +1481,6 @@
         const desc = await resolveDescription(place, addr, row);
         if (desc) { row.description = desc; filled.push('description'); }
       }
-      if (!cleanText(row.w3w)) {
-        const words = await pointToW3W(lat, lon);
-        if (words) { row.w3w = words; filled.push('w3w'); }
-      }
       // Store the exact coordinates when we don't already have them.
       if (hasCoords && !(Number.isFinite(row.lat) && Number.isFinite(row.lon))) {
         row.lat = round6(lat);
@@ -1708,13 +1490,13 @@
     }
 
     // Use EVERY filled field to locate the place, then fill ONLY the blank
-    // fields (name, city, state, address, description, w3w). Existing values are
-    // kept. A precise point (coords / Plus Code / what3words) takes priority;
+    // fields (name, city, state, address, description). Existing values are
+    // kept. A precise point (coords / Plus Code) takes priority;
     // otherwise the richest text query is tried first, degrading until one hits.
     async function fillWaypoint(wpid, button) {
       const row = findRow(wpid);
       if (!row) return;
-      const geoFields = ['name', 'city', 'state', 'zip', 'address', 'description', 'w3w'];
+      const geoFields = ['name', 'city', 'state', 'zip', 'address', 'description'];
       const blanks = geoFields.filter((field) => !cleanText(row[field]));
       if (!blanks.length) {
         flashButton(button, 'All set');
@@ -1732,7 +1514,7 @@
       try {
         let place;
         if (point) {
-          // A precise point (coordinates / Plus Code / what3words) wins — reverse-geocode it.
+          // A precise point (coordinates / Plus Code) wins — reverse-geocode it.
           const url = 'https://nominatim.openstreetmap.org/reverse?lat=' + point.lat + '&lon=' + point.lon
             + '&format=jsonv2&addressdetails=1&extratags=1&namedetails=1';
           const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
@@ -2067,7 +1849,7 @@ as $$
 declare
   v_entry jsonb;
   v_name text; v_city text; v_state text; v_zip text; v_address text;
-  v_description text; v_w3w text; v_lat double precision; v_lon double precision;
+  v_description text;
   v_wpid public.waypoints.wpid%type;
   v_existing public.waypoints.wpid%type;
 begin
@@ -2082,9 +1864,6 @@ begin
     v_zip := nullif(btrim(v_entry->>'zip'), '');
     v_address := nullif(btrim(v_entry->>'address'), '');
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
-    v_w3w := nullif(btrim(v_entry->>'w3w'), '');
-    begin v_lat := nullif(btrim(coalesce(v_entry->>'lat', '')), '')::double precision; exception when others then v_lat := null; end;
-    begin v_lon := nullif(btrim(coalesce(v_entry->>'lon', '')), '')::double precision; exception when others then v_lon := null; end;
     if v_name is null then
       return query select 'skipped'::text, null::text, null::text, 'missing name'::text; continue;
     end if;
@@ -2095,8 +1874,8 @@ begin
     if v_existing is not null then
       return query select 'skipped'::text, v_name, v_existing::text, 'existing name + city'::text; continue;
     end if;
-    insert into public.waypoints (name, city, state, zip, address, description, w3w, lat, lon)
-    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_w3w, v_lat, v_lon)
+    insert into public.waypoints (name, city, state, zip, address, description)
+    values (v_name, v_city, v_state, v_zip, v_address, v_description)
     returning wpid into v_wpid;
     return query select 'inserted'::text, v_name, v_wpid::text, null::text;
   end loop;
@@ -2142,10 +1921,7 @@ $$;`.trim();
         '    "state": "LA",',
         '    "zip": "70116",',
         '    "address": "800 Decatur St, New Orleans, LA 70116",',
-        '    "description": "One original tour-guide sentence: a fact or what makes it a stop.",',
-        '    "w3w": null,',
-        '    "lat": 29.957444,',
-        '    "lon": -90.061722',
+        '    "description": "One original tour-guide sentence: a fact or what makes it a stop."',
         '  }',
         ']',
         '$tgb$::jsonb);'
@@ -2173,8 +1949,6 @@ $$;`.trim();
         '- zip: the postal/ZIP code as a string, or null.',
         '- address: the most specific street address you can (raw string), or null.',
         '- description: ONE original, concise tour-guide sentence (a fact, or what makes it a stop). No marketing copy.',
-        '- w3w: a what3words address as a full https://w3w.co/word.word.word URL only if you are confident, otherwise null. Do not guess.',
-        '- lat, lon: the real decimal-degree coordinates as numbers, or null if unsure. Do not fabricate.',
         '- Do NOT include a wpid or id — the database assigns it.',
         '- Do not include any stop already in the "existing" list below. Avoid duplicate names.',
         '- The JSON array may contain 1 to ' + n + ' objects. Do not pad with unverifiable entries.',
@@ -2629,7 +2403,6 @@ $$;`.trim();
       grid.appendChild(draftField(manualDraft, 'address', 'Address', {
         hint: 'After adding, open the card and hit Fill to geocode and complete blanks.'
       }).wrap);
-      grid.appendChild(draftField(manualDraft, 'w3w', 'what3words').wrap);
       grid.appendChild(draftField(manualDraft, 'description', 'Description', { multiline: true }).wrap);
 
       body.appendChild(grid);
@@ -2667,7 +2440,6 @@ $$;`.trim();
         state: manualDraft.state || null,
         zip: manualDraft.zip || null,
         address: manualDraft.address || null,
-        w3w: manualDraft.w3w || null,
         description: manualDraft.description || null
       };
       closeManualDialog();
@@ -2951,13 +2723,6 @@ $$;`.trim();
           // added moments ago in this same batch (pushed into state.rows below).
           if (findSimilarExisting(items[i])) { skipped++; continue; }
           const it = items[i];
-          // Pin the location: what3words if we can get it, else lat,lon in address.
-          if (Number.isFinite(it.lat) && Number.isFinite(it.lon)) {
-            let words = '';
-            try { words = await pointToW3W(it.lat, it.lon); } catch (error) {}
-            if (words) it.w3w = words;
-            else if (!cleanText(it.address)) it.address = it.lat + ', ' + it.lon;
-          }
           try {
             const fresh = await postWaypoint(it);
             if (fresh && fresh.wpid) state.rows.push(fresh);
@@ -3006,7 +2771,7 @@ $$;`.trim();
     // Explicit all-null payload for a blank waypoint. (An empty {} can come back
     // with no representation, leaving us without the new row's wpid to jump to.)
     function blankWaypoint() {
-      return { name: null, city: null, state: null, zip: null, address: null, description: null, w3w: null };
+      return { name: null, city: null, state: null, zip: null, address: null, description: null };
     }
 
     async function insertWaypointAndGo(payload, button) {
@@ -3070,14 +2835,12 @@ $$;`.trim();
       const town = cleanText(t['addr:city']) || cleanText(fallback && fallback.city);
       const st = cleanText(t['addr:state']) || cleanText(fallback && fallback.state);
       const desc = poi.cat ? poi.name + ', a ' + poi.cat + (town ? ' in ' + town : '') + '.' : '';
-      const w3w = await pointToW3W(poi.lat, poi.lon);
       await insertWaypointAndGo({
         name: poi.name || null,
         city: town || null,
         state: st || null,
         address: street || null,
-        description: desc || null,
-        w3w: w3w || null
+        description: desc || null
       }, button);
     }
 
@@ -3330,7 +3093,7 @@ $$;`.trim();
       const lat = parseFloat(place.lat);
       const lon = parseFloat(place.lon);
       const point = (Number.isFinite(lat) && Number.isFinite(lon)) ? { lat, lon } : null;
-      const draft = { wpid: '', name: '', city: '', state: '', address: '', description: '', w3w: '' };
+      const draft = { wpid: '', name: '', city: '', state: '', address: '', description: '' };
       if (button) { button.disabled = true; button.textContent = 'Adding…'; }
       await fillFieldsFromPlace(draft, place, point, true);
       await insertWaypointAndGo({
@@ -3338,8 +3101,7 @@ $$;`.trim();
         city: draft.city || null,
         state: draft.state || null,
         address: draft.address || null,
-        description: draft.description || null,
-        w3w: draft.w3w || null
+        description: draft.description || null
       }, button);
     }
 
@@ -3391,7 +3153,7 @@ $$;`.trim();
 
     // --- Filtering / ordering / grouping (by city) ---------------------------
     function searchHaystack(row) {
-      return [row.wpid, row.name, row.city, row.state, row.address, row.description, row.w3w].join(' ').toLowerCase();
+      return [row.wpid, row.name, row.city, row.state, row.address, row.description].join(' ').toLowerCase();
     }
 
     // The filtered + ordered set the user navigates through (one at a time).
@@ -3427,7 +3189,6 @@ $$;`.trim();
     // Dropdown "missing X" filter.
     function matchesFieldFilter(row) {
       switch (state.fieldFilter) {
-        case 'no_w3w': return !cleanText(row.w3w);
         case 'no_address': return !cleanText(row.address);
         case 'no_zip': return !cleanText(row.zip);
         case 'no_city': return !cleanText(row.city);
@@ -3703,7 +3464,6 @@ $$;`.trim();
       cityState.append(renderCityStateField(row), renderTextField(row, 'zip', 'ZIP'));
       fields.appendChild(cityState);
       fields.appendChild(renderTextField(row, 'address', 'Address'));
-      fields.appendChild(renderW3WField(row));
       fields.appendChild(renderTextField(row, 'description', 'Description', null, true));
 
       const preview = document.createElement('div');
@@ -3711,7 +3471,7 @@ $$;`.trim();
       preview.setAttribute('data-map-preview', '');
       const mapCap = document.createElement('div');
       mapCap.className = 'wp-map-cap';
-      mapCap.textContent = 'Hover for what3words · click to search near · right-click to add a waypoint.';
+      mapCap.textContent = 'Click to search near · right-click to add a waypoint.';
       const mapWrap = document.createElement('div');
       mapWrap.className = 'wp-map-wrap';
       mapWrap.append(preview, mapCap);
@@ -3734,42 +3494,6 @@ $$;`.trim();
       return card;
     }
 
-    // what3words field with an "Open in browser" button beside the box.
-    function renderW3WField(row) {
-      const wrap = document.createElement('div');
-      wrap.className = 'field';
-      const id = 'wp-w3w-' + row.wpid;
-      const label = document.createElement('label');
-      label.setAttribute('for', id);
-      label.textContent = 'what3words';
-      const line = document.createElement('div');
-      line.className = 'w3w-row';
-      const input = document.createElement('input');
-      input.id = id;
-      input.type = 'text';
-      input.dataset.field = 'w3w';
-      input.value = row.w3w || '';
-      input.placeholder = 'https://w3w.co/word.word.word';
-      const openBtn = document.createElement('button');
-      openBtn.type = 'button';
-      openBtn.className = 'btn small';
-      openBtn.textContent = 'Open in browser';
-      openBtn.addEventListener('click', () => {
-        const href = w3wHref(input.value);
-        if (href) window.open(href, '_blank', 'noopener');
-      });
-      const sync = () => {
-        const href = w3wHref(input.value);
-        openBtn.disabled = !href;
-        openBtn.title = href ? ('Open ' + href) : 'Enter a what3words address first';
-      };
-      input.addEventListener('input', () => { updateField(row.wpid, 'w3w', input.value); sync(); });
-      sync();
-      line.append(input, openBtn);
-      wrap.append(label, line);
-      return wrap;
-    }
-
     // Name field with a Translate button: adds an English translation in
     // parentheses for foreign names, e.g. "Museo del Prado (Prado Museum)".
     function renderNameField(row) {
@@ -3780,7 +3504,7 @@ $$;`.trim();
       label.setAttribute('for', id);
       label.textContent = 'Name';
       const line = document.createElement('div');
-      line.className = 'w3w-row';
+      line.className = 'field-line';
       const input = document.createElement('input');
       input.id = id;
       input.type = 'text';

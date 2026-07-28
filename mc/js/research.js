@@ -914,9 +914,7 @@
     }
     if (typeof val === 'object') {
       const rows = orderedEntries(val).map(([k, v]) => {
-        const vHtml = (k === 'w3w' && typeof v === 'string' && v)
-          ? '<a class="v v-link" href="https://what3words.com/' + esc(v) + '" target="_blank" rel="noopener">///' + esc(v) + '</a>'
-          : renderNode(v);
+        const vHtml = renderNode(v);
         return '<div class="kv"><div class="k">' + esc(k) + '</div><div class="v-wrap">' + vHtml + '</div></div>';
       }).join('');
       return '<div class="node-obj">' + rows + '</div>';

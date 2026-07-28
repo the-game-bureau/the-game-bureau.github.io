@@ -29,9 +29,6 @@ declare
   v_zip text;
   v_address text;
   v_description text;
-  v_w3w text;
-  v_lat double precision;
-  v_lon double precision;
   v_wpid public.waypoints.wpid%type;
   v_existing public.waypoints.wpid%type;
 begin
@@ -47,18 +44,6 @@ begin
     v_zip := nullif(btrim(v_entry->>'zip'), '');
     v_address := nullif(btrim(v_entry->>'address'), '');
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
-    v_w3w := nullif(btrim(v_entry->>'w3w'), '');
-
-    -- lat/lon may arrive as a JSON number or a string; tolerate both, and null
-    -- out anything that doesn't parse rather than failing the whole batch.
-    begin
-      v_lat := nullif(btrim(coalesce(v_entry->>'lat', '')), '')::double precision;
-    exception when others then v_lat := null;
-    end;
-    begin
-      v_lon := nullif(btrim(coalesce(v_entry->>'lon', '')), '')::double precision;
-    exception when others then v_lon := null;
-    end;
 
     if v_name is null then
       return query select 'skipped'::text, null::text, null::text, 'missing name'::text;
@@ -78,8 +63,8 @@ begin
       continue;
     end if;
 
-    insert into public.waypoints (name, city, state, zip, address, description, w3w, lat, lon)
-    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_w3w, v_lat, v_lon)
+    insert into public.waypoints (name, city, state, zip, address, description)
+    values (v_name, v_city, v_state, v_zip, v_address, v_description)
     returning wpid into v_wpid;
 
     return query select 'inserted'::text, v_name, v_wpid::text, null::text;

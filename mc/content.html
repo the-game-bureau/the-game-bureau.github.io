@@ -13,8 +13,7 @@
        First load falls back to places.jsonl or legacy stops.jsonl + routes.jsonl, so the next
        Save migrates them into atlas.jsonl.
        Wears the shared /mc/ chrome (js/admin-shell.css + admin nav/sign-in).
-       NEEDS: a Google Maps JS API key (script tag at the bottom) and a
-       what3words API key (W3W_KEY constant). -->
+       NEEDS: a Google Maps JS API key (script tag at the bottom). -->
   <title>CONTENT | THE GAME BUREAU</title>
   <link rel="icon" href="../assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -223,8 +222,7 @@
         <label>On tours<input id="f_on_tours" type="text"></label>
         <label>Source title<input id="f_src_title" type="text"></label>
         <label>Source URL<input id="f_src_url" type="text"></label>
-        <label>what3words (from the selected square)<input id="f_w3w" type="text" readonly></label>
-        <label class="add-check"><input id="f_start_candidate" type="checkbox"> Start candidate</label>
+                <label class="add-check"><input id="f_start_candidate" type="checkbox"> Start candidate</label>
         <label class="add-check"><input id="f_end_candidate" type="checkbox"> End candidate</label>
       </div>
       <div class="add-actions">
@@ -274,16 +272,6 @@
     // Silence the harmless google.maps.Marker deprecation notice.
     const _warn = console.warn.bind(console);
     console.warn = (...a) => { if (typeof a[0] === 'string' && a[0].includes('google.maps.Marker is deprecated')) return; _warn(...a); };
-
-    // ── what3words v3 API. Replace CSNL2XHT with your real key. ──
-    const W3W_KEY = 'CSNL2XHT';
-    async function coordsToW3W(lat, lng) {
-      try {
-        const r = await fetch('https://api.what3words.com/v3/convert-to-3wa?coordinates=' + lat + ',' + lng + '&key=' + W3W_KEY);
-        if (!r.ok) return null;
-        return (await r.json()).words || null;
-      } catch (_) { return null; }
-    }
 
     // ── Geocoding via Google Maps (browser, uses your Maps key — fast, no rate-limit blocks) ──
     let geocoder = null;
@@ -335,7 +323,7 @@
     function placeSearchText(place) {
       return normalizeSearchText([
         place.name, place.city, place.address, place.category, place.description, place.on_tours,
-        place.w3w, place.start_candidate, place.end_candidate,
+        place.start_candidate, place.end_candidate,
         place.source && place.source.title, place.source && place.source.url
       ].filter(Boolean).join(' '));
     }
@@ -343,7 +331,7 @@
     function routeSearchText(savedRoute) {
       return normalizeSearchText([
         savedRoute.name, savedRoute.city, savedRoute.route_id,
-        ...routeStops(savedRoute).flatMap((point) => [point.name, point.w3w])
+        ...routeStops(savedRoute).flatMap((point) => [point.name])
       ].filter(Boolean).join(' '));
     }
 
@@ -354,10 +342,9 @@
     function placeBelongsToMatchingRoute(place) {
       if (!searchQuery) return false;
       const name = normalizeSearchText(place.name);
-      const w3w = normalizeSearchText(place.w3w);
       return routes.some((savedRoute) => routeMatchesSearch(savedRoute) && routeStops(savedRoute).some((point) => (
         (!point.turn && name && normalizeSearchText(point.name) === name)
-        || (w3w && normalizeSearchText(point.w3w) === w3w)
+        || false
       )));
     }
 
@@ -380,8 +367,6 @@
           (s.start_candidate === 'yes' ? '<span style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#1d6b3a;background:#e3f3e8;border-radius:4px;padding:1px 5px;margin-right:4px">Start</span>' : '') +
           (s.end_candidate === 'yes' ? '<span style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#8a3b1c;background:#f6e6dc;border-radius:4px;padding:1px 5px">End</span>' : '') +
           '</div>' : '') +
-        (s.w3w ? '<div style="color:#666">///<a href="https://what3words.com/' + esc(s.w3w) + '" target="_blank" rel="noopener">' + esc(s.w3w) + '</a></div>'
-               : '<div style="color:#c0392b">no w3w yet</div><div style="margin-top:4px"><button id="popupAddW3w" type="button" style="font:inherit;font-size:12px;font-weight:700;color:#0a7a5f;background:#fff;border:1px solid rgba(10,122,95,.4);border-radius:6px;padding:3px 9px;cursor:pointer">Look up ///words</button></div>') +
         (bad ? '<div style="color:#c0392b;font-weight:600">⚠ far from the other ' + esc(s.city) + ' places</div>' : '') +
         '<div style="margin-top:6px"><button id="popupEdit" type="button" style="font:inherit;font-size:12px;font-weight:700;color:#2d4880;background:#fff;border:1px solid rgba(45,72,128,.35);border-radius:6px;padding:3px 9px;cursor:pointer">Edit place</button></div>' +
         '</div>';
@@ -395,22 +380,6 @@
       google.maps.event.addListenerOnce(info, 'domready', () => {
         const editBtn = document.getElementById('popupEdit');
         if (editBtn) editBtn.addEventListener('click', () => { info.close(); openEditForm(s); });
-
-        const w3wBtn = document.getElementById('popupAddW3w');
-        if (w3wBtn) w3wBtn.addEventListener('click', async () => {
-          const ll = s._ll || (typeof s.lat === 'number' ? { lat: s.lat, lng: s.lng } : null);
-          if (!ll) { w3wBtn.textContent = 'No coordinates for this place'; return; }
-          w3wBtn.disabled = true; w3wBtn.textContent = 'Looking up…';
-          const w = await coordsToW3W(ll.lat, ll.lng);
-          if (w) {
-            s.w3w = w;
-            openPopup(s, bad);                 // re-render with the new w3w (keeps the bubble open)
-            const saved = await saveAtlas();
-            stateEl.textContent = 'Added ///' + w + ' to “' + s.name + '” · ' + (saved ? 'saved.' : 'not saved (no file linked).');
-          } else {
-            w3wBtn.disabled = false; w3wBtn.textContent = 'Retry ///words lookup';
-          }
-        });
       });
     }
 
@@ -439,13 +408,12 @@
       return ok;
     }
 
-    // Place a place's pin: stored lat/lng (instant) → w3w → address. The W3W API
-    // can't be the render source (convert-to-coordinates is a paid endpoint), so
-    // we cache any resolved coords back onto the place as lat/lng.
+    // Place a place's pin: stored lat/lng (instant), else geocode the address
+    // and cache the resolved coords back onto the place as lat/lng.
     async function resolvePlace(s) {
       if (s._ll) return;
       if (typeof s.lat === 'number' && typeof s.lng === 'number') { s._ll = { lat: s.lat, lng: s.lng }; return; }
-      const c = await geocodePlace(s);   // Google geocode (w3w→coords is a paid endpoint, not used)
+      const c = await geocodePlace(s);   // Google geocode
       if (c) { s._ll = c; s.lat = c.lat; s.lng = c.lng; }
     }
 
@@ -485,7 +453,7 @@
       });
       if (markers.length) {
         map.fitBounds(bounds, 60);
-        // On first load, zoom in to the what3words grid level so the grid shows.
+        // On first load, zoom in close.
         if (!didInitialZoom) {
           didInitialZoom = true;
           google.maps.event.addListenerOnce(map, 'idle', () => { if (map.getZoom() < 18) map.setZoom(18); });
@@ -613,55 +581,35 @@
       render(start);
     }
 
-    // ── what3words 3 m grid overlay (Grid Section API), z18+ ──
-    async function updateGrid() {
-      if (!map) return;
-      const clear = () => map.data.forEach((f) => map.data.remove(f));
-      if (map.getZoom() < 18) { clear(); return; }
-      const b = map.getBounds(); if (!b) return;
-      const ne = b.getNorthEast(), sw = b.getSouthWest();
-      try {
-        const r = await fetch('https://api.what3words.com/v3/grid-section?bounding-box=' +
-          sw.lat() + ',' + sw.lng() + ',' + ne.lat() + ',' + ne.lng() + '&format=geojson&key=' + W3W_KEY);
-        if (!r.ok) { clear(); return; }
-        const geo = await r.json();
-        clear();
-        map.data.addGeoJson(geo);
-        map.data.setStyle({ strokeColor: '#ffffff', strokeWeight: 0.6, strokeOpacity: 0.55, clickable: false });
-      } catch (_) { clear(); }
-    }
 
-    // ── Add place: select a square (its w3w), then fill a form in a lightbox ──
+    // ── Add place: pick a point on the map, then fill a form in a lightbox ──
     let selectedSquare = null, selectedMarker = null;
 
     async function selectSquare(lat, lng) {
-      stateEl.textContent = 'Reading what3words…';
-      const w = await coordsToW3W(lat, lng);
-      selectedSquare = { lat, lng, w3w: w || '' };
+      selectedSquare = { lat, lng };
       if (!selectedMarker) selectedMarker = new google.maps.Marker({ map, zIndex: 9999,
         icon: { path: google.maps.SymbolPath.CIRCLE, scale: 6, fillColor: '#ffd24a', fillOpacity: 1, strokeColor: '#0a0f14', strokeWeight: 2 } });
       selectedMarker.setPosition({ lat, lng }); selectedMarker.setMap(map);
-      stateEl.textContent = w ? 'Selected ///' + w + ' — click Add place.' : 'Selected square (w3w lookup failed — check the key).';
+      stateEl.textContent = 'Selected point — click Add place.';
       return selectedSquare;
     }
 
     let editingPlace = null;   // the place being edited (null = adding a new one)
 
     function fillForm(s) {
-      const set = (id, val) => { document.getElementById(id).value = val || ''; };
+      const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
       set('f_name', s.name); set('f_address', s.address); set('f_description', s.description); set('f_on_tours', s.on_tours);
       set('f_src_title', s.source && s.source.title); set('f_src_url', s.source && s.source.url);
       document.getElementById('f_category').value = s.category || 'other';
       document.getElementById('f_start_candidate').checked = s.start_candidate === 'yes';
       document.getElementById('f_end_candidate').checked = s.end_candidate === 'yes';
       set('f_city', s.city);
-      set('f_w3w', s.w3w ? '///' + s.w3w : '(none)');
     }
 
     async function openAddForm() {
       editingPlace = null;
       if (!selectedSquare) { const c = map.getCenter(); await selectSquare(c.lat(), c.lng()); }
-      fillForm({ city: cityEl.value || '', category: 'other', w3w: selectedSquare.w3w });
+      fillForm({ city: cityEl.value || '', category: 'other' });
       document.getElementById('addTitle').textContent = 'Add place';
       document.getElementById('addSave').textContent = 'Add place';
       document.getElementById('addModal').hidden = false;
@@ -695,11 +643,11 @@
       };
       let place, verb;
       if (editingPlace) {
-        Object.assign(editingPlace, fields);   // keep its existing w3w / lat / lng / _ll
+        Object.assign(editingPlace, fields);   // keep its existing lat / lng / _ll
         place = editingPlace; verb = 'Updated';
       } else {
-        const sq = selectedSquare || { lat: map.getCenter().lat(), lng: map.getCenter().lng(), w3w: '' };
-        place = Object.assign({}, fields, { w3w: sq.w3w, lat: sq.lat, lng: sq.lng, _ll: { lat: sq.lat, lng: sq.lng } });
+        const sq = selectedSquare || { lat: map.getCenter().lat(), lng: map.getCenter().lng() };
+        place = Object.assign({}, fields, { lat: sq.lat, lng: sq.lng, _ll: { lat: sq.lat, lng: sq.lng } });
         places.push(place); verb = 'Added';
       }
       if (city && ![...cityEl.options].some((o) => o.value === city)) {
@@ -712,7 +660,7 @@
       draw(cityEl.value);
       renderSearchResults();
       const saved = await saveAtlas();
-      stateEl.textContent = verb + ' “' + name + '”' + (place.w3w ? ' → ///' + place.w3w : '') + (saved ? ' · saved.' : '');
+      stateEl.textContent = verb + ' “' + name + '”' + (saved ? ' · saved.' : ' · SAVE FAILED.');
     }
 
     // ── Route builder: link places into an ordered path, saved into atlas.jsonl ──
@@ -770,17 +718,15 @@
       stateEl.textContent = 'Route: ' + route.path.length + ' point(s). Name it and Save.';
     }
     async function addTurn(lat, lng) {
-      const t = { _turn: true, name: 'turn', w3w: '', lat, lng, _ll: { lat, lng } };
+      const t = { _turn: true, name: 'turn', lat, lng, _ll: { lat, lng } };
       route.path.push(t);
       renderRouteList(); drawRouteLine();
       stateEl.textContent = 'Route: ' + route.path.length + ' point(s). Dropped a turn.';
-      const w = await coordsToW3W(lat, lng);   // fill its ///words in the background
-      if (w) { t.w3w = w; renderRouteList(); }
     }
     function renderRouteList() {
       const ol = document.getElementById('routeList');
       ol.innerHTML = route.path.map((s, i) => '<li>' +
-        (s._turn ? '<span style="color:var(--muted)">↳ turn' + (s.w3w ? ' <span style="font-family:var(--mono);font-size:.85em">///' + esc(s.w3w) + '</span>' : '') + '</span>' : esc(s.name)) +
+        (s._turn ? '<span style="color:var(--muted)">↳ turn</span>' : esc(s.name)) +
         ' <button class="route-x" data-i="' + i + '" type="button" aria-label="Remove">✕</button></li>').join('');
       ol.querySelectorAll('.route-x').forEach((b) => b.addEventListener('click', () => { route.path.splice(+b.dataset.i, 1); renderRouteList(); drawRouteLine(); }));
       updateRouteMeta();
@@ -812,9 +758,9 @@
       if (!name) { stateEl.textContent = 'Name the route before saving.'; nameInput.focus(); return; }
       const city = routeCityFromStops();
       if (!city) { stateEl.textContent = 'The selected places need a city before this route can be saved.'; return; }
-      const turns = route.path.map((point, position) => point._turn ? { position, w3w: point.w3w || '', lat: point.lat, lng: point.lng } : null).filter(Boolean);
+      const turns = route.path.map((point, position) => point._turn ? { position, lat: point.lat, lng: point.lng } : null).filter(Boolean);
       const r = { route_id: (slug(city) + '-' + slug(name)).slice(0, 64), name, city,
-        stops: route.path.filter((point) => !point._turn).map((place) => ({ name: place.name, w3w: place.w3w || '' })) };
+        stops: route.path.filter((point) => !point._turn).map((place) => ({ name: place.name })) };
       if (turns.length) r.turns = turns;
       routes = routes.filter((x) => x.route_id !== r.route_id);   // replace if re-saving same route
       routes.push(r);
@@ -847,7 +793,7 @@
           stops: legacyStops.filter((point) => !point.turn),
           turns: Array.isArray(x.turns)
             ? x.turns
-            : legacyStops.map((point, position) => point.turn ? { position, w3w: point.w3w || '' } : null).filter(Boolean)
+            : legacyStops.map((point, position) => point.turn ? { position } : null).filter(Boolean),
         });
         delete normalized.waypoints;
         delete normalized.places;
@@ -886,7 +832,6 @@
         searchQuery = normalizeSearchText(searchEl.value.trim());
         render(cityEl.value);
       });
-      map.addListener('idle', updateGrid);
       // Click an empty spot: in route mode → drop a turn; otherwise → select the
       // square and offer "Add place here". (Clicking a pin instead fires that
       // marker's own handler — add-to-route in route mode, else its popup.)
@@ -894,7 +839,6 @@
         if (routeMode) { addTurn(e.latLng.lat(), e.latLng.lng()); return; }
         const sq = await selectSquare(e.latLng.lat(), e.latLng.lng());
         info.setContent('<div style="font-family:system-ui,sans-serif;font-size:13px;color:#111">' +
-          '<div style="color:#666">///' + (sq.w3w ? '<a href="https://what3words.com/' + esc(sq.w3w) + '" target="_blank" rel="noopener">' + esc(sq.w3w) + '</a>' : '?') + '</div>' +
           '<div style="margin-top:6px"><button id="popAdd" type="button" style="font:inherit;font-size:12px;font-weight:700;color:#2d4880;background:#fff;border:1px solid rgba(45,72,128,.35);border-radius:6px;padding:3px 9px;cursor:pointer">Add place here</button></div></div>');
         info.setPosition(e.latLng); info.open(map);
         google.maps.event.addListenerOnce(info, 'domready', () => {

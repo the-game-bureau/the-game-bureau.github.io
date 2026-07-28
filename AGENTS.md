@@ -37,7 +37,7 @@ Use this product vocabulary everywhere new UI, code, data, and documentation are
 - A **Game** contains one or more **Routes**.
 - A **Route** contains an ordered list of **Stops**.
 - A **Stop** combines one **Place** with one **Challenge**.
-- A **Place** is a reusable real-world point with geographic metadata such as city, address, coordinates, Plus Code, or what3words.
+- A **Place** is a reusable real-world point with geographic metadata such as city, address, coordinates, or Plus Code.
 - A **Challenge** is the playable content at a Stop: prompts, clues, media, mini-games, and player replies.
 
 Use `location` only for technical geographic fields and browser APIs. `waypoint`, `waypointGroup`, `waypoint_group`, and route `waypoints` are legacy compatibility vocabulary only; do not create new writes or UI with those names.
