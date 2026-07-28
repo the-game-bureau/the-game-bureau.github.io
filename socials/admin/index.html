@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>SOCIALS ADMIN | THE GAME BUREAU</title>
+  <link rel="icon" href="../../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --mc-shell-width: 1180px;
+      --stack-gap: 14px;
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --bic-red: #c23737;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --accent: var(--bic-blue);
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --panel: rgba(255, 255, 255, 0.92);
+      --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
+      --success: #276740;
+    }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(rgba(var(--bic-blue-rgb), 0.18) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--bic-blue-rgb), 0.18) 1px, transparent 1px),
+        linear-gradient(rgba(194, 55, 55, 0.14) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(194, 55, 55, 0.14) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+    }
+
+    button, textarea { font: inherit; }
+    a { color: var(--accent); }
+
+    .prompt-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
+      gap: 16px;
+      align-items: start;
+      width: 100%;
+      max-width: var(--mc-shell-width);
+      margin: 0 auto;
+    }
+
+    .prompt-main { display: grid; gap: 16px; min-width: 0; }
+
+    .prompt-panel,
+    .side-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      box-shadow: 0 18px 36px var(--paper-shadow);
+      overflow: hidden;
+    }
+
+    .prompt-panel { min-width: 0; border-top: 8px solid var(--accent); }
+
+    .explain { padding: 18px; border-top: 8px solid var(--bic-red); }
+    .explain h2 {
+      margin: 0 0 8px;
+      color: var(--ink);
+      font-size: 1.15rem;
+      line-height: 1.15;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .explain p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    .explain p:last-child { margin-bottom: 0; }
+    .explain strong { color: var(--ink); }
+
+    .side-label {
+      display: block;
+      margin-bottom: 6px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── The queue ────────────────────────────────────────────────────────── */
+    .queue-panel { border-top: 8px solid var(--bic-red); }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.78);
+    }
+    .panel-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .panel-sub {
+      margin-left: 8px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+    }
+    .panel-head-actions { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+
+    .queue-list { display: grid; gap: 0; }
+
+    .post {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .post:last-child { border-bottom: 0; }
+
+    .post-head { display: grid; gap: 4px; }
+    .post-source {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .post-headline {
+      margin: 0;
+      font-size: 1.02rem;
+      font-weight: 700;
+      line-height: 1.25;
+      color: var(--ink);
+    }
+
+    /* The blurb is the thing you actually post, so it reads as a quote block —
+       visually separate from the headline it was written about. */
+    .post-blurb {
+      margin: 0;
+      padding: 11px 13px;
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      background: var(--panel-soft);
+      color: var(--ink);
+      font-size: 0.95rem;
+      line-height: 1.55;
+    }
+
+    .post-link {
+      display: block;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.76rem;
+      line-height: 1.45;
+      word-break: break-all;
+    }
+
+    .post-why {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    .post-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .post-feedback {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--success);
+    }
+
+    .queue-empty {
+      padding: 28px 18px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      text-align: center;
+    }
+    .queue-empty[hidden] { display: none; }
+
+    /* ── Buttons ──────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+    }
+    .btn:hover { border-color: rgba(var(--bic-blue-rgb), 0.42); background: rgba(var(--bic-blue-rgb), 0.05); }
+    .btn.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .btn.primary:hover { background: #24396a; }
+    .btn.danger { border-color: rgba(194, 55, 55, 0.42); color: var(--bic-red); }
+    .btn.danger:hover { background: rgba(194, 55, 55, 0.08); }
+    .btn.small { min-height: 34px; padding: 0 11px; font-size: 0.66rem; }
+
+    .admin-auth-toggle { min-height: 42px; padding-inline: 14px; white-space: nowrap; }
+    .admin-auth-toggle.is-signed-in { border-color: rgba(194, 55, 55, 0.44); color: var(--bic-red); }
+
+    /* ── Paste-ready prompt ───────────────────────────────────────────────── */
+    .prompt-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-soft);
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.22);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .prompt {
+      display: block;
+      width: 100%;
+      min-height: 52vh;
+      padding: 18px 20px 22px;
+      border: 0;
+      resize: vertical;
+      background:
+        linear-gradient(rgba(var(--bic-blue-rgb), 0.075) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(194, 55, 55, 0.26) 1px, transparent 1px),
+        #fffefa;
+      background-position: 0 0, 56px 0, 0 0;
+      background-size: 100% 28px, 100% 100%, 100% 100%;
+      color: #17253c;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      outline: none;
+      white-space: pre-wrap;
+    }
+    .prompt:focus { box-shadow: inset 0 0 0 2px rgba(var(--bic-blue-rgb), 0.22); }
+    .copy-status {
+      min-width: 72px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--success);
+      text-align: right;
+    }
+
+    /* ── Sidebar ──────────────────────────────────────────────────────────── */
+    .side-stack { display: grid; gap: 16px; }
+    .side-card { padding: 16px; }
+    .side-card--blue { border-top: 8px solid var(--bic-blue); }
+    .side-card--red { border-top: 8px solid var(--bic-red); }
+    .side-card h2 {
+      margin: 0 0 8px;
+      font-size: 1.02rem;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .side-card p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+    .side-card p:last-child { margin-bottom: 0; }
+    .side-note { font-size: 0.8rem; }
+
+    .mini-list {
+      display: grid;
+      gap: 4px;
+      margin: 10px 0;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+    .mini-list b { color: var(--ink); }
+
+    .run-status {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.05);
+    }
+    .run-dot {
+      flex: 0 0 auto;
+      width: 9px; height: 9px;
+      margin-top: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+    .run-status[data-state="ok"] .run-dot { background: #1e7a4b; }
+    .run-status[data-state="stale"] .run-dot { background: var(--bic-red); }
+    .run-body { display: grid; gap: 3px; min-width: 0; }
+    .run-line { color: var(--ink); font-size: 0.92rem; font-weight: 800; }
+    .run-sub { color: var(--muted); font-size: 0.82rem; line-height: 1.45; }
+
+    .side-links { display: grid; gap: 8px; margin-top: 14px; }
+    .side-links + .side-links { margin-top: 8px; }
+
+    /* ── Header (Stock Room lockup) ───────────────────────────────────────── */
+    .stockroom-head {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      min-height: 72px;
+      padding: 0 12px;
+      margin: 0 0 var(--stack-gap);
+    }
+    .stockroom-head-lockup,
+    .stockroom-head-status { position: relative; z-index: 1; }
+    .stockroom-head-lockup { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .stockroom-gear {
+      position: absolute;
+      top: 50%;
+      left: -28px;
+      transform: translateY(-50%) scaleX(-1);
+      width: 184px;
+      height: 184px;
+      z-index: 0;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .stockroom-gear .header-gear { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .stockroom-gear .header-gear--large { stroke: rgba(var(--bic-blue-rgb), 0.15); }
+    .stockroom-gear .header-gear--small { stroke: rgba(var(--bic-blue-rgb), 0.11); }
+    .stockroom-gear .header-gear-body { fill: rgba(var(--bic-blue-rgb), 0.022); stroke-width: 3.4; }
+    .stockroom-gear .header-gear-ring { fill: none; stroke-width: 3; }
+    .stockroom-gear .header-gear-inner { fill: none; stroke-width: 2.4; }
+    .stockroom-gear .header-gear-spoke { fill: rgba(var(--bic-blue-rgb), 0.06); stroke: none; }
+    .stockroom-gear .header-gear-core { fill: rgba(var(--bic-blue-rgb), 0.05); stroke-width: 2.2; }
+    .stockroom-gear .header-gear-bore { fill: none; stroke-width: 2; }
+    .stockroom-gear .header-gear-crosshair { stroke: rgba(var(--bic-blue-rgb), 0.12); stroke-width: 1.4; }
+    .stockroom-titlecol { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .stockroom-eyebrow {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(var(--bic-blue-rgb), 0.9);
+      text-shadow: 0 0 3px var(--paper-base), 0 0 3px var(--paper-base), 0 0 5px var(--paper-base);
+    }
+    .stockroom-title { margin: 0; font-size: 1.7rem; letter-spacing: 0.03em; line-height: 1; }
+    .stockroom-titlecol .stockroom-substat {
+      margin: 3px 0 0;
+      min-height: 0;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+    .stockroom-substat:empty { display: none; }
+    .stockroom-head-status {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 840px) {
+      /* One column, and both wrappers dissolve (display: contents) so `order`
+         can interleave sidebar cards with main-column cards. The queue is the
+         entire point of the page, so it leads; the long prompt textarea drops
+         to the bottom where it cannot bury the buttons. */
+      .prompt-layout { display: flex; flex-direction: column; grid-template-columns: 1fr; }
+      .prompt-main, .side-stack { display: contents; }
+      #queueCard   { order: 1; }
+      #routineCard { order: 2; }
+      #whatCard    { order: 3; }
+      #styleCard   { order: 4; }
+      #promptCard  { order: 5; }
+
+      .panel-head { align-items: flex-start; flex-direction: column; }
+      .copy-status { text-align: left; }
+      .prompt { min-height: 60vh; padding: 14px 14px 18px; font-size: 0.82rem; }
+      .post-actions .btn { flex: 1 1 auto; }
+    }
+  </style>
+  <link rel="stylesheet" href="../../mc/js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <div class="stockroom-head">
+      <svg class="stockroom-gear" viewBox="128 -12 220 216" aria-hidden="true">
+        <g class="header-gear header-gear--large" transform="translate(212 72) rotate(-14)">
+          <polygon class="header-gear-body" points="-11.3,-65.0 -13.8,-78.8 -7.5,-79.6 7.5,-79.6 13.8,-78.8 11.3,-65.0 22.7,-62.0 27.5,-75.1 33.3,-72.7 46.3,-65.2 51.3,-61.4 42.3,-50.6 50.6,-42.3 61.4,-51.3 65.2,-46.3 72.7,-33.3 75.1,-27.5 62.0,-22.7 65.0,-11.3 78.8,-13.8 79.6,-7.5 79.6,7.5 78.8,13.8 65.0,11.3 62.0,22.7 75.1,27.5 72.7,33.3 65.2,46.3 61.4,51.3 50.6,42.3 42.3,50.6 51.3,61.4 46.3,65.2 33.3,72.7 27.5,75.1 22.7,62.0 11.3,65.0 13.8,78.8 7.5,79.6 -7.5,79.6 -13.8,78.8 -11.3,65.0 -22.7,62.0 -27.5,75.1 -33.3,72.7 -46.3,65.2 -51.3,61.4 -42.3,50.6 -50.6,42.3 -61.4,51.3 -65.2,46.3 -72.7,33.3 -75.1,27.5 -62.0,22.7 -65.0,11.3 -78.8,13.8 -79.6,7.5 -79.6,-7.5 -78.8,-13.8 -65.0,-11.3 -62.0,-22.7 -75.1,-27.5 -72.7,-33.3 -65.2,-46.3 -61.4,-51.3 -50.6,-42.3 -42.3,-50.6 -51.3,-61.4 -46.3,-65.2 -33.3,-72.7 -27.5,-75.1 -22.7,-62.0"></polygon>
+          <circle class="header-gear-ring" r="54"></circle>
+          <circle class="header-gear-inner" r="34"></circle>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5"></rect>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(60)"></rect>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(120)"></rect>
+          <circle class="header-gear-core" r="11"></circle>
+          <circle class="header-gear-bore" r="5.5"></circle>
+          <line class="header-gear-crosshair" x1="-18" y1="0" x2="18" y2="0"></line>
+          <line class="header-gear-crosshair" x1="0" y1="-18" x2="0" y2="18"></line>
+        </g>
+        <g class="header-gear header-gear--small" transform="translate(286 132) rotate(19)">
+          <polygon class="header-gear-body" points="-9.8,-45.0 -12.3,-56.7 -6.5,-57.6 6.5,-57.6 12.3,-56.7 9.8,-45.0 18.5,-42.1 23.4,-53.1 28.6,-50.5 39.2,-42.8 43.3,-38.6 34.3,-30.6 39.7,-23.2 50.1,-29.2 52.8,-24.0 56.8,-11.6 57.7,-5.8 45.8,-4.6 45.8,4.6 57.7,5.8 56.8,11.6 52.8,24.0 50.1,29.2 39.7,23.2 34.3,30.6 43.3,38.6 39.2,42.8 28.6,50.5 23.4,53.1 18.5,42.1 9.8,45.0 12.3,56.7 6.5,57.6 -6.5,57.6 -12.3,56.7 -9.8,45.0 -18.5,42.1 -23.4,53.1 -28.6,50.5 -39.2,42.8 -43.3,38.6 -34.3,30.6 -39.7,23.2 -50.1,29.2 -52.8,24.0 -56.8,11.6 -57.7,5.8 -45.8,4.6 -45.8,-4.6 -57.7,-5.8 -56.8,-11.6 -52.8,-24.0 -50.1,-29.2 -39.7,-23.2 -34.3,-30.6 -43.3,-38.6 -39.2,-42.8 -28.6,-50.5 -23.4,-53.1 -18.5,-42.1"></polygon>
+          <circle class="header-gear-ring" r="38"></circle>
+          <circle class="header-gear-inner" r="24"></circle>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5"></rect>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(60)"></rect>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(120)"></rect>
+          <circle class="header-gear-core" r="7.5"></circle>
+          <circle class="header-gear-bore" r="3.8"></circle>
+          <line class="header-gear-crosshair" x1="-12" y1="0" x2="12" y2="0"></line>
+          <line class="header-gear-crosshair" x1="0" y1="-12" x2="0" y2="12"></line>
+        </g>
+      </svg>
+      <div class="stockroom-head-lockup">
+        <div class="stockroom-titlecol">
+          <span class="stockroom-eyebrow">THE GAME BUREAU</span>
+          <h1 class="stockroom-title" id="pageTitle">SOCIALS ADMIN</h1>
+          <p class="status stockroom-substat" id="pageStatus" aria-live="polite">Loading&hellip;</p>
+        </div>
+      </div>
+      <div class="stockroom-head-status">
+        <button class="btn admin-auth-toggle" id="adminAuthToggleBtn" type="button" aria-label="ADMIN LOGON" title="ADMIN LOGON">ADMIN LOGON</button>
+      </div>
+    </div>
+
+    <div class="prompt-layout">
+      <div class="prompt-main">
+
+      <section class="prompt-panel queue-panel" id="queueCard" aria-labelledby="queueTitle">
+        <div class="panel-head">
+          <h2 class="panel-title" id="queueTitle">Today's Picks <span class="panel-sub" id="queueDate"></span></h2>
+          <span class="panel-head-actions">
+            <span class="copy-status" id="queueStatus" aria-live="polite"></span>
+            <button class="btn small" id="restoreTrashedBtn" type="button" hidden>Restore Trashed</button>
+          </span>
+        </div>
+        <div class="queue-list" id="queueList"></div>
+        <p class="queue-empty" id="queueEmpty" hidden></p>
+      </section>
+
+      <section class="side-card explain" id="whatCard" aria-labelledby="whatTitle">
+        <span class="side-label">What this is</span>
+        <h2 id="whatTitle">Five things worth posting</h2>
+        <p>Every morning an AI agent reads around and brings back <strong>five stories or posts</strong> The Game Bureau might want to share &mdash; city news, a stadium story, something about the places our games run in. It writes the caption for each one and leaves them here.</p>
+        <p>Your job is the two buttons. <strong>POST</strong> copies the blurb and the link to your clipboard, ready to paste wherever you are posting. <strong>TRASH</strong> clears one you do not want, and remembers &mdash; it will not come back on reload.</p>
+        <p><strong>Nothing here posts itself.</strong> The agent has no access to any account. It only ever writes this list; a person decides what actually goes out.</p>
+        <p>The list is replaced wholesale every morning, so an unposted pick is gone tomorrow. If you want one, take it today.</p>
+      </section>
+
+      <section class="prompt-panel" id="promptCard" aria-label="Socials prompt">
+        <div class="panel-head">
+          <h2 class="panel-title">Paste-Ready Prompt <span class="panel-sub">manual fallback</span></h2>
+          <span class="panel-head-actions">
+            <span class="copy-status" id="copyStatus" aria-live="polite"></span>
+            <button class="btn small primary" id="copyPromptTop" type="button">Copy Prompt</button>
+          </span>
+        </div>
+        <div class="prompt-meta" aria-hidden="true">
+          <span class="chip">socials/queue.json</span>
+          <span class="chip">5 links</span>
+          <span class="chip">opened, not guessed</span>
+          <span class="chip">no auto-posting</span>
+        </div>
+        <textarea class="prompt" id="promptText" readonly spellcheck="false">You are the daily socials scout for The Game Bureau. Find five stories or posts worth sharing, write a caption for each, and commit them to socials/queue.json.
+
+You do not post anything. You write one file; a human opens /socials/admin/ and decides what goes out.
+
+The Game Bureau makes real-world scavenger-hunt games played in cities, built around pro and college teams and the places around their stadiums. What we sell is curiosity about a city. Our socials should sound like a well-travelled friend pointing at something interesting, never like a brand doing engagement.
+
+1. READ WHAT IS THERE
+
+Read socials/queue.json, plus the last few versions from git history:
+
+    git log -5 --format=%H -- socials/queue.json
+    git show <sha>:socials/queue.json
+
+Collect every url and headline. Do not pitch any of them again — a repeat is the one thing that makes this list useless.
+
+For which cities matter, read sound/soundtracks.json and:
+
+    curl -sS "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/cities?select=city,ignored&order=city.asc&apikey=sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3"
+
+Use curl for that host, not WebFetch — curl returns 200, WebFetch returns 403.
+
+2. FIND FIVE
+
+Web search, things published in the last 7 days:
+
+- A city we run games in doing something interesting — a new park, a neighbourhood piece, a food story, local history resurfacing.
+- Stadium and team culture — traditions, fan rituals, a venue reopening, the story behind a fight song.
+- Travel and city-exploration writing our audience would read.
+- Scavenger hunts, urban games, geocaching, city trivia — our own genre.
+
+Skip: politics, tragedy and crime, culture-war bait, press releases, SEO listicles, hard paywalls. The test — if it would make someone ask "why is a game company posting this", it is not a fit.
+
+Prefer five different cities and five different sources.
+
+3. VERIFY EVERY LINK
+
+Open each URL. Confirm it resolves, is the article you think, and is recent. Never include a URL you have not opened — a dead link is worse than four good ones. Record the real publication name and date.
+
+4. WRITE THE BLURB
+
+One or two sentences: curious, specific, dry. Lead with the interesting thing, not "Check out this article about". Name the city. No hashtags, no emoji, no "link in bio", no exclamation marks. Do not reuse the outlet's headline. 200 characters max.
+
+Also write a one-line "why" — internal note for the human, never posted.
+
+5. WRITE THE FILE
+
+Replace socials/queue.json entirely — a fresh list each day, not an append.
+
+{
+  "generated_at": "<ISO 8601 UTC>",
+  "posts": [
+    {
+      "id": "<YYYY-MM-DD>-1",
+      "headline": "<real headline>",
+      "url": "<verified URL>",
+      "source": "<publication>",
+      "published": "<YYYY-MM-DD>",
+      "blurb": "<the caption>",
+      "why": "<one line, internal>"
+    }
+  ]
+}
+
+Exactly five posts, ids 1-5, two-space indentation. Verify:
+
+    node -e "JSON.parse(require('fs').readFileSync('socials/queue.json','utf8'))"
+
+Check out loud: valid JSON, five posts, every url distinct and opened, nothing repeated from a previous version, every blurb under 200 characters with no hashtags or emoji, git diff touching only that file.
+
+If you cannot get five good ones, commit four rather than padding with something weak — and say so.
+
+6. COMMIT
+
+    git add socials/queue.json
+    git commit -m "auto: daily socials picks (<city>, <city>, ...)"
+    git push
+
+Finish with a summary: the five picks with cities and sources, what you rejected and why, and anything dropped because the link would not resolve.</textarea>
+      </section>
+
+      </div>
+
+      <aside class="side-stack" aria-label="Socials notes">
+        <section class="side-card side-card--blue" id="routineCard">
+          <span class="side-label">Automation</span>
+          <h2>Daily Routine</h2>
+          <p>A scheduled Claude Code cloud agent searches every morning, opens each link to confirm it resolves, writes the captions, and commits <code>socials/queue.json</code>. This page just renders that file.</p>
+          <ul class="mini-list">
+            <li>Runs <b>6:15 AM CT</b></li>
+            <li>Model <b>Opus 5</b></li>
+            <li>Brings <b>5 links</b></li>
+            <li>Posts <b>nothing</b></li>
+          </ul>
+          <div class="run-status" id="runStatus" data-state="loading">
+            <span class="run-dot" aria-hidden="true"></span>
+            <div class="run-body">
+              <span class="run-line" id="runWhen">Checking last run&hellip;</span>
+              <span class="run-sub" id="runWhat"></span>
+            </div>
+          </div>
+          <div class="side-links">
+            <a class="btn" id="runLogLink" href="https://github.com/the-game-bureau/the-game-bureau/commits/main/socials/queue.json" target="_blank" rel="noopener noreferrer" title="See what the last run actually changed">View Log</a>
+          </div>
+          <div class="side-links">
+            <a class="btn primary" href="https://claude.ai/code/routines/trig_01VGJLzRyxWuvgrP4hv8ZMM5" target="_blank" rel="noopener noreferrer">Open Routine</a>
+          </div>
+          <p class="side-note">Open the routine to watch a run, trigger one early, change the schedule, or pause it. The clock is UTC with no daylight-saving shift, so 11:15 UTC is 6:15 AM Central in summer and 5:15 AM in winter.</p>
+        </section>
+
+        <section class="side-card side-card--red" id="styleCard">
+          <span class="side-label">House style</span>
+          <h2>What makes a good post</h2>
+          <p>Curious, specific, dry. Lead with the interesting thing. Name the city. We sound like a well-travelled friend pointing at something, not a brand chasing engagement.</p>
+          <p>No hashtags, no emoji, no exclamation marks, no &ldquo;link in bio&rdquo;. Nothing political, no tragedy, no SEO listicles.</p>
+          <p class="side-note">Edit any blurb after pasting &mdash; what the clipboard gives you is a starting point, not a rule.</p>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <!--
+    FOR AI AGENTS
+    =============
+    This page is a read-only view of socials/queue.json. It never writes.
+    The daily agent replaces that file wholesale each morning. POST and TRASH
+    are client-side only; TRASH remembers dismissals in localStorage so a
+    reload does not resurrect them. Do not add a Supabase table for this, and
+    do not give the agent posting credentials — a human decides what goes out.
+  -->
+  <script type="application/json" id="tgb-agent-context">
+  {
+    "purpose": "Daily shortlist of stories The Game Bureau socials might post. An agent finds and captions them; a human copies or bins them.",
+    "dataFile": "socials/queue.json",
+    "writtenBy": "scheduled Claude Code routine, trig_01VGJLzRyxWuvgrP4hv8ZMM5, daily 11:15 UTC",
+    "pageWrites": "nothing — read-only render; dismissals live in localStorage",
+    "postCount": 5,
+    "replacedDaily": true,
+    "voice": "curious, specific, dry; name the city; no hashtags, emoji, or exclamation marks",
+    "avoid": ["politics", "tragedy and crime", "culture-war bait", "press releases", "SEO listicles", "hard paywalls"],
+    "doNotCreate": [
+      "a Supabase table for the queue",
+      "any automatic posting to a social account",
+      "a GitHub Actions workflow for this"
+    ]
+  }
+  </script>
+
+  <script src="../../mc/js/admin-auth.js"></script>
+  <script src="../../mc/js/admin-shell.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      var SUPABASE_CONFIG = {
+        url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+        publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+      };
+
+      var QUEUE_FILE = '../queue.json';
+      // Trashed ids, so a dismissal survives a reload. Keyed by post id, which
+      // is date-stamped, so yesterday's keys can never collide with today's.
+      var TRASH_KEY = 'tgb_socials_trashed_v1';
+      var STALE_AFTER_HOURS = 26;
+
+      var pageStatus = document.getElementById('pageStatus');
+      var queueList = document.getElementById('queueList');
+      var queueEmpty = document.getElementById('queueEmpty');
+      var queueDate = document.getElementById('queueDate');
+      var queueStatus = document.getElementById('queueStatus');
+      var restoreBtn = document.getElementById('restoreTrashedBtn');
+      var promptEl = document.getElementById('promptText');
+      var copyStatus = document.getElementById('copyStatus');
+      var copyBtn = document.getElementById('copyPromptTop');
+      var adminAuthToggleBtn = document.getElementById('adminAuthToggleBtn');
+
+      var posts = [];
+
+      // ── Trash memory ─────────────────────────────────────────────────────
+      function readTrash() {
+        try {
+          var raw = window.localStorage.getItem(TRASH_KEY);
+          var parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          return []; // private mode or a corrupted value — treat as nothing trashed
+        }
+      }
+      function writeTrash(ids) {
+        // Keep the tail only: ids are date-stamped and the list is replaced
+        // daily, so old keys are dead weight.
+        try { window.localStorage.setItem(TRASH_KEY, JSON.stringify(ids.slice(-200))); }
+        catch (error) { /* the dismissal just won't persist */ }
+      }
+      function isTrashed(id) { return readTrash().indexOf(id) !== -1; }
+      function addTrash(id) {
+        var ids = readTrash();
+        if (ids.indexOf(id) === -1) { ids.push(id); writeTrash(ids); }
+      }
+
+      // ── Auth ─────────────────────────────────────────────────────────────
+      function setAdminAuthToggleState(signedIn) {
+        if (!adminAuthToggleBtn) return;
+        var label = signedIn ? 'ADMIN LOGOUT' : 'ADMIN LOGON';
+        adminAuthToggleBtn.textContent = label;
+        adminAuthToggleBtn.title = label;
+        adminAuthToggleBtn.setAttribute('aria-label', label);
+        adminAuthToggleBtn.classList.toggle('is-signed-in', !!signedIn);
+      }
+
+      window.TgbMcAdminAuth.create({
+        supabaseConfig: SUPABASE_CONFIG,
+        onAuthorized: function () {
+          setAdminAuthToggleState(true);
+          loadQueue();
+          loadLastRun();
+        },
+        onSignedOut: function () {
+          setAdminAuthToggleState(false);
+          setPageStatus('Sign in with an admin account.');
+          if (queueList) queueList.textContent = '';
+          showEmpty('');
+        }
+      });
+
+      function setPageStatus(text) {
+        if (pageStatus) pageStatus.textContent = text || '';
+      }
+
+      function showEmpty(text) {
+        if (!queueEmpty) return;
+        queueEmpty.textContent = text || '';
+        queueEmpty.hidden = !text;
+      }
+
+      function flash(el, text) {
+        if (!el) return;
+        el.textContent = text;
+        window.setTimeout(function () { el.textContent = ''; }, 2200);
+      }
+
+      // Fall back to the URL when a post has no id, so TRASH still has a stable
+      // key on a hand-edited file.
+      function postId(post) {
+        return String((post && (post.id || post.url)) || '');
+      }
+
+      // ── Load + render ────────────────────────────────────────────────────
+      async function loadQueue() {
+        try {
+          var res = await fetch(QUEUE_FILE, { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          var data = await res.json();
+          posts = Array.isArray(data.posts) ? data.posts : [];
+
+          if (queueDate && data.generated_at) {
+            var when = new Date(data.generated_at);
+            if (!isNaN(when)) {
+              queueDate.textContent = when.toLocaleDateString([], {
+                weekday: 'short', month: 'short', day: 'numeric'
+              });
+            }
+          }
+          renderQueue();
+        } catch (error) {
+          posts = [];
+          if (queueList) queueList.textContent = '';
+          setPageStatus('');
+          showEmpty('Could not read socials/queue.json. If the routine has not run yet that file does not exist — open the routine and trigger a run.');
+        }
+      }
+
+      function renderQueue() {
+        if (!queueList) return;
+        queueList.textContent = '';
+
+        var live = posts.filter(function (post) {
+          return post && post.url && !isTrashed(postId(post));
+        });
+        var trashedCount = posts.length - live.length;
+
+        live.forEach(function (post) { queueList.appendChild(buildPost(post)); });
+
+        if (restoreBtn) {
+          restoreBtn.hidden = trashedCount === 0;
+          restoreBtn.textContent = 'Restore ' + trashedCount + ' Trashed';
+        }
+
+        if (!posts.length) {
+          showEmpty('No picks in the file yet.');
+        } else if (!live.length) {
+          showEmpty('All ' + posts.length + ' trashed. The next run brings five more.');
+        } else {
+          showEmpty('');
+        }
+
+        setPageStatus(
+          live.length + ' post' + (live.length === 1 ? '' : 's') + ' waiting' +
+          (trashedCount ? ' — ' + trashedCount + ' trashed' : '')
+        );
+      }
+
+      function buildPost(post) {
+        var article = document.createElement('article');
+        article.className = 'post';
+
+        var head = document.createElement('div');
+        head.className = 'post-head';
+
+        var source = document.createElement('span');
+        source.className = 'post-source';
+        source.textContent = [post.source, post.published].filter(Boolean).join(' · ');
+        head.appendChild(source);
+
+        var headline = document.createElement('h3');
+        headline.className = 'post-headline';
+        headline.textContent = post.headline || post.url;
+        head.appendChild(headline);
+        article.appendChild(head);
+
+        var blurb = document.createElement('p');
+        blurb.className = 'post-blurb';
+        blurb.textContent = post.blurb || '';
+        article.appendChild(blurb);
+
+        var link = document.createElement('a');
+        link.className = 'post-link';
+        link.href = post.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = post.url;
+        article.appendChild(link);
+
+        if (post.why) {
+          var why = document.createElement('p');
+          why.className = 'post-why';
+          why.textContent = post.why;
+          article.appendChild(why);
+        }
+
+        var actions = document.createElement('div');
+        actions.className = 'post-actions';
+
+        var feedback = document.createElement('span');
+        feedback.className = 'post-feedback';
+
+        var postBtn = document.createElement('button');
+        postBtn.className = 'btn primary';
+        postBtn.type = 'button';
+        postBtn.textContent = 'Post';
+        postBtn.title = 'Copy the blurb and link to the clipboard';
+        postBtn.addEventListener('click', function () {
+          copyToClipboard(clipboardText(post), feedback);
+        });
+
+        var trashBtn = document.createElement('button');
+        trashBtn.className = 'btn danger';
+        trashBtn.type = 'button';
+        trashBtn.textContent = 'Trash';
+        trashBtn.title = 'Clear this one — it will not come back on reload';
+        trashBtn.addEventListener('click', function () {
+          addTrash(postId(post));
+          renderQueue();
+          flash(queueStatus, 'Trashed');
+        });
+
+        actions.appendChild(postBtn);
+        actions.appendChild(trashBtn);
+        actions.appendChild(feedback);
+        article.appendChild(actions);
+
+        return article;
+      }
+
+      // What lands on the clipboard: caption, blank line, link. Deliberately NOT
+      // the headline (that is the outlet's words, not ours) and NOT `why` —
+      // that is an internal note and pasting it into a social box would be an
+      // embarrassing leak.
+      function clipboardText(post) {
+        return String(post.blurb || '').trim() + '\n\n' + String(post.url || '').trim();
+      }
+
+      async function copyToClipboard(text, feedbackEl) {
+        try {
+          await navigator.clipboard.writeText(text);
+          flash(feedbackEl, 'Copied');
+        } catch (error) {
+          // The async clipboard needs a secure context and permission. Fall back
+          // to a hidden textarea so this still works over plain http on a local
+          // dev server.
+          var scratch = document.createElement('textarea');
+          scratch.value = text;
+          scratch.setAttribute('readonly', '');
+          scratch.style.position = 'fixed';
+          scratch.style.opacity = '0';
+          document.body.appendChild(scratch);
+          scratch.select();
+          var ok = false;
+          try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+          document.body.removeChild(scratch);
+          flash(feedbackEl, ok ? 'Copied' : 'Copy failed');
+        }
+      }
+
+      if (restoreBtn) {
+        restoreBtn.addEventListener('click', function () {
+          writeTrash([]);
+          renderQueue();
+          flash(queueStatus, 'Restored');
+        });
+      }
+
+      // ── Paste-ready prompt ───────────────────────────────────────────────
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async function () {
+          if (!promptEl) return;
+          try {
+            await navigator.clipboard.writeText(promptEl.value || '');
+            flash(copyStatus, 'Copied');
+          } catch (error) {
+            promptEl.focus();
+            promptEl.select();
+            flash(copyStatus, 'Select All');
+          }
+        });
+      }
+
+      // ── Last run ─────────────────────────────────────────────────────────
+      // Read from the public GitHub commits API, like the soundtrack admin: the
+      // commit is what actually shipped, so a stale timestamp IS the failure
+      // signal — a run that errored pushes nothing.
+      var RUN_FEED = 'https://api.github.com/repos/the-game-bureau/the-game-bureau.github.io/commits'
+        + '?path=socials/queue.json&per_page=1';
+
+      function relativeTime(then, now) {
+        var mins = Math.round((now - then) / 60000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return mins + (mins === 1 ? ' minute ago' : ' minutes ago');
+        var hours = Math.round(mins / 60);
+        if (hours < 24) return hours + (hours === 1 ? ' hour ago' : ' hours ago');
+        var days = Math.round(hours / 24);
+        return days + (days === 1 ? ' day ago' : ' days ago');
+      }
+
+      async function loadLastRun() {
+        var wrap = document.getElementById('runStatus');
+        var when = document.getElementById('runWhen');
+        var what = document.getElementById('runWhat');
+        var log = document.getElementById('runLogLink');
+        if (!wrap || !when || !what) return;
+
+        try {
+          var res = await fetch(RUN_FEED, { headers: { Accept: 'application/vnd.github+json' } });
+          if (!res.ok) throw new Error('GitHub ' + res.status);
+          var commits = await res.json();
+          if (!Array.isArray(commits) || !commits.length) throw new Error('no commits');
+
+          var commit = commits[0];
+          if (log && commit.html_url) log.href = commit.html_url;
+
+          var stamp = new Date(commit.commit && commit.commit.committer && commit.commit.committer.date);
+          var now = new Date();
+          var stale = (now - stamp) / 3600000 > STALE_AFTER_HOURS;
+
+          wrap.dataset.state = stale ? 'stale' : 'ok';
+          when.textContent = 'Last run ' + relativeTime(stamp, now);
+          what.textContent = stamp.toLocaleString([], {
+            weekday: 'short', month: 'short', day: 'numeric',
+            hour: 'numeric', minute: '2-digit'
+          }) + (stale ? ' · no new picks in over a day — check the routine.' : '');
+        } catch (error) {
+          wrap.dataset.state = 'error';
+          when.textContent = 'Last run unavailable';
+          what.textContent = 'Could not reach the GitHub commits API. Open the routine to check directly.';
+        }
+      }
+
+      // Deliberately NOT calling TgbMcAdminNav.init — like the Stock Room and the
+      // soundtrack admin, this page carries its own login toggle instead of the
+      // shared MC nav.
+    }());
+  </script>
+</body>
+</html>

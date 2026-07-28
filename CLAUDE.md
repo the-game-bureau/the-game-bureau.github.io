@@ -22,6 +22,18 @@ New soundtracks are added by a **scheduled Claude Code cloud agent** ("Daily sou
 **DST:** cloud cron is UTC with no DST and can't use the two-cron-plus-hour-guard trick, so **no single cron holds one Central time year-round**. `30 11` is exactly 6:30 AM CDT and 5:30 AM CST. Set to 6:30 AM Central on 2026-07-28; to hold 6:30 through winter, flip to `30 12 * * *` at the November fall-back and back to `30 11 * * *` in March. Drifting an hour is accepted, not a bug.
 
 ---
+## Socials daily scout — a third Claude Code routine
+
+[socials/admin/index.html](socials/admin/index.html) shows five stories the socials accounts might want to post, found each morning by a **scheduled Claude Code cloud agent** ("Daily socials scout", `trig_01VGJLzRyxWuvgrP4hv8ZMM5`, cron `15 11 * * *` UTC = 6:15 AM Central in summer, 5:15 AM in winter). It commits [socials/queue.json](socials/queue.json) to `main`; the page is a read-only render of that file.
+
+- **The agent posts nothing and holds no account credentials.** It writes one file; a human clicks POST (copies blurb + link to the clipboard) or TRASH. Don't ever wire this to a social API — the human-in-the-loop is the design, not a missing feature.
+- **The list is replaced wholesale each run**, not appended. An unposted pick is gone tomorrow, which is intended: it keeps the page to one day's decisions.
+- **TRASH is client-side**, remembered in `localStorage['tgb_socials_trashed_v1']` keyed by the date-stamped post id, so a dismissal survives a reload without needing a write path. A "Restore N Trashed" button in the panel header clears it.
+- The clipboard gets **blurb + blank line + URL** — deliberately not the headline (that's the outlet's words) and never the `why` field, which is an internal note for the admin page.
+- Last-run status reads the **GitHub commits API** for `socials/queue.json`, same as the soundtrack admin: a run that errored pushes nothing, so a stale timestamp is the failure signal.
+
+---
+
 ## Gift shop daily book pull — also a Claude Code routine
 
 Candidate books are added by a **scheduled Claude Code cloud agent** ("Daily gift shop book pull", `trig_01H7cKJ4fk5bA1NWSqPZi4ah`, cron `0 11 * * *` UTC = 6 AM Central in summer, 5 AM in winter), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the city with the fewest gifts, web-searches five books, verifies every ISBN against a real listing page, and files them as **Review candidates**. It commits nothing — the write lands in Supabase.
