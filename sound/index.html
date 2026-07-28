@@ -29,8 +29,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400..900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Reenie+Beanie&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../assets/site-shell.css">
   <link rel="stylesheet" href="../assets/site-pages.css">
-  <script src="../mc/js/admin-auth.js"></script>
-  <script src="../assets/site-nav-login.js" defer></script>
   <script src="../assets/geo.js"></script>
   <!-- This page owns its own cassette player, so mini-cassette.js acts only as
        the shared session store + case styling here (TGB_CASSETTE_HOME). On the
@@ -917,54 +915,32 @@
       body.home-page .lc-search.is-open .lc-search-input { width: clamp(120px, 52vw, 200px); }
     }
 
-    /* Admin-only control (upper-right): ADMIN link into sound/admin/.
-       Mirrors the gift shop's Stock Room pill; hidden unless admin-bridge has
-       verified a logged-in admin (it adds html.tgb-admin-authorized). */
-    .sound-admin-controls {
-      position: fixed;
-      top: 14px;
-      right: 14px;
-      z-index: 1300;
-      display: none;
-      align-items: center;
-      gap: 8px;
+    /* Mission Control link under the footer, bottom-right. Matches the shared
+       footer's own link type so it reads as part of the sign-off. */
+    .sound-mc-link {
+      margin: 0 2px 18px;
+      text-align: right;
     }
-    html.tgb-admin-authorized .sound-admin-controls { display: inline-flex; }
-    /* Suppress admin-bridge's bottom-right floating LOG OUT — this page has its
-       own Log out pill in the upper-right controls above. */
-    .tgb-admin-logout { display: none !important; }
-    .sound-admin-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 34px;
-      padding: 0 12px;
-      border: 1px solid #111;
-      background: #111;
-      color: #fff;
-      font-family: "IBM Plex Mono", Consolas, monospace;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      line-height: 1;
-      text-transform: uppercase;
-      white-space: nowrap;
+
+    .sound-mc-link a {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--muted, #69655e);
       text-decoration: none;
-      cursor: pointer;
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
-      transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
     }
-    .sound-admin-pill:hover,
-    .sound-admin-pill:focus-visible {
-      background: #fff;
-      color: #111;
+
+    .sound-mc-link a:hover,
+    .sound-mc-link a:focus-visible {
+      color: var(--accent, #2d4880);
+      text-decoration: underline;
+      text-underline-offset: 3px;
       outline: none;
-      transform: translateY(-1px);
     }
   </style>
   <link rel="stylesheet" href="/assets/civic-modernist-pages.css">
 </head>
-<body class="home-page" data-admin-page="sound">
+<body class="home-page">
   <div class="page-shell">
     <header class="site-nav" data-site-nav></header>
     <script src="../assets/site-nav.js"></script>
@@ -1013,50 +989,10 @@
 
     <footer class="site-footer" data-site-footer></footer>
     <script src="../assets/site-footer.js"></script>
+    <!-- Quiet way back to the soundtrack dashboard. Page-local rather than in
+         the shared footer component, which every public page renders. -->
+    <p class="sound-mc-link"><a href="admin/">Mission Control</a></p>
   </div>
-
-  <!-- Admin-only controls (upper-right): ADMIN link. Mirrors the gift shop's
-       Stock Room pill; hidden unless admin-bridge has verified a logged-in
-       admin (it adds html.tgb-admin-authorized). -->
-  <div class="sound-admin-controls" id="soundAdminControls">
-    <a class="sound-admin-pill" id="soundAdminLink" href="admin/">Admin</a>
-    <button class="sound-admin-pill" id="soundAdminLogout" type="button">Log out</button>
-  </div>
-
-  <script src="../assets/admin-bridge.js"></script>
-
-  <!-- Admin-only logout (the #soundAdminLogout pill is shown by CSS only when
-       admin-bridge has verified a logged-in admin). Clears the shared session,
-       best-effort revokes it server-side, and tells admin-bridge to tear down
-       its EDIT controls — which also hides these buttons again. -->
-  <script>
-    (function () {
-      var SB_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
-      var SB_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
-      async function soundAdminLogout() {
-        var KEY = 'tgb-photo-review-auth-session';
-        var token = '';
-        try {
-          var session = JSON.parse(localStorage.getItem(KEY) || 'null');
-          token = (session && session.access_token) || '';
-        } catch (_) {}
-        if (token) {
-          try {
-            await fetch(SB_URL.replace(/\/+$/, '') + '/auth/v1/logout', {
-              method: 'POST',
-              headers: { apikey: SB_KEY, Authorization: 'Bearer ' + token }
-            });
-          } catch (_) {}
-        }
-        try { localStorage.removeItem(KEY); } catch (_) {}
-        window.dispatchEvent(new CustomEvent('tgb-admin-auth-change', { detail: { signedIn: false } }));
-        if (window.TgbPublicAdminBridge) window.TgbPublicAdminBridge.setAuthorized(false);
-      }
-      document.addEventListener('click', function (e) {
-        if (e.target.closest('#soundAdminLogout')) { e.preventDefault(); soundAdminLogout(); }
-      });
-    })();
-  </script>
 
   <script>
     (function () {
