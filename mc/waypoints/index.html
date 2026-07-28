@@ -1902,12 +1902,36 @@ $$;`.trim();
     // Supabase SQL block (helper setup + a call with the verified stops as JSON)
     // that the admin pastes into the Supabase SQL editor. Mirrors the gift shop's
     // buildDestinationSearchPrompt flow.
-    function buildWaypointAiPrompt(area, count, keywords) {
+    function buildWaypointAiPrompt(area, count, keywords, sourceUrl) {
       const n = Math.max(1, Math.min(100, parseInt(count, 10) || 20));
       const kw = cleanText(keywords);
       const p = parseLocation(area);
       const region = p.region || '';
       const existing = existingWaypointNamesFor(area);
+      const url = cleanText(sourceUrl);
+
+      // With a source URL the job changes from open research to extraction: read
+      // that page first and take its stops, then verify each one independently
+      // (pages list closed venues and wrong addresses, so the page is the source
+      // of WHICH stops, never of the facts about them).
+      const taskLine = url
+        ? 'Task: read ' + url + ' and extract the real, publicly accessible walking-tour stops it names in or immediately around ' + area + ', then return a Supabase SQL import for up to ' + n + ' of them.' + (kw ? ' Bias toward: ' + kw + '.' : '')
+        : 'Task: research real, publicly accessible walking-tour stops in or immediately around ' + area + ' and return a Supabase SQL import for up to ' + n + ' NEW stops.' + (kw ? ' Bias toward: ' + kw + '.' : '');
+      const researchLines = url
+        ? [
+            'Source page instructions:',
+            '- Start by fetching ' + url + ' and working through what it actually lists. If you cannot open it, say so plainly and stop rather than inventing stops.',
+            '- Take the stops FROM that page. Do not substitute your own picks for the ones it names.',
+            '- The page decides WHICH stops; it does not decide the facts. Verify every name and address against an independent source, and correct or drop anything stale, closed, renamed, or wrong.',
+            '- If the page yields fewer than ' + n + ' usable stops, return the smaller set. Only add stops of your own if the page has fewer than 3, and say which ones you added.',
+            '- Ignore navigation, ads, and unrelated listings; a stop must be a real place a person can stand in front of.'
+          ]
+        : [
+            'Research instructions:',
+            '- Do the research yourself with your web browsing/search tools. Do not ask me for a dataset; the deliverable is the finished SQL.',
+            '- Goal: ' + n + ' verified stops, but a smaller verified batch is fine. Never fabricate a place or address to hit the number.',
+            '- Give the most specific street address you can. Verify it against a real source.'
+          ];
       const sqlExample = [
         buildWaypointImportHelperSql(),
         '',
@@ -1929,17 +1953,14 @@ $$;`.trim();
       return [
         'You are a local walking-tour expert helping The Game Bureau build a catalog of real walking-tour stops for a location-based game.',
         '',
-        'Task: research real, publicly accessible walking-tour stops in or immediately around ' + area + ' and return a Supabase SQL import for up to ' + n + ' NEW stops.' + (kw ? ' Bias toward: ' + kw + '.' : ''),
+        taskLine,
         '',
         'What makes a good stop (best-known, most-visited first, then strong additional candidates):',
         '- Places that ALREADY appear on real walking tours — guided tours, self-guided tour apps/routes, historical-society markers, official city or visitor-bureau tours.',
         '- Within a comfortable ~1-mile loop of one another; interesting and photogenic (historic sites and markers, landmarks, monuments/memorials, public art and murals, notable architecture, parks and plazas, museums, iconic local businesses).',
         '- Publicly accessible and safe to stand in front of.',
         '',
-        'Research instructions:',
-        '- Do the research yourself with your web browsing/search tools. Do not ask me for a dataset; the deliverable is the finished SQL.',
-        '- Goal: ' + n + ' verified stops, but a smaller verified batch is fine. Never fabricate a place, address, or coordinate to hit the count.',
-        '- Give the most specific street address you can, and the real decimal-degree latitude/longitude of the place. Verify coordinates land on the actual place.',
+        ...researchLines,
         '',
         'Hard requirements for each JSON object:',
         '- name: the place name (e.g. "Cafe du Monde"). Required.',
@@ -2203,6 +2224,7 @@ $$;`.trim();
     // Options for the "With AI" prompt, remembered between opens.
     let aiPromptCount = 20;
     let aiPromptKeywords = '';
+    let aiPromptUrl = '';
 
     // Which "With AI" mode is active: pull live from OpenStreetMap, or build an
     // AI prompt that returns Supabase SQL. (Was the standalone Find waypoints
@@ -2259,7 +2281,18 @@ $$;`.trim();
         kwInput.value = aiPromptKeywords;
         kwInput.addEventListener('input', () => { aiPromptKeywords = kwInput.value; });
         kwWrap.appendChild(kwInput);
-        opts.append(countWrap, kwWrap);
+        // Optional source page. When set, the prompt tells the AI to take its
+        // stops FROM this page instead of researching the city from scratch.
+        const urlWrap = document.createElement('label');
+        urlWrap.className = 'prompt-opt prompt-opt--wide';
+        urlWrap.textContent = 'Source URL (optional)';
+        const urlInput = document.createElement('input');
+        urlInput.type = 'url';
+        urlInput.placeholder = 'https://example.com/self-guided-walking-tour';
+        urlInput.value = aiPromptUrl;
+        urlInput.addEventListener('input', () => { aiPromptUrl = urlInput.value; });
+        urlWrap.appendChild(urlInput);
+        opts.append(countWrap, kwWrap, urlWrap);
       }
 
       const current = findRow(state.randomId);
@@ -2293,7 +2326,7 @@ $$;`.trim();
       ta.id = 'promptText';
       ta.readOnly = true;
       ta.spellcheck = false;
-      ta.value = buildWaypointAiPrompt(descriptor, aiPromptCount, aiPromptKeywords);
+      ta.value = buildWaypointAiPrompt(descriptor, aiPromptCount, aiPromptKeywords, aiPromptUrl);
       body.append(hint, ta);
       ta.focus();
       ta.select();
