@@ -181,6 +181,13 @@
       background: rgba(255, 255, 255, 0.78);
     }
 
+    .admin-auth-toggle { white-space: nowrap; }
+
+    .admin-auth-toggle.is-signed-in {
+      border-color: rgba(194, 55, 55, 0.44);
+      color: var(--bic-red);
+    }
+
     .panel-head-actions {
       display: flex;
       align-items: center;
@@ -581,12 +588,7 @@
       </div>
       <div class="stockroom-head-status">
         <a class="btn small" href="/sound/" target="_blank" rel="noopener">Soundtracks</a>
-        <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
-        </button>
+        <button class="btn small admin-auth-toggle" id="adminAuthToggleBtn" type="button" aria-label="ADMIN LOGON" title="ADMIN LOGON">ADMIN LOGON</button>
       </div>
     </div>
     <div class="prompt-layout">
@@ -829,7 +831,6 @@ Final report:
 
   <script src="../../mc/js/admin-auth.js"></script>
   <script src="../../mc/js/admin-shell.js"></script>
-  <script src="../../mc/js/admin-nav-menu.js"></script>
   <script>
     (function () {
       'use strict';
@@ -839,20 +840,34 @@ Final report:
         publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
       };
 
-      var signOutBtn = document.getElementById('signOutBtn');
       var pageStatus = document.getElementById('pageStatus');
       var copyButtons = [
         document.getElementById('copyPromptTop')
       ].filter(Boolean);
       var prompt = document.getElementById('promptText');
       var copyStatus = document.getElementById('copyStatus');
+      var adminAuthToggleBtn = document.getElementById('adminAuthToggleBtn');
+
+      // Same login/logout toggle the Stock Room carries: one button that reads
+      // ADMIN LOGON when signed out and ADMIN LOGOUT when signed in.
+      function setAdminAuthToggleState(signedIn) {
+        if (!adminAuthToggleBtn) return;
+        var label = signedIn ? 'ADMIN LOGOUT' : 'ADMIN LOGON';
+        adminAuthToggleBtn.textContent = label;
+        adminAuthToggleBtn.title = label;
+        adminAuthToggleBtn.setAttribute('aria-label', label);
+        adminAuthToggleBtn.classList.toggle('is-signed-in', !!signedIn);
+      }
+
       var adminAuth = window.TgbMcAdminAuth.create({
         supabaseConfig: SUPABASE_CONFIG,
         onAuthorized: function () {
           setPageStatus('');
+          setAdminAuthToggleState(true);
         },
         onSignedOut: function () {
           setPageStatus('Sign in with an admin account.');
+          setAdminAuthToggleState(false);
         }
       });
 
@@ -958,12 +973,22 @@ Final report:
 
       loadLastRun();
 
-      window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
-      // The shared nav injects TGB HOME / MISSION CONTROL back-buttons into the
-      // sign-out button's parent. This page reaches Mission Control from the
-      // footer of /sound/ instead, so drop them rather than crowd the header.
-      var backNav = document.querySelector('.mc-back-nav');
-      if (backNav) backNav.remove();
+      // Deliberately NOT calling TgbMcAdminNav.init — like the Stock Room, this
+      // page carries its own Soundtracks link and login/logout toggle instead of
+      // the shared MC nav, which injects TGB HOME / MISSION CONTROL buttons and
+      // then deletes the account button on every non-hub page.
+      setAdminAuthToggleState(false);
+      if (adminAuthToggleBtn) {
+        adminAuthToggleBtn.addEventListener('click', function () {
+          var session = adminAuth.getSession ? adminAuth.getSession() : null;
+          if (session && session.access_token) adminAuth.signOut({ silent: true });
+          else adminAuth.showAuth('Sign in with an admin account.');
+        });
+      }
+      window.addEventListener('tgb-admin-auth-change', function (event) {
+        var detail = event && event.detail;
+        setAdminAuthToggleState(!!(detail && detail.signedIn));
+      });
       adminAuth.init();
     }());
   </script>
