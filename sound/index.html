@@ -997,9 +997,27 @@
       function buildCassetteSvg() {
         var svg = svgEl('svg', { viewBox: '2.5 2.5 95 55', role: 'img', 'aria-label': 'Cassette tape' });
 
-        svg.appendChild(svgEl('path', { d: 'M5 5 95 5 95 55 5 55 z', 'stroke-width': '5', 'stroke-linejoin': 'round', stroke: 'var(--tgb-stripe-body, #16323a)' }, 'tgb-cass-body'));
-        svg.appendChild(svgEl('path', { d: 'M18 57 21 45 79 45 82 57 z' }, 'tgb-cass-bottom'));
-        svg.appendChild(svgEl('path', { d: 'M10 10 90 10 90 40 10 40 z', 'stroke-width': '5', 'stroke-linejoin': 'round', stroke: '#f3ede0' }, 'tgb-cass-label-bg'));
+        // Two real holes at the spindles, so the page shows through the tape.
+        // Everything below the hubs (case, label, stripes, centre panel, spool
+        // window) goes in ONE masked group; the mask is white everywhere except
+        // two r=5 discs. The rotating hubs are appended after it, unmasked, so
+        // the spokes still turn inside the openings. Making only the reel disc
+        // transparent is not enough — five opaque layers sit behind it.
+        var mask = svgEl('mask', {
+          id: 'tgbCassHubHoles', maskUnits: 'userSpaceOnUse',
+          x: '0', y: '0', width: '100', height: '60'
+        });
+        mask.appendChild(svgEl('rect', { x: '0', y: '0', width: '100', height: '60', fill: '#ffffff' }));
+        mask.appendChild(svgEl('circle', { cx: '30', cy: '30', r: '5', fill: '#000000' }));
+        mask.appendChild(svgEl('circle', { cx: '70', cy: '30', r: '5', fill: '#000000' }));
+        svg.appendChild(mask);
+
+        var deck = svgEl('g', { mask: 'url(#tgbCassHubHoles)' });
+        svg.appendChild(deck);
+
+        deck.appendChild(svgEl('path', { d: 'M5 5 95 5 95 55 5 55 z', 'stroke-width': '5', 'stroke-linejoin': 'round', stroke: 'var(--tgb-stripe-body, #16323a)' }, 'tgb-cass-body'));
+        deck.appendChild(svgEl('path', { d: 'M18 57 21 45 79 45 82 57 z' }, 'tgb-cass-bottom'));
+        deck.appendChild(svgEl('path', { d: 'M10 10 90 10 90 40 10 40 z', 'stroke-width': '5', 'stroke-linejoin': 'round', stroke: '#f3ede0' }, 'tgb-cass-label-bg'));
 
         // Five stacked label stripes; colored per city in applyStripes() as a
         // gradient centered on the case's stripe color.
@@ -1007,15 +1025,15 @@
         for (var i = 0; i < 5; i++) {
           var s = svgEl('path', { d: 'M7.5 ' + (21.5 + i * 3.4) + ' 92.5 ' + (21.5 + i * 3.4) + ' 92.5 38.5 7.5 38.5 z', opacity: '0.92' }, 'tgb-cass-stripe');
           stripeEls.push(s);
-          svg.appendChild(s);
+          deck.appendChild(s);
         }
 
-        svg.appendChild(svgEl('path', { d: 'M20 24 80 24 80 36 20 36 z', 'stroke-width': '5', 'stroke-linejoin': 'round', stroke: 'var(--tgb-stripe-body, #16323a)' }, 'tgb-cass-center'));
+        deck.appendChild(svgEl('path', { d: 'M20 24 80 24 80 36 20 36 z', 'stroke-width': '5', 'stroke-linejoin': 'round', stroke: 'var(--tgb-stripe-body, #16323a)' }, 'tgb-cass-center'));
 
         // window (clip) with spools + dark background behind
         var clip = svgEl('clipPath', { id: 'tgbCassWindow' });
         clip.appendChild(svgEl('path', { d: 'M40 24 60 24 60 36 40 36 z' }));
-        svg.appendChild(clip);
+        deck.appendChild(clip);
         var win = svgEl('g', { 'clip-path': 'url(#tgbCassWindow)' });
         win.appendChild(svgEl('path', { d: 'M40 24 60 24 60 36 40 36 z' }, 'tgb-cass-hole'));
         var leftSpool = svgEl('circle', { cx: '30', cy: '30', r: TOTAL_RADIUS }, 'tgb-cass-spool tgb-cass-spool--left');
@@ -1033,7 +1051,7 @@
         art.setAttribute('role', 'button');
         art.setAttribute('aria-label', 'Show album art');
         win.appendChild(art);
-        svg.appendChild(win);
+        deck.appendChild(win);
         art.addEventListener('click', function () { if (state.artUrl) openArtLightbox(); });
 
         // hub gears — a sprocket (circle + radial teeth) that rotates while
