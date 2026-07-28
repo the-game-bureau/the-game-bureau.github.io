@@ -106,6 +106,14 @@ A **scheduled Claude Code cloud agent** runs at 15:00 UTC — 10 AM Central in
 summer, 9 AM in winter, because cloud cron has no daylight-saving shift.
 
 1. Reads `public.cities` and `sound/soundtracks.json`.
+   **The catalog is read with WebFetch, not curl.** The cloud sandbox's egress
+   policy blocks direct network calls from Bash — the 2026-07-28 run got
+   `403 to CONNECT` for the Supabase host and lost its new-city half because of
+   it — but WebFetch is not subject to that policy. Since WebFetch can't send
+   headers, the publishable key rides in the query string, which PostgREST
+   accepts: `…/rest/v1/cities?select=slug,city,ignored&order=city.asc&apikey=…`
+   (three columns only, so the response comes back whole; the public `/sound/`
+   page still uses `select=*`).
 2. Picks the **alphabetically first city with no tape**, plus the **emptiest
    existing tape**.
 3. Researches songs and verifies every Spotify ID by web search.
