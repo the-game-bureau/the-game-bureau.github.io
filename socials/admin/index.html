@@ -746,7 +746,21 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
       };
 
-      var QUEUE_FILE = '../queue.json';
+      // Anchored on the /socials/ segment rather than written as '../queue.json'.
+      // A relative path — and new URL('../…') , which resolves identically — is
+      // measured from the current DIRECTORY, so a page served without its
+      // trailing slash (/socials/admin) walks up one level too far and fetches
+      // /queue.json. Most servers redirect to add the slash, but not all, and an
+      // IDE preview may not. Finding the segment works for every form:
+      // /socials/admin, /socials/admin/, /socials/admin/index.html, any host,
+      // and file:// too.
+      var QUEUE_FILE = (function () {
+        var href = window.location.href.split(/[?#]/)[0];
+        var marker = '/socials/';
+        var at = href.lastIndexOf(marker);
+        if (at !== -1) return href.slice(0, at + marker.length) + 'queue.json';
+        return new URL('../queue.json', href).href; // moved? fall back to relative
+      }());
       // Trashed ids, so a dismissal survives a reload. Keyed by post id, which
       // is date-stamped, so yesterday's keys can never collide with today's.
       var TRASH_KEY = 'tgb_socials_trashed_v1';
@@ -836,26 +850,45 @@ Finish with a summary: the five picks with cities and sources, what you rejected
 
       // ── Load + render ────────────────────────────────────────────────────
       async function loadQueue() {
+        var data;
+
+        // Fetching is its own try block. Wrapping the render in here too meant a
+        // rendering bug reported itself as "could not read the file", which sent
+        // us looking at the data instead of the code.
         try {
           var res = await fetch(QUEUE_FILE, { cache: 'no-store' });
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          var data = await res.json();
-          posts = Array.isArray(data.posts) ? data.posts : [];
-
-          if (queueDate && data.generated_at) {
-            var when = new Date(data.generated_at);
-            if (!isNaN(when)) {
-              queueDate.textContent = when.toLocaleDateString([], {
-                weekday: 'short', month: 'short', day: 'numeric'
-              });
-            }
-          }
-          renderQueue();
+          if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching ' + QUEUE_FILE);
+          data = await res.json();
         } catch (error) {
+          console.error('[socials] could not load the queue:', error);
           posts = [];
           if (queueList) queueList.textContent = '';
           setPageStatus('');
-          showEmpty('Could not read socials/queue.json. If the routine has not run yet that file does not exist — open the routine and trigger a run.');
+          showEmpty(
+            'Could not read the queue (' + (error && error.message ? error.message : 'unknown error') +
+            '). If the routine has not run yet that file does not exist — open the routine and trigger a run.'
+          );
+          return;
+        }
+
+        posts = (data && Array.isArray(data.posts)) ? data.posts : [];
+
+        if (queueDate && data && data.generated_at) {
+          var when = new Date(data.generated_at);
+          if (!isNaN(when)) {
+            queueDate.textContent = when.toLocaleDateString([], {
+              weekday: 'short', month: 'short', day: 'numeric'
+            });
+          }
+        }
+
+        try {
+          renderQueue();
+        } catch (error) {
+          console.error('[socials] could not render the queue:', error);
+          setPageStatus('');
+          showEmpty('Read ' + posts.length + ' pick(s) but could not draw them: ' +
+            (error && error.message ? error.message : 'unknown error'));
         }
       }
 
