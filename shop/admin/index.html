@@ -3378,23 +3378,18 @@
 
     let statusRadioGroupCounter = 0;
 
-    // Newest-first is the default view: the book-pull routine files candidates
-    // every morning, so the top of the list is where the new work is.
+    // Newest-first, every load. The book-pull routine files candidates every
+    // morning, so the top of the list is where the new work is. There is no
+    // special-casing anywhere: no filter changes the sort, and the sort is not
+    // remembered in the URL or across reloads — the page always opens on
+    // New → Old and stays wherever you put it for the rest of the session.
     const DEFAULT_ITEM_SORT = 'newest';
 
     if (itemSortSelect) {
       itemSortSelect.addEventListener('change', resetItemsPaging);
     }
     if (statusFilter) {
-      statusFilter.addEventListener('change', () => {
-        // Picking Shelved snaps back to New → Old. You open Shelved to see what
-        // was most recently shelved, and A→Z buries that in the middle of a
-        // long list. Any other sort is still one click away afterwards.
-        if (statusFilter.value === 'SHELVED' && itemSortSelect) {
-          itemSortSelect.value = DEFAULT_ITEM_SORT;
-        }
-        resetItemsPaging();
-      });
+      statusFilter.addEventListener('change', resetItemsPaging);
     }
     if (loadMoreBtn) {
       // One page at a time, always within the current filter — the button hides
@@ -3549,10 +3544,13 @@
     const wantsAllCities = initialShopCityParam.toLowerCase() === ALL_CITIES_PARAM;
     const initialShopCity = wantsAllCities ? '' : initialShopCityParam;
 
-    // The rest of the toolbar rides in the URL too (?q= / ?status= / ?sort=), so
-    // a refresh — or a link you paste to someone — lands on the same view. Values
+    // The rest of the toolbar rides in the URL too (?q= / ?status=), so a
+    // refresh — or a link you paste to someone — lands on the same view. Values
     // are matched against the real <option>s: anything unrecognised is ignored
     // rather than left as a filter the dropdown can't show.
+    //
+    // The SORT is deliberately not in this list. It always starts at New → Old,
+    // so a stale bookmark can't reopen the page on some other order.
     (function restoreFiltersFromUrl() {
       const q = initialParams.get('q');
       if (q && itemSearchInput) itemSearchInput.value = q;
@@ -3562,7 +3560,6 @@
         if (match) el.value = value;
       };
       applySelect(statusFilter, String(initialParams.get('status') || '').trim());
-      applySelect(itemSortSelect, String(initialParams.get('sort') || '').trim());
     }());
     // Cards are heavy, so the list paints a page at a time behind LOAD MORE.
     const ITEMS_PAGE_SIZE = 10;
@@ -4102,8 +4099,9 @@
       };
       setOrDrop('q', itemSearchInput ? itemSearchInput.value.trim() : '');
       setOrDrop('status', statusFilter ? statusFilter.value : '');
-      // Only a deliberate move off the default sort needs recording in the URL.
-      setOrDrop('sort', itemSortSelect && itemSortSelect.value !== DEFAULT_ITEM_SORT ? itemSortSelect.value : '');
+      // The sort is never written to the URL — the page always opens on
+      // New → Old. Drop any ?sort= left over from an older link.
+      url.searchParams.delete('sort');
 
       window.history.replaceState(null, '', url.pathname + url.search);
     }

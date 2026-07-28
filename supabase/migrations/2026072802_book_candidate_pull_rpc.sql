@@ -114,13 +114,19 @@ begin
       continue;
     end if;
 
-    -- archived = true and certified_at = null are not negotiable here. They are
-    -- what make this function safe to expose; do not add parameters for them.
+    -- Everything the pull files lands in REVIEW, always. The Stock Room reads
+    -- status off two columns — rejected_at set = SHELVED, certified_at set =
+    -- LIVE, neither = REVIEW — so both are written null explicitly rather than
+    -- left to a column default that a later migration could change. This and
+    -- archived = true are what make the function safe to expose; do not add
+    -- parameters for any of them.
     insert into public.gift_shop_items (
-      kind, title, url, image_url, image_focus, description, archived, certified_at
+      kind, title, url, image_url, image_focus, description,
+      archived, certified_at, rejected_at
     )
     values (
-      'amazon_link', v_title, v_url, v_image_url, '50% 50%', v_description, true, null
+      'amazon_link', v_title, v_url, v_image_url, '50% 50%', v_description,
+      true, null, null
     )
     returning id into v_item_id;
 
