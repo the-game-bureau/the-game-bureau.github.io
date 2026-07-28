@@ -614,7 +614,6 @@
     }
     .prompt-text:focus { outline: none; }
 
-    #importDialog { width: min(760px, calc(100vw - 32px)); }
     /* The manual add form is a single narrow column — size the lightbox to it. */
     #manualDialog { width: min(440px, calc(100vw - 32px)); }
     #manualBody { padding: 14px; }
@@ -631,18 +630,6 @@
       background: linear-gradient(180deg, rgba(255, 255, 255, 0), #fff 45%);
     }
     .pick-foot .btn { min-width: 170px; }
-    .import-text {
-      width: 100%;
-      min-height: 38vh;
-      box-sizing: border-box;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      resize: vertical;
-      padding: 12px;
-      font: 0.82rem/1.45 ui-monospace, Menlo, Consolas, monospace;
-      white-space: pre;
-      overflow: auto;
-    }
     .pick-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .pick-tools a { font-size: 0.8rem; cursor: pointer; color: var(--accent); text-decoration: underline; }
     .pick-list { display: grid; gap: 5px; }
@@ -709,9 +696,8 @@
       .command-bar-label { flex: 1 1 100%; }
       .command-bar-divider { display: none; }
 
-      /* Dialogs (Find waypoints, Prompt, Import, Near) fill the screen. */
+      /* Dialogs (Find waypoints, Prompt, Near) fill the screen. */
       .modal,
-      #importDialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
       .modal-bar { flex-wrap: wrap; padding: 10px; }
       .modal-title { flex: 1 1 100%; }
       .modal-bar .btn { flex: 1 1 auto; }
@@ -758,7 +744,7 @@
       <div class="stockroom-head-lockup">
         <div class="stockroom-titlecol">
           <span class="stockroom-eyebrow">THE GAME BUREAU</span>
-          <h1 class="stockroom-title">WAYPOINTS</h1>
+          <h1 class="stockroom-title" id="pageTitle">WAYPOINTS</h1>
           <p class="status stockroom-substat" id="pageStatus" aria-live="polite"></p>
         </div>
       </div>
@@ -789,15 +775,12 @@
       </select>
     </div>
 
-    <!-- Add waypoints: Manual (by-hand pop-up) and With AI (OpenStreetMap pull OR
-         AI→Supabase-SQL prompt) lead; Import follows; Links are quiet reference
-         shortcuts. -->
+    <!-- Add waypoints: Manual (by-hand pop-up) and With AI (OpenStreetMap pull
+         OR AI→Supabase-SQL prompt); Links are quiet reference shortcuts. -->
     <div class="command-bar" aria-label="Add waypoints">
       <span class="command-bar-label">Add</span>
       <button class="btn small" id="newBtn" type="button" title="Add one waypoint by hand in a pop-up form">Manual</button>
       <button class="btn small primary" id="promptBtn" type="button" title="Find stops for a city — pull them live from OpenStreetMap, or get an AI prompt that returns Supabase SQL">With AI</button>
-      <span class="command-bar-divider" aria-hidden="true"></span>
-      <button class="btn small" id="importBtn" type="button" title="Paste CSV/spreadsheet rows and add them all as waypoints">Import</button>
       <span class="command-bar-divider" aria-hidden="true"></span>
       <span class="command-bar-label">Links</span>
       <a class="btn small ghost" id="w3wLinkBtn" href="https://developer.what3words.com/public-api" target="_blank" rel="noopener" title="Open the what3words Public API docs in a new tab">W3W ↗</a>
@@ -841,16 +824,6 @@
   </section>
 
 
-  <div class="modal-backdrop" id="importBackdrop" hidden></div>
-  <section class="modal" id="importDialog" hidden role="dialog" aria-modal="true" aria-labelledby="importTitle">
-    <div class="modal-bar">
-      <h3 class="modal-title" id="importTitle">Import waypoints</h3>
-      <button class="btn small" id="importBackBtn" type="button" hidden>Back</button>
-      <button class="btn primary small" id="importNextBtn" type="button">Preview</button>
-      <button class="btn small" id="importCloseBtn" type="button">Close</button>
-    </div>
-    <div class="prompt-body" id="importBody"></div>
-  </section>
 
 
 
@@ -2078,7 +2051,7 @@
     }
 
     // Build an AI prompt that asks for REAL walking-tour stops in an area and
-    // returns CSV ready to paste into this page's Import box.
+    // returns Supabase SQL to run in the dashboard.
     const WAYPOINT_IMPORT_HELPER_SQL_PATH = 'supabase/waypoints-prompt-import.sql';
     const SUPABASE_SQL_URL = 'https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/';
 
@@ -2756,224 +2729,6 @@ $$;`.trim();
       if (!cleanText(a) || !cleanText(b)) return 0;
       if (streetNumbersConflict(a, b)) return 0;
       return dedupSimilarity(a, b);
-    }
-
-    // --- Import: paste CSV/spreadsheet rows, review, add them all -------------
-    let importPending = [];
-    let importRawText = '';
-    let importStage = 'paste';
-    let importBusy = false;
-    const IMPORT_COLS = ['name', 'city', 'state', 'zip', 'address', 'description'];
-
-    // Minimal CSV/TSV parser: handles quoted fields, "" escapes, commas/tabs, CRLF.
-    function parseDelimited(text) {
-      const useTab = text.indexOf('\t') >= 0 && text.indexOf(',') < 0;
-      const delim = useTab ? '\t' : ',';
-      const rows = [];
-      let row = [], cell = '', quoted = false;
-      for (let i = 0; i < text.length; i++) {
-        const c = text[i];
-        if (quoted) {
-          if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else quoted = false; }
-          else cell += c;
-        } else if (c === '"') {
-          quoted = true;
-        } else if (c === delim) {
-          row.push(cell); cell = '';
-        } else if (c === '\n' || c === '\r') {
-          if (c === '\r' && text[i + 1] === '\n') i++;
-          row.push(cell); rows.push(row); row = []; cell = '';
-        } else {
-          cell += c;
-        }
-      }
-      if (cell.length || row.length) { row.push(cell); rows.push(row); }
-      return rows.filter((r) => r.some((x) => cleanText(x)));
-    }
-
-    function rowsToWaypoints(rows) {
-      if (!rows.length) return [];
-      const first = rows[0].map((c) => cleanText(c).toLowerCase());
-      const hasHeader = first.some((c) => IMPORT_COLS.indexOf(c) >= 0);
-      const colFor = (name) => hasHeader ? first.indexOf(name) : IMPORT_COLS.indexOf(name);
-      const idx = { name: colFor('name'), city: colFor('city'), state: colFor('state'), zip: colFor('zip'), address: colFor('address'), description: colFor('description') };
-      const out = [];
-      for (let i = hasHeader ? 1 : 0; i < rows.length; i++) {
-        const r = rows[i];
-        const get = (k) => (idx[k] >= 0 && idx[k] < r.length) ? cleanText(r[idx[k]]) : '';
-        const wp = { name: get('name'), city: get('city'), state: get('state'), zip: get('zip'), address: get('address'), description: get('description') };
-        // Normalize a full state name to its 2-letter code when we recognize it.
-        if (wp.state) wp.state = stateAbbrOf(wp.state) || wp.state;
-        if (wp.name || wp.address) out.push(wp);
-      }
-      return out;
-    }
-
-    function openImportDialog() {
-      const d = document.getElementById('importDialog');
-      const b = document.getElementById('importBackdrop');
-      if (d) d.hidden = false;
-      if (b) b.hidden = false;
-      renderImportPaste(importRawText);
-    }
-
-    function closeImportDialog() {
-      const d = document.getElementById('importDialog');
-      const b = document.getElementById('importBackdrop');
-      if (d) d.hidden = true;
-      if (b) b.hidden = true;
-    }
-
-    function setImportBar(stage) { // 'paste' | 'preview' | 'done'
-      importStage = stage;
-      const back = document.getElementById('importBackBtn');
-      const next = document.getElementById('importNextBtn');
-      if (back) back.hidden = stage !== 'preview';
-      if (next) {
-        next.hidden = stage === 'done';
-        next.textContent = stage === 'preview' ? 'Import' : 'Preview';
-      }
-    }
-
-    function renderImportPaste(text) {
-      setImportBar('paste');
-      const title = document.getElementById('importTitle');
-      if (title) title.textContent = 'Import waypoints';
-      const body = document.getElementById('importBody');
-      if (!body) return;
-      body.innerHTML = '';
-      const hint = document.createElement('div');
-      hint.className = 'zip-desc';
-      hint.innerHTML = 'Paste rows from a spreadsheet or the AI’s CSV. Columns: <strong>name, city, state, zip, address, description</strong> (a header row is optional). Then press <strong>Preview</strong>.';
-      const ta = document.createElement('textarea');
-      ta.className = 'import-text';
-      ta.id = 'importText';
-      ta.spellcheck = false;
-      ta.placeholder = 'name,city,state,zip,address,description\nCafe du Monde,New Orleans,LA,70116,"800 Decatur St, New Orleans, LA",Beignets since 1862.';
-      ta.value = text || '';
-      body.append(hint, ta);
-      ta.focus();
-    }
-
-    function importPreview() {
-      const ta = document.getElementById('importText');
-      importRawText = ta ? ta.value : '';
-      const items = rowsToWaypoints(parseDelimited(importRawText));
-      if (!items.length) { setStatus('No rows found. Check the format (name, city, state, address, description).', 'error'); return; }
-      renderImportPreview(items);
-    }
-
-    function renderImportPreview(items) {
-      setImportBar('preview');
-      importPending = items;
-      items.forEach((it) => { it._dup = findSimilarExisting(it); it._include = !it._dup; });
-      const dupCount = items.filter((it) => it._dup).length;
-      const title = document.getElementById('importTitle');
-      if (title) title.textContent = items.length + ' rows · review';
-      const body = document.getElementById('importBody');
-      if (!body) return;
-      body.innerHTML = '';
-
-      const tools = document.createElement('div');
-      tools.className = 'pick-tools';
-      const all = document.createElement('a');
-      all.textContent = 'Select all';
-      const none = document.createElement('a');
-      none.textContent = 'Select none';
-      const summary = document.createElement('span');
-      summary.className = 'zip-desc';
-      tools.append(all, none, summary);
-
-      const list = document.createElement('div');
-      list.className = 'pick-list';
-      const checks = [];
-      const refresh = () => {
-        const n = items.filter((it) => it._include).length;
-        summary.textContent = n + ' of ' + items.length + ' selected' + (dupCount ? ' · ' + dupCount + ' look like duplicates' : '');
-        const next = document.getElementById('importNextBtn');
-        if (next) next.textContent = 'Import ' + n;
-      };
-      items.forEach((it) => {
-        const row = document.createElement('label');
-        row.className = 'pick-row' + (it._dup ? ' dup' : '');
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = it._include;
-        cb.addEventListener('change', () => { it._include = cb.checked; refresh(); });
-        checks.push(cb);
-        const main = document.createElement('div');
-        main.className = 'pick-main';
-        const nm = document.createElement('span');
-        nm.className = 'pick-name';
-        nm.textContent = it.name || '(no name)';
-        const sub = document.createElement('span');
-        sub.className = 'pick-sub';
-        sub.textContent = [[it.city, it.state].filter(Boolean).join(', '), it.address].filter(Boolean).join(' · ');
-        main.append(nm, sub);
-        if (it._dup) {
-          const dn = document.createElement('span');
-          dn.className = 'pick-dupnote';
-          dn.textContent = 'Looks like #' + it._dup.row.wpid + (cleanText(it._dup.row.name) ? ' (' + it._dup.row.name + ')' : '') + ' — similar ' + it._dup.reason;
-          main.append(dn);
-        }
-        row.append(cb, main);
-        list.append(row);
-      });
-      all.addEventListener('click', () => { items.forEach((it, i) => { it._include = true; checks[i].checked = true; }); refresh(); });
-      none.addEventListener('click', () => { items.forEach((it, i) => { it._include = false; checks[i].checked = false; }); refresh(); });
-      body.append(tools, list);
-      refresh();
-    }
-
-    async function importRun() {
-      if (importBusy) return; // guard against a double-click / double import
-      const items = importPending.filter((it) => it._include);
-      if (!items.length) { setStatus('Nothing selected to import.', 'error'); return; }
-      importBusy = true;
-      importPending.forEach((it) => { it._include = false; }); // can't be re-imported
-      setImportBar('done');
-      const title = document.getElementById('importTitle');
-      const body = document.getElementById('importBody');
-      if (title) title.textContent = 'Importing…';
-      var prog = null;
-      if (body) {
-        body.innerHTML = '';
-        prog = document.createElement('div');
-        prog.className = 'zip-desc';
-        body.append(prog);
-      }
-      let added = 0, failed = 0, skipped = 0;
-      try {
-        for (let i = 0; i < items.length; i++) {
-          if (prog) prog.textContent = 'Adding ' + (i + 1) + ' of ' + items.length + '… (' + (items[i].name || items[i].address || 'row') + ')';
-          // Skip rows that match an existing waypoint, including one added earlier
-          // in this same batch (pushed into state.rows below).
-          if (findSimilarExisting(items[i])) { skipped++; continue; }
-          try {
-            const fresh = await postWaypoint(items[i]);
-            if (fresh && fresh.wpid) state.rows.push(fresh);
-            added++;
-          } catch (error) { console.error(error); failed++; }
-        }
-        await refresh();
-      } finally {
-        importBusy = false;
-      }
-      if (title) title.textContent = 'Import complete';
-      if (body) {
-        body.innerHTML = '';
-        const done = document.createElement('div');
-        done.className = 'zip-desc';
-        const extra = [skipped ? skipped + ' skipped as duplicates' : '', failed ? failed + ' failed' : ''].filter(Boolean).join(', ');
-        done.textContent = 'Added ' + added + ' waypoint' + (added === 1 ? '' : 's') + (extra ? ' (' + extra + ')' : '') + '.';
-        const again = document.createElement('button');
-        again.type = 'button';
-        again.className = 'btn small';
-        again.textContent = 'Import more';
-        again.addEventListener('click', () => { importRawText = ''; renderImportPaste(''); });
-        body.append(done, again);
-      }
-      setStatus('Imported ' + added + ' waypoint' + (added === 1 ? '' : 's') + (skipped ? ' (' + skipped + ' duplicate' + (skipped === 1 ? '' : 's') + ' skipped)' : '') + '.', failed ? 'error' : 'success');
     }
 
     // --- OpenStreetMap finder (a mode of the With AI modal, above) ----------------
@@ -4245,6 +4000,21 @@ $$;`.trim();
 
     function updateSummary() {
       updateToolbarButtons();
+      renderPageTitle();
+    }
+
+    // Title line carries the count: "1 WAYPOINT" / "42 WAYPOINTS". Falls back to
+    // the bare word before sign-in, when the count isn't known yet rather than
+    // genuinely zero. Shows the filtered count when a filter is narrowing the
+    // list, so the heading always matches what's on screen.
+    function renderPageTitle() {
+      const el = document.getElementById('pageTitle');
+      if (!el) return;
+      if (!state.authed) { el.textContent = 'WAYPOINTS'; return; }
+      const total = state.rows.length;
+      const shown = isFiltered() ? navRows().length : total;
+      el.textContent = shown + ' WAYPOINT' + (shown === 1 ? '' : 'S')
+        + (isFiltered() ? ' OF ' + total : '');
     }
 
     // Navigation group (Back · count · Next · Random). Lives in the card action
@@ -4409,18 +4179,6 @@ $$;`.trim();
     if (manualBackdrop) manualBackdrop.addEventListener('click', closeManualDialog);
     const promptBtn = document.getElementById('promptBtn');
     if (promptBtn) promptBtn.addEventListener('click', openPromptDialog);
-    const importBtn = document.getElementById('importBtn');
-    if (importBtn) importBtn.addEventListener('click', openImportDialog);
-
-    const importCloseBtn = document.getElementById('importCloseBtn');
-    if (importCloseBtn) importCloseBtn.addEventListener('click', closeImportDialog);
-    const importBackdrop = document.getElementById('importBackdrop');
-    if (importBackdrop) importBackdrop.addEventListener('click', closeImportDialog);
-    const importBackBtn = document.getElementById('importBackBtn');
-    if (importBackBtn) importBackBtn.addEventListener('click', () => renderImportPaste(importRawText));
-    const importNextBtn = document.getElementById('importNextBtn');
-    if (importNextBtn) importNextBtn.addEventListener('click', () => { if (importStage === 'paste') importPreview(); else if (importStage === 'preview') importRun(); });
-
     const nearCloseBtn = document.getElementById('nearCloseBtn');
     if (nearCloseBtn) nearCloseBtn.addEventListener('click', closeNearDialog);
     const nearBlankBtn = document.getElementById('nearBlankBtn');
@@ -4456,8 +4214,6 @@ $$;`.trim();
       if (promptDialog && !promptDialog.hidden) closePromptDialog();
       const manualDialog = document.getElementById('manualDialog');
       if (manualDialog && !manualDialog.hidden) closeManualDialog();
-      const importDialog = document.getElementById('importDialog');
-      if (importDialog && !importDialog.hidden) closeImportDialog();
     });
 
     window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
