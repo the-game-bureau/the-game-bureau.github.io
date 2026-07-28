@@ -63,9 +63,9 @@ begin
       continue;
     end if;
 
-    insert into public.waypoints (name, city, state, zip, address, description)
+    insert into public.waypoints as w (name, city, state, zip, address, description)
     values (v_name, v_city, v_state, v_zip, v_address, v_description)
-    returning wpid into v_wpid;
+    returning w.wpid into v_wpid;
 
     return query select 'inserted'::text, v_name, v_wpid::text, null::text;
   end loop;
