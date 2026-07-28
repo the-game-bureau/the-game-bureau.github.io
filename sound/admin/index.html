@@ -16,6 +16,9 @@
 
     :root {
       --mc-shell-width: 1180px;
+      /* Vertical rhythm between the header and the panels below it, matching
+         the Stock Room / Waypoints shells. */
+      --stack-gap: 14px;
       --paper-base: #fefef9;
       --bic-blue: #2d4880;
       --bic-blue-rgb: 45, 72, 128;
@@ -57,51 +60,7 @@
       color: var(--accent);
     }
 
-    .topbar-actions {
-      margin-left: auto;
-    }
 
-    .section-head--gears > :not(.section-gear-art):not(.section-head-actions) {
-      position: relative;
-      z-index: 1;
-    }
-
-    .section-head--gears .copy {
-      max-width: 720px;
-      margin: 6px 0 0;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-
-    .section-head--gears .status {
-      color: rgba(var(--bic-blue-rgb), 0.86);
-      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.82rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-
-    .section-gear-art {
-      position: absolute;
-      inset: -18px -12px auto auto;
-      width: 340px;
-      height: 210px;
-      z-index: 0;
-      opacity: 0.9;
-      pointer-events: none;
-    }
-
-    .section-gear-art circle,
-    .section-gear-art path {
-      fill: none;
-      stroke: rgba(var(--bic-blue-rgb), 0.22);
-      stroke-width: 2;
-    }
-
-    .section-gear-art .gear-fill {
-      fill: rgba(var(--bic-blue-rgb), 0.05);
-    }
 
     .prompt-layout {
       display: grid;
@@ -318,6 +277,8 @@
       transform: translateY(-1px);
     }
 
+    .btn.small { min-height: 34px; padding: 0 10px; font-size: 0.76rem; }
+
     .btn.primary {
       background: var(--accent);
       border-color: var(--accent);
@@ -483,13 +444,6 @@
     }
 
     @media (max-width: 840px) {
-      .section-head--gears {
-        padding-right: 22px;
-      }
-
-      .section-gear-art {
-        opacity: 0.28;
-      }
 
       .prompt-layout {
         grid-template-columns: 1fr;
@@ -511,42 +465,152 @@
         font-size: 0.82rem;
       }
     }
+    .stockroom-head {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      min-height: 72px;
+      padding: 0 12px;
+      margin: 0 0 var(--stack-gap);
+    }
+    .stockroom-head-lockup,
+    .stockroom-head-status { position: relative; z-index: 1; }
+    .stockroom-head-lockup { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    /* The gear art, mirrored — a faint watermark sunk into the page grid at the
+       left of the header, bleeding off the left edge. */
+    .stockroom-gear {
+      position: absolute;
+      top: 50%;
+      left: -28px;
+      transform: translateY(-50%) scaleX(-1);
+      width: 184px;
+      height: 184px;
+      z-index: 0;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .stockroom-gear .header-gear { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .stockroom-gear .header-gear--large { stroke: rgba(var(--bic-blue-rgb), 0.15); }
+    .stockroom-gear .header-gear--small { stroke: rgba(var(--bic-blue-rgb), 0.11); }
+    .stockroom-gear .header-gear-body { fill: rgba(var(--bic-blue-rgb), 0.022); stroke-width: 3.4; }
+    .stockroom-gear .header-gear-ring { fill: none; stroke-width: 3; }
+    .stockroom-gear .header-gear-inner { fill: none; stroke-width: 2.4; }
+    .stockroom-gear .header-gear-spoke { fill: rgba(var(--bic-blue-rgb), 0.06); stroke: none; }
+    .stockroom-gear .header-gear-core { fill: rgba(var(--bic-blue-rgb), 0.05); stroke-width: 2.2; }
+    .stockroom-gear .header-gear-bore { fill: none; stroke-width: 2; }
+    .stockroom-gear .header-gear-crosshair { stroke: rgba(var(--bic-blue-rgb), 0.12); stroke-width: 1.4; }
+    .stockroom-gear .header-gear-atmosphere,
+    .stockroom-gear .header-gear-halo { display: none; }
+    .stockroom-titlecol { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .stockroom-eyebrow {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(var(--bic-blue-rgb), 0.9);
+      text-shadow:
+        0 0 3px var(--paper-base),
+        0 0 3px var(--paper-base),
+        0 0 5px var(--paper-base);
+    }
+    .stockroom-title {
+      margin: 0;
+      font-size: 1.7rem;
+      letter-spacing: 0.03em;
+      line-height: 1;
+    }
+    .stockroom-titlecol .stockroom-substat {
+      margin: 3px 0 0;
+      min-height: 0;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--muted);
+    }
+    .stockroom-substat:empty { display: none; }
+    /* Action row under the header — the Stock Room / Waypoints command bar. */
+    .command-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      width: 100%;
+      max-width: var(--mc-shell-width);
+      margin: -6px 0 0;
+      padding: 10px 12px;
+      background: #eef0f4;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    .command-bar-label {
+      flex: 0 0 auto;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
   </style>
   <link rel="stylesheet" href="../../mc/js/admin-shell.css">
 </head>
 <body class="mc-auth-protected">
   <main class="app">
-    <div class="topbar">
-      <div class="topbar-actions">
+    <div class="stockroom-head">
+      <svg class="stockroom-gear" viewBox="128 -12 220 216" aria-hidden="true">
+        <g class="header-gear header-gear--large" transform="translate(212 72) rotate(-14)">
+          <polygon class="header-gear-body" points="-11.3,-65.0 -13.8,-78.8 -7.5,-79.6 7.5,-79.6 13.8,-78.8 11.3,-65.0 22.7,-62.0 27.5,-75.1 33.3,-72.7 46.3,-65.2 51.3,-61.4 42.3,-50.6 50.6,-42.3 61.4,-51.3 65.2,-46.3 72.7,-33.3 75.1,-27.5 62.0,-22.7 65.0,-11.3 78.8,-13.8 79.6,-7.5 79.6,7.5 78.8,13.8 65.0,11.3 62.0,22.7 75.1,27.5 72.7,33.3 65.2,46.3 61.4,51.3 50.6,42.3 42.3,50.6 51.3,61.4 46.3,65.2 33.3,72.7 27.5,75.1 22.7,62.0 11.3,65.0 13.8,78.8 7.5,79.6 -7.5,79.6 -13.8,78.8 -11.3,65.0 -22.7,62.0 -27.5,75.1 -33.3,72.7 -46.3,65.2 -51.3,61.4 -42.3,50.6 -50.6,42.3 -61.4,51.3 -65.2,46.3 -72.7,33.3 -75.1,27.5 -62.0,22.7 -65.0,11.3 -78.8,13.8 -79.6,7.5 -79.6,-7.5 -78.8,-13.8 -65.0,-11.3 -62.0,-22.7 -75.1,-27.5 -72.7,-33.3 -65.2,-46.3 -61.4,-51.3 -50.6,-42.3 -42.3,-50.6 -51.3,-61.4 -46.3,-65.2 -33.3,-72.7 -27.5,-75.1 -22.7,-62.0"></polygon>
+          <circle class="header-gear-ring" r="54"></circle>
+          <circle class="header-gear-inner" r="34"></circle>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5"></rect>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(60)"></rect>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(120)"></rect>
+          <circle class="header-gear-core" r="11"></circle>
+          <circle class="header-gear-bore" r="5.5"></circle>
+          <line class="header-gear-crosshair" x1="-18" y1="0" x2="18" y2="0"></line>
+          <line class="header-gear-crosshair" x1="0" y1="-18" x2="0" y2="18"></line>
+        </g>
+        <g class="header-gear header-gear--small" transform="translate(286 132) rotate(19)">
+          <polygon class="header-gear-body" points="-9.8,-45.0 -12.3,-56.7 -6.5,-57.6 6.5,-57.6 12.3,-56.7 9.8,-45.0 18.5,-42.1 23.4,-53.1 28.6,-50.5 39.2,-42.8 43.3,-38.6 34.3,-30.6 39.7,-23.2 50.1,-29.2 52.8,-24.0 56.8,-11.6 57.7,-5.8 45.8,-4.6 45.8,4.6 57.7,5.8 56.8,11.6 52.8,24.0 50.1,29.2 39.7,23.2 34.3,30.6 43.3,38.6 39.2,42.8 28.6,50.5 23.4,53.1 18.5,42.1 9.8,45.0 12.3,56.7 6.5,57.6 -6.5,57.6 -12.3,56.7 -9.8,45.0 -18.5,42.1 -23.4,53.1 -28.6,50.5 -39.2,42.8 -43.3,38.6 -34.3,30.6 -39.7,23.2 -50.1,29.2 -52.8,24.0 -56.8,11.6 -57.7,5.8 -45.8,4.6 -45.8,-4.6 -57.7,-5.8 -56.8,-11.6 -52.8,-24.0 -50.1,-29.2 -39.7,-23.2 -34.3,-30.6 -43.3,-38.6 -39.2,-42.8 -28.6,-50.5 -23.4,-53.1 -18.5,-42.1"></polygon>
+          <circle class="header-gear-ring" r="38"></circle>
+          <circle class="header-gear-inner" r="24"></circle>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5"></rect>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(60)"></rect>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(120)"></rect>
+          <circle class="header-gear-core" r="7.5"></circle>
+          <circle class="header-gear-bore" r="3.8"></circle>
+          <line class="header-gear-crosshair" x1="-12" y1="0" x2="12" y2="0"></line>
+          <line class="header-gear-crosshair" x1="0" y1="-12" x2="0" y2="12"></line>
+        </g>
+      </svg>
+      <div class="stockroom-head-lockup">
+        <div class="stockroom-titlecol">
+          <span class="stockroom-eyebrow">THE GAME BUREAU</span>
+          <h1 class="stockroom-title" id="pageTitle">SOUNDTRACKS</h1>
+          <p class="status stockroom-substat" id="pageStatus" aria-live="polite">Sign in with an admin account.</p>
+        </div>
+      </div>
+      <div class="stockroom-head-status">
         <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
-            <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+            <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
           </svg>
         </button>
       </div>
     </div>
-
-    <section class="section-head--gears" aria-labelledby="pageTitle">
-      <svg class="section-gear-art" viewBox="0 0 340 210" aria-hidden="true" focusable="false">
-        <circle cx="250" cy="72" r="62" class="gear-fill"></circle>
-        <circle cx="250" cy="72" r="45"></circle>
-        <path d="M250 15v24M250 105v24M193 72h24M283 72h24M210 32l17 17M273 95l17 17M210 112l17-17M273 49l17-17"></path>
-        <circle cx="250" cy="72" r="16"></circle>
-        <circle cx="292" cy="146" r="38" class="gear-fill"></circle>
-        <circle cx="292" cy="146" r="26"></circle>
-        <path d="M292 104v16M292 172v16M250 146h16M318 146h16M263 117l12 12M309 163l12 12M263 175l12-12M309 129l12-12"></path>
-        <circle cx="292" cy="146" r="9"></circle>
-      </svg>
-      <p class="kicker">TGB Mission Control</p>
-      <h1 id="pageTitle">City Soundtracks</h1>
-      <p class="copy">Every city we run games in gets a 15-song cassette tape on <a href="/sound/" target="_blank" rel="noopener">/sound/</a>. An AI agent builds one new tape every morning on its own — this page is where you watch it happen, and step in if you want to.</p>
-      <p class="status" id="pageStatus" aria-live="polite">Sign in with an admin account.</p>
-      <div class="section-head-actions">
-        <button class="btn primary" id="copyPromptTop" type="button">Copy Prompt</button>
-        <a class="btn" href="/sound/" target="_blank" rel="noopener">View Soundtracks</a>
-      </div>
-    </section>
+    <div class="command-bar" aria-label="Soundtrack actions">
+      <span class="command-bar-label">Actions</span>
+      <button class="btn small primary" id="copyPromptTop" type="button">Copy Prompt</button>
+      <a class="btn small" href="/sound/" target="_blank" rel="noopener">View Soundtracks</a>
+      <a class="btn small" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer">Open Routine</a>
+    </div>
 
     <div class="prompt-layout">
       <div style="display:grid; gap:16px; min-width:0">
@@ -554,7 +618,7 @@
       <section class="side-card explain" aria-labelledby="whatTitle">
         <span class="side-label">What this is</span>
         <h2 id="whatTitle">A gift, not a product</h2>
-        <p>A soundtrack is 15 songs that sound like one city — hometown artists, songs that name the streets, the fight song the whole stadium knows, the record cut in a studio down the road.</p>
+        <p>Every city we run games in gets a <strong>15-song cassette tape</strong> on <a href="/sound/" target="_blank" rel="noopener">/sound/</a> — hometown artists, songs that name the streets, the fight song the whole stadium knows, the record cut in a studio down the road. An AI agent builds a new one every morning on its own; this page is where you watch it happen and step in if you want to.</p>
         <p><strong>It makes us no money, and that's the point.</strong> Someone playing a game in New Orleans — or just thinking about it — can put the New Orleans tape on and feel the city before they ever arrive. Curiosity about a place is what we're really selling. The game is how somebody acts on it.</p>
         <p>So songs are picked for <strong>“this makes me want to go there”</strong>, not for chart positions. A deep cut naming a neighbourhood beats a famous song by someone who merely happens to be from there.</p>
       </section>
