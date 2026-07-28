@@ -862,14 +862,38 @@ Final report:
       var adminAuth = window.TgbMcAdminAuth.create({
         supabaseConfig: SUPABASE_CONFIG,
         onAuthorized: function () {
-          setPageStatus('');
           setAdminAuthToggleState(true);
+          loadTapeSummary();
         },
         onSignedOut: function () {
           setPageStatus('Sign in with an admin account.');
           setAdminAuthToggleState(false);
         }
       });
+
+      // Tape summary under the title, in the shape the Stock Room uses for items:
+      // a breakdown that adds up to the total. Read straight from the published
+      // JSON — the same file /sound/ reads — so the number can never disagree
+      // with what a visitor sees.
+      async function loadTapeSummary() {
+        try {
+          var res = await fetch('../soundtracks.json', { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          var data = await res.json();
+          var list = Array.isArray(data.soundtracks) ? data.soundtracks : [];
+          var live = list.filter(function (tape) {
+            return tape && Array.isArray(tape.songs) && tape.songs.length > 0;
+          });
+          var full = live.filter(function (tape) { return tape.songs.length >= 15; }).length;
+          var partial = live.length - full;
+          setPageStatus(
+            full + ' complete + ' + partial + ' need songs = ' +
+            live.length + ' tape' + (live.length === 1 ? '' : 's')
+          );
+        } catch (error) {
+          setPageStatus('');
+        }
+      }
 
       function setPageStatus(text) {
         if (pageStatus) pageStatus.textContent = text || '';
