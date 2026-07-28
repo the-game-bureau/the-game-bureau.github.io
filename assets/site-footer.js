@@ -150,6 +150,24 @@
     document.querySelector('footer.site-footer');
   if (!footer || footer.dataset.tgbFooterReady === 'true') return;
 
+  // Mission Control: the admin surface for whichever section you are on, always
+  // resolved relative to the CURRENT directory — /sound/ -> /sound/admin/,
+  // /shop/ -> /shop/admin/. Deriving it from location.pathname keeps one shared
+  // footer working everywhere instead of hard-coding a section into shared code.
+  //
+  // Only sections that actually HAVE an admin get the link; this footer also
+  // renders on /games/, /how/, /account/ and friends, where the same relative
+  // href would be a 404. Add a directory here when it gains an admin page.
+  var MISSION_CONTROL_DIRS = ['/shop/admin/', '/sound/admin/', '/highlights/admin/'];
+
+  function missionControlHref() {
+    var path = window.location.pathname || '/';
+    var dir = path.replace(/[^/]*$/, '');          // drop any file name
+    if (/\/admin\/$/.test(dir)) return dir;        // already there: don't nest admin/admin/
+    var candidate = dir + 'admin/';
+    return MISSION_CONTROL_DIRS.indexOf(candidate) === -1 ? '' : candidate;
+  }
+
   footer.classList.add('site-footer');
   footer.innerHTML =
     '<div class="footer-bottom">' +
@@ -161,6 +179,9 @@
         '<a href="https://instagram.com/thegamebureau" target="_blank" rel="noopener">Instagram</a>' +
         '<a href="https://x.com/thegamebureau" target="_blank" rel="noopener">X</a>' +
         '<a href="https://youtube.com/@thegamebureau" target="_blank" rel="noopener">YouTube</a>' +
+        (missionControlHref()
+          ? '<a class="footer-mc-link" href="' + missionControlHref() + '">Mission Control</a>'
+          : '') +
       '</span>' +
     '</div>';
   footer.dataset.tgbFooterReady = 'true';
