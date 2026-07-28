@@ -822,7 +822,6 @@
         <option value="no_address">Missing address</option>
         <option value="no_zip">Missing ZIP</option>
         <option value="no_city">Missing city</option>
-        <option value="no_coords">Missing coordinates</option>
         <option value="no_description">Missing description</option>
       </select>
       <button class="btn small" id="selectBtn" type="button" title="Bulk Fill or Delete the waypoints currently shown by the filter/search">Select</button>
@@ -927,7 +926,12 @@
     const TABLE = 'waypoints';
     const PK = 'wpid';
     // Columns read from the table. wpid is the identity primary key.
-    const WAYPOINT_COLUMNS = ['wpid', 'city', 'state', 'zip', 'address', 'name', 'description', 'w3w', 'lat', 'lon'];
+    // waypoints.lat / waypoints.lon were dropped from the table on 2026-07-27.
+    // Coordinates still exist at RUNTIME — geocoded from w3w/address/city and
+    // held on the in-memory row so the map can centre and the what3words grid
+    // can draw — but they are never selected and never written. PostgREST 400s
+    // on an unknown column, so re-adding them here breaks the whole page load.
+    const WAYPOINT_COLUMNS = ['wpid', 'city', 'state', 'zip', 'address', 'name', 'description', 'w3w'];
     // Editable text fields (everything except the auto-number PK and lat/lon).
     const EDITABLE_FIELDS = ['name', 'city', 'state', 'zip', 'address', 'description', 'w3w'];
     // Fields actually persisted on save / used for change detection — the editable
@@ -948,7 +952,7 @@
       rows: [],
       authed: false,
       filter: '',
-      fieldFilter: '',  // dropdown filter: '', 'no_w3w', 'no_address', 'no_zip', 'no_city', 'no_coords', 'no_description'
+      fieldFilter: '',  // dropdown filter: '', 'no_w3w', 'no_address', 'no_zip', 'no_city', 'no_description'
       cityFilter: '',   // lowercased city key; '' means every city
       // The single waypoint currently shown. Exactly one is featured at a time;
       // Back/Next/Random step through the (optionally filtered) set.
@@ -1087,6 +1091,8 @@
         name: String(r.name || ''),
         description: String(r.description || ''),
         w3w: String(r.w3w || ''),
+        // Runtime-only, never round-tripped to the database: filled in by
+        // geocoding so the map can centre. Always null straight off a fetch.
         lat: (r.lat == null || r.lat === '') ? null : Number(r.lat),
         lon: (r.lon == null || r.lon === '') ? null : Number(r.lon)
       };
@@ -1097,11 +1103,19 @@
     }
 
     // PATCH/POST payload — editable columns plus the stored exact coordinates.
+    // Only EDITABLE_FIELDS go to the database. lat/lon are deliberately absent —
+    // the columns no longer exist, and sending them makes PostgREST reject the
+    // whole write.
     function payloadFromRow(row) {
       const payload = {};
       EDITABLE_FIELDS.forEach((field) => { payload[field] = cleanText(row[field]) || null; });
-      payload.lat = Number.isFinite(row.lat) ? row.lat : null;
-      payload.lon = Number.isFinite(row.lon) ? row.lon : null;
+      return payload;
+    }
+
+    // Single choke point for insert payloads, which are assembled from geocoding
+    // results and can pick up coordinates along the way.
+    function stripDroppedColumns(payload) {
+      if (payload && typeof payload === 'object') { delete payload.lat; delete payload.lon; }
       return payload;
     }
 
@@ -3517,7 +3531,7 @@ $$;`.trim();
         const res = await fetch(restUrl(TABLE, {}), {
           method: 'POST',
           headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-          body: JSON.stringify(payload)
+          body: JSON.stringify(stripDroppedColumns(payload))
         });
         if (!res.ok) throw new Error(await readError(res, 'Could not add waypoint.'));
         const rows = await res.json();
@@ -3907,7 +3921,7 @@ $$;`.trim();
         case 'no_zip': return !cleanText(row.zip);
         case 'no_city': return !cleanText(row.city);
         case 'no_description': return !cleanText(row.description);
-        case 'no_coords': return !(Number.isFinite(row.lat) && Number.isFinite(row.lon));
+        // 'no_coords' retired with the lat/lon columns — every row would match.
         default: return true;
       }
     }

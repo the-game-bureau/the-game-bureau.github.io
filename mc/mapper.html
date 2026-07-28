@@ -438,16 +438,28 @@
 
     // Highlight the 3 nearest not-yet-added waypoints to the focused one, using
     // each waypoint's stored coordinates (instant — no geocoding).
+    // waypoints.lat/lon were dropped from the table on 2026-07-27, so a waypoint
+    // has coordinates only once something has geocoded it into wpPointCache.
+    // Read through that cache rather than the row, or nearest silently finds
+    // nothing forever.
+    function cachedPoint(wp) {
+      if (!wp) return null;
+      if (Number.isFinite(wp.lat) && Number.isFinite(wp.lon)) return { lat: wp.lat, lon: wp.lon };
+      const cached = wpPointCache.get(wp.wpid);
+      return cached && Number.isFinite(cached.lat) && Number.isFinite(cached.lon) ? cached : null;
+    }
+
     function computeNearest() {
       state.nearest = [];
       const focus = findWaypoint(state.focusWpid);
-      const fp = focus && Number.isFinite(focus.lat) && Number.isFinite(focus.lon) ? { lat: focus.lat, lon: focus.lon } : null;
+      const fp = cachedPoint(focus);
       if (fp) {
         const scored = [];
         state.waypoints.forEach((w) => {
           if (w.wpid === state.focusWpid || isSelected(w.wpid)) return;
-          if (!Number.isFinite(w.lat) || !Number.isFinite(w.lon)) return;
-          scored.push({ wpid: w.wpid, d: distMeters(fp, { lat: w.lat, lon: w.lon }) });
+          const p = cachedPoint(w);
+          if (!p) return;
+          scored.push({ wpid: w.wpid, d: distMeters(fp, p) });
         });
         scored.sort((a, b) => a.d - b.d);
         state.nearest = scored.slice(0, 3).map((x) => x.wpid);
@@ -490,7 +502,7 @@
     async function loadWaypoints() {
       try {
         // TgbRest.fetchAll paginates past PostgREST's 1000-row cap.
-        const url = restUrl(WAYPOINTS_TABLE, { select: 'wpid,city,state,zip,address,name,description,w3w,lat,lon', order: 'name.asc' });
+        const url = restUrl(WAYPOINTS_TABLE, { select: 'wpid,city,state,zip,address,name,description,w3w', order: 'name.asc' });
         const all = await TgbRest.fetchAll(url, authHeaders());
         state.waypoints = all.map((w) => ({
           wpid: String(w.wpid), city: cleanText(w.city), state: cleanText(w.state), zip: cleanText(w.zip),
