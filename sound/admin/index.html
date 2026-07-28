@@ -577,6 +577,7 @@
       font-size: 0.72rem;
       font-weight: 600;
       letter-spacing: 0.02em;
+      line-height: 1.5;
       color: var(--muted);
     }
     .stockroom-substat:empty { display: none; }
@@ -936,6 +937,7 @@ Final report:
         }
 
         var parts = [live.length + ' Soundtrack' + (live.length === 1 ? '' : 's')];
+        var cityLine = '';
 
         // How full the tapes are, fullest bucket first: "35 with 15 tracks,
         // 30 with 14 tracks". The routine's whole job is driving every bucket
@@ -948,9 +950,8 @@ Final report:
         var buckets = Object.keys(byCount)
           .map(Number)
           .sort(function (a, b) { return b - a; })
-          .map(function (n) {
-            return byCount[n] + ' with ' + n + ' track' + (n === 1 ? '' : 's');
-          });
+          // Compact ratio form: "1/25 track" = one tape holding 25 tracks.
+          .map(function (n) { return byCount[n] + '/' + n + ' track'; });
         if (buckets.length) parts.push(buckets.join(', '));
 
         // Cities still waiting on a tape. Venue-only rows (ignored) are stadium
@@ -982,16 +983,28 @@ Final report:
           var missing = rows.filter(function (row) {
             return row && row.slug && !row.ignored && !haveTape[row.slug];
           }).length;
-          parts.push(missing + ' cit' + (missing === 1 ? 'y' : 'ies') + ' with no tracks');
+          cityLine = missing + ' cit' + (missing === 1 ? 'y' : 'ies') + ' with no tracks';
         } catch (error) {
           // Catalog unreachable — show the tape counts rather than nothing.
         }
 
-        setPageStatus(parts.join(' — '));
+        // Two lines: what exists on top, what's still missing underneath. The
+        // bucket list runs long (six buckets today), so keeping the gap on its
+        // own line stops it getting lost at the end of a wrap.
+        setPageStatus([parts.join(' — '), cityLine]);
       }
 
+      // Accepts a string, or an array of lines rendered one per row. Built as
+      // text nodes + <br> rather than innerHTML — the values are all generated
+      // counts, but this keeps the substat incapable of carrying markup.
       function setPageStatus(text) {
-        if (pageStatus) pageStatus.textContent = text || '';
+        if (!pageStatus) return;
+        var lines = (Array.isArray(text) ? text : [text]).filter(Boolean);
+        pageStatus.textContent = '';
+        lines.forEach(function (line, i) {
+          if (i) pageStatus.appendChild(document.createElement('br'));
+          pageStatus.appendChild(document.createTextNode(line));
+        });
       }
 
       function setCopyStatus(text) {
