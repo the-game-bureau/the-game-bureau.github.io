@@ -72,6 +72,12 @@
       margin: 0 auto;
     }
 
+    .prompt-main {
+      display: grid;
+      gap: 16px;
+      min-width: 0;
+    }
+
     .prompt-panel,
     .side-card {
       border: 1px solid var(--line);
@@ -429,6 +435,12 @@
       margin-top: 14px;
     }
 
+    /* Run Log sits directly above Open Routine — read them as one action pair,
+       not as two separate blocks. */
+    .side-links + .side-links {
+      margin-top: 8px;
+    }
+
     .mini-list {
       display: grid;
       gap: 8px;
@@ -460,9 +472,29 @@
 
     @media (max-width: 840px) {
 
+      /* One column, and the two wrappers dissolve (display: contents) so every
+         card becomes a direct child of .prompt-layout. That lets `order` below
+         interleave sidebar cards with main-column cards — which the wrappers
+         would otherwise make impossible. Without this the phone reads:
+         explainers, then a 70vh prompt textarea, then — far below the fold —
+         the last-run status and the buttons. Status and actions come first. */
       .prompt-layout {
+        display: flex;
+        flex-direction: column;
         grid-template-columns: 1fr;
       }
+
+      .prompt-main,
+      .side-stack {
+        display: contents;
+      }
+
+      #routineCard { order: 1; }
+      #whatCard    { order: 2; }
+      #howCard     { order: 3; }
+      #youCard     { order: 4; }
+      #suggestCard { order: 5; }
+      #promptCard  { order: 6; }
 
       .panel-head {
         align-items: flex-start;
@@ -604,9 +636,9 @@
       </div>
     </div>
     <div class="prompt-layout">
-      <div style="display:grid; gap:16px; min-width:0">
+      <div class="prompt-main">
 
-      <section class="side-card explain" aria-labelledby="whatTitle">
+      <section class="side-card explain" id="whatCard" aria-labelledby="whatTitle">
         <span class="side-label">What this is</span>
         <h2 id="whatTitle">A gift, not a product</h2>
         <p>Every city we run games in gets a <strong>15-song cassette tape</strong> on <a href="/sound/" target="_blank" rel="noopener">/sound/</a> — hometown artists, songs that name the streets, the fight song the whole stadium knows, the record cut in a studio down the road. An AI agent builds a new one every morning on its own; this page is where you watch it happen and step in if you want to.</p>
@@ -614,7 +646,7 @@
         <p>So songs are picked for <strong>“this makes me want to go there”</strong>, not for chart positions. A deep cut naming a neighbourhood beats a famous song by someone who merely happens to be from there.</p>
       </section>
 
-      <section class="side-card explain" aria-labelledby="howTitle" style="border-top-color: var(--accent)">
+      <section class="side-card explain" id="howCard" aria-labelledby="howTitle" style="border-top-color: var(--accent)">
         <span class="side-label">How it works</span>
         <h2 id="howTitle">Every morning, without you</h2>
         <p>A scheduled AI agent does the whole job at <strong>10 AM Central</strong> and commits the result. Nobody has to press anything.</p>
@@ -624,10 +656,10 @@
           <li>It researches songs and <b>checks every Spotify link is real</b> by searching for it.</li>
           <li>It saves the songs and <b>publishes them</b> — the new tape is live on <a href="/sound/" target="_blank" rel="noopener">/sound/</a>.</li>
         </ol>
-        <p style="margin-top:14px">The panel on the right shows when it last succeeded. If that goes quiet for more than a day, something needs a look.</p>
+        <p style="margin-top:14px">The <b>Daily Routine</b> card shows when it last succeeded. If that goes quiet for more than a day, something needs a look.</p>
       </section>
 
-      <section class="side-card explain" aria-labelledby="youTitle" style="border-top-color: var(--bic-blue)">
+      <section class="side-card explain" id="youCard" aria-labelledby="youTitle" style="border-top-color: var(--bic-blue)">
         <span class="side-label">Your part</span>
         <h2 id="youTitle">What a human can do</h2>
         <div class="faq">
@@ -654,7 +686,7 @@
         </div>
       </section>
 
-      <section class="prompt-panel" aria-label="Soundtrack generation prompt">
+      <section class="prompt-panel" id="promptCard" aria-label="Soundtrack generation prompt">
         <div class="panel-head">
           <h2 class="panel-title">Paste-Ready Prompt <span class="panel-sub">manual fallback</span></h2>
           <span class="panel-head-actions">
@@ -746,16 +778,7 @@ Final report:
       </div>
 
       <aside class="side-stack" aria-label="Soundtrack prompt notes">
-        <section class="side-card side-card--red">
-          <span class="side-label">Preflight</span>
-          <h2>Email Suggestions</h2>
-          <p>Check submitted track ideas before running the prompt.</p>
-          <div class="side-links">
-            <a class="btn" href="https://mail.google.com/mail/u/0/#search/to%3Asoundtrack%40thegamebureau.com" target="_blank" rel="noopener noreferrer">Inbox</a>
-          </div>
-        </section>
-
-        <section class="side-card side-card--blue">
+        <section class="side-card side-card--blue" id="routineCard">
           <span class="side-label">Automation</span>
           <h2>Daily Routine</h2>
           <p>You don't have to run the prompt by hand. A scheduled Claude Code cloud agent does this every morning: it reads <code>public.cities</code>, takes the next city with no tape plus the emptiest existing tape, researches and verifies each Spotify ID by search, then commits <code>sound/soundtracks.json</code> straight to <code>main</code>. New tapes appear on <a href="/sound/" target="_blank" rel="noopener">/sound/</a> without anyone touching this page.</p>
@@ -779,6 +802,15 @@ Final report:
             <a class="btn primary" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer">Open Routine</a>
           </div>
           <p class="side-note">Open the routine to watch a run, trigger one early, change the schedule, or pause it. The clock is UTC with no daylight-saving shift, so the run lands at 10 AM Central in summer and 9 AM in winter. It replaced a GitHub Action on 2026-07-27 — that path needed a funded API key, this one bills to the Claude subscription.</p>
+        </section>
+
+        <section class="side-card side-card--red" id="suggestCard">
+          <span class="side-label">Preflight</span>
+          <h2>Email Suggestions</h2>
+          <p>Check submitted track ideas before running the prompt.</p>
+          <div class="side-links">
+            <a class="btn" href="https://mail.google.com/mail/u/0/#search/to%3Asoundtrack%40thegamebureau.com" target="_blank" rel="noopener noreferrer">Inbox</a>
+          </div>
         </section>
       </aside>
     </div>
