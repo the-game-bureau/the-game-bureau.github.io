@@ -1219,58 +1219,9 @@
       });
       map.addControl(new SvControl());
 
-      // Right-click a spot for Street View / add-a-waypoint actions.
-      map.on('contextmenu', (e) => {
-        if (e.originalEvent && e.originalEvent.preventDefault) e.originalEvent.preventDefault();
-        showPointActions(map, e.latlng.lat, e.latlng.lng);
-      });
       setTimeout(() => { try { map.invalidateSize(); } catch (error) {} }, 0);
     }
 
-
-    // Right-click handler: a popup at the clicked point with a Street View link
-    // and a button to create a new waypoint there (reverse-geocoded).
-    async function showPointActions(map, lat, lon) {
-      const popup = L.popup({ closeButton: true }).setLatLng([lat, lon]).setContent('Loading…').openOn(map);
-      if (map !== leafletMap) return;
-      const wrap = document.createElement('div');
-      wrap.style.display = 'grid';
-      wrap.style.gap = '6px';
-      wrap.style.justifyItems = 'start';
-      const link = document.createElement('span');
-      link.textContent = lat.toFixed(6) + ', ' + lon.toFixed(6);
-      link.style.fontWeight = '700';
-      const streetView = document.createElement('a');
-      streetView.href = 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + lat + ',' + lon;
-      streetView.target = '_blank';
-      streetView.rel = 'noopener';
-      streetView.textContent = 'Street View ↗';
-      const newBtn = document.createElement('button');
-      newBtn.type = 'button';
-      newBtn.className = 'btn small';
-      newBtn.textContent = 'New Waypoint';
-      newBtn.title = 'Create a new waypoint here, filled from this point';
-      newBtn.addEventListener('click', async () => {
-        newBtn.disabled = true;
-        newBtn.textContent = 'Adding…';
-        const point = { lat: lat, lon: lon };
-        const payload = {};
-        try {
-          const url = 'https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lon
-            + '&format=jsonv2&addressdetails=1&extratags=1&namedetails=1';
-          const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
-          const place = await res.json();
-          if (place && !place.error) await fillFieldsFromPlace(payload, place, point, true);
-        } catch (error) {}
-        // The address field stays a street address or stays empty — never a
-        // "lat, lon" string.
-        Object.keys(payload).forEach((k) => { if (!cleanText(payload[k])) delete payload[k]; });
-        try { map.closePopup(popup); } catch (error) {}
-        await insertWaypointAndGo(payload, null);
-      });
-      wrap.append(link, streetView, newBtn);
-      popup.setContent(wrap);
-    }
 
     // Clicking the map searches for nearby places at the clicked spot and offers
     // them to add as NEW waypoints — like the Near button, seeded by the click.
@@ -3499,7 +3450,7 @@ $$;`.trim();
       preview.setAttribute('data-map-preview', '');
       const mapCap = document.createElement('div');
       mapCap.className = 'wp-map-cap';
-      mapCap.textContent = 'Click to search near · right-click to add a waypoint.';
+      mapCap.textContent = 'Click the map to search for places near that spot.';
       const mapWrap = document.createElement('div');
       mapWrap.className = 'wp-map-wrap';
       mapWrap.append(preview, mapCap);
