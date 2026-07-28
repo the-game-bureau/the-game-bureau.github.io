@@ -152,13 +152,10 @@ summer, 9 AM in winter, because cloud cron has no daylight-saving shift.
 - Model: Claude Opus 5
 - From that page you can watch a run, trigger one early, change the schedule, or
   pause it.
-- **The routine's stored prompt still tells the agent to reach the catalog with
-  WebFetch "not curl", and an agent cannot edit it** — the routine was created
-  through the HTTP API, so `update_trigger` refuses. That instruction is
-  backwards (see step 1). The prompt does carry a curl fallback, so a run still
-  gets there on the second try, but a human should open the routine and flip
-  that paragraph. Until someone does, the prompt and this file disagree on that
-  point; **this file wins**, which the prompt itself says.
+- The routine's stored prompt was updated on 2026-07-28 to match step 1 — it now
+  tells the agent to use `curl` and not to switch to WebFetch. Two earlier
+  versions said the opposite. If the prompt and this file ever disagree again,
+  **this file wins**, which the prompt itself says.
 
 It replaced a GitHub Actions workflow on 2026-07-27. That version needed a
 funded Anthropic or OpenAI API key and neither account had credit, so every run
