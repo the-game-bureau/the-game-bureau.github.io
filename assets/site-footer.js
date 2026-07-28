@@ -24,6 +24,9 @@
     'body .site-footer.site-footer a:hover,body .site-footer.site-footer a:focus-visible{',
     'color:var(--accent,#2d4880);text-decoration:underline;text-underline-offset:3px;outline:none;}',
     '.footer-mark-stack{display:grid;gap:4px;justify-items:start;}',
+    /* Right column mirrors the left: the social row, with Mission Control on its
+       own line beneath it. */
+    '.footer-social-stack{display:grid;gap:4px;justify-items:end;}',
     /* Field guide lightbox: the article lives at /shop/aboutshop.html and is
        fetched on demand, so there is one copy of the text for every page. The
        injected article arrives without that page's stylesheet, so these rules
@@ -54,6 +57,7 @@
     'font-size:.72rem;color:var(--muted,#69655e);}',
     '@media (max-width:640px){',
     '.footer-mark-stack{justify-items:center;}',
+    '.footer-social-stack{justify-items:center;}',
     'body .site-footer.site-footer .footer-bottom{justify-content:center;text-align:center;}',
     '}'
   ].join('');
@@ -175,10 +179,12 @@
         '<span class="footer-mark">&copy; The Game Bureau</span>' +
         '<a class="footer-doc-link" href="/shop/aboutshop.html">How our shop works &rsaquo;</a>' +
       '</span>' +
-      '<span class="footer-social-links">' +
-        '<a href="https://instagram.com/thegamebureau" target="_blank" rel="noopener">Instagram</a>' +
-        '<a href="https://x.com/thegamebureau" target="_blank" rel="noopener">X</a>' +
-        '<a href="https://youtube.com/@thegamebureau" target="_blank" rel="noopener">YouTube</a>' +
+      '<span class="footer-social-stack">' +
+        '<span class="footer-social-links">' +
+          '<a href="https://instagram.com/thegamebureau" target="_blank" rel="noopener">Instagram</a>' +
+          '<a href="https://x.com/thegamebureau" target="_blank" rel="noopener">X</a>' +
+          '<a href="https://youtube.com/@thegamebureau" target="_blank" rel="noopener">YouTube</a>' +
+        '</span>' +
         (missionControlHref()
           ? '<a class="footer-mc-link" href="' + missionControlHref() + '">Mission Control</a>'
           : '') +
