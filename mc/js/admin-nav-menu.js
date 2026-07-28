@@ -107,11 +107,6 @@
           href: '/highlights/',
           label: 'HIGHLIGHTS',
           description: 'Open the public highlights backed by the highlights table.'
-        },
-        {
-          href: '/sound/admin/',
-          label: 'Soundtracks',
-          description: 'Maintain the city soundtracks — review Gmail suggestions, add tracks, and how it all works.'
         }
       ]
     },
