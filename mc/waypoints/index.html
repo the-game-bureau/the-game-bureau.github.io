@@ -614,7 +614,7 @@
     }
     .prompt-text:focus { outline: none; }
 
-    #importDialog, #bulkDialog { width: min(760px, calc(100vw - 32px)); }
+    #importDialog { width: min(760px, calc(100vw - 32px)); }
     /* The manual add form is a single narrow column — size the lightbox to it. */
     #manualDialog { width: min(440px, calc(100vw - 32px)); }
     #manualBody { padding: 14px; }
@@ -711,7 +711,7 @@
 
       /* Dialogs (Find waypoints, Prompt, Import, Near) fill the screen. */
       .modal,
-      #importDialog, #bulkDialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
+      #importDialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
       .modal-bar { flex-wrap: wrap; padding: 10px; }
       .modal-title { flex: 1 1 100%; }
       .modal-bar .btn { flex: 1 1 auto; }
@@ -787,7 +787,6 @@
         <option value="no_city">Missing city</option>
         <option value="no_description">Missing description</option>
       </select>
-      <button class="btn small" id="selectBtn" type="button" title="Bulk Fill or Delete the waypoints currently shown by the filter/search">Select</button>
     </div>
 
     <!-- Add waypoints: Manual (by-hand pop-up) and With AI (OpenStreetMap pull OR
@@ -854,16 +853,6 @@
   </section>
 
 
-  <div class="modal-backdrop" id="bulkBackdrop" hidden></div>
-  <section class="modal" id="bulkDialog" hidden role="dialog" aria-modal="true" aria-labelledby="bulkTitle">
-    <div class="modal-bar">
-      <h3 class="modal-title" id="bulkTitle">Bulk edit</h3>
-      <button class="btn small" id="bulkFillBtn" type="button">Fill</button>
-      <button class="btn warn small" id="bulkDeleteBtn" type="button">Delete</button>
-      <button class="btn small" id="bulkCloseBtn" type="button">Close</button>
-    </div>
-    <div class="prompt-body" id="bulkBody"></div>
-  </section>
 
   <script src="../js/admin-auth.js"></script>
   <script src="../js/admin-shell.js"></script>
@@ -2769,15 +2758,6 @@ $$;`.trim();
       return dedupSimilarity(a, b);
     }
 
-    async function rawDelete(wpid) {
-      await ensureFreshSession();
-      const res = await fetch(restUrl(TABLE, { [PK]: 'eq.' + wpid }), {
-        method: 'DELETE',
-        headers: authHeaders({ Prefer: 'return=minimal' })
-      });
-      if (!res.ok) throw new Error(await readError(res, 'Could not delete waypoint.'));
-    }
-
     // --- Import: paste CSV/spreadsheet rows, review, add them all -------------
     let importPending = [];
     let importRawText = '';
@@ -4374,112 +4354,6 @@ $$;`.trim();
       if (newBtn) newBtn.disabled = !state.authed;
     }
 
-    // --- Bulk edit: act on the waypoints currently shown by the filter/search --
-    let bulkItems = [];   // [{ wpid, include }]
-    let bulkBusy = false;
-
-    function bulkSelectedIds() { return bulkItems.filter((it) => it.include).map((it) => it.wpid); }
-    function openBulkDialog() {
-      const rows = navRows();
-      if (!rows.length) { setStatus('No waypoints in the current view to select.', 'error'); return; }
-      bulkItems = rows.map((r) => ({ wpid: r.wpid, include: true }));
-      const d = document.getElementById('bulkDialog');
-      const b = document.getElementById('bulkBackdrop');
-      if (d) d.hidden = false;
-      if (b) b.hidden = false;
-      renderBulkList();
-    }
-    function closeBulkDialog() {
-      const d = document.getElementById('bulkDialog');
-      const b = document.getElementById('bulkBackdrop');
-      if (d) d.hidden = true;
-      if (b) b.hidden = true;
-    }
-    function renderBulkList() {
-      const title = document.getElementById('bulkTitle');
-      const body = document.getElementById('bulkBody');
-      if (!body) return;
-      body.innerHTML = '';
-      const tools = document.createElement('div');
-      tools.className = 'pick-tools';
-      const all = document.createElement('a'); all.textContent = 'Select all';
-      const none = document.createElement('a'); none.textContent = 'Select none';
-      const summary = document.createElement('span'); summary.className = 'zip-desc';
-      tools.append(all, none, summary);
-      const list = document.createElement('div'); list.className = 'pick-list';
-      const checks = [];
-      const refresh = () => {
-        const n = bulkSelectedIds().length;
-        summary.textContent = n + ' of ' + bulkItems.length + ' selected';
-        if (title) title.textContent = 'Bulk edit · ' + bulkItems.length + ' shown';
-        const fb = document.getElementById('bulkFillBtn'), db = document.getElementById('bulkDeleteBtn');
-        if (fb) { fb.textContent = 'Fill ' + n; fb.disabled = bulkBusy || !n; }
-        if (db) { db.textContent = 'Delete ' + n; db.disabled = bulkBusy || !n; }
-      };
-      bulkItems.forEach((it) => {
-        const wp = findRow(it.wpid);
-        const row = document.createElement('label'); row.className = 'pick-row';
-        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = it.include;
-        cb.addEventListener('change', () => { it.include = cb.checked; refresh(); });
-        checks.push(cb);
-        const main = document.createElement('div'); main.className = 'pick-main';
-        const nm = document.createElement('span'); nm.className = 'pick-name'; nm.textContent = wp ? displayName(wp) : ('#' + it.wpid);
-        const sub = document.createElement('span'); sub.className = 'pick-sub';
-        sub.textContent = wp ? ['#' + wp.wpid, [wp.city, wp.state].filter(Boolean).join(', '), wp.address].filter(Boolean).join(' · ') : '';
-        main.append(nm, sub);
-        row.append(cb, main);
-        list.append(row);
-      });
-      all.addEventListener('click', () => { bulkItems.forEach((it, i) => { it.include = true; checks[i].checked = true; }); refresh(); });
-      none.addEventListener('click', () => { bulkItems.forEach((it, i) => { it.include = false; checks[i].checked = false; }); refresh(); });
-      body.append(tools, list);
-      refresh();
-    }
-
-    async function bulkFill() {
-      if (bulkBusy) return;
-      const ids = bulkSelectedIds();
-      if (!ids.length) return;
-      bulkBusy = true; renderBulkList();
-      const body = document.getElementById('bulkBody');
-      let prog = null;
-      if (body) { body.innerHTML = ''; prog = document.createElement('div'); prog.className = 'zip-desc'; body.append(prog); }
-      let filled = 0, failed = 0;
-      for (let i = 0; i < ids.length; i++) {
-        const wpid = ids[i];
-        if (prog) prog.textContent = 'Filling ' + (i + 1) + ' of ' + ids.length + '… (' + displayName(findRow(wpid) || {}) + ')';
-        try {
-          await fillWaypoint(wpid, null);
-          if (state.dirtyIds.has(wpid)) { await patchRow(wpid, findRow(wpid)); state.dirtyIds.delete(wpid); filled++; }
-        } catch (error) { console.error(error); failed++; }
-        await new Promise((r) => setTimeout(r, 1100)); // be polite to the geocoder
-      }
-      await refresh();
-      bulkBusy = false;
-      closeBulkDialog();
-      setStatus('Filled ' + filled + ' waypoint' + (filled === 1 ? '' : 's') + (failed ? ' (' + failed + ' failed)' : '') + '.', failed ? 'error' : 'success');
-    }
-
-    async function bulkDelete() {
-      if (bulkBusy) return;
-      const ids = bulkSelectedIds();
-      if (!ids.length) return;
-      if (!window.confirm('Delete ' + ids.length + ' waypoint' + (ids.length === 1 ? '' : 's') + '? This cannot be undone.')) return;
-      bulkBusy = true; renderBulkList();
-      const body = document.getElementById('bulkBody');
-      let prog = null;
-      if (body) { body.innerHTML = ''; prog = document.createElement('div'); prog.className = 'zip-desc'; body.append(prog); }
-      let deleted = 0, failed = 0;
-      for (let i = 0; i < ids.length; i++) {
-        if (prog) prog.textContent = 'Deleting ' + (i + 1) + ' of ' + ids.length + '…';
-        try { await rawDelete(ids[i]); state.rows = state.rows.filter((r) => r.wpid !== ids[i]); deleted++; } catch (error) { console.error(error); failed++; }
-      }
-      await refresh();
-      bulkBusy = false;
-      closeBulkDialog();
-      setStatus('Deleted ' + deleted + ' waypoint' + (deleted === 1 ? '' : 's') + (failed ? ' (' + failed + ' failed)' : '') + '.', failed ? 'error' : 'success');
-    }
-
     // --- Wiring --------------------------------------------------------------
     // Instant filter across all waypoint fields as you type.
     searchInput.addEventListener('input', () => {
@@ -4537,17 +4411,6 @@ $$;`.trim();
     if (promptBtn) promptBtn.addEventListener('click', openPromptDialog);
     const importBtn = document.getElementById('importBtn');
     if (importBtn) importBtn.addEventListener('click', openImportDialog);
-    const selectBtn = document.getElementById('selectBtn');
-    if (selectBtn) selectBtn.addEventListener('click', openBulkDialog);
-
-    const bulkCloseBtn = document.getElementById('bulkCloseBtn');
-    if (bulkCloseBtn) bulkCloseBtn.addEventListener('click', closeBulkDialog);
-    const bulkBackdrop = document.getElementById('bulkBackdrop');
-    if (bulkBackdrop) bulkBackdrop.addEventListener('click', closeBulkDialog);
-    const bulkFillBtn = document.getElementById('bulkFillBtn');
-    if (bulkFillBtn) bulkFillBtn.addEventListener('click', bulkFill);
-    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
-    if (bulkDeleteBtn) bulkDeleteBtn.addEventListener('click', bulkDelete);
 
     const importCloseBtn = document.getElementById('importCloseBtn');
     if (importCloseBtn) importCloseBtn.addEventListener('click', closeImportDialog);
@@ -4595,8 +4458,6 @@ $$;`.trim();
       if (manualDialog && !manualDialog.hidden) closeManualDialog();
       const importDialog = document.getElementById('importDialog');
       if (importDialog && !importDialog.hidden) closeImportDialog();
-      const bulkDialog = document.getElementById('bulkDialog');
-      if (bulkDialog && !bulkDialog.hidden && !bulkBusy) closeBulkDialog();
     });
 
     window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
