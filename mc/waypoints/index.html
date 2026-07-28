@@ -1223,41 +1223,6 @@
     }
 
 
-    // Clicking the map searches for nearby places at the clicked spot and offers
-    // them to add as NEW waypoints — like the Near button, seeded by the click.
-    async function onMapClick(lat, lon) {
-      // Show the Near button's finding state for map-click searches too.
-      if (nearBtn) { nearBtn.disabled = true; nearBtn.textContent = 'Finding…'; }
-      try {
-        // Reverse-geocode for a city/state fallback on whatever gets added.
-        let fallback = { city: '', state: '' };
-        try {
-          const url = 'https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lon
-            + '&format=jsonv2&addressdetails=1';
-          const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
-          const place = await res.json();
-          if (place && !place.error) {
-            const addr = place.address || {};
-            fallback = {
-              city: cleanText(addr.city || addr.town || addr.village || addr.hamlet || addr.suburb || addr.municipality || addr.county),
-              state: cleanText(addr.state)
-            };
-          }
-        } catch (error) {}
-        let pois = [];
-        try { pois = await fetchNearbyPois({ lat, lon }, NEAR_RADIUS_M); } catch (error) { console.error(error); }
-        const items = pois.map((poi) => ({
-          name: poi.name,
-          sub: [poi.cat, formatDistance(poi.dist) + ' away'].filter(Boolean).join(' · '),
-          onAdd: (btn) => addPoiAsWaypoint(poi, fallback, btn)
-        }));
-        showResults('Waypoints near the clicked spot', items,
-          'No named points of interest within ' + Math.round(NEAR_RADIUS_M * 3.28084) + ' ft of that spot.');
-      } finally {
-        if (nearBtn) { nearBtn.disabled = false; nearBtn.textContent = 'Near'; }
-      }
-    }
-
 
     function parseLatLon(text) {
       const m = cleanText(text).match(/^\s*(-?\d{1,3}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
@@ -3450,7 +3415,7 @@ $$;`.trim();
       preview.setAttribute('data-map-preview', '');
       const mapCap = document.createElement('div');
       mapCap.className = 'wp-map-cap';
-      mapCap.textContent = 'Click the map to search for places near that spot.';
+      mapCap.textContent = 'Use Near to find places around this waypoint.';
       const mapWrap = document.createElement('div');
       mapWrap.className = 'wp-map-wrap';
       mapWrap.append(preview, mapCap);
