@@ -2180,6 +2180,33 @@
     .nightly-note { font-style: italic; }
     .nightly-body { padding: 18px; overflow: auto; }
 
+    /* Last-run panel + routine buttons, matching the soundtrack admin page.
+       The dot is the whole point: green means the pull ran, red means it has
+       been quiet too long and needs a look. */
+    .run-status {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 12px 0 0;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.05);
+    }
+    .run-dot {
+      flex: 0 0 auto;
+      width: 9px; height: 9px;
+      margin-top: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+    .run-status[data-state="ok"] .run-dot { background: #1e7a4b; }
+    .run-status[data-state="stale"] .run-dot { background: var(--bic-red); }
+    .run-body { display: grid; gap: 3px; min-width: 0; }
+    .run-line { color: var(--ink); font-size: 0.92rem; font-weight: 800; }
+    .run-sub { color: var(--muted); font-size: 0.82rem; line-height: 1.45; }
+    .run-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
     .confirm-modal {
       position: fixed; inset: 0; z-index: 1600;
       display: flex; align-items: center; justify-content: center;
@@ -3395,8 +3422,80 @@
         }
         const closeBtn = modal.querySelector('.nightly-close');
         if (closeBtn) closeBtn.focus();
+        loadBookPullStatus();
       });
     }());
+
+    // Last-run panel for the book-pull routine. Unlike the soundtrack routine,
+    // this job writes to Supabase and commits nothing, so there is no commit
+    // feed to read — the freshest Review candidate IS the run receipt. A pull
+    // that errored files nothing, so a stale timestamp is the failure signal.
+    // Loaded on modal open rather than page load; it is one more request and
+    // nobody needs it until they ask what runs at night.
+    var BOOK_PULL_STALE_HOURS = 30;
+    var bookPullLoaded = false;
+
+    function bookPullRelative(then, now) {
+      var mins = Math.round((now - then) / 60000);
+      if (mins < 2) return 'just now';
+      if (mins < 60) return mins + ' minutes ago';
+      var hours = Math.round(mins / 60);
+      if (hours < 24) return hours + (hours === 1 ? ' hour ago' : ' hours ago');
+      var days = Math.round(hours / 24);
+      return days + (days === 1 ? ' day ago' : ' days ago');
+    }
+
+    async function loadBookPullStatus() {
+      if (bookPullLoaded) return;
+      var wrap = document.getElementById('bookPullStatus');
+      var when = document.getElementById('bookPullWhen');
+      var what = document.getElementById('bookPullWhat');
+      var log = document.getElementById('bookPullLogLink');
+      if (!wrap || !when || !what) return;
+
+      // View Log opens the Stock Room filtered to the Review queue, which is
+      // where the pull's output actually lands.
+      if (log) log.href = '/shop/admin/index.html?status=review';
+
+      try {
+        // Candidates only: archived + never published is exactly what the pull
+        // files, so a hand-added item can't masquerade as a successful run.
+        var url = restUrl('gift_shop_items', {
+          select: 'title,created_at',
+          archived: 'eq.true',
+          certified_at: 'is.null',
+          order: 'created_at.desc',
+          limit: '6'
+        });
+        var res = await fetch(url, { headers: authHeaders(), cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var rows = await res.json();
+        if (!Array.isArray(rows) || !rows.length) throw new Error('no candidates');
+
+        var stamp = new Date(rows[0].created_at);
+        var now = new Date();
+        var stale = (now - stamp) / 3600000 > BOOK_PULL_STALE_HOURS;
+
+        // Everything filed in the same second is one run.
+        var batch = rows.filter(function (r) {
+          return Math.abs(new Date(r.created_at) - stamp) < 1000;
+        });
+
+        wrap.dataset.state = stale ? 'stale' : 'ok';
+        when.textContent = 'Last pull ' + bookPullRelative(stamp, now);
+        what.textContent = stamp.toLocaleString([], {
+          weekday: 'short', month: 'short', day: 'numeric',
+          hour: 'numeric', minute: '2-digit'
+        }) + ' — ' + batch.length + ' candidate' + (batch.length === 1 ? '' : 's') +
+          ': ' + batch.map(function (r) { return r.title; }).join(', ') +
+          (stale ? ' · nothing new in over a day — check the routine.' : '');
+        bookPullLoaded = true;
+      } catch (error) {
+        wrap.dataset.state = 'error';
+        when.textContent = 'Last pull unavailable';
+        what.textContent = 'Could not read the Review queue. Open the routine to check directly.';
+      }
+    }
     if (itemSearchInput) {
       itemSearchInput.addEventListener('input', resetItemsPaging);
     }
@@ -7099,34 +7198,27 @@ $$;`.trim();
         <button class="nightly-close" type="button" data-nightly-close aria-label="Close">&times;</button>
       </header>
       <div class="nightly-body">
-        <p class="nightly-lede">Two jobs run on their own, both on GitHub Actions, both committing their results back to the site. Nothing here needs you — this is just what happens while you sleep.</p>
+        <p class="nightly-lede">Two jobs run on their own each morning. Nothing here needs you — this is just what happens while you sleep. The book pull is a scheduled Claude Code agent; the link check is still a GitHub Action.</p>
 
-        <h3 class="nightly-h">1 · Book pull <span class="automation-when">~3:30 AM Central</span></h3>
-        <p class="automation-desc">Picks tonight's city by rotating through the shop's city list (one per day of the year), then asks Claude &mdash; <code>claude-opus-4-8</code>, with web search switched on &mdash; for 5 real books tied to that place. Each one is added as a <strong>Review</strong> candidate, never Live: you decide what actually goes in the shop.</p>
-        <p class="automation-desc">It sends the model a list of every title you already stock <em>or have shelved</em>, with instructions not to suggest them. That is why a book you shelved never comes back.</p>
-        <details class="nightly-prompt">
-          <summary>The prompt it sends</summary>
-          <pre>Find 5 real books, available on Bookshop.org, that a traveler
-would love as a gift connected to: {tonight's city}.
-Use web search to VERIFY each book exists and to get its real
-ISBN-13 — do not guess ISBNs.
-Prefer a mix: local history, fiction set there, food/culture,
-a kids' pick.
-
-Do NOT suggest any of these — we already carry them or have
-shelved them:
-- {up to 300 titles}
-
-When done, output ONLY a JSON array (no prose, no code fence)
-of objects with exactly these keys:
-[{"title": "…", "isbn": "978…", "description": "one short
-original gift-shop blurb", "cities": ["{city}"]}]</pre>
-        </details>
-        <p class="automation-desc nightly-note">The ISBN is the part that matters: we build the Bookshop link and the cover image from it ourselves, the same way Auto Fill does, so the model never gets to invent a URL.</p>
+        <h3 class="nightly-h">1 · Book pull <span class="automation-when">6:00 AM Central</span></h3>
+        <p class="automation-desc">A scheduled <strong>Claude Code cloud agent</strong> picks the city that currently has the <strong>fewest gifts</strong>, searches the web for 5 real books tied to that place, and verifies every ISBN against a real listing page. Each one is filed as a <strong>Review</strong> candidate, never Live: you decide what actually goes in the shop.</p>
+        <p class="automation-desc">It reads every title you already stock <em>or have shelved</em> first, and treats both as forbidden. That is why a book you shelved never comes back.</p>
+        <div class="run-status" id="bookPullStatus" data-state="loading">
+          <span class="run-dot" aria-hidden="true"></span>
+          <div class="run-body">
+            <span class="run-line" id="bookPullWhen">Checking last pull&hellip;</span>
+            <span class="run-sub" id="bookPullWhat"></span>
+          </div>
+        </div>
+        <div class="run-links">
+          <a class="btn" id="bookPullLogLink" href="#" target="_blank" rel="noopener noreferrer" title="Review queue — what the pull has filed">View Log</a>
+          <a class="btn primary" href="https://claude.ai/code/routines/trig_01H7cKJ4fk5bA1NWSqPZi4ah" target="_blank" rel="noopener noreferrer">Open Routine</a>
+        </div>
+        <p class="automation-desc nightly-note">The ISBN is the part that matters: we build the Bookshop link and the cover image from it ourselves, the same way Auto Fill does, so the agent never gets to invent a URL.</p>
+        <p class="automation-desc">It replaced a GitHub Action on 2026-07-28. That version needed a funded <code>ANTHROPIC_API_KEY</code>, and its four cron triggers had all quietly stopped doing any work — they fired at <code>:55</code>, GitHub started them up to half an hour late, and an hour-guard then skipped the job while still reporting success. The routine bills to the Claude subscription and needs no API key at all.</p>
         <div class="automation-meta">
-          <code>_dev/scripts/shop-book-pull.mjs</code>
-          <code>.github/workflows/shop-book-pull.yml</code>
-          <code>tgb_import_bookshop_prompt_items()</code>
+          <code>Routine: Daily gift shop book pull</code>
+          <code>tgb_pull_book_candidates()</code>
         </div>
 
         <h3 class="nightly-h">2 · Link &amp; image check <span class="automation-when">~3:00 AM Central</span></h3>

@@ -22,6 +22,18 @@ New soundtracks are added by a **scheduled Claude Code cloud agent** ("Daily sou
 **DST:** cloud cron is UTC with no DST and can't use the two-cron-plus-hour-guard trick, so **no single cron holds one Central time year-round**. `30 11` is exactly 6:30 AM CDT and 5:30 AM CST. Set to 6:30 AM Central on 2026-07-28; to hold 6:30 through winter, flip to `30 12 * * *` at the November fall-back and back to `30 11 * * *` in March. Drifting an hour is accepted, not a bug.
 
 ---
+## Gift shop daily book pull — also a Claude Code routine
+
+Candidate books are added by a **scheduled Claude Code cloud agent** ("Daily gift shop book pull", `trig_01H7cKJ4fk5bA1NWSqPZi4ah`, cron `0 11 * * *` UTC = 6 AM Central in summer, 5 AM in winter), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the city with the fewest gifts, web-searches five books, verifies every ISBN against a real listing page, and files them as **Review candidates**. It commits nothing — the write lands in Supabase.
+
+**Auth without a secret.** A cloud routine has no secret store, so it calls **`tgb_pull_book_candidates(jsonb)`** ([supabase/migrations/2026072802_book_candidate_pull_rpc.sql](supabase/migrations/2026072802_book_candidate_pull_rpc.sql)) with the ordinary public publishable key. That function is `SECURITY DEFINER` and deliberately tiny: it can only INSERT rows with `archived = true` / `certified_at = null`, derives the Bookshop URL and cover from the ISBN so a caller can't inject a link, keeps the title/URL dedupe, and caps a call at 25 items. **Don't add parameters for `archived` or `certified_at`** — those constants are what make it safe to expose. The admin-facing `tgb_import_bookshop_prompt_items()` is unchanged and stays SECURITY INVOKER.
+
+**Why not GitHub Actions:** it used to be `.github/workflows/shop-book-pull.yml` + `_dev/scripts/shop-book-pull.mjs`, both **deleted 2026-07-28**. Two reasons. It needed a funded `ANTHROPIC_API_KEY` (the same unfunded key that killed the soundtrack workflow), and its schedule had silently stopped working: crons fired at `:55`, GitHub started scheduled runs up to 30+ minutes late, and the Central-hour guard then skipped every job while the run still reported **success**. Green runs, no books — last real insert was 2026-07-26. If you ever reinstate a cron guard, gate on a *window* of hours, never hour equality against a `:55` trigger.
+
+Last-run status lives in the **NIGHTLY** modal in [shop/admin/index.html](shop/admin/index.html). Since the job commits nothing there is no commit feed to read, so the panel treats **the freshest Review candidate as the run receipt** (`archived = true and certified_at is null`, newest first).
+
+---
+
 ## Game play tracking (instances / responses / events)
 
 **"Team" is two different things:** a **sports team** is a pro team a game is based on (`public.teams`; **team colors** = shell/stripe/mask belong here), reachable via `game_id → games`. A **Game Bureau team** is a group of our players, led by a **team leader** and identified by a chosen **team name**, never a color. The engine's blue/black/purple/silver/orange value is a **route-rotation slot** (`route_color`), not a sports-team color — don't label Game Bureau teams with it.
