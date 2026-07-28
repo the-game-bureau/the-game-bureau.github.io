@@ -74,7 +74,8 @@ These must hold. The daily agent follows them; so should you.
 5. `spotifyId`, when present, is **exactly 22 alphanumeric characters**, verified
    against a real `open.spotify.com/track` page. **Never invent one** — a
    fabricated ID is 22 characters like any other, passes every format check, and
-   silently plays nothing.
+   silently plays nothing. IDs are **case-sensitive** and search snippets
+   sometimes disagree on capitalisation, so copy the ID off the page you opened.
 6. `"explicit": true` only when Spotify marks the track explicit; otherwise omit
    the field.
 7. Entries stay **sorted by `city_slug`**.
@@ -82,7 +83,9 @@ These must hold. The daily agent follows them; so should you.
    `ignored = true` (Orchard Park, Santa Clara) are stadium towns, not places we
    sell into.
 9. Real, commercially available recordings only. No karaoke, tribute, sped-up,
-   slowed, or re-recorded versions.
+   slowed, or re-recorded versions. A **remaster** of the original master is
+   fine; a **re-recording** is not.
+10. Blurbs carry **no trailing period**.
 
 ### What belongs on a tape
 
@@ -96,6 +99,16 @@ Aim for a mix across eras and genres, weighted toward:
   known for, the track that plays when the home side scores, and the songs fans
   sing in the parking lot. Two or three of the fifteen is a good target for a
   city with a strong sports identity.
+
+  > **Confirm the team actually uses the song.** Stadium-song lore is the most
+  > error-prone thing on these tapes, because a generic arena anthem sounds
+  > right on any city. An audit on 2026-07-28 found **twelve** of Buffalo's 25
+  > tracks were generic arena music with Bills-flavoured blurbs written over
+  > them, none of it Bills tradition: Thunderstruck is the Cowboys, Crazy Train
+  > is the Patriots, Enter Sandman is the Yankees, Bro Hymn is the Ducks. They
+  > were redistributed to the cities whose teams actually play them. Search the
+  > specific team-song pairing before writing the blurb; if you cannot confirm
+  > it, use a hometown-artist track instead.
 - **Local scenes and labels** — the sound a city is known for making.
 
 ---
@@ -145,7 +158,38 @@ summer, 9 AM in winter, because cloud cron has no daylight-saving shift.
 2. Picks the **alphabetically first city with no tape**, plus the **emptiest
    existing tape**.
 3. Researches songs and verifies every Spotify ID by web search.
-4. Writes `sound/soundtracks.json` and commits straight to `main`.
+4. Runs the housekeeping pass below.
+5. Writes `sound/soundtracks.json` and commits straight to `main`.
+
+### The daily housekeeping pass
+
+Added 2026-07-28, after a manual audit turned up eleven tapes breaking the
+artist cap and twelve misplaced songs on one tape. The run now scans the whole
+file every day and reports:
+
+1. Any artist appearing **more than twice** on a tape — including one act
+   spelled two ways (`Los Tigres del Norte` / `Los Tigres Del Norte` is one
+   artist, and the count has to treat it that way).
+2. Duplicate **title + artist** pairs within a tape.
+3. `spotifyId` values that fail `^[A-Za-z0-9]{22}$`.
+4. Missing titles, artists, or blurbs; blurbs outside 6–10 words or ending in
+   a period.
+5. Entries out of `city_slug` order, duplicate entries, empty tapes.
+6. Tapes short of 15, shortest first — the backlog, expected to be long.
+7. Songs with **no plausible connection to their city**.
+
+It then fixes **at most three**, preferring malformed IDs → artist-cap →
+blurb format → everything else, and reports the rest. The ceiling is
+deliberate: it keeps each day's diff small enough to actually read.
+
+Two rules for the fixing:
+
+- A cap violation is repaired by **replacing** the surplus song with a verified
+  hometown track, never by deleting it — otherwise the tape shrinks and the
+  top-up has to redo the work.
+- **Never silently delete.** A song you cannot verify keeps its title and
+  artist and loses only its `spotifyId`. A song that merely looks out of place
+  gets named in the summary for a human to judge.
 
 - Routine `trig_014sqaUyU7557svq9mGA1E4a` —
   [open it](https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a)
@@ -189,6 +233,8 @@ then load `/sound/` and play the tape you touched.
 | A city is missing from `/sound/` | No entry in `soundtracks.json`, or its entry has zero songs. |
 | A city shows a slug instead of a name | It is not in `public.cities`. Add it there for the display name and geo badge. |
 | Runs keep topping up but never add a new city | The agent could not read `public.cities`. Either it used WebFetch (which 403s for this host — use curl) or the host fell off the environment's network allowlist (`403 to CONNECT`). See step 1 above. |
+| A tape is full of songs with no tie to the city | Generic arena anthems dressed up with local blurbs. Check the team-song pairing and move each one to the city whose team actually plays it. |
+| A tape got shorter after a run | Something deleted instead of replacing. The housekeeping pass must swap a surplus song for a verified replacement, never drop it. |
 | "Last run" on the dashboard is over a day old | A run failed, or the routine is paused. Open the routine and read the transcript. |
 | Two tapes appeared in one day | Something else is writing too — check the old GitHub workflow was not recreated. |
 
