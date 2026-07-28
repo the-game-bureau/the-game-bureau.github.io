@@ -813,6 +813,9 @@
 
     <div class="toolbar">
       <input type="search" id="searchInput" placeholder="Search waypoints" autocomplete="off">
+      <select id="cityFilterSelect" title="Show only waypoints in one city" aria-label="Filter by city">
+        <option value="">All cities</option>
+      </select>
       <select id="filterSelect" title="Filter waypoints by what's missing">
         <option value="">All waypoints</option>
         <option value="no_w3w">Missing what3words</option>
@@ -937,6 +940,7 @@
     const signOutBtn = document.getElementById('signOutBtn');
     const searchInput = document.getElementById('searchInput');
     const filterSelect = document.getElementById('filterSelect');
+    const cityFilterSelect = document.getElementById('cityFilterSelect');
     const newBtn = document.getElementById('newBtn');
     const wpList = document.getElementById('wpList');
 
@@ -945,6 +949,7 @@
       authed: false,
       filter: '',
       fieldFilter: '',  // dropdown filter: '', 'no_w3w', 'no_address', 'no_zip', 'no_city', 'no_coords', 'no_description'
+      cityFilter: '',   // lowercased city key; '' means every city
       // The single waypoint currently shown. Exactly one is featured at a time;
       // Back/Next/Random step through the (optionally filtered) set.
       randomId: null,
@@ -957,7 +962,9 @@
       onAuthorized: async () => {
         state.authed = true;
         setStatus('Loading waypoints...');
-        loadCatalogCities().catch(() => {}); // warm the city catalog for the chooser
+        // Warm the city catalog for the chooser, then repaint the city filter so
+        // venue-only cities grey out once the catalog lands.
+        loadCatalogCities().then(renderCityFilter).catch(() => {});
         await refresh();
       },
       onSignedOut: () => {
@@ -1038,6 +1045,7 @@
         rebuildPristine();
         state.dirtyIds.clear();
         state.savingIds.clear();
+        renderCityFilter();
         if (keepId != null && findRow(keepId)) {
           state.randomId = keepId;
           render();
@@ -1207,6 +1215,8 @@
       // Editing the address invalidates the stored coordinates — drop them so the
       // map re-geocodes the new address (Fill will set precise coords again).
       if (field === 'address') { row.lat = null; row.lon = null; }
+      // Moving a waypoint between cities changes the dropdown's options and counts.
+      if (field === 'city') renderCityFilter();
       markDirty(wpid);
     }
 
@@ -3513,8 +3523,11 @@ $$;`.trim();
         const rows = await res.json();
         const fresh = normalizeRow(Array.isArray(rows) && rows[0] ? rows[0] : {});
         closeNearDialog();
+        // Clear the filters that could hide the waypoint we just added.
         state.filter = '';
         if (searchInput) searchInput.value = '';
+        state.cityFilter = '';
+        if (cityFilterSelect) cityFilterSelect.value = '';
         await refresh(fresh.wpid);
         setStatus('Added waypoint #' + fresh.wpid + '.', 'success');
       } catch (error) {
@@ -3862,7 +3875,20 @@ $$;`.trim();
       return state.rows
         .filter((row) => !term || searchHaystack(row).includes(term))
         .filter(matchesFieldFilter)
+        .filter(matchesCityFilter)
         .sort(compareRows);
+    }
+
+    // City filter. Waypoints store a bare city ("New Orleans") plus a separate
+    // state, while public.cities stores the canonical "New Orleans, Louisiana",
+    // so options are built from the waypoint rows themselves rather than from the
+    // catalog - every option then matches something and the counts are real. The
+    // catalog is still consulted, but only to grey out venue-only cities.
+    function cityKey(row) { return cleanText(row && row.city).toLowerCase(); }
+
+    function matchesCityFilter(row) {
+      if (!state.cityFilter) return true;
+      return cityKey(row) === state.cityFilter;
     }
 
     // Dropdown "missing X" filter.
@@ -3878,8 +3904,56 @@ $$;`.trim();
       }
     }
 
-    // Any filter active (text search or the dropdown)?
-    function isFiltered() { return !!state.filter || !!state.fieldFilter; }
+    // Any filter active (text search or either dropdown)?
+    function isFiltered() { return !!state.filter || !!state.fieldFilter || !!state.cityFilter; }
+
+    // Repaint the city dropdown from the loaded rows, preserving the current
+    // choice even when nothing matches it any more (so a city you filtered to
+    // and then emptied doesn't silently jump back to "All cities").
+    function renderCityFilter() {
+      if (!cityFilterSelect) return;
+      const ignored = new Set(
+        (window.TgbCities && typeof window.TgbCities.all === 'function' ? window.TgbCities.all() : [])
+          .filter((c) => c && c.ignored)
+          .map((c) => cleanText(c.city).split(',')[0].trim().toLowerCase())
+          .filter(Boolean)
+      );
+
+      const byKey = new Map();
+      state.rows.forEach((row) => {
+        const key = cityKey(row);
+        if (!key) return;
+        const entry = byKey.get(key);
+        if (entry) entry.count += 1;
+        else byKey.set(key, { key: key, label: cleanText(row.city), count: 1 });
+      });
+
+      const entries = Array.from(byKey.values())
+        .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+
+      // Keep a filtered-to city listed even if its last waypoint just moved away.
+      if (state.cityFilter && !byKey.has(state.cityFilter)) {
+        entries.push({ key: state.cityFilter, label: state.cityFilter, count: 0 });
+      }
+
+      cityFilterSelect.innerHTML = '';
+      const all = document.createElement('option');
+      all.value = '';
+      all.textContent = 'All cities (' + state.rows.length + ')';
+      cityFilterSelect.append(all);
+
+      entries.forEach((entry) => {
+        const option = document.createElement('option');
+        option.value = entry.key;
+        option.textContent = entry.label + ' (' + entry.count + ')';
+        if (ignored.has(entry.key)) {
+          option.className = 'tgb-city-ignored';
+          option.title = 'Venue only — a city we play in but do not sell for';
+        }
+        if (entry.key === state.cityFilter) option.selected = true;
+        cityFilterSelect.append(option);
+      });
+    }
 
     // Always feature exactly one waypoint. Keep the current one if it's still in
     // the navigable set; otherwise fall back to the first.
@@ -4554,6 +4628,13 @@ $$;`.trim();
     // Dropdown "missing X" filter.
     if (filterSelect) filterSelect.addEventListener('change', () => {
       state.fieldFilter = filterSelect.value;
+      const list = navRows();
+      state.randomId = list.length ? list[0].wpid : null;
+      render();
+    });
+    // City filter.
+    if (cityFilterSelect) cityFilterSelect.addEventListener('change', () => {
+      state.cityFilter = cityFilterSelect.value;
       const list = navRows();
       state.randomId = list.length ? list[0].wpid : null;
       render();
