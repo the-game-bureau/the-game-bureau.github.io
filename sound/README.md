@@ -106,14 +106,31 @@ A **scheduled Claude Code cloud agent** runs at 15:00 UTC — 10 AM Central in
 summer, 9 AM in winter, because cloud cron has no daylight-saving shift.
 
 1. Reads `public.cities` and `sound/soundtracks.json`.
-   **The catalog is read with WebFetch, not curl.** The cloud sandbox's egress
-   policy blocks direct network calls from Bash — the 2026-07-28 run got
-   `403 to CONNECT` for the Supabase host and lost its new-city half because of
-   it — but WebFetch is not subject to that policy. Since WebFetch can't send
-   headers, the publishable key rides in the query string, which PostgREST
-   accepts: `…/rest/v1/cities?select=slug,city,ignored&order=city.asc&apikey=…`
-   (three columns only, so the response comes back whole; the public `/sound/`
-   page still uses `select=*`).
+   The catalog URL is
+   `…/rest/v1/cities?select=slug,city,ignored&order=city.asc&apikey=…` — the
+   publishable key rides in the query string (PostgREST accepts that, and
+   WebFetch cannot send headers), and only three columns are requested so the
+   response comes back whole. The public `/sound/` page still uses `select=*`.
+
+   > **Known blocker — the Supabase host is currently unreachable from the
+   > routine's sandbox.** The environment's egress policy denies
+   > `qmaafbncpzrdmqapkkgr.supabase.co` at the gateway with
+   > `403 to CONNECT`, for **WebFetch and curl alike**. An earlier version of
+   > this file claimed WebFetch was exempt from that policy; it is not — the
+   > 2026-07-28 run proved it by getting the same 403 both ways. Do not try to
+   > route around a policy denial (no CORS shims, no third-party JSON proxies,
+   > no disabling TLS verification), and do not retry it in a loop.
+   >
+   > **The fix is to allowlist that host** in the environment's network policy
+   > at [claude.ai/code](https://claude.ai/code) → the routine's environment →
+   > network access. Until that happens, every run loses its new-city half and
+   > the routine can only top up existing tapes — so once every tape reaches
+   > 15 songs it will have nothing left to do.
+   >
+   > **While it is blocked:** skip the new-city half — never guess which city
+   > is next, and never hand-write a city list, because a wrong pick writes a
+   > tape for a city we do not sell into. Still do the top-up, and say plainly
+   > in the summary and the commit message that the catalog was unreachable.
 2. Picks the **alphabetically first city with no tape**, plus the **emptiest
    existing tape**.
 3. Researches songs and verifies every Spotify ID by web search.
@@ -124,6 +141,12 @@ summer, 9 AM in winter, because cloud cron has no daylight-saving shift.
 - Model: Claude Opus 5
 - From that page you can watch a run, trigger one early, change the schedule, or
   pause it.
+- **The routine's stored prompt still repeats the retired "WebFetch is exempt
+  from the egress policy" claim, and an agent cannot edit it** — the routine was
+  created through the HTTP API, so `update_trigger` refuses. A human has to open
+  the routine and correct that paragraph. Until someone does, the prompt and
+  this file disagree on that one point; **this file wins**, which the prompt
+  itself says.
 
 It replaced a GitHub Actions workflow on 2026-07-27. That version needed a
 funded Anthropic or OpenAI API key and neither account had credit, so every run
@@ -156,6 +179,7 @@ then load `/sound/` and play the tape you touched.
 | A song will not play | The `spotifyId` is wrong or the track was pulled. Delete the ID (keep title and artist) and the player falls back to search. |
 | A city is missing from `/sound/` | No entry in `soundtracks.json`, or its entry has zero songs. |
 | A city shows a slug instead of a name | It is not in `public.cities`. Add it there for the display name and geo badge. |
+| Runs keep topping up but never add a new city | The Supabase host is blocked by the environment's egress policy (`403 to CONNECT`). See the blocker note above — allowlist the host. |
 | "Last run" on the dashboard is over a day old | A run failed, or the routine is paused. Open the routine and read the transcript. |
 | Two tapes appeared in one day | Something else is writing too — check the old GitHub workflow was not recreated. |
 
