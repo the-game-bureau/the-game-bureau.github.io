@@ -765,8 +765,7 @@
       <span class="command-bar-label">Add</span>
       <button class="btn small" id="newBtn" type="button" title="Add one waypoint by hand in a pop-up form">Manual</button>
       <button class="btn small primary" id="promptBtn" type="button" title="Find stops for a city — pull them live from OpenStreetMap, or get an AI prompt that returns Supabase SQL">With AI</button>
-      <span class="command-bar-divider" aria-hidden="true"></span>
-      <span class="command-bar-label">Links</span>
+      <button class="btn small" id="nearBtn" type="button" title="Find points of interest near the waypoint on screen">Near</button>
     </div>
 
     <section class="panel">
@@ -845,6 +844,7 @@
     const filterSelect = document.getElementById('filterSelect');
     const cityFilterSelect = document.getElementById('cityFilterSelect');
     const newBtn = document.getElementById('newBtn');
+    const nearBtn = document.getElementById('nearBtn');
     const wpList = document.getElementById('wpList');
 
     const state = {
@@ -1273,7 +1273,6 @@
     // them to add as NEW waypoints — like the Near button, seeded by the click.
     async function onMapClick(lat, lon) {
       // Show the Near button's finding state for map-click searches too.
-      const nearBtn = wpList.querySelector('[data-action="near"]');
       if (nearBtn) { nearBtn.disabled = true; nearBtn.textContent = 'Finding…'; }
       try {
         // Reverse-geocode for a city/state fallback on whatever gets added.
@@ -3442,16 +3441,9 @@ $$;`.trim();
       // Disabled when there's nothing to save (already saved) or mid-save.
       saveBtn.disabled = !state.dirtyIds.has(row.wpid) || state.savingIds.has(row.wpid);
       saveBtn.addEventListener('click', () => saveRow(row.wpid));
-      const nearBtn = document.createElement('button');
-      nearBtn.type = 'button';
-      nearBtn.className = 'btn small';
-      nearBtn.dataset.action = 'near';
-      nearBtn.textContent = 'Near';
-      nearBtn.title = 'Find points of interest near this waypoint';
-      nearBtn.addEventListener('click', () => nearWaypoint(row.wpid, nearBtn));
-      // Nav sits left of Delete; Near sits between Fill and Save.
-      // Prompt/Upload live in the top toolbar next to New.
-      actions.append(deleteBtn, fillBtn, nearBtn, saveBtn);
+      // Nav sits left of Delete. Near moved up to the Add bar beside With AI —
+      // it acts on whichever waypoint is on screen.
+      actions.append(deleteBtn, fillBtn, saveBtn);
 
       // Title left, nav centered, actions right.
       head.append(titleWrap, renderNav(), actions);
@@ -3846,6 +3838,8 @@ $$;`.trim();
 
     function updateToolbarButtons() {
       if (newBtn) newBtn.disabled = !state.authed;
+      // Near acts on the waypoint currently on screen, so it needs one to exist.
+      if (nearBtn) nearBtn.disabled = !state.authed || state.randomId == null;
     }
 
     // --- Wiring --------------------------------------------------------------
@@ -3895,6 +3889,9 @@ $$;`.trim();
     }
 
     if (newBtn) newBtn.addEventListener('click', openManualDialog);
+    if (nearBtn) nearBtn.addEventListener('click', () => {
+      if (state.randomId != null) nearWaypoint(state.randomId, nearBtn);
+    });
     const manualCancelBtn = document.getElementById('manualCancelBtn');
     if (manualCancelBtn) manualCancelBtn.addEventListener('click', closeManualDialog);
     const manualAddBtn = document.getElementById('manualAddBtn');
