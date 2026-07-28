@@ -3098,10 +3098,11 @@
             <option value="SHELVED">Filter: Shelved</option>
           </select>
           <select id="itemSortSelect" aria-label="Sort gifts" disabled>
+            <option value="newest" selected>Sort: New → Old</option>
             <option value="title">Sort: A → Z</option>
             <option value="city">Sort: By city</option>
             <option value="cities">Sort: Most cities</option>
-            <option value="status" selected>Sort: By status</option>
+            <option value="status">Sort: By status</option>
           </select>
           <button class="btn toolbar-clear" id="clearFiltersBtn" type="button" disabled>CLEAR</button>
         </div>
@@ -3377,11 +3378,23 @@
 
     let statusRadioGroupCounter = 0;
 
+    // Newest-first is the default view: the book-pull routine files candidates
+    // every morning, so the top of the list is where the new work is.
+    const DEFAULT_ITEM_SORT = 'newest';
+
     if (itemSortSelect) {
       itemSortSelect.addEventListener('change', resetItemsPaging);
     }
     if (statusFilter) {
-      statusFilter.addEventListener('change', resetItemsPaging);
+      statusFilter.addEventListener('change', () => {
+        // Picking Shelved snaps back to New → Old. You open Shelved to see what
+        // was most recently shelved, and A→Z buries that in the middle of a
+        // long list. Any other sort is still one click away afterwards.
+        if (statusFilter.value === 'SHELVED' && itemSortSelect) {
+          itemSortSelect.value = DEFAULT_ITEM_SORT;
+        }
+        resetItemsPaging();
+      });
     }
     if (loadMoreBtn) {
       // One page at a time, always within the current filter — the button hides
@@ -3587,7 +3600,7 @@
         allGiftItemsCache = [];
         gameOptionsHtml = '<option value="">— Pick a game —</option>';
         if (itemSortSelect) {
-          itemSortSelect.value = 'status';
+          itemSortSelect.value = DEFAULT_ITEM_SORT;
           itemSortSelect.disabled = true;
         }
         if (itemSearchInput) {
@@ -4089,8 +4102,8 @@
       };
       setOrDrop('q', itemSearchInput ? itemSearchInput.value.trim() : '');
       setOrDrop('status', statusFilter ? statusFilter.value : '');
-      // 'status' is the default sort; only a deliberate change needs recording.
-      setOrDrop('sort', itemSortSelect && itemSortSelect.value !== 'status' ? itemSortSelect.value : '');
+      // Only a deliberate move off the default sort needs recording in the URL.
+      setOrDrop('sort', itemSortSelect && itemSortSelect.value !== DEFAULT_ITEM_SORT ? itemSortSelect.value : '');
 
       window.history.replaceState(null, '', url.pathname + url.search);
     }
@@ -4332,7 +4345,7 @@
       }
       if (itemSearchInput) itemSearchInput.value = '';
       if (statusFilter) statusFilter.value = '';
-      if (itemSortSelect) itemSortSelect.value = 'status';
+      if (itemSortSelect) itemSortSelect.value = DEFAULT_ITEM_SORT;
       selectAllCities(); // resets paging back to the first page
     }
 
@@ -4503,17 +4516,28 @@
     }
 
     // Sort modes (toolbar dropdown):
-    //   status — default: not-yet-live (Review/Shelved) first, then Live;
-    //            alphabetical within each group
+    //   newest — DEFAULT: most recently added first. The daily book pull files
+    //            new candidates every morning, so this puts today's arrivals
+    //            (and, under Filter: Shelved, the things you just shelved) at
+    //            the top where they can be acted on.
+    //   status — not-yet-live (Review/Shelved) first, then Live; alphabetical
+    //            within each group
     //   title  — alphabetical by gift title
     //   city   — by the gift's first assigned city, then title (no city last)
     //   cities — most cities/shops first (widest reach), then title
     function itemComparator() {
-      const mode = itemSortSelect ? itemSortSelect.value : 'status';
+      const mode = itemSortSelect ? itemSortSelect.value : DEFAULT_ITEM_SORT;
       const collate = { sensitivity: 'base', numeric: true };
       const byTitle = (a, b) =>
         entryTitle(a).localeCompare(entryTitle(b), undefined, collate) ||
         String(a.id).localeCompare(String(b.id), undefined, collate);
+      // A card with no row behind it is a gift added in this session and has no
+      // created_at yet — it is the newest thing there is, so it sorts first.
+      const addedAt = (entry) => {
+        if (!entry.row) return Infinity;
+        const stamp = Date.parse(entry.row.created_at || '');
+        return Number.isFinite(stamp) ? stamp : -Infinity;
+      };
       // '~~~' sentinel pushes gifts with no city to the end.
       const firstCity = (entry) =>
         entryCities(entry).slice().sort((a, b) => a.localeCompare(b, undefined, collate))[0] || '~~~';
@@ -4532,7 +4556,11 @@
         return (a, b) => (entryCities(b).length - entryCities(a).length) || byTitle(a, b);
       }
       if (mode === 'title') return byTitle;
-      return (a, b) => (statusRank(a) - statusRank(b)) || byTitle(a, b);
+      if (mode === 'status') return (a, b) => (statusRank(a) - statusRank(b)) || byTitle(a, b);
+      // newest (default). A whole batch from one book-pull run shares a
+      // timestamp to the second, so fall back to title for a stable order
+      // inside the batch rather than letting it shuffle between repaints.
+      return (a, b) => (addedAt(b) - addedAt(a)) || byTitle(a, b);
     }
 
     // Single source of truth for the list. Search, city, status, sort and the
