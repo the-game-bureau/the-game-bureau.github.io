@@ -1499,9 +1499,9 @@
           const place = await res.json();
           if (place && !place.error) await fillFieldsFromPlace(payload, place, point, true);
         } catch (error) {}
-        // Always carry the exact what3words address and a coordinate fallback.
+        // The what3words link carries the exact point. The address field stays a
+        // street address or stays empty — never a "lat, lon" string.
         if (!cleanText(payload.w3w)) payload.w3w = href;
-        if (!cleanText(payload.address)) payload.address = lat + ', ' + lon;
         Object.keys(payload).forEach((k) => { if (!cleanText(payload[k])) delete payload[k]; });
         try { map.closePopup(popup); } catch (error) {}
         await insertWaypointAndGo(payload, null);
@@ -1741,9 +1741,13 @@
       const state = cleanText(addr.state);
       const zip = cleanText(addr.postcode);
       // Address is the STREET ONLY (house number + road) — city/state/zip live in
-      // their own fields. No street? fall back to coordinates, else leave blank.
+      // their own fields. A street address is always a street address: if the
+      // reverse geocode has no street, leave it blank so the "Missing address"
+      // filter finds it. It used to fall back to a "lat, lon" string, which put
+      // coordinates in a text field nothing could parse, geocode, or show a
+      // player. The precise point survives as the what3words link.
       const streetAddress = [cleanText(addr.house_number), cleanText(addr.road)].filter(Boolean).join(' ');
-      const address = streetAddress || (hasCoords ? lat + ', ' + lon : '');
+      const address = streetAddress;
 
       if (overwrite) {
         // Clear-then-fill: replace every field with the clicked location.
