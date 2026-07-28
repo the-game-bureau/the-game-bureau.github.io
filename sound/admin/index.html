@@ -581,6 +581,15 @@
       color: var(--muted);
     }
     .stockroom-substat:empty { display: none; }
+    /* Numbers whose native title lists the cities behind them. Dotted underline
+       is the long-standing "there is more here on hover" signal. */
+    .stat-hint {
+      cursor: help;
+      text-decoration: underline dotted;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+    .stat-hint:hover { color: var(--ink); }
 
     /* Header right side: push the Soundtracks link and the auth toggle to the
        far edge, the way the Stock Room does. */
@@ -936,30 +945,14 @@ Final report:
           return;
         }
 
-        var parts = [live.length + ' Soundtrack' + (live.length === 1 ? '' : 's')];
-        var cityLine = '';
-
-        // How full the tapes are, fullest bucket first: "35 with 15 tracks,
-        // 30 with 14 tracks". The routine's whole job is driving every bucket
-        // up to 15, so the shape of this list is the progress bar.
-        var byCount = {};
-        live.forEach(function (tape) {
-          var n = tape.songs.length;
-          byCount[n] = (byCount[n] || 0) + 1;
-        });
-        var buckets = Object.keys(byCount)
-          .map(Number)
-          .sort(function (a, b) { return b - a; })
-          // Compact ratio form: "1/25 track" = one tape holding 25 tracks.
-          .map(function (n) { return byCount[n] + '/' + n + ' track'; });
-        if (buckets.length) parts.push(buckets.join(', '));
-
-        // Cities still waiting on a tape. Venue-only rows (ignored) are stadium
-        // towns we don't sell into, so they are not a gap — excluding them keeps
-        // this number equal to the work the routine actually has left.
+        // Pull the catalog first — it supplies the display names the hover
+        // lists want, and the set of cities with no tape at all. Best effort:
+        // if it's unreachable we still render the tape numbers, just with slugs
+        // in the tooltips and no city-gap line.
         // select=* per the repo rule: naming `ignored` in a column list 400s on
         // any database that hasn't run the migration. Only 140 city rows today,
         // comfortably inside PostgREST's 1000-row cap — paginate if that grows.
+        var cityRows = null;
         try {
           var cres = await fetch(
             SUPABASE_CONFIG.url + '/rest/v1/cities?select=*',
@@ -973,37 +966,93 @@ Final report:
             }
           );
           if (!cres.ok) throw new Error('HTTP ' + cres.status);
-          var rows = await cres.json();
-          if (!Array.isArray(rows)) throw new Error('bad payload');
+          var parsed = await cres.json();
+          if (Array.isArray(parsed)) cityRows = parsed;
+        } catch (error) {
+          // Leave cityRows null.
+        }
 
+        var nameBySlug = {};
+        if (cityRows) {
+          cityRows.forEach(function (row) {
+            if (row && row.slug) nameBySlug[row.slug] = row.city || row.slug;
+          });
+        }
+        function cityLabel(slug) { return nameBySlug[slug] || slug || '(no slug)'; }
+        function citySort(a, b) { return a.localeCompare(b); }
+
+        // How full the tapes are, fullest bucket first. Each bucket keeps its
+        // slugs so hovering can name the cities — the count alone tells you
+        // there's a problem but not which tape to open.
+        var byCount = {};
+        live.forEach(function (tape) {
+          var n = tape.songs.length;
+          (byCount[n] || (byCount[n] = [])).push(tape.city_slug);
+        });
+
+        var line1 = [{ text: live.length + ' Soundtrack' + (live.length === 1 ? '' : 's') }];
+        var counts = Object.keys(byCount).map(Number).sort(function (a, b) { return b - a; });
+        counts.forEach(function (n, i) {
+          line1.push({ text: i === 0 ? ' — ' : ', ' });
+          // Compact ratio form: "1/25 track" = one tape holding 25 tracks.
+          line1.push({
+            text: byCount[n].length + '/' + n + ' track',
+            title: byCount[n].map(cityLabel).sort(citySort).join('\n')
+          });
+        });
+
+        // Cities still waiting on a tape. Venue-only rows (ignored) are stadium
+        // towns we don't sell into, so they are not a gap — excluding them keeps
+        // this number equal to the work the routine actually has left.
+        var line2 = null;
+        if (cityRows) {
           var haveTape = {};
           live.forEach(function (tape) {
             if (tape.city_slug) haveTape[tape.city_slug] = true;
           });
-          var missing = rows.filter(function (row) {
-            return row && row.slug && !row.ignored && !haveTape[row.slug];
-          }).length;
-          cityLine = missing + ' cit' + (missing === 1 ? 'y' : 'ies') + ' with no tracks';
-        } catch (error) {
-          // Catalog unreachable — show the tape counts rather than nothing.
+          var missing = cityRows
+            .filter(function (row) {
+              return row && row.slug && !row.ignored && !haveTape[row.slug];
+            })
+            .map(function (row) { return row.city || row.slug; })
+            .sort(citySort);
+          line2 = [{
+            text: missing.length + ' cit' + (missing.length === 1 ? 'y' : 'ies') + ' with no tracks',
+            title: missing.join('\n')
+          }];
         }
 
         // Two lines: what exists on top, what's still missing underneath. The
         // bucket list runs long (six buckets today), so keeping the gap on its
         // own line stops it getting lost at the end of a wrap.
-        setPageStatus([parts.join(' — '), cityLine]);
+        setPageStatus([line1, line2]);
       }
 
-      // Accepts a string, or an array of lines rendered one per row. Built as
-      // text nodes + <br> rather than innerHTML — the values are all generated
-      // counts, but this keeps the substat incapable of carrying markup.
+      // Accepts a string, or an array of lines rendered one per row. A line is
+      // either a string or an array of {text, title} segments; a segment with a
+      // title becomes a hoverable span listing the cities behind that number.
+      // Built as text nodes + <br> rather than innerHTML — the values are all
+      // generated counts and city names, but this keeps the substat incapable
+      // of carrying markup.
       function setPageStatus(text) {
         if (!pageStatus) return;
         var lines = (Array.isArray(text) ? text : [text]).filter(Boolean);
         pageStatus.textContent = '';
         lines.forEach(function (line, i) {
           if (i) pageStatus.appendChild(document.createElement('br'));
-          pageStatus.appendChild(document.createTextNode(line));
+          var segments = Array.isArray(line) ? line : [{ text: line }];
+          segments.forEach(function (seg) {
+            if (!seg || !seg.text) return;
+            if (!seg.title) {
+              pageStatus.appendChild(document.createTextNode(seg.text));
+              return;
+            }
+            var span = document.createElement('span');
+            span.className = 'stat-hint';
+            span.textContent = seg.text;
+            span.title = seg.title;
+            pageStatus.appendChild(span);
+          });
         });
       }
 
