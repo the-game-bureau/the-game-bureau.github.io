@@ -115,8 +115,13 @@ Aim for a mix across eras and genres, weighted toward:
 
 ## What happens every morning
 
-A **scheduled Claude Code cloud agent** runs at 15:00 UTC — 10 AM Central in
-summer, 9 AM in winter, because cloud cron has no daylight-saving shift.
+A **scheduled Claude Code cloud agent** runs at **11:30 UTC** — 6:30 AM Central
+in summer, 5:30 AM in winter. Cloud cron is UTC and has no daylight-saving
+shift, so a single expression cannot hold one local time year-round; 11:30 was
+picked to be exactly 6:30 AM during CDT. To keep 6:30 through the winter,
+change the cron to `30 12 * * *` when Central falls back in November, and back
+to `30 11 * * *` in March. Leaving it alone is fine too — an hour early in
+winter costs nothing.
 
 1. Reads `public.cities` and `sound/soundtracks.json`.
 
