@@ -921,18 +921,73 @@ Final report:
       // same file /sound/ renders — so the number can never disagree with what a
       // visitor sees.
       async function loadTapeSummary() {
+        var live;
         try {
           var res = await fetch('../soundtracks.json', { cache: 'no-store' });
           if (!res.ok) throw new Error('HTTP ' + res.status);
           var data = await res.json();
           var list = Array.isArray(data.soundtracks) ? data.soundtracks : [];
-          var live = list.filter(function (tape) {
+          live = list.filter(function (tape) {
             return tape && Array.isArray(tape.songs) && tape.songs.length > 0;
-          }).length;
-          setPageStatus(live + ' tape' + (live === 1 ? '' : 's'));
+          });
         } catch (error) {
           setPageStatus('');
+          return;
         }
+
+        var parts = [live.length + ' Soundtrack' + (live.length === 1 ? '' : 's')];
+
+        // How full the tapes are, fullest bucket first: "35 with 15 tracks,
+        // 30 with 14 tracks". The routine's whole job is driving every bucket
+        // up to 15, so the shape of this list is the progress bar.
+        var byCount = {};
+        live.forEach(function (tape) {
+          var n = tape.songs.length;
+          byCount[n] = (byCount[n] || 0) + 1;
+        });
+        var buckets = Object.keys(byCount)
+          .map(Number)
+          .sort(function (a, b) { return b - a; })
+          .map(function (n) {
+            return byCount[n] + ' with ' + n + ' track' + (n === 1 ? '' : 's');
+          });
+        if (buckets.length) parts.push(buckets.join(', '));
+
+        // Cities still waiting on a tape. Venue-only rows (ignored) are stadium
+        // towns we don't sell into, so they are not a gap — excluding them keeps
+        // this number equal to the work the routine actually has left.
+        // select=* per the repo rule: naming `ignored` in a column list 400s on
+        // any database that hasn't run the migration. Only 140 city rows today,
+        // comfortably inside PostgREST's 1000-row cap — paginate if that grows.
+        try {
+          var cres = await fetch(
+            SUPABASE_CONFIG.url + '/rest/v1/cities?select=*',
+            {
+              headers: {
+                apikey: SUPABASE_CONFIG.publishableKey,
+                Authorization: 'Bearer ' + SUPABASE_CONFIG.publishableKey,
+                Accept: 'application/json'
+              },
+              cache: 'no-store'
+            }
+          );
+          if (!cres.ok) throw new Error('HTTP ' + cres.status);
+          var rows = await cres.json();
+          if (!Array.isArray(rows)) throw new Error('bad payload');
+
+          var haveTape = {};
+          live.forEach(function (tape) {
+            if (tape.city_slug) haveTape[tape.city_slug] = true;
+          });
+          var missing = rows.filter(function (row) {
+            return row && row.slug && !row.ignored && !haveTape[row.slug];
+          }).length;
+          parts.push(missing + ' cit' + (missing === 1 ? 'y' : 'ies') + ' with no tracks');
+        } catch (error) {
+          // Catalog unreachable — show the tape counts rather than nothing.
+        }
+
+        setPageStatus(parts.join(' — '));
       }
 
       function setPageStatus(text) {
