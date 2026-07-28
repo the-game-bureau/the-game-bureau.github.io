@@ -184,6 +184,44 @@
       line-height: 1.5;
     }
 
+    /* Topic + platform tags. Topics are quiet (they describe the story);
+       platforms are loud and colour-coded (they are the recommendation you act
+       on). Each platform chip carries its format reason as a title. */
+    .post-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 9px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.22);
+      border-radius: 999px;
+      background: #fff;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.64rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag--topic { color: var(--muted); background: var(--panel-soft); border-color: transparent; }
+
+    .tag--platform { cursor: help; border-width: 1.5px; }
+    .tag--platform.is-instagram { color: #a5316b; border-color: rgba(165, 49, 107, 0.45); background: rgba(165, 49, 107, 0.06); }
+    .tag--platform.is-x { color: #14171a; border-color: rgba(20, 23, 26, 0.45); background: rgba(20, 23, 26, 0.05); }
+    .tag--platform.is-youtube { color: #b1221b; border-color: rgba(177, 34, 27, 0.45); background: rgba(177, 34, 27, 0.06); }
+
+    .tag-label {
+      margin-right: 6px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
     .post-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
     .post-feedback {
       font-family: "IBM Plex Mono", monospace;
@@ -493,7 +531,7 @@
       <section class="side-card explain" id="whatCard" aria-labelledby="whatTitle">
         <span class="side-label">What this is</span>
         <h2 id="whatTitle">Five things worth posting</h2>
-        <p>Every morning an AI agent reads around and brings back <strong>five stories or posts</strong> The Game Bureau might want to share &mdash; city news, a stadium story, something about the places our games run in. It writes the caption for each one and leaves them here.</p>
+        <p>Every morning an AI agent reads around and brings back <strong>five stories or posts</strong> The Game Bureau might want to share. It works a beat: <strong>travel and tourism, travel stories, competition, weird stuff, sports, TV, music</strong>, and our own genre of scavenger hunts and city games. It writes the caption for each one, tags what the story is about, and says <strong>which of our three accounts it suits</strong> and why &mdash; based on what media the story actually has.</p>
         <p>Your job is the two buttons. <strong>POST</strong> copies the blurb and the link to your clipboard, ready to paste wherever you are posting. <strong>TRASH</strong> clears one you do not want, and remembers &mdash; it will not come back on reload.</p>
         <p><strong>Nothing here posts itself.</strong> The agent has no access to any account. It only ever writes this list; a person decides what actually goes out.</p>
         <p>The list is replaced wholesale every morning, so an unposted pick is gone tomorrow. If you want one, take it today.</p>
@@ -511,6 +549,8 @@
           <span class="chip">socials/queue.json</span>
           <span class="chip">5 links</span>
           <span class="chip">opened, not guessed</span>
+          <span class="chip">topic rotation</span>
+          <span class="chip">platform tags</span>
           <span class="chip">no auto-posting</span>
         </div>
         <textarea class="prompt" id="promptText" readonly spellcheck="false">You are the daily socials scout for The Game Bureau. Find five stories or posts worth sharing, write a caption for each, and commit them to socials/queue.json.
@@ -534,14 +574,23 @@ For which cities matter, read sound/soundtracks.json and:
 
 Use curl for that host, not WebFetch — curl returns 200, WebFetch returns 403.
 
-2. FIND FIVE
+2. WHAT TO HUNT FOR
 
-Web search, things published in the last 7 days:
+Web search, things published in the last 7 days (14 for a genuinely great one). This is the beat, not a ranked list:
 
-- A city we run games in doing something interesting — a new park, a neighbourhood piece, a food story, local history resurfacing.
-- Stadium and team culture — traditions, fan rituals, a venue reopening, the story behind a fight song.
-- Travel and city-exploration writing our audience would read.
-- Scavenger hunts, urban games, geocaching, city trivia — our own genre.
+- TRAVEL AND TOURISM. New routes, reopened landmarks, a tourism board doing something odd, underrated-neighbourhood pieces, a hotel or diner or bar with a story.
+- TRAVEL STORIES. First-person writing about going somewhere — walking a whole city, riding every subway line, eating one dish across twenty places. Closest thing to what our players do.
+- COMPETITION. Races, contests, championships, world records, eating contests, cardboard boat regattas — people competing at something strange in a specific place.
+- WEIRD STUFF. Roadside attractions, local legends, a town with an unexplained tradition, the world's largest something. Weird travels well and it is the most on-brand thing we post.
+- SPORTS. Team and stadium culture, fan rituals, a venue reopening, the story behind a fight song, a rivalry's origin, minor-league promotions.
+- TV AND FILM. Shows and movies shot in our cities, a filming location you can visit, a travel or competition format that overlaps what we do.
+- MUSIC. Hometown scenes, a venue's history, a song about a city, a festival. Cross-reference sound/soundtracks.json — a city whose tape we made is a gift, we can point at the tape.
+- OUR OWN GENRE. Scavenger hunts, urban games, geocaching, ARGs, city trivia, puzzle hunts.
+
+Tag each with one or more topics from exactly this list, lowercase:
+travel, tourism, competition, weird, sports, tv, music, food, history, games
+
+ROTATION RULE: the five must cover at least four different topics, and no topic on more than two of the five. If a topic has not appeared in the last three runs, go looking for one.
 
 Skip: politics, tragedy and crime, culture-war bait, press releases, SEO listicles, hard paywalls. The test — if it would make someone ask "why is a game company posting this", it is not a fit.
 
@@ -551,13 +600,25 @@ Prefer five different cities and five different sources.
 
 Open each URL. Confirm it resolves, is the article you think, and is recent. Never include a URL you have not opened — a dead link is worse than four good ones. Record the real publication name and date.
 
+While the page is open, note what MEDIA it has: photo, gallery, video, or text. You need that for step 5.
+
 4. WRITE THE BLURB
 
 One or two sentences: curious, specific, dry. Lead with the interesting thing, not "Check out this article about". Name the city. No hashtags, no emoji, no "link in bio", no exclamation marks. Do not reuse the outlet's headline. 200 characters max.
 
 Also write a one-line "why" — internal note for the human, never posted.
 
-5. WRITE THE FILE
+5. TAG THE PLATFORMS
+
+We have exactly three accounts. Never suggest one we do not have.
+
+  INSTAGRAM — anything with a strong photograph, a gallery, or a place you can see. A link in an IG caption is not clickable, so tag it only when the image carries the story, and say whether it is a feed post or a Story with a link sticker.
+  X — news, oddities, quick facts, anything where the link IS the payload. Link previews render natively; this is the default home for text-and-link.
+  YOUTUBE — only when there is real video: the story is a video, or it is visual enough for a Short. Say which.
+
+Judge from the media you saw in step 3 plus the audience for the topic. Most picks suit one or two. It is fine for a pick to suit only X — do not tag all three on everything, a tag that always fires tells the human nothing.
+
+6. WRITE THE FILE
 
 Replace socials/queue.json entirely — a fresh list each day, not an append.
 
@@ -570,6 +631,12 @@ Replace socials/queue.json entirely — a fresh list each day, not an append.
       "url": "<verified URL>",
       "source": "<publication>",
       "published": "<YYYY-MM-DD>",
+      "topics": ["travel", "weird"],
+      "media": "photo | gallery | video | text",
+      "platforms": [
+        { "name": "X", "why": "link preview does the work" },
+        { "name": "Instagram", "why": "lead photo of the mural carries it" }
+      ],
       "blurb": "<the caption>",
       "why": "<one line, internal>"
     }
@@ -580,7 +647,7 @@ Exactly five posts, ids 1-5, two-space indentation. Verify:
 
     node -e "JSON.parse(require('fs').readFileSync('socials/queue.json','utf8'))"
 
-Check out loud: valid JSON, five posts, every url distinct and opened, nothing repeated from a previous version, every blurb under 200 characters with no hashtags or emoji, git diff touching only that file.
+Check out loud: valid JSON, five posts, every url distinct and opened, nothing repeated from a previous version, every blurb under 200 characters with no hashtags or emoji, at least four distinct topics with none on more than two, every platform one of Instagram/X/YouTube and carrying a why, every post with at least one platform, and git diff touching only that file.
 
 If you cannot get five good ones, commit four rather than padding with something weak — and say so.
 
@@ -651,6 +718,10 @@ Finish with a summary: the five picks with cities and sources, what you rejected
     "postCount": 5,
     "replacedDaily": true,
     "voice": "curious, specific, dry; name the city; no hashtags, emoji, or exclamation marks",
+    "beat": ["travel", "tourism", "competition", "weird", "sports", "tv", "music", "food", "history", "games"],
+    "rotationRule": "five picks cover at least four distinct topics; no topic on more than two",
+    "accounts": ["Instagram", "X", "YouTube"],
+    "platformTagging": "each post is tagged with which of the three accounts it suits and why, judged from the media the story actually has (photo/gallery/video/text). Never suggest a platform we do not have.",
     "avoid": ["politics", "tragedy and crime", "culture-war bait", "press releases", "SEO listicles", "hard paywalls"],
     "doNotCreate": [
       "a Supabase table for the queue",
@@ -845,6 +916,9 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         link.textContent = post.url;
         article.appendChild(link);
 
+        var tags = buildTags(post);
+        if (tags) article.appendChild(tags);
+
         if (post.why) {
           var why = document.createElement('p');
           why.className = 'post-why';
@@ -884,6 +958,50 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         article.appendChild(actions);
 
         return article;
+      }
+
+      // Topics first (what the story is), then the platform recommendations
+      // (what to do about it). Renders nothing at all if a post carries neither,
+      // so a hand-written entry without tags still looks deliberate.
+      function buildTags(post) {
+        var topics = Array.isArray(post.topics) ? post.topics.filter(Boolean) : [];
+        var platforms = Array.isArray(post.platforms) ? post.platforms.filter(Boolean) : [];
+        if (!topics.length && !platforms.length) return null;
+
+        var wrap = document.createElement('div');
+        wrap.className = 'post-tags';
+
+        topics.forEach(function (topic) {
+          var chip = document.createElement('span');
+          chip.className = 'tag tag--topic';
+          chip.textContent = String(topic);
+          wrap.appendChild(chip);
+        });
+
+        if (platforms.length) {
+          var label = document.createElement('span');
+          label.className = 'tag-label';
+          label.textContent = 'Post to';
+          wrap.appendChild(label);
+        }
+
+        platforms.forEach(function (platform) {
+          // Accept a bare string too, so a hand-edited file does not break the
+          // render just because someone wrote "X" instead of {name:"X"}.
+          var name = typeof platform === 'string' ? platform : String(platform.name || '');
+          if (!name) return;
+          var reason = typeof platform === 'string' ? '' : String(platform.why || '');
+
+          var chip = document.createElement('span');
+          chip.className = 'tag tag--platform is-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+          chip.textContent = name;
+          // The format reason is the useful half — why THIS story suits THIS
+          // platform — so it rides along as a tooltip rather than a second line.
+          if (reason) chip.title = reason;
+          wrap.appendChild(chip);
+        });
+
+        return wrap;
       }
 
       // What lands on the clipboard: caption, blank line, link. Deliberately NOT
