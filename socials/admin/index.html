@@ -722,7 +722,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         adminAuthToggleBtn.classList.toggle('is-signed-in', !!signedIn);
       }
 
-      window.TgbMcAdminAuth.create({
+      var adminAuth = window.TgbMcAdminAuth.create({
         supabaseConfig: SUPABASE_CONFIG,
         onAuthorized: function () {
           setAdminAuthToggleState(true);
@@ -992,6 +992,25 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       // Deliberately NOT calling TgbMcAdminNav.init — like the Stock Room and the
       // soundtrack admin, this page carries its own login toggle instead of the
       // shared MC nav.
+      setAdminAuthToggleState(false);
+      if (adminAuthToggleBtn) {
+        adminAuthToggleBtn.addEventListener('click', function () {
+          var session = adminAuth.getSession ? adminAuth.getSession() : null;
+          if (session && session.access_token) adminAuth.signOut({ silent: true });
+          else adminAuth.showAuth('Sign in with an admin account.');
+        });
+      }
+      window.addEventListener('tgb-admin-auth-change', function (event) {
+        var detail = event && event.detail;
+        setAdminAuthToggleState(!!(detail && detail.signedIn));
+      });
+
+      // REQUIRED. create() only builds the controller — init() is what checks
+      // for a stored session, shows the sign-in modal, and adds
+      // .mc-auth-authorized to <body>. admin-shell.css hides every direct child
+      // of <body> except the auth root until that class lands, so forgetting
+      // this call renders a completely blank page with no error in the console.
+      adminAuth.init();
     }());
   </script>
 </body>
