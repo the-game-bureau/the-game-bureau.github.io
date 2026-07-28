@@ -3879,12 +3879,20 @@ $$;`.trim();
         .sort(compareRows);
     }
 
-    // City filter. Waypoints store a bare city ("New Orleans") plus a separate
-    // state, while public.cities stores the canonical "New Orleans, Louisiana",
-    // so options are built from the waypoint rows themselves rather than from the
-    // catalog - every option then matches something and the counts are real. The
-    // catalog is still consulted, but only to grey out venue-only cities.
-    function cityKey(row) { return cleanText(row && row.city).toLowerCase(); }
+    // City filter, driven by public.cities (the one catalog) via window.TgbCities.
+    //
+    // The join is on the city NAME only: waypoints store a bare city ("New
+    // Orleans") plus a separate state column, while the catalog stores the
+    // canonical "New Orleans, Louisiana". Comparing the two strings whole gives
+    // zero matches, so both sides are normalized to the part before the first
+    // comma, lowercased. Catalog rows sharing a base name (currently the
+    // duplicated Sacramento) collapse into one option - a waypoint holding only
+    // "Sacramento" could not be assigned to either row anyway.
+    function cityKeyFromName(value) {
+      return cleanText(value).split(',')[0].trim().toLowerCase();
+    }
+
+    function cityKey(row) { return cityKeyFromName(row && row.city); }
 
     function matchesCityFilter(row) {
       if (!state.cityFilter) return true;
@@ -3907,33 +3915,113 @@ $$;`.trim();
     // Any filter active (text search or either dropdown)?
     function isFiltered() { return !!state.filter || !!state.fieldFilter || !!state.cityFilter; }
 
-    // Repaint the city dropdown from the loaded rows, preserving the current
-    // choice even when nothing matches it any more (so a city you filtered to
-    // and then emptied doesn't silently jump back to "All cities").
+    // Repaint the city dropdown. Options come from the catalog, in three groups:
+    // catalog cities that have waypoints, catalog cities that don't yet, and any
+    // city sitting on a waypoint but missing from the catalog (kept listed so
+    // nothing on screen becomes unfilterable, and worth noticing - it's usually
+    // either a typo or a venue city nobody added).
     function renderCityFilter() {
       if (!cityFilterSelect) return;
-      const ignored = new Set(
-        (window.TgbCities && typeof window.TgbCities.all === 'function' ? window.TgbCities.all() : [])
-          .filter((c) => c && c.ignored)
-          .map((c) => cleanText(c.city).split(',')[0].trim().toLowerCase())
-          .filter(Boolean)
-      );
 
-      const byKey = new Map();
+      // Count waypoints per city key.
+      const counts = new Map();
       state.rows.forEach((row) => {
         const key = cityKey(row);
         if (!key) return;
-        const entry = byKey.get(key);
-        if (entry) entry.count += 1;
-        else byKey.set(key, { key: key, label: cleanText(row.city), count: 1 });
+        counts.set(key, (counts.get(key) || 0) + 1);
       });
 
-      const entries = Array.from(byKey.values())
-        .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+      // Fold the catalog down to one entry per city name.
+      const catalog = (window.TgbCities && typeof window.TgbCities.all === 'function')
+        ? window.TgbCities.all()
+        : [];
 
-      // Keep a filtered-to city listed even if its last waypoint just moved away.
-      if (state.cityFilter && !byKey.has(state.cityFilter)) {
-        entries.push({ key: state.cityFilter, label: state.cityFilter, count: 0 });
+      // Before the catalog lands (or if it fails), fall back to a flat list built
+      // from the rows. Grouping without a catalog would file every city under
+      // "Not in the city list", which would be alarming and wrong.
+      if (!catalog.length) {
+        cityFilterSelect.innerHTML = '';
+        const all = document.createElement('option');
+        all.value = '';
+        all.textContent = 'All cities (' + state.rows.length + ')';
+        cityFilterSelect.append(all);
+        Array.from(counts.keys())
+          .map((key) => {
+            const sample = state.rows.find((row) => cityKey(row) === key);
+            return { key: key, label: cleanText(sample && sample.city) || key, count: counts.get(key) };
+          })
+          .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
+          .forEach((entry) => {
+            const option = document.createElement('option');
+            option.value = entry.key;
+            option.textContent = entry.label + ' (' + entry.count + ')';
+            if (entry.key === state.cityFilter) option.selected = true;
+            cityFilterSelect.append(option);
+          });
+        return;
+      }
+
+      const byKey = new Map();
+      catalog.forEach((row) => {
+        const label = cleanText(row && row.city);
+        const key = cityKeyFromName(label);
+        if (!key) return;
+        const entry = byKey.get(key);
+        if (!entry) {
+          byKey.set(key, { key: key, label: label, ignored: !!(row && row.ignored) });
+          return;
+        }
+        // Duplicate catalog rows for one city: keep the fuller label
+        // ("Sacramento, California" over "Sacramento, CA"), and treat the city as
+        // venue-only if any of its rows says so.
+        if (label.length > entry.label.length) entry.label = label;
+        if (row && row.ignored) entry.ignored = true;
+      });
+
+      const collate = (a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
+      const withWaypoints = [];
+      const empty = [];
+      byKey.forEach((entry) => {
+        const count = counts.get(entry.key) || 0;
+        (count ? withWaypoints : empty).push(Object.assign({ count: count }, entry));
+      });
+      withWaypoints.sort(collate);
+      empty.sort(collate);
+
+      // Cities on waypoints that the catalog doesn't know about.
+      const orphans = [];
+      counts.forEach((count, key) => {
+        if (byKey.has(key)) return;
+        const sample = state.rows.find((row) => cityKey(row) === key);
+        orphans.push({ key: key, label: cleanText(sample && sample.city) || key, count: count });
+      });
+      orphans.sort(collate);
+
+      // Keep the active choice listed even if its last waypoint just moved away.
+      const known = new Set([].concat(withWaypoints, empty, orphans).map((e) => e.key));
+      if (state.cityFilter && !known.has(state.cityFilter)) {
+        orphans.push({ key: state.cityFilter, label: state.cityFilter, count: 0 });
+      }
+
+      function addOption(parent, entry, orphaned) {
+        const option = document.createElement('option');
+        option.value = entry.key;
+        option.textContent = entry.label + ' (' + entry.count + ')';
+        if (entry.ignored) {
+          option.className = 'tgb-city-ignored';
+          option.title = 'Venue only — a city we play in but do not sell for';
+        }
+        if (orphaned) option.title = 'Not in public.cities — a typo, or a city nobody has added yet';
+        if (entry.key === state.cityFilter) option.selected = true;
+        parent.append(option);
+      }
+
+      function addGroup(label, entries, orphaned) {
+        if (!entries.length) return;
+        const group = document.createElement('optgroup');
+        group.label = label;
+        entries.forEach((entry) => addOption(group, entry, orphaned));
+        cityFilterSelect.append(group);
       }
 
       cityFilterSelect.innerHTML = '';
@@ -3942,17 +4030,9 @@ $$;`.trim();
       all.textContent = 'All cities (' + state.rows.length + ')';
       cityFilterSelect.append(all);
 
-      entries.forEach((entry) => {
-        const option = document.createElement('option');
-        option.value = entry.key;
-        option.textContent = entry.label + ' (' + entry.count + ')';
-        if (ignored.has(entry.key)) {
-          option.className = 'tgb-city-ignored';
-          option.title = 'Venue only — a city we play in but do not sell for';
-        }
-        if (entry.key === state.cityFilter) option.selected = true;
-        cityFilterSelect.append(option);
-      });
+      addGroup('Cities with waypoints', withWaypoints, false);
+      addGroup('Not in the city list', orphans, true);
+      addGroup('No waypoints yet', empty, false);
     }
 
     // Always feature exactly one waypoint. Keep the current one if it's still in
@@ -4639,6 +4719,25 @@ $$;`.trim();
       state.randomId = list.length ? list[0].wpid : null;
       render();
     });
+
+    // The "+" beside every city control in Mission Control: add a city to
+    // public.cities without leaving the page. Adding one here reclassifies any
+    // waypoints already sitting in that city out of "Not in the city list".
+    if (cityFilterSelect && window.TgbCities && typeof window.TgbCities.openAddDialog === 'function') {
+      const addCityBtn = document.createElement('button');
+      addCityBtn.type = 'button';
+      addCityBtn.className = 'tgb-city-add btn small';
+      addCityBtn.textContent = '+';
+      addCityBtn.title = 'Add a city to the shared list';
+      addCityBtn.setAttribute('aria-label', 'Add a city');
+      addCityBtn.addEventListener('click', () => {
+        window.TgbCities.openAddDialog({ authHeaders: authHeaders }).then((row) => {
+          if (!row) return;
+          loadCatalogCities().then(renderCityFilter).catch(renderCityFilter);
+        });
+      });
+      cityFilterSelect.insertAdjacentElement('afterend', addCityBtn);
+    }
 
     if (newBtn) newBtn.addEventListener('click', openManualDialog);
     const manualCancelBtn = document.getElementById('manualCancelBtn');
