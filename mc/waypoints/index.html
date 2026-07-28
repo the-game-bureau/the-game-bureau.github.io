@@ -614,7 +614,6 @@
     }
     .prompt-text:focus { outline: none; }
 
-    #dedupDialog { width: min(720px, calc(100vw - 32px)); }
     #importDialog, #bulkDialog { width: min(760px, calc(100vw - 32px)); }
     /* The manual add form is a single narrow column — size the lightbox to it. */
     #manualDialog { width: min(440px, calc(100vw - 32px)); }
@@ -662,40 +661,6 @@
     .pick-name { font-weight: 700; font-size: 0.9rem; word-break: break-word; }
     .pick-sub { font-size: 0.76rem; color: var(--muted); word-break: break-word; }
     .pick-dupnote { font-size: 0.74rem; color: #c23737; }
-    .dedup-reason { font-size: 0.82rem; color: var(--muted); }
-    .dedup-grid {
-      display: grid;
-      grid-template-columns: 6.5em 1fr 1fr;
-      gap: 6px;
-      align-items: stretch;
-    }
-    .dedup-h {
-      font-weight: 800;
-      font-size: 0.76rem;
-      letter-spacing: 0.03em;
-    }
-    .dedup-flabel { align-self: center; font-size: 0.8rem; color: var(--muted); }
-    .dedup-cell {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 6px 8px;
-      cursor: pointer;
-      font: inherit;
-      text-align: left;
-      min-height: 1.6em;
-      white-space: pre-wrap;
-      word-break: break-word;
-      background: #fff;
-    }
-    .dedup-cell.dedup-h { overflow: hidden; text-overflow: ellipsis; }
-    .dedup-cell:hover { border-color: rgba(var(--bic-blue-rgb), 0.5); }
-    .dedup-cell.chosen {
-      border-color: rgba(var(--bic-blue-rgb), 0.9);
-      background: rgba(var(--bic-blue-rgb), 0.08);
-      box-shadow: inset 0 0 0 1px rgba(var(--bic-blue-rgb), 0.4);
-    }
-    .dedup-cell.empty { color: var(--muted); font-style: italic; }
-    .dedup-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 
     .near-list {
       overflow: auto;
@@ -744,9 +709,9 @@
       .command-bar-label { flex: 1 1 100%; }
       .command-bar-divider { display: none; }
 
-      /* Dialogs (Find waypoints, Prompt, Import, Dedup, Near) fill the screen. */
+      /* Dialogs (Find waypoints, Prompt, Import, Near) fill the screen. */
       .modal,
-      #dedupDialog, #importDialog, #bulkDialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
+      #importDialog, #bulkDialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
       .modal-bar { flex-wrap: wrap; padding: 10px; }
       .modal-title { flex: 1 1 100%; }
       .modal-bar .btn { flex: 1 1 auto; }
@@ -757,8 +722,6 @@
       .prompt-search input,
       .prompt-search .btn { flex: 1 1 100%; max-width: none; }
 
-      /* Dedup merge grid: tighter label column so two values fit. */
-      .dedup-grid { grid-template-columns: 4.5em 1fr 1fr; }
     }
   </style>
   <link rel="stylesheet" href="../js/admin-shell.css">
@@ -825,7 +788,6 @@
         <option value="no_description">Missing description</option>
       </select>
       <button class="btn small" id="selectBtn" type="button" title="Bulk Fill or Delete the waypoints currently shown by the filter/search">Select</button>
-      <button class="btn small" id="dedupBtn" type="button" title="Find waypoints with the same or similar name or address">Dedup</button>
     </div>
 
     <!-- Add waypoints: Manual (by-hand pop-up) and With AI (OpenStreetMap pull OR
@@ -879,14 +841,6 @@
     <div class="prompt-body" id="manualBody"></div>
   </section>
 
-  <div class="modal-backdrop" id="dedupBackdrop" hidden></div>
-  <section class="modal" id="dedupDialog" hidden role="dialog" aria-modal="true" aria-labelledby="dedupTitle">
-    <div class="modal-bar">
-      <h3 class="modal-title" id="dedupTitle">Dedup waypoints</h3>
-      <button class="btn small" id="dedupCloseBtn" type="button">Close</button>
-    </div>
-    <div class="prompt-body" id="dedupBody"></div>
-  </section>
 
   <div class="modal-backdrop" id="importBackdrop" hidden></div>
   <section class="modal" id="importDialog" hidden role="dialog" aria-modal="true" aria-labelledby="importTitle">
@@ -2759,17 +2713,12 @@ $$;`.trim();
       await insertWaypointAndGo(payload, add);
     }
 
-    // --- Dedup: find waypoints with the same/similar name or address ----------
-    let dedupPairs = [];
-    let dedupIdx = 0;
-    let dedupCurrent = null;
-    let dedupSkipped = new Set();  // pair keys the user marked "not a duplicate"
+    // --- Name/address similarity ----------------------------------------------
+    // Powers findSimilarExisting, the warning shown before adding a waypoint
+    // that looks like one already on file. (The standalone Dedup tool that also
+    // used these was removed on 2026-07-27; the guard is what remains.)
     const DEDUP_NAME_T = 0.86;     // name similarity threshold
     const DEDUP_ADDR_T = 0.88;     // address similarity threshold
-    const DEDUP_FIELD_LABELS = { name: 'Name', city: 'City', state: 'State', zip: 'ZIP', address: 'Address', description: 'Description', w3w: 'w3w' };
-    // Description is ignored throughout dedup — not matched on, not shown as a
-    // merge choice, and the kept row's description is preserved untouched.
-    const DEDUP_MERGE_FIELDS = EDITABLE_FIELDS.filter((f) => f !== 'description');
 
     function dedupKey(value) {
       return cleanText(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
@@ -2821,149 +2770,6 @@ $$;`.trim();
       return dedupSimilarity(a, b);
     }
 
-    // Compare every pair of waypoints; flag those with a matching name or address.
-    function findDuplicatePairs() {
-      const rows = state.rows;
-      const pairs = [];
-      for (let i = 0; i < rows.length; i++) {
-        for (let j = i + 1; j < rows.length; j++) {
-          const a = rows[i], b = rows[j];
-          const nameSim = (cleanText(a.name) && cleanText(b.name)) ? dedupSimilarity(a.name, b.name) : 0;
-          const addrSim = addressSimilarity(a.address, b.address);
-          let reason = '', score = 0;
-          if (nameSim >= DEDUP_NAME_T) { reason = nameSim >= 0.999 ? 'identical name' : 'similar name'; score = nameSim; }
-          if (addrSim >= DEDUP_ADDR_T && addrSim > score) { reason = addrSim >= 0.999 ? 'identical address' : 'similar address'; score = addrSim; }
-          if (reason) pairs.push({ a: a.wpid, b: b.wpid, reason: reason, score: score });
-        }
-      }
-      pairs.sort((x, y) => y.score - x.score);
-      return pairs;
-    }
-
-    function dedupPairKey(pair) {
-      return [pair.a, pair.b].slice().sort().join('|');
-    }
-
-    // Live list of unresolved pairs: a fresh scan minus the ones marked "not a
-    // duplicate". Recomputed after each merge so 3-way duplicates (a third copy
-    // that only matched the row you just merged away) get re-paired.
-    function computeDedupPairs() {
-      return findDuplicatePairs().filter((p) => !dedupSkipped.has(dedupPairKey(p)));
-    }
-
-    function openDedupDialog() {
-      dedupSkipped = new Set();
-      dedupPairs = computeDedupPairs();
-      dedupIdx = 0;
-      const dialog = document.getElementById('dedupDialog');
-      const backdrop = document.getElementById('dedupBackdrop');
-      if (dialog) dialog.hidden = false;
-      if (backdrop) backdrop.hidden = false;
-      renderDedupPair();
-    }
-
-    function dedupSkip() {
-      const pair = dedupPairs[dedupIdx];
-      if (pair) dedupSkipped.add(dedupPairKey(pair));
-      dedupIdx++;
-      renderDedupPair();
-    }
-
-    async function closeDedupDialog() {
-      const dialog = document.getElementById('dedupDialog');
-      const backdrop = document.getElementById('dedupBackdrop');
-      if (dialog) dialog.hidden = true;
-      if (backdrop) backdrop.hidden = true;
-      // Resync from the DB so pristine/dirty state matches after merges/deletes.
-      await refresh(state.randomId);
-    }
-
-    function dedupActionBtn(label, cls, fn) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = cls;
-      button.textContent = label;
-      button.addEventListener('click', fn);
-      return button;
-    }
-
-    function renderDedupPair() {
-      const body = document.getElementById('dedupBody');
-      const title = document.getElementById('dedupTitle');
-      if (!body) return;
-      // Skip pairs whose rows were already removed by an earlier action.
-      while (dedupIdx < dedupPairs.length) {
-        const p = dedupPairs[dedupIdx];
-        if (findRow(p.a) && findRow(p.b)) break;
-        dedupIdx++;
-      }
-      if (dedupIdx >= dedupPairs.length) {
-        if (title) title.textContent = 'Dedup waypoints';
-        body.innerHTML = '';
-        const done = document.createElement('div');
-        done.className = 'dedup-reason';
-        done.textContent = dedupPairs.length ? 'No more possible duplicates. ✓' : 'No possible duplicates found. ✓';
-        body.append(done);
-        return;
-      }
-      const pair = dedupPairs[dedupIdx];
-      const a = findRow(pair.a), b = findRow(pair.b);
-      if (title) title.textContent = 'Possible duplicate ' + (dedupIdx + 1) + ' of ' + dedupPairs.length;
-
-      const choice = {};
-      DEDUP_MERGE_FIELDS.forEach((f) => { choice[f] = cleanText(a[f]) ? 'a' : (cleanText(b[f]) ? 'b' : 'a'); });
-      const lowId = Number(a.wpid) <= Number(b.wpid) ? a.wpid : b.wpid;
-      dedupCurrent = { a: a.wpid, b: b.wpid, choice: choice, lowId: lowId };
-
-      body.innerHTML = '';
-      const reason = document.createElement('div');
-      reason.className = 'dedup-reason';
-      reason.textContent = 'These two look like duplicates (matched on ' + pair.reason + ', '
-        + Math.round(pair.score * 100) + '% similar). Tap the value you want to keep for each field, then Keep selected.';
-      body.append(reason);
-
-      const grid = document.createElement('div');
-      grid.className = 'dedup-grid';
-      DEDUP_MERGE_FIELDS.forEach((f) => {
-        const lab = document.createElement('div');
-        lab.className = 'dedup-flabel';
-        lab.textContent = DEDUP_FIELD_LABELS[f] || f;
-        grid.append(lab, dedupValueCell(a, f, 'a', choice, grid), dedupValueCell(b, f, 'b', choice, grid));
-      });
-      body.append(grid);
-
-      const actions = document.createElement('div');
-      actions.className = 'dedup-actions';
-      actions.append(
-        dedupActionBtn('Keep selected', 'btn primary small', () => dedupMerge()),
-        dedupActionBtn('Skip', 'btn small', () => dedupSkip())
-      );
-      body.append(actions);
-    }
-
-    function dedupValueCell(row, field, side, choice, grid) {
-      const value = cleanText(row[field]);
-      const el = document.createElement('button');
-      el.type = 'button';
-      el.className = 'dedup-cell' + (value ? '' : ' empty');
-      el.dataset.field = field;
-      el.dataset.side = side;
-      el.textContent = value || '(empty)';
-      if (choice[field] === side) el.classList.add('chosen');
-      el.addEventListener('click', () => {
-        choice[field] = side;
-        grid.querySelectorAll('.dedup-cell[data-field="' + field + '"]').forEach((c) => {
-          c.classList.toggle('chosen', c.dataset.side === side);
-        });
-      });
-      return el;
-    }
-
-    function setDedupBusy(busy) {
-      const body = document.getElementById('dedupBody');
-      if (body) body.querySelectorAll('button').forEach((btn) => { btn.disabled = busy; });
-    }
-
     async function rawDelete(wpid) {
       await ensureFreshSession();
       const res = await fetch(restUrl(TABLE, { [PK]: 'eq.' + wpid }), {
@@ -2971,39 +2777,6 @@ $$;`.trim();
         headers: authHeaders({ Prefer: 'return=minimal' })
       });
       if (!res.ok) throw new Error(await readError(res, 'Could not delete waypoint.'));
-    }
-
-    async function dedupMerge() {
-      const cur = dedupCurrent;
-      if (!cur) return;
-      const a = findRow(cur.a), b = findRow(cur.b);
-      if (!a || !b) { renderDedupPair(); return; }
-      const keepId = cur.lowId;
-      const dropId = keepId === a.wpid ? b.wpid : a.wpid;
-      const keepSrc = keepId === a.wpid ? a : b;
-      const merged = {};
-      DEDUP_MERGE_FIELDS.forEach((f) => { merged[f] = (cur.choice[f] === 'a' ? a[f] : b[f]); });
-      // Description is left as the kept row had it (not a merge choice).
-      merged.description = keepSrc.description;
-      setDedupBusy(true);
-      try {
-        await patchRow(keepId, merged);
-        await rawDelete(dropId);
-        const keepRow = findRow(keepId);
-        if (keepRow) EDITABLE_FIELDS.forEach((f) => { keepRow[f] = cleanText(merged[f]); });
-        state.rows = state.rows.filter((r) => r.wpid !== dropId);
-        // Re-scan: the merged row may now match a third copy that previously only
-        // matched the row we just removed. Skipped pairs stay skipped.
-        dedupPairs = computeDedupPairs();
-        dedupIdx = 0;
-        setStatus('Merged the two duplicates into one.', 'success');
-      } catch (error) {
-        console.error(error);
-        setStatus(error.message || 'Merge failed.', 'error');
-      } finally {
-        setDedupBusy(false);
-        renderDedupPair();
-      }
     }
 
     // --- Import: paste CSV/spreadsheet rows, review, add them all -------------
@@ -3479,7 +3252,7 @@ $$;`.trim();
     }
 
     // Find an existing waypoint whose name or address closely matches a payload
-    // about to be imported (same thresholds the Dedup tool uses).
+    // about to be imported.
     function findSimilarExisting(payload) {
       const name = cleanText(payload && payload.name);
       const address = cleanText(payload && payload.address);
@@ -4182,7 +3955,7 @@ $$;`.trim();
       nearBtn.title = 'Find points of interest near this waypoint';
       nearBtn.addEventListener('click', () => nearWaypoint(row.wpid, nearBtn));
       // Nav sits left of Delete; Near sits between Fill and Save.
-      // Prompt/Upload/Dedup live in the top toolbar next to New.
+      // Prompt/Upload live in the top toolbar next to New.
       actions.append(deleteBtn, fillBtn, nearBtn, saveBtn);
 
       // Title left, nav centered, actions right.
@@ -4768,8 +4541,6 @@ $$;`.trim();
     if (promptBtn) promptBtn.addEventListener('click', openPromptDialog);
     const importBtn = document.getElementById('importBtn');
     if (importBtn) importBtn.addEventListener('click', openImportDialog);
-    const dedupBtn = document.getElementById('dedupBtn');
-    if (dedupBtn) dedupBtn.addEventListener('click', openDedupDialog);
     const selectBtn = document.getElementById('selectBtn');
     if (selectBtn) selectBtn.addEventListener('click', openBulkDialog);
 
@@ -4817,10 +4588,6 @@ $$;`.trim();
       setTimeout(() => { promptCopyBtn.textContent = 'Copy'; }, 1200);
     });
 
-    const dedupCloseBtn = document.getElementById('dedupCloseBtn');
-    if (dedupCloseBtn) dedupCloseBtn.addEventListener('click', closeDedupDialog);
-    const dedupBackdrop = document.getElementById('dedupBackdrop');
-    if (dedupBackdrop) dedupBackdrop.addEventListener('click', closeDedupDialog);
 
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') return;
@@ -4830,8 +4597,6 @@ $$;`.trim();
       if (promptDialog && !promptDialog.hidden) closePromptDialog();
       const manualDialog = document.getElementById('manualDialog');
       if (manualDialog && !manualDialog.hidden) closeManualDialog();
-      const dedupDialog = document.getElementById('dedupDialog');
-      if (dedupDialog && !dedupDialog.hidden) closeDedupDialog();
       const importDialog = document.getElementById('importDialog');
       if (importDialog && !importDialog.hidden) closeImportDialog();
       const bulkDialog = document.getElementById('bulkDialog');
