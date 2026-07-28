@@ -181,6 +181,13 @@
       background: rgba(255, 255, 255, 0.78);
     }
 
+    .panel-head-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 0 0 auto;
+    }
+
     .panel-title {
       margin: 0;
       color: var(--ink);
@@ -533,30 +540,6 @@
       color: var(--muted);
     }
     .stockroom-substat:empty { display: none; }
-    /* Action row under the header — the Stock Room / Waypoints command bar. */
-    .command-bar {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      width: 100%;
-      max-width: var(--mc-shell-width);
-      margin: -6px 0 0;
-      padding: 10px 12px;
-      background: #eef0f4;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-    }
-
-    .command-bar-label {
-      flex: 0 0 auto;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.66rem;
-      font-weight: 800;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
   </style>
   <link rel="stylesheet" href="../../mc/js/admin-shell.css">
 </head>
@@ -592,11 +575,12 @@
       <div class="stockroom-head-lockup">
         <div class="stockroom-titlecol">
           <span class="stockroom-eyebrow">THE GAME BUREAU</span>
-          <h1 class="stockroom-title" id="pageTitle">SOUNDTRACKS</h1>
+          <h1 class="stockroom-title" id="pageTitle">SOUNDTRACK ADMIN</h1>
           <p class="status stockroom-substat" id="pageStatus" aria-live="polite">Sign in with an admin account.</p>
         </div>
       </div>
       <div class="stockroom-head-status">
+        <a class="btn small" href="/sound/" target="_blank" rel="noopener">Soundtracks</a>
         <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -605,13 +589,6 @@
         </button>
       </div>
     </div>
-    <div class="command-bar" aria-label="Soundtrack actions">
-      <span class="command-bar-label">Actions</span>
-      <button class="btn small primary" id="copyPromptTop" type="button">Copy Prompt</button>
-      <a class="btn small" href="/sound/" target="_blank" rel="noopener">View Soundtracks</a>
-      <a class="btn small" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer">Open Routine</a>
-    </div>
-
     <div class="prompt-layout">
       <div style="display:grid; gap:16px; min-width:0">
 
@@ -666,7 +643,10 @@
       <section class="prompt-panel" aria-label="Soundtrack generation prompt">
         <div class="panel-head">
           <h2 class="panel-title">Paste-Ready Prompt <span class="panel-sub">manual fallback</span></h2>
-          <span class="copy-status" id="copyStatus" aria-live="polite"></span>
+          <span class="panel-head-actions">
+            <span class="copy-status" id="copyStatus" aria-live="polite"></span>
+            <button class="btn small primary" id="copyPromptTop" type="button">Copy Prompt</button>
+          </span>
         </div>
         <div class="prompt-meta" aria-hidden="true">
           <span class="chip">public.cities</span>
@@ -869,7 +849,7 @@ Final report:
       var adminAuth = window.TgbMcAdminAuth.create({
         supabaseConfig: SUPABASE_CONFIG,
         onAuthorized: function () {
-          setPageStatus('Prompt ready.');
+          setPageStatus('');
         },
         onSignedOut: function () {
           setPageStatus('Sign in with an admin account.');
@@ -979,6 +959,11 @@ Final report:
       loadLastRun();
 
       window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
+      // The shared nav injects TGB HOME / MISSION CONTROL back-buttons into the
+      // sign-out button's parent. This page reaches Mission Control from the
+      // footer of /sound/ instead, so drop them rather than crowd the header.
+      var backNav = document.querySelector('.mc-back-nav');
+      if (backNav) backNav.remove();
       adminAuth.init();
     }());
   </script>
