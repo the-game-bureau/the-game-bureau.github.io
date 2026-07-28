@@ -183,6 +183,7 @@
         '<span class="footer-social-links">' +
           '<a href="https://instagram.com/thegamebureau" target="_blank" rel="noopener">Instagram</a>' +
           '<a href="https://x.com/thegamebureau" target="_blank" rel="noopener">X</a>' +
+          '<a href="https://www.facebook.com/thegamebureau" target="_blank" rel="noopener">Facebook</a>' +
           '<a href="https://youtube.com/@thegamebureau" target="_blank" rel="noopener">YouTube</a>' +
         '</span>' +
         (missionControlHref()
