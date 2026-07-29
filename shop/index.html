@@ -397,50 +397,13 @@
     body.home-page .card-price,
     .gift-detail-price { display: none !important; }
 
-    /* Admin-only controls (upper-right): STOCK ROOM + Log out. Mirrors
-       admin-bridge's EDIT GIFT button; hidden unless admin-bridge has verified a
-       logged-in admin (it adds html.tgb-admin-authorized). */
-    .gift-admin-controls {
-      position: fixed;
-      top: 14px;
-      right: 14px;
-      z-index: 1300;
-      display: none;
-      align-items: center;
-      gap: 8px;
-    }
-    html.tgb-admin-authorized .gift-admin-controls { display: inline-flex; }
-    /* Suppress admin-bridge's bottom-right floating LOG OUT — this page has its
-       own Log out pill in the upper-right controls above. */
+    /* This page shows NO admin chrome of its own — the Stock Room and Log out
+       pills were removed 2026-07-28, along with .gift-admin-controls and
+       .gift-admin-pill. The rule below stays and is now load-bearing on its
+       own: admin-bridge paints a floating LOG OUT on every public page for a
+       signed-in admin, and without this it would reappear here the moment the
+       page's own pill went away. Deleting it un-removes the button. */
     .tgb-admin-logout { display: none !important; }
-    .gift-admin-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 34px;
-      padding: 0 12px;
-      border: 1px solid #111;
-      background: #111;
-      color: #fff;
-      font-family: "IBM Plex Mono", Consolas, monospace;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      line-height: 1;
-      text-transform: uppercase;
-      white-space: nowrap;
-      text-decoration: none;
-      cursor: pointer;
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
-      transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
-    }
-    .gift-admin-pill:hover,
-    .gift-admin-pill:focus-visible {
-      background: #fff;
-      color: #111;
-      outline: none;
-      transform: translateY(-1px);
-    }
 
     body.home-page .card-title {
       margin: 0;
@@ -2599,32 +2562,9 @@
 
     loadAllShops();
 
-    // Admin-only logout (the #giftAdminLogout pill is shown by CSS only when
-    // admin-bridge has verified a logged-in admin). Clears the shared session,
-    // best-effort revokes it server-side, and tells admin-bridge to tear down
-    // its EDIT controls — which also hides this button again.
-    async function giftShopAdminLogout() {
-      const KEY = 'tgb-photo-review-auth-session';
-      let token = '';
-      try {
-        const session = JSON.parse(localStorage.getItem(KEY) || 'null');
-        token = (session && session.access_token) || '';
-      } catch (_) {}
-      if (token) {
-        try {
-          await fetch(SB_CONFIG.url.replace(/\/+$/, '') + '/auth/v1/logout', {
-            method: 'POST',
-            headers: { apikey: SB_CONFIG.key, Authorization: 'Bearer ' + token }
-          });
-        } catch (_) {}
-      }
-      try { localStorage.removeItem(KEY); } catch (_) {}
-      window.dispatchEvent(new CustomEvent('tgb-admin-auth-change', { detail: { signedIn: false } }));
-      if (window.TgbPublicAdminBridge) window.TgbPublicAdminBridge.setAuthorized(false);
-    }
-    document.addEventListener('click', (e) => {
-      if (e.target.closest('#giftAdminLogout')) { e.preventDefault(); giftShopAdminLogout(); }
-    });
+    // The giftShopAdminLogout() helper and its click handler were removed with
+    // the Log out pill on 2026-07-28. Signing out now happens where the signing
+    // in does, on the /mc/ pages.
   </script>
 
   <!-- Gift detail lightbox (populated by openGiftDetail) -->
@@ -2642,11 +2582,10 @@
     </div>
   </div>
 
-  <!-- Admin-only: shown only when admin-bridge verifies a logged-in admin. -->
-  <div class="gift-admin-controls" id="giftAdminControls">
-    <a class="gift-admin-pill" id="giftAdminStockRoom" href="/shop/admin/">Stock Room</a>
-    <button class="gift-admin-pill" id="giftAdminLogout" type="button">Log out</button>
-  </div>
+  <!-- The Stock Room and Log out pills that used to sit here were removed on
+       2026-07-28. The per-gift EDIT GIFT button from admin-bridge is the only
+       admin control on this page now; admins reach the Stock Room by typing
+       /shop/admin/, the same way they reach every other /mc/ surface. -->
 
   <script src="../mc/js/gs-buy-modal.js"></script>
 
