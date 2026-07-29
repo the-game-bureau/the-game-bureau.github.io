@@ -734,7 +734,7 @@
       <div class="stockroom-head-lockup">
         <div class="stockroom-titlecol">
           <span class="stockroom-eyebrow">THE GAME BUREAU</span>
-          <h1 class="stockroom-title" id="pageTitle">WAYPOINTS</h1>
+          <h1 class="stockroom-title" id="pageTitle">WAYPOINT FINDER</h1>
           <p class="status stockroom-substat" id="pageStatus" aria-live="polite"></p>
         </div>
       </div>
@@ -885,13 +885,20 @@
       }
     });
 
+    // The substat is normally the count line ("38 waypoints · 1–10 showing").
+    // setStatus borrows it for a save confirmation or an error, then hands it
+    // back — otherwise the first message of the session would sit there forever
+    // and the count would be gone until the next render.
+    let statusRestoreTimer = 0;
     function setStatus(text, kind) {
-      // Status notifications were removed from the UI; keep this a no-op so the
-      // many setStatus(...) calls throughout still work. Errors go to console.
       if (!pageStatus) return;
-      pageStatus.textContent = text || '';
+      window.clearTimeout(statusRestoreTimer);
+      if (!text) { renderPageTitle(); return; }
+      pageStatus.textContent = text;
       pageStatus.classList.toggle('error', kind === 'error');
       pageStatus.classList.toggle('success', kind === 'success');
+      // Errors linger; everything else is a quick acknowledgement.
+      statusRestoreTimer = window.setTimeout(renderPageTitle, kind === 'error' ? 8000 : 3500);
     }
 
     function restUrl(table, params) {
@@ -960,7 +967,8 @@
         } else {
           state.randomId = highestId();
           render();
-          setStatus('Loaded ' + state.rows.length + ' waypoints (highest WPID first).', 'success');
+          // No "Loaded N waypoints" message any more — the count line under the
+          // title says the same thing and does not time out.
         }
       } catch (error) {
         console.error(error);
@@ -3758,14 +3766,13 @@ $$;`.trim();
       renderPageTitle();
     }
 
-    // Title line carries the count: "1 WAYPOINT" / "42 WAYPOINTS". Falls back to
-    // the bare word before sign-in, when the count isn't known yet rather than
-    // genuinely zero. Shows the filtered count when a filter is narrowing the
-    // list, so the heading always matches what's on screen.
+    // The count line under the title: "38 waypoints · 1–10 showing". The title
+    // itself is static now, so this owns the substat — which is also where
+    // setStatus writes, hence the restore timer there.
     function renderPageTitle() {
-      const el = document.getElementById('pageTitle');
+      const el = pageStatus;
       if (!el) return;
-      if (!state.authed) { el.textContent = 'WAYPOINTS'; return; }
+      if (!state.authed) { el.textContent = ''; return; }
       const total = state.rows.length;
       const list = navRows();
       const shown = isFiltered() ? list.length : total;
@@ -3775,9 +3782,10 @@ $$;`.trim();
       const idx = current ? Math.max(0, list.findIndex((row) => row.wpid === current.wpid)) : 0;
       const start = Math.floor(idx / PAGE_SIZE) * PAGE_SIZE;
       const end = Math.min(start + PAGE_SIZE, list.length);
-      const slice = list.length > PAGE_SIZE ? ' · ' + (start + 1) + '–' + end : '';
-      el.textContent = shown + ' WAYPOINT' + (shown === 1 ? '' : 'S')
-        + (isFiltered() ? ' OF ' + total : '') + slice;
+      const slice = list.length > PAGE_SIZE ? ' · ' + (start + 1) + '–' + end + ' showing' : '';
+      el.textContent = shown + ' waypoint' + (shown === 1 ? '' : 's')
+        + (isFiltered() ? ' of ' + total : '') + slice;
+      el.classList.remove('error', 'success');
     }
 
     // Navigation group (Back · count · Next · Random). Lives in the card action
