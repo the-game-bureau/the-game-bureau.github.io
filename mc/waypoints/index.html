@@ -445,28 +445,20 @@
       border-radius: 10px;
       overflow: hidden;
       background: rgba(var(--bic-blue-rgb), 0.04);
-      cursor: zoom-in;
+      cursor: pointer;
     }
     .wp-map-preview .leaflet-container { width: 100%; height: 100%; }
-    /* Magnifying-glass cursor over the map (overrides Leaflet's grab cursor). */
-    .wp-map-preview .leaflet-grab,
-    .wp-map-preview .leaflet-interactive,
-    .wp-map-preview .leaflet-container { cursor: zoom-in; }
-    .wp-map-preview .leaflet-control a { cursor: pointer; }
-    /* Street View button (a Leaflet bar control) */
-    .wp-map-preview a.wp-sv-btn {
-      display: block;
-      width: auto;
-      padding: 0 8px;
-      height: 28px;
-      line-height: 28px;
-      background: #fff;
-      font: 700 0.72rem/28px 'Space Grotesk', system-ui, sans-serif;
-      color: var(--ink);
-      text-decoration: none;
-      white-space: nowrap;
+    /* The whole tile surface is one Street View button, so the pointer says so
+       everywhere. The .wp-sv-btn control it replaced is gone. */
+    .wp-map-preview .leaflet-container { cursor: pointer; }
+    /* Attribution is kept for Esri's terms, but it is a credit, not a control:
+       small, quiet, and out of the way of the imagery. */
+    .wp-map-preview .leaflet-control-attribution {
+      background: rgba(255, 255, 255, 0.62);
+      font-size: 9px;
+      line-height: 1.3;
+      padding: 0 4px;
     }
-    .wp-map-preview a.wp-sv-btn:hover { background: #f3f4f6; }
     @keyframes wp-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
     .wp-blink { animation: wp-blink 0.45s ease-in-out infinite; }
     .wp-map-empty {
@@ -1175,10 +1167,11 @@
       markDirty(wpid);
     }
 
-    // --- Interactive map (Leaflet / OpenStreetMap) ---------------------------
-    // The preview is a clickable map: click a spot to search nearby. There is
-    // one instance per visible card now, tracked in liveMaps below — the old
-    // single `leafletMap` handle was removed with the one-card-at-a-time layout.
+    // --- Static aerial preview (Leaflet / Esri imagery) ----------------------
+    // Not an interactive map: pan, zoom and every control are disabled, so it
+    // reads as a photograph of the place. Clicking anywhere opens Google Street
+    // View at that exact point. One instance per visible card, tracked in
+    // liveMaps below.
 
     // Ten cards means ten maps, and with lat/lon dropped from the table every
     // map has to GEOCODE its address through Nominatim. Nominatim's usage policy
@@ -1296,37 +1289,41 @@
       const has = !!center;
       const view = center || { lat: 29.9584, lon: -90.0644 };
       // Open located waypoints zoomed in.
-      const map = L.map(container, { scrollWheelZoom: false, maxZoom: 22 }).setView([view.lat, view.lon], has ? 19 : 12);
+      // A still picture of the place, not a map you operate. Every interaction
+      // and every control is off, so there is nothing to fiddle with and nothing
+      // painted over the imagery: no zoom buttons, no layer switcher, no marker,
+      // no Street View button. Clicking anywhere opens Street View at the exact
+      // point clicked, which is what the button did for the centre only.
+      const map = L.map(container, {
+        maxZoom: 22,
+        zoomControl: false,
+        dragging: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+        touchZoom: false,
+        tap: false,
+        // Attribution stays. It is the one thing on screen that is not
+        // decoration — Esri's terms require the credit, so "no overlays" cannot
+        // extend to it.
+        attributionControl: true
+      }).setView([view.lat, view.lon], has ? 19 : 12);
       // Tracked per waypoint so a re-render or a page flip can dispose of every
       // live map — ten leaked Leaflet instances per page adds up fast.
       liveMaps.set(key, map);
-      // Satellite (keyless Esri World Imagery) is the default; Streets is a toggle.
-      const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 22, maxNativeZoom: 19, attribution: 'Tiles &copy; Esri'
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 22, maxNativeZoom: 19, attribution: 'Esri'
+      }).addTo(map);
+
+      map.on('click', (event) => {
+        const p = event && event.latlng;
+        if (!p) return;
+        window.open(
+          'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + p.lat + ',' + p.lng,
+          '_blank', 'noopener'
+        );
       });
-      const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 22, maxNativeZoom: 19, attribution: '&copy; OpenStreetMap'
-      });
-      satellite.addTo(map);
-      L.control.layers({ 'Satellite': satellite, 'Streets': streets }, null, { position: 'topright' }).addTo(map);
-      if (has) L.marker([view.lat, view.lon]).addTo(map);
-      // Street View button: opens Google Street View for the current map center.
-      const SvControl = L.Control.extend({
-        options: { position: 'topleft' },
-        onAdd: function (m) {
-          const btn = L.DomUtil.create('a', 'leaflet-bar wp-sv-btn');
-          btn.href = '#';
-          btn.textContent = 'Street View';
-          btn.title = 'Open Google Street View for the center of the map';
-          L.DomEvent.on(btn, 'click', L.DomEvent.stop);
-          L.DomEvent.on(btn, 'click', () => {
-            const c = m.getCenter();
-            window.open('https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + c.lat + ',' + c.lng, '_blank', 'noopener');
-          });
-          return btn;
-        }
-      });
-      map.addControl(new SvControl());
 
       setTimeout(() => { try { map.invalidateSize(); } catch (error) {} }, 0);
     }
