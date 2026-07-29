@@ -337,7 +337,7 @@
       transition: border-color 0.15s, box-shadow 0.15s;
     }
     /* The cursor card inside a page of ten — what Back/Next/Random move, and
-       what the nav row's "Waypoint N of M" refers to. */
+       what the nav row's "N of M" count refers to. */
     .wp-card.is-current { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(var(--bic-blue-rgb), 0.12); }
     .wp-card.is-dirty {
       border-color: rgba(194,55,55,0.55);
@@ -3494,7 +3494,7 @@ $$;`.trim();
       actions.append(deleteBtn, fillBtn, saveBtn);
 
       // Title left, nav centered, actions right.
-      head.append(titleWrap, renderNav(), actions);
+      head.append(titleWrap, renderNav(row), actions);
 
       const fields = document.createElement('div');
       fields.className = 'field-grid';
@@ -3790,7 +3790,7 @@ $$;`.trim();
 
     // Navigation group (Back · count · Next · Random). Lives in the card action
     // row, to the left of Delete.
-    // "Waypoint N of M" where N is clickable — click it, type a number, Enter to
+    // "N of M" where N is clickable — click it, type a number, Enter to
     // jump to that position. (Position = M - idx, matching highest-WPID-first.)
     function renderCount(list, idx) {
       const total = list.length;
@@ -3811,7 +3811,9 @@ $$;`.trim();
         num.textContent = String(pos);
         num.title = 'Click to jump to a number';
         num.addEventListener('click', startEdit);
-        wrap.append(document.createTextNode('Waypoint '), num, document.createTextNode(' of '), totalEl());
+        // "20 of 38" — the word "Waypoint" was noise on a page of ten cards
+        // that are all obviously waypoints.
+        wrap.append(num, document.createTextNode(' of '), totalEl());
       };
 
       function startEdit() {
@@ -3821,7 +3823,7 @@ $$;`.trim();
         input.inputMode = 'numeric';
         input.className = 'wp-count-input';
         input.value = String(pos);
-        wrap.append(document.createTextNode('Waypoint '), input, document.createTextNode(' of '), totalEl());
+        wrap.append(input, document.createTextNode(' of '), totalEl());
         setTimeout(() => { input.focus(); input.select(); }, 0);
 
         let done = false;
@@ -3851,11 +3853,16 @@ $$;`.trim();
       return wrap;
     }
 
-    function renderNav() {
+    // `row` is the card this nav belongs to. It used to read state.randomId
+    // instead, which was fine when one waypoint was on screen but means all ten
+    // cards on a page now report the cursor's position — ten identical
+    // "20 of 38" labels. Each card counts itself.
+    function renderNav(row) {
       const nav = document.createElement('div');
       nav.className = 'wp-nav';
       const list = navRows();
-      let idx = list.findIndex((row) => row.wpid === state.randomId);
+      const target = (row && row.wpid != null) ? row.wpid : state.randomId;
+      let idx = list.findIndex((item) => item.wpid === target);
       if (idx < 0) idx = 0;
 
       const navBtn = (label, onClick) => {
@@ -3867,7 +3874,7 @@ $$;`.trim();
         return b;
       };
 
-      // Highest WPID (idx 0) shows the highest count, e.g. "Waypoint 150 of 150".
+      // Highest WPID (idx 0) shows the highest count, e.g. "150 of 150".
       const count = renderCount(list, idx);
       // Keep the nav buttons visible whenever a filter is active (even if it
       // narrows to one match), so the controls don't disappear under you.
