@@ -361,6 +361,14 @@
       color: var(--muted);
       word-break: break-all;
     }
+    /* Only present on rows the AI importer pulled from a source page. */
+    .wp-source {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      color: var(--accent);
+      text-decoration: underline dotted;
+      text-underline-offset: 2px;
+    }
 
     .card-actions {
       display: flex;
@@ -972,7 +980,11 @@
         }
         await ensureFreshSession();
         // TgbRest.fetchAll paginates past PostgREST's 1000-row cap.
-        const url = restUrl(TABLE, { select: WAYPOINT_COLUMNS.join(','), order: PK + '.asc' });
+        // select=* rather than WAYPOINT_COLUMNS: source_url only exists once
+        // 2026072902_waypoints_source_url.sql has been applied, and naming a
+        // column PostgREST does not have 400s the entire page load. A star
+        // works either way — the same reason the cities readers use one.
+        const url = restUrl(TABLE, { select: '*', order: PK + '.asc' });
         const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
         state.rows = normalizeRows(rows);
         rebuildPristine();
@@ -1865,6 +1877,7 @@ declare
   v_entry jsonb;
   v_name text; v_city text; v_state text; v_zip text; v_address text;
   v_description text;
+  v_source_url text;
   v_wpid public.waypoints.wpid%type;
   v_existing public.waypoints.wpid%type;
 begin
@@ -1879,6 +1892,8 @@ begin
     v_zip := nullif(btrim(v_entry->>'zip'), '');
     v_address := nullif(btrim(v_entry->>'address'), '');
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
+    -- The page this stop was extracted from, if the importer was given one.
+    v_source_url := nullif(btrim(v_entry->>'source_url'), '');
     if v_name is null then
       return query select 'skipped'::text, null::text, null::text, 'missing name'::text; continue;
     end if;
@@ -1889,8 +1904,8 @@ begin
     if v_existing is not null then
       return query select 'skipped'::text, v_name, v_existing::text, 'existing name + city'::text; continue;
     end if;
-    insert into public.waypoints as w (name, city, state, zip, address, description)
-    values (v_name, v_city, v_state, v_zip, v_address, v_description)
+    insert into public.waypoints as w (name, city, state, zip, address, description, source_url)
+    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url)
     returning w.wpid into v_wpid;
     return query select 'inserted'::text, v_name, v_wpid::text, null::text;
   end loop;
@@ -1940,7 +1955,8 @@ $$;`.trim();
             '- Take the stops FROM that page. Do not substitute your own picks for the ones it names.',
             '- The page decides WHICH stops; it does not decide the facts. Verify every name and address against an independent source, and correct or drop anything stale, closed, renamed, or wrong.',
             '- If the page yields fewer than ' + n + ' usable stops, return the smaller set. Only add stops of your own if the page has fewer than 3, and say which ones you added.',
-            '- Ignore navigation, ads, and unrelated listings; a stop must be a real place a person can stand in front of.'
+            '- Ignore navigation, ads, and unrelated listings; a stop must be a real place a person can stand in front of.',
+            '- Record the page in source_url on every stop you take from it, so a human can go back later and see where the batch came from. If you follow a link OFF that page and take a stop from somewhere else, put THAT page in its source_url instead.'
           ]
         : [
             'Research instructions:',
@@ -1960,7 +1976,8 @@ $$;`.trim();
         '    "state": "LA",',
         '    "zip": "70116",',
         '    "address": "800 Decatur St",',
-        '    "description": "One original tour-guide sentence: a fact or what makes it a stop."',
+        '    "description": "One original tour-guide sentence: a fact or what makes it a stop.",',
+        '    "source_url": ' + (url ? JSON.stringify(url) : 'null'),
         '  }',
         ']',
         '$tgb$::jsonb);'
@@ -1985,6 +2002,9 @@ $$;`.trim();
         '- zip: the postal/ZIP code as a string, or null.',
         '- address: the STREET ONLY — house number and street name, e.g. "800 Decatur St". Never repeat the city, state, ZIP, or country here; they have their own fields. Null if you do not know the street.',
         '- description: ONE original, concise tour-guide sentence (a fact, or what makes it a stop). No marketing copy.',
+        (url
+          ? '- source_url: "' + url + '" on EVERY object — the page you took the stop from. Copy it exactly, the same value on each one.'
+          : '- source_url: null on every object. There is no source page for this batch, so do not invent one and do not substitute a link to the place itself.'),
         '- Do NOT include a wpid or id — the database assigns it.',
         '- Do not include any stop already in the "existing" list below. Avoid duplicate names.',
         '- The JSON array may contain 1 to ' + n + ' objects. Do not pad with unverifiable entries.',
@@ -3863,6 +3883,21 @@ $$;`.trim();
       id.className = 'wp-id';
       id.textContent = 'WPID' + (row && row.wpid != null ? row.wpid : '—');
       nav.append(id);
+
+      // Where the AI importer scraped this one from, when it had a source page.
+      // Most waypoints are hand-entered and have none, so this stays absent
+      // rather than rendering an empty slot.
+      const src = cleanText(row && row.source_url);
+      if (src) {
+        const link = document.createElement('a');
+        link.className = 'wp-source';
+        link.href = src;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'source';
+        link.title = 'Scraped from ' + src;
+        nav.append(link);
+      }
       return nav;
     }
 

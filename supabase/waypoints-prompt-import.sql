@@ -29,6 +29,7 @@ declare
   v_zip text;
   v_address text;
   v_description text;
+  v_source_url text;
   v_wpid public.waypoints.wpid%type;
   v_existing public.waypoints.wpid%type;
 begin
@@ -44,6 +45,8 @@ begin
     v_zip := nullif(btrim(v_entry->>'zip'), '');
     v_address := nullif(btrim(v_entry->>'address'), '');
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
+    -- The page this stop was extracted from, if the importer was given one.
+    v_source_url := nullif(btrim(v_entry->>'source_url'), '');
 
     if v_name is null then
       return query select 'skipped'::text, null::text, null::text, 'missing name'::text;
@@ -63,8 +66,8 @@ begin
       continue;
     end if;
 
-    insert into public.waypoints as w (name, city, state, zip, address, description)
-    values (v_name, v_city, v_state, v_zip, v_address, v_description)
+    insert into public.waypoints as w (name, city, state, zip, address, description, source_url)
+    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url)
     returning w.wpid into v_wpid;
 
     return query select 'inserted'::text, v_name, v_wpid::text, null::text;
