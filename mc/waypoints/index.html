@@ -336,6 +336,9 @@
       background: #fff;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
+    /* The cursor card inside a page of ten — what Back/Next/Random move, and
+       what the nav row's "Waypoint N of M" refers to. */
+    .wp-card.is-current { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(var(--bic-blue-rgb), 0.12); }
     .wp-card.is-dirty {
       border-color: rgba(194,55,55,0.55);
       box-shadow: 0 0 0 3px rgba(194,55,55,0.08);
@@ -1135,22 +1138,88 @@
     }
 
     // --- Interactive map (Leaflet / OpenStreetMap) ---------------------------
-    // The preview is a clickable map: click a spot to search nearby. One map
-    // instance at a time.
-    let leafletMap = null;
+    // The preview is a clickable map: click a spot to search nearby. There is
+    // one instance per visible card now, tracked in liveMaps below — the old
+    // single `leafletMap` handle was removed with the one-card-at-a-time layout.
 
-    async function setupMap(row) {
+    // Ten cards means ten maps, and with lat/lon dropped from the table every
+    // map has to GEOCODE its address through Nominatim. Nominatim's usage policy
+    // is one request a second and no bulk work, so painting a page of ten
+    // eagerly would be abusive and could get us blocked.
+    //
+    // So maps are lazy and serialized: a card asks for its map only when it
+    // scrolls into view, requests queue up, and the queue runs them one at a
+    // time with a gap. Scroll fast and you simply get maps filling in behind
+    // you; nothing fires for a card you never look at.
+    const PAGE_SIZE = 10;
+    const GEOCODE_GAP_MS = 1100;   // just over Nominatim's 1/sec ceiling
+    const mapQueue = [];
+    let mapQueueRunning = false;
+    let mapObserver = null;
+    const liveMaps = new Map();    // wpid -> Leaflet instance, so we can tear down
+
+    function teardownLazyMaps() {
+      if (mapObserver) { try { mapObserver.disconnect(); } catch (error) {} mapObserver = null; }
+      mapQueue.length = 0;
+      liveMaps.forEach((map) => { try { map.remove(); } catch (error) {} });
+      liveMaps.clear();
+    }
+
+    async function runMapQueue() {
+      if (mapQueueRunning) return;
+      mapQueueRunning = true;
+      while (mapQueue.length) {
+        const job = mapQueue.shift();
+        // The card may have been re-rendered or paged away while queued.
+        if (!job.container.isConnected) continue;
+        try { await setupMap(job.row, job.container); } catch (error) {}
+        if (mapQueue.length) await new Promise((r) => setTimeout(r, GEOCODE_GAP_MS));
+      }
+      mapQueueRunning = false;
+    }
+
+    function queueVisibleMaps(page) {
       if (typeof L === 'undefined') return;
-      const container = wpList.querySelector('[data-map-preview]');
+      const byId = new Map(page.map((row) => [String(row.wpid), row]));
+
+      const enqueue = (container) => {
+        if (container.dataset.mapQueued === 'true') return;
+        container.dataset.mapQueued = 'true';
+        const row = byId.get(container.dataset.wpid || '');
+        if (!row) return;
+        mapQueue.push({ row, container });
+        runMapQueue();
+      };
+
+      const containers = Array.from(wpList.querySelectorAll('[data-map-preview]'));
+      if (!('IntersectionObserver' in window)) { containers.forEach(enqueue); return; }
+
+      mapObserver = new IntersectionObserver((entries, obs) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          obs.unobserve(entry.target);
+          enqueue(entry.target);
+        });
+      }, { rootMargin: '200px' });   // start a little before it's on screen
+      containers.forEach((c) => mapObserver.observe(c));
+    }
+
+    async function setupMap(row, containerEl) {
+      if (typeof L === 'undefined') return;
+      const container = containerEl || wpList.querySelector('[data-map-preview]');
       if (!container) return;
-      if (leafletMap) { try { leafletMap.remove(); } catch (error) {} leafletMap = null; }
+      const key = String(row.wpid);
+      const previous = liveMaps.get(key);
+      if (previous) { try { previous.remove(); } catch (error) {} liveMaps.delete(key); }
       // Cancel any pending grid work from the previous map so it can't keep the
       // page in a "loading" (busy/hourglass cursor) state.
       container.innerHTML = '';
 
       // Center priority: stored coordinates -> address -> city/state,
       // else a wide New Orleans view so a blank waypoint is still usable.
-      const stale = () => wpList.querySelector('[data-map-preview]') !== container || !container.isConnected;
+      // Was "is this still THE map on the page"; with ten of them the only
+      // question is whether this particular card is still mounted.
+      const stale = () => !container.isConnected;
       let center = null;
 
       // 0) stored exact coordinates — most reliable, no geocoding.
@@ -1190,6 +1259,9 @@
       const view = center || { lat: 29.9584, lon: -90.0644 };
       // Open located waypoints zoomed in.
       const map = L.map(container, { scrollWheelZoom: false, maxZoom: 22 }).setView([view.lat, view.lon], has ? 19 : 12);
+      // Tracked per waypoint so a re-render or a page flip can dispose of every
+      // live map — ten leaked Leaflet instances per page adds up fast.
+      liveMaps.set(key, map);
       // Satellite (keyless Esri World Imagery) is the default; Streets is a toggle.
       const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 22, maxNativeZoom: 19, attribution: 'Tiles &copy; Esri'
@@ -3331,6 +3403,7 @@ $$;`.trim();
     // --- Rendering -----------------------------------------------------------
     function render() {
       wpList.innerHTML = '';
+      teardownLazyMaps();
       if (!state.authed) {
         wpList.appendChild(emptyNode('Sign in to view and edit waypoints.'));
         updateSummary();
@@ -3342,9 +3415,25 @@ $$;`.trim();
         updateSummary();
         return;
       }
-      // Always exactly one waypoint at a time.
-      wpList.appendChild(renderCard(current));
-      setupMap(current);
+
+      // A page of PAGE_SIZE waypoints, anchored on the current one. The page is
+      // derived from where the current waypoint sits in the list rather than
+      // held as its own state, so Back/Next/Random/jump-to-N all keep working
+      // untouched — moving the cursor moves the page with it.
+      const list = navRows();
+      const idx = Math.max(0, list.findIndex((row) => row.wpid === current.wpid));
+      const start = Math.floor(idx / PAGE_SIZE) * PAGE_SIZE;
+      const page = list.slice(start, start + PAGE_SIZE);
+
+      page.forEach((row) => {
+        const card = renderCard(row);
+        // Mark the cursor card so the existing keyboard/nav affordances still
+        // have something to point at within a page of ten.
+        card.classList.toggle('is-current', row.wpid === current.wpid);
+        wpList.appendChild(card);
+      });
+
+      queueVisibleMaps(page);
       updateToolbarButtons();
       updateSummary();
     }
@@ -3412,6 +3501,8 @@ $$;`.trim();
       const preview = document.createElement('div');
       preview.className = 'wp-map-preview';
       preview.setAttribute('data-map-preview', '');
+      // The lazy-map observer reads this to find the row a container belongs to.
+      preview.dataset.wpid = String(row.wpid);
       const mapWrap = document.createElement('div');
       mapWrap.className = 'wp-map-wrap';
       mapWrap.append(preview);
@@ -3676,9 +3767,17 @@ $$;`.trim();
       if (!el) return;
       if (!state.authed) { el.textContent = 'WAYPOINTS'; return; }
       const total = state.rows.length;
-      const shown = isFiltered() ? navRows().length : total;
+      const list = navRows();
+      const shown = isFiltered() ? list.length : total;
+      // Which slice of ten is on screen, so the title says where you are rather
+      // than just how many exist.
+      const current = findRow(state.randomId);
+      const idx = current ? Math.max(0, list.findIndex((row) => row.wpid === current.wpid)) : 0;
+      const start = Math.floor(idx / PAGE_SIZE) * PAGE_SIZE;
+      const end = Math.min(start + PAGE_SIZE, list.length);
+      const slice = list.length > PAGE_SIZE ? ' · ' + (start + 1) + '–' + end : '';
       el.textContent = shown + ' WAYPOINT' + (shown === 1 ? '' : 'S')
-        + (isFiltered() ? ' OF ' + total : '');
+        + (isFiltered() ? ' OF ' + total : '') + slice;
     }
 
     // Navigation group (Back · count · Next · Random). Lives in the card action
