@@ -8,7 +8,7 @@ Durable project knowledge for Claude Code (and any teammate working in this repo
 
 The public page [sound/index.html](sound/index.html) renders city cassette cards at runtime, driven by [sound/soundtracks.json](sound/soundtracks.json) (per-city `city_slug`, spine phrase tags, and the song list — each song carries its own `spotifyId` for playback).
 
-- It reads `public.cities` with **`select=*`** only for nicer city display names + geo badges, filtering out venue-only (`ignored`) rows. This is optional: if the cities fetch fails, `fallbackCityRowsFromSoundtracks` renders from `soundtracks.json` alone (slug → display name). **The page depends on no specific `cities` column** — don't reintroduce one.
+- It reads `public.cities` with **`select=*`** only for nicer city display names + geo badges, filtering out rows flagged `hide_from_soundtracks` (falling back to the retired `ignored` column). This is optional: if the cities fetch fails, `fallbackCityRowsFromSoundtracks` renders from `soundtracks.json` alone (slug → display name). **The page depends on no specific `cities` column** — don't reintroduce one.
 - The old per-city `cities` sound columns (`sound_playlist_id` / `sound_accent` / `sound_secondary`) were **dropped 2026-07-24**; soundtracks are handled separately now and cassette colors come from the CSS `nth-child` scheme. Don't re-add them.
 
 Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-playlists.json`, or CSV-driven build scripts under `sound/`. To add or edit a soundtrack, edit the `soundtracks.json` entry (and add the city to `public.cities` if you want the polished name/badge).
@@ -203,11 +203,21 @@ There is exactly **one** city table for the whole site: `public.cities`, keyed b
 - **Writers don't send a slug.** The `cities_fill_slug` BEFORE INSERT trigger derives it from the city string via `tgb_city_slug()` — city name only (`"St. Louis, Missouri"` → `st-louis`), qualified with the state/country code if that base is taken by a different city (two Portlands), then numbered. The shop admin posts `{ city }` with `on_conflict=city` and nothing else.
 - `cities_sync_geo` fills the structured geo columns, matching the `tgb_sync_*_geo` triggers on `games` and `teams`.
 - The old `gift_shop_cities` table is **left in place but unread**; the drop statement is at the bottom of the migration, commented, for once the deployed site has been on `cities` for a while.
-- **`ignored` = venue-only.** A city a team plays in but that we don't sell gifts for or make a soundtrack for (Orchard Park, Santa Clara). The row is real and current, it just isn't a destination. Added by [supabase/migrations/2026072205_cities_ignored.sql](supabase/migrations/2026072205_cities_ignored.sql). (The old `archived` "hide everywhere" flag was retired 2026-07-24 — [supabase/migrations/2026072402_drop_cities_archived.sql](supabase/migrations/2026072402_drop_cities_archived.sql); to remove a city now, delete it or mark it venue-only.)
-  - Hidden entirely from `/shop/` and `/sound/`, and from the Stock Room's filter and Shops picker.
-  - Shown **grey** (`.tgb-city-ignored`) in admin pickers and filters, where a venue city is a legitimate pick.
+- **Three per-surface hide flags**, added 2026-07-29 by [supabase/migrations/2026072901_cities_hide_flags.sql](supabase/migrations/2026072901_cities_hide_flags.sql):
+
+  | column | hides the city from |
+  |---|---|
+  | `hide_from_games` | the city finder + default sample on `/games/` |
+  | `hide_from_soundtracks` | the cassette rail on `/sound/` |
+  | `hide_from_gift_shop` | Shop By City on `/shop/` |
+
+  These replaced the single `ignored` ("venue only") switch, which hid a city everywhere at once and conflated three separate editorial calls — a stadium town can be a real games destination and a bad gift-shop city. `hide_from_games` is the direct heir of the venue-only idea, which is why the terminology moved with it. Typical venue-only towns: Orchard Park, Santa Clara, Miami Gardens.
+  - **`ignored` is deprecated but still present**, still carrying its old values, and still written by the cities admin (true only when all three flags are). Every reader prefers its own per-surface column and falls back to `ignored` **only when that column is absent**, so the site is correct before and after the migration. Don't add new reads of it; the drop statement is at the bottom of the migration, commented.
+  - Shown **grey** (`.tgb-city-ignored`) in admin pickers and filters, where grey now means "hidden from at least one surface" — the checkboxes on the row in [mc/cities/index.htm](mc/cities/index.htm) say which.
+  - The older `archived` "hide everywhere" flag was retired 2026-07-24 — [supabase/migrations/2026072402_drop_cities_archived.sql](supabase/migrations/2026072402_drop_cities_archived.sql). To remove a city now, delete it or set the hide flags.
+- **A filter alone is not enough.** `/shop/` filters the catalog *and then* back-fills cities found on gift-shop games; that back-fill has to re-check the flag or a hidden town walks straight back into the rail (fixed 2026-07-28). If you add another path that derives cities from a non-catalog source, re-apply the check there.
 - **Every city control goes through [assets/city-picker.js](assets/city-picker.js)** (`window.TgbCities`) — Start City in `mc/overview.html`, City in `mc/anchor-events.html`, the filters in `mc/mapper.html` and `mc/content.html`. It fills the control from the catalog and hangs a **+** beside it that adds a city without leaving the page. `attach(el, { includeIgnored: true })` for admin surfaces; omit the flag where only real destinations belong.
-- **Queries use `select=*`, never a column list naming `ignored`.** PostgREST 400s on an unknown column, so an explicit list breaks any database that hasn't run the migration yet; the readers treat a missing `ignored` as `false`.
+- **Queries use `select=*`, never a column list naming a hide flag.** PostgREST 400s on an unknown column, so an explicit list breaks any database that hasn't run the migration yet; readers treat a missing column as `false` and fall back to `ignored`.
 - **Never send `slug` from a client.** It stays the NOT NULL primary key; the trigger fills it, which works because row triggers run before constraint checks.
 
 ---

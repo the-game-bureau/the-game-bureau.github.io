@@ -2595,7 +2595,11 @@
         var rowsList = Array.isArray(rows) ? rows : [];
         var rowsWithSoundtracks = rowsList
           .filter(function (row) {
-            if (row && row.ignored === true) return false;
+            // Prefers the per-surface hide_from_soundtracks column, falling back
+            // to the retired `ignored` flag only when that column is absent, so
+            // this works before and after 2026072901_cities_hide_flags.sql.
+            if (row && row.hide_from_soundtracks === true) return false;
+            if (row && row.hide_from_soundtracks === undefined && row.ignored === true) return false;
             var slug = citySlug(row);
             if (!slug || seen[slug] || soundtrackTrackCount(soundtracksBySlug[slug]) <= 0) return false;
             seen[slug] = true;

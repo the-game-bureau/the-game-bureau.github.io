@@ -10,9 +10,13 @@
  *   TgbCities.add(city, opts)            -> Promise<row>
  *   TgbCities.isIgnored(cityString)      -> boolean
  *
- * `ignored` marks a venue-only city (Orchard Park, Santa Clara): real, current,
- * but never a gift-shop or soundtrack destination. Ignored cities render grey
- * and are left out unless a control asks for them:
+ * `ignored` on a normalized row now means "hidden from at least one public
+ * surface" — games, soundtracks, or the gift shop, each its own column since
+ * 2026072901_cities_hide_flags.sql replaced the single "venue only" switch.
+ * The row also carries hideFromGames / hideFromSoundtracks / hideFromGiftShop
+ * for callers that need to know which. Such a city is real and current, it just
+ * is not a destination everywhere. These render grey and are left out unless a
+ * control asks for them:
  *
  *   attach(el, { includeIgnored: true })   admin pickers and filters
  *   attach(el, { })                        gifts, soundtracks — selectable only
@@ -94,15 +98,36 @@
     return inflight;
   }
 
-  // `ignored` is absent until 2026072205_cities_ignored.sql is applied — treat
-  // a missing column as "not ignored" so the pages work either way.
+  // The per-surface hide flags landed in 2026072901_cities_hide_flags.sql,
+  // replacing the single `ignored` ("venue only") switch. Both shapes are
+  // handled: a missing column reads as false, and if none of the three exist we
+  // fall back to `ignored`, which meant hidden everywhere.
+  //
+  // `ignored` on the normalized row now means "restricted somewhere" — this is
+  // the ADMIN picker, and what an admin needs to see is that a city is not a
+  // plain public destination. The per-surface booleans ride along for callers
+  // that care which one.
+  var HIDE_COLUMNS = ['hide_from_games', 'hide_from_soundtracks', 'hide_from_gift_shop'];
+
+  function hiddenFlag(row, column) {
+    if (row[column] === true) return true;
+    // Pre-migration: no per-surface columns at all, so the old flag decides.
+    return HIDE_COLUMNS.every(function (c) { return row[c] === undefined; }) && row.ignored === true;
+  }
+
   function normalizeRow(row) {
+    var hideGames = hiddenFlag(row, 'hide_from_games');
+    var hideSound = hiddenFlag(row, 'hide_from_soundtracks');
+    var hideShop = hiddenFlag(row, 'hide_from_gift_shop');
     return {
       slug: row.slug || '',
       city: row.city || '',
       label: row.label || row.city_name || '',   // label column is being retired; fall back to the stem
       sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
-      ignored: row.ignored === true
+      hideFromGames: hideGames,
+      hideFromSoundtracks: hideSound,
+      hideFromGiftShop: hideShop,
+      ignored: hideGames || hideSound || hideShop
     };
   }
 
@@ -233,7 +258,16 @@
     }
     function base() {
       var p = { city: canonicalCity };
-      if (wantIgnored) p.ignored = true;
+      if (wantIgnored) {
+        // The dialog's one checkbox still means "hide everywhere", so it sets
+        // all three per-surface flags. `ignored` goes along for a database that
+        // has not run 2026072901_cities_hide_flags.sql; the retry below strips
+        // whichever columns the database rejects.
+        p.hide_from_games = true;
+        p.hide_from_soundtracks = true;
+        p.hide_from_gift_shop = true;
+        p.ignored = true;
+      }
       return p;
     }
     var payload = base();
@@ -253,7 +287,11 @@
             var noGeo = base();
             return attempt(noGeo, false, allowIgnoredStrip);
           }
-          if (allowIgnoredStrip && wantIgnored && /ignored/.test(t)) {
+          // Any of the four visibility columns can be missing depending on which
+          // migrations have run, so one unknown-column error drops all of them
+          // and adds the city plain. Better a visible city an admin can flag
+          // than a failed add.
+          if (allowIgnoredStrip && wantIgnored && /ignored|hide_from_/.test(t)) {
             return attempt({ city: canonicalCity }, false, false);
           }
           throw new Error(t || 'Could not add "' + canonicalCity + '".');
@@ -360,7 +398,7 @@
           '<datalist id="tgb-city-states"></datalist>' +
           '<div class="tgb-city-preview"></div>' +
           '<label class="tgb-city-ignored-note">' +
-            '<input type="checkbox" class="tgb-city-ignored-box"> Venue only — hide from gifts and soundtracks' +
+            '<input type="checkbox" class="tgb-city-ignored-box"> Hide from games, soundtracks and gift shop' +
           '</label>' +
           '<div class="tgb-city-actions">' +
             '<button type="button" class="tgb-city-cancel">Cancel</button>' +
@@ -536,7 +574,7 @@
   }
 
   // ── attach ─────────────────────────────────────────────────────────────────
-  //   includeIgnored  show venue-only cities (grey). Default false.
+  //   includeIgnored  show cities hidden from a public surface (grey). Default false.
   //   allowAdd        show the + button. Default true; needs authHeaders to
   //                   write, so pass the page's own auth function.
   //   allOption       label for a leading "no filter" choice, e.g. 'All cities'.
@@ -612,7 +650,7 @@
           opt.textContent = row.city;
           if (row.ignored) {
             opt.className = 'tgb-city-ignored';
-            opt.title = 'Venue only — hidden from gifts and soundtracks';
+            opt.title = 'Hidden from at least one public surface';
           }
           el.appendChild(opt);
         });
@@ -632,7 +670,7 @@
           list.forEach(function (row) {
             var opt = document.createElement('option');
             opt.value = row.city;
-            if (row.ignored) opt.label = row.city + ' — venue only';
+            if (row.ignored) opt.label = row.city + ' — hidden somewhere';
             datalist.appendChild(opt);
           });
         }

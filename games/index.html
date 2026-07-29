@@ -920,19 +920,22 @@
         return !!(plainText(game.away_team_city) && plainText(game.away_team_mascot));
       }
 
-      // Venue-only cities — public.cities rows flagged `ignored`. These are
-      // stadium towns a team plays in that we do not sell into (Orchard Park for
-      // Buffalo, Santa Clara for San Francisco). They must never appear as a
-      // destination on any public surface.
+      // Cities hidden from THIS surface — public.cities rows flagged
+      // `hide_from_games`. Typically a stadium town a team plays in that we do
+      // not sell into (Orchard Park for Buffalo, Santa Clara for San
+      // Francisco), but it is now an independent switch: a city can be hidden
+      // here and still appear in the gift shop or on the soundtracks page.
       //
-      // Empty until fetchIgnoredCities resolves, and it fails soft: if the
-      // catalog is unreachable the finder shows every city, which is the old
-      // behaviour rather than a blank page. select=* per the repo rule —
-      // naming `ignored` in a column list 400s on a database that has not run
-      // 2026072205_cities_ignored.sql.
-      const ignoredCityNames = new Set();
+      // Falls back to the retired `ignored` column when `hide_from_games` is
+      // absent, so this works before and after
+      // 2026072901_cities_hide_flags.sql. select=* per the repo rule — naming
+      // either column in a list 400s on a database missing it.
+      //
+      // Empty until the fetch resolves, and it fails soft: an unreachable
+      // catalog means the finder shows every city rather than nothing.
+      const hiddenCityNames = new Set();
       function isIgnoredCity(city) {
-        return ignoredCityNames.has(String(city || '').trim().toLowerCase());
+        return hiddenCityNames.has(String(city || '').trim().toLowerCase());
       }
 
       async function fetchIgnoredCities() {
@@ -949,11 +952,12 @@
         });
         if (!response.ok) throw new Error('cities ' + response.status);
         const rows = await response.json();
-        ignoredCityNames.clear();
+        hiddenCityNames.clear();
         (Array.isArray(rows) ? rows : []).forEach((row) => {
-          if (row && row.ignored === true && row.city) {
-            ignoredCityNames.add(String(row.city).trim().toLowerCase());
-          }
+          if (!row || !row.city) return;
+          const hidden = row.hide_from_games === true
+            || (row.hide_from_games === undefined && row.ignored === true);
+          if (hidden) hiddenCityNames.add(String(row.city).trim().toLowerCase());
         });
       }
 

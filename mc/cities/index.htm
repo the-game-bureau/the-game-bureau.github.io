@@ -404,11 +404,22 @@
       return wrap;
     }
 
+    // Grey in the list means "hidden from at least one public surface" — it is
+    // a flag to notice, not a precise statement of which one. The checkboxes on
+    // the row say which. Falls back to the retired `ignored` column so this
+    // reads correctly before 2026072901_cities_hide_flags.sql is applied.
+    function isHiddenAnywhere(row) {
+      if (!row) return false;
+      const cols = ['hide_from_games', 'hide_from_soundtracks', 'hide_from_gift_shop'];
+      if (cols.some((c) => row[c] === true)) return true;
+      return cols.every((c) => row[c] === undefined) && row.ignored === true;
+    }
+
     function renderRow(row) {
       const el = document.createElement('div');
       el.className = 'city-row';
       el.dataset.slug = row.slug || '';
-      if (row.ignored === true) el.classList.add('is-ignored');
+      if (isHiddenAnywhere(row)) el.classList.add('is-ignored');
 
       // Identity: the "City, Region" key (composed from the fields, read-only) +
       // slug. The key is what other tables reference; it updates live as you edit
@@ -472,16 +483,39 @@
 
       fields.append(cityNameF.wrap, stateF.wrap, abbrF.wrap, countryWrap);
 
-      // Flags.
+      // Flags — one per public surface. These replaced the single "Venue only"
+      // checkbox on 2026-07-29: a city can be a real destination for games and
+      // a bad fit for the shop, so the three decisions are now independent.
+      // Each falls back to the retired `ignored` column when its own column is
+      // absent, which is what the old flag meant (hidden everywhere).
       const flags = document.createElement('div');
       flags.className = 'city-flags';
-      const ignoredLabel = document.createElement('label');
-      ignoredLabel.className = 'flag';
-      const ignoredCb = document.createElement('input');
-      ignoredCb.type = 'checkbox';
-      ignoredCb.checked = row.ignored === true;
-      ignoredLabel.append(ignoredCb, document.createTextNode('Venue only'));
-      flags.append(ignoredLabel);
+
+      function hideFlag(column, label, title) {
+        const wrap = document.createElement('label');
+        wrap.className = 'flag';
+        wrap.title = title;
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.checked = row[column] === true
+          || (row[column] === undefined && row.ignored === true);
+        wrap.append(box, document.createTextNode(label));
+        flags.append(wrap);
+        return box;
+      }
+
+      const hideGamesCb = hideFlag(
+        'hide_from_games', 'Hide from games',
+        'Keep this city out of the finder on /games/. Use for stadium towns we do not sell into.'
+      );
+      const hideSoundCb = hideFlag(
+        'hide_from_soundtracks', 'Hide from soundtracks',
+        'Keep this city off the cassette rail on /sound/.'
+      );
+      const hideShopCb = hideFlag(
+        'hide_from_gift_shop', 'Hide from gift shop',
+        'Keep this city out of Shop By City on /shop/.'
+      );
 
       // Actions.
       const actions = document.createElement('div');
@@ -515,7 +549,7 @@
 
       const markDirty = () => { el.classList.add('is-dirty'); updateKeyPreview(); };
       [cityNameInput, stateInput, abbrInput].forEach((i) => i.addEventListener('input', markDirty));
-      ignoredCb.addEventListener('change', markDirty);
+      [hideGamesCb, hideSoundCb, hideShopCb].forEach((box) => box.addEventListener('change', markDirty));
 
       // Country <select> doubles as an "add a country" entry point: picking the
       // "+ Add a country…" option opens the shared dialog instead of selecting it.
@@ -545,7 +579,13 @@
         // Every structured column comes straight from its own editable field.
         const cc = countrySelect.value ? countrySelect.value.toUpperCase() : null;
         const payload = {
-          ignored: ignoredCb.checked,
+          hide_from_games: hideGamesCb.checked,
+          hide_from_soundtracks: hideSoundCb.checked,
+          hide_from_gift_shop: hideShopCb.checked,
+          // `ignored` is deprecated but still written, so a client or page that
+          // has not moved to the three columns keeps behaving sensibly. It means
+          // "hidden everywhere", so it is only true when all three are.
+          ignored: hideGamesCb.checked && hideSoundCb.checked && hideShopCb.checked,
           city_name: cityName || null,
           state_name: stateInput.value.trim() || null,
           state_code: abbrInput.value.trim().toUpperCase() || null,
@@ -590,7 +630,7 @@
         const rows = await res.json();
         if (!Array.isArray(rows) || !rows.length) throw new Error('Nothing was saved — the database refused the change. Check you are signed in as an admin.');
         Object.assign(row, rows[0]);
-        if (el) { el.classList.remove('is-dirty'); el.classList.toggle('is-ignored', row.ignored === true); }
+        if (el) { el.classList.remove('is-dirty'); el.classList.toggle('is-ignored', isHiddenAnywhere(row)); }
         setStatus('Saved ' + (row.city || slug) + '.', 'success');
         render();
       } catch (err) {
@@ -604,7 +644,7 @@
     async function deleteRow(row, btn) {
       const slug = row.slug;
       if (!slug) return;
-      if (!window.confirm('Delete "' + (row.city || slug) + '" from the city catalog? This is permanent. To keep it but drop it from gifts & soundtracks, use Venue only instead.')) return;
+      if (!window.confirm('Delete "' + (row.city || slug) + '" from the city catalog? This is permanent. To keep it but drop it from a public page, use the Hide from checkboxes instead.')) return;
       btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Deleting…';
       try {
         const res = await fetch(restUrl(TABLE, { slug: 'eq.' + slug }), { method: 'DELETE', headers: authHeaders({ Prefer: 'return=minimal' }) });

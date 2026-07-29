@@ -980,9 +980,9 @@
           label: String(row && row.label || '').trim() || cityDisplayName(city)
         });
       });
-      // Back-fill cities that only appear on a game. This has to re-check
-      // `ignored`: the catalog rows arriving here are already filtered, but a
-      // game sited at a stadium in a venue-only town (Orchard Park, Santa Clara)
+      // Back-fill cities that only appear on a game. This has to re-check the
+      // hide flag: the catalog rows arriving here are already filtered, but a
+      // game sited at a stadium in a hidden town (Orchard Park, Santa Clara)
       // would otherwise put that town straight back into the rail and the city
       // buttons, defeating the filter above.
       gameIdsByCity.forEach((_, city) => {
@@ -1776,17 +1776,28 @@
       }));
     }
 
-    // Names of every venue-only city, lowercased. Filled by fetchGiftShopCities
-    // and read by buildGiftCityEntries, which would otherwise re-introduce one
-    // of these via a game (see the back-fill below). A Set of names rather than
-    // rows because the game path only has the city string to match on.
-    const ignoredCityNames = new Set();
+    // Names of every city hidden from the shop, lowercased. Filled by
+    // fetchGiftShopCities and read by buildGiftCityEntries, which would
+    // otherwise re-introduce one of these via a game (see the back-fill below).
+    // A Set of names rather than rows because the game path only has the city
+    // string to match on.
+    const hiddenShopCityNames = new Set();
     function isIgnoredCity(city) {
-      return ignoredCityNames.has(String(city || '').trim().toLowerCase());
+      return hiddenShopCityNames.has(String(city || '').trim().toLowerCase());
     }
 
-    // Venue-only cities (cities.ignored) are not shopping cities. select=* so
-    // this keeps working before 2026072205_cities_ignored.sql is applied.
+    // True when a catalog row is hidden from the gift shop. Prefers the
+    // per-surface `hide_from_gift_shop` column and falls back to the retired
+    // `ignored` flag only when that column is absent, so the page behaves
+    // correctly before and after 2026072901_cities_hide_flags.sql.
+    function isHiddenFromShop(row) {
+      if (!row) return false;
+      if (row.hide_from_gift_shop === true) return true;
+      return row.hide_from_gift_shop === undefined && row.ignored === true;
+    }
+
+    // Cities hidden from the shop are not shopping cities. select=* so this
+    // keeps working on a database missing either column.
     async function fetchGiftShopCities() {
       // Ordering by sort_order 400s if that column is missing (it was dropped
       // and restored by 2026072405_restore_cities_columns.sql) — fall back to
@@ -1799,15 +1810,15 @@
         order: 'city.asc'
       })));
       const list = Array.isArray(rows) ? rows : [];
-      // Record the venue-only names before dropping them, so the game back-fill
-      // in buildGiftCityEntries can recognise and skip them.
-      ignoredCityNames.clear();
+      // Record the hidden names before dropping them, so the game back-fill in
+      // buildGiftCityEntries can recognise and skip them.
+      hiddenShopCityNames.clear();
       list.forEach((row) => {
-        if (row && row.ignored === true && row.city) {
-          ignoredCityNames.add(String(row.city).trim().toLowerCase());
+        if (row && row.city && isHiddenFromShop(row)) {
+          hiddenShopCityNames.add(String(row.city).trim().toLowerCase());
         }
       });
-      return list.filter((row) => row && row.ignored !== true);
+      return list.filter((row) => row && !isHiddenFromShop(row));
     }
 
     // Every gift_shop_items row, so the shop can show items even when they have
