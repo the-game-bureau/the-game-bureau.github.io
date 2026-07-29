@@ -920,6 +920,43 @@
         return !!(plainText(game.away_team_city) && plainText(game.away_team_mascot));
       }
 
+      // Venue-only cities — public.cities rows flagged `ignored`. These are
+      // stadium towns a team plays in that we do not sell into (Orchard Park for
+      // Buffalo, Santa Clara for San Francisco). They must never appear as a
+      // destination on any public surface.
+      //
+      // Empty until fetchIgnoredCities resolves, and it fails soft: if the
+      // catalog is unreachable the finder shows every city, which is the old
+      // behaviour rather than a blank page. select=* per the repo rule —
+      // naming `ignored` in a column list 400s on a database that has not run
+      // 2026072205_cities_ignored.sql.
+      const ignoredCityNames = new Set();
+      function isIgnoredCity(city) {
+        return ignoredCityNames.has(String(city || '').trim().toLowerCase());
+      }
+
+      async function fetchIgnoredCities() {
+        const url = new URL('rest/v1/cities', SB_CONFIG.url.replace(/\/+$/, '') + '/');
+        url.searchParams.set('apikey', SB_CONFIG.key);
+        url.searchParams.set('select', '*');
+        const response = await fetch(url.toString(), {
+          headers: {
+            apikey: SB_CONFIG.key,
+            Authorization: 'Bearer ' + SB_CONFIG.key,
+            Accept: 'application/json'
+          },
+          cache: 'no-store'
+        });
+        if (!response.ok) throw new Error('cities ' + response.status);
+        const rows = await response.json();
+        ignoredCityNames.clear();
+        (Array.isArray(rows) ? rows : []).forEach((row) => {
+          if (row && row.ignored === true && row.city) {
+            ignoredCityNames.add(String(row.city).trim().toLowerCase());
+          }
+        });
+      }
+
       async function fetchGames() {
         let response = null;
         if (window.__tgbPrefetch && window.__tgbPrefetch.games) {
@@ -1116,6 +1153,12 @@
         liveGames.forEach((game) => {
           const city = getCity(game);
           if (!city) return;
+          // Venue-only cities (cities.ignored) are stadium towns we do not sell
+          // into — Orchard Park, Santa Clara. A game sited at the stadium still
+          // carries that town as its city, so without this the finder offers
+          // "ORCHARD PARK" as a destination. The game itself is unaffected and
+          // still reachable; only the city button is suppressed.
+          if (isIgnoredCity(city)) return;
           counts.set(city, (counts.get(city) || 0) + 1);
         });
         return [...counts.entries()]
@@ -1703,6 +1746,9 @@
         (Array.isArray(games) ? games : []).forEach((game) => {
           const city = getCity(game);
           if (!city) return;
+          // Same rule as the finder: a venue-only town is not a destination, so
+          // it does not get to be one of the cities the default sample shows off.
+          if (isIgnoredCity(city)) return;
           if (!buckets.has(city)) buckets.set(city, []);
           buckets.get(city).push(game);
         });
@@ -2295,7 +2341,14 @@
         loadGiftStrip();
 
         try {
-          const [games, teamColorsResult] = await Promise.all([fetchGames(), fetchTeamColors()]);
+          // The cities catalog rides along so venue-only towns are known before
+          // the directory paints. Failure is swallowed: a missing catalog must
+          // not take the games directory down with it.
+          const [games, teamColorsResult] = await Promise.all([
+            fetchGames(),
+            fetchTeamColors(),
+            fetchIgnoredCities().catch(() => {})
+          ]);
           writeCache(CACHE_KEY_GAMES, games);
           writeCache(CACHE_KEY_TEAMS, teamColorsResult.teams);
           applyDirectoryData(games, teamColorsResult);
