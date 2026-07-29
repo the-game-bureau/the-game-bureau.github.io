@@ -336,8 +336,8 @@
       background: #fff;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-    /* The cursor card inside a page of ten — what Back/Next/Random move, and
-       what the nav row's "N of M" count refers to. */
+    /* The cursor card inside a page of ten — where the pager lands you, and
+       what "jump to N" targets. */
     .wp-card.is-current { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(var(--bic-blue-rgb), 0.12); }
 
     /* Toolbar pager: ‹ Page 3 of 6 › */
@@ -901,7 +901,7 @@
       cityFilter: '',   // lowercased city key; '' means every city
       sort: DEFAULT_SORT,
       page: 0,          // 0-based page of PAGE_SIZE cards
-      // The cursor: what Back/Next/Random move and what "jump to N" targets. It
+      // The cursor: where the pager lands and what "jump to N" targets. It
       // is no longer the only thing on screen — a page of PAGE_SIZE renders
       // around it — but it stays the anchor for navigation.
       randomId: null,
@@ -3412,7 +3412,7 @@ $$;`.trim();
     }
 
 
-    // Before leaving the current waypoint (Back/Next/Random/New), offer to save
+    // Before leaving the current waypoint (paging / New), offer to save
     // its edits if there are any.
     async function maybeSaveBeforeLeaving() {
       const cur = findRow(state.randomId);
@@ -3427,22 +3427,26 @@ $$;`.trim();
       }
     }
 
-    // Feature the waypoint `step` positions away in the navigable set (Back/Next).
-    async function stepFeatured(step) {
-      const list = navRows();
-      if (!list.length) return;
-      let idx = list.findIndex((row) => row.wpid === state.randomId);
-      if (idx < 0) idx = 0;
-      // Wrap around: Next past the last goes to the first, and vice versa.
-      const nextIdx = (((idx + step) % list.length) + list.length) % list.length;
-      if (nextIdx === idx) return;
-      await maybeSaveBeforeLeaving();
-      state.randomId = list[nextIdx].wpid;
-      syncPageToCursor();
-      render();
-      const row = findRow(state.randomId);
-      setStatus(row ? 'Waypoint ' + (list.length - nextIdx) + ' of ' + list.length + ' — ' + displayName(row) + '.' : '');
+    // The paging equivalent. maybeSaveBeforeLeaving only knows about the cursor,
+    // which was the whole story when one card was on screen; a page of ten can
+    // have several dirty at once, and paging away would carry them all off
+    // screen unprompted. Asks once, saves the lot.
+    async function maybeSaveDirtyBeforePaging() {
+      const dirty = Array.from(state.dirtyIds).map(findRow).filter(Boolean);
+      if (!dirty.length) return;
+      const names = dirty.map(displayName).join(', ');
+      if (!window.confirm('Save changes to ' + dirty.length + ' waypoint' +
+          (dirty.length === 1 ? '' : 's') + ' before leaving this page?\n\n' + names)) return;
+      for (const row of dirty) {
+        try {
+          await patchRow(row.wpid, row);
+          state.dirtyIds.delete(row.wpid);
+        } catch (error) {
+          setStatus('Could not save ' + displayName(row) + ': ' + (error.message || 'error'), 'error');
+        }
+      }
     }
+
 
 
     // Most recent (highest wpid) first, down to the oldest.
@@ -3481,7 +3485,7 @@ $$;`.trim();
       }
 
       // A page of PAGE_SIZE waypoints. state.page is explicit so the pager can
-      // move a whole page at a time; the cursor (Back/Next/Random) pulls the
+      // move a whole page at a time; the cursor pulls the
       // page to itself via syncPageToCursor when it moves.
       const list = navRows();
       const pages = totalPages(list);
@@ -3825,8 +3829,7 @@ $$;`.trim();
     }
 
     // Keep the visible page containing the cursor. Called after anything that
-    // moves the cursor (Back/Next/Random/jump), so those keep working exactly as
-    // they did when one card was on screen.
+    // moves the cursor (jump-to-N), so it stays on a visible page.
     function syncPageToCursor() {
       const list = navRows();
       const idx = list.findIndex((row) => row.wpid === state.randomId);
@@ -3848,14 +3851,15 @@ $$;`.trim();
       next.disabled = state.page >= pages - 1;
     }
 
-    function goToPage(page) {
+    async function goToPage(page) {
       const list = navRows();
       const pages = totalPages(list);
       const next = Math.min(Math.max(0, page), pages - 1);
       if (next === state.page) return;
+      await maybeSaveDirtyBeforePaging();
       state.page = next;
-      // Move the cursor onto the new page so Back/Next carry on from what you
-      // are looking at rather than snapping you back to the old page.
+      // Land the cursor on the new page so "jump to N" and the highlighted card
+      // follow what you are looking at.
       const first = list[next * PAGE_SIZE];
       if (first) state.randomId = first.wpid;
       render();
@@ -3891,8 +3895,7 @@ $$;`.trim();
       el.classList.remove('error', 'success');
     }
 
-    // Navigation group (Back · count · Next · Random). Lives in the card action
-    // row, to the left of Delete.
+    // The count. Lives in the card action row, to the left of Delete.
     // "N of M" where N is clickable — click it, type a number, Enter to
     // jump to that position. (Position = M - idx, matching highest-WPID-first.)
     function renderCount(list, idx) {
@@ -3969,30 +3972,11 @@ $$;`.trim();
       let idx = list.findIndex((item) => item.wpid === target);
       if (idx < 0) idx = 0;
 
-      const navBtn = (label, onClick) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'btn small';
-        b.textContent = label;
-        b.addEventListener('click', onClick);
-        return b;
-      };
-
-      // Highest WPID (idx 0) shows the highest count, e.g. "150 of 150".
-      const count = renderCount(list, idx);
-      // Keep the nav buttons visible whenever a filter is active (even if it
-      // narrows to one match), so the controls don't disappear under you.
-      if (list.length > 1 || isFiltered()) {
-        // Count runs opposite to the index (idx 0 = highest = "N of N"), so Next
-        // advances the count (wrapping N -> 1) and Back lowers it.
-        nav.append(
-          navBtn('Back', () => stepFeatured(1)),
-          count,
-          navBtn('Next', () => stepFeatured(-1))
-        );
-      } else {
-        nav.append(count);
-      }
+      // Just the count now — "150 of 150", with the number clickable to jump.
+      // Back/Next were removed from the card on 2026-07-29: with ten cards on a
+      // page there were ten identical pairs of them, and the toolbar pager moves
+      // a whole page at a time instead of one waypoint per click.
+      nav.append(renderCount(list, idx));
       return nav;
     }
 
