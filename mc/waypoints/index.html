@@ -297,7 +297,7 @@
       align-items: center;
       gap: 6px;
       flex-wrap: wrap;
-      justify-content: center;
+      justify-content: flex-start;
       color: var(--muted);
       font-size: 0.82rem;
       font-variant-numeric: tabular-nums;
@@ -306,20 +306,6 @@
       border-radius: 10px;
       background: rgba(var(--bic-blue-rgb), 0.04);
       box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
-    }
-    .wp-pager-status { margin: 0; text-align: center; min-width: 7em; }
-    .wp-count-total { font-weight: 700; }
-    .wp-count-num { cursor: pointer; text-decoration: underline dotted; color: var(--accent); font-weight: 700; }
-    .wp-count-num:hover { text-decoration-style: solid; }
-    .wp-count-input {
-      width: 3.5em;
-      padding: 1px 4px;
-      border: 1px solid var(--line);
-      border-radius: 4px;
-      background: #fff;
-      color: var(--ink);
-      font: inherit;
-      text-align: center;
     }
     /* Saved/Unsaved badge in the card's lower-right, under the description. */
     .wp-card-foot { display: flex; justify-content: flex-end; margin-top: 2px; }
@@ -359,32 +345,20 @@
 
     .wp-card-head {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      grid-template-columns: auto minmax(0, 1fr);
       gap: 12px;
-      align-items: start;
+      align-items: center;
     }
-    .wp-card-head > .wp-nav { justify-self: center; }
+    .wp-card-head > .wp-nav { justify-self: start; }
     .wp-card-head > .card-actions { justify-self: end; }
 
-    .wp-title {
-      margin: 0;
-      color: var(--ink);
-      font-size: 1rem;
-      line-height: 1.25;
-      word-break: break-word;
-    }
-
-    .wp-meta {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 4px;
-      color: var(--muted);
-      font-size: 0.78rem;
-    }
-
+    /* The card's identifier, top-left. .wp-title and .wp-meta went with the
+       card heading on 2026-07-29 and had no markup left to style. */
     .wp-id {
       font-family: "IBM Plex Mono", monospace;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--muted);
       word-break: break-all;
     }
 
@@ -683,7 +657,7 @@
       .legend { padding: 0 2px; }
 
       .wp-card-head { grid-template-columns: minmax(0, 1fr); }
-      .wp-card-head > .wp-nav { justify-self: center; }
+      .wp-card-head > .wp-nav { justify-self: start; }
       .wp-card-head > .card-actions { justify-self: stretch; }
       .card-actions { grid-column: 1 / -1; justify-content: stretch; }
       .card-actions .btn { flex: 1 1 auto; }
@@ -3412,25 +3386,8 @@ $$;`.trim();
     }
 
 
-    // Before leaving the current waypoint (paging / New), offer to save
-    // its edits if there are any.
-    async function maybeSaveBeforeLeaving() {
-      const cur = findRow(state.randomId);
-      if (!cur || !state.dirtyIds.has(cur.wpid)) return;
-      if (window.confirm('Save changes to "' + displayName(cur) + '" before leaving?')) {
-        try {
-          await patchRow(cur.wpid, cur);
-          state.dirtyIds.delete(cur.wpid);
-        } catch (error) {
-          setStatus('Could not save ' + displayName(cur) + ': ' + (error.message || 'error'), 'error');
-        }
-      }
-    }
-
-    // The paging equivalent. maybeSaveBeforeLeaving only knows about the cursor,
-    // which was the whole story when one card was on screen; a page of ten can
-    // have several dirty at once, and paging away would carry them all off
-    // screen unprompted. Asks once, saves the lot.
+    // Paging away must not carry unsaved edits off screen. A page of ten can
+    // have several cards dirty at once, so this asks once and saves the lot.
     async function maybeSaveDirtyBeforePaging() {
       const dirty = Array.from(state.dirtyIds).map(findRow).filter(Boolean);
       if (!dirty.length) return;
@@ -3516,17 +3473,10 @@ $$;`.trim();
       const head = document.createElement('div');
       head.className = 'wp-card-head';
 
-      const titleWrap = document.createElement('div');
-      const title = document.createElement('h3');
-      title.className = 'wp-title';
-      title.textContent = displayName(row);
-      const meta = document.createElement('div');
-      meta.className = 'wp-meta';
-      const id = document.createElement('span');
-      id.className = 'wp-id';
-      id.textContent = 'WPID' + row.wpid;
-      meta.appendChild(id);
-      titleWrap.append(title, meta);
+      // The name used to head the card. It was removed 2026-07-29: it duplicated
+      // the Name field directly below it, and on a page of ten cards that meant
+      // reading every name twice. The head is now WPID on the left, actions on
+      // the right.
 
       const actions = document.createElement('div');
       actions.className = 'card-actions';
@@ -3554,7 +3504,8 @@ $$;`.trim();
       actions.append(deleteBtn, fillBtn, saveBtn);
 
       // Title left, nav centered, actions right.
-      head.append(titleWrap, renderNav(row), actions);
+      // WPID left, actions right.
+      head.append(renderNav(row), actions);
 
       const fields = document.createElement('div');
       fields.className = 'field-grid';
@@ -3895,70 +3846,6 @@ $$;`.trim();
       el.classList.remove('error', 'success');
     }
 
-    // The count. Lives in the card action row, to the left of Delete.
-    // "N of M" where N is clickable — click it, type a number, Enter to
-    // jump to that position. (Position = M - idx, matching highest-WPID-first.)
-    function renderCount(list, idx) {
-      const total = list.length;
-      const pos = total - idx;
-      const wrap = document.createElement('span');
-      wrap.className = 'wp-pager-status';
-      const totalEl = () => {
-        const el = document.createElement('span');
-        el.className = 'wp-count-total';
-        el.textContent = String(total);
-        return el;
-      };
-
-      const showLabel = () => {
-        wrap.innerHTML = '';
-        const num = document.createElement('span');
-        num.className = 'wp-count-num';
-        num.textContent = String(pos);
-        num.title = 'Click to jump to a number';
-        num.addEventListener('click', startEdit);
-        // "20 of 38" — the word "Waypoint" was noise on a page of ten cards
-        // that are all obviously waypoints.
-        wrap.append(num, document.createTextNode(' of '), totalEl());
-      };
-
-      function startEdit() {
-        wrap.innerHTML = '';
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.inputMode = 'numeric';
-        input.className = 'wp-count-input';
-        input.value = String(pos);
-        wrap.append(input, document.createTextNode(' of '), totalEl());
-        setTimeout(() => { input.focus(); input.select(); }, 0);
-
-        let done = false;
-        const commit = async () => {
-          if (done) return; done = true;
-          const v = parseInt(input.value, 10);
-          if (Number.isFinite(v)) {
-            const target = Math.min(total, Math.max(1, v));
-            const targetRow = list[total - target];
-            if (targetRow && targetRow.wpid !== state.randomId) {
-              await maybeSaveBeforeLeaving();
-              state.randomId = targetRow.wpid;
-              syncPageToCursor();
-              render();
-              return;
-            }
-          }
-          showLabel();
-        };
-        input.addEventListener('keydown', (event) => {
-          if (event.key === 'Enter') { event.preventDefault(); commit(); }
-          else if (event.key === 'Escape') { event.preventDefault(); done = true; showLabel(); }
-        });
-        input.addEventListener('blur', () => { if (!done) { done = true; showLabel(); } });
-      }
-
-      showLabel();
-      return wrap;
-    }
 
     // `row` is the card this nav belongs to. It used to read state.randomId
     // instead, which was fine when one waypoint was on screen but means all ten
@@ -3967,16 +3854,15 @@ $$;`.trim();
     function renderNav(row) {
       const nav = document.createElement('div');
       nav.className = 'wp-nav';
-      const list = navRows();
-      const target = (row && row.wpid != null) ? row.wpid : state.randomId;
-      let idx = list.findIndex((item) => item.wpid === target);
-      if (idx < 0) idx = 0;
 
-      // Just the count now — "150 of 150", with the number clickable to jump.
-      // Back/Next were removed from the card on 2026-07-29: with ten cards on a
-      // page there were ten identical pairs of them, and the toolbar pager moves
-      // a whole page at a time instead of one waypoint per click.
-      nav.append(renderCount(list, idx));
+      // The WPID, which is what you actually reference when talking about a
+      // waypoint. It replaced the "N of M" position count on 2026-07-29 — a
+      // position is a property of the current sort and filter, so it changed
+      // meaning every time either did, and told you nothing durable.
+      const id = document.createElement('span');
+      id.className = 'wp-id';
+      id.textContent = 'WPID' + (row && row.wpid != null ? row.wpid : '—');
+      nav.append(id);
       return nav;
     }
 
