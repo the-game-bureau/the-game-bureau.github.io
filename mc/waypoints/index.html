@@ -339,6 +339,18 @@
     /* The cursor card inside a page of ten — what Back/Next/Random move, and
        what the nav row's "N of M" count refers to. */
     .wp-card.is-current { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(var(--bic-blue-rgb), 0.12); }
+
+    /* Toolbar pager: ‹ Page 3 of 6 › */
+    .wp-pager { display: inline-flex; align-items: center; gap: 6px; }
+    .wp-pager[hidden] { display: none; }
+    .wp-pager .btn { min-width: 34px; padding: 0 8px; font-size: 1rem; line-height: 1; }
+    .wp-pager-label {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--muted);
+      white-space: nowrap;
+    }
     .wp-card.is-dirty {
       border-color: rgba(194,55,55,0.55);
       box-shadow: 0 0 0 3px rgba(194,55,55,0.08);
@@ -762,7 +774,18 @@
         <option value="no_city">Missing city</option>
         <option value="no_description">Missing description</option>
       </select>
-      <button class="btn small" id="clearFiltersBtn" type="button" title="Clear the search, city and missing-field filters and go back to the top" disabled>Clear</button>
+      <select id="sortSelect" title="Order the waypoints" aria-label="Sort waypoints">
+        <option value="wpid_desc">Newest first</option>
+        <option value="wpid_asc">Oldest first</option>
+        <option value="city_asc">City A–Z</option>
+        <option value="name_asc">Name A–Z</option>
+      </select>
+      <button class="btn small" id="clearFiltersBtn" type="button" title="Reset the filters, the sort and the page" disabled>Clear</button>
+      <span class="wp-pager" id="pager" hidden>
+        <button class="btn small" id="pagePrevBtn" type="button" title="Previous page" aria-label="Previous page">‹</button>
+        <span class="wp-pager-label" id="pageLabel"></span>
+        <button class="btn small" id="pageNextBtn" type="button" title="Next page" aria-label="Next page">›</button>
+      </span>
     </div>
 
     <!-- Add waypoints: Manual (by-hand pop-up) and With AI (OpenStreetMap pull
@@ -853,12 +876,21 @@
     // section: updateSummary() calls updateClearButton() on the very first
     // render, which would hit the temporal dead zone on a `const` defined later.
     const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+    const sortSelect = document.getElementById('sortSelect');
+    // Enabled whenever pressing it would actually change something — a filter,
+    // a non-default sort, or a page other than the first. It used to gate on
+    // filters alone, so on an unfiltered page 2 the button sat there greyed out
+    // and read as broken.
     function updateClearButton() {
-      if (clearFiltersBtn) clearFiltersBtn.disabled = !isFiltered();
+      if (!clearFiltersBtn) return;
+      clearFiltersBtn.disabled = !isFiltered() && state.sort === DEFAULT_SORT && state.page === 0;
     }
     const newBtn = document.getElementById('newBtn');
     const nearBtn = document.getElementById('nearBtn');
     const wpList = document.getElementById('wpList');
+
+    // Declared above `state` because the state initializer reads it at load.
+    const DEFAULT_SORT = 'wpid_desc';
 
     const state = {
       rows: [],
@@ -866,8 +898,11 @@
       filter: '',
       fieldFilter: '',  // dropdown filter: '', 'no_address', 'no_zip', 'no_city', 'no_description'
       cityFilter: '',   // lowercased city key; '' means every city
-      // The single waypoint currently shown. Exactly one is featured at a time;
-      // Back/Next/Random step through the (optionally filtered) set.
+      sort: DEFAULT_SORT,
+      page: 0,          // 0-based page of PAGE_SIZE cards
+      // The cursor: what Back/Next/Random move and what "jump to N" targets. It
+      // is no longer the only thing on screen — a page of PAGE_SIZE renders
+      // around it — but it stays the anchor for navigation.
       randomId: null,
       dirtyIds: new Set(),
       savingIds: new Set()
@@ -3401,6 +3436,7 @@ $$;`.trim();
       if (nextIdx === idx) return;
       await maybeSaveBeforeLeaving();
       state.randomId = list[nextIdx].wpid;
+      syncPageToCursor();
       render();
       const row = findRow(state.randomId);
       setStatus(row ? 'Waypoint ' + (list.length - nextIdx) + ' of ' + list.length + ' — ' + displayName(row) + '.' : '');
@@ -3408,8 +3444,18 @@ $$;`.trim();
 
 
     // Most recent (highest wpid) first, down to the oldest.
+    // Sort modes. Newest-first is the default and was the only order until
+    // 2026-07-29 — which meant a batch import (20 Boston waypoints) buried 37
+    // Denver ones two pages down with no way to reorder.
     function compareRows(a, b) {
-      return Number(b.wpid) - Number(a.wpid);
+      const byText = (l, r) => String(l || '').localeCompare(String(r || ''), undefined, { sensitivity: 'base', numeric: true });
+      switch (state.sort) {
+        case 'wpid_asc':  return Number(a.wpid) - Number(b.wpid);
+        case 'city_asc':  return byText(cleanText(a.city), cleanText(b.city))
+                              || byText(displayName(a), displayName(b));
+        case 'name_asc':  return byText(displayName(a), displayName(b));
+        default:          return Number(b.wpid) - Number(a.wpid);   // wpid_desc
+      }
     }
 
     function displayName(row) {
@@ -3432,13 +3478,13 @@ $$;`.trim();
         return;
       }
 
-      // A page of PAGE_SIZE waypoints, anchored on the current one. The page is
-      // derived from where the current waypoint sits in the list rather than
-      // held as its own state, so Back/Next/Random/jump-to-N all keep working
-      // untouched — moving the cursor moves the page with it.
+      // A page of PAGE_SIZE waypoints. state.page is explicit so the pager can
+      // move a whole page at a time; the cursor (Back/Next/Random) pulls the
+      // page to itself via syncPageToCursor when it moves.
       const list = navRows();
-      const idx = Math.max(0, list.findIndex((row) => row.wpid === current.wpid));
-      const start = Math.floor(idx / PAGE_SIZE) * PAGE_SIZE;
+      const pages = totalPages(list);
+      state.page = Math.min(Math.max(0, state.page), pages - 1);
+      const start = state.page * PAGE_SIZE;
       const page = list.slice(start, start + PAGE_SIZE);
 
       page.forEach((row) => {
@@ -3769,10 +3815,53 @@ $$;`.trim();
       return empty;
     }
 
+    function totalPages(list) {
+      return Math.max(1, Math.ceil((list || navRows()).length / PAGE_SIZE));
+    }
+
+    // Keep the visible page containing the cursor. Called after anything that
+    // moves the cursor (Back/Next/Random/jump), so those keep working exactly as
+    // they did when one card was on screen.
+    function syncPageToCursor() {
+      const list = navRows();
+      const idx = list.findIndex((row) => row.wpid === state.randomId);
+      if (idx >= 0) state.page = Math.floor(idx / PAGE_SIZE);
+    }
+
+    function renderPager() {
+      const pager = document.getElementById('pager');
+      const label = document.getElementById('pageLabel');
+      const prev = document.getElementById('pagePrevBtn');
+      const next = document.getElementById('pageNextBtn');
+      if (!pager || !label || !prev || !next) return;
+      const list = navRows();
+      const pages = totalPages(list);
+      // One page of results needs no pager at all.
+      pager.hidden = !state.authed || pages <= 1;
+      label.textContent = 'Page ' + (state.page + 1) + ' of ' + pages;
+      prev.disabled = state.page <= 0;
+      next.disabled = state.page >= pages - 1;
+    }
+
+    function goToPage(page) {
+      const list = navRows();
+      const pages = totalPages(list);
+      const next = Math.min(Math.max(0, page), pages - 1);
+      if (next === state.page) return;
+      state.page = next;
+      // Move the cursor onto the new page so Back/Next carry on from what you
+      // are looking at rather than snapping you back to the old page.
+      const first = list[next * PAGE_SIZE];
+      if (first) state.randomId = first.wpid;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     function updateSummary() {
       updateToolbarButtons();
       renderPageTitle();
       updateClearButton();
+      renderPager();
     }
 
     // The count line under the title: "38 waypoints · 1–10 showing". The title
@@ -3845,6 +3934,7 @@ $$;`.trim();
             if (targetRow && targetRow.wpid !== state.randomId) {
               await maybeSaveBeforeLeaving();
               state.randomId = targetRow.wpid;
+              syncPageToCursor();
               render();
               return;
             }
@@ -3948,14 +4038,33 @@ $$;`.trim();
       state.filter = '';
       state.fieldFilter = '';
       state.cityFilter = '';
+      state.sort = DEFAULT_SORT;
+      state.page = 0;
       if (searchInput) searchInput.value = '';
       if (filterSelect) filterSelect.value = '';
       if (cityFilterSelect) cityFilterSelect.value = '';
+      if (sortSelect) sortSelect.value = DEFAULT_SORT;
       const list = navRows();
       state.randomId = list.length ? list[0].wpid : null;
       render();
       if (searchInput) searchInput.focus();
     });
+
+    // Sort.
+    if (sortSelect) sortSelect.addEventListener('change', () => {
+      state.sort = sortSelect.value || DEFAULT_SORT;
+      // Reordering makes the old page number meaningless — start at the top.
+      state.page = 0;
+      const list = navRows();
+      state.randomId = list.length ? list[0].wpid : null;
+      render();
+    });
+
+    // Pager.
+    const pagePrevBtn = document.getElementById('pagePrevBtn');
+    const pageNextBtn = document.getElementById('pageNextBtn');
+    if (pagePrevBtn) pagePrevBtn.addEventListener('click', () => goToPage(state.page - 1));
+    if (pageNextBtn) pageNextBtn.addEventListener('click', () => goToPage(state.page + 1));
 
     // The "+" that used to sit beside the city FILTER was removed 2026-07-29.
     // Adding a city from a filter is backwards — you filter by what exists.
