@@ -762,6 +762,7 @@
         <option value="no_city">Missing city</option>
         <option value="no_description">Missing description</option>
       </select>
+      <button class="btn small" id="clearFiltersBtn" type="button" title="Clear the search, city and missing-field filters and go back to the top" disabled>Clear</button>
     </div>
 
     <!-- Add waypoints: Manual (by-hand pop-up) and With AI (OpenStreetMap pull
@@ -848,6 +849,13 @@
     const searchInput = document.getElementById('searchInput');
     const filterSelect = document.getElementById('filterSelect');
     const cityFilterSelect = document.getElementById('cityFilterSelect');
+    // Declared up here with the other element lookups, not down in the wiring
+    // section: updateSummary() calls updateClearButton() on the very first
+    // render, which would hit the temporal dead zone on a `const` defined later.
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+    function updateClearButton() {
+      if (clearFiltersBtn) clearFiltersBtn.disabled = !isFiltered();
+    }
     const newBtn = document.getElementById('newBtn');
     const nearBtn = document.getElementById('nearBtn');
     const wpList = document.getElementById('wpList');
@@ -3764,6 +3772,7 @@ $$;`.trim();
     function updateSummary() {
       updateToolbarButtons();
       renderPageTitle();
+      updateClearButton();
     }
 
     // The count line under the title: "38 waypoints · 1–10 showing". The title
@@ -3931,24 +3940,28 @@ $$;`.trim();
       render();
     });
 
-    // The "+" beside every city control in Mission Control: add a city to
-    // public.cities without leaving the page. Adding one here reclassifies any
-    // waypoints already sitting in that city out of "Not in the city list".
-    if (cityFilterSelect && window.TgbCities && typeof window.TgbCities.openAddDialog === 'function') {
-      const addCityBtn = document.createElement('button');
-      addCityBtn.type = 'button';
-      addCityBtn.className = 'tgb-city-add btn small';
-      addCityBtn.textContent = '+';
-      addCityBtn.title = 'Add a city to the shared list';
-      addCityBtn.setAttribute('aria-label', 'Add a city');
-      addCityBtn.addEventListener('click', () => {
-        window.TgbCities.openAddDialog({ authHeaders: authHeaders }).then((row) => {
-          if (!row) return;
-          loadCatalogCities().then(renderCityFilter).catch(renderCityFilter);
-        });
-      });
-      cityFilterSelect.insertAdjacentElement('afterend', addCityBtn);
-    }
+    // Clear every filter and go back to the top of the default order (highest
+    // WPID first — the sort is fixed, so "back to the top" is what resetting it
+    // means here). Disabled while there is nothing to clear, so the button is
+    // never a no-op you have to think about.
+    if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', () => {
+      state.filter = '';
+      state.fieldFilter = '';
+      state.cityFilter = '';
+      if (searchInput) searchInput.value = '';
+      if (filterSelect) filterSelect.value = '';
+      if (cityFilterSelect) cityFilterSelect.value = '';
+      const list = navRows();
+      state.randomId = list.length ? list[0].wpid : null;
+      render();
+      if (searchInput) searchInput.focus();
+    });
+
+    // The "+" that used to sit beside the city FILTER was removed 2026-07-29.
+    // Adding a city from a filter is backwards — you filter by what exists.
+    // The "+" on a waypoint's own City field (renderCityStateField) stays: that
+    // is where you actually need it, when the city you are typing is not in the
+    // catalog yet.
 
     if (newBtn) newBtn.addEventListener('click', openManualDialog);
     if (nearBtn) nearBtn.addEventListener('click', () => {
