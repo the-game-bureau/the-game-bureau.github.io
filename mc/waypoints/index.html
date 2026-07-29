@@ -361,14 +361,6 @@
       color: var(--muted);
       word-break: break-all;
     }
-    /* Only present on rows the AI importer pulled from a source page. */
-    .wp-source {
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.72rem;
-      color: var(--accent);
-      text-decoration: underline dotted;
-      text-underline-offset: 2px;
-    }
 
     .card-actions {
       display: flex;
@@ -448,8 +440,9 @@
       cursor: pointer;
     }
     .wp-map-preview .leaflet-container { width: 100%; height: 100%; }
-    /* The whole tile surface is one Street View button, so the pointer says so
-       everywhere. The .wp-sv-btn control it replaced is gone. */
+    /* The whole tile surface is one "open this address in Google Maps" button,
+       so the pointer says so everywhere. The .wp-sv-btn control it replaced is
+       gone. */
     .wp-map-preview .leaflet-container { cursor: pointer; }
     /* Attribution is kept for Esri's terms, but it is a credit, not a control:
        small, quiet, and out of the way of the imagery. */
@@ -459,6 +452,22 @@
       line-height: 1.3;
       padding: 0 4px;
     }
+    /* The waypoint marked on its own aerial photo. A ringed dot rather than a
+       teardrop pin: it points at the exact spot instead of hanging above it, and
+       it reads on both dark rooftops and pale pavement. Pointer events are off
+       so the whole tile surface stays one clickable button. */
+    .wp-map-pin { pointer-events: none; }
+    .wp-map-pin-dot {
+      display: block;
+      width: 14px;
+      height: 14px;
+      margin: 4px;
+      border-radius: 50%;
+      background: var(--accent, #d34e2a);
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+
     @keyframes wp-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
     .wp-blink { animation: wp-blink 0.45s ease-in-out infinite; }
     .wp-map-empty {
@@ -835,10 +844,18 @@
     // on an unknown column, so re-adding them here breaks the whole page load.
     const WAYPOINT_COLUMNS = ['wpid', 'city', 'state', 'zip', 'address', 'name', 'description'];
     // Editable text fields (everything except the auto-number PK and lat/lon).
+    // source_url is editable too but lives in its own list: it is only writable
+    // once 2026072902_waypoints_source_url.sql has been applied, so it is added
+    // to the payload conditionally (see hasSourceUrlColumn / payloadFromRow).
     const EDITABLE_FIELDS = ['name', 'city', 'state', 'zip', 'address', 'description'];
+    const SOURCE_URL_FIELD = 'source_url';
     // Fields actually persisted on save / used for change detection — the editable
     // text fields plus the stored exact coordinates (lat/lon are not form fields).
-    const SAVED_FIELDS = EDITABLE_FIELDS.concat(['lat', 'lon']);
+    const SAVED_FIELDS = EDITABLE_FIELDS.concat([SOURCE_URL_FIELD, 'lat', 'lon']);
+    // Does the table actually have source_url? Set from the shape of a real fetch
+    // (select=* returns the key, null or not), so a database that predates the
+    // migration still saves — it just leaves the field out of the write.
+    let hasSourceUrlColumn = false;
     const round6 = (n) => Math.round(n * 1e6) / 1e6;
 
     // --- DOM refs ------------------------------------------------------------
@@ -978,6 +995,9 @@
         // works either way — the same reason the cities readers use one.
         const url = restUrl(TABLE, { select: '*', order: PK + '.asc' });
         const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
+        hasSourceUrlColumn = (Array.isArray(rows) ? rows : []).some(
+          (r) => r && typeof r === 'object' && Object.prototype.hasOwnProperty.call(r, SOURCE_URL_FIELD)
+        );
         state.rows = normalizeRows(rows);
         rebuildPristine();
         state.dirtyIds.clear();
@@ -1024,6 +1044,10 @@
         address: String(r.address || ''),
         name: String(r.name || ''),
         description: String(r.description || ''),
+        // The page a stop came from. The AI importer fills it; a card can also be
+        // edited by hand. normalizeRow used to drop it, which is why the "source"
+        // link in the card head never appeared.
+        source_url: String(r.source_url || ''),
         // Runtime-only, never round-tripped to the database: filled in by
         // geocoding so the map can centre. Always null straight off a fetch.
         lat: (r.lat == null || r.lat === '') ? null : Number(r.lat),
@@ -1042,6 +1066,9 @@
     function payloadFromRow(row) {
       const payload = {};
       EDITABLE_FIELDS.forEach((field) => { payload[field] = cleanText(row[field]) || null; });
+      // Only when the column exists — naming one PostgREST does not have rejects
+      // the whole write, same trap as lat/lon above.
+      if (hasSourceUrlColumn) payload[SOURCE_URL_FIELD] = cleanText(row[SOURCE_URL_FIELD]) || null;
       return payload;
     }
 
@@ -1235,6 +1262,135 @@
       containers.forEach((c) => mapObserver.observe(c));
     }
 
+    // The waypoint's address as one geocodable / searchable string. Street and
+    // locality together: a bare street resolves to whichever city Nominatim (or
+    // Google) likes best, which is rarely ours.
+    function addressQuery(row) {
+      return [cleanText(row.address), cleanText(row.city), cleanText(row.state), cleanText(row.zip)]
+        .filter(Boolean).join(', ');
+    }
+
+    // --- Address → the point the photo is centred on -------------------------
+    // Taking Nominatim's first hit is what made the imagery land in the wrong
+    // spot: a free-text street query usually matches the ROAD, and a road's
+    // point is its midpoint, so the photo showed a random stretch of the street
+    // rather than the building. So candidates are now scored, and a match that
+    // is only a road (or worse, the whole city) loses to one that resolved to an
+    // actual street number.
+
+    // Result classes that are a specific thing at an address rather than a line
+    // or an area drawn through the neighbourhood.
+    const PRECISE_CLASSES = new Set(['building', 'amenity', 'shop', 'tourism', 'leisure', 'historic', 'office', 'craft', 'club']);
+    // Types that mean "we only managed to place the locality".
+    const AREA_TYPES = new Set(['city', 'town', 'village', 'hamlet', 'suburb', 'county', 'state', 'postcode', 'country', 'municipality']);
+
+    function addressResultScore(hit, row) {
+      const addr = hit.address || {};
+      // The right street number in the wrong town is the worst possible photo:
+      // it looks completely plausible. Never use one.
+      if (!sameLocality(addr, row)) return -1;
+      // jsonv2 names the field `category`; the older format calls it `class`.
+      const cls = cleanText(hit.class || hit.category).toLowerCase();
+      const type = cleanText(hit.addresstype || hit.type).toLowerCase();
+      let score = 1;
+      if (cleanText(addr.house_number)) score += 4;   // pinned to a street number
+      if (PRECISE_CLASSES.has(cls)) score += 3;       // a named place, not a line
+      if (cls === 'highway' || type === 'road') score -= 3;
+      if (AREA_TYPES.has(type)) score -= 5;
+      return score;
+    }
+
+    // One Nominatim search (structured or free-text), scored against the row.
+    // Returns the best candidate as { point, score } or null.
+    async function searchBestPoint(params, row) {
+      try {
+        const query = new URLSearchParams(Object.assign({ format: 'jsonv2', addressdetails: '1', limit: '5' }, params));
+        const res = await fetch('https://nominatim.openstreetmap.org/search?' + query.toString(),
+          { headers: { 'Accept-Language': 'en' } });
+        if (!res.ok) return null;
+        const arr = await res.json();
+        if (!Array.isArray(arr) || !arr.length) return null;
+        let best = null;
+        arr.forEach((hit) => {
+          const lat = parseFloat(hit.lat);
+          const lon = parseFloat(hit.lon);
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+          const score = addressResultScore(hit, row);
+          if (score < 0) return;
+          if (!best || score > best.score) {
+            best = { point: { lat: lat, lon: lon, precise: score >= 5 }, score: score };
+          }
+        });
+        return best;
+      } catch (error) { return null; }
+    }
+
+    // Where to centre the aerial photo for this row's address. Three ways of
+    // asking, best-first, stopping as soon as one comes back precise (a street
+    // number or a named building). A merely-adequate answer is kept in case the
+    // later, better-shaped queries find nothing at all.
+    const addressPointCache = new Map();
+    async function geocodeAddressPoint(row) {
+      const street = cleanText(row.address);
+      const city = cleanText(row.city);
+      const state = cleanText(row.state);
+      const zip = cleanText(row.zip);
+      const name = cleanText(row.name);
+      if (!street && !name) return null;
+
+      const key = [street, city, state, zip, name].join('|').toLowerCase();
+      if (addressPointCache.has(key)) return addressPointCache.get(key);
+
+      const attempts = [];
+      // 1. Structured — the endpoint that actually understands house numbers.
+      if (street) {
+        const structured = { street: street };
+        if (city) structured.city = city;
+        if (state) structured.state = state;
+        if (zip) structured.postalcode = zip;
+        attempts.push(structured);
+      }
+      // 2. The venue by name at its address — a named building beats a road.
+      if (name && (city || state)) {
+        attempts.push({ q: [name, street, city, state].filter(Boolean).join(', ') });
+      }
+      // 3. Plain free text, the old behaviour, as a floor.
+      if (street) attempts.push({ q: addressQuery(row) });
+
+      let fallback = null;
+      let transient = false;
+      for (let i = 0; i < attempts.length; i += 1) {
+        if (i > 0) await nominatimPause();
+        const best = await searchBestPoint(attempts[i], row);
+        if (!best) { transient = true; continue; }
+        // 5+ means a street number or a named building — good enough to stop.
+        if (best.score >= 5) {
+          addressPointCache.set(key, best.point);
+          return best.point;
+        }
+        if (!fallback || best.score > fallback.score) fallback = best;
+      }
+      const result = fallback ? fallback.point : null;
+      // Don't cache a miss that may just have been a rate-limited request —
+      // scrolling back to the card should get another go.
+      if (result || !transient) addressPointCache.set(key, result);
+      return result;
+    }
+
+    // Google Maps for a waypoint, asked for BY ADDRESS — the official Maps URL
+    // search form, so Google geocodes the address and shows the place exactly as
+    // it would for someone typing it in. Coordinates are the fallback only: with
+    // no address there is nothing to search for, so the clicked point is all we
+    // have.
+    function googleMapsUrl(row, point) {
+      const q = addressQuery(row) || cleanText(row.name);
+      if (q) return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+      if (point && Number.isFinite(point.lat) && Number.isFinite(point.lon)) {
+        return 'https://www.google.com/maps/search/?api=1&query=' + point.lat + ',' + point.lon;
+      }
+      return '';
+    }
+
     async function setupMap(row, containerEl) {
       if (typeof L === 'undefined') return;
       const container = containerEl || wpList.querySelector('[data-map-preview]');
@@ -1246,33 +1402,44 @@
       // page in a "loading" (busy/hourglass cursor) state.
       container.innerHTML = '';
 
-      // Center priority: stored coordinates -> address -> city/state,
-      // else a wide New Orleans view so a blank waypoint is still usable.
+      // Center priority: the ADDRESS first, then city/state, else a wide New
+      // Orleans view so a blank waypoint is still usable. The address is what a
+      // person edits and what the photo is supposed to be OF, so it leads —
+      // stored coordinates are a runtime by-product of an earlier geocode and
+      // now only stand in when the address cannot be resolved at all. Retyping
+      // an address therefore moves the photo, which is what you'd expect.
       // Was "is this still THE map on the page"; with ten of them the only
       // question is whether this particular card is still mounted.
       const stale = () => !container.isConnected;
       let center = null;
 
-      // 0) stored exact coordinates — most reliable, no geocoding.
-      if (Number.isFinite(row.lat) && Number.isFinite(row.lon)) center = { lat: row.lat, lon: row.lon };
-
-      // 2) address (decode coords/Plus Code locally, else geocode it WITH the
-      //    city/state/zip so a bare street like "1427 Washington Avenue" doesn't
-      //    resolve to the wrong city).
-      if (!center) {
-        const address = cleanText(row.address);
+      // 1) address — coords/Plus Code decoded locally, else geocodeAddressPoint,
+      //    which asks structurally first and prefers a street number or a named
+      //    building over a road centre. It caches per row, so ten cards
+      //    re-rendering do not mean ten more Nominatim hits.
+      const address = cleanText(row.address);
+      if (address || cleanText(row.name)) {
         center = addressToPoint(address);
-        if (!center && address) {
-          const q = [address, cleanText(row.city), cleanText(row.state), cleanText(row.zip)].filter(Boolean).join(', ');
-          try { center = await geocodeCoords(q); } catch (error) {}
+        if (!center) {
+          try { center = await geocodeAddressPoint(row); } catch (error) {}
           if (stale()) return;
         }
       }
 
+      // 2) stored exact coordinates — only as a fallback now, for a row whose
+      //    address is blank or refuses to geocode.
+      if (!center && Number.isFinite(row.lat) && Number.isFinite(row.lon)) center = { lat: row.lat, lon: row.lon };
+
       // 3) city, state, zip.
       if (!center) {
         const loc = [cleanText(row.city), cleanText(row.state), cleanText(row.zip)].filter(Boolean).join(', ');
-        if (loc) { try { center = await geocodeCoords(loc); } catch (error) {} if (stale()) return; }
+        if (loc) {
+          try { center = await geocodeCoords(loc); } catch (error) {}
+          if (stale()) return;
+          // A city centre is not this waypoint — frame it as the neighbourhood
+          // it is, never as a rooftop close-up.
+          if (center) center = { lat: center.lat, lon: center.lon, precise: false };
+        }
       }
 
       // A waypoint that HAS a location but couldn't be geocoded (usually a
@@ -1288,12 +1455,16 @@
 
       const has = !!center;
       const view = center || { lat: 29.9584, lon: -90.0644 };
-      // Open located waypoints zoomed in.
+      // Zoom says how much we trust the point. A street number or a named
+      // building gets the tight frame; a match that only got as far as the road
+      // gets a wider one, because at 19 an approximate centre looks exactly as
+      // confident as an exact one — and that is how a wrong photo goes unnoticed.
+      const zoom = has ? (center.precise === false ? 17 : 19) : 12;
       // A still picture of the place, not a map you operate. Every interaction
-      // and every control is off, so there is nothing to fiddle with and nothing
-      // painted over the imagery: no zoom buttons, no layer switcher, no marker,
-      // no Street View button. Clicking anywhere opens Street View at the exact
-      // point clicked, which is what the button did for the centre only.
+      // and every control is off, so there is nothing to fiddle with: no zoom
+      // buttons, no layer switcher, no map controls. The one thing painted over
+      // the imagery is the waypoint's own pin. Clicking anywhere opens Google
+      // Maps for the waypoint's address.
       const map = L.map(container, {
         maxZoom: 22,
         zoomControl: false,
@@ -1308,7 +1479,7 @@
         // decoration — Esri's terms require the credit, so "no overlays" cannot
         // extend to it.
         attributionControl: true
-      }).setView([view.lat, view.lon], has ? 19 : 12);
+      }).setView([view.lat, view.lon], zoom);
       // Tracked per waypoint so a re-render or a page flip can dispose of every
       // live map — ten leaked Leaflet instances per page adds up fast.
       liveMaps.set(key, map);
@@ -1316,13 +1487,37 @@
         maxZoom: 22, maxNativeZoom: 19, attribution: 'Esri'
       }).addTo(map);
 
+      // The waypoint itself, marked on the photo. Aerial imagery of a city block
+      // looks like any other city block — without a pin you are trusting that
+      // the centre of the frame is the place, which is exactly what a reviewer
+      // is there to check. interactive:false so the pin is picture, not control:
+      // clicks fall through it to the map handler below.
+      if (has) {
+        const pin = L.divIcon({
+          className: 'wp-map-pin',
+          html: '<span class="wp-map-pin-dot"></span>',
+          iconSize: [22, 22],
+          iconAnchor: [11, 11]
+        });
+        L.marker([view.lat, view.lon], { icon: pin, interactive: false, keyboard: false })
+          .addTo(map);
+      }
+
+      // Anywhere on the photo opens Google Maps for THIS WAYPOINT'S ADDRESS —
+      // not the pixel you happened to hit. Clicking a corner of the frame used
+      // to send you to whatever was under it (the building next door, the middle
+      // of the street), which made the preview a worse way to check an address
+      // than typing it into Maps yourself.
+      const mapsUrl = has ? googleMapsUrl(row, view) : '';
       map.on('click', (event) => {
+        // A waypoint with nothing to search for falls back to the clicked point,
+        // because the wide default view is a place to look around rather than a
+        // photo of anything in particular.
         const p = event && event.latlng;
-        if (!p) return;
-        window.open(
-          'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + p.lat + ',' + p.lng,
-          '_blank', 'noopener'
-        );
+        const url = mapsUrl || (p
+          ? 'https://www.google.com/maps/search/?api=1&query=' + p.lat + ',' + p.lng
+          : '');
+        if (url) window.open(url, '_blank', 'noopener');
       });
 
       setTimeout(() => { try { map.invalidateSize(); } catch (error) {} }, 0);
@@ -1455,6 +1650,154 @@
       button._flashTimer = setTimeout(() => { button.textContent = 'Fill'; }, 1600);
     }
 
+    // --- ZIP / postcode resolution -------------------------------------------
+    // The ZIP is the field a single forward geocode most often comes back
+    // without: Nominatim answers a street query from the road object, and roads
+    // carry no postcode even though the buildings on them do. So Fill no longer
+    // takes "no postcode in the match" as the answer — it asks again, three
+    // progressively looser ways, and only gives up after all of them.
+
+    const nominatimPause = () => new Promise((resolve) => setTimeout(resolve, 1100));
+
+    // US ZIPs are stored as the 5-digit form: OSM sometimes carries ZIP+4, which
+    // is more precision than the column means and breaks equality with every
+    // other row in the same ZIP. Non-US postcodes are kept verbatim — they have
+    // their own shapes ("SW1A 1AA", "75008") and must not be digit-scraped.
+    function normalizeZip(value, addr) {
+      const raw = cleanText(value);
+      if (!raw) return '';
+      const country = cleanText(addr && addr.country_code).toLowerCase();
+      const looksUS = country === 'us' || (!country && /^\d{5}(-\d{4})?$/.test(raw));
+      if (!looksUS) return raw;
+      const digits = raw.match(/\d{5}/);
+      return digits ? digits[0] : '';
+    }
+
+    async function reverseGeocode(lat, lon, zoom) {
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+      try {
+        const url = 'https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lon
+          + '&format=jsonv2&addressdetails=1' + (zoom ? '&zoom=' + zoom : '');
+        const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return (data && !data.error) ? data : null;
+      } catch (error) { return null; }
+    }
+
+    // Does a candidate result sit in the same place as the row? A postcode from
+    // the wrong town is worse than a blank ZIP — it looks entered and checked.
+    // Only used on results we did NOT get from the row's own coordinates.
+    function sameLocality(addr, row) {
+      const city = cleanText(row.city).toLowerCase();
+      const state = cleanText(row.state).toLowerCase();
+      if (!city && !state) return true;
+      const stateKey = (value) => {
+        const abbr = stateAbbrOf(value);
+        return (abbr || cleanText(value)).toLowerCase();
+      };
+      const candCities = [addr.city, addr.town, addr.village, addr.hamlet, addr.suburb, addr.municipality, addr.county]
+        .map((v) => cleanText(v).toLowerCase())
+        .filter(Boolean);
+      const candState = stateKey(addr.state);
+      // A city can be written a dozen ways ("St. Louis" / "City of St. Louis"),
+      // so containment either way counts as a match.
+      const cityOk = !city || !candCities.length
+        || candCities.some((c) => c === city || c.includes(city) || city.includes(c));
+      const stateOk = !state || !candState || candState === stateKey(state);
+      return cityOk && stateOk;
+    }
+
+    // Nominatim's STRUCTURED endpoint — street/city/state in separate params
+    // rather than one string. It matches house numbers that the free-text search
+    // misses, and it answers from the address point, which does carry a postcode.
+    async function structuredLookup(row) {
+      const street = cleanText(row.address);
+      const city = cleanText(row.city);
+      const state = cleanText(row.state);
+      if (!street || !(city || state)) return null;
+      try {
+        const params = new URLSearchParams({ format: 'jsonv2', addressdetails: '1', limit: '1', street: street });
+        if (city) params.set('city', city);
+        if (state) params.set('state', state);
+        const res = await fetch('https://nominatim.openstreetmap.org/search?' + params.toString(),
+          { headers: { 'Accept-Language': 'en' } });
+        if (!res.ok) return null;
+        const arr = await res.json();
+        return (Array.isArray(arr) && arr[0]) ? arr[0] : null;
+      } catch (error) { return null; }
+    }
+
+    // Best ZIP we can get for `row`, given whatever `place`/`point` Fill already
+    // resolved. Returns { zip, approx } — approx means it came from a city-level
+    // fallback and names the right town but not necessarily the right block.
+    // Order: the match itself → the exact point → the structured address → the
+    // city centre. Every step is a network call, hence the pauses (Nominatim
+    // allows about one request a second).
+    async function resolveZip(row, place, point) {
+      const fromAddr = (addr) => normalizeZip(addr && addr.postcode, addr || {});
+
+      // 1. Whatever Fill already matched.
+      if (place && place.address) {
+        const zip = fromAddr(place.address);
+        if (zip) return { zip: zip, approx: false };
+      }
+
+      // 2. The exact point, reverse-geocoded at building zoom and then wider.
+      // A house has a postcode even when the road it is on does not, and if the
+      // building is untagged the enclosing suburb or town usually carries one.
+      let lat = point ? point.lat : (place ? parseFloat(place.lat) : NaN);
+      let lon = point ? point.lon : (place ? parseFloat(place.lon) : NaN);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        const zooms = [18, 16, 14];
+        for (let i = 0; i < zooms.length; i += 1) {
+          await nominatimPause();
+          const rev = await reverseGeocode(lat, lon, zooms[i]);
+          const zip = rev ? fromAddr(rev.address) : '';
+          // Coordinates we already trust — no locality check needed.
+          if (zip) return { zip: zip, approx: zooms[i] < 18 && !cleanText(row.address) };
+        }
+      }
+
+      // 3. The typed address, asked structurally.
+      if (cleanText(row.address)) {
+        await nominatimPause();
+        const hit = await structuredLookup(row);
+        if (hit && hit.address && sameLocality(hit.address, row)) {
+          const zip = fromAddr(hit.address);
+          if (zip) return { zip: zip, approx: false };
+          // The structured hit has coordinates even when it has no postcode.
+          const hLat = parseFloat(hit.lat);
+          const hLon = parseFloat(hit.lon);
+          if (Number.isFinite(hLat) && Number.isFinite(hLon)) {
+            await nominatimPause();
+            const rev = await reverseGeocode(hLat, hLon, 18);
+            const revZip = rev ? fromAddr(rev.address) : '';
+            if (revZip && sameLocality(rev.address || {}, row)) return { zip: revZip, approx: false };
+          }
+        }
+      }
+
+      // 4. City centre — a real ZIP for the right town, flagged approximate
+      // because a city has many and this is only the one at its middle.
+      const city = cleanText(row.city);
+      const state = cleanText(row.state);
+      if (city) {
+        await nominatimPause();
+        const found = await geocodeFirst([[city, state].filter(Boolean).join(', ')]);
+        const cLat = found ? parseFloat(found.place.lat) : NaN;
+        const cLon = found ? parseFloat(found.place.lon) : NaN;
+        if (Number.isFinite(cLat) && Number.isFinite(cLon)) {
+          await nominatimPause();
+          const rev = await reverseGeocode(cLat, cLon, 16);
+          const zip = rev ? fromAddr(rev.address) : '';
+          if (zip && sameLocality(rev.address || {}, row)) return { zip: zip, approx: true };
+        }
+      }
+
+      return { zip: '', approx: false };
+    }
+
     // Fill `row` from a geocoded `place` (+ optional precise `point`). With
     // overwrite=false (Fill button) only blank fields are set, keeping existing
     // values. With overwrite=true (map click) every field is cleared and
@@ -1468,7 +1811,7 @@
       const name = cleanText(placeName(place, addr));
       const city = cleanText(addr.city || addr.town || addr.village || addr.hamlet || addr.suburb || addr.municipality || addr.county);
       const state = cleanText(addr.state);
-      const zip = cleanText(addr.postcode);
+      const zip = normalizeZip(addr.postcode, addr);
       // Address is the STREET ONLY (house number + road) — city/state/zip live in
       // their own fields. A street address is always a street address: if the
       // reverse geocode has no street, leave it blank so the "Missing address"
@@ -1559,6 +1902,18 @@
           place = found.place;
         }
         const filled = await fillFieldsFromPlace(row, place, point);
+        // A match with no postcode is the common case, not a dead end — chase the
+        // ZIP separately before reporting what Fill managed to get.
+        let zipApprox = false;
+        if (!cleanText(row.zip)) {
+          if (button) button.textContent = 'ZIP…';
+          const guess = await resolveZip(row, place, point);
+          if (guess.zip) {
+            row.zip = guess.zip;
+            zipApprox = guess.approx;
+            filled.push('zip');
+          }
+        }
         if (!filled.length) {
           flashButton(button, 'No new data');
           setStatus('Found a match, but nothing new to fill.');
@@ -1566,7 +1921,9 @@
         }
         markDirty(wpid);
         render();
-        setStatus('Filled ' + filled.join(', ') + ' for ' + displayName(row) + '. Review, then Save.', 'success');
+        setStatus('Filled ' + filled.join(', ') + ' for ' + displayName(row) + '.'
+          + (zipApprox ? ' The ZIP is the city-centre one — check it against the address.' : '')
+          + ' Review, then Save.', 'success');
       } catch (error) {
         console.error(error);
         flashButton(button, 'Failed');
@@ -1574,7 +1931,9 @@
       } finally {
         if (button) {
           button.disabled = false;
-          if (button.textContent === 'Filling…') button.textContent = 'Fill';
+          // 'ZIP…' as well as 'Filling…' — both are in-progress labels this
+          // function set, and neither should survive the run.
+          if (button.textContent === 'Filling…' || button.textContent === 'ZIP…') button.textContent = 'Fill';
         }
       }
     }
@@ -3219,7 +3578,7 @@ $$;`.trim();
 
     // --- Filtering / ordering / grouping (by city) ---------------------------
     function searchHaystack(row) {
-      return [row.wpid, row.name, row.city, row.state, row.address, row.description].join(' ').toLowerCase();
+      return [row.wpid, row.name, row.city, row.state, row.address, row.description, row.source_url].join(' ').toLowerCase();
     }
 
     // The filtered + ordered set the user navigates through (one at a time).
@@ -3535,6 +3894,9 @@ $$;`.trim();
       cityState.append(renderCityStateField(row), renderTextField(row, 'zip', 'ZIP'));
       fields.appendChild(cityState);
       fields.appendChild(renderTextField(row, 'description', 'Description', null, true));
+      // Every card carries the field, filled or not — the AI importer sets it,
+      // and a hand-entered stop can be given one so its facts stay checkable.
+      fields.appendChild(renderSourceUrlField(row));
 
       const preview = document.createElement('div');
       preview.className = 'wp-map-preview';
@@ -3694,6 +4056,53 @@ $$;`.trim();
         const help = document.createElement('div');
         help.className = 'field-hint';
         help.textContent = hint;
+        wrap.appendChild(help);
+      }
+      return wrap;
+    }
+
+    // Source URL: the page this stop's facts came from. Text box plus an Open
+    // button, so you can check the source without copying the link out. The box
+    // goes read-only (with a hint) on a database that has not run
+    // 2026072902_waypoints_source_url.sql — better than taking an edit that Save
+    // would quietly drop.
+    function renderSourceUrlField(row) {
+      const wrap = document.createElement('div');
+      wrap.className = 'field';
+      const id = 'wp-source-url-' + row.wpid;
+      const label = document.createElement('label');
+      label.setAttribute('for', id);
+      label.textContent = 'Source URL';
+      const line = document.createElement('div');
+      line.className = 'field-line';
+      const input = document.createElement('input');
+      input.id = id;
+      input.type = 'text';
+      input.dataset.field = SOURCE_URL_FIELD;
+      input.placeholder = 'https://…';
+      input.value = row[SOURCE_URL_FIELD] || '';
+      input.disabled = !hasSourceUrlColumn;
+      const openBtn = document.createElement('button');
+      openBtn.type = 'button';
+      openBtn.className = 'btn small';
+      openBtn.textContent = 'Open';
+      openBtn.title = 'Open the source page in a new tab';
+      const syncOpen = () => { openBtn.disabled = !cleanText(input.value); };
+      syncOpen();
+      input.addEventListener('input', () => {
+        updateField(row.wpid, SOURCE_URL_FIELD, input.value);
+        syncOpen();
+      });
+      openBtn.addEventListener('click', () => {
+        const href = cleanText(input.value);
+        if (href) window.open(href, '_blank', 'noopener,noreferrer');
+      });
+      line.append(input, openBtn);
+      wrap.append(label, line);
+      if (!hasSourceUrlColumn) {
+        const help = document.createElement('div');
+        help.className = 'field-hint';
+        help.textContent = 'Not editable yet — run migration 2026072902_waypoints_source_url.sql.';
         wrap.appendChild(help);
       }
       return wrap;
@@ -3881,20 +4290,9 @@ $$;`.trim();
       id.textContent = 'WPID' + (row && row.wpid != null ? row.wpid : '—');
       nav.append(id);
 
-      // Where the AI importer scraped this one from, when it had a source page.
-      // Most waypoints are hand-entered and have none, so this stays absent
-      // rather than rendering an empty slot.
-      const src = cleanText(row && row.source_url);
-      if (src) {
-        const link = document.createElement('a');
-        link.className = 'wp-source';
-        link.href = src;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.textContent = 'source';
-        link.title = 'Scraped from ' + src;
-        nav.append(link);
-      }
+      // The "source" link that used to sit here was removed 2026-07-28: the card
+      // now has a Source URL field with its own Open button, so the head link was
+      // a second, read-only copy of the same thing.
       return nav;
     }
 
