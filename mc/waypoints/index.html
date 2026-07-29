@@ -3911,6 +3911,22 @@ $$;`.trim();
     }
 
     // --- Wiring --------------------------------------------------------------
+
+    // Closing the tab, reloading, or following a link away with edits still
+    // unsaved. Paging is already guarded by maybeSaveDirtyBeforePaging, but that
+    // cannot help here — nothing in the page runs once the browser is leaving,
+    // so this is the last chance to say anything.
+    //
+    // The browser shows its own generic wording and ignores whatever string is
+    // returned; returnValue just has to be set for the prompt to appear at all.
+    // It also only fires if the page has been interacted with, which is fine —
+    // you cannot have dirty rows without having typed in one.
+    window.addEventListener('beforeunload', (event) => {
+      if (!state.dirtyIds.size) return;      // nothing to lose, never nag
+      event.preventDefault();
+      event.returnValue = '';
+    });
+
     // Instant filter across all waypoint fields as you type.
     searchInput.addEventListener('input', () => {
       state.filter = cleanText(searchInput.value).toLowerCase();
