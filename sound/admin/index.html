@@ -1164,7 +1164,7 @@ Current data model (changed 2026-07-29 - the JSON file is no longer the source o
 - Tapes live in public.soundtracks (one row per city, keyed by city_slug).
 - Songs live in public.soundtrack_songs (one row per track: city_slug, position, title, artist, blurb, spotify_id, explicit, archived).
 - public.soundtrack_stats is a view with active_songs / archived_songs per tape. Use it instead of counting songs yourself.
-- sound/soundtracks.json is only an offline fallback that /sound/ reads when Supabase is unreachable. Do not edit it and do not commit it.
+- sound/soundtracks.json is only an offline fallback that /sound/ reads when Supabase is unreachable. Never hand-edit it; regenerate it with "node _dev/scripts/soundtracks-export.mjs" and commit that one file.
 - A song with archived = true is a hidden do-not-rescrape tombstone for that city. It never counts as active and must never be re-added.
 
 Read with curl and the repo's publishable key, which is in sound/index.html. The key rides in the query string; PostgREST accepts that:
@@ -1205,7 +1205,14 @@ Call the RPC public.tgb_pull_soundtrack_songs with the same publishable key. It 
 - One call can carry both tapes. Max 4 tapes and 60 songs per call.
 - It returns one row per song: action is inserted or skipped, with a note. Read that output - a skipped row means the song was already on the tape or already a tombstone, and the tape is now short by one.
 - The RPC cannot update, delete, archive, or un-archive anything, and it ignores spine_tag on a tape that already exists. That is deliberate: retiring a song is a human action in the Tape Room.
-- Do not write to the tables directly, do not use a service-role key, and do not edit sound/soundtracks.json.
+- Do not write to the tables directly and do not use a service-role key.
+
+Then refresh the offline fallback and commit only that file:
+  node _dev/scripts/soundtracks-export.mjs
+  git add sound/soundtracks.json
+  git diff --cached --quiet && echo "already current" || git commit -m "auto: refresh soundtrack fallback"
+  git push
+If the push is rejected, git pull --rebase and push again. Never force-push.
 
 Verify after writing, with curl against soundtrack_stats:
 1. The new city_slug exists and has exactly 15 active songs.
@@ -1255,7 +1262,7 @@ Final report:
     },
     "fallbackFile": {
       "path": "sound/soundtracks.json",
-      "role": "offline copy /sound/ reads only when Supabase is unreachable. Not the source of truth. Do not hand-edit; regenerate it from the Tape Room's Download JSON."
+      "role": "offline copy /sound/ reads only when Supabase is unreachable. Not the source of truth. Do not hand-edit; regenerate with node _dev/scripts/soundtracks-export.mjs (or the Tape Room's Download JSON), which the daily routine runs and commits."
     },
     "cityCatalog": { "table": "public.cities", "excludeWhere": "hide_from_soundtracks = true (venue-only stadium towns and other non-destinations)" },
     "rules": [

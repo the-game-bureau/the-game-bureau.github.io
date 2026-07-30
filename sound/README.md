@@ -39,7 +39,8 @@ The file is still committed and still read — but only as a lifeboat.
 | How full each tape is | `public.soundtrack_stats` (view) | `active_songs`, `archived_songs`, `last_song_at` per tape. Read this instead of counting songs yourself. |
 | The write path for agents | `public.tgb_pull_soundtrack_songs(jsonb)` | Insert-only RPC callable with the publishable key. The routine's only way in. |
 | City names + geo badges | `public.cities` | Joined on `city_slug` = `cities.slug`. Also the gate: no tape for a city with `hide_from_soundtracks = true`. |
-| Offline fallback | `sound/soundtracks.json` | What `/sound/` renders when Supabase is unreachable. **Not the source of truth.** Regenerate it with **Download JSON** in the Tape Room; never hand-edit it and never treat it as current. |
+| Offline fallback | `sound/soundtracks.json` | What `/sound/` renders when Supabase is unreachable. **Not the source of truth.** The daily run regenerates and commits it; never hand-edit it. |
+| The fallback exporter | `_dev/scripts/soundtracks-export.mjs` | `node _dev/scripts/soundtracks-export.mjs` rewrites that file from the tables, byte-stably. Read-only, publishable key, no secret. |
 | The public page | `sound/index.html` | Reads both tables (paged, because PostgREST caps at 1000 rows), falls back to the JSON file on any error. |
 | The dashboard | `sound/admin/index.html` | Fresh-track review, the Track Archive editor, last run, links to the routine, manual fallback prompt. |
 
@@ -210,8 +211,12 @@ winter costs nothing.
 3. Researches songs and verifies every Spotify ID by web search.
 4. Runs the housekeeping pass below.
 5. Writes the songs through `tgb_pull_soundtrack_songs`, which puts them live on
-   `/sound/` immediately. It commits nothing — **the newest song row is the run
-   receipt**, which is what the dashboard's "Last run" reads.
+   `/sound/` immediately. **The newest song row is the run receipt** — that is
+   what the dashboard's "Last run" reads, not a commit.
+6. Runs `node _dev/scripts/soundtracks-export.mjs` and commits
+   `sound/soundtracks.json` if it changed, so the offline fallback never drifts
+   more than a day behind the tables. That commit is the run's only write to git,
+   and it is allowed to be a no-op.
 
 ### The daily housekeeping pass
 
@@ -290,8 +295,17 @@ token. There is no field editor on the dashboard yet.
 
 `sound/soundtracks.json` is **not** where you make a change. It is the offline
 fallback `/sound/` reads when Supabase is unreachable, and it goes stale the
-moment anything is written to the tables. Refresh it with **Download JSON** in the
-Tape Room and commit the result; that is its only maintenance.
+moment anything is written to the tables. The daily run refreshes it for you:
+
+```bash
+node _dev/scripts/soundtracks-export.mjs
+```
+
+Run that yourself after a hand edit if you do not want to wait for the morning.
+It is read-only against Supabase and rewrites the file in its exact historical
+shape, so an unchanged database produces a zero-line diff. **Never hand-edit the
+file** — the Tape Room's **Download JSON** button produces the same content if you
+would rather work from a download.
 
 After any edit, load `/sound/` and play the tape you touched.
 
@@ -326,6 +340,9 @@ After any edit, load `/sound/` and play the tape you touched.
 - Verify after writing, by re-reading `soundtrack_stats`: 15 active songs on both
   tapes you touched, artist cap intact, every added song accounted for in the
   RPC's result rows.
+- Refresh the fallback with the export script and commit only that one file. If
+  the push is rejected, `git pull --rebase` and push again — three other routines
+  commit here every morning. Never force-push.
 - You cannot remove or archive a song, and that is deliberate. Archived rows are
   city-specific do-not-rescrape tombstones: hidden from `/sound/`, ignored by
   counts, and still blocking future title + artist reuse in that city. Name what
