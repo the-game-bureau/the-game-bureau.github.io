@@ -100,10 +100,17 @@ Writes split by who is doing them:
   same reason, as the gift shop's `tgb_pull_book_candidates`: a cloud routine has
   no secret store, so a service-role key would have to sit in its stored prompt
   in plaintext.
-- **A human retires or restores a song** in the Tape Room's Track Archive panel,
-  which PATCHes `soundtrack_songs.archived` under an admin session. RLS allows
-  writes to `authenticated` only. The asymmetry is the design: adding is
-  automatable, destroying is not.
+- **A human retires or restores a song** in the Tape Room, which PATCHes
+  `soundtrack_songs.archived` under an admin session. RLS allows writes to
+  `authenticated` only. The asymmetry is the design: adding is automatable,
+  destroying is not.
+- **A human can archive a whole tape**, from its city header in the same panel.
+  That PATCHes `soundtracks.archived`, and a trigger archives every live song on
+  the tape with it, marking each `archived_with_tape = true`. Restoring the tape
+  clears exactly those marks. **A song you retired by hand stays retired** through
+  a tape archive and restore, because it is a do-not-rescrape tombstone. Use a
+  tape archive for a city that should not be published at all — it is one click
+  instead of fifteen, and `active_songs` drops to zero the way the counts assume.
 
 ---
 

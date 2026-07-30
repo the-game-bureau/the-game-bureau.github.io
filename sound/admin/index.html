@@ -1405,6 +1405,7 @@ Final report:
       // disagree with what a visitor sees. One row per tape, so no paging.
       async function loadTapeSummary() {
         var live;
+        var hiddenTapes = [];
         try {
           var res = await fetch(
             restUrl('soundtrack_stats?select=city_slug,active_songs,archived&order=city_slug.asc'),
@@ -1412,11 +1413,18 @@ Final report:
           );
           if (!res.ok) throw new Error('HTTP ' + res.status);
           var list = await res.json();
-          live = (Array.isArray(list) ? list : [])
+          var statRows = Array.isArray(list) ? list : [];
+          live = statRows
             .filter(function (tape) { return !tape.archived && Number(tape.active_songs) > 0; })
             .map(function (tape) {
               return { city_slug: tape.city_slug, active: Number(tape.active_songs) || 0 };
             });
+          // An archived tape is hidden from /sound/, so it is deliberately absent
+          // from the counts above -- but silently absent is how you forget one is
+          // parked. Kept here so the substat can say so.
+          hiddenTapes = statRows
+            .filter(function (tape) { return !!tape.archived; })
+            .map(function (tape) { return tape.city_slug; });
         } catch (error) {
           setPageStatus('');
           return;
@@ -1511,6 +1519,17 @@ Final report:
             text: missing.length + ' cit' + (missing.length === 1 ? 'y' : 'ies') + ' with no tracks',
             title: missing.join('\n')
           }];
+        }
+
+        // Hidden tapes, named on hover. Only shown when there are any -- a
+        // permanent "0 tapes hidden" is noise on a line that is already busy.
+        if (hiddenTapes.length) {
+          var hiddenSeg = {
+            text: hiddenTapes.length + ' tape' + (hiddenTapes.length === 1 ? '' : 's') + ' hidden',
+            title: hiddenTapes.map(cityLabel).sort(citySort).join('\n')
+          };
+          if (line2) line2 = line2.concat([{ text: ' \u00b7 ' }, hiddenSeg]);
+          else line2 = [hiddenSeg];
         }
 
         // The gap count joins the buckets rather than taking a third line.
@@ -1756,6 +1775,7 @@ Final report:
           if (row.spotify_id) song.spotifyId = row.spotify_id;
           if (row.explicit) song.explicit = true;
           if (row.archived) song.archived = true;
+          if (row.archived_with_tape) song.archivedWithTape = true;
           tape.songs.push(song);
         });
         return { soundtracks: tapes };
@@ -1845,13 +1865,16 @@ Final report:
         var tapes = soundtracks();
         var active = 0;
         var archived = 0;
+        var hiddenTapes = 0;
         tapes.forEach(function (tape) {
           var counts = tapeCounts(tape);
           active += counts.active;
           archived += counts.archived;
+          if (truthyFlag(tape && tape.archived)) hiddenTapes += 1;
         });
         return {
           tapes: tapes.length,
+          hiddenTapes: hiddenTapes,
           active: active,
           archived: archived
         };
@@ -1946,7 +1969,9 @@ Final report:
         var summary = archiveSummary();
         var filtered = autoOpen || includeArchived;
         setArchiveStatus(
-          message || (summary.tapes + ' tapes - ' + summary.active + ' active tracks - ' + summary.archived + ' archived.'
+          message || (summary.tapes + ' tapes'
+            + (summary.hiddenTapes ? ' (' + summary.hiddenTapes + ' hidden)' : '')
+            + ' - ' + summary.active + ' active tracks - ' + summary.archived + ' archived.'
             + (filtered ? ' Showing ' + matched + ' in ' + groups.length + ' tape' + (groups.length === 1 ? '' : 's') + '.' : '')),
           tone || ''
         );
@@ -1995,8 +2020,8 @@ Final report:
         tapeToggle.className = 'btn small tape-archive-btn';
         tapeToggle.textContent = tapeArchived ? 'Restore tape' : 'Archive tape';
         tapeToggle.title = tapeArchived
-          ? 'Put this whole city tape back on /sound/'
-          : 'Hide this whole city tape from /sound/, keeping every song as it is';
+          ? 'Put this tape back on /sound/, restoring the tracks it archived (tracks archived on their own stay archived)'
+          : 'Hide this whole city tape from /sound/ and archive every track on it';
         tapeToggle.addEventListener('click', async function (event) {
           // Inside a <summary>, so stop the click from opening/closing the city.
           event.preventDefault();
@@ -2063,6 +2088,11 @@ Final report:
         meta.className = 'item-meta';
         meta.appendChild(chip(trackCityLabel(tape)));
         meta.appendChild(chip(archived ? 'Archived' : 'Active', archived ? 'warn' : 'success'));
+        if (archived && song && song.archivedWithTape) {
+          var withTape = chip('with tape', 'warn');
+          withTape.title = 'Archived because the whole tape was archived. Restoring the tape restores this track.';
+          meta.appendChild(withTape);
+        }
         if (text(song && song.spotifyId)) meta.appendChild(chip('Spotify ID'));
         // When the track landed. Absolute date and time, relative form on hover:
         // "3 hours ago" answers "did the last run write this?", the timestamp
@@ -2124,31 +2154,48 @@ Final report:
         return true;
       }
 
-      // Whole-tape archive. One PATCH on public.soundtracks; the songs are left
-      // exactly as they are, so restoring puts the tape back untouched. /sound/
-      // skips archived tapes, and soundtrack_stats reports them, so the header
-      // counts and the public page agree straight away.
+      // Whole-tape archive. One PATCH on public.soundtracks.archived; a trigger
+      // (2026073001) archives the tape's live songs with it and, on restore, puts
+      // back exactly the ones it took -- a song archived on its own stays
+      // archived, because that row is a do-not-rescrape tombstone.
+      //
+      // Because the trigger rewrites rows underneath the tape, the loaded copy is
+      // stale as soon as the PATCH returns, so this reloads instead of flipping a
+      // local flag.
       async function setTapeArchived(tapeIndex, archived) {
         var tape = soundtracks()[tapeIndex];
         var slug = text(tape && tape.city_slug);
+        var label = trackCityLabel(tape);
         if (!slug) return false;
         try {
           await patchRow('soundtracks?city_slug=eq.' + encodeURIComponent(slug), { archived: !!archived });
+          await loadSoundtrackArchive();
         } catch (error) {
           console.error(error);
           setArchiveStatus((archived ? 'Could not archive the ' : 'Could not restore the ')
-            + trackCityLabel(tape) + ' tape. ' + error.message, 'error');
+            + label + ' tape. ' + error.message, 'error');
           return false;
         }
-        if (archived) tape.archived = true;
-        else delete tape.archived;
+        var counts = tapeCounts(tapeBySlug(slug));
         renderTrackArchive(
-          'The whole ' + trackCityLabel(tape) + ' tape is '
-            + (archived ? 'hidden from /sound/ now.' : 'back on /sound/ now.'),
+          archived
+            ? ('The whole ' + label + ' tape is hidden from /sound/ now, with its '
+              + counts.archived + ' track' + (counts.archived === 1 ? '' : 's') + ' archived.')
+            : ('The ' + label + ' tape is back on /sound/ with ' + counts.active
+              + ' active track' + (counts.active === 1 ? '' : 's')
+              + (counts.archived ? ' — ' + counts.archived + ' stayed archived.' : '.')),
           'success'
         );
         loadTapeSummary();
         return true;
+      }
+
+      function tapeBySlug(slug) {
+        var found = null;
+        soundtracks().forEach(function (tape) {
+          if (text(tape && tape.city_slug) === slug) found = tape;
+        });
+        return found;
       }
 
       // Archive / Restore for a song rendered in the Fresh Review panel. Both
