@@ -954,7 +954,7 @@
           <span class="panel-head-actions">
             <span class="review-count" id="soundReviewCount">-</span>
             <button class="btn small primary" id="soundReviewRefreshBtn" type="button">Refresh</button>
-            <a class="btn small" href="https://github.com/the-game-bureau/the-game-bureau/commits/main/sound/soundtracks.json" target="_blank" rel="noopener noreferrer">View Log</a>
+            <a class="btn small" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer" title="Open the routine and read the last run's transcript">Open Routine</a>
           </span>
         </div>
         <div class="panel-status" id="soundReviewStatus">Waiting for sign-in.</div>
@@ -963,12 +963,12 @@
 
       <section class="prompt-panel" id="archiveCard" aria-labelledby="archiveTitle">
         <div class="panel-head">
-          <h2 class="panel-title" id="archiveTitle">Track Archive <span class="panel-sub">soundtracks.json</span></h2>
+          <h2 class="panel-title" id="archiveTitle">Track Archive <span class="panel-sub">public.soundtrack_songs</span></h2>
           <span class="panel-head-actions">
             <span class="copy-status" id="archiveCopyStatus" aria-live="polite"></span>
             <button class="btn small" id="reloadArchiveBtn" type="button">Reload</button>
-            <button class="btn small primary" id="copySoundtracksBtn" type="button" disabled>Copy JSON</button>
-            <button class="btn small" id="downloadSoundtracksBtn" type="button" disabled>Download JSON</button>
+            <button class="btn small primary" id="copySoundtracksBtn" type="button" disabled title="Copy a regenerated sound/soundtracks.json — the offline fallback file, not where edits are saved">Copy JSON</button>
+            <button class="btn small" id="downloadSoundtracksBtn" type="button" disabled title="Download a regenerated sound/soundtracks.json to refresh the committed fallback copy">Download JSON</button>
           </span>
         </div>
         <div class="archive-controls">
@@ -996,12 +996,12 @@
       <section class="side-card explain" id="howCard" aria-labelledby="howTitle" style="border-top-color: var(--accent)">
         <span class="side-label">How it works</span>
         <h2 id="howTitle">Every morning, without you</h2>
-        <p>A scheduled AI agent does the whole job at <strong>6:30 AM Central</strong> and commits the result. Nobody has to press anything.</p>
+        <p>A scheduled AI agent does the whole job at <strong>6:30 AM Central</strong> and saves the result to the database. Nobody has to press anything.</p>
         <ol class="steps">
           <li>It reads the <b>city list</b> and the <b>tapes we already have</b>.</li>
           <li>It picks the <b>next city with no tape</b>, plus the <b>emptiest existing tape</b> to finish.</li>
           <li>It researches songs and <b>checks every Spotify link is real</b> by searching for it.</li>
-          <li>It saves the songs and <b>publishes them</b> — the new tape is live on <a href="/sound/" target="_blank" rel="noopener">/sound/</a>.</li>
+          <li>It saves the songs and <b>publishes them</b> — the new tape is live on <a href="/sound/" target="_blank" rel="noopener">/sound/</a> immediately.</li>
         </ol>
         <p style="margin-top:14px">The <b>Daily Routine</b> card shows when it last succeeded. If that goes quiet for more than a day, something needs a look.</p>
       </section>
@@ -1012,7 +1012,7 @@
         <div class="faq">
           <details>
             <summary>A song is wrong, or won't play</summary>
-            <p>Open <code>sound/soundtracks.json</code> and fix that song. If it does not belong on that city tape, add <code>"archived": true</code> to the song and add a replacement active track. Archived songs stay as do-not-reuse tombstones for that city. If it only will not play, delete just the <code>spotifyId</code> and keep the title and artist; the player falls back to a Spotify search.</p>
+            <p>Use the <strong>Track Archive</strong> panel: find the song and press <b>Archive</b>. That hides it from <a href="/sound/" target="_blank" rel="noopener">/sound/</a> straight away and keeps it as a do-not-reuse tombstone for that city, so tomorrow's run cannot pick it again. Add a replacement so the tape still has 15 active songs. If the song is right but only will not play, clear its <code>spotify_id</code> in <code>public.soundtrack_songs</code> — the player falls back to a Spotify search for the artist and title.</p>
           </details>
           <details>
             <summary>I want a tape for a city right now</summary>
@@ -1043,93 +1043,75 @@
         </div>
         <div class="prompt-meta" aria-hidden="true">
           <span class="chip">public.cities</span>
-          <span class="chip">sound/soundtracks.json</span>
+          <span class="chip">public.soundtracks</span>
+          <span class="chip">tgb_pull_soundtrack_songs</span>
           <span class="chip">15 active songs</span>
-          <span class="chip">email suggestions</span>
           <span class="chip">Spotify IDs</span>
         </div>
-        <textarea class="prompt" id="promptText" readonly spellcheck="false">You are Codex working in C:\Code\the-game-bureau.
+        <textarea class="prompt" id="promptText" readonly spellcheck="false">You are working in the-game-bureau.
 
-Goal: add one new city soundtrack for The Game Bureau, and top up one random existing underfilled soundtrack to 15 active songs.
+Goal: add one new city soundtrack for The Game Bureau, and top up one underfilled existing soundtrack to 15 active songs.
 
-Current data model:
-- Existing cities live in Supabase table public.cities.
-- The public /sound/ page reads city metadata from public.cities.
-- The public /sound/ page currently reads soundtrack songs from sound/soundtracks.json.
-- Do not invent a new Supabase soundtrack table. If a real public.soundtracks table now exists, verify its schema before writing to it. If it does not exist, the publishable soundtrack source is sound/soundtracks.json.
+Current data model (changed 2026-07-29 - the JSON file is no longer the source of truth):
+- Cities live in Supabase table public.cities.
+- Tapes live in public.soundtracks (one row per city, keyed by city_slug).
+- Songs live in public.soundtrack_songs (one row per track: city_slug, position, title, artist, blurb, spotify_id, explicit, archived).
+- public.soundtrack_stats is a view with active_songs / archived_songs per tape. Use it instead of counting songs yourself.
+- sound/soundtracks.json is only an offline fallback that /sound/ reads when Supabase is unreachable. Do not edit it and do not commit it.
+- A song with archived = true is a hidden do-not-rescrape tombstone for that city. It never counts as active and must never be re-added.
+
+Read with curl and the repo's publishable key, which is in sound/index.html. The key rides in the query string; PostgREST accepts that:
+  curl -sS "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/soundtrack_stats?select=city_slug,active_songs,archived&order=city_slug.asc&apikey=<publishable key>"
+  curl -sS "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/cities?select=slug,city,hide_from_soundtracks&order=city.asc&apikey=<publishable key>"
+Use curl, not WebFetch - WebFetch 403s for this host.
 
 City selection:
-1. Fetch active cities from Supabase public.cities using the repo's existing Supabase URL and publishable key from sound/index.html.
-2. Active means ignored is not true. Do not choose ignored or venue-only cities.
-3. Read sound/soundtracks.json.
-4. Compare active public.cities.slug values against soundtracks[].city_slug entries that have at least one active valid song. Songs with "archived": true are hidden tombstones and do not count.
-5. Pick one existing active Supabase city whose slug does not have a soundtrack yet. Do not add a new city.
-6. Use the exact Supabase slug as city_slug.
-7. Also find existing active soundtrack entries with 1 to 14 active valid songs. The top-up target must have a public.cities slug where ignored is not true. Do not top up ignored or venue-only city soundtracks. If every active existing soundtrack already has 15 or more active valid songs, skip the top-up and report that.
-8. If any ignored or venue-only city has a standalone soundtrack entry, merge its useful tracks into the nearest real active city and remove the ignored-city entry before generating new tracks.
+1. Active city means hide_from_soundtracks is not true. Never write a tape for a hidden or venue-only city.
+2. Pick the alphabetically first active city whose slug has no tape, or a tape with zero active songs. Do not invent a city - it must already exist in public.cities.
+3. Also pick the emptiest active tape with 1 to 14 active songs as the top-up target. If every tape already has 15 or more, skip the top-up and say so.
+4. Read the target tape's existing songs, archived ones included, before choosing anything:
+   curl -sS "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/soundtrack_songs?select=title,artist,archived&city_slug=eq.<slug>&apikey=<publishable key>"
 
 Suggestions:
-- Before choosing tracks, check email for song suggestions if email/Gmail access is available.
-- Useful Gmail searches: to:soundtrack@thegamebureau.com, subject:(Song suggestion), and subject:"Song suggestion for {City}".
-- Treat suggestions as leads, not truth. Verify every selected track and Spotify ID.
+- Before choosing tracks, check email for song suggestions if Gmail access is available.
+- Useful searches: to:soundtrack@thegamebureau.com, subject:(Song suggestion), subject:"Song suggestion for {City}".
+- Treat suggestions as leads, not truth. Verify every track and Spotify ID.
 
 Soundtrack rules:
-- The new city soundtrack must have exactly 15 active songs. Active means the song does not have "archived": true.
-- The random top-up soundtrack must end with exactly 15 active songs. Archived songs do not count.
-- For the top-up, preserve existing songs, including archived songs, and add only what is necessary: 15 minus the current active valid song count.
-- Do not duplicate any existing title/artist pair in the top-up target, including archived songs. An archived song is a do-not-rescrape tombstone for that city.
-- Max 2 active songs per artist in the new city soundtrack. For the top-up, avoid adding songs that push an active artist over 2 tracks.
-- Prefer songs that name the city, hometown artists, local labels or studios, neighborhood references, and regional anthems.
-- Include sports and game-day music. Our games are built around teams and stadiums, so each tape should carry what that city's crowd actually hears: college and pro fight songs, the team's victory anthem, a stadium's signature walk-up or goal song, the track that plays when the home side scores, and what fans sing in the parking lot. Aim for 2-3 of the 15 in a city with a strong sports identity; fewer only if the city genuinely has none.
+- The new city tape gets exactly 15 songs. The top-up adds exactly 15 minus the tape's current active_songs.
+- Never duplicate an existing title+artist pair on that city, archived ones included. The database enforces this, so a duplicate is silently dropped and the tape ends up short.
+- Max 2 songs per artist among a tape's active songs. Count spelling variants as one artist.
+- Prefer songs that name the city, hometown artists, local labels and studios, neighborhood references, and regional anthems.
+- Include sports and game-day music. Our games are built around teams and stadiums, so each tape should carry what that city's crowd actually hears: college and pro fight songs, the victory anthem, a stadium's signature walk-up or goal song, what fans sing in the parking lot. Aim for 2-3 of the 15 in a city with a strong sports identity. Confirm the team actually uses the song - generic arena anthems are the most common error on these tapes.
 - Keep the mix varied across eras and genres when the city supports it.
-- Use real commercially available Spotify tracks. Avoid karaoke, tribute, sped-up, slowed, or re-recorded versions unless that is the only legitimate version and you say so.
-- Verify Spotify IDs from official open.spotify.com/track pages. Do not guess IDs.
-- If you cannot confidently verify a Spotify ID, omit spotifyId for that song. The player will fall back to a Spotify search.
-- Set "explicit": true only when Spotify marks the track explicit. Omit false explicit values.
-- Set "archived": true only for a retired song that should be hidden from /sound/ and excluded from active counts, while still blocking that same title/artist from being scraped again for that city. Omit false archived values.
-- Keep each blurb short: 6 to 10 words, city-specific, and clean enough to fit on the cassette.
-- Pick a concise spine_tag such as "Soundtrack", "Soul Mix", "Street Sounds", "Local Mix", "Jams", or a better city-specific tag.
+- Real commercially available recordings only. No karaoke, tribute, sped-up, slowed, or re-recorded versions. A remaster is fine; a re-recording is not.
+- Verify every Spotify ID against a real open.spotify.com/track page. IDs are case-sensitive. If you cannot verify one, omit it - the player falls back to a Spotify search. Never guess: a fabricated ID is 22 characters like any other and silently plays nothing.
+- Set explicit only when Spotify marks the track explicit.
+- Blurbs are 6 to 10 words, city-specific, no trailing period.
+- Pick a concise spine_tag for a new tape: "Soundtrack", "Soul Mix", "Street Sounds", "Local Mix", "Jams", or something better and city-specific.
 
-Implementation:
-1. Insert the new city object alphabetically by city_slug in sound/soundtracks.json.
-2. Update the randomly chosen underfilled existing soundtrack in place, adding enough active songs to reach 15. Keep archived songs in that city's songs array.
-3. Preserve the existing JSON shape:
-{
-  "city_slug": "example-city",
-  "spine_tag": "Soundtrack",
-  "songs": [
-    {
-      "title": "Active Song Title",
-      "artist": "Artist Name",
-      "spotifyId": "22CharacterSpotifyTrackId",
-      "blurb": "Short reason this belongs here"
-    },
-    {
-      "title": "Retired Song Title",
-      "artist": "Artist Name",
-      "spotifyId": "22CharacterSpotifyTrackId",
-      "blurb": "Why it used to be here",
-      "archived": true
-    }
-  ]
-}
-Only include "archived": true on retired songs. New active songs should omit archived entirely.
-4. Validate sound/soundtracks.json with JSON.parse after editing.
-5. Confirm exactly one entry exists for the selected new city_slug.
-6. Confirm the new entry has exactly 15 active songs.
-7. Confirm the top-up target now has exactly 15 active songs, unless no active underfilled target existed.
-8. Confirm no ignored=true public.cities slug has a standalone soundtrack entry.
-9. Confirm the total soundtrack count increased by 1, except when a hidden-city merge removed an entry in the same pass; in that case report both counts.
-10. If a verified public.soundtracks table exists in Supabase, upsert the same finished objects there using city_slug as the conflict key after confirming the schema. Otherwise do not write soundtrack songs to Supabase; public.cities was only used to choose an existing city.
+Writing:
+Call the RPC public.tgb_pull_soundtrack_songs with the same publishable key. It is insert-only, creates the tape row if needed, and lands every song live:
+
+  curl -sS -X POST "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/rpc/tgb_pull_soundtrack_songs"     -H "apikey: <publishable key>" -H "Authorization: Bearer <publishable key>"     -H "Content-Type: application/json"     -d '{"tapes":[{"city_slug":"example-city","spine_tag":"Soundtrack","songs":[{"title":"Song Title","artist":"Artist Name","spotify_id":"22CharacterSpotifyTrackId","blurb":"Short reason this belongs here","explicit":false}]}]}'
+
+- One call can carry both tapes. Max 4 tapes and 60 songs per call.
+- It returns one row per song: action is inserted or skipped, with a note. Read that output - a skipped row means the song was already on the tape or already a tombstone, and the tape is now short by one.
+- The RPC cannot update, delete, archive, or un-archive anything, and it ignores spine_tag on a tape that already exists. That is deliberate: retiring a song is a human action in the Tape Room.
+- Do not write to the tables directly, do not use a service-role key, and do not edit sound/soundtracks.json.
+
+Verify after writing, with curl against soundtrack_stats:
+1. The new city_slug exists and has exactly 15 active songs.
+2. The top-up target now has exactly 15 active songs, unless no target existed.
+3. No tape gained a duplicate or lost a song.
+4. Every song you added has a verified spotify_id, or you say which do not and why.
 
 Final report:
-- Selected city and city_slug.
-- The 15 active songs added for the new city.
-- Top-up city_slug, prior song count, and songs added.
-- Any archived songs preserved, and confirmation they were not counted or reused.
-- Whether every song has a verified Spotify ID.
-- New soundtrack count.
-- Validation result.</textarea>
+- Selected city and city_slug, and the 15 songs added.
+- Top-up city_slug, prior active count, and songs added.
+- Every skipped row the RPC returned, and what you did about it.
+- Any song you could not verify a Spotify ID for.
+- New tape count from soundtrack_stats.</textarea>
       </section>
 
       </div>
@@ -1138,7 +1120,7 @@ Final report:
         <section class="side-card side-card--blue" id="routineCard">
           <span class="side-label">Automation</span>
           <h2>Daily Routine</h2>
-          <p>You don't have to run the prompt by hand. A scheduled Claude Code cloud agent does this every morning: it reads <code>public.cities</code>, takes the next city with no tape plus the emptiest existing tape, researches and verifies each Spotify ID by search, then commits <code>sound/soundtracks.json</code> straight to <code>main</code>. New tapes appear on <a href="/sound/" target="_blank" rel="noopener">/sound/</a> without anyone touching this page.</p>
+          <p>You don't have to run the prompt by hand. A scheduled Claude Code cloud agent does this every morning: it reads <code>public.cities</code> and <code>public.soundtrack_stats</code>, takes the next city with no tape plus the emptiest existing tape, researches and verifies each Spotify ID by search, then writes the songs through <code>tgb_pull_soundtrack_songs</code>. New tapes appear on <a href="/sound/" target="_blank" rel="noopener">/sound/</a> without anyone touching this page.</p>
           <ul class="mini-list">
             <li>Runs <b>6:30 AM CT</b></li>
             <li>Model <b>Opus 5</b></li>
@@ -1153,12 +1135,12 @@ Final report:
             </div>
           </div>
           <div class="side-links">
-            <a class="btn" id="runLogLink" href="https://github.com/the-game-bureau/the-game-bureau/commits/main/sound/soundtracks.json" target="_blank" rel="noopener noreferrer" title="See what the last run actually changed">View Log</a>
+            <a class="btn" id="runLogLink" href="/sound/" target="_blank" rel="noopener noreferrer" title="See what the last run actually shipped">View Tapes</a>
           </div>
           <div class="side-links">
             <a class="btn primary" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer">Open Routine</a>
           </div>
-          <p class="side-note">Open the routine to watch a run, trigger one early, change the schedule, or pause it. The clock is UTC with no daylight-saving shift, so no single schedule holds one Central time all year: 11:30 UTC is 6:30 AM Central in summer and 5:30 AM in winter. It replaced a GitHub Action on 2026-07-27 — that path needed a funded API key, this one bills to the Claude subscription.</p>
+          <p class="side-note">Open the routine to watch a run, trigger one early, change the schedule, or pause it. The clock is UTC with no daylight-saving shift, so no single schedule holds one Central time all year: 11:30 UTC is 6:30 AM Central in summer and 5:30 AM in winter. It replaced a GitHub Action on 2026-07-27 — that path needed a funded API key, this one bills to the Claude subscription. Since 2026-07-29 it writes to Supabase instead of committing a JSON file, so <b>Last run</b> above is the newest song row, not a commit.</p>
         </section>
 
         <section class="side-card side-card--red" id="suggestCard">
@@ -1181,49 +1163,60 @@ Final report:
     only has this page still knows the shape of the job.
 
     One-line summary: city soundtracks are a free, non-commercial extra for
-    Game Bureau players. 15 active songs per city, chosen to make someone curious about
-    visiting. Written to sound/soundtracks.json; nothing else needs updating.
+    Game Bureau players. 15 active songs per city, chosen to make someone curious
+    about visiting. Written to public.soundtracks / public.soundtrack_songs via
+    the tgb_pull_soundtrack_songs RPC; nothing else needs updating.
   -->
   <script type="application/json" id="tgb-agent-context">
   {
     "purpose": "City soundtracks: a free, non-commercial gift for Game Bureau players. 15 active songs that make a person curious about visiting a city. Curiosity about the city is what sells the game; the tape starts it.",
     "docs": "sound/README.md",
-    "dataFile": "sound/soundtracks.json",
     "publicPage": "/sound/",
-    "cityCatalog": { "table": "public.cities", "optional": true, "excludeWhere": "ignored = true (venue-only stadium towns)" },
-    "entryShape": {
-      "city_slug": "matches public.cities.slug",
-      "spine_tag": "short phrase down the cassette spine",
-      "songs": [{ "title": "", "artist": "", "spotifyId": "22 chars, optional", "blurb": "6-10 words", "explicit": "true only if Spotify says so", "archived": "true only when retired; omitted for active songs" }]
+    "tables": {
+      "tapes": "public.soundtracks (city_slug pk, spine_tag, spine_tag_position, archived)",
+      "songs": "public.soundtrack_songs (city_slug, position, title, artist, blurb, spotify_id, explicit, archived)",
+      "counts": "public.soundtrack_stats (active_songs, archived_songs, last_song_at per tape)"
     },
+    "writePath": {
+      "rpc": "public.tgb_pull_soundtrack_songs(tapes jsonb)",
+      "auth": "the public publishable key — the routine has no secret store",
+      "shape": { "tapes": [{ "city_slug": "matches public.cities.slug", "spine_tag": "short spine phrase, applied only when the tape row is created", "songs": [{ "title": "", "artist": "", "spotify_id": "22 chars, optional", "blurb": "6-10 words", "explicit": "true only if Spotify says so" }] }] },
+      "limits": "insert-only, max 4 tapes and 60 songs per call, cannot archive or un-archive, cannot touch a hidden city",
+      "goesLive": "immediately — there is no review queue"
+    },
+    "fallbackFile": {
+      "path": "sound/soundtracks.json",
+      "role": "offline copy /sound/ reads only when Supabase is unreachable. Not the source of truth. Do not hand-edit; regenerate it from the Tape Room's Download JSON."
+    },
+    "cityCatalog": { "table": "public.cities", "excludeWhere": "hide_from_soundtracks = true (venue-only stadium towns and other non-destinations)" },
     "rules": [
       "Exactly 15 active, non-archived songs per city.",
       "Max 2 active songs per artist per city.",
-      "No duplicate title+artist pair in a city, including archived songs.",
-      "Every active song needs a title, an artist, and a 6-10 word city-specific blurb.",
-      "spotifyId must be verified against a real open.spotify.com/track page. Omit it rather than guess - a fabricated ID passes every format check and silently plays nothing.",
-      "A song with archived=true is hidden from /sound/ and excluded from active counts, but stays in that city as a do-not-rescrape tombstone.",
-      "Entries stay sorted by city_slug.",
-      "No tapes for cities where public.cities.ignored is true.",
+      "No duplicate title+artist pair in a city, archived rows included — a unique index enforces it, so a duplicate is dropped and the tape ends up short.",
+      "Every song needs a title, an artist, and a 6-10 word city-specific blurb with no trailing period.",
+      "spotify_id must be verified against a real open.spotify.com/track page. Omit it rather than guess — a fabricated id passes every format check and silently plays nothing.",
+      "A song with archived = true is hidden from /sound/, excluded from active counts, and stays on the city as a do-not-rescrape tombstone. Only a human archives or restores one.",
+      "No tapes for cities where public.cities.hide_from_soundtracks is true.",
       "Real commercial recordings only: no karaoke, tribute, sped-up, slowed, or re-recorded versions."
     ],
     "songMix": [
       "Songs that name the city, its streets, its neighbourhoods.",
       "Hometown artists and records made there.",
-      "Sports and game-day music: fight songs, victory anthems, stadium walk-up and goal songs, what fans sing outside. Target 2-3 of the 15 where the city has a strong sports identity.",
+      "Sports and game-day music: fight songs, victory anthems, stadium walk-up and goal songs, what fans sing outside. Target 2-3 of the 15 where the city has a strong sports identity, and confirm the team actually plays the song.",
       "Local scenes and labels the city is known for."
     ],
     "automation": {
       "type": "Claude Code scheduled cloud routine",
       "id": "trig_014sqaUyU7557svq9mGA1E4a",
-      "cron": "0 15 * * * UTC",
+      "cron": "30 11 * * * UTC",
       "localTime": "6:30 AM Central in summer, 5:30 AM in winter (cloud cron has no DST shift)",
       "model": "claude-opus-5",
       "eachRun": "Adds one new city tape and tops the emptiest existing tape up to 15 active songs.",
+      "runReceipt": "the newest public.soundtrack_songs row — the routine commits nothing, so a stale timestamp is the failure signal",
       "manage": "https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a"
     },
     "doNotCreate": [
-      "a Supabase soundtracks table",
+      "a third soundtrack table or a per-city city_playlists table",
       "per-city generated HTML",
       "city-playlists.json or song-playlists.json",
       "a build script under sound/",
@@ -1267,11 +1260,73 @@ Final report:
       var downloadSoundtracksBtn = document.getElementById('downloadSoundtracksBtn');
       var REVIEW_HOURS = 26;
       var REVIEW_MS = REVIEW_HOURS * 60 * 60 * 1000;
-      var REPO_API = 'https://api.github.com/repos/the-game-bureau/the-game-bureau.github.io';
-      var RAW_BASE = 'https://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io';
-      var SOUNDTRACK_PATH = 'sound/soundtracks.json';
+      var ROUTINE_URL = 'https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a';
       var soundtrackArchiveData = null;
-      var archiveDirty = false;
+
+      // ── Supabase REST ───────────────────────────────────────────────────────
+      // Tapes moved from sound/soundtracks.json into public.soundtracks /
+      // public.soundtrack_songs on 2026-07-29, so this page reads and writes the
+      // database directly instead of editing a downloaded copy of the file.
+      // Reads use the publishable key; writes ride the admin session token, which
+      // is what RLS gates the write policies on.
+      function anonHeaders(extra) {
+        return Object.assign({
+          apikey: SUPABASE_CONFIG.publishableKey,
+          Authorization: 'Bearer ' + SUPABASE_CONFIG.publishableKey,
+          Accept: 'application/json'
+        }, extra || {});
+      }
+
+      function authHeaders(extra) {
+        var session = adminAuth.getSession ? adminAuth.getSession() : null;
+        var token = session && session.access_token;
+        if (!token) throw new Error('Sign in with an admin account.');
+        return Object.assign({
+          apikey: SUPABASE_CONFIG.publishableKey,
+          Authorization: 'Bearer ' + token,
+          Accept: 'application/json'
+        }, extra || {});
+      }
+
+      function restUrl(path) {
+        return SUPABASE_CONFIG.url + '/rest/v1/' + path;
+      }
+
+      // PostgREST returns at most 1000 rows and truncates silently, so anything
+      // that expects a whole table pages with Range. soundtrack_songs is already
+      // past 900 rows.
+      async function fetchAllRows(path) {
+        var PAGE = 1000;
+        var all = [];
+        for (var from = 0; ; from += PAGE) {
+          var res = await fetch(restUrl(path), {
+            headers: anonHeaders({ Range: from + '-' + (from + PAGE - 1) }),
+            cache: 'no-store'
+          });
+          if (!res.ok) throw new Error('Supabase ' + res.status + ' for ' + path);
+          var rows = await res.json();
+          if (!Array.isArray(rows)) throw new Error('Unexpected response for ' + path);
+          all = all.concat(rows);
+          if (rows.length < PAGE) return all;
+        }
+      }
+
+      async function patchRow(path, body) {
+        var res = await fetch(restUrl(path), {
+          method: 'PATCH',
+          headers: authHeaders({
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation'
+          }),
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+          var detail = await res.text().catch(function () { return ''; });
+          throw new Error('Supabase ' + res.status + (detail ? ': ' + detail.slice(0, 200) : ''));
+        }
+        var rows = await res.json().catch(function () { return []; });
+        return Array.isArray(rows) ? rows[0] : rows;
+      }
 
       // Same login/logout toggle the Stock Room carries: one button that reads
       // ADMIN LOGON when signed out and ADMIN LOGOUT when signed in.
@@ -1299,19 +1354,23 @@ Final report:
         }
       });
 
-      // Tape count under the title. Read straight from the published JSON — the
-      // same file /sound/ renders — so the number can never disagree with what a
-      // visitor sees.
+      // Tape count under the title. Read from public.soundtrack_stats — the view
+      // over the same two tables /sound/ renders — so the number can never
+      // disagree with what a visitor sees. One row per tape, so no paging.
       async function loadTapeSummary() {
         var live;
         try {
-          var res = await fetch('../soundtracks.json', { cache: 'no-store' });
+          var res = await fetch(
+            restUrl('soundtrack_stats?select=city_slug,active_songs,archived&order=city_slug.asc'),
+            { headers: anonHeaders(), cache: 'no-store' }
+          );
           if (!res.ok) throw new Error('HTTP ' + res.status);
-          var data = await res.json();
-          var list = Array.isArray(data.soundtracks) ? data.soundtracks : [];
-          live = list.filter(function (tape) {
-            return activeSongCount(tape) > 0;
-          });
+          var list = await res.json();
+          live = (Array.isArray(list) ? list : [])
+            .filter(function (tape) { return !tape.archived && Number(tape.active_songs) > 0; })
+            .map(function (tape) {
+              return { city_slug: tape.city_slug, active: Number(tape.active_songs) || 0 };
+            });
         } catch (error) {
           setPageStatus('');
           return;
@@ -1358,8 +1417,7 @@ Final report:
         // there's a problem but not which tape to open.
         var byCount = {};
         live.forEach(function (tape) {
-          var n = activeSongCount(tape);
-          (byCount[n] || (byCount[n] = [])).push(tape.city_slug);
+          (byCount[tape.active] || (byCount[tape.active] = [])).push(tape.city_slug);
         });
 
         var line1 = [{ text: live.length + ' Soundtrack' + (live.length === 1 ? '' : 's') }];
@@ -1373,9 +1431,11 @@ Final report:
           });
         });
 
-        // Cities still waiting on a tape. Venue-only rows (ignored) are stadium
-        // towns we don't sell into, so they are not a gap — excluding them keeps
-        // this number equal to the work the routine actually has left.
+        // Cities still waiting on a tape. Rows hidden from /sound/ are stadium
+        // towns and other non-destinations, so they are not a gap — excluding
+        // them keeps this number equal to the work the routine actually has left.
+        // Prefers the per-surface hide_from_soundtracks column and falls back to
+        // the retired `ignored` flag only when that column is absent.
         var line2 = null;
         if (cityRows) {
           var haveTape = {};
@@ -1384,7 +1444,10 @@ Final report:
           });
           var missing = cityRows
             .filter(function (row) {
-              return row && row.slug && !row.ignored && !haveTape[row.slug];
+              if (!row || !row.slug || haveTape[row.slug]) return false;
+              if (row.hide_from_soundtracks === true) return false;
+              if (row.hide_from_soundtracks === undefined && row.ignored === true) return false;
+              return true;
             })
             .map(function (row) { return row.city || row.slug; })
             .sort(citySort);
@@ -1456,7 +1519,7 @@ Final report:
       }
 
       if (reloadArchiveBtn) reloadArchiveBtn.addEventListener('click', function () {
-        if (archiveDirty && !window.confirm('Discard unsaved soundtrack archive changes?')) return;
+        // Nothing to discard: Archive and Restore write to Supabase immediately.
         loadSoundtrackArchive();
       });
       if (copySoundtracksBtn) copySoundtracksBtn.addEventListener('click', copySoundtracksJson);
@@ -1478,10 +1541,6 @@ Final report:
 
       function isArchivedSong(song) {
         return truthyFlag(song && song.archived);
-      }
-
-      function activeSongCount(tape) {
-        return validSongs(tape && tape.songs).length;
       }
 
       function truncate(value, max) {
@@ -1547,7 +1606,7 @@ Final report:
       function resetSoundtrackReview() {
         if (soundReviewWindow) soundReviewWindow.textContent = '';
         setSoundReview('-', 'Sign in with an admin account.', '');
-        setSoundReviewList(emptyNode('Sign in to review fresh soundtrack commits.'));
+        setSoundReviewList(emptyNode('Sign in to review freshly added tracks.'));
       }
 
       function setArchiveStatus(message, tone) {
@@ -1571,7 +1630,6 @@ Final report:
 
       function resetSoundtrackArchive() {
         soundtrackArchiveData = null;
-        archiveDirty = false;
         setArchiveControlsEnabled(false);
         if (trackCitySelect) {
           trackCitySelect.innerHTML = '';
@@ -1603,10 +1661,7 @@ Final report:
           trackArchiveList.appendChild(emptyNode('Loading tracks...'));
         }
         try {
-          var res = await fetch('../soundtracks.json', { cache: 'no-store' });
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          soundtrackArchiveData = await res.json();
-          archiveDirty = false;
+          soundtrackArchiveData = await fetchSoundtrackTables();
           populateTrackCitySelect();
           setArchiveControlsEnabled(true);
           renderTrackArchive();
@@ -1615,13 +1670,54 @@ Final report:
           console.error(error);
           soundtrackArchiveData = null;
           setArchiveControlsEnabled(false);
-          setArchiveStatus('Could not load soundtracks.json.', 'error');
+          setArchiveStatus('Could not load the soundtrack tables.', 'error');
           if (trackArchiveList) {
             trackArchiveList.innerHTML = '';
-            trackArchiveList.appendChild(emptyNode('Open sound/soundtracks.json directly to archive tracks.'));
+            trackArchiveList.appendChild(emptyNode('public.soundtracks / public.soundtrack_songs did not load. Check the Supabase project.'));
           }
           throw error;
         }
+      }
+
+      // Reads both tables and rebuilds the nested shape this page (and the
+      // exported fallback file) already speaks: one object per tape with its
+      // songs inside, in play order. Each song keeps its row `id` so Archive and
+      // Restore can PATCH exactly one row.
+      async function fetchSoundtrackTables() {
+        var results = await Promise.all([
+          fetchAllRows('soundtracks?select=*&order=city_slug.asc'),
+          fetchAllRows('soundtrack_songs?select=*&order=city_slug.asc,position.asc,id.asc')
+        ]);
+        var byTape = {};
+        var tapes = results[0].map(function (row) {
+          var tape = {
+            city_slug: row.city_slug,
+            spine_tag: row.spine_tag || '',
+            created_at: row.created_at || '',
+            songs: []
+          };
+          if (row.spine_tag_position) tape.spine_tag_position = row.spine_tag_position;
+          if (row.archived) tape.archived = true;
+          byTape[row.city_slug] = tape;
+          return tape;
+        });
+        results[1].forEach(function (row) {
+          var tape = byTape[row.city_slug];
+          if (!tape) return;
+          var song = {
+            id: row.id,
+            position: Number(row.position) || 0,
+            created_at: row.created_at || '',
+            title: row.title || '',
+            artist: row.artist || '',
+            blurb: row.blurb || ''
+          };
+          if (row.spotify_id) song.spotifyId = row.spotify_id;
+          if (row.explicit) song.explicit = true;
+          if (row.archived) song.archived = true;
+          tape.songs.push(song);
+        });
+        return { soundtracks: tapes };
       }
 
       function soundtracks() {
@@ -1741,10 +1837,9 @@ Final report:
         }
 
         var summary = archiveSummary();
-        var suffix = archiveDirty ? ' Pending changes - copy or download JSON.' : '';
         setArchiveStatus(
-          message || (summary.tapes + ' tapes - ' + summary.active + ' active tracks - ' + summary.archived + ' archived.' + suffix),
-          tone || (archiveDirty ? 'warn' : '')
+          message || (summary.tapes + ' tapes - ' + summary.active + ' active tracks - ' + summary.archived + ' archived.'),
+          tone || ''
         );
       }
 
@@ -1782,8 +1877,12 @@ Final report:
         toggle.title = archived
           ? 'Restore this track to the active public tape'
           : 'Hide this track and keep it as a do-not-rescrape tombstone for this city';
-        toggle.addEventListener('click', function () {
-          setTrackArchived(tapeIndex, songIndex, !archived);
+        toggle.addEventListener('click', async function () {
+          toggle.disabled = true;
+          var ok = await setTrackArchived(tapeIndex, songIndex, !archived);
+          // A successful write re-renders the whole list, so only a failure has
+          // to hand this button back.
+          if (!ok) toggle.disabled = false;
         });
         actions.appendChild(toggle);
         if (text(song && song.spotifyId)) {
@@ -1794,71 +1893,84 @@ Final report:
         return row;
       }
 
-      function setTrackArchived(tapeIndex, songIndex, archived) {
+      // Writes straight to public.soundtrack_songs under the admin session. The
+      // old version edited a downloaded copy of soundtracks.json and asked for a
+      // commit; since 2026-07-29 the table is the source of truth, so an archive
+      // is live on /sound/ as soon as this resolves.
+      async function setTrackArchived(tapeIndex, songIndex, archived) {
         var tape = soundtracks()[tapeIndex];
         var song = tape && Array.isArray(tape.songs) ? tape.songs[songIndex] : null;
-        if (!song) return false;
+        if (!song || song.id == null) return false;
+        try {
+          await patchRow('soundtrack_songs?id=eq.' + encodeURIComponent(song.id), { archived: !!archived });
+        } catch (error) {
+          console.error(error);
+          setArchiveStatus((archived ? 'Could not archive ' : 'Could not restore ') + songDisplay(song) + '. ' + error.message, 'error');
+          return false;
+        }
         if (archived) song.archived = true;
         else delete song.archived;
-        archiveDirty = true;
-        renderTrackArchive((archived ? 'Archived ' : 'Restored ') + songDisplay(song) + '. Copy or download JSON to save.', 'warn');
+        renderTrackArchive((archived ? 'Archived ' : 'Restored ') + songDisplay(song) + '. Live on /sound/ now.', 'success');
+        // The tape counts under the title come from the same rows.
+        loadTapeSummary();
         return true;
       }
 
-      function findSongInArchive(citySlug, sourceSong) {
-        var slug = text(citySlug);
-        var wantedTitle = text(sourceSong && sourceSong.title).toLowerCase();
-        var wantedArtist = text(sourceSong && sourceSong.artist).toLowerCase();
-        var wantedSpotify = text(sourceSong && sourceSong.spotifyId).toLowerCase();
-        if (!slug || (!wantedTitle && !wantedArtist && !wantedSpotify)) return null;
-        var tapes = soundtracks();
-        for (var i = 0; i < tapes.length; i += 1) {
-          var tape = tapes[i];
-          if (text(tape && tape.city_slug) !== slug || !Array.isArray(tape.songs)) continue;
-          for (var j = 0; j < tape.songs.length; j += 1) {
-            var song = tape.songs[j];
-            var sameSpotify = wantedSpotify && text(song && song.spotifyId).toLowerCase() === wantedSpotify;
-            var sameTitleArtist = wantedTitle && wantedArtist
-              && text(song && song.title).toLowerCase() === wantedTitle
-              && text(song && song.artist).toLowerCase() === wantedArtist;
-            if (sameSpotify || sameTitleArtist) return { tapeIndex: i, songIndex: j, song: song };
-          }
-        }
-        return null;
-      }
-
-      function setMatchingSongArchived(citySlug, sourceSong, archived) {
-        var match = findSongInArchive(citySlug, sourceSong);
-        if (!match) {
-          setArchiveStatus('Could not find that track in the loaded soundtrack JSON.', 'error');
-          return false;
-        }
-        return setTrackArchived(match.tapeIndex, match.songIndex, archived);
-      }
-
-      function archiveButtonForReviewSong(citySlug, song) {
+      // Archive / Restore for a song rendered in the Fresh Review panel. Both
+      // panels render the same loaded rows, so the button knows the song's
+      // tape/song index outright — no title+artist matching back into a separate
+      // copy of the data like the JSON-file version needed.
+      function archiveButtonForReviewSong(tapeIndex, songIndex) {
         var button = document.createElement('button');
         button.type = 'button';
         button.className = 'btn small';
-        var match = findSongInArchive(citySlug, song);
-        var archived = !!(match && isArchivedSong(match.song));
+        var tape = soundtracks()[tapeIndex];
+        var song = tape && Array.isArray(tape.songs) ? tape.songs[songIndex] : null;
+        var archived = isArchivedSong(song);
         button.textContent = archived ? 'Restore' : 'Archive';
-        button.disabled = !soundtrackArchiveData || !match;
-        button.title = match
-          ? (archived ? 'Restore this track in the Track Archive editor' : 'Archive this track in the Track Archive editor')
-          : 'Track archive has not loaded this song yet';
-        button.addEventListener('click', function () {
-          if (setMatchingSongArchived(citySlug, song, !archived)) {
-            button.textContent = !archived ? 'Archived' : 'Restored';
-            button.disabled = true;
-          }
+        button.disabled = !song || song.id == null;
+        button.title = song
+          ? (archived
+            ? 'Restore this track to the active public tape'
+            : 'Hide this track and keep it as a do-not-rescrape tombstone for this city')
+          : 'Track has not loaded yet';
+        button.addEventListener('click', async function () {
+          button.disabled = true;
+          var ok = await setTrackArchived(tapeIndex, songIndex, !archived);
+          if (ok) button.textContent = !archived ? 'Archived' : 'Restored';
+          else button.disabled = false;
         });
         return button;
       }
 
+      // Regenerates sound/soundtracks.json from the tables. The file is no longer
+      // the source of truth — it is the offline fallback /sound/ reads only when
+      // Supabase is unreachable — so this exists to refresh that copy, not to
+      // save an edit. Row ids, positions, and timestamps are stripped: the file
+      // keeps the exact shape it had before the move, with play order carried by
+      // array order.
       function serializedSoundtrackJson() {
         if (!soundtrackArchiveData) return '';
-        return JSON.stringify(soundtrackArchiveData, null, 2) + '\n';
+        var payload = {
+          _comment: 'Offline fallback for /sound/. Source of truth is public.soundtracks + '
+            + 'public.soundtrack_songs; regenerate this file from the Tape Room. City identity, '
+            + 'labels, ordering, and badges still come from public.cities via city_slug.',
+          soundtracks: soundtracks().map(function (tape) {
+            var out = { city_slug: tape.city_slug, spine_tag: tape.spine_tag || '' };
+            if (tape.spine_tag_position) out.spine_tag_position = tape.spine_tag_position;
+            if (tape.archived) out.archived = true;
+            out.songs = ((tape.songs) || []).map(function (song) {
+              var row = { title: song.title, artist: song.artist };
+              if (song.spotifyId) row.spotifyId = song.spotifyId;
+              row.blurb = song.blurb || '';
+              if (song.explicit) row.explicit = true;
+              if (song.archived) row.archived = true;
+              return row;
+            });
+            return out;
+          })
+        };
+        return JSON.stringify(payload, null, 2) + '\n';
       }
 
       async function copySoundtracksJson() {
@@ -1890,6 +2002,11 @@ Final report:
         window.setTimeout(function () { setArchiveCopyStatus(''); }, 2200);
       }
 
+      // Fresh Soundtrack Review. Until 2026-07-29 this diffed two revisions of
+      // sound/soundtracks.json out of the GitHub API, because a commit was the
+      // only trace a run left. The tapes are rows now, so "what landed today" is
+      // just created_at on the rows this page already loaded — no second source,
+      // and the Archive button acts on the same row it is describing.
       async function loadSoundtrackReview() {
         var session = adminAuth.getSession ? adminAuth.getSession() : null;
         if (!session || !session.access_token) {
@@ -1906,44 +2023,37 @@ Final report:
         if (soundReviewWindow) {
           soundReviewWindow.textContent = 'Since ' + formatDate(cutoff) + ' - refreshed ' + formatDate(now);
         }
-        setSoundReview('-', 'Reading soundtrack commits...', '');
+        setSoundReview('-', 'Reading fresh soundtrack rows...', '');
         setSoundReviewList(emptyNode('Loading soundtrack changes...'));
 
         try {
-          var recent = await fetchPathCommits(SOUNDTRACK_PATH, cutoff, 10);
-          if (!recent.length) {
-            var latest = await latestPathCommit(SOUNDTRACK_PATH);
-            var msg = latest
-              ? 'No soundtrack additions in the last ' + REVIEW_HOURS + ' hours. Latest commit: ' + relativeTime(commitDate(latest), now) + '.'
-              : 'No soundtrack additions in the last ' + REVIEW_HOURS + ' hours.';
-            setSoundReview(0, msg, '');
-            setSoundReviewList(emptyNode('No fresh soundtrack commit to review.'));
+          if (!soundtrackArchiveData) await loadSoundtrackArchive();
+          var changes = freshSoundtrackChanges(cutoff);
+          var songCount = changes.reduce(function (sum, change) {
+            return sum + change.songs.length;
+          }, 0);
+          if (!songCount) {
+            var newest = newestSongDate();
+            setSoundReview(
+              0,
+              'No songs added in the last ' + REVIEW_HOURS + ' hours.'
+                + (newest ? ' Newest track: ' + relativeTime(newest, now) + '.' : ''),
+              ''
+            );
+            setSoundReviewList(emptyNode('No fresh tracks to review.'));
             return;
           }
-
-          var runs = [];
-          for (var i = 0; i < recent.length; i += 1) {
-            var run = await diffSoundtrackCommit(recent[i]);
-            if (run && run.changes.length) runs.push(run);
-          }
-
-          var changeCount = runs.reduce(function (sum, run) {
-            return sum + run.changes.length;
-          }, 0);
           setSoundReview(
-            changeCount,
-            changeCount
-              ? changeCount + ' soundtrack change' + (changeCount === 1 ? '' : 's') + ' found in fresh commits.'
-              : 'Fresh soundtrack commits landed, but no new city or song additions were detected.',
-            changeCount ? 'success' : 'warn'
+            songCount,
+            songCount + ' fresh track' + (songCount === 1 ? '' : 's') + ' across '
+              + changes.length + ' tape' + (changes.length === 1 ? '' : 's') + '.',
+            'success'
           );
-          setSoundReviewList(runs.length
-            ? runs.map(function (run) { return renderSoundRun(run, now); })
-            : emptyNode('The fresh commit did not add songs or city tapes.'));
+          setSoundReviewList(changes.map(renderSoundChange));
         } catch (error) {
           console.error(error);
-          setSoundReview(0, error.message || 'Could not load soundtrack commits.', 'error');
-          setSoundReviewList(emptyNode('Soundtrack review could not load. Open the commit log to inspect the file directly.'));
+          setSoundReview(0, error.message || 'Could not load fresh soundtrack rows.', 'error');
+          setSoundReviewList(emptyNode('Soundtrack review could not load. Check the Supabase project.'));
         } finally {
           if (soundReviewRefreshBtn) {
             soundReviewRefreshBtn.disabled = false;
@@ -1952,92 +2062,51 @@ Final report:
         }
       }
 
-      async function diffSoundtrackCommit(commit) {
-        var parentSha = commit && commit.parents && commit.parents[0] && commit.parents[0].sha;
-        if (!commit || !commit.sha || !parentSha) return null;
-        var after = await fetchRawJson(SOUNDTRACK_PATH, commit.sha);
-        var before = await fetchRawJson(SOUNDTRACK_PATH, parentSha).catch(function () {
-          return { soundtracks: [] };
-        });
-        return {
-          commit: commit,
-          date: commitDate(commit),
-          title: firstLine(commit.commit && commit.commit.message),
-          changes: diffSoundtracks(before, after)
-        };
+      function songDate(song) {
+        var raw = song && song.created_at;
+        if (!raw) return null;
+        var date = new Date(raw);
+        return Number.isFinite(date.getTime()) ? date : null;
       }
 
-      function diffSoundtracks(beforeData, afterData) {
-        var before = tapeMap(beforeData);
-        var after = tapeMap(afterData);
-        var changes = [];
-        Array.from(after.keys()).sort().forEach(function (slug) {
-          var next = after.get(slug);
-          var prev = before.get(slug);
-          if (!prev) {
-            var songs = validSongs(next.songs);
-            if (songs.length) {
-              changes.push({
-                type: 'New Tape',
-                city_slug: slug,
-                spine_tag: text(next.spine_tag),
-                songs: songs
-              });
-            }
-            return;
-          }
-          var prevKeys = new Set(validSongs(prev.songs).map(songKey));
-          var added = validSongs(next.songs).filter(function (song) {
-            return !prevKeys.has(songKey(song));
+      function newestSongDate() {
+        var newest = null;
+        soundtracks().forEach(function (tape) {
+          (tape.songs || []).forEach(function (song) {
+            var date = songDate(song);
+            if (date && (!newest || date > newest)) newest = date;
           });
-          if (added.length) {
-            changes.push({
-              type: 'Songs Added',
-              city_slug: slug,
-              spine_tag: text(next.spine_tag),
-              songs: added
-            });
-          }
         });
-        return changes;
+        return newest;
       }
 
-      function tapeMap(data) {
-        var list = Array.isArray(data && data.soundtracks) ? data.soundtracks : [];
-        var map = new Map();
-        list.forEach(function (tape) {
-          var slug = text(tape && tape.city_slug);
-          if (slug) map.set(slug, tape || {});
+      // Tapes carrying at least one song written since the cutoff, newest tape
+      // first. A tape whose own row is that fresh is a brand-new city, which is
+      // the half of a run worth looking at hardest.
+      function freshSoundtrackChanges(cutoff) {
+        var changes = [];
+        soundtracks().forEach(function (tape, tapeIndex) {
+          var fresh = [];
+          (tape.songs || []).forEach(function (song, songIndex) {
+            var date = songDate(song);
+            if (!date || date < cutoff) return;
+            fresh.push({ song: song, songIndex: songIndex, date: date });
+          });
+          if (!fresh.length) return;
+          var tapeDate = tape.created_at ? new Date(tape.created_at) : null;
+          var isNewTape = !!(tapeDate && Number.isFinite(tapeDate.getTime()) && tapeDate >= cutoff);
+          changes.push({
+            type: isNewTape ? 'New Tape' : 'Songs Added',
+            city_slug: tape.city_slug,
+            spine_tag: text(tape.spine_tag),
+            tapeIndex: tapeIndex,
+            songs: fresh,
+            newest: fresh.reduce(function (max, entry) {
+              return (!max || entry.date > max) ? entry.date : max;
+            }, null)
+          });
         });
-        return map;
-      }
-
-      function validSongs(songs) {
-        return (Array.isArray(songs) ? songs : []).filter(function (song) {
-          return !isArchivedSong(song) && (text(song && song.title) || text(song && song.artist));
-        });
-      }
-
-      function songKey(song) {
-        return [
-          text(song && song.title).toLowerCase(),
-          text(song && song.artist).toLowerCase(),
-          text(song && song.spotifyId).toLowerCase()
-        ].join('\u0001');
-      }
-
-      function renderSoundRun(run, now) {
-        var card = document.createElement('div');
-        card.className = 'run-card';
-        card.appendChild(runHeader(
-          run.title || 'Soundtrack commit',
-          formatDate(run.date) + ' - ' + relativeTime(run.date, now),
-          run.commit && run.commit.html_url
-        ));
-        run.changes.forEach(function (change) {
-          card.appendChild(renderSoundChange(change));
-        });
-        return card;
+        return changes.sort(function (a, b) { return (b.newest || 0) - (a.newest || 0); });
       }
 
       function renderSoundChange(change) {
@@ -2055,11 +2124,12 @@ Final report:
         meta.appendChild(chip(change.type, change.type === 'New Tape' ? 'success' : 'warn'));
         meta.appendChild(chip(change.songs.length + ' song' + (change.songs.length === 1 ? '' : 's')));
         if (text(change.spine_tag)) meta.appendChild(chip(change.spine_tag));
+        if (change.newest) meta.appendChild(chip(relativeTime(change.newest, new Date())));
 
         var songs = document.createElement('ol');
         songs.className = 'song-list';
-        change.songs.forEach(function (song) {
-          songs.appendChild(renderSong(song, change.city_slug));
+        change.songs.forEach(function (entry) {
+          songs.appendChild(renderSong(entry.song, change.tapeIndex, entry.songIndex));
         });
 
         main.append(title, meta, songs);
@@ -2067,13 +2137,13 @@ Final report:
         var actions = document.createElement('div');
         actions.className = 'item-actions';
         actions.appendChild(actionLink('/sound/#' + encodeURIComponent(change.city_slug), 'Open Tape', true));
-        actions.appendChild(actionLink('https://github.com/the-game-bureau/the-game-bureau/commits/main/sound/soundtracks.json', 'View Log', true));
+        actions.appendChild(actionLink(ROUTINE_URL, 'Open Routine', true));
 
         article.append(main, actions);
         return article;
       }
 
-      function renderSong(song, citySlug) {
+      function renderSong(song, tapeIndex, songIndex) {
         var li = document.createElement('li');
         var label = [text(song && song.title), text(song && song.artist)].filter(Boolean).join(' - ');
         var spotifyId = text(song && song.spotifyId);
@@ -2089,64 +2159,8 @@ Final report:
         }
         var blurb = text(song && song.blurb);
         if (blurb) li.appendChild(document.createTextNode(' - ' + blurb));
-        if (citySlug) li.appendChild(archiveButtonForReviewSong(citySlug, song));
+        li.appendChild(archiveButtonForReviewSong(tapeIndex, songIndex));
         return li;
-      }
-
-      function runHeader(titleText, subText, href) {
-        var head = document.createElement('div');
-        head.className = 'run-head';
-        var textWrap = document.createElement('div');
-        var title = document.createElement('h3');
-        title.className = 'run-title';
-        title.textContent = titleText;
-        var sub = document.createElement('p');
-        sub.className = 'run-sub';
-        sub.textContent = subText;
-        textWrap.append(title, sub);
-        var actions = document.createElement('div');
-        actions.className = 'item-actions';
-        if (href) actions.appendChild(actionLink(href, 'Commit', true));
-        head.append(textWrap, actions);
-        return head;
-      }
-
-      async function fetchPathCommits(path, since, perPage) {
-        var url = new URL(REPO_API + '/commits');
-        url.searchParams.set('path', path);
-        if (since) url.searchParams.set('since', since.toISOString());
-        url.searchParams.set('per_page', String(perPage || 10));
-        var response = await fetch(url.toString(), {
-          headers: { Accept: 'application/vnd.github+json' },
-          cache: 'no-store'
-        });
-        if (!response.ok) throw new Error('GitHub commits API returned ' + response.status + ' for ' + path + '.');
-        var rows = await response.json();
-        return Array.isArray(rows) ? rows : [];
-      }
-
-      async function latestPathCommit(path) {
-        var rows = await fetchPathCommits(path, null, 1);
-        return rows[0] || null;
-      }
-
-      async function fetchRawJson(path, sha) {
-        var url = RAW_BASE + '/' + encodeURIComponent(sha) + '/' + path.split('/').map(encodeURIComponent).join('/');
-        var response = await fetch(url, {
-          headers: { Accept: 'application/json,text/plain,*/*' },
-          cache: 'no-store'
-        });
-        if (!response.ok) throw new Error('Could not read ' + path + ' at ' + sha.slice(0, 7) + '.');
-        return response.json();
-      }
-
-      function commitDate(commit) {
-        var raw = commit && commit.commit && commit.commit.committer && commit.commit.committer.date;
-        return new Date(raw);
-      }
-
-      function firstLine(value) {
-        return text(value).split('\n')[0];
       }
 
       function soundCityLabel(slug) {
@@ -2157,12 +2171,11 @@ Final report:
         }).join(' ');
       }
 
-      // Last run of the daily routine. Read from the public GitHub commits API
-      // rather than the routine API: this page is static and unauthenticated,
-      // and the commit is the thing that actually shipped. A run that errored
-      // pushes nothing, so a stale timestamp IS the failure signal - hence the
-      // 26-hour staleness check below.
-      var RUN_FEED = REPO_API + '/commits?path=' + SOUNDTRACK_PATH + '&per_page=1';
+      // Last run of the daily routine. The routine commits nothing now that the
+      // tapes are rows, so there is no commit feed to read: the newest song row
+      // IS the receipt, exactly like the gift shop treats its freshest Review
+      // candidate. A run that errored writes nothing, so a stale timestamp is the
+      // failure signal - hence the 26-hour check.
       var STALE_AFTER_HOURS = REVIEW_HOURS;
 
       function relativeTime(then, now) {
@@ -2176,13 +2189,6 @@ Final report:
         return days + (days === 1 ? ' day ago' : ' days ago');
       }
 
-      function describeCommit(message) {
-        var firstLine = String(message || '').split('\n')[0];
-        var cities = firstLine.match(/\(([^)]+)\)\s*$/);
-        if (cities) return cities[1].replace(/\s*\+\s*/, ' + ');
-        return firstLine;
-      }
-
       async function loadLastRun() {
         var wrap = document.getElementById('runStatus');
         var when = document.getElementById('runWhen');
@@ -2190,37 +2196,38 @@ Final report:
         if (!wrap || !when || !what) return;
 
         try {
-          var res = await fetch(RUN_FEED, { headers: { Accept: 'application/vnd.github+json' } });
-          if (!res.ok) throw new Error('GitHub ' + res.status);
-          var commits = await res.json();
-          if (!Array.isArray(commits) || !commits.length) throw new Error('no commits');
+          // One row: the newest song on any tape, plus the city it landed on.
+          var res = await fetch(
+            restUrl('soundtrack_songs?select=city_slug,title,artist,created_at&order=created_at.desc&limit=1'),
+            { headers: anonHeaders(), cache: 'no-store' }
+          );
+          if (!res.ok) throw new Error('Supabase ' + res.status);
+          var rows = await res.json();
+          if (!Array.isArray(rows) || !rows.length) throw new Error('no songs');
 
-          var commit = commits[0];
-          var stamp = new Date(commit.commit && commit.commit.committer && commit.commit.committer.date);
+          var row = rows[0];
+          var stamp = new Date(row.created_at);
+          if (!Number.isFinite(stamp.getTime())) throw new Error('no timestamp');
           var now = new Date();
           var stale = (now - stamp) / 3600000 > STALE_AFTER_HOURS;
 
           wrap.dataset.state = stale ? 'stale' : 'ok';
           when.textContent = 'Last run ' + relativeTime(stamp, now);
 
-          var runLog = document.getElementById('runLogLink');
-          if (runLog && commit.html_url) runLog.href = commit.html_url;
-
-          var detail = describeCommit(commit.commit && commit.commit.message);
           what.textContent = stamp.toLocaleString([], {
             weekday: 'short', month: 'short', day: 'numeric',
             hour: 'numeric', minute: '2-digit'
-          }) + (detail ? ' — ' + detail : '');
+          }) + ' — ' + soundCityLabel(row.city_slug);
 
           if (stale) {
             what.appendChild(document.createTextNode(
-              ' · no soundtrack change in over a day — check the routine.'
+              ' · no new track in over a day — check the routine.'
             ));
           }
         } catch (error) {
           wrap.dataset.state = 'error';
           when.textContent = 'Last run unavailable';
-          what.textContent = 'Could not reach the GitHub commits API. Open the routine to check directly.';
+          what.textContent = 'Could not read public.soundtrack_songs. Open the routine to check directly.';
         }
       }
 

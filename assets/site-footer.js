@@ -217,10 +217,33 @@
     }).length;
   }
 
-  fetch('/sound/soundtracks.json', { cache: 'no-store' })
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (data) {
-      if (data) setStats(null, null, null, countSoundtracks(data));
+  // Tapes live in public.soundtracks / public.soundtrack_songs as of 2026-07-29.
+  // soundtrack_stats already has the per-tape active count, so the stat is one
+  // HEAD-shaped request: filter to tapes with at least one active song and read
+  // the exact count off Content-Range. Falls back to the committed JSON file,
+  // same lifeboat /sound/ itself uses.
+  function fetchSoundtrackCount() {
+    var url = SB_URL + '/rest/v1/soundtrack_stats?select=city_slug'
+      + '&archived=is.false&active_songs=gt.0&limit=1&apikey=' + SB_KEY;
+    return fetch(url, {
+      headers: Object.assign({}, sbHeaders, { Prefer: 'count=exact' }),
+      cache: 'no-store'
+    }).then(function (r) {
+      if (!r.ok) throw new Error('Soundtrack count unavailable');
+      var match = String(r.headers.get('content-range') || '').match(/\/(\d+)$/);
+      if (!match) throw new Error('Soundtrack count missing from Content-Range');
+      return Number(match[1]) || 0;
+    });
+  }
+
+  fetchSoundtrackCount()
+    .catch(function () {
+      return fetch('/sound/soundtracks.json', { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) { return data ? countSoundtracks(data) : null; });
+    })
+    .then(function (count) {
+      if (count != null) setStats(null, null, null, count);
     })
     .catch(function () {});
 

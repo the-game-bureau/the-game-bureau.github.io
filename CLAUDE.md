@@ -6,16 +6,25 @@ Durable project knowledge for Claude Code (and any teammate working in this repo
 
 ## Sound / city playlists
 
-The public page [sound/index.html](sound/index.html) renders city cassette cards at runtime, driven by [sound/soundtracks.json](sound/soundtracks.json) (per-city `city_slug`, spine phrase tags, and the song list — each song carries its own `spotifyId` for playback).
+The public page [sound/index.html](sound/index.html) renders city cassette cards at runtime from **two Supabase tables**: `public.soundtracks` (one row per city tape — `city_slug` PK, `spine_tag`, `spine_tag_position`, `archived`) and `public.soundtrack_songs` (one row per track — `city_slug`, `position`, `title`, `artist`, `blurb`, `spotify_id`, `explicit`, `archived`), plus the `public.soundtrack_stats` view for per-tape counts. Schema: [supabase/migrations/2026072904_soundtracks_tables.sql](supabase/migrations/2026072904_soundtracks_tables.sql); the 69-tape / 929-song lift out of the old JSON file is [2026072905_soundtracks_seed.sql](supabase/migrations/2026072905_soundtracks_seed.sql).
 
-- It reads `public.cities` with **`select=*`** only for nicer city display names + geo badges, filtering out rows flagged `hide_from_soundtracks` (falling back to the retired `ignored` column). This is optional: if the cities fetch fails, `fallbackCityRowsFromSoundtracks` renders from `soundtracks.json` alone (slug → display name). **The page depends on no specific `cities` column** — don't reintroduce one.
+- **[sound/soundtracks.json](sound/soundtracks.json) is now only an offline fallback**, read solely when the Supabase fetch fails (moved 2026-07-29). It is still committed, still shipped, and goes stale the moment anything is written to the tables — refresh it with **Download JSON** in [sound/admin/index.html](sound/admin/index.html), which regenerates the file from the tables. **Never edit it to change a tape**, and never treat a value in it as current.
+- **Both reads paginate.** PostgREST caps a response at 1000 rows and truncates silently; `soundtrack_songs` is already past 900. The page and the admin each carry a `Range`-paging `fetchAllRows`.
+- It reads `public.cities` with **`select=*`** only for nicer city display names + geo badges, filtering out rows flagged `hide_from_soundtracks` (falling back to the retired `ignored` column). This is optional: if the cities fetch fails, `fallbackCityRowsFromSoundtracks` renders from the tape slugs alone. **The page depends on no specific `cities` column** — don't reintroduce one.
 - The old per-city `cities` sound columns (`sound_playlist_id` / `sound_accent` / `sound_secondary`) were **dropped 2026-07-24**; soundtracks are handled separately now and cassette colors come from the CSS `nth-child` scheme. Don't re-add them.
+- **`archived` on a song is a do-not-rescrape tombstone**, not a delete: the row stays on its city so the same title+artist is never picked again there, while `/sound/` hides it and active counts ignore it. A **unique index on `(city_slug, lower(title), lower(artist))`** is what enforces that — an INSERT of a retired song hits the index and does nothing.
+- The footer's soundtrack stat ([assets/site-footer.js](assets/site-footer.js)) counts `soundtrack_stats` rows with `active_songs > 0` via `Prefer: count=exact`, falling back to the JSON file.
 
-Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-playlists.json`, or CSV-driven build scripts under `sound/`. To add or edit a soundtrack, edit the `soundtracks.json` entry (and add the city to `public.cities` if you want the polished name/badge).
+Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-playlists.json`, or CSV-driven build scripts under `sound/`. To add a soundtrack, insert rows (and add the city to `public.cities` first — `city_slug` is a FK to `cities.slug`).
+
+### Two write paths, deliberately asymmetric
+
+- **Agents insert; only humans retire.** The routine calls **`tgb_pull_soundtrack_songs(jsonb)`** ([supabase/migrations/2026072906_soundtrack_pull_rpc.sql](supabase/migrations/2026072906_soundtrack_pull_rpc.sql)) with the ordinary public publishable key — a cloud routine has no secret store, exactly the constraint that produced `tgb_pull_book_candidates`. It is `SECURITY DEFINER` and tiny: insert-only, creates the tape row if missing, refuses a `city_slug` that is unknown or `hide_from_soundtracks`, ignores `spine_tag` on an existing tape, drops a malformed `spotify_id`, always writes `archived = false`, caps a call at 60 songs across 4 tapes. **Don't add parameters for `archived`** — that constant is what makes it safe to expose to `anon`. Unlike the book pull there is **no review queue**: what it writes is live, which matches the behaviour it replaced (committing straight to `main`).
+- **Archive / Restore is a human action** in the Tape Room's Track Archive panel, PATCHing `soundtrack_songs.archived` under an admin session (RLS grants writes to `authenticated` only). Editing a song's text still means a direct UPDATE — there is no field editor on the page yet.
 
 ### Daily generation — a Claude Code cloud routine, not CI
 
-New soundtracks are added by a **scheduled Claude Code cloud agent** ("Daily soundtrack generator", `trig_014sqaUyU7557svq9mGA1E4a`, cron `30 11 * * *` UTC), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the alphabetically-first city with no soundtrack plus the most underfilled existing one, verifies Spotify IDs by web search, and commits `sound/soundtracks.json` to `main`.
+New soundtracks are added by a **scheduled Claude Code cloud agent** ("Daily soundtrack generator", `trig_014sqaUyU7557svq9mGA1E4a`, cron `30 11 * * *` UTC), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the alphabetically-first city with no soundtrack plus the most underfilled existing one, verifies Spotify IDs by web search, and writes them through the RPC above. **It commits nothing** — so the last-run signal in [sound/admin/index.html](sound/admin/index.html) is the **newest `soundtrack_songs` row**, not the GitHub commits API (same call as the gift shop's freshest Review candidate). The routine's stored prompt must be updated to match the paste-ready prompt in the Tape Room; both changed on 2026-07-29 when the tables landed.
 
 **Why not GitHub Actions:** it used to be `.github/workflows/soundtrack-daily.yml` + `_dev/scripts/soundtrack-daily.mjs`, both **deleted 2026-07-27**. That path needed a funded Anthropic or OpenAI API key; neither account had credit, so every run failed on a billing error. The routine bills against the Claude subscription instead. Don't recreate the workflow unless an API key gets funded — and if you do, don't leave both running or you'll get two soundtracks a day.
 
@@ -30,7 +39,7 @@ New soundtracks are added by a **scheduled Claude Code cloud agent** ("Daily sou
 - **The list is replaced wholesale each run**, not appended. An unposted pick is gone tomorrow, which is intended: it keeps the page to one day's decisions.
 - **TRASH is client-side**, remembered in `localStorage['tgb_socials_trashed_v1']` keyed by the date-stamped post id, so a dismissal survives a reload without needing a write path. A "Restore N Trashed" button in the panel header clears it.
 - The clipboard gets **blurb + blank line + URL** — deliberately not the headline (that's the outlet's words) and never the `why` field, which is an internal note for the admin page.
-- Last-run status reads the **GitHub commits API** for `socials/queue.json`, same as the soundtrack admin: a run that errored pushes nothing, so a stale timestamp is the failure signal.
+- Last-run status reads the **GitHub commits API** for `socials/queue.json`: a run that errored pushes nothing, so a stale timestamp is the failure signal. (The soundtrack admin used to work this way too; since 2026-07-29 it reads its newest row instead, because that routine no longer commits.)
 
 ---
 
@@ -45,7 +54,7 @@ Walking-tour candidates are found each morning by a **scheduled Claude Code clou
 - **The city rotation is derived from git history**, not from the table: the routine can't read `waypoints` (RLS gates SELECT behind an admin session), so it reads the last ~40 commits of `nightly.json` and picks the city missing longest. Duplicates are therefore possible and harmless — the admin page checks name + city against the loaded rows and marks an already-present stop "In table".
 - **The list is replaced wholesale each run.** An unadded stop is gone tomorrow, which keeps the panel to one morning's decisions.
 - **`source_url` is mandatory on every stop** — the stop's own Wikipedia article (or the list article it is a row in), which lands in the waypoint's Source URL field so the claim stays checkable later.
-- Last-run status reads the **GitHub commits API** for `mc/waypoints/nightly.json`, same as the soundtrack and socials admins: a run that errored pushes nothing, so a stale timestamp is the failure signal.
+- Last-run status reads the **GitHub commits API** for `mc/waypoints/nightly.json`, same as the socials admin: a run that errored pushes nothing, so a stale timestamp is the failure signal.
 - The schedule sits at `:45` to keep it clear of the other three (`:00` gift shop, `:15` socials, `:30` soundtrack). Same DST caveat as the rest — the cloud cron is UTC, so it drifts an hour in winter.
 
 ---

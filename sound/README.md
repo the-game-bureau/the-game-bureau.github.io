@@ -29,41 +29,80 @@ someone who merely happens to have been born nearby.
 
 ## Where the data lives
 
+Tapes moved out of `sound/soundtracks.json` and into Supabase on **2026-07-29**.
+The file is still committed and still read — but only as a lifeboat.
+
 | Thing | Where | Notes |
 |---|---|---|
-| The songs | `sound/soundtracks.json` | The only file the public page reads for tracks. Edit this to change a tape. |
-| City names + geo badges | `public.cities` (Supabase) | Optional polish. If the fetch fails the page still renders from the JSON alone. |
-| The public page | `sound/index.html` | Builds the cassette cards at runtime. |
-| The dashboard | `sound/admin/index.html` | Last run, links to the routine, manual fallback prompt. |
+| The tapes | `public.soundtracks` | One row per city: `city_slug` (pk), `spine_tag`, `spine_tag_position`, `archived`. |
+| The songs | `public.soundtrack_songs` | One row per track: `city_slug`, `position`, `title`, `artist`, `blurb`, `spotify_id`, `explicit`, `archived`. |
+| How full each tape is | `public.soundtrack_stats` (view) | `active_songs`, `archived_songs`, `last_song_at` per tape. Read this instead of counting songs yourself. |
+| The write path for agents | `public.tgb_pull_soundtrack_songs(jsonb)` | Insert-only RPC callable with the publishable key. The routine's only way in. |
+| City names + geo badges | `public.cities` | Joined on `city_slug` = `cities.slug`. Also the gate: no tape for a city with `hide_from_soundtracks = true`. |
+| Offline fallback | `sound/soundtracks.json` | What `/sound/` renders when Supabase is unreachable. **Not the source of truth.** Regenerate it with **Download JSON** in the Tape Room; never hand-edit it and never treat it as current. |
+| The public page | `sound/index.html` | Reads both tables (paged, because PostgREST caps at 1000 rows), falls back to the JSON file on any error. |
+| The dashboard | `sound/admin/index.html` | Fresh-track review, the Track Archive editor, last run, links to the routine, manual fallback prompt. |
 
-One entry per city:
+A tape and its songs:
 
-```json
+```jsonc
+// public.soundtracks
+{ "city_slug": "new-orleans", "spine_tag": "Soul Mix", "spine_tag_position": null, "archived": false }
+
+// public.soundtrack_songs
 {
   "city_slug": "new-orleans",
-  "spine_tag": "Soul Mix",
-  "songs": [
-    {
-      "title": "Do Whatcha Wanna",
-      "artist": "Rebirth Brass Band",
-      "spotifyId": "4PTG3Z6ehGkBFwjybzWkR8",
-      "blurb": "Second-line brass that runs the whole city"
-    }
-  ]
+  "position": 0,
+  "title": "Do Whatcha Wanna",
+  "artist": "Rebirth Brass Band",
+  "spotify_id": "4PTG3Z6ehGkBFwjybzWkR8",
+  "blurb": "Second-line brass that runs the whole city",
+  "explicit": false,
+  "archived": false
 }
 ```
 
-- `city_slug` matches a slug in `public.cities`.
+- `city_slug` is a foreign key to `public.cities.slug`. A tape cannot exist for a
+  city that is not in the catalog.
 - `spine_tag` is the short phrase printed down the cassette spine (`Soundtrack`,
-  `Jams`, `Soul Mix`…). Set `spine_tag_position: "before"` only for phrases that
+  `Jams`, `Soul Mix`…). Set `spine_tag_position = 'before'` only for phrases that
   read ahead of the city name, like `Sounds of`.
-- `spotifyId` is a 22-character Spotify track ID. **Optional** — omit it rather
-  than guess; the player falls back to a Spotify search for `artist title`.
-- `blurb` is 6–10 words, specific to that city.
-- `archived: true` is a track-level tombstone. The song stays in that city's
-  `songs` array so it is not scraped again for that city, but `/sound/` does not
-  show it and active counts ignore it. Omit false archived values on active
-  songs.
+- `position` is play order within the tape; ties fall back to `id`.
+- `spotify_id` is a 22-character Spotify track id. **Nullable on purpose** — omit
+  it rather than guess; the player falls back to a Spotify search for
+  `artist title`. A CHECK constraint rejects anything that is not 22
+  alphanumerics, so a malformed id fails loudly instead of quietly not playing.
+- `archived = true` is a track-level tombstone. The row stays on the city so the
+  same title+artist is never picked again there, but `/sound/` hides it and active
+  counts ignore it.
+- A **unique index on `(city_slug, lower(title), lower(artist))`** enforces the
+  no-duplicates rule in the database. This is what makes tombstones work: an
+  INSERT of a retired song hits the index and does nothing.
+
+### Reading and writing
+
+Reads are public — the publishable key in `sound/index.html` is enough:
+
+```bash
+curl -sS "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/soundtrack_stats?select=city_slug,active_songs,archived&order=city_slug.asc&apikey=<publishable key>"
+```
+
+Writes split by who is doing them:
+
+- **An agent adds songs** through `tgb_pull_soundtrack_songs`, with the same
+  publishable key. It is `SECURITY DEFINER` and deliberately tiny: insert-only,
+  creates the tape row if needed, refuses a `city_slug` that is unknown or hidden
+  from `/sound/`, ignores `spine_tag` on a tape that already exists, drops a
+  malformed `spotify_id`, always writes `archived = false`, and caps a call at 60
+  songs across 4 tapes. **Do not add parameters for `archived`** — that constant
+  is part of what makes the function safe to expose to `anon`. Same pattern, and
+  same reason, as the gift shop's `tgb_pull_book_candidates`: a cloud routine has
+  no secret store, so a service-role key would have to sit in its stored prompt
+  in plaintext.
+- **A human retires or restores a song** in the Tape Room's Track Archive panel,
+  which PATCHes `soundtrack_songs.archived` under an admin session. RLS allows
+  writes to `authenticated` only. The asymmetry is the design: adding is
+  automatable, destroying is not.
 
 ---
 
@@ -75,20 +114,19 @@ These must hold. The daily agent follows them; so should you.
 2. **Max 2 active songs per artist** within a city.
 3. **No duplicate title + artist** pair within a city, including archived songs.
 4. Every active song has a **title, an artist, and a 6–10 word blurb**.
-5. `spotifyId`, when present, is **exactly 22 alphanumeric characters**, verified
+5. `spotify_id`, when present, is **exactly 22 alphanumeric characters**, verified
    against a real `open.spotify.com/track` page. **Never invent one** — a
    fabricated ID is 22 characters like any other, passes every format check, and
    silently plays nothing. IDs are **case-sensitive** and search snippets
    sometimes disagree on capitalisation, so copy the ID off the page you opened.
-6. `"explicit": true` only when Spotify marks the track explicit; otherwise omit
-   the field.
-7. `"archived": true` only for a retired song that should be hidden and
-   excluded from active counts while blocking reuse in that same city; otherwise
-   omit the field.
-8. Entries stay **sorted by `city_slug`**.
+6. `explicit = true` only when Spotify marks the track explicit.
+7. `archived = true` only for a retired song that should be hidden and excluded
+   from active counts while blocking reuse in that same city. **Only a human sets
+   it** — the agent write path cannot archive or un-archive anything.
+8. `position` runs 0-upward within a tape and carries play order.
 9. **No tapes for venue-only cities** — rows in `public.cities` with
-   `ignored = true` (Orchard Park, Santa Clara) are stadium towns, not places we
-   sell into.
+   `hide_from_soundtracks = true` (Orchard Park, Santa Clara) are stadium towns,
+   not places we sell into. The write RPC refuses them outright.
 10. Real, commercially available recordings only. No karaoke, tribute, sped-up,
    slowed, or re-recorded versions. A **remaster** of the original master is
    fine; a **re-recording** is not.
@@ -130,13 +168,14 @@ change the cron to `30 12 * * *` when Central falls back in November, and back
 to `30 11 * * *` in March. Leaving it alone is fine too — an hour early in
 winter costs nothing.
 
-1. Reads `public.cities` and `sound/soundtracks.json`.
+1. Reads `public.cities` and `public.soundtrack_stats`.
 
    > **Read the catalog with `curl`, not WebFetch.** Settled 2026-07-28 by
    > testing both against the same host:
    >
    > ```bash
-   > curl -sS "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/cities?select=slug,city,ignored&order=city.asc&apikey=<publishable key>"
+   > curl -sS "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/cities?select=slug,city,hide_from_soundtracks&order=city.asc&apikey=<publishable key>"
+   > curl -sS "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/soundtrack_stats?select=city_slug,active_songs,archived&order=city_slug.asc&apikey=<publishable key>"
    > ```
    >
    > The publishable key rides in the query string — PostgREST accepts that,
@@ -165,19 +204,20 @@ winter costs nothing.
    > **While it is unreachable:** skip the new-city half — never guess which
    > city is next, and never hand-write a city list, because a wrong pick
    > writes a tape for a city we do not sell into. Still do the top-up, and
-   > say plainly in the summary and the commit message that the catalog was
-   > unreachable.
+   > say plainly in the summary that the catalog was unreachable.
 2. Picks the **alphabetically first city with no active tape**, plus the
    **emptiest existing tape by active song count**.
 3. Researches songs and verifies every Spotify ID by web search.
 4. Runs the housekeeping pass below.
-5. Writes `sound/soundtracks.json` and commits straight to `main`.
+5. Writes the songs through `tgb_pull_soundtrack_songs`, which puts them live on
+   `/sound/` immediately. It commits nothing — **the newest song row is the run
+   receipt**, which is what the dashboard's "Last run" reads.
 
 ### The daily housekeeping pass
 
 Added 2026-07-28, after a manual audit turned up eleven tapes breaking the
-artist cap and twelve misplaced songs on one tape. The run now scans the whole
-file every day and reports:
+artist cap and twelve misplaced songs on one tape. The run now scans every tape
+each day and reports:
 
 1. Any artist appearing **more than twice among active songs** on a tape —
    including one act spelled two ways (`Los Tigres del Norte` /
@@ -185,10 +225,12 @@ file every day and reports:
    way).
 2. Duplicate **title + artist** pairs within a tape, including archived songs,
    because archived entries are the do-not-rescrape list for that city.
-3. Active-song `spotifyId` values that fail `^[A-Za-z0-9]{22}$`.
+3. Active songs with a missing `spotify_id` (the column's CHECK constraint means
+   a malformed one can no longer be stored at all).
 4. Active songs with missing titles, artists, or blurbs; blurbs outside 6–10
    words or ending in a period.
-5. Entries out of `city_slug` order, duplicate entries, empty tapes.
+5. Tapes with no songs, and tapes for cities that have since been hidden from
+   `/sound/`.
 6. Tapes short of 15 active songs, shortest first — the backlog, expected to be
    long.
 7. Active songs with **no plausible connection to their city**.
@@ -199,23 +241,28 @@ deliberate: it keeps each day's diff small enough to actually read.
 
 Two rules for the fixing:
 
-- A cap violation is repaired by **archiving** the surplus song with
-  `"archived": true` and adding a verified hometown track so the tape still has
-  15 active songs. Never delete the retired song; the archived row blocks that
-  same title + artist from being scraped again for the city.
-- **Never silently delete.** A song you cannot verify keeps its title and
-  artist and loses only its `spotifyId`. A song that merely looks out of place
-  gets archived or named in the summary for a human to judge.
+- **The agent cannot archive anything** — `tgb_pull_soundtrack_songs` is
+  insert-only. So a cap violation, a wrong-city song, or an unplayable track is
+  *reported*, with the city and the exact song named, for a human to archive in
+  the Tape Room. Where the fix is additive (a short tape), the agent just adds the
+  verified songs.
+- **Never silently delete.** Deleting is not available to the agent at all, and a
+  human archives rather than deletes: the tombstone row is what blocks that same
+  title + artist from being picked again for the city.
 
 - Routine `trig_014sqaUyU7557svq9mGA1E4a` —
   [open it](https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a)
 - Model: Claude Opus 5
 - From that page you can watch a run, trigger one early, change the schedule, or
   pause it.
-- The routine's stored prompt was updated on 2026-07-28 to match step 1 — it now
-  tells the agent to use `curl` and not to switch to WebFetch. Two earlier
-  versions said the opposite. If the prompt and this file ever disagree again,
-  **this file wins**, which the prompt itself says.
+- The routine's stored prompt was **rewritten on 2026-07-29** for the Supabase
+  path: it reads `soundtrack_stats` instead of the JSON file, writes through
+  `tgb_pull_soundtrack_songs`, and its last section is now "do not commit". It
+  also keeps the 2026-07-28 fix telling the agent to use `curl` and never switch
+  to WebFetch (two earlier versions said the opposite). If the prompt and this
+  file ever disagree, **this file wins**, which the prompt itself says.
+- **The routine reads this file from `main` on GitHub**, not from your working
+  copy. A change to the rules only reaches tomorrow's run once it is pushed.
 
 It replaced a GitHub Actions workflow on 2026-07-27. That version needed a
 funded Anthropic or OpenAI API key and neither account had credit, so every run
@@ -227,25 +274,26 @@ running or you will get two tapes a day.
 
 ## Doing it by hand
 
-The dashboard carries a paste-ready prompt for running a tape out of band. You
-can also just edit `sound/soundtracks.json` directly — it is plain JSON and the
-page reads it as-is.
+The dashboard carries a paste-ready prompt for running a tape out of band. It
+targets the same RPC the routine uses, so nothing about the data path changes.
 
-To retire a song without letting the scraper bring it back, leave the song in
-that city's `songs` array and add `"archived": true`. Then add a replacement if
-the tape would otherwise have fewer than 15 active songs.
+To retire a song without letting the scraper bring it back, open the Tape Room's
+**Track Archive** panel, find the song, and press **Archive**. That writes
+`archived = true` to its row under your admin session: hidden from `/sound/`
+immediately, still on the city as a do-not-rescrape tombstone. **Restore** puts it
+back. Add a replacement if the tape would otherwise have fewer than 15 active
+songs.
 
-The dashboard's Track Archive panel can toggle that field for you. Because the
-site is static, it edits the loaded JSON in the browser; use **Copy JSON** or
-**Download JSON** there, then commit the updated `sound/soundtracks.json`.
+Editing a song's text (a bad blurb, a wrong `spotify_id`) means a direct UPDATE on
+`public.soundtrack_songs` — the Supabase table editor, or PostgREST with an admin
+token. There is no field editor on the dashboard yet.
 
-After a hand edit:
+`sound/soundtracks.json` is **not** where you make a change. It is the offline
+fallback `/sound/` reads when Supabase is unreachable, and it goes stale the
+moment anything is written to the tables. Refresh it with **Download JSON** in the
+Tape Room and commit the result; that is its only maintenance.
 
-```bash
-node -e "JSON.parse(require('fs').readFileSync('sound/soundtracks.json','utf8'))"
-```
-
-then load `/sound/` and play the tape you touched.
+After any edit, load `/sound/` and play the tape you touched.
 
 ---
 
@@ -253,12 +301,14 @@ then load `/sound/` and play the tape you touched.
 
 | Symptom | Likely cause |
 |---|---|
-| A song will not play | The `spotifyId` is wrong or the track was pulled. Delete the ID (keep title and artist) and the player falls back to search. |
-| A city is missing from `/sound/` | No entry in `soundtracks.json`, or its entry has zero active, non-archived songs. |
+| A song will not play | The `spotify_id` is wrong or the track was pulled. Null the column (keep title and artist) and the player falls back to search. |
+| A city is missing from `/sound/` | No row in `public.soundtracks`, its tape is `archived`, it has zero active songs, or the city is `hide_from_soundtracks` in `public.cities`. |
 | A city shows a slug instead of a name | It is not in `public.cities`. Add it there for the display name and geo badge. |
 | Runs keep topping up but never add a new city | The agent could not read `public.cities`. Either it used WebFetch (which 403s for this host — use curl) or the host fell off the environment's network allowlist (`403 to CONNECT`). See step 1 above. |
 | A tape is full of songs with no tie to the city | Generic arena anthems dressed up with local blurbs. Check the team-song pairing; archive wrong-city songs in this city, then add replacements or move the active song to the city whose team actually plays it. |
-| A tape got shorter after a run | Something deleted or archived without replacement. The housekeeping pass must keep 15 active songs and preserve archived tombstones. |
+| A tape got shorter after a run | Someone archived without replacing. The run itself cannot shorten a tape — it can only insert. |
+| A run reported 15 songs but the tape has fewer | The RPC skipped duplicates. Its result rows say which and why; a song already on the tape, active or archived, is silently not re-added. |
+| `/sound/` shows old tapes and new ones are missing | The Supabase fetch failed and the page fell back to `sound/soundtracks.json`. Check the browser console and the Supabase project; the file is expected to be stale. |
 | "Last run" on the dashboard is over a day old | A run failed, or the routine is paused. Open the routine and read the transcript. |
 | Two tapes appeared in one day | Something else is writing too — check the old GitHub workflow was not recreated. |
 
@@ -266,18 +316,20 @@ then load `/sound/` and play the tape you touched.
 
 ## Notes for agents
 
-- `sound/soundtracks.json` is the **only** file you need to write. Do not create a
-  Supabase soundtracks table, per-city HTML, `city-playlists.json`,
-  `song-playlists.json`, or a build script — all of those existed once and were
-  deliberately removed.
+- `public.tgb_pull_soundtrack_songs` is the **only** write path you need. Do not
+  write the tables directly, do not use a service-role key, do not edit
+  `sound/soundtracks.json`, and do not create a third table, per-city HTML,
+  `city-playlists.json`, `song-playlists.json`, or a build script — all of those
+  existed once and were deliberately removed.
 - Song suggestions arrive at `soundtrack@thegamebureau.com`. Treat them as leads,
   never as verified facts.
-- Verify before committing: valid JSON, 15 active songs, active-song artist cap,
-  no title + artist duplicates among active or archived songs, well-formed IDs,
-  alphabetical order.
-- Do not remove archived songs. They are city-specific do-not-rescrape
-  tombstones: hidden from `/sound/`, ignored by counts, and still used to block
-  future title + artist reuse in that city.
+- Verify after writing, by re-reading `soundtrack_stats`: 15 active songs on both
+  tapes you touched, artist cap intact, every added song accounted for in the
+  RPC's result rows.
+- You cannot remove or archive a song, and that is deliberate. Archived rows are
+  city-specific do-not-rescrape tombstones: hidden from `/sound/`, ignored by
+  counts, and still blocking future title + artist reuse in that city. Name what
+  needs retiring in your summary and a human does it.
 - If you cannot verify a Spotify ID, **omit it**. Omitting is always correct;
   guessing never is.
 - Say plainly in your summary which songs you could not verify. A quiet gap is
