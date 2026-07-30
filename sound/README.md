@@ -25,6 +25,19 @@ So when picking songs, optimise for **"this makes me want to go there"**, not fo
 chart positions. A deep cut that names a neighbourhood beats a famous song by
 someone who merely happens to have been born nearby.
 
+### The explainer videos
+
+The same pitch, on video, in the two shapes the socials accounts need:
+
+| Cut | File | For |
+|---|---|---|
+| 16:9 landscape | [soundtracks-explainer-landscape.mp4](https://thegamebureau.com/sound/soundtracks-explainer-landscape.mp4) | YouTube, embeds, anything widescreen |
+| 9:16 vertical | [soundtracks-explainer-vertical.mp4](https://thegamebureau.com/sound/soundtracks-explainer-vertical.mp4) | Reels, Shorts, TikTok, Stories |
+
+Both live beside the tapes in [`sound/`](.) and ship with the site, so the links
+above work for anyone — no sign-in, no CDN. They are committed binaries: replacing
+one means committing the new file over it, and the URL stays the same.
+
 ---
 
 ## Where the data lives
@@ -37,12 +50,14 @@ The file is still committed and still read — but only as a lifeboat.
 | The tapes | `public.soundtracks` | One row per city: `city_slug` (pk), `spine_tag`, `spine_tag_position`, `archived`. |
 | The songs | `public.soundtrack_songs` | One row per track: `city_slug`, `position`, `title`, `artist`, `blurb`, `spotify_id`, `explicit`, `archived`. |
 | How full each tape is | `public.soundtrack_stats` (view) | `active_songs`, `archived_songs`, `last_song_at` per tape. Read this instead of counting songs yourself. |
+| Audit findings | `public.soundtrack_issues` | One row per open finding: `city_slug`, `song_id` (null = whole tape), `kind`, `severity`, `detail`, `suggestion`, `status`. Not publicly readable. |
 | The write path for agents | `public.tgb_pull_soundtrack_songs(jsonb)` | Insert-only RPC callable with the publishable key. The routine's only way in. |
 | City names + geo badges | `public.cities` | Joined on `city_slug` = `cities.slug`. Also the gate: no tape for a city with `hide_from_soundtracks = true`. |
 | Offline fallback | `sound/soundtracks.json` | What `/sound/` renders when Supabase is unreachable. **Not the source of truth.** The daily run regenerates and commits it; never hand-edit it. |
 | The fallback exporter | `_dev/scripts/soundtracks-export.mjs` | `node _dev/scripts/soundtracks-export.mjs` rewrites that file from the tables, byte-stably. Read-only, publishable key, no secret. |
 | The public page | `sound/index.html` | Reads both tables (paged, because PostgREST caps at 1000 rows), falls back to the JSON file on any error. |
-| The dashboard | `sound/admin/index.html` | One **Tapes & Tracks** panel — every tape collapsed by city, archive buttons on both a tape and a track, each track stamped with when it was added, sortable by city / tape added / track added. Plus last run, viewer stats links, and the manual fallback prompt. |
+| The audit write path | `public.tgb_report_soundtrack_issues(jsonb)` | Insert-only RPC, publishable key. Files findings; cannot clear them. |
+| The dashboard | `sound/admin/index.html` | An **Issues** panel (open findings, Fixed / Not an issue) above **Tapes & Tracks** — every tape collapsed by city, Hide/Show on both a tape and a track, **Edit** for every field on a track plus Move/Copy to another tape, a red ⚠ chip on any flagged track, each track stamped with when it was added, sortable by city / tape added / track added. Plus last run, viewer stats links, and the manual fallback prompt. |
 
 A tape and its songs:
 
@@ -65,9 +80,11 @@ A tape and its songs:
 
 - `city_slug` is a foreign key to `public.cities.slug`. A tape cannot exist for a
   city that is not in the catalog.
-- `spine_tag` is the short phrase printed down the cassette spine (`Soundtrack`,
-  `Jams`, `Soul Mix`…). Set `spine_tag_position = 'before'` only for phrases that
-  read ahead of the city name, like `Sounds of`.
+- `spine_tag` is the short phrase printed down the cassette spine. The house
+  options are `Soundtrack`, `Soul Mix`, `Street Sounds`, `Local Mix` and `Jams`,
+  but something better and city-specific beats all of them. Set
+  `spine_tag_position = 'before'` only for phrases that read ahead of the city
+  name, like `Sounds of`.
 - `position` is play order within the tape; ties fall back to `id`.
 - `spotify_id` is a 22-character Spotify track id. **Nullable on purpose** — omit
   it rather than guess; the player falls back to a Spotify search for
@@ -76,6 +93,15 @@ A tape and its songs:
 - `archived = true` is a track-level tombstone. The row stays on the city so the
   same title+artist is never picked again there, but `/sound/` hides it and active
   counts ignore it.
+- **A tombstone is scoped to one city, never to the song.** The unique index is
+  `(city_slug, lower(btrim(title)), lower(btrim(artist)))`, so hiding *Basin
+  Street Blues* on Denver says nothing about New Orleans — the same title+artist
+  can be added there, stay active there, and be topped up there, all while the
+  Denver row stays hidden. This is deliberate: a song can genuinely belong to two
+  cities, and being wrong for one is not evidence about the other. The Tape
+  Room's **Copy** relies on it, inserting the copy with `archived = false`.
+  **Move** is the one action that does carry the tombstone across, because it
+  takes the row itself rather than making a new one.
 - **The Tape Room says HIDE and HIDDEN for this, not archive.** The column keeps
   the name `archived` and so does the code; only the words a person reads changed
   (2026-07-30). "Archive" implied the track was filed away or deleted, when all
@@ -109,6 +135,38 @@ Writes split by who is doing them:
   `soundtrack_songs.archived` under an admin session. RLS allows writes to
   `authenticated` only. The asymmetry is the design: adding is automatable,
   destroying is not.
+- **The agent audits and reports; it never fixes.** Each run checks the two tapes
+  it just wrote plus the 3 with the oldest `soundtracks.last_audit_at` (null
+  first), and files findings through `tgb_report_soundtrack_issues` — insert-only,
+  always `status = 'open'`, max 40 a call, publishable key. Four kinds:
+  `spotify` (the id resolves to nothing, or to a different recording — the only
+  failure a visitor actually hits, so it outranks the rest), `spelling`,
+  `relevance` (no genuine tie to the city, including a sports track the team does
+  not really use), `facts`. Send `audited` with **every** tape you looked at,
+  clean ones included: that is what advances the rotation, and an unstamped tape
+  is re-audited forever.
+- **Re-reporting is a silent no-op, by design.** A partial unique index on
+  `fingerprint` covering `open` and `dismissed` — but *not* `fixed` — means you
+  never have to check what is already known, and a finding a human marked "not an
+  issue" can never come back. Do not treat the RPC's `skipped` count as a failure.
+  Because the fingerprint is `md5(city_slug:song_id:kind)` and ignores your
+  wording, rephrasing a finding does not sneak it past the dedupe.
+- **A human clears a finding**, in the Issues panel, and the two buttons mean
+  different things. **Fixed** = dealt with; the row leaves `open` and the same
+  finding *may be raised again tomorrow*, which is the only real check that the
+  fix landed. **Not an issue** = the agent was wrong; that exact finding is
+  silenced permanently. Neither is available to the agent — `status` is not a
+  parameter of the reporting RPC.
+- **A human edits a song's fields** there too — title, artist, blurb,
+  `spotify_id`, `explicit`, `position` — and can **Move** a track to another tape
+  (PATCH of `city_slug`) or **Copy** it onto one (INSERT with `archived = false`).
+  Two things to know before you do either. A blank `spotify_id` is always a valid
+  answer and a better one than a guess: the player falls back to a Spotify search
+  for artist + title, whereas a fabricated 22-character ID satisfies the CHECK and
+  silently plays nothing. And because `archived` is a tombstone scoped to one
+  city, **moving a hidden track carries the tombstone with it** and frees the
+  routine to pick that song for the old city again — Copy is the right verb for a
+  song that genuinely belongs to two cities.
 - **A human can archive a whole tape**, from its city header in the same panel.
   That PATCHes `soundtracks.archived`, and a trigger archives every live song on
   the tape with it, marking each `archived_with_tape = true`. Restoring the tape
@@ -124,6 +182,13 @@ Writes split by who is doing them:
 These must hold. The daily agent follows them; so should you.
 
 1. **Exactly 15 active songs** per city. Active means `archived` is not true.
+   A tape **over** 15 is corrected by hiding, not deleting, and the ones to hide
+   are the **most recently added** — highest `created_at` first, ties broken by
+   highest `id` — until 15 active remain. Newest-first is the rule because the
+   earlier fifteen were the considered set; anything past them arrived from a
+   double-run, a manual add, or a top-up that miscounted, and is the surplus by
+   definition. Hiding leaves the row on the city as a tombstone, so the same
+   title+artist is not picked for that city again.
 2. **Max 2 active songs per artist** within a city.
 3. **No duplicate title + artist** pair within a city, including archived songs.
 4. Every active song has a **title, an artist, and a 6–10 word blurb**.
@@ -230,11 +295,59 @@ winter costs nothing.
    more than a day behind the tables. That commit is the run's only write to git,
    and it is allowed to be a no-op.
 
-### The daily housekeeping pass
+### The daily audit
 
-Added 2026-07-28, after a manual audit turned up eleven tapes breaking the
-artist cap and twelve misplaced songs on one tape. The run now scans every tape
-each day and reports:
+Added 2026-07-28 as a report-only housekeeping pass, after a manual audit turned
+up eleven tapes breaking the artist cap and twelve misplaced songs on one tape.
+Since **2026-07-30** its findings go to `public.soundtrack_issues` through
+`tgb_report_soundtrack_issues` instead of only into the run summary, so they
+survive the run and a human can clear them one at a time in the Tape Room.
+
+**Which tapes.** The two the run just wrote to — errors are cheapest to catch the
+morning they are introduced — plus the **3 that have gone longest without a
+look**. `soundtracks.last_audit_at` is the clock; null means never and sorts
+first, so an unaudited tape is always next:
+
+```bash
+curl -sS "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/soundtracks?select=city_slug,last_audit_at&order=last_audit_at.asc.nullsfirst&limit=3&apikey=<publishable key>"
+```
+
+Five tapes a day sweeps the whole catalogue every couple of weeks at flat cost.
+Send `audited` with **every** tape you looked at, clean ones included — that is
+what advances the rotation, and a tape you never stamp is re-audited forever.
+
+**The four kinds**, and the string matters because it drives the panel's filter:
+
+| kind | what it means |
+|---|---|
+| `spotify` | The id resolves to nothing, or to a **different recording** than title+artist claims. Check it first and report it `high` — it is the only failure a visitor actually hits. A *wrong* id is far worse than a *missing* one: missing falls back to a search and still works. |
+| `spelling` | Misspelled title or artist, typos in a blurb, a mis-capitalised proper noun. Check against the real release, not against your expectation — stylised titles are often correct as written. |
+| `relevance` | No genuine tie to the city, including a sports track the team does not actually use. The failure the whole editorial rule exists to prevent, so be specific about why. |
+| `facts` | Wrong year, wrong album, wrong claim about the artist. Also duplicates on the same tape, a missing blurb, a blurb outside 6–10 words, an `explicit` flag that disagrees with Spotify, or a tape **short of 15 or over 15**. For an over-full tape, name the surplus tracks to hide — the most recently added, newest `created_at` first — and file it against the tape (omit `song_id`). |
+
+**Severity.** `high` = a visitor sees or hears something broken. `warn` = wrong
+but not visibly broken. `info` = a nitpick. Use `high` sparingly; if everything
+is high, nothing is.
+
+**Reporting discipline:**
+
+- **Report only what you actually checked.** Do not infer a broken id from a
+  title you do not recognise — open the track page. An unverified guess costs a
+  human more time than saying nothing.
+- **One finding per song per kind.** Two spelling problems in one blurb are one
+  spelling finding. This is not a style preference; it is what the fingerprint
+  allows, and a second one is dropped.
+- Put the problem in `detail`, in one sentence someone can act on. Put a concrete
+  fix in `suggestion` **only when you have verified it**.
+- Say nothing about **archived** songs. They are already off `/sound/`.
+- **Do not fix what you find.** Noticing is automatable; deciding is not. The one
+  exception is a song you added yourself this run — fix that before you report it.
+- At most 40 findings a call. If a sweep produces more, report the most severe and
+  say so in your summary.
+- Finish by saying which tapes you audited, how many findings you filed, and how
+  many were skipped as already-known. **A clean tape is a result** — say so.
+
+The checks themselves, unchanged since 2026-07-28:
 
 1. Any artist appearing **more than twice among active songs** on a tape —
    including one act spelled two ways (`Los Tigres del Norte` /
@@ -250,22 +363,26 @@ each day and reports:
    `/sound/`.
 6. Tapes short of 15 active songs, shortest first — the backlog, expected to be
    long.
-7. Active songs with **no plausible connection to their city**.
+7. Tapes **over** 15 active songs. Report how many surplus there are and name the
+   most recently added that many tracks, newest `created_at` first — those are
+   the ones to hide. Never propose hiding an older track to make room for a newer
+   one; the earlier fifteen are the considered set.
+8. Active songs with **no plausible connection to their city**.
 
-It then fixes **at most three**, preferring malformed IDs → artist-cap →
-blurb format → everything else, and reports the rest. The ceiling is
-deliberate: it keeps each day's diff small enough to actually read.
-
-Two rules for the fixing:
+Two rules that have not changed and must not:
 
 - **The agent cannot archive anything** — `tgb_pull_soundtrack_songs` is
-  insert-only. So a cap violation, a wrong-city song, or an unplayable track is
-  *reported*, with the city and the exact song named, for a human to archive in
-  the Tape Room. Where the fix is additive (a short tape), the agent just adds the
-  verified songs.
+  insert-only. So a cap violation, a wrong-city song, an unplayable track, or a
+  tape over 15 is *reported*, with the city and the exact songs named, for a human
+  to hide in the Tape Room. Where the fix is purely additive (a short tape), the
+  agent just adds the verified songs. **Trimming an over-full tape is therefore a
+  human action**: press **Hide** on the named tracks, working from the newest
+  `Added` stamp backwards until the tape reads 15 active.
 - **Never silently delete.** Deleting is not available to the agent at all, and a
-  human archives rather than deletes: the tombstone row is what blocks that same
+  human hides rather than deletes: the tombstone row is what blocks that same
   title + artist from being picked again for the city.
+
+### The routine itself
 
 - Routine `trig_014sqaUyU7557svq9mGA1E4a` —
   [open it](https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a)
@@ -289,21 +406,66 @@ running or you will get two tapes a day.
 
 ---
 
+## Who is listening (and why we cannot tell you)
+
+Visits to `/sound/` are counted by **Cloudflare Web Analytics**, live since
+2026-07-30 via [`assets/site-analytics.js`](../assets/site-analytics.js). It is
+free at any volume and cookieless with no per-visitor identifier, so there is **no
+consent banner and nothing to disclose in a privacy policy**.
+
+- **The numbers are in Cloudflare's dashboard, not on our page, and cannot be.**
+  Reading them means Cloudflare's GraphQL API with a *secret* API token, and every
+  admin page here is public HTML on GitHub Pages. The Tape Room's Viewer
+  Statistics card therefore carries deep links and a live *beacon-installed* check
+  instead of counts. Putting real figures on the page would need a Supabase Edge
+  Function holding the token behind `is_photo_admin()`.
+- **Read the numbers as a floor, not a headcount.** Cookieless means no visitor
+  identity, so "visits" are estimated from page views rather than counted people,
+  and someone returning tomorrow is indistinguishable from a stranger. Ad and
+  tracker blockers drop the beacon entirely, so real traffic is always somewhat
+  **higher** than what you see — never lower.
+- **It measures arriving, not listening.** A page view cannot tell you which
+  cassette anyone played, or whether they pressed play at all. That would need our
+  own append-only event table writing a row per play, the same shape as
+  `game_events` — deliberately not built. **Do not read a listening story into a
+  traffic chart**, and do not try to squeeze play counts out of a page-view tool.
+- It is a hand-placed snippet rather than Cloudflare's automatic injection because
+  `thegamebureau.com` is **DNS-only** on Cloudflare — the apex resolves to GitHub
+  Pages and no request passes through the proxy that would inject it.
+  Auto-injection would silently collect nothing.
+- The script **refuses admin surfaces itself** (`/mc/`, `/account/`, any `/admin/`
+  path, `shop/giftcards.html`) plus localhost and LAN hosts, so our own sessions
+  do not swamp real visitor numbers on a site this size.
+
+---
+
 ## Doing it by hand
 
 The dashboard carries a paste-ready prompt for running a tape out of band. It
 targets the same RPC the routine uses, so nothing about the data path changes.
 
 To retire a song without letting the scraper bring it back, open the Tape Room's
-**Track Archive** panel, find the song, and press **Archive**. That writes
-`archived = true` to its row under your admin session: hidden from `/sound/`
-immediately, still on the city as a do-not-rescrape tombstone. **Restore** puts it
-back. Add a replacement if the tape would otherwise have fewer than 15 active
-songs.
+**Tapes & Tracks** panel, find the song, and press **Hide**. That writes
+`archived = true` to its row under your admin session: off `/sound/` immediately,
+still on the city as a do-not-rescrape tombstone. **Show** puts it back. Add a
+replacement if the tape would otherwise have fewer than 15 active songs.
 
-Editing a song's text (a bad blurb, a wrong `spotify_id`) means a direct UPDATE on
-`public.soundtrack_songs` — the Supabase table editor, or PostgREST with an admin
-token. There is no field editor on the dashboard yet.
+To change a song rather than retire it, press **Edit** on its row. Title, artist,
+blurb, `spotify_id`, `explicit` and `position` are all editable in place, and the
+same editor can **Move** the track to another tape or **Copy** it onto one. Two
+things to know:
+
+- A song that will not play usually has a bad `spotify_id`. **Clear the box** —
+  blank is always a valid answer and a better one than a guess, because the player
+  falls back to a Spotify search for artist + title while a fabricated 22-character
+  id satisfies the CHECK and silently plays nothing.
+- **Move** carries a hidden track's tombstone to the new city, which frees the
+  routine to pick that song for the old one again. **Copy** never does, so Copy is
+  the right verb for a song that genuinely belongs to two cities.
+
+A rename or a move that collides with the `(city_slug, lower(title),
+lower(artist))` unique index is refused. The offending row is often a *hidden*
+one, so tick **Show hidden** before concluding the tape does not already have it.
 
 `sound/soundtracks.json` is **not** where you make a change. It is the offline
 fallback `/sound/` reads when Supabase is unreachable, and it goes stale the
@@ -316,8 +478,9 @@ node _dev/scripts/soundtracks-export.mjs
 Run that yourself after a hand edit if you do not want to wait for the morning.
 It is read-only against Supabase and rewrites the file in its exact historical
 shape, so an unchanged database produces a zero-line diff. **Never hand-edit the
-file** — the Tape Room's **Download JSON** button produces the same content if you
-would rather work from a download.
+file.** The Tape Room has a **download a fresh copy** link under the track list
+that produces the same bytes, deliberately tucked away: the daily run regenerates
+and commits this file for you, so a human needs it only when the routine is down.
 
 After any edit, load `/sound/` and play the tape you touched.
 
@@ -336,19 +499,26 @@ After any edit, load `/sound/` and play the tape you touched.
 | A run reported 15 songs but the tape has fewer | The RPC skipped duplicates. Its result rows say which and why; a song already on the tape, active or archived, is silently not re-added. |
 | `/sound/` shows old tapes and new ones are missing | The Supabase fetch failed and the page fell back to `sound/soundtracks.json`. Check the browser console and the Supabase project; the file is expected to be stale. |
 | "Last run" on the dashboard is over a day old | A run failed, or the routine is paused. Open the routine and read the transcript. |
+| A finding you cleared as **Fixed** is back tomorrow | Working as designed — the fix did not take, or did not address what was flagged. Only **Not an issue** silences a finding permanently. |
+| A finding you dismissed never comes back even though it is real | Also by design. `dismissed` is caught by a partial unique index, so re-reporting is a database-level no-op. Set that row's `status` back to `open` in the Supabase table editor to un-silence it. |
+| The Issues panel is empty and stays empty | Either nothing is wrong, or the migration is not applied — the page tolerates a missing `soundtrack_issues` table by showing no findings. Check the browser console. |
 | Two tapes appeared in one day | Something else is writing too — check the old GitHub workflow was not recreated. |
 
 ---
 
 ## Notes for agents
 
-- `public.tgb_pull_soundtrack_songs` is the **only** write path you need. Do not
-  write the tables directly, do not use a service-role key, do not edit
+- `public.tgb_pull_soundtrack_songs` and `public.tgb_report_soundtrack_issues` are
+  the **only** two write paths you need — one to add songs, one to file findings.
+  Do not write the tables directly, do not use a service-role key, do not edit
   `sound/soundtracks.json`, and do not create a third table, per-city HTML,
   `city-playlists.json`, `song-playlists.json`, or a build script — all of those
   existed once and were deliberately removed.
-- Song suggestions arrive at `soundtrack@thegamebureau.com`. Treat them as leads,
-  never as verified facts.
+- Song suggestions arrive at `soundtrack@thegamebureau.com`. **Check them before
+  choosing tracks**, if Gmail access is available — useful searches are
+  `to:soundtrack@thegamebureau.com`, `subject:(Song suggestion)`, and
+  `subject:"Song suggestion for {City}"`. Treat them as leads, never as verified
+  facts: the Spotify id still has to be checked like any other.
 - Verify after writing, by re-reading `soundtrack_stats`: 15 active songs on both
   tapes you touched, artist cap intact, every added song accounted for in the
   RPC's result rows.
@@ -358,7 +528,10 @@ After any edit, load `/sound/` and play the tape you touched.
 - You cannot remove or archive a song, and that is deliberate. Archived rows are
   city-specific do-not-rescrape tombstones: hidden from `/sound/`, ignored by
   counts, and still blocking future title + artist reuse in that city. Name what
-  needs retiring in your summary and a human does it.
+  needs retiring in your summary, file it as an issue, and a human does it.
+- You cannot clear a finding either. `status` is not a parameter of the reporting
+  RPC, so **Fixed** and **Not an issue** stay human actions. If you believe a
+  finding is wrong, say so in your summary rather than trying to route around it.
 - If you cannot verify a Spotify ID, **omit it**. Omitting is always correct;
   guessing never is.
 - Say plainly in your summary which songs you could not verify. A quiet gap is

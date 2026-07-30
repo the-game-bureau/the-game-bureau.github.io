@@ -14,8 +14,6 @@
 --   'Washington, D.C.'-> Washington / DC / D.C. / USA
 --   'Paris, France'   -> Paris / '' / '' / FRA
 --   'Toronto, ON'     -> Toronto / ON / Ontario / CAN
---
--- Rollback: _dev/scratch/rollback-structured-geo.sql
 
 begin;
 
