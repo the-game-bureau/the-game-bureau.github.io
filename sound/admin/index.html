@@ -66,7 +66,7 @@
 
     .prompt-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
       gap: 16px;
       align-items: start;
       width: 100%;
@@ -425,22 +425,6 @@
       text-transform: uppercase;
     }
 
-    .review-count {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 34px;
-      height: 34px;
-      padding: 0 9px;
-      border: 1px solid rgba(var(--bic-blue-rgb), 0.25);
-      border-radius: 999px;
-      background: #fff;
-      color: var(--ink);
-      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.82rem;
-      font-weight: 800;
-    }
-
     .panel-status {
       min-height: 34px;
       padding: 9px 16px;
@@ -657,6 +641,20 @@
     }
 
     .tape-summary::-webkit-details-marker { display: none; }
+
+    /* Same dashed treatment an archived track gets, one level up. */
+    .tape-group.is-archived {
+      border-style: dashed;
+      background: rgba(var(--bic-blue-rgb), 0.045);
+    }
+
+    .tape-group.is-archived > .tape-summary .tape-name {
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+      color: var(--muted);
+    }
+
+    .tape-archive-btn { white-space: nowrap; }
 
     /* Own marker so it sits ahead of the city name and rotates when open. */
     .tape-summary::before {
@@ -953,6 +951,13 @@
 
     /* Header right side: push the Soundtracks link and the auth toggle to the
        far edge, the way the Stock Room does. */
+    /* Six buttons now. Slightly tighter than the body's .btn so the row stays on
+       the title's line instead of wrapping under it. */
+    .stockroom-head-status .btn {
+      padding: 8px 12px;
+      font-size: 0.8rem;
+    }
+
     .stockroom-head-status {
       margin-left: auto;
       display: flex;
@@ -1019,7 +1024,6 @@
             <p class="review-window" id="soundReviewWindow" aria-live="polite"></p>
           </div>
           <span class="panel-head-actions">
-            <span class="review-count" id="soundReviewCount">-</span>
             <button class="btn small primary" id="soundReviewRefreshBtn" type="button">Refresh</button>
           </span>
         </div>
@@ -1051,6 +1055,43 @@
         <div class="track-list" id="trackArchiveList"></div>
       </section>
 
+      </div>
+
+      <aside class="side-stack" aria-label="Soundtrack prompt notes">
+        <section class="side-card side-card--blue" id="routineCard">
+          <span class="side-label">Automation</span>
+          <h2>Daily Routine</h2>
+          <p>You don't have to run the prompt by hand. A scheduled Claude Code cloud agent does this every morning: it reads <code>public.cities</code> and <code>public.soundtrack_stats</code>, takes the next city with no tape plus the emptiest existing tape, researches and verifies each Spotify ID by search, then writes the songs through <code>tgb_pull_soundtrack_songs</code>. New tapes appear on <a href="/sound/" target="_blank" rel="noopener">/sound/</a> without anyone touching this page.</p>
+          <ul class="mini-list">
+            <li>Runs <b>6:30 AM CT</b></li>
+            <li>Model <b>Opus 5</b></li>
+            <li>Adds <b>1 city</b></li>
+            <li>Tops up <b>1 tape</b></li>
+          </ul>
+          <div class="run-status" id="runStatus" data-state="loading">
+            <span class="run-dot" aria-hidden="true"></span>
+            <div class="run-body">
+              <span class="run-line" id="runWhen">Checking last run&hellip;</span>
+              <span class="run-sub" id="runWhat"></span>
+            </div>
+          </div>
+          <div class="side-links">
+            <a class="btn" id="runLogLink" href="/sound/" target="_blank" rel="noopener noreferrer" title="See what the last run actually shipped">View Tapes</a>
+          </div>
+          <div class="side-links">
+            <a class="btn primary" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer">Open Routine</a>
+          </div>
+          <p class="side-note">Open the routine to watch a run, trigger one early, change the schedule, or pause it. The clock is UTC with no daylight-saving shift, so no single schedule holds one Central time all year: 11:30 UTC is 6:30 AM Central in summer and 5:30 AM in winter. It replaced a GitHub Action on 2026-07-27 — that path needed a funded API key, this one bills to the Claude subscription. Since 2026-07-29 it writes to Supabase instead of committing a JSON file, so <b>Last run</b> above is the newest song row, not a commit.</p>
+        </section>
+
+        <section class="side-card side-card--red" id="suggestCard">
+          <span class="side-label">Preflight</span>
+          <h2>Email Suggestions</h2>
+          <p>Check submitted track ideas before running the prompt.</p>
+          <div class="side-links">
+            <a class="btn" href="https://mail.google.com/mail/u/0/#search/to%3Asoundtrack%40thegamebureau.com" target="_blank" rel="noopener noreferrer">Inbox</a>
+          </div>
+        </section>
       <section class="side-card explain" id="whatCard" aria-labelledby="whatTitle">
         <span class="side-label">What this is</span>
         <h2 id="whatTitle">A gift, not a product</h2>
@@ -1179,44 +1220,6 @@ Final report:
 - Any song you could not verify a Spotify ID for.
 - New tape count from soundtrack_stats.</textarea>
       </section>
-
-      </div>
-
-      <aside class="side-stack" aria-label="Soundtrack prompt notes">
-        <section class="side-card side-card--blue" id="routineCard">
-          <span class="side-label">Automation</span>
-          <h2>Daily Routine</h2>
-          <p>You don't have to run the prompt by hand. A scheduled Claude Code cloud agent does this every morning: it reads <code>public.cities</code> and <code>public.soundtrack_stats</code>, takes the next city with no tape plus the emptiest existing tape, researches and verifies each Spotify ID by search, then writes the songs through <code>tgb_pull_soundtrack_songs</code>. New tapes appear on <a href="/sound/" target="_blank" rel="noopener">/sound/</a> without anyone touching this page.</p>
-          <ul class="mini-list">
-            <li>Runs <b>6:30 AM CT</b></li>
-            <li>Model <b>Opus 5</b></li>
-            <li>Adds <b>1 city</b></li>
-            <li>Tops up <b>1 tape</b></li>
-          </ul>
-          <div class="run-status" id="runStatus" data-state="loading">
-            <span class="run-dot" aria-hidden="true"></span>
-            <div class="run-body">
-              <span class="run-line" id="runWhen">Checking last run&hellip;</span>
-              <span class="run-sub" id="runWhat"></span>
-            </div>
-          </div>
-          <div class="side-links">
-            <a class="btn" id="runLogLink" href="/sound/" target="_blank" rel="noopener noreferrer" title="See what the last run actually shipped">View Tapes</a>
-          </div>
-          <div class="side-links">
-            <a class="btn primary" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer">Open Routine</a>
-          </div>
-          <p class="side-note">Open the routine to watch a run, trigger one early, change the schedule, or pause it. The clock is UTC with no daylight-saving shift, so no single schedule holds one Central time all year: 11:30 UTC is 6:30 AM Central in summer and 5:30 AM in winter. It replaced a GitHub Action on 2026-07-27 — that path needed a funded API key, this one bills to the Claude subscription. Since 2026-07-29 it writes to Supabase instead of committing a JSON file, so <b>Last run</b> above is the newest song row, not a commit.</p>
-        </section>
-
-        <section class="side-card side-card--red" id="suggestCard">
-          <span class="side-label">Preflight</span>
-          <h2>Email Suggestions</h2>
-          <p>Check submitted track ideas before running the prompt.</p>
-          <div class="side-links">
-            <a class="btn" href="https://mail.google.com/mail/u/0/#search/to%3Asoundtrack%40thegamebureau.com" target="_blank" rel="noopener noreferrer">Inbox</a>
-          </div>
-        </section>
       </aside>
     </div>
   </main>
@@ -1311,7 +1314,6 @@ Final report:
       var copyStatus = document.getElementById('copyStatus');
       var adminAuthToggleBtn = document.getElementById('adminAuthToggleBtn');
       var soundReviewWindow = document.getElementById('soundReviewWindow');
-      var soundReviewCount = document.getElementById('soundReviewCount');
       var soundReviewStatus = document.getElementById('soundReviewStatus');
       var soundReviewList = document.getElementById('soundReviewList');
       var soundReviewRefreshBtn = document.getElementById('soundReviewRefreshBtn');
@@ -1391,7 +1393,12 @@ Final report:
           throw new Error('Supabase ' + res.status + (detail ? ': ' + detail.slice(0, 200) : ''));
         }
         var rows = await res.json().catch(function () { return []; });
-        return Array.isArray(rows) ? rows[0] : rows;
+        var row = Array.isArray(rows) ? rows[0] : rows;
+        // An UPDATE that RLS filters out is not an error to PostgREST — it
+        // returns 200 with an empty array, so a signed-out or expired session
+        // would otherwise look like a successful archive. No row back, no write.
+        if (!row) throw new Error('Nothing was updated — sign in again and retry.');
+        return row;
       }
 
       // Same login/logout toggle the Stock Room carries: one button that reads
@@ -1493,11 +1500,15 @@ Final report:
           text: totalActive.toLocaleString() + ' track' + (totalActive === 1 ? '' : 's')
             + ' in ' + live.length + ' soundtrack' + (live.length === 1 ? '' : 's')
         }];
+        // The fullness buckets sit on their own line. Kept off line 1 on purpose:
+        // a long first line widens the header lockup and shoves the six-button row
+        // below the title instead of leaving it up in the top right.
         var counts = Object.keys(byCount).map(Number).sort(function (a, b) { return b - a; });
+        var bucketLine = [];
         counts.forEach(function (n, i) {
-          line1.push({ text: i === 0 ? ' — ' : ', ' });
+          if (i) bucketLine.push({ text: ', ' });
           // Compact ratio form: "1/25 track" = one tape holding 25 tracks.
-          line1.push({
+          bucketLine.push({
             text: byCount[n].length + '/' + n + ' track',
             title: byCount[n].map(cityLabel).sort(citySort).join('\n')
           });
@@ -1527,6 +1538,15 @@ Final report:
             text: missing.length + ' cit' + (missing.length === 1 ? 'y' : 'ies') + ' with no tracks',
             title: missing.join('\n')
           }];
+        }
+
+        // The gap count joins the buckets rather than taking a third line.
+        if (line2 && bucketLine.length) {
+          bucketLine.push({ text: ' · ' });
+          bucketLine = bucketLine.concat(line2);
+          line2 = bucketLine;
+        } else if (bucketLine.length) {
+          line2 = bucketLine;
         }
 
         // Two lines: what exists on top, what's still missing underneath. The
@@ -1658,8 +1678,9 @@ Final report:
         return a;
       }
 
+      // `count` is still taken from every caller but no longer painted: the
+      // per-city cards below already say how many tracks landed.
       function setSoundReview(count, message, tone) {
-        if (soundReviewCount) soundReviewCount.textContent = String(count);
         if (soundReviewStatus) {
           soundReviewStatus.textContent = message || '';
           soundReviewStatus.classList.toggle('is-error', tone === 'error');
@@ -1944,11 +1965,35 @@ Final report:
         var counts = document.createElement('span');
         counts.className = 'tape-counts';
         var tally = tapeCounts(group.tape);
+        var tapeArchived = truthyFlag(group.tape && group.tape.archived);
+        details.classList.toggle('is-archived', tapeArchived);
+        if (tapeArchived) counts.appendChild(chip('Tape hidden', 'warn'));
         counts.appendChild(chip(tally.active + ' active'));
         if (tally.archived) counts.appendChild(chip(tally.archived + ' archived', 'warn'));
         if (group.rows.length !== tally.active + tally.archived) {
           counts.appendChild(chip(group.rows.length + ' shown'));
         }
+
+        // Archiving the whole tape pulls the city off /sound/ in one move,
+        // without touching a single song: soundtracks.archived, which the public
+        // page filters on. For a city that should not be published at all yet,
+        // that beats archiving fifteen tracks one at a time.
+        var tapeToggle = document.createElement('button');
+        tapeToggle.type = 'button';
+        tapeToggle.className = 'btn small tape-archive-btn';
+        tapeToggle.textContent = tapeArchived ? 'Restore tape' : 'Archive tape';
+        tapeToggle.title = tapeArchived
+          ? 'Put this whole city tape back on /sound/'
+          : 'Hide this whole city tape from /sound/, keeping every song as it is';
+        tapeToggle.addEventListener('click', async function (event) {
+          // Inside a <summary>, so stop the click from opening/closing the city.
+          event.preventDefault();
+          event.stopPropagation();
+          tapeToggle.disabled = true;
+          var ok = await setTapeArchived(group.tapeIndex, !tapeArchived);
+          if (!ok) tapeToggle.disabled = false;
+        });
+        counts.appendChild(tapeToggle);
         summary.append(name, counts);
         details.appendChild(summary);
 
@@ -2054,6 +2099,33 @@ Final report:
         else delete song.archived;
         renderTrackArchive((archived ? 'Archived ' : 'Restored ') + songDisplay(song) + '. Live on /sound/ now.', 'success');
         // The tape counts under the title come from the same rows.
+        loadTapeSummary();
+        return true;
+      }
+
+      // Whole-tape archive. One PATCH on public.soundtracks; the songs are left
+      // exactly as they are, so restoring puts the tape back untouched. /sound/
+      // skips archived tapes, and soundtrack_stats reports them, so the header
+      // counts and the public page agree straight away.
+      async function setTapeArchived(tapeIndex, archived) {
+        var tape = soundtracks()[tapeIndex];
+        var slug = text(tape && tape.city_slug);
+        if (!slug) return false;
+        try {
+          await patchRow('soundtracks?city_slug=eq.' + encodeURIComponent(slug), { archived: !!archived });
+        } catch (error) {
+          console.error(error);
+          setArchiveStatus((archived ? 'Could not archive the ' : 'Could not restore the ')
+            + trackCityLabel(tape) + ' tape. ' + error.message, 'error');
+          return false;
+        }
+        if (archived) tape.archived = true;
+        else delete tape.archived;
+        renderTrackArchive(
+          'The whole ' + trackCityLabel(tape) + ' tape is '
+            + (archived ? 'hidden from /sound/ now.' : 'back on /sound/ now.'),
+          'success'
+        );
         loadTapeSummary();
         return true;
       }
