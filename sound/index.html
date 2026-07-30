@@ -2731,8 +2731,9 @@
         renderSoundGrid(cityEntries);
         setupListenCityPanel();
         // Cards exist now, so a session carried in from another page can be
-        // reopened against the right city.
-        restoreCassetteSession();
+        // reopened against the right city. An explicit #city deep link wins over
+        // reopening a carried-over session.
+        if (!openCardFromHash()) restoreCassetteSession();
       }
 
       function loadSoundPageData() {
@@ -3047,6 +3048,37 @@
         searchEntries = entries;
         renderRail(entries);
       }
+
+      // Deep link: /sound/#milwaukee opens that city's cassette. The Tape Room's
+      // "Open Tape" buttons point here. Needed because the cards are built after
+      // the Supabase fetch resolves, so the browser's own anchor jump fires while
+      // the grid is still a loading message and lands nowhere — openCardFromHash
+      // runs once the cards exist instead, and again on hashchange for a link
+      // followed while the page is already open.
+      function citySlugFromHash() {
+        var raw = String(window.location.hash || '').replace(/^#/, '');
+        if (!raw) return '';
+        try { raw = decodeURIComponent(raw); } catch (e) {}
+        return raw;
+      }
+
+      function openCardFromHash() {
+        var wanted = citySlugFromHash();
+        if (!wanted) return false;
+        // cardForCity normalizes to letters+digits, so it matches a slug
+        // ("kansas-city") and a display name ("Kansas City") alike.
+        var card = cardForCity(wanted);
+        if (!card) return false;
+        try {
+          card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        } catch (error) {
+          card.scrollIntoView();
+        }
+        openCard(card);
+        return true;
+      }
+
+      window.addEventListener('hashchange', openCardFromHash);
 
       loadSoundPageData();
     })();

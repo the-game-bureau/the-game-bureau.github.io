@@ -451,6 +451,9 @@
       line-height: 1.45;
     }
 
+    /* Without this an emptied status leaves a bare grey strip above the list. */
+    .panel-status:empty { display: none; }
+
     .panel-status.is-error { color: #a03f2d; font-weight: 800; }
     .panel-status.is-success { color: var(--success); font-weight: 800; }
     .panel-status.is-warn { color: #9a4a18; font-weight: 800; }
@@ -634,6 +637,69 @@
       padding: 12px;
     }
 
+    .tape-group {
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.16);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .tape-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 13px;
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--ink);
+      list-style: none;
+    }
+
+    .tape-summary::-webkit-details-marker { display: none; }
+
+    /* Own marker so it sits ahead of the city name and rotates when open. */
+    .tape-summary::before {
+      content: '';
+      flex: 0 0 auto;
+      width: 0;
+      height: 0;
+      border-left: 6px solid rgba(var(--bic-blue-rgb), 0.55);
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      transition: transform 120ms ease;
+    }
+
+    .tape-group[open] > .tape-summary::before {
+      transform: rotate(90deg);
+    }
+
+    .tape-summary:hover,
+    .tape-summary:focus-visible {
+      background: rgba(var(--bic-blue-rgb), 0.05);
+    }
+
+    .tape-name {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .tape-counts {
+      flex: 0 0 auto;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .tape-tracks {
+      display: grid;
+      gap: 10px;
+      padding: 0 11px 11px;
+      border-top: 1px solid rgba(var(--bic-blue-rgb), 0.12);
+      padding-top: 11px;
+    }
+
     .track-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -712,8 +778,8 @@
       margin-top: 14px;
     }
 
-    /* View Log sits directly above Open Routine — read them as one action pair,
-       not as two separate blocks. */
+    /* View Tapes sits directly above Open Routine — read them as one action
+       pair, not as two separate blocks. */
     .side-links + .side-links {
       margin-top: 8px;
     }
@@ -939,6 +1005,7 @@
         <a class="btn" href="/mc/waypoints/" title="Open Waypoint Finder">Waypoint Finder</a>
         <button class="btn" type="button" disabled aria-current="page" title="You are in Tape Room">Tape Room</button>
         <a class="btn primary" href="/sound/" target="_blank" rel="noopener noreferrer" title="Open the public soundtracks page in a new tab">Soundtracks</a>
+        <a class="btn" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer" title="Open the daily soundtrack routine: watch a run, trigger one early, change the schedule, or pause it">Open Routine</a>
         <button class="btn admin-auth-toggle" id="adminAuthToggleBtn" type="button" aria-label="ADMIN LOGON" title="ADMIN LOGON">ADMIN LOGON</button>
       </div>
     </div>
@@ -954,7 +1021,6 @@
           <span class="panel-head-actions">
             <span class="review-count" id="soundReviewCount">-</span>
             <button class="btn small primary" id="soundReviewRefreshBtn" type="button">Refresh</button>
-            <a class="btn small" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer" title="Open the routine and read the last run's transcript">Open Routine</a>
           </span>
         </div>
         <div class="panel-status" id="soundReviewStatus">Waiting for sign-in.</div>
@@ -1260,8 +1326,8 @@ Final report:
       var downloadSoundtracksBtn = document.getElementById('downloadSoundtracksBtn');
       var REVIEW_HOURS = 26;
       var REVIEW_MS = REVIEW_HOURS * 60 * 60 * 1000;
-      var ROUTINE_URL = 'https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a';
       var soundtrackArchiveData = null;
+      var expandedTapes = Object.create(null);
 
       // ── Supabase REST ───────────────────────────────────────────────────────
       // Tapes moved from sound/soundtracks.json into public.soundtracks /
@@ -1420,7 +1486,13 @@ Final report:
           (byCount[tape.active] || (byCount[tape.active] = [])).push(tape.city_slug);
         });
 
-        var line1 = [{ text: live.length + ' Soundtrack' + (live.length === 1 ? '' : 's') }];
+        // Leading with the track total: it is the number that moves every day,
+        // and the tape count alone says nothing about how full the tapes are.
+        var totalActive = live.reduce(function (sum, tape) { return sum + tape.active; }, 0);
+        var line1 = [{
+          text: totalActive.toLocaleString() + ' track' + (totalActive === 1 ? '' : 's')
+            + ' in ' + live.length + ' soundtrack' + (live.length === 1 ? '' : 's')
+        }];
         var counts = Object.keys(byCount).map(Number).sort(function (a, b) { return b - a; });
         counts.forEach(function (n, i) {
           line1.push({ text: i === 0 ? ' — ' : ', ' });
@@ -1630,6 +1702,7 @@ Final report:
 
       function resetSoundtrackArchive() {
         soundtrackArchiveData = null;
+        expandedTapes = Object.create(null);
         setArchiveControlsEnabled(false);
         if (trackCitySelect) {
           trackCitySelect.innerHTML = '';
@@ -1816,31 +1889,100 @@ Final report:
         var selectedSlug = trackCitySelect ? trackCitySelect.value : '';
         var term = text(trackSearchInput && trackSearchInput.value).toLowerCase();
         var includeArchived = !!(showArchivedTracks && showArchivedTracks.checked);
-        var rows = [];
+
+        // Grouped by city and collapsed. A flat list is 900+ rows deep, which
+        // buries the one tape you came here for; the tracks of a single city are
+        // the only unit anyone acts on.
+        var groups = [];
+        var matched = 0;
         soundtracks().forEach(function (tape, tapeIndex) {
           var slug = text(tape && tape.city_slug);
           if (selectedSlug && slug !== selectedSlug) return;
+          var rows = [];
           allSongs(tape).forEach(function (song, localIndex) {
             var songIndex = tape.songs.indexOf(song);
             if (songIndex < 0) songIndex = localIndex;
             if (!includeArchived && isArchivedSong(song)) return;
             if (!trackMatches(tape, song, term)) return;
-            rows.push({ tape: tape, tapeIndex: tapeIndex, song: song, songIndex: songIndex });
+            rows.push({ song: song, songIndex: songIndex });
           });
+          if (!rows.length) return;
+          matched += rows.length;
+          groups.push({ tape: tape, tapeIndex: tapeIndex, slug: slug, rows: rows });
         });
 
-        rows.forEach(function (row) {
-          trackArchiveList.appendChild(renderTrackRow(row.tape, row.tapeIndex, row.song, row.songIndex));
+        // Searching or picking one city is itself a narrowing, so show the hits
+        // rather than making someone open every city to find them.
+        var autoOpen = !!term || !!selectedSlug;
+        groups.forEach(function (group) {
+          trackArchiveList.appendChild(renderTapeGroup(group, autoOpen));
         });
-        if (!rows.length) {
+        if (!groups.length) {
           trackArchiveList.appendChild(emptyNode(includeArchived ? 'No tracks match.' : 'No active tracks match. Toggle Archived to inspect retired tracks.'));
         }
 
         var summary = archiveSummary();
+        var filtered = autoOpen || includeArchived;
         setArchiveStatus(
-          message || (summary.tapes + ' tapes - ' + summary.active + ' active tracks - ' + summary.archived + ' archived.'),
+          message || (summary.tapes + ' tapes - ' + summary.active + ' active tracks - ' + summary.archived + ' archived.'
+            + (filtered ? ' Showing ' + matched + ' in ' + groups.length + ' tape' + (groups.length === 1 ? '' : 's') + '.' : '')),
           tone || ''
         );
+      }
+
+      // One collapsible city. Rows are built on first open, not up front — 69
+      // tapes' worth of DOM is the thing that made the flat list slow to paint.
+      function renderTapeGroup(group, autoOpen) {
+        var details = document.createElement('details');
+        details.className = 'tape-group';
+
+        var summary = document.createElement('summary');
+        summary.className = 'tape-summary';
+        var name = document.createElement('span');
+        name.className = 'tape-name';
+        name.textContent = trackCityLabel(group.tape);
+        var counts = document.createElement('span');
+        counts.className = 'tape-counts';
+        var tally = tapeCounts(group.tape);
+        counts.appendChild(chip(tally.active + ' active'));
+        if (tally.archived) counts.appendChild(chip(tally.archived + ' archived', 'warn'));
+        if (group.rows.length !== tally.active + tally.archived) {
+          counts.appendChild(chip(group.rows.length + ' shown'));
+        }
+        summary.append(name, counts);
+        details.appendChild(summary);
+
+        var body = document.createElement('div');
+        body.className = 'tape-tracks';
+        details.appendChild(body);
+
+        function fill() {
+          if (body.dataset.filled === 'true') return;
+          group.rows.forEach(function (row) {
+            body.appendChild(renderTrackRow(group.tape, group.tapeIndex, row.song, row.songIndex));
+          });
+          body.dataset.filled = 'true';
+        }
+
+        // Only a real click or keypress on the summary changes the remembered
+        // state. Auto-opening for a search must not leave twenty cities expanded
+        // once the search is cleared, and every archive/restore re-renders this
+        // whole list, so the remembered set is what keeps your place.
+        var userToggled = false;
+        summary.addEventListener('click', function () { userToggled = true; });
+        details.addEventListener('toggle', function () {
+          if (userToggled) {
+            expandedTapes[group.slug] = details.open;
+            userToggled = false;
+          }
+          if (details.open) fill();
+        });
+
+        if (autoOpen || expandedTapes[group.slug]) {
+          details.open = true;
+          fill();
+        }
+        return details;
       }
 
       function renderTrackRow(tape, tapeIndex, song, songIndex) {
@@ -2043,12 +2185,10 @@ Final report:
             setSoundReviewList(emptyNode('No fresh tracks to review.'));
             return;
           }
-          setSoundReview(
-            songCount,
-            songCount + ' fresh track' + (songCount === 1 ? '' : 's') + ' across '
-              + changes.length + ' tape' + (changes.length === 1 ? '' : 's') + '.',
-            'success'
-          );
+          // No summary sentence: the count badge and the per-city cards below
+          // already say how much landed, and the tally read as noise while the
+          // whole catalog was inside the 26-hour window after the Supabase move.
+          setSoundReview(songCount, '', 'success');
           setSoundReviewList(changes.map(renderSoundChange));
         } catch (error) {
           console.error(error);
@@ -2137,7 +2277,6 @@ Final report:
         var actions = document.createElement('div');
         actions.className = 'item-actions';
         actions.appendChild(actionLink('/sound/#' + encodeURIComponent(change.city_slug), 'Open Tape', true));
-        actions.appendChild(actionLink(ROUTINE_URL, 'Open Routine', true));
 
         article.append(main, actions);
         return article;
