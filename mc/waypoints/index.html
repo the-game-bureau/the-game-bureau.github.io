@@ -212,6 +212,10 @@
       border: 1px solid var(--line);
       border-radius: 10px;
     }
+    /* Pushed to the far end of the bar: it acts on the cards below, not on the
+       Add group it sits beside. */
+    #saveAllBtn { margin-left: auto; }
+
     .command-bar-label {
       flex: 0 0 auto;
       font-family: "IBM Plex Mono", monospace;
@@ -1009,6 +1013,9 @@
       <button class="btn small" id="newBtn" type="button" title="Add one waypoint by hand in a pop-up form">Manual</button>
       <button class="btn small primary" id="promptBtn" type="button" title="Find stops for a city — pull them live from OpenStreetMap, or get an AI prompt that returns Supabase SQL">With AI</button>
       <button class="btn small" id="nightlyBtn" type="button" title="What the nightly walking-tour run found this morning">NIGHTLY</button>
+      <!-- Editing a page of ten cards leaves ten Save buttons to hit. This is the
+           same per-row PATCH the card buttons run, once per dirty row. -->
+      <button class="btn small" id="saveAllBtn" type="button" disabled title="No unsaved changes">Save all</button>
     </div>
 
     <section class="panel">
@@ -1151,6 +1158,7 @@
         state.rows = [];
         state.dirtyIds.clear();
         state.savingIds.clear();
+        updateSaveAllState();
         render();
         setStatus('Sign in with an admin account.');
       }
@@ -1241,6 +1249,7 @@
         rebuildPristine();
         state.dirtyIds.clear();
         state.savingIds.clear();
+        updateSaveAllState();
         renderCityBar();
         if (keepId != null && findRow(keepId)) {
           state.randomId = keepId;
@@ -1459,7 +1468,53 @@
         state.dirtyIds.add(wpid);
       }
       updateCardState(wpid);
+      updateSaveAllState();
       updateSummary();
+    }
+
+    // Save all: one button for the whole dirty set. Kept in sync from the same
+    // places that move rows in and out of state.dirtyIds, so its count cannot
+    // disagree with the cards' own Save buttons.
+    function updateSaveAllState() {
+      const btn = document.getElementById('saveAllBtn');
+      if (!btn) return;
+      const n = state.dirtyIds.size;
+      const busy = state.savingIds.size > 0;
+      btn.disabled = !n || busy;
+      btn.textContent = n ? 'Save all (' + n + ')' : 'Save all';
+      btn.title = n
+        ? 'Save every waypoint with unsaved changes'
+        : 'No unsaved changes';
+      btn.classList.toggle('primary', !!n && !busy);
+    }
+
+    async function saveAllDirty() {
+      const dirty = Array.from(state.dirtyIds).map(findRow).filter(Boolean);
+      if (!dirty.length) return;
+      const btn = document.getElementById('saveAllBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+      let saved = 0;
+      const failed = [];
+      // Sequential, not Promise.all: these are PATCHes against one table under
+      // one session, and a burst of ten adds nothing but a chance of rate limits.
+      for (const row of dirty) {
+        try {
+          await patchRow(row.wpid, row);
+          state.dirtyIds.delete(row.wpid);
+          updateCardState(row.wpid);
+          saved += 1;
+        } catch (error) {
+          console.error(error);
+          failed.push(displayName(row) + ' (' + (error.message || 'error') + ')');
+        }
+      }
+      updateSaveAllState();
+      updateSummary();
+      if (failed.length) {
+        setStatus('Saved ' + saved + ', failed ' + failed.length + ': ' + failed.join('; '), 'error');
+      } else {
+        setStatus('Saved ' + saved + ' waypoint' + (saved === 1 ? '' : 's') + '.', 'success');
+      }
     }
 
     function updateField(wpid, field, value) {
@@ -2693,7 +2748,7 @@ $$;`.trim();
         '- name: the place name (e.g. "Cafe du Monde"). Required.',
         '- city: the city as a plain string (e.g. "' + (p.city || 'New Orleans') + '").',
         '- state: the 2-letter code for US places (e.g. "' + (region || 'LA') + '"), otherwise the country name.',
-        '- zip: the postal/ZIP code as a string, or null.',
+        '- zip: the postal/ZIP code as a string. REQUIRED whenever you have a street address — a ZIP is a lookup from a known street address, not a guess, so the never-invent rule that governs the address does NOT excuse leaving this null. Wikipedia and NRHP rows almost never print the ZIP, so plan on one extra step per stop: take the verified street address plus city and look the postal code up (USPS ZIP lookup, the the venue contact page, or a map service). Use null only when the stop genuinely has no street address, or the country has no postal codes.',
         '- address: the STREET ONLY — house number and street name, e.g. "800 Decatur St". Never repeat the city, state, ZIP, or country here; they have their own fields. Null if you do not know the street.',
         '- description: ONE original, concise tour-guide sentence (a fact, or what makes it a stop). No marketing copy.',
         (url
@@ -2743,7 +2798,8 @@ $$;`.trim();
       '  https://en.wikipedia.org/w/api.php?action=query&generator=geosearch&ggscoord=LAT%7CLON&ggsradius=10000&ggslimit=200&prop=coordinates%7Cdescription&format=json',
       '- Wikimedia Commons is the photo check: a geocoded Commons category or image confirms the thing is still standing and visible from the street.',
       '- NOT candidates: a disambiguation page, a list or category page itself, an article about an event/person/company rather than a place, a demolished or destroyed structure (read the article — it will say), or anything whose article has neither coordinates nor an address.',
-      '- Wikipedia decides WHICH stops. It does not decide the street address: articles are often missing one or list a mailing address. Get the street address from the NRHP row or another independent source, and leave address null rather than guessing. Never convert coordinates into a made-up street address.'
+      '- Wikipedia decides WHICH stops. It does not decide the street address: articles are often missing one or list a mailing address. Get the street address from the NRHP row or another independent source, and leave address null rather than guessing. Never convert coordinates into a made-up street address.',
+      '- ZIP is the one field you are expected to go and fetch. Wikipedia and NRHP rows carry the street address but almost never the postal code, so a stop with an address and a null zip means the lookup was skipped, not that the ZIP is unknowable. Look it up from the verified street address; a ZIP derived from a real address is a lookup, not an invention.'
     ];
 
     // Rows already filed under a city string like "Chicago, IL".
@@ -2823,7 +2879,7 @@ $$;`.trim();
         '- name: the place name (e.g. "Cafe du Monde"). Required.',
         '- city: the city as a plain string, exactly as spelled in the list above but WITHOUT the state/country (e.g. "New Orleans", not "New Orleans, LA").',
         '- state: the 2-letter code for US places (e.g. "LA"), otherwise the country name (e.g. "England").',
-        '- zip: the postal/ZIP code as a string, or null.',
+        '- zip: the postal/ZIP code as a string. REQUIRED whenever you have a street address — a ZIP is a lookup from a known street address, not a guess, so the never-invent rule that governs the address does NOT excuse leaving this null. Wikipedia and NRHP rows almost never print the ZIP, so plan on one extra step per stop: take the verified street address plus city and look the postal code up (USPS ZIP lookup, the the venue contact page, or a map service). Use null only when the stop genuinely has no street address, or the country has no postal codes.',
         '- address: the STREET ONLY — house number and street name, e.g. "800 Decatur St". Never repeat the city, state, ZIP, or country here; they have their own fields. Null if you do not know the street.',
         '- description: ONE original, concise tour-guide sentence (a fact, or what makes it a stop). Your own words — do not paste a sentence out of the article.',
         '- source_url: REQUIRED on every object — the full URL of the stop\'s own Wikipedia article (e.g. "https://en.wikipedia.org/wiki/Willis_Tower"). If the place has no article of its own but appears as a row in a list article with an address and coordinates, use that list article\'s URL. A Wikimedia Commons category URL is acceptable only when there is no Wikipedia page at all. Never a search-results page, never a link to the place\'s own website.',
@@ -4481,6 +4537,7 @@ $$;`.trim();
       card.classList.toggle('is-archived', isArchived(row));
       const save = card.querySelector('[data-action="save"]');
       if (save) save.disabled = !state.dirtyIds.has(wpid) || state.savingIds.has(wpid);
+      updateSaveAllState();
       const archive = card.querySelector('[data-action="archive"]');
       if (archive && row) {
         archive.disabled = state.savingIds.has(wpid);
@@ -5062,8 +5119,41 @@ $$;`.trim();
         }
       };
       paint();
+      // Registered before the Map button's own listener so row.* is already
+      // current when that one reads it — otherwise the tooltip lags a keystroke.
       input.addEventListener('input', () => { updateField(row.wpid, field, input.value); paint(); });
-      wrap.append(label, input, note);
+
+      // Address gets a Map button beside it. It searches the FULL address —
+      // street plus city, state and ZIP from their own fields — because the box
+      // holds the street only, and "800 Decatur St" on its own lands in whichever
+      // city Google guesses. Same googleMapsUrl() the card's other map links use,
+      // so a Plus Code in this box resolves the same way there too.
+      if (field === 'address') {
+        const line = document.createElement('div');
+        line.className = 'field-line';
+        const mapBtn = document.createElement('button');
+        mapBtn.type = 'button';
+        mapBtn.className = 'btn small';
+        mapBtn.textContent = 'Map';
+        const syncMap = () => {
+          const has = !!(cleanText(input.value) || cleanText(row.city) || cleanText(row.name));
+          mapBtn.disabled = !has;
+          mapBtn.title = has
+            ? 'Look this address up in Google Maps: ' + (addressQuery(row) || cleanText(row.name))
+            : 'Add an address, a city, or a name to look up';
+        };
+        syncMap();
+        input.addEventListener('input', syncMap);
+        mapBtn.addEventListener('click', () => {
+          const href = googleMapsUrl(row, null);
+          if (href) window.open(href, '_blank', 'noopener,noreferrer');
+        });
+        line.append(input, mapBtn);
+        wrap.append(label, line, note);
+      } else {
+        wrap.append(label, input, note);
+      }
+
       if (hint) {
         const help = document.createElement('div');
         help.className = 'field-hint';
@@ -5386,6 +5476,8 @@ $$;`.trim();
     if (promptBtn) promptBtn.addEventListener('click', openPromptDialog);
     const nightlyBtn = document.getElementById('nightlyBtn');
     if (nightlyBtn) nightlyBtn.addEventListener('click', openNightlyDialog);
+    const saveAllBtn = document.getElementById('saveAllBtn');
+    if (saveAllBtn) saveAllBtn.addEventListener('click', saveAllDirty);
     const nightlyCloseBtn = document.getElementById('nightlyCloseBtn');
     if (nightlyCloseBtn) nightlyCloseBtn.addEventListener('click', closeNightlyDialog);
     const nightlyBackdrop = document.getElementById('nightlyBackdrop');

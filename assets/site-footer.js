@@ -58,6 +58,10 @@
     '@media (max-width:640px){',
     '.footer-mark-stack{justify-items:center;}',
     '.footer-social-stack{justify-items:center;}',
+    /* Mission Control stays right-aligned on narrow screens while the social row
+       above it centres — it is an admin door, not part of that row, and keeping
+       it off-centre is what stops it reading as a fifth social link. */
+    '.footer-social-stack .footer-mc-link{justify-self:end;}',
     'body .site-footer.site-footer .footer-bottom{justify-content:center;text-align:center;}',
     '}'
   ].join('');
