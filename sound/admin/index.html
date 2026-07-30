@@ -989,7 +989,7 @@
           </select>
           <label class="archive-toggle">
             <input type="checkbox" id="showArchivedTracks" disabled>
-            Archived
+            Hidden
           </label>
         </div>
         <div class="panel-status" id="trackArchiveStatus">Waiting for sign-in.</div>
@@ -1089,7 +1089,7 @@
         <div class="faq">
           <details>
             <summary>A song is wrong, or won't play</summary>
-            <p>Use the <strong>Track Archive</strong> panel: find the song and press <b>Archive</b>. That hides it from <a href="/sound/" target="_blank" rel="noopener">/sound/</a> straight away and keeps it as a do-not-reuse tombstone for that city, so tomorrow's run cannot pick it again. Add a replacement so the tape still has 15 active songs. If the song is right but only will not play, clear its <code>spotify_id</code> in <code>public.soundtrack_songs</code> — the player falls back to a Spotify search for the artist and title.</p>
+            <p>Use the <strong>Tapes &amp; Tracks</strong> panel: find the song and press <b>Hide</b>. That takes it off <a href="/sound/" target="_blank" rel="noopener">/sound/</a> straight away and keeps it as a do-not-reuse tombstone for that city, so tomorrow's run cannot pick it again. Add a replacement so the tape still has 15 active songs. If the song is right but only will not play, clear its <code>spotify_id</code> in <code>public.soundtrack_songs</code> — the player falls back to a Spotify search for the artist and title.</p>
           </details>
           <details>
             <summary>I want a tape for a city right now</summary>
@@ -1702,7 +1702,7 @@ Final report:
         if (showArchivedTracks) showArchivedTracks.checked = false;
         if (trackArchiveList) {
           trackArchiveList.innerHTML = '';
-          trackArchiveList.appendChild(emptyNode('Sign in to archive soundtrack tracks.'));
+          trackArchiveList.appendChild(emptyNode('Sign in to manage tapes and tracks.'));
         }
         setArchiveStatus('Waiting for sign-in.', '');
         setArchiveCopyStatus('');
@@ -1853,7 +1853,7 @@ Final report:
           var counts = tapeCounts(tape);
           var option = document.createElement('option');
           option.value = slug;
-          option.textContent = trackCityLabel(tape) + ' (' + counts.active + ' active' + (counts.archived ? ', ' + counts.archived + ' archived' : '') + ')';
+          option.textContent = trackCityLabel(tape) + ' (' + counts.active + ' active' + (counts.archived ? ', ' + counts.archived + ' hidden' : '') + ')';
           trackCitySelect.appendChild(option);
         });
         trackCitySelect.value = Array.prototype.some.call(trackCitySelect.options, function (option) {
@@ -1897,7 +1897,7 @@ Final report:
         if (!trackArchiveList) return;
         trackArchiveList.innerHTML = '';
         if (!soundtrackArchiveData) {
-          trackArchiveList.appendChild(emptyNode('Sign in to archive soundtrack tracks.'));
+          trackArchiveList.appendChild(emptyNode('Sign in to manage tapes and tracks.'));
           setArchiveStatus('Waiting for sign-in.', '');
           return;
         }
@@ -1963,7 +1963,7 @@ Final report:
           trackArchiveList.appendChild(renderTapeGroup(group, autoOpen, sortBy));
         });
         if (!groups.length) {
-          trackArchiveList.appendChild(emptyNode(includeArchived ? 'No tracks match.' : 'No active tracks match. Toggle Archived to inspect retired tracks.'));
+          trackArchiveList.appendChild(emptyNode(includeArchived ? 'No tracks match.' : 'No active tracks match. Tick Hidden to see the ones taken off /sound/.'));
         }
 
         var summary = archiveSummary();
@@ -1971,7 +1971,7 @@ Final report:
         setArchiveStatus(
           message || (summary.tapes + ' tapes'
             + (summary.hiddenTapes ? ' (' + summary.hiddenTapes + ' hidden)' : '')
-            + ' - ' + summary.active + ' active tracks - ' + summary.archived + ' archived.'
+            + ' - ' + summary.active + ' active tracks - ' + summary.archived + ' hidden.'
             + (filtered ? ' Showing ' + matched + ' in ' + groups.length + ' tape' + (groups.length === 1 ? '' : 's') + '.' : '')),
           tone || ''
         );
@@ -1995,7 +1995,7 @@ Final report:
         details.classList.toggle('is-archived', tapeArchived);
         if (tapeArchived) counts.appendChild(chip('Tape hidden', 'warn'));
         counts.appendChild(chip(tally.active + ' active'));
-        if (tally.archived) counts.appendChild(chip(tally.archived + ' archived', 'warn'));
+        if (tally.archived) counts.appendChild(chip(tally.archived + ' hidden', 'warn'));
         if (group.rows.length !== tally.active + tally.archived) {
           counts.appendChild(chip(group.rows.length + ' shown'));
         }
@@ -2018,10 +2018,10 @@ Final report:
         var tapeToggle = document.createElement('button');
         tapeToggle.type = 'button';
         tapeToggle.className = 'btn small tape-archive-btn';
-        tapeToggle.textContent = tapeArchived ? 'Restore tape' : 'Archive tape';
+        tapeToggle.textContent = tapeArchived ? 'Show tape' : 'Hide tape';
         tapeToggle.title = tapeArchived
-          ? 'Put this tape back on /sound/, restoring the tracks it archived (tracks archived on their own stay archived)'
-          : 'Hide this whole city tape from /sound/ and archive every track on it';
+          ? 'Put this tape back on /sound/, unhiding the tracks it hid (tracks hidden on their own stay hidden)'
+          : 'Take this whole city tape off /sound/, hiding every track on it';
         tapeToggle.addEventListener('click', async function (event) {
           // Inside a <summary>, so stop the click from opening/closing the city.
           event.preventDefault();
@@ -2087,10 +2087,10 @@ Final report:
         var meta = document.createElement('div');
         meta.className = 'item-meta';
         meta.appendChild(chip(trackCityLabel(tape)));
-        meta.appendChild(chip(archived ? 'Archived' : 'Active', archived ? 'warn' : 'success'));
+        meta.appendChild(chip(archived ? 'Hidden' : 'Active', archived ? 'warn' : 'success'));
         if (archived && song && song.archivedWithTape) {
           var withTape = chip('with tape', 'warn');
-          withTape.title = 'Archived because the whole tape was archived. Restoring the tape restores this track.';
+          withTape.title = 'Hidden because the whole tape is hidden. Showing the tape brings this track back.';
           meta.appendChild(withTape);
         }
         if (text(song && song.spotifyId)) meta.appendChild(chip('Spotify ID'));
@@ -2111,10 +2111,10 @@ Final report:
         var toggle = document.createElement('button');
         toggle.type = 'button';
         toggle.className = 'btn small' + (archived ? '' : ' primary');
-        toggle.textContent = archived ? 'Restore' : 'Archive';
+        toggle.textContent = archived ? 'Show' : 'Hide';
         toggle.title = archived
-          ? 'Restore this track to the active public tape'
-          : 'Hide this track and keep it as a do-not-rescrape tombstone for this city';
+          ? 'Put this track back on the public tape'
+          : 'Take this track off /sound/ and keep it as a do-not-reuse marker for this city';
         toggle.addEventListener('click', async function () {
           toggle.disabled = true;
           var ok = await setTrackArchived(tapeIndex, songIndex, !archived);
@@ -2143,12 +2143,15 @@ Final report:
           await patchRow('soundtrack_songs?id=eq.' + encodeURIComponent(song.id), { archived: !!archived });
         } catch (error) {
           console.error(error);
-          setArchiveStatus((archived ? 'Could not archive ' : 'Could not restore ') + songDisplay(song) + '. ' + error.message, 'error');
+          setArchiveStatus((archived ? 'Could not hide ' : 'Could not show ') + songDisplay(song) + '. ' + error.message, 'error');
           return false;
         }
         if (archived) song.archived = true;
         else delete song.archived;
-        renderTrackArchive((archived ? 'Archived ' : 'Restored ') + songDisplay(song) + '. Live on /sound/ now.', 'success');
+        renderTrackArchive(
+          songDisplay(song) + (archived ? ' is off /sound/ now.' : ' is back on /sound/ now.'),
+          'success'
+        );
         // The tape counts under the title come from the same rows.
         loadTapeSummary();
         return true;
@@ -2172,18 +2175,18 @@ Final report:
           await loadSoundtrackArchive();
         } catch (error) {
           console.error(error);
-          setArchiveStatus((archived ? 'Could not archive the ' : 'Could not restore the ')
+          setArchiveStatus((archived ? 'Could not hide the ' : 'Could not show the ')
             + label + ' tape. ' + error.message, 'error');
           return false;
         }
         var counts = tapeCounts(tapeBySlug(slug));
         renderTrackArchive(
           archived
-            ? ('The whole ' + label + ' tape is hidden from /sound/ now, with its '
-              + counts.archived + ' track' + (counts.archived === 1 ? '' : 's') + ' archived.')
+            ? ('The whole ' + label + ' tape is off /sound/ now, with its '
+              + counts.archived + ' track' + (counts.archived === 1 ? '' : 's') + ' hidden.')
             : ('The ' + label + ' tape is back on /sound/ with ' + counts.active
               + ' active track' + (counts.active === 1 ? '' : 's')
-              + (counts.archived ? ' — ' + counts.archived + ' stayed archived.' : '.')),
+              + (counts.archived ? ' — ' + counts.archived + ' stayed hidden.' : '.')),
           'success'
         );
         loadTapeSummary();
@@ -2198,39 +2201,6 @@ Final report:
         return found;
       }
 
-      // Archive / Restore for a song rendered in the Fresh Review panel. Both
-      // panels render the same loaded rows, so the button knows the song's
-      // tape/song index outright — no title+artist matching back into a separate
-      // copy of the data like the JSON-file version needed.
-      function archiveButtonForReviewSong(tapeIndex, songIndex) {
-        var button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'btn small';
-        var tape = soundtracks()[tapeIndex];
-        var song = tape && Array.isArray(tape.songs) ? tape.songs[songIndex] : null;
-        var archived = isArchivedSong(song);
-        button.textContent = archived ? 'Restore' : 'Archive';
-        button.disabled = !song || song.id == null;
-        button.title = song
-          ? (archived
-            ? 'Restore this track to the active public tape'
-            : 'Hide this track and keep it as a do-not-rescrape tombstone for this city')
-          : 'Track has not loaded yet';
-        button.addEventListener('click', async function () {
-          button.disabled = true;
-          var ok = await setTrackArchived(tapeIndex, songIndex, !archived);
-          if (ok) button.textContent = !archived ? 'Archived' : 'Restored';
-          else button.disabled = false;
-        });
-        return button;
-      }
-
-      // Regenerates sound/soundtracks.json from the tables. The file is no longer
-      // the source of truth — it is the offline fallback /sound/ reads only when
-      // Supabase is unreachable — so this exists to refresh that copy, not to
-      // save an edit. Row ids, positions, and timestamps are stripped: the file
-      // keeps the exact shape it had before the move, with play order carried by
-      // array order.
       function serializedSoundtrackJson() {
         if (!soundtrackArchiveData) return '';
         var payload = {

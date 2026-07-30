@@ -76,6 +76,11 @@ A tape and its songs:
 - `archived = true` is a track-level tombstone. The row stays on the city so the
   same title+artist is never picked again there, but `/sound/` hides it and active
   counts ignore it.
+- **The Tape Room says HIDE and HIDDEN for this, not archive.** The column keeps
+  the name `archived` and so does the code; only the words a person reads changed
+  (2026-07-30). "Archive" implied the track was filed away or deleted, when all
+  that happens is it comes off `/sound/` and stops counting. If you add UI here,
+  match the visible vocabulary: **Hide / Show**, **Hidden / Active**.
 - A **unique index on `(city_slug, lower(title), lower(artist))`** enforces the
   no-duplicates rule in the database. This is what makes tombstones work: an
   INSERT of a retired song hits the index and does nothing.
