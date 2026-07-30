@@ -84,6 +84,31 @@ Playthroughs are recorded for stats. A **team leader** (the buyer/leader — we 
 
 ---
 
+## Visitor analytics
+
+[assets/site-analytics.js](assets/site-analytics.js) is the only analytics on the
+site (added 2026-07-30, first used on [sound/index.html](sound/index.html)). It
+injects the **Cloudflare Web Analytics** beacon: free at any volume, cookieless
+with no per-visitor identifier — so **no consent banner and nothing to disclose in
+a privacy policy** — and a single tag that works on plain GitHub Pages with no
+build step and without proxying the domain through Cloudflare.
+
+- **The token lives in exactly one place**, the `TOKEN` constant at the top of
+  that file. With it empty the script loads and does nothing, so the file is safe
+  to ship before the Cloudflare site exists. Get it from dash.cloudflare.com →
+  Analytics & Logs → Web Analytics → Add a site.
+- **To cover another public page, add the one `<script>` line.** Don't inline the
+  beacon or the token anywhere else.
+- **It refuses admin surfaces itself** — anything under `/mc/`, `/account/`, any
+  `/admin/` path, and `shop/giftcards.html` — plus localhost and LAN hosts. Our
+  own sessions would swamp real visitor numbers on a site this size, and a guard
+  in the script is more reliable than remembering which pages to leave it off.
+- **It measures traffic, not listening.** It cannot say which cassette anyone
+  played; that needs our own append-only event table, which deliberately does not
+  exist yet. Don't try to squeeze play counts out of a page-view tool.
+
+---
+
 ## Site layout & deployment
 
 - Published as a GitHub Pages site with `.nojekyll`, so files are served as-is (no Jekyll processing).
