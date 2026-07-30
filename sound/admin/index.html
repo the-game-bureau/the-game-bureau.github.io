@@ -878,27 +878,6 @@
       letter-spacing: 0.03em;
       line-height: 1;
     }
-    .stockroom-titlecol .stockroom-substat {
-      margin: 3px 0 0;
-      min-height: 0;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.72rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      line-height: 1.5;
-      color: var(--muted);
-    }
-    .stockroom-substat:empty { display: none; }
-    /* Numbers whose native title lists the cities behind them. Dotted underline
-       is the long-standing "there is more here on hover" signal. */
-    .stat-hint {
-      cursor: help;
-      text-decoration: underline dotted;
-      text-decoration-thickness: 1px;
-      text-underline-offset: 3px;
-    }
-    .stat-hint:hover { color: var(--ink); }
-
     /* Header right side: push the Soundtracks link and the auth toggle to the
        far edge, the way the Stock Room does. */
     /* Six buttons now. Slightly tighter than the body's .btn so the row stays on
@@ -952,7 +931,6 @@
         <div class="stockroom-titlecol">
           <span class="stockroom-eyebrow">THE GAME BUREAU</span>
           <h1 class="stockroom-title" id="pageTitle">TAPE ROOM</h1>
-          <p class="status stockroom-substat" id="pageStatus" aria-live="polite">Sign in with an admin account.</p>
         </div>
       </div>
       <div class="stockroom-head-status">
@@ -1283,7 +1261,6 @@ Final report:
         publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
       };
 
-      var pageStatus = document.getElementById('pageStatus');
       var copyButtons = [
         document.getElementById('copyPromptTop')
       ].filter(Boolean);
@@ -1300,8 +1277,8 @@ Final report:
       var reloadArchiveBtn = document.getElementById('reloadArchiveBtn');
       var copySoundtracksBtn = document.getElementById('copySoundtracksBtn');
       var downloadSoundtracksBtn = document.getElementById('downloadSoundtracksBtn');
+      // Still the staleness threshold for the Daily Routine card's last-run line.
       var REVIEW_HOURS = 26;
-      var REVIEW_MS = REVIEW_HOURS * 60 * 60 * 1000;
       var soundtrackArchiveData = null;
       var expandedTapes = Object.create(null);
 
@@ -1390,190 +1367,13 @@ Final report:
         supabaseConfig: SUPABASE_CONFIG,
         onAuthorized: function () {
           setAdminAuthToggleState(true);
-          loadTapeSummary();
           loadSoundtrackArchive().catch(function () { /* status already shown */ });
         },
         onSignedOut: function () {
-          setPageStatus('Sign in with an admin account.');
           setAdminAuthToggleState(false);
           resetSoundtrackArchive();
         }
       });
-
-      // Tape count under the title. Read from public.soundtrack_stats — the view
-      // over the same two tables /sound/ renders — so the number can never
-      // disagree with what a visitor sees. One row per tape, so no paging.
-      async function loadTapeSummary() {
-        var live;
-        var hiddenTapes = [];
-        try {
-          var res = await fetch(
-            restUrl('soundtrack_stats?select=city_slug,active_songs,archived&order=city_slug.asc'),
-            { headers: anonHeaders(), cache: 'no-store' }
-          );
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          var list = await res.json();
-          var statRows = Array.isArray(list) ? list : [];
-          live = statRows
-            .filter(function (tape) { return !tape.archived && Number(tape.active_songs) > 0; })
-            .map(function (tape) {
-              return { city_slug: tape.city_slug, active: Number(tape.active_songs) || 0 };
-            });
-          // An archived tape is hidden from /sound/, so it is deliberately absent
-          // from the counts above -- but silently absent is how you forget one is
-          // parked. Kept here so the substat can say so.
-          hiddenTapes = statRows
-            .filter(function (tape) { return !!tape.archived; })
-            .map(function (tape) { return tape.city_slug; });
-        } catch (error) {
-          setPageStatus('');
-          return;
-        }
-
-        // Pull the catalog first — it supplies the display names the hover
-        // lists want, and the set of cities with no tape at all. Best effort:
-        // if it's unreachable we still render the tape numbers, just with slugs
-        // in the tooltips and no city-gap line.
-        // select=* per the repo rule: naming `ignored` in a column list 400s on
-        // any database that hasn't run the migration. Only 140 city rows today,
-        // comfortably inside PostgREST's 1000-row cap — paginate if that grows.
-        var cityRows = null;
-        try {
-          var cres = await fetch(
-            SUPABASE_CONFIG.url + '/rest/v1/cities?select=*',
-            {
-              headers: {
-                apikey: SUPABASE_CONFIG.publishableKey,
-                Authorization: 'Bearer ' + SUPABASE_CONFIG.publishableKey,
-                Accept: 'application/json'
-              },
-              cache: 'no-store'
-            }
-          );
-          if (!cres.ok) throw new Error('HTTP ' + cres.status);
-          var parsed = await cres.json();
-          if (Array.isArray(parsed)) cityRows = parsed;
-        } catch (error) {
-          // Leave cityRows null.
-        }
-
-        var nameBySlug = {};
-        if (cityRows) {
-          cityRows.forEach(function (row) {
-            if (row && row.slug) nameBySlug[row.slug] = row.city || row.slug;
-          });
-        }
-        function cityLabel(slug) { return nameBySlug[slug] || slug || '(no slug)'; }
-        function citySort(a, b) { return a.localeCompare(b); }
-
-        // How full the tapes are, fullest bucket first. Each bucket keeps its
-        // slugs so hovering can name the cities — the count alone tells you
-        // there's a problem but not which tape to open.
-        var byCount = {};
-        live.forEach(function (tape) {
-          (byCount[tape.active] || (byCount[tape.active] = [])).push(tape.city_slug);
-        });
-
-        // Leading with the track total: it is the number that moves every day,
-        // and the tape count alone says nothing about how full the tapes are.
-        var totalActive = live.reduce(function (sum, tape) { return sum + tape.active; }, 0);
-        var line1 = [{
-          text: totalActive.toLocaleString() + ' track' + (totalActive === 1 ? '' : 's')
-            + ' in ' + live.length + ' soundtrack' + (live.length === 1 ? '' : 's')
-        }];
-        // The fullness buckets sit on their own line. Kept off line 1 on purpose:
-        // a long first line widens the header lockup and shoves the six-button row
-        // below the title instead of leaving it up in the top right.
-        var counts = Object.keys(byCount).map(Number).sort(function (a, b) { return b - a; });
-        var bucketLine = [];
-        counts.forEach(function (n, i) {
-          if (i) bucketLine.push({ text: ', ' });
-          // Compact ratio form: "1/25 track" = one tape holding 25 tracks.
-          bucketLine.push({
-            text: byCount[n].length + '/' + n + ' track',
-            title: byCount[n].map(cityLabel).sort(citySort).join('\n')
-          });
-        });
-
-        // Cities still waiting on a tape. Rows hidden from /sound/ are stadium
-        // towns and other non-destinations, so they are not a gap — excluding
-        // them keeps this number equal to the work the routine actually has left.
-        // Prefers the per-surface hide_from_soundtracks column and falls back to
-        // the retired `ignored` flag only when that column is absent.
-        var line2 = null;
-        if (cityRows) {
-          var haveTape = {};
-          live.forEach(function (tape) {
-            if (tape.city_slug) haveTape[tape.city_slug] = true;
-          });
-          var missing = cityRows
-            .filter(function (row) {
-              if (!row || !row.slug || haveTape[row.slug]) return false;
-              if (row.hide_from_soundtracks === true) return false;
-              if (row.hide_from_soundtracks === undefined && row.ignored === true) return false;
-              return true;
-            })
-            .map(function (row) { return row.city || row.slug; })
-            .sort(citySort);
-          line2 = [{
-            text: missing.length + ' cit' + (missing.length === 1 ? 'y' : 'ies') + ' with no tracks',
-            title: missing.join('\n')
-          }];
-        }
-
-        // Hidden tapes, named on hover. Only shown when there are any -- a
-        // permanent "0 tapes hidden" is noise on a line that is already busy.
-        if (hiddenTapes.length) {
-          var hiddenSeg = {
-            text: hiddenTapes.length + ' tape' + (hiddenTapes.length === 1 ? '' : 's') + ' hidden',
-            title: hiddenTapes.map(cityLabel).sort(citySort).join('\n')
-          };
-          if (line2) line2 = line2.concat([{ text: ' \u00b7 ' }, hiddenSeg]);
-          else line2 = [hiddenSeg];
-        }
-
-        // The gap count joins the buckets rather than taking a third line.
-        if (line2 && bucketLine.length) {
-          bucketLine.push({ text: ' · ' });
-          bucketLine = bucketLine.concat(line2);
-          line2 = bucketLine;
-        } else if (bucketLine.length) {
-          line2 = bucketLine;
-        }
-
-        // Two lines: what exists on top, what's still missing underneath. The
-        // bucket list runs long (six buckets today), so keeping the gap on its
-        // own line stops it getting lost at the end of a wrap.
-        setPageStatus([line1, line2]);
-      }
-
-      // Accepts a string, or an array of lines rendered one per row. A line is
-      // either a string or an array of {text, title} segments; a segment with a
-      // title becomes a hoverable span listing the cities behind that number.
-      // Built as text nodes + <br> rather than innerHTML — the values are all
-      // generated counts and city names, but this keeps the substat incapable
-      // of carrying markup.
-      function setPageStatus(text) {
-        if (!pageStatus) return;
-        var lines = (Array.isArray(text) ? text : [text]).filter(Boolean);
-        pageStatus.textContent = '';
-        lines.forEach(function (line, i) {
-          if (i) pageStatus.appendChild(document.createElement('br'));
-          var segments = Array.isArray(line) ? line : [{ text: line }];
-          segments.forEach(function (seg) {
-            if (!seg || !seg.text) return;
-            if (!seg.title) {
-              pageStatus.appendChild(document.createTextNode(seg.text));
-              return;
-            }
-            var span = document.createElement('span');
-            span.className = 'stat-hint';
-            span.textContent = seg.text;
-            span.title = seg.title;
-            pageStatus.appendChild(span);
-          });
-        });
-      }
 
       function setCopyStatus(text) {
         if (!copyStatus) return;
@@ -1622,12 +1422,6 @@ Final report:
 
       function isArchivedSong(song) {
         return truthyFlag(song && song.archived);
-      }
-
-      function truncate(value, max) {
-        var s = text(value).replace(/\s+/g, ' ');
-        if (!s || s.length <= max) return s;
-        return s.slice(0, Math.max(0, max - 3)).trim() + '...';
       }
 
       function formatDate(date) {
@@ -2152,8 +1946,6 @@ Final report:
           songDisplay(song) + (archived ? ' is off /sound/ now.' : ' is back on /sound/ now.'),
           'success'
         );
-        // The tape counts under the title come from the same rows.
-        loadTapeSummary();
         return true;
       }
 
@@ -2189,7 +1981,6 @@ Final report:
               + (counts.archived ? ' — ' + counts.archived + ' stayed hidden.' : '.')),
           'success'
         );
-        loadTapeSummary();
         return true;
       }
 
