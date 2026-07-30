@@ -23,7 +23,7 @@
 (function () {
   'use strict';
 
-  var TOKEN = '';
+  var TOKEN = '6459c272d55e420ab9ddbf7ea5e68a08';
 
   if (!TOKEN) return;
 
@@ -41,7 +41,10 @@
     || /^\/shop\/giftcards/.test(path)) return;
 
   var beacon = document.createElement('script');
-  beacon.defer = true;
+  // type="module" matches the snippet Cloudflare hands out, and beacon.min.js is
+  // shipped as an ES module — loading it as a classic script risks failing on its
+  // own syntax. Modules defer by default, so no defer attribute is needed.
+  beacon.type = 'module';
   beacon.src = 'https://static.cloudflareinsights.com/beacon.min.js';
   beacon.setAttribute('data-cf-beacon', JSON.stringify({ token: TOKEN }));
   (document.head || document.documentElement).appendChild(beacon);
