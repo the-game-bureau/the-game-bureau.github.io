@@ -106,6 +106,14 @@ build step and without proxying the domain through Cloudflare.
 - **It measures traffic, not listening.** It cannot say which cassette anyone
   played; that needs our own append-only event table, which deliberately does not
   exist yet. Don't try to squeeze play counts out of a page-view tool.
+- **The numbers are not on our pages, and can't be.** Reading Web Analytics means
+  Cloudflare's GraphQL API with a *secret* API token, and every admin page here is
+  public HTML on GitHub Pages — so the Tape Room's **Viewer Statistics** card
+  carries deep links into the Cloudflare dashboard, the caveats, and a live
+  *beacon-installed* check (it fetches `site-analytics.js` and confirms `TOKEN` is
+  still filled in) rather than counts. To put real figures on the page, a Supabase
+  Edge Function would have to hold the API token and proxy the query behind
+  `is_photo_admin()`.
 
 ---
 

@@ -1084,6 +1084,35 @@
           <p class="side-note">Open the routine to watch a run, trigger one early, change the schedule, or pause it. The clock is UTC with no daylight-saving shift, so no single schedule holds one Central time all year: 11:30 UTC is 6:30 AM Central in summer and 5:30 AM in winter. It replaced a GitHub Action on 2026-07-27 — that path needed a funded API key, this one bills to the Claude subscription. Since 2026-07-29 it writes to Supabase instead of committing a JSON file, so <b>Last run</b> above is the newest song row, not a commit.</p>
         </section>
 
+        <section class="side-card side-card--blue" id="viewersCard">
+          <span class="side-label">Measurement</span>
+          <h2>Viewer Statistics</h2>
+          <p>Visits to the public <a href="/sound/" target="_blank" rel="noopener">/sound/</a> page are counted by <b>Cloudflare Web Analytics</b>, live since 2026-07-30. It reports page views, visits, referrers and rough country — <b>the numbers live in Cloudflare's dashboard, not on this page</b>, because reading them needs a secret API token and this page is public HTML on GitHub Pages.</p>
+          <div class="run-status" id="beaconStatus" data-state="loading">
+            <span class="run-dot" aria-hidden="true"></span>
+            <div class="run-body">
+              <span class="run-line" id="beaconWhen">Checking the beacon&hellip;</span>
+              <span class="run-sub" id="beaconWhat"></span>
+            </div>
+          </div>
+          <ul class="mini-list">
+            <li>Counts <b>/sound/</b> and other public pages</li>
+            <li>Ignores <b>this page</b> and all of <b>/mc/</b></li>
+            <li>Ignores <b>localhost</b> and LAN hosts</li>
+            <li>No cookies, no visitor id</li>
+          </ul>
+          <div class="side-links">
+            <a class="btn primary" href="https://dash.cloudflare.com/?to=/:account/web-analytics" target="_blank" rel="noopener noreferrer" title="Page views, visits, referrers and countries for thegamebureau.com">Web Analytics</a>
+          </div>
+          <div class="side-links">
+            <a class="btn" href="https://dash.cloudflare.com/?to=/:account/thegamebureau.com/dns" target="_blank" rel="noopener noreferrer" title="Why the JS snippet is installed by hand: these records are DNS-only">DNS Records</a>
+            <a class="btn" href="https://developers.cloudflare.com/web-analytics/" target="_blank" rel="noopener noreferrer">Docs</a>
+          </div>
+          <p class="side-note"><b>Read the numbers as a floor, not a headcount.</b> Because the beacon is cookieless there is no per-visitor identity, so &ldquo;visits&rdquo; are estimated from page views rather than counted people, and someone returning tomorrow is indistinguishable from a stranger. Ad and tracker blockers drop the beacon entirely, so real traffic is always somewhat higher than what you see — never lower.</p>
+          <p class="side-note"><b>It measures arriving, not listening.</b> A page view cannot tell you which cassette anyone played, or whether they pressed play at all. That would need our own append-only event table writing a row per play, the same shape as <code>game_events</code> — deliberately not built, so don't read a listening story into a traffic chart.</p>
+          <p class="side-note">Installed as a hand-placed JS snippet in <code>assets/site-analytics.js</code> rather than Cloudflare's automatic injection: <code>thegamebureau.com</code> is <b>DNS-only</b> on Cloudflare — the apex resolves to GitHub Pages and responses carry no <code>cf-ray</code> — so no request passes through the proxy that would otherwise inject it. Auto-injection would silently collect nothing.</p>
+        </section>
+
         <section class="side-card side-card--red" id="suggestCard">
           <span class="side-label">Preflight</span>
           <h2>Email Suggestions</h2>
@@ -2388,6 +2417,41 @@ Final report:
           return part ? part.charAt(0).toUpperCase() + part.slice(1) : '';
         }).join(' ');
       }
+
+      // Is the beacon actually installed? The analytics script refuses to run on
+      // admin pages, so this page cannot self-report — it reads the shipped file
+      // and checks the token is still filled in. Cheap, and it catches the one
+      // failure that is otherwise invisible: a token cleared or a bad deploy,
+      // which looks exactly like "nobody visited today" in Cloudflare.
+      async function loadBeaconStatus() {
+        var wrap = document.getElementById('beaconStatus');
+        var when = document.getElementById('beaconWhen');
+        var what = document.getElementById('beaconWhat');
+        if (!wrap || !when || !what) return;
+        try {
+          var res = await fetch('../../assets/site-analytics.js', { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          var src = await res.text();
+          var match = src.match(/var\s+TOKEN\s*=\s*'([^']*)'/);
+          var token = match ? match[1] : '';
+          if (!token) {
+            wrap.dataset.state = 'stale';
+            when.textContent = 'Beacon not installed';
+            what.textContent = 'assets/site-analytics.js has no site token, so nothing is being counted. Paste one from Cloudflare → Web Analytics.';
+            return;
+          }
+          wrap.dataset.state = 'ok';
+          when.textContent = 'Beacon installed';
+          what.textContent = 'Site token ' + token.slice(0, 6) + '…' + token.slice(-4)
+            + ' · counting /sound/ since 2026-07-30.';
+        } catch (error) {
+          wrap.dataset.state = 'error';
+          when.textContent = 'Beacon status unknown';
+          what.textContent = 'Could not read assets/site-analytics.js from this host.';
+        }
+      }
+
+      loadBeaconStatus();
 
       // Last run of the daily routine. The routine commits nothing now that the
       // tapes are rows, so there is no commit feed to read: the newest song row
