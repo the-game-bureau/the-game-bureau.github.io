@@ -621,6 +621,8 @@
       padding: 12px;
     }
 
+    /* Shared by the Track Archive and the Fresh Review list: both are lists of
+       collapsible cities. */
     .tape-group {
       border: 1px solid rgba(var(--bic-blue-rgb), 0.16);
       border-radius: 8px;
@@ -1366,6 +1368,7 @@ Final report:
       var REVIEW_MS = REVIEW_HOURS * 60 * 60 * 1000;
       var soundtrackArchiveData = null;
       var expandedTapes = Object.create(null);
+      var expandedReview = Object.create(null);
 
       // ── Supabase REST ───────────────────────────────────────────────────────
       // Tapes moved from sound/soundtracks.json into public.soundtracks /
@@ -1733,6 +1736,7 @@ Final report:
       }
 
       function resetSoundtrackReview() {
+        expandedReview = Object.create(null);
         if (soundReviewWindow) soundReviewWindow.textContent = '';
         setSoundReview('-', 'Sign in with an admin account.', '');
         setSoundReviewList(emptyNode('Sign in to review freshly added tracks.'));
@@ -2357,37 +2361,69 @@ Final report:
         return changes.sort(function (a, b) { return (b.newest || 0) - (a.newest || 0); });
       }
 
+      // Collapsed per city, like the Track Archive below it. On any day the
+      // review window covers a normal run this is two cities; right after the
+      // Supabase move the whole catalog was inside the 26-hour window and the
+      // panel printed 966 tracks in one column.
       function renderSoundChange(change) {
-        var article = document.createElement('article');
-        article.className = 'review-item';
-        var main = document.createElement('div');
-        main.className = 'item-main';
+        var details = document.createElement('details');
+        details.className = 'tape-group';
 
-        var title = document.createElement('h3');
-        title.className = 'item-title';
-        title.textContent = soundCityLabel(change.city_slug);
+        var summary = document.createElement('summary');
+        summary.className = 'tape-summary';
+        var name = document.createElement('span');
+        name.className = 'tape-name';
+        name.textContent = soundCityLabel(change.city_slug);
+        var counts = document.createElement('span');
+        counts.className = 'tape-counts';
+        counts.appendChild(chip(change.type, change.type === 'New Tape' ? 'success' : 'warn'));
+        counts.appendChild(chip(change.songs.length + ' song' + (change.songs.length === 1 ? '' : 's')));
+        if (change.newest) counts.appendChild(chip(relativeTime(change.newest, new Date())));
+        summary.append(name, counts);
+        details.appendChild(summary);
 
-        var meta = document.createElement('div');
-        meta.className = 'item-meta';
-        meta.appendChild(chip(change.type, change.type === 'New Tape' ? 'success' : 'warn'));
-        meta.appendChild(chip(change.songs.length + ' song' + (change.songs.length === 1 ? '' : 's')));
-        if (text(change.spine_tag)) meta.appendChild(chip(change.spine_tag));
-        if (change.newest) meta.appendChild(chip(relativeTime(change.newest, new Date())));
+        var body = document.createElement('div');
+        body.className = 'tape-tracks';
+        details.appendChild(body);
 
-        var songs = document.createElement('ol');
-        songs.className = 'song-list';
-        change.songs.forEach(function (entry) {
-          songs.appendChild(renderSong(entry.song, change.tapeIndex, entry.songIndex));
+        function fill() {
+          if (body.dataset.filled === 'true') return;
+          if (text(change.spine_tag)) {
+            var meta = document.createElement('div');
+            meta.className = 'item-meta';
+            meta.appendChild(chip(change.spine_tag));
+            body.appendChild(meta);
+          }
+          var songs = document.createElement('ol');
+          songs.className = 'song-list';
+          change.songs.forEach(function (entry) {
+            songs.appendChild(renderSong(entry.song, change.tapeIndex, entry.songIndex));
+          });
+          body.appendChild(songs);
+          var actions = document.createElement('div');
+          actions.className = 'item-actions';
+          actions.appendChild(actionLink('/sound/#' + encodeURIComponent(change.city_slug), 'Open Tape', true));
+          body.appendChild(actions);
+          body.dataset.filled = 'true';
+        }
+
+        // Same remembered-expansion rule as the archive: only a real click on the
+        // summary persists, so a Refresh does not collapse what you were reading.
+        var userToggled = false;
+        summary.addEventListener('click', function () { userToggled = true; });
+        details.addEventListener('toggle', function () {
+          if (userToggled) {
+            expandedReview[change.city_slug] = details.open;
+            userToggled = false;
+          }
+          if (details.open) fill();
         });
 
-        main.append(title, meta, songs);
-
-        var actions = document.createElement('div');
-        actions.className = 'item-actions';
-        actions.appendChild(actionLink('/sound/#' + encodeURIComponent(change.city_slug), 'Open Tape', true));
-
-        article.append(main, actions);
-        return article;
+        if (expandedReview[change.city_slug]) {
+          details.open = true;
+          fill();
+        }
+        return details;
       }
 
       function renderSong(song, tapeIndex, songIndex) {
