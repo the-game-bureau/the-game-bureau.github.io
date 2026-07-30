@@ -2306,10 +2306,21 @@
         return item;
       }
 
+      function truthyFlag(value) {
+        if (value === true) return true;
+        if (value === false || value == null) return false;
+        var v = String(value).trim().toLowerCase();
+        return !!v && ['false', 'f', 'no', 'n', '0'].indexOf(v) === -1;
+      }
+
+      function isArchivedSong(song) {
+        return truthyFlag(song && song.archived);
+      }
+
       function soundtrackTracks(soundtrack) {
         return ((soundtrack && Array.isArray(soundtrack.songs)) ? soundtrack.songs : [])
           .filter(function (song) {
-            return song && (song.spotifyId || song.title || song.artist || song.href);
+            return song && !isArchivedSong(song) && (song.spotifyId || song.title || song.artist || song.href);
           });
       }
 

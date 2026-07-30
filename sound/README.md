@@ -10,7 +10,7 @@ file is the source of truth.
 ## What a soundtrack is, and why it exists
 
 Every city we run games in gets a **cassette tape** on [/sound/](https://thegamebureau.com/sound/):
-15 songs that sound like that place. Hometown artists, songs that name the
+15 active songs that sound like that place. Hometown artists, songs that name the
 streets, the fight song the whole stadium knows, the record cut in a studio down
 the road.
 
@@ -60,6 +60,10 @@ One entry per city:
 - `spotifyId` is a 22-character Spotify track ID. **Optional** — omit it rather
   than guess; the player falls back to a Spotify search for `artist title`.
 - `blurb` is 6–10 words, specific to that city.
+- `archived: true` is a track-level tombstone. The song stays in that city's
+  `songs` array so it is not scraped again for that city, but `/sound/` does not
+  show it and active counts ignore it. Omit false archived values on active
+  songs.
 
 ---
 
@@ -67,10 +71,10 @@ One entry per city:
 
 These must hold. The daily agent follows them; so should you.
 
-1. **Exactly 15 songs** per city.
-2. **Max 2 songs per artist** within a city.
-3. **No duplicate title + artist** pair within a city.
-4. Every song has a **title, an artist, and a 6–10 word blurb**.
+1. **Exactly 15 active songs** per city. Active means `archived` is not true.
+2. **Max 2 active songs per artist** within a city.
+3. **No duplicate title + artist** pair within a city, including archived songs.
+4. Every active song has a **title, an artist, and a 6–10 word blurb**.
 5. `spotifyId`, when present, is **exactly 22 alphanumeric characters**, verified
    against a real `open.spotify.com/track` page. **Never invent one** — a
    fabricated ID is 22 characters like any other, passes every format check, and
@@ -78,14 +82,17 @@ These must hold. The daily agent follows them; so should you.
    sometimes disagree on capitalisation, so copy the ID off the page you opened.
 6. `"explicit": true` only when Spotify marks the track explicit; otherwise omit
    the field.
-7. Entries stay **sorted by `city_slug`**.
-8. **No tapes for venue-only cities** — rows in `public.cities` with
+7. `"archived": true` only for a retired song that should be hidden and
+   excluded from active counts while blocking reuse in that same city; otherwise
+   omit the field.
+8. Entries stay **sorted by `city_slug`**.
+9. **No tapes for venue-only cities** — rows in `public.cities` with
    `ignored = true` (Orchard Park, Santa Clara) are stadium towns, not places we
    sell into.
-9. Real, commercially available recordings only. No karaoke, tribute, sped-up,
+10. Real, commercially available recordings only. No karaoke, tribute, sped-up,
    slowed, or re-recorded versions. A **remaster** of the original master is
    fine; a **re-recording** is not.
-10. Blurbs carry **no trailing period**.
+11. Blurbs carry **no trailing period**.
 
 ### What belongs on a tape
 
@@ -160,8 +167,8 @@ winter costs nothing.
    > writes a tape for a city we do not sell into. Still do the top-up, and
    > say plainly in the summary and the commit message that the catalog was
    > unreachable.
-2. Picks the **alphabetically first city with no tape**, plus the **emptiest
-   existing tape**.
+2. Picks the **alphabetically first city with no active tape**, plus the
+   **emptiest existing tape by active song count**.
 3. Researches songs and verifies every Spotify ID by web search.
 4. Runs the housekeeping pass below.
 5. Writes `sound/soundtracks.json` and commits straight to `main`.
@@ -172,16 +179,19 @@ Added 2026-07-28, after a manual audit turned up eleven tapes breaking the
 artist cap and twelve misplaced songs on one tape. The run now scans the whole
 file every day and reports:
 
-1. Any artist appearing **more than twice** on a tape — including one act
-   spelled two ways (`Los Tigres del Norte` / `Los Tigres Del Norte` is one
-   artist, and the count has to treat it that way).
-2. Duplicate **title + artist** pairs within a tape.
-3. `spotifyId` values that fail `^[A-Za-z0-9]{22}$`.
-4. Missing titles, artists, or blurbs; blurbs outside 6–10 words or ending in
-   a period.
+1. Any artist appearing **more than twice among active songs** on a tape —
+   including one act spelled two ways (`Los Tigres del Norte` /
+   `Los Tigres Del Norte` is one artist, and the count has to treat it that
+   way).
+2. Duplicate **title + artist** pairs within a tape, including archived songs,
+   because archived entries are the do-not-rescrape list for that city.
+3. Active-song `spotifyId` values that fail `^[A-Za-z0-9]{22}$`.
+4. Active songs with missing titles, artists, or blurbs; blurbs outside 6–10
+   words or ending in a period.
 5. Entries out of `city_slug` order, duplicate entries, empty tapes.
-6. Tapes short of 15, shortest first — the backlog, expected to be long.
-7. Songs with **no plausible connection to their city**.
+6. Tapes short of 15 active songs, shortest first — the backlog, expected to be
+   long.
+7. Active songs with **no plausible connection to their city**.
 
 It then fixes **at most three**, preferring malformed IDs → artist-cap →
 blurb format → everything else, and reports the rest. The ceiling is
@@ -189,12 +199,13 @@ deliberate: it keeps each day's diff small enough to actually read.
 
 Two rules for the fixing:
 
-- A cap violation is repaired by **replacing** the surplus song with a verified
-  hometown track, never by deleting it — otherwise the tape shrinks and the
-  top-up has to redo the work.
+- A cap violation is repaired by **archiving** the surplus song with
+  `"archived": true` and adding a verified hometown track so the tape still has
+  15 active songs. Never delete the retired song; the archived row blocks that
+  same title + artist from being scraped again for the city.
 - **Never silently delete.** A song you cannot verify keeps its title and
   artist and loses only its `spotifyId`. A song that merely looks out of place
-  gets named in the summary for a human to judge.
+  gets archived or named in the summary for a human to judge.
 
 - Routine `trig_014sqaUyU7557svq9mGA1E4a` —
   [open it](https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a)
@@ -220,6 +231,14 @@ The dashboard carries a paste-ready prompt for running a tape out of band. You
 can also just edit `sound/soundtracks.json` directly — it is plain JSON and the
 page reads it as-is.
 
+To retire a song without letting the scraper bring it back, leave the song in
+that city's `songs` array and add `"archived": true`. Then add a replacement if
+the tape would otherwise have fewer than 15 active songs.
+
+The dashboard's Track Archive panel can toggle that field for you. Because the
+site is static, it edits the loaded JSON in the browser; use **Copy JSON** or
+**Download JSON** there, then commit the updated `sound/soundtracks.json`.
+
 After a hand edit:
 
 ```bash
@@ -235,11 +254,11 @@ then load `/sound/` and play the tape you touched.
 | Symptom | Likely cause |
 |---|---|
 | A song will not play | The `spotifyId` is wrong or the track was pulled. Delete the ID (keep title and artist) and the player falls back to search. |
-| A city is missing from `/sound/` | No entry in `soundtracks.json`, or its entry has zero songs. |
+| A city is missing from `/sound/` | No entry in `soundtracks.json`, or its entry has zero active, non-archived songs. |
 | A city shows a slug instead of a name | It is not in `public.cities`. Add it there for the display name and geo badge. |
 | Runs keep topping up but never add a new city | The agent could not read `public.cities`. Either it used WebFetch (which 403s for this host — use curl) or the host fell off the environment's network allowlist (`403 to CONNECT`). See step 1 above. |
-| A tape is full of songs with no tie to the city | Generic arena anthems dressed up with local blurbs. Check the team-song pairing and move each one to the city whose team actually plays it. |
-| A tape got shorter after a run | Something deleted instead of replacing. The housekeeping pass must swap a surplus song for a verified replacement, never drop it. |
+| A tape is full of songs with no tie to the city | Generic arena anthems dressed up with local blurbs. Check the team-song pairing; archive wrong-city songs in this city, then add replacements or move the active song to the city whose team actually plays it. |
+| A tape got shorter after a run | Something deleted or archived without replacement. The housekeeping pass must keep 15 active songs and preserve archived tombstones. |
 | "Last run" on the dashboard is over a day old | A run failed, or the routine is paused. Open the routine and read the transcript. |
 | Two tapes appeared in one day | Something else is writing too — check the old GitHub workflow was not recreated. |
 
@@ -253,8 +272,12 @@ then load `/sound/` and play the tape you touched.
   deliberately removed.
 - Song suggestions arrive at `soundtrack@thegamebureau.com`. Treat them as leads,
   never as verified facts.
-- Verify before committing: valid JSON, 15 songs, artist cap, no duplicates,
-  well-formed IDs, alphabetical order.
+- Verify before committing: valid JSON, 15 active songs, active-song artist cap,
+  no title + artist duplicates among active or archived songs, well-formed IDs,
+  alphabetical order.
+- Do not remove archived songs. They are city-specific do-not-rescrape
+  tombstones: hidden from `/sound/`, ignored by counts, and still used to block
+  future title + artist reuse in that city.
 - If you cannot verify a Spotify ID, **omit it**. Omitting is always correct;
   guessing never is.
 - Say plainly in your summary which songs you could not verify. A quiet gap is

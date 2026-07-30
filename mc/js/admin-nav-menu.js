@@ -52,6 +52,11 @@
       href: '/mc/game-plays.html',
       description: 'See every recorded playthrough — team names, their answers at each stop, and the lifecycle timeline.'
     },
+  {
+    label: 'Daily Review',
+    href: '/mc/review/',
+    description: 'Review the last 26 hours of nightly waypoint candidates and gift-shop Review items.'
+  },
     {
       label: 'Batch Edit',
       items: [

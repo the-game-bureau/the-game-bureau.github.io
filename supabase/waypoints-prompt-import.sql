@@ -7,7 +7,8 @@
 -- pastes that block into the Supabase SQL editor and runs it.
 --
 -- The helper is idempotent to re-run (create or replace) and skips waypoints
--- that already exist (same name + city), so a re-paste never duplicates rows.
+-- that already exist (same name + city), including archived tombstone rows, so
+-- a re-paste never duplicates rows and archived stops are not rescraped.
 -- wpid is the table's own identity/default — never supplied by the JSON.
 --
 -- Mirrors the gift shop's supabase/gs-destination-prompt-import.sql pattern.
@@ -62,7 +63,7 @@ begin
      limit 1;
 
     if v_existing is not null then
-      return query select 'skipped'::text, v_name, v_existing::text, 'existing name + city'::text;
+      return query select 'skipped'::text, v_name, v_existing::text, 'existing name + city (active or archived)'::text;
       continue;
     end if;
 

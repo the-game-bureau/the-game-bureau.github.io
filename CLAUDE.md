@@ -34,6 +34,22 @@ New soundtracks are added by a **scheduled Claude Code cloud agent** ("Daily sou
 
 ---
 
+## Nightly waypoints run — a fourth Claude Code routine
+
+Walking-tour candidates are found each morning by a **scheduled Claude Code cloud agent** ("TGB Waypoint Tour Scout", `trig_01Q5uCittJ3dT3M2xj8sKD3j`, cron `45 11 * * *` UTC = 6:45 AM Central in summer, 5:45 AM in winter). Each run picks the **NFL host city that has gone longest without a run**, sweeps **Wikipedia and Wikimedia** for places there, verifies each stop, and commits [mc/waypoints/nightly.json](mc/waypoints/nightly.json) to `main`.
+
+- **A stop must have a Wikipedia article (or Commons category) carrying coordinates or a street address.** That single constraint does most of the quality filtering: a place notable enough for an article and pinned precisely enough to geotag is a place worth standing in front of, and the article URL still resolves years later — a visitor-bureau tour PDF will not. NRHP county listings and National Historic Landmark lists are the richest vein (address *and* coordinates per row); Wikipedia GeoSearch sweeps a downtown core; Commons is the still-standing photo check. Switched from published-walking-tour sourcing on 2026-07-29 — the same rules live in `WIKI_SOURCE_LINES` in [mc/waypoints/index.html](mc/waypoints/index.html), shared by both AI prompts, so page and routine can't drift.
+- **Wikipedia decides which stops, never the facts.** Articles routinely lack a street address or give a mailing one, so the address comes from the NRHP row or an independent source and stays `null` otherwise — coordinates are never turned into a street address, and the table has no lat/lon columns to put them in anyway.
+
+- **The agent writes one file and never touches the database.** It has no admin session and no RPC, by design — a human opens [mc/waypoints/index.html](mc/waypoints/index.html), presses **NIGHTLY**, and adds the stops worth keeping under their own session. Don't give it a write path; the review step is the feature, the same call as the socials scout.
+- **The city rotation is derived from git history**, not from the table: the routine can't read `waypoints` (RLS gates SELECT behind an admin session), so it reads the last ~40 commits of `nightly.json` and picks the city missing longest. Duplicates are therefore possible and harmless — the admin page checks name + city against the loaded rows and marks an already-present stop "In table".
+- **The list is replaced wholesale each run.** An unadded stop is gone tomorrow, which keeps the panel to one morning's decisions.
+- **`source_url` is mandatory on every stop** — the stop's own Wikipedia article (or the list article it is a row in), which lands in the waypoint's Source URL field so the claim stays checkable later.
+- Last-run status reads the **GitHub commits API** for `mc/waypoints/nightly.json`, same as the soundtrack and socials admins: a run that errored pushes nothing, so a stale timestamp is the failure signal.
+- The schedule sits at `:45` to keep it clear of the other three (`:00` gift shop, `:15` socials, `:30` soundtrack). Same DST caveat as the rest — the cloud cron is UTC, so it drifts an hour in winter.
+
+---
+
 ## Gift shop daily book pull — also a Claude Code routine
 
 Candidate books are added by a **scheduled Claude Code cloud agent** ("Daily gift shop book pull", `trig_01H7cKJ4fk5bA1NWSqPZi4ah`, cron `0 11 * * *` UTC = 6 AM Central in summer, 5 AM in winter), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the city with the fewest gifts, web-searches five books, verifies every ISBN against a real listing page, and files them as **Review candidates**. It commits nothing — the write lands in Supabase.
