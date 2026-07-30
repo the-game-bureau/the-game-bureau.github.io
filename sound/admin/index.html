@@ -414,17 +414,6 @@
       line-height: 1.45;
     }
 
-    .review-window {
-      margin: 5px 0 0;
-      color: var(--muted);
-      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      line-height: 1.35;
-      text-transform: uppercase;
-    }
-
     .panel-status {
       min-height: 34px;
       padding: 9px 16px;
@@ -442,12 +431,6 @@
     .panel-status.is-success { color: var(--success); font-weight: 800; }
     .panel-status.is-warn { color: #9a4a18; font-weight: 800; }
 
-    .review-list {
-      display: grid;
-      gap: 10px;
-      padding: 12px;
-    }
-
     .empty {
       padding: 16px;
       border: 1px dashed rgba(var(--bic-blue-rgb), 0.24);
@@ -455,17 +438,6 @@
       background: rgba(255, 255, 255, 0.64);
       color: var(--muted);
       line-height: 1.55;
-    }
-
-    .review-item {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 12px;
-      align-items: start;
-      padding: 12px;
-      border: 1px solid rgba(var(--bic-blue-rgb), 0.16);
-      border-radius: 8px;
-      background: #fff;
     }
 
     .item-main {
@@ -539,32 +511,9 @@
       line-height: 1.25;
     }
 
-    .song-list {
-      margin: 0;
-      padding-left: 1.1rem;
-      color: var(--muted);
-      font-size: 0.88rem;
-      line-height: 1.55;
-    }
-
-    .song-list li {
-      padding: 1px 0;
-    }
-
-    .song-list a {
-      font-weight: 800;
-      text-decoration-thickness: 1px;
-      text-underline-offset: 2px;
-    }
-
-    .song-list .btn {
-      margin-left: 8px;
-      vertical-align: middle;
-    }
-
     .archive-controls {
       display: grid;
-      grid-template-columns: minmax(190px, 1fr) minmax(210px, 1.2fr) auto;
+      grid-template-columns: minmax(170px, 1fr) minmax(190px, 1.2fr) minmax(170px, 1fr) auto;
       gap: 10px;
       align-items: center;
       padding: 12px 16px;
@@ -832,9 +781,9 @@
         display: contents;
       }
 
-      #reviewCard  { order: 1; }
-      #archiveCard { order: 2; }
-      #routineCard { order: 3; }
+      #archiveCard { order: 1; }
+      #routineCard { order: 2; }
+      #viewersCard { order: 3; }
       #whatCard    { order: 4; }
       #howCard     { order: 5; }
       #youCard     { order: 6; }
@@ -847,7 +796,6 @@
       }
 
       .run-head,
-      .review-item,
       .track-row {
         grid-template-columns: 1fr;
       }
@@ -1019,23 +967,9 @@
     <div class="prompt-layout">
       <div class="prompt-main">
 
-      <section class="prompt-panel soundtrack-review" id="reviewCard" aria-labelledby="reviewTitle">
-        <div class="panel-head">
-          <div>
-            <h2 class="panel-title" id="reviewTitle">Fresh Soundtrack Review <span class="panel-sub">last 26 hours</span></h2>
-            <p class="review-window" id="soundReviewWindow" aria-live="polite"></p>
-          </div>
-          <span class="panel-head-actions">
-            <button class="btn small primary" id="soundReviewRefreshBtn" type="button">Refresh</button>
-          </span>
-        </div>
-        <div class="panel-status" id="soundReviewStatus">Waiting for sign-in.</div>
-        <div class="review-list" id="soundReviewList"></div>
-      </section>
-
       <section class="prompt-panel" id="archiveCard" aria-labelledby="archiveTitle">
         <div class="panel-head">
-          <h2 class="panel-title" id="archiveTitle">Track Archive <span class="panel-sub">public.soundtrack_songs</span></h2>
+          <h2 class="panel-title" id="archiveTitle">Tapes &amp; Tracks <span class="panel-sub">soundtracks + soundtrack_songs</span></h2>
           <span class="panel-head-actions">
             <span class="copy-status" id="archiveCopyStatus" aria-live="polite"></span>
             <button class="btn small" id="reloadArchiveBtn" type="button">Reload</button>
@@ -1048,6 +982,11 @@
             <option value="">All tapes</option>
           </select>
           <input type="search" id="trackSearchInput" placeholder="Search tracks" autocomplete="off" disabled>
+          <select id="trackSortSelect" aria-label="Sort tapes" disabled>
+            <option value="city">City A-Z</option>
+            <option value="tape_added">Tape added, newest first</option>
+            <option value="track_added">Track added, newest first</option>
+          </select>
           <label class="archive-toggle">
             <input type="checkbox" id="showArchivedTracks" disabled>
             Archived
@@ -1351,13 +1290,10 @@ Final report:
       var prompt = document.getElementById('promptText');
       var copyStatus = document.getElementById('copyStatus');
       var adminAuthToggleBtn = document.getElementById('adminAuthToggleBtn');
-      var soundReviewWindow = document.getElementById('soundReviewWindow');
-      var soundReviewStatus = document.getElementById('soundReviewStatus');
-      var soundReviewList = document.getElementById('soundReviewList');
-      var soundReviewRefreshBtn = document.getElementById('soundReviewRefreshBtn');
       var trackCitySelect = document.getElementById('trackCitySelect');
       var trackSearchInput = document.getElementById('trackSearchInput');
       var showArchivedTracks = document.getElementById('showArchivedTracks');
+      var trackSortSelect = document.getElementById('trackSortSelect');
       var trackArchiveStatus = document.getElementById('trackArchiveStatus');
       var trackArchiveList = document.getElementById('trackArchiveList');
       var archiveCopyStatus = document.getElementById('archiveCopyStatus');
@@ -1368,7 +1304,6 @@ Final report:
       var REVIEW_MS = REVIEW_HOURS * 60 * 60 * 1000;
       var soundtrackArchiveData = null;
       var expandedTapes = Object.create(null);
-      var expandedReview = Object.create(null);
 
       // ── Supabase REST ───────────────────────────────────────────────────────
       // Tapes moved from sound/soundtracks.json into public.soundtracks /
@@ -1456,12 +1391,11 @@ Final report:
         onAuthorized: function () {
           setAdminAuthToggleState(true);
           loadTapeSummary();
-          loadSoundtrackArchive().then(loadSoundtrackReview).catch(loadSoundtrackReview);
+          loadSoundtrackArchive().catch(function () { /* status already shown */ });
         },
         onSignedOut: function () {
           setPageStatus('Sign in with an admin account.');
           setAdminAuthToggleState(false);
-          resetSoundtrackReview();
           resetSoundtrackArchive();
         }
       });
@@ -1645,10 +1579,6 @@ Final report:
         button.addEventListener('click', copyPrompt);
       });
 
-      if (soundReviewRefreshBtn) {
-        soundReviewRefreshBtn.addEventListener('click', loadSoundtrackReview);
-      }
-
       if (reloadArchiveBtn) reloadArchiveBtn.addEventListener('click', function () {
         // Nothing to discard: Archive and Restore write to Supabase immediately.
         loadSoundtrackArchive();
@@ -1656,6 +1586,7 @@ Final report:
       if (copySoundtracksBtn) copySoundtracksBtn.addEventListener('click', copySoundtracksJson);
       if (downloadSoundtracksBtn) downloadSoundtracksBtn.addEventListener('click', downloadSoundtracksJson);
       if (trackCitySelect) trackCitySelect.addEventListener('change', function () { renderTrackArchive(); });
+      if (trackSortSelect) trackSortSelect.addEventListener('change', function () { renderTrackArchive(); });
       if (trackSearchInput) trackSearchInput.addEventListener('input', function () { renderTrackArchive(); });
       if (showArchivedTracks) showArchivedTracks.addEventListener('change', function () { renderTrackArchive(); });
 
@@ -1717,31 +1648,6 @@ Final report:
         return a;
       }
 
-      // `count` is still taken from every caller but no longer painted: the
-      // per-city cards below already say how many tracks landed.
-      function setSoundReview(count, message, tone) {
-        if (soundReviewStatus) {
-          soundReviewStatus.textContent = message || '';
-          soundReviewStatus.classList.toggle('is-error', tone === 'error');
-          soundReviewStatus.classList.toggle('is-success', tone === 'success');
-          soundReviewStatus.classList.toggle('is-warn', tone === 'warn');
-        }
-      }
-
-      function setSoundReviewList(children) {
-        if (!soundReviewList) return;
-        soundReviewList.innerHTML = '';
-        var nodes = Array.isArray(children) ? children : [children];
-        nodes.filter(Boolean).forEach(function (node) { soundReviewList.appendChild(node); });
-      }
-
-      function resetSoundtrackReview() {
-        expandedReview = Object.create(null);
-        if (soundReviewWindow) soundReviewWindow.textContent = '';
-        setSoundReview('-', 'Sign in with an admin account.', '');
-        setSoundReviewList(emptyNode('Sign in to review freshly added tracks.'));
-      }
-
       function setArchiveStatus(message, tone) {
         if (!trackArchiveStatus) return;
         trackArchiveStatus.textContent = message || '';
@@ -1756,7 +1662,7 @@ Final report:
       }
 
       function setArchiveControlsEnabled(enabled) {
-        [trackCitySelect, trackSearchInput, showArchivedTracks, copySoundtracksBtn, downloadSoundtracksBtn].forEach(function (el) {
+        [trackCitySelect, trackSearchInput, trackSortSelect, showArchivedTracks, copySoundtracksBtn, downloadSoundtracksBtn].forEach(function (el) {
           if (el) el.disabled = !enabled;
         });
       }
@@ -1773,6 +1679,7 @@ Final report:
           trackCitySelect.appendChild(option);
         }
         if (trackSearchInput) trackSearchInput.value = '';
+        if (trackSortSelect) trackSortSelect.value = 'city';
         if (showArchivedTracks) showArchivedTracks.checked = false;
         if (trackArchiveList) {
           trackArchiveList.innerHTML = '';
@@ -1866,6 +1773,32 @@ Final report:
 
       function allSongs(tape) {
         return ((tape && Array.isArray(tape.songs)) ? tape.songs : []).filter(songHasContent);
+      }
+
+      function songDate(song) {
+        var raw = song && song.created_at;
+        if (!raw) return null;
+        var date = new Date(raw);
+        return Number.isFinite(date.getTime()) ? date : null;
+      }
+
+      function tapeDate(tape) {
+        var raw = tape && tape.created_at;
+        if (!raw) return null;
+        var date = new Date(raw);
+        return Number.isFinite(date.getTime()) ? date : null;
+      }
+
+      // Newest track on a tape -- what "Track added" sorts tapes by, and what the
+      // old Fresh Review panel keyed its 26-hour window off before the two panels
+      // became one.
+      function newestSongDate(tape) {
+        var newest = null;
+        ((tape && tape.songs) || []).forEach(function (song) {
+          var date = songDate(song);
+          if (date && (!newest || date > newest)) newest = date;
+        });
+        return newest;
       }
 
       function songDisplay(song) {
@@ -1972,11 +1905,39 @@ Final report:
           groups.push({ tape: tape, tapeIndex: tapeIndex, slug: slug, rows: rows });
         });
 
+        // Sorting. "City A-Z" is the reference order; the two newest-first orders
+        // are what replaced the separate Fresh Review panel -- sort by track added
+        // and the top of the list is exactly what the last run wrote.
+        var sortBy = (trackSortSelect && trackSortSelect.value) || 'city';
+        if (sortBy === 'tape_added' || sortBy === 'track_added') {
+          var stampOf = sortBy === 'tape_added'
+            ? function (group) { return tapeDate(group.tape); }
+            : function (group) { return newestSongDate(group.tape); };
+          groups.forEach(function (group) { group.sortStamp = stampOf(group); });
+          groups.sort(function (a, b) {
+            // Undated rows sink instead of floating to the top on a null compare.
+            var at = a.sortStamp ? a.sortStamp.getTime() : -Infinity;
+            var bt = b.sortStamp ? b.sortStamp.getTime() : -Infinity;
+            return bt - at || trackCityLabel(a.tape).localeCompare(trackCityLabel(b.tape));
+          });
+        }
+        // Inside a tape, newest-first only makes sense while sorting by when a
+        // track landed. Otherwise play order is what a tape means.
+        if (sortBy === 'track_added') {
+          groups.forEach(function (group) {
+            group.rows.sort(function (a, b) {
+              var ad = songDate(a.song);
+              var bd = songDate(b.song);
+              return (bd ? bd.getTime() : -Infinity) - (ad ? ad.getTime() : -Infinity);
+            });
+          });
+        }
+
         // Searching or picking one city is itself a narrowing, so show the hits
         // rather than making someone open every city to find them.
         var autoOpen = !!term || !!selectedSlug;
         groups.forEach(function (group) {
-          trackArchiveList.appendChild(renderTapeGroup(group, autoOpen));
+          trackArchiveList.appendChild(renderTapeGroup(group, autoOpen, sortBy));
         });
         if (!groups.length) {
           trackArchiveList.appendChild(emptyNode(includeArchived ? 'No tracks match.' : 'No active tracks match. Toggle Archived to inspect retired tracks.'));
@@ -1993,7 +1954,7 @@ Final report:
 
       // One collapsible city. Rows are built on first open, not up front — 69
       // tapes' worth of DOM is the thing that made the flat list slow to paint.
-      function renderTapeGroup(group, autoOpen) {
+      function renderTapeGroup(group, autoOpen, sortBy) {
         var details = document.createElement('details');
         details.className = 'tape-group';
 
@@ -2012,6 +1973,17 @@ Final report:
         if (tally.archived) counts.appendChild(chip(tally.archived + ' archived', 'warn'));
         if (group.rows.length !== tally.active + tally.archived) {
           counts.appendChild(chip(group.rows.length + ' shown'));
+        }
+        // Show the stamp the current sort is ordering on, so the order explains
+        // itself instead of looking arbitrary.
+        var stampDate = sortBy === 'tape_added' ? tapeDate(group.tape)
+          : sortBy === 'track_added' ? newestSongDate(group.tape)
+          : null;
+        if (stampDate) {
+          var stampChip = chip(relativeTime(stampDate, new Date()));
+          stampChip.title = (sortBy === 'tape_added' ? 'Tape created ' : 'Newest track added ')
+            + formatDate(stampDate);
+          counts.appendChild(stampChip);
         }
 
         // Archiving the whole tape pulls the city off /sound/ in one move,
@@ -2092,6 +2064,15 @@ Final report:
         meta.appendChild(chip(trackCityLabel(tape)));
         meta.appendChild(chip(archived ? 'Archived' : 'Active', archived ? 'warn' : 'success'));
         if (text(song && song.spotifyId)) meta.appendChild(chip('Spotify ID'));
+        // When the track landed. Absolute date and time, relative form on hover:
+        // "3 hours ago" answers "did the last run write this?", the timestamp
+        // answers "which run was that?".
+        var added = songDate(song);
+        if (added) {
+          var addedChip = chip('Added ' + formatDate(added));
+          addedChip.title = relativeTime(added, new Date());
+          meta.appendChild(addedChip);
+        }
 
         main.append(title, copy, meta);
 
@@ -2256,196 +2237,6 @@ Final report:
         window.setTimeout(function () { setArchiveCopyStatus(''); }, 2200);
       }
 
-      // Fresh Soundtrack Review. Until 2026-07-29 this diffed two revisions of
-      // sound/soundtracks.json out of the GitHub API, because a commit was the
-      // only trace a run left. The tapes are rows now, so "what landed today" is
-      // just created_at on the rows this page already loaded — no second source,
-      // and the Archive button acts on the same row it is describing.
-      async function loadSoundtrackReview() {
-        var session = adminAuth.getSession ? adminAuth.getSession() : null;
-        if (!session || !session.access_token) {
-          resetSoundtrackReview();
-          return;
-        }
-
-        var now = new Date();
-        var cutoff = new Date(now.getTime() - REVIEW_MS);
-        if (soundReviewRefreshBtn) {
-          soundReviewRefreshBtn.disabled = true;
-          soundReviewRefreshBtn.textContent = 'Loading';
-        }
-        if (soundReviewWindow) {
-          soundReviewWindow.textContent = 'Since ' + formatDate(cutoff) + ' - refreshed ' + formatDate(now);
-        }
-        setSoundReview('-', 'Reading fresh soundtrack rows...', '');
-        setSoundReviewList(emptyNode('Loading soundtrack changes...'));
-
-        try {
-          if (!soundtrackArchiveData) await loadSoundtrackArchive();
-          var changes = freshSoundtrackChanges(cutoff);
-          var songCount = changes.reduce(function (sum, change) {
-            return sum + change.songs.length;
-          }, 0);
-          if (!songCount) {
-            var newest = newestSongDate();
-            setSoundReview(
-              0,
-              'No songs added in the last ' + REVIEW_HOURS + ' hours.'
-                + (newest ? ' Newest track: ' + relativeTime(newest, now) + '.' : ''),
-              ''
-            );
-            setSoundReviewList(emptyNode('No fresh tracks to review.'));
-            return;
-          }
-          // No summary sentence: the count badge and the per-city cards below
-          // already say how much landed, and the tally read as noise while the
-          // whole catalog was inside the 26-hour window after the Supabase move.
-          setSoundReview(songCount, '', 'success');
-          setSoundReviewList(changes.map(renderSoundChange));
-        } catch (error) {
-          console.error(error);
-          setSoundReview(0, error.message || 'Could not load fresh soundtrack rows.', 'error');
-          setSoundReviewList(emptyNode('Soundtrack review could not load. Check the Supabase project.'));
-        } finally {
-          if (soundReviewRefreshBtn) {
-            soundReviewRefreshBtn.disabled = false;
-            soundReviewRefreshBtn.textContent = 'Refresh';
-          }
-        }
-      }
-
-      function songDate(song) {
-        var raw = song && song.created_at;
-        if (!raw) return null;
-        var date = new Date(raw);
-        return Number.isFinite(date.getTime()) ? date : null;
-      }
-
-      function newestSongDate() {
-        var newest = null;
-        soundtracks().forEach(function (tape) {
-          (tape.songs || []).forEach(function (song) {
-            var date = songDate(song);
-            if (date && (!newest || date > newest)) newest = date;
-          });
-        });
-        return newest;
-      }
-
-      // Tapes carrying at least one song written since the cutoff, newest tape
-      // first. A tape whose own row is that fresh is a brand-new city, which is
-      // the half of a run worth looking at hardest.
-      function freshSoundtrackChanges(cutoff) {
-        var changes = [];
-        soundtracks().forEach(function (tape, tapeIndex) {
-          var fresh = [];
-          (tape.songs || []).forEach(function (song, songIndex) {
-            var date = songDate(song);
-            if (!date || date < cutoff) return;
-            fresh.push({ song: song, songIndex: songIndex, date: date });
-          });
-          if (!fresh.length) return;
-          var tapeDate = tape.created_at ? new Date(tape.created_at) : null;
-          var isNewTape = !!(tapeDate && Number.isFinite(tapeDate.getTime()) && tapeDate >= cutoff);
-          changes.push({
-            type: isNewTape ? 'New Tape' : 'Songs Added',
-            city_slug: tape.city_slug,
-            spine_tag: text(tape.spine_tag),
-            tapeIndex: tapeIndex,
-            songs: fresh,
-            newest: fresh.reduce(function (max, entry) {
-              return (!max || entry.date > max) ? entry.date : max;
-            }, null)
-          });
-        });
-        return changes.sort(function (a, b) { return (b.newest || 0) - (a.newest || 0); });
-      }
-
-      // Collapsed per city, like the Track Archive below it. On any day the
-      // review window covers a normal run this is two cities; right after the
-      // Supabase move the whole catalog was inside the 26-hour window and the
-      // panel printed 966 tracks in one column.
-      function renderSoundChange(change) {
-        var details = document.createElement('details');
-        details.className = 'tape-group';
-
-        var summary = document.createElement('summary');
-        summary.className = 'tape-summary';
-        var name = document.createElement('span');
-        name.className = 'tape-name';
-        name.textContent = soundCityLabel(change.city_slug);
-        var counts = document.createElement('span');
-        counts.className = 'tape-counts';
-        counts.appendChild(chip(change.type, change.type === 'New Tape' ? 'success' : 'warn'));
-        counts.appendChild(chip(change.songs.length + ' song' + (change.songs.length === 1 ? '' : 's')));
-        if (change.newest) counts.appendChild(chip(relativeTime(change.newest, new Date())));
-        summary.append(name, counts);
-        details.appendChild(summary);
-
-        var body = document.createElement('div');
-        body.className = 'tape-tracks';
-        details.appendChild(body);
-
-        function fill() {
-          if (body.dataset.filled === 'true') return;
-          if (text(change.spine_tag)) {
-            var meta = document.createElement('div');
-            meta.className = 'item-meta';
-            meta.appendChild(chip(change.spine_tag));
-            body.appendChild(meta);
-          }
-          var songs = document.createElement('ol');
-          songs.className = 'song-list';
-          change.songs.forEach(function (entry) {
-            songs.appendChild(renderSong(entry.song, change.tapeIndex, entry.songIndex));
-          });
-          body.appendChild(songs);
-          var actions = document.createElement('div');
-          actions.className = 'item-actions';
-          actions.appendChild(actionLink('/sound/#' + encodeURIComponent(change.city_slug), 'Open Tape', true));
-          body.appendChild(actions);
-          body.dataset.filled = 'true';
-        }
-
-        // Same remembered-expansion rule as the archive: only a real click on the
-        // summary persists, so a Refresh does not collapse what you were reading.
-        var userToggled = false;
-        summary.addEventListener('click', function () { userToggled = true; });
-        details.addEventListener('toggle', function () {
-          if (userToggled) {
-            expandedReview[change.city_slug] = details.open;
-            userToggled = false;
-          }
-          if (details.open) fill();
-        });
-
-        if (expandedReview[change.city_slug]) {
-          details.open = true;
-          fill();
-        }
-        return details;
-      }
-
-      function renderSong(song, tapeIndex, songIndex) {
-        var li = document.createElement('li');
-        var label = [text(song && song.title), text(song && song.artist)].filter(Boolean).join(' - ');
-        var spotifyId = text(song && song.spotifyId);
-        if (spotifyId) {
-          var a = document.createElement('a');
-          a.href = 'https://open.spotify.com/track/' + encodeURIComponent(spotifyId);
-          a.target = '_blank';
-          a.rel = 'noopener noreferrer';
-          a.textContent = label || spotifyId;
-          li.appendChild(a);
-        } else {
-          li.textContent = label || '(untitled song)';
-        }
-        var blurb = text(song && song.blurb);
-        if (blurb) li.appendChild(document.createTextNode(' - ' + blurb));
-        li.appendChild(archiveButtonForReviewSong(tapeIndex, songIndex));
-        return li;
-      }
-
       function soundCityLabel(slug) {
         var s = text(slug);
         if (!s) return '(unknown city)';
@@ -2556,7 +2347,6 @@ Final report:
       // the shared MC nav, which injects TGB HOME / MISSION CONTROL buttons and
       // then deletes the account button on every non-hub page.
       setAdminAuthToggleState(false);
-      resetSoundtrackReview();
       if (adminAuthToggleBtn) {
         adminAuthToggleBtn.addEventListener('click', function () {
           var session = adminAuth.getSession ? adminAuth.getSession() : null;

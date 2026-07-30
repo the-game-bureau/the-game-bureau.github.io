@@ -42,7 +42,7 @@ The file is still committed and still read — but only as a lifeboat.
 | Offline fallback | `sound/soundtracks.json` | What `/sound/` renders when Supabase is unreachable. **Not the source of truth.** The daily run regenerates and commits it; never hand-edit it. |
 | The fallback exporter | `_dev/scripts/soundtracks-export.mjs` | `node _dev/scripts/soundtracks-export.mjs` rewrites that file from the tables, byte-stably. Read-only, publishable key, no secret. |
 | The public page | `sound/index.html` | Reads both tables (paged, because PostgREST caps at 1000 rows), falls back to the JSON file on any error. |
-| The dashboard | `sound/admin/index.html` | Fresh-track review, the Track Archive editor, last run, links to the routine, manual fallback prompt. |
+| The dashboard | `sound/admin/index.html` | One **Tapes & Tracks** panel — every tape collapsed by city, archive buttons on both a tape and a track, each track stamped with when it was added, sortable by city / tape added / track added. Plus last run, viewer stats links, and the manual fallback prompt. |
 
 A tape and its songs:
 
