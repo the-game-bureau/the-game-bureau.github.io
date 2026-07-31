@@ -432,6 +432,22 @@
       flex: 0 0 auto;
     }
 
+    /* One button that reads ADMIN LOGON signed out and ADMIN LOGOUT signed in —
+       the same control the Tape Room and the Stock Room carry. This page cannot
+       use the shared MC nav for it: TgbMcAdminNav deletes the account button on
+       every non-hub page, on the theory that sign-out belongs on the hub. That
+       left this page with no way back in once the modal was dismissed. */
+    .admin-auth-toggle {
+      min-height: 42px;
+      padding-inline: 14px;
+      white-space: nowrap;
+    }
+
+    .admin-auth-toggle.is-signed-in {
+      border-color: #c23737;
+      color: #c23737;
+    }
+
     .mb-menu {
       position: relative;
       display: flex;
@@ -946,12 +962,8 @@
     <section id="reviewPanel">
       <div class="topbar">
         <div class="topbar-actions topbar-actions--end">
-          <button class="btn signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
-              <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-          </button>
+          <a class="btn" href="/mc/">Mission Control</a>
+          <button class="btn admin-auth-toggle" id="adminAuthToggleBtn" type="button" aria-label="ADMIN LOGON" title="ADMIN LOGON">ADMIN LOGON</button>
         </div>
       </div>
 
@@ -1061,7 +1073,6 @@
 
   <script src="/mc/js/admin-auth.js"></script>
   <script src="/mc/js/admin-shell.js"></script>
-  <script src="/mc/js/admin-nav-menu.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -1072,7 +1083,7 @@
     const PAGE_LIMIT = 10;
     const SIGNED_URL_SECONDS = 60 * 60;
 
-    const signOutBtn = document.getElementById('signOutBtn');
+    const adminAuthToggleBtn = document.getElementById('adminAuthToggleBtn');
     const refreshBtn = document.getElementById('refreshBtn');
     const clearFilterBtn = document.getElementById('clearFilterBtn');
     const selectAllBtn = document.getElementById('selectAllBtn');
@@ -1100,12 +1111,23 @@
     const initialPhotoId = String(initialParams.get('photo') || '').trim();
     let photoFilterId = initialPhotoId;
     let initialPhotoFocusPending = !!initialPhotoId;
+    function setAdminAuthToggleState(signedIn) {
+      if (!adminAuthToggleBtn) return;
+      const label = signedIn ? 'ADMIN LOGOUT' : 'ADMIN LOGON';
+      adminAuthToggleBtn.textContent = label;
+      adminAuthToggleBtn.title = label;
+      adminAuthToggleBtn.setAttribute('aria-label', label);
+      adminAuthToggleBtn.classList.toggle('is-signed-in', !!signedIn);
+    }
+
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
       onAuthorized: async () => {
+        setAdminAuthToggleState(true);
         await loadPhotos();
       },
       onSignedOut: () => {
+        setAdminAuthToggleState(false);
         selectedPhotoIds.clear();
         currentPhotos = [];
         currentPage = 0;
@@ -1119,7 +1141,22 @@
         updatePagination();
       }
     });
-    window.TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
+    // Deliberately NOT calling TgbMcAdminNav.init — it removes the account
+    // button on every non-hub page, which left this one with no way to sign in
+    // again once the modal was dismissed. The toggle above and the Mission
+    // Control link beside it cover both jobs.
+    setAdminAuthToggleState(false);
+    if (adminAuthToggleBtn) {
+      adminAuthToggleBtn.addEventListener('click', () => {
+        const session = adminAuth.getSession ? adminAuth.getSession() : null;
+        if (session && session.access_token) adminAuth.signOut({ silent: true });
+        else adminAuth.showAuth('Sign in with an admin account.');
+      });
+    }
+    window.addEventListener('tgb-admin-auth-change', (event) => {
+      const detail = event && event.detail;
+      setAdminAuthToggleState(!!(detail && detail.signedIn));
+    });
 
     function restUrl(table, params = {}) {
       const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
