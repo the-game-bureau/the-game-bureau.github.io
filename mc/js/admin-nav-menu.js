@@ -76,7 +76,7 @@
           description: 'Manage the waypoints catalog — add, edit, and delete real-world points.'
         },
         {
-          href: '/mc/stops/',
+          href: '/games/admin/stops.html',
           label: 'Stop Builder',
           description: 'Build a game’s route: order its stops and give each one a waypoint and a challenge.'
         },
