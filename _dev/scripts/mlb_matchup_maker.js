@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * mlb_matchup_maker.js — build MLB "Fans Takeover" games from the live ESPN MLB
- * schedule and write them to mc/data/mlb.jsonl (one JSON game payload per line).
+ * schedule and write them to data/mlb.jsonl (one JSON game payload per line).
  *
  * It does NOT touch Supabase. It only writes the .jsonl file for you to review
  * and import later. Each line is a complete `games` row payload (fandom_game,
@@ -18,7 +18,7 @@
  *   --fan-side away|home|both   whose fanbase's takeover to build (default: away)
  *   --weekends             only Fri/Sat/Sun games
  *   --limit N              cap the number of games written
- *   --out PATH             output file (default: mc/data/mlb.jsonl)
+ *   --out PATH             output file (default: data/mlb.jsonl)
  *   --append               append instead of overwriting the file
  *   --archived true|false  archived value on each row (default: true — review first)
  *   --dry-run              print a summary, write nothing
@@ -476,7 +476,7 @@ async function main() {
   const end = args.end || `${season}-11-15`;
   const outPath = args.out
     ? path.resolve(process.cwd(), args.out)
-    : path.resolve(__dirname, '..', '..', 'mc', 'data', 'mlb.jsonl');
+    : path.resolve(__dirname, '..', '..', 'data', 'mlb.jsonl');
 
   console.log(`MLB matchup maker — season ${season}, ${start} → ${end}` +
     (args.team ? `, team ${args.team}` : '') + (args.weekends ? ', weekends only' : '') +

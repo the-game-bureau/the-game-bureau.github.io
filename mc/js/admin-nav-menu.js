@@ -81,7 +81,7 @@
           description: 'Build a game’s route: order its stops and give each one a waypoint and a challenge.'
         },
         {
-          href: '/mc/cities.html',
+          href: '/data/cities.html',
           label: 'Cities',
           description: 'The one city catalog the whole site reads — add, edit, mark venue-only/archived, or delete.'
         },

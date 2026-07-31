@@ -7,6 +7,8 @@
  *   - canonicalCity(str)       -> composeGeo(parseGeo(str)) with verbatim fall-through
  *   - geoBadge(rowOrStr)       -> { kind:'state'|'country', value } for the map icons
  *   - usStateOptions()/provinceOptions()/countryOptions() for builder dropdowns
+ *   - continentForCountry(rowOrCode) -> 'Europe' | ... | '' (unknown/unclassified)
+ *   - continentOptions()       -> continents present in the loaded catalog
  *
  * This replaces the copy-pasted US_STATES / COUNTRY_CODES maps and the
  * canonicalShopCity()/cityGeoBadge() logic that previously lived in
@@ -58,8 +60,11 @@
   // reference — e.g. `TgbGeo.COUNTRY_CODE_TO_NAME` — keep seeing fresh data.
   //   COUNTRY_NAME_TO_CODE: lowercased name/alias/code -> alpha-3 code (parsing)
   //   COUNTRY_CODE_TO_NAME: alpha-3 code -> canonical display name (compose + dropdown)
+  //   COUNTRY_CODE_TO_CONTINENT: alpha-3 code -> continent name (may be empty
+  //     against a database that has not run 2026073105_countries_continent.sql)
   var COUNTRY_NAME_TO_CODE = {};
   var COUNTRY_CODE_TO_NAME = {};
+  var COUNTRY_CODE_TO_CONTINENT = {};
 
   // Reverse maps: lowercased full name -> code (for parsing).
   var US_STATE_NAME_TO_CODE = buildNameToCode(US_STATE_CODE_TO_NAME);
@@ -98,11 +103,16 @@
   function hydrateCountries(rows) {
     Object.keys(COUNTRY_CODE_TO_NAME).forEach(function (k) { delete COUNTRY_CODE_TO_NAME[k]; });
     Object.keys(COUNTRY_NAME_TO_CODE).forEach(function (k) { delete COUNTRY_NAME_TO_CODE[k]; });
+    Object.keys(COUNTRY_CODE_TO_CONTINENT).forEach(function (k) { delete COUNTRY_CODE_TO_CONTINENT[k]; });
     (rows || []).forEach(function (r) {
       var code = String(r && r.code || '').toUpperCase();
       if (!code) return;
       var name = (r && r.name) || code;
       COUNTRY_CODE_TO_NAME[code] = name;
+      // Absent before the continent migration, and null for a country nobody has
+      // classified yet — both simply mean "no continent", never an error.
+      var continent = r && r.continent ? String(r.continent).trim() : '';
+      if (continent) COUNTRY_CODE_TO_CONTINENT[code] = continent;
       COUNTRY_NAME_TO_CODE[String(name).toLowerCase()] = code;
       COUNTRY_NAME_TO_CODE[code.toLowerCase()] = code;         // code typed as a "name"
       (r && r.aliases || []).forEach(function (a) {
@@ -149,7 +159,11 @@
   }
   function fetchCountries() {
     if (!IS_BROWSER || typeof fetch !== 'function') return Promise.resolve(cachedCountries || []);
-    return fetchTable('countries?select=code,name,aliases&order=name.asc')
+    // select=* on purpose, never a column list: PostgREST 400s on an unknown
+    // column, so naming `continent` here would break every page against a
+    // database that has not run 2026073105_countries_continent.sql yet. A
+    // missing column just reads as undefined.
+    return fetchTable('countries?select=*&order=name.asc')
       .then(function (rows) {
         if (Array.isArray(rows) && rows.length) return rows;
         return fetchTable('cities?select=country_code,country_name').then(citiesToCountries);
@@ -338,12 +352,32 @@
     return usa.concat(rest);
   }
 
+  // Continent of a country row or an alpha-3 code. '' when the country is
+  // unknown, unclassified, or the continent migration has not been applied —
+  // callers treat all three the same way.
+  function continentForCountry(rowOrCode) {
+    var code = '';
+    if (rowOrCode && typeof rowOrCode === 'object') code = rowOrCode.country_code || rowOrCode.countryCode || rowOrCode.code || '';
+    else code = rowOrCode || '';
+    return COUNTRY_CODE_TO_CONTINENT[String(code).toUpperCase()] || '';
+  }
+  // Every continent present in the loaded catalog, alphabetical. Empty until
+  // countries load, and empty against a pre-migration database — a caller that
+  // renders a filter from this should hide it when the list comes back empty
+  // rather than showing a control that cannot narrow anything.
+  function continentOptions() {
+    var seen = {};
+    Object.keys(COUNTRY_CODE_TO_CONTINENT).forEach(function (code) { seen[COUNTRY_CODE_TO_CONTINENT[code]] = true; });
+    return Object.keys(seen).sort(function (a, b) { return a.localeCompare(b); });
+  }
+
   global.TgbGeo = {
     US_STATE_CODE_TO_NAME: US_STATE_CODE_TO_NAME,
     US_STATE_NAME_TO_CODE: US_STATE_NAME_TO_CODE,
     CA_PROVINCE_CODE_TO_NAME: CA_PROVINCE_CODE_TO_NAME,
     COUNTRY_NAME_TO_CODE: COUNTRY_NAME_TO_CODE,
     COUNTRY_CODE_TO_NAME: COUNTRY_CODE_TO_NAME,
+    COUNTRY_CODE_TO_CONTINENT: COUNTRY_CODE_TO_CONTINENT,
     parseGeo: parseGeo,
     composeGeo: composeGeo,
     canonicalCity: canonicalCity,
@@ -352,6 +386,8 @@
     usStateOptions: usStateOptions,
     provinceOptions: provinceOptions,
     countryOptions: countryOptions,
+    continentForCountry: continentForCountry,
+    continentOptions: continentOptions,
     // Country catalog (public.countries):
     hydrateCountries: hydrateCountries,
     get countriesReady() { return countriesReady; },

@@ -132,11 +132,126 @@
       flex: 1 1 160px; min-width: 0; min-height: 38px; padding: 8px 12px;
       border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
     }
+    .command-bar-select {
+      flex: 0 0 auto; min-height: 38px; padding: 8px 10px;
+      border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
+      font-weight: 600; cursor: pointer;
+    }
+    /* [hidden] would otherwise lose to the flex shorthand above. */
+    .command-bar-select[hidden] { display: none; }
     .command-bar-toggle {
       display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem;
       font-weight: 700; color: var(--muted); cursor: pointer; white-space: nowrap;
     }
     .command-bar-count { margin-left: auto; font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+
+    /* ── Prompt lightbox ──────────────────────────────────────────────────── */
+    .prompt-lightbox {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(17, 24, 32, 0.5);
+      z-index: 1200;
+    }
+    .prompt-lightbox.is-open { display: flex; }
+    .prompt-dialog {
+      width: min(920px, 100%);
+      max-height: min(82vh, 900px);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      border: 1px solid var(--line);
+      border-top: 8px solid var(--accent);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.98);
+      box-shadow: 0 24px 48px rgba(17, 24, 32, 0.28);
+      overflow: hidden;
+    }
+    .prompt-dialog-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.9);
+    }
+    .prompt-dialog-title {
+      margin: 0;
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .prompt-dialog-body {
+      padding: 12px;
+      overflow: auto;
+    }
+    .prompt-text {
+      width: 100%;
+      min-height: 360px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+    .prompt-options {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+    }
+    .prompt-options-label {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .prompt-option {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .prompt-option input {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .prompt-dialog-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.9);
+    }
+    .prompt-copy-status {
+      min-height: 1.2em;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
 
     /* ── City list ─────────────────────────────────────────────────────────── */
     .panel {
@@ -145,6 +260,22 @@
     }
     .city-list { display: grid; gap: 8px; }
     .city-empty { padding: 22px; text-align: center; color: var(--muted); }
+
+    /* ── Pager (top + bottom, identical) ───────────────────────────────────── */
+    .pager { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 8px; }
+    /* [hidden] loses to display:flex on specificity, so restate it. */
+    .pager[hidden] { display: none; }
+    .pager--top { border-bottom: 1px solid var(--line); margin: 0 0 8px; }
+    .pager--bottom { border-top: 1px solid var(--line); margin: 8px 0 0; }
+    .pager-info {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.02em; color: var(--muted);
+    }
+    .pager-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+    .pager-page {
+      padding: 0 6px; font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
+      font-weight: 700; color: var(--ink); white-space: nowrap;
+    }
 
     .city-row {
       display: grid;
@@ -196,68 +327,64 @@
 </head>
 <body class="mc-auth-protected">
   <main class="app">
-    <div class="stockroom-head">
-      <svg class="stockroom-gear" viewBox="128 -12 220 216" aria-hidden="true">
-        <g class="header-gear header-gear--large" transform="translate(212 72) rotate(-14)">
-          <polygon class="header-gear-body" points="-11.3,-65.0 -13.8,-78.8 -7.5,-79.6 7.5,-79.6 13.8,-78.8 11.3,-65.0 22.7,-62.0 27.5,-75.1 33.3,-72.7 46.3,-65.2 51.3,-61.4 42.3,-50.6 50.6,-42.3 61.4,-51.3 65.2,-46.3 72.7,-33.3 75.1,-27.5 62.0,-22.7 65.0,-11.3 78.8,-13.8 79.6,-7.5 79.6,7.5 78.8,13.8 65.0,11.3 62.0,22.7 75.1,27.5 72.7,33.3 65.2,46.3 61.4,51.3 50.6,42.3 42.3,50.6 51.3,61.4 46.3,65.2 33.3,72.7 27.5,75.1 22.7,62.0 11.3,65.0 13.8,78.8 7.5,79.6 -7.5,79.6 -13.8,78.8 -11.3,65.0 -22.7,62.0 -27.5,75.1 -33.3,72.7 -46.3,65.2 -51.3,61.4 -42.3,50.6 -50.6,42.3 -61.4,51.3 -65.2,46.3 -72.7,33.3 -75.1,27.5 -62.0,22.7 -65.0,11.3 -78.8,13.8 -79.6,7.5 -79.6,-7.5 -78.8,-13.8 -65.0,-11.3 -62.0,-22.7 -75.1,-27.5 -72.7,-33.3 -65.2,-46.3 -61.4,-51.3 -50.6,-42.3 -42.3,-50.6 -51.3,-61.4 -46.3,-65.2 -33.3,-72.7 -27.5,-75.1 -22.7,-62.0"></polygon>
-          <circle class="header-gear-ring" r="54"></circle>
-          <circle class="header-gear-inner" r="34"></circle>
-          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5"></rect>
-          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(60)"></rect>
-          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(120)"></rect>
-          <circle class="header-gear-core" r="11"></circle>
-          <circle class="header-gear-bore" r="5.5"></circle>
-          <line class="header-gear-crosshair" x1="-18" y1="0" x2="18" y2="0"></line>
-          <line class="header-gear-crosshair" x1="0" y1="-18" x2="0" y2="18"></line>
-        </g>
-        <g class="header-gear header-gear--small" transform="translate(286 132) rotate(19)">
-          <polygon class="header-gear-body" points="-9.8,-45.0 -12.3,-56.7 -6.5,-57.6 6.5,-57.6 12.3,-56.7 9.8,-45.0 18.5,-42.1 23.4,-53.1 28.6,-50.5 39.2,-42.8 43.3,-38.6 34.3,-30.6 39.7,-23.2 50.1,-29.2 52.8,-24.0 56.8,-11.6 57.7,-5.8 45.8,-4.6 45.8,4.6 57.7,5.8 56.8,11.6 52.8,24.0 50.1,29.2 39.7,23.2 34.3,30.6 43.3,38.6 39.2,42.8 28.6,50.5 23.4,53.1 18.5,42.1 9.8,45.0 12.3,56.7 6.5,57.6 -6.5,57.6 -12.3,56.7 -9.8,45.0 -18.5,42.1 -23.4,53.1 -28.6,50.5 -39.2,42.8 -43.3,38.6 -34.3,30.6 -39.7,23.2 -50.1,29.2 -52.8,24.0 -56.8,11.6 -57.7,5.8 -45.8,4.6 -45.8,-4.6 -57.7,-5.8 -56.8,-11.6 -52.8,-24.0 -50.1,-29.2 -39.7,-23.2 -34.3,-30.6 -43.3,-38.6 -39.2,-42.8 -28.6,-50.5 -23.4,-53.1 -18.5,-42.1"></polygon>
-          <circle class="header-gear-ring" r="38"></circle>
-          <circle class="header-gear-inner" r="24"></circle>
-          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5"></rect>
-          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(60)"></rect>
-          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(120)"></rect>
-          <circle class="header-gear-core" r="7.5"></circle>
-          <circle class="header-gear-bore" r="3.8"></circle>
-          <line class="header-gear-crosshair" x1="-12" y1="0" x2="12" y2="0"></line>
-          <line class="header-gear-crosshair" x1="0" y1="-12" x2="0" y2="12"></line>
-        </g>
-      </svg>
-      <div class="stockroom-head-lockup">
-        <div class="stockroom-titlecol">
-          <span class="stockroom-eyebrow">THE GAME BUREAU</span>
-          <h1 class="stockroom-title">CITIES</h1>
-          <p class="stockroom-substat" id="pageStatus" aria-live="polite"></p>
-        </div>
-      </div>
-      <div class="stockroom-head-status">
-        <button class="signout-btn" id="signOutBtn" type="button" aria-label="ADMIN LOGIN" title="ADMIN LOGIN">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M5.5 19.5c1.2-3.4 3.8-5.1 6.5-5.1s5.3 1.7 6.5 5.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
-        </button>
+    <header class="admin-site-nav" data-admin-site-nav></header>
+    <script src="/mc/js/admin-site-nav.js"></script>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title" id="cityTitle">0 CITIES</h1>
+            <p class="room-substat" id="pageStatus" aria-live="polite">Cities for use across all of The Game Bureau. A core table for use with games, gifts, soundtracks and more.</p>
       </div>
     </div>
 
-    <p class="legend">Cities for use across all of The Game Bureau.</p>
-
     <div class="command-bar" aria-label="Cities">
-      <span class="command-bar-label">Cities</span>
-      <button class="btn small primary" id="addCityBtn" type="button">+ Add</button>
-      <span class="command-bar-divider" aria-hidden="true"></span>
       <input type="search" id="searchInput" placeholder="Search cities…" autocomplete="off">
-      <span class="command-bar-count" id="cityCount"></span>
+      <select id="continentFilter" class="command-bar-select" aria-label="Filter by continent" hidden>
+        <option value="">All continents</option>
+      </select>
+      <select id="countryFilter" class="command-bar-select" aria-label="Filter by country" hidden>
+        <option value="">All countries</option>
+      </select>
+      <select id="hiddenFilter" class="command-bar-select" aria-label="Filter by visibility" hidden>
+        <option value="">Any visibility</option>
+      </select>
+      <span class="command-bar-divider" aria-hidden="true"></span>
+      <span class="command-bar-label">ADD</span>
+      <button class="btn small primary" id="addCityBtn" type="button">manual</button>
+      <button class="btn small" id="openPromptBtn" type="button">prompt</button>
     </div>
 
     <section class="panel">
+      <div class="pager pager--top" id="pagerTop" aria-label="Pagination (top)" hidden></div>
       <div class="city-list" id="cityList"></div>
+      <div class="pager pager--bottom" id="pagerBottom" aria-label="Pagination (bottom)" hidden></div>
     </section>
+
+    <div class="prompt-lightbox" id="promptLightbox" role="dialog" aria-modal="true" aria-labelledby="promptDialogTitle" hidden>
+      <div class="prompt-dialog">
+        <div class="prompt-dialog-head">
+          <h2 class="prompt-dialog-title" id="promptDialogTitle">City Finder Prompt</h2>
+          <button class="btn small" id="closePromptBtn" type="button">Close</button>
+        </div>
+        <div class="prompt-dialog-body">
+          <fieldset class="prompt-options" aria-label="Result count">
+            <legend class="prompt-options-label">Results</legend>
+            <label class="prompt-option"><input type="radio" name="promptCount" value="10">10</label>
+            <label class="prompt-option"><input type="radio" name="promptCount" value="100" checked>100</label>
+            <label class="prompt-option"><input type="radio" name="promptCount" value="1000">1000</label>
+          </fieldset>
+          <textarea class="prompt-text" id="cityPromptText" spellcheck="false" readonly></textarea>
+        </div>
+        <div class="prompt-dialog-foot">
+          <div class="prompt-copy-status" id="promptCopyStatus" aria-live="polite"></div>
+          <button class="btn small primary" id="copyPromptBtn" type="button">Copy</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script src="/mc/js/admin-auth.js"></script>
   <script src="/mc/js/admin-shell.js"></script>
-  <script src="/mc/js/admin-nav-menu.js"></script>
   <script src="/mc/js/supabase-rest.js"></script>
   <script src="/assets/geo.js"></script>
   <script src="/assets/city-picker.js"></script>
@@ -267,15 +394,318 @@
       publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
     };
     const TABLE = 'cities';
+    const DEFAULT_SUBSTAT = 'Cities for use across all of The Game Bureau. A core table for use with games, gifts, soundtracks and more.';
 
+    const cityTitleEl = document.getElementById('cityTitle');
     const pageStatus = document.getElementById('pageStatus');
-    const signOutBtn = document.getElementById('signOutBtn');
     const addCityBtn = document.getElementById('addCityBtn');
+    const openPromptBtn = document.getElementById('openPromptBtn');
+    const promptLightbox = document.getElementById('promptLightbox');
+    const closePromptBtn = document.getElementById('closePromptBtn');
+    const copyPromptBtn = document.getElementById('copyPromptBtn');
+    const cityPromptText = document.getElementById('cityPromptText');
+    const promptCopyStatus = document.getElementById('promptCopyStatus');
+    const promptCountRadios = Array.from(document.querySelectorAll('input[name="promptCount"]'));
     const searchInput = document.getElementById('searchInput');
+    const continentFilter = document.getElementById('continentFilter');
+    const countryFilter = document.getElementById('countryFilter');
+    const hiddenFilter = document.getElementById('hiddenFilter');
     const cityListEl = document.getElementById('cityList');
-    const cityCountEl = document.getElementById('cityCount');
+    const pagerTopEl = document.getElementById('pagerTop');
+    const pagerBottomEl = document.getElementById('pagerBottom');
 
-    const state = { rows: [], authed: false };
+    // Paging is purely a render-time slice. loadCities() still pulls the whole
+    // table through TgbRest.fetchAll (which pages past PostgREST's 1000-row cap),
+    // so search and the country/state/city sort still run across every row —
+    // only the DOM is capped. Rendering 250+ editable rows, each with four
+    // inputs and a country <select> of ~200 options, is what made this page slow.
+    const PAGE_SIZE = 100;
+
+    function updateCityTitle() {
+      if (!cityTitleEl) return;
+      const total = state && Array.isArray(state.rows) ? state.rows.length : 0;
+      cityTitleEl.textContent = total + ' CITIES';
+    }
+
+    function selectedPromptCount() {
+      const checked = promptCountRadios.find((r) => r.checked);
+      const n = Number(checked ? checked.value : 100);
+      return Number.isFinite(n) && n > 0 ? n : 100;
+    }
+
+    function currentCityNamesForPrompt() {
+      const names = (state && Array.isArray(state.rows) ? state.rows : [])
+        .map((r) => String((r && r.city) || '').trim())
+        .filter(Boolean);
+      const unique = Array.from(new Set(names));
+      unique.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      return unique;
+    }
+
+    function buildCityImportPrompt(resultLimit) {
+      const limit = Number(resultLimit) || 100;
+      const existingCities = currentCityNamesForPrompt();
+      const cityLines = existingCities.length
+        ? existingCities.map((name) => '- ' + name)
+        : ['- (City list not loaded yet. Open this page while signed in to include live DB cities.)'];
+      return [
+        'You are generating SQL for Supabase Postgres.',
+        '',
+        'Goal:',
+        '1) Find candidate cities to add to public.cities.',
+        '2) Return SQL that can be run as-is to import those cities.',
+        '3) Make sure cities already in public.cities are excluded.',
+        '',
+        'Return exactly ' + limit + ' candidate rows.',
+        '',
+        'Prioritize city types in this order:',
+        '- Tourist destination cities around the world.',
+        '- North American fan-base cities for pro and college sports (especially American football).',
+        '- Major pro sports cities (NFL, NCAA football, MLB, NBA, NHL, MLS, WNBA, NWSL).',
+        '- Cities with major sports venues.',
+        '',
+        'Important hidden-flag rule:',
+        '- If a city is primarily a venue city (not itself a major destination/fanbase) OR the venue city differs from the primary fanbase city, include that venue city and set ALL THREE hidden flags to true:',
+        '  hide_from_games = true, hide_from_soundtracks = true, hide_from_gift_shop = true.',
+        '- Also set ignored = true for those rows for compatibility.',
+        '- For all regular destination/fanbase cities, set all three hide flags false and ignored false.',
+        '',
+        'City formatting rules:',
+        '- Use canonical city strings:',
+        '  - US: "City, FullStateName" (example: "Atlanta, Georgia")',
+        '  - Non-US: "City, CountryName" (example: "Paris, France")',
+        '- Never use US postal abbreviations inside the `city` field. Good: "Sacramento, California". Bad: "Sacramento, CA".',
+        '- The `city` field, `state_name`, `state_code`, `country_name`, and `country_code` must all agree with each other. Do not mix abbreviations and full names incorrectly.',
+        '- Fill ALL structured city fields for EVERY row: city, city_name, state_name, state_code, country_name, country_code, plus the hide flags and ignored.',
+        '- city_name = just the city name with no state/country.',
+        '- US rows: state_name must be the full state name and state_code must be the 2-letter USPS abbreviation.',
+        '- Non-US rows: when the city belongs to a real first-level region/province/state/canton/etc., fill BOTH state_name and state_code.',
+        '- For foreign state_code, use the best real local abbreviation / postal abbreviation / widely used short code in uppercase (examples: Ontario -> ON, British Columbia -> BC, Queensland -> QLD, Victoria -> VIC, Bavaria -> BY, New South Wales -> NSW).',
+        '- Do NOT leave foreign state_name/state_code blank just because the city is outside the US. Fill them whenever a real region exists.',
+        '- Only use null for state_name/state_code when the city truly has no meaningful first-level region to store.',
+        '- country_name must be the full country name and country_code must be the alpha-3 code (USA, CAN, FRA, GBR, AUS, DEU, MEX, BRA, etc.).',
+        '- For venue-only cities, all four visibility fields must agree: hide_from_games = true, hide_from_soundtracks = true, hide_from_gift_shop = true, ignored = true.',
+        '- For normal destination/fanbase cities, all four visibility fields must agree the other way: hide_from_games = false, hide_from_soundtracks = false, hide_from_gift_shop = false, ignored = false.',
+        '- Do not include slug in SQL (trigger derives it).',
+        '',
+        'Current cities already in public.cities (exclude every one of these):',
+        ...cityLines,
+        '',
+        'Output requirements:',
+        '- Output SQL only (no prose).',
+        '- Use a candidate_rows CTE + filtered_rows CTE and filter out existing cities from public.cities before insert.',
+        '- Columns to write: city, city_name, state_name, state_code, country_name, country_code, hide_from_games, hide_from_soundtracks, hide_from_gift_shop, ignored.',
+        '- Before outputting SQL, self-check every row for: canonical `city` format, complete structured fields, and matching visibility flags.',
+        '',
+        'SQL template to follow exactly (replace sample rows with ' + limit + ' rows):',
+        'with candidate_rows(city, city_name, state_name, state_code, country_name, country_code, hide_from_games, hide_from_soundtracks, hide_from_gift_shop, ignored) as (',
+        '  values',
+        "    ('Atlanta, Georgia', 'Atlanta', 'Georgia', 'GA', 'United States', 'USA', false, false, false, false),",
+        "    ('Toronto, Canada', 'Toronto', 'Ontario', 'ON', 'Canada', 'CAN', false, false, false, false),",
+        "    ('Melbourne, Australia', 'Melbourne', 'Victoria', 'VIC', 'Australia', 'AUS', false, false, false, false),",
+        "    ('Inglewood, California', 'Inglewood', 'California', 'CA', 'United States', 'USA', true, true, true, true)",
+        '),',
+        'filtered_rows as (',
+        '  select c.*',
+        '  from candidate_rows c',
+        '  where not exists (',
+        '    select 1 from public.cities e where e.city = c.city',
+        '  )',
+        ')',
+        'insert into public.cities (city, city_name, state_name, state_code, country_name, country_code, hide_from_games, hide_from_soundtracks, hide_from_gift_shop, ignored)',
+        'select city, city_name, state_name, state_code, country_name, country_code, hide_from_games, hide_from_soundtracks, hide_from_gift_shop, ignored',
+        'from filtered_rows',
+        'on conflict (city) do nothing;'
+      ].join('\n');
+    }
+
+    function refreshPromptText() {
+      if (!cityPromptText) return;
+      cityPromptText.value = buildCityImportPrompt(selectedPromptCount());
+    }
+
+    function setPromptCopyStatus(text, isSuccess) {
+      if (!promptCopyStatus) return;
+      promptCopyStatus.textContent = text || '';
+      promptCopyStatus.style.color = isSuccess ? 'var(--success)' : 'var(--muted)';
+    }
+
+    function openPromptLightbox() {
+      if (!promptLightbox) return;
+      refreshPromptText();
+      promptLightbox.hidden = false;
+      promptLightbox.classList.add('is-open');
+      if (cityPromptText) cityPromptText.focus();
+      setPromptCopyStatus('');
+    }
+
+    function closePromptLightbox() {
+      if (!promptLightbox) return;
+      promptLightbox.classList.remove('is-open');
+      promptLightbox.hidden = true;
+      if (openPromptBtn) openPromptBtn.focus();
+    }
+
+    async function copyPromptText() {
+      if (!cityPromptText) return;
+      const text = cityPromptText.value || '';
+      if (!text) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          cityPromptText.removeAttribute('readonly');
+          cityPromptText.select();
+          document.execCommand('copy');
+          cityPromptText.setAttribute('readonly', 'readonly');
+        }
+        setPromptCopyStatus('Copied.', true);
+      } catch (err) {
+        console.error(err);
+        setPromptCopyStatus('Could not copy automatically. Select and copy manually.', false);
+      }
+    }
+
+    const state = { rows: [], authed: false, page: 1, continent: '', country: '', hidden: '' };
+
+    // Sentinel for "the country has no continent on file" — distinct from '',
+    // which is the All option. Cities with no country_code land here too.
+    const CONTINENT_NONE = '__none__';
+
+    function continentOf(row) {
+      if (!(window.TgbGeo && TgbGeo.continentForCountry)) return '';
+      return TgbGeo.continentForCountry(row) || '';
+    }
+    function countryOf(row) { return String((row && row.country_code) || '').toUpperCase(); }
+
+    // One hide flag, with the documented fallback: a column that isn't present
+    // (a database without 2026072901_cities_hide_flags.sql) falls back to the
+    // retired `ignored`, which meant "hidden everywhere".
+    function hideFlagOf(row, column) {
+      if (!row) return false;
+      if (row[column] === true) return true;
+      if (row[column] === undefined) return row.ignored === true;
+      return false;
+    }
+    const HIDE_COLUMNS = ['hide_from_games', 'hide_from_soundtracks', 'hide_from_gift_shop'];
+
+    // ── Filter predicates ─────────────────────────────────────────────────────
+    function matchesContinent(r) {
+      if (!state.continent) return true;
+      const c = continentOf(r);
+      return state.continent === CONTINENT_NONE ? !c : c === state.continent;
+    }
+    function matchesCountry(r) {
+      return !state.country || countryOf(r) === state.country;
+    }
+    function matchesHidden(r) {
+      const h = state.hidden;
+      if (!h) return true;
+      if (h === 'any') return HIDE_COLUMNS.some((c) => hideFlagOf(r, c));
+      if (h === 'none') return !HIDE_COLUMNS.some((c) => hideFlagOf(r, c));
+      if (h === 'all') return HIDE_COLUMNS.every((c) => hideFlagOf(r, c));
+      return hideFlagOf(r, h);   // a single surface column
+    }
+
+    // Shared option-filler. Keeps the current selection when it survives the
+    // rebuild and silently drops to All when it does not — picking Europe and
+    // then a country outside it would otherwise strand you on zero rows with no
+    // hint as to which control is to blame.
+    function fillSelect(el, current, options, allLabel) {
+      if (!el) return current;
+      el.innerHTML = '';
+      const all = document.createElement('option');
+      all.value = '';
+      all.textContent = allLabel;
+      el.appendChild(all);
+      options.forEach((o) => {
+        const op = document.createElement('option');
+        op.value = o.value;
+        op.textContent = o.label + ' (' + o.count + ')';
+        if (o.title) op.title = o.title;
+        el.appendChild(op);
+      });
+      const survives = !current || options.some((o) => o.value === current);
+      el.value = survives ? current : '';
+      el.hidden = false;
+      return survives ? current : '';
+    }
+
+    // Continent options come from every loaded city — this control is the top of
+    // the cascade, so it must always offer the full set. Built from the cities,
+    // not the 249-row country catalog: offering "Antarctica" on a list with no
+    // Antarctic cities is a dead option. Hidden entirely when nothing is
+    // classified, which is what a database without the continent migration
+    // looks like.
+    function rebuildContinentFilter() {
+      if (!continentFilter) return;
+      const counts = {};
+      let unassigned = 0;
+      state.rows.forEach((r) => {
+        const c = continentOf(r);
+        if (c) counts[c] = (counts[c] || 0) + 1; else unassigned++;
+      });
+      const names = Object.keys(counts).sort((a, b) => a.localeCompare(b));
+      if (!names.length) { continentFilter.hidden = true; state.continent = ''; return; }
+
+      const opts = names.map((n) => ({ value: n, label: n, count: counts[n] }));
+      if (unassigned) {
+        opts.push({
+          value: CONTINENT_NONE, label: 'Unassigned', count: unassigned,
+          title: 'Cities whose country has no continent on file, or no country at all.'
+        });
+      }
+      state.continent = fillSelect(continentFilter, state.continent, opts, 'All continents (' + state.rows.length + ')');
+    }
+
+    // Countries within the chosen continent, so the two controls cannot be set
+    // to a combination that yields nothing.
+    function rebuildCountryFilter() {
+      if (!countryFilter) return;
+      const scope = state.rows.filter(matchesContinent);
+      const counts = {}, names = {};
+      scope.forEach((r) => {
+        const code = countryOf(r);
+        if (!code) return;
+        counts[code] = (counts[code] || 0) + 1;
+        names[code] = r.country_name || code;
+      });
+      const codes = Object.keys(counts).sort((a, b) => String(names[a]).localeCompare(String(names[b])));
+      if (!codes.length) { countryFilter.hidden = true; state.country = ''; return; }
+      const opts = codes.map((c) => ({ value: c, label: names[c], count: counts[c] }));
+      state.country = fillSelect(countryFilter, state.country, opts, 'All countries (' + scope.length + ')');
+    }
+
+    // Visibility, scoped to the continent + country already chosen. "Any hidden"
+    // is the headline ask: one or more of the three surface flags ticked.
+    function rebuildHiddenFilter() {
+      if (!hiddenFilter) return;
+      const scope = state.rows.filter((r) => matchesContinent(r) && matchesCountry(r));
+      const n = { any: 0, none: 0, all: 0, hide_from_games: 0, hide_from_soundtracks: 0, hide_from_gift_shop: 0 };
+      scope.forEach((r) => {
+        const on = HIDE_COLUMNS.filter((c) => hideFlagOf(r, c));
+        on.forEach((c) => { n[c]++; });
+        if (on.length) n.any++; else n.none++;
+        if (on.length === HIDE_COLUMNS.length) n.all++;
+      });
+      const opts = [
+        { value: 'any', label: 'Any hidden', count: n.any, title: 'One or more of the three hide checkboxes is ticked.' },
+        { value: 'none', label: 'Fully visible', count: n.none, title: 'None of the three hide checkboxes is ticked.' },
+        { value: 'all', label: 'Hidden everywhere', count: n.all, title: 'All three hide checkboxes are ticked.' },
+        { value: 'hide_from_games', label: 'Hidden from games', count: n.hide_from_games },
+        { value: 'hide_from_soundtracks', label: 'Hidden from soundtracks', count: n.hide_from_soundtracks },
+        { value: 'hide_from_gift_shop', label: 'Hidden from gift shop', count: n.hide_from_gift_shop }
+      ];
+      state.hidden = fillSelect(hiddenFilter, state.hidden, opts, 'Any visibility (' + scope.length + ')');
+    }
+
+    // Rebuild the whole cascade. Order matters: country options depend on the
+    // chosen continent, visibility counts depend on both.
+    function rebuildFilters() {
+      rebuildContinentFilter();
+      rebuildCountryFilter();
+      rebuildHiddenFilter();
+    }
 
     // The Country dropdown reads the single source of truth — public.countries,
     // via TgbGeo (assets/geo.js hydrates it). Rebuilt once countries load.
@@ -301,12 +731,35 @@
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
       onAuthorized: async () => { state.authed = true; await loadCities(); },
-      onSignedOut: () => { state.authed = false; state.rows = []; render(); setStatus('Sign in with an admin account.'); }
+      onSignedOut: () => { state.authed = false; state.rows = []; rebuildFilters(); render(); refreshPromptText(); setStatus('Sign in with an admin account.'); }
+    });
+
+    refreshPromptText();
+    promptCountRadios.forEach((radio) => {
+      radio.addEventListener('change', () => {
+        refreshPromptText();
+        setPromptCopyStatus('Prompt updated for ' + selectedPromptCount() + ' results.', false);
+      });
+    });
+    if (openPromptBtn) openPromptBtn.addEventListener('click', openPromptLightbox);
+    if (closePromptBtn) closePromptBtn.addEventListener('click', closePromptLightbox);
+    if (copyPromptBtn) copyPromptBtn.addEventListener('click', copyPromptText);
+    if (promptLightbox) {
+      promptLightbox.addEventListener('click', (event) => {
+        if (event.target === promptLightbox) closePromptLightbox();
+      });
+    }
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && promptLightbox && !promptLightbox.hidden) closePromptLightbox();
     });
 
     function setStatus(text, kind) {
       if (!pageStatus) return;
-      pageStatus.textContent = text || '';
+      if (kind === 'error') {
+        pageStatus.textContent = text || DEFAULT_SUBSTAT;
+      } else {
+        pageStatus.textContent = DEFAULT_SUBSTAT;
+      }
       pageStatus.classList.toggle('error', kind === 'error');
       pageStatus.classList.toggle('success', kind === 'success');
     }
@@ -345,6 +798,9 @@
         const url = restUrl(TABLE, { select: '*', order: 'city.asc' });
         const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
         state.rows = Array.isArray(rows) ? rows : [];
+        state.page = 1;
+        rebuildFilters();
+        refreshPromptText();
         render();
         setStatus('Loaded ' + state.rows.length + ' cities.', 'success');
       } catch (err) {
@@ -369,12 +825,11 @@
       return d;
     }
 
-    function render() {
-      if (!cityListEl) return;
-      cityListEl.innerHTML = '';
-      if (!state.authed) { cityListEl.appendChild(emptyNode('Sign in to manage cities.')); if (cityCountEl) cityCountEl.textContent = ''; return; }
+    // Every row that passes the search box, in display order. Paging slices this.
+    function visibleRows() {
       const q = (searchInput && searchInput.value || '').trim().toLowerCase();
       const rows = state.rows.filter((r) => {
+        if (!matchesContinent(r) || !matchesCountry(r) || !matchesHidden(r)) return false;
         if (!q) return true;
         return [r.city, r.slug, r.city_name, r.state_name, r.country_name].some((v) => String(v || '').toLowerCase().includes(q));
       });
@@ -386,11 +841,91 @@
         cmp(a, b, (r) => r.country_name) ||
         cmp(a, b, (r) => r.state_name) ||
         cmp(a, b, (r) => r.city_name || r.city));
-      if (!rows.length) { cityListEl.appendChild(emptyNode(state.rows.length ? 'No cities match.' : 'No cities yet — hit “+ Add”.')); }
-      else rows.forEach((r) => cityListEl.appendChild(renderRow(r)));
-      if (cityCountEl) {
-        cityCountEl.textContent = rows.length + ' shown · ' + state.rows.length + ' total';
+      return rows;
+    }
+
+    function hidePagers() {
+      [pagerTopEl, pagerBottomEl].forEach((el) => { if (el) { el.innerHTML = ''; el.hidden = true; } });
+    }
+
+    // `scrollUp` is set only on the bottom pager: paging from down there leaves
+    // you staring at the end of a fresh page, so jump back to the top of the list.
+    function goToPage(page, scrollUp) {
+      state.page = page;
+      render();
+      if (!scrollUp) return;
+      const panel = document.querySelector('.panel');
+      if (panel && panel.scrollIntoView) panel.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+
+    function renderPager(host, info, scrollUp) {
+      if (!host) return;
+      host.innerHTML = '';
+      host.hidden = false;
+
+      const label = document.createElement('span');
+      label.className = 'pager-info';
+      label.textContent = info.total
+        ? 'Showing ' + (info.start + 1) + '–' + (info.start + info.count) + ' of ' + info.total + ' cities'
+        : 'No cities';
+      host.appendChild(label);
+
+      // One page: the count is still worth showing, the buttons are not.
+      if (info.pageCount <= 1) return;
+
+      const controls = document.createElement('div');
+      controls.className = 'pager-controls';
+      const jump = (text, page, disabled) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn small';
+        b.textContent = text;
+        b.disabled = !!disabled;
+        if (!disabled) b.addEventListener('click', () => goToPage(page, scrollUp));
+        return b;
+      };
+      const p = state.page;
+      controls.append(
+        jump('« First', 1, p === 1),
+        jump('‹ Prev', p - 1, p === 1)
+      );
+      const pageLabel = document.createElement('span');
+      pageLabel.className = 'pager-page';
+      pageLabel.textContent = 'Page ' + p + ' of ' + info.pageCount;
+      controls.append(
+        pageLabel,
+        jump('Next ›', p + 1, p === info.pageCount),
+        jump('Last »', info.pageCount, p === info.pageCount)
+      );
+      host.appendChild(controls);
+    }
+
+    function render() {
+      updateCityTitle();
+      if (!cityListEl) return;
+      cityListEl.innerHTML = '';
+      if (!state.authed) { hidePagers(); cityListEl.appendChild(emptyNode('Sign in to manage cities.')); return; }
+
+      const rows = visibleRows();
+      if (!rows.length) {
+        hidePagers();
+        cityListEl.appendChild(emptyNode(state.rows.length ? 'No cities match.' : 'No cities yet — hit “+ Add”.'));
+        return;
       }
+
+      // Clamp before slicing: deleting the last row of the last page, or typing
+      // a search that shrinks the set, would otherwise strand you on an empty
+      // page that looks like "no cities".
+      const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+      state.page = Math.min(Math.max(1, state.page), pageCount);
+
+      const start = (state.page - 1) * PAGE_SIZE;
+      const pageRows = rows.slice(start, start + PAGE_SIZE);
+      pageRows.forEach((r) => cityListEl.appendChild(renderRow(r)));
+
+      const info = { total: rows.length, start: start, count: pageRows.length, pageCount: pageCount };
+      renderPager(pagerTopEl, info, false);
+      renderPager(pagerBottomEl, info, true);
     }
 
     function geoBadges(row) {
@@ -408,11 +943,10 @@
     // a flag to notice, not a precise statement of which one. The checkboxes on
     // the row say which. Falls back to the retired `ignored` column so this
     // reads correctly before 2026072901_cities_hide_flags.sql is applied.
+    // Shares hideFlagOf with the visibility filter, so the grey row and the
+    // "Any hidden" count can never disagree about what hidden means.
     function isHiddenAnywhere(row) {
-      if (!row) return false;
-      const cols = ['hide_from_games', 'hide_from_soundtracks', 'hide_from_gift_shop'];
-      if (cols.some((c) => row[c] === true)) return true;
-      return cols.every((c) => row[c] === undefined) && row.ignored === true;
+      return HIDE_COLUMNS.some((c) => hideFlagOf(row, c));
     }
 
     function renderRow(row) {
@@ -669,11 +1203,31 @@
         });
       });
     }
-    if (searchInput) searchInput.addEventListener('input', render);
-
-    if (window.TgbMcAdminNav && typeof TgbMcAdminNav.init === 'function') {
-      TgbMcAdminNav.init({ signOutButton: signOutBtn, auth: adminAuth });
+    // Any new search starts at page 1 — keeping the old page number would land
+    // you past the end of a narrower result set.
+    if (searchInput) searchInput.addEventListener('input', () => { state.page = 1; render(); });
+    // Each control re-derives the ones below it in the cascade, then re-renders.
+    function onFilterChange() {
+      state.page = 1;
+      rebuildCountryFilter();
+      rebuildHiddenFilter();
+      render();
     }
+    if (continentFilter) continentFilter.addEventListener('change', () => {
+      state.continent = continentFilter.value || '';
+      onFilterChange();
+    });
+    if (countryFilter) countryFilter.addEventListener('change', () => {
+      state.country = countryFilter.value || '';
+      onFilterChange();
+    });
+    if (hiddenFilter) hiddenFilter.addEventListener('change', () => {
+      state.hidden = hiddenFilter.value || '';
+      state.page = 1;
+      render();
+    });
+
+    if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
 
     render();
     adminAuth.init();

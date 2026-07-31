@@ -1,5 +1,5 @@
 -- Enrich public.teams with TGBID + EspnId carried over from the legacy
--- mc/data/teams.json store (now retired; Supabase teams is the single source).
+-- data/teams.json store (now retired; Supabase teams is the single source).
 -- Additive + idempotent: matches existing rows on (league, fanbase, mascot);
 -- never inserts or drops. teams.json had no code/conference, so it cannot define
 -- identity — the table stays canonical (team_key = LEAGUE:CODE is FK-referenced).

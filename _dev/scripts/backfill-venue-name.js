@@ -12,7 +12,7 @@
 //   alter table games add column venue_city text;
 //
 // Usage:
-//   node backfill-venue-name.js                    # fill MISSING fields, from mc/data/mlb.jsonl
+//   node backfill-venue-name.js                    # fill MISSING fields, from data/mlb.jsonl
 //   node backfill-venue-name.js path/to/file.jsonl # use a different generated file
 //   node backfill-venue-name.js --force            # also overwrite fields that already have a value
 //   node backfill-venue-name.js --dry-run          # report what would change; write nothing
@@ -34,7 +34,7 @@ const dryRun = args.includes('--dry-run');
 const fileArg = args.find((a) => !a.startsWith('--'));
 const jsonlPath = fileArg
   ? path.resolve(process.cwd(), fileArg)
-  : path.resolve(__dirname, '../../mc/data/mlb.jsonl');
+  : path.resolve(__dirname, '../../data/mlb.jsonl');
 
 function parseJsonl(text) {
   const out = [];
