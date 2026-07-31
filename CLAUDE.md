@@ -33,7 +33,20 @@ New soundtracks are added by a **scheduled Claude Code cloud agent** ("Daily sou
 ---
 ## Socials daily scout — a third Claude Code routine
 
-[socials/admin/index.html](socials/admin/index.html) shows five stories the socials accounts might want to post, found each morning by a **scheduled Claude Code cloud agent** ("Daily socials scout", `trig_01VGJLzRyxWuvgrP4hv8ZMM5`, cron `15 11 * * *` UTC = 6:15 AM Central in summer, 5:15 AM in winter). It commits [socials/queue.json](socials/queue.json) to `main`; the page is a read-only render of that file.
+[socials/admin/index.html](socials/admin/index.html) shows five stories the socials accounts might want to post, found each morning by a **scheduled Claude Code cloud agent**. It commits [socials/queue.json](socials/queue.json) to `main`; the page is a read-only render of that file.
+
+**This is the one routine that holds a Central time year-round, and it takes two triggers to do it** (changed 2026-07-31). Cloud cron is UTC with no DST, so a single expression drifts an hour every spring and fall — the other three routines just accept that. This one is month-gated instead, so 5:55 AM Central needs no seasonal flip:
+
+| trigger | cron (UTC) | months | Central |
+|---|---|---|---|
+| `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `55 10 * 3-10 *` | Mar–Oct | 5:55 AM CDT |
+| `trig_0127HaXCYGoCwdb9789ocrvW` | `55 11 * 11,12,1,2 *` | Nov–Feb | 5:55 AM CST |
+
+The month sets are disjoint and cover all twelve, so **exactly one fires on any given day** — if you ever edit them, keep that true or you get two queues a day. The residual drift is the DST transition weeks, which cron can't express: early March (before the second Sunday) fires at 4:55 AM CST, and early November (before the first Sunday) at 6:55 AM CDT. That's accepted — it's the price of never touching the schedule.
+
+**Both triggers must carry the same prompt.** They are the same job twice, differing only in cron, so a prompt change has to land in both or the site gets one behaviour eight months a year and another for four.
+
+The original single trigger (`trig_01VGJLzRyxWuvgrP4hv8ZMM5`, cron `15 11 * * *`) was created in the web UI, which means **an agent cannot retime or edit it** — the API only lets an agent update routines it created itself. It is disabled, not deleted, and should stay that way; re-enabling it would double up with the pair above. Anything created at [claude.ai/code/routines](https://claude.ai/code/routines) has the same limitation, so prefer creating routines from a session if you want them editable later.
 
 - **The agent posts nothing and holds no account credentials.** It writes one file; a human clicks POST (copies blurb + link to the clipboard) or TRASH. Don't ever wire this to a social API — the human-in-the-loop is the design, not a missing feature.
 - **The list is replaced wholesale each run**, not appended. An unposted pick is gone tomorrow, which is intended: it keeps the page to one day's decisions.
@@ -55,7 +68,7 @@ Walking-tour candidates are found each morning by a **scheduled Claude Code clou
 - **The list is replaced wholesale each run.** An unadded stop is gone tomorrow, which keeps the panel to one morning's decisions.
 - **`source_url` is mandatory on every stop** — the stop's own Wikipedia article (or the list article it is a row in), which lands in the waypoint's Source URL field so the claim stays checkable later.
 - Last-run status reads the **GitHub commits API** for `mc/waypoints/nightly.json`, same as the socials admin: a run that errored pushes nothing, so a stale timestamp is the failure signal.
-- The schedule sits at `:45` to keep it clear of the other three (`:00` gift shop, `:15` socials, `:30` soundtrack). Same DST caveat as the rest — the cloud cron is UTC, so it drifts an hour in winter.
+- The schedule sits at `:45` to keep it clear of the other three (`:00` gift shop, `:30` soundtrack, and socials — which since 2026-07-31 sits at `:55` of the *previous* hour in summer and `:55` of this hour in winter, so it is 5 minutes before the gift shop from March to October and 10 minutes after this one from November to February). Same DST caveat as the rest — the cloud cron is UTC, so it drifts an hour in winter.
 
 ---
 
