@@ -159,14 +159,14 @@
   if (!footer || footer.dataset.tgbFooterReady === 'true') return;
 
   // Mission Control: the admin surface for whichever section you are on, always
-  // resolved relative to the CURRENT directory — /sound/ -> /sound/admin/,
+  // resolved relative to the CURRENT directory — /soundtracks/ -> /soundtracks/admin/,
   // /shop/ -> /shop/admin/. Deriving it from location.pathname keeps one shared
   // footer working everywhere instead of hard-coding a section into shared code.
   //
   // Only sections that actually HAVE an admin get the link; this footer also
   // renders on /games/, /how/, /account/ and friends, where the same relative
   // href would be a 404. Add a directory here when it gains an admin page.
-  var MISSION_CONTROL_DIRS = ['/shop/admin/', '/sound/admin/', '/highlights/admin/', '/socials/admin/'];
+  var MISSION_CONTROL_DIRS = ['/shop/admin/', '/soundtracks/admin/', '/highlights/admin/', '/socials/admin/'];
 
   function missionControlHref() {
     var path = window.location.pathname || '/';
@@ -225,7 +225,7 @@
   // soundtrack_stats already has the per-tape active count, so the stat is one
   // HEAD-shaped request: filter to tapes with at least one active song and read
   // the exact count off Content-Range. Falls back to the committed JSON file,
-  // same lifeboat /sound/ itself uses.
+  // same lifeboat /soundtracks/ itself uses.
   function fetchSoundtrackCount() {
     var url = SB_URL + '/rest/v1/soundtrack_stats?select=city_slug'
       + '&archived=is.false&active_songs=gt.0&limit=1&apikey=' + SB_KEY;
@@ -242,7 +242,7 @@
 
   fetchSoundtrackCount()
     .catch(function () {
-      return fetch('/sound/soundtracks.json', { cache: 'no-store' })
+      return fetch('/soundtracks/soundtracks.json', { cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) { return data ? countSoundtracks(data) : null; });
     })

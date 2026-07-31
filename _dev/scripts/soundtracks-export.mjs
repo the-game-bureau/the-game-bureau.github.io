@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Regenerate sound/soundtracks.json from Supabase.
+// Regenerate soundtracks/soundtracks.json from Supabase.
 //
 // The tapes live in public.soundtracks + public.soundtrack_songs. That file is
-// the offline fallback /sound/ reads when the Supabase fetch fails, so it has to
+// the offline fallback /soundtracks/ reads when the Supabase fetch fails, so it has to
 // be refreshed after anything is written to the tables or it quietly serves a
 // stale catalog on the one day it is needed.
 //
@@ -14,7 +14,7 @@
 // Run it, then commit if anything changed:
 //
 //   node _dev/scripts/soundtracks-export.mjs
-//   git diff --quiet sound/soundtracks.json || git commit -m "..." sound/soundtracks.json
+//   git diff --quiet soundtracks/soundtracks.json || git commit -m "..." soundtracks/soundtracks.json
 //
 // Reads only, with the publishable key the public page already ships — no secret
 // and no write path. Safe to run any time, by anyone.
@@ -28,11 +28,11 @@ const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 
 const OUT = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
-  '..', '..', 'sound', 'soundtracks.json'
+  '..', '..', 'soundtracks', 'soundtracks.json'
 );
 
 const COMMENT =
-  'Offline fallback for /sound/. Source of truth is public.soundtracks + ' +
+  'Offline fallback for /soundtracks/. Source of truth is public.soundtracks + ' +
   'public.soundtrack_songs; regenerate this file from the Tape Room. City identity, ' +
   'labels, ordering, and badges still come from public.cities via city_slug.';
 
@@ -104,6 +104,6 @@ await writeFile(
 
 const active = songs.filter((row) => !row.archived).length;
 console.log(
-  `Wrote sound/soundtracks.json -- ${out.length} tapes, ${songs.length} songs ` +
+  `Wrote soundtracks/soundtracks.json -- ${out.length} tapes, ${songs.length} songs ` +
   `(${active} active, ${songs.length - active} archived).`
 );

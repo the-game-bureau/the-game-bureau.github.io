@@ -9656,7 +9656,6 @@ html.admin-embedded .builder-section-head{
           <div class="builder-view-group">
             <a class="builder-nav-btn" id="builderOverviewBtn" href="overview.html" aria-disabled="true" title="Edit this game's overview">Overview</a>
             <span class="builder-nav-btn is-current" aria-current="page" aria-disabled="true" title="You are on the builder page">Builder</span>
-            <a class="builder-nav-btn" id="builderMapperBtn" href="mapper.html" title="Open the game mapper">Mapper</a>
           </div>
         </div>
       </div>
@@ -15694,7 +15693,8 @@ function updateActionUi() {
   if (builderMapperBtn) {
     // The mapper is a standalone tool — always reachable; carry the game id when there is one.
     const gameId = String(state.currentGameId || '').trim();
-    builderMapperBtn.href = gameId ? ('mapper.html?id=' + encodeURIComponent(gameId)) : 'mapper.html';
+    // Mapper archived 2026-07-30 to _dev/archive/mc/. Button removed; this
+    // guard stays harmlessly null so the surrounding block is untouched.
   }
   if (gamePickerSelect) gamePickerSelect.disabled = isSaveBusy;
 }
@@ -23747,7 +23747,12 @@ if (objectBubbleAudioInput) {
 // the `maps` table (game_id -> waypoint_id, ord) and the referenced `waypoints`
 // rows, then synthesize one stop node per waypoint (stamped with waypointId so
 // STOP GROUP + attached challenges survive save/reload). See plan + CLAUDE.md.
-const MAPS_TABLE = 'maps';
+// public.maps was superseded on 2026-07-30 by public.stops, which is keyed by
+// CITY rather than by game: every game in a city shares its stops. game_stops is
+// the view that projects them back per game, so the "stops for game X" query
+// below is unchanged. Read-only here either way — this page synthesizes a stop
+// node per waypoint and never writes them.
+const MAPS_TABLE = 'game_stops';
 const WAYPOINTS_TABLE = 'waypoints';
 
 async function loadWaypointStopsForCurrentGame() {

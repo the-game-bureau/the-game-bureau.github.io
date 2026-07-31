@@ -3,7 +3,7 @@
    around the site.
 
    WHAT THIS IS
-   The /sound/ page plays city soundtracks through a Spotify iframe embed
+   The /soundtracks/ page plays city soundtracks through a Spotify iframe embed
    inside its cassette modal. Minimizing that modal pins it to the lower-right
    as a small cassette case (centered on mobile). This script carries that case
    onto the other pages the case is allowed on — games, shop, highlights — and
@@ -20,7 +20,7 @@
    the design, not a bug to be fixed later.
 
    OWNERSHIP
-   - /sound/ sets window.TGB_CASSETTE_HOME = true. There, this file is only the
+   - /soundtracks/ sets window.TGB_CASSETTE_HOME = true. There, this file is only the
      session store + the CSS for the case; the page drives its own player, so
      that minimizing never interrupts audio (the iframe is restyled in place,
      never re-parented — moving an iframe in the DOM reloads it).
@@ -37,7 +37,7 @@
 
   var KEY = 'tgb_cassette_session_v1';
   var API_SRC = 'https://open.spotify.com/embed/iframe-api/v1';
-  var SOUND_URL = '/sound/';
+  var SOUND_URL = '/soundtracks/';
 
   // ── Session store ─────────────────────────────────────────────────────────
   function read() {
@@ -102,7 +102,7 @@
   function withApi(fn) {
     if (api) { fn(api); return; }
     // The API announces itself exactly once per page. If something else already
-    // loaded it (on /sound/ the full player does), a fresh
+    // loaded it (on /soundtracks/ the full player does), a fresh
     // onSpotifyIframeApiReady would never be called and this case would sit
     // there with no embed — so pick the object up from the shared handle.
     if (window.__tgbSpotifyIframeApi) { api = window.__tgbSpotifyIframeApi; fn(api); return; }
@@ -131,8 +131,8 @@
   // Expressed in the page's own palette vars (--paper-strong / --ink / --line /
   // --accent), never in literal colors. The site skin is a swappable layer —
   // civic-modernist-pages.css currently remaps those vars to a white/navy
-  // scheme, and the cassette panel on /sound/ follows it. The case has to land
-  // on whatever the skin says, or minimizing on /sound/ and then navigating
+  // scheme, and the cassette panel on /soundtracks/ follows it. The case has to land
+  // on whatever the skin says, or minimizing on /soundtracks/ and then navigating
   // would hand the listener two different-looking objects. Fallbacks are the
   // dark cassette palette for any page without the skin.
   var CSS = [
@@ -146,7 +146,7 @@
     'box-shadow:var(--shadow-panel,0 18px 44px rgba(0,0,0,.55));}',
     '.tgb-mini-shell::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;',
     'background:var(--tgb-mini-accent,#2a5a66);}',
-    /* Art well doubles as the "go back to /sound/" affordance. */
+    /* Art well doubles as the "go back to /soundtracks/" affordance. */
     '.tgb-mini-art{position:relative;display:grid;place-items:center;width:52px;height:52px;',
     'overflow:hidden;border:1px solid var(--line,#344154);background:var(--surface,#05070d);',
     'text-decoration:none;color:inherit;}',
@@ -243,7 +243,7 @@
   // ── The floating case ─────────────────────────────────────────────────────
   function MiniCase(session, opts) {
     this.session = session;
-    // On /sound/ the case is the minimized state of the full player, so the art
+    // On /soundtracks/ the case is the minimized state of the full player, so the art
     // expands back into it instead of navigating to the page we're already on.
     this.onExpand = (opts && opts.onExpand) || null;
     this.controller = null;
@@ -303,9 +303,9 @@
       });
     }
 
-    // Maximize: on /sound/ the host page swaps the case back for the full
+    // Maximize: on /soundtracks/ the host page swaps the case back for the full
     // cassette; anywhere else there is no cassette to open, so send the
-    // listener to /sound/ with a flag that opens it on arrival.
+    // listener to /soundtracks/ with a flag that opens it on arrival.
     root.querySelector('.tgb-mini-max').addEventListener('click', function () {
       if (self.onExpand) { self.onExpand(); return; }
       self.persist(true);
@@ -401,7 +401,7 @@
     // Mobile Chrome refuses to let a parent start audio in a cross-origin frame
     // unless the frame carries allow="autoplay". The API builds the iframe
     // itself, so stamp the permission on as soon as it appears (same trick as
-    // the full player on /sound/).
+    // the full player on /soundtracks/).
     stampAutoplayPermission(this.els.host);
 
     withApi(function (IFrameAPI) {
@@ -533,7 +533,7 @@
   };
 
   // Stop audio and drop the case, but leave the stored session alone — used
-  // when handing playback back to the full player on /sound/.
+  // when handing playback back to the full player on /soundtracks/.
   MiniCase.prototype.destroy = function () {
     window.clearTimeout(this.blockTimer);
     if (this.onPageHide) {
@@ -601,7 +601,7 @@
   window.TgbCassette = TgbCassette;
 
   function boot() {
-    // /sound/ runs its own player and its own in-place minimize; this file is
+    // /soundtracks/ runs its own player and its own in-place minimize; this file is
     // only the store + styles there.
     if (window.TGB_CASSETTE_HOME) return;
     TgbCassette.mount();

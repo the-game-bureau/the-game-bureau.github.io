@@ -2,14 +2,14 @@
 
 **If you are an AI agent working on soundtracks, read this first.** It is also
 the plain-English explanation for anyone else. The dashboard at
-[`/sound/admin/`](admin/index.html) is the human view of the same system; this
+[`/soundtracks/admin/`](admin/index.html) is the human view of the same system; this
 file is the source of truth.
 
 ---
 
 ## What a soundtrack is, and why it exists
 
-Every city we run games in gets a **cassette tape** on [/sound/](https://thegamebureau.com/sound/):
+Every city we run games in gets a **cassette tape** on [/soundtracks/](https://thegamebureau.com/soundtracks/):
 15 active songs that sound like that place. Hometown artists, songs that name the
 streets, the fight song the whole stadium knows, the record cut in a studio down
 the road.
@@ -31,10 +31,10 @@ The same pitch, on video, in the two shapes the socials accounts need:
 
 | Cut | File | For |
 |---|---|---|
-| 16:9 landscape | [soundtracks-explainer-landscape.mp4](https://thegamebureau.com/sound/soundtracks-explainer-landscape.mp4) | YouTube, embeds, anything widescreen |
-| 9:16 vertical | [soundtracks-explainer-vertical.mp4](https://thegamebureau.com/sound/soundtracks-explainer-vertical.mp4) | Reels, Shorts, TikTok, Stories |
+| 16:9 landscape | [soundtracks-explainer-landscape.mp4](https://thegamebureau.com/soundtracks/soundtracks-explainer-landscape.mp4) | YouTube, embeds, anything widescreen |
+| 9:16 vertical | [soundtracks-explainer-vertical.mp4](https://thegamebureau.com/soundtracks/soundtracks-explainer-vertical.mp4) | Reels, Shorts, TikTok, Stories |
 
-Both live beside the tapes in [`sound/`](.) and ship with the site, so the links
+Both live beside the tapes in [`soundtracks/`](.) and ship with the site, so the links
 above work for anyone — no sign-in, no CDN. They are committed binaries: replacing
 one means committing the new file over it, and the URL stays the same.
 
@@ -42,7 +42,7 @@ one means committing the new file over it, and the URL stays the same.
 
 ## Where the data lives
 
-Tapes moved out of `sound/soundtracks.json` and into Supabase on **2026-07-29**.
+Tapes moved out of `soundtracks/soundtracks.json` and into Supabase on **2026-07-29**.
 The file is still committed and still read — but only as a lifeboat.
 
 | Thing | Where | Notes |
@@ -53,11 +53,11 @@ The file is still committed and still read — but only as a lifeboat.
 | Audit findings | `public.soundtrack_issues` | One row per open finding: `city_slug`, `song_id` (null = whole tape), `kind`, `severity`, `detail`, `suggestion`, `status`. Not publicly readable. |
 | The write path for agents | `public.tgb_pull_soundtrack_songs(jsonb)` | Insert-only RPC callable with the publishable key. The routine's only way in. |
 | City names + geo badges | `public.cities` | Joined on `city_slug` = `cities.slug`. Also the gate: no tape for a city with `hide_from_soundtracks = true`. |
-| Offline fallback | `sound/soundtracks.json` | What `/sound/` renders when Supabase is unreachable. **Not the source of truth.** The daily run regenerates and commits it; never hand-edit it. |
+| Offline fallback | `soundtracks/soundtracks.json` | What `/soundtracks/` renders when Supabase is unreachable. **Not the source of truth.** The daily run regenerates and commits it; never hand-edit it. |
 | The fallback exporter | `_dev/scripts/soundtracks-export.mjs` | `node _dev/scripts/soundtracks-export.mjs` rewrites that file from the tables, byte-stably. Read-only, publishable key, no secret. |
-| The public page | `sound/index.html` | Reads both tables (paged, because PostgREST caps at 1000 rows), falls back to the JSON file on any error. |
+| The public page | `soundtracks/index.html` | Reads both tables (paged, because PostgREST caps at 1000 rows), falls back to the JSON file on any error. |
 | The audit write path | `public.tgb_report_soundtrack_issues(jsonb)` | Insert-only RPC, publishable key. Files findings; cannot clear them. |
-| The dashboard | `sound/admin/index.html` | An **Issues** panel (open findings, Fixed / Not an issue) above **Tapes & Tracks** — every tape collapsed by city, Hide/Show on both a tape and a track, **Edit** for every field on a track plus Move/Copy to another tape, a red ⚠ chip on any flagged track, each track stamped with when it was added, sortable by city / tape added / track added. Plus last run, viewer stats links, and the manual fallback prompt. |
+| The dashboard | `soundtracks/admin/index.html` | An **Issues** panel (open findings, Fixed / Not an issue) above **Tapes & Tracks** — every tape collapsed by city, Hide/Show on both a tape and a track, **Edit** for every field on a track plus Move/Copy to another tape, a red ⚠ chip on any flagged track, each track stamped with when it was added, sortable by city / tape added / track added. Plus last run, viewer stats links, and the manual fallback prompt. |
 
 A tape and its songs:
 
@@ -91,7 +91,7 @@ A tape and its songs:
   `artist title`. A CHECK constraint rejects anything that is not 22
   alphanumerics, so a malformed id fails loudly instead of quietly not playing.
 - `archived = true` is a track-level tombstone. The row stays on the city so the
-  same title+artist is never picked again there, but `/sound/` hides it and active
+  same title+artist is never picked again there, but `/soundtracks/` hides it and active
   counts ignore it.
 - **A tombstone is scoped to one city, never to the song.** The unique index is
   `(city_slug, lower(btrim(title)), lower(btrim(artist)))`, so hiding *Basin
@@ -105,7 +105,7 @@ A tape and its songs:
 - **The Tape Room says HIDE and HIDDEN for this, not archive.** The column keeps
   the name `archived` and so does the code; only the words a person reads changed
   (2026-07-30). "Archive" implied the track was filed away or deleted, when all
-  that happens is it comes off `/sound/` and stops counting. If you add UI here,
+  that happens is it comes off `/soundtracks/` and stops counting. If you add UI here,
   match the visible vocabulary: **Hide / Show**, **Hidden / Active**.
 - A **unique index on `(city_slug, lower(title), lower(artist))`** enforces the
   no-duplicates rule in the database. This is what makes tombstones work: an
@@ -113,7 +113,7 @@ A tape and its songs:
 
 ### Reading and writing
 
-Reads are public — the publishable key in `sound/index.html` is enough:
+Reads are public — the publishable key in `soundtracks/index.html` is enough:
 
 ```bash
 curl -sS "https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/soundtrack_stats?select=city_slug,active_songs,archived&order=city_slug.asc&apikey=<publishable key>"
@@ -124,7 +124,7 @@ Writes split by who is doing them:
 - **An agent adds songs** through `tgb_pull_soundtrack_songs`, with the same
   publishable key. It is `SECURITY DEFINER` and deliberately tiny: insert-only,
   creates the tape row if needed, refuses a `city_slug` that is unknown or hidden
-  from `/sound/`, ignores `spine_tag` on a tape that already exists, drops a
+  from `/soundtracks/`, ignores `spine_tag` on a tape that already exists, drops a
   malformed `spotify_id`, always writes `archived = false`, and caps a call at 60
   songs across 4 tapes. **Do not add parameters for `archived`** — that constant
   is part of what makes the function safe to expose to `anon`. Same pattern, and
@@ -258,7 +258,7 @@ winter costs nothing.
    >
    > The publishable key rides in the query string — PostgREST accepts that,
    > and it is the only option for a tool that cannot send headers. Three
-   > columns only, so the response comes back whole; the public `/sound/` page
+   > columns only, so the response comes back whole; the public `/soundtracks/` page
    > still uses `select=*`.
    >
    > **WebFetch returns 403 for this host and curl returns 200**, on the same
@@ -288,10 +288,10 @@ winter costs nothing.
 3. Researches songs and verifies every Spotify ID by web search.
 4. Runs the housekeeping pass below.
 5. Writes the songs through `tgb_pull_soundtrack_songs`, which puts them live on
-   `/sound/` immediately. **The newest song row is the run receipt** — that is
+   `/soundtracks/` immediately. **The newest song row is the run receipt** — that is
    what the dashboard's "Last run" reads, not a commit.
 6. Runs `node _dev/scripts/soundtracks-export.mjs` and commits
-   `sound/soundtracks.json` if it changed, so the offline fallback never drifts
+   `soundtracks/soundtracks.json` if it changed, so the offline fallback never drifts
    more than a day behind the tables. That commit is the run's only write to git,
    and it is allowed to be a no-op.
 
@@ -339,7 +339,7 @@ is high, nothing is.
   allows, and a second one is dropped.
 - Put the problem in `detail`, in one sentence someone can act on. Put a concrete
   fix in `suggestion` **only when you have verified it**.
-- Say nothing about **archived** songs. They are already off `/sound/`.
+- Say nothing about **archived** songs. They are already off `/soundtracks/`.
 - **Do not fix what you find.** Noticing is automatable; deciding is not. The one
   exception is a song you added yourself this run — fix that before you report it.
 - At most 40 findings a call. If a sweep produces more, report the most severe and
@@ -360,7 +360,7 @@ The checks themselves, unchanged since 2026-07-28:
 4. Active songs with missing titles, artists, or blurbs; blurbs outside 6–10
    words or ending in a period.
 5. Tapes with no songs, and tapes for cities that have since been hidden from
-   `/sound/`.
+   `/soundtracks/`.
 6. Tapes short of 15 active songs, shortest first — the backlog, expected to be
    long.
 7. Tapes **over** 15 active songs. Report how many surplus there are and name the
@@ -408,7 +408,7 @@ running or you will get two tapes a day.
 
 ## Who is listening (and why we cannot tell you)
 
-Visits to `/sound/` are counted by **Cloudflare Web Analytics**, live since
+Visits to `/soundtracks/` are counted by **Cloudflare Web Analytics**, live since
 2026-07-30 via [`assets/site-analytics.js`](../assets/site-analytics.js). It is
 free at any volume and cookieless with no per-visitor identifier, so there is **no
 consent banner and nothing to disclose in a privacy policy**.
@@ -446,7 +446,7 @@ targets the same RPC the routine uses, so nothing about the data path changes.
 
 To retire a song without letting the scraper bring it back, open the Tape Room's
 **Tapes & Tracks** panel, find the song, and press **Hide**. That writes
-`archived = true` to its row under your admin session: off `/sound/` immediately,
+`archived = true` to its row under your admin session: off `/soundtracks/` immediately,
 still on the city as a do-not-rescrape tombstone. **Show** puts it back. Add a
 replacement if the tape would otherwise have fewer than 15 active songs.
 
@@ -467,8 +467,8 @@ A rename or a move that collides with the `(city_slug, lower(title),
 lower(artist))` unique index is refused. The offending row is often a *hidden*
 one, so tick **Show hidden** before concluding the tape does not already have it.
 
-`sound/soundtracks.json` is **not** where you make a change. It is the offline
-fallback `/sound/` reads when Supabase is unreachable, and it goes stale the
+`soundtracks/soundtracks.json` is **not** where you make a change. It is the offline
+fallback `/soundtracks/` reads when Supabase is unreachable, and it goes stale the
 moment anything is written to the tables. The daily run refreshes it for you:
 
 ```bash
@@ -482,7 +482,7 @@ file.** The Tape Room has a **download a fresh copy** link under the track list
 that produces the same bytes, deliberately tucked away: the daily run regenerates
 and commits this file for you, so a human needs it only when the routine is down.
 
-After any edit, load `/sound/` and play the tape you touched.
+After any edit, load `/soundtracks/` and play the tape you touched.
 
 ---
 
@@ -491,13 +491,13 @@ After any edit, load `/sound/` and play the tape you touched.
 | Symptom | Likely cause |
 |---|---|
 | A song will not play | The `spotify_id` is wrong or the track was pulled. Null the column (keep title and artist) and the player falls back to search. |
-| A city is missing from `/sound/` | No row in `public.soundtracks`, its tape is `archived`, it has zero active songs, or the city is `hide_from_soundtracks` in `public.cities`. |
+| A city is missing from `/soundtracks/` | No row in `public.soundtracks`, its tape is `archived`, it has zero active songs, or the city is `hide_from_soundtracks` in `public.cities`. |
 | A city shows a slug instead of a name | It is not in `public.cities`. Add it there for the display name and geo badge. |
 | Runs keep topping up but never add a new city | The agent could not read `public.cities`. Either it used WebFetch (which 403s for this host — use curl) or the host fell off the environment's network allowlist (`403 to CONNECT`). See step 1 above. |
 | A tape is full of songs with no tie to the city | Generic arena anthems dressed up with local blurbs. Check the team-song pairing; archive wrong-city songs in this city, then add replacements or move the active song to the city whose team actually plays it. |
 | A tape got shorter after a run | Someone archived without replacing. The run itself cannot shorten a tape — it can only insert. |
 | A run reported 15 songs but the tape has fewer | The RPC skipped duplicates. Its result rows say which and why; a song already on the tape, active or archived, is silently not re-added. |
-| `/sound/` shows old tapes and new ones are missing | The Supabase fetch failed and the page fell back to `sound/soundtracks.json`. Check the browser console and the Supabase project; the file is expected to be stale. |
+| `/soundtracks/` shows old tapes and new ones are missing | The Supabase fetch failed and the page fell back to `soundtracks/soundtracks.json`. Check the browser console and the Supabase project; the file is expected to be stale. |
 | "Last run" on the dashboard is over a day old | A run failed, or the routine is paused. Open the routine and read the transcript. |
 | A finding you cleared as **Fixed** is back tomorrow | Working as designed — the fix did not take, or did not address what was flagged. Only **Not an issue** silences a finding permanently. |
 | A finding you dismissed never comes back even though it is real | Also by design. `dismissed` is caught by a partial unique index, so re-reporting is a database-level no-op. Set that row's `status` back to `open` in the Supabase table editor to un-silence it. |
@@ -511,7 +511,7 @@ After any edit, load `/sound/` and play the tape you touched.
 - `public.tgb_pull_soundtrack_songs` and `public.tgb_report_soundtrack_issues` are
   the **only** two write paths you need — one to add songs, one to file findings.
   Do not write the tables directly, do not use a service-role key, do not edit
-  `sound/soundtracks.json`, and do not create a third table, per-city HTML,
+  `soundtracks/soundtracks.json`, and do not create a third table, per-city HTML,
   `city-playlists.json`, `song-playlists.json`, or a build script — all of those
   existed once and were deliberately removed.
 - Song suggestions arrive at `soundtrack@thegamebureau.com`. **Check them before
@@ -526,7 +526,7 @@ After any edit, load `/sound/` and play the tape you touched.
   the push is rejected, `git pull --rebase` and push again — three other routines
   commit here every morning. Never force-push.
 - You cannot remove or archive a song, and that is deliberate. Archived rows are
-  city-specific do-not-rescrape tombstones: hidden from `/sound/`, ignored by
+  city-specific do-not-rescrape tombstones: hidden from `/soundtracks/`, ignored by
   counts, and still blocking future title + artist reuse in that city. Name what
   needs retiring in your summary, file it as an issue, and a human does it.
 - You cannot clear a finding either. `status` is not a parameter of the reporting

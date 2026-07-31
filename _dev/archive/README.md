@@ -17,6 +17,20 @@ Old game runtime. A few files are **still load-bearing**:
 
 (`config/lemon-config.js` was moved to `/game/play/config/lemon-config.js`.)
 
+## mc/
+Mission Control pages archived 2026-07-30.
+- `mapper.html` — **the** game-route builder. Wrote `public.maps`
+  (`game_id -> waypoint_id, ord, end`); one row per stop, rows for a game =
+  that game's route. **Nothing else writes that table** — `overview.html` only
+  reads it to synthesize stop nodes — so with this archived there is no UI for
+  creating or reordering a route. Existing routes still render. Restore this
+  file if route editing is needed again.
+- `content.html` — a second, unrelated route builder: ordered `stops[]` plus
+  coordinate-only `turns`, saved to a local `atlas.jsonl` via the browser
+  file picker. Never touched Supabase; disjoint from the `maps` model above.
+- `challenges.html` — stale copy-fork of the game builder (its own `<h1>`
+  still said GAME BUILDER). Had no inbound links from anywhere in the repo.
+
 ## oswaldoldsite/
 Static snapshot of the old oswaldsdiary.com site.
 - **Still referenced?** No — purely archival.

@@ -71,9 +71,14 @@
           description: 'Generate, compare, and update public game taglines in bulk.'
         },
         {
-          href: '/mc/waypoints/',
+          href: '/mc/stops/waypoints.html',
           label: 'Waypoints',
           description: 'Manage the waypoints catalog — add, edit, and delete real-world points.'
+        },
+        {
+          href: '/mc/stops/',
+          label: 'Stop Builder',
+          description: 'Build a game’s route: order its stops and give each one a waypoint and a challenge.'
         },
         {
           href: '/mc/cities/index.htm',
@@ -84,11 +89,6 @@
           href: '/mc/anchor-events.html',
           label: 'Anchor Events',
           description: 'Manage the anchor-events catalog — the real sporting matchups a fandom game can be anchored to. Bulk-import, add, edit, delete.'
-        },
-        {
-          href: '/mc/mapper.html',
-          label: 'Game Mapper',
-          description: 'Build a game’s route from ordered waypoints and save it to the map.'
         }
       ]
     },
