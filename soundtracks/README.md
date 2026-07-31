@@ -434,7 +434,7 @@ consent banner and nothing to disclose in a privacy policy**.
   Pages and no request passes through the proxy that would inject it.
   Auto-injection would silently collect nothing.
 - The script **refuses admin surfaces itself** (`/mc/`, `/account/`, any `/admin/`
-  path, `shop/giftcards.html`) plus localhost and LAN hosts, so our own sessions
+  path, `gifts/giftcards.html`) plus localhost and LAN hosts, so our own sessions
   do not swamp real visitor numbers on a site this size.
 
 ---

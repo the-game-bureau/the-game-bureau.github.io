@@ -33,7 +33,7 @@
     '<nav class="nav-links" aria-label="Primary">' +
       '<div class="nav-primary-links" aria-label="Featured">' +
         '<a class="nav-link nav-link--major nav-link--games nav-link--has-count" href="/games/"><span class="nav-label">GAMES</span>' + statBadges(['games']) + '</a>' +
-        '<a class="nav-link nav-link--major nav-link--gifts nav-link--has-count" href="/shop/"><span class="nav-label">GIFTS</span>' + statBadges(['gifts']) + '</a>' +
+        '<a class="nav-link nav-link--major nav-link--gifts nav-link--has-count" href="/gifts/"><span class="nav-label">GIFTS</span>' + statBadges(['gifts']) + '</a>' +
         '<a class="nav-link nav-link--major nav-link--sound nav-link--has-count" href="/soundtracks/"><span class="nav-label">SOUNDTRACKS</span>' + statBadges(['soundtracks']) + '</a>' +
         '<a class="nav-link nav-link--major nav-link--highlights nav-link--has-count" href="/highlights/"><span class="nav-label">HIGHLIGHTS</span>' + statBadges(['highlights']) + '</a>' +
       '</div>' +

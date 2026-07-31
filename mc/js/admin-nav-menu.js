@@ -22,7 +22,7 @@
   // destination, it is no longer a top-bar button on any page.
   var OPERATIONS_LINK = {
     label: 'OPERATIONS',
-    href: '/shop/operations.html'
+    href: '/gifts/operations.html'
   };
 
   // localStorage key the game editor (overview.html) uses to remember the last
@@ -97,7 +97,7 @@
       // (Google Cloud, Amazon Associates, Bookshop.org) now live on the Stock
       // Room page itself, so the hub just needs the one door in.
       label: 'Stock Room',
-      href: '/shop/admin/',
+      href: '/gifts/admin/',
       description: 'Manage gift-shop items — links, images, cities, and publish/archive state.'
     },
     {

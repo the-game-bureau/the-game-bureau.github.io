@@ -10,11 +10,11 @@
  *
  * This replaces the copy-pasted US_STATES / COUNTRY_CODES maps and the
  * canonicalShopCity()/cityGeoBadge() logic that previously lived in
- * games/index.html, shop/index.html and shop/admin/index.html. Load it with
+ * games/index.html, gifts/index.html and gifts/admin/index.html. Load it with
  * <script src="/assets/geo.js"></script> and read window.TgbGeo.
  *
  * Canonical composed-string standard (the value stored in games.city /
- * cities.city and passed through the /shop/?city= URL):
+ * cities.city and passed through the /gifts/?city= URL):
  *   - US:   "City, FullStateName"        (e.g. "Denver, Colorado")
  *   - DC:   "City, D.C."                  (e.g. "Washington, D.C.")
  *   - Intl: "City, CountryName"          (e.g. "Paris, France")

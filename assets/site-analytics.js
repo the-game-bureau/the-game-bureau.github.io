@@ -38,7 +38,7 @@
   // sessions in them would swamp real visitor numbers on a site this size.
   var path = String(window.location.pathname || '').toLowerCase();
   if (/^\/(mc|account)\//.test(path) || /\/admin\//.test(path)
-    || /^\/shop\/giftcards/.test(path)) return;
+    || /^\/gifts\/giftcards/.test(path)) return;
 
   var beacon = document.createElement('script');
   // type="module" matches the snippet Cloudflare hands out, and beacon.min.js is

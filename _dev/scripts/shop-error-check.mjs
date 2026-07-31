@@ -7,9 +7,9 @@
 // in the slice we test the gift's Link (`url`) and Image (`image_url`).
 //
 // Results are merged into a persistent per-item state embedded in
-// shop/admin/gsissues.htm (so other days' results survive), the page is
+// gifts/admin/gsissues.htm (so other days' results survive), the page is
 // regenerated to show current errors, and a summary line is appended to
-// shop/admin/giftshop-errors.log.
+// gifts/admin/giftshop-errors.log.
 //
 // Admins can "ignore" an entry from the report page — that decision is stored
 // in Supabase (public.gift_shop_error_ignores), NOT in this file (which is
@@ -635,7 +635,7 @@ function buildHtml(state, meta, ignoredIds) {
 </head>
 <body>
   <div class="topbar">
-    <a class="topbar-back" href="/shop/admin/" title="Back to the Stock Room">← Stock Room</a>
+    <a class="topbar-back" href="/gifts/admin/" title="Back to the Stock Room">← Stock Room</a>
     <div class="topbar-actions">
       <button id="aiAuditBtn" type="button" title="Use AI to check every tracked gift's fields agree: Image matches Title, Title matches Link, and Shops line up.">AI audit</button>
       <button id="runCheckBtn" type="button" title="Kick off the Link/Image check on GitHub Actions now instead of waiting for the nightly run.">Run check now</button>
@@ -995,7 +995,7 @@ function buildHtml(state, meta, ignoredIds) {
       if (!rs.length) return;
       if (rs.length > 8 && !window.confirm('Open ' + rs.length + ' gifts for editing? That opens ' + rs.length + ' new tabs.')) return;
       rs.forEach(function (row) {
-        window.open('/shop/admin/?item=' + encodeURIComponent(row.dataset.itemId), '_blank', 'noopener');
+        window.open('/gifts/admin/?item=' + encodeURIComponent(row.dataset.itemId), '_blank', 'noopener');
       });
     }
     async function bulkIgnore() {
@@ -1029,7 +1029,7 @@ function buildHtml(state, meta, ignoredIds) {
       // Open in gift admin — pure navigation, no write, no auth prompt (the
       // gift admin gates itself).
       if (action === 'stockroom') {
-        window.open('/shop/admin/?item=' + encodeURIComponent(id), '_blank', 'noopener');
+        window.open('/gifts/admin/?item=' + encodeURIComponent(id), '_blank', 'noopener');
         return;
       }
 
@@ -1293,7 +1293,7 @@ function buildHtml(state, meta, ignoredIds) {
           return '<tr>' +
             '<td class="t">' + esc(r.city) + '</td>' +
             '<td><span class="b b-error">' + r.n + ' gift' + (r.n === 1 ? '' : 's') + '</span></td>' +
-            '<td class="act"><a class="edit" href="/shop/admin/?city=' + encodeURIComponent(r.city) +
+            '<td class="act"><a class="edit" href="/gifts/admin/?city=' + encodeURIComponent(r.city) +
               '" target="_blank" rel="noopener">edit gifts</a></td>' +
           '</tr>';
         }).join('');

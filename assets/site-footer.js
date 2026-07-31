@@ -27,7 +27,7 @@
     /* Right column mirrors the left: the social row, with Mission Control on its
        own line beneath it. */
     '.footer-social-stack{display:grid;gap:4px;justify-items:end;}',
-    /* Field guide lightbox: the article lives at /shop/aboutshop.html and is
+    /* Field guide lightbox: the article lives at /gifts/aboutshop.html and is
        fetched on demand, so there is one copy of the text for every page. The
        injected article arrives without that page's stylesheet, so these rules
        dress it. */
@@ -67,7 +67,7 @@
   ].join('');
 
   // "How our shop works" opens in place rather than navigating away. The source
-  // of truth stays /shop/aboutshop.html — fetch it, lift its <article>, drop it
+  // of truth stays /gifts/aboutshop.html — fetch it, lift its <article>, drop it
   // in a lightbox. Modified clicks and any failure fall through to the link.
   function wireDocLightbox(link) {
     if (!link || typeof DOMParser !== 'function') return;
@@ -119,7 +119,7 @@
           if (!article) throw new Error('no article');
           // "Back to the shop" is a page affordance; here the close button is
           // the way out.
-          Array.prototype.slice.call(article.querySelectorAll('a[href="/shop/"]')).forEach(function (a) {
+          Array.prototype.slice.call(article.querySelectorAll('a[href="/gifts/"]')).forEach(function (a) {
             var p = a.closest('p');
             if (p) p.remove(); else a.remove();
           });
@@ -160,13 +160,13 @@
 
   // Mission Control: the admin surface for whichever section you are on, always
   // resolved relative to the CURRENT directory — /soundtracks/ -> /soundtracks/admin/,
-  // /shop/ -> /shop/admin/. Deriving it from location.pathname keeps one shared
+  // /gifts/ -> /gifts/admin/. Deriving it from location.pathname keeps one shared
   // footer working everywhere instead of hard-coding a section into shared code.
   //
   // Only sections that actually HAVE an admin get the link; this footer also
   // renders on /games/, /how/, /account/ and friends, where the same relative
   // href would be a 404. Add a directory here when it gains an admin page.
-  var MISSION_CONTROL_DIRS = ['/shop/admin/', '/soundtracks/admin/', '/highlights/admin/', '/socials/admin/'];
+  var MISSION_CONTROL_DIRS = ['/gifts/admin/', '/soundtracks/admin/', '/highlights/admin/', '/socials/admin/'];
 
   function missionControlHref() {
     var path = window.location.pathname || '/';
@@ -181,7 +181,7 @@
     '<div class="footer-bottom">' +
       '<span class="footer-mark-stack">' +
         '<span class="footer-mark">&copy; The Game Bureau</span>' +
-        '<a class="footer-doc-link" href="/shop/aboutshop.html">How our shop works &rsaquo;</a>' +
+        '<a class="footer-doc-link" href="/gifts/aboutshop.html">How our shop works &rsaquo;</a>' +
       '</span>' +
       '<span class="footer-social-stack">' +
         '<span class="footer-social-links">' +
