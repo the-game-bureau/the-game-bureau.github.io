@@ -74,6 +74,21 @@
       match: /^\/highlights\/admin\//,
       // Trophy.
       icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9H4.5a2.5 2.5 0 0 1 0-5H6'/%3E%3Cpath d='M18 9h1.5a2.5 2.5 0 0 0 0-5H18'/%3E%3Cpath d='M4 22h16'/%3E%3Cpath d='M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22'/%3E%3Cpath d='M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22'/%3E%3Cpath d='M18 2H6v7a6 6 0 0 0 12 0V2Z'/%3E%3C/svg%3E"
+    },
+    {
+      key: 'socials',
+      label: 'SOCIALS',
+      href: '/socials/admin/',
+      title: 'Admin socials',
+      // NOT '/socials/': that page is index.htm, and GitHub Pages only serves
+      // index.html as a directory index, so the bare directory 404s in
+      // production even though a local static server resolves it.
+      publicHref: '/socials/index.htm',
+      publicTitle: 'Public socials page',
+      match: /^\/socials\/admin\//,
+      // Three connected nodes — the share glyph, not a single platform's logo:
+      // this room covers every account, so it must not look like one of them.
+      icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='18' cy='5' r='3'/%3E%3Ccircle cx='6' cy='12' r='3'/%3E%3Ccircle cx='18' cy='19' r='3'/%3E%3Cline x1='8.59' y1='13.51' x2='15.42' y2='17.49'/%3E%3Cline x1='15.41' y1='6.51' x2='8.59' y2='10.49'/%3E%3C/svg%3E"
     }
   ];
 
