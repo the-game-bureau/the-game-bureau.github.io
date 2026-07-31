@@ -25,7 +25,7 @@
     href: '/gifts/operations.html'
   };
 
-  // localStorage key the game editor (overview.html) uses to remember the last
+  // localStorage key the game editor (games/admin/profiles.html) uses to remember the last
   // opened game. EDIT GAMES links to that game so it reopens where you left off.
   var OPEN_GAME_KEY = 'tgb-games-phoneanalogy-open';
 
@@ -44,7 +44,7 @@
   var MENU_GROUPS = [
     {
       label: 'EDIT GAMES',
-      href: '/mc/overview.html',
+      href: '/games/admin/profiles.html',
       appendOpenGameId: true
     },
     {
@@ -93,10 +93,10 @@
       ]
     },
     {
-      // Single button to the Stock Room. The affiliate/API reference links
-      // (Google Cloud, Amazon Associates, Bookshop.org) now live on the Stock
-      // Room page itself, so the hub just needs the one door in.
-      label: 'Stock Room',
+      // Single button to the gift shop admin. The affiliate/API reference links
+      // (Google Cloud, Amazon Associates, Bookshop.org) now live on that page
+      // itself, so the hub just needs the one door in.
+      label: 'Gift Shop Admin',
       href: '/gifts/admin/',
       description: 'Manage gift-shop items — links, images, cities, and publish/archive state.'
     },

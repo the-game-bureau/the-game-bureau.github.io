@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex">
-  <title>TAPE ROOM | THE GAME BUREAU</title>
+  <title>SOUNDTRACKS ADMIN | THE GAME BUREAU</title>
   <link rel="icon" href="../mixtape.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -154,17 +154,6 @@
       background: rgba(255, 255, 255, 0.78);
     }
 
-    .admin-auth-toggle {
-      min-height: 42px;
-      padding-inline: 14px;
-      white-space: nowrap;
-    }
-
-    .admin-auth-toggle.is-signed-in {
-      border-color: rgba(194, 55, 55, 0.44);
-      color: var(--bic-red);
-    }
-
     .panel-head-actions {
       display: flex;
       align-items: center;
@@ -289,23 +278,52 @@
       background: var(--bic-red);
     }
 
-    /* One line where it fits, wrapping to two on a narrow window. */
+    /* Always one line now that this sits under the room title: it wraps only by
+       losing the tail to an ellipsis, so the header never grows a second row. */
     .run-body {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       align-items: baseline;
-      gap: 2px 8px;
+      gap: 8px;
       min-width: 0;
+      overflow: hidden;
+    }
+
+    .run-body .run-sub {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Counts, then the run signal, on a single line under the title. Everything
+       else about this element comes from .room-substat in admin-shell.css; only
+       the row behaviour is local. The middle dot is drawn by CSS so neither half
+       has to know about the other. */
+    .room-substat--row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .room-substat--row > * { flex: 0 0 auto; }
+    .room-substat--row .run-status { min-width: 0; overflow: hidden; }
+
+    .room-substat--row #trackArchiveStatus::after {
+      content: "\00b7";
+      margin-left: 10px;
+      color: var(--line);
     }
 
     /* Plain text, same weight and colour as the counts line above it. The dot
        carries the state on its own, so the words do not need to shout. */
     .run-line,
     .run-sub {
-      color: var(--muted);
-      font-size: 0.8rem;
-      font-weight: 400;
-      line-height: 1.35;
+      color: inherit;
+      font: inherit;
     }
 
     .panel-status {
@@ -743,125 +761,49 @@
 
       
     }
-    .stockroom-head {
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      min-height: 72px;
-      padding: 0 12px;
-      margin: 0 0 var(--stack-gap);
-    }
-    .stockroom-head-lockup,
-    .stockroom-head-status { position: relative; z-index: 1; }
-    .stockroom-head-lockup { display: flex; align-items: center; gap: 12px; min-width: 0; }
-    /* The gear art, mirrored — a faint watermark sunk into the page grid at the
-       left of the header, bleeding off the left edge. */
-    .stockroom-gear {
-      position: absolute;
-      top: 50%;
-      left: -28px;
-      transform: translateY(-50%) scaleX(-1);
-      width: 184px;
-      height: 184px;
-      z-index: 0;
-      pointer-events: none;
-      overflow: visible;
-    }
-    .stockroom-gear .header-gear { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-    .stockroom-gear .header-gear--large { stroke: rgba(var(--bic-blue-rgb), 0.15); }
-    .stockroom-gear .header-gear--small { stroke: rgba(var(--bic-blue-rgb), 0.11); }
-    .stockroom-gear .header-gear-body { fill: rgba(var(--bic-blue-rgb), 0.022); stroke-width: 3.4; }
-    .stockroom-gear .header-gear-ring { fill: none; stroke-width: 3; }
-    .stockroom-gear .header-gear-inner { fill: none; stroke-width: 2.4; }
-    .stockroom-gear .header-gear-spoke { fill: rgba(var(--bic-blue-rgb), 0.06); stroke: none; }
-    .stockroom-gear .header-gear-core { fill: rgba(var(--bic-blue-rgb), 0.05); stroke-width: 2.2; }
-    .stockroom-gear .header-gear-bore { fill: none; stroke-width: 2; }
-    .stockroom-gear .header-gear-crosshair { stroke: rgba(var(--bic-blue-rgb), 0.12); stroke-width: 1.4; }
-    .stockroom-gear .header-gear-atmosphere,
-    .stockroom-gear .header-gear-halo { display: none; }
-    .stockroom-titlecol { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-    .stockroom-eyebrow {
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.6rem;
-      font-weight: 800;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: rgba(var(--bic-blue-rgb), 0.9);
-      text-shadow:
-        0 0 3px var(--paper-base),
-        0 0 3px var(--paper-base),
-        0 0 5px var(--paper-base);
-    }
-    .stockroom-title {
-      margin: 0;
-      font-size: 1.7rem;
-      letter-spacing: 0.03em;
-      line-height: 1;
-    }
     /* Header right side: push the Soundtracks link and the auth toggle to the
        far edge, the way the Stock Room does. */
-    /* Six buttons now. Slightly tighter than the body's .btn so the row stays on
-       the title's line instead of wrapping under it. */
-    .stockroom-head-status .btn {
-      padding: 8px 12px;
-      font-size: 0.8rem;
-    }
 
-    .stockroom-head-status {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
   </style>
   <link rel="stylesheet" href="../../mc/js/admin-shell.css">
 </head>
 <body class="mc-auth-protected">
   <main class="app">
-    <div class="stockroom-head">
-      <svg class="stockroom-gear" viewBox="128 -12 220 216" aria-hidden="true">
-        <g class="header-gear header-gear--large" transform="translate(212 72) rotate(-14)">
-          <polygon class="header-gear-body" points="-11.3,-65.0 -13.8,-78.8 -7.5,-79.6 7.5,-79.6 13.8,-78.8 11.3,-65.0 22.7,-62.0 27.5,-75.1 33.3,-72.7 46.3,-65.2 51.3,-61.4 42.3,-50.6 50.6,-42.3 61.4,-51.3 65.2,-46.3 72.7,-33.3 75.1,-27.5 62.0,-22.7 65.0,-11.3 78.8,-13.8 79.6,-7.5 79.6,7.5 78.8,13.8 65.0,11.3 62.0,22.7 75.1,27.5 72.7,33.3 65.2,46.3 61.4,51.3 50.6,42.3 42.3,50.6 51.3,61.4 46.3,65.2 33.3,72.7 27.5,75.1 22.7,62.0 11.3,65.0 13.8,78.8 7.5,79.6 -7.5,79.6 -13.8,78.8 -11.3,65.0 -22.7,62.0 -27.5,75.1 -33.3,72.7 -46.3,65.2 -51.3,61.4 -42.3,50.6 -50.6,42.3 -61.4,51.3 -65.2,46.3 -72.7,33.3 -75.1,27.5 -62.0,22.7 -65.0,11.3 -78.8,13.8 -79.6,7.5 -79.6,-7.5 -78.8,-13.8 -65.0,-11.3 -62.0,-22.7 -75.1,-27.5 -72.7,-33.3 -65.2,-46.3 -61.4,-51.3 -50.6,-42.3 -42.3,-50.6 -51.3,-61.4 -46.3,-65.2 -33.3,-72.7 -27.5,-75.1 -22.7,-62.0"></polygon>
-          <circle class="header-gear-ring" r="54"></circle>
-          <circle class="header-gear-inner" r="34"></circle>
-          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5"></rect>
-          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(60)"></rect>
-          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(120)"></rect>
-          <circle class="header-gear-core" r="11"></circle>
-          <circle class="header-gear-bore" r="5.5"></circle>
-          <line class="header-gear-crosshair" x1="-18" y1="0" x2="18" y2="0"></line>
-          <line class="header-gear-crosshair" x1="0" y1="-18" x2="0" y2="18"></line>
-        </g>
-        <g class="header-gear header-gear--small" transform="translate(286 132) rotate(19)">
-          <polygon class="header-gear-body" points="-9.8,-45.0 -12.3,-56.7 -6.5,-57.6 6.5,-57.6 12.3,-56.7 9.8,-45.0 18.5,-42.1 23.4,-53.1 28.6,-50.5 39.2,-42.8 43.3,-38.6 34.3,-30.6 39.7,-23.2 50.1,-29.2 52.8,-24.0 56.8,-11.6 57.7,-5.8 45.8,-4.6 45.8,4.6 57.7,5.8 56.8,11.6 52.8,24.0 50.1,29.2 39.7,23.2 34.3,30.6 43.3,38.6 39.2,42.8 28.6,50.5 23.4,53.1 18.5,42.1 9.8,45.0 12.3,56.7 6.5,57.6 -6.5,57.6 -12.3,56.7 -9.8,45.0 -18.5,42.1 -23.4,53.1 -28.6,50.5 -39.2,42.8 -43.3,38.6 -34.3,30.6 -39.7,23.2 -50.1,29.2 -52.8,24.0 -56.8,11.6 -57.7,5.8 -45.8,4.6 -45.8,-4.6 -57.7,-5.8 -56.8,-11.6 -52.8,-24.0 -50.1,-29.2 -39.7,-23.2 -34.3,-30.6 -43.3,-38.6 -39.2,-42.8 -28.6,-50.5 -23.4,-53.1 -18.5,-42.1"></polygon>
-          <circle class="header-gear-ring" r="38"></circle>
-          <circle class="header-gear-inner" r="24"></circle>
-          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5"></rect>
-          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(60)"></rect>
-          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(120)"></rect>
-          <circle class="header-gear-core" r="7.5"></circle>
-          <circle class="header-gear-bore" r="3.8"></circle>
-          <line class="header-gear-crosshair" x1="-12" y1="0" x2="12" y2="0"></line>
-          <line class="header-gear-crosshair" x1="0" y1="-12" x2="0" y2="12"></line>
-        </g>
-      </svg>
-      <div class="stockroom-head-lockup">
-        <div class="stockroom-titlecol">
-          <span class="stockroom-eyebrow">THE GAME BUREAU</span>
-          <h1 class="stockroom-title" id="pageTitle">TAPE ROOM</h1>
+    <!-- Shared admin nav. Looks like the public site nav; every button goes to
+         that section's ADMIN page. See mc/js/admin-site-nav.js. -->
+    <header class="admin-site-nav" data-admin-site-nav></header>
+    <script src="/mc/js/admin-site-nav.js"></script>
+
+    <div class="room-head">
+      <!-- No gear watermark here: the shared admin nav at the top of the
+           page carries one, and two of them stacked down the left edge
+           read as a mistake. See mc/js/admin-site-nav.js. -->
+      <div class="room-titlecol">
+          <!-- No eyebrow: the shared admin nav directly above already says
+               THE GAME BUREAU. -->
+        <h1 class="room-title" id="pageTitle">SOUNDTRACKS ADMIN</h1>
+          <!-- Counts and last-run moved up here from the Tapes & Tracks panel
+               head, on one line. Same element ids, so every writer of them is
+               unchanged: #trackArchiveStatus is also the panel's status channel,
+               so "Saved ..." and write errors still land here. -->
+        <div class="room-substat room-substat--row">
+          <span id="trackArchiveStatus">Waiting for sign-in.</span>
+            <!-- The one live signal on the page, and the reason it is a signal:
+                 a run that errored writes nothing, so a stale last-run IS the
+                 failure notice. TAPE MAKER BOT, in the badge row below, is where
+                 you go to fix it. -->
+          <span class="run-status" id="runStatus" data-state="loading">
+            <span class="run-dot" aria-hidden="true"></span>
+            <span class="run-body">
+              <span class="run-line" id="runWhen">Checking last run&hellip;</span>
+              <span class="run-sub" id="runWhat"></span>
+            </span>
+          </span>
         </div>
       </div>
-      <div class="stockroom-head-status">
-        <a class="btn" href="/gifts/admin/" title="Open the gift shop Stock Room">Stock Room</a>
-        <button class="btn" type="button" disabled aria-current="page" title="You are in Tape Room">Tape Room</button>
-        <a class="btn primary" href="/soundtracks/" target="_blank" rel="noopener noreferrer" title="Open the public soundtracks page in a new tab">Soundtracks</a>
-        <button class="btn admin-auth-toggle" id="adminAuthToggleBtn" type="button" aria-label="ADMIN LOGON" title="ADMIN LOGON">ADMIN LOGON</button>
-      </div>
+      <!-- Cross-page buttons (gift shop admin / this room / Soundtracks) all moved
+           out: the first two are the shared admin nav at the top of the page,
+           and sign-in is the padlock at the end of it. -->
     </div>
 
     <!-- The page is the work: findings to clear, then every tape and track to
@@ -871,7 +813,7 @@
          reads before touching a tape. One copy, not two that drift. -->
     <section class="prompt-panel room-intro" aria-label="What this page is">
       <div class="room-intro-body">
-        <p>Soundtracks are an added feature of the website so players can feel a city's pulse. It does not directly generate revenue. This is the Tape Room where Soundtracks are administered.</p>
+        <p>Soundtracks are an added feature of the website so players can feel a city's pulse. It does not directly generate revenue. This is where Soundtracks are administered.</p>
       </div>
     </section>
 
@@ -915,21 +857,7 @@
         <div class="panel-head">
           <div class="panel-headcol">
             <h2 class="panel-title" id="archiveTitle" title="public.soundtracks + public.soundtrack_songs">Tapes &amp; Tracks</h2>
-            <!-- Counts sit directly under the title. This element is also the
-                 panel's status channel, so "Saved …" and any write error land
-                 here too. -->
-            <div class="panel-status panel-status--sub" id="trackArchiveStatus">Waiting for sign-in.</div>
-            <!-- The one live signal on the page, and the reason it is a signal:
-                 a run that errored writes nothing, so a stale last-run IS the
-                 failure notice. Open Routine, in the badge row above, is where
-                 you go to fix it. -->
-            <div class="run-status" id="runStatus" data-state="loading">
-              <span class="run-dot" aria-hidden="true"></span>
-              <div class="run-body">
-                <span class="run-line" id="runWhen">Checking last run&hellip;</span>
-                <span class="run-sub" id="runWhat"></span>
-              </div>
-            </div>
+            <!-- Counts and last-run moved up under the room title. -->
           </div>
           <span class="panel-head-actions">
             <button class="btn small" id="reloadArchiveBtn" type="button" title="Re-read the tables and collapse every open tape">Reload</button>
@@ -974,7 +902,7 @@
     },
     "fallbackFile": {
       "path": "soundtracks/soundtracks.json",
-      "role": "offline copy /soundtracks/ reads only when Supabase is unreachable. Not the source of truth. Do not hand-edit; regenerate with node _dev/scripts/soundtracks-export.mjs (or the Tape Room's Download JSON), which the daily routine runs and commits."
+      "role": "offline copy /soundtracks/ reads only when Supabase is unreachable. Not the source of truth. Do not hand-edit; regenerate with node _dev/scripts/soundtracks-export.mjs (or this page's Download JSON), which the daily routine runs and commits."
     },
     "cityCatalog": { "table": "public.cities", "excludeWhere": "hide_from_soundtracks = true (venue-only stadium towns and other non-destinations)" },
     "rules": [
@@ -1027,7 +955,6 @@
         publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
       };
 
-      var adminAuthToggleBtn = document.getElementById('adminAuthToggleBtn');
       var trackArchiveStatus = document.getElementById('trackArchiveStatus');
       var trackArchiveList = document.getElementById('trackArchiveList');
       var reloadArchiveBtn = document.getElementById('reloadArchiveBtn');
@@ -1168,25 +1095,12 @@
         return row;
       }
 
-      // Same login/logout toggle the Stock Room carries: one button that reads
-      // ADMIN LOGON when signed out and ADMIN LOGOUT when signed in.
-      function setAdminAuthToggleState(signedIn) {
-        if (!adminAuthToggleBtn) return;
-        var label = signedIn ? 'ADMIN LOGOUT' : 'ADMIN LOGON';
-        adminAuthToggleBtn.textContent = label;
-        adminAuthToggleBtn.title = label;
-        adminAuthToggleBtn.setAttribute('aria-label', label);
-        adminAuthToggleBtn.classList.toggle('is-signed-in', !!signedIn);
-      }
-
       var adminAuth = window.TgbMcAdminAuth.create({
         supabaseConfig: SUPABASE_CONFIG,
         onAuthorized: function () {
-          setAdminAuthToggleState(true);
           loadSoundtrackArchive().catch(function () { /* status already shown */ });
         },
         onSignedOut: function () {
-          setAdminAuthToggleState(false);
           resetSoundtrackArchive();
         }
       });
@@ -2419,22 +2333,10 @@
 
       loadLastRun();
 
-      // Deliberately NOT calling TgbMcAdminNav.init — like the Stock Room, this
-      // page carries its own Soundtracks link and login/logout toggle instead of
-      // the shared MC nav, which injects TGB HOME / MISSION CONTROL buttons and
-      // then deletes the account button on every non-hub page.
-      setAdminAuthToggleState(false);
-      if (adminAuthToggleBtn) {
-        adminAuthToggleBtn.addEventListener('click', function () {
-          var session = adminAuth.getSession ? adminAuth.getSession() : null;
-          if (session && session.access_token) adminAuth.signOut({ silent: true });
-          else adminAuth.showAuth('Sign in with an admin account.');
-        });
-      }
-      window.addEventListener('tgb-admin-auth-change', function (event) {
-        var detail = event && event.detail;
-        setAdminAuthToggleState(!!(detail && detail.signedIn));
-      });
+      // Sign in / sign out is the padlock in the shared admin nav. Deliberately
+      // NOT TgbMcAdminNav.init, which injects TGB HOME / MISSION CONTROL buttons
+      // and then deletes the account button on every non-hub page.
+      if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
       adminAuth.init();
     }());
   </script>
