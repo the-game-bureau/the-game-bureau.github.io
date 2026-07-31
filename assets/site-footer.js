@@ -166,7 +166,7 @@
   // Only sections that actually HAVE an admin get the link; this footer also
   // renders on /games/, /how/, /account/ and friends, where the same relative
   // href would be a 404. Add a directory here when it gains an admin page.
-  var MISSION_CONTROL_DIRS = ['/gifts/admin/', '/soundtracks/admin/', '/highlights/admin/', '/socials/admin/'];
+  var MISSION_CONTROL_DIRS = ['/games/admin/', '/gifts/admin/', '/soundtracks/admin/', '/highlights/admin/', '/socials/admin/'];
 
   function missionControlHref() {
     var path = window.location.pathname || '/';

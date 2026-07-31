@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>GAME ADMIN | THE GAME BUREAU</title>
+  <link rel="icon" href="/assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    /* Same graph-paper palette as the Tape Room and the Stock Room, so the four
+       rooms read as one place. */
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --accent: var(--bic-blue);
+      --panel: rgba(255, 255, 255, 0.92);
+    }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(rgba(var(--bic-blue-rgb), 0.18) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--bic-blue-rgb), 0.18) 1px, transparent 1px),
+        linear-gradient(rgba(194, 55, 55, 0.14) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(194, 55, 55, 0.14) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+    }
+
+    a { color: var(--accent); }
+
+    /* Button bar. Same 12px inset as .room-head so the row lines up under the
+       title rather than with the page edge. */
+    .room-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0 12px;
+      margin: 0 0 12px;
+    }
+
+    .room-bar-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--ink);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-decoration: none;
+      text-transform: uppercase;
+      white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    .room-bar-btn:hover,
+    .room-bar-btn:focus-visible {
+      border-color: var(--accent);
+      background: #fff;
+      transform: translateY(-1px);
+      outline: none;
+    }
+  </style>
+  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <!-- Shared admin nav. Looks like the public site nav; every button goes to
+         that section's ADMIN page. See mc/js/admin-site-nav.js. -->
+    <header class="admin-site-nav" data-admin-site-nav></header>
+    <script src="/mc/js/admin-site-nav.js"></script>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <!-- No eyebrow: the shared admin nav directly above already says
+             THE GAME BUREAU. -->
+        <h1 class="room-title">Game Admin</h1>
+        <!-- Counts sit directly under the title, the way every other room's do:
+             .room-substat in mc/js/admin-shell.css. Filled by loadGameStats. -->
+        <p class="room-substat" id="gameStats"></p>
+      </div>
+    </div>
+
+    <!-- The tools, as a button bar, one row under the title where the other
+         rooms keep their badges. These editors were built before there was a
+         /games/admin/ to hold them, so they still live under /mc/. Move them in
+         here as this page grows; don't fork them. -->
+    <div class="room-bar" role="group" aria-label="Game tools">
+      <a class="room-bar-btn" href="profiles.html" title="Name, city, teams, price, engine, start location — writes public.games">Game profiles</a>
+      <a class="room-bar-btn" href="/mc/builder.html" title="Build the conversation flow — messages, prompts, and branching">Game builder</a>
+      <a class="room-bar-btn" href="/mc/stops/" title="City, waypoint, challenge — one Stop at a time; writes public.stops">Stop builder</a>
+      <a class="room-bar-btn" href="/mc/stops/waypoints.html" title="The catalog of real places, plus the nightly scout's candidates">Waypoint finder</a>
+    </div>
+  </main>
+
+  <script src="/mc/js/supabase-rest.js"></script>
+  <script src="/mc/js/admin-auth.js"></script>
+  <script>
+    (function () {
+      var SUPABASE_CONFIG = {
+        url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+        publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+      };
+
+      var gameStats = document.getElementById('gameStats');
+
+      function restUrl(table, params) {
+        var url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+        Object.keys(params || {}).forEach(function (key) {
+          if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+            url.searchParams.set(key, String(params[key]));
+          }
+        });
+        return url.toString();
+      }
+
+      // `archived` on public.games is TEXT, not boolean: 'YES' is true and null
+      // or empty is false, and a JS boolean written there lands as the STRING
+      // 'false', which is truthy. So the test is on content, never on presence.
+      // See the games-table conventions in CLAUDE.md.
+      function isArchived(value) {
+        return String(value == null ? '' : value).trim() !== '';
+      }
+
+      async function loadGameStats() {
+        if (!gameStats) return;
+        gameStats.classList.remove('is-error');
+        gameStats.textContent = 'Counting games…';
+        try {
+          // Paginated: an unbounded read stops at 1000 rows without erroring,
+          // and this table is the one most likely to cross it.
+          var rows = await window.TgbRest.fetchAll(
+            restUrl('games', { select: 'id,archived' }),
+            {
+              apikey: SUPABASE_CONFIG.publishableKey,
+              Authorization: 'Bearer ' + SUPABASE_CONFIG.publishableKey
+            }
+          );
+          var archived = rows.filter(function (row) { return isArchived(row.archived); }).length;
+          var live = rows.length - archived;
+          gameStats.textContent =
+            'GAME STATS: ' + live + ' live + ' + archived + ' archived = ' +
+            rows.length + ' game' + (rows.length === 1 ? '' : 's');
+        } catch (error) {
+          gameStats.classList.add('is-error');
+          gameStats.textContent = 'Could not count games.';
+        }
+      }
+
+      var adminAuth = window.TgbMcAdminAuth.create({
+        supabaseConfig: SUPABASE_CONFIG,
+        onAuthorized: function () { loadGameStats(); },
+        onSignedOut: function () { if (gameStats) gameStats.textContent = ''; }
+      });
+
+      // Sign in / sign out is the padlock in the shared admin nav.
+      if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
+
+      // init() is what restores a session or opens the sign-in modal. create()
+      // only builds the controller — without this the page stays blank, since
+      // body.mc-auth-protected hides everything until it is authorized.
+      adminAuth.init();
+    }());
+  </script>
+</body>
+</html>
