@@ -71,7 +71,7 @@
           description: 'Generate, compare, and update public game taglines in bulk.'
         },
         {
-          href: '/mc/stops/waypoints.html',
+          href: '/data/waypoints.html',
           label: 'Waypoints',
           description: 'Manage the waypoints catalog — add, edit, and delete real-world points.'
         },

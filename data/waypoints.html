@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>WAYPOINTS | THE GAME BUREAU</title>
-  <link rel="icon" href="../../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="icon" href="/assets/brand/tgb.ico" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -949,7 +949,7 @@
 
     }
   </style>
-  <link rel="stylesheet" href="../js/admin-shell.css">
+  <link rel="stylesheet" href="/mc/js/admin-shell.css">
 </head>
 <body class="mc-auth-protected">
   <main class="app">
@@ -1010,6 +1010,7 @@
       <span class="command-bar-label">Add</span>
       <button class="btn small" id="newBtn" type="button" title="Add one waypoint by hand in a pop-up form">Manual</button>
       <button class="btn small primary" id="promptBtn" type="button" title="Find stops for a city — pull them live from OpenStreetMap, or get an AI prompt that returns Supabase SQL">With AI</button>
+      <button class="btn small" id="sportsPromptBtn" type="button" title="AI prompt for football-history places that sit OUTSIDE the team's own city — a player's hometown, a coach's grave, the church where he married">With AI (sports)</button>
       <button class="btn small" id="nightlyBtn" type="button" title="What the nightly walking-tour run found this morning">NIGHTLY</button>
       <!-- Editing a page of ten cards leaves ten Save buttons to hit. This is the
            same per-row PATCH the card buttons run, once per dirty row. -->
@@ -1070,12 +1071,12 @@
 
 
 
-  <script src="../js/admin-auth.js"></script>
-  <script src="../js/admin-shell.js"></script>
-  <script src="../js/admin-nav-menu.js"></script>
-  <script src="../js/supabase-rest.js"></script>
-  <script src="../../assets/geo.js"></script>
-  <script src="../../assets/city-picker.js"></script>
+  <script src="/mc/js/admin-auth.js"></script>
+  <script src="/mc/js/admin-shell.js"></script>
+  <script src="/mc/js/admin-nav-menu.js"></script>
+  <script src="/mc/js/supabase-rest.js"></script>
+  <script src="/assets/geo.js"></script>
+  <script src="/assets/city-picker.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -2657,6 +2658,88 @@ end;
 $$;`.trim();
     }
 
+    // The sports variant of the helper above. Same JSON shape, one deliberate
+    // difference: a stop that already exists (same name + city) is NOT skipped —
+    // its new sentence is APPENDED to the description. That is the whole point of
+    // the sports pull. The places it finds are mostly places we already have for
+    // another reason (a hometown square, a college chapel, a cemetery); what is
+    // new is the football fact about them, and throwing that away because the row
+    // exists would discard the only thing the run produced.
+    //
+    // Rules that keep a re-paste safe:
+    //   * the append is skipped when the sentence is already in the description,
+    //     so running the same SQL twice does not stutter;
+    //   * archived rows are appended to but NEVER un-archived — archived is a
+    //     do-not-rescrape tombstone and this must not resurrect one;
+    //   * null state / zip / address / source_url are backfilled, but a value
+    //     that is already there is left alone. The AI does not overwrite a human.
+    // Keep in sync with supabase/waypoints-prompt-import.sql.
+    function buildWaypointSportsImportHelperSql() {
+      return String.raw`
+create or replace function public.tgb_import_waypoints_sports_items(items jsonb)
+returns table (action text, name text, wpid text, note text)
+language plpgsql
+as $$
+declare
+  v_entry jsonb;
+  v_name text; v_city text; v_state text; v_zip text; v_address text;
+  v_description text;
+  v_source_url text;
+  v_wpid public.waypoints.wpid%type;
+  v_row public.waypoints%rowtype;
+  v_merged text;
+begin
+  if items is null or jsonb_typeof(items) <> 'array' then
+    raise exception 'Expected a JSON array of waypoint objects.';
+  end if;
+  for v_entry in select value from jsonb_array_elements(items)
+  loop
+    v_name := nullif(btrim(v_entry->>'name'), '');
+    v_city := nullif(btrim(v_entry->>'city'), '');
+    v_state := nullif(btrim(v_entry->>'state'), '');
+    v_zip := nullif(btrim(v_entry->>'zip'), '');
+    v_address := nullif(btrim(v_entry->>'address'), '');
+    v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
+    v_source_url := nullif(btrim(v_entry->>'source_url'), '');
+    if v_name is null then
+      return query select 'skipped'::text, null::text, null::text, 'missing name'::text; continue;
+    end if;
+    v_row := null;
+    select w.* into v_row from public.waypoints w
+     where lower(btrim(coalesce(w.name, ''))) = lower(v_name)
+       and lower(btrim(coalesce(w.city, ''))) = lower(coalesce(v_city, '')) limit 1;
+
+    if v_row.wpid is null then
+      insert into public.waypoints as w (name, city, state, zip, address, description, source_url)
+      values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url)
+      returning w.wpid into v_wpid;
+      return query select 'inserted'::text, v_name, v_wpid::text, null::text;
+      continue;
+    end if;
+
+    -- Already here. Fold the football fact into the description rather than
+    -- dropping it, and fill in whatever fields are still blank.
+    if v_description is null then
+      return query select 'unchanged'::text, v_name, v_row.wpid::text, 'exists, nothing new to add'::text; continue;
+    end if;
+    if position(lower(v_description) in lower(coalesce(v_row.description, ''))) > 0 then
+      return query select 'unchanged'::text, v_name, v_row.wpid::text, 'already says this'::text; continue;
+    end if;
+    v_merged := left(btrim(coalesce(nullif(btrim(v_row.description), '') || ' ', '') || v_description), 1200);
+    update public.waypoints w
+       set description = v_merged,
+           state       = coalesce(w.state, v_state),
+           zip         = coalesce(w.zip, v_zip),
+           address     = coalesce(w.address, v_address),
+           source_url  = coalesce(w.source_url, v_source_url)
+     where w.wpid = v_row.wpid;
+    return query select 'appended'::text, v_name, v_row.wpid::text,
+      case when v_row.archived then 'appended to an ARCHIVED row; still archived' else null end;
+  end loop;
+end;
+$$;`.trim();
+    }
+
     // Existing waypoint names in the target city, so the AI won't re-suggest them.
     function existingWaypointNamesFor(area) {
       const city = (parseLocation(area).city || '').toLowerCase();
@@ -2894,6 +2977,123 @@ $$;`.trim();
         'Reusable helper source also lives in this repo at ' + WAYPOINT_IMPORT_HELPER_SQL_PATH + ', but the SQL you return must include the helper setup inline.',
         '',
         'Existing waypoints to exclude, by city (active and archived; do not re-suggest any of these names):',
+        JSON.stringify(existing, null, 2)
+      ].join('\n');
+    }
+
+    // --- Sports: NFL history in the wrong city -----------------------------------
+    // The other two prompts start from a city and ask what is in it. This one
+    // starts from the FOOTBALL and asks where it happened — and only keeps the
+    // answer when the where is somewhere other than the team's own town.
+    //
+    // Why that constraint earns its keep: a Steelers marker in Pittsburgh tells a
+    // visiting fan nothing they did not already assume. The church in Nashville
+    // where a Seahawk got married, the Ohio farm a Cowboys lineman grew up on, the
+    // Georgia cemetery a Packers coach is buried in — those turn an ordinary city
+    // into a stop on somebody's team's map, and they are exactly the stops no
+    // city-first sweep will ever surface, because no walking-tour list in Nashville
+    // is organised by which NFL team the groom played for.
+    //
+    // Consequence for the importer: these places usually ALREADY EXIST in our
+    // table, filed under some other reason. So this prompt pairs with
+    // tgb_import_waypoints_sports_items, which appends the football sentence to an
+    // existing row instead of skipping it. See buildWaypointSportsImportHelperSql.
+
+    // A capped sample of what we already have, as "Name — City" lines. Not an
+    // exclusion list in the strict sense: the sports pull is allowed to land on an
+    // existing row, and the importer folds its sentence in. It is here so the model
+    // can prefer genuinely new places and can see which cities we actually cover.
+    function existingWaypointSample(limit) {
+      const cap = Math.max(1, parseInt(limit, 10) || 500);
+      const seen = new Set();
+      const out = [];
+      state.rows.forEach((r) => {
+        const n = cleanText(r.name);
+        const c = cleanText(r.city);
+        if (!n) return;
+        const key = (n + '|' + c).toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push(n + (c ? ' — ' + c : ''));
+      });
+      out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      return out.slice(0, cap);
+    }
+
+    function buildNflSportsWaypointPrompt(count) {
+      const n = Math.max(1, Math.min(100, parseInt(count, 10) || 10));
+      const existing = existingWaypointSample(500);
+      const teamCities = NFL_US_CITIES.map((c) => cleanText(parseLocation(c).city)).filter(Boolean);
+
+      const sqlExample = [
+        buildWaypointSportsImportHelperSql(),
+        '',
+        'select *',
+        'from public.tgb_import_waypoints_sports_items($tgb$',
+        '[',
+        '  {',
+        '    "name": "St. Peter Catholic Church",',
+        '    "city": "Charleston",',
+        '    "state": "SC",',
+        '    "zip": "29403",',
+        '    "address": "100 Example St",',
+        '    "description": "Green Bay Packers linebacker Jane Doe married here in 1998, four states from Lambeau Field.",',
+        '    "source_url": "https://en.wikipedia.org/wiki/Example_Church"',
+        '  }',
+        ']',
+        '$tgb$::jsonb);'
+      ].join('\n');
+
+      return [
+        'You are a football historian helping The Game Bureau build a catalog of real, standable places for a location-based game played in NFL cities.',
+        '',
+        'Task: find up to ' + n + ' places in North America (United States, Canada, or Mexico) that carry a real, documented connection to American football — the NFL, its teams, players, coaches, owners, broadcasters, or league history.',
+        '',
+        'THE CATCH, and it is the entire point of this request:',
+        '- The place must be in a city that is NOT the home city of the NFL team it connects to. A Steelers site in Pittsburgh is worthless here; a Steelers site in Mobile, Alabama is exactly what I want.',
+        '- Example of a good find: a famous player who spent his career with the Seattle Seahawks got married in a particular church in New York City. The church is in New York; the football is Seattle\'s. That is the shape.',
+        '- Other shapes that work: the hometown, birthplace, childhood home, high school, or college field of a player who went on to play elsewhere; the cemetery or grave of a coach or owner; the hotel, hospital, or courthouse where a famous trade, signing, draft, lawsuit, injury, or franchise move happened; the site of a barnstorming or exhibition game; a birthplace-of-the-league or rule-change marker; a bar, diner, or statue that a team\'s fan diaspora adopted far from home.',
+        '- If the connection is to a team in that same city, DROP IT, however good the place is. There is no partial credit and no "well, he also played for..." — if a plausible reading puts the team in that town, leave the stop out.',
+        '- The 30 NFL home cities, for the avoidance of doubt: ' + teamCities.join(', ') + '. (Arizona = Phoenix, Carolina = Charlotte, New England = Boston, and both New York teams play in East Rutherford, NJ — treat New York and East Rutherford as the same market.)',
+        '',
+        ...WIKI_SOURCE_LINES,
+        '',
+        'How the sourcing rules bend for this job, and how they do not:',
+        '- The PERSON\'s or EVENT\'s Wikipedia article is where the football connection gets established. That is allowed and expected — an article about a person is not a candidate stop, but it is a fine source for the claim.',
+        '- The PLACE still has to be a place: something a person can walk up to and stand in front of, with a street address or coordinates you verified. A house someone was born in that has been demolished is not a stop. Say so and move on.',
+        '- Where a place has no Wikipedia article of its own, the Historical Marker Database (hmdb.org), the Pro Football Hall of Fame, a college or diocese site, or a local newspaper archive is an acceptable source_url — but the football claim must be sourced, not remembered.',
+        '- Do not use a private residence that is still lived in. A birthplace museum is fine; a stranger\'s current home is not.',
+        '',
+        'Research instructions:',
+        '- Do the research yourself with your web browsing/search tools. Do not ask me for a dataset; the deliverable is the finished SQL.',
+        '- Work from the football end, not the map end: pick players, coaches, and league events first, then find where they physically happened, then check the city against the team.',
+        '- Spread the picks across different teams and different eras. ' + n + ' stops about one franchise is a worse answer than ' + n + ' stops about ' + n + ' franchises.',
+        '- Never fabricate a place, an address, a date, or a connection. A smaller verified batch is the correct answer when the research does not support ' + n + '.',
+        '',
+        'Hard requirements for each JSON object:',
+        '- name: the place name. Required.',
+        '- city: the city the PLACE is in, as a plain string without the state (e.g. "Charleston"). This is the place\'s city, never the team\'s.',
+        '- state: the 2-letter code for US places, otherwise the country name (e.g. "Canada").',
+        '- zip: the postal/ZIP code as a string. REQUIRED whenever you have a street address — a ZIP is a lookup from a known street address, not a guess. Use null only when the stop genuinely has no street address.',
+        '- address: the STREET ONLY — house number and street name, e.g. "100 Example St". Never repeat the city, state, ZIP, or country here. Null if you do not know the street.',
+        '- description: ONE original sentence that states the football connection plainly and NAMES THE TEAM, so a reader can see at a glance why a place in this city is on that team\'s map. This sentence is the entire value of the row — write it as though the place itself is already known and only the football is news.',
+        '- source_url: REQUIRED on every object — the page that establishes the connection or the place.',
+        '- Do NOT include a wpid or id — the database assigns it.',
+        '- The JSON array may contain 1 to ' + n + ' objects. Do not pad with unverifiable entries.',
+        '- Do not put the literal sequence $tgb$ inside any JSON string value.',
+        '- Output the COMPLETE script as ONE copy-pasteable block: a single fenced ```sql code block (or a code artifact/canvas with a copy button). Do NOT split it across multiple blocks.',
+        '- CRITICAL for copy-paste: use ONLY plain ASCII characters. Straight apostrophes and straight double-quotes only; never smart/curly quotes, en/em dashes, non-breaking spaces, or other Unicode punctuation. Do not hard-wrap or reflow long lines. Those silently corrupt the SQL (especially the $tgb$ dollar-quoted JSON).',
+        '- The block must contain ONLY SQL — no prose, headings, or commentary before, after, or inside it. Put any notes after the block.',
+        '',
+        'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper with your verified stops. Note this is tgb_import_waypoints_sports_items, NOT the plain waypoints importer — do not substitute the other one. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
+        sqlExample,
+        '',
+        'About places we already have (the list below):',
+        '- Prefer places that are NOT on it. A new stop is worth more than a new sentence.',
+        '- But do NOT discard a great football connection just because the place is already in the list. Return it with its football sentence anyway: the importer matches on name + city and APPENDS your sentence to the existing description rather than skipping the row. That is deliberate — the place was already known, the football fact was not.',
+        '- Match the spelling of the name and city exactly as they appear below when you are returning an existing place, or the append will not find it.',
+        '',
+        'Places already in the catalog (name — city; a sample, not necessarily complete):',
         JSON.stringify(existing, null, 2)
       ].join('\n');
     }
@@ -3366,6 +3566,83 @@ $$;`.trim();
       ta.select();
     }
 
+    // --- With AI (sports): its own button, not a mode of the one above -----------
+    // The other three modes all start by choosing a place. This one has no place
+    // to choose — the whole search is "wherever the football turns out to be" —
+    // so folding it into the mode toggle would mean a mode whose picker is blank.
+    // One number, one button.
+    let aiSportsCount = 10;
+
+    function openSportsPromptDialog() {
+      const dialog = document.getElementById('promptDialog');
+      const backdrop = document.getElementById('promptBackdrop');
+      if (dialog) dialog.hidden = false;
+      if (backdrop) backdrop.hidden = false;
+      renderSportsChooser();
+    }
+
+    function renderSportsChooser() {
+      setPromptView('picker');
+      const title = document.getElementById('promptTitle');
+      if (title) title.textContent = 'Add waypoints with AI · sports';
+      const body = document.getElementById('promptBody');
+      if (!body) return;
+      body.innerHTML = '';
+
+      const hint = zipNote('Football history in the wrong city: places across North America tied to an NFL team, player, coach, or moment — but sitting in a city that is NOT that team’s home. A Seahawk’s wedding church in New York; a Cowboy’s childhood home in Ohio. If we already have the place, the football sentence is added to its description instead of being thrown away.');
+
+      const opts = document.createElement('div');
+      opts.className = 'prompt-opts';
+      const countWrap = document.createElement('label');
+      countWrap.className = 'prompt-opt';
+      countWrap.textContent = 'How many (max)';
+      const countInput = document.createElement('input');
+      countInput.type = 'number';
+      countInput.min = '1';
+      countInput.max = '100';
+      countInput.step = '1';
+      countInput.value = String(aiSportsCount);
+      countInput.addEventListener('input', () => {
+        aiSportsCount = Math.max(1, Math.min(100, parseInt(countInput.value, 10) || 10));
+      });
+      countWrap.appendChild(countInput);
+      opts.append(countWrap);
+
+      const go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'btn small primary';
+      go.textContent = 'Make AI prompt';
+      go.addEventListener('click', () => showSportsPrompt());
+      const goRow = document.createElement('div');
+      goRow.className = 'nfl-pick-go';
+      goRow.append(go);
+
+      body.append(hint, opts, goRow);
+      countInput.focus();
+      countInput.select();
+    }
+
+    function showSportsPrompt() {
+      setPromptView('prompt');
+      const title = document.getElementById('promptTitle');
+      if (title) title.textContent = 'Sports · NFL history away from home · up to ' + aiSportsCount;
+      const body = document.getElementById('promptBody');
+      if (!body) return;
+      body.innerHTML = '';
+      const hint = document.createElement('div');
+      hint.className = 'zip-desc';
+      hint.innerHTML = '<strong>Copy</strong> this prompt, paste it into ChatGPT (or any web-capable AI), then paste the <strong>Supabase SQL</strong> it returns into the database (use <strong>Go to Database</strong>) and run it. The results table tells you which rows were <strong>inserted</strong> and which had a sentence <strong>appended</strong> to a waypoint we already had.';
+      const ta = document.createElement('textarea');
+      ta.className = 'prompt-text';
+      ta.id = 'promptText';
+      ta.readOnly = true;
+      ta.spellcheck = false;
+      ta.value = buildNflSportsWaypointPrompt(aiSportsCount);
+      body.append(hint, ta);
+      ta.focus();
+      ta.select();
+    }
+
     function showPromptForArea(descriptor, label) {
       setPromptView('prompt');
       const title = document.getElementById('promptTitle');
@@ -3394,7 +3671,9 @@ $$;`.trim();
     // human-in-the-loop is the design, same as the socials scout. Nothing here
     // reaches the waypoints table until someone presses Add on a row, which
     // inserts under THEIR admin session.
-    const NIGHTLY_FILE = 'nightly.json';
+    // The routine still commits mc/stops/nightly.json; this page moved to /data/,
+    // so read it by absolute path rather than as a sibling.
+    const NIGHTLY_FILE = '/mc/stops/nightly.json';
     const NIGHTLY_ROUTINE_URL = 'https://claude.ai/code/routines/trig_01Q5uCittJ3dT3M2xj8sKD3j';
     const NIGHTLY_LOG_URL = 'https://github.com/the-game-bureau/the-game-bureau/commits/main/mc/stops/nightly.json';
     // The commits API for the same path: a run that errored pushes nothing, so a
@@ -5472,6 +5751,8 @@ $$;`.trim();
     if (manualBackdrop) manualBackdrop.addEventListener('click', closeManualDialog);
     const promptBtn = document.getElementById('promptBtn');
     if (promptBtn) promptBtn.addEventListener('click', openPromptDialog);
+    const sportsPromptBtn = document.getElementById('sportsPromptBtn');
+    if (sportsPromptBtn) sportsPromptBtn.addEventListener('click', openSportsPromptDialog);
     const nightlyBtn = document.getElementById('nightlyBtn');
     if (nightlyBtn) nightlyBtn.addEventListener('click', openNightlyDialog);
     const saveAllBtn = document.getElementById('saveAllBtn');
