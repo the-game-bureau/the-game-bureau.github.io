@@ -42,8 +42,17 @@ New soundtracks are added by a **scheduled Claude Code cloud agent** ("Daily sou
 ---
 ## Socials daily scout — a third Claude Code routine
 
-[socials/admin/index.html](socials/admin/index.html) shows five stories the socials accounts might want to post, found each morning by a **scheduled Claude Code cloud agent** ("Daily socials scout", `trig_01VGJLzRyxWuvgrP4hv8ZMM5`, cron `15 11 * * *` UTC = 6:15 AM Central in summer, 5:15 AM in winter). It commits [socials/queue.json](socials/queue.json) to `main`; the page is a read-only render of that file.
+[socials/admin/index.html](socials/admin/index.html) shows five stories the socials accounts might want to post, found each morning by a **scheduled Claude Code cloud agent**. It commits [socials/queue.json](socials/queue.json) to `main`; the page is a read-only render of that file.
 
+- **This is the one routine that holds 5:55 AM Central year-round, using a seasonal pair of triggers** (2026-07-31). The other three accept an hour of winter drift; this one doesn't, at the cost of two triggers to keep in sync:
+
+  | trigger | cron (UTC) | months | Central |
+  |---|---|---|---|
+  | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `55 10 * 3-10 *` | Mar–Oct | 5:55 AM CDT |
+  | `trig_0127HaXCYGoCwdb9789ocrvW` | `55 11 * 11,12,1,2 *` | Nov–Feb | 5:55 AM CST |
+
+  The month split is deliberately approximate — US DST turns over mid-March and early November, so the first days of March run an hour early and the first days of November an hour late. That's accepted, same bargain as the single-cron routines make all winter. **The original single trigger `trig_01VGJLzRyxWuvgrP4hv8ZMM5` (`15 11 * * *`) is disabled, not deleted** — don't re-enable it or you'll get two queues a day, and the second wholesale-replaces the first.
+- **Both crons must name the same minute.** They drifted to `0 8,20` / `0 9,21` — 3 AM *and* 3 PM Central, twice a day — and were put back on 2026-08-03. A multi-hour cron here is always a mistake: the queue is replaced wholesale, so an afternoon run throws away the morning's picks before anyone has acted on them.
 - **The agent posts nothing and holds no account credentials.** It writes one file; a human clicks POST (copies blurb + link to the clipboard) or TRASH. Don't ever wire this to a social API — the human-in-the-loop is the design, not a missing feature.
 - **The list is replaced wholesale each run**, not appended. An unposted pick is gone tomorrow, which is intended: it keeps the page to one day's decisions.
 - **TRASH is client-side**, remembered in `localStorage['tgb_socials_trashed_v1']` keyed by the date-stamped post id, so a dismissal survives a reload without needing a write path. A "Restore N Trashed" button in the panel header clears it.
