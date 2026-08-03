@@ -2890,8 +2890,8 @@
       <div class="command-bar">
         <span class="command-bar-label">Add</span>
         <button class="btn" id="addItemBtn" type="button" disabled>MANUAL</button>
-        <button class="btn" id="searchPromptBtn" type="button" disabled>WITH AI</button>
-        <button class="btn" id="nightlyBtn" type="button" title="How gifts get added automatically each night">NIGHTLY</button>
+        <button class="btn" id="searchPromptBtn" type="button" disabled>PROMPT</button>
+        <button class="btn" id="nightlyBtn" type="button" title="Runs twice a day, 3 AM and 3 PM Central: finds candidate books for the city with the fewest gifts and files them for review — it can never publish. Shows what it does, when it last ran, and its prompt.">TGB GIFT SHOP BOT</button>
         <span class="command-bar-divider" aria-hidden="true"></span>
         <a class="btn" id="urlErrReportLink" href="/gifts/admin/gsissues.htm" target="_blank" rel="noopener noreferrer">ISSUES <span class="err-count-badge" id="urlErrCount" hidden></span></a>
         <span class="command-bar-divider" aria-hidden="true"></span>
@@ -3286,8 +3286,11 @@
     // feed to read — the freshest Review candidate IS the run receipt. A pull
     // that errored files nothing, so a stale timestamp is the failure signal.
     // Loaded on modal open rather than page load; it is one more request and
-    // nobody needs it until they ask what runs at night.
-    var BOOK_PULL_STALE_HOURS = 30;
+    // nobody needs it until they ask what the bot has been doing.
+    //
+    // 14 hours, against a twice-daily run ~12 hours apart, so ONE missed run
+    // shows up. It was 30 when the bot ran once a day.
+    var BOOK_PULL_STALE_HOURS = 14;
     var bookPullLoaded = false;
 
     function bookPullRelative(then, now) {
@@ -7049,18 +7052,19 @@ $$;`.trim();
     }());
   </script>
 
-  <!-- NIGHTLY: what the automated nightly book pull does. Read-only reference. -->
+  <!-- TGB GIFT SHOP BOT: what the scheduled book pull and the link check do.
+       Read-only reference. -->
   <div class="nightly-modal" id="nightlyModal" role="dialog" aria-modal="true" aria-labelledby="nightlyTitle" hidden>
     <div class="nightly-backdrop" data-nightly-close></div>
     <section class="nightly-panel">
       <header class="nightly-panel-head">
-        <h2 id="nightlyTitle">What runs every night</h2>
+        <h2 id="nightlyTitle">TGB Gift Shop Bot</h2>
         <button class="nightly-close" type="button" data-nightly-close aria-label="Close">&times;</button>
       </header>
       <div class="nightly-body">
-        <p class="nightly-lede">Two jobs run on their own each morning. Nothing here needs you — this is just what happens while you sleep. The book pull is a scheduled Claude Code agent; the link check is still a GitHub Action.</p>
+        <p class="nightly-lede">Two jobs run on their own. Nothing here needs you — this is just what happens in the background. The book pull is <strong>TGB Gift Shop Bot</strong>, a scheduled Claude Code agent that fires twice a day; the link check is a GitHub Action that runs each morning.</p>
 
-        <h3 class="nightly-h">1 · Book pull <span class="automation-when">6:00 AM Central</span></h3>
+        <h3 class="nightly-h">1 · Book pull <span class="automation-when">3:00 AM &amp; 3:00 PM Central</span></h3>
         <p class="automation-desc">A scheduled <strong>Claude Code cloud agent</strong> picks the city that currently has the <strong>fewest gifts</strong>, searches the web for 5 real books tied to that place, and verifies every ISBN against a real listing page. Each one is filed as a <strong>Review</strong> candidate, never Live: you decide what actually goes in the shop.</p>
         <p class="automation-desc">It reads every title you already stock <em>or have shelved</em> first, and treats both as forbidden. That is why a book you shelved never comes back.</p>
         <div class="run-status" id="bookPullStatus" data-state="loading">

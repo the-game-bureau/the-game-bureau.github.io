@@ -570,7 +570,9 @@
 
     .issue-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      /* The actions column is capped so three buttons sit on one line without
+         eating the width the detail text needs to stay readable. */
+      grid-template-columns: minmax(0, 1fr) minmax(0, auto);
       gap: 12px;
       align-items: start;
       padding: 12px;
@@ -602,11 +604,35 @@
 
     .issue-suggestion b { color: var(--ink); }
 
+    /* Rolled-up issues: one collapsible block per tape. */
+    .issue-group { border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, 0.6); }
+    .issue-group + .issue-group { margin-top: 8px; }
+    .issue-group > .issue-row { border-radius: 0; border-left-width: 4px; }
+    .issue-group[open] > .issue-group-head { border-bottom: 1px solid var(--line); }
+    .issue-group-head {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 8px 12px; cursor: pointer; list-style: none;
+    }
+    .issue-group-head::-webkit-details-marker { display: none; }
+    .issue-group-head::before { content: '▸'; color: var(--muted); }
+    .issue-group[open] > .issue-group-head::before { content: '▾'; }
+    .issue-group-city { font-weight: 700; }
+
+    /* The row you were sent to by Edit on an issue. */
+    .track-row.is-flagged-focus {
+      border-color: var(--bic-red);
+      box-shadow: 0 0 0 2px rgba(194, 55, 55, 0.18);
+    }
+
+    /* One row, wrapping. This was a stacked column back when a finding had two
+       buttons; at three it made every row three buttons tall and pushed the
+       detail text into a narrow strip. */
     .issue-actions {
       display: flex;
-      flex-direction: column;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      align-items: flex-start;
       gap: 6px;
-      align-items: stretch;
     }
 
     /* Warning chip on an affected track row, so a finding is visible while
@@ -790,7 +816,7 @@
           <span id="trackArchiveStatus">Waiting for sign-in.</span>
             <!-- The one live signal on the page, and the reason it is a signal:
                  a run that errored writes nothing, so a stale last-run IS the
-                 failure notice. TAPE MAKER BOT, in the badge row below, is where
+                 failure notice. TGB SOUNDTRACK BOT, in the badge row below, is where
                  you go to fix it. -->
           <span class="run-status" id="runStatus" data-state="loading">
             <span class="run-dot" aria-hidden="true"></span>
@@ -823,7 +849,7 @@
     <div class="status-strip">
       <div class="status-badges">
         <a class="btn small" href="https://mail.google.com/mail/u/0/#search/to%3Asoundtrack%40thegamebureau.com" target="_blank" rel="noopener noreferrer" title="Track ideas emailed to soundtrack@thegamebureau.com — leads worth checking, never verified facts">Emailed suggestions</a>
-        <a class="btn small" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer" title="Open the daily soundtrack routine: watch a run, trigger one early, change the schedule, or pause it">Tape Maker Bot</a>
+        <a class="btn small" href="https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a" target="_blank" rel="noopener noreferrer" title="Runs twice a day, 3 AM and 3 PM Central: starts one new city tape, tops up the emptiest one, and audits a few for problems. Songs arrive as Review candidates — it can never publish. Opens the routine to watch a run, trigger one early, or pause it.">TGB Soundtrack Bot</a>
         <!-- Cloudflare publishes no URL-filter format, so this lands on Web
              Analytics and you add the /soundtracks/ path filter there. If you ever
              copy a working filtered URL out of the address bar, paste it here.
@@ -840,6 +866,7 @@
         <div class="panel-head">
           <h2 class="panel-title" id="issuesTitle" title="public.soundtrack_issues — open findings from the daily audit">Issues <span class="issue-count" id="issueCount"></span></h2>
           <span class="panel-head-actions">
+            <button class="btn small" id="issueExpandBtn" type="button" disabled>Expand all</button>
             <select id="issueKindSelect" aria-label="Filter issues by kind" disabled>
               <option value="">All kinds</option>
               <option value="spotify">Spotify ID</option>
@@ -860,7 +887,13 @@
             <!-- Counts and last-run moved up under the room title. -->
           </div>
           <span class="panel-head-actions">
-            <button class="btn small" id="reloadArchiveBtn" type="button" title="Re-read the tables and collapse every open tape">Reload</button>
+            <button class="btn small" id="archiveExpandBtn" type="button" disabled>Expand all</button>
+            <select id="trackStatusSelect" aria-label="Filter tracks by status" disabled>
+              <option value="">All tracks</option>
+              <option value="REVIEW">Review only</option>
+              <option value="LIVE">Live only</option>
+              <option value="SHELVED">Shelved only</option>
+            </select>
           </span>
         </div>
         <div class="track-list" id="trackArchiveList"></div>
@@ -890,15 +923,15 @@
     "publicPage": "/soundtracks/",
     "tables": {
       "tapes": "public.soundtracks (city_slug pk, spine_tag, spine_tag_position, archived)",
-      "songs": "public.soundtrack_songs (city_slug, position, title, artist, blurb, spotify_id, explicit, archived)",
+      "songs": "public.soundtrack_songs (city_slug, position, title, artist, blurb, spotify_id, explicit, archived, certified_at, rejected_at)",
       "counts": "public.soundtrack_stats (active_songs, archived_songs, last_song_at per tape)"
     },
     "writePath": {
       "rpc": "public.tgb_pull_soundtrack_songs(tapes jsonb)",
       "auth": "the public publishable key — the routine has no secret store",
       "shape": { "tapes": [{ "city_slug": "matches public.cities.slug", "spine_tag": "short spine phrase, applied only when the tape row is created", "songs": [{ "title": "", "artist": "", "spotify_id": "22 chars, optional", "blurb": "6-10 words", "explicit": "true only if Spotify says so" }] }] },
-      "limits": "insert-only, max 4 tapes and 60 songs per call, cannot archive or un-archive, cannot touch a hidden city",
-      "goesLive": "immediately — there is no review queue"
+      "limits": "insert-only, max 4 tapes and 60 songs per call, cannot publish, archive, un-archive, or reject anything, cannot touch a hidden city",
+      "goesLive": "NO. Since 2026-08-01 every song the RPC writes lands as a REVIEW candidate (archived = true, certified_at and rejected_at null) and is invisible on /soundtracks/ until a human presses Live in the Tape Room. Same review queue the gift-shop book pull has always used. Write the tape as if it were going live — a candidate you would not defend is not worth filing."
     },
     "fallbackFile": {
       "path": "soundtracks/soundtracks.json",
@@ -906,14 +939,16 @@
     },
     "cityCatalog": { "table": "public.cities", "excludeWhere": "hide_from_soundtracks = true (venue-only stadium towns and other non-destinations)" },
     "rules": [
-      "Exactly 15 active, non-archived songs per city.",
-      "A tape over 15 active songs is trimmed by HIDING the most recently added tracks — newest created_at first, ties broken by highest id — until 15 remain. Never hide an older track to keep a newer one; the earlier fifteen are the considered set. The agent cannot hide, so it reports an over-full tape as a facts issue naming the surplus tracks and a human presses Hide.",
+      "Exactly 15 LIVE songs per city — certified_at set, not archived. Songs still in review do not count toward the 15, so a tape can look short until its candidates are approved; propose enough to fill it, not enough to fill it twice.",
+      "A tape over 15 live songs is trimmed by SHELVING the most recently added tracks — newest created_at first, ties broken by highest id — until 15 remain. Never shelve an older track to keep a newer one; the earlier fifteen are the considered set. The agent cannot shelve, so it reports an over-full tape as a facts issue naming the surplus tracks and a human presses Shelve.",
       "Max 2 active songs per artist per city.",
       "No duplicate title+artist pair in a city, archived rows included — a unique index enforces it, so a duplicate is dropped and the tape ends up short.",
       "Every song needs a title, an artist, and a 6-10 word city-specific blurb with no trailing period.",
       "spotify_id must be verified against a real open.spotify.com/track page. Omit it rather than guess — a fabricated id passes every format check and silently plays nothing.",
-      "A song with archived = true is hidden from /soundtracks/, excluded from active counts, and stays on the city as a do-not-rescrape tombstone. Only a human archives or restores one.",
-      "A tombstone is scoped to one city, not to the song: the unique index is (city_slug, lower(title), lower(artist)). A track hidden on one tape can be added to another tape and stay active there. Being wrong for one city is not evidence about another.",
+      "Three states, derived from two timestamps exactly as the gift shop does it: REVIEW (both null) is the default and what this routine writes; LIVE (certified_at set) is on /soundtracks/; SHELVED (rejected_at set) was turned down. Only a human moves a song between them.",
+      "A shelved or hidden song keeps its row on the city as a do-not-rescrape tombstone: it is excluded from live counts and can never be re-picked for that city. Do not re-propose a track that is already there in any state.",
+      "A tombstone is scoped to one city, not to the song: the unique index is (city_slug, lower(title), lower(artist)). A track shelved on one tape can be added to another tape and go live there. Being wrong for one city is not evidence about another.",
+      "NEVER report an issue against a SHELVED track (rejected_at set). It is already off /soundtracks/ and can never be re-picked for that city, so there is nothing left to fix. A trigger drops such a report anyway, and it would count against the 40-finding cap for nothing. Audit LIVE tracks, and REVIEW candidates you are asking a human to judge.",
       "No tapes for cities where public.cities.hide_from_soundtracks is true.",
       "Real commercial recordings only: no karaoke, tribute, sped-up, slowed, or re-recorded versions."
     ],
@@ -926,10 +961,10 @@
     "automation": {
       "type": "Claude Code scheduled cloud routine",
       "id": "trig_014sqaUyU7557svq9mGA1E4a",
-      "cron": "30 11 * * * UTC",
-      "localTime": "6:30 AM Central in summer, 5:30 AM in winter (cloud cron has no DST shift)",
+      "cron": "0 8,20 * * * UTC (twice daily)",
+      "localTime": "3 AM and 3 PM Central in summer, 2 AM and 2 PM in winter (cloud cron has no DST shift)",
       "model": "claude-opus-5",
-      "eachRun": "Adds one new city tape and tops the emptiest existing tape up to 15 active songs.",
+      "eachRun": "Adds one new city tape and tops the emptiest existing tape up to 15 live songs. Everything it writes is a Review candidate awaiting a human.",
       "runReceipt": "the newest public.soundtrack_songs row — the routine commits nothing, so a stale timestamp is the failure signal",
       "manage": "https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a"
     },
@@ -957,14 +992,26 @@
 
       var trackArchiveStatus = document.getElementById('trackArchiveStatus');
       var trackArchiveList = document.getElementById('trackArchiveList');
-      var reloadArchiveBtn = document.getElementById('reloadArchiveBtn');
+      var archiveExpandBtn = document.getElementById('archiveExpandBtn');
+      var trackStatusSelect = document.getElementById('trackStatusSelect');
+      // '' = every track. Otherwise one of REVIEW / LIVE / SHELVED; a tape with
+      // no matching track drops out of the list entirely.
+      var trackStatusFilter = '';
       var issuesList = document.getElementById('issuesList');
       var issuesStatus = document.getElementById('issuesStatus');
       var issueCountEl = document.getElementById('issueCount');
       var issueKindSelect = document.getElementById('issueKindSelect');
+      var issueExpandBtn = document.getElementById('issueExpandBtn');
+      // One switch for the whole panel, not one per city. Null means "nobody has
+      // pressed it", which is when the per-tape default below applies; once it is
+      // true or false every group follows it, including groups that appear on a
+      // later refresh.
+      var issuesAllExpanded = null;
       var soundtrackIssues = [];
-      // Still the staleness threshold for the Daily Routine card's last-run line.
-      var REVIEW_HOURS = 26;
+      // Staleness threshold for the routine card's last-run line. The bot runs
+      // twice a day, ~12 hours apart, so 14 hours means one missed run shows up
+      // rather than needing two. It was 26 when the schedule was once daily.
+      var REVIEW_HOURS = 14;
       var soundtrackArchiveData = null;
       var expandedTapes = Object.create(null);
 
@@ -1105,13 +1152,52 @@
         }
       });
 
-      if (reloadArchiveBtn) reloadArchiveBtn.addEventListener('click', function () {
-        // Reload doubles as collapse-all: forgetting which cities were open is
-        // what makes the list come back to a clean state.
-        expandedTapes = Object.create(null);
-        // Nothing to discard: Hide and Show write to Supabase immediately.
-        loadSoundtrackArchive();
+      // Reload was removed on 2026-08-01. It re-read the tables and collapsed
+      // every tape, but every write on this page already refreshes what it
+      // touched, so its only real job was collapse-all — which is now its own
+      // button and does not throw away the loaded data to do it.
+      if (archiveExpandBtn) archiveExpandBtn.addEventListener('click', function () {
+        var groups = trackArchiveList ? trackArchiveList.querySelectorAll('.tape-group') : [];
+        if (!groups.length) return;
+        var allOpen = Array.prototype.every.call(groups, function (g) { return g.open; });
+        var next = !allOpen;
+        // expandedTapes is what survives a re-render, so it has to move too --
+        // setting details.open alone would be undone by the next write.
+        Array.prototype.forEach.call(groups, function (g) {
+          g.open = next;
+          if (g.dataset && g.dataset.slug) expandedTapes[g.dataset.slug] = next;
+        });
+        syncArchiveExpandBtn();
       });
+      if (trackStatusSelect) trackStatusSelect.addEventListener('change', function () {
+        trackStatusFilter = trackStatusSelect.value || '';
+        // Opening every tape when filtering is the point: with "Shelved only" on,
+        // a collapsed list of city names says nothing. Clearing the filter puts
+        // the list back to collapsed rather than leaving 60 tapes open.
+        if (trackStatusFilter) {
+          Object.keys(expandedTapes).forEach(function (k) { delete expandedTapes[k]; });
+          renderTrackArchive();
+          var groups = trackArchiveList ? trackArchiveList.querySelectorAll('.tape-group') : [];
+          Array.prototype.forEach.call(groups, function (g) {
+            g.open = true;
+            if (g.dataset && g.dataset.slug) expandedTapes[g.dataset.slug] = true;
+          });
+          syncArchiveExpandBtn();
+        } else {
+          expandedTapes = Object.create(null);
+          renderTrackArchive();
+        }
+      });
+
+      // The button names what pressing it will do, same as the Issues one.
+      function syncArchiveExpandBtn() {
+        if (!archiveExpandBtn) return;
+        var groups = trackArchiveList ? trackArchiveList.querySelectorAll('.tape-group') : [];
+        archiveExpandBtn.disabled = !groups.length;
+        var allOpen = groups.length > 0 && Array.prototype.every.call(groups, function (g) { return g.open; });
+        archiveExpandBtn.textContent = allOpen ? 'Collapse all' : 'Expand all';
+        archiveExpandBtn.title = allOpen ? 'Close every tape' : 'Open every tape';
+      }
       if (issueKindSelect) issueKindSelect.addEventListener('change', function () { renderIssues(); });
 
       function text(value) {
@@ -1128,6 +1214,24 @@
       function isArchivedSong(song) {
         return truthyFlag(song && song.archived);
       }
+
+      // A track's review status, derived the same way the gift shop derives a
+      // gift's: REVIEW is the automatic state, only rejected_at makes it
+      // SHELVED, only certified_at makes it LIVE.
+      //
+      // The one difference from the gift shop is the fallback. A database that
+      // has not run 2026080104 returns neither stamp on any row, which would put
+      // the entire catalogue in Review. So a row with no stamps AND no archived
+      // flag is treated as LIVE — that is what it was before the queue existed.
+      // Once the migration's backfill has run, every row carries a stamp and
+      // this branch stops mattering.
+      function songStatus(song) {
+        if (!song) return 'REVIEW';
+        if (text(song.rejectedAt)) return 'SHELVED';
+        if (text(song.certifiedAt)) return 'LIVE';
+        return isArchivedSong(song) ? 'REVIEW' : 'LIVE';
+      }
+      function isReviewSong(song) { return songStatus(song) === 'REVIEW'; }
 
       function formatDate(date) {
         if (!(date instanceof Date) || !Number.isFinite(date.getTime())) return '';
@@ -1176,6 +1280,9 @@
 
       function resetSoundtrackArchive() {
         soundtrackArchiveData = null;
+        trackStatusFilter = '';
+        if (trackStatusSelect) { trackStatusSelect.value = ''; trackStatusSelect.disabled = true; }
+        if (archiveExpandBtn) { archiveExpandBtn.disabled = true; archiveExpandBtn.textContent = 'Expand all'; }
         expandedTapes = Object.create(null);
         if (trackArchiveList) {
           trackArchiveList.innerHTML = '';
@@ -1184,6 +1291,8 @@
         setArchiveStatus('Waiting for sign-in.', '');
         soundtrackIssues = [];
         if (issueKindSelect) { issueKindSelect.value = ''; issueKindSelect.disabled = true; }
+        issuesAllExpanded = null;
+        if (issueExpandBtn) { issueExpandBtn.disabled = true; issueExpandBtn.textContent = 'Expand all'; }
         if (issuesList) issuesList.innerHTML = '';
         if (issueCountEl) { issueCountEl.textContent = ''; issueCountEl.classList.remove('has-open'); }
         // Signed out is not "clear" — show the head and the reason.
@@ -1207,8 +1316,29 @@
         facts: 'Facts'
       };
 
+      // A finding against a SHELVED track is not worth anyone's attention: the
+      // track is already off /soundtracks/ and can never be re-picked for that
+      // city, so whatever is wrong with it has already been dealt with by the
+      // strongest action available. Shelving is therefore also a way to clear an
+      // issue — deal with the track and its findings stop showing.
+      //
+      // Filtered here rather than resolved in the database on purpose. The row
+      // stays `open` in public.soundtrack_issues, so un-shelving a track brings
+      // its findings back with it; marking them fixed would silently discard
+      // them the moment someone shelved anything.
+      function isSuppressedIssue(issue) {
+        var song = songById(issue && issue.song_id);
+        return !!song && songStatus(song) === 'SHELVED';
+      }
+
       function openIssues() {
-        return Array.isArray(soundtrackIssues) ? soundtrackIssues : [];
+        var all = Array.isArray(soundtrackIssues) ? soundtrackIssues : [];
+        return all.filter(function (issue) { return !isSuppressedIssue(issue); });
+      }
+
+      function suppressedIssueCount() {
+        var all = Array.isArray(soundtrackIssues) ? soundtrackIssues : [];
+        return all.filter(isSuppressedIssue).length;
       }
 
       // songId -> its open findings, for the warning chip on a track row. Rebuilt
@@ -1257,14 +1387,97 @@
             ? 'No open issues of that kind.'
             : 'Nothing flagged. The daily audit reports here when it finds something.'));
           if (!message) setIssuesStatus(all.length ? '' : 'The last audit found nothing to report.', '');
+          syncIssueExpandBtn();
           return;
         }
-        rows.forEach(function (issue) { issuesList.appendChild(renderIssueRow(issue)); });
+
+        // Rolled up by tape. Flat, the panel was a list of findings that happened
+        // to be about tapes; grouped, it is a list of tapes that need work, which
+        // is the unit you actually act on — you open one city, fix what is wrong
+        // there, and move on. A tape with five findings was also five rows of
+        // repeated city name.
+        var order = [];
+        var byTape = Object.create(null);
+        rows.forEach(function (issue) {
+          var slug = text(issue.city_slug) || '(no city)';
+          if (!byTape[slug]) { byTape[slug] = []; order.push(slug); }
+          byTape[slug].push(issue);
+        });
+
+        order.forEach(function (slug) {
+          var group = byTape[slug];
+          var box = document.createElement('details');
+          box.className = 'issue-group';
+          // Expand all / Collapse all wins once pressed. Until then: open when
+          // there is one tape to look at, or when this tape has something
+          // high-severity in it, so a long list stays scannable.
+          box.open = issuesAllExpanded === null
+            ? (order.length === 1 || group.some(function (i) { return i.severity === 'high'; }))
+            : issuesAllExpanded;
+          // Opening or closing one group by hand drops the panel back to
+          // per-group control rather than silently fighting the button.
+          box.addEventListener('toggle', function () {
+            if (issuesAllExpanded !== null && box.open !== issuesAllExpanded) {
+              issuesAllExpanded = null;
+              syncIssueExpandBtn();
+            }
+          });
+
+          var head = document.createElement('summary');
+          head.className = 'issue-group-head';
+          var label = document.createElement('span');
+          label.className = 'issue-group-city';
+          label.textContent = soundCityLabel(slug);
+          var tally = document.createElement('span');
+          tally.className = 'item-meta';
+          tally.appendChild(chip(group.length + (group.length === 1 ? ' finding' : ' findings'),
+            group.some(function (i) { return i.severity === 'high'; }) ? 'warn' : ''));
+          var kinds = Object.create(null);
+          group.forEach(function (i) { kinds[i.kind] = (kinds[i.kind] || 0) + 1; });
+          Object.keys(kinds).sort().forEach(function (k) {
+            tally.appendChild(chip((ISSUE_KIND_LABEL[k] || k) + ' ' + kinds[k]));
+          });
+          head.append(label, tally);
+          box.appendChild(head);
+
+          group.forEach(function (issue) { box.appendChild(renderIssueRow(issue)); });
+          issuesList.appendChild(box);
+        });
+        syncIssueExpandBtn();
+
         if (!message) {
+          var hidden = suppressedIssueCount();
           setIssuesStatus(all.length + ' open ' + (all.length === 1 ? 'finding' : 'findings')
             + ' across ' + countIssueTapes(all) + ' '
-            + (countIssueTapes(all) === 1 ? 'tape' : 'tapes') + '.', 'warn');
+            + (countIssueTapes(all) === 1 ? 'tape' : 'tapes') + '.'
+            + (hidden ? ' ' + hidden + ' more ' + (hidden === 1 ? 'is' : 'are')
+                + ' against shelved tracks and not shown.' : ''), 'warn');
         }
+      }
+
+      // The button says what pressing it will do. With nothing pressed yet the
+      // panel is a mix of open and closed groups, and "Expand all" is the more
+      // useful of the two from there.
+      function syncIssueExpandBtn() {
+        if (!issueExpandBtn) return;
+        var groups = issuesList ? issuesList.querySelectorAll('.issue-group') : [];
+        issueExpandBtn.disabled = !groups.length;
+        var allOpen = groups.length > 0 && Array.prototype.every.call(groups, function (g) { return g.open; });
+        issueExpandBtn.textContent = allOpen ? 'Collapse all' : 'Expand all';
+        issueExpandBtn.title = allOpen
+          ? 'Close every tape in this panel'
+          : 'Open every tape in this panel';
+      }
+
+      if (issueExpandBtn) {
+        issueExpandBtn.addEventListener('click', function () {
+          var groups = issuesList ? issuesList.querySelectorAll('.issue-group') : [];
+          if (!groups.length) return;
+          var allOpen = Array.prototype.every.call(groups, function (g) { return g.open; });
+          issuesAllExpanded = !allOpen;
+          Array.prototype.forEach.call(groups, function (g) { g.open = issuesAllExpanded; });
+          syncIssueExpandBtn();
+        });
       }
 
       function countIssueTapes(rows) {
@@ -1284,11 +1497,18 @@
         var meta = document.createElement('div');
         meta.className = 'item-meta';
         meta.appendChild(chip(ISSUE_KIND_LABEL[issue.kind] || issue.kind, issue.severity === 'high' ? 'warn' : ''));
-        meta.appendChild(chip(soundCityLabel(issue.city_slug)));
+        // The city is on the group header now — repeating it on every row was
+        // most of what made the flat list hard to read.
         var song = songById(issue.song_id);
         if (song) meta.appendChild(chip(songDisplay(song)));
-        else if (issue.song_id != null) meta.appendChild(chip('track ' + issue.song_id));
-        else meta.appendChild(chip('whole tape'));
+        else if (issue.song_id != null) {
+          // Named a track we cannot find: it was deleted, or moved to a city
+          // whose tape row is missing. Say so, since Shelve is unavailable and
+          // the reason is not otherwise visible.
+          var gone = chip('track ' + issue.song_id + ' not found', 'warn');
+          gone.title = 'The finding names a track that is no longer in the loaded tapes — deleted, or moved. Clear it.';
+          meta.appendChild(gone);
+        } else meta.appendChild(chip('whole tape'));
 
         var detail = document.createElement('p');
         detail.className = 'issue-detail';
@@ -1308,31 +1528,60 @@
         var actions = document.createElement('div');
         actions.className = 'issue-actions';
 
+        // Shelve first, because for most findings it is the answer: a track with
+        // a wrong Spotify ID, a bad fact, or no real tie to the city usually
+        // should not be on the tape at all. It also clears the finding on its
+        // own — a shelved track's issues are suppressed — so this is one press
+        // instead of Edit, judge, come back, Clear.
+        if (song) {
+          var shelveBtn = document.createElement('button');
+          shelveBtn.type = 'button';
+          shelveBtn.className = 'btn small';
+          shelveBtn.textContent = 'Shelve';
+          shelveBtn.title = 'Take this track off /soundtracks/ and drop the finding with it. The row stays on the city, so the bot never picks it again.';
+          shelveBtn.addEventListener('click', async function () {
+            var at = locateSong(issue.song_id);
+            if (!at) { setIssuesStatus('That track is no longer loaded. Refresh and try again.', 'error'); return; }
+            shelveBtn.disabled = true;
+            var ok = await setTrackStatus(at.tapeIndex, at.songIndex, 'SHELVED');
+            if (!ok) shelveBtn.disabled = false;
+          });
+          actions.appendChild(shelveBtn);
+        }
+
+        // Edit is always offered, because there is always somewhere to go.
+        // With a track it opens that row's editor; a whole-tape finding (song_id
+        // null — how the audit files things like "this tape has 17 live tracks")
+        // has no row to edit, so it opens the tape instead. Hiding the button
+        // there just left the finding with nowhere to act on it.
+        var editIssueBtn = document.createElement('button');
+        editIssueBtn.type = 'button';
+        editIssueBtn.className = 'btn small';
+        editIssueBtn.textContent = song ? 'Edit' : 'Open tape';
+        editIssueBtn.title = song
+          ? 'Open this track below with its editor already open'
+          : 'Open this tape below. This finding is about the tape as a whole, not one track.';
+        editIssueBtn.addEventListener('click', function () { focusTrackForIssue(issue); });
+        actions.appendChild(editIssueBtn);
+
         var fixedBtn = document.createElement('button');
         fixedBtn.type = 'button';
         fixedBtn.className = 'btn small primary';
-        fixedBtn.textContent = 'Fixed';
+        fixedBtn.textContent = 'Clear issue';
         fixedBtn.title = 'You dealt with it. If tomorrow’s audit still sees it, it comes back — which is how you know the fix landed.';
 
-        var dismissBtn = document.createElement('button');
-        dismissBtn.type = 'button';
-        dismissBtn.className = 'btn small';
-        dismissBtn.textContent = 'Not an issue';
-        dismissBtn.title = 'The agent was wrong. This exact finding is silenced permanently and never reported again.';
-
-        [[fixedBtn, 'fixed'], [dismissBtn, 'dismissed']].forEach(function (pair) {
-          pair[0].addEventListener('click', async function () {
-            fixedBtn.disabled = true;
-            dismissBtn.disabled = true;
-            var ok = await resolveIssue(issue, pair[1]);
-            if (!ok) {
-              fixedBtn.disabled = false;
-              dismissBtn.disabled = false;
-            }
-          });
+        // There is no "Not an issue" any more. Clearing only takes the finding
+        // out of the queue; it never silences it. If the problem is still there
+        // tomorrow the audit raises it again, which is the only honest way to
+        // learn that a fix did not land — and a permanent silence was a decision
+        // nobody could see afterwards.
+        fixedBtn.addEventListener('click', async function () {
+          fixedBtn.disabled = true;
+          var ok = await resolveIssue(issue, 'fixed');
+          if (!ok) fixedBtn.disabled = false;
         });
 
-        actions.append(fixedBtn, dismissBtn);
+        actions.append(fixedBtn);
         row.append(main, actions);
         return row;
       }
@@ -1348,24 +1597,37 @@
         return found;
       }
 
+      // setTrackStatus addresses a track by its position in the loaded data, so
+      // acting on a song from the Issues panel needs those two indices back.
+      function locateSong(id) {
+        if (id == null) return null;
+        var hit = null;
+        soundtracks().forEach(function (tape, tapeIndex) {
+          (tape.songs || []).forEach(function (song, songIndex) {
+            if (song && String(song.id) === String(id)) hit = { tapeIndex: tapeIndex, songIndex: songIndex };
+          });
+        });
+        return hit;
+      }
+
       // Clearing is a human action under an admin session; the reporting RPC
-      // cannot reach this column. 'fixed' lets the finding be raised again,
-      // 'dismissed' is caught by the partial unique index and never returns.
+      // cannot reach this column.
+      //
+      // Always 'fixed', never 'dismissed'. Clearing empties the queue and
+      // nothing more: the partial unique index only blocks a re-report while a
+      // finding is `open` or `dismissed`, so a cleared one is free to come back
+      // on the next audit if the problem is still there. That recurrence IS the
+      // check that the fix landed. The page no longer writes 'dismissed' at all.
       async function resolveIssue(issue, status) {
         try {
-          await patchRow('soundtrack_issues?id=eq.' + encodeURIComponent(issue.id), { status: status });
+          await patchRow('soundtrack_issues?id=eq.' + encodeURIComponent(issue.id), { status: status || 'fixed' });
         } catch (error) {
           console.error(error);
           setIssuesStatus('Could not clear that finding. ' + error.message, 'error');
           return false;
         }
         soundtrackIssues = openIssues().filter(function (row) { return row.id !== issue.id; });
-        renderIssues(
-          status === 'dismissed'
-            ? 'Dismissed. That finding will not be reported again.'
-            : 'Marked fixed. Tomorrow’s audit will check it again.',
-          'success'
-        );
+        renderIssues('Cleared. If it is still a problem, the next audit reports it again.', 'success');
         // The chip on the affected track row has to go too.
         renderTrackArchive();
         return true;
@@ -1446,6 +1708,11 @@
           if (row.explicit) song.explicit = true;
           if (row.archived) song.archived = true;
           if (row.archived_with_tape) song.archivedWithTape = true;
+          // The two review stamps. A row from a database that has not run
+          // 2026080104 has neither, which reads as LIVE below — the pre-queue
+          // behaviour, so the page works either side of the migration.
+          if (row.certified_at) song.certifiedAt = row.certified_at;
+          if (row.rejected_at) song.rejectedAt = row.rejected_at;
           tape.songs.push(song);
         });
         return { soundtracks: tapes };
@@ -1548,6 +1815,7 @@
         soundtracks().forEach(function (tape, tapeIndex) {
           var rows = [];
           allSongs(tape).forEach(function (song, localIndex) {
+            if (trackStatusFilter && songStatus(song) !== trackStatusFilter) return;
             var songIndex = tape.songs.indexOf(song);
             if (songIndex < 0) songIndex = localIndex;
             rows.push({ song: song, songIndex: songIndex });
@@ -1560,14 +1828,18 @@
           trackArchiveList.appendChild(renderTapeGroup(group, false, 'city'));
         });
         if (!groups.length) {
-          trackArchiveList.appendChild(emptyNode('No tapes yet.'));
+          trackArchiveList.appendChild(emptyNode(trackStatusFilter
+            ? 'No ' + trackStatusFilter.toLowerCase() + ' tracks on any tape.'
+            : 'No tapes yet.'));
         }
+        if (trackStatusSelect) trackStatusSelect.disabled = !soundtracks().length;
+        syncArchiveExpandBtn();
 
         var summary = archiveSummary();
         setArchiveStatus(
           message || (summary.tapes + ' tapes'
-            + (summary.hiddenTapes ? ' (' + summary.hiddenTapes + ' hidden)' : '')
-            + ' - ' + summary.active + ' active tracks - ' + summary.archived + ' hidden.'),
+            + (summary.hiddenTapes ? ' (' + summary.hiddenTapes + ' shelved)' : '')
+            + ' - ' + summary.active + ' live tracks - ' + summary.archived + ' shelved.'),
           tone || ''
         );
       }
@@ -1677,6 +1949,7 @@
       function renderTapeGroup(group, autoOpen, sortBy) {
         var details = document.createElement('details');
         details.className = 'tape-group';
+        if (group && group.slug) details.dataset.slug = group.slug;
 
         var summary = document.createElement('summary');
         summary.className = 'tape-summary';
@@ -1711,11 +1984,12 @@
         details.classList.toggle('is-archived', tapeArchived);
         var tallyEl = document.createElement('span');
         tallyEl.className = 'tape-tally';
-        if (tapeArchived) tallyEl.appendChild(chip('Tape hidden', 'warn'));
-        tallyEl.appendChild(chip(tally.active + ' active tracks'));
-        if (tally.archived) tallyEl.appendChild(chip(tally.archived + ' hidden tracks', 'warn'));
+        if (tapeArchived) tallyEl.appendChild(chip('Tape shelved', 'warn'));
+        tallyEl.appendChild(chip(tally.active + ' live tracks'));
+        if (tally.archived) tallyEl.appendChild(chip(tally.archived + ' shelved tracks', 'warn'));
         if (group.rows.length !== tally.active + tally.archived) {
-          tallyEl.appendChild(chip(group.rows.length + ' shown'));
+          tallyEl.appendChild(chip(group.rows.length + ' shown',
+            trackStatusFilter ? 'warn' : ''));
         }
 
         var counts = document.createElement('span');
@@ -1739,9 +2013,9 @@
         var tapeToggle = document.createElement('button');
         tapeToggle.type = 'button';
         tapeToggle.className = 'btn small tape-archive-btn';
-        tapeToggle.textContent = tapeArchived ? 'Show tape' : 'Hide tape';
+        tapeToggle.textContent = tapeArchived ? 'Restore tape' : 'Shelve tape';
         tapeToggle.title = tapeArchived
-          ? 'Put this tape back on /soundtracks/, unhiding the tracks it hid (tracks hidden on their own stay hidden)'
+          ? 'Put this tape back on /soundtracks/, restoring the tracks it took with it (tracks shelved on their own stay shelved)'
           : 'Take this whole city tape off /soundtracks/, hiding every track on it';
         tapeToggle.addEventListener('click', async function (event) {
           // Inside a <summary>, so stop the click from opening/closing the city.
@@ -1809,6 +2083,7 @@
       function renderTrackRow(tape, tapeIndex, song, songIndex) {
         var row = document.createElement('article');
         row.className = 'track-row';
+        if (song && song.id != null) row.dataset.songId = String(song.id);
         var archived = isArchivedSong(song);
         row.classList.toggle('is-archived', archived);
 
@@ -1826,10 +2101,21 @@
         var meta = document.createElement('div');
         meta.className = 'item-meta';
         meta.appendChild(chip(trackCityLabel(tape)));
-        meta.appendChild(chip(archived ? 'Hidden' : 'Active', archived ? 'warn' : 'success'));
+        // Status first, because it is what decides whether this row needs you.
+        var status = songStatus(song);
+        var statusChip = chip(
+          status === 'LIVE' ? 'Live' : status === 'SHELVED' ? 'Shelved' : 'Review',
+          status === 'LIVE' ? 'success' : 'warn'
+        );
+        statusChip.title = status === 'LIVE'
+          ? 'Approved and on /soundtracks/.'
+          : status === 'SHELVED'
+            ? 'Rejected. The row stays on this city so the daily routine never picks the track again.'
+            : 'Waiting on you. The daily routine filed this; it is not on /soundtracks/ yet.';
+        meta.appendChild(statusChip);
         if (archived && song && song.archivedWithTape) {
-          var withTape = chip('tape is hidden', 'warn');
-          withTape.title = 'Hidden because the whole tape is hidden. Showing the tape brings this track back.';
+          var withTape = chip('tape is shelved', 'warn');
+          withTape.title = 'Off the site because the whole tape is shelved, not because this track was turned down. Restoring the tape brings it back.';
           meta.appendChild(withTape);
         }
         if (text(song && song.spotifyId)) meta.appendChild(chip('Spotify ID'));
@@ -1860,21 +2146,41 @@
 
         var actions = document.createElement('div');
         actions.className = 'track-actions';
-        var toggle = document.createElement('button');
-        toggle.type = 'button';
-        toggle.className = 'btn small' + (archived ? '' : ' primary');
-        toggle.textContent = archived ? 'Show' : 'Hide';
-        toggle.title = archived
-          ? 'Put this track back on the public tape'
-          : 'Take this track off /soundtracks/ and keep it as a do-not-reuse marker for this city';
-        toggle.addEventListener('click', async function () {
-          toggle.disabled = true;
-          var ok = await setTrackArchived(tapeIndex, songIndex, !archived);
-          // A successful write re-renders the whole list, so only a failure has
-          // to hand this button back.
-          if (!ok) toggle.disabled = false;
-        });
-        actions.appendChild(toggle);
+
+        // A successful write re-renders the whole list, so only a failure has to
+        // hand the button back.
+        function statusBtn(label, target, primary, why) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn small' + (primary ? ' primary' : '');
+          b.textContent = label;
+          b.title = why;
+          b.addEventListener('click', async function () {
+            b.disabled = true;
+            var ok = await setTrackStatus(tapeIndex, songIndex, target);
+            if (!ok) b.disabled = false;
+          });
+          return b;
+        }
+
+        // Two verbs, one axis: Live or Shelved. There is no separate Hide any
+        // more — "hidden" and "shelved" were the same effect described two ways
+        // (off /soundtracks/, kept on the city as a tombstone), and having both
+        // meant every track offered three buttons for two outcomes.
+        if (status === 'LIVE') {
+          actions.appendChild(statusBtn('Shelve', 'SHELVED', false,
+            'Take this track off /soundtracks/. The row stays on the city, so the routine never picks it again.'));
+        } else {
+          actions.appendChild(statusBtn('Live', 'LIVE', true,
+            status === 'REVIEW'
+              ? 'Approve this track and put it on /soundtracks/'
+              : 'Change your mind: put this track back on /soundtracks/'));
+          actions.appendChild(status === 'REVIEW'
+            ? statusBtn('Shelve', 'SHELVED', false,
+                'Turn this track down. The row stays on the city, so the routine never picks it again.')
+            : statusBtn('Review', 'REVIEW', false,
+                'Put this track back in the review queue, undecided'));
+        }
 
         var editBtn = document.createElement('button');
         editBtn.type = 'button';
@@ -1889,6 +2195,12 @@
 
         row.append(main, actions);
 
+        function openEditor() {
+          if (row.querySelector('.track-editor')) return;
+          editBtn.textContent = 'Close';
+          row.appendChild(buildTrackEditor(tape, tapeIndex, song, songIndex));
+        }
+
         editBtn.addEventListener('click', function () {
           var open = row.querySelector('.track-editor');
           if (open) {
@@ -1896,11 +2208,41 @@
             editBtn.textContent = 'Edit';
             return;
           }
-          editBtn.textContent = 'Close';
-          row.appendChild(buildTrackEditor(tape, tapeIndex, song, songIndex));
+          openEditor();
         });
 
+        // Arrived here from Edit on an issue: open the editor and bring the row
+        // into view. Cleared immediately so an unrelated later re-render does not
+        // pop the editor open again.
+        if (pendingFocusSongId && song && String(song.id) === pendingFocusSongId) {
+          pendingFocusSongId = '';
+          openEditor();
+          row.classList.add('is-flagged-focus');
+          window.setTimeout(function () {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 0);
+        }
+
         return row;
+      }
+
+      // Jump from an issue to the track it is about. The tape group is opened
+      // first, because rows are built lazily when a group expands — without this
+      // the row does not exist to scroll to.
+      var pendingFocusSongId = '';
+      function focusTrackForIssue(issue) {
+        var song = songById(issue && issue.song_id);
+        var slug = text(issue && issue.city_slug);
+        if (!slug) return;
+        expandedTapes[slug] = true;
+        pendingFocusSongId = song && song.id != null ? String(song.id) : '';
+        renderTrackArchive();
+        if (!song) {
+          // A whole-tape finding, or a track that has since been deleted: open
+          // the tape and say so rather than silently doing nothing.
+          var group = document.querySelector('.tape-group[data-slug="' + slug + '"]');
+          if (group && group.scrollIntoView) group.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       }
 
       // Inline field editor + move/copy, built per row on demand. Everything here
@@ -2096,7 +2438,7 @@
         var message = (error && error.message) || 'Write failed.';
         if (/23505|duplicate key/i.test(message)) {
           return 'The ' + cityLabel + ' tape already has that title and artist. '
-            + 'It may be a hidden track — tick "Show hidden" to find it.';
+            + 'It may already be there as a shelved track.';
         }
         if (/soundtrack_songs_spotify_id_check|violates check constraint/i.test(message)) {
           return 'Supabase rejected the Spotify ID. It has to be 22 letters and digits, or blank.';
@@ -2104,27 +2446,55 @@
         return message;
       }
 
-      // Writes straight to public.soundtrack_songs under the admin session. The
-      // old version edited a downloaded copy of soundtracks.json and asked for a
-      // commit; since 2026-07-29 the table is the source of truth, so an archive
-      // is live on /soundtracks/ as soon as this resolves.
-      async function setTrackArchived(tapeIndex, songIndex, archived) {
+      // setTrackArchived was removed on 2026-08-01 when Hide/Show merged into
+      // Shelve. Every track write now goes through setTrackStatus, so `archived`
+      // can never drift out of step with the two review stamps.
+
+      // Move a track between the three review states. One PATCH: the two stamps
+      // and `archived` always travel together, because a half-applied state is
+      // the thing that would actually hurt — a certified row still archived is
+      // invisible with no sign of why, and a cleared archived flag with no
+      // certification would put an unreviewed track straight onto the site.
+      //
+      //   LIVE     certified_at = now, rejected_at = null, archived = false
+      //   SHELVED  rejected_at  = now, archived = true; certification is LEFT
+      //            ALONE so shelving a live track and restoring it later does
+      //            not lose the fact that it was once approved
+      //   REVIEW   both stamps null, archived = true (back into the queue)
+      async function setTrackStatus(tapeIndex, songIndex, status) {
         var tape = soundtracks()[tapeIndex];
         var song = tape && Array.isArray(tape.songs) ? tape.songs[songIndex] : null;
         if (!song || song.id == null) return false;
+
+        var stamp = new Date().toISOString();
+        var patch;
+        if (status === 'LIVE') patch = { certified_at: stamp, rejected_at: null, archived: false };
+        else if (status === 'SHELVED') patch = { rejected_at: stamp, archived: true };
+        else patch = { certified_at: null, rejected_at: null, archived: true };
+
         try {
-          await patchRow('soundtrack_songs?id=eq.' + encodeURIComponent(song.id), { archived: !!archived });
+          await patchRow('soundtrack_songs?id=eq.' + encodeURIComponent(song.id), patch);
         } catch (error) {
           console.error(error);
-          setArchiveStatus((archived ? 'Could not hide ' : 'Could not show ') + songDisplay(song) + '. ' + error.message, 'error');
+          setArchiveStatus('Could not update ' + songDisplay(song) + '. ' + error.message, 'error');
           return false;
         }
-        if (archived) song.archived = true;
-        else delete song.archived;
-        renderTrackArchive(
-          songDisplay(song) + (archived ? ' is off /soundtracks/ now.' : ' is back on /soundtracks/ now.'),
-          'success'
-        );
+
+        if (patch.certified_at) song.certifiedAt = patch.certified_at; else delete song.certifiedAt;
+        if (patch.rejected_at) song.rejectedAt = patch.rejected_at; else delete song.rejectedAt;
+        if (patch.archived) song.archived = true; else { delete song.archived; delete song.archivedWithTape; }
+
+        var said = {
+          LIVE: ' is live on /soundtracks/ now.',
+          SHELVED: ' is shelved — it stays on the city so the routine never picks it again.',
+          REVIEW: ' is back in the review queue.'
+        };
+        renderTrackArchive(songDisplay(song) + (said[status] || ' updated.'), 'success');
+        // Findings against a shelved track are suppressed, so the Issues panel
+        // has to be rebuilt on every status change — both directions. Shelving
+        // drops this track's findings out of the queue; un-shelving brings them
+        // back, which is the point of filtering rather than resolving them.
+        renderIssues();
         return true;
       }
 
@@ -2197,7 +2567,7 @@
         }
 
         var label = songDisplay(song);
-        var wasHidden = isArchivedSong(song);
+        var wasHidden = songStatus(song) !== 'LIVE';
         // The tape grouping changed underneath the loaded copy, so reload rather
         // than shuffle it locally.
         await loadSoundtrackArchive();
@@ -2266,7 +2636,7 @@
       // tapes are rows, so there is no commit feed to read: the newest song row
       // IS the receipt, exactly like the gift shop treats its freshest Review
       // candidate. A run that errored writes nothing, so a stale timestamp is the
-      // failure signal - hence the 26-hour check.
+      // failure signal - hence the 14-hour check against a 12-hour cadence.
       var STALE_AFTER_HOURS = REVIEW_HOURS;
 
       function relativeTime(then, now) {

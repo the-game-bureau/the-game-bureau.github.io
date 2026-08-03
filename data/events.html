@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>EVENTS | THE GAME BUREAU</title>
+  <link rel="icon" href="/assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255, 255, 255, 0.92);
+      --accent: var(--bic-blue);
+      --danger: #a03f2d;
+      --success: #2f6b3d;
+      --stack-gap: 14px;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-minor) 1px, transparent 1px),
+        linear-gradient(var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line-major) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+      color: var(--ink);
+    }
+    button, input, select, textarea { font: inherit; }
+
+    .legend { margin: 0 0 18px; padding: 0 12px; color: var(--muted); font-size: 0.98rem; line-height: 1.4; }
+    .legend strong { color: var(--ink); }
+    .legend a { color: var(--accent); }
+
+    /* ── Buttons ───────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; min-height: 38px;
+      padding: 0 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
+      color: var(--ink); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em;
+      text-decoration: none; cursor: pointer; white-space: nowrap;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .btn:hover { background: rgba(var(--bic-blue-rgb), 0.08); border-color: var(--accent); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { background: rgba(var(--bic-blue-rgb), 0.85); }
+    .btn.warn { color: var(--danger); border-color: rgba(160, 63, 45, 0.45); background: transparent; }
+    .btn.warn:hover { background: rgba(160, 63, 45, 0.08); border-color: var(--danger); }
+    .btn.small { min-height: 32px; padding: 0 10px; font-size: 0.76rem; }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── Command bar ───────────────────────────────────────────────────────── */
+    .command-bar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 0 12px; margin: 0 0 var(--stack-gap);
+    }
+    .command-bar input[type="search"],
+    .command-bar-select {
+      min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px;
+      background: #fff; color: var(--ink); min-width: 0;
+    }
+    .command-bar input[type="search"] { flex: 1 1 220px; max-width: 340px; }
+    .command-bar-divider { width: 1px; height: 26px; background: var(--line); }
+    .command-bar-label {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.62rem; font-weight: 800;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+    }
+
+    .panel {
+      margin: 0 12px 24px; padding: 12px; border: 1px solid var(--line);
+      border-radius: 12px; background: var(--paper);
+    }
+
+    /* ── Event cards ───────────────────────────────────────────────────────── */
+    .event-list { display: grid; gap: 10px; }
+    .event-row {
+      display: grid; gap: 8px; padding: 10px 12px;
+      border: 1px solid var(--line); border-radius: 10px; background: #fff;
+    }
+    .event-row.is-dirty { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(var(--bic-blue-rgb), 0.1); }
+    .event-row.is-new { border-style: dashed; }
+
+    .event-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .event-when {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; font-weight: 700;
+      color: var(--ink); white-space: nowrap;
+    }
+    .event-name { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+    .event-kind {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.6rem; font-weight: 800;
+      letter-spacing: 0.12em; text-transform: uppercase; padding: 2px 7px;
+      border: 1px solid var(--line); border-radius: 999px; color: var(--muted);
+    }
+    .event-id {
+      margin-left: auto; font-family: "IBM Plex Mono", monospace; font-size: 0.64rem;
+      color: var(--muted); overflow-wrap: anywhere;
+    }
+    .event-warn { font-size: 0.68rem; font-weight: 700; color: var(--danger); }
+    .event-kind--neutral { border-color: var(--accent); color: var(--accent); }
+    .event-fields label.field--check {
+      align-content: start;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      column-gap: 6px;
+    }
+    .event-fields label.field--check input { min-height: 0; width: 16px; height: 16px; accent-color: var(--accent); order: -1; }
+
+    .event-fields {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 6px 8px; min-width: 0;
+    }
+    .event-fields label {
+      display: grid; gap: 3px; font-size: 0.6rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); min-width: 0;
+    }
+    .event-fields input,
+    .event-fields select,
+    .event-fields textarea {
+      min-height: 34px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px;
+      background: #fff; color: var(--ink); font-weight: 500; min-width: 0;
+    }
+    .event-fields textarea { min-height: 56px; resize: vertical; }
+    /* A city that isn't in public.cities — kept, but visibly not from the catalog. */
+    .event-fields input.is-unknown-city { border-color: rgba(160, 63, 45, 0.55); color: var(--danger); }
+    .field--wide { grid-column: span 2; }
+    .field--full { grid-column: 1 / -1; }
+
+    .event-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+    .empty { padding: 22px 12px; text-align: center; color: var(--muted); font-size: 0.9rem; }
+
+    /* ── Prompt lightbox (same lockup as the Cities page) ──────────────────── */
+    .prompt-lightbox {
+      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      padding: 20px; background: rgba(17, 24, 32, 0.5); z-index: 1200;
+    }
+    .prompt-lightbox.is-open { display: flex; }
+    .prompt-dialog {
+      width: min(920px, 100%); max-height: min(82vh, 900px);
+      display: grid; grid-template-rows: auto 1fr auto;
+      border: 1px solid var(--line); border-top: 8px solid var(--accent); border-radius: 12px;
+      background: rgba(255, 255, 255, 0.98); box-shadow: 0 24px 48px rgba(17, 24, 32, 0.28);
+      overflow: hidden;
+    }
+    .prompt-dialog-head, .prompt-dialog-foot {
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.9);
+    }
+    .prompt-dialog-head { justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .prompt-dialog-foot { justify-content: space-between; border-top: 1px solid var(--line); }
+    .prompt-dialog-title {
+      margin: 0; font-size: 0.9rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .prompt-dialog-body { padding: 12px; overflow: auto; }
+    .prompt-text {
+      width: 100%; min-height: 360px; resize: vertical;
+      border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+      background: #fff; color: var(--ink);
+      font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; line-height: 1.45;
+    }
+    .prompt-options {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 10px;
+      padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+    }
+    .prompt-options-label {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+    }
+    .prompt-option {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.76rem; font-weight: 700;
+      color: var(--ink); cursor: pointer;
+    }
+    .prompt-option input[type="radio"] { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
+    .prompt-options input[type="text"] {
+      flex: 1 1 240px; min-height: 32px; padding: 4px 8px;
+      border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink);
+    }
+    .prompt-copy-status {
+      min-height: 1.2em; font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; color: var(--muted);
+    }
+
+    .pager { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 0; flex-wrap: wrap; }
+    .pager-info { font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; color: var(--muted); }
+
+    @media (max-width: 760px) {
+      .legend { padding: 0 2px; }
+      .command-bar { padding: 0 2px; }
+      .panel { margin: 0 2px 24px; }
+      .field--wide { grid-column: span 1; }
+      .event-id { margin-left: 0; width: 100%; }
+      .event-actions .btn { flex: 1 1 auto; }
+    }
+  </style>
+  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <header class="admin-site-nav" data-admin-site-nav></header>
+    <script src="/mc/js/admin-site-nav.js"></script>
+
+    <div class="room-head">
+      <div class="room-titlecol">
+        <h1 class="room-title" id="eventTitle">0 EVENTS</h1>
+        <p class="room-substat" id="pageStatus" aria-live="polite"></p>
+      </div>
+    </div>
+
+    <p class="legend">
+      Real-world events a Game Bureau game can be built around — a <strong>sports matchup, concert,
+      convention, festival or expo</strong>. The game builder's <strong>Choose Event</strong> picker reads this
+      table and stamps the chosen row onto <code>games.anchor_event_id</code>; a sports row with both
+      team IDs filled also auto-fills that game's away and home teams.
+    </p>
+
+    <div class="command-bar" aria-label="Events">
+      <input type="search" id="searchInput" placeholder="Search title, team, venue, city…" autocomplete="off">
+      <select id="kindFilter" class="command-bar-select" aria-label="Filter by kind">
+        <option value="">All kinds</option>
+      </select>
+      <select id="leagueFilter" class="command-bar-select" aria-label="Filter by league">
+        <option value="">All leagues</option>
+      </select>
+      <select id="whenFilter" class="command-bar-select" aria-label="Filter by date">
+        <option value="">Any date</option>
+        <option value="upcoming">Upcoming</option>
+        <option value="past">Past</option>
+        <option value="undated">No date</option>
+      </select>
+      <span class="command-bar-divider" aria-hidden="true"></span>
+      <span class="command-bar-label">ADD</span>
+      <button class="btn small primary" id="addEventBtn" type="button">manual</button>
+      <button class="btn small" id="openPromptBtn" type="button" title="Copy a prompt into an AI; paste back the Supabase SQL it returns">prompt</button>
+      <button class="btn small" id="addCityBtn" type="button" title="Add a venue city to the shared catalog without leaving this page">+ city</button>
+    </div>
+
+    <section class="panel">
+      <div class="pager pager--top" id="pagerTop" hidden></div>
+      <div class="event-list" id="eventList"></div>
+      <div class="pager pager--bottom" id="pagerBottom" hidden></div>
+    </section>
+
+    <div class="prompt-lightbox" id="promptLightbox" role="dialog" aria-modal="true" aria-labelledby="promptDialogTitle" hidden>
+      <div class="prompt-dialog">
+        <div class="prompt-dialog-head">
+          <h2 class="prompt-dialog-title" id="promptDialogTitle">Event Finder Prompt</h2>
+          <button class="btn small" id="closePromptBtn" type="button">Close</button>
+        </div>
+        <div class="prompt-dialog-body">
+          <fieldset class="prompt-options" aria-label="Result count">
+            <legend class="prompt-options-label">Events</legend>
+            <label class="prompt-option"><input type="radio" name="promptCount" value="10" checked>10</label>
+            <label class="prompt-option"><input type="radio" name="promptCount" value="25">25</label>
+            <label class="prompt-option"><input type="radio" name="promptCount" value="50">50</label>
+            <label class="prompt-option"><input type="radio" name="promptCount" value="500">500</label>
+          </fieldset>
+          <div class="prompt-options">
+            <span class="prompt-options-label">Focus</span>
+            <input type="text" id="promptFocus" placeholder="optional — e.g. NFL Week 2, arena tours in Denver, fall conventions" autocomplete="off">
+          </div>
+          <textarea class="prompt-text" id="eventPromptText" spellcheck="false" readonly></textarea>
+        </div>
+        <div class="prompt-dialog-foot">
+          <div class="prompt-copy-status" id="promptCopyStatus" aria-live="polite"></div>
+          <button class="btn small primary" id="copyPromptBtn" type="button">Copy</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/mc/js/admin-auth.js"></script>
+  <script src="/mc/js/admin-shell.js"></script>
+  <script src="/mc/js/supabase-rest.js"></script>
+  <script src="/assets/geo.js"></script>
+  <script src="/assets/city-picker.js"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+
+    // The table is called anchor_events, not events. It predates this page —
+    // 20260720_anchor_events.sql created it, and games.anchor_event_id is a FK
+    // to it — so renaming would mean a migration plus a builder change for no
+    // behavioural gain. This page is the Data Warehouse view of that catalog;
+    // mc/anchor-events.html is the older editor over the same rows.
+    const TABLE = 'anchor_events';
+    const DEFAULT_SUBSTAT = 'The shared catalog of real events games are anchored to. Read by the game builder.';
+
+    // Writable columns, in the order the row editor lays them out. `id` is the
+    // text primary key and is edited only on a row that has not been saved yet:
+    // changing it later would orphan every game pointing at it.
+    // Each club is two fields, not one string: the locale is where they are from
+    // (a city, sometimes a region — "New England") and the mascot is what the
+    // copy calls them. A game uses those halves separately, and storing them
+    // split means an event is complete on its own, with no join to public.teams.
+    //
+    // away_label / home_label are deliberately absent: a database trigger
+    // rebuilds them from these two halves on every write, so they stay correct
+    // for the builder's event picker without anyone editing them here.
+    const EDITABLE_FIELDS = [
+      'kind', 'title', 'league', 'sport', 'event_date', 'end_date', 'start_time',
+      'away_locale', 'away_mascot', 'home_locale', 'home_mascot',
+      'venue_name', 'city', 'neutral_site', 'status', 'away_score', 'home_score',
+      'away_team_tgbid', 'home_team_tgbid',
+      'url', 'source', 'description'
+    ];
+    const NUMERIC_FIELDS = ['away_team_tgbid', 'home_team_tgbid', 'away_score', 'home_score'];
+    const BOOLEAN_FIELDS = ['neutral_site'];
+
+    const FIELD_META = {
+      kind:            { label: 'Kind',       type: 'select', options: ['sports', 'concert', 'convention', 'festival', 'expo', 'other'] },
+      title:           { label: 'Title',      type: 'text',   span: 'wide', placeholder: 'Eras Tour · Bears at Panthers' },
+      league:          { label: 'League',     type: 'text',   placeholder: 'NFL' },
+      sport:           { label: 'Sport',      type: 'text',   placeholder: 'Football' },
+      event_date:      { label: 'Date',       type: 'date' },
+      end_date:        { label: 'End date',   type: 'date' },
+      start_time:      { label: 'Start (local)', type: 'time' },
+      away_locale:     { label: 'Away from',  type: 'text',   placeholder: 'Chicago' },
+      away_mascot:     { label: 'Away are',   type: 'text',   placeholder: 'Bears' },
+      home_locale:     { label: 'Home from',  type: 'text',   placeholder: 'Carolina' },
+      home_mascot:     { label: 'Home are',   type: 'text',   placeholder: 'Panthers' },
+      // Optional. Nothing on this page needs them — they exist only so the
+      // builder can pull the fandom color palette off the away club.
+      away_team_tgbid: { label: 'Away tgbid (opt)', type: 'number' },
+      home_team_tgbid: { label: 'Home tgbid (opt)', type: 'number' },
+      venue_name:      { label: 'Venue',      type: 'text',   span: 'wide' },
+      // The VENUE city — where the event physically happens, which is not always
+      // a club's home market: Bears at Panthers is Charlotte, the Chargers play
+      // in Inglewood, the Giants in East Rutherford. Picked from public.cities
+      // via TgbCities so the string matches the catalog exactly; see cityPicker
+      // below for why it includes the hidden ones.
+      city:            { label: 'City (venue)', type: 'text', span: 'wide', picker: 'city', placeholder: 'Chicago, Illinois' },
+      // Neither club at home — the international series, a Super Bowl, a bowl
+      // game. Deliberately not inferred by comparing the home locale to the city:
+      // a Bills home game is in Orchard Park and a Giants home game is in East
+      // Rutherford, so string comparison would call half the league neutral.
+      neutral_site:    { label: 'Neutral site', type: 'checkbox' },
+      status:          { label: 'Status',     type: 'select', options: ['scheduled', 'final', 'postponed', 'cancelled'] },
+      away_score:      { label: 'Away score', type: 'number' },
+      home_score:      { label: 'Home score', type: 'number' },
+      url:             { label: 'URL',        type: 'url',    span: 'wide', placeholder: 'https://…' },
+      source:          { label: 'Source',     type: 'text',   span: 'wide' },
+      description:     { label: 'Description', type: 'textarea', span: 'full' }
+    };
+
+    const PAGE_SIZE = 50;
+
+    const titleEl = document.getElementById('eventTitle');
+    const pageStatus = document.getElementById('pageStatus');
+    const searchInput = document.getElementById('searchInput');
+    const kindFilter = document.getElementById('kindFilter');
+    const leagueFilter = document.getElementById('leagueFilter');
+    const whenFilter = document.getElementById('whenFilter');
+    const listEl = document.getElementById('eventList');
+    const pagerTopEl = document.getElementById('pagerTop');
+    const pagerBottomEl = document.getElementById('pagerBottom');
+    const addEventBtn = document.getElementById('addEventBtn');
+    const addCityBtn = document.getElementById('addCityBtn');
+    const openPromptBtn = document.getElementById('openPromptBtn');
+    const closePromptBtn = document.getElementById('closePromptBtn');
+    const copyPromptBtn = document.getElementById('copyPromptBtn');
+    const promptLightbox = document.getElementById('promptLightbox');
+    const eventPromptText = document.getElementById('eventPromptText');
+    const promptCopyStatus = document.getElementById('promptCopyStatus');
+    const promptFocus = document.getElementById('promptFocus');
+    const promptCountRadios = Array.from(document.querySelectorAll('input[name="promptCount"]'));
+
+    const state = { rows: [], authed: false, page: 1, q: '', kind: '', league: '', when: '' };
+
+    const clean = (v) => (v == null ? '' : String(v)).trim();
+
+    function setStatus(text, kind) {
+      if (!pageStatus) return;
+      pageStatus.textContent = text || DEFAULT_SUBSTAT;
+      pageStatus.classList.toggle('error', kind === 'error');
+      pageStatus.classList.toggle('success', kind === 'success');
+    }
+
+    function restUrl(table, params) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params || {}).forEach(([k, v]) => { if (v != null) url.searchParams.set(k, v); });
+      return url.toString();
+    }
+    function authHeaders(extra) {
+      if (adminAuth && typeof adminAuth.authHeaders === 'function') return adminAuth.authHeaders(extra || {});
+      return Object.assign({ apikey: SUPABASE_CONFIG.publishableKey, Authorization: 'Bearer ' + SUPABASE_CONFIG.publishableKey }, extra || {});
+    }
+    async function readError(res, fallback) {
+      try {
+        const t = await res.text();
+        if (!t) return fallback;
+        try { const j = JSON.parse(t); return j.message || j.error || t; } catch (e) { return t; }
+      } catch (e) { return fallback; }
+    }
+
+    // ── Display helpers ───────────────────────────────────────────────────────
+    // A sports row can leave `title` empty and read as "<away> at <home>"; every
+    // other kind has no team columns to fall back on, so it needs one.
+    function clubName(row, side) {
+      const joined = [clean(row[side + '_locale']), clean(row[side + '_mascot'])].filter(Boolean).join(' ');
+      // Fall back to the one-string column for a row written before the split,
+      // or one whose trigger-rebuilt label has not come back from a save yet.
+      return joined || clean(row[side + '_label']);
+    }
+
+    function displayTitle(row) {
+      const t = clean(row.title);
+      if (t) return t;
+      const away = clubName(row, 'away');
+      const home = clubName(row, 'home');
+      if (away && home) return away + ' at ' + home;
+      return clean(row.id) || '(untitled event)';
+    }
+
+    function displayWhen(row) {
+      const d = clean(row.event_date);
+      if (!d) return 'no date';
+      const end = clean(row.end_date);
+      const t = clean(row.start_time);
+      const short = (iso) => {
+        const parts = iso.split('-');
+        if (parts.length !== 3) return iso;
+        const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      };
+      let out = short(d);
+      if (end && end !== d) out += ' – ' + short(end);
+      if (t) out += ' · ' + t.slice(0, 5);
+      return out;
+    }
+
+    // ── Filters ───────────────────────────────────────────────────────────────
+    const todayIso = () => {
+      const n = new Date();
+      const p = (x) => String(x).padStart(2, '0');
+      return n.getFullYear() + '-' + p(n.getMonth() + 1) + '-' + p(n.getDate());
+    };
+
+    function matches(row) {
+      if (state.kind && clean(row.kind).toLowerCase() !== state.kind) return false;
+      if (state.league && clean(row.league).toUpperCase() !== state.league) return false;
+      if (state.when) {
+        const d = clean(row.event_date);
+        const end = clean(row.end_date) || d;
+        if (state.when === 'undated' && d) return false;
+        if (state.when === 'upcoming' && (!d || end < todayIso())) return false;
+        if (state.when === 'past' && (!d || end >= todayIso())) return false;
+      }
+      if (state.q) {
+        const hay = [row.id, row.kind, row.title, row.description, row.league, row.sport,
+          row.away_locale, row.away_mascot, row.home_locale, row.home_mascot,
+          row.away_label, row.home_label, row.venue_name, row.city, row.status, row.source]
+          .map((v) => clean(v).toLowerCase()).join(' ');
+        if (!hay.includes(state.q)) return false;
+      }
+      return true;
+    }
+
+    function fillSelect(el, current, values, allLabel) {
+      if (!el) return current;
+      el.innerHTML = '';
+      const all = document.createElement('option');
+      all.value = '';
+      all.textContent = allLabel;
+      el.appendChild(all);
+      let kept = '';
+      values.forEach((v) => {
+        const o = document.createElement('option');
+        o.value = v.value;
+        o.textContent = v.label;
+        if (v.value === current) kept = current;
+        el.appendChild(o);
+      });
+      el.value = kept;
+      return kept;
+    }
+
+    function rebuildFilters() {
+      const kinds = new Map();
+      const leagues = new Map();
+      state.rows.forEach((r) => {
+        const k = clean(r.kind).toLowerCase();
+        if (k) kinds.set(k, (kinds.get(k) || 0) + 1);
+        const l = clean(r.league).toUpperCase();
+        if (l) leagues.set(l, (leagues.get(l) || 0) + 1);
+      });
+      const opts = (m) => [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([v, n]) => ({ value: v, label: v + ' (' + n + ')' }));
+      state.kind = fillSelect(kindFilter, state.kind, opts(kinds), 'All kinds');
+      state.league = fillSelect(leagueFilter, state.league, opts(leagues), 'All leagues');
+    }
+
+    // ── Row editor ────────────────────────────────────────────────────────────
+    function fieldControl(row, name, onDirty) {
+      const meta = FIELD_META[name] || { label: name, type: 'text' };
+      const label = document.createElement('label');
+      if (meta.span === 'wide') label.classList.add('field--wide');
+      if (meta.span === 'full') label.classList.add('field--full');
+      label.append(document.createTextNode(meta.label));
+
+      let input;
+      if (meta.type === 'select') {
+        input = document.createElement('select');
+        const blank = document.createElement('option');
+        blank.value = '';
+        blank.textContent = '—';
+        input.appendChild(blank);
+        const current = clean(row[name]);
+        const options = meta.options.slice();
+        // Keep a value the database already has even when it is off the list,
+        // so opening a row never silently rewrites it on the next Save.
+        if (current && !options.includes(current)) options.push(current);
+        options.forEach((v) => {
+          const o = document.createElement('option');
+          o.value = v; o.textContent = v;
+          input.appendChild(o);
+        });
+        input.value = current;
+      } else if (meta.type === 'checkbox') {
+        input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = row[name] === true;
+        label.classList.add('field--check');
+      } else if (meta.type === 'textarea') {
+        input = document.createElement('textarea');
+        input.value = clean(row[name]);
+        input.rows = 2;
+      } else {
+        input = document.createElement('input');
+        input.type = meta.type || 'text';
+        if (meta.placeholder) input.placeholder = meta.placeholder;
+        // <input type="time"> wants HH:MM; Postgres hands back HH:MM:SS.
+        input.value = meta.type === 'time' ? clean(row[name]).slice(0, 5) : clean(row[name]);
+      }
+      input.dataset.field = name;
+      input.addEventListener('input', onDirty);
+      input.addEventListener('change', onDirty);
+      label.appendChild(input);
+
+      if (meta.picker === 'city') bindCityInput(input);
+      return label;
+    }
+
+    // ── City picker ───────────────────────────────────────────────────────────
+    // Cities come from public.cities, the one catalog the whole site shares, so
+    // the string stored here matches what /games/ and /gifts/ key off.
+    //
+    // This binds a SHARED datalist rather than calling TgbCities.attach() per
+    // input. attach() registers a controller per control and never releases it;
+    // this page rebuilds every visible row on each keystroke in the search box,
+    // so attaching per row would pile up thousands of controllers pointing at
+    // detached inputs. One datalist for the page has no such cost, and the +
+    // button moves to the command bar where it is pressed once in a while.
+    //
+    // Hidden cities are INCLUDED, and that is the whole point for this field: a
+    // venue city is exactly the town the catalog flags hidden. Inglewood, East
+    // Rutherford and Orchard Park are stadium towns rather than places we sell
+    // games in, and leaving them out would make the picker unable to describe
+    // half the NFL.
+    const CITY_LIST_ID = 'event-city-options';
+
+    function cityDatalist() {
+      let list = document.getElementById(CITY_LIST_ID);
+      if (!list) {
+        list = document.createElement('datalist');
+        list.id = CITY_LIST_ID;
+        document.body.appendChild(list);
+      }
+      return list;
+    }
+
+    function refreshCityOptions() {
+      if (!(window.TgbCities && typeof TgbCities.all === 'function')) return;
+      const list = cityDatalist();
+      list.innerHTML = '';
+      TgbCities.all().forEach((row) => {
+        const city = clean(row && row.city);
+        if (!city) return;
+        const opt = document.createElement('option');
+        opt.value = city;
+        // Same signal the other admin pickers use: grey / annotated means the
+        // city is hidden from at least one public surface.
+        if (row.ignored) opt.label = city + ' — hidden somewhere';
+        list.appendChild(opt);
+      });
+    }
+
+    function bindCityInput(input) {
+      input.setAttribute('list', CITY_LIST_ID);
+      const flag = () => {
+        // A value the catalog does not know is kept, not corrected — the venue
+        // may genuinely be somewhere we have never listed. It is only marked, so
+        // a typo is visible rather than silently becoming a new city string.
+        const v = clean(input.value);
+        const known = !v || !(window.TgbCities && typeof TgbCities.isIgnored === 'function')
+          ? true
+          : TgbCities.all().some((r) => clean(r && r.city) === v);
+        input.classList.toggle('is-unknown-city', !!v && !known);
+        input.title = (v && !known) ? 'Not in the shared city catalog. Use + CITY to add it.' : '';
+      };
+      input.addEventListener('input', flag);
+      input.addEventListener('change', flag);
+      flag();
+    }
+
+    function readForm(el) {
+      const payload = {};
+      EDITABLE_FIELDS.forEach((name) => {
+        const input = el.querySelector('[data-field="' + name + '"]');
+        if (!input) return;
+        if (BOOLEAN_FIELDS.includes(name)) {
+          // NOT NULL with a default in the database — always send a real boolean,
+          // never null, or the column's not-null constraint rejects the row.
+          payload[name] = !!input.checked;
+          return;
+        }
+        const raw = clean(input.value);
+        if (!raw) { payload[name] = null; return; }
+        if (NUMERIC_FIELDS.includes(name)) {
+          const n = Number(raw);
+          payload[name] = Number.isFinite(n) ? Math.trunc(n) : null;
+          return;
+        }
+        payload[name] = raw;
+      });
+      return payload;
+    }
+
+    function buildRow(row) {
+      const el = document.createElement('article');
+      el.className = 'event-row' + (row.__isNew ? ' is-new' : '');
+
+      const head = document.createElement('div');
+      head.className = 'event-head';
+      const when = document.createElement('span');
+      when.className = 'event-when';
+      when.textContent = displayWhen(row);
+      const name = document.createElement('span');
+      name.className = 'event-name';
+      name.textContent = displayTitle(row);
+      const kind = document.createElement('span');
+      kind.className = 'event-kind';
+      kind.textContent = clean(row.kind) || (clubName(row, 'away') && clubName(row, 'home') ? 'sports' : 'event');
+      head.append(when, name, kind);
+
+      // The only thing worth warning about on a sports row is a club that is
+      // only half entered — the mascot is what the game's copy says, so a row
+      // without one reads as "at" with a blank on one side.
+      if (row.neutral_site === true) {
+        const neutral = document.createElement('span');
+        neutral.className = 'event-kind event-kind--neutral';
+        neutral.textContent = 'neutral site';
+        neutral.title = 'Neither club is at home. Expected to spawn one game per travelling fanbase.';
+        head.appendChild(neutral);
+      }
+
+      const isSports = (clean(row.kind).toLowerCase() || (clubName(row, 'away') && clubName(row, 'home') ? 'sports' : '')) === 'sports';
+      if (isSports && !(clean(row.away_mascot) && clean(row.home_mascot))) {
+        const warn = document.createElement('span');
+        warn.className = 'event-warn';
+        warn.textContent = '⚠ club missing';
+        warn.title = 'A sports event wants both clubs as “from” + “are” — e.g. Chicago + Bears.';
+        head.appendChild(warn);
+      }
+
+      const idEl = document.createElement('span');
+      idEl.className = 'event-id';
+      idEl.textContent = clean(row.id);
+      head.appendChild(idEl);
+      el.appendChild(head);
+
+      const fields = document.createElement('div');
+      fields.className = 'event-fields';
+      const markDirty = () => {
+        el.classList.add('is-dirty');
+        name.textContent = displayTitle(readFormPreview(el, row));
+        when.textContent = displayWhen(readFormPreview(el, row));
+      };
+      // A row that has never been saved needs its primary key typed, because
+      // the database does not generate one.
+      if (row.__isNew) {
+        const idLabel = document.createElement('label');
+        idLabel.className = 'field--wide';
+        idLabel.append(document.createTextNode('ID (permanent)'));
+        const idInput = document.createElement('input');
+        idInput.type = 'text';
+        idInput.dataset.field = 'id';
+        idInput.value = clean(row.id);
+        idInput.placeholder = 'NFL-2026-W1-CAR-CHI';
+        idInput.addEventListener('input', markDirty);
+        idLabel.appendChild(idInput);
+        fields.appendChild(idLabel);
+      }
+      EDITABLE_FIELDS.forEach((f) => fields.appendChild(fieldControl(row, f, markDirty)));
+      el.appendChild(fields);
+
+      const actions = document.createElement('div');
+      actions.className = 'event-actions';
+      const saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = 'btn small primary';
+      saveBtn.textContent = row.__isNew ? 'Create' : 'Save';
+      saveBtn.addEventListener('click', () => saveRow(row, el, saveBtn));
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn small warn';
+      delBtn.textContent = row.__isNew ? 'Discard' : 'Delete';
+      delBtn.addEventListener('click', () => deleteRow(row, delBtn));
+      actions.append(saveBtn, delBtn);
+      el.appendChild(actions);
+      return el;
+    }
+
+    // Header text follows the inputs while you type, without touching the row.
+    function readFormPreview(el, row) {
+      return Object.assign({}, row, readForm(el));
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    function updateTitle() {
+      if (titleEl) titleEl.textContent = state.rows.length + (state.rows.length === 1 ? ' EVENT' : ' EVENTS');
+    }
+
+    function renderPager(el, total, pages) {
+      if (!el) return;
+      el.innerHTML = '';
+      el.hidden = pages <= 1;
+      if (pages <= 1) return;
+      const mk = (text, page, disabled) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn small';
+        b.textContent = text;
+        b.disabled = !!disabled;
+        b.addEventListener('click', () => { state.page = page; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+        return b;
+      };
+      const info = document.createElement('span');
+      info.className = 'pager-info';
+      info.textContent = 'Page ' + state.page + ' of ' + pages + ' · ' + total + ' matching';
+      el.append(mk('‹ Prev', state.page - 1, state.page <= 1), info, mk('Next ›', state.page + 1, state.page >= pages));
+    }
+
+    function render() {
+      if (!listEl) return;
+      listEl.innerHTML = '';
+      updateTitle();
+
+      if (!state.authed) {
+        listEl.appendChild(emptyNode('Sign in with an admin account to load events.'));
+        renderPager(pagerTopEl, 0, 0); renderPager(pagerBottomEl, 0, 0);
+        return;
+      }
+
+      const filtered = state.rows.filter(matches);
+      const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+      if (state.page > pages) state.page = pages;
+      const slice = filtered.slice((state.page - 1) * PAGE_SIZE, state.page * PAGE_SIZE);
+
+      if (!filtered.length) {
+        listEl.appendChild(emptyNode(state.rows.length ? 'No events match those filters.' : 'No events yet. Press ADD manual, or run the Week 1 seed migration.'));
+      } else {
+        slice.forEach((row) => listEl.appendChild(buildRow(row)));
+      }
+      renderPager(pagerTopEl, filtered.length, pages);
+      renderPager(pagerBottomEl, filtered.length, pages);
+    }
+
+    function emptyNode(text) {
+      const d = document.createElement('div');
+      d.className = 'empty';
+      d.textContent = text;
+      return d;
+    }
+
+    // ── Event Finder prompt ───────────────────────────────────────────────────
+    // Copies a prompt into an AI that researches real upcoming events and hands
+    // back ONE Supabase SQL block to paste into the dashboard. Same shape as the
+    // City Finder prompt next door and the waypoint prompts: the model does the
+    // research, a human runs the SQL, and nothing writes to the database from
+    // here.
+    //
+    // Everything this page and the schema know has to be restated in the prompt,
+    // because the model cannot see either: the id format, the kind vocabulary,
+    // the locale + mascot split, that start_time is venue-local, that away_label
+    // and home_label are trigger-derived and must NOT be written, and that the
+    // city has to match public.cities exactly.
+    function buildEventImportPrompt(limit, focus) {
+      // 500 is the top of the radio row: a whole NFL regular season is 272 games,
+      // so a full-season pull has to fit in one prompt.
+      const n = Math.max(1, Math.min(500, parseInt(limit, 10) || 10));
+      const hint = clean(focus);
+
+      // Existing ids and titles, so the model does not re-suggest what we have.
+      // Venue and current flag are included so the audit task below has enough
+      // to judge each row without another round trip.
+      const existing = state.rows
+        .filter((r) => !r.__isNew)
+        .map((r) => [
+          clean(r.id),
+          displayTitle(r),
+          clean(r.event_date) || 'undated',
+          [clean(r.venue_name), clean(r.city)].filter(Boolean).join(', ') || 'venue unknown',
+          r.neutral_site === true ? 'neutral=YES' : 'neutral=no'
+        ].join('  |  '))
+        .sort();
+      // The catalog cities, so `city` lands on a real row rather than a variant
+      // spelling. Capped — the whole catalog would bury the instructions.
+      const cities = (window.TgbCities && typeof TgbCities.all === 'function')
+        ? TgbCities.all().map((r) => clean(r && r.city)).filter(Boolean).sort()
+        : [];
+
+      return [
+        'You are researching real, scheduled, real-world events for The Game Bureau, which builds location-based games around them. A game is played in the host city on the day of the event, so every row has to be a real event with a real date and a real venue.',
+        '',
+        'Task: find ' + n + ' events and return them as ONE Supabase SQL script that inserts into public.anchor_events.'
+          + (hint ? ' Focus on: ' + hint + '.' : ''),
+        '',
+        'What counts as an event:',
+        '- kind is exactly one of: sports, concert, convention, festival, expo, other.',
+        '- It must be scheduled and publicly announced, with a date you can verify. Do not invent a date, a venue, or a matchup, and do not pad the list to reach ' + n + ' — a shorter verified batch is the correct answer.',
+        '- It must be in a real, named venue in a real city. "Somewhere in Chicago in the fall" is not an event.',
+        '- Prefer events that draw visiting fans into a city centre: a home game, a stadium or arena tour date, a convention with a badge, a city festival. Skip anything ticketless, private, or purely local-interest.',
+        '',
+        'Research instructions:',
+        '- Do the research yourself with your web browsing/search tools. Do not ask me for a dataset; the deliverable is the finished SQL.',
+        '- Verify each event against the league, venue, promoter, or organiser page — not a listings aggregator, and not memory.',
+        '- Put the page you verified it against in the `url` column.',
+        '',
+        'Hard requirements for every row:',
+        '',
+        'id — a text primary key you compose yourself, and it is PERMANENT: a game will point at it, so it can never be renamed. Use a readable, collision-proof shape, upper case, no spaces:',
+        '  sports:  LEAGUE-YEAR-Wweek-HOMEABBR-AWAYABBR   e.g. NFL-2026-W1-CAR-CHI',
+        '  other:   KIND-YEAR-MM-DD-SHORTNAME             e.g. CONCERT-2026-09-19-ERAS-CHI',
+        '',
+        'kind — from the list above. Use `sports` only when there are two clubs.',
+        '',
+        'title — how a person would say it. For a sports row this is optional (it falls back to the two clubs), but fill it anyway. For every other kind it is REQUIRED, because the team columns are empty.',
+        '',
+        'THE TWO CLUBS, on a sports row, are stored SPLIT INTO TWO COLUMNS EACH:',
+        '  away_locale / home_locale — where the club is from: "Chicago", "New England", "Green Bay".',
+        '  away_mascot / home_mascot — the nickname alone: "Bears", "Patriots", "Packers".',
+        '  Never put "Chicago Bears" in one column. The locale is a place and the mascot is what the game copy calls them, and they are used separately.',
+        '  DO NOT write away_label or home_label at all. A database trigger rebuilds those from the two halves; writing them by hand is overwritten and wrong.',
+        '  Leave all four null on a non-sports row.',
+        '',
+        'league / sport — e.g. "NFL" / "Football". Null on a non-sports row.',
+        '',
+        'event_date — the date AT THE VENUE, as YYYY-MM-DD. For an event broadcast across time zones this is the local date, which can differ from the date on a US listing: an NFL game played in Melbourne at 8:35 p.m. ET Thursday is Friday morning locally, and the row takes the Friday.',
+        '',
+        'end_date — only for something that runs more than one day (a convention, a festival). Null otherwise.',
+        '',
+        'start_time — VENUE-LOCAL 24-hour HH:MM. Leagues and promoters publish in Eastern, so convert, and note the published time in the description so the two can be reconciled later. This is the time a player standing outside the venue experiences.',
+        '',
+        'venue_name — the venue as it is currently named. Use the current sponsor name.',
+        '',
+        'city — the VENUE city, not a club\'s home market. The Chargers play in Inglewood, the Giants in East Rutherford, the Bills in Orchard Park. It must match a row in public.cities EXACTLY, from the list at the bottom of this prompt; if the venue city is not on that list, still use the correct city and say so in a note after the SQL so it can be added.',
+        '',
+        'neutral_site — true / false, and READ THIS CAREFULLY because it is the field most often got wrong:',
+        '- true means NEITHER club is at home. Both fanbases are travelling and the host city has no home team in it.',
+        '- Set it true for: any international game (the NFL\'s London / Dublin / Madrid / Munich / Berlin / São Paulo / Melbourne / Mexico City series, and the equivalent in any other league), a Super Bowl or championship final at a pre-chosen venue, a college bowl game, a neutral-site kickoff or classic, a game relocated by weather, fire, stadium damage or a scheduling conflict, and any event billed as being at a neutral site.',
+        '- Set it FALSE for an ordinary home game even when the stadium is in a differently-named town. A Bills home game is in Orchard Park, a Giants or Jets home game is in East Rutherford, a Cowboys home game is in Arlington, a 49ers home game is in Santa Clara, a Cardinals home game is in Glendale, a Dolphins home game is in Miami Gardens, a Patriots home game is in Foxborough, a Commanders home game is in Summerfield, a Chargers or Rams home game is in Inglewood. These are NOT neutral sites — the club plays there every year.',
+        '- So do not decide this by comparing the home locale to the city string. Decide it from what the league actually calls the game.',
+        '- An international game is still assigned a nominal "home" club by the league. Keep that club in home_locale / home_mascot AND set neutral_site true — both facts are true at once, and the flag is what stops the host city being treated as that club\'s home market.',
+        '- false on every non-sports row.',
+        '',
+        'status — "scheduled" for anything upcoming.',
+        '',
+        'description — one or two plain sentences: what the event is, plus the published start time you converted from.',
+        '',
+        'url — the page you verified the event against.',
+        '',
+        'source — where you got it, e.g. "NFL.com 2026 schedule release".',
+        '',
+        'Leave alone entirely: away_team_tgbid, home_team_tgbid, away_score, home_score, away_label, home_label. Do not include them in the column list.',
+        '',
+        'Output requirements:',
+        '- Output SQL only — no prose, headings, or commentary before, after, or inside the block. Put any notes AFTER the block.',
+        '- ONE fenced ```sql code block. Do not split it across several.',
+        '- End with `on conflict (id) do nothing;` so a re-run is safe.',
+        '- CRITICAL for copy-paste: plain ASCII only. Straight apostrophes and straight double quotes, never smart/curly quotes, en/em dashes, or non-breaking spaces. Escape an apostrophe inside a value by doubling it.',
+        '- Do not re-add anything in the "already in the catalog" list below.',
+        '',
+        'Use this exact SQL shape (replace the sample rows with your ' + n + '):',
+        'insert into public.anchor_events',
+        '  (id, kind, title, description, league, sport, event_date, end_date, start_time,',
+        '   away_locale, away_mascot, home_locale, home_mascot, venue_name, city, neutral_site, status, url, source)',
+        'values',
+        "  ('NFL-2026-W1-CAR-CHI', 'sports', 'Chicago Bears at Carolina Panthers', 'Week 1; published as 1:00 p.m. ET.', 'NFL', 'Football', '2026-09-13', null, '13:00', 'Chicago', 'Bears', 'Carolina', 'Panthers', 'Bank of America Stadium', 'Charlotte, North Carolina', false, 'scheduled', 'https://www.nfl.com/schedules/2026/REG1/', 'NFL.com 2026 schedule release'),",
+        "  ('NFL-2026-W5-JAX-LAR', 'sports', 'Los Angeles Rams at Jacksonville Jaguars', 'International Series; published as 9:30 a.m. ET, 2:30 p.m. London time.', 'NFL', 'Football', '2026-10-11', null, '14:30', 'Los Angeles', 'Rams', 'Jacksonville', 'Jaguars', 'Wembley Stadium', 'London, United Kingdom', true, 'scheduled', 'https://www.nfl.com/international/', 'NFL.com international series'),",
+        "  ('CONCERT-2026-09-19-EXAMPLE-DEN', 'concert', 'Example Artist at Ball Arena', 'Arena show; doors 6:30 p.m. local.', null, null, '2026-09-19', null, '19:30', null, null, null, null, 'Ball Arena', 'Denver, Colorado', false, 'scheduled', 'https://example.com/tour', 'Artist tour page')",
+        'on conflict (id) do nothing;',
+        '',
+        'SECOND TASK — audit what is already in the catalog for neutral-site mistakes.',
+        'The list of existing events at the bottom of this prompt shows each row\'s venue and its current neutral-site flag. Check every one of them against what you know and can verify:',
+        '- an international, championship, bowl, classic or relocated game flagged `neutral=no` is WRONG and needs fixing;',
+        '- an ordinary home game flagged `neutral=YES` is also wrong — remember the suburb stadiums listed above;',
+        '- a non-sports row should be `neutral=no`.',
+        'If you find any, append a SECOND fenced ```sql block after the first containing only UPDATE statements, one per id, and nothing else:',
+        "  update public.anchor_events set neutral_site = true  where id = 'NFL-2026-W1-LAR-SF';",
+        "  update public.anchor_events set neutral_site = false where id = 'SOME-OTHER-ID';",
+        'Then, after that block, list in plain prose which rows you changed and why. If nothing needs fixing, say "no neutral-site corrections" and omit the second block entirely. Never guess — only correct a row you can actually verify.',
+        '',
+        'Already in the catalog — do not re-add any of these, and audit their neutral-site flags as described above.',
+        'Format: id | title | date | venue, city | current flag',
+        existing.length ? existing.join('\n') : '(none yet)',
+        '',
+        'Valid `city` values (public.cities). Use one of these strings verbatim:',
+        cities.length ? cities.join('\n') : '(city list not loaded — open this page signed in so it can be included)'
+      ].join('\n');
+    }
+
+    function selectedPromptCount() {
+      const checked = promptCountRadios.find((r) => r.checked);
+      const n = Number(checked ? checked.value : 10);
+      return Number.isFinite(n) && n > 0 ? n : 10;
+    }
+
+    function refreshPromptText() {
+      if (!eventPromptText) return;
+      eventPromptText.value = buildEventImportPrompt(selectedPromptCount(), promptFocus && promptFocus.value);
+    }
+
+    function setPromptCopyStatus(text, isSuccess) {
+      if (!promptCopyStatus) return;
+      promptCopyStatus.textContent = text || '';
+      promptCopyStatus.style.color = isSuccess ? 'var(--success)' : 'var(--muted)';
+    }
+
+    function openPromptLightbox() {
+      if (!promptLightbox) return;
+      refreshPromptText();
+      promptLightbox.hidden = false;
+      promptLightbox.classList.add('is-open');
+      setPromptCopyStatus('');
+      if (eventPromptText) eventPromptText.focus();
+    }
+
+    function closePromptLightbox() {
+      if (!promptLightbox) return;
+      promptLightbox.classList.remove('is-open');
+      promptLightbox.hidden = true;
+      if (openPromptBtn) openPromptBtn.focus();
+    }
+
+    async function copyPromptText() {
+      if (!eventPromptText) return;
+      const text = eventPromptText.value || '';
+      if (!text) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          eventPromptText.removeAttribute('readonly');
+          eventPromptText.select();
+          document.execCommand('copy');
+          eventPromptText.setAttribute('readonly', 'readonly');
+        }
+        setPromptCopyStatus('Copied.', true);
+      } catch (err) {
+        console.error(err);
+        setPromptCopyStatus('Could not copy automatically. Select and copy manually.', false);
+      }
+    }
+
+    // ── Data ──────────────────────────────────────────────────────────────────
+    // select=* on purpose, never a column list: a database that has not run
+    // 2026080101_anchor_events_general_columns.sql lacks kind/title/description/
+    // url/end_date, and PostgREST 400s on an unknown column in a select list.
+    // Reading * degrades to "those fields are blank" instead of a dead page.
+    async function loadEvents() {
+      if (listEl) { listEl.innerHTML = ''; listEl.appendChild(emptyNode('Loading events…')); }
+      setStatus('Loading events…');
+      try {
+        if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') {
+          try { await adminAuth.ensureFreshSession(); } catch (e) {}
+        }
+        // Warm the shared city catalog before the rows render, so the City
+        // datalist is populated on first paint rather than one interaction late.
+        // A failure here is not fatal — the field stays a plain text box.
+        if (window.TgbCities && typeof TgbCities.load === 'function') {
+          try { await TgbCities.load(); refreshCityOptions(); } catch (e) { console.error(e); }
+        }
+        const url = restUrl(TABLE, { select: '*', order: 'event_date.desc.nullslast,id.asc' });
+        const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
+        state.rows = Array.isArray(rows) ? rows : [];
+        state.page = 1;
+        rebuildFilters();
+        render();
+        // The prompt embeds the current catalog so the AI does not re-suggest
+        // what we already have — rebuild it whenever the rows change.
+        refreshPromptText();
+        setStatus('Loaded ' + state.rows.length + ' events.', 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err && err.message ? err.message : 'Could not load events.', 'error');
+        if (listEl) { listEl.innerHTML = ''; listEl.appendChild(emptyNode('Could not load events.')); }
+      }
+    }
+
+    async function saveRow(row, el, btn) {
+      const payload = readForm(el);
+      const isNew = !!row.__isNew;
+      const idInput = el.querySelector('[data-field="id"]');
+      const id = isNew ? clean(idInput && idInput.value) : clean(row.id);
+      if (!id) { setStatus('Give the event an ID before creating it.', 'error'); return; }
+      if (isNew && state.rows.some((r) => !r.__isNew && clean(r.id) === id)) {
+        setStatus('An event with the ID "' + id + '" already exists.', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      const orig = btn.textContent;
+      btn.textContent = isNew ? 'Creating…' : 'Saving…';
+      try {
+        const res = isNew
+          ? await fetch(restUrl(TABLE, {}), {
+              method: 'POST',
+              headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+              body: JSON.stringify(Object.assign({ id: id }, payload))
+            })
+          : await fetch(restUrl(TABLE, { id: 'eq.' + id }), {
+              method: 'PATCH',
+              headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+              body: JSON.stringify(payload)
+            });
+        if (!res.ok) throw new Error(await readError(res, 'Save failed.'));
+        const saved = await res.json();
+        if (!Array.isArray(saved) || !saved.length) {
+          throw new Error('Nothing was saved — the database refused the change. Check you are signed in as an admin.');
+        }
+        delete row.__isNew;
+        Object.assign(row, saved[0]);
+        rebuildFilters();
+        render();
+        setStatus((isNew ? 'Created ' : 'Saved ') + displayTitle(row) + '.', 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err && err.message ? err.message : 'Save failed.', 'error');
+        btn.disabled = false;
+        btn.textContent = orig;
+      }
+    }
+
+    async function deleteRow(row, btn) {
+      if (row.__isNew) {
+        state.rows = state.rows.filter((r) => r !== row);
+        render();
+        return;
+      }
+      const id = clean(row.id);
+      if (!id) return;
+      if (!window.confirm('Delete "' + displayTitle(row) + '" from the events catalog?\n\nThis is permanent, and it will fail if a game is still anchored to it.')) return;
+      btn.disabled = true;
+      const orig = btn.textContent;
+      btn.textContent = 'Deleting…';
+      try {
+        const res = await fetch(restUrl(TABLE, { id: 'eq.' + id }), {
+          method: 'DELETE', headers: authHeaders({ Prefer: 'return=minimal' })
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Delete failed.'));
+        state.rows = state.rows.filter((r) => r !== row);
+        rebuildFilters();
+        render();
+        setStatus('Deleted ' + id + '.', 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err && err.message ? err.message : 'Delete failed.', 'error');
+        btn.disabled = false;
+        btn.textContent = orig;
+      }
+    }
+
+    // ── Wiring ────────────────────────────────────────────────────────────────
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        state.q = clean(searchInput.value).toLowerCase();
+        state.page = 1;
+        render();
+      });
+    }
+    [[kindFilter, 'kind'], [leagueFilter, 'league'], [whenFilter, 'when']].forEach(([el, key]) => {
+      if (!el) return;
+      el.addEventListener('change', () => { state[key] = el.value; state.page = 1; render(); });
+    });
+
+    if (addEventBtn) {
+      addEventBtn.addEventListener('click', () => {
+        if (!state.authed) { setStatus('Sign in with an admin account first.', 'error'); return; }
+        state.rows.unshift({ id: '', kind: 'sports', status: 'scheduled', __isNew: true });
+        state.page = 1;
+        state.q = ''; state.kind = ''; state.league = ''; state.when = '';
+        if (searchInput) searchInput.value = '';
+        rebuildFilters();
+        render();
+        const first = listEl && listEl.querySelector('.event-row.is-new [data-field="id"]');
+        if (first) first.focus();
+      });
+    }
+
+    if (openPromptBtn) openPromptBtn.addEventListener('click', openPromptLightbox);
+    if (closePromptBtn) closePromptBtn.addEventListener('click', closePromptLightbox);
+    if (copyPromptBtn) copyPromptBtn.addEventListener('click', copyPromptText);
+    if (promptFocus) promptFocus.addEventListener('input', refreshPromptText);
+    promptCountRadios.forEach((radio) => {
+      radio.addEventListener('change', () => {
+        refreshPromptText();
+        setPromptCopyStatus('Prompt updated for ' + selectedPromptCount() + ' events.', false);
+      });
+    });
+    if (promptLightbox) {
+      promptLightbox.addEventListener('click', (event) => {
+        if (event.target === promptLightbox) closePromptLightbox();
+      });
+    }
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && promptLightbox && !promptLightbox.hidden) closePromptLightbox();
+    });
+
+    if (addCityBtn) {
+      addCityBtn.addEventListener('click', () => {
+        if (!(window.TgbCities && typeof TgbCities.openAddDialog === 'function')) {
+          setStatus('City picker not loaded.', 'error');
+          return;
+        }
+        TgbCities.openAddDialog({ authHeaders: authHeaders }).then((row) => {
+          if (!row) return;
+          refreshCityOptions();
+          render();
+          setStatus('Added ' + row.city + ' to the city catalog.', 'success');
+        }).catch((err) => {
+          console.error(err);
+          setStatus(err && err.message ? err.message : 'Could not add the city.', 'error');
+        });
+      });
+    }
+
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      onAuthorized: async () => { state.authed = true; await loadEvents(); },
+      onSignedOut: () => {
+        state.authed = false;
+        state.rows = [];
+        rebuildFilters();
+        render();
+        setStatus('Sign in with an admin account.');
+      }
+    });
+    if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
+    setStatus('');
+    render();
+    adminAuth.init();
+  </script>
+</body>
+</html>
