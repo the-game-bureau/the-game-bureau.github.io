@@ -208,6 +208,8 @@
     .tag--topic { color: var(--muted); background: var(--panel-soft); border-color: transparent; }
 
     .tag--platform { cursor: help; border-width: 1.5px; }
+    a.tag--platform { cursor: pointer; text-decoration: none; }
+    a.tag--platform:hover { filter: brightness(0.92); text-decoration: underline; }
     .tag--platform.is-instagram { color: #a5316b; border-color: rgba(165, 49, 107, 0.45); background: rgba(165, 49, 107, 0.06); }
     .tag--platform.is-x { color: #14171a; border-color: rgba(20, 23, 26, 0.45); background: rgba(20, 23, 26, 0.05); }
     .tag--platform.is-youtube { color: #b1221b; border-color: rgba(177, 34, 27, 0.45); background: rgba(177, 34, 27, 0.06); }
@@ -224,6 +226,24 @@
     }
 
     .post-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+    /* Auto-Post picker: choose a platform, its composer opens prefilled. */
+    .autopost-toggle { border-color: rgba(var(--bic-blue-rgb), 0.30); }
+    .autopost-menu {
+      margin-top: 8px;
+      padding: 11px 13px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(var(--bic-blue-rgb), 0.035);
+      display: grid;
+      gap: 9px;
+    }
+    .autopost-menu[hidden] { display: none; }
+    .autopost-hint { margin: 0; font-size: 0.72rem; line-height: 1.5; color: var(--muted); }
+    .autopost-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .autopost-choice { min-height: 30px; padding: 0 12px; cursor: pointer; }
+    .autopost-choice.is-suggested { box-shadow: inset 0 0 0 1.5px currentColor; }
+    .autopost-choice:hover { filter: brightness(0.94); }
     .post-feedback {
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.7rem;
@@ -462,8 +482,7 @@
       #queueCard   { order: 1; }
       #routineCard { order: 2; }
       #whatCard    { order: 3; }
-      #styleCard   { order: 4; }
-      #promptCard  { order: 5; }
+      #promptCard  { order: 4; }
 
       .panel-head { align-items: flex-start; flex-direction: column; }
       .copy-status { text-align: left; }
@@ -533,9 +552,9 @@
         <span class="side-label">What this is</span>
         <h2 id="whatTitle">Five things worth posting</h2>
         <p>Every morning an AI agent reads around and brings back <strong>five stories or posts</strong> The Game Bureau might want to share. It works a beat tilted at <strong>games and travel</strong> &mdash; puzzle hunts, scavenger hunts and geocaching, odd competitions, first-person travel writing, plus tourism, weird stuff, sports culture, TV and music. A story does not have to be about a city we sell into, or about a city at all. It writes the caption for each one, tags what the story is about, and says <strong>which of our four accounts it suits</strong> and why &mdash; based on what media the story actually has.</p>
-        <p>Your job is the two buttons. <strong>POST</strong> copies the blurb and the link to your clipboard, ready to paste wherever you are posting. <strong>TRASH</strong> clears one you do not want, and remembers &mdash; it will not come back on reload.</p>
+        <p>Your job is the two buttons. <strong>COPY</strong> puts the blurb and the link on your clipboard, ready to paste wherever you are posting &mdash; and each platform tag links straight to our account there. <strong>TRASH</strong> clears one you do not want, and remembers &mdash; it will not come back on reload.</p>
         <p><strong>Nothing here posts itself.</strong> The agent has no access to any account. It only ever writes this list; a person decides what actually goes out.</p>
-        <p>The list is replaced wholesale every morning, so an unposted pick is gone tomorrow. If you want one, take it today.</p>
+        <p>Each run appends its picks, so the list builds up over the day rather than being wiped. Trash the ones you are done with.</p>
       </section>
 
       <section class="prompt-panel" id="promptCard" aria-label="Socials prompt">
@@ -623,13 +642,13 @@ Judge from the media you saw in step 3 plus the audience for the topic. Most pic
 
 6. WRITE THE FILE
 
-Replace socials/queue.json entirely — a fresh list each day, not an append.
+Append to socials/queue.json — do not overwrite it. This routine may run more than once in a day, and each run must keep the earlier runs' picks. Read the existing file, keep every post already in it exactly as-is, add your five to the END of the posts array, and dedup against every url and headline already there (or in the git history from step 1). Set generated_at to now.
 
 {
   "generated_at": "<ISO 8601 UTC>",
   "posts": [
     {
-      "id": "<YYYY-MM-DD>-1",
+      "id": "<YYYY-MM-DD>-<HHMM-UTC>-1",
       "headline": "<real headline>",
       "url": "<verified URL>",
       "source": "<publication>",
@@ -646,11 +665,11 @@ Replace socials/queue.json entirely — a fresh list each day, not an append.
   ]
 }
 
-Exactly five posts, ids 1-5, two-space indentation. Verify:
+Add exactly five NEW posts this run, ids 1-5 and stamped with the run's UTC time (e.g. 2026-08-04-1055-1) so ids stay unique across same-day runs. Existing posts keep their original ids. Two-space indentation. Verify:
 
     node -e "JSON.parse(require('fs').readFileSync('socials/queue.json','utf8'))"
 
-Check out loud: valid JSON, five posts, every url distinct and opened, nothing repeated from a previous version, every blurb under 200 characters with no hashtags or emoji, at least four distinct topics with none on more than two, at least two picks tagged games/competition/travel, every platform one of Instagram/X/Facebook/YouTube and carrying a why, every post with at least one platform, and git diff touching only that file.
+Check out loud: valid JSON, the file still holds every post it had before plus your five new ones, every new url distinct and opened and not already anywhere in the file, every blurb under 200 characters with no hashtags or emoji, at least four distinct topics with none on more than two, at least two picks tagged games/competition/travel, every platform one of Instagram/X/Facebook/YouTube and carrying a why, every post with at least one platform, and git diff touching only that file.
 
 If you cannot get five good ones, commit four rather than padding with something weak — and say so.
 
@@ -668,12 +687,12 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       <aside class="side-stack" aria-label="Socials notes">
         <section class="side-card side-card--blue" id="routineCard">
           <span class="side-label">Automation</span>
-          <h2>Daily Routine</h2>
-          <p>A scheduled Claude Code cloud agent searches every morning, opens each link to confirm it resolves, writes the captions, and commits <code>socials/queue.json</code>. This page just renders that file.</p>
+          <h2>About the TGB Social Bot</h2>
+          <p>A scheduled Claude Code cloud agent runs twice a day &mdash; around <b>3 AM and 3 PM Central</b> &mdash; opening each link to confirm it resolves, writing the captions, and <b>appending</b> them to <code>socials/queue.json</code>. This page renders that file; picks build up through the day rather than being wiped.</p>
           <ul class="mini-list">
-            <li>Runs <b>6:15 AM CT</b></li>
+            <li>Runs <b>3 AM &amp; 3 PM CT</b></li>
             <li>Model <b>Opus 5</b></li>
-            <li>Brings <b>5 links</b></li>
+            <li>Adds <b>5 links/run</b></li>
             <li>Posts <b>nothing</b></li>
           </ul>
           <div class="run-status" id="runStatus" data-state="loading">
@@ -687,17 +706,9 @@ Finish with a summary: the five picks with cities and sources, what you rejected
             <a class="btn" id="runLogLink" href="https://github.com/the-game-bureau/the-game-bureau/commits/main/socials/queue.json" target="_blank" rel="noopener noreferrer" title="See what the last run actually changed">View Log</a>
           </div>
           <div class="side-links">
-            <a class="btn primary" href="https://claude.ai/code/routines/trig_01VGJLzRyxWuvgrP4hv8ZMM5" target="_blank" rel="noopener noreferrer">Open Routine</a>
+            <a class="btn primary" href="https://claude.ai/code/routines/trig_01KDYndJhZ9ymgUgX5Xx6LsL" target="_blank" rel="noopener noreferrer">Open Routine</a>
           </div>
-          <p class="side-note">Open the routine to watch a run, trigger one early, change the schedule, or pause it. The clock is UTC with no daylight-saving shift, so 11:15 UTC is 6:15 AM Central in summer and 5:15 AM in winter.</p>
-        </section>
-
-        <section class="side-card side-card--red" id="styleCard">
-          <span class="side-label">House style</span>
-          <h2>What makes a good post</h2>
-          <p>Curious, specific, dry. Lead with the interesting thing. Name the city. We sound like a well-travelled friend pointing at something, not a brand chasing engagement.</p>
-          <p>No hashtags, no emoji, no exclamation marks, no &ldquo;link in bio&rdquo;. Nothing political, no tragedy, no SEO listicles.</p>
-          <p class="side-note">Edit any blurb after pasting &mdash; what the clipboard gives you is a starting point, not a rule.</p>
+          <p class="side-note">Open the routine to watch a run, trigger one early, change the schedule, or pause it. The clock is UTC with no daylight-saving shift, so 08:00 and 20:00 UTC land at 3 AM and 3 PM Central in summer, an hour earlier in winter.</p>
         </section>
       </aside>
     </div>
@@ -707,7 +718,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
     FOR AI AGENTS
     =============
     This page is a read-only view of socials/queue.json. It never writes.
-    The daily agent replaces that file wholesale each morning. POST and TRASH
+    The agent appends its picks to that file each run. COPY and TRASH
     are client-side only; TRASH remembers dismissals in localStorage so a
     reload does not resurrect them. Do not add a Supabase table for this, and
     do not give the agent posting credentials — a human decides what goes out.
@@ -719,7 +730,8 @@ Finish with a summary: the five picks with cities and sources, what you rejected
     "writtenBy": "scheduled Claude Code routine, trig_01VGJLzRyxWuvgrP4hv8ZMM5, daily 11:15 UTC",
     "pageWrites": "nothing — read-only render; dismissals live in localStorage",
     "postCount": 5,
-    "replacedDaily": true,
+    "replacedDaily": false,
+    "appends": true,
     "voice": "curious, specific, dry; name the city; no hashtags, emoji, or exclamation marks",
     "beat": ["games", "competition", "travel", "tourism", "weird", "sports", "tv", "music", "food", "history"],
     "rotationRule": "five picks cover at least four distinct topics; no topic on more than two; at least two tagged games/competition/travel",
@@ -972,10 +984,35 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         var postBtn = document.createElement('button');
         postBtn.className = 'btn primary';
         postBtn.type = 'button';
-        postBtn.textContent = 'Post';
+        postBtn.textContent = 'Copy';
         postBtn.title = 'Copy the blurb and link to the clipboard';
         postBtn.addEventListener('click', function () {
           copyToClipboard(clipboardText(post), feedback);
+        });
+
+        // Auto-Post reveals a small platform picker; picking one opens that
+        // platform's own composer prefilled. No credentials live on this public
+        // page, so it can only ever tee a post up for a human to confirm.
+        var autoBtn = document.createElement('button');
+        autoBtn.className = 'btn autopost-toggle';
+        autoBtn.type = 'button';
+        autoBtn.textContent = '⚡ Auto-Post';
+        autoBtn.title = 'Open a prefilled composer for the platform you choose';
+        autoBtn.setAttribute('aria-expanded', 'false');
+
+        var menu = buildAutoPostMenu(post, feedback, function () {
+          menu.setAttribute('hidden', '');
+          autoBtn.setAttribute('aria-expanded', 'false');
+        });
+
+        autoBtn.addEventListener('click', function () {
+          if (menu.hasAttribute('hidden')) {
+            menu.removeAttribute('hidden');
+            autoBtn.setAttribute('aria-expanded', 'true');
+          } else {
+            menu.setAttribute('hidden', '');
+            autoBtn.setAttribute('aria-expanded', 'false');
+          }
         });
 
         var trashBtn = document.createElement('button');
@@ -990,12 +1027,24 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         });
 
         actions.appendChild(postBtn);
+        actions.appendChild(autoBtn);
         actions.appendChild(trashBtn);
         actions.appendChild(feedback);
         article.appendChild(actions);
+        article.appendChild(menu);
 
         return article;
       }
+
+      // Our four accounts, all at the handle @thegamebureau. Keyed by the same
+      // normalized token used for the is-<platform> class, so a platform chip
+      // becomes a link straight to that account's page.
+      var PLATFORM_URLS = {
+        instagram: 'https://www.instagram.com/thegamebureau',
+        x: 'https://x.com/thegamebureau',
+        facebook: 'https://www.facebook.com/thegamebureau',
+        youtube: 'https://www.youtube.com/@thegamebureau'
+      };
 
       // Topics first (what the story is), then the platform recommendations
       // (what to do about it). Renders nothing at all if a post carries neither,
@@ -1029,9 +1078,18 @@ Finish with a summary: the five picks with cities and sources, what you rejected
           if (!name) return;
           var reason = typeof platform === 'string' ? '' : String(platform.why || '');
 
-          var chip = document.createElement('span');
-          chip.className = 'tag tag--platform is-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+          var key = name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+          var href = PLATFORM_URLS[key] || '';
+          // A known platform renders as a link to our account there; an unknown
+          // one stays a plain span so a hand-edited file never yields a dead link.
+          var chip = document.createElement(href ? 'a' : 'span');
+          chip.className = 'tag tag--platform is-' + key;
           chip.textContent = name;
+          if (href) {
+            chip.href = href;
+            chip.target = '_blank';
+            chip.rel = 'noopener noreferrer';
+          }
           // The format reason is the useful half — why THIS story suits THIS
           // platform — so it rides along as a tooltip rather than a second line.
           if (reason) chip.title = reason;
@@ -1049,10 +1107,11 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         return String(post.blurb || '').trim() + '\n\n' + String(post.url || '').trim();
       }
 
-      async function copyToClipboard(text, feedbackEl) {
+      async function copyToClipboard(text, feedbackEl, okMsg) {
+        var done = okMsg || 'Copied';
         try {
           await navigator.clipboard.writeText(text);
-          flash(feedbackEl, 'Copied');
+          flash(feedbackEl, done);
         } catch (error) {
           // The async clipboard needs a secure context and permission. Fall back
           // to a hidden textarea so this still works over plain http on a local
@@ -1067,8 +1126,86 @@ Finish with a summary: the five picks with cities and sources, what you rejected
           var ok = false;
           try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
           document.body.removeChild(scratch);
-          flash(feedbackEl, ok ? 'Copied' : 'Copy failed');
+          flash(feedbackEl, ok ? done : 'Copy failed');
         }
+      }
+
+      // ── Auto-Post ────────────────────────────────────────────────────────
+      // "Post" from a public static page that holds NO credentials: the only
+      // safe move is to hand the caption to the platform's own composer and let
+      // the human hit Post there. X and Facebook take a prefilled web composer;
+      // Instagram and YouTube have no post-by-URL, so we copy the caption and
+      // open the account for a manual paste. This never publishes on its own —
+      // that would need stored tokens, which must never live on this page.
+      var PLATFORM_LABELS = { instagram: 'Instagram', x: 'X', facebook: 'Facebook', youtube: 'YouTube' };
+      // Only X reconstructs the whole post from the URL; the rest need the
+      // caption pasted, so we drop it on the clipboard as the tab opens.
+      var PLATFORM_PREFILLS = { x: true, facebook: false, instagram: false, youtube: false };
+
+      function composeTarget(key, post) {
+        var blurb = String(post.blurb || '').trim();
+        var url = String(post.url || '').trim();
+        if (key === 'x') {
+          return 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(blurb) +
+                 (url ? '&url=' + encodeURIComponent(url) : '');
+        }
+        if (key === 'facebook') {
+          return 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url);
+        }
+        return PLATFORM_URLS[key] || ''; // instagram / youtube — the account page
+      }
+
+      function autoPost(post, key, feedbackEl) {
+        var target = composeTarget(key, post);
+        // window.open must fire synchronously in the click handler to keep the
+        // user-gesture (otherwise the popup blocker eats it), so open first.
+        if (target) {
+          var w = window.open(target, '_blank');
+          if (w) w.opener = null;
+        }
+        if (PLATFORM_PREFILLS[key]) {
+          flash(feedbackEl, 'Opening ' + PLATFORM_LABELS[key]);
+        } else {
+          copyToClipboard(clipboardText(post), feedbackEl, 'Caption copied — paste in ' + PLATFORM_LABELS[key]);
+        }
+      }
+
+      // The picker the Auto-Post button reveals: the four accounts, with the
+      // ones the agent tagged for this story marked "suggested". Each is its own
+      // click so a single user-gesture opens exactly one tab — never a burst the
+      // popup blocker would swallow.
+      function buildAutoPostMenu(post, feedbackEl, onPick) {
+        var tagged = {};
+        (Array.isArray(post.platforms) ? post.platforms : []).forEach(function (p) {
+          var n = typeof p === 'string' ? p : (p && p.name);
+          if (n) tagged[String(n).toLowerCase().replace(/[^a-z0-9]+/g, '')] = true;
+        });
+
+        var menu = document.createElement('div');
+        menu.className = 'autopost-menu';
+        menu.setAttribute('hidden', '');
+
+        var hint = document.createElement('p');
+        hint.className = 'autopost-hint';
+        hint.textContent = 'Pick a platform — it opens that composer with the caption ready, and you tap Post there. Nothing goes out on its own.';
+        menu.appendChild(hint);
+
+        var row = document.createElement('div');
+        row.className = 'autopost-row';
+        ['x', 'facebook', 'instagram', 'youtube'].forEach(function (key) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'autopost-choice tag tag--platform is-' + key + (tagged[key] ? ' is-suggested' : '');
+          b.textContent = PLATFORM_LABELS[key] + (tagged[key] ? ' ★' : '');
+          b.title = tagged[key] ? 'Suggested for this story' : 'Open ' + PLATFORM_LABELS[key];
+          b.addEventListener('click', function () {
+            autoPost(post, key, feedbackEl);
+            if (typeof onPick === 'function') onPick();
+          });
+          row.appendChild(b);
+        });
+        menu.appendChild(row);
+        return menu;
       }
 
       if (restoreBtn) {
