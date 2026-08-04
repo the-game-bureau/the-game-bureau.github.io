@@ -623,13 +623,13 @@ Judge from the media you saw in step 3 plus the audience for the topic. Most pic
 
 6. WRITE THE FILE
 
-Replace socials/queue.json entirely — a fresh list each day, not an append.
+Append to socials/queue.json — do not overwrite it. This routine may run more than once in a day, and each run must keep the earlier runs' picks. Read the existing file, keep every post already in it exactly as-is, add your five to the END of the posts array, and dedup against every url and headline already there (or in the git history from step 1). Set generated_at to now.
 
 {
   "generated_at": "<ISO 8601 UTC>",
   "posts": [
     {
-      "id": "<YYYY-MM-DD>-1",
+      "id": "<YYYY-MM-DD>-<HHMM-UTC>-1",
       "headline": "<real headline>",
       "url": "<verified URL>",
       "source": "<publication>",
@@ -646,11 +646,11 @@ Replace socials/queue.json entirely — a fresh list each day, not an append.
   ]
 }
 
-Exactly five posts, ids 1-5, two-space indentation. Verify:
+Add exactly five NEW posts this run, ids 1-5 and stamped with the run's UTC time (e.g. 2026-08-04-1055-1) so ids stay unique across same-day runs. Existing posts keep their original ids. Two-space indentation. Verify:
 
     node -e "JSON.parse(require('fs').readFileSync('socials/queue.json','utf8'))"
 
-Check out loud: valid JSON, five posts, every url distinct and opened, nothing repeated from a previous version, every blurb under 200 characters with no hashtags or emoji, at least four distinct topics with none on more than two, at least two picks tagged games/competition/travel, every platform one of Instagram/X/Facebook/YouTube and carrying a why, every post with at least one platform, and git diff touching only that file.
+Check out loud: valid JSON, the file still holds every post it had before plus your five new ones, every new url distinct and opened and not already anywhere in the file, every blurb under 200 characters with no hashtags or emoji, at least four distinct topics with none on more than two, at least two picks tagged games/competition/travel, every platform one of Instagram/X/Facebook/YouTube and carrying a why, every post with at least one platform, and git diff touching only that file.
 
 If you cannot get five good ones, commit four rather than padding with something weak — and say so.
 
