@@ -226,6 +226,24 @@
     }
 
     .post-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+    /* Auto-Post picker: choose a platform, its composer opens prefilled. */
+    .autopost-toggle { border-color: rgba(var(--bic-blue-rgb), 0.30); }
+    .autopost-menu {
+      margin-top: 8px;
+      padding: 11px 13px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(var(--bic-blue-rgb), 0.035);
+      display: grid;
+      gap: 9px;
+    }
+    .autopost-menu[hidden] { display: none; }
+    .autopost-hint { margin: 0; font-size: 0.72rem; line-height: 1.5; color: var(--muted); }
+    .autopost-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .autopost-choice { min-height: 30px; padding: 0 12px; cursor: pointer; }
+    .autopost-choice.is-suggested { box-shadow: inset 0 0 0 1.5px currentColor; }
+    .autopost-choice:hover { filter: brightness(0.94); }
     .post-feedback {
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.7rem;
@@ -981,6 +999,31 @@ Finish with a summary: the five picks with cities and sources, what you rejected
           copyToClipboard(clipboardText(post), feedback);
         });
 
+        // Auto-Post reveals a small platform picker; picking one opens that
+        // platform's own composer prefilled. No credentials live on this public
+        // page, so it can only ever tee a post up for a human to confirm.
+        var autoBtn = document.createElement('button');
+        autoBtn.className = 'btn autopost-toggle';
+        autoBtn.type = 'button';
+        autoBtn.textContent = '⚡ Auto-Post';
+        autoBtn.title = 'Open a prefilled composer for the platform you choose';
+        autoBtn.setAttribute('aria-expanded', 'false');
+
+        var menu = buildAutoPostMenu(post, feedback, function () {
+          menu.setAttribute('hidden', '');
+          autoBtn.setAttribute('aria-expanded', 'false');
+        });
+
+        autoBtn.addEventListener('click', function () {
+          if (menu.hasAttribute('hidden')) {
+            menu.removeAttribute('hidden');
+            autoBtn.setAttribute('aria-expanded', 'true');
+          } else {
+            menu.setAttribute('hidden', '');
+            autoBtn.setAttribute('aria-expanded', 'false');
+          }
+        });
+
         var trashBtn = document.createElement('button');
         trashBtn.className = 'btn danger';
         trashBtn.type = 'button';
@@ -993,9 +1036,11 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         });
 
         actions.appendChild(postBtn);
+        actions.appendChild(autoBtn);
         actions.appendChild(trashBtn);
         actions.appendChild(feedback);
         article.appendChild(actions);
+        article.appendChild(menu);
 
         return article;
       }
@@ -1071,10 +1116,11 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         return String(post.blurb || '').trim() + '\n\n' + String(post.url || '').trim();
       }
 
-      async function copyToClipboard(text, feedbackEl) {
+      async function copyToClipboard(text, feedbackEl, okMsg) {
+        var done = okMsg || 'Copied';
         try {
           await navigator.clipboard.writeText(text);
-          flash(feedbackEl, 'Copied');
+          flash(feedbackEl, done);
         } catch (error) {
           // The async clipboard needs a secure context and permission. Fall back
           // to a hidden textarea so this still works over plain http on a local
@@ -1089,8 +1135,86 @@ Finish with a summary: the five picks with cities and sources, what you rejected
           var ok = false;
           try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
           document.body.removeChild(scratch);
-          flash(feedbackEl, ok ? 'Copied' : 'Copy failed');
+          flash(feedbackEl, ok ? done : 'Copy failed');
         }
+      }
+
+      // ── Auto-Post ────────────────────────────────────────────────────────
+      // "Post" from a public static page that holds NO credentials: the only
+      // safe move is to hand the caption to the platform's own composer and let
+      // the human hit Post there. X and Facebook take a prefilled web composer;
+      // Instagram and YouTube have no post-by-URL, so we copy the caption and
+      // open the account for a manual paste. This never publishes on its own —
+      // that would need stored tokens, which must never live on this page.
+      var PLATFORM_LABELS = { instagram: 'Instagram', x: 'X', facebook: 'Facebook', youtube: 'YouTube' };
+      // Only X reconstructs the whole post from the URL; the rest need the
+      // caption pasted, so we drop it on the clipboard as the tab opens.
+      var PLATFORM_PREFILLS = { x: true, facebook: false, instagram: false, youtube: false };
+
+      function composeTarget(key, post) {
+        var blurb = String(post.blurb || '').trim();
+        var url = String(post.url || '').trim();
+        if (key === 'x') {
+          return 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(blurb) +
+                 (url ? '&url=' + encodeURIComponent(url) : '');
+        }
+        if (key === 'facebook') {
+          return 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url);
+        }
+        return PLATFORM_URLS[key] || ''; // instagram / youtube — the account page
+      }
+
+      function autoPost(post, key, feedbackEl) {
+        var target = composeTarget(key, post);
+        // window.open must fire synchronously in the click handler to keep the
+        // user-gesture (otherwise the popup blocker eats it), so open first.
+        if (target) {
+          var w = window.open(target, '_blank');
+          if (w) w.opener = null;
+        }
+        if (PLATFORM_PREFILLS[key]) {
+          flash(feedbackEl, 'Opening ' + PLATFORM_LABELS[key]);
+        } else {
+          copyToClipboard(clipboardText(post), feedbackEl, 'Caption copied — paste in ' + PLATFORM_LABELS[key]);
+        }
+      }
+
+      // The picker the Auto-Post button reveals: the four accounts, with the
+      // ones the agent tagged for this story marked "suggested". Each is its own
+      // click so a single user-gesture opens exactly one tab — never a burst the
+      // popup blocker would swallow.
+      function buildAutoPostMenu(post, feedbackEl, onPick) {
+        var tagged = {};
+        (Array.isArray(post.platforms) ? post.platforms : []).forEach(function (p) {
+          var n = typeof p === 'string' ? p : (p && p.name);
+          if (n) tagged[String(n).toLowerCase().replace(/[^a-z0-9]+/g, '')] = true;
+        });
+
+        var menu = document.createElement('div');
+        menu.className = 'autopost-menu';
+        menu.setAttribute('hidden', '');
+
+        var hint = document.createElement('p');
+        hint.className = 'autopost-hint';
+        hint.textContent = 'Pick a platform — it opens that composer with the caption ready, and you tap Post there. Nothing goes out on its own.';
+        menu.appendChild(hint);
+
+        var row = document.createElement('div');
+        row.className = 'autopost-row';
+        ['x', 'facebook', 'instagram', 'youtube'].forEach(function (key) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'autopost-choice tag tag--platform is-' + key + (tagged[key] ? ' is-suggested' : '');
+          b.textContent = PLATFORM_LABELS[key] + (tagged[key] ? ' ★' : '');
+          b.title = tagged[key] ? 'Suggested for this story' : 'Open ' + PLATFORM_LABELS[key];
+          b.addEventListener('click', function () {
+            autoPost(post, key, feedbackEl);
+            if (typeof onPick === 'function') onPick();
+          });
+          row.appendChild(b);
+        });
+        menu.appendChild(row);
+        return menu;
       }
 
       if (restoreBtn) {
