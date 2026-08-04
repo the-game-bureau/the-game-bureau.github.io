@@ -208,6 +208,8 @@
     .tag--topic { color: var(--muted); background: var(--panel-soft); border-color: transparent; }
 
     .tag--platform { cursor: help; border-width: 1.5px; }
+    a.tag--platform { cursor: pointer; text-decoration: none; }
+    a.tag--platform:hover { filter: brightness(0.92); text-decoration: underline; }
     .tag--platform.is-instagram { color: #a5316b; border-color: rgba(165, 49, 107, 0.45); background: rgba(165, 49, 107, 0.06); }
     .tag--platform.is-x { color: #14171a; border-color: rgba(20, 23, 26, 0.45); background: rgba(20, 23, 26, 0.05); }
     .tag--platform.is-youtube { color: #b1221b; border-color: rgba(177, 34, 27, 0.45); background: rgba(177, 34, 27, 0.06); }
@@ -533,9 +535,9 @@
         <span class="side-label">What this is</span>
         <h2 id="whatTitle">Five things worth posting</h2>
         <p>Every morning an AI agent reads around and brings back <strong>five stories or posts</strong> The Game Bureau might want to share. It works a beat tilted at <strong>games and travel</strong> &mdash; puzzle hunts, scavenger hunts and geocaching, odd competitions, first-person travel writing, plus tourism, weird stuff, sports culture, TV and music. A story does not have to be about a city we sell into, or about a city at all. It writes the caption for each one, tags what the story is about, and says <strong>which of our four accounts it suits</strong> and why &mdash; based on what media the story actually has.</p>
-        <p>Your job is the two buttons. <strong>POST</strong> copies the blurb and the link to your clipboard, ready to paste wherever you are posting. <strong>TRASH</strong> clears one you do not want, and remembers &mdash; it will not come back on reload.</p>
+        <p>Your job is the two buttons. <strong>COPY</strong> puts the blurb and the link on your clipboard, ready to paste wherever you are posting &mdash; and each platform tag links straight to our account there. <strong>TRASH</strong> clears one you do not want, and remembers &mdash; it will not come back on reload.</p>
         <p><strong>Nothing here posts itself.</strong> The agent has no access to any account. It only ever writes this list; a person decides what actually goes out.</p>
-        <p>The list is replaced wholesale every morning, so an unposted pick is gone tomorrow. If you want one, take it today.</p>
+        <p>Each run appends its picks, so the list builds up over the day rather than being wiped. Trash the ones you are done with.</p>
       </section>
 
       <section class="prompt-panel" id="promptCard" aria-label="Socials prompt">
@@ -707,7 +709,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
     FOR AI AGENTS
     =============
     This page is a read-only view of socials/queue.json. It never writes.
-    The daily agent replaces that file wholesale each morning. POST and TRASH
+    The agent appends its picks to that file each run. COPY and TRASH
     are client-side only; TRASH remembers dismissals in localStorage so a
     reload does not resurrect them. Do not add a Supabase table for this, and
     do not give the agent posting credentials — a human decides what goes out.
@@ -719,7 +721,8 @@ Finish with a summary: the five picks with cities and sources, what you rejected
     "writtenBy": "scheduled Claude Code routine, trig_01VGJLzRyxWuvgrP4hv8ZMM5, daily 11:15 UTC",
     "pageWrites": "nothing — read-only render; dismissals live in localStorage",
     "postCount": 5,
-    "replacedDaily": true,
+    "replacedDaily": false,
+    "appends": true,
     "voice": "curious, specific, dry; name the city; no hashtags, emoji, or exclamation marks",
     "beat": ["games", "competition", "travel", "tourism", "weird", "sports", "tv", "music", "food", "history"],
     "rotationRule": "five picks cover at least four distinct topics; no topic on more than two; at least two tagged games/competition/travel",
@@ -972,7 +975,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         var postBtn = document.createElement('button');
         postBtn.className = 'btn primary';
         postBtn.type = 'button';
-        postBtn.textContent = 'Post';
+        postBtn.textContent = 'Copy';
         postBtn.title = 'Copy the blurb and link to the clipboard';
         postBtn.addEventListener('click', function () {
           copyToClipboard(clipboardText(post), feedback);
@@ -996,6 +999,16 @@ Finish with a summary: the five picks with cities and sources, what you rejected
 
         return article;
       }
+
+      // Our four accounts, all at the handle @thegamebureau. Keyed by the same
+      // normalized token used for the is-<platform> class, so a platform chip
+      // becomes a link straight to that account's page.
+      var PLATFORM_URLS = {
+        instagram: 'https://www.instagram.com/thegamebureau',
+        x: 'https://x.com/thegamebureau',
+        facebook: 'https://www.facebook.com/thegamebureau',
+        youtube: 'https://www.youtube.com/@thegamebureau'
+      };
 
       // Topics first (what the story is), then the platform recommendations
       // (what to do about it). Renders nothing at all if a post carries neither,
@@ -1029,9 +1042,18 @@ Finish with a summary: the five picks with cities and sources, what you rejected
           if (!name) return;
           var reason = typeof platform === 'string' ? '' : String(platform.why || '');
 
-          var chip = document.createElement('span');
-          chip.className = 'tag tag--platform is-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+          var key = name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+          var href = PLATFORM_URLS[key] || '';
+          // A known platform renders as a link to our account there; an unknown
+          // one stays a plain span so a hand-edited file never yields a dead link.
+          var chip = document.createElement(href ? 'a' : 'span');
+          chip.className = 'tag tag--platform is-' + key;
           chip.textContent = name;
+          if (href) {
+            chip.href = href;
+            chip.target = '_blank';
+            chip.rel = 'noopener noreferrer';
+          }
           // The format reason is the useful half — why THIS story suits THIS
           // platform — so it rides along as a tooltip rather than a second line.
           if (reason) chip.title = reason;
