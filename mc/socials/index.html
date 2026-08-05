@@ -20,12 +20,15 @@
       --bic-blue-rgb: 45, 72, 128;
       --bic-red: #c23737;
       --ink: var(--bic-blue);
-      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --muted: rgba(var(--bic-blue-rgb), 0.8);
       --line: rgba(var(--bic-blue-rgb), 0.18);
       --accent: var(--bic-blue);
       --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
       --panel: rgba(255, 255, 255, 0.92);
       --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
       --success: #276740;
     }
 
@@ -98,28 +101,41 @@
     /* ── The queue ────────────────────────────────────────────────────────── */
     /* A faint tint on the panel body so the white cards read as objects sitting
        on it. Both were near-white before, which left the cards relying entirely
-       on their 1px border to separate from the background. .panel-head keeps
-       its own white, so the header still caps the panel cleanly. */
+       on their 1px border to separate from the background. */
     .queue-panel {
-      border-top: 8px solid var(--bic-red);
-      background: rgba(var(--bic-blue-rgb), 0.03);
-      border-color: rgba(var(--bic-blue-rgb), 0.24);
+      min-inline-size: 0;
+      padding: 4px 0 0;
+      border: 1px solid var(--cut-panel-line);
+      background: var(--cut-panel-bg);
       border-radius: 10px;
+      overflow: visible;
       /* Tighter than the shared .prompt-panel cushion (0 18px 36px). That wide
          soft shadow is right for a modal floating over the page; under a long
          list it just blurs the panel's own edge. Modals keep it. */
-      box-shadow: 0 1px 3px rgba(var(--bic-blue-rgb), 0.06);
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
     }
 
-    .queue-panel .panel-head {
-      padding: 12px 16px;
-      background: #fff;
-      border-bottom-color: rgba(var(--bic-blue-rgb), 0.24);
-    }
-
-    .queue-panel .panel-title {
+    .queue-panel > legend {
+      float: none;
+      width: auto;
+      padding: 0 7px;
+      margin: 0 0 0 10px;
+      color: var(--ink);
+      background: var(--cut-panel-bg);
+      font-family: "IBM Plex Mono", monospace;
       font-size: 0.92rem;
+      font-weight: 800;
       letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .queue-status {
+      display: none;
+      margin: 0 16px 8px auto;
+    }
+    .queue-status:not(:empty) {
+      display: flex;
+      justify-content: flex-end;
     }
 
     .panel-head {
@@ -163,10 +179,11 @@
       display: inline-flex;
       gap: 2px;
       padding: 3px;
-      margin: 12px 16px;
-      border: 1px solid rgba(var(--bic-blue-rgb), 0.22);
+      margin: 8px 16px 12px;
+      border: 1px solid var(--control-line);
       border-radius: 8px;
-      background: rgba(var(--bic-blue-rgb), 0.05);
+      background: #f8fbff;
+      box-shadow: inset 0 1px 1px rgba(var(--bic-blue-rgb), 0.06);
     }
     .queue-tab {
       display: inline-flex;
@@ -183,21 +200,21 @@
       font-weight: 800;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: rgba(var(--bic-blue-rgb), 0.86);
       transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
     }
     .queue-tab:hover { color: var(--ink); }
     .queue-tab.is-active {
       color: var(--ink);
-      border-color: rgba(var(--bic-blue-rgb), 0.16);
+      border-color: var(--control-line);
       background: #fff;
-      box-shadow: none;
+      box-shadow: 0 1px 2px rgba(var(--bic-blue-rgb), 0.1);
     }
     .queue-tab-count {
       min-width: 21px;
       padding: 2px 7px;
       border-radius: 999px;
-      background: rgba(var(--bic-blue-rgb), 0.10);
+      background: rgba(var(--bic-blue-rgb), 0.14);
       font-size: 0.62rem;
       font-weight: 800;
       letter-spacing: 0.04em;
@@ -216,19 +233,19 @@
     .post {
       display: grid;
       gap: 0;
-      border: 1px solid var(--line);
+      border: 1px solid var(--control-line);
       border-radius: 6px;
       background: #fff;
       overflow: hidden;
-      box-shadow: 0 1px 1px rgba(17, 24, 32, 0.03);
+      box-shadow: 0 1px 2px rgba(17, 24, 32, 0.05);
       transition: box-shadow 120ms ease, border-color 120ms ease;
     }
     /* Hover sharpens the edge rather than lifting the card. A translate plus a
        wide blur reads soft and makes the whole list feel like it is floating;
        a darker border and a tight shadow keep the edges crisp. */
     .post:hover {
-      border-color: rgba(var(--bic-blue-rgb), 0.34);
-      box-shadow: 0 1px 4px rgba(17, 24, 32, 0.06);
+      border-color: rgba(var(--bic-blue-rgb), 0.46);
+      box-shadow: 0 1px 5px rgba(17, 24, 32, 0.09);
     }
     /* A decided card is legible but visibly out of the running. Posted sits at
        a lighter touch than skipped — it is done, not discarded — and carries a
@@ -253,9 +270,9 @@
       justify-content: space-between;
       gap: 10px;
       padding: 8px 12px;
-      border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.16);
-      background: rgba(var(--bic-blue-rgb), 0.025);
-      color: var(--muted);
+      border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.24);
+      background: #f7faff;
+      color: rgba(var(--bic-blue-rgb), 0.86);
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.62rem;
       font-weight: 800;
@@ -278,10 +295,10 @@
       align-items: center;
       min-height: 20px;
       padding: 0 7px;
-      border: 1px solid rgba(var(--bic-blue-rgb), 0.18);
+      border: 1px solid var(--control-line);
       border-radius: 999px;
       background: #fff;
-      color: var(--muted);
+      color: rgba(var(--bic-blue-rgb), 0.82);
       white-space: nowrap;
     }
 
@@ -307,16 +324,16 @@
       display: grid;
       gap: 2px;
       padding: 9px 11px;
-      border: 1px solid var(--line);
+      border: 1px solid var(--control-line);
       border-radius: 6px;
-      background: var(--panel-soft);
+      background: #f7faff;
       text-decoration: none;
       color: inherit;
       transition: background 120ms ease, border-color 120ms ease;
     }
     .post-card:hover {
-      border-color: rgba(var(--bic-blue-rgb), 0.3);
-      background: rgba(var(--bic-blue-rgb), 0.04);
+      border-color: rgba(var(--bic-blue-rgb), 0.46);
+      background: #eef4ff;
     }
     .post-card.has-shot {
       grid-template-columns: 116px minmax(0, 1fr);
@@ -359,7 +376,7 @@
       font-weight: 800;
       letter-spacing: 0.11em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: rgba(var(--bic-blue-rgb), 0.84);
     }
     .post-card-headline {
       font-size: 0.9rem;
@@ -370,7 +387,7 @@
     .post-card-meta {
       font-size: 0.72rem;
       line-height: 1.35;
-      color: var(--muted);
+      color: rgba(var(--bic-blue-rgb), 0.84);
     }
 
     /* ── Ephemera: ours, never posted ─────────────────────────────────────── */
@@ -378,13 +395,13 @@
       display: grid;
       gap: 8px;
       padding: 11px 14px 13px;
-      border-top: 1px solid var(--line);
-      background: rgba(var(--bic-blue-rgb), 0.012);
+      border-top: 1px solid rgba(var(--bic-blue-rgb), 0.22);
+      background: #f8fbff;
     }
 
     .post-why {
       margin: 0;
-      color: var(--muted);
+      color: rgba(var(--bic-blue-rgb), 0.82);
       font-size: 0.82rem;
       font-style: italic;
       line-height: 1.45;
@@ -421,7 +438,8 @@
     .tag--platform.is-youtube { color: #b1221b; border-color: rgba(177, 34, 27, 0.45); background: rgba(177, 34, 27, 0.06); }
     .tag--platform.is-facebook { color: #1b4da8; border-color: rgba(27, 77, 168, 0.45); background: rgba(27, 77, 168, 0.06); }
 
-    .post-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .post-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+    .post-edit-btn { margin-left: auto; }
 
     /* Post picker: tick any number of platforms, then step through them
        one composer at a time — each opened by its own click, see the JS. */
@@ -534,10 +552,10 @@
     .queue-empty {
       padding: 34px 18px;
       margin: 0 16px 18px;
-      border: 1px dashed var(--line);
+      border: 1px dashed var(--cut-panel-line);
       border-radius: 12px;
-      background: rgba(var(--bic-blue-rgb), 0.022);
-      color: var(--muted);
+      background: #f8fbff;
+      color: var(--ink);
       font-size: 0.92rem;
       line-height: 1.6;
       text-align: center;
@@ -606,19 +624,21 @@
       width: 100%;
       max-width: var(--mc-shell-width);
       min-inline-size: 0;
-      padding: 4px 12px 9px;
+      padding: 4px 12px 12px;
       margin: 0 auto var(--stack-gap);
-      background: #eef0f4;
-      border: 1px solid var(--line);
+      background: var(--cut-panel-bg);
+      border: 1px solid var(--cut-panel-line);
       border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
     }
     .command-bar > legend {
       float: none;
       width: auto;
       padding: 0 7px;
-      margin: 0 0 0 2px;
+      margin: 0 0 0 10px;
+      background: var(--cut-panel-bg);
       font-family: "IBM Plex Mono", monospace;
-      font-size: 0.82rem;
+      font-size: 0.92rem;
       font-weight: 800;
       letter-spacing: 0.12em;
       text-transform: uppercase;
@@ -633,6 +653,8 @@
     .command-bar .btn {
       min-width: 0;
       padding: 0 12px;
+      border-color: var(--control-line);
+      box-shadow: 0 1px 1px rgba(var(--bic-blue-rgb), 0.08);
       font-size: 0.78rem;
       letter-spacing: 0.02em;
       white-space: nowrap;
@@ -861,6 +883,7 @@
       gap: 12px;
     }
     .modal-form label,
+    .modal-form .field-label,
     .platform-row label {
       display: grid;
       gap: 6px;
@@ -890,6 +913,20 @@
       resize: vertical;
     }
     .modal-form .full { grid-column: 1 / -1; }
+    .manual-url-field {
+      display: grid;
+      gap: 6px;
+    }
+    .manual-url-control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .manual-url-control .btn {
+      min-height: 40px;
+      padding-inline: 14px;
+    }
     .label-opt { opacity: 0.6; font-weight: 600; letter-spacing: 0.08em; }
     .platform-grid {
       display: grid;
@@ -937,15 +974,22 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
+    .modal-status.is-ok {
+      color: var(--ink);
+    }
 
     @media (max-width: 840px) {
       .panel-head { align-items: flex-start; flex-direction: column; }
       .copy-status { text-align: left; }
       .prompt { min-height: 60vh; padding: 14px 14px 18px; font-size: 0.82rem; }
       .post-actions .btn { flex: 1 1 auto; }
+      .post-edit-btn { margin-left: 0; }
       .command-bar .btn { flex: 1 1 auto; }
       .modal-grid,
       .platform-grid {
+        grid-template-columns: 1fr;
+      }
+      .manual-url-control {
         grid-template-columns: 1fr;
       }
     }
@@ -1010,13 +1054,9 @@
     <div class="prompt-layout">
       <div class="prompt-main">
 
-      <section class="prompt-panel queue-panel" id="queueCard" aria-labelledby="queueTitle">
-        <div class="panel-head">
-          <h2 class="panel-title" id="queueTitle">SOCIAL POST CANDIDATES</h2>
-          <span class="panel-head-actions">
-            <span class="copy-status" id="queueStatus" aria-live="polite"></span>
-          </span>
-        </div>
+      <fieldset class="prompt-panel queue-panel" id="queueCard" aria-labelledby="queueTitle">
+        <legend id="queueTitle">Social Post Candidates</legend>
+        <span class="copy-status queue-status" id="queueStatus" aria-live="polite"></span>
         <div class="queue-tabs" role="tablist" aria-label="Candidate views">
           <button class="queue-tab is-active" id="tabActive" type="button" role="tab" aria-selected="true" aria-controls="queueList">
             Review <span class="queue-tab-count" id="tabActiveCount">0</span>
@@ -1030,23 +1070,28 @@
         </div>
         <div class="queue-list" id="queueList" role="tabpanel" aria-labelledby="tabActive"></div>
         <p class="queue-empty" id="queueEmpty" hidden></p>
-      </section>
+      </fieldset>
 
       <div class="tool-backdrop" id="manualBackdrop" hidden></div>
       <section class="prompt-panel tool-modal-panel" id="manualCard" role="dialog" aria-modal="true" aria-labelledby="manualTitle" hidden>
         <div class="panel-head">
-          <h2 class="panel-title" id="manualTitle">Manual Candidate</h2>
+          <h2 class="panel-title" id="manualTitle">Manually Add a Social Post Candidate</h2>
           <span class="panel-head-actions">
             <button class="btn small" data-manual-close type="button">Close</button>
           </span>
         </div>
         <form class="modal-form" id="manualPostForm">
           <div class="modal-grid">
+            <div class="full manual-url-field">
+              <label class="field-label" for="manualUrl">Destination Web Page</label>
+              <div class="manual-url-control">
+                <input id="manualUrl" type="text" inputmode="url" autocomplete="off" required>
+                <button class="btn small" id="manualFillBtn" type="button">Fill</button>
+                <button class="btn small" id="manualOpenUrlBtn" type="button">Open</button>
+              </div>
+            </div>
             <label class="full">Headline
               <input id="manualHeadline" type="text" autocomplete="off" required>
-            </label>
-            <label class="full">URL
-              <input id="manualUrl" type="url" autocomplete="off" required>
             </label>
             <label>Source
               <input id="manualSource" type="text" autocomplete="off">
@@ -1397,6 +1442,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       var TRASH_KEY = 'tgb_socials_trashed_v1';
       var POSTED_KEY = 'tgb_socials_posted_v1';
       var MANUAL_QUEUE_KEY = 'tgb_socials_manual_posts_v1';
+      var POST_EDITS_KEY = 'tgb_socials_post_edits_v1';
       var STALE_AFTER_HOURS = 26;
 
       var pageStatus = document.getElementById('pageStatus');
@@ -1418,6 +1464,10 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       var manualCard = document.getElementById('manualCard');
       var manualForm = document.getElementById('manualPostForm');
       var manualStatus = document.getElementById('manualStatus');
+      var manualFillBtn = document.getElementById('manualFillBtn');
+      var manualOpenUrlBtn = document.getElementById('manualOpenUrlBtn');
+      var manualTitle = document.getElementById('manualTitle');
+      var manualAddBtn = document.getElementById('manualAddBtn');
       var postBackdrop = document.getElementById('postBackdrop');
       var postCard = document.getElementById('postCard');
       var postDialogMenu = document.getElementById('postDialogMenu');
@@ -1433,7 +1483,9 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       var copyBtn = document.getElementById('copyPromptTop');
       var adminAuthToggleBtn = document.getElementById('adminAuthToggleBtn');
 
+      var filePosts = [];
       var posts = [];
+      var manualEditKey = null;
 
       // ── Trash memory ─────────────────────────────────────────────────────
       function readTrash() {
@@ -1514,6 +1566,30 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         catch (error) { /* manual additions just won't survive reload */ }
       }
 
+      function readPostEdits() {
+        try {
+          var raw = window.localStorage.getItem(POST_EDITS_KEY);
+          var parsed = raw ? JSON.parse(raw) : {};
+          return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+        } catch (error) {
+          return {};
+        }
+      }
+
+      function writePostEdits(map) {
+        try { window.localStorage.setItem(POST_EDITS_KEY, JSON.stringify(map || {})); }
+        catch (error) { /* edits just won't survive reload */ }
+      }
+
+      function applyPostEdits(items) {
+        var edits = readPostEdits();
+        return (items || []).map(function (post) {
+          var key = postId(post);
+          var edit = key && edits[key];
+          return edit ? Object.assign({}, post, edit, { id: post.id || edit.id || key }) : post;
+        });
+      }
+
       function mergeQueuePosts(filePosts, manualPosts) {
         var seen = {};
         return [].concat(filePosts || [], manualPosts || []).filter(function (post) {
@@ -1526,8 +1602,13 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         });
       }
 
-      function setPosts(filePosts) {
-        posts = mergeQueuePosts(filePosts, readManualPosts());
+      function refreshPosts() {
+        posts = applyPostEdits(mergeQueuePosts(filePosts, readManualPosts()));
+      }
+
+      function setPosts(nextFilePosts) {
+        filePosts = Array.isArray(nextFilePosts) ? nextFilePosts : [];
+        refreshPosts();
       }
 
       // ── Auth ─────────────────────────────────────────────────────────────
@@ -1609,6 +1690,376 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         return String(value || '').trim();
       }
 
+      function manualStatusText(text, ok) {
+        if (!manualStatus) return;
+        manualStatus.textContent = text || '';
+        manualStatus.classList.toggle('is-ok', !!ok);
+      }
+
+      function normalizeManualUrl(value) {
+        var raw = cleanText(value);
+        if (!raw) throw new Error('Enter a destination web page.');
+        if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) raw = 'https://' + raw;
+        var url = new URL(raw);
+        if (!/^https?:$/i.test(url.protocol)) throw new Error('Use an http or https URL.');
+        return url.href;
+      }
+
+      function hostnameLabel(url) {
+        var host = '';
+        try { host = new URL(url).hostname; } catch (error) { host = ''; }
+        host = host.replace(/^www\./i, '').split('.')[0] || host;
+        return host.replace(/[-_]+/g, ' ').replace(/\b\w/g, function (ch) { return ch.toUpperCase(); });
+      }
+
+      function firstFilled(values) {
+        for (var i = 0; i < values.length; i++) {
+          var value = cleanText(values[i]);
+          if (value) return value;
+        }
+        return '';
+      }
+
+      function absoluteUrl(value, base) {
+        var raw = cleanText(value);
+        if (!raw) return '';
+        try { return new URL(raw, base).href; } catch (error) { return ''; }
+      }
+
+      function normalizeDate(value) {
+        var raw = cleanText(value);
+        if (!raw) return '';
+        var exact = raw.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+        if (exact) return exact[1] + '-' + exact[2] + '-' + exact[3];
+        var date = new Date(raw);
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toISOString().slice(0, 10);
+      }
+
+      function compactCaption(value) {
+        var text = cleanText(value)
+          .replace(/\s+/g, ' ')
+          .replace(/#[A-Za-z0-9_-]+/g, '')
+          .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
+          .trim();
+        if (text.length <= 200) return text;
+        text = text.slice(0, 197).replace(/\s+\S*$/, '').replace(/[,:;.-]+$/, '').trim();
+        return text ? text + '...' : '';
+      }
+
+      function metaContent(doc, selectors, attr) {
+        for (var i = 0; i < selectors.length; i++) {
+          var el = doc.querySelector(selectors[i]);
+          if (!el) continue;
+          var value = attr ? el.getAttribute(attr) : (el.getAttribute('content') || el.textContent);
+          value = cleanText(value);
+          if (value) return value;
+        }
+        return '';
+      }
+
+      function readJsonLdMetadata(doc) {
+        var out = {};
+        function imageValue(value) {
+          if (!value) return '';
+          if (typeof value === 'string') return value;
+          if (Array.isArray(value)) return imageValue(value[0]);
+          return value.url || value.contentUrl || '';
+        }
+        function nameValue(value) {
+          if (!value) return '';
+          if (typeof value === 'string') return value;
+          if (Array.isArray(value)) return nameValue(value[0]);
+          return value.name || '';
+        }
+        function visit(value) {
+          if (!value) return;
+          if (Array.isArray(value)) {
+            value.forEach(visit);
+            return;
+          }
+          if (typeof value !== 'object') return;
+          if (!out.title) out.title = cleanText(value.headline || value.name);
+          if (!out.description) out.description = cleanText(value.description);
+          if (!out.published) out.published = normalizeDate(value.datePublished || value.dateCreated || value.uploadDate);
+          if (!out.image) out.image = imageValue(value.image || value.thumbnailUrl);
+          if (!out.source) out.source = nameValue(value.publisher || value.sourceOrganization || value.isPartOf);
+          if (!out.keywords) out.keywords = Array.isArray(value.keywords) ? value.keywords.join(', ') : cleanText(value.keywords);
+          visit(value['@graph']);
+          visit(value.mainEntity);
+        }
+        Array.prototype.forEach.call(doc.querySelectorAll('script[type="application/ld+json"]'), function (script) {
+          try { visit(JSON.parse(script.textContent || '')); } catch (error) { /* malformed ld+json */ }
+        });
+        return out;
+      }
+
+      function extractHtmlMetadata(html, url) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var json = readJsonLdMetadata(doc);
+        var source = firstFilled([
+          metaContent(doc, ['meta[property="og:site_name"]', 'meta[name="application-name"]']),
+          json.source,
+          hostnameLabel(url)
+        ]);
+        var title = firstFilled([
+          metaContent(doc, ['meta[property="og:title"]', 'meta[name="twitter:title"]']),
+          json.title,
+          doc.querySelector('title') && doc.querySelector('title').textContent
+        ]);
+        var description = firstFilled([
+          metaContent(doc, ['meta[property="og:description"]', 'meta[name="twitter:description"]', 'meta[name="description"]']),
+          json.description
+        ]);
+        var image = absoluteUrl(firstFilled([
+          metaContent(doc, ['meta[property="og:image:secure_url"]', 'meta[property="og:image"]', 'meta[name="twitter:image"]']),
+          json.image
+        ]), url);
+        return {
+          title: cleanText(title),
+          description: cleanText(description),
+          source: cleanText(source),
+          published: firstFilled([
+            normalizeDate(metaContent(doc, [
+              'meta[property="article:published_time"]',
+              'meta[name="date"]',
+              'meta[name="pubdate"]',
+              'meta[itemprop="datePublished"]'
+            ])),
+            normalizeDate(metaContent(doc, ['time[datetime]'], 'datetime')),
+            json.published
+          ]),
+          image: image,
+          keywords: firstFilled([
+            metaContent(doc, ['meta[name="keywords"]']),
+            json.keywords
+          ])
+        };
+      }
+
+      function mergeMetadata(primary, fallback) {
+        var a = primary || {};
+        var b = fallback || {};
+        return {
+          title: firstFilled([a.title, b.title]),
+          description: firstFilled([a.description, b.description]),
+          source: firstFilled([a.source, b.source]),
+          published: firstFilled([a.published, b.published]),
+          image: firstFilled([a.image, b.image]),
+          keywords: firstFilled([a.keywords, b.keywords])
+        };
+      }
+
+      function fetchWithTimeout(url, options, ms) {
+        if (!window.AbortController) return fetch(url, options || {});
+        var controller = new AbortController();
+        var timer = window.setTimeout(function () { controller.abort(); }, ms || 9000);
+        var opts = options || {};
+        opts.signal = controller.signal;
+        return fetch(url, opts).finally(function () { window.clearTimeout(timer); });
+      }
+
+      async function fetchDirectMetadata(url) {
+        var res = await fetchWithTimeout(url, {
+          cache: 'no-store',
+          credentials: 'omit',
+          headers: { Accept: 'text/html,application/xhtml+xml' }
+        }, 9000);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return extractHtmlMetadata(await res.text(), url);
+      }
+
+      async function fetchMicrolinkMetadata(url) {
+        var api = 'https://api.microlink.io/?url=' + encodeURIComponent(url) +
+          '&audio=false&video=false&iframe=false&screenshot=false';
+        var res = await fetchWithTimeout(api, { cache: 'no-store' }, 12000);
+        if (!res.ok) throw new Error('metadata HTTP ' + res.status);
+        var json = await res.json();
+        var data = json && json.data ? json.data : {};
+        return {
+          title: cleanText(data.title),
+          description: cleanText(data.description),
+          source: cleanText(data.publisher || data.author || hostnameLabel(url)),
+          published: normalizeDate(data.date || data.published || data.modified),
+          image: cleanText(data.image && data.image.url),
+          keywords: Array.isArray(data.keywords) ? data.keywords.join(', ') : cleanText(data.keywords)
+        };
+      }
+
+      async function fetchPageMetadata(url) {
+        var direct = {};
+        var fallback = {};
+        try { direct = await fetchDirectMetadata(url); } catch (error) { direct = {}; }
+        try { fallback = await fetchMicrolinkMetadata(url); } catch (error) { fallback = {}; }
+        return mergeMetadata(direct, fallback);
+      }
+
+      function inferTopics(meta, url) {
+        var text = [
+          meta && meta.title,
+          meta && meta.description,
+          meta && meta.source,
+          meta && meta.keywords,
+          url
+        ].join(' ').toLowerCase();
+        var rules = [
+          ['games', /\b(game|games|gaming|play|players?|boardgame|escape room|scavenger)\b/],
+          ['competition', /\b(competition|contest|tournament|race|challenge|championship|leaderboard)\b/],
+          ['travel', /\b(travel|trip|route|walk|walking|tour|destination|road trip|journey)\b/],
+          ['tourism', /\b(tourism|tourist|attraction|museum|hotel|visitor|guide|landmark)\b/],
+          ['weird', /\b(weird|strange|odd|unusual|curious|mystery|secret|hidden)\b/],
+          ['sports', /\b(sports?|nba|nfl|mlb|nhl|soccer|baseball|football|basketball|hockey)\b/],
+          ['tv', /\b(tv|television|film|movie|series|show|streaming)\b/],
+          ['music', /\b(music|song|album|concert|venue|festival|band|artist)\b/],
+          ['food', /\b(food|drink|restaurant|bar|cafe|chef|menu|cocktail|beer)\b/],
+          ['history', /\b(history|historic|heritage|archive|century|ancient|oldest)\b/]
+        ];
+        var out = [];
+        rules.forEach(function (rule) {
+          if (rule[1].test(text)) out.push(rule[0]);
+        });
+        splitTopics(meta && meta.keywords).forEach(function (topic) {
+          if (out.indexOf(topic) === -1 && rules.some(function (rule) { return rule[0] === topic; })) out.push(topic);
+        });
+        return out.slice(0, 4);
+      }
+
+      function platformWhyText(name, meta) {
+        var hasImage = !!(meta && meta.image);
+        var label = String(name || '').toLowerCase();
+        if (label === 'instagram') return hasImage ?
+          'Has a share image; use the visual as the hook and keep the caption tight.' :
+          'Needs a strong visual before Instagram; caption links will not be clickable.';
+        if (label === 'youtube') return 'Only if this can become a short visual clip or community post.';
+        if (label === 'facebook') return 'Good for a link preview with a little room for context.';
+        return 'Good for a quick link post where the preview carries the story.';
+      }
+
+      function setIfBlank(id, value) {
+        var el = document.getElementById(id);
+        var text = cleanText(value);
+        if (!el || !text || cleanText(el.value)) return 0;
+        el.value = text;
+        return 1;
+      }
+
+      function setPlatformWhyIfBlank(name, value) {
+        var el = document.querySelector('[data-platform-why="' + name + '"]');
+        var text = cleanText(value);
+        if (!el || !text || cleanText(el.value)) return 0;
+        el.value = text;
+        return 1;
+      }
+
+      async function fillManualPostFromUrl() {
+        var urlInput = document.getElementById('manualUrl');
+        if (!urlInput || !manualFillBtn) return;
+        var url;
+        try {
+          url = normalizeManualUrl(urlInput.value);
+          urlInput.value = url;
+        } catch (error) {
+          manualStatusText(error && error.message ? error.message : 'Enter a destination web page.', false);
+          return;
+        }
+
+        manualFillBtn.disabled = true;
+        manualFillBtn.textContent = 'Filling';
+        manualStatusText('Reading destination...', true);
+        try {
+          var meta = await fetchPageMetadata(url);
+          if (!meta.source) meta.source = hostnameLabel(url);
+          var topics = inferTopics(meta, url);
+          var caption = compactCaption(meta.description || meta.title);
+          var why = 'Autofilled from destination page metadata. Verify the page, image, and caption before posting.';
+          var filled = 0;
+          filled += setIfBlank('manualHeadline', meta.title);
+          filled += setIfBlank('manualSource', meta.source);
+          filled += setIfBlank('manualPublished', meta.published);
+          filled += setIfBlank('manualTopics', topics.join(', '));
+          filled += setIfBlank('manualImage', meta.image);
+          filled += setIfBlank('manualBlurb', caption);
+          filled += setIfBlank('manualWhy', why);
+          filled += setPlatformWhyIfBlank('Instagram', platformWhyText('Instagram', meta));
+          filled += setPlatformWhyIfBlank('X', platformWhyText('X', meta));
+          filled += setPlatformWhyIfBlank('Facebook', platformWhyText('Facebook', meta));
+          filled += setPlatformWhyIfBlank('YouTube', platformWhyText('YouTube', meta));
+          manualStatusText(filled ? 'Filled ' + filled + ' blank field' + (filled === 1 ? '' : 's') + '.' : 'No blank fields to fill.', true);
+        } catch (error) {
+          manualStatusText('Could not read that page.', false);
+        } finally {
+          manualFillBtn.disabled = false;
+          manualFillBtn.textContent = 'Fill';
+        }
+      }
+
+      function openManualDestinationUrl() {
+        var urlInput = document.getElementById('manualUrl');
+        if (!urlInput) return;
+        var url;
+        try {
+          url = normalizeManualUrl(urlInput.value);
+          urlInput.value = url;
+        } catch (error) {
+          manualStatusText(error && error.message ? error.message : 'Enter a destination web page.', false);
+          return;
+        }
+        var opened = window.open(url, '_blank', 'noopener,noreferrer');
+        if (opened) {
+          opened.opener = null;
+          manualStatusText('Opened destination.', true);
+        } else {
+          manualStatusText('Popup blocked. Open the destination from the URL field.', false);
+        }
+      }
+
+      function platformKey(value) {
+        return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+      }
+
+      function setManualEditorMode(post) {
+        manualEditKey = post ? postId(post) : null;
+        if (manualTitle) manualTitle.textContent = post ? 'Edit Social Post Candidate' : 'Manually Add a Social Post Candidate';
+        if (manualAddBtn) manualAddBtn.textContent = post ? 'Save Candidate' : 'Add Candidate';
+      }
+
+      function populateManualForm(post) {
+        if (!post) return;
+        var fields = {
+          manualUrl: post.url,
+          manualHeadline: post.headline,
+          manualSource: post.source,
+          manualPublished: normalizeDate(post.published),
+          manualTopics: Array.isArray(post.topics) ? post.topics.join(', ') : post.topics,
+          manualMedia: post.media || 'photo',
+          manualImage: post.image,
+          manualBlurb: post.blurb,
+          manualWhy: post.why
+        };
+        Object.keys(fields).forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.value = cleanText(fields[id]);
+        });
+
+        var picked = {};
+        (Array.isArray(post.platforms) ? post.platforms : []).forEach(function (platform) {
+          var name = typeof platform === 'string' ? platform : (platform && platform.name);
+          if (!name) return;
+          picked[platformKey(name)] = {
+            name: name,
+            why: typeof platform === 'string' ? '' : cleanText(platform && platform.why)
+          };
+        });
+
+        Array.prototype.forEach.call(document.querySelectorAll('[data-platform-name]'), function (input) {
+          var name = input.getAttribute('data-platform-name') || '';
+          var match = picked[platformKey(name)];
+          input.checked = !!match;
+          var whyInput = document.querySelector('[data-platform-why="' + name + '"]');
+          if (whyInput) whyInput.value = match ? cleanText(match.why) : '';
+        });
+      }
+
       function openTool(card, backdrop, focusEl) {
         if (!card) return;
         if (backdrop) backdrop.hidden = false;
@@ -1630,11 +2081,19 @@ Finish with a summary: the five picks with cities and sources, what you rejected
 
       function openManualPost() {
         if (!manualCard || !manualForm) return;
+        setManualEditorMode(null);
         manualForm.reset();
-        var published = document.getElementById('manualPublished');
-        if (published) published.value = new Date().toISOString().slice(0, 10);
-        if (manualStatus) manualStatus.textContent = '';
-        openTool(manualCard, manualBackdrop, document.getElementById('manualHeadline'));
+        manualStatusText('', false);
+        openTool(manualCard, manualBackdrop, document.getElementById('manualUrl'));
+      }
+
+      function openEditPost(post) {
+        if (!manualCard || !manualForm || !post) return;
+        setManualEditorMode(post);
+        manualForm.reset();
+        populateManualForm(post);
+        manualStatusText('', false);
+        openTool(manualCard, manualBackdrop, document.getElementById('manualUrl'));
       }
 
       function openPrompt() {
@@ -1675,33 +2134,37 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         var headline = cleanText(document.getElementById('manualHeadline') && document.getElementById('manualHeadline').value);
         var rawUrl = cleanText(document.getElementById('manualUrl') && document.getElementById('manualUrl').value);
         var blurb = cleanText(document.getElementById('manualBlurb') && document.getElementById('manualBlurb').value);
-        if (manualStatus) manualStatus.textContent = '';
+        manualStatusText('', false);
 
         if (!headline || !rawUrl || !blurb) {
-          if (manualStatus) manualStatus.textContent = 'Headline, URL, and caption are required.';
+          manualStatusText('Headline, destination web page, and caption are required.', false);
           return null;
         }
 
         var url = rawUrl;
         try {
-          url = new URL(rawUrl).href;
+          url = normalizeManualUrl(rawUrl);
+          var urlInput = document.getElementById('manualUrl');
+          if (urlInput) urlInput.value = url;
         } catch (error) {
-          if (manualStatus) manualStatus.textContent = 'Enter a full URL.';
+          manualStatusText(error && error.message ? error.message : 'Enter a full URL.', false);
           return null;
         }
-        if (posts.some(function (post) { return post && post.url === url; })) {
-          if (manualStatus) manualStatus.textContent = 'That URL is already a candidate.';
+        if (posts.some(function (post) {
+          return post && post.url === url && (!manualEditKey || postId(post) !== manualEditKey);
+        })) {
+          manualStatusText('That URL is already a candidate.', false);
           return null;
         }
 
         var platforms = readPlatformPicks();
         if (!platforms.length) {
-          if (manualStatus) manualStatus.textContent = 'Pick at least one platform.';
+          manualStatusText('Pick at least one platform.', false);
           return null;
         }
 
         return {
-          id: manualPostId(),
+          id: manualEditKey || manualPostId(),
           headline: headline,
           url: url,
           source: cleanText(document.getElementById('manualSource') && document.getElementById('manualSource').value),
@@ -1715,14 +2178,43 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         };
       }
 
+      function saveEditedPost(post) {
+        var key = manualEditKey;
+        if (!key || !post) return false;
+        var manualPosts = readManualPosts();
+        var foundManual = false;
+        manualPosts = manualPosts.map(function (item) {
+          if (postId(item) !== key) return item;
+          foundManual = true;
+          return post;
+        });
+        if (foundManual) {
+          writeManualPosts(manualPosts);
+          return true;
+        }
+
+        var edits = readPostEdits();
+        edits[key] = post;
+        writePostEdits(edits);
+        return true;
+      }
+
       function submitManualPost(event) {
         if (event) event.preventDefault();
         var post = readManualPost();
         if (!post) return;
+        if (manualEditKey) {
+          saveEditedPost(post);
+          refreshPosts();
+          renderQueue();
+          closeTool(manualCard, manualBackdrop);
+          flash(queueStatus, 'Saved locally');
+          return;
+        }
         var manualPosts = readManualPosts();
         manualPosts.push(post);
         writeManualPosts(manualPosts);
-        setPosts(posts);
+        refreshPosts();
         renderQueue();
         closeTool(manualCard, manualBackdrop);
         flash(queueStatus, 'Added locally');
@@ -2092,9 +2584,17 @@ Finish with a summary: the five picks with cities and sources, what you rejected
           flash(queueStatus, 'Skipped');
         });
 
+        var editBtn = document.createElement('button');
+        editBtn.className = 'btn small post-edit-btn';
+        editBtn.type = 'button';
+        editBtn.textContent = 'Edit';
+        editBtn.title = 'Edit this candidate locally';
+        editBtn.addEventListener('click', function () { openEditPost(post); });
+
         actions.appendChild(autoBtn);
         actions.appendChild(trashBtn);
         actions.appendChild(feedback);
+        actions.appendChild(editBtn);
         ephemera.appendChild(actions);
         article.appendChild(ephemera);
 
@@ -2460,6 +2960,8 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       }
 
       if (manualPostBtn) manualPostBtn.addEventListener('click', openManualPost);
+      if (manualFillBtn) manualFillBtn.addEventListener('click', fillManualPostFromUrl);
+      if (manualOpenUrlBtn) manualOpenUrlBtn.addEventListener('click', openManualDestinationUrl);
       if (manualForm) manualForm.addEventListener('submit', submitManualPost);
       if (manualBackdrop) manualBackdrop.addEventListener('click', function () {
         closeTool(manualCard, manualBackdrop);
