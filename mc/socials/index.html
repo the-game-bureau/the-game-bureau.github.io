@@ -1327,27 +1327,35 @@ Insert through the RPC. It is the only write path you have, and it is enough:
     curl -sS -X POST "$URL" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d @payload.json
 
 payload.json is exactly this shape — write it to a temp file, never inline a
-5KB -d string:
+5KB -d string.
+
+NOTE THE OUTER "payload" WRAPPER. PostgREST maps the top-level keys of the body
+to the function's named parameters, and this function's parameter is called
+`payload`. Send { "posts": [...] } on its own and you get a 404 saying the
+function was not found, which reads like the migration is missing when it is
+not:
 
 {
-  "posts": [
-    {
-      "id": "<YYYY-MM-DD>-<HHMM-UTC>-1",
-      "headline": "<real headline>",
-      "url": "<verified URL>",
-      "source": "<publication>",
-      "published": "<YYYY-MM-DD>",
-      "topics": ["travel", "weird"],
-      "media": "photo | gallery | video | text",
-      "image": "<absolute og:image URL, or omit>",
-      "platforms": [
-        { "name": "X", "why": "link preview does the work" },
-        { "name": "Instagram", "why": "lead photo of the mural carries it" }
-      ],
-      "blurb": "<the caption>",
-      "why": "<one line, internal>"
-    }
-  ]
+  "payload": {
+    "posts": [
+      {
+        "id": "<YYYY-MM-DD>-<HHMM-UTC>-1",
+        "headline": "<real headline>",
+        "url": "<verified URL>",
+        "source": "<publication>",
+        "published": "<YYYY-MM-DD>",
+        "topics": ["travel", "weird"],
+        "media": "photo | gallery | video | text",
+        "image": "<absolute og:image URL, or omit>",
+        "platforms": [
+          { "name": "X", "why": "link preview does the work" },
+          { "name": "Instagram", "why": "lead photo of the mural carries it" }
+        ],
+        "blurb": "<the caption>",
+        "why": "<one line, internal>"
+      }
+    ]
+  }
 }
 
 Ids are stamped with the run's UTC time (e.g. 2026-08-05-1500-1) so two runs in
