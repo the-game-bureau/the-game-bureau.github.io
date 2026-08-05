@@ -166,7 +166,10 @@
   // Only sections that actually HAVE an admin get the link; this footer also
   // renders on /games/, /how/, /account/ and friends, where the same relative
   // href would be a 404. Add a directory here when it gains an admin page.
-  var MISSION_CONTROL_DIRS = ['/games/admin/', '/gifts/admin/', '/soundtracks/admin/', '/highlights/admin/', '/socials/admin/'];
+  // '/socials/admin/' was dropped on 2026-08-04: the socials admin moved to
+  // /mc/socials/, and there is no public /socials/ section for this footer
+  // to render on any more, so the entry could never match.
+  var MISSION_CONTROL_DIRS = ['/games/admin/', '/gifts/admin/', '/soundtracks/admin/', '/highlights/admin/'];
 
   function missionControlHref() {
     var path = window.location.pathname || '/';

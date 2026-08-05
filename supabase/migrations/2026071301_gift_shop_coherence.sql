@@ -1,12 +1,12 @@
 -- Gift shop AI field-coherence verdicts (persisted).
 --
--- The "AI audit" on the URL error report (shop/admin/gsissues.htm) asks
--- Claude whether each gift's fields line up — image vs title, title vs the
--- linked product page, city. Those verdicts used to be browser-only and vanished
--- on reload. They live here instead so they persist across devices AND survive
--- the nightly regeneration: the shop-coherence-check Edge Function upserts a row
--- per item as it's audited, and the generator (_dev/scripts/shop-error-check.mjs)
--- reads this table to render a persistent "Field mismatches (AI)" section.
+-- The gift-shop AI audit asks Claude whether each gift's fields line up —
+-- image vs title, title vs the linked product page, city. Those verdicts used
+-- to be browser-only and vanished on reload. They live here instead so they
+-- persist across devices AND survive the nightly regeneration:
+-- the shop-coherence-check Edge Function upserts a row per item as it's
+-- audited, and the checker (_dev/scripts/shop-error-check.mjs) reads this table
+-- when refreshing Stock Room issue data.
 --
 -- Admin-only, same is_photo_admin() gate as gift_shop_error_ignores. The
 -- generator reads with the service-role key (bypasses RLS).

@@ -3,7 +3,7 @@
      <header class="admin-site-nav" data-admin-site-nav></header>
      <script src="/mc/js/admin-site-nav.js"></script>
 
-   It fills the placeholder with the same four buttons the public site nav
+   It fills the placeholder with the same section buttons the public site nav
    carries — GAMES / GIFTS / SOUNDTRACKS / HIGHLIGHTS — styled to match, and
    marks the current room with aria-current so it fills in like the public one.
 
@@ -27,7 +27,7 @@
     document.querySelector('header.admin-site-nav');
   if (!header || header.dataset.tgbAdminNavReady === 'true') return;
 
-  // The four rooms. `match` is what makes a button read as current: the admin
+  // The admin rooms. `match` is what makes a button read as current: the admin
   // pages sit at different depths (/gifts/admin/ vs /highlights/admin/), so this
   // tests the section rather than comparing the whole path.
   var ROOMS = [
@@ -145,10 +145,28 @@
     '.admin-site-nav .asn-cog-bore { fill: none; stroke-width: 2; }',
     '.admin-site-nav .asn-cog-crosshair { stroke: rgba(45, 72, 128, 0.12); stroke-width: 1.4; }',
     /* Everything real sits above the watermark. */
-    '.admin-site-nav > div,',
+    '.admin-site-nav .asn-brand,',
     '.admin-site-nav .asn-links {',
     '  position: relative;',
     '  z-index: 1;',
+    '}',
+    '.admin-site-nav .asn-brand {',
+    '  text-decoration: none;',
+    '  color: inherit;',
+    '}',
+    /* Grow, never underline. The brand is a two-line block, so underlining only
+       the name split the pair visually and read as a stray link; scaling both
+       together keeps them one target. Origin is left because the brand sits at
+       the left edge — scaling from centre would nudge it into the padding. */
+    '.admin-site-nav .asn-brand:hover .asn-brand-name,',
+    '.admin-site-nav .asn-brand:focus-visible .asn-brand-name,',
+    '.admin-site-nav .asn-brand:hover .asn-brand-tagline,',
+    '.admin-site-nav .asn-brand:focus-visible .asn-brand-tagline {',
+    '  transform: scale(1.045);',
+    '}',
+    '.admin-site-nav .asn-brand:focus-visible {',
+    '  outline: 2px solid rgba(0, 60, 113, 0.34);',
+    '  outline-offset: 4px;',
     '}',
     '.admin-site-nav .asn-brand-name {',
     '  display: block;',
@@ -158,6 +176,8 @@
     '  font-weight: 800;',
     '  letter-spacing: 0.02em;',
     '  text-transform: uppercase;',
+    '  transform-origin: left center;',
+    '  transition: transform 140ms ease;',
     '}',
     '.admin-site-nav .asn-brand-tagline {',
     '  margin: 2px 0 0;',
@@ -165,6 +185,12 @@
     '  font-family: Arial, Helvetica, sans-serif;',
     '  font-size: 0.78rem;',
     '  font-weight: 700;',
+    '  transform-origin: left center;',
+    '  transition: transform 140ms ease;',
+    '}',
+    '@media (prefers-reduced-motion: reduce) {',
+    '  .admin-site-nav .asn-brand-name,',
+    '  .admin-site-nav .asn-brand-tagline { transition: none; }',
     '}',
     /* flex-start, not center: each section is a two-row column (button over
        public link) while the padlock is a lone button, and centering would push
@@ -267,7 +293,7 @@
     '  outline: none;',
     '}',
     /* Icon-only, square, and it sits in the same row so it reads as the last
-       button after HIGHLIGHTS rather than as a separate control. */
+       button after the section links rather than as a separate control. */
     '.admin-site-nav .asn-lock {',
     '  width: 40px;',
     '  padding: 0;',
@@ -311,7 +337,11 @@
 
   var path = String(location.pathname || '');
 
-  var brand = document.createElement('div');
+  var brand = document.createElement('a');
+  brand.className = 'asn-brand';
+  brand.href = '/mc/';
+  brand.title = 'Mission Control';
+  brand.setAttribute('aria-label', 'Mission Control');
   brand.innerHTML =
     '<span class="asn-brand-name">The Game Bureau</span>' +
     '<p class="asn-brand-tagline">Mission Control</p>';

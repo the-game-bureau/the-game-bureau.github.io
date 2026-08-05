@@ -14,7 +14,7 @@
 //   3. asks Claude (vision) to compare OUR fields against the page + the image
 //      and return a strict-JSON verdict flagging any mismatch.
 //
-// Gated to a signed-in user (the report page sends the admin JWT) so anonymous
+// Gated to a signed-in user (admin tools send the admin JWT) so anonymous
 // traffic can't burn Anthropic tokens. Returns:
 //   { verdict, imageMatches, titleMatchesPage, cityOk, issues[], summary,
 //     pageFetched, model }

@@ -234,6 +234,12 @@
       letter-spacing: 0.02em;
       white-space: nowrap;
     }
+    .command-bar .btn.is-active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(var(--bic-blue-rgb), 0.16);
+    }
     /* Reference dashboards read quieter than the create actions. */
     .command-bar .btn.ghost {
       background: transparent;
@@ -282,8 +288,8 @@
       color: var(--muted);
     }
 
-    /* Live URL-error count from giftshop-errors.json, shown on the report link.
-       Red when there are confirmed errors, muted grey when the catalog is clean. */
+    /* Live URL-error count from giftshop-errors.json, shown on the Stock Room
+       ISSUES filter. Red when there are confirmed errors, muted grey when clean. */
     .err-count-badge {
       display: inline-flex;
       align-items: center;
@@ -752,6 +758,48 @@
       text-align: left;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .item-issue-note {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: -2px 0 8px;
+      padding: 8px 10px;
+      border: 1px solid rgba(217, 38, 38, 0.34);
+      border-radius: 8px;
+      background: rgba(217, 38, 38, 0.07);
+      color: #7c2b2b;
+      font-size: 0.78rem;
+      line-height: 1.25;
+    }
+    .item-issue-note[hidden] { display: none; }
+    .item-issue-note span {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .item-issue-clear {
+      flex: 0 0 auto;
+      min-height: 28px;
+      padding: 0 8px;
+      border: 1px solid rgba(217, 38, 38, 0.4);
+      border-radius: 6px;
+      background: #fff;
+      color: #7c2b2b;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .item-issue-clear:hover {
+      border-color: #d92626;
+      color: #d92626;
+    }
+    .item-issue-clear:disabled {
+      opacity: 0.58;
+      cursor: progress;
     }
     .item-status-panel {
       flex: 0 0 auto;
@@ -2882,8 +2930,6 @@
         </div>
       </div>
 
-      <!-- Understocked-cities check moved to the ISSUES page (gsissues.htm). -->
-
       <!-- One command bar: create actions, then Issues, then the quieter
            reference dashboards — separated by thin dividers instead of three
            stacked fieldsets. -->
@@ -2893,7 +2939,7 @@
         <button class="btn" id="searchPromptBtn" type="button" disabled>PROMPT</button>
         <button class="btn" id="nightlyBtn" type="button" title="Runs twice a day, 3 AM and 3 PM Central: finds candidate books for the city with the fewest gifts and files them for review — it can never publish. Shows what it does, when it last ran, and its prompt.">TGB GIFT SHOP BOT</button>
         <span class="command-bar-divider" aria-hidden="true"></span>
-        <a class="btn" id="urlErrReportLink" href="/gifts/admin/gsissues.htm" target="_blank" rel="noopener noreferrer">ISSUES <span class="err-count-badge" id="urlErrCount" hidden></span></a>
+        <button class="btn" id="urlErrReportLink" type="button" aria-pressed="false">ISSUES <span class="err-count-badge" id="urlErrCount" hidden></span></button>
         <span class="command-bar-divider" aria-hidden="true"></span>
         <span class="command-bar-label">Links</span>
         <a class="btn ghost" href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" title="Google Cloud Console">Google Cloud</a>
@@ -2901,8 +2947,8 @@
         <a class="btn ghost" href="https://bookshop.org/affiliates/dashboard" target="_blank" rel="noopener noreferrer" title="Bookshop.org affiliate dashboard">Bookshop.org</a>
       </div>
       <script>
-        // Show the confirmed URL-error count from the nightly report's JSON on the
-        // "URL Error Report" link (which opens the full report). Red when > 0.
+        // Show the confirmed URL-error count from the nightly JSON on the
+        // Stock Room ISSUES filter. Red when > 0.
         (function () {
           var badge = document.getElementById('urlErrCount');
           if (!badge) return;
@@ -2970,6 +3016,10 @@
       <legend>GIFT</legend>
       <div class="item-head">
         <span class="item-status" data-status></span>
+      </div>
+      <div class="item-issue-note" data-issue-note hidden>
+        <span data-issue-text></span>
+        <button class="item-issue-clear" type="button" data-action="clear-issue">Clear issue</button>
       </div>
       <div class="item-body">
         <div class="item-focus-col">
@@ -3212,6 +3262,7 @@
     const itemSearchInput = document.getElementById('itemSearchInput');
     const clearFiltersBtn = document.getElementById('clearFiltersBtn');
     const searchPromptBtn = document.getElementById('searchPromptBtn');
+    const issueFilterBtn = document.getElementById('urlErrReportLink');
     const itemsList    = document.getElementById('itemsList');
     const itemsMore    = document.getElementById('itemsMore');
     const itemsMoreCount = document.getElementById('itemsMoreCount');
@@ -3360,6 +3411,14 @@
     if (clearFiltersBtn) {
       clearFiltersBtn.addEventListener('click', clearStockRoomFilters);
     }
+    if (issueFilterBtn) {
+      issueFilterBtn.addEventListener('click', () => {
+        setIssueFilterActive(!issueFilterActive);
+        if (issueFilterActive && typeof window.TgbRefreshIssueBadge === 'function') {
+          window.TgbRefreshIssueBadge();
+        }
+      });
+    }
     if (saveAllChangesBtn) {
       saveAllChangesBtn.addEventListener('click', saveAllDirtyItems);
     }
@@ -3386,6 +3445,7 @@
     const initialParams = new URLSearchParams(window.location.search);
     const initialItemId = String(initialParams.get('item') || '').trim();
     const isInitialItemMode = !!initialItemId;
+    let issueFilterActive = String(initialParams.get('issues') || '').toLowerCase() === 'open';
     const initialShopCityParam = String(initialParams.get('city') || '').trim();
     // The stock room opens with every filter off — the whole catalog, no city
     // preselected. ?city=<name> still deep-links to one city; ?city=all is the
@@ -3453,6 +3513,8 @@
           statusFilter.value = '';
           statusFilter.disabled = true;
         }
+        issueFilterActive = false;
+        setOpenIssueIds([], { skipRefresh: true });
         if (clearFiltersBtn) clearFiltersBtn.disabled = true;
         itemsVisibleLimit = ITEMS_PAGE_SIZE;
         if (itemsMore) itemsMore.hidden = true;
@@ -3487,6 +3549,9 @@
     let gameSearchList = [];
     let cityList = [];  // distinct TGB cities ("City, State"); gifts are assigned to these
     let allGiftItemsCache = [];
+    let openIssueIds = new Set();
+    let issueDetailsById = new Map();
+    let issueStateLoaded = false;
 
     function restUrl(table, params = {}) {
       const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
@@ -3537,6 +3602,127 @@
       return adminAuth.authHeaders(extra);
     }
 
+    const HARD_ISSUE_STATES = new Set(['dead', 'error', 'notimage']);
+
+    function issueRecordHasHardFailure(issue) {
+      if (!issue || typeof issue !== 'object') return false;
+      return HARD_ISSUE_STATES.has(String(issue.urlState || '')) ||
+        HARD_ISSUE_STATES.has(String(issue.imageState || ''));
+    }
+
+    function issuePartLabel(field, state, code, detail) {
+      const s = String(state || '');
+      if (!s || s === 'ok' || s === 'none') return '';
+      if (!HARD_ISSUE_STATES.has(s) && s !== 'blocked') return '';
+      const words = s === 'dead' ? 'dead'
+        : (s === 'notimage' ? 'not an image'
+          : (s === 'blocked' ? 'blocked' : 'error'));
+      return field + ' ' + words +
+        (code ? ' ' + code : '') +
+        (detail ? ': ' + String(detail) : '');
+    }
+
+    function describeIssue(issue) {
+      const parts = issue ? [
+        issuePartLabel('Link', issue.urlState, issue.urlCode, issue.urlDetail),
+        issuePartLabel('Image', issue.imageState, issue.imageCode, issue.imageDetail)
+      ].filter(Boolean) : [];
+      const checked = issue && issue.checkedAt ? ' Checked ' + issue.checkedAt + '.' : '';
+      return (parts.length ? parts.join('; ') : 'Nightly link or image issue.') + checked;
+    }
+
+    function updateIssueFilterButton() {
+      if (!issueFilterBtn) return;
+      issueFilterBtn.classList.toggle('is-active', issueFilterActive);
+      issueFilterBtn.setAttribute('aria-pressed', issueFilterActive ? 'true' : 'false');
+      if (!issueFilterBtn.title) {
+        issueFilterBtn.title = issueFilterActive ? 'Showing open gift issues' : 'Show open gift issues';
+      }
+    }
+
+    function setIssueFilterActive(active, opts = {}) {
+      const next = !!active;
+      const changed = issueFilterActive !== next;
+      issueFilterActive = next;
+      updateIssueFilterButton();
+      if (changed && !opts.skipRefresh) resetItemsPaging();
+    }
+
+    function sameStringSet(a, b) {
+      if (a.size !== b.size) return false;
+      for (const value of a) if (!b.has(value)) return false;
+      return true;
+    }
+
+    function refreshRenderedIssueNotes() {
+      if (!itemsList) return;
+      itemsList.querySelectorAll('.item').forEach(updateItemIssueNote);
+    }
+
+    function setOpenIssueIds(ids, opts = {}) {
+      const next = new Set((ids || []).map((id) => String(id || '').trim()).filter(Boolean));
+      const changed = !sameStringSet(openIssueIds, next);
+      openIssueIds = next;
+      updateIssueFilterButton();
+      refreshRenderedIssueNotes();
+      if (changed && issueFilterActive && !opts.skipRefresh && allGiftItemsCache.length) {
+        resetItemsPaging();
+      }
+    }
+
+    async function loadIssueState() {
+      if (issueStateLoaded) return;
+      issueStateLoaded = true;
+      try {
+        const res = await fetch('/gifts/admin/giftshop-errors-state.json?t=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) return;
+        const state = await res.json();
+        const items = state && state.items && typeof state.items === 'object' ? state.items : {};
+        issueDetailsById = new Map(Object.entries(items)
+          .filter(([, issue]) => issueRecordHasHardFailure(issue))
+          .map(([id, issue]) => [String(id), issue || {}]));
+        refreshRenderedIssueNotes();
+      } catch (error) {
+        // Detail text is useful, but the filter still works from giftshop-errors.json.
+      }
+    }
+
+    function updateItemIssueNote(article) {
+      if (!article) return;
+      const note = article.querySelector('[data-issue-note]');
+      if (!note) return;
+      const id = String(article.dataset.id || '').trim();
+      const isOpen = !!id && openIssueIds.has(id);
+      note.hidden = !isOpen;
+      const text = note.querySelector('[data-issue-text]');
+      if (text && isOpen) text.textContent = describeIssue(issueDetailsById.get(id));
+    }
+
+    async function writeIssueIgnore(itemId) {
+      const id = String(itemId || '').trim();
+      if (!id) throw new Error('No gift id found for this issue.');
+      const session = (adminAuth && typeof adminAuth.getSession === 'function') ? adminAuth.getSession() : null;
+      if (!session || !session.access_token) {
+        if (adminAuth && typeof adminAuth.showAuth === 'function') adminAuth.showAuth();
+        throw new Error('Sign in to clear gift issues.');
+      }
+      if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') {
+        try { await adminAuth.ensureFreshSession(); } catch (error) {}
+      }
+      const refreshed = (adminAuth && typeof adminAuth.getSession === 'function') ? adminAuth.getSession() : session;
+      const email = refreshed && refreshed.user && refreshed.user.email ? refreshed.user.email : '';
+      const res = await fetch(restUrl('gift_shop_error_ignores', {}), {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+        body: JSON.stringify({ item_id: id, ignored_by: email })
+      });
+      if (!res.ok && res.status !== 409) {
+        throw new Error(await readError(res, 'Could not clear this issue.'));
+      }
+    }
+
+    updateIssueFilterButton();
+
     // ── ISSUES badge ─────────────────────────────────────────────────
     // giftshop-errors.json is a snapshot from the nightly run, so its count
     // goes stale the moment you clear an issue or delete the gift behind one.
@@ -3561,6 +3747,7 @@
       // standing for "clean".
       const fallback = (s) => {
         const n = (s && s.errors) || 0;
+        if (s && Array.isArray(s.errorIds)) setOpenIssueIds(s.errorIds);
         paint(n, n + ' issue' + (n === 1 ? '' : 's') + ' at the last run' +
           (runStamp(s) ? ', ' + runStamp(s) : '') + ' — not re-checked');
       };
@@ -3574,6 +3761,7 @@
         } catch (error) { return; }
       }
       if (!summary) return;
+      await loadIssueState();
 
       // No admin session yet? The cleared-issues read would 401 and drop us into
       // the fallback, flashing the nightly count. Wait — showShop() calls this
@@ -3585,7 +3773,11 @@
       }
 
       if (!Array.isArray(summary.errorIds)) { fallback(summary); return; }   // summary predates errorIds
-      if (!summary.errorIds.length) { paint(0, 'No issues at the last run' + (runStamp(summary) ? ', ' + runStamp(summary) : '')); return; }
+      if (!summary.errorIds.length) {
+        setOpenIssueIds([]);
+        paint(0, 'No issues at the last run' + (runStamp(summary) ? ', ' + runStamp(summary) : ''));
+        return;
+      }
       const ids = summary.errorIds.map(String);
       const inList = '(' + ids.map((id) => '"' + id + '"').join(',') + ')';
       try {
@@ -3606,6 +3798,7 @@
         const cleared = new Set((await clearedRes.json()).map((row) => String(row.item_id)));
         const open = ids.filter((id) => live.has(id) && !cleared.has(id));
         const gone = ids.length - open.length;
+        setOpenIssueIds(open);
         paint(open.length, open.length + ' open issue' + (open.length === 1 ? '' : 's') +
           (gone ? ' · ' + gone + ' cleared or deleted since the last run' : '') +
           (runStamp(summary) ? ' · last run ' + runStamp(summary) : ''));
@@ -3935,6 +4128,7 @@
       };
       setOrDrop('q', itemSearchInput ? itemSearchInput.value.trim() : '');
       setOrDrop('status', statusFilter ? statusFilter.value : '');
+      setOrDrop('issues', issueFilterActive ? 'open' : '');
       // The sort is never written to the URL — the page always opens on
       // New → Old. Drop any ?sort= left over from an older link.
       url.searchParams.delete('sort');
@@ -4180,6 +4374,8 @@
       if (itemSearchInput) itemSearchInput.value = '';
       if (statusFilter) statusFilter.value = '';
       if (itemSortSelect) itemSortSelect.value = DEFAULT_ITEM_SORT;
+      issueFilterActive = false;
+      updateIssueFilterButton();
       selectAllCities(); // resets paging back to the first page
     }
 
@@ -4336,6 +4532,7 @@
       if (!entry.row && !entry.node) return true;
       const query = itemSearchInput ? itemSearchInput.value.trim().toLowerCase() : '';
       const wantStatus = statusFilter ? statusFilter.value : '';
+      const issueMatch = !issueFilterActive || (entry.id && openIssueIds.has(String(entry.id)));
       const cityMatch = cityFilterSelected.size === 0 ||
         entryCities(entry).some((c) => cityFilterSelected.has(c));
       // NOT_SHELVED is the working set: everything still in play (Live +
@@ -4346,7 +4543,7 @@
       const queryMatch = !query ||
         entryTitle(entry).toLowerCase().includes(query) ||
         entryDescription(entry).toLowerCase().includes(query);
-      return cityMatch && statusMatch && queryMatch;
+      return issueMatch && cityMatch && statusMatch && queryMatch;
     }
 
     // Sort modes (toolbar dropdown):
@@ -4455,7 +4652,9 @@
 
       const placeholder = itemsList.querySelector('.empty');
       if (!visible.length && !placeholder) {
-        renderEmpty(allGiftItemsCache.length ? 'No gifts match these filters.' : undefined);
+        renderEmpty(allGiftItemsCache.length
+          ? (issueFilterActive ? 'No open gift issues match these filters.' : 'No gifts match these filters.')
+          : undefined);
       } else if (visible.length && placeholder) {
         placeholder.remove();
       }
@@ -4469,7 +4668,8 @@
       return !!(
         (itemSearchInput && itemSearchInput.value.trim()) ||
         (statusFilter && statusFilter.value) ||
-        cityFilterSelected.size
+        cityFilterSelected.size ||
+        issueFilterActive
       );
     }
 
@@ -4920,6 +5120,7 @@
       set('description', item.description);
       set('featured', /^(yes|true|t|1)$/i.test(String(item.featured || '')));
       set('sports', /^(yes|true|t|1)$/i.test(String(item.sports || '')));
+      updateItemIssueNote(article);
 
       // Current shops render as deletable chips; "+ Add to shops" opens a
       // searchable multi-select picker. State + persistence live in bindListings.
@@ -5258,6 +5459,28 @@
 
       const statusEl = article.querySelector('[data-status]');
       const setItemStatus = (msg, kind = '') => setStatus(statusEl, msg, kind);
+      const clearIssueButton = article.querySelector('[data-action="clear-issue"]');
+      if (clearIssueButton) {
+        clearIssueButton.addEventListener('click', async () => {
+          const id = String(article.dataset.id || '').trim();
+          if (!id) return;
+          clearIssueButton.disabled = true;
+          setItemStatus('Clearing issue...');
+          try {
+            await writeIssueIgnore(id);
+            const nextOpen = Array.from(openIssueIds).filter((openId) => openId !== id);
+            setOpenIssueIds(nextOpen);
+            if (typeof window.TgbRefreshIssueBadge === 'function') window.TgbRefreshIssueBadge();
+            setItemStatus('Issue cleared.', 'success');
+            setTimeout(() => setItemStatus(''), 2200);
+          } catch (error) {
+            console.error(error);
+            setItemStatus(error instanceof Error ? error.message : String(error), 'error');
+          } finally {
+            clearIssueButton.disabled = false;
+          }
+        });
+      }
       article.addEventListener('input', (event) => {
         if (event.target && event.target.matches('[data-field]')) markItemDirty(article);
       });
@@ -6028,8 +6251,8 @@
         + '. Favor items that fit one of them where a natural, honest tie exists — never force an unrelated item onto a city.';
     }
 
-    // Understocked-cities (< 3 gifts) reporting moved to the ISSUES page
-    // (gsissues.htm), which now computes it live from Supabase.
+    // Understocked-cities (< 3 gifts) are handled by the gift-pull prompt logic
+    // above, which computes coverage live from Supabase.
 
     function buildTeamDisplayName(city, mascot) {
       const c = cityShort(city);
@@ -7087,11 +7310,11 @@ $$;`.trim();
 
         <h3 class="nightly-h">2 · Link &amp; image check <span class="automation-when">~3:00 AM Central</span></h3>
         <p class="automation-desc">Tries every gift's product link and image the way a shopper's browser would, and writes up whatever fails. It checks <strong>one seventh</strong> of the catalogue a night — Monday the first seventh, Tuesday the second — so every gift is re-tested once a week. No AI involved; it just fetches URLs.</p>
-        <p class="automation-desc">Results land on the <a href="/gifts/admin/gsissues.htm" target="_blank" rel="noopener noreferrer">Issues page</a>, and the ISSUES badge in the toolbar counts what is still open.</p>
+        <p class="automation-desc">Results land in the Stock Room ISSUES filter, and the toolbar badge counts what is still open.</p>
         <div class="automation-meta">
           <code>_dev/scripts/shop-error-check.mjs</code>
           <code>.github/workflows/shop-error-check.yml</code>
-          <code>gifts/admin/gsissues.htm</code>
+          <code>gifts/admin/giftshop-errors-state.json</code>
         </div>
       </div>
     </section>

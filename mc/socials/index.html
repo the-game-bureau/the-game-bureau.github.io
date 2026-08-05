@@ -1,0 +1,2311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>SOCIALS ADMIN | THE GAME BUREAU</title>
+  <link rel="icon" href="../../assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --mc-shell-width: 1180px;
+      --stack-gap: 14px;
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --bic-red: #c23737;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --accent: var(--bic-blue);
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --panel: rgba(255, 255, 255, 0.92);
+      --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
+      --success: #276740;
+    }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(rgba(var(--bic-blue-rgb), 0.18) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--bic-blue-rgb), 0.18) 1px, transparent 1px),
+        linear-gradient(rgba(194, 55, 55, 0.14) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(194, 55, 55, 0.14) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+    }
+
+    button, textarea { font: inherit; }
+    a { color: var(--accent); }
+
+    .prompt-layout {
+      width: 100%;
+      max-width: var(--mc-shell-width);
+      margin: 0 auto;
+    }
+
+    .prompt-main { display: grid; gap: 16px; min-width: 0; }
+
+    .prompt-panel,
+    .side-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      box-shadow: 0 18px 36px var(--paper-shadow);
+      overflow: hidden;
+    }
+
+    .prompt-panel { min-width: 0; border-top: 8px solid var(--accent); }
+
+    .explain { padding: 18px; border-top: 8px solid var(--bic-red); }
+    .explain h2 {
+      margin: 0 0 8px;
+      color: var(--ink);
+      font-size: 1.15rem;
+      line-height: 1.15;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .explain p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    .explain p:last-child { margin-bottom: 0; }
+    .explain strong { color: var(--ink); }
+
+    .side-label {
+      display: block;
+      margin-bottom: 6px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── The queue ────────────────────────────────────────────────────────── */
+    /* A faint tint on the panel body so the white cards read as objects sitting
+       on it. Both were near-white before, which left the cards relying entirely
+       on their 1px border to separate from the background. .panel-head keeps
+       its own white, so the header still caps the panel cleanly. */
+    .queue-panel { border-top: 8px solid var(--bic-red); background: rgba(var(--bic-blue-rgb), 0.03); }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.78);
+    }
+    .panel-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .panel-sub {
+      margin-left: 8px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+    }
+    .panel-head-actions { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+
+    /* Active / Skipped tabs. Both views render from the same posts array —
+       the only difference is which side of the skip list a post sits on. */
+    /* Segmented control, not a row of buttons: one inset track with the active
+       segment raised out of it. Reads as "three views of one list" rather than
+       three independent controls.
+
+       The 16px side margin is the panel's gutter — .prompt-panel carries no
+       padding of its own (its .panel-head brings its own), so the tab strip and
+       the card list each supply it. That was invisible while posts were
+       edge-to-edge rows; once they became bordered cards they sat flush against
+       the panel wall, which is what this fixes. */
+    .queue-tabs {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      margin: 16px 16px 14px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--panel-soft);
+    }
+    .queue-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 32px;
+      padding: 0 15px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: none;
+      cursor: pointer;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+    }
+    .queue-tab:hover { color: var(--ink); }
+    .queue-tab.is-active {
+      color: var(--ink);
+      border-color: rgba(var(--bic-blue-rgb), 0.16);
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(17, 24, 32, 0.10);
+    }
+    .queue-tab-count {
+      min-width: 21px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(var(--bic-blue-rgb), 0.10);
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+    .queue-tab.is-active .queue-tab-count { background: var(--accent); color: #fff; }
+
+    /* Cards with air between them, not rows divided by hairlines — each post is
+       a discrete thing you act on. Padding is the panel gutter; see .queue-tabs.
+       :empty so a hidden list contributes no stray bottom space. */
+    .queue-list { display: grid; gap: 14px; padding: 0 16px 18px; }
+    .queue-list:empty { padding: 0; }
+
+    /* Radius one step tighter than the panel's 12px: a card nested inside a
+       container should not share its corner, or the two read as one surface. */
+    .post {
+      display: grid;
+      gap: 0;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(17, 24, 32, 0.04);
+      transition: box-shadow 140ms ease, border-color 140ms ease, transform 140ms ease;
+    }
+    .post:hover {
+      border-color: rgba(var(--bic-blue-rgb), 0.26);
+      box-shadow: 0 4px 14px rgba(17, 24, 32, 0.09);
+      transform: translateY(-1px);
+    }
+    /* A decided card is legible but visibly out of the running. Posted sits at
+       a lighter touch than skipped — it is done, not discarded — and carries a
+       green edge so the two decided tabs never look like each other. */
+    .post.is-skipped { opacity: 0.6; }
+    .post.is-skipped:hover { opacity: 1; }
+    .post.is-posted { opacity: 0.85; border-left: 3px solid var(--success, #2f7d4f); }
+    .post.is-posted:hover { opacity: 1; }
+    .post-receipt {
+      margin: 0;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--success, #2f7d4f);
+    }
+
+    /* ── The post as it will look ─────────────────────────────────────────── */
+    .post-preview { display: grid; gap: 12px; padding: 18px 18px 16px; }
+
+    /* The caption IS the post, so it is the largest thing on the card and wears
+       no quote-block chrome — chrome would imply it is being cited rather than
+       published. */
+    .post-caption {
+      margin: 0;
+      color: var(--ink);
+      font-size: 1.06rem;
+      line-height: 1.5;
+      letter-spacing: -0.003em;
+    }
+
+    /* The unfurled link, shaped like the card X and Facebook will render. With
+       a thumbnail it goes image-left / text-right; without one — no og:image,
+       an older row, or an image that failed to load — the grid collapses to a
+       single column and it looks exactly as it did before thumbnails existed. */
+    .post-card {
+      display: grid;
+      gap: 3px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-soft);
+      text-decoration: none;
+      color: inherit;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .post-card:hover {
+      border-color: rgba(var(--bic-blue-rgb), 0.3);
+      background: rgba(var(--bic-blue-rgb), 0.045);
+    }
+    .post-card.has-shot {
+      grid-template-columns: 116px minmax(0, 1fr);
+      align-items: center;
+      gap: 13px;
+      padding: 12px;
+    }
+    .post-card-body { display: grid; gap: 3px; min-width: 0; }
+    .post-card-shot {
+      display: block;
+      overflow: hidden;
+      border-radius: 7px;
+      background: rgba(17, 24, 32, 0.06);
+      aspect-ratio: 16 / 10;
+    }
+    .post-card-shot img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      /* cover, so a tall or panoramic og:image still fills the tile instead of
+         letterboxing — every card in the list then reads at the same size. */
+      object-fit: cover;
+    }
+    @media (max-width: 560px) {
+      .post-card.has-shot { grid-template-columns: 84px minmax(0, 1fr); gap: 11px; }
+    }
+    .post-card-domain {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.64rem;
+      font-weight: 800;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .post-card-headline {
+      font-size: 0.94rem;
+      font-weight: 700;
+      line-height: 1.3;
+      color: var(--ink);
+    }
+    .post-card-meta {
+      font-size: 0.76rem;
+      line-height: 1.4;
+      color: var(--muted);
+    }
+
+    /* ── Ephemera: ours, never posted ─────────────────────────────────────── */
+    .post-ephemera {
+      display: grid;
+      gap: 10px;
+      padding: 14px 18px 16px;
+      border-top: 1px solid var(--line);
+      background: rgba(var(--bic-blue-rgb), 0.022);
+    }
+
+    .post-why {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    /* Topic + platform tags. Topics are quiet (they describe the story);
+       platforms are loud and colour-coded (they are the recommendation you act
+       on). Each platform chip carries its format reason as a title. */
+    .post-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 9px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.22);
+      border-radius: 999px;
+      background: #fff;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.64rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag--topic { color: var(--muted); background: var(--panel-soft); border-color: transparent; }
+
+    /* Platform styling is now only worn by the picker's tick buttons — the
+       "Post to" pills on the card were removed, so there is no link variant. */
+    .tag--platform { border-width: 1.5px; }
+    .tag--platform.is-instagram { color: #a5316b; border-color: rgba(165, 49, 107, 0.45); background: rgba(165, 49, 107, 0.06); }
+    .tag--platform.is-x { color: #14171a; border-color: rgba(20, 23, 26, 0.45); background: rgba(20, 23, 26, 0.05); }
+    .tag--platform.is-youtube { color: #b1221b; border-color: rgba(177, 34, 27, 0.45); background: rgba(177, 34, 27, 0.06); }
+    .tag--platform.is-facebook { color: #1b4da8; border-color: rgba(27, 77, 168, 0.45); background: rgba(27, 77, 168, 0.06); }
+
+    .post-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+    /* Post picker: tick any number of platforms, then step through them
+       one composer at a time — each opened by its own click, see the JS. */
+    .autopost-toggle { border-color: rgba(var(--bic-blue-rgb), 0.30); }
+    /* White, because it now sits on the tinted ephemera panel — the old blue
+       wash disappeared into it. */
+    .autopost-menu {
+      margin-top: 2px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      display: grid;
+      gap: 9px;
+    }
+    .autopost-menu[hidden] { display: none; }
+    .autopost-hint { margin: 0; font-size: 0.72rem; line-height: 1.5; color: var(--muted); }
+    /* One row per account: tick on the left, why-it-fits on the right. */
+    .autopost-row { display: grid; gap: 7px; }
+    .autopost-item {
+      display: grid;
+      grid-template-columns: 108px minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+    }
+    .autopost-why {
+      font-size: 0.72rem;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+    /* The agent's own reason for THIS story reads at full strength; the
+       standing format note for an untagged account sits back. */
+    .autopost-why.is-agent { color: var(--ink); }
+    .autopost-item:not(.is-suggested-item) .autopost-why { opacity: 0.75; }
+    @media (max-width: 560px) {
+      .autopost-item { grid-template-columns: 1fr; gap: 3px; }
+    }
+    .autopost-choice { min-height: 30px; padding: 0 12px; cursor: pointer; opacity: 0.55; justify-content: center; }
+    .autopost-choice.is-suggested { box-shadow: inset 0 0 0 1.5px currentColor; }
+    .autopost-choice:hover { filter: brightness(0.94); }
+    /* Ticked = full strength; unticked sits back so the selection is readable
+       at a glance without a checkbox glyph competing with the platform tag. */
+    .autopost-choice[aria-pressed="true"] { opacity: 1; box-shadow: inset 0 0 0 2px currentColor; }
+    .autopost-choice.is-done { opacity: 0.4; text-decoration: line-through; }
+
+    .autopost-run { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+    .autopost-go { min-height: 32px; }
+    .autopost-go[disabled] { opacity: 0.45; cursor: not-allowed; }
+    .autopost-progress {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .post-feedback {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--success);
+    }
+
+    /* An empty tab is a normal state here — Posted and Skipped both start
+       empty — so it gets a dashed well rather than a bare line of grey text
+       floating in the panel. */
+    .queue-empty {
+      padding: 34px 18px;
+      margin: 0 16px 18px;
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      background: rgba(var(--bic-blue-rgb), 0.022);
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.6;
+      text-align: center;
+    }
+    .queue-empty[hidden] { display: none; }
+
+    /* ── Focus, consistently ──────────────────────────────────────────────
+       Every interactive thing on the page gets the same visible ring. There
+       was none before, so keyboard users had only the browser default, which
+       the custom backgrounds here largely swallow. :focus-visible, so a mouse
+       click does not paint a ring. */
+    .btn:focus-visible,
+    .queue-tab:focus-visible,
+    .autopost-choice:focus-visible,
+    .chip:focus-visible,
+    .post-card:focus-visible,
+    .modal-form input:focus-visible,
+    .modal-form select:focus-visible,
+    .modal-form textarea:focus-visible,
+    .platform-pick input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .post-card:focus-visible {
+      border-color: rgba(var(--bic-blue-rgb), 0.3);
+      background: rgba(var(--bic-blue-rgb), 0.045);
+    }
+
+    /* Honour a reduced-motion preference across every transition added here. */
+    @media (prefers-reduced-motion: reduce) {
+      .post,
+      .post-card,
+      .queue-tab,
+      .autopost-choice,
+      .btn { transition: none; }
+    }
+
+    /* ── Buttons ──────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+    }
+    .btn:hover { border-color: rgba(var(--bic-blue-rgb), 0.42); background: rgba(var(--bic-blue-rgb), 0.05); }
+    .btn.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .btn.primary:hover { background: #24396a; }
+    .btn.danger { border-color: rgba(194, 55, 55, 0.42); color: var(--bic-red); }
+    .btn.danger:hover { background: rgba(194, 55, 55, 0.08); }
+    .btn.small { min-height: 34px; padding: 0 11px; font-size: 0.66rem; }
+
+    .command-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      width: 100%;
+      max-width: var(--mc-shell-width);
+      padding: 10px 12px;
+      margin: 0 auto var(--stack-gap);
+      background: #eef0f4;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .command-bar-label {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .command-bar .btn {
+      min-width: 0;
+      padding: 0 12px;
+      font-size: 0.78rem;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    .admin-auth-toggle { min-height: 42px; padding-inline: 14px; white-space: nowrap; }
+    .admin-auth-toggle.is-signed-in { border-color: rgba(194, 55, 55, 0.44); color: var(--bic-red); }
+
+    /* ── Paste-ready prompt ───────────────────────────────────────────────── */
+    .prompt-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-soft);
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.22);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .prompt {
+      display: block;
+      width: 100%;
+      min-height: 52vh;
+      padding: 18px 20px 22px;
+      border: 0;
+      resize: vertical;
+      background:
+        linear-gradient(rgba(var(--bic-blue-rgb), 0.075) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(194, 55, 55, 0.26) 1px, transparent 1px),
+        #fffefa;
+      background-position: 0 0, 56px 0, 0 0;
+      background-size: 100% 28px, 100% 100%, 100% 100%;
+      color: #17253c;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      outline: none;
+      white-space: pre-wrap;
+    }
+    .prompt:focus { box-shadow: inset 0 0 0 2px rgba(var(--bic-blue-rgb), 0.22); }
+    .copy-status {
+      min-width: 72px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--success);
+      text-align: right;
+    }
+
+    /* ── Sidebar ──────────────────────────────────────────────────────────── */
+    .side-stack { display: grid; gap: 16px; }
+    .side-card { padding: 16px; }
+    .side-card--blue { border-top: 8px solid var(--bic-blue); }
+    .side-card--red { border-top: 8px solid var(--bic-red); }
+    .side-card h2 {
+      margin: 0 0 8px;
+      font-size: 1.02rem;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .side-card p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+    .side-card p:last-child { margin-bottom: 0; }
+    .side-note { font-size: 0.8rem; }
+
+    .mini-list {
+      display: grid;
+      gap: 4px;
+      margin: 10px 0;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+    .mini-list b { color: var(--ink); }
+
+    .run-status {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.05);
+    }
+    .run-dot {
+      flex: 0 0 auto;
+      width: 9px; height: 9px;
+      margin-top: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+    .run-status[data-state="ok"] .run-dot { background: #1e7a4b; }
+    .run-status[data-state="stale"] .run-dot { background: var(--bic-red); }
+    .run-body { display: grid; gap: 3px; min-width: 0; }
+    .run-line { color: var(--ink); font-size: 0.92rem; font-weight: 800; }
+    .run-sub { color: var(--muted); font-size: 0.82rem; line-height: 1.45; }
+
+    .side-links { display: grid; gap: 8px; margin-top: 14px; }
+    .side-links + .side-links { margin-top: 8px; }
+
+    /* ── Header (Stock Room lockup) ───────────────────────────────────────── */
+    .stockroom-head {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      min-height: 72px;
+      padding: 0 12px;
+      margin: 0 0 var(--stack-gap);
+    }
+    .stockroom-head-lockup,
+    .stockroom-head-status { position: relative; z-index: 1; }
+    .stockroom-head-lockup { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .stockroom-gear {
+      position: absolute;
+      top: 50%;
+      left: -28px;
+      transform: translateY(-50%) scaleX(-1);
+      width: 184px;
+      height: 184px;
+      z-index: 0;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .stockroom-gear .header-gear { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .stockroom-gear .header-gear--large { stroke: rgba(var(--bic-blue-rgb), 0.15); }
+    .stockroom-gear .header-gear--small { stroke: rgba(var(--bic-blue-rgb), 0.11); }
+    .stockroom-gear .header-gear-body { fill: rgba(var(--bic-blue-rgb), 0.022); stroke-width: 3.4; }
+    .stockroom-gear .header-gear-ring { fill: none; stroke-width: 3; }
+    .stockroom-gear .header-gear-inner { fill: none; stroke-width: 2.4; }
+    .stockroom-gear .header-gear-spoke { fill: rgba(var(--bic-blue-rgb), 0.06); stroke: none; }
+    .stockroom-gear .header-gear-core { fill: rgba(var(--bic-blue-rgb), 0.05); stroke-width: 2.2; }
+    .stockroom-gear .header-gear-bore { fill: none; stroke-width: 2; }
+    .stockroom-gear .header-gear-crosshair { stroke: rgba(var(--bic-blue-rgb), 0.12); stroke-width: 1.4; }
+    .stockroom-titlecol { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .stockroom-eyebrow {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(var(--bic-blue-rgb), 0.9);
+      text-shadow: 0 0 3px var(--paper-base), 0 0 3px var(--paper-base), 0 0 5px var(--paper-base);
+    }
+    .stockroom-title { margin: 0; font-size: 1.7rem; letter-spacing: 0.03em; line-height: 1; }
+    .stockroom-titlecol .stockroom-substat {
+      margin: 3px 0 0;
+      min-height: 0;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+    .stockroom-substat:empty { display: none; }
+    .stockroom-head-status {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .socials-room-head .stockroom-gear,
+    .socials-room-head .stockroom-eyebrow,
+    .socials-room-head .stockroom-head-status {
+      display: none;
+    }
+
+    .tool-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      background: rgba(17, 24, 32, 0.36);
+    }
+    .tool-backdrop[hidden],
+    .tool-modal-panel[hidden] {
+      display: none;
+    }
+    .tool-modal-panel {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      z-index: 100;
+      width: min(780px, calc(100vw - 32px));
+      max-height: calc(100vh - 48px);
+      transform: translate(-50%, -50%);
+      overflow: auto;
+    }
+    .tool-modal-panel--wide {
+      width: min(980px, calc(100vw - 32px));
+    }
+    .modal-form {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+    .modal-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .modal-form label,
+    .platform-row label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .modal-form input,
+    .modal-form select,
+    .modal-form textarea {
+      width: 100%;
+      min-height: 40px;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: 600 0.92rem/1.35 "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .modal-form textarea {
+      min-height: 92px;
+      resize: vertical;
+    }
+    .modal-form .full { grid-column: 1 / -1; }
+    .label-opt { opacity: 0.6; font-weight: 600; letter-spacing: 0.08em; }
+    .platform-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .platform-row {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.62);
+    }
+    .platform-pick {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .platform-pick input {
+      width: auto;
+      min-height: 0;
+      padding: 0;
+    }
+    .modal-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0 16px 16px;
+    }
+    .modal-status {
+      margin-right: auto;
+      color: var(--bic-red);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 840px) {
+      .panel-head { align-items: flex-start; flex-direction: column; }
+      .copy-status { text-align: left; }
+      .prompt { min-height: 60vh; padding: 14px 14px 18px; font-size: 0.82rem; }
+      .post-actions .btn { flex: 1 1 auto; }
+      .command-bar .btn { flex: 1 1 auto; }
+      .modal-grid,
+      .platform-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="../../mc/js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <!-- Shared admin nav. Looks like the public site nav; every button goes to
+         that section's ADMIN page. See mc/js/admin-site-nav.js. -->
+    <header class="admin-site-nav" data-admin-site-nav></header>
+    <script src="/mc/js/admin-site-nav.js"></script>
+
+    <div class="room-head socials-room-head">
+      <svg class="stockroom-gear" viewBox="128 -12 220 216" aria-hidden="true">
+        <g class="header-gear header-gear--large" transform="translate(212 72) rotate(-14)">
+          <polygon class="header-gear-body" points="-11.3,-65.0 -13.8,-78.8 -7.5,-79.6 7.5,-79.6 13.8,-78.8 11.3,-65.0 22.7,-62.0 27.5,-75.1 33.3,-72.7 46.3,-65.2 51.3,-61.4 42.3,-50.6 50.6,-42.3 61.4,-51.3 65.2,-46.3 72.7,-33.3 75.1,-27.5 62.0,-22.7 65.0,-11.3 78.8,-13.8 79.6,-7.5 79.6,7.5 78.8,13.8 65.0,11.3 62.0,22.7 75.1,27.5 72.7,33.3 65.2,46.3 61.4,51.3 50.6,42.3 42.3,50.6 51.3,61.4 46.3,65.2 33.3,72.7 27.5,75.1 22.7,62.0 11.3,65.0 13.8,78.8 7.5,79.6 -7.5,79.6 -13.8,78.8 -11.3,65.0 -22.7,62.0 -27.5,75.1 -33.3,72.7 -46.3,65.2 -51.3,61.4 -42.3,50.6 -50.6,42.3 -61.4,51.3 -65.2,46.3 -72.7,33.3 -75.1,27.5 -62.0,22.7 -65.0,11.3 -78.8,13.8 -79.6,7.5 -79.6,-7.5 -78.8,-13.8 -65.0,-11.3 -62.0,-22.7 -75.1,-27.5 -72.7,-33.3 -65.2,-46.3 -61.4,-51.3 -50.6,-42.3 -42.3,-50.6 -51.3,-61.4 -46.3,-65.2 -33.3,-72.7 -27.5,-75.1 -22.7,-62.0"></polygon>
+          <circle class="header-gear-ring" r="54"></circle>
+          <circle class="header-gear-inner" r="34"></circle>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5"></rect>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(60)"></rect>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(120)"></rect>
+          <circle class="header-gear-core" r="11"></circle>
+          <circle class="header-gear-bore" r="5.5"></circle>
+          <line class="header-gear-crosshair" x1="-18" y1="0" x2="18" y2="0"></line>
+          <line class="header-gear-crosshair" x1="0" y1="-18" x2="0" y2="18"></line>
+        </g>
+        <g class="header-gear header-gear--small" transform="translate(286 132) rotate(19)">
+          <polygon class="header-gear-body" points="-9.8,-45.0 -12.3,-56.7 -6.5,-57.6 6.5,-57.6 12.3,-56.7 9.8,-45.0 18.5,-42.1 23.4,-53.1 28.6,-50.5 39.2,-42.8 43.3,-38.6 34.3,-30.6 39.7,-23.2 50.1,-29.2 52.8,-24.0 56.8,-11.6 57.7,-5.8 45.8,-4.6 45.8,4.6 57.7,5.8 56.8,11.6 52.8,24.0 50.1,29.2 39.7,23.2 34.3,30.6 43.3,38.6 39.2,42.8 28.6,50.5 23.4,53.1 18.5,42.1 9.8,45.0 12.3,56.7 6.5,57.6 -6.5,57.6 -12.3,56.7 -9.8,45.0 -18.5,42.1 -23.4,53.1 -28.6,50.5 -39.2,42.8 -43.3,38.6 -34.3,30.6 -39.7,23.2 -50.1,29.2 -52.8,24.0 -56.8,11.6 -57.7,5.8 -45.8,4.6 -45.8,-4.6 -57.7,-5.8 -56.8,-11.6 -52.8,-24.0 -50.1,-29.2 -39.7,-23.2 -34.3,-30.6 -43.3,-38.6 -39.2,-42.8 -28.6,-50.5 -23.4,-53.1 -18.5,-42.1"></polygon>
+          <circle class="header-gear-ring" r="38"></circle>
+          <circle class="header-gear-inner" r="24"></circle>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5"></rect>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(60)"></rect>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(120)"></rect>
+          <circle class="header-gear-core" r="7.5"></circle>
+          <circle class="header-gear-bore" r="3.8"></circle>
+          <line class="header-gear-crosshair" x1="-12" y1="0" x2="12" y2="0"></line>
+          <line class="header-gear-crosshair" x1="0" y1="-12" x2="0" y2="12"></line>
+        </g>
+      </svg>
+      <div class="stockroom-head-lockup">
+        <div class="stockroom-titlecol">
+          <span class="stockroom-eyebrow">THE GAME BUREAU</span>
+          <h1 class="room-title" id="pageTitle">SOCIALS ADMIN</h1>
+          <p class="status room-substat" id="pageStatus" aria-live="polite">Post or skip the suggested social post candidates below.</p>
+        </div>
+      </div>
+      <div class="stockroom-head-status" hidden>
+        <button class="btn admin-auth-toggle" id="adminAuthToggleBtn" type="button" aria-label="ADMIN LOGON" title="ADMIN LOGON">ADMIN LOGON</button>
+      </div>
+    </div>
+
+    <div class="command-bar">
+      <span class="command-bar-label">Add</span>
+      <button class="btn" id="manualPostBtn" type="button">MANUAL</button>
+      <button class="btn" id="promptBtn" type="button">PROMPT</button>
+      <a class="btn" id="socialBotBtn" href="https://claude.ai/code/routines/trig_01KDYndJhZ9ymgUgX5Xx6LsL" target="_blank" rel="noopener noreferrer" title="Open the TGB SOCIAL BOT routine">TGB SOCIAL BOT</a>
+    </div>
+
+    <div class="prompt-layout">
+      <div class="prompt-main">
+
+      <section class="prompt-panel queue-panel" id="queueCard" aria-labelledby="queueTitle">
+        <div class="panel-head">
+          <h2 class="panel-title" id="queueTitle">SOCIAL POST CANDIDATES</h2>
+          <span class="panel-head-actions">
+            <span class="copy-status" id="queueStatus" aria-live="polite"></span>
+          </span>
+        </div>
+        <div class="queue-tabs" role="tablist" aria-label="Candidate views">
+          <button class="queue-tab is-active" id="tabActive" type="button" role="tab" aria-selected="true" aria-controls="queueList">
+            Review <span class="queue-tab-count" id="tabActiveCount">0</span>
+          </button>
+          <button class="queue-tab" id="tabPosted" type="button" role="tab" aria-selected="false" aria-controls="queueList">
+            Posted <span class="queue-tab-count" id="tabPostedCount">0</span>
+          </button>
+          <button class="queue-tab" id="tabSkipped" type="button" role="tab" aria-selected="false" aria-controls="queueList">
+            Skipped <span class="queue-tab-count" id="tabSkippedCount">0</span>
+          </button>
+        </div>
+        <div class="queue-list" id="queueList" role="tabpanel" aria-labelledby="tabActive"></div>
+        <p class="queue-empty" id="queueEmpty" hidden></p>
+      </section>
+
+      <div class="tool-backdrop" id="manualBackdrop" hidden></div>
+      <section class="prompt-panel tool-modal-panel" id="manualCard" role="dialog" aria-modal="true" aria-labelledby="manualTitle" hidden>
+        <div class="panel-head">
+          <h2 class="panel-title" id="manualTitle">Manual Candidate</h2>
+          <span class="panel-head-actions">
+            <button class="btn small" data-manual-close type="button">Close</button>
+          </span>
+        </div>
+        <form class="modal-form" id="manualPostForm">
+          <div class="modal-grid">
+            <label class="full">Headline
+              <input id="manualHeadline" type="text" autocomplete="off" required>
+            </label>
+            <label class="full">URL
+              <input id="manualUrl" type="url" autocomplete="off" required>
+            </label>
+            <label>Source
+              <input id="manualSource" type="text" autocomplete="off">
+            </label>
+            <label>Published
+              <input id="manualPublished" type="date">
+            </label>
+            <label>Topics
+              <input id="manualTopics" type="text" placeholder="games, travel" autocomplete="off">
+            </label>
+            <label>Media
+              <select id="manualMedia">
+                <option value="photo">Photo</option>
+                <option value="gallery">Gallery</option>
+                <option value="video">Video</option>
+                <option value="text">Text</option>
+              </select>
+            </label>
+            <label class="full">Image URL <span class="label-opt">optional</span>
+              <input id="manualImage" type="url" placeholder="https://… (the story's lead image)" autocomplete="off">
+            </label>
+            <label class="full">Caption
+              <textarea id="manualBlurb" maxlength="200" required></textarea>
+            </label>
+            <label class="full">Why
+              <textarea id="manualWhy"></textarea>
+            </label>
+            <div class="full platform-grid" aria-label="Platform recommendations">
+              <div class="platform-row">
+                <span class="platform-pick"><input type="checkbox" data-platform-name="Instagram"> Instagram</span>
+                <label>Why
+                  <input type="text" data-platform-why="Instagram" autocomplete="off">
+                </label>
+              </div>
+              <div class="platform-row">
+                <span class="platform-pick"><input type="checkbox" data-platform-name="X"> X</span>
+                <label>Why
+                  <input type="text" data-platform-why="X" autocomplete="off">
+                </label>
+              </div>
+              <div class="platform-row">
+                <span class="platform-pick"><input type="checkbox" data-platform-name="Facebook"> Facebook</span>
+                <label>Why
+                  <input type="text" data-platform-why="Facebook" autocomplete="off">
+                </label>
+              </div>
+              <div class="platform-row">
+                <span class="platform-pick"><input type="checkbox" data-platform-name="YouTube"> YouTube</span>
+                <label>Why
+                  <input type="text" data-platform-why="YouTube" autocomplete="off">
+                </label>
+              </div>
+            </div>
+          </div>
+        </form>
+        <div class="modal-actions">
+          <span class="modal-status" id="manualStatus" aria-live="polite"></span>
+          <button class="btn" data-manual-close type="button">Cancel</button>
+          <button class="btn primary" id="manualAddBtn" type="submit" form="manualPostForm">Add Candidate</button>
+        </div>
+      </section>
+
+      <div class="tool-backdrop" id="promptBackdrop" hidden></div>
+      <section class="prompt-panel tool-modal-panel tool-modal-panel--wide" id="promptCard" role="dialog" aria-modal="true" aria-label="Socials prompt" hidden>
+        <div class="panel-head">
+          <h2 class="panel-title">Paste-Ready Prompt <span class="panel-sub">manual fallback</span></h2>
+          <span class="panel-head-actions">
+            <span class="copy-status" id="copyStatus" aria-live="polite"></span>
+            <button class="btn small primary" id="copyPromptTop" type="button">Copy Prompt</button>
+            <button class="btn small" data-prompt-close type="button">Close</button>
+          </span>
+        </div>
+        <div class="prompt-meta" aria-hidden="true">
+          <span class="chip">mc/socials/socials.json</span>
+          <span class="chip">5 candidates a run</span>
+          <span class="chip">opened, not guessed</span>
+          <span class="chip">topic rotation</span>
+          <span class="chip">platform tags</span>
+          <span class="chip">no auto-posting</span>
+        </div>
+        <textarea class="prompt" id="promptText" readonly spellcheck="false">You are TGB SOCIAL BOT, the socials scout for The Game Bureau. Find five stories or posts worth sharing, write a caption for each, and commit them to mc/socials/socials.json.
+
+You do not post anything. You write one file; a human opens /mc/socials/ and decides what goes out.
+
+HOW TO RUN — READ THIS FIRST
+
+Work start to finish without stopping. Nobody is watching this run, so there is
+no one to answer a question: never ask for confirmation, never present options,
+never pause for approval. If a choice comes up, make it and note it in the
+summary.
+
+A failure in one step is not a reason to end the run. Recover and carry on:
+
+- A link will not open, 404s, or has gone paywalled — drop that story, find
+  another, keep going. Never include a URL you could not open.
+- A search returns nothing useful — change the search, not the goal. Move down
+  the beat list in step 2 rather than abandoning the run.
+- You cannot find five that clear the bar — file four, or three. A short honest
+  run beats a padded one, and beats no run at all.
+- `git push` is rejected because main moved — `git pull --rebase` and push
+  again. Try up to three times before giving up.
+- Anything else throws — retry once, then work around it. Only stop if the file
+  itself cannot be written, and say plainly what failed.
+
+Budget your effort so you always reach step 7. An uncommitted run is a wasted
+run: five verified stories that never got committed help nobody.
+
+The Game Bureau makes real-world scavenger-hunt games — you walk somewhere and play the place you are standing in. Our audience is people who like games and puzzles, people who like going places, and the large overlap between the two.
+
+So the feed is games and travel first. A story does not have to be about a city we sell into, and it does not have to be about a city at all. Place is the flavour, not the filter. Our voice is a well-travelled friend pointing at something interesting, never a brand doing engagement.
+
+1. READ WHAT IS THERE
+
+Read mc/socials/socials.json, plus the last few versions from git history:
+
+    git log -8 --format=%H -- mc/socials/socials.json
+    git show <sha>:mc/socials/socials.json
+
+Collect every url, headline and topics value. Do not pitch a url or headline again — a repeat is the one thing that makes this list useless.
+
+OPTIONAL CONTEXT, NOT A FILTER: public.soundtracks lists cities we have made playlists for. A story landing in one is a small bonus, because we can point at the tape. Do not hunt to fit that list, and never reject a good story because its place is not on it.
+
+2. WHAT TO HUNT FOR
+
+Web search, things published in the last 7 days (14 for a genuinely great one). The beat, roughly in order of how much we want it:
+
+- GAMES, PUZZLES AND HUNTS. Scavenger hunts, puzzle hunts, ARGs, geocaching, escape rooms, orienteering, letterboxing, treasure hunts real and rumoured, board games, trivia culture, game design. Our own genre — lead with it.
+- COMPETITION. Races, contests, championships, world records, eating contests, cardboard boat regattas, wife-carrying, conker championships. People competing at something strange, seriously.
+- TRAVEL STORIES. First-person writing about going somewhere and doing something — walking a whole city, riding every subway line, hiking a long trail, eating one dish across twenty places. Closest to what our players do; lean in hard.
+- TRAVEL AND TOURISM. New routes and trails, reopened landmarks, a tourism board doing something odd, underrated-place pieces, a hotel or diner or bar with a story.
+- WEIRD STUFF. Roadside attractions, local legends, unexplained traditions, the world's largest something. Weird travels well and it is the most on-brand thing we post.
+- SPORTS. Stadium and fan culture, rituals, a venue reopening, the story behind a fight song, minor-league promotions. Culture and spectacle, not scores and transfers.
+- TV AND FILM. Shows and movies about travel, competition, or puzzles; a format that overlaps what we do; a location you can go and stand in.
+- MUSIC. A venue's history, a scene, a festival, a song about a place.
+
+Tag each with one or more topics from exactly this list, lowercase:
+games, competition, travel, tourism, weird, sports, tv, music, food, history
+
+MIX RULES:
+- The five cover at least four different topics; no topic on more than two.
+- At least two of the five tagged games, competition, or travel. That is the centre of the feed; everything else is seasoning.
+- If a topic has not appeared in the last three runs, go looking for one.
+
+Skip: politics, tragedy and crime, culture-war bait, press releases, SEO listicles, hard paywalls. The test — if it would make someone ask "why is a game company posting this", it is not a fit.
+
+SPREAD: five different subjects and five different sources. Do not file five stories about one place or one sport — but do not force geographic variety either. Two great puzzle-hunt stories from the same country beat one good one and a filler.
+
+3. VERIFY EVERY LINK
+
+Open each URL. Confirm it resolves, is the article you think, and is recent. Never include a URL you have not opened — a dead link is worse than four good ones. Record the real publication name and date.
+
+While the page is open, note two things.
+
+MEDIA: photo, gallery, video, or text. You need that for step 5.
+
+IMAGE: the story's own share image — the `og:image` (or `twitter:image`) meta
+tag in the page head. Record its absolute URL as `image`. That is the thumbnail
+the admin page shows, and it is the only way it can get one: the admin is static
+HTML and cannot read another site's markup itself. Rules:
+
+- Take it from the page's own metadata. Never invent a URL, never link a
+  hotlinked copy from somewhere else, never use a search-result thumbnail.
+- Make it absolute. A `/media/x.jpg` value has to be resolved against the
+  article's own origin before you record it.
+- Skip logos, placeholders, tracking pixels and sprites. A generic masthead is
+  worse than nothing, because it makes five different stories look identical.
+- If there is no usable image, leave `image` out entirely. It is optional and
+  the card renders fine without it. Do not hold up a good story over it.
+
+4. WRITE THE CAPTION
+
+One or two sentences: curious, specific, dry. Lead with the interesting thing, not "Check out this article about". Anchor it — name the place, event, game, or person, whatever the concrete hook is; a city name is one way, not a requirement. No hashtags, no emoji, no "link in bio", no exclamation marks. Do not reuse the outlet's headline. 200 characters max.
+
+Also write a one-line "why" — internal note for the human, never posted.
+
+5. TAG THE PLATFORMS
+
+We have exactly four accounts. Never suggest one we do not have.
+
+  INSTAGRAM — anything with a strong photograph, a gallery, or a place you can see. A link in an IG caption is not clickable, so tag it only when the image carries the story, and say whether it is a feed post or a Story with a link sticker.
+  X — news, oddities, quick facts, anything where the link IS the payload. Link previews render natively; this is the default home for text-and-link.
+  FACEBOOK — the longer read. Link previews render and the caption can breathe, so this suits city history, food, and travel stories that need a sentence of setup. Skews older and more local than X; a neighbourhood or hometown angle plays well here.
+  YOUTUBE — only when there is real video: the story is a video, or it is visual enough for a Short. Say which.
+
+Judge from the media you saw in step 3 plus the audience for the topic. Most picks suit one or two. It is fine for a pick to suit only X — do not tag everything on everything, a tag that always fires tells the human nothing.
+
+6. WRITE THE FILE
+
+APPEND. NEVER OVERWRITE. This is the rule that matters most on this page.
+
+The file accumulates: it holds every candidate from every previous run, and a
+human may not have worked through them yet. Overwriting it destroys decisions
+nobody can get back. This routine also runs twice a day, so a run that replaces
+the file silently deletes the other run's work.
+
+So:
+
+1. READ mc/socials/socials.json and parse it. If it is missing or unparseable,
+   and only then, start from { "generated_at": ..., "posts": [] }.
+2. Count the posts you read. Write that number down.
+3. Keep every existing post EXACTLY as it is — same order, same ids, same
+   fields. Do not reformat, re-sort, re-id, prune, or "tidy" them. Old posts are
+   not yours to touch.
+4. APPEND your new ones to the END of the posts array.
+5. Set generated_at to now. That is the only existing value you may change.
+6. Count again. The new total MUST equal the old count plus the number you
+   added. If it does not, you have overwritten something — stop, restore the
+   file with `git checkout -- mc/socials/socials.json`, and start step 6 over.
+
+Never write the file from a template you composed in your head, and never hand
+a whole new document to Write without having read the current one in this run.
+Build the new array from the array you actually parsed.
+
+{
+  "generated_at": "<ISO 8601 UTC>",
+  "posts": [
+    {
+      "id": "<YYYY-MM-DD>-<HHMM-UTC>-1",
+      "headline": "<real headline>",
+      "url": "<verified URL>",
+      "source": "<publication>",
+      "published": "<YYYY-MM-DD>",
+      "topics": ["travel", "weird"],
+      "media": "photo | gallery | video | text",
+      "image": "<absolute og:image URL, or omit>",
+      "platforms": [
+        { "name": "X", "why": "link preview does the work" },
+        { "name": "Instagram", "why": "lead photo of the mural carries it" }
+      ],
+      "blurb": "<the caption>",
+      "why": "<one line, internal>"
+    }
+  ]
+}
+
+Add exactly five NEW posts this run, ids 1-5 and stamped with the run's UTC time (e.g. 2026-08-04-1055-1) so ids stay unique across same-day runs. Existing posts keep their original ids. Two-space indentation. Verify:
+
+    node -e "JSON.parse(require('fs').readFileSync('mc/socials/socials.json','utf8'))"
+
+Check out loud: valid JSON, the file still holds every post it had before plus your five new ones, every new url distinct and opened and not already anywhere in the file, every caption under 200 characters with no hashtags or emoji, at least four distinct topics with none on more than two, at least two picks tagged games/competition/travel, every platform one of Instagram/X/Facebook/YouTube and carrying a why, every post with at least one platform, and git diff touching only that file.
+
+If you cannot get five good ones, commit four rather than padding with something weak — and say so.
+
+7. COMMIT
+
+    git add mc/socials/socials.json
+    git commit -m "auto: socials candidates (<topic>, <topic>, ...)"
+    git push
+
+Only that one file may appear in the diff. If the push is rejected because main
+moved, `git pull --rebase` and push again — up to three attempts. If the rebase
+conflicts on this file, keep BOTH sides' posts (that is the whole point of
+appending) and push the merged list.
+
+Finish with a summary: the five picks with cities and sources, what you rejected and why, and anything dropped because the link would not resolve.</textarea>
+      </section>
+
+      </div>
+    </div>
+  </main>
+
+  <!--
+    FOR AI AGENTS
+    =============
+    This page is a read-only view of mc/socials/socials.json. It never writes.
+    The agent appends its candidates to that file each run. POST and SKIP
+    are client-side only; SKIP remembers dismissals in localStorage so a
+    reload does not resurrect them. Do not add a Supabase table for this, and
+    do not give the agent posting credentials — a human decides what goes out.
+  -->
+  <script type="application/json" id="tgb-agent-context">
+  {
+    "purpose": "Shortlist of candidates The Game Bureau socials might post. An agent finds stories and writes a caption for each; a human posts or skips them.",
+    "dataFile": "mc/socials/socials.json",
+    "writtenBy": "scheduled Claude Code routine TGB SOCIAL BOT, trig_01KDYndJhZ9ymgUgX5Xx6LsL, twice daily at 08:00 and 20:00 UTC",
+    "manualQueue": "manual additions are stored in localStorage and rendered with mc/socials/socials.json; the page does not write the JSON file",
+    "pageWrites": "manual additions and dismissals live in localStorage; no write to mc/socials/socials.json",
+    "postCount": 5,
+    "replacedDaily": false,
+    "appends": true,
+    "voice": "curious, specific, dry; anchor it concretely; no hashtags, emoji, or exclamation marks",
+    "beat": ["games", "competition", "travel", "tourism", "weird", "sports", "tv", "music", "food", "history"],
+    "rotationRule": "five candidates cover at least four distinct topics; no topic on more than two; at least two tagged games/competition/travel",
+    "tilt": "games and travel first; place is flavour, not a filter — a story need not be about a city we sell into",
+    "accounts": ["Instagram", "X", "Facebook", "YouTube"],
+    "platformTagging": "each candidate is tagged with which of the four accounts it suits and why, judged from the media the story actually has (photo/gallery/video/text). Never suggest a platform we do not have.",
+    "avoid": ["politics", "tragedy and crime", "culture-war bait", "press releases", "SEO listicles", "hard paywalls"],
+    "doNotCreate": [
+      "a Supabase table for the queue",
+      "any automatic posting to a social account",
+      "a GitHub Actions workflow for this"
+    ]
+  }
+  </script>
+
+  <script src="../../mc/js/admin-auth.js"></script>
+  <script src="../../mc/js/admin-shell.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      var SUPABASE_CONFIG = {
+        url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+        publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+      };
+
+      // /mc/socials/index.html reads /mc/socials/socials.json — its sibling.
+      // A bare relative resolve is NOT enough, because this page is served from
+      // a DIRECTORY: new URL() measures from the current directory, so a request
+      // without the trailing slash (/mc/socials) resolves to /mc/socials.json,
+      // one level too high, and the fetch 404s. Most servers redirect to add the
+      // slash; not all do, and an IDE preview often does not. Anchoring on the
+      // path segment covers every form — /mc/socials, /mc/socials/,
+      // /mc/socials/index.html, any host, and file:// too.
+      var QUEUE_FILE = (function () {
+        var href = window.location.href.split(/[?#]/)[0];
+        var dir = '/mc/socials/';
+        var at = href.lastIndexOf(dir);
+        if (at !== -1) return href.slice(0, at + dir.length) + 'socials.json';
+        var bare = '/mc/socials';
+        if (href.slice(-bare.length) === bare) return href + '/socials.json';
+        return new URL('socials.json', href).href; // moved? fall back to relative
+      }());
+      // Skipped ids, so a dismissal survives a reload. Keyed by post id, which
+      // is date-stamped, so yesterday's keys can never collide with today's.
+      // One-way by design — there is no in-page restore; clear this key by hand.
+      // The name stays `trash*` so an existing list is not orphaned.
+      var TRASH_KEY = 'tgb_socials_trashed_v1';
+      var POSTED_KEY = 'tgb_socials_posted_v1';
+      var MANUAL_QUEUE_KEY = 'tgb_socials_manual_posts_v1';
+      var STALE_AFTER_HOURS = 26;
+
+      var pageStatus = document.getElementById('pageStatus');
+      var queueList = document.getElementById('queueList');
+      var queueEmpty = document.getElementById('queueEmpty');
+      var tabActive = document.getElementById('tabActive');
+      var tabSkipped = document.getElementById('tabSkipped');
+      var tabActiveCount = document.getElementById('tabActiveCount');
+      var tabSkippedCount = document.getElementById('tabSkippedCount');
+      var tabPosted = document.getElementById('tabPosted');
+      var tabPostedCount = document.getElementById('tabPostedCount');
+      // Which tab is showing. The first one READS "Review" (the tab CSS
+      // uppercases it) but the state stays 'active' — same visible/internal
+      // split as Post over `autoPost` and Skip over `trash*`.
+      var view = 'active'; // 'active' | 'posted' | 'skipped'
+      var queueStatus = document.getElementById('queueStatus');
+      var manualPostBtn = document.getElementById('manualPostBtn');
+      var manualBackdrop = document.getElementById('manualBackdrop');
+      var manualCard = document.getElementById('manualCard');
+      var manualForm = document.getElementById('manualPostForm');
+      var manualStatus = document.getElementById('manualStatus');
+      var promptBtn = document.getElementById('promptBtn');
+      var promptBackdrop = document.getElementById('promptBackdrop');
+      var promptCard = document.getElementById('promptCard');
+      var promptEl = document.getElementById('promptText');
+      var copyStatus = document.getElementById('copyStatus');
+      var copyBtn = document.getElementById('copyPromptTop');
+      var adminAuthToggleBtn = document.getElementById('adminAuthToggleBtn');
+
+      var posts = [];
+
+      // ── Trash memory ─────────────────────────────────────────────────────
+      function readTrash() {
+        try {
+          var raw = window.localStorage.getItem(TRASH_KEY);
+          var parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          return []; // private mode or a corrupted value — treat as nothing trashed
+        }
+      }
+      function writeTrash(ids) {
+        // Keep the tail only: ids are date-stamped and the list is replaced
+        // daily, so old keys are dead weight.
+        try { window.localStorage.setItem(TRASH_KEY, JSON.stringify(ids.slice(-200))); }
+        catch (error) { /* the dismissal just won't persist */ }
+      }
+      function isTrashed(id) { return readTrash().indexOf(id) !== -1; }
+      function addTrash(id) {
+        var ids = readTrash();
+        if (ids.indexOf(id) === -1) { ids.push(id); writeTrash(ids); }
+      }
+      // Move to Review, one post at a time — the Skipped tab's only write. Deliberately
+      // NOT a clear-everything: the bulk restore button was removed because it
+      // could wipe a week of decisions in a click.
+      function removeTrash(id) {
+        var ids = readTrash();
+        var at = ids.indexOf(id);
+        if (at !== -1) { ids.splice(at, 1); writeTrash(ids); }
+      }
+
+      // ── Posted memory ────────────────────────────────────────────────────
+      // A map, not a list, because we keep WHEN and WHERE alongside the id:
+      // { "<post id>": { at: "<ISO>", platforms: ["X", "Instagram"] } }.
+      //
+      // A candidate is marked posted when you finish a Post run — the last
+      // ticked composer has been opened. That is the only signal this page has;
+      // it cannot see whether you actually pressed Post on X. So POSTED means
+      // "you took it all the way through the composer", which is honest, and
+      // Move to Review exists for the time you closed the tab instead.
+      function readPosted() {
+        try {
+          var raw = window.localStorage.getItem(POSTED_KEY);
+          var parsed = raw ? JSON.parse(raw) : {};
+          return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+        } catch (error) {
+          return {};
+        }
+      }
+      function writePosted(map) {
+        try { window.localStorage.setItem(POSTED_KEY, JSON.stringify(map)); }
+        catch (error) { /* the mark just won't persist */ }
+      }
+      function isPosted(id) { return Object.prototype.hasOwnProperty.call(readPosted(), id); }
+      function postedRecord(id) { return readPosted()[id] || null; }
+      function addPosted(id, platforms) {
+        var map = readPosted();
+        map[id] = { at: new Date().toISOString(), platforms: platforms || [] };
+        writePosted(map);
+      }
+      function removePosted(id) {
+        var map = readPosted();
+        if (Object.prototype.hasOwnProperty.call(map, id)) { delete map[id]; writePosted(map); }
+      }
+
+      function readManualPosts() {
+        try {
+          var raw = window.localStorage.getItem(MANUAL_QUEUE_KEY);
+          var parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          return [];
+        }
+      }
+
+      function writeManualPosts(items) {
+        try { window.localStorage.setItem(MANUAL_QUEUE_KEY, JSON.stringify(items.slice(-100))); }
+        catch (error) { /* manual additions just won't survive reload */ }
+      }
+
+      function mergeQueuePosts(filePosts, manualPosts) {
+        var seen = {};
+        return [].concat(filePosts || [], manualPosts || []).filter(function (post) {
+          if (!post) return false;
+          var key = String(post.id || post.url || '').trim();
+          if (!key) return false;
+          if (seen[key]) return false;
+          seen[key] = true;
+          return true;
+        });
+      }
+
+      function setPosts(filePosts) {
+        posts = mergeQueuePosts(filePosts, readManualPosts());
+      }
+
+      // ── Auth ─────────────────────────────────────────────────────────────
+      function setAdminAuthToggleState(signedIn) {
+        if (!adminAuthToggleBtn) return;
+        var label = signedIn ? 'ADMIN LOGOUT' : 'ADMIN LOGON';
+        adminAuthToggleBtn.textContent = label;
+        adminAuthToggleBtn.title = label;
+        adminAuthToggleBtn.setAttribute('aria-label', label);
+        adminAuthToggleBtn.classList.toggle('is-signed-in', !!signedIn);
+      }
+
+      var adminAuth = window.TgbMcAdminAuth.create({
+        supabaseConfig: SUPABASE_CONFIG,
+        onAuthorized: function () {
+          setAdminAuthToggleState(true);
+          document.body.classList.add('is-admin');
+          loadQueue();
+        },
+        onSignedOut: function () {
+          setAdminAuthToggleState(false);
+          document.body.classList.remove('is-admin');
+          setPageStatus('Sign in with an admin account.');
+          if (queueList) queueList.textContent = '';
+          showEmpty('');
+        }
+      });
+      if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
+
+      // The subhead is the page's standing explanation, not a counter — the
+      // Active / Skipped tabs already show the numbers. Transient states (an
+      // error, "sign in") borrow the line and clearing it restores the intro line,
+      // so the header is never left blank.
+      var PAGE_INTRO = 'Post or skip the suggested social post candidates below.';
+
+      function setPageStatus(text) {
+        if (pageStatus) pageStatus.textContent = text || PAGE_INTRO;
+      }
+
+      function showEmpty(text) {
+        if (!queueEmpty) return;
+        queueEmpty.textContent = text || '';
+        queueEmpty.hidden = !text;
+      }
+
+      function flash(el, text) {
+        if (!el) return;
+        el.textContent = text;
+        window.setTimeout(function () { el.textContent = ''; }, 2200);
+      }
+
+      // Fall back to the URL when a post has no id, so SKIP still has a stable
+      // key on a hand-edited file.
+      function postId(post) {
+        return String((post && (post.id || post.url)) || '');
+      }
+
+      function cleanText(value) {
+        return String(value || '').trim();
+      }
+
+      function openTool(card, backdrop, focusEl) {
+        if (!card) return;
+        if (backdrop) backdrop.hidden = false;
+        card.hidden = false;
+        document.body.style.overflow = 'hidden';
+        window.setTimeout(function () {
+          var target = focusEl || card.querySelector('input, textarea, select, button, a');
+          if (target && typeof target.focus === 'function') target.focus();
+        }, 0);
+      }
+
+      function closeTool(card, backdrop) {
+        if (backdrop) backdrop.hidden = true;
+        if (card) card.hidden = true;
+        if ((manualCard && !manualCard.hidden) || (promptCard && !promptCard.hidden)) return;
+        document.body.style.overflow = '';
+      }
+
+      function openManualPost() {
+        if (!manualCard || !manualForm) return;
+        manualForm.reset();
+        var published = document.getElementById('manualPublished');
+        if (published) published.value = new Date().toISOString().slice(0, 10);
+        if (manualStatus) manualStatus.textContent = '';
+        openTool(manualCard, manualBackdrop, document.getElementById('manualHeadline'));
+      }
+
+      function openPrompt() {
+        openTool(promptCard, promptBackdrop, copyBtn);
+      }
+
+      function manualPostId() {
+        var iso = new Date().toISOString();
+        return 'manual-' + iso.slice(0, 10) + '-' + iso.slice(11, 16).replace(':', '') + '-' + Date.now().toString(36);
+      }
+
+      function splitTopics(value) {
+        var seen = {};
+        return cleanText(value).split(/[,\n]/).map(function (topic) {
+          return topic.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '');
+        }).filter(function (topic) {
+          if (!topic || seen[topic]) return false;
+          seen[topic] = true;
+          return true;
+        });
+      }
+
+      function readPlatformPicks() {
+        var picks = [];
+        Array.prototype.forEach.call(document.querySelectorAll('[data-platform-name]'), function (input) {
+          if (!input.checked) return;
+          var name = input.getAttribute('data-platform-name') || '';
+          var whyInput = document.querySelector('[data-platform-why="' + name + '"]');
+          picks.push({
+            name: name,
+            why: cleanText(whyInput && whyInput.value)
+          });
+        });
+        return picks;
+      }
+
+      function readManualPost() {
+        var headline = cleanText(document.getElementById('manualHeadline') && document.getElementById('manualHeadline').value);
+        var rawUrl = cleanText(document.getElementById('manualUrl') && document.getElementById('manualUrl').value);
+        var blurb = cleanText(document.getElementById('manualBlurb') && document.getElementById('manualBlurb').value);
+        if (manualStatus) manualStatus.textContent = '';
+
+        if (!headline || !rawUrl || !blurb) {
+          if (manualStatus) manualStatus.textContent = 'Headline, URL, and caption are required.';
+          return null;
+        }
+
+        var url = rawUrl;
+        try {
+          url = new URL(rawUrl).href;
+        } catch (error) {
+          if (manualStatus) manualStatus.textContent = 'Enter a full URL.';
+          return null;
+        }
+        if (posts.some(function (post) { return post && post.url === url; })) {
+          if (manualStatus) manualStatus.textContent = 'That URL is already a candidate.';
+          return null;
+        }
+
+        var platforms = readPlatformPicks();
+        if (!platforms.length) {
+          if (manualStatus) manualStatus.textContent = 'Pick at least one platform.';
+          return null;
+        }
+
+        return {
+          id: manualPostId(),
+          headline: headline,
+          url: url,
+          source: cleanText(document.getElementById('manualSource') && document.getElementById('manualSource').value),
+          published: cleanText(document.getElementById('manualPublished') && document.getElementById('manualPublished').value),
+          topics: splitTopics(document.getElementById('manualTopics') && document.getElementById('manualTopics').value),
+          media: cleanText(document.getElementById('manualMedia') && document.getElementById('manualMedia').value) || 'photo',
+          image: cleanText(document.getElementById('manualImage') && document.getElementById('manualImage').value),
+          platforms: platforms,
+          blurb: blurb,
+          why: cleanText(document.getElementById('manualWhy') && document.getElementById('manualWhy').value)
+        };
+      }
+
+      function submitManualPost(event) {
+        if (event) event.preventDefault();
+        var post = readManualPost();
+        if (!post) return;
+        var manualPosts = readManualPosts();
+        manualPosts.push(post);
+        writeManualPosts(manualPosts);
+        setPosts(posts);
+        renderQueue();
+        closeTool(manualCard, manualBackdrop);
+        flash(queueStatus, 'Added locally');
+      }
+
+      // ── Load + render ────────────────────────────────────────────────────
+      async function loadQueue() {
+        var data;
+
+        // Fetching is its own try block. Wrapping the render in here too meant a
+        // rendering bug reported itself as "could not read the file", which sent
+        // us looking at the data instead of the code.
+        try {
+          var res = await fetch(QUEUE_FILE, { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching ' + QUEUE_FILE);
+          data = await res.json();
+        } catch (error) {
+          console.error('[socials] could not load the queue:', error);
+          setPosts([]);
+          if (queueList) queueList.textContent = '';
+          if (posts.length) {
+            renderQueue();
+            return;
+          }
+          setPageStatus('');
+          showEmpty(
+            'Could not read the candidates (' + (error && error.message ? error.message : 'unknown error') +
+            '). If the routine has not run yet that file does not exist — open the routine and trigger a run.'
+          );
+          return;
+        }
+
+        setPosts((data && Array.isArray(data.posts)) ? data.posts : []);
+
+        try {
+          renderQueue();
+        } catch (error) {
+          console.error('[socials] could not render the queue:', error);
+          setPageStatus('');
+          showEmpty('Read ' + posts.length + ' candidate(s) but could not draw them: ' +
+            (error && error.message ? error.message : 'unknown error'));
+        }
+      }
+
+      function renderQueue() {
+        if (!queueList) return;
+        queueList.textContent = '';
+
+        // One array, split three ways by the two decision lists. A post with no
+        // url is malformed and belongs in no view. POSTED beats SKIPPED if a
+        // candidate somehow carries both marks: what you did with it outranks
+        // what you passed on.
+        // Newest first, by RUN. The file is append-only — each run adds its
+        // candidates to the END — so the newest run is the last block in the
+        // file. We reverse the blocks but keep each run's own 1..5 order inside
+        // it, because that order is the bot's, not an accident: a plain
+        // .reverse() would show you 5, 4, 3, 2, 1 within every run.
+        //
+        // Runs are identified by the id minus its trailing -N ("2026-08-05-0411"
+        // from "2026-08-05-0411-3"). An id that doesn't match simply becomes its
+        // own group, which still sorts correctly and never drops a candidate.
+        //
+        // Deliberately NOT sorted on `published`: that is when the OUTLET
+        // published the article, often days before the run that found it, so
+        // sorting on it would bury this morning's candidates under an older
+        // story someone just noticed.
+        var runs = [];
+        var runByKey = {};
+        posts.filter(function (post) { return post && post.url; }).forEach(function (post) {
+          var id = String(postId(post));
+          var key = id.replace(/-\d+$/, '') || id;
+          if (!runByKey[key]) { runByKey[key] = []; runs.push(runByKey[key]); }
+          runByKey[key].push(post);
+        });
+        var usable = [];
+        for (var r = runs.length - 1; r >= 0; r--) usable = usable.concat(runs[r]);
+
+        var live = [];
+        var skipped = [];
+        var posted = [];
+        usable.forEach(function (post) {
+          var id = postId(post);
+          if (isPosted(id)) posted.push(post);
+          else if (isTrashed(id)) skipped.push(post);
+          else live.push(post);
+        });
+
+        var buckets = { active: live, skipped: skipped, posted: posted };
+        var shown = buckets[view] || live;
+
+        shown.forEach(function (post) {
+          queueList.appendChild(buildPost(post, view));
+        });
+
+        if (tabActiveCount) tabActiveCount.textContent = String(live.length);
+        if (tabSkippedCount) tabSkippedCount.textContent = String(skipped.length);
+        if (tabPostedCount) tabPostedCount.textContent = String(posted.length);
+        setTabState(tabActive, view === 'active');
+        setTabState(tabSkipped, view === 'skipped');
+        setTabState(tabPosted, view === 'posted');
+        queueList.setAttribute('aria-labelledby',
+          view === 'skipped' ? 'tabSkipped' : (view === 'posted' ? 'tabPosted' : 'tabActive'));
+
+        if (view === 'skipped') {
+          showEmpty(skipped.length ? '' : 'Nothing skipped yet.');
+        } else if (view === 'posted') {
+          showEmpty(posted.length ? '' : 'Nothing posted yet. Finish a Post run and it lands here.');
+        } else if (!usable.length) {
+          showEmpty('No candidates in the file yet.');
+        } else if (!live.length) {
+          showEmpty('All ' + usable.length + ' decided. The next run brings five more.');
+        } else {
+          showEmpty('');
+        }
+
+        // No counts here — the tabs carry them. This line explains the page.
+        setPageStatus('');
+      }
+
+      function setTabState(tab, active) {
+        if (!tab) return;
+        tab.classList.toggle('is-active', !!active);
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      }
+
+      function setView(next) {
+        if (view === next) return;
+        view = next;
+        renderQueue();
+      }
+
+      // Bare host for the link-preview card's footer, the way a real composer
+      // shows it. Falls back to the raw string if the URL will not parse, so a
+      // hand-edited file still renders.
+      function linkDomain(url) {
+        try { return new URL(url).hostname.replace(/^www\./, ''); }
+        catch (error) { return String(url || '').replace(/^https?:\/\//, '').split('/')[0]; }
+      }
+
+      // The card is laid out the way the post will actually look: the caption
+      // first and largest, because that is the thing being published, then the
+      // link-preview card the platform will unfurl beneath it. Everything that
+      // is OURS and never leaves this page — topics, the internal why, the
+      // buttons — sits below a divider as ephemera, so a glance at the top half
+      // is a glance at the post.
+      //
+      // `mode` is the tab being rendered: 'active' gets the Post picker and
+      // Skip; 'skipped' and 'posted' each get one Move to Review button, and
+      // 'posted' also gets a receipt line saying where and when it went.
+      // The card itself is identical in all three — only the action row differs,
+      // so a decided candidate still shows exactly what it did say.
+      function buildPost(post, mode) {
+        var skipped = mode === 'skipped';
+        var posted = mode === 'posted';
+        var article = document.createElement('article');
+        article.className = 'post' + (skipped ? ' is-skipped' : '') + (posted ? ' is-posted' : '');
+
+        var preview = document.createElement('div');
+        preview.className = 'post-preview';
+
+        var caption = document.createElement('p');
+        caption.className = 'post-caption';
+        caption.textContent = post.blurb || '';
+        preview.appendChild(caption);
+
+        // One anchor wrapping the whole preview card — the same target shape a
+        // real unfurled link has, rather than a separate raw-URL line.
+        var card = document.createElement('a');
+        card.className = 'post-card';
+        card.href = post.url;
+        card.target = '_blank';
+        card.rel = 'noopener noreferrer';
+
+        // The thumbnail is whatever og:image the story carries, recorded by the
+        // agent while it had the page open in step 3 — the page cannot read it
+        // itself, since fetching another origin's HTML is blocked by CORS.
+        // It is hotlinked, so it can 403 on a referrer check or simply rot; on
+        // any error the whole figure is removed and the card falls back to the
+        // text-only layout. Older rows have no `image` at all and behave the
+        // same way, which is why nothing here is required.
+        var image = String(post.image || '').trim();
+        if (/^https?:\/\//i.test(image)) {
+          var shot = document.createElement('span');
+          shot.className = 'post-card-shot';
+          var img = document.createElement('img');
+          img.src = image;
+          img.alt = '';
+          img.loading = 'lazy';
+          img.referrerPolicy = 'no-referrer';
+          img.addEventListener('error', function () {
+            if (shot.parentNode) shot.parentNode.removeChild(shot);
+            card.classList.remove('has-shot');
+          });
+          shot.appendChild(img);
+          card.appendChild(shot);
+          card.classList.add('has-shot');
+        }
+
+        var body = document.createElement('span');
+        body.className = 'post-card-body';
+
+        var cardDomain = document.createElement('span');
+        cardDomain.className = 'post-card-domain';
+        cardDomain.textContent = linkDomain(post.url);
+        body.appendChild(cardDomain);
+
+        var cardHeadline = document.createElement('span');
+        cardHeadline.className = 'post-card-headline';
+        cardHeadline.textContent = post.headline || post.url;
+        body.appendChild(cardHeadline);
+
+        var meta = [post.source, post.published].filter(Boolean).join(' · ');
+        if (meta) {
+          var cardMeta = document.createElement('span');
+          cardMeta.className = 'post-card-meta';
+          cardMeta.textContent = meta;
+          body.appendChild(cardMeta);
+        }
+
+        card.appendChild(body);
+        preview.appendChild(card);
+        article.appendChild(preview);
+
+        var ephemera = document.createElement('div');
+        ephemera.className = 'post-ephemera';
+
+        var tags = buildTags(post);
+        if (tags) ephemera.appendChild(tags);
+
+        if (post.why) {
+          var why = document.createElement('p');
+          why.className = 'post-why';
+          why.textContent = post.why;
+          ephemera.appendChild(why);
+        }
+
+        var actions = document.createElement('div');
+        actions.className = 'post-actions';
+
+        var feedback = document.createElement('span');
+        feedback.className = 'post-feedback';
+
+        if (posted) {
+          var record = postedRecord(postId(post)) || {};
+          var receipt = document.createElement('p');
+          receipt.className = 'post-receipt';
+          var where = Array.isArray(record.platforms) && record.platforms.length
+            ? record.platforms.join(' · ') : 'no platform recorded';
+          var when = record.at ? new Date(record.at) : null;
+          receipt.textContent = 'Posted to ' + where +
+            (when && !isNaN(when) ? ' — ' + when.toLocaleString([], {
+              month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+            }) : '');
+          ephemera.insertBefore(receipt, ephemera.firstChild);
+
+          var unpostBtn = document.createElement('button');
+          unpostBtn.className = 'btn';
+          unpostBtn.type = 'button';
+          unpostBtn.textContent = 'Move to Review';
+          unpostBtn.title = 'Not actually posted — put it back in Review';
+          unpostBtn.addEventListener('click', function () {
+            removePosted(postId(post));
+            renderQueue();   // stays on Posted; the row simply leaves the list
+            flash(queueStatus, 'Back in Review');
+          });
+          actions.appendChild(unpostBtn);
+          actions.appendChild(feedback);
+          ephemera.appendChild(actions);
+          article.appendChild(ephemera);
+          return article;
+        }
+
+        if (skipped) {
+          var unskipBtn = document.createElement('button');
+          unskipBtn.className = 'btn';
+          unskipBtn.type = 'button';
+          unskipBtn.textContent = 'Move to Review';
+          unskipBtn.title = 'Put this one back in Review';
+          unskipBtn.addEventListener('click', function () {
+            removeTrash(postId(post));
+            renderQueue();   // stays on Skipped; the row simply leaves the list
+            flash(queueStatus, 'Back in Review');
+          });
+          actions.appendChild(unskipBtn);
+          actions.appendChild(feedback);
+          ephemera.appendChild(actions);
+          article.appendChild(ephemera);
+          return article;
+        }
+
+        // Post reveals a small platform picker; tick any number and it opens
+        // each one's own composer prefilled, one click per platform. No
+        // credentials live on this public page, so it can only ever tee a post
+        // up for a human to confirm — the button name is the verb, not a claim
+        // that this page publishes. (Internal names stay `autopost*`, the same
+        // way the soundtracks column stays `archived` under a HIDE label.)
+        var autoBtn = document.createElement('button');
+        autoBtn.className = 'btn primary autopost-toggle';
+        autoBtn.type = 'button';
+        autoBtn.textContent = '⚡ Post';
+        autoBtn.title = 'Tick one or more platforms and open each prefilled composer in turn';
+        autoBtn.setAttribute('aria-expanded', 'false');
+
+        var menu = buildAutoPostMenu(post, feedback, function () {
+          menu.setAttribute('hidden', '');
+          autoBtn.setAttribute('aria-expanded', 'false');
+        });
+
+        autoBtn.addEventListener('click', function () {
+          if (menu.hasAttribute('hidden')) {
+            menu.removeAttribute('hidden');
+            autoBtn.setAttribute('aria-expanded', 'true');
+          } else {
+            menu.setAttribute('hidden', '');
+            autoBtn.setAttribute('aria-expanded', 'false');
+          }
+        });
+
+        // Visible verb is SKIP; the storage key and helpers keep the older
+        // `trash` names so an existing dismissal list is not orphaned.
+        var trashBtn = document.createElement('button');
+        trashBtn.className = 'btn danger';
+        trashBtn.type = 'button';
+        trashBtn.textContent = 'Skip';
+        trashBtn.title = 'Pass on this one — it will not come back on reload';
+        trashBtn.addEventListener('click', function () {
+          addTrash(postId(post));
+          renderQueue();
+          flash(queueStatus, 'Skipped');
+        });
+
+        actions.appendChild(autoBtn);
+        actions.appendChild(trashBtn);
+        actions.appendChild(feedback);
+        ephemera.appendChild(actions);
+        ephemera.appendChild(menu);
+        article.appendChild(ephemera);
+
+        return article;
+      }
+
+      // Our four accounts, all at the handle @thegamebureau. Keyed by the same
+      // normalized token used for the is-<platform> class, so a platform chip
+      // becomes a link straight to that account's page.
+      var PLATFORM_URLS = {
+        instagram: 'https://www.instagram.com/thegamebureau',
+        x: 'https://x.com/thegamebureau',
+        facebook: 'https://www.facebook.com/thegamebureau',
+        youtube: 'https://www.youtube.com/@thegamebureau'
+      };
+
+      // Topics first (what the story is), then the platform recommendations
+      // (what to do about it). Renders nothing at all if a post carries neither,
+      // so a hand-written entry without tags still looks deliberate.
+      // Topics only. The "Post to" platform pills used to sit here too, but they
+      // duplicated the picker and hid their most useful half — the agent's
+      // reason — inside a tooltip. The platforms and their whys now live under
+      // the Post button, where you are actually choosing between them.
+      function buildTags(post) {
+        var topics = Array.isArray(post.topics) ? post.topics.filter(Boolean) : [];
+        if (!topics.length) return null;
+
+        var wrap = document.createElement('div');
+        wrap.className = 'post-tags';
+
+        topics.forEach(function (topic) {
+          var chip = document.createElement('span');
+          chip.className = 'tag tag--topic';
+          chip.textContent = String(topic);
+          wrap.appendChild(chip);
+        });
+
+        return wrap;
+      }
+
+      // The agent's per-platform reason, keyed by the normalized platform token.
+      // Falls back to nothing — the picker then shows the standing format note.
+      function platformWhys(post) {
+        var out = {};
+        (Array.isArray(post.platforms) ? post.platforms : []).forEach(function (p) {
+          var name = typeof p === 'string' ? p : (p && p.name);
+          if (!name) return;
+          var key = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '');
+          var why = typeof p === 'string' ? '' : String((p && p.why) || '');
+          if (why) out[key] = why;
+        });
+        return out;
+      }
+
+      // What lands on the clipboard: caption, blank line, link. Deliberately NOT
+      // the headline (that is the outlet's words, not ours) and NOT `why` —
+      // that is an internal note and pasting it into a social box would be an
+      // embarrassing leak.
+      function clipboardText(post) {
+        return String(post.blurb || '').trim() + '\n\n' + String(post.url || '').trim();
+      }
+
+      async function copyToClipboard(text, feedbackEl, okMsg) {
+        var done = okMsg || 'Copied';
+        try {
+          await navigator.clipboard.writeText(text);
+          flash(feedbackEl, done);
+        } catch (error) {
+          // The async clipboard needs a secure context and permission. Fall back
+          // to a hidden textarea so this still works over plain http on a local
+          // dev server.
+          var scratch = document.createElement('textarea');
+          scratch.value = text;
+          scratch.setAttribute('readonly', '');
+          scratch.style.position = 'fixed';
+          scratch.style.opacity = '0';
+          document.body.appendChild(scratch);
+          scratch.select();
+          var ok = false;
+          try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+          document.body.removeChild(scratch);
+          flash(feedbackEl, ok ? done : 'Copy failed');
+        }
+      }
+
+      // ── Post ─────────────────────────────────────────────────────────────
+      // "Post" from a public static page that holds NO credentials: the only
+      // safe move is to hand the caption to the platform's own composer and let
+      // the human hit Post there. X and Facebook take a prefilled web composer;
+      // Instagram and YouTube have no post-by-URL, so we copy the caption and
+      // open the account for a manual paste. This never publishes on its own —
+      // that would need stored tokens, which must never live on this page.
+      // Several platforms can be queued for one story, but they are opened one
+      // per click; see buildAutoPostMenu for why a burst cannot work.
+      var PLATFORM_LABELS = { instagram: 'Instagram', x: 'X', facebook: 'Facebook', youtube: 'YouTube' };
+      // Our caption goes with the post on every platform — the whole point of
+      // writing one is that we do not post the outlet's headline. How far it
+      // gets differs, because the platforms differ:
+      //
+      //   X         — composer opens with caption AND link already in the box.
+      //   Facebook  — composer opens with the link, and `quote` carries the
+      //               caption. Facebook honours quote inconsistently, so the
+      //               caption ALSO goes to the clipboard; if the box comes up
+      //               empty it is one paste away rather than a retype.
+      //   Instagram — no post-by-URL exists at all. Caption to the clipboard,
+      //               account page opens, you paste.
+      //   YouTube   — same.
+      //
+      // `true` here means "the composer is reliably prefilled, do not touch the
+      // clipboard". Facebook is deliberately `false` despite sending `quote`.
+      var PLATFORM_PREFILLS = { x: true, facebook: false, instagram: false, youtube: false };
+
+      function composeTarget(key, post) {
+        var caption = String(post.blurb || '').trim();
+        var url = String(post.url || '').trim();
+        if (key === 'x') {
+          return 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(caption) +
+                 (url ? '&url=' + encodeURIComponent(url) : '');
+        }
+        if (key === 'facebook') {
+          return 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url) +
+                 (caption ? '&quote=' + encodeURIComponent(caption) : '');
+        }
+        return PLATFORM_URLS[key] || ''; // instagram / youtube — the account page
+      }
+
+      function autoPost(post, key, feedbackEl) {
+        var target = composeTarget(key, post);
+        // window.open must fire synchronously in the click handler to keep the
+        // user-gesture (otherwise the popup blocker eats it), so open first.
+        if (target) {
+          var w = window.open(target, '_blank');
+          if (w) w.opener = null;
+        }
+        // The clipboard is loaded on EVERY step, including the platforms whose
+        // composer we prefill. Two reasons it is not conditional: a prefill can
+        // silently fail (Facebook honours `quote` when it feels like it, X can
+        // drop a long `text`), and you often want the caption to hand anyway —
+        // to tweak it in the composer, or to paste it somewhere this page never
+        // opened. Belt and braces beats a composer that came up empty with
+        // nothing on the clipboard to rescue it.
+        //
+        // It is always caption + blank line + URL, the same on all four, so
+        // what you get is predictable rather than depending on which platform
+        // the run happened to end on.
+        copyToClipboard(clipboardText(post), feedbackEl,
+          PLATFORM_PREFILLS[key]
+            ? 'Opening ' + PLATFORM_LABELS[key] + ' · caption copied too'
+            : 'Caption copied — paste in ' + PLATFORM_LABELS[key]);
+      }
+
+      // The picker the Post button reveals: the four accounts, tickable in
+      // any combination, with the ones the agent tagged for this story marked
+      // "suggested" and pre-ticked (the common case is then a single click).
+      //
+      // Multiple platforms are opened ONE AT A TIME, never in a burst. A browser
+      // grants one popup per user gesture, so opening four tabs from one click
+      // gets three of them eaten by the popup blocker — and worse, silently, so
+      // you would think you had posted everywhere. The runner therefore keeps a
+      // cursor and each click opens exactly the next platform. Clipboard writes
+      // are per-step for the same reason: the caption for Instagram must land on
+      // the clipboard at the moment its tab opens, not four steps earlier.
+      var PLATFORM_ORDER = ['x', 'facebook', 'instagram', 'youtube'];
+      // Shown when the agent did not tag a platform for this story, so the row
+      // still explains what that account is for rather than sitting blank.
+      var PLATFORM_FORMAT_NOTE = {
+        x: 'Link preview renders natively — the link is the payload.',
+        facebook: 'Link preview renders and the caption can breathe.',
+        instagram: 'Caption links are not clickable — the image has to carry it.',
+        youtube: 'Only with real video, or visual enough for a Short.'
+      };
+
+      function buildAutoPostMenu(post, feedbackEl, onPick) {
+        var tagged = {};
+        (Array.isArray(post.platforms) ? post.platforms : []).forEach(function (p) {
+          var n = typeof p === 'string' ? p : (p && p.name);
+          if (n) tagged[String(n).toLowerCase().replace(/[^a-z0-9]+/g, '')] = true;
+        });
+
+        var menu = document.createElement('div');
+        menu.className = 'autopost-menu';
+        menu.setAttribute('hidden', '');
+
+        var hint = document.createElement('p');
+        hint.className = 'autopost-hint';
+        hint.textContent = 'Tick the platforms you want, then open them one at a time — each opens that composer with the caption ready and you tap Post there. Nothing goes out on its own.';
+        menu.appendChild(hint);
+
+        var picked = {};   // key -> ticked
+        var done = {};     // key -> already opened this run
+        var buttons = {};
+        var queue = [];    // the run order, frozen when the run starts
+        var cursor = 0;
+
+        // One row per account: the tick, then WHY it suits this story. The
+        // agent's own reason when it tagged the platform, otherwise the standing
+        // format note for that account — so every row says something, and a
+        // suggested row says something specific to this story.
+        var whys = platformWhys(post);
+
+        var row = document.createElement('div');
+        row.className = 'autopost-row';
+        PLATFORM_ORDER.forEach(function (key) {
+          var item = document.createElement('div');
+          item.className = 'autopost-item' + (tagged[key] ? ' is-suggested-item' : '');
+
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'autopost-choice tag tag--platform is-' + key + (tagged[key] ? ' is-suggested' : '');
+          b.textContent = PLATFORM_LABELS[key] + (tagged[key] ? ' ★' : '');
+          b.title = tagged[key] ? 'Suggested for this story' : 'Open ' + PLATFORM_LABELS[key];
+          picked[key] = !!tagged[key];
+          b.setAttribute('aria-pressed', picked[key] ? 'true' : 'false');
+          b.addEventListener('click', function () {
+            // Re-ticking after a run has started rebuilds the queue from what is
+            // ticked but not yet opened, so you can add or drop a platform
+            // mid-run without re-opening the ones already done.
+            picked[key] = !picked[key];
+            b.setAttribute('aria-pressed', picked[key] ? 'true' : 'false');
+            syncRun();
+          });
+          buttons[key] = b;
+          item.appendChild(b);
+
+          var why = document.createElement('span');
+          why.className = 'autopost-why' + (whys[key] ? ' is-agent' : '');
+          why.textContent = whys[key] || PLATFORM_FORMAT_NOTE[key] || '';
+          item.appendChild(why);
+
+          row.appendChild(item);
+        });
+        menu.appendChild(row);
+
+        var run = document.createElement('div');
+        run.className = 'autopost-run';
+
+        var go = document.createElement('button');
+        go.type = 'button';
+        go.className = 'btn primary autopost-go';
+
+        var progress = document.createElement('span');
+        progress.className = 'autopost-progress';
+
+        run.appendChild(go);
+        run.appendChild(progress);
+        menu.appendChild(run);
+
+        function pendingKeys() {
+          return PLATFORM_ORDER.filter(function (k) { return picked[k] && !done[k]; });
+        }
+
+        function syncRun() {
+          queue = pendingKeys();
+          cursor = 0;
+          var doneCount = PLATFORM_ORDER.filter(function (k) { return done[k]; }).length;
+          var total = doneCount + queue.length;
+
+          PLATFORM_ORDER.forEach(function (k) {
+            buttons[k].classList.toggle('is-done', !!done[k]);
+          });
+
+          if (!queue.length) {
+            go.disabled = true;
+            go.textContent = doneCount ? 'All opened' : 'Open composer';
+            progress.textContent = doneCount ? doneCount + ' of ' + doneCount + ' opened' : 'Pick at least one';
+            return;
+          }
+          go.disabled = false;
+          go.textContent = 'Open ' + PLATFORM_LABELS[queue[0]];
+          progress.textContent = total > 1
+            ? (doneCount + 1) + ' of ' + total + ' — ' + queue.length + ' to go'
+            : '';
+        }
+
+        go.addEventListener('click', function () {
+          var key = queue[cursor];
+          if (!key) return;
+          autoPost(post, key, feedbackEl);   // one tab, this gesture
+          done[key] = true;
+          syncRun();
+          // Only collapse the menu once every ticked platform has been opened,
+          // so a multi-platform run keeps its Next button under the cursor.
+          if (!pendingKeys().length) {
+            if (typeof onPick === 'function') onPick();
+            // The run finished: every composer you asked for has been opened, so
+            // the candidate moves to POSTED with a record of where it went. This
+            // re-renders and the card leaves the Review tab under you — which is
+            // the point, it is decided now. Move to Review is there if you bailed out in
+            // the composer.
+            var wentTo = PLATFORM_ORDER
+              .filter(function (k) { return done[k]; })
+              .map(function (k) { return PLATFORM_LABELS[k]; });
+            addPosted(postId(post), wentTo);
+            renderQueue();
+            flash(queueStatus, 'Marked posted');
+          }
+        });
+
+        syncRun();
+        return menu;
+      }
+
+      if (manualPostBtn) manualPostBtn.addEventListener('click', openManualPost);
+      if (manualForm) manualForm.addEventListener('submit', submitManualPost);
+      if (manualBackdrop) manualBackdrop.addEventListener('click', function () {
+        closeTool(manualCard, manualBackdrop);
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('[data-manual-close]'), function (button) {
+        button.addEventListener('click', function () { closeTool(manualCard, manualBackdrop); });
+      });
+
+      if (promptBtn) promptBtn.addEventListener('click', openPrompt);
+      if (promptBackdrop) promptBackdrop.addEventListener('click', function () {
+        closeTool(promptCard, promptBackdrop);
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('[data-prompt-close]'), function (button) {
+        button.addEventListener('click', function () { closeTool(promptCard, promptBackdrop); });
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') return;
+        closeTool(manualCard, manualBackdrop);
+        closeTool(promptCard, promptBackdrop);
+      });
+
+      if (tabActive) tabActive.addEventListener('click', function () { setView('active'); });
+      if (tabPosted) tabPosted.addEventListener('click', function () { setView('posted'); });
+      if (tabSkipped) tabSkipped.addEventListener('click', function () { setView('skipped'); });
+
+      // ── Paste-ready prompt ───────────────────────────────────────────────
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async function () {
+          if (!promptEl) return;
+          try {
+            await navigator.clipboard.writeText(promptEl.value || '');
+            flash(copyStatus, 'Copied');
+          } catch (error) {
+            promptEl.focus();
+            promptEl.select();
+            flash(copyStatus, 'Select All');
+          }
+        });
+      }
+
+      // ── Last run ─────────────────────────────────────────────────────────
+      // Read from the public GitHub commits API, like the soundtrack admin: the
+      // commit is what actually shipped, so a stale timestamp IS the failure
+      // signal — a run that errored pushes nothing.
+      var RUN_FEED = 'https://api.github.com/repos/the-game-bureau/the-game-bureau.github.io/commits'
+        + '?path=mc/socials/socials.json&per_page=1';
+
+      function relativeTime(then, now) {
+        var mins = Math.round((now - then) / 60000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return mins + (mins === 1 ? ' minute ago' : ' minutes ago');
+        var hours = Math.round(mins / 60);
+        if (hours < 24) return hours + (hours === 1 ? ' hour ago' : ' hours ago');
+        var days = Math.round(hours / 24);
+        return days + (days === 1 ? ' day ago' : ' days ago');
+      }
+
+      async function loadLastRun() {
+        var wrap = document.getElementById('runStatus');
+        var when = document.getElementById('runWhen');
+        var what = document.getElementById('runWhat');
+        var log = document.getElementById('runLogLink');
+        if (!wrap || !when || !what) return;
+
+        try {
+          var res = await fetch(RUN_FEED, { headers: { Accept: 'application/vnd.github+json' } });
+          if (!res.ok) throw new Error('GitHub ' + res.status);
+          var commits = await res.json();
+          if (!Array.isArray(commits) || !commits.length) throw new Error('no commits');
+
+          var commit = commits[0];
+          if (log && commit.html_url) log.href = commit.html_url;
+
+          var stamp = new Date(commit.commit && commit.commit.committer && commit.commit.committer.date);
+          var now = new Date();
+          var stale = (now - stamp) / 3600000 > STALE_AFTER_HOURS;
+
+          wrap.dataset.state = stale ? 'stale' : 'ok';
+          when.textContent = 'Last run ' + relativeTime(stamp, now);
+          what.textContent = stamp.toLocaleString([], {
+            weekday: 'short', month: 'short', day: 'numeric',
+            hour: 'numeric', minute: '2-digit'
+          }) + (stale ? ' · no new candidates in over a day — check the routine.' : '');
+        } catch (error) {
+          wrap.dataset.state = 'error';
+          when.textContent = 'Last run unavailable';
+          what.textContent = 'Could not reach the GitHub commits API. Open the routine to check directly.';
+        }
+      }
+
+      // Deliberately NOT calling TgbMcAdminNav.init: this admin room uses the
+      // shared site nav above, and its padlock is bound to adminAuth.
+      setAdminAuthToggleState(false);
+      if (adminAuthToggleBtn) {
+        adminAuthToggleBtn.addEventListener('click', function () {
+          var session = adminAuth.getSession ? adminAuth.getSession() : null;
+          if (session && session.access_token) adminAuth.signOut({ silent: true });
+          else adminAuth.showAuth('Sign in with an admin account.');
+        });
+      }
+      window.addEventListener('tgb-admin-auth-change', function (event) {
+        var detail = event && event.detail;
+        setAdminAuthToggleState(!!(detail && detail.signedIn));
+      });
+
+      // REQUIRED. create() only builds the controller — init() is what checks
+      // for a stored session, shows the sign-in modal, and adds
+      // .mc-auth-authorized to <body>. admin-shell.css hides every direct child
+      // of <body> except the auth root until that class lands, so forgetting
+      // this call renders a completely blank page with no error in the console.
+      adminAuth.init();
+    }());
+  </script>
+</body>
+</html>

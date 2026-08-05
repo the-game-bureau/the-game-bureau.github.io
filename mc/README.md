@@ -13,18 +13,18 @@ bottom panel renders it.
 ├─────────────────────────────────────────┤
 │ SECTION 2 · RESULT                        │
 │   • renders this page's cousin .jsonl     │
-│     (oldestbar.html → oldestbar.jsonl)    │
+│     (get_games.html -> get_games.jsonl)   │
 └─────────────────────────────────────────┘
 ```
 
 ## The loop
 
-1. Open a page (e.g. `oldestbar.html`).
+1. Open a page (e.g. `get_games.html`).
 2. Type **keywords** and any **notes** — the finished prompt assembles **live**
    below the fields as you type.
 3. **Copy** it and paste into ChatGPT / Claude / etc.
 4. The AI returns records. Save them beside the page as the **cousin file**
-   (`oldestbar.html` → `oldestbar.jsonl`) — **one JSON object per line**.
+   (`get_games.html` -> `get_games.jsonl`) — **one JSON object per line**.
 5. Reload — Section 2 renders the records (Structured or Raw view).
 6. Next time, just **append more lines** to the `.jsonl` — old data stays put.
 
@@ -32,7 +32,7 @@ bottom panel renders it.
 
 The template lives in the `#basePrompt` textarea of each page, "specified at page
 creation," and is **read-only** in the UI. Its label reflects the page name
-automatically: `oldestbar.html` shows **Base prompt (Oldest Bar)**, pulled from
+automatically: `get_games.html` shows **Base prompt (Games)**, pulled from
 the page's `<h1>`.
 
 Two optional placeholders are substituted as you type:
@@ -45,8 +45,7 @@ blocks, so a template with no placeholders still works. The assembled prompt
 updates **live** — there's no Generate button; just **Copy** when you're ready.
 
 > Tip: end the prompt with *"Return ONLY JSON Lines — one object per line …"* so
-> each result is its own appendable line. `oldestbar` returns one bar per city
-> when given a list or a group of cities — one line each.
+> each result is its own appendable line. `get_games` returns one matchup per line.
 
 ## Section 2 — the cousin file (.jsonl)
 
@@ -128,7 +127,6 @@ That's it — `research.css` and `research.js` are shared, so new pages are tiny
 | --- | --- |
 | `index.html` | Auto-discovering home (GitHub Contents API). |
 | `_template.html` | Starter page to copy. |
-| `oldestbar.html` / `oldestbar.jsonl` | Worked example + its cousin records. |
 | `get_games.html` / `get_games.jsonl` | Sports matchups across the 4 major leagues (TGBID-keyed; MLS-extensible). |
 | `places.html` / `places.jsonl` | The AI-generation **inbox** for reusable real-world Places — landmarks, monuments, public art, and other points a city already has. Each Place carries a street address. |
 | `content.html` _(archived 2026-07-30 to `_dev/archive/mc/`)_ | **Routes + Places** — a Mission Control tool (wears the shared `/mc/` chrome: admin-shell + sign-in nav; listed in the MC nav menu). Google Maps (satellite) + a map. Search covers Routes and Places. Click a square then **Add Place**, or click a Place pin to edit it. **Build Route** turns selected Places into an ordered list of Stops; route city is derived from those Stops. A **turn** is a coordinate-only shaping point, not a Stop. **Save** writes every Place + Route back to `atlas.jsonl`. |

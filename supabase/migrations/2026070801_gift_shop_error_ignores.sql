@@ -1,12 +1,11 @@
--- Gift shop URL error report: per-item "ignore" list.
+-- Gift shop URL/image issue checker: per-item "ignore" list.
 --
--- The nightly health check (_dev/scripts/shop-error-check.mjs) regenerates
--- shop/admin/gsissues.htm every run, so an admin's "ignore this entry"
--- decision cannot live in the committed HTML (it would be overwritten) or in
--- localStorage (per-browser only). It lives here instead: the report page
--- writes a row when an admin ignores an item and deletes it on restore, and the
--- generator reads this table to move ignored items into a collapsed "Ignored"
--- section (out of the Errors / Inconclusive counts) for everyone.
+-- The nightly health check (_dev/scripts/shop-error-check.mjs) refreshes
+-- committed JSON every run, so an admin's "clear this issue" decision cannot
+-- live in generated files (they would be overwritten) or in localStorage
+-- (per-browser only). It lives here instead: Stock Room writes a row when an
+-- admin clears an item, and the checker reads this table to keep ignored items
+-- out of the issue counts for everyone.
 --
 -- Admin-only, same is_photo_admin() gate as game_instances / photo submissions.
 -- The generator reads with the service-role key (bypasses RLS).

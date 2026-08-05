@@ -11,7 +11,7 @@
 
    Section 2 (result):
      • Loads this page's COUSIN json — same basename, .json extension.
-       oldestbar.html → oldestbar.json — and renders it.
+       get_games.html -> get_games.json — and renders it.
    ────────────────────────────────────────────────────────────── */
 
 (function () {

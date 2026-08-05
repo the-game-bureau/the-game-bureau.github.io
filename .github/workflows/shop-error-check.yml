@@ -7,9 +7,8 @@ name: Gift Shop URL error check
 #
 # Each run checks ONE SEVENTH of gift_shop_items, keyed to the Central weekday
 # (Monday = 1st seventh, Tuesday = 2nd, … Sunday = 7th), tests every item's
-# product URL and image URL, and commits the refreshed report
-# (shop/admin/giftshop-errors.log + shop/admin/gsissues.htm). The commit
-# triggers the deploy workflow, publishing the report.
+# product URL and image URL, and commits the refreshed Stock Room issue data.
+# The commit triggers the deploy workflow, publishing the updated admin JSON.
 
 on:
   schedule:
@@ -73,12 +72,12 @@ jobs:
           SHOP_ERROR_FULL: ${{ github.event.inputs.full }}
         run: node _dev/scripts/shop-error-check.mjs
 
-      - name: Commit & push if the report changed
+      - name: Commit & push if issue data changed
         if: steps.gate.outputs.go == 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add shop/admin/giftshop-errors.log shop/admin/gsissues.htm shop/admin/giftshop-errors.json
+          git add gifts/admin/giftshop-errors.log gifts/admin/giftshop-errors.json gifts/admin/giftshop-errors-state.json
           if git diff --cached --quiet; then
             echo "No report changes — nothing to commit."
             exit 0

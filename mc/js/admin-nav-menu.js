@@ -18,15 +18,8 @@
     { label: 'MISSION CONTROL', target: '/mc/', newTab: false }
   ];
 
-  // OPERATIONS is surfaced only as a hub card (via getGroups) — like every other
-  // destination, it is no longer a top-bar button on any page.
-  var OPERATIONS_LINK = {
-    label: 'OPERATIONS',
-    href: '/gifts/operations.html'
-  };
-
-  // localStorage key the game editor (games/admin/profiles.html) uses to remember the last
-  // opened game. EDIT GAMES links to that game so it reopens where you left off.
+  // localStorage key the game editors use to remember the last opened game.
+  // Hub cards with appendOpenGameId reopen that game where possible.
   var OPEN_GAME_KEY = 'tgb-games-phoneanalogy-open';
 
   function resolveNavHref(groupData) {
@@ -43,23 +36,45 @@
 
   var MENU_GROUPS = [
     {
-      label: 'EDIT GAMES',
-      href: '/games/admin/profiles.html',
-      appendOpenGameId: true
-    },
-    {
-      label: 'Game Plays',
-      href: '/mc/game-plays.html',
-      description: 'See every recorded playthrough — team names, their answers at each stop, and the lifecycle timeline.'
-    },
-  {
-    label: 'Daily Review',
-    href: '/mc/review/',
-    description: 'Review the last 26 hours of nightly waypoint candidates and gift-shop Review items.'
-  },
-    {
-      label: 'Batch Edit',
+      label: 'Games',
       items: [
+        {
+          href: '/games/admin/',
+          label: 'Game Admin',
+          description: 'Open the games room: profiles, builder, stops, and waypoint finder.'
+        },
+        {
+          href: '/games/admin/profiles.html',
+          label: 'Game Profiles',
+          description: 'Edit game metadata, pricing, teams, public copy, engine, and launch details.',
+          appendOpenGameId: true
+        },
+        {
+          href: '/mc/builder.html',
+          label: 'Game Builder',
+          description: 'Build the playable conversation flow: messages, prompts, replies, and branches.',
+          appendOpenGameId: true
+        },
+        {
+          href: '/games/admin/stops.html',
+          label: 'Game Stops',
+          description: 'Pair each waypoint with a challenge, then organize those stops for play.'
+        },
+        {
+          href: '/mc/game-plays.html',
+          label: 'Game Plays',
+          description: 'See recorded playthroughs: team names, answers at each stop, and lifecycle timeline.'
+        },
+        {
+          href: '/gifts/operations.html',
+          label: 'Operations',
+          description: 'Monitor TGB game operations: issued access codes, play stats, and live-game workflows.'
+        },
+        {
+          href: '/mc/review/',
+          label: 'Daily Review',
+          description: 'Review recent game-stop candidates, gift-shop items, and sound findings.'
+        },
         {
           href: '/mc/guides.html',
           label: 'Guides',
@@ -71,54 +86,6 @@
           description: 'Generate, compare, and update public game taglines in bulk.'
         },
         {
-          href: '/data/waypoints.html',
-          label: 'Waypoints',
-          description: 'Manage the waypoints catalog — add, edit, and delete real-world points.'
-        },
-        {
-          href: '/games/admin/stops.html',
-          label: 'Stop Builder',
-          description: 'Build a game’s route: order its stops and give each one a waypoint and a challenge.'
-        },
-        {
-          href: '/data/cities.html',
-          label: 'Cities',
-          description: 'The one city catalog the whole site reads — add, edit, mark venue-only/archived, or delete.'
-        },
-        {
-          href: '/mc/anchor-events.html',
-          label: 'Anchor Events',
-          description: 'Manage the anchor-events catalog — the real sporting matchups a fandom game can be anchored to. Bulk-import, add, edit, delete.'
-        }
-      ]
-    },
-    {
-      // Single button to the gift shop admin. The affiliate/API reference links
-      // (Google Cloud, Amazon Associates, Bookshop.org) now live on that page
-      // itself, so the hub just needs the one door in.
-      label: 'Gift Shop Admin',
-      href: '/gifts/admin/',
-      description: 'Manage gift-shop items — links, images, cities, and publish/archive state.'
-    },
-    {
-      label: 'Website',
-      items: [
-        {
-          href: '/highlights/admin/',
-          label: 'Highlights Admin',
-          description: 'Review and curate photos and highlight assets for the public Highlights page.'
-        },
-        {
-          href: '/highlights/',
-          label: 'HIGHLIGHTS',
-          description: 'Open the public highlights backed by the highlights table.'
-        }
-      ]
-    },
-    {
-      label: 'Creative',
-      items: [
-        {
           href: '/mc/picmaker/',
           label: 'Picmaker',
           description: 'Generate sport marks, takeover hero images, and reusable guide portrait image prompts.'
@@ -126,13 +93,63 @@
       ]
     },
     {
-      label: 'Reference',
+      label: 'Data & Research',
       items: [
         {
+          href: '/data/waypoints.html',
+          label: 'Waypoint Finder',
+          description: 'Manage the catalog of real-world points and review nightly scout candidates.'
+        },
+        {
+          href: '/data/cities.html',
+          label: 'Cities',
+          description: 'The one city catalog the whole site reads — add, edit, mark venue-only/archived, or delete.'
+        },
+        {
+          href: '/data/events.html',
+          label: 'Anchor Events',
+          description: 'Manage the real sporting matchups a fandom game can be anchored to.'
+        },
+        {
+          href: '/mc/places.html',
+          label: 'Game Places',
+          description: 'Use the research assistant to gather reusable place ideas for game stops.'
+        },
+        {
           href: '/mc/research.html',
-          label: 'Research',
+          label: 'Research Home',
           description: 'Open research assistants and their supporting datasets.'
         },
+        {
+          href: '/mc/get_games.html',
+          label: 'Sports Games Research',
+          description: 'Generate sports matchup records for fandom games.'
+        },
+        {
+          href: '/mc/get_teams.html',
+          label: 'Team Database',
+          description: 'Research and upsert sports team identity rows into Supabase.'
+        },
+        {
+          href: '/mc/mlb.html',
+          label: 'MLB Generator',
+          description: 'Generate MLB Fans Takeover games from schedule data and push selected rows.'
+        }
+      ]
+    },
+    {
+      label: 'Socials',
+      items: [
+        {
+          href: '/mc/socials/',
+          label: 'Socials Admin',
+          description: 'Review AI-scouted stories and open prefilled composers for The Game Bureau social channels.'
+        }
+      ]
+    },
+    {
+      label: 'Internal Collaboration',
+      items: [
         {
           href: 'https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/editor/17583?schema=public&sort=name%3Adesc',
           label: 'Database',
@@ -141,7 +158,7 @@
         },
         {
           href: 'https://www.icloud.com/notes/note/UHJpdmF0ZTo6Tm90ZXM6OmN1cnJlbnRVc2VyOjo4YTBhZTliYy1lNGQ5LTQxNTMtYTA0Zi03NjM2NWRhN2IwNjQ=',
-          label: 'Apple Notes',
+          label: 'Notes',
           description: 'Open the shared working notes used alongside Mission Control.',
           external: true
         },
@@ -170,7 +187,7 @@
       controls.insertBefore(buildBackNav(), controls.firstChild);
     }
 
-    // The dropdown menus + OPERATIONS now live ONLY as cards on the Mission
+    // The dropdown menus now live ONLY as cards on the Mission
     // Control hub (mc/index.html via getGroups). Every other MC page carries
     // nothing at the top but the two back-buttons — so REMOVE the account /
     // sign-out button there. (Hiding via `hidden` doesn't work: admin-shell.css
@@ -327,14 +344,12 @@
   }
 
   function getGroups() {
-    // OPERATIONS is pulled out of the nav bar (it rides with login on the
-    // right) but still belongs on the hub, in its original second slot.
-    var groups = MENU_GROUPS.slice();
-    groups.splice(1, 0, OPERATIONS_LINK);
-    return groups.map(function (group) {
+    return MENU_GROUPS.map(function (group) {
       // Link-only groups (no items) surface as a single card in the hub.
       var items = group.items ? group.items.map(function (item) {
-            return Object.assign({}, item);
+            var copy = Object.assign({}, item);
+            copy.href = resolveNavHref(copy);
+            return copy;
           })
         : [{
             href: resolveNavHref(group),

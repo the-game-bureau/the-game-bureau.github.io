@@ -170,26 +170,6 @@
       pointer-events: none;
     }
 
-    .signout-btn {
-      width: 42px;
-      height: 42px;
-      padding: 0;
-      border-radius: 50%;
-      background: #fff;
-      border: 1px solid var(--line);
-      cursor: pointer;
-    }
-    .signout-btn svg { width: 22px; height: 22px; color: var(--ink); }
-    .admin-auth-toggle {
-      min-height: 42px;
-      padding-inline: 14px;
-      white-space: nowrap;
-    }
-    .admin-auth-toggle.is-signed-in {
-      border-color: rgba(160, 63, 45, 0.44);
-      color: var(--danger);
-    }
-
     .toolbar {
       display: flex;
       flex-wrap: nowrap;
@@ -265,7 +245,8 @@
       color: var(--muted);
     }
     .prompt-opt--wide { flex: 1 1 220px; }
-    .prompt-opt input {
+    .prompt-opt input,
+    .prompt-opt textarea {
       min-height: 38px;
       padding: 8px 10px;
       border: 1px solid var(--line);
@@ -275,6 +256,10 @@
       font-weight: 500;
       letter-spacing: normal;
       text-transform: none;
+    }
+    .prompt-opt textarea {
+      min-height: 92px;
+      resize: vertical;
     }
     .prompt-opt input[type="number"] { width: 96px; }
 
@@ -953,6 +938,8 @@
 </head>
 <body class="mc-auth-protected">
   <main class="app">
+    <header class="admin-site-nav" data-admin-site-nav></header>
+
     <div class="stockroom-head">
       <svg class="stockroom-gear" viewBox="128 -12 220 216" aria-hidden="true">
         <g class="header-gear header-gear--large" transform="translate(212 72) rotate(-14)">
@@ -990,7 +977,6 @@
       <div class="stockroom-head-status">
         <button class="btn" type="button" disabled aria-current="page" title="You are in Waypoint Finder">Waypoint Finder</button>
         <a class="btn" href="/games/admin/stops.html" title="Build stops: a game + a waypoint + a challenge">Stop Builder</a>
-        <button class="btn admin-auth-toggle" id="adminAuthToggleBtn" type="button" aria-label="ADMIN LOGON" title="ADMIN LOGON">ADMIN LOGON</button>
       </div>
     </div>
 
@@ -1011,6 +997,7 @@
       <button class="btn small" id="newBtn" type="button" title="Add one waypoint by hand in a pop-up form">Manual</button>
       <button class="btn small primary" id="promptBtn" type="button" title="Find stops for a city — pull them live from OpenStreetMap, or get an AI prompt that returns Supabase SQL">With AI</button>
       <button class="btn small" id="sportsPromptBtn" type="button" title="AI prompt for football-history places that sit OUTSIDE the team's own city — a player's hometown, a coach's grave, the church where he married">With AI (sports)</button>
+      <button class="btn small" id="oldBarsPromptBtn" type="button" title="AI prompt for the oldest continuously operating bar or tavern in each city or region you name">With AI (old bars)</button>
       <button class="btn small" id="nightlyBtn" type="button" title="What the nightly walking-tour run found this morning">NIGHTLY</button>
       <!-- Editing a page of ten cards leaves ten Save buttons to hit. This is the
            same per-row PATCH the card buttons run, once per dirty row. -->
@@ -1073,7 +1060,7 @@
 
   <script src="/mc/js/admin-auth.js"></script>
   <script src="/mc/js/admin-shell.js"></script>
-  <script src="/mc/js/admin-nav-menu.js"></script>
+  <script src="/mc/js/admin-site-nav.js"></script>
   <script src="/mc/js/supabase-rest.js"></script>
   <script src="/assets/geo.js"></script>
   <script src="/assets/city-picker.js"></script>
@@ -1111,7 +1098,6 @@
 
     // --- DOM refs ------------------------------------------------------------
     const pageStatus = document.getElementById('pageStatus');
-    const adminAuthToggleBtn = document.getElementById('adminAuthToggleBtn');
     const newBtn = document.getElementById('newBtn');
     const wpList = document.getElementById('wpList');
 
@@ -1131,19 +1117,9 @@
       savingIds: new Set()
     };
 
-    function setAdminAuthToggleState(signedIn) {
-      if (!adminAuthToggleBtn) return;
-      const label = signedIn ? 'ADMIN LOGOUT' : 'ADMIN LOGON';
-      adminAuthToggleBtn.textContent = label;
-      adminAuthToggleBtn.title = label;
-      adminAuthToggleBtn.setAttribute('aria-label', label);
-      adminAuthToggleBtn.classList.toggle('is-signed-in', !!signedIn);
-    }
-
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
       onAuthorized: async () => {
-        setAdminAuthToggleState(true);
         state.authed = true;
         setStatus('Loading waypoints...');
         // Warm the city catalog for the chooser, then repaint the city filter so
@@ -1152,7 +1128,6 @@
         await refresh();
       },
       onSignedOut: () => {
-        setAdminAuthToggleState(false);
         state.authed = false;
         state.rows = [];
         state.dirtyIds.clear();
@@ -1162,6 +1137,7 @@
         setStatus('Sign in with an admin account.');
       }
     });
+    if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
 
     // The substat is normally the count line ("38 waypoints · 1–10 showing").
     // setStatus borrows it for a save confirmation or an error, then hands it
@@ -3020,6 +2996,71 @@ $$;`.trim();
       return out.slice(0, cap);
     }
 
+    function buildOldBarsWaypointPrompt(focus, notes) {
+      const target = cleanText(focus) || 'major cities in the United States';
+      const extra = cleanText(notes);
+      const existing = existingWaypointSample(800);
+      const sqlExample = [
+        buildWaypointImportHelperSql(),
+        '',
+        'select *',
+        'from public.tgb_import_waypoints_prompt_items($tgb$',
+        '[',
+        '  {',
+        '    "name": "Lafitte\'s Blacksmith Shop Bar",',
+        '    "city": "New Orleans",',
+        '    "state": "LA",',
+        '    "zip": "70116",',
+        '    "address": "941 Bourbon St",',
+        '    "description": "Often promoted as one of the oldest bars in the United States, this 18th-century Bourbon Street building carries disputed but memorable tavern lore.",',
+        '    "source_url": "https://www.lafittesblacksmithshop.com/"',
+        '  }',
+        ']',
+        '$tgb$::jsonb);'
+      ].join('\n');
+
+      return [
+        'You are a meticulous local-history researcher helping The Game Bureau add oldest-bar waypoints to a location-based walking game.',
+        '',
+        'Task: for EACH location described in the focus below, identify the single oldest continuously operating bar, tavern, saloon, pub, or equivalent drinking establishment in that location, verify that it is still open, and return it as one Supabase SQL import for the waypoints table.',
+        '',
+        'Focus: ' + target,
+        extra ? 'Extra direction: ' + extra : '',
+        '',
+        'If the focus names a region, list, league slate, colony group, country, or other group, resolve it into the individual cities or places and return one result per location. If the focus names one city, return one result.',
+        '',
+        'Research rules derived from the old Oldest Bar research prompt:',
+        '- Verified facts only. If an establishment date, continuity claim, or oldest-bar status is disputed, say so in the description rather than smoothing it over.',
+        '- Prefer the oldest continuously operating bar/tavern in the location. If the strongest claim is "oldest building used as a bar" or "oldest restaurant/bar", explain that nuance in the description.',
+        '- It must still be open to the public as a place a player can stand in front of or visit. Drop permanently closed places and private clubs unless the public can access the building.',
+        '- Use multiple sources when the claim is contested: official history pages, local historical societies, newspaper/local-history articles, or the venue page. Do not rely on listicle titles alone.',
+        '- Never fabricate an establishment year, address, ZIP/postal code, or source URL. A smaller verified batch is better than a padded one.',
+        '',
+        'Hard requirements for each JSON object:',
+        '- name: the establishment name. Required.',
+        '- city: the city as a plain string without state/country.',
+        '- state: the 2-letter code for US places, otherwise the country/province/region name.',
+        '- zip: the postal/ZIP code as a string. Required whenever you have a street address. Use null only when the place genuinely has no postal code or you cannot verify one.',
+        '- address: the street address only. Never repeat city, state, ZIP, or country here.',
+        '- description: ONE original tour-guide sentence. Include the establishment year or claimed year and any continuity/oldest-claim caveat when relevant.',
+        '- source_url: REQUIRED. Use the best source proving the oldest-bar claim or the venue history page. Never a search-results page.',
+        '- Do NOT include a wpid or id. The database assigns it.',
+        '- Do not include any place already in the existing-waypoints list below when it is the same name + city.',
+        '- Do not put the literal sequence $tgb$ inside any JSON string value.',
+        '- Output the COMPLETE script as ONE copy-pasteable block: a single fenced ```sql code block or code artifact with a copy button. Do NOT split it across multiple blocks.',
+        '- CRITICAL for copy-paste: use ONLY plain ASCII characters. Straight apostrophes and straight double-quotes only; never smart/curly quotes, en/em dashes, non-breaking spaces, or other Unicode punctuation. Do not hard-wrap or reflow long lines.',
+        '- The block must contain ONLY SQL - no prose, headings, or commentary before, after, or inside it.',
+        '',
+        'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper with your verified oldest-bar JSON array. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
+        sqlExample,
+        '',
+        'Reusable helper source also lives in this repo at ' + WAYPOINT_IMPORT_HELPER_SQL_PATH + ', but the SQL you return must include the helper setup inline.',
+        '',
+        'Existing waypoints to avoid when name + city match:',
+        JSON.stringify(existing, null, 2)
+      ].filter(Boolean).join('\n');
+    }
+
     function buildNflSportsWaypointPrompt(count) {
       const n = Math.max(1, Math.min(100, parseInt(count, 10) || 10));
       const existing = existingWaypointSample(500);
@@ -3643,6 +3684,93 @@ $$;`.trim();
       ta.select();
     }
 
+    // --- With AI (old bars): derived from the retired Oldest Bar research prompt ---
+    let aiOldBarsFocus = '';
+    let aiOldBarsNotes = '';
+
+    function openOldBarsPromptDialog() {
+      const dialog = document.getElementById('promptDialog');
+      const backdrop = document.getElementById('promptBackdrop');
+      if (dialog) dialog.hidden = false;
+      if (backdrop) backdrop.hidden = false;
+      renderOldBarsChooser();
+    }
+
+    function renderOldBarsChooser() {
+      setPromptView('picker');
+      const title = document.getElementById('promptTitle');
+      if (title) title.textContent = 'Add waypoints with AI - old bars';
+      const body = document.getElementById('promptBody');
+      if (!body) return;
+      body.innerHTML = '';
+
+      const current = findRow(state.randomId);
+      const seed = current ? [cleanText(current.city), cleanText(current.state)].filter(Boolean).join(', ') : '';
+      const hint = zipNote('Oldest continuously operating bar or tavern per city or group. This is the old Oldest Bar research prompt, adapted to return Waypoint Finder SQL instead of JSONL.');
+
+      const opts = document.createElement('div');
+      opts.className = 'prompt-opts';
+
+      const focusWrap = document.createElement('label');
+      focusWrap.className = 'prompt-opt prompt-opt--wide';
+      focusWrap.textContent = 'Focus keywords';
+      const focusInput = document.createElement('input');
+      focusInput.type = 'text';
+      focusInput.placeholder = 'e.g. Boston; Philadelphia; the original 13 colonies capitals';
+      focusInput.value = aiOldBarsFocus || seed;
+      focusWrap.appendChild(focusInput);
+
+      const notesWrap = document.createElement('label');
+      notesWrap.className = 'prompt-opt prompt-opt--wide';
+      notesWrap.textContent = 'Notes (optional)';
+      const notesInput = document.createElement('textarea');
+      notesInput.placeholder = 'Constraints, sources to prefer, places to ignore...';
+      notesInput.value = aiOldBarsNotes;
+      notesWrap.appendChild(notesInput);
+
+      opts.append(focusWrap, notesWrap);
+
+      const go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'btn small primary';
+      go.textContent = 'Make AI prompt';
+      go.addEventListener('click', () => {
+        aiOldBarsFocus = focusInput.value;
+        aiOldBarsNotes = notesInput.value;
+        if (!cleanText(aiOldBarsFocus)) { setStatus('Add focus keywords for the old-bars prompt.', 'error'); return; }
+        showOldBarsPrompt();
+      });
+      const goRow = document.createElement('div');
+      goRow.className = 'nfl-pick-go';
+      goRow.append(go);
+
+      body.append(hint, opts, goRow);
+      focusInput.focus();
+      focusInput.select();
+    }
+
+    function showOldBarsPrompt() {
+      setPromptView('prompt');
+      const focus = cleanText(aiOldBarsFocus);
+      const title = document.getElementById('promptTitle');
+      if (title) title.textContent = 'Old bars - ' + focus;
+      const body = document.getElementById('promptBody');
+      if (!body) return;
+      body.innerHTML = '';
+      const hint = document.createElement('div');
+      hint.className = 'zip-desc';
+      hint.innerHTML = '<strong>Copy</strong> this prompt, paste it into ChatGPT (or any web-capable AI), then paste the <strong>Supabase SQL</strong> it returns into the database (use <strong>Go to Database</strong>) and run it.';
+      const ta = document.createElement('textarea');
+      ta.className = 'prompt-text';
+      ta.id = 'promptText';
+      ta.readOnly = true;
+      ta.spellcheck = false;
+      ta.value = buildOldBarsWaypointPrompt(focus, aiOldBarsNotes);
+      body.append(hint, ta);
+      ta.focus();
+      ta.select();
+    }
+
     function showPromptForArea(descriptor, label) {
       setPromptView('prompt');
       const title = document.getElementById('promptTitle');
@@ -3668,7 +3796,7 @@ $$;`.trim();
     // A scheduled Claude Code cloud agent picks the NFL host city that has gone
     // longest without a run, reads walking tours that already exist online, and
     // commits mc/stops/nightly.json. It writes NOTHING to the database — the
-    // human-in-the-loop is the design, same as the socials scout. Nothing here
+    // human-in-the-loop is the design, same as TGB SOCIAL BOT. Nothing here
     // reaches the waypoints table until someone presses Add on a row, which
     // inserts under THEIR admin session.
     // The routine still commits mc/stops/nightly.json; this page moved to /data/,
@@ -5753,6 +5881,8 @@ $$;`.trim();
     if (promptBtn) promptBtn.addEventListener('click', openPromptDialog);
     const sportsPromptBtn = document.getElementById('sportsPromptBtn');
     if (sportsPromptBtn) sportsPromptBtn.addEventListener('click', openSportsPromptDialog);
+    const oldBarsPromptBtn = document.getElementById('oldBarsPromptBtn');
+    if (oldBarsPromptBtn) oldBarsPromptBtn.addEventListener('click', openOldBarsPromptDialog);
     const nightlyBtn = document.getElementById('nightlyBtn');
     if (nightlyBtn) nightlyBtn.addEventListener('click', openNightlyDialog);
     const saveAllBtn = document.getElementById('saveAllBtn');
@@ -5798,22 +5928,6 @@ $$;`.trim();
       if (manualDialog && !manualDialog.hidden) closeManualDialog();
       const nightlyDialog = document.getElementById('nightlyDialog');
       if (nightlyDialog && !nightlyDialog.hidden) closeNightlyDialog();
-    });
-
-    setAdminAuthToggleState(false);
-    if (adminAuthToggleBtn) {
-      adminAuthToggleBtn.addEventListener('click', () => {
-        const session = adminAuth.getSession ? adminAuth.getSession() : null;
-        if (session && session.access_token) {
-          adminAuth.signOut({ silent: true });
-        } else {
-          adminAuth.showAuth('Sign in with an admin account.');
-        }
-      });
-    }
-    window.addEventListener('tgb-admin-auth-change', (event) => {
-      const detail = event && event.detail;
-      setAdminAuthToggleState(!!(detail && detail.signedIn));
     });
 
     render();

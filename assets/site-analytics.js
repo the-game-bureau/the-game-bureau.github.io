@@ -34,7 +34,7 @@
     || /\.local$/.test(host) || /^192\.168\./.test(host)) return;
 
   // Never count the internal pages. They are the admin surfaces — Mission
-  // Control, the Tape Room, the Stock Room, the socials scout — and our own
+  // Control, the Tape Room, the Stock Room, the socials admin — and our own
   // sessions in them would swamp real visitor numbers on a site this size.
   var path = String(window.location.pathname || '').toLowerCase();
   if (/^\/(mc|account)\//.test(path) || /\/admin\//.test(path)
