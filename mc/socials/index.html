@@ -1158,6 +1158,23 @@
            twenty hidden pickers in the list would be twenty copies of the same
            thing, and the picker has state (ticks, run cursor) that must not
            survive from one candidate to the next. -->
+      <!-- Edit dialog. Updates the candidate's row in public.socials. -->
+      <div class="tool-backdrop" id="editBackdrop" hidden></div>
+      <section class="prompt-panel tool-modal-panel" id="editCard" role="dialog" aria-modal="true" aria-labelledby="editDialogTitle" hidden>
+        <div class="panel-head">
+          <h2 class="panel-title" id="editDialogTitle">Edit Candidate</h2>
+          <span class="panel-head-actions">
+            <button class="btn small" data-edit-close type="button">Close</button>
+          </span>
+        </div>
+        <form class="modal-form" id="editForm"></form>
+        <div class="modal-actions">
+          <span class="modal-status" id="editStatus" aria-live="polite"></span>
+          <button class="btn" data-edit-close type="button">Cancel</button>
+          <button class="btn primary" id="editSaveBtn" type="submit" form="editForm">Save</button>
+        </div>
+      </section>
+
       <div class="tool-backdrop" id="postBackdrop" hidden></div>
       <section class="prompt-panel tool-modal-panel" id="postCard" role="dialog" aria-modal="true" aria-labelledby="postDialogTitle" hidden>
         <div class="panel-head">
@@ -1185,16 +1202,16 @@
           </span>
         </div>
         <div class="prompt-meta" aria-hidden="true">
-          <span class="chip">mc/socials/socials.json</span>
+          <span class="chip">public.socials</span>
           <span class="chip">5 candidates a run</span>
           <span class="chip">opened, not guessed</span>
           <span class="chip">topic rotation</span>
           <span class="chip">platform tags</span>
           <span class="chip">no auto-posting</span>
         </div>
-        <textarea class="prompt" id="promptText" readonly spellcheck="false">You are TGB SOCIAL BOT, the socials scout for The Game Bureau. Find five stories or posts worth sharing, write a caption for each, and commit them to mc/socials/socials.json.
+        <textarea class="prompt" id="promptText" readonly spellcheck="false">You are TGB SOCIAL BOT, the socials scout for The Game Bureau. Find five stories worth sharing, write a caption for each, and file them in the database.
 
-You do not post anything. You write one file; a human opens /mc/socials/ and decides what goes out.
+You do not post anything, and you do not commit anything. You insert rows; a human opens /mc/socials/ and decides what goes out.
 
 HOW TO RUN — READ THIS FIRST
 
@@ -1211,26 +1228,28 @@ A failure in one step is not a reason to end the run. Recover and carry on:
   the beat list in step 2 rather than abandoning the run.
 - You cannot find five that clear the bar — file four, or three. A short honest
   run beats a padded one, and beats no run at all.
-- `git push` is rejected because main moved — `git pull --rebase` and push
-  again. Try up to three times before giving up.
-- Anything else throws — retry once, then work around it. Only stop if the file
-  itself cannot be written, and say plainly what failed.
+- The insert call fails or returns inserted: 0 — retry once, then report the
+  exact response. Never fall back to writing a file.
+- Anything else throws — retry once, then work around it. Only stop if the
+  insert itself cannot be made, and say plainly what failed.
 
-Budget your effort so you always reach step 7. An uncommitted run is a wasted
-run: five verified stories that never got committed help nobody.
+Budget your effort so you always reach step 6. A run that never files anything
+is a wasted run: five verified stories that stayed in your head help nobody.
 
 The Game Bureau makes real-world scavenger-hunt games — you walk somewhere and play the place you are standing in. Our audience is people who like games and puzzles, people who like going places, and the large overlap between the two.
 
 So the feed is games and travel first. A story does not have to be about a city we sell into, and it does not have to be about a city at all. Place is the flavour, not the filter. Our voice is a well-travelled friend pointing at something interesting, never a brand doing engagement.
 
-1. READ WHAT IS THERE
+1. KNOW WHAT IS ALREADY THERE
 
-Read mc/socials/socials.json, plus the last few versions from git history:
+You cannot read the candidates table — it is admin-only, and you hold no admin
+session. You do not need to: the database refuses a duplicate url for you.
 
-    git log -8 --format=%H -- mc/socials/socials.json
-    git show <sha>:mc/socials/socials.json
-
-Collect every url, headline and topics value. Do not pitch a url or headline again — a repeat is the one thing that makes this list useless.
+The unique index on lower(url) means a story already filed is silently skipped,
+and the function tells you how many it skipped. So pitch freely, but do not
+waste the run: vary your searches from day to day, and treat a high `skipped`
+count in the response as the signal that you re-found yesterday's stories and
+should look somewhere else next time.
 
 OPTIONAL CONTEXT, NOT A FILTER: public.soundtracks lists cities we have made playlists for. A story landing in one is a small bonus, because we can point at the tape. Do not hunt to fit that list, and never reject a good story because its place is not on it.
 
@@ -1298,35 +1317,19 @@ We have exactly four accounts. Never suggest one we do not have.
 
 Judge from the media you saw in step 3 plus the audience for the topic. Most picks suit one or two. It is fine for a pick to suit only X — do not tag everything on everything, a tag that always fires tells the human nothing.
 
-6. WRITE THE FILE
+6. FILE THEM
 
-APPEND. NEVER OVERWRITE. This is the rule that matters most on this page.
+Insert through the RPC. It is the only write path you have, and it is enough:
 
-The file accumulates: it holds every candidate from every previous run, and a
-human may not have worked through them yet. Overwriting it destroys decisions
-nobody can get back. This routine also runs twice a day, so a run that replaces
-the file silently deletes the other run's work.
+    URL=https://qmaafbncpzrdmqapkkgr.supabase.co/rest/v1/rpc/tgb_pull_socials_candidates
+    KEY=sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3
 
-So:
+    curl -sS -X POST "$URL" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d @payload.json
 
-1. READ mc/socials/socials.json and parse it. If it is missing or unparseable,
-   and only then, start from { "generated_at": ..., "posts": [] }.
-2. Count the posts you read. Write that number down.
-3. Keep every existing post EXACTLY as it is — same order, same ids, same
-   fields. Do not reformat, re-sort, re-id, prune, or "tidy" them. Old posts are
-   not yours to touch.
-4. APPEND your new ones to the END of the posts array.
-5. Set generated_at to now. That is the only existing value you may change.
-6. Count again. The new total MUST equal the old count plus the number you
-   added. If it does not, you have overwritten something — stop, restore the
-   file with `git checkout -- mc/socials/socials.json`, and start step 6 over.
-
-Never write the file from a template you composed in your head, and never hand
-a whole new document to Write without having read the current one in this run.
-Build the new array from the array you actually parsed.
+payload.json is exactly this shape — write it to a temp file, never inline a
+5KB -d string:
 
 {
-  "generated_at": "<ISO 8601 UTC>",
   "posts": [
     {
       "id": "<YYYY-MM-DD>-<HHMM-UTC>-1",
@@ -1347,26 +1350,25 @@ Build the new array from the array you actually parsed.
   ]
 }
 
-Add exactly five NEW posts this run, ids 1-5 and stamped with the run's UTC time (e.g. 2026-08-04-1055-1) so ids stay unique across same-day runs. Existing posts keep their original ids. Two-space indentation. Verify:
+Ids are stamped with the run's UTC time (e.g. 2026-08-05-1500-1) so two runs in
+a day cannot collide.
 
-    node -e "JSON.parse(require('fs').readFileSync('mc/socials/socials.json','utf8'))"
+The function is insert-only and always files at status 'review'. It cannot
+update, delete, or publish anything — a human decides that in /mc/socials/.
+There is no `status` field in the payload; do not invent one.
 
-Check out loud: valid JSON, the file still holds every post it had before plus your five new ones, every new url distinct and opened and not already anywhere in the file, every caption under 200 characters with no hashtags or emoji, at least four distinct topics with none on more than two, at least two picks tagged games/competition/travel, every platform one of Instagram/X/Facebook/YouTube and carrying a why, every post with at least one platform, and git diff touching only that file.
+It replies with a count:
 
-If you cannot get five good ones, commit four rather than padding with something weak — and say so.
+    {"inserted": 5, "skipped": 0}
 
-7. COMMIT
+CHECK THAT REPLY. inserted + skipped must equal the number you sent. If
+inserted is 0, nothing was filed — say so plainly rather than reporting success.
+A skip means either a duplicate url or a row missing id/headline/url/blurb.
 
-    git add mc/socials/socials.json
-    git commit -m "auto: socials candidates (<topic>, <topic>, ...)"
-    git push
+Nothing to commit. `git status` should be clean when you finish; if it is not,
+you have written a file you were not asked to write.
 
-Only that one file may appear in the diff. If the push is rejected because main
-moved, `git pull --rebase` and push again — up to three attempts. If the rebase
-conflicts on this file, keep BOTH sides' posts (that is the whole point of
-appending) and push the merged list.
-
-Finish with a summary: the five picks with cities and sources, what you rejected and why, and anything dropped because the link would not resolve.</textarea>
+Finish with a summary: the five candidates with their sources and topics, the inserted/skipped counts the function returned, what you rejected and why, and anything dropped because the link would not resolve.</textarea>
       </section>
 
       </div>
@@ -1376,21 +1378,26 @@ Finish with a summary: the five picks with cities and sources, what you rejected
   <!--
     FOR AI AGENTS
     =============
-    This page is a read-only view of mc/socials/socials.json. It never writes.
-    The agent appends its candidates to that file each run. POST and SKIP
-    are client-side only; SKIP remembers dismissals in localStorage so a
-    reload does not resurrect them. Do not add a Supabase table for this, and
-    do not give the agent posting credentials — a human decides what goes out.
+    This page reads and writes ONE Supabase table, public.socials. A row is a
+    candidate: its content AND its decision (review / posted / skipped). There
+    is no JSON file any more and no localStorage — mc/socials/socials.json and
+    the socials_post_state overlay were both retired on 2026-08-05.
+
+    TGB SOCIAL BOT does not commit anything. It inserts through
+    tgb_pull_socials_candidates(), a SECURITY DEFINER function callable with the
+    publishable key, which can only INSERT and only at status 'review'.
+
+    Do not give the agent posting credentials, and do not add an automatic
+    post — a human decides what actually goes out.
   -->
   <script type="application/json" id="tgb-agent-context">
   {
     "purpose": "Shortlist of candidates The Game Bureau socials might post. An agent finds stories and writes a caption for each; a human posts or skips them.",
-    "dataFile": "mc/socials/socials.json",
-    "writtenBy": "scheduled Claude Code routine TGB SOCIAL BOT, trig_01KDYndJhZ9ymgUgX5Xx6LsL, twice daily at 08:00 and 20:00 UTC",
-    "manualQueue": "manual additions are stored in localStorage and rendered with mc/socials/socials.json; the page does not write the JSON file",
-    "pageWrites": "manual additions and dismissals live in localStorage; no write to mc/socials/socials.json",
+    "table": "public.socials",
+    "writtenBy": "scheduled Claude Code routine TGB SOCIAL BOT, trig_01KDYndJhZ9ymgUgX5Xx6LsL, twice daily at 08:00 and 20:00 UTC, via tgb_pull_socials_candidates()",
+    "pageWrites": "the admin page reads and writes public.socials directly under an admin session: status, edits, and hand-added candidates",
+    "status": "review (start) | posted | skipped",
     "postCount": 5,
-    "replacedDaily": false,
     "appends": true,
     "voice": "curious, specific, dry; anchor it concretely; no hashtags, emoji, or exclamation marks",
     "beat": ["games", "competition", "travel", "tourism", "weird", "sports", "tv", "music", "food", "history"],
@@ -1400,7 +1407,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
     "platformTagging": "each candidate is tagged with which of the four accounts it suits and why, judged from the media the story actually has (photo/gallery/video/text). Never suggest a platform we do not have.",
     "avoid": ["politics", "tragedy and crime", "culture-war bait", "press releases", "SEO listicles", "hard paywalls"],
     "doNotCreate": [
-      "a Supabase table for the queue",
+      "a second table or a JSON file for the queue",
       "any automatic posting to a social account",
       "a GitHub Actions workflow for this"
     ]
@@ -1418,32 +1425,11 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
       };
 
-      // /mc/socials/index.html reads /mc/socials/socials.json — its sibling.
-      // A bare relative resolve is NOT enough, because this page is served from
-      // a DIRECTORY: new URL() measures from the current directory, so a request
-      // without the trailing slash (/mc/socials) resolves to /mc/socials.json,
-      // one level too high, and the fetch 404s. Most servers redirect to add the
-      // slash; not all do, and an IDE preview often does not. Anchoring on the
-      // path segment covers every form — /mc/socials, /mc/socials/,
-      // /mc/socials/index.html, any host, and file:// too.
-      var QUEUE_FILE = (function () {
-        var href = window.location.href.split(/[?#]/)[0];
-        var dir = '/mc/socials/';
-        var at = href.lastIndexOf(dir);
-        if (at !== -1) return href.slice(0, at + dir.length) + 'socials.json';
-        var bare = '/mc/socials';
-        if (href.slice(-bare.length) === bare) return href + '/socials.json';
-        return new URL('socials.json', href).href; // moved? fall back to relative
-      }());
-      // Skipped ids, so a dismissal survives a reload. Keyed by post id, which
-      // is date-stamped, so yesterday's keys can never collide with today's.
-      // One-way by design — there is no in-page restore; clear this key by hand.
-      // The name stays `trash*` so an existing list is not orphaned.
-      var TRASH_KEY = 'tgb_socials_trashed_v1';
-      var POSTED_KEY = 'tgb_socials_posted_v1';
-      var MANUAL_QUEUE_KEY = 'tgb_socials_manual_posts_v1';
-      var POST_EDITS_KEY = 'tgb_socials_post_edits_v1';
-      var STALE_AFTER_HOURS = 26;
+      // No localStorage at all any more. Decisions, edits and hand-added
+      // candidates were four separate browser caches (trashed / posted /
+      // manual / edits); every one of them is now a column or a row in
+      // public.socials, which is why they could never be seen from another
+      // machine and are gone from here.
 
       var pageStatus = document.getElementById('pageStatus');
       var queueList = document.getElementById('queueList');
@@ -1468,6 +1454,10 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       var manualOpenUrlBtn = document.getElementById('manualOpenUrlBtn');
       var manualTitle = document.getElementById('manualTitle');
       var manualAddBtn = document.getElementById('manualAddBtn');
+      var editBackdrop = document.getElementById('editBackdrop');
+      var editCard = document.getElementById('editCard');
+      var editForm = document.getElementById('editForm');
+      var editStatus = document.getElementById('editStatus');
       var postBackdrop = document.getElementById('postBackdrop');
       var postCard = document.getElementById('postCard');
       var postDialogMenu = document.getElementById('postDialogMenu');
@@ -1483,132 +1473,87 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       var copyBtn = document.getElementById('copyPromptTop');
       var adminAuthToggleBtn = document.getElementById('adminAuthToggleBtn');
 
-      var filePosts = [];
       var posts = [];
-      var manualEditKey = null;
 
-      // ── Trash memory ─────────────────────────────────────────────────────
-      function readTrash() {
-        try {
-          var raw = window.localStorage.getItem(TRASH_KEY);
-          var parsed = raw ? JSON.parse(raw) : [];
-          return Array.isArray(parsed) ? parsed : [];
-        } catch (error) {
-          return []; // private mode or a corrupted value — treat as nothing trashed
+      // ── Data layer ───────────────────────────────────────────────────────
+      // ONE table: public.socials. A row is a candidate — its content AND its
+      // decision. There is no JSON file and no overlay any more; what you read
+      // is what is stored, and an edit is an ordinary UPDATE of that row.
+      var TABLE = 'socials';
+
+      function authHeaders(extra) {
+        var session = adminAuth.getSession ? adminAuth.getSession() : null;
+        var token = session && session.access_token;
+        if (!token) throw new Error('Sign in with an admin account.');
+        return Object.assign({
+          apikey: SUPABASE_CONFIG.publishableKey,
+          Authorization: 'Bearer ' + token,
+          Accept: 'application/json'
+        }, extra || {});
+      }
+
+      function restUrl(path) {
+        return SUPABASE_CONFIG.url + '/rest/v1/' + path;
+      }
+
+      // Paged, because PostgREST silently truncates at 1000 and this table only
+      // grows. Newest first — created_at desc is the run order.
+      async function loadCandidates() {
+        var out = [];
+        var from = 0;
+        for (;;) {
+          var res = await fetch(restUrl(TABLE + '?select=*&order=created_at.desc,id.desc'), {
+            headers: authHeaders({ Range: from + '-' + (from + 999) })
+          });
+          if (!res.ok) throw new Error('Read failed (' + res.status + ')');
+          var rows = await res.json();
+          out = out.concat(rows);
+          if (rows.length < 1000) break;
+          from += 1000;
         }
-      }
-      function writeTrash(ids) {
-        // Keep the tail only: ids are date-stamped and the list is replaced
-        // daily, so old keys are dead weight.
-        try { window.localStorage.setItem(TRASH_KEY, JSON.stringify(ids.slice(-200))); }
-        catch (error) { /* the dismissal just won't persist */ }
-      }
-      function isTrashed(id) { return readTrash().indexOf(id) !== -1; }
-      function addTrash(id) {
-        var ids = readTrash();
-        if (ids.indexOf(id) === -1) { ids.push(id); writeTrash(ids); }
-      }
-      // Move to Review, one post at a time — the Skipped tab's only write. Deliberately
-      // NOT a clear-everything: the bulk restore button was removed because it
-      // could wipe a week of decisions in a click.
-      function removeTrash(id) {
-        var ids = readTrash();
-        var at = ids.indexOf(id);
-        if (at !== -1) { ids.splice(at, 1); writeTrash(ids); }
+        return out;
       }
 
-      // ── Posted memory ────────────────────────────────────────────────────
-      // A map, not a list, because we keep WHEN and WHERE alongside the id:
-      // { "<post id>": { at: "<ISO>", platforms: ["X", "Instagram"] } }.
-      //
-      // A candidate is marked posted when you finish a Post run — the last
-      // ticked composer has been opened. That is the only signal this page has;
-      // it cannot see whether you actually pressed Post on X. So POSTED means
-      // "you took it all the way through the composer", which is honest, and
-      // Move to Review exists for the time you closed the tab instead.
-      function readPosted() {
-        try {
-          var raw = window.localStorage.getItem(POSTED_KEY);
-          var parsed = raw ? JSON.parse(raw) : {};
-          return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
-        } catch (error) {
-          return {};
-        }
-      }
-      function writePosted(map) {
-        try { window.localStorage.setItem(POSTED_KEY, JSON.stringify(map)); }
-        catch (error) { /* the mark just won't persist */ }
-      }
-      function isPosted(id) { return Object.prototype.hasOwnProperty.call(readPosted(), id); }
-      function postedRecord(id) { return readPosted()[id] || null; }
-      function addPosted(id, platforms) {
-        var map = readPosted();
-        map[id] = { at: new Date().toISOString(), platforms: platforms || [] };
-        writePosted(map);
-      }
-      function removePosted(id) {
-        var map = readPosted();
-        if (Object.prototype.hasOwnProperty.call(map, id)) { delete map[id]; writePosted(map); }
-      }
-
-      function readManualPosts() {
-        try {
-          var raw = window.localStorage.getItem(MANUAL_QUEUE_KEY);
-          var parsed = raw ? JSON.parse(raw) : [];
-          return Array.isArray(parsed) ? parsed : [];
-        } catch (error) {
-          return [];
-        }
-      }
-
-      function writeManualPosts(items) {
-        try { window.localStorage.setItem(MANUAL_QUEUE_KEY, JSON.stringify(items.slice(-100))); }
-        catch (error) { /* manual additions just won't survive reload */ }
-      }
-
-      function readPostEdits() {
-        try {
-          var raw = window.localStorage.getItem(POST_EDITS_KEY);
-          var parsed = raw ? JSON.parse(raw) : {};
-          return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
-        } catch (error) {
-          return {};
-        }
-      }
-
-      function writePostEdits(map) {
-        try { window.localStorage.setItem(POST_EDITS_KEY, JSON.stringify(map || {})); }
-        catch (error) { /* edits just won't survive reload */ }
-      }
-
-      function applyPostEdits(items) {
-        var edits = readPostEdits();
-        return (items || []).map(function (post) {
-          var key = postId(post);
-          var edit = key && edits[key];
-          return edit ? Object.assign({}, post, edit, { id: post.id || edit.id || key }) : post;
+      // PATCH one row. `patch` carries only the columns that changed.
+      async function savePost(id, patch) {
+        var res = await fetch(restUrl(TABLE + '?id=eq.' + encodeURIComponent(id)), {
+          method: 'PATCH',
+          headers: authHeaders({
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation'
+          }),
+          body: JSON.stringify(patch)
         });
+        if (!res.ok) throw new Error('Save failed (' + res.status + '): ' + (await res.text()));
+        var rows = await res.json();
+        var row = rows && rows[0];
+        if (row) {
+          for (var i = 0; i < posts.length; i++) {
+            if (String(posts[i].id) === String(id)) { posts[i] = row; break; }
+          }
+        }
+        return row;
       }
 
-      function mergeQueuePosts(filePosts, manualPosts) {
-        var seen = {};
-        return [].concat(filePosts || [], manualPosts || []).filter(function (post) {
-          if (!post) return false;
-          var key = String(post.id || post.url || '').trim();
-          if (!key) return false;
-          if (seen[key]) return false;
-          seen[key] = true;
-          return true;
+      async function insertPost(row) {
+        var res = await fetch(restUrl(TABLE), {
+          method: 'POST',
+          headers: authHeaders({
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation'
+          }),
+          body: JSON.stringify(row)
         });
+        if (!res.ok) throw new Error('Add failed (' + res.status + '): ' + (await res.text()));
+        var rows = await res.json();
+        return rows && rows[0];
       }
 
-      function refreshPosts() {
-        posts = applyPostEdits(mergeQueuePosts(filePosts, readManualPosts()));
-      }
+      function statusOf(post) { return (post && post.status) || 'review'; }
 
-      function setPosts(nextFilePosts) {
-        filePosts = Array.isArray(nextFilePosts) ? nextFilePosts : [];
-        refreshPosts();
+      // posts IS the table. No merging, no overlay, no file.
+      function setPosts(rows) {
+        posts = Array.isArray(rows) ? rows : [];
       }
 
       // ── Auth ─────────────────────────────────────────────────────────────
@@ -2018,7 +1963,6 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       }
 
       function setManualEditorMode(post) {
-        manualEditKey = post ? postId(post) : null;
         if (manualTitle) manualTitle.textContent = post ? 'Edit Social Post Candidate' : 'Manually Add a Social Post Candidate';
         if (manualAddBtn) manualAddBtn.textContent = post ? 'Save Candidate' : 'Add Candidate';
       }
@@ -2075,7 +2019,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         if (backdrop) backdrop.hidden = true;
         if (card) card.hidden = true;
         if ((manualCard && !manualCard.hidden) || (promptCard && !promptCard.hidden) ||
-            (postCard && !postCard.hidden)) return;
+            (postCard && !postCard.hidden) || (editCard && !editCard.hidden)) return;
         document.body.style.overflow = '';
       }
 
@@ -2151,7 +2095,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
           return null;
         }
         if (posts.some(function (post) {
-          return post && post.url === url && (!manualEditKey || postId(post) !== manualEditKey);
+          return post && post.url === url;
         })) {
           manualStatusText('That URL is already a candidate.', false);
           return null;
@@ -2164,7 +2108,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         }
 
         return {
-          id: manualEditKey || manualPostId(),
+          id: manualPostId(),
           headline: headline,
           url: url,
           source: cleanText(document.getElementById('manualSource') && document.getElementById('manualSource').value),
@@ -2178,76 +2122,56 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         };
       }
 
-      function saveEditedPost(post) {
-        var key = manualEditKey;
-        if (!key || !post) return false;
-        var manualPosts = readManualPosts();
-        var foundManual = false;
-        manualPosts = manualPosts.map(function (item) {
-          if (postId(item) !== key) return item;
-          foundManual = true;
-          return post;
-        });
-        if (foundManual) {
-          writeManualPosts(manualPosts);
-          return true;
-        }
-
-        var edits = readPostEdits();
-        edits[key] = post;
-        writePostEdits(edits);
-        return true;
-      }
-
-      function submitManualPost(event) {
+      // MANUAL adds a candidate by hand. It INSERTs a real row, so a
+      // hand-added story is the same object as a bot-found one — same table,
+      // same buttons, same visibility from any machine. (Editing is the Edit
+      // button on the card; this modal only adds.)
+      async function submitManualPost(event) {
         if (event) event.preventDefault();
         var post = readManualPost();
         if (!post) return;
-        if (manualEditKey) {
-          saveEditedPost(post);
-          refreshPosts();
-          renderQueue();
+        if (manualStatus) manualStatus.textContent = 'Adding…';
+        try {
+          await insertPost({
+            id: post.id,
+            headline: post.headline,
+            url: post.url,
+            source: post.source || null,
+            published: post.published || null,
+            blurb: post.blurb,
+            why: post.why || null,
+            topics: (post.topics && post.topics.length) ? post.topics : null,
+            media: post.media || null,
+            image: post.image || null,
+            platforms: (post.platforms && post.platforms.length) ? post.platforms : null
+          });
           closeTool(manualCard, manualBackdrop);
-          flash(queueStatus, 'Saved locally');
-          return;
+          await loadQueue();
+          flash(queueStatus, 'Added');
+        } catch (err) {
+          if (manualStatus) manualStatus.textContent = err.message;
         }
-        var manualPosts = readManualPosts();
-        manualPosts.push(post);
-        writeManualPosts(manualPosts);
-        refreshPosts();
-        renderQueue();
-        closeTool(manualCard, manualBackdrop);
-        flash(queueStatus, 'Added locally');
       }
 
       // ── Load + render ────────────────────────────────────────────────────
       async function loadQueue() {
-        var data;
-
         // Fetching is its own try block. Wrapping the render in here too meant a
-        // rendering bug reported itself as "could not read the file", which sent
-        // us looking at the data instead of the code.
+        // rendering bug reported itself as "could not read the table", which
+        // sent us looking at the data instead of the code.
         try {
-          var res = await fetch(QUEUE_FILE, { cache: 'no-store' });
-          if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching ' + QUEUE_FILE);
-          data = await res.json();
+          setPosts(await loadCandidates());
         } catch (error) {
-          console.error('[socials] could not load the queue:', error);
+          console.error('[socials] could not load candidates:', error);
           setPosts([]);
           if (queueList) queueList.textContent = '';
-          if (posts.length) {
-            renderQueue();
-            return;
-          }
           setPageStatus('');
           showEmpty(
-            'Could not read the candidates (' + (error && error.message ? error.message : 'unknown error') +
-            '). If the routine has not run yet that file does not exist — open the routine and trigger a run.'
+            'Could not read the candidates (' +
+            (error && error.message ? error.message : 'unknown error') +
+            '). Check that the socials table exists and you are signed in as an admin.'
           );
           return;
         }
-
-        setPosts((data && Array.isArray(data.posts)) ? data.posts : []);
 
         try {
           renderQueue();
@@ -2296,9 +2220,9 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         var skipped = [];
         var posted = [];
         usable.forEach(function (post) {
-          var id = postId(post);
-          if (isPosted(id)) posted.push(post);
-          else if (isTrashed(id)) skipped.push(post);
+          var st = statusOf(post);
+          if (st === 'posted') posted.push(post);
+          else if (st === 'skipped') skipped.push(post);
           else live.push(post);
         });
 
@@ -2306,7 +2230,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         var shown = buckets[view] || live;
 
         shown.forEach(function (post) {
-          queueList.appendChild(buildPost(post, view));
+          queueList.appendChild(buildPost(post, view, post.id));
         });
 
         if (tabActiveCount) tabActiveCount.textContent = String(live.length);
@@ -2393,7 +2317,8 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       // 'posted' also gets a receipt line saying where and when it went.
       // The card itself is identical in all three — only the action row differs,
       // so a decided candidate still shows exactly what it did say.
-      function buildPost(post, mode) {
+      function buildPost(post, mode, stableId) {
+        var id = stableId || postId(post);
         var skipped = mode === 'skipped';
         var posted = mode === 'posted';
         var article = document.createElement('article');
@@ -2510,12 +2435,12 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         feedback.className = 'post-feedback';
 
         if (posted) {
-          var record = postedRecord(postId(post)) || {};
+          var record = post || {};
           var receipt = document.createElement('p');
           receipt.className = 'post-receipt';
-          var where = Array.isArray(record.platforms) && record.platforms.length
-            ? record.platforms.join(' · ') : 'no platform recorded';
-          var when = record.at ? new Date(record.at) : null;
+          var where = Array.isArray(record.posted_platforms) && record.posted_platforms.length
+            ? record.posted_platforms.join(' · ') : 'no platform recorded';
+          var when = record.posted_at ? new Date(record.posted_at) : null;
           receipt.textContent = 'Posted to ' + where +
             (when && !isNaN(when) ? ' — ' + when.toLocaleString([], {
               month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
@@ -2528,11 +2453,16 @@ Finish with a summary: the five picks with cities and sources, what you rejected
           unpostBtn.textContent = 'Move to Review';
           unpostBtn.title = 'Not actually posted — put it back in Review';
           unpostBtn.addEventListener('click', function () {
-            removePosted(postId(post));
-            renderQueue();   // stays on Posted; the row simply leaves the list
-            flash(queueStatus, 'Back in Review');
+            unpostBtn.disabled = true;
+            savePost(id, { status: 'review' })   // trigger clears posted_at too
+              .then(function () { renderQueue(); flash(queueStatus, 'Back in Review'); })
+              .catch(function (err) {
+                unpostBtn.disabled = false;
+                flash(queueStatus, 'Could not save: ' + err.message);
+              });
           });
           actions.appendChild(unpostBtn);
+          actions.appendChild(makeEditBtn(post, id));
           actions.appendChild(feedback);
           ephemera.appendChild(actions);
           article.appendChild(ephemera);
@@ -2546,11 +2476,16 @@ Finish with a summary: the five picks with cities and sources, what you rejected
           unskipBtn.textContent = 'Move to Review';
           unskipBtn.title = 'Put this one back in Review';
           unskipBtn.addEventListener('click', function () {
-            removeTrash(postId(post));
-            renderQueue();   // stays on Skipped; the row simply leaves the list
-            flash(queueStatus, 'Back in Review');
+            unskipBtn.disabled = true;
+            savePost(id, { status: 'review' })
+              .then(function () { renderQueue(); flash(queueStatus, 'Back in Review'); })
+              .catch(function (err) {
+                unskipBtn.disabled = false;
+                flash(queueStatus, 'Could not save: ' + err.message);
+              });
           });
           actions.appendChild(unskipBtn);
+          actions.appendChild(makeEditBtn(post, id));
           actions.appendChild(feedback);
           ephemera.appendChild(actions);
           article.appendChild(ephemera);
@@ -2569,7 +2504,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         autoBtn.textContent = '⚡ Post';
         autoBtn.title = 'Choose the accounts and open each composer in turn';
         autoBtn.setAttribute('aria-haspopup', 'dialog');
-        autoBtn.addEventListener('click', function () { openPostDialog(post); });
+        autoBtn.addEventListener('click', function () { openPostDialog(post, id); });
 
         // Visible verb is SKIP; the storage key and helpers keep the older
         // `trash` names so an existing dismissal list is not orphaned.
@@ -2579,9 +2514,13 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         trashBtn.textContent = 'Skip';
         trashBtn.title = 'Pass on this one — it will not come back on reload';
         trashBtn.addEventListener('click', function () {
-          addTrash(postId(post));
-          renderQueue();
-          flash(queueStatus, 'Skipped');
+          trashBtn.disabled = true;
+          savePost(id, { status: 'skipped' })
+            .then(function () { renderQueue(); flash(queueStatus, 'Skipped'); })
+            .catch(function (err) {
+              trashBtn.disabled = false;
+              flash(queueStatus, 'Could not save: ' + err.message);
+            });
         });
 
         var editBtn = document.createElement('button');
@@ -2592,6 +2531,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         editBtn.addEventListener('click', function () { openEditPost(post); });
 
         actions.appendChild(autoBtn);
+        actions.appendChild(makeEditBtn(post, id));
         actions.appendChild(trashBtn);
         actions.appendChild(feedback);
         actions.appendChild(editBtn);
@@ -2599,6 +2539,106 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         article.appendChild(ephemera);
 
         return article;
+      }
+
+      // ── Edit ─────────────────────────────────────────────────────────────
+      // Which columns the Edit dialog exposes. The row is the candidate, so
+      // these are ordinary UPDATEs — headline, url and blurb are NOT NULL and
+      // are refused if emptied.
+      var EDIT_FIELDS = [
+        { key: 'blurb',    label: 'Caption', type: 'textarea', max: 200 },
+        { key: 'headline', label: 'Headline', type: 'text' },
+        { key: 'url',      label: 'URL', type: 'url' },
+        { key: 'image',    label: 'Image URL', type: 'url' },
+        { key: 'source',   label: 'Source', type: 'text' },
+        { key: 'published', label: 'Published', type: 'text' },
+        { key: 'topics',   label: 'Topics (comma separated)', type: 'text', list: true },
+        { key: 'why',      label: 'Why (internal)', type: 'textarea' }
+      ];
+
+      function makeEditBtn(post, id) {
+        var btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.type = 'button';
+        btn.textContent = 'Edit';
+        btn.title = 'Edit this candidate';
+        btn.addEventListener('click', function () { openEditDialog(post, id); });
+        return btn;
+      }
+
+      function rawPost(id) {
+        for (var i = 0; i < posts.length; i++) if (String(posts[i].id) === String(id)) return posts[i];
+        return null;
+      }
+
+      // The row IS the candidate now, so editing is an ordinary UPDATE — no
+      // overrides, no fallback to a file, and nothing to revert to. Whatever is
+      // in these boxes is what the candidate becomes.
+      function openEditDialog(post, id) {
+        if (!editCard || !editForm) return;
+        var row = rawPost(id) || post || {};
+        editForm.textContent = '';
+        editForm.dataset.postId = id;
+
+        EDIT_FIELDS.forEach(function (f) {
+          var wrap = document.createElement('label');
+          wrap.className = 'full';
+          wrap.textContent = f.label;
+
+          var input = document.createElement(f.type === 'textarea' ? 'textarea' : 'input');
+          if (f.type !== 'textarea') input.type = f.type === 'url' ? 'url' : 'text';
+          if (f.max) input.maxLength = f.max;
+          input.dataset.field = f.key;
+
+          var current = row[f.key];
+          input.value = f.list
+            ? (Array.isArray(current) ? current.join(', ') : '')
+            : (current == null ? '' : String(current));
+
+          wrap.appendChild(input);
+          editForm.appendChild(wrap);
+        });
+
+        if (editStatus) editStatus.textContent = '';
+        openTool(editCard, editBackdrop, editForm.querySelector('textarea, input'));
+      }
+
+      function closeEditDialog() { closeTool(editCard, editBackdrop); }
+
+      async function submitEdit(event) {
+        if (event) event.preventDefault();
+        var id = editForm && editForm.dataset.postId;
+        if (!id) return;
+        var patch = {};
+
+        EDIT_FIELDS.forEach(function (f) {
+          var input = editForm.querySelector('[data-field="' + f.key + '"]');
+          if (!input) return;
+          var raw = cleanText(input.value);
+          if (f.list) {
+            var list = raw ? raw.split(',').map(function (t) { return t.trim().toLowerCase(); }).filter(Boolean) : [];
+            patch[f.key] = list.length ? list : null;
+          } else {
+            // headline / url / blurb are NOT NULL in the table, so an emptied
+            // box has to be refused rather than sent as null.
+            patch[f.key] = raw || null;
+          }
+        });
+
+        if (!patch.headline || !patch.url || !patch.blurb) {
+          if (editStatus) editStatus.textContent = 'Headline, URL and caption are required.';
+          return;
+        }
+
+        if (editStatus) editStatus.textContent = 'Saving…';
+        try {
+          await savePost(id, patch);
+          closeEditDialog();
+          renderQueue();
+          flash(queueStatus, 'Saved');
+        } catch (err) {
+          if (editStatus) editStatus.textContent = err.message;
+        }
       }
 
       // ── Post dialog ──────────────────────────────────────────────────────
@@ -2612,7 +2652,10 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       // its own dialog was still driving a run.
       var postDialogDirty = false;
 
-      function openPostDialog(post) {
+      // `stableId` is the key in socials_post_state — postId() of the ORIGINAL
+      // JSON entry. Never re-derive it from the overlaid post: editing the url
+      // of an entry that has no id would move its key and orphan its row.
+      function openPostDialog(post, stableId) {
         if (!postCard || !postDialogMenu) return;
         postDialogDirty = false;
         clearNotice(postDialogFeedback);
@@ -2625,7 +2668,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
           // Run complete. Swap the Close button's wording so the dialog reads
           // as finished rather than abandoned.
           if (postCloseBtn) postCloseBtn.textContent = 'Done';
-        });
+        }, stableId);
         menu.removeAttribute('hidden');   // in the dialog it is always open
         postDialogMenu.appendChild(menu);
 
@@ -2823,7 +2866,8 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         youtube: 'Only with real video, or visual enough for a Short.'
       };
 
-      function buildAutoPostMenu(post, feedbackEl, onPick) {
+      function buildAutoPostMenu(post, feedbackEl, onPick, stableId) {
+        var stateKey = stableId || postId(post);
         var tagged = {};
         (Array.isArray(post.platforms) ? post.platforms : []).forEach(function (p) {
           var n = typeof p === 'string' ? p : (p && p.name);
@@ -2949,9 +2993,15 @@ Finish with a summary: the five picks with cities and sources, what you rejected
             var wentTo = PLATFORM_ORDER
               .filter(function (k) { return done[k]; })
               .map(function (k) { return PLATFORM_LABELS[k]; });
-            addPosted(postId(post), wentTo);
-            postDialogDirty = true;
-            if (typeof onPick === 'function') onPick(wentTo);
+            savePost(stateKey, {
+              status: 'posted',
+              posted_platforms: wentTo.length ? wentTo : null
+            }).then(function () {
+              postDialogDirty = true;
+              if (typeof onPick === 'function') onPick(wentTo);
+            }).catch(function (err) {
+              stick(feedbackEl, 'Opened, but could not mark posted: ' + err.message);
+            });
           }
         });
 
@@ -2970,6 +3020,12 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         button.addEventListener('click', function () { closeTool(manualCard, manualBackdrop); });
       });
 
+      if (editBackdrop) editBackdrop.addEventListener('click', closeEditDialog);
+      Array.prototype.forEach.call(document.querySelectorAll('[data-edit-close]'), function (button) {
+        button.addEventListener('click', closeEditDialog);
+      });
+      if (editForm) editForm.addEventListener('submit', submitEdit);
+
       if (postBackdrop) postBackdrop.addEventListener('click', closePostDialog);
       Array.prototype.forEach.call(document.querySelectorAll('[data-post-close]'), function (button) {
         button.addEventListener('click', closePostDialog);
@@ -2986,6 +3042,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       document.addEventListener('keydown', function (event) {
         if (event.key !== 'Escape') return;
         if (postCard && !postCard.hidden) closePostDialog();
+        closeTool(editCard, editBackdrop);
         closeTool(manualCard, manualBackdrop);
         closeTool(promptCard, promptBackdrop);
       });
@@ -3010,54 +3067,16 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       }
 
       // ── Last run ─────────────────────────────────────────────────────────
-      // Read from the public GitHub commits API, like the soundtrack admin: the
-      // commit is what actually shipped, so a stale timestamp IS the failure
-      // signal — a run that errored pushes nothing.
-      var RUN_FEED = 'https://api.github.com/repos/the-game-bureau/the-game-bureau.github.io/commits'
-        + '?path=mc/socials/socials.json&per_page=1';
-
-      function relativeTime(then, now) {
-        var mins = Math.round((now - then) / 60000);
-        if (mins < 1) return 'just now';
-        if (mins < 60) return mins + (mins === 1 ? ' minute ago' : ' minutes ago');
-        var hours = Math.round(mins / 60);
-        if (hours < 24) return hours + (hours === 1 ? ' hour ago' : ' hours ago');
-        var days = Math.round(hours / 24);
-        return days + (days === 1 ? ' day ago' : ' days ago');
-      }
-
-      async function loadLastRun() {
-        var wrap = document.getElementById('runStatus');
-        var when = document.getElementById('runWhen');
-        var what = document.getElementById('runWhat');
-        var log = document.getElementById('runLogLink');
-        if (!wrap || !when || !what) return;
-
-        try {
-          var res = await fetch(RUN_FEED, { headers: { Accept: 'application/vnd.github+json' } });
-          if (!res.ok) throw new Error('GitHub ' + res.status);
-          var commits = await res.json();
-          if (!Array.isArray(commits) || !commits.length) throw new Error('no commits');
-
-          var commit = commits[0];
-          if (log && commit.html_url) log.href = commit.html_url;
-
-          var stamp = new Date(commit.commit && commit.commit.committer && commit.commit.committer.date);
-          var now = new Date();
-          var stale = (now - stamp) / 3600000 > STALE_AFTER_HOURS;
-
-          wrap.dataset.state = stale ? 'stale' : 'ok';
-          when.textContent = 'Last run ' + relativeTime(stamp, now);
-          what.textContent = stamp.toLocaleString([], {
-            weekday: 'short', month: 'short', day: 'numeric',
-            hour: 'numeric', minute: '2-digit'
-          }) + (stale ? ' · no new candidates in over a day — check the routine.' : '');
-        } catch (error) {
-          wrap.dataset.state = 'error';
-          when.textContent = 'Last run unavailable';
-          what.textContent = 'Could not reach the GitHub commits API. Open the routine to check directly.';
-        }
-      }
+      // REMOVED 2026-08-05. This read the GitHub commits API for
+      // mc/socials/socials.json, on the principle that a run which errored
+      // pushes nothing, so a stale commit timestamp IS the failure signal. The
+      // bot does not commit any more — it inserts rows — so that signal no
+      // longer exists, and its DOM (the "About the TGB SOCIAL BOT" side card)
+      // had already been removed from the page, leaving the function dead.
+      //
+      // If a last-run indicator comes back, read it the way the Tape Room does:
+      // the newest created_at in public.socials. Do NOT reinstate the commits
+      // API — there is nothing to commit.
 
       // Deliberately NOT calling TgbMcAdminNav.init: this admin room uses the
       // shared site nav above, and its padlock is bound to adminAuth.
