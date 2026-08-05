@@ -416,6 +416,19 @@
       text-transform: uppercase;
       color: var(--success);
     }
+    /* The paste notice stays until the next action, so it is still on screen
+       when you come back from the platform's tab. Loud enough to be the answer
+       to "why is the box empty?". */
+    .post-feedback.is-sticky {
+      padding: 6px 11px;
+      border: 1px solid rgba(194, 55, 55, 0.34);
+      border-radius: 7px;
+      background: rgba(194, 55, 55, 0.07);
+      color: var(--bic-red);
+      letter-spacing: 0.06em;
+      text-transform: none;
+      font-size: 0.74rem;
+    }
 
     /* An empty tab is a normal state here — Posted and Skipped both start
        empty — so it gets a dashed well rather than a bare line of grey text
@@ -1428,8 +1441,28 @@ Finish with a summary: the five picks with cities and sources, what you rejected
 
       function flash(el, text) {
         if (!el) return;
+        el.classList.remove('is-sticky');
         el.textContent = text;
-        window.setTimeout(function () { el.textContent = ''; }, 2200);
+        window.clearTimeout(el._flashTimer);
+        el._flashTimer = window.setTimeout(function () { el.textContent = ''; }, 2200);
+      }
+
+      // A notice that does NOT time out. Used for "paste this in" — the 2.2s
+      // flash was gone before the platform's tab had even finished opening, so
+      // you arrived at an empty Facebook box with no idea the caption was
+      // already on your clipboard. It clears on the next action instead.
+      function stick(el, text) {
+        if (!el) return;
+        window.clearTimeout(el._flashTimer);
+        el.textContent = text;
+        el.classList.add('is-sticky');
+      }
+
+      function clearNotice(el) {
+        if (!el) return;
+        window.clearTimeout(el._flashTimer);
+        el.textContent = '';
+        el.classList.remove('is-sticky');
       }
 
       // Fall back to the URL when a post has no id, so SKIP still has a stable
@@ -1952,11 +1985,12 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         return String(post.blurb || '').trim() + '\n\n' + String(post.url || '').trim();
       }
 
-      async function copyToClipboard(text, feedbackEl, okMsg) {
+      async function copyToClipboard(text, feedbackEl, okMsg, sticky) {
         var done = okMsg || 'Copied';
+        var show = sticky ? stick : flash;
         try {
           await navigator.clipboard.writeText(text);
-          flash(feedbackEl, done);
+          show(feedbackEl, done);
         } catch (error) {
           // The async clipboard needs a secure context and permission. Fall back
           // to a hidden textarea so this still works over plain http on a local
@@ -1971,7 +2005,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
           var ok = false;
           try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
           document.body.removeChild(scratch);
-          flash(feedbackEl, ok ? done : 'Copy failed');
+          if (ok) show(feedbackEl, done); else flash(feedbackEl, 'Copy failed');
         }
       }
 
@@ -1985,39 +2019,35 @@ Finish with a summary: the five picks with cities and sources, what you rejected
       // Several platforms can be queued for one story, but they are opened one
       // per click; see buildAutoPostMenu for why a burst cannot work.
       var PLATFORM_LABELS = { instagram: 'Instagram', x: 'X', facebook: 'Facebook', youtube: 'YouTube' };
-      // Our caption goes with the post on every platform — the whole point of
-      // writing one is that we do not post the outlet's headline. How far it
-      // gets differs, because the platforms differ:
+      // NOTHING IS PREFILLED, DELIBERATELY. Post copies the caption and link to
+      // the clipboard and opens the platform's own composer; you paste.
       //
-      //   X         — composer opens with caption AND link already in the box.
-      //   Facebook  — composer opens with the link, and `quote` carries the
-      //               caption. Facebook honours quote inconsistently, so the
-      //               caption ALSO goes to the clipboard; if the box comes up
-      //               empty it is one paste away rather than a retype.
-      //   Instagram — no post-by-URL exists at all. Caption to the clipboard,
-      //               account page opens, you paste.
-      //   YouTube   — same.
+      // We used to hand X a prefilled intent URL and Facebook a `quote` param.
+      // Facebook ignores `quote` outright (their policy is that you may not put
+      // words in a user's mouth before they post), Instagram and YouTube have no
+      // post-by-URL at all, and X's intent URL only ever covered one of the
+      // four. That left the behaviour different on every platform for no gain,
+      // and the one prefill that did work still needed checking. One rule you
+      // can trust beats three exceptions: copy, open, paste.
       //
-      // `true` here means "the composer is reliably prefilled, do not touch the
-      // clipboard". Facebook is deliberately `false` despite sending `quote`.
-      var PLATFORM_PREFILLS = { x: true, facebook: false, instagram: false, youtube: false };
+      // If a platform ever gets a reliable prefill worth having, add it back
+      // here as an exception and say so in the picker — do not make it silent.
 
-      function composeTarget(key, post) {
-        var caption = String(post.blurb || '').trim();
-        var url = String(post.url || '').trim();
-        if (key === 'x') {
-          return 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(caption) +
-                 (url ? '&url=' + encodeURIComponent(url) : '');
-        }
-        if (key === 'facebook') {
-          return 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url) +
-                 (caption ? '&quote=' + encodeURIComponent(caption) : '');
-        }
-        return PLATFORM_URLS[key] || ''; // instagram / youtube — the account page
+      // Where each platform's composer lives. No query string, no payload — the
+      // post travels on the clipboard.
+      var PLATFORM_COMPOSERS = {
+        x: 'https://x.com/compose/post',
+        facebook: 'https://www.facebook.com/thegamebureau',
+        instagram: 'https://www.instagram.com/thegamebureau',
+        youtube: 'https://www.youtube.com/@thegamebureau'
+      };
+
+      function composeTarget(key) {
+        return PLATFORM_COMPOSERS[key] || PLATFORM_URLS[key] || '';
       }
 
       function autoPost(post, key, feedbackEl) {
-        var target = composeTarget(key, post);
+        var target = composeTarget(key);
         // window.open must fire synchronously in the click handler to keep the
         // user-gesture (otherwise the popup blocker eats it), so open first.
         if (target) {
@@ -2035,10 +2065,10 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         // It is always caption + blank line + URL, the same on all four, so
         // what you get is predictable rather than depending on which platform
         // the run happened to end on.
+        var pasteKey = /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘V' : 'Ctrl+V';
         copyToClipboard(clipboardText(post), feedbackEl,
-          PLATFORM_PREFILLS[key]
-            ? 'Opening ' + PLATFORM_LABELS[key] + ' · caption copied too'
-            : 'Caption copied — paste in ' + PLATFORM_LABELS[key]);
+          '↓ Caption + link copied — paste into ' + PLATFORM_LABELS[key] + ' with ' + pasteKey,
+          true);
       }
 
       // The picker the Post button reveals: the four accounts, tickable in
@@ -2075,7 +2105,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
 
         var hint = document.createElement('p');
         hint.className = 'autopost-hint';
-        hint.textContent = 'Tick the platforms you want, then open them one at a time — each opens that composer with the caption ready and you tap Post there. Nothing goes out on its own.';
+        hint.textContent = 'Tick the platforms you want, then open them one at a time. Each one copies the caption and link and opens that composer — paste, and post it there yourself. Nothing goes out on its own.';
         menu.appendChild(hint);
 
         var picked = {};   // key -> ticked
@@ -2114,6 +2144,9 @@ Finish with a summary: the five picks with cities and sources, what you rejected
           buttons[key] = b;
           item.appendChild(b);
 
+          // No PREFILLED/PASTE marker any more: every platform is a paste now,
+          // and a badge that always says the same thing is just noise. The
+          // hint above the rows says it once.
           var why = document.createElement('span');
           why.className = 'autopost-why' + (whys[key] ? ' is-agent' : '');
           why.textContent = whys[key] || PLATFORM_FORMAT_NOTE[key] || '';
@@ -2167,6 +2200,7 @@ Finish with a summary: the five picks with cities and sources, what you rejected
         go.addEventListener('click', function () {
           var key = queue[cursor];
           if (!key) return;
+          clearNotice(feedbackEl);   // a new step replaces the previous notice
           autoPost(post, key, feedbackEl);   // one tab, this gesture
           done[key] = true;
           syncRun();
