@@ -156,7 +156,7 @@ The canonical hierarchy finally has tables behind it, as of 2026-07-30 — [mc/s
 
 **"Team" is two different things:** a **sports team** is a pro team a game is based on (`public.teams`; **team colors** = shell/stripe/mask belong here), reachable via `game_id → games`. A **Game Bureau team** is a group of our players, led by a **team leader** and identified by a chosen **team name**, never a color. The engine's blue/black/purple/silver/orange value is a **route-rotation slot** (`route_color`), not a sports-team color — don't label Game Bureau teams with it.
 
-Playthroughs are recorded for stats. A **team leader** (the buyer/leader — we used to say "player") plays a **game instance** (one playthrough by one Game Bureau team, a client-generated uuid). Tables: `game_instances`, `game_responses`, `game_events`, plus a `game_play_stats` view. Schema: [mc/supabase/migrations/20260625_game_instances_responses.sql](mc/supabase/migrations/20260625_game_instances_responses.sql); client: [game/run/config/instance-tracker.js](game/run/config/instance-tracker.js) (`window.TgbInstance`), wired into both engines. Full write-up: [mc/_dev/docs/supabase/game-instances-responses.md](mc/_dev/docs/supabase/game-instances-responses.md).
+Playthroughs are recorded for stats. A **team leader** (the buyer/leader — we used to say "player") plays a **game instance** (one playthrough by one Game Bureau team, a client-generated uuid). Tables: `game_instances`, `game_responses`, `game_events`, plus a `game_play_stats` view. Schema: [mc/supabase/migrations/20260625_game_instances_responses.sql](mc/supabase/migrations/20260625_game_instances_responses.sql); client: [mc/game/run/config/instance-tracker.js](mc/game/run/config/instance-tracker.js) (`window.TgbInstance`), wired into both engines. Full write-up: [mc/_dev/docs/supabase/game-instances-responses.md](mc/_dev/docs/supabase/game-instances-responses.md).
 
 - **Append-only for anon** (engines use the anon key): RLS allows `INSERT` only; admin reads gated by `is_photo_admin()`. Don't add anon update/delete — record progress as `game_events`, not by mutating rows.
 - **Team leader email is folded in server-side**, never sent by the client: the `tgb_link_game_instance_identity` SECURITY DEFINER trigger looks the play's `access_code` up in `gift_codes` and copies the Stripe email. The link is **Stripe → gift_codes → game_instances → game_responses**.
@@ -215,6 +215,15 @@ The repo root used to hold the back end beside the public site. On 2026-08-06 it
 | `backups/` | `mc/backups/` | Supabase dumps. Gitignored and excluded from the deploy. |
 | `_dev/` | `mc/_dev/` | Scripts, dev docs, and `archive/`. Excluded from the deploy. |
 | `supabase/` | `mc/supabase/` | Migrations, edge functions, prompt-import SQL. |
+| `account/` | `mc/account/` | Still a **public** page wearing public chrome — moved for tidiness, not because it became internal. |
+| `game/` | `mc/game/` | The player runtime. See the hard break below. |
+
+**Two of those moves broke live URLs, and neither can be redirected** — GitHub Pages serves no 301.
+
+- **`/game/run/?id=…` is now `/mc/game/run/?id=…`.** That URL is the paid product: it is what a buyer receives by email and what a gift code points at. **Every link issued before 2026-08-06 is permanently dead**, and anyone holding one needs a reissue. The two Edge Functions that mint it — [gs-send-code](mc/supabase/functions/gs-send-code/index.ts) and [stripe-webhook](mc/supabase/functions/stripe-webhook/index.ts), both building `siteOrigin() + '/mc/game/run/'` — **must be redeployed for new purchases to send a working link**: `cd mc && supabase functions deploy gs-send-code stripe-webhook`. Until that deploy lands, every new order emails a 404.
+- `/account/` is now `/mc/account/`.
+
+**Every reference that escapes a folder is now root-absolute, deliberately.** The engines used to reach the shared front-end with `../../../assets/…`, which silently resolves to a different place at a different depth — exactly the failure a move like this causes. They are `/assets/…` now, so `mc/game/` can be moved again without touching a single one. Write new cross-folder links the same way; never `../`.
 
 Deleted the same day, all scratch: `.tmp/`, `.tmp_auth_checks/`, `.tmp_auth_checks2/`, `.codex-artifacts/`, `.dev/`. The one piece of real work inside them, the `render-soundtracks-video.ps1` explainer renderer, was kept at [mc/_dev/scripts/render-soundtracks-video.ps1](mc/_dev/scripts/render-soundtracks-video.ps1).
 
@@ -264,24 +273,24 @@ Use `location` only for technical geographic fields and browser APIs. `waypoint`
 Canonical public URL for a game:
 
 ```
-https://thegamebureau.com/game/run/?id={game-id}
-https://thegamebureau.com/game/run/?game={game-name}
+https://thegamebureau.com/mc/game/run/?id={game-id}
+https://thegamebureau.com/mc/game/run/?game={game-name}
 ```
 
-`/game/run/index.html` is the **landing page** (hero, intro, price, Start button). The Start button forwards to the chosen engine. Engines live as sibling folders under [/game/run/](game/run/):
+`/mc/game/run/index.html` is the **landing page** (hero, intro, price, Start button). The Start button forwards to the chosen engine. Engines live as sibling folders under [/game/run/](mc/game/run/):
 
-- **`text`** (default — used when `e` is absent or unknown) → [game/run/text/](game/run/text/) — iMessage-style chat engine.
-- **`map`** → [game/run/map/](game/run/map/) — parchment map / pin engine; tapping the pin starts the message flow.
+- **`text`** (default — used when `e` is absent or unknown) → [mc/game/run/text/](mc/game/run/text/) — iMessage-style chat engine.
+- **`map`** → [mc/game/run/map/](mc/game/run/map/) — parchment map / pin engine; tapping the pin starts the message flow.
 
 Legacy numeric values are aliased: `e=1` → text, `e=2` → map. Both `?id=` and `?game=` are accepted by the engines themselves.
 
 The Supabase `games` record carries an `engine` column (string, nullable; values like `text` or `map`). Precedence on the landing page: **URL `?e=` → DB `engine` column → default (`text`)**.
 
-Shared, non-engine-specific assets (e.g. `config/lemon-config.js`) live at [game/run/config/](game/run/config/).
+Shared, non-engine-specific assets (e.g. `config/lemon-config.js`) live at [mc/game/run/config/](mc/game/run/config/).
 
-**Adding an engine:** drop a new folder under `/game/run/` and add a key/value to the `ENGINES` map in the Start-button code inside [game/run/index.html](game/run/index.html).
+**Adding an engine:** drop a new folder under `/mc/game/run/` and add a key/value to the `ENGINES` map in the Start-button code inside [mc/game/run/index.html](mc/game/run/index.html).
 
-**History:** Until 2026-05-17 engines lived under `/game/play/` and `/game/play/index.html` was a thin router. That folder was merged into `/game/run/` and the router was deleted. Old `/game/play/...` URLs no longer resolve.
+**History:** Until 2026-05-17 engines lived under `/mc/game/play/` and `/mc/game/play/index.html` was a thin router. That folder was merged into `/mc/game/run/` and the router was deleted. Old `/mc/game/play/...` URLs no longer resolve.
 
 ---
 
@@ -290,13 +299,13 @@ Shared, non-engine-specific assets (e.g. `config/lemon-config.js`) live at [game
 Start locations are **stored as long/global Google Plus Codes** in the `games` table (`starting_location_plus_code`). That column is the source of truth for the rendezvous point. `starting_location_lat` / `starting_location_lon` stay populated only as decoded compatibility fields for local maps, weather, reverse-geocoding, and older surfaces.
 
 - **Builder** ([mc/builder.html](mc/builder.html)): the "Start Plus Code" field shows/accepts a Plus Code and writes `starting_location_plus_code`. It also decodes the code into `starting_location_lat` / `starting_location_lon` for compatibility. It has a self-contained Open Location Code codec (`encodePlusCode` / `decodePlusCode` / `recoverNearestPlusCode`) near `parseCoordinatePair`. Typed input accepts a full code, a short code (`76VW+59` recovered against the game's existing coords, else its City via Nominatim), or raw lat/lon; all are normalized to the long/global code on save. **Generate** geocodes the Start Name + Start Address + City via Nominatim, then stores the encoded code. There is no standalone Mission Control starting-locations page; edit these values in Builder.
-- **Landing page** ([game/run/index.html](game/run/index.html)): every rendezvous map / directions surface (background map, directions lightbox, "open in Maps" link, share link) uses the stored `starting_location_plus_code` first, decodes it for local map/weather UI, and falls back to lat/lon only for legacy rows missing the code.
+- **Landing page** ([mc/game/run/index.html](mc/game/run/index.html)): every rendezvous map / directions surface (background map, directions lightbox, "open in Maps" link, share link) uses the stored `starting_location_plus_code` first, decodes it for local map/weather UI, and falls back to lat/lon only for legacy rows missing the code.
 
 **Always use the LONG / global code** (e.g. `8FVC9G8F+6XQ`), not a short code (`9G8F+6X`). The long form resolves anywhere with no locality; the maps get only the code, so a short code would fail to resolve. The default code length is 11 chars (≈3.5 m) and **must match between the two files** so the builder's displayed code equals what the map uses.
 
 **Why a Plus Code instead of address/lat,lon for maps:** it pins the exact meeting point and never reverse-resolves the coordinates to a nearby business (the old failure mode, e.g. "Shop Science"). In `getDestinationParam` the precedence is **stored Plus Code -> derived Plus Code from legacy lat/lon -> typed Start Address (only when there are no coordinates)**. The Plus Code's `+` must be `encodeURIComponent`'d (`%2B`) before going into a query string.
 
-**How to apply:** The codec is **duplicated** in the two files (not shared) — like `TEAM_COLOR_ORDER`, keep them in sync. If you extract it to a shared module under `/game/run/config/`, update this section. When adding the new `starting_location_*` meta fields, remember the `initGameMeta` camelCase-fallback rule below.
+**How to apply:** The codec is **duplicated** in the two files (not shared) — like `TEAM_COLOR_ORDER`, keep them in sync. If you extract it to a shared module under `/mc/game/run/config/`, update this section. When adding the new `starting_location_*` meta fields, remember the `initGameMeta` camelCase-fallback rule below.
 
 ---
 
@@ -304,8 +313,8 @@ Start locations are **stored as long/global Google Plus Codes** in the `games` t
 
 The game rotates stops within a `stopGroup` (A–E) using a Latin-square offset keyed off `vars['team_color']`. The mapping lives in `TEAM_COLOR_ORDER`, defined **separately in each engine**:
 
-- [game/run/text/index.html](game/run/text/index.html) (~line 1305)
-- [game/run/map/index.html](game/run/map/index.html) (~line 1560)
+- [mc/game/run/text/index.html](mc/game/run/text/index.html) (~line 1305)
+- [mc/game/run/map/index.html](mc/game/run/map/index.html) (~line 1560)
 
 Both files also define `getTeamColorRotationIndex` and `getStopRotationOffset` directly below the array.
 
@@ -319,7 +328,7 @@ Both files also define `getTeamColorRotationIndex` and `getStopRotationOffset` d
 
 Fallback: if `team_color` is missing or not one of the five, the older `team1..team8` number logic supplies the offset (`teamN - 1`). The offset is applied modulo the group's length, so shorter groups still rotate cleanly.
 
-**How to apply:** If team colors change, update `TEAM_COLOR_ORDER` **in both engine files** — the array is not shared. The array order *is* the offset, so don't reshuffle casually — existing stop content may be ordered assuming BLUE = the canonical "position 0" view. If this ever gets extracted to a shared module under `/game/run/config/`, update this section to point at the new location.
+**How to apply:** If team colors change, update `TEAM_COLOR_ORDER` **in both engine files** — the array is not shared. The array order *is* the offset, so don't reshuffle casually — existing stop content may be ordered assuming BLUE = the canonical "position 0" view. If this ever gets extracted to a shared module under `/mc/game/run/config/`, update this section to point at the new location.
 
 ---
 

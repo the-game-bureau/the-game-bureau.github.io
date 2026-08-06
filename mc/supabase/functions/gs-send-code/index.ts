@@ -56,7 +56,7 @@ function siteOrigin(): string {
 }
 
 function gameUrl(gameId: string, code = ''): string {
-  const url = new URL(siteOrigin() + '/game/run/');
+  const url = new URL(siteOrigin() + '/mc/game/run/');
   url.searchParams.set('id', gameId);
   if (code) {
     url.searchParams.set('access_code', code);

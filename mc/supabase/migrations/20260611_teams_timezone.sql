@@ -7,7 +7,7 @@
 -- not Central). This stores the exact IANA timezone on the team row, with an
 -- optional per-game override on games.
 --
--- Runtime precedence (game/run/index.html → eventLocalTime):
+-- Runtime precedence (mc/game/run/index.html → eventLocalTime):
 --   games.timezone  →  home team teams.timezone  →  state→tz approximation.
 
 alter table public.teams add column if not exists timezone text;

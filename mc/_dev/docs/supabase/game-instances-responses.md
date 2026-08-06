@@ -4,7 +4,7 @@ Groundwork for recording who plays the games and what they answer, so we can
 build stats. Introduced 2026-06-25.
 
 Migration: [`mc/supabase/migrations/20260625_game_instances_responses.sql`](../../../supabase/migrations/20260625_game_instances_responses.sql)
-Client: [`game/run/config/instance-tracker.js`](../../../game/run/config/instance-tracker.js) (`window.TgbInstance`)
+Client: [`mc/game/run/config/instance-tracker.js`](../../game/run/config/instance-tracker.js) (`window.TgbInstance`)
 
 ## Vocabulary
 

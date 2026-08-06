@@ -49,26 +49,26 @@ Use `location` only for technical geographic fields and browser APIs. `waypoint`
 Canonical public URL for a game:
 
 ```
-https://thegamebureau.com/game/run/?id={game-id}
-https://thegamebureau.com/game/run/?game={game-name}
+https://thegamebureau.com/mc/game/run/?id={game-id}
+https://thegamebureau.com/mc/game/run/?game={game-name}
 ```
 
-`/game/run/index.html` is the **landing page** (hero, intro, price, Start button). The Start button forwards to the chosen engine. Engines live as sibling folders under [/game/run/](game/run/):
+`/mc/game/run/index.html` is the **landing page** (hero, intro, price, Start button). The Start button forwards to the chosen engine. Engines live as sibling folders under [/game/run/](mc/game/run/):
 
-- **`text`** (default — used when `e` is absent or unknown) → [game/run/text/](game/run/text/) — iMessage-style chat engine.
-- **`map`** → [game/run/map/](game/run/map/) — parchment map / pin engine; tapping the pin starts the message flow.
+- **`text`** (default — used when `e` is absent or unknown) → [mc/game/run/text/](mc/game/run/text/) — iMessage-style chat engine.
+- **`map`** → [mc/game/run/map/](mc/game/run/map/) — parchment map / pin engine; tapping the pin starts the message flow.
 
 Legacy numeric values are aliased: `e=1` → text, `e=2` → map. Both `?id=` and `?game=` are accepted by the engines themselves.
 
 The Supabase `games` record carries an `engine` column (string, nullable; values like `text` or `map`). Precedence on the landing page: **URL `?e=` → DB `engine` column → default (`text`)**.
 
-Shared, non-engine-specific assets (e.g. `config/lemon-config.js`) live at [game/run/config/](game/run/config/).
+Shared, non-engine-specific assets (e.g. `config/lemon-config.js`) live at [mc/game/run/config/](mc/game/run/config/).
 
 Standalone mini-games live at the root-level [minigames/](minigames/) folder and are listed in [minigames/manifest.json](minigames/manifest.json). Engines launch them from `/minigames/...`; Mission Control reads the manifest from that root-level folder.
 
-**Adding an engine:** drop a new folder under `/game/run/` and add a key/value to the `ENGINES` map in the Start-button code inside [game/run/index.html](game/run/index.html).
+**Adding an engine:** drop a new folder under `/mc/game/run/` and add a key/value to the `ENGINES` map in the Start-button code inside [mc/game/run/index.html](mc/game/run/index.html).
 
-**History:** Until 2026-05-17 engines lived under `/game/play/` and `/game/play/index.html` was a thin router. That folder was merged into `/game/run/` and the router was deleted. Old `/game/play/...` URLs no longer resolve.
+**History:** Until 2026-05-17 engines lived under `/mc/game/play/` and `/mc/game/play/index.html` was a thin router. That folder was merged into `/mc/game/run/` and the router was deleted. Old `/mc/game/play/...` URLs no longer resolve.
 
 ---
 
@@ -77,7 +77,7 @@ Standalone mini-games live at the root-level [minigames/](minigames/) folder and
 Start locations are **stored as long/global Google Plus Codes** in the `games` table (`starting_location_plus_code`). That column is the source of truth for the rendezvous point. `starting_location_lat` / `starting_location_lon` stay populated only as decoded compatibility fields for local maps, weather, reverse-geocoding, and older surfaces.
 
 - **Builder** ([mc/builder.html](mc/builder.html)): the "Start Plus Code" field shows/accepts a Plus Code and writes `starting_location_plus_code`. It also decodes the code into `starting_location_lat` / `starting_location_lon` for compatibility. Typed input accepts a full code, a short code (`76VW+59` recovered against the game's existing coords, else its City via Nominatim), or raw lat/lon; all are normalized to the long/global code on save. There is no standalone Mission Control starting-locations page; edit these values in Builder.
-- **Landing page** ([game/run/index.html](game/run/index.html)): every rendezvous map / directions surface uses the stored `starting_location_plus_code` first, decodes it for local map/weather UI, and falls back to lat/lon only for legacy rows missing the code.
+- **Landing page** ([mc/game/run/index.html](mc/game/run/index.html)): every rendezvous map / directions surface uses the stored `starting_location_plus_code` first, decodes it for local map/weather UI, and falls back to lat/lon only for legacy rows missing the code.
 
 Always use the LONG / global code (e.g. `8FVC9G8F+6XQ`), not a short code (`9G8F+6X`). The long form resolves anywhere with no locality. The Plus Code's `+` must be URL-encoded (`%2B`) before going into a query string.
 
@@ -87,8 +87,8 @@ Always use the LONG / global code (e.g. `8FVC9G8F+6XQ`), not a short code (`9G8F
 
 The game rotates stops within a `stopGroup` (A–E) using a Latin-square offset keyed off `vars['team_color']`. The mapping lives in `TEAM_COLOR_ORDER`, defined **separately in each engine**:
 
-- [game/run/text/index.html](game/run/text/index.html) (~line 1305)
-- [game/run/map/index.html](game/run/map/index.html) (~line 1560)
+- [mc/game/run/text/index.html](mc/game/run/text/index.html) (~line 1305)
+- [mc/game/run/map/index.html](mc/game/run/map/index.html) (~line 1560)
 
 Both files also define `getTeamColorRotationIndex` and `getStopRotationOffset` directly below the array.
 
@@ -102,7 +102,7 @@ Both files also define `getTeamColorRotationIndex` and `getStopRotationOffset` d
 
 Fallback: if `team_color` is missing or not one of the five, the older `team1..team8` number logic supplies the offset (`teamN - 1`). The offset is applied modulo the group's length, so shorter groups still rotate cleanly.
 
-**How to apply:** If team colors change, update `TEAM_COLOR_ORDER` **in both engine files** — the array is not shared. The array order *is* the offset, so don't reshuffle casually — existing stop content may be ordered assuming BLUE = the canonical "position 0" view. If this ever gets extracted to a shared module under `/game/run/config/`, update this section to point at the new location.
+**How to apply:** If team colors change, update `TEAM_COLOR_ORDER` **in both engine files** — the array is not shared. The array order *is* the offset, so don't reshuffle casually — existing stop content may be ordered assuming BLUE = the canonical "position 0" view. If this ever gets extracted to a shared module under `/mc/game/run/config/`, update this section to point at the new location.
 
 ---
 

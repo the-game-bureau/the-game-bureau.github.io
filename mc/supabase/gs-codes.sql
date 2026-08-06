@@ -1,7 +1,7 @@
 -- gift-codes — Stripe-backed access codes that unlock a specific game.
 --
 -- Buyer flow:
---   1. Buyer clicks "Gift this game" on /game/run/?id=X
+--   1. Buyer clicks "Gift this game" on /mc/game/run/?id=X
 --   2. gs-create-checkout Edge Function creates Stripe Embedded Checkout
 --      + inserts a 'pending' row keyed on stripe_session_id with a
 --      pre-issued access code.

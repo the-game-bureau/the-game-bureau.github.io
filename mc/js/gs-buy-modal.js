@@ -1,6 +1,6 @@
 // gs-buy-modal — shared "Buy this game" / "Send access code" modal.
 //
-// Flow (unified for /game/run/ landing card and /gifts/ shop):
+// Flow (unified for /mc/game/run/ landing card and /gifts/ shop):
 //   1. intro   — confirms the game + price, "Continue to payment" CTA
 //   2. checkout— Stripe Embedded Checkout
 //   3. success — shows the issued TGB-XXXX-XXXX access code with two actions:
@@ -348,7 +348,7 @@
     var selected = game || {};
     var params = new URLSearchParams(global.location.search || '');
     var engine = normalizeEngine(params.get('e') || selected.engine);
-    var url = new URL('/game/run/' + engine + '/', global.location.origin);
+    var url = new URL('/mc/game/run/' + engine + '/', global.location.origin);
     url.searchParams.set('id', selected.id || '');
     var normalized = normalizeAccessCode(code);
     if (normalized) {
