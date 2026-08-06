@@ -217,6 +217,16 @@ The repo root used to hold the back end beside the public site. On 2026-08-06 it
 | `supabase/` | `mc/supabase/` | Migrations, edge functions, prompt-import SQL. |
 | `account/` | `mc/account/` | Still a **public** page wearing public chrome — moved for tidiness, not because it became internal. |
 | `game/` | `mc/game/` | The player runtime. See the hard break below. |
+| `minigames/` | `mc/minigames/` | Loaded mid-game by both engines and listed in `manifest.json`. |
+| `how/` | `mc/how/` | "How It Works" — public marketing copy, still in the public nav. |
+| `sampler/` | `mc/sampler/` | Public page plus the JSON its scheduled scraper writes. |
+| `survey/` | `mc/survey/` | Public page. Nothing links to it in-repo. |
+
+`win/` was **deleted** rather than moved. It was a redirect stub whose only job was catching old `/win/` links and forwarding to `/highlights/ww.html`; moved under `mc/` it would have caught nothing, since nobody holds a `/mc/win/` link. Nothing in the repo linked to it.
+
+**Four folders stayed at the root and are not candidates for a later move:** `assets/`, `games/`, `gifts/`, `highlights/`, `soundtracks/` and `index.html`. `assets/` in particular looks movable and is not — see the warning below.
+
+> **`assets/` must stay at the root.** 394 of 395 rows in `public.games` store absolute URLs of the form `https://thegamebureau.com/assets/guides/<file>.png`. Moving the folder 404s every guide image on the live site, and the repair is an `UPDATE` against `games` needing a service-role key — not a code change. `GUIDE_ASSET_BASE_URL` in [mc/guides.html](mc/guides.html), `GAME_LOGO_ASSET_BASE_URL` in [games/admin/profiles.html](games/admin/profiles.html) and the `og:image` tags on five public pages all assume the public path too. Considered and rejected on 2026-08-06.
 
 **Two of those moves broke live URLs, and neither can be redirected** — GitHub Pages serves no 301.
 
@@ -231,6 +241,8 @@ Deleted the same day, all scratch: `.tmp/`, `.tmp_auth_checks/`, `.tmp_auth_chec
 
 **Root-level files stayed put deliberately.** `AGENTS.md`, `.codex`, `.hintrc`, `.env` / `.env.example`, `.gitattributes`, `.gitignore`, `.nojekyll`, `CNAME`, `CLAUDE.md` and `index.html` are each discovered by a tool at the repo root by convention; moving them breaks that tool silently rather than loudly. The backup scripts specifically read `REPO_ROOT/.env`.
 
+**The sampler pipeline was repaired in the same pass.** `sampler_scraper.py` computed its output directory as `REPO_ROOT / "site" / "sampler"` and the workflow ran `git add site/sampler/…` — a `site/` folder that has not existed since the repo was flattened out of the old layout. Every scheduled run therefore wrote into a phantom directory and committed nothing, so the published `sampler.json` had been frozen for however long that has been true. It is `REPO_ROOT / "mc" / "sampler"` now, with `REPO_ROOT` taken from `parents[2]` because the script sits at `mc/_dev/scripts/`. The `.vscode/launch.json` debug configs pointed at a `sampler/sampler_scraper.py` that also did not exist, and now point at the real file.
+
 **`.gitignore` and the deploy excludes are now anchored paths, not bare names.** `backups/` used to match a directory of that name at any depth, which quietly covered both the root backups folder and `_dev/backups/` with one line; the entries are `mc/backups/` and `mc/_dev/backups/` now, and the rsync excludes in [.github/workflows/deploy.yml](.github/workflows/deploy.yml) are `mc/_dev` and `mc/backups`. If you add another back-end folder under `mc/`, add its exclude explicitly — it will otherwise ship to the public site, because `mc/` itself is deployed.
 
 ---
@@ -242,15 +254,15 @@ Use **"site pages"** to mean the public-site pages that share the same navigatio
 - [index.html](index.html)
 - every file matched by `mc/account/**/*.html` — moved under `mc/` on 2026-08-06 but still a public page wearing public chrome, so shared-chrome work still applies to it
 - every file matched by `birthdayball/**/*.html`
-- every file matched by `how/**/*.html`
+- every file matched by `mc/how/**/*.html`
 - every file matched by `ww/**/*.html`
 - [gifts/index.html](gifts/index.html) — the public shop. The folder has been `/gifts/` → `/shop/` (2026-06-26) → `/gifts/` (2026-07-30); **each move was a hard break with no redirect**, because GitHub Pages cannot serve a 301, so any `/shop/?city=` link shared while that path was live is now dead. Only `gifts/index.html` is a site page; the other files under `gifts/` (`admin/index.html` — the gift-shop admin, formerly `gs-shop.html`; `giftcards.html` — access-codes + Game Play Stats, formerly `gs-codes.html`; `scripts/`; `shop_banner.png`) are moved gift-shop admin/assets that keep Mission Control chrome, not public chrome. The image filenames still read `shop_*`; only the folder was renamed.
 - every file matched by `highlights/**/*.html`
-- every file matched by `sampler/**/*.html`
-- every file matched by `survey/**/*.html`
+- every file matched by `mc/sampler/**/*.html`
+- every file matched by `mc/survey/**/*.html`
 - every file matched by `assets/**/*.html`
 
-This grouping is the public website surface for shared chrome work such as navigation, shared public CSS, metadata, and broad visual consistency. If a future task says "update the site pages nav," apply it to [index.html](index.html), `/mc/account/**/*.html`, `/birthdayball/**/*.html`, `/how/**/*.html`, `/ww/**/*.html`, `/gifts/index.html`, `/highlights/**/*.html`, `/sampler/**/*.html`, `/survey/**/*.html`, and `/assets/**/*.html` pages together. The site pages nav centers the primary `GAMES` and `GIFTS` links and keeps How It Works and Winner's Wall as utility links. The `GIFTS` nav link points at `/gifts/`, which is where the shop lives again as of 2026-07-30; `/shop/` was removed the same way `/gifts/` had been on 2026-06-26 — hard break, no redirect. As of 2026-05-27 the public nav has no visible Login / Mission Control entry — admins reach `/mc/*` by typing the URL directly. The three admin scripts (`/mc/js/admin-auth.js`, `/assets/admin-bridge.js`, `/assets/site-nav-login.js`) are still included on public pages so an admin who is already signed in still sees the floating EDIT buttons painted by `admin-bridge.js`; only the visible Login UI was stripped. The shared site pages CSS lives at [assets/site-pages.css](assets/site-pages.css).
+This grouping is the public website surface for shared chrome work such as navigation, shared public CSS, metadata, and broad visual consistency. If a future task says "update the site pages nav," apply it to [index.html](index.html), `/mc/account/**/*.html`, `/birthdayball/**/*.html`, `/mc/how/**/*.html`, `/ww/**/*.html`, `/gifts/index.html`, `/highlights/**/*.html`, `/mc/sampler/**/*.html`, `/mc/survey/**/*.html`, and `/assets/**/*.html` pages together. The site pages nav centers the primary `GAMES` and `GIFTS` links and keeps How It Works and Winner's Wall as utility links. The `GIFTS` nav link points at `/gifts/`, which is where the shop lives again as of 2026-07-30; `/shop/` was removed the same way `/gifts/` had been on 2026-06-26 — hard break, no redirect. As of 2026-05-27 the public nav has no visible Login / Mission Control entry — admins reach `/mc/*` by typing the URL directly. The three admin scripts (`/mc/js/admin-auth.js`, `/assets/admin-bridge.js`, `/assets/site-nav-login.js`) are still included on public pages so an admin who is already signed in still sees the floating EDIT buttons painted by `admin-bridge.js`; only the visible Login UI was stripped. The shared site pages CSS lives at [assets/site-pages.css](assets/site-pages.css).
 
 ---
 

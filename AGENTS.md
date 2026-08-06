@@ -18,15 +18,15 @@ Use **"site pages"** to mean the public-site pages that share the same navigatio
 - [index.html](index.html)
 - every file matched by `mc/account/**/*.html` — moved under `mc/` on 2026-08-06 but still a public page wearing public chrome, so shared-chrome work still applies to it
 - every file matched by `birthdayball/**/*.html`
-- every file matched by `how/**/*.html`
+- every file matched by `mc/how/**/*.html`
 - every file matched by `ww/**/*.html`
 - [gifts/index.html](gifts/index.html) — the public shop (at `/gifts/` → `/shop/` 2026-06-26 → back to `/gifts/` 2026-07-30). Only `gifts/index.html` is a site page; the other files under `gifts/` are moved gift-shop admin/assets that keep Mission Control chrome.
 - every file matched by `highlights/**/*.html`
-- every file matched by `sampler/**/*.html`
-- every file matched by `survey/**/*.html`
+- every file matched by `mc/sampler/**/*.html`
+- every file matched by `mc/survey/**/*.html`
 - every file matched by `assets/**/*.html`
 
-This grouping is the public website surface for shared chrome work such as navigation, shared public CSS, metadata, and broad visual consistency. If a future task says "update the site pages nav," apply it to [index.html](index.html), `/mc/account/**/*.html`, `/birthdayball/**/*.html`, `/how/**/*.html`, `/ww/**/*.html`, `/gifts/index.html`, `/highlights/**/*.html`, `/sampler/**/*.html`, `/survey/**/*.html`, and `/assets/**/*.html` pages together. The site pages nav centers the primary `GAMES` and `GIFTS` links and keeps How It Works and Winner's Wall as utility links. The `GIFTS` nav link points at `/gifts/`, where the shop lives again as of 2026-07-30; `/shop/` was removed the same way `/gifts/` had been on 2026-06-26 — hard break, no redirect. As of 2026-05-27 the public nav has no visible Login / Mission Control entry — admins reach `/mc/*` by typing the URL directly. The three admin scripts (`/mc/js/admin-auth.js`, `/assets/admin-bridge.js`, `/assets/site-nav-login.js`) are still included on public pages so an admin who is already signed in still sees the floating EDIT buttons painted by `admin-bridge.js`; only the visible Login UI was stripped. The shared site pages CSS lives at [assets/site-pages.css](assets/site-pages.css).
+This grouping is the public website surface for shared chrome work such as navigation, shared public CSS, metadata, and broad visual consistency. If a future task says "update the site pages nav," apply it to [index.html](index.html), `/mc/account/**/*.html`, `/birthdayball/**/*.html`, `/mc/how/**/*.html`, `/ww/**/*.html`, `/gifts/index.html`, `/highlights/**/*.html`, `/mc/sampler/**/*.html`, `/mc/survey/**/*.html`, and `/assets/**/*.html` pages together. The site pages nav centers the primary `GAMES` and `GIFTS` links and keeps How It Works and Winner's Wall as utility links. The `GIFTS` nav link points at `/gifts/`, where the shop lives again as of 2026-07-30; `/shop/` was removed the same way `/gifts/` had been on 2026-06-26 — hard break, no redirect. As of 2026-05-27 the public nav has no visible Login / Mission Control entry — admins reach `/mc/*` by typing the URL directly. The three admin scripts (`/mc/js/admin-auth.js`, `/assets/admin-bridge.js`, `/assets/site-nav-login.js`) are still included on public pages so an admin who is already signed in still sees the floating EDIT buttons painted by `admin-bridge.js`; only the visible Login UI was stripped. The shared site pages CSS lives at [assets/site-pages.css](assets/site-pages.css).
 
 ---
 
@@ -64,7 +64,7 @@ The Supabase `games` record carries an `engine` column (string, nullable; values
 
 Shared, non-engine-specific assets (e.g. `config/lemon-config.js`) live at [mc/game/run/config/](mc/game/run/config/).
 
-Standalone mini-games live at the root-level [minigames/](minigames/) folder and are listed in [minigames/manifest.json](minigames/manifest.json). Engines launch them from `/minigames/...`; Mission Control reads the manifest from that root-level folder.
+Standalone mini-games live at the root-level [mc/minigames/](mc/minigames/) folder and are listed in [mc/minigames/manifest.json](mc/minigames/manifest.json). Engines launch them from `/minigames/...`; Mission Control reads the manifest from that root-level folder.
 
 **Adding an engine:** drop a new folder under `/mc/game/run/` and add a key/value to the `ENGINES` map in the Start-button code inside [mc/game/run/index.html](mc/game/run/index.html).
 

@@ -4,12 +4,12 @@ sampler_scraper.py — data pipeline for the Jazz Fest 2026 Sampler.
 
 PROJECT
 -------
-The Sampler is a single-page mobile web app at /sampler that plays a 30-second
+The Sampler is a single-page mobile web app at /mc/sampler/ that plays a 30-second
 preview of the most popular song by every artist playing New Orleans that day
 (Apr 23 – May 3, 2026). Tagline: "thirty seconds of sound from everyone in town." The page
-is static HTML + JS; all data lives in site/sampler/sampler.json next to index.html.
+is static HTML + JS; all data lives in mc/sampler/sampler.json next to index.html.
 
-    site/sampler/
+    mc/sampler/
       index.html          # UI. Reads sampler.json on load.
       sampler.json        # this script writes it
       main.jpg            # hero image
@@ -84,20 +84,20 @@ them in sync.
 
 USAGE
 -----
-  python _dev/scripts/sampler_scraper.py                     # quick default — upgrades
+  python mc/_dev/scripts/sampler_scraper.py                     # quick default — upgrades
                                                               # today's fallback rows only
-  python _dev/scripts/sampler_scraper.py -i                  # interactive day-picker prompt
-  python _dev/scripts/sampler_scraper.py --date 2026-04-23   # non-interactive, one day
-  python _dev/scripts/sampler_scraper.py --no-scrape         # just re-run the resolver
-  python _dev/scripts/sampler_scraper.py --no-resolve        # just scrape
-  python _dev/scripts/sampler_scraper.py --force-resolve     # re-resolve every show
-  python _dev/scripts/sampler_scraper.py --upgrade-fallbacks # only re-resolve rows with no preview
-  python _dev/scripts/sampler_scraper.py --skip deezer       # skip a resolver
-  python _dev/scripts/sampler_scraper.py --only nola.show    # limit scraping source
-  python _dev/scripts/sampler_scraper.py --workers 8         # resolver concurrency
-  python _dev/scripts/sampler_scraper.py --query "Kings of Leon"   # one-off resolver check
-  python _dev/scripts/sampler_scraper.py --validate          # audit sampler.json, no writes
-  python _dev/scripts/sampler_scraper.py --dry-run           # print what would be written
+  python mc/_dev/scripts/sampler_scraper.py -i                  # interactive day-picker prompt
+  python mc/_dev/scripts/sampler_scraper.py --date 2026-04-23   # non-interactive, one day
+  python mc/_dev/scripts/sampler_scraper.py --no-scrape         # just re-run the resolver
+  python mc/_dev/scripts/sampler_scraper.py --no-resolve        # just scrape
+  python mc/_dev/scripts/sampler_scraper.py --force-resolve     # re-resolve every show
+  python mc/_dev/scripts/sampler_scraper.py --upgrade-fallbacks # only re-resolve rows with no preview
+  python mc/_dev/scripts/sampler_scraper.py --skip deezer       # skip a resolver
+  python mc/_dev/scripts/sampler_scraper.py --only nola.show    # limit scraping source
+  python mc/_dev/scripts/sampler_scraper.py --workers 8         # resolver concurrency
+  python mc/_dev/scripts/sampler_scraper.py --query "Kings of Leon"   # one-off resolver check
+  python mc/_dev/scripts/sampler_scraper.py --validate          # audit sampler.json, no writes
+  python mc/_dev/scripts/sampler_scraper.py --dry-run           # print what would be written
 
 Requires beautifulsoup4 for jazzfestgrids parsing (pip install beautifulsoup4).
 """
@@ -127,8 +127,12 @@ except ImportError:
     HAS_BS4 = False
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[1]
-PUBLIC_SAMPLER_DIR = REPO_ROOT / "site" / "sampler"
+# parents[2] because this script sits at mc/_dev/scripts/. It pointed at a
+# "site/sampler" that has not existed since the repo was flattened out of the
+# old site/ layout, so every scheduled run wrote to a phantom directory and
+# the committed sampler.json never changed. Fixed 2026-08-06 with the move.
+REPO_ROOT = SCRIPT_DIR.parents[2]
+PUBLIC_SAMPLER_DIR = REPO_ROOT / "mc" / "sampler"
 JSON_PATH = PUBLIC_SAMPLER_DIR / "sampler.json"
 
 # Scrape order (priority descending). Higher-priority sources seed the JSON
@@ -177,7 +181,7 @@ FESTIVAL_DATES = {
 }
 
 # ---------- Contract with index.html -------------------------------------
-# Any change here should be mirrored in the JS in sampler/index.html.
+# Any change here should be mirrored in the JS in mc/sampler/index.html.
 
 SCHEMA_VERSION = 1
 
