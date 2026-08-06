@@ -2548,14 +2548,33 @@
         return span;
       }
 
-      // ── City panel: fetch all cities, build the rail + spyglass search ─────
-      // Fetch all city rows so venue-only cities (cities.ignored) can block
-      // matching soundtrack slugs from the active public list.
-      function fetchCities() {
-        return fetchJson(buildSupabaseUrl('cities', {
-          select: '*',
-          order: 'city.asc'
-        }), {
+      // ── City panel: fetch the cities behind the tapes, build the rail ──────
+      // Only a city that HAS a tape is ever rendered here, so ask for those rows
+      // rather than the whole catalogue. That catalogue is ~1350 rows / ~370 KB
+      // and about 78 of them matter, which made it the single heaviest thing on
+      // the page (measured 2026-08-06).
+      //
+      // Two rules this must not break:
+      //   * `select` stays '*'. Naming columns 400s on a database that has not
+      //     run a migration yet, which is why the whole page avoids column lists.
+      //     This narrows ROWS, not columns, so that property is untouched.
+      //   * the filter is on `slug` only — the primary key, which cannot be
+      //     missing or renamed. No dependency on a hide flag is introduced.
+      //
+      // Falls back to the unfiltered fetch when there are no slugs yet, or when
+      // the list is long enough to risk a URL-length limit; correctness first,
+      // the saving is only an optimisation.
+      var CITY_FILTER_MAX_SLUGS = 300;
+
+      function fetchCities(slugs) {
+        var params = { select: '*', order: 'city.asc' };
+        var list = (Array.isArray(slugs) ? slugs : []).filter(Boolean);
+        if (list.length && list.length <= CITY_FILTER_MAX_SLUGS) {
+          // Slugs are [a-z0-9-] by construction (tgb_city_slug), so they need no
+          // quoting inside in.(); buildSupabaseUrl encodes the value as a whole.
+          params.slug = 'in.(' + list.join(',') + ')';
+        }
+        return fetchJson(buildSupabaseUrl('cities', params), {
           headers: SB_HEADERS,
           cache: 'no-store'
         });
@@ -2750,7 +2769,9 @@
         fetchSoundtracks()
           .then(function (data) {
             var soundtracks = indexSoundtracks(data || {});
-            return fetchCities()
+            // soundtracksBySlug is filled by indexSoundtracks above, so the tape
+            // slugs are known here and the city fetch can ask for just those.
+            return fetchCities(Object.keys(soundtracksBySlug))
               .catch(function (error) {
                 console.warn('City catalog unavailable; rendering soundtrack slug fallback.', error);
                 return fallbackCityRowsFromSoundtracks(soundtracks);

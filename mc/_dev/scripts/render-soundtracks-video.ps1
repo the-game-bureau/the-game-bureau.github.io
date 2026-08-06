@@ -4,6 +4,9 @@ $ErrorActionPreference = 'Stop'
 $Root = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
 $OutDir = Resolve-Path $PSScriptRoot
 $Ffmpeg = Join-Path $Root '.tmp\video-tools\node_modules\ffmpeg-static\ffmpeg.exe'
+# NOTE: soundtracks.jpg became a 1200x630 social share card on 2026-08-06.
+# The full-size art is soundtracks.webp (1800x1013), which System.Drawing
+# cannot open -- supply a full-size source before rendering.
 $HeroPath = Join-Path $Root 'soundtracks\soundtracks.jpg'
 $LogoPath = Join-Path $Root 'assets\brand\logo.png'
 
