@@ -2696,9 +2696,16 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         postDialogMenu.appendChild(menu);
 
         if (postCloseBtn) postCloseBtn.textContent = 'Close';
-        // Focus the run button, not the Close button openTool would pick by
-        // document order — the common case is Post → Enter.
-        openTool(postCard, postBackdrop, menu.querySelector('.autopost-go'));
+        // Focus the first ENABLED action, not the Close button openTool would
+        // pick by document order. It matters that this is "first enabled" and
+        // not simply the first: with no platform wired for API posting, Post is
+        // disabled, and focusing a disabled button drops focus to the body and
+        // makes Enter do nothing. Manual post takes the focus in that case.
+        var focusTarget = Array.prototype.filter.call(
+          menu.querySelectorAll('.autopost-go'),
+          function (b) { return !b.disabled; }
+        )[0] || null;
+        openTool(postCard, postBackdrop, focusTarget);
       }
 
       function closePostDialog() {
@@ -2839,34 +2846,7 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         youtube: 'https://studio.youtube.com/'
       };
 
-      function composeTarget(key) {
-        return PLATFORM_COMPOSERS[key] || PLATFORM_URLS[key] || '';
-      }
 
-      function autoPost(post, key, feedbackEl) {
-        var target = composeTarget(key);
-        // window.open must fire synchronously in the click handler to keep the
-        // user-gesture (otherwise the popup blocker eats it), so open first.
-        if (target) {
-          var w = window.open(target, '_blank');
-          if (w) w.opener = null;
-        }
-        // The clipboard is loaded on EVERY step, including the platforms whose
-        // composer we prefill. Two reasons it is not conditional: a prefill can
-        // silently fail (Facebook honours `quote` when it feels like it, X can
-        // drop a long `text`), and you often want the caption to hand anyway —
-        // to tweak it in the composer, or to paste it somewhere this page never
-        // opened. Belt and braces beats a composer that came up empty with
-        // nothing on the clipboard to rescue it.
-        //
-        // It is always caption + blank line + URL, the same on all four, so
-        // what you get is predictable rather than depending on which platform
-        // the run happened to end on.
-        var pasteKey = /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘V' : 'Ctrl+V';
-        copyToClipboard(clipboardText(post), feedbackEl,
-          '↓ Caption + link copied — paste into ' + PLATFORM_LABELS[key] + ' with ' + pasteKey,
-          true);
-      }
 
       // The picker the Post button reveals: the four accounts, tickable in
       // any combination, with the ones the agent tagged for this story marked
@@ -2889,6 +2869,48 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         youtube: 'Only with real video, or visual enough for a Short.'
       };
 
+      // ── Which platforms can actually be posted to by machine ──────────────
+      // Flip a flag to true ONLY once the Edge Function can genuinely post
+      // there. The page holds no credentials and never will: it is static HTML
+      // in a public repo, so a token in this file is a published token. Posting
+      // happens in a Supabase Edge Function that holds the secrets, exactly as
+      // stripe-webhook and gs-send-code do.
+      //
+      // youtube is false and is not a "not yet": the Data API uploads videos,
+      // and Community posts have no public API at all. There is no version of
+      // this feature that posts text to YouTube, so that row is Manual forever.
+      //
+      // instagram will need more than a flag when it comes: the Content
+      // Publishing API refuses text-only posts, so it needs an image at a
+      // public URL, and the `image` we hold is the article's own og:image --
+      // someone else's photograph.
+      var PLATFORM_AUTOPOST = {
+        x: false,          // API v2 POST /2/tweets, needs a paid developer tier
+        facebook: false,   // Graph API POST /{page-id}/feed, needs App Review
+        instagram: false,  // needs a Business account AND an image we own
+        youtube: false     // impossible, see above
+      };
+
+      var AUTOPOST_ENDPOINT = 'socials-post';   // Supabase Edge Function, not built yet
+
+      function autoPostable(keys) {
+        return keys.filter(function (k) { return PLATFORM_AUTOPOST[k]; });
+      }
+
+      // Posts through the Edge Function. Resolves to the list of platforms that
+      // actually went out, so a partial success is reported as a partial
+      // success rather than being rounded up to "posted".
+      async function postViaApi(post, keys) {
+        var res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/' + AUTOPOST_ENDPOINT, {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ id: postId(post), platforms: keys })
+        });
+        var body = await res.json().catch(function () { return {}; });
+        if (!res.ok) throw new Error(body.error || ('Post failed: ' + res.status));
+        return Array.isArray(body.posted) ? body.posted : [];
+      }
+
       function buildAutoPostMenu(post, feedbackEl, onPick, stableId) {
         var stateKey = stableId || postId(post);
         var tagged = {};
@@ -2903,14 +2925,11 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
 
         var hint = document.createElement('p');
         hint.className = 'autopost-hint';
-        hint.textContent = 'Tick the platforms you want, then open them one at a time. Each one copies the caption and link and opens that composer — paste, and post it there yourself. Nothing goes out on its own.';
+        hint.textContent = 'Tick the platforms this should go to. Post sends to the ones we can post to by machine; Manual post copies the caption and link so you can paste it yourself. Either way the candidate is marked posted.';
         menu.appendChild(hint);
 
         var picked = {};   // key -> ticked
-        var done = {};     // key -> already opened this run
         var buttons = {};
-        var queue = [];    // the run order, frozen when the run starts
-        var cursor = 0;
 
         // One row per account: the tick, then WHY it suits this story. The
         // agent's own reason when it tagged the platform, otherwise the standing
@@ -2954,78 +2973,117 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         });
         menu.appendChild(row);
 
+        // ── Post / Manual post / Cancel ───────────────────────────────────
+        // Replaced the one-composer-at-a-time stepper on 2026-08-06. The
+        // stepper existed because a browser grants one popup per gesture, so
+        // four tabs from one click got three eaten silently. Manual post drops
+        // that problem entirely: it opens nothing and puts the caption on the
+        // clipboard once.
         var run = document.createElement('div');
         run.className = 'autopost-run';
 
         var go = document.createElement('button');
         go.type = 'button';
         go.className = 'btn primary autopost-go';
+        go.textContent = 'Post';
+
+        var manual = document.createElement('button');
+        manual.type = 'button';
+        manual.className = 'btn autopost-go';
+        manual.textContent = 'Manual post';
+
+        var cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'btn autopost-go';
+        cancel.textContent = 'Cancel';
 
         var progress = document.createElement('span');
         progress.className = 'autopost-progress';
 
         run.appendChild(go);
+        run.appendChild(manual);
+        run.appendChild(cancel);
         run.appendChild(progress);
         menu.appendChild(run);
 
-        function pendingKeys() {
-          return PLATFORM_ORDER.filter(function (k) { return picked[k] && !done[k]; });
+        function pickedKeys() {
+          return PLATFORM_ORDER.filter(function (k) { return picked[k]; });
+        }
+
+        function labelsFor(keys) {
+          return keys.map(function (k) { return PLATFORM_LABELS[k]; });
+        }
+
+        // Marks the candidate posted and closes. Both buttons end here, so the
+        // row and the receipt are written the same way whichever route was
+        // taken. The list behind is not re-rendered until close (postDialogDirty),
+        // so the card cannot vanish from under a notice.
+        function finish(keys, note) {
+          return savePost(stateKey, {
+            status: 'posted',
+            posted_platforms: keys.length ? labelsFor(keys) : null
+          }).then(function () {
+            postDialogDirty = true;
+            if (typeof onPick === 'function') onPick(labelsFor(keys));
+            closePostDialog();
+          }).catch(function (err) {
+            stick(feedbackEl, (note || 'Done') + ', but could not mark posted: ' + err.message);
+          });
         }
 
         function syncRun() {
-          queue = pendingKeys();
-          cursor = 0;
-          var doneCount = PLATFORM_ORDER.filter(function (k) { return done[k]; }).length;
-          var total = doneCount + queue.length;
+          var keys = pickedKeys();
+          var auto = autoPostable(keys);
+          manual.disabled = !keys.length;
+          go.disabled = !auto.length;
 
-          PLATFORM_ORDER.forEach(function (k) {
-            buttons[k].classList.toggle('is-done', !!done[k]);
-          });
-
-          if (!queue.length) {
-            go.disabled = true;
-            go.textContent = doneCount ? 'All opened' : 'Open composer';
-            progress.textContent = doneCount ? doneCount + ' of ' + doneCount + ' opened' : 'Pick at least one';
-            return;
+          if (!keys.length) {
+            progress.textContent = 'Pick at least one platform';
+          } else if (!auto.length) {
+            // The honest state today: nothing is wired, so Post is off and the
+            // line says why rather than leaving a dead button unexplained.
+            progress.textContent = labelsFor(keys).join(', ') + ' — manual only';
+            go.title = 'No API posting is configured for the selected platforms yet. Use Manual post.';
+          } else {
+            progress.textContent = auto.length === keys.length
+              ? 'Posts to ' + labelsFor(auto).join(', ')
+              : 'Posts to ' + labelsFor(auto).join(', ') + '; the rest are manual';
+            go.title = '';
           }
-          go.disabled = false;
-          go.textContent = 'Open ' + PLATFORM_LABELS[queue[0]];
-          progress.textContent = total > 1
-            ? (doneCount + 1) + ' of ' + total + ' — ' + queue.length + ' to go'
-            : '';
         }
 
         go.addEventListener('click', function () {
-          var key = queue[cursor];
-          if (!key) return;
-          clearNotice(feedbackEl);   // a new step replaces the previous notice
-          autoPost(post, key, feedbackEl);   // one tab, this gesture
-          done[key] = true;
-          syncRun();
-          // Only collapse the menu once every ticked platform has been opened,
-          // so a multi-platform run keeps its Next button under the cursor.
-          if (!pendingKeys().length) {
-            // The run finished: every composer you asked for has been opened,
-            // so the candidate is marked POSTED with a record of where it went.
-            //
-            // The dialog deliberately STAYS OPEN. The last platform's "paste
-            // this in" notice is the one you need most, and closing on the
-            // final click would wipe it the instant it appeared. The list
-            // behind is not re-rendered until the dialog closes either, so the
-            // card cannot vanish from under the notice.
-            var wentTo = PLATFORM_ORDER
-              .filter(function (k) { return done[k]; })
-              .map(function (k) { return PLATFORM_LABELS[k]; });
-            savePost(stateKey, {
-              status: 'posted',
-              posted_platforms: wentTo.length ? wentTo : null
-            }).then(function () {
-              postDialogDirty = true;
-              if (typeof onPick === 'function') onPick(wentTo);
-            }).catch(function (err) {
-              stick(feedbackEl, 'Opened, but could not mark posted: ' + err.message);
-            });
-          }
+          var keys = pickedKeys();
+          var auto = autoPostable(keys);
+          if (!auto.length) return;
+          clearNotice(feedbackEl);
+          go.disabled = true;
+          manual.disabled = true;
+          progress.textContent = 'Posting…';
+          postViaApi(post, auto).then(function (went) {
+            // Record what actually went out, not what was asked for.
+            var sent = went.length ? went : auto;
+            finish(sent, 'Posted');
+          }).catch(function (err) {
+            stick(feedbackEl, 'Nothing was posted: ' + err.message);
+            syncRun();
+          });
+        });
+
+        manual.addEventListener('click', function () {
+          var keys = pickedKeys();
+          if (!keys.length) return;
+          clearNotice(feedbackEl);
+          var pasteKey = /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘V' : 'Ctrl+V';
+          // Copy first, mark second: the clipboard write needs the user gesture,
+          // and finish() closes the dialog.
+          copyToClipboard(clipboardText(post), feedbackEl,
+            'Caption + link copied — paste with ' + pasteKey, true);
+          finish(keys, 'Copied');
+        });
+
+        cancel.addEventListener('click', function () {
+          closePostDialog();   // decides nothing; the candidate stays in review
         });
 
         syncRun();
