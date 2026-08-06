@@ -34,6 +34,16 @@
 //   2. developers.facebook.com: the app is "TGB Socials". Under the CONTENT
 //      MANAGEMENT filter (not the Featured six -- none of those is right),
 //      add BOTH of these use cases:
+//      TWO INSTAGRAM APIS EXIST and the use case lists permissions for both.
+//      Take the Facebook-login pair, NOT the instagram_business_* pair:
+//        instagram_basic + instagram_content_publish   <- Page token,
+//            graph.facebook.com. This is what this function implements.
+//        instagram_business_basic + instagram_business_content_publish
+//            <- Instagram-login flavour, separate IG token via
+//            graph.instagram.com. Different code entirely; do not add these.
+//      In the use case's left nav pick "API setup with Facebook login" for
+//      the same reason. pages_show_list must also be present -- it is what
+//      makes /me/accounts return the Page in step 3c.
 //        "Manage everything on your Page"        -> pages_manage_posts,
 //                                                   pages_read_engagement
 //        "Manage messaging & content on Instagram" -> instagram_basic,
