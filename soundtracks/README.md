@@ -42,7 +42,8 @@ one means committing the new file over it, and the URL stays the same.
 
 ## Where the data lives
 
-Tapes moved out of `soundtracks/soundtracks.json` and into Supabase on **2026-07-29**.
+Tapes moved out of `soundtracks/soundtracks.json` and into Supabase on **2026-07-29**;
+the file lingered as an offline fallback until **2026-08-06**, when it was deleted.
 The file is still committed and still read — but only as a lifeboat.
 
 | Thing | Where | Notes |
@@ -53,9 +54,7 @@ The file is still committed and still read — but only as a lifeboat.
 | Audit findings | `public.soundtrack_issues` | One row per open finding: `city_slug`, `song_id` (null = whole tape), `kind`, `severity`, `detail`, `suggestion`, `status`. Not publicly readable. |
 | The write path for agents | `public.tgb_pull_soundtrack_songs(jsonb)` | Insert-only RPC callable with the publishable key. The routine's only way in. |
 | City names + geo badges | `public.cities` | Joined on `city_slug` = `cities.slug`. Also the gate: no tape for a city with `hide_from_soundtracks = true`. |
-| Offline fallback | `soundtracks/soundtracks.json` | What `/soundtracks/` renders when Supabase is unreachable. **Not the source of truth.** The daily run regenerates and commits it; never hand-edit it. |
-| The fallback exporter | `mc/_dev/scripts/soundtracks-export.mjs` | `node mc/_dev/scripts/soundtracks-export.mjs` rewrites that file from the tables, byte-stably. Read-only, publishable key, no secret. |
-| The public page | `soundtracks/index.html` | Reads both tables (paged, because PostgREST caps at 1000 rows), falls back to the JSON file on any error. |
+| The public page | `soundtracks/index.html` | Reads both tables (paged, because PostgREST caps at 1000 rows). Supabase is the only source; a failed fetch shows "Could not load soundtracks." |
 | The audit write path | `public.tgb_report_soundtrack_issues(jsonb)` | Insert-only RPC, publishable key. Files findings; cannot clear them. |
 | The dashboard | `soundtracks/admin/index.html` | An **Issues** panel (open findings, Fixed / Not an issue) above **Tapes & Tracks** — every tape collapsed by city, Hide/Show on both a tape and a track, **Edit** for every field on a track plus Move/Copy to another tape, a red ⚠ chip on any flagged track, each track stamped with when it was added, sortable by city / tape added / track added. Plus last run, viewer stats links, and the manual fallback prompt. |
 
@@ -290,10 +289,9 @@ winter costs nothing.
 5. Writes the songs through `tgb_pull_soundtrack_songs`, which puts them live on
    `/soundtracks/` immediately. **The newest song row is the run receipt** — that is
    what the dashboard's "Last run" reads, not a commit.
-6. Runs `node mc/_dev/scripts/soundtracks-export.mjs` and commits
-   `soundtracks/soundtracks.json` if it changed, so the offline fallback never drifts
-   more than a day behind the tables. That commit is the run's only write to git,
-   and it is allowed to be a no-op.
+6. Commits nothing. The routine has no git write at all as of 2026-08-06, when the
+   fallback file it used to refresh was deleted — same shape as the gift shop and
+   socials bots.
 
 ### The daily audit
 
@@ -467,15 +465,9 @@ A rename or a move that collides with the `(city_slug, lower(title),
 lower(artist))` unique index is refused. The offending row is often a *hidden*
 one, so tick **Show hidden** before concluding the tape does not already have it.
 
-`soundtracks/soundtracks.json` is **not** where you make a change. It is the offline
-fallback `/soundtracks/` reads when Supabase is unreachable, and it goes stale the
-moment anything is written to the tables. The daily run refreshes it for you:
-
-```bash
-node mc/_dev/scripts/soundtracks-export.mjs
-```
-
-Run that yourself after a hand edit if you do not want to wait for the morning.
+There is no JSON file to edit. `soundtracks/soundtracks.json` and its exporter were
+deleted on 2026-08-06: the tables are the only source, so a change is live the moment
+you save it in the Tape Room.
 It is read-only against Supabase and rewrites the file in its exact historical
 shape, so an unchanged database produces a zero-line diff. **Never hand-edit the
 file.** The Tape Room has a **download a fresh copy** link under the track list
@@ -497,7 +489,7 @@ After any edit, load `/soundtracks/` and play the tape you touched.
 | A tape is full of songs with no tie to the city | Generic arena anthems dressed up with local blurbs. Check the team-song pairing; archive wrong-city songs in this city, then add replacements or move the active song to the city whose team actually plays it. |
 | A tape got shorter after a run | Someone archived without replacing. The run itself cannot shorten a tape — it can only insert. |
 | A run reported 15 songs but the tape has fewer | The RPC skipped duplicates. Its result rows say which and why; a song already on the tape, active or archived, is silently not re-added. |
-| `/soundtracks/` shows old tapes and new ones are missing | The Supabase fetch failed and the page fell back to `soundtracks/soundtracks.json`. Check the browser console and the Supabase project; the file is expected to be stale. |
+| `/soundtracks/` says "Could not load soundtracks." | The Supabase fetch failed. Check the browser console and the project status. Since 2026-08-06 there is no fallback file, so an outage shows plainly instead of quietly serving a stale catalogue. |
 | "Last run" on the dashboard is over a day old | A run failed, or the routine is paused. Open the routine and read the transcript. |
 | A finding you cleared as **Fixed** is back tomorrow | Working as designed — the fix did not take, or did not address what was flagged. Only **Not an issue** silences a finding permanently. |
 | A finding you dismissed never comes back even though it is real | Also by design. `dismissed` is caught by a partial unique index, so re-reporting is a database-level no-op. Set that row's `status` back to `open` in the Supabase table editor to un-silence it. |
@@ -510,8 +502,8 @@ After any edit, load `/soundtracks/` and play the tape you touched.
 
 - `public.tgb_pull_soundtrack_songs` and `public.tgb_report_soundtrack_issues` are
   the **only** two write paths you need — one to add songs, one to file findings.
-  Do not write the tables directly, do not use a service-role key, do not edit
-  `soundtracks/soundtracks.json`, and do not create a third table, per-city HTML,
+  Do not write the tables directly, do not use a service-role key, do not
+  reintroduce a committed JSON snapshot, and do not create a third table, per-city HTML,
   `city-playlists.json`, `song-playlists.json`, or a build script — all of those
   existed once and were deliberately removed.
 - Song suggestions arrive at `soundtrack@thegamebureau.com`. **Check them before

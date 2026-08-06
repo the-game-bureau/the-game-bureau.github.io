@@ -198,25 +198,14 @@
   window.TgbNav = window.TgbNav || {};
   window.TgbNav.setStats = setStats;
 
-  function soundtrackTrackCount(tracklist) {
-    if (!tracklist || !Array.isArray(tracklist.songs)) return 0;
-    return tracklist.songs.filter(function (song) {
-      return song && String(song.spotifyId || song.spotify_url || song.title || song.artist || '').trim();
-    }).length;
-  }
-
-  function countSoundtracks(data) {
-    var rows = Array.isArray(data && data.soundtracks) ? data.soundtracks : [];
-    return rows.filter(function (tracklist) {
-      return tracklist && tracklist.city_slug && soundtrackTrackCount(tracklist) > 0;
-    }).length;
-  }
+  // soundtrackTrackCount() and countSoundtracks() lived here until 2026-08-06.
+  // They only ever parsed the shape of the committed soundtracks.json, so they
+  // died with it.
 
   // Tapes live in public.soundtracks / public.soundtrack_songs as of 2026-07-29.
   // soundtrack_stats already has the per-tape active count, so the stat is one
   // HEAD-shaped request: filter to tapes with at least one active song and read
-  // the exact count off Content-Range. Falls back to the committed JSON file,
-  // same lifeboat /soundtracks/ itself uses.
+  // the exact count off Content-Range.
   function fetchSoundtrackCount() {
     var url = SB_URL + '/rest/v1/soundtrack_stats?select=city_slug'
       + '&archived=is.false&active_songs=gt.0&limit=1&apikey=' + SB_KEY;
@@ -231,12 +220,10 @@
     });
   }
 
+  // No JSON fallback: soundtracks/soundtracks.json was deleted on 2026-08-06 and
+  // Supabase is the only source. A failed count simply leaves the stat unset,
+  // which is what the trailing catch already did for every other failure here.
   fetchSoundtrackCount()
-    .catch(function () {
-      return fetch('/soundtracks/soundtracks.json', { cache: 'no-store' })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (data) { return data ? countSoundtracks(data) : null; });
-    })
     .then(function (count) {
       if (count != null) setStats(null, null, null, count);
     })

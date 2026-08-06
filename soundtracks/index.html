@@ -911,8 +911,8 @@
 
       <section class="sound-grid-wrap" aria-label="City tapes">
         <!-- City tape cards are rendered from public.cities + public.soundtracks /
-             public.soundtrack_songs, falling back to soundtracks.json only when
-             Supabase is unreachable. -->
+             public.soundtrack_songs. Supabase is the only source; there is no
+             committed fallback file. -->
         <div class="playlist-grid" id="playlistGrid">
           <!-- CITY-CARDS:START -->
           <p class="sound-grid-status" id="soundGridStatus">Loading soundtracks...</p>
@@ -2686,10 +2686,14 @@
           var data = soundtracksFromRows(results[0], results[1]);
           if (!data.soundtracks.length) throw new Error('No soundtrack rows returned.');
           return data;
-        }).catch(function (error) {
-          console.warn('Soundtrack tables unavailable; falling back to soundtracks.json.', error);
-          return fetchJson('soundtracks.json', { cache: 'no-store' });
         });
+        // No fallback file. Until 2026-08-06 a failure here fell back to a
+        // committed soundtracks.json, which meant an outage rendered a silently
+        // stale catalogue that looked fine — the failure mode was invisible, and
+        // the file had to be regenerated and committed forever to stay honest.
+        // The tables are the only source now, so a failure surfaces as
+        // "Could not load soundtracks." in the caller's catch. Don't reintroduce
+        // a snapshot; fix the fetch.
       }
 
       function setSoundHeroTitle(count) {
