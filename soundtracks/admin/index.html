@@ -1007,62 +1007,91 @@
     the tgb_pull_soundtrack_songs RPC; nothing else needs updating.
   -->
   <script type="application/json" id="tgb-agent-context">
-  {
-    "purpose": "City soundtracks: a free, non-commercial gift for Game Bureau players. 15 active songs that make a person curious about visiting a city. Curiosity about the city is what sells the game; the tape starts it.",
-    "docs": "soundtracks/soundtracks.md",
-    "publicPage": "/soundtracks/",
-    "tables": {
-      "tapes": "public.soundtracks (city_slug pk, spine_tag, spine_tag_position, archived)",
-      "songs": "public.soundtrack_songs (city_slug, position, title, artist, blurb, spotify_id, explicit, archived, certified_at, rejected_at)",
-      "counts": "public.soundtrack_stats (active_songs, archived_songs, last_song_at per tape)"
+{
+  "purpose": "City soundtracks: a free, non-commercial gift for Game Bureau players. 15 active songs that make a person curious about visiting a city. Curiosity about the city is what sells the game; the tape starts it.",
+  "docs": "soundtracks/soundtracks.md",
+  "publicPage": "/soundtracks/",
+  "tables": {
+    "tapes": "public.soundtracks (city_slug pk, spine_tag, spine_tag_position, archived)",
+    "songs": "public.soundtrack_songs (city_slug, position, title, artist, blurb, spotify_id, explicit, archived, certified_at, rejected_at)",
+    "counts": "public.soundtrack_stats (active_songs, archived_songs, last_song_at per tape)"
+  },
+  "writePath": {
+    "rpc": "public.tgb_pull_soundtrack_songs(tapes jsonb)",
+    "auth": "the public publishable key — the routine has no secret store",
+    "shape": {
+      "tapes": [
+        {
+          "city_slug": "matches public.cities.slug",
+          "spine_tag": "short spine phrase, applied only when the tape row is created",
+          "songs": [
+            {
+              "title": "",
+              "artist": "",
+              "spotify_id": "22 chars, optional",
+              "blurb": "6-10 words",
+              "explicit": "true only if Spotify says so"
+            }
+          ]
+        }
+      ]
     },
-    "writePath": {
-      "rpc": "public.tgb_pull_soundtrack_songs(tapes jsonb)",
-      "auth": "the public publishable key — the routine has no secret store",
-      "shape": { "tapes": [{ "city_slug": "matches public.cities.slug", "spine_tag": "short spine phrase, applied only when the tape row is created", "songs": [{ "title": "", "artist": "", "spotify_id": "22 chars, optional", "blurb": "6-10 words", "explicit": "true only if Spotify says so" }] }] },
-      "limits": "insert-only, max 4 tapes and 60 songs per call, cannot publish, archive, un-archive, or reject anything, cannot touch a hidden city",
-      "goesLive": "NO. Since 2026-08-01 every song the RPC writes lands as a REVIEW candidate (archived = true, certified_at and rejected_at null) and is invisible on /soundtracks/ until a human presses Live in the Tape Room. Same review queue the gift-shop book pull has always used. Write the tape as if it were going live — a candidate you would not defend is not worth filing."
-    },
-    "cityCatalog": { "table": "public.cities", "excludeWhere": "hide_from_soundtracks = true (venue-only stadium towns and other non-destinations)" },
-    "rules": [
-      "Exactly 15 LIVE songs per city — certified_at set, not archived. Songs still in review do not count toward the 15, so a tape can look short until its candidates are approved; propose enough to fill it, not enough to fill it twice.",
-      "A tape over 15 live songs is trimmed by SHELVING the most recently added tracks — newest created_at first, ties broken by highest id — until 15 remain. Never shelve an older track to keep a newer one; the earlier fifteen are the considered set. The agent cannot shelve, so it reports an over-full tape as a facts issue naming the surplus tracks and a human presses Shelve.",
-      "Max 2 active songs per artist per city.",
-      "No duplicate title+artist pair in a city, archived rows included — a unique index enforces it, so a duplicate is dropped and the tape ends up short.",
-      "Every song needs a title, an artist, and a 6-10 word city-specific blurb with no trailing period.",
-      "spotify_id must be verified against a real open.spotify.com/track page. Omit it rather than guess — a fabricated id passes every format check and silently plays nothing.",
-      "Three states, derived from two timestamps exactly as the gift shop does it: REVIEW (both null) is the default and what this routine writes; LIVE (certified_at set) is on /soundtracks/; SHELVED (rejected_at set) was turned down. Only a human moves a song between them.",
-      "A shelved or hidden song keeps its row on the city as a do-not-rescrape tombstone: it is excluded from live counts and can never be re-picked for that city. Do not re-propose a track that is already there in any state.",
-      "A tombstone is scoped to one city, not to the song: the unique index is (city_slug, lower(title), lower(artist)). A track shelved on one tape can be added to another tape and go live there. Being wrong for one city is not evidence about another.",
-      "NEVER report an issue against a SHELVED track (rejected_at set). It is already off /soundtracks/ and can never be re-picked for that city, so there is nothing left to fix. A trigger drops such a report anyway, and it would count against the 40-finding cap for nothing. Audit LIVE tracks, and REVIEW candidates you are asking a human to judge.",
-      "No tapes for cities where public.cities.hide_from_soundtracks is true.",
-      "Real commercial recordings only: no karaoke, tribute, sped-up, slowed, or re-recorded versions."
-    ],
-    "songMix": [
-      "Songs that name the city, its streets, its neighbourhoods.",
-      "Hometown artists and records made there.",
-      "Sports and game-day music: fight songs, victory anthems, stadium walk-up and goal songs, what fans sing outside. Target 2-3 of the 15 where the city has a strong sports identity, and confirm the team actually plays the song.",
-      "Local scenes and labels the city is known for."
-    ],
-    "automation": {
-      "type": "Claude Code scheduled cloud routine",
-      "id": "trig_014sqaUyU7557svq9mGA1E4a",
-      "cron": "0 8,20 * * * UTC (twice daily)",
-      "localTime": "3 AM and 3 PM Central in summer, 2 AM and 2 PM in winter (cloud cron has no DST shift)",
-      "model": "claude-opus-5",
-      "eachRun": "Adds one new city tape and tops the emptiest existing tape up to 15 live songs. Everything it writes is a Review candidate awaiting a human.",
-      "runReceipt": "the newest public.soundtrack_songs row — the routine commits nothing, so a stale timestamp is the failure signal",
-      "manage": "https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a"
-    },
-    "doNotCreate": [
-      "a third soundtrack table or a per-city city_playlists table",
-      "per-city generated HTML",
-      "city-playlists.json or song-playlists.json",
-      "a build script under soundtracks/",
-      "a GitHub Actions workflow for this (removed 2026-07-27; it needed a funded API key)"
-    ],
-    "suggestionsInbox": "soundtrack@thegamebureau.com (leads, not verified facts)"
+    "limits": "insert-only, max 4 tapes and 60 songs per call, cannot publish, archive, un-archive, or reject anything, cannot touch a hidden city",
+    "goesLive": "NO. Since 2026-08-01 every song the RPC writes lands as a REVIEW candidate (archived = true, certified_at and rejected_at null) and is invisible on /soundtracks/ until a human presses Live in the Tape Room. Same review queue the gift-shop book pull has always used. Write the tape as if it were going live — a candidate you would not defend is not worth filing."
+  },
+  "cityCatalog": {
+    "table": "public.cities",
+    "excludeWhere": "hide_from_soundtracks = true (venue-only stadium towns and other non-destinations)"
+  },
+  "rules": [
+    "Exactly 15 LIVE songs per city — certified_at set, not archived. Songs still in review do not count toward the 15, so a tape can look short until its candidates are approved; propose enough to fill it, not enough to fill it twice.",
+    "A tape over 15 live songs is trimmed by SHELVING the most recently added tracks — newest created_at first, ties broken by highest id — until 15 remain. Never shelve an older track to keep a newer one; the earlier fifteen are the considered set. The agent cannot shelve, so it reports an over-full tape as a facts issue naming the surplus tracks and a human presses Shelve.",
+    "Max 2 active songs per artist per city.",
+    "No duplicate title+artist pair in a city, archived rows included — a unique index enforces it, so a duplicate is dropped and the tape ends up short.",
+    "Every song needs a title, an artist, and a 6-10 word city-specific blurb with no trailing period.",
+    "spotify_id must be verified against a real open.spotify.com/track page. Omit it rather than guess — a fabricated id passes every format check and silently plays nothing.",
+    "Three states, derived from two timestamps exactly as the gift shop does it: REVIEW (both null) is the default and what this routine writes; LIVE (certified_at set) is on /soundtracks/; SHELVED (rejected_at set) was turned down. Only a human moves a song between them.",
+    "A shelved or hidden song keeps its row on the city as a do-not-rescrape tombstone: it is excluded from live counts and can never be re-picked for that city. Do not re-propose a track that is already there in any state.",
+    "A tombstone is scoped to one city, not to the song: the unique index is (city_slug, lower(title), lower(artist)). A track shelved on one tape can be added to another tape and go live there. Being wrong for one city is not evidence about another.",
+    "NEVER report an issue against a SHELVED track (rejected_at set). It is already off /soundtracks/ and can never be re-picked for that city, so there is nothing left to fix. A trigger drops such a report anyway, and it would count against the 40-finding cap for nothing. Audit LIVE tracks, and REVIEW candidates you are asking a human to judge.",
+    "No tapes for cities where public.cities.hide_from_soundtracks is true.",
+    "Real commercial recordings only: no karaoke, tribute, sped-up, slowed, or re-recorded versions."
+  ],
+  "songMix": [
+    "Songs that name the city, its streets, its neighbourhoods.",
+    "Hometown artists and records made there.",
+    "Sports and game-day music: fight songs, victory anthems, stadium walk-up and goal songs, what fans sing outside. Target 2-3 of the 15 where the city has a strong sports identity, and confirm the team actually plays the song.",
+    "Local scenes and labels the city is known for."
+  ],
+  "automation": {
+    "type": "Claude Code scheduled cloud routine",
+    "id": "trig_014sqaUyU7557svq9mGA1E4a",
+    "cron": "30 11 * * * UTC (once daily)",
+    "localTime": "6:30 AM Central in summer, 5:30 AM in winter (cloud cron has no DST shift). NOTE: CLAUDE.md still describes this routine as twice daily on 0 8,20 — the trigger says otherwise and the trigger is what runs.",
+    "model": "claude-opus-5",
+    "eachRun": "Adds one new city tape and tops the emptiest existing tape up to 15 live songs. Everything it writes is a Review candidate awaiting a human.",
+    "runReceipt": "the newest public.soundtrack_songs row — the routine commits nothing, so a stale timestamp is the failure signal",
+    "manage": "https://claude.ai/code/routines/trig_014sqaUyU7557svq9mGA1E4a"
+  },
+  "doNotCreate": [
+    "a third soundtrack table or a per-city city_playlists table",
+    "per-city generated HTML",
+    "city-playlists.json or song-playlists.json",
+    "a build script under soundtracks/",
+    "a GitHub Actions workflow for this (removed 2026-07-27; it needed a funded API key)"
+  ],
+  "suggestionsInbox": "soundtrack@thegamebureau.com (leads, not verified facts)",
+  "auditPath": {
+    "rpc": "public.tgb_report_soundtrack_issues(payload jsonb)",
+    "auth": "the same public publishable key",
+    "wrapper": "the parameter is named payload, so the body is {\"payload\": {\"audited\": [...], \"issues\": [...]}}. Sending {\"issues\": [...]} unwrapped returns PGRST202, which reads like a missing migration but is a malformed call.",
+    "scope": "the tapes written this run plus the 3 with the oldest soundtracks.last_audit_at (null first)",
+    "kinds": "spotify | spelling | relevance | facts, at severity high | warn | info",
+    "audited": "every tape looked at, including clean ones — it is what advances the rotation, and an unstamped tape is re-audited forever",
+    "limits": "insert-only, always status = open, max 40 findings per call; a song_id not on the named tape is dropped",
+    "cannotFix": "the agent reports and never edits. Hiding, editing and clearing are human actions in this room."
   }
+}
   </script>
 
   <script src="/mc/js/admin-auth.js"></script>
