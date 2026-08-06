@@ -2234,6 +2234,21 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
           else live.push(post);
         });
 
+        // Active keeps the run order above: newest run first, and the bot's own
+        // 1..5 inside each run. Decided candidates sort by WHEN THEY WERE
+        // DECIDED instead, because that is what "newest" means once a card has
+        // left the queue -- a story found last week but posted this morning
+        // belongs at the top of Posted, not buried under the run it arrived in.
+        function decidedAt(post) {
+          return Date.parse((post && (post.posted_at || post.updated_at)) || '') || 0;
+        }
+        function byDecidedDesc(a, b) {
+          var d = decidedAt(b) - decidedAt(a);
+          return d || 0;   // 0 keeps the run order for anything unstamped
+        }
+        posted.sort(byDecidedDesc);
+        skipped.sort(byDecidedDesc);
+
         var buckets = { active: live, skipped: skipped, posted: posted };
         var shown = buckets[view] || live;
 
