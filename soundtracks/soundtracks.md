@@ -34,10 +34,10 @@ two URLs are dead — unlink them anywhere they were shared.
 
 The renderer that built them is still here:
 [mc/_dev/scripts/render-soundtracks-video.ps1](../mc/_dev/scripts/render-soundtracks-video.ps1).
-It has not been run since the repo was reorganised and still expects an ffmpeg
-binary under `.tmp/video-tools/` and a hero image at `sound/soundtrack_hero.jpg`,
-neither of which exists now — so treat it as a starting point, not a working
-script, if the videos come back.
+Its paths were corrected on 2026-08-06 — it now resolves the repo root properly and
+reads the hero image from `soundtracks/soundtracks.jpg`. The one thing still missing
+is the ffmpeg binary it expects under `.tmp/video-tools/`, which was deleted with the
+rest of that scratch folder, so supply ffmpeg before running it.
 
 ---
 

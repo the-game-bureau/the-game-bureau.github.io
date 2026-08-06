@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 $Root = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
 $OutDir = Resolve-Path $PSScriptRoot
 $Ffmpeg = Join-Path $Root '.tmp\video-tools\node_modules\ffmpeg-static\ffmpeg.exe'
-$HeroPath = Join-Path $Root 'sound\soundtrack_hero.jpg'
+$HeroPath = Join-Path $Root 'soundtracks\soundtracks.jpg'
 $LogoPath = Join-Path $Root 'assets\brand\logo.png'
 
 if (!(Test-Path $Ffmpeg)) { throw "ffmpeg-static was not found at $Ffmpeg" }
