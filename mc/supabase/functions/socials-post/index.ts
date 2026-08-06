@@ -39,8 +39,12 @@
 //   3. Generate a PAGE access token (not a user token) and exchange it for a
 //      long-lived one. A short-lived token expires in about an hour and this
 //      function has no refresh flow.
-//   4. supabase secrets set \
-//        META_PAGE_ID=... META_PAGE_ACCESS_TOKEN=... META_IG_USER_ID=...
+//   4. supabase secrets set META_PAGE_ACCESS_TOKEN=...
+//      That is the ONLY required secret. The Page id and the Instagram user
+//      id are read back off the token (see metaIds below), because a
+//      hand-copied numeric id that is wrong does not error -- it posts to the
+//      wrong place or to nothing. META_PAGE_ID / META_IG_USER_ID remain as
+//      overrides for pointing at a different Page, and are not needed.
 //   5. supabase functions deploy socials-post
 //
 // Then flip facebook / instagram to true in PLATFORM_AUTOPOST in
@@ -61,6 +65,52 @@ const META_IG_USER_ID  = Deno.env.get('META_IG_USER_ID') ?? '';
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
 const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
+// ── Page id and Instagram user id are DERIVED from the token ────────────────
+// Both secrets are optional. A Page access token already knows which Page it is
+// for, and a Page that has an Instagram account linked to it in Business Suite
+// exposes that account's id as `instagram_business_account`. Asking a human to
+// find two numeric ids and paste them correctly is two chances to be silently
+// wrong -- a mistyped id does not error, it posts to the wrong place or to
+// nothing. Setting META_PAGE_ID / META_IG_USER_ID still wins if you need to
+// point at something other than the token's own Page.
+//
+// Resolved once per cold start and cached: these ids never change for a given
+// token, and doing it per request would add two Graph round-trips to every post.
+let resolved: { pageId: string; igUserId: string } | null = null;
+
+async function metaIds(): Promise<{ pageId: string; igUserId: string }> {
+  if (resolved) return resolved;
+  if (META_PAGE_ID && META_IG_USER_ID) {
+    resolved = { pageId: META_PAGE_ID, igUserId: META_IG_USER_ID };
+    return resolved;
+  }
+  if (!META_PAGE_TOKEN) throw new Error('META_PAGE_ACCESS_TOKEN is not set');
+
+  // `me` on a PAGE token is the Page itself. On a user token it is the user,
+  // which is why the error below names the distinction -- it is the single most
+  // common setup mistake and the symptom is otherwise baffling.
+  const url = `${GRAPH}/me?fields=id,name,instagram_business_account{id,username}` +
+              `&access_token=${encodeURIComponent(META_PAGE_TOKEN)}`;
+  const res = await fetch(url);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error?.message || `token check failed: HTTP ${res.status}`);
+  if (!data?.id) throw new Error('token resolved to no id');
+  if (data.instagram_business_account === undefined && !META_IG_USER_ID) {
+    // A user token answers here too, just with no Page fields -- so say what to
+    // check rather than reporting a missing Instagram link that may not be the
+    // real problem.
+    throw new Error(
+      'no instagram_business_account on this token. Either it is a USER token ' +
+      '(you need a PAGE token), or the Instagram account is not linked to the Page.'
+    );
+  }
+  resolved = {
+    pageId: META_PAGE_ID || String(data.id),
+    igUserId: META_IG_USER_ID || String(data?.instagram_business_account?.id ?? ''),
+  };
+  return resolved;
+}
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -98,10 +148,8 @@ async function graph(path: string, params: Record<string, string>): Promise<any>
 }
 
 async function postFacebook(row: any): Promise<Outcome> {
-  if (!META_PAGE_ID || !META_PAGE_TOKEN) {
-    return { platform: 'facebook', ok: false, error: 'META_PAGE_ID / META_PAGE_ACCESS_TOKEN not set' };
-  }
   try {
+    const { pageId } = await metaIds();
     // `link` gives the native preview card; `message` is the caption above it.
     const params: Record<string, string> = {
       message: String(row.blurb ?? '').trim(),
@@ -109,7 +157,7 @@ async function postFacebook(row: any): Promise<Outcome> {
     };
     const url = String(row.url ?? '').trim();
     if (url) params.link = url;
-    const out = await graph(`${META_PAGE_ID}/feed`, params);
+    const out = await graph(`${pageId}/feed`, params);
     return { platform: 'facebook', ok: true, id: out?.id };
   } catch (err) {
     return { platform: 'facebook', ok: false, error: (err as Error).message };
@@ -117,9 +165,6 @@ async function postFacebook(row: any): Promise<Outcome> {
 }
 
 async function postInstagram(row: any): Promise<Outcome> {
-  if (!META_IG_USER_ID || !META_PAGE_TOKEN) {
-    return { platform: 'instagram', ok: false, error: 'META_IG_USER_ID / META_PAGE_ACCESS_TOKEN not set' };
-  }
   const image = String(row.image ?? '').trim();
   if (!image) {
     // Not a failure — a fact about the candidate. IG cannot take a text-only
@@ -132,14 +177,16 @@ async function postInstagram(row: any): Promise<Outcome> {
     };
   }
   try {
+    const { igUserId } = await metaIds();
+    if (!igUserId) throw new Error('no Instagram account linked to this Page');
     // Two steps, always: create an unpublished container, then publish it.
-    const container = await graph(`${META_IG_USER_ID}/media`, {
+    const container = await graph(`${igUserId}/media`, {
       image_url: image,
       caption: captionFor(row),
       access_token: META_PAGE_TOKEN,
     });
     if (!container?.id) throw new Error('no container id returned');
-    const out = await graph(`${META_IG_USER_ID}/media_publish`, {
+    const out = await graph(`${igUserId}/media_publish`, {
       creation_id: String(container.id),
       access_token: META_PAGE_TOKEN,
     });
