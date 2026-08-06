@@ -2,6 +2,24 @@
 // does not expire, then prove it works before you store it.
 //
 //   node mc/_dev/scripts/meta-page-token.mjs <APP_ID> <APP_SECRET> <SHORT_LIVED_USER_TOKEN>
+//   node mc/_dev/scripts/meta-page-token.mjs --system <SYSTEM_USER_TOKEN>
+//
+// TWO WAYS IN, and --system is the better one for this.
+//   default   Graph API Explorer user token. Needs the App ID/Secret exchange
+//             below, and on a use-case app the Explorer may refuse to issue one
+//             at all until a Facebook Login for Business configuration exists.
+//   --system  A System User token from business.facebook.com -> Business
+//             settings -> Users -> System users. Assign the Page and the
+//             Instagram account as assets, then Generate New Token against the
+//             TGB Socials app. System user tokens do not expire, so there is
+//             nothing to exchange and nothing to renew -- this is what Meta
+//             intends for server-to-server posting, which is what our Edge
+//             Function is. Skips step 1 entirely.
+//
+// Either way the OUTPUT is the same: a Page token off /me/accounts. Derived
+// from a system user token it never expires; derived from a long-lived user
+// token it also does not expire; derived from a SHORT-lived user token it dies
+// in about an hour, which is the whole reason step 1 is not optional.
 //
 // WHY THIS EXISTS. The Page token's lifetime depends entirely on which token you
 // called /me/accounts with -- long-lived user token gives a Page token that does
@@ -27,9 +45,12 @@
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
-const [appId, appSecret, shortToken] = process.argv.slice(2);
-if (!appId || !appSecret || !shortToken) {
+const argv = process.argv.slice(2);
+const isSystem = argv[0] === '--system';
+const [appId, appSecret, shortToken] = isSystem ? [null, null, argv[1]] : argv;
+if ((isSystem && !shortToken) || (!isSystem && (!appId || !appSecret || !shortToken))) {
   console.error('usage: node meta-page-token.mjs <APP_ID> <APP_SECRET> <SHORT_LIVED_USER_TOKEN>');
+  console.error('   or: node meta-page-token.mjs --system <SYSTEM_USER_TOKEN>');
   process.exit(1);
 }
 
@@ -45,21 +66,28 @@ async function graph(path, params) {
 
 try {
   // 1. short-lived user token -> long-lived user token (~60 days).
-  //    Skipping this is the mistake the whole script exists to prevent.
-  console.log('1. exchanging for a long-lived USER token…');
-  const ex = await graph('oauth/access_token', {
-    grant_type: 'fb_exchange_token',
-    client_id: appId,
-    client_secret: appSecret,
-    fb_exchange_token: shortToken,
-  });
-  if (!ex.access_token) throw new Error('no access_token returned from the exchange');
-  console.log('   got ' + mask(ex.access_token) +
-              (ex.expires_in ? `, expires in ~${Math.round(ex.expires_in / 86400)} days` : ''));
+  //    Skipped for a system user token: it already does not expire, and the
+  //    fb_exchange_token grant would reject it anyway.
+  let userToken = shortToken;
+  if (isSystem) {
+    console.log('1. system user token — no exchange needed (these do not expire)');
+  } else {
+    console.log('1. exchanging for a long-lived USER token…');
+    const ex = await graph('oauth/access_token', {
+      grant_type: 'fb_exchange_token',
+      client_id: appId,
+      client_secret: appSecret,
+      fb_exchange_token: shortToken,
+    });
+    if (!ex.access_token) throw new Error('no access_token returned from the exchange');
+    userToken = ex.access_token;
+    console.log('   got ' + mask(userToken) +
+                (ex.expires_in ? `, expires in ~${Math.round(ex.expires_in / 86400)} days` : ''));
+  }
 
   // 2. long-lived user token -> Page token. Derived this way it does not expire.
   console.log('2. reading /me/accounts for the Page token…');
-  const accounts = await graph('me/accounts', { access_token: ex.access_token });
+  const accounts = await graph('me/accounts', { access_token: userToken });
   const pages = accounts.data || [];
   if (!pages.length) {
     throw new Error('no Pages returned. Check pages_show_list was granted, and that ' +
@@ -107,5 +135,7 @@ try {
   console.error('  "Invalid appsecret"               App Secret mistyped, or from another app.');
   console.error('  no Pages returned                 pages_show_list not granted, or the Page');
   console.error('                                    was not ticked in the Explorer dialog.');
+  console.error('                                    With --system: the Page was not added as');
+  console.error('                                    an ASSET to the system user.');
   process.exit(1);
 }
