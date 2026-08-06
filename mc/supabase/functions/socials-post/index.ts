@@ -48,9 +48,28 @@
 //      post to; it would be a fifth platform, not part of this).
 //      Development mode is enough to post to your OWN Page and IG. App Review
 //      is what lets the app act for someone else's accounts, which we never do.
-//   3. Generate a PAGE access token (not a user token) and exchange it for a
-//      long-lived one. A short-lived token expires in about an hour and this
-//      function has no refresh flow.
+//   3. Get a PAGE token that does not expire. The ORDER is the whole trick --
+//      the same /me/accounts call yields a token that lasts an hour or one
+//      that lasts indefinitely, depending only on which token you call it
+//      with. Do not shortcut it.
+//        a. Graph API Explorer, app "TGB Socials", tick the four permissions,
+//           Generate Access Token  -> SHORT-LIVED USER token.
+//        b. Exchange it for a LONG-LIVED USER token (App ID + App Secret are
+//           in App settings -> Basic):
+//             GET /oauth/access_token?grant_type=fb_exchange_token
+//               &client_id=<APP_ID>&client_secret=<APP_SECRET>
+//               &fb_exchange_token=<SHORT_LIVED_USER_TOKEN>
+//        c. GET /me/accounts?access_token=<LONG_LIVED_USER_TOKEN> and take the
+//           access_token on the Page. Derived from a long-lived user token it
+//           does not expire; derived from a short-lived one it dies in about
+//           an hour, with no error until it does.
+//        d. Verify before storing -- this must return the IG account too:
+//             GET /me?fields=id,name,instagram_business_account{id,username}
+//           A missing instagram_business_account means you have a USER token,
+//           not a Page token. metaIds() below makes the same check at runtime.
+//      Neither "Become a Tech Provider" nor publishing the app is needed: both
+//      are about acting on OTHER businesses accounts. Development mode already
+//      posts to our own Page and Instagram.
 //   4. supabase secrets set META_PAGE_ACCESS_TOKEN=...
 //      That is the ONLY required secret. The Page id and the Instagram user
 //      id are read back off the token (see metaIds below), because a
