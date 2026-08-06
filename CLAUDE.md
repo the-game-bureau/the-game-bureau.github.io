@@ -221,19 +221,20 @@ The repo root used to hold the back end beside the public site. On 2026-08-06 it
 | `how/` | `mc/how/` | "How It Works" — public marketing copy, still in the public nav. |
 | `sampler/` | `mc/sampler/` | Public page plus the JSON its scheduled scraper writes. |
 | `survey/` | `mc/survey/` | Public page. Nothing links to it in-repo. |
+| `assets/` | `mc/assets/` | Shared CSS/JS/images. Moved 2026-08-06 behind a read-time shim; see below. |
 
 `win/` was **deleted** rather than moved. It was a redirect stub whose only job was catching old `/win/` links and forwarding to `/highlights/ww.html`; moved under `mc/` it would have caught nothing, since nobody holds a `/mc/win/` link. Nothing in the repo linked to it.
 
 **Four folders stayed at the root and are not candidates for a later move:** `assets/`, `games/`, `gifts/`, `highlights/`, `soundtracks/` and `index.html`. `assets/` in particular looks movable and is not — see the warning below.
 
-> **`assets/` must stay at the root.** 394 of 395 rows in `public.games` store absolute URLs of the form `https://thegamebureau.com/assets/guides/<file>.png`. Moving the folder 404s every guide image on the live site, and the repair is an `UPDATE` against `games` needing a service-role key — not a code change. `GUIDE_ASSET_BASE_URL` in [mc/guides.html](mc/guides.html), `GAME_LOGO_ASSET_BASE_URL` in [games/admin/profiles.html](games/admin/profiles.html) and the `og:image` tags on five public pages all assume the public path too. Considered and rejected on 2026-08-06.
+> **`assets/` moved, and stored database URLs are handled by a shim rather than a migration.** Hundreds of `public.games` rows hold absolute asset URLs in two legacy shapes — `thegamebureau.com/assets/guides/<id>.png` (`guide_image_url`) and `thegamebureau.com/site/assets/games/<file>` (`logo_url`, dead since the repo was flattened out of the old `site/` layout). Fixing them properly is an `UPDATE` needing a service-role key, which is not available, so [mc/assets/legacy-asset-url.js](mc/assets/legacy-asset-url.js) rewrites both shapes onto `/mc/assets/` at read time instead. It is loaded by the landing page and both engines, and applied at two chokepoints: the stored `guide_image_url`, and `resolveAssetUrl()` which covers logos. **It deliberately ignores any other host**, so a guide image uploaded through the editor — stored as a Supabase Storage URL — is never touched. Run the `UPDATE` when a key exists and the shim becomes dead code; it is harmless to leave. Worth knowing: only five files exist in `mc/assets/guides/`, so 372 of the 395 guide URLs were already 404 before the move.
 
 **Two of those moves broke live URLs, and neither can be redirected** — GitHub Pages serves no 301.
 
 - **`/game/run/?id=…` is now `/mc/game/run/?id=…`.** That URL is the paid product: it is what a buyer receives by email and what a gift code points at. **Every link issued before 2026-08-06 is permanently dead**, and anyone holding one needs a reissue. The two Edge Functions that mint it — [gs-send-code](mc/supabase/functions/gs-send-code/index.ts) and [stripe-webhook](mc/supabase/functions/stripe-webhook/index.ts), both building `siteOrigin() + '/mc/game/run/'` — **must be redeployed for new purchases to send a working link**: `cd mc && supabase functions deploy gs-send-code stripe-webhook`. Until that deploy lands, every new order emails a 404.
 - `/account/` is now `/mc/account/`.
 
-**Every reference that escapes a folder is now root-absolute, deliberately.** The engines used to reach the shared front-end with `../../../assets/…`, which silently resolves to a different place at a different depth — exactly the failure a move like this causes. They are `/assets/…` now, so `mc/game/` can be moved again without touching a single one. Write new cross-folder links the same way; never `../`.
+**Every reference that escapes a folder is now root-absolute, deliberately.** The engines used to reach the shared front-end with `/mc/assets/…`, which silently resolves to a different place at a different depth — exactly the failure a move like this causes. They are `/assets/…` now, so `mc/game/` can be moved again without touching a single one. Write new cross-folder links the same way; never `../`.
 
 Deleted the same day, all scratch: `.tmp/`, `.tmp_auth_checks/`, `.tmp_auth_checks2/`, `.codex-artifacts/`, `.dev/`. The one piece of real work inside them, the `render-soundtracks-video.ps1` explainer renderer, was kept at [mc/_dev/scripts/render-soundtracks-video.ps1](mc/_dev/scripts/render-soundtracks-video.ps1).
 

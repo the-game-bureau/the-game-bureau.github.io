@@ -1,7 +1,7 @@
 /* Shared site footer for public pages (home/games + gift shop + highlights).
    Drop a placeholder into the page:
      <footer class="site-footer" data-site-footer></footer>
-     <script src="/assets/site-footer.js"></script>
+     <script src="/mc/assets/site-footer.js"></script>
    The script fills the placeholder with the standard copyright + social row,
    so the footer is literally identical across every public page (one source of
    truth, mirroring /assets/site-nav.js for the header). */

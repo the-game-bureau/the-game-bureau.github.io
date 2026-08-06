@@ -3,7 +3,7 @@
 // values, dry-run unless --apply.
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
-const BASE = 'https://thegamebureau.com/assets/guides/';
+const BASE = 'https://thegamebureau.com/mc/assets/guides/';
 const APPLY = process.argv.includes('--apply');
 const fs = require('fs');
 

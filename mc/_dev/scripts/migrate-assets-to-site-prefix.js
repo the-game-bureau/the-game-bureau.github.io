@@ -6,7 +6,7 @@
 //
 // Pattern rewritten (idempotent — re-running is a no-op):
 //   /assets/...                              -> /assets/...
-//   https://thegamebureau.com/assets/...     -> https://thegamebureau.com/assets/...
+//   https://thegamebureau.com/mc/assets/...     -> https://thegamebureau.com/mc/assets/...
 //
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
@@ -17,7 +17,7 @@ const ASSETS_RE = /\/assets\//g;
 
 function rewriteValue(value) {
   if (typeof value !== 'string' || !value) return value;
-  return value.replace(ASSETS_RE, '/assets/');
+  return value.replace(ASSETS_RE, '/mc/assets/');
 }
 
 function rewriteGame(game) {

@@ -39,7 +39,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const TeamPalette = require('../../assets/team-palette.js');
+const TeamPalette = require('/mc/assets/team-palette.js');
 
 const USER_AGENT = 'TGB MLB Matchup Maker/1.0';
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';

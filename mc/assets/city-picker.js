@@ -25,7 +25,7 @@
  * or the add button stays hidden. The insert sends { city } only — the
  * cities_fill_slug trigger derives the slug, cities_sync_geo the geo columns.
  *
- * Load with <script src="/assets/city-picker.js"></script>, after geo.js when
+ * Load with <script src="/mc/assets/city-picker.js"></script>, after geo.js when
  * the page has it (canonicalization is nicer with it, but not required).
  */
 (function (global) {

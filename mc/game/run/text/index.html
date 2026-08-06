@@ -8,9 +8,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#ffffff">
   <title>PLAY ERROR | THE GAME BUREAU</title>
-  <link id="favicon" rel="icon" href="/assets/brand/tgb.ico" type="image/x-icon">
-  <script src="/assets/supabase-fallback.js"></script>
-  <script src="/assets/team-palette.js"></script>
+  <link id="favicon" rel="icon" href="/mc/assets/brand/tgb.ico" type="image/x-icon">
+  <script src="/mc/assets/legacy-asset-url.js"></script>
+  <script src="/mc/assets/supabase-fallback.js"></script>
+  <script src="/mc/assets/team-palette.js"></script>
   <script src="../config/instance-tracker.js"></script>
   <style>
     /* ── Base chat UI (archive/index.css) ── */
@@ -20,7 +21,7 @@
       height: 0;
       overflow: hidden;
       pointer-events: none;
-      background-image: url("/assets/brand/tgb.ico");
+      background-image: url("/mc/assets/brand/tgb.ico");
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -2943,7 +2944,11 @@
 
     function resolveAssetUrl(value) {
       if (typeof value !== 'string' || !value.trim()) return '';
-      const raw = value.trim();
+      // Stored logo_url rows point at /site/assets/, dead since the repo was
+      // flattened out of that layout; guide rows point at the pre-2026-08-06
+      // /assets/. The shim maps both onto /mc/assets/ without a DB write.
+      const raw = (typeof tgbLegacyAssetUrl === 'function'
+        ? tgbLegacyAssetUrl(value) : value).trim();
       if (/^(data:|blob:)/i.test(raw)) return raw;
       try {
         const resolvedUrl = new URL(raw, window.location.href);
@@ -2963,11 +2968,16 @@
       // Prefer a stored absolute guide_image_url (e.g. a Supabase Storage URL
       // set via the editor's URL upload); fall back to the conventional
       // assets/guides/{gameId}.png (host-relative) for legacy games.
-      const storedGuideUrl = String((gameNode && (gameNode.guideImageUrl || gameNode.guideImage)) || '').trim();
+      const rawStoredGuideUrl = String((gameNode && (gameNode.guideImageUrl || gameNode.guideImage)) || '').trim();
+      // Stored rows still carry the pre-2026-08-06 /assets/ path, and there is no
+      // service-role key to migrate them; see /mc/assets/legacy-asset-url.js.
+      const storedGuideUrl = typeof tgbLegacyAssetUrl === 'function'
+        ? tgbLegacyAssetUrl(rawStoredGuideUrl)
+        : rawStoredGuideUrl;
       const guideImageUrl = /^https?:\/\//i.test(storedGuideUrl)
         ? storedGuideUrl
         : ((gameNode && gameNode.id)
-            ? '/assets/guides/' + encodeURIComponent(gameNode.id) + '.png'
+            ? '/mc/assets/guides/' + encodeURIComponent(gameNode.id) + '.png'
             : resolveAssetUrl(storedGuideUrl));
       const logoUrl = resolveAssetUrl((gameNode && (gameNode.logo || gameNode.logoUrl)) || '');
       const logoAlt = (gameNode && (gameNode.title || gameNode.guideName)) || 'Game Logo';
@@ -3476,6 +3486,6 @@
     })();
   </script>
   <script src="/mc/js/gs-buy-modal.js"></script>
-  <script src="/assets/admin-bridge.js"></script>
+  <script src="/mc/assets/admin-bridge.js"></script>
 </body>
 </html>

@@ -17,7 +17,7 @@ const path = require('path');
 const zlib = require('zlib');
 
 const { helmetSVGString } = require('./helmet.js');
-const TeamPalette = require('../../assets/team-palette.js');
+const TeamPalette = require('/mc/assets/team-palette.js');
 
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
@@ -26,7 +26,7 @@ const USER_AGENT = 'TGB Takeover Hero Maker/1.0';
 const ASSET_DIR = path.resolve(__dirname, '..', '..', 'assets', 'games', 'takeover-hero');
 // Domain-relative URL: resolves to localhost during local dev and to
 // thegamebureau.com in production -- one stored value, works in both contexts.
-const ASSET_URL_BASE = '/assets/games/takeover-hero';
+const ASSET_URL_BASE = '/mc/assets/games/takeover-hero';
 
 const SPECIAL_HEROES = {
   'nfl2026-20261025-pit-no-no-saint-denis': {

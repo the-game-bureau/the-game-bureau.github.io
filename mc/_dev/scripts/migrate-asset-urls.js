@@ -1,12 +1,12 @@
-// Normalize database asset URLs to https://thegamebureau.com/assets/games/*
+// Normalize database asset URLs to https://thegamebureau.com/mc/assets/games/*
 // Run with: node migrate-asset-urls.js
 
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 
 const REPLACEMENTS = [
-  ['https://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io/main/assets/', 'https://thegamebureau.com/assets/'],
-  ['http://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io/main/assets/', 'https://thegamebureau.com/assets/'],
+  ['https://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io/main/assets/', 'https://thegamebureau.com/mc/assets/'],
+  ['http://raw.githubusercontent.com/the-game-bureau/the-game-bureau.github.io/main/assets/', 'https://thegamebureau.com/mc/assets/'],
   ['https://the-game-bureau.github.io/the-game-bureau/', 'https://thegamebureau.com/'],
   ['https://the-game-bureau.github.io/', 'https://thegamebureau.com/'],
   ['assets/teams/', 'assets/games/'],

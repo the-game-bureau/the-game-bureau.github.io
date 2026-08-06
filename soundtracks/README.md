@@ -409,7 +409,7 @@ running or you will get two tapes a day.
 ## Who is listening (and why we cannot tell you)
 
 Visits to `/soundtracks/` are counted by **Cloudflare Web Analytics**, live since
-2026-07-30 via [`assets/site-analytics.js`](../assets/site-analytics.js). It is
+2026-07-30 via [`assets/site-analytics.js`](/mc/assets/site-analytics.js). It is
 free at any volume and cookieless with no per-visitor identifier, so there is **no
 consent banner and nothing to disclose in a privacy policy**.
 

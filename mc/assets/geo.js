@@ -13,7 +13,7 @@
  * This replaces the copy-pasted US_STATES / COUNTRY_CODES maps and the
  * canonicalShopCity()/cityGeoBadge() logic that previously lived in
  * games/index.html, gifts/index.html and gifts/admin/index.html. Load it with
- * <script src="/assets/geo.js"></script> and read window.TgbGeo.
+ * <script src="/mc/assets/geo.js"></script> and read window.TgbGeo.
  *
  * Canonical composed-string standard (the value stored in games.city /
  * cities.city and passed through the /gifts/?city= URL):

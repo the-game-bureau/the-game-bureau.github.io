@@ -1,6 +1,6 @@
 const SUPABASE_URL = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
-const TeamPalette = require('../../assets/team-palette.js');
+const TeamPalette = require('/mc/assets/team-palette.js');
 const SEASON = 2026;
 const ESPN_DATE_RANGE = '20260901-20270115';
 const ARCHIVED_VALUE = 'YES';

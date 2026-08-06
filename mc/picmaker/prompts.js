@@ -45,7 +45,7 @@
   function guideImageAssetUrl(gameId, extension) {
     var id = clean(gameId);
     var ext = clean(extension || 'png').replace(/^\.+/, '') || 'png';
-    return id ? '/assets/guides/' + encodeURIComponent(id) + '.' + ext : '/assets/guides/{game-id}.png';
+    return id ? '/mc/assets/guides/' + encodeURIComponent(id) + '.' + ext : '/mc/assets/guides/{game-id}.png';
   }
 
   return {
