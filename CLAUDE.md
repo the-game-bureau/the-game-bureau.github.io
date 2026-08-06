@@ -239,7 +239,48 @@ Deleted the same day, all scratch: `.tmp/`, `.tmp_auth_checks/`, `.tmp_auth_chec
 
 **The Supabase CLI now needs `cd mc` first.** `supabase db push`, `supabase functions deploy` and `config.toml` discovery all work by finding a `supabase/` directory in the working directory or an ancestor of it — so from the repo root the CLI no longer sees the project at all, and from `mc/` it works exactly as before. This is the one real cost of the move and it has no workaround short of a symlink. Don't "fix" a failing `supabase` command by recreating a folder at the root.
 
-**Root-level files stayed put deliberately.** `AGENTS.md`, `.codex`, `.hintrc`, `.env` / `.env.example`, `.gitattributes`, `.gitignore`, `.nojekyll`, `CNAME`, `CLAUDE.md` and `index.html` are each discovered by a tool at the repo root by convention; moving them breaks that tool silently rather than loudly. The backup scripts specifically read `REPO_ROOT/.env`.
+**Root-level files stayed put deliberately.** `AGENTS.md`, `.codex`, `.hintrc`, `.env`, `.gitattributes`, `.gitignore`, `.nojekyll`, `CNAME`, `CLAUDE.md` and `index.html` are each read by a tool that only looks at the repo root; moving them breaks that tool silently rather than loudly. `.nojekyll` and `CNAME` are GitHub Pages' (Jekyll processing, custom domain). `.gitignore` and `.gitattributes` are legal in a subdirectory but only govern their own subtree, so moving them is a behaviour change, not an error. The backup scripts read `REPO_ROOT/.env`.
+
+---
+
+## Environment variables
+
+There is no `.env.example` — it was deleted on 2026-08-06 and replaced by this section, because a second copy of this list is a second thing to forget to update. **`.env` is gitignored, so this is the only committed record of what belongs in it.**
+
+**Two separate environments, and mixing them up is the usual mistake.** A key that a browser or an Edge Function needs is *not* set in `.env`, and nothing in `.env` reaches production.
+
+### `.env` at the repo root — local developer scripts only
+
+Read by `mc/_dev/scripts/*`. Nothing here is used by the website, the engines, or any cloud routine.
+
+| variable | read by | notes |
+|---|---|---|
+| `SUPABASE_SERVICE_KEY` | [backup-supabase.js](mc/_dev/scripts/backup-supabase.js), [mc_backup.py](mc/_dev/scripts/mc_backup.py) | **The only secret here.** Service-role key, required to back up RLS-restricted tables (`admin_users`, `photo_submissions`, `games_bu`). Supabase dashboard → Project Settings → API → `service_role`. Absent as of 2026-08-06, which is why those backups do not run and why the guide-image URL migration described above could not be executed. |
+| `SUPABASE_BACKUP_RETENTION_DAYS` | backup-supabase.js | Optional, default `30`. |
+| `SUPABASE_BACKUP_PAGE_SIZE` | backup-supabase.js | Optional, default `1000` — the PostgREST row cap. |
+| `SUPABASE_URL` / `SUPABASE_KEY` | [shop-error-check.mjs](mc/_dev/scripts/shop-error-check.mjs) | Optional overrides; both fall back to the hardcoded project URL and the **public publishable** key. Not secrets. |
+| `SHOP_ERROR_FULL` / `SHOP_ERROR_SEGMENT` / `SHOP_ERROR_RENDER_ONLY` / `SHOP_ERROR_TZ` | shop-error-check.mjs | Test/scope switches. `SHOP_ERROR_TZ` defaults to `America/Chicago`. |
+
+`OPENAI_API_KEY` / `OPENAI_MODEL` / `ANTHROPIC_API_KEY` were listed in the old `.env.example` and may still sit in your `.env`. **Nothing reads them** — the only mention is a placeholder check in `server_start.py`. `ANTHROPIC_API_KEY` in particular is not the key the `anthropic-proxy` function uses; see below. It is the unfunded key that killed the old GitHub Actions soundtrack and book-pull workflows.
+
+### Supabase Edge Function secrets — set in Supabase, never in `.env`
+
+Set with `cd mc && supabase secrets set NAME=value`, or in the dashboard. `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected by the platform and do not need setting.
+
+| variable | used by |
+|---|---|
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `stripe-webhook`, `gs-create-checkout`, `create-stripe-session` |
+| `RESEND_API_KEY`, `RESEND_FROM` | `gs-send-code` — the access-code email |
+| `SITE_ORIGIN` | `stripe-webhook`, `gs-send-code` — the origin the play link is built on. With `/mc/game/run/` appended, this is what a buyer receives. |
+| `ANTHROPIC_API_KEY` | `anthropic-proxy` |
+| `GOOGLE_BOOKS_API_KEY` | `scrape-amazon` Auto Fill |
+| `BOOKSHOP_AFFILIATE_ID` | gift shop link building |
+| `LEMON_WEBHOOK_SECRET` | `lemon-webhook` |
+| `PRINTFUL_API_KEY`, `PRINTFUL_STORE_ID` | Printful integration |
+
+### Cloud routines hold no secrets at all
+
+The four Claude Code routines authenticate with the **public publishable key** and write through `SECURITY DEFINER` RPCs. That is not a shortcut — a cloud routine has no secret store, and it is the constraint that produced `tgb_pull_book_candidates`, `tgb_pull_soundtrack_songs`, `tgb_report_soundtrack_issues` and `tgb_pull_socials_candidates`. Don't try to give a routine a service key.
 
 **The sampler pipeline was repaired in the same pass.** `sampler_scraper.py` computed its output directory as `REPO_ROOT / "site" / "sampler"` and the workflow ran `git add site/sampler/…` — a `site/` folder that has not existed since the repo was flattened out of the old layout. Every scheduled run therefore wrote into a phantom directory and committed nothing, so the published `sampler.json` had been frozen for however long that has been true. It is `REPO_ROOT / "mc" / "sampler"` now, with `REPO_ROOT` taken from `parents[2]` because the script sits at `mc/_dev/scripts/`. The `.vscode/launch.json` debug configs pointed at a `sampler/sampler_scraper.py` that also did not exist, and now point at the real file.
 
