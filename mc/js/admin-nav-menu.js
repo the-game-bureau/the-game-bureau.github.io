@@ -100,17 +100,17 @@
       combined: true,
       items: [
         {
-          href: '/data/waypoints.html',
+          href: '/mc/data/waypoints.html',
           label: 'Waypoint Finder',
           description: 'Manage the catalog of real-world points and review nightly scout candidates.'
         },
         {
-          href: '/data/cities.html',
+          href: '/mc/data/cities.html',
           label: 'Cities',
           description: 'The one city catalog the whole site reads — add, edit, mark venue-only/archived, or delete.'
         },
         {
-          href: '/data/events.html',
+          href: '/mc/data/events.html',
           label: 'Anchor Events',
           description: 'Manage the real sporting matchups a fandom game can be anchored to.'
         },

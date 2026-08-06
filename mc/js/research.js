@@ -269,7 +269,7 @@
   function cousinBase() {
     const path = location.pathname;
     // data-cousin-file lets a renamed page point at a differently-named cousin
-    // (a renamed page → data/<original>.json). Value is the base name, no extension.
+    // (a renamed page → mc/data/<original>.json). Value is the base name, no extension.
     const override = document.body.getAttribute('data-cousin-file');
     if (override) return path.replace(/[^/]*$/, '') + override.replace(/\.[^.]*$/, '');
     if (/\.html?$/i.test(path)) return path.replace(/\.html?$/i, '');
@@ -328,10 +328,10 @@
       return;
     }
     const base = cousinBase();
-    // Cousin data files live in the root data/ folder (e.g. /mc/get_games.html →
-    // /data/get_games.jsonl). Pages with data-supabase-table load from Supabase
+    // Cousin data files live in mc/data/ (e.g. /mc/get_games.html →
+    // /mc/data/get_games.jsonl). Pages with data-supabase-table load from Supabase
     // instead of a cousin file (see the SB backend at the top of this file).
-    const dataBase = '/data/' + fileNameOf(base);
+    const dataBase = '/mc/data/' + fileNameOf(base);
     const candidates = [dataBase + '.jsonl', dataBase + '.json']; // prefer append-friendly .jsonl
     let lastErr;
     for (const url of candidates) {

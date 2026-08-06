@@ -54,7 +54,7 @@ The file is still committed and still read — but only as a lifeboat.
 | The write path for agents | `public.tgb_pull_soundtrack_songs(jsonb)` | Insert-only RPC callable with the publishable key. The routine's only way in. |
 | City names + geo badges | `public.cities` | Joined on `city_slug` = `cities.slug`. Also the gate: no tape for a city with `hide_from_soundtracks = true`. |
 | Offline fallback | `soundtracks/soundtracks.json` | What `/soundtracks/` renders when Supabase is unreachable. **Not the source of truth.** The daily run regenerates and commits it; never hand-edit it. |
-| The fallback exporter | `_dev/scripts/soundtracks-export.mjs` | `node _dev/scripts/soundtracks-export.mjs` rewrites that file from the tables, byte-stably. Read-only, publishable key, no secret. |
+| The fallback exporter | `mc/_dev/scripts/soundtracks-export.mjs` | `node mc/_dev/scripts/soundtracks-export.mjs` rewrites that file from the tables, byte-stably. Read-only, publishable key, no secret. |
 | The public page | `soundtracks/index.html` | Reads both tables (paged, because PostgREST caps at 1000 rows), falls back to the JSON file on any error. |
 | The audit write path | `public.tgb_report_soundtrack_issues(jsonb)` | Insert-only RPC, publishable key. Files findings; cannot clear them. |
 | The dashboard | `soundtracks/admin/index.html` | An **Issues** panel (open findings, Fixed / Not an issue) above **Tapes & Tracks** — every tape collapsed by city, Hide/Show on both a tape and a track, **Edit** for every field on a track plus Move/Copy to another tape, a red ⚠ chip on any flagged track, each track stamped with when it was added, sortable by city / tape added / track added. Plus last run, viewer stats links, and the manual fallback prompt. |
@@ -290,7 +290,7 @@ winter costs nothing.
 5. Writes the songs through `tgb_pull_soundtrack_songs`, which puts them live on
    `/soundtracks/` immediately. **The newest song row is the run receipt** — that is
    what the dashboard's "Last run" reads, not a commit.
-6. Runs `node _dev/scripts/soundtracks-export.mjs` and commits
+6. Runs `node mc/_dev/scripts/soundtracks-export.mjs` and commits
    `soundtracks/soundtracks.json` if it changed, so the offline fallback never drifts
    more than a day behind the tables. That commit is the run's only write to git,
    and it is allowed to be a no-op.
@@ -472,7 +472,7 @@ fallback `/soundtracks/` reads when Supabase is unreachable, and it goes stale t
 moment anything is written to the tables. The daily run refreshes it for you:
 
 ```bash
-node _dev/scripts/soundtracks-export.mjs
+node mc/_dev/scripts/soundtracks-export.mjs
 ```
 
 Run that yourself after a hand edit if you do not want to wait for the morning.

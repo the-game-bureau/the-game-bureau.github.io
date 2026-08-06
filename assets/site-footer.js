@@ -158,26 +158,16 @@
     document.querySelector('footer.site-footer');
   if (!footer || footer.dataset.tgbFooterReady === 'true') return;
 
-  // Mission Control: the admin surface for whichever section you are on, always
-  // resolved relative to the CURRENT directory — /soundtracks/ -> /soundtracks/admin/,
-  // /gifts/ -> /gifts/admin/. Deriving it from location.pathname keeps one shared
-  // footer working everywhere instead of hard-coding a section into shared code.
-  //
-  // Only sections that actually HAVE an admin get the link; this footer also
-  // renders on /games/, /how/, /account/ and friends, where the same relative
-  // href would be a 404. Add a directory here when it gains an admin page.
-  // '/socials/admin/' was dropped on 2026-08-04: the socials admin moved to
-  // /mc/socials/, and there is no public /socials/ section for this footer
-  // to render on any more, so the entry could never match.
-  var MISSION_CONTROL_DIRS = ['/games/admin/', '/gifts/admin/', '/soundtracks/admin/', '/highlights/admin/'];
-
-  function missionControlHref() {
-    var path = window.location.pathname || '/';
-    var dir = path.replace(/[^/]*$/, '');          // drop any file name
-    if (/\/admin\/$/.test(dir)) return dir;        // already there: don't nest admin/admin/
-    var candidate = dir + 'admin/';
-    return MISSION_CONTROL_DIRS.indexOf(candidate) === -1 ? '' : candidate;
-  }
+  // Mission Control is one fixed destination: the hub at /mc/index.html, on every
+  // page this footer renders on. It used to be derived from location.pathname —
+  // /gifts/ -> /gifts/admin/, /soundtracks/ -> /soundtracks/admin/ — against a
+  // whitelist of sections that actually had an admin, so the link appeared on
+  // some public pages and not others. One static href instead: the hub links out
+  // to every section admin, so nothing is lost and there is no path logic to keep
+  // in step with the folder layout. It is a root-absolute path, not '../mc/',
+  // because the footer renders at several depths and a relative hop would land in
+  // the wrong place from all but one of them.
+  var MISSION_CONTROL_HREF = '/mc/index.html';
 
   footer.classList.add('site-footer');
   footer.innerHTML =
@@ -193,9 +183,7 @@
           '<a href="https://www.facebook.com/thegamebureau" target="_blank" rel="noopener">Facebook</a>' +
           '<a href="https://youtube.com/@thegamebureau" target="_blank" rel="noopener">YouTube</a>' +
         '</span>' +
-        (missionControlHref()
-          ? '<a class="footer-mc-link" href="' + missionControlHref() + '">Mission Control</a>'
-          : '') +
+        '<a class="footer-mc-link" href="' + MISSION_CONTROL_HREF + '">Mission Control</a>' +
       '</span>' +
     '</div>';
   footer.dataset.tgbFooterReady = 'true';

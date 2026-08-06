@@ -8,7 +8,7 @@
  * from the Stripe / gift_codes pipeline (via the access_code) — never sent here.
  *
  * Tables: game_instances, game_responses, game_events
- * (see supabase/migrations/20260625_game_instances_responses.sql).
+ * (see mc/supabase/migrations/20260625_game_instances_responses.sql).
  *
  * Usage (from an engine):
  *   TgbInstance.start({

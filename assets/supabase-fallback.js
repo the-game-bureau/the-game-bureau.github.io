@@ -1,6 +1,6 @@
 /* Public Supabase backup fallback.
    Live Supabase stays primary. If a public REST GET fails, this wrapper tries
-   the latest static backup snapshot from /backups/. Keep this list limited to
+   the latest static backup snapshot from /mc/backups/. Keep this list limited to
    data that is already safe for browser delivery. */
 (function (root) {
   'use strict';
@@ -9,17 +9,17 @@
 
   var SUPABASE_ORIGIN = 'https://qmaafbncpzrdmqapkkgr.supabase.co';
   var FALLBACK_RELATIONS = {
-    games: ['/backups/supabase-games-latest.json'],
+    games: ['/mc/backups/supabase-games-latest.json'],
     games_with_teams: [
-      '/backups/supabase-games_with_teams-latest.json',
-      '/backups/supabase-games-latest.json'
+      '/mc/backups/supabase-games_with_teams-latest.json',
+      '/mc/backups/supabase-games-latest.json'
     ],
-    games_with_graph: ['/backups/supabase-games_with_graph-latest.json'],
+    games_with_graph: ['/mc/backups/supabase-games_with_graph-latest.json'],
     games_with_graph_and_teams: [
-      '/backups/supabase-games_with_graph_and_teams-latest.json',
-      '/backups/supabase-games_with_graph-latest.json'
+      '/mc/backups/supabase-games_with_graph_and_teams-latest.json',
+      '/mc/backups/supabase-games_with_graph-latest.json'
     ],
-    teams: ['/backups/supabase-teams-latest.json']
+    teams: ['/mc/backups/supabase-teams-latest.json']
   };
   var originalFetch = root.fetch.bind(root);
 
