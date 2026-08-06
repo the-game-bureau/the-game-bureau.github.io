@@ -31,15 +31,23 @@
 //   1. Meta Business Suite: have the Page, and an Instagram account converted to
 //      Business/Creator and LINKED to that Page. Instagram will not publish via
 //      API from a personal account.
-//   2. developers.facebook.com: the app is "TGB Socials". Add use cases from
-//      the CONTENT MANAGEMENT filter, not the Featured six -- none of those
-//      is right. You need the Page-management use case (pages_manage_posts,
-//      pages_read_engagement) AND the Instagram-publishing one
-//      (instagram_basic, instagram_content_publish). Meta renames these
-//      labels often; match on what they grant, not on the wording.
-//      NOT Facebook Login -- that authenticates your visitors, which is a
-//      different thing from posting as the brand.
-//      These need App Review before they work for anyone but you.
+//   2. developers.facebook.com: the app is "TGB Socials". Under the CONTENT
+//      MANAGEMENT filter (not the Featured six -- none of those is right),
+//      add BOTH of these use cases:
+//        "Manage everything on your Page"        -> pages_manage_posts,
+//                                                   pages_read_engagement
+//        "Manage messaging & content on Instagram" -> instagram_basic,
+//                                                     instagram_content_publish
+//      Confirmed labels as of 2026-08-06; Meta renames them, so if they have
+//      moved, match on the four permissions rather than the wording.
+//      NOT "Authenticate and request data from users with Facebook Login":
+//      that logs YOUR VISITORS into YOUR app, which is a different thing from
+//      posting as the brand, and it grants none of the four.
+//      Also not Live Video (streaming), oEmbed (embedding Meta content on our
+//      site -- the opposite direction), or Threads (a destination we do not
+//      post to; it would be a fifth platform, not part of this).
+//      Development mode is enough to post to your OWN Page and IG. App Review
+//      is what lets the app act for someone else's accounts, which we never do.
 //   3. Generate a PAGE access token (not a user token) and exchange it for a
 //      long-lived one. A short-lived token expires in about an hour and this
 //      function has no refresh flow.
