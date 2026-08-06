@@ -31,11 +31,15 @@
 //   1. Meta Business Suite: have the Page, and an Instagram account converted to
 //      Business/Creator and LINKED to that Page. Instagram will not publish via
 //      API from a personal account.
-//   2. developers.facebook.com: create an App, add the "Facebook Login" and
-//      "Instagram Graph API" products, and request the permissions
-//      pages_manage_posts, pages_read_engagement, instagram_basic,
-//      instagram_content_publish. These need App Review before they work for
-//      anyone but you.
+//   2. developers.facebook.com: the app is "TGB Socials". Add use cases from
+//      the CONTENT MANAGEMENT filter, not the Featured six -- none of those
+//      is right. You need the Page-management use case (pages_manage_posts,
+//      pages_read_engagement) AND the Instagram-publishing one
+//      (instagram_basic, instagram_content_publish). Meta renames these
+//      labels often; match on what they grant, not on the wording.
+//      NOT Facebook Login -- that authenticates your visitors, which is a
+//      different thing from posting as the brand.
+//      These need App Review before they work for anyone but you.
 //   3. Generate a PAGE access token (not a user token) and exchange it for a
 //      long-lived one. A short-lived token expires in about an hour and this
 //      function has no refresh flow.
