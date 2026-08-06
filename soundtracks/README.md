@@ -27,16 +27,17 @@ someone who merely happens to have been born nearby.
 
 ### The explainer videos
 
-The same pitch, on video, in the two shapes the socials accounts need:
+There are none right now. `soundtracks-explainer-landscape.mp4` (16:9) and
+`soundtracks-explainer-vertical.mp4` (9:16) were committed beside the tapes and
+served straight off the site, and both were **deleted on 2026-08-06**, so those
+two URLs are dead — unlink them anywhere they were shared.
 
-| Cut | File | For |
-|---|---|---|
-| 16:9 landscape | [soundtracks-explainer-landscape.mp4](https://thegamebureau.com/soundtracks/soundtracks-explainer-landscape.mp4) | YouTube, embeds, anything widescreen |
-| 9:16 vertical | [soundtracks-explainer-vertical.mp4](https://thegamebureau.com/soundtracks/soundtracks-explainer-vertical.mp4) | Reels, Shorts, TikTok, Stories |
-
-Both live beside the tapes in [`soundtracks/`](.) and ship with the site, so the links
-above work for anyone — no sign-in, no CDN. They are committed binaries: replacing
-one means committing the new file over it, and the URL stays the same.
+The renderer that built them is still here:
+[mc/_dev/scripts/render-soundtracks-video.ps1](../mc/_dev/scripts/render-soundtracks-video.ps1).
+It has not been run since the repo was reorganised and still expects an ffmpeg
+binary under `.tmp/video-tools/` and a hero image at `sound/soundtrack_hero.jpg`,
+neither of which exists now — so treat it as a starting point, not a working
+script, if the videos come back.
 
 ---
 
