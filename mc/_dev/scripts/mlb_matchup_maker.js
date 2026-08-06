@@ -476,7 +476,7 @@ async function main() {
   const end = args.end || `${season}-11-15`;
   const outPath = args.out
     ? path.resolve(process.cwd(), args.out)
-    : path.resolve(__dirname, '..', '..', 'mc', 'data', 'mlb.jsonl');
+    : path.resolve(__dirname, '..', '..', '..', 'mc', 'data', 'mlb.jsonl');
 
   console.log(`MLB matchup maker — season ${season}, ${start} → ${end}` +
     (args.team ? `, team ${args.team}` : '') + (args.weekends ? ', weekends only' : '') +

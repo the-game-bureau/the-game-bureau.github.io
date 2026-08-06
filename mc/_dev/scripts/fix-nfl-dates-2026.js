@@ -8,7 +8,7 @@ const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 const fs = require('fs');
 
 const APPLY = process.argv.includes('--apply');
-const espn = JSON.parse(fs.readFileSync(__dirname + '/../../_espn.json', 'utf8')).events || [];
+const espn = JSON.parse(fs.readFileSync(__dirname + '/../../../_espn.json', 'utf8')).events || [];
 
 // Confident date fixes only: regular-season New Orleans home games with REAL
 // ESPN kickoff times. Flex/TBD (Week 17-18), intl (Melbourne), and college rows

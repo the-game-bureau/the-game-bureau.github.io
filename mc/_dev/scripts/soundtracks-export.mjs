@@ -28,7 +28,10 @@ const SUPABASE_KEY = 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
 
 const OUT = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
-  '..', '..', 'soundtracks', 'soundtracks.json'
+  // Three '..' because this file sits at mc/_dev/scripts/. It was two until
+  // _dev/ moved under mc/ on 2026-08-06; with two, the export silently wrote
+  // mc/soundtracks/soundtracks.json and the real fallback never changed.
+  '..', '..', '..', 'soundtracks', 'soundtracks.json'
 );
 
 const COMMENT =

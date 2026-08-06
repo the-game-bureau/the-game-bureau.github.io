@@ -34,7 +34,7 @@ const dryRun = args.includes('--dry-run');
 const fileArg = args.find((a) => !a.startsWith('--'));
 const jsonlPath = fileArg
   ? path.resolve(process.cwd(), fileArg)
-  : path.resolve(__dirname, '../../mc/data/mlb.jsonl');
+  : path.resolve(__dirname, '../../../mc/data/mlb.jsonl');
 
 function parseJsonl(text) {
   const out = [];

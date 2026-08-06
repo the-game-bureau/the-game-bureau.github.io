@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..')
+# mc/_dev/scripts/ is three levels below the repo root; it was two until the 2026-08-06 move of _dev/ under mc/.
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
 $logDir = Join-Path $repoRoot 'mc\backups\logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 

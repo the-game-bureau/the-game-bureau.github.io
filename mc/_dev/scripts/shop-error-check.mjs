@@ -29,7 +29,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, '..', '..');
+// mc/_dev/scripts/ is three levels below the repo root; it was two until the 2026-08-06 move of _dev/ under mc/.
+const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const ADMIN_DIR = path.join(REPO_ROOT, 'gifts', 'admin');
 const STATE_PATH = path.join(ADMIN_DIR, 'giftshop-errors-state.json');
 const LOG_PATH = path.join(ADMIN_DIR, 'giftshop-errors.log');

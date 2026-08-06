@@ -26,9 +26,10 @@ TARGET_W = 1672
 TARGET_H = 941
 
 # Repo root = two levels up from this file (_dev/scripts/ -> repo root).
-REPO_ROOT = Path(__file__).resolve().parents[2]
-TARGET = REPO_ROOT / "shop" / "shop_banner.png"
-BACKUP = REPO_ROOT / "shop" / "shop_banner.bak.png"
+# mc/_dev/scripts/ is three levels below the repo root; it was two until the 2026-08-06 move of _dev/ under mc/.
+REPO_ROOT = Path(__file__).resolve().parents[3]
+TARGET = REPO_ROOT / "gifts" / "shop_banner.png"
+BACKUP = REPO_ROOT / "gifts" / "shop_banner.bak.png"
 
 
 def crop_to_aspect(img, target_w, target_h):

@@ -11,7 +11,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const REPO_ROOT = path.resolve(__dirname, '../..');
+// mc/_dev/scripts/ is three levels below the repo root; it was two until the 2026-08-06 move of _dev/ under mc/.
+const REPO_ROOT = path.resolve(__dirname, '../../..');
 
 function loadDotEnv(filePath) {
   if (!fs.existsSync(filePath)) return;

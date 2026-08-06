@@ -37,7 +37,8 @@ TABLES = [
 
 RETENTION_DAYS = 30
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+# mc/_dev/scripts/ is three levels below the repo root; it was two until the 2026-08-06 move of _dev/ under mc/.
+REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKUP_DIR = REPO_ROOT / "mc" / "backups"
 
 

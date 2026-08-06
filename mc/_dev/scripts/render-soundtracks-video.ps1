@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
-$Root = Resolve-Path (Join-Path $PSScriptRoot '..\..')
+# mc/_dev/scripts/ is three levels below the repo root; it was two until the 2026-08-06 move of _dev/ under mc/.
+$Root = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
 $OutDir = Resolve-Path $PSScriptRoot
 $Ffmpeg = Join-Path $Root '.tmp\video-tools\node_modules\ffmpeg-static\ffmpeg.exe'
 $HeroPath = Join-Path $Root 'sound\soundtrack_hero.jpg'
