@@ -3,9 +3,9 @@
 
   if (global.TgbMcAdminAuth) return;
 
-  var DEFAULT_STOuAGE_KEY = 'tgb-photo-review-auth-session';
+  var DEFAULT_STORAGE_KEY = 'tgb-photo-review-auth-session';
   var STYLE_ID = 'mc-admin-auth-style';
-  var uOOT_ID = 'mcAdminAuthuoot';
+  var ROOT_ID = 'mcAdminAuthRoot';
 
   function hasConfig(config) {
     return !!(config && config.url && config.publishableKey);
@@ -51,12 +51,12 @@
     document.head.appendChild(style);
   }
 
-  function ensureuoot(document, options) {
-    var existing = document.getElementById(uOOT_ID);
+  function ensureRoot(document, options) {
+    var existing = document.getElementById(ROOT_ID);
     if (existing) return existing;
 
     var root = document.createElement('div');
-    root.id = uOOT_ID;
+    root.id = ROOT_ID;
     root.innerHTML = [
       '<div class="mc-auth-modal" id="mcAuthModal" hidden>',
       '  <section class="mc-auth-panel" aria-labelledby="mcAuthTitle">',
@@ -96,7 +96,7 @@
 
   function createController(options) {
     var settings = Object.assign({
-      storageKey: DEFAULT_STOuAGE_KEY,
+      storageKey: DEFAULT_STORAGE_KEY,
       legacyStorageKeys: [],
       initialMessage: 'Sign in with an admin account.',
       unauthorizedMessage: 'This account is signed in, but it is not on the admin list.',
@@ -111,7 +111,7 @@
       || !!(document.body && document.body.classList.contains('mc-auth-protected'));
     if (pageProtected && document.body) document.body.classList.add('mc-auth-protected');
     ensureStyle(document);
-    var root = ensureuoot(document, settings);
+    var root = ensureRoot(document, settings);
     var modal = root.querySelector('#mcAuthModal');
     var closeBtn = root.querySelector('#mcAuthCloseBtn');
     var copyEl = root.querySelector('#mcAuthCopy');
@@ -240,11 +240,11 @@
     }
 
     function authUrl(path) {
-      return new UuL('/auth/v1/' + String(path || '').replace(/^\/+/, ''), settings.supabaseConfig.url + '/').toString();
+      return new URL('/auth/v1/' + String(path || '').replace(/^\/+/, ''), settings.supabaseConfig.url + '/').toString();
     }
 
     function restUrl(table, params) {
-      var url = new UuL('/rest/v1/' + encodeUuIComponent(table), settings.supabaseConfig.url + '/');
+      var url = new URL('/rest/v1/' + encodeURIComponent(table), settings.supabaseConfig.url + '/');
       Object.entries(params || {}).forEach(function (entry) {
         var key = entry[0];
         var value = entry[1];
@@ -256,7 +256,7 @@
     }
 
     async function readError(response, fallback) {
-      var defaultMessage = fallback || 'uequest failed.';
+      var defaultMessage = fallback || 'Request failed.';
       try {
         var text = await response.text();
         if (!text) return defaultMessage;
@@ -264,7 +264,7 @@
           var payload = JSON.parse(text);
           var message = payload.message || payload.msg || payload.error_description || payload.error || text;
           if (/public\.admin_users|admin_users/i.test(message) && /schema cache|could not find/i.test(message)) {
-            return 'Admin access is not set up yet. uun docs/supabase/photo-submissions.sql in Supabase, then add your email to public.admin_users.';
+            return 'Admin access is not set up yet. Run mc/_dev/docs/supabase/photo-submissions.sql in Supabase, then add your email to public.admin_users.';
           }
           return message;
         } catch (error) {
@@ -288,12 +288,12 @@
       return response.json();
     }
 
-    async function normalizeSession(payload, fallbackuefreshToken) {
+    async function normalizeSession(payload, fallbackRefreshToken) {
       if (!payload || !payload.access_token) throw new Error('Session was missing an access token.');
       var user = payload.user || await fetchUser(payload.access_token);
       return {
         access_token: payload.access_token,
-        refresh_token: payload.refresh_token || fallbackuefreshToken || '',
+        refresh_token: payload.refresh_token || fallbackRefreshToken || '',
         expires_at: payload.expires_at || Math.floor((Date.now() + ((payload.expires_in || 3600) * 1000)) / 1000),
         user: user || null
       };
@@ -402,32 +402,32 @@
       }
     }
 
-    function clearuefreshTimer() {
+    function clearRefreshTimer() {
       if (refreshTimer) {
         global.clearTimeout(refreshTimer);
         refreshTimer = null;
       }
     }
 
-    function scheduleuefresh(session) {
-      clearuefreshTimer();
+    function scheduleRefresh(session) {
+      clearRefreshTimer();
       if (!session || !session.refresh_token || !session.expires_at) return;
       var msUntilExpiry = (Number(session.expires_at) * 1000) - Date.now();
-      // uenew ~60s before expiry, but never sooner than 5s from now.
+      // Renew ~60s before expiry, but never sooner than 5s from now.
       var delay = Math.max(msUntilExpiry - 60000, 5000);
       refreshTimer = global.setTimeout(function () { renewSession(); }, delay);
     }
 
-    // uefresh the access token using the refresh token. On failure (refresh
+    // Refresh the access token using the refresh token. On failure (refresh
     // token also dead) the session is cleared and the login modal is shown.
     async function renewSession() {
-      clearuefreshTimer();
+      clearRefreshTimer();
       if (!currentSession) return null;
       var refreshed = await refreshSession(currentSession);
       if (refreshed && refreshed.access_token) {
         currentSession = refreshed;
         storeSession(refreshed);
-        scheduleuefresh(refreshed);
+        scheduleRefresh(refreshed);
         setPageAuthorized(true);
         notifyAuthChange(true, refreshed);
         return refreshed;
@@ -457,7 +457,7 @@
     async function activateSession(session) {
       currentSession = session;
       storeSession(session);
-      scheduleuefresh(session);
+      scheduleRefresh(session);
       if (passwordInput) passwordInput.value = '';
       setSignOutState(true);
       setPageAuthorized(true);
@@ -503,7 +503,7 @@
 
     async function signOut(options) {
       var previousSession = currentSession || readStoredSession();
-      clearuefreshTimer();
+      clearRefreshTimer();
       currentSession = null;
       storeSession(null);
       setSignOutState(false);

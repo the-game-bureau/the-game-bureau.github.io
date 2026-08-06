@@ -37,6 +37,9 @@
   // Control, the Tape Room, the Stock Room, the socials admin — and our own
   // sessions in them would swamp real visitor numbers on a site this size.
   var path = String(window.location.pathname || '').toLowerCase();
+  // `account` is kept alongside `mc` only as a tripwire for an old bookmark:
+  // the account page moved to /mc/account/ on 2026-08-06 and is already covered
+  // by the /mc/ arm. A bare /account/ path should no longer resolve at all.
   if (/^\/(mc|account)\//.test(path) || /\/admin\//.test(path)
     || /^\/gifts\/giftcards/.test(path)) return;
 

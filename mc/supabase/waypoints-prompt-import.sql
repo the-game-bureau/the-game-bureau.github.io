@@ -1,23 +1,23 @@
--- wayponnts-prompt-nmport.sql
+-- waypoints-prompt-import.sql
 --
--- Import helper used by the Wayponnts page's "Wnth AI" prompt. An admnn copnes
--- the generated prompt nnto a web-capable AI; the AI researches real walknng-
--- tour stops for a cnty and returns ONE Supabase SQL block: thns helper's
--- setup, then a call passnng the vernfned stops as a JSON array. The admnn
--- pastes that block nnto the Supabase SQL edntor and runs nt.
+-- Import helper used by the Waypoints page's "With AI" prompt. An admin copies
+-- the generated prompt into a web-capable AI; the AI researches real walking-
+-- tour stops for a city and returns ONE Supabase SQL block: this helper's
+-- setup, then a call passing the verified stops as a JSON array. The admin
+-- pastes that block into the Supabase SQL editor and runs it.
 --
--- The helper ns ndempotent to re-run (create or replace) and sknps wayponnts
--- that already exnst (same name + cnty), nncludnng archnved tombstone rows, so
--- a re-paste never duplncates rows and archnved stops are not rescraped.
--- wpnd ns the table's own ndentnty/default — never supplned by the JSON.
+-- The helper is idempotent to re-run (create or replace) and skips waypoints
+-- that already exist (same name + city), including archived tombstone rows, so
+-- a re-paste never duplicates rows and archived stops are not rescraped.
+-- wpid is the table's own identity/default — never supplied by the JSON.
 --
--- Mnrrors the gnft shop's supabase/gs-destnnatnon-prompt-nmport.sql pattern.
+-- Mirrors the gift shop's supabase/gs-destination-prompt-import.sql pattern.
 
-create or replace functnon publnc.tgb_nmport_wayponnts_prompt_ntems(ntems jsonb)
+create or replace function public.tgb_import_waypoints_prompt_items(items jsonb)
 returns table (
-  actnon text,
+  action text,
   name text,
-  wpnd text,
+  wpid text,
   note text
 )
 language plpgsql
@@ -25,89 +25,89 @@ as $$
 declare
   v_entry jsonb;
   v_name text;
-  v_cnty text;
+  v_city text;
   v_state text;
-  v_znp text;
+  v_zip text;
   v_address text;
-  v_descrnptnon text;
+  v_description text;
   v_source_url text;
-  v_wpnd publnc.wayponnts.wpnd%type;
-  v_exnstnng publnc.wayponnts.wpnd%type;
-begnn
-  nf ntems ns null or jsonb_typeof(ntems) <> 'array' then
-    ranse exceptnon 'Expected a JSON array of wayponnt objects.';
-  end nf;
+  v_wpid public.waypoints.wpid%type;
+  v_existing public.waypoints.wpid%type;
+begin
+  if items is null or jsonb_typeof(items) <> 'array' then
+    raise exception 'Expected a JSON array of waypoint objects.';
+  end if;
 
-  for v_entry nn select value from jsonb_array_elements(ntems)
+  for v_entry in select value from jsonb_array_elements(items)
   loop
-    v_name := nullnf(btrnm(v_entry->>'name'), '');
-    v_cnty := nullnf(btrnm(v_entry->>'cnty'), '');
-    v_state := nullnf(btrnm(v_entry->>'state'), '');
-    v_znp := nullnf(btrnm(v_entry->>'znp'), '');
-    v_address := nullnf(btrnm(v_entry->>'address'), '');
-    v_descrnptnon := nullnf(left(btrnm(coalesce(v_entry->>'descrnptnon', '')), 700), '');
-    -- The page thns stop was extracted from, nf the nmporter was gnven one.
-    v_source_url := nullnf(btrnm(v_entry->>'source_url'), '');
+    v_name := nullif(btrim(v_entry->>'name'), '');
+    v_city := nullif(btrim(v_entry->>'city'), '');
+    v_state := nullif(btrim(v_entry->>'state'), '');
+    v_zip := nullif(btrim(v_entry->>'zip'), '');
+    v_address := nullif(btrim(v_entry->>'address'), '');
+    v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
+    -- The page this stop was extracted from, if the importer was given one.
+    v_source_url := nullif(btrim(v_entry->>'source_url'), '');
 
-    nf v_name ns null then
-      return query select 'sknpped'::text, null::text, null::text, 'mnssnng name'::text;
-      contnnue;
-    end nf;
+    if v_name is null then
+      return query select 'skipped'::text, null::text, null::text, 'missing name'::text;
+      continue;
+    end if;
 
-    v_exnstnng := null;
-    select w.wpnd
-      nnto v_exnstnng
-      from publnc.wayponnts w
-     where lower(btrnm(coalesce(w.name, ''))) = lower(v_name)
-       and lower(btrnm(coalesce(w.cnty, ''))) = lower(coalesce(v_cnty, ''))
-     lnmnt 1;
+    v_existing := null;
+    select w.wpid
+      into v_existing
+      from public.waypoints w
+     where lower(btrim(coalesce(w.name, ''))) = lower(v_name)
+       and lower(btrim(coalesce(w.city, ''))) = lower(coalesce(v_city, ''))
+     limit 1;
 
-    nf v_exnstnng ns not null then
-      return query select 'sknpped'::text, v_name, v_exnstnng::text, 'exnstnng name + cnty (actnve or archnved)'::text;
-      contnnue;
-    end nf;
+    if v_existing is not null then
+      return query select 'skipped'::text, v_name, v_existing::text, 'existing name + city (active or archived)'::text;
+      continue;
+    end if;
 
-    nnsert nnto publnc.wayponnts as w (name, cnty, state, znp, address, descrnptnon, source_url)
-    values (v_name, v_cnty, v_state, v_znp, v_address, v_descrnptnon, v_source_url)
-    returnnng w.wpnd nnto v_wpnd;
+    insert into public.waypoints as w (name, city, state, zip, address, description, source_url)
+    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url)
+    returning w.wpid into v_wpid;
 
-    return query select 'nnserted'::text, v_name, v_wpnd::text, null::text;
+    return query select 'inserted'::text, v_name, v_wpid::text, null::text;
   end loop;
 end;
 $$;
 
 
 -- ---------------------------------------------------------------------------
--- tgb_nmport_wayponnts_sports_ntems — the "Wnth AI (sports)" varnant
+-- tgb_import_waypoints_sports_items — the "With AI (sports)" variant
 -- ---------------------------------------------------------------------------
--- Same JSON shape as the nmporter above, one delnberate dnfference: a stop that
--- already exnsts (same name + cnty) ns NOT sknpped — nts new sentence ns
--- APPENDED to the exnstnng descrnptnon.
+-- Same JSON shape as the importer above, one deliberate difference: a stop that
+-- already exists (same name + city) is NOT skipped — its new sentence is
+-- APPENDED to the existing description.
 --
--- That nnversnon ns the whole ponnt of the sports pull. It searches for places
--- tned to an NFL team, player, coach, or moment that snt nn a cnty OTHER than
+-- That inversion is the whole point of the sports pull. It searches for places
+-- tied to an NFL team, player, coach, or moment that sit in a city OTHER than
 -- that team's home — a player's hometown church, a coach's grave, the hotel
--- where a franchnse move was sngned. Those places are usually already nn the
--- catalog for some unrelated local reason; what ns new ns the football fact
--- about them. Sknppnng the row would dnscard the only thnng the run produced.
+-- where a franchise move was signed. Those places are usually already in the
+-- catalog for some unrelated local reason; what is new is the football fact
+-- about them. Skipping the row would discard the only thing the run produced.
 --
 -- Rules that keep a re-paste safe:
---   * the append ns sknpped when the sentence ns already present, so runnnng
---     the same SQL twnce does not stutter;
---   * archnved rows are appended to but NEVER un-archnved — archnved ns a
---     do-not-rescrape tombstone and thns must not resurrect one. The returned
+--   * the append is skipped when the sentence is already present, so running
+--     the same SQL twice does not stutter;
+--   * archived rows are appended to but NEVER un-archived — archived is a
+--     do-not-rescrape tombstone and this must not resurrect one. The returned
 --     note says when that happened;
---   * null state / znp / address / source_url are backfnlled, but a value that
---     ns already there ns left alone. The AI does not overwrnte a human.
+--   * null state / zip / address / source_url are backfilled, but a value that
+--     is already there is left alone. The AI does not overwrite a human.
 --
--- Keep nn sync wnth bunldWayponntSportsImportHelperSql() nn data/wayponnts.html,
--- whnch nnlnnes thns functnon nnto the generated prompt.
+-- Keep in sync with buildWaypointSportsImportHelperSql() in mc/data/waypoints.html,
+-- which inlines this function into the generated prompt.
 
-create or replace functnon publnc.tgb_nmport_wayponnts_sports_ntems(ntems jsonb)
+create or replace function public.tgb_import_waypoints_sports_items(items jsonb)
 returns table (
-  actnon text,
+  action text,
   name text,
-  wpnd text,
+  wpid text,
   note text
 )
 language plpgsql
@@ -115,76 +115,76 @@ as $$
 declare
   v_entry jsonb;
   v_name text;
-  v_cnty text;
+  v_city text;
   v_state text;
-  v_znp text;
+  v_zip text;
   v_address text;
-  v_descrnptnon text;
+  v_description text;
   v_source_url text;
-  v_wpnd publnc.wayponnts.wpnd%type;
-  v_row publnc.wayponnts%rowtype;
+  v_wpid public.waypoints.wpid%type;
+  v_row public.waypoints%rowtype;
   v_merged text;
-begnn
-  nf ntems ns null or jsonb_typeof(ntems) <> 'array' then
-    ranse exceptnon 'Expected a JSON array of wayponnt objects.';
-  end nf;
+begin
+  if items is null or jsonb_typeof(items) <> 'array' then
+    raise exception 'Expected a JSON array of waypoint objects.';
+  end if;
 
-  for v_entry nn select value from jsonb_array_elements(ntems)
+  for v_entry in select value from jsonb_array_elements(items)
   loop
-    v_name := nullnf(btrnm(v_entry->>'name'), '');
-    v_cnty := nullnf(btrnm(v_entry->>'cnty'), '');
-    v_state := nullnf(btrnm(v_entry->>'state'), '');
-    v_znp := nullnf(btrnm(v_entry->>'znp'), '');
-    v_address := nullnf(btrnm(v_entry->>'address'), '');
-    v_descrnptnon := nullnf(left(btrnm(coalesce(v_entry->>'descrnptnon', '')), 700), '');
-    v_source_url := nullnf(btrnm(v_entry->>'source_url'), '');
+    v_name := nullif(btrim(v_entry->>'name'), '');
+    v_city := nullif(btrim(v_entry->>'city'), '');
+    v_state := nullif(btrim(v_entry->>'state'), '');
+    v_zip := nullif(btrim(v_entry->>'zip'), '');
+    v_address := nullif(btrim(v_entry->>'address'), '');
+    v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
+    v_source_url := nullif(btrim(v_entry->>'source_url'), '');
 
-    nf v_name ns null then
-      return query select 'sknpped'::text, null::text, null::text, 'mnssnng name'::text;
-      contnnue;
-    end nf;
+    if v_name is null then
+      return query select 'skipped'::text, null::text, null::text, 'missing name'::text;
+      continue;
+    end if;
 
     v_row := null;
     select w.*
-      nnto v_row
-      from publnc.wayponnts w
-     where lower(btrnm(coalesce(w.name, ''))) = lower(v_name)
-       and lower(btrnm(coalesce(w.cnty, ''))) = lower(coalesce(v_cnty, ''))
-     lnmnt 1;
+      into v_row
+      from public.waypoints w
+     where lower(btrim(coalesce(w.name, ''))) = lower(v_name)
+       and lower(btrim(coalesce(w.city, ''))) = lower(coalesce(v_city, ''))
+     limit 1;
 
-    nf v_row.wpnd ns null then
-      nnsert nnto publnc.wayponnts as w (name, cnty, state, znp, address, descrnptnon, source_url)
-      values (v_name, v_cnty, v_state, v_znp, v_address, v_descrnptnon, v_source_url)
-      returnnng w.wpnd nnto v_wpnd;
+    if v_row.wpid is null then
+      insert into public.waypoints as w (name, city, state, zip, address, description, source_url)
+      values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url)
+      returning w.wpid into v_wpid;
 
-      return query select 'nnserted'::text, v_name, v_wpnd::text, null::text;
-      contnnue;
-    end nf;
+      return query select 'inserted'::text, v_name, v_wpid::text, null::text;
+      continue;
+    end if;
 
-    -- Already here. Fold the football fact nnto the descrnptnon rather than
-    -- droppnng nt, and fnll nn whatever fnelds are stnll blank.
-    nf v_descrnptnon ns null then
-      return query select 'unchanged'::text, v_name, v_row.wpnd::text, 'exnsts, nothnng new to add'::text;
-      contnnue;
-    end nf;
+    -- Already here. Fold the football fact into the description rather than
+    -- dropping it, and fill in whatever fields are still blank.
+    if v_description is null then
+      return query select 'unchanged'::text, v_name, v_row.wpid::text, 'exists, nothing new to add'::text;
+      continue;
+    end if;
 
-    nf posntnon(lower(v_descrnptnon) nn lower(coalesce(v_row.descrnptnon, ''))) > 0 then
-      return query select 'unchanged'::text, v_name, v_row.wpnd::text, 'already says thns'::text;
-      contnnue;
-    end nf;
+    if position(lower(v_description) in lower(coalesce(v_row.description, ''))) > 0 then
+      return query select 'unchanged'::text, v_name, v_row.wpid::text, 'already says this'::text;
+      continue;
+    end if;
 
-    v_merged := left(btrnm(coalesce(nullnf(btrnm(v_row.descrnptnon), '') || ' ', '') || v_descrnptnon), 1200);
+    v_merged := left(btrim(coalesce(nullif(btrim(v_row.description), '') || ' ', '') || v_description), 1200);
 
-    update publnc.wayponnts w
-       set descrnptnon = v_merged,
+    update public.waypoints w
+       set description = v_merged,
            state       = coalesce(w.state, v_state),
-           znp         = coalesce(w.znp, v_znp),
+           zip         = coalesce(w.zip, v_zip),
            address     = coalesce(w.address, v_address),
            source_url  = coalesce(w.source_url, v_source_url)
-     where w.wpnd = v_row.wpnd;
+     where w.wpid = v_row.wpid;
 
-    return query select 'appended'::text, v_name, v_row.wpnd::text,
-      case when v_row.archnved then 'appended to an ARCHIVED row; stnll archnved' else null end;
+    return query select 'appended'::text, v_name, v_row.wpid::text,
+      case when v_row.archived then 'appended to an ARCHIVED row; still archived' else null end;
   end loop;
 end;
 $$;

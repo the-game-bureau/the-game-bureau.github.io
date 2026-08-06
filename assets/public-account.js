@@ -190,7 +190,7 @@
   }
 
   function buildEmbeddedAccountUrl(href) {
-    const url = new URL(href || '/account/', window.location.href);
+    const url = new URL(href || '/mc/account/', window.location.href);
     url.searchParams.set('embedded', '1');
     return url.toString();
   }
@@ -332,7 +332,7 @@
         if (!shouldInterceptAccountClick(event, link)) return;
         event.preventDefault();
         openAccountLightbox(
-          link.href || '/account/',
+          link.href || '/mc/account/',
           link.getAttribute('aria-label') || link.getAttribute('title') || 'ACCOUNT'
         );
       });
