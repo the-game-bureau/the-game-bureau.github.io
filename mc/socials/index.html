@@ -501,6 +501,9 @@
     /* The agent's own reason for THIS story reads at full strength; the
        standing format note for an untagged account sits back. */
     .autopost-why.is-agent { color: var(--ink); }
+    /* The reason a ticked platform cannot go out by machine. Quieter than the
+       format note above it — it is a constraint, not a recommendation. */
+    .autopost-blocked { color: var(--muted); font-style: italic; }
     .autopost-item:not(.is-suggested-item) .autopost-why { opacity: 0.75; }
     @media (max-width: 560px) {
       .autopost-item { grid-template-columns: 1fr; gap: 3px; }
@@ -2885,16 +2888,46 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
       // public URL, and the `image` we hold is the article's own og:image --
       // someone else's photograph.
       var PLATFORM_AUTOPOST = {
-        x: false,          // API v2 POST /2/tweets, needs a paid developer tier
-        facebook: false,   // Graph API POST /{page-id}/feed, needs App Review
-        instagram: false,  // needs a Business account AND an image we own
-        youtube: false     // impossible, see above
+        // Meta, both through the same Page token from business.facebook.com.
+        // Leave these FALSE until socials-post is deployed and the three META_*
+        // secrets are set; with them true and the function missing, Post is an
+        // enabled button that always errors.
+        facebook: false,   // Graph POST /{page-id}/feed
+        instagram: false,  // Graph POST /{ig-user-id}/media -> /media_publish
+        x: false,          // separate API and credentials, not part of the Meta setup
+        youtube: false     // impossible, see PLATFORM_SUGGEST_ONLY
       };
+
+      // Platforms that can never be posted to by machine, as opposed to ones
+      // simply not wired yet. The distinction matters in the UI: "not yet" is a
+      // promise, "suggest only" is a fact, and showing the same greyed button
+      // for both would imply YouTube is coming.
+      //
+      // YouTube: the Data API uploads videos and Community posts have no public
+      // API, so there is no text-post endpoint to call. The row stays tickable
+      // because the tick is still worth recording -- it says where this story
+      // was meant to go, and it lands in posted_platforms as a note to a human.
+      var PLATFORM_SUGGEST_ONLY = {
+        youtube: 'No API for text posts — suggest only, post it by hand.'
+      };
+
+      // Instagram needs more than a token: the Content Publishing API refuses a
+      // text-only post, so a candidate with no image cannot go out even once the
+      // credentials exist. The Edge Function reports that as skipped rather than
+      // failed; this mirrors it in the picker so it is visible before you click.
+      function autoBlockedReason(key, post) {
+        if (PLATFORM_SUGGEST_ONLY[key]) return PLATFORM_SUGGEST_ONLY[key];
+        if (!PLATFORM_AUTOPOST[key]) return 'API posting not configured yet.';
+        if (key === 'instagram' && !String((post && post.image) || '').trim()) {
+          return 'No image on this candidate — Instagram cannot post text-only.';
+        }
+        return '';
+      }
 
       var AUTOPOST_ENDPOINT = 'socials-post';   // Supabase Edge Function, not built yet
 
-      function autoPostable(keys) {
-        return keys.filter(function (k) { return PLATFORM_AUTOPOST[k]; });
+      function autoPostable(keys, post) {
+        return keys.filter(function (k) { return !autoBlockedReason(k, post); });
       }
 
       // Posts through the Edge Function. Resolves to the list of platforms that
@@ -2969,6 +3002,17 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
           why.textContent = whys[key] || PLATFORM_FORMAT_NOTE[key] || '';
           item.appendChild(why);
 
+          // A second line only when this platform cannot go out by machine, so
+          // the limitation is visible before you press Post rather than arriving
+          // as an error afterwards.
+          var blocked = autoBlockedReason(key, post);
+          if (blocked) {
+            var note = document.createElement('span');
+            note.className = 'autopost-why autopost-blocked';
+            note.textContent = blocked;
+            item.appendChild(note);
+          }
+
           row.appendChild(item);
         });
         menu.appendChild(row);
@@ -3033,17 +3077,19 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
 
         function syncRun() {
           var keys = pickedKeys();
-          var auto = autoPostable(keys);
+          var auto = autoPostable(keys, post);
           manual.disabled = !keys.length;
           go.disabled = !auto.length;
 
           if (!keys.length) {
             progress.textContent = 'Pick at least one platform';
           } else if (!auto.length) {
-            // The honest state today: nothing is wired, so Post is off and the
-            // line says why rather than leaving a dead button unexplained.
+            // Nothing ticked can go out by machine. Say which and why, rather
+            // than leaving a disabled button unexplained.
             progress.textContent = labelsFor(keys).join(', ') + ' — manual only';
-            go.title = 'No API posting is configured for the selected platforms yet. Use Manual post.';
+            go.title = keys.map(function (k) {
+              return PLATFORM_LABELS[k] + ': ' + autoBlockedReason(k, post);
+            }).join('  |  ');   // one line -- a title tooltip ignores line breaks
           } else {
             progress.textContent = auto.length === keys.length
               ? 'Posts to ' + labelsFor(auto).join(', ')
@@ -3054,7 +3100,7 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
 
         go.addEventListener('click', function () {
           var keys = pickedKeys();
-          var auto = autoPostable(keys);
+          var auto = autoPostable(keys, post);
           if (!auto.length) return;
           clearNotice(feedbackEl);
           go.disabled = true;
