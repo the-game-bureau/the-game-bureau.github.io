@@ -48,12 +48,29 @@ New soundtracks are added by a **scheduled Claude Code cloud agent** ("TGB Sound
 
 **Twice daily since 2026-08-01** (was `30 11` once a day). The Tape Room's last-run staleness check moved with it — `REVIEW_HOURS` is **14**, not 26, so one missed run shows rather than needing two.
 
-**DST:** cloud cron is UTC with no DST and can't use the two-cron-plus-hour-guard trick, so **no single cron holds one Central time year-round**. `0 8,20` is exactly 3 AM / 3 PM CDT and 2 AM / 2 PM CST; to hold 3 o'clock through winter, flip to `0 9,21 * * *` at the November fall-back and back to `0 8,20 * * *` in March. Drifting an hour is accepted, not a bug.
+**DST:** cloud cron is UTC with no DST and can't use the two-cron-plus-hour-guard trick, so **no single cron holds one Central time year-round**. `0 8,20` is exactly 3 AM / 3 PM CDT and 2 AM / 2 PM CST. Drifting an hour is accepted, not a bug — see the calendar note below for holding 3 o'clock instead.
+
+### Standing DST note — three routines share `0 8,20 * * *`
+
+The gift shop, soundtrack and socials bots all run on the same cron, so they all drift together and are all fixed together. **Nothing is scheduled to do this automatically; it is a human calendar item.**
+
+| when | set all three to | Central time it lands |
+|---|---|---|
+| **Sun 2026-11-01** (CDT → CST) | `0 9,21 * * *` | 3 AM / 3 PM |
+| **Sun 2027-03-14** (CST → CDT) | `0 8,20 * * *` | 3 AM / 3 PM |
+
+| routine | trigger id |
+|---|---|
+| TGB Gift Shop Bot | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` |
+| TGB Soundtrack Bot | `trig_014sqaUyU7557svq9mGA1E4a` |
+| TGB SOCIAL BOT | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` |
+
+Edit them at [claude.ai/code/routines](https://claude.ai/code/routines), or ask Claude Code to (`/schedule`). **Do not "fix" a routine by setting the cron to the Central hour you want** — the field is UTC, so `0 3,15` fires at 10 PM / 10 AM Central, not 3 o'clock. The Waypoint Tour Scout (`45 11`) drifts the same way and is left alone deliberately; a 6:45 or 5:45 AM run is fine either way.
 
 ---
 ## TGB SOCIAL BOT — a third Claude Code routine
 
-[mc/socials/index.html](mc/socials/index.html) shows social post candidates, found by a **scheduled Claude Code cloud agent** (**"TGB SOCIAL BOT"**, `trig_01KDYndJhZ9ymgUgX5Xx6LsL`, cron `0 8,20 * * *` UTC — **twice a day**, 3 AM and 3 PM Central in summer, 2 AM and 2 PM in winter).
+[mc/socials/index.html](mc/socials/index.html) shows social post candidates, found by a **scheduled Claude Code cloud agent** (**"TGB SOCIAL BOT"**, `trig_01KDYndJhZ9ymgUgX5Xx6LsL`, cron `0 8,20 * * *` UTC — **twice a day**, 3 AM and 3 PM Central in summer, 2 AM and 2 PM in winter unless someone applies the standing DST note above).
 
 **ONE table holds everything: `public.socials`** ([supabase/migrations/2026080502_socials_table.sql](supabase/migrations/2026080502_socials_table.sql)). A row is a candidate — its content *and* its decision (`status` = review | posted | skipped). There is no JSON file and no localStorage.
 
@@ -63,6 +80,9 @@ New soundtracks are added by a **scheduled Claude Code cloud agent** ("TGB Sound
 - **Dedupe is a unique index on `lower(url)`**, server-side. The bot cannot read the table (admin-only) and doesn't need to; the RPC returns `{inserted, skipped}` and the prompt tells it to check that reply.
 - **The page reads and writes the table directly** under an admin session: status, the Edit dialog, and MANUAL (which INSERTs a real row, so a hand-added story is the same object as a bot-found one). RLS is `authenticated` both ways — `why` is an internal note and the review queue is not public.
 - **The last-run indicator is gone**, and deliberately. It read the GitHub commits API for the JSON on the principle that a failed run pushes nothing; the bot no longer commits, so that signal doesn't exist. If it returns, read the newest `created_at` — **not** the commits API.
+- **Each run emails its summary** (added 2026-08-05) — the routine's own `notifications.channel.email` flag, not the Gmail connector, which on this account can only draft. Step 7 of the prompt is the whole spec for that mail: the agent's **final message is an HTML fragment and nothing else** — no markdown, no prose around it, no code fence — carrying a header count, a **Review them** button, one block per candidate with the headline linked to its story, a Not filed list, and Notes. Two links to `https://thegamebureau.com/mc/socials/`, top and bottom.
+  - **Email rules, not web rules.** Fragment only (no `<html>`/`<head>`/`<style>`), inline styles only because mail clients strip stylesheets, no images, nothing over 600px — it is read on a phone. Palette is the site's: ink `#1b2438`, muted `#6b7280`, blue `#2d4880`.
+  - **The fragment goes out on a failed or empty run too**, with the failure written into Notes. The run you most need to open is the one that went wrong, and an email with no link is a dead end.
 - **The agent posts nothing and holds no account credentials.** A human clicks **Post** (opens the prefilled composers) or **Skip**. Don't ever wire this to a social API — the human-in-the-loop is the design, not a missing feature.
 
 ---
@@ -94,7 +114,7 @@ Walking-tour candidates are found each morning by a **scheduled Claude Code clou
 
 ## Gift shop daily book pull — also a Claude Code routine
 
-Candidate books are added by a **scheduled Claude Code cloud agent** ("TGB Gift Shop Bot", `trig_01H7cKJ4fk5bA1NWSqPZi4ah`, cron `0 8,20 * * *` UTC — **twice a day**, 3 AM and 3 PM Central in summer, 2 AM and 2 PM in winter), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the city with the fewest gifts, web-searches five books, verifies every ISBN against a real listing page, and files them as **Review candidates**. It commits nothing — the write lands in Supabase.
+Candidate books are added by a **scheduled Claude Code cloud agent** ("TGB Gift Shop Bot", `trig_01H7cKJ4fk5bA1NWSqPZi4ah`, cron `0 8,20 * * *` UTC — **twice a day**, 3 AM and 3 PM Central in summer, 2 AM and 2 PM in winter — see the standing DST note in the soundtrack section), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the city with the fewest gifts, web-searches five books, verifies every ISBN against a real listing page, and files them as **Review candidates**. It commits nothing — the write lands in Supabase.
 
 **Auth without a secret.** A cloud routine has no secret store, so it calls **`tgb_pull_book_candidates(jsonb)`** ([supabase/migrations/2026072802_book_candidate_pull_rpc.sql](supabase/migrations/2026072802_book_candidate_pull_rpc.sql)) with the ordinary public publishable key. That function is `SECURITY DEFINER` and deliberately tiny: it can only INSERT rows with `archived = true` / `certified_at = null`, derives the Bookshop URL and cover from the ISBN so a caller can't inject a link, keeps the title/URL dedupe, and caps a call at 25 items. **Don't add parameters for `archived` or `certified_at`** — those constants are what make it safe to expose. The admin-facing `tgb_import_bookshop_prompt_items()` is unchanged and stays SECURITY INVOKER.
 

@@ -170,7 +170,23 @@ revoke all on function public.tgb_pull_soundtrack_songs(jsonb) from public;
 grant execute on function public.tgb_pull_soundtrack_songs(jsonb) to anon, authenticated;
 
 -- ── Verify ──────────────────────────────────────────────────────────────────
--- Should return one 'tape_created' or 'skipped' row rather than 42702:
+-- The check has to reach `on conflict (city_slug)`, which is the only statement
+-- that raises 42702. An UNKNOWN slug does not: it returns 'unknown or hidden
+-- city_slug' and continues before the insert, so it passes whether or not the
+-- directive is there. Use a slug that ALREADY has a tape, with no songs — the
+-- insert plans, conflicts, and writes nothing:
 --
 --   select * from public.tgb_pull_soundtrack_songs(
---     '{"tapes":[{"city_slug":"__nope__","songs":[]}]}'::jsonb);
+--     '[{"city_slug":"aachen","songs":[]}]'::jsonb);
+--
+-- Zero rows back means fixed. 42702 means the function in the database is still
+-- the 2026080104 body.
+--
+-- Note the bare ARRAY. The body raises 'Expected a JSON array of tape objects.'
+-- on anything else, so `'{"tapes":[...]}'` fails here — that object shape is
+-- what PostgREST wants over HTTP, where the top-level key maps to the named
+-- parameter `tapes`. The two callers take different shapes; the routine uses
+-- the HTTP one.
+--
+-- Actions this function can return are 'queued' and 'skipped'. The
+-- 'tape_created' row that 2026072906 emitted was dropped by 2026080104.

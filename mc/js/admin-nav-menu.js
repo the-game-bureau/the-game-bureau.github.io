@@ -37,6 +37,9 @@
   var MENU_GROUPS = [
     {
       label: 'Games',
+      // One panel listing its tools, not ten full-height cards. `combined` only
+      // affects the /mc/ hub; the dropdown renders every group the same way.
+      combined: true,
       items: [
         {
           href: '/games/admin/',
@@ -94,6 +97,7 @@
     },
     {
       label: 'Data & Research',
+      combined: true,
       items: [
         {
           href: '/data/waypoints.html',
@@ -139,6 +143,13 @@
     },
     {
       label: 'Socials',
+      // Menu only. /mc/ already carries Socials Admin as a Daily Chore at the
+      // top of the page, so a directory card below it was the same link twice —
+      // the same reason Gifts Admin and Soundtracks Admin are chores and appear
+      // in no menu group. It stays HERE because the socials room has no button
+      // in the site nav (the four rooms are games/gifts/soundtracks/highlights),
+      // so this dropdown is the only way to reach it from another page.
+      hubHidden: true,
       items: [
         {
           href: '/mc/socials/',
@@ -148,7 +159,8 @@
       ]
     },
     {
-      label: 'Internal Collaboration',
+      label: 'Tools',
+      combined: true,
       items: [
         {
           href: 'https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/editor/17583?schema=public&sort=name%3Adesc',
@@ -166,6 +178,12 @@
           href: 'https://dash.cloudflare.com/',
           label: 'Cloudflare',
           description: 'DNS, caching, and security dashboard for the site’s domains.',
+          external: true
+        },
+        {
+          href: 'https://github.com/the-game-bureau/the-game-bureau.github.io',
+          label: 'GITHUB',
+          description: 'Open the website repository for code, content, commits, and GitHub Pages publishing.',
           external: true
         }
       ]
@@ -360,6 +378,8 @@
       return {
         label: group.label,
         combined: !!group.combined,
+        // The hub reads this and skips the group; the dropdown ignores it.
+        hubHidden: !!group.hubHidden,
         items: items
       };
     });

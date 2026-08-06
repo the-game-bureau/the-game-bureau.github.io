@@ -80,6 +80,22 @@
   // The padlock shows STATE, not the action: open shackle = you are signed in,
   // closed = you are not. Clicking it toggles, so signed in it signs you out and
   // the lock swings shut. Sized on the same 24-box as the nav icons.
+  // Mission Control: the hub the rooms hang off, and the one destination in this
+  // bar that is not a section. It gets no public sibling link because it has no
+  // public page — /mc/ is admin all the way down — which is why it renders as a
+  // lone button beside the padlock rather than as another ROOMS column.
+  var MISSION_CONTROL = {
+    label: 'MISSION CONTROL',
+    href: '/mc/',
+    title: 'Mission Control',
+    match: /^\/mc\//,
+    // Broadcast mast. Deliberately NOT the gear that watermarks these headers: a
+    // gear says configuration, and /mc/ is a hub, not a settings page. The tall
+    // thin silhouette also separates it from the four rounded room glyphs beside
+    // it, which matters more here than matching the wallpaper.
+    icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.9 16.1C1 12.2 1 5.8 4.9 1.9'/%3E%3Cpath d='M7.8 4.7a6.14 6.14 0 0 0-.8 7.5'/%3E%3Ccircle cx='12' cy='9' r='2'/%3E%3Cpath d='M16.2 4.8c2 2 2.26 5.11.8 7.47'/%3E%3Cpath d='M19.1 1.9a9.96 9.96 0 0 1 0 14.1'/%3E%3Cpath d='M9.5 18h5'/%3E%3Cpath d='m8 22 4-11 4 11'/%3E%3C/svg%3E"
+  };
+
   var LOCK_OPEN = "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 9.9-1'/%3E%3C/svg%3E";
   var LOCK_SHUT = "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E";
 
@@ -423,7 +439,35 @@
     links.appendChild(column);
   });
 
-  // ── The padlock: sign in / sign out, right of HIGHLIGHTS ──────────────────
+  // ── Mission Control, between HIGHLIGHTS and the padlock ───────────────────
+  // Every room can be reached from every other room by now; the hub could not be
+  // reached from any of them without typing the URL. It is a bare button, no
+  // ADMIN sub-label and no public link under it, because both would be lies.
+  var mc = document.createElement('a');
+  mc.className = 'asn-link asn-mc';
+  mc.href = MISSION_CONTROL.href;
+  mc.title = MISSION_CONTROL.title;
+  mc.setAttribute('aria-label', MISSION_CONTROL.title);
+  mc.style.setProperty('--asn-icon', 'url("data:image/svg+xml,' + MISSION_CONTROL.icon + '")');
+  // Two stacked lines, both full-size — the same label column the section
+  // buttons use, but MISSION over CONTROL rather than word over ADMIN. One long
+  // line made this button half again as wide as any other and pushed the padlock
+  // off the row on a narrow screen.
+  var mcLabel = document.createElement('span');
+  mcLabel.className = 'asn-labelcol';
+  MISSION_CONTROL.label.split(' ').forEach(function (line) {
+    var span = document.createElement('span');
+    span.className = 'asn-word';
+    span.textContent = line;
+    mcLabel.appendChild(span);
+  });
+  mc.appendChild(mcLabel);
+  // Lights on any /mc/ page, not just the hub index — the section test the
+  // ROOMS buttons use, applied to a section that happens to hold the hub.
+  if (MISSION_CONTROL.match.test(path)) mc.setAttribute('aria-current', 'page');
+  links.appendChild(mc);
+
+  // ── The padlock: sign in / sign out, right of MISSION CONTROL ─────────────
   // It lives here rather than on each page because it is the one control every
   // room needs and none of them should style differently. A page hands it its
   // auth controller with TgbAdminSiteNav.bindAuth(adminAuth); until then the

@@ -22,6 +22,8 @@
       --muted: rgba(var(--bic-blue-rgb), 0.72);
       --line: rgba(var(--bic-blue-rgb), 0.18);
       --accent: var(--bic-blue);
+      --cut-panel-bg: #eef0f4;
+      --cut-panel-line: var(--line);
     }
 
     body {
@@ -44,15 +46,9 @@
       display: grid;
       gap: 8px;
       margin-bottom: 22px;
-      padding: clamp(24px, 5vw, 46px);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      background: linear-gradient(145deg, rgba(255,255,255,0.96), rgba(var(--bic-blue-rgb),0.08));
-      box-shadow: 0 20px 44px var(--paper-shadow);
     }
 
-    .mc-hub-kicker,
-    .mc-hub-group-title,
+    .mc-hub-group > legend,
     .mc-hub-card-group {
       font-family: "IBM Plex Mono", ui-monospace, monospace;
       font-weight: 600;
@@ -60,17 +56,30 @@
       text-transform: uppercase;
     }
 
-    .mc-hub-kicker {
-      margin: 0;
-      font-size: 0.76rem;
-      color: var(--muted);
-    }
-
     .mc-hub-head h1 {
       margin: 0;
       font-size: clamp(2.6rem, 8vw, 5.8rem);
       line-height: 0.92;
-      letter-spacing: -0.06em;
+      letter-spacing: 0;
+    }
+
+    /* The broadcast mast, same Lucide radio-tower the nav's MISSION CONTROL
+       button carries. Sized in em so it tracks the clamped headline instead of
+       needing its own breakpoints, and left inline rather than made a flex item:
+       at the small end of the clamp the two words can wrap, and a flex icon
+       would then centre itself against a two-line block instead of sitting in
+       front of "Mission". An inline replaced element sits on the baseline, which
+       is where a glyph belongs.
+
+       The stroke is scaled DOWN as the type scales up: at 5.8rem a 2px stroke on
+       a 24-box would render heavier than the letterforms beside it. */
+    .mc-hub-mast {
+      width: 0.76em;
+      height: 0.76em;
+      margin-right: 0.2em;
+      vertical-align: -0.02em;
+      color: var(--bic-blue, #2d4880);
+      overflow: visible;
     }
 
     .mc-hub-intro {
@@ -83,18 +92,28 @@
 
     .mc-hub-directory {
       display: grid;
-      gap: 24px;
+      gap: 22px;
     }
 
     .mc-hub-group {
-      display: grid;
-      gap: 10px;
+      min-inline-size: 0;
+      margin: 0;
+      padding: 6px 14px 13px;
+      border: 1px solid var(--cut-panel-line);
+      border-radius: 10px;
+      background: var(--cut-panel-bg);
     }
 
-    .mc-hub-group-title {
-      margin: 0;
-      font-size: 0.72rem;
-      color: var(--muted);
+    .mc-hub-group > legend,
+    .mc-chores > legend {
+      float: none;
+      width: auto;
+      padding: 0 7px;
+      margin: 0 0 0 2px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: var(--ink);
     }
 
     .mc-hub-grid {
@@ -105,14 +124,13 @@
 
     .mc-hub-card {
       display: grid;
-      grid-template-rows: auto auto 1fr auto;
+      grid-template-rows: auto 1fr auto;
       gap: 10px;
       min-height: 220px;
       padding: 20px;
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: 8px;
       background: rgba(255,255,255,0.93);
-      box-shadow: 0 12px 26px rgba(var(--bic-blue-rgb), 0.08);
       color: inherit;
       text-decoration: none;
       transition: transform 0.14s, border-color 0.14s, box-shadow 0.14s;
@@ -121,9 +139,9 @@
     .mc-hub-card:hover,
     .mc-hub-card:focus-visible {
       border-color: var(--bic-blue);
-      box-shadow: 0 18px 34px rgba(var(--bic-blue-rgb), 0.16);
+      box-shadow: 0 8px 18px rgba(var(--bic-blue-rgb), 0.12);
       outline: none;
-      transform: translateY(-2px);
+      transform: translateY(-1px);
     }
 
     .mc-hub-card-group {
@@ -134,7 +152,7 @@
     .mc-hub-card h2 {
       margin: 0;
       font-size: 1.35rem;
-      letter-spacing: -0.025em;
+      letter-spacing: 0;
     }
 
     .mc-hub-card p {
@@ -165,20 +183,27 @@
       font-size: 1rem;
     }
 
-    /* Combined card: one panel that lists its links (e.g. the Gift Shop cluster). */
+    /* Combined card: one panel that lists its links. Used by Games,
+       Data & Research, and Tools. */
     .mc-hub-card--combined {
-      grid-template-rows: auto auto 1fr;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
     }
 
     .mc-hub-card--combined:hover,
     .mc-hub-card--combined:focus-within {
       transform: none;
       border-color: var(--line);
-      box-shadow: 0 12px 26px rgba(var(--bic-blue-rgb), 0.08);
+      box-shadow: none;
     }
 
+    /* Flows into columns rather than one tall stack. A combined card is the only
+       thing in its section grid, so it spans the full width — ten Games tools in
+       a single column would leave the right two-thirds of the panel empty and
+       push everything below it off the screen. */
     .mc-hub-links {
       display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 8px;
       align-content: start;
     }
@@ -192,7 +217,7 @@
       padding: 0 14px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: rgba(255,255,255,0.6);
+      background: #fff;
       color: inherit;
       text-decoration: none;
       font-size: 0.92rem;
@@ -229,19 +254,7 @@
       padding: 6px 14px 13px;
       border: 1px solid var(--line);
       border-radius: 10px;
-      background: #eef0f4;
-    }
-    .mc-chores > legend {
-      float: none;
-      width: auto;
-      padding: 0 7px;
-      margin: 0 0 0 2px;
-      font-family: "IBM Plex Mono", ui-monospace, monospace;
-      font-size: 0.82rem;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--ink);
+      background: var(--cut-panel-bg);
     }
     /* Same grid as the directory below, so a chore card is the same object as
        every other card on the page. */
@@ -269,8 +282,7 @@
     <script src="/mc/js/admin-site-nav.js"></script>
 
     <header class="mc-hub-head">
-      <p class="mc-hub-kicker">The Game Bureau</p>
-      <h1>Mission Control</h1>
+      <h1><svg class="mc-hub-mast" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/><path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/><circle cx="12" cy="9" r="2"/><path d="M16.2 4.8c2 2 2.26 5.11.8 7.47"/><path d="M19.1 1.9a9.96 9.96 0 0 1 0 14.1"/><path d="M9.5 18h5"/><path d="m8 22 4-11 4 11"/></svg>Mission Control</h1>
       <p class="mc-hub-intro">Build games, manage the website, batch-edit content, and open the reference tools used to keep everything moving.</p>
     </header>
 
@@ -278,14 +290,14 @@
       <legend>Daily Chores</legend>
       <div class="mc-chores-inner">
         <a class="mc-hub-card mc-chore" href="/gifts/admin/">
-          <h2>Gifts Admin</h2>
-          <p>Work the review queue from the twice-daily book pull &mdash; certify what belongs in the shop, shelve what doesn't.</p>
-          <span class="mc-hub-card-button">Open Tool</span>
+          <h2>GIFT SHOP STOCK ROOM</h2>
+          <p>Review gift candidates, check links and images, assign cities, publish the good finds, and shelve anything that does not belong in the shop.</p>
+          <span class="mc-hub-card-button">GO TO STOCK ROOM</span>
         </a>
         <a class="mc-hub-card mc-chore" href="/soundtracks/admin/">
-          <h2>Soundtracks Admin</h2>
-          <p>The Tape Room. Take new tracks live or shelve them, clear reported issues, and keep each city's tape at fifteen.</p>
-          <span class="mc-hub-card-button">Open Tool</span>
+          <h2>TAPE ROOM</h2>
+          <p>Take new tracks live or shelve them, clear reported issues, and keep each city's tape at fifteen.</p>
+          <span class="mc-hub-card-button">GO TO TAPE ROOM</span>
         </a>
         <a class="mc-hub-card mc-chore" href="/mc/socials/">
           <h2>Socials Admin</h2>
@@ -325,10 +337,6 @@
           card.rel = 'noopener noreferrer';
         }
 
-        const groupLabel = document.createElement('span');
-        groupLabel.className = 'mc-hub-card-group';
-        groupLabel.textContent = group.label;
-
         const itemTitle = document.createElement('h2');
         itemTitle.textContent = item.label;
 
@@ -339,7 +347,6 @@
         button.className = 'mc-hub-card-button';
         button.textContent = item.external ? 'Open External' : 'Open Tool';
 
-        card.appendChild(groupLabel);
         card.appendChild(itemTitle);
         card.appendChild(blurb);
         card.appendChild(button);
@@ -347,17 +354,25 @@
       }
 
       // A "combined" group renders as ONE card that lists its links, instead of
-      // one big card per item (used for the Gift Shop cluster).
+      // one big card per item.
       function buildCombinedCard(group) {
         const card = document.createElement('div');
         card.className = 'mc-hub-card mc-hub-card--combined';
 
+        // The item cards put the group name in the eyebrow and the tool name in
+        // the heading. Here the heading IS the group name, so an eyebrow
+        // repeating it would be a stutter — it carries the count instead, which
+        // is the one thing the panel does not already say. A group NAMED Tools
+        // would stutter the other way ("3 TOOLS" over "Tools"), so that one
+        // counts links, which is also the truer word for it: they are three
+        // external services, not tools we built.
+        const count = group.items.length;
+        const noun = /tool/i.test(group.label)
+          ? (count === 1 ? ' Link' : ' Links')
+          : (count === 1 ? ' Tool' : ' Tools');
         const groupLabel = document.createElement('span');
         groupLabel.className = 'mc-hub-card-group';
-        groupLabel.textContent = group.label;
-
-        const title = document.createElement('h2');
-        title.textContent = group.label;
+        groupLabel.textContent = count + noun;
 
         const list = document.createElement('div');
         list.className = 'mc-hub-links';
@@ -374,7 +389,6 @@
         });
 
         card.appendChild(groupLabel);
-        card.appendChild(title);
         card.appendChild(list);
         return card;
       }
@@ -382,10 +396,17 @@
       function renderDirectory() {
         const groups = window.TgbMcAdminNav.getGroups();
         groups.forEach((group) => {
-          const section = document.createElement('section');
+          // A group flagged hubHidden lives in the dropdown only — it is already
+          // on this page as a Daily Chore, and a second card is the same link
+          // twice.
+          if (group.hubHidden) return;
+
+          const section = document.createElement('fieldset');
           section.className = 'mc-hub-group';
 
-          // No section heading — each card already shows its group name.
+          const legend = document.createElement('legend');
+          legend.textContent = group.label;
+
           const grid = document.createElement('div');
           grid.className = 'mc-hub-grid';
 
@@ -395,6 +416,7 @@
             group.items.forEach((item) => grid.appendChild(buildItemCard(group, item)));
           }
 
+          section.appendChild(legend);
           section.appendChild(grid);
           directory.appendChild(section);
         });
