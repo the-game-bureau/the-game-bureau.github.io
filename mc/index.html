@@ -125,6 +125,10 @@
       gap: 22px;
     }
 
+    /* Tight shadow, the socials panels' 0 1px 4px rather than the wide soft one
+       the shared .prompt-panel carries: that cushion is right for a modal
+       floating over the page, and under a grid of cards it only blurs the
+       panel's own edge. */
     .mc-hub-group {
       min-inline-size: 0;
       margin: 0;
@@ -132,18 +136,58 @@
       border: 1px solid var(--cut-panel-line);
       border-radius: 10px;
       background: var(--cut-panel-bg);
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
     }
 
+    /* The section labels wear the socials command bar's folder tab, so the two
+       pages cut their panels the same way. The border runs into the label and
+       back out again, and the cut-out reads as a tag clipped onto the frame
+       rather than a gap in it.
+
+       The tab is a PSEUDO-ELEMENT, not a border on the legend, because the two
+       things wanted here are incompatible on one box. The word has to sit
+       centred on the horizontal line, which is where the browser puts a legend
+       by default. But the tab's sides must stop AT that line rather than
+       carrying on into the panel, and a bordered box whose bottom edge is the
+       line cannot also have its text centred on the line -- the text centre is
+       always the better part of half a box above the bottom edge.
+
+       So the box stays put and the outline is drawn only over the half above
+       the line -- `inset: 0 0 50%`, since the legend's midpoint IS the line.
+       The word's lower half hangs into the panel, invisibly, because the tab
+       fill and the panel are the same colour with no bottom edge between them.
+
+       isolation: isolate is load-bearing. The arch sits at z-index -1 to stay
+       behind the text, and without a stacking context of its own that -1 would
+       drop it behind the fieldset's own background and it would vanish. */
     .mc-hub-group > legend,
     .mc-chores > legend {
       float: none;
       width: auto;
-      padding: 0 7px;
-      margin: 0 0 0 2px;
-      font-size: 0.82rem;
+      padding: 3px 10px;
+      margin: 0 0 0 10px;
+      position: relative;
+      isolation: isolate;
+      line-height: 1;
+      font-size: 0.92rem;
       font-weight: 800;
       letter-spacing: 0.12em;
       color: var(--ink);
+    }
+
+    .mc-hub-group > legend::before,
+    .mc-chores > legend::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 50%;              /* the legend's midpoint is the border line */
+      border: 1px solid var(--cut-panel-line);
+      border-bottom: 0;
+      /* 5px, not the panel's 10px: the arch is only half the legend tall, so a
+         wider radius would curve the whole way across and read as a dome
+         instead of a tab. */
+      border-radius: 5px 5px 0 0;
+      background: var(--cut-panel-bg);
     }
 
     .mc-hub-grid {
@@ -282,9 +326,10 @@
       min-inline-size: 0;
       margin: 0 0 22px;
       padding: 6px 14px 13px;
-      border: 1px solid var(--line);
+      border: 1px solid var(--cut-panel-line);
       border-radius: 10px;
       background: var(--cut-panel-bg);
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
     }
     /* Same grid as the directory below, so a chore card is the same object as
        every other card on the page. */
