@@ -2939,9 +2939,11 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         return keys.filter(function (k) { return !autoBlockedReason(k, post); });
       }
 
-      // Posts through the Edge Function. Resolves to the list of platforms that
-      // actually went out, so a partial success is reported as a partial
-      // success rather than being rounded up to "posted".
+      // Posts through the Edge Function. Resolves to the WHOLE reply --
+      // { posted, results } -- not just the winners. results carries Meta's own
+      // error text per platform, and that is the only place the reason for a
+      // refusal ever appears; the function deliberately answers 200 even when
+      // nothing went out, because the call itself succeeded.
       async function postViaApi(post, keys) {
         // The function speaks Graph, not our UI vocabulary: expand 'meta' into
         // the accounts it actually reaches for this candidate.
@@ -2957,7 +2959,22 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         });
         var body = await res.json().catch(function () { return {}; });
         if (!res.ok) throw new Error(body.error || ('Post failed: ' + res.status));
-        return Array.isArray(body.posted) ? body.posted : [];
+        return {
+          posted: Array.isArray(body.posted) ? body.posted : [],
+          results: Array.isArray(body.results) ? body.results : [],
+          warning: body.warning || ''
+        };
+      }
+
+      // Turns the per-platform results into one line a human can act on.
+      function describeFailures(results) {
+        var bad = (results || []).filter(function (r) { return r && !r.ok; });
+        if (!bad.length) return 'the function reported no successes and no errors';
+        return bad.map(function (r) {
+          var name = r.platform === 'facebook' ? 'Facebook'
+                   : r.platform === 'instagram' ? 'Instagram' : (r.platform || '?');
+          return name + ' — ' + (r.error || (r.skipped ? 'skipped' : 'failed'));
+        }).join('  |  ');
       }
 
       function buildAutoPostMenu(post, feedbackEl, onPick, stableId) {
@@ -3096,6 +3113,21 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         // row and the receipt are written the same way whichever route was
         // taken. The list behind is not re-rendered until close (postDialogDirty),
         // so the card cannot vanish from under a notice.
+        // The API path already knows exactly which accounts took the post, so
+        // it records those rather than re-deriving them from what was ticked.
+        function finishWithLabels(labels, note) {
+          return savePost(stateKey, {
+            status: 'posted',
+            posted_platforms: labels.length ? labels : null
+          }).then(function () {
+            postDialogDirty = true;
+            if (typeof onPick === 'function') onPick(labels);
+            closePostDialog();
+          }).catch(function (err) {
+            stick(feedbackEl, (note || 'Done') + ', but could not mark posted: ' + err.message);
+          });
+        }
+
         function finish(keys, note) {
           return savePost(stateKey, {
             status: 'posted',
@@ -3142,10 +3174,29 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
           go.disabled = true;
           manual.disabled = true;
           progress.textContent = 'Posting…';
-          postViaApi(post, auto).then(function (went) {
-            // Record what actually went out, not what was asked for.
-            var sent = went.length ? went : auto;
-            finish(sent, 'Posted');
+          postViaApi(post, auto).then(function (reply) {
+            // NOTHING WENT OUT is a failure, even though the HTTP call
+            // succeeded. This previously fell back to the requested list and
+            // marked the candidate posted -- reporting success for a post that
+            // never happened, which is the worst outcome this dialog can
+            // produce. The row is left alone and Meta's own words are shown.
+            if (!reply.posted.length) {
+              stick(feedbackEl, 'Nothing was posted. ' + describeFailures(reply.results));
+              syncRun();
+              return;
+            }
+            // Partial success: some accounts took it, some did not. Mark what
+            // actually went, and keep saying what did not.
+            var labels = reply.posted.map(function (t) {
+              return t === 'facebook' ? 'Facebook' : t === 'instagram' ? 'Instagram' : t;
+            });
+            var failed = (reply.results || []).filter(function (r) { return r && !r.ok; });
+            if (failed.length) {
+              stick(feedbackEl, 'Posted to ' + labels.join(', ') +
+                    '. Not posted: ' + describeFailures(reply.results));
+            }
+            if (reply.warning) stick(feedbackEl, reply.warning);
+            finishWithLabels(labels, 'Posted');
           }).catch(function (err) {
             stick(feedbackEl, 'Nothing was posted: ' + err.message);
             syncRun();
