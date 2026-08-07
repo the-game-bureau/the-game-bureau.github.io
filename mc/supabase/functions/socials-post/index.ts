@@ -130,24 +130,26 @@ async function metaIds(): Promise<{ pageId: string; igUserId: string }> {
   }
   if (!META_PAGE_TOKEN) throw new Error('META_PAGE_ACCESS_TOKEN is not set');
 
-  // `me` on a PAGE token is the Page itself. On a user token it is the user,
-  // which is why the error below names the distinction -- it is the single most
-  // common setup mistake and the symptom is otherwise baffling.
+  // `me` on a PAGE token is the Page itself. On a user token it is the user.
   const url = `${GRAPH}/me?fields=id,name,instagram_business_account{id,username}` +
               `&access_token=${encodeURIComponent(META_PAGE_TOKEN)}`;
   const res = await fetch(url);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error?.message || `token check failed: HTTP ${res.status}`);
   if (!data?.id) throw new Error('token resolved to no id');
-  if (data.instagram_business_account === undefined && !META_IG_USER_ID) {
-    // A user token answers here too, just with no Page fields -- so say what to
-    // check rather than reporting a missing Instagram link that may not be the
-    // real problem.
-    throw new Error(
-      'no instagram_business_account on this token. Either it is a USER token ' +
-      '(you need a PAGE token), or the Instagram account is not linked to the Page.'
-    );
-  }
+
+  // A MISSING INSTAGRAM ACCOUNT IS NOT AN ERROR HERE. This used to throw, which
+  // meant a Page with no reachable Instagram could not post to FACEBOOK either
+  // -- the two are independent, and Facebook needs nothing from this field. The
+  // absence is recorded as an empty igUserId and reported by postInstagram, so
+  // one broken destination cannot take the working one down with it.
+  //
+  // Three things produce an empty value and they are not distinguishable here:
+  //   - the token is a user token, not a Page token
+  //   - the Instagram account is not linked to this Page
+  //   - instagram_basic was not granted, so the field is simply not returned
+  // Guessing between them in an error message sends people to the wrong screen,
+  // so postInstagram names all three and postFacebook proceeds regardless.
   resolved = {
     pageId: META_PAGE_ID || String(data.id),
     igUserId: META_IG_USER_ID || String(data?.instagram_business_account?.id ?? ''),
@@ -230,7 +232,14 @@ async function postInstagram(row: any): Promise<Outcome> {
   }
   try {
     const { igUserId } = await metaIds();
-    if (!igUserId) throw new Error('no Instagram account linked to this Page');
+    if (!igUserId) {
+      throw new Error(
+        'no Instagram account resolved from this token. Check, in order: ' +
+        'instagram_basic was granted when the token was generated; the Instagram ' +
+        'account is linked to this Page in business.facebook.com; the token is a ' +
+        'PAGE token, not a user token.'
+      );
+    }
     // Two steps, always: create an unpublished container, then publish it.
     const container = await graph(`${igUserId}/media`, {
       image_url: image,
