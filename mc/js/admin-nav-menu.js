@@ -143,7 +143,7 @@
     },
     {
       label: 'Socials',
-      // Menu only. /mc/ already carries Socials Admin as a Daily Chore at the
+      // Menu only. /mc/ already carries Socializer as a Daily Chore at the
       // top of the page, so a directory card below it was the same link twice —
       // the same reason Gifts Admin and Soundtracks Admin are chores and appear
       // in no menu group. It stays HERE because the socials room has no button
@@ -153,7 +153,7 @@
       items: [
         {
           href: '/mc/socials/',
-          label: 'Socials Admin',
+          label: 'Socializer',
           description: 'Review AI-scouted stories and open prefilled composers for The Game Bureau social channels.'
         }
       ]
