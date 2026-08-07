@@ -31,7 +31,9 @@
 //   1. Meta Business Suite: have the Page, and an Instagram account converted to
 //      Business/Creator and LINKED to that Page. Instagram will not publish via
 //      API from a personal account.
-//   2. developers.facebook.com: the app is "TGB Socials". Under the CONTENT
+//   2. developers.facebook.com: App ID 28060607810255562. (An earlier app,
+//      "TGB Socials", dead-ended on Meta console gates and was replaced.)
+//      Under the CONTENT
 //      MANAGEMENT filter (not the Featured six -- none of those is right),
 //      add BOTH of these use cases:
 //      TWO INSTAGRAM APIS EXIST and the use case lists permissions for both.
@@ -62,7 +64,7 @@
 //      the same /me/accounts call yields a token that lasts an hour or one
 //      that lasts indefinitely, depending only on which token you call it
 //      with. Do not shortcut it.
-//        a. Graph API Explorer, app "TGB Socials", tick the four permissions,
+//        a. Graph API Explorer, app 28060607810255562, tick the five permissions,
 //           Generate Access Token  -> SHORT-LIVED USER token.
 //        b. Exchange it for a LONG-LIVED USER token (App ID + App Secret are
 //           in App settings -> Basic):
