@@ -28,6 +28,20 @@
 // rolled back because Instagram was refused.
 //
 // Setup (all in business.facebook.com + developers.facebook.com):
+//   0. THE THING THAT COST A WHOLE DAY: the app and the Page must live in the
+//      SAME business portfolio. They did not.
+//        The Game Bureau Page   business_id 2149033605346629, page_id 332940318805
+//        "TGB Social Bot" app   business_id  274906455556188
+//      A system user can only be granted assets inside its own portfolio, so no
+//      combination of permissions or token types can bridge that gap. The
+//      symptoms never said so: /me/accounts returned 15 personally-owned Pages
+//      and simply omitted this one, every permission showed as granted, and a
+//      post to the wrong Page succeeded with a real id.
+//      The Page also has commerce enabled, which locks it to its portfolio --
+//      "Commerce accounts must connect to a business account" when you try to
+//      move it. So the app moves to the Page, never the reverse: create the app
+//      from INSIDE portfolio 2149033605346629 and build the system user there.
+//
 //   1. Meta Business Suite: have the Page, and an Instagram account converted to
 //      Business/Creator and LINKED to that Page. Instagram will not publish via
 //      API from a personal account.
