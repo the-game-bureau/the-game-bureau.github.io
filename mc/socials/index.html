@@ -428,21 +428,10 @@
        old .is-facebook / .is-instagram rules died with the two separate rows. */
     .tag--platform.is-meta { color: #1b4da8; border-color: rgba(27, 77, 168, 0.45); background: rgba(27, 77, 168, 0.06); }
 
-    /* Replaces Post and Copy in the row while it is asking, so the question is
-       where the buttons were rather than somewhere new to look for. */
-    .post-confirm {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .post-confirm[hidden] { display: none; }
-    .post-confirm-text {
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-      color: var(--ink);
-    }
+    /* A question needs less room than a form. */
+    .tool-modal-panel--ask { width: min(430px, calc(100vw - 32px)); }
+    .confirm-body { display: grid; gap: 14px; padding: 16px 18px 18px; }
+    .confirm-text { margin: 0; color: var(--ink); font-size: 0.95rem; line-height: 1.5; }
 
     /* Edit sits apart from the decisions. Post, Copy and Skip are the three
        things you do to a candidate; Edit is maintenance on it, so it goes to
@@ -1126,7 +1115,23 @@
         </div>
       </section>
 
-      <div class="tool-backdrop" id="postBackdrop" hidden></div>
+      <div class="tool-backdrop" id="confirmBackdrop" hidden></div>
+      <!-- A yes/no question, asked where every other question on this page is
+           asked. Deliberately generic: it takes its words from the caller, so
+           the next confirmation does not add a third dialog. -->
+      <section class="prompt-panel tool-modal-panel tool-modal-panel--ask" id="confirmCard"
+               role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
+        <div class="panel-head">
+          <h2 class="panel-title" id="confirmTitle">Copied!</h2>
+        </div>
+        <div class="confirm-body">
+          <p class="confirm-text" id="confirmText"></p>
+          <div class="modal-actions">
+            <button class="btn" id="confirmNo" type="button">No</button>
+            <button class="btn primary" id="confirmYes" type="button">Yes</button>
+          </div>
+        </div>
+      </section>
 
       <div class="tool-backdrop" id="promptBackdrop" hidden></div>
       <section class="prompt-panel tool-modal-panel tool-modal-panel--wide" id="promptCard" role="dialog" aria-modal="true" aria-label="Socials prompt" hidden>
@@ -1402,7 +1407,8 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
       var editCard = document.getElementById('editCard');
       var editForm = document.getElementById('editForm');
       var editStatus = document.getElementById('editStatus');
-      var postBackdrop = document.getElementById('postBackdrop');
+      var confirmCard = document.getElementById('confirmCard');
+      var confirmBackdrop = document.getElementById('confirmBackdrop');
       var postCloseBtn = document.querySelector('[data-post-close]');
       var promptBtn = document.getElementById('promptBtn');
       var promptBackdrop = document.getElementById('promptBackdrop');
@@ -1951,11 +1957,61 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         }, 0);
       }
 
+      // Asks a yes/no question and resolves to the answer. One dialog, reused:
+      // the caller supplies the words, so a second confirmation later does not
+      // mean a second dialog.
+      //
+      // Listeners are attached per call and removed on settle, rather than bound
+      // once at startup -- bound once, each call would have to unpick the
+      // previous call's closure, which is the shape that leaks a stale answer
+      // into the next question.
+      var askConfirmBusy = false;
+      function askConfirm(title, text, yesLabel) {
+        return new Promise(function (resolve) {
+          var card = confirmCard;
+          var yes = document.getElementById('confirmYes');
+          var no = document.getElementById('confirmNo');
+          // No dialog, or one already open: answer no rather than hanging on a
+          // promise that can never settle.
+          if (!card || !yes || !no || askConfirmBusy) { resolve(false); return; }
+          askConfirmBusy = true;
+
+          var titleEl = document.getElementById('confirmTitle');
+          var textEl = document.getElementById('confirmText');
+          if (titleEl) titleEl.textContent = title || 'Are you sure?';
+          if (textEl) textEl.textContent = text || '';
+          yes.textContent = yesLabel || 'Yes';
+
+          function settle(answer) {
+            yes.removeEventListener('click', onYes);
+            no.removeEventListener('click', onNo);
+            document.removeEventListener('keydown', onKey, true);
+            if (confirmBackdrop) confirmBackdrop.removeEventListener('click', onNo);
+            askConfirmBusy = false;
+            closeTool(card, confirmBackdrop);
+            resolve(answer);
+          }
+          function onYes() { settle(true); }
+          function onNo() { settle(false); }
+          function onKey(e) {
+            if (e.key === 'Escape') { e.stopPropagation(); settle(false); }
+          }
+
+          yes.addEventListener('click', onYes);
+          no.addEventListener('click', onNo);
+          // Capture, so Escape closes this and not whatever is behind it.
+          document.addEventListener('keydown', onKey, true);
+          if (confirmBackdrop) confirmBackdrop.addEventListener('click', onNo);
+
+          openTool(card, confirmBackdrop, yes);
+        });
+      }
+
       function closeTool(card, backdrop) {
         if (backdrop) backdrop.hidden = true;
         if (card) card.hidden = true;
         if ((manualCard && !manualCard.hidden) || (promptCard && !promptCard.hidden) ||
-            (editCard && !editCard.hidden)) return;
+            (editCard && !editCard.hidden) || (confirmCard && !confirmCard.hidden)) return;
         document.body.style.overflow = '';
       }
 
@@ -2478,7 +2534,6 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         // and Skipped cards already use, so it is the one that stays.
         actions.appendChild(controls.postBtn);
         actions.appendChild(controls.copyBtn);
-        actions.appendChild(controls.confirmEl);
         actions.appendChild(trashBtn);
         actions.appendChild(feedback);
         // Last, and pushed to the far right by .post-edit-btn's margin-left.
@@ -2979,65 +3034,26 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         // posted in the same click. But copying is also how you grab a caption
         // to look at, or to paste somewhere and then think better of -- and the
         // card was gone by then. So the copy happens, and then it asks.
-        var confirm = document.createElement('span');
-        confirm.className = 'post-confirm';
-        confirm.hidden = true;
-
-        var confirmText = document.createElement('span');
-        confirmText.className = 'post-confirm-text';
-        confirm.appendChild(confirmText);
-
-        var yes = document.createElement('button');
-        yes.type = 'button';
-        yes.className = 'btn small primary';
-        yes.textContent = 'Yes';
-
-        var no = document.createElement('button');
-        no.type = 'button';
-        no.className = 'btn small';
-        no.textContent = 'No';
-
-        confirm.appendChild(yes);
-        confirm.appendChild(no);
-
-        function askToMark(copied) {
-          confirmText.textContent = copied + ' Mark as posted?';
-          confirm.hidden = false;
-          go.hidden = true;
-          copy.hidden = true;
-          yes.focus();
-        }
-
-        function stopAsking() {
-          confirm.hidden = true;
-          go.hidden = false;
-          copy.hidden = false;
-          sync();
-        }
-
-        yes.addEventListener('click', function () {
-          // No account is claimed: this records that you took it away to post by
-          // hand, not where it landed.
-          markPosted([], false);
-        });
-
-        no.addEventListener('click', function () {
-          // The clipboard keeps what it copied; only the decision is declined.
-          stopAsking();
-        });
-
         copy.addEventListener('click', function () {
           clearNotice(feedbackEl);
-          var pasteKey = /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘V' : 'Ctrl+V';
+          var pasteKey = /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '\u2318V' : 'Ctrl+V';
           // Copy first, and synchronously: the clipboard write needs the user
-          // gesture, so it cannot wait behind the confirmation.
+          // gesture, so it cannot wait behind the answer.
           copyToClipboard(clipboardText(post), feedbackEl,
             'Caption + link copied - paste with ' + pasteKey, true);
-          askToMark('Copied!');
+
+          askConfirm('Copied!',
+                     'Caption and link are on the clipboard. Mark this candidate as posted?',
+                     'Yes').then(function (ok) {
+            // No account is claimed either way: you took it away to post by
+            // hand, so the receipt cannot know where it landed. Declining just
+            // leaves it in review -- the clipboard keeps what it copied.
+            if (ok) markPosted([], false);
+          });
         });
 
         sync();
-        return { postBtn: go, copyBtn: copy, confirmEl: confirm };
+        return { postBtn: go, copyBtn: copy };
       }
 
 
