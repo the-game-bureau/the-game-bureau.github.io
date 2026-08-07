@@ -175,6 +175,7 @@
       '<span class="footer-mark-stack">' +
         '<span class="footer-mark">&copy; The Game Bureau</span>' +
         '<a class="footer-doc-link" href="/gifts/aboutshop.html">How our shop works &rsaquo;</a>' +
+        '<a class="footer-doc-link" href="/privacy/">Privacy</a>' +
       '</span>' +
       '<span class="footer-social-stack">' +
         '<span class="footer-social-links">' +
