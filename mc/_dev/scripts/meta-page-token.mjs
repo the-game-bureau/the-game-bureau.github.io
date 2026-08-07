@@ -104,8 +104,31 @@ try {
     const accounts = await graph('me/accounts', { access_token: userToken });
     const pages = accounts.data || [];
     if (!pages.length) {
-      throw new Error('no Pages returned. Check pages_show_list was granted, and that ' +
-                      'you approved the Page in the Graph API Explorer dialog.');
+      // Empty is ambiguous on its own -- it means either "the permission was not
+      // granted" or "it was, and no Page was approved". Those need different
+      // fixes, so ask the token what it actually carries rather than guessing.
+      let granted = [], declined = [];
+      try {
+        const perms = await graph('me/permissions', { access_token: userToken });
+        (perms.data || []).forEach((x) => {
+          (x.status === 'granted' ? granted : declined).push(x.permission);
+        });
+      } catch { /* the diagnosis is best-effort; the failure below still stands */ }
+
+      console.log('');
+      console.log('   granted : ' + (granted.join(', ') || '(none)'));
+      if (declined.length) console.log('   DECLINED: ' + declined.join(', '));
+      console.log('');
+      const missing = ['pages_show_list', 'pages_manage_posts', 'instagram_basic']
+        .filter((n) => !granted.includes(n));
+      throw new Error(
+        missing.length
+          ? `these permissions are missing from the token: ${missing.join(', ')}. ` +
+            `Re-add them in the Explorer and generate again.`
+          : `the permissions are all granted, but no Page was approved. In the ` +
+            `consent dialog choose "Opt in to all Pages" -- if The Game Bureau is ` +
+            `not offered there, it is owned by a Business portfolio rather than by you.`
+      );
     }
     pages.forEach((p, i) => console.log(`   [${i}] ${p.name}  id=${p.id}`));
 
