@@ -107,7 +107,7 @@
        on their 1px border to separate from the background. */
     .queue-panel {
       min-inline-size: 0;
-      padding: 0;
+      padding: 4px 0 0;
       border: 1px solid var(--cut-panel-line);
       background: var(--cut-panel-bg);
       border-radius: 10px;
@@ -123,13 +123,10 @@
       width: auto;
       padding: 3px 10px;
       margin: 0 0 0 10px;
-      border: 1px solid var(--cut-panel-line);
-      border-bottom: 0;
-      border-radius: 7px 7px 0 0;
+      position: relative;
+      isolation: isolate;
       line-height: 1;
-      transform: translateY(-50%);
       color: var(--ink);
-      background: var(--cut-panel-bg);
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.92rem;
       font-weight: 800;
@@ -575,7 +572,7 @@
       width: 100%;
       max-width: var(--mc-shell-width);
       min-inline-size: 0;
-      padding: 0 12px 12px;
+      padding: 4px 12px 12px;
       margin: 0 auto var(--stack-gap);
       background: var(--cut-panel-bg);
       border: 1px solid var(--cut-panel-line);
@@ -583,44 +580,35 @@
       box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
     }
     /* The legend cuts the panel's top border, and the line used to just stop
-       either side of it. It now carries its own 1px box in the same colour, so
-       the border runs into the label and back out again -- the cut-out reads as
-       a tag clipped onto the frame rather than a gap in it.
+       either side of it. It now wears a folder tab: the border runs into the
+       label and back out again, so the cut-out reads as a tag clipped onto the
+       frame rather than a gap in it.
 
-       A FOLDER TAB, so the sides must stop at the horizontal line rather than
-       carrying on past it. A legend is centred on that line by default, which
-       left the lower half of the box hanging inside the panel; translateY(-50%)
-       -- half the legend's OWN height, whatever the font ends up being -- lifts
-       it until its bottom edge lands exactly on the line.
+       The tab is a PSEUDO-ELEMENT, not a border on the legend, because the two
+       things wanted here are incompatible on one box. The word has to sit
+       centred on the horizontal line, which is the legend's default position --
+       the browser centres it there. But the tab's sides must stop AT that line
+       rather than carrying on into the panel, and a bordered box whose bottom
+       edge is the line cannot also have its text centred on the line: the text
+       centre is always the better part of half a box above the bottom edge.
 
-       This works because the browser cuts the border at the legend's LAYOUT
-       position, and a transform does not move that. The gap therefore stays
-       directly beneath the tab and exactly as wide as it, so tab and panel meet
-       as one shape: open at the bottom, one continuous background across the
-       join, and the two side lines running down into the ends of the cut.
+       So the box stays put and the outline is drawn only over the half above
+       the line -- `inset: 0 0 50%`, since the legend's midpoint IS the line.
+       The word's lower half then hangs into the panel, which is invisible
+       because the tab fill and the panel are the same colour and there is no
+       bottom edge between them.
 
-       Square bottom corners for the same reason -- the sides have to arrive at
-       the line straight, not curling back toward an edge that is not drawn.
-
-       Each panel's top padding is 0 to pay for the lift: the fieldset still
-       reserves the legend's full height above the content, and half of that is
-       now empty.
-
-       line-height is pinned so the height -- and therefore the lift, which is
-       half of it -- cannot depend on which font actually loaded. The gap above
-       each panel is --stack-gap (14px), and a tab that grew on the fallback
-       metrics would climb into whatever sits above it. */
+       isolation: isolate is load-bearing. The arch sits at z-index -1 to stay
+       behind the text, and without a stacking context of its own that -1 would
+       drop it behind the fieldset's own background and it would vanish. */
     .command-bar > legend {
       float: none;
       width: auto;
       padding: 3px 10px;
       margin: 0 0 0 10px;
-      border: 1px solid var(--cut-panel-line);
-      border-bottom: 0;
-      border-radius: 7px 7px 0 0;
+      position: relative;
+      isolation: isolate;
       line-height: 1;
-      transform: translateY(-50%);
-      background: var(--cut-panel-bg);
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.92rem;
       font-weight: 800;
@@ -628,6 +616,21 @@
       text-transform: uppercase;
       color: var(--ink);
     }
+    .command-bar > legend::before,
+    .queue-panel > legend::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 50%;              /* the legend's midpoint is the border line */
+      border: 1px solid var(--cut-panel-line);
+      border-bottom: 0;
+      /* 5px, not the panel's 10px: the arch is only half the legend tall, so a
+         wider radius would curve the whole way across and read as a dome
+         instead of a tab. */
+      border-radius: 5px 5px 0 0;
+      background: var(--cut-panel-bg);
+    }
+
     .command-bar-inner {
       display: flex;
       align-items: center;
