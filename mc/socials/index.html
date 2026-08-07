@@ -2977,6 +2977,22 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         }).join('  |  ');
       }
 
+      // Console helper: type tgbDiagnosePost() on this page while signed in.
+      // Answers "what does the stored Meta token actually point at?" and posts
+      // nothing. Exposed deliberately -- the alternative is asking someone to
+      // hand-assemble a fetch with an auth header out of localStorage, which is
+      // its own source of mistakes. Returns an id, a name and a type; no secret.
+      window.tgbDiagnosePost = async function () {
+        var res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/' + AUTOPOST_ENDPOINT, {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ diagnose: true })
+        });
+        var out = await res.json();
+        console.table ? console.table(out) : console.log(out);
+        return out;
+      };
+
       function buildAutoPostMenu(post, feedbackEl, onPick, stableId) {
         var stateKey = stableId || postId(post);
         var tagged = {};

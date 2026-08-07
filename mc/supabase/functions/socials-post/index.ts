@@ -274,8 +274,39 @@ Deno.serve(async (req: Request) => {
   if (adminErr) return json(500, { error: 'admin check failed: ' + adminErr.message });
   if (!isAdmin)  return json(403, { error: 'not authorized' });
 
-  let body: { id?: string; platforms?: string[] } = {};
+  let body: { id?: string; platforms?: string[]; diagnose?: boolean } = {};
   try { body = await req.json(); } catch { return json(400, { error: 'invalid JSON body' }); }
+
+  // { diagnose: true } -- answer "what does this token actually point at?" and
+  // post nothing. Added because a post can succeed, return a real id, and still
+  // be invisible on the Page you are looking at: if the stored token is a USER
+  // token, /me resolves to the person rather than the Page, and the post lands
+  // on their own feed. From the outside that is indistinguishable from a post
+  // that failed silently. Returns no secret -- an id, a name, and a type.
+  if (body.diagnose) {
+    try {
+      const probe = await fetch(
+        `${GRAPH}/me?fields=id,name,category,instagram_business_account{id,username}` +
+        `&access_token=${encodeURIComponent(META_PAGE_TOKEN)}`
+      );
+      const d = await probe.json().catch(() => ({}));
+      if (!probe.ok) return json(200, { diagnose: true, error: d?.error?.message || `HTTP ${probe.status}` });
+      return json(200, {
+        diagnose: true,
+        id: d?.id ?? null,
+        name: d?.name ?? null,
+        // A Page has a category; a user does not. This is the tell.
+        looksLike: d?.category ? 'PAGE token' : 'USER token (wrong -- see setup notes)',
+        category: d?.category ?? null,
+        instagram: d?.instagram_business_account
+          ? { id: d.instagram_business_account.id, username: d.instagram_business_account.username }
+          : null,
+        tokenSet: !!META_PAGE_TOKEN,
+      });
+    } catch (err) {
+      return json(200, { diagnose: true, error: (err as Error).message });
+    }
+  }
 
   const id = String(body.id ?? '').trim();
   if (!id) return json(400, { error: 'id is required' });
