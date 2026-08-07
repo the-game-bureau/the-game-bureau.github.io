@@ -428,6 +428,22 @@
        old .is-facebook / .is-instagram rules died with the two separate rows. */
     .tag--platform.is-meta { color: #1b4da8; border-color: rgba(27, 77, 168, 0.45); background: rgba(27, 77, 168, 0.06); }
 
+    /* Replaces Post and Copy in the row while it is asking, so the question is
+       where the buttons were rather than somewhere new to look for. */
+    .post-confirm {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .post-confirm[hidden] { display: none; }
+    .post-confirm-text {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+    }
+
     /* Edit sits apart from the decisions. Post, Copy and Skip are the three
        things you do to a candidate; Edit is maintenance on it, so it goes to
        the far end rather than into that sequence. */
@@ -2462,6 +2478,7 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         // and Skipped cards already use, so it is the one that stays.
         actions.appendChild(controls.postBtn);
         actions.appendChild(controls.copyBtn);
+        actions.appendChild(controls.confirmEl);
         actions.appendChild(trashBtn);
         actions.appendChild(feedback);
         // Last, and pushed to the far right by .post-edit-btn's margin-left.
@@ -2957,20 +2974,70 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
           });
         });
 
-        copy.addEventListener('click', function () {
-          clearNotice(feedbackEl);
-          var pasteKey = /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘V' : 'Ctrl+V';
-          // Copy first: the clipboard write needs the user gesture, and
-          // markPosted re-renders the queue out from under this card.
-          copyToClipboard(clipboardText(post), feedbackEl,
-            'Caption + link copied - paste with ' + pasteKey, true);
+        // Copying and deciding are two different things, and this button used to
+        // do both: it put the caption on the clipboard and marked the candidate
+        // posted in the same click. But copying is also how you grab a caption
+        // to look at, or to paste somewhere and then think better of -- and the
+        // card was gone by then. So the copy happens, and then it asks.
+        var confirm = document.createElement('span');
+        confirm.className = 'post-confirm';
+        confirm.hidden = true;
+
+        var confirmText = document.createElement('span');
+        confirmText.className = 'post-confirm-text';
+        confirm.appendChild(confirmText);
+
+        var yes = document.createElement('button');
+        yes.type = 'button';
+        yes.className = 'btn small primary';
+        yes.textContent = 'Yes';
+
+        var no = document.createElement('button');
+        no.type = 'button';
+        no.className = 'btn small';
+        no.textContent = 'No';
+
+        confirm.appendChild(yes);
+        confirm.appendChild(no);
+
+        function askToMark(copied) {
+          confirmText.textContent = copied + ' Mark as posted?';
+          confirm.hidden = false;
+          go.hidden = true;
+          copy.hidden = true;
+          yes.focus();
+        }
+
+        function stopAsking() {
+          confirm.hidden = true;
+          go.hidden = false;
+          copy.hidden = false;
+          sync();
+        }
+
+        yes.addEventListener('click', function () {
           // No account is claimed: this records that you took it away to post by
           // hand, not where it landed.
           markPosted([], false);
         });
 
+        no.addEventListener('click', function () {
+          // The clipboard keeps what it copied; only the decision is declined.
+          stopAsking();
+        });
+
+        copy.addEventListener('click', function () {
+          clearNotice(feedbackEl);
+          var pasteKey = /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘V' : 'Ctrl+V';
+          // Copy first, and synchronously: the clipboard write needs the user
+          // gesture, so it cannot wait behind the confirmation.
+          copyToClipboard(clipboardText(post), feedbackEl,
+            'Caption + link copied - paste with ' + pasteKey, true);
+          askToMark('Copied!');
+        });
+
         sync();
-        return { postBtn: go, copyBtn: copy };
+        return { postBtn: go, copyBtn: copy, confirmEl: confirm };
       }
 
 
