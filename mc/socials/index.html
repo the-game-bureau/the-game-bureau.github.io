@@ -2701,12 +2701,13 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         return String(post.blurb || '').trim() + '\n\n' + String(post.url || '').trim();
       }
 
-      async function copyToClipboard(text, feedbackEl, okMsg, sticky) {
-        var done = okMsg || 'Copied';
-        var show = sticky ? stick : flash;
+      // Resolves to whether the text reached the clipboard, and reports nothing
+      // itself: the caller already opens a dialog and can say so there, instead
+      // of announcing the same outcome twice in two places.
+      async function copyToClipboard(text) {
         try {
           await navigator.clipboard.writeText(text);
-          show(feedbackEl, done);
+          return true;
         } catch (error) {
           // The async clipboard needs a secure context and permission. Fall back
           // to a hidden textarea so this still works over plain http on a local
@@ -2721,7 +2722,7 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
           var ok = false;
           try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
           document.body.removeChild(scratch);
-          if (ok) show(feedbackEl, done); else flash(feedbackEl, 'Copy failed');
+          return ok;
         }
       }
 
@@ -3074,24 +3075,38 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         // card was gone by then. So the copy happens, and then it asks.
         copy.addEventListener('click', function () {
           clearNotice(feedbackEl);
-          var pasteKey = /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '\u2318V' : 'Ctrl+V';
-          // Copy first, and synchronously: the clipboard write needs the user
-          // gesture, so it cannot wait behind the answer.
-          copyToClipboard(clipboardText(post), feedbackEl,
-            'Caption + link copied - paste with ' + pasteKey, true);
+          var pasteKey = /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘V' : 'Ctrl+V';
 
-          askConfirm('Copied!',
-                     'Caption and link are on the clipboard. Mark this candidate as posted?',
-                     'Yes').then(function (ok) {
-            // No account is claimed either way: you took it away to post by
-            // hand, so the receipt cannot know where it landed. Declining just
-            // leaves it in review -- the clipboard keeps what it copied.
-            //
-            // This one is still a question, and should be: unlike Post, nothing
-            // here can tell whether you actually posted it.
-            if (!ok) return;
-            markPosted([], false).then(function (markErr) {
-              if (markErr) stick(feedbackEl, 'Could not mark it posted: ' + markErr.message);
+          // Started inside the click, not after it: the clipboard write needs
+          // the user gesture and cannot wait behind an answer.
+          //
+          // It reports nothing on the card. A notice there said "copied, paste
+          // with Ctrl+V" at the same moment a dialog opened saying the same
+          // thing, then sat on the card afterwards with nothing left to tell
+          // you. The paste key belongs in the dialog, which is where you are
+          // looking and which goes away when you are done with it.
+          copyToClipboard(clipboardText(post)).then(function (copied) {
+            if (!copied) {
+              askConfirm('Copy failed',
+                         'The caption could not be put on the clipboard. Nothing has been ' +
+                         'marked, so try again, or open Edit and copy it from there.',
+                         'OK', { hideNo: true });
+              return;
+            }
+            return askConfirm('Copied!',
+                              'Caption and link are on the clipboard - paste with ' +
+                              pasteKey + '. Mark this candidate as posted?',
+                              'Yes').then(function (ok) {
+              // No account is claimed either way: you took it away to post by
+              // hand, so the receipt cannot know where it landed. Declining just
+              // leaves it in review -- the clipboard keeps what it copied.
+              //
+              // This one is still a question, and should be: unlike Post, nothing
+              // here can tell whether you actually posted it.
+              if (!ok) return;
+              return markPosted([], false).then(function (markErr) {
+                if (markErr) stick(feedbackEl, 'Could not mark it posted: ' + markErr.message);
+              });
             });
           });
         });
