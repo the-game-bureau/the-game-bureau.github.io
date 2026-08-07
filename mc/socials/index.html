@@ -467,12 +467,17 @@
       font-size: 1rem;
       line-height: 1.5;
     }
-    /* Inside the dialog the picker is the content, so it drops its own frame. */
+    /* Inside the dialog the picker wears the same tinted cut panel as the queue
+       and the command bar, so this reads as part of the room rather than a
+       generic modal. It used to drop its frame entirely and sit on the modal's
+       white, which is what made it look like a different product. */
     #postDialogMenu .autopost-menu {
       margin: 0;
-      padding: 0;
-      border: 0;
-      background: none;
+      padding: 10px 12px 12px;
+      border: 1px solid var(--cut-panel-line);
+      border-radius: 10px;
+      background: var(--cut-panel-bg);
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
     }
 
     .autopost-menu {
@@ -485,7 +490,6 @@
       gap: 9px;
     }
     .autopost-menu[hidden] { display: none; }
-    .autopost-hint { margin: 0; font-size: 0.72rem; line-height: 1.5; color: var(--muted); }
     /* One row per account: tick on the left, why-it-fits on the right. */
     .autopost-row { display: grid; gap: 7px; }
     .autopost-item {
@@ -1181,7 +1185,7 @@
       <section class="prompt-panel tool-modal-panel" id="postCard" role="dialog" aria-modal="true" aria-labelledby="postDialogTitle" hidden>
         <div class="panel-head">
           <h2 class="panel-title" id="postDialogTitle">Post</h2>
-          <span class="panel-head-actions">
+          <span class="panel-head-actions" id="postDialogHeadActions">
             <button class="btn small" data-post-close type="button">Close</button>
           </span>
         </div>
@@ -2685,6 +2689,24 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         if (postDialogHeadline) postDialogHeadline.textContent = post.headline || post.url || '';
         if (postDialogCaption) postDialogCaption.textContent = post.blurb || '';
 
+        // Edit, rebuilt per open because it closes over this candidate. Same
+        // makeEditBtn the card uses, so both routes open the same editor rather
+        // than two that can drift.
+        var headActions = document.getElementById('postDialogHeadActions');
+        if (headActions) {
+          var stale = headActions.querySelector('[data-post-edit]');
+          if (stale) stale.remove();
+          var edit = makeEditBtn(post, stableId || postId(post));
+          edit.className = 'btn small';
+          edit.dataset.postEdit = 'true';
+          // Hand over rather than stack: both dialogs are fixed and centred, so
+          // opening the editor without closing this one puts two panels on top
+          // of each other. Capture phase, so this runs before makeEditBtn's own
+          // handler opens the editor.
+          edit.addEventListener('click', function () { closePostDialog(); }, true);
+          headActions.insertBefore(edit, headActions.firstChild);
+        }
+
         postDialogMenu.textContent = '';
         var menu = buildAutoPostMenu(post, postDialogFeedback, function () {
           // Run complete. Swap the Close button's wording so the dialog reads
@@ -3028,11 +3050,6 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         var menu = document.createElement('div');
         menu.className = 'autopost-menu';
         menu.setAttribute('hidden', '');
-
-        var hint = document.createElement('p');
-        hint.className = 'autopost-hint';
-        hint.textContent = 'Tick the platforms this should go to. Post sends to the ones we can post to by machine; Manual post copies the caption and link so you can paste it yourself. Either way the candidate is marked posted.';
-        menu.appendChild(hint);
 
         var picked = {};   // key -> ticked
         var buttons = {};
