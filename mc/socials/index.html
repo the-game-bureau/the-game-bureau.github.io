@@ -1966,7 +1966,10 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
       // previous call's closure, which is the shape that leaks a stale answer
       // into the next question.
       var askConfirmBusy = false;
-      function askConfirm(title, text, yesLabel) {
+      // opts.hideNo turns it into a notice: one button, nothing to answer. Used
+      // when the outcome is already settled and there is only something to read
+      // -- a post that failed outright has no "mark it?" worth asking.
+      function askConfirm(title, text, yesLabel, opts) {
         return new Promise(function (resolve) {
           var card = confirmCard;
           var yes = document.getElementById('confirmYes');
@@ -1981,6 +1984,7 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
           if (titleEl) titleEl.textContent = title || 'Are you sure?';
           if (textEl) textEl.textContent = text || '';
           yes.textContent = yesLabel || 'Yes';
+          no.hidden = !!(opts && opts.hideNo);
 
           function settle(answer) {
             yes.removeEventListener('click', onYes);
@@ -2998,34 +3002,40 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
 
           postViaApi(post, targets).then(function (reply) {
             go.textContent = restore;
-            // NOTHING WENT OUT is a failure even though the HTTP call
-            // succeeded, and the row must not be marked posted. Meta's own
-            // words are the only useful thing to show.
+
+            // NOTHING WENT OUT. The HTTP call succeeded but Meta refused, so
+            // there is nothing to file and nothing to ask -- just Meta's own
+            // words, which are the only useful thing here.
             if (!reply.posted.length) {
-              stick(feedbackEl, 'Nothing was posted. ' + describeFailures(reply.results));
               sync();
+              askConfirm('Nothing was posted',
+                         describeFailures(reply.results),
+                         'OK', { hideNo: true });
               return;
             }
+
             var labels = reply.posted.map(function (t) {
               return t === 'facebook' ? 'Facebook' : t === 'instagram' ? 'Instagram' : t;
             });
             var failed = (reply.results || []).filter(function (r) { return r && !r.ok; });
-            if (failed.length || reply.warning) {
-              // Partial: hold the re-render so the notice survives, and say both
-              // what went and what did not.
-              if (failed.length) {
-                stick(feedbackEl, 'Posted to ' + labels.join(', ') +
-                      '. Not posted: ' + describeFailures(reply.results));
-              }
-              if (reply.warning) stick(feedbackEl, reply.warning);
-              markPosted(labels, true);
-              return;
-            }
-            markPosted(labels, false);
+
+            // The post HAS gone out by this point -- filing the candidate is a
+            // separate act, so it is asked rather than assumed. Anything that
+            // went wrong on the way is said here, in the same breath, because
+            // this dialog is the only moment it is certain to be read.
+            var lines = ['Posted to ' + labels.join(' and ') + '.'];
+            if (failed.length) lines.push('Not posted: ' + describeFailures(reply.results));
+            if (reply.warning) lines.push(reply.warning);
+            lines.push('Mark this candidate as posted?');
+
+            askConfirm('Posted!', lines.join(' '), 'Yes').then(function (ok) {
+              if (ok) markPosted(labels, false);
+              else sync();   // it went out, but stays in review by your call
+            });
           }).catch(function (err) {
             go.textContent = restore;
-            stick(feedbackEl, 'Nothing was posted: ' + err.message);
             sync();
+            askConfirm('Nothing was posted', err.message, 'OK', { hideNo: true });
           });
         });
 
