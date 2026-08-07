@@ -68,6 +68,9 @@
     }
 
     .prompt-panel { min-width: 0; border-top: 8px solid var(--accent); }
+    /* The post dialog drops it. On the tool modals that stripe reads as a title
+       rule; here the panel head sits right under it and the two competed. */
+    #postCard.prompt-panel { border-top: 0; }
 
     .explain { padding: 18px; border-top: 8px solid var(--bic-red); }
     .explain h2 {
@@ -547,14 +550,6 @@
     .autopost-run { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
     .autopost-go { min-height: 32px; }
     .autopost-go[disabled] { opacity: 0.45; cursor: not-allowed; }
-    .autopost-progress {
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.68rem;
-      font-weight: 800;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
     .post-feedback {
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.7rem;
@@ -3172,18 +3167,8 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         manual.className = 'btn autopost-go';
         manual.textContent = 'Manual post';
 
-        var cancel = document.createElement('button');
-        cancel.type = 'button';
-        cancel.className = 'btn autopost-go';
-        cancel.textContent = 'Cancel';
-
-        var progress = document.createElement('span');
-        progress.className = 'autopost-progress';
-
         run.appendChild(go);
         run.appendChild(manual);
-        run.appendChild(cancel);
-        run.appendChild(progress);
         menu.appendChild(run);
 
         function pickedKeys() {
@@ -3223,8 +3208,6 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
             if (typeof onPick === 'function') onPick(labels);
             go.disabled = true;
             manual.disabled = true;
-            cancel.textContent = 'Close';
-            progress.textContent = 'Posted to ' + labels.join(', ');
           }).catch(function (err) {
             stick(feedbackEl, 'Posted, but could not mark the row: ' + err.message);
           });
@@ -3265,21 +3248,19 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
           go.disabled = !auto.length;
 
           if (!keys.length) {
-            progress.textContent = 'Pick at least one platform';
+            go.title = 'Pick at least one platform.';
           } else if (!auto.length) {
-            // Nothing ticked can go out by machine. Say which and why, rather
-            // than leaving a disabled button unexplained.
-            progress.textContent = labelsFor(keys).join(', ') + ' — manual only';
+            // Nothing ticked can go out by machine. The reason is on each row
+            // already (autoBlockedReason); this puts it on the disabled button
+            // too, so hovering it explains itself.
             go.title = keys.map(function (k) {
               return platformLabel(k, post) + ': ' + autoBlockedReason(k, post);
             }).join('  |  ');   // one line -- a title tooltip ignores line breaks
           } else {
-            // labelsFor expands meta, so this says "Facebook, Instagram" rather
-            // than the internal key -- the same words the receipt will carry.
-            progress.textContent = auto.length === keys.length
-              ? 'Posts to ' + labelsFor(auto).join(', ')
-              : 'Posts to ' + labelsFor(auto).join(', ') + '; the rest are manual';
-            go.title = '';
+            // labelsFor expands meta, so this names accounts rather than the
+            // internal key -- the same words the receipt will carry.
+            go.title = 'Posts to ' + labelsFor(auto).join(', ') +
+              (auto.length === keys.length ? '' : '; the rest are manual');
           }
         }
 
@@ -3340,10 +3321,6 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
           copyToClipboard(clipboardText(post), feedbackEl,
             'Caption + link copied — paste with ' + pasteKey, true);
           finish(keys, 'Copied');
-        });
-
-        cancel.addEventListener('click', function () {
-          closePostDialog();   // decides nothing; the candidate stays in review
         });
 
         syncRun();
