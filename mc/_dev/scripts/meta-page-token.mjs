@@ -3,6 +3,7 @@
 //
 //   node mc/_dev/scripts/meta-page-token.mjs <APP_ID> <APP_SECRET> <SHORT_LIVED_USER_TOKEN>
 //   node mc/_dev/scripts/meta-page-token.mjs --system <SYSTEM_USER_TOKEN>
+//   ...add --page "The Game Bureau" when the token can see more than one Page.
 //
 // TWO WAYS IN, and --system is the better one for this.
 //   default   Graph API Explorer user token. Needs the App ID/Secret exchange
@@ -45,7 +46,12 @@
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
-const argv = process.argv.slice(2);
+const argvAll = process.argv.slice(2);
+// --page <name or id> picks which Page to use when the token can see several.
+let wantPage = null;
+const pageAt = argvAll.indexOf('--page');
+if (pageAt !== -1) { wantPage = argvAll[pageAt + 1] || null; argvAll.splice(pageAt, 2); }
+const argv = argvAll;
 const isSystem = argv[0] === '--system';
 const [appId, appSecret, shortToken] = isSystem ? [null, null, argv[1]] : argv;
 if ((isSystem && !shortToken) || (!isSystem && (!appId || !appSecret || !shortToken))) {
@@ -102,8 +108,25 @@ try {
                       'you approved the Page in the Graph API Explorer dialog.');
     }
     pages.forEach((p, i) => console.log(`   [${i}] ${p.name}  id=${p.id}`));
-    if (pages.length > 1) console.log('   more than one Page; using [0]. Re-run and edit if wrong.');
-    page = pages[0];
+
+    // NEVER silently pick when there is a choice. Taking pages[0] is how a
+    // token for the wrong Page gets stored, and the symptom is invisible: posts
+    // succeed, return real ids, and appear on a Page nobody is looking at.
+    if (wantPage) {
+      const want = String(wantPage).toLowerCase();
+      page = pages.find((p) => String(p.id) === wantPage ||
+                               String(p.name || '').toLowerCase().includes(want));
+      if (!page) throw new Error(`no Page matching "${wantPage}". Names above.`);
+      console.log(`   selected: ${page.name}`);
+    } else if (pages.length > 1) {
+      throw new Error(
+        `this token can see ${pages.length} Pages, so which one is not obvious. ` +
+        `Re-run with --page "<name or id>" from the list above. Picking one for ` +
+        `you is how a token for the wrong Page gets stored.`
+      );
+    } else {
+      page = pages[0];
+    }
     if (!page.access_token) throw new Error('the Page came back with no access_token');
   } catch (err) {
     if (!/nonexisting field \(accounts\)/i.test(err.message)) throw err;
