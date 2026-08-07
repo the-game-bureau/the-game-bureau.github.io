@@ -717,6 +717,36 @@
       min-height: 36px;
     }
 
+    /* Counts on the first line, the routine's last run on the second. Copied
+       from the tape room so the two admin headers read identically; the dot is
+       the whole state, green when the bot ran and red once it is overdue. */
+    .room-substat--row {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+      min-width: 0;
+    }
+    .run-status { display: flex; align-items: baseline; gap: 7px; }
+    .run-dot {
+      flex: 0 0 auto;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #1e7a4b;
+    }
+    .run-status[data-state="stale"] .run-dot { background: var(--bic-red); }
+    .run-status[data-state="error"] .run-dot { background: var(--muted); }
+    .run-body {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+    }
+    .run-line,
+    .run-sub { color: inherit; font: inherit; }
+
     /* Specific enough to beat the tone classes setStatus adds: this line is a
        running count, not a success message, so it must not go green. Colour and
        weight otherwise match .room-substat in admin-shell.css. */
@@ -2933,7 +2963,21 @@
                  THE GAME BUREAU, so repeating it here was two brand lines in a
                  row before the room name. -->
           <h1 class="room-title">STOCK ROOM</h1>
-          <p class="room-substat" id="shopStatus" aria-live="polite"></p>
+          <div class="room-substat room-substat--row">
+            <span id="shopStatus" aria-live="polite"></span>
+            <!-- The same signal the tape room carries, for this room's routine.
+                 The TGB Gift Shop Bot commits nothing, so the freshest Review
+                 candidate IS the run receipt and a stale timestamp is the
+                 failure notice. It was already computed for the bot modal;
+                 this surfaces it without having to open anything. -->
+            <span class="run-status" id="shopRunStatus" data-state="loading">
+              <span class="run-dot" aria-hidden="true"></span>
+              <span class="run-body">
+                <span class="run-line" id="shopRunWhen">Checking last run&hellip;</span>
+                <span class="run-sub" id="shopRunWhat"></span>
+              </span>
+            </span>
+          </div>
         </div>
         <div class="room-head-actions">
           <div class="save-needed" id="saveNeededBanner" aria-live="polite" hidden>
@@ -3405,6 +3449,13 @@
 
         wrap.dataset.state = stale ? 'stale' : 'ok';
         when.textContent = 'Last pull ' + bookPullRelative(stamp, now);
+        paintShopRunHeader(stale ? 'stale' : 'ok',
+          'Last pull ' + bookPullRelative(stamp, now),
+          stamp.toLocaleString([], {
+            weekday: 'short', month: 'short', day: 'numeric',
+            hour: 'numeric', minute: '2-digit'
+          }) + ' - ' + batch.length + ' candidate' + (batch.length === 1 ? '' : 's') +
+          (stale ? ' - nothing new in over a day, check the routine.' : ''));
         what.textContent = stamp.toLocaleString([], {
           weekday: 'short', month: 'short', day: 'numeric',
           hour: 'numeric', minute: '2-digit'
@@ -3416,7 +3467,22 @@
         wrap.dataset.state = 'error';
         when.textContent = 'Last pull unavailable';
         what.textContent = 'Could not read the Review queue. Open the routine to check directly.';
+        paintShopRunHeader('error', 'Last pull unavailable', 'Could not read the Review queue.');
       }
+    }
+
+    // The header copy of the same signal. A separate painter because the modal
+    // may never be opened: the header triggers loadBookPullStatus() itself once
+    // signed in, and bookPullLoaded then stops the modal re-requesting the same
+    // rows. One fetch feeds both.
+    function paintShopRunHeader(state, line, sub) {
+      var wrap = document.getElementById('shopRunStatus');
+      if (!wrap) return;
+      wrap.dataset.state = state;
+      var when = document.getElementById('shopRunWhen');
+      var what = document.getElementById('shopRunWhat');
+      if (when) when.textContent = line || '';
+      if (what) what.textContent = sub || '';
     }
     if (itemSearchInput) {
       itemSearchInput.addEventListener('input', resetItemsPaging);
@@ -3506,9 +3572,19 @@
       onAuthorized: async () => {
         setAdminAuthToggleState(true);
         await showShop();
+        // The header's last-run line. Not awaited: it is one small request and
+        // the shop should not wait on it to render. It reads the Review queue,
+        // which needs the admin session, so it belongs here rather than at page
+        // load. bookPullLoaded means opening the bot modal afterwards reuses
+        // this result instead of re-fetching.
+        loadBookPullStatus();
       },
       onSignedOut: () => {
         setAdminAuthToggleState(false);
+        // The queue is admin-only, so the signal is unknowable once signed out.
+        // Say that rather than leaving a stale green dot implying a healthy run.
+        bookPullLoaded = false;
+        paintShopRunHeader('error', 'Last run unknown', 'Sign in to read the Review queue.');
         itemsList.innerHTML = '';
         updateUnsavedChangesUi();
         gamesById = new Map();
