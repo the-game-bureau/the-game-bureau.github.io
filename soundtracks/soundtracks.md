@@ -191,7 +191,10 @@ These must hold. The daily agent follows them; so should you.
    title+artist is not picked for that city again.
 2. **Max 2 active songs per artist** within a city.
 3. **No duplicate title + artist** pair within a city, including archived songs.
-4. Every active song has a **title, an artist, and a 6–10 word blurb**.
+4. Every active song has a **title, an artist, and a blurb** of **10 words or
+   fewer**. There is **no minimum** — four words that say something true are
+   better than eight padded out to reach a count, and shortness alone is never
+   worth reporting.
 5. `spotify_id`, when present, is **exactly 22 alphanumeric characters**, verified
    against a real `open.spotify.com/track` page. **Never invent one** — a
    fabricated ID is 22 characters like any other, passes every format check, and
@@ -322,7 +325,7 @@ what advances the rotation, and a tape you never stamp is re-audited forever.
 | `spotify` | The id resolves to nothing, or to a **different recording** than title+artist claims. Check it first and report it `high` — it is the only failure a visitor actually hits. A *wrong* id is far worse than a *missing* one: missing falls back to a search and still works. |
 | `spelling` | Misspelled title or artist, typos in a blurb, a mis-capitalised proper noun. Check against the real release, not against your expectation — stylised titles are often correct as written. |
 | `relevance` | No genuine tie to the city, including a sports track the team does not actually use. The failure the whole editorial rule exists to prevent, so be specific about why. |
-| `facts` | Wrong year, wrong album, wrong claim about the artist. Also duplicates on the same tape, a missing blurb, a blurb outside 6–10 words, an `explicit` flag that disagrees with Spotify, or a tape **short of 15 or over 15**. For an over-full tape, name the surplus tracks to hide — the most recently added, newest `created_at` first — and file it against the tape (omit `song_id`). |
+| `facts` | Wrong year, wrong album, wrong claim about the artist. Also duplicates on the same tape, a missing blurb, a blurb over 10 words, an `explicit` flag that disagrees with Spotify, or a tape **short of 15 or over 15**. For an over-full tape, name the surplus tracks to hide — the most recently added, newest `created_at` first — and file it against the tape (omit `song_id`). |
 
 **Severity.** `high` = a visitor sees or hears something broken. `warn` = wrong
 but not visibly broken. `info` = a nitpick. Use `high` sparingly; if everything
@@ -356,7 +359,7 @@ The checks themselves, unchanged since 2026-07-28:
    because archived entries are the do-not-rescrape list for that city.
 3. Active songs with a missing `spotify_id` (the column's CHECK constraint means
    a malformed one can no longer be stored at all).
-4. Active songs with missing titles, artists, or blurbs; blurbs outside 6–10
+4. Active songs with missing titles, artists, or blurbs; blurbs longer than 10
    words or ending in a period.
 5. Tapes with no songs, and tapes for cities that have since been hidden from
    `/soundtracks/`.
