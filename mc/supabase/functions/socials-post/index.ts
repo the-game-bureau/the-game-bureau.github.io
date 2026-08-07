@@ -155,10 +155,19 @@ async function metaIds(): Promise<{ pageId: string; igUserId: string }> {
   return resolved;
 }
 
+// `apikey` is the one that matters and the one that is easy to miss: it is NOT
+// a CORS-safelisted header, so if it is absent from this list the browser fails
+// the preflight and the request never leaves the page. The symptom is a bare
+// "Failed to fetch" with no status and nothing in the function's logs, which
+// reads like the function is down rather than like a header problem.
+// authHeaders() in /mc/socials/ sends apikey, Authorization and Accept; Accept
+// is safelisted, the other two are not. x-client-info is included because the
+// Supabase JS client adds it and a future caller may go through that.
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age':       '86400',
 };
 
 function json(status: number, body: unknown) {
