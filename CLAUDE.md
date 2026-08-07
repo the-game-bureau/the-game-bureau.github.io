@@ -42,35 +42,40 @@ Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-pl
 
 ### Daily generation — a Claude Code cloud routine, not CI
 
-New soundtracks are added by a **scheduled Claude Code cloud agent** ("TGB Soundtrack Bot", `trig_014sqaUyU7557svq9mGA1E4a`, cron `0 8,20 * * *` UTC — **twice a day**, 3 AM and 3 PM Central), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the alphabetically-first city with no soundtrack plus the most underfilled existing one, verifies Spotify IDs by web search, and writes them through the RPC above; it then audits those two tapes plus the 3 least-recently-audited and reports findings through `tgb_report_soundtrack_issues`. **It commits nothing.** It briefly had one git write — re-exporting the fallback file, added 2026-07-30 — which ended when that file was deleted on 2026-08-06. Songs have never travelled through a commit, so the last-run signal in [soundtracks/admin/index.html](soundtracks/admin/index.html) is the **newest `soundtrack_songs` row**, not the GitHub commits API (same call as the gift shop's freshest Review candidate) — and that stays correct now that there is no commit feed to read at all. The routine's stored prompt must be updated to match the paste-ready prompt in the Tape Room; both changed on 2026-07-29 when the tables landed.
+New soundtracks are added by a **scheduled Claude Code cloud agent** ("TGB Soundtrack Bot", `trig_014sqaUyU7557svq9mGA1E4a`, cron `30 8,20 * * *` UTC — **twice a day**, 3:30 AM and 3:30 PM Central), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the alphabetically-first city with no soundtrack plus the most underfilled existing one, verifies Spotify IDs by web search, and writes them through the RPC above; it then audits those two tapes plus the 3 least-recently-audited and reports findings through `tgb_report_soundtrack_issues`. **It commits nothing.** It briefly had one git write — re-exporting the fallback file, added 2026-07-30 — which ended when that file was deleted on 2026-08-06. Songs have never travelled through a commit, so the last-run signal in [soundtracks/admin/index.html](soundtracks/admin/index.html) is the **newest `soundtrack_songs` row**, not the GitHub commits API (same call as the gift shop's freshest Review candidate) — and that stays correct now that there is no commit feed to read at all. The routine's stored prompt must be updated to match the paste-ready prompt in the Tape Room; both changed on 2026-07-29 when the tables landed.
 
 **Why not GitHub Actions:** it used to be `.github/workflows/soundtrack-daily.yml` + `mc/_dev/scripts/soundtrack-daily.mjs`, both **deleted 2026-07-27**. That path needed a funded Anthropic or OpenAI API key; neither account had credit, so every run failed on a billing error. The routine bills against the Claude subscription instead. Don't recreate the workflow unless an API key gets funded — and if you do, don't leave both running or you'll get two soundtracks a day.
 
-**Twice daily since 2026-08-01** (was `30 11` once a day). The Tape Room's last-run staleness check moved with it — `REVIEW_HOURS` is **14**, not 26, so one missed run shows rather than needing two.
+**Twice daily since 2026-08-07** (was `30 11` once a day). The Tape Room's last-run staleness check had already moved — `REVIEW_HOURS` is **14**, not 26, so one missed run shows rather than needing two.
 
-**DST:** cloud cron is UTC with no DST and can't use the two-cron-plus-hour-guard trick, so **no single cron holds one Central time year-round**. `0 8,20` is exactly 3 AM / 3 PM CDT and 2 AM / 2 PM CST. Drifting an hour is accepted, not a bug — see the calendar note below for holding 3 o'clock instead.
+> **This section claimed twice-daily from 2026-08-01, and it wasn't true until 2026-08-07.** `REVIEW_HOURS` was dropped to 14 on the 1st, but the stored cron stayed `30 11` for another six days, so the Tape Room spent that week calling a perfectly on-time catalogue stale. The routines are edited in a web UI this repo can't see, so **a cron written here is a claim, not a reading** — confirm against [claude.ai/code/routines](https://claude.ai/code/routines) before trusting it. The same drift hid on the gift shop bot (documented `0 8,20`, actually running `0 11`).
 
-### Standing DST note — three routines share `0 8,20 * * *`
+**DST:** cloud cron is UTC with no DST and can't use the two-cron-plus-hour-guard trick, so **no single cron holds one Central time year-round**. Hour `8,20` is exactly 3 o'clock CDT and 2 o'clock CST. Drifting an hour is accepted, not a bug — see the calendar note below for holding 3 o'clock instead.
 
-The gift shop, soundtrack and socials bots all run on the same cron, so they all drift together and are all fixed together. **Nothing is scheduled to do this automatically; it is a human calendar item.**
+### Standing DST note — all four routines run at 3 o'clock, hours `8,20 * * *`
 
-| when | set all three to | Central time it lands |
+As of 2026-08-07 the gift shop, soundtrack, socials **and waypoints** bots all fire at 3 AM and 3 PM Central, so they all drift together and are all fixed together. **Nothing is scheduled to do this automatically; it is a human calendar item.**
+
+They share the *hours* and stagger the *minutes* — `:00` gift shop, `:15` socials, `:30` soundtrack, `:45` waypoints — so four cloud agents never start in the same minute. Keep the minute, change only the hours:
+
+| when | set all four to hours | Central time it lands |
 |---|---|---|
-| **Sun 2026-11-01** (CDT → CST) | `0 9,21 * * *` | 3 AM / 3 PM |
-| **Sun 2027-03-14** (CST → CDT) | `0 8,20 * * *` | 3 AM / 3 PM |
+| **Sun 2026-11-01** (CDT → CST) | `9,21 * * *` | 3 o'clock |
+| **Sun 2027-03-14** (CST → CDT) | `8,20 * * *` | 3 o'clock |
 
-| routine | trigger id |
-|---|---|
-| TGB Gift Shop Bot | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` |
-| TGB Soundtrack Bot | `trig_014sqaUyU7557svq9mGA1E4a` |
-| TGB SOCIAL BOT | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` |
+| routine | trigger id | cron |
+|---|---|---|
+| TGB Gift Shop Bot | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `0 8,20 * * *` |
+| TGB SOCIAL BOT | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `15 8,20 * * *` |
+| TGB Soundtrack Bot | `trig_014sqaUyU7557svq9mGA1E4a` | `30 8,20 * * *` |
+| TGB Waypoints Bot | `trig_01Q5uCittJ3dT3M2xj8sKD3j` | `45 8,20 * * *` |
 
-Edit them at [claude.ai/code/routines](https://claude.ai/code/routines), or ask Claude Code to (`/schedule`). **Do not "fix" a routine by setting the cron to the Central hour you want** — the field is UTC, so `0 3,15` fires at 10 PM / 10 AM Central, not 3 o'clock. The Waypoint Tour Scout (`45 11`) drifts the same way and is left alone deliberately; a 6:45 or 5:45 AM run is fine either way.
+Edit them at [claude.ai/code/routines](https://claude.ai/code/routines) — **by hand, in the web UI.** They were created there (`http_api`), and the API refuses `update_trigger` and `fire_trigger` from any agent that didn't create them, so Claude Code cannot change a schedule or kick off a run here however it is asked. **Do not "fix" a routine by setting the cron to the Central hour you want** — the field is UTC, so `0 3,15` fires at 10 PM / 10 AM Central, not 3 o'clock.
 
 ---
 ## TGB SOCIAL BOT — a third Claude Code routine
 
-[mc/socials/index.html](mc/socials/index.html) shows social post candidates, found by a **scheduled Claude Code cloud agent** (**"TGB SOCIAL BOT"**, `trig_01KDYndJhZ9ymgUgX5Xx6LsL`, cron `0 8,20 * * *` UTC — **twice a day**, 3 AM and 3 PM Central in summer, 2 AM and 2 PM in winter unless someone applies the standing DST note above).
+[mc/socials/index.html](mc/socials/index.html) shows social post candidates, found by a **scheduled Claude Code cloud agent** (**"TGB SOCIAL BOT"**, `trig_01KDYndJhZ9ymgUgX5Xx6LsL`, cron `15 8,20 * * *` UTC — **twice a day**, 3:15 AM and 3:15 PM Central in summer, 2:15 in winter unless someone applies the standing DST note above).
 
 **ONE table holds everything: `public.socials`** ([mc/supabase/migrations/2026080502_socials_table.sql](mc/supabase/migrations/2026080502_socials_table.sql)). A row is a candidate — its content *and* its decision (`status` = review | posted | skipped). There is no JSON file and no localStorage.
 
@@ -92,7 +97,7 @@ Edit them at [claude.ai/code/routines](https://claude.ai/code/routines), or ask 
 
 ## Nightly waypoints run — a fourth Claude Code routine
 
-Walking-tour candidates are found each morning by a **scheduled Claude Code cloud agent** ("TGB Waypoint Tour Scout", `trig_01Q5uCittJ3dT3M2xj8sKD3j`, cron `45 11 * * *` UTC = 6:45 AM Central in summer, 5:45 AM in winter). Each run picks the **NFL host city that has gone longest without a run**, sweeps **Wikipedia and Wikimedia** for places there, verifies each stop, and commits [mc/stops/nightly.json](mc/stops/nightly.json) to `main`.
+Walking-tour candidates are found by a **scheduled Claude Code cloud agent** (**"TGB Waypoints Bot"** — called the Waypoint Tour Scout here until 2026-08-07, which is not its name in the routines UI — `trig_01Q5uCittJ3dT3M2xj8sKD3j`, cron `45 8,20 * * *` UTC = 3:45 AM and 3:45 PM Central in summer). Each run picks the **NFL host city that has gone longest without a run**, sweeps **Wikipedia and Wikimedia** for places there, verifies each stop, and commits [mc/stops/nightly.json](mc/stops/nightly.json) to `main`.
 
 - **A stop must have a Wikipedia article (or Commons category) carrying coordinates or a street address.** That single constraint does most of the quality filtering: a place notable enough for an article and pinned precisely enough to geotag is a place worth standing in front of, and the article URL still resolves years later — a visitor-bureau tour PDF will not. NRHP county listings and National Historic Landmark lists are the richest vein (address *and* coordinates per row); Wikipedia GeoSearch sweeps a downtown core; Commons is the still-standing photo check. Switched from published-walking-tour sourcing on 2026-07-29 — the same rules live in `WIKI_SOURCE_LINES` in [mc/data/waypoints.html](mc/data/waypoints.html), shared by both AI prompts, so page and routine can't drift.
 - **Wikipedia decides which stops, never the facts.** Articles routinely lack a street address or give a mailing one, so the address comes from the NRHP row or an independent source and stays `null` otherwise — coordinates are never turned into a street address, and the table has no lat/lon columns to put them in anyway.
@@ -102,7 +107,7 @@ Walking-tour candidates are found each morning by a **scheduled Claude Code clou
 - **The list is replaced wholesale each run.** An unadded stop is gone tomorrow, which keeps the panel to one morning's decisions.
 - **`source_url` is mandatory on every stop** — the stop's own Wikipedia article (or the list article it is a row in), which lands in the waypoint's Source URL field so the claim stays checkable later.
 - Last-run status reads the **GitHub commits API** for `mc/stops/nightly.json`, same as the socials admin: a run that errored pushes nothing, so a stale timestamp is the failure signal.
-- The schedule sits at `:45` to keep it clear of the other three (`:00` gift shop, `:15` socials, `:30` soundtrack). Same DST caveat as the rest — the cloud cron is UTC, so it drifts an hour in winter.
+- The schedule sits at `:45` to keep it clear of the other three (`:00` gift shop, `:15` socials, `:30` soundtrack). It moved from `45 11` (once, at daybreak) to `45 8,20` on 2026-08-07 so all four routines share 3 o'clock; same DST caveat as the rest, since the cloud cron is UTC. **Twice a day collides with the wholesale replacement above** — the afternoon run overwrites the morning's list, so an unreviewed 3:45 AM sweep is gone by 3:45 PM. If that bites, `45 8 * * *` puts it back to once a day without giving up the 3 o'clock slot.
 
 ### With AI (sports) — the one importer that appends instead of skipping
 
@@ -117,13 +122,13 @@ Walking-tour candidates are found each morning by a **scheduled Claude Code clou
 
 ## Gift shop daily book pull — also a Claude Code routine
 
-Candidate books are added by a **scheduled Claude Code cloud agent** ("TGB Gift Shop Bot", `trig_01H7cKJ4fk5bA1NWSqPZi4ah`, cron `0 8,20 * * *` UTC — **twice a day**, 3 AM and 3 PM Central in summer, 2 AM and 2 PM in winter — see the standing DST note in the soundtrack section), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the city with the fewest gifts, web-searches five books, verifies every ISBN against a real listing page, and files them as **Review candidates**. It commits nothing — the write lands in Supabase.
+Candidate books are added by a **scheduled Claude Code cloud agent** ("TGB Gift Shop Bot", `trig_01H7cKJ4fk5bA1NWSqPZi4ah`, cron `0 8,20 * * *` UTC — **twice a day since 2026-08-07**, 3 AM and 3 PM Central in summer, 2 AM and 2 PM in winter — see the standing DST note in the soundtrack section), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the city with the fewest gifts, web-searches five books, verifies every ISBN against a real listing page, and files them as **Review candidates**. It commits nothing — the write lands in Supabase.
 
 **Auth without a secret.** A cloud routine has no secret store, so it calls **`tgb_pull_book_candidates(jsonb)`** ([mc/supabase/migrations/2026072802_book_candidate_pull_rpc.sql](mc/supabase/migrations/2026072802_book_candidate_pull_rpc.sql)) with the ordinary public publishable key. That function is `SECURITY DEFINER` and deliberately tiny: it can only INSERT rows with `archived = true` / `certified_at = null`, derives the Bookshop URL and cover from the ISBN so a caller can't inject a link, keeps the title/URL dedupe, and caps a call at 25 items. **Don't add parameters for `archived` or `certified_at`** — those constants are what make it safe to expose. The admin-facing `tgb_import_bookshop_prompt_items()` is unchanged and stays SECURITY INVOKER.
 
 **Why not GitHub Actions:** it used to be `.github/workflows/shop-book-pull.yml` + `mc/_dev/scripts/shop-book-pull.mjs`, both **deleted 2026-07-28**. Two reasons. It needed a funded `ANTHROPIC_API_KEY` (the same unfunded key that killed the soundtrack workflow), and its schedule had silently stopped working: crons fired at `:55`, GitHub started scheduled runs up to 30+ minutes late, and the Central-hour guard then skipped every job while the run still reported **success**. Green runs, no books — last real insert was 2026-07-26. If you ever reinstate a cron guard, gate on a *window* of hours, never hour equality against a `:55` trigger.
 
-Last-run status lives in the **TGB GIFT SHOP BOT** modal in [gifts/admin/index.html](gifts/admin/index.html) (called NIGHTLY until 2026-08-01; the ids in the markup are still `nightlyBtn` / `nightlyModal`). Since the job commits nothing there is no commit feed to read, so the panel treats **the freshest Review candidate as the run receipt** (`archived = true and certified_at is null`, newest first). It went twice-daily on 2026-08-01, at which point `BOOK_PULL_STALE_HOURS` dropped from 30 to **14** so one missed run shows rather than needing two.
+Last-run status lives in the **TGB GIFT SHOP BOT** modal in [gifts/admin/index.html](gifts/admin/index.html) (called NIGHTLY until 2026-08-01; the ids in the markup are still `nightlyBtn` / `nightlyModal`). Since the job commits nothing there is no commit feed to read, so the panel treats **the freshest Review candidate as the run receipt** (`archived = true and certified_at is null`, newest first). `BOOK_PULL_STALE_HOURS` dropped from 30 to **14** on 2026-08-01 so one missed run shows rather than needing two — but the stored cron stayed `0 11` (once daily) until 2026-08-07, so for those six days the panel called an on-time run stale. See the drift warning in the soundtrack section: a cron written in this file is a claim, not a reading.
 
 ---
 
