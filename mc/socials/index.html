@@ -2871,31 +2871,25 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
       // public URL, and the `image` we hold is the article's own og:image --
       // someone else's photograph.
       var PLATFORM_AUTOPOST = {
-        // Meta, both through the same Page token from business.facebook.com.
+        // Meta, both through one Page token for The Game Bureau
+        // (page 332940318805, @thegamebureau / 17841405316973273).
         //
-        // TURNED BACK OFF 2026-08-07, same day. socials-post is deployed and a
-        // token IS set, but that token is for the WRONG PAGE -- "The Completely
-        // Unauthorized Games Toolbox", not The Game Bureau -- so leaving these
-        // true meant Post published to the wrong account and reported success,
-        // because Meta genuinely accepted it. That is worse than a disabled
-        // button by a wide margin.
+        // ON since 2026-08-07, after a false start earlier the same day when the
+        // stored token turned out to be for a different Page entirely and Post
+        // published there while reporting success. What fixed it was not
+        // permissions or token type: the app and the Page were in different
+        // business PORTFOLIOS, so no token from that app could ever reach this
+        // Page. The app was rebuilt inside portfolio 2149033605346629, which
+        // owns the Page, and the credential is a System User token -- those do
+        // not expire, so there is no renewal to forget.
         //
-        // The Game Bureau Page is owned by a Business PORTFOLIO, not personally,
-        // so /me/accounts cannot reach it: it lists only Pages the user
-        // administers directly. Confirmed with all five permissions granted and
-        // a clean re-consent still returning zero Pages. The only route to a
-        // token for a portfolio-owned Page is a System User, and every attempt
-        // at that died on "There was an unexpected technical issue" in the Meta
-        // console -- adding the app to the portfolio, then adding the system
-        // user itself.
-        //
-        // To finish this later: get a System User token with the five
-        // permissions and the Page + Instagram account assigned as assets, run
-        //   node mc/_dev/scripts/meta-page-token.mjs --system <TOKEN> --page "The Game Bureau"
-        // set META_PAGE_ACCESS_TOKEN from mc/, and set these back to true.
-        // Nothing else needs changing -- the function and the dialog are done.
-        facebook: false,   // Graph POST /{page-id}/feed
-        instagram: false,  // Graph POST /{ig-user-id}/media -> /media_publish
+        // BEFORE FLIPPING THESE BACK ON after any token change, run
+        // tgbDiagnosePost() in the console and confirm it answers with
+        // name "The Game Bureau" and a non-null instagram. Skipping that check
+        // is what allowed the wrong-Page posts; the symptoms are invisible
+        // because Meta accepts the post and returns a real id either way.
+        facebook: true,    // Graph POST /{page-id}/feed
+        instagram: true,   // Graph POST /{ig-user-id}/media -> /media_publish
         x: false           // separate API and credentials, not part of the Meta setup
       };
 
