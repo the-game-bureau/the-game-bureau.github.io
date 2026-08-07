@@ -213,8 +213,14 @@
     '}',
     /* Desktop has room for all five destinations, so the burger is not merely
        hidden -- it is absent from the tab order too, which `display: none` gives
-       for free and `visibility` would not. */
-    '.admin-site-nav .asn-burger { display: none; }',
+       for free and `visibility` would not.
+
+       COMPOUND SELECTOR, and it has to be. The burger carries both classes, and
+       `.admin-site-nav .asn-burger` ties `.admin-site-nav .asn-link` at (0,2,0)
+       -- so the later of the two won, which is .asn-link's display: inline-flex,
+       and the burger showed on desktop. Matching on .asn-link.asn-burger scores
+       (0,3,0) and stops depending on where in the sheet the rule sits. */
+    '.admin-site-nav .asn-link.asn-burger { display: none; }',
     '.admin-site-nav .asn-brand {',
     '  color: inherit;',
     '  cursor: default;',
@@ -387,11 +393,14 @@
     '             10px max(16px, env(safe-area-inset-left), calc(50vw - 50%));',
     '  }',
     '  .admin-site-nav .asn-tools { align-self: center; }',
-    '  .admin-site-nav .asn-burger { display: inline-flex; }',
+    '  .admin-site-nav .asn-link.asn-burger { display: inline-flex; }',
     /* 44px square each. The padlock is 40 on a desktop, which is fine for a
        cursor and one pixel-row short of the smallest reliable thumb target. */
-    '  .admin-site-nav .asn-burger,',
-    '  .admin-site-nav .asn-lock {',
+    /* Compound again, for the same reason: padding here has to beat
+       .asn-link's `0 14px`, and on a plain class selector that only holds
+       because this block happens to sit last in the sheet. */
+    '  .admin-site-nav .asn-link.asn-burger,',
+    '  .admin-site-nav .asn-link.asn-lock {',
     '    width: 44px;',
     '    padding: 0;',
     '  }',
