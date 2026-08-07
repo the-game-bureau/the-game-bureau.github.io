@@ -283,6 +283,13 @@
     '  text-decoration: none;',
     '  text-transform: uppercase;',
     '}',
+    /* The public link carries two labels and shows one at a time. On a desktop
+       the button and the link under it deliberately repeat the same word — that
+       pairing is what says "room, and the page a visitor sees". Stacked into a
+       phone list the repeat reads as a duplicate row instead, so there the word
+       gives way to a plain PUBLIC tag. Two spans rather than a JS text swap, so
+       the panel needs no rebuild when the layout crosses the breakpoint. */
+    '.admin-site-nav .asn-public-tag { display: none; }',
     '.admin-site-nav .asn-public:hover,',
     '.admin-site-nav .asn-public:focus-visible {',
     '  color: var(--asn-ink);',
@@ -424,42 +431,90 @@
     '    display: none;',
     '    flex-direction: column;',
     '    align-items: stretch;',
-    '    gap: 6px;',
-    '    margin-top: 2px;',
+    '    gap: 0;',
+    '    margin-top: 4px;',
+    '    border-top: 1px solid var(--asn-line);',
     '  }',
     '  .admin-site-nav[data-nav-open="true"] .asn-links { display: flex; }',
-    /* Room button and public link side by side. The public link was 0.62rem of
-       bare text under the button -- a ~10px tap target, well under the 44px a
-       thumb needs, and the single worst thing on this bar to hit by accident. It
-       is a real button here, dashed to stay visibly secondary. */
+    /* A LIST, NOT A ROW OF BUTTONS. The bordered, filled, rounded chrome earns
+       its keep on a desktop, where the five destinations sit side by side and
+       each one needs its own edge to be separable from its neighbour. Stacked
+       full-width in a panel there is nothing to separate them from -- one item
+       per line already does that -- so five boxes stacked read as clutter, and
+       a rounded box that spans the whole width no longer looks like a button
+       anyway. Hairline rules and plain text is what a phone menu is.
+
+       The chrome is stripped by scoping to .asn-links, so the burger and the
+       padlock -- which live in .asn-tools, outside this nav -- keep their
+       button faces. They are controls, not destinations. */
+    '  .admin-site-nav .asn-links > * {',
+    '    border-bottom: 1px solid rgba(var(--asn-blue-rgb), 0.16);',
+    '  }',
+    '  .admin-site-nav .asn-links > *:last-child { border-bottom: 0; }',
     '  .admin-site-nav .asn-item {',
     '    flex-direction: row;',
-    '    align-items: stretch;',
-    '    gap: 6px;',
+    '    align-items: center;',
+    '    gap: 8px;',
     '  }',
-    '  .admin-site-nav .asn-item > .asn-link {',
+    '  .admin-site-nav .asn-links .asn-link {',
     '    flex: 1 1 auto;',
     '    min-width: 0;',
     '    justify-content: flex-start;',
+    '    gap: 12px;',
+    /* 48, not the 44 the burger and lock carry: a full-width row has no border
+       to show where it starts and stops, so the spacing is what makes it look
+       tappable. */
+    '    min-height: 48px;',
+    '    padding: 0;',
+    '    border: 0;',
+    '    border-radius: 0;',
+    '    background: none;',
+    '    box-shadow: none;',
+    '    color: var(--asn-ink);',
+    '    font-size: 0.82rem;',
+    '    letter-spacing: 0.06em;',
     '  }',
-    '  .admin-site-nav .asn-labelcol { align-items: flex-start; }',
+    /* The blue fill has to be undone for the current page too, not just hover.
+       Compound and inside the media query, so it beats the base rule's (0,3,0)
+       on specificity rather than on source order -- the tie that put the burger
+       on every desktop page in the first place. On a touch device hover barely
+       exists, so current and hover sharing an underline costs nothing. */
+    '  .admin-site-nav .asn-links .asn-link:hover,',
+    '  .admin-site-nav .asn-links .asn-link:focus-visible,',
+    '  .admin-site-nav .asn-links .asn-link[aria-current="page"] {',
+    '    border: 0;',
+    '    background: none;',
+    '    box-shadow: none;',
+    '    color: var(--asn-blue);',
+    '    text-decoration: underline;',
+    '    text-underline-offset: 5px;',
+    '  }',
+    /* One line: GAMES with a quiet ADMIN after it. Stacked, the sub-label made
+       every row two lines tall for a word that is the same on all of them. */
+    '  .admin-site-nav .asn-labelcol {',
+    '    flex-direction: row;',
+    '    align-items: baseline;',
+    '    gap: 0.55em;',
+    '  }',
+    '  .admin-site-nav .asn-admin { opacity: 0.6; }',
+    /* Plain trailing text, full row height so the tap target survives losing the
+       button. It was a dashed button here until the rest of the panel stopped
+       being buttons; secondary-among-buttons and secondary-among-text are not
+       the same problem. */
     '  .admin-site-nav .asn-public {',
     '    display: inline-flex;',
     '    align-items: center;',
     '    flex: 0 0 auto;',
-    '    min-height: 44px;',
-    '    padding: 0 13px;',
-    '    border: 1px dashed var(--asn-line);',
-    '    border-radius: 8px;',
-    '    background: rgba(255, 255, 255, 0.55);',
+    '    min-height: 48px;',
+    '    padding: 0 2px 0 12px;',
+    '    border: 0;',
+    '    background: none;',
+    '    color: rgba(var(--asn-blue-rgb), 0.7);',
+    '    font-size: 0.6rem;',
     '  }',
-    '  .admin-site-nav .asn-mc {',
-    '    justify-content: flex-start;',
-    '  }',
-    '  .admin-site-nav .asn-mc .asn-labelcol {',
-    '    flex-direction: row;',
-    '    gap: 0.32em;',
-    '  }',
+    '  .admin-site-nav .asn-public-word { display: none; }',
+    '  .admin-site-nav .asn-public-tag { display: inline; }',
+    '  .admin-site-nav .asn-mc .asn-labelcol { gap: 0.32em; }',
     '  .admin-site-nav .asn-brand-name { font-size: 1.02rem; }',
     '  .admin-site-nav .asn-brand-tagline { font-size: 0.66rem; }',
     /* Half the size and fainter. At 330px the watermark filled a phone screen
@@ -541,7 +596,19 @@
     pub.href = room.publicHref;
     pub.title = room.publicTitle;
     pub.setAttribute('aria-label', room.publicTitle);
-    pub.textContent = room.label;
+    // Both labels ship; CSS shows one. The section word is the desktop face —
+    // repeating the button's word is what makes the pair read as "the room, and
+    // what a visitor sees" — while the phone panel shows a plain PUBLIC tag,
+    // because stacked in a list the repeat looks like a duplicated row. The
+    // aria-label above already says the destination either way.
+    var pubWord = document.createElement('span');
+    pubWord.className = 'asn-public-word';
+    pubWord.textContent = room.label;
+    var pubTag = document.createElement('span');
+    pubTag.className = 'asn-public-tag';
+    pubTag.textContent = 'PUBLIC';
+    pub.appendChild(pubWord);
+    pub.appendChild(pubTag);
     column.appendChild(pub);
 
     links.appendChild(column);
