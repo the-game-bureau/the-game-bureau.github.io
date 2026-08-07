@@ -435,7 +435,6 @@
     .tag--platform { border-width: 1.5px; }
     .tag--platform.is-instagram { color: #a5316b; border-color: rgba(165, 49, 107, 0.45); background: rgba(165, 49, 107, 0.06); }
     .tag--platform.is-x { color: #14171a; border-color: rgba(20, 23, 26, 0.45); background: rgba(20, 23, 26, 0.05); }
-    .tag--platform.is-youtube { color: #b1221b; border-color: rgba(177, 34, 27, 0.45); background: rgba(177, 34, 27, 0.06); }
     .tag--platform.is-facebook { color: #1b4da8; border-color: rgba(27, 77, 168, 0.45); background: rgba(27, 77, 168, 0.06); }
 
     .post-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
@@ -1141,12 +1140,6 @@
                   <input type="text" data-platform-why="Facebook" autocomplete="off">
                 </label>
               </div>
-              <div class="platform-row">
-                <span class="platform-pick"><input type="checkbox" data-platform-name="YouTube"> YouTube</span>
-                <label>Why
-                  <input type="text" data-platform-why="YouTube" autocomplete="off">
-                </label>
-              </div>
             </div>
           </div>
         </form>
@@ -1316,7 +1309,6 @@ We have exactly four accounts. Never suggest one we do not have.
   INSTAGRAM — anything with a strong photograph, a gallery, or a place you can see. A link in an IG caption is not clickable, so tag it only when the image carries the story, and say whether it is a feed post or a Story with a link sticker.
   X — news, oddities, quick facts, anything where the link IS the payload. Link previews render natively; this is the default home for text-and-link.
   FACEBOOK — the longer read. Link previews render and the caption can breathe, so this suits city history, food, and travel stories that need a sentence of setup. Skews older and more local than X; a neighbourhood or hometown angle plays well here.
-  YOUTUBE — only when there is real video: the story is a video, or it is visual enough for a Short. Say which.
 
 Judge from the media you saw in step 3 plus the audience for the topic. Most picks suit one or two. It is fine for a pick to suit only X — do not tag everything on everything, a tag that always fires tells the human nothing.
 
@@ -1414,7 +1406,7 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
     "beat": ["games", "competition", "travel", "tourism", "weird", "sports", "tv", "music", "food", "history"],
     "rotationRule": "five candidates cover at least four distinct topics; no topic on more than two; at least two tagged games/competition/travel",
     "tilt": "games and travel first; place is flavour, not a filter — a story need not be about a city we sell into",
-    "accounts": ["Instagram", "X", "Facebook", "YouTube"],
+    "accounts": ["Instagram", "X", "Facebook"],
     "platformTagging": "each candidate is tagged with which of the four accounts it suits and why, judged from the media the story actually has (photo/gallery/video/text). Never suggest a platform we do not have.",
     "avoid": ["politics", "tragedy and crime", "culture-war bait", "press releases", "SEO listicles", "hard paywalls"],
     "doNotCreate": [
@@ -1886,7 +1878,6 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         if (label === 'instagram') return hasImage ?
           'Has a share image; use the visual as the hook and keep the caption tight.' :
           'Needs a strong visual before Instagram; caption links will not be clickable.';
-        if (label === 'youtube') return 'Only if this can become a short visual clip or community post.';
         if (label === 'facebook') return 'Good for a link preview with a little room for context.';
         return 'Good for a quick link post where the preview carries the story.';
       }
@@ -1939,7 +1930,6 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
           filled += setPlatformWhyIfBlank('Instagram', platformWhyText('Instagram', meta));
           filled += setPlatformWhyIfBlank('X', platformWhyText('X', meta));
           filled += setPlatformWhyIfBlank('Facebook', platformWhyText('Facebook', meta));
-          filled += setPlatformWhyIfBlank('YouTube', platformWhyText('YouTube', meta));
           manualStatusText(filled ? 'Filled ' + filled + ' blank field' + (filled === 1 ? '' : 's') + '.' : 'No blank fields to fill.', true);
         } catch (error) {
           manualStatusText('Could not read that page.', false);
@@ -2728,8 +2718,7 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
       var PLATFORM_URLS = {
         instagram: 'https://www.instagram.com/thegamebureau',
         x: 'https://x.com/thegamebureau',
-        facebook: 'https://www.facebook.com/thegamebureau',
-        youtube: 'https://www.youtube.com/@thegamebureau'
+        facebook: 'https://www.facebook.com/thegamebureau'
       };
 
       // Topics first (what the story is), then the platform recommendations
@@ -2806,18 +2795,18 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
       // "Post" from a public static page that holds NO credentials: the only
       // safe move is to hand the caption to the platform's own composer and let
       // the human hit Post there. X and Facebook take a prefilled web composer;
-      // Instagram and YouTube have no post-by-URL, so we copy the caption and
-      // open the account for a manual paste. This never publishes on its own —
+      // Instagram has no post-by-URL, so we copy the caption and open the
+      // account for a manual paste. This never publishes on its own —
       // that would need stored tokens, which must never live on this page.
       // Several platforms can be queued for one story, but they are opened one
       // per click; see buildAutoPostMenu for why a burst cannot work.
-      var PLATFORM_LABELS = { instagram: 'Instagram', x: 'X', facebook: 'Facebook', youtube: 'YouTube' };
+      var PLATFORM_LABELS = { instagram: 'Instagram', x: 'X', facebook: 'Facebook' };
       // NOTHING IS PREFILLED, DELIBERATELY. Post copies the caption and link to
       // the clipboard and opens the platform's own composer; you paste.
       //
       // We used to hand X a prefilled intent URL and Facebook a `quote` param.
       // Facebook ignores `quote` outright (their policy is that you may not put
-      // words in a user's mouth before they post), Instagram and YouTube have no
+      // words in a user's mouth before they post), Instagram has no
       // post-by-URL at all, and X's intent URL only ever covered one of the
       // four. That left the behaviour different on every platform for no gain,
       // and the one prefill that did work still needed checking. One rule you
@@ -2843,10 +2832,7 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         // than as you. Plain facebook.com/<page> only shows the page.
         facebook: 'https://business.facebook.com/latest/composer/',
         // Instagram's web create flow (the + button's destination).
-        instagram: 'https://www.instagram.com/create/select/',
-        // Studio is where a Community post or an upload starts; YouTube has no
-        // deep link to the composer that works without the channel id.
-        youtube: 'https://studio.youtube.com/'
+        instagram: 'https://www.instagram.com/create/select/'
       };
 
 
@@ -2862,14 +2848,13 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
       // cursor and each click opens exactly the next platform. Clipboard writes
       // are per-step for the same reason: the caption for Instagram must land on
       // the clipboard at the moment its tab opens, not four steps earlier.
-      var PLATFORM_ORDER = ['x', 'facebook', 'instagram', 'youtube'];
+      var PLATFORM_ORDER = ['x', 'facebook', 'instagram'];
       // Shown when the agent did not tag a platform for this story, so the row
       // still explains what that account is for rather than sitting blank.
       var PLATFORM_FORMAT_NOTE = {
         x: 'Link preview renders natively — the link is the payload.',
         facebook: 'Link preview renders and the caption can breathe.',
-        instagram: 'Caption links are not clickable — the image has to carry it.',
-        youtube: 'Only with real video, or visual enough for a Short.'
+        instagram: 'Caption links are not clickable — the image has to carry it.'
       };
 
       // ── Which platforms can actually be posted to by machine ──────────────
@@ -2878,10 +2863,6 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
       // in a public repo, so a token in this file is a published token. Posting
       // happens in a Supabase Edge Function that holds the secrets, exactly as
       // stripe-webhook and gs-send-code do.
-      //
-      // youtube is false and is not a "not yet": the Data API uploads videos,
-      // and Community posts have no public API at all. There is no version of
-      // this feature that posts text to YouTube, so that row is Manual forever.
       //
       // instagram will need more than a flag when it comes: the Content
       // Publishing API refuses text-only posts, so it needs an image at a
@@ -2895,22 +2876,19 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         // errors -- Manual post still works with them off.
         facebook: true,    // Graph POST /{page-id}/feed
         instagram: true,   // Graph POST /{ig-user-id}/media -> /media_publish
-        x: false,          // separate API and credentials, not part of the Meta setup
-        youtube: false     // impossible, see PLATFORM_SUGGEST_ONLY
+        x: false           // separate API and credentials, not part of the Meta setup
       };
 
-      // Platforms that can never be posted to by machine, as opposed to ones
-      // simply not wired yet. The distinction matters in the UI: "not yet" is a
-      // promise, "suggest only" is a fact, and showing the same greyed button
-      // for both would imply YouTube is coming.
+      // Platforms that can NEVER be posted to by machine, as distinct from ones
+      // simply not wired yet. The UI needs the difference: "not yet" is a
+      // promise, "suggest only" is a fact, and one greyed button for both
+      // implies something is coming that is not.
       //
-      // YouTube: the Data API uploads videos and Community posts have no public
-      // API, so there is no text-post endpoint to call. The row stays tickable
-      // because the tick is still worth recording -- it says where this story
-      // was meant to go, and it lands in posted_platforms as a note to a human.
-      var PLATFORM_SUGGEST_ONLY = {
-        youtube: 'No API for text posts — suggest only, post it by hand.'
-      };
+      // Empty since 2026-08-07, when YouTube was removed from the page entirely
+      // -- it was the only entry. Kept because the distinction is real and the
+      // next unpostable platform should land here rather than being quietly
+      // filed as "not configured yet".
+      var PLATFORM_SUGGEST_ONLY = {};
 
       // Instagram needs more than a token: the Content Publishing API refuses a
       // text-only post, so a candidate with no image cannot go out even once the
