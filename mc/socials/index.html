@@ -3113,6 +3113,26 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         // row and the receipt are written the same way whichever route was
         // taken. The list behind is not re-rendered until close (postDialogDirty),
         // so the card cannot vanish from under a notice.
+        // Records the post but leaves the dialog up, for the partial-success
+        // case where there is something to read. The queue behind is not
+        // re-rendered until close (postDialogDirty), so the card cannot move to
+        // Posted out from under the notice.
+        function markPostedQuietly(labels) {
+          return savePost(stateKey, {
+            status: 'posted',
+            posted_platforms: labels.length ? labels : null
+          }).then(function () {
+            postDialogDirty = true;
+            if (typeof onPick === 'function') onPick(labels);
+            go.disabled = true;
+            manual.disabled = true;
+            cancel.textContent = 'Close';
+            progress.textContent = 'Posted to ' + labels.join(', ');
+          }).catch(function (err) {
+            stick(feedbackEl, 'Posted, but could not mark the row: ' + err.message);
+          });
+        }
+
         // The API path already knows exactly which accounts took the post, so
         // it records those rather than re-deriving them from what was ticked.
         function finishWithLabels(labels, note) {
@@ -3191,11 +3211,21 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
               return t === 'facebook' ? 'Facebook' : t === 'instagram' ? 'Instagram' : t;
             });
             var failed = (reply.results || []).filter(function (r) { return r && !r.ok; });
-            if (failed.length) {
-              stick(feedbackEl, 'Posted to ' + labels.join(', ') +
-                    '. Not posted: ' + describeFailures(reply.results));
+
+            // PARTIAL SUCCESS KEEPS THE DIALOG OPEN. The row is still marked --
+            // the post did go out -- but closing would wipe the only notice
+            // saying which account refused and why, and the card would vanish
+            // into Posted before it could be read. Full success closes, because
+            // there is nothing left to tell you.
+            if (failed.length || reply.warning) {
+              if (failed.length) {
+                stick(feedbackEl, 'Posted to ' + labels.join(', ') +
+                      '. Not posted: ' + describeFailures(reply.results));
+              }
+              if (reply.warning) stick(feedbackEl, reply.warning);
+              markPostedQuietly(labels);
+              return;
             }
-            if (reply.warning) stick(feedbackEl, reply.warning);
             finishWithLabels(labels, 'Posted');
           }).catch(function (err) {
             stick(feedbackEl, 'Nothing was posted: ' + err.message);
