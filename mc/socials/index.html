@@ -424,7 +424,6 @@
     /* Topic + platform tags. Topics are quiet (they describe the story);
        platforms are loud and colour-coded (they are the recommendation you act
        on). Each platform chip carries its format reason as a title. */
-    .post-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 
     .tag {
       display: inline-flex;
@@ -441,8 +440,6 @@
       text-transform: uppercase;
       white-space: nowrap;
     }
-
-    .tag--topic { color: var(--muted); background: var(--panel-soft); border-color: transparent; }
 
     /* Platform styling is now only worn by the picker's tick buttons — the
        "Post to" pills on the card were removed, so there is no link variant. */
@@ -2367,20 +2364,25 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         var ephemera = document.createElement('div');
         ephemera.className = 'post-ephemera';
 
-        var tags = buildTags(post);
-        if (tags) ephemera.appendChild(tags);
 
         // The agent's note on why this story is worth posting. Labelled,
         // because unlabelled italics beside a caption read as part of the post
         // rather than as an internal aside -- and this text is never published.
-        if (post.why) {
+        // Topics first as a sentence, then the agent's note. Either may be
+        // missing -- older rows have no topics, and `why` has always been
+        // optional -- so the line renders whichever it has and is skipped only
+        // when it would be empty.
+        var topicLine = topicSentence(post);
+        if (topicLine || post.why) {
           var why = document.createElement('p');
           why.className = 'post-why';
           var whyLabel = document.createElement('span');
           whyLabel.className = 'post-why-label';
           whyLabel.textContent = 'Reasoning';
           why.appendChild(whyLabel);
-          why.appendChild(document.createTextNode(post.why));
+          why.appendChild(document.createTextNode(
+            [topicLine, post.why].filter(Boolean).join(' ')
+          ));
           ephemera.appendChild(why);
         }
 
@@ -2613,21 +2615,24 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
       // duplicated the picker and hid their most useful half — the agent's
       // reason — inside a tooltip. The platforms and their whys now live under
       // the Post button, where you are actually choosing between them.
-      function buildTags(post) {
-        var topics = Array.isArray(post.topics) ? post.topics.filter(Boolean) : [];
-        if (!topics.length) return null;
-
-        var wrap = document.createElement('div');
-        wrap.className = 'post-tags';
-
-        topics.forEach(function (topic) {
-          var chip = document.createElement('span');
-          chip.className = 'tag tag--topic';
-          chip.textContent = String(topic);
-          wrap.appendChild(chip);
-        });
-
-        return wrap;
+      // The topics as a sentence rather than a row of chips. Chips read as
+      // filters you can act on; these are neither clickable nor filterable, so
+      // they were decoration sitting where a control belongs. As the opening of
+      // the reasoning line they do the job they were always doing -- saying what
+      // KIND of story this is, before the note saying why it is worth posting.
+      //
+      //   ['weird']                     -> "Weird story."
+      //   ['travel', 'weird']           -> "Travel and weird story."
+      //   ['games', 'travel', 'weird']  -> "Games, travel and weird story."
+      function topicSentence(post) {
+        var topics = (Array.isArray(post.topics) ? post.topics : [])
+          .map(function (t) { return String(t || '').trim().toLowerCase(); })
+          .filter(Boolean);
+        if (!topics.length) return '';
+        var joined = topics.length === 1
+          ? topics[0]
+          : topics.slice(0, -1).join(', ') + ' and ' + topics[topics.length - 1];
+        return joined.charAt(0).toUpperCase() + joined.slice(1) + ' story.';
       }
 
 
