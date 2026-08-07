@@ -4,7 +4,29 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>MISSION CONTROL | THE GAME BUREAU</title>
-  <link rel="icon" href="/mc/assets/brand/tgb.ico" type="image/x-icon">
+  <!-- The mast, not the old shared tgb.ico: this is the one page you keep on a
+       home screen, and it should be identifiable at 16px from its own glyph.
+       Drawn from the same Lucide radio-tower the headline and the nav's MISSION
+       CONTROL button carry, by mc/_dev/scripts/make-mission-control-icons.py. -->
+  <link rel="icon" href="/mc/assets/brand/mission-control.ico" sizes="any">
+  <!-- 180 is the size iOS asks for, and the PNG is deliberately opaque: a
+       transparent apple-touch-icon is composited onto BLACK before the squircle
+       mask, so it would arrive as a black tile. -->
+  <link rel="apple-touch-icon" href="/mc/assets/brand/mission-control-180.png">
+  <link rel="manifest" href="/mc/manifest.webmanifest">
+  <meta name="theme-color" content="#2d4880">
+  <!-- What the icon is captioned on the home screen. Without it iOS uses the
+       <title>, which here is the full "MISSION CONTROL | THE GAME BUREAU" and
+       gets truncated to something unreadable. -->
+  <meta name="apple-mobile-web-app-title" content="Mission Control">
+  <meta name="application-name" content="Mission Control">
+  <!-- Standalone: launched from the home screen this runs without Safari's
+       chrome. That is the point of installing it, but it also means no browser
+       back button, which is why the nav bar below is the only way between rooms
+       and has to work at 360px. -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -60,11 +82,15 @@
       text-transform: uppercase;
     }
 
+    /* The floor was 2.6rem, which put "Mission Control" plus the mast at about
+       375px of type on a 360px phone -- it wrapped mid-word behind the aerial.
+       2.05rem fits it on one line at 360 and the vw term takes over by ~390. */
     .mc-hub-head h1 {
       margin: 0;
-      font-size: clamp(2.6rem, 8vw, 5.8rem);
+      font-size: clamp(2.05rem, 9.5vw, 5.8rem);
       line-height: 0.92;
       letter-spacing: 0;
+      overflow-wrap: break-word;
     }
 
     /* The broadcast mast, same Lucide radio-tower the nav's MISSION CONTROL
@@ -273,9 +299,46 @@
     .mc-chore { grid-template-rows: auto 1fr auto; min-height: 0; }
 
     @media (max-width: 720px) {
-      .mc-hub-grid { grid-template-columns: 1fr; }
-      .mc-hub-card { min-height: 190px; }
-      .mc-chores-inner { grid-template-columns: 1fr; }
+      .mc-hub-grid,
+      .mc-chores-inner,
+      .mc-hub-links { grid-template-columns: 1fr; }
+
+      /* min-height was 190px, set when these sat two-up and needed to match
+         each other. Stacked one per row there is nothing left to match, and
+         eleven cards padded to 190px made the page four screens of whitespace.
+         The content sizes them now. */
+      .mc-hub-card {
+        min-height: 0;
+        gap: 8px;
+        padding: 15px;
+      }
+      .mc-hub-card h2 { font-size: 1.18rem; }
+      .mc-hub-card p { font-size: 0.86rem; line-height: 1.5; }
+
+      .mc-hub-directory { gap: 16px; }
+      .mc-chores { margin-bottom: 16px; }
+      .mc-hub-group,
+      .mc-chores { padding: 6px 10px 11px; }
+
+      .mc-hub-intro { font-size: 0.94rem; line-height: 1.55; }
+      .mc-hub-head { gap: 6px; }
+
+      /* Both already clear 42px, so they are legal targets; the extra height is
+         for a thumb reaching across a phone rather than a cursor. */
+      .mc-hub-card-button,
+      .mc-hub-link { min-height: 46px; }
+      .mc-hub-link { font-size: 0.88rem; }
+    }
+
+    /* Landscape on a notched phone puts the display cutout over the left gutter.
+       The shell's own gutter is symmetric and cannot know about it. */
+    @supports (padding: max(0px)) {
+      @media (max-width: 900px) and (orientation: landscape) {
+        body:not(.builder-page--editor) .app {
+          padding-left: env(safe-area-inset-left);
+          padding-right: env(safe-area-inset-right);
+        }
+      }
     }
   </style>
   <link rel="stylesheet" href="js/admin-shell.css">

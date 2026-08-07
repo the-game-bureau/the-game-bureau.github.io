@@ -96,6 +96,11 @@
     icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.9 16.1C1 12.2 1 5.8 4.9 1.9'/%3E%3Cpath d='M7.8 4.7a6.14 6.14 0 0 0-.8 7.5'/%3E%3Ccircle cx='12' cy='9' r='2'/%3E%3Cpath d='M16.2 4.8c2 2 2.26 5.11.8 7.47'/%3E%3Cpath d='M19.1 1.9a9.96 9.96 0 0 1 0 14.1'/%3E%3Cpath d='M9.5 18h5'/%3E%3Cpath d='m8 22 4-11 4 11'/%3E%3C/svg%3E"
   };
 
+  // Three rules and an X. Same 24-box and the same mask pipeline as every other
+  // glyph here, so the burger flips to white with the button like the rest.
+  var BURGER = "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6h16'/%3E%3Cpath d='M4 12h16'/%3E%3Cpath d='M4 18h16'/%3E%3C/svg%3E";
+  var BURGER_X = "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 6 18'/%3E%3Cpath d='m6 6 12 12'/%3E%3C/svg%3E";
+
   var LOCK_OPEN = "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 9.9-1'/%3E%3C/svg%3E";
   var LOCK_SHUT = "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E";
 
@@ -132,7 +137,10 @@
     '  --asn-panel-light: #f8fbff;',
     '  --asn-line: var(--cut-panel-line, rgba(var(--asn-blue-rgb), 0.38));',
     '  display: grid;',
-    '  grid-template-columns: minmax(0, 1fr) auto;',
+    /* brand | rooms | tools. The tools column (burger + padlock) used to be the
+       last item inside .asn-links; it is its own column now so that on a phone
+       it can stay on the top row while the rooms drop into a panel underneath. */
+    '  grid-template-columns: minmax(0, 1fr) auto auto;',
     '  align-items: center;',
     '  gap: 18px;',
     '  position: relative;',
@@ -188,10 +196,25 @@
     '.admin-site-nav-host .asn-cog-crosshair { stroke: rgba(var(--asn-blue-rgb), 0.14); stroke-width: 1.4; }',
     /* Everything real in the nav sits above the watermark. */
     '.admin-site-nav .asn-brand,',
+    '.admin-site-nav .asn-tools,',
     '.admin-site-nav .asn-links {',
     '  position: relative;',
     '  z-index: 3;',
     '}',
+    /* align-self: start rather than the header's align-items: center. The rooms
+       column is a button with a public link under it, ~15px taller than the lone
+       44px padlock; centred, the lock would float half a line below the buttons
+       it sits beside. Start pins it to the same top edge. */
+    '.admin-site-nav .asn-tools {',
+    '  display: flex;',
+    '  align-items: flex-start;',
+    '  align-self: start;',
+    '  gap: 6px;',
+    '}',
+    /* Desktop has room for all five destinations, so the burger is not merely
+       hidden -- it is absent from the tab order too, which `display: none` gives
+       for free and `visibility` would not. */
+    '.admin-site-nav .asn-burger { display: none; }',
     '.admin-site-nav .asn-brand {',
     '  color: inherit;',
     '  cursor: default;',
@@ -349,20 +372,84 @@
     '  color: #ffffff;',
     '  outline: none;',
     '}',
+    /* 900px is not a taste call: brand (~200px) plus five buttons and a padlock
+       (~700px) is what the row costs, so below this it cannot lay out and used to
+       wrap into three ragged lines that pushed the page's own header off a phone
+       screen. Under it the rooms collapse into a panel behind the burger, and the
+       top row keeps only the two things worth a permanent tap target -- the menu,
+       and the padlock, which is also the sign-in indicator. */
     '@media (max-width: 900px) {',
     '  .admin-site-nav {',
-    '    grid-template-columns: minmax(0, 1fr);',
-    '    gap: 10px;',
+    '    grid-template-columns: minmax(0, 1fr) auto;',
+    '    align-items: center;',
+    '    gap: 10px 10px;',
+    '    padding: 10px max(16px, env(safe-area-inset-right), calc(50vw - 50%))',
+    '             10px max(16px, env(safe-area-inset-left), calc(50vw - 50%));',
     '  }',
-    '  .admin-site-nav .asn-links { justify-content: flex-start; }',
-    '  .admin-site-nav .asn-link { font-size: 0.76rem; }',
+    '  .admin-site-nav .asn-tools { align-self: center; }',
+    '  .admin-site-nav .asn-burger { display: inline-flex; }',
+    /* 44px square each. The padlock is 40 on a desktop, which is fine for a
+       cursor and one pixel-row short of the smallest reliable thumb target. */
+    '  .admin-site-nav .asn-burger,',
+    '  .admin-site-nav .asn-lock {',
+    '    width: 44px;',
+    '    padding: 0;',
+    '  }',
+    /* The panel spans both columns on its own row, so it pushes the page down
+       instead of overlaying it. An overlay would need a scroll lock and a
+       backdrop; a phone has nothing behind this bar worth protecting. */
+    '  .admin-site-nav .asn-links {',
+    '    grid-column: 1 / -1;',
+    '    display: none;',
+    '    flex-direction: column;',
+    '    align-items: stretch;',
+    '    gap: 6px;',
+    '    margin-top: 2px;',
+    '  }',
+    '  .admin-site-nav[data-nav-open="true"] .asn-links { display: flex; }',
+    /* Room button and public link side by side. The public link was 0.62rem of
+       bare text under the button -- a ~10px tap target, well under the 44px a
+       thumb needs, and the single worst thing on this bar to hit by accident. It
+       is a real button here, dashed to stay visibly secondary. */
+    '  .admin-site-nav .asn-item {',
+    '    flex-direction: row;',
+    '    align-items: stretch;',
+    '    gap: 6px;',
+    '  }',
+    '  .admin-site-nav .asn-item > .asn-link {',
+    '    flex: 1 1 auto;',
+    '    min-width: 0;',
+    '    justify-content: flex-start;',
+    '  }',
+    '  .admin-site-nav .asn-labelcol { align-items: flex-start; }',
+    '  .admin-site-nav .asn-public {',
+    '    display: inline-flex;',
+    '    align-items: center;',
+    '    flex: 0 0 auto;',
+    '    min-height: 44px;',
+    '    padding: 0 13px;',
+    '    border: 1px dashed var(--asn-line);',
+    '    border-radius: 8px;',
+    '    background: rgba(255, 255, 255, 0.55);',
+    '  }',
+    '  .admin-site-nav .asn-mc {',
+    '    justify-content: flex-start;',
+    '  }',
+    '  .admin-site-nav .asn-mc .asn-labelcol {',
+    '    flex-direction: row;',
+    '    gap: 0.32em;',
+    '  }',
+    '  .admin-site-nav .asn-brand-name { font-size: 1.02rem; }',
+    '  .admin-site-nav .asn-brand-tagline { font-size: 0.66rem; }',
+    /* Half the size and fainter. At 330px the watermark filled a phone screen
+       and turned the one bar you navigate by into a texture. */
     '  .admin-site-nav-host > .asn-page-gear {',
-    '    top: -36px;',
-    '    left: -42px;',
+    '    top: -30px;',
+    '    left: -46px;',
     '    right: auto;',
-    '    width: 270px;',
-    '    height: 258px;',
-    '    opacity: 0.72;',
+    '    width: 190px;',
+    '    height: 182px;',
+    '    opacity: 0.5;',
     '  }',
     '}'
   ].join('\n');
@@ -514,7 +601,59 @@
   });
 
   setSignedIn(false);
-  links.appendChild(lock);
+
+  // ── The burger, left of the padlock ──────────────────────────────────────
+  // Hidden above 900px, where every destination is already on the bar.
+  var tools = document.createElement('div');
+  tools.className = 'asn-tools';
+
+  var burger = document.createElement('button');
+  burger.type = 'button';
+  burger.className = 'asn-link asn-burger';
+  burger.setAttribute('aria-controls', 'asn-links');
+  burger.style.setProperty('--asn-burger-icon', 'url("data:image/svg+xml,' + BURGER + '")');
+  burger.style.setProperty('--asn-burger-x', 'url("data:image/svg+xml,' + BURGER_X + '")');
+  links.id = 'asn-links';
+
+  function setOpen(open) {
+    header.setAttribute('data-nav-open', open ? 'true' : 'false');
+    burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    burger.title = open ? 'Close menu' : 'Menu';
+    burger.setAttribute('aria-label', burger.title);
+    burger.style.setProperty('--asn-icon', open ? 'var(--asn-burger-x)' : 'var(--asn-burger-icon)');
+  }
+
+  burger.addEventListener('click', function () {
+    setOpen(header.getAttribute('data-nav-open') !== 'true');
+  });
+
+  // Escape and outside-tap close it. Both matter more than on a desktop menu:
+  // the panel pushes the page down, so leaving it open silently costs a screenful
+  // every time you come back to the tab.
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && header.getAttribute('data-nav-open') === 'true') {
+      setOpen(false);
+      burger.focus();
+    }
+  });
+  document.addEventListener('click', function (e) {
+    if (header.getAttribute('data-nav-open') !== 'true') return;
+    if (!header.contains(e.target)) setOpen(false);
+  });
+
+  // Widening past the breakpoint reveals the links again by CSS alone, which
+  // would leave aria-expanded="true" describing a control that is no longer
+  // there. Reset the state with the layout.
+  if (window.matchMedia) {
+    var wide = window.matchMedia('(min-width: 901px)');
+    var onWide = function (mq) { if (mq.matches) setOpen(false); };
+    if (wide.addEventListener) wide.addEventListener('change', onWide);
+    else if (wide.addListener) wide.addListener(onWide);
+  }
+
+  setOpen(false);
+  tools.appendChild(burger);
+  tools.appendChild(lock);
 
   // Page watermark. It is not a grid item and no longer lives in the nav, so the
   // SVG can drift into the room header without being clipped.
@@ -528,6 +667,7 @@
 
   header.appendChild(brand);
   header.appendChild(links);
+  header.appendChild(tools);
   header.dataset.tgbAdminNavReady = 'true';
 
   window.TgbAdminSiteNav = {
