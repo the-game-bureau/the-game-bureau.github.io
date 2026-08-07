@@ -288,28 +288,22 @@
     .post-kicker-id {
       color: var(--ink);
     }
-    /* Reads as a number, not a badge: at five per run a coloured pill on every
-       card would be the loudest thing in the list. Only the two ends are tinted
-       -- a stretched pick and one worth opening first. */
-    .post-kicker-conf {
-      flex: 0 0 auto;
-      padding: 1px 6px;
-      border: 1px solid rgba(var(--bic-blue-rgb), 0.22);
-      border-radius: 999px;
-      color: rgba(var(--bic-blue-rgb), 0.75);
+    /* Sits in front of REASONING and wears the label's own type, so the line
+       reads as one run -- "72% REASONING History. ..." -- rather than as a badge
+       parked beside a heading. Tinted red under 40 only: that is the band the
+       bot files to reach its five with a rule bent, and the one worth catching
+       on the way past. */
+    .post-why-score {
+      margin-right: 7px;
+      color: rgba(var(--bic-blue-rgb), 0.9);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      font-style: normal;
+      letter-spacing: 0.1em;
       font-variant-numeric: tabular-nums;
-      letter-spacing: 0.06em;
     }
-    .post-kicker-conf.is-high {
-      border-color: rgba(45, 128, 78, 0.4);
-      background: rgba(45, 128, 78, 0.09);
-      color: #226b3d;
-    }
-    .post-kicker-conf.is-low {
-      border-color: rgba(194, 55, 55, 0.36);
-      background: rgba(194, 55, 55, 0.07);
-      color: var(--bic-red);
-    }
+    .post-why-score.is-low { color: var(--bic-red); }
 
     /* ── The post as it will look ─────────────────────────────────────────── */
     .post-preview { display: grid; gap: 10px; padding: 14px 14px 13px; }
@@ -2458,24 +2452,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         kickerId.textContent = candidateLabel(post);
         kicker.appendChild(kickerId);
 
-        // The agent's own 1-100 certainty. It earns the corner the media word
-        // lost because it is the one thing on the card you cannot work out by
-        // looking: the bot now files five every run and bends its own rules to
-        // get there, so this is what separates a find from the pick it stretched
-        // to reach five.
-        //
-        // Absent on every row written before 2026-08-07 and on anything added by
-        // hand -- a human typing a story in has already made the judgement the
-        // number carries. Null renders nothing rather than a zero.
-        var score = confidenceOf(post);
-        if (score !== null) {
-          var conf = document.createElement('span');
-          conf.className = 'post-kicker-conf' + (score < 40 ? ' is-low' : score >= 80 ? ' is-high' : '');
-          conf.textContent = score;
-          conf.title = 'The bot rated its own confidence in this pick ' + score + ' out of 100'
-            + (score < 40 ? ' — filed to reach five, likely with a rule bent' : '');
-          kicker.appendChild(conf);
-        }
 
         // The corner is now the candidate id and nothing else. It carried the
         // suggested accounts, then just the media kind (photo / video / text) --
@@ -2564,9 +2540,28 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // optional -- so the line renders whichever it has and is skipped only
         // when it would be empty.
         var topicLine = topicSentence(post);
-        if (topicLine || post.why) {
+        var score = confidenceOf(post);
+        // score !== null joins the condition: a candidate can carry a number and
+        // no topics, and dropping the line would take the score with it.
+        if (topicLine || post.why || score !== null) {
           var why = document.createElement('p');
           why.className = 'post-why';
+          // The agent's own certainty, ahead of the label. It is the one thing on
+          // the card you cannot work out by reading it: the bot files five every
+          // run and bends its own rules to get there, so this is what separates a
+          // find from the pick it stretched to reach five.
+          //
+          // Null on every row written before 2026-08-07 and on anything added by
+          // hand -- a human typing a story in has already made the judgement the
+          // number carries -- and null renders nothing at all, never 0%.
+          if (score !== null) {
+            var scoreEl = document.createElement('span');
+            scoreEl.className = 'post-why-score' + (score < 40 ? ' is-low' : '');
+            scoreEl.textContent = score + '%';
+            scoreEl.title = 'The bot rated its own confidence in this pick ' + score + ' out of 100'
+              + (score < 40 ? ' — filed to reach five, likely with a rule bent' : '');
+            why.appendChild(scoreEl);
+          }
           var whyLabel = document.createElement('span');
           whyLabel.className = 'post-why-label';
           whyLabel.textContent = 'Reasoning';
