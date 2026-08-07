@@ -2967,6 +2967,10 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
           });
         }
 
+        // Resolves to the error if the row could not be written, otherwise
+        // null. It does not reject: every caller wants to carry on and say what
+        // happened, and a swallowed failure here would let a dialog report
+        // "Posted!" over a row that never changed.
         function markPosted(labels, keepOpen) {
           return savePost(stateKey, {
             status: 'posted',
@@ -2975,8 +2979,9 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
             go.disabled = true;
             copy.disabled = true;
             if (!keepOpen && typeof onDone === 'function') onDone(labels);
+            return null;
           }).catch(function (err) {
-            stick(feedbackEl, 'Posted, but could not mark the row: ' + err.message);
+            return err;
           });
         }
 
@@ -3019,18 +3024,42 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
             });
             var failed = (reply.results || []).filter(function (r) { return r && !r.ok; });
 
-            // The post HAS gone out by this point -- filing the candidate is a
-            // separate act, so it is asked rather than assumed. Anything that
-            // went wrong on the way is said here, in the same breath, because
-            // this dialog is the only moment it is certain to be read.
+            // NOT ASKED, RECORDED. The function reported which accounts took
+            // the post, with ids -- that is a fact, not a preference, and
+            // status/posted_platforms are a record of what happened rather than
+            // a to-do state. Asking permission to write down something true only
+            // creates the chance of a false record: a No left a candidate in
+            // Active that was already live on the Page, indistinguishable from
+            // one never posted, and you would find out by posting it twice.
+            //
+            // Copy to clipboard still asks, and should: there the system cannot
+            // know whether you actually posted. The rule is to ask only when the
+            // answer is genuinely unknowable from here.
+            //
+            // To undo, the Posted tab carries Move to Review on every card -- a
+            // way back rather than a way to decline, so the record cannot drift.
             var lines = ['Posted to ' + labels.join(' and ') + '.'];
             if (failed.length) lines.push('Not posted: ' + describeFailures(reply.results));
             if (reply.warning) lines.push(reply.warning);
-            lines.push('Mark this candidate as posted?');
 
-            askConfirm('Posted!', lines.join(' '), 'Yes').then(function (ok) {
-              if (ok) markPosted(labels, false);
-              else sync();   // it went out, but stays in review by your call
+            // Mark first so the row is already correct behind the dialog, and
+            // hold the re-render until it is dismissed -- otherwise the card
+            // moves to Posted from under the notice you are reading.
+            markPosted(labels, true).then(function (markErr) {
+              // The post went out either way; if the bookkeeping failed, say so
+              // rather than letting the queue quietly disagree with the Page.
+              if (markErr) {
+                lines.push('The post went out, but this candidate could not be ' +
+                           'marked posted: ' + markErr.message + ' It is still in Review.');
+              }
+              askConfirm(markErr ? 'Posted, not filed' : 'Posted!',
+                         lines.join(' '), 'OK', { hideNo: true })
+                .then(function () {
+                  renderQueue();
+                  flash(queueStatus, markErr
+                    ? 'Posted, but not filed'
+                    : 'Posted to ' + labels.join(' and '));
+                });
             });
           }).catch(function (err) {
             go.textContent = restore;
@@ -3058,7 +3087,13 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
             // No account is claimed either way: you took it away to post by
             // hand, so the receipt cannot know where it landed. Declining just
             // leaves it in review -- the clipboard keeps what it copied.
-            if (ok) markPosted([], false);
+            //
+            // This one is still a question, and should be: unlike Post, nothing
+            // here can tell whether you actually posted it.
+            if (!ok) return;
+            markPosted([], false).then(function (markErr) {
+              if (markErr) stick(feedbackEl, 'Could not mark it posted: ' + markErr.message);
+            });
           });
         });
 
