@@ -384,7 +384,19 @@
        screen. Under it the rooms collapse into a panel behind the burger, and the
        top row keeps only the two things worth a permanent tap target -- the menu,
        and the padlock, which is also the sign-in indicator. */
-    '@media (max-width: 900px) {',
+    /* TWO TRIGGERS, and the second is not redundant. Width alone failed on a real
+       iPhone: Safari's "Request Desktop Website" -- which is a per-site toggle a
+       phone keeps forever once you have tapped it, and which a home-screen app
+       inherits at install -- reports a ~980px layout viewport and ignores
+       width=device-width entirely. The page was then over the breakpoint, so the
+       burger stayed hidden and the five-button row came back on a 390px screen,
+       which is the exact case this menu exists for.
+
+       (hover: none) and (pointer: coarse) is a fact about the input device that
+       no viewport setting can misreport. A touch laptop with a mouse reports
+       pointer: fine and is unaffected; a tablet gets the burger at any width,
+       which is the right answer for a thumb regardless of how much room it has. */
+    '@media (max-width: 900px), (hover: none) and (pointer: coarse) {',
     '  .admin-site-nav {',
     '    grid-template-columns: minmax(0, 1fr) auto;',
     '    align-items: center;',
