@@ -2800,7 +2800,8 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
       // that would need stored tokens, which must never live on this page.
       // Several platforms can be queued for one story, but they are opened one
       // per click; see buildAutoPostMenu for why a burst cannot work.
-      var PLATFORM_LABELS = { instagram: 'Instagram', x: 'X', facebook: 'Facebook' };
+      // meta's label is dynamic; see platformLabel(). This is the fallback.
+      var PLATFORM_LABELS = { x: 'X', meta: 'Facebook + Instagram' };
       // NOTHING IS PREFILLED, DELIBERATELY. Post copies the caption and link to
       // the clipboard and opens the platform's own composer; you paste.
       //
@@ -2848,7 +2849,8 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
       // cursor and each click opens exactly the next platform. Clipboard writes
       // are per-step for the same reason: the caption for Instagram must land on
       // the clipboard at the moment its tab opens, not four steps earlier.
-      var PLATFORM_ORDER = ['x', 'facebook', 'instagram'];
+      // 'meta' is the merged Facebook+Instagram destination, not a Graph term.
+      var PLATFORM_ORDER = ['x', 'meta'];
       // Shown when the agent did not tag a platform for this story, so the row
       // still explains what that account is for rather than sitting blank.
       var PLATFORM_FORMAT_NOTE = {
@@ -2890,16 +2892,44 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
       // filed as "not configured yet".
       var PLATFORM_SUGGEST_ONLY = {};
 
-      // Instagram needs more than a token: the Content Publishing API refuses a
-      // text-only post, so a candidate with no image cannot go out even once the
-      // credentials exist. The Edge Function reports that as skipped rather than
-      // failed; this mirrors it in the picker so it is visible before you click.
+      function hasImage(post) {
+        return !!String((post && post.image) || '').trim();
+      }
+
+      // ── Meta is ONE destination that fans out ─────────────────────────────
+      // Facebook and Instagram were two ticks until 2026-08-07. They are still
+      // two separate Graph calls -- posting to a Page does not touch Instagram,
+      // whatever Business Suite's composer implies -- but as a *choice* they are
+      // one thing: post this to our Meta accounts. Which accounts that reaches
+      // is not a preference, it is a fact about the candidate, because the
+      // Content Publishing API refuses a text-only post. So the row states the
+      // outcome instead of asking a question with only one sensible answer.
+      //
+      //   candidate has an image  ->  Facebook + Instagram
+      //   candidate has no image  ->  Facebook
+      //
+      // The trade accepted when merging: you can no longer send a
+      // picture-bearing story to Facebook ALONE. If that turns out to matter,
+      // the fix is a "Facebook only" toggle on this row, not two ticks again.
+      function metaTargets(post) {
+        var out = [];
+        if (PLATFORM_AUTOPOST.facebook) out.push('facebook');
+        if (PLATFORM_AUTOPOST.instagram && hasImage(post)) out.push('instagram');
+        return out;
+      }
+
+      // The label is per candidate, so it cannot be a constant like the others.
+      function platformLabel(key, post) {
+        if (key !== 'meta') return PLATFORM_LABELS[key];
+        return hasImage(post) ? 'Facebook + Instagram' : 'Facebook';
+      }
+
       function autoBlockedReason(key, post) {
         if (PLATFORM_SUGGEST_ONLY[key]) return PLATFORM_SUGGEST_ONLY[key];
-        if (!PLATFORM_AUTOPOST[key]) return 'API posting not configured yet.';
-        if (key === 'instagram' && !String((post && post.image) || '').trim()) {
-          return 'No image on this candidate — Instagram cannot post text-only.';
+        if (key === 'meta') {
+          return metaTargets(post).length ? '' : 'API posting not configured yet.';
         }
+        if (!PLATFORM_AUTOPOST[key]) return 'API posting not configured yet.';
         return '';
       }
 
@@ -2913,10 +2943,17 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
       // actually went out, so a partial success is reported as a partial
       // success rather than being rounded up to "posted".
       async function postViaApi(post, keys) {
+        // The function speaks Graph, not our UI vocabulary: expand 'meta' into
+        // the accounts it actually reaches for this candidate.
+        var wire = [];
+        keys.forEach(function (k) {
+          if (k === 'meta') wire = wire.concat(metaTargets(post));
+          else wire.push(k);
+        });
         var res = await fetch(SUPABASE_CONFIG.url + '/functions/v1/' + AUTOPOST_ENDPOINT, {
           method: 'POST',
           headers: authHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ id: postId(post), platforms: keys })
+          body: JSON.stringify({ id: postId(post), platforms: wire })
         });
         var body = await res.json().catch(function () { return {}; });
         if (!res.ok) throw new Error(body.error || ('Post failed: ' + res.status));
@@ -2928,7 +2965,13 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
         var tagged = {};
         (Array.isArray(post.platforms) ? post.platforms : []).forEach(function (p) {
           var n = typeof p === 'string' ? p : (p && p.name);
-          if (n) tagged[String(n).toLowerCase().replace(/[^a-z0-9]+/g, '')] = true;
+          if (!n) return;
+          var key = String(n).toLowerCase().replace(/[^a-z0-9]+/g, '');
+          // The bot tags by account name and always will -- "Facebook" and
+          // "Instagram" are what a human writing the prompt thinks in. Both fold
+          // onto the merged row, so a story suggested for either arrives ticked.
+          if (key === 'facebook' || key === 'instagram') key = 'meta';
+          tagged[key] = true;
         });
 
         var menu = document.createElement('div');
@@ -2958,8 +3001,8 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
           var b = document.createElement('button');
           b.type = 'button';
           b.className = 'autopost-choice tag tag--platform is-' + key + (tagged[key] ? ' is-suggested' : '');
-          b.textContent = PLATFORM_LABELS[key] + (tagged[key] ? ' ★' : '');
-          b.title = tagged[key] ? 'Suggested for this story' : 'Open ' + PLATFORM_LABELS[key];
+          b.textContent = platformLabel(key, post) + (tagged[key] ? ' ★' : '');
+          b.title = tagged[key] ? 'Suggested for this story' : platformLabel(key, post);
           picked[key] = !!tagged[key];
           b.setAttribute('aria-pressed', picked[key] ? 'true' : 'false');
           b.addEventListener('click', function () {
@@ -3033,8 +3076,20 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
           return PLATFORM_ORDER.filter(function (k) { return picked[k]; });
         }
 
+        // posted_platforms is a record of where the story WENT, so it stores
+        // real account names. "Meta" is this page's vocabulary and would be
+        // useless in a receipt six months from now.
         function labelsFor(keys) {
-          return keys.map(function (k) { return PLATFORM_LABELS[k]; });
+          var out = [];
+          keys.forEach(function (k) {
+            if (k !== 'meta') { out.push(PLATFORM_LABELS[k]); return; }
+            metaTargets(post).forEach(function (t) {
+              out.push(t === 'facebook' ? 'Facebook' : 'Instagram');
+            });
+            // Ticked but nothing reachable (flags off): still say what was meant.
+            if (!metaTargets(post).length) out.push('Facebook');
+          });
+          return out;
         }
 
         // Marks the candidate posted and closes. Both buttons end here, so the
@@ -3067,9 +3122,11 @@ Finish with the SQL block, then a short summary below it: the five candidates wi
             // than leaving a disabled button unexplained.
             progress.textContent = labelsFor(keys).join(', ') + ' — manual only';
             go.title = keys.map(function (k) {
-              return PLATFORM_LABELS[k] + ': ' + autoBlockedReason(k, post);
+              return platformLabel(k, post) + ': ' + autoBlockedReason(k, post);
             }).join('  |  ');   // one line -- a title tooltip ignores line breaks
           } else {
+            // labelsFor expands meta, so this says "Facebook, Instagram" rather
+            // than the internal key -- the same words the receipt will carry.
             progress.textContent = auto.length === keys.length
               ? 'Posts to ' + labelsFor(auto).join(', ')
               : 'Posts to ' + labelsFor(auto).join(', ') + '; the rest are manual';
