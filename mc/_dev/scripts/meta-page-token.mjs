@@ -85,18 +85,31 @@ try {
                 (ex.expires_in ? `, expires in ~${Math.round(ex.expires_in / 86400)} days` : ''));
   }
 
-  // 2. long-lived user token -> Page token. Derived this way it does not expire.
+  // 2. user token -> Page token, UNLESS the token is already a Page token.
+  //    The Graph API Explorer's "User or Page" control can hand you either, and
+  //    they are indistinguishable by looking at them. The tell is this call: a
+  //    user has an `accounts` edge listing their Pages, a Page does not, so a
+  //    Page token fails with "(#100) Tried accessing nonexisting field
+  //    (accounts)". That is not an error to report -- it means the caller
+  //    already has what this step exists to produce.
   console.log('2. reading /me/accounts for the Page token…');
-  const accounts = await graph('me/accounts', { access_token: userToken });
-  const pages = accounts.data || [];
-  if (!pages.length) {
-    throw new Error('no Pages returned. Check pages_show_list was granted, and that ' +
-                    'you approved the Page in the Graph API Explorer dialog.');
+  let page;
+  try {
+    const accounts = await graph('me/accounts', { access_token: userToken });
+    const pages = accounts.data || [];
+    if (!pages.length) {
+      throw new Error('no Pages returned. Check pages_show_list was granted, and that ' +
+                      'you approved the Page in the Graph API Explorer dialog.');
+    }
+    pages.forEach((p, i) => console.log(`   [${i}] ${p.name}  id=${p.id}`));
+    if (pages.length > 1) console.log('   more than one Page; using [0]. Re-run and edit if wrong.');
+    page = pages[0];
+    if (!page.access_token) throw new Error('the Page came back with no access_token');
+  } catch (err) {
+    if (!/nonexisting field \(accounts\)/i.test(err.message)) throw err;
+    console.log('   no accounts edge — this is ALREADY a Page token, using it as-is.');
+    page = { access_token: userToken };
   }
-  pages.forEach((p, i) => console.log(`   [${i}] ${p.name}  id=${p.id}`));
-  const page = pages[0];
-  if (pages.length > 1) console.log('   more than one Page; using [0]. Re-run and edit if wrong.');
-  if (!page.access_token) throw new Error('the Page came back with no access_token');
 
   // 3. Prove it. This is the same call metaIds() makes at runtime, so if it
   //    passes here the function will resolve its ids on the first request.
