@@ -31,35 +31,35 @@
 //   1. Meta Business Suite: have the Page, and an Instagram account converted to
 //      Business/Creator and LINKED to that Page. Instagram will not publish via
 //      API from a personal account.
-//   2. developers.facebook.com: App ID 28060607810255562. (An earlier app,
-//      "TGB Socials", dead-ended on Meta console gates and was replaced.)
-//      Under the CONTENT
-//      MANAGEMENT filter (not the Featured six -- none of those is right),
-//      add BOTH of these use cases:
-//      TWO INSTAGRAM APIS EXIST and the use case lists permissions for both.
-//      Take the Facebook-login pair, NOT the instagram_business_* pair:
+//   2. developers.facebook.com: the app is "TGB Social Bot". (Two earlier
+//      attempts, "TGB Socials" and one unnamed, were abandoned -- the first on a
+//      chain of console gates, the second after its token turned out to be for
+//      the wrong Page. Neither is in use.) Under the CONTENT MANAGEMENT filter
+//      -- not the Featured six, none of which is right -- add BOTH:
+//        "Manage everything on your Page"          -> pages_manage_posts,
+//                                                     pages_read_engagement
+//        "Manage messaging & content on Instagram" -> instagram_basic,
+//                                                     instagram_content_publish
+//      pages_show_list is also required: it is what makes /me/accounts list the
+//      Page, and it is easy to miss because it does not sound like posting.
+//
+//      TWO INSTAGRAM APIS EXIST and that use case lists permissions for both in
+//      one alphabetical run, so instagram_basic and instagram_business_basic sit
+//      a few rows apart looking interchangeable. Take the Facebook-login pair:
 //        instagram_basic + instagram_content_publish   <- Page token,
 //            graph.facebook.com. This is what this function implements.
 //        instagram_business_basic + instagram_business_content_publish
-//            <- Instagram-login flavour, separate IG token via
-//            graph.instagram.com. Different code entirely; do not add these.
-//      In the use case's left nav pick "API setup with Facebook login" for
-//      the same reason. pages_show_list must also be present -- it is what
-//      makes /me/accounts return the Page in step 3c.
-//        "Manage everything on your Page"        -> pages_manage_posts,
-//                                                   pages_read_engagement
-//        "Manage messaging & content on Instagram" -> instagram_basic,
-//                                                     instagram_content_publish
-//      Confirmed labels as of 2026-08-06; Meta renames them, so if they have
-//      moved, match on the four permissions rather than the wording.
-//      NOT "Authenticate and request data from users with Facebook Login":
-//      that logs YOUR VISITORS into YOUR app, which is a different thing from
-//      posting as the brand, and it grants none of the four.
-//      Also not Live Video (streaming), oEmbed (embedding Meta content on our
-//      site -- the opposite direction), or Threads (a destination we do not
-//      post to; it would be a fifth platform, not part of this).
-//      Development mode is enough to post to your OWN Page and IG. App Review
-//      is what lets the app act for someone else's accounts, which we never do.
+//            <- Instagram-login flavour, separate token, graph.instagram.com.
+//            Different code entirely; do not add these.
+//      Same fork in the use case's left nav: pick "API setup with Facebook
+//      login", not "...with Instagram login".
+//
+//      NOT "Authenticate and request data from users with Facebook Login" from
+//      the Featured list: that logs OUR VISITORS into OUR app, a different thing
+//      from posting as the brand, and it grants none of the five.
+//
+//      Development mode is enough to post to our OWN Page and Instagram. App
+//      Review governs acting on someone else's accounts, which we never do.
 //   3. Get a PAGE token that does not expire. The ORDER is the whole trick --
 //      the same /me/accounts call yields a token that lasts an hour or one
 //      that lasts indefinitely, depending only on which token you call it
