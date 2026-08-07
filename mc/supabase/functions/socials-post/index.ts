@@ -31,7 +31,8 @@
 //   1. Meta Business Suite: have the Page, and an Instagram account converted to
 //      Business/Creator and LINKED to that Page. Instagram will not publish via
 //      API from a personal account.
-//   2. developers.facebook.com: the app is "TGB Social Bot". (Two earlier
+//   2. developers.facebook.com: the app is "TGB Social Bot", App ID
+//      4578203955831555, type Business, left in Development mode. (Two earlier
 //      attempts, "TGB Socials" and one unnamed, were abandoned -- the first on a
 //      chain of console gates, the second after its token turned out to be for
 //      the wrong Page. Neither is in use.) Under the CONTENT MANAGEMENT filter
