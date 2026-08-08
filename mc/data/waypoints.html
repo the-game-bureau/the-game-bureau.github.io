@@ -8,8 +8,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet is loaded ON DEMAND, not here. As a plain synchronous tag in the
+       head it is render-blocking: 144 KB from unpkg had to arrive and parse before the
+       page painted anything at all, whether or not a map was ever drawn - and
+       that is what "super slow load" turned out to be once the coordinates were
+       backfilled and the runtime geocoding stopped. ensureLeaflet() below
+       injects both files the first time a city map is actually built. -->
   <style>
     * { box-sizing: border-box; }
 
@@ -1409,6 +1413,11 @@
         hasAiModelColumn = (Array.isArray(rows) ? rows : []).some(
           (r) => r && typeof r === 'object' && Object.prototype.hasOwnProperty.call(r, 'ai_model')
         );
+        // Which routes each waypoint is on. Read from public.route_stops +
+        // public.routes as of 2026-08-08 - the waypoint's own tour_id columns
+        // are retired and no longer read. Tolerated missing, like every other
+        // probe here, so a database without the migration still loads.
+        await loadRouteIndex();
         state.rows = normalizeRows(rows);
         applyDefaultCityOnce();
         syncCityUrl();
@@ -1979,7 +1988,32 @@
     // Paint one map for a whole city: every stop on it, numbered, fitted to the
     // set. Pins fill in as the geocodes resolve rather than all at the end, so a
     // cold city shows its shape building up instead of an empty grey box.
+    // Injects Leaflet the first time a map is needed, and returns the same
+    // promise on every later call so ten cards cannot start ten downloads.
+    let leafletPromise = null;
+    function ensureLeaflet() {
+      if (typeof L !== 'undefined') return Promise.resolve(true);
+      if (leafletPromise) return leafletPromise;
+      leafletPromise = new Promise((resolve) => {
+        const css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(css);
+        const js = document.createElement('script');
+        js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        js.async = true;
+        // A map that cannot load is not a broken page - the cards are the point
+        // and they are all still there. Resolve either way.
+        js.onload = () => resolve(true);
+        js.onerror = () => resolve(false);
+        document.head.appendChild(js);
+      });
+      return leafletPromise;
+    }
+
     async function setupCityMap(container, rows) {
+      if (!container) return;
+      await ensureLeaflet();
       teardownCityMap();
       if (typeof L === 'undefined' || !container) return;
       const token = cityMapToken;
@@ -2894,13 +2928,17 @@
       '  source_url  text     The page you verified this from. Never a search-results page.',
       '  lat, lon    float8   Coordinates. LEAVE THEM NULL - the page geocodes the address itself and writes them back. Never guess a coordinate.',
       '  archived    boolean  A do-not-rescrape tombstone. LEAVE IT ALONE. Never write true.',
-      '  walk_order  integer  Position in this tour, 1..n. 1 is the START, the highest is the END.',
-      '  tour_id     text     Groups rows into one tour. Rows sharing it ARE that tour.',
-      '  tour_title  text     What the tour is called. Repeated on every row of the tour.',
-      '  tour_shape  text     loop | out_and_back | point_to_point. Repeated on every row of the tour.',
+      '  walk_order  integer  An advisory per-CITY order, not a route position. LEAVE IT NULL - a route orders its stops in public.route_stops.ord.',
+      '',
+      'A ROUTE IS NOT ON THIS TABLE. Two more tables hold it, and the helper below writes all three:',
+      '',
+      '  public.routes       tour_id (PK), title, shape, city. One row per route.',
+      '  public.route_stops  tour_id, wpid, ord. NOTHING BUT IDS AND A POSITION.',
+      '',
+      'So a place that is on two routes is ONE waypoint row with TWO route_stops rows. Do not repeat a place to put it on a second route, and do not invent tour_id / tour_title / tour_shape columns on waypoints - they were retired on 2026-08-08.',
       '  ai_model    text     WHICH AI YOU ARE. Your make and model, as you would say it: "Anthropic Claude Opus 5", "OpenAI GPT-5", "Google Gemini 3 Pro". Max 120 characters. Do not write "AI", "assistant", or the name of this prompt.',
       '',
-      'A LOOSE WAYPOINT leaves tour_id, tour_title, tour_shape and walk_order null. A TOUR STOP fills all four. Most of the table is loose waypoints.'
+      'The order of a route is route_stops.ord: 1 is the START, the highest is the END. Most waypoints are on no route at all - a waypoint is a place first.'
     ].join('\n');
 
     // The full idempotent shape of public.waypoints, generated from
@@ -3571,32 +3609,45 @@ $$;`.trim();
     // costs nothing.
     function buildWalkingTourSchemaSql() {
       return String.raw`
-alter table public.waypoints add column if not exists tour_id text;
-alter table public.waypoints add column if not exists tour_title text;
-alter table public.waypoints add column if not exists tour_shape text;
+create table if not exists public.routes (
+  tour_id    text primary key,
+  title      text,
+  shape      text,
+  city       text,
+  created_at timestamptz not null default now()
+);
 
-comment on column public.waypoints.tour_id is
-  'Groups rows into one walking tour. Rows sharing a tour_id ARE that tour, ordered by walk_order. Null = a loose waypoint belonging to no tour, which is what most of the catalog is.';
-comment on column public.waypoints.tour_title is
-  'What the tour is called when it is sold. Repeated on every row of the tour - denormalised on purpose, so one row carries its whole context.';
-comment on column public.waypoints.tour_shape is
-  'loop (ends where it began) | out_and_back (same ends, different streets) | point_to_point (finishes elsewhere). Trail vocabulary. Repeated on every row of the tour.';
+alter table public.routes drop constraint if exists routes_shape_known;
+alter table public.routes add constraint routes_shape_known
+  check (shape is null or shape in ('loop', 'out_and_back', 'point_to_point')) not valid;
 
-alter table public.waypoints drop constraint if exists waypoints_tour_shape_known;
-alter table public.waypoints add constraint waypoints_tour_shape_known
-  check (tour_shape is null or tour_shape in ('loop', 'out_and_back', 'point_to_point'))
-  not valid;
+create table if not exists public.route_stops (
+  tour_id text   not null references public.routes(tour_id) on delete cascade,
+  wpid    bigint not null references public.waypoints(wpid) on delete cascade,
+  ord     integer not null,
+  primary key (tour_id, wpid)
+);
 
-alter table public.waypoints drop constraint if exists waypoints_tour_needs_id;
-alter table public.waypoints add constraint waypoints_tour_needs_id
-  check (tour_title is null or tour_id is not null)
-  not valid;
+create index if not exists route_stops_order_idx on public.route_stops (tour_id, ord);
+create index if not exists route_stops_wpid_idx  on public.route_stops (wpid);
 
-create index if not exists waypoints_tour_idx
-  on public.waypoints (tour_id, walk_order) where tour_id is not null;
+alter table public.routes      enable row level security;
+alter table public.route_stops enable row level security;
 
-create index if not exists waypoints_city_tour_idx
-  on public.waypoints (city, tour_id) where tour_id is not null;`.trim();
+drop policy if exists "routes readable by anyone" on public.routes;
+create policy "routes readable by anyone" on public.routes for select using (true);
+drop policy if exists "routes write by authenticated" on public.routes;
+create policy "routes write by authenticated" on public.routes for all
+  to authenticated using (true) with check (true);
+
+drop policy if exists "route_stops readable by anyone" on public.route_stops;
+create policy "route_stops readable by anyone" on public.route_stops for select using (true);
+drop policy if exists "route_stops write by authenticated" on public.route_stops;
+create policy "route_stops write by authenticated" on public.route_stops for all
+  to authenticated using (true) with check (true);
+
+grant select on public.routes, public.route_stops to anon, authenticated;
+grant insert, update, delete on public.routes, public.route_stops to authenticated;`.trim();
     }
 
     function buildWalkingTourImportHelperSql() {
@@ -3616,6 +3667,7 @@ declare
   v_state text;
   v_title text;
   v_shape text;
+  v_ai_model text;
   v_tour_id text;
   v_entry jsonb;
   v_ord integer := 0;
@@ -3626,8 +3678,8 @@ declare
   v_address text;
   v_description text;
   v_source_url text;
-  v_ai_model text;
   v_wpid public.waypoints.wpid%type;
+  v_existing public.waypoints.wpid%type;
 begin
   if payload is null or jsonb_typeof(payload) <> 'object' then
     raise exception 'Expected a JSON object: { city, state, title, shape, ai_model, stops: [...] }';
@@ -3637,42 +3689,35 @@ begin
   v_state := nullif(btrim(payload->>'state'), '');
   v_title := nullif(btrim(payload->>'title'), '');
   v_shape := nullif(btrim(lower(payload->>'shape')), '');
-  -- One tour is the work of ONE model, so this belongs to the tour, not a stop.
+  -- One route is the work of ONE model, so this belongs to the route, not a stop.
   v_ai_model := nullif(left(btrim(coalesce(payload->>'ai_model', '')), 120), '');
 
-  if v_city is null then raise exception 'The tour needs a city.'; end if;
-  if v_title is null then raise exception 'The tour needs a title.'; end if;
+  if v_city is null then raise exception 'The route needs a city.'; end if;
+  if v_title is null then raise exception 'The route needs a title.'; end if;
   if v_shape is null or v_shape not in ('loop', 'out_and_back', 'point_to_point') then
     raise exception 'shape must be loop, out_and_back or point_to_point (got %).', coalesce(v_shape, 'null');
   end if;
   if jsonb_typeof(payload->'stops') <> 'array' or jsonb_array_length(payload->'stops') = 0 then
-    raise exception 'The tour needs a non-empty stops array.';
+    raise exception 'The route needs a non-empty stops array.';
   end if;
 
   -- Readable and unique without a sequence: the city, the shape and the second.
-  -- A human scanning the table can tell what a tour_id is without a join.
-  --
-  -- SECONDS, not minutes. To the minute, two imports of the same city and the
-  -- same shape inside one minute produce the SAME id - so the second tour does
-  -- not fail, it silently merges into the first and you get one twenty-stop
-  -- walk. That is exactly what a re-paste after a typo looks like. now() is the
-  -- statement timestamp, so every row of one call still shares one id, which is
-  -- the whole point of the column.
+  -- SECONDS, not minutes. To the minute, two imports of the same city and shape
+  -- inside one minute produce the SAME id - so the second route does not fail,
+  -- it silently merges into the first and you get one twenty-stop walk. That has
+  -- already happened once in this table.
   v_tour_id := lower(regexp_replace(v_city, '[^a-zA-Z0-9]+', '-', 'g'))
                || '-' || v_shape
                || '-' || to_char(now() at time zone 'utc', 'YYYYMMDD-HH24MISS');
 
-  -- NO SYNTHETIC HEADER ROW. This used to emit a leading row with action 'tour'
-  -- and a null ord, which read like a stop that had failed to get a number - and
-  -- every caller then had to filter it back out before counting stops. The tour's
-  -- title and id ride on the note of the FIRST WAYPOINT instead, which is where
-  -- a reader looks anyway: walk_order 1 is the start of the walk, so the walk's
-  -- name belongs on it. Every row this function returns is now a real waypoint
-  -- row, and every one of them reports action = 'waypoint'.
+  insert into public.routes (tour_id, title, shape, city)
+  values (v_tour_id, v_title, v_shape, v_city);
 
-  -- Stops are taken IN ARRAY ORDER. Any walk_order the model supplied on a stop
-  -- is ignored: the array is the sequence, and trusting one over the other when
-  -- they disagree is how a tour ends up with two stop 4s.
+  return query select 'route'::text, null::integer, v_title, v_tour_id, v_shape;
+
+  -- Stops are taken IN ARRAY ORDER. Any walk_order supplied on a stop is
+  -- ignored: the array is the sequence, and trusting one over the other when
+  -- they disagree is how a route ends up with two stop 4s.
   for v_entry in select value from jsonb_array_elements(payload->'stops')
   loop
     v_name        := nullif(btrim(v_entry->>'name'), '');
@@ -3689,21 +3734,55 @@ begin
     end if;
 
     v_ord := v_ord + 1;
+    v_existing := null;
 
-    insert into public.waypoints as w
-      (name, city, state, zip, address, description, source_url,
-       tour_id, tour_title, tour_shape, walk_order, ai_model)
-    values
-      (v_name, v_stop_city, v_stop_state, v_zip, v_address, v_description, v_source_url,
-       v_tour_id, v_title, v_shape, v_ord, v_ai_model)
-    returning w.wpid into v_wpid;
+    -- Do we already hold this place? Name AND address, both lowercased. An
+    -- archived row counts as held: archived is a do-not-rescrape tombstone, and
+    -- re-inserting the place under a new wpid would defeat it entirely.
+    if v_address is not null then
+      select w.wpid into v_existing
+        from public.waypoints w
+       where lower(btrim(coalesce(w.name, ''))) = lower(v_name)
+         and lower(btrim(coalesce(w.address, ''))) = lower(v_address)
+       order by w.wpid
+       limit 1;
+    end if;
 
-    -- 'waypoint', not 'stop'. In the product's own vocabulary a STOP is a game
-    -- plus a waypoint plus a challenge, and it lives in public.stops. What this
-    -- function inserts is a row in public.waypoints - a place - so calling the
-    -- result a stop named the wrong one of the two tables.
+    if v_existing is not null then
+      v_wpid := v_existing;
+      -- Fill blanks only. Never overwrite a value somebody entered, and never
+      -- touch the description - see the header.
+      update public.waypoints w set
+        city       = coalesce(w.city, v_stop_city),
+        state      = coalesce(w.state, v_stop_state),
+        zip        = coalesce(w.zip, v_zip),
+        source_url = coalesce(w.source_url, v_source_url),
+        ai_model   = coalesce(w.ai_model, v_ai_model)
+      where w.wpid = v_wpid;
+    else
+      insert into public.waypoints as w
+        (name, city, state, zip, address, description, source_url, ai_model)
+      values
+        (v_name, v_stop_city, v_stop_state, v_zip, v_address, v_description, v_source_url, v_ai_model)
+      returning w.wpid into v_wpid;
+    end if;
+
+    -- A place appears at most once per route. A loop FINISHES NEAR its first
+    -- stop, it does not list it again, so a repeat is a mistake in the payload
+    -- rather than something to store - and the primary key would reject it.
+    -- on conflict ON CONSTRAINT, not on (tour_id, wpid): this function's
+    -- RETURNS TABLE declares output columns called wpid and ord, and inside an
+    -- index-inference clause plpgsql cannot tell those from the table's own
+    -- columns - it raises "column reference wpid is ambiguous". Naming the
+    -- primary key sidesteps the resolution entirely.
+    insert into public.route_stops (tour_id, wpid, ord)
+    values (v_tour_id, v_wpid, v_ord)
+    on conflict on constraint route_stops_pkey do nothing;
+
     return query select 'waypoint'::text, v_ord, v_name, v_wpid::text,
-      case when v_ord = 1 then v_title || ' - ' || v_tour_id else null end;
+      case when v_existing is not null
+           then 'reused an existing waypoint; its description was left alone'
+           else null end;
   end loop;
 end;
 $$;`.trim();
@@ -5963,7 +6042,38 @@ $$;`.trim();
 
     function matchesTourFilter(row) {
       if (!state.tourFilter) return true;
-      return cleanText(row.tour_id) === state.tourFilter;
+      return routesFor(row).some((r) => r.tour_id === state.tourFilter);
+    }
+
+    // wpid -> [{ tour_id, title, shape, ord }], newest membership wins on ties.
+    const routeIndex = new Map();
+    const routeMeta = new Map();
+
+    async function loadRouteIndex() {
+      routeIndex.clear();
+      routeMeta.clear();
+      try {
+        const [routes, stops] = await Promise.all([
+          TgbRest.fetchAll(restUrl('routes', { select: '*', order: 'tour_id.asc' }), authHeaders({ Accept: 'application/json' })),
+          TgbRest.fetchAll(restUrl('route_stops', { select: '*', order: 'tour_id.asc' }), authHeaders({ Accept: 'application/json' }))
+        ]);
+        (Array.isArray(routes) ? routes : []).forEach((r) => routeMeta.set(r.tour_id, r));
+        (Array.isArray(stops) ? stops : []).forEach((s) => {
+          const key = String(s.wpid);
+          if (!routeIndex.has(key)) routeIndex.set(key, []);
+          const meta = routeMeta.get(s.tour_id) || {};
+          routeIndex.get(key).push({
+            tour_id: s.tour_id, ord: s.ord, title: meta.title || '', shape: meta.shape || ''
+          });
+        });
+      } catch (_) {
+        // The tables may not exist yet. A waypoint with no known route is the
+        // same as one on no route, which is most of the catalogue anyway.
+      }
+    }
+
+    function routesFor(row) {
+      return routeIndex.get(String(row && row.wpid)) || [];
     }
 
     // Clicking a tour id shows that tour and nothing else. It also switches the
@@ -6843,19 +6953,20 @@ $$;`.trim();
             { title: 'Suggested position within its city, or its stop number on a tour. Advisory - a game route is public.stops.ord.' });
       }
 
-      if (!hasTourColumns) {
-        add('TOUR', null, { missing: true });
-      } else if (!cleanText(row.tour_id)) {
-        // Most of the catalogue is loose waypoints, and that is a normal state,
-        // not a missing tour - so say so rather than showing three dashes.
-        add('TOUR', null, { emptyTitle: 'A loose waypoint, on no tour. Most of the catalogue is.' });
+      // ROUTES, not the waypoint's own tour columns. A place can be on several
+      // routes now, and that is the interesting fact about it - the old single
+      // tour_id could not say so at all. Each id filters the list to that route
+      // and links to the Route Builder.
+      const on = routesFor(row);
+      if (!on.length) {
+        add('ROUTES', null, { emptyTitle: 'On no route. Most of the catalogue is - a waypoint is a place first.' });
       } else {
-        add('TOUR', row.tour_id, {
-          title: 'Show only this tour',
-          onClick: () => openTour(row.tour_id)
+        on.forEach((r, i) => {
+          add(i === 0 ? 'ROUTES' : '', r.tour_id + (r.ord ? ' #' + r.ord : ''), {
+            title: (r.title || 'Show only this route') + ' - click to filter',
+            onClick: () => openTour(r.tour_id)
+          });
         });
-        add('TITLE', row.tour_title);
-        add('SHAPE', tourShapeLabel(row.tour_shape), { title: row.tour_shape || '' });
       }
 
       if (!hasAiModelColumn) {

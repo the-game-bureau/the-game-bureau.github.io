@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>ROUTE BUILDER | THE GAME BUREAU</title>
+  <link rel="icon" href="/mc/assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- No Leaflet. This page has no map, and loading 144 KB of it in the head to
+       draw nothing is most of what made the Waypoints page slow to first paint. -->
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --paper-line-minor: rgba(var(--bic-blue-rgb), 0.22);
+      --paper-line-major: rgba(190, 55, 55, 0.24);
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.72);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --paper: rgba(255, 255, 255, 0.92);
+      --warn: rgba(190, 55, 55, 0.9);
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper-base);
+      color: var(--ink);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app { max-width: 1180px; margin: 0 auto; padding: 0 18px 80px; }
+
+    .page-head { padding: 26px 0 8px; }
+    .page-title {
+      margin: 0;
+      font-size: clamp(1.5rem, 3.5vw, 2.1rem);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .page-sub { margin: 6px 0 0; color: var(--muted); font-size: 0.95rem; max-width: 70ch; }
+    .status { margin: 10px 0 0; font-size: 0.9rem; color: var(--muted); min-height: 1.4em; }
+    .status.error { color: var(--warn); font-weight: 700; }
+    .status.success { color: var(--ink); font-weight: 700; }
+
+    .btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 7px 13px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .btn:hover:not(:disabled) { border-color: var(--ink); }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .btn.small { font-size: 0.72rem; padding: 5px 9px; }
+    .btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .btn.warn { color: var(--warn); }
+
+    .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0; }
+
+    /* Two columns: the route on the left, the city's unused waypoints on the
+       right. Side by side because the whole job is moving rows between them. */
+    .cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+    @media (max-width: 900px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--paper);
+      box-shadow: 0 1px 0 var(--paper-shadow);
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-title { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+    .panel-count { font-size: 0.78rem; color: var(--muted); }
+    .panel-body { padding: 8px; min-height: 90px; }
+
+    .stop {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: #fff;
+      margin-bottom: 6px;
+    }
+    .stop:last-child { margin-bottom: 0; }
+    /* Only the handle starts a drag. Making the whole row draggable makes the
+       text impossible to select, which you want when copying an address. */
+    .stop-handle { cursor: grab; color: var(--muted); font-size: 1rem; line-height: 1; user-select: none; }
+    .stop-handle:active { cursor: grabbing; }
+    .stop-ord {
+      min-width: 1.9em;
+      text-align: right;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .stop-main { flex: 1; min-width: 0; }
+    .stop-name { font-weight: 600; font-size: 0.94rem; overflow-wrap: anywhere; }
+    .stop-meta { font-size: 0.76rem; color: var(--muted); overflow-wrap: anywhere; }
+    .stop-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+    .stop.is-dragging { opacity: 0.4; }
+    /* A line where the row will land, rather than moving everything as you go.
+       Reordering ten rows live is hard to aim at. */
+    .stop.drop-before { box-shadow: 0 -3px 0 -1px var(--ink); }
+    .stop.drop-after { box-shadow: 0 3px 0 -1px var(--ink); }
+
+    .stop--start .stop-ord::after { content: ' \25B6'; color: var(--ink); }
+    .stop--end .stop-ord::after { content: ' \25A0'; color: var(--ink); }
+
+    .empty { padding: 16px 10px; color: var(--muted); font-size: 0.88rem; }
+
+    select, input[type="text"], input[type="search"] {
+      font: inherit;
+      font-size: 0.9rem;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      padding: 6px 8px;
+      max-width: 100%;
+    }
+    label.inline { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+    .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+    .meta-field { display: grid; gap: 4px; }
+    .meta-field input, .meta-field select { width: 100%; }
+
+    .pool-filter { display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+    .pool-filter input { flex: 1; }
+
+    .hint { font-size: 0.78rem; color: var(--muted); padding: 0 14px 12px; }
+  </style>
+  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <header class="admin-site-nav" data-admin-site-nav></header>
+
+    <div class="page-head">
+      <h1 class="page-title">Route Builder</h1>
+      <p class="page-sub">
+        A route is an ordered set of waypoints. Drag to reorder, add from the city's
+        unused waypoints on the right, remove to send one back. Every place lives once
+        in <a href="/mc/data/waypoints.html">Waypoints</a> and can be on any number of routes.
+      </p>
+      <p class="status" id="pageStatus" aria-live="polite"></p>
+    </div>
+
+    <div class="bar">
+      <label class="inline" for="routeSelect">Route</label>
+      <select id="routeSelect"></select>
+      <button class="btn" id="newRouteBtn" type="button">New route</button>
+      <button class="btn primary" id="saveBtn" type="button" disabled>Save order</button>
+      <button class="btn warn" id="deleteRouteBtn" type="button" disabled>Delete route</button>
+    </div>
+
+    <div class="cols">
+      <section class="panel" id="routePanel">
+        <div class="panel-head">
+          <span class="panel-title">The route</span>
+          <span class="panel-count" id="routeCount"></span>
+        </div>
+        <div class="meta-grid" id="routeMeta"></div>
+        <div class="panel-body" id="routeStops"></div>
+        <p class="hint">First stop is the start (&#9654;), last is the end (&#9632;).</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Waypoints not on this route</span>
+          <span class="panel-count" id="poolCount"></span>
+        </div>
+        <div class="pool-filter">
+          <input type="search" id="poolSearch" placeholder="Filter by name or address">
+          <select id="poolCity"></select>
+        </div>
+        <div class="panel-body" id="poolList"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/mc/js/admin-auth.js"></script>
+  <script src="/mc/js/admin-shell.js"></script>
+  <script src="/mc/js/admin-site-nav.js"></script>
+  <script src="/mc/js/supabase-rest.js"></script>
+  <script>
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+
+    const SHAPES = [
+      { key: 'loop', label: 'Loop - ends where it began' },
+      { key: 'out_and_back', label: 'Out and back - same ends, different streets' },
+      { key: 'point_to_point', label: 'Point to point - finishes elsewhere' }
+    ];
+
+    const state = {
+      authed: false,
+      routes: [],        // public.routes
+      stops: [],         // public.route_stops for the open route, in order
+      waypoints: [],     // public.waypoints, every one
+      routeId: '',
+      dirty: false,      // the ORDER/membership differs from what is stored
+      poolQuery: '',
+      poolCity: ''
+    };
+
+    const el = (id) => document.getElementById(id);
+    const pageStatus = el('pageStatus');
+    const cleanText = (v) => String(v == null ? '' : v).trim();
+
+    function restUrl(table, params) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params || {}).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+      });
+      return url.toString();
+    }
+
+    function authHeaders(extra) {
+      if (adminAuth && typeof adminAuth.authHeaders === 'function') return adminAuth.authHeaders(extra || {});
+      const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      const token = (session && session.access_token) || SUPABASE_CONFIG.publishableKey;
+      return Object.assign({
+        apikey: SUPABASE_CONFIG.publishableKey,
+        Authorization: 'Bearer ' + token,
+        Accept: 'application/json'
+      }, extra || {});
+    }
+
+    async function ensureFreshSession() {
+      if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') return adminAuth.ensureFreshSession();
+    }
+
+    let statusTimer = 0;
+    function setStatus(text, kind) {
+      if (!pageStatus) return;
+      window.clearTimeout(statusTimer);
+      pageStatus.textContent = text || '';
+      pageStatus.classList.toggle('error', kind === 'error');
+      pageStatus.classList.toggle('success', kind === 'success');
+      if (text && kind !== 'error') statusTimer = window.setTimeout(() => setStatus(''), 3500);
+    }
+
+    async function readError(res) {
+      const body = await res.text().catch(() => '');
+      try {
+        const j = JSON.parse(body);
+        return j.message || j.hint || body || ('HTTP ' + res.status);
+      } catch (_) { return body || ('HTTP ' + res.status); }
+    }
+
+    // TgbRest.fetchAll pages past PostgREST's 1000-row cap. waypoints is already
+    // at 282 and the whole point of the pool is that it holds everything.
+    async function fetchAll(table, params) {
+      const url = restUrl(table, params);
+      if (window.TgbRest && typeof window.TgbRest.fetchAll === 'function') {
+        return window.TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
+      }
+      const res = await fetch(url, { headers: authHeaders({ Accept: 'application/json' }) });
+      if (!res.ok) throw new Error(await readError(res));
+      return res.json();
+    }
+
+    // --- loading --------------------------------------------------------------
+
+    async function loadAll() {
+      // select=* on both, never a column list - naming a column PostgREST does
+      // not have rejects the whole page load, the standing rule in this codebase.
+      const [routes, waypoints] = await Promise.all([
+        fetchAll('routes', { select: '*', order: 'tour_id.asc' }),
+        fetchAll('waypoints', { select: '*', order: 'wpid.asc' })
+      ]);
+      state.routes = Array.isArray(routes) ? routes : [];
+      state.waypoints = (Array.isArray(waypoints) ? waypoints : []).filter((w) => !w.archived);
+      if (!state.routeId || !state.routes.some((r) => r.tour_id === state.routeId)) {
+        state.routeId = routeFromUrl() || (state.routes[0] ? state.routes[0].tour_id : '');
+      }
+      await loadStops();
+    }
+
+    async function loadStops() {
+      if (!state.routeId) { state.stops = []; state.dirty = false; renderAll(); return; }
+      const rows = await fetchAll('route_stops', {
+        select: '*', tour_id: 'eq.' + state.routeId, order: 'ord.asc'
+      });
+      state.stops = (Array.isArray(rows) ? rows : [])
+        .map((r) => String(r.wpid))
+        .filter((id) => state.waypoints.some((w) => String(w.wpid) === id));
+      state.dirty = false;
+      renderAll();
+    }
+
+    function routeFromUrl() {
+      return cleanText(new URLSearchParams(location.search).get('route'));
+    }
+
+    function syncUrl() {
+      const url = new URL(location.href);
+      if (state.routeId) url.searchParams.set('route', state.routeId);
+      else url.searchParams.delete('route');
+      // replaceState: picking a route is a filter, not navigation. Stacking a
+      // history entry per route would make Back useless for leaving the page.
+      history.replaceState(null, '', url);
+    }
+
+    const wpById = (id) => state.waypoints.find((w) => String(w.wpid) === String(id));
+    const currentRoute = () => state.routes.find((r) => r.tour_id === state.routeId) || null;
+
+    // --- rendering ------------------------------------------------------------
+
+    function renderAll() {
+      renderRouteSelect();
+      renderMeta();
+      renderStops();
+      renderPool();
+      el('saveBtn').disabled = !state.dirty || !state.routeId;
+      el('deleteRouteBtn').disabled = !state.routeId;
+      renderCounts();
+    }
+
+    function renderCounts() {
+      el('routeCount').textContent = state.stops.length
+        ? state.stops.length + ' stop' + (state.stops.length === 1 ? '' : 's') + (state.dirty ? ' - unsaved' : '')
+        : '';
+    }
+
+    function renderRouteSelect() {
+      const sel = el('routeSelect');
+      sel.innerHTML = '';
+      if (!state.routes.length) {
+        const o = document.createElement('option');
+        o.value = '';
+        o.textContent = 'No routes yet';
+        sel.appendChild(o);
+        sel.disabled = true;
+        return;
+      }
+      sel.disabled = false;
+      state.routes.forEach((r) => {
+        const o = document.createElement('option');
+        o.value = r.tour_id;
+        o.textContent = (cleanText(r.city) ? cleanText(r.city) + ' - ' : '')
+          + (cleanText(r.title) || r.tour_id);
+        sel.appendChild(o);
+      });
+      sel.value = state.routeId;
+    }
+
+    // Route title / shape / city, saved on change. These are three fields on one
+    // row; a Save button for them as well as for the order would be two kinds of
+    // save on one screen, and the order is the one that needs deliberate saving
+    // because it is what you spend the time on.
+    function renderMeta() {
+      const box = el('routeMeta');
+      box.innerHTML = '';
+      const route = currentRoute();
+      if (!route) return;
+
+      const field = (label, node) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'meta-field';
+        const l = document.createElement('label');
+        l.className = 'inline';
+        l.textContent = label;
+        wrap.append(l, node);
+        return wrap;
+      };
+
+      const title = document.createElement('input');
+      title.type = 'text';
+      title.value = cleanText(route.title);
+      title.placeholder = 'What this walk is called';
+      title.addEventListener('change', () => saveRouteField('title', title.value));
+
+      const shape = document.createElement('select');
+      const blank = document.createElement('option');
+      blank.value = '';
+      blank.textContent = '(not set)';
+      shape.appendChild(blank);
+      SHAPES.forEach((s) => {
+        const o = document.createElement('option');
+        o.value = s.key;
+        o.textContent = s.label;
+        shape.appendChild(o);
+      });
+      shape.value = cleanText(route.shape);
+      shape.addEventListener('change', () => saveRouteField('shape', shape.value));
+
+      const city = document.createElement('input');
+      city.type = 'text';
+      city.value = cleanText(route.city);
+      city.placeholder = 'City';
+      city.addEventListener('change', () => saveRouteField('city', city.value));
+
+      const id = document.createElement('input');
+      id.type = 'text';
+      id.value = route.tour_id;
+      id.readOnly = true;
+      // The id is referenced by every route_stops row. Renaming it here would
+      // orphan them all, so it is shown and not editable - the same bargain
+      // anchor_events makes with its client-supplied primary key.
+      id.title = 'The route id. Not editable - every stop points at it.';
+
+      box.append(
+        field('Title', title),
+        field('Shape', shape),
+        field('City', city),
+        field('Route id', id)
+      );
+    }
+
+    function renderStops() {
+      const box = el('routeStops');
+      box.innerHTML = '';
+      if (!state.routeId) {
+        box.innerHTML = '<p class="empty">No route selected. Make one with New route.</p>';
+        return;
+      }
+      if (!state.stops.length) {
+        box.innerHTML = '<p class="empty">Nothing on this route yet. Add waypoints from the right.</p>';
+        return;
+      }
+      state.stops.forEach((wpid, i) => {
+        const w = wpById(wpid);
+        if (!w) return;
+        const row = document.createElement('div');
+        row.className = 'stop'
+          + (i === 0 ? ' stop--start' : '')
+          + (i === state.stops.length - 1 && state.stops.length > 1 ? ' stop--end' : '');
+        row.dataset.wpid = wpid;
+
+        const handle = document.createElement('span');
+        handle.className = 'stop-handle';
+        handle.textContent = '≡';
+        handle.title = 'Drag to reorder';
+        handle.draggable = true;
+        wireDrag(handle, row);
+
+        const ord = document.createElement('span');
+        ord.className = 'stop-ord';
+        ord.textContent = String(i + 1);
+
+        const main = document.createElement('div');
+        main.className = 'stop-main';
+        const name = document.createElement('div');
+        name.className = 'stop-name';
+        name.textContent = cleanText(w.name) || ('WPID ' + w.wpid);
+        const meta = document.createElement('div');
+        meta.className = 'stop-meta';
+        meta.textContent = [cleanText(w.address), cleanText(w.city)].filter(Boolean).join(' - ')
+          || 'no address';
+        main.append(name, meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'stop-actions';
+        const up = mkBtn('↑', 'Move up', () => moveStop(i, i - 1), i === 0);
+        const down = mkBtn('↓', 'Move down', () => moveStop(i, i + 1), i === state.stops.length - 1);
+        const edit = mkBtn('Edit', 'Open this waypoint in Waypoints',
+          () => window.open('/mc/data/waypoints.html?city=' + encodeURIComponent(cleanText(w.city).toLowerCase().replace(/\s+/g, '-')), '_blank'));
+        const off = mkBtn('Remove', 'Take off this route (the waypoint is kept)', () => removeStop(i));
+        off.classList.add('warn');
+        actions.append(up, down, edit, off);
+
+        row.append(handle, ord, main, actions);
+        wireDropTarget(row);
+        box.appendChild(row);
+      });
+    }
+
+    function mkBtn(text, title, onClick, disabled) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn small';
+      b.textContent = text;
+      b.title = title;
+      if (disabled) b.disabled = true;
+      b.addEventListener('click', onClick);
+      return b;
+    }
+
+    function renderPool() {
+      const box = el('poolList');
+      box.innerHTML = '';
+      const onRoute = new Set(state.stops.map(String));
+      const q = state.poolQuery.toLowerCase();
+      const city = state.poolCity;
+      const rows = state.waypoints.filter((w) => {
+        if (onRoute.has(String(w.wpid))) return false;
+        if (city && cleanText(w.city).toLowerCase() !== city) return false;
+        if (!q) return true;
+        return (cleanText(w.name) + ' ' + cleanText(w.address)).toLowerCase().includes(q);
+      });
+      el('poolCount').textContent = rows.length + ' available';
+      if (!rows.length) {
+        box.innerHTML = '<p class="empty">Nothing matches. Widen the filter, or add the place in Waypoints first.</p>';
+        return;
+      }
+      // Capped, because "every waypoint" is 282 rows and painting all of them
+      // makes the panel a scroll pit. The filter is how you find the rest.
+      rows.slice(0, 60).forEach((w) => {
+        const row = document.createElement('div');
+        row.className = 'stop';
+        const main = document.createElement('div');
+        main.className = 'stop-main';
+        const name = document.createElement('div');
+        name.className = 'stop-name';
+        name.textContent = cleanText(w.name) || ('WPID ' + w.wpid);
+        const meta = document.createElement('div');
+        meta.className = 'stop-meta';
+        meta.textContent = [cleanText(w.address), cleanText(w.city)].filter(Boolean).join(' - ') || 'no address';
+        main.append(name, meta);
+        const actions = document.createElement('div');
+        actions.className = 'stop-actions';
+        actions.appendChild(mkBtn('Add', 'Put this on the end of the route', () => addStop(w.wpid), !state.routeId));
+        row.append(main, actions);
+        box.appendChild(row);
+      });
+      if (rows.length > 60) {
+        const more = document.createElement('p');
+        more.className = 'empty';
+        more.textContent = (rows.length - 60) + ' more - narrow the filter to see them.';
+        box.appendChild(more);
+      }
+    }
+
+    function renderPoolCities() {
+      const sel = el('poolCity');
+      const cities = [...new Set(state.waypoints.map((w) => cleanText(w.city)).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b));
+      sel.innerHTML = '';
+      const all = document.createElement('option');
+      all.value = '';
+      all.textContent = 'Every city';
+      sel.appendChild(all);
+      cities.forEach((c) => {
+        const o = document.createElement('option');
+        o.value = c.toLowerCase();
+        o.textContent = c;
+        sel.appendChild(o);
+      });
+      sel.value = state.poolCity;
+    }
+
+    // --- editing the order ----------------------------------------------------
+
+    function markDirty() { state.dirty = true; renderAll(); }
+
+    function moveStop(from, to) {
+      if (to < 0 || to >= state.stops.length) return;
+      const [row] = state.stops.splice(from, 1);
+      state.stops.splice(to, 0, row);
+      markDirty();
+    }
+
+    function addStop(wpid) {
+      const id = String(wpid);
+      if (state.stops.includes(id)) return;
+      state.stops.push(id);
+      markDirty();
+    }
+
+    // Removing a stop takes it OFF THE ROUTE and leaves the waypoint alone. That
+    // is the whole reason these are two tables: a place is not deleted because
+    // one walk stopped visiting it.
+    function removeStop(i) {
+      state.stops.splice(i, 1);
+      markDirty();
+    }
+
+    let dragFrom = null;
+
+    function wireDrag(handle, row) {
+      handle.addEventListener('dragstart', (e) => {
+        dragFrom = row.dataset.wpid;
+        row.classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        // Firefox refuses to start a drag unless something is set.
+        try { e.dataTransfer.setData('text/plain', dragFrom); } catch (_) {}
+      });
+      handle.addEventListener('dragend', () => {
+        dragFrom = null;
+        document.querySelectorAll('.stop').forEach((n) => {
+          n.classList.remove('is-dragging', 'drop-before', 'drop-after');
+        });
+      });
+    }
+
+    function wireDropTarget(row) {
+      row.addEventListener('dragover', (e) => {
+        if (!dragFrom || row.dataset.wpid === dragFrom) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        // Above or below the midpoint decides which side of this row it lands.
+        const box = row.getBoundingClientRect();
+        const after = (e.clientY - box.top) > box.height / 2;
+        row.classList.toggle('drop-after', after);
+        row.classList.toggle('drop-before', !after);
+      });
+      row.addEventListener('dragleave', () => row.classList.remove('drop-before', 'drop-after'));
+      row.addEventListener('drop', (e) => {
+        if (!dragFrom) return;
+        e.preventDefault();
+        const after = row.classList.contains('drop-after');
+        row.classList.remove('drop-before', 'drop-after');
+        const from = state.stops.indexOf(dragFrom);
+        if (from < 0) return;
+        const target = state.stops.indexOf(row.dataset.wpid);
+        if (target < 0) return;
+        const [moved] = state.stops.splice(from, 1);
+        // The target index shifts when the row came from above it.
+        let at = state.stops.indexOf(row.dataset.wpid);
+        at = after ? at + 1 : at;
+        state.stops.splice(at, 0, moved);
+        dragFrom = null;
+        markDirty();
+      });
+    }
+
+    // --- writing --------------------------------------------------------------
+
+    // Delete-then-insert for the whole route, not a diff. The route is at most a
+    // dozen rows, positions shift wholesale when you move one, and a partial
+    // failure that leaves two stop 3s is worse than redoing the lot. The delete
+    // and the insert are separate requests, so a crash between them empties the
+    // route - which is visible and fixable, unlike a silently wrong order.
+    async function saveOrder() {
+      if (!state.routeId) return;
+      const btn = el('saveBtn');
+      btn.disabled = true;
+      setStatus('Saving order...');
+      try {
+        await ensureFreshSession();
+        const del = await fetch(restUrl('route_stops', { tour_id: 'eq.' + state.routeId }), {
+          method: 'DELETE', headers: authHeaders()
+        });
+        if (!del.ok) throw new Error(await readError(del));
+        if (state.stops.length) {
+          const body = state.stops.map((wpid, i) => ({
+            tour_id: state.routeId, wpid: Number(wpid), ord: i + 1
+          }));
+          const ins = await fetch(restUrl('route_stops', {}), {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify(body)
+          });
+          if (!ins.ok) throw new Error(await readError(ins));
+        }
+        state.dirty = false;
+        renderAll();
+        setStatus('Saved ' + state.stops.length + ' stop' + (state.stops.length === 1 ? '' : 's') + '.', 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || 'Could not save the order.', 'error');
+        renderAll();
+      }
+    }
+
+    async function saveRouteField(field, value) {
+      const route = currentRoute();
+      if (!route) return;
+      const patch = {};
+      patch[field] = cleanText(value) || null;
+      try {
+        await ensureFreshSession();
+        const res = await fetch(restUrl('routes', { tour_id: 'eq.' + state.routeId }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(patch)
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        route[field] = patch[field];
+        renderRouteSelect();
+        setStatus('Saved.', 'success');
+      } catch (err) {
+        setStatus(err.message || 'Could not save that.', 'error');
+      }
+    }
+
+    // Same readable shape the importer builds, and to the SECOND: to the minute,
+    // two routes made for one city in the same minute collide on the id and the
+    // second silently merges into the first. That has already happened once in
+    // this table - it produced a twenty-stop "loop".
+    function makeRouteId(city, shape) {
+      const slug = cleanText(city).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'route';
+      const d = new Date();
+      const p = (n, w) => String(n).padStart(w || 2, '0');
+      const stamp = d.getUTCFullYear() + p(d.getUTCMonth() + 1) + p(d.getUTCDate())
+        + '-' + p(d.getUTCHours()) + p(d.getUTCMinutes()) + p(d.getUTCSeconds());
+      return slug + '-' + (cleanText(shape) || 'loop') + '-' + stamp;
+    }
+
+    async function newRoute() {
+      const city = window.prompt('Which city is this route in?', cleanText(state.poolCity) || '');
+      if (city === null) return;
+      const tourId = makeRouteId(city, 'loop');
+      try {
+        await ensureFreshSession();
+        const res = await fetch(restUrl('routes', {}), {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify({ tour_id: tourId, city: cleanText(city) || null, shape: 'loop', title: null })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        const [row] = await res.json();
+        state.routes.push(row);
+        state.routes.sort((a, b) => a.tour_id.localeCompare(b.tour_id));
+        state.routeId = row.tour_id;
+        state.stops = [];
+        state.dirty = false;
+        state.poolCity = cleanText(city).toLowerCase();
+        syncUrl();
+        renderPoolCities();
+        renderAll();
+        setStatus('New route ' + row.tour_id + '.', 'success');
+      } catch (err) {
+        setStatus(err.message || 'Could not create the route.', 'error');
+      }
+    }
+
+    async function deleteRoute() {
+      const route = currentRoute();
+      if (!route) return;
+      const name = cleanText(route.title) || route.tour_id;
+      if (!window.confirm('Delete the route "' + name + '"?\n\nIts ' + state.stops.length
+        + ' waypoint(s) are NOT deleted - they stay in the catalogue and on any other route.')) return;
+      try {
+        await ensureFreshSession();
+        // route_stops has on delete cascade, so the membership goes with it.
+        const res = await fetch(restUrl('routes', { tour_id: 'eq.' + route.tour_id }), {
+          method: 'DELETE', headers: authHeaders()
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        state.routes = state.routes.filter((r) => r.tour_id !== route.tour_id);
+        state.routeId = state.routes[0] ? state.routes[0].tour_id : '';
+        syncUrl();
+        await loadStops();
+        setStatus('Deleted ' + name + '.', 'success');
+      } catch (err) {
+        setStatus(err.message || 'Could not delete the route.', 'error');
+      }
+    }
+
+    async function openRoute(tourId) {
+      if (state.dirty && !window.confirm('This route has unsaved order changes. Leave them?')) {
+        el('routeSelect').value = state.routeId;
+        return;
+      }
+      state.routeId = tourId;
+      const route = currentRoute();
+      if (route && cleanText(route.city)) state.poolCity = cleanText(route.city).toLowerCase();
+      syncUrl();
+      renderPoolCities();
+      await loadStops();
+    }
+
+    // --- wiring ---------------------------------------------------------------
+
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      onAuthorized: async () => {
+        state.authed = true;
+        setStatus('Loading routes...');
+        try {
+          await loadAll();
+          renderPoolCities();
+          renderAll();
+          setStatus('');
+        } catch (err) {
+          console.error(err);
+          setStatus(err.message || 'Could not load routes.', 'error');
+        }
+      },
+      onSignedOut: () => {
+        state.authed = false;
+        state.routes = [];
+        state.stops = [];
+        state.waypoints = [];
+        renderAll();
+        setStatus('Sign in with an admin account.');
+      }
+    });
+    if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
+
+    el('routeSelect').addEventListener('change', (e) => openRoute(e.target.value));
+    el('newRouteBtn').addEventListener('click', newRoute);
+    el('saveBtn').addEventListener('click', saveOrder);
+    el('deleteRouteBtn').addEventListener('click', deleteRoute);
+    el('poolSearch').addEventListener('input', (e) => { state.poolQuery = e.target.value; renderPool(); });
+    el('poolCity').addEventListener('change', (e) => { state.poolCity = e.target.value; renderPool(); });
+
+    // An unsaved order is a few minutes of dragging. Losing it to a stray tab
+    // close is the one mistake this page can make on your behalf.
+    window.addEventListener('beforeunload', (e) => {
+      if (!state.dirty) return;
+      e.preventDefault();
+      e.returnValue = '';
+    });
+  </script>
+</body>
+</html>

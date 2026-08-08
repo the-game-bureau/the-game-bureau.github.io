@@ -124,6 +124,14 @@
           appendOpenGameId: true
         },
         {
+          href: '/mc/routes.html',
+          // A ROUTE is an ordered set of waypoints and nothing else. It sits
+          // above Game Stops on purpose: you lay out where the walk goes, then
+          // pair each of those places with a challenge to make it playable.
+          label: 'Route Builder',
+          description: 'Order the waypoints of a walking route by dragging them. No challenges, no map.'
+        },
+        {
           href: '/mc/stops.html',
           label: 'Game Stops',
           description: 'Pair each waypoint with a challenge, then organize those stops for play.'
