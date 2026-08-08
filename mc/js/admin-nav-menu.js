@@ -246,6 +246,18 @@
           external: true
         },
         {
+          href: 'https://console.cloud.google.com/',
+          // Moved off the gift shop admin's command bar 2026-08-07. The shop's
+          // ONLY Google dependency is GOOGLE_BOOKS_API_KEY, read by the
+          // scrape-amazon function for the Auto Fill book lookup — and that
+          // lookup works keyless on a shared quota, so the key is optional and
+          // touched roughly never. That is an External Tools link, not a button
+          // in the row you file items from.
+          label: 'Google Cloud',
+          description: 'Console for GOOGLE_BOOKS_API_KEY — the optional key behind the gift shop\'s Auto Fill book lookup.',
+          external: true
+        },
+        {
           href: 'https://www.printful.com/dashboard',
           // Dormant, not dead: stripe-webhook still creates Printful orders when
           // PRINTFUL_API_KEY is set and returns quietly when it is not. Listed
