@@ -235,6 +235,11 @@
     </div>
 
     <div class="bar">
+      <!-- City first, because it is how you find a route: the catalogue is one
+           list of every walk in every city, and the name alone does not say
+           where it is. -->
+      <label class="inline" for="cityFilter">City</label>
+      <select id="cityFilter"></select>
       <label class="inline" for="routeSelect">Route</label>
       <select id="routeSelect"></select>
       <!-- The bar sits under a picker that already says "Route", so the noun was
@@ -354,6 +359,7 @@
       stops: [],         // public.route_stops for the open route, in order
       waypoints: [],     // public.waypoints, every one
       routeId: '',
+      cityFilter: '',    // '' = every city. Narrows the route picker only.
       dirty: false,      // the ORDER/membership differs from what is stored
       poolQuery: ''
     };
@@ -429,6 +435,9 @@
       if (!state.routeId || !state.routes.some((r) => r.tour_id === state.routeId)) {
         state.routeId = routeFromUrl() || (state.routes[0] ? state.routes[0].tour_id : '');
       }
+      // Open on the city of the route being shown, not on "every city" - the
+      // picker should describe what is on screen the moment it appears.
+      state.cityFilter = routeCity();
       await loadStops();
     }
 
@@ -486,6 +495,7 @@
     // --- rendering ------------------------------------------------------------
 
     function renderAll() {
+      renderCityFilter();
       renderRouteSelect();
       renderMapTitle();
       renderMeta();
@@ -517,22 +527,57 @@
         : '';
     }
 
+    // The cities that actually have routes - the picker's job is narrowing what
+    // is there, so a city with nothing in it would be a dead end. A city with
+    // no route yet is reached through NEW, which offers the whole catalogue.
+    function routeCities() {
+      return [...new Set(state.routes.map((r) => cityNameOf(r.city)).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b));
+    }
+
+    function routesInCity(city) {
+      const want = cleanText(city).toLowerCase();
+      if (!want) return state.routes.slice();
+      return state.routes.filter((r) => cityNameOf(r.city).toLowerCase() === want);
+    }
+
+    function renderCityFilter() {
+      const sel = el('cityFilter');
+      sel.innerHTML = '';
+      const all = document.createElement('option');
+      all.value = '';
+      all.textContent = 'Every city';
+      sel.appendChild(all);
+      routeCities().forEach((c) => {
+        const o = document.createElement('option');
+        o.value = c;
+        o.textContent = c;
+        sel.appendChild(o);
+      });
+      sel.value = state.cityFilter;
+      sel.disabled = !state.routes.length;
+    }
+
     function renderRouteSelect() {
       const sel = el('routeSelect');
       sel.innerHTML = '';
-      if (!state.routes.length) {
+      const rows = routesInCity(state.cityFilter);
+      if (!rows.length) {
         const o = document.createElement('option');
         o.value = '';
-        o.textContent = 'No routes yet';
+        o.textContent = state.routes.length
+          ? 'No routes in ' + state.cityFilter
+          : 'No routes yet';
         sel.appendChild(o);
         sel.disabled = true;
         return;
       }
       sel.disabled = false;
-      state.routes.forEach((r) => {
+      rows.forEach((r) => {
         const o = document.createElement('option');
         o.value = r.tour_id;
-        o.textContent = (cleanText(r.city) ? cleanText(r.city) + ' - ' : '')
+        // The city is only worth repeating when the list spans several.
+        o.textContent = (!state.cityFilter && cleanText(r.city) ? cleanText(r.city) + ' - ' : '')
           + (cleanText(r.title) || r.tour_id);
         sel.appendChild(o);
       });
@@ -1124,12 +1169,13 @@
       }
       el('newRouteName').value = '';
       shape.value = 'loop';
-      // Preselect the city of the route already open. The option values are the
-      // CANONICAL strings ("Miami, Florida"), so the bare route city has to be
-      // matched back through cityNameOf rather than compared directly - and
-      // only after load() resolves, or the value is set against a select that
-      // has no options yet and silently stays blank.
-      const open = routeCity().toLowerCase();
+      // NEW takes the city from the picker in the bar - that is the city you
+      // are looking at, and on "Every city" it falls back to the open route's.
+      // The option values are the CANONICAL strings ("Miami, Florida"), so the
+      // bare name has to be matched back through cityNameOf rather than
+      // compared directly - and only after load() resolves, or the value is set
+      // against a select with no options yet and silently stays blank.
+      const open = (state.cityFilter || routeCity()).toLowerCase();
       const preselect = () => {
         const rows = (window.TgbCities && window.TgbCities.all()) || [];
         const guess = open
@@ -1177,6 +1223,8 @@
         state.routeId = row.tour_id;
         state.stops = [];
         state.dirty = false;
+        // Follow the new route rather than hiding it behind the old filter.
+        state.cityFilter = cityNameOf(row.city);
         syncUrl();
         renderAll();
         setStatus('New route ' + row.tour_id + '.', 'success');
@@ -1199,7 +1247,12 @@
         });
         if (!res.ok) throw new Error(await readError(res));
         state.routes = state.routes.filter((r) => r.tour_id !== route.tour_id);
-        state.routeId = state.routes[0] ? state.routes[0].tour_id : '';
+        // Stay in the city if it still has a route; otherwise the filter would
+        // name a city with nothing in it while another city's route is open.
+        const sameCity = routesInCity(state.cityFilter);
+        const next = sameCity[0] || state.routes[0] || null;
+        state.routeId = next ? next.tour_id : '';
+        state.cityFilter = next ? cityNameOf(next.city) : '';
         syncUrl();
         await loadStops();
         setStatus('Deleted ' + name + '.', 'success');
@@ -1208,15 +1261,33 @@
       }
     }
 
+    // Returns false when the unsaved-order guard turned the move down, so a
+    // caller that changed something else first (the city picker) can put its
+    // own control back rather than leaving the two disagreeing.
     async function openRoute(tourId) {
       if (state.dirty && !window.confirm('This route has unsaved order changes. Leave them?')) {
         el('routeSelect').value = state.routeId;
-        return;
+        return false;
       }
       state.routeId = tourId;
       // The pool follows the route's own city, so there is nothing to sync here.
       syncUrl();
       await loadStops();
+      return true;
+    }
+
+    // Picking a city narrows the route picker. If the open route is not in that
+    // city, the first one there is opened - a picker that filters a list but
+    // leaves a hidden row selected shows a route the list denies having.
+    async function pickCity(city) {
+      const previous = state.cityFilter;
+      state.cityFilter = cleanText(city);
+      const rows = routesInCity(state.cityFilter);
+      if (!rows.some((r) => r.tour_id === state.routeId)) {
+        const moved = await openRoute(rows[0] ? rows[0].tour_id : '');
+        if (!moved) { state.cityFilter = previous; renderAll(); return; }
+      }
+      renderAll();
     }
 
     // --- wiring ---------------------------------------------------------------
@@ -1247,6 +1318,7 @@
     });
     if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
 
+    el('cityFilter').addEventListener('change', (e) => pickCity(e.target.value));
     el('routeSelect').addEventListener('change', (e) => openRoute(e.target.value));
     el('newRouteBtn').addEventListener('click', openNewRouteDialog);
     el('newRouteCreate').addEventListener('click', newRoute);
