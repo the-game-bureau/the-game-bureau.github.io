@@ -78,7 +78,12 @@ begin
                || '-' || v_shape
                || '-' || to_char(now() at time zone 'utc', 'YYYYMMDD-HH24MI');
 
-  return query select 'tour'::text, null::integer, v_title, v_tour_id, v_shape;
+  -- NO SYNTHETIC HEADER ROW. This used to emit a leading row with action 'tour'
+  -- and a null ord, which read like a stop that had failed to get a number - and
+  -- every caller then had to filter it back out before counting stops. The tour's
+  -- title and id ride on the note of STOP 1 instead, which is where a reader
+  -- looks anyway: stop 1 is the start of the walk, so the walk's name belongs on
+  -- it. Every row this function returns is now a real waypoint row.
 
   -- Stops are taken IN ARRAY ORDER. Any walk_order the model supplied on a stop
   -- is ignored: the array is the sequence, and trusting one over the other when
@@ -108,7 +113,8 @@ begin
        v_tour_id, v_title, v_shape, v_ord)
     returning w.wpid into v_wpid;
 
-    return query select 'stop'::text, v_ord, v_name, v_wpid::text, null::text;
+    return query select 'stop'::text, v_ord, v_name, v_wpid::text,
+      case when v_ord = 1 then v_title || ' - ' || v_tour_id else null end;
   end loop;
 end;
 $$;
