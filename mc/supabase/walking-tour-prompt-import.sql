@@ -21,7 +21,7 @@
 -- waypoints; use this one for a tour.
 --
 -- SECURITY INVOKER: a human runs it under their own admin session. Waypoint
--- writes are gated behind `authenticated`, so nothing here is callable by anon
+-- writes are gated behind the authenticated role, so nothing here is callable by anon
 -- and no cloud routine can invoke it - the routines commit SQL for a human.
 --
 -- Re-running creates a SECOND tour with a new tour_id, which is visible and easy
