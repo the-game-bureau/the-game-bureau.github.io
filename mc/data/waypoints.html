@@ -562,6 +562,43 @@
     .field-row--3 { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.7fr) minmax(0, 0.9fr); }
     .field-row--citystate { grid-template-columns: minmax(0, 2fr) minmax(0, 0.8fr); }
 
+    /* The columns the page manages rather than the typist: wpid, lat/lon,
+       walk_order, the three tour columns, archived. Shown so a card is a
+       complete view of its row - read-only, because each is written by
+       something specific (the geocoder, Suggest order, the tour importer)
+       and a free-text box over any of them would just be a way to break it. */
+    .wp-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 14px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--line);
+      font-size: 0.72rem;
+      line-height: 1.5;
+    }
+    .wp-meta-item { display: flex; gap: 5px; align-items: baseline; min-width: 0; }
+    .wp-meta-key {
+      color: var(--muted);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .wp-meta-val {
+      color: var(--ink);
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    /* An empty column and an absent one are different facts and must not look
+       the same: null is a blank we can fill, missing means the migration has
+       not been run and no amount of editing will help. */
+    .wp-meta-val[data-empty] { color: var(--muted); font-weight: 500; }
+    .wp-meta-val[data-missing] {
+      color: rgba(190, 55, 55, 0.85);
+      font-weight: 700;
+      cursor: help;
+    }
+
     .field { display: grid; gap: 5px; }
     /* A field whose input shares a row with a button (e.g. Name + Translate). */
     .field-line { display: flex; gap: 6px; align-items: center; }
@@ -1183,6 +1220,10 @@
     let hasLatLonColumns = false;
     // walk_order arrives with 2026080705_waypoints_walk_order.sql.
     let hasWalkOrderColumn = false;
+    // tour_id / tour_title / tour_shape arrive with
+    // 2026080801_waypoints_tour_columns.sql. Probed as one: they land together
+    // in that migration, and a row is only on a tour if it has all three.
+    let hasTourColumns = false;
     const round6 = (n) => Math.round(n * 1e6) / 1e6;
 
     // --- DOM refs ------------------------------------------------------------
@@ -1320,6 +1361,9 @@
         hasWalkOrderColumn = (Array.isArray(rows) ? rows : []).some(
           (r) => r && typeof r === 'object' && Object.prototype.hasOwnProperty.call(r, 'walk_order')
         );
+        hasTourColumns = (Array.isArray(rows) ? rows : []).some(
+          (r) => r && typeof r === 'object' && Object.prototype.hasOwnProperty.call(r, 'tour_id')
+        );
         state.rows = normalizeRows(rows);
         applyDefaultCityOnce();
         rebuildPristine();
@@ -1387,7 +1431,17 @@
         // Runtime-only, never round-tripped to the database: filled in by
         // geocoding so the map can centre. Always null straight off a fetch.
         lat: (r.lat == null || r.lat === '') ? null : Number(r.lat),
-        lon: (r.lon == null || r.lon === '') ? null : Number(r.lon)
+        lon: (r.lon == null || r.lon === '') ? null : Number(r.lon),
+        // Carried so a card can show them. normalizeRow dropped all four until
+        // now, which is why a stored walk_order was invisible on the page even
+        // after Suggest order had saved one, and why a tour stop looked exactly
+        // like a loose waypoint. They are NOT in SAVED_FIELDS and NOT in
+        // payloadFromRow, so reading them cannot make a card dirty and cannot
+        // write them back - each has its own writer.
+        walk_order: (r.walk_order == null || r.walk_order === '') ? null : Number(r.walk_order),
+        tour_id: String(r.tour_id || ''),
+        tour_title: String(r.tour_title || ''),
+        tour_shape: String(r.tour_shape || '')
       };
     }
 
@@ -6415,6 +6469,9 @@ $$;`.trim();
       // Every card carries the field, filled or not — the AI importer sets it,
       // and a hand-entered stop can be given one so its facts stay checkable.
       fields.appendChild(renderSourceUrlField(row));
+      // Everything else the row actually holds, so a card is the whole row and
+      // not just the typeable half of it.
+      fields.appendChild(renderDbMeta(row));
 
       // No per-card map any more — the city map above the list carries every
       // stop, so the fields get the full width. Hovering the card lights this
@@ -6436,6 +6493,100 @@ $$;`.trim();
 
       card.append(head, body, foot);
       return card;
+    }
+
+    // The rest of public.waypoints. The six fields above are what a person
+    // types; these are what the page, the geocoder and the importers write, and
+    // until now a card showed no sign they existed - you had to open the table
+    // editor to find out whether a stop had coordinates or which tour it was on.
+    //
+    // READ-ONLY on purpose. Each has exactly one writer: lat/lon come from
+    // persistPoint when the map geocodes, walk_order from Suggest order, the
+    // three tour columns from tgb_import_walking_tour, wpid from a trigger, and
+    // archived from its own button. A text box over any of them would only be a
+    // way to put them out of step with the thing that maintains them.
+    //
+    // A column the database does not have is shown as "no column" rather than
+    // blank, because those are different facts: null is a gap the page can
+    // fill, missing means a migration has not been run.
+    function renderDbMeta(row) {
+      const wrap = document.createElement('div');
+      wrap.className = 'wp-meta';
+
+      const add = (key, value, opts) => {
+        const o = opts || {};
+        const item = document.createElement('div');
+        item.className = 'wp-meta-item';
+        const k = document.createElement('span');
+        k.className = 'wp-meta-key';
+        k.textContent = key;
+        const v = document.createElement('span');
+        v.className = 'wp-meta-val';
+        if (o.missing) {
+          v.textContent = 'no column';
+          v.dataset.missing = '';
+          v.title = key.toLowerCase() + ' is not in this database yet - run the migration that adds it.';
+        } else if (value === null || value === undefined || value === '') {
+          v.textContent = '—';
+          v.dataset.empty = '';
+          if (o.emptyTitle) v.title = o.emptyTitle;
+        } else {
+          v.textContent = String(value);
+          if (o.title) v.title = o.title;
+        }
+        item.append(k, v);
+        wrap.appendChild(item);
+      };
+
+      add('WPID', row.wpid, { title: 'Primary key, assigned by a trigger. Never typed.' });
+
+      // One item, not two: a coordinate is a pair, and half of one is no use.
+      if (!hasLatLonColumns) {
+        add('POINT', null, { missing: true });
+      } else if (row.lat === null || row.lat === undefined || row.lon === null || row.lon === undefined) {
+        add('POINT', null, { emptyTitle: 'Not geocoded yet. Opening this city on the map fills it in and saves it.' });
+      } else {
+        add('POINT', round6(Number(row.lat)) + ', ' + round6(Number(row.lon)),
+            { title: 'Stored coordinates. Written by the page the first time this city is mapped.' });
+      }
+
+      if (!hasWalkOrderColumn) {
+        add('ORDER', null, { missing: true });
+      } else {
+        add('ORDER', row.walk_order,
+            { title: 'Suggested position within its city, or its stop number on a tour. Advisory - a game route is public.stops.ord.' });
+      }
+
+      if (!hasTourColumns) {
+        add('TOUR', null, { missing: true });
+      } else if (!cleanText(row.tour_id)) {
+        // Most of the catalogue is loose waypoints, and that is a normal state,
+        // not a missing tour - so say so rather than showing three dashes.
+        add('TOUR', null, { emptyTitle: 'A loose waypoint, on no tour. Most of the catalogue is.' });
+      } else {
+        add('TOUR', row.tour_id, { title: 'Every row sharing this id is one walking tour.' });
+        add('TITLE', row.tour_title);
+        add('SHAPE', tourShapeLabel(row.tour_shape), { title: row.tour_shape || '' });
+      }
+
+      add('ARCHIVED', hasArchivedColumn ? (isArchived(row) ? 'yes' : 'no') : null,
+          hasArchivedColumn
+            ? { title: 'A do-not-rescrape tombstone. Set with the Archive button.' }
+            : { missing: true });
+
+      return wrap;
+    }
+
+    // Not TOUR_SHAPES[].label - those read "ten-stop LOOP" because they are
+    // written for the AI prompt. A card wants the plain noun.
+    const TOUR_SHAPE_LABELS = {
+      loop: 'Loop',
+      out_and_back: 'Out and back',
+      point_to_point: 'Point to point'
+    };
+    function tourShapeLabel(shape) {
+      const s = cleanText(shape).toLowerCase();
+      return TOUR_SHAPE_LABELS[s] || s;
     }
 
     // Name field with a Translate button: adds an English translation in
