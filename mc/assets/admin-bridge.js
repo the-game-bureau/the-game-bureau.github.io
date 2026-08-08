@@ -171,12 +171,12 @@
     var gameId = data.gameId || currentGameId();
     var explicit = data.href || '';
     if (explicit) return rootHref(explicit);
-    if (kind === 'game') return rootHref('games/admin/profiles.html' + (id ? '?id=' + encode(id) : ''));
-    if (kind === 'game-run') return rootHref('games/admin/profiles.html' + (gameId ? '?id=' + encode(gameId) : ''));
-    if (kind === 'gift-item') return rootHref('gifts/admin/' + (id ? '?item=' + encode(id) : ''));
-    if (kind === 'gift-shop') return rootHref('gifts/admin/');
-    if (kind === 'winners-wall') return rootHref('highlights/admin/');
-    if (kind === 'photo') return rootHref('highlights/admin/' + (id ? '?photo=' + encode(id) : (gameId ? '?game=' + encode(gameId) : '')));
+    if (kind === 'game') return rootHref('mc/profiles.html' + (id ? '?id=' + encode(id) : ''));
+    if (kind === 'game-run') return rootHref('mc/profiles.html' + (gameId ? '?id=' + encode(gameId) : ''));
+    if (kind === 'gift-item') return rootHref('mc/gifts/' + (id ? '?item=' + encode(id) : ''));
+    if (kind === 'gift-shop') return rootHref('mc/gifts/');
+    if (kind === 'winners-wall') return rootHref('mc/highlights/');
+    if (kind === 'photo') return rootHref('mc/highlights/' + (id ? '?photo=' + encode(id) : (gameId ? '?game=' + encode(gameId) : '')));
     return rootHref('mc/index.html');
   }
 

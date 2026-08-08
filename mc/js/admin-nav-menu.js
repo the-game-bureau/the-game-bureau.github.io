@@ -36,26 +36,84 @@
 
   var MENU_GROUPS = [
     {
-      label: 'Games',
+      // NOT "Data & Research", which described the storage rather than the
+      // purpose. Every catalog in here is a PART a game gets assembled from: an
+      // anchor event to build around, waypoints that become its stops, the city
+      // it is played in, the club whose colors it wears. Naming them by what
+      // they are for is what tells you why Cities sits beside Anchor Events.
+      label: 'Game Elements',
+      // NOT `combined`. The four catalogs render as their own cards, the same
+      // shape as the Daily Chores at the top of the hub — these are places you
+      // go and do something, not a directory you scan. `combined` is still
+      // right for Game Builder below, which is nine tools and would be nine
+      // full cards of scrolling.
+      items: [
+        {
+          href: '/mc/data/waypoints.html',
+          // Absorbed /mc/places.html ("Game Places") on 2026-08-07, deleted.
+          // Its research was good and its DELIVERY was the problem: a JSONL file
+          // that needed a hand-written migration to reach this table. The same
+          // research is now the "With AI (tour places)" prompt here, returning
+          // the import SQL every other prompt on the page returns.
+          label: 'Waypoints',
+          description: 'Manage the catalog of real-world points and review nightly scout candidates.',
+          action: 'GO TO WAYPOINTS'
+        },
+        {
+          href: '/mc/data/cities.html',
+          label: 'Cities',
+          description: 'The one city catalog the whole site reads — add, edit, mark venue-only/archived, or delete.',
+          action: 'GO TO CITIES'
+        },
+        {
+          href: '/mc/data/events.html',
+          // Absorbed /mc/get_games.html ("Sports Games Research") and
+          // /mc/mlb.html ("MLB Generator") on 2026-08-07, both deleted. Both
+          // gathered real schedules the long way round and neither wrote
+          // anchor_events; the SCHEDULE button on this page reads the same ESPN
+          // feed in the browser and imports straight into the table.
+          label: 'Anchor Events',
+          description: 'Real matchups, concerts and conventions a game is built around — import a league schedule or add one by hand.',
+          action: 'GO TO ANCHOR EVENTS'
+        },
+        {
+          href: '/mc/data/teams.html',
+          // Was /mc/get_teams.html, the last "research assistant". Research Home
+          // sat above it and was deleted the same day: two cards, both already
+          // in this menu, on a page that had to be hand-edited to stay true.
+          label: 'Teams',
+          description: 'The teams a fandom game is built on — palettes, identity, and the AI refresh with a reviewed diff.',
+          action: 'GO TO TEAMS'
+        }
+      ]
+    },
+    {
+      // Renamed from "Games" 2026-08-07, to say what the group is FOR rather
+      // than what it is about — the same move that turned "Data & Research"
+      // into "Game Elements". Elements are the parts; this is where they get
+      // assembled into a game.
+      label: 'Game Builder',
       // One panel listing its tools, not ten full-height cards. `combined` only
       // affects the /mc/ hub; the dropdown renders every group the same way.
       combined: true,
       items: [
         {
-          href: '/games/admin/',
-          // Renamed from "Game Admin" 2026-08-07, and /mc/builder.html gave up
-          // the name to make room: this is the ROOM you enter to build a game,
-          // and the builder is one tool inside it. The specific name belongs to
-          // the specific tool, so that one is Flow Builder now.
-          label: 'Game Builder',
-          description: 'The games room — profiles, the flow builder, stops, and the waypoint catalog.'
-        },
-        {
-          href: '/games/admin/profiles.html',
+          href: '/mc/profiles.html',
+          // First, ahead of the room that contains it: a game starts as a
+          // profile, and this is the one item here you open to make a NEW game
+          // rather than to work on an existing one. It also carries
+          // appendOpenGameId, so it reopens whatever you had last.
           label: 'Game Profiles',
           description: 'Edit game metadata, pricing, teams, public copy, engine, and launch details.',
           appendOpenGameId: true
         },
+        // A "Game Builder" item pointing at /games/admin/ sat here until
+        // 2026-08-07. That room was emptied the same day — its button bar had
+        // only duplicated this menu, its game-count stat went with it, and its
+        // index.html was deleted — leaving a link to a directory that 404s. It
+        // is gone rather than repointed, because the group above is already
+        // called GAME BUILDER and its first item, Game Profiles, is where you
+        // actually start. Removing it also ends a name that appeared twice.
         {
           href: '/mc/builder.html',
           // Was "Game Builder" until 2026-08-07, which overstated it: this edits
@@ -66,7 +124,7 @@
           appendOpenGameId: true
         },
         {
-          href: '/games/admin/stops.html',
+          href: '/mc/stops.html',
           label: 'Game Stops',
           description: 'Pair each waypoint with a challenge, then organize those stops for play.'
         },
@@ -76,7 +134,7 @@
           description: 'See recorded playthroughs: team names, answers at each stop, and lifecycle timeline.'
         },
         {
-          href: '/gifts/operations.html',
+          href: '/mc/gifts/operations.html',
           label: 'Operations',
           description: 'Monitor TGB game operations: issued access codes, play stats, and live-game workflows.'
         },
@@ -99,50 +157,6 @@
           href: '/mc/picmaker/',
           label: 'Picmaker',
           description: 'Generate sport marks, takeover hero images, and reusable guide portrait image prompts.'
-        }
-      ]
-    },
-    {
-      // NOT "Data & Research", which described the storage rather than the
-      // purpose. Every catalog in here is a PART a game gets assembled from: an
-      // anchor event to build around, waypoints that become its stops, the city
-      // it is played in, the club whose colors it wears. Naming them by what
-      // they are for is what tells you why Cities sits beside Anchor Events.
-      label: 'Game Elements',
-      combined: true,
-      items: [
-        {
-          href: '/mc/data/events.html',
-          // Absorbed /mc/get_games.html ("Sports Games Research") and
-          // /mc/mlb.html ("MLB Generator") on 2026-08-07, both deleted. Both
-          // gathered real schedules the long way round and neither wrote
-          // anchor_events; the SCHEDULE button on this page reads the same ESPN
-          // feed in the browser and imports straight into the table.
-          label: 'Anchor Events',
-          description: 'Real matchups, concerts and conventions a game is built around — import a league schedule or add one by hand.'
-        },
-        {
-          href: '/mc/data/waypoints.html',
-          // Absorbed /mc/places.html ("Game Places") on 2026-08-07, deleted.
-          // Its research was good and its DELIVERY was the problem: a JSONL file
-          // that needed a hand-written migration to reach this table. The same
-          // research is now the "With AI (tour places)" prompt here, returning
-          // the import SQL every other prompt on the page returns.
-          label: 'Waypoints',
-          description: 'Manage the catalog of real-world points and review nightly scout candidates.'
-        },
-        {
-          href: '/mc/data/cities.html',
-          label: 'Cities',
-          description: 'The one city catalog the whole site reads — add, edit, mark venue-only/archived, or delete.'
-        },
-        {
-          href: '/mc/data/teams.html',
-          // Was /mc/get_teams.html, the last "research assistant". Research Home
-          // sat above it and was deleted the same day: two cards, both already
-          // in this menu, on a page that had to be hand-edited to stay true.
-          label: 'Teams',
-          description: 'The pro teams a fandom game is built on — palettes, identity, and the AI refresh with a reviewed diff.'
         }
       ]
     },

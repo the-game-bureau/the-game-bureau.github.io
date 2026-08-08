@@ -27,6 +27,13 @@
       --danger: #a03f2d;
       --success: #2f6b3d;
       --stack-gap: 14px;
+      /* The two cut-panel tokens, same values as the socials room. A panel
+         whose top border is interrupted by its own label needs a fill the
+         label can sit on and a line strong enough to read as a frame — the
+         0.18 --line is too faint once it has a gap in it. */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
     }
 
     body {
@@ -117,15 +124,70 @@
     .btn.small { min-height: 32px; padding: 0 10px; font-size: 0.76rem; }
     .btn:disabled { opacity: 0.5; cursor: default; }
 
-    /* ── Command bar (Stock Room look) ─────────────────────────────────────── */
+    /* ── Command bar + list panel (the socials room's cut panels) ──────────── */
+    /* Both boxes are real <fieldset>s keeping their default display, so the
+       <legend> natively cuts the top border. The label used to be a plain ADD
+       span INSIDE the bar, which spent a slot in the row on a word; as a legend
+       it names the box from the frame and gives the row back. */
     .command-bar {
-      display: flex; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%;
-      margin: 0 0 var(--stack-gap); padding: 10px 12px;
-      background: #eef0f4; border: 1px solid var(--line); border-radius: 10px;
+      width: 100%; min-inline-size: 0;
+      margin: 0 0 var(--stack-gap); padding: 4px 12px 12px;
+      background: var(--cut-panel-bg); border: 1px solid var(--cut-panel-line);
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
     }
-    .command-bar-label {
-      flex: 0 0 auto; font-family: "IBM Plex Mono", monospace; font-size: 0.66rem;
-      font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+    .command-bar-inner {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+    }
+
+    /* The folder tab. The border runs into the label and back out again, so the
+       cut-out reads as a tag clipped onto the frame rather than a gap in it.
+
+       The tab is a PSEUDO-ELEMENT, not a border on the legend, because the two
+       things wanted here are incompatible on one box. The word has to sit
+       centred on the horizontal line, which is where the browser puts a legend
+       by default. But the tab's sides must stop AT that line rather than
+       carrying on into the panel, and a bordered box whose bottom edge is the
+       line cannot also have its text centred on the line — the text centre is
+       always the better part of half a box above the bottom edge.
+
+       So the box stays put and the outline is drawn only over the half above
+       the line — `inset: 0 0 50%`, since the legend's midpoint IS the line. The
+       word's lower half hangs into the panel, invisibly, because the tab fill
+       and the panel are the same colour with no bottom edge between them.
+
+       isolation: isolate is load-bearing. The arch sits at z-index -1 to stay
+       behind the text, and without a stacking context of its own that -1 would
+       drop it behind the fieldset's own background and it would vanish. */
+    .command-bar > legend,
+    .panel > legend {
+      float: none;
+      width: auto;
+      padding: 3px 10px;
+      margin: 0 0 0 10px;
+      position: relative;
+      isolation: isolate;
+      line-height: 1;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .command-bar > legend::before,
+    .panel > legend::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 50%;              /* the legend's midpoint is the border line */
+      border: 1px solid var(--cut-panel-line);
+      border-bottom: 0;
+      /* 5px, not the panel's 10px: the arch is only half the legend tall, so a
+         wider radius would curve the whole way across and read as a dome
+         instead of a tab. */
+      border-radius: 5px 5px 0 0;
+      background: var(--cut-panel-bg);
     }
     .command-bar-divider { width: 1px; align-self: stretch; min-height: 24px; margin: 0 2px; background: var(--line); }
     .command-bar input[type="search"] {
@@ -254,9 +316,22 @@
     }
 
     /* ── City list ─────────────────────────────────────────────────────────── */
+    /* A fieldset, so it wears the same cut-out label as the command bar above.
+       The tint matters more here than it looks: the rows are near-white cards,
+       and on the old rgba(255,255,255,0.7) panel they had nothing but their own
+       1px border to separate them from the surface behind. Same reasoning as
+       the socials queue.
+
+       Tight shadow, not the 0 18px 36px cushion this panel used to carry: that
+       is right for a modal floating over the page, and under a long list it
+       only blurs the panel's own edge. Modals on this page keep it. */
     .panel {
-      border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.7);
-      box-shadow: 0 18px 36px var(--paper-shadow); padding: 8px; margin: 0 0 40px;
+      min-inline-size: 0;
+      border: 1px solid var(--cut-panel-line); border-radius: 10px;
+      background: var(--cut-panel-bg);
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
+      padding: 4px 8px 8px; margin: 0 0 40px;
+      overflow: visible;
     }
     .city-list { display: grid; gap: 8px; }
     .city-empty { padding: 22px; text-align: center; color: var(--muted); }
@@ -277,12 +352,17 @@
       font-weight: 700; color: var(--ink); white-space: nowrap;
     }
 
+    /* Solid white on the tinted panel, and a radius one step tighter than the
+       panel's 10px — a card nested inside a container should not share its
+       corner, or the two read as one surface. The border steps up to
+       --control-line for the same reason: at 0.18 it disappeared against the
+       fill now behind it. */
     .city-row {
       display: grid;
       grid-template-columns: minmax(0, 1.1fr) minmax(0, 2.1fr) auto auto;
       align-items: center; gap: 10px 14px;
-      padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
-      background: rgba(255, 255, 255, 0.92);
+      padding: 10px 12px; border: 1px solid var(--control-line); border-radius: 8px;
+      background: #fff;
     }
     .city-row.is-dirty { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(var(--bic-blue-rgb), 0.12); }
     .city-row.is-ignored .city-name { color: #9aa0a6; }
@@ -337,28 +417,31 @@
       </div>
     </div>
 
-    <div class="command-bar" aria-label="Cities">
-      <input type="search" id="searchInput" placeholder="Search cities…" autocomplete="off">
-      <select id="continentFilter" class="command-bar-select" aria-label="Filter by continent" hidden>
-        <option value="">All continents</option>
-      </select>
-      <select id="countryFilter" class="command-bar-select" aria-label="Filter by country" hidden>
-        <option value="">All countries</option>
-      </select>
-      <select id="hiddenFilter" class="command-bar-select" aria-label="Filter by visibility" hidden>
-        <option value="">Any visibility</option>
-      </select>
-      <span class="command-bar-divider" aria-hidden="true"></span>
-      <span class="command-bar-label">ADD</span>
-      <button class="btn small primary" id="addCityBtn" type="button">manual</button>
-      <button class="btn small" id="openPromptBtn" type="button">prompt</button>
-    </div>
+    <fieldset class="command-bar">
+      <legend>Add</legend>
+      <div class="command-bar-inner">
+        <input type="search" id="searchInput" placeholder="Search cities…" autocomplete="off">
+        <select id="continentFilter" class="command-bar-select" aria-label="Filter by continent" hidden>
+          <option value="">All continents</option>
+        </select>
+        <select id="countryFilter" class="command-bar-select" aria-label="Filter by country" hidden>
+          <option value="">All countries</option>
+        </select>
+        <select id="hiddenFilter" class="command-bar-select" aria-label="Filter by visibility" hidden>
+          <option value="">Any visibility</option>
+        </select>
+        <span class="command-bar-divider" aria-hidden="true"></span>
+        <button class="btn small primary" id="addCityBtn" type="button">manual</button>
+        <button class="btn small" id="openPromptBtn" type="button">prompt</button>
+      </div>
+    </fieldset>
 
-    <section class="panel">
+    <fieldset class="panel">
+      <legend>Cities</legend>
       <div class="pager pager--top" id="pagerTop" aria-label="Pagination (top)" hidden></div>
       <div class="city-list" id="cityList"></div>
       <div class="pager pager--bottom" id="pagerBottom" aria-label="Pagination (bottom)" hidden></div>
-    </section>
+    </fieldset>
 
     <div class="prompt-lightbox" id="promptLightbox" role="dialog" aria-modal="true" aria-labelledby="promptDialogTitle" hidden>
       <div class="prompt-dialog">

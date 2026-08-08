@@ -31,6 +31,7 @@ declare
   v_address text;
   v_description text;
   v_source_url text;
+  v_walk_order int;
   v_wpid public.waypoints.wpid%type;
   v_existing public.waypoints.wpid%type;
 begin
@@ -48,6 +49,13 @@ begin
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
     -- The page this stop was extracted from, if the importer was given one.
     v_source_url := nullif(btrim(v_entry->>'source_url'), '');
+    -- Advisory position in the city's walk. Anything outside 1..999 is a
+    -- mistake (a wpid, a year, a 0) and is dropped rather than rejected: an
+    -- unsequenced stop is a small loss, a failed paste of twelve is not.
+    v_walk_order := nullif(btrim(v_entry->>'walk_order'), '')::int;
+    if v_walk_order is not null and (v_walk_order < 1 or v_walk_order > 999) then
+      v_walk_order := null;
+    end if;
 
     if v_name is null then
       return query select 'skipped'::text, null::text, null::text, 'missing name'::text;
@@ -67,8 +75,8 @@ begin
       continue;
     end if;
 
-    insert into public.waypoints as w (name, city, state, zip, address, description, source_url)
-    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url)
+    insert into public.waypoints as w (name, city, state, zip, address, description, source_url, walk_order)
+    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url, v_walk_order)
     returning w.wpid into v_wpid;
 
     return query select 'inserted'::text, v_name, v_wpid::text, null::text;
@@ -121,6 +129,7 @@ declare
   v_address text;
   v_description text;
   v_source_url text;
+  v_walk_order int;
   v_wpid public.waypoints.wpid%type;
   v_row public.waypoints%rowtype;
   v_merged text;

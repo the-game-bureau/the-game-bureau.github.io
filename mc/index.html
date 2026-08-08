@@ -131,6 +131,10 @@
        panel's own edge. */
     .mc-hub-group {
       min-inline-size: 0;
+      /* Breathing room for the #anchor jump the nav's GAMES button makes —
+         without it the section lands flush against the top of the viewport and
+         its folder-tab legend is half cut off. */
+      scroll-margin-top: 18px;
       margin: 0;
       padding: 6px 14px 13px;
       border: 1px solid var(--cut-panel-line);
@@ -340,8 +344,13 @@
     }
     /* A chore card is a .mc-hub-card minus the group eyebrow: three rows
        (title / blurb / button) instead of four. The eyebrow would only repeat
-       DAILY CHORES, which the border already says. */
-    .mc-chore { grid-template-rows: auto 1fr auto; min-height: 0; }
+       DAILY CHORES, which the border already says.
+
+       .mc-hub-card--tight is the same shape for a GENERATED card, so a menu
+       group that opts out of `combined` renders cards that match the chores
+       above them rather than 220px-tall boxes with a hole in the middle. */
+    .mc-chore,
+    .mc-hub-card--tight { grid-template-rows: auto 1fr auto; min-height: 0; }
 
     @media (max-width: 720px) {
       .mc-hub-grid,
@@ -401,12 +410,12 @@
     <fieldset class="mc-chores">
       <legend>Daily Chores</legend>
       <div class="mc-chores-inner">
-        <a class="mc-hub-card mc-chore" href="/gifts/admin/">
+        <a class="mc-hub-card mc-chore" href="/mc/gifts/">
           <h2>STOCK GIFTS</h2>
           <p>Review gift candidates, check links and images, assign cities, publish the good finds, and shelve anything that does not belong in the shop.</p>
           <span class="mc-hub-card-button">GO TO STOCK ROOM</span>
         </a>
-        <a class="mc-hub-card mc-chore" href="/soundtracks/admin/">
+        <a class="mc-hub-card mc-chore" href="/mc/soundtracks/admin/">
           <h2>MAKE SOME MIX TAPES</h2>
           <p>Take new tracks live or shelve them, clear reported issues, and keep each city's tape at fifteen.</p>
           <span class="mc-hub-card-button">GO TO TAPE ROOM</span>
@@ -434,15 +443,43 @@
         publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
       };
       const directory = document.getElementById('mcHubDirectory');
+      // THE HASH HAS TO BE RE-APPLIED BY HAND, and this is not optional for the
+      // nav's GAMES button to work. admin-shell.css hides every child of <body>
+      // with `display: none !important` until the session is authorized, so the
+      // browser processes /mc/#game-builder against a page with no laid-out
+      // sections, scrolls nowhere, and never retries once the content appears —
+      // the link would look like it simply did not fire. Re-running it after
+      // authorization is what makes the anchor land.
+      function applyHash() {
+        const id = String(location.hash || '').replace(/^#/, '');
+        if (!id) return;
+        // Not getElementById on a raw fragment: a hash is user-supplied, and
+        // CSS.escape keeps a stray quote or bracket from throwing here.
+        let target = null;
+        try { target = document.getElementById(decodeURIComponent(id)); } catch (e) { target = null; }
+        if (target && target.scrollIntoView) target.scrollIntoView({ block: 'start' });
+      }
+
       const adminAuth = window.TgbMcAdminAuth.create({
-        supabaseConfig: SUPABASE_CONFIG
+        supabaseConfig: SUPABASE_CONFIG,
+        // Fires after .mc-auth-authorized lands, so the sections have layout.
+        onAuthorized: function () { requestAnimationFrame(applyHash); }
       });
+
+      // Arriving at /mc/#game-builder from the nav while already on /mc/ changes
+      // only the fragment, which fires hashchange and no reload. The browser
+      // handles that case itself, but not when the section was rendered after
+      // the initial hash — so answer both the same way.
+      window.addEventListener('hashchange', applyHash);
 
       if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
 
       function buildItemCard(group, item) {
         const card = document.createElement('a');
-        card.className = 'mc-hub-card';
+        // --tight so a generated card sits at content height like the Daily
+        // Chores it renders beside, instead of the 220px floor a card needs
+        // when it is one of many in a long directory.
+        card.className = 'mc-hub-card mc-hub-card--tight';
         card.href = item.href;
         if (item.external) {
           card.target = '_blank';
@@ -455,9 +492,12 @@
         const blurb = document.createElement('p');
         blurb.textContent = item.description || 'Open this Mission Control tool.';
 
+        // `action` is the chore-card idiom: a button that names where it goes
+        // ("GO TO STOCK ROOM"), not what it does generically. A group without
+        // one still gets the old label, so nothing has to be filled in.
         const button = document.createElement('span');
         button.className = 'mc-hub-card-button';
-        button.textContent = item.external ? 'Open External' : 'Open Tool';
+        button.textContent = item.action || (item.external ? 'Open External' : 'Open Tool');
 
         card.appendChild(itemTitle);
         card.appendChild(blurb);
@@ -505,6 +545,17 @@
         return card;
       }
 
+      // "Game Elements" -> "game-elements". Kept deliberately dumb: anything a
+      // group label can contain that is not a letter or a digit becomes a
+      // single hyphen, so the result is a valid fragment for any label anyone
+      // types, including the ampersand the old "Data & Research" carried.
+      function groupAnchor(label) {
+        return String(label || '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'group';
+      }
+
       function renderDirectory() {
         const groups = window.TgbMcAdminNav.getGroups();
         groups.forEach((group) => {
@@ -515,6 +566,12 @@
 
           const section = document.createElement('fieldset');
           section.className = 'mc-hub-group';
+          // A stable anchor per section, derived from the label: "Game Builder"
+          // -> #game-builder. The shared admin nav's GAMES button links straight
+          // to one of these, so the id has to survive a re-render — deriving it
+          // from the label rather than the loop index means reordering the
+          // groups cannot silently repoint that link at the wrong section.
+          section.id = groupAnchor(group.label);
 
           const legend = document.createElement('legend');
           legend.textContent = group.label;

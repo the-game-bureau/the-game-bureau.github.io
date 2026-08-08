@@ -8,7 +8,7 @@
 //
 // Results are merged into a persistent per-item JSON state file (so other
 // days' results survive), a compact summary JSON is refreshed for Stock Room,
-// and a summary line is appended to gifts/admin/giftshop-errors.log.
+// and a summary line is appended to mc/gifts/giftshop-errors.log.
 //
 // Admins can clear an issue from Stock Room — that decision is stored in
 // Supabase (public.gift_shop_error_ignores), NOT in these generated files.
@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // mc/_dev/scripts/ is three levels below the repo root; it was two until the 2026-08-06 move of _dev/ under mc/.
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
-const ADMIN_DIR = path.join(REPO_ROOT, 'gifts', 'admin');
+const ADMIN_DIR = path.join(REPO_ROOT, 'mc', 'gifts');
 const STATE_PATH = path.join(ADMIN_DIR, 'giftshop-errors-state.json');
 const LOG_PATH = path.join(ADMIN_DIR, 'giftshop-errors.log');
 // Machine-readable summary the gift admin fetches to show the ISSUES badge/filter.

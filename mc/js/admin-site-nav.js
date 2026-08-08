@@ -8,7 +8,7 @@
    marks the current room with aria-current so it fills in like the public one.
 
    THE TWIST: the buttons look public and go somewhere else. Each one lands on
-   the ADMIN version of that section (/games/admin/, /gifts/admin/, and so on),
+   the ADMIN version of that section (/mc/gifts/, /mc/soundtracks/admin/, and so on),
    not the public page. That is deliberate — an admin moving between rooms wants
    the other room, not the storefront — and it is why every link carries a title
    that says so plainly ("Admin gifts"), so a hover resolves the destination even
@@ -28,50 +28,63 @@
   if (!header || header.dataset.tgbAdminNavReady === 'true') return;
 
   // The admin rooms. `match` is what makes a button read as current: the admin
-  // pages sit at different depths (/gifts/admin/ vs /highlights/admin/), so this
+  // pages sit at different depths (/mc/gifts/ vs /mc/soundtracks/admin/), so this
   // tests the section rather than comparing the whole path.
   var ROOMS = [
     {
       key: 'games',
+      // Points at the hub's GAME BUILDER section, not at /games/admin/ — that
+      // room lost its button bar on 2026-08-07 and is now a titled landing page,
+      // so sending people there was sending them to a dead end. The hub section
+      // carries every game tool, generated from admin-nav-menu.js.
+      //
+      // The anchor is minted by groupAnchor() in mc/index.html from the group
+      // LABEL, so renaming the "Game Builder" group there breaks this link.
+      // Rename both together.
       label: 'GAMES',
-      href: '/games/admin/',
+      href: '/mc/#game-builder',
       title: 'Admin games',
       publicHref: '/games/',
       publicTitle: 'Public games page',
-      match: /^\/games\/admin\//,
+      // Matches the three game EDITORS, not a room folder. /games/admin/ was
+      // emptied on 2026-08-07 — its index went, and profiles.html and stops.html
+      // moved to /mc/ — so the old /^\/games\/admin\// test could never fire
+      // again and this button never lit up. These three are what "you are in
+      // games" actually means now.
+      match: /^\/mc\/(profiles|stops|builder)\.html/,
       // Map pin.
       icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E"
     },
     {
       key: 'gifts',
       label: 'GIFTS',
-      href: '/gifts/admin/',
+      href: '/mc/gifts/',
       title: 'Admin gifts',
       publicHref: '/gifts/',
       publicTitle: 'Public gift shop',
-      match: /^\/gifts\/admin\//,
+      match: /^\/mc\/gifts\//,
       // Gift box.
       icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8'/%3E%3Cpath d='M2 7h20v5H2z'/%3E%3Cpath d='M12 22V7'/%3E%3Cpath d='M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7Z'/%3E%3Cpath d='M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7Z'/%3E%3C/svg%3E"
     },
     {
       key: 'soundtracks',
       label: 'SOUNDTRACKS',
-      href: '/soundtracks/admin/',
+      href: '/mc/soundtracks/admin/',
       title: 'Admin soundtracks',
       publicHref: '/soundtracks/',
       publicTitle: 'Public soundtracks page',
-      match: /^\/soundtracks\/admin\//,
+      match: /^\/mc\/soundtracks\/admin\//,
       // Double note.
       icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18V5l12-2v13'/%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Ccircle cx='18' cy='16' r='3'/%3E%3C/svg%3E"
     },
     {
       key: 'highlights',
       label: 'HIGHLIGHTS',
-      href: '/highlights/admin/',
+      href: '/mc/highlights/',
       title: 'Admin highlights',
       publicHref: '/highlights/',
       publicTitle: 'Public highlights page',
-      match: /^\/highlights\/admin\//,
+      match: /^\/mc\/highlights\//,
       // Trophy.
       icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9H4.5a2.5 2.5 0 0 1 0-5H6'/%3E%3Cpath d='M18 9h1.5a2.5 2.5 0 0 0 0-5H18'/%3E%3Cpath d='M4 22h16'/%3E%3Cpath d='M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22'/%3E%3Cpath d='M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22'/%3E%3Cpath d='M18 2H6v7a6 6 0 0 0 12 0V2Z'/%3E%3C/svg%3E"
     }
@@ -543,6 +556,15 @@
 
   var path = String(location.pathname || '');
 
+  // TWO BUTTONS CANNOT BOTH BE THE CURRENT PAGE. Every room moved under /mc/
+  // during the 2026-08-07 consolidation — /mc/gifts/, /mc/highlights/,
+  // /mc/soundtracks/admin/, and the game editors at /mc/*.html — but MISSION
+  // CONTROL still matches the whole of /^\/mc\//, so on any of those pages the
+  // room button AND the mast button both filled in. The rooms are the more
+  // specific answer, so Mission Control only claims the page when none of them
+  // does. Computed once here, before any button is built.
+  var roomIsCurrent = ROOMS.some(function (room) { return room.match.test(path); });
+
   var brand = document.createElement('div');
   brand.className = 'asn-brand';
   brand.innerHTML =
@@ -639,7 +661,7 @@
   mc.appendChild(mcLabel);
   // Lights on any /mc/ page, not just the hub index — the section test the
   // ROOMS buttons use, applied to a section that happens to hold the hub.
-  if (MISSION_CONTROL.match.test(path)) mc.setAttribute('aria-current', 'page');
+  if (!roomIsCurrent && MISSION_CONTROL.match.test(path)) mc.setAttribute('aria-current', 'page');
   links.appendChild(mc);
 
   // ── The padlock: sign in / sign out, right of MISSION CONTROL ─────────────

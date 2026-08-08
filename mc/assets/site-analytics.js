@@ -49,16 +49,24 @@
   // /mc/ merely goes uncounted until someone adds it here.
   var PUBLIC_MC = /^\/mc\/(how|sampler|survey|account)(\/|$)/;
 
+  // No single-page exemptions at present. There was one for a few hours on
+  // 2026-08-07 — /mc/gifts/aboutshop.html, a public page stranded inside the
+  // gift shop admin folder — and it went away when that page moved to
+  // /shell/aboutshop.html, outside /mc/ entirely. Keep the mechanism: it is the
+  // only way to expose one public page from an otherwise-internal folder, and a
+  // folder rule there would have leaked the Stock Room into visitor numbers.
+  var PUBLIC_MC_PAGES = /$^/;
+
   // `account` is matched bare as well, as a tripwire for an old bookmark: the
   // account page moved to /mc/account/ on 2026-08-06 and a bare /account/ path
   // should no longer resolve at all.
-  if (!PUBLIC_MC.test(path)) {
+  if (!PUBLIC_MC.test(path) && !PUBLIC_MC_PAGES.test(path)) {
     if (/^\/(mc|account)\//.test(path)) return;
   }
-  // Admin lives under an /admin/ segment wherever it sits, and two admin pages
-  // predate that convention and are named individually.
-  if (/\/admin\//.test(path)
-    || /^\/gifts\/(giftcards|operations)/.test(path)) return;
+  // Admin lives under an /admin/ segment wherever it sits. The gift shop's
+  // admin, its Operations page and its access-code page carry no such segment;
+  // all three now sit under /mc/ and are caught by the rule above.
+  if (/\/admin\//.test(path)) return;
 
   var beacon = document.createElement('script');
   // type="module" matches the snippet Cloudflare hands out, and beacon.min.js is

@@ -30,6 +30,13 @@
       --success: #2f6b3d;
       --stack-gap: 14px;
       --panel-radius: 10px;
+      /* The socials room's two cut-panel tokens. A panel whose top border is
+         interrupted by its own label needs a fill the label can sit on and a
+         line strong enough to still read as a frame — the 0.18 --line is too
+         faint once it has a gap in it. */
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
     }
 
     body {
@@ -49,7 +56,7 @@
     button, input, textarea, select { font: inherit; }
 
     /* ── Stock Room header lockup: gear watermark + THE GAME BUREAU eyebrow + big
-       title + substat, matching /gifts/admin/. ── */
+       title + substat, matching /mc/gifts/. ── */
     .stockroom-head {
       position: relative;
       overflow: hidden;
@@ -61,8 +68,7 @@
       padding: 0 12px;
       margin: 0 0 var(--stack-gap);
     }
-    .stockroom-head-lockup,
-    .stockroom-head-status { position: relative; z-index: 1; }
+    .stockroom-head-lockup { position: relative; z-index: 1; }
     .stockroom-head-lockup { display: flex; align-items: center; gap: 12px; min-width: 0; }
     /* The gear art, mirrored — a faint watermark sunk into the page grid at the
        left of the header, bleeding off the left edge. */
@@ -120,17 +126,13 @@
     .stockroom-substat:empty { display: none; }
     .stockroom-substat.error { color: var(--danger); }
     .stockroom-substat.success { color: var(--success); }
-    .stockroom-head-status {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
 
+    /* Every gap in the page stack is var(--stack-gap) now: legend -> add bar ->
+       city rail -> list. It used to be 18px, then -6px, then 14px — three
+       different guesses at the same interval, which is what made the column
+       look loose in one place and cramped in the next. */
     .legend {
-      margin: 0 0 18px;
+      margin: 0 0 var(--stack-gap);
       padding: 0 12px;
       color: var(--muted);
       font-size: 0.98rem;
@@ -180,31 +182,77 @@
     .toolbar .btn { flex: 0 0 auto; white-space: nowrap; }
     /* Add-waypoints row: the Stock Room's command-bar look — a soft panel with a
        mono label, dividers between groups, and quiet "ghost" reference links. */
+    /* Both boxes below are real <fieldset>s keeping their default display, so
+       the <legend> natively cuts the top border — the socials room's device,
+       and the same one mc/data/cities.html wears.
+
+       The margin used to be `-6px 0 0`: no bottom gap at all, and a negative
+       top one to close the space under the city bar this row used to follow.
+       It leads now, so it takes the page's own rhythm instead. */
     .command-bar {
+      width: 100%;
+      min-inline-size: 0;
+      margin: 0 0 var(--stack-gap);
+      padding: 4px 12px 12px;
+      background: var(--cut-panel-bg);
+      border: 1px solid var(--cut-panel-line);
+      border-radius: var(--panel-radius);
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
+    }
+    .command-bar-inner {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
       gap: 8px;
-      width: 100%;
-      margin: -6px 0 0;
-      padding: 10px 12px;
-      background: #eef0f4;
-      border: 1px solid var(--line);
-      border-radius: 10px;
+    }
+
+    /* The folder tab. The border runs into the label and back out again, so the
+       cut-out reads as a tag clipped onto the frame rather than a gap in it.
+
+       PSEUDO-ELEMENT, not a border on the legend: the word has to sit centred
+       on the horizontal line, which is where the browser puts a legend, but the
+       tab's sides must stop AT that line. A bordered box whose bottom edge is
+       the line cannot also have its text centred on it. So the outline is drawn
+       only over the half above — `inset: 0 0 50%`, since the legend's midpoint
+       IS the line — and the word's lower half hangs invisibly into the panel,
+       the fill and the panel being the same colour with no edge between them.
+
+       isolation: isolate is load-bearing: the arch sits at z-index -1 to stay
+       behind the text, and without its own stacking context that -1 would drop
+       it behind the fieldset's background and vanish. */
+    .command-bar > legend,
+    .panel > legend {
+      float: none;
+      width: auto;
+      padding: 3px 10px;
+      margin: 0 0 0 10px;
+      position: relative;
+      isolation: isolate;
+      line-height: 1;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .command-bar > legend::before,
+    .panel > legend::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 50%;
+      border: 1px solid var(--cut-panel-line);
+      border-bottom: 0;
+      /* 5px, not the panel's 10px: the arch is only half the legend tall, so a
+         wider radius would curve the whole way across and read as a dome. */
+      border-radius: 5px 5px 0 0;
+      background: var(--cut-panel-bg);
     }
     /* Pushed to the far end of the bar: it acts on the cards below, not on the
        Add group it sits beside. */
     #saveAllBtn { margin-left: auto; }
 
-    .command-bar-label {
-      flex: 0 0 auto;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.66rem;
-      font-weight: 800;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
     .command-bar-divider {
       width: 1px;
       align-self: stretch;
@@ -383,14 +431,21 @@
     }
 
 
+    /* Tinted, so the white cards inside read as objects sitting ON it — they
+       had only their own 1px border to separate them from a near-white panel.
+       And the tight 0 1px 4px shadow rather than 0 12px 28px: the big cushion
+       is right for a modal floating over the page, and under a long list it
+       only blurs the panel's own edge. The modals here keep it. */
     .panel {
       display: grid;
       gap: 12px;
-      padding: 18px;
-      background: var(--paper);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      box-shadow: 0 12px 28px var(--paper-shadow);
+      min-inline-size: 0;
+      padding: 4px 14px 14px;
+      background: var(--cut-panel-bg);
+      border: 1px solid var(--cut-panel-line);
+      border-radius: var(--panel-radius);
+      overflow: visible;
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
     }
 
     /* Navigation group (lives in the card action row, left of Delete). */
@@ -415,12 +470,16 @@
 
     .wp-list { display: grid; gap: 12px; }
 
+    /* Radius one step under the panel's 10px, and --control-line rather than
+       --line: at 0.18 the card edge disappeared against the tint now behind
+       it. A card nested in a container should not share its corner, or the two
+       read as one surface. */
     .wp-card {
       display: grid;
       gap: 12px;
       padding: 14px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
+      border: 1px solid var(--control-line);
+      border-radius: 8px;
       background: #fff;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
@@ -585,7 +644,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-bottom: 14px;
+      margin-bottom: var(--stack-gap);
     }
     .city-btn {
       display: flex;
@@ -659,6 +718,18 @@
     .city-head-count {
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.78rem;
+      color: var(--muted);
+    }
+    /* Pushed to the far end of the heading row: it acts on the whole city, not
+       on the title it sits beside. */
+    .walk-btn { margin-left: auto; }
+    .walk-btn.is-on { border-color: var(--accent); background: rgba(var(--bic-blue-rgb), 0.1); }
+    /* The reminder that this is advisory. Full width under the row so it reads
+       as a footnote to the walk rather than another control in it. */
+    .walk-note {
+      flex: 1 1 100%;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
       color: var(--muted);
     }
     .city-map-wrap { display: grid; gap: 4px; }
@@ -915,9 +986,9 @@
       .toolbar input { flex: 1 1 100%; }
       .toolbar .btn { flex: 1 1 auto; }
 
-      /* Add-waypoints command bar: buttons stretch, dividers drop out. */
+      /* Add-waypoints command bar: buttons stretch, dividers drop out. The
+         label is the fieldset's legend now, so it needs no row of its own. */
       .command-bar .btn { flex: 1 1 auto; }
-      .command-bar-label { flex: 1 1 100%; }
       .command-bar-divider { display: none; }
 
       /* Dialogs (Find waypoints, Prompt, Near) fill the screen. */
@@ -974,13 +1045,37 @@
           <p class="status stockroom-substat" id="pageStatus" aria-live="polite"></p>
         </div>
       </div>
-      <div class="stockroom-head-status">
-        <button class="btn" type="button" disabled aria-current="page" title="You are in Waypoints">Waypoints</button>
-        <a class="btn" href="/games/admin/stops.html" title="Build stops: a game + a waypoint + a challenge">Stop Builder</a>
-      </div>
+      <!-- A disabled "Waypoints" you-are-here button and a "Stop Builder" link
+           sat here until 2026-08-07. The first only restated the H1 beside it,
+           and both destinations are in the shared nav menu — Waypoints under
+           GAME ELEMENTS, Game Stops under GAME BUILDER — so the row was a
+           second copy of navigation that already exists two inches above. -->
     </div>
 
     <p class="legend">Waypoints are real-world places that become walking-tour stops. One waypoint can be used in many games.<br><strong>Waypoint + Challenge = Game Stop.</strong></p>
+
+    <!-- Add waypoints: Manual (by-hand pop-up) and With AI (OpenStreetMap pull
+         OR AI→Supabase-SQL prompt); Links are quiet reference shortcuts.
+
+         ABOVE the city bar as of 2026-08-07. The city badges are a filter over
+         what already exists, and none of the Add buttons is scoped by the city
+         you happen to have selected — so the row that CREATES things now comes
+         before the row that narrows them, instead of being pushed below a rail
+         that grows a line every time a new city is catalogued. -->
+    <fieldset class="command-bar">
+      <legend>Add</legend>
+      <div class="command-bar-inner">
+        <button class="btn small" id="newBtn" type="button" title="Add one waypoint by hand in a pop-up form">Manual</button>
+        <button class="btn small primary" id="promptBtn" type="button" title="Find stops for a city — pull them live from OpenStreetMap, or get an AI prompt that returns Supabase SQL">With AI</button>
+        <button class="btn small" id="sportsPromptBtn" type="button" title="AI prompt for football-history places that sit OUTSIDE the team's own city — a player's hometown, a coach's grave, the church where he married">With AI (sports)</button>
+        <button class="btn small" id="tourPlacesPromptBtn" type="button" title="AI prompt for the places published walking tours already stop at — was the Game Places research page">With AI (tour places)</button>
+        <button class="btn small" id="oldBarsPromptBtn" type="button" title="AI prompt for the oldest continuously operating bar or tavern in each city or region you name">With AI (old bars)</button>
+        <button class="btn small" id="nightlyBtn" type="button" title="What the nightly walking-tour run found this morning">NIGHTLY</button>
+        <!-- Editing a page of ten cards leaves ten Save buttons to hit. This is the
+             same per-row PATCH the card buttons run, once per dirty row. -->
+        <button class="btn small" id="saveAllBtn" type="button" disabled title="No unsaved changes">Save all</button>
+      </div>
+    </fieldset>
 
     <!-- The city buttons ARE the navigation now; the search box that used to lead
          this row was removed 2026-07-29. -->
@@ -990,24 +1085,10 @@
          2026-07-29. The city badges carry the only navigation the page needs,
          and the pager now renders with the list it pages. -->
 
-    <!-- Add waypoints: Manual (by-hand pop-up) and With AI (OpenStreetMap pull
-         OR AI→Supabase-SQL prompt); Links are quiet reference shortcuts. -->
-    <div class="command-bar" aria-label="Add waypoints">
-      <span class="command-bar-label">Add</span>
-      <button class="btn small" id="newBtn" type="button" title="Add one waypoint by hand in a pop-up form">Manual</button>
-      <button class="btn small primary" id="promptBtn" type="button" title="Find stops for a city — pull them live from OpenStreetMap, or get an AI prompt that returns Supabase SQL">With AI</button>
-      <button class="btn small" id="sportsPromptBtn" type="button" title="AI prompt for football-history places that sit OUTSIDE the team's own city — a player's hometown, a coach's grave, the church where he married">With AI (sports)</button>
-      <button class="btn small" id="tourPlacesPromptBtn" type="button" title="AI prompt for the places published walking tours already stop at — was the Game Places research page">With AI (tour places)</button>
-      <button class="btn small" id="oldBarsPromptBtn" type="button" title="AI prompt for the oldest continuously operating bar or tavern in each city or region you name">With AI (old bars)</button>
-      <button class="btn small" id="nightlyBtn" type="button" title="What the nightly walking-tour run found this morning">NIGHTLY</button>
-      <!-- Editing a page of ten cards leaves ten Save buttons to hit. This is the
-           same per-row PATCH the card buttons run, once per dirty row. -->
-      <button class="btn small" id="saveAllBtn" type="button" disabled title="No unsaved changes">Save all</button>
-    </div>
-
-    <section class="panel">
+    <fieldset class="panel">
+      <legend>Waypoints</legend>
       <div class="wp-list" id="wpList"></div>
-    </section>
+    </fieldset>
   </main>
 
   <div class="modal-backdrop" id="nearBackdrop" hidden></div>
@@ -1095,6 +1176,13 @@
     // migration still saves — it just leaves the field out of the write.
     let hasSourceUrlColumn = false;
     let hasArchivedColumn = false;
+    // lat / lon arrive with 2026080704_waypoints_latlon.sql. Probed rather than
+    // assumed, like the two above: naming a column PostgREST does not have 400s
+    // the whole page load, so a database that has not run the migration still
+    // works — it just falls back to geocoding every pin the slow way.
+    let hasLatLonColumns = false;
+    // walk_order arrives with 2026080705_waypoints_walk_order.sql.
+    let hasWalkOrderColumn = false;
     const round6 = (n) => Math.round(n * 1e6) / 1e6;
 
     // --- DOM refs ------------------------------------------------------------
@@ -1115,7 +1203,12 @@
       // around it — but it stays the anchor for navigation.
       randomId: null,
       dirtyIds: new Set(),
-      savingIds: new Set()
+      savingIds: new Set(),
+      // A suggested walking order for the city on screen: Map<wpid, position>,
+      // or null for none. Never persisted — see suggestWalk() for why order
+      // belongs to public.stops and not to the catalog.
+      walkOrder: null,
+      walkMetres: 0
     };
 
     const adminAuth = window.TgbMcAdminAuth.create({
@@ -1220,6 +1313,12 @@
         );
         hasArchivedColumn = (Array.isArray(rows) ? rows : []).some(
           (r) => r && typeof r === 'object' && Object.prototype.hasOwnProperty.call(r, ARCHIVED_FIELD)
+        );
+        hasLatLonColumns = (Array.isArray(rows) ? rows : []).some(
+          (r) => r && typeof r === 'object' && Object.prototype.hasOwnProperty.call(r, 'lat')
+        );
+        hasWalkOrderColumn = (Array.isArray(rows) ? rows : []).some(
+          (r) => r && typeof r === 'object' && Object.prototype.hasOwnProperty.call(r, 'walk_order')
         );
         state.rows = normalizeRows(rows);
         rebuildPristine();
@@ -1542,10 +1641,12 @@
     let cityMap = null;            // the single live Leaflet instance
     let cityMapToken = 0;          // cancels an in-flight fill after a re-render
     const cityMapMarkers = new Map();   // wpid -> marker, for highlight-on-hover
+    let cityWalkLine = null;       // the dashed suggested-walk polyline, if any
 
     function teardownCityMap() {
       cityMapToken += 1;
       cityMapMarkers.clear();
+      cityWalkLine = null;         // map.remove() takes its layers with it
       if (cityMap) { try { cityMap.remove(); } catch (error) {} cityMap = null; }
     }
 
@@ -1594,6 +1695,14 @@
 
     // A row's point without touching the network when we already know it.
     function cachedPointFor(row) {
+      // THE STORED POINT WINS. It is the whole reason the map is fast: a row
+      // that has been located once is placed from data on every later visit, in
+      // every browser, by everyone — where the localStorage cache below only
+      // ever helped the machine that already sat through the geocoding.
+      const lat = Number(row.lat);
+      const lon = Number(row.lon);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat: lat, lon: lon, precise: true };
+
       const local = addressToPoint(cleanText(row.address));   // coords / full Plus Code
       if (local) return local;
       // A SHORT Plus Code ("CWC8+R9") is ambiguous on its own, so it is recovered
@@ -1817,6 +1926,7 @@
         if (point) addPin(row, point, index);
       });
       if (bounds.length) map.fitBounds(bounds, { padding: [28, 28], maxZoom: 17 });
+      drawWalkLine(map, rows);
       paintStatus();
 
       // Nothing cached yet: sit on the city itself rather than a view of the
@@ -1857,17 +1967,83 @@
         if (token !== cityMapToken) return;
         if (point) {
           geoStoreSet(geoKeyFor(row), point);
+          // WRITE IT BACK. This is the line that stops the work being repeated:
+          // the geocode that cost a second is now a column, so nobody — not
+          // another browser, not another person, not this one after a cache
+          // clear — ever waits for this row again. Fire and forget; a failed
+          // save (not signed in, column not migrated) just means the pin stays
+          // local, which is exactly the old behaviour.
+          persistPoint(row, point);
           addPin(row, point, i);
-          map.fitBounds(bounds, { padding: [28, 28], maxZoom: 17 });
         } else {
           missing += 1;
         }
         paintStatus();
+        // fitBounds used to run inside the loop — a full map redraw per pin, 37
+        // of them on Denver. The view is refit once when the sweep finishes.
         await new Promise((r) => setTimeout(r, GEOCODE_GAP_MS));
       }
+      // One refit for the whole sweep.
+      if (token === cityMapToken && bounds.length) {
+        map.fitBounds(bounds, { padding: [28, 28], maxZoom: 17 });
+      }
+      if (token === cityMapToken) drawWalkLine(map, rows);
       if (token === cityMapToken && !placed && status) {
         status.textContent = 'Nothing could be placed yet — add addresses, or try again in a moment.';
       }
+    }
+
+    // Save a located point onto the row so it is never geocoded again.
+    // Deliberately quiet: it is a background improvement, not something the
+    // person asked for, so a failure must not interrupt them or mark the card
+    // dirty. It PATCHes the two columns directly rather than going through
+    // patchRow(), which would send the whole payload and stamp an edit the user
+    // did not make.
+    function persistPoint(row, point) {
+      if (!hasLatLonColumns || !state.authed || !point) return;
+      if (!Number.isFinite(point.lat) || !Number.isFinite(point.lon)) return;
+      // SAVED_FIELDS already lists lat/lon — a leftover from when these columns
+      // existed — so snapshot() covers them and simply setting the pair would
+      // mark every located card unsaved. The pristine snapshot is re-taken with
+      // them, but ONLY on a row that is currently clean: on a dirty row that
+      // would silently swallow the edits in progress.
+      //
+      // A later Save cannot undo this either way, because payloadFromRow()
+      // sends EDITABLE_FIELDS and lat/lon are not among them.
+      const wasClean = !state.dirtyIds.has(row.wpid);
+      row.lat = point.lat;
+      row.lon = point.lon;
+      if (wasClean) pristine.set(row.wpid, snapshot(row));
+      fetch(restUrl(TABLE, { [PK]: 'eq.' + row.wpid }), {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+        body: JSON.stringify({ lat: point.lat, lon: point.lon })
+      }).catch(function () { /* stays local; the map is already drawn */ });
+    }
+
+    // The suggested walk, drawn as a dashed line through the pins in order.
+    // Dashed and thin on purpose: it is a suggestion laid over the map, not a
+    // route anybody has committed to, and a solid heavy line would read as
+    // something the data actually says.
+    function drawWalkLine(map, rows) {
+      if (cityWalkLine) { try { map.removeLayer(cityWalkLine); } catch (error) {} cityWalkLine = null; }
+      if (!state.walkOrder || !map) return;
+      const points = rows
+        .filter((row) => state.walkOrder.has(Number(row.wpid)))
+        .map((row) => ({ row: row, at: state.walkOrder.get(Number(row.wpid)), point: cachedPointFor(row) }))
+        .filter((entry) => entry.point)
+        .sort((a, b) => a.at - b.at)
+        .map((entry) => [entry.point.lat, entry.point.lon]);
+      if (points.length < 2) return;
+      cityWalkLine = L.polyline(points, {
+        color: '#2d4880',
+        weight: 2,
+        opacity: 0.75,
+        dashArray: '5 6',
+        interactive: false
+      }).addTo(map);
+      // Under the pins, never over them: the numbers are what you read.
+      if (cityWalkLine.bringToBack) cityWalkLine.bringToBack();
     }
 
     // Highlight the pin belonging to a card (hover) without moving the map.
@@ -2589,6 +2765,25 @@
     // The tgb_import_waypoints_prompt_items helper, inlined into the AI prompt so
     // the SQL the model returns is self-contained (the DB may not have it yet).
     // Keep in sync with supabase/waypoints-prompt-import.sql.
+    // One rule, four prompts. Shared for the same reason WIKI_SOURCE_LINES is:
+    // a rule restated in four places drifts in three of them.
+    //
+    // WHY ASK THE MODEL AT ALL, when the page can solve a shorter walk from the
+    // coordinates? Because it is answering a different question. The solver
+    // minimises metres and knows nothing else; a model that has just researched
+    // twelve places in one downtown knows which two share a block, which side
+    // of the river you end up on, and where a visitor plausibly starts. That
+    // judgement is free at research time and expensive to recover afterwards.
+    // Both are advisory and either can be replaced by the other — the Suggest
+    // order button recomputes from geometry whenever the sequence looks wrong.
+    const WALK_ORDER_RULE = '- walk_order: 1, 2, 3 ... over the stops YOU are returning in this city, '
+      + 'in the order a person would actually walk them. Sequence them so the walk flows: nearest neighbour, '
+      + 'no doubling back, no crossing the city and coming back for one thing. Start where a visitor plausibly '
+      + 'starts (a transit stop, a main square, the biggest landmark) and end somewhere worth ending. '
+      + 'Numbers are scoped to the CITY and restart at 1 for each city you return. It is a SUGGESTION, not a '
+      + 'route - a human re-orders it in the Stop Builder - so a sensible order is useful and a wrong one is '
+      + 'cheap. Omit it only if you genuinely cannot tell where the places sit relative to each other.';
+
     function buildWaypointImportHelperSql() {
       return String.raw`
 create or replace function public.tgb_import_waypoints_prompt_items(items jsonb)
@@ -2600,6 +2795,7 @@ declare
   v_name text; v_city text; v_state text; v_zip text; v_address text;
   v_description text;
   v_source_url text;
+  v_walk_order int;
   v_wpid public.waypoints.wpid%type;
   v_existing public.waypoints.wpid%type;
 begin
@@ -2616,6 +2812,9 @@ begin
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
     -- The page this stop was extracted from, if the importer was given one.
     v_source_url := nullif(btrim(v_entry->>'source_url'), '');
+    -- Advisory position in the city's walk; out-of-range is dropped, not fatal.
+    v_walk_order := nullif(btrim(v_entry->>'walk_order'), '')::int;
+    if v_walk_order is not null and (v_walk_order < 1 or v_walk_order > 999) then v_walk_order := null; end if;
     if v_name is null then
       return query select 'skipped'::text, null::text, null::text, 'missing name'::text; continue;
     end if;
@@ -2626,8 +2825,8 @@ begin
     if v_existing is not null then
       return query select 'skipped'::text, v_name, v_existing::text, 'existing name + city (active or archived)'::text; continue;
     end if;
-    insert into public.waypoints as w (name, city, state, zip, address, description, source_url)
-    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url)
+    insert into public.waypoints as w (name, city, state, zip, address, description, source_url, walk_order)
+    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url, v_walk_order)
     returning w.wpid into v_wpid;
     return query select 'inserted'::text, v_name, v_wpid::text, null::text;
   end loop;
@@ -2784,7 +2983,8 @@ $$;`.trim();
         '    "zip": "70116",',
         '    "address": "800 Decatur St",',
         '    "description": "One original tour-guide sentence: a fact or what makes it a stop.",',
-        '    "source_url": ' + (url ? JSON.stringify(url) : '"https://en.wikipedia.org/wiki/Caf%C3%A9_du_Monde"'),
+        '    "source_url": ' + (url ? JSON.stringify(url) : '"https://en.wikipedia.org/wiki/Caf%C3%A9_du_Monde"') + ',',
+        '    "walk_order": 1',
         '  }',
         ']',
         '$tgb$::jsonb);'
@@ -2812,6 +3012,7 @@ $$;`.trim();
         (url
           ? '- source_url: "' + url + '" on EVERY object — the page you took the stop from. Copy it exactly, the same value on each one.'
           : '- source_url: REQUIRED on every object — the full URL of the stop\'s own Wikipedia article (e.g. "https://en.wikipedia.org/wiki/Willis_Tower"), or the list article it is a row in when it has no article of its own. A Wikimedia Commons category URL only when there is no Wikipedia page at all. Never a search-results page, never the place\'s own website.'),
+        WALK_ORDER_RULE,
         '- Do NOT include a wpid or id — the database assigns it.',
         '- Do not include any stop already in the "existing" list below. Avoid duplicate names.',
         '- The JSON array may contain 1 to ' + n + ' objects. Do not pad with unverifiable entries.',
@@ -2904,7 +3105,8 @@ $$;`.trim();
         '    "zip": "70116",',
         '    "address": "800 Decatur St",',
         '    "description": "One original tour-guide sentence: a fact or what makes it a stop.",',
-        '    "source_url": "https://en.wikipedia.org/wiki/Caf%C3%A9_du_Monde"',
+        '    "source_url": "https://en.wikipedia.org/wiki/Caf%C3%A9_du_Monde",',
+        '    "walk_order": 1',
         '  }',
         ']',
         '$tgb$::jsonb);'
@@ -2941,6 +3143,7 @@ $$;`.trim();
         '- address: the STREET ONLY — house number and street name, e.g. "800 Decatur St". Never repeat the city, state, ZIP, or country here; they have their own fields. Null if you do not know the street.',
         '- description: ONE original, concise tour-guide sentence (a fact, or what makes it a stop). Your own words — do not paste a sentence out of the article.',
         '- source_url: REQUIRED on every object — the full URL of the stop\'s own Wikipedia article (e.g. "https://en.wikipedia.org/wiki/Willis_Tower"). If the place has no article of its own but appears as a row in a list article with an address and coordinates, use that list article\'s URL. A Wikimedia Commons category URL is acceptable only when there is no Wikipedia page at all. Never a search-results page, never a link to the place\'s own website.',
+        WALK_ORDER_RULE,
         '- Do NOT include a wpid or id — the database assigns it.',
         '- Do not include any stop already in the "existing" list below for that city. Avoid duplicate names.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
@@ -3014,7 +3217,8 @@ $$;`.trim();
         '    "zip": "70116",',
         '    "address": "941 Bourbon St",',
         '    "description": "Often promoted as one of the oldest bars in the United States, this 18th-century Bourbon Street building carries disputed but memorable tavern lore.",',
-        '    "source_url": "https://www.lafittesblacksmithshop.com/"',
+        '    "source_url": "https://www.lafittesblacksmithshop.com/",',
+        '    "walk_order": 1',
         '  }',
         ']',
         '$tgb$::jsonb);'
@@ -3045,6 +3249,7 @@ $$;`.trim();
         '- address: the street address only. Never repeat city, state, ZIP, or country here.',
         '- description: ONE original tour-guide sentence. Include the establishment year or claimed year and any continuity/oldest-claim caveat when relevant.',
         '- source_url: REQUIRED. Use the best source proving the oldest-bar claim or the venue history page. Never a search-results page.',
+        WALK_ORDER_RULE,
         '- Do NOT include a wpid or id. The database assigns it.',
         '- Do not include any place already in the existing-waypoints list below when it is the same name + city.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
@@ -3119,7 +3324,8 @@ $$;`.trim();
         '    "zip": "31401",',
         '    "address": "222 E Harris St",',
         '    "description": "Twin-spired 1876 cathedral on Lafayette Square, the stop most Savannah historic-district tours are built around.",',
-        '    "source_url": "https://www.savannahcathedral.org/"',
+        '    "source_url": "https://www.savannahcathedral.org/",',
+        '    "walk_order": 1',
         '  }',
         ']',
         '$tgb$::jsonb);'
@@ -3157,6 +3363,7 @@ $$;`.trim();
         '- address: the street address ONLY — street number and street. Never repeat the city, state, ZIP or country here.',
         '- description: ONE original tour-guide sentence on what the place is and why it is worth standing in front of. Name the tour it appears on when you know it.',
         '- source_url: REQUIRED. The tour or landmark page you verified it against. Never a search-results page.',
+        WALK_ORDER_RULE,
         '- NEVER output coordinates. This table has no lat/lon columns and the exact name plus city is what a later lookup resolves.',
         '- Do NOT include a wpid or id. The database assigns it.',
         '- Do not include any place already in the existing-waypoints list at the end when it is the same name + city.',
@@ -5332,10 +5539,195 @@ $$;`.trim();
     // 2026-07-29 — which meant a batch import (20 Boston waypoints) buried 37
     // Denver ones two pages down with no way to reorder.
     function compareRows(a, b) {
+      // A suggested walk, when one has been computed for this city, outranks
+      // everything: the whole point is to see the cards in the order you would
+      // walk them. Rows with no point sink to the bottom rather than vanish.
+      // An UNSAVED suggestion (the button) outranks a saved one: you pressed it
+      // to see something different from what is stored.
+      const orderOf = (row) => {
+        if (state.walkOrder) {
+          const at = state.walkOrder.get(Number(row.wpid));
+          if (at != null) return at;
+          return null;
+        }
+        const saved = Number(row.walk_order);
+        return Number.isFinite(saved) && saved > 0 ? saved : null;
+      };
+      const ia = orderOf(a);
+      const ib = orderOf(b);
+      if (ia != null || ib != null) {
+        // Unsequenced rows sink, rather than disappearing into the middle.
+        if (ia == null) return 1;
+        if (ib == null) return -1;
+        if (ia !== ib) return ia - ib;
+      }
       // Newest first, always. The sort dropdown went with the toolbar — inside
       // one city the set is small enough to scan, and "what did I just add"
       // is the only ordering question left.
       return Number(b.wpid) - Number(a.wpid);
+    }
+
+    // --- Suggested stop order ------------------------------------------------
+    // A walking order for one city, computed from the stored coordinates.
+    //
+    // IT IS A SUGGESTION AND IT IS NOT SAVED, deliberately. Order belongs to a
+    // ROUTE, not to the catalog: public.stops carries `ord`, and the same
+    // waypoint sits at different positions in different games. Writing an order
+    // onto public.waypoints would make one game's route the property of every
+    // game that shares a stop. So this reorders the cards and numbers the pins
+    // for as long as you are looking at the city, and the Stop Builder is where
+    // an order becomes real.
+
+    // Metres between two points. Haversine on a sphere: at city scale the error
+    // against a proper ellipsoid is centimetres, and we are ranking walks, not
+    // surveying.
+    function metresBetween(a, b) {
+      const R = 6371000;
+      const toRad = (d) => d * Math.PI / 180;
+      const dLat = toRad(b.lat - a.lat);
+      const dLon = toRad(b.lon - a.lon);
+      const s = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+        + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
+    }
+
+    // Nearest neighbour, then 2-opt until it stops improving.
+    //
+    // Nearest neighbour alone is fast and usually 20-25% worse than optimal —
+    // it paints itself into a corner and then has to cross the whole city to
+    // pick up what it skipped. 2-opt removes exactly those crossings by
+    // reversing any segment that shortens the total, and on the sizes here
+    // (37 pins at the worst) it converges in milliseconds. Optimal TSP is not
+    // worth solving for a route a person is going to edit anyway.
+    function suggestWalk(points) {
+      const n = points.length;
+      if (n < 3) return points.map((_, i) => i);
+
+      const dist = (i, j) => metresBetween(points[i], points[j]);
+      // Start from the northernmost point: an arbitrary but STABLE choice, so
+      // pressing the button twice on the same city gives the same walk.
+      let start = 0;
+      for (let i = 1; i < n; i += 1) if (points[i].lat > points[start].lat) start = i;
+
+      const unvisited = new Set(points.map((_, i) => i));
+      const tour = [start];
+      unvisited.delete(start);
+      while (unvisited.size) {
+        const last = tour[tour.length - 1];
+        let best = null, bestD = Infinity;
+        unvisited.forEach((i) => {
+          const d = dist(last, i);
+          if (d < bestD) { bestD = d; best = i; }
+        });
+        tour.push(best);
+        unvisited.delete(best);
+      }
+
+      // 2-opt. An open walk, not a loop — you do not have to end where you
+      // started — so the ends are never joined and the last leg costs nothing.
+      const legs = (t) => {
+        let sum = 0;
+        for (let i = 0; i < t.length - 1; i += 1) sum += dist(t[i], t[i + 1]);
+        return sum;
+      };
+      let improved = true;
+      let guard = 0;
+      while (improved && guard < 60) {
+        improved = false;
+        guard += 1;
+        for (let i = 0; i < tour.length - 2; i += 1) {
+          for (let k = i + 2; k < tour.length; k += 1) {
+            const before = dist(tour[i], tour[i + 1])
+              + (k + 1 < tour.length ? dist(tour[k], tour[k + 1]) : 0);
+            const after = dist(tour[i], tour[k])
+              + (k + 1 < tour.length ? dist(tour[i + 1], tour[k + 1]) : 0);
+            if (after + 0.01 < before) {
+              const seg = tour.slice(i + 1, k + 1).reverse();
+              tour.splice(i + 1, seg.length, ...seg);
+              improved = true;
+            }
+          }
+        }
+      }
+      state.walkMetres = Math.round(legs(tour));
+      return tour;
+    }
+
+    // Build (or clear) the suggested order for the city on screen.
+    function buildWalkOrder() {
+      const rows = state.rows.filter(matchesArchiveMode).filter(matchesCityFilter);
+      const located = [];
+      rows.forEach((row) => {
+        const point = cachedPointFor(row);
+        if (point) located.push({ wpid: Number(row.wpid), lat: point.lat, lon: point.lon });
+      });
+      if (located.length < 2) return { ok: false, reason: located.length ? 'Only one waypoint here is located.' : 'No waypoints here are located yet — open the map and let it place them first.' };
+      const tour = suggestWalk(located);
+      const order = new Map();
+      tour.forEach((idx, position) => order.set(located[idx].wpid, position));
+      return { ok: true, order: order, count: located.length, unplaced: rows.length - located.length };
+    }
+
+    function clearWalkOrder() {
+      state.walkOrder = null;
+      state.walkMetres = 0;
+    }
+
+    // Persist the suggestion onto the rows as walk_order. One PATCH per row,
+    // sequentially: this is a handful of rows in one city, and a burst of forty
+    // parallel writes against PostgREST buys nothing here.
+    //
+    // It writes 1..n over the LOCATED rows only. A row with no point keeps its
+    // existing value rather than being nulled — it was never part of the walk
+    // being saved, and clearing it would quietly discard an order the AI import
+    // supplied for a waypoint the map has not placed yet.
+    async function saveWalkOrder(btn) {
+      if (!state.walkOrder || !hasWalkOrderColumn) return;
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      const entries = [...state.walkOrder.entries()].sort((a, b) => a[1] - b[1]);
+      let saved = 0;
+      let failed = 0;
+      for (const [wpid, index] of entries) {
+        const position = index + 1;          // stored 1-based; the solver is 0-based
+        const row = findRow(wpid);
+        if (!row) continue;
+        if (Number(row.walk_order) === position) { saved += 1; continue; }
+        try {
+          const res = await fetch(restUrl(TABLE, { [PK]: 'eq.' + wpid }), {
+            method: 'PATCH',
+            headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+            body: JSON.stringify({ walk_order: position })
+          });
+          if (!res.ok) throw new Error(await readError(res, 'save failed'));
+          const wasClean = !state.dirtyIds.has(wpid);
+          row.walk_order = position;
+          if (wasClean) pristine.set(wpid, snapshot(row));
+          saved += 1;
+        } catch (error) {
+          failed += 1;
+        }
+      }
+      btn.disabled = false;
+      btn.textContent = original;
+      if (failed) {
+        setStatus('Saved ' + saved + ' of ' + entries.length + ' positions — ' + failed + ' failed.', 'error');
+      } else {
+        // The stored order now matches, so the suggestion has nothing left to
+        // show: drop it and let the saved column do the sorting.
+        clearWalkOrder();
+        render();
+        setStatus('Saved this walk order onto ' + saved + ' waypoint' + (saved === 1 ? '' : 's') + '.', 'success');
+      }
+    }
+
+    // Miles, because every city in this table is in the US and a walk is
+    // something a person estimates in blocks and minutes, not kilometres.
+    function formatWalkDistance(metres) {
+      const miles = metres / 1609.344;
+      const mins = Math.round(metres / 80);   // ~3 mph, the usual walking figure
+      return (miles < 0.1 ? '<0.1' : miles.toFixed(1)) + ' mi · about ' + mins + ' min walking';
     }
 
     function displayName(row) {
@@ -5373,6 +5765,9 @@ $$;`.trim();
     // one view.
     async function openCity(key) {
       await maybeSaveDirtyBeforePaging();
+      // A suggested walk belongs to the city it was computed for. Carrying it
+      // across would leave positions from Denver ordering Baltimore's cards.
+      clearWalkOrder();
       state.cityFilter = key || '';
       state.page = 0;
       const list = navRows();
@@ -5400,6 +5795,47 @@ $$;`.trim();
       count.className = 'city-head-count';
       count.textContent = list.length + ' waypoint' + (list.length === 1 ? '' : 's');
       head.append(title, count);
+
+      // Suggested order is a CITY question. On All the set is the whole table
+      // across sixty cities, and a walk between them is not a thing anyone does.
+      if (state.cityFilter) {
+        const walkBtn = document.createElement('button');
+        walkBtn.type = 'button';
+        walkBtn.className = 'btn small walk-btn' + (state.walkOrder ? ' is-on' : '');
+        walkBtn.textContent = state.walkOrder ? 'Clear order' : 'Suggest order';
+        walkBtn.title = state.walkOrder
+          ? 'Go back to newest-first'
+          : 'Order these waypoints into a sensible walk, shortest route first';
+        walkBtn.addEventListener('click', () => {
+          if (state.walkOrder) { clearWalkOrder(); render(); return; }
+          const result = buildWalkOrder();
+          if (!result.ok) { setStatus(result.reason, 'error'); return; }
+          state.walkOrder = result.order;
+          render();
+          setStatus('Suggested a walk of ' + result.count + ' stops · '
+            + formatWalkDistance(state.walkMetres)
+            + (result.unplaced ? ' · ' + result.unplaced + ' not located yet, left at the end' : ''), 'success');
+        });
+        head.append(walkBtn);
+
+        if (state.walkOrder && hasWalkOrderColumn) {
+          const saveBtn = document.createElement('button');
+          saveBtn.type = 'button';
+          saveBtn.className = 'btn small';
+          saveBtn.textContent = 'Save order';
+          saveBtn.title = 'Store this sequence on the waypoints as walk_order';
+          saveBtn.addEventListener('click', () => saveWalkOrder(saveBtn));
+          head.append(saveBtn);
+        }
+
+        if (state.walkOrder) {
+          const note = document.createElement('span');
+          note.className = 'walk-note';
+          note.textContent = 'Suggested walk · ' + formatWalkDistance(state.walkMetres)
+            + ' · not saved — set a real order in the Stop Builder';
+          head.append(note);
+        }
+      }
       wpList.append(head);
 
       if (!current) {

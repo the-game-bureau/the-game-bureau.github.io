@@ -1,10 +1,10 @@
 /* Shared site nav for public pages (home/games + gift shop + future).
    Drop a placeholder into the page:
      <header class="site-nav" data-site-nav></header>
-     <script src="/mc/assets/site-nav.js"></script>
+     <script src="/shell/site-nav.js"></script>
 
    The script fills the placeholder with the shared brand + nav links.
-   Site count data is fetched by /assets/site-footer.js and mirrored into the
+   Site count data is fetched by /shell/site-footer.js and mirrored into the
    nav buttons through window.TgbNav.setStats.
 */
 (function () {

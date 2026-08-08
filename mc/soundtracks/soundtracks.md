@@ -2,7 +2,7 @@
 
 **If you are an AI agent working on soundtracks, read this first.** It is also
 the plain-English explanation for anyone else. The dashboard at
-[`/soundtracks/admin/`](admin/index.html) is the human view of the same system; this
+[`/mc/soundtracks/admin/`](/mc/soundtracks/admin/index.html) is the human view of the same system; this
 file is the source of truth.
 
 ---
@@ -33,7 +33,7 @@ served straight off the site, and both were **deleted on 2026-08-06**, so those
 two URLs are dead — unlink them anywhere they were shared.
 
 The renderer that built them is still here:
-[mc/_dev/scripts/render-soundtracks-video.ps1](../mc/_dev/scripts/render-soundtracks-video.ps1).
+[mc/_dev/scripts/render-soundtracks-video.ps1](/mc/_dev/scripts/render-soundtracks-video.ps1).
 Its paths were corrected on 2026-08-06 — it now resolves the repo root properly and
 reads the hero image from `soundtracks/soundtracks.jpg`. The one thing still missing
 is the ffmpeg binary it expects under `.tmp/video-tools/`, which was deleted with the
@@ -57,7 +57,7 @@ The file is still committed and still read — but only as a lifeboat.
 | City names + geo badges | `public.cities` | Joined on `city_slug` = `cities.slug`. Also the gate: no tape for a city with `hide_from_soundtracks = true`. |
 | The public page | `soundtracks/index.html` | Reads both tables (paged, because PostgREST caps at 1000 rows). Supabase is the only source; a failed fetch shows "Could not load soundtracks." |
 | The audit write path | `public.tgb_report_soundtrack_issues(jsonb)` | Insert-only RPC, publishable key. Files findings; cannot clear them. |
-| The dashboard | `soundtracks/admin/index.html` | An **Issues** panel (open findings, Fixed / Not an issue) above **Tapes & Tracks** — every tape collapsed by city, Hide/Show on both a tape and a track, **Edit** for every field on a track plus Move/Copy to another tape, a red ⚠ chip on any flagged track, each track stamped with when it was added, sortable by city / tape added / track added. Plus last run, viewer stats links, and the manual fallback prompt. |
+| The dashboard | `mc/soundtracks/admin/index.html` | An **Issues** panel (open findings, Fixed / Not an issue) above **Tapes & Tracks** — every tape collapsed by city, Hide/Show on both a tape and a track, **Edit** for every field on a track plus Move/Copy to another tape, a red ⚠ chip on any flagged track, each track stamped with when it was added, sortable by city / tape added / track added. Plus last run, viewer stats links, and the manual fallback prompt. |
 
 A tape and its songs:
 

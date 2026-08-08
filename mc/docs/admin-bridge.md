@@ -20,7 +20,7 @@ Supported `data-admin-page` values:
 - `mission-control` -> `mc/index.html`
 - `game-run` -> `mc/builder.html`, using the current URL `?id=...`
 - `gift-shop` -> `mc/gs-shop.html`
-- `winners-wall` -> `highlights/admin/`
+- `winners-wall` -> `mc/highlights/`
 
 ## Contextual Edit Controls
 
@@ -35,7 +35,7 @@ Supported `data-admin-edit` values:
 - `game` -> `mc/builder.html?id=GAME_ID`
 - `game-run` -> `mc/builder.html?id={current URL id}`
 - `gift-item` -> `mc/gs-shop.html?item=ITEM_ID`
-- `photo` -> `highlights/admin/?photo=PHOTO_ID`
+- `photo` -> `mc/highlights/?photo=PHOTO_ID`
 
 Optional attributes:
 
