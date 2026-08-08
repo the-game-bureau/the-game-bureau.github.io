@@ -567,6 +567,23 @@
        complete view of its row - read-only, because each is written by
        something specific (the geocoder, Suggest order, the tour importer)
        and a free-text box over any of them would just be a way to break it. */
+    /* A locked card should read as a record, not as a form somebody forgot to
+       fill in. The inputs keep their box so nothing reflows when you press
+       Edit - they just stop looking clickable. */
+    .wp-card.is-locked input,
+    .wp-card.is-locked textarea {
+      background: transparent;
+      border-color: transparent;
+      cursor: default;
+      padding-left: 0;
+    }
+    .wp-card.is-locked input:focus,
+    .wp-card.is-locked textarea:focus { outline: none; box-shadow: none; }
+    .wp-card.is-locked .field-line button { display: none; }
+    /* Edit is the way in, so it is the one action that stays emphatic while the
+       card is locked. */
+    .wp-card.is-locked [data-action="edit"] { border-color: var(--ink); }
+
     .wp-meta {
       display: flex;
       flex-wrap: wrap;
@@ -1191,13 +1208,12 @@
 
     const TABLE = 'waypoints';
     const PK = 'wpid';
-    // Columns read from the table. wpid is the identity primary key.
-    // waypoints.lat / waypoints.lon were dropped from the table on 2026-07-27.
-    // Coordinates still exist at RUNTIME — geocoded from the address/city and
-    // held on the in-memory row so the map can centre — but they are never
-    // selected and never written. PostgREST 400s
-    // on an unknown column, so re-adding them here breaks the whole page load.
-    const WAYPOINT_COLUMNS = ['wpid', 'city', 'state', 'zip', 'address', 'name', 'description'];
+    // There is no column list. Every read is select=*, because naming a column
+    // PostgREST does not have 400s the ENTIRE page load, and this table has
+    // gained six columns in three weeks. A star is survivable against a database
+    // mid-migration; an explicit list is not. The old WAYPOINT_COLUMNS constant
+    // was removed 2026-08-08 - it had not been used for anything but a comment
+    // explaining why it was not used.
     // Editable text fields (everything except the auto-number PK and lat/lon).
     // source_url is editable too but lives in its own list: it is only writable
     // once 2026072902_waypoints_source_url.sql has been applied, so it is added
@@ -1240,6 +1256,11 @@
       rows: [],
       authed: false,
       cityFilter: '',   // lowercased city key; '' means every city
+      // Cards are READ-ONLY until you press Edit. Every field used to be a
+      // live input, so a stray click in a list of ten cards could silently
+      // alter a description and the only sign was the Unsaved badge. Edit
+      // makes changing a waypoint deliberate.
+      editingIds: new Set(),
       page: 0,          // 0-based page of PAGE_SIZE cards
       // The cursor: where the pager lands and what "jump to N" targets. It
       // is no longer the only thing on screen — a page of PAGE_SIZE renders
@@ -1345,10 +1366,7 @@
         }
         await ensureFreshSession();
         // TgbRest.fetchAll paginates past PostgREST's 1000-row cap.
-        // select=* rather than WAYPOINT_COLUMNS: source_url only exists once
-        // 2026072902_waypoints_source_url.sql has been applied, and naming a
-        // column PostgREST does not have 400s the entire page load. A star
-        // works either way — the same reason the cities readers use one.
+        // select=*, never a column list — see the note by the probes above.
         const url = restUrl(TABLE, { select: '*', order: PK + '.asc' });
         const rows = await TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
         hasSourceUrlColumn = (Array.isArray(rows) ? rows : []).some(
@@ -1371,6 +1389,7 @@
         );
         state.rows = normalizeRows(rows);
         applyDefaultCityOnce();
+        syncCityUrl();
         rebuildPristine();
         state.dirtyIds.clear();
         state.savingIds.clear();
@@ -1471,8 +1490,15 @@
 
     // Single choke point for insert payloads, which are assembled from geocoding
     // results and can pick up coordinates along the way.
+    // lat/lon used to be stripped from every insert because the columns had been
+    // dropped and naming one made PostgREST reject the whole write. They are back
+    // (2026080704), so the strip now applies only when the probe says the
+    // database has not had that migration - otherwise Duplicate and the geocoded
+    // Add paths would throw away a point they already hold.
     function stripDroppedColumns(payload) {
-      if (payload && typeof payload === 'object') { delete payload.lat; delete payload.lon; }
+      if (payload && typeof payload === 'object' && !hasLatLonColumns) {
+        delete payload.lat; delete payload.lon;
+      }
       return payload;
     }
 
@@ -1511,6 +1537,9 @@
       try {
         await patchRow(wpid, row);
         state.dirtyIds.delete(wpid);
+        // The edit is finished, so the card locks again. Leaving ten unlocked
+        // cards behind you as you work down a city defeats the point of Edit.
+        state.editingIds.delete(wpid);
         // Reload from the DB and stay on this waypoint.
         await refresh(wpid);
         const fresh = findRow(wpid);
@@ -5501,9 +5530,12 @@ $$;`.trim();
       return { name: null, city: null, state: null, zip: null, address: null, description: null };
     }
 
-    async function insertWaypointAndGo(payload, button) {
-      // Warn before importing something that looks like an existing waypoint.
-      const match = findSimilarExisting(payload);
+    async function insertWaypointAndGo(payload, button, opts) {
+      // Warn before importing something that looks like an existing waypoint -
+      // except on the Duplicate path, where resembling an existing waypoint is
+      // the entire request and the warning would be asking you to confirm what
+      // you just pressed.
+      const match = (opts && opts.skipDuplicateCheck) ? null : findSimilarExisting(payload);
       if (match) {
         const incoming = cleanText(payload.name) || cleanText(payload.address) || 'this point';
         if (!window.confirm(
@@ -5936,8 +5968,42 @@ $$;`.trim();
       if (defaultCityApplied) return;
       defaultCityApplied = true;
       if (state.cityFilter) return;
+      // ?city= wins over the default. It is how a refresh comes back to where
+      // you were and how a link to one city works at all - without it every
+      // reload dumped you in New Orleans no matter which city you were editing.
+      const asked = cityFromUrl();
+      if (asked !== null) {
+        // An explicit ?city=all is a real choice and must survive a refresh, so
+        // it is distinguished from an absent parameter rather than falling
+        // through to the default.
+        state.cityFilter = asked;
+        return;
+      }
       const exists = state.rows.some((row) => !isArchived(row) && cityKey(row) === DEFAULT_CITY_KEY);
       if (exists) state.cityFilter = DEFAULT_CITY_KEY;
+    }
+
+    // ?city=new-orleans | ?city=all | absent. Returns null for absent, '' for
+    // All, and a city key otherwise. Matched against the cities actually in the
+    // table so a stale or mistyped link opens All rather than an empty list with
+    // no explanation.
+    function cityFromUrl() {
+      const raw = new URLSearchParams(location.search).get('city');
+      if (raw === null) return null;
+      const want = cityKey({ city: raw.replace(/-/g, ' ') });
+      if (!want || want === 'all') return '';
+      const hit = state.rows.find((row) => cityKey(row) === want);
+      return hit ? want : '';
+    }
+
+    // The address bar follows the city bar. replaceState, not pushState: the
+    // city buttons are a filter, not navigation, and stacking sixty history
+    // entries would make Back useless for leaving the page.
+    function syncCityUrl() {
+      const url = new URL(location.href);
+      if (state.cityFilter) url.searchParams.set('city', state.cityFilter.replace(/\s+/g, '-'));
+      else url.searchParams.set('city', 'all');
+      history.replaceState(null, '', url);
     }
 
     function matchesCityFilter(row) {
@@ -6314,6 +6380,7 @@ $$;`.trim();
       // across would leave positions from Denver ordering Baltimore's cards.
       clearWalkOrder();
       state.cityFilter = key || '';
+      syncCityUrl();
       state.page = 0;
       const list = navRows();
       state.randomId = list.length ? list[0].wpid : null;
@@ -6487,6 +6554,26 @@ $$;`.trim();
       deleteBtn.className = 'btn warn small';
       deleteBtn.textContent = 'Delete';
       deleteBtn.addEventListener('click', () => deleteWaypoint(row.wpid));
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn small';
+      editBtn.dataset.action = 'edit';
+      editBtn.textContent = state.editingIds.has(row.wpid) ? 'Done' : 'Edit';
+      editBtn.title = state.editingIds.has(row.wpid)
+        ? 'Lock these fields again'
+        : 'Unlock these fields for editing';
+      editBtn.addEventListener('click', () => toggleEditing(row.wpid));
+      // Everything except wpid and the tour columns. A copy is a LOOSE waypoint:
+      // giving it the original's tour_id would put two stop 4s on one walk, and
+      // the sequence is the one thing a tour cannot survive losing. lat/lon do
+      // come across - it is the same place, so the point is already correct and
+      // copying it saves a geocode.
+      const dupeBtn = document.createElement('button');
+      dupeBtn.type = 'button';
+      dupeBtn.className = 'btn small';
+      dupeBtn.textContent = 'Duplicate';
+      dupeBtn.title = 'Create a new waypoint from this one, minus its id and its tour';
+      dupeBtn.addEventListener('click', () => duplicateWaypoint(row.wpid, dupeBtn));
       const archiveBtn = document.createElement('button');
       archiveBtn.type = 'button';
       archiveBtn.className = 'btn small';
@@ -6505,7 +6592,7 @@ $$;`.trim();
       // Disabled when there's nothing to save (already saved) or mid-save.
       saveBtn.disabled = !state.dirtyIds.has(row.wpid) || state.savingIds.has(row.wpid);
       saveBtn.addEventListener('click', () => saveRow(row.wpid));
-      actions.append(archiveBtn, deleteBtn, fillBtn, saveBtn);
+      actions.append(editBtn, dupeBtn, archiveBtn, deleteBtn, fillBtn, saveBtn);
 
       // Title left, nav centered, actions right.
       // WPID left, actions right.
@@ -6535,6 +6622,16 @@ $$;`.trim();
       const body = document.createElement('div');
       body.className = 'wp-card-body';
       body.append(fields);
+      // One pass over the finished card rather than a flag threaded through
+      // every field renderer - a new field is then locked by default instead of
+      // being editable because somebody forgot to pass it through.
+      if (!state.editingIds.has(row.wpid)) {
+        card.classList.add('is-locked');
+        fields.querySelectorAll('input, textarea').forEach((el) => { el.readOnly = true; });
+        // readOnly does not exist on a button; the inline helpers (Translate,
+        // and anything added later) are disabled instead.
+        fields.querySelectorAll('button').forEach((el) => { el.disabled = true; });
+      }
       card.addEventListener('mouseenter', () => highlightPin(row.wpid, true));
       card.addEventListener('mouseleave', () => highlightPin(row.wpid, false));
 
@@ -6549,6 +6646,46 @@ $$;`.trim();
 
       card.append(head, body, foot);
       return card;
+    }
+
+    // Edit unlocks one card. Saving locks it again - the edit is finished, and
+    // leaving ten cards unlocked behind you defeats the point of the lock.
+    function toggleEditing(wpid) {
+      if (state.editingIds.has(wpid)) state.editingIds.delete(wpid);
+      else state.editingIds.add(wpid);
+      render();
+    }
+
+    // A new row from an existing one. Copies everything the page can write and
+    // deliberately drops three things:
+    //
+    //   wpid       - the trigger assigns it, and supplying one is an error.
+    //   tour_*     - a copy is a LOOSE waypoint. Inheriting the tour would give
+    //                that walk two stop 4s, and order is the one thing a tour
+    //                cannot survive losing.
+    //   walk_order - same reason.
+    //
+    // The name gets " (copy)" so the two are distinguishable in a list and in
+    // the importers' name+city check, which is otherwise the only thing keeping
+    // an AI pull from filing a third one.
+    async function duplicateWaypoint(wpid, button) {
+      const row = findRow(wpid);
+      if (!row) return;
+      const payload = {};
+      EDITABLE_FIELDS.forEach((f) => { payload[f] = cleanText(row[f]) || null; });
+      payload.name = cleanText(row.name) ? cleanText(row.name) + ' (copy)' : null;
+      if (hasSourceUrlColumn) payload[SOURCE_URL_FIELD] = cleanText(row[SOURCE_URL_FIELD]) || null;
+      // Never inherit an archive tombstone: a copy is a new place to work on,
+      // not one somebody already decided to keep out of the rescrape.
+      if (hasArchivedColumn) payload[ARCHIVED_FIELD] = false;
+      if (hasAiModelColumn) payload.ai_model = cleanText(row.ai_model) || null;
+      // Same place, so the point is already right - and copying it saves the
+      // 1-per-second geocode the map would otherwise pay for this row.
+      if (hasLatLonColumns && row.lat != null && row.lon != null) {
+        payload.lat = row.lat;
+        payload.lon = row.lon;
+      }
+      await insertWaypointAndGo(payload, button, { skipDuplicateCheck: true });
     }
 
     // The rest of public.waypoints. The six fields above are what a person
@@ -6594,7 +6731,8 @@ $$;`.trim();
         wrap.appendChild(item);
       };
 
-      add('WPID', row.wpid, { title: 'Primary key, assigned by a trigger. Never typed.' });
+      // No WPID here - the card head already shows it, and printing it twice
+      // on every card just made the strip longer.
 
       // One item, not two: a coordinate is a pair, and half of one is no use.
       if (!hasLatLonColumns) {

@@ -55,8 +55,13 @@ begin
 end;
 $wp$;
 
-drop trigger if exists waypoints_assign_wpid_trg on public.waypoints;
-create trigger waypoints_assign_wpid_trg
+-- trg_waypoints_assign_wpid is the name the original migration used. Keep it:
+-- a different name here does not replace that trigger, it ADDS a second one on
+-- the same function, and pasting this block once left the live table carrying
+-- both. Harmless (the second sees a non-null wpid and skips) but it is two
+-- things to reason about where there should be one.
+drop trigger if exists trg_waypoints_assign_wpid on public.waypoints;
+create trigger trg_waypoints_assign_wpid
   before insert on public.waypoints
   for each row execute function public.waypoints_assign_wpid();
 

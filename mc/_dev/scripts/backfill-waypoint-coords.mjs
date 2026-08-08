@@ -1,196 +1,116 @@
-// backfill-waypoint-coords.mjs — locate every waypoint once, so nobody waits again.
+#!/usr/bin/env node
+// Geocode every public.waypoints row that has an address and no point, and emit
+// the UPDATE statements to apply.
 //
-// WHY THIS EXISTS. The Waypoints page draws a map of the city you are looking
-// at. With no coordinates on the row it derived each pin from the street address
-// at runtime through Nominatim, which allows one request per second — so a cold
-// cache cost ~41s on Denver (37 pins), ~30s on Baltimore, ~23s on Atlanta before
-// the map settled. A localStorage cache hid it on whichever machine had already
-// sat through it, which is why it read as "sometimes slow".
+// WHY THIS EXISTS. The Waypoints page derives its city map from the street
+// address at runtime through Nominatim, which allows ONE REQUEST PER SECOND -
+// so the loop is necessarily sequential with a 1.1s gap. On a cold cache that
+// was ~41s for Denver's 37 pins before the map settled. lat/lon on the row
+// removes that entirely; this script pays the cost once, offline, for the whole
+// table instead of making whoever opens a city sit through it.
 //
-// 2026080704_waypoints_latlon.sql gave the table lat/lon back and the page now
-// writes a point the moment it geocodes one. This script pays off the backlog in
-// one go instead of making the next person visit all 60 cities.
+// IT WRITES NO DATABASE. It reads a JSON array of rows on stdin (or --in FILE)
+// and prints SQL on stdout. That is deliberate: waypoint writes are gated behind
+// the authenticated role, this script has no session, and an earlier version
+// needed SUPABASE_SERVICE_KEY - a secret that is not in .env and should not have
+// to be. Pipe the output through the Supabase SQL editor or:
 //
-// RUN IT ONCE:
-//   node mc/_dev/scripts/backfill-waypoint-coords.mjs --dry-run   # look first
-//   node mc/_dev/scripts/backfill-waypoint-coords.mjs
+//   node mc/_dev/scripts/backfill-waypoint-coords.mjs --in rows.json > coords.sql
+//   cd mc && supabase db query --linked -f ../coords.sql
 //
-// It needs SUPABASE_SERVICE_KEY in the repo-root .env, because waypoints are
-// admin-gated: RLS grants writes to `authenticated` only, and this is a script
-// with no session. Absent as of 2026-08-06 — see the Environment section of
-// CLAUDE.md. Without it the script still runs read-only and reports what it
-// would do.
+// Get the input with:
+//   supabase db query --linked --output json \
+//     "select wpid, name, city, state, zip, address from public.waypoints
+//       where lat is null and coalesce(btrim(address),'') <> '' order by wpid"
 //
-// It is SAFE TO RE-RUN and safe to interrupt: it only touches rows where lat is
-// null, so a second run picks up wherever the first stopped.
+// SAFE TO RE-RUN AND SAFE TO INTERRUPT - it only ever looks at rows you gave it,
+// and a row it cannot resolve is simply left out of the output. A null point
+// means "not located yet", never "has no location": the page still geocodes
+// those on demand.
 //
-// ONE REQUEST PER SECOND, AND THAT IS NOT NEGOTIABLE. Nominatim is a free
-// service run on donated hardware; the rate limit is their usage policy, not a
-// suggestion, and the User-Agent identifying us is a requirement of it. 220 rows
-// takes about four minutes. Do not parallelise this.
+// DO NOT PARALLELISE IT. The 1/sec limit is Nominatim's usage policy, not a
+// performance characteristic, and the identifying User-Agent below is part of
+// that same policy. 280 rows is about five minutes. That is the correct speed.
 
-import { readFileSync, existsSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
-
-// Minimal .env reader — the other scripts in this folder do the same rather
-// than take a dependency for six lines.
-function loadEnv() {
-  const file = path.join(REPO_ROOT, '.env');
-  if (!existsSync(file)) return;
-  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-  }
-}
-loadEnv();
-
-const SB_URL = (process.env.SUPABASE_URL || 'https://qmaafbncpzrdmqapkkgr.supabase.co').replace(/\/+$/, '');
-const SB_PUBLISHABLE = process.env.SUPABASE_KEY || 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3';
-const SB_SERVICE = process.env.SUPABASE_SERVICE_KEY || '';
-const DRY_RUN = process.argv.includes('--dry-run') || !SB_SERVICE;
-const LIMIT = Number((process.argv.find((a) => a.startsWith('--limit=')) || '').split('=')[1]) || Infinity;
-
-const GAP_MS = 1100;                 // just over Nominatim's 1/sec ceiling
-const UA = 'TheGameBureau-waypoint-backfill/1.0 (+https://thegamebureau.com)';
-
+const UA = 'the-game-bureau waypoint backfill (https://thegamebureau.com; kevinmkolb@gmail.com)';
+const GAP_MS = 1100;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const clean = (v) => (v == null ? '' : String(v)).trim();
 
-async function sb(pathAndQuery, init = {}) {
-  const key = init.method && init.method !== 'GET' ? (SB_SERVICE || SB_PUBLISHABLE) : SB_PUBLISHABLE;
-  const res = await fetch(SB_URL + pathAndQuery, {
-    ...init,
-    headers: { apikey: key, Authorization: 'Bearer ' + key, Accept: 'application/json', ...(init.headers || {}) }
-  });
-  if (!res.ok) throw new Error(`${init.method || 'GET'} ${pathAndQuery} -> ${res.status} ${await res.text()}`);
-  return res;
-}
-
-// Ordered query attempts for one row, mirroring the page's own
-// geocodeAddressPoint. Order matters and so does the SHAPE:
-//
-//   waypoints.address is ALREADY A COMPLETE ADDRESS — "200 E Colfax Ave,
-//   Denver, CO 80203" — not a bare street line. Appending city/state/zip to it
-//   yields "…Denver, CO 80203, Denver, CO, 80203", which Nominatim does not
-//   resolve. The first cut of this script did exactly that and found nothing
-//   for any of the first three Denver rows. Checked against the live service:
-//
-//     q = "200 E Colfax Ave, Denver, CO 80203"          -> 39.73921, -104.98485
-//     structured street="200 E Colfax Ave" + city/state -> 39.73921, -104.98485
-//     structured street=<the whole address>             -> NOT FOUND
-//     q = "Colorado State Capitol, Denver, CO"          -> 39.73796, -104.98531
-//
-// So: the address alone first, then the named venue, then the structured
-// endpoint with the street segment split back out.
+// waypoints.address is a COMPLETE address - "200 E Colfax Ave, Denver, CO 80203"
+// - not a street line. Appending city/state/zip to it produces a string
+// Nominatim cannot resolve, which is exactly how the first cut of this script
+// found nothing for three Denver rows in a row. So: try it as it stands first,
+// and only then fall back to compositions for the rows that hold a bare street.
 function attemptsFor(row) {
-  const address = clean(row.address);
-  const city = clean(row.city);
-  const state = clean(row.state);
-  const zip = clean(row.zip);
-  const name = clean(row.name);
+  const s = (v) => String(v == null ? '' : v).trim();
+  const addr = s(row.address);
+  const city = s(row.city);
+  const st = s(row.state);
+  const zip = s(row.zip);
+  const name = s(row.name);
+  const looksComplete = /,/.test(addr);
   const out = [];
-
-  if (address) out.push({ q: address });
-  if (name && (city || state)) out.push({ q: [name, city, state].filter(Boolean).join(', ') });
-  if (address) {
-    // Everything before the first comma is the street line in every row in this
-    // table; the structured endpoint is the most precise form of the question.
-    const street = address.split(',')[0].trim();
-    if (street && street !== address) {
-      const structured = { street };
-      if (city) structured.city = city;
-      if (state) structured.state = state;
-      if (zip) structured.postalcode = zip;
-      out.push(structured);
-    }
+  if (addr) out.push(addr);
+  if (addr && !looksComplete) {
+    out.push([addr, city, st, zip].filter(Boolean).join(', '));
+    out.push([addr, city, st].filter(Boolean).join(', '));
   }
-  return out;
+  // Last resort: the place by name in its city. Weaker - it can land on a
+  // same-named business elsewhere in town - so it is never tried first.
+  if (name && city) out.push([name, city, st].filter(Boolean).join(', '));
+  return [...new Set(out.filter(Boolean))];
 }
 
-// Each attempt is its own request, so each one waits out the rate limit too.
-async function geocode(row) {
-  const attempts = attemptsFor(row);
-  for (let i = 0; i < attempts.length; i += 1) {
-    if (i) await sleep(GAP_MS);
-    const point = await geocodeOnce(attempts[i]);
-    if (point) return point;
-  }
-  return null;
-}
-
-async function geocodeOnce(params) {
-  const url = 'https://nominatim.openstreetmap.org/search?'
-    + new URLSearchParams({ ...params, format: 'json', limit: '1', addressdetails: '0' });
+async function geocode(q) {
+  const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=' + encodeURIComponent(q);
   const res = await fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'en' } });
-  if (!res.ok) throw new Error('nominatim ' + res.status);
-  const hits = await res.json();
-  const hit = Array.isArray(hits) ? hits[0] : null;
-  if (!hit) return null;
-  const lat = Number(hit.lat);
-  const lon = Number(hit.lon);
-  return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+  if (!res.ok) return null;
+  const j = await res.json().catch(() => null);
+  const hit = Array.isArray(j) && j[0];
+  if (!hit || !hit.lat || !hit.lon) return null;
+  return { lat: Number(hit.lat), lon: Number(hit.lon) };
 }
+
+const round6 = (n) => Math.round(n * 1e6) / 1e6;
 
 async function main() {
-  console.log(DRY_RUN
-    ? (SB_SERVICE ? '— DRY RUN, nothing will be written —' : '— no SUPABASE_SERVICE_KEY, running read-only —')
-    : '— writing coordinates —');
+  const i = process.argv.indexOf('--in');
+  const raw = i > -1
+    ? fs.readFileSync(process.argv[i + 1], 'utf8')
+    : fs.readFileSync(0, 'utf8');
+  const rows = JSON.parse(raw);
 
-  let rows;
-  try {
-    rows = await (await sb('/rest/v1/waypoints?select=wpid,name,address,city,state,zip,lat&lat=is.null&order=city.asc,wpid.asc')).json();
-  } catch (err) {
-    if (/lat/.test(String(err))) {
-      console.error('\nThe lat column does not exist yet. Apply the migration first:');
-      console.error('  cd mc && supabase db push        (2026080704_waypoints_latlon.sql)\n');
-      process.exit(1);
+  const found = [];
+  let missed = 0;
+  for (let n = 0; n < rows.length; n++) {
+    const row = rows[n];
+    let hit = null;
+    for (const q of attemptsFor(row)) {
+      hit = await geocode(q);
+      await sleep(GAP_MS);
+      if (hit) break;
     }
-    throw err;
+    if (hit) found.push({ wpid: row.wpid, ...hit });
+    else missed++;
+    if ((n + 1) % 25 === 0) {
+      process.stderr.write(`  ${n + 1}/${rows.length} - ${found.length} located, ${missed} not\n`);
+    }
   }
 
-  const todo = rows.slice(0, LIMIT);
-  console.log(`${rows.length} waypoint(s) without coordinates` + (todo.length < rows.length ? `, doing ${todo.length}` : ''));
-  if (!todo.length) { console.log('Nothing to do.'); return; }
-  console.log(`At ${GAP_MS}ms apart this takes about ${Math.ceil(todo.length * GAP_MS / 60000)} minute(s).\n`);
+  process.stderr.write(`done: ${found.length} located, ${missed} not resolvable\n`);
+  if (!found.length) { console.log('-- nothing to update'); return; }
 
-  let located = 0, skipped = 0, failed = 0;
-  for (let i = 0; i < todo.length; i += 1) {
-    const row = todo[i];
-    const label = `[${String(i + 1).padStart(3)}/${todo.length}] WPID${row.wpid} ${clean(row.name) || '(unnamed)'} — ${clean(row.city)}`;
-    if (!attemptsFor(row).length) { skipped += 1; console.log(`${label}\n      skip: no address and no name`); continue; }
-
-    let point = null;
-    try { point = await geocode(row); } catch (err) { console.log(`${label}\n      error: ${err.message}`); }
-
-    if (!point) {
-      failed += 1;
-      console.log(`${label}\n      not found: ${clean(row.address) || clean(row.name)}`);
-    } else {
-      located += 1;
-      console.log(`${label}\n      ${point.lat.toFixed(5)}, ${point.lon.toFixed(5)}`);
-      if (!DRY_RUN) {
-        try {
-          await sb(`/rest/v1/waypoints?wpid=eq.${encodeURIComponent(row.wpid)}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-            body: JSON.stringify({ lat: point.lat, lon: point.lon })
-          });
-        } catch (err) {
-          failed += 1; located -= 1;
-          console.log(`      WRITE FAILED: ${err.message}`);
-        }
-      }
-    }
-    if (i < todo.length - 1) await sleep(GAP_MS);
-  }
-
-  console.log(`\n${located} located, ${failed} not found, ${skipped} skipped.`);
-  if (DRY_RUN) console.log('Nothing was written.');
-  if (failed) console.log('Anything not found keeps a null point; the page will still geocode it on demand.');
+  // One statement. A row-per-UPDATE file of 280 statements is slower to apply
+  // and much harder to read when something goes wrong.
+  console.log('-- Coordinates from Nominatim, ' + new Date().toISOString().slice(0, 10) + '.');
+  console.log('-- Only rows that were null are touched; a re-run cannot move a point.');
+  console.log('update public.waypoints w set lat = v.lat, lon = v.lon');
+  console.log('from (values');
+  console.log(found.map((f) => `  (${f.wpid}, ${round6(f.lat)}, ${round6(f.lon)})`).join(',\n'));
+  console.log(') as v(wpid, lat, lon)');
+  console.log('where w.wpid = v.wpid and w.lat is null;');
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+main().catch((e) => { process.stderr.write(String(e && e.stack || e) + '\n'); process.exit(1); });
