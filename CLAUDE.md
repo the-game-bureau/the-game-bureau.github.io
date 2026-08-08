@@ -59,11 +59,14 @@ The gift shop, soundtrack and socials bots all run on the same cron, so they all
 | **Sun 2026-11-01** (CDT → CST) | `0 9,21 * * *` | 3 AM / 3 PM |
 | **Sun 2027-03-14** (CST → CDT) | `0 8,20 * * *` | 3 AM / 3 PM |
 
+**A FOURTH routine is on its own pair of hours** and needs the same treatment on the same two dates: TGB NFL Tour Builder runs `0 9,21`, which is **4 AM / 4 PM CDT and 3 AM / 3 PM CST**. It was asked for as "4am and 4pm Central year round", which no single cron can hold — `0 9,21` is right today and drifts an hour in winter; `0 10,22` would be right in winter and wrong now. Move it to `0 10,22` on 2026-11-01 and back to `0 9,21` on 2027-03-14 to keep 4 o'clock.
+
 | routine | trigger id |
 |---|---|
 | TGB Gift Shop Bot | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` |
 | TGB Soundtrack Bot | `trig_014sqaUyU7557svq9mGA1E4a` |
 | TGB SOCIAL BOT | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` |
+| TGB NFL Tour Builder | `trig_01P6fMZjt4ZapaKVoiCUfGxw` |
 
 Edit them at [claude.ai/code/routines](https://claude.ai/code/routines), or ask Claude Code to (`/schedule`). **Do not "fix" a routine by setting the cron to the Central hour you want** — the field is UTC, so `0 3,15` fires at 10 PM / 10 AM Central, not 3 o'clock. The Waypoint Tour Scout (`45 11`) drifts the same way and is left alone deliberately; a 6:45 or 5:45 AM run is fine either way.
 
@@ -117,6 +120,36 @@ Re-added 2026-08-07 by [2026080704_waypoints_latlon.sql](mc/supabase/migrations/
 - Last-run status reads the **GitHub commits API** for `mc/stops/nightly.json`, same as the socials admin: a run that errored pushes nothing, so a stale timestamp is the failure signal.
 - The schedule sits at `:45` to keep it clear of the other three (`:00` gift shop, `:15` socials, `:30` soundtrack). Same DST caveat as the rest — the cloud cron is UTC, so it drifts an hour in winter.
 
+### Walking tours live ON `public.waypoints`, as columns (2026-08-08)
+
+**One tour is a SET OF ROWS sharing a `tour_id`. The row IS the stop.** Columns `tour_id` / `tour_title` / `tour_shape` ([2026080801](mc/supabase/migrations/2026080801_waypoints_tour_columns.sql)) join the existing `walk_order`, which orders them.
+
+**A `walking_tours` + `walking_tour_stops` pair was built first and thrown away before it was ever applied.** The join table is the textbook answer to "a place appears on several walks", but it answers a question this product does not ask. Here, two tours that both stop at Preservation Hall get **two rows**, and that is correct — the stop is not the same thing twice:
+
+- the **order** differs (stop 6 of one walk, stop 2 of the other),
+- the **sentence** differs — what you say at a jazz stop on a music walk is not what you say about it on a football walk,
+- and editing a stop on one tour **must not silently edit** the other, which a shared row does.
+
+The duplicate row is the feature. It also keeps every tool that already reads `public.waypoints` working unchanged — the page, the map, the geocoder, the error badges — instead of teaching each of them a second table. **The accepted cost:** the same place on two tours is edited twice, and a name+city query returns it more than once.
+
+**SHAPE is trail vocabulary, and the stop count rides with it:**
+
+| shape | stops | what it is |
+|---|---|---|
+| `loop` | 10 | ends where it began |
+| `out_and_back` | 10 | same two ends, different streets between |
+| `point_to_point` | 6 | finishes somewhere else — a one-way or thru route |
+
+- **The page rolls the shape, not the model.** `TOUR_SHAPES` in [mc/data/waypoints.html](mc/data/waypoints.html) picks one at random when the prompt is built. A model asked to "pick a shape" picks the loop nearly every time, and the catalogue would fill with one shape. Measured over 300 builds the split is even.
+- **`walk_order` 1 is the START and the highest is the END.** Nothing else marks them, and the prompt forbids writing "start"/"end" into a name or description.
+- **ONE sentence per stop.** `description` carries both jobs — what the place is *and* what to do here on this walk. There is no second field; a per-stop `note` existed only while the discarded join table had somewhere to put it.
+- **[tgb_import_walking_tour](mc/supabase/walking-tour-prompt-import.sql) inserts every stop as its own row, always** — the opposite of `tgb_import_waypoints_prompt_items`, which SKIPS a name+city it already holds. Use that one for loose waypoints, this one for a tour. Both are SECURITY INVOKER: a human runs them.
+- **`tour_id` is readable, not a sequence** — `new-orleans-loop-20260808-1342` — so a row's tour is legible in the table editor without a join.
+- **The prompts name no repo path and assume no existing schema.** The AI doing a manual paste has no checkout, so the block it returns creates the columns, constraints, indexes and the helper before using them. Both inlined copies are generated from the canonical files — **keep them in sync**, and keep **backticks out of both**, since they are pasted into a `String.raw` template literal.
+- **[mc/supabase/waypoints-schema.sql](mc/supabase/waypoints-schema.sql) is the one place the table's CURRENT shape is written down**, and it exists because no migration answers that question: you would have to read the original create plus `zip` plus `source_url` plus `archived` plus `lat`/`lon` plus `walk_order` plus the tour columns, and know that `w3w` was dropped. Every statement is create/add-if-not-exists, so pasting it at a database that has already run the migrations is a no-op. **The migrations stay the record of WHEN and WHY a column arrived; this file is WHAT THE TABLE IS NOW** — add a column in both. It is inlined by `buildWaypointsSchemaSql()` and leads all five SQL example blocks on the page.
+- **`WAYPOINTS_TABLE_DOC` is the prose half of the same job** — the column list in words, telling a model that `wpid` is trigger-assigned and must never be supplied, that `city` is bare (`"New Orleans"`, never `"New Orleans, LA"`), that `zip` keeps its leading zero, and that `lat`/`lon` and `archived` are left alone for the page to fill. It sits above the field rules of all five prompts. **Both halves are needed**: the DDL says what exists, the prose says what to put in it — a model given only the DDL happily writes `"New Orleans, LA"` into `city` and invents a `wpid`.
+- **The NFL routine reads both as its spec** and its committed `.sql` leads with the same schema block, so a manual paste and a routine commit produce the same shape. Its prompt names `WAYPOINTS_TABLE_DOC` and `buildWaypointsSchemaSql` explicitly — if either is renamed, update the stored prompt at [claude.ai/code/routines](https://claude.ai/code/routines).
+
 ### Suggested stop order — advisory, and NOT a route
 
 Added 2026-08-07: a **Suggest order** button on the Waypoints city view, and `public.waypoints.walk_order` ([2026080705](mc/supabase/migrations/2026080705_waypoints_walk_order.sql)) to store the answer.
@@ -144,7 +177,21 @@ Either can replace the other; pressing the button recomputes from geometry whene
   - **17 of those 60 are real stadiums and were rescued** by [2026080703_stadium_waypoints_from_atlas.sql](mc/supabase/migrations/2026080703_stadium_waypoints_from_atlas.sql) — every field rewritten and verified, not copied, because the source rows carry a Nominatim reverse-geocode dump as the address, a description that says only that they were imported, and a `maps.google.com/?q=lat,lon` "source" that proves nothing. Nine facts were wrong and are corrected there, including a "Boston Stadium" that is Gillette in Foxborough, a "New York New Jersey Stadium" that is MetLife, Allegiant filed under Las Vegas when it sits in Paradise, and Allianz Arena's street, renamed for Franz Beckenbauer in May 2025.
   - **The other 43 are not imported and should not be.** They are street segments dressed as places ("Girod Street Starting Point", "the flagpole"), meeting-point restaurants, and visitor centres, several filed under the wrong city outright — a New Orleans neutral ground recorded as Anchorage, Griffith Park's ranger station as Inglewood. The source data stays in `atlas.jsonl` if that call is ever revisited.
 - **What separates it from plain "With AI":** that prompt sweeps a city for anything standable. This one starts from **established published tours** and keeps only what those tours actually stop at — a narrower, better-evidenced set, because somebody already decided the place was worth walking to and wrote it down.
-- It sends the focus city's existing waypoints **with their addresses** as anchors (`existingWaypointAnchors`), so new places cluster within a ten-minute walk of what we hold rather than scattering across the city. That is the one thing the shared `existingWaypointSample` can't support — it returns "Name — City", which is right for a do-not-duplicate list and useless for judging distance.
+- **The route is a LOOP, and the last stop must be within a five-minute walk of the first.** A walk that ends a mile from where it began is one people have to solve at the end of — they left a car, or came out of a station. Out-and-back is fine; the return leg should use a different street where the grid allows, since retracing identical pavement wastes the second half. This **replaced** an earlier "never send people back the way they came", which said the opposite.
+- **Start and end are marked by `walk_order` alone.** Position 1 is the start, the highest position is the end, both must be the commercial food-or-drink stops, and nothing is added to the name or description to say so — the description's only job is to be read aloud at the stop.
+- **All six stops must be distinct places**: not one building's two entrances, not "Union Station" and "the Union Station clock", and the last stop is *near* the first, never the same as it.
+- **Existing waypoints are a DO-NOT-REPEAT LIST and nothing else** (2026-08-07). They were briefly sent as *anchors* to route around; that was withdrawn because the catalog was accumulated from sources of uneven quality and is not trusted stop-by-stop. The prompt now says so explicitly — if the best six stops in a city sit nowhere near anything we hold, that is the correct answer. `existingWaypointAnchors` still supplies the addresses, which the shared `existingWaypointSample` can't — it returns "Name — City", which is right for a do-not-duplicate list and useless for judging distance.
+
+### TGB NFL Tour Builder — a fifth routine, and the only one that reads a page as its spec
+
+`trig_01P6fMZjt4ZapaKVoiCUfGxw`, cron `0 9,21 * * *` UTC — twice a day, **4 AM / 4 PM Central in summer, 3 AM / 3 PM in winter** (see the standing DST note). Added 2026-08-07.
+
+**It has no prompt of its own, by design.** Step 1 of its stored prompt is *open [mc/data/waypoints.html](mc/data/waypoints.html) and find `buildTourPlacesWaypointPrompt` — that function is the specification*. Proximity, the address rule, sports-and-music, the commercial start and end, the description voice, `WALK_ORDER_RULE`, the SQL shape: all of it is read fresh each run. The stored prompt only says how the routine **differs**, which is exactly two things — **six stops** instead of 8–12, and it picks its own city. Edit the page and the routine follows; that is the whole point, and it is why nothing here is worth duplicating into the trigger.
+
+- **The city is the FANBASE city, never the venue city** — `teams.fanbase`, so Boston not Foxborough, Buffalo not Orchard Park, Dallas not Arlington, Miami not Miami Gardens. Twelve of the 32 clubs differ, and the venue town is the wrong answer for all of them: nobody sells a walking tour of Orchard Park.
+- **It counts DISTINCT `tour_id` values, not waypoints, and skips a city at 3 or more.** A city with forty loose waypoints and no `tour_id` has *zero* tours and is a strong candidate — rows with a null `tour_id` are loose catalog entries and invisible to this rule. It picks the fanbase city with the fewest tours and re-rolls the shape if that city already has one of that shape. When every city has three, the run writes nothing and says so — a success, not a failure.
+- **It reads Supabase with the publishable key and writes nothing to it.** `tgb_import_waypoints_prompt_items` is SECURITY INVOKER and waypoint writes are `authenticated`-only, so the routine *cannot* insert even if it tried. Its deliverable is a committed `mc/supabase/tours/YYYY-MM-DD-<city>.sql` that a human runs — the same human-in-the-loop split as the waypoint scout, and the reason no new SECURITY DEFINER RPC was added for it.
+- **`waypoints` is anon-readable**, which the nightly-scout section of this file denies. That claim is stale: `select` returns all 228 rows with the publishable key, which is what lets this routine count live waypoints per city directly instead of inferring a rotation from git history.
 
 ### With AI (sports) — the one importer that appends instead of skipping
 
