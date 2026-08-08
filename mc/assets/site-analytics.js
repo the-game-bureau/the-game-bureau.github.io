@@ -37,11 +37,28 @@
   // Control, the Tape Room, the Stock Room, the socials admin — and our own
   // sessions in them would swamp real visitor numbers on a site this size.
   var path = String(window.location.pathname || '').toLowerCase();
-  // `account` is kept alongside `mc` only as a tripwire for an old bookmark:
-  // the account page moved to /mc/account/ on 2026-08-06 and is already covered
-  // by the /mc/ arm. A bare /account/ path should no longer resolve at all.
-  if (/^\/(mc|account)\//.test(path) || /\/admin\//.test(path)
-    || /^\/gifts\/giftcards/.test(path)) return;
+
+  // /mc/ IS NOT A SYNONYM FOR ADMIN ANY MORE. The 2026-08-06 consolidation moved
+  // four genuinely public pages under it — How It Works, the sampler, the survey
+  // and the account page — all of which still wear public chrome and are still
+  // linked from the public nav. A blanket /mc/ block silently refused to count
+  // them, so adding the beacon to those pages was a no-op that looked like it
+  // had worked. They are allowed back by name; anything else under /mc/ stays
+  // out, which is the safe direction for a list that has to be maintained by
+  // hand — a new admin room is excluded by default, a new public page under
+  // /mc/ merely goes uncounted until someone adds it here.
+  var PUBLIC_MC = /^\/mc\/(how|sampler|survey|account)(\/|$)/;
+
+  // `account` is matched bare as well, as a tripwire for an old bookmark: the
+  // account page moved to /mc/account/ on 2026-08-06 and a bare /account/ path
+  // should no longer resolve at all.
+  if (!PUBLIC_MC.test(path)) {
+    if (/^\/(mc|account)\//.test(path)) return;
+  }
+  // Admin lives under an /admin/ segment wherever it sits, and two admin pages
+  // predate that convention and are named individually.
+  if (/\/admin\//.test(path)
+    || /^\/gifts\/(giftcards|operations)/.test(path)) return;
 
   var beacon = document.createElement('script');
   // type="module" matches the snippet Cloudflare hands out, and beacon.min.js is

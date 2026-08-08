@@ -43,8 +43,12 @@
       items: [
         {
           href: '/games/admin/',
-          label: 'Game Admin',
-          description: 'Open the games room: profiles, builder, stops, and waypoint finder.'
+          // Renamed from "Game Admin" 2026-08-07, and /mc/builder.html gave up
+          // the name to make room: this is the ROOM you enter to build a game,
+          // and the builder is one tool inside it. The specific name belongs to
+          // the specific tool, so that one is Flow Builder now.
+          label: 'Game Builder',
+          description: 'The games room — profiles, the flow builder, stops, and the waypoint catalog.'
         },
         {
           href: '/games/admin/profiles.html',
@@ -54,7 +58,10 @@
         },
         {
           href: '/mc/builder.html',
-          label: 'Game Builder',
+          // Was "Game Builder" until 2026-08-07, which overstated it: this edits
+          // the conversation FLOW, not the game as a whole — the game's identity,
+          // pricing, teams and start point are next door in Game Profiles.
+          label: 'Flow Builder',
           description: 'Build the playable conversation flow: messages, prompts, replies, and branches.',
           appendOpenGameId: true
         },
@@ -96,12 +103,32 @@
       ]
     },
     {
-      label: 'Data & Research',
+      // NOT "Data & Research", which described the storage rather than the
+      // purpose. Every catalog in here is a PART a game gets assembled from: an
+      // anchor event to build around, waypoints that become its stops, the city
+      // it is played in, the club whose colors it wears. Naming them by what
+      // they are for is what tells you why Cities sits beside Anchor Events.
+      label: 'Game Elements',
       combined: true,
       items: [
         {
+          href: '/mc/data/events.html',
+          // Absorbed /mc/get_games.html ("Sports Games Research") and
+          // /mc/mlb.html ("MLB Generator") on 2026-08-07, both deleted. Both
+          // gathered real schedules the long way round and neither wrote
+          // anchor_events; the SCHEDULE button on this page reads the same ESPN
+          // feed in the browser and imports straight into the table.
+          label: 'Anchor Events',
+          description: 'Real matchups, concerts and conventions a game is built around — import a league schedule or add one by hand.'
+        },
+        {
           href: '/mc/data/waypoints.html',
-          label: 'Waypoint Finder',
+          // Absorbed /mc/places.html ("Game Places") on 2026-08-07, deleted.
+          // Its research was good and its DELIVERY was the problem: a JSONL file
+          // that needed a hand-written migration to reach this table. The same
+          // research is now the "With AI (tour places)" prompt here, returning
+          // the import SQL every other prompt on the page returns.
+          label: 'Waypoints',
           description: 'Manage the catalog of real-world points and review nightly scout candidates.'
         },
         {
@@ -110,34 +137,12 @@
           description: 'The one city catalog the whole site reads — add, edit, mark venue-only/archived, or delete.'
         },
         {
-          href: '/mc/data/events.html',
-          label: 'Anchor Events',
-          description: 'Manage the real sporting matchups a fandom game can be anchored to.'
-        },
-        {
-          href: '/mc/places.html',
-          label: 'Game Places',
-          description: 'Use the research assistant to gather reusable place ideas for game stops.'
-        },
-        {
-          href: '/mc/research.html',
-          label: 'Research Home',
-          description: 'Open research assistants and their supporting datasets.'
-        },
-        {
-          href: '/mc/get_games.html',
-          label: 'Sports Games Research',
-          description: 'Generate sports matchup records for fandom games.'
-        },
-        {
-          href: '/mc/get_teams.html',
-          label: 'Team Database',
-          description: 'Research and upsert sports team identity rows into Supabase.'
-        },
-        {
-          href: '/mc/mlb.html',
-          label: 'MLB Generator',
-          description: 'Generate MLB Fans Takeover games from schedule data and push selected rows.'
+          href: '/mc/data/teams.html',
+          // Was /mc/get_teams.html, the last "research assistant". Research Home
+          // sat above it and was deleted the same day: two cards, both already
+          // in this menu, on a page that had to be hand-edited to stay true.
+          label: 'Teams',
+          description: 'The pro teams a fandom game is built on — palettes, identity, and the AI refresh with a reviewed diff.'
         }
       ]
     },
@@ -159,19 +164,57 @@
       ]
     },
     {
-      label: 'Tools',
+      // Every item here leaves the site — Supabase, iCloud, Cloudflare, GitHub.
+      // "External" is the whole distinction: the other groups are rooms we
+      // built, this one is other people's dashboards we happen to need.
+      label: 'External Tools',
       combined: true,
       items: [
         {
+          href: 'https://www.icloud.com/notes/note/UHJpdmF0ZTo6Tm90ZXM6OmN1cnJlbnRVc2VyOjo4YTBhZTliYy1lNGQ5LTQxNTMtYTA0Zi03NjM2NWRhN2IwNjQ=',
+          // First on purpose, ahead of the dashboards. It is the only item here
+          // that is opened to WRITE rather than to look something up, and the
+          // one most likely to be wanted mid-thought.
+          label: 'Notes',
+          description: 'Open the shared working notes used alongside Mission Control.',
+          external: true
+        },
+        {
           href: 'https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/editor/17583?schema=public&sort=name%3Adesc',
-          label: 'Database',
+          label: 'Supabase',
           description: 'Open the Supabase table editor for the live games database.',
           external: true
         },
         {
-          href: 'https://www.icloud.com/notes/note/UHJpdmF0ZTo6Tm90ZXM6OmN1cnJlbnRVc2VyOjo4YTBhZTliYy1lNGQ5LTQxNTMtYTA0Zi03NjM2NWRhN2IwNjQ=',
-          label: 'Notes',
-          description: 'Open the shared working notes used alongside Mission Control.',
+          href: 'https://dashboard.stripe.com/',
+          // Beside Supabase because the two are one story: a purchase creates a
+          // Stripe session, the stripe-webhook function writes the gift_codes
+          // row, and a trigger folds the Stripe email onto the play. Chasing an
+          // order that did not arrive means both tabs.
+          label: 'Stripe',
+          description: 'Payments dashboard — checkout sessions, orders, refunds, and the webhook deliveries that issue access codes.',
+          external: true
+        },
+        {
+          href: 'https://resend.com/emails',
+          label: 'Resend',
+          description: 'Transactional email — every access-code and receipt message the shop sends, with its delivery log.',
+          external: true
+        },
+        {
+          href: 'https://console.anthropic.com/',
+          // The API key behind the anthropic-proxy and shop-coherence-check
+          // functions. NOT where the four bots live — those run on the Claude
+          // subscription and bill separately, which is the whole reason they
+          // exist as routines instead of as API calls.
+          label: 'Anthropic',
+          description: 'API console for the anthropic-proxy and the gift shop AI audit — usage, billing, and the API key.',
+          external: true
+        },
+        {
+          href: 'https://claude.ai/code/routines',
+          label: 'Claude Routines',
+          description: 'The four scheduled bots — gift shop, soundtracks, socials, waypoint scout. Edit their cron and prompts here.',
           external: true
         },
         {
@@ -181,8 +224,48 @@
           external: true
         },
         {
+          href: 'https://dash.cloudflare.com/?to=/:account/web-analytics',
+          // Its own entry rather than a note on Cloudflare above: the numbers
+          // cannot be shown on our own pages (that needs a secret API token,
+          // and every admin page here is public HTML), so this link IS the
+          // reporting surface.
+          label: 'Web Analytics',
+          description: 'Visitor counts for the public pages — the cookieless Cloudflare beacon in mc/assets/site-analytics.js.',
+          external: true
+        },
+        {
+          href: 'https://affiliate-program.amazon.com/home',
+          label: 'Amazon Associates',
+          description: 'Affiliate account behind the gift shop tag thegamebureau-20 — link checker, reports, and payouts.',
+          external: true
+        },
+        {
+          href: 'https://bookshop.org/affiliates',
+          label: 'Bookshop.org',
+          description: 'The other book affiliate, id 87073. Bookshop links are derived from the ISBN by tgb_pull_book_candidates.',
+          external: true
+        },
+        {
+          href: 'https://www.printful.com/dashboard',
+          // Dormant, not dead: stripe-webhook still creates Printful orders when
+          // PRINTFUL_API_KEY is set and returns quietly when it is not. Listed
+          // so the dashboard is one click away if print-on-demand comes back.
+          label: 'Printful',
+          description: 'Print-on-demand orders from the legacy gift-shop path in stripe-webhook. Dormant unless PRINTFUL_API_KEY is set.',
+          external: true
+        },
+        {
+          href: 'https://business.facebook.com/',
+          // The socials-post function is written and deployed against the Graph
+          // API, but autopost is still gated off — a human clicks Post in the
+          // socials room. This is here for the day that flips.
+          label: 'Meta Business',
+          description: 'Facebook and Instagram accounts for the socials-post function. Autopost is still off; posting is manual.',
+          external: true
+        },
+        {
           href: 'https://github.com/the-game-bureau/the-game-bureau.github.io',
-          label: 'GITHUB',
+          label: 'Github',
           description: 'Open the website repository for code, content, commits, and GitHub Pages publishing.',
           external: true
         }

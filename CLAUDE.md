@@ -14,7 +14,7 @@ The public page [soundtracks/index.html](soundtracks/index.html) renders city ca
 - The old per-city `cities` sound columns (`sound_playlist_id` / `sound_accent` / `sound_secondary`) were **dropped 2026-07-24**; soundtracks are handled separately now and cassette colors come from the CSS `nth-child` scheme. Don't re-add them.
 - **`archived` on a song is a do-not-rescrape tombstone**, not a delete: the row stays on its city so the same title+artist is never picked again there, while `/soundtracks/` hides it and active counts ignore it. A **unique index on `(city_slug, lower(title), lower(artist))`** is what enforces that — an INSERT of a retired song hits the index and does nothing. **The tombstone is scoped to the city, never to the song**: because `city_slug` leads that index, a track hidden on one tape can be added to another and stay active there, which is what makes the Tape Room's **Copy** work (it inserts with `archived = false`). Don't "fix" this by making the index global — a song can genuinely belong to two cities.
 - **A tape over 15 active tracks is trimmed by hiding the most recently added**, newest `created_at` first, until 15 remain — never by hiding an older track to keep a newer one, since the earlier fifteen are the considered set. The agent cannot hide, so it files an over-full tape as a `facts` issue naming the surplus and a human presses Hide.
-- The footer's soundtrack stat ([assets/site-footer.js](assets/site-footer.js)) counts `soundtrack_stats` rows with `active_songs > 0` via `Prefer: count=exact`, falling back to the JSON file.
+- The footer's soundtrack stat ([mc/assets/site-footer.js](mc/assets/site-footer.js)) counts `soundtrack_stats` rows with `active_songs > 0` via `Prefer: count=exact`, falling back to the JSON file.
 
 Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-playlists.json`, or CSV-driven build scripts under `soundtracks/`. To add a soundtrack, insert rows (and add the city to `public.cities` first — `city_slug` is a FK to `cities.slug`).
 
@@ -104,6 +104,16 @@ Walking-tour candidates are found each morning by a **scheduled Claude Code clou
 - Last-run status reads the **GitHub commits API** for `mc/stops/nightly.json`, same as the socials admin: a run that errored pushes nothing, so a stale timestamp is the failure signal.
 - The schedule sits at `:45` to keep it clear of the other three (`:00` gift shop, `:15` socials, `:30` soundtrack). Same DST caveat as the rest — the cloud cron is UTC, so it drifts an hour in winter.
 
+### With AI (tour places) — absorbed from the deleted Game Places page
+
+**`mc/places.html` ("Game Places") was deleted 2026-08-07** and its research is now the Waypoints page's **With AI (tour places)** prompt. The research was never the problem; **the delivery was**. Game Places was a `research.js` assistant, so its deliverable was a cousin JSONL file — its 456 places sat in `mc/data/places.jsonl` doing nothing until somebody hand-wrote [2026073102_places_walking_tour_waypoints.sql](mc/supabase/migrations/2026073102_places_walking_tour_waypoints.sql) to lift 406 of them into `public.waypoints`. Asking for the same research as an **import SQL block** — the shape every other prompt on the page already returns — removes the middle file and the hand-written migration with it.
+
+- **Nothing was left to migrate.** `places.jsonl` was deleted once 2026073102 landed, and the 406 rows are in `waypoints`. The 496 places still in `mc/data/atlas.jsonl` are the archived `content.html` map's store, not Game Places output: 436 duplicate the seeded rows, and the remaining 60 are **game start locations**, reverse-imported from `games.starting_location_*` and stamped "Imported from N game rows as a starting-location candidate."
+  - **17 of those 60 are real stadiums and were rescued** by [2026080703_stadium_waypoints_from_atlas.sql](mc/supabase/migrations/2026080703_stadium_waypoints_from_atlas.sql) — every field rewritten and verified, not copied, because the source rows carry a Nominatim reverse-geocode dump as the address, a description that says only that they were imported, and a `maps.google.com/?q=lat,lon` "source" that proves nothing. Nine facts were wrong and are corrected there, including a "Boston Stadium" that is Gillette in Foxborough, a "New York New Jersey Stadium" that is MetLife, Allegiant filed under Las Vegas when it sits in Paradise, and Allianz Arena's street, renamed for Franz Beckenbauer in May 2025.
+  - **The other 43 are not imported and should not be.** They are street segments dressed as places ("Girod Street Starting Point", "the flagpole"), meeting-point restaurants, and visitor centres, several filed under the wrong city outright — a New Orleans neutral ground recorded as Anchorage, Griffith Park's ranger station as Inglewood. The source data stays in `atlas.jsonl` if that call is ever revisited.
+- **What separates it from plain "With AI":** that prompt sweeps a city for anything standable. This one starts from **established published tours** and keeps only what those tours actually stop at — a narrower, better-evidenced set, because somebody already decided the place was worth walking to and wrote it down.
+- It sends the focus city's existing waypoints **with their addresses** as anchors (`existingWaypointAnchors`), so new places cluster within a ten-minute walk of what we hold rather than scattering across the city. That is the one thing the shared `existingWaypointSample` can't support — it returns "Name — City", which is right for a do-not-duplicate list and useless for judging distance.
+
 ### With AI (sports) — the one importer that appends instead of skipping
 
 [mc/data/waypoints.html](mc/data/waypoints.html) has a fourth AI pull, **With AI (sports)** (added 2026-07-31), and it inverts the rule the other three share. The other prompts start from a city and ask what is in it; this one starts from the football and asks where it happened, keeping the answer **only when the place sits in a city other than that team's home** — a Seahawk's wedding church in New York, a Cowboys lineman's childhood home in Ohio, a Packers coach's grave in Georgia. A Steelers marker in Pittsburgh is explicitly worthless to it. Those stops are invisible to any city-first sweep, because no walking-tour list in Nashville is organized by which NFL team the groom played for.
@@ -135,7 +145,7 @@ The canonical hierarchy finally has tables behind it, as of 2026-07-30 — [mc/s
 - **`public.challenges`** is the playable content: `name` (admin label), `prompt` (what the player reads), `answer`, and `kind` ∈ question | minigame | photo | freeform. **A challenge is reusable** — `challenge_id` is a plain FK with no unique constraint, so one challenge can sit at many stops and editing it changes all of them. Same bargain the waypoints catalog already makes.
 - **`challenge_id` is nullable on purpose.** A stop is worth recording as soon as you know where it is; forcing a challenge up front would mean inventing filler to save a route. The builder shows those as "needs a challenge".
 - **A unique index on `(game_id, waypoint_id)`** means one place appears at most once in a route. `maps` never enforced this and the mapper's delete-then-insert save hid it.
-- **The editor is [games/admin/stops.html](games/admin/stops.html)** ("Stop Builder"), moved out of `mc/stops/` on 2026-07-31 to sit with the other game tools; its other half, [mc/data/waypoints.html](mc/data/waypoints.html) ("Waypoint Finder"), moved out of `mc/stops/` the same day to sit with the other data catalogs, so the two link to each other across folders by absolute path. `mc/stops/` now holds only `nightly.json`, which the scout routine still commits at that path — the Waypoint Finder reads it as `/mc/stops/nightly.json`. The old route builder `mc/mapper.html` was archived on 2026-07-30.
+- **The editor is [games/admin/stops.html](games/admin/stops.html)** ("Stop Builder"), moved out of `mc/stops/` on 2026-07-31 to sit with the other game tools; its other half, [mc/data/waypoints.html](mc/data/waypoints.html) ("**Waypoints**" — called "Waypoint Finder" until 2026-08-07), moved out of `mc/stops/` the same day to sit with the other data catalogs, so the two link to each other across folders by absolute path. `mc/stops/` now holds only `nightly.json`, which the scout routine still commits at that path — the Waypoints page reads it as `/mc/stops/nightly.json`. The old route builder `mc/mapper.html` was archived on 2026-07-30.
 - **`games/admin/profiles.html` and `mc/builder.html` read `stops` now** (`select=waypoint_id,ord,end`, unchanged — those columns carried over) and remain **read-only on the route**: they synthesize one stop node per waypoint and never write it. The engines never read `maps` and don't read `stops` either.
 
 ---
@@ -152,6 +162,26 @@ The canonical hierarchy finally has tables behind it, as of 2026-07-30 — [mc/s
 - **`neutral_site` is a stored flag, never inferred from the city columns.** True means neither club is at home — the international series, a Super Bowl, a bowl game, a relocated game — so the host city has no home team in it and both fanbases travel. It is expected to spawn **two** games eventually, one per travelling fanbase; nothing reads it that way yet. **Don't replace it with a comparison of `home_locale` to `city`**: an ordinary home game is routinely played in a differently-named suburb (Bills → Orchard Park, Giants → East Rutherford, Cowboys → Arlington), so that comparison would call a third of the league neutral. An international game keeps its league-assigned nominal home club in `home_locale`/`home_mascot` *and* carries the flag — both are true at once.
 - **`start_time` is venue-local**, per the column's own comment — the time a player standing outside the stadium sees. Leagues publish in Eastern, so a seed has to convert; the NFL Week 1 seed ([2026080102](mc/supabase/migrations/2026080102_nfl_2026_week1_anchor_events.sql), 16 games) keeps the ET broadcast time in `description` so the two stay reconcilable, and its Melbourne game deliberately carries a date one day later than the US listing.
 - `id` is a **client-supplied text primary key** (`NFL-2026-W1-CAR-CHI`), not generated. The events page only lets you type it on a row that has never been saved — changing it later would orphan every game pointing at it.
+
+### SCHEDULE — the league importer, and the two pages it replaced
+
+The events page's **SCHEDULE** button reads a real league schedule straight from **ESPN's public scoreboard feed** (`site.api.espn.com/apis/site/v2/sports/{path}/scoreboard?dates=YYYYMMDD-YYYYMMDD`) and imports the games you tick into `anchor_events`. The feed answers a whole date range in one request and sends `Access-Control-Allow-Origin: *`, so **the browser reads it directly** — no key, no Edge Function, no build step, and nothing scheduled.
+
+**It absorbed `mc/get_games.html` and `mc/mlb.html`, both deleted 2026-08-07.** All three pages had the same agenda — get real-world matchups into the building — and the two older ones each did it the long way round while **writing the wrong table**:
+
+- `mc/mlb.html` ("MLB Game Generator") needed `node mc/_dev/scripts/mlb_matchup_maker.js` to write a 22 MB `mc/data/mlb.jsonl`, which you then uploaded back into the page by hand, and it POSTed **`public.games`** — finished TGB products, nodes and links and all — not the events those products are anchored to.
+- `mc/get_games.html` ("Sports Games Research") asked a chat AI to *recall* schedules into a cousin `mc/data/get_games.jsonl` that **never existed on disk**, and nothing imported it anywhere.
+
+Two things carried over rather than being rebuilt: mlb.html's **preview → filter → tick → bulk-import** flow with its progress bar and per-row error report, and get_games.html's **league + date-range scoping**, which is now a Scope row in the AI prompt dialog. That prompt is still the right tool for concerts, conventions, festivals and expos — no schedule feed carries those — and the dialog says so.
+
+- **`neutralSite` is published per game in the feed**, which settles the field the AI prompt spends its longest passage on: an international or championship fixture arrives already flagged, and an ordinary home game in a suburb stadium arrives `false`. This is the single strongest reason to prefer SCHEDULE over the prompt for the big four leagues.
+- **`start_time` is venue-local**, so the UTC timestamp has to be zoned. The zone comes from a **state/province → IANA map** in the page, not from a per-venue table: every major-league venue in a split-zone state sits in the zone named there (Nashville and Memphis Central, every Florida and Indiana venue Eastern, every Texas venue Central). The per-venue tables in `mc/_dev/scripts/*matchup-maker.js` are more precise and need re-editing whenever a stadium is renamed; this map only changes if a state does. **An unresolved venue leaves `start_time` null and badges the row** — a blank time is obviously missing, a plausible wrong one is not.
+- The feed applies its date range to **UTC** timestamps, so a late Sunday game comes back dated Monday. The importer re-filters on the **venue-local** date, which is the one stored.
+- ESPN's venue `state` is inconsistent (`PA` on one row, `Pennsylvania` on the next) and international rows carry a country name instead — and not the sovereign one, e.g. `England`. Both go through `TgbGeo` so `city` lands on the canonical `public.cities` string; a city the catalog does not know is imported anyway and **badged "new city"** rather than corrected.
+- Ids follow the catalog's shape — `LEAGUE-YEAR-Wweek-HOME-AWAY` where the feed reports a week, the date in its place where it does not (a baseball season has no weeks and two clubs meet three nights running). A doubleheader that collides gets a `-2` suffix rather than being dropped.
+- Insert is chunked with `Prefer: resolution=ignore-duplicates`; **a chunk that errors is retried one row at a time**, because the useful answer is which row the database refused. Rows already in the catalog are shown, dimmed and unticked, rather than filtered out — seeing that a week is already filed is the answer to "did I import this yet".
+
+**Left in place deliberately:** `mc/_dev/scripts/mlb_matchup_maker.js`, `nfl-schedule-2026-matchup-maker.js` and the venue backfills still generate `public.games` rows, which is a different pipeline. `mc/data/mlb.jsonl` (22 MB, generated) now has no reader but those scripts.
 
 ---
 
@@ -170,7 +200,7 @@ Playthroughs are recorded for stats. A **team leader** (the buyer/leader — we 
 
 ## Visitor analytics
 
-[assets/site-analytics.js](assets/site-analytics.js) is the only analytics on the
+[mc/assets/site-analytics.js](mc/assets/site-analytics.js) is the only analytics on the
 site (added 2026-07-30, first used on [soundtracks/index.html](soundtracks/index.html)). It
 injects the **Cloudflare Web Analytics** beacon: free at any volume, cookieless
 with no per-visitor identifier — so **no consent banner and nothing to disclose in
@@ -178,15 +208,43 @@ a privacy policy** — and a single tag that works on plain GitHub Pages with no
 build step and without proxying the domain through Cloudflare.
 
 - **The token lives in exactly one place**, the `TOKEN` constant at the top of
-  that file. With it empty the script loads and does nothing, so the file is safe
-  to ship before the Cloudflare site exists. Get it from dash.cloudflare.com →
+  that file, and it **is filled in** — the Cloudflare site exists and the beacon
+  is really reporting. With it empty the script loads and does nothing, so the
+  file was safe to ship before that was true. Get it from dash.cloudflare.com →
   Analytics & Logs → Web Analytics → Add a site.
 - **To cover another public page, add the one `<script>` line.** Don't inline the
-  beacon or the token anywhere else.
-- **It refuses admin surfaces itself** — anything under `/mc/`, `/account/`, any
-  `/admin/` path, and `gifts/giftcards.html` — plus localhost and LAN hosts. Our
-  own sessions would swamp real visitor numbers on a site this size, and a guard
-  in the script is more reliable than remembering which pages to leave it off.
+  beacon or the token anywhere else. As of 2026-08-07 it is on **all thirteen**
+  public pages — `/games/`, `/games/pixel/`, `/gifts/`, `/gifts/aboutshop.html`,
+  `/highlights/` (and its two unlinked variants), `/soundtracks/`, `/privacy/`,
+  `/mc/how/`, `/mc/sampler/`, `/mc/survey/` and `/mc/account/`. For its first
+  week it was on `/soundtracks/` alone, so **any figures from before 2026-08-07
+  cover one page**, not the site.
+- **The paid game runtime is excluded, and that is a decision rather than an
+  oversight.** `/mc/game/run/` — the URL a buyer's email points at — plus both
+  engines, `help.html`, `navigator.html`, `scan/`, `teams/` and `/mc/minigames/`
+  are all left out. A play is already recorded in `game_instances` /
+  `game_responses` / `game_events` at far better fidelity than a page-view
+  beacon gives, and folding it into visitor numbers would inflate "traffic" with
+  people who have already bought. They sit under `/mc/` and are not in
+  `PUBLIC_MC`, so the guard blocks them even if someone adds the tag by mistake.
+- **The root `index.html` is deliberately NOT one of them.** It is a bare iframe
+  wrapper around `/games/`, so the beacon on the inner page already fires on
+  every visit to the domain; tagging the wrapper too would count one visitor
+  twice. Anything that becomes a real page rather than a frame needs the line.
+- **It refuses admin surfaces itself** — any `/admin/` path, `gifts/giftcards.html`,
+  `gifts/operations.html`, a bare `/account/`, and everything under `/mc/`
+  *except* the four public pages named in `PUBLIC_MC` — plus localhost and LAN
+  hosts. Our own sessions would swamp real visitor numbers on a site this size,
+  and a guard in the script is more reliable than remembering which pages to
+  leave it off.
+  - **`/mc/` stopped meaning "admin" on 2026-08-06** and the guard did not
+    notice until 2026-08-07. The consolidation moved How It Works, the sampler,
+    the survey and the account page under `mc/`, all still public and still in
+    the public nav, and the blanket `/^\/(mc|account)\//` test silently refused
+    to count them — so adding the beacon to those pages was a no-op that looked
+    like it had worked. `PUBLIC_MC` allows exactly those four back. **Keep the
+    allowlist positive**: a new admin room is then excluded by default, and the
+    worst a forgotten public page costs is that it goes uncounted.
 - **It measures traffic, not listening.** It cannot say which cassette anyone
   played; that needs our own append-only event table, which deliberately does not
   exist yet. Don't try to squeeze play counts out of a page-view tool.
@@ -228,7 +286,7 @@ The repo root used to hold the back end beside the public site. On 2026-08-06 it
 
 `win/` was **deleted** rather than moved. It was a redirect stub whose only job was catching old `/win/` links and forwarding to `/highlights/ww.html`; moved under `mc/` it would have caught nothing, since nobody holds a `/mc/win/` link. Nothing in the repo linked to it.
 
-**Four folders stayed at the root and are not candidates for a later move:** `assets/`, `games/`, `gifts/`, `highlights/`, `soundtracks/` and `index.html`. `assets/` in particular looks movable and is not — see the warning below.
+**Four folders stayed at the root and are not candidates for a later move:** `games/`, `gifts/`, `highlights/`, `soundtracks/` and `index.html`. **`assets/` is NOT among them** — it moved to `mc/assets/` with everything else, and there is no `assets/` directory at the repo root at all. This line used to claim the opposite, which is why every `assets/…` path elsewhere in this file was wrong; corrected 2026-08-07.
 
 > **`assets/` moved, and stored database URLs are handled by a shim rather than a migration.** Hundreds of `public.games` rows hold absolute asset URLs in two legacy shapes — `thegamebureau.com/assets/guides/<id>.png` (`guide_image_url`) and `thegamebureau.com/site/assets/games/<file>` (`logo_url`, dead since the repo was flattened out of the old `site/` layout). Fixing them properly is an `UPDATE` needing a service-role key, which is not available, so [mc/assets/legacy-asset-url.js](mc/assets/legacy-asset-url.js) rewrites both shapes onto `/mc/assets/` at read time instead. It is loaded by the landing page and both engines, and applied at two chokepoints: the stored `guide_image_url`, and `resolveAssetUrl()` which covers logos. **It deliberately ignores any other host**, so a guide image uploaded through the editor — stored as a Supabase Storage URL — is never touched. Run the `UPDATE` when a key exists and the shim becomes dead code; it is harmless to leave. Worth knowing: only five files exist in `mc/assets/guides/`, so 372 of the 395 guide URLs were already 404 before the move.
 
@@ -237,7 +295,7 @@ The repo root used to hold the back end beside the public site. On 2026-08-06 it
 - **`/game/run/?id=…` is now `/mc/game/run/?id=…`.** That URL is the paid product: it is what a buyer receives by email and what a gift code points at. **Every link issued before 2026-08-06 is permanently dead**, and anyone holding one needs a reissue. The two Edge Functions that mint it — [gs-send-code](mc/supabase/functions/gs-send-code/index.ts) and [stripe-webhook](mc/supabase/functions/stripe-webhook/index.ts), both building `siteOrigin() + '/mc/game/run/'` — **must be redeployed for new purchases to send a working link**: `cd mc && supabase functions deploy gs-send-code stripe-webhook`. Until that deploy lands, every new order emails a 404.
 - `/account/` is now `/mc/account/`.
 
-**Every reference that escapes a folder is now root-absolute, deliberately.** The engines used to reach the shared front-end with `/mc/assets/…`, which silently resolves to a different place at a different depth — exactly the failure a move like this causes. They are `/assets/…` now, so `mc/game/` can be moved again without touching a single one. Write new cross-folder links the same way; never `../`.
+**Every reference that escapes a folder is now root-absolute, deliberately.** The engines used to reach the shared front-end with `../assets/…`, which silently resolves to a different place at a different depth — exactly the failure a move like this causes. They are **`/mc/assets/…`** now, so `mc/game/` can be moved again without touching a single one. Write new cross-folder links the same way; never `../`. (This paragraph said `/assets/…` until 2026-08-07, which was the pre-move path and no longer resolves.)
 
 Deleted the same day, all scratch: `.tmp/`, `.tmp_auth_checks/`, `.tmp_auth_checks2/`, `.codex-artifacts/`, `.dev/`. The one piece of real work inside them, the `render-soundtracks-video.ps1` explainer renderer, was kept at [mc/_dev/scripts/render-soundtracks-video.ps1](mc/_dev/scripts/render-soundtracks-video.ps1).
 
@@ -307,11 +365,50 @@ Use **"site pages"** to mean the public-site pages that share the same navigatio
 - every file matched by `highlights/**/*.html`
 - every file matched by `mc/sampler/**/*.html`
 - every file matched by `mc/survey/**/*.html`
-- every file matched by `assets/**/*.html`
+- every file matched by `mc/assets/**/*.html`
 
-This grouping is the public website surface for shared chrome work such as navigation, shared public CSS, metadata, and broad visual consistency. If a future task says "update the site pages nav," apply it to [index.html](index.html), `/mc/account/**/*.html`, `/birthdayball/**/*.html`, `/mc/how/**/*.html`, `/ww/**/*.html`, `/gifts/index.html`, `/highlights/**/*.html`, `/mc/sampler/**/*.html`, `/mc/survey/**/*.html`, and `/assets/**/*.html` pages together. The site pages nav centers the primary `GAMES` and `GIFTS` links and keeps How It Works and Winner's Wall as utility links. The `GIFTS` nav link points at `/gifts/`, which is where the shop lives again as of 2026-07-30; `/shop/` was removed the same way `/gifts/` had been on 2026-06-26 — hard break, no redirect. As of 2026-05-27 the public nav has no visible Login / Mission Control entry — admins reach `/mc/*` by typing the URL directly. The three admin scripts (`/mc/js/admin-auth.js`, `/assets/admin-bridge.js`, `/assets/site-nav-login.js`) are still included on public pages so an admin who is already signed in still sees the floating EDIT buttons painted by `admin-bridge.js`; only the visible Login UI was stripped. The shared site pages CSS lives at [assets/site-pages.css](assets/site-pages.css).
+This grouping is the public website surface for shared chrome work such as navigation, shared public CSS, metadata, and broad visual consistency. If a future task says "update the site pages nav," apply it to [index.html](index.html), `/mc/account/**/*.html`, `/birthdayball/**/*.html`, `/mc/how/**/*.html`, `/ww/**/*.html`, `/gifts/index.html`, `/highlights/**/*.html`, `/mc/sampler/**/*.html`, `/mc/survey/**/*.html`, and `/mc/assets/**/*.html` pages together. The site pages nav centers the primary `GAMES` and `GIFTS` links and keeps How It Works and Winner's Wall as utility links. The `GIFTS` nav link points at `/gifts/`, which is where the shop lives again as of 2026-07-30; `/shop/` was removed the same way `/gifts/` had been on 2026-06-26 — hard break, no redirect. As of 2026-05-27 the public nav has no visible Login / Mission Control entry — admins reach `/mc/*` by typing the URL directly. The three admin scripts (`/mc/js/admin-auth.js`, `/mc/assets/admin-bridge.js`, `/mc/assets/site-nav-login.js`) are still included on public pages so an admin who is already signed in still sees the floating EDIT buttons painted by `admin-bridge.js`; only the visible Login UI was stripped. The shared site pages CSS lives at [mc/assets/site-pages.css](mc/assets/site-pages.css).
 
 ---
+
+## The "research assistant" pattern is gone (2026-08-07)
+
+`mc/research.html`, `mc/get_games.html`, `mc/mlb.html`, `mc/places.html`, `mc/get_teams.html`, `mc/js/research.js`, `mc/research.css`, `mc/js/research-nav.js` and `mc/README.md` were **all deleted on 2026-08-07**. Don't rebuild any of it.
+
+**What the pattern was, and why every instance of it failed the same way.** A research page paired a baked-in AI prompt with a **cousin `.jsonl` file** of the same basename in `mc/data/`: you copied the prompt, ran it in a chat AI, and saved the reply beside the page. The file was the deliverable — and the file was the problem, because nothing consumed it.
+
+| page | its file | how it actually ended |
+|---|---|---|
+| `get_games.html` | `get_games.jsonl` | **The file never existed on disk.** Every run's output went nowhere. |
+| `mlb.html` | `mlb.jsonl` (22 MB) | Written by a Node script, uploaded by hand, and it POSTed `public.games` — finished products, not the events they anchor to. |
+| `places.html` | `places.jsonl` | 456 real places sat there until someone hand-wrote a migration to lift 406 into `waypoints`. |
+| `get_teams.html` | *(none)* | The only one that already wrote to Supabase — so it was never really a research page at all. |
+
+**Every replacement writes to the database directly**, which is the whole lesson: [mc/data/events.html](mc/data/events.html) reads the ESPN feed in-browser and imports into `anchor_events`; [mc/data/waypoints.html](mc/data/waypoints.html) returns import SQL from its prompts; [mc/data/teams.html](mc/data/teams.html) upserts `public.teams`. **A prompt whose output is a file is a prompt whose output is lost.**
+
+`mc/research.html` went with them. It was a hand-maintained grid of cards pointing at pages the nav menu already listed, and it had shrunk to two entries — one of which was a link to `events.html`, not a research page.
+
+### mc/data/teams.html — what had to be rebuilt
+
+`get_teams.html` was a 135-line shell; its behaviour lived in `research.js` and had to be ported, not just relinked.
+
+- **`team_key` is a GENERATED column** (`league || ':' || code`), so it is never written — and that is exactly why it is the safe upsert target. Upserting on it means a **conference change updates the team in place** instead of colliding on the `(league, conference, code)` primary key. The page sends `on_conflict=team_key` with `Prefer: resolution=merge-duplicates`.
+- **`league`, `code` and `tgbid` are permanent** and render disabled on a saved row. `games` foreign-keys `team_key`; `anchor_events` and the builder point at `tgbid`. The paste path strips all three from an incoming row however insistently the AI restates them.
+- **There is no Delete button.** `public.games` foreign-keys `teams.team_key`, so a delete either fails or orphans a game. A club that folds is edited, never removed — the same reason the prompt is forbidden to drop a row.
+- **PASTE + REVIEW is the load-bearing feature**, carried over from `research.js`'s merge dialog. The prompt asks for the **complete table**, so one dropped line or one hallucinated hex would land on 124 live rows that paint live games. Nothing is written until a row-by-row diff has been rendered — new / changed-with-before→after / missing-from-the-reply — and **editing the textarea invalidates the review**, so Save can never commit a diff nobody read. Teams missing from a reply are reported and then left alone; nothing is ever deleted.
+- The parser takes what an AI actually returns: JSONL, a JSON array, a ```` ```json ```` fence, or lines with trailing commas.
+- Blank text fields save as `''`, not `null` — the columns are `NOT NULL DEFAULT ''`.
+- Colors are a hex text box plus a native picker. **The text box stays authoritative**: a picker cannot express "no fourth color", and letting it write on load would silently turn `''` into `#000000` on the next save.
+- **`text_color` is stored but is NOT the palette's font color.** `teamPalette()` ignores it and derives readable black/white from `shell`; the field label says so. See the fandom-palette section below.
+
+## Two builders, and which name means which (2026-08-07)
+
+**`/games/admin/` is "Game Builder". `/mc/builder.html` is "Flow Builder".** Both pages titled themselves GAME BUILDER until 2026-08-07, and the nav menu carried the name twice pointing at different places.
+
+- **Game Builder** = the ROOM you enter to build a game. It links out to Game Profiles, the flow builder, Game Stops and the waypoint catalog.
+- **Flow Builder** = the one tool that edits the playable **conversation flow** — messages, prompts, replies, branches. It never owned the game's identity, pricing, teams or start point; those are next door in [games/admin/profiles.html](games/admin/profiles.html). Calling it "Game Builder" overstated it, so the specific name went to the specific tool.
+
+Its filename is still `mc/builder.html` and its CSS class is still `.builder-admin-title` — **only the visible copy was renamed**, the same bargain the Tape Room made when HIDE replaced ARCHIVE in the UI while the column kept its name. Don't rename the file; a lot of stored links and `?id=` handoffs point at it.
 
 ## Canonical game hierarchy
 
@@ -393,7 +490,7 @@ Fallback: if `team_color` is missing or not one of the five, the older `team1..t
 
 ## Anchor (fandom) game brand palette ← away team
 
-For anchor/fandom games the brand palette is **derived from the away team** (the fan's team), not stored on the game — `serializeGameRow` skips writing `primary_color`/`secondary_color`/`tertiary_color`/`quaternary_color` for fandom games, so the **single source of truth is `teamPalette()` in [assets/team-palette.js](assets/team-palette.js)**, applied both in the builder preview ([games/admin/profiles.html](games/admin/profiles.html) `bindTeamSelect` / `resolveGamePalette`) and in the live engines via `resolveGamePalette(teams, game, 'away').palette`.
+For anchor/fandom games the brand palette is **derived from the away team** (the fan's team), not stored on the game — `serializeGameRow` skips writing `primary_color`/`secondary_color`/`tertiary_color`/`quaternary_color` for fandom games, so the **single source of truth is `teamPalette()` in [mc/assets/team-palette.js](mc/assets/team-palette.js)**, applied both in the builder preview ([games/admin/profiles.html](games/admin/profiles.html) `bindTeamSelect` / `resolveGamePalette`) and in the live engines via `resolveGamePalette(teams, game, 'away').palette`.
 
 The mapping from a team row:
 
@@ -414,7 +511,7 @@ The mapping from a team row:
 
 The country badge that appears on the public games page (in the hero meta list and on game-card icons) **must always render as a true ellipse** — the white "GBR / FRA / USA" car decal style. It is not a styling choice; it's a brand invariant.
 
-**Where:** `.hero-meta-list-geo--country` in [assets/site-shell.css](assets/site-shell.css). The rule uses `!important` on `width`, `height`, `border-radius`, `background`, `color`, `border`, `font-family`, and `box-shadow` precisely because a `body.home-page .hero-meta-list-geo` rule later in the same stylesheet would otherwise win on specificity and turn the oval into a rounded square. There's a larger `.game-card-icons .hero-meta-list-geo--country` variant that also uses `!important` to override the base width/height while keeping the 1.67:1 ratio.
+**Where:** `.hero-meta-list-geo--country` in [mc/assets/site-shell.css](mc/assets/site-shell.css). The rule uses `!important` on `width`, `height`, `border-radius`, `background`, `color`, `border`, `font-family`, and `box-shadow` precisely because a `body.home-page .hero-meta-list-geo` rule later in the same stylesheet would otherwise win on specificity and turn the oval into a rounded square. There's a larger `.game-card-icons .hero-meta-list-geo--country` variant that also uses `!important` to override the base width/height while keeping the 1.67:1 ratio.
 
 **Why:** A regression on 2026-05-27 silently turned the country labels into rounded squares because of a page-level skin rule. The `!important`s are the contract that the oval survives any future page-level overrides.
 
@@ -445,21 +542,21 @@ There is exactly **one** city table for the whole site: `public.cities`, keyed b
   - Shown **grey** (`.tgb-city-ignored`) in admin pickers and filters, where grey now means "hidden from at least one surface" — the checkboxes on the row in [mc/data/cities.html](mc/data/cities.html) say which.
   - The older `archived` "hide everywhere" flag was retired 2026-07-24 — [mc/supabase/migrations/2026072402_drop_cities_archived.sql](mc/supabase/migrations/2026072402_drop_cities_archived.sql). To remove a city now, delete it or set the hide flags.
 - **A filter alone is not enough.** `/gifts/` filters the catalog *and then* back-fills cities found on gift-shop games; that back-fill has to re-check the flag or a hidden town walks straight back into the rail (fixed 2026-07-28). If you add another path that derives cities from a non-catalog source, re-apply the check there.
-- **Every city control goes through [assets/city-picker.js](assets/city-picker.js)** (`window.TgbCities`) — Start City in `games/admin/profiles.html`, and the venue City in [mc/data/events.html](mc/data/events.html). (`mc/anchor-events.html` used it before it was deleted on 2026-08-01; `mc/mapper.html` and `mc/content.html` before they were archived on 2026-07-30.) It fills the control from the catalog and hangs a **+** beside it that adds a city without leaving the page. `attach(el, { includeIgnored: true })` for admin surfaces; omit the flag where only real destinations belong.
+- **Every city control goes through [mc/assets/city-picker.js](mc/assets/city-picker.js)** (`window.TgbCities`) — Start City in `games/admin/profiles.html`, and the venue City in [mc/data/events.html](mc/data/events.html). (`mc/anchor-events.html` used it before it was deleted on 2026-08-01; `mc/mapper.html` and `mc/content.html` before they were archived on 2026-07-30.) It fills the control from the catalog and hangs a **+** beside it that adds a city without leaving the page. `attach(el, { includeIgnored: true })` for admin surfaces; omit the flag where only real destinations belong.
   - **`attach()` is for a control that outlives a render.** It pushes a controller onto a module-level array and never releases it, so a page that rebuilds a list of rows on every keystroke must not call it per row — `mc/data/events.html` binds one shared `<datalist>` from `TgbCities.all()` instead and puts the **+ city** button in its command bar. Use `attach()` on a form; use the catalog directly on a list.
 - **Queries use `select=*`, never a column list naming a hide flag.** PostgREST 400s on an unknown column, so an explicit list breaks any database that hasn't run the migration yet; readers treat a missing column as `false` and fall back to `ignored`.
 - **Never send `slug` from a client.** It stays the NOT NULL primary key; the trigger fills it, which works because row triggers run before constraint checks.
 
 ---
 
-## Structured city / state / country model (`assets/geo.js`)
+## Structured city / state / country model (`mc/assets/geo.js`)
 
 Geography is stored two ways at once, and they must stay consistent:
 
 1. **The canonical string** — `games.city`, `cities.city` (unique), `gift_shop_listings.city`, `teams.game_city` — remains the display/key value and the `/gifts/?city=` URL contract. Standard form: US → `"City, FullStateName"`, DC → `"City, D.C."`, non-US → `"City, CountryName"` (e.g. `"Paris, France"`). Teams keep their legacy `"City, ST"` strings.
 2. **Structured columns** (added 2026-07-11, all nullable text) on `games`, `cities`, `teams`: `city_name`, `state_code` (2-letter — **drives the map icons**), `state_name`, `country_code` (alpha-3 — drives the country oval), `country_name`.
 
-**Logic lives in [assets/geo.js](assets/geo.js)** (`window.TgbGeo`). It replaces the old copy-pasted `US_STATES`/`COUNTRY_CODES` maps and `canonicalShopCity()`/`cityGeoBadge()`. API: `parseGeo(str)`, `composeGeo(parts)`, `canonicalCity(str)`, `geoBadge(rowOrStr)`, `usStateOptions()/provinceOptions()/countryOptions()`, plus the country-catalog hooks below. Its **SQL twin** is `tgb_parse_geo` / `tgb_compose_geo` / `tgb_canonical_gift_shop_city` — **keep JS and SQL in lock-step** (same parse cases: `Denver, CO`→`CO/Colorado/USA`, `Paris, France`→`FRA`, `Toronto, ON`→`ON/Ontario/CAN`). US states and CA provinces are still hardcoded in both (governmental, stable, and they drive the map icons synchronously).
+**Logic lives in [mc/assets/geo.js](mc/assets/geo.js)** (`window.TgbGeo`). It replaces the old copy-pasted `US_STATES`/`COUNTRY_CODES` maps and `canonicalShopCity()`/`cityGeoBadge()`. API: `parseGeo(str)`, `composeGeo(parts)`, `canonicalCity(str)`, `geoBadge(rowOrStr)`, `usStateOptions()/provinceOptions()/countryOptions()`, plus the country-catalog hooks below. Its **SQL twin** is `tgb_parse_geo` / `tgb_compose_geo` / `tgb_canonical_gift_shop_city` — **keep JS and SQL in lock-step** (same parse cases: `Denver, CO`→`CO/Colorado/USA`, `Paris, France`→`FRA`, `Toronto, ON`→`ON/Ontario/CAN`). US states and CA provinces are still hardcoded in both (governmental, stable, and they drive the map icons synchronously).
 
 **Countries are NOT hardcoded — the single source of truth is the `public.countries` table** (`code` alpha-3 PK, `name`, `aliases text[]`), created + seeded by [mc/supabase/migrations/2026072304_countries_catalog.sql](mc/supabase/migrations/2026072304_countries_catalog.sql). **Add a country by inserting ONE row there** — do not re-add a country map to `geo.js` or the SQL functions.
   - `geo.js` **fetches `countries` at runtime** and fills its two live country maps (`COUNTRY_CODE_TO_NAME` / `COUNTRY_NAME_TO_CODE`, mutated in place so captured refs stay fresh). It caches the last fetch in `localStorage['tgb_countries_v1']` and replays it synchronously on load so the public country oval never blanks; the network copy refreshes in the background. **Admin surfaces that build a country dropdown must `await TgbGeo.countriesReady`** before filling (data/cities, games/admin/profile, gifts/admin add-city, the city-picker add dialog all do). Before the migration is applied, `geo.js` falls back to the distinct countries in `public.cities` (no aliases) so nothing goes blank in the deploy window.
@@ -471,7 +568,7 @@ Geography is stored two ways at once, and they must stay consistent:
 - **Icons** (`cityGeoBadge` in [games/index.html](games/index.html) + [gifts/index.html](gifts/index.html)) delegate to `TgbGeo.geoBadge`, which resolves 2-letter codes / provinces / countries the old name-only map couldn't. New `games` columns are probed by `serializeGameRow` (auto-disabled if the migration isn't applied yet), so the writer degrades gracefully.
 - The migration is **additive**: it normalizes existing **US** `games.city` strings to full-name form but never rewrites city keys or `/gifts/?city=` links.
 
-**How to apply:** add new geo fields via `TgbGeo` — never re-introduce a local state map, and never re-introduce a country map (insert a `public.countries` row instead). When adding a `games` meta field, follow the `initGameMeta` snake_case ?? camelCase ?? node fallback rule. If you change the **state/province** maps, update both `assets/geo.js` and the SQL twin.
+**How to apply:** add new geo fields via `TgbGeo` — never re-introduce a local state map, and never re-introduce a country map (insert a `public.countries` row instead). When adding a `games` meta field, follow the `initGameMeta` snake_case ?? camelCase ?? node fallback rule. If you change the **state/province** maps, update both `mc/assets/geo.js` and the SQL twin.
 
 ---
 

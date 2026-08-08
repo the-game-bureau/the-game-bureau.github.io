@@ -970,12 +970,12 @@
       <div class="stockroom-head-lockup">
         <div class="stockroom-titlecol">
           <span class="stockroom-eyebrow">THE GAME BUREAU</span>
-          <h1 class="stockroom-title" id="pageTitle">WAYPOINT FINDER</h1>
+          <h1 class="stockroom-title" id="pageTitle">WAYPOINTS</h1>
           <p class="status stockroom-substat" id="pageStatus" aria-live="polite"></p>
         </div>
       </div>
       <div class="stockroom-head-status">
-        <button class="btn" type="button" disabled aria-current="page" title="You are in Waypoint Finder">Waypoint Finder</button>
+        <button class="btn" type="button" disabled aria-current="page" title="You are in Waypoints">Waypoints</button>
         <a class="btn" href="/games/admin/stops.html" title="Build stops: a game + a waypoint + a challenge">Stop Builder</a>
       </div>
     </div>
@@ -997,6 +997,7 @@
       <button class="btn small" id="newBtn" type="button" title="Add one waypoint by hand in a pop-up form">Manual</button>
       <button class="btn small primary" id="promptBtn" type="button" title="Find stops for a city — pull them live from OpenStreetMap, or get an AI prompt that returns Supabase SQL">With AI</button>
       <button class="btn small" id="sportsPromptBtn" type="button" title="AI prompt for football-history places that sit OUTSIDE the team's own city — a player's hometown, a coach's grave, the church where he married">With AI (sports)</button>
+      <button class="btn small" id="tourPlacesPromptBtn" type="button" title="AI prompt for the places published walking tours already stop at — was the Game Places research page">With AI (tour places)</button>
       <button class="btn small" id="oldBarsPromptBtn" type="button" title="AI prompt for the oldest continuously operating bar or tavern in each city or region you name">With AI (old bars)</button>
       <button class="btn small" id="nightlyBtn" type="button" title="What the nightly walking-tour run found this morning">NIGHTLY</button>
       <!-- Editing a page of ten cards leaves ten Save buttons to hit. This is the
@@ -3061,6 +3062,205 @@ $$;`.trim();
       ].filter(Boolean).join('\n');
     }
 
+    // --- Tour places: what published walking tours actually visit -----------------
+    // Absorbed from mc/places.html ("Game Places"), deleted 2026-08-07. That page
+    // was a research assistant whose deliverable was a JSONL file, and the file
+    // was the problem: its 456 places sat in mc/data/places.jsonl until somebody
+    // wrote a migration by hand (2026073102_places_walking_tour_waypoints.sql)
+    // to move 406 of them into this table. The research was good; the delivery
+    // was a dead end. Asking for the same research as an SQL import — the shape
+    // every other prompt here already returns — removes the middle file and the
+    // hand-written migration with it.
+    //
+    // What makes this different from "With AI": that prompt sweeps a city for
+    // anything standable. This one starts from ESTABLISHED PUBLISHED TOURS and
+    // returns only what those tours actually stop at, which is a narrower and
+    // better-evidenced set — somebody already decided these places are worth
+    // walking to, and wrote it down.
+
+    // Anchors for the focus city, WITH addresses. The proximity rule below needs
+    // to judge "within a ten-minute walk of what we have", which a bare name
+    // cannot support — existingWaypointSample gives "Name — City" and is right
+    // for a do-not-duplicate list, wrong for this.
+    function existingWaypointAnchors(focus, limit) {
+      const cap = Math.max(1, parseInt(limit, 10) || 120);
+      const hint = cleanText(focus).toLowerCase();
+      const out = [];
+      state.rows.forEach((r) => {
+        const name = cleanText(r.name);
+        const city = cleanText(r.city);
+        if (!name || !city) return;
+        // Loose match on purpose: the focus box takes "Savannah", "Savannah, GA"
+        // or a list of cities, and a row only has to be plausibly in one of them.
+        if (hint && hint.indexOf(city.toLowerCase()) === -1) return;
+        const where = [cleanText(r.address), city, cleanText(r.state)].filter(Boolean).join(', ');
+        out.push(name + (where ? ' — ' + where : ''));
+      });
+      out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      return out.slice(0, cap);
+    }
+
+    function buildTourPlacesWaypointPrompt(focus, notes) {
+      const target = cleanText(focus) || 'a US city';
+      const extra = cleanText(notes);
+      const anchors = existingWaypointAnchors(target, 120);
+      const existing = existingWaypointSample(800);
+
+      const sqlExample = [
+        buildWaypointImportHelperSql(),
+        '',
+        'select *',
+        'from public.tgb_import_waypoints_prompt_items($tgb$',
+        '[',
+        '  {',
+        '    "name": "Cathedral of St. John the Baptist",',
+        '    "city": "Savannah",',
+        '    "state": "GA",',
+        '    "zip": "31401",',
+        '    "address": "222 E Harris St",',
+        '    "description": "Twin-spired 1876 cathedral on Lafayette Square, the stop most Savannah historic-district tours are built around.",',
+        '    "source_url": "https://www.savannahcathedral.org/"',
+        '  }',
+        ']',
+        '$tgb$::jsonb);'
+      ].join('\n');
+
+      return [
+        'You are a local-history researcher cataloguing WALKING-TOUR PLACES for The Game Bureau — points of interest that ALREADY appear on established walking tours of a city. These are the real places a published self-guided or guided tour actually visits.',
+        '',
+        'CONTEXT — what "game" means here: these places become stops in a GAME BUREAU GAME, a live team-based game played ON FOOT through a real city, scavenger-hunt style, where small teams travel between real places solving clues. "Game" here NEVER means a professional sports fixture. So favour places that work as game stops: publicly accessible, pedestrian-reachable, safe and roomy enough for a small team to pause and gather, and distinctive enough to anchor a clue.',
+        '',
+        'Focus: ' + target,
+        extra ? 'Extra direction: ' + extra : '',
+        '',
+        'For EACH city in the focus (one city, an explicit list, or a group resolved into its cities), return the places that real, published walking tours of that city visit. A city has SEVERAL — aim for 6 to 12 per city, ordered as a sensible walking route where you can. Report verified, real places only; if a detail is uncertain, say so in the description rather than guessing, and return a shorter honest batch rather than padding it.',
+        '',
+        anchors.length
+          ? [
+              'ANCHORS — waypoints we already hold in the focus city, with their addresses:',
+              JSON.stringify(anchors, null, 2),
+              '',
+              'Treat those as ANCHORS. Return only NEW places WITHIN AN EASY WALK of them — roughly 10 to 15 minutes, about a kilometre — clustered around the anchors and ordered so the route flows naturally between them. Use each anchor address to judge distance. Never return a place already listed there, whether it is the same location, the same name, or a near-identical name or address.'
+            ].join('\n')
+          : 'We hold nothing in the focus city yet, so return that city\'s genuine tour places as usual.',
+        '',
+        'GOOD places: historic landmarks and buildings, monuments, memorials, statues and public art, museums, notable churches, plazas and squares, parks, markets, theaters, bridges, and similar visitable sights that appear on existing tours.',
+        'AVOID: private property, inaccessible interiors, vague areas, and anything not actually on a walkable public route.',
+        '',
+        'SOURCES: prefer authoritative, verifiable ones — official tour operators, city and visitor bureaus, historical societies and conservancies, museum or landmark official pages, and Wikipedia. BLOCKED (do NOT use, it has produced inaccurate addresses): nolapartybarges.com. If a place\'s address can only be found on a low-quality blog or a blocked source, leave the place out rather than guess.',
+        '',
+        'Hard requirements for each JSON object:',
+        '- name: the exact common name of the place. Required.',
+        '- city: the city as a plain string, without state or country.',
+        '- state: the 2-letter code for US places, otherwise the country, province or region name.',
+        '- zip: the postal/ZIP code as a string. Required whenever you have a street address; null only when the place genuinely has none or you cannot verify one.',
+        '- address: the street address ONLY — street number and street. Never repeat the city, state, ZIP or country here.',
+        '- description: ONE original tour-guide sentence on what the place is and why it is worth standing in front of. Name the tour it appears on when you know it.',
+        '- source_url: REQUIRED. The tour or landmark page you verified it against. Never a search-results page.',
+        '- NEVER output coordinates. This table has no lat/lon columns and the exact name plus city is what a later lookup resolves.',
+        '- Do NOT include a wpid or id. The database assigns it.',
+        '- Do not include any place already in the existing-waypoints list at the end when it is the same name + city.',
+        '- Do not put the literal sequence $tgb$ inside any JSON string value.',
+        '- Output the COMPLETE script as ONE copy-pasteable block: a single fenced ```sql code block. Do NOT split it across multiple blocks.',
+        '- CRITICAL for copy-paste: use ONLY plain ASCII. Straight apostrophes and straight double-quotes only; never smart/curly quotes, en/em dashes, non-breaking spaces, or other Unicode punctuation. Do not hard-wrap or reflow long lines.',
+        '- The block must contain ONLY SQL — no prose, headings, or commentary before, after, or inside it.',
+        '',
+        'Put one self-contained Supabase SQL script in that single block. It must begin with the helper setup below, then call the helper with your verified places. Do not omit the helper setup; the database may not have it yet. Use this exact SQL shape:',
+        sqlExample,
+        '',
+        'Reusable helper source also lives in this repo at ' + WAYPOINT_IMPORT_HELPER_SQL_PATH + ', but the SQL you return must include the helper setup inline.',
+        '',
+        'Existing waypoints to avoid when name + city match:',
+        JSON.stringify(existing, null, 2)
+      ].filter(Boolean).join('\n');
+    }
+
+    let aiTourFocus = '';
+    let aiTourNotes = '';
+
+    function openTourPlacesPromptDialog() {
+      const dialog = document.getElementById('promptDialog');
+      const backdrop = document.getElementById('promptBackdrop');
+      if (dialog) dialog.hidden = false;
+      if (backdrop) backdrop.hidden = false;
+      renderTourPlacesChooser();
+    }
+
+    function renderTourPlacesChooser() {
+      setPromptView('picker');
+      const title = document.getElementById('promptTitle');
+      if (title) title.textContent = 'Add waypoints with AI - tour places';
+      const body = document.getElementById('promptBody');
+      if (!body) return;
+      body.innerHTML = '';
+
+      const current = findRow(state.randomId);
+      const seed = current ? [cleanText(current.city), cleanText(current.state)].filter(Boolean).join(', ') : '';
+      const hint = zipNote('Places that published walking tours already stop at. This is the old Game Places research prompt, adapted to return Waypoints SQL instead of JSONL. What we already hold in the focus city is sent as anchors, so the new places cluster within a walk of them.');
+
+      const opts = document.createElement('div');
+      opts.className = 'prompt-opts';
+
+      const focusWrap = document.createElement('label');
+      focusWrap.className = 'prompt-opt prompt-opt--wide';
+      focusWrap.textContent = 'Focus keywords';
+      const focusInput = document.createElement('input');
+      focusInput.type = 'text';
+      focusInput.placeholder = 'e.g. Savannah; Charleston  —  or  "downtown historic district"';
+      focusInput.value = aiTourFocus || seed;
+      focusWrap.appendChild(focusInput);
+
+      const notesWrap = document.createElement('label');
+      notesWrap.className = 'prompt-opt prompt-opt--wide';
+      notesWrap.textContent = 'Notes (optional)';
+      const notesInput = document.createElement('textarea');
+      notesInput.placeholder = 'A theme (murals, Revolutionary War...), a neighborhood, accessibility needs...';
+      notesInput.value = aiTourNotes;
+      notesWrap.appendChild(notesInput);
+
+      opts.append(focusWrap, notesWrap);
+
+      const go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'btn small primary';
+      go.textContent = 'Make AI prompt';
+      go.addEventListener('click', () => {
+        aiTourFocus = focusInput.value;
+        aiTourNotes = notesInput.value;
+        if (!cleanText(aiTourFocus)) { setStatus('Name a city for the tour-places prompt.', 'error'); return; }
+        showTourPlacesPrompt();
+      });
+      const goRow = document.createElement('div');
+      goRow.className = 'nfl-pick-go';
+      goRow.append(go);
+
+      body.append(hint, opts, goRow);
+      focusInput.focus();
+      focusInput.select();
+    }
+
+    function showTourPlacesPrompt() {
+      setPromptView('prompt');
+      const focus = cleanText(aiTourFocus);
+      const title = document.getElementById('promptTitle');
+      if (title) title.textContent = 'Tour places - ' + focus;
+      const body = document.getElementById('promptBody');
+      if (!body) return;
+      body.innerHTML = '';
+      const hint = document.createElement('div');
+      hint.className = 'zip-desc';
+      hint.innerHTML = '<strong>Copy</strong> this prompt, paste it into ChatGPT (or any web-capable AI), then paste the <strong>Supabase SQL</strong> it returns into the database (use <strong>Go to Database</strong>) and run it.';
+      const ta = document.createElement('textarea');
+      ta.className = 'prompt-text';
+      ta.id = 'promptText';
+      ta.readOnly = true;
+      ta.spellcheck = false;
+      ta.value = buildTourPlacesWaypointPrompt(focus, aiTourNotes);
+      body.append(hint, ta);
+      ta.focus();
+      ta.select();
+    }
+
     function buildNflSportsWaypointPrompt(count) {
       const n = Math.max(1, Math.min(100, parseInt(count, 10) || 10));
       const existing = existingWaypointSample(500);
@@ -3706,7 +3906,7 @@ $$;`.trim();
 
       const current = findRow(state.randomId);
       const seed = current ? [cleanText(current.city), cleanText(current.state)].filter(Boolean).join(', ') : '';
-      const hint = zipNote('Oldest continuously operating bar or tavern per city or group. This is the old Oldest Bar research prompt, adapted to return Waypoint Finder SQL instead of JSONL.');
+      const hint = zipNote('Oldest continuously operating bar or tavern per city or group. This is the old Oldest Bar research prompt, adapted to return Waypoints SQL instead of JSONL.');
 
       const opts = document.createElement('div');
       opts.className = 'prompt-opts';
@@ -5881,6 +6081,8 @@ $$;`.trim();
     if (promptBtn) promptBtn.addEventListener('click', openPromptDialog);
     const sportsPromptBtn = document.getElementById('sportsPromptBtn');
     if (sportsPromptBtn) sportsPromptBtn.addEventListener('click', openSportsPromptDialog);
+    const tourPlacesPromptBtn = document.getElementById('tourPlacesPromptBtn');
+    if (tourPlacesPromptBtn) tourPlacesPromptBtn.addEventListener('click', openTourPlacesPromptDialog);
     const oldBarsPromptBtn = document.getElementById('oldBarsPromptBtn');
     if (oldBarsPromptBtn) oldBarsPromptBtn.addEventListener('click', openOldBarsPromptDialog);
     const nightlyBtn = document.getElementById('nightlyBtn');
