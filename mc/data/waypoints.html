@@ -3598,11 +3598,18 @@ begin
     raise exception 'The tour needs a non-empty stops array.';
   end if;
 
-  -- Readable and unique without a sequence: the city, the shape and the minute.
+  -- Readable and unique without a sequence: the city, the shape and the second.
   -- A human scanning the table can tell what a tour_id is without a join.
+  --
+  -- SECONDS, not minutes. To the minute, two imports of the same city and the
+  -- same shape inside one minute produce the SAME id - so the second tour does
+  -- not fail, it silently merges into the first and you get one twenty-stop
+  -- walk. That is exactly what a re-paste after a typo looks like. now() is the
+  -- statement timestamp, so every row of one call still shares one id, which is
+  -- the whole point of the column.
   v_tour_id := lower(regexp_replace(v_city, '[^a-zA-Z0-9]+', '-', 'g'))
                || '-' || v_shape
-               || '-' || to_char(now() at time zone 'utc', 'YYYYMMDD-HH24MI');
+               || '-' || to_char(now() at time zone 'utc', 'YYYYMMDD-HH24MISS');
 
   -- NO SYNTHETIC HEADER ROW. This used to emit a leading row with action 'tour'
   -- and a null ord, which read like a stop that had failed to get a number - and
