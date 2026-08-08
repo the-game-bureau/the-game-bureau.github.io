@@ -217,6 +217,39 @@
        the field; without this the wrapper collapses and the select shrinks. */
     .dlg-field .tgb-city-wrap { display: flex; gap: 6px; align-items: center; }
     .dlg-field .tgb-city-wrap select { flex: 1; }
+
+    .dlg-panel--wide { width: min(100%, 640px); max-height: calc(100vh - 48px); overflow: auto; }
+    .dlg-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .dlg-id { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; color: var(--muted); }
+    .dlg-spacer { flex: 1; }
+    .dlg-actions { flex-wrap: wrap; }
+
+    .wp-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .wp-form .wp-field { display: grid; gap: 4px; min-width: 0; }
+    .wp-form .wp-field--full { grid-column: 1 / -1; }
+    .wp-form input, .wp-form textarea { width: 100%; font: inherit; font-size: 0.9rem; }
+    .wp-form textarea {
+      min-height: 92px;
+      resize: vertical;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      padding: 6px 8px;
+    }
+    /* The same red the Waypoints page paints: a field a walking tour actually
+       needs, left blank. You cannot route to a waypoint with no address, and
+       one with no description gives a challenge writer nothing to build on. */
+    .wp-form .is-error input, .wp-form .is-error textarea { border-color: var(--warn); }
+    .wp-readonly {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--muted);
+      padding: 6px 0;
+      overflow-wrap: anywhere;
+    }
+    .wp-hint { font-size: 0.72rem; color: var(--muted); }
+    .dlg-note.busy { color: var(--ink); }
   </style>
   <link rel="stylesheet" href="/mc/js/admin-shell.css">
 </head>
@@ -246,6 +279,7 @@
            being read three more times. The title says what each one acts on. -->
       <button class="btn" id="newRouteBtn" type="button" title="Start a new route">New</button>
       <button class="btn primary" id="saveBtn" type="button" disabled title="Save the stop order">Save</button>
+      <button class="btn" id="suggestOrderBtn" type="button" disabled title="Reorder the stops by geometry - shortest sensible walk">Suggest order</button>
       <button class="btn warn" id="deleteRouteBtn" type="button" disabled title="Delete this route (its waypoints are kept)">Delete</button>
     </div>
 
@@ -283,6 +317,7 @@
              places you can add and never should. -->
         <div class="pool-filter">
           <input type="search" id="poolSearch" placeholder="Filter by name or address">
+          <button class="btn small" id="newWaypointBtn" type="button" title="Add a place to the catalogue">+ Waypoint</button>
         </div>
         <datalist id="routeCityList"></datalist>
         <div class="panel-body" id="poolList"></div>
@@ -319,6 +354,33 @@
     </div>
   </div>
 
+  <!-- The waypoint editor. Every field public.waypoints holds that a person
+       types, plus the read-only ones each of which has exactly one writer:
+       wpid from a trigger, lat/lon from Locate, walk_order from Suggest order.
+       A text box over any of those would only be a way to put them out of step
+       with the thing that maintains them. -->
+  <div class="dlg" id="wpDlg" role="dialog" aria-modal="true" aria-labelledby="wpDlgTitle">
+    <div class="dlg-panel dlg-panel--wide">
+      <div class="dlg-head">
+        <h2 class="dlg-title" id="wpDlgTitle">Waypoint</h2>
+        <span class="dlg-id" id="wpDlgId"></span>
+      </div>
+      <div class="wp-form" id="wpForm"></div>
+      <p class="dlg-note" id="wpDlgNote" aria-live="polite"></p>
+      <div class="dlg-actions">
+        <button class="btn small" id="wpFillBtn" type="button" title="Geocode from what is set and fill in any blank fields">Fill</button>
+        <button class="btn small" id="wpLocateBtn" type="button" title="Find this place's coordinates and store them">Locate</button>
+        <button class="btn small" id="wpMapsBtn" type="button" title="Open this address in Google Maps">Maps</button>
+        <button class="btn small" id="wpDupeBtn" type="button" title="Create a new waypoint from this one, minus its id">Duplicate</button>
+        <button class="btn small" id="wpArchiveBtn" type="button"></button>
+        <button class="btn small warn" id="wpDeleteBtn" type="button">Delete</button>
+        <span class="dlg-spacer"></span>
+        <button class="btn small" id="wpCloseBtn" type="button">Close</button>
+        <button class="btn small primary" id="wpSaveBtn" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/mc/js/admin-auth.js"></script>
   <script src="/mc/js/admin-shell.js"></script>
   <script src="/mc/js/admin-site-nav.js"></script>
@@ -326,6 +388,9 @@
   <!-- geo.js first: city-picker canonicalizes with it when it is present. -->
   <script src="/mc/assets/geo.js"></script>
   <script src="/mc/assets/city-picker.js"></script>
+  <!-- The geocoding half of the Waypoints page, extracted so this one can do the
+       same work while that page is folded in. Pure logic, no DOM. -->
+  <script src="/mc/assets/waypoint-geo.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -431,6 +496,7 @@
         fetchAll('waypoints', { select: '*', order: 'wpid.asc' })
       ]);
       state.routes = Array.isArray(routes) ? routes : [];
+      probeWaypointColumns(waypoints);
       state.waypoints = (Array.isArray(waypoints) ? waypoints : []).filter((w) => !w.archived);
       if (!state.routeId || !state.routes.some((r) => r.tour_id === state.routeId)) {
         state.routeId = routeFromUrl() || (state.routes[0] ? state.routes[0].tour_id : '');
@@ -503,6 +569,7 @@
       renderPool();
       el('saveBtn').disabled = !state.dirty || !state.routeId;
       el('deleteRouteBtn').disabled = !state.routeId;
+      el('suggestOrderBtn').disabled = state.stops.length < 3;
       renderCounts();
       // Async, and deliberately not awaited: the list must not wait on a tile
       // server, and every call is guarded by mapState.token.
@@ -698,8 +765,7 @@
         actions.className = 'stop-actions';
         const up = mkBtn('↑', 'Move up', () => moveStop(i, i - 1), i === 0);
         const down = mkBtn('↓', 'Move down', () => moveStop(i, i + 1), i === state.stops.length - 1);
-        const edit = mkBtn('Edit', 'Open this waypoint in Waypoints',
-          () => window.open('/mc/data/waypoints.html?city=' + encodeURIComponent(cleanText(w.city).toLowerCase().replace(/\s+/g, '-')), '_blank'));
+        const edit = mkBtn('Edit', 'Edit this waypoint', () => openWaypointEditor(w.wpid));
         const off = mkBtn('Remove', 'Take off this route (the waypoint is kept)', () => removeStop(i));
         off.classList.add('warn');
         actions.append(up, down, edit, off);
@@ -773,6 +839,7 @@
         main.append(name, meta);
         const actions = document.createElement('div');
         actions.className = 'stop-actions';
+        actions.appendChild(mkBtn('Edit', 'Edit this waypoint', () => openWaypointEditor(w.wpid)));
         actions.appendChild(mkBtn('Add', 'Put this on the end of the route', () => addStop(w.wpid), !state.routeId));
         row.append(main, actions);
         box.appendChild(row);
@@ -927,11 +994,14 @@
         pop.innerHTML = '<div class="rb-pop-name"></div><div class="rb-pop-meta"></div>';
         pop.querySelector('.rb-pop-name').textContent = cleanText(w.name) || ('WPID ' + w.wpid);
         pop.querySelector('.rb-pop-meta').textContent = cleanText(w.address) || 'no address';
-        const add = mkBtn('Add to route', 'Put this on the end of the route', () => {
+        pop.appendChild(mkBtn('Add to route', 'Put this on the end of the route', () => {
           map.closePopup();
           addStop(w.wpid);
-        }, !state.routeId);
-        pop.appendChild(add);
+        }, !state.routeId));
+        pop.appendChild(mkBtn('Edit', 'Edit this waypoint', () => {
+          map.closePopup();
+          openWaypointEditor(w.wpid);
+        }));
         marker.bindPopup(pop);
       });
 
@@ -946,10 +1016,10 @@
         }).addTo(mapState.layer);
         marker.bindTooltip((idx + 1) + '. ' + (cleanText(w.name) || ('WPID ' + w.wpid)),
           { direction: 'top', offset: [0, -10] });
-        marker.on('click', () => {
-          const row = document.querySelector('#routeStops .stop[data-wpid="' + String(w.wpid) + '"]');
-          if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
+        // A pin is the fastest way to the place it marks: click opens its editor.
+        // Scrolling to the row was the old behaviour and is now what the tooltip
+        // is for - you can see which row it is without leaving the map.
+        marker.on('click', () => openWaypointEditor(w.wpid));
       });
 
       // The walk itself, in route order, under the numbers.
@@ -990,6 +1060,410 @@
         : (mapState.showPool && pool.length
             ? pool.length + ' unused waypoint' + (pool.length === 1 ? '' : 's') + ' shown hollow - click one to add it.'
             : '');
+    }
+
+    // --- the waypoint editor --------------------------------------------------
+    //
+    // Phase one of folding mc/data/waypoints.html into this page. A waypoint is
+    // edited in a popup off whichever list or pin you found it in, rather than
+    // on a card in a separate room - the catalogue and the walk you are building
+    // out of it are the same job.
+    //
+    // ONE waypoint is open at a time, so there is no dirty SET to track and no
+    // Save all: the dialog holds a working copy, Save writes it, Close throws it
+    // away after asking. That is the whole reason the popup is worth the change.
+
+    // Only these go to the database. Naming a column PostgREST does not have
+    // rejects the WHOLE write, so the three that arrived in later migrations are
+    // probed from the shape of a real row rather than assumed.
+    const WP_FIELDS = ['name', 'city', 'state', 'zip', 'address', 'description'];
+    const wpCols = { source_url: false, archived: false, latlon: false, walk_order: false };
+    // A field a walking tour actually needs. Same list the Waypoints page paints
+    // red, so the two cannot disagree about what "incomplete" means.
+    const WP_ERROR_FIELDS = ['address', 'city', 'zip', 'description'];
+
+    function probeWaypointColumns(rows) {
+      const has = (key) => (Array.isArray(rows) ? rows : []).some(
+        (r) => r && typeof r === 'object' && Object.prototype.hasOwnProperty.call(r, key));
+      wpCols.source_url = has('source_url');
+      wpCols.archived = has('archived');
+      wpCols.latlon = has('lat');
+      wpCols.walk_order = has('walk_order');
+    }
+
+    const wpEdit = { row: null, wpid: '', dirty: false, busy: false, addToRoute: false };
+
+    function wpDlgOpen() { return el('wpDlg').classList.contains('is-open'); }
+
+    function wpNote(text, kind) {
+      const note = el('wpDlgNote');
+      note.textContent = text || '';
+      note.classList.toggle('warn', kind === 'error');
+      note.classList.toggle('busy', kind === 'busy');
+    }
+
+    // A Plus Code in Address is not a missing address - it is a more precise one
+    // than a street number, and it is why the field accepts one at all. It also
+    // clears the ZIP error: ZIP only counts because it is what the map falls
+    // back to when a street will not geocode.
+    function wpErrors(row) {
+      const geo = window.TgbWaypointGeo;
+      if (!row || row.archived) return [];
+      const plusCoded = geo && geo.looksLikePlusCode(row.address)
+        && !geo.isShortPlusCode(row.address) && !!geo.decodePlusCode(row.address);
+      return WP_ERROR_FIELDS.filter((f) => {
+        if (plusCoded && (f === 'address' || f === 'zip')) return false;
+        return !cleanText(row[f]);
+      });
+    }
+
+    function openWaypointEditor(wpid) {
+      const source = wpid == null ? null : wpById(wpid);
+      if (wpid != null && !source) return;
+      // A working COPY. Everything up to Save happens here, so Close can throw
+      // the edit away without the list having been changed underneath.
+      wpEdit.row = source
+        ? Object.assign({}, source)
+        : { wpid: '', name: '', city: routeCity(), state: '', zip: '', address: '',
+            description: '', source_url: '', archived: false, lat: null, lon: null };
+      wpEdit.wpid = source ? String(source.wpid) : '';
+      wpEdit.dirty = false;
+      wpEdit.busy = false;
+      // A waypoint made while a route is open is almost always for that route.
+      wpEdit.addToRoute = !source && !!state.routeId;
+      el('wpDlg').classList.add('is-open');
+      renderWaypointForm();
+      const first = el('wpForm').querySelector('input, textarea');
+      if (first) first.focus();
+    }
+
+    function closeWaypointEditor(force) {
+      if (!force && wpEdit.dirty
+        && !window.confirm('This waypoint has unsaved changes. Close and lose them?')) return;
+      el('wpDlg').classList.remove('is-open');
+      wpEdit.row = null;
+      wpEdit.dirty = false;
+    }
+
+    function wpField(label, key, opts) {
+      const options = opts || {};
+      const wrap = document.createElement('div');
+      wrap.className = 'wp-field' + (options.full ? ' wp-field--full' : '');
+      const lab = document.createElement('label');
+      lab.className = 'inline';
+      lab.textContent = label;
+      const input = document.createElement(options.multiline ? 'textarea' : 'input');
+      if (!options.multiline) input.type = 'text';
+      input.value = cleanText(wpEdit.row[key]);
+      if (options.placeholder) input.placeholder = options.placeholder;
+      if (options.list) input.setAttribute('list', options.list);
+      input.addEventListener('input', () => {
+        wpEdit.row[key] = input.value;
+        // Editing the address invalidates the stored point - the coordinates
+        // describe where the OLD address was. Locate or Fill sets them again.
+        if (key === 'address') { wpEdit.row.lat = null; wpEdit.row.lon = null; }
+        wpEdit.dirty = true;
+        paintWpErrors();
+      });
+      wrap.append(lab, input);
+      if (options.hint) {
+        const hint = document.createElement('p');
+        hint.className = 'wp-hint';
+        hint.textContent = options.hint;
+        wrap.appendChild(hint);
+      }
+      wrap.dataset.field = key;
+      return wrap;
+    }
+
+    function paintWpErrors() {
+      const bad = wpErrors(wpEdit.row);
+      el('wpForm').querySelectorAll('[data-field]').forEach((node) => {
+        node.classList.toggle('is-error', bad.indexOf(node.dataset.field) > -1);
+      });
+    }
+
+    function renderWaypointForm() {
+      const row = wpEdit.row;
+      if (!row) return;
+      const box = el('wpForm');
+      box.innerHTML = '';
+      const isNew = !wpEdit.wpid;
+
+      el('wpDlgTitle').textContent = isNew ? 'New waypoint' : (cleanText(row.name) || 'Waypoint');
+      el('wpDlgId').textContent = isNew ? 'not saved yet' : ('WPID ' + wpEdit.wpid);
+
+      box.append(
+        wpField('Name', 'name', { full: true, placeholder: 'What the place is called' }),
+        wpField('Description', 'description', { full: true, multiline: true,
+          placeholder: 'What a visitor standing here is told' }),
+        wpField('Address', 'address', { full: true,
+          placeholder: '200 E Colfax Ave',
+          hint: 'Street only - city, state and ZIP have their own fields. A Plus Code is allowed where there is no street.' }),
+        wpField('City', 'city', { list: 'routeCityList' }),
+        wpField('State', 'state', { placeholder: 'CO' }),
+        wpField('ZIP', 'zip'),
+        wpField('Source URL', 'source_url', { placeholder: 'https://en.wikipedia.org/...' })
+      );
+
+      // Read-only, one writer each. See the dialog's markup comment.
+      const point = document.createElement('div');
+      point.className = 'wp-field';
+      const pl = document.createElement('label');
+      pl.className = 'inline';
+      pl.textContent = 'Coordinates';
+      const pv = document.createElement('div');
+      pv.className = 'wp-readonly';
+      pv.textContent = (row.lat != null && row.lon != null)
+        ? (Number(row.lat).toFixed(6) + ', ' + Number(row.lon).toFixed(6))
+        : (wpCols.latlon ? 'not located - press Locate' : 'no column');
+      point.append(pl, pv);
+      box.appendChild(point);
+
+      if (wpEdit.addToRoute !== null && !wpEdit.wpid && state.routeId) {
+        const add = document.createElement('div');
+        add.className = 'wp-field wp-field--full';
+        const lab = document.createElement('label');
+        lab.style.display = 'flex';
+        lab.style.gap = '6px';
+        lab.style.alignItems = 'center';
+        lab.style.fontSize = '0.85rem';
+        const box2 = document.createElement('input');
+        box2.type = 'checkbox';
+        box2.checked = wpEdit.addToRoute;
+        box2.addEventListener('change', () => { wpEdit.addToRoute = box2.checked; });
+        lab.append(box2, document.createTextNode('Put this on the open route when it saves'));
+        add.appendChild(lab);
+        box.appendChild(add);
+      }
+
+      const archived = !!row.archived;
+      const archiveBtn = el('wpArchiveBtn');
+      archiveBtn.textContent = archived ? 'Restore' : 'Archive';
+      archiveBtn.title = archived
+        ? 'Return this waypoint to the working list'
+        : 'Archive it so future AI and nightly runs do not suggest it again';
+      archiveBtn.hidden = isNew || !wpCols.archived;
+      el('wpDupeBtn').hidden = isNew;
+      el('wpDeleteBtn').hidden = isNew;
+      el('wpLocateBtn').hidden = !wpCols.latlon;
+      el('wpSaveBtn').textContent = isNew ? 'Create' : 'Save';
+      paintWpErrors();
+      const bad = wpErrors(row);
+      wpNote(bad.length ? 'Missing: ' + bad.join(', ') + '.' : '');
+    }
+
+    function wpBusy(on, text) {
+      wpEdit.busy = !!on;
+      ['wpSaveBtn', 'wpFillBtn', 'wpLocateBtn', 'wpDupeBtn', 'wpArchiveBtn', 'wpDeleteBtn']
+        .forEach((id) => { el(id).disabled = !!on; });
+      if (text) wpNote(text, 'busy');
+    }
+
+    // Editable columns only, and only the ones the database actually has.
+    function wpPayload(row) {
+      const payload = {};
+      WP_FIELDS.forEach((f) => { payload[f] = cleanText(row[f]) || null; });
+      if (wpCols.source_url) payload.source_url = cleanText(row.source_url) || null;
+      if (wpCols.archived) payload.archived = !!row.archived;
+      if (wpCols.latlon && row.lat != null && row.lon != null) {
+        payload.lat = Number(row.lat);
+        payload.lon = Number(row.lon);
+      }
+      return payload;
+    }
+
+    // Put a freshly written row back into the catalogue in place, rather than
+    // reloading every waypoint to see one change.
+    function absorbWaypoint(fresh) {
+      if (!fresh) return null;
+      const i = state.waypoints.findIndex((w) => String(w.wpid) === String(fresh.wpid));
+      if (i > -1) state.waypoints[i] = fresh;
+      else state.waypoints.push(fresh);
+      return fresh;
+    }
+
+    async function saveWaypoint() {
+      const row = wpEdit.row;
+      if (!row || wpEdit.busy) return;
+      if (!cleanText(row.name) && !cleanText(row.address)) {
+        wpNote('A waypoint needs at least a name or an address.', 'error');
+        return;
+      }
+      const isNew = !wpEdit.wpid;
+      wpBusy(true, isNew ? 'Creating...' : 'Saving...');
+      try {
+        await ensureFreshSession();
+        const res = await fetch(
+          restUrl('waypoints', isNew ? {} : { wpid: 'eq.' + wpEdit.wpid }),
+          {
+            method: isNew ? 'POST' : 'PATCH',
+            headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+            body: JSON.stringify(wpPayload(row))
+          });
+        if (!res.ok) throw new Error(await readError(res));
+        const [fresh] = await res.json();
+        absorbWaypoint(fresh);
+        const wasNew = isNew;
+        wpEdit.wpid = String(fresh.wpid);
+        wpEdit.row = Object.assign({}, fresh);
+        wpEdit.dirty = false;
+        wpBusy(false);
+        // Creating a waypoint for the open route and then having to find it in
+        // the pool to add it is two steps for one intention.
+        if (wasNew && wpEdit.addToRoute && state.routeId) {
+          addStop(fresh.wpid);
+          setStatus('Created ' + (cleanText(fresh.name) || ('WPID ' + fresh.wpid))
+            + ' and put it on the route - press Save to keep the order.', 'success');
+        } else {
+          setStatus('Saved ' + (cleanText(fresh.name) || ('WPID ' + fresh.wpid)) + '.', 'success');
+        }
+        renderWaypointForm();
+        renderAll();
+      } catch (err) {
+        wpBusy(false);
+        wpNote(err.message || 'Could not save this waypoint.', 'error');
+      }
+    }
+
+    async function deleteWaypointRow() {
+      const wpid = wpEdit.wpid;
+      if (!wpid || wpEdit.busy) return;
+      const name = cleanText(wpEdit.row.name) || ('WPID ' + wpid);
+      const onRoutes = state.stops.includes(String(wpid)) ? ' It is on the open route.' : '';
+      if (!window.confirm('Delete ' + name + '?' + onRoutes
+        + '\n\nThis cannot be undone. Archive instead if you only want it out of the way.')) return;
+      wpBusy(true, 'Deleting...');
+      try {
+        await ensureFreshSession();
+        const res = await fetch(restUrl('waypoints', { wpid: 'eq.' + wpid }), {
+          method: 'DELETE', headers: authHeaders({ Prefer: 'return=minimal' })
+        });
+        if (!res.ok) throw new Error(await readError(res));
+        state.waypoints = state.waypoints.filter((w) => String(w.wpid) !== String(wpid));
+        // route_stops cascades on the database side; drop it here too so the
+        // open route does not show a stop whose place no longer exists.
+        state.stops = state.stops.filter((id) => id !== String(wpid));
+        wpBusy(false);
+        closeWaypointEditor(true);
+        renderAll();
+        setStatus('Deleted ' + name + '.', 'success');
+      } catch (err) {
+        wpBusy(false);
+        wpNote(err.message || 'Could not delete this waypoint.', 'error');
+      }
+    }
+
+    async function toggleWaypointArchived() {
+      if (!wpEdit.wpid || wpEdit.busy) return;
+      wpEdit.row.archived = !wpEdit.row.archived;
+      wpEdit.dirty = true;
+      await saveWaypoint();
+      // An archived waypoint leaves the working catalogue, so the lists behind
+      // the dialog change - state.waypoints filters it out on the next load.
+      renderAll();
+    }
+
+    async function duplicateWaypointRow() {
+      if (!wpEdit.wpid || wpEdit.busy) return;
+      // A copy is a LOOSE waypoint: it belongs to no route, and it is never born
+      // archived - a tombstone is somebody's decision about the original.
+      const copy = Object.assign({}, wpEdit.row);
+      copy.wpid = '';
+      copy.name = cleanText(copy.name) ? cleanText(copy.name) + ' (copy)' : '';
+      copy.archived = false;
+      wpEdit.row = copy;
+      wpEdit.wpid = '';
+      wpEdit.dirty = true;
+      wpEdit.addToRoute = false;
+      renderWaypointForm();
+      wpNote('A copy of the original, not saved yet. Press Create.', 'busy');
+    }
+
+    // Coordinates only - no fields touched. This is the one the map wants: it
+    // is what turns an unplaced row into a pin.
+    async function locateWaypoint() {
+      const geo = window.TgbWaypointGeo;
+      if (!geo || wpEdit.busy) return;
+      wpBusy(true, 'Locating... (one request a second, Nominatim\'s rule)');
+      try {
+        const point = geo.pointFor(wpEdit.row) || await geo.locate(wpEdit.row);
+        if (!point) { wpBusy(false); wpNote('Could not locate that address.', 'error'); return; }
+        wpEdit.row.lat = geo.round6(point.lat);
+        wpEdit.row.lon = geo.round6(point.lon);
+        wpEdit.dirty = true;
+        wpBusy(false);
+        renderWaypointForm();
+        wpNote('Located. Save to store the point.', 'busy');
+      } catch (err) {
+        wpBusy(false);
+        wpNote(err.message || 'Locate failed.', 'error');
+      }
+    }
+
+    // Fill BLANK fields only, from whatever the row already says. Everything
+    // typed is kept - see waypoint-geo.js.
+    async function fillWaypoint() {
+      const geo = window.TgbWaypointGeo;
+      if (!geo || wpEdit.busy) return;
+      wpBusy(true, 'Filling... this makes several geocoder calls a second apart.');
+      try {
+        const result = await geo.fill(wpEdit.row, {
+          onStage: (stage) => { if (stage === 'zip') wpNote('Chasing the ZIP...', 'busy'); }
+        });
+        wpBusy(false);
+        if (result.complete) { wpNote('Nothing blank to fill.'); return; }
+        if (result.error) { wpNote(result.error, 'error'); return; }
+        if (!result.filled.length) { wpNote('Found a match, but nothing new to fill.'); return; }
+        wpEdit.dirty = true;
+        renderWaypointForm();
+        wpNote('Filled ' + result.filled.join(', ') + '.'
+          + (result.zipApprox ? ' The ZIP is the city-centre one - check it.' : '')
+          + ' Review, then Save.', 'busy');
+      } catch (err) {
+        wpBusy(false);
+        wpNote(err.message || 'Lookup failed.', 'error');
+      }
+    }
+
+    function openWaypointInMaps() {
+      const geo = window.TgbWaypointGeo;
+      const url = geo && geo.googleMapsUrl(wpEdit.row, {
+        lat: Number(wpEdit.row.lat), lon: Number(wpEdit.row.lon)
+      });
+      if (url) window.open(url, '_blank', 'noopener');
+      else wpNote('Nothing to search for yet - add a name or an address.', 'error');
+    }
+
+    // --- suggest an order -----------------------------------------------------
+
+    // Geometry, applied to THE ROUTE - not to waypoints.walk_order, which is a
+    // per-city hint that predates routes and is not a route's order. The route's
+    // order is route_stops.ord, and it is what this rewrites (and leaves unsaved
+    // so you can look at it first).
+    function suggestRouteOrder() {
+      const geo = window.TgbWaypointGeo;
+      if (!geo || !state.routeId) return;
+      const located = [];
+      const unplaced = [];
+      state.stops.forEach((id) => {
+        const w = wpById(id);
+        const at = w && pointOf(w);
+        if (at) located.push({ id: String(id), lat: at.lat, lon: at.lon });
+        else unplaced.push(String(id));
+      });
+      if (located.length < 3) {
+        setStatus('Needs at least three located stops to be worth reordering.', 'error');
+        return;
+      }
+      const result = geo.suggestWalk(located);
+      // Unplaced stops keep their relative order and sink to the end: they were
+      // never part of the walk being solved, and dropping them would lose them.
+      state.stops = result.order.map((i) => located[i].id).concat(unplaced);
+      markDirty();
+      setStatus('Reordered ' + located.length + ' stops - ' + geo.formatWalkDistance(result.metres)
+        + (unplaced.length ? ' · ' + unplaced.length + ' unlocated stop(s) left at the end' : '')
+        + '. Press Save to keep it.', 'success');
     }
 
     // --- editing the order ----------------------------------------------------
@@ -1330,17 +1804,34 @@
     });
     el('newRouteName').addEventListener('keydown', (e) => { if (e.key === 'Enter') newRoute(); });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && el('newRouteDlg').classList.contains('is-open')) closeNewRouteDialog();
+      if (e.key !== 'Escape') return;
+      if (el('newRouteDlg').classList.contains('is-open')) closeNewRouteDialog();
+      else if (wpDlgOpen() && !wpEdit.busy) closeWaypointEditor();
     });
     el('saveBtn').addEventListener('click', saveOrder);
     el('deleteRouteBtn').addEventListener('click', deleteRoute);
     el('poolSearch').addEventListener('input', (e) => { state.poolQuery = e.target.value; renderPool(); });
+    el('newWaypointBtn').addEventListener('click', () => openWaypointEditor(null));
+    el('suggestOrderBtn').addEventListener('click', suggestRouteOrder);
+    el('wpSaveBtn').addEventListener('click', saveWaypoint);
+    el('wpFillBtn').addEventListener('click', fillWaypoint);
+    el('wpLocateBtn').addEventListener('click', locateWaypoint);
+    el('wpMapsBtn').addEventListener('click', openWaypointInMaps);
+    el('wpDupeBtn').addEventListener('click', duplicateWaypointRow);
+    el('wpArchiveBtn').addEventListener('click', toggleWaypointArchived);
+    el('wpDeleteBtn').addEventListener('click', deleteWaypointRow);
+    el('wpCloseBtn').addEventListener('click', () => closeWaypointEditor());
+    el('wpDlg').addEventListener('click', (e) => {
+      // Backdrop only, and never mid-write: a stray click while Fill is running
+      // would leave the request going with nothing to receive it.
+      if (e.target === el('wpDlg') && !wpEdit.busy) closeWaypointEditor();
+    });
     el('mapShowPool').addEventListener('change', (e) => { mapState.showPool = e.target.checked; renderMap(); });
 
     // An unsaved order is a few minutes of dragging. Losing it to a stray tab
     // close is the one mistake this page can make on your behalf.
     window.addEventListener('beforeunload', (e) => {
-      if (!state.dirty) return;
+      if (!state.dirty && !wpEdit.dirty) return;
       e.preventDefault();
       e.returnValue = '';
     });
