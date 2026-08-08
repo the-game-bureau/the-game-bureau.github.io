@@ -2866,7 +2866,7 @@
       '  name        text     The place, by the name a local would say. Required.',
       '  city        text     City only, no state and no country. "New Orleans", never "New Orleans, LA".',
       '  state       text     2-letter code for US places: "LA", "NY". The country name for anywhere else.',
-      '  address     text     Street number and street. Nothing else - no city, no state, no zip repeated here.',
+      '  address     text     Street number and street ONLY - "800 Ocean Dr". No city, no state, no zip repeated here; those have their own columns. A bare street name with no number is not an address and is worse than null: it geocodes to whichever city on earth also has that street.',
       '  zip         text     Postal code, as text. Leading zeros matter: "02035" is not 2035.',
       '  description text     One sentence, read aloud at the stop. Max 700 characters.',
       '  source_url  text     The page you verified this from. Never a search-results page.',
@@ -5575,6 +5575,10 @@ $$;`.trim();
         // Land in the new stop's own city — a "+1" on a city button would be a
         // worse answer to "did that work" than seeing the card.
         state.cityFilter = cityKey(fresh);
+        // A new row opens UNLOCKED. Cards are read-only by default, which is
+        // right for a catalogue you are reading and wrong for a waypoint you
+        // just created to fill in - a blank locked card looks broken.
+        state.editingIds.add(String(fresh.wpid));
         await refresh(fresh.wpid);
         setStatus('Added waypoint #' + fresh.wpid + '.', 'success');
       } catch (error) {

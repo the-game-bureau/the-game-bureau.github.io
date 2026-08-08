@@ -38,11 +38,20 @@ const UA = 'the-game-bureau waypoint backfill (https://thegamebureau.com; kevinm
 const GAP_MS = 1100;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// waypoints.address is a COMPLETE address - "200 E Colfax Ave, Denver, CO 80203"
-// - not a street line. Appending city/state/zip to it produces a string
-// Nominatim cannot resolve, which is exactly how the first cut of this script
-// found nothing for three Denver rows in a row. So: try it as it stands first,
-// and only then fall back to compositions for the rows that hold a bare street.
+// waypoints.address is sometimes a COMPLETE address - "200 E Colfax Ave, Denver,
+// CO 80203" - and sometimes a bare street line - "800 Ocean Dr". The two need
+// opposite handling, and getting that wrong is not a near miss:
+//
+//   * A complete address must be sent AS IT STANDS. Appending city/state/zip to
+//     it produces a string Nominatim cannot resolve, which is how the first cut
+//     of this script found nothing for three Denver rows in a row.
+//   * A bare street line must NEVER be sent alone. "Ocean Dr" exists in every
+//     English-speaking country on earth, and a free-text search happily returns
+//     the one in London or Melbourne. The first run of this script did exactly
+//     that: 36 of 274 points landed on the wrong continent - Boston stops in
+//     London, a Baltimore synagogue in Melbourne, Atlanta in Sydney.
+//
+// So the comma decides, and the city is always attached when there is not one.
 function attemptsFor(row) {
   const s = (v) => String(v == null ? '' : v).trim();
   const addr = s(row.address);
@@ -50,15 +59,15 @@ function attemptsFor(row) {
   const st = s(row.state);
   const zip = s(row.zip);
   const name = s(row.name);
-  const looksComplete = /,/.test(addr);
   const out = [];
-  if (addr) out.push(addr);
-  if (addr && !looksComplete) {
+  if (addr && /,/.test(addr)) {
+    out.push(addr);
+  } else if (addr) {
     out.push([addr, city, st, zip].filter(Boolean).join(', '));
     out.push([addr, city, st].filter(Boolean).join(', '));
   }
   // Last resort: the place by name in its city. Weaker - it can land on a
-  // same-named business elsewhere in town - so it is never tried first.
+  // same-named business across town - so it is never tried first.
   if (name && city) out.push([name, city, st].filter(Boolean).join(', '));
   return [...new Set(out.filter(Boolean))];
 }
@@ -71,6 +80,36 @@ async function geocode(q) {
   const hit = Array.isArray(j) && j[0];
   if (!hit || !hit.lat || !hit.lon) return null;
   return { lat: Number(hit.lat), lon: Number(hit.lon) };
+}
+
+// The second half of the same defence. Every candidate point is checked against
+// the city it claims to be in, and anything absurdly far away is thrown out
+// rather than stored. A query can still be answered by the wrong place in the
+// right-sounding town; this catches the ones that are not even close.
+//
+// 75 km is deliberately loose. It has to clear a genuinely spread metro - a
+// stadium in Foxborough is 40 km from downtown Boston and correct - while still
+// rejecting a different continent by three orders of magnitude. There is no
+// value of this that separates "wrong side of the county" from "right", and
+// pretending otherwise would throw away good points.
+const MAX_KM_FROM_CITY = 75;
+const cityPoints = new Map();
+
+function kmBetween(a, b) {
+  const R = 6371, rad = (d) => (d * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat), dLon = rad(b.lon - a.lon);
+  const h = Math.sin(dLat / 2) ** 2
+    + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+async function cityPoint(city, state) {
+  const key = (city + '|' + state).toLowerCase();
+  if (cityPoints.has(key)) return cityPoints.get(key);
+  const hit = city ? await geocode([city, state].filter(Boolean).join(', ')) : null;
+  await sleep(GAP_MS);
+  cityPoints.set(key, hit);
+  return hit;
 }
 
 const round6 = (n) => Math.round(n * 1e6) / 1e6;
@@ -86,11 +125,21 @@ async function main() {
   let missed = 0;
   for (let n = 0; n < rows.length; n++) {
     const row = rows[n];
+    const anchor = await cityPoint(String(row.city || '').trim(), String(row.state || '').trim());
     let hit = null;
     for (const q of attemptsFor(row)) {
-      hit = await geocode(q);
+      const got = await geocode(q);
       await sleep(GAP_MS);
-      if (hit) break;
+      if (!got) continue;
+      // A point that is not near the city it claims is wrong, however confident
+      // the geocoder sounded. Keep looking; a later, more qualified query often
+      // gets it right.
+      if (anchor && kmBetween(anchor, got) > MAX_KM_FROM_CITY) {
+        process.stderr.write(`  rejected wpid ${row.wpid} (${row.name}): ${Math.round(kmBetween(anchor, got))} km from ${row.city}\n`);
+        continue;
+      }
+      hit = got;
+      break;
     }
     if (hit) found.push({ wpid: row.wpid, ...hit });
     else missed++;
