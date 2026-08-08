@@ -31,6 +31,7 @@ declare
   v_address text;
   v_description text;
   v_source_url text;
+  v_ai_model text;
   v_walk_order int;
   v_wpid public.waypoints.wpid%type;
   v_existing public.waypoints.wpid%type;
@@ -49,6 +50,11 @@ begin
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
     -- The page this stop was extracted from, if the importer was given one.
     v_source_url := nullif(btrim(v_entry->>'source_url'), '');
+    -- Which AI produced this stop, in its own words. Trimmed to the column's
+    -- 120 rather than rejected: a model that answers with a paragraph should
+    -- still be recorded, and a failed paste of twelve stops over a long
+    -- self-description would be a poor trade.
+    v_ai_model := nullif(left(btrim(coalesce(v_entry->>'ai_model', '')), 120), '');
     -- Advisory position in the city's walk. Anything outside 1..999 is a
     -- mistake (a wpid, a year, a 0) and is dropped rather than rejected: an
     -- unsequenced stop is a small loss, a failed paste of twelve is not.
@@ -75,8 +81,8 @@ begin
       continue;
     end if;
 
-    insert into public.waypoints as w (name, city, state, zip, address, description, source_url, walk_order)
-    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url, v_walk_order)
+    insert into public.waypoints as w (name, city, state, zip, address, description, source_url, walk_order, ai_model)
+    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url, v_walk_order, v_ai_model)
     returning w.wpid into v_wpid;
 
     return query select 'inserted'::text, v_name, v_wpid::text, null::text;
@@ -129,6 +135,7 @@ declare
   v_address text;
   v_description text;
   v_source_url text;
+  v_ai_model text;
   v_walk_order int;
   v_wpid public.waypoints.wpid%type;
   v_row public.waypoints%rowtype;
@@ -147,6 +154,11 @@ begin
     v_address := nullif(btrim(v_entry->>'address'), '');
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
     v_source_url := nullif(btrim(v_entry->>'source_url'), '');
+    -- Which AI produced this stop, in its own words. Trimmed to the column's
+    -- 120 rather than rejected: a model that answers with a paragraph should
+    -- still be recorded, and a failed paste of twelve stops over a long
+    -- self-description would be a poor trade.
+    v_ai_model := nullif(left(btrim(coalesce(v_entry->>'ai_model', '')), 120), '');
 
     if v_name is null then
       return query select 'skipped'::text, null::text, null::text, 'missing name'::text;
@@ -162,8 +174,8 @@ begin
      limit 1;
 
     if v_row.wpid is null then
-      insert into public.waypoints as w (name, city, state, zip, address, description, source_url)
-      values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url)
+      insert into public.waypoints as w (name, city, state, zip, address, description, source_url, ai_model)
+      values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url, v_ai_model)
       returning w.wpid into v_wpid;
 
       return query select 'inserted'::text, v_name, v_wpid::text, null::text;
@@ -189,7 +201,13 @@ begin
            state       = coalesce(w.state, v_state),
            zip         = coalesce(w.zip, v_zip),
            address     = coalesce(w.address, v_address),
-           source_url  = coalesce(w.source_url, v_source_url)
+           source_url  = coalesce(w.source_url, v_source_url),
+           -- Blanks-only, like the four above. A row already credited to one
+           -- model must not be re-credited to whichever model happened to append
+           -- a football sentence years later; the first writer is the one whose
+           -- research a wrong address would send you back to. When it was blank,
+           -- this append IS the only AI that has touched the row, so record it.
+           ai_model    = coalesce(w.ai_model, v_ai_model)
      where w.wpid = v_row.wpid;
 
     return query select 'appended'::text, v_name, v_row.wpid::text,

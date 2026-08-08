@@ -1224,6 +1224,8 @@
     // 2026080801_waypoints_tour_columns.sql. Probed as one: they land together
     // in that migration, and a row is only on a tour if it has all three.
     let hasTourColumns = false;
+    // ai_model arrives with 2026080802_waypoints_ai_model.sql.
+    let hasAiModelColumn = false;
     const round6 = (n) => Math.round(n * 1e6) / 1e6;
 
     // --- DOM refs ------------------------------------------------------------
@@ -1364,6 +1366,9 @@
         hasTourColumns = (Array.isArray(rows) ? rows : []).some(
           (r) => r && typeof r === 'object' && Object.prototype.hasOwnProperty.call(r, 'tour_id')
         );
+        hasAiModelColumn = (Array.isArray(rows) ? rows : []).some(
+          (r) => r && typeof r === 'object' && Object.prototype.hasOwnProperty.call(r, 'ai_model')
+        );
         state.rows = normalizeRows(rows);
         applyDefaultCityOnce();
         rebuildPristine();
@@ -1441,7 +1446,8 @@
         walk_order: (r.walk_order == null || r.walk_order === '') ? null : Number(r.walk_order),
         tour_id: String(r.tour_id || ''),
         tour_title: String(r.tour_title || ''),
-        tour_shape: String(r.tour_shape || '')
+        tour_shape: String(r.tour_shape || ''),
+        ai_model: String(r.ai_model || '')
       };
     }
 
@@ -2841,6 +2847,7 @@
       '  tour_id     text     Groups rows into one tour. Rows sharing it ARE that tour.',
       '  tour_title  text     What the tour is called. Repeated on every row of the tour.',
       '  tour_shape  text     loop | out_and_back | point_to_point. Repeated on every row of the tour.',
+      '  ai_model    text     WHICH AI YOU ARE. Your make and model, as you would say it: "Anthropic Claude Opus 5", "OpenAI GPT-5", "Google Gemini 3 Pro". Max 120 characters. Do not write "AI", "assistant", or the name of this prompt.',
       '',
       'A LOOSE WAYPOINT leaves tour_id, tour_title, tour_shape and walk_order null. A TOUR STOP fills all four. Most of the table is loose waypoints.'
     ].join('\n');
@@ -2868,6 +2875,7 @@ alter table public.waypoints add column if not exists walk_order  integer;
 alter table public.waypoints add column if not exists tour_id     text;
 alter table public.waypoints add column if not exists tour_title  text;
 alter table public.waypoints add column if not exists tour_shape  text;
+alter table public.waypoints add column if not exists ai_model    text;
 
 create or replace function public.waypoints_assign_wpid()
 returns trigger language plpgsql as $wp$
@@ -2919,6 +2927,17 @@ create index if not exists waypoints_tour_idx
     // judgement is free at research time and expensive to recover afterwards.
     // Both are advisory and either can be replaced by the other — the Suggest
     // order button recomputes from geometry whenever the sequence looks wrong.
+    // Every prompt asks the model to sign its work. Shared for the same reason
+    // WALK_ORDER_RULE and WIKI_SOURCE_LINES are: five prompts, one wording, no
+    // drift. These prompts are deliberately run against whatever chat AI is
+    // open, and they do not fail the same way - one invents street numbers,
+    // another returns eight stops when asked for ten. Recording which one wrote
+    // a row is what turns "some of these addresses are wrong" into a question
+    // with an answer.
+    const AI_MODEL_RULE = '- ai_model: the make and model of the AI writing this, exactly as you would name yourself - '
+      + '"Anthropic Claude Opus 5", "OpenAI GPT-5", "Google Gemini 3 Pro", "xAI Grok 4". Same value on every row. '
+      + 'Give the specific model, not the family, and not "AI" or "assistant". If you genuinely do not know which model you are, leave it out rather than guessing.';
+
     const WALK_ORDER_RULE = '- walk_order: 1, 2, 3 ... over the stops YOU are returning in this city, '
       + 'in the order a person would actually walk them. Sequence them so the walk flows: nearest neighbour, '
       + 'no doubling back, no crossing the city and coming back for one thing. Start where a visitor plausibly '
@@ -2938,6 +2957,7 @@ declare
   v_name text; v_city text; v_state text; v_zip text; v_address text;
   v_description text;
   v_source_url text;
+  v_ai_model text;
   v_walk_order int;
   v_wpid public.waypoints.wpid%type;
   v_existing public.waypoints.wpid%type;
@@ -2955,6 +2975,9 @@ begin
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
     -- The page this stop was extracted from, if the importer was given one.
     v_source_url := nullif(btrim(v_entry->>'source_url'), '');
+    -- Trimmed to the column's 120 rather than rejected: a model that answers
+    -- with a paragraph should still be recorded.
+    v_ai_model := nullif(left(btrim(coalesce(v_entry->>'ai_model', '')), 120), '');
     -- Advisory position in the city's walk; out-of-range is dropped, not fatal.
     v_walk_order := nullif(btrim(v_entry->>'walk_order'), '')::int;
     if v_walk_order is not null and (v_walk_order < 1 or v_walk_order > 999) then v_walk_order := null; end if;
@@ -2968,8 +2991,8 @@ begin
     if v_existing is not null then
       return query select 'skipped'::text, v_name, v_existing::text, 'existing name + city (active or archived)'::text; continue;
     end if;
-    insert into public.waypoints as w (name, city, state, zip, address, description, source_url, walk_order)
-    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url, v_walk_order)
+    insert into public.waypoints as w (name, city, state, zip, address, description, source_url, walk_order, ai_model)
+    values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url, v_walk_order, v_ai_model)
     returning w.wpid into v_wpid;
     return query select 'inserted'::text, v_name, v_wpid::text, null::text;
   end loop;
@@ -3004,6 +3027,7 @@ declare
   v_name text; v_city text; v_state text; v_zip text; v_address text;
   v_description text;
   v_source_url text;
+  v_ai_model text;
   v_wpid public.waypoints.wpid%type;
   v_row public.waypoints%rowtype;
   v_merged text;
@@ -3020,6 +3044,9 @@ begin
     v_address := nullif(btrim(v_entry->>'address'), '');
     v_description := nullif(left(btrim(coalesce(v_entry->>'description', '')), 700), '');
     v_source_url := nullif(btrim(v_entry->>'source_url'), '');
+    -- Trimmed to the column's 120 rather than rejected: a model that answers
+    -- with a paragraph should still be recorded.
+    v_ai_model := nullif(left(btrim(coalesce(v_entry->>'ai_model', '')), 120), '');
     if v_name is null then
       return query select 'skipped'::text, null::text, null::text, 'missing name'::text; continue;
     end if;
@@ -3029,8 +3056,8 @@ begin
        and lower(btrim(coalesce(w.city, ''))) = lower(coalesce(v_city, '')) limit 1;
 
     if v_row.wpid is null then
-      insert into public.waypoints as w (name, city, state, zip, address, description, source_url)
-      values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url)
+      insert into public.waypoints as w (name, city, state, zip, address, description, source_url, ai_model)
+      values (v_name, v_city, v_state, v_zip, v_address, v_description, v_source_url, v_ai_model)
       returning w.wpid into v_wpid;
       return query select 'inserted'::text, v_name, v_wpid::text, null::text;
       continue;
@@ -3050,7 +3077,10 @@ begin
            state       = coalesce(w.state, v_state),
            zip         = coalesce(w.zip, v_zip),
            address     = coalesce(w.address, v_address),
-           source_url  = coalesce(w.source_url, v_source_url)
+           source_url  = coalesce(w.source_url, v_source_url),
+           -- Blanks-only, like the four above: a row already credited to one
+           -- model must not be re-credited to whichever model appended later.
+           ai_model    = coalesce(w.ai_model, v_ai_model)
      where w.wpid = v_row.wpid;
     return query select 'appended'::text, v_name, v_row.wpid::text,
       case when v_row.archived then 'appended to an ARCHIVED row; still archived' else null end;
@@ -3129,7 +3159,8 @@ $$;`.trim();
         '    "address": "800 Decatur St",',
         '    "description": "One original tour-guide sentence: a fact or what makes it a stop.",',
         '    "source_url": ' + (url ? JSON.stringify(url) : '"https://en.wikipedia.org/wiki/Caf%C3%A9_du_Monde"') + ',',
-        '    "walk_order": 1',
+        '    "walk_order": 1,',
+        '    "ai_model": "Anthropic Claude Opus 5"',
         '  }',
         ']',
         '$tgb$::jsonb);'
@@ -3160,6 +3191,7 @@ $$;`.trim();
           ? '- source_url: "' + url + '" on EVERY object — the page you took the stop from. Copy it exactly, the same value on each one.'
           : '- source_url: REQUIRED on every object — the full URL of the stop\'s own Wikipedia article (e.g. "https://en.wikipedia.org/wiki/Willis_Tower"), or the list article it is a row in when it has no article of its own. A Wikimedia Commons category URL only when there is no Wikipedia page at all. Never a search-results page, never the place\'s own website.'),
         WALK_ORDER_RULE,
+        AI_MODEL_RULE,
         '- Do NOT include a wpid or id — the database assigns it.',
         '- Do not include any stop already in the "existing" list below. Avoid duplicate names.',
         '- The JSON array may contain 1 to ' + n + ' objects. Do not pad with unverifiable entries.',
@@ -3255,7 +3287,8 @@ $$;`.trim();
         '    "address": "800 Decatur St",',
         '    "description": "One original tour-guide sentence: a fact or what makes it a stop.",',
         '    "source_url": "https://en.wikipedia.org/wiki/Caf%C3%A9_du_Monde",',
-        '    "walk_order": 1',
+        '    "walk_order": 1,',
+        '    "ai_model": "Anthropic Claude Opus 5"',
         '  }',
         ']',
         '$tgb$::jsonb);'
@@ -3295,6 +3328,7 @@ $$;`.trim();
         '- description: ONE original, concise tour-guide sentence (a fact, or what makes it a stop). Your own words — do not paste a sentence out of the article.',
         '- source_url: REQUIRED on every object — the full URL of the stop\'s own Wikipedia article (e.g. "https://en.wikipedia.org/wiki/Willis_Tower"). If the place has no article of its own but appears as a row in a list article with an address and coordinates, use that list article\'s URL. A Wikimedia Commons category URL is acceptable only when there is no Wikipedia page at all. Never a search-results page, never a link to the place\'s own website.',
         WALK_ORDER_RULE,
+        AI_MODEL_RULE,
         '- Do NOT include a wpid or id — the database assigns it.',
         '- Do not include any stop already in the "existing" list below for that city. Avoid duplicate names.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
@@ -3371,7 +3405,8 @@ $$;`.trim();
         '    "address": "941 Bourbon St",',
         '    "description": "Often promoted as one of the oldest bars in the United States, this 18th-century Bourbon Street building carries disputed but memorable tavern lore.",',
         '    "source_url": "https://www.lafittesblacksmithshop.com/",',
-        '    "walk_order": 1',
+        '    "walk_order": 1,',
+        '    "ai_model": "Anthropic Claude Opus 5"',
         '  }',
         ']',
         '$tgb$::jsonb);'
@@ -3405,6 +3440,7 @@ $$;`.trim();
         '- description: ONE original tour-guide sentence. Include the establishment year or claimed year and any continuity/oldest-claim caveat when relevant.',
         '- source_url: REQUIRED. Use the best source proving the oldest-bar claim or the venue history page. Never a search-results page.',
         WALK_ORDER_RULE,
+        AI_MODEL_RULE,
         '- Do NOT include a wpid or id. The database assigns it.',
         '- Do not include any place already in the existing-waypoints list below when it is the same name + city.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
@@ -3539,16 +3575,19 @@ declare
   v_address text;
   v_description text;
   v_source_url text;
+  v_ai_model text;
   v_wpid public.waypoints.wpid%type;
 begin
   if payload is null or jsonb_typeof(payload) <> 'object' then
-    raise exception 'Expected a JSON object: { city, state, title, shape, stops: [...] }';
+    raise exception 'Expected a JSON object: { city, state, title, shape, ai_model, stops: [...] }';
   end if;
 
   v_city  := nullif(btrim(payload->>'city'), '');
   v_state := nullif(btrim(payload->>'state'), '');
   v_title := nullif(btrim(payload->>'title'), '');
   v_shape := nullif(btrim(lower(payload->>'shape')), '');
+  -- One tour is the work of ONE model, so this belongs to the tour, not a stop.
+  v_ai_model := nullif(left(btrim(coalesce(payload->>'ai_model', '')), 120), '');
 
   if v_city is null then raise exception 'The tour needs a city.'; end if;
   if v_title is null then raise exception 'The tour needs a title.'; end if;
@@ -3594,10 +3633,10 @@ begin
 
     insert into public.waypoints as w
       (name, city, state, zip, address, description, source_url,
-       tour_id, tour_title, tour_shape, walk_order)
+       tour_id, tour_title, tour_shape, walk_order, ai_model)
     values
       (v_name, v_stop_city, v_stop_state, v_zip, v_address, v_description, v_source_url,
-       v_tour_id, v_title, v_shape, v_ord)
+       v_tour_id, v_title, v_shape, v_ord, v_ai_model)
     returning w.wpid into v_wpid;
 
     return query select 'stop'::text, v_ord, v_name, v_wpid::text,
@@ -3697,6 +3736,7 @@ $$;`.trim();
         '  "title": "Brass, Bourbon and the Black and Gold",',
         '  "shape": "' + pick.shape + '",',
         '  "blurb": "Two hours through the Quarter, from a coffee counter to a jazz room, by way of the corner where the Saints were born.",',
+        '  "ai_model": "Anthropic Claude Opus 5",',
         '  "stops": [',
         '    {',
         '      "name": "Cafe du Monde",',
@@ -3746,6 +3786,9 @@ $$;`.trim();
         '- zip: the postal code.',
         '- description: this is the ONLY sentence stored per stop, so make it carry both jobs - what the place is, and what to do here on this walk. "The 1862 coffee stand that never closes; get the coffee, find your group, leave when you are ready." One sentence, read aloud, no second field to fall back on.',
         '- source_url: the published tour or venue page you took it from. Never a search-results page.',
+        '',
+        'ON THE TOUR OBJECT, not on a stop:',
+        AI_MODEL_RULE,
         '',
         existing.length
           ? [
@@ -3991,7 +4034,8 @@ $$;`.trim();
         '- zip: the postal/ZIP code as a string. REQUIRED whenever you have a street address — a ZIP is a lookup from a known street address, not a guess. Use null only when the stop genuinely has no street address.',
         '- address: the STREET ONLY — house number and street name, e.g. "100 Example St". Never repeat the city, state, ZIP, or country here. Null if you do not know the street.',
         '- description: ONE original sentence that states the football connection plainly and NAMES THE TEAM, so a reader can see at a glance why a place in this city is on that team\'s map. This sentence is the entire value of the row — write it as though the place itself is already known and only the football is news.',
-        '- source_url: REQUIRED on every object — the page that establishes the connection or the place.',
+        '- source_url: REQUIRED on every object - the page that establishes the connection or the place.',
+        AI_MODEL_RULE,
         '- Do NOT include a wpid or id — the database assigns it.',
         '- The JSON array may contain 1 to ' + n + ' objects. Do not pad with unverifiable entries.',
         '- Do not put the literal sequence $tgb$ inside any JSON string value.',
@@ -6567,6 +6611,16 @@ $$;`.trim();
         add('TOUR', row.tour_id, { title: 'Every row sharing this id is one walking tour.' });
         add('TITLE', row.tour_title);
         add('SHAPE', tourShapeLabel(row.tour_shape), { title: row.tour_shape || '' });
+      }
+
+      if (!hasAiModelColumn) {
+        add('AI', null, { missing: true });
+      } else {
+        // Blank is the normal state for everything predating the column and for
+        // every hand-typed stop. It means NOT RECORDED, not "written by a human".
+        add('AI', row.ai_model,
+            { emptyTitle: 'Not recorded. Either a person typed this stop, or it predates the column.',
+              title: 'The AI that produced this row, as it named itself.' });
       }
 
       add('ARCHIVED', hasArchivedColumn ? (isArchived(row) ? 'yes' : 'no') : null,

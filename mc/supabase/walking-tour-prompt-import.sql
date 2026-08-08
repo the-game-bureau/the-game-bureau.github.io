@@ -52,16 +52,21 @@ declare
   v_address text;
   v_description text;
   v_source_url text;
+  v_ai_model text;
   v_wpid public.waypoints.wpid%type;
 begin
   if payload is null or jsonb_typeof(payload) <> 'object' then
-    raise exception 'Expected a JSON object: { city, state, title, shape, stops: [...] }';
+    raise exception 'Expected a JSON object: { city, state, title, shape, ai_model, stops: [...] }';
   end if;
 
   v_city  := nullif(btrim(payload->>'city'), '');
   v_state := nullif(btrim(payload->>'state'), '');
   v_title := nullif(btrim(payload->>'title'), '');
   v_shape := nullif(btrim(lower(payload->>'shape')), '');
+  -- One tour is the work of ONE model, so this is a property of the tour and
+  -- not of a stop. A per-stop value would invite ten different answers to the
+  -- same question. Trimmed to the column's 120 rather than rejected.
+  v_ai_model := nullif(left(btrim(coalesce(payload->>'ai_model', '')), 120), '');
 
   if v_city is null then raise exception 'The tour needs a city.'; end if;
   if v_title is null then raise exception 'The tour needs a title.'; end if;
@@ -107,10 +112,10 @@ begin
 
     insert into public.waypoints as w
       (name, city, state, zip, address, description, source_url,
-       tour_id, tour_title, tour_shape, walk_order)
+       tour_id, tour_title, tour_shape, walk_order, ai_model)
     values
       (v_name, v_stop_city, v_stop_state, v_zip, v_address, v_description, v_source_url,
-       v_tour_id, v_title, v_shape, v_ord)
+       v_tour_id, v_title, v_shape, v_ord, v_ai_model)
     returning w.wpid into v_wpid;
 
     return query select 'stop'::text, v_ord, v_name, v_wpid::text,

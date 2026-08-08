@@ -38,6 +38,7 @@ alter table public.waypoints add column if not exists walk_order  integer;
 alter table public.waypoints add column if not exists tour_id     text;
 alter table public.waypoints add column if not exists tour_title  text;
 alter table public.waypoints add column if not exists tour_shape  text;
+alter table public.waypoints add column if not exists ai_model    text;
 
 -- wpid gap-fills rather than counting up: a deleted id becomes free again, and a
 -- BEFORE INSERT trigger claims the lowest unused one. NEVER supply a wpid.
@@ -66,6 +67,10 @@ alter table public.waypoints add constraint waypoints_tour_shape_known
 alter table public.waypoints drop constraint if exists waypoints_walk_order_sane;
 alter table public.waypoints add constraint waypoints_walk_order_sane
   check (walk_order is null or (walk_order >= 1 and walk_order <= 999)) not valid;
+
+alter table public.waypoints drop constraint if exists waypoints_ai_model_len;
+alter table public.waypoints add constraint waypoints_ai_model_len
+  check (ai_model is null or length(ai_model) <= 120) not valid;
 
 create index if not exists waypoints_tour_idx
   on public.waypoints (tour_id, walk_order) where tour_id is not null;
