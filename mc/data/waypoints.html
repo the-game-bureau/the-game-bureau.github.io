@@ -610,6 +610,23 @@
        the same: null is a blank we can fill, missing means the migration has
        not been run and no amount of editing will help. */
     .wp-meta-val[data-empty] { color: var(--muted); font-weight: 500; }
+    /* The tour id is a filter. It looks like a link because it behaves like one;
+       everything else in this strip is a fact you can only read. */
+    .wp-meta-link {
+      appearance: none;
+      background: none;
+      border: 0;
+      padding: 0;
+      font: inherit;
+      font-weight: 700;
+      color: var(--ink);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+      overflow-wrap: anywhere;
+      text-align: left;
+    }
+    .wp-meta-link:hover { color: var(--paper-line-major); }
     .wp-meta-val[data-missing] {
       color: rgba(190, 55, 55, 0.85);
       font-weight: 700;
@@ -1261,6 +1278,11 @@
       // alter a description and the only sign was the Unsaved badge. Edit
       // makes changing a waypoint deliberate.
       editingIds: new Set(),
+      // A tour_id, or '' for no tour filter. Set by clicking the TOUR value
+      // on a card. It sits ALONGSIDE the city filter rather than replacing
+      // it, and wins: a tour is a subset of one city anyway, so showing the
+      // rest of that city would only bury the ten rows you asked for.
+      tourFilter: '',
       page: 0,          // 0-based page of PAGE_SIZE cards
       // The cursor: where the pager lands and what "jump to N" targets. It
       // is no longer the only thing on screen — a page of PAGE_SIZE renders
@@ -5934,8 +5956,45 @@ $$;`.trim();
     function navRows() {
       return state.rows
         .filter(matchesArchiveMode)
+        .filter(matchesTourFilter)
         .filter(matchesCityFilter)
         .sort(compareRows);
+    }
+
+    function matchesTourFilter(row) {
+      if (!state.tourFilter) return true;
+      return cleanText(row.tour_id) === state.tourFilter;
+    }
+
+    // Clicking a tour id shows that tour and nothing else. It also switches the
+    // city to the tour's own, so the city bar does not sit there claiming a
+    // different city while every card on screen is from this one - and clearing
+    // the tour then leaves you somewhere coherent rather than back at All.
+    function openTour(tourId) {
+      const id = cleanText(tourId);
+      if (!id) return;
+      state.tourFilter = id;
+      const first = state.rows.find((row) => cleanText(row.tour_id) === id);
+      if (first) state.cityFilter = cityKey(first);
+      // Walk order within a tour IS the tour's order, so a suggestion computed
+      // for the whole city has no business overlaying it.
+      clearWalkOrder();
+      state.page = 0;
+      const list = navRows();
+      state.randomId = list.length ? list[0].wpid : null;
+      syncCityUrl();
+      render();
+      renderCityBar();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function clearTourFilter() {
+      if (!state.tourFilter) return;
+      state.tourFilter = '';
+      state.page = 0;
+      syncCityUrl();
+      render();
+      renderCityBar();
     }
 
     // City filter, driven by public.cities (the one catalog) via window.TgbCities.
@@ -5975,6 +6034,14 @@ $$;`.trim();
       // ?city= wins over the default. It is how a refresh comes back to where
       // you were and how a link to one city works at all - without it every
       // reload dumped you in New Orleans no matter which city you were editing.
+      // ?tour= is more specific than ?city= and sets both.
+      const askedTour = cleanText(new URLSearchParams(location.search).get('tour'));
+      if (askedTour && state.rows.some((row) => cleanText(row.tour_id) === askedTour)) {
+        state.tourFilter = askedTour;
+        const first = state.rows.find((row) => cleanText(row.tour_id) === askedTour);
+        if (first) state.cityFilter = cityKey(first);
+        return;
+      }
       const asked = cityFromUrl();
       if (asked !== null) {
         // An explicit ?city=all is a real choice and must survive a refresh, so
@@ -6007,10 +6074,17 @@ $$;`.trim();
       const url = new URL(location.href);
       if (state.cityFilter) url.searchParams.set('city', state.cityFilter.replace(/\s+/g, '-'));
       else url.searchParams.set('city', 'all');
+      // A tour is the thing most worth linking to - it is a finished walk, and
+      // "look at this one" is the reason you would send the URL at all.
+      if (state.tourFilter) url.searchParams.set('tour', state.tourFilter);
+      else url.searchParams.delete('tour');
       history.replaceState(null, '', url);
     }
 
     function matchesCityFilter(row) {
+      // A tour has already narrowed things to one walk in one city; applying the
+      // city filter on top can only subtract from it, never add.
+      if (state.tourFilter) return true;
       if (!state.cityFilter) return true;
       return cityKey(row) === state.cityFilter;
     }
@@ -6384,6 +6458,8 @@ $$;`.trim();
       // across would leave positions from Denver ordering Baltimore's cards.
       clearWalkOrder();
       state.cityFilter = key || '';
+      // Picking a city is a request to see that city, not one tour inside it.
+      state.tourFilter = '';
       syncCityUrl();
       state.page = 0;
       const list = navRows();
@@ -6727,6 +6803,18 @@ $$;`.trim();
           v.textContent = '—';
           v.dataset.empty = '';
           if (o.emptyTitle) v.title = o.emptyTitle;
+        } else if (o.onClick) {
+          // A button, not a span with a handler: it is reachable by keyboard and
+          // announced as an action, which a clickable span is not.
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'wp-meta-link';
+          b.textContent = String(value);
+          if (o.title) b.title = o.title;
+          b.addEventListener('click', o.onClick);
+          item.append(k, b);
+          wrap.appendChild(item);
+          return;
         } else {
           v.textContent = String(value);
           if (o.title) v.title = o.title;
@@ -6762,7 +6850,10 @@ $$;`.trim();
         // not a missing tour - so say so rather than showing three dashes.
         add('TOUR', null, { emptyTitle: 'A loose waypoint, on no tour. Most of the catalogue is.' });
       } else {
-        add('TOUR', row.tour_id, { title: 'Every row sharing this id is one walking tour.' });
+        add('TOUR', row.tour_id, {
+          title: 'Show only this tour',
+          onClick: () => openTour(row.tour_id)
+        });
         add('TITLE', row.tour_title);
         add('SHAPE', tourShapeLabel(row.tour_shape), { title: row.tour_shape || '' });
       }
@@ -7212,6 +7303,26 @@ $$;`.trim();
       const el = pageStatus;
       if (!el) return;
       if (!state.authed) { el.textContent = ''; return; }
+      // The filter has to say so and offer the way out. A view showing ten of a
+      // city's forty waypoints with no explanation reads as missing data.
+      if (state.tourFilter) {
+        const list = navRows();
+        const title = cleanText((list[0] || {}).tour_title) || state.tourFilter;
+        const shape = tourShapeLabel((list[0] || {}).tour_shape);
+        el.textContent = '';
+        el.classList.remove('error', 'success');
+        const label = document.createElement('span');
+        label.textContent = list.length + ' stop' + (list.length === 1 ? '' : 's')
+          + ' · ' + title + (shape ? ' · ' + shape : '');
+        const back = document.createElement('button');
+        back.type = 'button';
+        back.className = 'btn small';
+        back.textContent = 'Show whole city';
+        back.style.marginLeft = '10px';
+        back.addEventListener('click', clearTourFilter);
+        el.append(label, back);
+        return;
+      }
       const archivedTotal = state.rows.filter(isArchived).length;
       const list = navRows();
       const shown = list.length;

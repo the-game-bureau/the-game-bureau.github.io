@@ -72,14 +72,31 @@ function attemptsFor(row) {
   return [...new Set(out.filter(Boolean))];
 }
 
-async function geocode(q) {
+// Retries, because a five-minute sequential run over somebody else's free
+// service WILL hit a transient failure, and an unhandled one threw away 100
+// rows of finished work the first time. A network error is not an answer about
+// the address; only an empty result is.
+async function geocode(q, tries = 3) {
   const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=' + encodeURIComponent(q);
-  const res = await fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'en' } });
-  if (!res.ok) return null;
-  const j = await res.json().catch(() => null);
-  const hit = Array.isArray(j) && j[0];
-  if (!hit || !hit.lat || !hit.lon) return null;
-  return { lat: Number(hit.lat), lon: Number(hit.lon) };
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'en' } });
+      // 429/5xx is "ask again later", not "no such place".
+      if (res.status === 429 || res.status >= 500) throw new Error('http ' + res.status);
+      if (!res.ok) return null;
+      const j = await res.json().catch(() => null);
+      const hit = Array.isArray(j) && j[0];
+      if (!hit || !hit.lat || !hit.lon) return null;
+      return { lat: Number(hit.lat), lon: Number(hit.lon) };
+    } catch (err) {
+      if (attempt === tries) {
+        process.stderr.write('  giving up on "' + q + '": ' + (err && err.message || err) + '\n');
+        return null;
+      }
+      await sleep(GAP_MS * attempt * 3);
+    }
+  }
+  return null;
 }
 
 // The second half of the same defence. Every candidate point is checked against
@@ -125,10 +142,18 @@ async function main() {
   let missed = 0;
   for (let n = 0; n < rows.length; n++) {
     const row = rows[n];
-    const anchor = await cityPoint(String(row.city || '').trim(), String(row.state || '').trim());
+    // A row that blows up is one row, not the end of the run - the point of a
+    // five-minute job is that you get the other 280.
+    let anchor = null;
+    try {
+      anchor = await cityPoint(String(row.city || '').trim(), String(row.state || '').trim());
+    } catch (err) {
+      process.stderr.write('  city lookup failed for ' + row.city + ': ' + (err && err.message || err) + '\n');
+    }
     let hit = null;
     for (const q of attemptsFor(row)) {
-      const got = await geocode(q);
+      let got = null;
+      try { got = await geocode(q); } catch (err) { got = null; }
       await sleep(GAP_MS);
       if (!got) continue;
       // A point that is not near the city it claims is wrong, however confident
