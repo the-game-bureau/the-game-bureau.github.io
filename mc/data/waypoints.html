@@ -3617,9 +3617,15 @@ create table if not exists public.routes (
   created_at timestamptz not null default now()
 );
 
+-- Seven shapes since 2026080805. This block DROPS and re-adds the constraint,
+-- so a stale copy here would quietly narrow it again the next time somebody
+-- pastes this helper - keep it in step with the migration.
 alter table public.routes drop constraint if exists routes_shape_known;
 alter table public.routes add constraint routes_shape_known
-  check (shape is null or shape in ('loop', 'out_and_back', 'point_to_point')) not valid;
+  check (shape is null or shape in (
+    'loop', 'out_and_back', 'point_to_point',
+    'lollipop', 'figure_eight', 'horseshoe', 'network'
+  )) not valid;
 
 create table if not exists public.route_stops (
   tour_id text   not null references public.routes(tour_id) on delete cascade,
@@ -3694,8 +3700,13 @@ begin
 
   if v_city is null then raise exception 'The route needs a city.'; end if;
   if v_title is null then raise exception 'The route needs a title.'; end if;
-  if v_shape is null or v_shape not in ('loop', 'out_and_back', 'point_to_point') then
-    raise exception 'shape must be loop, out_and_back or point_to_point (got %).', coalesce(v_shape, 'null');
+  -- The seven of routes_shape_known (2026080805). Checked here so a bad shape
+  -- comes back as a sentence rather than as a constraint name.
+  if v_shape is null or v_shape not in (
+    'loop', 'out_and_back', 'point_to_point',
+    'lollipop', 'figure_eight', 'horseshoe', 'network'
+  ) then
+    raise exception 'shape must be one of loop, out_and_back, point_to_point, lollipop, figure_eight, horseshoe, network (got %).', coalesce(v_shape, 'null');
   end if;
   if jsonb_typeof(payload->'stops') <> 'array' or jsonb_array_length(payload->'stops') = 0 then
     raise exception 'The route needs a non-empty stops array.';
@@ -6992,7 +7003,13 @@ $$;`.trim();
     const TOUR_SHAPE_LABELS = {
       loop: 'Loop',
       out_and_back: 'Out and back',
-      point_to_point: 'Point to point'
+      point_to_point: 'Point to point',
+      // The four added by 2026080805. A shape with no entry here renders as its
+      // raw key, which is ugly but not wrong.
+      lollipop: 'Lollipop',
+      figure_eight: 'Figure eight',
+      horseshoe: 'Horseshoe',
+      network: 'Network / grid'
     };
     function tourShapeLabel(shape) {
       const s = cleanText(shape).toLowerCase();

@@ -77,8 +77,13 @@ begin
 
   if v_city is null then raise exception 'The route needs a city.'; end if;
   if v_title is null then raise exception 'The route needs a title.'; end if;
-  if v_shape is null or v_shape not in ('loop', 'out_and_back', 'point_to_point') then
-    raise exception 'shape must be loop, out_and_back or point_to_point (got %).', coalesce(v_shape, 'null');
+  -- The seven of routes_shape_known (2026080805). Checked here so a bad shape
+  -- comes back as a sentence rather than as a constraint name.
+  if v_shape is null or v_shape not in (
+    'loop', 'out_and_back', 'point_to_point',
+    'lollipop', 'figure_eight', 'horseshoe', 'network'
+  ) then
+    raise exception 'shape must be one of loop, out_and_back, point_to_point, lollipop, figure_eight, horseshoe, network (got %).', coalesce(v_shape, 'null');
   end if;
   if jsonb_typeof(payload->'stops') <> 'array' or jsonb_array_length(payload->'stops') = 0 then
     raise exception 'The route needs a non-empty stops array.';
