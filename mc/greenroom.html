@@ -1243,12 +1243,34 @@
     }
 
 
-    .guide-empty {
-      padding: 28px 18px;
-      text-align: center;
-      color: var(--muted);
-      border: 1px dashed var(--line);
-      border-radius: 14px;
+    /* The two command bars share a line. ADD takes the space; SORT is only as
+       wide as its buttons. .command-bar centres itself and caps at the shell
+       width, so both are overridden here rather than in the inherited rule -
+       that one still serves the rooms with a single full-width bar. */
+    .bar-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      width: 100%;
+      max-width: var(--mc-shell-width);
+      margin: 0 auto var(--stack-gap);
+    }
+    /* width:100% AND max-width:shell come from the inherited .command-bar,
+       which was written for one bar sitting alone. Inside a flex row both
+       panels then demand the full width, overlap, and the first one collapses
+       to a column - so both are cleared and flex does the sizing instead. */
+    .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
+    .bar-row .command-bar:first-child { flex: 1 1 auto; min-width: 0; }
+    .command-bar--sort { flex: 0 0 auto; }
+    /* The order in force reads as the pressed button. */
+    .command-bar--sort .btn.is-on {
+      background: var(--bic-blue);
+      border-color: var(--bic-blue);
+      color: #fff;
+    }
+    @media (max-width: 620px) {
+      .bar-row { flex-wrap: wrap; }
+      .bar-row .command-bar:first-child { flex: 1 1 100%; }
     }
 
 
@@ -1326,13 +1348,27 @@
     </div>
 
 
-    <fieldset class="command-bar">
-      <legend>Add</legend>
-      <div class="command-bar-inner">
-        <button class="btn" id="manualBtn" type="button" title="Add a guide by hand — opens the form">MANUAL</button>
-        <button class="btn" id="promptBtn" type="button" title="A paste-ready AI prompt that writes a guide">PROMPT</button>
-      </div>
-    </fieldset>
+    <!-- Two panels on one line: what you can add, and how the cards are
+         ordered. Sort is a pair of buttons rather than a dropdown so the
+         current order is readable without opening anything - the same reason
+         the room shows every guide instead of hiding them behind a filter. -->
+    <div class="bar-row">
+      <fieldset class="command-bar">
+        <legend>Add</legend>
+        <div class="command-bar-inner">
+          <button class="btn" id="manualBtn" type="button" title="Add a guide by hand — opens the form">MANUAL</button>
+          <button class="btn" id="promptBtn" type="button" title="A paste-ready AI prompt that writes a guide">PROMPT</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="command-bar command-bar--sort">
+        <legend>Sort</legend>
+        <div class="command-bar-inner">
+          <button class="btn" id="sortAzBtn" type="button" title="By name, A to Z">A–Z</button>
+          <button class="btn" id="sortNewBtn" type="button" title="Most recently added first">NEWEST</button>
+        </div>
+      </fieldset>
+    </div>
 
     <div class="guide-list" id="guideList"></div>
   </main>
@@ -1475,6 +1511,7 @@
       editingId: null,      // null while the form is adding rather than editing
       busy: false,
       dirty: new Set(),     // guide ids with unsaved boxes on their card
+      sort: 'az',           // 'az' | 'newest'
       promptNotes: ''       // what the PROMPT box was told about the guide to invent
     };
 
@@ -1591,7 +1628,23 @@
     // a guide while looking at a list that does not contain it - and the
     // archived flag went the same day. Every guide in the table is on screen.
     function visibleGuides() {
-      return state.guides;
+      const rows = state.guides.slice();
+      if (state.sort === 'newest') {
+        // Newest FIRST, by id rather than created_at: the id is assigned in
+        // order and can never be null, while created_at is a timestamp two
+        // rows written in the same second would tie on.
+        rows.sort((a, b) => Number(b.id) - Number(a.id));
+      } else {
+        rows.sort((a, b) => cleanText(a.name).localeCompare(cleanText(b.name), undefined, { sensitivity: 'base' }));
+      }
+      return rows;
+    }
+
+    function setSort(mode) {
+      state.sort = mode;
+      el('sortAzBtn').classList.toggle('is-on', mode === 'az');
+      el('sortNewBtn').classList.toggle('is-on', mode === 'newest');
+      render();
     }
 
     function render() {
@@ -2459,6 +2512,8 @@
 
     el('manualBtn').addEventListener('click', () => openForm(null));
     el('promptBtn').addEventListener('click', () => showGuidePrompt(null));
+    el('sortAzBtn').addEventListener('click', () => setSort('az'));
+    el('sortNewBtn').addEventListener('click', () => setSort('newest'));
     el('promptNotes').addEventListener('input', (e) => {
       state.promptNotes = e.target.value;
       refreshNewGuidePrompt();
@@ -2482,7 +2537,9 @@
       else if (!el('formCard').hidden) closeForm();
     });
 
-    render();
+    // Paints the A-Z button as pressed before anything loads, so the panel
+    // never sits there with neither option lit.
+    setSort(state.sort);
     adminAuth.init();
   </script>
 </body>
