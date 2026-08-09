@@ -1634,8 +1634,7 @@
         gField(guide, 'hometown', 'hometown', { list: 'cityList', required: true }),
         gField(guide, 'bio', 'bio', { multiline: true, required: true }),
         gField(guide, 'background', 'background', { multiline: true, tall: true, required: true }),
-        gReadOnly('created_at', stamp(guide.created_at)),
-        gReadOnly('updated_at', stamp(guide.updated_at))
+        gStamps(guide)
       );
       body.appendChild(fields);
 
@@ -1732,15 +1731,33 @@
       return wrap;
     }
 
-    function gReadOnly(label, value) {
+    // Both timestamps on one line: created at the left, updated riding the
+    // right the way the id rides the name row. They are one fact about the
+    // card - when it appeared and when it last changed - and two rows for it
+    // took as much of the sheet as the bio.
+    //
+    // An untouched guide shows only "created". Printing the same timestamp
+    // twice invites reading it as two events.
+    function gStamps(guide) {
       const wrap = document.createElement('div');
       wrap.className = 'gfield';
       const lab = document.createElement('span');
-      lab.textContent = label;
-      const box = document.createElement('div');
-      box.className = 'gfield-ro';
-      box.textContent = value || '—';
-      wrap.append(lab, box);
+      lab.textContent = 'created';
+      const line = document.createElement('div');
+      line.className = 'gfield-line';
+      const made = document.createElement('div');
+      made.className = 'gfield-ro';
+      made.style.flex = '1';
+      made.textContent = stamp(guide.created_at) || '—';
+      line.appendChild(made);
+      const changed = stamp(guide.updated_at);
+      if (changed && changed !== stamp(guide.created_at)) {
+        const edited = document.createElement('span');
+        edited.className = 'gfield-id';
+        edited.textContent = 'updated ' + changed;
+        line.appendChild(edited);
+      }
+      wrap.append(lab, line);
       return wrap;
     }
 
