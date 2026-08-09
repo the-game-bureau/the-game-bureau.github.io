@@ -49,7 +49,7 @@
       // full cards of scrolling.
       items: [
         {
-          href: '/mc/data/waypoints.html',
+          href: '/mc/routes.html',
           // Absorbed /mc/places.html ("Game Places") on 2026-08-07, deleted.
           // Its research was good and its DELIVERY was the problem: a JSONL file
           // that needed a hand-written migration to reach this table. The same

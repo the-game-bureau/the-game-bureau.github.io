@@ -1200,6 +1200,7 @@
   global.TgbWaypointGeo = {
     cleanText: cleanText,
     round6: round6,
+    stateAbbrOf: stateAbbrOf,
     // Plus Codes / coordinates
     parseLatLon: parseLatLon,
     decodePlusCode: decodePlusCode,

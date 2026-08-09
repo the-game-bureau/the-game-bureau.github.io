@@ -270,6 +270,22 @@
        several stops - but never silently offered as if it were new. */
     .find-row.is-dupe { border-color: var(--warn); }
     .find-row-dupe { font-size: 0.72rem; color: var(--warn); font-weight: 700; }
+
+    .ai-prompt {
+      width: 100%;
+      min-height: 240px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.72rem;
+      line-height: 1.45;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      padding: 8px;
+      resize: vertical;
+    }
+    .nightly-src { font-size: 0.76rem; color: var(--muted); }
+    .nightly-src a { color: var(--ink); }
   </style>
   <link rel="stylesheet" href="/mc/js/admin-shell.css">
 </head>
@@ -282,7 +298,8 @@
       <p class="page-sub">
         A route is an ordered set of waypoints. Drag to reorder, add from the city's
         unused waypoints on the right, remove to send one back. Every place lives once
-        in <a href="/mc/data/waypoints.html">Waypoints</a> and can be on any number of routes.
+        in <code>public.waypoints</code> and can be on any number of routes - edit one
+        by clicking it in either list or on the map.
       </p>
       <p class="status" id="pageStatus" aria-live="polite"></p>
     </div>
@@ -338,6 +355,8 @@
         <div class="pool-filter">
           <input type="search" id="poolSearch" placeholder="Filter by name or address">
           <button class="btn small" id="findWaypointBtn" type="button" title="Search OpenStreetMap for a place and open it as a draft">Find online</button>
+          <button class="btn small" id="aiWaypointBtn" type="button" title="Get an AI prompt that returns import SQL for this city">With AI</button>
+          <button class="btn small" id="nightlyBtn" type="button" title="What the scout routine found this morning">Nightly</button>
           <button class="btn small" id="newWaypointBtn" type="button" title="Type a place in by hand">+ Waypoint</button>
         </div>
         <datalist id="routeCityList"></datalist>
@@ -427,6 +446,52 @@
     </div>
   </div>
 
+  <!-- The AI pulls. Five prompts, one dialog: pick the pull, fill its two or
+       three inputs, copy the text into whatever AI is open, run the SQL it
+       returns in the Supabase editor. The prompts themselves live in
+       waypoint-prompts.js - see the warning at the top of that file before
+       renaming anything in it. -->
+  <div class="dlg" id="aiDlg" role="dialog" aria-modal="true" aria-labelledby="aiDlgTitle">
+    <div class="dlg-panel dlg-panel--wide">
+      <div class="dlg-head">
+        <h2 class="dlg-title" id="aiDlgTitle">Add waypoints with AI</h2>
+        <span class="dlg-id" id="aiDlgCount"></span>
+      </div>
+      <div class="dlg-field">
+        <label class="inline" for="aiPull">Which pull</label>
+        <select id="aiPull"></select>
+      </div>
+      <p class="dlg-note" id="aiPullBlurb"></p>
+      <div class="wp-form" id="aiInputs"></div>
+      <div class="dlg-actions">
+        <button class="btn small primary" id="aiBuildBtn" type="button">Build the prompt</button>
+        <span class="dlg-spacer"></span>
+        <button class="btn small" id="aiCopyBtn" type="button" hidden>Copy</button>
+        <a class="btn small" id="aiDbBtn" href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/" target="_blank" rel="noopener" hidden>Run the SQL &#8599;</a>
+        <button class="btn small" id="aiCloseBtn" type="button">Close</button>
+      </div>
+      <textarea id="aiPromptText" class="ai-prompt" readonly hidden></textarea>
+    </div>
+  </div>
+
+  <!-- NIGHTLY: what the Waypoint Tour Scout committed this morning. Read-only
+       about the automation; a human decides which stops are worth keeping. -->
+  <div class="dlg" id="nightlyDlg" role="dialog" aria-modal="true" aria-labelledby="nightlyDlgTitle">
+    <div class="dlg-panel dlg-panel--wide">
+      <div class="dlg-head">
+        <h2 class="dlg-title" id="nightlyDlgTitle">This morning's candidates</h2>
+        <span class="dlg-id" id="nightlyWhen"></span>
+      </div>
+      <p class="dlg-note" id="nightlyHead"></p>
+      <div class="find-list" id="nightlyList"></div>
+      <div class="dlg-actions">
+        <a class="btn small" href="https://claude.ai/code/routines/trig_01Q5uCittJ3dT3M2xj8sKD3j" target="_blank" rel="noopener">Open routine &#8599;</a>
+        <span class="dlg-spacer"></span>
+        <button class="btn small" id="nightlyCloseBtn" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/mc/js/admin-auth.js"></script>
   <script src="/mc/js/admin-shell.js"></script>
   <script src="/mc/js/admin-site-nav.js"></script>
@@ -437,6 +502,8 @@
   <!-- The geocoding half of the Waypoints page, extracted so this one can do the
        same work while that page is folded in. Pure logic, no DOM. -->
   <script src="/mc/assets/waypoint-geo.js"></script>
+  <!-- The five AI prompts. Their text is the product; see the file's header. -->
+  <script src="/mc/assets/waypoint-prompts.js"></script>
   <script>
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
@@ -1617,6 +1684,310 @@
       }
     }
 
+    // --- the AI pulls ---------------------------------------------------------
+    //
+    // Phase three: the five prompts off the Waypoints page. Each one asks a
+    // different AI a different question and gets back an INSERT block to run in
+    // the Supabase editor - the prompts write no database themselves, which is
+    // the whole reason they are safe to paste into whatever chat is open.
+    //
+    // The text lives in waypoint-prompts.js. Read the warning at the top of that
+    // file before renaming anything: buildTourPlacesWaypointPrompt is the stored
+    // specification of a scheduled cloud routine.
+
+    const AI_PULLS = [
+      { key: 'city', label: 'With AI - sweep one city',
+        blurb: 'Anything standable in one city, sourced from Wikipedia articles that carry coordinates or a street address.',
+        fields: ['area', 'count', 'keywords', 'sourceUrl'] },
+      { key: 'tour', label: 'With AI - tour places (a real walk)',
+        blurb: 'Starts from published walking tours and keeps only what they actually stop at. A loop that finishes within five minutes of where it began, commercial start and end. This is the prompt the NFL Tour Builder routine reads as its spec.',
+        fields: ['city', 'notes', 'shape'] },
+      { key: 'nfl', label: 'With AI - NFL cities that need stops',
+        blurb: 'Several cities at once, least-covered first.',
+        fields: ['cityCount', 'perCity', 'keywords'] },
+      { key: 'sports', label: 'With AI - football history in the WRONG city',
+        blurb: 'Starts from the football, not the city: a player\'s hometown, a coach\'s grave, the church where he married. Kept only when the place sits somewhere other than that team\'s own city - a Steelers marker in Pittsburgh is worthless to it.',
+        fields: ['count'] },
+      { key: 'bars', label: 'With AI - oldest bars',
+        blurb: 'The oldest continuously operating bar or tavern in each city or region you name.',
+        fields: ['focus', 'notes'] }
+    ];
+
+    const aiState = { pull: 'city', values: {}, text: '' };
+
+    function openAiDialog() {
+      const sel = el('aiPull');
+      if (!sel.options.length) {
+        AI_PULLS.forEach((p) => {
+          const o = document.createElement('option');
+          o.value = p.key;
+          o.textContent = p.label;
+          sel.appendChild(o);
+        });
+      }
+      sel.value = aiState.pull;
+      el('aiDlg').classList.add('is-open');
+      renderAiInputs();
+    }
+
+    function closeAiDialog() { el('aiDlg').classList.remove('is-open'); }
+
+    function aiInput(key, label, opts) {
+      const options = opts || {};
+      const wrap = document.createElement('div');
+      wrap.className = 'wp-field' + (options.full ? ' wp-field--full' : '');
+      const lab = document.createElement('label');
+      lab.className = 'inline';
+      lab.textContent = label;
+      const input = document.createElement(options.select ? 'select' : 'input');
+      if (options.select) {
+        options.select.forEach((o) => {
+          const opt = document.createElement('option');
+          opt.value = o.value;
+          opt.textContent = o.label;
+          input.appendChild(opt);
+        });
+      } else {
+        input.type = options.number ? 'number' : 'text';
+        if (options.placeholder) input.placeholder = options.placeholder;
+      }
+      input.value = aiState.values[key] != null ? aiState.values[key] : (options.value || '');
+      aiState.values[key] = input.value;
+      input.addEventListener('input', () => { aiState.values[key] = input.value; });
+      input.addEventListener('change', () => { aiState.values[key] = input.value; });
+      wrap.append(lab, input);
+      if (options.hint) {
+        const hint = document.createElement('p');
+        hint.className = 'wp-hint';
+        hint.textContent = options.hint;
+        wrap.appendChild(hint);
+      }
+      return wrap;
+    }
+
+    function renderAiInputs() {
+      const pull = AI_PULLS.find((p) => p.key === aiState.pull) || AI_PULLS[0];
+      const box = el('aiInputs');
+      box.innerHTML = '';
+      el('aiPullBlurb').textContent = pull.blurb;
+      el('aiPromptText').hidden = true;
+      el('aiCopyBtn').hidden = true;
+      el('aiDbBtn').hidden = true;
+      el('aiDlgCount').textContent = '';
+
+      const P = window.TgbWaypointPrompts;
+      const here = routeCity();
+      pull.fields.forEach((f) => {
+        if (f === 'area') box.appendChild(aiInput('area', 'City', {
+          value: here ? here : '', placeholder: 'Denver, CO', full: true,
+          hint: 'City and state or country, the way you would say it.'
+        }));
+        if (f === 'city') box.appendChild(aiInput('city', 'City', {
+          value: here ? here : '', placeholder: 'Miami, FL', full: true
+        }));
+        if (f === 'count') box.appendChild(aiInput('count', 'How many', { number: true, value: '10' }));
+        if (f === 'cityCount') box.appendChild(aiInput('cityCount', 'How many cities', {
+          number: true, value: '5',
+          hint: 'The least-covered NFL cities, counted from what we already hold.'
+        }));
+        if (f === 'perCity') box.appendChild(aiInput('perCity', 'Stops per city', { number: true, value: '5' }));
+        if (f === 'keywords') box.appendChild(aiInput('keywords', 'Keywords (optional)', {
+          placeholder: 'murals, speakeasies', full: true
+        }));
+        if (f === 'sourceUrl') box.appendChild(aiInput('sourceUrl', 'Source URL (optional)', {
+          placeholder: 'https://en.wikipedia.org/...', full: true
+        }));
+        if (f === 'notes') box.appendChild(aiInput('notes', 'Angle (optional)', {
+          placeholder: 'lean historic, avoid the waterfront', full: true
+        }));
+        if (f === 'focus') box.appendChild(aiInput('focus', 'Where', {
+          placeholder: 'the Gulf Coast', full: true
+        }));
+        if (f === 'shape') box.appendChild(aiInput('shape', 'Shape', {
+          select: SHAPES.map((s) => ({ value: s.key, label: s.label })), value: 'loop'
+        }));
+      });
+
+      if (aiState.pull === 'nfl' && P) {
+        const need = P.nflCitiesByNeed().slice(0, Number(aiState.values.cityCount) || 5);
+        const note = document.createElement('p');
+        note.className = 'wp-hint wp-field--full';
+        note.textContent = 'Next up: ' + need.map((c) => c.city + ' (' + c.count + ')').join(', ');
+        box.appendChild(note);
+      }
+    }
+
+    function buildAiPrompt() {
+      const P = window.TgbWaypointPrompts;
+      if (!P) return;
+      // The prompts need to know what we already hold - as a do-not-repeat list,
+      // and as the count that decides which cities are underserved.
+      P.useCatalogue(state.waypoints);
+      const v = aiState.values;
+      let text = '';
+      try {
+        if (aiState.pull === 'city') {
+          text = P.buildWaypointAiPrompt(cleanText(v.area), Number(v.count) || 10,
+            cleanText(v.keywords), cleanText(v.sourceUrl));
+        } else if (aiState.pull === 'tour') {
+          text = P.buildTourPlacesWaypointPrompt(cleanText(v.city), cleanText(v.notes), cleanText(v.shape));
+        } else if (aiState.pull === 'nfl') {
+          const cities = P.nflCitiesByNeed().slice(0, Number(v.cityCount) || 5).map((c) => c.city);
+          text = P.buildNflWalkingTourPrompt(cities, Number(v.perCity) || 5, cleanText(v.keywords));
+        } else if (aiState.pull === 'sports') {
+          text = P.buildNflSportsWaypointPrompt(Number(v.count) || 10);
+        } else if (aiState.pull === 'bars') {
+          text = P.buildOldBarsWaypointPrompt(cleanText(v.focus), cleanText(v.notes));
+        }
+      } catch (err) {
+        el('aiPullBlurb').textContent = 'Could not build that prompt: ' + (err.message || err);
+        return;
+      }
+      aiState.text = text;
+      const ta = el('aiPromptText');
+      ta.value = text;
+      ta.hidden = false;
+      el('aiCopyBtn').hidden = false;
+      el('aiDbBtn').hidden = false;
+      el('aiDlgCount').textContent = text.length.toLocaleString() + ' characters';
+      ta.focus();
+      ta.setSelectionRange(0, 0);
+    }
+
+    async function copyAiPrompt() {
+      const ta = el('aiPromptText');
+      ta.focus();
+      ta.select();
+      try { await navigator.clipboard.writeText(ta.value); }
+      catch (err) { document.execCommand('copy'); }
+      const btn = el('aiCopyBtn');
+      btn.textContent = 'Copied';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1200);
+    }
+
+    // --- NIGHTLY --------------------------------------------------------------
+
+    const NIGHTLY_FILE = '/mc/stops/nightly.json';
+    // A run that errors pushes nothing, so a stale commit IS the failure signal -
+    // there is no other receipt, the scout writes one file and no database.
+    const NIGHTLY_RUN_FEED = 'https://api.github.com/repos/the-game-bureau/the-game-bureau.github.io/commits'
+      + '?path=mc/stops/nightly.json&per_page=1';
+    const NIGHTLY_STALE_HOURS = 30;
+
+    function nightlyRelative(then, now) {
+      const mins = Math.round((now - then) / 60000);
+      if (mins < 60) return mins + ' min ago';
+      const hours = Math.round(mins / 60);
+      if (hours < 36) return hours + ' hour' + (hours === 1 ? '' : 's') + ' ago';
+      return Math.round(hours / 24) + ' days ago';
+    }
+
+    function openNightlyDialog() {
+      el('nightlyDlg').classList.add('is-open');
+      el('nightlyList').innerHTML = '';
+      el('nightlyHead').textContent = 'Reading this morning\'s file...';
+      el('nightlyWhen').textContent = '';
+      loadNightlyRun();
+      loadNightlyPicks();
+    }
+
+    function closeNightlyDialog() { el('nightlyDlg').classList.remove('is-open'); }
+
+    async function loadNightlyRun() {
+      const when = el('nightlyWhen');
+      try {
+        const res = await fetch(NIGHTLY_RUN_FEED, { headers: { Accept: 'application/vnd.github+json' } });
+        if (!res.ok) throw new Error('GitHub ' + res.status);
+        const commits = await res.json();
+        if (!Array.isArray(commits) || !commits.length) throw new Error('no commits');
+        const stamp = new Date(commits[0].commit.committer.date);
+        const now = new Date();
+        const stale = (now - stamp) / 3600000 > NIGHTLY_STALE_HOURS;
+        when.textContent = 'Last run ' + nightlyRelative(stamp, now) + (stale ? ' - overdue' : '');
+      } catch (err) {
+        when.textContent = 'Last run unknown';
+      }
+    }
+
+    async function loadNightlyPicks() {
+      const list = el('nightlyList');
+      let data = null;
+      try {
+        const res = await fetch(NIGHTLY_FILE + '?t=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        data = await res.json();
+      } catch (err) {
+        el('nightlyHead').textContent = 'Could not read nightly.json.';
+        return;
+      }
+      const stops = Array.isArray(data && data.stops) ? data.stops : [];
+      const city = cleanText(data && data.city);
+      const sources = Array.isArray(data && data.sources) ? data.sources
+        : (Array.isArray(data && data.tours) ? data.tours : []);
+      el('nightlyHead').textContent = (city || 'No city yet') + ' · '
+        + stops.length + ' candidate' + (stops.length === 1 ? '' : 's')
+        + (sources.length ? ' from ' + sources.length + ' source' + (sources.length === 1 ? '' : 's') : '')
+        + (cleanText(data && data.note) ? ' · ' + cleanText(data.note) : '');
+      list.innerHTML = '';
+      if (!stops.length) {
+        el('nightlyHead').textContent += ' - nothing queued.';
+        return;
+      }
+      stops.forEach((stop) => list.appendChild(renderNightlyStop(stop)));
+    }
+
+    function renderNightlyStop(stop) {
+      const row = document.createElement('div');
+      row.className = 'find-row';
+      const main = document.createElement('div');
+      main.className = 'find-row-main';
+      const name = document.createElement('div');
+      name.className = 'find-row-name';
+      name.textContent = cleanText(stop.name) || 'Unnamed';
+      const sub = document.createElement('div');
+      sub.className = 'find-row-sub';
+      sub.textContent = [cleanText(stop.address), cleanText(stop.city), cleanText(stop.state)]
+        .filter(Boolean).join(' · ') || 'no address';
+      main.append(name, sub);
+      if (cleanText(stop.source_url)) {
+        const src = document.createElement('div');
+        src.className = 'nightly-src';
+        const a = document.createElement('a');
+        a.href = stop.source_url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = 'source';
+        src.appendChild(a);
+        main.appendChild(src);
+      }
+      // The scout can offer the same stop two mornings running - its rotation is
+      // read from git history, not from the table - so an already-added stop is
+      // marked rather than offered again.
+      const dupe = state.waypoints.find((w) =>
+        cleanText(w.name).toLowerCase() === cleanText(stop.name).toLowerCase()
+        && cleanText(w.city).toLowerCase() === cleanText(stop.city).toLowerCase());
+      if (dupe) {
+        row.classList.add('is-dupe');
+        const flag = document.createElement('div');
+        flag.className = 'find-row-dupe';
+        flag.textContent = 'Already in the table as WPID ' + dupe.wpid;
+        main.appendChild(flag);
+      }
+      row.append(main, mkBtn('Open', 'Open this candidate as an unsaved draft', () => {
+        closeNightlyDialog();
+        openWaypointEditor(null);
+        Object.assign(wpEdit.row, {
+          name: cleanText(stop.name), city: cleanText(stop.city), state: cleanText(stop.state),
+          zip: cleanText(stop.zip), address: cleanText(stop.address),
+          description: cleanText(stop.description), source_url: cleanText(stop.source_url)
+        });
+        wpEdit.dirty = true;
+        renderWaypointForm();
+        wpNote('From this morning\'s scout run - check it, then press Create.', 'busy');
+      }));
+      return row;
+    }
+
     // --- suggest an order -----------------------------------------------------
 
     // Geometry, applied to THE ROUTE - not to waypoints.walk_order, which is a
@@ -1988,6 +2359,8 @@
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
       if (el('newRouteDlg').classList.contains('is-open')) closeNewRouteDialog();
+      else if (el('aiDlg').classList.contains('is-open')) closeAiDialog();
+      else if (el('nightlyDlg').classList.contains('is-open')) closeNightlyDialog();
       else if (el('findDlg').classList.contains('is-open') && !findState.busy) closeFindDialog();
       else if (wpDlgOpen() && !wpEdit.busy) closeWaypointEditor();
     });
@@ -2003,6 +2376,15 @@
         .filter(Boolean).join(' ');
       openFindDialog(seed);
     });
+    el('aiWaypointBtn').addEventListener('click', openAiDialog);
+    el('aiPull').addEventListener('change', (e) => { aiState.pull = e.target.value; renderAiInputs(); });
+    el('aiBuildBtn').addEventListener('click', buildAiPrompt);
+    el('aiCopyBtn').addEventListener('click', copyAiPrompt);
+    el('aiCloseBtn').addEventListener('click', closeAiDialog);
+    el('aiDlg').addEventListener('click', (e) => { if (e.target === el('aiDlg')) closeAiDialog(); });
+    el('nightlyBtn').addEventListener('click', openNightlyDialog);
+    el('nightlyCloseBtn').addEventListener('click', closeNightlyDialog);
+    el('nightlyDlg').addEventListener('click', (e) => { if (e.target === el('nightlyDlg')) closeNightlyDialog(); });
     el('findGoBtn').addEventListener('click', runFind);
     el('findCloseBtn').addEventListener('click', closeFindDialog);
     el('findBlankBtn').addEventListener('click', () => { closeFindDialog(); openWaypointEditor(null); });
