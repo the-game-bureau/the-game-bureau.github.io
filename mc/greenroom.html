@@ -1907,6 +1907,86 @@
       return hit ? cleanText(hit[1]).replace(/\s+/g, ' ') : '';
     }
 
+    // Third person to first. The background is written ABOUT the character;
+    // the bio is the character SPEAKING, so Fill has to turn one into the
+    // other. This is a mechanical rewrite and it is imperfect by nature - the
+    // status line says so, and the result lands in an unsaved box for exactly
+    // that reason.
+    //
+    // Verbs are the hard part. English marks the third person with an -s that
+    // first person does not take: "she rides shotgun" has to become "I ride
+    // shotgun". There is no way to know which words are verbs without parsing,
+    // so the rule is positional - the word immediately after a converted
+    // pronoun - and NEVER_STRIP protects the ones that end in s honestly.
+    const FP_KEEP_S = [
+      'is', 'was', 'has', 'does', 'goes', 'always', 'sometimes', 'perhaps', 'yes',
+      'across', 'less', 'unless', 'this', 'his', 'hers', 'its', 'us', 'plus', 'gas',
+      'bus', 'class', 'glass', 'press', 'dress', 'guess', 'miss', 'boss', 'loss'
+    ];
+
+    function toFirstPerson(text, name) {
+      let out = ' ' + cleanText(text) + ' ';
+      if (!cleanText(out)) return '';
+
+      // The name first, both the whole thing and the part people use on its
+      // own, so "Miss Peachtree Knox has" and "Peachtree has" both become "I".
+      const full = cleanText(name);
+      if (full) {
+        const parts = [full].concat(full.split(/\s+/).filter((p) => p.length > 2));
+        parts.sort((a, b) => b.length - a.length).forEach((p) => {
+          out = out.replace(new RegExp('\\b' + p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g'), 'I');
+        });
+      }
+
+      // Contractions before bare pronouns, or "he's" leaves a stray "'s".
+      out = out
+        .replace(/\b(?:he|she|they)'s\b/gi, 'I am')
+        .replace(/\b(?:he|she|they)'re\b/gi, 'I am')
+        .replace(/\b(?:he|she|they)'ll\b/gi, 'I will')
+        .replace(/\b(?:he|she|they)'d\b/gi, 'I would')
+        .replace(/\b(?:he|she|they)'ve\b/gi, 'I have');
+
+      // Possessives before objects: "her" is both, and "her coat" is far more
+      // common in this prose than "gave her".
+      out = out
+        .replace(/\bhimself\b|\bherself\b|\bthemselves\b/gi, 'myself')
+        .replace(/\bhis\b|\btheir\b/gi, 'my')
+        .replace(/\bhers\b|\btheirs\b/gi, 'mine')
+        .replace(/\bher\b/gi, 'my')
+        .replace(/\b(?:he|she|they)\b/gi, 'I')
+        .replace(/\bhim\b|\bthem\b/gi, 'me');
+
+      // Agreement, then the positional -s strip.
+      out = out
+        .replace(/\bI is\b/g, 'I am')
+        .replace(/\bI are\b/g, 'I am')
+        .replace(/\bI were\b/g, 'I was')
+        .replace(/\bI has\b/g, 'I have')
+        .replace(/\bI does\b/g, 'I do')
+        .replace(/\bI goes\b/g, 'I go')
+        .replace(/\bI isn't\b/g, "I'm not")
+        .replace(/\bI doesn't\b/g, "I don't")
+        .replace(/\bI hasn't\b/g, "I haven't")
+        // An adverb is allowed to sit between the pronoun and its verb -
+        // "I always says so" is the shape that slipped through when the rule
+        // only looked at the very next word.
+        .replace(/\bI ((?:always|never|often|sometimes|usually|rarely|still|also|just|really|only|barely|nearly|almost)\s+)?(\w+)s\b/g,
+          (whole, adverb, verb) => {
+            const lower = verb.toLowerCase() + 's';
+            if (FP_KEEP_S.indexOf(lower) > -1) return whole;
+            // "misses" -> "miss", "watches" -> "watch": -es after a sibilant.
+            const stem = /(?:ch|sh|ss|x|z|o)e$/i.test(verb) ? verb.slice(0, -1) : verb;
+            return 'I ' + (adverb || '') + stem;
+          });
+
+      out = cleanText(out);
+      // EVERY sentence, not just the first. A swap can leave a sentence opening
+      // on a word that used to sit mid-clause - "His trumpet" becomes "my
+      // trumpet" - and only fixing character zero leaves the rest lower case.
+      out = out.replace(/([.!?]\s+)([a-z])/g, (m, punct, ch) => punct + ch.toUpperCase());
+      return out.charAt(0).toUpperCase() + out.slice(1);
+    }
+
     function firstSentences(text, count) {
       const parts = cleanText(text).replace(/\s+/g, ' ').match(/[^.!?]+[.!?]+/g);
       if (!parts) return cleanText(text).replace(/\s+/g, ' ').slice(0, 300);
@@ -1961,13 +2041,18 @@
       // its first two sentences. A background is written for whoever builds the
       // game; a bio is read by the player, so the summary lines are the ones
       // that were already written to be short.
+      //
+      // Then turned into FIRST PERSON, because the bio is the guide speaking.
       if (!draft.bio && draft.background) {
         let bio = '';
         for (let i = 0; i < BIO_SOURCES.length && !bio; i += 1) {
           bio = sectionFrom(draft.background, BIO_SOURCES[i]);
         }
         if (!bio) bio = firstSentences(draft.background, 2);
-        if (bio) { draft.bio = firstSentences(bio, 3); filled.push('bio'); }
+        if (bio) {
+          draft.bio = toFirstPerson(firstSentences(bio, 3), draft.name);
+          filled.push('bio');
+        }
       }
 
       // A BACKGROUND IS NOT DERIVABLE and Fill does not pretend otherwise. It

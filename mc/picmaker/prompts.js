@@ -40,7 +40,15 @@
     lines.push('- CARTOON. Hand-drawn character art with clean linework and flat or lightly shaded colour, the way an animated series or a comic book draws its cast.');
     lines.push('- NOT REALISTIC IN ANY WAY. No photography, no photorealism, no 3D render, no CGI, no digital painting that imitates a photograph, no real person\'s likeness. If it could be mistaken for a photo of somebody, it is wrong.');
     lines.push('- Clear, well-lit face; simple, uncluttered background that hints at the setting without distracting.');
-    lines.push('- Square 1:1 framing, subject centered, safe to crop to a circle for an avatar.');
+    // SQUARE AND FULL, not a circle on a background. "Safe to crop to a circle"
+    // was read as an instruction to DRAW one, and the results came back as a
+    // roundel with dead corners. Transparency is not the alternative here: the
+    // Green Room re-encodes every upload as JPEG, which has no alpha channel,
+    // so a transparent corner arrives black or white anyway. A square that is
+    // filled edge to edge is the only version of this that survives the trip.
+    lines.push('- Square 1:1, and the ARTWORK FILLS THE WHOLE SQUARE, edge to edge, corner to corner.');
+    lines.push('- Do NOT draw a circle, oval, roundel, badge, sticker, frame, border or vignette around the subject, and do not leave the corners empty, blank, white or transparent. The background is part of the picture and reaches all four corners.');
+    lines.push('- Subject centred, with a little room above the head, so a circular crop would not cut the face.');
     lines.push('- No text, letters, logos, or watermarks anywhere in the image.');
     lines.push('');
     lines.push('Produce the image now.');
