@@ -2262,16 +2262,29 @@
       el('promptText').value = buildGuidePrompt(null);
     }
 
+    // READS THE BOXES, NOT THE SAVED ROW. It used to take the guide straight
+    // from state, so a background typed and not yet saved was ignored - you
+    // wrote the character, pressed Image Prompt, and got a prompt describing
+    // the empty row you started from, with nothing on screen to say why. The
+    // draft is what the person is looking at, so the draft is what the prompt
+    // describes; Save is for the database, not for this.
     function showImagePrompt(id) {
       const guide = findGuide(id);
       if (!guide) return;
-      openPrompt('Image Prompt — ' + (cleanText(guide.name) || '#' + guide.id),
-        'Paste this into an image generator, then bring the result back with Upload Image.',
-        ['portrait', 'from the bio and background'],
+      const draft = draftOf(guide);
+      const thin = !cleanText(draft.bio) && !cleanText(draft.background);
+      openPrompt('Image Prompt — ' + (cleanText(draft.name) || '#' + guide.id),
+        thin
+          // Worth saying rather than letting a generic portrait come back and
+          // look like the prompt's fault: with no bio and no background there
+          // is nothing to draw from but the name.
+          ? 'This guide has no bio and no background yet, so the prompt has only the name to go on and the portrait will be generic. Write something first, or use it as a starting point.'
+          : 'Built from the boxes as they stand, saved or not. Paste it into an image generator, then bring the result back with Upload Image.',
+        ['portrait', thin ? 'name only' : 'from the bio and background', 'cartoon, never photoreal'],
         window.TgbPicmakerPrompts.buildGuideImagePrompt({
-          guideName: guide.name,
-          guideBio: guide.bio,
-          guideBackground: guide.background
+          guideName: draft.name,
+          guideBio: draft.bio,
+          guideBackground: draft.background
         }));
     }
 
@@ -2296,7 +2309,12 @@
       lines.push('  to one matchup, one date, or one opponent.');
       lines.push('');
       if (guide) {
-        const name = cleanText(guide.name);
+        // The DRAFT, for the same reason the image prompt reads it: what is
+        // in the boxes is what the person is looking at. Only the main
+        // PROMPT button reaches this today and it passes null - but a
+        // per-guide prompt reading a stale row is the bug this already was.
+        const src = draftOf(guide);
+        const name = cleanText(src.name);
         const isPlaceholder = name.replace(/\s+/g, ' ').toLowerCase() === 'mission control';
         lines.push('THE GUIDE YOU ARE WRITING');
         if (name && !isPlaceholder) {
@@ -2306,9 +2324,9 @@
         } else {
           lines.push('- Name: not settled yet. Invent one that suits the hometown below.');
         }
-        if (cleanText(guide.hometown)) lines.push('- Hometown (the character is FROM here): ' + cleanText(guide.hometown));
-        if (cleanText(guide.bio)) lines.push('- Current bio (refine or replace): ' + cleanText(guide.bio));
-        if (cleanText(guide.background)) lines.push('- Current background (refine or replace): ' + cleanText(guide.background));
+        if (cleanText(src.hometown)) lines.push('- Hometown (the character is FROM here): ' + cleanText(src.hometown));
+        if (cleanText(src.bio)) lines.push('- Current bio (refine or replace): ' + cleanText(src.bio));
+        if (cleanText(src.background)) lines.push('- Current background (refine or replace): ' + cleanText(src.background));
       } else {
         lines.push('THE GUIDE YOU ARE WRITING');
         lines.push('- A new character. Invent the name, and say where it is from.');
