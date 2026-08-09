@@ -546,8 +546,24 @@
         text-align: left;
       }
     }
+  <style>
+    /* Added with the guides table (2026-08-09). */
+
+    /* The toolbar was a three-column grid built for search + two buttons. This
+       page has five controls, and the extra two dropped onto a second row
+       misaligned under the first. Flow instead of columns. */
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .toolbar input[type="search"] { flex: 1 1 240px; min-width: 0; }
+    .toolbar .copy-inline { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--muted); }
+
+    .guide-hometown { font-size: .74rem; }
+    .thumb-status { font-family: 'IBM Plex Mono', monospace; font-size: .68rem; line-height: 1.4; word-break: break-word; }
+    .thumb-status.is-error { color: #a03f2d; }
+    .guide-games { font-family: 'IBM Plex Mono', monospace; font-size: .7rem; opacity: .75; }
+    .guide-games b { font-weight: 700; opacity: 1; }
+    .guide-card.is-new { outline: 2px solid rgba(45,72,128,.35); }
+    .guide-card.is-archived { opacity: .55; }
   </style>
-  <link rel="stylesheet" href="js/admin-shell.css">
 </head>
 <body class="mc-auth-protected">
   <main class="app">
@@ -557,24 +573,30 @@
       <p class="kicker">TGB MISSION CONTROL</p>
       <h2>GUIDES</h2>
       <p class="status" id="pageStatus" aria-live="polite">Sign in with an admin account.</p>
-      <p class="legend">Edit guide fields from the games table. Hit GENERATE PROMPT on a game to copy a ready-to-paste AI prompt that returns GUIDE NAME / BIO / BACKGROUND. Image URLs are normalized to the public assets/guides path when they reference a guide asset.</p>
+      <p class="legend">A guide is a CHARACTER, not a property of one game — <b>public.guides</b>, one row each, and a game points at one. Editing a guide here changes it on every game that uses it. Hit GENERATE PROMPT for a ready-to-paste AI prompt that returns NAME / BIO / BACKGROUND.</p>
     </section>
 
     <div class="toolbar">
-      <input type="search" id="searchInput" placeholder="Filter by game name..." autocomplete="off">
+      <input type="search" id="searchInput" placeholder="Filter by guide name or hometown..." autocomplete="off">
+      <button class="btn primary" id="addBtn" type="button" title="Create a new guide">+ New guide</button>
       <button class="btn" id="refreshBtn" type="button">Refresh</button>
-      <button class="btn primary" id="saveDirtyBtn" type="button" title="Save every game with unsaved edits on this page">Save All Changes</button>
+      <button class="btn" id="saveDirtyBtn" type="button" title="Save every guide with unsaved edits" disabled>Save All Changes</button>
+      <label class="copy-inline"><input type="checkbox" id="showArchived"> Show archived</label>
     </div>
 
     <section class="panel">
       <div class="summary" id="summaryLine">
-        <span>0 games</span>
-        <span>0 selected</span>
+        <span>0 guides</span>
+        <span>0 unsaved</span>
       </div>
-      <div class="guide-pager" id="guidePager" hidden></div>
       <div class="guide-list" id="guideList"></div>
     </section>
   </main>
+
+  <!-- The city catalogue, filled once from TgbCities. One shared datalist, not
+       a picker attached per row: attach() keeps a controller for every element
+       it is handed and this list rerenders on every keystroke of the filter. -->
+  <datalist id="cityList"></datalist>
 
   <div class="prompt-backdrop" id="guidePromptBackdrop" hidden></div>
   <section class="prompt-dialog" id="guidePromptDialog" hidden role="dialog" aria-modal="true" aria-labelledby="guidePromptTitle">
@@ -584,79 +606,677 @@
       <button class="btn primary small" id="guidePromptCopyBtn" type="button">Copy</button>
       <button class="btn small" id="guidePromptCloseBtn" type="button">Close</button>
     </div>
-    <p class="prompt-help" id="guidePromptHelp">Copy this prompt into your AI, then paste the returned GUIDE NAME / GUIDE BIO / GUIDE BACKGROUND into the fields on this page.</p>
+    <p class="prompt-help" id="guidePromptHelp">Copy this into your AI, then paste the returned GUIDE NAME / GUIDE BIO / GUIDE BACKGROUND into the fields.</p>
     <textarea class="prompt-textarea" id="guidePromptText" readonly spellcheck="false"></textarea>
   </section>
 
-  <div class="prompt-backdrop" id="copyBackdrop" hidden></div>
-  <section class="prompt-dialog copy-dialog" id="copyDialog" hidden role="dialog" aria-modal="true" aria-labelledby="copyTitle">
-    <div class="prompt-bar">
-      <h3 class="prompt-title" id="copyTitle">Copy Guide</h3>
-      <span class="prompt-copy-status" id="copyStatus" aria-live="polite"></span>
-      <button class="btn primary small" id="copyApplyBtn" type="button" disabled>Copy to 0</button>
-      <button class="btn small" id="copyCloseBtn" type="button">Close</button>
-    </div>
-    <div class="copy-controls">
-      <input type="search" id="copySearch" placeholder="Filter target games..." autocomplete="off">
-      <label class="copy-inline"><input type="checkbox" id="copySelectAll"> Select all (filtered)</label>
-      <label class="copy-inline"><input type="checkbox" id="copyIncludeImage" checked> Include image URL</label>
-    </div>
-    <div class="copy-list" id="copyList"></div>
-  </section>
-
-  <script src="js/admin-auth.js"></script>
-  <script src="js/admin-shell.js"></script>
-  <script src="js/admin-site-nav.js"></script>
+  <script src="/mc/js/admin-auth.js"></script>
+  <script src="/mc/js/admin-shell.js"></script>
+  <script src="/mc/js/admin-site-nav.js"></script>
+  <script src="/mc/js/supabase-rest.js"></script>
+  <script src="/mc/assets/geo.js"></script>
+  <script src="/mc/assets/city-picker.js"></script>
   <script src="picmaker/prompts.js"></script>
   <script>
+    'use strict';
+
+    // GUIDES — the narrator characters, out of public.guides.
+    //
+    // Until 2026-08-09 this page edited four columns on public.games, one card
+    // per GAME. That made a guide a property of a single game, so Sir Purr had
+    // to be edited eight times and Mission Control 296. The table underneath is
+    // now one row per character and a game points at it, so this page is one
+    // card per character and an edit lands everywhere at once.
+    //
+    // THE GAMES COLUMNS ARE STILL WRITTEN, by a trigger, not by this page. Both
+    // engines read games.guide_* at play time; guides_sync_games pushes a
+    // guide's fields onto every game pointing at it whenever this page saves.
+    // Never write those columns from here - the trigger already did.
+
     const SUPABASE_CONFIG = {
       url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
       publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
     };
 
-    const GUIDE_ASSET_BASE_URL = 'https://thegamebureau.com/mc/assets/guides/';
-    const GUIDE_IMAGE_FILE_RE = /\.(?:avif|gif|ico|jpe?g|png|svg|webp)$/i;
+    const GUIDE_BUCKET = 'guides';
+    // Everything a person types. id / created_at / updated_at are the
+    // database's, and games are counted, never edited from here.
+    const EDITABLE = ['name', 'bio', 'background', 'image_url', 'hometown'];
 
-    // "Open folder" can't reach Windows Explorer from a browser. On localhost we
-    // hand off to VS Code (vscode://file/) to reveal assets/guides; on prod that
-    // machine path is meaningless, so fall back to the served folder URL.
-    const GUIDE_FOLDER_LOCAL_PATH = 'C:/Code/the-game-bureau/assets/guides';
-    function guideFolderOpenHref() {
-      const host = location.hostname;
-      const isLocal = host === 'localhost' || host === '127.0.0.1' || host === ''
-        || /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(host);
-      return isLocal ? ('vscode://file/' + GUIDE_FOLDER_LOCAL_PATH) : '/mc/assets/guides/';
-    }
-    const GAMES_SCHEMA = {
-      guide_background: true
+    const state = {
+      authed: false,
+      guides: [],
+      gamesByGuide: new Map(),   // guide id -> { count, sample }
+      dirty: new Set(),
+      saving: new Set(),
+      filter: '',
+      showArchived: false
     };
-    const GAME_SELECT_COLUMNS = [
-      'id',
-      'name',
-      'city',
-      'archived',
-      'game_date',
-      'start_time',
-      'starting_location_name',
-      'starting_location_address',
-      'starting_location_plus_code',
-      'starting_location_lat',
-      'starting_location_lon',
-      'away_team_city',
-      'away_team_mascot',
-      'home_team_city',
-      'home_team_mascot',
-      'logo_url',
-      'guide_name',
-      'guide_bio',
-      'guide_background',
-      'guide_image_url',
-      'updated_at'
-    ];
 
-    // Hidden base prompt. Combined per-game with team/city info by the
-    // GENERATE PROMPT button, then pasted into an AI to author the guide's
-    // NAME, BIO, and BACKGROUND. Not rendered anywhere on the page.
+    const el = (id) => document.getElementById(id);
+    const cleanText = (v) => String(v == null ? '' : v).trim();
+    const guideList = el('guideList');
+    const pageStatus = el('pageStatus');
+
+    function cssEscape(value) {
+      const s = String(value);
+      return (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/["\\\]]/g, '\\$&');
+    }
+
+    let statusTimer = 0;
+    function setStatus(text, kind) {
+      if (!pageStatus) return;
+      window.clearTimeout(statusTimer);
+      pageStatus.textContent = text || '';
+      pageStatus.classList.toggle('error', kind === 'error');
+      pageStatus.classList.toggle('success', kind === 'success');
+      if (text && kind !== 'error') statusTimer = window.setTimeout(() => setStatus(''), 4000);
+    }
+
+    function restUrl(table, params) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params || {}).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+      });
+      return url.toString();
+    }
+
+    function authHeaders(extra) {
+      if (adminAuth && typeof adminAuth.authHeaders === 'function') return adminAuth.authHeaders(extra || {});
+      const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      const token = (session && session.access_token) || SUPABASE_CONFIG.publishableKey;
+      return Object.assign({
+        apikey: SUPABASE_CONFIG.publishableKey,
+        Authorization: 'Bearer ' + token,
+        Accept: 'application/json'
+      }, extra || {});
+    }
+
+    async function ensureFreshSession() {
+      if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') {
+        try { await adminAuth.ensureFreshSession(); } catch (error) {}
+      }
+    }
+
+    async function readError(response, fallback) {
+      try {
+        const text = await response.text();
+        if (!text) return fallback;
+        try {
+          const payload = JSON.parse(text);
+          return payload.message || payload.hint || payload.error || text;
+        } catch (error) { return text; }
+      } catch (error) { return fallback; }
+    }
+
+    function adminToken() {
+      const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      return (session && session.access_token) || '';
+    }
+
+    // --- loading --------------------------------------------------------------
+
+    async function refresh() {
+      try {
+        await ensureFreshSession();
+        // select=* on both, never a column list: a database that has not run
+        // the latest migration 400s on an unknown column and takes the whole
+        // page load with it. The standing rule in this codebase.
+        const [guides, games] = await Promise.all([
+          fetchAll('guides', { select: '*', order: 'name.asc' }),
+          // Only what the counts and the prompt need. A guide's prompt wants
+          // one game for its team context; the count wants the rest.
+          fetchAll('games', { select: 'id,name,city,guide_id,home_team_city,home_team_mascot,away_team_city,away_team_mascot' })
+        ]);
+        state.guides = Array.isArray(guides) ? guides : [];
+        state.gamesByGuide = new Map();
+        (Array.isArray(games) ? games : []).forEach((g) => {
+          if (g.guide_id == null) return;
+          const key = String(g.guide_id);
+          const hit = state.gamesByGuide.get(key) || { count: 0, sample: null };
+          hit.count += 1;
+          if (!hit.sample) hit.sample = g;
+          state.gamesByGuide.set(key, hit);
+        });
+        state.dirty.clear();
+        rebuildPristine();
+        render();
+        setStatus('');
+      } catch (error) {
+        console.error(error);
+        const msg = (error && error.message) || 'Load failed.';
+        setStatus(msg, 'error');
+        guideList.innerHTML = '';
+        guideList.appendChild(emptyNode(
+          /guides/i.test(msg) && /does not exist|relation/i.test(msg)
+            ? 'public.guides does not exist yet — run mc/supabase/migrations/2026080901_guides_table.sql.'
+            : 'Could not load guides. ' + msg));
+      }
+    }
+
+    // TgbRest.fetchAll pages past PostgREST's 1000-row cap. games is already at
+    // 395 and cities at 1351; a truncated read here would silently undercount
+    // the games on a guide, which looks like data rather than a bug.
+    async function fetchAll(table, params) {
+      const url = restUrl(table, params);
+      if (window.TgbRest && typeof window.TgbRest.fetchAll === 'function') {
+        return window.TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }));
+      }
+      const res = await fetch(url, { headers: authHeaders({ Accept: 'application/json' }) });
+      if (!res.ok) throw new Error(await readError(res, 'Load failed.'));
+      return res.json();
+    }
+
+    // --- change tracking ------------------------------------------------------
+
+    const pristine = new Map();
+    const snapshot = (g) => EDITABLE.map((f) => cleanText(g[f])).join('~|~') + '~|~' + (g.archived ? '1' : '0');
+    function rebuildPristine() {
+      pristine.clear();
+      state.guides.forEach((g) => { if (!isNew(g)) pristine.set(String(g.id), snapshot(g)); });
+    }
+    const isNew = (g) => g && g.id == null;
+
+    function markDirty(guide) {
+      const key = String(guide.id);
+      if (isNew(guide)) { state.dirty.add(key); }
+      else if (snapshot(guide) === pristine.get(key)) state.dirty.delete(key);
+      else state.dirty.add(key);
+      paintCardState(guide);
+      updateSummary();
+    }
+
+    function findGuide(id) {
+      return state.guides.find((g) => String(g.id) === String(id)) || null;
+    }
+
+    // --- rendering ------------------------------------------------------------
+
+    function emptyNode(text) {
+      const node = document.createElement('div');
+      node.className = 'empty';
+      node.textContent = text;
+      return node;
+    }
+
+    function visibleGuides() {
+      const q = state.filter.toLowerCase();
+      return state.guides.filter((g) => {
+        if (!state.showArchived && g.archived && !isNew(g)) return false;
+        if (!q) return true;
+        return (cleanText(g.name) + ' ' + cleanText(g.hometown)).toLowerCase().includes(q);
+      });
+    }
+
+    function render() {
+      guideList.innerHTML = '';
+      if (!state.authed) {
+        guideList.appendChild(emptyNode('Sign in to view and edit guides.'));
+        updateSummary();
+        return;
+      }
+      const rows = visibleGuides();
+      if (!rows.length) {
+        guideList.appendChild(emptyNode(state.guides.length
+          ? 'No guide matches that filter.'
+          : 'No guides yet. Press + New guide.'));
+        updateSummary();
+        return;
+      }
+      rows.forEach((g) => guideList.appendChild(renderGuideCard(g)));
+      updateSummary();
+    }
+
+    function updateSummary() {
+      const total = state.guides.length;
+      const shown = visibleGuides().length;
+      el('summaryLine').innerHTML = '';
+      const left = document.createElement('span');
+      left.textContent = shown === total
+        ? total + ' guide' + (total === 1 ? '' : 's')
+        : shown + ' of ' + total + ' guides';
+      const right = document.createElement('span');
+      right.textContent = state.dirty.size + ' unsaved';
+      el('summaryLine').append(left, right);
+      el('saveDirtyBtn').disabled = !state.authed || state.dirty.size === 0 || state.saving.size > 0;
+      el('saveDirtyBtn').classList.toggle('primary', state.dirty.size > 0);
+    }
+
+    function paintCardState(guide) {
+      const card = guideList.querySelector('[data-guide-id="' + cssEscape(guide.id) + '"]');
+      if (!card) return;
+      const key = String(guide.id);
+      card.classList.toggle('is-archived', !!guide.archived && !isNew(guide));
+      const save = card.querySelector('[data-action="save"]');
+      if (save) {
+        save.disabled = !state.dirty.has(key) || state.saving.has(key);
+        save.textContent = state.saving.has(key) ? 'Saving...' : (isNew(guide) ? 'Create' : 'Save');
+      }
+    }
+
+    function field(guide, key, label, hint, multiline) {
+      const wrap = document.createElement('div');
+      wrap.className = 'field';
+      const lab = document.createElement('label');
+      lab.className = 'field-label';
+      lab.textContent = label;
+      const input = document.createElement(multiline ? 'textarea' : 'input');
+      if (!multiline) input.type = 'text';
+      input.value = cleanText(guide[key]);
+      input.dataset.field = key;
+      if (key === 'hometown') {
+        input.setAttribute('list', 'cityList');
+        input.placeholder = 'Charlotte, North Carolina';
+      }
+      input.addEventListener('input', () => {
+        guide[key] = input.value;
+        markDirty(guide);
+      });
+      wrap.append(lab, input);
+      if (hint) {
+        const h = document.createElement('p');
+        h.className = 'field-hint';
+        h.textContent = hint;
+        wrap.appendChild(h);
+      }
+      return wrap;
+    }
+
+    function mkBtn(text, title, onClick, cls) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn small' + (cls ? ' ' + cls : '');
+      b.textContent = text;
+      if (title) b.title = title;
+      b.addEventListener('click', onClick);
+      return b;
+    }
+
+    function renderGuideCard(guide) {
+      const card = document.createElement('article');
+      card.className = 'guide-card' + (isNew(guide) ? ' is-new' : '');
+      card.dataset.guideId = guide.id;
+
+      const head = document.createElement('div');
+      head.className = 'guide-card-head';
+
+      const titleWrap = document.createElement('div');
+      const title = document.createElement('div');
+      title.className = 'game-title';
+      title.textContent = cleanText(guide.name) || (isNew(guide) ? 'New guide' : 'Unnamed guide');
+      const meta = document.createElement('div');
+      meta.className = 'game-meta';
+      const games = state.gamesByGuide.get(String(guide.id)) || { count: 0 };
+      meta.innerHTML = '';
+      const idSpan = document.createElement('span');
+      idSpan.className = 'game-id';
+      idSpan.textContent = isNew(guide) ? 'not saved yet' : ('#' + guide.id);
+      const gamesSpan = document.createElement('span');
+      gamesSpan.className = 'guide-games';
+      // The whole point of the table: this number is how many games one edit
+      // reaches. 296 for Mission Control, 8 for Sir Purr.
+      gamesSpan.innerHTML = '<b>' + games.count + '</b> game' + (games.count === 1 ? '' : 's');
+      meta.append(idSpan, gamesSpan);
+      if (cleanText(guide.hometown)) {
+        const home = document.createElement('span');
+        home.className = 'guide-hometown';
+        home.textContent = guide.hometown;
+        meta.appendChild(home);
+      }
+      titleWrap.append(title, meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'card-actions';
+      actions.append(
+        mkBtn('Generate Prompt', 'An AI prompt that returns NAME / BIO / BACKGROUND', () => generateGuidePrompt(guide.id)),
+        mkBtn('Image Prompt', 'An AI image prompt for the portrait', () => generateGuideImagePrompt(guide.id)),
+        mkBtn(guide.archived ? 'Restore' : 'Archive',
+          guide.archived ? 'Put this guide back in the working list' : 'Hide this guide without deleting it',
+          () => toggleArchived(guide.id)),
+        mkBtn(isNew(guide) ? 'Create' : 'Save', 'Save this guide', () => saveGuide(guide.id), 'primary')
+      );
+      actions.querySelector('.primary').dataset.action = 'save';
+      actions.querySelector('.primary').disabled = !state.dirty.has(String(guide.id));
+
+      head.append(titleWrap, actions);
+
+      const grid = document.createElement('div');
+      grid.className = 'guide-grid';
+
+      const thumbSlot = document.createElement('div');
+      thumbSlot.setAttribute('data-thumb-slot', '');
+      renderThumb(thumbSlot, guide);
+
+      const fields = document.createElement('div');
+      fields.className = 'field-grid';
+      fields.append(
+        field(guide, 'name', 'Guide Name', 'The narrator, by the name a player hears.'),
+        field(guide, 'hometown', 'Hometown', 'Picked from the city catalogue — the character’s home, usually the fanbase’s city.'),
+        field(guide, 'bio', 'Guide Bio', 'Two or three sentences, read by the player.', true),
+        field(guide, 'background', 'Guide Background', 'The full character breakdown. Used for game development, never shown to a player.', true),
+        field(guide, 'image_url', 'Portrait URL', 'Uploading fills this in. Blank means no portrait yet.')
+      );
+
+      grid.append(thumbSlot, fields);
+      card.append(head, grid);
+
+      if (games.count) card.appendChild(renderGameList(guide));
+      return card;
+    }
+
+    // Which games this guide fronts. Read-only: a game chooses its guide in
+    // Game Profiles, not here - this is the answer to "what does this edit
+    // touch", which the old per-game page could not ask at all.
+    function renderGameList(guide) {
+      const wrap = document.createElement('div');
+      wrap.className = 'context-section';
+      const title = document.createElement('h4');
+      title.className = 'context-title';
+      const games = state.gamesByGuide.get(String(guide.id)) || { count: 0, sample: null };
+      title.textContent = 'Fronts ' + games.count + ' game' + (games.count === 1 ? '' : 's');
+      wrap.appendChild(title);
+      if (games.sample) {
+        const line = document.createElement('div');
+        line.className = 'guide-games';
+        line.textContent = 'e.g. ' + cleanText(games.sample.name)
+          + (cleanText(games.sample.city) ? ' — ' + games.sample.city : '');
+        wrap.appendChild(line);
+      }
+      return wrap;
+    }
+
+    // --- the portrait ---------------------------------------------------------
+
+    function renderThumb(slot, guide) {
+      slot.innerHTML = '';
+      const url = cleanText(guide.image_url);
+      if (url) {
+        const img = document.createElement('img');
+        img.className = 'guide-thumb';
+        img.src = url;
+        img.alt = cleanText(guide.name) || 'Guide portrait';
+        img.loading = 'lazy';
+        // A 404 is the normal case for the legacy links, so it is shown as a
+        // missing portrait rather than a broken image icon.
+        img.addEventListener('error', () => {
+          img.remove();
+          const ph = document.createElement('div');
+          ph.className = 'guide-thumb-placeholder';
+          ph.textContent = 'LINK IS DEAD';
+          slot.insertBefore(ph, slot.firstChild);
+        });
+        slot.appendChild(img);
+      } else {
+        const ph = document.createElement('div');
+        ph.className = 'guide-thumb-placeholder';
+        ph.textContent = 'NO PORTRAIT';
+        slot.appendChild(ph);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'thumb-actions';
+      const status = document.createElement('div');
+      status.className = 'thumb-status';
+      status.setAttribute('aria-live', 'polite');
+
+      const row = document.createElement('div');
+      row.className = 'thumb-btn-row';
+
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.hidden = true;
+      const fileBtn = mkBtn('Upload file...', 'Upload a portrait from this computer', () => fileInput.click());
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files && fileInput.files[0];
+        fileInput.value = '';
+        if (file) uploadGuideImageFile(guide.id, file, fileBtn, status);
+      });
+      row.append(fileBtn, fileInput);
+
+      // Only worth offering when the URL is not already ours: pushing a
+      // Storage URL back through the uploader would just copy it onto itself.
+      if (url && url.indexOf(SUPABASE_CONFIG.url) !== 0) {
+        row.appendChild(mkBtn('Host here', 'Fetch this image and store it in Supabase', (e) =>
+          uploadGuideImageFromUrl(guide.id, e.target, status)));
+      }
+      actions.append(row, status);
+      slot.appendChild(actions);
+    }
+
+    // Two upload paths, and the split is CORS rather than preference. A local
+    // file goes straight from the browser to Supabase Storage on the admin's
+    // token; a remote URL cannot be fetched by the browser at all, so the
+    // upload-guide-image Edge Function fetches it server-side. Both land in the
+    // guides bucket and write the same public URL back.
+    //
+    // KEYED BY GUIDE ID, not game id. The old scheme named the file after the
+    // game, which is why Sir Purr had one bio and eight portraits.
+    async function applyImageUrl(guideId, publicUrl, status) {
+      const guide = findGuide(guideId);
+      if (!guide) return;
+      guide.image_url = publicUrl;
+      const card = guideList.querySelector('[data-guide-id="' + cssEscape(guideId) + '"]');
+      const input = card && card.querySelector('[data-field="image_url"]');
+      if (input) input.value = publicUrl;
+      // Written straight through rather than left as a dirty edit: the file is
+      // already in the bucket, so an unsaved URL would mean a Save All away
+      // from an image the page is already showing.
+      try {
+        await ensureFreshSession();
+        const res = await fetch(restUrl('guides', { id: 'eq.' + guideId }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+          body: JSON.stringify({ image_url: publicUrl })
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not save the portrait URL.'));
+        pristine.set(String(guideId), snapshot(guide));
+        state.dirty.delete(String(guideId));
+        setStatus('Portrait saved for ' + (cleanText(guide.name) || ('#' + guideId)) + '.', 'success');
+        setUploadStatus(status, 'Uploaded and saved');
+      } catch (error) {
+        setUploadStatus(status, 'Uploaded, but saving the URL failed: ' + (error.message || error), true);
+      }
+      const slot = card && card.querySelector('[data-thumb-slot]');
+      if (slot) renderThumb(slot, guide);
+      updateSummary();
+    }
+
+    function setUploadStatus(node, message, isError) {
+      if (!node) return;
+      node.textContent = message || '';
+      node.classList.toggle('is-error', !!isError);
+    }
+
+    async function uploadGuideImageFromUrl(guideId, btn, status) {
+      const guide = findGuide(guideId);
+      if (!guide) return;
+      const sourceUrl = cleanText(guide.image_url);
+      if (!/^https?:\/\//i.test(sourceUrl)) {
+        setUploadStatus(status, 'Put an http(s) image URL in the field first.', true);
+        return;
+      }
+      const token = adminToken();
+      if (!token) { setUploadStatus(status, 'Sign in as an admin to upload.', true); return; }
+      btn.disabled = true;
+      setUploadStatus(status, 'Fetching and hosting...');
+      try {
+        const endpoint = SUPABASE_CONFIG.url.replace(/\/+$/, '') + '/functions/v1/upload-guide-image';
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_CONFIG.publishableKey,
+            Authorization: 'Bearer ' + token
+          },
+          // The function names the object after gameId; here that is the guide,
+          // which is all the parameter has ever been - an object name.
+          body: JSON.stringify({ url: sourceUrl, gameId: 'guide-' + guideId })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error((data && data.error) || ('upload failed (' + res.status + ')'));
+        const publicUrl = cleanText(data && data.url);
+        if (!publicUrl) throw new Error('no url returned');
+        await applyImageUrl(guideId, publicUrl, status);
+      } catch (error) {
+        setUploadStatus(status, String((error && error.message) || 'Upload failed.'), true);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function uploadGuideImageFile(guideId, file, btn, status) {
+      const token = adminToken();
+      if (!token) { setUploadStatus(status, 'Sign in as an admin to upload.', true); return; }
+      if (!/^image\//i.test(file.type || '')) { setUploadStatus(status, 'Choose an image file.', true); return; }
+      // The ceiling the Edge Function enforces, checked here so a pointless
+      // 40 MB upload fails at once rather than at the far end.
+      if (file.size > 15 * 1024 * 1024) { setUploadStatus(status, 'Image is larger than 15 MB.', true); return; }
+      const label = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Uploading...';
+      setUploadStatus(status, 'Uploading...');
+      try {
+        const rawExt = (String(file.name).split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const ext = rawExt || (String(file.type).split('/')[1] || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+        const path = encodeURIComponent('guide-' + guideId + '.' + ext);
+        const base = SUPABASE_CONFIG.url.replace(/\/+$/, '');
+        const res = await fetch(base + '/storage/v1/object/' + GUIDE_BUCKET + '/' + path, {
+          method: 'POST',
+          headers: {
+            apikey: SUPABASE_CONFIG.publishableKey,
+            Authorization: 'Bearer ' + token,
+            'Content-Type': file.type || 'application/octet-stream',
+            'x-upsert': 'true'
+          },
+          body: file
+        });
+        if (!res.ok) {
+          const t = await res.text().catch(() => '');
+          throw new Error('upload failed (' + res.status + ')' + (t ? ': ' + t.slice(0, 140) : ''));
+        }
+        // Cache-bust, or a replacement is masked by the stale CDN copy.
+        const publicUrl = base + '/storage/v1/object/public/' + GUIDE_BUCKET + '/' + path + '?v=' + Date.now();
+        await applyImageUrl(guideId, publicUrl, status);
+      } catch (error) {
+        setUploadStatus(status, String((error && error.message) || 'Upload failed.'), true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+    }
+
+    // --- writing --------------------------------------------------------------
+
+    function blankGuide() {
+      return { id: null, name: '', bio: '', background: '', image_url: '', hometown: '', archived: false };
+    }
+
+    function addGuide() {
+      const guide = blankGuide();
+      state.guides.unshift(guide);
+      state.dirty.add('null');
+      state.filter = '';
+      el('searchInput').value = '';
+      render();
+      const card = guideList.querySelector('.guide-card.is-new input[data-field="name"]');
+      if (card) { card.focus(); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      setStatus('New guide — give it a name, then press Create.');
+    }
+
+    function payloadOf(guide) {
+      const payload = {};
+      EDITABLE.forEach((f) => { payload[f] = cleanText(guide[f]) || null; });
+      payload.archived = !!guide.archived;
+      return payload;
+    }
+
+    async function saveGuide(id) {
+      const guide = findGuide(id);
+      if (!guide) return;
+      const key = String(guide.id);
+      if (state.saving.has(key)) return;
+      if (!cleanText(guide.name)) { setStatus('A guide needs a name.', 'error'); return; }
+      state.saving.add(key);
+      paintCardState(guide);
+      try {
+        await ensureFreshSession();
+        const creating = isNew(guide);
+        const res = await fetch(
+          restUrl('guides', creating ? {} : { id: 'eq.' + guide.id }),
+          {
+            method: creating ? 'POST' : 'PATCH',
+            headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+            body: JSON.stringify(payloadOf(guide))
+          });
+        if (!res.ok) throw new Error(await readError(res, 'Could not save this guide.'));
+        const [fresh] = await res.json();
+        state.saving.delete(key);
+        state.dirty.delete(key);
+        Object.assign(guide, fresh);
+        pristine.set(String(guide.id), snapshot(guide));
+        render();
+        const games = state.gamesByGuide.get(String(guide.id));
+        setStatus('Saved ' + cleanText(guide.name)
+          + (games && games.count ? ' — and the ' + games.count + ' game' + (games.count === 1 ? '' : 's') + ' it fronts.' : '.'),
+          'success');
+      } catch (error) {
+        state.saving.delete(key);
+        paintCardState(guide);
+        // The name index is the one a person actually trips over.
+        const msg = /guides_name_key|duplicate key/i.test(error.message || '')
+          ? 'There is already a guide with that name — a character is meant to be singular.'
+          : (error.message || 'Save failed.');
+        setStatus(msg, 'error');
+      }
+    }
+
+    async function saveAllDirty() {
+      const ids = [...state.dirty];
+      if (!ids.length) return;
+      el('saveDirtyBtn').disabled = true;
+      // Sequential: these are PATCHes against one table under one session, and
+      // a burst buys nothing but a chance of rate limits.
+      for (const id of ids) {
+        const guide = state.guides.find((g) => String(g.id) === id);
+        if (guide) await saveGuide(guide.id);
+      }
+      updateSummary();
+    }
+
+    async function toggleArchived(id) {
+      const guide = findGuide(id);
+      if (!guide) return;
+      if (isNew(guide)) {
+        // Nothing was ever written, so this is a cancel rather than an archive.
+        state.guides = state.guides.filter((g) => g !== guide);
+        state.dirty.delete('null');
+        render();
+        return;
+      }
+      guide.archived = !guide.archived;
+      markDirty(guide);
+      await saveGuide(id);
+    }
+
+    // --- the prompts ----------------------------------------------------------
+    // Both take their team and city context from ONE of the guide's games. A
+    // guide fronts one fanbase - Sir Purr appears only on Carolina games - so
+    // any of them carries the same teams; the sample is as good as a choice.
+
+    function promptContextFor(guide) {
+      const hit = state.gamesByGuide.get(String(guide.id));
+      const game = (hit && hit.sample) || {};
+      return {
+        home_team_city: game.home_team_city, home_team_mascot: game.home_team_mascot,
+        away_team_city: game.away_team_city, away_team_mascot: game.away_team_mascot,
+        // The hometown is the character's own, and better than a game's city:
+        // it is the thing a human chose for this guide.
+        city: cleanText(guide.hometown) || game.city,
+        guide_name: guide.name, guide_bio: guide.bio, guide_background: guide.background
+      };
+    }
+
     const GUIDE_PROMPT_BASE = `You are a creative collaborator for THE GAME BUREAU (TGB), a company that makes
 location-based, live-action games. Before the task, absorb how TGB works:
 
@@ -755,36 +1375,37 @@ GUIDE NAME: <the guide's name on one line>
 GUIDE BIO: <2–3 sentences, do not include the guide's name, audience is the game player — what the player reads about their guide>
 GUIDE BACKGROUND: <the full character breakdown — appearance, personality, motivation, strengths & flaws, backstory, rivalry attitude, relationship to the player, voice & tone, signature phrases, and the sample first-stop line>`;
 
-    function buildGuidePrompt(game) {
-      const homeParts = [game.home_team_city, game.home_team_mascot].filter(Boolean).join(' ');
-      const awayParts = [game.away_team_city, game.away_team_mascot].filter(Boolean).join(' ');
-      const takeoverLine = game.city || game.home_team_city || '';
-      const homeLine = homeParts;
-      const awayLine = awayParts;
+
+    function buildGuidePrompt(guide) {
+      const ctx = promptContextFor(guide);
+      const homeParts = [ctx.home_team_city, ctx.home_team_mascot].filter(Boolean).join(' ');
+      const awayParts = [ctx.away_team_city, ctx.away_team_mascot].filter(Boolean).join(' ');
+      const takeoverLine = ctx.city || ctx.home_team_city || '';
       let prompt = GUIDE_PROMPT_BASE
-        .replace('HOME team / city: [FILL IN]', 'HOME team / city: ' + (homeLine || '[unknown]'))
+        .replace('HOME team / city: [FILL IN]', 'HOME team / city: ' + (homeParts || '[unknown]'))
         .replace(
           'TAKEOVER city (where the street game happens): [FILL IN]',
           'TAKEOVER city (where the street game happens): ' + (takeoverLine || '[unknown]')
         )
         .replace(
           'AWAY team / fanbase + any nicknames, chants, lore: [FILL IN]',
-          'AWAY team / fanbase + any nicknames, chants, lore: ' + (awayLine || '[unknown]')
+          'AWAY team / fanbase + any nicknames, chants, lore: ' + (awayParts || '[unknown]')
         );
 
-      const currentName = String(game.guide_name || '').trim();
+      const currentName = cleanText(guide.name);
       const currentNameIsPlaceholder = currentName.replace(/\s+/g, ' ').toLowerCase() === 'mission control';
       const currentNameToKeep = currentNameIsPlaceholder ? '' : currentName;
-      const currentBio = String(game.guide_bio || '').trim();
-      const currentBackground = String(game.guide_background || '').trim();
+      const currentBio = cleanText(guide.bio);
+      const currentBackground = cleanText(guide.background);
       if (currentNameToKeep || currentBio || currentBackground) {
         const lines = currentNameToKeep
-          ? ['CURRENT GUIDE (a guide name already exists for this game — KEEP it)']
-          : ['CURRENT GUIDE (existing draft for this game — refine or replace it, keep whatever works)'];
+          ? ['CURRENT GUIDE (a guide name already exists — KEEP it)']
+          : ['CURRENT GUIDE (existing draft — refine or replace it, keep whatever works)'];
         if (currentNameToKeep) {
           lines.push('- Current guide name: ' + currentNameToKeep);
-          lines.push('- IMPORTANT: This game already has a guide named "' + currentNameToKeep + '". Return that EXACT name as GUIDE NAME — do not rename or invent a new one. Write the bio and background to fit this existing name, but do not include the name in GUIDE BIO.');
+          lines.push('- IMPORTANT: This guide is named "' + currentNameToKeep + '". Return that EXACT name as GUIDE NAME — do not rename or invent a new one. Write the bio and background to fit this existing name, but do not include the name in GUIDE BIO.');
         }
+        if (cleanText(guide.hometown)) lines.push('- Hometown (the character is FROM here): ' + cleanText(guide.hometown));
         if (currentBio) lines.push('- Current guide bio: ' + currentBio);
         if (currentBackground) lines.push('- Current guide background: ' + currentBackground);
         prompt = prompt.replace('DELIVER\n', lines.join('\n') + '\n\nDELIVER\n');
@@ -792,1208 +1413,132 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       return prompt;
     }
 
-    async function copyTextToClipboard(text) {
-      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-        try {
-          await navigator.clipboard.writeText(text);
-          return true;
-        } catch (error) {
-        }
-      }
-      try {
-        const helper = document.createElement('textarea');
-        helper.value = text;
-        helper.setAttribute('readonly', '');
-        helper.style.position = 'fixed';
-        helper.style.opacity = '0';
-        document.body.appendChild(helper);
-        helper.select();
-        const ok = document.execCommand('copy');
-        document.body.removeChild(helper);
-        return ok;
-      } catch (error) {
-        return false;
-      }
-    }
-
-    async function generateGuidePrompt(gameId) {
-      const game = findGame(gameId);
-      if (!game) return;
-      const prompt = buildGuidePrompt(game);
-      openGuidePrompt(game, prompt);
-      const copied = await copyTextToClipboard(prompt);
-      if (copied) {
-        setGuidePromptCopyStatus('Copied');
-        setStatus('Prompt for ' + displayName(game) + ' copied. Paste it into your AI, then drop GUIDE NAME / BIO / BACKGROUND back in.', 'success');
-      } else {
-        setGuidePromptCopyStatus('Copy manually');
-        setStatus('Prompt opened for ' + displayName(game) + '. Copy it from the prompt box.', 'success');
-      }
-    }
-
-    // Build a paste-ready AI IMAGE prompt for the guide portrait.
-    function buildGuideImagePrompt(game) {
+    function buildGuideImagePrompt(guide) {
       return window.TgbPicmakerPrompts.buildGuideImagePrompt({
-        guideName: game && game.guide_name,
-        guideBio: game && game.guide_bio,
-        guideBackground: game && game.guide_background
+        guideName: guide.name,
+        guideBio: guide.bio,
+        guideBackground: guide.background
       });
     }
 
-    async function generateGuideImagePrompt(gameId) {
-      const game = findGame(gameId);
-      if (!game) return;
-      const prompt = buildGuideImagePrompt(game);
-      openGuidePrompt(game, prompt, {
-        title: 'Guide Image Prompt - ' + displayName(game),
-        help: 'Copy this into ChatGPT or another AI image generator, then save the result to assets/guides as ' + game.id + '.png.'
-      });
-      const copied = await copyTextToClipboard(prompt);
-      setGuidePromptCopyStatus(copied ? 'Copied' : 'Copy manually');
-      setStatus(copied
-        ? 'Image prompt for ' + displayName(game) + ' copied. Paste it into an AI image generator.'
-        : 'Image prompt opened for ' + displayName(game) + '. Copy it from the box.', 'success');
-    }
-
-    function openGuidePrompt(game, prompt, options) {
-      if (!guidePromptDialog || !guidePromptText) return;
-      const opts = options || {};
-      guidePromptTitle.textContent = opts.title || ('Guide Prompt - ' + displayName(game));
-      const helpEl = document.getElementById('guidePromptHelp');
-      if (helpEl) helpEl.textContent = opts.help || 'Copy this prompt into your AI, then paste the returned GUIDE NAME / GUIDE BIO / GUIDE BACKGROUND into the fields on this page.';
-      guidePromptText.value = String(prompt || '');
-      setGuidePromptCopyStatus('');
-      guidePromptDialog.hidden = false;
-      if (guidePromptBackdrop) guidePromptBackdrop.hidden = false;
-      setTimeout(() => {
+    async function copyTextToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (error) {
         try {
-          guidePromptText.focus();
-          guidePromptText.select();
-        } catch (error) {
-        }
-      }, 0);
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          const ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+          return ok;
+        } catch (err) { return false; }
+      }
+    }
+
+    function openGuidePrompt(guide, prompt, options) {
+      const opts = options || {};
+      el('guidePromptTitle').textContent = opts.title || ('Guide Prompt - ' + (cleanText(guide.name) || '#' + guide.id));
+      el('guidePromptHelp').textContent = opts.help
+        || 'Copy this into your AI, then paste the returned GUIDE NAME / GUIDE BIO / GUIDE BACKGROUND into the fields on this card.';
+      const ta = el('guidePromptText');
+      ta.value = prompt;
+      el('guidePromptDialog').hidden = false;
+      el('guidePromptBackdrop').hidden = false;
+      el('guidePromptCopyStatus').textContent = '';
+      ta.focus();
+      ta.select();
     }
 
     function closeGuidePrompt() {
-      if (guidePromptDialog) guidePromptDialog.hidden = true;
-      if (guidePromptBackdrop) guidePromptBackdrop.hidden = true;
-      setGuidePromptCopyStatus('');
+      el('guidePromptDialog').hidden = true;
+      el('guidePromptBackdrop').hidden = true;
     }
 
-    function setGuidePromptCopyStatus(text) {
-      if (guidePromptCopyStatus) guidePromptCopyStatus.textContent = text || '';
+    async function generateGuidePrompt(id) {
+      const guide = findGuide(id);
+      if (!guide) return;
+      const prompt = buildGuidePrompt(guide);
+      openGuidePrompt(guide, prompt);
+      const ok = await copyTextToClipboard(prompt);
+      el('guidePromptCopyStatus').textContent = ok ? 'Copied' : 'Copy manually';
     }
 
-    // ---- Copy guide to other game(s) ----------------------------------------
-    const copyState = { sourceId: null, selected: new Set() };
-
-    function copyTargetGames() {
-      return state.games.filter((g) => g.id !== copyState.sourceId).slice().sort(compareGuideGames);
-    }
-    function copyDialogFilterTerm() {
-      const search = document.getElementById('copySearch');
-      return search ? search.value.trim().toLowerCase() : '';
-    }
-    function copyFilteredGames() {
-      const term = copyDialogFilterTerm();
-      return copyTargetGames().filter((g) => !term || searchHaystack(g).includes(term));
-    }
-
-    function openCopyDialog(sourceId) {
-      const game = findGame(sourceId);
-      if (!game) return;
-      copyState.sourceId = sourceId;
-      copyState.selected = new Set();
-      const titleEl = document.getElementById('copyTitle');
-      if (titleEl) titleEl.textContent = 'Copy guide from ' + displayName(game);
-      const search = document.getElementById('copySearch');
-      if (search) search.value = '';
-      const selectAll = document.getElementById('copySelectAll');
-      if (selectAll) selectAll.checked = false;
-      const status = document.getElementById('copyStatus');
-      if (status) status.textContent = '';
-      const includeImage = document.getElementById('copyIncludeImage');
-      if (includeImage) includeImage.checked = true;
-      renderCopyTargets();
-      const dialog = document.getElementById('copyDialog');
-      const backdrop = document.getElementById('copyBackdrop');
-      if (dialog) dialog.hidden = false;
-      if (backdrop) backdrop.hidden = false;
-    }
-
-    function closeCopyDialog() {
-      const dialog = document.getElementById('copyDialog');
-      const backdrop = document.getElementById('copyBackdrop');
-      if (dialog) dialog.hidden = true;
-      if (backdrop) backdrop.hidden = true;
-    }
-
-    function renderCopyTargets() {
-      const list = document.getElementById('copyList');
-      if (!list) return;
-      list.innerHTML = '';
-      const games = copyFilteredGames();
-      if (!games.length) {
-        list.appendChild(emptyNode('No matching games.'));
-        updateCopyApplyButton();
-        return;
-      }
-      games.forEach((g) => {
-        const row = document.createElement('label');
-        row.className = 'copy-row';
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = copyState.selected.has(g.id);
-        cb.addEventListener('change', () => {
-          if (cb.checked) copyState.selected.add(g.id);
-          else copyState.selected.delete(g.id);
-          updateCopyApplyButton();
-          syncSelectAllCheckbox();
-        });
-        const main = document.createElement('div');
-        main.className = 'copy-row-main';
-        const name = document.createElement('span');
-        name.className = 'copy-row-name';
-        name.textContent = displayName(g);
-        const sub = document.createElement('span');
-        sub.className = 'copy-row-sub';
-        const bits = [g.id];
-        const m = matchupLabel(g);
-        if (m) bits.push(m);
-        if (g.guide_name) bits.push('guide: ' + g.guide_name);
-        sub.textContent = bits.join(' · ');
-        main.append(name, sub);
-        row.append(cb, main);
-        list.appendChild(row);
+    async function generateGuideImagePrompt(id) {
+      const guide = findGuide(id);
+      if (!guide) return;
+      const prompt = buildGuideImagePrompt(guide);
+      openGuidePrompt(guide, prompt, {
+        title: 'Guide Image Prompt - ' + (cleanText(guide.name) || '#' + guide.id),
+        help: 'Copy this into an AI image generator, then bring the result back with Upload file.'
       });
-      updateCopyApplyButton();
-      syncSelectAllCheckbox();
+      const ok = await copyTextToClipboard(prompt);
+      el('guidePromptCopyStatus').textContent = ok ? 'Copied' : 'Copy manually';
     }
 
-    function syncSelectAllCheckbox() {
-      const selectAll = document.getElementById('copySelectAll');
-      if (!selectAll) return;
-      const filtered = copyFilteredGames();
-      selectAll.checked = filtered.length > 0 && filtered.every((g) => copyState.selected.has(g.id));
+    // --- the city list --------------------------------------------------------
+    // One shared datalist filled from the catalogue, not TgbCities.attach per
+    // field: attach keeps a controller for every element it is given and this
+    // list rebuilds on every keystroke of the filter. The same call
+    // mc/data/events.html and the Route Builder make.
+    function fillCityList() {
+      const list = el('cityList');
+      if (!list || !window.TgbCities) return;
+      window.TgbCities.load().then(() => {
+        list.innerHTML = '';
+        window.TgbCities.all().forEach((row) => {
+          const o = document.createElement('option');
+          o.value = row.city;
+          list.appendChild(o);
+        });
+      }).catch(() => {});
     }
 
-    function updateCopyApplyButton() {
-      const btn = document.getElementById('copyApplyBtn');
-      if (!btn) return;
-      const n = copyState.selected.size;
-      btn.textContent = 'Copy to ' + n;
-      btn.disabled = n === 0;
-    }
-
-    async function doCopyGuide() {
-      const source = findGame(copyState.sourceId);
-      if (!source) return;
-      const targets = Array.from(copyState.selected);
-      if (!targets.length) return;
-      const includeImage = (document.getElementById('copyIncludeImage') || {}).checked !== false;
-      const status = document.getElementById('copyStatus');
-      const applyBtn = document.getElementById('copyApplyBtn');
-      if (applyBtn) applyBtn.disabled = true;
-      let ok = 0, fail = 0;
-      for (const targetId of targets) {
-        const target = findGame(targetId);
-        if (!target) { fail++; continue; }
-        const guide = {
-          guide_name: source.guide_name || '',
-          guide_bio: source.guide_bio || '',
-          guide_background: source.guide_background || '',
-          guide_image_url: includeImage ? (source.guide_image_url || '') : (target.guide_image_url || '')
-        };
-        try {
-          const fresh = await patchGuide(targetId, guide);
-          replaceGame(fresh);
-          state.dirtyIds.delete(targetId);
-          ok++;
-          if (status) status.textContent = 'Copied ' + ok + '/' + targets.length + '…';
-        } catch (error) {
-          console.error(error);
-          fail++;
-        }
-      }
-      render();
-      setStatus('Copied guide from ' + displayName(source) + ' to ' + ok + ' game(s)'
-        + (fail ? ', ' + fail + ' failed' : '') + '.', fail ? 'error' : 'success');
-      closeCopyDialog();
-    }
-
-    const pageStatus = document.getElementById('pageStatus');
-    const searchInput = document.getElementById('searchInput');
-    const saveDirtyBtn = document.getElementById('saveDirtyBtn');
-    const refreshBtn = document.getElementById('refreshBtn');
-    const summaryLine = document.getElementById('summaryLine');
-    const guidePager = document.getElementById('guidePager');
-    const guideList = document.getElementById('guideList');
-    const guidePromptBackdrop = document.getElementById('guidePromptBackdrop');
-    const guidePromptDialog = document.getElementById('guidePromptDialog');
-    const guidePromptTitle = document.getElementById('guidePromptTitle');
-    const guidePromptText = document.getElementById('guidePromptText');
-    const guidePromptCopyBtn = document.getElementById('guidePromptCopyBtn');
-    const guidePromptCloseBtn = document.getElementById('guidePromptCloseBtn');
-
-    const state = {
-      games: [],
-      authed: false,
-      filter: '',
-      pageIndex: 0,
-      dirtyIds: new Set(),
-      savingIds: new Set()
-    };
-
-    const GUIDE_PAGE_SIZE = 10;
+    // --- wiring ---------------------------------------------------------------
 
     const adminAuth = window.TgbMcAdminAuth.create({
       supabaseConfig: SUPABASE_CONFIG,
       onAuthorized: async () => {
         state.authed = true;
         setStatus('Loading guides...');
+        fillCityList();
         await refresh();
       },
       onSignedOut: () => {
         state.authed = false;
-        state.games = [];
-        state.dirtyIds.clear();
-        state.savingIds.clear();
+        state.guides = [];
+        state.dirty.clear();
         render();
         setStatus('Sign in with an admin account.');
       }
     });
-
-    function setStatus(text, kind) {
-      pageStatus.textContent = text || '';
-      pageStatus.classList.toggle('error', kind === 'error');
-      pageStatus.classList.toggle('success', kind === 'success');
-    }
-
-    function restUrl(table, params) {
-      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
-      Object.entries(params || {}).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
-      });
-      return url.toString();
-    }
-
-    function authHeaders(extra) {
-      if (adminAuth && typeof adminAuth.authHeaders === 'function') {
-        return adminAuth.authHeaders(extra || {});
-      }
-      const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
-      const token = (session && session.access_token) || SUPABASE_CONFIG.publishableKey;
-      return Object.assign({
-        apikey: SUPABASE_CONFIG.publishableKey,
-        Authorization: 'Bearer ' + token,
-        Accept: 'application/json'
-      }, extra || {});
-    }
-
-    async function ensureFreshSession() {
-      if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') {
-        try {
-          await adminAuth.ensureFreshSession();
-        } catch (error) {
-        }
-      }
-    }
-
-    async function readError(response, fallback) {
-      try {
-        const text = await response.text();
-        if (!text) return fallback;
-        try {
-          const payload = JSON.parse(text);
-          return payload.message || payload.msg || payload.error_description || payload.error || text;
-        } catch (error) {
-          return text;
-        }
-      } catch (error) {
-        return fallback;
-      }
-    }
-
-    async function refresh() {
-      try {
-        await ensureFreshSession();
-        const response = await fetch(restUrl('games', {
-          select: buildGameSelect(),
-          order: 'name.asc'
-        }), {
-          headers: authHeaders({ Accept: 'application/json' }),
-          cache: 'no-store'
-        });
-        if (!response.ok) {
-          const message = await readError(response, 'Could not load guide records.');
-          const missingColumn = getMissingGamesColumnName(message);
-          if (missingColumn && GAMES_SCHEMA[missingColumn] !== false) {
-            GAMES_SCHEMA[missingColumn] = false;
-            return refresh();
-          }
-          throw new Error(message);
-        }
-        const rows = await response.json();
-        state.games = normalizeGames(rows);
-        state.pageIndex = 0;
-        state.dirtyIds.clear();
-        state.savingIds.clear();
-        render();
-        setStatus('Loaded ' + state.games.length + ' guide records.', 'success');
-      } catch (error) {
-        console.error(error);
-        setStatus(error.message || 'Load failed.', 'error');
-        render();
-      }
-    }
-
-    function normalizeGames(rows) {
-      return (Array.isArray(rows) ? rows : []).map(normalizeGame);
-    }
-
-    function buildGameSelect() {
-      return GAME_SELECT_COLUMNS
-        .filter((column) => GAMES_SCHEMA[column] !== false)
-        .join(',');
-    }
-
-    function getMissingGamesColumnName(errorMessage) {
-      const message = String(errorMessage || '');
-      const match = message.match(/column\s+games\.([a-z_]+)\s+does\s+not\s+exist/i);
-      if (match) return String(match[1] || '').trim().toLowerCase();
-      const schemaMatch = message.match(/could not find the ['"]?([a-z_]+)['"]? column of ['"]?games/i);
-      return schemaMatch ? String(schemaMatch[1] || '').trim().toLowerCase() : '';
-    }
-
-    function normalizeGame(row) {
-      const game = row && typeof row === 'object' ? row : {};
-      return {
-        id: String(game.id || ''),
-        name: String(game.name || ''),
-        city: String(game.city || ''),
-        archived: String(game.archived || ''),
-        game_date: String(game.game_date || ''),
-        start_time: String(game.start_time || ''),
-        starting_location_name: String(game.starting_location_name || ''),
-        starting_location_address: String(game.starting_location_address || ''),
-        starting_location_plus_code: String(game.starting_location_plus_code || ''),
-        starting_location_lat: game.starting_location_lat == null ? '' : String(game.starting_location_lat),
-        starting_location_lon: game.starting_location_lon == null ? '' : String(game.starting_location_lon),
-        away_team_city: String(game.away_team_city || ''),
-        away_team_mascot: String(game.away_team_mascot || ''),
-        home_team_city: String(game.home_team_city || ''),
-        home_team_mascot: String(game.home_team_mascot || ''),
-        logo_url: String(game.logo_url || ''),
-        guide_name: String(game.guide_name || ''),
-        guide_bio: String(game.guide_bio || ''),
-        guide_background: String(game.guide_background || ''),
-        guide_image_url: normalizeGuideImageUrl(game.guide_image_url || ''),
-        updated_at: String(game.updated_at || '')
-      };
-    }
-
-    function normalizeGuideImageUrl(value) {
-      const raw = String(value || '').trim();
-      if (!raw || /^(data:|blob:)/i.test(raw)) return '';
-
-      let path = raw.split(/[?#]/)[0].replace(/\\/g, '/');
-      try {
-        path = new URL(raw, window.location.href).pathname || path;
-      } catch (error) {
-      }
-
-      let decoded = path;
-      try {
-        decoded = decodeURIComponent(decoded);
-      } catch (error) {
-      }
-      decoded = decoded.replace(/\\/g, '/').replace(/^\/+/, '');
-
-      const guideMatch = decoded.match(/(?:^|\/)assets\/guides\/([^/]+)$/i)
-        || decoded.match(/^guides\/([^/]+)$/i);
-      const fileName = guideMatch
-        ? guideMatch[1]
-        : (!decoded.includes('/') ? decoded : '');
-
-      if (fileName && GUIDE_IMAGE_FILE_RE.test(fileName)) {
-        return GUIDE_ASSET_BASE_URL + fileName.split('/').map(encodeURIComponent).join('/');
-      }
-
-      return raw;
-    }
-
-    function guidePayloadFromGame(game) {
-      return {
-        guide_name: cleanText(game && game.guide_name),
-        guide_bio: cleanText(game && game.guide_bio),
-        guide_background: cleanText(game && game.guide_background),
-        guide_image_url: normalizeGuideImageUrl(game && game.guide_image_url)
-      };
-    }
-
-    function cleanText(value) {
-      return String(value || '').trim();
-    }
-
-    function payloadForSupabase(guide) {
-      const payload = {
-        guide_name: guide.guide_name || null,
-        guide_bio: guide.guide_bio || null,
-        guide_image_url: normalizeGuideImageUrl(guide.guide_image_url) || null,
-        updated_at: new Date().toISOString()
-      };
-      if (GAMES_SCHEMA.guide_background !== false) {
-        payload.guide_background = guide.guide_background || null;
-      }
-      return payload;
-    }
-
-    async function patchGuide(gameId, guide) {
-      await ensureFreshSession();
-      const response = await fetch(restUrl('games', { id: 'eq.' + gameId }), {
-        method: 'PATCH',
-        headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-        body: JSON.stringify(payloadForSupabase(guide))
-      });
-      if (!response.ok) throw new Error(await readError(response, 'Could not save guide.'));
-      const rows = await response.json();
-      const fresh = Array.isArray(rows) && rows[0] ? rows[0] : null;
-      return fresh ? normalizeGame(fresh) : normalizeGame(Object.assign({}, findGame(gameId), guide));
-    }
-
-    async function saveGameGuide(gameId) {
-      const game = findGame(gameId);
-      if (!game || state.savingIds.has(gameId)) return;
-      state.savingIds.add(gameId);
-      updateCardState(gameId);
-      setStatus('Saving ' + displayName(game) + '...');
-      try {
-        const fresh = await patchGuide(gameId, guidePayloadFromGame(game));
-        replaceGame(fresh);
-        state.dirtyIds.delete(gameId);
-        setStatus('Saved ' + displayName(fresh) + '.', 'success');
-      } catch (error) {
-        console.error(error);
-        setStatus(error.message || 'Save failed.', 'error');
-      } finally {
-        state.savingIds.delete(gameId);
-        render();
-      }
-    }
-
-    async function saveDirtyGuides() {
-      const dirty = state.games.filter((game) => state.dirtyIds.has(game.id));
-      if (!dirty.length) {
-        setStatus('Nothing to save — no unsaved changes.');
-        return;
-      }
-      setBusy(true);
-      setStatus('Saving ' + dirty.length + ' guide record' + (dirty.length === 1 ? '' : 's') + '...');
-      try {
-        const saved = await Promise.all(dirty.map((game) => patchGuide(game.id, guidePayloadFromGame(game))));
-        saved.forEach(replaceGame);
-        saved.forEach((game) => state.dirtyIds.delete(game.id));
-        setStatus('Saved ' + saved.length + ' guide record' + (saved.length === 1 ? '' : 's') + '.', 'success');
-      } catch (error) {
-        console.error(error);
-        setStatus(error.message || 'Save failed.', 'error');
-      } finally {
-        setBusy(false);
-        render();
-      }
-    }
-
-    function setBusy(isBusy) {
-      [saveDirtyBtn, refreshBtn]
-        .forEach((el) => { if (el) el.disabled = !!isBusy; });
-      document.querySelectorAll('.guide-card button, .guide-card input, .guide-card textarea')
-        .forEach((el) => { el.disabled = !!isBusy; });
-    }
-
-    function findGame(id) {
-      return state.games.find((game) => game.id === id) || null;
-    }
-
-    function replaceGame(nextGame) {
-      state.games = state.games.map((game) => game.id === nextGame.id ? nextGame : game);
-    }
-
-    function updateGameField(gameId, field, value) {
-      const game = findGame(gameId);
-      if (!game) return;
-      game[field] = field === 'guide_image_url' ? String(value || '').trim() : String(value || '');
-      state.dirtyIds.add(gameId);
-      updateCardState(gameId);
-      updateSummary();
-      if (field === 'guide_image_url') updateThumb(gameId, game[field]);
-    }
-
-    function updateCardState(gameId) {
-      const card = guideList.querySelector('[data-game-id="' + cssEscape(gameId) + '"]');
-      if (!card) return;
-      card.classList.toggle('is-dirty', state.dirtyIds.has(gameId));
-      card.classList.toggle('is-saving', state.savingIds.has(gameId));
-      const save = card.querySelector('[data-action="save"]');
-      if (save) save.disabled = state.savingIds.has(gameId);
-    }
-
-    function updateThumb(gameId, url) {
-      const card = guideList.querySelector('[data-game-id="' + cssEscape(gameId) + '"]');
-      if (!card) return;
-      const slot = card.querySelector('[data-thumb-slot]');
-      if (!slot) return;
-      const game = findGame(gameId);
-      if (game) renderThumb(slot, game);
-    }
-
-    function cssEscape(value) {
-      if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(String(value));
-      return String(value).replace(/["\\]/g, '\\$&');
-    }
-
-    function visibleGames() {
-      const term = state.filter;
-      return state.games.filter((game) => {
-        if (!term) return true;
-        return displayName(game).toLowerCase().includes(term);
-      });
-    }
-
-    function orderedVisibleGames() {
-      return visibleGames().slice().sort(compareGuideGames);
-    }
-
-    function compareGuideGames(a, b) {
-      return compareText(awayTeamLabel(a), awayTeamLabel(b))
-        || compareDateValue(a, b)
-        || compareText(String(a && a.start_time || ''), String(b && b.start_time || ''))
-        || compareText(String(a && a.home_team_city || ''), String(b && b.home_team_city || ''))
-        || compareText(String(a && a.home_team_mascot || ''), String(b && b.home_team_mascot || ''))
-        || compareText(displayName(a), displayName(b))
-        || compareText(String(a && a.id || ''), String(b && b.id || ''));
-    }
-
-    function compareText(a, b) {
-      return String(a || '').localeCompare(String(b || ''), undefined, { sensitivity: 'base', numeric: true });
-    }
-
-    function compareDateValue(a, b) {
-      return sortableDateValue(a) - sortableDateValue(b);
-    }
-
-    function sortableDateValue(game) {
-      const raw = String(game && game.game_date || '').trim();
-      if (!raw) return Number.MAX_SAFE_INTEGER;
-      const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (!match) return Number.MAX_SAFE_INTEGER - 1;
-      return Number(match[1] + match[2] + match[3]);
-    }
-
-    function awayTeamLabel(game) {
-      return [game && game.away_team_city, game && game.away_team_mascot].filter(Boolean).join(' ') || 'Away Team Missing';
-    }
-
-    function awayTeamKey(game) {
-      return awayTeamLabel(game).trim().toLowerCase();
-    }
-
-    function pageCountFor(total) {
-      return Math.max(1, Math.ceil(total / GUIDE_PAGE_SIZE));
-    }
-
-    function clampPage(total) {
-      const pages = pageCountFor(total);
-      if (state.pageIndex >= pages) state.pageIndex = pages - 1;
-      if (state.pageIndex < 0) state.pageIndex = 0;
-      return pages;
-    }
-
-    function pageSlice(games) {
-      const start = state.pageIndex * GUIDE_PAGE_SIZE;
-      return games.slice(start, start + GUIDE_PAGE_SIZE);
-    }
-
-    function searchHaystack(game) {
-      return [
-        game.id,
-        game.name,
-        game.city,
-        game.game_date,
-        game.starting_location_name,
-        game.starting_location_address,
-        game.starting_location_plus_code,
-        game.starting_location_lat,
-        game.starting_location_lon,
-        matchupLabel(game),
-        game.guide_name,
-        game.guide_bio,
-        game.guide_background,
-        game.guide_image_url
-      ].join(' ').toLowerCase();
-    }
-
-    function matchupLabel(game) {
-      const away = [game.away_team_city, game.away_team_mascot].filter(Boolean).join(' ');
-      const home = [game.home_team_city, game.home_team_mascot].filter(Boolean).join(' ');
-      if (away && home) return away + ' @ ' + home;
-      return away || home || '';
-    }
-
-    function displayName(game) {
-      return (game && (game.name || game.id)) || 'Untitled';
-    }
-
-    function formatGameDate(game) {
-      const raw = String(game && game.game_date || '').trim();
-      if (!raw) return '';
-      const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (!match) return raw;
-      const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-      if (Number.isNaN(date.getTime())) return raw;
-      return date.toLocaleDateString('en-US', {
-        timeZone: 'UTC',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-    }
-
-    function render() {
-      guideList.innerHTML = '';
-      if (!state.authed) {
-        guideList.appendChild(emptyNode('Sign in to view and edit guide records.'));
-        updateSummary();
-        return;
-      }
-      const visible = visibleGames();
-      if (!visible.length) {
-        if (guidePager) guidePager.hidden = true;
-        guideList.appendChild(emptyNode(state.filter ? 'No guide records match your filter.' : 'No games found.'));
-        updateSummary();
-        return;
-      }
-      const ordered = orderedVisibleGames();
-      clampPage(ordered.length);
-      let lastGroup = '';
-      pageSlice(ordered).forEach((game) => {
-        const group = awayTeamKey(game);
-        if (group !== lastGroup) {
-          guideList.appendChild(renderGroupHeader(game, ordered));
-          lastGroup = group;
-        }
-        guideList.appendChild(renderCard(game));
-      });
-      updateToolbarButtons();
-      updateSummary();
-    }
-
-    function renderGroupHeader(game, orderedGames) {
-      const header = document.createElement('div');
-      header.className = 'guide-group-head';
-      const title = document.createElement('h3');
-      title.className = 'guide-group-title';
-      title.textContent = awayTeamLabel(game);
-      const total = orderedGames.filter((entry) => awayTeamKey(entry) === awayTeamKey(game)).length;
-      const meta = document.createElement('span');
-      meta.className = 'guide-group-meta';
-      meta.textContent = total + ' game' + (total === 1 ? '' : 's') + ' in sequence';
-      header.append(title, meta);
-      return header;
-    }
-
-    function renderCard(game) {
-      const card = document.createElement('article');
-      card.className = 'guide-card';
-      card.dataset.gameId = game.id;
-      card.classList.toggle('is-dirty', state.dirtyIds.has(game.id));
-      card.classList.toggle('is-saving', state.savingIds.has(game.id));
-
-      const head = document.createElement('div');
-      head.className = 'guide-card-head';
-
-      const titleWrap = document.createElement('div');
-      const title = document.createElement('h3');
-      title.className = 'game-title';
-      title.textContent = displayName(game);
-      const meta = document.createElement('div');
-      meta.className = 'game-meta';
-      const id = document.createElement('span');
-      id.className = 'game-id';
-      id.textContent = game.id;
-      meta.appendChild(id);
-      const date = formatGameDate(game);
-      if (date) meta.appendChild(metaSpan(date));
-      const matchup = matchupLabel(game);
-      if (matchup) meta.appendChild(metaSpan(matchup));
-      if (game.archived) meta.appendChild(metaSpan('Archived'));
-      titleWrap.append(title, meta);
-
-      const actions = document.createElement('div');
-      actions.className = 'card-actions';
-      const generateBtn = document.createElement('button');
-      generateBtn.type = 'button';
-      generateBtn.className = 'btn small';
-      generateBtn.textContent = 'Generate Prompt';
-      generateBtn.addEventListener('click', () => generateGuidePrompt(game.id));
-      const imagePromptBtn = document.createElement('button');
-      imagePromptBtn.type = 'button';
-      imagePromptBtn.className = 'btn small';
-      imagePromptBtn.textContent = 'Image Prompt';
-      imagePromptBtn.addEventListener('click', () => generateGuideImagePrompt(game.id));
-      const copyBtn = document.createElement('button');
-      copyBtn.type = 'button';
-      copyBtn.className = 'btn small';
-      copyBtn.textContent = 'Copy to…';
-      copyBtn.addEventListener('click', () => openCopyDialog(game.id));
-      const saveBtn = document.createElement('button');
-      saveBtn.type = 'button';
-      saveBtn.className = 'btn primary small';
-      saveBtn.dataset.action = 'save';
-      saveBtn.textContent = 'Save';
-      saveBtn.addEventListener('click', () => saveGameGuide(game.id));
-      actions.append(generateBtn, imagePromptBtn, copyBtn, saveBtn);
-
-      head.append(titleWrap, actions);
-
-      const grid = document.createElement('div');
-      grid.className = 'guide-grid';
-      const thumbSlot = document.createElement('div');
-      thumbSlot.setAttribute('data-thumb-slot', '');
-      renderThumb(thumbSlot, game);
-      const fields = document.createElement('div');
-      fields.className = 'field-grid';
-      const fieldNodes = [
-        renderField(game, 'guide_name', 'Guide Name', 'Name shown in the Your Guide section.'),
-        renderField(game, 'guide_bio', 'Guide Bio', 'Short guide description.', true)
-      ];
-      if (GAMES_SCHEMA.guide_background !== false) {
-        fieldNodes.push(renderField(game, 'guide_background', 'Guide Background', 'Used for game development.', true));
-      }
-      fieldNodes.push(
-        renderField(game, 'guide_image_url', 'Guide Image URL', 'Use https://thegamebureau.com/mc/assets/guides/filename.png')
-      );
-      fields.append(...fieldNodes);
-      fields.append(renderGameContext(game));
-      grid.append(thumbSlot, fields);
-
-      card.append(head, grid);
-      return card;
-    }
-
-    function metaSpan(text) {
-      const span = document.createElement('span');
-      span.textContent = text;
-      return span;
-    }
-
-    // Thumbnail + filename + Open-folder + Copy-name. The guide avatar is the
-    // canonical assets/guides/{gameId}.png (what the landing page actually uses),
-    // NOT the editable guide_image_url field — that field can hold a stale/shared
-    // name. Resolved host-relative so it works on localhost and prod; shows
-    // "NOT YET UPLOADED" if the file isn't there. Open targets the FOLDER.
-    function renderThumb(slot, game) {
-      slot.innerHTML = '';
-      const gameId = String((game && game.id) || '').trim();
-      const fileName = gameId ? gameId + '.png' : '';
-      const imageSrc = fileName ? '/mc/assets/guides/' + encodeURIComponent(fileName) : '';
-      // guideFolderOpenHref() and its "Open folder" button went with the manual
-      // save-it-yourself workflow the upload buttons below replaced.
-
-      if (imageSrc) {
-        const img = document.createElement('img');
-        img.className = 'guide-thumb';
-        img.alt = '';
-        img.loading = 'lazy';
-        img.src = imageSrc;
-        img.style.cursor = 'zoom-in';
-        img.title = 'Open image in a new tab';
-        img.addEventListener('click', () => window.open(imageSrc, '_blank', 'noopener'));
-        img.onerror = () => {
-          const ph = document.createElement('div');
-          ph.className = 'guide-thumb-placeholder';
-          ph.textContent = 'NOT YET UPLOADED';
-          if (img.parentNode) img.parentNode.replaceChild(ph, img);
-        };
-        slot.appendChild(img);
-      } else {
-        const ph = document.createElement('div');
-        ph.className = 'guide-thumb-placeholder';
-        ph.textContent = 'NOT YET UPLOADED';
-        slot.appendChild(ph);
-      }
-
-      const actions = document.createElement('div');
-      actions.className = 'thumb-actions';
-      if (fileName) {
-        const code = document.createElement('div');
-        code.className = 'thumb-filename';
-        code.textContent = fileName;
-        actions.appendChild(code);
-      }
-      const row = document.createElement('div');
-      row.className = 'thumb-btn-row';
-
-      // UPLOADING, not "save it to a folder yourself". This page used to offer
-      // Open folder + Copy name: you generated a portrait, saved it into
-      // assets/guides as <id>.png by hand, and committed it. That workflow is
-      // why 372 of 395 guide URLs were 404 before the assets move - it depended
-      // on a human doing a filesystem step outside the tool. Both buttons below
-      // put the image in Supabase Storage and write the hosted URL onto the
-      // game, which is what Game Profiles has done since the guides bucket
-      // existed.
-      const status = document.createElement('span');
-      status.className = 'thumb-filename';
-      status.setAttribute('aria-live', 'polite');
-
-      const fromUrl = document.createElement('button');
-      fromUrl.type = 'button';
-      fromUrl.className = 'btn small';
-      fromUrl.textContent = 'Upload URL';
-      fromUrl.title = 'Fetch the image at the Guide Image URL above and host it on Supabase';
-      fromUrl.addEventListener('click', () => uploadGuideImageFromUrl(game.id, fromUrl, status));
-
-      const fileBtn = document.createElement('button');
-      fileBtn.type = 'button';
-      fileBtn.className = 'btn small';
-      fileBtn.textContent = 'Upload file...';
-      fileBtn.title = 'Upload an image from this computer';
-      const fileInput = document.createElement('input');
-      fileInput.type = 'file';
-      fileInput.accept = 'image/*';
-      fileInput.hidden = true;
-      fileBtn.addEventListener('click', () => fileInput.click());
-      fileInput.addEventListener('change', () => {
-        const file = fileInput.files && fileInput.files[0];
-        fileInput.value = '';
-        if (file) uploadGuideImageFile(game.id, file, fileBtn, status);
-      });
-
-      row.append(fromUrl, fileBtn, fileInput);
-      if (fileName) {
-        const copy = document.createElement('button');
-        copy.type = 'button';
-        copy.className = 'btn small';
-        copy.textContent = 'Copy name';
-        copy.addEventListener('click', async () => {
-          const ok = await copyTextToClipboard(fileName);
-          const prev = copy.textContent;
-          copy.textContent = ok ? 'Copied!' : fileName;
-          setTimeout(() => { copy.textContent = prev; }, 1500);
-        });
-        row.appendChild(copy);
-      }
-      actions.append(row, status);
-      slot.appendChild(actions);
-    }
-
-    // --- guide image upload ---------------------------------------------------
-    //
-    // Two paths, and the split is CORS, not preference. A file on this computer
-    // goes straight from the browser to Supabase Storage with the admin's token;
-    // a remote URL cannot be fetched by the browser at all, so the
-    // upload-guide-image Edge Function fetches it server-side. Both land in the
-    // `guides` bucket at <gameId>.<ext> and both write the same public URL back
-    // onto games.guide_image_url, so it makes no difference downstream.
-
-    const GUIDE_BUCKET = 'guides';
-
-    function adminToken() {
-      const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
-      return (session && session.access_token) || '';
-    }
-
-    function setUploadStatus(node, message, isError) {
-      if (!node) return;
-      node.textContent = message || '';
-      node.style.color = isError ? 'var(--warn, #a03f2d)' : '';
-    }
-
-    // Store the hosted URL on the game and repaint the row. Written straight
-    // through rather than staged as a dirty edit: the file is already in the
-    // bucket, so leaving the URL unsaved would mean a Save All away from an
-    // uploaded image the page is already showing.
-    async function applyGuideImageUrl(gameId, publicUrl, status) {
-      const game = findGame(gameId);
-      if (!game) return;
-      game.guide_image_url = publicUrl;
-      const input = document.querySelector('[data-game-id="' + cssEscape(gameId) + '"] [data-field="guide_image_url"]');
-      if (input) input.value = publicUrl;
-      try {
-        await ensureFreshSession();
-        const res = await fetch(restUrl('games', { id: 'eq.' + gameId }), {
-          method: 'PATCH',
-          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
-          body: JSON.stringify({ guide_image_url: publicUrl })
-        });
-        if (!res.ok) throw new Error(await readError(res, 'Could not save the image URL.'));
-        setUploadStatus(status, 'Uploaded and saved');
-        setStatus('Guide image saved for ' + displayName(game) + '.', 'success');
-      } catch (err) {
-        setUploadStatus(status, 'Uploaded, but saving the URL failed: ' + (err.message || err), true);
-      }
-      const slot = document.querySelector('[data-game-id="' + cssEscape(gameId) + '"] [data-thumb-slot]');
-      if (slot) renderThumb(slot, findGame(gameId));
-    }
-
-    async function uploadGuideImageFromUrl(gameId, btn, status) {
-      const game = findGame(gameId);
-      if (!game) return;
-      const sourceUrl = String(game.guide_image_url || '').trim();
-      if (!/^https?:\/\//i.test(sourceUrl)) {
-        setUploadStatus(status, 'Put an http(s) image URL in the field first.', true);
-        return;
-      }
-      const token = adminToken();
-      if (!token) { setUploadStatus(status, 'Sign in as an admin to upload.', true); return; }
-      btn.disabled = true;
-      setUploadStatus(status, 'Fetching and hosting...');
-      try {
-        const endpoint = SUPABASE_CONFIG.url.replace(/\/+$/, '') + '/functions/v1/upload-guide-image';
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: SUPABASE_CONFIG.publishableKey,
-            Authorization: 'Bearer ' + token
-          },
-          body: JSON.stringify({ url: sourceUrl, gameId: String(gameId) })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error((data && data.error) || ('upload failed (' + res.status + ')'));
-        const publicUrl = String((data && data.url) || '').trim();
-        if (!publicUrl) throw new Error('no url returned');
-        await applyGuideImageUrl(gameId, publicUrl, status);
-      } catch (err) {
-        setUploadStatus(status, String((err && err.message) || 'Upload failed.'), true);
-      } finally {
-        btn.disabled = false;
-      }
-    }
-
-    async function uploadGuideImageFile(gameId, file, btn, status) {
-      const token = adminToken();
-      if (!token) { setUploadStatus(status, 'Sign in as an admin to upload.', true); return; }
-      if (!/^image\//i.test(file.type || '')) { setUploadStatus(status, 'Choose an image file.', true); return; }
-      // The same 15 MB ceiling the Edge Function enforces, checked here so a
-      // pointless 40 MB upload fails immediately rather than at the far end.
-      if (file.size > 15 * 1024 * 1024) { setUploadStatus(status, 'Image is larger than 15 MB.', true); return; }
-      btn.disabled = true;
-      const label = btn.textContent;
-      btn.textContent = 'Uploading...';
-      setUploadStatus(status, 'Uploading...');
-      try {
-        const rawExt = (String(file.name).split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const ext = rawExt || (String(file.type).split('/')[1] || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-        const path = encodeURIComponent(String(gameId) + '.' + ext);
-        const base = SUPABASE_CONFIG.url.replace(/\/+$/, '');
-        const res = await fetch(base + '/storage/v1/object/' + GUIDE_BUCKET + '/' + path, {
-          method: 'POST',
-          headers: {
-            apikey: SUPABASE_CONFIG.publishableKey,
-            Authorization: 'Bearer ' + token,
-            'Content-Type': file.type || 'application/octet-stream',
-            'x-upsert': 'true'
-          },
-          body: file
-        });
-        if (!res.ok) {
-          const t = await res.text().catch(() => '');
-          throw new Error('upload failed (' + res.status + ')' + (t ? ': ' + t.slice(0, 140) : ''));
-        }
-        // Cache-bust, or a replacement is masked by the stale CDN copy.
-        const publicUrl = base + '/storage/v1/object/public/' + GUIDE_BUCKET + '/' + path + '?v=' + Date.now();
-        await applyGuideImageUrl(gameId, publicUrl, status);
-      } catch (err) {
-        setUploadStatus(status, String((err && err.message) || 'Upload failed.'), true);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = label;
-      }
-    }
-
-    function renderGameContext(game) {
-      const wrap = document.createElement('div');
-      wrap.className = 'context-section';
-
-      if (canShowAny(['home_team_city', 'home_team_mascot', 'away_team_city', 'away_team_mascot'])) {
-        wrap.append(
-          contextTitle('Teams'),
-          contextGrid([
-            readonlyField(game, 'home_team_city', 'Home Team'),
-            readonlyField(game, 'home_team_mascot', 'Home Team Mascot'),
-            readonlyField(game, 'away_team_city', 'Away Team'),
-            readonlyField(game, 'away_team_mascot', 'Away Team Mascot')
-          ])
-        );
-      }
-
-      return wrap;
-    }
-
-    function contextTitle(text) {
-      const title = document.createElement('h4');
-      title.className = 'context-title';
-      title.textContent = text;
-      return title;
-    }
-
-    function contextGrid(fields) {
-      const grid = document.createElement('div');
-      grid.className = 'context-grid';
-      fields.filter(Boolean).forEach((field) => grid.appendChild(field));
-      return grid;
-    }
-
-    function readonlyField(game, field, label) {
-      if (GAMES_SCHEMA[field] === false) return null;
-      const wrap = document.createElement('div');
-      wrap.className = 'field';
-      const id = 'game-' + field + '-' + game.id;
-      const labelEl = document.createElement('label');
-      labelEl.setAttribute('for', id);
-      labelEl.textContent = label;
-      const input = document.createElement('input');
-      input.id = id;
-      input.type = 'text';
-      input.readOnly = true;
-      input.value = game[field] || '';
-      wrap.append(labelEl, input);
-      return wrap;
-    }
-
-    function canShowAny(fields) {
-      return fields.some((field) => GAMES_SCHEMA[field] !== false);
-    }
-
-    function renderField(game, field, labelText, hint, multiline) {
-      const wrap = document.createElement('div');
-      wrap.className = 'field';
-      const id = 'guide-' + field + '-' + game.id;
-      const label = document.createElement('label');
-      label.setAttribute('for', id);
-      label.textContent = labelText;
-      const input = multiline ? document.createElement('textarea') : document.createElement('input');
-      input.id = id;
-      input.dataset.field = field;
-      if (!multiline) input.type = 'text';
-      input.value = game[field] || '';
-      input.addEventListener('input', () => updateGameField(game.id, field, input.value));
-      input.addEventListener('change', () => {
-        if (field !== 'guide_image_url') return;
-        const normalized = normalizeGuideImageUrl(input.value);
-        if (input.value !== normalized) input.value = normalized;
-        updateGameField(game.id, field, normalized);
-      });
-      wrap.append(label, input);
-      if (hint) {
-        const help = document.createElement('div');
-        help.className = 'field-hint';
-        help.textContent = hint;
-        wrap.appendChild(help);
-      }
-      return wrap;
-    }
-
-    function emptyNode(text) {
-      const empty = document.createElement('div');
-      empty.className = 'empty';
-      empty.textContent = text;
-      return empty;
-    }
-
-    function updateSummary() {
-      const visible = orderedVisibleGames();
-      const pages = clampPage(visible.length);
-      const start = visible.length ? state.pageIndex * GUIDE_PAGE_SIZE + 1 : 0;
-      const end = visible.length ? Math.min(visible.length, start + GUIDE_PAGE_SIZE - 1) : 0;
-      const dirty = state.dirtyIds.size;
-      summaryLine.innerHTML = '';
-      summaryLine.append(
-        metaSpan('Showing ' + start + '-' + end + ' of ' + visible.length + ' visible / ' + state.games.length + ' total'),
-        metaSpan(dirty + ' unsaved')
-      );
-      renderPager(visible.length, pages);
-      updateToolbarButtons();
-    }
-
-    function renderPager(total, pages) {
-      if (!guidePager) return;
-      guidePager.innerHTML = '';
-      if (!state.authed || total <= GUIDE_PAGE_SIZE) {
-        guidePager.hidden = true;
-        return;
-      }
-      guidePager.hidden = false;
-      const status = document.createElement('span');
-      status.className = 'guide-pager-status';
-      status.textContent = 'Page ' + (state.pageIndex + 1) + ' of ' + pages;
-      const prev = document.createElement('button');
-      prev.type = 'button';
-      prev.className = 'btn small';
-      prev.textContent = 'Previous';
-      prev.disabled = state.pageIndex <= 0;
-      prev.addEventListener('click', () => {
-        state.pageIndex = Math.max(0, state.pageIndex - 1);
-        render();
-      });
-      const next = document.createElement('button');
-      next.type = 'button';
-      next.className = 'btn small';
-      next.textContent = 'Next';
-      next.disabled = state.pageIndex >= pages - 1;
-      next.addEventListener('click', () => {
-        state.pageIndex = Math.min(pages - 1, state.pageIndex + 1);
-        render();
-      });
-      guidePager.append(status, prev, next);
-    }
-
-    function updateToolbarButtons() {
-      saveDirtyBtn.disabled = !state.authed || state.dirtyIds.size === 0;
-      refreshBtn.disabled = !state.authed;
-    }
-
-    searchInput.addEventListener('input', () => {
-      state.filter = searchInput.value.trim().toLowerCase();
-      state.pageIndex = 0;
-      render();
-    });
-
-    saveDirtyBtn.addEventListener('click', saveDirtyGuides);
-    refreshBtn.addEventListener('click', refresh);
-    if (guidePromptCopyBtn) {
-      guidePromptCopyBtn.addEventListener('click', async () => {
-        const copied = await copyTextToClipboard(guidePromptText ? guidePromptText.value : '');
-        setGuidePromptCopyStatus(copied ? 'Copied' : 'Select and copy');
-      });
-    }
-    if (guidePromptCloseBtn) guidePromptCloseBtn.addEventListener('click', closeGuidePrompt);
-    if (guidePromptBackdrop) guidePromptBackdrop.addEventListener('click', closeGuidePrompt);
-
-    const copyApplyBtn = document.getElementById('copyApplyBtn');
-    if (copyApplyBtn) copyApplyBtn.addEventListener('click', doCopyGuide);
-    const copyCloseBtn = document.getElementById('copyCloseBtn');
-    if (copyCloseBtn) copyCloseBtn.addEventListener('click', closeCopyDialog);
-    const copyBackdrop = document.getElementById('copyBackdrop');
-    if (copyBackdrop) copyBackdrop.addEventListener('click', closeCopyDialog);
-    const copySearchInput = document.getElementById('copySearch');
-    if (copySearchInput) copySearchInput.addEventListener('input', renderCopyTargets);
-    const copySelectAll = document.getElementById('copySelectAll');
-    if (copySelectAll) copySelectAll.addEventListener('change', () => {
-      const filtered = copyFilteredGames();
-      if (copySelectAll.checked) filtered.forEach((g) => copyState.selected.add(g.id));
-      else filtered.forEach((g) => copyState.selected.delete(g.id));
-      renderCopyTargets();
-    });
-
-    document.addEventListener('keydown', (event) => {
-      if (event.key !== 'Escape') return;
-      const copyDialog = document.getElementById('copyDialog');
-      if (copyDialog && !copyDialog.hidden) { closeCopyDialog(); return; }
-      if (guidePromptDialog && !guidePromptDialog.hidden) closeGuidePrompt();
-    });
-
     if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
+
+    el('searchInput').addEventListener('input', (e) => { state.filter = e.target.value; render(); });
+    el('refreshBtn').addEventListener('click', () => { setStatus('Reloading...'); refresh(); });
+    el('addBtn').addEventListener('click', addGuide);
+    el('saveDirtyBtn').addEventListener('click', saveAllDirty);
+    el('showArchived').addEventListener('change', (e) => { state.showArchived = e.target.checked; render(); });
+    el('guidePromptCloseBtn').addEventListener('click', closeGuidePrompt);
+    el('guidePromptBackdrop').addEventListener('click', closeGuidePrompt);
+    el('guidePromptCopyBtn').addEventListener('click', async () => {
+      const ok = await copyTextToClipboard(el('guidePromptText').value);
+      el('guidePromptCopyStatus').textContent = ok ? 'Copied' : 'Copy manually';
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !el('guidePromptDialog').hidden) closeGuidePrompt();
+    });
+
+    // An unsaved guide is a paragraph somebody wrote, not a checkbox.
+    window.addEventListener('beforeunload', (e) => {
+      if (!state.dirty.size) return;
+      e.preventDefault();
+      e.returnValue = '';
+    });
 
     render();
     adminAuth.init();
