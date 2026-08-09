@@ -1017,7 +1017,6 @@
       background: var(--paper);
       box-shadow: 0 10px 24px var(--paper-shadow);
     }
-    .guide-card.is-archived { opacity: .58; }
     @media (max-width: 620px) {
       .guide-card { grid-template-columns: minmax(0, 1fr); }
     }
@@ -1188,18 +1187,9 @@
       border-radius: 14px;
     }
 
+    /* Was the filter row; it holds only the count now that the search box and
+       the archived toggle are gone. */
     .gr-filter { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 16px; }
-    .gr-filter input[type="search"] {
-      flex: 1 1 240px;
-      min-width: 0;
-      min-height: 42px;
-      padding: 10px 12px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #fff;
-      color: var(--ink);
-    }
-    .gr-filter label { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--muted); }
     .gr-count { margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: .72rem; color: var(--muted); }
 
     /* The form modal reuses the Socializer's modal-grid; these two only exist
@@ -1285,7 +1275,6 @@
     </fieldset>
 
     <div class="gr-filter" id="listBar">
-      <label><input type="checkbox" id="showArchived"> Show archived</label>
       <span class="gr-count" id="countLine"></span>
     </div>
 
@@ -1337,10 +1326,6 @@
         <span>Portrait URL</span>
         <input type="url" id="fImage" autocomplete="off" placeholder="Leave blank — Upload Image fills it in">
         <p class="field-note">Uploading fills this in. Blank is honest; a dead link is not.</p>
-      </label>
-      <label class="label-opt label-check">
-        <span><input type="checkbox" id="fArchived"> Archived</span>
-        <p class="field-note">Out of the working list, still on any game that uses it.</p>
       </label>
       <div class="modal-actions">
         <button class="btn" data-form-close type="button">Cancel</button>
@@ -1429,7 +1414,6 @@
       authed: false,
       guides: [],
       filter: '',
-      showArchived: false,
       editingId: null,      // null while the form is adding rather than editing
       busy: false,
       dirty: new Set(),     // guide ids with unsaved boxes on their card
@@ -1532,12 +1516,12 @@
       return node;
     }
 
-    // The name filter went on 2026-08-09. Thirty-four cards is a scroll, not a
-    // search problem, and a box that hides rows is a way to edit a guide while
-    // looking at a list that does not contain it. Archived is still hidden by
-    // default - that is a state, not a filter.
+    // NOTHING IS HIDDEN. The name filter went on 2026-08-09 - 34 cards is a
+    // scroll, not a search problem, and a box that hides rows is a way to edit
+    // a guide while looking at a list that does not contain it - and the
+    // archived flag went the same day. Every guide in the table is on screen.
     function visibleGuides() {
-      return state.guides.filter((g) => state.showArchived || !g.archived);
+      return state.guides;
     }
 
     function render() {
@@ -1579,7 +1563,7 @@
 
     function renderGuideCard(guide) {
       const card = document.createElement('article');
-      card.className = 'guide-card' + (guide.archived ? ' is-archived' : '');
+      card.className = 'guide-card';
       card.dataset.guideId = guide.id;
 
       // ── the portrait, and the two buttons under it ──
@@ -1642,7 +1626,6 @@
         gReadOnly('id', String(guide.id)),
         gReadOnly('created_at', stamp(guide.created_at)),
         gReadOnly('updated_at', stamp(guide.updated_at)),
-        gArchived(guide)
       );
       body.appendChild(fields);
 
@@ -1659,9 +1642,6 @@
         save,
         mkBtn('Image Prompt', 'An AI prompt for this guide’s portrait', () => showImagePrompt(guide.id)),
         mkBtn('Prompt', 'An AI prompt that rewrites this guide', () => showGuidePrompt(guide.id)),
-        mkBtn(guide.archived ? 'Restore' : 'Archive',
-          guide.archived ? 'Back into the working list' : 'Out of the working list, without deleting',
-          () => toggleArchived(guide.id)),
         mkBtn('Delete', 'Remove this guide for good', () => deleteGuide(guide.id), 'warn'),
         note
       );
@@ -1682,7 +1662,6 @@
         drafts.set(key, {
           name: cleanText(guide.name), hometown: cleanText(guide.hometown),
           bio: cleanText(guide.bio), background: cleanText(guide.background),
-          archived: !!guide.archived
         });
       }
       return drafts.get(key);
@@ -1690,7 +1669,7 @@
     const CARD_FIELDS = ['name', 'hometown', 'bio', 'background'];
     function isDirty(guide) {
       const d = draftOf(guide);
-      return CARD_FIELDS.some((f) => d[f] !== cleanText(guide[f])) || d.archived !== !!guide.archived;
+      return CARD_FIELDS.some((f) => d[f] !== cleanText(guide[f]));
     }
     function markCardDirty(guide) {
       const key = String(guide.id);
@@ -1743,24 +1722,6 @@
       return wrap;
     }
 
-    function gArchived(guide) {
-      const wrap = document.createElement('div');
-      wrap.className = 'gfield';
-      const lab = document.createElement('span');
-      lab.textContent = 'archived';
-      const line = document.createElement('label');
-      line.className = 'gcheck';
-      const box = document.createElement('input');
-      box.type = 'checkbox';
-      box.checked = !!draftOf(guide).archived;
-      box.addEventListener('change', () => {
-        draftOf(guide).archived = box.checked;
-        markCardDirty(guide);
-      });
-      line.append(box, document.createTextNode(box.checked ? 'out of the working list' : 'in the working list'));
-      wrap.append(lab, line);
-      return wrap;
-    }
 
     // The image column holds a whole picture, so the field shows its weight
     // rather than 90,000 characters of base64 nobody can read or edit.
@@ -1796,7 +1757,6 @@
         hometown: draft.hometown || null,
         bio: draft.bio || null,
         background: draft.background || null,
-        archived: !!draft.archived
       };
       try {
         await ensureFreshSession();
@@ -1865,7 +1825,6 @@
       el('fHometown').value = guide ? cleanText(guide.hometown) : '';
       el('fBio').value = guide ? cleanText(guide.bio) : '';
       el('fBackground').value = guide ? cleanText(guide.background) : '';
-      el('fArchived').checked = guide ? !!guide.archived : false;
       formStatus('');
       el('formCard').hidden = false;
       el('formBackdrop').hidden = false;
@@ -1890,7 +1849,6 @@
         hometown: cleanText(el('fHometown').value) || null,
         bio: cleanText(el('fBio').value) || null,
         background: cleanText(el('fBackground').value) || null,
-        archived: !!el('fArchived').checked
       };
     }
 
@@ -1944,7 +1902,7 @@
       }
     }
 
-    // --- archive and delete ---------------------------------------------------
+    // --- delete ---------------------------------------------------------------
 
     let confirmResolve = null;
     function ask(title, text, yesLabel) {
@@ -1961,36 +1919,19 @@
       if (confirmResolve) { confirmResolve(answer); confirmResolve = null; }
     }
 
-    async function toggleArchived(id) {
-      const guide = findGuide(id);
-      if (!guide) return;
-      try {
-        await ensureFreshSession();
-        const res = await fetch(restUrl('guides', { id: 'eq.' + id }), {
-          method: 'PATCH',
-          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-          body: JSON.stringify({ archived: !guide.archived })
-        });
-        if (!res.ok) throw new Error(await readError(res, 'Could not change that.'));
-        const [fresh] = await res.json();
-        Object.assign(guide, fresh);
-        render();
-        setStatus((fresh.archived ? 'Archived ' : 'Restored ') + cleanText(fresh.name) + '.', 'success');
-      } catch (error) {
-        setStatus(error.message || 'Failed.', 'error');
-      }
-    }
-
-    // DELETE IS REAL AND IT REACHES FURTHER THAN THIS ROOM. games.guide_id is
-    // ON DELETE SET NULL, so removing a guide leaves every game that used it
-    // with no guide at all - and this page deliberately cannot show how many
-    // that is. Archive is the reversible answer and the confirmation says so.
+    // DELETE IS REAL, IT IS THE ONLY WAY OUT, AND IT REACHES FURTHER THAN THIS
+    // ROOM. games.guide_id is ON DELETE SET NULL, so removing a guide leaves
+    // every game that used it with no guide at all - and this page cannot show
+    // how many that is, by design. Archive used to be the reversible
+    // alternative the confirmation offered; with the flag dropped there is no
+    // longer one, so the wording says exactly that instead of implying a
+    // gentler option that no longer exists.
     async function deleteGuide(id) {
       const guide = findGuide(id);
       if (!guide) return;
       const ok = await ask('Delete ' + (cleanText(guide.name) || 'this guide') + '?',
-        'This cannot be undone. Any game using this guide is left without one. '
-        + 'Archive instead if you only want it out of the way.', 'Delete');
+        'This cannot be undone, and there is no archive to fall back on. '
+        + 'Any game using this guide is left without one.', 'Delete');
       if (!ok) return;
       try {
         await ensureFreshSession();
@@ -2285,7 +2226,6 @@
       state.promptNotes = e.target.value;
       refreshNewGuidePrompt();
     });
-    el('showArchived').addEventListener('change', (e) => { state.showArchived = e.target.checked; render(); });
     el('guideForm').addEventListener('submit', submitForm);
     document.querySelectorAll('[data-form-close]').forEach((b) => b.addEventListener('click', closeForm));
     el('formBackdrop').addEventListener('click', closeForm);
