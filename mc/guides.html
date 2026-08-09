@@ -1596,7 +1596,8 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       const gameId = String((game && game.id) || '').trim();
       const fileName = gameId ? gameId + '.png' : '';
       const imageSrc = fileName ? '/mc/assets/guides/' + encodeURIComponent(fileName) : '';
-      const folderUrl = guideFolderOpenHref();
+      // guideFolderOpenHref() and its "Open folder" button went with the manual
+      // save-it-yourself workflow the upload buttons below replaced.
 
       if (imageSrc) {
         const img = document.createElement('img');
@@ -1631,13 +1632,43 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
       }
       const row = document.createElement('div');
       row.className = 'thumb-btn-row';
-      const open = document.createElement('a');
-      open.className = 'btn small';
-      open.textContent = 'Open folder';
-      open.href = folderUrl;
-      if (folderUrl.indexOf('vscode://') !== 0) { open.target = '_blank'; open.rel = 'noopener'; }
-      open.title = 'Open the assets/guides folder';
-      row.appendChild(open);
+
+      // UPLOADING, not "save it to a folder yourself". This page used to offer
+      // Open folder + Copy name: you generated a portrait, saved it into
+      // assets/guides as <id>.png by hand, and committed it. That workflow is
+      // why 372 of 395 guide URLs were 404 before the assets move - it depended
+      // on a human doing a filesystem step outside the tool. Both buttons below
+      // put the image in Supabase Storage and write the hosted URL onto the
+      // game, which is what Game Profiles has done since the guides bucket
+      // existed.
+      const status = document.createElement('span');
+      status.className = 'thumb-filename';
+      status.setAttribute('aria-live', 'polite');
+
+      const fromUrl = document.createElement('button');
+      fromUrl.type = 'button';
+      fromUrl.className = 'btn small';
+      fromUrl.textContent = 'Upload URL';
+      fromUrl.title = 'Fetch the image at the Guide Image URL above and host it on Supabase';
+      fromUrl.addEventListener('click', () => uploadGuideImageFromUrl(game.id, fromUrl, status));
+
+      const fileBtn = document.createElement('button');
+      fileBtn.type = 'button';
+      fileBtn.className = 'btn small';
+      fileBtn.textContent = 'Upload file...';
+      fileBtn.title = 'Upload an image from this computer';
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.hidden = true;
+      fileBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files && fileInput.files[0];
+        fileInput.value = '';
+        if (file) uploadGuideImageFile(game.id, file, fileBtn, status);
+      });
+
+      row.append(fromUrl, fileBtn, fileInput);
       if (fileName) {
         const copy = document.createElement('button');
         copy.type = 'button';
@@ -1651,8 +1682,133 @@ GUIDE BACKGROUND: <the full character breakdown — appearance, personality, mot
         });
         row.appendChild(copy);
       }
-      actions.appendChild(row);
+      actions.append(row, status);
       slot.appendChild(actions);
+    }
+
+    // --- guide image upload ---------------------------------------------------
+    //
+    // Two paths, and the split is CORS, not preference. A file on this computer
+    // goes straight from the browser to Supabase Storage with the admin's token;
+    // a remote URL cannot be fetched by the browser at all, so the
+    // upload-guide-image Edge Function fetches it server-side. Both land in the
+    // `guides` bucket at <gameId>.<ext> and both write the same public URL back
+    // onto games.guide_image_url, so it makes no difference downstream.
+
+    const GUIDE_BUCKET = 'guides';
+
+    function adminToken() {
+      const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      return (session && session.access_token) || '';
+    }
+
+    function setUploadStatus(node, message, isError) {
+      if (!node) return;
+      node.textContent = message || '';
+      node.style.color = isError ? 'var(--warn, #a03f2d)' : '';
+    }
+
+    // Store the hosted URL on the game and repaint the row. Written straight
+    // through rather than staged as a dirty edit: the file is already in the
+    // bucket, so leaving the URL unsaved would mean a Save All away from an
+    // uploaded image the page is already showing.
+    async function applyGuideImageUrl(gameId, publicUrl, status) {
+      const game = findGame(gameId);
+      if (!game) return;
+      game.guide_image_url = publicUrl;
+      const input = document.querySelector('[data-game-id="' + cssEscape(gameId) + '"] [data-field="guide_image_url"]');
+      if (input) input.value = publicUrl;
+      try {
+        await ensureFreshSession();
+        const res = await fetch(restUrl('games', { id: 'eq.' + gameId }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+          body: JSON.stringify({ guide_image_url: publicUrl })
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not save the image URL.'));
+        setUploadStatus(status, 'Uploaded and saved');
+        setStatus('Guide image saved for ' + displayName(game) + '.', 'success');
+      } catch (err) {
+        setUploadStatus(status, 'Uploaded, but saving the URL failed: ' + (err.message || err), true);
+      }
+      const slot = document.querySelector('[data-game-id="' + cssEscape(gameId) + '"] [data-thumb-slot]');
+      if (slot) renderThumb(slot, findGame(gameId));
+    }
+
+    async function uploadGuideImageFromUrl(gameId, btn, status) {
+      const game = findGame(gameId);
+      if (!game) return;
+      const sourceUrl = String(game.guide_image_url || '').trim();
+      if (!/^https?:\/\//i.test(sourceUrl)) {
+        setUploadStatus(status, 'Put an http(s) image URL in the field first.', true);
+        return;
+      }
+      const token = adminToken();
+      if (!token) { setUploadStatus(status, 'Sign in as an admin to upload.', true); return; }
+      btn.disabled = true;
+      setUploadStatus(status, 'Fetching and hosting...');
+      try {
+        const endpoint = SUPABASE_CONFIG.url.replace(/\/+$/, '') + '/functions/v1/upload-guide-image';
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_CONFIG.publishableKey,
+            Authorization: 'Bearer ' + token
+          },
+          body: JSON.stringify({ url: sourceUrl, gameId: String(gameId) })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error((data && data.error) || ('upload failed (' + res.status + ')'));
+        const publicUrl = String((data && data.url) || '').trim();
+        if (!publicUrl) throw new Error('no url returned');
+        await applyGuideImageUrl(gameId, publicUrl, status);
+      } catch (err) {
+        setUploadStatus(status, String((err && err.message) || 'Upload failed.'), true);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function uploadGuideImageFile(gameId, file, btn, status) {
+      const token = adminToken();
+      if (!token) { setUploadStatus(status, 'Sign in as an admin to upload.', true); return; }
+      if (!/^image\//i.test(file.type || '')) { setUploadStatus(status, 'Choose an image file.', true); return; }
+      // The same 15 MB ceiling the Edge Function enforces, checked here so a
+      // pointless 40 MB upload fails immediately rather than at the far end.
+      if (file.size > 15 * 1024 * 1024) { setUploadStatus(status, 'Image is larger than 15 MB.', true); return; }
+      btn.disabled = true;
+      const label = btn.textContent;
+      btn.textContent = 'Uploading...';
+      setUploadStatus(status, 'Uploading...');
+      try {
+        const rawExt = (String(file.name).split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const ext = rawExt || (String(file.type).split('/')[1] || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+        const path = encodeURIComponent(String(gameId) + '.' + ext);
+        const base = SUPABASE_CONFIG.url.replace(/\/+$/, '');
+        const res = await fetch(base + '/storage/v1/object/' + GUIDE_BUCKET + '/' + path, {
+          method: 'POST',
+          headers: {
+            apikey: SUPABASE_CONFIG.publishableKey,
+            Authorization: 'Bearer ' + token,
+            'Content-Type': file.type || 'application/octet-stream',
+            'x-upsert': 'true'
+          },
+          body: file
+        });
+        if (!res.ok) {
+          const t = await res.text().catch(() => '');
+          throw new Error('upload failed (' + res.status + ')' + (t ? ': ' + t.slice(0, 140) : ''));
+        }
+        // Cache-bust, or a replacement is masked by the stale CDN copy.
+        const publicUrl = base + '/storage/v1/object/public/' + GUIDE_BUCKET + '/' + path + '?v=' + Date.now();
+        await applyGuideImageUrl(gameId, publicUrl, status);
+      } catch (err) {
+        setUploadStatus(status, String((err && err.message) || 'Upload failed.'), true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
     }
 
     function renderGameContext(game) {
