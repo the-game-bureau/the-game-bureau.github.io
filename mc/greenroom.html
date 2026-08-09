@@ -1169,6 +1169,51 @@
       margin-right: auto;
     }
 
+    /* The prompt box is drawn as ruled paper - horizontal rules every 28px and
+       a red margin at 56px - but the type was set at line-height 1.55, about
+       22px, so no line ever sat on a rule and every line crossed the margin.
+       Locking the leading to the ruling and starting the text to the right of
+       the margin is the whole fix; the paper was fine, the type was not. */
+    .prompt {
+      line-height: 28px;
+      padding: 13px 20px 22px 72px;
+    }
+
+    /* The notes row above it. .label-opt is a text style, not a layout, so
+       without this the label and the box sat squeezed side by side over the
+       top of the prompt. (This rule existed once and was swept away with the
+       card stylesheet - it lives here now, next to the box it belongs to.) */
+    #promptNotesWrap {
+      display: grid;
+      gap: 6px;
+      padding: 0 20px 12px;
+      margin: 0;
+      opacity: 1;
+    }
+    #promptNotesWrap > span {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .62rem;
+      letter-spacing: .14em;
+      color: var(--muted);
+      opacity: .9;
+    }
+    #promptNotes {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: #fff;
+      color: var(--ink);
+      font-size: .9rem;
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+    #promptNotes:focus {
+      outline: none;
+      border-color: var(--bic-blue);
+      box-shadow: 0 0 0 3px rgba(var(--bic-blue-rgb), .12);
+    }
+
     .guide-empty {
       padding: 24px 18px;
       text-align: center;
@@ -2296,20 +2341,32 @@
     // the thing a human actually chose for this character.
     function buildGuidePrompt(guide) {
       const lines = [];
-      lines.push('You are writing a GUIDE for THE GAME BUREAU (TGB), which makes location-based,');
-      lines.push('live-action games: one part walking tour, one part scavenger hunt, one part escape');
-      lines.push('room, played on real streets in a real city.');
+      // THE BRIEF DESCRIBES A PERSON, NOT A PRODUCT. It used to open with
+      // what TGB makes, how a game is played, and a warning not to tie the
+      // character to one matchup - all of which invited the AI to write a
+      // tour host for a specific trip. A guide is used in many cities, so the
+      // brief now asks only for someone from somewhere, with a voice and a
+      // history. Where they happen to be guiding is not their business here.
+      lines.push('Invent a CHARACTER: a distinctive person with a hometown, a voice, and a life');
+      lines.push('behind them. They narrate - they speak to one person at a time, in their ear.');
       lines.push('');
-      lines.push('WHAT A GUIDE IS');
-      lines.push('- The guide is the voice in the player’s ear and on their screen. The player is');
-      lines.push('  physically on the pavement; the guide runs the show remotely. That dual reality');
-      lines.push('  is the whole trick - the guide is never walking beside them.');
-      lines.push('- A guide is a CHARACTER, not a narrator-shaped label. It has a hometown, a way of');
-      lines.push('  speaking, things it likes and a flaw it will admit to.');
-      lines.push('- TGB blends history and fiction. A guide may be built on a real figure, but the');
-      lines.push('  story around it is invented.');
-      lines.push('- One guide can front many games, so write it to travel. Do not tie the character');
-      lines.push('  to one matchup, one date, or one opponent.');
+      lines.push('WHAT MATTERS');
+      lines.push('- THE HOMETOWN IS THE ANCHOR. This person is FROM somewhere, and it shows: in');
+      lines.push('  how they talk, what they compare things to, what they are proud and sick of.');
+      lines.push('  Local detail beats a postcard - the street, the diner, the weather, the team,');
+      lines.push('  the thing outsiders always get wrong about the place.');
+      lines.push('- THEY WILL NOT ALWAYS BE AT HOME. The same character is used in many different');
+      lines.push('  cities, so never write them as belonging to the place they are currently in,');
+      lines.push('  and never mention a particular city they are visiting, a rival, an opponent,');
+      lines.push('  a trip or an occasion. They carry home with them; that is the whole appeal.');
+      lines.push('- GIVE THEM ODD, SPECIFIC FACTS. A trade they used to have, a superstition, a');
+      lines.push('  grudge, something they collect, a thing they always say. Small and concrete');
+      lines.push('  beats grand and vague; two or three real details outlast a paragraph of');
+      lines.push('  adjectives.');
+      lines.push('- A REAL PERSON MAY INSPIRE THEM, but the character and everything around them');
+      lines.push('  is invented. Do not write a living person as themselves.');
+      lines.push('- Keep it warm and worth listening to. This is somebody a stranger is choosing');
+      lines.push('  to spend an hour with.');
       lines.push('');
       if (guide) {
         // The DRAFT, for the same reason the image prompt reads it: what is
@@ -2344,11 +2401,13 @@
       }
       lines.push('');
       lines.push('DELIVER exactly these three, each on its own line, nothing else:');
-      lines.push('GUIDE NAME: <the name a player hears>');
-      lines.push('GUIDE BIO: <2-3 sentences the PLAYER reads. Do not include the guide’s name.>');
-      lines.push('GUIDE BACKGROUND: <the full breakdown - appearance, personality, motivation,');
-      lines.push('strengths and flaws, voice and tone, signature phrases, and one sample line the');
-      lines.push('guide says at the first stop. Never shown to a player.>');
+      lines.push('GUIDE NAME: <what they are called>');
+      lines.push('GUIDE BIO: <2-3 sentences, read aloud to whoever they are guiding. Say who');
+      lines.push('they are and where they are from. Do not include the name, and do not name any');
+      lines.push('city they might be visiting.>');
+      lines.push('GUIDE BACKGROUND: <the full breakdown - appearance, personality, hometown and');
+      lines.push('what it did to them, history, the odd specific facts, strengths and flaws,');
+      lines.push('voice and tone, and two or three things they always say. Internal only.>');
       return lines.join('\n');
     }
 
