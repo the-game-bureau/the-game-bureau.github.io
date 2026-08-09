@@ -1155,10 +1155,6 @@
       border-radius: 14px;
     }
 
-    /* Was the filter row; it holds only the count now that the search box and
-       the archived toggle are gone. */
-    .gr-filter { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 16px; }
-    .gr-count { margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: .72rem; color: var(--muted); }
 
     /* The form modal reuses the Socializer's modal-grid; these two only exist
        because a guide has long prose where a post has a caption. */
@@ -1241,10 +1237,6 @@
         <button class="btn" id="promptBtn" type="button" title="A paste-ready AI prompt that writes a guide">PROMPT</button>
       </div>
     </fieldset>
-
-    <div class="gr-filter" id="listBar">
-      <span class="gr-count" id="countLine"></span>
-    </div>
 
     <div class="guide-list" id="guideList"></div>
   </main>
@@ -1398,11 +1390,23 @@
       return (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/["\\\]]/g, '\\$&');
     }
 
+    // The line that sits under the title when nothing else is being said: the
+    // count, then the blurb. The count is a sentence rather than a badge over
+    // the list because it is a fact about the room, not a control - and it now
+    // has only one home, so it cannot disagree with itself.
+    function restingLine() {
+      const blurb = 'Each game has a guide that lends voice and tone to the player’s experience.'
+        + ' A guide can narrate one or more games.';
+      if (!state.authed || !state.guides.length) return blurb;
+      const n = state.guides.length;
+      return n + ' guide' + (n === 1 ? '' : 's') + '. ' + blurb;
+    }
+
     let statusTimer = 0;
     function setStatus(text, kind) {
       if (!pageStatus) return;
       window.clearTimeout(statusTimer);
-      pageStatus.textContent = text || 'Each game has a guide that lends voice and tone to the player’s experience. A guide can narrate one or more games.';
+      pageStatus.textContent = text || restingLine();
       pageStatus.classList.toggle('error', kind === 'error');
       pageStatus.classList.toggle('success', kind === 'success');
       if (text && kind !== 'error') statusTimer = window.setTimeout(() => setStatus(''), 4500);
@@ -1496,13 +1500,11 @@
       guideList.innerHTML = '';
       if (!state.authed) {
         guideList.appendChild(emptyNode('Sign in with an admin account to work on the guides.'));
-        el('countLine').textContent = '';
+        setStatus('');
         return;
       }
       const rows = visibleGuides();
-      el('countLine').textContent = rows.length === state.guides.length
-        ? state.guides.length + ' guide' + (state.guides.length === 1 ? '' : 's')
-        : rows.length + ' of ' + state.guides.length + ' guides';
+      setStatus('');
       if (!rows.length) {
         guideList.appendChild(emptyNode(state.guides.length
           ? 'No guide matches that filter.'
