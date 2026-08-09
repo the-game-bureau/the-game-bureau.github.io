@@ -49,15 +49,16 @@
       // full cards of scrolling.
       items: [
         {
-          // WAS "Waypoints" (2026-08-09). That card pointed at mc/data/waypoints.html
-          // until the page was folded into the Route Builder, after which it was
-          // repointed at /mc/routes.html and became a second door to a room the
-          // Game Builder group below already lists. Places are still edited
-          // there - in either list or by clicking a pin on the map.
-          href: '/mc/guides.html',
-          label: 'Guides',
-          description: 'The guide scripts a game speaks in — review and batch edit them across games.',
-          action: 'GO TO GUIDES'
+          // This card was WAYPOINTS until 2026-08-09 — it pointed at
+          // mc/data/waypoints.html, and once that page was folded into the
+          // Route Builder it became a second door to a room the Game Builder
+          // group below already lists. Guides took the slot, then became the
+          // Green Room the same day when mc/guides.html was rebuilt as
+          // mc/greenroom.html against public.guides.
+          href: '/mc/greenroom.html',
+          label: 'Guide Green Room',
+          description: 'Where the narrators are made — add, write, illustrate and retire the guides.',
+          action: 'GO TO THE GREEN ROOM'
         },
         {
           href: '/mc/data/cities.html',

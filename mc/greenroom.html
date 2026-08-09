@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>GUIDE GREEN ROOM | THE GAME BUREAU</title>
+  <link rel="icon" href="/mc/assets/brand/tgb.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/mc/js/admin-shell.css">
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --mc-shell-width: 1180px;
+      --stack-gap: 14px;
+      --paper-base: #fefef9;
+      --bic-blue: #2d4880;
+      --bic-blue-rgb: 45, 72, 128;
+      --bic-red: #c23737;
+      --ink: var(--bic-blue);
+      --muted: rgba(var(--bic-blue-rgb), 0.8);
+      --line: rgba(var(--bic-blue-rgb), 0.18);
+      --accent: var(--bic-blue);
+      --paper-shadow: rgba(var(--bic-blue-rgb), 0.12);
+      --panel: rgba(255, 255, 255, 0.92);
+      --panel-soft: rgba(var(--bic-blue-rgb), 0.065);
+      --cut-panel-bg: #e4ecfa;
+      --cut-panel-line: rgba(var(--bic-blue-rgb), 0.38);
+      --control-line: rgba(var(--bic-blue-rgb), 0.3);
+      --success: #276740;
+    }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background:
+        linear-gradient(rgba(var(--bic-blue-rgb), 0.18) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--bic-blue-rgb), 0.18) 1px, transparent 1px),
+        linear-gradient(rgba(194, 55, 55, 0.14) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(194, 55, 55, 0.14) 1px, transparent 1px),
+        linear-gradient(180deg, var(--paper-base) 0%, rgba(var(--bic-blue-rgb), 0.05) 100%);
+      background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px, 100% 100%;
+    }
+
+    button, textarea { font: inherit; }
+    a { color: var(--accent); }
+
+    .prompt-layout {
+      width: 100%;
+      max-width: var(--mc-shell-width);
+      margin: 0 auto;
+    }
+
+    .prompt-main { display: grid; gap: 16px; min-width: 0; }
+
+    .prompt-panel,
+    .side-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      box-shadow: 0 18px 36px var(--paper-shadow);
+      overflow: hidden;
+    }
+
+    /* No accent stripe. Every panel here wore an 8px dark-blue rule across the
+       top; at four boxes down the page it stopped marking anything and just
+       made the page stripey. The 1px panel line is enough of an edge. */
+    .prompt-panel { min-width: 0; }
+
+    .explain { padding: 18px; border-top: 8px solid var(--bic-red); }
+    .explain h2 {
+      margin: 0 0 8px;
+      color: var(--ink);
+      font-size: 1.15rem;
+      line-height: 1.15;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .explain p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    .explain p:last-child { margin-bottom: 0; }
+    .explain strong { color: var(--ink); }
+
+    .side-label {
+      display: block;
+      margin-bottom: 6px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── The queue ────────────────────────────────────────────────────────── */
+    /* A faint tint on the panel body so the white cards read as objects sitting
+       on it. Both were near-white before, which left the cards relying entirely
+       on their 1px border to separate from the background. */
+    .queue-panel {
+      min-inline-size: 0;
+      padding: 4px 0 0;
+      border: 1px solid var(--cut-panel-line);
+      background: var(--cut-panel-bg);
+      border-radius: 10px;
+      overflow: visible;
+      /* Tighter than the shared .prompt-panel cushion (0 18px 36px). That wide
+         soft shadow is right for a modal floating over the page; under a long
+         list it just blurs the panel's own edge. Modals keep it. */
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
+    }
+
+    .queue-panel > legend {
+      float: none;
+      width: auto;
+      padding: 3px 10px;
+      margin: 0 0 0 10px;
+      position: relative;
+      isolation: isolate;
+      line-height: 1;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .queue-status {
+      display: none;
+      margin: 0 16px 8px auto;
+    }
+    .queue-status:not(:empty) {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.78);
+    }
+    .panel-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .panel-sub {
+      margin-left: 8px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+    }
+    .panel-head-actions { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+
+    /* Active / Skipped tabs. Both views render from the same posts array —
+       the only difference is which side of the skip list a post sits on. */
+    /* Segmented control, not a row of buttons: one inset track with the active
+       segment raised out of it. Reads as "three views of one list" rather than
+       three independent controls.
+
+       The 16px side margin is the panel's gutter — .prompt-panel carries no
+       padding of its own (its .panel-head brings its own), so the tab strip and
+       the card list each supply it. That was invisible while posts were
+       edge-to-edge rows; once they became bordered cards they sat flush against
+       the panel wall, which is what this fixes. */
+    .queue-tabs {
+      display: inline-flex;
+      gap: 2px;
+      padding: 3px;
+      margin: 8px 16px 12px;
+      border: 1px solid var(--control-line);
+      border-radius: 8px;
+      background: #f8fbff;
+      box-shadow: inset 0 1px 1px rgba(var(--bic-blue-rgb), 0.06);
+    }
+    .queue-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 32px;
+      padding: 0 13px;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      background: none;
+      cursor: pointer;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(var(--bic-blue-rgb), 0.86);
+      transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+    }
+    .queue-tab:hover { color: var(--ink); }
+    .queue-tab.is-active {
+      color: var(--ink);
+      border-color: var(--control-line);
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(var(--bic-blue-rgb), 0.1);
+    }
+    .queue-tab-count {
+      min-width: 21px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(var(--bic-blue-rgb), 0.14);
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+    .queue-tab.is-active .queue-tab-count { background: var(--accent); color: #fff; }
+
+    /* Cards with air between them, not rows divided by hairlines — each post is
+       a discrete thing you act on. Padding is the panel gutter; see .queue-tabs.
+       :empty so a hidden list contributes no stray bottom space. */
+    .queue-list { display: grid; gap: 10px; padding: 0 16px 16px; }
+    .queue-list:empty { padding: 0; }
+
+    /* Radius one step tighter than the panel's 12px: a card nested inside a
+       container should not share its corner, or the two read as one surface. */
+    .post {
+      display: grid;
+      gap: 0;
+      border: 1px solid var(--control-line);
+      border-radius: 6px;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(17, 24, 32, 0.05);
+      transition: box-shadow 120ms ease, border-color 120ms ease;
+    }
+    /* Hover sharpens the edge rather than lifting the card. A translate plus a
+       wide blur reads soft and makes the whole list feel like it is floating;
+       a darker border and a tight shadow keep the edges crisp. */
+    .post:hover {
+      border-color: rgba(var(--bic-blue-rgb), 0.46);
+      box-shadow: 0 1px 5px rgba(17, 24, 32, 0.09);
+    }
+    /* A decided card is legible but visibly out of the running. Posted sits at
+       a lighter touch than skipped — it is done, not discarded — and carries a
+       green edge so the two decided tabs never look like each other. */
+    .post.is-skipped { opacity: 0.6; }
+    .post.is-skipped:hover { opacity: 1; }
+    .post.is-posted { opacity: 0.85; border-left: 3px solid var(--success, #2f7d4f); }
+    .post.is-posted:hover { opacity: 1; }
+    .post-receipt {
+      margin: 0;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--success, #2f7d4f);
+    }
+
+    .post-kicker {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(var(--bic-blue-rgb), 0.24);
+      background: #f7faff;
+      color: rgba(var(--bic-blue-rgb), 0.86);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+    .post-kicker-id {
+      color: var(--ink);
+    }
+    /* Sits in front of REASONING and wears the label's own type, so the line
+       reads as one run -- "72% REASONING History. ..." -- rather than as a badge
+       parked beside a heading. Tinted red under 40 only: that is the band the
+       bot files to reach its five with a rule bent, and the one worth catching
+       on the way past. */
+    .post-why-score {
+      margin-right: 7px;
+      color: rgba(var(--bic-blue-rgb), 0.9);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      font-style: normal;
+      letter-spacing: 0.1em;
+      font-variant-numeric: tabular-nums;
+    }
+    .post-why-score.is-low { color: var(--bic-red); }
+
+    /* ── The post as it will look ─────────────────────────────────────────── */
+    .post-preview { display: grid; gap: 10px; padding: 14px 14px 13px; }
+
+    /* The caption IS the post, so it is the largest thing on the card and wears
+       no quote-block chrome — chrome would imply it is being cited rather than
+       published. */
+    .post-caption {
+      margin: 0;
+      color: var(--ink);
+      font-size: 1.01rem;
+      line-height: 1.45;
+      letter-spacing: -0.004em;
+    }
+
+    /* The unfurled link, shaped like the card X and Facebook will render. With
+       a thumbnail it goes image-left / text-right; without one — no og:image,
+       an older row, or an image that failed to load — the grid collapses to a
+       single column and it looks exactly as it did before thumbnails existed. */
+    .post-card {
+      display: grid;
+      gap: 2px;
+      padding: 9px 11px;
+      border: 1px solid var(--control-line);
+      border-radius: 6px;
+      background: #f7faff;
+      text-decoration: none;
+      color: inherit;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .post-card:hover {
+      border-color: rgba(var(--bic-blue-rgb), 0.46);
+      background: #eef4ff;
+    }
+    .post-card.has-shot {
+      grid-template-columns: 116px minmax(0, 1fr);
+      align-items: center;
+      gap: 13px;
+      padding: 10px;
+    }
+    .post-card-body { display: grid; gap: 3px; min-width: 0; }
+    .post-card-shot {
+      display: block;
+      overflow: hidden;
+      border-radius: 5px;
+      background: rgba(17, 24, 32, 0.06);
+      /* Inset hairline so a pale image still has a defined edge. */
+      box-shadow: inset 0 0 0 1px rgba(17, 24, 32, 0.08);
+      aspect-ratio: 16 / 10;
+    }
+    .post-card-shot img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      /* cover, so a tall or panoramic og:image still fills the tile instead of
+         letterboxing — every card in the list then reads at the same size. */
+      object-fit: cover;
+    }
+    @media (max-width: 560px) {
+      .post-kicker {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .post-card.has-shot { grid-template-columns: 84px minmax(0, 1fr); gap: 11px; }
+    }
+    .post-card-domain {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: rgba(var(--bic-blue-rgb), 0.84);
+    }
+    .post-card-headline {
+      font-size: 0.9rem;
+      font-weight: 700;
+      line-height: 1.28;
+      color: var(--ink);
+    }
+    .post-card-meta {
+      font-size: 0.72rem;
+      line-height: 1.35;
+      color: rgba(var(--bic-blue-rgb), 0.84);
+    }
+
+    /* ── Ephemera: ours, never posted ─────────────────────────────────────── */
+    .post-ephemera {
+      display: grid;
+      gap: 8px;
+      padding: 11px 14px 13px;
+      border-top: 1px solid rgba(var(--bic-blue-rgb), 0.22);
+      background: #f8fbff;
+    }
+
+    /* The label sits inline so a one-line note stays one line. */
+    .post-why-label {
+      margin-right: 7px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      font-style: normal;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+
+    .post-why {
+      margin: 0;
+      color: rgba(var(--bic-blue-rgb), 0.82);
+      font-size: 0.82rem;
+      font-style: italic;
+      line-height: 1.45;
+    }
+
+    /* Topic + platform tags. Topics are quiet (they describe the story);
+       platforms are loud and colour-coded (they are the recommendation you act
+       on). Each platform chip carries its format reason as a title. */
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 8px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.22);
+      border-radius: 999px;
+      background: #fff;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* Platform styling is now only worn by the picker's tick buttons — the
+       "Post to" pills on the card were removed, so there is no link variant. */
+    .tag--platform { border-width: 1.5px; }
+    /* The merged Meta row. Facebook's blue leads because Facebook is always
+       part of it; Instagram only joins when the candidate has an image. The
+       old .is-facebook / .is-instagram rules died with the two separate rows. */
+    .tag--platform.is-meta { color: #1b4da8; border-color: rgba(27, 77, 168, 0.45); background: rgba(27, 77, 168, 0.06); }
+
+    /* A question needs less room than a form. */
+    .tool-modal-panel--ask { width: min(430px, calc(100vw - 32px)); }
+    .confirm-body { display: grid; gap: 14px; padding: 16px 18px 18px; }
+    .confirm-text { margin: 0; color: var(--ink); font-size: 0.95rem; line-height: 1.5; }
+
+    /* Edit sits apart from the decisions. Post, Copy and Skip are the three
+       things you do to a candidate; Edit is maintenance on it, so it goes to
+       the far end rather than into that sequence. */
+    .post-actions .post-edit-btn { margin-left: auto; }
+
+    .post-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+    .post-edit-btn { margin-left: auto; }
+
+    /* Post picker: tick any number of platforms, then step through them
+       one composer at a time — each opened by its own click, see the JS. */
+    /* White, because it now sits on the tinted ephemera panel — the old blue
+       wash disappeared into it. */
+    /* Post dialog body: the candidate restated at the top so you know which
+       one you are posting, then the picker. */
+    /* Same treatment as .post-card-shot, so the picture looks identical here and
+       on the card. Capped in height because the dialog is a working surface: the
+       point is to recognise the image, not to inspect it. */
+    /* Inside the dialog the picker wears the same tinted cut panel as the queue
+       and the command bar, so this reads as part of the room rather than a
+       generic modal. It used to drop its frame entirely and sit on the modal's
+       white, which is what made it look like a different product. */
+    /* One row per account: tick on the left, why-it-fits on the right. */
+    /* The agent's own reason for THIS story reads at full strength; the
+       standing format note for an untagged account sits back. */
+    /* The reason a ticked platform cannot go out by machine. Quieter than the
+       format note above it — it is a constraint, not a recommendation. */
+    @media (max-width: 560px) {
+    }
+    .autopost-choice { min-height: 30px; padding: 0 12px; cursor: pointer; opacity: 0.55; justify-content: center; }
+    .autopost-choice.is-suggested { box-shadow: inset 0 0 0 1.5px currentColor; }
+    .autopost-choice:hover { filter: brightness(0.94); }
+    /* Ticked = full strength; unticked sits back so the selection is readable
+       at a glance without a checkbox glyph competing with the platform tag. */
+    .autopost-choice[aria-pressed="true"] { opacity: 1; box-shadow: inset 0 0 0 2px currentColor; }
+    .autopost-choice.is-done { opacity: 0.4; text-decoration: line-through; }
+    .autopost-go[disabled] { opacity: 0.45; cursor: not-allowed; }
+    .post-feedback {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--success);
+    }
+    /* The paste notice stays until the next action, so it is still on screen
+       when you come back from the platform's tab. Loud enough to be the answer
+       to "why is the box empty?". */
+    .post-feedback.is-sticky {
+      padding: 6px 11px;
+      border: 1px solid rgba(194, 55, 55, 0.34);
+      border-radius: 7px;
+      background: rgba(194, 55, 55, 0.07);
+      color: var(--bic-red);
+      letter-spacing: 0.06em;
+      text-transform: none;
+      font-size: 0.74rem;
+    }
+
+    /* An empty tab is a normal state here — Posted and Skipped both start
+       empty — so it gets a dashed well rather than a bare line of grey text
+       floating in the panel. */
+    .queue-empty {
+      padding: 34px 18px;
+      margin: 0 16px 18px;
+      border: 1px dashed var(--cut-panel-line);
+      border-radius: 12px;
+      background: #f8fbff;
+      color: var(--ink);
+      font-size: 0.92rem;
+      line-height: 1.6;
+      text-align: center;
+    }
+    .queue-empty[hidden] { display: none; }
+
+    /* ── Focus, consistently ──────────────────────────────────────────────
+       Every interactive thing on the page gets the same visible ring. There
+       was none before, so keyboard users had only the browser default, which
+       the custom backgrounds here largely swallow. :focus-visible, so a mouse
+       click does not paint a ring. */
+    .btn:focus-visible,
+    .queue-tab:focus-visible,
+    .autopost-choice:focus-visible,
+    .chip:focus-visible,
+    .post-card:focus-visible,
+    .modal-form input:focus-visible,
+    .modal-form select:focus-visible,
+    .modal-form textarea:focus-visible,
+    .platform-pick input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .post-card:focus-visible {
+      border-color: rgba(var(--bic-blue-rgb), 0.3);
+      background: rgba(var(--bic-blue-rgb), 0.045);
+    }
+
+    /* Honour a reduced-motion preference across every transition added here. */
+    @media (prefers-reduced-motion: reduce) {
+      .post,
+      .post-card,
+      .queue-tab,
+      .autopost-choice,
+      .btn { transition: none; }
+    }
+
+    /* ── Buttons ──────────────────────────────────────────────────────────── */
+    /* display: inline-flex below is an AUTHOR rule and beats the browser's own
+       [hidden] { display: none }, so hiding a button by attribute silently did
+       nothing -- askConfirm's one-button notices were still showing No. Any
+       element given a display here needs this line beside it. */
+    .btn[hidden] { display: none; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+    }
+    .btn:hover { border-color: rgba(var(--bic-blue-rgb), 0.42); background: rgba(var(--bic-blue-rgb), 0.05); }
+    .btn.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .btn.primary:hover { background: #24396a; }
+    .btn.danger { border-color: rgba(194, 55, 55, 0.42); color: var(--bic-red); }
+    .btn.danger:hover { background: rgba(194, 55, 55, 0.08); }
+    .btn.small { min-height: 34px; padding: 0 11px; font-size: 0.66rem; }
+
+    .command-bar {
+      width: 100%;
+      max-width: var(--mc-shell-width);
+      min-inline-size: 0;
+      padding: 4px 12px 12px;
+      margin: 0 auto var(--stack-gap);
+      background: var(--cut-panel-bg);
+      border: 1px solid var(--cut-panel-line);
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(var(--bic-blue-rgb), 0.12);
+    }
+    /* The legend cuts the panel's top border, and the line used to just stop
+       either side of it. It now wears a folder tab: the border runs into the
+       label and back out again, so the cut-out reads as a tag clipped onto the
+       frame rather than a gap in it.
+
+       The tab is a PSEUDO-ELEMENT, not a border on the legend, because the two
+       things wanted here are incompatible on one box. The word has to sit
+       centred on the horizontal line, which is the legend's default position --
+       the browser centres it there. But the tab's sides must stop AT that line
+       rather than carrying on into the panel, and a bordered box whose bottom
+       edge is the line cannot also have its text centred on the line: the text
+       centre is always the better part of half a box above the bottom edge.
+
+       So the box stays put and the outline is drawn only over the half above
+       the line -- `inset: 0 0 50%`, since the legend's midpoint IS the line.
+       The word's lower half then hangs into the panel, which is invisible
+       because the tab fill and the panel are the same colour and there is no
+       bottom edge between them.
+
+       isolation: isolate is load-bearing. The arch sits at z-index -1 to stay
+       behind the text, and without a stacking context of its own that -1 would
+       drop it behind the fieldset's own background and it would vanish. */
+    .command-bar > legend {
+      float: none;
+      width: auto;
+      padding: 3px 10px;
+      margin: 0 0 0 10px;
+      position: relative;
+      isolation: isolate;
+      line-height: 1;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+    .command-bar > legend::before,
+    .queue-panel > legend::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0 0 50%;              /* the legend's midpoint is the border line */
+      border: 1px solid var(--cut-panel-line);
+      border-bottom: 0;
+      /* 5px, not the panel's 10px: the arch is only half the legend tall, so a
+         wider radius would curve the whole way across and read as a dome
+         instead of a tab. */
+      border-radius: 5px 5px 0 0;
+      background: var(--cut-panel-bg);
+    }
+
+    .command-bar-inner {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .command-bar .btn {
+      min-width: 0;
+      padding: 0 12px;
+      border-color: var(--control-line);
+      box-shadow: 0 1px 1px rgba(var(--bic-blue-rgb), 0.08);
+      font-size: 0.78rem;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    .admin-auth-toggle { min-height: 42px; padding-inline: 14px; white-space: nowrap; }
+    .admin-auth-toggle.is-signed-in { border-color: rgba(194, 55, 55, 0.44); color: var(--bic-red); }
+
+    /* ── Paste-ready prompt ───────────────────────────────────────────────── */
+    .prompt-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-soft);
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border: 1px solid rgba(var(--bic-blue-rgb), 0.22);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .prompt {
+      display: block;
+      width: 100%;
+      min-height: 52vh;
+      padding: 18px 20px 22px;
+      border: 0;
+      resize: vertical;
+      background:
+        linear-gradient(rgba(var(--bic-blue-rgb), 0.075) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(194, 55, 55, 0.26) 1px, transparent 1px),
+        #fffefa;
+      background-position: 0 0, 56px 0, 0 0;
+      background-size: 100% 28px, 100% 100%, 100% 100%;
+      color: #17253c;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      outline: none;
+      white-space: pre-wrap;
+    }
+    .prompt:focus { box-shadow: inset 0 0 0 2px rgba(var(--bic-blue-rgb), 0.22); }
+    .copy-status {
+      min-width: 72px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--success);
+      text-align: right;
+    }
+
+    /* ── Sidebar ──────────────────────────────────────────────────────────── */
+    .side-stack { display: grid; gap: 16px; }
+    .side-card { padding: 16px; }
+    .side-card h2 {
+      margin: 0 0 8px;
+      font-size: 1.02rem;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .side-card p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+    .side-card p:last-child { margin-bottom: 0; }
+    .side-note { font-size: 0.8rem; }
+
+    .mini-list {
+      display: grid;
+      gap: 4px;
+      margin: 10px 0;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+    .mini-list b { color: var(--ink); }
+
+    .run-status {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.05);
+    }
+    .run-dot {
+      flex: 0 0 auto;
+      width: 9px; height: 9px;
+      margin-top: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+    .run-status[data-state="ok"] .run-dot { background: #1e7a4b; }
+    .run-status[data-state="stale"] .run-dot { background: var(--bic-red); }
+    .run-body { display: grid; gap: 3px; min-width: 0; }
+    .run-line { color: var(--ink); font-size: 0.92rem; font-weight: 800; }
+    .run-sub { color: var(--muted); font-size: 0.82rem; line-height: 1.45; }
+
+    .side-links { display: grid; gap: 8px; margin-top: 14px; }
+    .side-links + .side-links { margin-top: 8px; }
+
+    /* ── Header (Stock Room lockup) ───────────────────────────────────────── */
+    .stockroom-head {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      min-height: 72px;
+      padding: 0 12px;
+      margin: 0 0 var(--stack-gap);
+    }
+    .stockroom-head-lockup,
+    .stockroom-head-status { position: relative; z-index: 1; }
+    .stockroom-head-lockup { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .stockroom-gear {
+      position: absolute;
+      top: 50%;
+      left: -28px;
+      transform: translateY(-50%) scaleX(-1);
+      width: 184px;
+      height: 184px;
+      z-index: 0;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .stockroom-gear .header-gear { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .stockroom-gear .header-gear--large { stroke: rgba(var(--bic-blue-rgb), 0.15); }
+    .stockroom-gear .header-gear--small { stroke: rgba(var(--bic-blue-rgb), 0.11); }
+    .stockroom-gear .header-gear-body { fill: rgba(var(--bic-blue-rgb), 0.022); stroke-width: 3.4; }
+    .stockroom-gear .header-gear-ring { fill: none; stroke-width: 3; }
+    .stockroom-gear .header-gear-inner { fill: none; stroke-width: 2.4; }
+    .stockroom-gear .header-gear-spoke { fill: rgba(var(--bic-blue-rgb), 0.06); stroke: none; }
+    .stockroom-gear .header-gear-core { fill: rgba(var(--bic-blue-rgb), 0.05); stroke-width: 2.2; }
+    .stockroom-gear .header-gear-bore { fill: none; stroke-width: 2; }
+    .stockroom-gear .header-gear-crosshair { stroke: rgba(var(--bic-blue-rgb), 0.12); stroke-width: 1.4; }
+    .stockroom-titlecol { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .stockroom-eyebrow {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(var(--bic-blue-rgb), 0.9);
+      text-shadow: 0 0 3px var(--paper-base), 0 0 3px var(--paper-base), 0 0 5px var(--paper-base);
+    }
+    .stockroom-title { margin: 0; font-size: 1.7rem; letter-spacing: 0.03em; line-height: 1; }
+    .stockroom-titlecol .stockroom-substat {
+      margin: 3px 0 0;
+      min-height: 0;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+    .stockroom-substat:empty { display: none; }
+    .stockroom-head-status {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .socials-room-head .stockroom-gear,
+    .socials-room-head .stockroom-eyebrow,
+    .socials-room-head .stockroom-head-status {
+      display: none;
+    }
+
+    .tool-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      background: rgba(17, 24, 32, 0.36);
+    }
+    .tool-backdrop[hidden],
+    .tool-modal-panel[hidden] {
+      display: none;
+    }
+    .tool-modal-panel {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      z-index: 100;
+      width: min(780px, calc(100vw - 32px));
+      max-height: calc(100vh - 48px);
+      transform: translate(-50%, -50%);
+      overflow: auto;
+    }
+    .tool-modal-panel--wide {
+      width: min(980px, calc(100vw - 32px));
+    }
+    .modal-form {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+    .modal-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .modal-form label,
+    .modal-form .field-label,
+    .platform-row label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .modal-form input,
+    .modal-form select,
+    .modal-form textarea {
+      width: 100%;
+      min-height: 40px;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: 600 0.92rem/1.35 "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .modal-form textarea {
+      min-height: 92px;
+      resize: vertical;
+    }
+    .modal-form .full { grid-column: 1 / -1; }
+    .manual-url-field {
+      display: grid;
+      gap: 6px;
+    }
+    .manual-url-control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .manual-url-control .btn {
+      min-height: 40px;
+      padding-inline: 14px;
+    }
+    .label-opt { opacity: 0.6; font-weight: 600; letter-spacing: 0.08em; }
+    .platform-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .platform-row {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.62);
+    }
+    .platform-pick {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .platform-pick input {
+      width: auto;
+      min-height: 0;
+      padding: 0;
+    }
+    .modal-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0 16px 16px;
+    }
+    .modal-status {
+      margin-right: auto;
+      color: var(--bic-red);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .modal-status.is-ok {
+      color: var(--ink);
+    }
+
+    @media (max-width: 840px) {
+      .panel-head { align-items: flex-start; flex-direction: column; }
+      .copy-status { text-align: left; }
+      .prompt { min-height: 60vh; padding: 14px 14px 18px; font-size: 0.82rem; }
+      .post-actions .btn { flex: 1 1 auto; }
+      .post-edit-btn { margin-left: 0; }
+      .command-bar .btn { flex: 1 1 auto; }
+      .modal-grid,
+      .platform-grid {
+        grid-template-columns: 1fr;
+      }
+      .manual-url-control {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── Green Room additions ────────────────────────────────────────────────
+       Everything above is the Socializer's stylesheet, carried over so the two
+       rooms are visibly the same product. Only what a GUIDE needs and a social
+       post does not is added here. */
+
+    .guide-list { display: grid; gap: 14px; }
+
+    .guide-card {
+      display: grid;
+      grid-template-columns: 132px minmax(0, 1fr);
+      gap: 16px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper);
+      box-shadow: 0 10px 24px var(--paper-shadow);
+    }
+    .guide-card.is-archived { opacity: .58; }
+    @media (max-width: 620px) {
+      .guide-card { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    .guide-shot {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(var(--bic-blue-rgb), .06);
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+    }
+    .guide-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .guide-shot-empty {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .62rem;
+      letter-spacing: .12em;
+      text-align: center;
+      color: var(--muted);
+      padding: 8px;
+    }
+
+    .guide-figure { display: grid; gap: 8px; align-content: start; }
+    .guide-figure .btn { width: 100%; }
+    .guide-upload-status {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .64rem;
+      line-height: 1.45;
+      color: var(--muted);
+      word-break: break-word;
+      min-height: 1em;
+    }
+    .guide-upload-status.is-error { color: var(--bic-red); }
+
+    .guide-body { display: grid; gap: 10px; align-content: start; min-width: 0; }
+
+    .guide-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .guide-name { margin: 0; font-size: 1.15rem; line-height: 1.2; letter-spacing: -.01em; }
+    .guide-id {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .68rem;
+      color: var(--muted);
+      letter-spacing: .08em;
+    }
+
+    .guide-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .guide-text { margin: 0; font-size: .9rem; line-height: 1.55; color: var(--ink); }
+    .guide-text--muted { color: var(--muted); font-size: .84rem; }
+    /* A background can run to 4,000 characters. The card shows the top of it
+       and the editor shows the rest - a card that scrolls for a page and a half
+       is a card nobody scrolls past. */
+    .guide-clamp {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .guide-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .62rem;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .guide-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+
+    .guide-empty {
+      padding: 28px 18px;
+      text-align: center;
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 14px;
+    }
+
+    .gr-filter { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 16px; }
+    .gr-filter input[type="search"] {
+      flex: 1 1 240px;
+      min-width: 0;
+      min-height: 42px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+    }
+    .gr-filter label { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--muted); }
+    .gr-count { margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: .72rem; color: var(--muted); }
+
+    /* The form modal reuses the Socializer's modal-grid; these two only exist
+       because a guide has long prose where a post has a caption. */
+    .modal-form textarea.tall { min-height: 200px; }
+    .modal-form .field-note { font-size: .72rem; color: var(--muted); margin: 4px 0 0; }
+
+    /* .label-opt lays its <span> out as a block label above a full-width
+       control, which is right for every field here except the one that IS a
+       checkbox - there the box was pushed to the far edge, a screen away from
+       its own word. */
+    .label-opt.label-check span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: auto;
+    }
+    .label-opt.label-check input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      min-height: 0;
+      margin: 0;
+      flex: 0 0 auto;
+    }
+
+  </style>
+</head>
+<body class="mc-auth-protected">
+  <main class="app">
+    <!-- Shared admin nav. Looks like the public site nav; every button goes to
+         that section's ADMIN page. See mc/js/admin-site-nav.js. -->
+    <header class="admin-site-nav" data-admin-site-nav></header>
+    <script src="/mc/js/admin-site-nav.js"></script>
+
+    <div class="room-head greenroom-room-head">
+      <svg class="stockroom-gear" viewBox="128 -12 220 216" aria-hidden="true">
+        <g class="header-gear header-gear--large" transform="translate(212 72) rotate(-14)">
+          <polygon class="header-gear-body" points="-11.3,-65.0 -13.8,-78.8 -7.5,-79.6 7.5,-79.6 13.8,-78.8 11.3,-65.0 22.7,-62.0 27.5,-75.1 33.3,-72.7 46.3,-65.2 51.3,-61.4 42.3,-50.6 50.6,-42.3 61.4,-51.3 65.2,-46.3 72.7,-33.3 75.1,-27.5 62.0,-22.7 65.0,-11.3 78.8,-13.8 79.6,-7.5 79.6,7.5 78.8,13.8 65.0,11.3 62.0,22.7 75.1,27.5 72.7,33.3 65.2,46.3 61.4,51.3 50.6,42.3 42.3,50.6 51.3,61.4 46.3,65.2 33.3,72.7 27.5,75.1 22.7,62.0 11.3,65.0 13.8,78.8 7.5,79.6 -7.5,79.6 -13.8,78.8 -11.3,65.0 -22.7,62.0 -27.5,75.1 -33.3,72.7 -46.3,65.2 -51.3,61.4 -42.3,50.6 -50.6,42.3 -61.4,51.3 -65.2,46.3 -72.7,33.3 -75.1,27.5 -62.0,22.7 -65.0,11.3 -78.8,13.8 -79.6,7.5 -79.6,-7.5 -78.8,-13.8 -65.0,-11.3 -62.0,-22.7 -75.1,-27.5 -72.7,-33.3 -65.2,-46.3 -61.4,-51.3 -50.6,-42.3 -42.3,-50.6 -51.3,-61.4 -46.3,-65.2 -33.3,-72.7 -27.5,-75.1 -22.7,-62.0"></polygon>
+          <circle class="header-gear-ring" r="54"></circle>
+          <circle class="header-gear-inner" r="34"></circle>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5"></rect>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(60)"></rect>
+          <rect class="header-gear-spoke" x="-5.5" y="-33" width="11" height="66" rx="5.5" transform="rotate(120)"></rect>
+          <circle class="header-gear-core" r="11"></circle>
+          <circle class="header-gear-bore" r="5.5"></circle>
+          <line class="header-gear-crosshair" x1="-18" y1="0" x2="18" y2="0"></line>
+          <line class="header-gear-crosshair" x1="0" y1="-18" x2="0" y2="18"></line>
+        </g>
+        <g class="header-gear header-gear--small" transform="translate(286 132) rotate(19)">
+          <polygon class="header-gear-body" points="-9.8,-45.0 -12.3,-56.7 -6.5,-57.6 6.5,-57.6 12.3,-56.7 9.8,-45.0 18.5,-42.1 23.4,-53.1 28.6,-50.5 39.2,-42.8 43.3,-38.6 34.3,-30.6 39.7,-23.2 50.1,-29.2 52.8,-24.0 56.8,-11.6 57.7,-5.8 45.8,-4.6 45.8,4.6 57.7,5.8 56.8,11.6 52.8,24.0 50.1,29.2 39.7,23.2 34.3,30.6 43.3,38.6 39.2,42.8 28.6,50.5 23.4,53.1 18.5,42.1 9.8,45.0 12.3,56.7 6.5,57.6 -6.5,57.6 -12.3,56.7 -9.8,45.0 -18.5,42.1 -23.4,53.1 -28.6,50.5 -39.2,42.8 -43.3,38.6 -34.3,30.6 -39.7,23.2 -50.1,29.2 -52.8,24.0 -56.8,11.6 -57.7,5.8 -45.8,4.6 -45.8,-4.6 -57.7,-5.8 -56.8,-11.6 -52.8,-24.0 -50.1,-29.2 -39.7,-23.2 -34.3,-30.6 -43.3,-38.6 -39.2,-42.8 -28.6,-50.5 -23.4,-53.1 -18.5,-42.1"></polygon>
+          <circle class="header-gear-ring" r="38"></circle>
+          <circle class="header-gear-inner" r="24"></circle>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5"></rect>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(60)"></rect>
+          <rect class="header-gear-spoke" x="-4.5" y="-22" width="9" height="44" rx="4.5" transform="rotate(120)"></rect>
+          <circle class="header-gear-core" r="7.5"></circle>
+          <circle class="header-gear-bore" r="3.8"></circle>
+          <line class="header-gear-crosshair" x1="-12" y1="0" x2="12" y2="0"></line>
+          <line class="header-gear-crosshair" x1="0" y1="-12" x2="0" y2="12"></line>
+        </g>
+      </svg>
+      <div class="stockroom-head-lockup">
+        <div class="stockroom-titlecol">
+          <span class="stockroom-eyebrow">THE GAME BUREAU</span>
+          <h1 class="room-title" id="pageTitle">GUIDE GREEN ROOM</h1>
+          <p class="status room-substat" id="pageStatus" aria-live="polite">Add, edit and retire the narrators. A guide is a character, not a game.</p>
+        </div>
+      </div>
+      <div class="stockroom-head-status" hidden>
+        <button class="btn admin-auth-toggle" id="adminAuthToggleBtn" type="button" aria-label="ADMIN LOGON" title="ADMIN LOGON">ADMIN LOGON</button>
+      </div>
+    </div>
+
+
+    <fieldset class="command-bar">
+      <legend>Add</legend>
+      <div class="command-bar-inner">
+        <button class="btn" id="manualBtn" type="button" title="Add a guide by hand — opens the form">MANUAL</button>
+        <button class="btn" id="promptBtn" type="button" title="A paste-ready AI prompt that writes a guide">PROMPT</button>
+      </div>
+    </fieldset>
+
+    <div class="gr-filter">
+      <input type="search" id="searchInput" placeholder="Filter by name, hometown, or a word in the bio..." autocomplete="off">
+      <label><input type="checkbox" id="showArchived"> Show archived</label>
+      <span class="gr-count" id="countLine"></span>
+    </div>
+
+    <div class="guide-list" id="guideList"></div>
+  </main>
+
+  <!-- The city catalogue, filled once from TgbCities. A shared datalist rather
+       than TgbCities.attach: attach keeps a controller for every element it is
+       handed, and the form's input is rebuilt each time the modal opens. -->
+  <datalist id="cityList"></datalist>
+
+  <!-- ── The form. One modal for both NEW and EDIT: the fields are identical
+       and two dialogs would drift apart the first time one gained a field. ── -->
+  <div class="tool-backdrop" id="formBackdrop" hidden></div>
+  <section class="prompt-panel tool-modal-panel tool-modal-panel--wide" id="formCard"
+           role="dialog" aria-modal="true" aria-labelledby="formTitle" hidden>
+    <div class="panel-head">
+      <h2 class="panel-title" id="formTitle">New Guide</h2>
+      <span class="panel-head-actions">
+        <span class="modal-status" id="formStatus" aria-live="polite"></span>
+        <button class="btn small" data-form-close type="button">Cancel</button>
+        <button class="btn small primary" id="formSaveBtn" type="submit" form="guideForm">Save</button>
+      </span>
+    </div>
+    <form class="modal-form" id="guideForm">
+      <div class="modal-grid">
+        <label class="label-opt">
+          <span>Name</span>
+          <input type="text" id="fName" autocomplete="off" required placeholder="Sir Purr">
+          <p class="field-note">What a player hears the narrator called.</p>
+        </label>
+        <label class="label-opt">
+          <span>Hometown</span>
+          <input type="text" id="fHometown" list="cityList" autocomplete="off" placeholder="Charlotte, North Carolina">
+          <p class="field-note">Chosen from the city catalogue. Where the character is from — usually the fanbase's city.</p>
+        </label>
+      </div>
+      <label class="label-opt">
+        <span>Bio</span>
+        <textarea id="fBio" rows="4" placeholder="Two or three sentences, read by the player."></textarea>
+        <p class="field-note">The player reads this. Do not put the guide's name in it.</p>
+      </label>
+      <label class="label-opt">
+        <span>Background</span>
+        <textarea id="fBackground" class="tall" placeholder="Appearance, personality, motivation, strengths and flaws, voice."></textarea>
+        <p class="field-note">The full character breakdown, for writing the game. Never shown to a player.</p>
+      </label>
+      <label class="label-opt">
+        <span>Portrait URL</span>
+        <input type="url" id="fImage" autocomplete="off" placeholder="Leave blank — Upload Image fills it in">
+        <p class="field-note">Uploading fills this in. Blank is honest; a dead link is not.</p>
+      </label>
+      <label class="label-opt label-check">
+        <span><input type="checkbox" id="fArchived"> Archived</span>
+        <p class="field-note">Out of the working list, still on any game that uses it.</p>
+      </label>
+      <div class="modal-actions">
+        <button class="btn" data-form-close type="button">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- A yes/no question, asked where every other question in this room is
+       asked. Generic on purpose: it takes its words from the caller, so the
+       next confirmation does not add a third dialog. -->
+  <div class="tool-backdrop" id="confirmBackdrop" hidden></div>
+  <section class="prompt-panel tool-modal-panel tool-modal-panel--ask" id="confirmCard"
+           role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
+    <div class="panel-head">
+      <h2 class="panel-title" id="confirmTitle">Are you sure?</h2>
+    </div>
+    <div class="confirm-body">
+      <p class="confirm-text" id="confirmText"></p>
+      <div class="modal-actions">
+        <button class="btn" id="confirmNo" type="button">No</button>
+        <button class="btn primary" id="confirmYes" type="button">Yes</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="tool-backdrop" id="promptBackdrop" hidden></div>
+  <section class="prompt-panel tool-modal-panel tool-modal-panel--wide" id="promptCard"
+           role="dialog" aria-modal="true" aria-labelledby="promptTitle" hidden>
+    <div class="panel-head">
+      <h2 class="panel-title" id="promptTitle">Paste-Ready Prompt</h2>
+      <span class="panel-head-actions">
+        <span class="copy-status" id="copyStatus" aria-live="polite"></span>
+        <button class="btn small primary" id="copyPromptBtn" type="button">Copy Prompt</button>
+        <button class="btn small" data-prompt-close type="button">Close</button>
+      </span>
+    </div>
+    <div class="prompt-meta" id="promptChips" aria-hidden="true"></div>
+    <p class="explain" id="promptHelp"></p>
+    <textarea class="prompt" id="promptText" readonly spellcheck="false" rows="18"></textarea>
+  </section>
+
+  <script src="/mc/js/admin-auth.js"></script>
+  <script src="/mc/js/admin-shell.js"></script>
+  <script src="/mc/js/supabase-rest.js"></script>
+  <script src="/mc/assets/geo.js"></script>
+  <script src="/mc/assets/city-picker.js"></script>
+  <script src="picmaker/prompts.js"></script>
+  <script>
+    'use strict';
+
+    // GUIDE GREEN ROOM — where the narrators are made.
+    //
+    // One table, public.guides, and nothing else. A guide is a CHARACTER: one
+    // row, however many games point at it. This room deliberately shows NO game
+    // information at all - not a count, not a title. A guide is written on its
+    // own terms, and the moment a card starts listing games it becomes a report
+    // about games rather than a place to write a character.
+    //
+    // The games.guide_* columns are still what both engines read at play time.
+    // NOTHING HERE WRITES THEM: the guides_sync_games trigger pushes a saved
+    // guide onto every game pointing at it. Write the guide; the trigger does
+    // the rest.
+
+    const SUPABASE_CONFIG = {
+      url: 'https://qmaafbncpzrdmqapkkgr.supabase.co',
+      publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
+    };
+
+    const GUIDE_BUCKET = 'guides';
+    const EDITABLE = ['name', 'hometown', 'bio', 'background', 'image_url'];
+
+    const state = {
+      authed: false,
+      guides: [],
+      filter: '',
+      showArchived: false,
+      editingId: null,      // null while the form is adding rather than editing
+      busy: false
+    };
+
+    const el = (id) => document.getElementById(id);
+    const cleanText = (v) => String(v == null ? '' : v).trim();
+    const guideList = el('guideList');
+    const pageStatus = el('pageStatus');
+
+    function cssEscape(value) {
+      const s = String(value);
+      return (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/["\\\]]/g, '\\$&');
+    }
+
+    let statusTimer = 0;
+    function setStatus(text, kind) {
+      if (!pageStatus) return;
+      window.clearTimeout(statusTimer);
+      pageStatus.textContent = text || 'Add, edit and retire the narrators. A guide is a character, not a game.';
+      pageStatus.classList.toggle('error', kind === 'error');
+      pageStatus.classList.toggle('success', kind === 'success');
+      if (text && kind !== 'error') statusTimer = window.setTimeout(() => setStatus(''), 4500);
+    }
+
+    function restUrl(table, params) {
+      const url = new URL('/rest/v1/' + encodeURIComponent(table), SUPABASE_CONFIG.url + '/');
+      Object.entries(params || {}).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
+      });
+      return url.toString();
+    }
+
+    function authHeaders(extra) {
+      if (adminAuth && typeof adminAuth.authHeaders === 'function') return adminAuth.authHeaders(extra || {});
+      const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      const token = (session && session.access_token) || SUPABASE_CONFIG.publishableKey;
+      return Object.assign({
+        apikey: SUPABASE_CONFIG.publishableKey,
+        Authorization: 'Bearer ' + token,
+        Accept: 'application/json'
+      }, extra || {});
+    }
+
+    async function ensureFreshSession() {
+      if (adminAuth && typeof adminAuth.ensureFreshSession === 'function') {
+        try { await adminAuth.ensureFreshSession(); } catch (error) {}
+      }
+    }
+
+    async function readError(response, fallback) {
+      try {
+        const text = await response.text();
+        if (!text) return fallback;
+        try {
+          const payload = JSON.parse(text);
+          return payload.message || payload.hint || payload.error || text;
+        } catch (error) { return text; }
+      } catch (error) { return fallback; }
+    }
+
+    function adminToken() {
+      const session = adminAuth && adminAuth.getSession ? adminAuth.getSession() : null;
+      return (session && session.access_token) || '';
+    }
+
+    // --- loading --------------------------------------------------------------
+
+    async function refresh() {
+      try {
+        await ensureFreshSession();
+        // select=*, never a column list: naming a column the database does not
+        // have 400s the whole load. The standing rule in this codebase.
+        const url = restUrl('guides', { select: '*', order: 'name.asc' });
+        const rows = (window.TgbRest && window.TgbRest.fetchAll)
+          ? await window.TgbRest.fetchAll(url, authHeaders({ Accept: 'application/json' }))
+          : await (await fetch(url, { headers: authHeaders() })).json();
+        if (rows && rows.code) throw new Error(rows.message || 'Load failed.');
+        state.guides = Array.isArray(rows) ? rows : [];
+        render();
+        setStatus('');
+      } catch (error) {
+        console.error(error);
+        const msg = (error && error.message) || 'Load failed.';
+        setStatus(msg, 'error');
+        guideList.innerHTML = '';
+        guideList.appendChild(emptyNode(/relation|does not exist/i.test(msg)
+          ? 'public.guides does not exist yet — run mc/supabase/migrations/2026080901_guides_table.sql.'
+          : 'Could not load guides. ' + msg));
+      }
+    }
+
+    // --- rendering ------------------------------------------------------------
+
+    function emptyNode(text) {
+      const node = document.createElement('div');
+      node.className = 'guide-empty';
+      node.textContent = text;
+      return node;
+    }
+
+    function visibleGuides() {
+      const q = state.filter.toLowerCase();
+      return state.guides.filter((g) => {
+        if (!state.showArchived && g.archived) return false;
+        if (!q) return true;
+        return (cleanText(g.name) + ' ' + cleanText(g.hometown) + ' ' + cleanText(g.bio)).toLowerCase().includes(q);
+      });
+    }
+
+    function render() {
+      guideList.innerHTML = '';
+      if (!state.authed) {
+        guideList.appendChild(emptyNode('Sign in with an admin account to work on the guides.'));
+        el('countLine').textContent = '';
+        return;
+      }
+      const rows = visibleGuides();
+      el('countLine').textContent = rows.length === state.guides.length
+        ? state.guides.length + ' guide' + (state.guides.length === 1 ? '' : 's')
+        : rows.length + ' of ' + state.guides.length + ' guides';
+      if (!rows.length) {
+        guideList.appendChild(emptyNode(state.guides.length
+          ? 'No guide matches that filter.'
+          : 'No guides yet. Press MANUAL to write the first one.'));
+        return;
+      }
+      rows.forEach((g) => guideList.appendChild(renderGuideCard(g)));
+    }
+
+    function chip(text) {
+      const s = document.createElement('span');
+      s.className = 'chip';
+      s.textContent = text;
+      return s;
+    }
+
+    function mkBtn(text, title, onClick, cls) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn small' + (cls ? ' ' + cls : '');
+      b.textContent = text;
+      if (title) b.title = title;
+      b.addEventListener('click', onClick);
+      return b;
+    }
+
+    function renderGuideCard(guide) {
+      const card = document.createElement('article');
+      card.className = 'guide-card' + (guide.archived ? ' is-archived' : '');
+      card.dataset.guideId = guide.id;
+
+      // ── the portrait, and the two buttons under it ──
+      const figure = document.createElement('div');
+      figure.className = 'guide-figure';
+      const shot = document.createElement('div');
+      shot.className = 'guide-shot';
+      shot.setAttribute('data-shot', '');
+      paintShot(shot, guide);
+
+      const status = document.createElement('div');
+      status.className = 'guide-upload-status';
+      status.setAttribute('aria-live', 'polite');
+
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.hidden = true;
+      const uploadBtn = mkBtn('Upload Image', 'Put a portrait on this guide', () => fileInput.click());
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files && fileInput.files[0];
+        fileInput.value = '';
+        if (file) uploadImageFile(guide.id, file, uploadBtn, status);
+      });
+
+      figure.append(shot, uploadBtn, fileInput);
+      // Only worth offering when the portrait is not already ours: pushing a
+      // Storage URL back through the uploader would copy it onto itself.
+      if (cleanText(guide.image_url) && cleanText(guide.image_url).indexOf(SUPABASE_CONFIG.url) !== 0) {
+        figure.appendChild(mkBtn('Host Here', 'Fetch this image and store it in Supabase',
+          (e) => uploadImageFromUrl(guide.id, e.target, status)));
+      }
+      figure.appendChild(status);
+
+      // ── the character ──
+      const body = document.createElement('div');
+      body.className = 'guide-body';
+
+      const head = document.createElement('div');
+      head.className = 'guide-head';
+      const name = document.createElement('h2');
+      name.className = 'guide-name';
+      name.textContent = cleanText(guide.name) || 'Unnamed guide';
+      const id = document.createElement('span');
+      id.className = 'guide-id';
+      id.textContent = '#' + guide.id;
+      head.append(name, id);
+
+      const meta = document.createElement('div');
+      meta.className = 'guide-meta';
+      if (cleanText(guide.hometown)) meta.appendChild(chip(guide.hometown));
+      else meta.appendChild(chip('no hometown'));
+      if (guide.archived) meta.appendChild(chip('archived'));
+      if (!cleanText(guide.image_url)) meta.appendChild(chip('no portrait'));
+
+      body.append(head, meta);
+
+      if (cleanText(guide.bio)) {
+        const bio = document.createElement('p');
+        bio.className = 'guide-text';
+        bio.textContent = guide.bio;
+        body.appendChild(bio);
+      }
+
+      if (cleanText(guide.background)) {
+        const label = document.createElement('div');
+        label.className = 'guide-label';
+        label.textContent = 'Background';
+        const bg = document.createElement('p');
+        bg.className = 'guide-text guide-text--muted guide-clamp';
+        bg.textContent = guide.background;
+        body.append(label, bg);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'guide-actions';
+      actions.append(
+        mkBtn('Edit', 'Open this guide in the form', () => openForm(guide.id), 'primary'),
+        mkBtn('Image Prompt', 'An AI prompt for this guide’s portrait', () => showImagePrompt(guide.id)),
+        mkBtn('Prompt', 'An AI prompt that rewrites this guide', () => showGuidePrompt(guide.id)),
+        mkBtn(guide.archived ? 'Restore' : 'Archive',
+          guide.archived ? 'Back into the working list' : 'Out of the working list, without deleting',
+          () => toggleArchived(guide.id)),
+        mkBtn('Delete', 'Remove this guide for good', () => deleteGuide(guide.id), 'warn')
+      );
+      body.appendChild(actions);
+
+      card.append(figure, body);
+      return card;
+    }
+
+    function paintShot(shot, guide) {
+      shot.innerHTML = '';
+      const url = cleanText(guide.image_url);
+      if (!url) {
+        const ph = document.createElement('div');
+        ph.className = 'guide-shot-empty';
+        ph.textContent = 'NO PORTRAIT';
+        shot.appendChild(ph);
+        return;
+      }
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = cleanText(guide.name) || 'Guide portrait';
+      img.loading = 'lazy';
+      // A dead link is the normal case for anything not yet hosted here, so it
+      // is named rather than left as a broken-image icon. "No portrait" and
+      // "the portrait link is broken" are different problems.
+      img.addEventListener('error', () => {
+        shot.innerHTML = '';
+        const ph = document.createElement('div');
+        ph.className = 'guide-shot-empty';
+        ph.textContent = 'LINK IS DEAD';
+        shot.appendChild(ph);
+      });
+      shot.appendChild(img);
+    }
+
+    const findGuide = (id) => state.guides.find((g) => String(g.id) === String(id)) || null;
+
+
+    // --- the form -------------------------------------------------------------
+    // One modal for NEW and EDIT. state.editingId is the whole difference: null
+    // means insert, an id means update. Two dialogs would drift apart the first
+    // time one of them gained a field.
+
+    function openForm(id) {
+      const guide = id == null ? null : findGuide(id);
+      state.editingId = guide ? guide.id : null;
+      el('formTitle').textContent = guide ? ('Edit — ' + (cleanText(guide.name) || '#' + guide.id)) : 'New Guide';
+      el('fName').value = guide ? cleanText(guide.name) : '';
+      el('fHometown').value = guide ? cleanText(guide.hometown) : '';
+      el('fBio').value = guide ? cleanText(guide.bio) : '';
+      el('fBackground').value = guide ? cleanText(guide.background) : '';
+      el('fImage').value = guide ? cleanText(guide.image_url) : '';
+      el('fArchived').checked = guide ? !!guide.archived : false;
+      formStatus('');
+      el('formCard').hidden = false;
+      el('formBackdrop').hidden = false;
+      el('fName').focus();
+    }
+
+    function closeForm() {
+      el('formCard').hidden = true;
+      el('formBackdrop').hidden = true;
+      state.editingId = null;
+    }
+
+    function formStatus(message, isError) {
+      const node = el('formStatus');
+      node.textContent = message || '';
+      node.classList.toggle('is-error', !!isError);
+    }
+
+    function formPayload() {
+      return {
+        name: cleanText(el('fName').value) || null,
+        hometown: cleanText(el('fHometown').value) || null,
+        bio: cleanText(el('fBio').value) || null,
+        background: cleanText(el('fBackground').value) || null,
+        image_url: cleanText(el('fImage').value) || null,
+        archived: !!el('fArchived').checked
+      };
+    }
+
+    async function submitForm(event) {
+      if (event) event.preventDefault();
+      if (state.busy) return;
+      const payload = formPayload();
+      if (!payload.name) { formStatus('A guide needs a name.', true); return; }
+      // The hometown is a foreign key into public.cities. Catching it here
+      // turns a raw 23503 into a sentence, and stops a typo being saved as a
+      // city that does not exist.
+      if (payload.hometown && window.TgbCities) {
+        const known = window.TgbCities.all().some((c) => c.city === payload.hometown);
+        if (!known) {
+          formStatus('"' + payload.hometown + '" is not in the city catalogue — pick one from the list.', true);
+          return;
+        }
+      }
+      state.busy = true;
+      formStatus('Saving...');
+      try {
+        await ensureFreshSession();
+        const editing = state.editingId != null;
+        const res = await fetch(
+          restUrl('guides', editing ? { id: 'eq.' + state.editingId } : {}),
+          {
+            method: editing ? 'PATCH' : 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+            body: JSON.stringify(payload)
+          });
+        if (!res.ok) throw new Error(await readError(res, 'Could not save this guide.'));
+        const [fresh] = await res.json();
+        if (editing) {
+          const i = state.guides.findIndex((g) => String(g.id) === String(state.editingId));
+          if (i > -1) state.guides[i] = fresh;
+        } else {
+          state.guides.push(fresh);
+        }
+        state.guides.sort((a, b) => cleanText(a.name).localeCompare(cleanText(b.name)));
+        closeForm();
+        render();
+        setStatus((editing ? 'Saved ' : 'Added ') + cleanText(fresh.name) + '.', 'success');
+      } catch (error) {
+        // The name index is the one a person actually trips over.
+        const raw = error.message || '';
+        formStatus(/guides_name_key|duplicate key/i.test(raw)
+          ? 'There is already a guide with that name — a character is meant to be singular.'
+          : (raw || 'Save failed.'), true);
+      } finally {
+        state.busy = false;
+      }
+    }
+
+    // --- archive and delete ---------------------------------------------------
+
+    let confirmResolve = null;
+    function ask(title, text, yesLabel) {
+      el('confirmTitle').textContent = title;
+      el('confirmText').textContent = text;
+      el('confirmYes').textContent = yesLabel || 'Yes';
+      el('confirmCard').hidden = false;
+      el('confirmBackdrop').hidden = false;
+      return new Promise((resolve) => { confirmResolve = resolve; });
+    }
+    function closeAsk(answer) {
+      el('confirmCard').hidden = true;
+      el('confirmBackdrop').hidden = true;
+      if (confirmResolve) { confirmResolve(answer); confirmResolve = null; }
+    }
+
+    async function toggleArchived(id) {
+      const guide = findGuide(id);
+      if (!guide) return;
+      try {
+        await ensureFreshSession();
+        const res = await fetch(restUrl('guides', { id: 'eq.' + id }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify({ archived: !guide.archived })
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not change that.'));
+        const [fresh] = await res.json();
+        Object.assign(guide, fresh);
+        render();
+        setStatus((fresh.archived ? 'Archived ' : 'Restored ') + cleanText(fresh.name) + '.', 'success');
+      } catch (error) {
+        setStatus(error.message || 'Failed.', 'error');
+      }
+    }
+
+    // DELETE IS REAL AND IT REACHES FURTHER THAN THIS ROOM. games.guide_id is
+    // ON DELETE SET NULL, so removing a guide leaves every game that used it
+    // with no guide at all - and this page deliberately cannot show how many
+    // that is. Archive is the reversible answer and the confirmation says so.
+    async function deleteGuide(id) {
+      const guide = findGuide(id);
+      if (!guide) return;
+      const ok = await ask('Delete ' + (cleanText(guide.name) || 'this guide') + '?',
+        'This cannot be undone. Any game using this guide is left without one. '
+        + 'Archive instead if you only want it out of the way.', 'Delete');
+      if (!ok) return;
+      try {
+        await ensureFreshSession();
+        const res = await fetch(restUrl('guides', { id: 'eq.' + id }), {
+          method: 'DELETE',
+          headers: authHeaders({ Prefer: 'return=minimal' })
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not delete this guide.'));
+        state.guides = state.guides.filter((g) => String(g.id) !== String(id));
+        render();
+        setStatus('Deleted ' + (cleanText(guide.name) || '#' + id) + '.', 'success');
+      } catch (error) {
+        setStatus(error.message || 'Delete failed.', 'error');
+      }
+    }
+
+    // --- the portrait ---------------------------------------------------------
+    // Two upload paths, and the split is CORS rather than preference. A local
+    // file goes straight from the browser to Supabase Storage on the admin's
+    // token; a remote URL cannot be fetched by the browser at all, so the
+    // upload-guide-image Edge Function fetches it server-side. Both land in the
+    // guides bucket and write the same public URL back.
+    //
+    // KEYED BY GUIDE ID - guide-<id>.<ext>. The old scheme named the file after
+    // the GAME, which is why one character could end up with eight portraits.
+
+    function uploadStatus(node, message, isError) {
+      if (!node) return;
+      node.textContent = message || '';
+      node.classList.toggle('is-error', !!isError);
+    }
+
+    async function applyImageUrl(id, publicUrl, status) {
+      const guide = findGuide(id);
+      if (!guide) return;
+      try {
+        await ensureFreshSession();
+        const res = await fetch(restUrl('guides', { id: 'eq.' + id }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify({ image_url: publicUrl })
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not save the portrait.'));
+        const [fresh] = await res.json();
+        Object.assign(guide, fresh);
+        uploadStatus(status, 'Saved');
+        render();
+        setStatus('Portrait saved for ' + cleanText(guide.name) + '.', 'success');
+      } catch (error) {
+        uploadStatus(status, 'Uploaded, but saving the URL failed: ' + (error.message || error), true);
+      }
+    }
+
+    async function uploadImageFile(id, file, btn, status) {
+      const token = adminToken();
+      if (!token) { uploadStatus(status, 'Sign in as an admin to upload.', true); return; }
+      if (!/^image\//i.test(file.type || '')) { uploadStatus(status, 'Choose an image file.', true); return; }
+      // The ceiling the Edge Function enforces, checked here so a pointless
+      // 40 MB upload fails at once rather than at the far end.
+      if (file.size > 15 * 1024 * 1024) { uploadStatus(status, 'Larger than 15 MB.', true); return; }
+      const label = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Uploading...';
+      uploadStatus(status, 'Uploading...');
+      try {
+        const rawExt = (String(file.name).split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const ext = rawExt || (String(file.type).split('/')[1] || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+        const path = encodeURIComponent('guide-' + id + '.' + ext);
+        const base = SUPABASE_CONFIG.url.replace(/\/+$/, '');
+        const res = await fetch(base + '/storage/v1/object/' + GUIDE_BUCKET + '/' + path, {
+          method: 'POST',
+          headers: {
+            apikey: SUPABASE_CONFIG.publishableKey,
+            Authorization: 'Bearer ' + token,
+            'Content-Type': file.type || 'application/octet-stream',
+            'x-upsert': 'true'
+          },
+          body: file
+        });
+        if (!res.ok) {
+          const t = await res.text().catch(() => '');
+          throw new Error('upload failed (' + res.status + ')' + (t ? ': ' + t.slice(0, 140) : ''));
+        }
+        // Cache-bust, or a replacement is masked by the stale CDN copy.
+        await applyImageUrl(id, base + '/storage/v1/object/public/' + GUIDE_BUCKET + '/' + path + '?v=' + Date.now(), status);
+      } catch (error) {
+        uploadStatus(status, String((error && error.message) || 'Upload failed.'), true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+    }
+
+    async function uploadImageFromUrl(id, btn, status) {
+      const guide = findGuide(id);
+      if (!guide) return;
+      const sourceUrl = cleanText(guide.image_url);
+      if (!/^https?:\/\//i.test(sourceUrl)) { uploadStatus(status, 'No image URL to fetch.', true); return; }
+      const token = adminToken();
+      if (!token) { uploadStatus(status, 'Sign in as an admin to upload.', true); return; }
+      btn.disabled = true;
+      uploadStatus(status, 'Fetching...');
+      try {
+        const endpoint = SUPABASE_CONFIG.url.replace(/\/+$/, '') + '/functions/v1/upload-guide-image';
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_CONFIG.publishableKey,
+            Authorization: 'Bearer ' + token
+          },
+          // gameId is only ever an object name to that function.
+          body: JSON.stringify({ url: sourceUrl, gameId: 'guide-' + id })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error((data && data.error) || ('upload failed (' + res.status + ')'));
+        const publicUrl = cleanText(data && data.url);
+        if (!publicUrl) throw new Error('no url returned');
+        await applyImageUrl(id, publicUrl, status);
+      } catch (error) {
+        uploadStatus(status, String((error && error.message) || 'Upload failed.'), true);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // --- the prompts ----------------------------------------------------------
+
+    function openPrompt(title, help, chips, text) {
+      el('promptTitle').textContent = title;
+      el('promptHelp').textContent = help;
+      const meta = el('promptChips');
+      meta.innerHTML = '';
+      (chips || []).forEach((c) => meta.appendChild(chip(c)));
+      el('promptText').value = text;
+      el('copyStatus').textContent = '';
+      el('promptCard').hidden = false;
+      el('promptBackdrop').hidden = false;
+      el('promptText').focus();
+      el('promptText').setSelectionRange(0, 0);
+    }
+
+    function closePrompt() {
+      el('promptCard').hidden = true;
+      el('promptBackdrop').hidden = true;
+    }
+
+    async function copyText(text) {
+      try { await navigator.clipboard.writeText(text); return true; }
+      catch (error) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          const ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+          return ok;
+        } catch (err) { return false; }
+      }
+    }
+
+    function showGuidePrompt(id) {
+      const guide = id == null ? null : findGuide(id);
+      openPrompt(
+        guide ? ('Prompt — ' + (cleanText(guide.name) || '#' + guide.id)) : 'Prompt — a new guide',
+        'Paste this into any AI. It answers with GUIDE NAME / GUIDE BIO / GUIDE BACKGROUND; bring those back into the form.',
+        ['public.guides', 'writes nothing itself', guide ? 'keeps the existing name' : 'invents a character'],
+        buildGuidePrompt(guide));
+    }
+
+    function showImagePrompt(id) {
+      const guide = findGuide(id);
+      if (!guide) return;
+      openPrompt('Image Prompt — ' + (cleanText(guide.name) || '#' + guide.id),
+        'Paste this into an image generator, then bring the result back with Upload Image.',
+        ['portrait', 'from the bio and background'],
+        window.TgbPicmakerPrompts.buildGuideImagePrompt({
+          guideName: guide.name,
+          guideBio: guide.bio,
+          guideBackground: guide.background
+        }));
+    }
+
+    // The guide brief. It carries the character's own hometown rather than any
+    // game's city - this room holds no game information, and the hometown is
+    // the thing a human actually chose for this character.
+    function buildGuidePrompt(guide) {
+      const lines = [];
+      lines.push('You are writing a GUIDE for THE GAME BUREAU (TGB), which makes location-based,');
+      lines.push('live-action games: one part walking tour, one part scavenger hunt, one part escape');
+      lines.push('room, played on real streets in a real city.');
+      lines.push('');
+      lines.push('WHAT A GUIDE IS');
+      lines.push('- The guide is the voice in the player’s ear and on their screen. The player is');
+      lines.push('  physically on the pavement; the guide runs the show remotely. That dual reality');
+      lines.push('  is the whole trick - the guide is never walking beside them.');
+      lines.push('- A guide is a CHARACTER, not a narrator-shaped label. It has a hometown, a way of');
+      lines.push('  speaking, things it likes and a flaw it will admit to.');
+      lines.push('- TGB blends history and fiction. A guide may be built on a real figure, but the');
+      lines.push('  story around it is invented.');
+      lines.push('- One guide can front many games, so write it to travel. Do not tie the character');
+      lines.push('  to one matchup, one date, or one opponent.');
+      lines.push('');
+      if (guide) {
+        const name = cleanText(guide.name);
+        const isPlaceholder = name.replace(/\s+/g, ' ').toLowerCase() === 'mission control';
+        lines.push('THE GUIDE YOU ARE WRITING');
+        if (name && !isPlaceholder) {
+          lines.push('- Name: ' + name);
+          lines.push('  KEEP THIS NAME EXACTLY. Return it as GUIDE NAME. Do not rename or invent one,');
+          lines.push('  and do not put the name inside GUIDE BIO.');
+        } else {
+          lines.push('- Name: not settled yet. Invent one that suits the hometown below.');
+        }
+        if (cleanText(guide.hometown)) lines.push('- Hometown (the character is FROM here): ' + cleanText(guide.hometown));
+        if (cleanText(guide.bio)) lines.push('- Current bio (refine or replace): ' + cleanText(guide.bio));
+        if (cleanText(guide.background)) lines.push('- Current background (refine or replace): ' + cleanText(guide.background));
+      } else {
+        lines.push('THE GUIDE YOU ARE WRITING');
+        lines.push('- A new character. Invent the name, and say where it is from.');
+      }
+      lines.push('');
+      lines.push('DELIVER exactly these three, each on its own line, nothing else:');
+      lines.push('GUIDE NAME: <the name a player hears>');
+      lines.push('GUIDE BIO: <2-3 sentences the PLAYER reads. Do not include the guide’s name.>');
+      lines.push('GUIDE BACKGROUND: <the full breakdown - appearance, personality, motivation,');
+      lines.push('strengths and flaws, voice and tone, signature phrases, and one sample line the');
+      lines.push('guide says at the first stop. Never shown to a player.>');
+      return lines.join('\n');
+    }
+
+    // --- the city list --------------------------------------------------------
+    function fillCityList() {
+      const list = el('cityList');
+      if (!list || !window.TgbCities) return;
+      window.TgbCities.load().then(() => {
+        list.innerHTML = '';
+        window.TgbCities.all().forEach((row) => {
+          const o = document.createElement('option');
+          o.value = row.city;
+          list.appendChild(o);
+        });
+      }).catch(() => {});
+    }
+
+    // --- wiring ---------------------------------------------------------------
+
+    const adminAuth = window.TgbMcAdminAuth.create({
+      supabaseConfig: SUPABASE_CONFIG,
+      onAuthorized: async () => {
+        state.authed = true;
+        setStatus('Loading guides...');
+        fillCityList();
+        await refresh();
+      },
+      onSignedOut: () => {
+        state.authed = false;
+        state.guides = [];
+        render();
+        setStatus('Sign in with an admin account.');
+      }
+    });
+    if (window.TgbAdminSiteNav) window.TgbAdminSiteNav.bindAuth(adminAuth);
+
+    el('manualBtn').addEventListener('click', () => openForm(null));
+    el('promptBtn').addEventListener('click', () => showGuidePrompt(null));
+    el('searchInput').addEventListener('input', (e) => { state.filter = e.target.value; render(); });
+    el('showArchived').addEventListener('change', (e) => { state.showArchived = e.target.checked; render(); });
+    el('guideForm').addEventListener('submit', submitForm);
+    document.querySelectorAll('[data-form-close]').forEach((b) => b.addEventListener('click', closeForm));
+    el('formBackdrop').addEventListener('click', closeForm);
+    el('confirmYes').addEventListener('click', () => closeAsk(true));
+    el('confirmNo').addEventListener('click', () => closeAsk(false));
+    el('confirmBackdrop').addEventListener('click', () => closeAsk(false));
+    document.querySelectorAll('[data-prompt-close]').forEach((b) => b.addEventListener('click', closePrompt));
+    el('promptBackdrop').addEventListener('click', closePrompt);
+    el('copyPromptBtn').addEventListener('click', async () => {
+      const ok = await copyText(el('promptText').value);
+      el('copyStatus').textContent = ok ? 'Copied' : 'Copy it by hand';
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (!el('promptCard').hidden) closePrompt();
+      else if (!el('confirmCard').hidden) closeAsk(false);
+      else if (!el('formCard').hidden) closeForm();
+    });
+
+    render();
+    adminAuth.init();
+  </script>
+</body>
+</html>
