@@ -49,15 +49,15 @@
       // full cards of scrolling.
       items: [
         {
-          href: '/mc/routes.html',
-          // Absorbed /mc/places.html ("Game Places") on 2026-08-07, deleted.
-          // Its research was good and its DELIVERY was the problem: a JSONL file
-          // that needed a hand-written migration to reach this table. The same
-          // research is now the "With AI (tour places)" prompt here, returning
-          // the import SQL every other prompt on the page returns.
-          label: 'Waypoints',
-          description: 'Manage the catalog of real-world points and review nightly scout candidates.',
-          action: 'GO TO WAYPOINTS'
+          // WAS "Waypoints" (2026-08-09). That card pointed at mc/data/waypoints.html
+          // until the page was folded into the Route Builder, after which it was
+          // repointed at /mc/routes.html and became a second door to a room the
+          // Game Builder group below already lists. Places are still edited
+          // there - in either list or by clicking a pin on the map.
+          href: '/mc/guides.html',
+          label: 'Guides',
+          description: 'The guide scripts a game speaks in — review and batch edit them across games.',
+          action: 'GO TO GUIDES'
         },
         {
           href: '/mc/data/cities.html',
@@ -158,11 +158,9 @@
           label: 'Daily Review',
           description: 'Review recent game-stop candidates, gift-shop items, and sound findings.'
         },
-        {
-          href: '/mc/guides.html',
-          label: 'Guides',
-          description: 'Review and batch edit guide scripts across multiple games.'
-        },
+        // Guides MOVED UP to Game Elements on 2026-08-09, taking the card the
+        // Waypoints entry vacated. Listed once, not twice: a page in two groups
+        // makes the menu a place to search rather than read.
         {
           href: '/mc/taglines.html',
           label: 'Taglines',
