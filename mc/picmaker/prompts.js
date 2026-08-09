@@ -32,7 +32,13 @@
     lines.push('');
     lines.push('IMAGE DIRECTION');
     lines.push('- Head-and-shoulders character portrait, facing the viewer, warm and confident.');
-    lines.push('- Polished, stylized digital illustration, not a photograph of a real person.');
+    // A GUIDE IS DRAWN, NEVER RENDERED. "Stylized illustration, not a
+    // photograph" was too soft a line: image models read it as permission for
+    // a photoreal render, which is worse than a photograph here - a guide that
+    // looks like a real person implies a real person, and every one of these
+    // characters is invented.
+    lines.push('- CARTOON. Hand-drawn character art with clean linework and flat or lightly shaded colour, the way an animated series or a comic book draws its cast.');
+    lines.push('- NOT REALISTIC IN ANY WAY. No photography, no photorealism, no 3D render, no CGI, no digital painting that imitates a photograph, no real person\'s likeness. If it could be mistaken for a photo of somebody, it is wrong.');
     lines.push('- Clear, well-lit face; simple, uncluttered background that hints at the setting without distracting.');
     lines.push('- Square 1:1 framing, subject centered, safe to crop to a circle for an avatar.');
     lines.push('- No text, letters, logos, or watermarks anywhere in the image.');

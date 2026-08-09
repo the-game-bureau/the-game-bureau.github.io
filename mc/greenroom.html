@@ -1121,6 +1121,17 @@
        form is a blank line waiting to be written on. */
     .gfield input.is-empty, .gfield textarea.is-empty { border-bottom-color: var(--bic-red); }
 
+    /* The name line, with the id riding at its right. */
+    .gfield-line { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+    .gfield-line input { flex: 1; min-width: 0; }
+    .gfield-id {
+      flex: 0 0 auto;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .62rem;
+      letter-spacing: .1em;
+      color: var(--muted);
+    }
+
     /* The system columns: same rows, set in type rather than in a control, so
        the eye can tell at a glance what it is allowed to touch. */
     .gfield-ro {
@@ -1610,15 +1621,21 @@
       // non-human writer are shown and locked.
       const fields = document.createElement('div');
       fields.className = 'gfields';
+      // The id rides at the right of the NAME row: it is how you refer to the
+      // card, so it belongs on the line you read first, and it costs no row of
+      // its own. THE IMAGE ROW IS GONE - the portrait is right there at the
+      // left of the card, so a line reporting its file type and weight was
+      // describing something already on screen.
+      const stamped = document.createElement('span');
+      stamped.className = 'gfield-id';
+      stamped.textContent = '#' + guide.id;
       fields.append(
-        gField(guide, 'name', 'name', { required: true }),
+        gField(guide, 'name', 'name', { required: true, suffix: stamped }),
         gField(guide, 'hometown', 'hometown', { list: 'cityList', required: true }),
-        gField(guide, 'bio', 'bio', { multiline: true, wide: true, required: true }),
-        gField(guide, 'background', 'background', { multiline: true, tall: true, wide: true, required: true }),
-        gReadOnly('image', imageSummary(guide)),
-        gReadOnly('id', String(guide.id)),
+        gField(guide, 'bio', 'bio', { multiline: true, required: true }),
+        gField(guide, 'background', 'background', { multiline: true, tall: true, required: true }),
         gReadOnly('created_at', stamp(guide.created_at)),
-        gReadOnly('updated_at', stamp(guide.updated_at)),
+        gReadOnly('updated_at', stamp(guide.updated_at))
       );
       body.appendChild(fields);
 
@@ -1701,7 +1718,17 @@
         paint();
         markCardDirty(guide);
       });
-      wrap.append(lab, input);
+      // A suffix rides at the right of the same row - the id on the name line.
+      // It shares the value column rather than taking one of its own, so the
+      // rules down the card stay unbroken.
+      if (options.suffix) {
+        const line = document.createElement('div');
+        line.className = 'gfield-line';
+        line.append(input, options.suffix);
+        wrap.append(lab, line);
+      } else {
+        wrap.append(lab, input);
+      }
       return wrap;
     }
 
@@ -1715,17 +1742,6 @@
       box.textContent = value || '—';
       wrap.append(lab, box);
       return wrap;
-    }
-
-
-    // The image column holds a whole picture, so the field shows its weight
-    // rather than 90,000 characters of base64 nobody can read or edit.
-    function imageSummary(guide) {
-      const inline = cleanText(guide.image);
-      if (!inline) return 'not in the row';
-      const kb = Math.round(inline.length / 1024);
-      const kind = (inline.match(/^data:([^;]+)/) || [])[1] || 'image';
-      return kind + ' · ' + kb + ' KB in the row';
     }
 
     function stamp(value) {
