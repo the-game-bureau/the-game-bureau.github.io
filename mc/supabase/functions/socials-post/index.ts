@@ -12,11 +12,14 @@
 // WHAT IT WILL AND WILL NOT POST
 //   facebook   POST /{page-id}/feed        link post, caption + url. Works with
 //                                          a text-only candidate.
-//   instagram  POST /{ig-user-id}/media    then /media_publish. REQUIRES an
+//   instagram  POST /{ig-user-id}/media, WAIT for the container to finish,
+//                                          then /media_publish. REQUIRES an
 //                                          image: the Content Publishing API
 //                                          refuses text-only posts outright, so
 //                                          a candidate with no `image` is
 //                                          reported as skipped, not failed.
+//                                          The wait is not optional - see
+//                                          waitForContainer.
 //   x          not handled here. Different API, different credentials, and it
 //              is not part of the Meta Business setup.
 //   youtube    never. The Data API uploads videos and Community posts have no
@@ -216,6 +219,63 @@ async function graph(path: string, params: Record<string, string>): Promise<any>
   return data;
 }
 
+// A GET against the Graph API, for reading a container's status.
+async function graphGet(path: string, params: Record<string, string>): Promise<any> {
+  const qs  = new URLSearchParams(params);
+  const res = await fetch(`${GRAPH}/${path}?${qs}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error?.message || data?.error?.type || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+// WAIT FOR THE CONTAINER, and this is the whole reason "Media ID is not
+// available" happens.
+//
+// Creating an Instagram container does not upload anything: it tells Meta to go
+// and FETCH image_url, which it does on its own schedule. Publishing a
+// container that is still IN_PROGRESS is rejected with exactly that message -
+// nothing is wrong with the token, the account or the caption, the picture
+// simply has not arrived yet. This code published in the same breath as it
+// created, so it lost that race whenever Meta was slow or the image was large,
+// and reported a permissions-shaped error for a timing problem.
+//
+// The other half is just as useful: a container that ends in ERROR carries the
+// REASON - the URL 404s, the file is a WEBP, the aspect ratio is outside
+// 4:5-1.91:1 - and these candidates carry someone else's og:image, so all
+// three are ordinary. Reporting that beats reporting "not available".
+const IG_POLL_TRIES = 12;
+const IG_POLL_MS    = 2500;
+
+async function waitForContainer(containerId: string): Promise<void> {
+  let last = '';
+  for (let i = 0; i < IG_POLL_TRIES; i += 1) {
+    const status = await graphGet(containerId, {
+      fields: 'status_code,status',
+      access_token: META_PAGE_TOKEN,
+    });
+    const code = String(status?.status_code ?? '');
+    last = String(status?.status ?? code);
+    if (code === 'FINISHED') return;
+    if (code === 'ERROR' || code === 'EXPIRED') {
+      throw new Error(
+        `Instagram could not use that image (${code}): ${last}. ` +
+        'These candidates carry the article\'s own og:image, so the usual causes are ' +
+        'a URL that needs a login, a PNG or WEBP where Instagram wants JPEG, or an ' +
+        'aspect ratio outside 4:5 to 1.91:1.'
+      );
+    }
+    await new Promise((r) => setTimeout(r, IG_POLL_MS));
+  }
+  throw new Error(
+    `Instagram was still fetching the image after ${(IG_POLL_TRIES * IG_POLL_MS) / 1000}s ` +
+    `(last status: ${last || 'unknown'}). Nothing is wrong with the post - press Post ` +
+    'again in a minute and the container will be ready.'
+  );
+}
+
 async function postFacebook(row: any): Promise<Outcome> {
   try {
     const { pageId } = await metaIds();
@@ -262,6 +322,9 @@ async function postInstagram(row: any): Promise<Outcome> {
       access_token: META_PAGE_TOKEN,
     });
     if (!container?.id) throw new Error('no container id returned');
+    // Meta fetches image_url asynchronously; publishing before it has finished
+    // is what returns "Media ID is not available".
+    await waitForContainer(String(container.id));
     const out = await graph(`${igUserId}/media_publish`, {
       creation_id: String(container.id),
       access_token: META_PAGE_TOKEN,
