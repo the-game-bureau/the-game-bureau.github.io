@@ -641,7 +641,11 @@
     var name = cleanText(placeName(place, addr));
     var city = cleanText(addr.city || addr.town || addr.village || addr.hamlet
       || addr.suburb || addr.municipality || addr.county);
-    var state = cleanText(addr.state);
+    // THE CODE, NOT THE NAME. Nominatim answers "Florida"; all 280-odd rows in
+    // public.waypoints hold "FL". Writing the long form makes a row that looks
+    // fine on its own and sorts, groups and matches differently from every
+    // other row in its state. Non-US regions have no code and keep their name.
+    var state = stateAbbrOf(addr.state) || cleanText(addr.state);
     var zip = normalizeZip(addr.postcode, addr);
     // Address is the STREET ONLY (house number + road) - city/state/zip live in
     // their own fields. If the reverse geocode has no street, leave it blank so
@@ -823,6 +827,376 @@
     return '';
   }
 
+  // ── Telling two places apart ───────────────────────────────────────────────
+  // Used before adding anything: the catalogue is the same place twice more
+  // often than it is two places with similar names, and a duplicate is very
+  // hard to notice later - both rows look correct.
+
+  function dedupKey(value) {
+    return cleanText(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+  }
+
+  function levenshtein(a, b) {
+    var m = a.length, n = b.length;
+    if (!m) return n;
+    if (!n) return m;
+    var prev = new Array(n + 1);
+    for (var j = 0; j <= n; j += 1) prev[j] = j;
+    for (var i = 1; i <= m; i += 1) {
+      var cur = [i];
+      for (var k = 1; k <= n; k += 1) {
+        var cost = a.charCodeAt(i - 1) === b.charCodeAt(k - 1) ? 0 : 1;
+        cur[k] = Math.min(prev[k] + 1, cur[k - 1] + 1, prev[k - 1] + cost);
+      }
+      prev = cur;
+    }
+    return prev[n];
+  }
+
+  function dedupSimilarity(rawA, rawB) {
+    var a = dedupKey(rawA), b = dedupKey(rawB);
+    if (!a || !b) return 0;
+    if (a === b) return 1;
+    // Containment ("Cafe du Monde" vs "Cafe du Monde Decatur St") counts high.
+    if (a.length >= 4 && b.length >= 4 && (a.indexOf(b) >= 0 || b.indexOf(a) >= 0)) return 0.95;
+    return 1 - levenshtein(a, b) / Math.max(a.length, b.length);
+  }
+
+  // Leading house number ("800 Decatur St" -> "800"). Empty when there is none.
+  function houseNumber(value) {
+    var m = cleanText(value).match(/^\s*#?\s*(\d{1,6})\b/);
+    return m ? m[1] : '';
+  }
+  // Two addresses with DIFFERENT house numbers are not the same place, however
+  // well the rest of the street matches. Missing numbers do not conflict.
+  function streetNumbersConflict(a, b) {
+    var na = houseNumber(a), nb = houseNumber(b);
+    return !!(na && nb && na !== nb);
+  }
+  function addressSimilarity(a, b) {
+    if (!cleanText(a) || !cleanText(b)) return 0;
+    if (streetNumbersConflict(a, b)) return 0;
+    return dedupSimilarity(a, b);
+  }
+
+  var DEDUP_NAME_T = 0.86;
+  var DEDUP_ADDR_T = 0.92;
+
+  // The first existing row that looks like `candidate`, or null. ADDRESS ALONE
+  // is deliberately not enough to match on elsewhere in this product (one
+  // address is routinely several stops - a museum and the sculpture outside
+  // it), which is why the address threshold is the higher of the two and a
+  // conflicting house number vetoes outright.
+  function findSimilar(candidate, rows) {
+    var name = cleanText(candidate && candidate.name);
+    var address = cleanText(candidate && candidate.address);
+    if (!name && !address) return null;
+    var list = rows || [];
+    for (var i = 0; i < list.length; i += 1) {
+      var row = list[i];
+      if (!row) continue;
+      var nameSim = (name && cleanText(row.name)) ? dedupSimilarity(name, row.name) : 0;
+      var addrSim = addressSimilarity(address, row.address);
+      if (nameSim >= DEDUP_NAME_T || addrSim >= DEDUP_ADDR_T) {
+        return { row: row, reason: nameSim >= addrSim ? 'name' : 'address' };
+      }
+    }
+    return null;
+  }
+
+  // ── Finding a place in the world ───────────────────────────────────────────
+  // Three ways of asking, because one is not enough: Nominatim knows addresses
+  // and famous places, Overpass knows the shop on the corner. A business that
+  // Nominatim has never heard of is the normal case, not the edge case.
+
+  // Friendly category words -> OSM tag filters, for "stadium charlotte".
+  var CATEGORY_TAGS = {
+    stadium: ['leisure=stadium', 'building=stadium'], arena: ['leisure=sports_centre', 'leisure=stadium'],
+    park: ['leisure=park'], garden: ['leisure=garden'], playground: ['leisure=playground'],
+    museum: ['tourism=museum'], gallery: ['tourism=gallery'], zoo: ['tourism=zoo'], aquarium: ['tourism=aquarium'],
+    hotel: ['tourism=hotel'], motel: ['tourism=motel'], hostel: ['tourism=hostel'],
+    restaurant: ['amenity=restaurant'], diner: ['amenity=restaurant'], cafe: ['amenity=cafe'], coffee: ['amenity=cafe'],
+    bar: ['amenity=bar', 'amenity=pub'], pub: ['amenity=pub'], brewery: ['craft=brewery', 'microbrewery=yes'],
+    bakery: ['shop=bakery'], market: ['amenity=marketplace', 'shop=supermarket'], supermarket: ['shop=supermarket'],
+    theater: ['amenity=theatre'], theatre: ['amenity=theatre'], cinema: ['amenity=cinema'], movie: ['amenity=cinema'],
+    library: ['amenity=library'], church: ['amenity=place_of_worship'], cathedral: ['amenity=place_of_worship'],
+    school: ['amenity=school'], university: ['amenity=university'], college: ['amenity=college'],
+    hospital: ['amenity=hospital'], pharmacy: ['amenity=pharmacy'], bank: ['amenity=bank'],
+    bookstore: ['shop=books'], bookshop: ['shop=books'], store: ['shop'], shop: ['shop'], mall: ['shop=mall'],
+    monument: ['historic=monument', 'historic=memorial'], memorial: ['historic=memorial'],
+    statue: ['tourism=artwork', 'historic=memorial'], landmark: ['tourism=attraction'], attraction: ['tourism=attraction'],
+    golf: ['leisure=golf_course'], gym: ['leisure=fitness_centre'], pool: ['leisure=swimming_pool'],
+    cemetery: ['landuse=cemetery', 'amenity=grave_yard'], hall: ['amenity=townhall'], 'city hall': ['amenity=townhall']
+  };
+
+  // Nearness in walking steps (~2,000 steps per mile), or miles once it is far.
+  function formatDistance(m) {
+    var miles = m / 1609.34;
+    if (miles >= 0.25) return miles.toFixed(1) + ' mi';
+    var steps = Math.max(1, Math.round(miles * 2000));
+    return steps + (steps === 1 ? ' step' : ' steps');
+  }
+
+  async function nominatimSearch(query) {
+    var variants = [query];
+    if (query.indexOf(',') >= 0) variants.push(query.replace(/,/g, ' ').replace(/\s+/g, ' ').trim());
+    for (var i = 0; i < variants.length; i += 1) {
+      if (i > 0) await pause();
+      var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(variants[i])
+        + '&format=jsonv2&addressdetails=1&extratags=1&namedetails=1&limit=10';
+      var res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+      var arr = await res.json();
+      if (Array.isArray(arr) && arr.length) return arr;
+    }
+    return [];
+  }
+
+  // Pull a category keyword out of the query; the rest is the location.
+  function parseCategory(query) {
+    var words = String(query).toLowerCase().replace(/,/g, ' ').split(/\s+/).filter(Boolean);
+    var term = null, tags = null, idx = -1;
+    for (var i = 0; i < words.length; i += 1) {
+      if (CATEGORY_TAGS[words[i]]) { term = words[i]; tags = CATEGORY_TAGS[words[i]]; idx = i; break; }
+    }
+    if (!term) return null;
+    var connectors = ['near', 'in', 'around', 'by', 'at', 'close', 'to', 'the', 'of', 'a'];
+    var location = words.filter(function (w, i) {
+      return i !== idx && connectors.indexOf(w) === -1;
+    }).join(' ').trim();
+    return { term: term, tags: tags, location: location };
+  }
+
+  async function geocodePlace(q) {
+    var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q)
+      + '&format=jsonv2&addressdetails=1&limit=1';
+    var res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    var arr = await res.json();
+    var p = (Array.isArray(arr) && arr[0]) || null;
+    if (!p) return null;
+    var bb = p.boundingbox;
+    return {
+      center: { lat: parseFloat(p.lat), lon: parseFloat(p.lon) },
+      bbox: bb ? { s: parseFloat(bb[0]), n: parseFloat(bb[1]), w: parseFloat(bb[2]), e: parseFloat(bb[3]) } : null,
+      addr: p.address || {},
+      label: cleanText(p.display_name).split(',').slice(0, 2).join(', ')
+    };
+  }
+
+  function poisFromOverpass(data, center, catKeys) {
+    var seen = {};
+    var out = [];
+    (data.elements || []).forEach(function (elem) {
+      var t = elem.tags || {};
+      var nm = cleanText(t.name);
+      if (!nm) return;
+      var plat = elem.lat != null ? elem.lat : (elem.center && elem.center.lat);
+      var plon = elem.lon != null ? elem.lon : (elem.center && elem.center.lon);
+      if (plat == null || plon == null) return;
+      var key = nm.toLowerCase();
+      if (seen[key]) return;
+      seen[key] = true;
+      var cat = '';
+      for (var i = 0; i < catKeys.length && !cat; i += 1) cat = cleanText(t[catKeys[i]]);
+      out.push({
+        name: nm, cat: cat.replace(/_/g, ' '), lat: plat, lon: plon, tags: t,
+        dist: haversineMeters(center.lat, center.lon, plat, plon)
+      });
+    });
+    out.sort(function (a, b) { return a.dist - b.dist; });
+    return out;
+  }
+
+  async function overpass(query) {
+    var res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: 'data=' + encodeURIComponent(query)
+    });
+    if (!res.ok) throw new Error('Overpass ' + res.status);
+    return res.json();
+  }
+
+  async function fetchCategoryPois(tags, bbox, center) {
+    var bb = bbox.s + ',' + bbox.w + ',' + bbox.n + ',' + bbox.e; // south,west,north,east
+    var filters = tags.map(function (t) {
+      var parts = t.split('=');
+      return parts[1] ? '["' + parts[0] + '"="' + parts[1] + '"]' : '["' + parts[0] + '"]';
+    });
+    var q = '[out:json][timeout:25];('
+      + filters.map(function (f) {
+        return 'node' + f + '["name"](' + bb + ');way' + f + '["name"](' + bb + ');';
+      }).join('')
+      + ');out center tags 50;';
+    var data = await overpass(q);
+    return poisFromOverpass(data, center,
+      ['amenity', 'leisure', 'tourism', 'shop', 'historic', 'building']).slice(0, 30);
+  }
+
+  async function fetchNamedPois(name, bbox, center) {
+    var bb = bbox.s + ',' + bbox.w + ',' + bbox.n + ',' + bbox.e;
+    var safe = name.replace(/[^\p{L}\p{N}]+/gu, '.').replace(/^\.+|\.+$/g, ''); // lenient; trim seps
+    if (!safe) return [];
+    var q = '[out:json][timeout:25];(nwr["name"~"' + safe + '",i](' + bb + '););out center tags 30;';
+    var data = await overpass(q);
+    return poisFromOverpass(data, center,
+      ['shop', 'amenity', 'leisure', 'tourism', 'historic', 'office', 'craft']).slice(0, 30);
+  }
+
+  function localityOf(geo) {
+    var a = geo.addr || {};
+    return {
+      city: cleanText(a.city || a.town || a.village || a.municipality || a.county),
+      state: cleanText(a.state)
+    };
+  }
+
+  async function categorySearch(query) {
+    var parsed = parseCategory(query);
+    if (!parsed || !parsed.location) return null;
+    var geo = await geocodePlace(parsed.location);
+    if (!geo || !geo.bbox) return null;
+    var pois = await fetchCategoryPois(parsed.tags, geo.bbox, geo.center);
+    var fallback = localityOf(geo);
+    return {
+      label: '"' + parsed.term + '" in ' + geo.label,
+      items: pois.map(function (poi) {
+        return {
+          kind: 'poi', poi: poi, fallback: fallback, name: poi.name,
+          sub: [poi.cat, formatDistance(poi.dist) + ' away'].filter(Boolean).join(' · ')
+        };
+      })
+    };
+  }
+
+  // Find a business by name within a place. Tries the last 1-3 words as the
+  // location and the rest as the name, then Overpass name-matches inside that
+  // bounding box. Catches the names Nominatim does not index.
+  async function nameSearch(query) {
+    var tries = [];
+    var ci = query.lastIndexOf(',');
+    if (ci > 0) {
+      var cnm = cleanText(query.slice(0, ci));
+      var cloc = cleanText(query.slice(ci + 1));
+      if (cnm && cloc) tries.push({ nm: cnm, loc: cloc });
+    }
+    var words = cleanText(query).replace(/,/g, ' ').replace(/\s+/g, ' ').split(' ').filter(Boolean);
+    for (var take = Math.min(3, words.length - 1); take >= 1; take -= 1) {
+      var loc = words.slice(words.length - take).join(' ');
+      var nm = words.slice(0, words.length - take).join(' ');
+      if (nm && loc) tries.push({ nm: nm, loc: loc });
+    }
+    var seen = {};
+    for (var i = 0; i < tries.length; i += 1) {
+      var key = tries[i].nm.toLowerCase() + '|' + tries[i].loc.toLowerCase();
+      if (seen[key]) continue;
+      seen[key] = true;
+      var geo = await geocodePlace(tries[i].loc);
+      if (!geo || !geo.bbox) continue;
+      var pois = await fetchNamedPois(tries[i].nm, geo.bbox, geo.center);
+      if (pois.length) {
+        var fallback = localityOf(geo);
+        return {
+          items: pois.map(function (poi) {
+            return {
+              kind: 'poi', poi: poi, fallback: fallback, name: poi.name,
+              sub: [poi.cat, formatDistance(poi.dist) + ' away'].filter(Boolean).join(' · ')
+            };
+          })
+        };
+      }
+    }
+    return null;
+  }
+
+  // THE WHOLE SEARCH: named matches first, category matches appended when the
+  // text contains a category word, and the Overpass name search only as a last
+  // resort - it is the slowest and the least precise.
+  // EVERY STAGE FAILS SOFT, and that is not defensive habit - it is the whole
+  // reliability story of this function. Overpass is a free public endpoint that
+  // returns 504 whenever it feels busy, and the first cut let that reject the
+  // search, throwing away the Nominatim matches already in hand and showing
+  // "Overpass 504" to somebody who only wanted to add a museum. Each source is
+  // now independent, and `sources` reports which ones actually answered so the
+  // page can say "some of the search failed" rather than pretending or dying.
+  async function search(query) {
+    var q = cleanText(query);
+    if (!q) return { items: [], sources: {}, failed: [] };
+    var items = [];
+    var failed = [];
+    var sources = { nominatim: false, category: false, name: false };
+
+    try {
+      var named = await nominatimSearch(q);
+      sources.nominatim = true;
+      items = named.map(function (p) {
+        var addr = p.address || {};
+        return {
+          kind: 'place', place: p,
+          name: placeName(p, addr) || cleanText(p.display_name).split(',')[0],
+          sub: cleanText(p.display_name)
+        };
+      });
+    } catch (error) { failed.push('the address search'); }
+
+    if (parseCategory(q)) {
+      try {
+        var cat = await categorySearch(q);
+        sources.category = true;
+        if (cat && cat.items.length) {
+          var seen = {};
+          items.forEach(function (i) { seen[i.name.toLowerCase()] = true; });
+          items = items.concat(cat.items.filter(function (i) { return !seen[i.name.toLowerCase()]; }));
+        }
+      } catch (error) { failed.push('the category search'); }
+    }
+
+    // Last resort only: it is the slowest of the three and the least precise.
+    if (!items.length) {
+      try {
+        var nm = await nameSearch(q);
+        sources.name = true;
+        if (nm && nm.items.length) items = nm.items;
+      } catch (error) { failed.push('the by-name search'); }
+    }
+
+    return { items: items, sources: sources, failed: failed };
+  }
+
+  // A search result -> a waypoint-shaped draft, ready for the editor. Nothing
+  // is written: the point of reviewing before inserting is that the geocoder is
+  // often nearly right, and nearly right is what fills a catalogue with rubbish.
+  async function draftFromResult(item) {
+    var draft = {
+      wpid: '', name: '', city: '', state: '', zip: '', address: '',
+      description: '', source_url: '', archived: false, lat: null, lon: null
+    };
+    if (!item) return draft;
+    if (item.kind === 'place') {
+      var lat = parseFloat(item.place.lat);
+      var lon = parseFloat(item.place.lon);
+      var point = (isFinite(lat) && isFinite(lon)) ? { lat: lat, lon: lon } : null;
+      await fillFieldsFromPlace(draft, item.place, point, true);
+      return draft;
+    }
+    // An Overpass POI carries its own address tags, which are better than a
+    // reverse geocode when they are there, and absent more often than not.
+    var t = (item.poi && item.poi.tags) || {};
+    var fallback = item.fallback || {};
+    draft.name = cleanText(item.poi.name);
+    draft.address = [cleanText(t['addr:housenumber']), cleanText(t['addr:street'])].filter(Boolean).join(' ');
+    draft.city = cleanText(t['addr:city']) || cleanText(fallback.city);
+    draft.state = cleanText(t['addr:state']) || cleanText(fallback.state);
+    draft.zip = normalizeZip(t['addr:postcode'], {});
+    draft.description = item.poi.cat
+      ? draft.name + ', a ' + item.poi.cat + (draft.city ? ' in ' + draft.city : '') + '.'
+      : '';
+    if (isFinite(item.poi.lat) && isFinite(item.poi.lon)) {
+      draft.lat = round6(item.poi.lat);
+      draft.lon = round6(item.poi.lon);
+    }
+    return draft;
+  }
+
   global.TgbWaypointGeo = {
     cleanText: cleanText,
     round6: round6,
@@ -849,6 +1223,13 @@
     resolveDescription: resolveDescription,
     placeName: placeName,
     namesSimilar: namesSimilar,
+    // Finding a place, and telling it apart from one we hold
+    search: search,
+    draftFromResult: draftFromResult,
+    findSimilar: findSimilar,
+    dedupSimilarity: dedupSimilarity,
+    addressSimilarity: addressSimilarity,
+    formatDistance: formatDistance,
     // Geometry
     haversineMeters: haversineMeters,
     suggestWalk: suggestWalk,

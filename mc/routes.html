@@ -250,6 +250,26 @@
     }
     .wp-hint { font-size: 0.72rem; color: var(--muted); }
     .dlg-note.busy { color: var(--ink); }
+
+    .find-bar { display: flex; gap: 8px; }
+    .find-bar input { flex: 1; }
+    .find-list { display: grid; gap: 6px; max-height: 46vh; overflow: auto; }
+    .find-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: #fff;
+    }
+    .find-row-main { flex: 1; min-width: 0; }
+    .find-row-name { font-weight: 600; font-size: 0.92rem; overflow-wrap: anywhere; }
+    .find-row-sub { font-size: 0.76rem; color: var(--muted); overflow-wrap: anywhere; }
+    /* A result we appear to hold already. Not blocked - one address is often
+       several stops - but never silently offered as if it were new. */
+    .find-row.is-dupe { border-color: var(--warn); }
+    .find-row-dupe { font-size: 0.72rem; color: var(--warn); font-weight: 700; }
   </style>
   <link rel="stylesheet" href="/mc/js/admin-shell.css">
 </head>
@@ -317,7 +337,8 @@
              places you can add and never should. -->
         <div class="pool-filter">
           <input type="search" id="poolSearch" placeholder="Filter by name or address">
-          <button class="btn small" id="newWaypointBtn" type="button" title="Add a place to the catalogue">+ Waypoint</button>
+          <button class="btn small" id="findWaypointBtn" type="button" title="Search OpenStreetMap for a place and open it as a draft">Find online</button>
+          <button class="btn small" id="newWaypointBtn" type="button" title="Type a place in by hand">+ Waypoint</button>
         </div>
         <datalist id="routeCityList"></datalist>
         <div class="panel-body" id="poolList"></div>
@@ -369,6 +390,7 @@
       <p class="dlg-note" id="wpDlgNote" aria-live="polite"></p>
       <div class="dlg-actions">
         <button class="btn small" id="wpFillBtn" type="button" title="Geocode from what is set and fill in any blank fields">Fill</button>
+        <button class="btn small" id="wpFindBtn" type="button" title="Search OpenStreetMap for what is in the Name box">Find online</button>
         <button class="btn small" id="wpLocateBtn" type="button" title="Find this place's coordinates and store them">Locate</button>
         <button class="btn small" id="wpMapsBtn" type="button" title="Open this address in Google Maps">Maps</button>
         <button class="btn small" id="wpDupeBtn" type="button" title="Create a new waypoint from this one, minus its id">Duplicate</button>
@@ -377,6 +399,30 @@
         <span class="dlg-spacer"></span>
         <button class="btn small" id="wpCloseBtn" type="button">Close</button>
         <button class="btn small primary" id="wpSaveBtn" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Find online. Three sources behind one box: Nominatim for addresses and
+       famous places, Overpass by category ("bakery savannah"), Overpass by name
+       for the shop on the corner that Nominatim has never heard of. A result is
+       never inserted straight from here - it opens in the editor as a draft. -->
+  <div class="dlg" id="findDlg" role="dialog" aria-modal="true" aria-labelledby="findDlgTitle">
+    <div class="dlg-panel dlg-panel--wide">
+      <div class="dlg-head">
+        <h2 class="dlg-title" id="findDlgTitle">Find a place</h2>
+        <span class="dlg-id" id="findCount"></span>
+      </div>
+      <div class="find-bar">
+        <input type="search" id="findQuery" placeholder="Name, address, or &quot;bakery savannah&quot;">
+        <button class="btn small primary" id="findGoBtn" type="button">Search</button>
+      </div>
+      <p class="dlg-note" id="findNote" aria-live="polite"></p>
+      <div class="find-list" id="findList"></div>
+      <div class="dlg-actions">
+        <button class="btn small" id="findBlankBtn" type="button" title="Skip the search and type it in by hand">Blank waypoint</button>
+        <span class="dlg-spacer"></span>
+        <button class="btn small" id="findCloseBtn" type="button">Close</button>
       </div>
     </div>
   </div>
@@ -1255,7 +1301,7 @@
 
     function wpBusy(on, text) {
       wpEdit.busy = !!on;
-      ['wpSaveBtn', 'wpFillBtn', 'wpLocateBtn', 'wpDupeBtn', 'wpArchiveBtn', 'wpDeleteBtn']
+      ['wpSaveBtn', 'wpFillBtn', 'wpFindBtn', 'wpLocateBtn', 'wpDupeBtn', 'wpArchiveBtn', 'wpDeleteBtn']
         .forEach((id) => { el(id).disabled = !!on; });
       if (text) wpNote(text, 'busy');
     }
@@ -1291,6 +1337,16 @@
         return;
       }
       const isNew = !wpEdit.wpid;
+      // The last gate before a duplicate enters the catalogue. Two rows for one
+      // place are very hard to spot later - both look correct - and the importers
+      // dedupe on name + address, so a near-miss defeats them too.
+      if (isNew && window.TgbWaypointGeo) {
+        const match = window.TgbWaypointGeo.findSimilar(row, state.waypoints);
+        if (match && !window.confirm(
+          'This looks like WPID ' + match.row.wpid
+          + (cleanText(match.row.name) ? ' (' + match.row.name + ')' : '')
+          + ' by ' + match.reason + '.\n\nCreate it anyway?')) return;
+      }
       wpBusy(true, isNew ? 'Creating...' : 'Saving...');
       try {
         await ensureFreshSession();
@@ -1433,6 +1489,132 @@
       });
       if (url) window.open(url, '_blank', 'noopener');
       else wpNote('Nothing to search for yet - add a name or an address.', 'error');
+    }
+
+    // --- find a place online --------------------------------------------------
+    //
+    // Phase two of the merge: what the Waypoints page called Manual + "Find
+    // online". The old flow inserted a chosen result straight into the table and
+    // then took you to its card to correct it. This one opens the result in the
+    // editor as an unsaved DRAFT, because the geocoder is usually nearly right,
+    // and nearly right inserted unreviewed is what fills a catalogue with
+    // rubbish nobody can tell from real rows afterwards.
+
+    const findState = { busy: false, items: [] };
+
+    function openFindDialog(seed) {
+      el('findDlg').classList.add('is-open');
+      const box = el('findQuery');
+      if (seed !== undefined) box.value = cleanText(seed);
+      el('findNote').textContent = '';
+      el('findNote').classList.remove('warn');
+      renderFindResults();
+      box.focus();
+      box.select();
+    }
+
+    function closeFindDialog() { el('findDlg').classList.remove('is-open'); }
+
+    function findNote(text, kind) {
+      const note = el('findNote');
+      note.textContent = text || '';
+      note.classList.toggle('warn', kind === 'error');
+      note.classList.toggle('busy', kind === 'busy');
+    }
+
+    async function runFind() {
+      const geo = window.TgbWaypointGeo;
+      const query = cleanText(el('findQuery').value);
+      if (!geo || findState.busy) return;
+      if (!query) { findNote('Type something to look for, or press Blank waypoint.', 'error'); return; }
+      findState.busy = true;
+      el('findGoBtn').disabled = true;
+      findNote('Searching OpenStreetMap...', 'busy');
+      findState.items = [];
+      renderFindResults();
+      try {
+        const result = await geo.search(query);
+        findState.items = result.items;
+        // A partial answer is still an answer. Overpass 504s often enough that
+        // treating it as fatal would make the button feel broken.
+        const partial = result.failed.length
+          ? ' (' + result.failed.join(' and ') + ' did not respond - OpenStreetMap\'s free endpoints are often busy; try again in a moment)'
+          : '';
+        findNote(result.items.length
+          ? 'Pick one to open it as a draft. Nothing is saved until you press Create.' + partial
+          : 'Nothing found' + (partial || '. For a business, add the city - "Euclid Records New Orleans".'),
+          result.items.length ? '' : 'error');
+      } catch (err) {
+        findNote(err.message || 'Search failed.', 'error');
+      } finally {
+        findState.busy = false;
+        el('findGoBtn').disabled = false;
+        renderFindResults();
+      }
+    }
+
+    function renderFindResults() {
+      const geo = window.TgbWaypointGeo;
+      const box = el('findList');
+      box.innerHTML = '';
+      el('findCount').textContent = findState.items.length
+        ? findState.items.length + ' found' : '';
+      findState.items.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'find-row';
+        const main = document.createElement('div');
+        main.className = 'find-row-main';
+        const name = document.createElement('div');
+        name.className = 'find-row-name';
+        name.textContent = item.name;
+        const sub = document.createElement('div');
+        sub.className = 'find-row-sub';
+        sub.textContent = item.sub || '';
+        main.append(name, sub);
+        // Checked on the NAME only at this stage: a result's address is not
+        // known until its draft is built, and building every draft would mean a
+        // reverse geocode per result at one a second.
+        const dupe = geo && geo.findSimilar({ name: item.name }, state.waypoints);
+        if (dupe) {
+          row.classList.add('is-dupe');
+          const flag = document.createElement('div');
+          flag.className = 'find-row-dupe';
+          flag.textContent = 'Already in the catalogue as WPID ' + dupe.row.wpid;
+          main.appendChild(flag);
+        }
+        row.append(main, mkBtn('Open', 'Open this as an unsaved draft', () => openDraftFrom(item)));
+        box.appendChild(row);
+      });
+    }
+
+    async function openDraftFrom(item) {
+      const geo = window.TgbWaypointGeo;
+      if (!geo || findState.busy) return;
+      findState.busy = true;
+      findNote('Building the draft...', 'busy');
+      try {
+        const draft = await geo.draftFromResult(item);
+        // The route's city is the one you are working in; a geocoder that
+        // returns "Miami Beach" for a Miami place would otherwise quietly file
+        // the waypoint where the pool cannot see it.
+        if (!cleanText(draft.city)) draft.city = routeCity();
+        closeFindDialog();
+        openWaypointEditor(null);
+        Object.assign(wpEdit.row, draft);
+        wpEdit.dirty = true;
+        renderWaypointForm();
+        const match = geo.findSimilar(wpEdit.row, state.waypoints);
+        wpNote(match
+          ? 'Careful: this looks like WPID ' + match.row.wpid + ' ('
+            + (cleanText(match.row.name) || 'unnamed') + ') by ' + match.reason
+            + '. Create it anyway only if it is genuinely a different place.'
+          : 'Draft from OpenStreetMap - check it, then press Create.',
+          match ? 'error' : 'busy');
+      } catch (err) {
+        findNote(err.message || 'Could not build a draft from that result.', 'error');
+      } finally {
+        findState.busy = false;
+      }
     }
 
     // --- suggest an order -----------------------------------------------------
@@ -1806,12 +1988,28 @@
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
       if (el('newRouteDlg').classList.contains('is-open')) closeNewRouteDialog();
+      else if (el('findDlg').classList.contains('is-open') && !findState.busy) closeFindDialog();
       else if (wpDlgOpen() && !wpEdit.busy) closeWaypointEditor();
     });
     el('saveBtn').addEventListener('click', saveOrder);
     el('deleteRouteBtn').addEventListener('click', deleteRoute);
     el('poolSearch').addEventListener('input', (e) => { state.poolQuery = e.target.value; renderPool(); });
     el('newWaypointBtn').addEventListener('click', () => openWaypointEditor(null));
+    el('findWaypointBtn').addEventListener('click', () => openFindDialog(''));
+    el('wpFindBtn').addEventListener('click', () => {
+      // Seeded with the name AND the city: "Freedom Tower" alone matches one in
+      // Manhattan, and the geocoder has no idea which town you are working in.
+      const seed = [cleanText(wpEdit.row && wpEdit.row.name), cleanText(wpEdit.row && wpEdit.row.city)]
+        .filter(Boolean).join(' ');
+      openFindDialog(seed);
+    });
+    el('findGoBtn').addEventListener('click', runFind);
+    el('findCloseBtn').addEventListener('click', closeFindDialog);
+    el('findBlankBtn').addEventListener('click', () => { closeFindDialog(); openWaypointEditor(null); });
+    el('findQuery').addEventListener('keydown', (e) => { if (e.key === 'Enter') runFind(); });
+    el('findDlg').addEventListener('click', (e) => {
+      if (e.target === el('findDlg') && !findState.busy) closeFindDialog();
+    });
     el('suggestOrderBtn').addEventListener('click', suggestRouteOrder);
     el('wpSaveBtn').addEventListener('click', saveWaypoint);
     el('wpFillBtn').addEventListener('click', fillWaypoint);
