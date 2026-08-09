@@ -1094,6 +1094,92 @@
 
     .guide-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
 
+    /* Every column, edited where it is read. The card IS the form now - the
+       modal only survives for making a guide that does not exist yet. */
+    .gfields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .gfield { display: grid; gap: 4px; min-width: 0; }
+    .gfield--wide { grid-column: 1 / -1; }
+    .gfield > span {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .6rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .gfield input[type="text"],
+    .gfield input[type="url"],
+    .gfield textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-size: .88rem;
+      line-height: 1.5;
+    }
+    .gfield textarea { resize: vertical; min-height: 74px; }
+    .gfield textarea.tall { min-height: 130px; }
+    .gfield input:focus, .gfield textarea:focus {
+      outline: none;
+      border-color: var(--bic-blue);
+      box-shadow: 0 0 0 3px rgba(var(--bic-blue-rgb), .12);
+    }
+
+    /* EMPTY IS RED. Not a pill, not a warning icon - the box itself, in pen
+       red, exactly where the missing thing goes. Nothing to read and nothing
+       to dismiss: a wall of red boxes is the state of the guide at a glance. */
+    .gfield input.is-empty, .gfield textarea.is-empty { border-color: var(--bic-red); }
+
+    /* The system columns. Shown because they are in the table, but they have
+       one writer each and it is not a person. */
+    .gfield-ro {
+      padding: 8px 10px;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .72rem;
+      color: var(--muted);
+      background: rgba(var(--bic-blue-rgb), .04);
+      overflow-wrap: anywhere;
+    }
+
+    .gcheck { display: inline-flex; align-items: center; gap: 8px; font-size: .82rem; color: var(--ink); }
+    .gcheck input { width: 16px; height: 16px; margin: 0; }
+
+    .gsave-note { font-size: .72rem; color: var(--bic-red); font-weight: 700; }
+
+    /* The prompt's notes row. .label-opt is built for the form's two-column
+       grid and left this one squeezed against the textarea below it. */
+    #promptNotesWrap {
+      display: grid;
+      gap: 6px;
+      padding: 0 18px 12px;
+      margin: 0;
+    }
+    #promptNotesWrap > span {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .62rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    #promptNotes {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      font-size: .9rem;
+    }
+    #promptNotes:focus {
+      outline: none;
+      border-color: var(--bic-blue);
+      box-shadow: 0 0 0 3px rgba(var(--bic-blue-rgb), .12);
+    }
+    @media (max-width: 720px) { .gfields { grid-template-columns: minmax(0, 1fr); } }
+
     .guide-empty {
       padding: 28px 18px;
       text-align: center;
@@ -1293,6 +1379,14 @@
     </div>
     <div class="prompt-meta" id="promptChips" aria-hidden="true"></div>
     <p class="explain" id="promptHelp"></p>
+    <!-- NOTES. The prompt for a guide that does not exist yet has nothing to
+         go on, so this is where you tell it: the hometown, the fandom, the
+         kind of voice you want. It folds into the brief as you type. -->
+    <label class="label-opt" id="promptNotesWrap">
+      <span>Notes for the AI</span>
+      <input type="text" id="promptNotes" autocomplete="off"
+             placeholder="Hometown: Buffalo. Fandom: Bills. A snowplough driver who has seen it all.">
+    </label>
     <textarea class="prompt" id="promptText" readonly spellcheck="false" rows="18"></textarea>
   </section>
 
@@ -1332,7 +1426,9 @@
       filter: '',
       showArchived: false,
       editingId: null,      // null while the form is adding rather than editing
-      busy: false
+      busy: false,
+      dirty: new Set(),     // guide ids with unsaved boxes on their card
+      promptNotes: ''       // what the PROMPT box was told about the guide to invent
     };
 
     const el = (id) => document.getElementById(id);
@@ -1531,47 +1627,201 @@
       id.textContent = '#' + guide.id;
       head.append(name, id);
 
-      const meta = document.createElement('div');
-      meta.className = 'guide-meta';
-      if (cleanText(guide.hometown)) meta.appendChild(chip(guide.hometown));
-      else meta.appendChild(chip('no hometown'));
-      if (guide.archived) meta.appendChild(chip('archived'));
-      if (!cleanText(guide.image_url)) meta.appendChild(chip('no portrait'));
+      body.appendChild(head);
 
-      body.append(head, meta);
-
-      if (cleanText(guide.bio)) {
-        const bio = document.createElement('p');
-        bio.className = 'guide-text';
-        bio.textContent = guide.bio;
-        body.appendChild(bio);
-      }
-
-      if (cleanText(guide.background)) {
-        const label = document.createElement('div');
-        label.className = 'guide-label';
-        label.textContent = 'Background';
-        const bg = document.createElement('p');
-        bg.className = 'guide-text guide-text--muted guide-clamp';
-        bg.textContent = guide.background;
-        body.append(label, bg);
-      }
+      // EVERY COLUMN IN public.guides, in the order a person reads them: what
+      // a player hears first, then what is written about the character, then
+      // the plumbing. Editable ones are boxes; the four with exactly one
+      // non-human writer are shown and locked.
+      const fields = document.createElement('div');
+      fields.className = 'gfields';
+      fields.append(
+        gField(guide, 'name', 'name', { required: true }),
+        gField(guide, 'hometown', 'hometown', { list: 'cityList', required: true }),
+        gField(guide, 'bio', 'bio', { multiline: true, wide: true, required: true }),
+        gField(guide, 'background', 'background', { multiline: true, tall: true, wide: true, required: true }),
+        gField(guide, 'image_url', 'image_url', { wide: true, type: 'url', required: true }),
+        gReadOnly('image', imageSummary(guide)),
+        gReadOnly('id', String(guide.id)),
+        gReadOnly('created_at', stamp(guide.created_at)),
+        gReadOnly('updated_at', stamp(guide.updated_at)),
+        gArchived(guide)
+      );
+      body.appendChild(fields);
 
       const actions = document.createElement('div');
       actions.className = 'guide-actions';
+      const save = mkBtn('Save', 'Write these fields back', () => saveCard(guide.id), 'primary');
+      save.dataset.action = 'save';
+      save.disabled = !state.dirty.has(String(guide.id));
+      const note = document.createElement('span');
+      note.className = 'gsave-note';
+      note.dataset.role = 'dirty-note';
+      note.textContent = state.dirty.has(String(guide.id)) ? 'unsaved' : '';
       actions.append(
-        mkBtn('Edit', 'Open this guide in the form', () => openForm(guide.id), 'primary'),
+        save,
         mkBtn('Image Prompt', 'An AI prompt for this guide’s portrait', () => showImagePrompt(guide.id)),
         mkBtn('Prompt', 'An AI prompt that rewrites this guide', () => showGuidePrompt(guide.id)),
         mkBtn(guide.archived ? 'Restore' : 'Archive',
           guide.archived ? 'Back into the working list' : 'Out of the working list, without deleting',
           () => toggleArchived(guide.id)),
-        mkBtn('Delete', 'Remove this guide for good', () => deleteGuide(guide.id), 'warn')
+        mkBtn('Delete', 'Remove this guide for good', () => deleteGuide(guide.id), 'warn'),
+        note
       );
       body.appendChild(actions);
 
       card.append(figure, body);
       return card;
+    }
+
+    // --- the fields on a card -------------------------------------------------
+
+    // A live copy per guide, so typing does not have to hit the database on
+    // every keystroke and Save has something to write. Keyed by id.
+    const drafts = new Map();
+    function draftOf(guide) {
+      const key = String(guide.id);
+      if (!drafts.has(key)) {
+        drafts.set(key, {
+          name: cleanText(guide.name), hometown: cleanText(guide.hometown),
+          bio: cleanText(guide.bio), background: cleanText(guide.background),
+          image_url: cleanText(guide.image_url), archived: !!guide.archived
+        });
+      }
+      return drafts.get(key);
+    }
+    const CARD_FIELDS = ['name', 'hometown', 'bio', 'background', 'image_url'];
+    function isDirty(guide) {
+      const d = draftOf(guide);
+      return CARD_FIELDS.some((f) => d[f] !== cleanText(guide[f])) || d.archived !== !!guide.archived;
+    }
+    function markCardDirty(guide) {
+      const key = String(guide.id);
+      if (isDirty(guide)) state.dirty.add(key); else state.dirty.delete(key);
+      const card = guideList.querySelector('[data-guide-id="' + cssEscape(key) + '"]');
+      if (card) {
+        const save = card.querySelector('[data-action="save"]');
+        if (save) save.disabled = !state.dirty.has(key);
+        const note = card.querySelector('[data-role="dirty-note"]');
+        if (note) note.textContent = state.dirty.has(key) ? 'unsaved' : '';
+      }
+    }
+
+    function gField(guide, key, label, opts) {
+      const options = opts || {};
+      const wrap = document.createElement('label');
+      wrap.className = 'gfield' + (options.wide ? ' gfield--wide' : '');
+      const lab = document.createElement('span');
+      lab.textContent = label;
+      const draft = draftOf(guide);
+      const input = document.createElement(options.multiline ? 'textarea' : 'input');
+      if (!options.multiline) input.type = options.type || 'text';
+      if (options.tall) input.className = 'tall';
+      if (options.list) input.setAttribute('list', options.list);
+      input.value = draft[key];
+      input.dataset.field = key;
+      // EMPTY IS RED, and only empty. There is no other validation state on a
+      // card - a guide with no background is not an error, it is unfinished
+      // work, and the red box says which piece is missing without a sentence.
+      const paint = () => input.classList.toggle('is-empty', options.required !== false && !cleanText(input.value));
+      paint();
+      input.addEventListener('input', () => {
+        draft[key] = input.value;
+        paint();
+        markCardDirty(guide);
+      });
+      wrap.append(lab, input);
+      return wrap;
+    }
+
+    function gReadOnly(label, value) {
+      const wrap = document.createElement('div');
+      wrap.className = 'gfield';
+      const lab = document.createElement('span');
+      lab.textContent = label;
+      const box = document.createElement('div');
+      box.className = 'gfield-ro';
+      box.textContent = value || '—';
+      wrap.append(lab, box);
+      return wrap;
+    }
+
+    function gArchived(guide) {
+      const wrap = document.createElement('div');
+      wrap.className = 'gfield';
+      const lab = document.createElement('span');
+      lab.textContent = 'archived';
+      const line = document.createElement('label');
+      line.className = 'gcheck';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = !!draftOf(guide).archived;
+      box.addEventListener('change', () => {
+        draftOf(guide).archived = box.checked;
+        markCardDirty(guide);
+      });
+      line.append(box, document.createTextNode(box.checked ? 'out of the working list' : 'in the working list'));
+      wrap.append(lab, line);
+      return wrap;
+    }
+
+    // The image column holds a whole picture, so the field shows its weight
+    // rather than 90,000 characters of base64 nobody can read or edit.
+    function imageSummary(guide) {
+      const inline = cleanText(guide.image);
+      if (!inline) return 'not in the row';
+      const kb = Math.round(inline.length / 1024);
+      const kind = (inline.match(/^data:([^;]+)/) || [])[1] || 'image';
+      return kind + ' · ' + kb + ' KB in the row';
+    }
+
+    function stamp(value) {
+      const v = cleanText(value);
+      if (!v) return '';
+      const d = new Date(v);
+      return isNaN(d) ? v : d.toLocaleString([], {
+        year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+      });
+    }
+
+    async function saveCard(id) {
+      const guide = findGuide(id);
+      if (!guide) return;
+      const draft = draftOf(guide);
+      if (!draft.name) { setStatus('A guide needs a name.', 'error'); return; }
+      if (draft.hometown && window.TgbCities
+        && !window.TgbCities.all().some((c) => c.city === draft.hometown)) {
+        setStatus('"' + draft.hometown + '" is not in the city catalogue — pick one from the list.', 'error');
+        return;
+      }
+      const payload = {
+        name: draft.name || null,
+        hometown: draft.hometown || null,
+        bio: draft.bio || null,
+        background: draft.background || null,
+        image_url: draft.image_url || null,
+        archived: !!draft.archived
+      };
+      try {
+        await ensureFreshSession();
+        const res = await fetch(restUrl('guides', { id: 'eq.' + id }), {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(await readError(res, 'Could not save this guide.'));
+        const [fresh] = await res.json();
+        Object.assign(guide, fresh);
+        drafts.delete(String(id));
+        state.dirty.delete(String(id));
+        render();
+        setStatus('Saved ' + cleanText(fresh.name) + '.', 'success');
+      } catch (error) {
+        const raw = error.message || '';
+        setStatus(/guides_name_key|duplicate key/i.test(raw)
+          ? 'There is already a guide with that name — a character is meant to be singular.'
+          : (raw || 'Save failed.'), 'error');
+      }
     }
 
     function paintShot(shot, guide) {
@@ -2040,13 +2290,28 @@
       }
     }
 
+    let promptFor = null;   // the guide the open prompt is about, or null for a new one
+
     function showGuidePrompt(id) {
       const guide = id == null ? null : findGuide(id);
+      promptFor = guide;
+      // The notes box only earns its place on a prompt with nothing to go on.
+      // Asked about an existing guide, the brief already carries its name,
+      // hometown, bio and background - a second place to say the same thing
+      // would just be somewhere for the two to disagree.
+      el('promptNotesWrap').hidden = !!guide;
       openPrompt(
         guide ? ('Prompt — ' + (cleanText(guide.name) || '#' + guide.id)) : 'Prompt — a new guide',
-        'Paste this into any AI. It answers with GUIDE NAME / GUIDE BIO / GUIDE BACKGROUND; bring those back into the form.',
+        guide
+          ? 'Paste this into any AI. It answers with GUIDE NAME / GUIDE BIO / GUIDE BACKGROUND; bring those back into the boxes on the card.'
+          : 'Say what you know in Notes — hometown, fandom, the voice you want — and it folds into the brief as you type. Paste the result into any AI, then press MANUAL to enter what it writes.',
         ['public.guides', 'writes nothing itself', guide ? 'keeps the existing name' : 'invents a character'],
         buildGuidePrompt(guide));
+    }
+
+    function refreshNewGuidePrompt() {
+      if (promptFor) return;
+      el('promptText').value = buildGuidePrompt(null);
     }
 
     function showImagePrompt(id) {
@@ -2099,6 +2364,14 @@
       } else {
         lines.push('THE GUIDE YOU ARE WRITING');
         lines.push('- A new character. Invent the name, and say where it is from.');
+        const notes = cleanText(state.promptNotes);
+        if (notes) {
+          // Verbatim, and marked as the human's word. Anything typed here -
+          // "Hometown: Buffalo. Fandom: Bills." - is the only thing the AI
+          // knows about this guide, so it outranks its own invention.
+          lines.push('- WHAT I ALREADY KNOW ABOUT THIS GUIDE (treat as fixed, do not contradict it):');
+          lines.push('  ' + notes);
+        }
       }
       lines.push('');
       lines.push('DELIVER exactly these three, each on its own line, nothing else:');
@@ -2145,6 +2418,10 @@
 
     el('manualBtn').addEventListener('click', () => openForm(null));
     el('promptBtn').addEventListener('click', () => showGuidePrompt(null));
+    el('promptNotes').addEventListener('input', (e) => {
+      state.promptNotes = e.target.value;
+      refreshNewGuidePrompt();
+    });
     el('searchInput').addEventListener('input', (e) => { state.filter = e.target.value; render(); });
     el('showArchived').addEventListener('change', (e) => { state.showArchived = e.target.checked; render(); });
     el('guideForm').addEventListener('submit', submitForm);
