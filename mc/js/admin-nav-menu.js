@@ -131,11 +131,18 @@
           label: 'Route Builder',
           description: 'Order the waypoints of a walking route by dragging them. No challenges, no map.'
         },
-        {
-          href: '/mc/stops.html',
-          label: 'Game Stops',
-          description: 'Pair each waypoint with a challenge, then organize those stops for play.'
-        },
+        // GAME STOPS IS OFF THE MENU (2026-08-09) and its page renamed
+        // mc/_stops.html — the underscore marks a room that is still live but is
+        // not offered. It is the only writer of public.stops, which the two game
+        // editors read through the game_stops view, so it cannot simply be
+        // deleted; it is parked until that model is resolved.
+        //
+        // Why it was parked: public.stops is keyed by CITY, so every game in a
+        // city shares one list and a city cannot have two different walks. That
+        // is exactly what public.routes + public.route_stops were built to fix,
+        // and having both means two systems ordering the same waypoints. The
+        // end state is a route carrying its own challenges; until then, reach
+        // the old page by typing /mc/_stops.html.
         {
           href: '/mc/game-plays.html',
           label: 'Game Plays',
