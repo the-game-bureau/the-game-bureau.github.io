@@ -125,6 +125,27 @@ const META_IG_USER_ID  = Deno.env.get('META_IG_USER_ID') ?? '';
 // silent bump can change field behaviour under a working integration.
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
+// THREADS IS A DIFFERENT API AND A DIFFERENT CREDENTIAL, which is the whole
+// reason it is not folded in with the other two. It does not live on
+// graph.facebook.com, a Page token cannot reach it, and the Instagram user id
+// is not the Threads user id. It needs its own token, issued against the
+// Threads scopes (threads_basic + threads_content_publish), and its own id.
+//
+//   supabase secrets set THREADS_USER_ID=...
+//   supabase secrets set THREADS_ACCESS_TOKEN=...
+//
+// Get both from developers.facebook.com -> your app -> Use cases -> Threads
+// API, with the Threads account linked. GET https://graph.threads.net/v1.0/me
+// ?fields=id,username&access_token=... answers with the id and confirms the
+// token reaches the right account before anything is posted.
+//
+// UNLIKE INSTAGRAM, THREADS TAKES TEXT-ONLY POSTS (media_type=TEXT), so a
+// candidate with no image is a normal post here rather than a skip. With an
+// image it posts media_type=IMAGE instead.
+const THREADS       = 'https://graph.threads.net/v1.0';
+const THREADS_USER  = Deno.env.get('THREADS_USER_ID') ?? '';
+const THREADS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') ?? '';
+
 const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 // ── Page id and Instagram user id are DERIVED from the token ────────────────
@@ -335,6 +356,75 @@ async function postInstagram(row: any): Promise<Outcome> {
   }
 }
 
+// Threads posts the same way Instagram does - create a container, then publish
+// it - so it inherits the same lesson: the container is not ready the instant
+// it is created, and publishing early fails. Its status field is `status`
+// (IN_PROGRESS / FINISHED / ERROR) rather than Instagram's status_code, and it
+// carries error_message when it goes wrong.
+async function waitForThreadsContainer(containerId: string): Promise<void> {
+  let last = '';
+  for (let i = 0; i < IG_POLL_TRIES; i += 1) {
+    const qs = new URLSearchParams({
+      fields: 'status,error_message',
+      access_token: THREADS_TOKEN,
+    });
+    const res  = await fetch(`${THREADS}/${containerId}?${qs}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+    const status = String(data?.status ?? '');
+    last = String(data?.error_message ?? status);
+    if (status === 'FINISHED') return;
+    if (status === 'ERROR' || status === 'EXPIRED') {
+      throw new Error(`Threads rejected the post (${status}): ${last}`);
+    }
+    await new Promise((r) => setTimeout(r, IG_POLL_MS));
+  }
+  throw new Error(
+    `Threads was still preparing the post after ${(IG_POLL_TRIES * IG_POLL_MS) / 1000}s ` +
+    `(last: ${last || 'unknown'}). Press Post again in a minute.`
+  );
+}
+
+async function postThreads(row: any): Promise<Outcome> {
+  if (!THREADS_USER || !THREADS_TOKEN) {
+    return {
+      platform: 'threads',
+      ok: false,
+      error: 'THREADS_USER_ID / THREADS_ACCESS_TOKEN are not set on this project. ' +
+             'Threads needs its own credential - a Page token cannot reach it.',
+    };
+  }
+  try {
+    const image = String(row.image ?? '').trim();
+    const create: Record<string, string> = {
+      // Text-only is legal here, which is the difference from Instagram.
+      media_type: image ? 'IMAGE' : 'TEXT',
+      text: captionFor(row),
+      access_token: THREADS_TOKEN,
+    };
+    if (image) create.image_url = image;
+
+    const body = new URLSearchParams(create);
+    const res  = await fetch(`${THREADS}/${THREADS_USER}/threads`, { method: 'POST', body });
+    const container = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(container?.error?.message || `HTTP ${res.status}`);
+    if (!container?.id) throw new Error('no container id returned');
+
+    await waitForThreadsContainer(String(container.id));
+
+    const pubBody = new URLSearchParams({
+      creation_id: String(container.id),
+      access_token: THREADS_TOKEN,
+    });
+    const pubRes = await fetch(`${THREADS}/${THREADS_USER}/threads_publish`, { method: 'POST', body: pubBody });
+    const out = await pubRes.json().catch(() => ({}));
+    if (!pubRes.ok) throw new Error(out?.error?.message || `HTTP ${pubRes.status}`);
+    return { platform: 'threads', ok: true, id: out?.id };
+  } catch (err) {
+    return { platform: 'threads', ok: false, error: (err as Error).message };
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST')    return json(405, { error: 'POST only' });
@@ -391,7 +481,7 @@ Deno.serve(async (req: Request) => {
 
   const wanted = (Array.isArray(body.platforms) ? body.platforms : [])
     .map((p) => String(p).toLowerCase().trim())
-    .filter((p) => p === 'facebook' || p === 'instagram');
+    .filter((p) => p === 'facebook' || p === 'instagram' || p === 'threads');
   if (!wanted.length) return json(400, { error: 'no supported platform requested' });
 
   const { data: row, error: rowErr } = await supa
@@ -405,6 +495,7 @@ Deno.serve(async (req: Request) => {
   const results: Outcome[] = [];
   if (wanted.includes('facebook'))  results.push(await postFacebook(row));
   if (wanted.includes('instagram')) results.push(await postInstagram(row));
+  if (wanted.includes('threads'))   results.push(await postThreads(row));
 
   const posted = results.filter((r) => r.ok).map((r) => r.platform);
 

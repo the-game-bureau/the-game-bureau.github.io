@@ -2791,7 +2791,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // becomes a link straight to that account's page.
       var PLATFORM_URLS = {
         instagram: 'https://www.instagram.com/thegamebureau',
-        facebook: 'https://www.facebook.com/thegamebureau'
+        facebook: 'https://www.facebook.com/thegamebureau',
+        threads: 'https://www.threads.com/@thegamebureau'
       };
 
       // Topics first (what the story is), then the platform recommendations
@@ -2875,7 +2876,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // Several platforms can be queued for one story, but they are opened one
       // per click; see buildPostControls for why a burst cannot work.
       // meta's label is dynamic; see platformLabel(). This is the fallback.
-      var PLATFORM_LABELS = { meta: 'Facebook + Instagram' };
+      var PLATFORM_LABELS = { meta: 'Facebook + Instagram', threads: 'Threads' };
       // NOTHING IS PREFILLED, DELIBERATELY. Post copies the caption and link to
       // the clipboard and opens the platform's own composer; you paste.
       //
@@ -2906,7 +2907,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // than as you. Plain facebook.com/<page> only shows the page.
         facebook: 'https://business.facebook.com/latest/composer/',
         // Instagram's web create flow (the + button's destination).
-        instagram: 'https://www.instagram.com/create/select/'
+        instagram: 'https://www.instagram.com/create/select/',
+        // Threads has no dedicated create URL - the composer is the box at
+        // the top of the feed, so this lands on our profile with it in reach.
+        threads: 'https://www.threads.com/@thegamebureau'
       };
 
 
@@ -2925,7 +2929,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // 'meta' is the merged Facebook+Instagram destination, not a Graph term.
       // X was removed on 2026-08-07: it was never wired for API posting, so it
       // only ever added a manual step this page could not help with.
-      var PLATFORM_ORDER = ['meta'];
+      var PLATFORM_ORDER = ['meta', 'threads'];
       // Shown when the agent did not tag a platform for this story, so the row
       // still explains what that account is for rather than sitting blank.
 
@@ -2959,7 +2963,24 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // is what allowed the wrong-Page posts; the symptoms are invisible
         // because Meta accepts the post and returns a real id either way.
         facebook: true,    // Graph POST /{page-id}/feed
-        instagram: true    // Graph POST /{ig-user-id}/media -> /media_publish
+        instagram: true,   // Graph POST /{ig-user-id}/media -> /media_publish
+        // THREADS IS WIRED BUT OFF, and it stays off until its credential
+        // exists — the rule above, applied to itself. postThreads() is written
+        // and deployed; what is missing is the secret, and Threads will not
+        // take the Page token the other two use. It is a different API on
+        // graph.threads.net with its own OAuth:
+        //
+        //   supabase secrets set THREADS_USER_ID=...
+        //   supabase secrets set THREADS_ACCESS_TOKEN=...
+        //
+        // then flip this to true. Left true without them, every Post would
+        // report a failure this page could have predicted.
+        //
+        // Worth knowing when it does go on: Threads TAKES TEXT-ONLY POSTS, so
+        // unlike Instagram it is not conditional on the candidate having an
+        // image. That is why it is its own destination rather than another
+        // account inside the meta fan-out.
+        threads: false     // graph.threads.net POST /{user}/threads -> /threads_publish
       };
 
       // Platforms that can NEVER be posted to by machine, as distinct from ones
@@ -3053,7 +3074,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         if (!bad.length) return 'the function reported no successes and no errors';
         return bad.map(function (r) {
           var name = r.platform === 'facebook' ? 'Facebook'
-                   : r.platform === 'instagram' ? 'Instagram' : (r.platform || '?');
+                   : r.platform === 'instagram' ? 'Instagram'
+                   : r.platform === 'threads' ? 'Threads' : (r.platform || '?');
           return name + ' — ' + (r.error || (r.skipped ? 'skipped' : 'failed'));
         }).join('  |  ');
       }
@@ -3159,7 +3181,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
             }
 
             var labels = reply.posted.map(function (t) {
-              return t === 'facebook' ? 'Facebook' : t === 'instagram' ? 'Instagram' : t;
+              return t === 'facebook' ? 'Facebook' : t === 'instagram' ? 'Instagram'
+                   : t === 'threads' ? 'Threads' : t;
             });
             var failed = (reply.results || []).filter(function (r) { return r && !r.ok; });
 
