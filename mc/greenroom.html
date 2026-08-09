@@ -1268,9 +1268,11 @@
           <p class="status room-substat" id="pageStatus" aria-live="polite">Each game has a guide that lends voice and tone to the player’s experience. A guide can narrate one or more games.</p>
         </div>
       </div>
-      <div class="stockroom-head-status" hidden>
-        <button class="btn admin-auth-toggle" id="adminAuthToggleBtn" type="button" aria-label="ADMIN LOGON" title="ADMIN LOGON">ADMIN LOGON</button>
-      </div>
+      <!-- The page-level ADMIN LOGON button was removed 2026-08-09. Signing
+           in is the padlock in the shared admin nav at the top of every
+           room; a second control for it here was a second thing to keep in
+           step with the session, on a page that already gets its state from
+           TgbAdminSiteNav.bindAuth. -->
     </div>
 
 
@@ -1282,8 +1284,7 @@
       </div>
     </fieldset>
 
-    <div class="gr-filter">
-      <input type="search" id="searchInput" placeholder="Filter by name, hometown, or a word in the bio..." autocomplete="off">
+    <div class="gr-filter" id="listBar">
       <label><input type="checkbox" id="showArchived"> Show archived</label>
       <span class="gr-count" id="countLine"></span>
     </div>
@@ -1417,8 +1418,12 @@
       publishableKey: 'sb_publishable_6a9XqxYa0-AZtyrwz4ZeUg_aiMsVH-3'
     };
 
-    const GUIDE_BUCKET = 'guides';
-    const EDITABLE = ['name', 'hometown', 'bio', 'background', 'image_url'];
+    // The `guides` Storage bucket is no longer written to. Nothing points at
+    // an object in it now that image_url is gone, so a copy there would be a
+    // file nothing references. The bucket and its existing objects are left
+    // alone rather than tidied away: games.guide_image_url still names some of
+    // them, frozen, and the engines still read that column.
+    const EDITABLE = ['name', 'hometown', 'bio', 'background'];
 
     const state = {
       authed: false,
@@ -1527,13 +1532,12 @@
       return node;
     }
 
+    // The name filter went on 2026-08-09. Thirty-four cards is a scroll, not a
+    // search problem, and a box that hides rows is a way to edit a guide while
+    // looking at a list that does not contain it. Archived is still hidden by
+    // default - that is a state, not a filter.
     function visibleGuides() {
-      const q = state.filter.toLowerCase();
-      return state.guides.filter((g) => {
-        if (!state.showArchived && g.archived) return false;
-        if (!q) return true;
-        return (cleanText(g.name) + ' ' + cleanText(g.hometown) + ' ' + cleanText(g.bio)).toLowerCase().includes(q);
-      });
+      return state.guides.filter((g) => state.showArchived || !g.archived);
     }
 
     function render() {
@@ -1602,15 +1606,9 @@
       });
 
       figure.append(shot, uploadBtn, fileInput);
-      // Offered when there is a URL and something still to do with it: either
-      // the picture is not yet in the row, or the file is still hosted
-      // somewhere that is not ours. Both are fixed by the same press.
-      const hasUrl = !!cleanText(guide.image_url);
-      const notOurs = hasUrl && cleanText(guide.image_url).indexOf(SUPABASE_CONFIG.url) !== 0;
-      if (hasUrl && (!cleanText(guide.image) || notOurs)) {
-        figure.appendChild(mkBtn('Host Here', 'Copy this picture into the row, and host a copy for the engines',
-          (e) => uploadImageFromUrl(guide.id, e.target, status)));
-      }
+      // HOST HERE is gone with image_url (2026-08-09). There is nowhere else
+      // for a portrait to be any more - it is in the row or it does not exist,
+      // so there is nothing to fetch and nothing to re-host.
       figure.appendChild(status);
 
       // ── the character ──
@@ -1640,7 +1638,6 @@
         gField(guide, 'hometown', 'hometown', { list: 'cityList', required: true }),
         gField(guide, 'bio', 'bio', { multiline: true, wide: true, required: true }),
         gField(guide, 'background', 'background', { multiline: true, tall: true, wide: true, required: true }),
-        gField(guide, 'image_url', 'image_url', { wide: true, type: 'url', required: true }),
         gReadOnly('image', imageSummary(guide)),
         gReadOnly('id', String(guide.id)),
         gReadOnly('created_at', stamp(guide.created_at)),
@@ -1685,12 +1682,12 @@
         drafts.set(key, {
           name: cleanText(guide.name), hometown: cleanText(guide.hometown),
           bio: cleanText(guide.bio), background: cleanText(guide.background),
-          image_url: cleanText(guide.image_url), archived: !!guide.archived
+          archived: !!guide.archived
         });
       }
       return drafts.get(key);
     }
-    const CARD_FIELDS = ['name', 'hometown', 'bio', 'background', 'image_url'];
+    const CARD_FIELDS = ['name', 'hometown', 'bio', 'background'];
     function isDirty(guide) {
       const d = draftOf(guide);
       return CARD_FIELDS.some((f) => d[f] !== cleanText(guide[f])) || d.archived !== !!guide.archived;
@@ -1799,7 +1796,6 @@
         hometown: draft.hometown || null,
         bio: draft.bio || null,
         background: draft.background || null,
-        image_url: draft.image_url || null,
         archived: !!draft.archived
       };
       try {
@@ -1826,12 +1822,9 @@
 
     function paintShot(shot, guide) {
       shot.innerHTML = '';
-      // THE FIELD WINS. guides.image carries the portrait in the row itself;
-      // image_url only points at a copy hosted elsewhere for the engines. When
-      // both exist they are the same picture, and the one that cannot 404 is
-      // the one to draw.
-      const inline = cleanText(guide.image);
-      const url = inline || cleanText(guide.image_url);
+      // The row is the only place a portrait lives now. There is no URL to
+      // fall back to, which is the point: nothing here can 404.
+      const url = cleanText(guide.image);
       if (!url) {
         const ph = document.createElement('div');
         ph.className = 'guide-shot-empty';
@@ -1872,7 +1865,6 @@
       el('fHometown').value = guide ? cleanText(guide.hometown) : '';
       el('fBio').value = guide ? cleanText(guide.bio) : '';
       el('fBackground').value = guide ? cleanText(guide.background) : '';
-      el('fImage').value = guide ? cleanText(guide.image_url) : '';
       el('fArchived').checked = guide ? !!guide.archived : false;
       formStatus('');
       el('formCard').hidden = false;
@@ -1898,7 +1890,6 @@
         hometown: cleanText(el('fHometown').value) || null,
         bio: cleanText(el('fBio').value) || null,
         background: cleanText(el('fBackground').value) || null,
-        image_url: cleanText(el('fImage').value) || null,
         archived: !!el('fArchived').checked
       };
     }
@@ -2032,26 +2023,6 @@
       node.classList.toggle('is-error', !!isError);
     }
 
-    async function applyImageUrl(id, publicUrl, status) {
-      const guide = findGuide(id);
-      if (!guide) return;
-      try {
-        await ensureFreshSession();
-        const res = await fetch(restUrl('guides', { id: 'eq.' + id }), {
-          method: 'PATCH',
-          headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-          body: JSON.stringify({ image_url: publicUrl })
-        });
-        if (!res.ok) throw new Error(await readError(res, 'Could not save the portrait.'));
-        const [fresh] = await res.json();
-        Object.assign(guide, fresh);
-        uploadStatus(status, 'Saved');
-        render();
-        setStatus('Portrait saved for ' + cleanText(guide.name) + '.', 'success');
-      } catch (error) {
-        uploadStatus(status, 'Uploaded, but saving the URL failed: ' + (error.message || error), true);
-      }
-    }
 
     // Downscale to a square-ish portrait and re-encode as JPEG. This is what
     // makes storing the picture IN THE ROW workable: the four portraits that
@@ -2127,42 +2098,13 @@
         const guide = findGuide(id);
         if (guide) Object.assign(guide, saved);
         render();
-        uploadStatus(status, 'Saved ' + kb + ' KB · hosting a copy...');
+        uploadStatus(status, 'Saved ' + kb + ' KB into the row');
 
-        // 2. And a hosted copy at FULL size, because guides.image_url is what
-        //    the trigger pushes onto games.guide_image_url for the engines. A
-        //    data URI must never go down that path - it would be copied onto
-        //    every game pointing at this guide.
-        const rawExt = (String(file.name).split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const ext = rawExt || (String(file.type).split('/')[1] || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-        const path = encodeURIComponent('guide-' + id + '.' + ext);
-        const base = SUPABASE_CONFIG.url.replace(/\/+$/, '');
-        // Its own try. The portrait is ALREADY SAVED at this point; the hosted
-        // copy is for the engines. Letting a Storage hiccup report "Upload
-        // failed" would send somebody back to re-upload a picture that is
-        // sitting in the row working perfectly.
-        try {
-          const res = await fetch(base + '/storage/v1/object/' + GUIDE_BUCKET + '/' + path, {
-            method: 'POST',
-            headers: {
-              apikey: SUPABASE_CONFIG.publishableKey,
-              Authorization: 'Bearer ' + token,
-              'Content-Type': file.type || 'application/octet-stream',
-              'x-upsert': 'true'
-            },
-            body: file
-          });
-          if (!res.ok) {
-            const t = await res.text().catch(() => '');
-            throw new Error('storage said ' + res.status + (t ? ': ' + t.slice(0, 90) : ''));
-          }
-          // Cache-bust, or a replacement is masked by the stale CDN copy.
-          await applyImageUrl(id, base + '/storage/v1/object/public/' + GUIDE_BUCKET + '/' + path + '?v=' + Date.now(), status);
-          uploadStatus(status, 'Saved ' + kb + ' KB · hosted copy done');
-        } catch (hostErr) {
-          uploadStatus(status, 'Portrait saved (' + kb + ' KB). The hosted copy for the engines failed: '
-            + (hostErr.message || hostErr), true);
-        }
+        // THE STORAGE COPY IS GONE with image_url (2026-08-09). Uploading
+        // used to write twice: the row for this page, and a Storage object
+        // whose URL the trigger pushed to the engines. With no URL column
+        // there is nothing to point at that object, so writing it would
+        // leave a file in a bucket that nothing on earth references.
       } catch (error) {
         uploadStatus(status, String((error && error.message) || 'Upload failed.'), true);
       } finally {
@@ -2171,86 +2113,7 @@
       }
     }
 
-    // Pull a remote image into a data URI through a canvas. Works because the
-    // legacy portraits live on thegamebureau.com, which is where this page is
-    // served from, and Supabase Storage sends CORS headers - so both are
-    // readable. Anything else taints the canvas and toDataURL throws, which is
-    // caught and reported rather than left to look like a save failure.
-    function urlToDownscaledDataUrl(url) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          const scale = Math.min(1, PORTRAIT_MAX_PX / Math.max(img.width, img.height));
-          const w = Math.max(1, Math.round(img.width * scale));
-          const h = Math.max(1, Math.round(img.height * scale));
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, w, h);
-          ctx.drawImage(img, 0, 0, w, h);
-          try { resolve(canvas.toDataURL('image/jpeg', PORTRAIT_QUALITY)); }
-          catch (error) { reject(new Error('that image will not allow being copied (CORS)')); }
-        };
-        img.onerror = () => reject(new Error('could not load that image'));
-        img.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'cors=1';
-      });
-    }
 
-    // HOST HERE does two things, and the first is the important one: it brings
-    // the picture INTO the row. The second re-hosts it in Storage so the
-    // engines' URL stops depending on a file path in the repo.
-    async function uploadImageFromUrl(id, btn, status) {
-      const guide = findGuide(id);
-      if (!guide) return;
-      const sourceUrl = cleanText(guide.image_url);
-      if (!/^https?:\/\//i.test(sourceUrl)) { uploadStatus(status, 'No image URL to fetch.', true); return; }
-      const token = adminToken();
-      if (!token) { uploadStatus(status, 'Sign in as an admin to upload.', true); return; }
-      btn.disabled = true;
-      uploadStatus(status, 'Copying into the row...');
-      try {
-        try {
-          const inline = await urlToDownscaledDataUrl(sourceUrl);
-          const kb = Math.round(inline.length / 1024);
-          await ensureFreshSession();
-          const patch = await fetch(restUrl('guides', { id: 'eq.' + id }), {
-            method: 'PATCH',
-            headers: authHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
-            body: JSON.stringify({ image: inline })
-          });
-          if (!patch.ok) throw new Error(await readError(patch, 'could not save it'));
-          const [saved] = await patch.json();
-          Object.assign(guide, saved);
-          render();
-          uploadStatus(status, 'In the row (' + kb + ' KB) · hosting...');
-        } catch (inlineErr) {
-          uploadStatus(status, 'Could not copy it into the row: ' + (inlineErr.message || inlineErr), true);
-        }
-        const endpoint = SUPABASE_CONFIG.url.replace(/\/+$/, '') + '/functions/v1/upload-guide-image';
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: SUPABASE_CONFIG.publishableKey,
-            Authorization: 'Bearer ' + token
-          },
-          // gameId is only ever an object name to that function.
-          body: JSON.stringify({ url: sourceUrl, gameId: 'guide-' + id })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error((data && data.error) || ('upload failed (' + res.status + ')'));
-        const publicUrl = cleanText(data && data.url);
-        if (!publicUrl) throw new Error('no url returned');
-        await applyImageUrl(id, publicUrl, status);
-      } catch (error) {
-        uploadStatus(status, String((error && error.message) || 'Upload failed.'), true);
-      } finally {
-        btn.disabled = false;
-      }
-    }
 
     // --- the prompts ----------------------------------------------------------
 
@@ -2422,7 +2285,6 @@
       state.promptNotes = e.target.value;
       refreshNewGuidePrompt();
     });
-    el('searchInput').addEventListener('input', (e) => { state.filter = e.target.value; render(); });
     el('showArchived').addEventListener('change', (e) => { state.showArchived = e.target.checked; render(); });
     el('guideForm').addEventListener('submit', submitForm);
     document.querySelectorAll('[data-form-close]').forEach((b) => b.addEventListener('click', closeForm));
