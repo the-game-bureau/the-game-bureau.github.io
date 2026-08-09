@@ -310,13 +310,20 @@
   // Instagram, Facebook and YouTube are Lucide, so they match the outline
   // weight of the section glyphs above them.
   //
-  // X IS THE ODD ONE AND HAS TO BE. Lucide never drew a replacement for the old
-  // Twitter bird, and the X mark has no outline form — it is a solid letterform,
-  // not a shape with an inside and an outside. Stroking two crossed lines would
-  // read as a CLOSE button, not as a brand. So it ships filled, which makes it
-  // fractionally heavier than its three neighbours; that is the lesser problem.
+  // X AND THREADS ARE THE ODD ONES AND HAVE TO BE. Lucide never drew a
+  // replacement for the old Twitter bird, and the X mark has no outline form —
+  // it is a solid letterform, not a shape with an inside and an outside.
+  // Stroking two crossed lines would read as a CLOSE button, not as a brand.
+  // Threads is the same case: its glyph is one ribbon that crosses itself, and
+  // an outline of it reads as an abstract loop rather than as the logo — three
+  // stroked approximations were drawn and looked at before settling on the real
+  // filled path. So both ship filled, fractionally heavier than their outlined
+  // neighbours; that is the lesser problem.
   var SOCIALS = [
     ['https://instagram.com/thegamebureau', 'Instagram', "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='20' height='20' x='2' y='2' rx='5' ry='5'/%3E%3Cpath d='M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z'/%3E%3Cline x1='17.5' x2='17.51' y1='6.5' y2='6.5'/%3E%3C/svg%3E"],
+    // threads.COM, not .net — Meta moved the domain, and the old one redirects
+    // rather than resolving, which is a hop this footer does not need to make.
+    ['https://www.threads.com/@thegamebureau', 'Threads', "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.44 12.01v-.017c.06-3.576.91-6.43 2.555-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.56 12c.057 3.086.748 5.496 2.055 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.586-1.308-.883-2.359-.89h-.029c-.844 0-1.992.232-2.721 1.32L7.734 7.847c.98-1.454 2.568-2.256 4.478-2.256h.044c3.194.02 5.097 1.975 5.287 5.388.108.046.216.094.32.142 1.48.696 2.562 1.75 3.132 3.048.795 1.81.868 4.759-1.542 7.11-1.843 1.8-4.08 2.61-7.243 2.63Z'/%3E%3C/svg%3E"],
     ['https://x.com/thegamebureau', 'X', "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z'/%3E%3C/svg%3E"],
     ['https://www.facebook.com/thegamebureau', 'Facebook', "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z'/%3E%3C/svg%3E"],
     ['https://youtube.com/@thegamebureau', 'YouTube', "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17'/%3E%3Cpath d='m10 15 5-3-5-3z'/%3E%3C/svg%3E"]
