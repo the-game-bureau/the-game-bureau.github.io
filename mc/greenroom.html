@@ -1559,7 +1559,11 @@
         if (file) uploadImageFile(guide.id, file, uploadBtn, status);
       });
 
-      figure.append(shot, uploadBtn, fileInput);
+      // Image Prompt sits with the picture, not in the row of card actions:
+      // it is one half of getting a portrait (write the prompt, then upload
+      // what comes back), and both halves belong under the thing they change.
+      figure.append(shot, uploadBtn, fileInput,
+        mkBtn('Image Prompt', 'An AI prompt for this guide’s portrait', () => showImagePrompt(guide.id)));
       // HOST HERE is gone with image_url (2026-08-09). There is nowhere else
       // for a portrait to be any more - it is in the row or it does not exist,
       // so there is nothing to fetch and nothing to re-host.
@@ -1604,8 +1608,7 @@
       note.textContent = state.dirty.has(String(guide.id)) ? 'unsaved' : '';
       actions.append(
         save,
-        mkBtn('Image Prompt', 'An AI prompt for this guide’s portrait', () => showImagePrompt(guide.id)),
-        mkBtn('Prompt', 'An AI prompt that rewrites this guide', () => showGuidePrompt(guide.id)),
+        mkBtn('Fill', 'Fill the empty boxes from what the filled ones already say', () => fillCard(guide.id)),
         mkBtn('Delete', 'Remove this guide for good', () => deleteGuide(guide.id), 'warn'),
         note
       );
@@ -1704,6 +1707,120 @@
       return isNaN(d) ? v : d.toLocaleString([], {
         year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
       });
+    }
+
+    // --- Fill -----------------------------------------------------------------
+    //
+    // Fill the EMPTY boxes from what the FULL ones already say. No AI and no
+    // network: this only rearranges what a human already wrote, which is why
+    // it can be trusted to run on a press. It writes to the draft, so nothing
+    // reaches the database until Save - and if it guesses wrong, retyping the
+    // box is the whole undo.
+
+    // The labelled sections an AI-written background comes back with. Ten of
+    // the fourteen backgrounds in the table carry these headings, so a bio can
+    // usually be lifted rather than invented.
+    const BIO_SOURCES = ['Short description', 'One-line hook', 'Personality'];
+
+    function sectionFrom(text, label) {
+      const body = cleanText(text);
+      if (!body) return '';
+      const re = new RegExp('^\\s*' + label + '\\s*:\\s*([\\s\\S]*?)(?=\\n\\s*[A-Z][A-Za-z \\-]{2,28}\\s*:|$)', 'im');
+      const hit = body.match(re);
+      return hit ? cleanText(hit[1]).replace(/\s+/g, ' ') : '';
+    }
+
+    function firstSentences(text, count) {
+      const parts = cleanText(text).replace(/\s+/g, ' ').match(/[^.!?]+[.!?]+/g);
+      if (!parts) return cleanText(text).replace(/\s+/g, ' ').slice(0, 300);
+      return parts.slice(0, count).join(' ').trim();
+    }
+
+    // A city from the catalogue, named in the guide's own words.
+    //
+    // THE EARLIEST MENTION WINS, and that is not a detail. The first cut took
+    // the longest matching name instead, which read Mission Control's text -
+    // "ready to rally Chicago fans" at character 45, with Cincinnati buried at
+    // 376 - and confidently answered Cincinnati. A guide's home is what its
+    // opening line says, so position decides; length only breaks a tie at the
+    // same position, which is what keeps "Kansas City" from being read as
+    // "Kansas".
+    //
+    // Matching is case-sensitive on purpose. "mobile", "reading" and "hope"
+    // are all real cities in the catalogue, and a bio mentioning a mobile
+    // phone should not acquire a hometown in Alabama.
+    function cityFromText(text) {
+      const body = cleanText(text);
+      if (!body || !window.TgbCities) return '';
+      const rows = window.TgbCities.all();
+      if (!rows.length) return '';
+      let best = null;
+      rows.forEach((row) => {
+        const name = String(row.city).split(',')[0].trim();
+        if (name.length < 4) return;
+        const at = body.search(new RegExp('\\b' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b'));
+        if (at < 0) return;
+        if (!best || at < best.at || (at === best.at && name.length > best.name.length)) {
+          best = { city: row.city, name: name, at: at };
+        }
+      });
+      return best ? best.city : '';
+    }
+
+    function fillCard(id) {
+      const guide = findGuide(id);
+      if (!guide) return;
+      const draft = draftOf(guide);
+      const filled = [];
+
+      // HOMETOWN from whatever the guide's own text names. Only a city the
+      // catalogue knows, because the column is a foreign key into it.
+      if (!draft.hometown) {
+        const city = cityFromText([draft.name, draft.bio, draft.background].filter(Boolean).join('\n'));
+        if (city) { draft.hometown = city; filled.push('hometown'); }
+      }
+
+      // BIO from the background's own summary sections, and only failing those
+      // its first two sentences. A background is written for whoever builds the
+      // game; a bio is read by the player, so the summary lines are the ones
+      // that were already written to be short.
+      if (!draft.bio && draft.background) {
+        let bio = '';
+        for (let i = 0; i < BIO_SOURCES.length && !bio; i += 1) {
+          bio = sectionFrom(draft.background, BIO_SOURCES[i]);
+        }
+        if (!bio) bio = firstSentences(draft.background, 2);
+        if (bio) { draft.bio = firstSentences(bio, 3); filled.push('bio'); }
+      }
+
+      // A BACKGROUND IS NOT DERIVABLE and Fill does not pretend otherwise. It
+      // is the long character breakdown; there is nothing in a two-sentence
+      // bio to expand it from, and a fabricated one reads exactly like a real
+      // one. That is what the PROMPT button is for.
+
+      if (!filled.length) {
+        const blanks = CARD_FIELDS.filter((f) => !draft[f]);
+        const derivable = blanks.filter((f) => f !== 'background' && f !== 'name');
+        let why;
+        if (!blanks.length) why = 'Every box on that card is already filled.';
+        else if (!derivable.length) {
+          // The common case, and the one a vague message made confusing: the
+          // only blank is the background, which Fill cannot invent from a
+          // two-sentence bio. Name the button that can.
+          why = 'Only the background is empty, and that cannot be derived from a bio — use PROMPT.';
+        } else {
+          why = 'Nothing to fill ' + derivable.join(' or ') + ' from: no city the catalogue knows is named in this guide’s text.';
+        }
+        setStatus(why, blanks.length ? 'error' : '');
+        return;
+      }
+      // Dirty BEFORE the repaint: renderGuideCard reads state.dirty to decide
+      // whether Save is enabled, so marking it afterwards would rebuild the
+      // card with a dead Save button over freshly filled boxes.
+      state.dirty.add(String(id));
+      render();
+      setStatus('Filled ' + filled.join(' and ') + ' for ' + (cleanText(draft.name) || '#' + id)
+        + ' from what was already there. Check it, then Save.', 'success');
     }
 
     async function saveCard(id) {
