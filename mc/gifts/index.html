@@ -3395,7 +3395,8 @@
 
     // Last-run panel for the book-pull routine. Unlike the soundtrack routine,
     // this job writes to Supabase and commits nothing, so there is no commit
-    // feed to read — the freshest Review candidate IS the run receipt. A pull
+    // feed to read — the freshest book the bot filed IS the run receipt,
+    // counted in whatever state it now sits (Review, Live, or Shelved). A pull
     // that errored files nothing, so a stale timestamp is the failure signal.
     // Loaded on modal open rather than page load; it is one more request and
     // nobody needs it until they ask what the bot has been doing.
@@ -3428,12 +3429,19 @@
       if (log) log.href = '/mc/gifts/index.html?status=review';
 
       try {
-        // Candidates only: archived + never published is exactly what the pull
-        // files, so a hand-added item can't masquerade as a successful run.
+        // The bot files every book as REVIEW (archived=true, both stamps null),
+        // so a bot row is archived=true (still a REVIEW candidate, or SHELVED)
+        // OR later published (certified_at set, archived flipped to false by the
+        // publish). Match all three states or a fully-published run vanishes from
+        // this receipt and a healthy pull reads as stale — the exact failure this
+        // panel had: publishing a whole morning's batch dropped it from the old
+        // archived=true & certified_at=is.null filter, and the timestamp fell
+        // back to an older SHELVED leftover. A manual add lands archived=false
+        // with both stamps null, so it stays excluded and can't masquerade as a
+        // bot run.
         var url = restUrl('gift_shop_items', {
           select: 'title,created_at',
-          archived: 'eq.true',
-          certified_at: 'is.null',
+          or: '(archived.eq.true,certified_at.not.is.null)',
           order: 'created_at.desc',
           limit: '6'
         });
@@ -3458,12 +3466,12 @@
           stamp.toLocaleString([], {
             weekday: 'short', month: 'short', day: 'numeric',
             hour: 'numeric', minute: '2-digit'
-          }) + ' - ' + batch.length + ' candidate' + (batch.length === 1 ? '' : 's') +
+          }) + ' - ' + batch.length + ' book' + (batch.length === 1 ? '' : 's') +
           (stale ? ' - nothing new in over a day, check the routine.' : ''));
         what.textContent = stamp.toLocaleString([], {
           weekday: 'short', month: 'short', day: 'numeric',
           hour: 'numeric', minute: '2-digit'
-        }) + ' — ' + batch.length + ' candidate' + (batch.length === 1 ? '' : 's') +
+        }) + ' — ' + batch.length + ' book' + (batch.length === 1 ? '' : 's') +
           ': ' + batch.map(function (r) { return r.title; }).join(', ') +
           (stale ? ' · nothing new in over a day — check the routine.' : '');
         bookPullLoaded = true;
