@@ -2964,23 +2964,32 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // because Meta accepts the post and returns a real id either way.
         facebook: true,    // Graph POST /{page-id}/feed
         instagram: true,   // Graph POST /{ig-user-id}/media -> /media_publish
-        // THREADS IS WIRED BUT OFF, and it stays off until its credential
-        // exists — the rule above, applied to itself. postThreads() is written
-        // and deployed; what is missing is the secret, and Threads will not
-        // take the Page token the other two use. It is a different API on
-        // graph.threads.net with its own OAuth:
+        // Threads is ON since 2026-08-09. It will NOT take the Page token the
+        // other two use -- it is a different API on graph.threads.net with its
+        // own OAuth, its own app roles and its own pair of secrets:
         //
         //   supabase secrets set THREADS_USER_ID=...
         //   supabase secrets set THREADS_ACCESS_TOKEN=...
         //
-        // then flip this to true. Left true without them, every Post would
-        // report a failure this page could have predicted.
+        // Getting them is a four-step errand that is easy to half-finish:
+        // enable threads_basic + threads_content_publish, add the account as a
+        // THREADS TESTER (its own role, not the generic Tester), accept that
+        // invite FROM INSIDE THE THREADS APP -- nothing in the dashboard
+        // prompts you and the row simply stays pending -- and only then does
+        // the User Token Generator offer a token. The account must be public.
+        // THREADS_USER_ID is not shown anywhere in the dashboard; read it from
+        // GET graph.threads.net/v1.0/me?fields=id,username.
         //
-        // Worth knowing when it does go on: Threads TAKES TEXT-ONLY POSTS, so
-        // unlike Instagram it is not conditional on the candidate having an
-        // image. That is why it is its own destination rather than another
-        // account inside the meta fan-out.
-        threads: false     // graph.threads.net POST /{user}/threads -> /threads_publish
+        // THE TOKEN EXPIRES. Unlike the Meta System User token above, a
+        // long-lived Threads token lasts 60 DAYS and must be refreshed at
+        // /refresh_access_token. Nothing refreshes it today, so posting will
+        // stop silently around 2026-10-08 unless it is renewed by hand or the
+        // Edge Function learns to refresh itself.
+        //
+        // Threads TAKES TEXT-ONLY POSTS, so unlike Instagram it is not
+        // conditional on the candidate having an image. That is why it is its
+        // own destination rather than another account inside the meta fan-out.
+        threads: true      // graph.threads.net POST /{user}/threads -> /threads_publish
       };
 
       // Platforms that can NEVER be posted to by machine, as distinct from ones
