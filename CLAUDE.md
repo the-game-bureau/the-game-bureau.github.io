@@ -91,6 +91,18 @@ Edit them at [claude.ai/code/routines](https://claude.ai/code/routines), or ask 
   - The prompt lives in a `<textarea>`, which is RCDATA: `<div>` survives as literal text, but `&` must be written `&amp;` or a raw `&middot;` in the email template is entity-decoded and whoever copies it gets a real `·`.
 - **The agent posts nothing and holds no account credentials.** A human clicks **Post** (opens the prefilled composers) or **Skip**. Don't ever wire this to a social API — the human-in-the-loop is the design, not a missing feature.
 
+### Posting: three accounts, two credentials, one that expires
+
+**Post** calls the [socials-post](mc/supabase/functions/socials-post/index.ts) Edge Function, which holds every token. The page holds none and never will — it is static HTML in a public repo, so a token in it is a published token. `PLATFORM_AUTOPOST` in [mc/socials/index.html](mc/socials/index.html) is only a flag saying whether the function can genuinely post there; flipping one on without its secret turns Post into a button that reports a failure the page could have predicted.
+
+- **Facebook and Instagram are one credential** — a single Page token, `META_PAGE_ACCESS_TOKEN`. Both ids are **derived from the token** rather than stored, because a mistyped numeric id doesn't error, it posts to the wrong place. A whole day was lost to the app and the Page sitting in different **business portfolios**, which no permission can bridge and which reports nothing: the post succeeds, returns a real id, and lands somewhere else. `tgbDiagnosePost()` in the console answers what the token actually points at; run it after any token change.
+- **Threads is a separate API, token and id** on `graph.threads.net` — a Page token cannot reach it. Getting the credential is a four-step errand where three steps are invisible: **Threads Tester** is its own app role (not the generic Tester), the invite is **accepted inside the phone app** with nothing in the dashboard prompting you, the account must be **public**, and `THREADS_USER_ID` is displayed nowhere — read it from `GET graph.threads.net/v1.0/me?fields=id,username`.
+- **THE THREADS TOKEN EXPIRES AFTER 60 DAYS and nothing else here does.** The Meta credential is a System User token that lasts forever, so no other secret on this project has ever needed renewing. Since an Edge Function cannot write its own secrets, a refreshed token has nowhere to go — which is why **`public.integration_tokens`** exists ([2026080905](mc/supabase/migrations/2026080905_integration_tokens.sql)): RLS on with **no policies**, so only the service role can touch it. `socials-post` seeds the row from `THREADS_ACCESS_TOKEN` on first use, then refreshes on any post within a week of expiry.
+  - **Once the row exists the secret is ignored.** Re-running `supabase secrets set THREADS_ACCESS_TOKEN=...` changes nothing; `delete from public.integration_tokens where key = 'threads';` first.
+  - **It refreshes on posting, not on a schedule**, so the token still dies if nobody posts for two months. If that ever happens, the fix is a cron — not more code in the function.
+  - Threads refuses to refresh a token under **24 hours old**, so a failed refresh is logged and never fatal; the post goes out on the token it has.
+- **`posted_platforms` is a receipt and must name the real account.** Its labels come from a lookup with no default, deliberately: it was a `facebook ? … : 'Instagram'` ternary from the two-platform era, which would have filed every Threads post as Instagram the day Threads went live.
+
 ---
 
 ## Nightly waypoints run — a fourth Claude Code routine

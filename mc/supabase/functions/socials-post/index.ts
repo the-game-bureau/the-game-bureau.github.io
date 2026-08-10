@@ -148,6 +148,129 @@ const THREADS_TOKEN = Deno.env.get('THREADS_ACCESS_TOKEN') ?? '';
 
 const supa = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
+// ── THE THREADS TOKEN EXPIRES, AND NOTHING ELSE HERE DOES ───────────────────
+// The Meta Page token is a System User token and lasts forever; Stripe's and
+// Resend's keys never rotate. A Threads token is long-lived, which means 60
+// DAYS. On day 61 Post fails, and the failure names an invalid token rather
+// than an expiry, so the obvious reading is that something was misconfigured
+// rather than that a clock ran out.
+//
+// Refreshing is a single GET that exchanges the current token for a new 60-day
+// one. The awkward part is not the call, it is where the answer goes: an Edge
+// Function cannot write its own secrets, so a refreshed token would be
+// discarded at the end of the request and the next call would refresh the same
+// dying token again. It is persisted to public.integration_tokens instead
+// (2026080905), which the service role can write and nothing else can read.
+//
+// THE SECRET SEEDS THE ROW AND IS THEN IGNORED. Once a row exists it wins, so
+// `supabase secrets set THREADS_ACCESS_TOKEN=...` alone will NOT take effect --
+// delete the row first:
+//   delete from public.integration_tokens where key = 'threads';
+//
+// TWO LIMITS OF THIS, BOTH DELIBERATE.
+//   - It refreshes on POSTING, not on a schedule. Nothing here runs unattended,
+//     so a token still dies if nobody posts for 60 days. That is the cheap
+//     version and it fits the actual usage: the socials bot files candidates
+//     twice a day and they get posted. If posting ever goes quiet for two
+//     months, the fix is a cron, not more code here.
+//   - Threads refuses to refresh a token less than 24 HOURS old. A freshly
+//     seeded token therefore cannot be refreshed on its first day, which is why
+//     a failed refresh is never fatal: it logs and carries on with the token it
+//     has, and the next post tries again.
+const THREADS_TOKEN_KEY = 'threads';
+// Refresh with a week in hand. Wide enough that a quiet fortnight cannot strand
+// it, narrow enough that a token is not being exchanged every single post.
+const THREADS_REFRESH_WITHIN_MS = 7 * 24 * 60 * 60 * 1000;
+// What a Threads long-lived token is worth when it is issued. Used only to
+// ESTIMATE the expiry of a token seeded from the secret, whose real issue date
+// nobody recorded. An overestimate is the safe direction: it refreshes a little
+// later than it might have, still weeks before the token actually dies.
+const THREADS_TOKEN_LIFETIME_MS = 60 * 24 * 60 * 60 * 1000;
+
+// Resolved once per cold start. Refreshing is idempotent but not free, and two
+// posts in one request must not exchange the token twice.
+let threadsTokenCache: string | null = null;
+
+async function readStoredThreadsToken(): Promise<{ token: string; expiresAt: number } | null> {
+  // A missing table is not an error. The migration may not have been applied on
+  // whichever project this is deployed to, and the honest fallback is exactly
+  // the behaviour that existed before this code: use the secret, do not refresh.
+  const { data, error } = await supa
+    .from('integration_tokens')
+    .select('token,expires_at')
+    .eq('key', THREADS_TOKEN_KEY)
+    .maybeSingle();
+  if (error || !data?.token) return null;
+  return {
+    token: String(data.token),
+    expiresAt: data.expires_at ? Date.parse(String(data.expires_at)) : 0,
+  };
+}
+
+async function storeThreadsToken(token: string, expiresAt: number): Promise<void> {
+  const { error } = await supa.from('integration_tokens').upsert({
+    key: THREADS_TOKEN_KEY,
+    token,
+    expires_at: new Date(expiresAt).toISOString(),
+    refreshed_at: new Date().toISOString(),
+  });
+  // Worth saying loudly: a token that refreshed but did not save means the same
+  // exchange runs again next time. It still posts, so it is not fatal.
+  if (error) console.error('threads: refreshed but could not store token:', error.message);
+}
+
+/** Exchange a long-lived token for a new one. Returns null if Threads refuses —
+ *  most often because the token is under 24 hours old, which is normal. */
+async function refreshThreadsToken(token: string): Promise<{ token: string; expiresAt: number } | null> {
+  try {
+    const qs = new URLSearchParams({ grant_type: 'th_refresh_token', access_token: token });
+    const res  = await fetch(`https://graph.threads.net/refresh_access_token?${qs}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.access_token) {
+      console.error('threads: refresh declined:', data?.error?.message || `HTTP ${res.status}`);
+      return null;
+    }
+    // expires_in is seconds. Trust it over the 60-day constant when given.
+    const ttl = Number(data.expires_in) > 0 ? Number(data.expires_in) * 1000 : THREADS_TOKEN_LIFETIME_MS;
+    return { token: String(data.access_token), expiresAt: Date.now() + ttl };
+  } catch (err) {
+    console.error('threads: refresh failed:', (err as Error).message);
+    return null;
+  }
+}
+
+/** The token to post with, refreshed if it is close to dying. Never throws for
+ *  a refresh problem — a token that could not be renewed today is still a token
+ *  that works today. */
+async function threadsToken(): Promise<string> {
+  if (threadsTokenCache) return threadsTokenCache;
+
+  const stored = await readStoredThreadsToken();
+  let token = stored?.token || THREADS_TOKEN;
+  let expiresAt = stored?.expiresAt ?? 0;
+
+  if (!token) return '';
+
+  if (!stored) {
+    // First run against this project: adopt the secret and give it an estimated
+    // expiry so the refresh has something to compare against. Without this the
+    // row would sit with a null expiry and never be judged due.
+    expiresAt = Date.now() + THREADS_TOKEN_LIFETIME_MS;
+    await storeThreadsToken(token, expiresAt);
+  }
+
+  if (expiresAt && expiresAt - Date.now() < THREADS_REFRESH_WITHIN_MS) {
+    const fresh = await refreshThreadsToken(token);
+    if (fresh) {
+      token = fresh.token;
+      await storeThreadsToken(fresh.token, fresh.expiresAt);
+    }
+  }
+
+  threadsTokenCache = token;
+  return token;
+}
+
 // ── Page id and Instagram user id are DERIVED from the token ────────────────
 // Both secrets are optional. A Page access token already knows which Page it is
 // for, and a Page that has an Instagram account linked to it in Business Suite
@@ -361,12 +484,12 @@ async function postInstagram(row: any): Promise<Outcome> {
 // it is created, and publishing early fails. Its status field is `status`
 // (IN_PROGRESS / FINISHED / ERROR) rather than Instagram's status_code, and it
 // carries error_message when it goes wrong.
-async function waitForThreadsContainer(containerId: string): Promise<void> {
+async function waitForThreadsContainer(containerId: string, token: string): Promise<void> {
   let last = '';
   for (let i = 0; i < IG_POLL_TRIES; i += 1) {
     const qs = new URLSearchParams({
       fields: 'status,error_message',
-      access_token: THREADS_TOKEN,
+      access_token: token,
     });
     const res  = await fetch(`${THREADS}/${containerId}?${qs}`);
     const data = await res.json().catch(() => ({}));
@@ -386,21 +509,35 @@ async function waitForThreadsContainer(containerId: string): Promise<void> {
 }
 
 async function postThreads(row: any): Promise<Outcome> {
-  if (!THREADS_USER || !THREADS_TOKEN) {
+  // Only the USER ID is checked against the secret. The token deliberately is
+  // not: once it has been seeded into integration_tokens it rotates there, and
+  // the secret is free to be stale or cleared without breaking posting. Testing
+  // the secret here would refuse a perfectly good stored token.
+  if (!THREADS_USER) {
     return {
       platform: 'threads',
       ok: false,
-      error: 'THREADS_USER_ID / THREADS_ACCESS_TOKEN are not set on this project. ' +
-             'Threads needs its own credential - a Page token cannot reach it.',
+      error: 'THREADS_USER_ID is not set on this project. Threads needs its own ' +
+             'credential - a Page token cannot reach it.',
     };
   }
   try {
+    // Not the secret directly: this is the stored token, refreshed if it is
+    // within a week of expiring. See threadsToken().
+    const token = await threadsToken();
+    if (!token) {
+      throw new Error(
+        'no Threads token available: THREADS_ACCESS_TOKEN is unset and nothing is ' +
+        'stored in integration_tokens.'
+      );
+    }
+
     const image = String(row.image ?? '').trim();
     const create: Record<string, string> = {
       // Text-only is legal here, which is the difference from Instagram.
       media_type: image ? 'IMAGE' : 'TEXT',
       text: captionFor(row),
-      access_token: THREADS_TOKEN,
+      access_token: token,
     };
     if (image) create.image_url = image;
 
@@ -410,11 +547,11 @@ async function postThreads(row: any): Promise<Outcome> {
     if (!res.ok) throw new Error(container?.error?.message || `HTTP ${res.status}`);
     if (!container?.id) throw new Error('no container id returned');
 
-    await waitForThreadsContainer(String(container.id));
+    await waitForThreadsContainer(String(container.id), token);
 
     const pubBody = new URLSearchParams({
       creation_id: String(container.id),
-      access_token: THREADS_TOKEN,
+      access_token: token,
     });
     const pubRes = await fetch(`${THREADS}/${THREADS_USER}/threads_publish`, { method: 'POST', body: pubBody });
     const out = await pubRes.json().catch(() => ({}));
@@ -502,7 +639,17 @@ Deno.serve(async (req: Request) => {
   // The row is stamped here, by the service role, so the receipt cannot
   // disagree with what actually happened -- the client never decides this.
   if (posted.length) {
-    const labels = posted.map((p) => (p === 'facebook' ? 'Facebook' : 'Instagram'));
+    // A LOOKUP, NOT A TERNARY. This was `p === 'facebook' ? 'Facebook' :
+    // 'Instagram'` back when those were the only two, so the day Threads went
+    // live every Threads post would have been filed on the row as Instagram --
+    // a receipt that names the wrong account, which is the one kind of wrong
+    // this table cannot survive being. A map has no default to be wrong.
+    const PLATFORM_LABEL: Record<string, string> = {
+      facebook:  'Facebook',
+      instagram: 'Instagram',
+      threads:   'Threads',
+    };
+    const labels = posted.map((p) => PLATFORM_LABEL[p] ?? p);
     const existing: string[] = Array.isArray(row.posted_platforms) ? row.posted_platforms : [];
     const merged = Array.from(new Set([...existing, ...labels]));
     const { error: upErr } = await supa
