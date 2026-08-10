@@ -589,6 +589,28 @@
     .btn.danger:hover { background: rgba(194, 55, 55, 0.08); }
     .btn.small { min-height: 34px; padding: 0 11px; font-size: 0.66rem; }
 
+    /* ADD and VIEW share a line. ADD takes the space; VIEW is only as wide as
+       its three links. .command-bar centres itself and caps at the shell width,
+       which is right for a room with one bar sitting alone - so both are
+       cleared HERE rather than in that rule, which still serves those rooms.
+       Left in place, width:100% makes both panels demand the full row, and they
+       overlap. (Same pattern as the Green Room's ADD + SORT row.) */
+    .bar-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      width: 100%;
+      max-width: var(--mc-shell-width);
+      margin: 0 auto var(--stack-gap);
+    }
+    .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
+    .bar-row .command-bar:first-child { flex: 1 1 auto; min-width: 0; }
+    .command-bar--view { flex: 0 0 auto; }
+    @media (max-width: 620px) {
+      .bar-row { flex-wrap: wrap; }
+      .bar-row .command-bar:first-child { flex: 1 1 100%; }
+    }
+
     .command-bar {
       width: 100%;
       max-width: var(--mc-shell-width);
@@ -1048,14 +1070,25 @@
       </div>
     </div>
 
-    <fieldset class="command-bar">
-      <legend>Add</legend>
-      <div class="command-bar-inner">
-        <button class="btn" id="manualPostBtn" type="button">MANUAL</button>
-        <button class="btn" id="promptBtn" type="button">PROMPT</button>
-        <a class="btn" id="socialBotBtn" href="https://claude.ai/code/routines/trig_01KDYndJhZ9ymgUgX5Xx6LsL" target="_blank" rel="noopener noreferrer" title="Open the TGB SOCIAL BOT routine">TGB SOCIAL BOT</a>
-      </div>
-    </fieldset>
+    <div class="bar-row">
+      <fieldset class="command-bar">
+        <legend>Add</legend>
+        <div class="command-bar-inner">
+          <button class="btn" id="manualPostBtn" type="button">MANUAL</button>
+          <button class="btn" id="promptBtn" type="button">PROMPT</button>
+          <a class="btn" id="socialBotBtn" href="https://claude.ai/code/routines/trig_01KDYndJhZ9ymgUgX5Xx6LsL" target="_blank" rel="noopener noreferrer" title="Open the TGB SOCIAL BOT routine">TGB SOCIAL BOT</a>
+        </div>
+      </fieldset>
+
+      <!-- Where a post ENDS UP, as against where it comes from. Filled from
+           PLATFORM_URLS so the accounts are named once on this page: a second
+           hand-typed copy in the markup is how a renamed handle ends up linked
+           correctly in one place and wrongly in another. -->
+      <fieldset class="command-bar command-bar--view">
+        <legend>View</legend>
+        <div class="command-bar-inner" id="viewLinks"></div>
+      </fieldset>
+    </div>
 
     <div class="prompt-layout">
       <div class="prompt-main">
@@ -2791,6 +2824,40 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         threads: 'https://www.threads.com/@thegamebureau'
       };
 
+      // ── The VIEW bar ──────────────────────────────────────────────────────
+      // Three links to the accounts themselves, beside the bar that fills the
+      // queue: one side is where candidates come FROM, the other is where a
+      // posted one ended UP. Checking that a post actually appeared is the step
+      // after every click, and it was a trip through a bookmark or a search.
+      //
+      // Ordered the way the Post button names them -- Facebook, Instagram,
+      // Threads -- so the row on screen and the row in the button agree.
+      // Built from PLATFORM_URLS rather than written into the markup: the
+      // handles are named once on this page, so a rename cannot land in one
+      // copy and miss the other.
+      var VIEW_ORDER = ['facebook', 'instagram', 'threads'];
+
+      function buildViewLinks() {
+        var host = document.getElementById('viewLinks');
+        if (!host) return;
+        host.textContent = '';
+        VIEW_ORDER.forEach(function (key) {
+          var url = PLATFORM_URLS[key];
+          if (!url) return;
+          var a = document.createElement('a');
+          a.className = 'btn';
+          a.href = url;
+          a.target = '_blank';
+          // noopener is not optional on a target=_blank link: without it the
+          // opened tab gets a handle on this one through window.opener.
+          a.rel = 'noopener noreferrer';
+          a.textContent = (WIRE_LABELS[key] || key).toUpperCase();
+          a.title = 'Open ' + (WIRE_LABELS[key] || key) + ' — ' +
+                    url.replace(/^https?:\/\/(www\.)?/, '');
+          host.appendChild(a);
+        });
+      }
+
       // Topics first (what the story is), then the platform recommendations
       // (what to do about it). Renders nothing at all if a post carries neither,
       // so a hand-written entry without tags still looks deliberate.
@@ -3384,6 +3451,9 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var detail = event && event.detail;
         setAdminAuthToggleState(!!(detail && detail.signedIn));
       });
+
+      // Static links, so they are built once here rather than on every render.
+      buildViewLinks();
 
       // REQUIRED. create() only builds the controller — init() is what checks
       // for a stored session, shows the sign-in modal, and adds
