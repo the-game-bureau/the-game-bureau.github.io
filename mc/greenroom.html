@@ -586,6 +586,15 @@
     .btn.primary:hover { background: #24396a; }
     .btn.danger { border-color: rgba(194, 55, 55, 0.42); color: var(--bic-red); }
     .btn.danger:hover { background: rgba(194, 55, 55, 0.08); }
+    /* Filled red, for the button that AGREES to something irreversible — the
+       confirm dialog's Delete. .danger is the outlined version, worn by a
+       button that merely leads to that question; this is the one that answers
+       it. It carries .primary too, so it must beat .btn.primary: same
+       specificity, so it wins by coming later in the sheet. Keep it below. */
+    .btn.danger-solid,
+    .btn.primary.danger-solid { border-color: var(--bic-red); background: var(--bic-red); color: #fff; }
+    .btn.danger-solid:hover,
+    .btn.primary.danger-solid:hover { background: #a92c2c; border-color: #a92c2c; }
     .btn.small { min-height: 34px; padding: 0 11px; font-size: 0.66rem; }
 
     .command-bar {
@@ -670,37 +679,78 @@
     .admin-auth-toggle { min-height: 42px; padding-inline: 14px; white-space: nowrap; }
     .admin-auth-toggle.is-signed-in { border-color: rgba(194, 55, 55, 0.44); color: var(--bic-red); }
 
-    /* ── Paste-ready prompt ───────────────────────────────────────────────── */
-    .prompt-meta {
+    /* ── The prompt popup ─────────────────────────────────────────────────────
+       Three bands in one column: a head that names the prompt, a body that
+       holds the ruled sheet, and a foot whose whole job is COPY.
+
+       COPY LIVES IN THE FOOT AND NEVER SCROLLS. The thing you came here to do
+       is take the text away, and the text is sixty lines long — a copy button
+       riding at the top of a scrolling panel is one you have to go back and
+       find. It is the only button with weight on the screen for the same
+       reason.
+
+       It wears the room's paper, not a modal's flat white, so the popup reads
+       as a sheet pulled onto the desk rather than a different application.
+       The 8px red stripe above the help line is gone: that came from .explain,
+       the page's callout style, and in here it marked nothing. */
+    #promptCard {
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--line);
-      background: var(--panel-soft);
+      flex-direction: column;
+      height: min(880px, calc(100vh - 48px));
+      overflow: hidden;
+      background: var(--paper-base);
     }
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      min-height: 28px;
-      padding: 0 10px;
-      border: 1px solid rgba(var(--bic-blue-rgb), 0.22);
-      border-radius: 999px;
-      background: #fff;
-      color: var(--ink);
+    /* An ID beats .tool-modal-panel[hidden], so the shared hide rule stops
+       working the moment a panel is styled by its own id — the dialog paints
+       display:flex over the top of it and Close does nothing. Any future
+       #id rule that sets display needs its own [hidden] beside it. */
+    #promptCard[hidden] { display: none; }
+    .prompt-head { align-items: flex-start; }
+    .prompt-headline { display: grid; gap: 4px; min-width: 0; }
+    .prompt-eyebrow {
       font-family: "IBM Plex Mono", monospace;
-      font-size: 0.74rem;
+      font-size: 0.58rem;
       font-weight: 800;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
+      color: var(--muted);
     }
+    #promptTitle {
+      font-size: 1.02rem;
+      letter-spacing: 0.03em;
+      text-transform: none;
+    }
+
+    .prompt-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 0;
+      padding: 14px 16px 16px;
+      overflow: hidden;
+    }
+    /* Not .explain — see the note above. Plain type under the title. */
+    .prompt-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+    .prompt-note:empty { display: none; }
+
+    /* The ruled sheet. The rules are every 28px with a red margin at 56px, so
+       the type is locked to a 28px leading and starts to the right of the
+       margin — set at anything else, no line sits on a rule and every line
+       crosses the margin. */
     .prompt {
       display: block;
+      flex: 1 1 auto;
       width: 100%;
-      min-height: 52vh;
-      padding: 18px 20px 22px;
-      border: 0;
-      resize: vertical;
+      min-height: 220px;
+      padding: 13px 18px 18px 72px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      resize: none;
       background:
         linear-gradient(rgba(var(--bic-blue-rgb), 0.075) 1px, transparent 1px),
         linear-gradient(90deg, rgba(194, 55, 55, 0.26) 1px, transparent 1px),
@@ -709,21 +759,74 @@
       background-size: 100% 28px, 100% 100%, 100% 100%;
       color: #17253c;
       font-family: "IBM Plex Mono", monospace;
-      font-size: 0.9rem;
-      line-height: 1.55;
+      font-size: 0.88rem;
+      line-height: 28px;
       outline: none;
       white-space: pre-wrap;
+      box-shadow: inset 0 1px 2px rgba(var(--bic-blue-rgb), 0.06);
     }
-    .prompt:focus { box-shadow: inset 0 0 0 2px rgba(var(--bic-blue-rgb), 0.22); }
+    .prompt:focus { border-color: rgba(var(--bic-blue-rgb), 0.45); }
+
+    .prompt-foot {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 12px;
+      flex: 0 0 auto;
+      padding: 12px 16px 14px;
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.8);
+    }
+    /* One control with four doors, fenced off so the four do not read as four
+       more buttons standing equal to COPY. */
+    .prompt-ai {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 10px 5px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.04);
+    }
+    .prompt-ai-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .prompt-ai .btn { background: #fff; }
+    /* An <a> wearing .btn — it navigates, so it stays an anchor and keeps
+       middle-click and open-in-new-tab. Secondary weight beside COPY: it is
+       where you go after copying, not the thing you came to do. */
+    .prompt-sql-btn { gap: 8px; }
+    /* .btn is inline-flex, which outranks the [hidden] default — the same trap
+       #promptCard fell into. It is hidden on the portrait prompt, whose answer
+       is a picture, not a statement. */
+    .prompt-sql-btn[hidden] { display: none; }
+    .prompt-sql-btn svg { width: 14px; height: 14px; flex: 0 0 auto; opacity: .75; }
+    /* The hinge. It sits first and takes all the slack, so the three steps
+       land as one block at the right in the order they are done. */
     .copy-status {
-      min-width: 72px;
+      margin-right: auto;
       font-family: "IBM Plex Mono", monospace;
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       font-weight: 800;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: var(--success);
-      text-align: right;
+      color: var(--muted);
+    }
+    .prompt-copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 42px;
+      padding: 0 20px;
+    }
+    .prompt-copy svg { width: 15px; height: 15px; flex: 0 0 auto; }
+    /* Green only while the confirmation is on screen; the button goes back to
+       being the ordinary primary a moment later, so it never reads as a state
+       the dialog is stuck in. */
+    .prompt-copy.is-done,
+    .prompt-copy.is-done:hover {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
     }
 
     /* ── Sidebar ──────────────────────────────────────────────────────────── */
@@ -985,8 +1088,17 @@
 
     @media (max-width: 840px) {
       .panel-head { align-items: flex-start; flex-direction: column; }
-      .copy-status { text-align: left; }
-      .prompt { min-height: 60vh; padding: 14px 14px 18px; font-size: 0.82rem; }
+      /* The left padding stays at the red margin — it is what keeps the type
+         off the rule, and a narrow screen does not move the rule. */
+      .prompt { min-height: 180px; padding: 13px 12px 16px 68px; font-size: 0.8rem; }
+      #promptCard { height: calc(100vh - 32px); }
+      .prompt-copy { flex: 1 1 auto; justify-content: center; }
+      /* The three steps stack rather than half-wrapping into two ragged rows,
+         and each one still spans the foot so the order stays readable. */
+      .prompt-ai { width: 100%; }
+      .prompt-ai-row { flex: 1 1 auto; }
+      .prompt-ai-row .btn { flex: 1 1 auto; }
+      .prompt-sql-btn { flex: 1 1 auto; }
       .post-actions .btn { flex: 1 1 auto; }
       .post-edit-btn { margin-left: 0; }
       .command-bar .btn { flex: 1 1 auto; }
@@ -1025,6 +1137,15 @@
         linear-gradient(90deg, rgba(190, 55, 55, .28) 0 1px, transparent 1px 100%),
         #fffef8;
       box-shadow: 0 1px 0 rgba(var(--bic-blue-rgb), .10), 0 6px 14px rgba(var(--bic-blue-rgb), .06);
+    }
+    /* Arrived here from a ?guide= link. A ring rather than a colour change, so
+       nothing on the card itself reads differently for four seconds, and it
+       fades out because "this is the one you asked for" stops being true as
+       soon as you start working. */
+    .guide-card.is-linked {
+      border-color: var(--bic-blue);
+      box-shadow: 0 0 0 3px rgba(var(--bic-blue-rgb), .22), 0 6px 14px rgba(var(--bic-blue-rgb), .10);
+      transition: box-shadow 600ms ease, border-color 600ms ease;
     }
     @media (max-width: 620px) {
       .guide-card { grid-template-columns: minmax(0, 1fr); }
@@ -1180,28 +1301,56 @@
       text-transform: uppercase;
       margin-right: auto;
     }
+    /* The same word in the same place, green instead of red. It clears itself
+       after a few seconds: UNSAVED is a state that persists until you act,
+       SAVED is an event, and a permanent one would soon be describing a card
+       nobody has touched since the page loaded. */
+    .gsave-note.is-saved { color: var(--success); }
 
-    /* The prompt box is drawn as ruled paper - horizontal rules every 28px and
-       a red margin at 56px - but the type was set at line-height 1.55, about
-       22px, so no line ever sat on a rule and every line crossed the margin.
-       Locking the leading to the ruling and starting the text to the right of
-       the margin is the whole fix; the paper was fine, the type was not. */
-    .prompt {
-      line-height: 28px;
-      padding: 13px 20px 22px 72px;
+    /* The controls above the sheet: HOW MANY, then NOTES taking the rest of
+       the line. .label-opt is a text style, not a layout, so without the grid
+       here the label and the box sit squeezed side by side. The body supplies
+       the gutter, so neither carries padding of its own. */
+    .prompt-controls {
+      display: flex;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 14px;
+      flex: 0 0 auto;
     }
-
-    /* The notes row above it. .label-opt is a text style, not a layout, so
-       without this the label and the box sat squeezed side by side over the
-       top of the prompt. (This rule existed once and was swept away with the
-       card stylesheet - it lives here now, next to the box it belongs to.) */
-    #promptNotesWrap {
-      display: grid;
-      gap: 6px;
-      padding: 0 20px 12px;
+    .prompt-controls[hidden] { display: none; }
+    .prompt-count { display: grid; gap: 6px; flex: 0 0 auto; }
+    /* Sits on the control line rather than above it — it has no label of its
+       own, its words are the label. */
+    .prompt-check {
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
+      min-height: 34px;
       margin: 0;
       opacity: 1;
     }
+    .prompt-check[hidden] { display: none; }
+    .prompt-check span {
+      cursor: pointer;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .62rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .prompt-check:hover span { color: var(--ink); }
+    #promptNotesWrap {
+      display: grid;
+      gap: 6px;
+      flex: 1 1 240px;
+      min-width: 0;
+      padding: 0;
+      margin: 0;
+      opacity: 1;
+    }
+    #promptNotesWrap[hidden] { display: none; }
+    .prompt-ctl-label,
     #promptNotesWrap > span {
       font-family: 'IBM Plex Mono', monospace;
       font-size: .62rem;
@@ -1209,9 +1358,43 @@
       color: var(--muted);
       opacity: .9;
     }
+
+    /* One inset track with the answer in force raised out of it. */
+    .seg {
+      display: inline-flex;
+      gap: 2px;
+      padding: 3px;
+      border: 1px solid var(--control-line);
+      border-radius: 8px;
+      background: #f8fbff;
+      box-shadow: inset 0 1px 1px rgba(var(--bic-blue-rgb), 0.06);
+    }
+    .seg-btn {
+      min-width: 46px;
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      background: none;
+      cursor: pointer;
+      color: rgba(var(--bic-blue-rgb), 0.86);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+    }
+    .seg-btn:hover { color: var(--ink); }
+    .seg-btn.is-on {
+      color: #fff;
+      border-color: var(--bic-blue);
+      background: var(--bic-blue);
+      box-shadow: 0 1px 2px rgba(var(--bic-blue-rgb), 0.18);
+    }
     #promptNotes {
       width: 100%;
-      padding: 10px 12px;
+      min-height: 34px;
+      padding: 8px 12px;
       border: 1px solid var(--line);
       border-radius: 3px;
       background: #fff;
@@ -1260,7 +1443,11 @@
        to a column - so both are cleared and flex does the sizing instead. */
     .bar-row .command-bar { width: auto; max-width: none; margin: 0; }
     .bar-row .command-bar:first-child { flex: 1 1 auto; min-width: 0; }
-    .command-bar--sort { flex: 0 0 auto; }
+    .command-bar--sort,
+    .command-bar--portraits { flex: 0 0 auto; }
+    /* Nothing to draw means no button — the room is finished, and a control
+       that opens an empty prompt is a control that reads as broken. */
+    .command-bar--portraits[hidden] { display: none; }
     /* The order in force reads as the pressed button. */
     .command-bar--sort .btn.is-on {
       background: var(--bic-blue);
@@ -1361,10 +1548,25 @@
         </div>
       </fieldset>
 
+      <!-- The room-wide portrait errand. Per-card Image Prompt is for the guide
+           you are looking at; this is for the wall of NO PORTRAIT cards, which
+           is a different job done once. It carries its own count because the
+           count is the whole reason to press it. -->
+      <fieldset class="command-bar command-bar--portraits">
+        <legend>Portraits</legend>
+        <div class="command-bar-inner">
+          <button class="btn" id="missingArtBtn" type="button"
+                  title="One prompt that draws a portrait for every guide that has none">MISSING</button>
+        </div>
+      </fieldset>
+
       <fieldset class="command-bar command-bar--sort">
         <legend>Sort</legend>
         <div class="command-bar-inner">
-          <button class="btn" id="sortAzBtn" type="button" title="By name, A to Z">A–Z</button>
+          <!-- The label names the KEY, not the direction: this sort leads on
+               city, and a button saying A–Z over a list ordered by hometown is
+               the control contradicting the list. -->
+          <button class="btn" id="sortAzBtn" type="button" title="By city, then last name, then first name">CITY</button>
           <button class="btn" id="sortNewBtn" type="button" title="Most recently added first">NEWEST</button>
         </div>
       </fieldset>
@@ -1446,28 +1648,123 @@
     </div>
   </section>
 
+  <!-- ── The prompt sheet. The eyebrow says which of the two prompts this is;
+       the chips that used to sit under the head ("public.guides", "writes
+       nothing itself") are gone — they described the plumbing to someone who
+       had come here to copy some text. ── -->
   <div class="tool-backdrop" id="promptBackdrop" hidden></div>
   <section class="prompt-panel tool-modal-panel tool-modal-panel--wide" id="promptCard"
            role="dialog" aria-modal="true" aria-labelledby="promptTitle" hidden>
-    <div class="panel-head">
-      <h2 class="panel-title" id="promptTitle">Paste-Ready Prompt</h2>
+    <div class="panel-head prompt-head">
+      <div class="prompt-headline">
+        <span class="prompt-eyebrow" id="promptKind">Paste-ready prompt</span>
+        <h2 class="panel-title" id="promptTitle">Paste-Ready Prompt</h2>
+      </div>
       <span class="panel-head-actions">
-        <span class="copy-status" id="copyStatus" aria-live="polite"></span>
-        <button class="btn small primary" id="copyPromptBtn" type="button">Copy Prompt</button>
         <button class="btn small" data-prompt-close type="button">Close</button>
       </span>
     </div>
-    <div class="prompt-meta" id="promptChips" aria-hidden="true"></div>
-    <p class="explain" id="promptHelp"></p>
-    <!-- NOTES. The prompt for a guide that does not exist yet has nothing to
-         go on, so this is where you tell it: the hometown, the fandom, the
-         kind of voice you want. It folds into the brief as you type. -->
-    <label class="label-opt" id="promptNotesWrap">
-      <span>NOTES FOR THE AI</span>
-      <input type="text" id="promptNotes" autocomplete="off"
-             placeholder="Hometown: Buffalo. Fandom: Bills. A snowplough driver who has seen it all.">
-    </label>
-    <textarea class="prompt" id="promptText" readonly spellcheck="false" rows="18"></textarea>
+
+    <div class="prompt-body">
+      <p class="prompt-note" id="promptHelp"></p>
+      <!-- The two things you say before copying, on one line. Both belong to
+           a guide that does not exist yet, so the whole row goes away when the
+           prompt is about a guide already on a card. -->
+      <div class="prompt-controls" id="promptControls">
+        <!-- HOW MANY is a segmented control, not a number box: three real
+             answers, and the one in force is readable without opening
+             anything - the same reason SORT is two buttons. -->
+        <div class="prompt-count">
+          <span class="prompt-ctl-label">HOW MANY</span>
+          <div class="seg" role="group" aria-label="How many guides to ask for">
+            <button class="seg-btn" type="button" data-count="1">1</button>
+            <button class="seg-btn" type="button" data-count="5">5</button>
+            <button class="seg-btn" type="button" data-count="10">10</button>
+          </div>
+        </div>
+        <!-- The roster always goes in as a do-not-repeat list of NAMES. This
+             is the separate, stronger call about PLACES: a catalogue full of
+             Chicago is a real risk, but so is refusing the second guide from
+             a city big enough for two. It is a switch because that judgement
+             changes with what you are asking for. -->
+        <label class="label-opt label-check prompt-check" id="promptAvoidWrap">
+          <span>
+            <input type="checkbox" id="promptAvoidHometowns" checked>
+            Avoid hometowns we already use
+          </span>
+        </label>
+        <!-- Character and portrait in one errand. Off by default: it only
+             works in an AI that can draw (not Claude), and it changes the
+             answer from one block of SQL into SQL plus a stack of images. -->
+        <label class="label-opt label-check prompt-check" id="promptDrawWrap">
+          <span>
+            <input type="checkbox" id="promptDrawImages">
+            Draw the portraits too
+          </span>
+        </label>
+        <!-- NOTES. The prompt for a guide that does not exist yet has nothing
+             to go on, so this is where you tell it: the hometown, the fandom,
+             the kind of voice you want. It folds into the brief as you type. -->
+        <label class="label-opt" id="promptNotesWrap">
+          <span>NOTES FOR THE AI</span>
+          <input type="text" id="promptNotes" autocomplete="off"
+                 placeholder="Hometown: Buffalo. Fandom: Bills. A snowplough driver who has seen it all.">
+        </label>
+      </div>
+      <textarea class="prompt" id="promptText" readonly spellcheck="false"></textarea>
+    </div>
+
+    <!-- THE FOOT IS THE JOB IN ORDER: copy it, paste it into an AI, run what
+         comes back. Left to right is the sequence, and the weight says which
+         step you are on — COPY is the only primary. -->
+    <div class="prompt-foot">
+      <!-- First in the DOM and carrying the auto margin, so it holds the left
+           end and pushes the three steps into a block at the right. It is
+           empty almost always; the margin is what does the work. -->
+      <span class="copy-status" id="copyStatus" aria-live="polite"></span>
+
+      <button class="btn primary prompt-copy" id="copyPromptBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="9" width="12" height="12" rx="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span id="copyPromptLabel">Copy prompt</span>
+      </button>
+
+      <!-- Three doors to the same step, so they are grouped as one control
+           rather than strung out as three peers of Copy. They open a BLANK
+           chat: none of them takes a sixty-line prompt through a query string
+           reliably, and the prompt is on the clipboard already — a
+           half-truncated pre-fill would be worse than an empty box.
+
+           CLAUDE IS NOT ONE OF THEM, and that is deliberate: it cannot
+           generate images, so it is a dead end for the portrait prompts and
+           for a brief with "Draw the portraits too" ticked. Every door here
+           has to finish the errand it is offered for. -->
+      <div class="prompt-ai" role="group" aria-label="Open an AI to paste into">
+        <span class="prompt-ctl-label">PASTE INTO</span>
+        <span class="prompt-ai-row">
+          <a class="btn small" target="_blank" rel="noopener" href="https://chatgpt.com/">ChatGPT</a>
+          <a class="btn small" target="_blank" rel="noopener" href="https://grok.com/">Grok</a>
+          <a class="btn small" target="_blank" rel="noopener" href="https://gemini.google.com/app">Gemini</a>
+        </span>
+      </div>
+
+      <!-- Where the answer goes. The prompt's deliverable is SQL, so the last
+           step is a tab this page can hand you rather than one you go and
+           find. -->
+      <a class="btn prompt-sql-btn" id="sqlEditorLink" target="_blank" rel="noopener"
+         href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/new">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 3h7v7"></path>
+          <path d="M21 3l-9 9"></path>
+          <path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
+        </svg>
+        <span>SQL editor</span>
+      </a>
+    </div>
   </section>
 
   <script src="/mc/js/admin-auth.js"></script>
@@ -1511,8 +1808,14 @@
       editingId: null,      // null while the form is adding rather than editing
       busy: false,
       dirty: new Set(),     // guide ids with unsaved boxes on their card
-      sort: 'az',           // 'az' | 'newest'
-      promptNotes: ''       // what the PROMPT box was told about the guide to invent
+      // NEWEST FIRST BY DEFAULT. The room is worked at the front - a guide you
+      // just added is the one you are still writing, and it used to open on
+      // the far end of an alphabet from it.
+      sort: 'newest',       // 'newest' | 'az' (az = city, then last name)
+      promptNotes: '',      // what the PROMPT box was told about the guide to invent
+      promptCount: 1,       // how many guides that prompt asks for: 1, 5 or 10
+      promptAvoidHometowns: true,  // keep the new ones away from the hometowns already in use
+      promptDrawImages: false      // ask the same AI for the portraits after the SQL
     };
 
     const el = (id) => document.getElementById(id);
@@ -1590,6 +1893,43 @@
 
     // --- loading --------------------------------------------------------------
 
+    // ?guide=<id> — a deep link into one character's card, used by the guide
+    // picker in Game Profiles. It SCROLLS AND MARKS, it does not filter: you
+    // arrived to edit one guide, but the roster around it is the reason this
+    // room shows every card at once, and a filtered room would hide the very
+    // thing you would compare against.
+    //
+    // Fires once. Reloading the list later - after a save, an upload, a delete
+    // - must not yank the page back to whatever the URL said when it opened.
+    let jumpedToRequestedGuide = false;
+
+    function requestedGuideId() {
+      try {
+        return String(new URLSearchParams(location.search).get('guide') || '').trim();
+      } catch (e) { return ''; }
+    }
+
+    function jumpToRequestedGuide() {
+      if (jumpedToRequestedGuide) return;
+      const want = requestedGuideId();
+      if (!want) { jumpedToRequestedGuide = true; return; }
+      const card = guideList.querySelector('[data-guide-id="' + cssEscape(want) + '"]');
+      if (!card) {
+        // The list is loaded and the guide is not in it - deleted next door, or
+        // a hand-typed id. Say so rather than leaving the page looking normal
+        // while silently ignoring the URL.
+        setStatus('Guide #' + want + ' is not in this room.', 'error');
+        jumpedToRequestedGuide = true;
+        return;
+      }
+      jumpedToRequestedGuide = true;
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.add('is-linked');
+      // The mark fades on its own: it says "this is the one you asked for",
+      // which stops being true the moment you start working in the room.
+      setTimeout(() => card.classList.remove('is-linked'), 4000);
+    }
+
     async function refresh() {
       try {
         await ensureFreshSession();
@@ -1603,6 +1943,7 @@
         state.guides = Array.isArray(rows) ? rows : [];
         render();
         setStatus('');
+        jumpToRequestedGuide();
       } catch (error) {
         console.error(error);
         const msg = (error && error.message) || 'Load failed.';
@@ -1627,15 +1968,49 @@
     // scroll, not a search problem, and a box that hides rows is a way to edit
     // a guide while looking at a list that does not contain it - and the
     // archived flag went the same day. Every guide in the table is on screen.
+    // A NAME SPLIT THE WAY A ROSTER IS FILED: last name to sort on, the rest
+    // as the tiebreak. Quoted nicknames come out first - Bernice "Birdie"
+    // LaFleur files under LaFleur, and Hector "El Martillo" Valenzuela under
+    // Valenzuela, where taking the last word of the raw string would file one
+    // of them under a nickname. A single-word name (Mission Control, Sir Purr,
+    // The Wagonmaster) is left whole: it has no surname to find, and guessing
+    // one would file The Wagonmaster under W.
+    function guideNameParts(guide) {
+      const raw = cleanText(guide && guide.name)
+        .replace(/[“”"'’][^“”"'’]*[“”"'’]/g, ' ')   // drop "Birdie", 'El Martillo'
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (!raw) return { last: '', first: '' };
+      const words = raw.split(' ');
+      if (words.length === 1) return { last: words[0], first: '' };
+      return { last: words[words.length - 1], first: words.slice(0, -1).join(' ') };
+    }
+
+    const byText = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { sensitivity: 'base' });
+
     function visibleGuides() {
       const rows = state.guides.slice();
-      if (state.sort === 'newest') {
+      if (state.sort === 'az') {
+        // CITY, then last name, then first: the room is read city by city -
+        // it is how a guide is cast, and how the picker in Game Profiles is
+        // ordered - and within a city a roster files by surname.
+        rows.sort((a, b) => {
+          const townA = cleanText(a.hometown);
+          const townB = cleanText(b.hometown);
+          // Unplaced guides sink rather than sorting under the empty string at
+          // the top, where the list would look like it starts broken.
+          if (!townA !== !townB) return townA ? -1 : 1;
+          const byTown = byText(townA, townB);
+          if (byTown) return byTown;
+          const nameA = guideNameParts(a);
+          const nameB = guideNameParts(b);
+          return byText(nameA.last, nameB.last) || byText(nameA.first, nameB.first);
+        });
+      } else {
         // Newest FIRST, by id rather than created_at: the id is assigned in
         // order and can never be null, while created_at is a timestamp two
         // rows written in the same second would tie on.
         rows.sort((a, b) => Number(b.id) - Number(a.id));
-      } else {
-        rows.sort((a, b) => cleanText(a.name).localeCompare(cleanText(b.name), undefined, { sensitivity: 'base' }));
       }
       return rows;
     }
@@ -1649,6 +2024,10 @@
 
     function render() {
       guideList.innerHTML = '';
+      // Every path that changes the guides ends here — a load, a save, an
+      // upload, a delete — so the portrait count is repainted here rather than
+      // at four call sites that would drift apart.
+      paintMissingArt();
       if (!state.authed) {
         guideList.appendChild(emptyNode('Sign in with an admin account to work on the guides.'));
         setStatus('');
@@ -1663,13 +2042,6 @@
         return;
       }
       rows.forEach((g) => guideList.appendChild(renderGuideCard(g)));
-    }
-
-    function chip(text) {
-      const s = document.createElement('span');
-      s.className = 'chip';
-      s.textContent = text;
-      return s;
     }
 
     function mkBtn(text, title, onClick, cls) {
@@ -1758,18 +2130,24 @@
       const save = mkBtn('Save', 'Write these fields back', () => saveCard(guide.id), 'primary');
       save.dataset.action = 'save';
       save.disabled = !state.dirty.has(String(guide.id));
+      // Delete sits between Fill and Save, red, and it is the one button on
+      // the card that cannot be undone: it takes the character AND leaves
+      // every game that used it without a guide, a number this room
+      // deliberately cannot show. Hence the confirmation it always asks for.
       const note = document.createElement('span');
       note.className = 'gsave-note';
       note.dataset.role = 'dirty-note';
-      note.textContent = state.dirty.has(String(guide.id)) ? 'unsaved' : '';
-      // DELETE FAR LEFT, on its own, away from the two you press all day - the
-      // one irreversible button on the card should not sit where a hand lands
-      // after Save. The note carries margin-right:auto, so everything after it
-      // is pushed to the right edge: Fill, then Save under your thumb.
+      // Built from the same reading as every later repaint, so a card that is
+      // rebuilt mid-flash comes back still saying it.
+      const shown = cardNote(String(guide.id));
+      note.textContent = shown.text;
+      note.classList.toggle('is-saved', shown.saved);
+      // The note carries margin-right:auto, so everything after it is pushed
+      // to the right edge: Fill, then Save under your thumb.
       actions.append(
-        mkBtn('Delete', 'Remove this guide for good', () => deleteGuide(guide.id), 'warn'),
         note,
         mkBtn('Fill', 'Fill the empty boxes from what the filled ones already say', () => fillCard(guide.id)),
+        mkBtn('Delete', 'Remove this guide for good', () => deleteGuide(guide.id), 'warn'),
         save
       );
       body.appendChild(actions);
@@ -1798,16 +2176,62 @@
       const d = draftOf(guide);
       return CARD_FIELDS.some((f) => d[f] !== cleanText(guide[f]));
     }
+
+    // SAVED IS SAID WHERE UNSAVED IS SAID. One slot on the card answers "is
+    // this written down?", so the yes and the no share it - a confirmation
+    // somewhere else on the screen is a second place to look for one fact.
+    //
+    // It has to outlive a render(), because saving and uploading both rebuild
+    // the card: hence a map consulted while the note is being built, rather
+    // than a class dropped onto a node that is about to be thrown away.
+    // Guide id -> the timer that clears it.
+    // Guide id -> { text, timer }. The word differs by what was written: a
+    // portrait saves on its own the instant you pick a file, and "image saved"
+    // is what makes that legible - a bare "saved" beside boxes that were never
+    // touched invites you to think they were.
+    const savedFlash = new Map();
+    const SAVED_FLASH_MS = 4000;
+
+    function flashSaved(id, text) {
+      const key = String(id);
+      const prev = savedFlash.get(key);
+      if (prev) clearTimeout(prev.timer);
+      savedFlash.set(key, {
+        text: text || 'saved',
+        timer: setTimeout(() => {
+          savedFlash.delete(key);
+          paintCardNote(key);
+        }, SAVED_FLASH_MS)
+      });
+      paintCardNote(key);
+    }
+
+    // UNSAVED OUTRANKS SAVED. Type into a box a second after uploading and the
+    // card is dirty again; still saying "saved" would be a lie about the boxes
+    // rather than a stale compliment.
+    function cardNote(key) {
+      if (state.dirty.has(key)) return { text: 'unsaved', saved: false };
+      const flash = savedFlash.get(key);
+      if (flash) return { text: flash.text, saved: true };
+      return { text: '', saved: false };
+    }
+
+    function paintCardNote(key) {
+      const card = guideList.querySelector('[data-guide-id="' + cssEscape(key) + '"]');
+      if (!card) return;
+      const save = card.querySelector('[data-action="save"]');
+      if (save) save.disabled = !state.dirty.has(key);
+      const note = card.querySelector('[data-role="dirty-note"]');
+      if (!note) return;
+      const shown = cardNote(key);
+      note.textContent = shown.text;
+      note.classList.toggle('is-saved', shown.saved);
+    }
+
     function markCardDirty(guide) {
       const key = String(guide.id);
       if (isDirty(guide)) state.dirty.add(key); else state.dirty.delete(key);
-      const card = guideList.querySelector('[data-guide-id="' + cssEscape(key) + '"]');
-      if (card) {
-        const save = card.querySelector('[data-action="save"]');
-        if (save) save.disabled = !state.dirty.has(key);
-        const note = card.querySelector('[data-role="dirty-note"]');
-        if (note) note.textContent = state.dirty.has(key) ? 'unsaved' : '';
-      }
+      paintCardNote(key);
     }
 
     function gField(guide, key, label, opts) {
@@ -1907,82 +2331,109 @@
       return hit ? cleanText(hit[1]).replace(/\s+/g, ' ') : '';
     }
 
-    // Third person to first. The background is written ABOUT the character;
-    // the bio is the character SPEAKING, so Fill has to turn one into the
-    // other. This is a mechanical rewrite and it is imperfect by nature - the
-    // status line says so, and the result lands in an unsaved box for exactly
-    // that reason.
+    // THE FIRST-PERSON REWRITE IS GONE (2026-08-10), and with it about sixty
+    // lines of the most delicate code on this page: pronoun tables, contraction
+    // handling, subject-verb agreement and a positional -s stripper with a
+    // keep-list, all of it to turn "she rides shotgun" into "I ride shotgun".
     //
-    // Verbs are the hard part. English marks the third person with an -s that
-    // first person does not take: "she rides shotgun" has to become "I ride
-    // shotgun". There is no way to know which words are verbs without parsing,
-    // so the rule is positional - the word immediately after a converted
-    // pronoun - and NEVER_STRIP protects the ones that end in s honestly.
-    const FP_KEEP_S = [
+    // It existed to bridge a mismatch that no longer exists. The background is
+    // written ABOUT the character and the bio used to be the character
+    // SPEAKING, so Fill had to change person. Bios are third person now - the
+    // whole table was rewritten and the AI brief asks for it - so the two
+    // fields are in the same voice and the sentences carry across untouched.
+    //
+    // ONE THING STILL HAS TO HAPPEN: the name comes out. A bio never carries
+    // the guide's own name (the game has already told the player what they are
+    // called, so a bio that repeats it reads as a caption), while a background
+    // uses it freely. So the name is swapped for whichever pronoun that
+    // background already uses about them - taking the text's own word for it
+    // rather than guessing from the name, which would be guessing at a person.
+    const KEEP_S = [
       'is', 'was', 'has', 'does', 'goes', 'always', 'sometimes', 'perhaps', 'yes',
       'across', 'less', 'unless', 'this', 'his', 'hers', 'its', 'us', 'plus', 'gas',
       'bus', 'class', 'glass', 'press', 'dress', 'guess', 'miss', 'boss', 'loss'
     ];
+    // Verbs whose base genuinely ends -ie, so "ties" is "tie" and never "ty".
+    const SHORT_IE = ['tie', 'lie', 'die', 'vie', 'hie', 'untie'];
 
-    function toFirstPerson(text, name) {
+    // POSSESSIVES COUNT. A background often names the character in every
+    // subject position and only ever uses a pronoun possessively - "Otis
+    // Bellweather maintained courthouse clocks. His manners are those of a
+    // host." Counting subjects alone finds nothing there, defaults to they,
+    // and hands back a bio that says "They maintained... His manners", which
+    // is worse than either choice made consistently.
+    function dominantPronoun(text) {
+      const count = (re) => (text.match(re) || []).length;
+      const she = count(/\b(?:she|her|hers|herself)\b/gi);
+      const he = count(/\b(?:he|him|his|himself)\b/gi);
+      const they = count(/\b(?:they|them|their|theirs|themselves)\b/gi);
+      if (she && she >= he && she >= they) return 'she';
+      if (he && he >= they) return 'he';
+      // they/them is the default when the text never says - the same rule the
+      // rest of the product follows about people whose pronouns are not given.
+      return 'they';
+    }
+
+    function stripGuideName(text, name) {
       let out = ' ' + cleanText(text) + ' ';
       if (!cleanText(out)) return '';
-
-      // The name first, both the whole thing and the part people use on its
-      // own, so "Miss Peachtree Knox has" and "Peachtree has" both become "I".
+      const pronoun = dominantPronoun(out);
       const full = cleanText(name);
       if (full) {
-        const parts = [full].concat(full.split(/\s+/).filter((p) => p.length > 2));
+        // Longest first, so "Miss Peachtree Knox" is matched before
+        // "Peachtree" and does not leave half a name behind. Parts of one or
+        // two letters are skipped - an initial is too easy to hit inside
+        // ordinary prose.
+        const parts = [full].concat(full.split(/\s+/).filter((p) => p.replace(/\W/g, '').length > 2));
         parts.sort((a, b) => b.length - a.length).forEach((p) => {
-          out = out.replace(new RegExp('\\b' + p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g'), 'I');
+          const safe = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          out = out.replace(new RegExp('\\b' + safe + "'s\\b", 'g'), pronoun === 'they' ? 'their' : (pronoun === 'she' ? 'her' : 'his'));
+          out = out.replace(new RegExp('\\b' + safe + '\\b', 'g'), pronoun);
         });
       }
-
-      // Contractions before bare pronouns, or "he's" leaves a stray "'s".
-      out = out
-        .replace(/\b(?:he|she|they)'s\b/gi, 'I am')
-        .replace(/\b(?:he|she|they)'re\b/gi, 'I am')
-        .replace(/\b(?:he|she|they)'ll\b/gi, 'I will')
-        .replace(/\b(?:he|she|they)'d\b/gi, 'I would')
-        .replace(/\b(?:he|she|they)'ve\b/gi, 'I have');
-
-      // Possessives before objects: "her" is both, and "her coat" is far more
-      // common in this prose than "gave her".
-      out = out
-        .replace(/\bhimself\b|\bherself\b|\bthemselves\b/gi, 'myself')
-        .replace(/\bhis\b|\btheir\b/gi, 'my')
-        .replace(/\bhers\b|\btheirs\b/gi, 'mine')
-        .replace(/\bher\b/gi, 'my')
-        .replace(/\b(?:he|she|they)\b/gi, 'I')
-        .replace(/\bhim\b|\bthem\b/gi, 'me');
-
-      // Agreement, then the positional -s strip.
-      out = out
-        .replace(/\bI is\b/g, 'I am')
-        .replace(/\bI are\b/g, 'I am')
-        .replace(/\bI were\b/g, 'I was')
-        .replace(/\bI has\b/g, 'I have')
-        .replace(/\bI does\b/g, 'I do')
-        .replace(/\bI goes\b/g, 'I go')
-        .replace(/\bI isn't\b/g, "I'm not")
-        .replace(/\bI doesn't\b/g, "I don't")
-        .replace(/\bI hasn't\b/g, "I haven't")
-        // An adverb is allowed to sit between the pronoun and its verb -
-        // "I always says so" is the shape that slipped through when the rule
-        // only looked at the very next word.
-        .replace(/\bI ((?:always|never|often|sometimes|usually|rarely|still|also|just|really|only|barely|nearly|almost)\s+)?(\w+)s\b/g,
-          (whole, adverb, verb) => {
-            const lower = verb.toLowerCase() + 's';
-            if (FP_KEEP_S.indexOf(lower) > -1) return whole;
-            // "misses" -> "miss", "watches" -> "watch": -es after a sibilant.
-            const stem = /(?:ch|sh|ss|x|z|o)e$/i.test(verb) ? verb.slice(0, -1) : verb;
-            return 'I ' + (adverb || '') + stem;
-          });
-
+      // Name parts are replaced one at a time, so two of them side by side
+      // each leave a pronoun behind: "Peachtree Knox is unshockable" comes out
+      // "she she is". Collapsing a doubled pronoun is cheaper and safer than
+      // trying every multi-word combination of a name.
+      out = out.replace(/\b(she|he|they|her|his|their)\s+\1\b/gi, '$1');
+      // Agreement, but only for "they" - "she is" was already correct and must
+      // be left alone. Same positional -s rule the old rewrite used, since
+      // they-verbs drop the -s exactly as I-verbs did.
+      if (pronoun === 'they') {
+        out = out
+          .replace(/\bthey is\b/gi, 'they are')
+          .replace(/\bthey was\b/gi, 'they were')
+          .replace(/\bthey has\b/gi, 'they have')
+          .replace(/\bthey does\b/gi, 'they do')
+          .replace(/\bthey goes\b/gi, 'they go')
+          .replace(/\bthey isn't\b/gi, "they aren't")
+          .replace(/\bthey doesn't\b/gi, "they don't")
+          .replace(/\bthey hasn't\b/gi, "they haven't")
+          // An adverb may sit between the pronoun and its verb - "they always
+          // says so" is the shape a next-word-only rule misses.
+          .replace(/\bthey ((?:always|never|often|sometimes|usually|rarely|still|also|just|really|only|barely|nearly|almost)\s+)?(\w+)s\b/gi,
+            (whole, adverb, verb) => {
+              if (KEEP_S.indexOf(verb.toLowerCase() + 's') > -1) return whole;
+              let stem = verb;
+              // "carries" -> "carry", "studies" -> "study". The regex has
+              // already taken the s, leaving "carrie". Without this the old
+              // rewrite produced "they carrie a thermos", which is the kind of
+              // wrong that reads as a broken page rather than a rough draft.
+              // SHORT_IE guards the handful of verbs whose base really does
+              // end -ie, where "ties" is "tie" and not "ty".
+              if (/[^aeiou]ie$/i.test(stem) && SHORT_IE.indexOf(stem.toLowerCase()) === -1) {
+                stem = stem.slice(0, -2) + 'y';
+              } else if (/(?:ch|sh|ss|x|z|o)e$/i.test(stem)) {
+                // "misses" -> "miss", "watches" -> "watch": -es after a sibilant.
+                stem = stem.slice(0, -1);
+              }
+              return 'they ' + (adverb || '') + stem;
+            });
+      }
       out = cleanText(out);
-      // EVERY sentence, not just the first. A swap can leave a sentence opening
-      // on a word that used to sit mid-clause - "His trumpet" becomes "my
-      // trumpet" - and only fixing character zero leaves the rest lower case.
+      // EVERY sentence, not just the first: a swap can leave a sentence opening
+      // on a word that used to sit mid-clause, and fixing only character zero
+      // leaves the rest lower case.
       out = out.replace(/([.!?]\s+)([a-z])/g, (m, punct, ch) => punct + ch.toUpperCase());
       return out.charAt(0).toUpperCase() + out.slice(1);
     }
@@ -2042,7 +2493,8 @@
       // game; a bio is read by the player, so the summary lines are the ones
       // that were already written to be short.
       //
-      // Then turned into FIRST PERSON, because the bio is the guide speaking.
+      // Both fields are third person now, so the sentences carry across as
+      // they stand - only the name comes out. See stripGuideName.
       if (!draft.bio && draft.background) {
         let bio = '';
         for (let i = 0; i < BIO_SOURCES.length && !bio; i += 1) {
@@ -2050,7 +2502,7 @@
         }
         if (!bio) bio = firstSentences(draft.background, 2);
         if (bio) {
-          draft.bio = toFirstPerson(firstSentences(bio, 3), draft.name);
+          draft.bio = stripGuideName(firstSentences(bio, 3), draft.name);
           filled.push('bio');
         }
       }
@@ -2114,6 +2566,7 @@
         drafts.delete(String(id));
         state.dirty.delete(String(id));
         render();
+        flashSaved(id);
         setStatus('Saved ' + cleanText(fresh.name) + '.', 'success');
       } catch (error) {
         const raw = error.message || '';
@@ -2248,10 +2701,15 @@
     // --- delete ---------------------------------------------------------------
 
     let confirmResolve = null;
-    function ask(title, text, yesLabel) {
+    // destructive paints the affirmative button red-filled instead of blue.
+    // The blue primary is the same button this room uses for Save, and on the
+    // one dialog you cannot take back, the button that agrees should not look
+    // like the button you press all day.
+    function ask(title, text, yesLabel, destructive) {
       el('confirmTitle').textContent = title;
       el('confirmText').textContent = text;
       el('confirmYes').textContent = yesLabel || 'Yes';
+      el('confirmYes').classList.toggle('danger-solid', !!destructive);
       el('confirmCard').hidden = false;
       el('confirmBackdrop').hidden = false;
       return new Promise((resolve) => { confirmResolve = resolve; });
@@ -2274,7 +2732,7 @@
       if (!guide) return;
       const ok = await ask('Delete ' + (cleanText(guide.name) || 'this guide') + '?',
         'This cannot be undone, and there is no archive to fall back on. '
-        + 'Any game using this guide is left without one.', 'Delete');
+        + 'Any game using this guide is left without one.', 'Delete', true);
       if (!ok) return;
       try {
         await ensureFreshSession();
@@ -2382,6 +2840,11 @@
         const guide = findGuide(id);
         if (guide) Object.assign(guide, saved);
         render();
+        // The portrait is the one thing on this card that writes itself the
+        // moment you choose a file, with no Save to press - so it says so in
+        // the slot that answers that question for everything else, naming
+        // what was written so it cannot be read as "the boxes are saved".
+        flashSaved(id, 'image saved');
         uploadStatus(status, 'Saved ' + kb + ' KB into the row');
 
         // THE STORAGE COPY IS GONE with image_url (2026-08-09). Uploading
@@ -2401,23 +2864,33 @@
 
     // --- the prompts ----------------------------------------------------------
 
-    function openPrompt(title, help, chips, text) {
+    // kind is the mono eyebrow over the title — which of the two prompts this
+    // is. title is what it is about.
+    function openPrompt(kind, title, help, text) {
+      el('promptKind').textContent = kind;
       el('promptTitle').textContent = title;
-      el('promptHelp').textContent = help;
-      const meta = el('promptChips');
-      meta.innerHTML = '';
-      (chips || []).forEach((c) => meta.appendChild(chip(c)));
+      el('promptHelp').textContent = help || '';
       el('promptText').value = text;
-      el('copyStatus').textContent = '';
+      resetCopyButton();
       el('promptCard').hidden = false;
       el('promptBackdrop').hidden = false;
       el('promptText').focus();
       el('promptText').setSelectionRange(0, 0);
+      el('promptText').scrollTop = 0;
     }
 
     function closePrompt() {
       el('promptCard').hidden = true;
       el('promptBackdrop').hidden = true;
+    }
+
+    let copyResetTimer = null;
+    function resetCopyButton() {
+      clearTimeout(copyResetTimer);
+      copyResetTimer = null;
+      el('copyPromptBtn').classList.remove('is-done');
+      el('copyPromptLabel').textContent = 'Copy prompt';
+      el('copyStatus').textContent = '';
     }
 
     async function copyText(text) {
@@ -2446,19 +2919,87 @@
       // Asked about an existing guide, the brief already carries its name,
       // hometown, bio and background - a second place to say the same thing
       // would just be somewhere for the two to disagree.
-      el('promptNotesWrap').hidden = !!guide;
-      openPrompt(
-        guide ? ('Prompt — ' + (cleanText(guide.name) || '#' + guide.id)) : 'Prompt — a new guide',
-        guide
-          ? 'Paste this into any AI. It answers with GUIDE NAME / GUIDE BIO / GUIDE BACKGROUND; bring those back into the boxes on the card.'
-          : 'Say what you know in Notes — hometown, fandom, the voice you want — and it folds into the brief as you type. Paste the result into any AI, then press MANUAL to enter what it writes.',
-        ['public.guides', 'writes nothing itself', guide ? 'keeps the existing name' : 'invents a character'],
-        buildGuidePrompt(guide));
+      el('promptControls').hidden = !!guide;
+      el('sqlEditorLink').hidden = false;   // the brief's answer IS SQL
+      paintPromptCount();
+      // Nothing to avoid on an empty catalogue, and a switch that changes
+      // nothing is a switch you have to think about for no reason.
+      el('promptAvoidWrap').hidden = !guideRosterLines(null).length;
+      el('promptAvoidHometowns').checked = !!state.promptAvoidHometowns;
+      el('promptDrawImages').checked = !!state.promptDrawImages;
+      if (guide) {
+        openPrompt('Guide brief',
+          cleanText(guide.name) || 'Guide #' + guide.id,
+          'Paste this into any AI. It answers with an UPDATE for this row — run it in the Supabase SQL editor, then reload this page.',
+          buildGuidePrompt(guide));
+      } else {
+        openPrompt('Guide brief — new characters',
+          newPromptTitle(), newPromptHelp(), buildGuidePrompt(null));
+      }
+    }
+
+    // The head has to move with HOW MANY, or the sheet says ten and the title
+    // still says one.
+    function newPromptTitle() {
+      return promptCount() === 1
+        ? 'A guide who does not exist yet'
+        : promptCount() + ' guides who do not exist yet';
+    }
+
+    function newPromptHelp() {
+      const tail = 'Paste it into any AI: it answers with one INSERT'
+        + (promptCount() === 1 ? '' : ' carrying all ' + promptCount() + ' guides')
+        + ' — run that in the Supabase SQL editor, then reload this page.'
+        // The order matters and is easy to get wrong: the cards do not exist
+        // until the SQL has run, so a portrait made first has nowhere to go.
+        // No warning about which AI can draw — the buttons in the foot are all
+        // ones that can, which is why Claude is not among them.
+        + (state.promptDrawImages
+            ? ' The portraits come after it — run the SQL first, reload, then upload each one to its new card.'
+            : '');
+      // Said out loud because it is the one thing in the brief nobody typed —
+      // otherwise the roster is a surprise found while scrolling the sheet.
+      // Counted off the guides, not off the lines: past the cap the list ends
+      // with an "(and N more)" line, which is not a guide.
+      const n = state.guides.filter((g) => cleanText((drafts.get(String(g.id)) || g).name)).length;
+      const known = n
+        ? ' The ' + n + ' guides you already have go in as a do-not-repeat list'
+          + (state.promptAvoidHometowns ? ', their hometowns included.' : ' — names only.')
+        : '';
+      return 'Say what you know in Notes — hometown, fandom, the voice you want — and it folds into the brief as you type.'
+        + known + ' ' + tail;
+    }
+
+    // 1, 5 or 10. Anything else in state - there is no way to get one through
+    // the buttons, but a stale value would silently change the brief - falls
+    // back to one guide.
+    const PROMPT_COUNTS = [1, 5, 10];
+    function promptCount() {
+      return PROMPT_COUNTS.indexOf(state.promptCount) === -1 ? 1 : state.promptCount;
+    }
+
+    function setPromptCount(n) {
+      state.promptCount = PROMPT_COUNTS.indexOf(n) === -1 ? 1 : n;
+      paintPromptCount();
+      refreshNewGuidePrompt();
+    }
+
+    function paintPromptCount() {
+      document.querySelectorAll('#promptControls .seg-btn').forEach((b) => {
+        b.classList.toggle('is-on', Number(b.dataset.count) === promptCount());
+        b.setAttribute('aria-pressed', String(Number(b.dataset.count) === promptCount()));
+      });
     }
 
     function refreshNewGuidePrompt() {
       if (promptFor) return;
+      el('promptTitle').textContent = newPromptTitle();
+      el('promptHelp').textContent = newPromptHelp();
       el('promptText').value = buildGuidePrompt(null);
+      // The note is the first thing in the rebuilt text, so hold the sheet at
+      // the top - typing must not leave it looking at line 40.
+      el('promptText').scrollTop = 0;
+      resetCopyButton();   // what was copied a moment ago is no longer this text
     }
 
     // READS THE BOXES, NOT THE SAVED ROW. It used to take the guide straight
@@ -2471,20 +3012,169 @@
       const guide = findGuide(id);
       if (!guide) return;
       const draft = draftOf(guide);
+      // NO CONTROLS ON THIS ONE. HOW MANY and NOTES belong to the brief that
+      // invents characters: this prompt draws ONE portrait of ONE guide who
+      // already exists, from the fields on the card. Ten of them is not a
+      // thing, and a note telling the AI what the guide is like is a note that
+      // can disagree with the boxes six inches above it. They were only ever
+      // shown here because the dialog is shared, and openPrompt inherited
+      // whatever the last caller left on screen.
+      el('promptControls').hidden = true;
+      // And no SQL editor in the foot: this prompt's answer is a picture,
+      // which comes back through Upload Image on the card.
+      el('sqlEditorLink').hidden = true;
       const thin = !cleanText(draft.bio) && !cleanText(draft.background);
-      openPrompt('Image Prompt — ' + (cleanText(draft.name) || '#' + guide.id),
+      openPrompt('Portrait prompt — cartoon, never photoreal',
+        cleanText(draft.name) || 'Guide #' + guide.id,
         thin
           // Worth saying rather than letting a generic portrait come back and
           // look like the prompt's fault: with no bio and no background there
-          // is nothing to draw from but the name.
-          ? 'This guide has no bio and no background yet, so the prompt has only the name to go on and the portrait will be generic. Write something first, or use it as a starting point.'
-          : 'Built from the boxes as they stand, saved or not. Paste it into an image generator, then bring the result back with Upload Image.',
-        ['portrait', thin ? 'name only' : 'from the bio and background', 'cartoon, never photoreal'],
+          // is little to draw from but the name.
+          ? (cleanText(draft.hometown)
+              ? 'This guide has no bio and no background yet, so the prompt is working from the name and ' + cleanText(draft.hometown) + ' alone. Write something first, or use it as a starting point.'
+              : 'This guide has no bio, background or hometown yet, so the prompt has only the name to go on and the portrait will be generic. Write something first, or use it as a starting point.')
+          : 'Every field on the card as it stands, saved or not — the hometown does most of the work. Paste it into an image generator, then bring the result back with Upload Image.',
         window.TgbPicmakerPrompts.buildGuideImagePrompt({
           guideName: draft.name,
+          guideHometown: draft.hometown,
           guideBio: draft.bio,
           guideBackground: draft.background
         }));
+    }
+
+    // EVERY GUIDE WITH NO PICTURE, in the order the room is showing them, so
+    // the numbered list in the prompt matches the wall of cards you are
+    // looking at. Reads the SAVED image and the DRAFT text: the portrait is
+    // only ever written by Upload Image, but a background typed and not yet
+    // saved is what the person means the picture to be of.
+    function guidesMissingArt() {
+      return visibleGuides().filter((g) => !cleanText(g.image)).map((g) => {
+        const d = drafts.get(String(g.id)) || g;
+        return {
+          guideName: cleanText(d.name) || 'Guide #' + g.id,
+          guideHometown: cleanText(d.hometown),
+          guideBio: cleanText(d.bio),
+          guideBackground: cleanText(d.background)
+        };
+      });
+    }
+
+    function showMissingArtPrompt() {
+      const missing = guidesMissingArt();
+      if (!missing.length) return;
+      // Same two suppressions as the single portrait prompt: HOW MANY and
+      // NOTES belong to inventing characters, and the answer here is pictures
+      // rather than SQL.
+      el('promptControls').hidden = true;
+      el('sqlEditorLink').hidden = true;
+      const n = missing.length;
+      const noText = missing.filter((g) => !g.guideBio && !g.guideBackground).length;
+      openPrompt('Portrait prompts — every guide with no picture',
+        n === 1 ? 'One guide is missing a portrait' : n + ' guides are missing portraits',
+        'One prompt, ' + n + ' portrait' + (n === 1 ? '' : 's')
+          + ' — the look rules are stated once and every character listed under them.'
+          // Said up front, because a thin character comes back generic and
+          // that looks like the prompt's fault rather than an empty row.
+          + (noText ? ' ' + noText + ' of them have nothing written down yet and will come back generic.' : '')
+          + ' Bring each result back with Upload Image on its card.',
+        window.TgbPicmakerPrompts.buildGuideImageBatchPrompt(missing));
+    }
+
+    // Paints the count onto the button, and takes the whole panel away when
+    // there is nothing left to draw.
+    function paintMissingArt() {
+      const bar = document.querySelector('.command-bar--portraits');
+      const n = guidesMissingArt().length;
+      if (bar) bar.hidden = !n;
+      el('missingArtBtn').textContent = n ? 'MISSING (' + n + ')' : 'MISSING';
+    }
+
+    // THE ROSTER IS A DO-NOT-REPEAT LIST AND NOTHING ELSE. It is in the brief
+    // so an AI inventing a character does not hand back one we already have -
+    // ask ten times for a narrator and you will be offered a warm retired
+    // cabbie from Chicago most of those times. It is deliberately NOT sent as
+    // a house style to match or a set to fill gaps in: these characters were
+    // written at different times to different standards, and telling a model
+    // to fit in with them is how a catalogue gets more of its own average.
+    //
+    // Reads the draft where one exists, so a rename typed and not yet saved
+    // still counts as taken - the same rule the prompts already follow.
+    // drafts.get rather than draftOf: this walks every guide, and draftOf
+    // would mint a draft for each one as a side effect.
+    // A cap, because the brief has to stay readable and a roster is the one
+    // part of it that grows without limit. The tail is counted rather than
+    // dropped silently.
+    const ROSTER_MAX = 60;
+
+    // The one-line sketch of a guide, for the grouped roster. A name alone
+    // tells an AI not to reuse it; deciding whether a NEW person from the same
+    // town is genuinely a different person takes knowing who the old one is.
+    function rosterSketch(d) {
+      const text = cleanText(d.bio) || cleanText(d.background);
+      if (!text) return '';
+      const flat = text.replace(/\s+/g, ' ');
+      if (flat.length <= 150) return flat;
+      // Cut at a word, not mid-syllable — a sketch is read, not parsed.
+      const cut = flat.slice(0, 150);
+      return cut.slice(0, cut.lastIndexOf(' ') > 60 ? cut.lastIndexOf(' ') : 150) + '...';
+    }
+
+    function rosterEntries(exceptId) {
+      return state.guides
+        .filter((g) => String(g.id) !== String(exceptId))
+        .map((g) => {
+          const d = drafts.get(String(g.id)) || g;
+          return { name: cleanText(d.name), hometown: cleanText(d.hometown), sketch: rosterSketch(d) };
+        })
+        .filter((e) => e.name)
+        .sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    // FLAT LIST, for when hometowns are off-limits anyway: the only question
+    // the AI has to answer is "is this name taken", and a name is enough.
+    function guideRosterLines(exceptId) {
+      const named = rosterEntries(exceptId)
+        .map((e) => (e.hometown ? e.name + ' - ' + e.hometown : e.name));
+      return named.length <= ROSTER_MAX
+        ? named
+        : named.slice(0, ROSTER_MAX).concat(['(and ' + (named.length - ROSTER_MAX) + ' more)']);
+    }
+
+    // GROUPED BY TOWN, for when a repeat hometown is allowed. Then the
+    // question changes from "is this name taken" to "is this ALREADY THE
+    // PERSON WE HAVE FROM THERE", which a bare list of names cannot answer -
+    // and the failure it guards against is the specific one: told Chicago is
+    // free, a model hands back a second warm retired Chicago cabbie, because
+    // that is what it hands back every time. Grouping puts the town's existing
+    // characters next to each other, where a repeat is obvious.
+    function guideRosterByTown(exceptId) {
+      const entries = rosterEntries(exceptId);
+      const towns = new Map();
+      entries.forEach((e) => {
+        const key = e.hometown || '';
+        if (!towns.has(key)) towns.set(key, []);
+        towns.get(key).push(e);
+      });
+      const keys = Array.from(towns.keys()).sort((a, b) => {
+        // The unplaced go last: they carry no hometown to clash with, so they
+        // are the least useful part of this list.
+        if (!a) return 1;
+        if (!b) return -1;
+        return a.localeCompare(b);
+      });
+      const lines = [];
+      let shown = 0;
+      keys.forEach((key) => {
+        if (shown >= ROSTER_MAX) return;
+        lines.push('  * ' + (key || 'No hometown recorded'));
+        towns.get(key).forEach((e) => {
+          if (shown >= ROSTER_MAX) return;
+          shown += 1;
+          lines.push('    - ' + e.name + (e.sketch ? ': ' + e.sketch : ''));
+        });
+      });
+      if (entries.length > shown) lines.push('  (and ' + (entries.length - shown) + ' more)');
+      return lines;
     }
 
     // The guide brief. It carries the character's own hometown rather than any
@@ -2492,16 +3182,72 @@
     // the thing a human actually chose for this character.
     function buildGuidePrompt(guide) {
       const lines = [];
+      // NOTES GO AT THE TOP, and that is a visibility fix as much as an
+      // editorial one. They used to sit under THE GUIDE YOU ARE WRITING, forty
+      // lines down a sheet that opens scrolled to the top - so you typed into
+      // the box and nothing on screen moved, and the only way to know the
+      // note had landed was to scroll the prompt you were about to copy. At
+      // the head it appears as you type. It also reads right: this is the one
+      // thing in the brief the human actually asserted, so it outranks
+      // everything the AI is about to invent below it.
+      const notes = guide ? '' : cleanText(state.promptNotes);
+      // A prompt about a guide already on a card is about THAT guide, so the
+      // count applies to the new-character prompt only.
+      const count = guide ? 1 : promptCount();
+      const many = count > 1;
+      if (notes) {
+        lines.push('WHAT I ALREADY KNOW ABOUT ' + (many ? 'THESE GUIDES' : 'THIS GUIDE')
+          + ' - treat as fixed, do not contradict it'
+          + (many ? ', and it holds for all ' + count : '') + ':');
+        lines.push(notes);
+        lines.push('');
+      }
       // THE BRIEF DESCRIBES A PERSON, NOT A PRODUCT. It used to open with
       // what TGB makes, how a game is played, and a warning not to tie the
       // character to one matchup - all of which invited the AI to write a
       // tour host for a specific trip. A guide is used in many cities, so the
       // brief now asks only for someone from somewhere, with a voice and a
       // history. Where they happen to be guiding is not their business here.
-      lines.push('Invent a CHARACTER: a distinctive person with a hometown, a voice, and a life');
-      lines.push('behind them. They narrate - they speak to one person at a time, in their ear.');
+      if (many) {
+        lines.push('Invent ' + count + ' CHARACTERS: ' + count + ' distinct people, each with a hometown, a');
+        lines.push('voice, and a life behind them. Each one is a GAME GUIDE - they direct one');
+        lines.push('person at a time through our game, on foot, in a real city, speaking in their');
+        lines.push('ear. Everything below applies to every one of them.');
+        lines.push('');
+        // The failure mode of asking for ten at once is ten dressings of one
+        // person - same warmth, same cadence, a different job title. Worth
+        // spelling out with a test the model can actually apply.
+        lines.push('MAKE THEM DIFFERENT FROM ONE ANOTHER. Different hometowns, ages, trades and');
+        lines.push('ways of speaking; do not run them all warm and folksy. If two of them could');
+        lines.push('swap lines without anyone noticing, one of them is not written yet.');
+      } else {
+        lines.push('Invent a CHARACTER: a distinctive person with a hometown, a voice, and a life');
+        lines.push('behind them. They are a GAME GUIDE - they direct one person at a time through');
+        lines.push('our game, on foot, in a real city, speaking in their ear.');
+      }
       lines.push('');
       lines.push('WHAT MATTERS');
+      // THE TERM IS FIXED, THE SENTENCE IS NOT. Left to itself a model writes
+      // "tour guide", "host", "docent" or "narrator", and each of those means
+      // something slightly different to a player - a docent is in a museum, a
+      // tour guide has a flag up. Naming the one term and then explicitly
+      // freeing the sentence around it is what stops 39 bios all reading
+      // "...and now works as a Game Guide."
+      lines.push('- THEY ARE A GAME GUIDE, IN THOSE WORDS. Every bio must contain the term Game');
+      lines.push('  Guide, capitalised, exactly so. Never "tour guide", "guide", "host",');
+      lines.push('  "narrator", "docent" or "storyteller". Vary the SENTENCE, never the term:');
+      lines.push('  "took up work as a Game Guide the spring the shop closed", "has been a Game');
+      lines.push('  Guide since her ears went", "does Saturdays as a Game Guide". Do not open');
+      lines.push('  the bio with it - it belongs after you have said who they are.');
+      // The reason is the only part of a bio that is about the person rather
+      // than about their old job, and it is what a player remembers. Without
+      // this, every answer comes back "retired, and now guides", which is the
+      // same character wearing a different trade.
+      lines.push('- SAY WHY THEY ARE A GAME GUIDE NOW, and make it their own. A season that goes');
+      lines.push('  quiet, a trade automated out from under them, a surgery, a buyout, a child');
+      lines.push('  who took over the business, a bet, a habit they could not stop, too much');
+      lines.push('  daylight or not enough. "They are retired" is not a reason - half of them');
+      lines.push('  are retired. It should follow from the life you just gave them.');
       lines.push('- THE HOMETOWN IS THE ANCHOR. This person is FROM somewhere, and it shows: in');
       lines.push('  how they talk, what they compare things to, what they are proud and sick of.');
       lines.push('  Local detail beats a postcard - the street, the diner, the weather, the team,');
@@ -2519,6 +3265,47 @@
       lines.push('- Keep it warm and worth listening to. This is somebody a stranger is choosing');
       lines.push('  to spend an hour with.');
       lines.push('');
+      // TWO SHAPES OF ROSTER, chosen by whether a town can be reused. Banned
+      // hometowns need only names; allowed ones need to show WHO we already
+      // have from each town, or "different from what you have" is an
+      // instruction with nothing behind it.
+      const townsAllowed = !guide && !state.promptAvoidHometowns;
+      const roster = townsAllowed
+        ? guideRosterByTown(guide ? guide.id : null)
+        : guideRosterLines(guide ? guide.id : null).map((line) => '  * ' + line);
+      if (roster.length) {
+        lines.push('GUIDES WE ALREADY HAVE - a DO-NOT-REPEAT list, and nothing else. Do not copy');
+        lines.push('their style, do not write a companion to one, do not treat them as a house');
+        lines.push('voice to match:');
+        lines.push('- Do not reuse one of these names.');
+        lines.push('- Do not hand back one of these characters under a new name - a different');
+        lines.push('  trade in the same city with the same manner is the same guide.');
+        // The hometown rule is the switch, and off it does NOT go quiet: a
+        // repeat town is exactly where a model reaches for the character it
+        // already offered you, so the permission comes with the test it has to
+        // pass. "Prefer somewhere else" left on permanently was the wrong fix -
+        // some cities plainly have room for two - but so is silence.
+        if (!guide && state.promptAvoidHometowns) {
+          lines.push('- DO NOT USE ANY HOMETOWN ON THIS LIST. Pick somewhere we do not have yet.');
+        } else if (townsAllowed) {
+          lines.push('- A HOMETOWN ON THIS LIST MAY BE USED AGAIN, but only if the new person could');
+          lines.push('  never be mistaken for the one we already have from that town. Read what we');
+          lines.push('  hold from there - it is listed under each town below - and make the new one');
+          lines.push('  differ in the VITAL STATS AND THE HISTORY:');
+          lines.push('    * generation - not the same decade of birth, not the same era they came up in');
+          lines.push('    * sex, and the life that went with it in that place at that time');
+          lines.push('    * trade and class - not another version of the same working life');
+          lines.push('    * how they speak - register, pace, what they are funny about');
+          lines.push('    * what the town did TO them - the same city read from a different side of it');
+          lines.push('  A second guide from a town should feel like meeting somebody else who happens');
+          lines.push('  to be from there, never like the first one with a new job.');
+        }
+        if (many) {
+          lines.push('- Do not repeat a hometown within your own ' + count + ' either.');
+        }
+        roster.forEach((line) => lines.push(line));
+        lines.push('');
+      }
       if (guide) {
         // The DRAFT, for the same reason the image prompt reads it: what is
         // in the boxes is what the person is looking at. Only the main
@@ -2528,10 +3315,11 @@
         const name = cleanText(src.name);
         const isPlaceholder = name.replace(/\s+/g, ' ').toLowerCase() === 'mission control';
         lines.push('THE GUIDE YOU ARE WRITING');
+        lines.push('- Row id: ' + guide.id + '  (the UPDATE below must carry this id)');
         if (name && !isPlaceholder) {
           lines.push('- Name: ' + name);
-          lines.push('  KEEP THIS NAME EXACTLY. Return it as GUIDE NAME. Do not rename or invent one,');
-          lines.push('  and do not put the name inside GUIDE BIO.');
+          lines.push('  KEEP THIS NAME EXACTLY. Do not rename or invent one, and do not put the');
+          lines.push('  name inside the bio.');
         } else {
           lines.push('- Name: not settled yet. Invent one that suits the hometown below.');
         }
@@ -2539,27 +3327,143 @@
         if (cleanText(src.bio)) lines.push('- Current bio (refine or replace): ' + cleanText(src.bio));
         if (cleanText(src.background)) lines.push('- Current background (refine or replace): ' + cleanText(src.background));
       } else {
-        lines.push('THE GUIDE YOU ARE WRITING');
-        lines.push('- A new character. Invent the name, and say where it is from.');
-        const notes = cleanText(state.promptNotes);
-        if (notes) {
-          // Verbatim, and marked as the human's word. Anything typed here -
-          // "Hometown: Buffalo. Fandom: Bills." - is the only thing the AI
-          // knows about this guide, so it outranks its own invention.
-          lines.push('- WHAT I ALREADY KNOW ABOUT THIS GUIDE (treat as fixed, do not contradict it):');
-          lines.push('  ' + notes);
-        }
+        lines.push(many ? 'THE GUIDES YOU ARE WRITING' : 'THE GUIDE YOU ARE WRITING');
+        lines.push(many
+          ? '- ' + count + ' new characters. Invent every name, and say where each one is from.'
+          : '- A new character. Invent the name, and say where it is from.');
+        // The note itself is verbatim at the top of the brief; this is the
+        // line that binds it, so the AI is not left to guess whether the
+        // opening block was context or instruction.
+        if (notes) lines.push('- Build them around what I already know, at the top of this brief.');
       }
       lines.push('');
-      lines.push('DELIVER exactly these three, each on its own line, nothing else:');
-      lines.push('GUIDE NAME: <what they are called>');
-      lines.push('GUIDE BIO: <2-3 sentences, read aloud to whoever they are guiding. Say who');
-      lines.push('they are and where they are from. Do not include the name, and do not name any');
-      lines.push('city they might be visiting.>');
-      lines.push('GUIDE BACKGROUND: <the full breakdown - appearance, personality, hometown and');
-      lines.push('what it did to them, history, the odd specific facts, strengths and flaws,');
-      lines.push('voice and tone, and two or three things they always say. Internal only.>');
+      lines.push(...deliverSqlLines(guide, count));
       return lines.join('\n');
+    }
+
+    // THE DELIVERABLE IS SQL, and the reason is the same one that killed the
+    // research-page pattern across this repo: a prompt whose output is prose
+    // is a prompt whose output has to be retyped. Three labelled paragraphs
+    // meant reading a background out of a chat window and into a textarea,
+    // once per guide - which is fine for one and absurd for ten.
+    //
+    // It is written for a chat AI with no key and no session, exactly like the
+    // Socializer's PROMPT button: the deliverable is a statement a human runs
+    // in the Supabase SQL editor. Do not "improve" this into an RPC call.
+    //
+    // Three things in the boilerplate are load-bearing, and the prompt says so
+    // rather than hoping:
+    //
+    //   * DOLLAR QUOTES. A bio is prose and prose has apostrophes; a single
+    //     unescaped one in "don't" breaks the whole paste. $g$...$g$ needs no
+    //     escaping at all, which is a rule a model can follow every time.
+    //   * THE LEFT JOIN ON public.cities. guides.hometown is a foreign key to
+    //     cities.city, so an invented or differently-spelled city fails the
+    //     entire insert - all ten guides lost to one wrong comma. Joining
+    //     instead lands a null there and keeps the other nine, the same trade
+    //     the waypoint importer makes with walk_order: a small loss beats a
+    //     failed paste.
+    //   * NO id AND NO image. id is `generated always as identity` and refuses
+    //     a supplied value; the portrait is a base64 data URI written by the
+    //     uploader on the card, which no chat AI can produce.
+    function deliverSqlLines(guide, count) {
+      const out = [];
+      const many = count > 1;
+      out.push('DELIVER ONE ```sql BLOCK AND NOTHING ELSE - no preamble, no commentary, no');
+      out.push('explanation after it. I paste it straight into the Supabase SQL editor.');
+      out.push('');
+      out.push('RULES FOR THE SQL, all of them:');
+      out.push('- Wrap EVERY text value in dollar quotes - $g$like this$g$ - so apostrophes and');
+      out.push('  quotation marks need no escaping. Never use single quotes around a value.');
+      out.push('- No newlines inside a value. A background is one long paragraph on one line.');
+      out.push('- Never set id, image, created_at or updated_at. The id is generated, and the');
+      out.push('  portrait is uploaded separately.');
+      out.push('- hometown must be the canonical city string - "Buffalo, New York", "Paris,');
+      out.push('  France" - because it is a foreign key into our city catalogue. The lookup in');
+      out.push('  the statement below quietly drops a city we do not hold rather than failing,');
+      out.push('  so give your best answer rather than leaving it out.');
+      out.push('- Reproduce the shape below EXACTLY, changing only the values.');
+      out.push('');
+      if (guide) {
+        out.push('```sql');
+        out.push('update public.guides set');
+        out.push('  name       = $g$<what they are called>$g$,');
+        out.push('  bio        = $g$<2-4 sentences, THIRD PERSON - never "I", never "you". Open on their trade or role, not their name. Say where they are from, that they are a Game Guide, and why they took that up when they did. Do not include the name, and do not name any city they might be visiting.>$g$,');
+        out.push('  background = $g$<the full breakdown - appearance, personality, hometown and what it did to them, history, the odd specific facts, strengths and flaws, voice and tone, and two or three things they always say. Internal only.>$g$,');
+        // coalesce, not a bare subselect: on an UPDATE an unknown city would
+        // resolve to null and WIPE a hometown somebody had already chosen.
+        // On the INSERT there is nothing to lose, so the join stands alone.
+        out.push('  hometown   = coalesce((select c.city from public.cities c where c.city = $g$<canonical city>$g$), hometown),');
+        out.push('  updated_at = now()');
+        out.push('where id = ' + guide.id + ';');
+        out.push('```');
+        return out;
+      }
+      out.push('```sql');
+      out.push('insert into public.guides (name, bio, background, hometown)');
+      out.push('select v.name, v.bio, v.background, c.city');
+      out.push('from (values');
+      // One example row, then a placeholder for the rest - a model given the
+      // first row in full copies its shape reliably, and spelling out all ten
+      // would make the prompt longer than the answer.
+      out.push('  ($g$<name>$g$, $g$<bio: 2-4 sentences, THIRD PERSON - never "I", never "you". Open on their trade or role, not their name. Say where they are from, that they are a Game Guide, and why they took that up when they did. Do not include the name, and do not name any city they might be visiting.>$g$, $g$<background: the full breakdown - appearance, personality, hometown and what it did to them, history, the odd specific facts, strengths and flaws, voice and tone, and two or three things they always say. Internal only.>$g$, $g$<canonical city>$g$)'
+        + (many ? ',' : ''));
+      if (many) {
+        out.push('  -- ' + (count - 1) + ' more rows in exactly this shape, comma-separated, last one');
+        out.push('  -- with no trailing comma. ' + count + ' rows in total.');
+      }
+      out.push(') as v(name, bio, background, hometown)');
+      out.push('left join public.cities c on c.city = v.hometown');
+      // (the tail of the statement is pushed below, then the optional
+      // portrait half of the errand)
+      // Re-paste safety, and the only thing standing between a second click of
+      // Run and a duplicate roster. Names are not unique in the table.
+      out.push('where not exists (select 1 from public.guides g where lower(g.name) = lower(v.name))');
+      out.push('returning id, name, hometown;');
+      out.push('```');
+      if (state.promptDrawImages) out.push(...drawPortraitLines(count));
+      return out;
+    }
+
+    // THE PORTRAITS, IN THE SAME BREATH. The AI has just invented these people
+    // - it knows the coat, the weather and the trade better than a second
+    // prompt pasted an hour later ever will, because that one only gets the
+    // three sentences that survived into the row.
+    //
+    // TEXT FIRST, PICTURES SECOND, and the prompt insists on it. Image
+    // generation is where these runs fall over: a model hits a content filter,
+    // times out, or stops after three to ask whether to keep going. If the SQL
+    // is already complete above that point, the guides are saved and the
+    // portraits can be redone from the Green Room with MISSING. Ask for them
+    // in the other order and a failed render costs you the characters too.
+    //
+    // The look rules come from picmaker/prompts.js, the same copy the portrait
+    // prompts use, rather than a second wording of them here.
+    function drawPortraitLines(count) {
+      const out = [];
+      const many = count > 1;
+      const them = many ? 'all ' + count + ' of them' : 'them';
+      out.push('');
+      out.push('THEN DRAW ' + (many ? 'THE ' + count + ' PORTRAITS' : 'THE PORTRAIT') + ' - after the SQL block, not before it.');
+      out.push('Only once the SQL above is complete, draw ' + (many ? 'one image per guide' : 'the guide') + ', from the character');
+      out.push('you just wrote - the hometown, the bio and the background are the brief.');
+      out.push('');
+      out.push('PORTRAIT DIRECTION' + (many ? ' - applies to every one of the ' + count : ''));
+      (window.TgbPicmakerPrompts.guideImageDirectionLines(
+        many ? 'Each character\'s hometown' : 'The character\'s hometown'
+      ) || []).forEach((line) => out.push(line));
+      if (many) {
+        out.push('- Do not carry a face, an outfit or a palette from one character to the next. These are ' + count + ' unrelated people.');
+        out.push('- ONE IMAGE PER GUIDE, in the order they appear in the SQL, each labelled with that guide\'s name. No contact sheet, no grid, no line-up, no two characters in one picture.');
+        out.push('- If you can only make one image at a time, work down the list and keep going until ' + them + ' are done. Do not stop to ask whether to continue.');
+      }
+      out.push('');
+      // The escape hatch, and the reason the SQL is first. Said plainly so a
+      // model that cannot draw returns the useful half instead of refusing the
+      // whole request or apologising in place of the statement.
+      out.push('If you cannot generate images, still return the SQL block in full, then say so in');
+      out.push('one line. The SQL is the part I cannot do without.');
+      return out;
     }
 
     // --- the city list --------------------------------------------------------
@@ -2597,10 +3501,22 @@
 
     el('manualBtn').addEventListener('click', () => openForm(null));
     el('promptBtn').addEventListener('click', () => showGuidePrompt(null));
+    el('missingArtBtn').addEventListener('click', showMissingArtPrompt);
     el('sortAzBtn').addEventListener('click', () => setSort('az'));
     el('sortNewBtn').addEventListener('click', () => setSort('newest'));
     el('promptNotes').addEventListener('input', (e) => {
       state.promptNotes = e.target.value;
+      refreshNewGuidePrompt();
+    });
+    document.querySelectorAll('#promptControls .seg-btn').forEach((b) => {
+      b.addEventListener('click', () => setPromptCount(Number(b.dataset.count)));
+    });
+    el('promptAvoidHometowns').addEventListener('change', (e) => {
+      state.promptAvoidHometowns = e.target.checked;
+      refreshNewGuidePrompt();
+    });
+    el('promptDrawImages').addEventListener('change', (e) => {
+      state.promptDrawImages = e.target.checked;
       refreshNewGuidePrompt();
     });
     el('guideForm').addEventListener('submit', submitForm);
@@ -2611,9 +3527,21 @@
     el('confirmBackdrop').addEventListener('click', () => closeAsk(false));
     document.querySelectorAll('[data-prompt-close]').forEach((b) => b.addEventListener('click', closePrompt));
     el('promptBackdrop').addEventListener('click', closePrompt);
+    // The button itself is the confirmation — a word appearing beside it is
+    // easy to miss on a control you have just clicked. A failure still gets
+    // words, because it needs to say what to do instead.
     el('copyPromptBtn').addEventListener('click', async () => {
       const ok = await copyText(el('promptText').value);
-      el('copyStatus').textContent = ok ? 'Copied' : 'Copy it by hand';
+      clearTimeout(copyResetTimer);
+      if (ok) {
+        el('copyPromptBtn').classList.add('is-done');
+        el('copyPromptLabel').textContent = 'Copied';
+        el('copyStatus').textContent = '';
+        copyResetTimer = setTimeout(resetCopyButton, 1800);
+      } else {
+        el('copyStatus').textContent = 'Select the text and copy it by hand';
+        el('promptText').select();
+      }
     });
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;

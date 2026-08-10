@@ -99,13 +99,19 @@
       combined: true,
       items: [
         {
-          href: '/mc/profiles.html',
-          // First, ahead of the room that contains it: a game starts as a
-          // profile, and this is the one item here you open to make a NEW game
+          href: '/mc/marquee.html',
+          // First, ahead of the room that contains it: a game starts here,
+          // and this is the one item in the group you open to make a NEW game
           // rather than to work on an existing one. It also carries
           // appendOpenGameId, so it reopens whatever you had last.
-          label: 'Game Profiles',
-          description: 'Edit game metadata, pricing, teams, public copy, engine, and launch details.',
+          //
+          // "Marquee" since 2026-08-10, and the file moved with it
+          // (mc/profiles.html -> mc/marquee.html). It was "Game Profiles",
+          // which named a database row rather than a room, over a filename
+          // that did not say whose profiles. A marquee is where a show's name,
+          // billing and price go up - which is exactly what this page sets.
+          label: 'Marquee',
+          description: "Set a game's billing: name, public copy, price, teams, guide, engine and rendezvous.",
           appendOpenGameId: true
         },
         // A "Game Builder" item pointing at /games/admin/ sat here until
@@ -113,13 +119,13 @@
         // only duplicated this menu, its game-count stat went with it, and its
         // index.html was deleted — leaving a link to a directory that 404s. It
         // is gone rather than repointed, because the group above is already
-        // called GAME BUILDER and its first item, Game Profiles, is where you
+        // called GAME BUILDER and its first item, the Marquee, is where you
         // actually start. Removing it also ends a name that appeared twice.
         {
           href: '/mc/builder.html',
           // Was "Game Builder" until 2026-08-07, which overstated it: this edits
           // the conversation FLOW, not the game as a whole — the game's identity,
-          // pricing, teams and start point are next door in Game Profiles.
+          // pricing, teams and start point are next door in the Marquee.
           label: 'Flow Builder',
           description: 'Build the playable conversation flow: messages, prompts, replies, and branches.',
           appendOpenGameId: true

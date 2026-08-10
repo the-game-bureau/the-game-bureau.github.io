@@ -3861,6 +3861,15 @@
       // again once the session is up.
       const session = (adminAuth && typeof adminAuth.getSession === 'function') ? adminAuth.getSession() : null;
       if (!session || !session.access_token) {
+        // SEED THE FILTER FROM THE NIGHTLY IDS ANYWAY. This branch used to
+        // return without touching openIssueIds, which left the set empty — so
+        // pressing ISSUES filtered the room down to "No open gift issues match
+        // these filters" and read as a dead button, on the one screen where an
+        // empty result is indistinguishable from a broken control. The badge
+        // still shows "?" because the COUNT is genuinely unknown until the
+        // recheck runs; the LIST is better approximated by last night's ids
+        // than by nothing, and the recheck narrows it a moment later.
+        if (Array.isArray(summary.errorIds)) setOpenIssueIds(summary.errorIds.map(String));
         paint('?', 'Checking for open issues… (sign in to re-check)');
         return;
       }
@@ -3885,7 +3894,12 @@
         // 401/403 means the session lapsed mid-check, not that the data is bad —
         // same reasoning as above: don't put a stale number back on screen.
         if (liveRes.status === 401 || liveRes.status === 403 ||
-            clearedRes.status === 401 || clearedRes.status === 403) return;
+            clearedRes.status === 401 || clearedRes.status === 403) {
+          // Same reasoning as the no-session branch: leave the COUNT alone,
+          // but never leave the filter with nothing to show.
+          setOpenIssueIds(ids);
+          return;
+        }
         if (!liveRes.ok || !clearedRes.ok) { fallback(summary); return; }
         const live = new Set((await liveRes.json()).map((row) => String(row.id)));
         const cleared = new Set((await clearedRes.json()).map((row) => String(row.item_id)));

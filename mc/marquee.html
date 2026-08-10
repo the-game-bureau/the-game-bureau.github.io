@@ -8,18 +8,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GAME PROFILES | THE GAME BUREAU</title>
-  <meta name="description" content="Configure games in The Game Bureau's Game Profiles.">
+  <title>MARQUEE | THE GAME BUREAU</title>
+  <meta name="description" content="Set a game's billing in The Game Bureau's Marquee — name, copy, price, teams, guide, engine and rendezvous.">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Game Profiles">
-  <meta property="og:description" content="Configure games in The Game Bureau's Game Profiles.">
+  <meta property="og:title" content="Marquee">
+  <meta property="og:description" content="Set a game's billing in The Game Bureau's Marquee — name, copy, price, teams, guide, engine and rendezvous.">
   <meta property="og:image" content="/mc/assets/brand/share-thumbnail.png?v=1775007000">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Game Profiles - The Game Bureau">
-  <meta name="twitter:description" content="Configure games in The Game Bureau's Game Profiles.">
+  <meta name="twitter:title" content="Marquee - The Game Bureau">
+  <meta name="twitter:description" content="Set a game's billing in The Game Bureau's Marquee — name, copy, price, teams, guide, engine and rendezvous.">
   <meta name="twitter:image" content="/mc/assets/brand/share-thumbnail.png?v=1775007000">
   <link rel="icon" type="image/x-icon" href="/mc/assets/brand/builder.ico?v=1775435200">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7371,6 +7371,97 @@ body.builder-page--editor .details-section{
   background:#ffffff;
 }
 
+/* NAME + ID, ABOVE THE WORKSPACES. Borrowed wholesale from the socials rooms:
+   a cut panel with a mono legend sitting on the top border, which is the frame
+   every other TGB admin room uses for a bar of controls. Full width, because
+   this names the thing every panel under it is about.
+
+   The two fields are not equal. The name takes the room that is going and the
+   id is sized to what an id actually is — a short slug — so the pair reads as
+   "the game, and its key" rather than as two fields of equal weight. */
+body.builder-page--editor .game-id-bar{
+  width:100%;
+  min-inline-size:0;
+  margin:0 0 var(--stack-gap, 14px);
+  padding:4px 12px 12px;
+  border:1px solid rgba(var(--bic-blue-rgb), .38);
+  border-radius:10px;
+  background:#e4ecfa;
+  box-shadow:0 1px 4px rgba(var(--bic-blue-rgb), .12);
+}
+body.builder-page--editor .game-id-bar[hidden]{ display:none; }
+body.builder-page--editor .game-id-bar > legend{
+  float:none;
+  width:auto;
+  padding:3px 10px;
+  margin:0 0 0 10px;
+  line-height:1;
+  color:var(--bic-blue, #2d4880);
+  font-family:"IBM Plex Mono", monospace;
+  font-size:.92rem;
+  font-weight:800;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+body.builder-page--editor .game-id-bar-inner{
+  display:flex;
+  align-items:flex-end;
+  gap:12px;
+  flex-wrap:wrap;
+}
+body.builder-page--editor .gid-field{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:0;
+}
+body.builder-page--editor .gid-field--name{ flex:1 1 320px; }
+body.builder-page--editor .gid-field--id{ flex:0 1 260px; }
+/* Its own line under the pair above: flex-basis 100% forces the wrap, so the
+   name and id keep the first row to themselves at any width. */
+body.builder-page--editor .gid-field--tagline{ flex:1 1 100%; }
+body.builder-page--editor .gid-field--tagline input{ font-weight:500; }
+body.builder-page--editor .gid-label{
+  font-family:"IBM Plex Mono", monospace;
+  font-size:.62rem;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:rgba(var(--bic-blue-rgb), .8);
+}
+body.builder-page--editor .game-id-bar input{
+  width:100%;
+  min-height:40px;
+  padding:0 12px;
+  border:1px solid rgba(var(--bic-blue-rgb), .3);
+  border-radius:8px;
+  background:#fff;
+  color:var(--bic-blue, #2d4880);
+  font-family:inherit;
+  font-size:1rem;
+  font-weight:600;
+}
+body.builder-page--editor .game-id-bar input:focus{
+  outline:none;
+  border-color:var(--bic-blue, #2d4880);
+  box-shadow:0 0 0 3px rgba(var(--bic-blue-rgb), .14);
+}
+body.builder-page--editor .game-id-bar input:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+}
+/* The id is a key, so it is set in mono — and it is the one field here that
+   can be typed into a state the database will refuse, so it says so. */
+body.builder-page--editor #selectionIdInput{
+  font-family:"IBM Plex Mono", monospace;
+  font-size:.92rem;
+  letter-spacing:.02em;
+}
+body.builder-page--editor #selectionIdInput[data-invalid]{
+  border-color:#c23737;
+  box-shadow:0 0 0 3px rgba(194, 55, 55, .14);
+}
+
 body.builder-page--editor .details-section[hidden]{
   display:none !important;
 }
@@ -7402,6 +7493,67 @@ body.builder-page--editor .guide-moved-note strong{
 }
 body.builder-page--editor .guide-moved-note p{ margin:0; font-size:.82rem; line-height:1.5; opacity:.8; }
 body.builder-page--editor .guide-moved-note a{ color:inherit; }
+
+/* The guide picker: portrait, then the one control. The picture sits beside
+   the select rather than under it because it is the confirmation that you
+   chose the right character - a list of names is easy to mis-click and a face
+   is not. Fixed square so the row does not jump as portraits load. */
+body.builder-page--editor .guide-pick-row{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  min-width:0;
+}
+/* THE FRAME IS THE GAME'S PRIMARY COLOUR, ALWAYS - portrait or silhouette. It
+   is the one place on this section that belongs to the game rather than to the
+   guide, and an empty seat still belongs to a game. A neutral border on the
+   empty state and a coloured one on the full state would also make the box
+   flicker between two looks every time the picker changes. */
+body.builder-page--editor .guide-pick-shot{
+  position:relative;
+  flex:0 0 auto;
+  width:64px;
+  height:64px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:2px solid var(--game-primary, #5468a7);
+  border-radius:8px;
+  overflow:hidden;
+  background:rgba(255,255,255,.05);
+  padding:0;
+  cursor:zoom-in;
+}
+/* Disabled means there is no portrait behind it, so it must not offer the
+   zoom cursor or the hover lift — the silhouette is not something to open. */
+body.builder-page--editor .guide-pick-shot:disabled{ cursor:default; }
+body.builder-page--editor .guide-pick-shot:not(:disabled):hover{ filter:brightness(1.08); }
+body.builder-page--editor .guide-pick-image{ width:100%; height:100%; object-fit:cover; display:block; }
+body.builder-page--editor .guide-pick-main{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:0;
+  flex:1;
+}
+body.builder-page--editor .guide-pick-main select{ width:100%; box-sizing:border-box; }
+/* Sits under the dropdown and only as wide as its words - it leaves the page,
+   so it should not read as the section's primary action. */
+body.builder-page--editor .guide-greenroom-btn{
+  align-self:flex-start;
+  display:inline-block;
+  text-decoration:none;
+  cursor:pointer;
+}
+body.builder-page--editor .guide-pick-status{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.68rem;
+  letter-spacing:.06em;
+  min-height:1em;
+  opacity:.75;
+}
+body.builder-page--editor .guide-pick-status[data-state="error"]{ color:#ff9d9d; opacity:1; }
+body.builder-page--editor .guide-pick-status[data-state="success"]{ color:#8fe0a8; opacity:1; }
 
 body.builder-page--editor #detailsGuideSection .details-section-title{
   display:block;
@@ -7565,28 +7717,6 @@ body.builder-page--editor .field-label-meta{
   letter-spacing:.08em;
 }
 
-.selection-id-editable{
-  display:inline-block;
-  min-width:1ch;
-  padding:0 2px;
-  border-radius:3px;
-  outline:none;
-  cursor:text;
-  font:inherit;
-  color:inherit;
-  white-space:pre;
-}
-.selection-id-editable:hover{
-  background:rgba(var(--bic-blue-rgb,45,72,128), .08);
-}
-.selection-id-editable:focus{
-  background:rgba(var(--bic-blue-rgb,45,72,128), .14);
-  box-shadow:inset 0 -1px 0 currentColor;
-}
-.selection-id-editable[data-invalid="true"]{
-  background:rgba(194, 55, 55, 0.18);
-  color:#c23737;
-}
 
 body.builder-page--editor #inspector .details-section-title,
 body.builder-page--editor #inspector .field-label,
@@ -9648,7 +9778,12 @@ html.admin-embedded .builder-section-head{
            on any admin page that did not look like the others. -->
       <div class="room-head">
         <div class="room-titlecol">
-          <h1 class="room-title">Game Profiles</h1>
+          <h1 class="room-title">Marquee</h1>
+          <!-- What the room is, then what is in it. The sentence is static and
+               always present; the counts line below it arrives with the games
+               and hides itself until then (.room-substat:empty), so the head
+               never opens with a blank line under the title. -->
+          <p class="room-blurb">The basic information for a game.</p>
           <p class="room-substat" id="gameProfileStat"></p>
         </div>
       </div>
@@ -9673,6 +9808,46 @@ html.admin-embedded .builder-section-head{
         </div>
       </div>
 
+      <!-- THE GAME'S IDENTITY, ON THE PAGE RATHER THAN IN THE INSPECTOR.
+           Name and id are not fields you go looking for among Brand, Payment
+           and Rendezvous: they answer "which game is this", which is the
+           question every other panel below assumes you have already answered.
+           So they sit above the workspaces, in the socials rooms' cut-panel
+           frame -- one labelled fieldset, full width, mono legend on a folder
+           tab. Hidden until a game is open (see updateSelectionUi). -->
+      <fieldset class="game-id-bar" id="gameIdentityBar">
+        <legend>Game</legend>
+        <div class="game-id-bar-inner">
+          <div class="gid-field gid-field--name" id="titleField">
+            <label class="gid-label" id="nodeTitleLabel" for="nodeTitleInput">
+              <span class="field-label-text" id="nodeTitleLabelText">Game Name</span>
+            </label>
+            <input id="nodeTitleInput" type="text" autocomplete="off" disabled>
+          </div>
+          <!-- THE ID IS A REAL TEXT BOX NOW. It was a contenteditable span
+               inside the name's <label>, which cost it a mousedown handler to
+               stop the label stealing focus, a Range to select its own
+               contents, and .textContent everywhere an input would have said
+               .value. It is still the primary key of the row and renaming it
+               still asks first -- see the blur handler. -->
+          <div class="gid-field gid-field--id" id="selectionId">
+            <label class="gid-label" for="selectionIdInput">Game ID</label>
+            <input id="selectionIdInput" type="text" autocomplete="off" spellcheck="false" disabled
+                   aria-label="Game ID" placeholder="none">
+          </div>
+          <!-- THE TAGLINE IS PART OF THE NAME, not part of Basics. It is the
+               line printed under the title wherever the game is shown, so it is
+               written while you are looking at the title — filed next to Engine
+               and Price it was a sentence of ad copy in a drawer of settings.
+               Its own row, full width, because it is prose and a 260px box
+               invites four words. -->
+          <div class="gid-field gid-field--tagline" id="taglineField">
+            <label class="gid-label" for="nodeTaglineInput">Tagline</label>
+            <input id="nodeTaglineInput" type="text" autocomplete="off" disabled>
+          </div>
+        </div>
+      </fieldset>
+
       <div id="inspectorCopyStrings" hidden>
         <span data-copy="anytime-reply">A PLAYER MSG with ANYTIME turned on. Its paired GUIDE MSG responds whenever the player message matches.</span>
         <span data-copy="anytime-guide">The GUIDE MSG paired to an ANYTIME PLAYER MSG. After this message, the current prompt is shown again.</span>
@@ -9684,17 +9859,16 @@ html.admin-embedded .builder-section-head{
         <section class="builder-tab-panel builder-tab-panel--details" id="builderPanelDetails" aria-label="Game profiles">
       <!-- Game details inspector: edits the selected game-level data. -->
       <aside class="inspector pane pane--details" id="inspector" aria-label="Game details">
-        <div class="inspector-windowbar" id="inspectorWindowBar">
-          <div class="inspector-windowmeta">
-            <div class="inspector-windowheading">
-              <div class="inspector-windowtitle" id="inspectorWindowTitle">
-                <span id="inspectorWindowTitleText">GAME PROFILES</span>
-                <span class="field-info inspector-windowinfo" tabindex="0" role="note" aria-label="Change this color combination if it doesn't look good. It will be used in the game.">i<span class="field-tooltip" role="tooltip">Change this color combination if it doesn't look good. It will be used in the game.</span></span>
-              </div>
-            </div>
-            <div class="pane-subtitle" id="inspectorWindowSubtitle" hidden>Select something to edit.</div>
-          </div>
-        </div>
+        <!-- THE "GAME PROFILES" WINDOW BAR IS GONE (2026-08-10). It was a title
+             bar naming the room, sitting one inch under the room's own title —
+             and after the rename it did not even say the same thing. Its
+             subtitle ("Select something to edit") was left over from the flow
+             editor, where a selection changes what the pane shows; here there
+             is only ever one thing being edited, the game.
+
+             refreshInspectorWindowUi() still runs and still writes to the four
+             ids that lived here. Every one of those writes was already
+             null-guarded, so it now does nothing rather than throwing. -->
 
         <div class="inspector-stack" id="inspectorStack">
           <section class="inspector-card" id="objectCard" hidden>
@@ -9706,13 +9880,6 @@ html.admin-embedded .builder-section-head{
               <section class="details-section" id="detailsBrandSection">
                   <div class="details-section-title">Game Brand</div>
                   <div class="details-section-grid details-section-grid--brand">
-                    <div class="field" id="titleField">
-                      <label class="field-label field-label--with-meta" id="nodeTitleLabel" for="nodeTitleInput">
-                        <span class="field-label-text" id="nodeTitleLabelText">Game Name</span>
-                        <span class="field-label-meta" id="selectionId" hidden>(ID: <span class="selection-id-editable" id="selectionIdInput" contenteditable="false" spellcheck="false" aria-label="Game ID (click to edit)"></span>)</span>
-                      </label>
-                      <input id="nodeTitleInput" type="text" autocomplete="off" disabled>
-                    </div>
 
                     <div class="field" id="stopNameField" hidden>
                       <label class="field-label" for="stopNameInput">STOP NAME</label>
@@ -9766,11 +9933,6 @@ html.admin-embedded .builder-section-head{
                 <section class="details-section" id="detailsGameDetailsSection">
                   <div class="details-section-title">Basics</div>
                   <div class="details-section-grid details-section-grid--game-details">
-                    <div class="field" id="taglineField">
-                      <label class="field-label" for="nodeTaglineInput">Tagline</label>
-                      <input id="nodeTaglineInput" type="text" autocomplete="off" disabled>
-                    </div>
-
                     <div class="field" id="engineField">
                       <label class="field-label field-label--with-meta" for="nodeEngineInput">
                         <span class="field-label-text">Engine</span>
@@ -9950,9 +10112,37 @@ html.admin-embedded .builder-section-head{
                        and every save from Game Profiles would write four empty
                        strings over a guide somebody wrote next door. They hold
                        the loaded values and hand them straight back. -->
-                  <div class="guide-moved-note">
-                    <strong>COMING SOON</strong>
-                    <p>Guides live in the <a href="/mc/greenroom.html">Guide Green Room</a> now — one row per character in <code>public.guides</code>, with its own portrait. A game points at one.</p>
+                  <!-- ONE CONTROL: pick the character, and that is the whole
+                       section. The game stores a guide_id and nothing else;
+                       the name, bio and background arrive on the row from the
+                       games_pull_guide trigger, and the portrait is read from
+                       public.guides. Writing any of those from here is what
+                       the trigger exists to prevent. -->
+                  <div class="field" id="guidePickField">
+                    <!-- The standing points live in the hover, not under the
+                         control. They are true of every game and are read once;
+                         a permanent paragraph restating them on every profile
+                         is the kind of text people stop seeing by the third
+                         game. The tooltip layer takes plain text, so this is
+                         one span with no markup in it. -->
+                    <label class="field-label field-label--with-meta" for="nodeGuideSelect">Guide<span class="field-info" tabindex="0" role="note" aria-label="The narrator of the game. Saved the moment you choose. The character itself is written in the Guide Green Room, and editing it there changes every game that points at it.">i<span class="field-tooltip" role="tooltip">The narrator of the game — the voice in the player's ear. Saved the moment you choose; there is nothing to press. The game stores only which guide it points at, so the character itself — name, bio, background, portrait — is written in the Guide Green Room, and editing it there changes every game using it.</span></span></label>
+                    <div class="guide-pick-row">
+                      <!-- The slot always holds a picture: a chosen guide's
+                           portrait, or the silhouette. Words in an image frame
+                           ("NO GUIDE") read as an error; a silhouette reads as
+                           an empty seat, which is what it is. -->
+                      <button class="guide-pick-shot" id="guidePickShot" type="button" disabled aria-label="No portrait">
+                        <img class="guide-pick-image" id="guidePickImage" alt="" src="/mc/assets/guideplaceholder.jpg">
+                      </button>
+                      <div class="guide-pick-main">
+                        <select id="nodeGuideSelect" disabled></select>
+                        <!-- An <a> wearing the button class: it navigates, so
+                             it keeps middle-click and open-in-new-tab. New tab
+                             deliberately — you are mid-edit on a game here. -->
+                        <a class="insp-btn guide-greenroom-btn" id="guideGreenroomBtn" href="/mc/greenroom.html" target="_blank" rel="noopener">Guide Green Room</a>
+                        <span class="guide-pick-status" id="guidePickStatus" aria-live="polite"></span>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="details-section-grid details-section-grid--guide" hidden>
@@ -10900,6 +11090,7 @@ function normalizeGameRow(row, index = 0) {
     price:                 row && row.price,
     default_emoji:         row && row.default_emoji,
     category_icon:         row && row.category_icon,
+    guide_id:              row && row.guide_id,
     guide_name:            row && row.guide_name,
     guide_bio:             row && row.guide_bio,
     guide_background:      row && row.guide_background,
@@ -11518,7 +11709,7 @@ function getBuilderPageMode() {
 // - linkLayer + nodeLayer + stencilBar + outsideAnytimeLabel = workspace overlays
 // - objectInspector* = selected-object details panel
 //
-// profiles.html note: this page is the Build-free clone of builder.html. The Build /
+// marquee.html note: this page is the Build-free clone of builder.html. The Build /
 // bubbles panel markup has been removed from the page, but the shared builder JS
 // below still references those elements by id (e.g. applyGameColors touches
 // addPanel/objectInspector during loadDoc). To keep that shared code working
@@ -11971,6 +12162,282 @@ function anchorEventLabel(ev) {
   return date + ' · ' + kind + main;
 }
 
+/* ── The guide picker ────────────────────────────────────────────────────────
+   A game POINTS AT a guide; it does not own one. The four guide_* columns are
+   still on public.games because both engines read them at play time, but they
+   are maintained by the games_pull_guide trigger, which copies name, bio and
+   background off public.guides whenever guide_id changes. So the only thing
+   this page may write is guide_id - see the note on GAME_COLUMN_TO_NODE_FIELD,
+   where the other three were removed for exactly this reason.
+
+   IT SAVES ON CHANGE, alone on this page, and that is a consequence of the
+   above rather than a preference. Everything else here is staged into a local
+   store and written by Save; a guide chosen that way would sit in memory next
+   to the stale guide_name loaded with the row, and whichever of the two was
+   written last would win. One PATCH of one column, with the row read back, has
+   no such window.
+
+   THE PORTRAIT IS FETCHED PER GUIDE, not with the list. It is a base64 data
+   URI in the row - the whole catalogue is about 2.6 MB - and this page is
+   already heavy enough. Names and hometowns are a few KB; the picture is
+   fetched for the one that is chosen and cached. */
+const builderGuides = [];
+const builderGuidesById = new Map();
+const builderGuideImages = new Map();   // id -> data URI, fetched on demand
+let builderGuidesLoaded = false;
+
+// SORTED BY CITY, SO THE CITY LEADS THE LABEL. The list is ordered by hometown
+// because that is how a game is cast - you are in Denver, you want the Denver
+// guide - and a list sorted on a key the label does not show reads as no order
+// at all. Name second, since two guides can share a town.
+function guideOptionLabel(guide) {
+  const name = String((guide && guide.name) || '').trim() || ('Guide #' + guide.id);
+  const town = String((guide && guide.hometown) || '').trim();
+  return town ? town + ' — ' + name : name;
+}
+
+function compareGuidesByCity(a, b) {
+  const townA = String((a && a.hometown) || '').trim();
+  const townB = String((b && b.hometown) || '').trim();
+  // A guide with no hometown sinks to the bottom rather than sorting under the
+  // empty string at the top, where it would look like the list starts broken.
+  if (!townA !== !townB) return townA ? -1 : 1;
+  const byTown = townA.localeCompare(townB, undefined, { sensitivity: 'base' });
+  if (byTown) return byTown;
+  return String((a && a.name) || '').localeCompare(String((b && b.name) || ''), undefined, { sensitivity: 'base' });
+}
+
+async function loadBuilderGuides() {
+  if (builderGuidesLoaded || !hasSupabaseStore()) return;
+  try {
+    // Ordered client-side by compareGuidesByCity: PostgREST would sort nulls
+    // and case its own way, and the blank-hometown rule below is ours.
+    const url = buildSupabaseUrl({ select: 'id,name,hometown' }, 'guides');
+    const res = await fetch(url, { headers: getSupabaseHeaders() });
+    if (!res.ok) throw new Error(await res.text() || res.status);
+    const rows = await res.json();
+    builderGuides.length = 0;
+    builderGuidesById.clear();
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      if (!row || row.id == null) return;
+      builderGuides.push(row);
+      builderGuidesById.set(String(row.id), row);
+    });
+    builderGuides.sort(compareGuidesByCity);
+    builderGuidesLoaded = true;
+    populateGuideSelect();
+  } catch (e) {
+    // A catalogue that will not load must not take the section with it: the
+    // select keeps whatever the game already points at, shown as an id.
+    setGuidePickStatus('Could not load guides: ' + e.message, 'error');
+  }
+}
+
+function populateGuideSelect() {
+  if (!nodeGuideSelect) return;
+  const cur = String((state && state.currentGameMeta && state.currentGameMeta.guideId) || '');
+  nodeGuideSelect.innerHTML = '';
+  const none = document.createElement('option');
+  none.value = '';
+  // "Choose a guide" rather than "— no guide —": on a game that has none it is
+  // an instruction, and on one that has a guide it is still the right label
+  // for the option that clears it.
+  none.textContent = builderGuidesLoaded ? 'Choose a guide' : 'Loading guides…';
+  nodeGuideSelect.appendChild(none);
+  builderGuides.forEach((guide) => {
+    const opt = document.createElement('option');
+    opt.value = String(guide.id);
+    opt.textContent = guideOptionLabel(guide);
+    nodeGuideSelect.appendChild(opt);
+  });
+  // Same preservation the anchor-event picker makes: a guide the catalogue has
+  // not loaded, or one that was deleted next door, must not silently unlink
+  // itself the moment somebody opens the game.
+  if (cur && !builderGuidesById.has(cur)) {
+    const opt = document.createElement('option');
+    opt.value = cur;
+    opt.textContent = 'Guide #' + cur + ' (not in catalog)';
+    nodeGuideSelect.appendChild(opt);
+  }
+  nodeGuideSelect.value = cur;
+}
+
+/* GUIDE_ID IS READ FROM public.games, NOT FROM THE VIEW THIS PAGE LOADS.
+   Games arrive through games_with_graph_and_teams, which is built on
+   games_with_graph — and that one is `select game.*`, expanded and FROZEN when
+   the view was created in June 2026. guide_id was added to the table on
+   2026-08-09, so the view has never carried it and never will until it is
+   dropped and recreated (create-or-replace cannot insert a column ahead of
+   `nodes` and `links`, so it fails rather than updating).
+
+   Selecting it from the view therefore 400s the entire games fetch, and the
+   page's missing-column recovery does not catch it: that regex looks for
+   PostgREST's "could not find the X column" wording, while a view raises
+   42703 "column ... does not exist". One dead column would have taken the
+   whole editor down.
+
+   So it is fetched per game, one row and one column, from the base table.
+   Cached per id: this runs from the inspector's paint path, which fires far
+   more often than a game is opened. If the views are ever rebuilt with
+   guide_id in them, this becomes a no-op rather than a bug - the row already
+   carries the value and the fetch never fires. */
+const resolvedGuideIdGames = new Set();
+
+async function ensureCurrentGameGuideId() {
+  const gameId = state && state.currentGameId;
+  if (!gameId || !state.currentGameMeta || !hasSupabaseStore()) return;
+  if (String(state.currentGameMeta.guideId || '')) return;
+  if (resolvedGuideIdGames.has(gameId)) return;
+  resolvedGuideIdGames.add(gameId);
+  try {
+    const url = buildSupabaseUrl({ select: 'guide_id', id: 'eq.' + gameId }, 'games');
+    const res = await fetch(url, { headers: getSupabaseHeaders() });
+    if (!res.ok) return;
+    const rows = await res.json();
+    const value = Array.isArray(rows) && rows[0] && rows[0].guide_id != null ? String(rows[0].guide_id) : '';
+    if (!value) return;
+    // The editor may have moved to another game while this was in flight.
+    if (state.currentGameId !== gameId || !state.currentGameMeta) return;
+    state.currentGameMeta.guideId = value;
+    populateGuideSelect();
+    showGuidePortrait(value);
+    syncGuideGreenroomLink();
+  } catch (e) { /* the picker simply stays on "no guide" */ }
+}
+
+function setGuidePickStatus(message, state_ = '') {
+  if (!guidePickStatus) return;
+  guidePickStatus.textContent = message || '';
+  if (state_) guidePickStatus.dataset.state = state_;
+  else guidePickStatus.removeAttribute('data-state');
+  if (message && state_ !== 'error') {
+    const snapshot = message;
+    setTimeout(() => {
+      if (guidePickStatus.textContent === snapshot) setGuidePickStatus('');
+    }, 2500);
+  }
+}
+
+function paintGuidePortrait(dataUri) {
+  const src = String(dataUri || '').trim();
+  guidePickPortraitSrc = src;
+  if (guidePickImage) {
+    // No guide, or a guide with no portrait yet, land on the same silhouette.
+    // The two are told apart by the dropdown beside it, which is where that
+    // question is actually answered.
+    guidePickImage.src = src || GUIDE_PLACEHOLDER_SRC;
+  }
+  if (guidePickShot) {
+    guidePickShot.disabled = !src;
+    guidePickShot.setAttribute('aria-label', src ? 'Open the portrait full size' : 'No portrait');
+  }
+}
+
+// THE GREEN ROOM BUTTON CARRIES THE CHOSEN GUIDE. Pressed with a guide in the
+// picker it opens that character's card; pressed with none it opens the room.
+// The character you want to edit is nearly always the one named beside the
+// button, and finding it again by eye in a room of forty cards is the step
+// worth removing.
+// THE LABEL NEVER CHANGES. Only the destination does: with a guide chosen it
+// lands on that character's card, otherwise on the room. It is the same door
+// either way, and a button whose words move as you work is one you have to
+// re-read every time — the tooltip carries the difference instead.
+function syncGuideGreenroomLink() {
+  if (!guideGreenroomBtn) return;
+  const id = String((state && state.currentGameMeta && state.currentGameMeta.guideId) || '').trim();
+  guideGreenroomBtn.href = id
+    ? '/mc/greenroom.html?guide=' + encodeURIComponent(id)
+    : '/mc/greenroom.html';
+  guideGreenroomBtn.title = id
+    ? 'Open this guide in the Guide Green Room'
+    : 'Open the Guide Green Room';
+}
+
+async function showGuidePortrait(guideId) {
+  const key = String(guideId || '');
+  if (!key) { paintGuidePortrait(''); return; }
+  if (builderGuideImages.has(key)) { paintGuidePortrait(builderGuideImages.get(key)); return; }
+  paintGuidePortrait('');
+  if (!hasSupabaseStore()) return;
+  try {
+    const url = buildSupabaseUrl({ select: 'image', id: 'eq.' + key }, 'guides');
+    const res = await fetch(url, { headers: getSupabaseHeaders() });
+    if (!res.ok) return;
+    const rows = await res.json();
+    const image = Array.isArray(rows) && rows[0] ? String(rows[0].image || '') : '';
+    builderGuideImages.set(key, image);
+    // The pick may have moved on while this was in flight.
+    if (String(nodeGuideSelect && nodeGuideSelect.value) === key) paintGuidePortrait(image);
+  } catch (e) { /* no portrait is a normal state, not an error worth shouting */ }
+}
+
+async function applyGuideSelection() {
+  if (!nodeGuideSelect || !getGameNode() || !state.currentGameMeta) return;
+  const raw = String(nodeGuideSelect.value || '').trim();
+  const nextId = raw ? Number(raw) : null;
+  const prevId = state.currentGameMeta.guideId;
+  if (String(prevId == null ? '' : prevId) === raw) return;
+
+  state.currentGameMeta.guideId = raw;
+  showGuidePortrait(raw);
+  syncGuideGreenroomLink();
+
+  if (!state.currentGameId || !hasSupabaseStore()) {
+    // A game that has never been saved has no row to PATCH. The id is held in
+    // meta and goes up with the first save, so this is a note rather than a
+    // failure.
+    setGuidePickStatus('Will save with the game.');
+    return;
+  }
+
+  setGuidePickStatus('Saving…');
+  try {
+    // return=representation so the trigger's work comes straight back. Without
+    // it the page would keep showing the previous guide's name in the hidden
+    // legacy fields, and any later full save would carry that stale copy.
+    const url = buildSupabaseUrl({ id: 'eq.' + state.currentGameId });
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: getAnytimeAuthHeaders({
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation'
+      }),
+      body: JSON.stringify({ guide_id: nextId })
+    });
+    if (!res.ok) throw new Error(await res.text() || res.status);
+    const [row] = await res.json();
+    if (row) {
+      state.currentGameMeta.guideId = row.guide_id == null ? '' : String(row.guide_id);
+      state.currentGameMeta.guideName = row.guide_name || '';
+      state.currentGameMeta.guideBio = row.guide_bio || '';
+      state.currentGameMeta.guideBackground = row.guide_background || '';
+      // Keep the store's copy of this game in step, or the next local render
+      // paints the guide that was there before.
+      const stored = state.store && Array.isArray(state.store.games)
+        ? state.store.games.find((g) => g && g.id === state.currentGameId)
+        : null;
+      if (stored) {
+        stored.guide_id = row.guide_id;
+        stored.guide_name = row.guide_name || '';
+        stored.guide_bio = row.guide_bio || '';
+        stored.guide_background = row.guide_background || '';
+      }
+      if (nodeGuideNameInput) nodeGuideNameInput.value = row.guide_name || '';
+      if (nodeGuideBioInput) nodeGuideBioInput.value = row.guide_bio || '';
+      if (nodeGuideBackgroundInput) nodeGuideBackgroundInput.value = row.guide_background || '';
+    }
+    setGuidePickStatus(raw ? 'Saved.' : 'Guide cleared.', 'success');
+  } catch (e) {
+    // Put the control back where it was: a picker showing a guide the database
+    // does not hold is worse than an error message.
+    state.currentGameMeta.guideId = prevId == null ? '' : String(prevId);
+    nodeGuideSelect.value = state.currentGameMeta.guideId;
+    showGuidePortrait(state.currentGameMeta.guideId);
+    syncGuideGreenroomLink();
+    setGuidePickStatus('Save failed: ' + e.message, 'error');
+  }
+}
+
 function populateAnchorEventSelect() {
   if (!anchorEventSelect) return;
   const cur = String((state && state.currentGameMeta && state.currentGameMeta.anchorEventId) || anchorEventSelect.value || '');
@@ -12082,6 +12549,19 @@ const nodeGameEndTimeInput = document.getElementById('nodeGameEndTimeInput');
 const nodeGuideNameInput = document.getElementById('nodeGuideNameInput');
 const nodeGuideBioInput = document.getElementById('nodeGuideBioInput');
 const nodeGuideBackgroundInput = document.getElementById('nodeGuideBackgroundInput');
+const nodeGuideSelect = document.getElementById('nodeGuideSelect');
+const guidePickImage = document.getElementById('guidePickImage');
+const guidePickShot = document.getElementById('guidePickShot');
+const guidePickStatus = document.getElementById('guidePickStatus');
+const guideGreenroomBtn = document.getElementById('guideGreenroomBtn');
+// The portrait actually on screen, or '' when the silhouette is showing. Kept
+// so the lightbox never opens on the placeholder — blowing up an empty seat to
+// full size is a dead end, which is why the frame disables itself instead.
+let guidePickPortraitSrc = '';
+// The empty seat. Drawn to fill its frame edge to edge with no margin of its
+// own, because the frame around it is the game's primary colour and a white
+// gutter inside that border would read as a broken image.
+const GUIDE_PLACEHOLDER_SRC = '/mc/assets/guideplaceholder.jpg';
 const nodeGameLogoInput = document.getElementById('nodeGameLogoInput');
 const gameLogoUrlUploadBtn = document.getElementById('gameLogoUrlUploadBtn');
 const gameLogoFileBtn = document.getElementById('gameLogoFileBtn');
@@ -12193,6 +12673,7 @@ const varValueInputs = [1, 2, 3, 4].map((index) => document.getElementById('varV
 const varCorrectRadios = [0, 1, 2, 3].map((index) => document.getElementById('varCorrect' + index));
 const selectionId = document.getElementById('selectionId');
 const selectionIdInput = document.getElementById('selectionIdInput');
+const gameIdentityBar = document.getElementById('gameIdentityBar');
 const objectSelectionId = document.getElementById('objectSelectionId');
 const builderNewGameBtn = document.getElementById('builderNewGameBtn');
 const builderViewGameBtn = document.getElementById('builderViewGameBtn');
@@ -15280,8 +15761,12 @@ function closeGuideImageLightbox() {
   }
 }
 
-function openGuideImageLightbox() {
-  const imageUrl = getCurrentGuideImagePreviewUrl();
+// srcOverride lets the guide PICKER reuse this box. Its portrait is a base64
+// data URI out of public.guides, not the legacy guide_image_url this function
+// was written for - so the source is a parameter now rather than something the
+// box goes and fetches for itself.
+function openGuideImageLightbox(srcOverride = '') {
+  const imageUrl = String(srcOverride || '').trim() || getCurrentGuideImagePreviewUrl();
   if (!imageUrl || !guideImageLightboxBackdrop || !guideImageLightboxImage) return false;
   state.guideImageLightboxPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   guideImageLightboxImage.src = imageUrl;
@@ -16292,6 +16777,10 @@ function initGameMeta(game) {
     startingLocationLon:  startingLocationCoords ? startingLocationCoords.lon : fallbackStartingLocationLon,
     locationBased:        g.location_based  != null ? !!g.location_based  : (gn.locationBased === 'YES' || gn.locationBased === true),
     fandomGame:           normalizeBooleanFlag(g.fandom_game ?? g.fandomGame ?? gn.fandomGame ?? gn.fandom_game),
+    // snake ?? camel ?? node, the standing rule for a new games column - the
+    // recovery-draft path re-runs this over a camelCase-only snapshot, and a
+    // snake-only read there silently blanks the field.
+    guideId:              String(g.guide_id ?? g.guideId ?? gn.guideId ?? ''),
     guideName:            g.guide_name      ?? gn.guideName       ?? '',
     guideBio:             g.guide_bio       ?? gn.guideBio        ?? '',
     guideBackground:      g.guide_background ?? g.guideBackground ?? gn.guideBackground ?? '',
@@ -16914,10 +17403,14 @@ const GAME_COLUMN_TO_NODE_FIELD = {
   price: 'price',
   default_emoji: 'defaultEmoji',
   category_icon: 'categoryIcon',
-  guide_name: 'guideName',
-  guide_bio: 'guideBio',
-  guide_background: 'guideBackground',
-  guide_image_url: 'guideImageUrl',
+  // GUIDE_ID IS THE ONLY GUIDE COLUMN THIS PAGE WRITES. guide_name, guide_bio,
+  // guide_background and guide_image_url were removed from this map on
+  // 2026-08-10 and must not come back: they are maintained by the
+  // games_pull_guide trigger off public.guides, and a page that also writes
+  // them will sooner or later push a stale copy over a character somebody
+  // edited in the Green Room. They are still LOADED (see initGameMeta) and
+  // still read by both engines - only the write is gone.
+  guide_id: 'guideId',
   logo_url: 'logoUrl',
   anchor_event_id: 'anchorEventId',
   link_url: 'linkUrl',
@@ -17021,6 +17514,7 @@ function normalizeSavedGame(raw, index) {
     price:                 raw && raw.price,
     default_emoji:         raw && raw.default_emoji,
     category_icon:         normalizeCategoryIconValue(raw && (raw.category_icon ?? raw.categoryIcon)),
+    guide_id:              raw && (raw.guide_id ?? raw.guideId),
     guide_name:            raw && raw.guide_name,
     guide_bio:             raw && raw.guide_bio,
     guide_background:      raw && (raw.guide_background ?? raw.guideBackground),
@@ -19434,6 +19928,7 @@ function updateSelectionUi(options = {}) {
   if (nodeVenueCityInput) nodeVenueCityInput.disabled = !isGameNode;
   if (nodeCoordinatesInput) nodeCoordinatesInput.disabled = !isGameNode;
   if (coordinatesGenerateBtn) coordinatesGenerateBtn.disabled = !isGameNode;
+  if (nodeGuideSelect) nodeGuideSelect.disabled = !isGameNode;
   nodeGuideNameInput.disabled = !isGameNode;
   nodeGuideBioInput.disabled = !isGameNode;
   if (nodeGuideBackgroundInput) nodeGuideBackgroundInput.disabled = !isGameNode;
@@ -19623,6 +20118,16 @@ function updateSelectionUi(options = {}) {
       populateAnchorEventSelect();
     }
   }
+  if (nodeGuideSelect) {
+    // Rebuilt rather than assigned, for the same reason the anchor-event
+    // picker rebuilds: the option for this game's guide may not be in the list
+    // yet, and setting .value to a missing option silently selects nothing.
+    populateGuideSelect();
+    showGuidePortrait(isGameNode ? String(meta.guideId || '') : '');
+    syncGuideGreenroomLink();
+    setGuidePickStatus('');
+    if (isGameNode) ensureCurrentGameGuideId();
+  }
   nodeGuideNameInput.value = isGameNode ? (meta.guideName || '') : '';
   nodeGuideBioInput.value = isGameNode ? (meta.guideBio || '') : '';
   if (nodeGuideBackgroundInput) nodeGuideBackgroundInput.value = isGameNode ? (meta.guideBackground || '') : '';
@@ -19652,19 +20157,24 @@ function updateSelectionUi(options = {}) {
     nodeBodyInput.value = isGameNode ? (meta.body || '') : '';
   }
   nodeBodyInput.placeholder = '';
-  // selectionId wraps: "(ID: <span id=selectionIdInput contenteditable>id</span>)"
+  // The id is a plain <input> since 2026-08-10 — .value, and disabled rather
+  // than contentEditable. Never written while it has focus, or a repaint mid
+  // rename would yank the text out from under the cursor.
   const currentId = currentGameEntry && currentGameEntry.id ? String(currentGameEntry.id).trim() : '';
   if (selectionIdInput) {
     if (document.activeElement !== selectionIdInput) {
-      selectionIdInput.textContent = currentId || 'none';
+      selectionIdInput.value = currentId;
     }
-    selectionIdInput.contentEditable = !!(showGameDetails && currentId);
+    selectionIdInput.disabled = !(showGameDetails && currentId);
     selectionIdInput.removeAttribute('data-invalid');
     selectionIdInput.title = showGameDetails && currentId
-      ? 'Click to rename this game ID (must be unique)'
+      ? 'Rename this game ID (must be unique)'
       : '';
   }
-  selectionId.hidden = !showGameDetails;
+  if (selectionId) selectionId.hidden = !showGameDetails;
+  // The bar carries both fields, so it follows the same condition they do —
+  // an empty framed panel above the workspaces is worse than no panel.
+  if (gameIdentityBar) gameIdentityBar.hidden = !showGameDetails;
   syncDetailsSectionVisibility();
   if (document.activeElement !== objectBodyInput) closeVariableAutocomplete();
   updateObjectInspectorUi(selectedNode, selectedLink, objectCopyText);
@@ -21140,6 +21650,11 @@ function stageCurrentGameIntoStore() {
     primary_tag:           _gn.primaryTag || null,
     default_emoji:         _meta.defaultEmoji || null,
     category_icon:         normalizeCategoryIconValue(_meta.categoryIcon) || null,
+    // guide_id is the pointer and the only one of these the page writes; the
+    // three below are the trigger's copy, kept here so the local store and the
+    // hidden legacy fields still show the right character. See the note on
+    // GAME_COLUMN_TO_NODE_FIELD.
+    guide_id:              _meta.guideId ? Number(_meta.guideId) : null,
     guide_name:            _meta.guideName || null,
     guide_bio:             _meta.guideBio || null,
     guide_background:      _meta.guideBackground || null,
@@ -21760,6 +22275,14 @@ bindTeamSelect(nodeHomeTeamCityInput, nodeHomeTeamMascotInput, 'homeTeamCity', '
   tgbidField: 'homeTeamTgbid'
 });
 if (anchorEventSelect) anchorEventSelect.addEventListener('change', applyAnchorEventSelection);
+if (nodeGuideSelect) nodeGuideSelect.addEventListener('change', applyGuideSelection);
+// Full size in the shadow box the page already has. Only ever the real
+// portrait: paintGuidePortrait disables the frame when the silhouette is up.
+if (guidePickShot) {
+  guidePickShot.addEventListener('click', () => {
+    if (guidePickPortraitSrc) openGuideImageLightbox(guidePickPortraitSrc);
+  });
+}
 
 if (nodeAwayTeamCityInput) {
   nodeAwayTeamCityInput.addEventListener('input', () => {
@@ -24291,6 +24814,7 @@ async function initializeBuilder() {
   setGameDetailsCollapsed(false);
   loadBuilderTeams().catch((err) => console.warn('loadBuilderTeams failed:', err));
   loadBuilderAnchorEvents().catch((err) => console.warn('loadBuilderAnchorEvents failed:', err));
+  loadBuilderGuides().catch((err) => console.warn('loadBuilderGuides failed:', err));
   await loadDoc();
   builderInitialized = true;
   syncGameIdToUrl();
@@ -24933,29 +25457,17 @@ async function renameCurrentGameId(nextId) {
 if (selectionIdInput) {
   let idBeforeEdit = '';
 
-  // The wrapping <label for="nodeTitleInput"> routes clicks on any child to
-  // the Game Name input. Stop the bubbling on mousedown so the editable span
-  // actually gets focus.
-  selectionIdInput.addEventListener('mousedown', (event) => {
-    event.stopPropagation();
-    event.preventDefault();
-    selectionIdInput.focus();
-  });
-  selectionIdInput.addEventListener('click', (event) => {
-    event.stopPropagation();
-  });
+  // A real input needs none of what the contenteditable span did: no mousedown
+  // handler to stop the wrapping <label> stealing focus (there is no wrapping
+  // label any more), no Range to select its own contents, no .textContent.
 
   selectionIdInput.addEventListener('focus', () => {
-    idBeforeEdit = selectionIdInput.textContent || '';
-    // Select all contents for quick overwrite
-    const range = document.createRange();
-    range.selectNodeContents(selectionIdInput);
-    const sel = window.getSelection();
-    if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+    idBeforeEdit = selectionIdInput.value || '';
+    selectionIdInput.select();
   });
 
   selectionIdInput.addEventListener('input', () => {
-    const value = normalizeGameIdInput(selectionIdInput.textContent || '');
+    const value = normalizeGameIdInput(selectionIdInput.value || '');
     const invalid = value && !GAME_ID_PATTERN.test(value);
     selectionIdInput.toggleAttribute('data-invalid', !!invalid);
   });
@@ -24966,25 +25478,30 @@ if (selectionIdInput) {
       selectionIdInput.blur();
     } else if (event.key === 'Escape') {
       event.preventDefault();
-      selectionIdInput.textContent = idBeforeEdit;
+      selectionIdInput.value = idBeforeEdit;
       selectionIdInput.removeAttribute('data-invalid');
       selectionIdInput.blur();
     }
   });
 
+  // RENAMING IS THE PRIMARY KEY MOVING. Every other table pointing at this game
+  // rides on ON UPDATE CASCADE, so it asks first and puts the old value back on
+  // any refusal.
   selectionIdInput.addEventListener('blur', async () => {
-    const proposed = normalizeGameIdInput(selectionIdInput.textContent || '');
+    const proposed = normalizeGameIdInput(selectionIdInput.value || '');
     const previous = idBeforeEdit;
     idBeforeEdit = '';
 
     if (!proposed || proposed === previous) {
-      selectionIdInput.textContent = previous || (state.currentGameId || 'none');
+      selectionIdInput.value = previous || (state.currentGameId || '');
       selectionIdInput.removeAttribute('data-invalid');
       return;
     }
 
-    if (!window.confirm(`Rename game ID from "${previous}" to "${proposed}"?\n\nAll references in other tables must already allow ON UPDATE CASCADE.`)) {
-      selectionIdInput.textContent = previous;
+    if (!window.confirm(`Rename game ID from "${previous}" to "${proposed}"?
+
+All references in other tables must already allow ON UPDATE CASCADE.`)) {
+      selectionIdInput.value = previous;
       selectionIdInput.removeAttribute('data-invalid');
       return;
     }
@@ -24992,12 +25509,12 @@ if (selectionIdInput) {
     const result = await renameCurrentGameId(proposed);
     if (!result.ok) {
       window.alert(result.error || 'Could not rename game ID.');
-      selectionIdInput.textContent = previous;
+      selectionIdInput.value = previous;
       selectionIdInput.setAttribute('data-invalid', 'true');
       return;
     }
     selectionIdInput.removeAttribute('data-invalid');
-    selectionIdInput.textContent = state.currentGameId || '';
+    selectionIdInput.value = state.currentGameId || '';
   });
 }
 

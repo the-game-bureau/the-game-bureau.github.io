@@ -47,7 +47,7 @@
       publicHref: '/games/',
       publicTitle: 'Public games page',
       // Matches the three game EDITORS, not a room folder. /games/admin/ was
-      // emptied on 2026-08-07 — its index went, and profiles.html and stops.html
+      // emptied on 2026-08-07 — its index went, and marquee.html and stops.html
       // moved to /mc/ — so the old /^\/games\/admin\// test could never fire
       // again and this button never lit up. These three are what "you are in
       // games" actually means now.
@@ -89,6 +89,26 @@
       icon: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9H4.5a2.5 2.5 0 0 1 0-5H6'/%3E%3Cpath d='M18 9h1.5a2.5 2.5 0 0 0 0-5H18'/%3E%3Cpath d='M4 22h16'/%3E%3Cpath d='M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22'/%3E%3Cpath d='M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22'/%3E%3Cpath d='M18 2H6v7a6 6 0 0 0 12 0V2Z'/%3E%3C/svg%3E"
     }
   ];
+
+  // EVERY DESTINATION IN THIS BAR OPENS IN A NEW TAB (2026-08-10). These rooms
+  // hold work in progress — a half-written game in the Marquee, a dirty card in
+  // the Green Room, an unsaved route order — and several of them guard it with
+  // a beforeunload prompt. Navigating away in place meant either losing that or
+  // answering "are you sure" to reach the next room, which is the wrong price
+  // for a glance at the gift shop.
+  //
+  // The padlock is deliberately NOT run through this: it is not a destination,
+  // it toggles the session on the page you are standing on.
+  //
+  // rel is set with the target, never separately. A _blank link without
+  // noopener hands the new page a window.opener reference back to this one,
+  // and these are admin pages.
+  function openInNewTab(anchor) {
+    if (!anchor) return anchor;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener';
+    return anchor;
+  }
 
   // The padlock shows STATE, not the action: open shackle = you are signed in,
   // closed = you are not. Clicking it toggles, so signed in it signs you out and
@@ -587,6 +607,7 @@
     var a = document.createElement('a');
     a.className = 'asn-link';
     a.href = room.href;
+    openInNewTab(a);
     a.style.setProperty('--asn-icon', 'url("data:image/svg+xml,' + room.icon + '")');
     a.title = room.title;
     // Just the title: "GAMES — Admin games" reads as a stutter to a screen
@@ -616,6 +637,7 @@
     var pub = document.createElement('a');
     pub.className = 'asn-public';
     pub.href = room.publicHref;
+    openInNewTab(pub);
     pub.title = room.publicTitle;
     pub.setAttribute('aria-label', room.publicTitle);
     // Both labels ship; CSS shows one. The section word is the desktop face —
@@ -643,6 +665,7 @@
   var mc = document.createElement('a');
   mc.className = 'asn-link asn-mc';
   mc.href = MISSION_CONTROL.href;
+  openInNewTab(mc);
   mc.title = MISSION_CONTROL.title;
   mc.setAttribute('aria-label', MISSION_CONTROL.title);
   mc.style.setProperty('--asn-icon', 'url("data:image/svg+xml,' + MISSION_CONTROL.icon + '")');

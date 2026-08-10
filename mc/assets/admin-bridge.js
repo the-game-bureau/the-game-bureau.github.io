@@ -171,8 +171,8 @@
     var gameId = data.gameId || currentGameId();
     var explicit = data.href || '';
     if (explicit) return rootHref(explicit);
-    if (kind === 'game') return rootHref('mc/profiles.html' + (id ? '?id=' + encode(id) : ''));
-    if (kind === 'game-run') return rootHref('mc/profiles.html' + (gameId ? '?id=' + encode(gameId) : ''));
+    if (kind === 'game') return rootHref('mc/marquee.html' + (id ? '?id=' + encode(id) : ''));
+    if (kind === 'game-run') return rootHref('mc/marquee.html' + (gameId ? '?id=' + encode(gameId) : ''));
     if (kind === 'gift-item') return rootHref('mc/gifts/' + (id ? '?item=' + encode(id) : ''));
     if (kind === 'gift-shop') return rootHref('mc/gifts/');
     if (kind === 'winners-wall') return rootHref('mc/highlights/');
