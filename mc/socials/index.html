@@ -1352,12 +1352,13 @@ spread them honestly, and let the weakest one be weak.
 
 6. TAG THE PLATFORMS
 
-We have exactly four accounts. Never suggest one we do not have.
+We have exactly three accounts: FACEBOOK, INSTAGRAM and THREADS. Never suggest one we do not have — X and YouTube were removed on 2026-08-07 and the admin page has no row for them, so either tag renders as nothing.
 
-  FACEBOOK — the default home for a story. Link previews render and the caption can breathe, so this suits news, oddities, city history, food, and travel that needs a sentence of setup. Skews older and more local.
-  INSTAGRAM — anything with a strong photograph, a gallery, or a place you can see. A link in an IG caption is not clickable, so tag it only when the image carries the story. Only tag it when you captured an image: the admin posts to Instagram by machine and its API refuses a text-only post, so without one it cannot be posted at all.
+THIS TAG IS ADVICE, NOT ROUTING. Since 2026-08-09 one click posts a candidate to every account that can take it, so what you write here does not decide where anything goes. It is read by a human deciding whether to post at all. Say which account you think carries the story and why, in one short phrase:
 
-X and YouTube were removed on 2026-08-07 and are no longer destinations here. Never suggest either: the admin page has no row for them, so the tag renders as nothing.
+  FACEBOOK — the default home for a story. Link previews render and the caption can breathe, so this suits news, oddities, city history, food, and travel that needs a sentence of setup. Skews older and more local. Every candidate reaches it.
+  INSTAGRAM — anything with a strong photograph, a gallery, or a place you can see. A link in an IG caption is not clickable, so tag it only when the image carries the story. NOTE THE HARD LIMIT: Instagram's API refuses a text-only post, so a candidate with no `image` cannot reach it at all, whatever you tag.
+  THREADS — text-first and conversational; a link is clickable and a picture is optional, so a story that is simply interesting to read works here even with no image. Every candidate reaches it.
 
 Judge from the media you saw in step 3 plus the audience for the topic. It is fine for a pick to suit only Facebook — do not tag everything on everything, a tag that always fires tells the human nothing.
 
@@ -2413,17 +2414,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         return id ? 'Candidate ' + id : 'Candidate';
       }
 
-      function platformList(post) {
-        var seen = {};
-        return (Array.isArray(post && post.platforms) ? post.platforms : []).map(function (platform) {
-          return typeof platform === 'string' ? platform : String(platform && platform.name || '');
-        }).filter(function (name) {
-          var key = name.toLowerCase();
-          if (!key || seen[key]) return false;
-          seen[key] = true;
-          return true;
-        });
-      }
+      // platformList() was deleted on 2026-08-09, unread. It read the agent's
+      // `platforms` tags for the pills the card used to show. The tags are
+      // still stored and still shown in the Edit dialog -- they are the agent's
+      // recommendation -- but they DO NOT DECIDE ANYTHING: every live
+      // destination is reached on one click, and which ones is a fact about the
+      // candidate rather than a preference. See postTargets().
 
       // The card is laid out the way the post will actually look: the caption
       // first and largest, because that is the thing being published, then the
@@ -2875,8 +2871,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // that would need stored tokens, which must never live on this page.
       // Several platforms can be queued for one story, but they are opened one
       // per click; see buildPostControls for why a burst cannot work.
-      // meta's label is dynamic; see platformLabel(). This is the fallback.
-      var PLATFORM_LABELS = { meta: 'Facebook + Instagram', threads: 'Threads' };
+      // PLATFORM_LABELS and platformLabel() were deleted here on 2026-08-09,
+      // unread since the picker went. Account names for anything a human sees
+      // come from WIRE_LABELS, keyed by what the Edge Function actually
+      // reports, so a label cannot drift from the account that took the post.
       // NOTHING IS PREFILLED, DELIBERATELY. Post copies the caption and link to
       // the clipboard and opens the platform's own composer; you paste.
       //
@@ -2929,9 +2927,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // 'meta' is the merged Facebook+Instagram destination, not a Graph term.
       // X was removed on 2026-08-07: it was never wired for API posting, so it
       // only ever added a manual step this page could not help with.
-      var PLATFORM_ORDER = ['meta', 'threads'];
-      // Shown when the agent did not tag a platform for this story, so the row
-      // still explains what that account is for rather than sitting blank.
+      // PLATFORM_ORDER lived here and was deleted on 2026-08-09. It listed the
+      // destinations for a per-card picker that went away with X and YouTube,
+      // and NOTHING HAD READ IT SINCE -- so adding 'threads' to it, as was done
+      // that morning, looked exactly like wiring Threads up and changed
+      // nothing. A list that no longer feeds anything is worse than absent: it
+      // answers "is this destination configured?" with a convincing yes.
+      // Destinations are decided in postTargets() further down.
 
       // ── Which platforms can actually be posted to by machine ──────────────
       // Flip a flag to true ONLY once the Edge Function can genuinely post
@@ -3029,10 +3031,37 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         return out;
       }
 
-      // The label is per candidate, so it cannot be a constant like the others.
-      function platformLabel(key, post) {
-        if (key !== 'meta') return PLATFORM_LABELS[key];
-        return hasImage(post) ? 'Facebook + Instagram' : 'Facebook';
+      // ── EVERY DESTINATION A CLICK REACHES ─────────────────────────────────
+      // THE ONE FUNCTION THE POST BUTTON ASKS. metaTargets() used to be that
+      // function, and when Threads was wired on 2026-08-09 -- Edge Function
+      // written, secret set, PLATFORM_AUTOPOST.threads flipped to true -- none
+      // of it did anything, because the button still asked metaTargets() and
+      // that answer cannot contain Threads. The flag read as the switch and was
+      // not; there was no path from it to a request. Anything added here later
+      // goes in THIS function, or it is inert in exactly the same way.
+      //
+      // Threads is unconditional where Instagram is not: its API takes
+      // media_type=TEXT, so an image is an option rather than a requirement,
+      // and there is no candidate it cannot take. Same reasoning as the Meta
+      // fan-out above -- the button states the outcome rather than asking a
+      // question whose answer is a fact about the candidate:
+      //
+      //   candidate has an image  ->  Facebook + Instagram + Threads
+      //   candidate has no image  ->  Facebook + Threads
+      function postTargets(post) {
+        var out = metaTargets(post);
+        if (PLATFORM_AUTOPOST.threads) out.push('threads');
+        return out;
+      }
+
+      // Real account names for the receipt. A LOOKUP WITH NO DEFAULT, on both
+      // sides of the wire: the Edge Function had this as
+      // `p === 'facebook' ? 'Facebook' : 'Instagram'` and would have filed
+      // every Threads post as Instagram. A default is what makes that silent.
+      var WIRE_LABELS = { facebook: 'Facebook', instagram: 'Instagram', threads: 'Threads' };
+
+      function wireLabels(keys) {
+        return (keys || []).map(function (k) { return WIRE_LABELS[k] || k; });
       }
 
       function autoBlockedReason(key, post) {
@@ -3046,18 +3075,16 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
       var AUTOPOST_ENDPOINT = 'socials-post';   // Supabase Edge Function, not built yet
 
-      function autoPostable(keys, post) {
-        return keys.filter(function (k) { return !autoBlockedReason(k, post); });
-      }
-
       // Posts through the Edge Function. Resolves to the WHOLE reply --
       // { posted, results } -- not just the winners. results carries Meta's own
       // error text per platform, and that is the only place the reason for a
       // refusal ever appears; the function deliberately answers 200 even when
       // nothing went out, because the call itself succeeded.
       async function postViaApi(post, keys) {
-        // The function speaks Graph, not our UI vocabulary: expand 'meta' into
-        // the accounts it actually reaches for this candidate.
+        // The function speaks real account names, not our UI vocabulary. Callers
+        // pass those already -- postTargets() answers in them -- but 'meta' is
+        // still expanded here, because it is this page's own word for the pair
+        // and a caller written later will reach for it.
         var wire = [];
         keys.forEach(function (k) {
           if (k === 'meta') wire = wire.concat(metaTargets(post));
@@ -3082,9 +3109,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var bad = (results || []).filter(function (r) { return r && !r.ok; });
         if (!bad.length) return 'the function reported no successes and no errors';
         return bad.map(function (r) {
-          var name = r.platform === 'facebook' ? 'Facebook'
-                   : r.platform === 'instagram' ? 'Instagram'
-                   : r.platform === 'threads' ? 'Threads' : (r.platform || '?');
+          var name = WIRE_LABELS[r.platform] || r.platform || '?';
           return name + ' — ' + (r.error || (r.skipped ? 'skipped' : 'failed'));
         }).join('  |  ');
       }
@@ -3132,9 +3157,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // Real account names, because posted_platforms is a receipt: "meta" is
         // this page's vocabulary and would mean nothing six months from now.
         function targetLabels() {
-          return metaTargets(post).map(function (t) {
-            return t === 'facebook' ? 'Facebook' : 'Instagram';
-          });
+          return wireLabels(postTargets(post));
         }
 
         // Resolves to the error if the row could not be written, otherwise
@@ -3156,7 +3179,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         }
 
         function sync() {
-          var targets = metaTargets(post);
+          var targets = postTargets(post);
           go.textContent = targets.length
             ? 'Post to ' + targetLabels().join(' + ')
             : 'Post';
@@ -3167,7 +3190,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         }
 
         go.addEventListener('click', function () {
-          var targets = metaTargets(post);
+          var targets = postTargets(post);
           if (!targets.length) return;
           clearNotice(feedbackEl);
           var restore = go.textContent;
@@ -3189,10 +3212,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
               return;
             }
 
-            var labels = reply.posted.map(function (t) {
-              return t === 'facebook' ? 'Facebook' : t === 'instagram' ? 'Instagram'
-                   : t === 'threads' ? 'Threads' : t;
-            });
+            var labels = wireLabels(reply.posted);
             var failed = (reply.results || []).filter(function (r) { return r && !r.ok; });
 
             // NOT ASKED, RECORDED. The function reported which accounts took
