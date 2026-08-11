@@ -42,31 +42,34 @@ Do not reintroduce per-city generated card HTML, `city-playlists.json`, `song-pl
 
 ### Daily generation — a Claude Code cloud routine, not CI
 
-New soundtracks are added by a **scheduled Claude Code cloud agent** ("TGB Soundtrack Bot", `trig_014sqaUyU7557svq9mGA1E4a`, cron `0 8,20 * * *` UTC — **twice a day**, 3 AM and 3 PM Central), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the alphabetically-first city with no soundtrack plus the most underfilled existing one, verifies Spotify IDs by web search, and writes them through the RPC above; it then audits those two tapes plus the 3 least-recently-audited and reports findings through `tgb_report_soundtrack_issues`. **It commits nothing.** It briefly had one git write — re-exporting the fallback file, added 2026-07-30 — which ended when that file was deleted on 2026-08-06. Songs have never travelled through a commit, so the last-run signal in [mc/soundtracks/admin/index.html](mc/soundtracks/admin/index.html) is the **newest `soundtrack_songs` row**, not the GitHub commits API (same call as the gift shop's freshest Review candidate) — and that stays correct now that there is no commit feed to read at all. The routine's stored prompt must be updated to match the paste-ready prompt in the Tape Room; both changed on 2026-07-29 when the tables landed.
+New soundtracks are added by a **scheduled Claude Code cloud agent** ("TGB Soundtrack Bot", `trig_014sqaUyU7557svq9mGA1E4a`, cron `30 11 * * *` UTC — **once a day**, 6:30 AM Central in summer, 5:30 AM in winter), managed at [claude.ai/code/routines](https://claude.ai/code/routines). Each run picks the alphabetically-first city with no soundtrack plus the most underfilled existing one, verifies Spotify IDs by web search, and writes them through the RPC above; **both picks must count REVIEW candidates as though already live** — a tape awaiting review reads `active_songs = 0` forever, so selecting on `active_songs` alone re-picks the same city every day (Aachen reached 30 candidate songs, and Abilene / Abuja / Abidjan each sat on a full unreviewed fifteen, before this was caught on 2026-08-10); it then audits those two tapes plus the 3 least-recently-audited and reports findings through `tgb_report_soundtrack_issues`. **It commits nothing.** It briefly had one git write — re-exporting the fallback file, added 2026-07-30 — which ended when that file was deleted on 2026-08-06. Songs have never travelled through a commit, so the last-run signal in [mc/soundtracks/admin/index.html](mc/soundtracks/admin/index.html) is the **newest `soundtrack_songs` row**, not the GitHub commits API (same call as the gift shop's freshest Review candidate) — and that stays correct now that there is no commit feed to read at all. The routine's stored prompt has a canonical copy at [mc/soundtracks/routine-prompt.md](mc/soundtracks/routine-prompt.md) — edit there, then paste into the routine. **An agent cannot paste it**: the routine was created through the web UI, so `update_trigger` refuses it and only a human can change the stored text. That file's header lists what has not yet been carried across.
 
 **Why not GitHub Actions:** it used to be `.github/workflows/soundtrack-daily.yml` + `mc/_dev/scripts/soundtrack-daily.mjs`, both **deleted 2026-07-27**. That path needed a funded Anthropic or OpenAI API key; neither account had credit, so every run failed on a billing error. The routine bills against the Claude subscription instead. Don't recreate the workflow unless an API key gets funded — and if you do, don't leave both running or you'll get two soundtracks a day.
 
-**Twice daily since 2026-08-01** (was `30 11` once a day). The Tape Room's last-run staleness check moved with it — `REVIEW_HOURS` is **14**, not 26, so one missed run shows rather than needing two.
+**Still ONCE daily, `30 11 * * *`.** This file claimed twice-daily `0 8,20` from 2026-08-01, and `REVIEW_HOURS` in the Tape Room was dropped to 14 to match — but **the trigger itself was never changed**, verified against the live routine on 2026-08-10. A 14-hour threshold against a 24-hour cron lit the "stale" warning for ~10 hours out of every 24, so the one signal that says "a run failed" was meaningless. `REVIEW_HOURS` is back to **26**. Either leave both as they are, or move the cron and the constant in the same commit — they are one decision, and splitting them is what produced this.
+
+Note the knock-on: because this bot is once-daily and the other three are twice-daily, **it is NOT on the `0 8,20` schedule** and the standing DST table below does not apply to it. `30 11` drifts the same way everything else here does (6:30 AM Central in summer, 5:30 in winter) and is left alone deliberately.
 
 **DST:** cloud cron is UTC with no DST and can't use the two-cron-plus-hour-guard trick, so **no single cron holds one Central time year-round**. `0 8,20` is exactly 3 AM / 3 PM CDT and 2 AM / 2 PM CST. Drifting an hour is accepted, not a bug — see the calendar note below for holding 3 o'clock instead.
 
-### Standing DST note — three routines share `0 8,20 * * *`
+### Standing DST note — two routines share `0 8,20 * * *`
 
-The gift shop, soundtrack and socials bots all run on the same cron, so they all drift together and are all fixed together. **Nothing is scheduled to do this automatically; it is a human calendar item.**
+The gift shop and socials bots run on the same cron, so they drift together and are fixed together. **Nothing is scheduled to do this automatically; it is a human calendar item.** (**The soundtrack bot is NOT one of them** — it is `30 11` once daily; see the correction above. This note said "three routines" and listed it until 2026-08-10.)
 
-| when | set all three to | Central time it lands |
+| when | set both to | Central time it lands |
 |---|---|---|
 | **Sun 2026-11-01** (CDT → CST) | `0 9,21 * * *` | 3 AM / 3 PM |
 | **Sun 2027-03-14** (CST → CDT) | `0 8,20 * * *` | 3 AM / 3 PM |
 
-**A FOURTH routine is on its own pair of hours** and needs the same treatment on the same two dates: TGB NFL Tour Builder runs `0 9,21`, which is **4 AM / 4 PM CDT and 3 AM / 3 PM CST**. It was asked for as "4am and 4pm Central year round", which no single cron can hold — `0 9,21` is right today and drifts an hour in winter; `0 10,22` would be right in winter and wrong now. Move it to `0 10,22` on 2026-11-01 and back to `0 9,21` on 2027-03-14 to keep 4 o'clock.
+**A THIRD routine is on its own pair of hours** and needs the same treatment on the same two dates: TGB NFL Tour Builder runs `0 9,21`, which is **4 AM / 4 PM CDT and 3 AM / 3 PM CST**. It was asked for as "4am and 4pm Central year round", which no single cron can hold — `0 9,21` is right today and drifts an hour in winter; `0 10,22` would be right in winter and wrong now. Move it to `0 10,22` on 2026-11-01 and back to `0 9,21` on 2027-03-14 to keep 4 o'clock.
 
-| routine | trigger id |
-|---|---|
-| TGB Gift Shop Bot | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` |
-| TGB Soundtrack Bot | `trig_014sqaUyU7557svq9mGA1E4a` |
-| TGB SOCIAL BOT | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` |
-| TGB NFL Tour Builder | `trig_01P6fMZjt4ZapaKVoiCUfGxw` |
+| routine | trigger id | cron (UTC) |
+|---|---|---|
+| TGB Gift Shop Bot | `trig_01H7cKJ4fk5bA1NWSqPZi4ah` | `0 8,20` |
+| TGB SOCIAL BOT | `trig_01KDYndJhZ9ymgUgX5Xx6LsL` | `0 8,20` |
+| TGB NFL Tour Builder | `trig_01P6fMZjt4ZapaKVoiCUfGxw` | `0 9,21` |
+| TGB Soundtrack Bot | `trig_014sqaUyU7557svq9mGA1E4a` | `30 11` — once daily, not on the DST pair above |
+| TGB Waypoint Tour Scout | `trig_01Q5uCittJ3dT3M2xj8sKD3j` | `45 11` — once daily, left alone deliberately |
 
 Edit them at [claude.ai/code/routines](https://claude.ai/code/routines), or ask Claude Code to (`/schedule`). **Do not "fix" a routine by setting the cron to the Central hour you want** — the field is UTC, so `0 3,15` fires at 10 PM / 10 AM Central, not 3 o'clock. The Waypoint Tour Scout (`45 11`) drifts the same way and is left alone deliberately; a 6:45 or 5:45 AM run is fine either way.
 

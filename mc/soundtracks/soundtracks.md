@@ -45,7 +45,9 @@ rest of that scratch folder, so supply ffmpeg before running it.
 
 Tapes moved out of `soundtracks/soundtracks.json` and into Supabase on **2026-07-29**;
 the file lingered as an offline fallback until **2026-08-06**, when it was deleted.
-The file is still committed and still read — but only as a lifeboat.
+**Supabase is now the only source.** A failed fetch shows "Could not load
+soundtracks." rather than a stale catalogue that looked correct — which is why the
+file went. Do not reintroduce it, or its exporter.
 
 | Thing | Where | Notes |
 |---|---|---|
@@ -57,7 +59,7 @@ The file is still committed and still read — but only as a lifeboat.
 | City names + geo badges | `public.cities` | Joined on `city_slug` = `cities.slug`. Also the gate: no tape for a city with `hide_from_soundtracks = true`. |
 | The public page | `soundtracks/index.html` | Reads both tables (paged, because PostgREST caps at 1000 rows). Supabase is the only source; a failed fetch shows "Could not load soundtracks." |
 | The audit write path | `public.tgb_report_soundtrack_issues(jsonb)` | Insert-only RPC, publishable key. Files findings; cannot clear them. |
-| The dashboard | `mc/soundtracks/admin/index.html` | An **Issues** panel (open findings, Fixed / Not an issue) above **Tapes & Tracks** — every tape collapsed by city, Hide/Show on both a tape and a track, **Edit** for every field on a track plus Move/Copy to another tape, a red ⚠ chip on any flagged track, each track stamped with when it was added, sortable by city / tape added / track added. Plus last run, viewer stats links, and the manual fallback prompt. |
+| The dashboard | `mc/soundtracks/admin/index.html` | An **Issues** panel (open findings, one **Clear issue** button, rolled up by tape) above **Tapes & Tracks** — every tape collapsed by city, **Live / Shelve** on a track and **Shelve tape / Restore tape** on a tape, **Edit** for every field on a track plus Move/Copy to another tape, a red ⚠ chip on any flagged track, each track stamped with when it was added, sortable by city / tape added / track added. Plus last run, viewer stats links, and the manual fallback prompt. |
 
 A tape and its songs:
 
@@ -71,7 +73,7 @@ A tape and its songs:
   "position": 0,
   "title": "Do Whatcha Wanna",
   "artist": "Rebirth Brass Band",
-  "spotify_id": "4PTG3Z6ehGkBFwjybzWkR8",
+  "spotify_id": "5UqzRN9qi2oxmKWff9oIRC",
   "blurb": "Second-line brass that runs the whole city",
   "explicit": false,
   "archived": false
@@ -102,14 +104,67 @@ A tape and its songs:
   Room's **Copy** relies on it, inserting the copy with `archived = false`.
   **Move** is the one action that does carry the tombstone across, because it
   takes the row itself rather than making a new one.
-- **The Tape Room says HIDE and HIDDEN for this, not archive.** The column keeps
-  the name `archived` and so does the code; only the words a person reads changed
-  (2026-07-30). "Archive" implied the track was filed away or deleted, when all
-  that happens is it comes off `/soundtracks/` and stops counting. If you add UI here,
-  match the visible vocabulary: **Hide / Show**, **Hidden / Active**.
+- **The Tape Room says SHELVE for this, not archive and no longer Hide.** The
+  column keeps the name `archived` and so does the code; only the words a person
+  reads changed. "Archive" implied the track was filed away or deleted, when all
+  that happens is it comes off `/soundtracks/` and stops counting — so it became
+  **Hide** on 2026-07-30, and then **Hide was merged into Shelve** on 2026-08-01
+  when the review queue landed, because they were one effect described two ways
+  and three buttons for two outcomes confused everybody. If you add UI here, match
+  the visible vocabulary: **Live / Shelve / Review**, and **Shelve tape /
+  Restore tape**. `setTrackArchived` is gone; **every track write goes through
+  `setTrackStatus`**, so `archived` cannot drift out of step with the two stamps.
 - A **unique index on `(city_slug, lower(title), lower(artist))`** enforces the
   no-duplicates rule in the database. This is what makes tombstones work: an
   INSERT of a retired song hits the index and does nothing.
+
+### The review queue — nothing an agent writes goes live
+
+Added **2026-08-01**. Every song the pull RPC writes lands as a **candidate**, not
+as a published track. Three states, derived from two stamps, exactly like
+`gift_shop_items`:
+
+| state | `certified_at` | `rejected_at` | `archived` | on `/soundtracks/` |
+|---|---|---|---|---|
+| **REVIEW** | null | null | true | no — this is what an agent produces |
+| **LIVE** | set | null | false | yes |
+| **SHELVED** | either | set | true | no |
+
+A human presses **Live** or **Shelve** in the Tape Room. Until then the track is
+invisible and does not count toward 15.
+
+- **The public page needed no change**, because a review candidate is
+  `archived = true` — invisible for exactly the same reason a hidden track is.
+  `archived` still means everything it always meant, including the
+  do-not-rescrape tombstone the unique index enforces.
+- **`active_songs` therefore does not move when a run succeeds.** A tape you just
+  filled fifteen songs for still reads `active_songs = 0` until somebody reviews
+  it. That is expected, not a failed run.
+
+> **THIS IS THE TRAP, AND IT HAS ALREADY BITTEN.** Pick targets by
+> `active_songs` alone and a tape awaiting review looks empty forever, so the
+> same city is chosen again tomorrow, and again the day after. Aachen collected
+> **30 candidate songs from two runs** this way, and Abilene, Abuja and Abidjan
+> each sat on a full unreviewed fifteen while the rotation kept re-picking them.
+>
+> **Count REVIEW candidates as if they were already live when choosing what to
+> work on.** A tape's *effective* fill is `LIVE + REVIEW`; only `SHELVED` is
+> genuinely gone. Concretely:
+>
+> - **New city** — the alphabetically first non-hidden city with **no songs in
+>   any state**, not merely `active_songs = 0`.
+> - **Top-up** — how many to add is `15 - (LIVE + REVIEW)`. Adding
+>   `15 - active_songs` to a tape with candidates in flight produces an
+>   over-full tape the moment a human approves them, and trimming that is a
+>   manual chore.
+>
+> `soundtrack_stats` cannot answer this — it only exposes `active_songs` and
+> `archived_songs`, and REVIEW and SHELVED are both folded into the latter. Read
+> `soundtrack_songs` and split on the two stamps:
+>
+> ```bash
+> curl -sS "$B/soundtrack_songs?select=city_slug,certified_at,rejected_at&apikey=$KEY&limit=1000&offset=0"
+> ```
 
 ### Reading and writing
 
@@ -125,12 +180,14 @@ Writes split by who is doing them:
   publishable key. It is `SECURITY DEFINER` and deliberately tiny: insert-only,
   creates the tape row if needed, refuses a `city_slug` that is unknown or hidden
   from `/soundtracks/`, ignores `spine_tag` on a tape that already exists, drops a
-  malformed `spotify_id`, always writes `archived = false`, and caps a call at 60
-  songs across 4 tapes. **Do not add parameters for `archived`** — that constant
-  is part of what makes the function safe to expose to `anon`. Same pattern, and
-  same reason, as the gift shop's `tgb_pull_book_candidates`: a cloud routine has
-  no secret store, so a service-role key would have to sit in its stored prompt
-  in plaintext.
+  malformed `spotify_id`, always writes `archived = true` / `certified_at = null`
+  / `rejected_at = null`, and caps a call at 60 songs across 4 tapes. **Do not add
+  parameters for those three** — those constants are what make the function safe
+  to expose to `anon`. Same pattern, and same reason, as the gift shop's
+  `tgb_pull_book_candidates`: a cloud routine has no secret store, so a
+  service-role key would have to sit in its stored prompt in plaintext. The
+  function returns `queued` for each row it writes; see the review queue below
+  for why nothing it writes is visible yet.
 - **A human retires or restores a song** in the Tape Room, which PATCHes
   `soundtrack_songs.archived` under an admin session. RLS allows writes to
   `authenticated` only. The asymmetry is the design: adding is automatable,
@@ -147,16 +204,22 @@ Writes split by who is doing them:
   is re-audited forever.
 - **Re-reporting is a silent no-op, by design.** A partial unique index on
   `fingerprint` covering `open` and `dismissed` — but *not* `fixed` — means you
-  never have to check what is already known, and a finding a human marked "not an
-  issue" can never come back. Do not treat the RPC's `skipped` count as a failure.
-  Because the fingerprint is `md5(city_slug:song_id:kind)` and ignores your
-  wording, rephrasing a finding does not sneak it past the dedupe.
-- **A human clears a finding**, in the Issues panel, and the two buttons mean
-  different things. **Fixed** = dealt with; the row leaves `open` and the same
-  finding *may be raised again tomorrow*, which is the only real check that the
-  fix landed. **Not an issue** = the agent was wrong; that exact finding is
-  silenced permanently. Neither is available to the agent — `status` is not a
-  parameter of the reporting RPC.
+  never have to check what is already known. Do not treat the RPC's `skipped`
+  count as a failure. Because the fingerprint is `md5(city_slug:song_id:kind)` and
+  ignores your wording, rephrasing a finding does not sneak it past the dedupe.
+- **A human clears a finding** with the Issues panel's single **Clear issue**
+  button, which writes `fixed`. The row leaves `open` and **the same finding may
+  be raised again tomorrow — that recurrence is the only real check that the fix
+  landed.** Clearing empties the queue; it never silences a finding.
+  - **The "Not an issue" button was removed on 2026-08-01** and the page no
+    longer writes `dismissed` at all. A permanent silence was a decision nobody
+    could see afterwards, and a wrong one was unrecoverable without SQL. The
+    `dismissed` status still sits in the index's `where` clause, so **rows
+    dismissed before that date still suppress their finding forever**;
+    `update public.soundtrack_issues set status = 'fixed' where status = 'dismissed';`
+    releases them. Don't reintroduce the button.
+  - Clearing is not available to the agent — `status` is not a parameter of the
+    reporting RPC.
 - **A human edits a song's fields** there too — title, artist, blurb,
   `spotify_id`, `explicit`, `position` — and can **Move** a track to another tape
   (PATCH of `city_slug`) or **Copy** it onto one (INSERT with `archived = false`).
@@ -286,13 +349,16 @@ winter costs nothing.
    > city is next, and never hand-write a city list, because a wrong pick
    > writes a tape for a city we do not sell into. Still do the top-up, and
    > say plainly in the summary that the catalog was unreachable.
-2. Picks the **alphabetically first city with no active tape**, plus the
-   **emptiest existing tape by active song count**.
+2. Picks the **alphabetically first non-hidden city with no songs in any state**,
+   plus the **emptiest existing tape by effective fill** (`LIVE + REVIEW`). Both
+   halves count review candidates — see the review-queue trap above, which is the
+   single easiest way to make this routine do nothing useful twice in a row.
 3. Researches songs and verifies every Spotify ID by web search.
 4. Runs the housekeeping pass below.
-5. Writes the songs through `tgb_pull_soundtrack_songs`, which puts them live on
-   `/soundtracks/` immediately. **The newest song row is the run receipt** — that is
-   what the dashboard's "Last run" reads, not a commit.
+5. Writes the songs through `tgb_pull_soundtrack_songs`, which files them as
+   **review candidates** — invisible on `/soundtracks/` until a human presses Live.
+   **The newest song row is the run receipt** — that is what the dashboard's
+   "Last run" reads, not a commit.
 6. Commits nothing. The routine has no git write at all as of 2026-08-06, when the
    fallback file it used to refresh was deleted — same shape as the gift shop and
    socials bots.
@@ -391,6 +457,12 @@ Two rules that have not changed and must not:
 - Model: Claude Opus 5
 - From that page you can watch a run, trigger one early, change the schedule, or
   pause it.
+- **The stored prompt's canonical copy is [routine-prompt.md](routine-prompt.md)**,
+  beside this file. Edit there, then paste into the routine in the same sitting.
+  **An agent cannot do that paste**: the routine was created through the web UI,
+  and `update_trigger` refuses any routine an agent did not itself create, so the
+  stored text is human-only. That file's header lists whatever has not yet been
+  pasted across.
 - The routine's stored prompt was **rewritten on 2026-07-29** for the Supabase
   path: it reads `soundtrack_stats` instead of the JSON file, writes through
   `tgb_pull_soundtrack_songs`, and its last section is now "do not commit". It
@@ -472,11 +544,6 @@ one, so tick **Show hidden** before concluding the tape does not already have it
 There is no JSON file to edit. `soundtracks/soundtracks.json` and its exporter were
 deleted on 2026-08-06: the tables are the only source, so a change is live the moment
 you save it in the Tape Room.
-It is read-only against Supabase and rewrites the file in its exact historical
-shape, so an unchanged database produces a zero-line diff. **Never hand-edit the
-file.** The Tape Room has a **download a fresh copy** link under the track list
-that produces the same bytes, deliberately tucked away: the daily run regenerates
-and commits this file for you, so a human needs it only when the routine is down.
 
 After any edit, load `/soundtracks/` and play the tape you touched.
 
@@ -495,8 +562,10 @@ After any edit, load `/soundtracks/` and play the tape you touched.
 | A run reported 15 songs but the tape has fewer | The RPC skipped duplicates. Its result rows say which and why; a song already on the tape, active or archived, is silently not re-added. |
 | `/soundtracks/` says "Could not load soundtracks." | The Supabase fetch failed. Check the browser console and the project status. Since 2026-08-06 there is no fallback file, so an outage shows plainly instead of quietly serving a stale catalogue. |
 | "Last run" on the dashboard is over a day old | A run failed, or the routine is paused. Open the routine and read the transcript. |
-| A finding you cleared as **Fixed** is back tomorrow | Working as designed — the fix did not take, or did not address what was flagged. Only **Not an issue** silences a finding permanently. |
-| A finding you dismissed never comes back even though it is real | Also by design. `dismissed` is caught by a partial unique index, so re-reporting is a database-level no-op. Set that row's `status` back to `open` in the Supabase table editor to un-silence it. |
+| A finding you pressed **Clear issue** on is back tomorrow | Working as designed — the fix did not take, or did not address what was flagged. Clearing empties the queue; nothing silences a finding any more. |
+| A finding never comes back even though it is real | An old `dismissed` row from before 2026-08-01, caught by a partial unique index, so re-reporting is a database-level no-op. Set that row's `status` to `fixed` or `open` in the Supabase table editor to un-silence it. |
+| A run reports 15 songs but the tape still shows 0 active | Expected. Everything an agent writes is a REVIEW candidate until a human presses **Live** — see the review queue above. |
+| The same city gets a new tape written every single day | The run is picking targets by `active_songs` instead of `LIVE + REVIEW`, so an unreviewed tape looks empty forever. This is the review-queue trap; Aachen reached 30 candidate songs that way. |
 | The Issues panel is empty and stays empty | Either nothing is wrong, or the migration is not applied — the page tolerates a missing `soundtrack_issues` table by showing no findings. Check the browser console. |
 | Two tapes appeared in one day | Something else is writing too — check the old GitHub workflow was not recreated. |
 
@@ -515,19 +584,27 @@ After any edit, load `/soundtracks/` and play the tape you touched.
   `to:soundtrack@thegamebureau.com`, `subject:(Song suggestion)`, and
   `subject:"Song suggestion for {City}"`. Treat them as leads, never as verified
   facts: the Spotify id still has to be checked like any other.
-- Verify after writing, by re-reading `soundtrack_stats`: 15 active songs on both
-  tapes you touched, artist cap intact, every added song accounted for in the
-  RPC's result rows.
-- Refresh the fallback with the export script and commit only that one file. If
-  the push is rejected, `git pull --rebase` and push again — three other routines
-  commit here every morning. Never force-push.
+- Verify after writing, by re-reading `soundtrack_songs` and splitting on the two
+  stamps: `LIVE + REVIEW` should be 15 on both tapes you touched, artist cap
+  intact, every added song accounted for in the RPC's result rows. Re-reading
+  `soundtrack_stats` alone will *not* show your work — see the review queue above.
+- **Commit nothing.** The routine has had no git write since 2026-08-06, when the
+  fallback file it used to refresh was deleted. `git status` must be clean when you
+  finish; if it is not, you edited something you were not asked to.
 - You cannot remove or archive a song, and that is deliberate. Archived rows are
   city-specific do-not-rescrape tombstones: hidden from `/soundtracks/`, ignored by
   counts, and still blocking future title + artist reuse in that city. Name what
   needs retiring in your summary, file it as an issue, and a human does it.
 - You cannot clear a finding either. `status` is not a parameter of the reporting
-  RPC, so **Fixed** and **Not an issue** stay human actions. If you believe a
-  finding is wrong, say so in your summary rather than trying to route around it.
+  RPC, so **Clear issue** stays a human action. If you believe a finding is wrong,
+  say so in your summary rather than trying to route around it.
+- **You cannot correct a bad `spotify_id` either, and it is worth knowing why
+  before you try.** A PATCH to `soundtrack_songs` with the publishable key returns
+  **HTTP 200 with an empty array** — RLS matches zero rows rather than refusing —
+  so a write that silently did nothing looks exactly like a write that worked.
+  Check the row back before believing any direct write. File the correction as a
+  `spotify` finding with a verified replacement id in `suggestion`; a human applies
+  it in the Tape Room.
 - If you cannot verify a Spotify ID, **omit it**. Omitting is always correct;
   guessing never is.
 - Say plainly in your summary which songs you could not verify. A quiet gap is
