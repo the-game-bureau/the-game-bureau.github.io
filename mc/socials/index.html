@@ -338,6 +338,14 @@
       border-color: rgba(var(--bic-blue-rgb), 0.46);
       background: #eef4ff;
     }
+    /* Captured with no link yet — see the render. Nothing to open, so it does
+       not offer the hover of something that opens. */
+    .post-card.is-linkless,
+    .post-card.is-linkless:hover {
+      border-style: dashed;
+      background: #f7faff;
+      cursor: default;
+    }
     .post-card.has-shot {
       grid-template-columns: 116px minmax(0, 1fr);
       align-items: center;
@@ -538,8 +546,7 @@
     .post-card:focus-visible,
     .modal-form input:focus-visible,
     .modal-form select:focus-visible,
-    .modal-form textarea:focus-visible,
-    .platform-pick input:focus-visible {
+    .modal-form textarea:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
@@ -547,6 +554,20 @@
       border-color: rgba(var(--bic-blue-rgb), 0.3);
       background: rgba(var(--bic-blue-rgb), 0.045);
     }
+
+    /* A post is in the air — see setPostingLock. The buttons are genuinely
+       disabled in JS; this is only so the page LOOKS held rather than dead,
+       and so the one card mid-post (which keeps its "Posting..." label) reads
+       as the reason for it. */
+    body.is-posting .post-actions,
+    body.is-posting .queue-tabs,
+    body.is-posting .command-bar-inner {
+      opacity: 0.5;
+    }
+    /* …except the row actually doing it, which keeps full contrast because its
+       "Posting..." button is the explanation for everything else being off. */
+    body.is-posting .post-actions.is-posting-row { opacity: 1; }
+    body.is-posting { cursor: progress; }
 
     /* Honour a reduced-motion preference across every transition added here. */
     @media (prefers-reduced-motion: reduce) {
@@ -894,6 +915,12 @@
       z-index: 100;
       width: min(780px, calc(100vw - 32px));
       max-height: calc(100vh - 48px);
+      /* dvh, so the footer buttons are not parked underneath a phone browser's
+         address bar. 100vh on mobile is the LARGE viewport — the height the page
+         has once the chrome has scrolled away — so a panel sized to it is taller
+         than what you can actually see, and the row you are reaching for is the
+         one that gets cut. The vh line above stays as the fallback. */
+      max-height: calc(100dvh - 48px);
       transform: translate(-50%, -50%);
       overflow: auto;
     }
@@ -937,8 +964,7 @@
       gap: 12px;
     }
     .modal-form label,
-    .modal-form .field-label,
-    .platform-row label {
+    .modal-form .field-label {
       display: grid;
       gap: 6px;
       color: var(--muted);
@@ -981,36 +1007,20 @@
       min-height: 40px;
       padding-inline: 14px;
     }
+    /* A label row: the field's name, then "optional" immediately after it. The
+       wrapper stays a flex row rather than plain inline text so every label sits
+       on the same baseline whether or not it carries the word.
+
+       Scoped, and placed AFTER the .field-label rule above: the URL label wears
+       both classes, and a bare .field-line would lose to .modal-form
+       .field-label's display:grid on specificity. */
+    .modal-form .field-line {
+      display: flex;
+      align-items: baseline;
+      justify-content: flex-start;
+      gap: 8px;
+    }
     .label-opt { opacity: 0.6; font-weight: 600; letter-spacing: 0.08em; }
-    .platform-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-    }
-    .platform-row {
-      display: grid;
-      gap: 8px;
-      padding: 10px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.62);
-    }
-    .platform-pick {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--ink);
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-    .platform-pick input {
-      width: auto;
-      min-height: 0;
-      padding: 0;
-    }
     .modal-actions {
       display: flex;
       align-items: center;
@@ -1032,6 +1042,17 @@
       color: var(--ink);
     }
 
+    /* A missing field is marked ON the field. The status line alone could not
+       say which box it meant — it sits at the very bottom of a form that is
+       taller than a phone screen, so the message and the empty box were never
+       on screen together, and a filled-in URL read as the thing being
+       complained about. Cleared on the next keystroke in that box. */
+    .modal-form .is-invalid,
+    .modal-form .is-invalid:focus-visible {
+      border-color: var(--bic-red);
+      background: rgba(194, 55, 55, 0.05);
+    }
+
     @media (max-width: 840px) {
       .panel-head { align-items: flex-start; flex-direction: column; }
       .copy-status { text-align: left; }
@@ -1039,13 +1060,53 @@
       .post-actions .btn { flex: 1 1 auto; }
       .post-edit-btn { margin-left: 0; }
       .command-bar .btn { flex: 1 1 auto; }
-      .modal-grid,
-      .platform-grid {
-        grid-template-columns: 1fr;
-      }
+      .modal-grid { grid-template-columns: 1fr; }
+      /* The URL and its two buttons: one row for the box, one row for the pair.
+         Collapsing all three to a single column made three full-width rows out
+         of one field and pushed the form that much further past the fold. */
       .manual-url-control {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+      .manual-url-control input { grid-column: 1 / -1; }
+
+      /* A dialog on a phone is the screen, so it uses it: full width, square
+         corners at the edges, and pinned rather than centred by transform. */
+      .tool-modal-panel,
+      .tool-modal-panel--wide,
+      .tool-modal-panel--ask {
+        top: 8px;
+        left: 8px;
+        width: calc(100vw - 16px);
+        max-height: calc(100vh - 16px);
+        max-height: calc(100dvh - 16px);
+        transform: none;
+      }
+      /* The head keeps its buttons in a ROW. Stacking them under the title (the
+         .panel-head rule above) turned a two-button header into four stacked
+         lines and ate the top of every dialog. */
+      .tool-modal-panel > .panel-head {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .tool-modal-panel > .panel-head .panel-title { flex: 1 1 100%; }
+      .panel-head-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+      .panel-head-actions .btn { flex: 1 1 auto; }
+
+      /* 16px is the threshold under which iOS Safari zooms the page on focus —
+         which then leaves the form scrolled sideways with the field you are
+         typing in half off screen. Nothing else about these controls changes. */
+      .modal-form input,
+      .modal-form select,
+      .modal-form textarea {
+        font-size: 16px;
+      }
+      .modal-form { padding: 14px; }
+      .modal-actions { padding: 0 14px 14px; }
+      /* Status above the buttons rather than squeezed left of them, where a
+         sentence in a 0.72rem mono capital had about four characters of room. */
+      .modal-status { width: 100%; margin-right: 0; }
+      .modal-actions .btn { flex: 1 1 auto; }
     }
   </style>
   <link rel="stylesheet" href="../../mc/js/admin-shell.css">
@@ -1141,71 +1202,56 @@
       <section class="prompt-panel tool-modal-panel" id="manualCard" role="dialog" aria-modal="true" aria-labelledby="manualTitle" hidden>
         <div class="panel-head">
           <h2 class="panel-title" id="manualTitle">Manually Add a Social Post Candidate</h2>
-          <!-- Cancel and the save button, repeated from the footer, the same way
-               the Edit dialog carries them: the form is longer than a short
-               window and the footer pair sits past the scroll. Neither of these
-               carries an id — the footer keeps #manualAddBtn, both submit via
-               form="manualPostForm", so there is no duplicate id and nothing to
-               keep in step but the label, which setManualEditorMode writes to
-               every [data-manual-submit] at once. -->
+          <!-- Cancel and Add, repeated from the footer, the same way the Edit
+               dialog carries them — on a phone the caption box can still push
+               the footer pair below the fold. Only the footer button carries an
+               id; both submit via form="manualPostForm", so there is no
+               duplicate id and no label to keep in step. -->
           <span class="panel-head-actions">
             <button class="btn small" data-manual-close type="button">Cancel</button>
             <button class="btn small primary" data-manual-submit type="submit" form="manualPostForm">Add Candidate</button>
           </span>
         </div>
-        <form class="modal-form" id="manualPostForm">
+        <!-- THREE BOXES, AND ONLY THE HEADLINE IS REQUIRED. This is a catch,
+             not a finished candidate: you have a link you do not want to lose,
+             and the sprucing up happens later on the card's Edit button, which
+             carries every column — source, published, topics, image, why. Nine
+             fields and a platform picker up front asked for the finished thing
+             at the one moment you have least to give it. Fill still reads the
+             page for a headline and a caption; media and the platform tags come
+             from the bot, and nothing routes on the tags anyway.
+
+             url and blurb are NOT NULL in the table, so a box left blank is
+             written as '' — see submitManualPost.
+
+             novalidate: this form does its own checking, in the status line and
+             on the field itself. The browser's bubble points at a box inside a
+             scrolling panel, so on a phone it fired somewhere off screen and the
+             button simply appeared to do nothing. The `required` attribute stays
+             for the screen reader; only the native popup is off. -->
+        <form class="modal-form" id="manualPostForm" novalidate>
           <div class="modal-grid">
             <div class="full manual-url-field">
-              <label class="field-label" for="manualUrl">Destination Web Page</label>
+              <!-- "optional" sits immediately after the field's name, reading as
+                   part of the same phrase. -->
+              <label class="field-label field-line" for="manualUrl">
+                <span>Destination Web Page</span>
+                <span class="label-opt">optional</span>
+              </label>
               <div class="manual-url-control">
-                <input id="manualUrl" type="text" inputmode="url" autocomplete="off" required>
+                <input id="manualUrl" type="text" inputmode="url" autocomplete="off">
                 <button class="btn small" id="manualFillBtn" type="button">Fill</button>
                 <button class="btn small" id="manualOpenUrlBtn" type="button">Open</button>
               </div>
             </div>
-            <label class="full">Headline
+            <label class="full">
+              <span class="field-line"><span>Headline</span></span>
               <input id="manualHeadline" type="text" autocomplete="off" required>
             </label>
-            <label>Source
-              <input id="manualSource" type="text" autocomplete="off">
+            <label class="full">
+              <span class="field-line"><span>Caption</span><span class="label-opt">optional</span></span>
+              <textarea id="manualBlurb" maxlength="200"></textarea>
             </label>
-            <label>Published
-              <input id="manualPublished" type="date">
-            </label>
-            <label>Topics
-              <input id="manualTopics" type="text" placeholder="games, travel" autocomplete="off">
-            </label>
-            <label>Media
-              <select id="manualMedia">
-                <option value="photo">Photo</option>
-                <option value="gallery">Gallery</option>
-                <option value="video">Video</option>
-                <option value="text">Text</option>
-              </select>
-            </label>
-            <label class="full">Image URL <span class="label-opt">optional</span>
-              <input id="manualImage" type="url" placeholder="https://… (the story's lead image)" autocomplete="off">
-            </label>
-            <label class="full">Caption
-              <textarea id="manualBlurb" maxlength="200" required></textarea>
-            </label>
-            <label class="full">Why
-              <textarea id="manualWhy"></textarea>
-            </label>
-            <div class="full platform-grid" aria-label="Platform recommendations">
-              <div class="platform-row">
-                <span class="platform-pick"><input type="checkbox" data-platform-name="Instagram"> Instagram</span>
-                <label>Why
-                  <input type="text" data-platform-why="Instagram" autocomplete="off">
-                </label>
-              </div>
-              <div class="platform-row">
-                <span class="platform-pick"><input type="checkbox" data-platform-name="Facebook"> Facebook</span>
-                <label>Why
-                  <input type="text" data-platform-why="Facebook" autocomplete="off">
-                </label>
-              </div>
-            </div>
           </div>
         </form>
         <div class="modal-actions">
@@ -1613,7 +1659,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       var manualStatus = document.getElementById('manualStatus');
       var manualFillBtn = document.getElementById('manualFillBtn');
       var manualOpenUrlBtn = document.getElementById('manualOpenUrlBtn');
-      var manualTitle = document.getElementById('manualTitle');
       var editBackdrop = document.getElementById('editBackdrop');
       var editCard = document.getElementById('editCard');
       var editForm = document.getElementById('editForm');
@@ -1728,6 +1773,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           setAdminAuthToggleState(true);
           document.body.classList.add('is-admin');
           loadQueue();
+          // Deep link, opened here rather than on DOMContentLoaded: until this
+          // fires the whole page is display:none behind the sign-in gate, so a
+          // dialog opened earlier would be invisible and would stay that way.
+          openManualFromHash();
         },
         onSignedOut: function () {
           setAdminAuthToggleState(false);
@@ -1799,9 +1848,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
       function normalizeManualUrl(value) {
         var raw = cleanText(value);
-        if (!raw) throw new Error('Enter a destination web page.');
+        if (!raw) throw new Error('Add a destination web page.');
         if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) raw = 'https://' + raw;
-        var url = new URL(raw);
+        var url;
+        // new URL throws a TypeError whose message is "Failed to construct
+        // 'URL': Invalid URL" — engine wording, shown to nobody usefully. It is
+        // rewritten here so the status line is a sentence.
+        try { url = new URL(raw); } catch (error) { throw new Error('That is not a web address we can open.'); }
         if (!/^https?:$/i.test(url.protocol)) throw new Error('Use an http or https URL.');
         return url.href;
       }
@@ -1995,56 +2048,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         return mergeMetadata(direct, fallback);
       }
 
-      function inferTopics(meta, url) {
-        var text = [
-          meta && meta.title,
-          meta && meta.description,
-          meta && meta.source,
-          meta && meta.keywords,
-          url
-        ].join(' ').toLowerCase();
-        var rules = [
-          ['games', /\b(game|games|gaming|play|players?|boardgame|escape room|scavenger)\b/],
-          ['competition', /\b(competition|contest|tournament|race|challenge|championship|leaderboard)\b/],
-          ['travel', /\b(travel|trip|route|walk|walking|tour|destination|road trip|journey)\b/],
-          ['tourism', /\b(tourism|tourist|attraction|museum|hotel|visitor|guide|landmark)\b/],
-          ['weird', /\b(weird|strange|odd|unusual|curious|mystery|secret|hidden)\b/],
-          ['sports', /\b(sports?|nba|nfl|mlb|nhl|soccer|baseball|football|basketball|hockey)\b/],
-          ['tv', /\b(tv|television|film|movie|series|show|streaming)\b/],
-          ['music', /\b(music|song|album|concert|venue|festival|band|artist)\b/],
-          ['food', /\b(food|drink|restaurant|bar|cafe|chef|menu|cocktail|beer)\b/],
-          ['history', /\b(history|historic|heritage|archive|century|ancient|oldest)\b/]
-        ];
-        var out = [];
-        rules.forEach(function (rule) {
-          if (rule[1].test(text)) out.push(rule[0]);
-        });
-        splitTopics(meta && meta.keywords).forEach(function (topic) {
-          if (out.indexOf(topic) === -1 && rules.some(function (rule) { return rule[0] === topic; })) out.push(topic);
-        });
-        return out.slice(0, 4);
-      }
-
-      function platformWhyText(name, meta) {
-        var hasImage = !!(meta && meta.image);
-        var label = String(name || '').toLowerCase();
-        if (label === 'instagram') return hasImage ?
-          'Has a share image; use the visual as the hook and keep the caption tight.' :
-          'Needs a strong visual before Instagram; caption links will not be clickable.';
-        if (label === 'facebook') return 'Good for a link preview with a little room for context.';
-        return 'Good for a quick link post where the preview carries the story.';
-      }
-
       function setIfBlank(id, value) {
         var el = document.getElementById(id);
-        var text = cleanText(value);
-        if (!el || !text || cleanText(el.value)) return 0;
-        el.value = text;
-        return 1;
-      }
-
-      function setPlatformWhyIfBlank(name, value) {
-        var el = document.querySelector('[data-platform-why="' + name + '"]');
         var text = cleanText(value);
         if (!el || !text || cleanText(el.value)) return 0;
         el.value = text;
@@ -2059,7 +2064,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           url = normalizeManualUrl(urlInput.value);
           urlInput.value = url;
         } catch (error) {
-          manualStatusText(error && error.message ? error.message : 'Enter a destination web page.', false);
+          failManualFields(['manualUrl'], error && error.message ? error.message : 'Add a destination web page.');
           return;
         }
 
@@ -2067,21 +2072,15 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         manualFillBtn.textContent = 'Filling';
         manualStatusText('Reading destination...', true);
         try {
+          // Only the two boxes the form still has. It used to fill source,
+          // published, topics, image, why and a line of platform advice as
+          // well; those fields moved to Edit, and reading a page for a value
+          // with nowhere to put it is just a slower Fill.
           var meta = await fetchPageMetadata(url);
-          if (!meta.source) meta.source = hostnameLabel(url);
-          var topics = inferTopics(meta, url);
           var caption = compactCaption(meta.description || meta.title);
-          var why = 'Autofilled from destination page metadata. Verify the page, image, and caption before posting.';
           var filled = 0;
           filled += setIfBlank('manualHeadline', meta.title);
-          filled += setIfBlank('manualSource', meta.source);
-          filled += setIfBlank('manualPublished', meta.published);
-          filled += setIfBlank('manualTopics', topics.join(', '));
-          filled += setIfBlank('manualImage', meta.image);
           filled += setIfBlank('manualBlurb', caption);
-          filled += setIfBlank('manualWhy', why);
-          filled += setPlatformWhyIfBlank('Instagram', platformWhyText('Instagram', meta));
-          filled += setPlatformWhyIfBlank('Facebook', platformWhyText('Facebook', meta));
           manualStatusText(filled ? 'Filled ' + filled + ' blank field' + (filled === 1 ? '' : 's') + '.' : 'No blank fields to fill.', true);
         } catch (error) {
           manualStatusText('Could not read that page.', false);
@@ -2099,7 +2098,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           url = normalizeManualUrl(urlInput.value);
           urlInput.value = url;
         } catch (error) {
-          manualStatusText(error && error.message ? error.message : 'Enter a destination web page.', false);
+          failManualFields(['manualUrl'], error && error.message ? error.message : 'Add a destination web page.');
           return;
         }
         var opened = window.open(url, '_blank', 'noopener,noreferrer');
@@ -2109,55 +2108,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         } else {
           manualStatusText('Popup blocked. Open the destination from the URL field.', false);
         }
-      }
-
-      function platformKey(value) {
-        return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-      }
-
-      function setManualEditorMode(post) {
-        if (manualTitle) manualTitle.textContent = post ? 'Edit Social Post Candidate' : 'Manually Add a Social Post Candidate';
-        var label = post ? 'Save Candidate' : 'Add Candidate';
-        Array.prototype.forEach.call(document.querySelectorAll('[data-manual-submit]'), function (button) {
-          button.textContent = label;
-        });
-      }
-
-      function populateManualForm(post) {
-        if (!post) return;
-        var fields = {
-          manualUrl: post.url,
-          manualHeadline: post.headline,
-          manualSource: post.source,
-          manualPublished: normalizeDate(post.published),
-          manualTopics: Array.isArray(post.topics) ? post.topics.join(', ') : post.topics,
-          manualMedia: post.media || 'photo',
-          manualImage: post.image,
-          manualBlurb: post.blurb,
-          manualWhy: post.why
-        };
-        Object.keys(fields).forEach(function (id) {
-          var el = document.getElementById(id);
-          if (el) el.value = cleanText(fields[id]);
-        });
-
-        var picked = {};
-        (Array.isArray(post.platforms) ? post.platforms : []).forEach(function (platform) {
-          var name = typeof platform === 'string' ? platform : (platform && platform.name);
-          if (!name) return;
-          picked[platformKey(name)] = {
-            name: name,
-            why: typeof platform === 'string' ? '' : cleanText(platform && platform.why)
-          };
-        });
-
-        Array.prototype.forEach.call(document.querySelectorAll('[data-platform-name]'), function (input) {
-          var name = input.getAttribute('data-platform-name') || '';
-          var match = picked[platformKey(name)];
-          input.checked = !!match;
-          var whyInput = document.querySelector('[data-platform-why="' + name + '"]');
-          if (whyInput) whyInput.value = match ? cleanText(match.why) : '';
-        });
       }
 
       function openTool(card, backdrop, focusEl) {
@@ -2233,21 +2183,58 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         document.body.style.overflow = '';
       }
 
-      function openManualPost() {
-        if (!manualCard || !manualForm) return;
-        setManualEditorMode(null);
-        manualForm.reset();
-        manualStatusText('', false);
-        openTool(manualCard, manualBackdrop, document.getElementById('manualUrl'));
+      // ── THE ADD BOX HAS ITS OWN URL ──────────────────────────────────────
+      //   https://thegamebureau.com/mc/socials/index.html#manual
+      //
+      // A dialog you can link to is one you can bookmark, keep on a phone home
+      // screen, or send to yourself -- which is exactly the moment this box is
+      // for: you are somewhere else, you have found a story, and you want the
+      // link captured before it is gone. The hash is the whole mechanism. No
+      // route table, no state object, and it costs nothing when unused.
+      //
+      // WRITTEN WITH replaceState, NOT `location.hash = ...`. Assigning the hash
+      // pushes a history entry for every open and close, so Back would walk you
+      // back through each time you opened the box instead of leaving the page --
+      // and it scrolls to any element that happens to carry that id.
+      var MANUAL_HASH = '#manual';
+
+      function setManualHash(on) {
+        if (on === (window.location.hash === MANUAL_HASH)) return;
+        if (!window.history || !window.history.replaceState) return;
+        window.history.replaceState(null, '',
+          window.location.pathname + window.location.search + (on ? MANUAL_HASH : ''));
       }
 
-      function openEditPost(post) {
-        if (!manualCard || !manualForm || !post) return;
-        setManualEditorMode(post);
+      // Opens the box if the URL asks for it. Guarded on the admin class because
+      // this is called from the sign-in callback and from hashchange, and only
+      // one of those can be trusted to have a visible page.
+      function openManualFromHash() {
+        if (window.location.hash !== MANUAL_HASH) return;
+        if (!document.body.classList.contains('is-admin')) return;
+        if (manualCard && !manualCard.hidden) return;
+        openManualPost();
+      }
+
+      // Add only. Editing a candidate is the card's Edit button, which opens
+      // the dialog below with every column on it -- this box exists to catch a
+      // link, and the two paths stopped sharing a form when it shed the seven
+      // fields it no longer asks for.
+      function openManualPost() {
+        if (!manualCard || !manualForm) return;
         manualForm.reset();
-        populateManualForm(post);
         manualStatusText('', false);
+        clearManualFieldMarks();
         openTool(manualCard, manualBackdrop, document.getElementById('manualUrl'));
+        setManualHash(true);
+      }
+
+      // Every way out of the box goes through here -- the two Cancels, the
+      // backdrop, Escape, and a successful Add -- so the URL cannot be left
+      // saying #manual over a closed dialog. That stale hash is worse than no
+      // hash at all: reload, and the box you just closed opens again.
+      function closeManualPost() {
+        closeTool(manualCard, manualBackdrop);
+        setManualHash(false);
       }
 
       function openPrompt() {
@@ -2259,29 +2246,41 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         return 'manual-' + iso.slice(0, 10) + '-' + iso.slice(11, 16).replace(':', '') + '-' + Date.now().toString(36);
       }
 
-      function splitTopics(value) {
-        var seen = {};
-        return cleanText(value).split(/[,\n]/).map(function (topic) {
-          return topic.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '');
-        }).filter(function (topic) {
-          if (!topic || seen[topic]) return false;
-          seen[topic] = true;
-          return true;
+      // Clears every red field mark in the manual form. Called when the dialog
+      // opens and whenever a marked box is typed in, so a mark can only ever
+      // describe the state of the form as it is now.
+      function clearManualFieldMarks() {
+        if (!manualForm) return;
+        Array.prototype.forEach.call(manualForm.querySelectorAll('.is-invalid'), function (field) {
+          field.classList.remove('is-invalid');
+          field.removeAttribute('aria-invalid');
         });
       }
 
-      function readPlatformPicks() {
-        var picks = [];
-        Array.prototype.forEach.call(document.querySelectorAll('[data-platform-name]'), function (input) {
-          if (!input.checked) return;
-          var name = input.getAttribute('data-platform-name') || '';
-          var whyInput = document.querySelector('[data-platform-why="' + name + '"]');
-          picks.push({
-            name: name,
-            why: cleanText(whyInput && whyInput.value)
-          });
+      function markManualField(id) {
+        var field = document.getElementById(id);
+        if (!field) return null;
+        field.classList.add('is-invalid');
+        field.setAttribute('aria-invalid', 'true');
+        return field;
+      }
+
+      // Marks every named field, then focuses the first one so the box being
+      // complained about is on screen. scrollIntoView as well as focus: the
+      // panel scrolls internally, and focus alone does not always bring a field
+      // clear of the pinned header.
+      function failManualFields(ids, message) {
+        var first = null;
+        ids.forEach(function (id) {
+          var field = markManualField(id);
+          if (field && !first) first = field;
         });
-        return picks;
+        manualStatusText(message, false);
+        if (first) {
+          try { first.scrollIntoView({ block: 'center' }); } catch (error) { first.scrollIntoView(); }
+          first.focus();
+        }
+        return null;
       }
 
       function readManualPost() {
@@ -2289,46 +2288,41 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var rawUrl = cleanText(document.getElementById('manualUrl') && document.getElementById('manualUrl').value);
         var blurb = cleanText(document.getElementById('manualBlurb') && document.getElementById('manualBlurb').value);
         manualStatusText('', false);
+        clearManualFieldMarks();
 
-        if (!headline || !rawUrl || !blurb) {
-          manualStatusText('Headline, destination web page, and caption are required.', false);
-          return null;
+        // ONLY THE HEADLINE IS REQUIRED, and the message names the one box that
+        // is actually empty. It used to demand all three at once with a single
+        // fixed sentence, so a form with a perfectly good URL in it was told to
+        // add a URL — and the box it really meant was off screen with nothing
+        // pointing at it.
+        if (!headline) {
+          return failManualFields(['manualHeadline'], 'Add a headline.');
         }
 
-        var url = rawUrl;
-        try {
-          url = normalizeManualUrl(rawUrl);
-          var urlInput = document.getElementById('manualUrl');
-          if (urlInput) urlInput.value = url;
-        } catch (error) {
-          manualStatusText(error && error.message ? error.message : 'Enter a full URL.', false);
-          return null;
-        }
-        if (posts.some(function (post) {
-          return post && post.url === url;
-        })) {
-          manualStatusText('That URL is already a candidate.', false);
-          return null;
-        }
-
-        var platforms = readPlatformPicks();
-        if (!platforms.length) {
-          manualStatusText('Pick at least one platform.', false);
-          return null;
+        // The URL is optional, so a blank one is simply left blank — but a URL
+        // that IS typed still has to be a real one, or Post opens a composer
+        // pointing at nothing.
+        var url = '';
+        if (rawUrl) {
+          try {
+            url = normalizeManualUrl(rawUrl);
+            var urlInput = document.getElementById('manualUrl');
+            if (urlInput) urlInput.value = url;
+          } catch (error) {
+            return failManualFields(['manualUrl'], error && error.message ? error.message : 'That is not a URL we can open.');
+          }
+          if (posts.some(function (post) {
+            return post && post.url === url;
+          })) {
+            return failManualFields(['manualUrl'], 'That URL is already a candidate.');
+          }
         }
 
         return {
           id: manualPostId(),
           headline: headline,
           url: url,
-          source: cleanText(document.getElementById('manualSource') && document.getElementById('manualSource').value),
-          published: cleanText(document.getElementById('manualPublished') && document.getElementById('manualPublished').value),
-          topics: splitTopics(document.getElementById('manualTopics') && document.getElementById('manualTopics').value),
-          media: cleanText(document.getElementById('manualMedia') && document.getElementById('manualMedia').value) || 'photo',
-          image: cleanText(document.getElementById('manualImage') && document.getElementById('manualImage').value),
-          platforms: platforms,
-          blurb: blurb,
-          why: cleanText(document.getElementById('manualWhy') && document.getElementById('manualWhy').value)
+          blurb: blurb
         };
       }
 
@@ -2336,6 +2330,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // hand-added story is the same object as a bot-found one — same table,
       // same buttons, same visibility from any machine. (Editing is the Edit
       // button on the card; this modal only adds.)
+      //
+      // url and blurb are NOT NULL in the table, so a box left blank is sent as
+      // '' rather than null — the row exists, the field is simply empty, and
+      // Edit fills it in later. Everything the form no longer asks for is left
+      // unsent, which lets the column default rather than writing our guess at
+      // it.
       async function submitManualPost(event) {
         if (event) event.preventDefault();
         var post = readManualPost();
@@ -2345,17 +2345,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           await insertPost({
             id: post.id,
             headline: post.headline,
-            url: post.url,
-            source: post.source || null,
-            published: post.published || null,
-            blurb: post.blurb,
-            why: post.why || null,
-            topics: (post.topics && post.topics.length) ? post.topics : null,
-            media: post.media || null,
-            image: post.image || null,
-            platforms: (post.platforms && post.platforms.length) ? post.platforms : null
+            url: post.url || '',
+            blurb: post.blurb || ''
           });
-          closeTool(manualCard, manualBackdrop);
+          closeManualPost();
           await loadQueue();
           flash(queueStatus, 'Added');
         } catch (err) {
@@ -2393,14 +2386,79 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         }
       }
 
+      // ── ONE POST AT A TIME ────────────────────────────────────────────────
+      // A post is several seconds of Edge Function work — Facebook, then
+      // Instagram, then Threads, each a couple of round trips — and while it
+      // runs nothing else on the page may move. Two things went wrong when it
+      // could:
+      //
+      //   TWO POSTS AT ONCE. askConfirm answers `false` immediately if a dialog
+      //   is already open, so the second post's result was reported to nobody —
+      //   including "nothing was posted", which is the one you need to see.
+      //
+      //   A RE-RENDER MID-FLIGHT. renderQueue() rebuilds every card, so a
+      //   candidate whose request was still in the air got a fresh, ENABLED
+      //   "Post to …" button. Clicking it posts the same story a second time,
+      //   which Facebook accepts without complaint.
+      //
+      // So a click takes the lock: every button in the queue, the tabs and the
+      // command bar go disabled, the header line says what is happening, and a
+      // render asked for meanwhile is HELD rather than dropped and runs when the
+      // reply lands. It is released once the outcome is RECORDED, not when the
+      // reply arrives — a render held through the post then draws the card from
+      // a row that already says posted. The result dialog is read with the page
+      // live again behind it.
+      var postingLock = false;
+      var pendingRender = false;
+
+      function lockableButtons() {
+        return document.querySelectorAll('.post-actions button, .queue-tabs button, .command-bar button');
+      }
+
+      function setPostingLock(on, message) {
+        // Releasing an already-released lock would run the restore loop against
+        // dataset flags it has cleared, switching on buttons that are off for
+        // their own reasons. It happens for real: the watchdog below releases,
+        // then the late reply releases again.
+        if (!on && !postingLock) return;
+        postingLock = !!on;
+        document.body.classList.toggle('is-posting', postingLock);
+        Array.prototype.forEach.call(lockableButtons(), function (btn) {
+          if (postingLock) {
+            // Buttons already off for their own reasons — a candidate with no
+            // targets, a row mid-save — are remembered, so unlocking restores
+            // the page rather than switching them all on.
+            if (btn.disabled) btn.dataset.lockWasOff = '1';
+            btn.disabled = true;
+          } else if (btn.dataset.lockWasOff) {
+            delete btn.dataset.lockWasOff;
+          } else {
+            btn.disabled = false;
+          }
+        });
+        setPageStatus(postingLock ? (message || 'Posting…') : '');
+        if (!postingLock && pendingRender) {
+          pendingRender = false;
+          renderQueue();
+        }
+      }
+
       function renderQueue() {
         if (!queueList) return;
+        // Held, not dropped: this would otherwise replace the very card that is
+        // posting. setPostingLock runs it when the reply lands.
+        if (postingLock) { pendingRender = true; return; }
         queueList.textContent = '';
 
-        // One array, split three ways by the two decision lists. A post with no
-        // url is malformed and belongs in no view. POSTED beats SKIPPED if a
-        // candidate somehow carries both marks: what you did with it outranks
-        // what you passed on.
+        // One array, split three ways by the two decision lists. POSTED beats
+        // SKIPPED if a candidate somehow carries both marks: what you did with
+        // it outranks what you passed on.
+        //
+        // A HEADLINE is what makes a row showable, not a url. This filtered on
+        // `post.url` and hid anything without one -- which quietly swallowed
+        // every candidate captured by the Add box as a bare headline, the exact
+        // thing that box is now for. A row with no headline is not a candidate
+        // anyone could act on, so that is the one that drops out.
         // Newest first, by RUN. The file is append-only — each run adds its
         // candidates to the END — so the newest run is the last block in the
         // file. We reverse the blocks but keep each run's own 1..5 order inside
@@ -2417,7 +2475,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // story someone just noticed.
         var runs = [];
         var runByKey = {};
-        posts.filter(function (post) { return post && post.url; }).forEach(function (post) {
+        posts.filter(function (post) { return post && post.headline; }).forEach(function (post) {
           var id = String(postId(post));
           var key = id.replace(/-\d+$/, '') || id;
           if (!runByKey[key]) { runByKey[key] = []; runs.push(runByKey[key]); }
@@ -2572,11 +2630,19 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
         // One anchor wrapping the whole preview card — the same target shape a
         // real unfurled link has, rather than a separate raw-URL line.
+        //
+        // A candidate captured with no link yet gets NO href. An <a href="">
+        // points at this page, so the preview would have opened Mission Control
+        // in a new tab and looked, for that second, like a working link.
         var card = document.createElement('a');
         card.className = 'post-card';
-        card.href = post.url;
-        card.target = '_blank';
-        card.rel = 'noopener noreferrer';
+        if (post.url) {
+          card.href = post.url;
+          card.target = '_blank';
+          card.rel = 'noopener noreferrer';
+        } else {
+          card.classList.add('is-linkless');
+        }
 
         // The thumbnail is whatever og:image the story carries, recorded by the
         // agent while it had the page open in step 3 — the page cannot read it
@@ -2608,7 +2674,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
         var cardDomain = document.createElement('span');
         cardDomain.className = 'post-card-domain';
-        cardDomain.textContent = linkDomain(post.url);
+        cardDomain.textContent = post.url ? linkDomain(post.url) : 'no link yet';
         body.appendChild(cardDomain);
 
         var cardHeadline = document.createElement('span');
@@ -2781,8 +2847,9 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
       // ── Edit ─────────────────────────────────────────────────────────────
       // Which columns the Edit dialog exposes. The row is the candidate, so
-      // these are ordinary UPDATEs — headline, url and blurb are NOT NULL and
-      // are refused if emptied.
+      // these are ordinary UPDATEs. url and blurb are NOT NULL in the table but
+      // may be blank — emptying one writes '', matching the Add box, where both
+      // are optional. Only the headline is refused.
       var EDIT_FIELDS = [
         { key: 'blurb',    label: 'Caption', type: 'textarea', max: 200 },
         { key: 'headline', label: 'Headline', type: 'text' },
@@ -2856,15 +2923,22 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           if (f.list) {
             var list = raw ? raw.split(',').map(function (t) { return t.trim().toLowerCase(); }).filter(Boolean) : [];
             patch[f.key] = list.length ? list : null;
+          } else if (f.key === 'url' || f.key === 'blurb') {
+            // NOT NULL in the table, and both are optional in the Add box — so
+            // an emptied one is written as '' rather than refused. Refusing here
+            // meant a link captured with no caption could not be edited at all
+            // until a caption was invented, which is the opposite of the point.
+            patch[f.key] = raw;
           } else {
-            // headline / url / blurb are NOT NULL in the table, so an emptied
-            // box has to be refused rather than sent as null.
             patch[f.key] = raw || null;
           }
         });
 
-        if (!patch.headline || !patch.url || !patch.blurb) {
-          if (editStatus) editStatus.textContent = 'Headline, URL and caption are required.';
+        // The headline is the only thing a candidate cannot be without — it is
+        // what the card is, and a row with a blank one is unfindable in the
+        // queue. Same single rule as the Add box.
+        if (!patch.headline) {
+          if (editStatus) editStatus.textContent = 'Add a headline.';
           return;
         }
 
@@ -3329,20 +3403,45 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
         go.addEventListener('click', function () {
           var targets = postTargets(post);
-          if (!targets.length) return;
+          if (!targets.length || postingLock) return;
           clearNotice(feedbackEl);
           var restore = go.textContent;
-          go.disabled = true;
-          copy.disabled = true;
+
+          // Lock BEFORE this card's own buttons are touched, so the snapshot it
+          // takes is the page as it was — otherwise unlocking would read these
+          // two as "already off for their own reasons" and leave them dead.
+          setPostingLock(true, 'Posting to ' + targetLabels().join(' + ') + '… nothing else can be pressed until it answers.');
           go.textContent = 'Posting...';
+          // Marks THIS row as the one working, so it keeps full contrast while
+          // the rest of the queue dims.
+          var actionRow = go.parentNode;
+          if (actionRow && actionRow.classList) actionRow.classList.add('is-posting-row');
+
+          // A HUNG REQUEST MUST NOT LEAVE THE PAGE DEAD. Locking the whole queue
+          // on a promise means a request that never settles locks it forever, so
+          // the lock lets itself go after three minutes. It does NOT abort the
+          // request -- the post may still be in progress, and cancelling it here
+          // would tell you nothing went out when it might have -- so it says to
+          // check the accounts rather than pressing Post again.
+          var watchdog = window.setTimeout(function () {
+            setPostingLock(false);
+            sync();
+            askConfirm('Still waiting',
+                       'The post request has not answered in three minutes. It may still ' +
+                       'have gone out, so check the accounts before pressing Post again. ' +
+                       'This candidate has not been marked posted.',
+                       'OK', { hideNo: true });
+          }, 180000);
 
           postViaApi(post, targets).then(function (reply) {
+            window.clearTimeout(watchdog);
             go.textContent = restore;
 
             // NOTHING WENT OUT. The HTTP call succeeded but Meta refused, so
             // there is nothing to file and nothing to ask -- just Meta's own
             // words, which are the only useful thing here.
             if (!reply.posted.length) {
+              setPostingLock(false);
               sync();
               askConfirm('Nothing was posted',
                          describeFailures(reply.results),
@@ -3375,6 +3474,17 @@ Finish with the SQL block, then a short summary below it: the five candidates in
             // hold the re-render until it is dismissed -- otherwise the card
             // moves to Posted from under the notice you are reading.
             markPosted(labels, true).then(function (markErr) {
+              // Released only now. savePost has already updated the local row,
+              // so a render held during the post draws this card as Posted --
+              // release any earlier and it would be redrawn from the old status
+              // with a live Post button on a story that just went out.
+              setPostingLock(false);
+              // Re-asserted after the unlock, not before it: releasing the lock
+              // restores every button to how it was when the lock was taken, and
+              // these two were live then. They must not be live now.
+              go.disabled = true;
+              copy.disabled = true;
+
               // The post went out either way; if the bookkeeping failed, say so
               // rather than letting the queue quietly disagree with the Page.
               if (markErr) {
@@ -3391,7 +3501,9 @@ Finish with the SQL block, then a short summary below it: the five candidates in
                 });
             });
           }).catch(function (err) {
+            window.clearTimeout(watchdog);
             go.textContent = restore;
+            setPostingLock(false);
             sync();
             askConfirm('Nothing was posted', err.message, 'OK', { hideNo: true });
           });
@@ -3449,11 +3561,27 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       if (manualFillBtn) manualFillBtn.addEventListener('click', fillManualPostFromUrl);
       if (manualOpenUrlBtn) manualOpenUrlBtn.addEventListener('click', openManualDestinationUrl);
       if (manualForm) manualForm.addEventListener('submit', submitManualPost);
-      if (manualBackdrop) manualBackdrop.addEventListener('click', function () {
-        closeTool(manualCard, manualBackdrop);
+      // A red box describes the form at the moment Add was pressed, so the mark
+      // and the message both come off as soon as you start fixing it. Delegated
+      // rather than bound per field: the platform rows are markup, not state,
+      // and one listener cannot fall out of step with them.
+      if (manualForm) manualForm.addEventListener('input', function (event) {
+        var field = event.target;
+        if (!field || !field.classList || !field.classList.contains('is-invalid')) return;
+        field.classList.remove('is-invalid');
+        field.removeAttribute('aria-invalid');
+        manualStatusText('', false);
       });
+      // Someone edits the address bar, or follows a #manual link while already
+      // on the page. Both directions: arriving at the hash opens the box,
+      // leaving it closes one that is open.
+      window.addEventListener('hashchange', function () {
+        if (window.location.hash === MANUAL_HASH) openManualFromHash();
+        else if (manualCard && !manualCard.hidden) closeTool(manualCard, manualBackdrop);
+      });
+      if (manualBackdrop) manualBackdrop.addEventListener('click', closeManualPost);
       Array.prototype.forEach.call(document.querySelectorAll('[data-manual-close]'), function (button) {
-        button.addEventListener('click', function () { closeTool(manualCard, manualBackdrop); });
+        button.addEventListener('click', closeManualPost);
       });
 
       if (editBackdrop) editBackdrop.addEventListener('click', closeEditDialog);
@@ -3473,7 +3601,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       document.addEventListener('keydown', function (event) {
         if (event.key !== 'Escape') return;
         closeTool(editCard, editBackdrop);
-        closeTool(manualCard, manualBackdrop);
+        closeManualPost();
         closeTool(promptCard, promptBackdrop);
       });
 
