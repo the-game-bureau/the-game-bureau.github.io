@@ -351,6 +351,31 @@ function captionFor(row: { blurb?: string; url?: string }): string {
     .join('\n\n');
 }
 
+// ── OUR OWN LINKS PREVIEW WRONG, AND ONLY OURS ──────────────────────────────
+// A Facebook link post carries no image of its own: Meta scrapes the target
+// page and uses its og:image. For a news story that is exactly right — the
+// article's own share image is the one we recorded in `row.image` anyway.
+//
+// It is wrong for precisely one kind of candidate: the daily gift, whose url is
+// https://thegamebureau.com/gifts/?item=<id>. /gifts/ is static HTML that fills
+// itself in from Supabase after load, so every item shares one set of meta tags
+// and every gift post came out wearing shop_banner.png instead of the item's
+// own photograph. The query string cannot change that on GitHub Pages, and
+// Graph dropped the `picture` override in v3.3, so the preview cannot be
+// corrected from here — the post has to stop being a link post.
+//
+// Scoped to our host deliberately. Anywhere else the scraped preview beats
+// anything we could substitute, and a link post's clickable card is worth more
+// than a caption URL.
+function previewIsOurs(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    return host === 'thegamebureau.com';
+  } catch {
+    return false;
+  }
+}
+
 async function graph(path: string, params: Record<string, string>): Promise<any> {
   const body = new URLSearchParams(params);
   const res  = await fetch(`${GRAPH}/${path}`, { method: 'POST', body });
@@ -423,12 +448,29 @@ async function waitForContainer(containerId: string): Promise<void> {
 async function postFacebook(row: any): Promise<Outcome> {
   try {
     const { pageId } = await metaIds();
+    const url   = String(row.url ?? '').trim();
+    const image = String(row.image ?? '').trim();
+
+    // A gift (or anything else pointing at our own site) posts as a PHOTO, so
+    // the picture is the one we chose rather than the one /gifts/ hands the
+    // scraper. See previewIsOurs. The link moves into the caption, where
+    // Facebook still linkifies it.
+    if (image && url && previewIsOurs(url)) {
+      const out = await graph(`${pageId}/photos`, {
+        url: image,
+        caption: captionFor(row),
+        access_token: META_PAGE_TOKEN,
+      });
+      // A photo post answers with the photo id and the feed post's id; the
+      // feed one is the thing a human would open.
+      return { platform: 'facebook', ok: true, id: out?.post_id || out?.id };
+    }
+
     // `link` gives the native preview card; `message` is the caption above it.
     const params: Record<string, string> = {
       message: String(row.blurb ?? '').trim(),
       access_token: META_PAGE_TOKEN,
     };
-    const url = String(row.url ?? '').trim();
     if (url) params.link = url;
     const out = await graph(`${pageId}/feed`, params);
     return { platform: 'facebook', ok: true, id: out?.id };

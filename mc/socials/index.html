@@ -897,6 +897,32 @@
       transform: translate(-50%, -50%);
       overflow: auto;
     }
+    /* The shared admin-shell.css re-clamps every dialog to overflow:hidden for
+       its rounded corners, and it loads AFTER this sheet — so the overflow:auto
+       above silently did nothing and a tall Manual form could not be scrolled at
+       all. Rather than fight that rule, the panel becomes a column: the header
+       and the action row pin, and the body between them scrolls. The
+       :not([hidden]) is load-bearing — display:flex would otherwise beat the
+       display:none in the [hidden] rule above and every dialog would be open. */
+    section.tool-modal-panel:not([hidden]) {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    section.tool-modal-panel > .modal-form,
+    section.tool-modal-panel > .confirm-body {
+      min-height: 0;
+      overflow: auto;
+    }
+    section.tool-modal-panel > .prompt {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    section.tool-modal-panel > .panel-head,
+    section.tool-modal-panel > .prompt-meta,
+    section.tool-modal-panel > .modal-actions {
+      flex: 0 0 auto;
+    }
     .tool-modal-panel--wide {
       width: min(980px, calc(100vw - 32px));
     }
@@ -1115,8 +1141,16 @@
       <section class="prompt-panel tool-modal-panel" id="manualCard" role="dialog" aria-modal="true" aria-labelledby="manualTitle" hidden>
         <div class="panel-head">
           <h2 class="panel-title" id="manualTitle">Manually Add a Social Post Candidate</h2>
+          <!-- Cancel and the save button, repeated from the footer, the same way
+               the Edit dialog carries them: the form is longer than a short
+               window and the footer pair sits past the scroll. Neither of these
+               carries an id — the footer keeps #manualAddBtn, both submit via
+               form="manualPostForm", so there is no duplicate id and nothing to
+               keep in step but the label, which setManualEditorMode writes to
+               every [data-manual-submit] at once. -->
           <span class="panel-head-actions">
-            <button class="btn small" data-manual-close type="button">Close</button>
+            <button class="btn small" data-manual-close type="button">Cancel</button>
+            <button class="btn small primary" data-manual-submit type="submit" form="manualPostForm">Add Candidate</button>
           </span>
         </div>
         <form class="modal-form" id="manualPostForm">
@@ -1177,7 +1211,7 @@
         <div class="modal-actions">
           <span class="modal-status" id="manualStatus" aria-live="polite"></span>
           <button class="btn" data-manual-close type="button">Cancel</button>
-          <button class="btn primary" id="manualAddBtn" type="submit" form="manualPostForm">Add Candidate</button>
+          <button class="btn primary" id="manualAddBtn" data-manual-submit type="submit" form="manualPostForm">Add Candidate</button>
         </div>
       </section>
 
@@ -1580,7 +1614,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       var manualFillBtn = document.getElementById('manualFillBtn');
       var manualOpenUrlBtn = document.getElementById('manualOpenUrlBtn');
       var manualTitle = document.getElementById('manualTitle');
-      var manualAddBtn = document.getElementById('manualAddBtn');
       var editBackdrop = document.getElementById('editBackdrop');
       var editCard = document.getElementById('editCard');
       var editForm = document.getElementById('editForm');
@@ -2084,7 +2117,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
       function setManualEditorMode(post) {
         if (manualTitle) manualTitle.textContent = post ? 'Edit Social Post Candidate' : 'Manually Add a Social Post Candidate';
-        if (manualAddBtn) manualAddBtn.textContent = post ? 'Save Candidate' : 'Add Candidate';
+        var label = post ? 'Save Candidate' : 'Add Candidate';
+        Array.prototype.forEach.call(document.querySelectorAll('[data-manual-submit]'), function (button) {
+          button.textContent = label;
+        });
       }
 
       function populateManualForm(post) {
