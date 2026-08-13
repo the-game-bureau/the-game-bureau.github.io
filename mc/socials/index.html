@@ -190,15 +190,46 @@
        the card list each supply it. That was invisible while posts were
        edge-to-edge rows; once they became bordered cards they sat flush against
        the panel wall, which is what this fixes. */
+    /* Tabs left, sort hard right. The 16px gutter that used to sit on the tab
+       strip moves out here, so the two ends line up with the cards below. */
+    .queue-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 8px 16px 12px;
+    }
     .queue-tabs {
       display: inline-flex;
       gap: 2px;
       padding: 3px;
-      margin: 8px 16px 12px;
       border: 1px solid var(--control-line);
       border-radius: 8px;
       background: #f8fbff;
       box-shadow: inset 0 1px 1px rgba(var(--bic-blue-rgb), 0.06);
+    }
+    /* The select IS the control -- no label beside it. Same type as a tab so the
+       two ends of the row match, but on the flat panel rather than in a raised
+       track: which candidates you are looking at is the decision, which end you
+       start from is a preference. */
+    .queue-sort {
+      min-height: 32px;
+      padding: 0 8px;
+      border: 1px solid var(--control-line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .queue-sort:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
     .queue-tab {
       display: inline-flex;
@@ -570,7 +601,7 @@
        and so the one card mid-post (which keeps its "Posting..." label) reads
        as the reason for it. */
     body.is-posting .post-actions,
-    body.is-posting .queue-tabs,
+    body.is-posting .queue-bar,
     body.is-posting .command-bar-inner {
       opacity: 0.5;
     }
@@ -1024,31 +1055,47 @@
       min-height: 92px;
       resize: vertical;
     }
+    /* The headline, read off the page and shown under the link. Deliberately
+       NOT dressed as a field -- no border, no white box -- because it is not
+       yours to edit and a box that looks like an input but refuses the caret is
+       worse than plain text. Empty until there is something to say, and it takes
+       up no room in that state. */
+    .manual-headline-read {
+      margin: 0;
+      color: var(--ink);
+      font-size: 0.92rem;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    .manual-headline-read:empty { display: none; }
+    /* Reading… and the two failures. Same line, quieter, so the space does not
+       jump as it goes from working to answered. */
+    .manual-headline-read.is-waiting,
+    .manual-headline-read.is-missing {
+      color: var(--muted);
+      font-weight: 500;
+      font-style: italic;
+    }
     .modal-form .full { grid-column: 1 / -1; }
-    .manual-url-field,
-    .manual-headline-field {
+    .manual-url-field {
       display: grid;
       gap: 6px;
     }
-    /* Both label lines carry a button now -- Open on the URL, Fill on the
-       caption. The button is the taller thing in the row, so it centres on the
-       button rather than on the baseline of the word, and the label keeps its
-       own line-height instead of being stretched to match. */
-    .manual-url-field .field-line,
-    .manual-headline-field .field-line {
+    /* The label line carries Open. The button is the taller thing in the row,
+       so it centres on the button rather than on the baseline of the word, and
+       the label keeps its own line-height instead of being stretched to match. */
+    .manual-url-field .field-line {
       align-items: center;
       min-height: 30px;
     }
-    .manual-url-field .field-line .btn,
-    .manual-headline-field .field-line .btn {
+    .manual-url-field .field-line .btn {
       min-height: 26px;
       padding: 0 12px;
     }
     /* The field's name is the real <label>; it must not take the block layout
        .modal-form label gives every other one, or it becomes a full-width grid
        row and pushes the button onto a line of its own. */
-    .manual-url-field .field-line label,
-    .manual-headline-field .field-line label {
+    .manual-url-field .field-line label {
       display: inline;
       color: inherit;
       font: inherit;
@@ -1089,6 +1136,13 @@
     .modal-status.is-ok {
       color: var(--ink);
     }
+
+    /* Add is FIRST in the markup so Tab out of the URL box reaches it, and these
+       three orders put the row back the way it reads: status, Cancel, Add. Only
+       the Add box does this — see the note on the markup. */
+    .manual-actions .modal-status { order: 1; }
+    .manual-actions .btn { order: 2; }
+    .manual-actions .btn.primary { order: 3; }
 
     /* A missing field is marked ON the field. The status line alone could not
        say which box it meant — it sits at the very bottom of a form that is
@@ -1224,16 +1278,29 @@
       <fieldset class="prompt-panel queue-panel" id="queueCard" aria-labelledby="queueTitle">
         <legend id="queueTitle">Social Post Candidates</legend>
         <span class="copy-status queue-status" id="queueStatus" aria-live="polite"></span>
-        <div class="queue-tabs" role="tablist" aria-label="Candidate views">
-          <button class="queue-tab is-active" id="tabActive" type="button" role="tab" aria-selected="true" aria-controls="queueList">
-            Review <span class="queue-tab-count" id="tabActiveCount">0</span>
-          </button>
-          <button class="queue-tab" id="tabPosted" type="button" role="tab" aria-selected="false" aria-controls="queueList">
-            Posted <span class="queue-tab-count" id="tabPostedCount">0</span>
-          </button>
-          <button class="queue-tab" id="tabSkipped" type="button" role="tab" aria-selected="false" aria-controls="queueList">
-            Skipped <span class="queue-tab-count" id="tabSkippedCount">0</span>
-          </button>
+        <!-- The tab strip and the sort share a row: which candidates, then in
+             what order. The sort sits at the far right so the three tabs stay
+             where they have always been and keep reading as one group. -->
+        <div class="queue-bar">
+          <div class="queue-tabs" role="tablist" aria-label="Candidate views">
+            <button class="queue-tab is-active" id="tabActive" type="button" role="tab" aria-selected="true" aria-controls="queueList">
+              Review <span class="queue-tab-count" id="tabActiveCount">0</span>
+            </button>
+            <button class="queue-tab" id="tabPosted" type="button" role="tab" aria-selected="false" aria-controls="queueList">
+              Posted <span class="queue-tab-count" id="tabPostedCount">0</span>
+            </button>
+            <button class="queue-tab" id="tabSkipped" type="button" role="tab" aria-selected="false" aria-controls="queueList">
+              Skipped <span class="queue-tab-count" id="tabSkippedCount">0</span>
+            </button>
+          </div>
+          <!-- Two words, no label. NEWEST / OLDEST is what the control says and
+               what it does -- it names what sits at the TOP, so the word you can
+               see is the card you are looking at. A "Sort" label in front of it
+               would only repeat what a two-option list already obviously is. -->
+          <select class="queue-sort" id="queueSort" aria-label="Sort order">
+            <option value="newest" selected>NEWEST</option>
+            <option value="oldest">OLDEST</option>
+          </select>
         </div>
         <div class="queue-list" id="queueList" role="tabpanel" aria-labelledby="tabActive"></div>
         <p class="queue-empty" id="queueEmpty" hidden></p>
@@ -1267,9 +1334,12 @@
              the attention it gets in Edit; asking for it at capture time is
              asking you to write while you are still collecting.
 
-             Fill reads the destination and puts its title here. Left empty with
-             a link in the box, Add does the same read on save, so the usual case
-             is a paste and a click. See resolveManualHeadline for the fallbacks.
+             SO THERE IS ONLY ONE BOX. The headline is not a field at all: it is
+             the line of plain text under the link, read off the page when you
+             leave the URL box, and it is the outlet's words rather than a
+             retyping of them. Nothing to fill in, nothing to press, nothing to
+             correct here — correcting an outlet's headline is a deliberate act
+             and belongs on the card's Edit button. See resolveManualHeadline.
 
              url and blurb are NOT NULL, so both are written as '' — the caption
              is simply empty until somebody writes one.
@@ -1281,45 +1351,44 @@
         <form class="modal-form" id="manualPostForm" novalidate>
           <div class="modal-grid">
             <div class="full manual-url-field">
-              <!-- Neither box is marked "optional" any more. Each one IS
-                   optional on its own and the pair is not, which no per-field
-                   marker can say. -->
-              <!-- Open rides the label, the same as Fill on the headline below,
-                   and starts DISABLED: there is nothing to open until the box
-                   holds a URL that will resolve. It used to sit beside the input
-                   and answer a press with "add a destination web page", which is
-                   an error message for a state the button could simply have
-                   shown. syncManualUrlButtons keeps it in step. -->
+              <!-- Open rides the label and starts DISABLED: there is nothing to
+                   open until the box holds a URL that will resolve. It used to
+                   sit beside the input and answer a press with "add a
+                   destination web page", which is an error message for a state
+                   the button could simply have shown. syncManualUrlButtons
+                   keeps it in step. -->
               <div class="field-label field-line">
                 <label for="manualUrl">Destination Web Page</label>
                 <button class="btn small" id="manualOpenUrlBtn" type="button" disabled
                         title="Add a link to open it">Open</button>
               </div>
-              <input id="manualUrl" type="text" inputmode="url" autocomplete="off">
-            </div>
-            <!-- FILL SITS ON THE HEADLINE'S LABEL, not beside the URL, because
-                 the headline is the box it writes into -- it reads the link, but
-                 the headline is what changes, and a button files itself under
-                 what it affects. It is outside the <label> and beside it: a
-                 button inside a label has the label's click forwarded to it,
-                 which is a press nobody made.
-
-                 The wrapper is a div, not a label, for the same reason -- the
-                 real <label for="manualHeadline"> is the word Headline itself. -->
-            <div class="full manual-headline-field">
-              <div class="field-label field-line">
-                <label for="manualHeadline">Headline</label>
-                <button class="btn small" id="manualFillBtn" type="button"
-                        title="Read the destination page and use its title here">Fill</button>
-              </div>
-              <input id="manualHeadline" type="text" autocomplete="off">
+              <!-- enterkeyhint=done, because on a phone that key no longer
+                   submits the form -- it closes the keyboard and reads the page.
+                   The default "go" would promise something else. -->
+              <input id="manualUrl" type="text" inputmode="url" autocomplete="off"
+                     enterkeyhint="done">
+              <!-- The headline, as plain text rather than a field, because
+                   nothing here is yours to type. It fills itself when the URL
+                   box loses focus -- which is the moment you have finished
+                   giving us the link and before you reach the button -- so the
+                   read happens in time you were spending anyway. aria-live so a
+                   screen reader hears it arrive, since it appears with no action
+                   of its own. -->
+              <p class="manual-headline-read" id="manualHeadlineRead" aria-live="polite"></p>
             </div>
           </div>
         </form>
-        <div class="modal-actions">
+        <!-- ADD COMES BEFORE CANCEL IN THE MARKUP, and CSS order puts it back on
+             the right. Tab order is DOM order, so leaving the URL box used to
+             land on Cancel -- one keystroke from finishing the capture, the
+             highlighted button was the one that throws it away. The obvious fix,
+             taking Cancel out of the tab order, makes it unreachable by keyboard
+             at all; this way both are still there, in the order you actually
+             want them. -->
+        <div class="modal-actions manual-actions">
           <span class="modal-status" id="manualStatus" aria-live="polite"></span>
-          <button class="btn" data-manual-close type="button">Cancel</button>
           <button class="btn primary" id="manualAddBtn" data-manual-submit type="submit" form="manualPostForm">Add Candidate</button>
+          <button class="btn" data-manual-close type="button">Cancel</button>
         </div>
       </section>
 
@@ -1713,13 +1782,17 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // uppercases it) but the state stays 'active' — same visible/internal
       // split as Post over `autoPost` and Skip over `trash*`.
       var view = 'active'; // 'active' | 'posted' | 'skipped'
+      // Which end of the list is on top. Newest is the default because that is
+      // the order the queue has always been in, and it is the one you work from.
+      // It applies to all three tabs and survives switching between them.
+      var sortOrder = 'newest'; // 'newest' | 'oldest'
+      var queueSortSelect = document.getElementById('queueSort');
       var queueStatus = document.getElementById('queueStatus');
       var manualPostBtn = document.getElementById('manualPostBtn');
       var manualBackdrop = document.getElementById('manualBackdrop');
       var manualCard = document.getElementById('manualCard');
       var manualForm = document.getElementById('manualPostForm');
       var manualStatus = document.getElementById('manualStatus');
-      var manualFillBtn = document.getElementById('manualFillBtn');
       var manualOpenUrlBtn = document.getElementById('manualOpenUrlBtn');
       var editBackdrop = document.getElementById('editBackdrop');
       var editCard = document.getElementById('editCard');
@@ -2115,31 +2188,34 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // URL pointed at and nothing else.
       var manualPageTitle = '';
 
-      // AN EXISTING HEADLINE IS NEVER TOUCHED. Not overwritten, not appended to,
-      // not tidied. What you typed is the one thing in this box that cannot be
-      // got back by reading the page again, so the page's title is offered only
-      // into an empty box -- and if there is already something there, reading
-      // the page has nothing to contribute and is not done at all.
-      function headlineIsEmpty() {
-        var el = document.getElementById('manualHeadline');
-        return !el || !cleanText(el.value);
+      // ── THE HEADLINE LINE ────────────────────────────────────────────────
+      // Not a field: a line of text under the link, showing what the
+      // destination calls itself. Three states and one element.
+      function showHeadlineLine(text, state) {
+        var el = document.getElementById('manualHeadlineRead');
+        if (!el) return;
+        el.textContent = text || '';
+        el.classList.toggle('is-waiting', state === 'waiting');
+        el.classList.toggle('is-missing', state === 'missing');
       }
 
-      function setHeadline(text) {
-        var el = document.getElementById('manualHeadline');
-        var line = cleanText(text);
-        if (!el || !line) return false;
-        // Long enough for any real headline, short enough that a page which
-        // stuffs its whole standfirst into <title> does not arrive as a
-        // paragraph in the queue's card.
-        el.value = line.slice(0, 200);
-        return true;
+      function clearHeadlineLine() {
+        manualPageTitle = '';
+        manualReadDone = false;
+        // Whatever is in flight is about the old URL. Bumping the token orphans
+        // it -- it will settle, see it is no longer current, and write nothing.
+        manualReadToken++;
+        manualReadPending = null;
+        showHeadlineLine('', '');
       }
 
       // What the page offers as a headline: its own title. Not its description
       // -- that is a summary, and it is caption material rather than a name.
       function headlineFromMeta(meta) {
-        return cleanText(meta && meta.title);
+        // Long enough for any real headline, short enough that a page which
+        // stuffs its whole standfirst into <title> does not arrive as a
+        // paragraph in the queue's card.
+        return cleanText(meta && meta.title).slice(0, 200);
       }
 
       // Is there a link here that would actually resolve? normalizeManualUrl is
@@ -2164,48 +2240,75 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           : 'Add a link to open it';
       }
 
-      async function fillManualPostFromUrl() {
-        var urlInput = document.getElementById('manualUrl');
-        if (!urlInput || !manualFillBtn) return;
+      // Reads the destination and shows its title. There is no Fill button any
+      // more -- this runs off the URL box losing focus, which is the moment you
+      // have finished giving us the link, and again on save if it never ran or
+      // came back empty.
+      //
+      // manualReadToken is what makes a second read win. Paste, tab away, tab
+      // back, paste something else: two requests are now in flight and they can
+      // land in either order, so the OLDER one must not be allowed to write the
+      // line. Each read takes the next number and only the current holder may
+      // report.
+      var manualReadToken = 0;
+      // The read currently in flight, so the save can WAIT for it instead of
+      // starting a second one. This is the ordinary mobile path, not an edge
+      // case: tapping Add blurs the URL box, which starts a read, and the click
+      // lands a few milliseconds later with the answer still in the air.
+      var manualReadPending = null;
+      // Has a read been ATTEMPTED for the URL now in the box, whatever it
+      // answered? Distinct from manualPageTitle, which only says whether one
+      // succeeded -- the difference is what lets the save tell "nobody looked"
+      // from "we looked and that page will not tell us".
+      var manualReadDone = false;
 
-        // Nothing to do over a headline you have already written -- and it says
-        // so rather than reading the page and discarding the answer, so the
-        // button is never several silent seconds that change nothing.
-        if (!headlineIsEmpty()) {
-          manualStatusText('The headline already has something in it.', true);
-          return;
-        }
+      // ON A PHONE THERE IS NO TAB, so blur is not something the reader
+      // reliably does: you paste, and the next thing you touch is the button.
+      // This is the path that actually fills the headline on mobile -- a short
+      // pause in typing. It is scheduled on every keystroke and only the last
+      // one survives, so a paste (one input event) reads once, about a second
+      // later, with no gesture at all.
+      //
+      // The wait is long enough not to fire on the way through a URL being
+      // typed by hand. It cannot be much longer without the line arriving after
+      // the button has been pressed -- which the backstop read in
+      // submitManualPost covers anyway.
+      var MANUAL_READ_IDLE_MS = 900;
+      var manualReadTimer = 0;
 
-        var url;
-        try {
-          url = normalizeManualUrl(urlInput.value);
-          urlInput.value = url;
-        } catch (error) {
-          failManualFields(['manualUrl'], error && error.message ? error.message : 'Add a destination web page.');
-          return;
-        }
+      function scheduleHeadlineRead() {
+        window.clearTimeout(manualReadTimer);
+        if (!manualUrlIsUsable()) return;
+        manualReadTimer = window.setTimeout(readHeadlineFromUrl, MANUAL_READ_IDLE_MS);
+      }
 
-        manualFillBtn.disabled = true;
-        manualFillBtn.textContent = 'Filling';
-        manualStatusText('Reading destination...', true);
-        try {
-          // One box to fill and one value to remember. It used to fill source,
-          // published, topics, image, why and a line of platform advice as
-          // well; those fields moved to Edit, and reading a page for a value
-          // with nowhere to put it is just a slower Fill.
-          var meta = await fetchPageMetadata(url);
+      function readHeadlineFromUrl() {
+        window.clearTimeout(manualReadTimer);
+        if (!manualUrlIsUsable()) { clearHeadlineLine(); return Promise.resolve(); }
+        var url = normalizeManualUrl(document.getElementById('manualUrl').value);
+        var token = ++manualReadToken;
+
+        manualPageTitle = '';
+        showHeadlineLine('Reading the page…', 'waiting');
+
+        var run = fetchPageMetadata(url).then(function (meta) {
+          if (token !== manualReadToken) return;
           manualPageTitle = headlineFromMeta(meta);
-          // The ok flag is the same answer as the message: a page with no title
-          // is a failed Fill and reads red, not a quiet success.
-          var got = setHeadline(manualPageTitle);
-          manualStatusText(got ? 'Filled the headline from the page.'
-                               : 'That page gives no title to use.', got);
-        } catch (error) {
-          manualStatusText('Could not read that page.', false);
-        } finally {
-          manualFillBtn.disabled = false;
-          manualFillBtn.textContent = 'Fill';
-        }
+          if (manualPageTitle) showHeadlineLine(manualPageTitle, '');
+          else showHeadlineLine('That page gives no title — it will be filed under its domain.', 'missing');
+        }).catch(function () {
+          if (token !== manualReadToken) return;
+          showHeadlineLine('Could not read that page — it will be filed under its domain.', 'missing');
+        }).then(function () {
+          // Only the newest read reports. An older one settling later must not
+          // announce that nothing is in flight, nor that this URL has been read.
+          if (token !== manualReadToken) return;
+          manualReadPending = null;
+          manualReadDone = true;
+        });
+
+        manualReadPending = run;
+        return run;
       }
 
       function openManualDestinationUrl() {
@@ -2360,7 +2463,10 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       function openManualPost() {
         if (!manualCard || !manualForm) return;
         manualForm.reset();
-        manualPageTitle = '';
+        // form.reset() only restores fields, and the headline is not one --
+        // without this the last candidate's headline is sitting under an empty
+        // URL box when the dialog reopens.
+        clearHeadlineLine();
         manualStatusText('', false);
         clearManualFieldMarks();
         syncManualUrlButtons();
@@ -2427,57 +2533,47 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
       function readManualPost() {
         var rawUrl = cleanText(document.getElementById('manualUrl') && document.getElementById('manualUrl').value);
-        var headline = cleanText(document.getElementById('manualHeadline') && document.getElementById('manualHeadline').value);
         manualStatusText('', false);
         clearManualFieldMarks();
 
-        // SOMETHING HAS TO BE HERE, and the two boxes are both ways of saying
-        // what the candidate is. Either alone is a usable catch: a bare link is
-        // the common one and the headline is read off it on save, a headline
-        // with no link is a note to yourself about a story you have not found
-        // the page for yet. Neither is refused for the other's sake.
-        if (!rawUrl && !headline) {
-          return failManualFields(['manualUrl'], 'Add a link, or a headline.');
+        // A LINK IS THE WHOLE INPUT. The headline is not a field -- it is read
+        // off the destination -- so there is nothing you could offer instead of
+        // a link. One box, one rule.
+        if (!rawUrl) {
+          return failManualFields(['manualUrl'], 'Add a link.');
         }
 
-        // A URL that IS typed has to be a real one, or Post opens a composer
-        // pointing at nothing.
-        var url = '';
-        if (rawUrl) {
-          try {
-            url = normalizeManualUrl(rawUrl);
-            var urlInput = document.getElementById('manualUrl');
-            if (urlInput) urlInput.value = url;
-          } catch (error) {
-            return failManualFields(['manualUrl'], error && error.message ? error.message : 'That is not a URL we can open.');
-          }
-          if (posts.some(function (post) {
-            return post && post.url === url;
-          })) {
-            return failManualFields(['manualUrl'], 'That URL is already a candidate.');
-          }
+        // It has to be a real one, or Post opens a composer pointing at nothing.
+        var url;
+        try {
+          url = normalizeManualUrl(rawUrl);
+          var urlInput = document.getElementById('manualUrl');
+          if (urlInput) urlInput.value = url;
+        } catch (error) {
+          return failManualFields(['manualUrl'], error && error.message ? error.message : 'That is not a URL we can open.');
+        }
+        if (posts.some(function (post) {
+          return post && post.url === url;
+        })) {
+          return failManualFields(['manualUrl'], 'That URL is already a candidate.');
         }
 
         return {
           id: manualPostId(),
-          url: url,
-          headline: headline
+          url: url
         };
       }
 
       // What the card gets called. It is NOT NULL and it is what the queue lists
-      // a candidate by, so it is never blank:
+      // a candidate by, so it is never blank: the page's own title if the read
+      // got one, otherwise the domain, which at least identifies the card in the
+      // queue. Both are editable afterwards on the card's Edit button.
       //
-      //   1. what you typed, which always wins -- the page is only ever asked
-      //      when the box is empty
-      //   2. the page's own title, from Fill or from the read on save
-      //   3. the domain, so a card is at least identifiable in the queue
-      //
-      // Whatever lands here is editable on the card afterwards.
-      function resolveManualHeadline(url, headline) {
-        var typed = cleanText(headline);
-        if (typed) return typed;
-        if (manualPageTitle) return manualPageTitle.slice(0, 200);
+      // manualPageTitle only ever holds the title of the URL currently in the
+      // box -- it is cleared on the first keystroke of a change -- so there is
+      // no way for a link to be filed under a previous link's headline.
+      function resolveManualHeadline(url) {
+        if (manualPageTitle) return manualPageTitle;
         var host = hostnameLabel(url);
         return host ? host + ' link' : 'Captured link';
       }
@@ -2498,25 +2594,30 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         var post = readManualPost();
         if (!post) return;
 
-        // FILL IS A SHORTCUT, NOT A STEP. Paste a link, press Add, and this is
-        // the read that gets the headline -- so the usual case is two actions,
-        // not three.
+        // WAIT FOR THE READ; DO NOT START ANOTHER.
         //
-        // THE SAME CONDITION AS THE BUTTON: an empty headline box. One you have
-        // typed is never overwritten, so there is nothing this read could
-        // contribute and it is not made; Add stays instant.
+        // On a phone, tapping Add is what blurred the URL box a moment earlier,
+        // so the read is usually still in the air when the click lands. Waiting
+        // for it is the whole of what Add has to do about the headline.
+        if (manualReadPending) {
+          if (manualStatus) manualStatus.textContent = 'Reading the page…';
+          try { await manualReadPending; } catch (error) { /* it never rejects */ }
+        }
+
+        // A LAST READ ONLY IF NOBODY HAS TRIED. There is one gap left: a URL
+        // that reached the box without an input or blur event -- a browser
+        // autofill, a value restored by the back button -- where no read was
+        // ever scheduled. That is what manualReadDone answers.
         //
-        // Also skipped when Fill has already read this URL (manualPageTitle is
-        // what says so, and it is cleared the moment the URL is edited), so
-        // pressing Fill and then Add is one round trip, not two.
-        //
-        // Allowed to fail: resolveManualHeadline falls back to the domain, so a
-        // page that blocks us costs a worse headline, never the candidate.
-        if (post.url && !post.headline && !manualPageTitle) {
+        // It is deliberately NOT a retry. A read that ran and failed has already
+        // put "could not read that page - it will be filed under its domain" on
+        // screen; going again behind the button would make Add sit through two
+        // more network attempts to contradict, or confirm, something the human
+        // has already read and accepted by pressing it.
+        if (!manualPageTitle && !manualReadDone) {
           if (manualStatus) manualStatus.textContent = 'Reading the page…';
           try {
-            var meta = await fetchPageMetadata(post.url);
-            manualPageTitle = headlineFromMeta(meta);
+            manualPageTitle = headlineFromMeta(await fetchPageMetadata(post.url));
           } catch (error) {
             manualPageTitle = '';
           }
@@ -2526,7 +2627,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         try {
           await insertPost({
             id: post.id,
-            headline: resolveManualHeadline(post.url, post.headline),
+            headline: resolveManualHeadline(post.url),
             url: post.url || '',
             blurb: ''
           });
@@ -2593,8 +2694,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       var postingLock = false;
       var pendingRender = false;
 
-      function lockableButtons() {
-        return document.querySelectorAll('.post-actions button, .queue-tabs button, .command-bar button');
+      // Buttons AND the sort select. A select is not a button but it is just as
+      // much a way to make the list move under a post in flight, and it takes
+      // `disabled` the same way.
+      function lockableControls() {
+        return document.querySelectorAll(
+          '.post-actions button, .queue-tabs button, .command-bar button, select.queue-sort');
       }
 
       function setPostingLock(on, message) {
@@ -2605,7 +2710,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         if (!on && !postingLock) return;
         postingLock = !!on;
         document.body.classList.toggle('is-posting', postingLock);
-        Array.prototype.forEach.call(lockableButtons(), function (btn) {
+        Array.prototype.forEach.call(lockableControls(), function (btn) {
           if (postingLock) {
             // Buttons already off for their own reasons — a candidate with no
             // targets, a row mid-save — are remembered, so unlocking restores
@@ -2641,30 +2746,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // every candidate captured by the Add box as a bare headline, the exact
         // thing that box is now for. A row with no headline is not a candidate
         // anyone could act on, so that is the one that drops out.
-        // Newest first, by RUN. The file is append-only — each run adds its
-        // candidates to the END — so the newest run is the last block in the
-        // file. We reverse the blocks but keep each run's own 1..5 order inside
-        // it, because that order is the bot's, not an accident: a plain
-        // .reverse() would show you 5, 4, 3, 2, 1 within every run.
-        //
-        // Runs are identified by the id minus its trailing -N ("2026-08-05-0411"
-        // from "2026-08-05-0411-3"). An id that doesn't match simply becomes its
-        // own group, which still sorts correctly and never drops a candidate.
-        //
-        // Deliberately NOT sorted on `published`: that is when the OUTLET
-        // published the article, often days before the run that found it, so
-        // sorting on it would bury this morning's candidates under an older
-        // story someone just noticed.
-        var runs = [];
-        var runByKey = {};
-        posts.filter(function (post) { return post && post.headline; }).forEach(function (post) {
-          var id = String(postId(post));
-          var key = id.replace(/-\d+$/, '') || id;
-          if (!runByKey[key]) { runByKey[key] = []; runs.push(runByKey[key]); }
-          runByKey[key].push(post);
-        });
-        var usable = [];
-        for (var r = runs.length - 1; r >= 0; r--) usable = usable.concat(runs[r]);
+        var usable = posts.filter(function (post) { return post && post.headline; });
 
         var live = [];
         var skipped = [];
@@ -2676,20 +2758,67 @@ Finish with the SQL block, then a short summary below it: the five candidates in
           else live.push(post);
         });
 
-        // Active keeps the run order above: newest run first, and the bot's own
-        // 1..5 inside each run. Decided candidates sort by WHEN THEY WERE
-        // DECIDED instead, because that is what "newest" means once a card has
-        // left the queue -- a story found last week but posted this morning
-        // belongs at the top of Posted, not buried under the run it arrived in.
+        // ── ORDER ────────────────────────────────────────────────────────────
+        // WHEN THE CANDIDATE ARRIVED. created_at is the answer; the id's own
+        // date stamp is the fallback for anything without one, and both bot ids
+        // ("2026-08-05-0411-3") and Add-box ids ("manual-2026-08-13-1400-k2j")
+        // carry it in the same shape.
+        //
+        // Deliberately NOT `published`: that is when the OUTLET published the
+        // article, often days before the run that found it, so sorting on it
+        // would bury this morning's candidates under an older story someone has
+        // just noticed.
+        //
+        // THIS REPLACED A RUN-GROUPING BLOCK THAT WAS PUTTING THE LIST UPSIDE
+        // DOWN. It grouped candidates by run and walked the groups backwards,
+        // which was right when this page read an append-only JSON file that grew
+        // at the end. The table is read `created_at.desc,id.desc` -- newest
+        // already first -- so reversing it served the oldest run at the top, and
+        // the bot's 1..5 backwards inside it.
+        function candidateTime(post) {
+          var stamped = Date.parse((post && post.created_at) || '');
+          if (!Number.isNaN(stamped)) return stamped;
+          // <YYYY>-<MM>-<DD>-<HHMM>, wherever it sits in the id.
+          var m = String(postId(post)).match(/(\d{4})-(\d{2})-(\d{2})(?:-(\d{2})(\d{2}))?/);
+          if (!m) return 0;
+          return Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0));
+        }
+
+        // The bot's own 1..5 within a run, which is an editorial order and not
+        // an accident. A run is inserted in one statement, so its five rows can
+        // share a created_at to the millisecond -- without this tie-break they
+        // would come back in whatever order the sort happened to leave them.
+        function seqInRun(post) {
+          var m = String(postId(post)).match(/-(\d+)$/);
+          return m ? parseInt(m[1], 10) : 0;
+        }
+
+        // NEWEST means newest AT THE TOP. Both directions keep 1..5 inside a
+        // run: flipping the list is about which day you start from, not about
+        // reading the bot's five picks backwards.
+        var newestFirst = sortOrder !== 'oldest';
+        function byArrival(a, b) {
+          var d = candidateTime(b) - candidateTime(a);
+          if (!newestFirst) d = -d;
+          return d || (seqInRun(a) - seqInRun(b));
+        }
+
+        // Decided candidates sort by WHEN THEY WERE DECIDED, because that is
+        // what newest means once a card has left the queue -- a story found last
+        // week but posted this morning belongs at the top of Posted, not buried
+        // under the run it arrived in. Undecided rows fall back to arrival.
         function decidedAt(post) {
           return Date.parse((post && (post.posted_at || post.updated_at)) || '') || 0;
         }
-        function byDecidedDesc(a, b) {
+        function byDecided(a, b) {
           var d = decidedAt(b) - decidedAt(a);
-          return d || 0;   // 0 keeps the run order for anything unstamped
+          if (!newestFirst) d = -d;
+          return d || byArrival(a, b);
         }
-        posted.sort(byDecidedDesc);
-        skipped.sort(byDecidedDesc);
+
+        live.sort(byArrival);
+        posted.sort(byDecided);
+        skipped.sort(byDecided);
 
         var buckets = { active: live, skipped: skipped, posted: posted };
         var shown = buckets[view] || live;
@@ -3740,7 +3869,6 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
 
       if (manualPostBtn) manualPostBtn.addEventListener('click', openManualPost);
-      if (manualFillBtn) manualFillBtn.addEventListener('click', fillManualPostFromUrl);
       if (manualOpenUrlBtn) manualOpenUrlBtn.addEventListener('click', openManualDestinationUrl);
       if (manualForm) manualForm.addEventListener('submit', submitManualPost);
       // A red box describes the form at the moment Add was pressed, so the mark
@@ -3753,9 +3881,13 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // A remembered page title describes the URL it was read from. Change the
         // URL and it is about a different page, so it goes -- otherwise a link
         // pasted over another one is filed under the first one's headline.
+        // A headline on screen describes the URL that was in the box a moment
+        // ago. Leave it up while the link is being changed and it reads as a
+        // headline FOR the new link, which it is not.
         if (field.id === 'manualUrl') {
-          manualPageTitle = '';
+          clearHeadlineLine();
           syncManualUrlButtons();
+          scheduleHeadlineRead();
         }
         if (!field.classList || !field.classList.contains('is-invalid')) return;
         field.classList.remove('is-invalid');
@@ -3790,6 +3922,23 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         // Adding the scheme can turn an unusable box into a usable one, and the
         // input event has already been and gone by the time it happens.
         syncManualUrlButtons();
+        // AND THE HEADLINE, straight away rather than waiting out the idle
+        // timer: leaving the box says the link is finished.
+        readHeadlineFromUrl();
+      });
+
+      // The phone keyboard's Go / Done key. In a form with a submit button that
+      // key IS a submit, so on mobile it would have skipped the headline and
+      // filed the candidate in one press -- before the line under the box had
+      // ever appeared. It now finishes the FIELD instead: dismiss the keyboard,
+      // read the page, and leave the Add button to be pressed deliberately.
+      //
+      // The blur that dismissing the keyboard causes is what starts the read, so
+      // this only has to stop the submit and let go.
+      if (manualUrlInput) manualUrlInput.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        manualUrlInput.blur();
       });
       if (manualBackdrop) manualBackdrop.addEventListener('click', closeManualPost);
       Array.prototype.forEach.call(document.querySelectorAll('[data-manual-close]'), function (button) {
@@ -3820,6 +3969,18 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       if (tabActive) tabActive.addEventListener('click', function () { setView('active'); });
       if (tabPosted) tabPosted.addEventListener('click', function () { setView('posted'); });
       if (tabSkipped) tabSkipped.addEventListener('click', function () { setView('skipped'); });
+
+      // The select is the state's only writer, and it is read back rather than
+      // assumed: a browser restoring the last choice on reload (Firefox does)
+      // would otherwise leave the control saying one thing and the list doing
+      // another.
+      if (queueSortSelect) {
+        sortOrder = queueSortSelect.value === 'oldest' ? 'oldest' : 'newest';
+        queueSortSelect.addEventListener('change', function () {
+          sortOrder = queueSortSelect.value === 'oldest' ? 'oldest' : 'newest';
+          renderQueue();
+        });
+      }
 
       // ── Paste-ready prompt ───────────────────────────────────────────────
       if (copyBtn) {
