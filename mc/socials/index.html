@@ -5,7 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex">
   <title>SOCIALIZER | THE GAME BUREAU</title>
-  <link rel="icon" href="/mc/assets/brand/tgb.ico" type="image/x-icon">
+  <!-- Both are swapped to the ADD POST pair while the #manual box is open, and
+       put back when it closes -- see setManualChrome. The id is what makes the
+       icon swappable; without one the only handle is a querySelector that also
+       matches the apple-touch-icon below. -->
+  <link rel="icon" id="pageIcon" href="/mc/assets/brand/tgb.ico" type="image/x-icon">
+  <!-- HOME SCREEN: Mission Control's own tile, the same as the base page, and
+       NOT swapped at #manual. A shortcut to the Add box is a shortcut into this
+       room; giving it a tile of its own would file it on the home screen as
+       though it were a separate product. Only the caption changes. -->
+  <link rel="apple-touch-icon" href="/mc/assets/brand/mission-control-180.png">
+  <meta name="apple-mobile-web-app-title" id="appleTitle" content="Socializer">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -1673,6 +1683,9 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       var copyStatus = document.getElementById('copyStatus');
       var copyBtn = document.getElementById('copyPromptTop');
       var adminAuthToggleBtn = document.getElementById('adminAuthToggleBtn');
+      // Head elements, swapped while the Add box is open. See setManualChrome.
+      var pageIcon = document.getElementById('pageIcon');
+      var appleTitle = document.getElementById('appleTitle');
 
       var posts = [];
 
@@ -2198,6 +2211,26 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // and it scrolls to any element that happens to carry that id.
       var MANUAL_HASH = '#manual';
 
+      // The tab wears the box's own name and glyph while it is open, so a window
+      // parked on #manual is tellable from the Socializer itself in a strip of
+      // pinned tabs -- and a bookmark taken there is captioned ADD POST rather
+      // than SOCIALIZER, which is what you meant to save.
+      //
+      // The apple-touch-icon is deliberately NOT touched: the home screen keeps
+      // the base page's Mission Control tile. Only its caption changes, because
+      // iOS reads that meta at the moment you tap Add to Home Screen -- after
+      // this has run -- and a shortcut captioned "Socializer" that opens the Add
+      // box is the shortcut lying about itself.
+      var BASE_TITLE = document.title;
+      var BASE_ICON = pageIcon ? pageIcon.getAttribute('href') : '';
+      var BASE_APPLE_TITLE = appleTitle ? appleTitle.getAttribute('content') : '';
+
+      function setManualChrome(on) {
+        document.title = on ? 'ADD POST' : BASE_TITLE;
+        if (pageIcon) pageIcon.setAttribute('href', on ? 'add-post.ico' : BASE_ICON);
+        if (appleTitle) appleTitle.setAttribute('content', on ? 'Add Post' : BASE_APPLE_TITLE);
+      }
+
       function setManualHash(on) {
         if (on === (window.location.hash === MANUAL_HASH)) return;
         if (!window.history || !window.history.replaceState) return;
@@ -2226,6 +2259,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         clearManualFieldMarks();
         openTool(manualCard, manualBackdrop, document.getElementById('manualUrl'));
         setManualHash(true);
+        setManualChrome(true);
       }
 
       // Every way out of the box goes through here -- the two Cancels, the
@@ -2235,6 +2269,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       function closeManualPost() {
         closeTool(manualCard, manualBackdrop);
         setManualHash(false);
+        setManualChrome(false);
       }
 
       function openPrompt() {
@@ -3577,7 +3612,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // leaving it closes one that is open.
       window.addEventListener('hashchange', function () {
         if (window.location.hash === MANUAL_HASH) openManualFromHash();
-        else if (manualCard && !manualCard.hidden) closeTool(manualCard, manualBackdrop);
+        else if (manualCard && !manualCard.hidden) closeManualPost();
       });
       if (manualBackdrop) manualBackdrop.addEventListener('click', closeManualPost);
       Array.prototype.forEach.call(document.querySelectorAll('[data-manual-close]'), function (button) {
