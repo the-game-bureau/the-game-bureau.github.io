@@ -1031,6 +1031,14 @@
       gap: 8px;
     }
     .label-opt { opacity: 0.6; font-weight: 600; letter-spacing: 0.08em; }
+    /* The one line of instruction in the Add box. Sentence case and not mono:
+       it is prose to read once, not a field label. */
+    .modal-form .field-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
     .modal-actions {
       display: flex;
       align-items: center;
@@ -1222,31 +1230,37 @@
             <button class="btn small primary" data-manual-submit type="submit" form="manualPostForm">Add Candidate</button>
           </span>
         </div>
-        <!-- THREE BOXES, AND ONLY THE HEADLINE IS REQUIRED. This is a catch,
-             not a finished candidate: you have a link you do not want to lose,
-             and the sprucing up happens later on the card's Edit button, which
-             carries every column — source, published, topics, image, why. Nine
-             fields and a platform picker up front asked for the finished thing
-             at the one moment you have least to give it. Fill still reads the
-             page for a headline and a caption; media and the platform tags come
-             from the bot, and nothing routes on the tags anyway.
+        <!-- TWO BOXES: a link and, if you have one, a caption. This is a catch,
+             not a finished candidate — the sprucing up happens later on the
+             card's Edit button, which carries every column: headline, source,
+             published, topics, image, why. Nine fields and a platform picker up
+             front asked for the finished thing at the one moment you have least
+             to give it.
 
-             url and blurb are NOT NULL in the table, so a box left blank is
-             written as '' — see submitManualPost.
+             THE HEADLINE IS NO LONGER TYPED HERE — it is WORKED OUT on save, by
+             reading the destination page, because it is the outlet's own words
+             rather than ours and the page already knows them. See
+             resolveManualHeadline: the page title, else the caption, else the
+             domain. It is a NOT NULL column and the card's identity in the
+             queue, so it always ends up with something; it is just never a box
+             you have to fill in.
+
+             url and blurb are NOT NULL too, so a box left blank is written as ''
+             — see submitManualPost.
 
              novalidate: this form does its own checking, in the status line and
              on the field itself. The browser's bubble points at a box inside a
              scrolling panel, so on a phone it fired somewhere off screen and the
-             button simply appeared to do nothing. The `required` attribute stays
-             for the screen reader; only the native popup is off. -->
+             button simply appeared to do nothing. -->
         <form class="modal-form" id="manualPostForm" novalidate>
           <div class="modal-grid">
             <div class="full manual-url-field">
-              <!-- "optional" sits immediately after the field's name, reading as
-                   part of the same phrase. -->
+              <!-- Neither box is marked "optional" any more. Each one IS
+                   optional on its own and the pair is not, which no per-field
+                   marker can say -- so the rule is stated once, under them
+                   both. -->
               <label class="field-label field-line" for="manualUrl">
                 <span>Destination Web Page</span>
-                <span class="label-opt">optional</span>
               </label>
               <div class="manual-url-control">
                 <input id="manualUrl" type="text" inputmode="url" autocomplete="off">
@@ -1255,13 +1269,12 @@
               </div>
             </div>
             <label class="full">
-              <span class="field-line"><span>Headline</span></span>
-              <input id="manualHeadline" type="text" autocomplete="off" required>
-            </label>
-            <label class="full">
-              <span class="field-line"><span>Caption</span><span class="label-opt">optional</span></span>
+              <span class="field-line"><span>Caption</span></span>
               <textarea id="manualBlurb" maxlength="200"></textarea>
             </label>
+            <p class="full field-note">Either one is enough. The headline is read
+              off the page when you save, and everything else — source, topics,
+              image — is on the card's Edit button.</p>
           </div>
         </form>
         <div class="modal-actions">
@@ -2069,6 +2082,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         return 1;
       }
 
+      // The destination's own title, kept for the headline the form no longer
+      // asks for. Set by Fill and by the read on save; cleared when the box
+      // opens and whenever the URL is edited, since it describes the page that
+      // URL pointed at and nothing else.
+      var manualPageTitle = '';
+
       async function fillManualPostFromUrl() {
         var urlInput = document.getElementById('manualUrl');
         if (!urlInput || !manualFillBtn) return;
@@ -2085,16 +2104,19 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         manualFillBtn.textContent = 'Filling';
         manualStatusText('Reading destination...', true);
         try {
-          // Only the two boxes the form still has. It used to fill source,
+          // One box to fill and one value to remember. It used to fill source,
           // published, topics, image, why and a line of platform advice as
           // well; those fields moved to Edit, and reading a page for a value
           // with nowhere to put it is just a slower Fill.
           var meta = await fetchPageMetadata(url);
-          var caption = compactCaption(meta.description || meta.title);
-          var filled = 0;
-          filled += setIfBlank('manualHeadline', meta.title);
-          filled += setIfBlank('manualBlurb', caption);
-          manualStatusText(filled ? 'Filled ' + filled + ' blank field' + (filled === 1 ? '' : 's') + '.' : 'No blank fields to fill.', true);
+          manualPageTitle = cleanText(meta.title);
+          var filled = setIfBlank('manualBlurb', compactCaption(meta.description || meta.title));
+          manualStatusText(
+            filled ? 'Filled the caption.'
+              : (manualPageTitle ? 'Read the page — the caption already has something in it.'
+                                 : 'Nothing to fill from that page.'),
+            true
+          );
         } catch (error) {
           manualStatusText('Could not read that page.', false);
         } finally {
@@ -2255,6 +2277,7 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       function openManualPost() {
         if (!manualCard || !manualForm) return;
         manualForm.reset();
+        manualPageTitle = '';
         manualStatusText('', false);
         clearManualFieldMarks();
         openTool(manualCard, manualBackdrop, document.getElementById('manualUrl'));
@@ -2319,23 +2342,20 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       }
 
       function readManualPost() {
-        var headline = cleanText(document.getElementById('manualHeadline') && document.getElementById('manualHeadline').value);
         var rawUrl = cleanText(document.getElementById('manualUrl') && document.getElementById('manualUrl').value);
         var blurb = cleanText(document.getElementById('manualBlurb') && document.getElementById('manualBlurb').value);
         manualStatusText('', false);
         clearManualFieldMarks();
 
-        // ONLY THE HEADLINE IS REQUIRED, and the message names the one box that
-        // is actually empty. It used to demand all three at once with a single
-        // fixed sentence, so a form with a perfectly good URL in it was told to
-        // add a URL — and the box it really meant was off screen with nothing
-        // pointing at it.
-        if (!headline) {
-          return failManualFields(['manualHeadline'], 'Add a headline.');
+        // SOMETHING HAS TO BE HERE, and with the headline gone the two boxes are
+        // both ways of saying what the candidate is. Either alone is a usable
+        // catch: a bare link is the common one, a caption with no link is a
+        // thought you want kept. Neither is refused for the other's sake.
+        if (!rawUrl && !blurb) {
+          return failManualFields(['manualUrl'], 'Add a link, or a caption.');
         }
 
-        // The URL is optional, so a blank one is simply left blank — but a URL
-        // that IS typed still has to be a real one, or Post opens a composer
+        // A URL that IS typed has to be a real one, or Post opens a composer
         // pointing at nothing.
         var url = '';
         if (rawUrl) {
@@ -2355,10 +2375,32 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
         return {
           id: manualPostId(),
-          headline: headline,
           url: url,
           blurb: blurb
         };
+      }
+
+      // The headline the form stopped asking for. It is the OUTLET's words, not
+      // ours -- which is exactly why typing it was busywork: the destination
+      // page already carries it, and Fill has usually read it by now.
+      //
+      //   1. the page's own title, from Fill or from the read below
+      //   2. the caption, cut at a sentence -- there is no link to read, but
+      //      what you wrote is what the candidate is about
+      //   3. the domain, so a card is at least identifiable in the queue
+      //
+      // Never blank: it is NOT NULL, and it is what the queue lists a candidate
+      // by. Whatever lands here is editable on the card afterwards.
+      function resolveManualHeadline(url, blurb) {
+        if (manualPageTitle) return manualPageTitle;
+        var text = cleanText(blurb);
+        if (text) {
+          var stop = text.search(/[.!?](\s|$)/);
+          var line = stop > 0 ? text.slice(0, stop + 1) : text;
+          return line.length > 120 ? line.slice(0, 117).replace(/\s+\S*$/, '') + '...' : line;
+        }
+        var host = hostnameLabel(url);
+        return host ? host + ' link' : 'Captured link';
       }
 
       // MANUAL adds a candidate by hand. It INSERTs a real row, so a
@@ -2375,11 +2417,26 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         if (event) event.preventDefault();
         var post = readManualPost();
         if (!post) return;
+
+        // One read of the destination, if Fill has not already done it, purely
+        // for the headline. It is allowed to fail -- resolveManualHeadline has
+        // two fallbacks below it -- so a page that blocks us, or no link at all,
+        // costs a worse headline rather than the candidate.
+        if (post.url && !manualPageTitle) {
+          if (manualStatus) manualStatus.textContent = 'Reading the page…';
+          try {
+            var meta = await fetchPageMetadata(post.url);
+            manualPageTitle = cleanText(meta && meta.title);
+          } catch (error) {
+            manualPageTitle = '';
+          }
+        }
+
         if (manualStatus) manualStatus.textContent = 'Adding…';
         try {
           await insertPost({
             id: post.id,
-            headline: post.headline,
+            headline: resolveManualHeadline(post.url, post.blurb),
             url: post.url || '',
             blurb: post.blurb || ''
           });
@@ -3602,7 +3659,12 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // and one listener cannot fall out of step with them.
       if (manualForm) manualForm.addEventListener('input', function (event) {
         var field = event.target;
-        if (!field || !field.classList || !field.classList.contains('is-invalid')) return;
+        if (!field) return;
+        // A remembered page title describes the URL it was read from. Change the
+        // URL and it is about a different page, so it goes -- otherwise a link
+        // pasted over another one is filed under the first one's headline.
+        if (field.id === 'manualUrl') manualPageTitle = '';
+        if (!field.classList || !field.classList.contains('is-invalid')) return;
         field.classList.remove('is-invalid');
         field.removeAttribute('aria-invalid');
         manualStatusText('', false);
