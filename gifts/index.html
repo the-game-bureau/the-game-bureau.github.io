@@ -332,11 +332,25 @@
 
     body.home-page .card-game-eyebrow { display: none; }
     body.home-page .card-city-tags {
-      display: block;
+      /* FLEX, NOT BLOCK — this is what keeps the chip's bottom border. As a
+         block, the inline-flex track sat on a text baseline: the strut set the
+         line box height, the chip's padding-bottom and 1px border hang BELOW
+         that baseline, and overflow-y:hidden (which the marquee needs) shaved
+         them off. Every city chip on the shop was drawn with three sides.
+         A flex container has no strut and no baseline alignment, so its height
+         is simply the track's. */
+      display: flex;
+      align-items: flex-start;
       width: 100%;
       max-width: 100%;
       min-width: 0;
       margin: 0;
+      /* …and 1px of slack top and bottom. The chip is ~20.7px tall against a
+         ~20px line box, so the two are within a rounding error of each other and
+         which way it falls depends on the device pixel ratio — that is why the
+         border was there on one screen and gone on the next. The overflow has to
+         stay hidden (it is the marquee's clip), so the room comes from here. */
+      padding: 1px 0;
       font-family: "IBM Plex Mono", "Menlo", "Consolas", monospace;
       line-height: 1.25;
       /* Single-row perpetual marquee. Overflow is clipped; the inner track
@@ -871,19 +885,25 @@
     // URLs); ?game= is also accepted and may be an id or a game name. The raw
     // value is resolved to a real game once the games list loads (loadAllShops).
     const requestedGameParam = String(params.get('id') || params.get('game') || '').trim();
-    // Optional single-item filter (?item=<gift_shop_items.id>). Used by the
-    // admin's "VIEW IN GIFT SHOP" button to preview one gift on the public page.
-    // Overrides the city/game filters and shows only that one card.
+    // ?item=<gift_shop_items.id> OPENS A GIFT, it does not filter the shop.
+    // The page renders exactly as /gifts/ does and the item's detail lightbox
+    // is opened on top of it — the same dialog a click on the card opens. Used
+    // by the admin's "VIEW IN GIFT SHOP" button and by every gift link the
+    // socials bot posts, which is why it must land somewhere that looks like
+    // the shop rather than on one card in an empty page.
+    //
+    // It deliberately takes NO part in the view conditions below: a gift link
+    // that quietly turned the shop into some other view was the whole problem.
     const requestedItemId = String(params.get('item') || '').trim();
     // "All Cities" is the unfiltered shop: every public gift, sorted by city
     // then name. Keep ?all=1 as a legacy alias, but /gifts/ itself is canonical.
     const showAllGifts = params.get('all') === '1' ||
-      (!requestedCity && !requestedGameParam && !requestedItemId);
+      (!requestedCity && !requestedGameParam);
     // The canonical default view (/gifts/ with no params, no ?all=1) shows only
     // gifts flagged featured='YES' — at least one per city. ?all=1 still shows
     // every gift.
     const isFeaturedView = !requestedCity && !requestedGameParam &&
-      !requestedItemId && params.get('all') !== '1';
+      params.get('all') !== '1';
 
     const gridEl = document.getElementById('grid');
     const headingEl = document.getElementById('heading');
@@ -1178,7 +1198,7 @@
       const cities = Number(cityCount) || 0;
       // The headline is the shop's name, not a number. Both counts live in the
       // dek: "547 books, gear, and local finds from 86 cities."
-      if (headingEl && !requestedCity && !requestedGameParam && !requestedItemId) {
+      if (headingEl && !requestedCity && !requestedGameParam) {
         headingEl.textContent = 'Gift Shop';
       }
       if (heroSubEl) {
@@ -1718,11 +1738,6 @@
     // in place with no reflow. The single-item preview has neither rail nor head.
     function renderLoadingLayout() {
       renderSkeleton();
-      if (requestedItemId) {
-        if (giftCityPanelEl) giftCityPanelEl.hidden = true;
-        if (giftGridHeadEl) giftGridHeadEl.hidden = true;
-        return;
-      }
       renderCityRailSkeleton();
       // A game filter scopes the shop and shows no grid header (it uses the hero
       // lead instead); every other view gets the header.
@@ -2126,6 +2141,33 @@
       if (closeBtn) closeBtn.focus();
     }
 
+    // ?item=<id> — POP THE GIFT OPEN OVER THE ORDINARY SHOP.
+    //
+    // The shop renders first and is not filtered, so what you land on is the
+    // gift shop with this gift open on top of it: the same lightbox a click on
+    // the card opens, closing to a real page full of other gifts rather than to
+    // a page with one card on it. That matters because this is the link every
+    // gift post on social carries.
+    //
+    // IT READS THE ITEM, NOT A CARD. openGiftDetail takes the row itself, so
+    // the gift does not have to be in the grid — and it usually is not, since
+    // /gifts/ shows the featured set. It also means the admin's "VIEW IN GIFT
+    // SHOP" preview still opens a draft or hidden gift that the shop would
+    // never render.
+    //
+    // A link to a gift that no longer exists opens nothing and says nothing:
+    // you are on the gift shop, which is a fine place to be.
+    function openRequestedGift(items, itemCities) {
+      if (!requestedItemId) return;
+      const list = Array.isArray(items) ? items : [];
+      const item = list.find((it) => it && String(it.id) === requestedItemId);
+      if (!item) return;
+      const cities = itemCities && typeof itemCities.get === 'function'
+        ? (itemCities.get(String(item.id)) || [])
+        : [];
+      openGiftDetail(item, { cities });
+    }
+
     // Close on backdrop / × / Escape (delegated so it works no matter when the
     // lightbox node is parsed relative to this script).
     document.addEventListener('click', (e) => {
@@ -2443,39 +2485,6 @@
         const giftItemCities = buildGiftItemCities(safeListings);
         renderGiftCityRail(cityData);
 
-        // ── Single-item view (?item=<gift_shop_items.id>) — the admin's
-        // "VIEW IN GIFT SHOP" preview. Show only that one gift, rendered exactly
-        // as the public shop would (same certified + not-hidden rules), and skip
-        // the city rail. Overrides any city/game filter.
-        if (requestedItemId) {
-          if (giftCityPanelEl) giftCityPanelEl.hidden = true;
-          const item = safeItems.find((it) => it && String(it.id) === requestedItemId) || null;
-          const itemName = item ? String(item.title || 'this gift') : '';
-          // Always render the card regardless of publish state — this is a
-          // WYSIWYG preview, so an admin sees drafts/archived gifts too. Note
-          // the publish state in the lead so it's clear when it's not yet live.
-          const publiclyVisible = !!item
-            && !item.gift_card_game_id
-            && !isHiddenGiftItem(item)
-            && isCertified(item);
-          setEyebrow(itemName);
-          leadEl.textContent = publiclyVisible
-            ? 'Game Souvenirs and Other Curated Memorabilia'
-            : 'Preview — this gift is not currently published in the shop.';
-          leadEl.hidden = false;
-          if (itemName) document.title = itemName.toUpperCase() + ' | GIFT SHOP | THE GAME BUREAU';
-          const card = item ? createCard(item, { cities: giftItemCities.get(String(item.id)) || [] }) : null;
-          gridEl.innerHTML = '';
-          if (card) {
-            gridEl.appendChild(card);
-            setItemCount(1);
-          } else {
-            renderEmpty(item ? 'This gift has no link to preview.' : 'Gift not found.');
-            setItemCount(0);
-          }
-          return;
-        }
-
         // Resolve the optional ?id=/?game= filter to a real game — match by id
         // first, then by name (case-insensitive) — and scope the shop to it.
         const requestedGame = requestedGameParam
@@ -2582,10 +2591,12 @@
             ? 'No games or gifts for ' + (requestedGame.name || 'this game') + ' yet.'
             : (requestedCity ? 'No games or gifts match ' + requestedCity + '.' : 'No items in the gift shop yet.'));
           setItemCount(0);
+          openRequestedGift(safeItems, giftItemCities);
           return;
         }
         cards.forEach((card) => gridEl.appendChild(card));
         setItemCount(cards.length);
+        openRequestedGift(safeItems, giftItemCities);
         // Per-game views hide the grid head/filter chrome; everywhere else,
         // offer the source filter (it hides itself if <2 sources are present).
       } catch (error) {

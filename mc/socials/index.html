@@ -18,7 +18,7 @@
   <meta name="apple-mobile-web-app-title" id="appleTitle" content="Socializer">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Shadows+Into+Light&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
 
@@ -60,13 +60,17 @@
     button, textarea { font: inherit; }
     a { color: var(--accent); }
 
-    .prompt-layout {
+    /* The page's one column: centred at the shell width, stacking whatever it
+       holds. min-width:0 is what lets a long prompt or a wide card shrink
+       rather than pushing the column past the viewport. */
+    .room-column {
+      display: grid;
+      gap: 16px;
       width: 100%;
       max-width: var(--mc-shell-width);
+      min-width: 0;
       margin: 0 auto;
     }
-
-    .prompt-main { display: grid; gap: 16px; min-width: 0; }
 
     .prompt-panel,
     .side-card {
@@ -81,35 +85,6 @@
        top; at four boxes down the page it stopped marking anything and just
        made the page stripey. The 1px panel line is enough of an edge. */
     .prompt-panel { min-width: 0; }
-
-    .explain { padding: 18px; border-top: 8px solid var(--bic-red); }
-    .explain h2 {
-      margin: 0 0 8px;
-      color: var(--ink);
-      font-size: 1.15rem;
-      line-height: 1.15;
-      letter-spacing: 0;
-      text-transform: uppercase;
-    }
-    .explain p {
-      margin: 0 0 10px;
-      color: var(--muted);
-      font-size: 0.95rem;
-      line-height: 1.6;
-    }
-    .explain p:last-child { margin-bottom: 0; }
-    .explain strong { color: var(--ink); }
-
-    .side-label {
-      display: block;
-      margin-bottom: 6px;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.62rem;
-      font-weight: 800;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
 
     /* ── The queue ────────────────────────────────────────────────────────── */
     /* A faint tint on the panel body so the white cards read as objects sitting
@@ -169,13 +144,6 @@
       font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-    }
-    .panel-sub {
-      margin-left: 8px;
-      color: var(--muted);
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
     }
     .panel-head-actions { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
 
@@ -468,34 +436,6 @@
       line-height: 1.45;
     }
 
-    /* Topic + platform tags. Topics are quiet (they describe the story);
-       platforms are loud and colour-coded (they are the recommendation you act
-       on). Each platform chip carries its format reason as a title. */
-
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      min-height: 22px;
-      padding: 0 8px;
-      border: 1px solid rgba(var(--bic-blue-rgb), 0.22);
-      border-radius: 999px;
-      background: #fff;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 0.62rem;
-      font-weight: 800;
-      letter-spacing: 0.09em;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-
-    /* Platform styling is now only worn by the picker's tick buttons — the
-       "Post to" pills on the card were removed, so there is no link variant. */
-    .tag--platform { border-width: 1.5px; }
-    /* The merged Meta row. Facebook's blue leads because Facebook is always
-       part of it; Instagram only joins when the candidate has an image. The
-       old .is-facebook / .is-instagram rules died with the two separate rows. */
-    .tag--platform.is-meta { color: #1b4da8; border-color: rgba(27, 77, 168, 0.45); background: rgba(27, 77, 168, 0.06); }
-
     /* A question needs less room than a form. */
     .tool-modal-panel--ask { width: min(430px, calc(100vw - 32px)); }
     .confirm-body { display: grid; gap: 14px; padding: 16px 18px 18px; }
@@ -529,14 +469,7 @@
        format note above it — it is a constraint, not a recommendation. */
     @media (max-width: 560px) {
     }
-    .autopost-choice { min-height: 30px; padding: 0 12px; cursor: pointer; opacity: 0.55; justify-content: center; }
-    .autopost-choice.is-suggested { box-shadow: inset 0 0 0 1.5px currentColor; }
-    .autopost-choice:hover { filter: brightness(0.94); }
-    /* Ticked = full strength; unticked sits back so the selection is readable
-       at a glance without a checkbox glyph competing with the platform tag. */
-    .autopost-choice[aria-pressed="true"] { opacity: 1; box-shadow: inset 0 0 0 2px currentColor; }
     .autopost-choice.is-done { opacity: 0.4; text-decoration: line-through; }
-    .autopost-go[disabled] { opacity: 0.45; cursor: not-allowed; }
     .post-feedback {
       font-family: "IBM Plex Mono", monospace;
       font-size: 0.7rem;
@@ -583,7 +516,6 @@
     .btn:focus-visible,
     .queue-tab:focus-visible,
     .autopost-choice:focus-visible,
-    .chip:focus-visible,
     .post-card:focus-visible,
     .modal-form input:focus-visible,
     .modal-form select:focus-visible,
@@ -778,36 +710,38 @@
     .admin-auth-toggle.is-signed-in { border-color: rgba(194, 55, 55, 0.44); color: var(--bic-red); }
 
     /* ── Paste-ready prompt ───────────────────────────────────────────────── */
-    .prompt-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--line);
-      background: var(--panel-soft);
-    }
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      min-height: 28px;
-      padding: 0 10px;
-      border: 1px solid rgba(var(--bic-blue-rgb), 0.22);
-      border-radius: 999px;
-      background: #fff;
-      color: var(--ink);
+    /* ── The prompt dialog, to the Green Room's pattern ──────────────────── */
+    .prompt-head { align-items: flex-start; }
+    .prompt-headline { display: grid; gap: 4px; min-width: 0; }
+    .prompt-eyebrow {
       font-family: "IBM Plex Mono", monospace;
-      font-size: 0.74rem;
+      font-size: 0.58rem;
       font-weight: 800;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
+      color: var(--muted);
     }
+    .prompt-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 0;
+      padding: 14px 16px 16px;
+      overflow: hidden;
+    }
+
+    /* The ruled sheet. Rules every 28px with a red margin at 56px, so the type
+       is locked to a 28px leading and starts to the right of the margin — set
+       at anything else, no line sits on a rule and every line crosses it. */
     .prompt {
       display: block;
+      flex: 1 1 auto;
       width: 100%;
-      min-height: 52vh;
-      padding: 18px 20px 22px;
-      border: 0;
-      resize: vertical;
+      min-height: 220px;
+      padding: 13px 18px 18px 72px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      resize: none;
       background:
         linear-gradient(rgba(var(--bic-blue-rgb), 0.075) 1px, transparent 1px),
         linear-gradient(90deg, rgba(194, 55, 55, 0.26) 1px, transparent 1px),
@@ -816,89 +750,75 @@
       background-size: 100% 28px, 100% 100%, 100% 100%;
       color: #17253c;
       font-family: "IBM Plex Mono", monospace;
-      font-size: 0.9rem;
-      line-height: 1.55;
+      font-size: 0.88rem;
+      line-height: 28px;
       outline: none;
       white-space: pre-wrap;
+      box-shadow: inset 0 1px 2px rgba(var(--bic-blue-rgb), 0.06);
     }
-    .prompt:focus { box-shadow: inset 0 0 0 2px rgba(var(--bic-blue-rgb), 0.22); }
-    .copy-status {
-      min-width: 72px;
+    .prompt:focus { border-color: rgba(var(--bic-blue-rgb), 0.45); }
+
+    .prompt-foot {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 12px;
+      flex: 0 0 auto;
+      padding: 12px 16px 14px;
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.8);
+    }
+    /* One control with three doors, fenced off so they do not read as three
+       more buttons standing equal to COPY. */
+    .prompt-ai {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 10px 5px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(var(--bic-blue-rgb), 0.04);
+    }
+    .prompt-ai-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .prompt-ai .btn { background: #fff; }
+    .prompt-ctl-label {
       font-family: "IBM Plex Mono", monospace;
-      font-size: 0.7rem;
+      font-size: 0.62rem;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      opacity: 0.9;
+    }
+    /* An <a> wearing .btn — it navigates, so it stays an anchor and keeps
+       middle-click and open-in-new-tab. Secondary weight beside COPY: it is
+       where you go after copying, not the thing you came to do. */
+    .prompt-sql-btn { gap: 8px; }
+    .prompt-sql-btn svg { width: 14px; height: 14px; flex: 0 0 auto; opacity: 0.75; }
+    .prompt-copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 42px;
+      padding: 0 20px;
+    }
+    .prompt-copy svg { width: 15px; height: 15px; flex: 0 0 auto; }
+    /* Green only while the confirmation is on screen; the button goes back to
+       being the ordinary primary a moment later, so it never reads as a state
+       the dialog is stuck in. */
+    .prompt-copy.is-done,
+    .prompt-copy.is-done:hover {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+    }
+    .copy-status {
+      margin-right: auto;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
       font-weight: 800;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: var(--success);
-      text-align: right;
-    }
-
-    /* ── Sidebar ──────────────────────────────────────────────────────────── */
-    .side-stack { display: grid; gap: 16px; }
-    .side-card { padding: 16px; }
-    .side-card h2 {
-      margin: 0 0 8px;
-      font-size: 1.02rem;
-      letter-spacing: 0;
-      text-transform: uppercase;
-    }
-    .side-card p {
-      margin: 0 0 10px;
       color: var(--muted);
-      font-size: 0.88rem;
-      line-height: 1.55;
-    }
-    .side-card p:last-child { margin-bottom: 0; }
-    .side-note { font-size: 0.8rem; }
-
-    .mini-list {
-      display: grid;
-      gap: 4px;
-      margin: 10px 0;
-      padding: 0;
-      list-style: none;
-      color: var(--muted);
-      font-size: 0.84rem;
-    }
-    .mini-list b { color: var(--ink); }
-
-    .run-status {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      margin-top: 14px;
-      padding: 11px 12px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: rgba(var(--bic-blue-rgb), 0.05);
-    }
-    .run-dot {
-      flex: 0 0 auto;
-      width: 9px; height: 9px;
-      margin-top: 6px;
-      border-radius: 50%;
-      background: var(--muted);
-    }
-    .run-status[data-state="ok"] .run-dot { background: #1e7a4b; }
-    .run-status[data-state="stale"] .run-dot { background: var(--bic-red); }
-    .run-body { display: grid; gap: 3px; min-width: 0; }
-    .run-line { color: var(--ink); font-size: 0.92rem; font-weight: 800; }
-    .run-sub { color: var(--muted); font-size: 0.82rem; line-height: 1.45; }
-
-    .side-links { display: grid; gap: 8px; margin-top: 14px; }
-    .side-links + .side-links { margin-top: 8px; }
-
-    /* ── Header (Stock Room lockup) ───────────────────────────────────────── */
-    .stockroom-head {
-      position: relative;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      min-height: 72px;
-      padding: 0 12px;
-      margin: 0 0 var(--stack-gap);
     }
     .stockroom-head-lockup,
     .stockroom-head-status { position: relative; z-index: 1; }
@@ -934,7 +854,35 @@
       color: rgba(var(--bic-blue-rgb), 0.9);
       text-shadow: 0 0 3px var(--paper-base), 0 0 3px var(--paper-base), 0 0 5px var(--paper-base);
     }
-    .stockroom-title { margin: 0; font-size: 1.7rem; letter-spacing: 0.03em; line-height: 1; }
+    /* Title and scribble on one line, the scribble riding the baseline of the
+       name and wrapping under it when there is no room. */
+    .room-titleline {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 12px;
+      min-width: 0;
+    }
+    /* RED BIC INK. Handwriting, because it is a note ON the page rather than
+       part of it, and the tilt is what stops it reading as another label. The
+       paper glow behind it is the same trick .stockroom-eyebrow uses to stay
+       legible over the gear watermark. */
+    .room-scribble {
+      font-family: "Shadows Into Light", "Segoe Script", cursive;
+      /* Scaled against the title, which is itself a clamp up to 5.8rem — a
+         fixed 1.1rem note beside a display-sized word reads as a footnote that
+         missed its page. Roughly a third of it at every width. */
+      font-size: clamp(1.1rem, 2.6vw, 1.9rem);
+      font-weight: 400;
+      line-height: 1.1;
+      letter-spacing: 0.01em;
+      color: var(--bic-red);
+      transform: rotate(-2.2deg);
+      transform-origin: left bottom;
+      text-shadow: 0 0 3px var(--paper-base), 0 0 3px var(--paper-base), 0 0 5px var(--paper-base);
+    }
+    .room-scribble:empty { display: none; }
+    @media (prefers-reduced-motion: reduce) { .room-scribble { transform: none; } }
     .stockroom-titlecol .stockroom-substat {
       margin: 3px 0 0;
       min-height: 0;
@@ -945,7 +893,6 @@
       line-height: 1.5;
       color: var(--muted);
     }
-    .stockroom-substat:empty { display: none; }
     .stockroom-head-status {
       margin-left: auto;
       display: flex;
@@ -1004,12 +951,12 @@
       min-height: 0;
       overflow: auto;
     }
-    section.tool-modal-panel > .prompt {
+    section.tool-modal-panel > .prompt-body {
       flex: 1 1 auto;
       min-height: 0;
     }
     section.tool-modal-panel > .panel-head,
-    section.tool-modal-panel > .prompt-meta,
+    section.tool-modal-panel > .prompt-foot,
     section.tool-modal-panel > .modal-actions {
       flex: 0 0 auto;
     }
@@ -1115,7 +1062,6 @@
       justify-content: flex-start;
       gap: 8px;
     }
-    .label-opt { opacity: 0.6; font-weight: 600; letter-spacing: 0.08em; }
     .modal-actions {
       display: flex;
       align-items: center;
@@ -1158,7 +1104,16 @@
     @media (max-width: 840px) {
       .panel-head { align-items: flex-start; flex-direction: column; }
       .copy-status { text-align: left; }
-      .prompt { min-height: 60vh; padding: 14px 14px 18px; font-size: 0.82rem; }
+      /* The left padding stays at the red margin — it is what keeps the type
+         off the rule, and a narrow screen does not move the rule. */
+      .prompt { min-height: 180px; padding: 13px 12px 16px 68px; font-size: 0.8rem; }
+      .prompt-copy { flex: 1 1 auto; justify-content: center; }
+      /* The three steps stack rather than half-wrapping into two ragged rows,
+         and each one still spans the foot so the order stays readable. */
+      .prompt-ai { width: 100%; }
+      .prompt-ai-row { flex: 1 1 auto; }
+      .prompt-ai-row .btn { flex: 1 1 auto; }
+      .prompt-sql-btn { flex: 1 1 auto; }
       .post-actions .btn { flex: 1 1 auto; }
       .post-edit-btn { margin-left: 0; }
       .command-bar .btn { flex: 1 1 auto; }
@@ -1243,8 +1198,18 @@
       <div class="stockroom-head-lockup">
         <div class="stockroom-titlecol">
           <span class="stockroom-eyebrow">THE GAME BUREAU</span>
-          <h1 class="room-title" id="pageTitle">SOCIALIZER</h1>
-          <p class="status room-substat" id="pageStatus" aria-live="polite">TGB SOCIAL BOT files five candidates twice a day, and you decide: edit one, post it to Facebook, Instagram and Threads in a click, copy it to post by hand, or skip it. MANUAL captures a link of your own.</p>
+          <!-- THE SCRIBBLE IS WHERE NOTIFICATIONS GO — in red pen, beside the
+               room's name, the way you would write on a page that is already
+               printed. Empty almost always, and it collapses when it is.
+               The TAGLINE BELOW IS NOT A STATUS LINE and must never be borrowed
+               for one: it is the standing description of the room, and a
+               message that overwrote it took the explanation away exactly when
+               something had gone wrong and left nothing behind to restore. -->
+          <div class="room-titleline">
+            <h1 class="room-title" id="pageTitle">SOCIALIZER</h1>
+            <span class="room-scribble" id="pageNotice" role="status" aria-live="polite"></span>
+          </div>
+          <p class="status room-substat" id="pageStatus">Social media posts are added here manually or through ai. Skip or post each one.</p>
         </div>
       </div>
       <div class="stockroom-head-status" hidden>
@@ -1256,9 +1221,25 @@
       <fieldset class="command-bar">
         <legend>Add</legend>
         <div class="command-bar-inner">
-          <button class="btn" id="manualPostBtn" type="button">MANUAL</button>
-          <button class="btn" id="promptBtn" type="button">PROMPT</button>
-          <a class="btn" id="socialBotBtn" href="https://claude.ai/code/routines/trig_01KDYndJhZ9ymgUgX5Xx6LsL" target="_blank" rel="noopener noreferrer" title="Open the TGB SOCIAL BOT routine">TGB SOCIAL BOT</a>
+          <!-- Third of a matched set. All three tooltips end the same way, so
+               the only thing to read is who does it: you, any AI, or the
+               routine. This one says ONE because that is the difference that
+               matters -- it is the box you use for a single link you found
+               yourself, not a way to run a batch. -->
+          <button class="btn" id="manualPostBtn" type="button"
+                  title="Add one post candidate yourself to this page.">MANUAL</button>
+          <!-- Names the whole errand, not the dialog: five posts out of any AI
+               and into the queue, NOW -- as against the routine, which does the
+               same thing twice a day whether you are here or not. This is the
+               path for a chat AI with no key and no session, which is why its
+               deliverable is SQL you paste into Supabase rather than an RPC
+               call -- see the note at the top of the prompt text itself. -->
+          <button class="btn" id="promptBtn" type="button"
+                  title="Use any ai to get 5 post candidates and add them to this page.">PROMPT</button>
+          <!-- The tooltip says what the thing IS, not what the click does. A
+               button labelled with a name needs the former; "open the TGB SOCIAL
+               BOT routine" only restated the label. -->
+          <a class="btn" id="socialBotBtn" href="https://claude.ai/code/routines/trig_01KDYndJhZ9ymgUgX5Xx6LsL" target="_blank" rel="noopener noreferrer" title="A Claude routine that runs twice daily and adds post candidates to this page.">TGB SOCIAL BOT</a>
         </div>
       </fieldset>
 
@@ -1272,9 +1253,11 @@
       </fieldset>
     </div>
 
-    <div class="prompt-layout">
-      <div class="prompt-main">
-
+    <!-- ONE WRAPPER. This was .prompt-layout (centre at shell width) around
+         .prompt-main (stack the column) around everything, which is what a
+         two-column page with a sidebar needs. The sidebar is gone, so the two
+         are one. -->
+    <div class="room-column">
       <fieldset class="prompt-panel queue-panel" id="queueCard" aria-labelledby="queueTitle">
         <legend id="queueTitle">Social Post Candidates</legend>
         <span class="copy-status queue-status" id="queueStatus" aria-live="polite"></span>
@@ -1308,8 +1291,16 @@
 
       <div class="tool-backdrop" id="manualBackdrop" hidden></div>
       <section class="prompt-panel tool-modal-panel" id="manualCard" role="dialog" aria-modal="true" aria-labelledby="manualTitle" hidden>
-        <div class="panel-head">
-          <h2 class="panel-title" id="manualTitle">Manually Add a Social Post Candidate</h2>
+        <!-- Same lockup as the prompt dialog: a mono eyebrow saying how the
+             candidates arrive, then a short name saying how many. The two are
+             the room's two ways in, so they are built to be read as a pair —
+             ADDED BY HAND / One Post Candidate against PASTE-READY PROMPT /
+             Five Post Candidates. -->
+        <div class="panel-head prompt-head">
+          <div class="prompt-headline">
+            <span class="prompt-eyebrow">Added by hand</span>
+            <h2 class="panel-title" id="manualTitle">One Post Candidate</h2>
+          </div>
           <!-- Cancel and Add, repeated from the footer, the same way the Edit
                dialog carries them — on a phone the caption box can still push
                the footer pair below the fold. Only the footer button carries an
@@ -1439,25 +1430,29 @@
       </section>
 
       <div class="tool-backdrop" id="promptBackdrop" hidden></div>
-      <section class="prompt-panel tool-modal-panel tool-modal-panel--wide" id="promptCard" role="dialog" aria-modal="true" aria-label="Socials prompt" hidden>
-        <div class="panel-head">
-          <h2 class="panel-title">Paste-Ready Prompt <span class="panel-sub">manual fallback</span></h2>
+      <!-- Built to the Green Room's prompt dialog, which is the house shape for
+           this: eyebrow + title, a note, the ruled sheet, and a foot that is the
+           JOB IN ORDER left to right -- copy it, paste it into an AI, run what
+           comes back. Same classes, so the two rooms cannot drift apart by
+           somebody restyling one of them. -->
+      <section class="prompt-panel tool-modal-panel tool-modal-panel--wide" id="promptCard" role="dialog" aria-modal="true" aria-labelledby="promptTitle" hidden>
+        <div class="panel-head prompt-head">
+          <div class="prompt-headline">
+            <span class="prompt-eyebrow">Paste-ready prompt</span>
+            <!-- NOT "TGB Social Bot". That is the scheduled routine, and it has
+                 its own button in the Add bar three feet up the page — two
+                 different things wearing one name, with only one of them able
+                 to write to the table. This dialog is the errand, so it is
+                 named after the errand. -->
+            <h2 class="panel-title" id="promptTitle">Five Post Candidates</h2>
+          </div>
           <span class="panel-head-actions">
-            <span class="copy-status" id="copyStatus" aria-live="polite"></span>
-            <button class="btn small primary" id="copyPromptTop" type="button">Copy Prompt</button>
             <button class="btn small" data-prompt-close type="button">Close</button>
           </span>
         </div>
-        <div class="prompt-meta" aria-hidden="true">
-          <span class="chip">public.socials</span>
-          <span class="chip">outputs SQL to paste</span>
-          <span class="chip">5 candidates a run</span>
-          <span class="chip">opened, not guessed</span>
-          <span class="chip">topic rotation</span>
-          <span class="chip">platform tags</span>
-          <span class="chip">no auto-posting</span>
-        </div>
-        <textarea class="prompt" id="promptText" readonly spellcheck="false">You are TGB SOCIAL BOT, the socials scout for The Game Bureau. Find five things worth sharing — one gift from our own shop, then four stories — write a caption for each, score your own confidence in each, and hand back one SQL statement that files them for review.
+
+        <div class="prompt-body">
+          <textarea class="prompt" id="promptText" readonly spellcheck="false">You are the socials scout for The Game Bureau. Find five things worth sharing — one gift from our own shop, then four stories — write a caption for each, score your own confidence in each, and hand back one SQL statement that files them for review.
 
 You do not post anything, you do not commit anything, and you do not write to the database yourself. Your output is SQL: a human pastes it into the Supabase SQL editor, then opens /mc/socials/ and decides what goes out.
 
@@ -1723,9 +1718,64 @@ Nothing to commit. `git status` should be clean when you finish; if it is not,
 you have written a file you were not asked to write.
 
 Finish with the SQL block, then a short summary below it: the five candidates in confidence order, highest first, with their scores, sources and topics; which rules you bent to reach five and for which picks; what you rejected and why; and anything dropped because the link would not resolve. The SQL is the deliverable — never end a run with the summary alone.</textarea>
-      </section>
+        </div>
 
-      </div>
+        <!-- THE FOOT IS THE JOB IN ORDER: copy it, paste it into an AI, run what
+             comes back. Weight says which step you are on -- COPY is the only
+             primary. The status span is first and carries the auto margin, so it
+             holds the left end and pushes the three steps into a block. -->
+        <div class="prompt-foot">
+          <span class="copy-status" id="copyStatus" aria-live="polite"></span>
+
+          <button class="btn primary prompt-copy" id="copyPromptTop" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="9" width="12" height="12" rx="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span id="copyPromptLabel">Copy prompt</span>
+          </button>
+
+          <!-- THREE DOORS THAT DO BOTH: each one copies the prompt AND opens a
+               blank chat, so Copy above is the manual version of a step these
+               take for you. They still open BLANK -- none of these takes a
+               prompt this long through a query string reliably, and a
+               half-truncated pre-fill is worse than an empty box with the whole
+               thing on the clipboard.
+
+               Fenced as one control so the three do not read as three peers of
+               COPY, and left as ANCHORS: the new tab has to come from your own
+               click on a link, or the popup blocker eats it. The copy is fired
+               from the same click WITHOUT preventDefault, so the navigation is
+               still the browser's own. -->
+          <div class="prompt-ai" role="group" aria-label="Copy the prompt and open an AI">
+            <span class="prompt-ctl-label">COPY &amp; OPEN</span>
+            <span class="prompt-ai-row" id="promptAiRow">
+              <a class="btn small" target="_blank" rel="noopener" href="https://chatgpt.com/"
+                 title="Copy the prompt and open ChatGPT">ChatGPT</a>
+              <a class="btn small" target="_blank" rel="noopener" href="https://grok.com/"
+                 title="Copy the prompt and open Grok">Grok</a>
+              <a class="btn small" target="_blank" rel="noopener" href="https://claude.ai/new"
+                 title="Copy the prompt and open Claude">Claude</a>
+            </span>
+          </div>
+
+          <!-- Where the answer goes. An <a>, not a fetch: this page holds only
+               the publishable key, and running arbitrary SQL needs the service
+               role, which cannot live in a public HTML file. -->
+          <a class="btn prompt-sql-btn" id="sqlEditorBtn" target="_blank" rel="noopener noreferrer"
+             href="https://supabase.com/dashboard/project/qmaafbncpzrdmqapkkgr/sql/"
+             title="Open the Supabase SQL editor and run the statement the AI gave you">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 3h7v7"></path>
+              <path d="M21 3l-9 9"></path>
+              <path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path>
+            </svg>
+            <span>Insert results</span>
+          </a>
+        </div>
+      </section>
     </div>
   </main>
 
@@ -1787,7 +1837,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // public.socials, which is why they could never be seen from another
       // machine and are gone from here.
 
-      var pageStatus = document.getElementById('pageStatus');
+      // The tagline is never written to; the scribble beside the title is.
+      var pageNotice = document.getElementById('pageNotice');
       var queueList = document.getElementById('queueList');
       var queueEmpty = document.getElementById('queueEmpty');
       var tabActive = document.getElementById('tabActive');
@@ -1825,6 +1876,17 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       var promptEl = document.getElementById('promptText');
       var copyStatus = document.getElementById('copyStatus');
       var copyBtn = document.getElementById('copyPromptTop');
+      var copyPromptLabel = document.getElementById('copyPromptLabel');
+      var copyResetTimer = 0;
+
+      // Puts the copy button back to its resting state. Called on the timer
+      // after a copy, on a failure, and whenever the dialog opens -- otherwise a
+      // dialog closed mid-flash reopens still green and still saying Copied.
+      function resetCopyButton() {
+        window.clearTimeout(copyResetTimer);
+        if (copyBtn) copyBtn.classList.remove('is-done');
+        if (copyPromptLabel) copyPromptLabel.textContent = 'Copy prompt';
+      }
       var adminAuthToggleBtn = document.getElementById('adminAuthToggleBtn');
       // Head elements, swapped while the Add box is open. See setManualChrome.
       var pageIcon = document.getElementById('pageIcon');
@@ -1948,19 +2010,20 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // Active / Skipped tabs already show the numbers. Transient states (an
       // error, "sign in") borrow the line and clearing it restores the intro line,
       // so the header is never left blank.
-      // Names the four things you can do to a candidate, who put it there, and
-      // where a post actually goes -- "post or skip the suggested candidates"
-      // said the least interesting half of that and left the one-click fan-out
-      // to Facebook, Instagram and Threads to be discovered by pressing it.
-      // Kept to what is TRUE OF THIS PAGE: no posting happens anywhere else, and
-      // nothing here posts without a human pressing the button.
+      // NOTIFICATIONS GO IN THE MARGIN, NOT OVER THE TAGLINE.
       //
-      // Must match the copy in the markup above -- setPageStatus('') restores
-      // this string over whatever the header was borrowed for.
-      var PAGE_INTRO = 'TGB SOCIAL BOT files five candidates twice a day, and you decide: edit one, post it to Facebook, Instagram and Threads in a click, copy it to post by hand, or skip it. MANUAL captures a link of your own.';
-
+      // This used to overwrite the subhead and restore a PAGE_INTRO constant
+      // when cleared. Two things were wrong with that. The standing description
+      // of the room vanished at the exact moment something had gone wrong — the
+      // error replaced the one sentence explaining where you were. And the
+      // tagline then existed twice, once in the markup and once as a string in
+      // here, so the two drifted apart every time the copy changed.
+      //
+      // The tagline is now written once, in the HTML, and NOTHING TOUCHES IT.
+      // Messages are scribbled in red pen beside the room's name instead, where
+      // a note belongs on a page that is already printed.
       function setPageStatus(text) {
-        if (pageStatus) pageStatus.textContent = text || PAGE_INTRO;
+        if (pageNotice) pageNotice.textContent = String(text || '');
       }
 
       function showEmpty(text) {
@@ -2513,6 +2576,8 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       }
 
       function openPrompt() {
+        resetCopyButton();
+        if (copyStatus) copyStatus.textContent = '';
         openTool(promptCard, promptBackdrop, copyBtn);
       }
 
@@ -2870,12 +2935,17 @@ Finish with the SQL block, then a short summary below it: the five candidates in
         } else if (!usable.length) {
           showEmpty('No candidates in the file yet.');
         } else if (!live.length) {
-          showEmpty('All ' + usable.length + ' decided. The next run brings five more.');
+          // Just the count and what it counts. It used to add "the next run
+          // brings five more", which is a promise about a cron this page cannot
+          // see: it says the same thing on a morning the routine failed.
+          showEmpty(usable.length + ' post candidates processed.');
         } else {
           showEmpty('');
         }
 
-        // No counts here — the tabs carry them. This line explains the page.
+        // Clears the red scribble beside the title. The counts live on the tabs
+        // and the standing explanation is the tagline, which nothing writes to;
+        // a render is simply the moment any leftover notice stops being true.
         setPageStatus('');
       }
 
@@ -3189,9 +3259,23 @@ Finish with the SQL block, then a short summary below it: the five candidates in
       // may be blank — emptying one writes '', matching the Add box, where both
       // are optional. Only the headline is refused.
       var EDIT_FIELDS = [
-        { key: 'blurb',    label: 'Caption', type: 'textarea', max: 200 },
+        // DESTINATION WEB PAGE, the same words the Add box uses — one field,
+        // one name, wherever it is shown. "URL" named the format; this names
+        // what the thing is, which is what somebody deciding whether to post a
+        // story actually wants to know.
+        //
+        // FIRST, matching the Add box too. The link is what a candidate IS —
+        // everything else describes it, and the headline is read off it — so it
+        // is the field you check first and the one you fix when a candidate
+        // looks wrong.
+        { key: 'url',      label: 'Destination Web Page', type: 'url' },
+        // OUR CAPTION, not "Caption" — the field under it is the outlet's
+        // headline, and on a card carrying somebody else's words the one line
+        // that is ours has to say so. It is what actually gets published.
+        { key: 'blurb',    label: 'Our Caption', type: 'textarea', max: 200 },
         { key: 'headline', label: 'Headline', type: 'text' },
-        { key: 'url',      label: 'URL', type: 'url' },
+        // Still "Image URL": this one really is a URL and nothing else — the
+        // address of a picture, not a page anybody visits.
         { key: 'image',    label: 'Image URL', type: 'url' },
         { key: 'source',   label: 'Source', type: 'text' },
         { key: 'published', label: 'Published', type: 'text' },
@@ -4011,18 +4095,50 @@ Finish with the SQL block, then a short summary below it: the five candidates in
 
       // ── Paste-ready prompt ───────────────────────────────────────────────
       if (copyBtn) {
-        copyBtn.addEventListener('click', async function () {
-          if (!promptEl) return;
-          try {
-            await navigator.clipboard.writeText(promptEl.value || '');
-            flash(copyStatus, 'Copied');
-          } catch (error) {
-            promptEl.focus();
-            promptEl.select();
-            flash(copyStatus, 'Select All');
-          }
-        });
+        copyBtn.addEventListener('click', function () { copyPromptText(); });
       }
+
+      // ONE COPY, TWO CALLERS: the Copy button, and each of the AI links,
+      // which copy and then open their chat in the same click.
+      //
+      // THE BUTTON IS THE CONFIRMATION -- it goes green and reads Copied for a
+      // moment. A word appearing beside a control you have just clicked is easy
+      // to miss, and the status line is kept for the FAILURE, which is the case
+      // that actually needs words because it has to say what to do instead.
+      async function copyPromptText() {
+        if (!promptEl) return false;
+        window.clearTimeout(copyResetTimer);
+        try {
+          await navigator.clipboard.writeText(promptEl.value || '');
+          if (copyBtn) copyBtn.classList.add('is-done');
+          if (copyPromptLabel) copyPromptLabel.textContent = 'Copied';
+          if (copyStatus) copyStatus.textContent = '';
+          copyResetTimer = window.setTimeout(resetCopyButton, 1800);
+          return true;
+        } catch (error) {
+          resetCopyButton();
+          if (copyStatus) copyStatus.textContent = 'Select the text and copy it by hand';
+          return false;
+        }
+      }
+
+      // Copy AND open. Delegated on the row so the links carry no handler of
+      // their own and adding or dropping a door needs no wiring.
+      //
+      // NO preventDefault, and the copy is deliberately NOT awaited: the tab has
+      // to be opened by the browser's own handling of a click on a link, or the
+      // popup blocker stops it. Awaiting first would put the navigation in a
+      // later task, which is exactly what "not user-initiated" means.
+      //
+      // The write is still made inside the gesture, so the clipboard permission
+      // holds. If it fails, the status line says so and the chat is open anyway
+      // -- with the prompt one Ctrl+A away in the box behind it.
+      var promptAiRow = document.getElementById('promptAiRow');
+      if (promptAiRow) promptAiRow.addEventListener('click', function (event) {
+        var link = event.target && event.target.closest ? event.target.closest('a') : null;
+        if (!link || !promptAiRow.contains(link)) return;
+        copyPromptText();
+      });
 
       // ── Last run ─────────────────────────────────────────────────────────
       // REMOVED 2026-08-05. This read the GitHub commits API for
