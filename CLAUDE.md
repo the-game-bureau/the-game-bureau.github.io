@@ -71,9 +71,20 @@ The gift shop, soundtrack and socials bots all run on the same cron, so they all
 Edit them at [claude.ai/code/routines](https://claude.ai/code/routines), or ask Claude Code to (`/schedule`). **Do not "fix" a routine by setting the cron to the Central hour you want** — the field is UTC, so `0 3,15` fires at 10 PM / 10 AM Central, not 3 o'clock. The Waypoint Tour Scout (`45 11`) drifts the same way and is left alone deliberately; a 6:45 or 5:45 AM run is fine either way.
 
 ---
-## TGB SOCIAL BOT — a third Claude Code routine
+## THE SOCIALIZER — the social post admin page
 
-[mc/socials/index.html](mc/socials/index.html) shows social post candidates, found by a **scheduled Claude Code cloud agent** (**"TGB SOCIAL BOT"**, `trig_01KDYndJhZ9ymgUgX5Xx6LsL`, cron `0 8,20 * * *` UTC — **twice a day**, 3 AM and 3 PM Central in summer, 2 AM and 2 PM in winter unless someone applies the standing DST note above).
+> **"SOCIALIZER" means [mc/socials/index.html](mc/socials/index.html).** Nothing else. It is the room's name on screen (the `<h1>`), it is what to call it in conversation, and an instruction naming it — *"add a button to the SOCIALIZER"*, *"the SOCIALIZER is showing the wrong order"* — is an instruction about that one file, with no other page to check first.
+>
+> | | |
+> |---|---|
+> | **file** | `mc/socials/index.html` — one self-contained page: markup, CSS and script in the one file, plus the AI prompt in a `<textarea>` |
+> | **live** | <https://thegamebureau.com/mc/socials/> — public HTML on GitHub Pages, gated by the admin sign-in, so the *page* is reachable by anyone and the *data* is not (RLS is `authenticated` both ways) |
+> | **local** | <http://127.0.0.1:5500/mc/socials/> under Live Server |
+> | **table** | `public.socials`, admin-read only |
+>
+> **Don't confuse it with TGB SOCIAL BOT**, which is the scheduled routine that files candidates *into* it — a trigger at claude.ai, not a page. The Socializer is where a human decides; the bot only ever inserts. Same distinction the page itself makes: the button labelled TGB SOCIAL BOT opens the routine, and the PROMPT dialog beside it is deliberately *not* named after the bot.
+
+[mc/socials/index.html](mc/socials/index.html) — **the Socializer** — shows social post candidates, found by a **scheduled Claude Code cloud agent** (**"TGB SOCIAL BOT"**, `trig_01KDYndJhZ9ymgUgX5Xx6LsL`, cron `0 8,20 * * *` UTC — **twice a day**, 3 AM and 3 PM Central in summer, 2 AM and 2 PM in winter unless someone applies the standing DST note above).
 
 **ONE table holds everything: `public.socials`** ([mc/supabase/migrations/2026080502_socials_table.sql](mc/supabase/migrations/2026080502_socials_table.sql)). A row is a candidate — its content *and* its decision (`status` = review | posted | skipped). There is no JSON file and no localStorage.
 
